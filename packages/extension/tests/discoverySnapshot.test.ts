@@ -46,6 +46,24 @@ describe("DiscoverySnapshotLane", () => {
     expect(lane.current().snapshot?.revision).toBe(2);
   });
 
+  it("keeps the latest request context with a coalesced refresh", async () => {
+    const first = deferred<DiscoveryRefreshResult>();
+    const seen: string[] = [];
+    const lane = new DiscoverySnapshotLane<string>("twitch", async ({ request }) => {
+      seen.push(request);
+      if (seen.length === 1) return first.promise;
+      return complete();
+    });
+
+    lane.request("first-tick");
+    lane.request("superseded-tick");
+    lane.request("latest-tick");
+    first.resolve(complete());
+    await lane.settle();
+
+    expect(seen).toEqual(["first-tick", "latest-tick"]);
+  });
+
   it("lets provider lanes complete independently", async () => {
     const twitchRefresh = deferred<DiscoveryRefreshResult>();
     const twitch = new DiscoverySnapshotLane("twitch", () => twitchRefresh.promise);

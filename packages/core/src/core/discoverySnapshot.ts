@@ -60,9 +60,10 @@ export interface DiscoveryRefreshResult {
   metrics: DiscoveryRefreshMetrics;
 }
 
-export interface DiscoveryRefreshContext {
+export interface DiscoveryRefreshContext<TRequest = undefined> {
   generation: number;
   signal: AbortSignal;
+  request: TRequest;
 }
 
 export type DiscoverySnapshotListener = (state: Readonly<DiscoverySnapshotState>) => void | Promise<void>;
@@ -262,20 +263,21 @@ export function selectionAdapterFromDiscoverySnapshot(
   };
 }
 
-export class DiscoverySnapshotLane {
+export class DiscoverySnapshotLane<TRequest = undefined> {
   private state: DiscoverySnapshotState = {};
   private generation = 0;
   private revision = 0;
   private running = false;
   private pending = false;
   private pendingCount = 0;
+  private pendingRequest?: TRequest;
   private stopped = false;
   private abort?: AbortController;
   private settled: Promise<void> = Promise.resolve();
 
   constructor(
     readonly platform: Platform,
-    private readonly refresh: (context: DiscoveryRefreshContext) => Promise<DiscoveryRefreshResult>,
+    private readonly refresh: (context: DiscoveryRefreshContext<TRequest>) => Promise<DiscoveryRefreshResult>,
     private readonly onState?: DiscoverySnapshotListener,
     private readonly now: () => number = Date.now,
   ) {}
@@ -284,20 +286,21 @@ export class DiscoverySnapshotLane {
     return this.state;
   }
 
-  request(): void {
+  request(request?: TRequest): void {
     if (this.stopped) return;
     if (this.running) {
       this.pending = true;
       this.pendingCount += 1;
+      this.pendingRequest = request as TRequest;
       return;
     }
     this.running = true;
-    const run = this.runLoop();
+    const run = this.runLoop(request as TRequest);
     this.settled = run.then(() => undefined, () => undefined);
   }
 
-  async requestAndWait(): Promise<void> {
-    this.request();
+  async requestAndWait(request?: TRequest): Promise<void> {
+    this.request(request);
     await this.settle();
   }
 
@@ -318,26 +321,28 @@ export class DiscoverySnapshotLane {
     await this.settled;
   }
 
-  private async runLoop(): Promise<void> {
+  private async runLoop(initialRequest: TRequest): Promise<void> {
+    let request = initialRequest;
     try {
       do {
         this.pending = false;
         const coalesced = this.pendingCount;
         this.pendingCount = 0;
-        await this.runOnce(coalesced);
+        await this.runOnce(coalesced, request);
+        if (this.pending) request = this.pendingRequest as TRequest;
       } while (this.pending && !this.stopped);
     } finally {
       this.running = false;
     }
   }
 
-  private async runOnce(coalesced: number): Promise<void> {
+  private async runOnce(coalesced: number, request: TRequest): Promise<void> {
     const generation = this.generation;
     const startedAt = this.now();
     const abort = new AbortController();
     this.abort = abort;
     try {
-      const result = await this.refresh({ generation, signal: abort.signal });
+      const result = await this.refresh({ generation, signal: abort.signal, request });
       const finishedAt = this.now();
       if (this.stopped || generation !== this.generation) {
         this.state = {

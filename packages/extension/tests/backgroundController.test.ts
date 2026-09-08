@@ -2275,10 +2275,26 @@ describe("background controller", () => {
     detailsFail = true;
     await env.controller.tick();
 
-    // Snapshot selection is provider-free, so it adds no adapter construction
-    // beyond the discovery and scheduler phases introduced by #394.
-    expect(env.deps.createAdapter).toHaveBeenCalledTimes(8);
+    // Each controller tick owns one adapter per requested platform. The disabled
+    // Kick adapter is still needed by the combined scheduler reconciliation.
+    expect(env.deps.createAdapter).toHaveBeenCalledTimes(4);
     expect(env.state.campaigns.twitch.map((item) => item.id)).toEqual(["retained"]);
+  });
+
+  it("reconstructs a tick adapter when settings change before commit", async () => {
+    const env = harness(farming(DEFAULT_SETTINGS));
+    const discovery = deferred<DropCampaign[]>();
+    vi.mocked(env.kick.refreshCampaigns).mockReturnValueOnce(discovery.promise);
+
+    const ticking = env.controller.tick(["kick"]);
+    await vi.waitFor(() => expect(env.kick.refreshCampaigns).toHaveBeenCalledOnce());
+    await env.deps.saveSettings({ ...env.settings, preferKnownChannels: !env.settings.preferKnownChannels });
+    discovery.resolve([campaign("kick")]);
+    await ticking;
+
+    expect(env.deps.createAdapter).toHaveBeenCalledTimes(2);
+    expect(env.deps.createAdapter.mock.calls[0]![2].preferKnownChannels)
+      .not.toBe(env.deps.createAdapter.mock.calls[1]![2].preferKnownChannels);
   });
 
   it("skips redundant target evaluation when a new discovery revision is materially unchanged", async () => {
@@ -3432,7 +3448,7 @@ describe("background controller", () => {
     expect(env.deps.saveState).toHaveBeenCalledWith(expect.not.objectContaining({ events: expect.anything() }));
   });
 
-  it("preserves adapter and scheduler event order within one tick batch", async () => {
+  it("publishes adapter construction events in the auth phase without leaking into the scheduler batch", async () => {
     const env = harness();
     vi.mocked(env.deps.createAdapter).mockImplementation((platform, emit, settings) => {
       emit({ category: "diagnostic", level: "debug", message: "adapter-created" });
@@ -3444,14 +3460,15 @@ describe("background controller", () => {
 
     await env.controller.tick();
 
-    const schedulerBatch = env.reportEvents.mock.calls.map(([events]) => events).find((events) =>
+    const batches = env.reportEvents.mock.calls.map(([events]) => events);
+    const authBatchIndex = batches.findIndex((events) =>
+      events.some((event) => event.category === "diagnostic" && event.message === "adapter-created"));
+    const schedulerBatchIndex = batches.findIndex((events) =>
       events.some((event) => event.category === "diagnostic" && event.message.startsWith("Campaign inventory changed"))
     );
-    expect(schedulerBatch).toBeDefined();
-    const adapterIndex = schedulerBatch!.findIndex((event) => event.category === "diagnostic" && event.message === "adapter-created");
-    const schedulerIndex = schedulerBatch!.findIndex((event) => event.category === "diagnostic" && event.message.startsWith("Campaign inventory changed"));
-    expect(adapterIndex).toBeGreaterThanOrEqual(0);
-    expect(schedulerIndex).toBeGreaterThan(adapterIndex);
+    expect(authBatchIndex).toBeGreaterThanOrEqual(0);
+    expect(schedulerBatchIndex).toBeGreaterThan(authBatchIndex);
+    expect(batches[schedulerBatchIndex]).not.toContainEqual(expect.objectContaining({ message: "adapter-created" }));
   });
 
   it("publishes category-search diagnostics in their own operation without leaking into the next tick", async () => {

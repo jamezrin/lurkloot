@@ -166,9 +166,9 @@ describe("CLI scheduler tick baseline", () => {
         discoveryBlockedByHeartbeat: 0,
         // The non-once loop now performs one recovery pass for both providers
         // at startup before the first discovery completes.
-        // A heartbeat health transition invalidates the in-flight selection;
-        // the shared controller reconstructs once to restore the prior context.
-        adapterConstructions: 11,
+        // Tick-owned adapters survive auth, discovery, and commit. Startup
+        // recovery and the independent heartbeat path retain their own bundles.
+        adapterConstructions: 6,
         watcherReconciliations: 1,
       });
       expect(result.durationsMs).toEqual({
@@ -203,7 +203,7 @@ describe("CLI scheduler tick baseline", () => {
         heartbeatAttempts: 0,
         heartbeatBlockedByDiscovery: 0,
         discoveryBlockedByHeartbeat: 0,
-        adapterConstructions: 3,
+        adapterConstructions: 1,
         watcherReconciliations: 0,
       },
       durationsMs: {
@@ -231,7 +231,7 @@ describe("CLI scheduler tick baseline", () => {
       campaignDiscovery: 1,
       candidateListings: 1,
       channelChecks: 1,
-      adapterConstructions: 3,
+      adapterConstructions: 1,
       watcherReconciliations: 1,
     });
     expect(result.outcomeCampaignId).toBe(`${platform}-campaign`);
@@ -279,7 +279,7 @@ describe("CLI scheduler tick baseline", () => {
       campaignDiscovery: 1,
       candidateListings: scenario === "higherPriorityUnavailable" ? 2 : 1,
       channelChecks: scenario === "higherPriorityUnavailable" ? 2 : 1,
-      adapterConstructions: 3,
+      adapterConstructions: 1,
       watcherReconciliations: 1,
     });
     expect(result.durationsMs).toEqual({
