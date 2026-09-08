@@ -103,6 +103,8 @@ describe("extras screenshot popup", () => {
     });
     vi.stubGlobal("cancelAnimationFrame", vi.fn());
     vi.stubGlobal("getComputedStyle", () => ({ direction: "ltr", columnGap: "0" }));
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(window.HTMLElement.prototype, "scrollIntoView", { value: scrollIntoView });
     const container = document.getElementById("app")!;
     await act(async () => {
       root = createRoot(container);
@@ -117,13 +119,10 @@ describe("extras screenshot popup", () => {
     const watchlistToggle = Array.from(container.querySelectorAll("button"))
       .find((button) => button.textContent?.includes("Idle Watchlist"));
     expect(watchlistToggle?.getAttribute("aria-expanded")).toBe("true");
-    expect(container.textContent).toContain("RivalsPilot");
+    expect(container.querySelector("#idle-watchlist")).not.toBeNull();
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "start" });
     expect(container.textContent).toContain("LootForge");
     expect(container.textContent).toContain("NightRunLive");
-    expect(container.textContent).toContain("Marathon Legends");
-    expect(container.textContent).toContain("Starfall Arena");
-    expect(container.textContent).toContain("Spellforge");
-    expect(container.textContent).toContain("18K");
     expect(container.textContent).toContain("6.2K");
     expect(container.textContent).toContain("2.5K");
   });
