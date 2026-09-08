@@ -61,7 +61,7 @@ rejected.
 Rejected (extension-only, no effect headlessly): `running`, `tablessMode`,
 `muteFarmingTabs`, `keepFarmingVideosUnmuted`, `pauseOnManualWatch`,
 `adFocusMode`, `autoCloseFinishedDrops`, `autoStartDropFarming`,
-`languageOverride`, `rateNudgeStatus`, `diagnosticLogging`, `dropsListFilter`.
+`languageOverride`, `rateNudgeStatus`, `githubStarNudgeStatus`, `diagnosticLogging`, `dropsListFilter`.
 
 ```jsonc
 {
