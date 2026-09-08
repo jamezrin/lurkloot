@@ -122,6 +122,10 @@ Stable publication operates on the exact merged commit and is idempotent:
 - If that candidate image no longer exists, the approved job falls back to rebuilding checksummed
   OCI archives from the merged commit. A rebuild is not bit-identical, so when `X.Y.Z` is already
   published the published digest stays authoritative and only the moving aliases are re-pointed.
+- Build provenance is attested during candidacy, for the signed extension assets and for the CLI
+  image digest, and stable publication ships those same bytes. Verify a downloaded asset with
+  `gh attestation verify <file> --repo jamezrin/lurkloot`, and the image with
+  `gh attestation verify oci://ghcr.io/jamezrin/lurkloot-cli:X.Y.Z --repo jamezrin/lurkloot`.
 - Chrome Web Store receives the Chrome ZIP with `DEFAULT_PUBLISH`; Google publishes it automatically
   after review approval.
 - The production site deploys to `https://lurkloot.jamezrin.com`.
@@ -214,6 +218,10 @@ only then removes the conflicting classic protections. It refuses to run without
 - only the Lurkloot Release Sync App as an always-allowed bypass actor.
 
 The repository default workflow token remains read-only.
+
+Third-party actions (`pnpm/*`, `docker/*`, `cloudflare/*`) are pinned to a commit SHA with the
+version in a trailing comment. GitHub-owned `actions/*` stay tag-pinned. Renovate updates the pinned
+SHAs; do not replace one with a floating tag.
 
 ## Recovery
 
