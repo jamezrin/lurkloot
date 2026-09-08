@@ -827,12 +827,6 @@
   "screenshotExtrasChallengesMeta": {
     "message": "Kick · ebenfalls für dich geclaimt"
   },
-  "screenshotExtrasWatchlistName": {
-    "message": "Idle-Watchlist"
-  },
-  "screenshotExtrasWatchlistMeta": {
-    "message": "Schaut deine Streamer zwischen Kampagnen"
-  },
   "screenshotEasyEyebrow": {
     "message": "Einfach zu nutzen"
   },
@@ -880,6 +874,21 @@
   },
   "screenshotUpdatedSubcopy": {
     "message": "Häufige Releases, wenn sich Twitch und Kick ändern — und offen für Ideen und Verbesserungen."
+  },
+  "screenshotUpdatedBrowsersTitle": {
+    "message": "Chromium-basierte Browser"
+  },
+  "screenshotUpdatedBrowsersSub": {
+    "message": "Chrome Web Store-Eintrag. Dieselbe Erweiterung."
+  },
+  "screenshotUpdatedHeadlessTitle": {
+    "message": "CLI · Docker"
+  },
+  "screenshotUpdatedHeadlessSub": {
+    "message": "Headless. Dieselbe Engine."
+  },
+  "screenshotUpdatedLicense": {
+    "message": "Apache-2.0"
   },
   "autoClaimReady": {
     "message": "Auto-Beanspruchen bereit"

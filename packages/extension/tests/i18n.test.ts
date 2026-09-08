@@ -179,8 +179,6 @@ describe("i18n", () => {
       screenshotExtrasPointsMeta: "Twitch · also claimed for you",
       screenshotExtrasChallengesName: "Daily challenges",
       screenshotExtrasChallengesMeta: "Kick · also claimed for you",
-      screenshotExtrasWatchlistName: "Idle watchlist",
-      screenshotExtrasWatchlistMeta: "Watches your streamers between campaigns",
       screenshotEasyEyebrow: "Easy to use",
       screenshotEasyHeadline: "That easy.",
       screenshotEasyInstallTitle: "Install",
@@ -197,6 +195,11 @@ describe("i18n", () => {
       screenshotUpdatedEyebrow: "Open source",
       screenshotUpdatedHeadline: "Featureful. Always updated.",
       screenshotUpdatedSubcopy: "Frequent releases as Twitch and Kick change — and open to ideas and improvements.",
+      screenshotUpdatedBrowsersTitle: "Chromium-based browsers",
+      screenshotUpdatedBrowsersSub: "Chrome Web Store listing. Same extension.",
+      screenshotUpdatedHeadlessTitle: "CLI · Docker",
+      screenshotUpdatedHeadlessSub: "Headless. Same engine.",
+      screenshotUpdatedLicense: "Apache-2.0",
     };
     const catalog = readCatalog("en");
     for (const [key, message] of Object.entries(english)) {
@@ -211,6 +214,8 @@ describe("i18n", () => {
       "screenshotIdleWatchlistSubcopy",
       "screenshotActivityHeadline",
       "screenshotActivitySubcopy",
+      "screenshotExtrasWatchlistName",
+      "screenshotExtrasWatchlistMeta",
     ]) {
       expect(catalog[stale], stale).toBeUndefined();
     }
@@ -245,6 +250,8 @@ describe("i18n", () => {
       "diagnosticsViewTab",
       // Brand-only store screenshot eyebrow.
       "screenshotHeroEyebrow",
+      "screenshotUpdatedHeadlessTitle",
+      "screenshotUpdatedLicense",
     ]);
 
     for (const locale of localeCodes().filter((entry) => entry !== "en")) {

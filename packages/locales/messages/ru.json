@@ -827,12 +827,6 @@
   "screenshotExtrasChallengesMeta": {
     "message": "Kick · тоже клеймятся за вас"
   },
-  "screenshotExtrasWatchlistName": {
-    "message": "Idle-список"
-  },
-  "screenshotExtrasWatchlistMeta": {
-    "message": "Смотрит ваших стримеров между кампаниями"
-  },
   "screenshotEasyEyebrow": {
     "message": "Просто использовать"
   },
@@ -880,6 +874,21 @@
   },
   "screenshotUpdatedSubcopy": {
     "message": "Частые релизы, когда Twitch и Kick меняются — и открыты к идеям и улучшениям."
+  },
+  "screenshotUpdatedBrowsersTitle": {
+    "message": "Браузеры на базе Chromium"
+  },
+  "screenshotUpdatedBrowsersSub": {
+    "message": "Страница Chrome Web Store. То же расширение."
+  },
+  "screenshotUpdatedHeadlessTitle": {
+    "message": "CLI · Docker"
+  },
+  "screenshotUpdatedHeadlessSub": {
+    "message": "Без интерфейса. Тот же движок."
+  },
+  "screenshotUpdatedLicense": {
+    "message": "Apache-2.0"
   },
   "autoClaimReady": {
     "message": "Автополучение готово"

@@ -827,12 +827,6 @@
   "screenshotExtrasChallengesMeta": {
     "message": "Kick · also claimed for you"
   },
-  "screenshotExtrasWatchlistName": {
-    "message": "Idle watchlist"
-  },
-  "screenshotExtrasWatchlistMeta": {
-    "message": "Watches your streamers between campaigns"
-  },
   "screenshotEasyEyebrow": {
     "message": "Easy to use"
   },
@@ -880,6 +874,21 @@
   },
   "screenshotUpdatedSubcopy": {
     "message": "Frequent releases as Twitch and Kick change — and open to ideas and improvements."
+  },
+  "screenshotUpdatedBrowsersTitle": {
+    "message": "Chromium-based browsers"
+  },
+  "screenshotUpdatedBrowsersSub": {
+    "message": "Chrome Web Store listing. Same extension."
+  },
+  "screenshotUpdatedHeadlessTitle": {
+    "message": "CLI · Docker"
+  },
+  "screenshotUpdatedHeadlessSub": {
+    "message": "Headless. Same engine."
+  },
+  "screenshotUpdatedLicense": {
+    "message": "Apache-2.0"
   },
   "autoClaimReady": {
     "message": "Auto-claim ready"

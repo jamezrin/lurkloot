@@ -827,12 +827,6 @@
   "screenshotExtrasChallengesMeta": {
     "message": "Kick · तुम्हारे लिए भी क्लेम"
   },
-  "screenshotExtrasWatchlistName": {
-    "message": "आइडल वॉचलिस्ट"
-  },
-  "screenshotExtrasWatchlistMeta": {
-    "message": "कैंपेन के बीच तुम्हारे स्ट्रीमर देखे जाते हैं"
-  },
   "screenshotEasyEyebrow": {
     "message": "आसान"
   },
@@ -880,6 +874,21 @@
   },
   "screenshotUpdatedSubcopy": {
     "message": "Twitch और Kick बदलें तो रिलीज़ आती रहें — और सुझाव खुले हैं।"
+  },
+  "screenshotUpdatedBrowsersTitle": {
+    "message": "Chromium-आधारित ब्राउज़र"
+  },
+  "screenshotUpdatedBrowsersSub": {
+    "message": "Chrome Web Store लिस्टिंग। वही एक्सटेंशन।"
+  },
+  "screenshotUpdatedHeadlessTitle": {
+    "message": "CLI · Docker"
+  },
+  "screenshotUpdatedHeadlessSub": {
+    "message": "हेडलेस। वही इंजन।"
+  },
+  "screenshotUpdatedLicense": {
+    "message": "Apache-2.0"
   },
   "autoClaimReady": {
     "message": "ऑटो-क्लेम तैयार"

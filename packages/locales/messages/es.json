@@ -827,12 +827,6 @@
   "screenshotExtrasChallengesMeta": {
     "message": "Kick · también reclamados por ti"
   },
-  "screenshotExtrasWatchlistName": {
-    "message": "Lista de visualización inactiva"
-  },
-  "screenshotExtrasWatchlistMeta": {
-    "message": "Ve a tus streamers entre campañas"
-  },
   "screenshotEasyEyebrow": {
     "message": "Fácil de usar"
   },
@@ -880,6 +874,21 @@
   },
   "screenshotUpdatedSubcopy": {
     "message": "Lanzamientos frecuentes cuando Twitch y Kick cambian, y abierto a ideas y mejoras."
+  },
+  "screenshotUpdatedBrowsersTitle": {
+    "message": "Navegadores basados en Chromium"
+  },
+  "screenshotUpdatedBrowsersSub": {
+    "message": "Ficha de Chrome Web Store. La misma extensión."
+  },
+  "screenshotUpdatedHeadlessTitle": {
+    "message": "CLI · Docker"
+  },
+  "screenshotUpdatedHeadlessSub": {
+    "message": "Sin interfaz. El mismo motor."
+  },
+  "screenshotUpdatedLicense": {
+    "message": "Apache-2.0"
   },
   "autoClaimReady": {
     "message": "Reclama automáticamente"

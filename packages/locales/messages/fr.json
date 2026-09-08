@@ -827,12 +827,6 @@
   "screenshotExtrasChallengesMeta": {
     "message": "Kick · aussi réclamés pour vous"
   },
-  "screenshotExtrasWatchlistName": {
-    "message": "Liste de veille"
-  },
-  "screenshotExtrasWatchlistMeta": {
-    "message": "Regarde vos streamers entre les campagnes"
-  },
   "screenshotEasyEyebrow": {
     "message": "Simple à utiliser"
   },
@@ -880,6 +874,21 @@
   },
   "screenshotUpdatedSubcopy": {
     "message": "Des versions fréquentes quand Twitch et Kick changent — et ouvert aux idées et améliorations."
+  },
+  "screenshotUpdatedBrowsersTitle": {
+    "message": "Navigateurs basés sur Chromium"
+  },
+  "screenshotUpdatedBrowsersSub": {
+    "message": "Fiche Chrome Web Store. La même extension."
+  },
+  "screenshotUpdatedHeadlessTitle": {
+    "message": "CLI · Docker"
+  },
+  "screenshotUpdatedHeadlessSub": {
+    "message": "Sans interface. Le même moteur."
+  },
+  "screenshotUpdatedLicense": {
+    "message": "Apache-2.0"
   },
   "autoClaimReady": {
     "message": "Réclamation auto prête"

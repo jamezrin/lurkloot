@@ -827,12 +827,6 @@
   "screenshotExtrasChallengesMeta": {
     "message": "Kick · 也会帮你领取"
   },
-  "screenshotExtrasWatchlistName": {
-    "message": "备用观看列表"
-  },
-  "screenshotExtrasWatchlistMeta": {
-    "message": "掉宝活动间隙，自动观看选定的主播"
-  },
   "screenshotEasyEyebrow": {
     "message": "上手很简单"
   },
@@ -880,6 +874,21 @@
   },
   "screenshotUpdatedSubcopy": {
     "message": "持续跟进 Twitch 和 Kick 的变化，欢迎提出建议和参与改进。"
+  },
+  "screenshotUpdatedBrowsersTitle": {
+    "message": "基于 Chromium 的浏览器"
+  },
+  "screenshotUpdatedBrowsersSub": {
+    "message": "Chrome Web Store 上架。同一扩展。"
+  },
+  "screenshotUpdatedHeadlessTitle": {
+    "message": "CLI · Docker"
+  },
+  "screenshotUpdatedHeadlessSub": {
+    "message": "无界面。同一引擎。"
+  },
+  "screenshotUpdatedLicense": {
+    "message": "Apache-2.0"
   },
   "autoClaimReady": {
     "message": "自动领取就绪"

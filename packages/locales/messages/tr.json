@@ -827,12 +827,6 @@
   "screenshotExtrasChallengesMeta": {
     "message": "Kick · senin için de teslim"
   },
-  "screenshotExtrasWatchlistName": {
-    "message": "Idle izleme listesi"
-  },
-  "screenshotExtrasWatchlistMeta": {
-    "message": "Kampanyalar arasında yayıncılarını izler"
-  },
   "screenshotEasyEyebrow": {
     "message": "Kullanması kolay"
   },
@@ -880,6 +874,21 @@
   },
   "screenshotUpdatedSubcopy": {
     "message": "Twitch ve Kick değişince sık sürümler — fikirlere ve iyileştirmelere açık."
+  },
+  "screenshotUpdatedBrowsersTitle": {
+    "message": "Chromium tabanlı tarayıcılar"
+  },
+  "screenshotUpdatedBrowsersSub": {
+    "message": "Chrome Web Store kaydı. Aynı eklenti."
+  },
+  "screenshotUpdatedHeadlessTitle": {
+    "message": "CLI · Docker"
+  },
+  "screenshotUpdatedHeadlessSub": {
+    "message": "Arayüzsüz. Aynı motor."
+  },
+  "screenshotUpdatedLicense": {
+    "message": "Apache-2.0"
   },
   "autoClaimReady": {
     "message": "Otomatik alma aktif"
