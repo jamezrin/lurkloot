@@ -38,8 +38,9 @@ empty entry. That intentionally permits build-only releases, but produces an emp
    rebase are blocked on `main`; the original `develop` commit SHAs remain in `main` history.
 7. Release runs from the merged `main` commit. Approve its single `production` job. It promotes the
    `vX.Y.Z` prerelease to the latest release, publishing the extension artifacts it already carries
-   rather than rebuilding them, then publishes GHCR, Chrome Web Store, and the production site, and
-   merges `main` directly into `develop` with the dedicated synchronization App.
+   rather than rebuilding them, retags the verified `candidate-X.Y.Z` GHCR manifest by digest, then
+   publishes the Chrome Web Store and the production site, and merges `main` directly into `develop`
+   with the dedicated synchronization App.
 
 `workflow_dispatch` remains on **Release** only for idempotent recovery. A successful release does
 not require a manual dispatch.
@@ -114,9 +115,13 @@ Stable publication operates on the exact merged commit and is idempotent:
 - `vX.Y.Z` is created once and is never moved.
 - The signed CRX, Chrome ZIP, Firefox ZIP, Firefox source ZIP, and checksums are uploaded to the
   stable GitHub release.
-- Docker architectures are exported as checksummed OCI archives before approval. GHCR receives
-  `X.Y.Z`, `X.Y`, `X`, and `latest` only inside the approved production job; an existing `X.Y.Z`
-  digest is never replaced.
+- The GHCR `candidate-X.Y.Z` manifest built during candidacy is promoted by digest: the approved
+  production job retags that exact manifest as `X.Y.Z`, `X.Y`, `X`, and `latest`, so the published
+  image is the one the required checks passed against. Nothing is rebuilt on the normal path, and an
+  existing `X.Y.Z` digest is never replaced.
+- If that candidate image no longer exists, the approved job falls back to rebuilding checksummed
+  OCI archives from the merged commit. A rebuild is not bit-identical, so when `X.Y.Z` is already
+  published the published digest stays authoritative and only the moving aliases are re-pointed.
 - Build provenance is attested during candidacy, for the signed extension assets and for the CLI
   image digest, and stable publication ships those same bytes. Verify a downloaded asset with
   `gh attestation verify <file> --repo jamezrin/lurkloot`, and the image with

@@ -42,6 +42,13 @@ export interface AdapterOperationOptions {
 export interface CandidateChannelSelection {
   channel?: ChannelCandidate;
   checked: number;
+  observations?: ChannelCheck[];
+  metrics?: {
+    cacheHits: number;
+    cacheMisses: number;
+    batchRequests: number;
+    singleFallbacks: number;
+  };
 }
 
 // A gamification challenge that was just claimed. Account-level, so unlike
