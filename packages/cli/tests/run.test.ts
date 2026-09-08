@@ -311,6 +311,7 @@ describe("CLI scheduler tick baseline", () => {
       // The stacked controller now performs five shared-engine loads in both
       // hosts; the former CLI-only post-tick reload would make this six.
       stateLoads: 5,
+      stateSaves: 2,
       counts: {
         adapterOperations: 2,
         campaignDiscovery: 1,
