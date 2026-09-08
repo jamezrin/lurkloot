@@ -56,7 +56,7 @@ export const TWITCH_INTEGRITY_REFRESH_LEAD_MS = 120_000;
 export const TWITCH_INTEGRITY_REFRESH_JITTER_MAX_MS = 30_000;
 
 interface BackgroundAlarmController {
-  tickAndHandOff(platforms?: Platform[], trigger?: TickTrigger): Promise<void>;
+  tickAndHandOff(platforms?: Platform[], trigger?: TickTrigger): Promise<SchedulerState | undefined>;
   runWatchHeartbeat(): Promise<void>;
   runTwitchIntegrityRefresh(): Promise<void>;
 }
@@ -499,6 +499,42 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     return adapters as Record<Platform, PlatformAdapter>;
   }
 
+  interface TickAdapterHandle {
+    readonly platform: Platform;
+    adapter(settings: S, emit: EventEmitter, reportCompatibility?: boolean): PlatformAdapter;
+    drain(emit: EventEmitter): void;
+  }
+
+  function createTickAdapterHandle(platform: Platform): TickAdapterHandle {
+    const pendingEvents: EngineEvent[] = [];
+    let adapter: PlatformAdapter | undefined;
+    let construction: ReturnType<BackgroundControllerDeps<S>["createAdapter"]> | undefined;
+    let compatibilityReported = false;
+    let settingsFingerprint: string | undefined;
+    return {
+      platform,
+      adapter(settings, emit, reportCompatibility = false) {
+        const nextFingerprint = JSON.stringify(settings);
+        if (!adapter || settingsFingerprint !== nextFingerprint) {
+          this.drain(emit);
+          construction = deps.createAdapter(platform, (event) => pendingEvents.push(event), settings);
+          adapter = construction.adapter;
+          settingsFingerprint = nextFingerprint;
+          compatibilityReported = false;
+        }
+        if (reportCompatibility && !compatibilityReported && construction) {
+          reportAdapterCompatibility(construction, settings, (event) => pendingEvents.push(event), [platform]);
+          compatibilityReported = true;
+        }
+        this.drain(emit);
+        return adapter;
+      },
+      drain(emit) {
+        for (const event of pendingEvents.splice(0)) emit(event);
+      },
+    };
+  }
+
   async function withEventCollector<T>(operation: (emit: EventEmitter, events: EngineEvent[]) => Promise<T>): Promise<T> {
     const events: EngineEvent[] = [];
     const emit = withActivityDiagnostics((event) => events.push(event));
@@ -727,7 +763,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   let discoverySignalLifecycleOpen = true;
   let controllerShutdown = false;
   const discoveryEvents: Record<Platform, EngineEvent[]> = { twitch: [], kick: [] };
-  const discoveryLanes: Record<Platform, DiscoverySnapshotLane> = {
+  const discoveryLanes: Record<Platform, DiscoverySnapshotLane<TickAdapterHandle | undefined>> = {
     twitch: createDiscoveryLane("twitch"),
     kick: createDiscoveryLane("kick"),
   };
@@ -759,10 +795,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // became due. Keeping the wrapper object distinguishes that from "not due."
   let twitchIntegrityRefreshDue: { rejectedToken?: string } | undefined;
 
-  function createDiscoveryLane(platform: Platform): DiscoverySnapshotLane {
-    return new DiscoverySnapshotLane(
+  function createDiscoveryLane(platform: Platform): DiscoverySnapshotLane<TickAdapterHandle | undefined> {
+    return new DiscoverySnapshotLane<TickAdapterHandle | undefined>(
       platform,
-      async ({ signal }) => {
+      async ({ signal, request: tickAdapter }) => {
         const [settings, state] = await withSettingsLock(() => withStateCommit(() =>
           Promise.all([deps.loadSettings(), deps.loadState()])));
         if (!settings.platform[platform].enabled) {
@@ -776,7 +812,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           };
         }
         return withEventCollector(async (emit, events) => {
-          const adapter = createAdapter(platform, settings, emit, true);
+          const adapter = tickAdapter?.adapter(settings, emit, true)
+            ?? createAdapter(platform, settings, emit, true);
           try {
             return await collectDiscoverySnapshot(
               adapter,
@@ -811,6 +848,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
               },
             );
           } finally {
+            tickAdapter?.drain(emit);
             discoveryEvents[platform].push(...events);
           }
         });
@@ -1283,8 +1321,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     state: SchedulerState,
     events: readonly EngineEvent[] = [],
     isCurrent?: () => boolean,
+    onPersisted?: (state: SchedulerState) => void,
   ): Promise<boolean> {
-    const persisted = await persistPlatformState(platform, state, isCurrent);
+    const persisted = await persistPlatformState(platform, state, isCurrent, onPersisted);
     if (!persisted) return false;
     await reportBestEffort(events);
     return true;
@@ -1294,6 +1333,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     platform: Platform,
     state: SchedulerState,
     isCurrent?: () => boolean,
+    onPersisted?: (state: SchedulerState) => void,
   ): Promise<boolean> {
     return withStateCommit(async () => {
       // The registry can change while storage I/O is in flight (for example a
@@ -1338,8 +1378,12 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
             }
           : stateForMerge;
         if (isCurrent?.() === false) return false;
-        await saveOperationalStateDirect(mergePlatformState(latest, mergeSource, platform));
-        if (currentManagedPageContextTabsRevision() === pageContextRevision) return true;
+        const merged = mergePlatformState(latest, mergeSource, platform);
+        await saveOperationalStateDirect(merged);
+        if (currentManagedPageContextTabsRevision() === pageContextRevision) {
+          onPersisted?.(merged);
+          return true;
+        }
       }
     });
   }
@@ -1736,6 +1780,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     reportCompatibility = false,
     signal?: AbortSignal,
     tickContext?: TickDiagnosticContext,
+    tickAdapters?: Partial<Record<Platform, TickAdapterHandle>>,
   ): Promise<void> {
     signal?.throwIfAborted();
     const lockStartedAt = Date.now();
@@ -1760,16 +1805,21 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         let health: PlatformAuthHealth;
         let adapter: PlatformAdapter | undefined;
         try {
-          adapter = createAdapter(platform, settings, emit, reportCompatibility);
+          adapter = tickAdapters?.[platform]?.adapter(settings, emit, reportCompatibility)
+            ?? createAdapter(platform, settings, emit, reportCompatibility);
         } catch (error) {
           setupFailure = new AuthProbeSetupError(
             platform,
             error instanceof Error ? error.message : "Adapter factory failed",
           );
         }
-        health = adapter
-          ? await probeAuthHealth(platform, adapter, signal)
-          : unavailableAfterAdapterSetup();
+        try {
+          health = adapter
+            ? await probeAuthHealth(platform, adapter, signal)
+            : unavailableAfterAdapterSetup();
+        } finally {
+          tickAdapters?.[platform]?.drain(emit);
+        }
         return { health, events, setupFailure };
       });
       const generation = generations[platform];
@@ -1920,10 +1970,14 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     kick: 0,
   };
 
-  async function tick(platforms?: Platform[], trigger: TickTrigger = "unknown"): Promise<ClaimedRewards> {
+  async function tick(
+    platforms?: Platform[],
+    trigger: TickTrigger = "unknown",
+    onPersisted?: (state: SchedulerState) => void,
+  ): Promise<ClaimedRewards> {
     const requestedPlatforms = platforms ?? PLATFORMS;
     const settled = await Promise.allSettled(requestedPlatforms.map((platform) =>
-      tickPlatform(platform, trigger)));
+      tickPlatform(platform, trigger, onPersisted)));
     const failures = settled.flatMap((result) =>
       result.status === "rejected" ? [result.reason] : []);
     if (failures.length === 1) throw failures[0];
@@ -1938,7 +1992,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     }, {});
   }
 
-  async function refreshDiscovery(platforms: Platform[] = PLATFORMS, bypassBackoff = false): Promise<void> {
+  async function refreshDiscovery(
+    platforms: Platform[] = PLATFORMS,
+    bypassBackoff = false,
+    tickAdapters?: Partial<Record<Platform, TickAdapterHandle>>,
+  ): Promise<void> {
     if (controllerShutdown) return;
     const settings = await deps.loadSettings();
     await Promise.all(platforms.map(async (platform) => {
@@ -1949,7 +2007,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           invalidateSelection(platform);
           return;
         }
-        await discoveryLanes[platform].requestAndWait();
+        await discoveryLanes[platform].requestAndWait(tickAdapters?.[platform]);
       } finally {
         if (bypassBackoff) discoveryBackoffBypasses[platform] -= 1;
       }
@@ -2155,6 +2213,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   async function tickPlatform(
     platform: Platform,
     trigger: TickTrigger,
+    onPersisted?: (state: SchedulerState) => void,
   ): Promise<readonly [Platform, string[]]> {
     const abort = new AbortController();
     activeTicks.add(abort);
@@ -2171,7 +2230,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       tickContext,
     );
     try {
-      const claimed = await runTick(tickContext, [platform], abort.signal, trigger);
+      const claimed = await runTick(tickContext, [platform], abort.signal, trigger, onPersisted);
       return [platform, claimed[platform] ?? []];
     } catch (error) {
       if (abort.signal.aborted) return [platform, []];
@@ -2194,10 +2253,13 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     platforms: Platform[] | undefined,
     signal: AbortSignal,
     trigger: TickTrigger,
+    onPersisted?: (state: SchedulerState) => void,
   ): Promise<ClaimedRewards> {
     const claimedRewards: ClaimedRewards = {};
     const settings = await deps.loadSettings();
     const requestedPlatforms = platforms ?? PLATFORMS;
+    const tickAdapters = Object.fromEntries(requestedPlatforms.map((platform) =>
+      [platform, createTickAdapterHandle(platform)])) as Partial<Record<Platform, TickAdapterHandle>>;
     const excludedPlatforms = new Set<Platform>();
     if (isFarmingActive(settings)) {
       if (requestedPlatforms.includes("twitch")) {
@@ -2214,6 +2276,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
             false,
             signal,
             tickContext,
+            tickAdapters,
           );
           for (const platform of authPlatforms) {
             diagnosticEvent(
@@ -2255,7 +2318,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     const currentState = await withStateCommit(() => deps.loadState());
     const discoveryPlatforms = schedulerPlatforms.filter((platform) =>
       currentState.authHealth[platform].status === "healthy");
-    await refreshDiscovery(discoveryPlatforms, selectionBypassesBackoff(trigger));
+    await refreshDiscovery(discoveryPlatforms, selectionBypassesBackoff(trigger), tickAdapters);
     signal.throwIfAborted();
     const preparedSelections: Partial<Record<Platform, CommittedSelection>> = {};
     await Promise.all(discoveryPlatforms.map(async (selectionPlatform) => {
@@ -2287,7 +2350,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       let nextState: SchedulerState;
       let publicationLeases: Array<readonly [Platform, HeartbeatPublicationLease]> = [];
       try {
-        const adapters = createSelectedAdapters(settings, emit, schedulerPlatforms);
+        const adapters = Object.fromEntries(schedulerPlatforms.map((schedulerPlatform) => [
+          schedulerPlatform,
+          tickAdapters[schedulerPlatform]!.adapter(settings, emit, true),
+        ])) as Record<Platform, PlatformAdapter>;
         for (const discoveryPlatform of schedulerPlatforms) {
           adapters[discoveryPlatform] = adapterFromDiscoverySnapshot(
             adapters[discoveryPlatform],
@@ -2405,6 +2471,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         signal.throwIfAborted();
         assertSelectionsCurrent();
         await reconcileDiscoverySignalControllers(result.state, settings, adapters, emit, schedulerPlatforms);
+        for (const schedulerPlatform of schedulerPlatforms) tickAdapters[schedulerPlatform]?.drain(claimObservingEmit);
         signal.throwIfAborted();
         assertSelectionsCurrent();
         nextState = result.state;
@@ -2437,7 +2504,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
             publicationLeases.push(...await reconcileTablessWatchers(
               state,
               settings,
-              createSelectedAdapters(settings, emit, schedulerPlatforms),
+              Object.fromEntries(schedulerPlatforms.map((schedulerPlatform) => [
+                schedulerPlatform,
+                tickAdapters[schedulerPlatform]!.adapter(settings, emit, true),
+              ])) as Record<Platform, PlatformAdapter>,
               emit,
               schedulerPlatforms,
             ));
@@ -2466,6 +2536,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
             return !prepared || (prepared.generation === selectionGeneration[selectionPlatform]
               && prepared.snapshotRevision === snapshot?.revision);
           }),
+          onPersisted,
         );
         if (!persisted) return;
         waitingClaimRewardIds[platform].clear();
@@ -3627,7 +3698,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // a reward other than the ones just claimed, then hands off to the immediate
   // heartbeat. Runs OUTSIDE the state lock: each inner tick() acquires the lock
   // on its own, so a long handoff never blocks telemetry or user actions.
-  async function runClaimHandoff(platform: Platform, justClaimedRewardIds: readonly string[] = []): Promise<void> {
+  async function runClaimHandoff(
+    platform: Platform,
+    justClaimedRewardIds: readonly string[] = [],
+    onPersisted?: (state: SchedulerState) => void,
+  ): Promise<void> {
     if (claimHandoffs.has(platform)) return;
     // Reserved synchronously, before the first await. Registering after the
     // async setup would let two triggers past the guard into concurrent loops,
@@ -3677,7 +3752,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         await wait(Math.min(intervalMs, deadline - Date.now()), abort.signal);
         if (abort.signal.aborted || Date.now() >= deadline) break;
 
-        await tick([platform], "claim_handoff");
+        await tick([platform], "claim_handoff", onPersisted);
         if (abort.signal.aborted) break;
 
         const session = (await deps.loadState()).sessions[platform];
@@ -3861,11 +3936,18 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // The normal entry point for alarm- and message-driven ticks: run the tick,
   // then hand off for every platform that claimed. Kept separate from tick() so
   // the handoff's own inner ticks cannot recurse into another handoff.
-  async function tickAndHandOff(platforms?: Platform[], trigger: TickTrigger = "unknown"): Promise<void> {
-    const claimed = await tick(platforms, trigger);
+  async function tickAndHandOff(
+    platforms?: Platform[],
+    trigger: TickTrigger = "unknown",
+  ): Promise<SchedulerState | undefined> {
+    let committedState: SchedulerState | undefined;
+    const captureCommittedState = (state: SchedulerState): void => {
+      committedState = state;
+    };
+    const claimed = await tick(platforms, trigger, captureCommittedState);
     const handoffPlatforms = Object.keys(claimed) as Platform[];
     const results = await Promise.allSettled(handoffPlatforms.map((platform) =>
-      runClaimHandoff(platform, claimed[platform] ?? [])));
+      runClaimHandoff(platform, claimed[platform] ?? [], captureCommittedState)));
     for (let index = 0; index < results.length; index += 1) {
       const result = results[index];
       if (result.status !== "rejected") continue;
@@ -3875,6 +3957,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         handoffPlatforms[index],
       );
     }
+    return committedState;
   }
 
   async function recordPlaybackTelemetry(
