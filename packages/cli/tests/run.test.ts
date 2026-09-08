@@ -12,7 +12,7 @@ import type { EventEmitter } from "@lurkloot/shared/events";
 import { createTransport } from "../src/transport";
 import type { TransportHandle } from "../src/transport";
 import { DEFAULT_CLI_SETTINGS } from "../src/settings";
-import { runLoop } from "../src/runtime/run";
+import { runCliTickOnce, runLoop } from "../src/runtime/run";
 import { createLogger } from "../src/logger";
 import type { Logger } from "../src/logger";
 import { runCliBaselineCell } from "./helpers/tickBaseline";
@@ -103,6 +103,119 @@ async function runOnce(health: Record<Platform, PlatformAuthHealth>, availabilit
   return statePath;
 }
 
+function stateWithSubscriptionWait(id: string): SchedulerState {
+  return {
+    ...structuredClone(DEFAULT_STATE),
+    campaigns: {
+      ...DEFAULT_STATE.campaigns,
+      twitch: [{
+        id: `campaign-${id}`,
+        platform: "twitch",
+        name: `Campaign ${id}`,
+        status: "active",
+        eligibility: "waiting_for_subscription",
+        rewards: [{
+          id: `reward-${id}`,
+          name: `Reward ${id}`,
+          requirement: "subscription",
+          requiredSubs: 1,
+          requiredMinutes: 0,
+          watchedMinutes: 0,
+          status: "in_progress",
+        }],
+      }],
+    },
+  };
+}
+
+describe("CLI committed tick consumption", () => {
+  const engineSettings = DEFAULT_CLI_SETTINGS as unknown as EngineSettings;
+  const enabledPlatforms: Platform[] = ["twitch"];
+
+  it("uses the returned committed state without a fallback load", async () => {
+    const state = stateWithSubscriptionWait("success");
+    const loadState = vi.fn(async () => structuredClone(DEFAULT_STATE));
+    const logger = createLogger("error");
+    logger.info = vi.fn();
+
+    await runCliTickOnce({
+      controller: { tickAndHandOff: vi.fn(async () => state) },
+      enabledPlatforms,
+      engineSettings,
+      loadState,
+      seenSubscriptionWaits: new Set(),
+      logger,
+    });
+
+    expect(loadState).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining("Reward success"), "twitch");
+  });
+
+  it("logs a failed tick without consuming fallback state", async () => {
+    const logger = createLogger("error");
+    logger.error = vi.fn();
+    const loadState = vi.fn(async () => stateWithSubscriptionWait("stale"));
+
+    await runCliTickOnce({
+      controller: { tickAndHandOff: vi.fn(async () => { throw new Error("tick failed"); }) },
+      enabledPlatforms,
+      engineSettings,
+      loadState,
+      seenSubscriptionWaits: new Set(),
+      logger,
+    });
+
+    expect(loadState).not.toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalledWith("tick failed", "tick");
+  });
+
+  it("consumes the final handoff result and clears resolved subscription waits", async () => {
+    const seen = new Set<string>();
+    const logger = createLogger("error");
+    logger.info = vi.fn();
+    const tickAndHandOff = vi.fn()
+      .mockResolvedValueOnce(stateWithSubscriptionWait("handoff"))
+      .mockResolvedValueOnce(structuredClone(DEFAULT_STATE))
+      .mockResolvedValueOnce(stateWithSubscriptionWait("handoff"));
+    const options = {
+      controller: { tickAndHandOff }, enabledPlatforms, engineSettings,
+      loadState: vi.fn(async () => structuredClone(DEFAULT_STATE)),
+      seenSubscriptionWaits: seen, logger,
+    };
+
+    await runCliTickOnce(options);
+    await runCliTickOnce(options);
+    await runCliTickOnce(options);
+
+    expect(logger.info).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not associate overlapping results with each other", async () => {
+    const first = deferred<SchedulerState>();
+    const second = deferred<SchedulerState>();
+    const logger = createLogger("error");
+    logger.info = vi.fn();
+    const tickAndHandOff = vi.fn()
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    const options = () => ({
+      controller: { tickAndHandOff }, enabledPlatforms, engineSettings,
+      loadState: vi.fn(async () => structuredClone(DEFAULT_STATE)),
+      seenSubscriptionWaits: new Set<string>(), logger,
+    });
+
+    const firstRun = runCliTickOnce(options());
+    const secondRun = runCliTickOnce(options());
+    second.resolve(stateWithSubscriptionWait("second"));
+    await secondRun;
+    first.resolve(stateWithSubscriptionWait("first"));
+    await firstRun;
+
+    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining("Reward first"), "twitch");
+    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining("Reward second"), "twitch");
+  });
+});
+
 describe("runLoop authentication health reporting", () => {
   it("records missing credentials without invoking the live probe", async () => {
     // If the probe ran it would report the adapter's healthy status; the missing
@@ -157,24 +270,26 @@ describe("CLI scheduler tick baseline", () => {
       reportBaseline(result);
 
       expect(result.counts).toEqual({
-        adapterOperations: 6,
+        adapterOperations: 8,
         campaignDiscovery: 2,
-        candidateListings: 0,
+        candidateListings: 2,
         channelChecks: 2,
         heartbeatAttempts: 1,
         heartbeatBlockedByDiscovery: 0,
         discoveryBlockedByHeartbeat: 0,
         // The non-once loop now performs one recovery pass for both providers
         // at startup before the first discovery completes.
-        adapterConstructions: 8,
+        // Tick-owned adapters survive auth, discovery, and commit. Startup
+        // recovery and the independent heartbeat path retain their own bundles.
+        adapterConstructions: 6,
         watcherReconciliations: 1,
       });
       expect(result.durationsMs).toEqual({
         discovery: 60,
-        selection: 20,
+        selection: 40,
         watcher: 5,
         persistence: 0,
-        total: 85,
+        total: 105,
       });
       expect(JSON.stringify(result)).not.toMatch(/credential|cookie|token|authorization|payload/i);
       expect(process.listeners("SIGINT")).toEqual(sigintListenersBefore);
@@ -193,6 +308,10 @@ describe("CLI scheduler tick baseline", () => {
       host: "cli",
       platform,
       scenario: "idle",
+      // The stacked controller now performs five shared-engine loads in both
+      // hosts; the former CLI-only post-tick reload would make this six.
+      stateLoads: 5,
+      stateSaves: 2,
       counts: {
         adapterOperations: 2,
         campaignDiscovery: 1,
@@ -201,7 +320,7 @@ describe("CLI scheduler tick baseline", () => {
         heartbeatAttempts: 0,
         heartbeatBlockedByDiscovery: 0,
         discoveryBlockedByHeartbeat: 0,
-        adapterConstructions: 2,
+        adapterConstructions: 1,
         watcherReconciliations: 0,
       },
       durationsMs: {
@@ -211,10 +330,11 @@ describe("CLI scheduler tick baseline", () => {
         persistence: 0,
         total: 30,
       },
+      outcomeCampaignId: undefined,
     });
   });
 
-  it.each(["twitch", "kick"] as const)("matches retained %s core work with the extension host", async (platform) => {
+  it.each(["twitch", "kick"] as const)("uses the shared snapshot-driven %s selection lifecycle", async (platform) => {
     vi.useFakeTimers();
     vi.setSystemTime("2026-09-01T20:00:00.000Z");
 
@@ -222,19 +342,22 @@ describe("CLI scheduler tick baseline", () => {
     reportBaseline(result);
 
     expect(result.counts).toMatchObject({
-      adapterOperations: 3,
+      // Candidate listing and validation happen once while building the
+      // committed discovery snapshot. Core selection adds no provider calls.
+      adapterOperations: 4,
       campaignDiscovery: 1,
-      candidateListings: 0,
+      candidateListings: 1,
       channelChecks: 1,
-      adapterConstructions: 2,
+      adapterConstructions: 1,
       watcherReconciliations: 1,
     });
+    expect(result.outcomeCampaignId).toBe(`${platform}-campaign`);
     expect(result.durationsMs).toEqual({
       discovery: 30,
-      selection: 10,
+      selection: 20,
       watcher: 5,
       persistence: 0,
-      total: 45,
+      total: 55,
     });
   });
 
@@ -269,19 +392,19 @@ describe("CLI scheduler tick baseline", () => {
     expect(result.outcomeCampaignId).toBe(`${platform}-campaign`);
 
     expect(result.counts).toMatchObject({
-      adapterOperations: scenario === "higherPriorityUnavailable" ? 7 : 4,
+      adapterOperations: scenario === "higherPriorityUnavailable" ? 6 : 4,
       campaignDiscovery: 1,
       candidateListings: scenario === "higherPriorityUnavailable" ? 2 : 1,
-      channelChecks: scenario === "higherPriorityUnavailable" ? 3 : 1,
-      adapterConstructions: 2,
+      channelChecks: scenario === "higherPriorityUnavailable" ? 2 : 1,
+      adapterConstructions: 1,
       watcherReconciliations: 1,
     });
     expect(result.durationsMs).toEqual({
       discovery: 30,
-      selection: scenario === "higherPriorityUnavailable" ? 50 : 20,
+      selection: scenario === "higherPriorityUnavailable" ? 40 : 20,
       watcher: 5,
       persistence: 0,
-      total: scenario === "higherPriorityUnavailable" ? 85 : 55,
+      total: scenario === "higherPriorityUnavailable" ? 75 : 55,
     });
   });
 
@@ -370,7 +493,7 @@ describe("runLoop disabled platform cleanup", () => {
 });
 
 describe("runLoop interval baseline", () => {
-  it("serializes provider work but queues each elapsed interval", async () => {
+  it("serializes provider discovery with at most one coalesced follow-up", async () => {
     vi.useFakeTimers();
     const pendingRefresh = deferred<DropCampaign[]>();
     let refreshCalls = 0;

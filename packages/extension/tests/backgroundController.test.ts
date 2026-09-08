@@ -5,6 +5,7 @@ import {
   KICK_ALARM_NAME,
   TWITCH_ALARM_NAME,
   TWITCH_INTEGRITY_ALARM_NAME,
+  type BackgroundControllerDeps,
   type CredentialAvailability,
 } from "@lurkloot/core/controller";
 import { resolveCompatibility } from "@lurkloot/core";
@@ -19,7 +20,7 @@ import { createKickFetcher, KickClaimState } from "@lurkloot/core/kick";
 import { TwitchDiscoveryState } from "@lurkloot/core/twitch";
 import { kickAdapter, twitchAdapter } from "./helpers/adapters";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
-import type { StopPageContextTabs } from "@lurkloot/core/scheduler";
+import { selectWatchTargetFromSnapshot, type StopPageContextTabs } from "@lurkloot/core/scheduler";
 import {
   cancelTwitchIntegrityAcquisition,
   currentManagedPageContextTabs,
@@ -241,10 +242,12 @@ function harness(
       request?: TwitchIntegrityRequest,
     ) => Promise<boolean>;
     cancelTwitchIntegrityAcquisition?: (reason?: unknown) => void;
+    selectWatchTarget?: BackgroundControllerDeps<ExtensionSettings>["selectWatchTarget"];
+    initialState?: SchedulerState;
   } = {},
 ) {
   let currentSettings = settings;
-  let currentState: SchedulerState = {
+  let currentState: SchedulerState = overrides.initialState ?? {
     ...DEFAULT_STATE,
     sessions: {
       twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
@@ -291,6 +294,7 @@ function harness(
     })),
     reportEvents: vi.fn(overrides.reportEvents ?? reportEvents),
     stopPageContextTabs: vi.fn(overrides.stopPageContextTabs ?? forgetManagedPageContextTabs),
+    ...(overrides.selectWatchTarget ? { selectWatchTarget: vi.fn(overrides.selectWatchTarget) } : {}),
     wait: overrides.wait,
     ...(overrides.checkCredentialAvailability
       ? { checkCredentialAvailability: vi.fn(overrides.checkCredentialAvailability) }
@@ -2271,8 +2275,45 @@ describe("background controller", () => {
     detailsFail = true;
     await env.controller.tick();
 
-    expect(env.deps.createAdapter).toHaveBeenCalledTimes(6);
+    // Each controller tick owns one adapter per requested platform. The disabled
+    // Kick adapter is still needed by the combined scheduler reconciliation.
+    expect(env.deps.createAdapter).toHaveBeenCalledTimes(4);
     expect(env.state.campaigns.twitch.map((item) => item.id)).toEqual(["retained"]);
+  });
+
+  it("reconstructs a tick adapter when settings change before commit", async () => {
+    const env = harness(farming(DEFAULT_SETTINGS));
+    const discovery = deferred<DropCampaign[]>();
+    vi.mocked(env.kick.refreshCampaigns).mockReturnValueOnce(discovery.promise);
+
+    const ticking = env.controller.tick(["kick"]);
+    await vi.waitFor(() => expect(env.kick.refreshCampaigns).toHaveBeenCalledOnce());
+    await env.deps.saveSettings({ ...env.settings, preferKnownChannels: !env.settings.preferKnownChannels });
+    discovery.resolve([campaign("kick")]);
+    await ticking;
+
+    expect(env.deps.createAdapter).toHaveBeenCalledTimes(2);
+    expect(env.deps.createAdapter.mock.calls[0]![2].preferKnownChannels)
+      .not.toBe(env.deps.createAdapter.mock.calls[1]![2].preferKnownChannels);
+  });
+
+  it("skips redundant target evaluation when a new discovery revision is materially unchanged", async () => {
+    const env = harness(farming({ ...DEFAULT_SETTINGS, tablessMode: true }));
+    env.twitch.supportsTabless = true;
+    vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([{
+      ...campaign("twitch"),
+      rewards: [{ ...reward("in_progress"), isWatchBased: false }],
+    }]);
+
+    await env.controller.tick(["twitch"]);
+    await env.controller.tick(["twitch"]);
+    await env.controller.tick(["twitch"]);
+    await env.controller.tick(["twitch"]);
+
+    expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
+      platform: "twitch",
+      message: expect.stringMatching(/^Snapshot selection skipped \(trigger=unknown, revision=\d+, age=\d+ms, material=false\)$/),
+    }));
   });
 
   it("starts enabled auth probes concurrently and persists each before scheduler work", async () => {
@@ -2832,6 +2873,45 @@ describe("background controller", () => {
 
     expect(env.twitch.checkAuthHealth).toHaveBeenCalledOnce();
     expect(env.state.authHealth.twitch.status).toBe("healthy");
+  });
+
+  it("returns the state committed by the current tick invocation", async () => {
+    const env = harness(farming(DEFAULT_SETTINGS));
+
+    const committed = await env.controller.tickAndHandOff(["twitch"]);
+
+    expect(committed).toEqual(env.state);
+    expect(committed?.sessions.twitch.campaignId).toBe("twitch-campaign");
+  });
+
+  it("does not return a scheduler snapshot when the tick rolls back", async () => {
+    const env = harness(farming({ ...DEFAULT_SETTINGS, tablessMode: true }));
+    env.twitch.supportsTabless = true;
+    env.twitch.createTablessWatcher = () => {
+      throw new Error("watcher setup failed");
+    };
+
+    const committed = await env.controller.tickAndHandOff(["twitch"]);
+
+    expect(committed).toBeUndefined();
+  });
+
+  it("keeps committed results scoped to overlapping tick invocations", async () => {
+    const env = harness(farming(DEFAULT_SETTINGS));
+    const twitchDiscovery = deferred<DropCampaign[]>();
+    const kickDiscovery = deferred<DropCampaign[]>();
+    vi.mocked(env.twitch.refreshCampaigns).mockReturnValueOnce(twitchDiscovery.promise);
+    vi.mocked(env.kick.refreshCampaigns).mockReturnValueOnce(kickDiscovery.promise);
+
+    const twitchTick = env.controller.tickAndHandOff(["twitch"]);
+    const kickTick = env.controller.tickAndHandOff(["kick"]);
+    kickDiscovery.resolve([campaign("kick")]);
+    const kickCommitted = await kickTick;
+    twitchDiscovery.resolve([campaign("twitch")]);
+    const twitchCommitted = await twitchTick;
+
+    expect(kickCommitted?.sessions.kick.campaignId).toBe("kick-campaign");
+    expect(twitchCommitted?.sessions.twitch.campaignId).toBe("twitch-campaign");
   });
 
   it("blocks startup account work when credentials are missing without disabling the platform", async () => {
@@ -3407,7 +3487,7 @@ describe("background controller", () => {
     expect(env.deps.saveState).toHaveBeenCalledWith(expect.not.objectContaining({ events: expect.anything() }));
   });
 
-  it("preserves adapter and scheduler event order within one tick batch", async () => {
+  it("publishes adapter construction events in the auth phase without leaking into the scheduler batch", async () => {
     const env = harness();
     vi.mocked(env.deps.createAdapter).mockImplementation((platform, emit, settings) => {
       emit({ category: "diagnostic", level: "debug", message: "adapter-created" });
@@ -3419,14 +3499,15 @@ describe("background controller", () => {
 
     await env.controller.tick();
 
-    const schedulerBatch = env.reportEvents.mock.calls.map(([events]) => events).find((events) =>
+    const batches = env.reportEvents.mock.calls.map(([events]) => events);
+    const authBatchIndex = batches.findIndex((events) =>
+      events.some((event) => event.category === "diagnostic" && event.message === "adapter-created"));
+    const schedulerBatchIndex = batches.findIndex((events) =>
       events.some((event) => event.category === "diagnostic" && event.message.startsWith("Campaign inventory changed"))
     );
-    expect(schedulerBatch).toBeDefined();
-    const adapterIndex = schedulerBatch!.findIndex((event) => event.category === "diagnostic" && event.message === "adapter-created");
-    const schedulerIndex = schedulerBatch!.findIndex((event) => event.category === "diagnostic" && event.message.startsWith("Campaign inventory changed"));
-    expect(adapterIndex).toBeGreaterThanOrEqual(0);
-    expect(schedulerIndex).toBeGreaterThan(adapterIndex);
+    expect(authBatchIndex).toBeGreaterThanOrEqual(0);
+    expect(schedulerBatchIndex).toBeGreaterThan(authBatchIndex);
+    expect(batches[schedulerBatchIndex]).not.toContainEqual(expect.objectContaining({ message: "adapter-created" }));
   });
 
   it("publishes category-search diagnostics in their own operation without leaking into the next tick", async () => {
@@ -4108,7 +4189,7 @@ describe("background controller", () => {
     }));
   });
 
-  it("reports material waits for same-platform scheduler work", async () => {
+  it("coalesces overlapping same-platform discovery instead of waiting on the scheduler lock", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-07-29T12:00:00.000Z"));
     const env = harness(farming(DEFAULT_SETTINGS));
@@ -4137,11 +4218,11 @@ describe("background controller", () => {
       expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
         category: "diagnostic",
         platform: "twitch",
-        globalTickId: 2,
-        platformTickId: 2,
-        message: "Tick #2 waited 75ms for Twitch platform work",
-        data: { waitMs: 75 },
+        message: expect.stringMatching(/^Discovery refresh finished in 0ms \(complete, revision=2, .*coalesced=1,/),
       }));
+      expect(allDiagnostics(env).some((event) =>
+        event.message.includes("waited") && event.message.includes("platform work"),
+      )).toBe(false);
     } finally {
       twitchDiscovery.resolve([]);
       await Promise.allSettled(secondTick ? [firstTick, secondTick] : [firstTick]);
@@ -6218,6 +6299,187 @@ describe("background controller", () => {
     expect(env.state.sessions.twitch.lastHeartbeatOk).toBe(true);
   });
 
+  it("completes a due heartbeat while snapshot selection is blocked", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-02T12:00:00.000Z"));
+    const selectionStarted = deferred<void>();
+    const allowSelection = deferred<void>();
+    let blockSelection = false;
+    const env = harness({
+      ...DEFAULT_SETTINGS,
+      tablessMode: true,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
+        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, idleWatchlistChannels: [] },
+      },
+    }, {
+      selectWatchTarget: async (...args) => {
+        if (blockSelection) {
+          selectionStarted.resolve();
+          await allowSelection.promise;
+        }
+        return selectWatchTargetFromSnapshot(...args);
+      },
+    });
+    const watcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
+    env.twitch.supportsTabless = true;
+    env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
+    await env.controller.tick(["twitch"]);
+    advanceToNextHeartbeatDue();
+    watcher.tick.mockClear();
+
+    blockSelection = true;
+    const selection = env.controller.tick(["twitch"], "manual_tick");
+    await selectionStarted.promise;
+    const heartbeat = env.controller.runWatchHeartbeat();
+    try {
+      await drainMicrotasks();
+      expect(watcher.tick).toHaveBeenCalledOnce();
+      await heartbeat;
+    } finally {
+      allowSelection.resolve();
+      await selection;
+    }
+    expect(env.state.sessions.twitch.lastHeartbeatOk).toBe(true);
+    expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
+      platform: "twitch",
+      message: expect.stringContaining("Snapshot selection discarded stale lifecycle work"),
+    }));
+  });
+
+  it("coalesces concurrent snapshot selection requests to one pending evaluation", async () => {
+    const selectionStarted = deferred<void>();
+    const allowSelection = deferred<void>();
+    let blockSelection = false;
+    const env = harness(farming(DEFAULT_SETTINGS), {
+      selectWatchTarget: async (...args) => {
+        if (blockSelection) {
+          selectionStarted.resolve();
+          await allowSelection.promise;
+        }
+        return selectWatchTargetFromSnapshot(...args);
+      },
+    });
+    await env.controller.tick(["twitch"]);
+    const selectWatchTarget = env.deps.selectWatchTarget!;
+    selectWatchTarget.mockClear();
+
+    blockSelection = true;
+    const first = env.controller.tick(["twitch"], "manual_tick");
+    await selectionStarted.promise;
+    const second = env.controller.tick(["twitch"], "manual_tick");
+    const third = env.controller.tick(["twitch"], "manual_tick");
+    await vi.waitFor(() => expect(vi.mocked(env.twitch.refreshCampaigns).mock.calls.length).toBeGreaterThanOrEqual(3));
+    allowSelection.resolve();
+    await Promise.all([first, second, third]);
+
+    expect(selectWatchTarget).toHaveBeenCalledTimes(2);
+    expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
+      platform: "twitch",
+      message: expect.stringContaining("Snapshot selection discarded stale work"),
+    }));
+  });
+
+  it("passes persisted backoff state and bypasses it for explicit selection triggers", async () => {
+    const inputs: Array<{ previousBackoff?: unknown; bypassBackoff?: boolean }> = [];
+    const env = harness(farming(DEFAULT_SETTINGS), {
+      selectWatchTarget: async (input) => {
+        inputs.push(input as typeof input & { previousBackoff?: unknown; bypassBackoff?: boolean });
+        const result = await selectWatchTargetFromSnapshot(input);
+        return {
+          ...result,
+          backoff: { campaignId: "higher", retryAt: "2099-01-01T00:00:00.000Z", fingerprint: "material" },
+        };
+      },
+    });
+    env.state.campaignSearchBackoffs = {
+      twitch: { campaignId: "higher", retryAt: "2099-01-01T00:00:00.000Z", fingerprint: "material" },
+    };
+
+    await env.controller.tick(["twitch"], "alarm");
+    await env.controller.tick(["twitch"], "manual_tick");
+
+    expect(inputs[0]).toMatchObject({
+      previousBackoff: { campaignId: "higher", fingerprint: "material" },
+      bypassBackoff: false,
+    });
+    expect(inputs.at(-1)).toMatchObject({ bypassBackoff: true });
+    expect(env.state.campaignSearchBackoffs?.twitch).toMatchObject({ campaignId: "higher" });
+  });
+
+  it("skips backed-off Twitch candidate discovery across controller restart", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime("2026-09-08T04:00:00.000Z");
+    const higher = { ...campaign("twitch"), id: "higher" };
+    const current = { ...campaign("twitch"), id: "current" };
+    const currentChannel = channel("twitch");
+    const configured = farming({ ...DEFAULT_SETTINGS, campaignPriorities: { higher: 10 } });
+    const initialState: SchedulerState = {
+      ...structuredClone(DEFAULT_STATE),
+      campaigns: { ...DEFAULT_STATE.campaigns, twitch: [higher, current] },
+      sessions: {
+        ...DEFAULT_STATE.sessions,
+        twitch: {
+          platform: "twitch",
+          status: "watching",
+          channel: currentChannel,
+          campaignId: current.id,
+          rewardId: current.rewards[0]?.id,
+          offlineChecks: 0,
+          watchMode: "tab",
+          playback: {
+            platform: "twitch",
+            videoCount: 1,
+            playingVideoCount: 1,
+            mutedVideoCount: 1,
+            unmutedVideoCount: 0,
+            blockedPlaybackCount: 0,
+            documentHidden: false,
+            checkedAt: new Date().toISOString(),
+          },
+        },
+      },
+    };
+    const configure = (env: ReturnType<typeof harness>) => {
+      env.twitch.refreshCampaigns = vi.fn(async () => [higher, current]);
+      env.twitch.listCandidateChannels = vi.fn(async (selected) => [
+        selected.id === current.id ? currentChannel : { ...currentChannel, username: "higher", url: "https://www.twitch.tv/higher" },
+      ]);
+      env.twitch.checkChannel = vi.fn(async (candidate, options) => ({
+        live: true,
+        categoryMatches: true,
+        campaignMatches: options?.campaign?.id === higher.id ? false : true,
+        candidate,
+      }));
+    };
+    const first = harness(configured, { initialState });
+    configure(first);
+    await first.controller.tick(["twitch"], "alarm");
+    expect(first.twitch.listCandidateChannels).toHaveBeenCalledTimes(2);
+    expect(first.state.campaignSearchBackoffs?.twitch?.campaignId).toBe("higher");
+
+    const restarted = harness(configured, { initialState: structuredClone(first.state) });
+    configure(restarted);
+    await restarted.controller.tick(["twitch"], "startup");
+
+    expect(vi.mocked(restarted.twitch.listCandidateChannels).mock.calls.map(([item]) => item.id)).toEqual(["current"]);
+    expect(restarted.twitch.listCandidateChannels).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "current" }),
+      expect.anything(),
+    );
+    expect(allDiagnostics(restarted)).toContainEqual(expect.objectContaining({
+      message: expect.stringMatching(/^Skipped authoritative negative campaign search for higher \(\d+ms remaining\)$/),
+    }));
+
+    await restarted.controller.tick(["twitch"], "manual_tick");
+    expect(vi.mocked(restarted.twitch.listCandidateChannels).mock.calls.map(([item]) => item.id)).toEqual([
+      "current",
+      "higher",
+      "current",
+    ]);
+  });
+
   it("completes a due initial heartbeat while discovery-signal start is blocked after publication", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-09-02T12:00:00.000Z"));
@@ -8243,9 +8505,10 @@ describe("background controller", () => {
 
       const handoff = env.controller.tickAndHandOff();
       for (let index = 0; index < 12; index += 1) await env.timer.flush();
-      await handoff;
+      const committed = await handoff;
 
       expect(env.timer.wait).toHaveBeenCalled();
+      expect(committed).toEqual(env.state);
     });
 
     it("does not start a nested handoff for a claim inside a handoff", async () => {

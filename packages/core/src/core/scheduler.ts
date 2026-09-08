@@ -1,6 +1,7 @@
 import type { PlatformAdapter } from "../platforms/adapter";
 import type {
   ChannelCandidate,
+  CampaignSearchBackoff,
   DropCampaign,
   DropReward,
   EngineSettings,
@@ -32,6 +33,7 @@ import type { CriticalHealthObservation } from "./criticalHealth";
 import { isManagedTabBreakerOpen, observeCriticalHealth, recordManagedTabOpen } from "./criticalHealth";
 import { isTimestampStale, PLAYBACK_TELEMETRY_MAX_AGE_MS } from "./timestamps";
 import { heartbeatContextKey, validTablessHeartbeatCadence } from "./heartbeatCadence";
+import { selectionAdapterFromDiscoverySnapshot, type DiscoverySnapshot } from "./discoverySnapshot";
 
 const PLATFORMS: Platform[] = ["twitch", "kick"];
 const MAX_PLATFORM_BACKOFF_MINUTES = 30;
@@ -542,6 +544,244 @@ function retainTablessHeartbeat(previous: WatchSession, next: WatchSession): Wat
   return next;
 }
 
+export interface WatchRetention {
+  keep: boolean;
+  offlineChecks: number;
+  playbackChecks: number;
+  noProgressChecks?: number;
+  lastWatchedMinutes?: number;
+  reason: string;
+  reasonCode: WatchReasonCode;
+  channel?: ChannelCandidate;
+}
+
+export interface SnapshotSelectionResult {
+  decision: WatchDecision;
+  retention: WatchRetention;
+  campaignsChecked: number;
+  candidatesChecked: number;
+  fastPath: boolean;
+  backoff?: CampaignSearchBackoff;
+  backoffSkippedMs?: number;
+}
+
+export const TWITCH_NEGATIVE_SEARCH_BACKOFF_MS = 5 * 60 * 1000;
+
+/** Pure provider-I/O-free selection when paired with a committed snapshot adapter. */
+async function selectWatchTarget(
+  platform: Platform,
+  previous: WatchSession,
+  campaigns: DropCampaign[],
+  settings: EngineSettings,
+  adapter: Pick<PlatformAdapter, "listCandidateChannels" | "selectCandidateChannel" | "checkChannel" | "listFollowedChannels">,
+  signal?: AbortSignal,
+): Promise<SnapshotSelectionResult> {
+  const currentWatch = await evaluatePreferredCurrentWatch(previous, campaigns, settings, adapter, signal);
+  let decision: WatchDecision;
+  let retention: WatchRetention;
+  let campaignsChecked = 0;
+  let candidatesChecked = 0;
+  if (currentWatch?.keep.keep) {
+    decision = currentWatch.decision;
+    retention = currentWatch.keep;
+    candidatesChecked = 1;
+  } else {
+    const stalled = currentWatch?.keep.reasonCode === "no_progress" && previous.channel
+      ? new Set([previous.channel.username.toLowerCase()])
+      : undefined;
+    decision = await chooseCampaignDecision(
+      platform,
+      campaigns,
+      settings,
+      adapter,
+      signal,
+      (metrics) => {
+        campaignsChecked = metrics.campaignsChecked;
+        candidatesChecked = metrics.candidatesChecked;
+      },
+      stalled,
+    );
+    retention = currentWatch?.keep
+      ?? await shouldKeepWatching(previous, decision, campaigns, settings, adapter, signal);
+  }
+  if (retention.keep && previous.channel) {
+    decision = {
+      platform,
+      action: previous.campaignId ? "watch" : "fallback",
+      campaign: campaigns.find((campaign) => campaign.id === previous.campaignId),
+      reward: campaigns
+        .find((campaign) => campaign.id === previous.campaignId)
+        ?.rewards.find((reward) => reward.id === previous.rewardId),
+      channel: retention.channel ?? previous.channel,
+      reason: retention.reason,
+      reasonCode: retention.reasonCode,
+    };
+  } else if (previous.status === "watching" && previous.channel && retention.reason !== "No existing watch session") {
+    decision = { ...decision, reason: retention.reason, reasonCode: retention.reasonCode };
+  }
+  return { decision, retention, campaignsChecked, candidatesChecked, fastPath: currentWatch?.keep.keep === true };
+}
+
+export interface SnapshotSelectionInput {
+  snapshot: DiscoverySnapshot;
+  previous: WatchSession;
+  previousCampaigns: DropCampaign[];
+  settings: EngineSettings;
+  signal?: AbortSignal;
+  previousBackoff?: CampaignSearchBackoff;
+  bypassBackoff?: boolean;
+}
+
+function stableHash(value: unknown): string {
+  const text = JSON.stringify(value);
+  let hash = 2166136261;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+export function campaignSearchFingerprint(
+  campaign: DropCampaign,
+  settings: EngineSettings,
+): string {
+  return stableHash({
+    campaign,
+    settings: {
+      campaignPriorities: settings.campaignPriorities,
+      excludedCampaignIds: settings.excludedCampaignIds,
+      priorityMode: settings.priorityMode,
+      farmingEligibility: settings.farmingEligibility,
+      platform: settings.platform.twitch,
+    },
+  });
+}
+
+export function campaignSearchBackoffApplies(
+  campaign: DropCampaign,
+  settings: EngineSettings,
+  session: WatchSession,
+  backoff: CampaignSearchBackoff | undefined,
+  bypass = false,
+  currentCampaign?: DropCampaign,
+): boolean {
+  return campaign.platform === "twitch"
+    && !bypass
+    && session.status === "watching"
+    && isSessionHealthy(session)
+    && (session.noProgressChecks ?? 0) < settings.offlineRetryLimit
+    && currentCampaign !== undefined
+    && isEligible(currentCampaign, settings)
+    && activeReward(currentCampaign, settings)?.id === session.rewardId
+    && backoff?.campaignId === campaign.id
+    && backoff.fingerprint === campaignSearchFingerprint(campaign, settings)
+    && Date.parse(backoff.retryAt) > Date.now();
+}
+
+function authoritativeUnavailableCampaign(
+  snapshot: DiscoverySnapshot,
+  campaigns: DropCampaign[],
+  previous: WatchSession,
+  settings: EngineSettings,
+): DropCampaign | undefined {
+  if (snapshot.platform !== "twitch" || previous.status !== "watching" || !isSessionHealthy(previous)) return undefined;
+  const eligible = sortCampaigns(campaigns.filter((campaign) => isEligible(campaign, settings)), settings);
+  const currentIndex = eligible.findIndex((campaign) => campaign.id === previous.campaignId);
+  if (currentIndex <= 0) return undefined;
+  return eligible.slice(0, currentIndex).find((campaign) => {
+    const observation = snapshot.campaigns.find(({ campaign: candidate }) => candidate.id === campaign.id);
+    return observation !== undefined
+      && observation.candidates.length > 0
+      && observation.candidates.every((candidate) => !candidate.live || !candidate.categoryMatches || candidate.eligible === false);
+  });
+}
+
+export async function selectWatchTargetFromSnapshot({
+  snapshot,
+  previous,
+  previousCampaigns,
+  settings,
+  signal,
+  previousBackoff,
+  bypassBackoff = false,
+}: SnapshotSelectionInput): Promise<SnapshotSelectionResult> {
+  const campaigns = preserveClaimedRewards(
+    snapshot.campaigns.map(({ campaign }) => campaign),
+    previousCampaigns,
+  );
+  const backedOffCampaign = previousBackoff
+    ? snapshot.campaigns.find(({ campaign }) => campaign.id === previousBackoff.campaignId)?.campaign
+    : undefined;
+  const currentCampaign = snapshot.campaigns.find(({ campaign }) => campaign.id === previous.campaignId)?.campaign;
+  const retryAt = previousBackoff ? Date.parse(previousBackoff.retryAt) : Number.NaN;
+  const mayReuseBackoff = snapshot.platform === "twitch"
+    && !bypassBackoff
+    && backedOffCampaign !== undefined
+    && campaignSearchBackoffApplies(backedOffCampaign, settings, previous, previousBackoff, bypassBackoff, currentCampaign);
+  const selectionCampaigns = mayReuseBackoff
+    ? campaigns.filter((campaign) => campaign.id !== previousBackoff?.campaignId)
+    : campaigns;
+  const result = await selectWatchTarget(
+    snapshot.platform,
+    previous,
+    selectionCampaigns,
+    settings,
+    selectionAdapterFromDiscoverySnapshot(snapshot, previous),
+    signal,
+  );
+  if (mayReuseBackoff) {
+    return { ...result, backoff: previousBackoff, backoffSkippedMs: retryAt - Date.now() };
+  }
+  const unavailable = authoritativeUnavailableCampaign(snapshot, campaigns, previous, settings);
+  if (!unavailable || result.decision.campaign?.id !== previous.campaignId) return result;
+  return {
+    ...result,
+    backoff: {
+      campaignId: unavailable.id,
+      retryAt: new Date(Date.now() + TWITCH_NEGATIVE_SEARCH_BACKOFF_MS).toISOString(),
+      fingerprint: campaignSearchFingerprint(
+        snapshot.campaigns.find(({ campaign }) => campaign.id === unavailable.id)?.campaign ?? unavailable,
+        settings,
+      ),
+    },
+  };
+}
+
+function retainHealthyWatchOnAmbiguousDiscovery(
+  previous: WatchSession,
+  campaigns: DropCampaign[],
+): SnapshotSelectionResult | undefined {
+  if (previous.status !== "watching" || !previous.channel || !isSessionHealthy(previous)) return undefined;
+  const campaign = campaigns.find((candidate) => candidate.id === previous.campaignId);
+  const reward = campaign?.rewards.find((candidate) => candidate.id === previous.rewardId);
+  const decision: WatchDecision = {
+    platform: previous.platform,
+    action: previous.campaignId ? "watch" : "fallback",
+    campaign,
+    reward,
+    channel: previous.channel,
+    reason: "Keeping healthy current watch while discovery is incomplete",
+    reasonCode: "keeping_current_watch",
+  };
+  return {
+    decision,
+    retention: {
+      keep: true,
+      offlineChecks: previous.offlineChecks,
+      playbackChecks: previous.playbackChecks ?? 0,
+      noProgressChecks: previous.noProgressChecks,
+      lastWatchedMinutes: previous.lastWatchedMinutes,
+      channel: previous.channel,
+      reason: decision.reason,
+      reasonCode: decision.reasonCode,
+    },
+    campaignsChecked: 0,
+    candidatesChecked: 0,
+    fastPath: true,
+  };
+}
+
 export interface SchedulerTickResult {
   state: SchedulerState;
   decisions: WatchDecision[];
@@ -567,6 +807,12 @@ export interface SchedulerTickOptions {
   // it in memory so unchanged minute ticks stay quiet, while a worker restart
   // naturally emits a fresh snapshot for the next exported diagnostic log.
   campaignEvaluationFingerprints?: Partial<Record<Platform, string>>;
+  discovery?: Partial<Record<Platform, {
+    campaigns: DropCampaign[];
+    complete: boolean;
+  }>>;
+  selections?: Partial<Record<Platform, SnapshotSelectionResult>>;
+  selectionIsCurrent?: Partial<Record<Platform, () => boolean>>;
 }
 
 const CAMPAIGN_REJECTION_LABELS: Record<CampaignFarmingRejectionCode, string> = {
@@ -922,7 +1168,11 @@ export async function runSchedulerTick(
 
       let campaigns: DropCampaign[];
       let discoveryFailed = false;
-      try {
+      const committedDiscovery = options.discovery?.[platform];
+      if (committedDiscovery) {
+        campaigns = preserveClaimedRewards(committedDiscovery.campaigns, state.campaigns[platform]);
+        discoveryFailed = !committedDiscovery.complete;
+      } else try {
         const refreshStartedAt = Date.now();
         campaigns = await adapter.refreshCampaigns(previous, { signal: options.signal });
         emitDiagnostic(
@@ -1061,51 +1311,33 @@ export async function runSchedulerTick(
       }
 
       const selectionStartedAt = Date.now();
-      const currentWatch = await evaluatePreferredCurrentWatch(
-        previous,
-        campaigns,
-        settings,
-        adapter,
-        options.signal,
-      );
-      let decision: WatchDecision;
-      let shouldKeep: Awaited<ReturnType<typeof shouldKeepWatching>>;
-      if (currentWatch?.keep.keep) {
-        decision = currentWatch.decision;
-        shouldKeep = currentWatch.keep;
+      const selection = options.selections?.[platform]
+        ?? (discoveryFailed ? retainHealthyWatchOnAmbiguousDiscovery(previous, campaigns) : undefined)
+        ?? await selectWatchTarget(platform, previous, campaigns, settings, adapter, options.signal);
+      let { decision } = selection;
+      const shouldKeep = selection.retention;
+      if (options.selectionIsCurrent?.[platform]?.() === false) {
+        emitDiagnostic(emit, platform, "debug", "Snapshot selection discarded after target health changed");
+        continue;
+      }
+      const campaignSearchBackoffs = { ...nextState.campaignSearchBackoffs };
+      if (selection.backoff) campaignSearchBackoffs[platform] = selection.backoff;
+      else delete campaignSearchBackoffs[platform];
+      nextState.campaignSearchBackoffs = campaignSearchBackoffs;
+      if (selection.fastPath) {
         emitDiagnostic(
           emit,
           platform,
           "debug",
-          `Campaign selection fast path retained current watch in ${Date.now() - selectionStartedAt}ms (1 candidate checked)`,
+          `Campaign selection fast path retained current watch in ${Date.now() - selectionStartedAt}ms (${countLabel(selection.candidatesChecked, "candidate")} checked)`,
         );
       } else {
-        let selectionMetrics = { campaignsChecked: 0, candidatesChecked: 0 };
-        // Reselecting the channel that just stalled would reset its counter and
-        // loop forever, so this tick passes over it when anything else can run
-        // the campaign (#400).
-        const stalled = currentWatch?.keep.reasonCode === "no_progress" && previous.channel
-          ? new Set([previous.channel.username.toLowerCase()])
-          : undefined;
-        decision = await chooseCampaignDecision(
-          platform,
-          campaigns,
-          settings,
-          adapter,
-          options.signal,
-          (metrics) => {
-            selectionMetrics = metrics;
-          },
-          stalled,
-        );
         emitDiagnostic(
           emit,
           platform,
           "debug",
-          `Campaign selection finished in ${Date.now() - selectionStartedAt}ms (${countLabel(selectionMetrics.campaignsChecked, "campaign")} checked, ${countLabel(selectionMetrics.candidatesChecked, "candidate")} checked)`,
+          `Campaign selection finished in ${Date.now() - selectionStartedAt}ms (${countLabel(selection.campaignsChecked, "campaign")} checked, ${countLabel(selection.candidatesChecked, "candidate")} checked)`,
         );
-        shouldKeep = currentWatch?.keep
-          ?? await shouldKeepWatching(previous, decision, campaigns, settings, adapter, options.signal);
       }
       // The single site where a stop reason is decided for an existing watch, so
       // the precondition-break arm is set here rather than at every consumer.
@@ -1120,26 +1352,6 @@ export async function runSchedulerTick(
           `Switching watch target (${shouldKeep.reason}); ${previous.watchMode === "tabless" ? "heartbeat" : "playback"} ${isSessionHealthy(previous) ? "healthy" : "unhealthy"}`,
         );
       }
-      if (shouldKeep.keep && previous.channel) {
-        decision = {
-          platform,
-          action: previous.campaignId ? "watch" : "fallback",
-          campaign: campaigns.find((campaign) => campaign.id === previous.campaignId),
-          reward: campaigns
-            .find((campaign) => campaign.id === previous.campaignId)
-            ?.rewards.find((reward) => reward.id === previous.rewardId),
-          channel: shouldKeep.channel ?? previous.channel,
-          reason: shouldKeep.reason,
-          reasonCode: shouldKeep.reasonCode,
-        };
-      } else if (previous.status === "watching" && previous.channel && shouldKeep.reason !== "No existing watch session") {
-        decision = {
-          ...decision,
-          reason: shouldKeep.reason,
-          reasonCode: shouldKeep.reasonCode,
-        };
-      }
-
       const decisionChanged = previous.campaignId !== decision.campaign?.id
         || previous.rewardId !== decision.reward?.id
         || previous.channel?.url !== decision.channel?.url
@@ -1227,6 +1439,19 @@ export async function runSchedulerTick(
             previous,
             { ...watchTabOptions, signal: options.signal },
           );
+          if (options.selectionIsCurrent?.[platform]?.() === false) {
+            if (prepared.managedByExtension && prepared.tabId !== previousManagedTabId) {
+              await adapter.stopWatchTab?.({
+                ...previous,
+                status: "watching",
+                channel: decision.channel,
+                tabId: prepared.tabId,
+                tabManagedByExtension: true,
+              }, { signal: options.signal });
+            }
+            emitDiagnostic(emit, platform, "debug", "Snapshot selection discarded after target health changed");
+            continue;
+          }
           // Only a genuinely NEW extension-managed tab counts as churn evidence.
           // Reusing the tab we already track happens on every ordinary tick, and
           // counting it would trip the breaker during completely normal farming.
@@ -1442,7 +1667,7 @@ async function claimReadyRewards(
   return { campaigns: updated, events };
 }
 
-function preserveClaimedRewards(
+export function preserveClaimedRewards(
   campaigns: DropCampaign[],
   previousCampaigns: readonly DropCampaign[],
 ): DropCampaign[] {
