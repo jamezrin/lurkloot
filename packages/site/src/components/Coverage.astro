@@ -204,18 +204,23 @@ const RING_RADIUS = Math.round((games.length * 196) / (2 * Math.PI));
     vertical-align: top;
     padding: 1.5rem 1.6rem;
   }
+  /* One hairline across the full width anchors the header row, matching the
+     rules between body rows. An accent rule per column was tried and removed:
+     the two segments met with no gap, so they read as a single line that
+     changed colour for no reason, and at 2px they fought the 1px rules below. */
+  .cov__matrix thead tr { border-top: 1px solid var(--line-strong); }
   .cov__matrix thead th {
-    padding-top: 0;
+    padding-top: 1.3rem;
     padding-bottom: 1.1rem;
   }
-  /* Column heads carry the platform colour as a rule above the name, which is
-     where the old badge + duplicate "supported" pill used to sit. */
+  /* The platform name carries its own colour instead — the same coding the
+     stacked mobile layout uses, and it lands on the word it identifies. */
   .cov__col {
     font-family: var(--font-display);
     font-weight: 700;
     font-size: clamp(1.3rem, 2.2vw, 1.75rem);
     letter-spacing: -0.025em;
-    border-top: 2px solid var(--c);
+    color: var(--c);
     width: 38%;
   }
   .cov__col--twitch { --c: var(--tw); }
@@ -249,8 +254,10 @@ const RING_RADIUS = Math.round((games.length * 196) / (2 * Math.PI));
       color: var(--text);
     }
   }
+  /* The rule runs the table's full width like every other one; a rule that
+     began at the first column read as an accident rather than a choice. */
+  .cov__matrix tfoot tr { border-top: 1px solid var(--line); }
   .cov__matrix tfoot td { padding-bottom: 0; }
-  .cov__foot { border-top: 1px solid var(--line); }
   .cov__foot--twitch { --c: var(--tw); }
   .cov__foot--kick { --c: var(--kk); }
   .cov__foot a {
@@ -311,7 +318,10 @@ const RING_RADIUS = Math.round((games.length * 196) / (2 * Math.PI));
       opacity: 0.55;
     }
     .cov__foot-spacer { display: none; }
-    .cov__foot { padding: 1.2rem 0 0; }
+    /* Qualified with tfoot: bare .cov__foot (0,1,0) loses to the shared
+       `.cov__matrix td` padding rule (0,1,1) and the links keep an indent the
+       stage headings above them do not have. */
+    .cov__matrix tfoot td { padding: 1.2rem 0 0; }
   }
 
   /* ---------- games lede ---------- */
