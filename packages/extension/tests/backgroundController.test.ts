@@ -2271,7 +2271,9 @@ describe("background controller", () => {
     detailsFail = true;
     await env.controller.tick();
 
-    expect(env.deps.createAdapter).toHaveBeenCalledTimes(6);
+    // Each platform tick now constructs one discovery adapter and one legacy
+    // selection adapter. #457 will reuse construction across the phases.
+    expect(env.deps.createAdapter).toHaveBeenCalledTimes(8);
     expect(env.state.campaigns.twitch.map((item) => item.id)).toEqual(["retained"]);
   });
 
@@ -4108,7 +4110,7 @@ describe("background controller", () => {
     }));
   });
 
-  it("reports material waits for same-platform scheduler work", async () => {
+  it("coalesces overlapping same-platform discovery instead of waiting on the scheduler lock", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-07-29T12:00:00.000Z"));
     const env = harness(farming(DEFAULT_SETTINGS));
@@ -4137,11 +4139,11 @@ describe("background controller", () => {
       expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
         category: "diagnostic",
         platform: "twitch",
-        globalTickId: 2,
-        platformTickId: 2,
-        message: "Tick #2 waited 75ms for Twitch platform work",
-        data: { waitMs: 75 },
+        message: expect.stringMatching(/^Discovery refresh finished in 0ms \(complete, revision=2, .*coalesced=1,/),
       }));
+      expect(allDiagnostics(env).some((event) =>
+        event.message.includes("waited") && event.message.includes("platform work"),
+      )).toBe(false);
     } finally {
       twitchDiscovery.resolve([]);
       await Promise.allSettled(secondTick ? [firstTick, secondTick] : [firstTick]);

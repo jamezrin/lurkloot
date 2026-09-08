@@ -1524,7 +1524,18 @@ export class TwitchAdapter implements PlatformAdapter {
         "twitch",
       );
     };
-    for (const check of checks) {
+    const observations = (): ChannelCheck[] => checks.flatMap((check) => {
+      if (!check) return [];
+      return [{
+        ...check,
+        campaignMatches: campaign && check.candidate.channelId
+          && availabilityResult.matches.has(check.candidate.channelId)
+          ? availabilityResult.matches.get(check.candidate.channelId)
+          : check.campaignMatches,
+      }];
+    });
+    for (let index = 0; index < checks.length; index += 1) {
+      const check = checks[index];
       if (!check) continue;
       checked += 1;
       if (!check.live || !check.categoryMatches) continue;
@@ -1533,6 +1544,7 @@ export class TwitchAdapter implements PlatformAdapter {
       if (campaign && !check.candidate.channelId) {
         winnerFallbacks += 1;
         const confirmed = await this.checkChannel(check.candidate, { campaign, signal });
+        checks[index] = confirmed;
         if (!confirmed.live || !confirmed.categoryMatches || confirmed.campaignMatches === false) continue;
         selectedCandidate = confirmed.candidate;
         campaignMatches = confirmed.campaignMatches;
@@ -1546,6 +1558,13 @@ export class TwitchAdapter implements PlatformAdapter {
       reportSelectionFinished();
       return {
         checked: candidates.length,
+        observations: observations(),
+        metrics: {
+          cacheHits: availabilityResult.cacheHits,
+          cacheMisses: availabilityResult.cacheMisses,
+          batchRequests: Math.ceil(streamCandidates.length / GQL_BATCH_OPERATION_LIMIT) + availabilityResult.batchRequests,
+          singleFallbacks: streamCheckResult.singleFallbacks + availabilityResult.singleFallbacks + winnerFallbacks,
+        },
         channel: {
           ...selectedCandidate,
           live: true,
@@ -1553,7 +1572,16 @@ export class TwitchAdapter implements PlatformAdapter {
       };
     }
     reportSelectionFinished();
-    return { checked: candidates.length };
+    return {
+      checked: candidates.length,
+      observations: observations(),
+      metrics: {
+        cacheHits: availabilityResult.cacheHits,
+        cacheMisses: availabilityResult.cacheMisses,
+        batchRequests: Math.ceil(streamCandidates.length / GQL_BATCH_OPERATION_LIMIT) + availabilityResult.batchRequests,
+        singleFallbacks: streamCheckResult.singleFallbacks + availabilityResult.singleFallbacks + winnerFallbacks,
+      },
+    };
   }
 
   private async batchCampaignAvailability(

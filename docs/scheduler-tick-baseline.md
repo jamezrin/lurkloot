@@ -47,7 +47,7 @@ Related scheduler entry paths and concurrency boundaries remain pinned by focuse
 - claim handoff: `backgroundController.test.ts` covers independent cross-platform handoffs, immediate post-claim heartbeats, and duplicate-handoff suppression;
 - discovery-signal overlap: `backgroundController.test.ts` proves bursts coalesce into one non-overlapping follow-up.
 
-The CLI interval baseline blocks one refresh across another elapsed interval. It proves provider work stays serialized by the controller lock, but every elapsed interval is queued and later runs. Changing that policy remains in #394; the planned implementation order remains #336 → #394 → #395 → #337.
+The CLI interval baseline blocks one refresh across another elapsed interval. Provider discovery is now single-flight per platform: elapsed intervals coalesce into at most one follow-up refresh instead of queuing every missed interval. Twitch and Kick own separate lanes, so either provider can publish while the other is blocked.
 
 ## Counting semantics
 
@@ -57,6 +57,7 @@ The CLI interval baseline blocks one refresh across another elapsed interval. It
 - `eventPublications` counts non-empty aggregate batches passed to the host reporter, not individual diagnostic or activity records.
 - Authentication health is saved before scheduler work so a later failure cannot erase the health observation. That makes two state saves per measured tick intentional.
 - `observedControllerMs` is parsed from the controller's emitted refresh, selection, and tick-completion diagnostics; assertions therefore verify the production timing instrumentation rather than only the fixture clock.
+- Snapshot candidate enumeration and validation are attributed to the controller's discovery duration. The legacy scheduler still performs its selection pass, but reads the committed normalized observations through an in-memory adapter view; #395 will make that selection lifecycle independently triggered and coalesced.
 - Real Twitch transport counts are pinned in `twitchCampaignDetailsReuse.test.ts`: the three-campaign cold refresh performs three `fetchJson` calls, while the following warm refresh adds only inventory and dashboard (five cumulative). `adapters.test.ts` pins a Kick refresh at two concurrent transport calls (campaigns and progress). The host matrix does not relabel adapter calls as HTTP requests.
 
 PR #450 / issue #339 merged before this baseline. Its Twitch campaign-details reuse is part of the starting behavior.

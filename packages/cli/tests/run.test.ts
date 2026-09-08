@@ -157,24 +157,24 @@ describe("CLI scheduler tick baseline", () => {
       reportBaseline(result);
 
       expect(result.counts).toEqual({
-        adapterOperations: 6,
+        adapterOperations: 8,
         campaignDiscovery: 2,
-        candidateListings: 0,
+        candidateListings: 2,
         channelChecks: 2,
         heartbeatAttempts: 1,
         heartbeatBlockedByDiscovery: 0,
         discoveryBlockedByHeartbeat: 0,
         // The non-once loop now performs one recovery pass for both providers
         // at startup before the first discovery completes.
-        adapterConstructions: 8,
+        adapterConstructions: 10,
         watcherReconciliations: 1,
       });
       expect(result.durationsMs).toEqual({
         discovery: 60,
-        selection: 20,
+        selection: 40,
         watcher: 5,
         persistence: 0,
-        total: 85,
+        total: 105,
       });
       expect(JSON.stringify(result)).not.toMatch(/credential|cookie|token|authorization|payload/i);
       expect(process.listeners("SIGINT")).toEqual(sigintListenersBefore);
@@ -201,7 +201,7 @@ describe("CLI scheduler tick baseline", () => {
         heartbeatAttempts: 0,
         heartbeatBlockedByDiscovery: 0,
         discoveryBlockedByHeartbeat: 0,
-        adapterConstructions: 2,
+        adapterConstructions: 3,
         watcherReconciliations: 0,
       },
       durationsMs: {
@@ -211,6 +211,7 @@ describe("CLI scheduler tick baseline", () => {
         persistence: 0,
         total: 30,
       },
+      outcomeCampaignId: undefined,
     });
   });
 
@@ -222,19 +223,19 @@ describe("CLI scheduler tick baseline", () => {
     reportBaseline(result);
 
     expect(result.counts).toMatchObject({
-      adapterOperations: 3,
+      adapterOperations: 4,
       campaignDiscovery: 1,
-      candidateListings: 0,
+      candidateListings: 1,
       channelChecks: 1,
-      adapterConstructions: 2,
+      adapterConstructions: 3,
       watcherReconciliations: 1,
     });
     expect(result.durationsMs).toEqual({
       discovery: 30,
-      selection: 10,
+      selection: 20,
       watcher: 5,
       persistence: 0,
-      total: 45,
+      total: 55,
     });
   });
 
@@ -269,19 +270,19 @@ describe("CLI scheduler tick baseline", () => {
     expect(result.outcomeCampaignId).toBe(`${platform}-campaign`);
 
     expect(result.counts).toMatchObject({
-      adapterOperations: scenario === "higherPriorityUnavailable" ? 7 : 4,
+      adapterOperations: scenario === "higherPriorityUnavailable" ? 6 : 4,
       campaignDiscovery: 1,
       candidateListings: scenario === "higherPriorityUnavailable" ? 2 : 1,
-      channelChecks: scenario === "higherPriorityUnavailable" ? 3 : 1,
-      adapterConstructions: 2,
+      channelChecks: scenario === "higherPriorityUnavailable" ? 2 : 1,
+      adapterConstructions: 3,
       watcherReconciliations: 1,
     });
     expect(result.durationsMs).toEqual({
       discovery: 30,
-      selection: scenario === "higherPriorityUnavailable" ? 50 : 20,
+      selection: scenario === "higherPriorityUnavailable" ? 40 : 20,
       watcher: 5,
       persistence: 0,
-      total: scenario === "higherPriorityUnavailable" ? 85 : 55,
+      total: scenario === "higherPriorityUnavailable" ? 75 : 55,
     });
   });
 
@@ -370,7 +371,7 @@ describe("runLoop disabled platform cleanup", () => {
 });
 
 describe("runLoop interval baseline", () => {
-  it("serializes provider work but queues each elapsed interval", async () => {
+  it("serializes provider discovery with at most one coalesced follow-up", async () => {
     vi.useFakeTimers();
     const pendingRefresh = deferred<DropCampaign[]>();
     let refreshCalls = 0;
