@@ -112,6 +112,8 @@ const drops: ScreenshotVariant = {
 };
 const extras: ScreenshotVariant = {
   layout: "extras",
+  platform: "twitch",
+  view: "watchlist",
   glow: EXTRAS_GLOW,
   eyebrowKey: "screenshotExtrasEyebrow",
   headlineKey: "screenshotExtrasHeadline",
@@ -119,6 +121,8 @@ const extras: ScreenshotVariant = {
 };
 const easy: ScreenshotVariant = {
   layout: "steps",
+  platform: "kick",
+  view: "drops",
   glow: EASY_GLOW,
   eyebrowKey: "screenshotEasyEyebrow",
   headlineKey: "screenshotEasyHeadline",

@@ -51,18 +51,26 @@ describe("store screenshot variants", () => {
     expect(screenshotVariant("nope").layout).toBe("hero");
   });
 
-  it("only hero and settings mount a live popup", () => {
+  it("mounts a live popup on every shot except updated", () => {
     expect(variantShowsPopup(screenshotVariant("drops"))).toBe(true);
+    expect(variantShowsPopup(screenshotVariant("extras"))).toBe(true);
+    expect(variantShowsPopup(screenshotVariant("easy"))).toBe(true);
     expect(variantShowsPopup(screenshotVariant("settings"))).toBe(true);
-    expect(variantShowsPopup(screenshotVariant("extras"))).toBe(false);
-    expect(variantShowsPopup(screenshotVariant("easy"))).toBe(false);
     expect(variantShowsPopup(screenshotVariant("updated"))).toBe(false);
   });
 
-  it("keeps popup shots at Twitch drops or settings views", () => {
+  it("wires extras to the Twitch watchlist and easy to Kick drops", () => {
+    const extras = screenshotVariant("extras");
+    const easy = screenshotVariant("easy");
     const drops = screenshotVariant("drops");
     const settings = screenshotVariant("settings");
-    if (!variantShowsPopup(drops) || !variantShowsPopup(settings)) throw new Error("expected popup shots");
+    if (!variantShowsPopup(extras) || !variantShowsPopup(easy) || !variantShowsPopup(drops) || !variantShowsPopup(settings)) {
+      throw new Error("expected popup shots");
+    }
+    expect(extras.platform).toBe("twitch");
+    expect(extras.view).toBe("watchlist");
+    expect(easy.platform).toBe("kick");
+    expect(easy.view).toBe("drops");
     expect(drops.platform).toBe("twitch");
     expect(drops.view).toBe("drops");
     expect(settings.view).toBe("settings");
