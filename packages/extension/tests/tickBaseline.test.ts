@@ -30,6 +30,9 @@ describe("scheduler tick baseline recorder", () => {
         campaignDiscovery: 0,
         candidateListings: 0,
         channelChecks: 0,
+        heartbeatAttempts: 0,
+        heartbeatBlockedByDiscovery: 0,
+        discoveryBlockedByHeartbeat: 0,
         campaignsEvaluated: 0,
         candidatesEvaluated: 0,
         watcherReconciliations: 0,
@@ -77,6 +80,43 @@ describe("scheduler tick baseline recorder", () => {
 });
 
 describe("extension scheduler tick baseline", () => {
+  it.each(["twitch", "kick"] as const)("measures isolated %s heartbeat/discovery overlap", async (platform) => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2026-09-01T20:00:00.000Z");
+
+    const result = await runExtensionBaselineCell(
+      platform,
+      "heartbeatOverlap",
+    );
+    reportBaseline(result);
+
+    expect(result.counts).toEqual({
+      adapterOperations: 4,
+      campaignDiscovery: 1,
+      candidateListings: 1,
+      channelChecks: 1,
+      heartbeatAttempts: 1,
+      heartbeatBlockedByDiscovery: 0,
+      discoveryBlockedByHeartbeat: 0,
+      campaignsEvaluated: 0,
+      candidatesEvaluated: 1,
+      watcherReconciliations: 1,
+      adapterConstructions: 3,
+      settingsLoads: 6,
+      stateLoads: 8,
+      stateSaves: 3,
+      eventPublications: 6,
+    });
+    expect(result.durationsMs).toEqual({
+      discovery: 30,
+      selection: 20,
+      watcher: 5,
+      persistence: 15,
+      total: 70,
+    });
+    expect(JSON.stringify(result)).not.toMatch(/credential|cookie|token|authorization|payload/i);
+  });
+
   it.each(["twitch", "kick"] as const)("measures an idle %s alarm tick", async (platform) => {
     vi.useFakeTimers();
     vi.setSystemTime("2026-09-01T20:00:00.000Z");
@@ -95,9 +135,9 @@ describe("extension scheduler tick baseline", () => {
         campaignsEvaluated: 0,
         candidatesEvaluated: 0,
         adapterOperations: 2,
-        adapterConstructions: 2,
-        settingsLoads: 3,
-        stateLoads: 3,
+        adapterConstructions: 1,
+        settingsLoads: 5,
+        stateLoads: 5,
         stateSaves: 2,
         eventPublications: 6,
         watcherReconciliations: 0,
@@ -124,24 +164,24 @@ describe("extension scheduler tick baseline", () => {
     reportBaseline(result);
 
     expect(result.counts).toMatchObject({
-      adapterOperations: 3,
+      adapterOperations: 4,
       campaignDiscovery: 1,
-      candidateListings: 0,
+      candidateListings: 1,
       channelChecks: 1,
       campaignsEvaluated: 0,
       candidatesEvaluated: 1,
-      adapterConstructions: 2,
-      settingsLoads: 3,
-      stateLoads: 3,
+      adapterConstructions: 1,
+      settingsLoads: 5,
+      stateLoads: 5,
       stateSaves: 2,
       watcherReconciliations: 1,
     });
     expect(result.durationsMs).toEqual({
       discovery: 30,
-      selection: 10,
+      selection: 20,
       watcher: 5,
       persistence: 10,
-      total: 55,
+      total: 65,
     });
   });
 
@@ -160,24 +200,24 @@ describe("extension scheduler tick baseline", () => {
     expect(result.outcomeCampaignId).toBe(`${platform}-campaign`);
 
     expect(result.counts).toMatchObject({
-      adapterOperations: scenario === "higherPriorityUnavailable" ? 7 : 4,
+      adapterOperations: scenario === "higherPriorityUnavailable" ? 6 : 4,
       campaignDiscovery: 1,
       candidateListings: scenario === "higherPriorityUnavailable" ? 2 : 1,
-      channelChecks: scenario === "higherPriorityUnavailable" ? 3 : 1,
+      channelChecks: scenario === "higherPriorityUnavailable" ? 2 : 1,
       campaignsEvaluated: scenario === "higherPriorityUnavailable" ? 2 : 1,
       candidatesEvaluated: scenario === "higherPriorityUnavailable" ? 2 : 1,
-      adapterConstructions: 2,
-      settingsLoads: 3,
-      stateLoads: 3,
+      adapterConstructions: 1,
+      settingsLoads: 5,
+      stateLoads: 5,
       stateSaves: 2,
       watcherReconciliations: 1,
     });
     expect(result.durationsMs).toEqual({
       discovery: 30,
-      selection: scenario === "higherPriorityUnavailable" ? 50 : 20,
+      selection: scenario === "higherPriorityUnavailable" ? 40 : 20,
       watcher: 5,
       persistence: 10,
-      total: scenario === "higherPriorityUnavailable" ? 95 : 65,
+      total: scenario === "higherPriorityUnavailable" ? 85 : 65,
     });
   });
 
@@ -221,8 +261,8 @@ describe("extension scheduler tick baseline", () => {
       total: 515,
     });
     expect(result.observedControllerMs).toEqual({
-      discovery: 300,
-      selection: 200,
+      discovery: 500,
+      selection: 0,
       total: 515,
     });
   });
