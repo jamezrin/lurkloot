@@ -608,6 +608,34 @@ describe("background controller", () => {
       }));
     });
 
+    it("does not fall back to a managed channel during unidentified active manual playback", async () => {
+      const env = harness(farming(DEFAULT_SETTINGS));
+      env.state.authHealth = {
+        ...env.state.authHealth,
+        twitch: { status: "healthy", checkedAt: new Date().toISOString() },
+      };
+      env.state.sessions.twitch = {
+        platform: "twitch",
+        status: "watching",
+        channel: channel("twitch", { username: "stale-managed" }),
+        offlineChecks: 0,
+        watchMode: "tab",
+      };
+      env.state.manualWatch = {
+        twitch: {
+          platform: "twitch",
+          tabId: 91,
+          checkedAt: new Date().toISOString(),
+          active: true,
+        },
+      };
+      env.twitch.claimChannelPoints = vi.fn(async () => true);
+
+      await env.controller.runTwitchChannelPointsClaim();
+
+      expect(env.twitch.claimChannelPoints).not.toHaveBeenCalled();
+    });
+
     it("serializes repeated claims and normal Twitch scheduler work", async () => {
       const env = harness(farming(DEFAULT_SETTINGS));
       env.state.authHealth = {

@@ -4529,10 +4529,10 @@ function eligibleTwitchChannelPointsChannel(
   now = Date.now(),
 ): ChannelCandidate | undefined {
   const manualWatch = state.manualWatch?.twitch;
-  if (settings.pauseOnManualWatch
+  const recentManualWatch = settings.pauseOnManualWatch
     && manualWatch?.active
-    && manualWatch.channel
-    && !isTimestampStale(manualWatch.checkedAt, MANUAL_WATCH_TTL_MS, now)) {
+    && !isTimestampStale(manualWatch.checkedAt, MANUAL_WATCH_TTL_MS, now);
+  if (recentManualWatch) {
     return manualWatch.channel;
   }
   const session = state.sessions.twitch;
