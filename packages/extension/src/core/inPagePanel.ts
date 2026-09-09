@@ -207,7 +207,7 @@ function ensureButton(): void {
     // unexpected floating control on every user's screen at once, which is a
     // worse outcome than the absence it guards against. The toolbar popup still
     // works, so absence degrades rather than breaks.
-    warnOnce("could not find a place in the page nav for the Lurkloot button; the toolbar popup still works");
+    warnOnce("could not find a place in the page nav for the panel button; the toolbar popup still works");
     return;
   }
   if (target.place === "before") target.element.parentElement?.insertBefore(button, target.element);
