@@ -452,6 +452,46 @@ describe("background controller", () => {
 
       expect(env.deps.clearAlarm).toHaveBeenCalledWith(TWITCH_CHANNEL_POINTS_ALARM_NAME);
     });
+
+    it("continues host reset when clearing the alarm fails", async () => {
+      const resetHostStorage = vi.fn(async () => undefined);
+      const env = harness(farming(DEFAULT_SETTINGS), {
+        clearAlarm: async (name) => {
+          if (name === TWITCH_CHANNEL_POINTS_ALARM_NAME) {
+            throw new Error("alarm storage unavailable");
+          }
+          return true;
+        },
+      });
+
+      await expect(env.controller.prepareForHostReset(resetHostStorage)).resolves.toBeUndefined();
+
+      expect(resetHostStorage).toHaveBeenCalledOnce();
+      expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
+        platform: "twitch",
+        level: "warn",
+        message: "Could not clear the Twitch channel-points alarm",
+      }));
+    });
+
+    it("contains alarm cleanup failures during shutdown", async () => {
+      const env = harness(farming(DEFAULT_SETTINGS), {
+        clearAlarm: async (name) => {
+          if (name === TWITCH_CHANNEL_POINTS_ALARM_NAME) {
+            throw new Error("alarm storage unavailable");
+          }
+          return true;
+        },
+      });
+
+      env.controller.shutdown();
+
+      await vi.waitFor(() => expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
+        platform: "twitch",
+        level: "warn",
+        message: "Could not clear the Twitch channel-points alarm",
+      })));
+    });
   });
 
   describe("Twitch channel points claim-only operation", () => {

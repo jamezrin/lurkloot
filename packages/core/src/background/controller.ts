@@ -984,6 +984,19 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     }
   }
 
+  async function clearTwitchChannelPointsAlarmBestEffort(): Promise<void> {
+    try {
+      await deps.clearAlarm?.(TWITCH_CHANNEL_POINTS_ALARM_NAME);
+    } catch {
+      await reportBestEffort([{
+        category: "diagnostic",
+        platform: "twitch",
+        level: "warn",
+        message: "Could not clear the Twitch channel-points alarm",
+      }]);
+    }
+  }
+
   async function scheduleTwitchIntegrityRefresh(
     integrity: TwitchIntegrity,
     emit?: EventEmitter,
@@ -3662,7 +3675,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     abortActiveTicks("Controller shutdown");
     closeTwitchIntegrityLifecycle("Controller shutdown");
     void clearTwitchIntegrityAlarmBestEffort();
-    void deps.clearAlarm?.(TWITCH_CHANNEL_POINTS_ALARM_NAME);
+    void clearTwitchChannelPointsAlarmBestEffort();
     abortClaimHandoffs();
     void cancelHeartbeatPublicationLeases(PLATFORMS);
     clearHeartbeatOwnershipInBackground(PLATFORMS);
@@ -3681,7 +3694,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     closeTwitchIntegrityLifecycle("Host reset");
     await stopDiscoverySignalControllersAndReport(PLATFORMS);
     await clearTwitchIntegrityAlarmBestEffort();
-    await deps.clearAlarm?.(TWITCH_CHANNEL_POINTS_ALARM_NAME);
+    await clearTwitchChannelPointsAlarmBestEffort();
     abortClaimHandoffs();
     await clearHeartbeatOwnership(PLATFORMS);
     await withSettingsLock(() => withStateLock(() => withEventCollector(async (emit, events) => {
