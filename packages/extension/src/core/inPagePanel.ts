@@ -1,5 +1,11 @@
 import { browser } from "wxt/browser";
 import type { ExtensionSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
+import {
+  IN_PAGE_PANEL_DOM_KEY,
+  PANEL_DOCUMENT_PATH,
+  normalizeInPagePanelDomTokens,
+  type InPagePanelDomTokens,
+} from "./inPagePanelDom";
 
 // Stage 1 of the in-page panel: an icon button in the site's own top-right nav,
 // and a draggable window hosting the panel document (entrypoints/inpagePanel),
@@ -13,7 +19,6 @@ import type { ExtensionSettings, Platform, SchedulerState } from "@lurkloot/shar
 // per platform; behind the iframe this bundle stays in single-digit kilobytes.
 // Everything here is styled with hand-written CSS for the same reason.
 
-const BUTTON_ID = "lurkloot-nav-button";
 const IDLE_BACKGROUND = "rgba(128,128,128,.22)";
 const HOVER_BACKGROUND = "rgba(128,128,128,.34)";
 
@@ -28,7 +33,6 @@ const CHROME_TEXT = "light-dark(#18181b, #efeff1)";
 const CHROME_MUTED = "light-dark(#53535f, #adadb8)";
 const CHROME_HOVER = "light-dark(rgba(0,0,0,.08), rgba(255,255,255,.12))";
 const PANEL_SURFACE = "light-dark(#ffffff, #18181b)";
-const PANEL_ID = "lurkloot-panel";
 const SETTINGS_KEY = "settings";
 const STATE_KEY = "schedulerState";
 const UI_STATE_KEY = "inPagePanelUi";
@@ -99,6 +103,8 @@ let frame: HTMLIFrameElement | undefined;
 let anchorObserver: MutationObserver | undefined;
 let ownTabId: number | undefined;
 let enabled = false;
+let started = false;
+let domTokens: InPagePanelDomTokens | undefined;
 
 export function mountInPagePanel(forPlatform: Platform): void {
   platform = forPlatform;
@@ -106,6 +112,12 @@ export function mountInPagePanel(forPlatform: Platform): void {
 }
 
 async function start(): Promise<void> {
+  if (started) {
+    await reconcile();
+    return;
+  }
+  started = true;
+
   // Asked once. A content script cannot read its own tab id, and the id is
   // stable for the document's lifetime, so everything downstream re-evaluates
   // from persisted state rather than re-asking.
@@ -128,6 +140,18 @@ async function start(): Promise<void> {
   window.addEventListener("resize", clampIntoViewport);
 }
 
+async function ensureDomTokens(): Promise<InPagePanelDomTokens> {
+  if (domTokens) return domTokens;
+  const stored = await browser.storage.local.get(IN_PAGE_PANEL_DOM_KEY);
+  const normalized = normalizeInPagePanelDomTokens(stored[IN_PAGE_PANEL_DOM_KEY]);
+  const previous = stored[IN_PAGE_PANEL_DOM_KEY] as InPagePanelDomTokens | undefined;
+  if (!previous || previous.buttonId !== normalized.buttonId || previous.panelId !== normalized.panelId) {
+    await browser.storage.local.set({ [IN_PAGE_PANEL_DOM_KEY]: normalized });
+  }
+  domTokens = normalized;
+  return normalized;
+}
+
 async function reconcile(): Promise<void> {
   const stored = await browser.storage.local.get([SETTINGS_KEY, STATE_KEY]);
   const settings = stored[SETTINGS_KEY] as Partial<ExtensionSettings> | undefined;
@@ -138,6 +162,7 @@ async function reconcile(): Promise<void> {
     teardown();
     return;
   }
+  await ensureDomTokens();
   ensureButton();
   watchAnchor();
   if ((await readUi())?.open) await openPanel();
@@ -197,7 +222,7 @@ let warned = false;
 function warnOnce(message: string): void {
   if (warned) return;
   warned = true;
-  console.warn(`[Lurkloot] ${message}`);
+  console.warn(message);
 }
 
 function resolveAnchor(): { element: Element; place: Anchor["place"] } | undefined {
@@ -211,14 +236,15 @@ function resolveAnchor(): { element: Element; place: Anchor["place"] } | undefin
 function createButton(): HTMLButtonElement {
   const metrics = BUTTON_METRICS[platform];
   const el = document.createElement("button");
-  el.id = BUTTON_ID;
+  el.id = domTokens!.buttonId;
   el.type = "button";
-  el.innerHTML = `${ICON}<span>Lurkloot</span>`;
-  // The visible text is the accessible name, so no aria-label: adding one would
-  // override what the user can actually read. Neither string is localized —
-  // this module is dependency-free by design and cannot reach the locale
-  // catalogs without pulling the popup bundle into every page load.
+  el.innerHTML = ICON;
+  // Icon-only chrome: the accessible name can no longer come from a visible
+  // text node. Neither string is localized — this module is dependency-free by
+  // design and cannot reach the locale catalogs without pulling the popup
+  // bundle into every page load.
   el.title = "Open Lurkloot";
+  el.setAttribute("aria-label", "Open Lurkloot");
   el.setAttribute("aria-expanded", "false");
   el.style.cssText = [
     "all:unset",
@@ -273,7 +299,7 @@ async function openPanel(): Promise<void> {
   const ui = await readUi();
 
   panel = document.createElement("div");
-  panel.id = PANEL_ID;
+  panel.id = domTokens!.panelId;
   panel.style.cssText = [
     "position:fixed",
     "z-index:2147483647",
@@ -301,7 +327,7 @@ async function openPanel(): Promise<void> {
   ].join(";");
 
   const title = document.createElement("span");
-  title.textContent = "Lurkloot";
+  title.textContent = "";
   const close = document.createElement("button");
   close.type = "button";
   close.textContent = "×";
@@ -329,7 +355,10 @@ async function openPanel(): Promise<void> {
   // bundle off every page view.
   frame = document.createElement("iframe");
   frame.title = "Lurkloot";
-  frame.src = browser.runtime.getURL("/inpagePanel.html");
+  // WXT types PublicPath from current entrypoint filenames; /p.html is not in
+  // that union until the panel entrypoint is renamed.
+  // @ts-expect-error PANEL_DOCUMENT_PATH is /p.html ahead of the WAR rename.
+  frame.src = browser.runtime.getURL(PANEL_DOCUMENT_PATH);
   frame.style.cssText = [
     `width:${PANEL_WIDTH}px`,
     `height:${PANEL_HEIGHT}px`,
