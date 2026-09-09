@@ -214,9 +214,8 @@ describe("settings search view", () => {
 
   it("organizes the normal view into ordered collapsible settings sections", () => {
     const { container } = mountSettings();
-    // Target the title span by its class: the platform sections render a
-    // colored mark span ahead of the title, so an ordinal lookup would read the
-    // mark for those two and the title for the rest.
+    // Target the title span by its class rather than by ordinal, so adding a
+    // badge or an icon to one section cannot silently shift what this reads.
     const sectionTitles = [...container.querySelectorAll<HTMLButtonElement>('button[aria-expanded]')]
       .map((button) => button.querySelector<HTMLSpanElement>("span.uppercase")?.textContent?.trim());
 

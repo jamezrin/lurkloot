@@ -1,5 +1,4 @@
 import React from "react";
-import { Settings as SettingsIcon, type LucideIcon } from "lucide-react";
 import type { CategorySelection, ExtensionSettings, LanguageOverride, Platform } from "@lurkloot/shared/models";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 import { LOCALE_OPTIONS } from "@lurkloot/shared/i18n";
@@ -56,11 +55,6 @@ export interface SettingsSectionDef extends SettingsSectionNode<SettingsEntryDef
   // Subtitle under the section heading. Only the platform sections set it: the
   // General groups each render as their own section and carry their own.
   description?: string;
-  // Exactly one of icon/iconNode is set per section: General uses a plain
-  // lucide icon, while Twitch/Kick use a colored platform mark (iconNode) so
-  // the two sections don't render identically.
-  icon?: LucideIcon;
-  iconNode?: React.ReactNode;
 }
 
 // The shape of a settings patch's `platform` block, keyed by platform. Typing
@@ -81,7 +75,6 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
 
   const general: SettingsSectionDef = {
     id: "general",
-    icon: SettingsIcon,
     rows: [],
     groups: [
       {
@@ -353,17 +346,7 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
   };
 
   const platformSection = (platform: Platform): SettingsSectionDef => {
-    // The old SettingsPlatformSwitch rendered its selected platform this way;
-    // it's the only styling carried forward now that the switch is gone.
     const details = PLATFORMS[platform];
-    const iconNode = (
-      <span
-        className="flex h-4 w-4 items-center justify-center rounded text-[10px] font-black"
-        style={{ backgroundColor: details.color, color: platform === "kick" ? "#07140a" : "#fff" }}
-      >
-        {details.mark}
-      </span>
-    );
 
     const claimEntry: SettingsEntryDef = platform === "twitch"
       ? {
@@ -492,7 +475,6 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
 
     return {
       id: platform,
-      iconNode,
       description: t(platform === "twitch" ? "twitchSectionDescription" : "kickSectionDescription"),
       rows: [claimEntry],
       groups,
