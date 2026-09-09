@@ -1,5 +1,5 @@
 import type { CategorySearchResult, CoreRuntimeMessage, PlaybackControl, RuntimeSnapshot } from "@lurkloot/shared/messages";
-import type { DropCampaign, DropReward, EngineSettings, ManagedWatchTab, Platform, PlatformAuthHealth, PlaybackTelemetry, SchedulerState, TablessHeartbeatCadence, WatchReasonCode, WatchSession } from "@lurkloot/shared/models";
+import type { ChannelCandidate, DropCampaign, DropReward, EngineSettings, ManagedWatchTab, Platform, PlatformAuthHealth, PlaybackTelemetry, SchedulerState, TablessHeartbeatCadence, WatchReasonCode, WatchSession } from "@lurkloot/shared/models";
 import type { ActivityEvent, DiagnosticEvent, EngineEvent, EventEmitter, EventReporter, FarmingStopReason, PageContextOpenReason } from "@lurkloot/shared/events";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 import { autoClaimChannelPointsFor, isFarmingActive } from "@lurkloot/shared/settings";
@@ -1533,6 +1533,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         },
       };
       await deps.saveSettings(nextSettings);
+      await reconcileTwitchChannelPointsAlarm(nextSettings);
       return nextSettings;
     });
   }
@@ -4394,7 +4395,37 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   }
 
   async function runTwitchChannelPointsClaim(): Promise<void> {
-    // Implemented as a serialized claim-only operation below.
+    if (controllerShutdown) return;
+    await withPlatformLock("twitch", () => withEventCollector(async (emit, events) => {
+      if (controllerShutdown) return;
+      const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
+      if (!settings.platform.twitch.enabled
+        || !autoClaimChannelPointsFor(settings, "twitch")
+        || state.authHealth.twitch.status !== "healthy") return;
+      const channel = eligibleTwitchChannelPointsChannel(settings, state);
+      if (!channel) return;
+      try {
+        const adapter = createAdapter("twitch", settings, emit, true);
+        const claimed = await adapter.claimChannelPoints?.(channel);
+        if (claimed) {
+          emit({
+            category: "diagnostic",
+            platform: "twitch",
+            level: "info",
+            message: `Claimed channel points for ${channel.displayName ?? channel.username}`,
+          });
+        }
+      } catch (error) {
+        emit({
+          category: "diagnostic",
+          platform: "twitch",
+          level: "warn",
+          message: error instanceof Error ? error.message : "Channel points claim failed",
+        });
+      } finally {
+        await reportBestEffort(events);
+      }
+    }));
   }
 
   async function safeNotify(title: string, message: string): Promise<void> {
@@ -4490,6 +4521,22 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     prepareForHostReset,
     settleBackgroundWork,
   };
+}
+
+function eligibleTwitchChannelPointsChannel(
+  settings: EngineSettings,
+  state: SchedulerState,
+  now = Date.now(),
+): ChannelCandidate | undefined {
+  const manualWatch = state.manualWatch?.twitch;
+  if (settings.pauseOnManualWatch
+    && manualWatch?.active
+    && manualWatch.channel
+    && !isTimestampStale(manualWatch.checkedAt, MANUAL_WATCH_TTL_MS, now)) {
+    return manualWatch.channel;
+  }
+  const session = state.sessions.twitch;
+  return session.status === "watching" ? session.channel : undefined;
 }
 
 function farmingLifecycleEvents(previous: SchedulerState, next: SchedulerState): ActivityEvent[] {

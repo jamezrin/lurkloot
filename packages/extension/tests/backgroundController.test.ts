@@ -435,6 +435,15 @@ describe("background controller", () => {
       expect(env.deps.clearAlarm).toHaveBeenCalledWith(TWITCH_CHANNEL_POINTS_ALARM_NAME);
     });
 
+    it("clears the alarm when startup normalization disables Twitch", async () => {
+      const env = harness(farming({ ...DEFAULT_SETTINGS, autoStartDropFarming: false }));
+
+      await env.controller.handleStartup();
+
+      expect(env.settings.platform.twitch.enabled).toBe(false);
+      expect(env.deps.clearAlarm).toHaveBeenCalledWith(TWITCH_CHANNEL_POINTS_ALARM_NAME);
+    });
+
     it("clears the alarm during reset and shutdown", async () => {
       const env = harness(farming(DEFAULT_SETTINGS));
 
@@ -442,6 +451,200 @@ describe("background controller", () => {
       env.controller.shutdown();
 
       expect(env.deps.clearAlarm).toHaveBeenCalledWith(TWITCH_CHANNEL_POINTS_ALARM_NAME);
+    });
+  });
+
+  describe("Twitch channel points claim-only operation", () => {
+    it("claims for a recent manual channel without changing the paused session", async () => {
+      const env = harness(farming(DEFAULT_SETTINGS));
+      const manualChannel = channel("twitch", { username: "manual-creator", url: "https://www.twitch.tv/manual-creator" });
+      env.state.authHealth = {
+        ...env.state.authHealth,
+        twitch: { status: "healthy", checkedAt: new Date().toISOString() },
+      };
+      env.state.sessions.twitch = {
+        platform: "twitch",
+        status: "paused",
+        channel: channel("twitch", { username: "old-managed" }),
+        offlineChecks: 0,
+        reasonCode: "manual_watch",
+        message: "Manual watch detected",
+      };
+      env.state.manualWatch = {
+        twitch: {
+          platform: "twitch",
+          tabId: 91,
+          checkedAt: new Date().toISOString(),
+          active: true,
+          channel: manualChannel,
+        },
+      };
+      const beforeSession = structuredClone(env.state.sessions.twitch);
+      env.twitch.claimChannelPoints = vi.fn(async () => true);
+
+      await env.controller.runTwitchChannelPointsClaim();
+
+      expect(env.twitch.claimChannelPoints).toHaveBeenCalledOnce();
+      expect(env.twitch.claimChannelPoints).toHaveBeenCalledWith(manualChannel);
+      expect(env.state.sessions.twitch).toEqual(beforeSession);
+      expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
+        platform: "twitch",
+        level: "info",
+        message: "Claimed channel points for manual-creator",
+      }));
+    });
+
+    it.each(["tab", "tabless"] as const)("claims for a managed %s watch session", async (watchMode) => {
+      const env = harness(farming(DEFAULT_SETTINGS));
+      const managedChannel = channel("twitch");
+      env.state.authHealth = {
+        ...env.state.authHealth,
+        twitch: { status: "healthy", checkedAt: new Date().toISOString() },
+      };
+      env.state.sessions.twitch = {
+        platform: "twitch",
+        status: "watching",
+        channel: managedChannel,
+        offlineChecks: 0,
+        watchMode,
+      };
+      env.twitch.claimChannelPoints = vi.fn(async () => false);
+
+      await env.controller.runTwitchChannelPointsClaim();
+
+      expect(env.twitch.claimChannelPoints).toHaveBeenCalledOnce();
+      expect(env.twitch.claimChannelPoints).toHaveBeenCalledWith(managedChannel);
+      expect(allDiagnostics(env).some((event) => event.message.includes("Claimed channel points"))).toBe(false);
+    });
+
+    it.each([
+      { name: "Twitch is disabled", enabled: false, autoClaim: true, authStatus: "healthy", manual: "recent" },
+      { name: "auto-claim is disabled", enabled: true, autoClaim: false, authStatus: "healthy", manual: "recent" },
+      { name: "authentication is unknown", enabled: true, autoClaim: true, authStatus: "unknown", manual: "recent" },
+      { name: "authentication is unhealthy", enabled: true, autoClaim: true, authStatus: "unhealthy", manual: "recent" },
+      { name: "manual telemetry is stale", enabled: true, autoClaim: true, authStatus: "healthy", manual: "stale" },
+      { name: "manual telemetry is inactive", enabled: true, autoClaim: true, authStatus: "healthy", manual: "inactive" },
+      { name: "the manual channel is unidentified", enabled: true, autoClaim: true, authStatus: "healthy", manual: "unidentified" },
+    ] as const)("makes no request when $name", async ({ enabled, autoClaim, authStatus, manual }) => {
+      const enabledSettings = farming(DEFAULT_SETTINGS);
+      const env = harness({
+        ...enabledSettings,
+        platform: {
+          ...enabledSettings.platform,
+          twitch: {
+            ...enabledSettings.platform.twitch,
+            enabled,
+            autoClaimChannelPoints: autoClaim,
+          },
+        },
+      });
+      env.state.authHealth = {
+        ...env.state.authHealth,
+        twitch: {
+          status: authStatus,
+          checkedAt: new Date().toISOString(),
+          ...(authStatus === "unhealthy" ? { reason: "signed out" } : {}),
+        } as PlatformAuthHealth,
+      };
+      env.state.sessions.twitch = {
+        platform: "twitch",
+        status: "paused",
+        offlineChecks: 0,
+        reasonCode: "manual_watch",
+      };
+      env.state.manualWatch = {
+        twitch: {
+          platform: "twitch",
+          tabId: 91,
+          checkedAt: new Date(manual === "stale" ? Date.now() - 120_000 : Date.now()).toISOString(),
+          active: manual !== "inactive",
+          ...(manual === "unidentified" ? {} : { channel: channel("twitch") }),
+        },
+      };
+      env.twitch.claimChannelPoints = vi.fn(async () => true);
+
+      await env.controller.runTwitchChannelPointsClaim();
+
+      expect(env.twitch.claimChannelPoints).not.toHaveBeenCalled();
+      expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
+      expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
+      expect(env.twitch.stopWatchTab).not.toHaveBeenCalled();
+    });
+
+    it("reports claim failures without changing scheduler state or starting other work", async () => {
+      const env = harness(farming(DEFAULT_SETTINGS));
+      env.state.authHealth = {
+        ...env.state.authHealth,
+        twitch: { status: "healthy", checkedAt: new Date().toISOString() },
+      };
+      env.state.sessions.twitch = {
+        platform: "twitch",
+        status: "watching",
+        channel: channel("twitch"),
+        offlineChecks: 2,
+        errorChecks: 3,
+        retryAfter: "2026-12-09T23:59:00.000Z",
+        heartbeatChecks: 4,
+        lastHeartbeatOk: false,
+        tablessFallback: true,
+        watchMode: "tabless",
+      };
+      const before = structuredClone(env.state);
+      env.twitch.claimChannelPoints = vi.fn(async () => {
+        throw new Error("Channel points lookup failed");
+      });
+
+      await env.controller.runTwitchChannelPointsClaim();
+
+      expect(env.state).toEqual(before);
+      expect(env.deps.saveState).not.toHaveBeenCalled();
+      expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
+      expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
+      expect(env.twitch.stopWatchTab).not.toHaveBeenCalled();
+      expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
+        platform: "twitch",
+        level: "warn",
+        message: "Channel points lookup failed",
+      }));
+    });
+
+    it("serializes repeated claims and normal Twitch scheduler work", async () => {
+      const env = harness(farming(DEFAULT_SETTINGS));
+      env.state.authHealth = {
+        ...env.state.authHealth,
+        twitch: { status: "healthy", checkedAt: new Date().toISOString() },
+      };
+      env.state.sessions.twitch = {
+        platform: "twitch",
+        status: "watching",
+        channel: channel("twitch"),
+        offlineChecks: 0,
+        watchMode: "tab",
+      };
+      const firstClaim = deferred<boolean>();
+      let concurrentClaims = 0;
+      let maxConcurrentClaims = 0;
+      env.twitch.claimChannelPoints = vi.fn(async () => {
+        concurrentClaims += 1;
+        maxConcurrentClaims = Math.max(maxConcurrentClaims, concurrentClaims);
+        const result = await firstClaim.promise;
+        concurrentClaims -= 1;
+        return result;
+      });
+
+      const first = env.controller.runTwitchChannelPointsClaim();
+      await vi.waitFor(() => expect(env.twitch.claimChannelPoints).toHaveBeenCalledOnce());
+      const second = env.controller.runTwitchChannelPointsClaim();
+      const tick = env.controller.tick(["twitch"]);
+      await Promise.resolve();
+
+      expect(env.twitch.claimChannelPoints).toHaveBeenCalledOnce();
+      expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
+      firstClaim.resolve(false);
+      await Promise.all([first, second, tick]);
+
+      expect(maxConcurrentClaims).toBe(1);
+      expect(env.twitch.refreshCampaigns).toHaveBeenCalledOnce();
     });
   });
 
@@ -5010,6 +5213,11 @@ describe("background controller", () => {
       username: "secondcreator",
       url: "https://www.twitch.tv/secondcreator",
     });
+    env.twitch.claimChannelPoints = vi.fn(async () => false);
+    await env.controller.runTwitchChannelPointsClaim();
+    expect(env.twitch.claimChannelPoints).toHaveBeenCalledWith(expect.objectContaining({
+      username: "secondcreator",
+    }));
 
     await env.controller.handleMessage(
       { type: "playbackTelemetry", platform: "twitch", telemetry },

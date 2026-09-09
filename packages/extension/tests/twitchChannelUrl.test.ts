@@ -18,6 +18,7 @@ describe("Twitch channel URLs", () => {
     "https://www.twitch.tv/directory",
     "https://www.twitch.tv/downloads",
     "https://www.twitch.tv/drops",
+    "https://www.twitch.tv/following",
     "https://www.twitch.tv/inventory",
     "https://www.twitch.tv/jobs",
     "https://www.twitch.tv/login",
