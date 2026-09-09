@@ -882,7 +882,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       category: "diagnostic",
       platform,
       level: attempt.complete ? "debug" : "warn",
-      message: `Discovery refresh finished in ${duration}ms (${outcome}, revision=${snapshot?.revision ?? 0}, age=${age}ms, coalesced=${attempt.coalesced}, campaigns=${metrics?.campaigns ?? 0}, skipped before channel work=${metrics?.skippedBeforeChannelWork ?? 0}, candidates=${metrics?.candidates ?? 0}, cache hits=${metrics?.cacheHits ?? 0}, cache misses=${metrics?.cacheMisses ?? 0}, batch requests=${metrics?.batchRequests ?? 0}, single fallbacks=${metrics?.singleFallbacks ?? 0})`,
+      message: `Discovery refresh finished in ${duration}ms (${outcome}, revision=${snapshot?.revision ?? 0}, age=${age}ms, coalesced=${attempt.coalesced}, campaigns=${metrics?.campaigns ?? 0}, skipped before channel work=${metrics?.skippedBeforeChannelWork ?? 0}, candidates=${metrics?.candidates ?? 0}, unique channel checks=${metrics?.uniqueChannelChecks ?? 0}, cache hits=${metrics?.cacheHits ?? 0}, cache misses=${metrics?.cacheMisses ?? 0}, batch requests=${metrics?.batchRequests ?? 0}, single fallbacks=${metrics?.singleFallbacks ?? 0})`,
     });
     if (attempt.complete && snapshot) {
       discoveryEvents[platform].push({

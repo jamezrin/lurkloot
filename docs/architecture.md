@@ -54,6 +54,34 @@ remain in force. Tick start/finish timing covers executed work only; separate
 diagnostics report merged or discarded trigger counts. Heartbeat admission and
 its fixed cadence remain independent of scheduler admission.
 
+### Discovery work
+
+The shared collector evaluates campaign farmability using the refresh's settings
+and one timestamp before listing channels. Completed, expired, excluded,
+infeasible and statically disallowed campaigns stay in the inventory with empty
+channel observations. Claimable rewards and uncertain channel eligibility retain
+their existing behavior. This gate uses the same evaluator as selection.
+
+Kick checks eligible campaigns through an optional adapter batch contract. Three
+workers process independent campaigns; each campaign checks candidates in order
+and stops at its first valid channel. This avoids speculative requests after an
+early match. Idle Watchlist checks are independent jobs and all remain observed.
+Raw API/page responses are shared by URL only within that discovery revision;
+each candidate retains its own campaign, ACL metadata and category expectation.
+The next revision fetches fresh evidence. A single campaign's candidate chain
+remains sequential, trading its latency for the existing early-match request
+budget. Campaign and candidate result ordering never depends on completion order.
+
+Missing Kick inventory/progress, missing channel evidence, cancellation or failed
+checks do not replace the last coherent snapshot. On failure, workers stop taking
+new work and drain active requests before returning, so cycle-level fetch
+observation can be consumed afterward. HTTP 429 never retries through a different
+execution context. Discovery diagnostics report duration, inventory count,
+campaigns skipped before channel work, candidate observations and unique channel
+checks. The attribution fields contain only counts; strict missing-evidence
+failures use fixed messages. Both extension and CLI run this collector and the
+same Kick adapter.
+
 ## Runtime Messages
 
 The popup and content scripts do not call adapters directly. They send typed runtime messages from `@lurkloot/shared/messages`:
