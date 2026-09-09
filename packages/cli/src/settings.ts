@@ -147,6 +147,7 @@ const EXTENSION_ONLY_KEYS = new Set<string>([
   "autoStartDropFarming",
   "languageOverride",
   "rateNudgeStatus",
+  "githubStarNudgeStatus",
   "diagnosticLogging",
   // Display-only popup preference for the Drops list; a headless run has no
   // Drops list to filter, so it is rejected rather than silently ignored.

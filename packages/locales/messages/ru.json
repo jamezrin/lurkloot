@@ -989,6 +989,15 @@
   "rateNudgeDismiss": {
     "message": "Не сейчас"
   },
+  "githubStarNudgeTitle": {
+    "message": "Lurkloot — проект с открытым исходным кодом"
+  },
+  "githubStarNudgeBody": {
+    "message": "Если расширение оказалось полезным, звезда на GitHub поможет другим его найти. Вклад в проект приветствуется — особенно функции и переводы."
+  },
+  "githubStarNudgeAction": {
+    "message": "Поставить звезду на GitHub"
+  },
   "removeItem": {
     "message": "Удалить $1"
   },

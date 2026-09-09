@@ -35,6 +35,10 @@ export interface ClaimGuidance {
 // the user either rates or dismisses it, after which it never shows again.
 export type RateNudgeStatus = "pending" | "rated" | "dismissed";
 
+// Lifecycle of the one-time GitHub star nudge. "pending" until the user either
+// stars or dismisses it, after which it never shows again.
+export type GithubStarNudgeStatus = "pending" | "starred" | "dismissed";
+
 export interface DropReward {
   id: string;
   name: string;
@@ -410,6 +414,7 @@ export interface ExtensionSettings extends EngineSettings {
   adFocusMode: AdFocusMode;
   languageOverride: LanguageOverride;
   rateNudgeStatus: RateNudgeStatus;
+  githubStarNudgeStatus: GithubStarNudgeStatus;
   showTips: boolean;
   // Extension-only persistence policy. Normal farming activity is always
   // recorded; this opt-in adds lower-level technical diagnostics.

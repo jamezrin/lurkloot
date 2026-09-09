@@ -34,6 +34,8 @@ export const GITHUB_TRANSLATION_GUIDE_URL = "https://github.com/jamezrin/lurkloo
 export const GITHUB_NEW_ISSUE_URL_BASE = "https://github.com/jamezrin/lurkloot/issues/new";
 // How long after install before the one-time "rate it" nudge appears.
 export const RATE_NUDGE_MIN_DAYS = 3;
+// How long after install before the one-time GitHub star nudge appears.
+export const GITHUB_STAR_NUDGE_MIN_DAYS = 7;
 
 export const GAME_ACCENTS = ["#2563eb", "#0891b2", "#ef4444", "#16a34a", "#9333ea", "#f59e0b"];
 

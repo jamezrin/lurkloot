@@ -13,6 +13,7 @@ describe("engine settings", () => {
     "adFocusMode",
     "languageOverride",
     "rateNudgeStatus",
+    "githubStarNudgeStatus",
     "diagnosticLogging",
     "dropsListFilter",
   ] as const;
@@ -31,6 +32,7 @@ describe("engine settings", () => {
     expect(DEFAULT_SETTINGS.adFocusMode).toBe("window");
     expect(DEFAULT_SETTINGS.languageOverride).toBe("browser");
     expect(DEFAULT_SETTINGS.rateNudgeStatus).toBe("pending");
+    expect(DEFAULT_SETTINGS.githubStarNudgeStatus).toBe("pending");
   });
 });
 
@@ -261,6 +263,15 @@ describe("settings", () => {
     expect(mergeSettings({ rateNudgeStatus: "rated" }).rateNudgeStatus).toBe("rated");
     expect(mergeSettings({ rateNudgeStatus: "dismissed" }).rateNudgeStatus).toBe("dismissed");
     expect(mergeSettings({ rateNudgeStatus: "bogus" } as unknown as Parameters<typeof mergeSettings>[0]).rateNudgeStatus)
+      .toBe("pending");
+  });
+
+  it("validates the github star nudge status", () => {
+    expect(DEFAULT_SETTINGS.githubStarNudgeStatus).toBe("pending");
+    expect(mergeSettings(undefined).githubStarNudgeStatus).toBe("pending");
+    expect(mergeSettings({ githubStarNudgeStatus: "starred" }).githubStarNudgeStatus).toBe("starred");
+    expect(mergeSettings({ githubStarNudgeStatus: "dismissed" }).githubStarNudgeStatus).toBe("dismissed");
+    expect(mergeSettings({ githubStarNudgeStatus: "bogus" } as unknown as Parameters<typeof mergeSettings>[0]).githubStarNudgeStatus)
       .toBe("pending");
   });
 
