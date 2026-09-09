@@ -1641,6 +1641,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       afterLoad?.(current);
       const settings = deps.applySettingsPatch(current, patch);
       await deps.saveSettings(settings);
+      for (const platform of invalidatedPlatforms) {
+        if (!settings.platform[platform].enabled) cancelPendingTick(platform);
+      }
       afterPersist?.(settings);
       await ensureSchedulerAlarms(settings.pollIntervalMinutes);
       await reconcileTwitchChannelPointsAlarm(settings);
@@ -1981,6 +1984,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   type DiscoverySignalRefreshRequest = {
     controller: DiscoverySignalController;
     generation: number;
+    count: number;
   };
   const discoverySignalRefreshPending: Record<Platform, DiscoverySignalRefreshRequest | undefined> = {
     twitch: undefined,
@@ -1999,15 +2003,123 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     twitch: 0,
     kick: 0,
   };
+  type PlatformTickResult = readonly [Platform, string[], { state: SchedulerState; sequence: number }?];
+  let tickCommitSequence = 0;
+  interface TickRequest {
+    trigger: TickTrigger;
+    reasons: Partial<Record<TickTrigger, number>>;
+    promise: Promise<PlatformTickResult>;
+    resolve: (result: PlatformTickResult) => void;
+    reject: (error: unknown) => void;
+  }
+  const tickAdmission: Record<Platform, { active?: TickRequest; pending?: TickRequest }> = {
+    twitch: {},
+    kick: {},
+  };
+  let tickAdmissionSuspended = false;
 
-  async function tick(
+  function tickTriggerSummary(reasons: TickRequest["reasons"]): string {
+    const entries = Object.entries(reasons);
+    const count = entries.reduce((total, [, count]) => total + count, 0);
+    return `count=${count}, reasons=${entries.map(([reason, count]) => `${reason}:${count}`).join(",")}`;
+  }
+
+  function cancelPendingTick(platform: Platform): void {
+    const pending = tickAdmission[platform].pending;
+    tickAdmission[platform].pending = undefined;
+    if (pending) {
+      diagnosticEvent("debug", `Discarded pending scheduler triggers after lifecycle change (${tickTriggerSummary(pending.reasons)})`, platform);
+      pending.resolve([platform, []]);
+    }
+  }
+
+  function admitPlatformTick(platform: Platform, trigger: TickTrigger): Promise<PlatformTickResult> {
+    if (controllerShutdown || tickAdmissionSuspended) return Promise.resolve([platform, []]);
+    const lane = tickAdmission[platform];
+    if (lane.pending) {
+      lane.pending.reasons[trigger] = (lane.pending.reasons[trigger] ?? 0) + 1;
+      if (tickTriggerPriority(trigger) > tickTriggerPriority(lane.pending.trigger)) {
+        lane.pending.trigger = trigger;
+      }
+      return lane.pending.promise;
+    }
+    let resolve!: TickRequest["resolve"];
+    let reject!: TickRequest["reject"];
+    const promise = new Promise<PlatformTickResult>((onResolve, onReject) => {
+      resolve = onResolve;
+      reject = onReject;
+    });
+    const request: TickRequest = { trigger, reasons: { [trigger]: 1 }, promise, resolve, reject };
+    if (lane.active) lane.pending = request;
+    else executePlatformTick(platform, request);
+    return promise;
+  }
+
+  function tickTriggerPriority(trigger: TickTrigger): number {
+    // Existing trigger semantics are nested: bypass-backoff also forces
+    // selection; startup only forces selection. Other user actions persist
+    // their mutations before admission, so fresh settings/state retain them.
+    // Equal-priority reasons keep their first trigger and all diagnostic counts.
+    if (selectionBypassesBackoff(trigger)) return 3;
+    if (selectionIsForced(trigger)) return 2;
+    return trigger === "alarm" || trigger === "discovery_signal" || trigger === "unknown" ? 0 : 1;
+  }
+
+  function executePlatformTick(platform: Platform, request: TickRequest): void {
+    const lane = tickAdmission[platform];
+    lane.active = request;
+    let committed: PlatformTickResult[2];
+    void tickPlatform(platform, request.trigger, (state) => { committed = { state, sequence: ++tickCommitSequence }; })
+      .then(([platform, rewards]) => request.resolve([platform, rewards, committed]), request.reject)
+      .finally(() => {
+        lane.active = undefined;
+        const pending = lane.pending;
+        lane.pending = undefined;
+        if (pending) {
+          const signalRequest = discoverySignalRefreshPending[platform];
+          if (signalRequest && discoverySignalRefreshAllowed(platform, signalRequest)) {
+            pending.reasons.discovery_signal = (pending.reasons.discovery_signal ?? 0) + signalRequest.count;
+            discoverySignalRefreshPending[platform] = undefined;
+          }
+          diagnosticEvent("debug", `Coalesced scheduler triggers (${tickTriggerSummary(pending.reasons)})`, platform);
+          executePlatformTick(platform, pending);
+        } else startPendingDiscoverySignalRefresh(platform);
+      });
+  }
+
+  interface TickBatch {
+    requests: Promise<PlatformTickResult>[];
+    settled: Promise<PromiseSettledResult<PlatformTickResult>[]>;
+    claimed?: Promise<ClaimedRewards>;
+    handoff?: Promise<SchedulerState | undefined>;
+  }
+  const tickBatches = new Set<TickBatch>();
+
+  function requestTickBatch(platforms: Platform[] | undefined, trigger: TickTrigger): TickBatch {
+    const requests = [...new Set(platforms ?? PLATFORMS)].sort().map((platform) => admitPlatformTick(platform, trigger));
+    for (const batch of tickBatches) {
+      if (batch.requests.length === requests.length && batch.requests.every((request, index) => request === requests[index])) return batch;
+    }
+    const batch: TickBatch = { requests, settled: Promise.allSettled(requests) };
+    tickBatches.add(batch);
+    void batch.settled.then(() => tickBatches.delete(batch));
+    return batch;
+  }
+
+  function tick(
     platforms?: Platform[],
     trigger: TickTrigger = "unknown",
     onPersisted?: (state: SchedulerState) => void,
   ): Promise<ClaimedRewards> {
-    const requestedPlatforms = platforms ?? PLATFORMS;
-    const settled = await Promise.allSettled(requestedPlatforms.map((platform) =>
-      tickPlatform(platform, trigger, onPersisted)));
+    const batch = requestTickBatch(platforms, trigger);
+    if (onPersisted) return completeTickBatch(batch, onPersisted);
+    return batch.claimed ??= completeTickBatch(batch);
+  }
+
+  async function completeTickBatch(batch: TickBatch, onPersisted?: (state: SchedulerState) => void): Promise<ClaimedRewards> {
+    const settled = await batch.settled;
+    const commits = settled.flatMap((result) => result.status === "fulfilled" && result.value[2] ? [result.value[2]] : []);
+    for (const commit of commits.sort((left, right) => left.sequence - right.sequence)) onPersisted?.(commit.state);
     const failures = settled.flatMap((result) =>
       result.status === "rejected" ? [result.reason] : []);
     if (failures.length === 1) throw failures[0];
@@ -2268,7 +2380,6 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     } finally {
       activeTicks.delete(abort);
       activePlatformTicks[platform] -= 1;
-      if (activePlatformTicks[platform] === 0) startPendingDiscoverySignalRefresh(platform);
       diagnosticEvent(
         "debug",
         `Tick #${tickContext.platformTickId} finished after ${Date.now() - tickStartedAt}ms (trigger=${trigger}, platforms=${platform})`,
@@ -3637,6 +3748,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   }
 
   function abortActiveTicks(reason: string): void {
+    for (const platform of PLATFORMS) cancelPendingTick(platform);
     for (const controller of activeTicks) {
       controller.abort(new Error(reason));
     }
@@ -3683,6 +3795,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   }
 
   async function prepareForHostReset(resetHostStorage?: () => Promise<void>): Promise<void> {
+    tickAdmissionSuspended = true;
     discoverySignalLifecycleOpen = false;
     for (const platform of PLATFORMS) invalidateDiscoverySignalAdmission(platform);
     twitchSettingsTransitionGeneration += 1;
@@ -3722,7 +3835,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       lastPersistedTwitchEnabled = undefined;
       await reportBestEffort(events);
     })));
-    if (!controllerShutdown) discoverySignalLifecycleOpen = true;
+    if (!controllerShutdown) {
+      discoverySignalLifecycleOpen = true;
+      tickAdmissionSuspended = false;
+    }
   }
 
   // Bounded post-claim handoff (see docs/superpowers/specs/2026-07-19-twitch-claim-handoff-design.md).
@@ -3842,6 +3958,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     const request: DiscoverySignalRefreshRequest = {
       controller,
       generation: discoverySignalAdmissionGeneration[platform],
+      count: (discoverySignalRefreshPending[platform]?.count ?? 0) + 1,
     };
     if (!discoverySignalRefreshAllowed(platform, request)) return;
     discoverySignalRefreshPending[platform] = request;
@@ -3849,7 +3966,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   }
 
   function startPendingDiscoverySignalRefresh(platform: Platform): void {
-    if (discoverySignalRefreshRunning[platform] || activePlatformTicks[platform] > 0) return;
+    if (discoverySignalRefreshRunning[platform] || tickAdmission[platform].active) return;
     const queued = discoverySignalRefreshPending[platform];
     if (!queued) return;
     if (!discoverySignalRefreshAllowed(platform, queued)) {
@@ -3878,6 +3995,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
             discoverySignalRefreshPending[platform] = undefined;
             break;
           }
+          diagnosticEvent("debug", `Coalesced scheduler triggers (${tickTriggerSummary({ discovery_signal: current.count })})`, platform);
           await tickAndHandOff([platform], "discovery_signal");
         }
       } finally {
@@ -3968,15 +4086,20 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // The normal entry point for alarm- and message-driven ticks: run the tick,
   // then hand off for every platform that claimed. Kept separate from tick() so
   // the handoff's own inner ticks cannot recurse into another handoff.
-  async function tickAndHandOff(
+  function tickAndHandOff(
     platforms?: Platform[],
     trigger: TickTrigger = "unknown",
   ): Promise<SchedulerState | undefined> {
+    const batch = requestTickBatch(platforms, trigger);
+    return batch.handoff ??= completeTickAndHandOff(batch);
+  }
+
+  async function completeTickAndHandOff(batch: TickBatch): Promise<SchedulerState | undefined> {
     let committedState: SchedulerState | undefined;
     const captureCommittedState = (state: SchedulerState): void => {
       committedState = state;
     };
-    const claimed = await tick(platforms, trigger, captureCommittedState);
+    const claimed = await completeTickBatch(batch, captureCommittedState);
     const handoffPlatforms = Object.keys(claimed) as Platform[];
     const results = await Promise.allSettled(handoffPlatforms.map((platform) =>
       runClaimHandoff(platform, claimed[platform] ?? [], captureCommittedState)));

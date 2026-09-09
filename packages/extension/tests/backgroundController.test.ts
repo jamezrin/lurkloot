@@ -3249,6 +3249,18 @@ describe("background controller", () => {
     expect(twitchCommitted?.sessions.twitch.campaignId).toBe("twitch-campaign");
   });
 
+  it("returns the latest committed platform state when Kick completes last", async () => {
+    const env = harness(farming(DEFAULT_SETTINGS));
+    const discovery = deferred<DropCampaign[]>();
+    vi.mocked(env.kick.refreshCampaigns).mockReturnValueOnce(discovery.promise);
+    const ticking = env.controller.tickAndHandOff();
+    await vi.waitFor(() => expect(env.state.sessions.twitch.campaignId).toBe("twitch-campaign"));
+    discovery.resolve([campaign("kick")]);
+    const committed = await ticking;
+    expect(committed?.sessions.kick.campaignId).toBe("kick-campaign");
+    expect(committed?.sessions.twitch.campaignId).toBe("twitch-campaign");
+  });
+
   it("blocks startup account work when credentials are missing without disabling the platform", async () => {
     const env = harness({
       ...DEFAULT_SETTINGS,
@@ -4524,7 +4536,7 @@ describe("background controller", () => {
     }));
   });
 
-  it("coalesces overlapping same-platform discovery instead of waiting on the scheduler lock", async () => {
+  it("coalesces same-platform ticks before discovery or the scheduler lock", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-07-29T12:00:00.000Z"));
     const env = harness(farming(DEFAULT_SETTINGS));
@@ -4553,7 +4565,7 @@ describe("background controller", () => {
       expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
         category: "diagnostic",
         platform: "twitch",
-        message: expect.stringMatching(/^Discovery refresh finished in 0ms \(complete, revision=2, .*coalesced=1,/),
+        message: "Coalesced scheduler triggers (count=1, reasons=manual_tick:1)",
       }));
       expect(allDiagnostics(env).some((event) =>
         event.message.includes("waited") && event.message.includes("platform work"),
@@ -4563,6 +4575,122 @@ describe("background controller", () => {
       await Promise.allSettled(secondTick ? [firstTick, secondTick] : [firstTick]);
       vi.useRealTimers();
     }
+  });
+
+  it("admits one Twitch tick and one follow-up across repeated alarm intervals while Kick progresses", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const env = harness(farming(DEFAULT_SETTINGS));
+    const discovery = deferred<DropCampaign[]>();
+    vi.mocked(env.twitch.refreshCampaigns).mockReturnValueOnce(discovery.promise);
+    const first = env.controller.tickAndHandOff(["twitch"], "alarm");
+    await vi.waitFor(() => expect(env.twitch.refreshCampaigns).toHaveBeenCalledOnce());
+    const pending: Promise<unknown>[] = [];
+    for (let interval = 0; interval < 5; interval += 1) {
+      vi.setSystemTime(Date.now() + 60_000);
+      pending.push(env.controller.tickAndHandOff(["twitch"], "alarm"));
+    }
+    const sharedPending = pending.every((request) => request === pending[0]);
+    await env.controller.tickAndHandOff(["kick"], "alarm");
+    expect(env.state.sessions.kick.campaignId).toBe("kick-campaign");
+    const starts = () => allDiagnostics(env).filter((event) => event.platform === "twitch" && /Tick #\d+ started/.test(event.message));
+    const activeStarts = starts().length;
+    discovery.resolve([campaign("twitch")]);
+    await Promise.all([first, ...pending]);
+    expect(activeStarts).toBe(1);
+    expect(sharedPending).toBe(true);
+    expect(starts()).toHaveLength(2);
+    expect(env.twitch.checkAuthHealth).toHaveBeenCalledTimes(2);
+    expect(env.twitch.refreshCampaigns).toHaveBeenCalledTimes(2);
+    expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
+      platform: "twitch",
+      message: expect.stringContaining("Coalesced scheduler triggers (count=5, reasons=alarm:5)"),
+    }));
+    expect(allDiagnostics(env).filter((event) => event.platform === "twitch" && /Tick #2 finished/.test(event.message))[0]?.message).toContain("after 0ms");
+  });
+
+  it.each(["manual_tick", "manual_resume", "claim_handoff"] as const)("preserves %s backoff overrides behind a pending alarm", async (trigger) => {
+    const env = harness(farming(DEFAULT_SETTINGS), { selectWatchTarget: selectWatchTargetFromSnapshot });
+    const discovery = deferred<DropCampaign[]>();
+    vi.mocked(env.twitch.refreshCampaigns).mockReturnValueOnce(discovery.promise);
+    const first = env.controller.tick(["twitch"], "alarm");
+    await vi.waitFor(() => expect(env.twitch.refreshCampaigns).toHaveBeenCalledOnce());
+    const pending = env.controller.tick(["twitch"], "alarm");
+    const manual = env.controller.tick(["twitch"], trigger);
+    const laterAlarm = env.controller.tick(["twitch"], "alarm");
+    discovery.resolve([campaign("twitch")]);
+    await Promise.all([first, pending, manual, laterAlarm]);
+    expect(env.deps.selectWatchTarget).toHaveBeenCalledTimes(2);
+    expect(env.deps.selectWatchTarget).toHaveBeenLastCalledWith(expect.objectContaining({ bypassBackoff: true }));
+    expect(env.twitch.refreshCampaigns).toHaveBeenCalledTimes(2);
+  });
+
+  it("reloads settings and state and selects from the newest discovery revision for the follow-up", async () => {
+    const env = harness(farming(DEFAULT_SETTINGS), { selectWatchTarget: selectWatchTargetFromSnapshot });
+    const discovery = deferred<DropCampaign[]>();
+    vi.mocked(env.twitch.refreshCampaigns)
+      .mockReturnValueOnce(discovery.promise)
+      .mockResolvedValue([{ ...campaign("twitch"), id: "new-campaign" }]);
+    const first = env.controller.tickAndHandOff(["twitch"], "alarm");
+    await vi.waitFor(() => expect(env.twitch.refreshCampaigns).toHaveBeenCalledOnce());
+    const pending = env.controller.tickAndHandOff(["twitch"], "alarm");
+    await env.rawController.handleMessage({
+      type: "saveSettings", settingsPatch: { autoClaim: false }, tickAfterSave: true, tickAfterSavePlatforms: ["twitch"],
+    });
+    await env.deps.saveState({ ...env.state, sessions: { ...env.state.sessions, twitch: { ...env.state.sessions.twitch, offlineChecks: 7 } } });
+    discovery.resolve([campaign("twitch")]);
+    await Promise.all([first, pending]);
+    await env.controller.settleBackgroundWork();
+    expect(env.deps.selectWatchTarget).toHaveBeenLastCalledWith(expect.objectContaining({
+      settings: expect.objectContaining({ autoClaim: false }),
+      previous: expect.objectContaining({ offlineChecks: 7 }),
+      snapshot: expect.objectContaining({ campaigns: [expect.objectContaining({ campaign: expect.objectContaining({ id: "new-campaign" }) })] }),
+    }));
+    expect(env.state.sessions.twitch.campaignId).toBe("new-campaign");
+    expect(env.twitch.refreshCampaigns).toHaveBeenCalledTimes(2);
+  });
+
+  it("executes the pending request after the active selection rejects", async () => {
+    const selection = deferred<void>();
+    const started = deferred<void>();
+    let attempts = 0;
+    const env = harness(farming(DEFAULT_SETTINGS), {
+      selectWatchTarget: async (input) => {
+        attempts += 1;
+        if (attempts === 1) {
+          started.resolve();
+          await selection.promise;
+        }
+        return selectWatchTargetFromSnapshot(input);
+      },
+    });
+    const first = env.controller.tickAndHandOff(["twitch"], "alarm");
+    await started.promise;
+    const pending = env.controller.tickAndHandOff(["twitch"], "alarm");
+    const results = Promise.allSettled([first, pending]);
+    selection.reject(new Error("selection failed"));
+    expect((await results).map((result) => result.status)).toEqual(["rejected", "fulfilled"]);
+    expect(env.state.sessions.twitch.campaignId).toBe("twitch-campaign");
+    expect(env.twitch.refreshCampaigns).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(["shutdown", "reset", "disable"] as const)("discards obsolete pending alarm work on %s", async (action) => {
+    const env = harness(farming(DEFAULT_SETTINGS));
+    const discovery = deferred<DropCampaign[]>();
+    vi.mocked(env.twitch.refreshCampaigns).mockReturnValueOnce(discovery.promise);
+    const first = env.controller.tickAndHandOff(["twitch"], "alarm");
+    await vi.waitFor(() => expect(env.twitch.refreshCampaigns).toHaveBeenCalledOnce());
+    const pending = env.controller.tickAndHandOff(["twitch"], "alarm");
+    if (action === "shutdown") env.controller.shutdown();
+    else if (action === "reset") await env.controller.prepareForHostReset();
+    else await env.rawController.handleMessage({ type: "setAutomation", platform: "twitch", enabled: false });
+    discovery.resolve([campaign("twitch")]);
+    await Promise.all([first, pending]);
+    await env.controller.settleBackgroundWork();
+    expect(allDiagnostics(env).filter((event) => event.platform === "twitch" && event.message.includes("started (trigger=alarm"))).toHaveLength(1);
+    expect(env.twitch.refreshCampaigns).toHaveBeenCalledOnce();
+    expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
+      message: expect.stringMatching(/Discarded pending scheduler triggers .*count=1, reasons=alarm:1/),
+    }));
   });
 
   it("does not report platform-lock waits for an uncontended tick", async () => {
@@ -6750,14 +6878,14 @@ describe("background controller", () => {
     await selectionStarted.promise;
     const second = env.controller.tick(["twitch"], "manual_tick");
     const third = env.controller.tick(["twitch"], "manual_tick");
-    await vi.waitFor(() => expect(vi.mocked(env.twitch.refreshCampaigns).mock.calls.length).toBeGreaterThanOrEqual(3));
+    expect(env.twitch.refreshCampaigns).toHaveBeenCalledTimes(2);
     allowSelection.resolve();
     await Promise.all([first, second, third]);
 
     expect(selectWatchTarget).toHaveBeenCalledTimes(2);
     expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
       platform: "twitch",
-      message: expect.stringContaining("Snapshot selection discarded stale work"),
+      message: "Coalesced scheduler triggers (count=2, reasons=manual_tick:2)",
     }));
   });
 
@@ -9574,6 +9702,24 @@ describe("discovery signal refresh scheduling", () => {
     await ticking;
     await env.controller.settleBackgroundWork();
 
+    expect(env.kick.refreshCampaigns).toHaveBeenCalledTimes(2);
+    expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
+      message: "Coalesced scheduler triggers (count=1, reasons=discovery_signal:1)",
+    }));
+  });
+
+  it("merges discovery signals and pending alarms into the same follow-up", async () => {
+    const env = await startedEnv();
+    const discovery = deferred<DropCampaign[]>();
+    vi.mocked(env.kick.refreshCampaigns).mockClear().mockReturnValueOnce(discovery.promise);
+    const first = env.controller.tick(["kick"], "alarm");
+    await vi.waitFor(() => expect(env.kick.refreshCampaigns).toHaveBeenCalledOnce());
+    const pending = env.controller.tick(["kick"], "alarm");
+    env.discoverySignalController.emitSignal();
+    env.discoverySignalController.emitSignal();
+    discovery.resolve([campaign("kick")]);
+    await Promise.all([first, pending]);
+    await env.controller.settleBackgroundWork();
     expect(env.kick.refreshCampaigns).toHaveBeenCalledTimes(2);
   });
 

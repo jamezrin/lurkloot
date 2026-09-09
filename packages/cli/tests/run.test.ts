@@ -214,6 +214,22 @@ describe("CLI committed tick consumption", () => {
     expect(logger.info).toHaveBeenCalledWith(expect.stringContaining("Reward first"), "twitch");
     expect(logger.info).toHaveBeenCalledWith(expect.stringContaining("Reward second"), "twitch");
   });
+
+  it("processes a coalesced scheduler result once across recurring CLI calls", async () => {
+    const pending = deferred<SchedulerState>();
+    const logger = createLogger("error");
+    const loadState = vi.fn(async () => structuredClone(DEFAULT_STATE));
+    const options = {
+      controller: { tickAndHandOff: vi.fn(() => pending.promise) },
+      enabledPlatforms, engineSettings, loadState, seenSubscriptionWaits: new Set<string>(), logger,
+    };
+    const first = runCliTickOnce(options);
+    const second = runCliTickOnce(options);
+    const shared = first === second;
+    pending.resolve(structuredClone(DEFAULT_STATE));
+    await Promise.all([first, second]);
+    expect(shared).toBe(true);
+  });
 });
 
 describe("runLoop authentication health reporting", () => {
@@ -493,8 +509,30 @@ describe("runLoop disabled platform cleanup", () => {
 });
 
 describe("runLoop interval baseline", () => {
-  it("serializes provider discovery with at most one coalesced follow-up", async () => {
+  it("cleans persisted sessions when both CLI platforms are disabled", async () => {
+    let state = structuredClone(DEFAULT_STATE);
+    state.sessions.twitch = { ...state.sessions.twitch, status: "watching", channel: { platform: "twitch", username: "old", url: "https://twitch.tv/old" } };
+    const transport = await fakeTransport({ twitch: HEALTHY, kick: HEALTHY });
+    const running = runLoop({
+      settings: { ...DEFAULT_CLI_SETTINGS, platform: {
+        twitch: { ...DEFAULT_CLI_SETTINGS.platform.twitch, enabled: false },
+        kick: { ...DEFAULT_CLI_SETTINGS.platform.kick, enabled: false },
+      } },
+      statePath: join(dir, "disabled-state.json"), transport, logger: createLogger("error"),
+      stateStore: { load: async () => state, save: async (next) => { state = next; } },
+    });
+    try {
+      await vi.waitFor(() => expect(state.sessions.twitch.status).toBe("paused"));
+      expect(state.sessions.twitch.channel).toBeUndefined();
+    } finally {
+      process.emit("SIGTERM");
+      await running;
+    }
+  });
+
+  it("bounds alarm ticks across multiple intervals while the other platform progresses", async () => {
     vi.useFakeTimers();
+    let state = structuredClone(DEFAULT_STATE);
     const pendingRefresh = deferred<DropCampaign[]>();
     let refreshCalls = 0;
     const twitch = fakeAdapter("twitch", HEALTHY);
@@ -503,6 +541,9 @@ describe("runLoop interval baseline", () => {
       return refreshCalls === 1 ? [] : pendingRefresh.promise;
     });
     const kick = fakeAdapter("kick", HEALTHY);
+    kick.refreshCampaigns = vi.fn(kick.refreshCampaigns);
+    const logger = createLogger("error");
+    logger.log = vi.fn();
     const transport: TransportHandle = {
       adapters: { twitch, kick },
       createAdapter: (platform) => ({
@@ -520,26 +561,35 @@ describe("runLoop interval baseline", () => {
       pollIntervalMinutes: 1,
       platform: {
         twitch: { ...DEFAULT_CLI_SETTINGS.platform.twitch, enabled: true },
-        kick: { ...DEFAULT_CLI_SETTINGS.platform.kick, enabled: false },
+        kick: { ...DEFAULT_CLI_SETTINGS.platform.kick, enabled: true },
       },
     };
 
     const running = runLoop({
       settings,
       statePath: join(dir, "interval-state.json"),
+      stateStore: {
+        load: async () => state,
+        save: async (next) => { state = next; },
+      },
       transport,
-      logger: createLogger("error"),
+      logger,
       checkCredentialAvailability: async () => ({ status: "available" }),
     });
     await vi.waitFor(() => expect(refreshCalls).toBe(1));
 
     await vi.advanceTimersByTimeAsync(60_000);
     await vi.waitFor(() => expect(refreshCalls).toBe(2));
-    await vi.advanceTimersByTimeAsync(60_000);
+    await vi.advanceTimersByTimeAsync(4 * 60_000);
     expect(refreshCalls).toBe(2);
+    await vi.waitFor(() => expect(kick.refreshCampaigns).toHaveBeenCalledTimes(6));
 
     pendingRefresh.resolve([]);
     await vi.waitFor(() => expect(refreshCalls).toBe(3));
+    await vi.waitFor(() => expect(logger.log).toHaveBeenCalledWith("debug", expect.stringMatching(/Tick #3 finished/), "twitch"));
+    const starts = vi.mocked(logger.log).mock.calls.filter(([, message, platform]) => platform === "twitch" && /Tick #\d+ started/.test(message));
+    expect(starts).toHaveLength(3);
+    expect(starts.every(([, message]) => message.includes("trigger=alarm"))).toBe(true);
     process.emit("SIGTERM");
     await running;
   });

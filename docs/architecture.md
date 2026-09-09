@@ -28,6 +28,32 @@ Package-qualified paths below are written as `packages/<package>/...` when owner
 
 State and normalized settings are loaded and saved through `packages/extension/src/core/storage.ts` in the extension and through `packages/cli/src/storage.ts` in the CLI. The scheduler stores independent `WatchSession`, campaign, manual-watch, and managed-tab state for `twitch` and `kick`; diagnostics and activity events are emitted through the reporter outside `SchedulerState`. A short-lived Twitch Client-Integrity bundle is stored separately so claim mutations can replay page-issued Twitch headers while the token is valid.
 
+### Scheduler admission
+
+The shared controller reserves one active scheduler tick and at most one pending
+follow-up per platform, before loading settings or beginning tick diagnostics.
+Overlapping callers share the pending result promise. Twitch and Kick have
+independent lanes; extension alarms and CLI intervals request each platform
+separately. The CLI also shares result observers so repeated intervals cannot
+accumulate reporting continuations behind the same pending tick.
+
+Pending triggers merge by their existing selection semantics: `manual_tick`,
+`manual_resume`, and `claim_handoff` force selection and bypass backoff; `startup`
+forces selection without bypassing backoff. Other user actions, including
+settings and automation toggles, retain their persisted mutations through fresh
+settings/state loads. Ordinary alarms and discovery signals do not override a
+higher-priority trigger. Equal-priority triggers retain the first reason, while
+diagnostics count every merged reason. Valid discovery signals share an already
+pending scheduler follow-up instead of requesting another cycle afterward.
+
+Each executed follow-up reloads current settings/state and selects from the
+latest committed discovery revision. Disablement discards obsolete pending work;
+shutdown and host reset cancel it and abort active ticks. Reset also closes
+admission until cleanup finishes. Discovery signal controller/generation checks
+remain in force. Tick start/finish timing covers executed work only; separate
+diagnostics report merged or discarded trigger counts. Heartbeat admission and
+its fixed cadence remain independent of scheduler admission.
+
 ## Runtime Messages
 
 The popup and content scripts do not call adapters directly. They send typed runtime messages from `@lurkloot/shared/messages`:
