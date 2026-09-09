@@ -14,7 +14,7 @@ interface ActivityEventReporterDeps {
 }
 
 interface RuntimeMessageSender {
-  tab?: { id?: number };
+  tab?: { id?: number; url?: string };
 }
 
 interface RuntimeMessageDispatcherDeps {

@@ -62,9 +62,6 @@
   "settingsSearchNoResults": {
     "message": "Keine Einstellungen entsprechen „$1“."
   },
-  "settingsPlatformSettingsTitle": {
-    "message": "Plattform & Kategorien/Spiele"
-  },
   "settingsPlatformSettings": {
     "message": "$1-Einstellungen"
   },
@@ -470,9 +467,6 @@
   "platformSettingsTitle": {
     "message": "Plattformeinstellungen"
   },
-  "platformSettingsDescription": {
-    "message": "Automatisierung und Kanäle eines Anbieters. Wechsle zwischen Twitch und Kick."
-  },
   "farmingTabsTitle": {
     "message": "Farming-Tabs"
   },
@@ -544,6 +538,21 @@
   },
   "settingsGroupAdvanced": {
     "message": "Erweitert"
+  },
+  "settingsGroupPlatformAdvanced": {
+    "message": "Erweitert & Kompatibilität"
+  },
+  "twitchSectionDescription": {
+    "message": "Kanalpunkte, Kategoriefilter, ausgeschlossene Kanäle und Twitch-Kompatibilität."
+  },
+  "kickSectionDescription": {
+    "message": "Tägliche Herausforderungen, Kategoriefilter, ausgeschlossene Kanäle und Kick-Kompatibilität."
+  },
+  "twitchAdvancedDescription": {
+    "message": "Kampagnenverfügbarkeit sowie die von Lurkloot genutzten Heartbeat- und Inventar-Transporte. Ändere sie nur, wenn Twitch nicht mehr funktioniert."
+  },
+  "kickAdvancedDescription": {
+    "message": "Wie Lurkloot Kick-Einlöselinks öffnet und das zugehörige Verhaltensprofil. Ändere sie nur, wenn Kick nicht mehr funktioniert."
   },
   "schedulerIntervalTitle": {
     "message": "Scheduler-Intervall"
@@ -1225,9 +1234,6 @@
   },
   "diagnosticsViewTab": {
     "message": "Diagnose"
-  },
-  "settingsGroupCompatibility": {
-    "message": "Kompatibilität"
   },
   "compatibilityAutomatic": {
     "message": "Automatisch"

@@ -62,9 +62,6 @@
   "settingsSearchNoResults": {
     "message": "No settings match “$1”."
   },
-  "settingsPlatformSettingsTitle": {
-    "message": "Platform & Categories/Games"
-  },
   "settingsPlatformSettings": {
     "message": "$1 settings"
   },
@@ -470,9 +467,6 @@
   "platformSettingsTitle": {
     "message": "Platform settings"
   },
-  "platformSettingsDescription": {
-    "message": "Automation and channels for one provider. Switch between Twitch and Kick."
-  },
   "farmingTabsTitle": {
     "message": "Farming tabs"
   },
@@ -544,6 +538,21 @@
   },
   "settingsGroupAdvanced": {
     "message": "Advanced"
+  },
+  "settingsGroupPlatformAdvanced": {
+    "message": "Advanced & compatibility"
+  },
+  "twitchSectionDescription": {
+    "message": "Channel points, category filter, excluded channels, and Twitch compatibility."
+  },
+  "kickSectionDescription": {
+    "message": "Daily challenges, category filter, excluded channels, and Kick compatibility."
+  },
+  "twitchAdvancedDescription": {
+    "message": "Campaign availability, plus the heartbeat and inventory transports Lurkloot uses. Change these only when Twitch stops working."
+  },
+  "kickAdvancedDescription": {
+    "message": "How Lurkloot opens Kick claim links, and the behavior profile behind it. Change these only when Kick stops working."
   },
   "schedulerIntervalTitle": {
     "message": "Scheduler interval"
@@ -1225,9 +1234,6 @@
   },
   "diagnosticsViewTab": {
     "message": "Diagnostics"
-  },
-  "settingsGroupCompatibility": {
-    "message": "Compatibility"
   },
   "compatibilityAutomatic": {
     "message": "Automatic"

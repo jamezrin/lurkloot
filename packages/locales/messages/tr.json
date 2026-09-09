@@ -62,9 +62,6 @@
   "settingsSearchNoResults": {
     "message": "“$1” ile ilgili ayar bulunamadı."
   },
-  "settingsPlatformSettingsTitle": {
-    "message": "Platform ve kategoriler/oyunlar"
-  },
   "settingsPlatformSettings": {
     "message": "$1 ayarları"
   },
@@ -470,9 +467,6 @@
   "platformSettingsTitle": {
     "message": "Platform Ayarları"
   },
-  "platformSettingsDescription": {
-    "message": "Twitch ve Kick özel ayarları."
-  },
   "farmingTabsTitle": {
     "message": "Sekme Yönetimi"
   },
@@ -544,6 +538,21 @@
   },
   "settingsGroupAdvanced": {
     "message": "Gelişmiş"
+  },
+  "settingsGroupPlatformAdvanced": {
+    "message": "Gelişmiş ve uyumluluk"
+  },
+  "twitchSectionDescription": {
+    "message": "Kanal puanları, kategori filtresi, hariç tutulan kanallar ve Twitch uyumluluğu."
+  },
+  "kickSectionDescription": {
+    "message": "Günlük görevler, kategori filtresi, hariç tutulan kanallar ve Kick uyumluluğu."
+  },
+  "twitchAdvancedDescription": {
+    "message": "Kampanya uygunluğu ve Lurkloot'un kullandığı sinyal ile envanter aktarımları. Bunları yalnızca Twitch çalışmayı bıraktığında değiştirin."
+  },
+  "kickAdvancedDescription": {
+    "message": "Lurkloot'un Kick ödül bağlantılarını nasıl açtığı ve bunun ardındaki davranış profili. Bunları yalnızca Kick çalışmayı bıraktığında değiştirin."
   },
   "schedulerIntervalTitle": {
     "message": "Yenileme sıklığı"
@@ -1225,9 +1234,6 @@
   },
   "diagnosticsViewTab": {
     "message": "Teknik detaylar"
-  },
-  "settingsGroupCompatibility": {
-    "message": "Uyumluluk"
   },
   "compatibilityAutomatic": {
     "message": "Otomatik"

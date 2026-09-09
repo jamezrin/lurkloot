@@ -62,9 +62,6 @@
   "settingsSearchNoResults": {
     "message": "Ninguna configuración coincide con «$1»."
   },
-  "settingsPlatformSettingsTitle": {
-    "message": "Plataforma y categorías/juegos"
-  },
   "settingsPlatformSettings": {
     "message": "Ajustes de $1"
   },
@@ -470,9 +467,6 @@
   "platformSettingsTitle": {
     "message": "Configuración de plataforma"
   },
-  "platformSettingsDescription": {
-    "message": "Automatización y canales de un proveedor. Cambia entre Twitch y Kick."
-  },
   "farmingTabsTitle": {
     "message": "Pestañas de farmeo"
   },
@@ -544,6 +538,21 @@
   },
   "settingsGroupAdvanced": {
     "message": "Avanzado"
+  },
+  "settingsGroupPlatformAdvanced": {
+    "message": "Avanzado y compatibilidad"
+  },
+  "twitchSectionDescription": {
+    "message": "Puntos del canal, filtro de categorías, canales excluidos y compatibilidad con Twitch."
+  },
+  "kickSectionDescription": {
+    "message": "Desafíos diarios, filtro de categorías, canales excluidos y compatibilidad con Kick."
+  },
+  "twitchAdvancedDescription": {
+    "message": "Disponibilidad de campañas y los transportes de latido e inventario que usa Lurkloot. Cámbialos solo si Twitch deja de funcionar."
+  },
+  "kickAdvancedDescription": {
+    "message": "Cómo abre Lurkloot los enlaces de reclamación de Kick y el perfil de comportamiento asociado. Cámbialos solo si Kick deja de funcionar."
   },
   "schedulerIntervalTitle": {
     "message": "Intervalo del planificador"
@@ -1225,9 +1234,6 @@
   },
   "diagnosticsViewTab": {
     "message": "Diagnósticos"
-  },
-  "settingsGroupCompatibility": {
-    "message": "Compatibilidad"
   },
   "compatibilityAutomatic": {
     "message": "Automático"

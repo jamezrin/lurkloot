@@ -222,6 +222,7 @@ export interface ManualWatchState {
   tabId: number;
   checkedAt: string;
   active: boolean;
+  channel?: ChannelCandidate;
 }
 
 export type PriorityMode = "ending_soonest" | "lowest_availability" | "priority_list_only";
