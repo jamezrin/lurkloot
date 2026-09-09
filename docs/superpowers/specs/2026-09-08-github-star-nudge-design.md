@@ -75,7 +75,7 @@ English copy:
 | Key | Message |
 | --- | --- |
 | `githubStarNudgeTitle` | Lurkloot is open source |
-| `githubStarNudgeBody` | If it's been useful, a GitHub star helps others find it. |
+| `githubStarNudgeBody` | If it's been useful, a GitHub star helps others find it. Contributions are welcome, especially features and translations. |
 | `githubStarNudgeAction` | Star on GitHub |
 
 Dismiss reuses `rateNudgeDismiss` ("Not now").

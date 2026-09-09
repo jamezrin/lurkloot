@@ -20,7 +20,7 @@
 - Default `githubStarNudgeStatus` is `"pending"`; `starred` or `dismissed` never shows again.
 - No GitHub API, no settings row, no rotating tip, no screenshot variant, no UTM on the popup GitHub link.
 - Dismiss reuses `rateNudgeDismiss`. New keys: `githubStarNudgeTitle`, `githubStarNudgeBody`, `githubStarNudgeAction`.
-- English source copy: title `Lurkloot is open source`; body `If it's been useful, a GitHub star helps others find it.`; action `Star on GitHub`.
+- English source copy: title `Lurkloot is open source`; body `If it's been useful, a GitHub star helps others find it. Contributions are welcome, especially features and translations.`; action `Star on GitHub`.
 - Engine contract and CLI must not accept the new setting. No schema migration.
 - Non-English catalogs must not copy the English strings (existing i18n test).
 
@@ -422,7 +422,7 @@ In `packages/locales/messages/en.json`:
     "message": "Lurkloot is open source"
   },
   "githubStarNudgeBody": {
-    "message": "If it's been useful, a GitHub star helps others find it."
+    "message": "If it's been useful, a GitHub star helps others find it. Contributions are welcome, especially features and translations."
   },
   "githubStarNudgeAction": {
     "message": "Star on GitHub"
