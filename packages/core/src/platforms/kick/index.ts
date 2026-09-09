@@ -467,7 +467,7 @@ export class KickAdapter implements PlatformAdapter {
 
   async listCandidateChannels(
     campaign: DropCampaign,
-    { signal }: AdapterOperationOptions = {},
+    { signal, requireComplete }: AdapterOperationOptions = {},
   ): Promise<ChannelCandidate[]> {
     const aclCandidates = kickCandidatesFromCampaign(campaign);
     if (aclCandidates.length > 0) return aclCandidates;
@@ -478,7 +478,12 @@ export class KickAdapter implements PlatformAdapter {
     if (campaign.categoryId) url.searchParams.set("category_id", campaign.categoryId);
 
     const response = await this.fetcher.fetchJson<KickLivestreamsResponse>(url.toString(), { signal }, this.emit);
-    const streams = Array.isArray(response.data) ? response.data : response.data?.livestreams ?? [];
+    const directory = Array.isArray(response?.data) ? response.data : response?.data?.livestreams;
+    if (requireComplete && (!Array.isArray(directory) || directory.some((stream) => {
+      const username = stream?.channel?.slug ?? stream?.channel?.username ?? stream?.slug;
+      return typeof username !== "string" || !username.trim();
+    }))) throw new Error("Kick discovery channel directory was incomplete");
+    const streams = directory ?? [];
     return streams.map((stream): ChannelCandidate => {
       const username = stream.channel?.slug ?? stream.channel?.username ?? stream.slug ?? "";
       return {
@@ -584,8 +589,12 @@ export class KickAdapter implements PlatformAdapter {
       const category = livestream?.categories?.[0] ?? livestream?.category;
       const actualCategoryId = category?.id == null ? undefined : String(category.id);
       const expectedCategoryId = campaign ? campaign.categoryId : channel.categoryId;
+      const live = Boolean(livestream?.is_live ?? livestream);
+      if (requireComplete && live && expectedCategoryId && actualCategoryId == null) {
+        throw new Error("Kick discovery channel category evidence was incomplete");
+      }
       return {
-        live: Boolean(livestream?.is_live ?? livestream),
+        live,
         categoryMatches: !expectedCategoryId || actualCategoryId === expectedCategoryId,
         reason: livestream ? undefined : "Kick channel is offline",
         candidate: {
@@ -746,6 +755,9 @@ export class KickAdapter implements PlatformAdapter {
       const live = explicitLive ?? html.includes("livestream");
       const actualCategoryId = parseCategoryId(html);
       const expectedCategoryId = campaign ? campaign.categoryId : channel.categoryId;
+      if (requireComplete && live && expectedCategoryId && actualCategoryId == null) {
+        throw new Error("Kick discovery page category evidence was incomplete");
+      }
       return {
         live,
         categoryMatches: !expectedCategoryId || actualCategoryId == null || actualCategoryId === expectedCategoryId,

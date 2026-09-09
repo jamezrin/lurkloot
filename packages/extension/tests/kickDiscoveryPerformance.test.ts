@@ -24,6 +24,64 @@ function fetcher(handler: (url: string, init?: RequestInit) => unknown): PageFet
 const liveResponse = { id: 1, livestream: { id: 2, is_live: true, categories: [{ id: 13, name: "Rust" }], viewer_count: 100 } };
 
 describe("Kick discovery batch", () => {
+  it.each([{}, { data: {} }, { data: [{}] }])("retains the previous snapshot after malformed general directory evidence: %j", async (directory) => {
+    let malformed = false;
+    const adapter = kickAdapter(fetcher((url) => url.includes("/api/v1/livestreams")
+      ? malformed ? directory : { data: [{ channel: { slug: "streamer" }, category: { id: 13 } }] }
+      : liveResponse));
+    vi.spyOn(adapter, "refreshCampaigns").mockResolvedValue([campaign()]);
+    const lane = new DiscoverySnapshotLane("kick", ({ signal }) => collectDiscoverySnapshot(adapter, undefined, signal, () => NOW, false));
+    await lane.requestAndWait();
+    const coherent = lane.current().snapshot;
+    expect(coherent?.campaigns[0]?.candidates[0]?.live).toBe(true);
+    malformed = true;
+    await lane.requestAndWait();
+    expect(lane.current().snapshot).toBe(coherent);
+    expect(lane.current().lastAttempt?.complete).toBe(false);
+  });
+
+  it.each([{ data: [] }, { data: { livestreams: [] } }])("accepts a genuinely empty general directory: %j", async (directory) => {
+    const adapter = kickAdapter(fetcher(() => directory));
+    vi.spyOn(adapter, "refreshCampaigns").mockResolvedValue([campaign()]);
+    const result = await collectDiscoverySnapshot(adapter, undefined, new AbortController().signal, () => NOW, false);
+    expect(result.complete).toBe(true);
+    expect(result.campaigns[0]?.candidates).toEqual([]);
+  });
+
+  it.each(["page", "api"])("retains the previous snapshot when live %s evidence lacks the required category", async (source) => {
+    let missingCategory = false;
+    const adapter = kickAdapter(fetcher((url) => {
+      if (!missingCategory) return liveResponse;
+      if (url.includes("/api/")) {
+        if (source === "api") return { livestream: { is_live: true } };
+        throw new Error("unavailable");
+      }
+      return { html: '{"is_live":true}' };
+    }));
+    vi.spyOn(adapter, "refreshCampaigns").mockResolvedValue([campaign()]);
+    vi.spyOn(adapter, "listCandidateChannels").mockResolvedValue([candidate()]);
+    const lane = new DiscoverySnapshotLane("kick", ({ signal }) => collectDiscoverySnapshot(adapter, undefined, signal, () => NOW, false));
+    await lane.requestAndWait();
+    const coherent = lane.current().snapshot;
+    expect(coherent?.campaigns[0]?.candidates[0]?.categoryMatches).toBe(true);
+    missingCategory = true;
+    await lane.requestAndWait();
+    expect(lane.current().snapshot).toBe(coherent);
+    expect(lane.current().lastAttempt?.complete).toBe(false);
+  });
+
+  it.each([
+    [false, campaign(), false],
+    [true, undefined, true],
+  ] as const)("accepts page live=%s without category when it is not needed", async (live, source, expectedLive) => {
+    const adapter = kickAdapter(fetcher((url) => {
+      if (url.includes("/api/")) throw new Error("unavailable");
+      return { html: JSON.stringify({ is_live: live }) };
+    }));
+    const result = await adapter.checkChannels([{ channel: candidate(), campaign: source }]);
+    expect(result.checks[0]?.live).toBe(expectedLive);
+  });
+
   it("shares raw evidence across campaigns without sharing category decisions or candidate metadata", async () => {
     const transport = fetcher(() => liveResponse);
     const adapter = kickAdapter(transport);

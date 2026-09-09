@@ -110,7 +110,7 @@ export async function collectDiscoverySnapshot(
       observations.push({ campaign, candidates: retainedCandidates });
       continue;
     }
-    const listedCandidates = await adapter.listCandidateChannels(campaign, { signal });
+    const listedCandidates = await adapter.listCandidateChannels(campaign, { signal, requireComplete: true });
     const candidates = session?.campaignId === campaign.id && session.channel
       ? [...new Map(
           [session.channel, ...listedCandidates]
