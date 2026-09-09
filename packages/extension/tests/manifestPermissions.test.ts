@@ -28,3 +28,15 @@ describe("extension host permissions", () => {
     expect(source).not.toContain("optional_permissions");
   });
 });
+
+describe("in-page panel web accessible resource", () => {
+  it("exposes an opaque panel document scoped to Twitch and Kick", () => {
+    expect(source).toContain('resources: ["p.html"]');
+    expect(source).not.toContain("inpagePanel.html");
+    expect(source).toContain('matches: ["https://*.twitch.tv/*", "https://*.kick.com/*"]');
+    // The WAR comment documents why matches must never be <all_urls>; assert the
+    // matches array itself rather than the whole config file.
+    const warMatches = source.match(/web_accessible_resources:[\s\S]*?matches:\s*(\[[^\]]*\])/)?.[1] ?? "";
+    expect(warMatches).not.toContain("<all_urls>");
+  });
+});

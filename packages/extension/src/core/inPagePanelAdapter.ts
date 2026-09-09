@@ -1,7 +1,7 @@
 import { browser } from "wxt/browser";
 import { openHttpsLink, type PopupAdapter } from "@lurkloot/popup-ui";
 
-// Popup adapter for the in-page panel document (entrypoints/inpagePanel).
+// Popup adapter for the in-page panel document (entrypoints/p).
 //
 // Every optional `PopupAdapter` member left out here is left out on purpose:
 // omitting one hides its action in the UI, which is the same mechanism

@@ -45,7 +45,7 @@ export default defineConfig({
     // string array, exposing the page to all origins there.
     web_accessible_resources: [
       {
-        resources: ["inpagePanel.html"],
+        resources: ["p.html"],
         matches: ["https://*.twitch.tv/*", "https://*.kick.com/*"]
       }
     ],

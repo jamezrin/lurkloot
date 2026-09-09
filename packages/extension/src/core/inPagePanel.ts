@@ -8,7 +8,7 @@ import {
 } from "./inPagePanelDom";
 
 // Stage 1 of the in-page panel: an icon button in the site's own top-right nav,
-// and a draggable window hosting the panel document (entrypoints/inpagePanel),
+// and a draggable window hosting the panel document (entrypoints/p),
 // loaded on first open.
 //
 // This module must stay dependency-free. WXT builds content scripts as a single
@@ -355,9 +355,6 @@ async function openPanel(): Promise<void> {
   // bundle off every page view.
   frame = document.createElement("iframe");
   frame.title = "Lurkloot";
-  // WXT types PublicPath from current entrypoint filenames; /p.html is not in
-  // that union until the panel entrypoint is renamed.
-  // @ts-expect-error PANEL_DOCUMENT_PATH is /p.html ahead of the WAR rename.
   frame.src = browser.runtime.getURL(PANEL_DOCUMENT_PATH);
   frame.style.cssText = [
     `width:${PANEL_WIDTH}px`,
