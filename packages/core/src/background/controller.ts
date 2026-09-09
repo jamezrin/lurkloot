@@ -2008,6 +2008,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   interface TickRequest {
     trigger: TickTrigger;
     reasons: Partial<Record<TickTrigger, number>>;
+    discoverySignal?: DiscoverySignalRefreshRequest;
     promise: Promise<PlatformTickResult>;
     resolve: (result: PlatformTickResult) => void;
     reject: (error: unknown) => void;
@@ -2033,11 +2034,33 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     }
   }
 
-  function admitPlatformTick(platform: Platform, trigger: TickTrigger): Promise<PlatformTickResult> {
+  function retainCurrentTickReasons(platform: Platform, request: TickRequest): boolean {
+    const signal = request.discoverySignal;
+    if (signal && !discoverySignalRefreshAllowed(platform, signal)) {
+      const remaining = (request.reasons.discovery_signal ?? 0) - signal.count;
+      if (remaining > 0) request.reasons.discovery_signal = remaining;
+      else delete request.reasons.discovery_signal;
+      request.discoverySignal = undefined;
+      diagnosticEvent("debug", `Discarded stale scheduler discovery signals (${tickTriggerSummary({ discovery_signal: signal.count })})`, platform);
+    }
+    const reasons = Object.keys(request.reasons) as TickTrigger[];
+    if (reasons.length === 0) return false;
+    request.trigger = reasons.reduce((selected, trigger) =>
+      tickTriggerPriority(trigger) > tickTriggerPriority(selected) ? trigger : selected);
+    return true;
+  }
+
+  function mergeDiscoverySignal(request: TickRequest, signal: DiscoverySignalRefreshRequest): void {
+    request.reasons.discovery_signal = (request.reasons.discovery_signal ?? 0) + signal.count;
+    request.discoverySignal = { ...signal, count: (request.discoverySignal?.count ?? 0) + signal.count };
+  }
+
+  function admitPlatformTick(platform: Platform, trigger: TickTrigger, discoverySignal?: DiscoverySignalRefreshRequest): Promise<PlatformTickResult> {
     if (controllerShutdown || tickAdmissionSuspended) return Promise.resolve([platform, []]);
     const lane = tickAdmission[platform];
     if (lane.pending) {
-      lane.pending.reasons[trigger] = (lane.pending.reasons[trigger] ?? 0) + 1;
+      if (discoverySignal) mergeDiscoverySignal(lane.pending, discoverySignal);
+      else lane.pending.reasons[trigger] = (lane.pending.reasons[trigger] ?? 0) + 1;
       if (tickTriggerPriority(trigger) > tickTriggerPriority(lane.pending.trigger)) {
         lane.pending.trigger = trigger;
       }
@@ -2049,7 +2072,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       resolve = onResolve;
       reject = onReject;
     });
-    const request: TickRequest = { trigger, reasons: { [trigger]: 1 }, promise, resolve, reject };
+    const request: TickRequest = { trigger, reasons: {}, promise, resolve, reject };
+    if (discoverySignal) mergeDiscoverySignal(request, discoverySignal);
+    else request.reasons[trigger] = 1;
     if (lane.active) lane.pending = request;
     else executePlatformTick(platform, request);
     return promise;
@@ -2066,6 +2091,13 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   }
 
   function executePlatformTick(platform: Platform, request: TickRequest): void {
+    // Signal setup can yield before admission. Its controller/generation must
+    // still be current when the admitted request finally owns the platform.
+    if (!retainCurrentTickReasons(platform, request)) {
+      request.resolve([platform, []]);
+      startPendingDiscoverySignalRefresh(platform);
+      return;
+    }
     const lane = tickAdmission[platform];
     lane.active = request;
     let committed: PlatformTickResult[2];
@@ -2078,7 +2110,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         if (pending) {
           const signalRequest = discoverySignalRefreshPending[platform];
           if (signalRequest && discoverySignalRefreshAllowed(platform, signalRequest)) {
-            pending.reasons.discovery_signal = (pending.reasons.discovery_signal ?? 0) + signalRequest.count;
+            mergeDiscoverySignal(pending, signalRequest);
             discoverySignalRefreshPending[platform] = undefined;
           }
           diagnosticEvent("debug", `Coalesced scheduler triggers (${tickTriggerSummary(pending.reasons)})`, platform);
@@ -2095,8 +2127,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   }
   const tickBatches = new Set<TickBatch>();
 
-  function requestTickBatch(platforms: Platform[] | undefined, trigger: TickTrigger): TickBatch {
-    const requests = [...new Set(platforms ?? PLATFORMS)].sort().map((platform) => admitPlatformTick(platform, trigger));
+  function requestTickBatch(platforms: Platform[] | undefined, trigger: TickTrigger, discoverySignal?: DiscoverySignalRefreshRequest): TickBatch {
+    const requests = [...new Set(platforms ?? PLATFORMS)].sort().map((platform) => admitPlatformTick(platform, trigger, discoverySignal));
     for (const batch of tickBatches) {
       if (batch.requests.length === requests.length && batch.requests.every((request, index) => request === requests[index])) return batch;
     }
@@ -3923,6 +3955,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   function invalidateDiscoverySignalAdmission(platform: Platform): void {
     discoverySignalRefreshPending[platform] = undefined;
     discoverySignalAdmissionGeneration[platform] += 1;
+    const pending = tickAdmission[platform].pending;
+    if (pending && !retainCurrentTickReasons(platform, pending)) {
+      tickAdmission[platform].pending = undefined;
+      pending.resolve([platform, []]);
+    }
   }
 
   function discoverySignalRefreshAllowed(
@@ -3996,7 +4033,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
             break;
           }
           diagnosticEvent("debug", `Coalesced scheduler triggers (${tickTriggerSummary({ discovery_signal: current.count })})`, platform);
-          await tickAndHandOff([platform], "discovery_signal");
+          const batch = requestTickBatch([platform], "discovery_signal", current);
+          await (batch.handoff ??= completeTickAndHandOff(batch));
         }
       } finally {
         discoverySignalRefreshRunning[platform] = false;

@@ -40,3 +40,24 @@
 - `pnpm verify` passed on 2026-09-09: script tests, all workspace typechecks, all package tests (including 193 CLI tests), site production build, Chromium MV3 build, and Firefox MV2 build. Existing bundle-size warnings remain.
 - Complete implementation/test/documentation diff self-reviewed; `git diff --check` passed.
 - Open-PR recheck: #500 remains `c8737826` and its post-persistence recovery hook is unchanged by this work. #490 publication validity and #496 dedicated claim alarms remain independent. #504 merged while work was paused; its settings UI changes do not require rebasing this branch before review.
+
+## Review follow-up: discovery signal lifecycle identity
+
+The review identified that a signal paused during its settings read could enter
+the scheduler's pending slot after an alarm acquired the platform. Admission
+discarded the signal controller/generation, so later auth invalidation could not
+cancel that contribution.
+
+- [x] Reproduce the paused-settings-read race with no other pending reason, and with independent alarm/manual reasons.
+- [x] Carry signal controller, generation, and count through private tick admission. Strip stale signal counts at lifecycle invalidation and again before execution; recompute the effective trigger and preserve all independent reasons.
+- [x] Run focused controller/heartbeat and CLI suites, then `pnpm verify`; inspect the complete follow-up diff and commit.
+
+Observed red: signal-only work refreshed twice instead of once; signal+alarm
+executed with the stale signal trigger. All three regression variants then
+passed. Focused controller/heartbeat tests passed (367), as did all CLI tests
+(193). Fresh full `pnpm verify` passed after the interruption: 1,816 extension
+tests, 193 CLI tests, 10 site tests, 95 script tests, workspace typechecks, site
+build, and Chromium/Firefox builds. Existing bundle-size warnings remain.
+The follow-up diff was self-reviewed and `git diff --check` passed. Current
+develop includes the independent #496 and #504 changes; no signal-admission
+interface changed, and read-only merge inspection found no conflict markers.

@@ -9723,6 +9723,44 @@ describe("discovery signal refresh scheduling", () => {
     expect(env.kick.refreshCampaigns).toHaveBeenCalledTimes(2);
   });
 
+  it.each([undefined, "alarm", "manual_tick"] as const)("invalidates an admitted signal while retaining an independent %s trigger", async (independentTrigger) => {
+    const env = await startedEnv();
+    const settingsRead = deferred<ExtensionSettings>();
+    const settingsReadStarted = deferred<void>();
+    const discovery = deferred<DropCampaign[]>();
+    env.deps.loadSettings.mockImplementationOnce(() => {
+      settingsReadStarted.resolve();
+      return settingsRead.promise;
+    });
+    env.discoverySignalController.emitSignal();
+    await settingsReadStarted.promise;
+    vi.mocked(env.kick.refreshCampaigns).mockClear().mockReturnValueOnce(discovery.promise);
+    env.reportEvents.mockClear();
+    const first = env.controller.tick(["kick"], "alarm");
+    let independent: Promise<unknown> | undefined;
+    try {
+      await vi.waitFor(() => expect(env.kick.refreshCampaigns).toHaveBeenCalledOnce());
+      settingsRead.resolve(env.settings);
+      // Let the paused signal finish admission behind the blocked alarm.
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      if (independentTrigger) independent = env.controller.tick(["kick"], independentTrigger);
+      await env.controller.invalidateAuthHealth("kick");
+      discovery.resolve([campaign("kick")]);
+      await Promise.all([first, independent]);
+      await env.controller.settleBackgroundWork();
+
+      expect(env.kick.refreshCampaigns).toHaveBeenCalledTimes(independentTrigger ? 2 : 1);
+      const starts = allDiagnostics(env).filter((event) => /Tick #\d+ started/.test(event.message));
+      expect(starts).toHaveLength(independentTrigger ? 2 : 1);
+      if (independentTrigger) expect(starts.at(-1)?.message).toContain(`trigger=${independentTrigger}`);
+    } finally {
+      settingsRead.resolve(env.settings);
+      discovery.resolve([campaign("kick")]);
+      await Promise.allSettled([first, independent]);
+      await env.controller.settleBackgroundWork();
+    }
+  });
+
   it("coalesces bursts before and after an ordinary Kick tick fetch into one non-overlapping follow-up", async () => {
     const env = await startedEnv();
     const ordinaryAuth = deferred<void>();
