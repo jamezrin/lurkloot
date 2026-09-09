@@ -245,6 +245,8 @@ function harness(
     ) => Promise<boolean>;
     cancelTwitchIntegrityAcquisition?: (reason?: unknown) => void;
     selectWatchTarget?: BackgroundControllerDeps<ExtensionSettings>["selectWatchTarget"];
+    reconcilePageContextRecovery?: BackgroundControllerDeps<ExtensionSettings>["reconcilePageContextRecovery"];
+    discardPageContextRecoveryEvidence?: BackgroundControllerDeps<ExtensionSettings>["discardPageContextRecoveryEvidence"];
     initialState?: SchedulerState;
   } = {},
 ) {
@@ -296,6 +298,12 @@ function harness(
     })),
     reportEvents: vi.fn(overrides.reportEvents ?? reportEvents),
     stopPageContextTabs: vi.fn(overrides.stopPageContextTabs ?? forgetManagedPageContextTabs),
+    ...(overrides.reconcilePageContextRecovery
+      ? { reconcilePageContextRecovery: vi.fn(overrides.reconcilePageContextRecovery) }
+      : {}),
+    ...(overrides.discardPageContextRecoveryEvidence
+      ? { discardPageContextRecoveryEvidence: vi.fn(overrides.discardPageContextRecoveryEvidence) }
+      : {}),
     ...(overrides.selectWatchTarget ? { selectWatchTarget: vi.fn(overrides.selectWatchTarget) } : {}),
     wait: overrides.wait,
     ...(overrides.checkCredentialAvailability
@@ -8294,6 +8302,75 @@ describe("background controller", () => {
       backgroundSuccesses: 0,
       lastFallbackAt: "2026-07-21T12:00:00.000Z",
     });
+  });
+
+  it("reconciles one Kick route observation only after the scheduler cycle persists", async () => {
+    const order: string[] = [];
+    let countBackgroundSuccess: boolean | undefined;
+    let observedThreshold: number | undefined;
+    const env = harness(farming(DEFAULT_SETTINGS), {
+      saveState: async () => { order.push("persist"); },
+      initialState: {
+        ...structuredClone(DEFAULT_STATE),
+        authHealth: { ...DEFAULT_STATE.authHealth, kick: { status: "healthy" } },
+      },
+      reconcilePageContextRecovery: async (_platform, settings, options) => {
+        order.push("reconcile");
+        observedThreshold = settings.kickPageContextRecoverySuccesses;
+        countBackgroundSuccess = options.countBackgroundSuccess;
+        return false;
+      },
+    });
+
+    await env.controller.tick(["kick"]);
+
+    expect(order[0]).toBe("persist");
+    expect(order).toContain("reconcile");
+    expect(observedThreshold).toBe(3);
+    expect(countBackgroundSuccess).toBe(true);
+    expect(env.deps.reconcilePageContextRecovery).toHaveBeenCalledTimes(1);
+  });
+
+  it("reconciles retained Kick route evidence after a failed discovery state persists", async () => {
+    let countBackgroundSuccess: boolean | undefined;
+    const reconcile = vi.fn(async (_platform, _settings, options) => {
+      countBackgroundSuccess = options.countBackgroundSuccess;
+      return false;
+    });
+    const env = harness(farming(DEFAULT_SETTINGS), { reconcilePageContextRecovery: reconcile });
+    env.kick.refreshCampaigns = vi.fn(async () => { throw new Error("discovery failed"); });
+
+    await env.controller.tick(["kick"]);
+
+    expect(reconcile).toHaveBeenCalledOnce();
+    expect(countBackgroundSuccess).toBe(false);
+  });
+
+  it("discards route evidence when an aborted tick cannot persist", async () => {
+    const discard = vi.fn();
+    const env = harness(farming(DEFAULT_SETTINGS), {
+      discardPageContextRecoveryEvidence: discard,
+      initialState: {
+        ...structuredClone(DEFAULT_STATE),
+        authHealth: { ...DEFAULT_STATE.authHealth, kick: { status: "healthy" } },
+      },
+    });
+    const refreshStarted = deferred<void>();
+    env.kick.refreshCampaigns = vi.fn(async (_session, options) => {
+      refreshStarted.resolve();
+      await new Promise<never>((_resolve, reject) => {
+        options?.signal?.addEventListener("abort", () => reject(options.signal?.reason), { once: true });
+      });
+      return [];
+    });
+
+    const tick = env.controller.tick(["kick"]);
+    await refreshStarted.promise;
+    env.controller.shutdown();
+    await tick;
+
+    expect(discard).toHaveBeenCalledOnce();
+    expect(discard).toHaveBeenCalledWith("kick");
   });
 
   it("does not hydrate an old persisted page context over a newer registry update", async () => {

@@ -4,7 +4,7 @@
 
 **Goal:** Close an extension-owned Kick fallback page after 1–10 distinct successful scheduler cycles, defaulting to three, without counting individual requests or closing user tabs.
 
-**Architecture:** A cycle-local observer in the Kick fetcher records background success and fallback evidence. The controller consumes that evidence once after a current Kick tick commits, and an optional browser-host callback updates persisted page-context recovery state and closes the managed tab at the configured threshold. The setting remains extension-only.
+**Architecture:** One extension-host tracker shared by every Kick fetcher records background success and fallback evidence, including the retained watcher. After scheduler state persists, the controller invokes an optional browser-host callback that drains the tracker, updates persisted page-context recovery state, and closes the managed tab at the configured threshold. Failed or incomplete cycles apply fallback resets without counting background recovery. The setting remains extension-only.
 
 **Tech Stack:** TypeScript, Vitest, React popup settings registry, WXT browser adapters, JSON locale catalogs.
 
@@ -46,7 +46,7 @@
 - [ ] Run the focused settings and popup tests until they pass.
 - [ ] Commit with `feat(settings): configure Kick page-context recovery`.
 
-### Task 2: Cycle-local Kick route observation
+### Task 2: Shared Kick route observation
 
 **Files:**
 - Modify: `packages/core/src/platforms/kick/index.ts`
@@ -54,14 +54,14 @@
 - Test: `packages/extension/tests/adapters.test.ts`
 
 **Interfaces:**
-- Produces: `KickPageContextCycleObservation` containing `backgroundHosts`, `fallbackHosts`, and consume-once lifecycle identity.
-- Produces: optional adapter method `consumePageContextCycleObservation()` returning one immutable observation or `undefined`.
+- Produces: `KickPageContextCycleObservation` containing `backgroundHosts` and ordered `fallbackHosts`.
+- Produces: `KickPageContextRecoveryTracker`, shared across extension adapter and watcher constructions, with drain/restore semantics.
 
 - [ ] Add failing tests proving forty successes consume as one cycle observation, fallback wins over success, host values contain hostnames only, and a second consume is empty.
 - [ ] Run the focused adapter tests and confirm failure.
-- [ ] Implement a cycle-local observer owned by each Kick adapter/fetcher construction.
+- [ ] Implement one extension-host observer shared by each Kick adapter/fetcher construction.
 - [ ] Record direct success and fallback outcomes without changing fetch behavior.
-- [ ] Expose consume-once evidence through the optional platform-adapter capability.
+- [ ] Drain evidence through the host recovery callback and restore it on reconciliation failure.
 - [ ] Run `pnpm --filter @lurkloot/extension test -- adapters.test.ts` until it passes.
 - [ ] Commit with `feat(kick): observe page-context routes per cycle`.
 
@@ -81,7 +81,7 @@
 - [ ] Run `pnpm --filter @lurkloot/extension test -- tabs.test.ts` and confirm failure.
 - [ ] Remove the hard-coded ten-minute minimum and request-level success increment.
 - [ ] Apply one observation atomically to the current retained context, updating one success or resetting on fallback.
-- [ ] Delete registry ownership before `tabs.remove`, emit `page_context_closed/background_recovered`, and safely forget already-gone tabs.
+- [ ] Verify the exact retained tab origin before `tabs.remove`, emit `page_context_closed/background_recovered`, safely forget already-gone or reused ids, and retain ownership for unreadable URLs/removal failures.
 - [ ] Preserve immediate disable/stop/reset/manual-watch cleanup and user-tab protection.
 - [ ] Run the focused tabs tests until they pass.
 - [ ] Commit with `fix(kick): close recovered page contexts by cycle`.
@@ -96,16 +96,14 @@
 - Test: `packages/extension/tests/backgroundEntrypoint.test.ts`
 
 **Interfaces:**
-- Consumes: adapter `consumePageContextCycleObservation()`.
-- Consumes: optional dependency `reconcilePageContextRecovery(platform, observation, settings, lifecycle)`.
-- Guarantees: reconciliation occurs once only after a current committed Kick tick.
+- Consumes: optional dependency `reconcilePageContextRecovery(platform, settings, eligibility, lifecycle)`.
+- Guarantees: reconciliation occurs after persisted work; failed or incomplete work can reset on fallback but cannot count background recovery.
 
-- [ ] Add failing controller tests for one reconciliation after commit and none after failed, aborted, stale, discarded, or duplicate/coalesced work.
-- [ ] Add failing overlap tests proving adapter replacement and old lifecycle evidence cannot advance recovery.
+- [ ] Add failing controller tests for one reconciliation after commit and fallback-only reconciliation after failed, aborted, stale, discarded, or incomplete work.
+- [ ] Add failing overlap tests proving retained-watcher and replacement-adapter evidence share one ordered tracker.
 - [ ] Add an entrypoint test proving the browser callback receives the normalized extension threshold.
 - [ ] Run focused controller/entrypoint tests and confirm failure.
-- [ ] Extend `TickAdapterHandle` to consume observation from the exact adapter used by the committed cycle.
-- [ ] Invoke the optional host callback only after a current Kick platform commit; isolate callback failures as safe diagnostics.
+- [ ] Invoke the optional host callback only after state persistence; pass whether the cycle may count background success and isolate callback failures as safe diagnostics.
 - [ ] Wire the extension callback to browser reconciliation with `settings.kickPageContextRecoverySuccesses`.
 - [ ] Run the focused tests until they pass.
 - [ ] Commit with `fix(controller): reconcile Kick page recovery after commit`.

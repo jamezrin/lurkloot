@@ -214,6 +214,8 @@ For Kick, `pageFetchJson` reads `session_token` from the Kick page context and a
 
 Temporary page-context tabs are reference-counted per origin and removed after the fetches complete when the extension created them. Existing user tabs reused for page-context fetches are not closed.
 
+Kick may retain an extension-owned page-context tab when its service-worker fetch is rejected. One extension-host tracker receives successful route callbacks from every Kick fetcher, including the controller-lifetime tabless watcher, and drains only after scheduler state persists; residual evidence is discarded on every uncommitted tick exit. A fallback always resets recovery immediately, including on an incomplete cycle; only a complete, error-free direct cycle advances it once, regardless of request count. After the configurable number of consecutive direct cycles (three by default, 1–10 in Advanced settings), the extension verifies and closes that exact managed tab. Unreadable or concurrently changed tab ownership is retained for a safe retry, while ownership is released synchronously immediately before removal so a new fallback acquires a separate context. The counter is persisted with scheduler state so service-worker restarts do not reset or resurrect ownership. The CLI has no browser page-context tabs and does not expose this setting.
+
 ## Twitch Integration
 
 `TwitchAdapter` uses Twitch GraphQL at `https://gql.twitch.tv/gql` with persisted query hashes and the public Twitch web client id.

@@ -332,6 +332,13 @@ export interface BackgroundControllerDeps<S extends EngineSettings = EngineSetti
   // Omitted in headless/test runs, where the scheduler forgets contexts from
   // state only (see runSchedulerTick / StopPageContextTabs).
   stopPageContextTabs?: StopPageContextTabs;
+  reconcilePageContextRecovery?(
+    platform: Platform,
+    settings: S,
+    options: { countBackgroundSuccess: boolean },
+    emit: EventEmitter,
+  ): Promise<boolean>;
+  discardPageContextRecoveryEvidence?(platform: Platform): void;
   selectWatchTarget?: typeof selectWatchTargetFromSnapshot;
   // Delay used by the bounded post-claim handoff. Injected so tests can drive
   // the loop deterministically instead of racing real timers. Resolves early
@@ -2475,6 +2482,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       if (abort.signal.aborted) return [platform, []];
       throw error;
     } finally {
+      deps.discardPageContextRecoveryEvidence?.(platform);
       for (const adapter of Object.values(tickAdapters)) adapter.close();
       activeTicks.delete(abort);
       activePlatformTicks[platform] -= 1;
@@ -2588,6 +2596,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       };
       let nextState: SchedulerState;
       let publicationLeases: Array<readonly [Platform, HeartbeatPublicationLease]> = [];
+      const pageContextRecoverySuccessPlatforms = new Set<Platform>();
       try {
         const adapters = Object.fromEntries(schedulerPlatforms.map((schedulerPlatform) => [
           schedulerPlatform,
@@ -2693,6 +2702,14 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
             }];
           })),
         });
+        for (const schedulerPlatform of schedulerPlatforms) {
+          if (
+            discoveryLanes[schedulerPlatform].current().lastAttempt?.complete === true
+            && (result.state.sessions[schedulerPlatform].errorChecks ?? 0) === 0
+          ) {
+            pageContextRecoverySuccessPlatforms.add(schedulerPlatform);
+          }
+        }
         signal.throwIfAborted();
         assertSelectionsCurrent();
         const lifecycleEvents = farmingLifecycleEvents(state, result.state);
@@ -2761,7 +2778,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           const detail = error instanceof Error ? error.message : "Scheduler tick failed";
           emit({ category: "activity", code: "interruption", level: "error", platform, data: { reason: "platform_error", detail } });
           emit({ category: "diagnostic", level: "error", platform, message: detail });
-          await persistPlatformAndReport(platform, state, correlateTickDiagnostics(events, tickContext));
+          const persisted = await persistPlatformAndReport(platform, state, correlateTickDiagnostics(events, tickContext));
+          if (persisted) {
+            await reconcilePageContextRecoveryAfterPersist([platform], state, settings, new Set(), tickContext);
+          }
         } finally {
           await Promise.all(publicationLeases.map(([leasePlatform, lease]) =>
             releaseHeartbeatPublicationLease(leasePlatform, lease)));
@@ -2781,6 +2801,13 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           onPersisted,
         );
         if (!persisted) return;
+        await reconcilePageContextRecoveryAfterPersist(
+          schedulerPlatforms,
+          nextState,
+          settings,
+          pageContextRecoverySuccessPlatforms,
+          tickContext,
+        );
         waitingClaimRewardIds[platform].clear();
         for (const rewardId of nextWaitingClaimRewardIds[platform]) {
           waitingClaimRewardIds[platform].add(rewardId);
@@ -2791,6 +2818,37 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       }
     }, tickContext), schedulerPlatforms);
     return claimedRewards;
+  }
+
+  async function reconcilePageContextRecoveryAfterPersist(
+    platforms: readonly Platform[],
+    state: SchedulerState,
+    settings: S,
+    backgroundSuccessPlatforms: ReadonlySet<Platform>,
+    tickContext: TickDiagnosticContext,
+  ): Promise<void> {
+    if (!deps.reconcilePageContextRecovery) return;
+    for (const recoveryPlatform of platforms) {
+      await withEventCollector(async (recoveryEmit, recoveryEvents) => {
+        try {
+          const changed = await deps.reconcilePageContextRecovery!(
+            recoveryPlatform,
+            settings,
+            { countBackgroundSuccess: backgroundSuccessPlatforms.has(recoveryPlatform) },
+            recoveryEmit,
+          );
+          if (changed) await persistPlatformState(recoveryPlatform, state);
+        } catch (error) {
+          recoveryEmit({
+            category: "diagnostic",
+            level: "debug",
+            platform: recoveryPlatform,
+            message: `Page-context recovery reconciliation failed: ${error instanceof Error ? error.message : String(error)}`,
+          });
+        }
+        await reportBestEffort(correlateTickDiagnostics(recoveryEvents, tickContext));
+      });
+    }
   }
 
   async function checkAuthHealth(platform: Platform): Promise<void> {

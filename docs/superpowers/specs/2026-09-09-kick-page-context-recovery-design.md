@@ -27,20 +27,22 @@ This design covers only Kick page-context recovery and its advanced extension se
 
 A recovery success is one completed canonical Kick scheduler cycle, not one HTTP request.
 
-During a cycle, the Kick transport records a compact observation:
+All extension-owned Kick fetchers record compact route evidence in one host-owned tracker shared by discovery adapters and the retained tabless watcher:
 
 - whether any direct background request succeeded;
 - whether any request fell back to the retained page context;
 - the safe host or hosts involved; and
-- the lifecycle generation that owns the observation.
+- the completion order of fallback hosts, so recovery follows the most recently required route.
 
-At the end of a successfully committed Kick cycle, the controller consumes that observation exactly once:
+After scheduler state persists, the controller invokes the browser-host reconciliation seam. The host drains that observation exactly once:
 
 - any page fallback resets consecutive recovery successes to zero and refreshes the fallback metadata;
 - no fallback plus at least one successful direct background request increments the counter once;
 - a cycle with no relevant request leaves the counter unchanged;
-- an aborted, failed, discarded, stale, or uncommitted cycle does not increment the counter;
+- an aborted, failed, discarded, stale, incomplete, or uncommitted cycle does not increment the counter, but any fallback it observed still resets recovery;
 - multiple scheduler triggers that consume one coalesced discovery attempt cannot count that attempt more than once.
+
+The tick's unconditional cleanup discards any evidence left after an aborted, stale, or otherwise uncommitted path. Fallback dependency is not lost because a successful page fallback updates the retained-tab registry immediately; only its non-durable aggregate observation is discarded.
 
 This definition makes the default threshold of 3 mean three distinct successful scheduler cycles. At the default one-minute polling interval, that is normally about three minutes of confirmed recovery.
 
@@ -62,15 +64,15 @@ This is an extension-only setting because retained browser page contexts do not 
 
 ### Kick transport observation
 
-`createKickFetcher` continues to own the decision between direct background fetch and page fallback. It records cycle-local route evidence in a small observer supplied when the adapter is constructed. Raw URLs, headers, credentials, tokens, and payloads are never retained.
+`createKickFetcher` continues to own the decision between direct background fetch and page fallback. Successful route callbacks feed one extension-host tracker supplied to every Kick adapter construction, including the adapter captured by the controller-lifetime `KickWatcher`. Raw URLs, headers, credentials, tokens, and payloads are never retained.
 
-The observer exposes a consume-once snapshot. Consuming clears that adapter cycle's evidence, preventing duplicate controller paths from crediting it twice.
+The tracker exposes a drain-and-restore snapshot. Draining clears accumulated evidence; a failed reconciliation restores it without reordering newer fallback evidence that arrived concurrently. Page fallback also updates the retained-tab registry immediately, after the page request succeeds, so the next heartbeat state commit makes that dependency durable across service-worker suspension.
 
 ### Controller reconciliation
 
-After a Kick platform tick has successfully committed current state, the background controller asks the adapter handle for any page-context recovery observation and passes it to an injected host reconciliation callback. The callback is optional so browser-free core and CLI hosts remain valid.
+After a Kick platform tick persists current state, the background controller invokes an injected host reconciliation callback. The callback owns the shared tracker and is optional so browser-free core and CLI hosts remain valid.
 
-The controller must not reconcile evidence from a stale lifecycle, discarded discovery publication, failed tick, or superseded adapter. The same lifecycle generations used to prevent stale scheduler commits guard the recovery observation.
+Fallback evidence is reconciled after both successful and failed persisted attempts so it cannot be consumed and discarded on snapshot-less paths. Background success is eligible to advance recovery only after a complete discovery attempt and an error-free scheduler result. Retaining the previous snapshot after incomplete discovery therefore neither stalls fallback reconciliation nor falsely advances recovery.
 
 ### Browser page-context registry
 
@@ -98,9 +100,9 @@ Each distinct successfully committed Kick cycle with background success and no f
 
 ### Recovery confirmed
 
-When the counter reaches the configured threshold, the browser registry atomically removes ownership before attempting tab closure. It closes only the exact extension-owned tab id and emits `page_context_closed` with reason `background_recovered`.
+When the counter reaches the configured threshold, the browser verifies that the exact extension-owned tab id still has the retained origin. Immediately before the asynchronous close, it releases that exact ownership entry so a concurrent fallback must acquire a fresh managed context. It then closes the recovered tab and emits `page_context_closed` with reason `background_recovered`.
 
-If the tab is already gone, it forgets the registry/state entry and emits the existing safe diagnostic. A failed `tabs.remove` never restores ownership blindly; later state reconciliation must not resurrect the removed entry.
+If the tab is already gone or its id now belongs to a different origin, it forgets the registry/state entry and emits the existing safe diagnostic. If the URL is temporarily unavailable during navigation or tab removal is unavailable, ownership remains for a later safe retry. A failed removal restores the old ownership only when no newer context replaced it. A registry revision check prevents a newer fallback arriving during asynchronous tab verification from being closed underneath its request.
 
 ### Lifecycle cleanup
 
@@ -111,12 +113,13 @@ User-owned tabs are never registered as extension-owned recovery contexts and ar
 ## Concurrency and Restart Safety
 
 - Page fallback wins over success within the same cycle.
-- A consumed observation can affect the counter at most once.
+- A drained observation can affect the counter at most once, and is restored on reconciliation failure.
 - Only the current retained context tab id and current lifecycle generation may be mutated.
 - Registry mutation and persisted-state merge use revision checks; stale reads retry or are discarded.
-- Removing recovery ownership precedes asynchronous browser tab removal.
+- Asynchronous tab verification rechecks registry ownership before removal; unreadable or concurrently updated ownership is retained.
 - Service-worker restart hydrates the retained context and its counter from state, but cannot hydrate an entry whose tab no longer exists.
-- Adapter replacement, settings changes, and overlapping ticks cannot transfer evidence across lifecycle generations.
+- Adapter replacement does not lose evidence because all extension Kick adapters share the host tracker.
+- Every tick exit discards residual, non-counting tracker evidence, preventing an aborted or stale cycle's background success from leaking into the next committed cycle.
 - The fix must remain correct when #497 later coalesces scheduler triggers more aggressively.
 
 ## Diagnostics and Activity
@@ -154,8 +157,8 @@ Use deterministic Vitest coverage with mocked browser and storage dependencies.
 - thresholds 1 and 10 close on exactly their respective qualifying cycle;
 - a fallback after successes resets the count;
 - a mixed success/fallback cycle counts as fallback, not recovery;
-- failed, aborted, discarded, stale, and uncommitted cycles do not increment;
-- consuming the same observation twice cannot double-count;
+- failed, aborted, discarded, stale, incomplete, and uncommitted cycles do not increment but retain fallback resets;
+- draining the same observation twice cannot double-count, and restore preserves newer fallback ordering;
 - changing the setting applies on the next qualifying cycle;
 - a background success for a different host does not confirm recovery for the fallback host.
 
@@ -176,7 +179,7 @@ Run focused settings, tabs, controller, background-entrypoint, and popup tests, 
 
 Existing stored settings require no explicit migration: normalization supplies the default value. Existing retained contexts without recovery metadata begin at zero confirmations after upgrade. No browser permission, host permission, raw-provider persistence, or credential handling changes.
 
-The CLI receives no behavior or configuration change. Core contracts added for observation/reconciliation remain optional for non-browser hosts.
+The CLI receives no behavior or configuration change. The host reconciliation contract remains optional for non-browser hosts; the tracker lives in core but is instantiated only by the extension host.
 
 ## Success Criteria
 

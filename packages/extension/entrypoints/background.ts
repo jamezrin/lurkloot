@@ -10,8 +10,8 @@ import {
   fetchKickInBackground,
   fetchTwitchInBackground,
   openPinnedMutedTab,
-  recordManagedPageContextBackgroundSuccess,
   recordManagedPageContextFallback,
+  reconcileManagedPageContextRecovery,
   stopManagedPageContextTabs,
   stopWatchTab,
 } from "../src/core/tabs";
@@ -24,7 +24,7 @@ import type { ExtensionSettings, Platform, SupportedLocale } from "@lurkloot/sha
 import type { EventEmitter } from "@lurkloot/shared/events";
 import type { WatchTabPort } from "@lurkloot/core/adapter";
 import type { WebSocketFactory, WebSocketLike } from "@lurkloot/core/webSocket";
-import { createKickFetcher, KickAdapter, KickClaimState, KickDiscoveryState } from "@lurkloot/core/kick";
+import { createKickFetcher, KickAdapter, KickClaimState, KickDiscoveryState, KickPageContextRecoveryTracker } from "@lurkloot/core/kick";
 import { TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
 import { isMinorOrMajorBump } from "../src/core/version";
 import { savePendingChangelogVersion } from "../src/core/updateNotice";
@@ -51,6 +51,7 @@ const reportEvents = createActivityEventReporter({
 });
 const kickClaimState = new KickClaimState();
 const kickDiscoveryState = new KickDiscoveryState();
+const kickPageContextRecovery = new KickPageContextRecoveryTracker();
 const twitchDiscoveryState = new TwitchDiscoveryState();
 const KICK_PAGE_CONTEXT_URL = "https://kick.com/drops/inventory";
 const createBrowserWebSocket: WebSocketFactory = (url) => new WebSocket(url) as unknown as WebSocketLike;
@@ -122,8 +123,11 @@ function createExtensionAdapter(platform: Platform, emit: EventEmitter, settings
           emit,
           openReason: "background_rejected",
         }),
-        onBackgroundSuccess: (host, operationEmit) => recordManagedPageContextBackgroundSuccess(host, operationEmit),
-        onPageFallback: (host, operationEmit) => recordManagedPageContextFallback(host, operationEmit),
+        onBackgroundSuccess: (host) => kickPageContextRecovery.recordBackgroundSuccess(host),
+        onPageFallback: (host, operationEmit) => {
+          kickPageContextRecovery.recordPageFallback(host);
+          recordManagedPageContextFallback(host, operationEmit);
+        },
       }),
       watchTabPort,
       createBrowserWebSocket,
@@ -176,6 +180,26 @@ const controller = createBackgroundController<ExtensionSettings>({
   loadTwitchIntegrity,
   saveTwitchIntegrity,
   stopPageContextTabs: (contexts, options) => stopManagedPageContextTabs(contexts, options),
+  reconcilePageContextRecovery: async (platform, settings, options, emit) => {
+    if (platform !== "kick") return false;
+    const observation = kickPageContextRecovery.take();
+    if (!observation) return false;
+    if (!options.countBackgroundSuccess) observation.backgroundHosts = [];
+    try {
+      return await reconcileManagedPageContextRecovery(
+        platform,
+        observation,
+        settings.kickPageContextRecoverySuccesses,
+        emit,
+      );
+    } catch (error) {
+      kickPageContextRecovery.restore(observation);
+      throw error;
+    }
+  },
+  discardPageContextRecoveryEvidence: (platform) => {
+    if (platform === "kick") kickPageContextRecovery.discard();
+  },
   createAdapter: createExtensionAdapter,
   createAdapters: (emit, settings) => {
     const twitch = createExtensionAdapter("twitch", emit, settings);

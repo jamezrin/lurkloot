@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PageFetcher, PlatformAdapter } from "@lurkloot/core/adapter";
-import { createKickClaimCapability, createKickFetcher, KickAdapter, KickClaimState, KickDiscoveryState } from "@lurkloot/core/kick";
+import { createKickClaimCapability, createKickFetcher, KickAdapter, KickClaimState, KickDiscoveryState, KickPageContextRecoveryTracker } from "@lurkloot/core/kick";
 import { fetchTwitchInBackgroundWith, KickWafBlockedError } from "@lurkloot/core/tabs";
 import type { TwitchIntegrityRequest } from "@lurkloot/core/tabs";
 import { readFileSync } from "node:fs";
@@ -991,6 +991,94 @@ describe("KickAdapter", () => {
 });
 
 describe("createKickFetcher (background-first, tab fallback)", () => {
+  it("shares reusable recovery evidence across discovery and retained watcher fetchers", async () => {
+    const tracker = new KickPageContextRecoveryTracker();
+    const callbacks = {
+      onBackgroundSuccess: (host: string) => tracker.recordBackgroundSuccess(host),
+      onPageFallback: (host: string) => tracker.recordPageFallback(host),
+    };
+    const discoveryFetcher = createKickFetcher({
+      ...callbacks,
+      background: async () => ({ ok: true }),
+      pageFetch: async () => ({ ok: true }),
+    });
+    const watcherFetcher = createKickFetcher({
+      ...callbacks,
+      background: async () => { throw new KickWafBlockedError("blocked"); },
+      pageFetch: async () => ({ ok: true }),
+    });
+
+    await discoveryFetcher.fetchJson("https://kick.com/api/discovery");
+    await watcherFetcher.fetchJson("https://web.kick.com/api/viewer-token");
+
+    const firstObservation = tracker.take();
+    expect(firstObservation).toEqual({
+      backgroundHosts: ["kick.com"],
+      fallbackHosts: ["web.kick.com"],
+    });
+    expect(tracker.take()).toBeUndefined();
+
+    await watcherFetcher.fetchJson("https://kick.com/api/target");
+    tracker.restore(firstObservation!);
+    expect(tracker.take()).toEqual({
+      backgroundHosts: ["kick.com"],
+      fallbackHosts: ["web.kick.com", "kick.com"],
+    });
+  });
+
+  it("can discard uncommitted route evidence", async () => {
+    const tracker = new KickPageContextRecoveryTracker();
+    tracker.recordBackgroundSuccess("kick.com");
+    tracker.recordPageFallback("web.kick.com");
+
+    tracker.discard();
+
+    expect(tracker.take()).toBeUndefined();
+  });
+
+  it("coalesces every request outcome into one consume-once cycle observation", async () => {
+    const tracker = new KickPageContextRecoveryTracker();
+    const fetcher = createKickFetcher({
+      background: async () => ({ ok: true }),
+      pageFetch: async () => ({ ok: true }),
+      onBackgroundSuccess: (host) => tracker.recordBackgroundSuccess(host),
+      onPageFallback: (host) => tracker.recordPageFallback(host),
+    });
+
+    await Promise.all(Array.from({ length: 40 }, (_, index) => fetcher.fetchJson(
+      index % 2 === 0 ? "https://kick.com/api/test" : "https://web.kick.com/api/test",
+    )));
+
+    expect(tracker.take()).toEqual({
+      backgroundHosts: ["kick.com", "web.kick.com"],
+      fallbackHosts: [],
+    });
+    expect(tracker.take()).toBeUndefined();
+  });
+
+  it("records fallback evidence alongside successes so reconciliation can give fallback precedence", async () => {
+    let calls = 0;
+    const tracker = new KickPageContextRecoveryTracker();
+    const fetcher = createKickFetcher({
+      background: async () => {
+        calls += 1;
+        if (calls === 2) throw new KickWafBlockedError("blocked");
+        return { ok: true };
+      },
+      pageFetch: async () => ({ ok: true }),
+      onBackgroundSuccess: (host) => tracker.recordBackgroundSuccess(host),
+      onPageFallback: (host) => tracker.recordPageFallback(host),
+    });
+
+    await fetcher.fetchJson("https://kick.com/api/first");
+    await fetcher.fetchJson("https://kick.com/api/second");
+
+    expect(tracker.take()).toEqual({
+      backgroundHosts: ["kick.com"],
+      fallbackHosts: ["kick.com"],
+    });
+  });
+
   it("uses the service-worker result and never touches the page tab when the background fetch succeeds", async () => {
     const background = vi.fn(async () => ({ data: "from-sw" }));
     const pageFetch = vi.fn(async () => ({ data: "from-tab" }));
