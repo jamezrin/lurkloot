@@ -1,8 +1,8 @@
 import type { CategorySearchResult, CoreRuntimeMessage, PlaybackControl, RuntimeSnapshot } from "@lurkloot/shared/messages";
-import type { DropCampaign, DropReward, EngineSettings, ManagedWatchTab, Platform, PlatformAuthHealth, PlaybackTelemetry, SchedulerState, TablessHeartbeatCadence, WatchReasonCode, WatchSession } from "@lurkloot/shared/models";
+import type { ChannelCandidate, DropCampaign, DropReward, EngineSettings, ManagedWatchTab, Platform, PlatformAuthHealth, PlaybackTelemetry, SchedulerState, TablessHeartbeatCadence, WatchReasonCode, WatchSession } from "@lurkloot/shared/models";
 import type { ActivityEvent, DiagnosticEvent, EngineEvent, EventEmitter, EventReporter, FarmingStopReason, PageContextOpenReason } from "@lurkloot/shared/events";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
-import { isFarmingActive } from "@lurkloot/shared/settings";
+import { autoClaimChannelPointsFor, isFarmingActive } from "@lurkloot/shared/settings";
 import type { CompatibilityResolution, ResolvedCompatibility } from "@lurkloot/shared/compatibility";
 import { isWatchReward, reconcileCampaignAfterClaims } from "@lurkloot/shared/rewards";
 import { campaignSearchBackoffApplies, isPlaybackTelemetryHealthy, MANUAL_WATCH_TTL_MS, runSchedulerTick, selectWatchTargetFromSnapshot, type SnapshotSelectionResult, type StopPageContextTabs } from "../core/scheduler";
@@ -36,6 +36,7 @@ import {
   validTablessHeartbeatCadence,
 } from "../core/heartbeatCadence";
 import { mergePlatformState } from "./platformState";
+import { twitchChannelFromUrl } from "../platforms/twitch/channelUrl";
 import {
   collectDiscoverySnapshot,
   adapterFromDiscoverySnapshot,
@@ -51,6 +52,7 @@ export const KICK_ALARM_NAME = "lurkloot.tick.kick";
 // of the (heavier, configurable) discovery tick. chrome.alarms clamps to a
 // 1-minute minimum, close enough to TwitchDropsMiner's 59s send cadence.
 export const WATCH_ALARM_NAME = "lurkloot.watch";
+export const TWITCH_CHANNEL_POINTS_ALARM_NAME = "lurkloot.twitch-channel-points";
 export const TWITCH_INTEGRITY_ALARM_NAME = "lurkloot.twitch-integrity";
 export const TWITCH_INTEGRITY_REFRESH_LEAD_MS = 120_000;
 export const TWITCH_INTEGRITY_REFRESH_JITTER_MAX_MS = 30_000;
@@ -58,6 +60,7 @@ export const TWITCH_INTEGRITY_REFRESH_JITTER_MAX_MS = 30_000;
 interface BackgroundAlarmController {
   tickAndHandOff(platforms?: Platform[], trigger?: TickTrigger): Promise<SchedulerState | undefined>;
   runWatchHeartbeat(): Promise<void>;
+  runTwitchChannelPointsClaim(): Promise<void>;
   runTwitchIntegrityRefresh(): Promise<void>;
 }
 
@@ -69,6 +72,8 @@ export function createBackgroundAlarmListener(controller: BackgroundAlarmControl
       void controller.tickAndHandOff(["kick"], "alarm");
     } else if (alarm.name === WATCH_ALARM_NAME) {
       void controller.runWatchHeartbeat();
+    } else if (alarm.name === TWITCH_CHANNEL_POINTS_ALARM_NAME) {
+      void controller.runTwitchChannelPointsClaim();
     } else if (alarm.name === TWITCH_INTEGRITY_ALARM_NAME) {
       void controller.runTwitchIntegrityRefresh();
     }
@@ -979,6 +984,19 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     }
   }
 
+  async function clearTwitchChannelPointsAlarmBestEffort(): Promise<void> {
+    try {
+      await deps.clearAlarm?.(TWITCH_CHANNEL_POINTS_ALARM_NAME);
+    } catch {
+      await reportBestEffort([{
+        category: "diagnostic",
+        platform: "twitch",
+        level: "warn",
+        message: "Could not clear the Twitch channel-points alarm",
+      }]);
+    }
+  }
+
   async function scheduleTwitchIntegrityRefresh(
     integrity: TwitchIntegrity,
     emit?: EventEmitter,
@@ -1478,6 +1496,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     const settings = await deps.loadSettings();
     await ensureSchedulerAlarms(settings.pollIntervalMinutes);
     await deps.createAlarm(WATCH_ALARM_NAME, { periodInMinutes: 1 });
+    await reconcileTwitchChannelPointsAlarm(settings);
     if (settings.autoStartDropFarming && isFarmingActive(settings)) {
       await tick(undefined, "install");
     } else {
@@ -1491,6 +1510,14 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       deps.createAlarm(TWITCH_ALARM_NAME, { periodInMinutes }),
       deps.createAlarm(KICK_ALARM_NAME, { periodInMinutes }),
     ]);
+  }
+
+  async function reconcileTwitchChannelPointsAlarm(settings: EngineSettings): Promise<void> {
+    if (settings.platform.twitch.enabled && autoClaimChannelPointsFor(settings, "twitch")) {
+      await deps.createAlarm(TWITCH_CHANNEL_POINTS_ALARM_NAME, { periodInMinutes: 1 });
+    } else {
+      await deps.clearAlarm?.(TWITCH_CHANNEL_POINTS_ALARM_NAME);
+    }
   }
 
   async function ensureInstalledAt(installedAt = new Date().toISOString()): Promise<void> {
@@ -1519,6 +1546,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         },
       };
       await deps.saveSettings(nextSettings);
+      await reconcileTwitchChannelPointsAlarm(nextSettings);
       return nextSettings;
     });
   }
@@ -1530,6 +1558,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     const settings = await deps.loadSettings();
     await ensureSchedulerAlarms(settings.pollIntervalMinutes);
     await deps.createAlarm(WATCH_ALARM_NAME, { periodInMinutes: 1 });
+    await reconcileTwitchChannelPointsAlarm(settings);
     // A restart kills any in-memory watchers; atomically release their lane
     // ownership before host cleanup, then let tick() rebuild fresh instances.
     await clearHeartbeatOwnership(PLATFORMS);
@@ -1614,6 +1643,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       await deps.saveSettings(settings);
       afterPersist?.(settings);
       await ensureSchedulerAlarms(settings.pollIntervalMinutes);
+      await reconcileTwitchChannelPointsAlarm(settings);
       return settings;
     });
   }
@@ -3645,6 +3675,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     abortActiveTicks("Controller shutdown");
     closeTwitchIntegrityLifecycle("Controller shutdown");
     void clearTwitchIntegrityAlarmBestEffort();
+    void clearTwitchChannelPointsAlarmBestEffort();
     abortClaimHandoffs();
     void cancelHeartbeatPublicationLeases(PLATFORMS);
     clearHeartbeatOwnershipInBackground(PLATFORMS);
@@ -3663,6 +3694,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     closeTwitchIntegrityLifecycle("Host reset");
     await stopDiscoverySignalControllersAndReport(PLATFORMS);
     await clearTwitchIntegrityAlarmBestEffort();
+    await clearTwitchChannelPointsAlarmBestEffort();
     abortClaimHandoffs();
     await clearHeartbeatOwnership(PLATFORMS);
     await withSettingsLock(() => withStateLock(() => withEventCollector(async (emit, events) => {
@@ -3963,6 +3995,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   async function recordPlaybackTelemetry(
     message: Extract<CoreRuntimeMessage, { type: "playbackTelemetry" }>,
     senderTabId?: number,
+    senderTabUrl?: string,
   ): Promise<void> {
     let manualWatchStarted = false;
     await withStateLock(() => withEventCollector(async (emit, events) => {
@@ -3975,7 +4008,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
       if (!isManagedWatchTab) {
         if (senderTabId != null) {
-          const manualWatch = recordManualWatchTelemetry(state, settings, message, senderTabId);
+          const manualWatch = recordManualWatchTelemetry(state, settings, message, senderTabId, senderTabUrl);
           manualWatchStarted = manualWatch.started;
           await persistPlatformAndReport(
             message.platform,
@@ -4037,6 +4070,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     settings: EngineSettings,
     message: Extract<CoreRuntimeMessage, { type: "playbackTelemetry" }>,
     senderTabId: number,
+    senderTabUrl?: string,
   ): { state: SchedulerState; started: boolean } {
     const manualWatch = { ...state.manualWatch };
     if (!settings.pauseOnManualWatch) {
@@ -4056,6 +4090,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       tabId: senderTabId,
       checkedAt: new Date().toISOString(),
       active,
+      ...(message.platform === "twitch"
+        ? { channel: twitchChannelFromUrl(senderTabUrl) }
+        : {}),
     };
     return {
       state: { ...state, manualWatch },
@@ -4196,14 +4233,14 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
   async function handleMessage(
     message: CoreRuntimeMessage,
-    sender?: { tab?: { id?: number } },
+    sender?: { tab?: { id?: number; url?: string } },
   ): Promise<RuntimeSnapshot<S> | PlaybackControl | CategorySearchResult | void> {
     if (message.type === "getPlaybackControl") {
       return getPlaybackControl(message, sender?.tab?.id);
     }
 
     if (message.type === "playbackTelemetry") {
-      await recordPlaybackTelemetry(message, sender?.tab?.id);
+      await recordPlaybackTelemetry(message, sender?.tab?.id, sender?.tab?.url);
       return undefined;
     }
 
@@ -4370,6 +4407,40 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     }
   }
 
+  async function runTwitchChannelPointsClaim(): Promise<void> {
+    if (controllerShutdown) return;
+    await withPlatformLock("twitch", () => withEventCollector(async (emit, events) => {
+      if (controllerShutdown) return;
+      const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
+      if (!settings.platform.twitch.enabled
+        || !autoClaimChannelPointsFor(settings, "twitch")
+        || state.authHealth.twitch.status !== "healthy") return;
+      const channel = eligibleTwitchChannelPointsChannel(settings, state);
+      if (!channel) return;
+      try {
+        const adapter = createAdapter("twitch", settings, emit, true);
+        const claimed = await adapter.claimChannelPoints?.(channel);
+        if (claimed) {
+          emit({
+            category: "diagnostic",
+            platform: "twitch",
+            level: "info",
+            message: `Claimed channel points for ${channel.displayName ?? channel.username}`,
+          });
+        }
+      } catch (error) {
+        emit({
+          category: "diagnostic",
+          platform: "twitch",
+          level: "warn",
+          message: error instanceof Error ? error.message : "Channel points claim failed",
+        });
+      } finally {
+        await reportBestEffort(events);
+      }
+    }));
+  }
+
   async function safeNotify(title: string, message: string): Promise<void> {
     if (!deps.createNotification) return;
     try {
@@ -4456,12 +4527,29 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     refreshDiscovery,
     discoverySnapshot,
     runWatchHeartbeat,
+    runTwitchChannelPointsClaim,
     runClaimHandoff,
     abortClaimHandoffs,
     shutdown,
     prepareForHostReset,
     settleBackgroundWork,
   };
+}
+
+function eligibleTwitchChannelPointsChannel(
+  settings: EngineSettings,
+  state: SchedulerState,
+  now = Date.now(),
+): ChannelCandidate | undefined {
+  const manualWatch = state.manualWatch?.twitch;
+  const recentManualWatch = settings.pauseOnManualWatch
+    && manualWatch?.active
+    && !isTimestampStale(manualWatch.checkedAt, MANUAL_WATCH_TTL_MS, now);
+  if (recentManualWatch) {
+    return manualWatch.channel;
+  }
+  const session = state.sessions.twitch;
+  return session.status === "watching" ? session.channel : undefined;
 }
 
 function farmingLifecycleEvents(previous: SchedulerState, next: SchedulerState): ActivityEvent[] {
