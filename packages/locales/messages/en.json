@@ -542,11 +542,17 @@
   "settingsGroupPlatformAdvanced": {
     "message": "Advanced & compatibility"
   },
-  "platformAdvancedDescription": {
-    "message": "Only change these if this platform is misbehaving — they cover platform-specific quirks and compatibility workarounds."
+  "twitchSectionDescription": {
+    "message": "Channel points, category filter, excluded channels, and Twitch compatibility."
   },
-  "platformSectionDescription": {
-    "message": "Automation, categories, and excluded channels for this platform."
+  "kickSectionDescription": {
+    "message": "Daily challenges, category filter, excluded channels, and Kick compatibility."
+  },
+  "twitchAdvancedDescription": {
+    "message": "Campaign availability, plus the heartbeat and inventory transports Lurkloot uses. Change these only when Twitch stops working."
+  },
+  "kickAdvancedDescription": {
+    "message": "How Lurkloot opens Kick claim links, and the behavior profile behind it. Change these only when Kick stops working."
   },
   "schedulerIntervalTitle": {
     "message": "Scheduler interval"

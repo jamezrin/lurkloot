@@ -542,11 +542,17 @@
   "settingsGroupPlatformAdvanced": {
     "message": "إعدادات متقدمة والتوافق"
   },
-  "platformAdvancedDescription": {
-    "message": "لا تغيّر هذه الإعدادات إلا إذا كانت هذه المنصة لا تعمل بشكل صحيح؛ فهي تعالج خصائص المنصة وحلول التوافق."
+  "twitchSectionDescription": {
+    "message": "نقاط القناة وفلتر الفئات والقنوات المستبعدة والتوافق مع Twitch."
   },
-  "platformSectionDescription": {
-    "message": "الأتمتة والفئات والقنوات المستبعدة لهذه المنصة."
+  "kickSectionDescription": {
+    "message": "التحديات اليومية وفلتر الفئات والقنوات المستبعدة والتوافق مع Kick."
+  },
+  "twitchAdvancedDescription": {
+    "message": "توفّر الحملات، إضافة إلى وسائل نقل النبض والمخزون التي يستخدمها Lurkloot. لا تغيّرها إلا إذا توقف Twitch عن العمل."
+  },
+  "kickAdvancedDescription": {
+    "message": "طريقة فتح Lurkloot لروابط استلام مكافآت Kick وملف السلوك المرتبط بها. لا تغيّرها إلا إذا توقف Kick عن العمل."
   },
   "schedulerIntervalTitle": {
     "message": "فاصل المجدول"

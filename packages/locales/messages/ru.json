@@ -542,11 +542,17 @@
   "settingsGroupPlatformAdvanced": {
     "message": "Дополнительно и совместимость"
   },
-  "platformAdvancedDescription": {
-    "message": "Меняйте это, только если платформа работает неправильно: здесь собраны её особенности и обходные пути совместимости."
+  "twitchSectionDescription": {
+    "message": "Баллы канала, фильтр категорий, исключённые каналы и совместимость с Twitch."
   },
-  "platformSectionDescription": {
-    "message": "Автоматизация, категории и исключённые каналы этой платформы."
+  "kickSectionDescription": {
+    "message": "Ежедневные задания, фильтр категорий, исключённые каналы и совместимость с Kick."
+  },
+  "twitchAdvancedDescription": {
+    "message": "Доступность кампаний, а также транспорты сигналов и инвентаря, которые использует Lurkloot. Меняйте их, только если Twitch перестал работать."
+  },
+  "kickAdvancedDescription": {
+    "message": "Как Lurkloot открывает ссылки получения наград Kick и связанный с этим профиль поведения. Меняйте их, только если Kick перестал работать."
   },
   "schedulerIntervalTitle": {
     "message": "Интервал планировщика"

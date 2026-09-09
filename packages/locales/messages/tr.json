@@ -542,11 +542,17 @@
   "settingsGroupPlatformAdvanced": {
     "message": "Gelişmiş ve uyumluluk"
   },
-  "platformAdvancedDescription": {
-    "message": "Bunları yalnızca bu platform düzgün çalışmıyorsa değiştirin; platforma özgü sorunları ve uyumluluk çözümlerini kapsar."
+  "twitchSectionDescription": {
+    "message": "Kanal puanları, kategori filtresi, hariç tutulan kanallar ve Twitch uyumluluğu."
   },
-  "platformSectionDescription": {
-    "message": "Bu platforma ait otomasyon, kategoriler ve hariç tutulan kanallar."
+  "kickSectionDescription": {
+    "message": "Günlük görevler, kategori filtresi, hariç tutulan kanallar ve Kick uyumluluğu."
+  },
+  "twitchAdvancedDescription": {
+    "message": "Kampanya uygunluğu ve Lurkloot'un kullandığı sinyal ile envanter aktarımları. Bunları yalnızca Twitch çalışmayı bıraktığında değiştirin."
+  },
+  "kickAdvancedDescription": {
+    "message": "Lurkloot'un Kick ödül bağlantılarını nasıl açtığı ve bunun ardındaki davranış profili. Bunları yalnızca Kick çalışmayı bıraktığında değiştirin."
   },
   "schedulerIntervalTitle": {
     "message": "Yenileme sıklığı"

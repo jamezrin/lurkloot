@@ -305,8 +305,10 @@ describe("i18n", () => {
       "settingsGroupCategories",
       "settingsGroupExcludedChannels",
       "settingsGroupPlatformAdvanced",
-      "platformAdvancedDescription",
-      "platformSectionDescription",
+      "twitchSectionDescription",
+      "kickSectionDescription",
+      "twitchAdvancedDescription",
+      "kickAdvancedDescription",
     ];
     for (const locale of localeCodes()) {
       const catalog = readCatalog(locale);

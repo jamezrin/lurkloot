@@ -156,8 +156,7 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
                 key={`${section.id}.rows`}
                 id={`${section.id}.rows`}
                 title={PLATFORMS[section.id as Platform].label}
-                icon={section.icon}
-                iconNode={section.iconNode}
+                badge={section.iconNode}
               >
                 <div className="divide-y divide-zinc-100 dark:divide-zinc-800/70">
                   {section.rows.map((row) => <React.Fragment key={row.id}>{row.render()}</React.Fragment>)}
@@ -169,8 +168,7 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
                 <SettingsSection
                   id={group.id}
                   title={section.id === "general" ? t(group.titleKey) : `${PLATFORMS[section.id as Platform].label} · ${t(group.titleKey)}`}
-                  icon={section.id === "general" ? undefined : section.icon}
-                  iconNode={section.id === "general" ? undefined : section.iconNode}
+                  badge={section.id === "general" ? undefined : section.iconNode}
                 >
                   {renderGroupContent(group, false)}
                 </SettingsSection>
@@ -193,8 +191,11 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
               key={section.id}
               id={section.id}
               title={PLATFORMS[section.id as Platform].label}
-              iconNode={section.iconNode}
-              description={t("platformSectionDescription")}
+              // The mark rides in the badge slot, to the right of the title:
+              // as a leading icon it indents these two headings out of line
+              // with every other section's, which carries no icon.
+              badge={section.iconNode}
+              description={section.description}
             >
               {section.rows.length > 0 ? (
                 <div className="divide-y divide-zinc-100 dark:divide-zinc-800/70">

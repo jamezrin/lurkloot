@@ -53,6 +53,9 @@ export interface SettingsSectionDef extends SettingsSectionNode<SettingsEntryDef
   // group without a cast. SettingsGroupDef is assignable to the node type, so
   // filterSettingsTree still accepts these sections.
   groups: SettingsGroupDef[];
+  // Subtitle under the section heading. Only the platform sections set it: the
+  // General groups each render as their own section and carry their own.
+  description?: string;
   // Exactly one of icon/iconNode is set per section: General uses a plain
   // lucide icon, while Twitch/Kick use a colored platform mark (iconNode) so
   // the two sections don't render identically.
@@ -437,9 +440,11 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
     // platform sections read the same way. It is named "Advanced &
     // compatibility" rather than the General section's plain "Advanced" so the
     // two are told apart on sight: General tunes the scheduler, this one tunes
-    // one platform. Twitch's also carries a farming toggle, so the group exists
-    // whether or not a compatibility registry was supplied; Kick's holds the
-    // compatibility editor alone.
+    // one platform. The subtitle is per-platform because the contents differ —
+    // Twitch adds a farming toggle and has three compatibility components to
+    // Kick's two — and three sections sharing one subtitle read as the same
+    // section repeated. Twitch's group exists whether or not a compatibility
+    // registry was supplied; Kick's holds the compatibility editor alone.
     const advancedEntries: SettingsEntryDef[] = platform === "twitch"
       ? [{
         id: "twitch.advanced.strictCampaignAvailability",
@@ -479,13 +484,19 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
       groups.push({
         id: `${platform}.advanced`,
         titleKey: "settingsGroupPlatformAdvanced",
-        description: t("platformAdvancedDescription"),
+        description: t(platform === "twitch" ? "twitchAdvancedDescription" : "kickAdvancedDescription"),
         advanced: true,
         entries: advancedEntries,
       });
     }
 
-    return { id: platform, iconNode, rows: [claimEntry], groups };
+    return {
+      id: platform,
+      iconNode,
+      description: t(platform === "twitch" ? "twitchSectionDescription" : "kickSectionDescription"),
+      rows: [claimEntry],
+      groups,
+    };
   };
 
   return [

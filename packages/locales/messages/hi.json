@@ -542,11 +542,17 @@
   "settingsGroupPlatformAdvanced": {
     "message": "उन्नत और संगतता"
   },
-  "platformAdvancedDescription": {
-    "message": "इन्हें तभी बदलें जब यह प्लेटफ़ॉर्म ठीक से काम न कर रहा हो — ये प्लेटफ़ॉर्म-विशिष्ट समस्याओं और संगतता उपायों को कवर करते हैं।"
+  "twitchSectionDescription": {
+    "message": "चैनल पॉइंट, श्रेणी फ़िल्टर, बाहर रखे गए चैनल और Twitch संगतता।"
   },
-  "platformSectionDescription": {
-    "message": "इस प्लेटफ़ॉर्म का ऑटोमेशन, श्रेणियाँ और बाहर रखे गए चैनल।"
+  "kickSectionDescription": {
+    "message": "दैनिक चुनौतियाँ, श्रेणी फ़िल्टर, बाहर रखे गए चैनल और Kick संगतता।"
+  },
+  "twitchAdvancedDescription": {
+    "message": "अभियान उपलब्धता, साथ ही Lurkloot द्वारा उपयोग किए जाने वाले हार्टबीट और इन्वेंटरी ट्रांसपोर्ट। इन्हें तभी बदलें जब Twitch काम करना बंद कर दे।"
+  },
+  "kickAdvancedDescription": {
+    "message": "Lurkloot, Kick के क्लेम लिंक कैसे खोलता है और उसके पीछे का व्यवहार प्रोफ़ाइल। इन्हें तभी बदलें जब Kick काम करना बंद कर दे।"
   },
   "schedulerIntervalTitle": {
     "message": "शेड्यूलर अंतराल"

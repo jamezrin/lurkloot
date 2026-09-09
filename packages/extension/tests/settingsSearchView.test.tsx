@@ -38,8 +38,10 @@ const labels: Record<string, string> = {
   settingsGroupPlatformAdvanced: "Advanced & compatibility",
   strictCampaignAvailabilityTitle: "Strict campaign availability",
   strictCampaignAvailabilityDescription: "Only farm a campaign on channels Twitch lists it for.",
-  platformAdvancedDescription: "Platform-specific quirks and compatibility workarounds.",
-  platformSectionDescription: "Automation, categories, and excluded channels for this platform.",
+  twitchSectionDescription: "Channel points, category filter, excluded channels, and Twitch compatibility.",
+  kickSectionDescription: "Daily challenges, category filter, excluded channels, and Kick compatibility.",
+  twitchAdvancedDescription: "Campaign availability and the transports Lurkloot uses.",
+  kickAdvancedDescription: "How Lurkloot opens Kick claim links.",
   settingsGroupCategories: "Categories",
   settingsGroupExcludedChannels: "Excluded channels",
   settingsLanguageTitle: "Language",
@@ -256,6 +258,18 @@ describe("settings search view", () => {
     // Both platforms are on screen at once, so neither needs to be selected.
     expect(container.textContent).toContain("Auto-claim channel points");
     expect(container.textContent).toContain("Auto-claim daily challenges");
+  });
+
+  it("gives every section a subtitle naming its own contents", () => {
+    const { container } = mountSettings();
+    const twitch = container.querySelector("#settings-section-twitch");
+    const kick = container.querySelector("#settings-section-kick");
+
+    // Three sections sharing one subtitle is what made the old layout read as
+    // the same section repeated, so no two of them may say the same thing.
+    expect(twitch?.textContent).toContain("Channel points, category filter");
+    expect(kick?.textContent).toContain("Daily challenges, category filter");
+    expect(twitch?.textContent).not.toContain("Daily challenges, category filter");
   });
 
   it("keeps each advanced group with the settings it tunes", () => {

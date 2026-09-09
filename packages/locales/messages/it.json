@@ -542,11 +542,17 @@
   "settingsGroupPlatformAdvanced": {
     "message": "Avanzate e compatibilità"
   },
-  "platformAdvancedDescription": {
-    "message": "Modificale solo se questa piattaforma non funziona bene: riguardano peculiarità della piattaforma e soluzioni di compatibilità."
+  "twitchSectionDescription": {
+    "message": "Punti canale, filtro categorie, canali esclusi e compatibilità Twitch."
   },
-  "platformSectionDescription": {
-    "message": "Automazione, categorie e canali esclusi di questa piattaforma."
+  "kickSectionDescription": {
+    "message": "Sfide giornaliere, filtro categorie, canali esclusi e compatibilità Kick."
+  },
+  "twitchAdvancedDescription": {
+    "message": "Disponibilità delle campagne e i trasporti di heartbeat e inventario usati da Lurkloot. Modificali solo se Twitch smette di funzionare."
+  },
+  "kickAdvancedDescription": {
+    "message": "Come Lurkloot apre i link di riscatto di Kick e il profilo di comportamento associato. Modificali solo se Kick smette di funzionare."
   },
   "schedulerIntervalTitle": {
     "message": "Intervallo scheduler"
