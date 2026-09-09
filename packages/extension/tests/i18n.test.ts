@@ -304,7 +304,9 @@ describe("i18n", () => {
       "settingsGroupAdvanced",
       "settingsGroupCategories",
       "settingsGroupExcludedChannels",
-      "settingsGroupCompatibility",
+      "settingsGroupPlatformAdvanced",
+      "platformAdvancedDescription",
+      "platformSectionDescription",
     ];
     for (const locale of localeCodes()) {
       const catalog = readCatalog(locale);

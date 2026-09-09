@@ -62,9 +62,6 @@
   "settingsSearchNoResults": {
     "message": "No settings match “$1”."
   },
-  "settingsPlatformSettingsTitle": {
-    "message": "Platform & Categories/Games"
-  },
   "settingsPlatformSettings": {
     "message": "$1 settings"
   },
@@ -470,9 +467,6 @@
   "platformSettingsTitle": {
     "message": "Platform settings"
   },
-  "platformSettingsDescription": {
-    "message": "Automation and channels for one provider. Switch between Twitch and Kick."
-  },
   "farmingTabsTitle": {
     "message": "Farming tabs"
   },
@@ -544,6 +538,15 @@
   },
   "settingsGroupAdvanced": {
     "message": "Advanced"
+  },
+  "settingsGroupPlatformAdvanced": {
+    "message": "Advanced & compatibility"
+  },
+  "platformAdvancedDescription": {
+    "message": "Only change these if this platform is misbehaving — they cover platform-specific quirks and compatibility workarounds."
+  },
+  "platformSectionDescription": {
+    "message": "Automation, categories, and excluded channels for this platform."
   },
   "schedulerIntervalTitle": {
     "message": "Scheduler interval"
@@ -1225,9 +1228,6 @@
   },
   "diagnosticsViewTab": {
     "message": "Diagnostics"
-  },
-  "settingsGroupCompatibility": {
-    "message": "Compatibility"
   },
   "compatibilityAutomatic": {
     "message": "Automatic"

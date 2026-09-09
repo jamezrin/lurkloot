@@ -433,12 +433,13 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
       },
     ];
 
-    // Twitch's advanced group also carries a farming toggle, so it is named for
-    // what it is rather than "Compatibility", and exists whether or not a
-    // compatibility registry was supplied. Kick has no such toggle and keeps a
-    // compatibility-only group. Each section still gets exactly one advanced
-    // group, and neither holds a lone entry in the popup, which always supplies
-    // a registry.
+    // Both platforms end in one advanced group with the same title, so the two
+    // platform sections read the same way. It is named "Advanced &
+    // compatibility" rather than the General section's plain "Advanced" so the
+    // two are told apart on sight: General tunes the scheduler, this one tunes
+    // one platform. Twitch's also carries a farming toggle, so the group exists
+    // whether or not a compatibility registry was supplied; Kick's holds the
+    // compatibility editor alone.
     const advancedEntries: SettingsEntryDef[] = platform === "twitch"
       ? [{
         id: "twitch.advanced.strictCampaignAvailability",
@@ -475,21 +476,13 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
     }
 
     if (advancedEntries.length > 0) {
-      groups.push(platform === "twitch"
-        ? {
-          id: "twitch.advanced",
-          titleKey: "settingsGroupAdvanced",
-          description: t("advancedDescription"),
-          advanced: true,
-          entries: advancedEntries,
-        }
-        : {
-          id: `${platform}.compatibility`,
-          titleKey: "settingsGroupCompatibility",
-          description: t("compatibilitySectionDescription"),
-          advanced: true,
-          entries: advancedEntries,
-        });
+      groups.push({
+        id: `${platform}.advanced`,
+        titleKey: "settingsGroupPlatformAdvanced",
+        description: t("platformAdvancedDescription"),
+        advanced: true,
+        entries: advancedEntries,
+      });
     }
 
     return { id: platform, iconNode, rows: [claimEntry], groups };

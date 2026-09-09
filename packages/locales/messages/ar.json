@@ -62,9 +62,6 @@
   "settingsSearchNoResults": {
     "message": "لا توجد إعدادات تطابق «$1»."
   },
-  "settingsPlatformSettingsTitle": {
-    "message": "المنصة والفئات/الألعاب"
-  },
   "settingsPlatformSettings": {
     "message": "إعدادات $1"
   },
@@ -470,9 +467,6 @@
   "platformSettingsTitle": {
     "message": "إعدادات المنصة"
   },
-  "platformSettingsDescription": {
-    "message": "الأتمتة والقنوات لمزوّد واحد. بدّل بين Twitch وKick."
-  },
   "farmingTabsTitle": {
     "message": "علامات تبويب الفارم"
   },
@@ -544,6 +538,15 @@
   },
   "settingsGroupAdvanced": {
     "message": "متقدم"
+  },
+  "settingsGroupPlatformAdvanced": {
+    "message": "إعدادات متقدمة والتوافق"
+  },
+  "platformAdvancedDescription": {
+    "message": "لا تغيّر هذه الإعدادات إلا إذا كانت هذه المنصة لا تعمل بشكل صحيح؛ فهي تعالج خصائص المنصة وحلول التوافق."
+  },
+  "platformSectionDescription": {
+    "message": "الأتمتة والفئات والقنوات المستبعدة لهذه المنصة."
   },
   "schedulerIntervalTitle": {
     "message": "فاصل المجدول"
@@ -1225,9 +1228,6 @@
   },
   "diagnosticsViewTab": {
     "message": "التشخيصات"
-  },
-  "settingsGroupCompatibility": {
-    "message": "التوافق"
   },
   "compatibilityAutomatic": {
     "message": "تلقائي"

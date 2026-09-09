@@ -62,9 +62,6 @@
   "settingsSearchNoResults": {
     "message": "Настройки, соответствующие «$1», не найдены."
   },
-  "settingsPlatformSettingsTitle": {
-    "message": "Платформа и категории/игры"
-  },
   "settingsPlatformSettings": {
     "message": "Настройки $1"
   },
@@ -470,9 +467,6 @@
   "platformSettingsTitle": {
     "message": "Настройки платформы"
   },
-  "platformSettingsDescription": {
-    "message": "Автоматизация и каналы одного провайдера. Переключайтесь между Twitch и Kick."
-  },
   "farmingTabsTitle": {
     "message": "Вкладки фарма"
   },
@@ -544,6 +538,15 @@
   },
   "settingsGroupAdvanced": {
     "message": "Дополнительно"
+  },
+  "settingsGroupPlatformAdvanced": {
+    "message": "Дополнительно и совместимость"
+  },
+  "platformAdvancedDescription": {
+    "message": "Меняйте это, только если платформа работает неправильно: здесь собраны её особенности и обходные пути совместимости."
+  },
+  "platformSectionDescription": {
+    "message": "Автоматизация, категории и исключённые каналы этой платформы."
   },
   "schedulerIntervalTitle": {
     "message": "Интервал планировщика"
@@ -1225,9 +1228,6 @@
   },
   "diagnosticsViewTab": {
     "message": "Диагностика"
-  },
-  "settingsGroupCompatibility": {
-    "message": "Совместимость"
   },
   "compatibilityAutomatic": {
     "message": "Автоматически"

@@ -62,9 +62,6 @@
   "settingsSearchNoResults": {
     "message": "“$1” ile ilgili ayar bulunamadı."
   },
-  "settingsPlatformSettingsTitle": {
-    "message": "Platform ve kategoriler/oyunlar"
-  },
   "settingsPlatformSettings": {
     "message": "$1 ayarları"
   },
@@ -470,9 +467,6 @@
   "platformSettingsTitle": {
     "message": "Platform Ayarları"
   },
-  "platformSettingsDescription": {
-    "message": "Twitch ve Kick özel ayarları."
-  },
   "farmingTabsTitle": {
     "message": "Sekme Yönetimi"
   },
@@ -544,6 +538,15 @@
   },
   "settingsGroupAdvanced": {
     "message": "Gelişmiş"
+  },
+  "settingsGroupPlatformAdvanced": {
+    "message": "Gelişmiş ve uyumluluk"
+  },
+  "platformAdvancedDescription": {
+    "message": "Bunları yalnızca bu platform düzgün çalışmıyorsa değiştirin; platforma özgü sorunları ve uyumluluk çözümlerini kapsar."
+  },
+  "platformSectionDescription": {
+    "message": "Bu platforma ait otomasyon, kategoriler ve hariç tutulan kanallar."
   },
   "schedulerIntervalTitle": {
     "message": "Yenileme sıklığı"
@@ -1225,9 +1228,6 @@
   },
   "diagnosticsViewTab": {
     "message": "Teknik detaylar"
-  },
-  "settingsGroupCompatibility": {
-    "message": "Uyumluluk"
   },
   "compatibilityAutomatic": {
     "message": "Otomatik"

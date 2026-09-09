@@ -62,9 +62,6 @@
   "settingsSearchNoResults": {
     "message": "Nessuna impostazione corrisponde a «$1»."
   },
-  "settingsPlatformSettingsTitle": {
-    "message": "Piattaforma e categorie/giochi"
-  },
   "settingsPlatformSettings": {
     "message": "Impostazioni $1"
   },
@@ -470,9 +467,6 @@
   "platformSettingsTitle": {
     "message": "Impostazioni piattaforma"
   },
-  "platformSettingsDescription": {
-    "message": "Automazione e canali per un provider. Passa tra Twitch e Kick."
-  },
   "farmingTabsTitle": {
     "message": "Schede di farming"
   },
@@ -544,6 +538,15 @@
   },
   "settingsGroupAdvanced": {
     "message": "Avanzate"
+  },
+  "settingsGroupPlatformAdvanced": {
+    "message": "Avanzate e compatibilità"
+  },
+  "platformAdvancedDescription": {
+    "message": "Modificale solo se questa piattaforma non funziona bene: riguardano peculiarità della piattaforma e soluzioni di compatibilità."
+  },
+  "platformSectionDescription": {
+    "message": "Automazione, categorie e canali esclusi di questa piattaforma."
   },
   "schedulerIntervalTitle": {
     "message": "Intervallo scheduler"
@@ -1225,9 +1228,6 @@
   },
   "diagnosticsViewTab": {
     "message": "Diagnostica"
-  },
-  "settingsGroupCompatibility": {
-    "message": "Compatibilità"
   },
   "compatibilityAutomatic": {
     "message": "Automatica"

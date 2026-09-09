@@ -17,7 +17,6 @@ const labels: Record<string, string> = {
   closeSearch: "Close search",
   settingsSearchPlaceholder: "Search settings…",
   settingsSearchNoResults: "No settings match",
-  settingsPlatformSettingsTitle: "Platform & Categories/Games",
   settingsPlatformSettings: "$1",
   settingsShowAdvancedTitle: "Show advanced settings",
   settingsSectionAdvancedActions: "Advanced actions",
@@ -36,7 +35,11 @@ const labels: Record<string, string> = {
   farmingTabsDescription: "Controls for video-tab farming.",
   settingsGroupAdvanced: "Advanced",
   advancedDescription: "Low-level scheduler and logging behavior.",
-  platformSettingsDescription: "Automation and channels for one provider.",
+  settingsGroupPlatformAdvanced: "Advanced & compatibility",
+  strictCampaignAvailabilityTitle: "Strict campaign availability",
+  strictCampaignAvailabilityDescription: "Only farm a campaign on channels Twitch lists it for.",
+  platformAdvancedDescription: "Platform-specific quirks and compatibility workarounds.",
+  platformSectionDescription: "Automation, categories, and excluded channels for this platform.",
   settingsGroupCategories: "Categories",
   settingsGroupExcludedChannels: "Excluded channels",
   settingsLanguageTitle: "Language",
@@ -209,15 +212,19 @@ describe("settings search view", () => {
 
   it("organizes the normal view into ordered collapsible settings sections", () => {
     const { container } = mountSettings();
+    // Target the title span by its class: the platform sections render a
+    // colored mark span ahead of the title, so an ordinal lookup would read the
+    // mark for those two and the title for the rest.
     const sectionTitles = [...container.querySelectorAll<HTMLButtonElement>('button[aria-expanded]')]
-      .map((button) => button.querySelectorAll<HTMLSpanElement>("span")[2]?.textContent?.trim());
+      .map((button) => button.querySelector<HTMLSpanElement>("span.uppercase")?.textContent?.trim());
 
     expect(sectionTitles).toEqual([
       "Appearance & behavior",
       "Notifications",
       "Drops",
       "Farming tabs",
-      "Platform & Categories/Games",
+      "Twitch",
+      "Kick",
       "Advanced",
     ]);
     expect(container.textContent).toContain("Language, startup, and popup behavior.");
@@ -240,22 +247,28 @@ describe("settings search view", () => {
     expect(container.querySelector('[aria-label="Search"]')).toBeNull();
   });
 
-  it("shows one platform settings section at a time", () => {
+  it("gives each platform its own top-level section instead of a tab switch", () => {
     const { container } = mountSettings();
-    const twitchTab = container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Twitch"]');
-    const kickTab = container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Kick"]');
 
-    expect(container.textContent).toContain("Platform & Categories/Games");
-    expect(twitchTab?.getAttribute("aria-selected")).toBe("true");
-    expect(container.querySelector('[role="tab"][aria-label="Twitch settings"]')).toBeNull();
+    expect(container.querySelector('[role="tab"]')).toBeNull();
+    expect(container.querySelector("#settings-section-twitch")).not.toBeNull();
+    expect(container.querySelector("#settings-section-kick")).not.toBeNull();
+    // Both platforms are on screen at once, so neither needs to be selected.
     expect(container.textContent).toContain("Auto-claim channel points");
-    expect(container.textContent).not.toContain("Auto-claim daily challenges");
-
-    act(() => kickTab?.click());
-
-    expect(kickTab?.getAttribute("aria-selected")).toBe("true");
     expect(container.textContent).toContain("Auto-claim daily challenges");
-    expect(container.textContent).not.toContain("Auto-claim channel points");
+  });
+
+  it("keeps each advanced group with the settings it tunes", () => {
+    const { container } = mountSettings();
+    const twitch = container.querySelector("#settings-section-twitch");
+    const general = container.querySelector("#settings-section-general\\.advanced");
+
+    // The platform advanced group is titled apart from the General one so the
+    // two are not read as the same section repeated.
+    expect(twitch?.textContent).toContain("Advanced & compatibility");
+    expect(twitch?.textContent).toContain("Strict campaign availability");
+    expect(general?.textContent).toContain("Scheduler interval");
+    expect(general?.textContent).not.toContain("Strict campaign availability");
   });
 
   it("filters settings by title as the user types", () => {
