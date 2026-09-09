@@ -62,9 +62,6 @@
   "settingsSearchNoResults": {
     "message": "Nessuna impostazione corrisponde a «$1»."
   },
-  "settingsPlatformSettingsTitle": {
-    "message": "Piattaforma e categorie/giochi"
-  },
   "settingsPlatformSettings": {
     "message": "Impostazioni $1"
   },
@@ -470,9 +467,6 @@
   "platformSettingsTitle": {
     "message": "Impostazioni piattaforma"
   },
-  "platformSettingsDescription": {
-    "message": "Automazione e canali per un provider. Passa tra Twitch e Kick."
-  },
   "farmingTabsTitle": {
     "message": "Schede di farming"
   },
@@ -544,6 +538,21 @@
   },
   "settingsGroupAdvanced": {
     "message": "Avanzate"
+  },
+  "settingsGroupPlatformAdvanced": {
+    "message": "Avanzate e compatibilità"
+  },
+  "twitchSectionDescription": {
+    "message": "Punti canale, filtro categorie, canali esclusi e compatibilità Twitch."
+  },
+  "kickSectionDescription": {
+    "message": "Sfide giornaliere, filtro categorie, canali esclusi e compatibilità Kick."
+  },
+  "twitchAdvancedDescription": {
+    "message": "Disponibilità delle campagne e i trasporti di heartbeat e inventario usati da Lurkloot. Modificali solo se Twitch smette di funzionare."
+  },
+  "kickAdvancedDescription": {
+    "message": "Come Lurkloot apre i link di riscatto di Kick e il profilo di comportamento associato. Modificali solo se Kick smette di funzionare."
   },
   "schedulerIntervalTitle": {
     "message": "Intervallo scheduler"
@@ -1225,9 +1234,6 @@
   },
   "diagnosticsViewTab": {
     "message": "Diagnostica"
-  },
-  "settingsGroupCompatibility": {
-    "message": "Compatibilità"
   },
   "compatibilityAutomatic": {
     "message": "Automatica"

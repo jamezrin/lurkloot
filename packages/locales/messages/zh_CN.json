@@ -62,9 +62,6 @@
   "settingsSearchNoResults": {
     "message": "未找到与“$1”匹配的设置。"
   },
-  "settingsPlatformSettingsTitle": {
-    "message": "平台和分类/游戏"
-  },
   "settingsPlatformSettings": {
     "message": "$1 设置"
   },
@@ -470,9 +467,6 @@
   "platformSettingsTitle": {
     "message": "平台设置"
   },
-  "platformSettingsDescription": {
-    "message": "设置某个平台的自动挂机与频道。可在 Twitch 和 Kick 之间切换。"
-  },
   "farmingTabsTitle": {
     "message": "挂机标签页"
   },
@@ -544,6 +538,21 @@
   },
   "settingsGroupAdvanced": {
     "message": "高级"
+  },
+  "settingsGroupPlatformAdvanced": {
+    "message": "高级与兼容性"
+  },
+  "twitchSectionDescription": {
+    "message": "频道积分、分类筛选、排除的频道以及 Twitch 兼容性。"
+  },
+  "kickSectionDescription": {
+    "message": "每日挑战、分类筛选、排除的频道以及 Kick 兼容性。"
+  },
+  "twitchAdvancedDescription": {
+    "message": "活动可用性，以及 Lurkloot 使用的心跳和库存传输方式。仅在 Twitch 无法正常工作时才更改。"
+  },
+  "kickAdvancedDescription": {
+    "message": "Lurkloot 打开 Kick 领取链接的方式，以及其背后的行为配置。仅在 Kick 无法正常工作时才更改。"
   },
   "schedulerIntervalTitle": {
     "message": "定时检查间隔"
@@ -1225,9 +1234,6 @@
   },
   "diagnosticsViewTab": {
     "message": "诊断信息"
-  },
-  "settingsGroupCompatibility": {
-    "message": "兼容性"
   },
   "compatibilityAutomatic": {
     "message": "自动"
