@@ -1,4 +1,5 @@
-import type { ChannelCandidate, DropCampaign, Platform, WatchSession } from "@lurkloot/shared/models";
+import type { ChannelCandidate, DropCampaign, EngineSettings, Platform, WatchSession } from "@lurkloot/shared/models";
+import { evaluateCampaignFarming } from "@lurkloot/shared/campaignFarming";
 import type { PlatformAdapter } from "../platforms/adapter";
 
 export type ChannelEligibility = true | false | "unknown";
@@ -18,6 +19,7 @@ export interface DiscoveryCampaignObservation {
 
 export interface DiscoveryRefreshMetrics {
   campaigns: number;
+  skippedBeforeChannelWork?: number;
   candidates: number;
   cacheHits: number;
   cacheMisses: number;
@@ -76,6 +78,7 @@ export async function collectDiscoverySnapshot(
   includeFollowedChannels = true,
   idleCandidates: ChannelCandidate[] = [],
   retainedCampaignCandidates?: (campaign: DropCampaign, campaigns: DropCampaign[]) => DiscoveryCandidateObservation[] | undefined,
+  settings?: EngineSettings,
 ): Promise<DiscoveryRefreshResult> {
   const [campaigns, followedChannels] = await Promise.all([
     adapter.refreshCampaigns(session, { signal }),
@@ -89,8 +92,15 @@ export async function collectDiscoverySnapshot(
   let cacheMisses = 0;
   let batchRequests = 0;
   let singleFallbacks = 0;
+  let skippedBeforeChannelWork = 0;
+  const eligibilityTime = now();
   for (const campaign of campaigns) {
     signal.throwIfAborted();
+    if (settings && !evaluateCampaignFarming(campaign, settings, { includePriorityMode: true, now: eligibilityTime }).farmable) {
+      observations.push({ campaign, candidates: [] });
+      skippedBeforeChannelWork += 1;
+      continue;
+    }
     const retainedCandidates = retainedCampaignCandidates?.(campaign, campaigns);
     if (retainedCandidates) {
       observations.push({ campaign, candidates: retainedCandidates });
@@ -175,6 +185,7 @@ export async function collectDiscoverySnapshot(
     complete: true,
     metrics: {
       campaigns: campaigns.length,
+      skippedBeforeChannelWork,
       candidates: candidatesChecked,
       cacheHits,
       cacheMisses,
