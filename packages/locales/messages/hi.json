@@ -62,9 +62,6 @@
   "settingsSearchNoResults": {
     "message": "कोई सेटिंग “$1” से मेल नहीं खाती।"
   },
-  "settingsPlatformSettingsTitle": {
-    "message": "प्लेटफ़ॉर्म और श्रेणियाँ/गेम"
-  },
   "settingsPlatformSettings": {
     "message": "$1 सेटिंग्स"
   },
@@ -470,9 +467,6 @@
   "platformSettingsTitle": {
     "message": "प्लेटफ़ॉर्म सेटिंग्स"
   },
-  "platformSettingsDescription": {
-    "message": "एक प्रदाता के लिए ऑटोमेशन और चैनल। Twitch और Kick के बीच बदलें।"
-  },
   "farmingTabsTitle": {
     "message": "फ़ार्मिंग टैब"
   },
@@ -544,6 +538,21 @@
   },
   "settingsGroupAdvanced": {
     "message": "उन्नत"
+  },
+  "settingsGroupPlatformAdvanced": {
+    "message": "उन्नत और संगतता"
+  },
+  "twitchSectionDescription": {
+    "message": "चैनल पॉइंट, श्रेणी फ़िल्टर, बाहर रखे गए चैनल और Twitch संगतता।"
+  },
+  "kickSectionDescription": {
+    "message": "दैनिक चुनौतियाँ, श्रेणी फ़िल्टर, बाहर रखे गए चैनल और Kick संगतता।"
+  },
+  "twitchAdvancedDescription": {
+    "message": "अभियान उपलब्धता, साथ ही Lurkloot द्वारा उपयोग किए जाने वाले हार्टबीट और इन्वेंटरी ट्रांसपोर्ट। इन्हें तभी बदलें जब Twitch काम करना बंद कर दे।"
+  },
+  "kickAdvancedDescription": {
+    "message": "Lurkloot, Kick के क्लेम लिंक कैसे खोलता है और उसके पीछे का व्यवहार प्रोफ़ाइल। इन्हें तभी बदलें जब Kick काम करना बंद कर दे।"
   },
   "schedulerIntervalTitle": {
     "message": "शेड्यूलर अंतराल"
@@ -1225,9 +1234,6 @@
   },
   "diagnosticsViewTab": {
     "message": "डायग्नोस्टिक"
-  },
-  "settingsGroupCompatibility": {
-    "message": "संगतता"
   },
   "compatibilityAutomatic": {
     "message": "स्वचालित"

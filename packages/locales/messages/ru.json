@@ -62,9 +62,6 @@
   "settingsSearchNoResults": {
     "message": "Настройки, соответствующие «$1», не найдены."
   },
-  "settingsPlatformSettingsTitle": {
-    "message": "Платформа и категории/игры"
-  },
   "settingsPlatformSettings": {
     "message": "Настройки $1"
   },
@@ -470,9 +467,6 @@
   "platformSettingsTitle": {
     "message": "Настройки платформы"
   },
-  "platformSettingsDescription": {
-    "message": "Автоматизация и каналы одного провайдера. Переключайтесь между Twitch и Kick."
-  },
   "farmingTabsTitle": {
     "message": "Вкладки фарма"
   },
@@ -544,6 +538,21 @@
   },
   "settingsGroupAdvanced": {
     "message": "Дополнительно"
+  },
+  "settingsGroupPlatformAdvanced": {
+    "message": "Дополнительно и совместимость"
+  },
+  "twitchSectionDescription": {
+    "message": "Баллы канала, фильтр категорий, исключённые каналы и совместимость с Twitch."
+  },
+  "kickSectionDescription": {
+    "message": "Ежедневные задания, фильтр категорий, исключённые каналы и совместимость с Kick."
+  },
+  "twitchAdvancedDescription": {
+    "message": "Доступность кампаний, а также транспорты сигналов и инвентаря, которые использует Lurkloot. Меняйте их, только если Twitch перестал работать."
+  },
+  "kickAdvancedDescription": {
+    "message": "Как Lurkloot открывает ссылки получения наград Kick и связанный с этим профиль поведения. Меняйте их, только если Kick перестал работать."
   },
   "schedulerIntervalTitle": {
     "message": "Интервал планировщика"
@@ -1225,9 +1234,6 @@
   },
   "diagnosticsViewTab": {
     "message": "Диагностика"
-  },
-  "settingsGroupCompatibility": {
-    "message": "Совместимость"
   },
   "compatibilityAutomatic": {
     "message": "Автоматически"
