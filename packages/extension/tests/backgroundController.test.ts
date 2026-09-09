@@ -733,6 +733,17 @@ describe("background controller", () => {
     expect(env.state.campaigns.kick).toHaveLength(2);
   });
 
+  it("labels unavailable discovery counters after failure instead of reporting zero work", async () => {
+    const env = harness();
+    vi.mocked(env.kick.checkChannel).mockRejectedValue(new Error("channel unavailable"));
+    await env.controller.tick(["kick"]);
+    const diagnostic = allDiagnostics(env).find((event) => event.platform === "kick" && event.message.startsWith("Discovery refresh finished"));
+    expect(env.kick.listCandidateChannels).toHaveBeenCalled();
+    expect(diagnostic?.message).toContain("work metrics=unavailable");
+    expect(diagnostic?.message).not.toContain("campaigns=0");
+    expect(diagnostic?.message).not.toContain("candidates=0");
+  });
+
   describe("Twitch integrity expiry scheduling", () => {
     beforeEach(() => {
       vi.useFakeTimers({ toFake: ["Date"] });

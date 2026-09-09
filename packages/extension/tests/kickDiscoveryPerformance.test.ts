@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { collectDiscoverySnapshot, DiscoverySnapshotLane } from "@lurkloot/core/discoverySnapshot";
 import type { PageFetcher } from "@lurkloot/core/adapter";
 import { SafeFetchError } from "@lurkloot/core/fetchError";
-import { createKickFetcher } from "@lurkloot/core/kick";
+import { createKickFetcher, KickDiscoveryState } from "@lurkloot/core/kick";
 import { kickAdapter } from "./helpers/adapters";
 import { selectWatchTargetFromSnapshot } from "@lurkloot/core/scheduler";
 import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, WatchSession } from "@lurkloot/shared/models";
@@ -24,6 +24,52 @@ function fetcher(handler: (url: string, init?: RequestInit) => unknown): PageFet
 const liveResponse = { id: 1, livestream: { id: 2, is_live: true, categories: [{ id: 13, name: "Rust" }], viewer_count: 100 } };
 
 describe("Kick discovery batch", () => {
+  it.each([
+    ["initial", false], ["initial", true],
+    ["stale", false], ["stale", true],
+    ["refreshing", false], ["refreshing", true],
+  ] as const)("drains %s followed-channel fallback before cycle completion (inventory failure=%s)", async (cacheState, inventoryFails) => {
+    vi.useFakeTimers();
+    const discoveryState = new KickDiscoveryState();
+    if (cacheState !== "initial") {
+      await discoveryState.followedChannels.refreshOnce(async () => ["old-friend"]);
+      vi.advanceTimersByTime(6 * 60_000);
+    }
+    let settled = false;
+    let lateLifecycleUpdates = 0;
+    let fallbacks = 0;
+    const transport = createKickFetcher({
+      background: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 30));
+        throw new Error("page context needed");
+      },
+      pageFetch: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        return [{ channel: { slug: "fresh-friend" } }];
+      },
+      onPageFallback: () => { fallbacks += 1; if (settled) lateLifecycleUpdates += 1; },
+    });
+    const adapter = kickAdapter(transport, undefined, undefined, undefined, { discoveryState });
+    vi.spyOn(adapter, "refreshCampaigns").mockImplementation(async () => {
+      if (inventoryFails) throw new Error("inventory unavailable");
+      return [];
+    });
+    if (cacheState === "refreshing") await adapter.listFollowedChannels();
+    const run = collectDiscoverySnapshot(adapter, undefined, new AbortController().signal)
+      .then((result) => { settled = true; return result; }, () => { settled = true; return undefined; });
+    await vi.advanceTimersByTimeAsync(10);
+    expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(25);
+    expect(fallbacks).toBe(1);
+    expect(settled).toBe(false);
+    await vi.runAllTimersAsync();
+    const result = await run;
+    expect(settled).toBe(true);
+    expect(lateLifecycleUpdates).toBe(0);
+    expect(discoveryState.followedChannels.get()).toEqual(["fresh-friend"]);
+    expect(result?.complete).toBe(inventoryFails ? undefined : true);
+  });
+
   it.each([{}, { data: {} }, { data: [{}] }])("retains the previous snapshot after malformed general directory evidence: %j", async (directory) => {
     let malformed = false;
     const adapter = kickAdapter(fetcher((url) => url.includes("/api/v1/livestreams")

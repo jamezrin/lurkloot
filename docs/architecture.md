@@ -72,15 +72,20 @@ The next revision fetches fresh evidence. A single campaign's candidate chain
 remains sequential, trading its latency for the existing early-match request
 budget. Campaign and candidate result ordering never depends on completion order.
 
-Missing Kick inventory/progress, missing channel evidence, cancellation or failed
-checks do not replace the last coherent snapshot. On failure, workers stop taking
-new work and drain active requests before returning, so cycle-level fetch
-observation can be consumed afterward. HTTP 429 never retries through a different
+Missing Kick inventory/progress, malformed general-channel directories, missing
+required category evidence, cancellation or failed checks do not replace the
+last coherent snapshot. On failure, workers stop taking new work and drain active
+requests before returning. The collector also drains paired inventory and
+followed-channel operations. Strict Kick discovery awaits stale followed-cache
+refreshes, including an existing refresh, before cycle-level fetch observation is
+consumed. This adds the followed lookup's latency once per five-minute cache
+expiry, while fresh-cache reads remain immediate. HTTP 429 never retries through a different
 execution context. Discovery diagnostics report duration, inventory count,
 campaigns skipped before channel work, candidate observations and unique channel
-checks. The attribution fields contain only counts; strict missing-evidence
-failures use fixed messages. Both extension and CLI run this collector and the
-same Kick adapter.
+checks. Failed attempts without counters report that work metrics are unavailable
+rather than reporting zero work. The attribution fields contain only counts;
+strict missing-evidence failures use fixed messages. Both extension and CLI run
+this collector and the same Kick adapter.
 
 ## Runtime Messages
 
@@ -229,7 +234,7 @@ Temporary page-context tabs are reference-counted per origin and removed after t
 - Campaign discovery fetches `https://web.kick.com/api/v1/drops/campaigns`.
 - Progress refresh fetches `https://web.kick.com/api/v1/drops/progress`.
 - Candidate discovery prefers campaign allowed-channel data. Otherwise it queries `https://web.kick.com/api/v1/livestreams` with `category_id`, sorted by viewer count.
-- Followed channels come from `https://kick.com/api/v1/user/livestreams`, which Kick itself filters to the account's live follows (no pagination of the full follow list), cached the same way and for the same reason as Twitch's (see above), in `KickDiscoveryState`. A signed-out session or a failed lookup answers with an empty list, and selection falls back to viewer count.
+- Followed channels come from `https://kick.com/api/v1/user/livestreams`, which Kick itself filters to the account's live follows (no pagination of the full follow list), cached for five minutes in `KickDiscoveryState`. Strict discovery awaits stale refreshes to keep fetch lifecycle observation inside its cycle; standalone callers can still read stale values immediately. A signed-out session or a failed lookup answers with an empty list, and selection falls back to viewer count.
 - Channel validation calls `https://kick.com/api/v2/channels/{username}` and checks live state plus category id. If that fails, it falls back to parsing channel page HTML.
 - Reward claiming posts to `https://web.kick.com/api/v1/drops/claim` with campaign, reward, and claim identifiers.
 - Tabless watching exchanges the Kick session for a viewer WebSocket token, opens Kick's viewer socket, and sends watch livestream events while the channel remains live and in the expected category.

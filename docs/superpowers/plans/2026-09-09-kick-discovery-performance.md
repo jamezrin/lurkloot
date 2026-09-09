@@ -44,3 +44,11 @@
 - Diagnostic red: missing unique-channel count; green: controller diagnostic contains all four attribution fields.
 - Fresh `pnpm verify` passed: script tests, all workspace typechecks/tests, Astro site build, Chrome MV3 build and Firefox MV2 build. Existing large-chunk build warnings remain. `git diff --check` passed.
 - Self-review: all #498 acceptance criteria covered. #500 must retain the added HTTP-429 early exit when integrating its adjacent fetcher lifecycle changes; channel workers and paired inventory/progress requests now drain before returning. No merge/rebase/push/PR performed.
+
+## Review corrections
+
+- Observed four failing lane tests for malformed directory envelopes/records and missing live page-category evidence, plus a separate failing live API-category test. Strict directory options now propagate; recognized empty directory arrays remain valid. Live API/page evidence must include a category when the campaign or idle candidate expects one; offline/no-category checks and explicit mismatches remain valid.
+- Observed five failing delayed-follow cases across cold, stale and already-refreshing caches. The collector now drains both initial operations with `Promise.allSettled`. Strict Kick discovery awaits `refreshOnce` when stale, including a refresh started by a standalone caller. Existing stale values remain usable for preference; the refresh cannot update cycle observation after return. Fresh cache hits remain immediate; a stale cycle pays one followed-request latency every five minutes, with no extra request count.
+- Observed a failing diagnostic test where a channel failure after listing was logged as zero campaigns/candidates. Missing attempt counters now render `work metrics=unavailable`.
+- Focused review validation: 618 tests passed across performance, adapters, snapshot collector and controller suites. Rechecked #500 at `c8737826`; its consume-once observation remains compatible because cycle-owned initial operations, stale follow refreshes and workers all settle before return.
+- Fresh post-review `pnpm verify` passed: 1,868 extension tests, 193 CLI tests, 10 site tests, 95 release/store script tests, workspace typechecks, site build and Chrome/Firefox builds. Existing chunk-size warnings only. Self-review and `git diff --check` passed.

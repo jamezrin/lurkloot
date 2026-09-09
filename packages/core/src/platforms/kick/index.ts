@@ -417,17 +417,17 @@ export class KickAdapter implements PlatformAdapter {
   // KickAdapter fresh each scheduler tick, so a per-instance cache would never
   // survive to the next tick and this would hit the network every time —
   // exactly the tick latency this cache exists to avoid. A cached value (even a
-  // stale one) is served immediately and refreshed in the background, never
-  // blocking the caller; only the very first call ever (nothing cached yet)
-  // blocks once, so the first campaign decision after startup can still prefer
-  // a followed channel instead of being stuck on a stranger for the rest of the
-  // session (shouldKeepWatching never switches mid-session for the same
-  // campaign).
-  async listFollowedChannels({ signal }: AdapterOperationOptions = {}): Promise<string[]> {
+  // stale one) is served immediately to standalone callers. Strict snapshot
+  // discovery instead awaits stale refreshes, including an already-running
+  // refresh, so their fetch lifecycle cannot outlive cycle observation.
+  async listFollowedChannels({ signal, requireComplete }: AdapterOperationOptions = {}): Promise<string[]> {
     const cache = this.discoveryState.followedChannels;
     const cached = cache.get();
     if (cached) {
-      if (cache.isStale()) void cache.refreshOnce(() => this.fetchFollowedChannels());
+      if (cache.isStale()) {
+        const refresh = cache.refreshOnce(() => this.fetchFollowedChannels(requireComplete ? signal : undefined));
+        if (requireComplete) await refresh;
+      }
       return cached;
     }
     await cache.refreshOnce(() => this.fetchFollowedChannels(signal));
@@ -442,9 +442,8 @@ export class KickAdapter implements PlatformAdapter {
   // later.
   private async fetchFollowedChannels(signal?: AbortSignal): Promise<string[]> {
     try {
-      // Never passed the calling tick's signal when refreshing a stale cache in
-      // the background (see listFollowedChannels): that fetch must outlive the
-      // tick that triggered it, not be cancelled when the tick ends.
+      // Standalone background refreshes omit the signal; strict discovery owns
+      // and awaits the refresh, so it can pass its cancellation signal.
       const response = await this.fetcher.fetchJson<KickFollowedLiveStreamsResponse>(
         "https://kick.com/api/v1/user/livestreams",
         { signal },
