@@ -1641,6 +1641,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       afterLoad?.(current);
       const settings = deps.applySettingsPatch(current, patch);
       await deps.saveSettings(settings);
+      for (const platform of invalidatedPlatforms) {
+        if (!settings.platform[platform].enabled) cancelPendingTick(platform);
+      }
       afterPersist?.(settings);
       await ensureSchedulerAlarms(settings.pollIntervalMinutes);
       await reconcileTwitchChannelPointsAlarm(settings);
@@ -1981,6 +1984,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   type DiscoverySignalRefreshRequest = {
     controller: DiscoverySignalController;
     generation: number;
+    count: number;
   };
   const discoverySignalRefreshPending: Record<Platform, DiscoverySignalRefreshRequest | undefined> = {
     twitch: undefined,
@@ -1999,15 +2003,156 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     twitch: 0,
     kick: 0,
   };
+  type PlatformTickResult = readonly [Platform, string[], { state: SchedulerState; sequence: number }?];
+  let tickCommitSequence = 0;
+  interface TickRequest {
+    trigger: TickTrigger;
+    reasons: Partial<Record<TickTrigger, number>>;
+    discoverySignal?: DiscoverySignalRefreshRequest;
+    promise: Promise<PlatformTickResult>;
+    resolve: (result: PlatformTickResult) => void;
+    reject: (error: unknown) => void;
+  }
+  const tickAdmission: Record<Platform, { active?: TickRequest; pending?: TickRequest }> = {
+    twitch: {},
+    kick: {},
+  };
+  const tickRequestHandoffs = new WeakMap<Promise<PlatformTickResult>, Promise<SchedulerState | undefined>>();
+  let tickAdmissionSuspended = false;
 
-  async function tick(
+  function tickTriggerSummary(reasons: TickRequest["reasons"]): string {
+    const entries = Object.entries(reasons);
+    const count = entries.reduce((total, [, count]) => total + count, 0);
+    return `count=${count}, reasons=${entries.map(([reason, count]) => `${reason}:${count}`).join(",")}`;
+  }
+
+  function cancelPendingTick(platform: Platform): void {
+    const pending = tickAdmission[platform].pending;
+    tickAdmission[platform].pending = undefined;
+    if (pending) {
+      diagnosticEvent("debug", `Discarded pending scheduler triggers after lifecycle change (${tickTriggerSummary(pending.reasons)})`, platform);
+      pending.resolve([platform, []]);
+    }
+  }
+
+  function retainCurrentTickReasons(platform: Platform, request: TickRequest): boolean {
+    const signal = request.discoverySignal;
+    if (signal && !discoverySignalRefreshAllowed(platform, signal)) {
+      const remaining = (request.reasons.discovery_signal ?? 0) - signal.count;
+      if (remaining > 0) request.reasons.discovery_signal = remaining;
+      else delete request.reasons.discovery_signal;
+      request.discoverySignal = undefined;
+      diagnosticEvent("debug", `Discarded stale scheduler discovery signals (${tickTriggerSummary({ discovery_signal: signal.count })})`, platform);
+    }
+    const reasons = Object.keys(request.reasons) as TickTrigger[];
+    if (reasons.length === 0) return false;
+    request.trigger = reasons.reduce((selected, trigger) =>
+      tickTriggerPriority(trigger) > tickTriggerPriority(selected) ? trigger : selected);
+    return true;
+  }
+
+  function mergeDiscoverySignal(request: TickRequest, signal: DiscoverySignalRefreshRequest): void {
+    request.reasons.discovery_signal = (request.reasons.discovery_signal ?? 0) + signal.count;
+    request.discoverySignal = { ...signal, count: (request.discoverySignal?.count ?? 0) + signal.count };
+  }
+
+  function admitPlatformTick(platform: Platform, trigger: TickTrigger, discoverySignal?: DiscoverySignalRefreshRequest): Promise<PlatformTickResult> {
+    if (controllerShutdown || tickAdmissionSuspended) return Promise.resolve([platform, []]);
+    const lane = tickAdmission[platform];
+    if (lane.pending) {
+      if (discoverySignal) mergeDiscoverySignal(lane.pending, discoverySignal);
+      else lane.pending.reasons[trigger] = (lane.pending.reasons[trigger] ?? 0) + 1;
+      if (tickTriggerPriority(trigger) > tickTriggerPriority(lane.pending.trigger)) {
+        lane.pending.trigger = trigger;
+      }
+      return lane.pending.promise;
+    }
+    let resolve!: TickRequest["resolve"];
+    let reject!: TickRequest["reject"];
+    const promise = new Promise<PlatformTickResult>((onResolve, onReject) => {
+      resolve = onResolve;
+      reject = onReject;
+    });
+    const request: TickRequest = { trigger, reasons: {}, promise, resolve, reject };
+    if (discoverySignal) mergeDiscoverySignal(request, discoverySignal);
+    else request.reasons[trigger] = 1;
+    if (lane.active) lane.pending = request;
+    else executePlatformTick(platform, request);
+    return promise;
+  }
+
+  function tickTriggerPriority(trigger: TickTrigger): number {
+    // Existing trigger semantics are nested: bypass-backoff also forces
+    // selection; startup only forces selection. Other user actions persist
+    // their mutations before admission, so fresh settings/state retain them.
+    // Equal-priority reasons keep their first trigger and all diagnostic counts.
+    if (selectionBypassesBackoff(trigger)) return 3;
+    if (selectionIsForced(trigger)) return 2;
+    return trigger === "alarm" || trigger === "discovery_signal" || trigger === "unknown" ? 0 : 1;
+  }
+
+  function executePlatformTick(platform: Platform, request: TickRequest): void {
+    // Signal setup can yield before admission. Its controller/generation must
+    // still be current when the admitted request finally owns the platform.
+    if (!retainCurrentTickReasons(platform, request)) {
+      request.resolve([platform, []]);
+      startPendingDiscoverySignalRefresh(platform);
+      return;
+    }
+    const lane = tickAdmission[platform];
+    lane.active = request;
+    let committed: PlatformTickResult[2];
+    void tickPlatform(platform, request.trigger, (state) => { committed = { state, sequence: ++tickCommitSequence }; })
+      .then(([platform, rewards]) => request.resolve([platform, rewards, committed]), request.reject)
+      .finally(() => {
+        lane.active = undefined;
+        const pending = lane.pending;
+        lane.pending = undefined;
+        if (pending) {
+          const signalRequest = discoverySignalRefreshPending[platform];
+          if (signalRequest && discoverySignalRefreshAllowed(platform, signalRequest)) {
+            mergeDiscoverySignal(pending, signalRequest);
+            discoverySignalRefreshPending[platform] = undefined;
+          }
+          diagnosticEvent("debug", `Coalesced scheduler triggers (${tickTriggerSummary(pending.reasons)})`, platform);
+          executePlatformTick(platform, pending);
+        } else startPendingDiscoverySignalRefresh(platform);
+      });
+  }
+
+  interface TickBatch {
+    requests: Promise<PlatformTickResult>[];
+    settled: Promise<PromiseSettledResult<PlatformTickResult>[]>;
+    claimed?: Promise<ClaimedRewards>;
+    handoff?: Promise<SchedulerState | undefined>;
+  }
+  const tickBatches = new Set<TickBatch>();
+
+  function requestTickBatch(platforms: Platform[] | undefined, trigger: TickTrigger, discoverySignal?: DiscoverySignalRefreshRequest): TickBatch {
+    const requests = [...new Set(platforms ?? PLATFORMS)].sort().map((platform) => admitPlatformTick(platform, trigger, discoverySignal));
+    for (const batch of tickBatches) {
+      if (batch.requests.length === requests.length && batch.requests.every((request, index) => request === requests[index])) return batch;
+    }
+    const batch: TickBatch = { requests, settled: Promise.allSettled(requests) };
+    tickBatches.add(batch);
+    void batch.settled.then(() => tickBatches.delete(batch));
+    return batch;
+  }
+
+  function tick(
     platforms?: Platform[],
     trigger: TickTrigger = "unknown",
     onPersisted?: (state: SchedulerState) => void,
   ): Promise<ClaimedRewards> {
-    const requestedPlatforms = platforms ?? PLATFORMS;
-    const settled = await Promise.allSettled(requestedPlatforms.map((platform) =>
-      tickPlatform(platform, trigger, onPersisted)));
+    const batch = requestTickBatch(platforms, trigger);
+    if (onPersisted) return completeTickBatch(batch, onPersisted);
+    return batch.claimed ??= completeTickBatch(batch);
+  }
+
+  async function completeTickBatch(batch: TickBatch, onPersisted?: (state: SchedulerState) => void): Promise<ClaimedRewards> {
+    const settled = await batch.settled;
+    const commits = settled.flatMap((result) => result.status === "fulfilled" && result.value[2] ? [result.value[2]] : []);
+    for (const commit of commits.sort((left, right) => left.sequence - right.sequence)) onPersisted?.(commit.state);
     const failures = settled.flatMap((result) =>
       result.status === "rejected" ? [result.reason] : []);
     if (failures.length === 1) throw failures[0];
@@ -2268,7 +2413,6 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     } finally {
       activeTicks.delete(abort);
       activePlatformTicks[platform] -= 1;
-      if (activePlatformTicks[platform] === 0) startPendingDiscoverySignalRefresh(platform);
       diagnosticEvent(
         "debug",
         `Tick #${tickContext.platformTickId} finished after ${Date.now() - tickStartedAt}ms (trigger=${trigger}, platforms=${platform})`,
@@ -3637,6 +3781,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   }
 
   function abortActiveTicks(reason: string): void {
+    for (const platform of PLATFORMS) cancelPendingTick(platform);
     for (const controller of activeTicks) {
       controller.abort(new Error(reason));
     }
@@ -3683,46 +3828,53 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   }
 
   async function prepareForHostReset(resetHostStorage?: () => Promise<void>): Promise<void> {
+    tickAdmissionSuspended = true;
     discoverySignalLifecycleOpen = false;
-    for (const platform of PLATFORMS) invalidateDiscoverySignalAdmission(platform);
-    twitchSettingsTransitionGeneration += 1;
-    for (const platform of PLATFORMS) {
-      discoveryLanes[platform].invalidate();
-      invalidateSelection(platform);
-    }
-    abortActiveTicks("Host reset");
-    closeTwitchIntegrityLifecycle("Host reset");
-    await stopDiscoverySignalControllersAndReport(PLATFORMS);
-    await clearTwitchIntegrityAlarmBestEffort();
-    await clearTwitchChannelPointsAlarmBestEffort();
-    abortClaimHandoffs();
-    await clearHeartbeatOwnership(PLATFORMS);
-    await withSettingsLock(() => withStateLock(() => withEventCollector(async (emit, events) => {
-      const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
-      const adapters = createAdapters(settings, emit);
-      const managedTabs = Object.values(state.managedWatchTabs ?? {}).filter((tab): tab is ManagedWatchTab => tab?.ownedByExtension === true);
-      if (deps.closeManagedTabs && managedTabs.length > 0) await deps.closeManagedTabs(managedTabs);
+    try {
+      for (const platform of PLATFORMS) invalidateDiscoverySignalAdmission(platform);
+      twitchSettingsTransitionGeneration += 1;
       for (const platform of PLATFORMS) {
-        await deps.applyAdFocus?.(platform, state.sessions[platform].tabId, false, emit);
-        await adapters[platform].stopWatchTab?.(state.sessions[platform], { closeManagedTabs: true });
+        discoveryLanes[platform].invalidate();
+        invalidateSelection(platform);
       }
-      if (deps.stopPageContextTabs) {
-        await deps.stopPageContextTabs(state.managedPageContextTabs ?? {}, {
-          platforms: PLATFORMS,
-          reason: "automation_disabled",
-          emit,
-        });
+      abortActiveTicks("Host reset");
+      closeTwitchIntegrityLifecycle("Host reset");
+      await stopDiscoverySignalControllersAndReport(PLATFORMS);
+      await clearTwitchIntegrityAlarmBestEffort();
+      await clearTwitchChannelPointsAlarmBestEffort();
+      abortClaimHandoffs();
+      await clearHeartbeatOwnership(PLATFORMS);
+      await withSettingsLock(() => withStateLock(() => withEventCollector(async (emit, events) => {
+        const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
+        const adapters = createAdapters(settings, emit);
+        const managedTabs = Object.values(state.managedWatchTabs ?? {}).filter((tab): tab is ManagedWatchTab => tab?.ownedByExtension === true);
+        if (deps.closeManagedTabs && managedTabs.length > 0) await deps.closeManagedTabs(managedTabs);
+        for (const platform of PLATFORMS) {
+          await deps.applyAdFocus?.(platform, state.sessions[platform].tabId, false, emit);
+          await adapters[platform].stopWatchTab?.(state.sessions[platform], { closeManagedTabs: true });
+        }
+        if (deps.stopPageContextTabs) {
+          await deps.stopPageContextTabs(state.managedPageContextTabs ?? {}, {
+            platforms: PLATFORMS,
+            reason: "automation_disabled",
+            emit,
+          });
+        }
+        registerManagedPageContextTabs({});
+        installedTwitchIntegrity = undefined;
+        persistedIntegrityToken = undefined;
+        twitchIntegrityRefreshDue = undefined;
+        setTwitchIntegrity(undefined);
+        await resetHostStorage?.();
+        lastPersistedTwitchEnabled = undefined;
+        await reportBestEffort(events);
+      })));
+    } finally {
+      if (!controllerShutdown) {
+        discoverySignalLifecycleOpen = true;
+        tickAdmissionSuspended = false;
       }
-      registerManagedPageContextTabs({});
-      installedTwitchIntegrity = undefined;
-      persistedIntegrityToken = undefined;
-      twitchIntegrityRefreshDue = undefined;
-      setTwitchIntegrity(undefined);
-      await resetHostStorage?.();
-      lastPersistedTwitchEnabled = undefined;
-      await reportBestEffort(events);
-    })));
-    if (!controllerShutdown) discoverySignalLifecycleOpen = true;
+    }
   }
 
   // Bounded post-claim handoff (see docs/superpowers/specs/2026-07-19-twitch-claim-handoff-design.md).
@@ -3807,6 +3959,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   function invalidateDiscoverySignalAdmission(platform: Platform): void {
     discoverySignalRefreshPending[platform] = undefined;
     discoverySignalAdmissionGeneration[platform] += 1;
+    const pending = tickAdmission[platform].pending;
+    if (pending && !retainCurrentTickReasons(platform, pending)) {
+      tickAdmission[platform].pending = undefined;
+      pending.resolve([platform, []]);
+    }
   }
 
   function discoverySignalRefreshAllowed(
@@ -3842,6 +3999,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     const request: DiscoverySignalRefreshRequest = {
       controller,
       generation: discoverySignalAdmissionGeneration[platform],
+      count: (discoverySignalRefreshPending[platform]?.count ?? 0) + 1,
     };
     if (!discoverySignalRefreshAllowed(platform, request)) return;
     discoverySignalRefreshPending[platform] = request;
@@ -3849,7 +4007,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   }
 
   function startPendingDiscoverySignalRefresh(platform: Platform): void {
-    if (discoverySignalRefreshRunning[platform] || activePlatformTicks[platform] > 0) return;
+    if (discoverySignalRefreshRunning[platform] || tickAdmission[platform].active) return;
     const queued = discoverySignalRefreshPending[platform];
     if (!queued) return;
     if (!discoverySignalRefreshAllowed(platform, queued)) {
@@ -3878,7 +4036,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
             discoverySignalRefreshPending[platform] = undefined;
             break;
           }
-          await tickAndHandOff([platform], "discovery_signal");
+          diagnosticEvent("debug", `Coalesced scheduler triggers (${tickTriggerSummary({ discovery_signal: current.count })})`, platform);
+          const batch = requestTickBatch([platform], "discovery_signal", current);
+          await (batch.handoff ??= completeTickAndHandOff(batch));
         }
       } finally {
         discoverySignalRefreshRunning[platform] = false;
@@ -3968,28 +4128,52 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // The normal entry point for alarm- and message-driven ticks: run the tick,
   // then hand off for every platform that claimed. Kept separate from tick() so
   // the handoff's own inner ticks cannot recurse into another handoff.
-  async function tickAndHandOff(
+  function tickAndHandOff(
     platforms?: Platform[],
     trigger: TickTrigger = "unknown",
   ): Promise<SchedulerState | undefined> {
+    const batch = requestTickBatch(platforms, trigger);
+    return batch.handoff ??= completeTickAndHandOff(batch);
+  }
+
+  async function completeTickAndHandOff(batch: TickBatch): Promise<SchedulerState | undefined> {
     let committedState: SchedulerState | undefined;
     const captureCommittedState = (state: SchedulerState): void => {
       committedState = state;
     };
-    const claimed = await tick(platforms, trigger, captureCommittedState);
-    const handoffPlatforms = Object.keys(claimed) as Platform[];
-    const results = await Promise.allSettled(handoffPlatforms.map((platform) =>
-      runClaimHandoff(platform, claimed[platform] ?? [], captureCommittedState)));
-    for (let index = 0; index < results.length; index += 1) {
-      const result = results[index];
-      if (result.status !== "rejected") continue;
-      diagnosticEvent(
-        "warn",
-        `Post-claim handoff failed: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`,
-        handoffPlatforms[index],
-      );
+    const claimed = await completeTickBatch(batch, captureCommittedState);
+    const results = await Promise.all((Object.keys(claimed) as Platform[]).map((platform) => {
+      return completePlatformHandoff(batch, platform, claimed[platform] ?? []);
+    }));
+    for (const state of results) {
+      if (state) committedState = state;
     }
     return committedState;
+  }
+
+  async function completePlatformHandoff(
+    batch: TickBatch,
+    platform: Platform,
+    claimedRewardIds: readonly string[],
+  ): Promise<SchedulerState | undefined> {
+    const settled = await batch.settled;
+    const index = settled.findIndex((result) => result.status === "fulfilled" && result.value[0] === platform);
+    if (index < 0) return undefined;
+    const request = batch.requests[index];
+    const existing = tickRequestHandoffs.get(request);
+    if (existing) return existing;
+    let committedState = settled[index].status === "fulfilled" ? settled[index].value[2]?.state : undefined;
+    const handoff = runClaimHandoff(platform, claimedRewardIds, (state) => {
+      committedState = state;
+    }).catch((error) => {
+      diagnosticEvent(
+        "warn",
+        `Post-claim handoff failed: ${error instanceof Error ? error.message : String(error)}`,
+        platform,
+      );
+    }).then(() => committedState);
+    tickRequestHandoffs.set(request, handoff);
+    return handoff;
   }
 
   async function recordPlaybackTelemetry(

@@ -1,4 +1,4 @@
-import { createBackgroundController, type CredentialAvailability } from "@lurkloot/core/controller";
+import { createBackgroundController, type CredentialAvailability, type TickTrigger } from "@lurkloot/core/controller";
 import { HEARTBEAT_INTERVAL_MS } from "@lurkloot/core/heartbeatCadence";
 import type { Platform, SchedulerState } from "@lurkloot/shared/models";
 import { loadState, saveState } from "../storage";
@@ -44,20 +44,47 @@ function disabledPlatformsNeedingCleanup(
 }
 
 interface CliTickDriver {
-  tickAndHandOff(platforms?: Platform[]): Promise<SchedulerState | undefined>;
+  tickAndHandOff(platforms?: Platform[], trigger?: TickTrigger): Promise<SchedulerState | undefined>;
 }
 
-export async function runCliTickOnce(options: {
+interface CliTickOptions {
   controller: CliTickDriver;
   enabledPlatforms: Platform[];
   engineSettings: ReturnType<typeof toEngineSettings>;
   loadState(): Promise<SchedulerState>;
   seenSubscriptionWaits: Set<string>;
   logger: Logger;
-}): Promise<void> {
-  const { controller, enabledPlatforms, engineSettings, loadState, seenSubscriptionWaits, logger } = options;
+}
+
+// Each stable driver options object owns one observer per admitted tick result.
+// Repeated intervals still request the coalesced follow-up, but do not attach
+// another reporting/fallback-state continuation to its shared promise.
+const cliTickResults = new WeakMap<CliTickOptions, WeakMap<Promise<SchedulerState | undefined>, Promise<void>>>();
+
+export function runCliTickOnce(options: CliTickOptions): Promise<void> {
+  let result: Promise<SchedulerState | undefined>;
   try {
-    let state = await controller.tickAndHandOff(enabledPlatforms) ?? await loadState();
+    result = options.controller.tickAndHandOff(options.enabledPlatforms, "alarm");
+  } catch (error) {
+    options.logger.error(error instanceof Error ? error.message : String(error), "tick");
+    return Promise.resolve();
+  }
+  let pending = cliTickResults.get(options);
+  if (!pending) {
+    pending = new WeakMap();
+    cliTickResults.set(options, pending);
+  }
+  const existing = pending.get(result);
+  if (existing) return existing;
+  const run = completeCliTickOnce(options, result);
+  pending.set(result, run);
+  return run;
+}
+
+async function completeCliTickOnce(options: CliTickOptions, result: Promise<SchedulerState | undefined>): Promise<void> {
+  const { controller, engineSettings, loadState, seenSubscriptionWaits, logger } = options;
+  try {
+    let state = await result ?? await loadState();
     const staleDisabledPlatforms = disabledPlatformsNeedingCleanup(state, engineSettings);
     if (staleDisabledPlatforms.length > 0) {
       state = await controller.tickAndHandOff(staleDisabledPlatforms) ?? await loadState();
@@ -109,15 +136,17 @@ export async function runLoop(options: RunOptions): Promise<void> {
     ...(options.checkCredentialAvailability ? { checkCredentialAvailability: options.checkCredentialAvailability } : {}),
   });
 
-  const tickOnce = async () => {
-    await runCliTickOnce({
-      controller,
-      enabledPlatforms,
-      engineSettings,
-      loadState: loadRuntimeState,
-      seenSubscriptionWaits,
-      logger,
-    });
+  const tickOptions: CliTickOptions = {
+    controller, enabledPlatforms, engineSettings,
+    loadState: loadRuntimeState, seenSubscriptionWaits, logger,
+  };
+  const platformTickOptions = enabledPlatforms.length > 0
+    ? enabledPlatforms.map((platform) => ({ ...tickOptions, enabledPlatforms: [platform] }))
+    : [tickOptions];
+  const requestTicks = () => {
+    // Admission is per platform all the way through the host driver: a fast
+    // Kick interval must not accumulate observers waiting for a slow Twitch.
+    for (const options of platformTickOptions) void runCliTickOnce(options);
   };
 
   const heartbeatOnce = async () => {
@@ -130,7 +159,7 @@ export async function runLoop(options: RunOptions): Promise<void> {
 
   logger.info("Starting farming loop", "run");
   if (options.once) {
-    await tickOnce();
+    await runCliTickOnce(tickOptions);
     await transport.dispose();
     return;
   }
@@ -138,7 +167,7 @@ export async function runLoop(options: RunOptions): Promise<void> {
   const periodMs = Math.max(1, settings.pollIntervalMinutes) * 60_000;
   await new Promise<void>((resolveLoop, rejectLoop) => {
     let stopped = false;
-    const discoveryTimer = setInterval(() => void tickOnce(), periodMs);
+    const discoveryTimer = setInterval(requestTicks, periodMs);
     const heartbeatTimer = setInterval(
       () => void heartbeatOnce(),
       HEARTBEAT_INTERVAL_MS,
@@ -170,6 +199,6 @@ export async function runLoop(options: RunOptions): Promise<void> {
     // cadence may already be due while the first campaign refresh is slow or
     // blocked, and signal handlers need to be live for that entire interval.
     void heartbeatOnce();
-    void tickOnce();
+    requestTicks();
   });
 }
