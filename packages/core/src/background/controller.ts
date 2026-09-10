@@ -2017,6 +2017,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     twitch: {},
     kick: {},
   };
+  const tickRequestHandoffs = new WeakMap<Promise<PlatformTickResult>, Promise<SchedulerState | undefined>>();
   let tickAdmissionSuspended = false;
 
   function tickTriggerSummary(reasons: TickRequest["reasons"]): string {
@@ -3829,47 +3830,50 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   async function prepareForHostReset(resetHostStorage?: () => Promise<void>): Promise<void> {
     tickAdmissionSuspended = true;
     discoverySignalLifecycleOpen = false;
-    for (const platform of PLATFORMS) invalidateDiscoverySignalAdmission(platform);
-    twitchSettingsTransitionGeneration += 1;
-    for (const platform of PLATFORMS) {
-      discoveryLanes[platform].invalidate();
-      invalidateSelection(platform);
-    }
-    abortActiveTicks("Host reset");
-    closeTwitchIntegrityLifecycle("Host reset");
-    await stopDiscoverySignalControllersAndReport(PLATFORMS);
-    await clearTwitchIntegrityAlarmBestEffort();
-    await clearTwitchChannelPointsAlarmBestEffort();
-    abortClaimHandoffs();
-    await clearHeartbeatOwnership(PLATFORMS);
-    await withSettingsLock(() => withStateLock(() => withEventCollector(async (emit, events) => {
-      const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
-      const adapters = createAdapters(settings, emit);
-      const managedTabs = Object.values(state.managedWatchTabs ?? {}).filter((tab): tab is ManagedWatchTab => tab?.ownedByExtension === true);
-      if (deps.closeManagedTabs && managedTabs.length > 0) await deps.closeManagedTabs(managedTabs);
+    try {
+      for (const platform of PLATFORMS) invalidateDiscoverySignalAdmission(platform);
+      twitchSettingsTransitionGeneration += 1;
       for (const platform of PLATFORMS) {
-        await deps.applyAdFocus?.(platform, state.sessions[platform].tabId, false, emit);
-        await adapters[platform].stopWatchTab?.(state.sessions[platform], { closeManagedTabs: true });
+        discoveryLanes[platform].invalidate();
+        invalidateSelection(platform);
       }
-      if (deps.stopPageContextTabs) {
-        await deps.stopPageContextTabs(state.managedPageContextTabs ?? {}, {
-          platforms: PLATFORMS,
-          reason: "automation_disabled",
-          emit,
-        });
+      abortActiveTicks("Host reset");
+      closeTwitchIntegrityLifecycle("Host reset");
+      await stopDiscoverySignalControllersAndReport(PLATFORMS);
+      await clearTwitchIntegrityAlarmBestEffort();
+      await clearTwitchChannelPointsAlarmBestEffort();
+      abortClaimHandoffs();
+      await clearHeartbeatOwnership(PLATFORMS);
+      await withSettingsLock(() => withStateLock(() => withEventCollector(async (emit, events) => {
+        const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
+        const adapters = createAdapters(settings, emit);
+        const managedTabs = Object.values(state.managedWatchTabs ?? {}).filter((tab): tab is ManagedWatchTab => tab?.ownedByExtension === true);
+        if (deps.closeManagedTabs && managedTabs.length > 0) await deps.closeManagedTabs(managedTabs);
+        for (const platform of PLATFORMS) {
+          await deps.applyAdFocus?.(platform, state.sessions[platform].tabId, false, emit);
+          await adapters[platform].stopWatchTab?.(state.sessions[platform], { closeManagedTabs: true });
+        }
+        if (deps.stopPageContextTabs) {
+          await deps.stopPageContextTabs(state.managedPageContextTabs ?? {}, {
+            platforms: PLATFORMS,
+            reason: "automation_disabled",
+            emit,
+          });
+        }
+        registerManagedPageContextTabs({});
+        installedTwitchIntegrity = undefined;
+        persistedIntegrityToken = undefined;
+        twitchIntegrityRefreshDue = undefined;
+        setTwitchIntegrity(undefined);
+        await resetHostStorage?.();
+        lastPersistedTwitchEnabled = undefined;
+        await reportBestEffort(events);
+      })));
+    } finally {
+      if (!controllerShutdown) {
+        discoverySignalLifecycleOpen = true;
+        tickAdmissionSuspended = false;
       }
-      registerManagedPageContextTabs({});
-      installedTwitchIntegrity = undefined;
-      persistedIntegrityToken = undefined;
-      twitchIntegrityRefreshDue = undefined;
-      setTwitchIntegrity(undefined);
-      await resetHostStorage?.();
-      lastPersistedTwitchEnabled = undefined;
-      await reportBestEffort(events);
-    })));
-    if (!controllerShutdown) {
-      discoverySignalLifecycleOpen = true;
-      tickAdmissionSuspended = false;
     }
   }
 
@@ -4138,19 +4142,38 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       committedState = state;
     };
     const claimed = await completeTickBatch(batch, captureCommittedState);
-    const handoffPlatforms = Object.keys(claimed) as Platform[];
-    const results = await Promise.allSettled(handoffPlatforms.map((platform) =>
-      runClaimHandoff(platform, claimed[platform] ?? [], captureCommittedState)));
-    for (let index = 0; index < results.length; index += 1) {
-      const result = results[index];
-      if (result.status !== "rejected") continue;
-      diagnosticEvent(
-        "warn",
-        `Post-claim handoff failed: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`,
-        handoffPlatforms[index],
-      );
+    const results = await Promise.all((Object.keys(claimed) as Platform[]).map((platform) => {
+      return completePlatformHandoff(batch, platform, claimed[platform] ?? []);
+    }));
+    for (const state of results) {
+      if (state) committedState = state;
     }
     return committedState;
+  }
+
+  async function completePlatformHandoff(
+    batch: TickBatch,
+    platform: Platform,
+    claimedRewardIds: readonly string[],
+  ): Promise<SchedulerState | undefined> {
+    const settled = await batch.settled;
+    const index = settled.findIndex((result) => result.status === "fulfilled" && result.value[0] === platform);
+    if (index < 0) return undefined;
+    const request = batch.requests[index];
+    const existing = tickRequestHandoffs.get(request);
+    if (existing) return existing;
+    let committedState = settled[index].status === "fulfilled" ? settled[index].value[2]?.state : undefined;
+    const handoff = runClaimHandoff(platform, claimedRewardIds, (state) => {
+      committedState = state;
+    }).catch((error) => {
+      diagnosticEvent(
+        "warn",
+        `Post-claim handoff failed: ${error instanceof Error ? error.message : String(error)}`,
+        platform,
+      );
+    }).then(() => committedState);
+    tickRequestHandoffs.set(request, handoff);
+    return handoff;
   }
 
   async function recordPlaybackTelemetry(

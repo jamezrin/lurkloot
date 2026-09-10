@@ -4915,6 +4915,20 @@ describe("background controller", () => {
     }));
   });
 
+  it("restores scheduler admission when resetting host storage fails", async () => {
+    const env = harness(farming(DEFAULT_SETTINGS));
+    const resetFailure = new Error("storage reset failed");
+
+    await expect(env.controller.prepareForHostReset(async () => {
+      throw resetFailure;
+    })).rejects.toBe(resetFailure);
+
+    vi.mocked(env.kick.refreshCampaigns).mockClear();
+    await env.controller.tick(["kick"], "manual_tick");
+
+    expect(env.kick.refreshCampaigns).toHaveBeenCalledOnce();
+  });
+
   it("aborts in-flight scheduler work when the controller shuts down", async () => {
     const env = harness(farming(DEFAULT_SETTINGS));
     let tickSignal: AbortSignal | undefined;
@@ -9017,6 +9031,30 @@ describe("background controller", () => {
 
       expect(env.timer.wait).toHaveBeenCalled();
       expect(committed).toEqual(env.state);
+    });
+
+    it("starts one handoff for a shared platform tick across overlapping batches", async () => {
+      const kickRefresh = deferred<DropCampaign[]>();
+      const env = handoffEnv({
+        postClaimHandoffIntervalSeconds: 5,
+        postClaimHandoffMaxSeconds: 15,
+        platform: {
+          twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
+          kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true, idleWatchlistChannels: [] },
+        },
+      });
+      env.twitch.refreshCampaigns = vi.fn(async () => [chainedCampaign(false)]);
+      env.kick.refreshCampaigns = vi.fn(() => kickRefresh.promise);
+
+      const twitchOnly = env.controller.tickAndHandOff(["twitch"]);
+      const bothPlatforms = env.controller.tickAndHandOff();
+      for (let index = 0; index < 6; index += 1) await env.timer.flush();
+      await twitchOnly;
+      kickRefresh.resolve([]);
+      for (let index = 0; index < 6; index += 1) await env.timer.flush();
+      await bothPlatforms;
+
+      expect(env.twitch.refreshCampaigns).toHaveBeenCalledTimes(4);
     });
 
     it("does not start a nested handoff for a claim inside a handoff", async () => {
