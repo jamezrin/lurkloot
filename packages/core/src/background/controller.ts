@@ -5,7 +5,7 @@ import type { SettingsPatch } from "@lurkloot/shared/settings";
 import { autoClaimChannelPointsFor, isFarmingActive } from "@lurkloot/shared/settings";
 import type { CompatibilityResolution, ResolvedCompatibility } from "@lurkloot/shared/compatibility";
 import { isWatchReward, reconcileCampaignAfterClaims } from "@lurkloot/shared/rewards";
-import { campaignSearchBackoffApplies, isPlaybackTelemetryHealthy, MANUAL_WATCH_TTL_MS, runSchedulerTick, selectWatchTargetFromSnapshot, type SnapshotSelectionResult, type StopPageContextTabs } from "../core/scheduler";
+import { campaignSearchBackoffApplies, isPlaybackTelemetryHealthy, MANUAL_WATCH_TTL_MS, preserveClaimedRewards, runSchedulerTick, selectWatchTargetFromSnapshot, type SnapshotSelectionResult, type StopPageContextTabs } from "../core/scheduler";
 import { isTimestampStale } from "../core/timestamps";
 import {
   currentManagedPageContextTabs,
@@ -851,6 +851,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
                   .find(({ campaign: previous }) => previous.id === campaign.id)
                   ?.candidates ?? [];
               },
+              settings,
+              (campaigns) => preserveClaimedRewards(campaigns, state.campaigns[platform]),
             );
           } finally {
             tickAdapter?.drain(emit);
@@ -877,11 +879,14 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       : attempt.complete
         ? "complete"
         : `incomplete (${attempt.failure ?? "unknown failure"})`;
+    const workMetrics = metrics
+      ? `campaigns=${metrics.campaigns}, skipped before channel work=${metrics.skippedBeforeChannelWork ?? 0}, candidates=${metrics.candidates}, unique channel checks=${metrics.uniqueChannelChecks ?? 0}, cache hits=${metrics.cacheHits}, cache misses=${metrics.cacheMisses}, batch requests=${metrics.batchRequests}, single fallbacks=${metrics.singleFallbacks}`
+      : "work metrics=unavailable";
     discoveryEvents[platform].push({
       category: "diagnostic",
       platform,
       level: attempt.complete ? "debug" : "warn",
-      message: `Discovery refresh finished in ${duration}ms (${outcome}, revision=${snapshot?.revision ?? 0}, age=${age}ms, coalesced=${attempt.coalesced}, campaigns=${metrics?.campaigns ?? 0}, candidates=${metrics?.candidates ?? 0}, cache hits=${metrics?.cacheHits ?? 0}, cache misses=${metrics?.cacheMisses ?? 0}, batch requests=${metrics?.batchRequests ?? 0}, single fallbacks=${metrics?.singleFallbacks ?? 0})`,
+      message: `Discovery refresh finished in ${duration}ms (${outcome}, revision=${snapshot?.revision ?? 0}, age=${age}ms, coalesced=${attempt.coalesced}, ${workMetrics})`,
     });
     if (attempt.complete && snapshot) {
       discoveryEvents[platform].push({

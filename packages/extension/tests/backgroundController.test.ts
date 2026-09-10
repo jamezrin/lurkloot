@@ -716,6 +716,36 @@ describe("background controller", () => {
     });
   });
 
+  it("attributes Kick discovery duration, skipped inventory and unique channel checks", async () => {
+    const env = harness();
+    vi.mocked(env.kick.refreshCampaigns).mockResolvedValue([
+      campaign("kick"),
+      { ...campaign("kick"), id: "expired", status: "expired" },
+    ]);
+    env.kick.checkChannels = async (requests) => ({
+      checks: requests.map(({ channel: candidate }) => ({ candidate, live: true, categoryMatches: true })),
+      uniqueChannelChecks: 1,
+    });
+    await env.controller.tick(["kick"]);
+    const diagnostic = allDiagnostics(env).find((event) => event.platform === "kick" && event.message.startsWith("Discovery refresh finished"));
+    expect(diagnostic?.message).toMatch(/finished in \d+ms/);
+    expect(diagnostic?.message).toContain("campaigns=2");
+    expect(diagnostic?.message).toContain("skipped before channel work=1");
+    expect(diagnostic?.message).toContain("unique channel checks=1");
+    expect(env.state.campaigns.kick).toHaveLength(2);
+  });
+
+  it("labels unavailable discovery counters after failure instead of reporting zero work", async () => {
+    const env = harness();
+    vi.mocked(env.kick.checkChannel).mockRejectedValue(new Error("channel unavailable"));
+    await env.controller.tick(["kick"]);
+    const diagnostic = allDiagnostics(env).find((event) => event.platform === "kick" && event.message.startsWith("Discovery refresh finished"));
+    expect(env.kick.listCandidateChannels).toHaveBeenCalled();
+    expect(diagnostic?.message).toContain("work metrics=unavailable");
+    expect(diagnostic?.message).not.toContain("campaigns=0");
+    expect(diagnostic?.message).not.toContain("candidates=0");
+  });
+
   describe("Twitch integrity expiry scheduling", () => {
     beforeEach(() => {
       vi.useFakeTimers({ toFake: ["Date"] });
