@@ -714,6 +714,8 @@ describe("background controller", () => {
       expect(maxConcurrentClaims).toBe(1);
       expect(env.twitch.refreshCampaigns).toHaveBeenCalledOnce();
     });
+  });
+
   it("attributes Kick discovery duration, skipped inventory and unique channel checks", async () => {
     const env = harness();
     vi.mocked(env.kick.refreshCampaigns).mockResolvedValue([
