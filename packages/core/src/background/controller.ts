@@ -5,7 +5,7 @@ import type { SettingsPatch } from "@lurkloot/shared/settings";
 import { autoClaimChannelPointsFor, isFarmingActive } from "@lurkloot/shared/settings";
 import type { CompatibilityResolution, ResolvedCompatibility } from "@lurkloot/shared/compatibility";
 import { isWatchReward, reconcileCampaignAfterClaims } from "@lurkloot/shared/rewards";
-import { campaignSearchBackoffApplies, isPlaybackTelemetryHealthy, MANUAL_WATCH_TTL_MS, runSchedulerTick, selectWatchTargetFromSnapshot, type SnapshotSelectionResult, type StopPageContextTabs } from "../core/scheduler";
+import { campaignSearchBackoffApplies, isPlaybackTelemetryHealthy, MANUAL_WATCH_TTL_MS, preserveClaimedRewards, runSchedulerTick, selectWatchTargetFromSnapshot, type SnapshotSelectionResult, type StopPageContextTabs } from "../core/scheduler";
 import { isTimestampStale } from "../core/timestamps";
 import {
   currentManagedPageContextTabs,
@@ -852,6 +852,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
                   ?.candidates ?? [];
               },
               settings,
+              (campaigns) => preserveClaimedRewards(campaigns, state.campaigns[platform]),
             );
           } finally {
             tickAdapter?.drain(emit);

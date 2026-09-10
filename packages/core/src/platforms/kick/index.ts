@@ -335,14 +335,14 @@ export class KickAdapter implements PlatformAdapter {
     signal?.throwIfAborted();
     if (campaignResult.status === "rejected") throw campaignResult.reason;
     const campaignData = campaignResult.value;
-    if (requireComplete && !hasKickInventoryEnvelope(campaignData, ["campaigns", "active", "current", "upcoming"])) {
+    if (requireComplete && !hasCompleteKickCampaignInventory(campaignData)) {
       throw new Error("Kick discovery campaign inventory was incomplete");
     }
     const campaigns = parseKickCampaigns(
       campaignData as Parameters<typeof parseKickCampaigns>[0],
     );
     if (progressResult.status === "fulfilled") {
-      if (requireComplete && !hasKickInventoryEnvelope(progressResult.value, ["progress", "campaigns", "active", "current", "completed"])) {
+      if (requireComplete && !hasCompleteKickProgressInventory(progressResult.value)) {
         throw new Error("Kick discovery progress was incomplete");
       }
       return this.mergeProgress(campaigns, progressResult.value);
@@ -417,20 +417,25 @@ export class KickAdapter implements PlatformAdapter {
   // KickAdapter fresh each scheduler tick, so a per-instance cache would never
   // survive to the next tick and this would hit the network every time —
   // exactly the tick latency this cache exists to avoid. A cached value (even a
-  // stale one) is served immediately to standalone callers. Strict snapshot
-  // discovery instead awaits stale refreshes, including an already-running
-  // refresh, so their fetch lifecycle cannot outlive cycle observation.
+  // stale one) is served immediately to standalone callers. Refresh ownership
+  // is independent from a particular caller's abort signal because overlapping
+  // callers share the promise. Strict snapshot discovery still awaits it before
+  // observing its own cancellation, so route evidence cannot arrive late.
   async listFollowedChannels({ signal, requireComplete }: AdapterOperationOptions = {}): Promise<string[]> {
     const cache = this.discoveryState.followedChannels;
     const cached = cache.get();
     if (cached) {
       if (cache.isStale()) {
-        const refresh = cache.refreshOnce(() => this.fetchFollowedChannels(requireComplete ? signal : undefined));
-        if (requireComplete) await refresh;
+        const refresh = cache.refreshOnce(() => this.fetchFollowedChannels());
+        if (requireComplete) {
+          await refresh;
+          signal?.throwIfAborted();
+        }
       }
       return cached;
     }
-    await cache.refreshOnce(() => this.fetchFollowedChannels(signal));
+    await cache.refreshOnce(() => this.fetchFollowedChannels());
+    signal?.throwIfAborted();
     return cache.get() ?? [];
   }
 
@@ -442,8 +447,6 @@ export class KickAdapter implements PlatformAdapter {
   // later.
   private async fetchFollowedChannels(signal?: AbortSignal): Promise<string[]> {
     try {
-      // Standalone background refreshes omit the signal; strict discovery owns
-      // and awaits the refresh, so it can pass its cancellation signal.
       const response = await this.fetcher.fetchJson<KickFollowedLiveStreamsResponse>(
         "https://kick.com/api/v1/user/livestreams",
         { signal },
@@ -584,11 +587,19 @@ export class KickAdapter implements PlatformAdapter {
         throw new Error("Kick discovery channel response was incomplete");
       }
       const livestream = data.livestream;
+      if (requireComplete && livestream !== null && (
+        !livestream
+        || typeof livestream !== "object"
+        || Array.isArray(livestream)
+        || (typeof livestream.is_live !== "boolean" && livestream.id == null)
+      )) {
+        throw new Error("Kick discovery channel response was incomplete");
+      }
       // Kick now returns a `categories` array; keep `category` as a fallback.
       const category = livestream?.categories?.[0] ?? livestream?.category;
       const actualCategoryId = category?.id == null ? undefined : String(category.id);
       const expectedCategoryId = campaign ? campaign.categoryId : channel.categoryId;
-      const live = Boolean(livestream?.is_live ?? livestream);
+      const live = livestream !== null && Boolean(livestream?.is_live ?? true);
       if (requireComplete && live && expectedCategoryId && actualCategoryId == null) {
         throw new Error("Kick discovery channel category evidence was incomplete");
       }
@@ -743,7 +754,9 @@ export class KickAdapter implements PlatformAdapter {
     fetcher: PageFetcher = this.fetcher,
     requireComplete = false,
   ): Promise<ChannelCheck> {
-    const originalMessage = requireComplete ? "provider evidence unavailable"
+    const originalMessage = requireComplete && isSafeFetchError(originalError)
+      ? `${originalError.failure.kind}${originalError.failure.status == null ? "" : ` status=${originalError.failure.status}`}`
+      : requireComplete ? "provider evidence unavailable"
       : originalError instanceof Error ? originalError.message : String(originalError);
     diagnostic(this.emit, "debug", `Kick API channel check failed for ${channel.username}, falling back to the channel page: ${originalMessage}`, "kick");
     try {
@@ -779,13 +792,46 @@ export class KickAdapter implements PlatformAdapter {
   }
 }
 
-function hasKickInventoryEnvelope(input: unknown, keys: string[]): boolean {
-  if (Array.isArray(input)) return true;
-  if (!input || typeof input !== "object") return false;
+function kickInventoryRecords(input: unknown, keys: string[]): unknown[] | undefined {
+  if (Array.isArray(input)) return input;
+  if (!input || typeof input !== "object") return undefined;
   const root = input as Record<string, unknown>;
-  if (Array.isArray(root.data)) return true;
+  if (Array.isArray(root.data)) return root.data;
   const data = root.data && typeof root.data === "object" ? root.data as Record<string, unknown> : {};
-  return keys.some((key) => Array.isArray(root[key]) || Array.isArray(data[key]));
+  const buckets = keys.flatMap((key) => [root[key], data[key]]).filter(Array.isArray);
+  return buckets.length > 0 ? buckets.flat() : undefined;
+}
+
+function hasCompleteKickCampaignInventory(input: unknown): boolean {
+  const records = kickInventoryRecords(input, ["campaigns", "active", "current", "upcoming"]);
+  return records !== undefined && records.every((entry) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return false;
+    const campaign = entry as Record<string, unknown>;
+    if (campaign.id == null) return false;
+    const rewards = campaign.rewards ?? campaign.drops;
+    return rewards === undefined || (Array.isArray(rewards) && rewards.every((reward) =>
+      Boolean(reward) && typeof reward === "object" && !Array.isArray(reward)
+      && (reward as Record<string, unknown>).id != null));
+  });
+}
+
+function hasCompleteKickProgressInventory(input: unknown): boolean {
+  const records = kickInventoryRecords(input, ["progress", "campaigns", "active", "current", "completed"]);
+  return records !== undefined && records.every((entry) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return false;
+    const progress = entry as Record<string, unknown>;
+    const rewards = progress.rewards;
+    const identifiesProgress = progress.id != null
+      || progress.campaign_id != null
+      || progress.drop_campaign_id != null
+      || progress.reward_id != null
+      || progress.drop_id != null;
+    return identifiesProgress && (rewards === undefined || (Array.isArray(rewards) && rewards.every((reward) =>
+      Boolean(reward) && typeof reward === "object" && !Array.isArray(reward)
+      && ((reward as Record<string, unknown>).id != null
+        || (reward as Record<string, unknown>).reward_id != null
+        || (reward as Record<string, unknown>).drop_id != null))));
+  });
 }
 
 function affirmativelyLinkedCampaignIds(input: unknown): Set<string> {

@@ -21,6 +21,13 @@ afterEach(() => vi.useRealTimers());
 function fetcher(handler: (url: string, init?: RequestInit) => unknown): PageFetcher {
   return { fetchJson: vi.fn(async (url, init) => handler(url, init)) as PageFetcher["fetchJson"] };
 }
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((nextResolve) => {
+    resolve = nextResolve;
+  });
+  return { promise, resolve };
+}
 const liveResponse = { id: 1, livestream: { id: 2, is_live: true, categories: [{ id: 13, name: "Rust" }], viewer_count: 100 } };
 
 describe("Kick discovery batch", () => {
@@ -214,6 +221,36 @@ describe("Kick discovery batch", () => {
     await expect(collectDiscoverySnapshot(adapter, undefined, new AbortController().signal, () => NOW, false)).rejects.toThrow("incomplete");
   });
 
+  it.each(["campaigns", "progress"])("rejects malformed records in recognized %s inventory", async (endpoint) => {
+    const adapter = kickAdapter(fetcher((url) => url.endsWith(`/${endpoint}`) ? { data: [{}] } : { data: [] }));
+
+    await expect(collectDiscoverySnapshot(adapter, undefined, new AbortController().signal, () => NOW, false))
+      .rejects.toThrow("incomplete");
+  });
+
+  it.each([{ livestream: {} }, { livestream: "offline" }, { livestream: false }, { livestream: 0 }])(
+    "rejects ambiguous channel live evidence: %j",
+    async (response) => {
+      const adapter = kickAdapter(fetcher(() => response));
+
+      await expect(adapter.checkChannels([{ channel: candidate() }])).rejects.toThrow("incomplete");
+    },
+  );
+
+  it("does not commit an aborted followed-channel lookup as a fresh empty cache entry", async () => {
+    const pending = deferred<unknown>();
+    const discoveryState = new KickDiscoveryState();
+    const adapter = kickAdapter(fetcher(() => pending.promise), undefined, undefined, undefined, { discoveryState });
+    const abort = new AbortController();
+
+    const strictLookup = adapter.listFollowedChannels({ signal: abort.signal, requireComplete: true });
+    abort.abort(new DOMException("cancelled", "AbortError"));
+    pending.resolve([{ channel: { slug: "fresh-friend" } }]);
+
+    await expect(strictLookup).rejects.toMatchObject({ name: "AbortError" });
+    await expect(adapter.listFollowedChannels()).resolves.toEqual(["fresh-friend"]);
+  });
+
   it("drains progress when campaign inventory fails before returning the cycle", async () => {
     vi.useFakeTimers();
     let progressFinished = false;
@@ -247,6 +284,18 @@ describe("Kick discovery batch", () => {
     const adapter = kickAdapter(fetcher((url) => url.includes("/api/") ? {} : { html: "<html>login</html>" }),
       undefined, undefined, (event) => { events.push(event); });
     await expect(adapter.checkChannels([{ channel: candidate() }])).rejects.toThrow("incomplete");
+    expect(JSON.stringify(events)).not.toContain("<html>");
+  });
+
+  it("retains safe transport failure context in strict fallback diagnostics", async () => {
+    const events: unknown[] = [];
+    const adapter = kickAdapter(fetcher((url) => {
+      if (url.includes("/api/")) throw new SafeFetchError({ kind: "http_error", status: 503 });
+      return { html: "<html>unavailable</html>" };
+    }), undefined, undefined, (event) => { events.push(event); });
+
+    await expect(adapter.checkChannels([{ channel: candidate() }])).rejects.toThrow("incomplete");
+    expect(JSON.stringify(events)).toContain("http_error status=503");
     expect(JSON.stringify(events)).not.toContain("<html>");
   });
 
@@ -387,5 +436,37 @@ describe("Kick static discovery gate", () => {
     undefined, new AbortController().signal, () => NOW, false, [], undefined, mergeSettings(undefined));
     expect(result.campaigns[0]?.candidates).toHaveLength(1);
     expect(result.metrics.skippedBeforeChannelWork).toBe(0);
+  });
+
+  it("evaluates the static gate after persisted claim reconciliation", async () => {
+    const source = campaign({
+      rewards: [
+        { ...reward, id: "predecessor", claimId: "claim-1", status: "locked" },
+        { ...reward, id: "successor", status: "locked", preconditionsMet: false },
+      ],
+    });
+    const reconciled = campaign({
+      rewards: [
+        { ...reward, id: "predecessor", claimId: "claim-1", status: "claimed", watchedMinutes: 60 },
+        { ...reward, id: "successor", status: "in_progress", preconditionsMet: true },
+      ],
+    });
+    const listCandidateChannels = vi.fn(async () => [candidate()]);
+
+    const result = await collectDiscoverySnapshot(
+      { platform: "kick", refreshCampaigns: async () => [source], listCandidateChannels,
+        checkChannel: async (channel) => ({ candidate: channel, live: true, categoryMatches: true }) },
+      undefined,
+      new AbortController().signal,
+      () => NOW,
+      false,
+      [],
+      undefined,
+      mergeSettings(undefined),
+      () => [reconciled],
+    );
+
+    expect(listCandidateChannels).toHaveBeenCalledOnce();
+    expect(result.campaigns[0]?.campaign).toBe(reconciled);
   });
 });

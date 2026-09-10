@@ -80,6 +80,7 @@ export async function collectDiscoverySnapshot(
   idleCandidates: ChannelCandidate[] = [],
   retainedCampaignCandidates?: (campaign: DropCampaign, campaigns: DropCampaign[]) => DiscoveryCandidateObservation[] | undefined,
   settings?: EngineSettings,
+  reconcileCampaigns: (campaigns: DropCampaign[]) => DropCampaign[] = (campaigns) => campaigns,
 ): Promise<DiscoveryRefreshResult> {
   // Both operations belong to this refresh's fetch-observation lifecycle. Drain
   // the pair even when inventory fails before a followed-channel fallback ends.
@@ -92,7 +93,7 @@ export async function collectDiscoverySnapshot(
   signal.throwIfAborted();
   if (campaignResult.status === "rejected") throw campaignResult.reason;
   if (followedResult.status === "rejected") throw followedResult.reason;
-  const campaigns = campaignResult.value;
+  const campaigns = reconcileCampaigns(campaignResult.value);
   const followedChannels = followedResult.value;
   const observations: DiscoveryCampaignObservation[] = [];
   const batchRequestsToCheck: ChannelCheckRequest[] = [];
