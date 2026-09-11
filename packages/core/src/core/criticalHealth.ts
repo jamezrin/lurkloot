@@ -43,6 +43,19 @@ export interface CriticalHealthObservation {
   // An accrual precondition broke mid-window (channel offline, category change,
   // heartbeat unhealthy, fallback, pause, manual watch, target switch).
   preconditionBroke: boolean;
+  // The tick reached no verdict at all — the platform is disabled, or signed
+  // out — as opposed to concluding that it is healthy. Without this the two are
+  // indistinguishable: a clean tick that simply did not accrue this minute
+  // reports the same three booleans as the seeded neutral observation, and only
+  // carries watchedMinutes to tell them apart.
+  //
+  // It exists so the reducer can decline to treat "no information" as evidence
+  // of a clean tick. Everything else about the reset branch still applies: an
+  // inconclusive observation must keep clearing the failing counters, keep
+  // pruning the churn window, and keep releasing the breaker, because a
+  // platform that only ever takes an early exit still has to be able to
+  // recover.
+  inconclusive?: boolean;
   watchedMinutes?: number;
   record?: Omit<FailureRecord, "at" | "platform">;
 }
@@ -145,14 +158,25 @@ export function observeCriticalHealth(
 
   // Any of these means the platform is not in a continuous no-value episode.
   if (!observation.failing || observation.progressed || observation.preconditionBroke) {
+    const { lastObservedAt: _previousObservedAt, ...carried } = health;
     const reset: CriticalHealthState = {
-      ...health,
+      ...carried,
       failingMs: 0,
       failingTicks: 0,
-      lastObservedAt: new Date(observation.at).toISOString(),
       managedTabOpens,
       breakerOpen,
       records,
+      // An inconclusive observation clears the stamp instead of advancing it.
+      // It is the tick clock for *failing* time, so a tick that concluded
+      // nothing is not a reading to measure the next gap from. Clearing sends
+      // the next genuinely failing tick down the cold-start path below, which
+      // charges delta = 0 — it under-counts, so it can only ever flag later,
+      // never sooner. Advancing it would also rewrite storage every tick for a
+      // platform that is doing nothing, and the stamp does not even survive the
+      // round trip (normalizeCriticalHealth drops it on load).
+      ...(observation.inconclusive
+        ? {}
+        : { lastObservedAt: new Date(observation.at).toISOString() }),
     };
     if (observation.watchedMinutes !== undefined) reset.lastWatchedMinutes = observation.watchedMinutes;
     return { state: withHealth(state, platform, reset) };

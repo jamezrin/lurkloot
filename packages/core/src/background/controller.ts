@@ -36,7 +36,7 @@ import {
   validHeartbeatGeneration,
   validTablessHeartbeatCadence,
 } from "../core/heartbeatCadence";
-import { mergePlatformState } from "./platformState";
+import { mergePlatformState, schedulerStateEquivalent } from "./platformState";
 import { twitchChannelFromUrl } from "../platforms/twitch/channelUrl";
 import {
   collectDiscoverySnapshot,
@@ -1503,9 +1503,18 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           : stateForMerge;
         if (isCurrent?.() === false) return false;
         const merged = mergePlatformState(latest, mergeSource, platform);
-        await saveOperationalStateDirect(merged);
+        // A tick that decided nothing still restamps lastTickAt, so an
+        // unguarded write churns storage every poll interval forever. The
+        // disabled platform is the clearest case: its tick reaches the
+        // scheduler's disabled branch and rebuilds the very same session on
+        // every pass, and both tick alarms keep firing whether or not the
+        // platform is enabled. Skip the write and leave lastTickAt where it
+        // was — storage already holds this state, so callers must still treat
+        // it as persisted, and `latest` (not `merged`) is what they observe.
+        const unchanged = schedulerStateEquivalent(latest, merged);
+        if (!unchanged) await saveOperationalStateDirect(merged);
         if (currentManagedPageContextTabsRevision() === pageContextRevision) {
-          onPersisted?.(merged);
+          onPersisted?.(unchanged ? latest : merged);
           return true;
         }
       }
@@ -5509,7 +5518,8 @@ function newlyEarnedRewards(
     for (const campaign of next.campaigns[platform]) {
       for (const reward of campaign.rewards) {
         const before = previousStatuses.get(`${platform}:${campaign.id}:${reward.id}`);
-        if ((reward.status === "claimable" || reward.status === "claimed") && before !== reward.status) {
+        const wasKnownAndUnearned = before !== undefined && before !== "claimable" && before !== "claimed";
+        if ((reward.status === "claimable" || reward.status === "claimed") && wasKnownAndUnearned) {
           earned.push({ campaign, reward });
         }
       }
