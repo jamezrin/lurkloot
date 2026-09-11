@@ -6,7 +6,7 @@ import type { TwitchIntegrityRequest } from "../../core/tabs";
 import type { TwitchIntegrity } from "../../core/twitchIntegrity";
 import { PendingWatcherDiagnostics, type HeartbeatResult, type TablessWatchController, type WatchContext } from "../../core/tablessWatch";
 import { StaleWhileRevalidateCache } from "../../core/staleCache";
-import { diagnostic, ignoreEvent, type AdapterOperationOptions, type CandidateChannelSelection, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
+import { diagnostic, ignoreEvent, type AdapterOperationOptions, type CandidateChannelSelection, type ChannelPointsClaimOptions, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
 import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchCampaigns, twitchCandidatesFromCampaign, withCampaignStatus } from "./parser";
 import type { ResolvedCompatibility, TwitchIdentity } from "../../compatibility/types";
 import { createTwitchHeartbeat } from "./heartbeat/factory";
@@ -2161,20 +2161,24 @@ export class TwitchAdapter implements PlatformAdapter {
 
   async claimChannelPoints(
     channel: ChannelCandidate,
-    { signal }: AdapterOperationOptions = {},
+    { signal, claimId: providedClaimId, channelId: providedChannelId }: ChannelPointsClaimOptions = {},
   ): Promise<boolean> {
-    const context = await this.gqlWithIntegrityRetry<TwitchChannelPointsData>(
-      "ChannelPointsContext",
-      TWITCH_QUERIES.channelPointsHash,
-      { channelLogin: channel.username },
-      undefined,
-      undefined,
-      this.emit,
-      signal,
-    );
-    const channelId = context.data?.community?.channel?.id;
-    const claimId = context.data?.community?.channel?.self?.communityPoints?.availableClaim?.id;
-    if (!channelId || !claimId) return false;
+    let claimId = providedClaimId;
+    let channelId = providedChannelId;
+    if (!claimId || !channelId) {
+      const context = await this.gqlWithIntegrityRetry<TwitchChannelPointsData>(
+        "ChannelPointsContext",
+        TWITCH_QUERIES.channelPointsHash,
+        { channelLogin: channel.username },
+        undefined,
+        undefined,
+        this.emit,
+        signal,
+      );
+      channelId = context.data?.community?.channel?.id;
+      claimId = context.data?.community?.channel?.self?.communityPoints?.availableClaim?.id;
+      if (!channelId || !claimId) return false;
+    }
 
     // Like a drop claim, this mutation is gated on Client-Integrity. Ensure one
     // exists first (a no-op fast path when a token is already captured), then

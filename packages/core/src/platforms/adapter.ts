@@ -42,6 +42,11 @@ export interface AdapterOperationOptions {
   requireComplete?: boolean;
 }
 
+export interface ChannelPointsClaimOptions extends AdapterOperationOptions {
+  claimId?: string;
+  channelId?: string;
+}
+
 export interface ChannelCheckRequest {
   channel: ChannelCandidate;
   campaign?: DropCampaign;
@@ -107,7 +112,7 @@ export interface PlatformAdapter {
   // exposes the real drop-instance id once it releases the claim, so auto-claim
   // must defer until then instead of POSTing a value Twitch will reject.
   isClaimReady?(reward: DropReward): boolean;
-  claimChannelPoints?(channel: ChannelCandidate, options?: AdapterOperationOptions): Promise<boolean>;
+  claimChannelPoints?(channel: ChannelCandidate, options?: ChannelPointsClaimOptions): Promise<boolean>;
   // Claims any completed, unclaimed gamification challenges for the logged-in
   // account and reports what was won. Account-level, so it takes no channel and
   // runs regardless of whether a watch session is active.
