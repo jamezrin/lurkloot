@@ -100,11 +100,11 @@ export interface TwitchAdapterOptions {
 const TWITCH_QUERIES = {
   dashboard: {
     operationName: "ViewerDropsDashboard",
-    sha256Hash: "5a4da2ab3d5b47c9f9ce864e727b2cb346af1e3ea8b897fe8f704a97ff017619",
+    sha256Hash: "c16bb890cc8ce7647a96ee69cd313d423a378a3dedadf630a1017cde18975feb",
     variables: { fetchRewardCampaigns: false },
   },
   campaignDetailsHash: "039277bf98f3130929262cc7c6efd9c141ca3749cb6dca442fc8ead9a53f77c1",
-  gameDirectoryHash: "cb5dc816e139dcb8a118f14b4b677d59abc224a4b016c4bc2bb00a47fe0ddec4",
+  gameDirectoryHash: "86bcceb4e8b1a51256ff8eed8bd8aae4acacf80d737efe904f84f3aeadf8cafd",
   streamInfoHash: "198492e0857f6aedead9665c81c5a06d67b25b58034649687124083ff288597d",
   currentDropHash: "4d06b702d25d652afb9ef835d2a550031f1cf762b193523a92166f40ea3d142b",
   availableDropsHash: "782dad0f032942260171d2d80a654f88bdd0c5a9dddc392e9bc92218a0f42d20",
