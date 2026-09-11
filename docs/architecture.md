@@ -226,7 +226,7 @@ Kick may retain an extension-owned page-context tab when its service-worker fetc
 - Followed channels come from an inline `FollowedLiveChannels` query (`currentUser.followedLiveUsers`), cached for 5 minutes in `TwitchDiscoveryState` (injected, so the cache survives the extension reconstructing `TwitchAdapter` every tick). A tick never blocks on this: a cached value, even a stale one, is returned immediately and refreshed in the background; only the very first lookup ever (nothing cached yet) awaits the request. A signed-out session or a failed lookup answers with an empty list, and selection falls back to viewer count.
 - Channel validation calls `StreamInfo` with an inline public query and anonymous credentials to avoid logged-in integrity-token failures. For live category matches, it briefly caches `DropsHighlightService_AvailableDrops` results to confirm the selected campaign; unavailable or malformed confirmation data falls back to the live/category result. If `StreamInfo` fails, validation falls back to parsing channel page HTML.
 - Reward claiming calls `DropsPage_ClaimDropRewards`.
-- Channel points claiming checks `ChannelPointsContext` and submits `ClaimCommunityPoints` when a claim is available.
+- Channel points claiming uses live Hermes `claim-available` when the advanced setting is on; `ChannelPointsContext` remains the alarm fallback.
 - Tabless watching sends Twitch's `sendSpadeEvents` minute-watched mutation once per watch alarm while the selected stream is live.
 
 ## Kick Integration

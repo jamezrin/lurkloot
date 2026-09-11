@@ -46,6 +46,7 @@ import {
 import { TAB_CHURN_LIMIT } from "@lurkloot/core/criticalHealth";
 import type { IntegrityHeader, TwitchIntegrity } from "@lurkloot/core/twitchIntegrity";
 import type { DiscoverySignalController, DiscoverySignalTarget } from "@lurkloot/core/discoverySignals";
+import type { TwitchChannelPointsClaimNotice } from "@lurkloot/core/twitch/channelPointsPush";
 
 const reward = (status: DropReward["status"] = "in_progress"): DropReward => ({
   id: "reward",
@@ -110,6 +111,37 @@ class FakeDiscoverySignalController implements DiscoverySignalController {
     this.stops += 1;
     this.targetKey = undefined;
     this.onSignal = undefined;
+  }
+}
+
+class FakeChannelPointsPushController {
+  subscribed = false;
+  starts = 0;
+  stops = 0;
+  private onClaimAvailable?: (notice: TwitchChannelPointsClaimNotice) => void;
+  private readonly events: DiagnosticEvent[] = [];
+
+  async start(onClaimAvailable: (notice: TwitchChannelPointsClaimNotice) => void): Promise<void> {
+    this.starts += 1;
+    this.onClaimAvailable = onClaimAvailable;
+  }
+
+  emitClaim(notice: TwitchChannelPointsClaimNotice): void {
+    this.onClaimAvailable?.(notice);
+  }
+
+  pushDiagnostic(message: string): void {
+    this.events.push({ category: "diagnostic", platform: "twitch", level: "warn", message });
+  }
+
+  drainEvents(): DiagnosticEvent[] {
+    return this.events.splice(0);
+  }
+
+  async stop(): Promise<void> {
+    this.stops += 1;
+    this.onClaimAvailable = undefined;
+    this.subscribed = false;
   }
 }
 
@@ -267,6 +299,9 @@ function harness(
   const discoverySignalController = new FakeDiscoverySignalController("kick");
   const discoverySignalFactory = vi.fn(() => discoverySignalController);
   kick.createDiscoverySignalController = discoverySignalFactory;
+  const channelPointsPushController = new FakeChannelPointsPushController();
+  const channelPointsPushFactory = vi.fn(() => channelPointsPushController);
+  twitch.createChannelPointsPushController = channelPointsPushFactory as unknown as PlatformAdapter["createChannelPointsPushController"];
   const reportEvents = vi.fn<(events: readonly EngineEvent[]) => Promise<void>>(async () => undefined);
   const deps = {
     loadSettings: vi.fn(async () => currentSettings),
@@ -352,6 +387,8 @@ function harness(
     kick,
     discoverySignalController,
     discoverySignalFactory,
+    channelPointsPushController,
+    channelPointsPushFactory,
     reportEvents: deps.reportEvents,
   };
 }
@@ -1065,6 +1102,259 @@ describe("background controller", () => {
 
       expect(maxConcurrentClaims).toBe(1);
       expect(env.twitch.refreshCampaigns).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe("Twitch channel points push observer", () => {
+    function pushSettings(patch: Partial<ExtensionSettings["platform"]["twitch"]> = {}): ExtensionSettings {
+      const enabled = farming({ ...DEFAULT_SETTINGS, autoStartDropFarming: false });
+      return {
+        ...enabled,
+        platform: {
+          ...enabled.platform,
+          twitch: {
+            ...enabled.platform.twitch,
+            ...patch,
+          },
+        },
+      };
+    }
+
+    function configureEligibleChannel(
+      env: ReturnType<typeof harness>,
+      patch: Partial<ChannelCandidate> = { channelId: "channel-1" },
+    ): ChannelCandidate {
+      const eligible = channel("twitch", patch);
+      env.state.authHealth = {
+        ...env.state.authHealth,
+        twitch: { status: "healthy", checkedAt: new Date().toISOString() },
+      };
+      env.state.sessions.twitch = {
+        platform: "twitch",
+        status: "watching",
+        channel: eligible,
+        offlineChecks: 0,
+        watchMode: "tab",
+      };
+      return eligible;
+    }
+
+    async function startObserver(env: ReturnType<typeof harness>, patch?: Partial<ChannelCandidate>): Promise<void> {
+      configureEligibleChannel(env, patch);
+      env.twitch.claimChannelPoints = vi.fn(async () => true);
+      await env.controller.ensureAlarm();
+      expect(env.channelPointsPushController.starts).toBe(1);
+      expect(env.channelPointsPushController.stops).toBe(0);
+    }
+
+    it("starts the observer once and does not stop on a second reconcile", async () => {
+      const env = harness(pushSettings());
+      await startObserver(env);
+
+      await env.controller.ensureAlarm();
+
+      expect(env.channelPointsPushFactory).toHaveBeenCalledOnce();
+      expect(env.channelPointsPushController.stops).toBe(0);
+    });
+
+    it.each([
+      {
+        name: "the live-event setting is off",
+        apply: async (env: ReturnType<typeof harness>) => {
+          await env.controller.handleMessage({
+            type: "saveSettings",
+            settingsPatch: { platform: { twitch: { channelPointsPushClaim: false } } },
+          });
+        },
+      },
+      {
+        name: "auto-claim is off",
+        apply: async (env: ReturnType<typeof harness>) => {
+          await env.controller.handleMessage({
+            type: "saveSettings",
+            settingsPatch: { platform: { twitch: { autoClaimChannelPoints: false } } },
+          });
+        },
+      },
+      {
+        name: "Twitch is disabled",
+        apply: async (env: ReturnType<typeof harness>) => {
+          await env.controller.handleMessage({
+            type: "setPlatformEnabled",
+            platform: "twitch",
+            enabled: false,
+          });
+        },
+      },
+      {
+        name: "authentication is unhealthy",
+        apply: async (env: ReturnType<typeof harness>) => {
+          env.state.authHealth = {
+            ...env.state.authHealth,
+            twitch: {
+              status: "invalid_credentials",
+              checkedAt: new Date().toISOString(),
+              reasonCode: "credentials_rejected",
+              message: { key: "authInvalidCredentials" },
+            },
+          };
+          await env.controller.ensureAlarm();
+        },
+      },
+      {
+        name: "no eligible channel remains",
+        apply: async (env: ReturnType<typeof harness>) => {
+          env.state.sessions.twitch = { platform: "twitch", status: "idle", offlineChecks: 0 };
+          env.state.manualWatch = undefined;
+          await env.controller.ensureAlarm();
+        },
+      },
+    ])("stops the observer when $name", async ({ apply }) => {
+      const env = harness(pushSettings());
+      await startObserver(env);
+
+      await apply(env);
+
+      expect(env.channelPointsPushController.stops).toBe(1);
+    });
+
+    it.each(["reset", "shutdown"] as const)("stops the observer during host %s", async (cleanup) => {
+      const env = harness(pushSettings());
+      await startObserver(env);
+
+      if (cleanup === "reset") {
+        await env.controller.prepareForHostReset();
+      } else {
+        env.controller.shutdown();
+      }
+      await env.rawController.settleBackgroundWork();
+
+      expect(env.channelPointsPushController.stops).toBe(1);
+    });
+
+    it("starts or stops from a live-event setting toggle without waiting for the alarm", async () => {
+      const env = harness(pushSettings({ channelPointsPushClaim: false }));
+      configureEligibleChannel(env);
+      env.twitch.claimChannelPoints = vi.fn(async () => true);
+
+      await env.controller.ensureAlarm();
+      expect(env.channelPointsPushController.starts).toBe(0);
+
+      env.deps.createAlarm.mockClear();
+      await env.controller.handleMessage({
+        type: "saveSettings",
+        settingsPatch: { platform: { twitch: { channelPointsPushClaim: true } } },
+      });
+
+      expect(env.channelPointsPushController.starts).toBe(1);
+      expect(env.channelPointsPushController.stops).toBe(0);
+
+      await env.controller.handleMessage({
+        type: "saveSettings",
+        settingsPatch: { platform: { twitch: { channelPointsPushClaim: false } } },
+      });
+
+      expect(env.channelPointsPushController.stops).toBe(1);
+    });
+
+    it("skips the alarm lookup while the observer is subscribed", async () => {
+      const env = harness(pushSettings());
+      await startObserver(env);
+      env.channelPointsPushController.subscribed = true;
+      env.twitch.claimChannelPoints = vi.fn(async () => true);
+
+      await env.controller.runTwitchChannelPointsClaim();
+
+      expect(env.twitch.claimChannelPoints).not.toHaveBeenCalled();
+    });
+
+    it("still looks up channel points when the observer is not subscribed", async () => {
+      const env = harness(pushSettings());
+      const eligible = configureEligibleChannel(env);
+      env.twitch.claimChannelPoints = vi.fn(async () => true);
+      await env.controller.ensureAlarm();
+      env.channelPointsPushController.subscribed = false;
+
+      await env.controller.runTwitchChannelPointsClaim();
+
+      expect(env.twitch.claimChannelPoints).toHaveBeenCalledOnce();
+      expect(env.twitch.claimChannelPoints).toHaveBeenCalledWith(eligible);
+    });
+
+    it("claims from a live-event notice for the eligible channel", async () => {
+      const env = harness(pushSettings());
+      await startObserver(env);
+
+      env.channelPointsPushController.emitClaim({ claimId: "claim-1", channelId: "channel-1" });
+      await vi.waitFor(() => expect(env.twitch.claimChannelPoints).toHaveBeenCalledWith(
+        expect.objectContaining({ channelId: "channel-1" }),
+        expect.objectContaining({ claimId: "claim-1", channelId: "channel-1" }),
+      ));
+      expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
+        platform: "twitch",
+        level: "info",
+        message: "Claimed channel points for twitch-creator",
+      }));
+    });
+
+    it("drops a live-event notice whose channel id does not match the eligible channel", async () => {
+      const env = harness(pushSettings());
+      await startObserver(env, { channelId: "a" });
+
+      env.channelPointsPushController.emitClaim({ claimId: "claim-1", channelId: "b" });
+      await env.controller.settleBackgroundWork();
+
+      expect(env.twitch.claimChannelPoints).not.toHaveBeenCalled();
+    });
+
+    it("claims a live-event notice when the eligible channel has no channel id", async () => {
+      const env = harness(pushSettings());
+      await startObserver(env, { username: "manual-creator" });
+
+      env.channelPointsPushController.emitClaim({ claimId: "claim-1", channelId: "channel-1" });
+      await vi.waitFor(() => expect(env.twitch.claimChannelPoints).toHaveBeenCalledWith(
+        expect.objectContaining({ username: "manual-creator" }),
+        expect.objectContaining({ claimId: "claim-1", channelId: "channel-1" }),
+      ));
+    });
+
+    it("dedupes an in-flight live-event claim id to a single mutation", async () => {
+      const env = harness(pushSettings());
+      await startObserver(env);
+      const firstClaim = deferred<boolean>();
+      env.twitch.claimChannelPoints = vi.fn(async () => firstClaim.promise);
+
+      env.channelPointsPushController.emitClaim({ claimId: "claim-1", channelId: "channel-1" });
+      await vi.waitFor(() => expect(env.twitch.claimChannelPoints).toHaveBeenCalledOnce());
+      env.channelPointsPushController.emitClaim({ claimId: "claim-1", channelId: "channel-1" });
+      expect(env.twitch.claimChannelPoints).toHaveBeenCalledOnce();
+      firstClaim.resolve(true);
+      await env.controller.settleBackgroundWork();
+      expect(env.twitch.claimChannelPoints).toHaveBeenCalledOnce();
+    });
+
+    it("does not mutate session error or heartbeat state when the observer reports a failure", async () => {
+      const env = harness(pushSettings());
+      configureEligibleChannel(env);
+      env.state.sessions.twitch = {
+        ...env.state.sessions.twitch,
+        errorChecks: 3,
+        heartbeatChecks: 4,
+        lastHeartbeatOk: false,
+        tablessFallback: true,
+        watchMode: "tabless",
+      };
+      const beforeSession = structuredClone(env.state.sessions.twitch);
+      env.channelPointsPushController.pushDiagnostic("Hermes reconnect failed");
+
+      await env.controller.ensureAlarm();
+
+      expect(env.state.sessions.twitch).toEqual(beforeSession);
+      expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
+        platform: "twitch",
+        level: "warn",
+        message: "Hermes reconnect failed",
+      }));
     });
   });
 
