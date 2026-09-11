@@ -111,10 +111,12 @@ function preconditionBreakObservation(): CriticalHealthObservation {
 }
 
 // The tick reached no conclusion about this platform. Not "healthy": it carries no
-// watchedMinutes and no record, it only keeps the detector's clock and its
-// time-based pruning running.
+// watchedMinutes and no record, it only keeps the detector's time-based pruning
+// and breaker release running. `inconclusive` is what separates it from a clean
+// tick that simply did not accrue — the other three booleans are identical — so
+// the reducer can decline to advance the failing-time clock from it.
 function neutralObservation(): CriticalHealthObservation {
-  return { at: Date.now(), failing: false, progressed: false, preconditionBroke: false };
+  return { at: Date.now(), failing: false, progressed: false, preconditionBroke: false, inconclusive: true };
 }
 
 // A failing observation with a breadcrumb built from a SafeFetchError when the
