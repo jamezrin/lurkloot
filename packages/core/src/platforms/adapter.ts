@@ -66,6 +66,11 @@ export interface CandidateChannelSelection {
   };
 }
 
+export interface KickPageContextCycleObservation {
+  backgroundHosts: string[];
+  fallbackHosts: string[];
+}
+
 // A gamification challenge that was just claimed. Account-level, so unlike
 // channel points it is not tied to a channel or a watch session.
 export interface ClaimedChallenge {

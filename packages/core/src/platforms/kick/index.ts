@@ -6,7 +6,7 @@ import { KickWafBlockedError } from "../../core/tabs";
 import { authHealthFromError } from "../../core/fetchError";
 import { StaleWhileRevalidateCache } from "../../core/staleCache";
 import type { WebSocketFactory } from "../../core/webSocket";
-import { diagnostic, ignoreEvent, type AdapterOperationOptions, type ChannelCheckBatch, type ChannelCheckRequest, type ClaimedChallenge, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
+import { diagnostic, ignoreEvent, type AdapterOperationOptions, type ChannelCheckBatch, type ChannelCheckRequest, type ClaimedChallenge, type KickPageContextCycleObservation, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
 import { kickCandidatesFromCampaign, mergeKickProgress, parseKickCampaigns } from "./parser";
 import { KICK_CLIENT_TOKEN, KickWatcher } from "./watch";
 import { KickDiscoverySignalController } from "./discoverySignals";
@@ -133,6 +133,47 @@ interface KickChallenge {
 
 interface KickChallengeClaimResponse {
   data?: { challenge_id?: string; winner?: { id?: string; rarity?: string } } | null;
+}
+
+export class KickPageContextRecoveryTracker {
+  private readonly backgroundHosts = new Set<string>();
+  private readonly fallbackHosts = new Set<string>();
+
+  recordBackgroundSuccess(host: string): void {
+    this.backgroundHosts.add(host);
+  }
+
+  recordPageFallback(host: string): void {
+    this.fallbackHosts.delete(host);
+    this.fallbackHosts.add(host);
+  }
+
+  take(): KickPageContextCycleObservation | undefined {
+    if (this.backgroundHosts.size === 0 && this.fallbackHosts.size === 0) return undefined;
+    const observation = {
+      backgroundHosts: [...this.backgroundHosts].sort(),
+      fallbackHosts: [...this.fallbackHosts],
+    };
+    this.backgroundHosts.clear();
+    this.fallbackHosts.clear();
+    return observation;
+  }
+
+  discard(): void {
+    this.backgroundHosts.clear();
+    this.fallbackHosts.clear();
+  }
+
+  restore(observation: KickPageContextCycleObservation): void {
+    const newerBackgroundHosts = [...this.backgroundHosts];
+    const newerFallbackHosts = [...this.fallbackHosts];
+    this.backgroundHosts.clear();
+    this.fallbackHosts.clear();
+    for (const host of observation.backgroundHosts) this.backgroundHosts.add(host);
+    for (const host of observation.fallbackHosts) this.recordPageFallback(host);
+    for (const host of newerBackgroundHosts) this.backgroundHosts.add(host);
+    for (const host of newerFallbackHosts) this.recordPageFallback(host);
+  }
 }
 
 // Try the background transport first, then the host's optional page fallback.
