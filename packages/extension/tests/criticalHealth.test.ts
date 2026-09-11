@@ -569,3 +569,111 @@ describe("managed tab circuit breaker registry", () => {
     expect(managedTabBreakerOpen("kick")).toBe(false);
   });
 });
+
+describe("inconclusive observations", () => {
+  it("clears lastObservedAt instead of advancing it", () => {
+    const clean = observeCriticalHealth(baseState(), "twitch", {
+      at: START,
+      failing: false,
+      progressed: false,
+      preconditionBroke: false,
+    }).state;
+    expect(clean.criticalHealth?.twitch?.lastObservedAt).toBe(new Date(START).toISOString());
+
+    const inconclusive = observeCriticalHealth(clean, "twitch", {
+      at: START + 60_000,
+      failing: false,
+      progressed: false,
+      preconditionBroke: false,
+      inconclusive: true,
+    }).state;
+    expect(inconclusive.criticalHealth?.twitch?.lastObservedAt).toBeUndefined();
+  });
+
+  it("leaves the state untouched across repeated inconclusive observations", () => {
+    // What makes the persist guard able to skip the write for a disabled
+    // platform: once the counters are zero and the churn window is empty, a
+    // further inconclusive observation must produce an identical state.
+    const first = observeCriticalHealth(baseState(), "twitch", {
+      at: START,
+      failing: false,
+      progressed: false,
+      preconditionBroke: false,
+      inconclusive: true,
+    }).state;
+    const second = observeCriticalHealth(first, "twitch", {
+      at: START + 60_000,
+      failing: false,
+      progressed: false,
+      preconditionBroke: false,
+      inconclusive: true,
+    }).state;
+    expect(second.criticalHealth?.twitch).toEqual(first.criticalHealth?.twitch);
+  });
+
+  it("charges no failing time on the first failing tick after an inconclusive gap", () => {
+    // The conservative direction, and the reason to clear rather than keep a
+    // stale stamp: resuming after a disabled period looks like a cold start, so
+    // the gap is not billed as failing time.
+    const idle = observeCriticalHealth(baseState(), "twitch", {
+      at: START,
+      failing: false,
+      progressed: false,
+      preconditionBroke: false,
+      inconclusive: true,
+    }).state;
+    const resumed = observeCriticalHealth(idle, "twitch", {
+      at: START + 6 * 60 * 60 * 1000,
+      failing: true,
+      progressed: false,
+      preconditionBroke: false,
+    }).state;
+    expect(resumed.criticalHealth?.twitch?.failingMs).toBe(0);
+    expect(resumed.criticalHealth?.twitch?.failingTicks).toBe(1);
+  });
+
+  it("still resets failing counters, prunes the churn window and releases the breaker", () => {
+    const failing = runFailingTicks(baseState(), 3);
+    expect(failing.criticalHealth?.twitch?.failingTicks).toBe(3);
+
+    const idle = observeCriticalHealth(failing, "twitch", {
+      at: START + 4 * 5 * 60 * 1000,
+      failing: false,
+      progressed: false,
+      preconditionBroke: false,
+      inconclusive: true,
+    }).state;
+    expect(idle.criticalHealth?.twitch?.failingMs).toBe(0);
+    expect(idle.criticalHealth?.twitch?.failingTicks).toBe(0);
+
+    let churned = baseState();
+    for (let index = 0; index < TAB_CHURN_LIMIT; index += 1) {
+      churned = recordManagedTabOpen(churned, "twitch", START + index * 1000, PAGE_CONTEXT).state;
+    }
+    expect(churned.criticalHealth?.twitch?.breakerOpen).toBe(true);
+
+    const drained = observeCriticalHealth(churned, "twitch", {
+      at: START + TAB_CHURN_WINDOW_MS + 60_000,
+      failing: false,
+      progressed: false,
+      preconditionBroke: false,
+      inconclusive: true,
+    }).state;
+    expect(drained.criticalHealth?.twitch?.managedTabOpens).toEqual([]);
+    // Crossing the churn limit also flags, and a flagged platform holds the
+    // breaker open until the user dismisses it. The prune above is what an
+    // inconclusive observation contributes; the release waits for the dismiss.
+    expect(drained.criticalHealth?.twitch?.status).toBe("flagged");
+    expect(drained.criticalHealth?.twitch?.breakerOpen).toBe(true);
+
+    const dismissed = dismissCriticalFailure(drained, "twitch", START + TAB_CHURN_WINDOW_MS + 120_000).state;
+    const released = observeCriticalHealth(dismissed, "twitch", {
+      at: START + TAB_CHURN_WINDOW_MS + 180_000,
+      failing: false,
+      progressed: false,
+      preconditionBroke: false,
+      inconclusive: true,
+    }).state;
+    expect(released.criticalHealth?.twitch?.breakerOpen).toBe(false);
+  });
+});

@@ -3,7 +3,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { parseHTML } from "linkedom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
+import { DEFAULT_SETTINGS, mergeSettings } from "@lurkloot/shared/settings";
 import { I18nContext, PopupRuntimeContext } from "../../popup-ui/src/context";
 import { SettingsView } from "../../popup-ui/src/settings";
 import type { PopupAdapter } from "../../popup-ui/src/types";
@@ -79,6 +79,10 @@ const labels: Record<string, string> = {
   tablessFallbackFailureLimitDescription: "Open a video tab after this many consecutive failed tabless watch signals.",
   tablessFallbackFailureLimitDisabledReason: "Enable tabless low-resource mode to change this setting.",
   failuresSuffix: "failures",
+  kickPageContextRecoverySuccessesTitle: "Kick fallback-page recovery",
+  kickPageContextRecoverySuccessesDescription: "Close an extension-opened Kick fallback page after this many successful refresh cycles.",
+  kickPageContextRecoverySuccessesDisabledReason: "Enable Kick to change this setting.",
+  cyclesSuffix: "cycles",
   postClaimHandoffTitle: "Fast reward handoff",
   postClaimHandoffDescription: "After claiming a drop, briefly check for the next reward.",
   postClaimHandoffIntervalTitle: "Handoff check interval",
@@ -105,8 +109,16 @@ const labels: Record<string, string> = {
   autoClaimChannelPointsDescription: "Claim channel-point bonuses while farming this platform.",
   autoClaimChallengesTitle: "Auto-claim daily challenges",
   autoClaimChallengesDescription: "Claim Kick's daily challenge reward once its watch-time goal is met.",
-  farmAllCategoriesTitle: "Farm all categories",
-  farmAllCategoriesDescription: "Farm drops in every $1 category.",
+  settingsGroupPlatformAdvanced: "Advanced & compatibility",
+  twitchSectionDescription: "Channel points, category filter, excluded channels, and Twitch compatibility.",
+  kickSectionDescription: "Daily challenges, category filter, excluded channels, and Kick compatibility.",
+  twitchAdvancedDescription: "Campaign availability and the transports Lurkloot uses.",
+  kickAdvancedDescription: "How Lurkloot opens Kick claim links.",
+  categoryModeTitle: "Category filter",
+  categoryModeDescription: "Farm every $1 category, include only the categories you select, or exclude them.",
+  categoryModeAll: "All categories",
+  categoryModeInclude: "Only selected",
+  categoryModeExclude: "All except selected",
   excludedChannelsTitle: "Excluded drop channels",
   excludedChannelsDescription: "Campaign farming will skip these streamers.",
   excludedChannelsEmpty: "No excluded drop channels.",
@@ -202,6 +214,33 @@ describe("deadline feasibility setting", () => {
     expect(input.disabled).toBe(true);
   });
 
+  it("renders and saves the Kick fallback-page recovery threshold", () => {
+    const { container, onSettingsChange } = mountSettings();
+    const input = container.querySelector(
+      'input[aria-label="Kick fallback-page recovery"]',
+    ) as HTMLInputElement;
+    expect(input.value).toBe("3");
+    expect(input.getAttribute("min")).toBe("1");
+    expect(input.getAttribute("max")).toBe("10");
+
+    act(() => setNumberInput(input, "6"));
+    expect(onSettingsChange).toHaveBeenCalledWith(
+      { kickPageContextRecoverySuccesses: 6 },
+      { tickAfterSave: true },
+    );
+  });
+
+  it("disables the Kick fallback-page recovery threshold when Kick is off", () => {
+    const settings = mergeSettings({
+      platform: { kick: { enabled: false } },
+    } as never);
+    const { container } = mountSettings(settings);
+    const input = container.querySelector(
+      'input[aria-label="Kick fallback-page recovery"]',
+    ) as HTMLInputElement;
+    expect(input.disabled).toBe(true);
+  });
+
   it("re-ticks after toggling a farming-eligibility row", () => {
     const { container, onSettingsChange } = mountSettings();
     // The two farming rows are full SettingRow toggles keyed by their title, so
@@ -287,14 +326,22 @@ describe("deadline feasibility setting", () => {
     );
   });
 
-  it("targets category changes to their platform", () => {
+  // The mode change must ride platformPatch, which carries tickAfterSave for the
+  // one platform — the existing selection-invalidation path, not a new one.
+  it("targets category mode changes to their platform", () => {
     const { container, onSettingsChange } = mountSettings();
-    const toggle = container.querySelector('[role="switch"][aria-label="Farm all categories"]') as HTMLButtonElement;
+    const select = container.querySelector('select[aria-label="Category filter"]') as HTMLSelectElement;
 
-    act(() => toggle.click());
+    act(() => {
+      // linkedom's select.value is getter-only, so the selection is staged the
+      // same way compatibilitySettingsView.test.tsx does it.
+      for (const option of select.querySelectorAll("option")) option.selected = option.getAttribute("value") === "exclude";
+      Object.defineProperty(select, "value", { configurable: true, value: "exclude" });
+      select.dispatchEvent(new window.Event("change", { bubbles: true }));
+    });
 
     expect(onSettingsChange).toHaveBeenCalledWith(
-      { platform: { twitch: { farmAllCategories: false } } },
+      { platform: { twitch: { categoryMode: "exclude" } } },
       { tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] },
     );
   });
