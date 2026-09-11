@@ -2,10 +2,10 @@ import type { CategorySearchResult, CoreRuntimeMessage, PlaybackControl, Runtime
 import type { ChannelCandidate, DropCampaign, DropReward, EngineSettings, ManagedWatchTab, Platform, PlatformAuthHealth, PlaybackTelemetry, SchedulerState, TablessHeartbeatCadence, WatchReasonCode, WatchSession } from "@lurkloot/shared/models";
 import type { ActivityEvent, DiagnosticEvent, EngineEvent, EventEmitter, EventReporter, FarmingStopReason, PageContextOpenReason } from "@lurkloot/shared/events";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
-import { autoClaimChannelPointsFor, isFarmingActive } from "@lurkloot/shared/settings";
+import { autoClaimChallengesFor, autoClaimChannelPointsFor, isFarmingActive } from "@lurkloot/shared/settings";
 import type { CompatibilityResolution, ResolvedCompatibility } from "@lurkloot/shared/compatibility";
 import { isWatchReward, reconcileCampaignAfterClaims } from "@lurkloot/shared/rewards";
-import { campaignSearchBackoffApplies, isPlaybackTelemetryHealthy, MANUAL_WATCH_TTL_MS, preserveClaimedRewards, runSchedulerTick, selectWatchTargetFromSnapshot, type SnapshotSelectionResult, type StopPageContextTabs } from "../core/scheduler";
+import { campaignSearchBackoffApplies, CHALLENGE_POLL_INTERVAL_MS, challengePollDue, claimReadyRewards, isPlaybackTelemetryHealthy, MANUAL_WATCH_TTL_MS, preserveClaimedRewards, runSchedulerTick, selectWatchTargetFromSnapshot, type SnapshotSelectionResult, type StopPageContextTabs } from "../core/scheduler";
 import { isTimestampStale } from "../core/timestamps";
 import {
   currentManagedPageContextTabs,
@@ -53,6 +53,9 @@ export const KICK_ALARM_NAME = "lurkloot.tick.kick";
 // 1-minute minimum, close enough to TwitchDropsMiner's 59s send cadence.
 export const WATCH_ALARM_NAME = "lurkloot.watch";
 export const TWITCH_CHANNEL_POINTS_ALARM_NAME = "lurkloot.twitch-channel-points";
+export const TWITCH_DROP_CLAIMS_ALARM_NAME = "lurkloot.twitch-drop-claims";
+export const KICK_DROP_CLAIMS_ALARM_NAME = "lurkloot.kick-drop-claims";
+export const KICK_CHALLENGES_ALARM_NAME = "lurkloot.kick-challenges";
 export const TWITCH_INTEGRITY_ALARM_NAME = "lurkloot.twitch-integrity";
 export const TWITCH_INTEGRITY_REFRESH_LEAD_MS = 120_000;
 export const TWITCH_INTEGRITY_REFRESH_JITTER_MAX_MS = 30_000;
@@ -61,6 +64,8 @@ interface BackgroundAlarmController {
   tickAndHandOff(platforms?: Platform[], trigger?: TickTrigger): Promise<SchedulerState | undefined>;
   runWatchHeartbeat(): Promise<void>;
   runTwitchChannelPointsClaim(): Promise<void>;
+  runDropClaims(platform: Platform): Promise<void>;
+  runKickChallengeClaims(): Promise<void>;
   runTwitchIntegrityRefresh(): Promise<void>;
 }
 
@@ -74,6 +79,12 @@ export function createBackgroundAlarmListener(controller: BackgroundAlarmControl
       void controller.runWatchHeartbeat();
     } else if (alarm.name === TWITCH_CHANNEL_POINTS_ALARM_NAME) {
       void controller.runTwitchChannelPointsClaim();
+    } else if (alarm.name === TWITCH_DROP_CLAIMS_ALARM_NAME) {
+      void controller.runDropClaims("twitch");
+    } else if (alarm.name === KICK_DROP_CLAIMS_ALARM_NAME) {
+      void controller.runDropClaims("kick");
+    } else if (alarm.name === KICK_CHALLENGES_ALARM_NAME) {
+      void controller.runKickChallengeClaims();
     } else if (alarm.name === TWITCH_INTEGRITY_ALARM_NAME) {
       void controller.runTwitchIntegrityRefresh();
     }
@@ -1066,6 +1077,24 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     }
   }
 
+  async function clearManualWatchClaimAlarmsBestEffort(): Promise<void> {
+    await Promise.all([
+      TWITCH_DROP_CLAIMS_ALARM_NAME,
+      KICK_DROP_CLAIMS_ALARM_NAME,
+      KICK_CHALLENGES_ALARM_NAME,
+    ].map(async (name) => {
+      try {
+        await deps.clearAlarm?.(name);
+      } catch {
+        await reportBestEffort([{
+          category: "diagnostic",
+          level: "warn",
+          message: `Could not clear the ${name} alarm`,
+        }]);
+      }
+    }));
+  }
+
   async function scheduleTwitchIntegrityRefresh(
     integrity: TwitchIntegrity,
     emit?: EventEmitter,
@@ -1566,6 +1595,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     await ensureSchedulerAlarms(settings.pollIntervalMinutes);
     await deps.createAlarm(WATCH_ALARM_NAME, { periodInMinutes: 1 });
     await reconcileTwitchChannelPointsAlarm(settings);
+    await reconcileManualWatchClaimAlarms(settings);
     if (settings.autoStartDropFarming && isFarmingActive(settings)) {
       await tick(undefined, "install");
     } else {
@@ -1587,6 +1617,20 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     } else {
       await deps.clearAlarm?.(TWITCH_CHANNEL_POINTS_ALARM_NAME);
     }
+  }
+
+  async function reconcileManualWatchClaimAlarms(settings: EngineSettings): Promise<void> {
+    await Promise.all([
+      settings.platform.twitch.enabled && settings.autoClaim
+        ? deps.createAlarm(TWITCH_DROP_CLAIMS_ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes })
+        : deps.clearAlarm?.(TWITCH_DROP_CLAIMS_ALARM_NAME),
+      settings.platform.kick.enabled && settings.autoClaim
+        ? deps.createAlarm(KICK_DROP_CLAIMS_ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes })
+        : deps.clearAlarm?.(KICK_DROP_CLAIMS_ALARM_NAME),
+      settings.platform.kick.enabled && autoClaimChallengesFor(settings, "kick")
+        ? deps.createAlarm(KICK_CHALLENGES_ALARM_NAME, { periodInMinutes: CHALLENGE_POLL_INTERVAL_MS / 60_000 })
+        : deps.clearAlarm?.(KICK_CHALLENGES_ALARM_NAME),
+    ]);
   }
 
   async function ensureInstalledAt(installedAt = new Date().toISOString()): Promise<void> {
@@ -1616,6 +1660,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       };
       await deps.saveSettings(nextSettings);
       await reconcileTwitchChannelPointsAlarm(nextSettings);
+      await reconcileManualWatchClaimAlarms(nextSettings);
       return nextSettings;
     });
   }
@@ -1628,6 +1673,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     await ensureSchedulerAlarms(settings.pollIntervalMinutes);
     await deps.createAlarm(WATCH_ALARM_NAME, { periodInMinutes: 1 });
     await reconcileTwitchChannelPointsAlarm(settings);
+    await reconcileManualWatchClaimAlarms(settings);
     // A restart kills any in-memory watchers; atomically release their lane
     // ownership before host cleanup, then let tick() rebuild fresh instances.
     await clearHeartbeatOwnership(PLATFORMS);
@@ -1716,6 +1762,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       afterPersist?.(settings);
       await ensureSchedulerAlarms(settings.pollIntervalMinutes);
       await reconcileTwitchChannelPointsAlarm(settings);
+      await reconcileManualWatchClaimAlarms(settings);
       return settings;
     });
   }
@@ -3947,6 +3994,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     closeTwitchIntegrityLifecycle("Controller shutdown");
     void clearTwitchIntegrityAlarmBestEffort();
     void clearTwitchChannelPointsAlarmBestEffort();
+    void clearManualWatchClaimAlarmsBestEffort();
     abortClaimHandoffs();
     void cancelHeartbeatPublicationLeases(PLATFORMS);
     clearHeartbeatOwnershipInBackground(PLATFORMS);
@@ -3968,6 +4016,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       await stopDiscoverySignalControllersAndReport(PLATFORMS);
       await clearTwitchIntegrityAlarmBestEffort();
       await clearTwitchChannelPointsAlarmBestEffort();
+      await clearManualWatchClaimAlarmsBestEffort();
       abortClaimHandoffs();
       await clearHeartbeatOwnership(PLATFORMS);
       await withSettingsLock(() => withStateLock(() => withEventCollector(async (emit, events) => {
@@ -4762,6 +4811,129 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     }));
   }
 
+  async function runDropClaims(platform: Platform): Promise<void> {
+    if (controllerShutdown) return;
+    await withStateLock(() => withEventCollector(async (emit, events) => {
+      if (controllerShutdown) return;
+      let adapter: PlatformAdapter | undefined;
+      try {
+        const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
+        if (!settings.platform[platform].enabled
+          || !settings.autoClaim
+          || state.authHealth[platform].status !== "healthy"
+          || !hasRecentManualWatchForClaims(settings, state, platform)) return;
+
+        adapter = createAdapter(platform, settings, emit, true);
+        const refreshed = await adapter.refreshCampaigns(state.sessions[platform]);
+        const campaigns = preserveClaimedRewards(refreshed, state.campaigns[platform]);
+        const claimResult = await claimReadyRewards(
+          adapter,
+          campaigns,
+          waitingClaimRewardIds[platform],
+        );
+        const nextState: SchedulerState = {
+          ...state,
+          campaigns: {
+            ...state.campaigns,
+            [platform]: claimResult.campaigns,
+          },
+        };
+        for (const event of claimResult.events) {
+          if (event.claimed) {
+            emit({
+              category: "activity",
+              platform,
+              level: "info",
+              code: "reward_claimed",
+              data: {
+                campaignId: event.campaignId,
+                campaignName: event.campaignName,
+                rewardId: event.rewardId,
+                rewardName: event.rewardName,
+                ...(event.rewardImageUrl ? { rewardImageUrl: event.rewardImageUrl } : {}),
+                ...(event.campaignUrl ? { campaignUrl: event.campaignUrl } : {}),
+                method: "automatic",
+              },
+            });
+          } else {
+            emit({ category: "diagnostic", platform, level: event.level, message: event.message });
+          }
+        }
+        adapter.flushRouteDiagnostics?.(emit);
+        await persistPlatformState(platform, nextState);
+        await emitNotifications(settings, state, nextState, events);
+        await reportBestEffort(events);
+      } catch (error) {
+        adapter?.flushRouteDiagnostics?.(emit);
+        clearOperationalEvents(events);
+        emit({
+          category: "diagnostic",
+          platform,
+          level: "warn",
+          message: error instanceof Error ? error.message : "Drop claim refresh failed",
+        });
+        await reportBestEffort(events);
+      }
+    }), [platform]);
+  }
+
+  async function runKickChallengeClaims(): Promise<void> {
+    if (controllerShutdown) return;
+    await withStateLock(() => withEventCollector(async (emit, events) => {
+      if (controllerShutdown) return;
+      let adapter: PlatformAdapter | undefined;
+      try {
+        const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
+        if (!settings.platform.kick.enabled
+          || !autoClaimChallengesFor(settings, "kick")
+          || state.authHealth.kick.status !== "healthy"
+          || !hasRecentManualWatchForClaims(settings, state, "kick")
+          || !challengePollDue(state, "kick", Date.now())) return;
+
+        const nextState: SchedulerState = {
+          ...state,
+          gamification: {
+            ...state.gamification,
+            kick: { lastCheckedAt: new Date().toISOString() },
+          },
+        };
+        adapter = createAdapter("kick", settings, emit, true);
+        try {
+          for (const challenge of await adapter.claimChallenges?.() ?? []) {
+            emit({
+              category: "activity",
+              code: "challenge_claimed",
+              level: "info",
+              platform: "kick",
+              data: { challengeId: challenge.id, rarity: challenge.rarity, recurrence: challenge.recurrence },
+            });
+          }
+        } catch (error) {
+          emit({
+            category: "diagnostic",
+            platform: "kick",
+            level: "warn",
+            message: error instanceof Error ? error.message : "Challenge claim failed",
+          });
+        }
+        adapter.flushRouteDiagnostics?.(emit);
+        await persistPlatformState("kick", nextState);
+        await emitNotifications(settings, state, nextState, events);
+        await reportBestEffort(events);
+      } catch (error) {
+        adapter?.flushRouteDiagnostics?.(emit);
+        clearOperationalEvents(events);
+        emit({
+          category: "diagnostic",
+          platform: "kick",
+          level: "warn",
+          message: error instanceof Error ? error.message : "Challenge claim failed",
+        });
+        await reportBestEffort(events);
+      }
+    }), ["kick"]);
+  }
+
   async function safeNotify(title: string, message: string): Promise<void> {
     if (!deps.createNotification) return;
     try {
@@ -4849,6 +5021,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     discoverySnapshot,
     runWatchHeartbeat,
     runTwitchChannelPointsClaim,
+    runDropClaims,
+    runKickChallengeClaims,
     runClaimHandoff,
     abortClaimHandoffs,
     shutdown,
@@ -4871,6 +5045,20 @@ function eligibleTwitchChannelPointsChannel(
   }
   const session = state.sessions.twitch;
   return session.status === "watching" ? session.channel : undefined;
+}
+
+function hasRecentManualWatchForClaims(
+  settings: EngineSettings,
+  state: SchedulerState,
+  platform: Platform,
+  now = Date.now(),
+): boolean {
+  const manualWatch = state.manualWatch?.[platform];
+  return Boolean(
+    settings.pauseOnManualWatch
+    && manualWatch?.active
+    && !isTimestampStale(manualWatch.checkedAt, MANUAL_WATCH_TTL_MS, now),
+  );
 }
 
 function farmingLifecycleEvents(previous: SchedulerState, next: SchedulerState): ActivityEvent[] {
