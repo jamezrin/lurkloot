@@ -678,6 +678,12 @@
   "autoClaimChannelPointsDescription": {
     "message": "Beansprucht Kanalpunkt-Boni automatisch, während diese Plattform gefarmt wird."
   },
+  "channelPointsPushClaimTitle": {
+    "message": "Kanalpunkte aus Live-Ereignissen beanspruchen"
+  },
+  "channelPointsPushClaimDescription": {
+    "message": "Beansprucht den Bonus, sobald Twitch ihn verfügbar macht. Deaktivieren, um nur einmal pro Minute zu prüfen."
+  },
   "strictCampaignAvailabilityTitle": {
     "message": "Strikte Kampagnenverfügbarkeit"
   },

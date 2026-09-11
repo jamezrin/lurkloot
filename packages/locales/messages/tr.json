@@ -678,6 +678,12 @@
   "autoClaimChannelPointsDescription": {
     "message": "Yayın izlerken biriken kanal puanı bonuslarını otomatik toplar."
   },
+  "channelPointsPushClaimTitle": {
+    "message": "Canlı olaylardan kanal puanı al"
+  },
+  "channelPointsPushClaimDescription": {
+    "message": "Twitch bonus kullanılabilir olur olmaz al. Kapatırsanız yalnızca dakikada bir kontrol edilir."
+  },
   "strictCampaignAvailabilityTitle": {
     "message": "Katı kampanya uygunluğu"
   },

@@ -123,7 +123,7 @@ const CLI_SETTING_KEYS = new Set<string>([
 ]);
 
 const CLI_PLATFORM_KEYS: Record<Platform, Set<string>> = {
-  twitch: new Set(["enabled", "idleWatchlistChannels", "excludedChannels", "categoryMode", "categories", "autoClaimChannelPoints", "strictCampaignAvailability"]),
+  twitch: new Set(["enabled", "idleWatchlistChannels", "excludedChannels", "categoryMode", "categories", "autoClaimChannelPoints", "strictCampaignAvailability", "channelPointsPushClaim"]),
   kick: new Set(["enabled", "idleWatchlistChannels", "excludedChannels", "categoryMode", "categories", "autoClaimChallenges"]),
 };
 const CLI_COMPATIBILITY_KEYS: Record<Platform, Set<string>> = {
@@ -380,6 +380,7 @@ function normalizePlatform(raw: EngineSettings["platform"] | undefined): Platfor
       ...twitch.base,
       autoClaimChannelPoints: booleanOr(twitch.ps.autoClaimChannelPoints, DEFAULT_CLI_SETTINGS.platform.twitch.autoClaimChannelPoints),
       strictCampaignAvailability: booleanOr(twitch.ps.strictCampaignAvailability, DEFAULT_CLI_SETTINGS.platform.twitch.strictCampaignAvailability),
+      channelPointsPushClaim: booleanOr(twitch.ps.channelPointsPushClaim, DEFAULT_CLI_SETTINGS.platform.twitch.channelPointsPushClaim),
     },
     kick: {
       ...kick.base,

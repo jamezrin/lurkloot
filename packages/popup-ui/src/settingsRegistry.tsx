@@ -451,6 +451,20 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
     // registry was supplied; Kick's holds the compatibility editor alone.
     const advancedEntries: SettingsEntryDef[] = platform === "twitch"
       ? [{
+        id: "twitch.advanced.channelPointsPushClaim",
+        titleKey: "channelPointsPushClaimTitle",
+        descriptionKey: "channelPointsPushClaimDescription",
+        render: () => (
+          <SettingRow
+            title={t("channelPointsPushClaimTitle")}
+            description={t("channelPointsPushClaimDescription")}
+            checked={settings.platform.twitch.channelPointsPushClaim}
+            onChange={(value) => void platformPatch("twitch", { channelPointsPushClaim: value })}
+            disabled={!settings.platform.twitch.autoClaimChannelPoints}
+            disabledReason={t("autoClaimChannelPointsDescription")}
+          />
+        ),
+      }, {
         id: "twitch.advanced.strictCampaignAvailability",
         titleKey: "strictCampaignAvailabilityTitle",
         descriptionKey: "strictCampaignAvailabilityDescription",

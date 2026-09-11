@@ -686,6 +686,12 @@
   "autoClaimChannelPointsDescription": {
     "message": "Claim channel-point bonuses while farming this platform."
   },
+  "channelPointsPushClaimTitle": {
+    "message": "Claim channel points from live events"
+  },
+  "channelPointsPushClaimDescription": {
+    "message": "Claim the bonus as soon as Twitch makes it available. Turn off to only check once a minute."
+  },
   "strictCampaignAvailabilityTitle": {
     "message": "Strict campaign availability"
   },

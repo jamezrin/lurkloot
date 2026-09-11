@@ -112,6 +112,7 @@ describe("settings registry", () => {
     const entries = allEntryIds(withoutCompatibility);
     expect(entries).not.toContain("twitch.compatibility.rows");
     expect(entries).not.toContain("kick.compatibility.rows");
+    expect(entries).toContain("twitch.advanced.channelPointsPushClaim");
     expect(entries).toContain("twitch.advanced.strictCampaignAvailability");
   });
 
@@ -154,6 +155,7 @@ describe("settings registry", () => {
         "twitch.autoClaimChannelPoints",
         "twitch.categories.mode",
         "twitch.channels.excluded",
+        "twitch.advanced.channelPointsPushClaim",
         "twitch.advanced.strictCampaignAvailability",
         "twitch.compatibility.rows",
         "kick.autoClaimChallenges",

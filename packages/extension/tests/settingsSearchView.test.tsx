@@ -116,6 +116,8 @@ const labels: Record<string, string> = {
   lowAvailabilityFirst: "Low availability first",
   autoClaimChannelPointsTitle: "Auto-claim channel points",
   autoClaimChannelPointsDescription: "Claim channel-point bonuses while farming this platform.",
+  channelPointsPushClaimTitle: "Claim channel points from live events",
+  channelPointsPushClaimDescription: "Claim the bonus as soon as Twitch makes it available. Turn off to only check once a minute.",
   autoClaimChallengesTitle: "Auto-claim daily challenges",
   autoClaimChallengesDescription: "Claim Kick's daily challenge reward once its watch-time goal is met.",
   categoryModeTitle: "Category filter",

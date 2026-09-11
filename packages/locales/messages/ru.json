@@ -678,6 +678,12 @@
   "autoClaimChannelPointsDescription": {
     "message": "Автоматически получает бонусы баллов канала во время фарма на этой платформе."
   },
+  "channelPointsPushClaimTitle": {
+    "message": "Получать баллы канала из событий в реальном времени"
+  },
+  "channelPointsPushClaimDescription": {
+    "message": "Получает бонус, как только Twitch делает его доступным. Отключите, чтобы проверять только раз в минуту."
+  },
   "strictCampaignAvailabilityTitle": {
     "message": "Строгая проверка доступности кампаний"
   },

@@ -369,3 +369,28 @@ describe("strict campaign availability setting", () => {
     expect(mergeEngineSettings(patched).platform.twitch.strictCampaignAvailability).toBe(true);
   });
 });
+
+describe("channel points push setting", () => {
+  it("defaults to true", () => {
+    expect(DEFAULT_ENGINE_SETTINGS.platform.twitch.channelPointsPushClaim).toBe(true);
+  });
+
+  const persisted = (twitch: Record<string, unknown>) =>
+    ({ platform: { twitch } }) as unknown as Partial<EngineSettings>;
+
+  it("normalizes a missing persisted property to true", () => {
+    expect(mergeEngineSettings(persisted({ enabled: true })).platform.twitch.channelPointsPushClaim).toBe(true);
+  });
+
+  it("preserves an explicitly disabled persisted value", () => {
+    expect(mergeEngineSettings(persisted({ channelPointsPushClaim: false })).platform.twitch.channelPointsPushClaim).toBe(false);
+  });
+
+  it("round-trips through a settings patch", () => {
+    const patched = applySettingsPatch(DEFAULT_SETTINGS, {
+      platform: { twitch: { channelPointsPushClaim: false } },
+    });
+    expect(patched.platform.twitch.channelPointsPushClaim).toBe(false);
+    expect(patched.platform.kick).toEqual(DEFAULT_SETTINGS.platform.kick);
+  });
+});

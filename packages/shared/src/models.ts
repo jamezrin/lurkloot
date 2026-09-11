@@ -300,6 +300,10 @@ export interface TwitchPlatformSettings extends PlatformSettings {
   // before farming it on a channel. Off by default — see #400 and
   // TwitchAdapterOptions.strictCampaignAvailability.
   strictCampaignAvailability: boolean;
+  // Advanced: claim channel-point bonuses from Twitch's live Hermes
+  // notification. On by default. Off restores the one-minute ChannelPointsContext
+  // alarm as the only dedicated claim trigger. See #529.
+  channelPointsPushClaim: boolean;
 }
 
 export interface KickPlatformSettings extends PlatformSettings {

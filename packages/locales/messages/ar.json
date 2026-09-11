@@ -678,6 +678,12 @@
   "autoClaimChannelPointsDescription": {
     "message": "استلم مكافآت نقاط القناة تلقائيًا أثناء الفارم على هذه المنصة."
   },
+  "channelPointsPushClaimTitle": {
+    "message": "استلام نقاط القناة من الأحداث المباشرة"
+  },
+  "channelPointsPushClaimDescription": {
+    "message": "استلم المكافأة فور إتاحتها من Twitch. عطّل الخيار للتحقق مرة واحدة فقط كل دقيقة."
+  },
   "strictCampaignAvailabilityTitle": {
     "message": "توفر الحملات الصارم"
   },

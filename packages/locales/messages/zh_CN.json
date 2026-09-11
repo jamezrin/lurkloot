@@ -678,6 +678,12 @@
   "autoClaimChannelPointsDescription": {
     "message": "在该平台挂机时自动领取频道点数奖励。"
   },
+  "channelPointsPushClaimTitle": {
+    "message": "从实时事件领取频道点数"
+  },
+  "channelPointsPushClaimDescription": {
+    "message": "一旦 Twitch 提供奖励即领取。关闭后每分钟只检查一次。"
+  },
   "strictCampaignAvailabilityTitle": {
     "message": "严格限制掉宝活动频道"
   },

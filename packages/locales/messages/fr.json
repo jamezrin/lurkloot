@@ -678,6 +678,12 @@
   "autoClaimChannelPointsDescription": {
     "message": "Réclame automatiquement les bonus de points de chaîne lors du farm sur cette plateforme."
   },
+  "channelPointsPushClaimTitle": {
+    "message": "Réclamer les points de chaîne depuis les événements en direct"
+  },
+  "channelPointsPushClaimDescription": {
+    "message": "Réclame le bonus dès que Twitch le rend disponible. Désactivez pour ne vérifier qu'une fois par minute."
+  },
   "strictCampaignAvailabilityTitle": {
     "message": "Disponibilité stricte des campagnes"
   },
