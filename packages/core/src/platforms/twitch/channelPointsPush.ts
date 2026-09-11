@@ -90,7 +90,14 @@ export class TwitchChannelPointsPushController {
   private async connect(): Promise<void> {
     if (this.stopped) return;
 
-    const token = await this.getAuthToken();
+    let token: string | undefined;
+    try {
+      token = await this.getAuthToken();
+    } catch (error) {
+      this.log("warn", `Failed to read the Twitch channel-points auth token: ${errorMessage(error)}`);
+      this.scheduleNextReconnect();
+      return;
+    }
     if (this.stopped) return;
     if (typeof token !== "string" || token === "") {
       this.log("debug", "Twitch channel-points push is missing an auth token");
@@ -99,9 +106,17 @@ export class TwitchChannelPointsPushController {
     }
     this.authToken = token;
 
-    const userId = (await this.resolveUserId())?.trim();
-    if (this.stopped) return;
-    this.userId = userId || undefined;
+    if (!this.userId) {
+      try {
+        const userId = (await this.resolveUserId())?.trim();
+        if (this.stopped) return;
+        this.userId = userId || undefined;
+      } catch (error) {
+        this.log("warn", `Failed to resolve the Twitch channel-points user id: ${errorMessage(error)}`);
+        this.scheduleNextReconnect();
+        return;
+      }
+    }
 
     const url = `wss://hermes.twitch.tv/v1?clientId=${this.clientId}`;
     let ws: WebSocketLike;

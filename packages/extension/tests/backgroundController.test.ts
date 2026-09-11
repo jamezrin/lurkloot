@@ -118,11 +118,19 @@ class FakeChannelPointsPushController {
   subscribed = false;
   starts = 0;
   stops = 0;
+  startBarrier?: Promise<void>;
+  startError?: Error;
   private onClaimAvailable?: (notice: TwitchChannelPointsClaimNotice) => void;
   private readonly events: DiagnosticEvent[] = [];
 
   async start(onClaimAvailable: (notice: TwitchChannelPointsClaimNotice) => void): Promise<void> {
     this.starts += 1;
+    if (this.startError) {
+      const error = this.startError;
+      this.startError = undefined;
+      throw error;
+    }
+    if (this.startBarrier) await this.startBarrier;
     this.onClaimAvailable = onClaimAvailable;
   }
 
@@ -1143,6 +1151,7 @@ describe("background controller", () => {
       configureEligibleChannel(env, patch);
       env.twitch.claimChannelPoints = vi.fn(async () => true);
       await env.controller.ensureAlarm();
+      await env.rawController.settleBackgroundWork();
       expect(env.channelPointsPushController.starts).toBe(1);
       expect(env.channelPointsPushController.stops).toBe(0);
     }
@@ -1152,9 +1161,26 @@ describe("background controller", () => {
       await startObserver(env);
 
       await env.controller.ensureAlarm();
+      await env.rawController.settleBackgroundWork();
 
       expect(env.channelPointsPushFactory).toHaveBeenCalledOnce();
       expect(env.channelPointsPushController.stops).toBe(0);
+    });
+
+    it("recreates the observer after a start failure", async () => {
+      const env = harness(pushSettings());
+      configureEligibleChannel(env);
+      env.channelPointsPushController.startError = new Error("start failed");
+
+      await env.controller.ensureAlarm();
+      await env.rawController.settleBackgroundWork();
+      expect(env.channelPointsPushFactory).toHaveBeenCalledOnce();
+      expect(env.channelPointsPushController.starts).toBe(1);
+
+      await env.controller.ensureAlarm();
+      await env.rawController.settleBackgroundWork();
+      expect(env.channelPointsPushFactory).toHaveBeenCalledTimes(2);
+      expect(env.channelPointsPushController.starts).toBe(2);
     });
 
     it.each([
@@ -1214,6 +1240,7 @@ describe("background controller", () => {
       await startObserver(env);
 
       await apply(env);
+      await env.rawController.settleBackgroundWork();
 
       expect(env.channelPointsPushController.stops).toBe(1);
     });
@@ -1257,6 +1284,31 @@ describe("background controller", () => {
       expect(env.channelPointsPushController.stops).toBe(1);
     });
 
+    it("saveSettings that enables live-event claiming resolves while start is blocked", async () => {
+      const env = harness(pushSettings({ channelPointsPushClaim: false }));
+      configureEligibleChannel(env);
+      const blocked = deferred<void>();
+      env.channelPointsPushController.startBarrier = blocked.promise;
+
+      const save = env.rawController.handleMessage({
+        type: "saveSettings",
+        settingsPatch: { platform: { twitch: { channelPointsPushClaim: true } } },
+      });
+      const outcome = await Promise.race([
+        save.then(() => "saved" as const),
+        new Promise<"blocked">((resolve) => {
+          setTimeout(() => resolve("blocked"), 50);
+        }),
+      ]);
+
+      expect(outcome).toBe("saved");
+      expect(env.settings.platform.twitch.channelPointsPushClaim).toBe(true);
+
+      blocked.resolve();
+      await env.rawController.settleBackgroundWork();
+      expect(env.channelPointsPushController.starts).toBe(1);
+    });
+
     it("skips the alarm lookup while the observer is subscribed", async () => {
       const env = harness(pushSettings());
       await startObserver(env);
@@ -1273,6 +1325,7 @@ describe("background controller", () => {
       const eligible = configureEligibleChannel(env);
       env.twitch.claimChannelPoints = vi.fn(async () => true);
       await env.controller.ensureAlarm();
+      await env.rawController.settleBackgroundWork();
       env.channelPointsPushController.subscribed = false;
 
       await env.controller.runTwitchChannelPointsClaim();
@@ -1348,6 +1401,7 @@ describe("background controller", () => {
       env.channelPointsPushController.pushDiagnostic("Hermes reconnect failed");
 
       await env.controller.ensureAlarm();
+      await env.rawController.settleBackgroundWork();
 
       expect(env.state.sessions.twitch).toEqual(beforeSession);
       expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({

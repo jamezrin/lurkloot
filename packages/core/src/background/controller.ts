@@ -1625,7 +1625,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     } else {
       await deps.clearAlarm?.(TWITCH_CHANNEL_POINTS_ALARM_NAME);
     }
-    await reconcileTwitchChannelPointsPushFromSettings(settings);
+    reconcileTwitchChannelPointsPushFromSettingsInBackground(settings);
   }
 
   async function reconcileManualWatchClaimAlarms(settings: EngineSettings): Promise<void> {
@@ -4853,6 +4853,17 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     backgroundWork = backgroundWork.then(() => run, () => run);
   }
 
+  function reconcileTwitchChannelPointsPushFromSettingsInBackground(settings: S): void {
+    const run = reconcileTwitchChannelPointsPushFromSettings(settings).catch((error) => {
+      diagnosticEvent(
+        "warn",
+        `Twitch channel-points observer reconcile failed: ${error instanceof Error ? error.message : String(error)}`,
+        "twitch",
+      );
+    });
+    backgroundWork = backgroundWork.then(() => run, () => run);
+  }
+
   function twitchChannelPointsPushWanted(
     settings: EngineSettings,
     state: SchedulerState,
@@ -4899,6 +4910,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       });
     } catch (error) {
       emitHostCallbackError(emit, "twitch", error, "Could not start the Twitch channel-points observer");
+      if (twitchChannelPointsPush === controller) twitchChannelPointsPush = undefined;
     } finally {
       drainTwitchChannelPointsPushEvents(controller, emit);
     }

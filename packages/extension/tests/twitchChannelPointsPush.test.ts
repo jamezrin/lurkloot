@@ -1,7 +1,21 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { TwitchChannelPointsPushController } from "@lurkloot/core/twitch/channelPointsPush";
 import type { WebSocketLike, WebSocketMessageEventLike } from "@lurkloot/core/webSocket";
 import { twitchAdapter } from "./helpers/adapters";
+
+const liveControllers: TwitchChannelPointsPushController[] = [];
+
+afterEach(async () => {
+  await Promise.all(liveControllers.splice(0).map((controller) => controller.stop()));
+});
+
+function createPushController(
+  deps: ConstructorParameters<typeof TwitchChannelPointsPushController>[0],
+): TwitchChannelPointsPushController {
+  const controller = new TwitchChannelPointsPushController(deps);
+  liveControllers.push(controller);
+  return controller;
+}
 
 class FakeSocket implements WebSocketLike {
   readyState = 1;
@@ -144,7 +158,7 @@ describe("Twitch channel-points push", () => {
   it("authenticates then subscribes to the user community-points topic", async () => {
     const socket = new FakeSocket();
     const createWebSocket = vi.fn(() => socket);
-    const controller = new TwitchChannelPointsPushController({
+    const controller = createPushController({
       createWebSocket,
       getAuthToken: async () => "auth-token-value",
       resolveUserId: async () => "78020132",
@@ -198,7 +212,7 @@ describe("Twitch channel-points push", () => {
     const socket = new FakeSocket();
     const createWebSocket = vi.fn(() => socket);
     const reconnect = reconnectScheduler();
-    const controller = new TwitchChannelPointsPushController({
+    const controller = createPushController({
       createWebSocket,
       getAuthToken: async () => undefined,
       resolveUserId: async () => "78020132",
@@ -221,7 +235,7 @@ describe("Twitch channel-points push", () => {
   it("logs debug and schedules reconnect when the user id is empty after authenticate ok", async () => {
     const socket = new FakeSocket();
     const reconnect = reconnectScheduler();
-    const controller = new TwitchChannelPointsPushController({
+    const controller = createPushController({
       createWebSocket: () => socket,
       getAuthToken: async () => "auth-token-value",
       resolveUserId: async () => undefined,
@@ -255,10 +269,82 @@ describe("Twitch channel-points push", () => {
     expect(JSON.stringify(events)).not.toContain("auth-token-value");
   });
 
+  it("warns and reconnects when getAuthToken rejects, then connects after recovery", async () => {
+    const socket = new FakeSocket();
+    const createWebSocket = vi.fn(() => socket);
+    const reconnect = reconnectScheduler();
+    const getAuthToken = vi.fn()
+      .mockRejectedValueOnce(new Error("cookie store failed"))
+      .mockResolvedValue("auth-token-value");
+    const controller = createPushController({
+      createWebSocket,
+      getAuthToken,
+      resolveUserId: async () => "78020132",
+      scheduleReconnect: reconnect.scheduleReconnect,
+    });
+
+    await controller.start(() => undefined);
+
+    expect(createWebSocket).not.toHaveBeenCalled();
+    expect(reconnect.scheduled).toHaveLength(1);
+    expect(controller.subscribed).toBe(false);
+    const events = controller.drainEvents();
+    expect(events).toContainEqual(expect.objectContaining({
+      category: "diagnostic",
+      platform: "twitch",
+      level: "warn",
+      message: expect.stringMatching(/auth token/i),
+    }));
+    expect(JSON.stringify(events)).not.toContain("auth-token-value");
+
+    reconnect.scheduled[0]!.callback();
+    await afterReconnect();
+    expect(createWebSocket).toHaveBeenCalledOnce();
+
+    await controller.start(() => undefined);
+    expect(createWebSocket).toHaveBeenCalledOnce();
+  });
+
+  it("warns and reconnects when resolveUserId rejects, then connects after recovery", async () => {
+    const socket = new FakeSocket();
+    const createWebSocket = vi.fn(() => socket);
+    const reconnect = reconnectScheduler();
+    const resolveUserId = vi.fn()
+      .mockRejectedValueOnce(new Error("CurrentUser failed"))
+      .mockResolvedValue("78020132");
+    const controller = createPushController({
+      createWebSocket,
+      getAuthToken: async () => "auth-token-value",
+      resolveUserId,
+      scheduleReconnect: reconnect.scheduleReconnect,
+    });
+
+    await controller.start(() => undefined);
+
+    expect(createWebSocket).not.toHaveBeenCalled();
+    expect(reconnect.scheduled).toHaveLength(1);
+    expect(controller.subscribed).toBe(false);
+    const events = controller.drainEvents();
+    expect(events).toContainEqual(expect.objectContaining({
+      category: "diagnostic",
+      platform: "twitch",
+      level: "warn",
+      message: expect.stringMatching(/user id/i),
+    }));
+    expect(JSON.stringify(events)).not.toContain("auth-token-value");
+
+    reconnect.scheduled[0]!.callback();
+    await afterReconnect();
+    expect(createWebSocket).toHaveBeenCalledOnce();
+
+    await controller.start(() => undefined);
+    expect(createWebSocket).toHaveBeenCalledOnce();
+  });
+
   it("notifies only for claim-available on the community-points subscription", async () => {
     const socket = new FakeSocket();
     const onClaim = vi.fn();
-    const controller = new TwitchChannelPointsPushController({
+    const controller = createPushController({
       createWebSocket: () => socket,
       getAuthToken: async () => "token",
       resolveUserId: async () => "78020132",
@@ -302,7 +388,7 @@ describe("Twitch channel-points push", () => {
   it("ignores malformed, incomplete, claimed, and foreign notifications", async () => {
     const socket = new FakeSocket();
     const onClaim = vi.fn();
-    const controller = new TwitchChannelPointsPushController({
+    const controller = createPushController({
       createWebSocket: () => socket,
       getAuthToken: async () => "token",
       resolveUserId: async () => "78020132",
@@ -343,7 +429,7 @@ describe("Twitch channel-points push", () => {
 
   it("warns when the claim callback throws and never includes the token", async () => {
     const socket = new FakeSocket();
-    const controller = new TwitchChannelPointsPushController({
+    const controller = createPushController({
       createWebSocket: () => socket,
       getAuthToken: async () => "auth-token-value",
       resolveUserId: async () => "78020132",
@@ -377,7 +463,7 @@ describe("keepalive, reconnect, and stop", () => {
     const socket = new FakeSocket();
     const keepAlive = keepAliveScheduler();
     const reconnect = reconnectScheduler();
-    const controller = new TwitchChannelPointsPushController({
+    const controller = createPushController({
       createWebSocket: () => socket,
       getAuthToken: async () => "token",
       resolveUserId: async () => "78020132",
@@ -403,7 +489,7 @@ describe("keepalive, reconnect, and stop", () => {
     const sockets = [firstSocket, secondSocket];
     const keepAlive = keepAliveScheduler();
     const reconnect = reconnectScheduler();
-    const controller = new TwitchChannelPointsPushController({
+    const controller = createPushController({
       createWebSocket: () => sockets.shift()!,
       getAuthToken: async () => "token",
       resolveUserId: async () => "78020132",
@@ -438,6 +524,34 @@ describe("keepalive, reconnect, and stop", () => {
     expect(sockets).toEqual([]);
   });
 
+  it("resolves the user id once across a silence-timeout reconnect", async () => {
+    const firstSocket = new FakeSocket();
+    const secondSocket = new FakeSocket();
+    const sockets = [firstSocket, secondSocket];
+    const keepAlive = keepAliveScheduler();
+    const reconnect = reconnectScheduler();
+    const resolveUserId = vi.fn(async () => "78020132");
+    const controller = createPushController({
+      createWebSocket: () => sockets.shift()!,
+      getAuthToken: async () => "token",
+      resolveUserId,
+      scheduleKeepAlive: keepAlive.scheduleKeepAlive,
+      cancelKeepAlive: keepAlive.cancelKeepAlive,
+      scheduleReconnect: reconnect.scheduleReconnect,
+    });
+    await handshake(firstSocket, controller, () => undefined);
+    expect(resolveUserId).toHaveBeenCalledOnce();
+
+    keepAlive.scheduled.at(-1)!.callback();
+    expect(firstSocket.closed).toBe(true);
+    reconnect.scheduled[0]!.callback();
+    await afterReconnect();
+    completeHandshake(secondSocket);
+
+    expect(controller.subscribed).toBe(true);
+    expect(resolveUserId).toHaveBeenCalledOnce();
+  });
+
   it("stop closes the socket, cancels timers, and does not reconnect", async () => {
     const firstSocket = new FakeSocket();
     const secondSocket = new FakeSocket();
@@ -445,7 +559,7 @@ describe("keepalive, reconnect, and stop", () => {
     const keepAlive = keepAliveScheduler();
     const reconnect = reconnectScheduler();
     const createWebSocket = vi.fn(() => sockets.shift()!);
-    const controller = new TwitchChannelPointsPushController({
+    const controller = createPushController({
       createWebSocket,
       getAuthToken: async () => "token",
       resolveUserId: async () => "78020132",
@@ -478,7 +592,7 @@ describe("keepalive, reconnect, and stop", () => {
     const firstClaim = vi.fn();
     const nextClaim = vi.fn();
     const keepAlive = keepAliveScheduler();
-    const controller = new TwitchChannelPointsPushController({
+    const controller = createPushController({
       createWebSocket,
       getAuthToken: async () => "token",
       resolveUserId: async () => "78020132",
@@ -513,7 +627,7 @@ describe("keepalive, reconnect, and stop", () => {
     const sockets = [firstSocket, secondSocket, thirdSocket];
     const keepAlive = keepAliveScheduler();
     const reconnect = reconnectScheduler();
-    const controller = new TwitchChannelPointsPushController({
+    const controller = createPushController({
       createWebSocket: () => sockets.shift()!,
       getAuthToken: async () => "token",
       resolveUserId: async () => "78020132",
@@ -548,7 +662,7 @@ describe("keepalive, reconnect, and stop", () => {
     const socket = new FakeSocket();
     const keepAlive = keepAliveScheduler();
     const reconnect = reconnectScheduler();
-    const controller = new TwitchChannelPointsPushController({
+    const controller = createPushController({
       createWebSocket: () => socket,
       getAuthToken: async () => "auth-token-value",
       resolveUserId: async () => "78020132",

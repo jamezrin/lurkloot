@@ -445,7 +445,7 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
     // compatibility" rather than the General section's plain "Advanced" so the
     // two are told apart on sight: General tunes the scheduler, this one tunes
     // one platform. The subtitle is per-platform because the contents differ —
-    // Twitch adds a farming toggle and has three compatibility components to
+    // Twitch adds two farming toggles and has three compatibility components to
     // Kick's two — and three sections sharing one subtitle read as the same
     // section repeated. Twitch's group exists whether or not a compatibility
     // registry was supplied; Kick's holds the compatibility editor alone.

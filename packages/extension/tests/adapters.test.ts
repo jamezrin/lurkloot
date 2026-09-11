@@ -2565,10 +2565,12 @@ describe("TwitchAdapter", () => {
 
   it("claims channel points from supplied ids without ChannelPointsContext", async () => {
     const operations: string[] = [];
+    let claimVariables: unknown;
     const fetcher = jsonFetcher((_url, init) => {
       const op = operation(init);
       operations.push(op);
       if (op === "ClaimCommunityPoints") {
+        claimVariables = requestBody(init).variables;
         return { data: { claimCommunityPoints: { status: "CLAIMED" } } };
       }
       throw new Error(`Unexpected op ${op}`);
@@ -2580,6 +2582,9 @@ describe("TwitchAdapter", () => {
     )).resolves.toBe(true);
 
     expect(operations).toEqual(["ClaimCommunityPoints"]);
+    expect(claimVariables).toEqual({
+      input: { claimID: "claim-id", channelID: "channel-id" },
+    });
   });
 
   it("still looks up ChannelPointsContext when either id is missing", async () => {
