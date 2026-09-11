@@ -832,6 +832,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     twitch: new Set<string>(),
     kick: new Set<string>(),
   };
+  const dropClaimOperations: Record<Platform, Set<AbortController>> = {
+    twitch: new Set<AbortController>(),
+    kick: new Set<AbortController>(),
+  };
+  const kickChallengeClaimOperations = new Set<AbortController>();
   let settingsMutation: Promise<unknown> = Promise.resolve();
   let twitchIntegrityAlarmMutation: Promise<unknown> = Promise.resolve();
   let twitchSettingsTransitionGeneration = 0;
@@ -1755,6 +1760,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       const current = await deps.loadSettings();
       afterLoad?.(current);
       const settings = deps.applySettingsPatch(current, patch);
+      abortIneligibleClaimOnlyOperations(settings, "Claim automation disabled");
       await deps.saveSettings(settings);
       for (const platform of invalidatedPlatforms) {
         if (!settings.platform[platform].enabled) cancelPendingTick(platform);
@@ -1765,6 +1771,23 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       await reconcileManualWatchClaimAlarms(settings);
       return settings;
     });
+  }
+
+  function abortIneligibleClaimOnlyOperations(settings: EngineSettings, reason: string): void {
+    for (const platform of PLATFORMS) {
+      if (settings.platform[platform].enabled && settings.autoClaim) continue;
+      for (const controller of dropClaimOperations[platform]) controller.abort(new Error(reason));
+    }
+    if (!settings.platform.kick.enabled || !autoClaimChallengesFor(settings, "kick")) {
+      for (const controller of kickChallengeClaimOperations) controller.abort(new Error(reason));
+    }
+  }
+
+  function abortClaimOnlyOperations(reason: string): void {
+    for (const platform of PLATFORMS) {
+      for (const controller of dropClaimOperations[platform]) controller.abort(new Error(reason));
+    }
+    for (const controller of kickChallengeClaimOperations) controller.abort(new Error(reason));
   }
 
   async function restoreTwitchIntegritySchedule(
@@ -3992,6 +4015,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     twitchSettingsTransitionGeneration += 1;
     abortActiveTicks("Controller shutdown");
     closeTwitchIntegrityLifecycle("Controller shutdown");
+    abortClaimOnlyOperations("Controller shutdown");
     void clearTwitchIntegrityAlarmBestEffort();
     void clearTwitchChannelPointsAlarmBestEffort();
     void clearManualWatchClaimAlarmsBestEffort();
@@ -4013,6 +4037,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       }
       abortActiveTicks("Host reset");
       closeTwitchIntegrityLifecycle("Host reset");
+      abortClaimOnlyOperations("Host reset");
       await stopDiscoverySignalControllersAndReport(PLATFORMS);
       await clearTwitchIntegrityAlarmBestEffort();
       await clearTwitchChannelPointsAlarmBestEffort();
@@ -4813,125 +4838,157 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
   async function runDropClaims(platform: Platform): Promise<void> {
     if (controllerShutdown) return;
-    await withStateLock(() => withEventCollector(async (emit, events) => {
-      if (controllerShutdown) return;
-      let adapter: PlatformAdapter | undefined;
-      try {
-        const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
-        if (!settings.platform[platform].enabled
-          || !settings.autoClaim
-          || state.authHealth[platform].status !== "healthy"
-          || !hasRecentManualWatchForClaims(settings, state, platform)) return;
+    const operation = new AbortController();
+    dropClaimOperations[platform].add(operation);
+    try {
+      await withStateLock(() => withEventCollector(async (emit, events) => {
+        if (controllerShutdown) return;
+        let adapter: PlatformAdapter | undefined;
+        try {
+          operation.signal.throwIfAborted();
+          const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
+          operation.signal.throwIfAborted();
+          if (!settings.platform[platform].enabled
+            || !settings.autoClaim
+            || state.authHealth[platform].status !== "healthy"
+            || !hasRecentManualWatchForClaims(settings, state, platform)) return;
 
-        adapter = createAdapter(platform, settings, emit, true);
-        const refreshed = await adapter.refreshCampaigns(state.sessions[platform]);
-        const campaigns = preserveClaimedRewards(refreshed, state.campaigns[platform]);
-        const claimResult = await claimReadyRewards(
-          adapter,
-          campaigns,
-          waitingClaimRewardIds[platform],
-        );
-        const nextState: SchedulerState = {
-          ...state,
-          campaigns: {
-            ...state.campaigns,
-            [platform]: claimResult.campaigns,
-          },
-        };
-        for (const event of claimResult.events) {
-          if (event.claimed) {
-            emit({
-              category: "activity",
-              platform,
-              level: "info",
-              code: "reward_claimed",
-              data: {
-                campaignId: event.campaignId,
-                campaignName: event.campaignName,
-                rewardId: event.rewardId,
-                rewardName: event.rewardName,
-                ...(event.rewardImageUrl ? { rewardImageUrl: event.rewardImageUrl } : {}),
-                ...(event.campaignUrl ? { campaignUrl: event.campaignUrl } : {}),
-                method: "automatic",
-              },
-            });
-          } else {
-            emit({ category: "diagnostic", platform, level: event.level, message: event.message });
+          adapter = createAdapter(platform, settings, emit, true);
+          const refreshed = await adapter.refreshCampaigns(state.sessions[platform], {
+            signal: operation.signal,
+            requireComplete: true,
+          });
+          operation.signal.throwIfAborted();
+          const campaigns = preserveClaimedRewards(refreshed, state.campaigns[platform]);
+          const claimResult = await claimReadyRewards(
+            adapter,
+            campaigns,
+            waitingClaimRewardIds[platform],
+            operation.signal,
+          );
+          operation.signal.throwIfAborted();
+          const nextState: SchedulerState = {
+            ...state,
+            campaigns: {
+              ...state.campaigns,
+              [platform]: claimResult.campaigns,
+            },
+          };
+          for (const event of claimResult.events) {
+            if (event.claimed) {
+              emit({
+                category: "activity",
+                platform,
+                level: "info",
+                code: "reward_claimed",
+                data: {
+                  campaignId: event.campaignId,
+                  campaignName: event.campaignName,
+                  rewardId: event.rewardId,
+                  rewardName: event.rewardName,
+                  ...(event.rewardImageUrl ? { rewardImageUrl: event.rewardImageUrl } : {}),
+                  ...(event.campaignUrl ? { campaignUrl: event.campaignUrl } : {}),
+                  method: "automatic",
+                },
+              });
+            } else {
+              emit({ category: "diagnostic", platform, level: event.level, message: event.message });
+            }
           }
+          operation.signal.throwIfAborted();
+          adapter.flushRouteDiagnostics?.(emit);
+          await persistPlatformState(platform, nextState, () => !operation.signal.aborted);
+          operation.signal.throwIfAborted();
+          await emitNotifications(settings, state, nextState, events);
+          await reportBestEffort(events);
+        } catch (error) {
+          adapter?.flushRouteDiagnostics?.(emit);
+          clearOperationalEvents(events);
+          if (operation.signal.aborted) return;
+          emit({
+            category: "diagnostic",
+            platform,
+            level: "warn",
+            message: error instanceof Error ? error.message : "Drop claim refresh failed",
+          });
+          await reportBestEffort(events);
         }
-        adapter.flushRouteDiagnostics?.(emit);
-        await persistPlatformState(platform, nextState);
-        await emitNotifications(settings, state, nextState, events);
-        await reportBestEffort(events);
-      } catch (error) {
-        adapter?.flushRouteDiagnostics?.(emit);
-        clearOperationalEvents(events);
-        emit({
-          category: "diagnostic",
-          platform,
-          level: "warn",
-          message: error instanceof Error ? error.message : "Drop claim refresh failed",
-        });
-        await reportBestEffort(events);
-      }
-    }), [platform]);
+      }), [platform]);
+    } finally {
+      dropClaimOperations[platform].delete(operation);
+    }
   }
 
   async function runKickChallengeClaims(): Promise<void> {
     if (controllerShutdown) return;
-    await withStateLock(() => withEventCollector(async (emit, events) => {
-      if (controllerShutdown) return;
-      let adapter: PlatformAdapter | undefined;
-      try {
-        const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
-        if (!settings.platform.kick.enabled
-          || !autoClaimChallengesFor(settings, "kick")
-          || state.authHealth.kick.status !== "healthy"
-          || !hasRecentManualWatchForClaims(settings, state, "kick")
-          || !challengePollDue(state, "kick", Date.now())) return;
-
-        const nextState: SchedulerState = {
-          ...state,
-          gamification: {
-            ...state.gamification,
-            kick: { lastCheckedAt: new Date().toISOString() },
-          },
-        };
-        adapter = createAdapter("kick", settings, emit, true);
+    const operation = new AbortController();
+    kickChallengeClaimOperations.add(operation);
+    try {
+      await withStateLock(() => withEventCollector(async (emit, events) => {
+        if (controllerShutdown) return;
+        let adapter: PlatformAdapter | undefined;
         try {
-          for (const challenge of await adapter.claimChallenges?.() ?? []) {
+          operation.signal.throwIfAborted();
+          const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
+          operation.signal.throwIfAborted();
+          if (!settings.platform.kick.enabled
+            || !autoClaimChallengesFor(settings, "kick")
+            || state.authHealth.kick.status !== "healthy"
+            || !hasRecentManualWatchForClaims(settings, state, "kick")
+            || !challengePollDue(state, "kick", Date.now())) return;
+
+          const nextState: SchedulerState = {
+            ...state,
+            gamification: {
+              ...state.gamification,
+              kick: { lastCheckedAt: new Date().toISOString() },
+            },
+          };
+          adapter = createAdapter("kick", settings, emit, true);
+          operation.signal.throwIfAborted();
+          try {
+            const challenges = await adapter.claimChallenges?.({ signal: operation.signal }) ?? [];
+            operation.signal.throwIfAborted();
+            for (const challenge of challenges) {
+              emit({
+                category: "activity",
+                code: "challenge_claimed",
+                level: "info",
+                platform: "kick",
+                data: { challengeId: challenge.id, rarity: challenge.rarity, recurrence: challenge.recurrence },
+              });
+            }
+          } catch (error) {
+            operation.signal.throwIfAborted();
             emit({
-              category: "activity",
-              code: "challenge_claimed",
-              level: "info",
+              category: "diagnostic",
               platform: "kick",
-              data: { challengeId: challenge.id, rarity: challenge.rarity, recurrence: challenge.recurrence },
+              level: "warn",
+              message: error instanceof Error ? error.message : "Challenge claim failed",
             });
           }
+          operation.signal.throwIfAborted();
+          adapter.flushRouteDiagnostics?.(emit);
+          await persistPlatformState("kick", nextState, () => !operation.signal.aborted);
+          operation.signal.throwIfAborted();
+          await emitNotifications(settings, state, nextState, events);
+          await reportBestEffort(events);
         } catch (error) {
+          adapter?.flushRouteDiagnostics?.(emit);
+          clearOperationalEvents(events);
+          if (operation.signal.aborted) return;
           emit({
             category: "diagnostic",
             platform: "kick",
             level: "warn",
             message: error instanceof Error ? error.message : "Challenge claim failed",
           });
+          await reportBestEffort(events);
         }
-        adapter.flushRouteDiagnostics?.(emit);
-        await persistPlatformState("kick", nextState);
-        await emitNotifications(settings, state, nextState, events);
-        await reportBestEffort(events);
-      } catch (error) {
-        adapter?.flushRouteDiagnostics?.(emit);
-        clearOperationalEvents(events);
-        emit({
-          category: "diagnostic",
-          platform: "kick",
-          level: "warn",
-          message: error instanceof Error ? error.message : "Challenge claim failed",
-        });
-        await reportBestEffort(events);
-      }
-    }), ["kick"]);
+      }), ["kick"]);
+    } finally {
+      kickChallengeClaimOperations.delete(operation);
+    }
   }
 
   async function safeNotify(title: string, message: string): Promise<void> {

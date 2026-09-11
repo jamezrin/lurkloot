@@ -492,6 +492,10 @@ describe("background controller", () => {
 
       await env.controller.runDropClaims(platform);
 
+      expect(platformAdapter.refreshCampaigns).toHaveBeenCalledWith(
+        beforeSession,
+        expect.objectContaining({ requireComplete: true }),
+      );
       expect(env.state.sessions[platform]).toEqual(beforeSession);
       expect(env.state.manualWatch?.[platform]?.active).toBe(true);
       expect(env.state.campaigns[platform][0]?.rewards[0]?.status).toBe("claimed");
@@ -673,6 +677,60 @@ describe("background controller", () => {
         level: "warn",
         message: "adapter unavailable",
       }));
+    });
+
+    it("cancels an in-flight drop claim when automatic claiming is disabled", async () => {
+      const env = harness(farming(DEFAULT_SETTINGS));
+      env.state.authHealth = {
+        ...env.state.authHealth,
+        twitch: { status: "healthy", checkedAt: new Date().toISOString() },
+      };
+      env.state.sessions.twitch = { platform: "twitch", status: "paused", offlineChecks: 0, reasonCode: "manual_watch" };
+      env.state.manualWatch = {
+        twitch: { platform: "twitch", tabId: 91, checkedAt: new Date().toISOString(), active: true },
+      };
+      const refresh = deferred<DropCampaign[]>();
+      env.twitch.refreshCampaigns = vi.fn(async () => refresh.promise);
+
+      const claiming = env.controller.runDropClaims("twitch");
+      await vi.waitFor(() => expect(env.twitch.refreshCampaigns).toHaveBeenCalledOnce());
+      await env.rawController.handleMessage({ type: "saveSettings", settingsPatch: { autoClaim: false } });
+      refresh.resolve([campaign("twitch", "claimable")]);
+      await claiming;
+
+      expect(env.twitch.claimReward).not.toHaveBeenCalled();
+      expect(env.state.campaigns.twitch).toEqual([]);
+      expect(env.reportEvents.mock.calls.flatMap(([events]) => events).some(
+        (event) => event.category === "activity" && event.code === "reward_claimed",
+      )).toBe(false);
+    });
+
+    it("cancels an in-flight Kick challenge claim when challenge claiming is disabled", async () => {
+      const env = harness(farming(DEFAULT_SETTINGS));
+      env.state.authHealth = {
+        ...env.state.authHealth,
+        kick: { status: "healthy", checkedAt: new Date().toISOString() },
+      };
+      env.state.sessions.kick = { platform: "kick", status: "paused", offlineChecks: 0, reasonCode: "manual_watch" };
+      env.state.manualWatch = {
+        kick: { platform: "kick", tabId: 92, checkedAt: new Date().toISOString(), active: true },
+      };
+      const challenges = deferred<Array<{ id: string; rarity: string; recurrence: string }>>();
+      env.kick.claimChallenges = vi.fn(async () => challenges.promise);
+
+      const claiming = env.controller.runKickChallengeClaims();
+      await vi.waitFor(() => expect(env.kick.claimChallenges).toHaveBeenCalledOnce());
+      await env.rawController.handleMessage({
+        type: "saveSettings",
+        settingsPatch: { platform: { kick: { autoClaimChallenges: false } } },
+      });
+      challenges.resolve([{ id: "daily", rarity: "epic", recurrence: "daily" }]);
+      await claiming;
+
+      expect(env.state.gamification?.kick).toBeUndefined();
+      expect(env.reportEvents.mock.calls.flatMap(([events]) => events).some(
+        (event) => event.category === "activity" && event.code === "challenge_claimed",
+      )).toBe(false);
     });
   });
 
