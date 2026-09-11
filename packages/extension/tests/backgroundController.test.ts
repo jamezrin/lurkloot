@@ -6849,6 +6849,47 @@ describe("background controller", () => {
     });
   });
 
+  it.each(["claimable", "claimed"] as const)("does not notify for a newly discovered %s reward", async (status) => {
+    const env = harness(farming({
+      ...DEFAULT_SETTINGS,
+      notifyRewardEarned: true,
+      notifyNoDropsLeft: false,
+    }));
+    env.state.campaigns = { twitch: [], kick: [] };
+    vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([campaign("twitch", status)]);
+
+    await env.controller.tick();
+
+    expect(env.deps.createNotification).not.toHaveBeenCalled();
+  });
+
+  it("does not notify again when an earned reward changes from claimable to claimed", async () => {
+    const env = harness(farming({
+      ...DEFAULT_SETTINGS,
+      notifyRewardEarned: true,
+      notifyNoDropsLeft: false,
+    }));
+    env.state.campaigns.twitch = [campaign("twitch", "claimable")];
+    vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([campaign("twitch", "claimed")]);
+
+    await env.controller.tick();
+
+    expect(env.deps.createNotification).not.toHaveBeenCalled();
+  });
+
+  it("notifies when a known unearned reward transitions directly to claimed", async () => {
+    const env = harness(farming({ ...DEFAULT_SETTINGS, notifyRewardEarned: true }));
+    env.state.campaigns.twitch = [campaign("twitch", "in_progress")];
+    vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([campaign("twitch", "claimed")]);
+
+    await env.controller.tick();
+
+    expect(env.deps.createNotification).toHaveBeenCalledWith({
+      title: "Reward earned",
+      message: "Reward from twitch campaign",
+    });
+  });
+
   it("emits a notification when a Kick challenge is claimed", async () => {
     const env = harness(farming({ ...DEFAULT_SETTINGS, notifyRewardEarned: true }));
     env.kick.claimChallenges = vi.fn(async () => [{ id: "daily", rarity: "mythic", recurrence: "daily" }]);
