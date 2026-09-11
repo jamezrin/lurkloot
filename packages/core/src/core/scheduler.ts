@@ -41,9 +41,9 @@ export const MANUAL_WATCH_TTL_MS = 20_000;
 
 // Kick's daily challenge window is hours long, so a ten-minute poll is far more
 // than responsive enough while keeping the request count negligible.
-const CHALLENGE_POLL_INTERVAL_MS = 10 * 60 * 1000;
+export const CHALLENGE_POLL_INTERVAL_MS = 10 * 60 * 1000;
 
-function challengePollDue(state: SchedulerState, platform: Platform, now: number): boolean {
+export function challengePollDue(state: SchedulerState, platform: Platform, now: number): boolean {
   const lastCheckedAt = state.gamification?.[platform]?.lastCheckedAt;
   if (!lastCheckedAt) return true;
   const last = Date.parse(lastCheckedAt);
@@ -1569,7 +1569,7 @@ function nextRetryAfter(errorChecks: number): string {
   return new Date(Date.now() + minutes * 60 * 1000).toISOString();
 }
 
-type ClaimReadyRewardEvent = {
+export type ClaimReadyRewardEvent = {
   level: "info";
   message: string;
   claimed: true;
@@ -1585,7 +1585,7 @@ type ClaimReadyRewardEvent = {
   claimed?: false;
 };
 
-async function claimReadyRewards(
+export async function claimReadyRewards(
   adapter: PlatformAdapter,
   campaigns: DropCampaign[],
   previouslyWaitingRewardIds: Set<string>,
