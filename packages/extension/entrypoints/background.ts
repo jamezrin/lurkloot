@@ -111,6 +111,10 @@ function createExtensionAdapter(platform: Platform, emit: EventEmitter, settings
         heartbeatIdentity: "web",
         heartbeatFetchText: twitchHeartbeatFetchText,
         heartbeatPost: twitchHeartbeatPost,
+        webSocketFactory: createBrowserWebSocket,
+        getAuthToken: async () => (
+          await browser.cookies.get({ url: "https://www.twitch.tv", name: "auth-token" })
+        )?.value,
       },
       emit,
     )

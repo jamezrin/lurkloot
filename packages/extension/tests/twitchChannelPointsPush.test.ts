@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { TwitchChannelPointsPushController } from "@lurkloot/core/twitch/channelPointsPush";
 import type { WebSocketLike, WebSocketMessageEventLike } from "@lurkloot/core/webSocket";
+import { twitchAdapter } from "./helpers/adapters";
 
 class FakeSocket implements WebSocketLike {
   readyState = 1;
@@ -572,5 +573,21 @@ describe("keepalive, reconnect, and stop", () => {
     expect(reconnect.scheduled).toHaveLength(1);
     expect(reconnect.scheduled[0]?.delayMs).toBe(1000);
     expect(JSON.stringify(controller.drainEvents())).not.toContain("auth-token-value");
+  });
+});
+
+describe("Twitch channel-points push adapter factory", () => {
+  it("exposes a Hermes observer only when websocket and auth token deps exist", () => {
+    const fetcher = { fetchJson: async <T,>(): Promise<T> => ({}) as T };
+    expect(twitchAdapter(fetcher).createChannelPointsPushController).toBeUndefined();
+
+    const observer = twitchAdapter(
+      fetcher,
+      undefined,
+      undefined,
+      { webSocketFactory: () => new FakeSocket(), getAuthToken: async () => "token" },
+    ).createChannelPointsPushController?.();
+
+    expect(observer).toBeInstanceOf(TwitchChannelPointsPushController);
   });
 });
