@@ -7,6 +7,7 @@ export const TWITCH_CHANNEL_POINTS_TOPIC_PREFIX = "community-points-user-v1.";
 
 const DEFAULT_TWITCH_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko";
 const RECONNECT_BASE_MS = 1_000;
+const RECONNECT_MAX_MS = 30_000;
 const WEBSOCKET_OPEN = 1;
 
 export interface TwitchChannelPointsClaimNotice {
@@ -34,7 +35,10 @@ export class TwitchChannelPointsPushController {
   private pendingSubscribeFrameId?: string;
   private pendingSubscriptionId?: string;
   private subscriptionId?: string;
+  private reconnectAttempt = 0;
   private reconnectTimer?: ReturnType<typeof setTimeout>;
+  private keepAliveTimer?: ReturnType<typeof setTimeout>;
+  private keepaliveSec = TWITCH_HERMES_KEEPALIVE_DEFAULT_SEC;
   private stopped = true;
   private readonly clientId: string;
   private readonly createWebSocket: WebSocketFactory;
@@ -42,7 +46,10 @@ export class TwitchChannelPointsPushController {
   private readonly resolveUserId: TwitchChannelPointsPushDeps["resolveUserId"];
   private readonly scheduleReconnect: NonNullable<TwitchChannelPointsPushDeps["scheduleReconnect"]>;
   private readonly cancelReconnect: NonNullable<TwitchChannelPointsPushDeps["cancelReconnect"]>;
+  private readonly scheduleKeepAlive: NonNullable<TwitchChannelPointsPushDeps["scheduleKeepAlive"]>;
+  private readonly cancelKeepAlive: NonNullable<TwitchChannelPointsPushDeps["cancelKeepAlive"]>;
   private readonly diagnostics = new PendingDiscoverySignalDiagnostics();
+  private readonly intentionallyClosedSockets = new WeakSet<WebSocketLike>();
 
   constructor(deps: TwitchChannelPointsPushDeps) {
     this.createWebSocket = deps.createWebSocket;
@@ -51,6 +58,8 @@ export class TwitchChannelPointsPushController {
     this.clientId = deps.clientId ?? DEFAULT_TWITCH_CLIENT_ID;
     this.scheduleReconnect = deps.scheduleReconnect ?? ((callback, delayMs) => setTimeout(callback, delayMs));
     this.cancelReconnect = deps.cancelReconnect ?? ((timer) => clearTimeout(timer));
+    this.scheduleKeepAlive = deps.scheduleKeepAlive ?? ((callback, delayMs) => setTimeout(callback, delayMs));
+    this.cancelKeepAlive = deps.cancelKeepAlive ?? ((timer) => clearTimeout(timer));
   }
 
   get subscribed(): boolean {
@@ -72,6 +81,7 @@ export class TwitchChannelPointsPushController {
     this.stopped = true;
     this.clearReconnect();
     this.closeCurrentSocket();
+    this.reconnectAttempt = 0;
     this.authToken = undefined;
     this.userId = undefined;
     this.onClaimAvailable = undefined;
@@ -109,6 +119,18 @@ export class TwitchChannelPointsPushController {
       if (!this.isCurrent(ws)) return;
       this.handleMessage(ws, event);
     });
+    ws.addEventListener("close", () => {
+      if (!this.isCurrent(ws)) {
+        this.intentionallyClosedSockets.delete(ws);
+        return;
+      }
+      if (this.intentionallyClosedSockets.delete(ws)) return;
+      this.ws = undefined;
+      this.clearKeepAlive();
+      this.clearHandshakeState();
+      this.log("debug", "Twitch channel-points push connection closed");
+      this.scheduleNextReconnect();
+    });
   }
 
   private isCurrent(ws: WebSocketLike): boolean {
@@ -124,7 +146,10 @@ export class TwitchChannelPointsPushController {
 
     switch (frame.type) {
       case "welcome":
-        this.handleWelcome(ws);
+        this.handleWelcome(ws, frame);
+        return;
+      case "keepalive":
+        this.resetSilenceTimeout();
         return;
       case "authenticateResponse":
         this.handleAuthenticateResponse(ws, frame);
@@ -141,7 +166,9 @@ export class TwitchChannelPointsPushController {
     }
   }
 
-  private handleWelcome(ws: WebSocketLike): void {
+  private handleWelcome(ws: WebSocketLike, frame: HermesFrame): void {
+    this.keepaliveSec = readKeepaliveSec(frame.welcome);
+    this.resetSilenceTimeout();
     const token = this.authToken;
     if (typeof token !== "string" || token === "") {
       this.log("debug", "Twitch channel-points push is missing an auth token");
@@ -166,7 +193,12 @@ export class TwitchChannelPointsPushController {
       return;
     }
     if (frame.parentId !== this.pendingAuthId) return;
-    if (response.result !== "ok") return;
+    if (response.result !== "ok") {
+      this.log("debug", "Twitch channel-points push authenticate was not ok");
+      this.closeCurrentSocket();
+      this.scheduleNextReconnect();
+      return;
+    }
 
     const userId = this.userId;
     if (!userId) {
@@ -206,6 +238,7 @@ export class TwitchChannelPointsPushController {
       || subscription.id !== this.pendingSubscriptionId
     ) return;
     this.subscriptionId = this.pendingSubscriptionId;
+    this.reconnectAttempt = 0;
     this.log("debug", `Twitch channel-points push subscribed to ${TWITCH_CHANNEL_POINTS_TOPIC_PREFIX}${this.userId}`);
   }
 
@@ -254,14 +287,31 @@ export class TwitchChannelPointsPushController {
     }
   }
 
+  private resetSilenceTimeout(): void {
+    this.clearKeepAlive();
+    const delayMs = 2 * this.keepaliveSec * 1000;
+    let timer: ReturnType<typeof setTimeout>;
+    timer = this.scheduleKeepAlive(() => {
+      if (this.keepAliveTimer !== timer) return;
+      this.keepAliveTimer = undefined;
+      if (this.stopped || !this.ws) return;
+      this.log("debug", "Twitch channel-points push keepalive timed out");
+      this.closeCurrentSocket();
+      this.scheduleNextReconnect();
+    }, delayMs);
+    this.keepAliveTimer = timer;
+  }
+
   private scheduleNextReconnect(): void {
     if (this.stopped || this.reconnectTimer !== undefined) return;
+    const delayMs = Math.min(RECONNECT_BASE_MS * (2 ** this.reconnectAttempt), RECONNECT_MAX_MS);
+    this.reconnectAttempt += 1;
     let timer: ReturnType<typeof setTimeout>;
     timer = this.scheduleReconnect(() => {
       if (this.reconnectTimer !== timer) return;
       this.reconnectTimer = undefined;
       void this.connect();
-    }, RECONNECT_BASE_MS);
+    }, delayMs);
     this.reconnectTimer = timer;
   }
 
@@ -271,14 +321,26 @@ export class TwitchChannelPointsPushController {
     this.reconnectTimer = undefined;
   }
 
-  private closeCurrentSocket(): void {
+  private clearKeepAlive(): void {
+    if (this.keepAliveTimer === undefined) return;
+    this.cancelKeepAlive(this.keepAliveTimer);
+    this.keepAliveTimer = undefined;
+  }
+
+  private clearHandshakeState(): void {
     this.pendingAuthId = undefined;
     this.pendingSubscribeFrameId = undefined;
     this.pendingSubscriptionId = undefined;
     this.subscriptionId = undefined;
+  }
+
+  private closeCurrentSocket(): void {
+    this.clearKeepAlive();
+    this.clearHandshakeState();
     const ws = this.ws;
     if (!ws) return;
     this.ws = undefined;
+    this.intentionallyClosedSockets.add(ws);
     try {
       ws.close();
     } catch {
@@ -294,6 +356,7 @@ export class TwitchChannelPointsPushController {
 interface HermesFrame {
   type: string;
   parentId?: unknown;
+  welcome?: unknown;
   authenticateResponse?: unknown;
   subscribeResponse?: unknown;
   notification?: unknown;
@@ -307,6 +370,7 @@ function parseFrame(value: unknown): HermesFrame | undefined {
     return {
       type: parsed.type,
       parentId: parsed.parentId,
+      welcome: parsed.welcome,
       authenticateResponse: parsed.authenticateResponse,
       subscribeResponse: parsed.subscribeResponse,
       notification: parsed.notification,
@@ -314,6 +378,14 @@ function parseFrame(value: unknown): HermesFrame | undefined {
   } catch {
     return undefined;
   }
+}
+
+function readKeepaliveSec(welcome: unknown): number {
+  if (!isRecord(welcome)) return TWITCH_HERMES_KEEPALIVE_DEFAULT_SEC;
+  const value = welcome.keepaliveSec;
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? value
+    : TWITCH_HERMES_KEEPALIVE_DEFAULT_SEC;
 }
 
 function parsePubsub(value: unknown): Record<string, unknown> | undefined {
