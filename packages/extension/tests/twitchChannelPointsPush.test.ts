@@ -524,13 +524,14 @@ describe("keepalive, reconnect, and stop", () => {
     expect(sockets).toEqual([]);
   });
 
-  it("resolves the user id once across a silence-timeout reconnect", async () => {
+  it("resolves the user id again across a silence-timeout reconnect", async () => {
     const firstSocket = new FakeSocket();
     const secondSocket = new FakeSocket();
     const sockets = [firstSocket, secondSocket];
     const keepAlive = keepAliveScheduler();
     const reconnect = reconnectScheduler();
-    const resolveUserId = vi.fn(async () => "78020132");
+    const userIds = ["78020132", "99031425"];
+    const resolveUserId = vi.fn(async () => userIds.shift());
     const controller = createPushController({
       createWebSocket: () => sockets.shift()!,
       getAuthToken: async () => "token",
@@ -549,7 +550,13 @@ describe("keepalive, reconnect, and stop", () => {
     completeHandshake(secondSocket);
 
     expect(controller.subscribed).toBe(true);
-    expect(resolveUserId).toHaveBeenCalledOnce();
+    expect(resolveUserId).toHaveBeenCalledTimes(2);
+    expect(parsedSent(secondSocket)).toContainEqual(expect.objectContaining({
+      type: "subscribe",
+      subscribe: expect.objectContaining({
+        pubsub: { topic: "community-points-user-v1.99031425" },
+      }),
+    }));
   });
 
   it("stop closes the socket, cancels timers, and does not reconnect", async () => {
@@ -682,6 +689,43 @@ describe("keepalive, reconnect, and stop", () => {
     });
 
     expect(parsedSent(socket).some((frame) => frame.type === "subscribe")).toBe(false);
+    expect(controller.subscribed).toBe(false);
+    expect(socket.closed).toBe(true);
+    expect(reconnect.scheduled).toHaveLength(1);
+    expect(reconnect.scheduled[0]?.delayMs).toBe(1000);
+    expect(JSON.stringify(controller.drainEvents())).not.toContain("auth-token-value");
+  });
+
+  it.each([
+    { name: "rejected", response: { result: "unauthorized" } },
+    { name: "malformed", response: undefined },
+  ])("closes and reconnects when subscribeResponse is $name", async ({ response }) => {
+    const socket = new FakeSocket();
+    const keepAlive = keepAliveScheduler();
+    const reconnect = reconnectScheduler();
+    const controller = createPushController({
+      createWebSocket: () => socket,
+      getAuthToken: async () => "auth-token-value",
+      resolveUserId: async () => "78020132",
+      scheduleKeepAlive: keepAlive.scheduleKeepAlive,
+      cancelKeepAlive: keepAlive.cancelKeepAlive,
+      scheduleReconnect: reconnect.scheduleReconnect,
+    });
+    await controller.start(() => undefined);
+    socket.message(WELCOME);
+    const authenticate = JSON.parse(socket.sent[0]!);
+    socket.message({
+      type: "authenticateResponse",
+      authenticateResponse: { result: "ok" },
+      parentId: authenticate.id,
+    });
+    const subscribe = JSON.parse(socket.sent[1]!);
+    socket.message({
+      type: "subscribeResponse",
+      subscribeResponse: response,
+      parentId: subscribe.id,
+    });
+
     expect(controller.subscribed).toBe(false);
     expect(socket.closed).toBe(true);
     expect(reconnect.scheduled).toHaveLength(1);

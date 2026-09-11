@@ -106,16 +106,14 @@ export class TwitchChannelPointsPushController {
     }
     this.authToken = token;
 
-    if (!this.userId) {
-      try {
-        const userId = (await this.resolveUserId())?.trim();
-        if (this.stopped) return;
-        this.userId = userId || undefined;
-      } catch (error) {
-        this.log("warn", `Failed to resolve the Twitch channel-points user id: ${errorMessage(error)}`);
-        this.scheduleNextReconnect();
-        return;
-      }
+    try {
+      const userId = (await this.resolveUserId())?.trim();
+      if (this.stopped) return;
+      this.userId = userId || undefined;
+    } catch (error) {
+      this.log("warn", `Failed to resolve the Twitch channel-points user id: ${errorMessage(error)}`);
+      this.scheduleNextReconnect();
+      return;
     }
 
     const url = `wss://hermes.twitch.tv/v1?clientId=${this.clientId}`;
@@ -242,18 +240,20 @@ export class TwitchChannelPointsPushController {
   }
 
   private handleSubscribeResponse(frame: HermesFrame): void {
+    if (frame.parentId !== this.pendingSubscribeFrameId) return;
     const response = frame.subscribeResponse;
-    if (!isRecord(response)) {
-      this.log("debug", "Ignored malformed Twitch channel-points push frame");
-      return;
-    }
-    const subscription = response.subscription;
+    const subscription = isRecord(response) ? response.subscription : undefined;
     if (
-      frame.parentId !== this.pendingSubscribeFrameId
+      !isRecord(response)
       || response.result !== "ok"
       || !isRecord(subscription)
       || subscription.id !== this.pendingSubscriptionId
-    ) return;
+    ) {
+      this.log("debug", "Twitch channel-points push subscribe was not ok");
+      this.closeCurrentSocket();
+      this.scheduleNextReconnect();
+      return;
+    }
     this.subscriptionId = this.pendingSubscriptionId;
     this.reconnectAttempt = 0;
     this.log("debug", `Twitch channel-points push subscribed to ${TWITCH_CHANNEL_POINTS_TOPIC_PREFIX}${this.userId}`);
