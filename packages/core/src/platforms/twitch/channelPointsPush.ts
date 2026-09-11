@@ -113,6 +113,8 @@ export class TwitchChannelPointsPushController {
       return;
     }
     this.ws = ws;
+    this.keepaliveSec = TWITCH_HERMES_KEEPALIVE_DEFAULT_SEC;
+    this.resetSilenceTimeout();
     this.log("debug", "Opening Twitch channel-points push connection");
 
     ws.addEventListener("message", (event) => {

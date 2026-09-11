@@ -372,6 +372,30 @@ describe("Twitch channel-points push", () => {
 });
 
 describe("keepalive, reconnect, and stop", () => {
+  it("closes and reconnects when the socket never welcomes", async () => {
+    const socket = new FakeSocket();
+    const keepAlive = keepAliveScheduler();
+    const reconnect = reconnectScheduler();
+    const controller = new TwitchChannelPointsPushController({
+      createWebSocket: () => socket,
+      getAuthToken: async () => "token",
+      resolveUserId: async () => "78020132",
+      scheduleKeepAlive: keepAlive.scheduleKeepAlive,
+      cancelKeepAlive: keepAlive.cancelKeepAlive,
+      scheduleReconnect: reconnect.scheduleReconnect,
+    });
+    await controller.start(() => undefined);
+
+    expect(keepAlive.scheduled).toHaveLength(1);
+    expect(keepAlive.scheduled[0]?.delayMs).toBe(2 * 15 * 1000);
+
+    keepAlive.scheduled[0]!.callback();
+    expect(socket.closed).toBe(true);
+    expect(controller.subscribed).toBe(false);
+    expect(reconnect.scheduled).toHaveLength(1);
+    expect(reconnect.scheduled[0]?.delayMs).toBe(1000);
+  });
+
   it("resets silence timeout on keepalive and reconnects after silence", async () => {
     const firstSocket = new FakeSocket();
     const secondSocket = new FakeSocket();
@@ -388,16 +412,16 @@ describe("keepalive, reconnect, and stop", () => {
     });
     await handshake(firstSocket, controller, () => undefined);
 
-    expect(keepAlive.scheduled).toHaveLength(1);
-    expect(keepAlive.scheduled[0]?.delayMs).toBe(2 * 15 * 1000);
+    expect(keepAlive.scheduled[0]?.cancelled).toBe(true);
+    expect(keepAlive.scheduled[1]?.delayMs).toBe(2 * 15 * 1000);
     expect(parsedSent(firstSocket).some((frame) => frame.type === "ping" || frame.type === "pong")).toBe(false);
 
     firstSocket.message({ type: "keepalive", id: "ka-1", timestamp: "2026-09-11T16:09:18.000Z" });
-    expect(keepAlive.scheduled[0]?.cancelled).toBe(true);
-    expect(keepAlive.scheduled[1]?.delayMs).toBe(30_000);
+    expect(keepAlive.scheduled[1]?.cancelled).toBe(true);
+    expect(keepAlive.scheduled[2]?.delayMs).toBe(30_000);
     expect(parsedSent(firstSocket).some((frame) => frame.type === "ping" || frame.type === "pong")).toBe(false);
 
-    keepAlive.scheduled[1]!.callback();
+    keepAlive.scheduled[2]!.callback();
     expect(firstSocket.closed).toBe(true);
     expect(controller.subscribed).toBe(false);
     expect(reconnect.scheduled).toHaveLength(1);
@@ -434,10 +458,10 @@ describe("keepalive, reconnect, and stop", () => {
     await controller.stop();
     expect(firstSocket.closed).toBe(true);
     expect(controller.subscribed).toBe(false);
-    expect(keepAlive.scheduled[0]?.cancelled).toBe(true);
+    expect(keepAlive.scheduled[1]?.cancelled).toBe(true);
     expect(reconnect.scheduled).toHaveLength(0);
 
-    keepAlive.scheduled[0]!.callback();
+    keepAlive.scheduled[1]!.callback();
     firstSocket.emit("close");
     expect(reconnect.scheduled).toHaveLength(0);
     expect(createWebSocket).toHaveBeenCalledOnce();
