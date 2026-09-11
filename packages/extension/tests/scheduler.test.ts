@@ -4647,7 +4647,14 @@ describe("scheduler critical health observations", () => {
 
     expect(result.state.criticalHealth?.twitch?.managedTabOpens).toEqual([]);
     expect(result.state.criticalHealth?.twitch?.breakerOpen).toBe(false);
-    expect(result.state.criticalHealth?.twitch?.lastObservedAt).toBeDefined();
+    // Previously asserted to be defined, on the old contract where every
+    // observation advanced the clock. These early exits now report an
+    // inconclusive observation, which clears the stamp instead: a tick that
+    // reached no verdict is not a reading to measure the next failing gap from,
+    // so resuming looks like a cold start and charges delta = 0. The pruning and
+    // breaker release above are what these exits still have to do, and they are
+    // unchanged.
+    expect(result.state.criticalHealth?.twitch?.lastObservedAt).toBeUndefined();
   });
 
   it("prunes the tab churn window while authentication is unhealthy", async () => {

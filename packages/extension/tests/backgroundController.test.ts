@@ -10808,13 +10808,11 @@ describe("no-op tick persistence", () => {
     env.controller.shutdown();
   });
 
-  // Documents a real limitation rather than papering over it: with the critical
-  // failure prompt on (the default), observeCriticalHealth restamps
-  // lastObservedAt from the disabled branch's neutral observation, so the state
-  // genuinely differs every tick and the guard cannot fire. Whether a neutral
-  // observation — one that reached no conclusion — should advance that stamp at
-  // all is an open question for the detector, not for this guard.
-  it("still writes every tick while the critical failure prompt restamps lastObservedAt", async () => {
+  // The disabled branch reports an inconclusive observation, which clears
+  // lastObservedAt rather than restamping it. Before that distinction existed
+  // the critical health slice changed on every tick and this guard could never
+  // fire in the default configuration.
+  it("stops rewriting state with the critical failure prompt enabled", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const env = harness(notFarming({ ...DEFAULT_SETTINGS, criticalFailurePromptEnabled: true }));
     const settledTick = async () => {
@@ -10824,18 +10822,16 @@ describe("no-op tick persistence", () => {
 
     await settledTick();
     const writesAfterFirstTick = env.deps.saveState.mock.calls.length;
-    const firstObservedAt = env.state.criticalHealth?.twitch?.lastObservedAt;
-    expect(firstObservedAt).toBeDefined();
-    // The stamp has millisecond resolution, so two ticks in the same
-    // millisecond would compare equal and suppress the write. Real alarms are a
-    // minute apart; step the clock so the test exercises that case rather than
-    // racing it.
-    vi.setSystemTime(new Date(Date.now() + 60_000));
+    expect(env.state.criticalHealth?.twitch?.lastObservedAt).toBeUndefined();
 
+    // A full alarm period apart, so this is not passing because two ticks
+    // landed in the same millisecond.
+    vi.setSystemTime(new Date(Date.now() + 60_000));
+    await settledTick();
+    vi.setSystemTime(new Date(Date.now() + 60_000));
     await settledTick();
 
-    expect(env.state.criticalHealth?.twitch?.lastObservedAt).not.toBe(firstObservedAt);
-    expect(env.deps.saveState.mock.calls.length).toBeGreaterThan(writesAfterFirstTick);
+    expect(env.deps.saveState).toHaveBeenCalledTimes(writesAfterFirstTick);
     vi.useRealTimers();
     env.controller.shutdown();
   });
