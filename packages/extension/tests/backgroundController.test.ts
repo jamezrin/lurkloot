@@ -7053,7 +7053,7 @@ describe("background controller", () => {
     expect(env.state.sessions.twitch.lastHeartbeatOk).toBe(true);
   });
 
-  it("completes a due heartbeat while snapshot selection is blocked", async () => {
+  it("persists discovery after a due heartbeat invalidates a blocked snapshot selection", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-09-02T12:00:00.000Z"));
     const selectionStarted = deferred<void>();
@@ -7080,6 +7080,8 @@ describe("background controller", () => {
     env.twitch.supportsTabless = true;
     env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
     await env.controller.tick(["twitch"]);
+    const firstCheckedAt = env.state.sessions.twitch.lastCheckedAt;
+    expect(firstCheckedAt).toBeDefined();
     advanceToNextHeartbeatDue();
     watcher.tick.mockClear();
 
@@ -7096,10 +7098,61 @@ describe("background controller", () => {
       await selection;
     }
     expect(env.state.sessions.twitch.lastHeartbeatOk).toBe(true);
-    expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
-      platform: "twitch",
-      message: expect.stringContaining("Snapshot selection discarded stale lifecycle work"),
-    }));
+    expect(Date.parse(env.state.sessions.twitch.lastCheckedAt ?? "")).toBeGreaterThan(
+      Date.parse(firstCheckedAt ?? ""),
+    );
+  });
+
+  it("persists discovery lastCheckedAt when a heartbeat commits during publication", async () => {
+    const { env, watcher } = await establishedTablessEnv("twitch");
+    const firstCheckedAt = env.state.sessions.twitch.lastCheckedAt;
+    expect(firstCheckedAt).toBeDefined();
+    const focusStarted = deferred<void>();
+    const allowFocus = deferred<void>();
+    env.deps.applyAdFocus.mockImplementation(async () => {
+      focusStarted.resolve();
+      await allowFocus.promise;
+    });
+    watcher.tick.mockClear();
+
+    const discovery = env.controller.tick(["twitch"]);
+    await focusStarted.promise;
+    await env.controller.runWatchHeartbeat();
+    allowFocus.resolve();
+    await discovery;
+
+    expect(env.state.sessions.twitch.lastHeartbeatOk).toBe(true);
+    expect(Date.parse(env.state.sessions.twitch.lastCheckedAt ?? "")).toBeGreaterThan(
+      Date.parse(firstCheckedAt ?? ""),
+    );
+  });
+
+  it("persists discovery when a heartbeat commits before the scheduler consumes its selection", async () => {
+    const { env, watcher } = await establishedTablessEnv("twitch");
+    const firstCheckedAt = env.state.sessions.twitch.lastCheckedAt;
+    expect(firstCheckedAt).toBeDefined();
+    const claimStarted = deferred<void>();
+    const allowClaim = deferred<boolean>();
+    vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([
+      { ...campaign("twitch", "claimable"), id: "claimable-campaign" },
+      campaign("twitch"),
+    ]);
+    vi.mocked(env.twitch.claimReward).mockImplementation(async () => {
+      claimStarted.resolve();
+      return allowClaim.promise;
+    });
+    watcher.tick.mockClear();
+
+    const discovery = env.controller.tick(["twitch"], "manual_tick");
+    await claimStarted.promise;
+    await env.controller.runWatchHeartbeat();
+    allowClaim.resolve(false);
+    await discovery;
+
+    expect(env.state.sessions.twitch.lastHeartbeatOk).toBe(true);
+    expect(Date.parse(env.state.sessions.twitch.lastCheckedAt ?? "")).toBeGreaterThan(
+      Date.parse(firstCheckedAt ?? ""),
+    );
   });
 
   it("coalesces concurrent snapshot selection requests to one pending evaluation", async () => {
