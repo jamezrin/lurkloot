@@ -678,6 +678,12 @@
   "autoClaimChannelPointsDescription": {
     "message": "इस प्लेटफ़ॉर्म पर फ़ार्म करते समय चैनल-पॉइंट बोनस अपने आप क्लेम करें।"
   },
+  "channelPointsPushClaimTitle": {
+    "message": "लाइव इवेंट से चैनल पॉइंट क्लेम करें"
+  },
+  "channelPointsPushClaimDescription": {
+    "message": "जैसे ही Twitch बोनस उपलब्ध कराए, उसे क्लेम करें। बंद करने पर जाँच केवल एक बार प्रति मिनट होगी।"
+  },
   "strictCampaignAvailabilityTitle": {
     "message": "सख्त अभियान उपलब्धता"
   },

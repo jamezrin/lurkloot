@@ -2563,6 +2563,61 @@ describe("TwitchAdapter", () => {
     expect(contextAttempts).toBe(2);
   });
 
+  it("claims channel points from supplied ids without ChannelPointsContext", async () => {
+    const operations: string[] = [];
+    let claimVariables: unknown;
+    const fetcher = jsonFetcher((_url, init) => {
+      const op = operation(init);
+      operations.push(op);
+      if (op === "ClaimCommunityPoints") {
+        claimVariables = requestBody(init).variables;
+        return { data: { claimCommunityPoints: { status: "CLAIMED" } } };
+      }
+      throw new Error(`Unexpected op ${op}`);
+    });
+
+    await expect(twitchAdapter(fetcher).claimChannelPoints(
+      { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
+      { claimId: "claim-id", channelId: "channel-id" },
+    )).resolves.toBe(true);
+
+    expect(operations).toEqual(["ClaimCommunityPoints"]);
+    expect(claimVariables).toEqual({
+      input: { claimID: "claim-id", channelID: "channel-id" },
+    });
+  });
+
+  it("still looks up ChannelPointsContext when either id is missing", async () => {
+    const operations: string[] = [];
+    const fetcher = jsonFetcher((_url, init) => {
+      const op = operation(init);
+      operations.push(op);
+      if (op === "ChannelPointsContext") {
+        return {
+          data: {
+            community: {
+              channel: {
+                id: "channel-id",
+                self: { communityPoints: { availableClaim: { id: "claim-id" } } },
+              },
+            },
+          },
+        };
+      }
+      if (op === "ClaimCommunityPoints") {
+        return { data: { claimCommunityPoints: { status: "CLAIMED" } } };
+      }
+      throw new Error(`Unexpected op ${op}`);
+    });
+
+    await expect(twitchAdapter(fetcher).claimChannelPoints(
+      { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
+      { claimId: "claim-id" },
+    )).resolves.toBe(true);
+
+    expect(operations).toContain("ChannelPointsContext");
+  });
+
   it("keeps the v1 inventory hash, variables, inline fallback, and parser paired", async () => {
     const fixture = JSON.parse(readFileSync(new URL("./fixtures/twitch-inventory-v1.json", import.meta.url), "utf8"));
     const inventoryBodies: Record<string, unknown>[] = [];

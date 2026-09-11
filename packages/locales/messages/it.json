@@ -678,6 +678,12 @@
   "autoClaimChannelPointsDescription": {
     "message": "Riscatta automaticamente i bonus in punti canale durante il farming su questa piattaforma."
   },
+  "channelPointsPushClaimTitle": {
+    "message": "Riscatta i punti canale dagli eventi in diretta"
+  },
+  "channelPointsPushClaimDescription": {
+    "message": "Riscatta il bonus non appena Twitch lo rende disponibile. Disattiva per controllare solo una volta al minuto."
+  },
   "strictCampaignAvailabilityTitle": {
     "message": "Disponibilità rigorosa delle campagne"
   },

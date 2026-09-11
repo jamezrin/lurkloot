@@ -14,6 +14,7 @@ import type { ResolvedCompatibility } from "../compatibility/types";
 import type { LogLevel } from "@lurkloot/shared/logging";
 import type { TablessWatchController } from "../core/tablessWatch";
 import type { DiscoverySignalController } from "../core/discoverySignals";
+import type { TwitchChannelPointsPushController } from "./twitch/channelPointsPush";
 
 export const ignoreEvent: EventEmitter = () => {};
 
@@ -40,6 +41,11 @@ export interface AdapterOperationOptions {
   // Snapshot discovery must reject missing evidence instead of publishing a
   // partial inventory. Standalone operations may retain their best-effort path.
   requireComplete?: boolean;
+}
+
+export interface ChannelPointsClaimOptions extends AdapterOperationOptions {
+  claimId?: string;
+  channelId?: string;
 }
 
 export interface ChannelCheckRequest {
@@ -107,7 +113,7 @@ export interface PlatformAdapter {
   // exposes the real drop-instance id once it releases the claim, so auto-claim
   // must defer until then instead of POSTing a value Twitch will reject.
   isClaimReady?(reward: DropReward): boolean;
-  claimChannelPoints?(channel: ChannelCandidate, options?: AdapterOperationOptions): Promise<boolean>;
+  claimChannelPoints?(channel: ChannelCandidate, options?: ChannelPointsClaimOptions): Promise<boolean>;
   // Claims any completed, unclaimed gamification challenges for the logged-in
   // account and reports what was won. Account-level, so it takes no channel and
   // runs regardless of whether a watch session is active.
@@ -123,6 +129,7 @@ export interface PlatformAdapter {
   supportsTabless?: boolean;
   createTablessWatcher?(): TablessWatchController;
   createDiscoverySignalController?(): DiscoverySignalController;
+  createChannelPointsPushController?(): TwitchChannelPointsPushController;
   // Whether a bounded post-claim refresh is worthwhile on this platform. Twitch
   // only reveals the next reward in a campaign chain on a subsequent inventory
   // read, so re-polling recovers watch time the fixed alarm would otherwise

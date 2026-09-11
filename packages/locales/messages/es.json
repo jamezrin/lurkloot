@@ -678,6 +678,12 @@
   "autoClaimChannelPointsDescription": {
     "message": "Reclama automáticamente las bonificaciones de puntos de canal mientras se farmea esta plataforma."
   },
+  "channelPointsPushClaimTitle": {
+    "message": "Reclamar puntos de canal desde eventos en vivo"
+  },
+  "channelPointsPushClaimDescription": {
+    "message": "Reclama el bono en cuanto Twitch lo pone disponible. Desactívalo para comprobar solo una vez por minuto."
+  },
   "strictCampaignAvailabilityTitle": {
     "message": "Disponibilidad estricta de campañas"
   },

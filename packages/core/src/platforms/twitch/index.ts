@@ -6,7 +6,9 @@ import type { TwitchIntegrityRequest } from "../../core/tabs";
 import type { TwitchIntegrity } from "../../core/twitchIntegrity";
 import { PendingWatcherDiagnostics, type HeartbeatResult, type TablessWatchController, type WatchContext } from "../../core/tablessWatch";
 import { StaleWhileRevalidateCache } from "../../core/staleCache";
-import { diagnostic, ignoreEvent, type AdapterOperationOptions, type CandidateChannelSelection, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
+import type { WebSocketFactory } from "../../core/webSocket";
+import { diagnostic, ignoreEvent, type AdapterOperationOptions, type CandidateChannelSelection, type ChannelPointsClaimOptions, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
+import { TwitchChannelPointsPushController } from "./channelPointsPush";
 import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchCampaigns, twitchCandidatesFromCampaign, withCampaignStatus } from "./parser";
 import type { ResolvedCompatibility, TwitchIdentity } from "../../compatibility/types";
 import { createTwitchHeartbeat } from "./heartbeat/factory";
@@ -95,6 +97,13 @@ export interface TwitchAdapterOptions {
   // concurrent capture can swap it. Absent in runtimes that never carry integrity
   // at all (non-web client ids).
   currentIntegrity?: () => TwitchIntegrity | undefined;
+  // Factory for the Hermes channel-points WebSocket. The extension injects
+  // the browser WebSocket; headless runtimes omit it so live-event claiming
+  // stays off without a socket.
+  webSocketFactory?: WebSocketFactory;
+  // Reads the Twitch auth-token cookie. Injected so core stays browser-free
+  // and never logs the value.
+  getAuthToken?: () => Promise<string | undefined>;
 }
 
 const TWITCH_QUERIES = {
@@ -887,6 +896,7 @@ export function createTwitchGqlTransport(
 export class TwitchAdapter implements PlatformAdapter {
   platform = "twitch" as const;
   readonly compatibility?: ResolvedCompatibility["twitch"];
+  readonly createChannelPointsPushController?: () => TwitchChannelPointsPushController;
 
   async checkAuthHealth(signal?: AbortSignal): Promise<PlatformAuthHealth> {
     const checkedAt = new Date().toISOString();
@@ -961,6 +971,16 @@ export class TwitchAdapter implements PlatformAdapter {
     this.discoveryState = options.discoveryState ?? new TwitchDiscoveryState();
     this.gqlTransport = createTwitchGqlTransport(fetcher, options);
     this.inventoryCapability = createTwitchInventory(options.compatibility.inventory);
+    const createWebSocket = options.webSocketFactory;
+    const getAuthToken = options.getAuthToken;
+    if (createWebSocket && getAuthToken) {
+      this.createChannelPointsPushController = () => new TwitchChannelPointsPushController({
+        createWebSocket,
+        getAuthToken,
+        resolveUserId: () => this.resolveViewerUserId(),
+        clientId: this.options.clientId,
+      });
+    }
   }
 
   private async discoverCampaignSnapshot(
@@ -2161,20 +2181,24 @@ export class TwitchAdapter implements PlatformAdapter {
 
   async claimChannelPoints(
     channel: ChannelCandidate,
-    { signal }: AdapterOperationOptions = {},
+    { signal, claimId: providedClaimId, channelId: providedChannelId }: ChannelPointsClaimOptions = {},
   ): Promise<boolean> {
-    const context = await this.gqlWithIntegrityRetry<TwitchChannelPointsData>(
-      "ChannelPointsContext",
-      TWITCH_QUERIES.channelPointsHash,
-      { channelLogin: channel.username },
-      undefined,
-      undefined,
-      this.emit,
-      signal,
-    );
-    const channelId = context.data?.community?.channel?.id;
-    const claimId = context.data?.community?.channel?.self?.communityPoints?.availableClaim?.id;
-    if (!channelId || !claimId) return false;
+    let claimId = providedClaimId;
+    let channelId = providedChannelId;
+    if (!claimId || !channelId) {
+      const context = await this.gqlWithIntegrityRetry<TwitchChannelPointsData>(
+        "ChannelPointsContext",
+        TWITCH_QUERIES.channelPointsHash,
+        { channelLogin: channel.username },
+        undefined,
+        undefined,
+        this.emit,
+        signal,
+      );
+      channelId = context.data?.community?.channel?.id;
+      claimId = context.data?.community?.channel?.self?.communityPoints?.availableClaim?.id;
+      if (!channelId || !claimId) return false;
+    }
 
     // Like a drop claim, this mutation is gated on Client-Integrity. Ensure one
     // exists first (a no-op fast path when a token is already captured), then
@@ -2232,6 +2256,25 @@ export class TwitchAdapter implements PlatformAdapter {
 
   createTablessWatcher(): TablessWatchController {
     return new TwitchWatcher(this.gqlTransport, this.options, this.ensureIntegrity);
+  }
+
+  // Same CurrentUser + one integrity retry as TwitchWatcher.resolveUserId.
+  // Failures stay unresolved so the push controller can reconnect rather than
+  // abort start(); do not log the auth token.
+  private async resolveViewerUserId(): Promise<string | undefined> {
+    try {
+      const response = await this.gqlWithIntegrityRetry<{ currentUser?: { id?: string } }>(
+        "CurrentUser",
+        "",
+        {},
+        CURRENT_USER_QUERY,
+      );
+      return response.data?.currentUser?.id;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      diagnostic(this.emit, "warn", `Could not resolve the Twitch viewer id for channel-points push: ${message}`, "twitch");
+      return undefined;
+    }
   }
 
   private async mergeCurrentSessionProgress(

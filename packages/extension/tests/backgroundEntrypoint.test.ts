@@ -19,6 +19,7 @@ vi.mock("@lurkloot/core/controller", async (importOriginal) => ({
 vi.mock("wxt/browser", () => ({
   browser: {
     i18n: { getMessage: vi.fn() },
+    cookies: { get: vi.fn(async () => ({ value: "token" })) },
   },
 }));
 
@@ -207,5 +208,33 @@ describe("background integrity alarm wiring", () => {
     expect(sockets[0]?.sent).toEqual([
       JSON.stringify({ event: "pusher:subscribe", data: { auth: "", channel: "drops_category_42" } }),
     ]);
+  });
+
+  it("injects the extension WebSocket into the Twitch channel-points observer", async () => {
+    let deps: BackgroundAdapterDependencies | undefined;
+    createBackgroundController.mockImplementation((nextDeps) => {
+      deps = nextDeps;
+      return {};
+    });
+    const sockets: FakeSocket[] = [];
+    vi.stubGlobal("WebSocket", class {
+      constructor(url: string) {
+        expect(url).toBe("wss://hermes.twitch.tv/v1?clientId=kimne78kx3ncx6brgo4mv6wki5h1ko");
+        const socket = new FakeSocket();
+        sockets.push(socket);
+        return socket;
+      }
+    });
+    vi.stubGlobal("defineBackground", vi.fn());
+    const { browser } = await import("wxt/browser");
+
+    await import("../entrypoints/background");
+
+    const observer = deps?.createAdapter?.("twitch", () => undefined, DEFAULT_SETTINGS).adapter.createChannelPointsPushController?.();
+    await observer?.start(() => undefined);
+
+    expect(observer).toBeDefined();
+    expect(sockets).toHaveLength(1);
+    expect(browser.cookies.get).toHaveBeenCalledWith({ url: "https://www.twitch.tv", name: "auth-token" });
   });
 });

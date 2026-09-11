@@ -121,6 +121,9 @@ export function defaultConfigJsonc(): string {
         "categories": ${json(twitch.categories)},
         // Claim channel-point bonuses while farming this platform.
         "autoClaimChannelPoints": ${json(twitch.autoClaimChannelPoints)},
+        // Advanced: claim channel-point bonuses from Twitch's live Hermes
+        // notification. Has no effect without a WebSocket factory.
+        "channelPointsPushClaim": ${json(twitch.channelPointsPushClaim)},
         // Advanced: only farm a campaign on channels Twitch's AvailableDrops
         // query lists it for. Twitch often omits farmable campaigns there, so
         // enabling this can leave drops unfarmed.

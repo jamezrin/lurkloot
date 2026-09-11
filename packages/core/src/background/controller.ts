@@ -25,6 +25,7 @@ import type { IntegrityHeader, TwitchIntegrity } from "../core/twitchIntegrity";
 import type { PlatformAdapter } from "../platforms/adapter";
 import type { TablessWatchController, WatchContext } from "../core/tablessWatch";
 import type { DiscoverySignalController } from "../core/discoverySignals";
+import type { TwitchChannelPointsClaimNotice, TwitchChannelPointsPushController } from "../platforms/twitch/channelPointsPush";
 import { applyPlatformAuthHealth } from "../core/authHealth";
 import { withActivityDiagnostics } from "../core/activityDiagnostics";
 import {
@@ -824,6 +825,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   }
   const campaignEvaluationFingerprints: Partial<Record<Platform, string>> = {};
   const discoverySignalControllers = new Map<Platform, DiscoverySignalController>();
+  let twitchChannelPointsPush: TwitchChannelPointsPushController | undefined;
+  const twitchChannelPointsClaimInFlight = new Set<string>();
   const discoverySignalPlatformBlocked: Record<Platform, boolean> = {
     twitch: false,
     kick: false,
@@ -1625,12 +1628,13 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     ]);
   }
 
-  async function reconcileTwitchChannelPointsAlarm(settings: EngineSettings): Promise<void> {
+  async function reconcileTwitchChannelPointsAlarm(settings: S): Promise<void> {
     if (settings.platform.twitch.enabled && autoClaimChannelPointsFor(settings, "twitch")) {
       await deps.createAlarm(TWITCH_CHANNEL_POINTS_ALARM_NAME, { periodInMinutes: 1 });
     } else {
       await deps.clearAlarm?.(TWITCH_CHANNEL_POINTS_ALARM_NAME);
     }
+    reconcileTwitchChannelPointsPushFromSettingsInBackground(settings);
   }
 
   async function reconcileManualWatchClaimAlarms(settings: EngineSettings): Promise<void> {
@@ -1912,6 +1916,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       });
       if (health.status !== "healthy") {
         await stopDiscoverySignalController(platform, emit);
+        if (platform === "twitch") await stopTwitchChannelPointsPush(emit);
       }
       await reportBestEffort(tickContext
         ? correlateTickDiagnostics(events, tickContext)
@@ -2045,6 +2050,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
           data: { reason: "platform_error", detail: failure.message },
         });
         await stopDiscoverySignalController(failure.platform, emit);
+        if (failure.platform === "twitch") await stopTwitchChannelPointsPush(emit);
       }
       await persistAndReport(
         state,
@@ -2809,6 +2815,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         signal.throwIfAborted();
         assertSelectionsCurrent();
         await reconcileDiscoverySignalControllers(result.state, settings, adapters, emit, schedulerPlatforms);
+        if (schedulerPlatforms.includes("twitch")) {
+          await reconcileTwitchChannelPointsPush(settings, result.state, adapters.twitch, emit);
+        }
         for (const schedulerPlatform of schedulerPlatforms) tickAdapters[schedulerPlatform]?.drain(claimObservingEmit);
         signal.throwIfAborted();
         assertSelectionsCurrent();
@@ -2955,6 +2964,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         if (transition.event) emit(transition.event);
         await saveOperationalState(transition.state);
         await stopDiscoverySignalController(platform, emit);
+        if (platform === "twitch") await stopTwitchChannelPointsPush(emit);
         await reportBestEffort(events);
       }));
     } finally {
@@ -4032,6 +4042,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     void cancelHeartbeatPublicationLeases(PLATFORMS);
     clearHeartbeatOwnershipInBackground(PLATFORMS);
     stopDiscoverySignalControllersInBackground(PLATFORMS);
+    stopTwitchChannelPointsPushInBackground();
   }
 
   async function prepareForHostReset(resetHostStorage?: () => Promise<void>): Promise<void> {
@@ -4048,6 +4059,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       closeTwitchIntegrityLifecycle("Host reset");
       abortClaimOnlyOperations("Host reset");
       await stopDiscoverySignalControllersAndReport(PLATFORMS);
+      await stopTwitchChannelPointsPushAndReport();
       await clearTwitchIntegrityAlarmBestEffort();
       await clearTwitchChannelPointsAlarmBestEffort();
       await clearManualWatchClaimAlarmsBestEffort();
@@ -4811,10 +4823,221 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     }
   }
 
+  function drainTwitchChannelPointsPushEvents(
+    controller: TwitchChannelPointsPushController,
+    emit: EventEmitter,
+  ): void {
+    for (const event of controller.drainEvents()) emit(event);
+  }
+
+  async function stopTwitchChannelPointsPush(emit: EventEmitter): Promise<void> {
+    const controller = twitchChannelPointsPush;
+    if (!controller) return;
+    twitchChannelPointsPush = undefined;
+    drainTwitchChannelPointsPushEvents(controller, emit);
+    try {
+      await controller.stop();
+    } catch (error) {
+      emitHostCallbackError(emit, "twitch", error, "Could not stop the Twitch channel-points observer");
+    } finally {
+      drainTwitchChannelPointsPushEvents(controller, emit);
+    }
+  }
+
+  async function stopTwitchChannelPointsPushAndReport(): Promise<void> {
+    await withEventCollector(async (emit, events) => {
+      await stopTwitchChannelPointsPush(emit);
+      await reportBestEffort(events);
+    });
+  }
+
+  function stopTwitchChannelPointsPushInBackground(): void {
+    const run = stopTwitchChannelPointsPushAndReport().catch((error) => {
+      diagnosticEvent(
+        "warn",
+        `Twitch channel-points observer cleanup failed: ${error instanceof Error ? error.message : String(error)}`,
+        "twitch",
+      );
+    });
+    backgroundWork = backgroundWork.then(() => run, () => run);
+  }
+
+  function reconcileTwitchChannelPointsPushFromSettingsInBackground(settings: S): void {
+    const run = reconcileTwitchChannelPointsPushFromSettings(settings).catch((error) => {
+      diagnosticEvent(
+        "warn",
+        `Twitch channel-points observer reconcile failed: ${error instanceof Error ? error.message : String(error)}`,
+        "twitch",
+      );
+    });
+    backgroundWork = backgroundWork.then(() => run, () => run);
+  }
+
+  function twitchChannelPointsPushWanted(
+    settings: EngineSettings,
+    state: SchedulerState,
+    factory: PlatformAdapter["createChannelPointsPushController"],
+  ): boolean {
+    return discoverySignalLifecycleOpen
+      && !controllerShutdown
+      && settings.platform.twitch.enabled
+      && autoClaimChannelPointsFor(settings, "twitch")
+      && settings.platform.twitch.channelPointsPushClaim
+      && state.authHealth.twitch.status === "healthy"
+      && Boolean(eligibleTwitchChannelPointsChannel(settings, state))
+      && Boolean(factory);
+  }
+
+  async function reconcileTwitchChannelPointsPush(
+    settings: EngineSettings,
+    state: SchedulerState,
+    adapter: PlatformAdapter,
+    emit: EventEmitter,
+  ): Promise<void> {
+    const factory = adapter.createChannelPointsPushController;
+    if (!twitchChannelPointsPushWanted(settings, state, factory) || !factory) {
+      await stopTwitchChannelPointsPush(emit);
+      return;
+    }
+
+    let controller = twitchChannelPointsPush;
+    if (!controller) {
+      try {
+        controller = factory();
+        twitchChannelPointsPush = controller;
+      } catch (error) {
+        emitHostCallbackError(emit, "twitch", error, "Could not create the Twitch channel-points observer");
+        return;
+      }
+    }
+
+    drainTwitchChannelPointsPushEvents(controller, emit);
+    try {
+      await controller.start((notice) => {
+        if (twitchChannelPointsPush !== controller) return;
+        queueTwitchChannelPointsPushClaim(notice);
+      });
+    } catch (error) {
+      emitHostCallbackError(emit, "twitch", error, "Could not start the Twitch channel-points observer");
+      if (twitchChannelPointsPush === controller) twitchChannelPointsPush = undefined;
+    } finally {
+      drainTwitchChannelPointsPushEvents(controller, emit);
+    }
+
+    if (
+      twitchChannelPointsPush !== controller
+      || !discoverySignalLifecycleOpen
+      || controllerShutdown
+    ) {
+      if (twitchChannelPointsPush === controller) twitchChannelPointsPush = undefined;
+      try {
+        await controller.stop();
+      } catch (error) {
+        emitHostCallbackError(emit, "twitch", error, "Could not stop the Twitch channel-points observer");
+      } finally {
+        drainTwitchChannelPointsPushEvents(controller, emit);
+      }
+    }
+  }
+
+  async function reconcileTwitchChannelPointsPushFromSettings(settings: S): Promise<void> {
+    await withEventCollector(async (emit, events) => {
+      let adapter: PlatformAdapter | undefined;
+      try {
+        if (
+          controllerShutdown
+          || !discoverySignalLifecycleOpen
+          || !settings.platform.twitch.enabled
+          || !autoClaimChannelPointsFor(settings, "twitch")
+          || !settings.platform.twitch.channelPointsPushClaim
+        ) {
+          await stopTwitchChannelPointsPush(emit);
+          return;
+        }
+        const state = await deps.loadState();
+        if (
+          state.authHealth.twitch.status !== "healthy"
+          || !eligibleTwitchChannelPointsChannel(settings, state)
+        ) {
+          await stopTwitchChannelPointsPush(emit);
+          return;
+        }
+        adapter = createAdapter("twitch", settings, emit);
+        await reconcileTwitchChannelPointsPush(settings, state, adapter, emit);
+      } catch (error) {
+        emitHostCallbackError(emit, "twitch", error, "Could not reconcile the Twitch channel-points observer");
+        await stopTwitchChannelPointsPush(emit);
+      } finally {
+        adapter?.flushRouteDiagnostics?.(emit);
+        await reportBestEffort(events);
+      }
+    });
+  }
+
+  function queueTwitchChannelPointsPushClaim(notice: TwitchChannelPointsClaimNotice): void {
+    if (controllerShutdown) return;
+    if (twitchChannelPointsClaimInFlight.has(notice.claimId)) return;
+    twitchChannelPointsClaimInFlight.add(notice.claimId);
+    const run = withPlatformLock("twitch", () => withEventCollector(async (emit, events) => {
+      try {
+        if (twitchChannelPointsPush) drainTwitchChannelPointsPushEvents(twitchChannelPointsPush, emit);
+        await claimTwitchChannelPointsFromPush(notice, emit);
+      } finally {
+        twitchChannelPointsClaimInFlight.delete(notice.claimId);
+        if (twitchChannelPointsPush) drainTwitchChannelPointsPushEvents(twitchChannelPointsPush, emit);
+        await reportBestEffort(events);
+      }
+    }));
+    backgroundWork = backgroundWork.then(() => run, () => run);
+  }
+
+  async function claimTwitchChannelPointsFromPush(
+    notice: TwitchChannelPointsClaimNotice,
+    emit: EventEmitter,
+  ): Promise<void> {
+    if (controllerShutdown) return;
+    const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
+    if (!settings.platform.twitch.enabled
+      || !autoClaimChannelPointsFor(settings, "twitch")
+      || !settings.platform.twitch.channelPointsPushClaim
+      || state.authHealth.twitch.status !== "healthy") return;
+    const channel = eligibleTwitchChannelPointsChannel(settings, state);
+    if (!channel) return;
+    if (channel.channelId !== undefined && channel.channelId !== notice.channelId) return;
+    if (!twitchChannelPointsClaimInFlight.has(notice.claimId)) return;
+    try {
+      const adapter = createAdapter("twitch", settings, emit, true);
+      const claimed = await adapter.claimChannelPoints?.(channel, {
+        claimId: notice.claimId,
+        channelId: notice.channelId,
+      });
+      if (claimed) {
+        emit({
+          category: "diagnostic",
+          platform: "twitch",
+          level: "info",
+          message: `Claimed channel points for ${channel.displayName ?? channel.username}`,
+        });
+      }
+    } catch (error) {
+      emit({
+        category: "diagnostic",
+        platform: "twitch",
+        level: "warn",
+        message: error instanceof Error ? error.message : "Channel points claim failed",
+      });
+    }
+  }
+
   async function runTwitchChannelPointsClaim(): Promise<void> {
     if (controllerShutdown) return;
     await withPlatformLock("twitch", () => withEventCollector(async (emit, events) => {
       if (controllerShutdown) return;
+      if (twitchChannelPointsPush?.subscribed) {
+        drainTwitchChannelPointsPushEvents(twitchChannelPointsPush, emit);
+        await reportBestEffort(events);
+        return;
+      }
       const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
       if (!settings.platform.twitch.enabled
         || !autoClaimChannelPointsFor(settings, "twitch")

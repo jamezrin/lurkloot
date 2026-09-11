@@ -96,6 +96,7 @@ function demoSnapshot(): RuntimeSnapshot {
         idleWatchlistChannels: ["rivalspilot", "lootforge", "nightrunlive"],
         excludedChannels: ["spoilerboss"],
         strictCampaignAvailability: false,
+        channelPointsPushClaim: true,
         categoryMode: "include",
         categories: [
           { id: "marathon legends", name: "Marathon Legends" },
