@@ -5286,7 +5286,8 @@ function newlyEarnedRewards(
     for (const campaign of next.campaigns[platform]) {
       for (const reward of campaign.rewards) {
         const before = previousStatuses.get(`${platform}:${campaign.id}:${reward.id}`);
-        if ((reward.status === "claimable" || reward.status === "claimed") && before !== reward.status) {
+        const wasKnownAndUnearned = before !== undefined && before !== "claimable" && before !== "claimed";
+        if ((reward.status === "claimable" || reward.status === "claimed") && wasKnownAndUnearned) {
           earned.push({ campaign, reward });
         }
       }
