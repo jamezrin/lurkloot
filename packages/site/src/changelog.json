@@ -1,5 +1,58 @@
 [
   {
+    "version": "1.13.0",
+    "changes": [
+      {
+        "kind": "new",
+        "text": "Lurkloot now adds its own button to the top-right navigation on twitch.tv and kick.com, which opens a draggable panel on the page showing drop progress and the farming toggles. The toolbar popup is awkward to reach when the extension is not pinned, and most people do not pin it. Settings, the activity log, and import/export stay in the toolbar popup. Turn the panel off with “Show panel on Twitch and Kick”."
+      },
+      {
+        "kind": "new",
+        "text": "The category filter now has three modes instead of an all-or-nothing switch. “All categories” farms everything, “Only selected” farms just the categories you list, and “All except selected” farms everything but them, so a short blocklist can replace a long allowlist. Your list is kept when you change modes, so switching to exclude and back restores the include order you had set."
+      },
+      {
+        "kind": "new",
+        "text": "Twitch channel point bonuses are now claimed the moment Twitch announces them, over the same live connection the website itself uses, instead of waiting for the next check. The once-a-minute check remains as a fallback whenever that connection is unavailable. The new “Claim channel points from live events” setting, on by default, turns this off if you would rather stay on the minute check."
+      },
+      {
+        "kind": "improved",
+        "text": "Simplified Chinese has been reworked by a community contributor. Drops, claiming, and farming now use consistent wording throughout, drop campaigns are no longer confused with the Activity page, the Idle Watchlist has a name that explains what it does, and several literal translations were replaced with descriptions of what Lurkloot actually does. Popup labels that were still English-only are now translated."
+      },
+      {
+        "kind": "improved",
+        "text": "Settings now gives Twitch and Kick a section of their own, replacing the single combined platform section whose tab switch kept half of each platform's options off screen. Each platform ends in its own “Advanced & compatibility” group, and every section now describes its own contents instead of repeating one shared line."
+      },
+      {
+        "kind": "improved",
+        "text": "Lurkloot does considerably less work on every check. Twitch reuses campaign details across consecutive checks and stops re-searching a campaign for five minutes once it is confirmed unavailable, Kick discards campaigns you cannot earn before enumerating their channels and no longer looks up the same channel twice in one pass, overlapping checks on the same platform are merged into one instead of stacking up, and a check that changed nothing no longer rewrites saved state."
+      },
+      {
+        "kind": "fixed",
+        "text": "Fixed drop claims and Kick daily challenges stalling while farming was paused because you were watching a stream yourself. Claiming now runs on its own schedule during those pauses, so a finished drop is collected instead of waiting for farming to resume."
+      },
+      {
+        "kind": "fixed",
+        "text": "Fixed Twitch campaign discovery quietly freezing on an out-of-date campaign list. Two of the internal request identifiers Twitch expects had been rotated, and one of them failed silently enough that Lurkloot kept reusing the last list it had managed to read, so new campaigns never appeared."
+      },
+      {
+        "kind": "fixed",
+        "text": "Fixed a burst of notifications for rewards you had already earned, which appeared after reinstalling Lurkloot or resetting its data. Rewards that are already finished the first time Lurkloot sees them are now treated as your existing inventory, and a reward claimed immediately after becoming available no longer notifies twice."
+      },
+      {
+        "kind": "fixed",
+        "text": "Fixed Kick opening a background fallback page more often than necessary and occasionally leaving one behind. Recovery is now judged once per check rather than once per request, only the exact page Lurkloot opened is ever closed, and a new “Kick fallback-page recovery” advanced setting controls how many clean cycles are required first, from 1 to 10 with a default of 3."
+      },
+      {
+        "kind": "fixed",
+        "text": "Fixed internal watch-session messages surfacing in the popup's automation status line, where they read as raw diagnostics instead of a plain description of what Lurkloot is doing."
+      },
+      {
+        "kind": "fixed",
+        "text": "Fixed tabless watching drifting off its fixed cadence, where one slow or late heartbeat pushed the following ones back instead of each keeping its own schedule. Heartbeats now run on a lane of their own per platform, late or overlapping sends are merged rather than repeated, and the cadence is restored correctly after a restart."
+      }
+    ]
+  },
+  {
     "version": "1.12.2",
     "changes": [
       {
