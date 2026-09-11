@@ -87,3 +87,36 @@ export function mergePlatformState(
     lastTickAt: newestTimestamp(destination.lastTickAt, source.lastTickAt),
   };
 }
+
+// Structural comparison for the JSON-shaped scheduler state. Every field that
+// reaches storage is JSON-serializable — the extension writes it to
+// storage.local, the CLI to a file — so a plain structural walk is exact here:
+// there are no Dates, Maps or class instances to miscompare.
+//
+// Keys whose value is undefined are ignored on both sides. That is not a
+// convenience: a round trip through storage drops them, so the freshly built
+// state (which sets `channel: undefined` and friends explicitly) must compare
+// equal to the stored state that simply lacks those keys.
+function jsonEquivalent(left: unknown, right: unknown): boolean {
+  if (left === right) return true;
+  if (typeof left !== "object" || typeof right !== "object" || left === null || right === null) return false;
+  if (Array.isArray(left) || Array.isArray(right)) {
+    if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) return false;
+    return left.every((value, index) => jsonEquivalent(value, right[index]));
+  }
+  const leftRecord = left as Record<string, unknown>;
+  const rightRecord = right as Record<string, unknown>;
+  const leftKeys = Object.keys(leftRecord).filter((key) => leftRecord[key] !== undefined);
+  const rightKeys = Object.keys(rightRecord).filter((key) => rightRecord[key] !== undefined);
+  if (leftKeys.length !== rightKeys.length) return false;
+  return leftKeys.every((key) => jsonEquivalent(leftRecord[key], rightRecord[key]));
+}
+
+// True when two scheduler states differ only by `lastTickAt`, which every tick
+// restamps whether or not it decided anything. It is display-only (the popup's
+// last-check line), so it must not by itself justify a storage write.
+export function schedulerStateEquivalent(left: SchedulerState, right: SchedulerState): boolean {
+  const { lastTickAt: _leftTickAt, ...leftRest } = left;
+  const { lastTickAt: _rightTickAt, ...rightRest } = right;
+  return jsonEquivalent(leftRest, rightRest);
+}
