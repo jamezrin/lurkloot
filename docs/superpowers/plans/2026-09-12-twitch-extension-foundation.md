@@ -1,5 +1,8 @@
 # Twitch Extension foundation implementation plan
 
+> Superseded runtime plan: see `../specs/2026-09-12-tabless-twitch-extensions-design.md`.
+> The user requires tabless operation without Twitch/provider frames.
+
 Goal: Implement issue #507, the provider-neutral foundation for #506.
 Spec: https://github.com/jamezrin/lurkloot/issues/507
 

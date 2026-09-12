@@ -1,5 +1,10 @@
 # Twitch Extension foundation (#507)
 
+> The iframe-dependent runtime plan below is superseded by
+> `../superpowers/specs/2026-09-12-tabless-twitch-extensions-design.md` following
+> the user's tabless requirement. The existing modules remain unwired while the
+> tabless transport replaces that plan.
+
 The provider registry, permission/registration lifecycle and same-frame relay
 are implemented as independently tested modules. They are not wired into the
 background or exposed in settings yet. No provider code executes in a shipped
