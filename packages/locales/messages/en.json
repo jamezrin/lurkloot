@@ -1429,5 +1429,14 @@
   },
   "scrollRewardsRight": {
     "message": "Scroll rewards right"
+  },
+  "activityExtensionGiveawayJoined": {
+    "message": "Joined a $1 giveaway on $2."
+  },
+  "activityExtensionSpriteCaptured": {
+    "message": "Captured a $1 sprite on $2."
+  },
+  "activityExtensionTakeoverStarted": {
+    "message": "Started a $1 takeover from $2."
   }
 }

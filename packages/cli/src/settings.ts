@@ -138,6 +138,7 @@ const CLI_COMPATIBILITY_KEYS: Record<Platform, Set<string>> = {
 // removed from the settings contract, so the schema migration strips it (with a
 // diagnostic) before this scan ever sees it.
 const EXTENSION_ONLY_KEYS = new Set<string>([
+  "twitchExtensions",
   "tablessMode",
   "muteFarmingTabs",
   "keepFarmingVideosUnmuted",

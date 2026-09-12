@@ -12,6 +12,7 @@ const TARGET = {
 };
 
 const EVENTS = {
+  twitch_extension_action: { category: "activity", code: "twitch_extension_action", level: "info", platform: "twitch", data: { provider: "nopixel", action: "giveaway_joined", channel: "buddha" } },
   farming_started: {
     category: "activity",
     code: "farming_started",

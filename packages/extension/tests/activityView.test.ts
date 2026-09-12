@@ -37,6 +37,7 @@ describe("activity view model", () => {
     const t = vi.fn((key: string, substitutions?: string | string[]) =>
       `${key}:${Array.isArray(substitutions) ? substitutions.join("|") : substitutions ?? ""}`);
     const events = {
+      twitch_extension_action: { id: "extension-joined", at, category: "activity", code: "twitch_extension_action", level: "info", platform: "twitch", data: { provider: "nopixel", action: "giveaway_joined", channel: "buddha" } },
       farming_started: {
         id: "farming-started", at, category: "activity", code: "farming_started", level: "info", platform: "twitch",
         data: {

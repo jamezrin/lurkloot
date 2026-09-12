@@ -494,10 +494,18 @@
   "failuresSuffix": {
     "message": "fallos"
   },
-  "kickPageContextRecoverySuccessesTitle": { "message": "Recuperación de la página auxiliar de Kick" },
-  "kickPageContextRecoverySuccessesDescription": { "message": "Cierra una página auxiliar de Kick abierta por la extensión tras este número de ciclos de actualización correctos." },
-  "kickPageContextRecoverySuccessesDisabledReason": { "message": "Activa Kick para cambiar este ajuste." },
-  "cyclesSuffix": { "message": "ciclos" },
+  "kickPageContextRecoverySuccessesTitle": {
+    "message": "Recuperación de la página auxiliar de Kick"
+  },
+  "kickPageContextRecoverySuccessesDescription": {
+    "message": "Cierra una página auxiliar de Kick abierta por la extensión tras este número de ciclos de actualización correctos."
+  },
+  "kickPageContextRecoverySuccessesDisabledReason": {
+    "message": "Activa Kick para cambiar este ajuste."
+  },
+  "cyclesSuffix": {
+    "message": "ciclos"
+  },
   "autoCloseTabsTitle": {
     "message": "Cerrar pestañas de farmeo automáticamente"
   },
@@ -1421,5 +1429,14 @@
   },
   "scrollRewardsRight": {
     "message": "Desplazar recompensas a la derecha"
+  },
+  "activityExtensionGiveawayJoined": {
+    "message": "Te uniste a un sorteo de $1 en $2."
+  },
+  "activityExtensionSpriteCaptured": {
+    "message": "Capturaste un sprite de $1 en $2."
+  },
+  "activityExtensionTakeoverStarted": {
+    "message": "Iniciaste un ataque de $1 desde $2."
   }
 }

@@ -36,7 +36,9 @@
     "./controller": "./src/background/controller.ts",
     "./background/platformState": "./src/background/platformState.ts",
     "./extensions/types": "./src/extensions/types.ts",
-    "./extensions/registry": "./src/extensions/registry.ts"
+    "./extensions/registry": "./src/extensions/registry.ts",
+    "./extensions/reports": "./src/extensions/reports.ts",
+    "./extensions/nopixel/state": "./src/extensions/nopixel/state.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

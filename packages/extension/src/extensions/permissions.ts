@@ -46,37 +46,41 @@ export function createProviderPermissions(options: {
       }
     }
   }
-  return {
-    enable(id: TwitchExtensionProviderId): Promise<boolean> {
-      const provider = descriptor(id);
-      const generation = generations.get(id) ?? 0;
-      // Invoke directly from the UI gesture, BEFORE any asynchronous storage
-      // reads or serialization; permissions.request needs the gesture intact.
-      const grant = options.permissions.request({ origins: [provider.backendOrigin] });
-      // Handle rejection immediately even if another queued operation is slow.
-      const outcome = grant.then((granted) => ({ granted }), (error: unknown) => ({ error }));
-      return serialize(async () => {
-        const result = await outcome;
-        if ((generations.get(id) ?? 0) !== generation) return false;
-        if ("error" in result) throw result.error;
-        if (!result.granted) { await disable(id); return false; }
-        if (!await options.permissions.contains({ origins: [provider.backendOrigin] })) {
-          await disable(id);
-          return false;
-        }
-        if ((generations.get(id) ?? 0) !== generation) return false;
-        try {
-          await options.runtime.start(provider);
-          if ((generations.get(id) ?? 0) !== generation) { await disable(id); return false; }
-          await options.setEnabled(id, true);
-        } catch (error) {
-          await disable(id);
-          throw error;
-        }
+  function enable(id: TwitchExtensionProviderId, granted?: Promise<boolean>): Promise<boolean> {
+    const provider = descriptor(id);
+    const generation = generations.get(id) ?? 0;
+    // Invoke directly from the UI gesture, BEFORE any asynchronous storage
+    // reads or serialization; permissions.request needs the gesture intact.
+    const grant = granted ?? options.permissions.request({ origins: [provider.backendOrigin] });
+    // Handle rejection immediately even if another queued operation is slow.
+    const outcome = grant.then((granted) => ({ granted }), (error: unknown) => ({ error }));
+    return serialize(async () => {
+      const result = await outcome;
+      if ((generations.get(id) ?? 0) !== generation) return false;
+      if ("error" in result) throw result.error;
+      if (!result.granted) { await disable(id); return false; }
+      if (!await options.permissions.contains({ origins: [provider.backendOrigin] })) {
+        await disable(id);
+        return false;
+      }
+      if ((generations.get(id) ?? 0) !== generation) return false;
+      try {
+        await options.runtime.start(provider);
         if ((generations.get(id) ?? 0) !== generation) { await disable(id); return false; }
-        return true;
-      });
-    },
+        await options.setEnabled(id, true);
+      } catch (error) {
+        await disable(id);
+        throw error;
+      }
+      if ((generations.get(id) ?? 0) !== generation) { await disable(id); return false; }
+      return true;
+    });
+  }
+  return {
+    enable(id: TwitchExtensionProviderId): Promise<boolean> { return enable(id); },
+    // Extension UI requests access directly from its gesture, then the
+    // background verifies that grant before enabling. Never trust a UI boolean.
+    enableGranted(id: TwitchExtensionProviderId): Promise<boolean> { return enable(id, Promise.resolve(true)); },
     disable(id: TwitchExtensionProviderId): Promise<void> {
       invalidate(id);
       return serialize(() => disable(id));

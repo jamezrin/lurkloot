@@ -494,10 +494,18 @@
   "failuresSuffix": {
     "message": "hata"
   },
-  "kickPageContextRecoverySuccessesTitle": { "message": "Kick yedek sayfa kurtarma" },
-  "kickPageContextRecoverySuccessesDescription": { "message": "Uzantının açtığı Kick yedek sayfasını bu sayıda başarılı yenileme döngüsünden sonra kapatır." },
-  "kickPageContextRecoverySuccessesDisabledReason": { "message": "Bu ayarı değiştirmek için Kick’i etkinleştirin." },
-  "cyclesSuffix": { "message": "döngü" },
+  "kickPageContextRecoverySuccessesTitle": {
+    "message": "Kick yedek sayfa kurtarma"
+  },
+  "kickPageContextRecoverySuccessesDescription": {
+    "message": "Uzantının açtığı Kick yedek sayfasını bu sayıda başarılı yenileme döngüsünden sonra kapatır."
+  },
+  "kickPageContextRecoverySuccessesDisabledReason": {
+    "message": "Bu ayarı değiştirmek için Kick’i etkinleştirin."
+  },
+  "cyclesSuffix": {
+    "message": "döngü"
+  },
   "autoCloseTabsTitle": {
     "message": "Gereksiz sekmeleri kapat"
   },
@@ -1421,5 +1429,14 @@
   },
   "scrollRewardsRight": {
     "message": "Ödülleri sağa kaydır"
+  },
+  "activityExtensionGiveawayJoined": {
+    "message": "$2 kanalında bir $1 çekilişine katıldı."
+  },
+  "activityExtensionSpriteCaptured": {
+    "message": "$2 kanalında bir $1 sprite nesnesi yakaladı."
+  },
+  "activityExtensionTakeoverStarted": {
+    "message": "$2 kanalından bir $1 saldırısı başlattı."
   }
 }

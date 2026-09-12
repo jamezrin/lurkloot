@@ -494,10 +494,18 @@
   "failuresSuffix": {
     "message": "errori"
   },
-  "kickPageContextRecoverySuccessesTitle": { "message": "Ripristino della pagina di riserva Kick" },
-  "kickPageContextRecoverySuccessesDescription": { "message": "Chiude una pagina di riserva Kick aperta dall’estensione dopo questo numero di cicli di aggiornamento riusciti." },
-  "kickPageContextRecoverySuccessesDisabledReason": { "message": "Abilita Kick per modificare questa impostazione." },
-  "cyclesSuffix": { "message": "cicli" },
+  "kickPageContextRecoverySuccessesTitle": {
+    "message": "Ripristino della pagina di riserva Kick"
+  },
+  "kickPageContextRecoverySuccessesDescription": {
+    "message": "Chiude una pagina di riserva Kick aperta dall’estensione dopo questo numero di cicli di aggiornamento riusciti."
+  },
+  "kickPageContextRecoverySuccessesDisabledReason": {
+    "message": "Abilita Kick per modificare questa impostazione."
+  },
+  "cyclesSuffix": {
+    "message": "cicli"
+  },
   "autoCloseTabsTitle": {
     "message": "Chiudi automaticamente le schede di farming"
   },
@@ -1421,5 +1429,14 @@
   },
   "scrollRewardsRight": {
     "message": "Scorri le ricompense a destra"
+  },
+  "activityExtensionGiveawayJoined": {
+    "message": "Partecipazione a un giveaway di $1 su $2."
+  },
+  "activityExtensionSpriteCaptured": {
+    "message": "Sprite di $1 catturato su $2."
+  },
+  "activityExtensionTakeoverStarted": {
+    "message": "Attacco di $1 avviato da $2."
   }
 }

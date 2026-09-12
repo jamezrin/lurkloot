@@ -494,10 +494,18 @@
   "failuresSuffix": {
     "message": "сбоев"
   },
-  "kickPageContextRecoverySuccessesTitle": { "message": "Восстановление резервной страницы Kick" },
-  "kickPageContextRecoverySuccessesDescription": { "message": "Закрывать открытую расширением резервную страницу Kick после указанного числа успешных циклов обновления." },
-  "kickPageContextRecoverySuccessesDisabledReason": { "message": "Включите Kick, чтобы изменить эту настройку." },
-  "cyclesSuffix": { "message": "циклов" },
+  "kickPageContextRecoverySuccessesTitle": {
+    "message": "Восстановление резервной страницы Kick"
+  },
+  "kickPageContextRecoverySuccessesDescription": {
+    "message": "Закрывать открытую расширением резервную страницу Kick после указанного числа успешных циклов обновления."
+  },
+  "kickPageContextRecoverySuccessesDisabledReason": {
+    "message": "Включите Kick, чтобы изменить эту настройку."
+  },
+  "cyclesSuffix": {
+    "message": "циклов"
+  },
   "autoCloseTabsTitle": {
     "message": "Автозакрытие вкладок фарма"
   },
@@ -1421,5 +1429,14 @@
   },
   "scrollRewardsRight": {
     "message": "Прокрутить награды вправо"
+  },
+  "activityExtensionGiveawayJoined": {
+    "message": "Участие в розыгрыше $1 на канале $2."
+  },
+  "activityExtensionSpriteCaptured": {
+    "message": "Спрайт $1 пойман на канале $2."
+  },
+  "activityExtensionTakeoverStarted": {
+    "message": "Атака $1 начата с канала $2."
   }
 }

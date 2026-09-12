@@ -494,10 +494,18 @@
   "failuresSuffix": {
     "message": "حالات فشل"
   },
-  "kickPageContextRecoverySuccessesTitle": { "message": "استرداد صفحة Kick الاحتياطية" },
-  "kickPageContextRecoverySuccessesDescription": { "message": "أغلق صفحة Kick الاحتياطية التي فتحها الامتداد بعد هذا العدد من دورات التحديث الناجحة." },
-  "kickPageContextRecoverySuccessesDisabledReason": { "message": "فعّل Kick لتغيير هذا الإعداد." },
-  "cyclesSuffix": { "message": "دورات" },
+  "kickPageContextRecoverySuccessesTitle": {
+    "message": "استرداد صفحة Kick الاحتياطية"
+  },
+  "kickPageContextRecoverySuccessesDescription": {
+    "message": "أغلق صفحة Kick الاحتياطية التي فتحها الامتداد بعد هذا العدد من دورات التحديث الناجحة."
+  },
+  "kickPageContextRecoverySuccessesDisabledReason": {
+    "message": "فعّل Kick لتغيير هذا الإعداد."
+  },
+  "cyclesSuffix": {
+    "message": "دورات"
+  },
   "autoCloseTabsTitle": {
     "message": "إغلاق تبويبات الفارم تلقائيًا"
   },
@@ -1421,5 +1429,14 @@
   },
   "scrollRewardsRight": {
     "message": "تمرير المكافآت إلى اليمين"
+  },
+  "activityExtensionGiveawayJoined": {
+    "message": "تم الانضمام إلى سحب $1 على قناة $2."
+  },
+  "activityExtensionSpriteCaptured": {
+    "message": "تم التقاط كائن $1 على قناة $2."
+  },
+  "activityExtensionTakeoverStarted": {
+    "message": "تم بدء هجوم $1 من قناة $2."
   }
 }

@@ -494,10 +494,18 @@
   "failuresSuffix": {
     "message": "Fehler"
   },
-  "kickPageContextRecoverySuccessesTitle": { "message": "Wiederherstellung der Kick-Ausweichseite" },
-  "kickPageContextRecoverySuccessesDescription": { "message": "Schließt eine von der Erweiterung geöffnete Kick-Ausweichseite nach dieser Anzahl erfolgreicher Aktualisierungszyklen." },
-  "kickPageContextRecoverySuccessesDisabledReason": { "message": "Aktiviere Kick, um diese Einstellung zu ändern." },
-  "cyclesSuffix": { "message": "Zyklen" },
+  "kickPageContextRecoverySuccessesTitle": {
+    "message": "Wiederherstellung der Kick-Ausweichseite"
+  },
+  "kickPageContextRecoverySuccessesDescription": {
+    "message": "Schließt eine von der Erweiterung geöffnete Kick-Ausweichseite nach dieser Anzahl erfolgreicher Aktualisierungszyklen."
+  },
+  "kickPageContextRecoverySuccessesDisabledReason": {
+    "message": "Aktiviere Kick, um diese Einstellung zu ändern."
+  },
+  "cyclesSuffix": {
+    "message": "Zyklen"
+  },
   "autoCloseTabsTitle": {
     "message": "Farming-Tabs automatisch schließen"
   },
@@ -1421,5 +1429,14 @@
   },
   "scrollRewardsRight": {
     "message": "Belohnungen nach rechts scrollen"
+  },
+  "activityExtensionGiveawayJoined": {
+    "message": "An einer $1-Verlosung auf $2 teilgenommen."
+  },
+  "activityExtensionSpriteCaptured": {
+    "message": "Ein $1-Sprite auf $2 gesammelt."
+  },
+  "activityExtensionTakeoverStarted": {
+    "message": "Einen $1-Angriff von $2 gestartet."
   }
 }

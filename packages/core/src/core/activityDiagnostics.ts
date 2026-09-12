@@ -21,6 +21,8 @@ function target(data: { campaignId: string; campaignName: string; rewardId: stri
 
 function describe(event: ActivityEvent): string {
   switch (event.code) {
+    case "twitch_extension_action":
+      return `${event.data.provider} ${event.data.action} on channel ${event.data.channel}`;
     case "farming_started":
       return `Started farming ${target(event.data)}${event.data.channel ? ` on channel ${event.data.channel}` : ""}`;
     case "farming_stopped":
