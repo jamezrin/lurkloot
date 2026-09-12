@@ -9,11 +9,8 @@ interface ProviderManifest {
 }
 
 export function applyProviderOptionalPermissions(manifest: ProviderManifest): void {
-  const origins = twitchExtensionProviders.map((provider) => provider.origin);
-  // WXT promotes runtime script matches to host_permissions. Run after WXT
-  // has generated the manifest, before its MV2 conversion, to undo only the
-  // provider-origin promotions and preserve every existing required grant.
-  if (manifest.host_permissions) manifest.host_permissions = manifest.host_permissions.filter((origin) => !origins.includes(origin as typeof origins[number]));
+  const origins = twitchExtensionProviders.map((provider) => provider.backendOrigin);
+  // Backend access is optional. Required grants are never modified here.
   if (manifest.manifest_version === 2) {
     manifest.optional_permissions = [...new Set([...(manifest.optional_permissions ?? []), ...(manifest.optional_host_permissions ?? []), ...origins])];
     delete manifest.optional_host_permissions;

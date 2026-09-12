@@ -18,15 +18,17 @@ query CoordinatorExtensionsForChannel($channelID: ID!) {
 }`;
 
 export type TwitchExtensionSessionOutcome = "ready" | "unavailable" | "auth-required"
-  | "expired" | "compatibility-error" | "transport-error" | "provider-error";
+  | "expired" | "compatibility-error" | "transport-error" | "provider-error" | "cancelled";
 
-interface SessionSource {
-  query(query: string, variables: Record<string, string>): Promise<unknown>;
+export interface SessionSource {
+  query(query: string, variables: Record<string, string>, signal?: AbortSignal): Promise<unknown>;
   hasSession(): Promise<boolean>;
   now(): number;
 }
-interface DriverSession {
+export interface DriverSession {
   readonly jwt: string;
+  readonly expiresAt: number;
+  readonly signal?: AbortSignal;
   readonly channelId: string;
   readonly version: string;
   readonly identityLinked: boolean;
@@ -55,12 +57,16 @@ export async function withTwitchExtensionSession(
   provider: TwitchExtensionProviderDescriptor,
   channelId: string,
   run: (session: DriverSession) => Promise<unknown>,
+  signal?: AbortSignal,
 ): Promise<TwitchExtensionSessionOutcome> {
+  if (signal?.aborted) return "cancelled";
   let response: unknown;
   try {
     if (!await source.hasSession()) return "auth-required";
-    response = await source.query(TWITCH_EXTENSION_SESSION_QUERY, { channelID: channelId });
-  } catch { return "transport-error"; }
+    if (signal?.aborted) return "cancelled";
+    response = await source.query(TWITCH_EXTENSION_SESSION_QUERY, { channelID: channelId }, signal);
+  } catch { return signal?.aborted ? "cancelled" : "transport-error"; }
+  if (signal?.aborted) return "cancelled";
   const envelope = object(response);
   if (!envelope || envelope.errors !== undefined) return "transport-error";
   const channel = object(object(object(envelope.data)?.user)?.channel);
@@ -82,9 +88,9 @@ export async function withTwitchExtensionSession(
     if (claims.exp * 1000 <= source.now() + 30_000) return "expired";
     if (typeof claims.opaque_user_id !== "string" || !claims.opaque_user_id.startsWith("U")) return "auth-required";
     try {
-      await run({ jwt, channelId, version: extension.version, identityLinked: typeof claims.user_id === "string" && Boolean(claims.user_id) });
-      return "ready";
-    } catch { return "provider-error"; }
+      await run({ jwt, expiresAt: claims.exp * 1000, signal, channelId, version: extension.version, identityLinked: typeof claims.user_id === "string" && Boolean(claims.user_id) });
+      return signal?.aborted ? "cancelled" : "ready";
+    } catch { return signal?.aborted ? "cancelled" : "provider-error"; }
   }
   return "unavailable";
 }

@@ -3,7 +3,9 @@ export type TwitchExtensionProviderId = "nopixel" | "fortnite";
 export interface TwitchExtensionProviderDescriptor {
   readonly id: TwitchExtensionProviderId;
   readonly extensionId: string;
+  // Published frame origin is metadata only; tabless drivers never mount it.
   readonly origin: `https://${string}.ext-twitch.tv/*`;
+  readonly backendOrigin: `https://${string}/*`;
   readonly discoveryCategoryIds: readonly string[];
   readonly minRefreshIntervalMs: number;
 }

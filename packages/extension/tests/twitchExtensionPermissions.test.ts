@@ -1,122 +1,112 @@
 import { describe, expect, it, vi } from "vitest";
 import { createProviderPermissions } from "../src/extensions/permissions";
-import { type ProviderScript, type Mv2ProviderScript, createProviderRegistration } from "../src/extensions/registration";
 import { twitchExtensionProviders } from "@lurkloot/core/extensions/registry";
 
 const provider = twitchExtensionProviders[0];
-function setup(granted = false, enabled = false, mv2 = false) {
-  let grant = granted;
-  const enabledIds = new Set(enabled ? [provider.id] : []);
-  const unregister = vi.fn(async () => {});
-  const register = vi.fn(async (_script: Mv2ProviderScript) => ({ unregister }));
-  const registerContentScripts = vi.fn(async (_scripts: ProviderScript[]) => {});
-  const unregisterContentScripts = vi.fn(async () => {});
+function setup(grant = true) {
+  const enabled = new Set<string>();
   const request = vi.fn(async () => grant);
   const contains = vi.fn(async () => grant);
-  const registration = createProviderRegistration(mv2
-    ? { contentScripts: { register } }
-    : { scripting: { registerContentScripts, unregisterContentScripts } });
+  const start = vi.fn(async () => {});
+  const stop = vi.fn();
   const clear = vi.fn(async () => {});
-  const setEnabled = vi.fn(async (id: typeof provider.id, value: boolean) => { if (value) enabledIds.add(id); else enabledIds.delete(id); });
+  const setEnabled = vi.fn(async (id: string, value: boolean) => { if (value) enabled.add(id); else enabled.delete(id); });
   const permissions = createProviderPermissions({
-    permissions: { request, contains }, registration,
-    enabled: async (id) => enabledIds.has(id),
-    setEnabled,
-    clearTransientState: clear,
+    permissions: { request, contains }, runtime: { start, stop },
+    enabled: async (id) => enabled.has(id), setEnabled, clearTransientState: clear,
   });
-  return { permissions, registration, enabledIds, request, contains, register, unregister,
-    registerContentScripts, unregisterContentScripts, clear, setEnabled, setGrant(value: boolean) { grant = value; } };
+  return { permissions, enabled, request, contains, start, stop, clear, setEnabled };
 }
-
-describe("Twitch Extension optional permissions", () => {
-  it("requests only the provider frame, preserving disabled state on denial", async () => {
+describe("tabless provider backend permissions", () => {
+  it("requests the backend synchronously and denial leaves the provider off", async () => {
+    const s = setup(false);
+    const pending = s.permissions.enable(provider.id);
+    expect(s.request).toHaveBeenCalledExactlyOnceWith({ origins: [provider.backendOrigin] });
+    expect(await pending).toBe(false);
+    expect(s.start).not.toHaveBeenCalled();
+    expect(s.enabled.size).toBe(0);
+  });
+  it("starts only after verifying a granted backend", async () => {
     const s = setup();
-    expect(await s.permissions.enable(provider.id)).toBe(false);
-    expect(s.request).toHaveBeenCalledExactlyOnceWith({ origins: [provider.origin] });
-    expect(s.enabledIds.size).toBe(0);
-    expect(s.registerContentScripts).not.toHaveBeenCalled();
-  });
-  it("registers the isolated and MAIN scripts only after a verified grant", async () => {
-    const s = setup(true);
     expect(await s.permissions.enable(provider.id)).toBe(true);
-    expect(s.enabledIds.has(provider.id)).toBe(true);
-    const scripts = s.registerContentScripts.mock.calls[0][0];
-    expect(scripts.map((script) => script.world)).toEqual(["ISOLATED", "MAIN"]);
-    expect(scripts.every((script) => script.matches.length === 1 && script.matches[0] === provider.origin && script.allFrames)).toBe(true);
-    await s.permissions.reconcile();
-    expect(s.registerContentScripts).toHaveBeenCalledTimes(1);
+    expect(s.contains).toHaveBeenCalledWith({ origins: [provider.backendOrigin] });
+    expect(s.start).toHaveBeenCalledExactlyOnceWith(provider);
+    expect(s.enabled.has(provider.id)).toBe(true);
   });
-  it("registers both worlds through Firefox MV2 and retains their handles", async () => {
-    const s = setup(true, false, true);
+  it("does not start after a grant disappears", async () => {
+    const s = setup();
+    s.contains.mockResolvedValue(false);
+    expect(await s.permissions.enable(provider.id)).toBe(false);
+    expect(s.start).not.toHaveBeenCalled();
+  });
+  it("revocation stops resources immediately and disables only its provider", async () => {
+    const s = setup();
     await s.permissions.enable(provider.id);
-    expect(s.register.mock.calls.map(([script]) => script.world)).toEqual(["ISOLATED", "MAIN"]);
-    await s.permissions.removed({ origins: [provider.origin] });
-    expect(s.unregister).toHaveBeenCalledTimes(2);
-    expect(s.enabledIds.size).toBe(0);
+    s.stop.mockClear();
+    const removing = s.permissions.removed({ origins: [provider.backendOrigin] });
+    expect(s.stop).toHaveBeenCalledWith(provider);
+    await removing;
+    expect(s.enabled.has(provider.id)).toBe(false);
     expect(s.clear).toHaveBeenCalledExactlyOnceWith(provider.id);
+    expect(s.stop.mock.calls.every(([value]) => value.id === provider.id)).toBe(true);
   });
-  it("revocation unregisters and releases transient state only for the affected provider", async () => {
-    const s = setup(true);
-    await s.permissions.enable(provider.id);
-    await s.permissions.removed({ origins: [twitchExtensionProviders[1].origin] });
-    expect(s.enabledIds.has(provider.id)).toBe(true);
-    await s.permissions.removed({ origins: [provider.origin] });
-    expect(s.enabledIds.size).toBe(0);
-    expect(s.unregisterContentScripts).toHaveBeenCalledWith({ ids: expect.arrayContaining([`lurkloot-${provider.id}-relay`, `lurkloot-${provider.id}-driver`]) });
-    expect(s.clear).toHaveBeenCalledExactlyOnceWith(provider.id);
-  });
-  it("disables a persisted enable flag if the grant disappeared between sessions", async () => {
-    const s = setup(false, true);
+  it("starts nothing with every provider disabled", async () => {
+    const s = setup();
     await s.permissions.reconcile();
-    expect(s.enabledIds.size).toBe(0);
-    expect(s.registerContentScripts).not.toHaveBeenCalled();
-    expect(s.request).not.toHaveBeenCalled();
+    expect(s.start).not.toHaveBeenCalled();
+  });
+  it("disables stored settings when the startup grant vanished", async () => {
+    const s = setup(false);
+    s.enabled.add(provider.id);
+    await s.permissions.reconcile();
+    expect(s.enabled.has(provider.id)).toBe(false);
+    expect(s.start).not.toHaveBeenCalled();
+  });
+  it("cleans up even when disabling cannot be persisted", async () => {
+    const s = setup();
+    s.setEnabled.mockRejectedValue(new Error("storage unavailable"));
+    await expect(s.permissions.disable(provider.id)).rejects.toThrow("storage unavailable");
+    expect(s.stop).toHaveBeenCalledWith(provider);
     expect(s.clear).toHaveBeenCalledWith(provider.id);
   });
-  it("registers nothing with every provider disabled, even if grants remain", async () => {
-    const s = setup(true);
-    await s.permissions.reconcile();
-    expect(s.registerContentScripts).not.toHaveBeenCalled();
-    expect(s.register).not.toHaveBeenCalled();
-  });
-  it("rolls back a partially registered Firefox pair", async () => {
-    const s = setup(true, false, true);
-    s.register.mockRejectedValueOnce(new Error("registration failed"));
-    await expect(s.permissions.enable(provider.id)).rejects.toThrow("registration failed");
-    expect(s.enabledIds.size).toBe(0);
-    s.register.mockResolvedValueOnce({ unregister: s.unregister });
-    s.register.mockRejectedValueOnce(new Error("MAIN failed"));
-    await expect(s.permissions.enable(provider.id)).rejects.toThrow("MAIN failed");
-    expect(s.unregister).toHaveBeenCalledTimes(1);
-  });
-  it("serializes enabling and revocation so a stale enable cannot win", async () => {
-    const s = setup(true);
-    const enabling = s.permissions.enable(provider.id);
-    const removing = s.permissions.removed({ origins: [provider.origin] });
-    await Promise.all([enabling, removing]);
-    expect(s.enabledIds.size).toBe(0);
+  it("rolls back failed runtime initialization", async () => {
+    const s = setup();
+    s.start.mockRejectedValue(new Error("initialization failed"));
+    await expect(s.permissions.enable(provider.id)).rejects.toThrow("initialization failed");
+    expect(s.enabled.has(provider.id)).toBe(false);
+    expect(s.stop).toHaveBeenCalledWith(provider);
     expect(s.clear).toHaveBeenCalledWith(provider.id);
   });
 });
 
 
-describe("Twitch Extension teardown failures", () => {
-  it("unregisters scripts and clears transient state even if disabling cannot be persisted", async () => {
-    const s = setup(true);
-    await s.permissions.enable(provider.id);
-    s.unregisterContentScripts.mockClear();
-    s.setEnabled.mockRejectedValueOnce(new Error("storage unavailable"));
-    await expect(s.permissions.disable(provider.id)).rejects.toThrow("storage unavailable");
-    expect(s.unregisterContentScripts).toHaveBeenCalledTimes(1);
-    expect(s.clear).toHaveBeenCalledWith(provider.id);
-  });
-  it("retains partial Firefox handles when the first cleanup fails, allowing a retry", async () => {
-    const s = setup(true, false, true);
-    s.register.mockResolvedValueOnce({ unregister: s.unregister });
-    s.register.mockRejectedValueOnce(new Error("MAIN failed"));
-    s.unregister.mockRejectedValueOnce(new Error("temporary unregister failure"));
-    await expect(s.permissions.enable(provider.id)).rejects.toThrow("MAIN failed");
-    expect(s.unregister).toHaveBeenCalledTimes(2);
-    expect(s.enabledIds.size).toBe(0);
-  });
+it("a delayed grant cannot restart a provider after disable", async () => {
+  const s = setup();
+  let resolve!: (value: boolean) => void;
+  s.request.mockImplementation(() => new Promise<boolean>((done) => { resolve = done; }));
+  const enabling = s.permissions.enable(provider.id);
+  const disabling = s.permissions.disable(provider.id);
+  resolve(true);
+  expect(await enabling).toBe(false);
+  await disabling;
+  expect(s.start).not.toHaveBeenCalled();
+  expect(s.enabled.size).toBe(0);
+});
+
+
+it.each(["enable", "reconcile"] as const)("%s cannot restart after revocation during grant verification", async (operation) => {
+  const s = setup();
+  s.enabled.add(provider.id);
+  let resolve!: (value: boolean) => void;
+  let reached!: () => void;
+  const checking = new Promise<void>((done) => { reached = done; });
+  s.contains.mockImplementation(() => { reached(); return new Promise<boolean>((done) => { resolve = done; }); });
+  const pending = operation === "enable" ? s.permissions.enable(provider.id) : s.permissions.reconcile();
+  await checking;
+  const removing = s.permissions.removed({ origins: [provider.backendOrigin] });
+  resolve(true);
+  await pending;
+  await removing;
+  expect(s.start).not.toHaveBeenCalled();
+  expect(s.enabled.has(provider.id)).toBe(false);
 });

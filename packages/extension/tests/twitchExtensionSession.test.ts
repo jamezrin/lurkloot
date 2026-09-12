@@ -17,8 +17,8 @@ describe("tabless Twitch Extension session source", () => {
   it("obtains a channel-bound session from GQL without a page or iframe", async () => {
     const s = setup();
     expect(await withTwitchExtensionSession(s.deps, provider, "123", s.run)).toBe("ready");
-    expect(s.query).toHaveBeenCalledWith(expect.stringContaining("selfInstalledExtensions"), { channelID: "123" });
-    expect(s.run).toHaveBeenCalledExactlyOnceWith({ jwt: jwt(), channelId: "123", version: "1.1.2", identityLinked: true });
+    expect(s.query).toHaveBeenCalledWith(expect.stringContaining("selfInstalledExtensions"), { channelID: "123" }, undefined);
+    expect(s.run).toHaveBeenCalledExactlyOnceWith({ jwt: jwt(), expiresAt: now + 3_600_000, signal: undefined, channelId: "123", version: "1.1.2", identityLinked: true });
   });
   it("does not query Twitch or call a provider without a logged-in session", async () => {
     const s = setup();
@@ -68,5 +68,30 @@ describe("Twitch Extension GQL compatibility", () => {
     expect(await withTwitchExtensionSession({ ...s.deps, query: async () => ({ errors: [{ message: jwt() }] }) }, provider, "123", s.run)).toBe("transport-error");
     expect(await withTwitchExtensionSession({ ...s.deps, query: async () => ({ data: { user: { channel: { selfInstalledExtensions: "malformed" } } } }) }, provider, "123", s.run)).toBe("compatibility-error");
     expect(s.run).not.toHaveBeenCalled();
+  });
+});
+
+describe("Twitch Extension session cancellation", () => {
+  it("does not acquire credentials after cancellation", async () => {
+    const s = setup();
+    const abort = new AbortController();
+    abort.abort();
+    expect(await withTwitchExtensionSession(s.deps, provider, "123", s.run, abort.signal)).toBe("cancelled");
+    expect(s.query).not.toHaveBeenCalled();
+    expect(s.run).not.toHaveBeenCalled();
+  });
+  it("discards a late GQL response when the selected channel stops", async () => {
+    const s = setup();
+    const abort = new AbortController();
+    const query = async () => { abort.abort(); return s.query("", {}); };
+    expect(await withTwitchExtensionSession({ ...s.deps, query }, provider, "123", s.run, abort.signal)).toBe("cancelled");
+    expect(s.run).not.toHaveBeenCalled();
+  });
+  it("passes expiry and cancellation only to the privileged driver", async () => {
+    const s = setup();
+    const abort = new AbortController();
+    const run = vi.fn(async () => { abort.abort(); });
+    expect(await withTwitchExtensionSession(s.deps, provider, "123", run, abort.signal)).toBe("cancelled");
+    expect(run).toHaveBeenCalledWith(expect.objectContaining({ expiresAt: now + 3_600_000, signal: abort.signal }));
   });
 });
