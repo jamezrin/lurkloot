@@ -1438,5 +1438,62 @@
   },
   "activityExtensionTakeoverStarted": {
     "message": "Атака $1 начата с канала $2."
+  },
+  "extensionSettingsTitle": {
+    "message": "Расширения Twitch"
+  },
+  "extensionSettingsHint": {
+    "message": "Получайте награды без вкладок Twitch. Учитываются автоматизация Twitch, исключения и ручная пауза."
+  },
+  "extensionNoPixelHint": {
+    "message": "Получайте ежедневные наборы и участвуйте в розыгрышах."
+  },
+  "extensionFortniteHint": {
+    "message": "Собирайте спрайты и получайте награды этапов."
+  },
+  "extensionIdentityRequired": {
+    "message": "Привяжите аккаунт расширения"
+  },
+  "extensionPermissionRequired": {
+    "message": "Разрешите доступ к сервису"
+  },
+  "extensionAuthRequired": {
+    "message": "Войдите в Twitch"
+  },
+  "extensionChannelRequired": {
+    "message": "Поиск подходящего канала"
+  },
+  "extensionComplete": {
+    "message": "Награды получены"
+  },
+  "extensionFarming": {
+    "message": "Сбор наград"
+  },
+  "extensionPhaseClosed": {
+    "message": "Нет открытого интерактивного этапа"
+  },
+  "extensionConnecting": {
+    "message": "Подключение"
+  },
+  "extensionUnavailable": {
+    "message": "Временно недоступно"
+  },
+  "extensionIdle": {
+    "message": "Ожидание"
+  },
+  "extensionDailyPackProgress": {
+    "message": "Ежедневный набор: $1/$2 минут"
+  },
+  "extensionCaptureProgress": {
+    "message": "Коллекция: $1/$2"
+  },
+  "extensionTakeoversTitle": {
+    "message": "Разрешить атаки Fortnite"
+  },
+  "extensionTakeoversHint": {
+    "message": "Начинайте допустимые атаки во время интерактивных этапов. По умолчанию выключено."
+  },
+  "extensionAccountSetup": {
+    "message": "Настроить аккаунт"
   }
 }

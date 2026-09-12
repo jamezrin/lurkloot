@@ -83,7 +83,7 @@ export async function withTwitchExtensionSession(
     if (typeof jwt !== "string") return "compatibility-error";
     const claims = claimsFor(jwt);
     if (!claims || claims.channel_id !== channelId || typeof claims.exp !== "number"
-      || !Number.isFinite(claims.exp) || !["viewer", "moderator", "broadcaster"].includes(String(claims.role))
+      || !Number.isFinite(claims.exp) || typeof claims.role !== "string" || !["viewer", "moderator", "broadcaster"].includes(claims.role)
       || typeof extension.version !== "string" || !extension.version) return "compatibility-error";
     if (claims.exp * 1000 <= source.now() + 30_000) return "expired";
     if (typeof claims.opaque_user_id !== "string" || !claims.opaque_user_id.startsWith("U")) return "auth-required";

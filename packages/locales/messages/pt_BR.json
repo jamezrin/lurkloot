@@ -1438,5 +1438,62 @@
   },
   "activityExtensionTakeoverStarted": {
     "message": "Iniciou um ataque de $1 a partir de $2."
+  },
+  "extensionSettingsTitle": {
+    "message": "Extensões da Twitch"
+  },
+  "extensionSettingsHint": {
+    "message": "Ganhe recompensas sem abas da Twitch. Automação, exclusões e pausa manual se aplicam."
+  },
+  "extensionNoPixelHint": {
+    "message": "Ganhe pacotes diários e participe de sorteios."
+  },
+  "extensionFortniteHint": {
+    "message": "Colete sprites e ganhe recompensas das fases."
+  },
+  "extensionIdentityRequired": {
+    "message": "Vincule sua conta à extensão"
+  },
+  "extensionPermissionRequired": {
+    "message": "Permita o acesso ao provedor"
+  },
+  "extensionAuthRequired": {
+    "message": "Entre na Twitch"
+  },
+  "extensionChannelRequired": {
+    "message": "Buscando um canal elegível"
+  },
+  "extensionComplete": {
+    "message": "Recompensas obtidas"
+  },
+  "extensionFarming": {
+    "message": "Coletando"
+  },
+  "extensionPhaseClosed": {
+    "message": "Nenhuma fase interativa aberta"
+  },
+  "extensionConnecting": {
+    "message": "Conectando"
+  },
+  "extensionUnavailable": {
+    "message": "Temporariamente indisponível"
+  },
+  "extensionIdle": {
+    "message": "Aguardando"
+  },
+  "extensionDailyPackProgress": {
+    "message": "Pacote diário: $1/$2 minutos"
+  },
+  "extensionCaptureProgress": {
+    "message": "Coleção: $1/$2"
+  },
+  "extensionTakeoversTitle": {
+    "message": "Permitir ataques do Fortnite"
+  },
+  "extensionTakeoversHint": {
+    "message": "Inicie ataques elegíveis nas fases interativas. Desativado por padrão."
+  },
+  "extensionAccountSetup": {
+    "message": "Configurar conta"
   }
 }

@@ -15,7 +15,7 @@ export function createTwitchExtensionSessionSource(options: {
     query: (query, variables, parent) => withHeartbeatTimeout((signal) => options.fetchJson("https://gql.twitch.tv/gql", {
       method: "POST",
       headers: { "Client-ID": "kimne78kx3ncx6brgo4mv6wki5h1ko", "Content-Type": "text/plain; charset=UTF-8" },
-      body: JSON.stringify({ operationName: "CoordinatorExtensionsForChannel", query, variables }),
+      body: JSON.stringify({ operationName: query.match(/\b(?:query|mutation)\s+([A-Za-z_][A-Za-z0-9_]*)/)?.[1] ?? "CoordinatorExtensionsForChannel", query, variables }),
       signal,
     }), parent),
   };

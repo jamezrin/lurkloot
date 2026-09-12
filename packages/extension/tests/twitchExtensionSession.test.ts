@@ -31,6 +31,7 @@ describe("tabless Twitch Extension session source", () => {
     [jwt({ exp: now / 1000 }), "expired"],
     [jwt({ exp: now / 1000 + 30 }), "expired"],
     [jwt({ role: "external" }), "compatibility-error"],
+    [jwt({ role: ["viewer"] }), "compatibility-error"],
     [jwt({ exp: "future" }), "compatibility-error"],
     [jwt({ opaque_user_id: "Aanonymous", user_id: undefined }), "auth-required"],
     ["not-a-jwt", "compatibility-error"],

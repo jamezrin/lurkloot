@@ -1438,5 +1438,62 @@
   },
   "activityExtensionTakeoverStarted": {
     "message": "已从 $2 频道发起 $1 攻击。"
+  },
+  "extensionSettingsTitle": {
+    "message": "Twitch 扩展"
+  },
+  "extensionSettingsHint": {
+    "message": "无需 Twitch 标签页即可获取扩展奖励。遵循 Twitch 自动化、排除频道和手动暂停设置。"
+  },
+  "extensionNoPixelHint": {
+    "message": "获取每日卡包并参加抽奖。"
+  },
+  "extensionFortniteHint": {
+    "message": "收集精灵并获取阶段奖励。"
+  },
+  "extensionIdentityRequired": {
+    "message": "关联扩展账户"
+  },
+  "extensionPermissionRequired": {
+    "message": "请允许访问服务商"
+  },
+  "extensionAuthRequired": {
+    "message": "请登录 Twitch"
+  },
+  "extensionChannelRequired": {
+    "message": "正在寻找符合条件的频道"
+  },
+  "extensionComplete": {
+    "message": "已获得奖励"
+  },
+  "extensionFarming": {
+    "message": "正在收集"
+  },
+  "extensionPhaseClosed": {
+    "message": "当前没有开放的互动阶段"
+  },
+  "extensionConnecting": {
+    "message": "正在连接"
+  },
+  "extensionUnavailable": {
+    "message": "暂时不可用"
+  },
+  "extensionIdle": {
+    "message": "等待中"
+  },
+  "extensionDailyPackProgress": {
+    "message": "每日卡包：$1/$2 分钟"
+  },
+  "extensionCaptureProgress": {
+    "message": "收集进度：$1/$2"
+  },
+  "extensionTakeoversTitle": {
+    "message": "允许 Fortnite 攻占"
+  },
+  "extensionTakeoversHint": {
+    "message": "在互动阶段发起符合条件的攻占。默认关闭。"
+  },
+  "extensionAccountSetup": {
+    "message": "账户设置"
   }
 }

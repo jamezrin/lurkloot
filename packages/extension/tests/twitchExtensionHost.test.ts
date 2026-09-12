@@ -52,4 +52,20 @@ describe("background tabless provider host", () => {
     s.host.invalidate(); resolve(); await pending;
     expect(s.query).not.toHaveBeenCalled();
   });
+  it("discovers its own tabless channel without a drop campaign", async () => {
+    const s = setup(); s.enableTwitch(); s.settings().twitchExtensions.nopixel.enabled = true;
+    s.state.sessions.twitch = { platform: "twitch", status: "idle", offlineChecks: 0 };
+    s.query.mockResolvedValueOnce({ data: { game: { streams: { edges: [{ node: { broadcaster: { id: "123", login: "buddha" } } }] } } } } as never).mockResolvedValueOnce({ data: { users: [{ id: "123", login: "buddha", channel: { selfInstalledExtensions: [{ installation: { extension: { id: "nstuq90nghenyqwqme61jgvmtp253a" }, activationConfig: { state: "ACTIVE" } } }] } }] } } as never);
+    expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toMatchObject({ id: "nopixel", tablessOnly: true, channel: { channelId: "123" } });
+    expect(s.query).toHaveBeenCalledTimes(2);
+    await s.host.chooseWatchTarget(s.settings(), s.state);
+    expect(s.query).toHaveBeenCalledTimes(2);
+  });
+
+  it("stops acquisition immediately when manual-close authority precedes paused state", async () => {
+    const s = setup(); s.enableTwitch(); s.state.manualClosePause = { twitch: { platform: "twitch", closedAt: new Date().toISOString() } };
+    await s.host.setEnabled("nopixel", true);
+    expect(s.query).not.toHaveBeenCalled();
+  });
+
 });

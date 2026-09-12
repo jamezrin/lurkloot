@@ -116,7 +116,14 @@ export interface ChannelCheck {
   candidate: ChannelCandidate;
 }
 
+export interface SupplementalWatchTarget {
+  id: string;
+  channel: ChannelCandidate;
+  tablessOnly: true;
+}
+
 export interface WatchSession {
+  supplementalWatch?: { id: string; tablessOnly: true };
   platform: Platform;
   tabId?: number;
   tabManagedByExtension?: boolean;
@@ -167,6 +174,7 @@ export interface TablessHeartbeatCadence {
 }
 
 export type WatchReasonCode =
+  | "supplemental_watch"
   | "eligible_campaign"
   | "idle_watchlist_selected"
   | "no_eligible_channel"

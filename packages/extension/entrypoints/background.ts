@@ -39,6 +39,7 @@ import { twitchHeartbeatFetchText, twitchHeartbeatPost } from "../src/core/twitc
 import { createCredentialAvailabilityProvider } from "../src/core/credentialAvailability";
 import { createTwitchExtensionHost } from "../src/extensions/host";
 import { createTwitchExtensionSessionSource } from "../src/extensions/transport";
+import { createFortniteDriver } from "../src/extensions/fortnite/driver";
 import { createNoPixelDriver } from "../src/extensions/nopixel/driver";
 import { createCredentialHealthObserver } from "../src/core/credentialObserver";
 
@@ -208,6 +209,7 @@ const controller = createBackgroundController<ExtensionSettings>({
   discardPageContextRecoveryEvidence: (platform) => {
     if (platform === "kick") kickPageContextRecovery.discard();
   },
+  selectSupplementalWatchTarget: (platform, state, settings, signal) => platform === "twitch" ? extensionHost.chooseWatchTarget(settings, state, signal) : Promise.resolve(undefined),
   createAdapter: createExtensionAdapter,
   createAdapters: (emit, settings) => {
     const twitch = createExtensionAdapter("twitch", emit, settings);
@@ -233,6 +235,17 @@ const extensionHost = createTwitchExtensionHost({
     contains: (details) => browser.permissions.contains(details),
   },
   drivers: {
+    fortnite: async (session, emit, channel) => createFortniteDriver({ allowTakeovers: (await loadSettings()).twitchExtensions.fortnite.allowTakeovers, onTakeoverStarted: () => {
+      if (!channel || !/^[a-zA-Z0-9_]{1,25}$/.test(channel.username)) return;
+      const events: EngineEvent[] = [];
+      withActivityDiagnostics((event) => events.push(event))({ category: "activity", code: "twitch_extension_action", level: "info", platform: "twitch", data: { provider: "fortnite", action: "takeover_started", channel: channel.username } });
+      void reportEvents(events).catch(() => undefined);
+    }, createSocket: (url) => new WebSocket(url), onCaptured: () => {
+      if (!channel || !/^[a-zA-Z0-9_]{1,25}$/.test(channel.username)) return;
+      const events: EngineEvent[] = [];
+      withActivityDiagnostics((event) => events.push(event))({ category: "activity", code: "twitch_extension_action", level: "info", platform: "twitch", data: { provider: "fortnite", action: "sprite_captured", channel: channel.username } });
+      void reportEvents(events).catch(() => undefined);
+    } })(session, emit),
     nopixel: (session, emit, channel) => createNoPixelDriver((url, init) => fetch(url, init), () => {
       if (!channel || !/^[a-zA-Z0-9_]{1,25}$/.test(channel.username)) return;
       const events: EngineEvent[] = [];
@@ -339,14 +352,18 @@ export default defineBackground(() => {
     if (settingsChange) {
       const previous = settingsChange.oldValue as ExtensionSettings | undefined;
       const next = settingsChange.newValue as ExtensionSettings | undefined;
-      if (previous?.platform?.twitch?.enabled !== next?.platform?.twitch?.enabled
+      if (previous?.pauseOnManualWatch !== next?.pauseOnManualWatch
+        || previous?.platform?.twitch?.enabled !== next?.platform?.twitch?.enabled
         || previous?.twitchExtensions?.nopixel?.enabled !== next?.twitchExtensions?.nopixel?.enabled
-        || previous?.twitchExtensions?.fortnite?.enabled !== next?.twitchExtensions?.fortnite?.enabled) extensionHost.invalidate();
+        || previous?.twitchExtensions?.fortnite?.enabled !== next?.twitchExtensions?.fortnite?.enabled
+        || previous?.twitchExtensions?.fortnite?.allowTakeovers !== next?.twitchExtensions?.fortnite?.allowTakeovers) extensionHost.invalidate();
     }
     if (stateChange) {
       const previous = stateChange.oldValue as RuntimeSnapshot["state"] | undefined;
       const next = stateChange.newValue as RuntimeSnapshot["state"] | undefined;
-      if (previous?.sessions?.twitch?.status !== next?.sessions?.twitch?.status
+      if (Boolean(previous?.manualClosePause?.twitch) !== Boolean(next?.manualClosePause?.twitch)
+        || previous?.manualWatch?.twitch?.active !== next?.manualWatch?.twitch?.active
+        || previous?.sessions?.twitch?.status !== next?.sessions?.twitch?.status
         || previous?.sessions?.twitch?.channel?.channelId !== next?.sessions?.twitch?.channel?.channelId
         || previous?.authHealth?.twitch?.status !== next?.authHealth?.twitch?.status) extensionHost.invalidate();
     }

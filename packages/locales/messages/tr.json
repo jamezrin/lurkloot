@@ -1438,5 +1438,62 @@
   },
   "activityExtensionTakeoverStarted": {
     "message": "$2 kanalından bir $1 saldırısı başlattı."
+  },
+  "extensionSettingsTitle": {
+    "message": "Twitch uzantıları"
+  },
+  "extensionSettingsHint": {
+    "message": "Twitch sekmeleri olmadan ödül kazanın. Twitch otomasyonu, hariç tutmalar ve manuel duraklatma geçerlidir."
+  },
+  "extensionNoPixelHint": {
+    "message": "Günlük paketler kazanın ve çekilişlere katılın."
+  },
+  "extensionFortniteHint": {
+    "message": "Sprite toplayın ve aşama ödülleri kazanın."
+  },
+  "extensionIdentityRequired": {
+    "message": "Uzantı hesabınızı bağlayın"
+  },
+  "extensionPermissionRequired": {
+    "message": "Sağlayıcı erişimine izin verin"
+  },
+  "extensionAuthRequired": {
+    "message": "Twitch’e giriş yapın"
+  },
+  "extensionChannelRequired": {
+    "message": "Uygun kanal aranıyor"
+  },
+  "extensionComplete": {
+    "message": "Ödüller kazanıldı"
+  },
+  "extensionFarming": {
+    "message": "Toplanıyor"
+  },
+  "extensionPhaseClosed": {
+    "message": "Açık etkileşimli aşama yok"
+  },
+  "extensionConnecting": {
+    "message": "Bağlanıyor"
+  },
+  "extensionUnavailable": {
+    "message": "Geçici olarak kullanılamıyor"
+  },
+  "extensionIdle": {
+    "message": "Bekleniyor"
+  },
+  "extensionDailyPackProgress": {
+    "message": "Günlük paket: $1/$2 dakika"
+  },
+  "extensionCaptureProgress": {
+    "message": "Koleksiyon: $1/$2"
+  },
+  "extensionTakeoversTitle": {
+    "message": "Fortnite devralmalarına izin ver"
+  },
+  "extensionTakeoversHint": {
+    "message": "Etkileşimli aşamalarda uygun devralmaları başlatın. Varsayılan olarak kapalıdır."
+  },
+  "extensionAccountSetup": {
+    "message": "Hesap kurulumu"
   }
 }

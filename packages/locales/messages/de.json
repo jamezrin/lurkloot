@@ -1438,5 +1438,62 @@
   },
   "activityExtensionTakeoverStarted": {
     "message": "Einen $1-Angriff von $2 gestartet."
+  },
+  "extensionSettingsTitle": {
+    "message": "Twitch-Erweiterungen"
+  },
+  "extensionSettingsHint": {
+    "message": "Erhalte Erweiterungsbelohnungen ohne Twitch-Tabs. Twitch-Automatisierung, Ausschlüsse und manuelle Pausen gelten."
+  },
+  "extensionNoPixelHint": {
+    "message": "Erhalte tägliche Pakete und nimm an Verlosungen teil."
+  },
+  "extensionFortniteHint": {
+    "message": "Sammle Sprites und erhalte Phasenbelohnungen."
+  },
+  "extensionIdentityRequired": {
+    "message": "Verknüpfe dein Erweiterungskonto"
+  },
+  "extensionPermissionRequired": {
+    "message": "Erlaube den Anbieterzugriff"
+  },
+  "extensionAuthRequired": {
+    "message": "Melde dich bei Twitch an"
+  },
+  "extensionChannelRequired": {
+    "message": "Geeigneten Kanal suchen"
+  },
+  "extensionComplete": {
+    "message": "Belohnungen erhalten"
+  },
+  "extensionFarming": {
+    "message": "Farmen"
+  },
+  "extensionPhaseClosed": {
+    "message": "Keine interaktive Phase geöffnet"
+  },
+  "extensionConnecting": {
+    "message": "Verbinden"
+  },
+  "extensionUnavailable": {
+    "message": "Vorübergehend nicht verfügbar"
+  },
+  "extensionIdle": {
+    "message": "Warten"
+  },
+  "extensionDailyPackProgress": {
+    "message": "Tagespaket: $1/$2 Minuten"
+  },
+  "extensionCaptureProgress": {
+    "message": "Sammlung: $1/$2"
+  },
+  "extensionTakeoversTitle": {
+    "message": "Fortnite-Übernahmen erlauben"
+  },
+  "extensionTakeoversHint": {
+    "message": "Starte zulässige Übernahmen während interaktiver Phasen. Standardmäßig aus."
+  },
+  "extensionAccountSetup": {
+    "message": "Konto einrichten"
   }
 }

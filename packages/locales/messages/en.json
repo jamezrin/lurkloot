@@ -1438,5 +1438,62 @@
   },
   "activityExtensionTakeoverStarted": {
     "message": "Started a $1 takeover from $2."
+  },
+  "extensionSettingsTitle": {
+    "message": "Twitch extensions"
+  },
+  "extensionSettingsHint": {
+    "message": "Farm extension rewards without Twitch tabs. Twitch automation, exclusions and manual pause apply."
+  },
+  "extensionNoPixelHint": {
+    "message": "Earn daily packs and join giveaways."
+  },
+  "extensionFortniteHint": {
+    "message": "Collect sprites and earn phase rewards."
+  },
+  "extensionIdentityRequired": {
+    "message": "Link your extension account"
+  },
+  "extensionPermissionRequired": {
+    "message": "Allow provider access to enable"
+  },
+  "extensionAuthRequired": {
+    "message": "Log in to Twitch"
+  },
+  "extensionChannelRequired": {
+    "message": "Finding an eligible channel"
+  },
+  "extensionComplete": {
+    "message": "Rewards earned"
+  },
+  "extensionFarming": {
+    "message": "Farming"
+  },
+  "extensionPhaseClosed": {
+    "message": "No interactive phase is open"
+  },
+  "extensionConnecting": {
+    "message": "Connecting"
+  },
+  "extensionUnavailable": {
+    "message": "Temporarily unavailable"
+  },
+  "extensionIdle": {
+    "message": "Waiting"
+  },
+  "extensionDailyPackProgress": {
+    "message": "Daily pack: $1/$2 minutes"
+  },
+  "extensionCaptureProgress": {
+    "message": "Collection: $1/$2"
+  },
+  "extensionTakeoversTitle": {
+    "message": "Allow Fortnite takeovers"
+  },
+  "extensionTakeoversHint": {
+    "message": "Start eligible takeovers during interactive phases. Off by default."
+  },
+  "extensionAccountSetup": {
+    "message": "Account setup"
   }
 }

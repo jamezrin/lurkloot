@@ -8,6 +8,7 @@ import type {
   Platform,
   PlaybackTelemetry,
   SchedulerState,
+  SupplementalWatchTarget,
   WatchDecision,
   WatchReasonCode,
   WatchSession,
@@ -566,6 +567,7 @@ async function selectWatchTarget(
   adapter: Pick<PlatformAdapter, "listCandidateChannels" | "selectCandidateChannel" | "checkChannel" | "listFollowedChannels">,
   signal?: AbortSignal,
 ): Promise<SnapshotSelectionResult> {
+  if (previous.supplementalWatch) previous = { ...previous, status: "idle", channel: undefined, campaignId: undefined, rewardId: undefined };
   const currentWatch = await evaluatePreferredCurrentWatch(previous, campaigns, settings, adapter, signal);
   let decision: WatchDecision;
   let retention: WatchRetention;
@@ -742,7 +744,7 @@ function retainHealthyWatchOnAmbiguousDiscovery(
   previous: WatchSession,
   campaigns: DropCampaign[],
 ): SnapshotSelectionResult | undefined {
-  if (previous.status !== "watching" || !previous.channel || !isSessionHealthy(previous)) return undefined;
+  if (previous.supplementalWatch || previous.status !== "watching" || !previous.channel || !isSessionHealthy(previous)) return undefined;
   const campaign = campaigns.find((candidate) => candidate.id === previous.campaignId);
   const reward = campaign?.rewards.find((candidate) => candidate.id === previous.rewardId);
   const decision: WatchDecision = {
@@ -788,6 +790,7 @@ export type StopPageContextTabs = (
 ) => Promise<SchedulerManagedPageContexts> | SchedulerManagedPageContexts;
 
 export interface SchedulerTickOptions {
+  selectSupplementalWatchTarget?(platform: Platform, state: SchedulerState, signal?: AbortSignal): Promise<SupplementalWatchTarget | undefined>;
   platforms?: Platform[];
   stopPageContextTabs?: StopPageContextTabs;
   waitingClaimRewardIds?: Partial<Record<Platform, Set<string>>>;
@@ -1305,7 +1308,24 @@ export async function runSchedulerTick(
         ?? (discoveryFailed ? retainHealthyWatchOnAmbiguousDiscovery(previous, campaigns) : undefined)
         ?? await selectWatchTarget(platform, previous, campaigns, settings, adapter, options.signal);
       let { decision } = selection;
-      const shouldKeep = selection.retention;
+      let shouldKeep = selection.retention;
+      let supplemental: SupplementalWatchTarget | undefined;
+      if (options.selectSupplementalWatchTarget && adapter.supportsTabless) {
+        try {
+          const target = await options.selectSupplementalWatchTarget(platform, nextState, options.signal);
+          options.signal?.throwIfAborted();
+          if (target && target.tablessOnly === true && /^[a-z0-9-]{1,64}$/.test(target.id)
+            && target.channel.platform === platform && target.channel.live === true
+            && !(platformSettings.excludedChannels ?? []).map(value => value.toLowerCase()).includes(target.channel.username.toLowerCase())) {
+            supplemental = target;
+            decision = { platform, action: "fallback", channel: target.channel, reason: "Supplemental rewards selected", reasonCode: "supplemental_watch" };
+            shouldKeep = { keep: previous.supplementalWatch?.id === target.id && previous.channel?.url === target.channel.url, offlineChecks: 0, playbackChecks: 0, reason: decision.reason, reasonCode: decision.reasonCode };
+          }
+        } catch {
+          options.signal?.throwIfAborted();
+          emitDiagnostic(emit, platform, "warn", "Supplemental rewards selection unavailable; continuing ordinary farming");
+        }
+      }
       if (options.selectionIsCurrent?.[platform]?.() === false) {
         emitDiagnostic(emit, platform, "debug", "Snapshot selection discarded after target health changed");
         continue;
@@ -1366,6 +1386,7 @@ export async function runSchedulerTick(
         nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
       }
       const session = sessionForDecision(decision, previous, shouldKeep);
+      session.supplementalWatch = supplemental ? { id: supplemental.id, tablessOnly: true } : undefined;
       if (decision.channel && decision.action !== "idle") {
         // The breaker is open: a managed tab kept reopening for this platform.
         // Opening another is exactly the user-hostile loop we detected, so the
@@ -1391,7 +1412,7 @@ export async function runSchedulerTick(
           continue;
         }
         const sameChannel = previous.channel?.url === decision.channel.url;
-        const useTabless = chooseTablessWatch(previous, settings, adapter, sameChannel);
+        const useTabless = supplemental !== undefined || chooseTablessWatch(previous, settings, adapter, sameChannel);
         session.offlineChecks = shouldKeep.keep ? shouldKeep.offlineChecks : 0;
         session.playbackChecks = useTabless ? 0 : shouldKeep.playbackChecks;
         // Both reset when the watch moves, so a fresh channel never inherits the

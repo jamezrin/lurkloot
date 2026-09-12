@@ -1,6 +1,7 @@
+import { TwitchExtensionSettings } from "./twitchExtensions";
 import React, { useEffect, useMemo, useState } from "react";
 import { Download, RotateCcw, Terminal, Upload } from "lucide-react";
-import type { CategorySelection, ExtensionSettings, Platform } from "@lurkloot/shared/models";
+import type { CategorySelection, ExtensionSettings, Platform, TwitchExtensionProviderId } from "@lurkloot/shared/models";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 import { PLATFORMS } from "./constants";
 import { SettingsGroup, SettingsSearchBox, SettingsSection } from "./settingsControls";
@@ -9,10 +10,11 @@ import { filterSettingsTree } from "./settingsSearch";
 import { useT } from "./context";
 import type { GameItem, PopupCompatibilityRegistry, PopupCompatibilityResolution } from "./types";
 
-export function SettingsView({ suggestions, onSearchCategories, settings, onSettingsChange, onExportCredentials, onExportSettings, onImportSettings, onReset, exportConfirmationResetKey, compatibilityRegistry, compatibilityResolution, focusGroupId }: {
+export function SettingsView({ suggestions, onSearchCategories, settings, onSettingsChange, onExtensionEnabledChange, onExportCredentials, onExportSettings, onImportSettings, onReset, exportConfirmationResetKey, compatibilityRegistry, compatibilityResolution, focusGroupId }: {
   suggestions: Record<Platform, GameItem[]>;
   onSearchCategories(platform: Platform, query: string): Promise<CategorySelection[]>;
   settings: ExtensionSettings;
+  onExtensionEnabledChange?(provider: TwitchExtensionProviderId, enabled: boolean): Promise<boolean>;
   onSettingsChange(patch: SettingsPatch, options?: SettingsChangeOptions): Promise<void>;
   // Optional: when provided, the settings view shows an "Export credentials"
   // action for the headless CLI. The extension wires it; the demo omits it.
@@ -125,6 +127,7 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
     t("factoryResetHint"),
     t("factoryResetButton"),
   ].join(" ").toLocaleLowerCase();
+  const showExtensions = Boolean(onExtensionEnabledChange && (!query.trim() || `${t("extensionSettingsTitle")} ${t("extensionTakeoversTitle")} ${t("extensionNoPixelHint")} ${t("extensionFortniteHint")} NoPixelV Fortnite`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())));
   const showActions = hasActions && (!searching || actionSearchText.includes(query.trim().toLocaleLowerCase()));
   const generalSection = visible.find((section) => section.id === "general");
   const platformSections = (Object.keys(PLATFORMS) as Platform[])
@@ -145,8 +148,9 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
   return (
     <div className="space-y-3">
       <SettingsSearchBox compact value={query} onChange={setQuery} />
+      {showExtensions && onExtensionEnabledChange ? <TwitchExtensionSettings settings={settings} onChange={onExtensionEnabledChange} onTakeoversChange={allowTakeovers => onSettingsChange({ twitchExtensions: { fortnite: { allowTakeovers } } }, { tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] })} /> : null}
 
-      {visible.length === 0 && !showActions ? (
+      {visible.length === 0 && !showActions && !showExtensions ? (
         <p className="px-1 py-6 text-center text-xs text-zinc-400 dark:text-zinc-500">{t("settingsSearchNoResults", query.trim())}</p>
       ) : searching ? (
         <div className="space-y-4">

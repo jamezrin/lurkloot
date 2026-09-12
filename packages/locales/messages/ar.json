@@ -1438,5 +1438,62 @@
   },
   "activityExtensionTakeoverStarted": {
     "message": "تم بدء هجوم $1 من قناة $2."
+  },
+  "extensionSettingsTitle": {
+    "message": "إضافات Twitch"
+  },
+  "extensionSettingsHint": {
+    "message": "احصل على المكافآت دون تبويبات Twitch. تسري إعدادات الأتمتة والاستثناءات والإيقاف اليدوي."
+  },
+  "extensionNoPixelHint": {
+    "message": "احصل على الحزم اليومية وشارك في السحوبات."
+  },
+  "extensionFortniteHint": {
+    "message": "اجمع الشخصيات واحصل على مكافآت المراحل."
+  },
+  "extensionIdentityRequired": {
+    "message": "اربط حساب الإضافة"
+  },
+  "extensionPermissionRequired": {
+    "message": "اسمح بالوصول إلى المزوّد"
+  },
+  "extensionAuthRequired": {
+    "message": "سجّل الدخول إلى Twitch"
+  },
+  "extensionChannelRequired": {
+    "message": "البحث عن قناة مؤهلة"
+  },
+  "extensionComplete": {
+    "message": "تم الحصول على المكافآت"
+  },
+  "extensionFarming": {
+    "message": "جمع المكافآت"
+  },
+  "extensionPhaseClosed": {
+    "message": "لا توجد مرحلة تفاعلية مفتوحة"
+  },
+  "extensionConnecting": {
+    "message": "جارٍ الاتصال"
+  },
+  "extensionUnavailable": {
+    "message": "غير متاح مؤقتًا"
+  },
+  "extensionIdle": {
+    "message": "انتظار"
+  },
+  "extensionDailyPackProgress": {
+    "message": "الحزمة اليومية: $1/$2 دقيقة"
+  },
+  "extensionCaptureProgress": {
+    "message": "المجموعة: $1/$2"
+  },
+  "extensionTakeoversTitle": {
+    "message": "السماح بهجمات Fortnite"
+  },
+  "extensionTakeoversHint": {
+    "message": "ابدأ الهجمات المؤهلة خلال المراحل التفاعلية. معطّل افتراضيًا."
+  },
+  "extensionAccountSetup": {
+    "message": "إعداد الحساب"
   }
 }
