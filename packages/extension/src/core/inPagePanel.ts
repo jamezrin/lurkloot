@@ -50,23 +50,41 @@ const EDGE_MARGIN = 16;
 // `z-navbar` to `z-[402]` between two page loads on the same afternoon, so a
 // selector keyed on that would already be dead. `--navbar-height` survives both
 // spellings Kick emits (`h-[var(--navbar-height)]` and `h-(--navbar-height)`).
+//
+// Each anchor yields every element its selector matches, not just the first,
+// because both sites keep responsive duplicates of the nav in the DOM at once
+// and only one of them is being rendered. Kick ships two: a mobile bar marked
+// `lg:hidden` and a desktop bar marked `max-lg:hidden`. The mobile one comes
+// first in document order, so taking the first match put the button inside a
+// `display:none` element at every desktop width — inserted, connected, and
+// invisible, which is also why the "no anchor" warning never fired.
 interface Anchor {
-  find(): Element | null | undefined;
+  find(): (Element | null | undefined)[];
   place: "before" | "append" | "prepend";
 }
 
 const ANCHORS: Record<Platform, Anchor[]> = {
   twitch: [
     // Immediately left of the Prime crown, inside the icon cluster.
-    { find: () => document.querySelector(".top-nav__prime"), place: "before" },
-    { find: () => document.querySelector(".top-nav__menu"), place: "append" },
+    { find: () => [...document.querySelectorAll(".top-nav__prime")], place: "before" },
+    { find: () => [...document.querySelectorAll(".top-nav__menu")], place: "append" },
   ],
   kick: [
     // Kick's nav carries no semantic hooks, so this keys off the layout
     // variable and takes the bar's right-hand cluster.
-    { find: () => document.querySelector('nav[class*="navbar-height"]')?.lastElementChild, place: "prepend" },
+    { find: () => [...document.querySelectorAll('nav[class*="navbar-height"]')].map((nav) => nav.lastElementChild), place: "prepend" },
   ],
 };
+
+// Whether an element is actually laid out. An element inside a `display:none`
+// ancestor generates no boxes, which is what separates the live nav from its
+// hidden responsive twin. `offsetParent` would not do: Kick's mobile nav is
+// `position:fixed`, so it reads as null even when it is the visible one.
+// `checkVisibility()` would not either — `applyVisibility` sets the button to
+// `visibility:hidden` during fullscreen, and only display matters here.
+function isRendered(element: Element | null | undefined): boolean {
+  return element != null && element.getClientRects().length > 0;
+}
 
 // Matched to each site's own nav buttons, measured against the live pages.
 const BUTTON_METRICS: Record<Platform, { height: number; radius: number; padding: number }> = {
@@ -124,8 +142,16 @@ async function start(): Promise<void> {
   // Twitch and Kick both put the player into the Fullscreen API. A floating
   // panel over fullscreen video is intrusive, and on Twitch it is drawn above
   // the player controls.
-  document.addEventListener("fullscreenchange", applyVisibility);
-  window.addEventListener("resize", clampIntoViewport);
+  document.addEventListener("fullscreenchange", () => {
+    applyVisibility();
+    queueEnsureButton();
+  });
+  window.addEventListener("resize", () => {
+    clampIntoViewport();
+    // Crossing a responsive breakpoint swaps which nav is rendered, and no
+    // mutation accompanies it.
+    queueEnsureButton();
+  });
 }
 
 async function reconcile(): Promise<void> {
@@ -169,12 +195,19 @@ function teardown(): void {
 /* -------------------------------------------------------------- nav button */
 
 function ensureButton(): void {
-  if (button?.isConnected) return;
+  // Being connected is not enough: crossing a responsive breakpoint hides the
+  // nav the button sits in without detaching it, so the parent has to still be
+  // laid out for the button to count as placed. Re-placing moves the existing
+  // node rather than adding a second one.
+  if (button?.isConnected && isRendered(button.parentElement)) return;
+  // Nothing to place while the player owns the screen; applyVisibility has
+  // already hidden the button, and re-anchoring here would only churn.
+  if (document.fullscreenElement) return;
 
   button ??= createButton();
-  const target = resolveAnchor();
-  if (!target) {
-    // No anchor matched, so the site reorganized its nav. Show nothing.
+  const target = resolveAnchorFor(platform, isRendered);
+  if (typeof target === "string") {
+    // Show nothing either way.
     //
     // An earlier revision fell back to a floating corner button so the feature
     // could not silently disappear. That was right while this was opt-in, and
@@ -182,7 +215,12 @@ function ensureButton(): void {
     // unexpected floating control on every user's screen at once, which is a
     // worse outcome than the absence it guards against. The toolbar popup still
     // works, so absence degrades rather than breaks.
-    warnOnce("could not find a place in the page nav for the Lurkloot button; the toolbar popup still works");
+    //
+    // Only "noMatch" is worth a warning. "noneRendered" means the nav is there
+    // but currently collapsed — Kick's theatre mode hides both of its bars —
+    // and warnOnce latches for the session, so warning on a state that
+    // resolves itself would burn the one message a real nav change needs.
+    if (target === "noMatch") warnOnce("could not find a place in the page nav for the Lurkloot button; the toolbar popup still works");
     return;
   }
   if (target.place === "before") target.element.parentElement?.insertBefore(button, target.element);
@@ -200,12 +238,27 @@ function warnOnce(message: string): void {
   console.warn(`[Lurkloot] ${message}`);
 }
 
-function resolveAnchor(): { element: Element; place: Anchor["place"] } | undefined {
-  for (const candidate of ANCHORS[platform] ?? []) {
-    const element = candidate.find();
-    if (element) return { element, place: candidate.place };
+// Exported for tests, which supply their own rendered predicate: the DOM
+// implementation the suite runs against has no layout, so getClientRects can
+// not distinguish the two navs the way a browser does.
+export type AnchorResolution =
+  | { element: Element; place: Anchor["place"] }
+  | "noneRendered"
+  | "noMatch";
+
+export function resolveAnchorFor(
+  forPlatform: Platform,
+  rendered: (element: Element | null | undefined) => boolean,
+): AnchorResolution {
+  let matched = false;
+  for (const candidate of ANCHORS[forPlatform] ?? []) {
+    for (const element of candidate.find()) {
+      if (!element) continue;
+      matched = true;
+      if (rendered(element)) return { element, place: candidate.place };
+    }
   }
-  return undefined;
+  return matched ? "noneRendered" : "noMatch";
 }
 
 function createButton(): HTMLButtonElement {
@@ -254,10 +307,22 @@ function createButton(): HTMLButtonElement {
 // button alive across route changes without polling.
 function watchAnchor(): void {
   anchorObserver?.disconnect();
-  anchorObserver = new MutationObserver(() => {
-    if (enabled && !button?.isConnected) ensureButton();
-  });
+  anchorObserver = new MutationObserver(queueEnsureButton);
   anchorObserver.observe(document.body, { childList: true, subtree: true });
+}
+
+// Coalesced because the check is no longer free. It reads layout, and whenever
+// no anchor is rendered — Kick's theatre mode collapses both of its navs —
+// there is no placed button to short-circuit on, so it would otherwise run
+// against every chat message.
+let queuedEnsureButton = false;
+function queueEnsureButton(): void {
+  if (queuedEnsureButton || !enabled) return;
+  queuedEnsureButton = true;
+  setTimeout(() => {
+    queuedEnsureButton = false;
+    if (enabled) ensureButton();
+  }, 250);
 }
 
 /* ------------------------------------------------------------ panel window */
