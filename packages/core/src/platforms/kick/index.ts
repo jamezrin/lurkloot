@@ -6,7 +6,7 @@ import { KickWafBlockedError } from "../../core/tabs";
 import { authHealthFromError } from "../../core/fetchError";
 import { StaleWhileRevalidateCache } from "../../core/staleCache";
 import type { WebSocketFactory } from "../../core/webSocket";
-import { diagnostic, ignoreEvent, type AdapterOperationOptions, type ClaimedChallenge, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
+import { diagnostic, ignoreEvent, type AdapterOperationOptions, type ChannelCheckBatch, type ChannelCheckRequest, type ClaimedChallenge, type KickPageContextCycleObservation, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
 import { kickCandidatesFromCampaign, mergeKickProgress, parseKickCampaigns } from "./parser";
 import { KICK_CLIENT_TOKEN, KickWatcher } from "./watch";
 import { KickDiscoverySignalController } from "./discoverySignals";
@@ -16,6 +16,7 @@ import type { KickClaimCapability } from "./claim/types";
 import { safeHttpsUrl } from "./claim/types";
 import { KickClaimState } from "./claim/v2";
 import { isSafeFetchError } from "../../core/fetchError";
+import { KickRouteCounts, KickRouteState, safeKickRouteHost } from "./routeDiagnostics";
 
 export { createKickClaimCapability } from "./claim/factory";
 export type { KickClaimCapability, KickClaimOutcome } from "./claim/types";
@@ -28,12 +29,12 @@ const FOLLOWED_CHANNELS_CACHE_TTL_MS = 5 * 60_000;
 // Cross-tick cache for listFollowedChannels. A field on KickAdapter itself would
 // not do: every host reconstructs KickAdapter fresh each scheduler tick (see
 // TwitchDiscoveryState for the same constraint on the Twitch side), so only
-// state injected from outside the adapter survives to the next tick. Only one
-// field today, but this is the deliberate injection point for any future
-// cross-tick Kick state (mirroring TwitchDiscoveryState) — resist collapsing it
-// back into a bare StaleWhileRevalidateCache passed around directly.
+// state injected from outside the adapter survives to the next tick.
+// The route announcement state also shares this lifetime so unchanged routes
+// are not announced again when the next tick constructs an adapter.
 export class KickDiscoveryState {
   readonly followedChannels = new StaleWhileRevalidateCache<string[]>(FOLLOWED_CHANNELS_CACHE_TTL_MS);
+  readonly routeDiagnostics = new KickRouteState();
 }
 
 export interface KickAdapterOptions {
@@ -134,24 +135,62 @@ interface KickChallengeClaimResponse {
   data?: { challenge_id?: string; winner?: { id?: string; rarity?: string } } | null;
 }
 
-// Default Kick fetcher. Spike: try the service worker first (fully tabless) and
-// fall back to a retained kick.com page-context tab if Kick's WAF rejects the
-// extension origin. The outcome is logged once per host (then debug) so a
-// real-Chrome run shows exactly which calls are tabless-capable. The fallback
-// makes this risk-free: farming behaves as before regardless of the result.
+export class KickPageContextRecoveryTracker {
+  private readonly backgroundHosts = new Set<string>();
+  private readonly fallbackHosts = new Set<string>();
+
+  recordBackgroundSuccess(host: string): void {
+    this.backgroundHosts.add(host);
+  }
+
+  recordPageFallback(host: string): void {
+    this.fallbackHosts.delete(host);
+    this.fallbackHosts.add(host);
+  }
+
+  take(): KickPageContextCycleObservation | undefined {
+    if (this.backgroundHosts.size === 0 && this.fallbackHosts.size === 0) return undefined;
+    const observation = {
+      backgroundHosts: [...this.backgroundHosts].sort(),
+      fallbackHosts: [...this.fallbackHosts],
+    };
+    this.backgroundHosts.clear();
+    this.fallbackHosts.clear();
+    return observation;
+  }
+
+  discard(): void {
+    this.backgroundHosts.clear();
+    this.fallbackHosts.clear();
+  }
+
+  restore(observation: KickPageContextCycleObservation): void {
+    const newerBackgroundHosts = [...this.backgroundHosts];
+    const newerFallbackHosts = [...this.fallbackHosts];
+    this.backgroundHosts.clear();
+    this.fallbackHosts.clear();
+    for (const host of observation.backgroundHosts) this.backgroundHosts.add(host);
+    for (const host of observation.fallbackHosts) this.recordPageFallback(host);
+    for (const host of newerBackgroundHosts) this.backgroundHosts.add(host);
+    for (const host of newerFallbackHosts) this.recordPageFallback(host);
+  }
+}
+
+// Try the background transport first, then the host's optional page fallback.
+// Only route transitions emit per-request events; successful requests are
+// counted until the caller flushes the drained logical operation.
 export function createKickFetcher(deps: {
   background: (url: string, init?: RequestInit) => Promise<unknown>;
-  pageFetch: (url: string, init?: RequestInit) => Promise<unknown>;
+  pageFetch?: (url: string, init?: RequestInit) => Promise<unknown>;
   onBackgroundSuccess?: (host: string, emit: EventEmitter) => Promise<void> | void;
   onPageFallback?: (host: string, emit: EventEmitter) => Promise<void> | void;
+  routeState?: KickRouteState;
 }): PageFetcher {
   const { background, pageFetch, onBackgroundSuccess, onPageFallback } = deps;
-  const announced = new Map<string, "background" | "fallback">();
-  const report = (emit: EventEmitter, host: string, outcome: "background" | "fallback", detail: string): void => {
-    const repeat = announced.get(host) === outcome;
-    announced.set(host, outcome);
-    diagnostic(emit, repeat ? "debug" : "info", `Kick fetch ${host} ${detail}`, "kick");
-  };
+  const routeState = deps.routeState ?? new KickRouteState();
+  const counts = new KickRouteCounts();
+  let activeRequests = 0;
+  let pendingFlush: EventEmitter | undefined;
   const notifyLifecycle = async (
     callback: ((host: string, emit: EventEmitter) => Promise<void> | void) | undefined,
     host: string,
@@ -160,39 +199,52 @@ export function createKickFetcher(deps: {
     try {
       await callback?.(host, emit);
     } catch {
-      diagnostic(emit, "debug", `Kick page-context lifecycle update failed for ${host}`, "kick");
+      emit({ category: "diagnostic", platform: "kick", level: "debug", code: "kick_fetch_lifecycle_failed", message: `Kick page-context lifecycle update failed for ${host}` });
     }
   };
   return {
+    flushRouteDiagnostics(emit) {
+      if (activeRequests === 0) counts.flush(emit);
+      else pendingFlush = emit;
+    },
     fetchJson: async <T,>(url: string, init?: RequestInit, emit: EventEmitter = ignoreEvent): Promise<T> => {
       init?.signal?.throwIfAborted();
-      const host = safeHost(url);
-      let result: unknown;
+      const host = safeKickRouteHost(url);
+      activeRequests += 1;
       try {
-        result = await background(url, init);
-      } catch (error) {
-        init?.signal?.throwIfAborted();
-        report(emit, host, "fallback", error instanceof KickWafBlockedError
-          ? "→ WAF-blocked from service worker, using page tab"
-          : "→ service worker error, using page tab");
-        await notifyLifecycle(onPageFallback, host, emit);
-        init?.signal?.throwIfAborted();
-        result = await pageFetch(url, init);
+        let result: unknown;
+        try {
+          result = await background(url, init);
+        } catch (error) {
+          init?.signal?.throwIfAborted();
+          // Rate limiting applies to the request, not its execution context.
+          // CLI transports have no page fallback and retain their original error.
+          if (!pageFetch || (isSafeFetchError(error) && error.failure.status === 429)) throw error;
+          init?.signal?.throwIfAborted();
+          result = await pageFetch(url, init);
+          routeState.report(emit, host, "page", error instanceof KickWafBlockedError
+            ? "→ WAF-blocked from service worker, using page tab"
+            : "→ service worker error, using page tab");
+          counts.record(host, "page");
+          await notifyLifecycle(onPageFallback, host, emit);
+          return result as T;
+        }
+        routeState.report(emit, host, "background", pageFetch
+          ? "→ service worker OK (tabless-capable)"
+          : "→ background transport OK (tabless-capable)");
+        counts.record(host, "background");
+        await notifyLifecycle(onBackgroundSuccess, host, emit);
         return result as T;
+      } finally {
+        activeRequests -= 1;
+        if (activeRequests === 0 && pendingFlush) {
+          const emitSummary = pendingFlush;
+          pendingFlush = undefined;
+          counts.flush(emitSummary);
+        }
       }
-      report(emit, host, "background", "→ service worker OK (tabless-capable)");
-      await notifyLifecycle(onBackgroundSuccess, host, emit);
-      return result as T;
     },
   };
-}
-
-function safeHost(url: string): string {
-  try {
-    return new URL(url).host;
-  } catch {
-    return "unknown-host";
-  }
 }
 
 // Parses the `categories[]` array from Kick's `/api/search` response. Each entry
@@ -228,6 +280,10 @@ export class KickAdapter implements PlatformAdapter {
   private readonly claimCapability: KickClaimCapability;
   private readonly discoveryState: KickDiscoveryState;
   readonly createDiscoverySignalController?: () => DiscoverySignalController;
+
+  flushRouteDiagnostics(emit: EventEmitter): void {
+    this.fetcher.flushRouteDiagnostics?.(emit);
+  }
 
   async checkAuthHealth(signal?: AbortSignal): Promise<PlatformAuthHealth> {
     const checkedAt = new Date().toISOString();
@@ -324,24 +380,30 @@ export class KickAdapter implements PlatformAdapter {
 
   async refreshCampaigns(
     _session?: WatchSession,
-    { signal }: AdapterOperationOptions = {},
+    { signal, requireComplete }: AdapterOperationOptions = {},
   ): Promise<DropCampaign[]> {
-    const progressPromise = this.fetchProgressData(signal).then(
-      (value) => ({ status: "fulfilled" as const, value }),
-      (reason: unknown) => ({ status: "rejected" as const, reason }),
-    );
-    const [campaignData, progressResult] = await Promise.all([
+    const [campaignResult, progressResult] = await Promise.allSettled([
       this.fetchCampaignData(signal),
-      progressPromise,
+      this.fetchProgressData(signal),
     ]);
+    signal?.throwIfAborted();
+    if (campaignResult.status === "rejected") throw campaignResult.reason;
+    const campaignData = campaignResult.value;
+    if (requireComplete && !hasCompleteKickCampaignInventory(campaignData)) {
+      throw new Error("Kick discovery campaign inventory was incomplete");
+    }
     const campaigns = parseKickCampaigns(
       campaignData as Parameters<typeof parseKickCampaigns>[0],
     );
     if (progressResult.status === "fulfilled") {
+      if (requireComplete && !hasCompleteKickProgressInventory(progressResult.value)) {
+        throw new Error("Kick discovery progress was incomplete");
+      }
       return this.mergeProgress(campaigns, progressResult.value);
     }
     signal?.throwIfAborted();
     if (authHealthFromError(progressResult.reason)) throw progressResult.reason;
+    if (requireComplete) throw new Error("Kick discovery progress was incomplete");
     this.reportProgressFallback(progressResult.reason);
     return campaigns;
   }
@@ -409,20 +471,25 @@ export class KickAdapter implements PlatformAdapter {
   // KickAdapter fresh each scheduler tick, so a per-instance cache would never
   // survive to the next tick and this would hit the network every time —
   // exactly the tick latency this cache exists to avoid. A cached value (even a
-  // stale one) is served immediately and refreshed in the background, never
-  // blocking the caller; only the very first call ever (nothing cached yet)
-  // blocks once, so the first campaign decision after startup can still prefer
-  // a followed channel instead of being stuck on a stranger for the rest of the
-  // session (shouldKeepWatching never switches mid-session for the same
-  // campaign).
-  async listFollowedChannels({ signal }: AdapterOperationOptions = {}): Promise<string[]> {
+  // stale one) is served immediately to standalone callers. Refresh ownership
+  // is independent from a particular caller's abort signal because overlapping
+  // callers share the promise. Strict snapshot discovery still awaits it before
+  // observing its own cancellation, so route evidence cannot arrive late.
+  async listFollowedChannels({ signal, requireComplete }: AdapterOperationOptions = {}): Promise<string[]> {
     const cache = this.discoveryState.followedChannels;
     const cached = cache.get();
     if (cached) {
-      if (cache.isStale()) void cache.refreshOnce(() => this.fetchFollowedChannels());
+      if (cache.isStale()) {
+        const refresh = cache.refreshOnce(() => this.fetchFollowedChannels());
+        if (requireComplete) {
+          await refresh;
+          signal?.throwIfAborted();
+        }
+      }
       return cached;
     }
-    await cache.refreshOnce(() => this.fetchFollowedChannels(signal));
+    await cache.refreshOnce(() => this.fetchFollowedChannels());
+    signal?.throwIfAborted();
     return cache.get() ?? [];
   }
 
@@ -434,9 +501,6 @@ export class KickAdapter implements PlatformAdapter {
   // later.
   private async fetchFollowedChannels(signal?: AbortSignal): Promise<string[]> {
     try {
-      // Never passed the calling tick's signal when refreshing a stale cache in
-      // the background (see listFollowedChannels): that fetch must outlive the
-      // tick that triggered it, not be cancelled when the tick ends.
       const response = await this.fetcher.fetchJson<KickFollowedLiveStreamsResponse>(
         "https://kick.com/api/v1/user/livestreams",
         { signal },
@@ -459,7 +523,7 @@ export class KickAdapter implements PlatformAdapter {
 
   async listCandidateChannels(
     campaign: DropCampaign,
-    { signal }: AdapterOperationOptions = {},
+    { signal, requireComplete }: AdapterOperationOptions = {},
   ): Promise<ChannelCandidate[]> {
     const aclCandidates = kickCandidatesFromCampaign(campaign);
     if (aclCandidates.length > 0) return aclCandidates;
@@ -470,7 +534,12 @@ export class KickAdapter implements PlatformAdapter {
     if (campaign.categoryId) url.searchParams.set("category_id", campaign.categoryId);
 
     const response = await this.fetcher.fetchJson<KickLivestreamsResponse>(url.toString(), { signal }, this.emit);
-    const streams = Array.isArray(response.data) ? response.data : response.data?.livestreams ?? [];
+    const directory = Array.isArray(response?.data) ? response.data : response?.data?.livestreams;
+    if (requireComplete && (!Array.isArray(directory) || directory.some((stream) => {
+      const username = stream?.channel?.slug ?? stream?.channel?.username ?? stream?.slug;
+      return typeof username !== "string" || !username.trim();
+    }))) throw new Error("Kick discovery channel directory was incomplete");
+    const streams = directory ?? [];
     return streams.map((stream): ChannelCandidate => {
       const username = stream.channel?.slug ?? stream.channel?.username ?? stream.slug ?? "";
       return {
@@ -491,21 +560,105 @@ export class KickAdapter implements PlatformAdapter {
 
   async checkChannel(
     channel: ChannelCandidate,
-    { campaign, signal }: AdapterOperationOptions & { campaign?: DropCampaign } = {},
+    options: AdapterOperationOptions & { campaign?: DropCampaign } = {},
+  ): Promise<ChannelCheck> {
+    return this.checkChannelWithFetcher(channel, options, this.fetcher);
+  }
+
+  async checkChannels(requests: ChannelCheckRequest[], { signal }: AdapterOperationOptions = {}): Promise<ChannelCheckBatch> {
+    // The cache belongs to this revision, never the adapter lifetime. Cache raw
+    // responses so category expectations and ACL/campaign metadata stay local.
+    const evidence = new Map<string, Promise<unknown>>();
+    const fetcher: PageFetcher = {
+      fetchJson: <T,>(url: string, init?: RequestInit, emit?: EventEmitter): Promise<T> => {
+        let pending = evidence.get(url);
+        if (!pending) {
+          pending = this.fetcher.fetchJson(url, init, emit);
+          evidence.set(url, pending);
+        }
+        return pending as Promise<T>;
+      },
+    };
+    const checks: Array<ChannelCheck | undefined> = new Array(requests.length).fill(undefined);
+    // One sequential candidate chain per campaign avoids speculative requests
+    // after an early match. Independent campaigns (and idle checks) share the
+    // worker limit and evidence cache.
+    const groups: number[][] = [];
+    const campaignGroups = new Map<string, number[]>();
+    requests.forEach((request, index) => {
+      let group = request.campaign ? campaignGroups.get(request.campaign.id) : undefined;
+      if (!group) {
+        group = [];
+        groups.push(group);
+        if (request.campaign) campaignGroups.set(request.campaign.id, group);
+      }
+      group.push(index);
+    });
+    const checkedChannels = new Set<string>();
+    let next = 0;
+    let failed = false;
+    let failure: unknown;
+    const worker = async (): Promise<void> => {
+      while (!failed && next < groups.length) {
+        const group = groups[next++]!;
+        try {
+          for (const index of group) {
+            if (failed) break;
+            signal?.throwIfAborted();
+            const request = requests[index]!;
+            checkedChannels.add(request.channel.username.toLowerCase());
+            const check = await this.checkChannelWithFetcher(request.channel,
+              { campaign: request.campaign, signal, requireComplete: true }, fetcher);
+            checks[index] = check;
+            if (request.campaign && check.live && check.categoryMatches && check.campaignMatches !== false) break;
+          }
+        } catch (error) {
+          if (!failed) failure = error;
+          failed = true;
+        }
+      }
+    };
+    // Await every active worker before the controller can consume this cycle's
+    // fetch observations. A failure stops admission, not drainage.
+    await Promise.all(Array.from({ length: Math.min(3, groups.length) }, worker));
+    signal?.throwIfAborted();
+    if (failed) throw failure;
+    return { checks, uniqueChannelChecks: checkedChannels.size };
+  }
+
+  private async checkChannelWithFetcher(
+    channel: ChannelCandidate,
+    { campaign, signal, requireComplete }: AdapterOperationOptions & { campaign?: DropCampaign },
+    fetcher: PageFetcher,
   ): Promise<ChannelCheck> {
     try {
-      const data = await this.fetcher.fetchJson<KickChannelResponse>(
-        `https://kick.com/api/v2/channels/${encodeURIComponent(channel.username)}`,
+      const data = await fetcher.fetchJson<KickChannelResponse>(
+        `https://kick.com/api/v2/channels/${encodeURIComponent(channel.username.toLowerCase())}`,
         { signal },
         this.emit,
       );
+      if (requireComplete && (!data || !("livestream" in data))) {
+        throw new Error("Kick discovery channel response was incomplete");
+      }
       const livestream = data.livestream;
+      if (requireComplete && livestream !== null && (
+        !livestream
+        || typeof livestream !== "object"
+        || Array.isArray(livestream)
+        || (typeof livestream.is_live !== "boolean" && livestream.id == null)
+      )) {
+        throw new Error("Kick discovery channel response was incomplete");
+      }
       // Kick now returns a `categories` array; keep `category` as a fallback.
       const category = livestream?.categories?.[0] ?? livestream?.category;
       const actualCategoryId = category?.id == null ? undefined : String(category.id);
       const expectedCategoryId = campaign ? campaign.categoryId : channel.categoryId;
+      const live = livestream !== null && Boolean(livestream?.is_live ?? true);
+      if (requireComplete && live && expectedCategoryId && actualCategoryId == null) {
+        throw new Error("Kick discovery channel category evidence was incomplete");
+      }
       return {
-        live: Boolean(livestream?.is_live ?? livestream),
+        live,
         categoryMatches: !expectedCategoryId || actualCategoryId === expectedCategoryId,
         reason: livestream ? undefined : "Kick channel is offline",
         candidate: {
@@ -521,7 +674,8 @@ export class KickAdapter implements PlatformAdapter {
     } catch (error) {
       signal?.throwIfAborted();
       if (authHealthFromError(error)) throw error;
-      return this.checkChannelFromPage(channel, campaign, error, signal);
+      if (requireComplete && isSafeFetchError(error) && error.failure.status === 429) throw error;
+      return this.checkChannelFromPage(channel, campaign, error, signal, fetcher, requireComplete);
     }
   }
 
@@ -651,15 +805,25 @@ export class KickAdapter implements PlatformAdapter {
     campaign: DropCampaign | undefined,
     originalError: unknown,
     signal?: AbortSignal,
+    fetcher: PageFetcher = this.fetcher,
+    requireComplete = false,
   ): Promise<ChannelCheck> {
-    const originalMessage = originalError instanceof Error ? originalError.message : String(originalError);
+    const originalMessage = requireComplete && isSafeFetchError(originalError)
+      ? `${originalError.failure.kind}${originalError.failure.status == null ? "" : ` status=${originalError.failure.status}`}`
+      : requireComplete ? "provider evidence unavailable"
+      : originalError instanceof Error ? originalError.message : String(originalError);
     diagnostic(this.emit, "debug", `Kick API channel check failed for ${channel.username}, falling back to the channel page: ${originalMessage}`, "kick");
     try {
-      const page = await this.fetcher.fetchJson<{ html?: string }>(channel.url, { signal }, this.emit);
+      const page = await fetcher.fetchJson<{ html?: string }>(channel.url, { signal }, this.emit);
       const html = page.html ?? "";
-      const live = parseBooleanField(html, ["is_live", "isLive", "live"]) ?? html.includes("livestream");
+      const explicitLive = parseBooleanField(html, ["is_live", "isLive", "live"]);
+      if (requireComplete && explicitLive === undefined) throw new Error("Kick discovery page evidence was incomplete");
+      const live = explicitLive ?? html.includes("livestream");
       const actualCategoryId = parseCategoryId(html);
       const expectedCategoryId = campaign ? campaign.categoryId : channel.categoryId;
+      if (requireComplete && live && expectedCategoryId && actualCategoryId == null) {
+        throw new Error("Kick discovery page category evidence was incomplete");
+      }
       return {
         live,
         categoryMatches: !expectedCategoryId || actualCategoryId == null || actualCategoryId === expectedCategoryId,
@@ -671,6 +835,7 @@ export class KickAdapter implements PlatformAdapter {
       };
     } catch {
       signal?.throwIfAborted();
+      if (requireComplete) throw new Error("Kick discovery channel evidence was incomplete");
       return {
         live: false,
         categoryMatches: false,
@@ -679,6 +844,48 @@ export class KickAdapter implements PlatformAdapter {
       };
     }
   }
+}
+
+function kickInventoryRecords(input: unknown, keys: string[]): unknown[] | undefined {
+  if (Array.isArray(input)) return input;
+  if (!input || typeof input !== "object") return undefined;
+  const root = input as Record<string, unknown>;
+  if (Array.isArray(root.data)) return root.data;
+  const data = root.data && typeof root.data === "object" ? root.data as Record<string, unknown> : {};
+  const buckets = keys.flatMap((key) => [root[key], data[key]]).filter(Array.isArray);
+  return buckets.length > 0 ? buckets.flat() : undefined;
+}
+
+function hasCompleteKickCampaignInventory(input: unknown): boolean {
+  const records = kickInventoryRecords(input, ["campaigns", "active", "current", "upcoming"]);
+  return records !== undefined && records.every((entry) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return false;
+    const campaign = entry as Record<string, unknown>;
+    if (campaign.id == null) return false;
+    const rewards = campaign.rewards ?? campaign.drops;
+    return rewards === undefined || (Array.isArray(rewards) && rewards.every((reward) =>
+      Boolean(reward) && typeof reward === "object" && !Array.isArray(reward)
+      && (reward as Record<string, unknown>).id != null));
+  });
+}
+
+function hasCompleteKickProgressInventory(input: unknown): boolean {
+  const records = kickInventoryRecords(input, ["progress", "campaigns", "active", "current", "completed"]);
+  return records !== undefined && records.every((entry) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return false;
+    const progress = entry as Record<string, unknown>;
+    const rewards = progress.rewards;
+    const identifiesProgress = progress.id != null
+      || progress.campaign_id != null
+      || progress.drop_campaign_id != null
+      || progress.reward_id != null
+      || progress.drop_id != null;
+    return identifiesProgress && (rewards === undefined || (Array.isArray(rewards) && rewards.every((reward) =>
+      Boolean(reward) && typeof reward === "object" && !Array.isArray(reward)
+      && ((reward as Record<string, unknown>).id != null
+        || (reward as Record<string, unknown>).reward_id != null
+        || (reward as Record<string, unknown>).drop_id != null))));
+  });
 }
 
 function affirmativelyLinkedCampaignIds(input: unknown): Set<string> {

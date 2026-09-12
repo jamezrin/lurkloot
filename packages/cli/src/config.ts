@@ -113,11 +113,17 @@ export function defaultConfigJsonc(): string {
         "enabled": ${json(twitch.enabled)},
         "idleWatchlistChannels": ${json(twitch.idleWatchlistChannels)},
         "excludedChannels": ${json(twitch.excludedChannels)},
-        "farmAllCategories": ${json(twitch.farmAllCategories)},
-        // Used when farmAllCategories is false.
+        // "all" farms every category, "include" farms only the categories
+        // listed below, "exclude" farms everything except them.
+        "categoryMode": ${json(twitch.categoryMode)},
+        // Used by "include" and "exclude". In "include" the order also sets
+        // category priority; in "exclude" the order does not matter.
         "categories": ${json(twitch.categories)},
         // Claim channel-point bonuses while farming this platform.
         "autoClaimChannelPoints": ${json(twitch.autoClaimChannelPoints)},
+        // Advanced: claim channel-point bonuses from Twitch's live Hermes
+        // notification. Has no effect without a WebSocket factory.
+        "channelPointsPushClaim": ${json(twitch.channelPointsPushClaim)},
         // Advanced: only farm a campaign on channels Twitch's AvailableDrops
         // query lists it for. Twitch often omits farmable campaigns there, so
         // enabling this can leave drops unfarmed.
@@ -127,8 +133,11 @@ export function defaultConfigJsonc(): string {
         "enabled": ${json(kick.enabled)},
         "idleWatchlistChannels": ${json(kick.idleWatchlistChannels)},
         "excludedChannels": ${json(kick.excludedChannels)},
-        "farmAllCategories": ${json(kick.farmAllCategories)},
-        // Used when farmAllCategories is false.
+        // "all" farms every category, "include" farms only the categories
+        // listed below, "exclude" farms everything except them.
+        "categoryMode": ${json(kick.categoryMode)},
+        // Used by "include" and "exclude". In "include" the order also sets
+        // category priority; in "exclude" the order does not matter.
         "categories": ${json(kick.categories)},
         // Claim Kick's daily gamification challenges automatically.
         "autoClaimChallenges": ${json(kick.autoClaimChallenges)}

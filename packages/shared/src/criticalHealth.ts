@@ -24,7 +24,11 @@ export interface CriticalHealthState {
   // stale counters from an old outage must not accumulate across sessions.
   failingMs: number;
   failingTicks: number;
-  // Written on every observation, accruing or not — it is the tick clock, not an accrual marker.
+  // The clock for failing time, not an accrual marker: written on every
+  // observation that reached a verdict, accruing or not. An inconclusive
+  // observation (platform disabled, signed out) clears it instead, so the next
+  // failing tick starts from a cold start rather than measuring a gap across a
+  // period when nothing was being observed.
   lastObservedAt?: string;
   lastWatchedMinutes?: number;
   // Both managed page contexts and managed watch tabs, sharing one churn window.

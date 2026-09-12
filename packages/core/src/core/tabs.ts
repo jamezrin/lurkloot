@@ -2,7 +2,7 @@ import type { AdFocusMode, ChannelCandidate, ManagedPageContextTab, ManagedWatch
 import type { EventEmitter, PageContextCloseReason, PageContextOpenReason } from "@lurkloot/shared/events";
 import type { LogLevel } from "@lurkloot/shared/logging";
 import type { TwitchIntegrity } from "./twitchIntegrity";
-import type { PreparedWatchTab, WatchTabOptions } from "../platforms/adapter";
+import type { KickPageContextCycleObservation, PreparedWatchTab, WatchTabOptions } from "../platforms/adapter";
 import { SafeFetchError, safeFetchFailure, type SafeFetchFailure } from "./fetchError";
 import { isTimestampStale, PLAYBACK_TELEMETRY_MAX_AGE_MS } from "./timestamps";
 
@@ -61,6 +61,8 @@ interface PageContextEntry {
 
 const pageContextTabs = new Map<string, PageContextEntry>();
 const retainedPageContextTabs = new Map<Platform, ManagedPageContextTab>();
+const closingPageContextTabIds = new Set<number>();
+let retainedPageContextRevision = 0;
 const ALL_PLATFORMS: readonly Platform[] = ["twitch", "kick"];
 // Mirrors SchedulerState.criticalHealth[platform].breakerOpen. The page-context
 // call sites are several layers deep and have no access to scheduler state, so
@@ -104,8 +106,6 @@ const PLAYBACK_PRIME_RESTORE_DELAY_MS = 1500;
 // coaxed along.
 const PLAYBACK_PRIME_MAX_ATTEMPTS = 3;
 const PLAYBACK_PRIME_BACKOFF_MS = 5 * 60_000;
-const PAGE_CONTEXT_RECOVERY_SUCCESSES = 3;
-const PAGE_CONTEXT_RECOVERY_MIN_MS = 10 * 60_000;
 
 export async function openPinnedMutedTabWithBrowser(
   browserApi: BrowserTabApi,
@@ -1346,6 +1346,7 @@ async function releasePageContextTab(
   if (!pageContext.createdByExtension) return;
   if (pageContext.retainedContext && !discardRetainedContext) {
     retainedPageContextTabs.set(pageContext.retainedContext.platform, pageContext.retainedContext);
+    retainedPageContextRevision += 1;
     diagnostic(emit, "debug", `Retained managed page context on ${new URL(pageContext.retainedContext.origin).host} because it may still be required`, pageContext.retainedContext.platform);
     return;
   }
@@ -1353,6 +1354,7 @@ async function releasePageContextTab(
     const retained = retainedPageContextTabs.get(pageContext.retainedContext.platform);
     if (retained?.tabId === pageContext.tabId) {
       retainedPageContextTabs.delete(pageContext.retainedContext.platform);
+      retainedPageContextRevision += 1;
     }
   }
   if (!browserApi.tabs.remove) return;
@@ -1381,6 +1383,7 @@ async function findOrCreatePageContextTab(
       .filter((tab): tab is ManagedPageContextTab => tab != null && tab.origin === origin)
       .map((tab) => tab.tabId),
   );
+  for (const tabId of closingPageContextTabIds) retainedIds.add(tabId);
   const requireFresh = options?.requireFreshPageContext === true;
   let tabId: number | undefined;
   for (const tab of tabs) {
@@ -1394,6 +1397,7 @@ async function findOrCreatePageContextTab(
   if (tabId != null) {
     if (retained?.origin === origin) {
       retainedPageContextTabs.delete(retained.platform);
+      retainedPageContextRevision += 1;
       const remove = browserApi.tabs.remove;
       if (!remove) {
         diagnostic(options?.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(retained.origin).host} because tab removal is unavailable`, retained.platform);
@@ -1423,6 +1427,7 @@ async function findOrCreatePageContextTab(
       const tab = await withAbortSignal(browserApi.tabs.get(retained.tabId), signal);
       if (tab?.id && tab.url?.startsWith(origin) && await isUsablePageContext(browserApi, tab.id, origin, signal)) {
         retainedPageContextTabs.set(retained.platform, retained);
+        retainedPageContextRevision += 1;
         // We own this tab, so re-navigating it to boot the SPA again is safe —
         // it is the only way a retained (and by now idle) context issues the
         // authenticated request the caller is waiting on.
@@ -1437,6 +1442,7 @@ async function findOrCreatePageContextTab(
         return { tabId: tab.id, createdByExtension: true, retainedContext: retained, source: "managed_tab" };
       }
       retainedPageContextTabs.delete(retained.platform);
+      retainedPageContextRevision += 1;
       openReason = "managed_context_unusable";
       if (tab?.id) {
         const remove = browserApi.tabs.remove;
@@ -1460,6 +1466,7 @@ async function findOrCreatePageContextTab(
     } catch (error) {
       signal?.throwIfAborted();
       retainedPageContextTabs.delete(retained.platform);
+      retainedPageContextRevision += 1;
       openReason = "managed_context_unusable";
       diagnostic(options?.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(origin).host} because it is unusable`, retained.platform);
     }
@@ -1520,6 +1527,7 @@ async function findOrCreatePageContextTab(
       ownedByExtension: true,
     };
     retainedPageContextTabs.set(retain.platform, retainedContext);
+    retainedPageContextRevision += 1;
     if (options?.emitPageContextActivity !== false) {
       options?.emit?.({
         category: "activity",
@@ -1645,7 +1653,32 @@ export function registerManagedPageContextTabs(
     retainedPageContextTabs.delete(platform);
     const context = contexts[platform];
     if (context) retainedPageContextTabs.set(platform, context);
+    retainedPageContextRevision += 1;
   }
+}
+
+// Hydrates storage-owned metadata only when this platform has no live registry
+// entry. A provider request may update the registry while its storage read is
+// pending; an old read must never put that newer page context back. Callers can
+// pass the revision observed before the read to make that race explicit.
+export function hydrateManagedPageContextTabs(
+  contexts: SchedulerManagedPageContexts,
+  platforms: readonly Platform[] = ALL_PLATFORMS,
+  expectedRevision?: number,
+): boolean {
+  if (expectedRevision !== undefined && expectedRevision !== retainedPageContextRevision) return false;
+  for (const platform of platforms) {
+    if (retainedPageContextTabs.has(platform)) continue;
+    const context = contexts[platform];
+    if (!context) continue;
+    retainedPageContextTabs.set(platform, context);
+    retainedPageContextRevision += 1;
+  }
+  return true;
+}
+
+export function currentManagedPageContextTabsRevision(): number {
+  return retainedPageContextRevision;
 }
 
 export function currentManagedPageContextTabs(): SchedulerManagedPageContexts {
@@ -1667,40 +1700,96 @@ export function recordManagedPageContextFallback(
     backgroundSuccesses: 0,
   };
   retainedPageContextTabs.set(platform, updated);
+  retainedPageContextRevision += 1;
   diagnostic(emit, "debug", `Retained managed page context on ${new URL(context.origin).host} because background access is still rejected`, platform);
 }
 
-export async function recordManagedPageContextBackgroundSuccessWithBrowser(
+export async function reconcileManagedPageContextRecoveryWithBrowser(
   browserApi: BrowserTabApi,
   platform: Platform,
-  host: string,
+  observation: KickPageContextCycleObservation,
+  requiredSuccesses: number,
   emit: EventEmitter = ignoreEvent,
-  now: number = Date.now(),
-): Promise<void> {
+): Promise<boolean> {
   const context = retainedPageContextTabs.get(platform);
-  if (!context?.lastFallbackAt || context.fallbackHost !== host) return;
+  if (!context) return false;
+
+  if (observation.fallbackHosts.length > 0) {
+    const fallbackHost = observation.fallbackHosts.at(-1)!;
+    retainedPageContextTabs.set(platform, {
+      ...context,
+      lastFallbackAt: new Date().toISOString(),
+      fallbackHost,
+      backgroundSuccesses: 0,
+    });
+    retainedPageContextRevision += 1;
+    diagnostic(emit, "debug", `Retained managed page context on ${new URL(context.origin).host} because this scheduler cycle still required page fallback`, platform);
+    return true;
+  }
+
+  if (!context.fallbackHost || !observation.backgroundHosts.includes(context.fallbackHost)) return false;
 
   const updated: ManagedPageContextTab = {
     ...context,
     backgroundSuccesses: (context.backgroundSuccesses ?? 0) + 1,
   };
   retainedPageContextTabs.set(platform, updated);
-  const fallbackAt = Date.parse(context.lastFallbackAt);
-  const recovered = updated.backgroundSuccesses! >= PAGE_CONTEXT_RECOVERY_SUCCESSES
-    && !Number.isNaN(fallbackAt)
-    && now - fallbackAt >= PAGE_CONTEXT_RECOVERY_MIN_MS
+  retainedPageContextRevision += 1;
+  const threshold = Math.min(10, Math.max(1, Math.round(requiredSuccesses)));
+  const recovered = updated.backgroundSuccesses! >= threshold
     && !pageContextTabs.has(context.origin);
   if (!recovered) {
     diagnostic(emit, "debug", `Retained managed page context on ${new URL(context.origin).host} while background recovery is being confirmed`, platform);
-    return;
+    return true;
   }
 
-  retainedPageContextTabs.delete(platform);
+  const verificationRevision = retainedPageContextRevision;
+  let retainedTab: Awaited<ReturnType<BrowserTabApi["tabs"]["get"]>>;
+  try {
+    retainedTab = await browserApi.tabs.get(context.tabId);
+  } catch {
+    retainedPageContextTabs.delete(platform);
+    retainedPageContextRevision += 1;
+    diagnostic(emit, "debug", `Forgot managed page context on ${new URL(context.origin).host} because the retained tab was already gone`, platform);
+    return true;
+  }
+  if (retainedPageContextRevision !== verificationRevision || pageContextTabs.has(context.origin)) {
+    return true;
+  }
+  if (retainedTab?.id !== context.tabId) {
+    retainedPageContextTabs.delete(platform);
+    retainedPageContextRevision += 1;
+    diagnostic(emit, "debug", `Forgot managed page context on ${new URL(context.origin).host} because the retained tab was already gone or changed`, platform);
+    return true;
+  }
+  if (typeof retainedTab.url !== "string") {
+    diagnostic(emit, "debug", `Retained managed page context on ${new URL(context.origin).host} because the tab URL is temporarily unavailable`, platform);
+    return true;
+  }
+  let retainedOrigin: string;
+  try {
+    retainedOrigin = new URL(retainedTab.url).origin;
+  } catch {
+    diagnostic(emit, "debug", `Retained managed page context on ${new URL(context.origin).host} because the tab URL is temporarily unreadable`, platform);
+    return true;
+  }
+  if (retainedOrigin !== context.origin) {
+    retainedPageContextTabs.delete(platform);
+    retainedPageContextRevision += 1;
+    diagnostic(emit, "debug", `Forgot managed page context on ${new URL(context.origin).host} because the retained tab changed`, platform);
+    return true;
+  }
   const remove = browserApi.tabs.remove;
   if (!remove) {
-    diagnostic(emit, "debug", `Forgot managed page context on ${new URL(context.origin).host} because tab removal is unavailable`, platform);
-    return;
+    diagnostic(emit, "debug", `Retained managed page context on ${new URL(context.origin).host} because tab removal is unavailable`, platform);
+    return true;
   }
+  // Release ownership synchronously before the asynchronous close. A fallback
+  // that starts from this point onward must acquire a fresh managed context,
+  // so this recovery attempt cannot delete or close its replacement.
+  retainedPageContextTabs.delete(platform);
+  retainedPageContextRevision += 1;
+  closingPageContextTabIds.add(context.tabId);
   try {
     await remove(context.tabId);
     emit({
@@ -1711,8 +1800,15 @@ export async function recordManagedPageContextBackgroundSuccessWithBrowser(
       data: { host: new URL(context.origin).host, reason: "background_recovered" },
     });
   } catch {
-    diagnostic(emit, "debug", `Forgot managed page context on ${new URL(context.origin).host} because the tab was already gone`, platform);
+    if (!retainedPageContextTabs.has(platform)) {
+      retainedPageContextTabs.set(platform, updated);
+      retainedPageContextRevision += 1;
+    }
+    diagnostic(emit, "debug", `Retained managed page context on ${new URL(context.origin).host} because the tab could not be closed`, platform);
+  } finally {
+    closingPageContextTabIds.delete(context.tabId);
   }
+  return true;
 }
 
 // Pure state cleanup: drop the given platforms from the contexts map and the
@@ -1730,6 +1826,7 @@ export function forgetManagedPageContextTabs(
     if (!next[platform]) continue;
     delete next[platform];
     retainedPageContextTabs.delete(platform);
+    retainedPageContextRevision += 1;
   }
   return next;
 }

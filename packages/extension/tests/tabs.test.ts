@@ -21,7 +21,7 @@ import {
   pageFetchJson,
   PLAYBACK_PRIME_BACKOFF_MS,
   PLAYBACK_PRIME_MAX_ATTEMPTS,
-  recordManagedPageContextBackgroundSuccessWithBrowser,
+  reconcileManagedPageContextRecoveryWithBrowser,
   recordManagedPageContextFallback,
   registerManagedPageContextTabs,
   resetTwitchIntegrityRefreshBounds,
@@ -211,6 +211,7 @@ describe("tab manager", () => {
 
   it("releases a retained Kick context only after sustained background recovery", async () => {
     const browser = browserMock();
+    browser.tabs.get.mockResolvedValue({ id: 14, url: "https://kick.com" });
     const events: EngineEvent[] = [];
     const emit = (event: EngineEvent) => events.push(event);
     const startedAt = Date.parse("2026-07-21T12:00:00.000Z");
@@ -219,11 +220,11 @@ describe("tab manager", () => {
     });
     recordManagedPageContextFallback("kick", "web.kick.com", emit, startedAt);
 
-    await recordManagedPageContextBackgroundSuccessWithBrowser(browser, "kick", "web.kick.com", emit, startedAt + 11 * 60_000);
-    await recordManagedPageContextBackgroundSuccessWithBrowser(browser, "kick", "web.kick.com", emit, startedAt + 11 * 60_000 + 1);
+    await reconcileManagedPageContextRecoveryWithBrowser(browser, "kick", { backgroundHosts: ["web.kick.com"], fallbackHosts: [] }, 3, emit);
+    await reconcileManagedPageContextRecoveryWithBrowser(browser, "kick", { backgroundHosts: ["web.kick.com"], fallbackHosts: [] }, 3, emit);
     expect(browser.tabs.remove).not.toHaveBeenCalled();
 
-    await recordManagedPageContextBackgroundSuccessWithBrowser(browser, "kick", "web.kick.com", emit, startedAt + 11 * 60_000 + 2);
+    await reconcileManagedPageContextRecoveryWithBrowser(browser, "kick", { backgroundHosts: ["web.kick.com"], fallbackHosts: [] }, 3, emit);
 
     expect(browser.tabs.remove).toHaveBeenCalledOnce();
     expect(currentManagedPageContextTabs().kick).toBeUndefined();
@@ -243,13 +244,173 @@ describe("tab manager", () => {
       kick: { platform: "kick", tabId: 14, originUrl: "https://kick.com", origin: "https://kick.com", ownedByExtension: true },
     });
     recordManagedPageContextFallback("kick", "web.kick.com", undefined, startedAt);
-    await recordManagedPageContextBackgroundSuccessWithBrowser(browser, "kick", "web.kick.com", undefined, startedAt + 11 * 60_000);
-    await recordManagedPageContextBackgroundSuccessWithBrowser(browser, "kick", "web.kick.com", undefined, startedAt + 11 * 60_000 + 1);
-    recordManagedPageContextFallback("kick", "web.kick.com", undefined, startedAt + 11 * 60_000 + 2);
-    await recordManagedPageContextBackgroundSuccessWithBrowser(browser, "kick", "web.kick.com", undefined, startedAt + 22 * 60_000);
+    await reconcileManagedPageContextRecoveryWithBrowser(browser, "kick", { backgroundHosts: ["web.kick.com"], fallbackHosts: [] }, 3);
+    await reconcileManagedPageContextRecoveryWithBrowser(browser, "kick", { backgroundHosts: ["web.kick.com"], fallbackHosts: [] }, 3);
+    await reconcileManagedPageContextRecoveryWithBrowser(browser, "kick", { backgroundHosts: ["web.kick.com"], fallbackHosts: ["web.kick.com"] }, 3);
+    await reconcileManagedPageContextRecoveryWithBrowser(browser, "kick", { backgroundHosts: ["web.kick.com"], fallbackHosts: [] }, 3);
 
     expect(browser.tabs.remove).not.toHaveBeenCalled();
     expect(currentManagedPageContextTabs().kick).toMatchObject({ backgroundSuccesses: 1 });
+  });
+
+  it("forgets stale recovery ownership without closing a user tab that reused the id", async () => {
+    const browser = browserMock();
+    browser.tabs.get.mockResolvedValue({ id: 14, url: "https://example.com" });
+    registerManagedPageContextTabs({
+      kick: {
+        platform: "kick",
+        tabId: 14,
+        originUrl: "https://kick.com",
+        origin: "https://kick.com",
+        ownedByExtension: true,
+        fallbackHost: "kick.com",
+        backgroundSuccesses: 0,
+      },
+    });
+
+    await reconcileManagedPageContextRecoveryWithBrowser(
+      browser,
+      "kick",
+      { backgroundHosts: ["kick.com"], fallbackHosts: [] },
+      1,
+    );
+
+    expect(browser.tabs.remove).not.toHaveBeenCalled();
+    expect(currentManagedPageContextTabs().kick).toBeUndefined();
+  });
+
+  it("keeps recovery ownership while the retained tab URL is temporarily unreadable", async () => {
+    const browser = browserMock();
+    browser.tabs.get.mockResolvedValue({ id: 14 });
+    registerManagedPageContextTabs({
+      kick: {
+        platform: "kick",
+        tabId: 14,
+        originUrl: "https://kick.com",
+        origin: "https://kick.com",
+        ownedByExtension: true,
+        fallbackHost: "kick.com",
+        backgroundSuccesses: 0,
+      },
+    });
+
+    await reconcileManagedPageContextRecoveryWithBrowser(
+      browser,
+      "kick",
+      { backgroundHosts: ["kick.com"], fallbackHosts: [] },
+      1,
+    );
+
+    expect(browser.tabs.remove).not.toHaveBeenCalled();
+    expect(currentManagedPageContextTabs().kick).toMatchObject({
+      tabId: 14,
+      fallbackHost: "kick.com",
+    });
+  });
+
+  it("does not close a retained tab when a newer fallback arrives during verification", async () => {
+    const browser = browserMock();
+    const tabLookup = deferred<{ id: number; url: string }>();
+    browser.tabs.get.mockReturnValue(tabLookup.promise);
+    registerManagedPageContextTabs({
+      kick: {
+        platform: "kick",
+        tabId: 14,
+        originUrl: "https://kick.com",
+        origin: "https://kick.com",
+        ownedByExtension: true,
+        fallbackHost: "kick.com",
+        backgroundSuccesses: 0,
+      },
+    });
+
+    const recovery = reconcileManagedPageContextRecoveryWithBrowser(
+      browser,
+      "kick",
+      { backgroundHosts: ["kick.com"], fallbackHosts: [] },
+      1,
+    );
+    await vi.waitFor(() => expect(browser.tabs.get).toHaveBeenCalledOnce());
+    recordManagedPageContextFallback("kick", "web.kick.com");
+    tabLookup.resolve({ id: 14, url: "https://kick.com" });
+    await recovery;
+
+    expect(browser.tabs.remove).not.toHaveBeenCalled();
+    expect(currentManagedPageContextTabs().kick).toMatchObject({
+      fallbackHost: "web.kick.com",
+      backgroundSuccesses: 0,
+    });
+  });
+
+  it("does not erase a replacement context created while the recovered tab is closing", async () => {
+    const browser = browserMock();
+    const removal = deferred<undefined>();
+    browser.tabs.query.mockResolvedValue([{ id: 14, url: "https://kick.com", status: "complete" }]);
+    browser.tabs.create.mockResolvedValue({ id: 15 });
+    browser.tabs.get.mockResolvedValue({ id: 14, url: "https://kick.com" });
+    browser.tabs.remove.mockReturnValue(removal.promise);
+    const executeScript = vi.fn(async () => [{ result: { usable: true, ok: true } }]);
+    const browserWithScripting = { ...browser, scripting: { executeScript } };
+    registerManagedPageContextTabs({
+      kick: {
+        platform: "kick",
+        tabId: 14,
+        originUrl: "https://kick.com",
+        origin: "https://kick.com",
+        ownedByExtension: true,
+        fallbackHost: "kick.com",
+        backgroundSuccesses: 0,
+      },
+    });
+
+    const recovery = reconcileManagedPageContextRecoveryWithBrowser(
+      browserWithScripting,
+      "kick",
+      { backgroundHosts: ["kick.com"], fallbackHosts: [] },
+      1,
+    );
+    await vi.waitFor(() => expect(browser.tabs.remove).toHaveBeenCalledOnce());
+    await fetchJsonInPageWithBrowser(
+      browserWithScripting,
+      "https://kick.com/drops/inventory",
+      "https://web.kick.com/api/v1/drops/progress",
+      undefined,
+      { retainPageContext: { platform: "kick" } },
+    );
+    recordManagedPageContextFallback("kick", "web.kick.com");
+    removal.resolve(undefined);
+    await recovery;
+
+    expect(browser.tabs.create).toHaveBeenCalledOnce();
+    expect(executeScript).toHaveBeenCalledWith(expect.objectContaining({ target: { tabId: 15 } }));
+    expect(currentManagedPageContextTabs().kick).toMatchObject({
+      tabId: 15,
+      fallbackHost: "web.kick.com",
+    });
+  });
+
+  it("confirms recovery against the most recently required fallback host", async () => {
+    const browser = browserMock();
+    browser.tabs.get.mockResolvedValue({ id: 14, url: "https://kick.com" });
+    registerManagedPageContextTabs({
+      kick: { platform: "kick", tabId: 14, originUrl: "https://kick.com", origin: "https://kick.com", ownedByExtension: true },
+    });
+
+    await reconcileManagedPageContextRecoveryWithBrowser(
+      browser,
+      "kick",
+      { backgroundHosts: [], fallbackHosts: ["api.kick.com", "web.kick.com"] },
+      1,
+    );
+    await reconcileManagedPageContextRecoveryWithBrowser(
+      browser,
+      "kick",
+      { backgroundHosts: ["web.kick.com"], fallbackHosts: [] },
+      1,
+    );
+
+    expect(browser.tabs.remove).toHaveBeenCalledWith(14);
+    expect(currentManagedPageContextTabs().kick).toBeUndefined();
   });
 
   it("keeps tab diagnostics scoped to the supplied emitter", async () => {

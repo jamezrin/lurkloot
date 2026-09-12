@@ -96,7 +96,8 @@ function demoSnapshot(): RuntimeSnapshot {
         idleWatchlistChannels: ["rivalspilot", "lootforge", "nightrunlive"],
         excludedChannels: ["spoilerboss"],
         strictCampaignAvailability: false,
-        farmAllCategories: false,
+        channelPointsPushClaim: true,
+        categoryMode: "include",
         categories: [
           { id: "marathon legends", name: "Marathon Legends" },
           { id: "starfall arena", name: "Starfall Arena" },
@@ -108,8 +109,12 @@ function demoSnapshot(): RuntimeSnapshot {
         enabled: true,
         idleWatchlistChannels: ["greenroomgg", "pixelboost"],
         excludedChannels: [],
-        farmAllCategories: true,
-        categories: [],
+        // Exercises the inverse mode alongside Twitch's include list: Kick
+        // farms every category except this one.
+        categoryMode: "exclude",
+        categories: [
+          { id: "just chatting", name: "Just Chatting" },
+        ],
         autoClaimChallenges: true,
       },
     },

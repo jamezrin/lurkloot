@@ -28,6 +28,65 @@ Package-qualified paths below are written as `packages/<package>/...` when owner
 
 State and normalized settings are loaded and saved through `packages/extension/src/core/storage.ts` in the extension and through `packages/cli/src/storage.ts` in the CLI. The scheduler stores independent `WatchSession`, campaign, manual-watch, and managed-tab state for `twitch` and `kick`; diagnostics and activity events are emitted through the reporter outside `SchedulerState`. A short-lived Twitch Client-Integrity bundle is stored separately so claim mutations can replay page-issued Twitch headers while the token is valid.
 
+### Scheduler admission
+
+The shared controller reserves one active scheduler tick and at most one pending
+follow-up per platform, before loading settings or beginning tick diagnostics.
+Overlapping callers share the pending result promise. Twitch and Kick have
+independent lanes; extension alarms and CLI intervals request each platform
+separately. The CLI also shares result observers so repeated intervals cannot
+accumulate reporting continuations behind the same pending tick.
+
+Pending triggers merge by their existing selection semantics: `manual_tick`,
+`manual_resume`, and `claim_handoff` force selection and bypass backoff; `startup`
+forces selection without bypassing backoff. Other user actions, including
+settings and automation toggles, retain their persisted mutations through fresh
+settings/state loads. Ordinary alarms and discovery signals do not override a
+higher-priority trigger. Equal-priority triggers retain the first reason, while
+diagnostics count every merged reason. Valid discovery signals share an already
+pending scheduler follow-up instead of requesting another cycle afterward.
+
+Each executed follow-up reloads current settings/state and selects from the
+latest committed discovery revision. Disablement discards obsolete pending work;
+shutdown and host reset cancel it and abort active ticks. Reset also closes
+admission until cleanup finishes. Discovery signal controller/generation checks
+remain in force. Tick start/finish timing covers executed work only; separate
+diagnostics report merged or discarded trigger counts. Heartbeat admission and
+its fixed cadence remain independent of scheduler admission.
+
+### Discovery work
+
+The shared collector evaluates campaign farmability using the refresh's settings
+and one timestamp before listing channels. Completed, expired, excluded,
+infeasible and statically disallowed campaigns stay in the inventory with empty
+channel observations. Claimable rewards and uncertain channel eligibility retain
+their existing behavior. This gate uses the same evaluator as selection.
+
+Kick checks eligible campaigns through an optional adapter batch contract. Three
+workers process independent campaigns; each campaign checks candidates in order
+and stops at its first valid channel. This avoids speculative requests after an
+early match. Idle Watchlist checks are independent jobs and all remain observed.
+Raw API/page responses are shared by URL only within that discovery revision;
+each candidate retains its own campaign, ACL metadata and category expectation.
+The next revision fetches fresh evidence. A single campaign's candidate chain
+remains sequential, trading its latency for the existing early-match request
+budget. Campaign and candidate result ordering never depends on completion order.
+
+Missing Kick inventory/progress, malformed general-channel directories, missing
+required category evidence, cancellation or failed checks do not replace the
+last coherent snapshot. On failure, workers stop taking new work and drain active
+requests before returning. The collector also drains paired inventory and
+followed-channel operations. Strict Kick discovery awaits stale followed-cache
+refreshes, including an existing refresh, before cycle-level fetch observation is
+consumed. This adds the followed lookup's latency once per five-minute cache
+expiry, while fresh-cache reads remain immediate. HTTP 429 never retries through a different
+execution context. Discovery diagnostics report duration, inventory count,
+campaigns skipped before channel work, candidate observations and unique channel
+checks. Failed attempts without counters report that work metrics are unavailable
+rather than reporting zero work. The attribution fields contain only counts;
+strict missing-evidence failures use fixed messages. Both extension and CLI run
+this collector and the same Kick adapter.
+
 ## Runtime Messages
 
 The popup and content scripts do not call adapters directly. They send typed runtime messages from `@lurkloot/shared/messages`:
@@ -45,7 +104,19 @@ Important setting groups:
 
 - Global automation: `running`, `autoStartDropFarming`, per-platform `enabled`.
 - Farming behavior: `autoClaim`, `autoClaimChannelPoints`, `idleWatchlistFallbackOnly`, `priorityMode`, `campaignPriorities`, `excludedCampaignIds`, `farmingEligibility`.
-- Platform preferences: `platform[platform].idleWatchlistChannels`, `platform[platform].excludedChannels`, `platform[platform].farmAllCategories`, and `platform[platform].categories`.
+- Platform preferences: `platform[platform].idleWatchlistChannels`, `platform[platform].excludedChannels`, `platform[platform].categoryMode`, and `platform[platform].categories`.
+
+`categoryMode` is `"all"`, `"include"` or `"exclude"`, and one stored `categories`
+list serves all three: `all` farms everything and leaves the list inactive,
+`include` farms only the listed categories (an empty list farms nothing) with
+list order supplying category priority, and `exclude` farms everything except the
+listed categories (an empty list is equivalent to `all`) with list order carrying
+no scheduling meaning. Switching mode never rewrites the array, so returning to
+`include` restores the ordering the user had set. Both questions — does a
+campaign pass, and what is its category priority — are answered only by
+`campaignPassesCategoryFilter` and `categoryPriorityScore` in
+`@lurkloot/shared/categories`, so farming eligibility, Drops-list visibility,
+scheduler rejection reasons and priority scoring cannot disagree.
 - Tab/playback behavior: `tablessMode`, `muteFarmingTabs`, `keepFarmingVideosUnmuted`, `pauseOnManualWatch`, `autoCloseFinishedDrops`, `offlineRetryLimit`.
 - Notifications: `notifyRewardEarned`, `notifyNoDropsLeft`.
 
@@ -143,6 +214,8 @@ For Kick, `pageFetchJson` reads `session_token` from the Kick page context and a
 
 Temporary page-context tabs are reference-counted per origin and removed after the fetches complete when the extension created them. Existing user tabs reused for page-context fetches are not closed.
 
+Kick may retain an extension-owned page-context tab when its service-worker fetch is rejected. One extension-host tracker receives successful route callbacks from every Kick fetcher, including the controller-lifetime tabless watcher, and drains only after scheduler state persists; residual evidence is discarded on every uncommitted tick exit. A fallback always resets recovery immediately, including on an incomplete cycle; only a complete, error-free direct cycle advances it once, regardless of request count. After the configurable number of consecutive direct cycles (three by default, 1–10 in Advanced settings), the extension verifies and closes that exact managed tab. Unreadable or concurrently changed tab ownership is retained for a safe retry, while ownership is released synchronously immediately before removal so a new fallback acquires a separate context. The counter is persisted with scheduler state so service-worker restarts do not reset or resurrect ownership. The CLI has no browser page-context tabs and does not expose this setting.
+
 ## Twitch Integration
 
 `TwitchAdapter` uses Twitch GraphQL at `https://gql.twitch.tv/gql` with persisted query hashes and the public Twitch web client id.
@@ -153,7 +226,7 @@ Temporary page-context tabs are reference-counted per origin and removed after t
 - Followed channels come from an inline `FollowedLiveChannels` query (`currentUser.followedLiveUsers`), cached for 5 minutes in `TwitchDiscoveryState` (injected, so the cache survives the extension reconstructing `TwitchAdapter` every tick). A tick never blocks on this: a cached value, even a stale one, is returned immediately and refreshed in the background; only the very first lookup ever (nothing cached yet) awaits the request. A signed-out session or a failed lookup answers with an empty list, and selection falls back to viewer count.
 - Channel validation calls `StreamInfo` with an inline public query and anonymous credentials to avoid logged-in integrity-token failures. For live category matches, it briefly caches `DropsHighlightService_AvailableDrops` results to confirm the selected campaign; unavailable or malformed confirmation data falls back to the live/category result. If `StreamInfo` fails, validation falls back to parsing channel page HTML.
 - Reward claiming calls `DropsPage_ClaimDropRewards`.
-- Channel points claiming checks `ChannelPointsContext` and submits `ClaimCommunityPoints` when a claim is available.
+- Channel points claiming uses live Hermes `claim-available` when the advanced setting is on; `ChannelPointsContext` remains the alarm fallback.
 - Tabless watching sends Twitch's `sendSpadeEvents` minute-watched mutation once per watch alarm while the selected stream is live.
 
 ## Kick Integration
@@ -163,7 +236,7 @@ Temporary page-context tabs are reference-counted per origin and removed after t
 - Campaign discovery fetches `https://web.kick.com/api/v1/drops/campaigns`.
 - Progress refresh fetches `https://web.kick.com/api/v1/drops/progress`.
 - Candidate discovery prefers campaign allowed-channel data. Otherwise it queries `https://web.kick.com/api/v1/livestreams` with `category_id`, sorted by viewer count.
-- Followed channels come from `https://kick.com/api/v1/user/livestreams`, which Kick itself filters to the account's live follows (no pagination of the full follow list), cached the same way and for the same reason as Twitch's (see above), in `KickDiscoveryState`. A signed-out session or a failed lookup answers with an empty list, and selection falls back to viewer count.
+- Followed channels come from `https://kick.com/api/v1/user/livestreams`, which Kick itself filters to the account's live follows (no pagination of the full follow list), cached for five minutes in `KickDiscoveryState`. Strict discovery awaits stale refreshes to keep fetch lifecycle observation inside its cycle; standalone callers can still read stale values immediately. A signed-out session or a failed lookup answers with an empty list, and selection falls back to viewer count.
 - Channel validation calls `https://kick.com/api/v2/channels/{username}` and checks live state plus category id. If that fails, it falls back to parsing channel page HTML.
 - Reward claiming posts to `https://web.kick.com/api/v1/drops/claim` with campaign, reward, and claim identifiers.
 - Tabless watching exchanges the Kick session for a viewer WebSocket token, opens Kick's viewer socket, and sends watch livestream events while the channel remains live and in the expected category.
@@ -226,3 +299,28 @@ The extension stores activity in a bounded IndexedDB database owned by the backg
 The popup shows one category at a time. The activity/diagnostics switch selects a view rather than interleaving both, since the mirror means a merged list would state everything twice.
 
 The CLI has no activity store. Its output is already English, so it logs mirrored diagnostics at `debug` — their ids and reason codes stay available under `--log debug` without repeating each activity line at its own level. It formats each activity variant directly, passes diagnostic messages through, and routes each batch in its original order through the existing `--log`-filtered stderr logger. Retention belongs to Docker, systemd, Loki, or another external collector; `state.json` never contains new event data, and legacy event fields disappear after the state is loaded and saved.
+
+Kick fetch diagnostics keep individual initial-route, fallback, recovery, and
+lifecycle-update-failure evidence. Unchanged successes use fixed counters for
+`kick.com`, `web.kick.com`, `websockets.kick.com`, and one unknown-host bucket,
+split into background/page routes. Drained auth, discovery, scheduler, manual
+action, and watcher operations flush a `kick_fetch_summary` diagnostic with
+numeric counts and an English message usable in exports and CLI debug logs.
+No URL path, query value, arbitrary host, header, credential, or payload is kept.
+The last announced route lives in host-owned `KickDiscoveryState`, so adapter
+reconstruction does not repeat it; restarting the runtime begins a new history.
+Counters are fetcher-local; a flush requested while a request or lifecycle
+callback is active defers one summary until all active work settles. They never
+consume page-context recovery observations:
+successful HTTP counts also describe failed scheduler operations and must not be
+interpreted as committed recovery cycles. The controller reports these transport
+diagnostics independently of auth-generation and scheduler-publication gates,
+including late completions after an auth deadline. Closed operational collectors
+and tick handles discard late activity. Each collector or tick adapter handle
+settles only its own diagnostic reporting promises, so a stalled Kick report
+cannot block Twitch discovery or heartbeat transmission. A controller-wide
+registry is drained only by explicit background-work settling. These report sets
+track emitted diagnostics, not unfinished transport requests. Activity-event mirroring
+and operational publication rules remain unchanged. CLI `discover --log debug`
+also constructs its adapters with an emitter and flushes/reports its discovery
+diagnostics before disposing the transport.
