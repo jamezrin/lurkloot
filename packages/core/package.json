@@ -34,7 +34,9 @@
     "./kick/parser": "./src/platforms/kick/parser.ts",
     "./kick/watch": "./src/platforms/kick/watch.ts",
     "./controller": "./src/background/controller.ts",
-    "./background/platformState": "./src/background/platformState.ts"
+    "./background/platformState": "./src/background/platformState.ts",
+    "./extensions/types": "./src/extensions/types.ts",
+    "./extensions/registry": "./src/extensions/registry.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
