@@ -13,6 +13,17 @@ let queuedPlaybackControl = false;
 let suppressControlUntil = 0;
 
 export function startPlaybackTelemetry(platform: Platform): void {
+  browser.runtime.onMessage.addListener((message) => {
+    if (message?.type === "requestPlaybackTelemetry") queuePlaybackControl(platform);
+  });
+  // Media events do not bubble; capture also covers players inserted later.
+  for (const event of ["playing", "pause", "ended", "emptied"]) {
+    document.addEventListener(event, (event) => {
+      if ((event.target as Element | null)?.tagName !== "VIDEO") return;
+      if (Date.now() < suppressControlUntil) return;
+      queuePlaybackControl(platform);
+    }, true);
+  }
   void controlPlaybackAndReport(platform);
   setInterval(() => {
     void controlPlaybackAndReport(platform);

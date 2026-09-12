@@ -6286,6 +6286,107 @@ describe("background controller", () => {
     expect(env.state.sessions.twitch.playbackChecks).toBe(0);
   });
 
+  describe("manual-watch event transitions", () => {
+    const telemetry = { videoCount: 1, mutedVideoCount: 0, unmutedVideoCount: 1,
+      playingVideoCount: 1, blockedPlaybackCount: 0, documentHidden: false };
+    async function report(env: ReturnType<typeof harness>, platform: Platform, id: number, url: string,
+      patch: Partial<typeof telemetry> = {}) {
+      await env.controller.handleMessage({ type: "playbackTelemetry", platform,
+        telemetry: { ...telemetry, ...patch } }, { tab: { id, url } });
+      await env.controller.settleBackgroundWork();
+    }
+
+    it.each(["twitch", "kick"] as const)("resumes %s immediately after playback stops or becomes hidden", async (platform) => {
+      for (const patch of [{ playingVideoCount: 0 }, { documentHidden: true }]) {
+        const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
+        const url = platform === "twitch" ? "https://www.twitch.tv/creator" : "https://kick.com/creator";
+        await report(env, platform, 999, url);
+        expect(env.state.sessions[platform].reasonCode).toBe("manual_watch");
+        await report(env, platform, 999, url, patch);
+        expect(env.state.sessions[platform].status).toBe("watching");
+      }
+    });
+
+    it.each(["twitch", "kick"] as const)("ignores non-stream %s pages even with visible video", async (platform) => {
+      const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
+      await env.controller.tick();
+      const host = platform === "twitch" ? "https://www.twitch.tv" : "https://kick.com";
+      for (const route of ["settings", "settings/profile", "inventory", "drops/inventory", "directory", ...(platform === "kick" ? ["categories"] : []), "videos/123", "creator/clips", "creator/videos/123"]) {
+        await report(env, platform, 999, `${host}/${route}`);
+        expect(env.state.manualWatch?.[platform]?.active).not.toBe(true);
+        expect(env.state.sessions[platform].status).toBe("watching");
+      }
+    });
+
+    it.each(["twitch", "kick"] as const)("keeps %s paused until the last manual tab closes", async (platform) => {
+      const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
+      const host = platform === "twitch" ? "https://www.twitch.tv" : "https://kick.com";
+      await report(env, platform, 999, `${host}/firstcreator`);
+      await report(env, platform, 1000, `${host}/secondcreator`);
+      await env.controller.handleTabRemoved(1000);
+      await env.controller.settleBackgroundWork();
+      expect(env.state.sessions[platform].reasonCode).toBe("manual_watch");
+      expect(env.state.manualWatch?.[platform]?.tabId).toBe(999);
+      await env.controller.handleTabRemoved(999);
+      await env.controller.settleBackgroundWork();
+      expect(env.state.sessions[platform].status).toBe("watching");
+    });
+
+    it("keeps another stream active when an unrelated tab reports inactive playback", async () => {
+      const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
+      await report(env, "twitch", 999, "https://www.twitch.tv/firstcreator");
+      await report(env, "twitch", 1000, "https://www.twitch.tv/secondcreator", { playingVideoCount: 0 });
+      expect(env.state.manualWatch?.twitch?.tabId).toBe(999);
+      expect(env.state.sessions.twitch.reasonCode).toBe("manual_watch");
+    });
+
+    it("persists both manual tabs across controller recreation", async () => {
+      const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
+      await report(env, "twitch", 999, "https://www.twitch.tv/firstcreator");
+      await report(env, "twitch", 1000, "https://www.twitch.tv/secondcreator");
+      const restored = createBackgroundController(env.deps);
+      await restored.handleTabRemoved(1000);
+      await restored.settleBackgroundWork();
+      expect(env.state.manualWatch?.twitch?.tabId).toBe(999);
+      expect(env.state.sessions.twitch.reasonCode).toBe("manual_watch");
+    });
+
+    it("does not pause when manual-watch pausing is disabled", async () => {
+      const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: false }));
+      await env.controller.tick();
+      await report(env, "kick", 999, "https://kick.com/creator");
+      expect(env.state.manualWatch?.kick).toBeUndefined();
+      expect(env.state.sessions.kick.status).toBe("watching");
+    });
+
+    it.each([undefined, "https://example.com/creator", "https://clips.twitch.tv/SomeClip"])("requires a supported stream URL (%s)", async (url) => {
+      const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
+      await env.controller.tick();
+      await env.controller.handleMessage({ type: "playbackTelemetry", platform: "twitch", telemetry }, { tab: { id: 999, url } });
+      await env.controller.settleBackgroundWork();
+      expect(env.state.manualWatch?.twitch?.active).not.toBe(true);
+      expect(env.state.sessions.twitch.status).toBe("watching");
+    });
+
+    it("stays paused during navigation between stream channels", async () => {
+      const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
+      await report(env, "twitch", 999, "https://www.twitch.tv/firstcreator");
+      await env.controller.handleTabUpdated(999, "https://www.twitch.tv/secondcreator");
+      await env.controller.settleBackgroundWork();
+      expect(env.state.sessions.twitch.reasonCode).toBe("manual_watch");
+      await report(env, "twitch", 999, "https://www.twitch.tv/secondcreator");
+      expect(env.state.manualWatch?.twitch?.channel?.username).toBe("secondcreator");
+    });
+
+    it("resumes when a manual tab navigates to inventory before new telemetry", async () => {
+      const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
+      await report(env, "twitch", 999, "https://www.twitch.tv/creator");
+      await env.controller.handleTabUpdated(999, "https://www.twitch.tv/drops/inventory");
+      await env.controller.settleBackgroundWork();
+      expect(env.state.sessions.twitch.status).toBe("watching");
+    });
+  });
+
   it("pauses Twitch immediately when visible playback starts in a non-managed tab", async () => {
     const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
     await env.controller.tick();
@@ -6377,8 +6478,8 @@ describe("background controller", () => {
       documentHidden: false,
     };
 
-    await env.controller.handleMessage({ type: "playbackTelemetry", platform: "twitch", telemetry }, { tab: { id: 999 } });
-    await env.controller.handleMessage({ type: "playbackTelemetry", platform: "twitch", telemetry }, { tab: { id: 999 } });
+    await env.controller.handleMessage({ type: "playbackTelemetry", platform: "twitch", telemetry }, { tab: { id: 999, url: "https://www.twitch.tv/creator" } });
+    await env.controller.handleMessage({ type: "playbackTelemetry", platform: "twitch", telemetry }, { tab: { id: 999, url: "https://www.twitch.tv/creator" } });
 
     const immediateTickStarts = allDiagnostics(env).filter((event) =>
       event.message.includes("started (trigger=manual_watch"));
@@ -6685,7 +6786,7 @@ describe("background controller", () => {
         documentHidden: false,
         adActive: true,
       },
-    }, { tab: { id: 10 } });
+    }, { tab: { id: 10, url: "https://www.twitch.tv/creator" } });
 
     expect(env.state.sessions.twitch.playback).toBeUndefined();
     expect(env.state.manualWatch?.twitch).toMatchObject({
