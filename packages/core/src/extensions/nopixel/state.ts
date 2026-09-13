@@ -35,3 +35,16 @@ export function noPixelReport(setup: NoPixelSetup, progress: NoPixelProgress | u
   if (!progress) return { status: "error", reasonCode: "compatibility-error", progress: [], pending };
   return { status: progress.earned >= progress.required ? "complete" : "farming", reasonCode: progress.earned >= progress.required ? "rewards-complete" : "watchtime", progress: counters, pending };
 }
+
+// The published pack hook reads an array and opens packs by their id. Only
+// bounded path-safe IDs remain private; no card/account payload is retained.
+export function parseNoPixelPackIds(value: unknown): string[] | undefined {
+  if (!Array.isArray(value) || value.length > 1000) return;
+  const ids: string[] = [];
+  for (const row of value) {
+    const id = object(row)?.id;
+    if (typeof id !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(id)) return;
+    if (!ids.includes(id)) ids.push(id);
+  }
+  return ids;
+}

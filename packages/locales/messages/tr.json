@@ -1510,5 +1510,23 @@
   },
   "extensionTakeoverActive": {
     "message": "Ele geçirme etkin"
+  },
+  "extensionWatchtimeComplete": {
+    "message": "İzleme süresi tamamlandı"
+  },
+  "extensionUnopenedPacks": {
+    "message": "Açılmamış paketler: $1"
+  },
+  "extensionPackCheckUnavailable": {
+    "message": "Paket teslim kontrolü kullanılamıyor"
+  },
+  "extensionAutoOpenPacksTitle": {
+    "message": "NoPixelV paketlerini otomatik aç"
+  },
+  "extensionAutoOpenPacksHint": {
+    "message": "Açılmamış paketlerin kartlarını gösterir. Her paket tüketilir ve işlem geri alınamaz."
+  },
+  "activityExtensionPackOpened": {
+    "message": "$1, $2 kanalında bir kart paketi açtı"
   }
 }

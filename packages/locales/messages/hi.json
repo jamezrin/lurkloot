@@ -1510,5 +1510,23 @@
   },
   "extensionTakeoverActive": {
     "message": "टेकओवर सक्रिय है"
+  },
+  "extensionWatchtimeComplete": {
+    "message": "देखने का समय पूरा हुआ"
+  },
+  "extensionUnopenedPacks": {
+    "message": "बंद पैक: $1"
+  },
+  "extensionPackCheckUnavailable": {
+    "message": "पैक मिलने की जाँच उपलब्ध नहीं है"
+  },
+  "extensionAutoOpenPacksTitle": {
+    "message": "NoPixelV पैक अपने आप खोलें"
+  },
+  "extensionAutoOpenPacksHint": {
+    "message": "बंद पैक के कार्ड दिखाता है। हर पैक खर्च होता है और इसे वापस नहीं किया जा सकता।"
+  },
+  "activityExtensionPackOpened": {
+    "message": "$1 ने $2 पर कार्ड पैक खोला"
   }
 }

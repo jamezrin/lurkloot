@@ -1510,5 +1510,23 @@
   },
   "extensionTakeoverActive": {
     "message": "Tomada de controle ativa"
+  },
+  "extensionWatchtimeComplete": {
+    "message": "Tempo de exibição concluído"
+  },
+  "extensionUnopenedPacks": {
+    "message": "Pacotes fechados: $1"
+  },
+  "extensionPackCheckUnavailable": {
+    "message": "Verificação de entrega indisponível"
+  },
+  "extensionAutoOpenPacksTitle": {
+    "message": "Abrir pacotes NoPixelV automaticamente"
+  },
+  "extensionAutoOpenPacksHint": {
+    "message": "Revela cartas de pacotes fechados. Cada pacote é consumido e a ação não pode ser desfeita."
+  },
+  "activityExtensionPackOpened": {
+    "message": "$1 abriu um pacote de cartas em $2"
   }
 }

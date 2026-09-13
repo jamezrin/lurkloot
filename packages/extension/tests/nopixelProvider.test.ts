@@ -5,6 +5,7 @@ const session: DriverSession = { jwt: "private", expiresAt: Date.now() + 3_600_0
 function setup() {
   let joined = false;
   const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
+    if (url.endsWith("/cards/packs")) return Response.json([]);
     if (url.endsWith("/ping")) return new Response(null, { status: 204 });
     if (url.endsWith("/channel/setup")) return Response.json({ is_channel_eligible_for_pack_giveaways: true, is_channel_eligible_for_watchtime_tracking: true, is_channel_connected_for_watchtime_tracking: true });
     if (url.endsWith("/progress")) return Response.json({ watch_time_earned: 10, watch_time_required: 60 });
@@ -91,5 +92,72 @@ it("reports a rejected endpoint and status without response bodies or authorizat
   expect(JSON.stringify(diagnostic.mock.calls)).not.toContain("private");
   expect(s.emit).toHaveBeenLastCalledWith(expect.objectContaining({ status: "farming", reasonCode: "watchtime", progress: [{ key: "daily-pack", earned: 10, required: 60 }], pending: [{ key: "giveaway", state: "blocked" }] }));
   expect(s.fetcher.mock.calls.some(([url]) => url.endsWith("/join"))).toBe(false);
+  driver.stop();
+});
+
+it("distinguishes completed watchtime from unopened packs without exposing pack IDs", async () => {
+  const s = setup(); const base = s.fetcher.getMockImplementation()!;
+  s.fetcher.mockImplementation(async (url, init) => url.endsWith("/progress") ? Response.json({ watch_time_earned: 60, watch_time_required: 60 }) : url.endsWith("/cards/packs") ? Response.json([{ id: "pack-123", vendorPrivate: "private" }]) : base(url, init));
+  const driver = await createNoPixelDriver(s.fetcher, s.joined)(session, s.emit);
+  expect(s.emit).toHaveBeenLastCalledWith(expect.objectContaining({ progress: [{ key: "daily-pack", earned: 60, required: 60 }, { key: "rewards", earned: 0, required: 1 }], pending: expect.arrayContaining([{ key: "completion", state: "open" }]) }));
+  expect(JSON.stringify(s.emit.mock.calls)).not.toContain("pack-123");
+  expect(s.fetcher.mock.calls.some(([url]) => url.endsWith("/open"))).toBe(false);
+  driver.stop();
+});
+
+it("opens packs only when opted in and confirms removal before reporting", async () => {
+  const s = setup(); const base = s.fetcher.getMockImplementation()!; let opened = false;
+  s.fetcher.mockImplementation(async (url, init) => {
+    if (url.endsWith("/cards/packs")) return Response.json(opened ? [] : [{ id: "pack-123" }]);
+    if (url.endsWith("/packs/pack-123/open")) { opened = true; return Response.json([{ card_id: "card-1", edition: "normal" }]); }
+    return base(url, init);
+  });
+  const onOpened = vi.fn();
+  const driver = await createNoPixelDriver(s.fetcher, s.joined, Date.now, () => {}, { autoOpenPacks: true, onOpened })(session, s.emit);
+  expect(onOpened).toHaveBeenCalledOnce();
+  await driver.refresh!(); expect(s.fetcher.mock.calls.filter(([url]) => url.endsWith("/open"))).toHaveLength(1);
+  expect(JSON.stringify(s.emit.mock.calls)).not.toContain("pack-123");
+  driver.stop();
+});
+
+it("advances past pending opening confirmations without replaying requests", async () => {
+  const s = setup(); const base = s.fetcher.getMockImplementation()!;
+  const packs = Array.from({ length: 7 }, (_, i) => ({ id: `pack-${i}` }));
+  s.fetcher.mockImplementation(async (url, init) => url.endsWith("/cards/packs") ? Response.json(packs) : url.endsWith("/open") ? Response.json([{ card_id: "card", edition: "normal" }]) : base(url, init));
+  const onOpened = vi.fn(); const driver = await createNoPixelDriver(s.fetcher, s.joined, Date.now, () => {}, { autoOpenPacks: true, onOpened })(session, s.emit);
+  expect(s.fetcher.mock.calls.filter(([url]) => url.endsWith("/open"))).toHaveLength(5);
+  await driver.refresh!();
+  expect(s.fetcher.mock.calls.filter(([url]) => url.endsWith("/open"))).toHaveLength(7);
+  expect(onOpened).not.toHaveBeenCalled();
+  driver.stop();
+});
+
+it("does not announce a pack opening after cancellation during confirmation body reading", async () => {
+  const s = setup(); const base = s.fetcher.getMockImplementation()!;
+  let entered!: () => void, finish!: (value: string) => void, reads = 0;
+  const reading = new Promise<void>(resolve => { entered = resolve; });
+  const body = new Promise<string>(resolve => { finish = resolve; });
+  s.fetcher.mockImplementation(async (url, init) => {
+    if (url.endsWith("/cards/packs")) {
+      if (++reads === 1) return Response.json([{ id: "pack-123" }]);
+      const response = new Response(null); response.text = async () => { entered(); return body; }; return response;
+    }
+    if (url.endsWith("/open")) return Response.json([{ card_id: "card", edition: "normal" }]);
+    return base(url, init);
+  });
+  const abort = new AbortController(), onOpened = vi.fn();
+  const pending = createNoPixelDriver(s.fetcher, s.joined, Date.now, () => {}, { autoOpenPacks: true, onOpened })({ ...session, signal: abort.signal }, s.emit);
+  await reading; abort.abort(); finish("[]");
+  const driver = await pending;
+  expect(onOpened).not.toHaveBeenCalled();
+  driver.stop();
+});
+
+it("keeps opted-in known unopened packs pending after a definite open rejection", async () => {
+  const s = setup(); const base = s.fetcher.getMockImplementation()!;
+  s.fetcher.mockImplementation(async (url, init) => url.endsWith("/progress") ? Response.json({ watch_time_earned: 60, watch_time_required: 60 }) : url.endsWith("/cards/packs") ? Response.json([{ id: "pack-123" }]) : url.endsWith("/open") ? new Response(null, { status: 503 }) : base(url, init));
+  const driver = await createNoPixelDriver(s.fetcher, s.joined, Date.now, () => {}, { autoOpenPacks: true })(session, s.emit);
+  expect(s.emit).toHaveBeenLastCalledWith(expect.objectContaining({ status: "farming", reasonCode: "collecting", pending: expect.arrayContaining([{ key: "completion", state: "blocked" }]) }));
+  await driver.refresh!(); expect(s.fetcher.mock.calls.filter(([url]) => url.endsWith("/open"))).toHaveLength(2);
   driver.stop();
 });

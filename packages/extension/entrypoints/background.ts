@@ -246,14 +246,19 @@ const extensionHost = createTwitchExtensionHost({
       withActivityDiagnostics((event) => events.push(event))({ category: "activity", code: "twitch_extension_action", level: "info", platform: "twitch", data: { provider: "fortnite", action: "sprite_captured", channel: channel.username } });
       void reportEvents(events).catch(() => undefined);
     } })(session, emit),
-    nopixel: (session, emit, channel) => createNoPixelDriver((url, init) => fetch(url, init), () => {
+    nopixel: async (session, emit, channel) => createNoPixelDriver((url, init) => fetch(url, init), () => {
       if (!channel || !/^[a-zA-Z0-9_]{1,25}$/.test(channel.username)) return;
       const events: EngineEvent[] = [];
       withActivityDiagnostics((event) => events.push(event))({ category: "activity", code: "twitch_extension_action", level: "info", platform: "twitch", data: { provider: "nopixel", action: "giveaway_joined", channel: channel.username } });
       void reportEvents(events).catch(() => undefined);
     }, Date.now, (message) => {
       void reportEvents([{ category: "diagnostic", platform: "twitch", level: "warn", message }]).catch(() => undefined);
-    })(session, emit),
+    }, { autoOpenPacks: (await loadSettings()).twitchExtensions.nopixel.autoOpenPacks, onOpened: () => {
+      if (!channel || !/^[a-zA-Z0-9_]{1,25}$/.test(channel.username)) return;
+      const events: EngineEvent[] = [];
+      withActivityDiagnostics((event) => events.push(event))({ category: "activity", code: "twitch_extension_action", level: "info", platform: "twitch", data: { provider: "nopixel", action: "pack_opened", channel: channel.username } });
+      void reportEvents(events).catch(() => undefined);
+    } })(session, emit),
   },
   loadSettings,
   loadState,
@@ -358,6 +363,7 @@ export default defineBackground(() => {
         || previous?.platform?.twitch?.enabled !== next?.platform?.twitch?.enabled
         || previous?.twitchExtensions?.nopixel?.enabled !== next?.twitchExtensions?.nopixel?.enabled
         || previous?.twitchExtensions?.fortnite?.enabled !== next?.twitchExtensions?.fortnite?.enabled
+        || previous?.twitchExtensions?.nopixel?.autoOpenPacks !== next?.twitchExtensions?.nopixel?.autoOpenPacks
         || previous?.twitchExtensions?.fortnite?.allowTakeovers !== next?.twitchExtensions?.fortnite?.allowTakeovers) extensionHost.invalidate();
     }
     if (stateChange) {

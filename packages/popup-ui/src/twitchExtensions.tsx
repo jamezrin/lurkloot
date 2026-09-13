@@ -33,7 +33,7 @@ function ProviderSection({ name, summary, children, onSetup }: { name: string; s
   const complete = summary?.status === "complete";
   const blocked = summary?.status === "error" || summary?.status === "unavailable";
   return <section aria-label={name} className="space-y-1.5">
-    <SectionHeader label={name} count="" icon={name === "NoPixelV" ? Gift : Sparkles} expanded={expanded} onToggle={() => setExpanded(value => !value)} action={<span className={`pr-1 text-[11px] ${complete ? "text-emerald-700 dark:text-emerald-400" : blocked ? "text-amber-700 dark:text-amber-400" : "text-zinc-500 dark:text-zinc-400"}`}>{t(summary ? reasonKey(summary) : "extensionIdle")}</span>} />
+    <SectionHeader label={name} count="" icon={name === "NoPixelV" ? Gift : Sparkles} expanded={expanded} onToggle={() => setExpanded(value => !value)} action={<span className={`pr-1 text-[11px] ${complete ? "text-emerald-700 dark:text-emerald-400" : blocked ? "text-amber-700 dark:text-amber-400" : "text-zinc-500 dark:text-zinc-400"}`}>{t(name === "NoPixelV" && summary?.reasonCode === "rewards-complete" ? "extensionWatchtimeComplete" : summary ? reasonKey(summary) : "extensionIdle")}</span>} />
     <AnimatePresence initial={false}>
     {expanded ? <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
     <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 pb-3 pt-0.5 dark:border-zinc-700/60 dark:bg-zinc-800/60">
@@ -59,6 +59,8 @@ function NoPixelDropSection({ summary, onSetup }: { summary?: TwitchExtensionSum
   const daily = summary?.progress.find(progress => progress.key === "daily-pack");
   return <ProviderSection name="NoPixelV" summary={summary} onSetup={onSetup}>
     {daily ? <RewardProgress label={t("extensionDailyPackProgress", [String(daily.earned), String(daily.required)])} earned={daily.earned} required={daily.required} complete={summary?.status === "complete"} /> : null}
+    {summary?.progress.filter(progress => progress.key === "rewards").map(progress => <p key={progress.key} className="mt-2 text-[11px] text-zinc-600 dark:text-zinc-300">{t("extensionUnopenedPacks", String(progress.required))}</p>)}
+    {summary?.pending.some(action => action.key === "completion" && action.state === "blocked") ? <p className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">{t("extensionPackCheckUnavailable")}</p> : null}
     {summary?.pending.filter(action => action.key === "giveaway").map(action => <p key={action.key} className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">{t(action.state === "blocked" ? "extensionGiveawayUnavailable" : action.state === "done" ? "extensionGiveawayEntered" : "extensionGiveawayOpen")}</p>)}
   </ProviderSection>;
 }
@@ -75,7 +77,7 @@ export function TwitchExtensionDrops({ settings, summaries, onSetup }: { setting
     {settings.twitchExtensions.fortnite.enabled ? <FortniteDropSection summary={summaries?.fortnite} onSetup={onSetup} /> : null}
   </>;
 }
-export function TwitchExtensionSettings({ settings, onChange, onTakeoversChange }: { onTakeoversChange(enabled: boolean): Promise<void>; settings: ExtensionSettings; onChange(provider: TwitchExtensionProviderId, enabled: boolean): Promise<boolean> }) {
+export function TwitchExtensionSettings({ settings, onChange, onTakeoversChange, onAutoOpenPacksChange }: { onAutoOpenPacksChange(enabled: boolean): Promise<void>; onTakeoversChange(enabled: boolean): Promise<void>; settings: ExtensionSettings; onChange(provider: TwitchExtensionProviderId, enabled: boolean): Promise<boolean> }) {
   const t = useT();
   const [pending, setPending] = useState<TwitchExtensionProviderId>();
   const [failure, setFailure] = useState<string>();
@@ -93,9 +95,17 @@ export function TwitchExtensionSettings({ settings, onChange, onTakeoversChange 
     catch { setFailure("extensionUnavailable"); }
     finally { setPending(undefined); }
   }
+  async function changeAutoOpenPacks(enabled: boolean) {
+    if (pending) return;
+    setPending("nopixel"); setFailure(undefined);
+    try { await onAutoOpenPacksChange(enabled); }
+    catch { setFailure("extensionUnavailable"); }
+    finally { setPending(undefined); }
+  }
   return <SettingsSection id="twitch.extensions" title={t("extensionSettingsTitle")}>
     <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{t("extensionSettingsHint")}</p>
     {providers.map(provider => <SettingRow key={provider.id} title={provider.name} description={t(provider.hint)} checked={settings.twitchExtensions[provider.id].enabled} disabled={pending !== undefined} onChange={enabled => change(provider.id, enabled)} />)}
+    <SettingRow title={t("extensionAutoOpenPacksTitle")} description={t("extensionAutoOpenPacksHint")} checked={settings.twitchExtensions.nopixel.autoOpenPacks} disabled={pending !== undefined || !settings.twitchExtensions.nopixel.enabled} onChange={changeAutoOpenPacks} />
     <SettingRow title={t("extensionTakeoversTitle")} description={t("extensionTakeoversHint")} checked={settings.twitchExtensions.fortnite.allowTakeovers} disabled={pending !== undefined || !settings.twitchExtensions.fortnite.enabled} onChange={changeTakeovers} />
     {failure ? <p role="status" className="text-[11px] text-amber-700 dark:text-amber-400">{t(failure)}</p> : null}
   </SettingsSection>;

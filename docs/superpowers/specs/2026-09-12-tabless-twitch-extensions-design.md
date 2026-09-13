@@ -209,3 +209,15 @@ provider setup state, not failure of the tabless GQL transport.
 Channel IDs above are the inspected buddha/loserfruit candidates; installation
 changes may produce `installed: false` without implying an authentication bug.
 Do not return `cookie`, `body`, `row` or `claims`, which contain credentials.
+
+## Expanded automation scope: pack opening
+
+The user's expanded requirement includes every feasible normal reward action,
+including claiming. This supersedes earlier exclusions of pack opening.
+NoPixelV opening is a distinct default-off `nopixel.autoOpenPacks` setting, with
+copy explaining that unopened owned packs are consumed to reveal cards. Use
+only server-listed bounded path-safe IDs and the shipped POST endpoint; never
+assume watchtime completion proves daily pack issuance. Require returned card
+data and authoritative pack-list removal before activity. Pace batches, keep
+ambiguous attempts guarded and suppress late confirmations after cancellation.
+Pack IDs and card payloads stay privileged and unpersisted.

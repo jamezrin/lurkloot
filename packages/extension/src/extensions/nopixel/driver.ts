@@ -1,18 +1,18 @@
-import { noPixelReport, parseNoPixelGiveaway, parseNoPixelProgress, parseNoPixelSetup } from "@lurkloot/core/extensions/nopixel/state";
+import { noPixelReport, parseNoPixelGiveaway, parseNoPixelPackIds, parseNoPixelProgress, parseNoPixelSetup } from "@lurkloot/core/extensions/nopixel/state";
 import type { TwitchExtensionReasonCode } from "@lurkloot/shared/models";
 import type { TwitchExtensionDriverFactory } from "../runtime";
 
 const backend = "https://nopixel.streamingtoolsmith.com";
-type NoPixelPath = "/ping" | "/channel/setup" | "/cards/rewards/daily-watchtime/progress" | "/channel/giveaway" | "/channel/giveaway/join";
+type NoPixelPath = `/cards/packs/${string}/open` | "/cards/packs" | "/ping" | "/channel/setup" | "/cards/rewards/daily-watchtime/progress" | "/channel/giveaway" | "/channel/giveaway/join";
 type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
 class ProviderFailure extends Error {
   constructor(readonly reason: TwitchExtensionReasonCode, readonly rejected = false) { super(reason); }
 }
 
 // Matches the published 1.1.2 client: Bearer auth, one initialization ping,
-// channel setup, daily watchtime read and ordinary giveaway join/refetch. No
-// pack opening or inventory modification is part of farming.
-export function createNoPixelDriver(fetcher: Fetch, onJoined: () => void = () => {}, now: () => number = Date.now, diagnostic: (message: string) => void = () => {}): TwitchExtensionDriverFactory {
+// channel setup, daily watchtime read and ordinary giveaway join/refetch.
+// Pack opening is a separate explicit opt-in, confirmed by inventory rereads.
+export function createNoPixelDriver(fetcher: Fetch, onJoined: () => void = () => {}, now: () => number = Date.now, diagnostic: (message: string) => void = () => {}, options: { autoOpenPacks?: boolean; onOpened?(): void } = {}): TwitchExtensionDriverFactory {
   return async (session, emit) => {
     const lifetime = new AbortController();
     let jwt = session.jwt;
@@ -22,10 +22,11 @@ export function createNoPixelDriver(fetcher: Fetch, onJoined: () => void = () =>
     parent?.addEventListener("abort", abort, { once: true });
     if (parent?.aborted) abort();
     const rejectedStatuses = new Map<string, number>();
+    const packAttempts = new Map<string, boolean>();
     let joining = false;
     let pending: Promise<void> | undefined;
     const active = () => !lifetime.signal.aborted;
-    function stop() { parent?.removeEventListener("abort", abort); rejectedStatuses.clear(); abort(); }
+    function stop() { parent?.removeEventListener("abort", abort); rejectedStatuses.clear(); packAttempts.clear(); abort(); }
     async function request(path: NoPixelPath, method: "GET" | "POST" = "GET"): Promise<unknown> {
       if (!active()) throw new ProviderFailure("provider-error");
       if (now() >= expiresAt) throw new ProviderFailure("auth-required");
@@ -37,7 +38,7 @@ export function createNoPixelDriver(fetcher: Fetch, onJoined: () => void = () =>
         const response = await fetcher(`${backend}${path}`, { method, headers: { Authorization: `Bearer ${jwt}` }, credentials: "omit", signal: abortRequest.signal });
         if (!active()) throw new ProviderFailure("provider-error");
         if (!response.ok) {
-          const key = `${method} ${path}`;
+          const key = `${method} ${path.endsWith("/open") ? "/cards/packs/:packId/open" : path}`;
           if (rejectedStatuses.get(key) !== response.status) {
             rejectedStatuses.set(key, response.status);
             diagnostic(`NoPixelV ${key} rejected: HTTP ${response.status}`);
@@ -47,6 +48,8 @@ export function createNoPixelDriver(fetcher: Fetch, onJoined: () => void = () =>
         if (!response.ok) throw new ProviderFailure("provider-error", true);
         if (response.status === 204) return null;
         const text = await response.text();
+        if (!active()) throw new ProviderFailure("provider-error");
+        if (now() >= expiresAt) throw new ProviderFailure("auth-required");
         if (text.length > 1_048_576) throw new ProviderFailure("compatibility-error");
         try { return JSON.parse(text); } catch { throw new ProviderFailure("compatibility-error"); }
       } finally {
@@ -97,7 +100,49 @@ export function createNoPixelDriver(fetcher: Fetch, onJoined: () => void = () =>
         if (!active()) return;
         const report = noPixelReport(setup, progress, giveaway ?? null);
         if (giveawayUnavailable) report.pending = [{ key: "giveaway", state: "blocked" }];
-        emit(report);
+        if (options.autoOpenPacks || progress && progress.earned >= progress.required) {
+          try {
+            let packs = parseNoPixelPackIds(await request("/cards/packs"));
+            if (!packs) throw new ProviderFailure("compatibility-error");
+            if (options.autoOpenPacks && packs.length) { report.status = "farming"; report.reasonCode = "collecting"; }
+            function confirmRemoved() {
+              if (!active()) return;
+              for (const [id, accepted] of packAttempts) if (accepted && !packs!.includes(id)) {
+                packAttempts.set(id, false);
+                options.onOpened?.();
+              }
+            }
+            confirmRemoved();
+            if (options.autoOpenPacks) for (const id of packs.filter(id => !packAttempts.has(id)).slice(0, 5)) {
+              if (packAttempts.has(id)) continue;
+              if (packAttempts.size >= 1000) break;
+              packAttempts.set(id, false);
+              try {
+                const cards = await request(`/cards/packs/${id}/open`, "POST");
+                if (!Array.isArray(cards) || !cards.length || cards.length > 1000 || !cards.every(card => card && typeof card === "object" && !Array.isArray(card) && (typeof card.card_id === "string" || typeof card.card_id === "number") && ["normal", "legendary", "gold"].includes(card.edition))) throw new ProviderFailure("compatibility-error");
+                packAttempts.set(id, true);
+              } catch (error) {
+                if (error instanceof ProviderFailure && error.rejected) packAttempts.delete(id);
+                throw error;
+              }
+            }
+            if (options.autoOpenPacks) {
+              packs = parseNoPixelPackIds(await request("/cards/packs"));
+              if (!packs) throw new ProviderFailure("compatibility-error");
+              confirmRemoved();
+              if (!packs.length) { report.status = progress && progress.earned >= progress.required ? "complete" : "farming"; report.reasonCode = report.status === "complete" ? "rewards-complete" : "watchtime"; }
+            }
+            if (packs.length) {
+              report.progress.push({ key: "rewards", earned: 0, required: packs.length });
+              report.pending.push({ key: "completion", state: "open" });
+              if (options.autoOpenPacks) { report.status = "farming"; report.reasonCode = "collecting"; }
+            }
+          } catch (error) {
+            if (error instanceof ProviderFailure && error.reason === "auth-required") throw error;
+            report.pending.push({ key: "completion", state: "blocked" });
+          }
+        }
+        if (active()) emit(report);
       } catch (error) {
         if (active()) emit({ status: "error", reasonCode: error instanceof ProviderFailure ? error.reason : "transport-error", progress: [], pending: [] });
       }

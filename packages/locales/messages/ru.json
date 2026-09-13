@@ -1510,5 +1510,23 @@
   },
   "extensionTakeoverActive": {
     "message": "Захват активен"
+  },
+  "extensionWatchtimeComplete": {
+    "message": "Время просмотра выполнено"
+  },
+  "extensionUnopenedPacks": {
+    "message": "Неоткрытые наборы: $1"
+  },
+  "extensionPackCheckUnavailable": {
+    "message": "Проверка выдачи недоступна"
+  },
+  "extensionAutoOpenPacksTitle": {
+    "message": "Автоматически открывать наборы NoPixelV"
+  },
+  "extensionAutoOpenPacksHint": {
+    "message": "Раскрывает карты в неоткрытых наборах. Каждый набор расходуется; отменить это нельзя."
+  },
+  "activityExtensionPackOpened": {
+    "message": "$1 открыл набор карт на $2"
   }
 }

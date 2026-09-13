@@ -422,7 +422,7 @@ export interface TwitchExtensionSummary extends TwitchExtensionReport {
   retryAfter?: string;
 }
 export interface TwitchExtensionsSettings {
-  nopixel: { enabled: boolean };
+  nopixel: { enabled: boolean; autoOpenPacks: boolean };
   fortnite: { enabled: boolean; allowTakeovers: boolean };
 }
 

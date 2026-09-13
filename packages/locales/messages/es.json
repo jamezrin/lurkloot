@@ -1510,5 +1510,23 @@
   },
   "extensionTakeoverActive": {
     "message": "Toma de control activa"
+  },
+  "extensionWatchtimeComplete": {
+    "message": "Tiempo de visualización completado"
+  },
+  "extensionUnopenedPacks": {
+    "message": "Sobres sin abrir: $1"
+  },
+  "extensionPackCheckUnavailable": {
+    "message": "Comprobación de entrega no disponible"
+  },
+  "extensionAutoOpenPacksTitle": {
+    "message": "Abrir sobres de NoPixelV automáticamente"
+  },
+  "extensionAutoOpenPacksHint": {
+    "message": "Revela las cartas de los sobres cerrados. Consume cada sobre y no se puede deshacer."
+  },
+  "activityExtensionPackOpened": {
+    "message": "$1 abrió un sobre de cartas en $2"
   }
 }

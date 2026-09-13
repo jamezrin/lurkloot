@@ -47,7 +47,7 @@ export type PageContextCloseReason =
   | "runtime_restart"
   | "managed_context_unusable";
 
-export type TwitchExtensionAction = "giveaway_joined" | "sprite_captured" | "takeover_started";
+export type TwitchExtensionAction = "pack_opened" | "giveaway_joined" | "sprite_captured" | "takeover_started";
 
 export type ActivityEvent =
   | { category: "activity"; code: "twitch_extension_action"; level: "info"; platform: "twitch"; message?: never; data: { provider: TwitchExtensionProviderId; action: TwitchExtensionAction; channel: string } }

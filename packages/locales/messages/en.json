@@ -1510,5 +1510,23 @@
   },
   "extensionTakeoverActive": {
     "message": "Takeover active"
+  },
+  "extensionWatchtimeComplete": {
+    "message": "Watchtime complete"
+  },
+  "extensionUnopenedPacks": {
+    "message": "Unopened packs: $1"
+  },
+  "extensionPackCheckUnavailable": {
+    "message": "Pack delivery check unavailable"
+  },
+  "extensionAutoOpenPacksTitle": {
+    "message": "Open NoPixelV packs automatically"
+  },
+  "extensionAutoOpenPacksHint": {
+    "message": "Reveal cards from unopened packs. This consumes each pack and cannot be undone."
+  },
+  "activityExtensionPackOpened": {
+    "message": "$1 opened a card pack on $2"
   }
 }

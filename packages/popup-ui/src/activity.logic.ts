@@ -232,7 +232,7 @@ function formatDisplayValue(value: string): string {
 function formatCurrentActivity(event: StoredEngineEvent & { category: "activity" }, t: TFunction): string {
   switch (event.code) {
     case "twitch_extension_action":
-      return t({ giveaway_joined: "activityExtensionGiveawayJoined", sprite_captured: "activityExtensionSpriteCaptured", takeover_started: "activityExtensionTakeoverStarted" }[event.data.action], [event.data.provider === "nopixel" ? "NoPixelV" : "Fortnite", event.data.channel]);
+      return t({ pack_opened: "activityExtensionPackOpened", giveaway_joined: "activityExtensionGiveawayJoined", sprite_captured: "activityExtensionSpriteCaptured", takeover_started: "activityExtensionTakeoverStarted" }[event.data.action], [event.data.provider === "nopixel" ? "NoPixelV" : "Fortnite", event.data.channel]);
     case "farming_started":
       return t("activityFarmingStarted", [event.data.rewardName, event.data.campaignName]);
     case "farming_stopped":

@@ -1510,5 +1510,23 @@
   },
   "extensionTakeoverActive": {
     "message": "الاستيلاء نشط"
+  },
+  "extensionWatchtimeComplete": {
+    "message": "اكتمل وقت المشاهدة"
+  },
+  "extensionUnopenedPacks": {
+    "message": "الحزم غير المفتوحة: $1"
+  },
+  "extensionPackCheckUnavailable": {
+    "message": "التحقق من تسليم الحزم غير متاح"
+  },
+  "extensionAutoOpenPacksTitle": {
+    "message": "فتح حزم NoPixelV تلقائيًا"
+  },
+  "extensionAutoOpenPacksHint": {
+    "message": "يكشف بطاقات الحزم غير المفتوحة. تُستهلك كل حزمة ولا يمكن التراجع."
+  },
+  "activityExtensionPackOpened": {
+    "message": "$1 فتح حزمة بطاقات على $2"
   }
 }

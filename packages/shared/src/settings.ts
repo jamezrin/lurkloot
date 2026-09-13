@@ -92,7 +92,7 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
 // The extension's full defaults: the engine contract plus the host-only knobs.
 export const DEFAULT_SETTINGS: ExtensionSettings = {
   ...DEFAULT_ENGINE_SETTINGS,
-  twitchExtensions: { nopixel: { enabled: false }, fortnite: { enabled: false, allowTakeovers: false } },
+  twitchExtensions: { nopixel: { enabled: false, autoOpenPacks: false }, fortnite: { enabled: false, allowTakeovers: false } },
   kickPageContextRecoverySuccesses: 3,
   muteFarmingTabs: true,
   keepFarmingVideosUnmuted: true,
@@ -209,7 +209,7 @@ export function mergeSettings(value: Partial<ExtensionSettings> | undefined): Ex
   return {
     ...mergeEngineSettings(value),
     twitchExtensions: {
-      nopixel: { enabled: booleanOr(value?.twitchExtensions?.nopixel?.enabled, false) },
+      nopixel: { enabled: booleanOr(value?.twitchExtensions?.nopixel?.enabled, false), autoOpenPacks: booleanOr(value?.twitchExtensions?.nopixel?.autoOpenPacks, false) },
       fortnite: {
         enabled: booleanOr(value?.twitchExtensions?.fortnite?.enabled, false),
         allowTakeovers: booleanOr(value?.twitchExtensions?.fortnite?.allowTakeovers, false),

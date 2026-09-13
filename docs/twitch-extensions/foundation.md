@@ -39,7 +39,12 @@ validation instructions are in
 - The NoPixel 1.1.2 driver uses Bearer auth, an initialization ping, channel
   setup, daily-watchtime reads and giveaway join/refetch. Joins are reported
   only after server membership confirms them. Definite HTTP failures can retry;
-  ambiguous submissions remain guarded. No packs/inventory are modified.
+  ambiguous submissions remain guarded. Pack delivery is read separately from `/cards/packs`; watchtime completion
+  does not prove issuance. A separate default-off `autoOpenPacks` opt-in uses
+  `/cards/packs/{packId}/open`, at most five previously unattempted packs per
+  refresh. Valid returned cards plus a reread confirming removal are required
+  for activity. Ambiguous openings are guarded within the lease; cancellation
+  suppresses late activity and private pack/card data never reaches reports.
 
 - Independent discovery makes bounded directory and installation-list requests;
   it never obtains per-candidate viewer JWTs. A five-minute cache bounds scans.
@@ -141,3 +146,20 @@ not verified by this anonymous probe.
 
 Share only statuses, counters and outcome booleans. Do not share network dumps,
 console objects containing credentials, cookies or vendor session properties.
+
+## Reward delivery and opening
+
+NoPixelV's published client reads owned unopened packs and opens them to reveal
+cards; no separate daily reward claim command was found in its shipped API
+client. LurkLoot now says **Watchtime complete**, displays unopened pack counts
+when readable, and distinguishes unavailable delivery reads from giveaways.
+Opted-in automatic opening consumes the user's unopened packs and cannot be
+undone. It does not assert that a particular pack was issued for today's
+watchtime merely because the counter is full.
+
+Fortnite's shipped reward commands are `reward.list`, `participant.get`,
+`participant.getParticipantPhase`, `participant.submitCapture` and the cosmetic
+`participant.setRewardsSeen`. No separate earning claim command was found;
+LurkLoot observes server reward state instead of inventing one, and does not
+send the cosmetic mutation. Actual automatic pack opening and Fortnite reward
+delivery remain live acceptance checks, not established by synthetic tests.

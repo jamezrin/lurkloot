@@ -1510,5 +1510,23 @@
   },
   "extensionTakeoverActive": {
     "message": "接管进行中"
+  },
+  "extensionWatchtimeComplete": {
+    "message": "观看时长已完成"
+  },
+  "extensionUnopenedPacks": {
+    "message": "未打开的卡包：$1"
+  },
+  "extensionPackCheckUnavailable": {
+    "message": "暂时无法检查卡包发放"
+  },
+  "extensionAutoOpenPacksTitle": {
+    "message": "自动打开 NoPixelV 卡包"
+  },
+  "extensionAutoOpenPacksHint": {
+    "message": "揭示未打开卡包中的卡牌。每个卡包都会被消耗，且无法撤销。"
+  },
+  "activityExtensionPackOpened": {
+    "message": "$1 在 $2 打开了一个卡包"
   }
 }
