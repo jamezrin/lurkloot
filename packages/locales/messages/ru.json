@@ -945,12 +945,6 @@
   "screenshotUpdatedLicense": {
     "message": "Apache-2.0"
   },
-  "screenshotUpdatedRating": {
-    "message": "4.9"
-  },
-  "screenshotUpdatedUsers": {
-    "message": "более 1 000 пользователей"
-  },
   "autoClaimReady": {
     "message": "Автополучение готово"
   },
