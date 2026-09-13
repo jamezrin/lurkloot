@@ -65,8 +65,11 @@ validation instructions are in
 
 ## Remaining
 
-Authenticated session acquisition and actual earning without a Twitch tab
-still need live confirmation; anonymous reachability is not earning proof.
+Authenticated background session acquisition passed the user-run read-only
+popup check for both providers: HTTP 200, no GQL errors, active installation,
+viewer token present, authenticated viewer and linked identity. Only public
+metadata and booleans were shared. This verifies authorization acquisition,
+not vendor earning. Actual earning without a Twitch tab still needs live confirmation.
 Tracking issues #507–#511 remain open for authenticated lifecycle and earning
 acceptance. Synthetic tests and anonymous protocol reads do not satisfy that gate.
 Both Fortnite issues are implemented together in the draft.
