@@ -42,7 +42,8 @@ export function parseNoPixelPackIds(value: unknown): string[] | undefined {
   if (!Array.isArray(value) || value.length > 1000) return;
   const ids: string[] = [];
   for (const row of value) {
-    const id = object(row)?.id;
+    const rawId = object(row)?.id;
+    const id = typeof rawId === "number" && Number.isSafeInteger(rawId) && rawId >= 0 ? String(rawId) : rawId;
     if (typeof id !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(id)) return;
     if (!ids.includes(id)) ids.push(id);
   }

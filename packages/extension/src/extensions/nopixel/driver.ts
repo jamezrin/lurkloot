@@ -24,6 +24,7 @@ export function createNoPixelDriver(fetcher: Fetch, onJoined: () => void = () =>
     const rejectedStatuses = new Map<string, number>();
     const packAttempts = new Map<string, boolean>();
     let joining = false;
+    let packFailureReason: TwitchExtensionReasonCode | undefined;
     let pending: Promise<void> | undefined;
     const active = () => !lifetime.signal.aborted;
     function stop() { parent?.removeEventListener("abort", abort); rejectedStatuses.clear(); packAttempts.clear(); abort(); }
@@ -132,13 +133,20 @@ export function createNoPixelDriver(fetcher: Fetch, onJoined: () => void = () =>
               confirmRemoved();
               if (!packs.length) { report.status = progress && progress.earned >= progress.required ? "complete" : "farming"; report.reasonCode = report.status === "complete" ? "rewards-complete" : "watchtime"; }
             }
+            packFailureReason = undefined;
             if (packs.length) {
               report.progress.push({ key: "rewards", earned: 0, required: packs.length });
               report.pending.push({ key: "completion", state: "open" });
               if (options.autoOpenPacks) { report.status = "farming"; report.reasonCode = "collecting"; }
             }
           } catch (error) {
+            if (!active()) return;
             if (error instanceof ProviderFailure && error.reason === "auth-required") throw error;
+            const reason = error instanceof ProviderFailure ? error.reason : "transport-error";
+            if (packFailureReason !== reason) {
+              packFailureReason = reason;
+              diagnostic(`NoPixelV pack delivery/opening unavailable: ${reason}`);
+            }
             report.pending.push({ key: "completion", state: "blocked" });
           }
         }

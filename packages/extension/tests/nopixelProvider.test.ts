@@ -145,11 +145,12 @@ it("does not announce a pack opening after cancellation during confirmation body
     if (url.endsWith("/open")) return Response.json([{ card_id: "card", edition: "normal" }]);
     return base(url, init);
   });
-  const abort = new AbortController(), onOpened = vi.fn();
-  const pending = createNoPixelDriver(s.fetcher, s.joined, Date.now, () => {}, { autoOpenPacks: true, onOpened })({ ...session, signal: abort.signal }, s.emit);
+  const abort = new AbortController(), onOpened = vi.fn(), diagnostic = vi.fn();
+  const pending = createNoPixelDriver(s.fetcher, s.joined, Date.now, diagnostic, { autoOpenPacks: true, onOpened })({ ...session, signal: abort.signal }, s.emit);
   await reading; abort.abort(); finish("[]");
   const driver = await pending;
   expect(onOpened).not.toHaveBeenCalled();
+  expect(diagnostic).not.toHaveBeenCalled();
   driver.stop();
 });
 
@@ -159,5 +160,32 @@ it("keeps opted-in known unopened packs pending after a definite open rejection"
   const driver = await createNoPixelDriver(s.fetcher, s.joined, Date.now, () => {}, { autoOpenPacks: true })(session, s.emit);
   expect(s.emit).toHaveBeenLastCalledWith(expect.objectContaining({ status: "farming", reasonCode: "collecting", pending: expect.arrayContaining([{ key: "completion", state: "blocked" }]) }));
   await driver.refresh!(); expect(s.fetcher.mock.calls.filter(([url]) => url.endsWith("/open"))).toHaveLength(2);
+  driver.stop();
+});
+
+it("reads and opens path-safe numeric pack IDs without exposing them", async () => {
+  const s = setup(); const base = s.fetcher.getMockImplementation()!; let opened = false;
+  s.fetcher.mockImplementation(async (url, init) => {
+    if (url.endsWith("/cards/packs")) return Response.json(opened ? [] : [{ id: 12345 }]);
+    if (url.endsWith("/packs/12345/open")) { opened = true; return Response.json([{ card_id: 42, edition: "normal" }]); }
+    return base(url, init);
+  });
+  const onOpened = vi.fn();
+  const driver = await createNoPixelDriver(s.fetcher, s.joined, Date.now, () => {}, { autoOpenPacks: true, onOpened })(session, s.emit);
+  expect(onOpened).toHaveBeenCalledOnce();
+  expect(s.emit).toHaveBeenLastCalledWith(expect.objectContaining({ pending: expect.not.arrayContaining([{ key: "completion", state: "blocked" }]) }));
+  expect(JSON.stringify(s.emit.mock.calls)).not.toContain("12345");
+  driver.stop();
+});
+
+it("rejects unsafe numeric pack IDs and diagnoses compatibility without payloads", async () => {
+  const s = setup(); const base = s.fetcher.getMockImplementation()!;
+  s.fetcher.mockImplementation(async (url, init) => url.endsWith("/cards/packs") ? Response.json([{ id: Number.MAX_SAFE_INTEGER + 1, secret: "private" }]) : base(url, init));
+  const diagnostic = vi.fn();
+  const driver = await createNoPixelDriver(s.fetcher, s.joined, Date.now, diagnostic, { autoOpenPacks: true })(session, s.emit);
+  await driver.refresh!();
+  expect(diagnostic).toHaveBeenCalledExactlyOnceWith("NoPixelV pack delivery/opening unavailable: compatibility-error");
+  expect(s.fetcher.mock.calls.some(([url]) => url.endsWith("/open"))).toBe(false);
+  expect(JSON.stringify(diagnostic.mock.calls)).not.toContain("private");
   driver.stop();
 });
