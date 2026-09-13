@@ -251,6 +251,8 @@ const extensionHost = createTwitchExtensionHost({
       const events: EngineEvent[] = [];
       withActivityDiagnostics((event) => events.push(event))({ category: "activity", code: "twitch_extension_action", level: "info", platform: "twitch", data: { provider: "nopixel", action: "giveaway_joined", channel: channel.username } });
       void reportEvents(events).catch(() => undefined);
+    }, Date.now, (message) => {
+      void reportEvents([{ category: "diagnostic", platform: "twitch", level: "warn", message }]).catch(() => undefined);
     })(session, emit),
   },
   loadSettings,

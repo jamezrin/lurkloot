@@ -80,3 +80,15 @@ it("releases daily farming on completion and does not join an ineligible channel
   expect(s.fetcher.mock.calls.some(([url]) => url.endsWith("/join"))).toBe(false);
   driver.stop();
 });
+
+it("reports a rejected endpoint and status without response bodies or authorization", async () => {
+  const s = setup(); const base = s.fetcher.getMockImplementation()!;
+  const diagnostic = vi.fn();
+  s.fetcher.mockImplementation(async (url, init) => url.endsWith("/giveaway") ? new Response("private vendor details", { status: 404 }) : base(url, init));
+  const driver = await createNoPixelDriver(s.fetcher, s.joined, Date.now, diagnostic)(session, s.emit);
+  await driver.refresh!();
+  expect(diagnostic).toHaveBeenCalledExactlyOnceWith("NoPixelV GET /channel/giveaway rejected: HTTP 404");
+  expect(JSON.stringify(diagnostic.mock.calls)).not.toContain("private");
+  expect(s.emit).toHaveBeenLastCalledWith(expect.objectContaining({ reasonCode: "provider-error" }));
+  driver.stop();
+});

@@ -3,6 +3,7 @@ import type { TwitchExtensionReasonCode } from "@lurkloot/shared/models";
 import type { TwitchExtensionDriverFactory } from "../runtime";
 
 const backend = "https://nopixel.streamingtoolsmith.com";
+type NoPixelPath = "/ping" | "/channel/setup" | "/cards/rewards/daily-watchtime/progress" | "/channel/giveaway" | "/channel/giveaway/join";
 type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
 class ProviderFailure extends Error {
   constructor(readonly reason: TwitchExtensionReasonCode, readonly rejected = false) { super(reason); }
@@ -11,7 +12,7 @@ class ProviderFailure extends Error {
 // Matches the published 1.1.2 client: Bearer auth, one initialization ping,
 // channel setup, daily watchtime read and ordinary giveaway join/refetch. No
 // pack opening or inventory modification is part of farming.
-export function createNoPixelDriver(fetcher: Fetch, onJoined: () => void = () => {}, now: () => number = Date.now): TwitchExtensionDriverFactory {
+export function createNoPixelDriver(fetcher: Fetch, onJoined: () => void = () => {}, now: () => number = Date.now, diagnostic: (message: string) => void = () => {}): TwitchExtensionDriverFactory {
   return async (session, emit) => {
     const lifetime = new AbortController();
     let jwt = session.jwt;
@@ -20,11 +21,12 @@ export function createNoPixelDriver(fetcher: Fetch, onJoined: () => void = () =>
     const abort = () => { jwt = ""; lifetime.abort(); };
     parent?.addEventListener("abort", abort, { once: true });
     if (parent?.aborted) abort();
+    const rejectedStatuses = new Map<string, number>();
     let joining = false;
     let pending: Promise<void> | undefined;
     const active = () => !lifetime.signal.aborted;
-    function stop() { parent?.removeEventListener("abort", abort); abort(); }
-    async function request(path: string, method = "GET"): Promise<unknown> {
+    function stop() { parent?.removeEventListener("abort", abort); rejectedStatuses.clear(); abort(); }
+    async function request(path: NoPixelPath, method: "GET" | "POST" = "GET"): Promise<unknown> {
       if (!active()) throw new ProviderFailure("provider-error");
       if (now() >= expiresAt) throw new ProviderFailure("auth-required");
       const abortRequest = new AbortController();
@@ -34,6 +36,13 @@ export function createNoPixelDriver(fetcher: Fetch, onJoined: () => void = () =>
       try {
         const response = await fetcher(`${backend}${path}`, { method, headers: { Authorization: `Bearer ${jwt}` }, credentials: "omit", signal: abortRequest.signal });
         if (!active()) throw new ProviderFailure("provider-error");
+        if (!response.ok) {
+          const key = `${method} ${path}`;
+          if (rejectedStatuses.get(key) !== response.status) {
+            rejectedStatuses.set(key, response.status);
+            diagnostic(`NoPixelV ${key} rejected: HTTP ${response.status}`);
+          }
+        }
         if (response.status === 401 || response.status === 403) throw new ProviderFailure("auth-required");
         if (!response.ok) throw new ProviderFailure("provider-error", true);
         if (response.status === 204) return null;
