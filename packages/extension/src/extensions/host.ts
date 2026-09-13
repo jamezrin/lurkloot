@@ -25,7 +25,15 @@ export function createTwitchExtensionHost(options: {
     contains: (origin) => options.permissions.contains({ origins: [origin] }),
     drivers: options.drivers,
     report: (id, report) => {
+      const previous = summaries[id];
       summaries[id] = { ...report, ...(channel ? { channel: { ...channel } } : {}), updatedAt: new Date(options.source.now()).toISOString() };
+      if ((report.status === "error" || report.status === "unavailable")
+        && (previous?.status !== report.status || previous.reasonCode !== report.reasonCode || previous.channel?.username !== channel?.username)) {
+        // Runtime reports have already passed the bounded allowlist validator.
+        // Preserve an actionable outcome after discovery moves to another channel,
+        // without retaining vendor bodies, credentials or exception text.
+        options.diagnostic(`Twitch extension ${id} ${report.status}${channel ? ` on ${channel.username}` : ""}: ${report.reasonCode}`);
+      }
     },
     onViolation: (_id, diagnostic) => options.diagnostic(diagnostic),
   });

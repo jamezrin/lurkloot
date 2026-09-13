@@ -12,8 +12,9 @@ function setup() {
   const query = vi.fn(async () => ({ data: { user: { channel: { selfInstalledExtensions: [] } } } }));
   const stop = vi.fn();
   const source = { query, hasSession: async () => true, now: Date.now };
-  const host = createTwitchExtensionHost({ source, permissions: { contains, request: async () => { throw new Error("UI must request grants"); } }, drivers: { nopixel: async () => ({ stop }) }, loadSettings: async () => settings, loadState: async () => state, savePatch: async (patch: SettingsPatch) => { settings = applySettingsPatch(settings, patch); }, diagnostic: vi.fn() });
-  return { host, state, contains, query, stop, settings: () => settings, enableTwitch() { settings.platform.twitch.enabled = true; } };
+  const diagnostic = vi.fn();
+  const host = createTwitchExtensionHost({ source, permissions: { contains, request: async () => { throw new Error("UI must request grants"); } }, drivers: { nopixel: async () => ({ stop }) }, loadSettings: async () => settings, loadState: async () => state, savePatch: async (patch: SettingsPatch) => { settings = applySettingsPatch(settings, patch); }, diagnostic });
+  return { host, state, contains, query, stop, diagnostic, settings: () => settings, enableTwitch() { settings.platform.twitch.enabled = true; } };
 }
 describe("background tabless provider host", () => {
   it("does not query with default provider settings", async () => {
@@ -25,6 +26,15 @@ describe("background tabless provider host", () => {
     expect(s.query).toHaveBeenCalledOnce();
     expect(s.state.sessions.twitch.tabId).toBeUndefined();
     expect(s.host.snapshot().nopixel?.channel).toEqual({ username: "buddha" });
+  });
+  it("records bounded unavailable outcomes once per channel without raw responses", async () => {
+    const s = setup(); s.enableTwitch();
+    await s.host.setEnabled("nopixel", true);
+    await s.host.reconcile();
+    expect(s.diagnostic).toHaveBeenCalledExactlyOnceWith("Twitch extension nopixel unavailable on buddha: channel-ineligible");
+    s.state.sessions.twitch.channel = { ...s.state.sessions.twitch.channel!, username: "ssaab", channelId: "456", url: "https://www.twitch.tv/ssaab" };
+    await s.host.reconcile();
+    expect(s.diagnostic).toHaveBeenLastCalledWith("Twitch extension nopixel unavailable on ssaab: channel-ineligible");
   });
   it("keeps an ungranted provider disabled", async () => {
     const s = setup(); s.contains.mockResolvedValue(false);
