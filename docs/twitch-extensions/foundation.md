@@ -163,3 +163,7 @@ Fortnite's shipped reward commands are `reward.list`, `participant.get`,
 LurkLoot observes server reward state instead of inventing one, and does not
 send the cosmetic mutation. Actual automatic pack opening and Fortnite reward
 delivery remain live acceptance checks, not established by synthetic tests.
+
+### Giveaway discovery after watchtime completion
+
+Daily watchtime completion is viewer-wide; giveaways are channel-specific. After the existing five-minute completion cooldown, NoPixelV discovery resumes after the last completed channel in its bounded candidate list, wrapping at the end. Selection remains stable until a new provider outcome. Disable, revocation and destructive authority invalidation clear this cursor. This lets subsequent probes reach other eligible giveaways while ordinary drops resume between probes.

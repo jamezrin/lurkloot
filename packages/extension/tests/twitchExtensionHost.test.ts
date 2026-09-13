@@ -60,6 +60,27 @@ describe("background tabless provider host", () => {
     await s.host.reconcile();
     expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toBeUndefined();
   });
+  it("rotates completed NoPixelV probes to another giveaway channel after cooldown", async () => {
+    const s = setup(); s.enableTwitch();
+    const now = Date.now(); s.source.now.mockReturnValue(now);
+    const jwt = `e30.${btoa(JSON.stringify({ channel_id: "123", exp: Math.floor(now / 1000) + 3600, role: "viewer", opaque_user_id: "Utest", user_id: "42" }))}.signature`;
+    const installation = { installation: { extension: { id: "nstuq90nghenyqwqme61jgvmtp253a", version: "1.1.2" }, activationConfig: { state: "ACTIVE" } } };
+    s.query.mockResolvedValueOnce({ data: { user: { channel: { selfInstalledExtensions: [{ ...installation, token: { jwt } }] } } } } as never);
+    s.drivers.nopixel = async (_session, emit) => { emit({ status: "complete", reasonCode: "rewards-complete", progress: [{ key: "daily-pack", earned: 60, required: 60 }], pending: [{ key: "giveaway", state: "blocked" }] }); return { stop: s.stop }; };
+    await s.host.setEnabled("nopixel", true);
+    s.host.invalidate({ preserveCompleted: true });
+    expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toBeUndefined();
+    s.source.now.mockReturnValue(now + 5 * 60_000 + 1);
+    s.query.mockResolvedValueOnce({ data: { game: { streams: { edges: ["buddha", "ssaab"].map((login, index) => ({ node: { broadcaster: { id: String(123 + index), login } } })) } } } } as never)
+      .mockResolvedValueOnce({ data: { users: ["buddha", "ssaab"].map((login, index) => ({ id: String(123 + index), login, channel: { selfInstalledExtensions: [installation] } })) } } as never);
+    expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toMatchObject({ channel: { username: "ssaab" } });
+    // Repeated selection before a new outcome remains stable and uses the cache.
+    expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toMatchObject({ channel: { username: "ssaab" } });
+    expect(s.query).toHaveBeenCalledTimes(3);
+    s.host.invalidate();
+    expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toMatchObject({ channel: { username: "buddha" } });
+    expect(s.query).toHaveBeenCalledTimes(3);
+  });
   it("keeps an ungranted provider disabled", async () => {
     const s = setup(); s.contains.mockResolvedValue(false);
     expect(await s.host.setEnabled("nopixel", true)).toEqual({ enabled: false });

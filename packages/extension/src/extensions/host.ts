@@ -19,6 +19,7 @@ export function createTwitchExtensionHost(options: {
   let generation = 0;
   const allowed = new Set<TwitchExtensionProviderId>();
   const completedUntil = new Map<TwitchExtensionProviderId, number>();
+  let lastCompletedNoPixelChannel: string | undefined;
   const summaries: Partial<Record<TwitchExtensionProviderId, TwitchExtensionSummary>> = {};
   let channel: { username: string; displayName?: string } | undefined;
   const runtime = createTwitchExtensionRuntime({
@@ -27,6 +28,7 @@ export function createTwitchExtensionHost(options: {
     drivers: options.drivers,
     report: (id, report) => {
       const previous = summaries[id];
+      if (id === "nopixel" && report.status === "complete" && channel) lastCompletedNoPixelChannel = channel.username;
       if (report.status === "complete" && (completedUntil.get(id) ?? 0) <= options.source.now()) completedUntil.set(id, options.source.now() + 5 * 60_000);
       summaries[id] = { ...report, ...(channel ? { channel: { ...channel } } : {}), updatedAt: new Date(options.source.now()).toISOString() };
       if ((report.status === "error" || report.status === "unavailable")
@@ -49,7 +51,7 @@ export function createTwitchExtensionHost(options: {
     },
     enabled: async (id) => (await options.loadSettings()).twitchExtensions[id].enabled,
     setEnabled: async (id, enabled) => options.savePatch({ twitchExtensions: { [id]: { enabled } } }),
-    clearTransientState: async (id) => { delete summaries[id]; completedUntil.delete(id); },
+    clearTransientState: async (id) => { delete summaries[id]; completedUntil.delete(id); if (id === "nopixel") lastCompletedNoPixelChannel = undefined; },
   });
   const discovery = new Map<TwitchExtensionProviderId, { channels: ChannelCandidate[]; expiresAt: number; pending?: Promise<ChannelCandidate[]> }>();
   const unavailableUntil = new Map<string, number>();
@@ -86,7 +88,11 @@ export function createTwitchExtensionHost(options: {
       signal?.throwIfAborted();
       if (selectedGeneration !== generation) return;
       const excluded = new Set((settings.platform.twitch.excludedChannels ?? []).map(value => value.toLowerCase()));
-      const selected = candidates.find(candidate => !excluded.has(candidate.username) && (unavailableUntil.get(`${provider.id}:${candidate.username}`) ?? 0) <= now);
+      // Daily completion is viewer-wide, but giveaways belong to channels.
+      // Rotate bounded reprobes rather than repeatedly visiting the first stream.
+      const previousIndex = provider.id === "nopixel" ? candidates.findIndex(candidate => candidate.username === lastCompletedNoPixelChannel) : -1;
+      const ordered = previousIndex < 0 ? candidates : [...candidates.slice(previousIndex + 1), ...candidates.slice(0, previousIndex + 1)];
+      const selected = ordered.find(candidate => !excluded.has(candidate.username) && (unavailableUntil.get(`${provider.id}:${candidate.username}`) ?? 0) <= now);
       if (selected) return { id: provider.id, channel: selected, tablessOnly: true };
     }
   }
@@ -136,7 +142,7 @@ export function createTwitchExtensionHost(options: {
       delete summaries[id];
       completedUntil.delete(id);
     }
-    if (!preserveCompleted) completedUntil.clear();
+    if (!preserveCompleted) { completedUntil.clear(); lastCompletedNoPixelChannel = undefined; }
   }
   function snapshot() {
     return structuredClone(summaries);
