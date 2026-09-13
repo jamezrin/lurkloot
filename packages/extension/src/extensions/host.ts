@@ -18,6 +18,7 @@ export function createTwitchExtensionHost(options: {
 }) {
   let generation = 0;
   const allowed = new Set<TwitchExtensionProviderId>();
+  const completedUntil = new Map<TwitchExtensionProviderId, number>();
   const summaries: Partial<Record<TwitchExtensionProviderId, TwitchExtensionSummary>> = {};
   let channel: { username: string; displayName?: string } | undefined;
   const runtime = createTwitchExtensionRuntime({
@@ -26,6 +27,7 @@ export function createTwitchExtensionHost(options: {
     drivers: options.drivers,
     report: (id, report) => {
       const previous = summaries[id];
+      if (report.status === "complete" && (completedUntil.get(id) ?? 0) <= options.source.now()) completedUntil.set(id, options.source.now() + 5 * 60_000);
       summaries[id] = { ...report, ...(channel ? { channel: { ...channel } } : {}), updatedAt: new Date(options.source.now()).toISOString() };
       if ((report.status === "error" || report.status === "unavailable")
         && (previous?.status !== report.status || previous.reasonCode !== report.reasonCode || previous.channel?.username !== channel?.username)) {
@@ -47,11 +49,10 @@ export function createTwitchExtensionHost(options: {
     },
     enabled: async (id) => (await options.loadSettings()).twitchExtensions[id].enabled,
     setEnabled: async (id, enabled) => options.savePatch({ twitchExtensions: { [id]: { enabled } } }),
-    clearTransientState: async (id) => { delete summaries[id]; },
+    clearTransientState: async (id) => { delete summaries[id]; completedUntil.delete(id); },
   });
   const discovery = new Map<TwitchExtensionProviderId, { channels: ChannelCandidate[]; expiresAt: number; pending?: Promise<ChannelCandidate[]> }>();
   const unavailableUntil = new Map<string, number>();
-  const completedUntil = new Map<TwitchExtensionProviderId, number>();
   async function chooseWatchTarget(settings: ExtensionSettings, state: SchedulerState, signal?: AbortSignal): Promise<SupplementalWatchTarget | undefined> {
     const selectedGeneration = generation;
     for (const [key, until] of unavailableUntil) if (until <= options.source.now()) unavailableUntil.delete(key);
@@ -64,7 +65,6 @@ export function createTwitchExtensionHost(options: {
       signal?.throwIfAborted();
       if (selectedGeneration !== generation) return;
       const now = options.source.now(), summary = summaries[provider.id];
-      if (summary?.status === "complete" && !completedUntil.has(provider.id)) completedUntil.set(provider.id, now + 5 * 60_000);
       if ((completedUntil.get(provider.id) ?? 0) > now) continue;
       completedUntil.delete(provider.id);
       if (summary && (summary.status === "error" || summary.status === "unavailable") && summary.channel) {
@@ -108,6 +108,10 @@ export function createTwitchExtensionHost(options: {
     for (const provider of twitchExtensionProviders) {
       const id = provider.id;
       if (!settings.twitchExtensions[id].enabled || !allowed.has(id)) { delete summaries[id]; continue; }
+      // Keep the completed earning summary while ordinary drops resume. A
+      // different channel without this provider must not replace completion
+      // with channel-ineligible during the bounded reprobe cooldown.
+      if ((completedUntil.get(id) ?? 0) > options.source.now()) continue;
       if (canRun && candidate?.channelId) selected[id] = { channelId: candidate.channelId, username: candidate.username };
       else summaries[id] = { status: "idle", reasonCode: "channel-required", progress: [], pending: [], updatedAt: new Date(options.source.now()).toISOString() };
     }
@@ -124,10 +128,15 @@ export function createTwitchExtensionHost(options: {
     await permissions.removed(details);
     await reconcile();
   }
-  function invalidate() {
+  function invalidate({ preserveCompleted = false }: { preserveCompleted?: boolean } = {}) {
     generation += 1;
     runtime.stop();
-    for (const id of Object.keys(summaries) as TwitchExtensionProviderId[]) delete summaries[id];
+    for (const id of Object.keys(summaries) as TwitchExtensionProviderId[]) {
+      if (preserveCompleted && summaries[id]?.status === "complete" && (completedUntil.get(id) ?? 0) > options.source.now()) continue;
+      delete summaries[id];
+      completedUntil.delete(id);
+    }
+    if (!preserveCompleted) completedUntil.clear();
   }
   function snapshot() {
     return structuredClone(summaries);

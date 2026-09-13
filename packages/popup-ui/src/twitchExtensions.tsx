@@ -1,4 +1,7 @@
 import React, { useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { Gift, Sparkles } from "lucide-react";
+import { SectionHeader } from "./primitives";
 import type { ExtensionSettings, TwitchExtensionProviderId, TwitchExtensionSummary } from "@lurkloot/shared/models";
 import type { PopupAdapter } from "./types";
 import { useT } from "./context";
@@ -26,15 +29,19 @@ function reasonKey(summary: TwitchExtensionSummary): string {
 }
 function ProviderSection({ name, summary, children, onSetup }: { name: string; summary?: TwitchExtensionSummary; children: React.ReactNode; onSetup?(): void }) {
   const t = useT();
+  const [expanded, setExpanded] = useState(true);
   const complete = summary?.status === "complete";
   const blocked = summary?.status === "error" || summary?.status === "unavailable";
-  return <section aria-label={name} className="rounded-xl border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700/60 dark:bg-zinc-800/60">
-    <div className="flex items-center justify-between gap-3">
-      <h2 className="text-xs font-semibold text-zinc-800 dark:text-zinc-100">{name}</h2>
-      <span className={`text-[11px] ${complete ? "text-emerald-700 dark:text-emerald-400" : blocked ? "text-amber-700 dark:text-amber-400" : "text-zinc-500 dark:text-zinc-400"}`}>{t(summary ? reasonKey(summary) : "extensionIdle")}</span>
-    </div>
+  return <section aria-label={name} className="space-y-1.5">
+    <SectionHeader label={name} count="" icon={name === "NoPixelV" ? Gift : Sparkles} expanded={expanded} onToggle={() => setExpanded(value => !value)} action={<span className={`pr-1 text-[11px] ${complete ? "text-emerald-700 dark:text-emerald-400" : blocked ? "text-amber-700 dark:text-amber-400" : "text-zinc-500 dark:text-zinc-400"}`}>{t(summary ? reasonKey(summary) : "extensionIdle")}</span>} />
+    <AnimatePresence initial={false}>
+    {expanded ? <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+    <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-3 pb-3 pt-0.5 dark:border-zinc-700/60 dark:bg-zinc-800/60">
     {children}
     {summary?.reasonCode === "identity-required" && onSetup ? <button type="button" onClick={onSetup} className="mt-2 text-[11px] font-medium text-purple-600 underline underline-offset-2 dark:text-purple-400">{t("extensionAccountSetup")}</button> : null}
+    </div>
+    </motion.div> : null}
+    </AnimatePresence>
   </section>;
 }
 function RewardProgress({ label, earned, required, complete }: { label: string; earned: number; required: number; complete: boolean }) {

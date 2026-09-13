@@ -3,7 +3,7 @@
 The integration runs fully tabless. Authorization acquisition and provider
 activity use the privileged background; neither requires a Twitch tab or an
 overlay iframe. Work is tracked in draft #541. The popup exposes independent provider opt-ins
-and separate NoPixelV/Fortnite drop sections as soon as each is enabled; the
+and separate collapsible NoPixelV/Fortnite drop sections as soon as each is enabled; the
 watch status row contains the current channel and selection reason. takeover actions have a separate opt-in, off by default.
 
 The authoritative design, public protocol evidence and credential-safe live
@@ -45,6 +45,8 @@ validation instructions are in
   it never obtains per-candidate viewer JWTs. A five-minute cache bounds scans.
   NoPixelV gets the supplemental lane first, then Fortnite; completed providers
   release it, and unavailable channels back off. Ordinary drops resume afterward.
+  Normal healthy channel changes cancel active resources while preserving completed
+  public summaries and their bounded cooldowns. Authority loss/reset clears them.
 - The browser-free scheduler accepts a host-supplied supplemental target after
   platform, authentication and manual-pause gates. Supplemental targets have
   their own heartbeat identity without invented campaign/reward IDs. Their

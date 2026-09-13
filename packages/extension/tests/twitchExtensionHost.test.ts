@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import type { TwitchExtensionDriverFactory } from "../src/extensions/runtime";
 import { createTwitchExtensionHost } from "../src/extensions/host";
 import { DEFAULT_SETTINGS, applySettingsPatch } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "@lurkloot/core/defaults";
@@ -11,10 +12,11 @@ function setup() {
   const contains = vi.fn(async () => true);
   const query = vi.fn(async () => ({ data: { user: { channel: { selfInstalledExtensions: [] } } } }));
   const stop = vi.fn();
-  const source = { query, hasSession: async () => true, now: Date.now };
+  const source = { query, hasSession: async () => true, now: vi.fn(() => Date.now()) };
+  const drivers: { nopixel: TwitchExtensionDriverFactory } = { nopixel: async () => ({ stop }) };
   const diagnostic = vi.fn();
-  const host = createTwitchExtensionHost({ source, permissions: { contains, request: async () => { throw new Error("UI must request grants"); } }, drivers: { nopixel: async () => ({ stop }) }, loadSettings: async () => settings, loadState: async () => state, savePatch: async (patch: SettingsPatch) => { settings = applySettingsPatch(settings, patch); }, diagnostic });
-  return { host, state, contains, query, stop, diagnostic, settings: () => settings, enableTwitch() { settings.platform.twitch.enabled = true; } };
+  const host = createTwitchExtensionHost({ source, permissions: { contains, request: async () => { throw new Error("UI must request grants"); } }, drivers, loadSettings: async () => settings, loadState: async () => state, savePatch: async (patch: SettingsPatch) => { settings = applySettingsPatch(settings, patch); }, diagnostic });
+  return { host, state, contains, query, stop, diagnostic, source, drivers, settings: () => settings, enableTwitch() { settings.platform.twitch.enabled = true; } };
 }
 describe("background tabless provider host", () => {
   it("does not query with default provider settings", async () => {
@@ -35,6 +37,28 @@ describe("background tabless provider host", () => {
     s.state.sessions.twitch.channel = { ...s.state.sessions.twitch.channel!, username: "ssaab", channelId: "456", url: "https://www.twitch.tv/ssaab" };
     await s.host.reconcile();
     expect(s.diagnostic).toHaveBeenLastCalledWith("Twitch extension nopixel unavailable on ssaab: channel-ineligible");
+  });
+  it("preserves completion while ordinary drops resume and allows a bounded reprobe", async () => {
+    const s = setup(); s.enableTwitch();
+    const now = Date.now(); s.source.now.mockReturnValue(now);
+    const jwt = `e30.${btoa(JSON.stringify({ channel_id: "123", exp: Math.floor(now / 1000) + 3600, role: "viewer", opaque_user_id: "Utest", user_id: "42" }))}.signature`;
+    s.query.mockResolvedValue({ data: { user: { channel: { selfInstalledExtensions: [{ installation: { extension: { id: "nstuq90nghenyqwqme61jgvmtp253a", version: "1.1.2" }, activationConfig: { state: "ACTIVE" } }, token: { jwt } }] } } } } as never);
+    s.drivers.nopixel = async (_session, emit) => { emit({ status: "complete", reasonCode: "rewards-complete", progress: [{ key: "daily-pack", earned: 60, required: 60 }], pending: [] }); return { stop: s.stop }; };
+    await s.host.setEnabled("nopixel", true);
+    s.state.sessions.twitch.channel = { platform: "twitch", username: "babylings", url: "https://www.twitch.tv/babylings", channelId: "456" };
+    // Background cancels active authority before reconciling a normal channel
+    // transition; this must preserve only completed public outcomes/cooldowns.
+    s.host.invalidate({ preserveCompleted: true });
+    await s.host.reconcile();
+    expect(s.query).toHaveBeenCalledOnce(); expect(s.stop).toHaveBeenCalledOnce();
+    expect(s.host.snapshot().nopixel).toMatchObject({ status: "complete", channel: { username: "buddha" }, progress: [{ earned: 60, required: 60 }] });
+    expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toBeUndefined();
+    s.source.now.mockReturnValue(now + 5 * 60_000 + 1);
+    s.query.mockResolvedValueOnce({ data: { game: { streams: { edges: [{ node: { broadcaster: { id: "123", login: "buddha" } } }] } } } } as never).mockResolvedValueOnce({ data: { users: [{ id: "123", login: "buddha", channel: { selfInstalledExtensions: [{ installation: { extension: { id: "nstuq90nghenyqwqme61jgvmtp253a" }, activationConfig: { state: "ACTIVE" } } }] } }] } } as never);
+    expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toMatchObject({ id: "nopixel", channel: { username: "buddha" } });
+    s.state.sessions.twitch.channel = { platform: "twitch", username: "buddha", channelId: "123", url: "https://www.twitch.tv/buddha" };
+    await s.host.reconcile();
+    expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toBeUndefined();
   });
   it("keeps an ungranted provider disabled", async () => {
     const s = setup(); s.contains.mockResolvedValue(false);

@@ -367,7 +367,9 @@ export default defineBackground(() => {
         || previous?.manualWatch?.twitch?.active !== next?.manualWatch?.twitch?.active
         || previous?.sessions?.twitch?.status !== next?.sessions?.twitch?.status
         || previous?.sessions?.twitch?.channel?.channelId !== next?.sessions?.twitch?.channel?.channelId
-        || previous?.authHealth?.twitch?.status !== next?.authHealth?.twitch?.status) extensionHost.invalidate();
+        || previous?.authHealth?.twitch?.status !== next?.authHealth?.twitch?.status) extensionHost.invalidate({
+          preserveCompleted: previous?.authHealth?.twitch?.status === "healthy" && next?.authHealth?.twitch?.status === "healthy",
+        });
     }
     void reconcileExtensions();
   });
