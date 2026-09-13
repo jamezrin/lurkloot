@@ -444,6 +444,7 @@ export interface SchedulerState {
   managedWatchTabs?: Partial<Record<Platform, ManagedWatchTab>>;
   managedPageContextTabs?: Partial<Record<Platform, ManagedPageContextTab>>;
   manualWatch?: Partial<Record<Platform, ManualWatchState>>;
+  manualWatchTabs?: Partial<Record<Platform, Record<string, ManualWatchState>>>;
   // Platforms paused because the user manually closed their managed watch tab.
   // Cleared only by an explicit resume from the popup/CLI host.
   manualClosePause?: Partial<Record<Platform, ManualClosePauseState>>;

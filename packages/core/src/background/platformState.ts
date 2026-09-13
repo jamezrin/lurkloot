@@ -64,6 +64,11 @@ export function mergePlatformState(
       source.manualWatch,
       platform,
     ),
+    manualWatchTabs: mergeOptionalEntry(
+      destination.manualWatchTabs,
+      source.manualWatchTabs,
+      platform,
+    ),
     manualClosePause: mergeOptionalEntry(
       destination.manualClosePause,
       source.manualClosePause,
