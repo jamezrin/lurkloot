@@ -3,7 +3,8 @@
 The integration runs fully tabless. Authorization acquisition and provider
 activity use the privileged background; neither requires a Twitch tab or an
 overlay iframe. Work is tracked in draft #541. The popup exposes independent provider opt-ins
-and transient status; takeover actions have a separate opt-in, off by default.
+and separate NoPixelV/Fortnite drop sections as soon as each is enabled; the
+watch status row contains the current channel and selection reason. takeover actions have a separate opt-in, off by default.
 
 The authoritative design, public protocol evidence and credential-safe live
 validation instructions are in
@@ -73,7 +74,11 @@ not vendor earning. A subsequent user-run tabless NoPixelV log records a
 server-confirmed giveaway join on `ssaab` at 2026-09-13T09:52:49.580Z, after
 the lane moved past temporarily unavailable `hazan`. Daily watchtime growth and
 Fortnite earning still need live confirmation; the unavailable-channel cause
-is under investigation.
+is identified as HTTP 404 from `/channel/giveaway`. Giveaway failures now
+mark only that action unavailable and preserve valid daily-pack progress;
+404 is not interpreted as proof of an absent giveaway. The user screenshot
+shows an authoritative daily-pack counter of 60/60, but its growth during
+the tabless run has not yet been observed.
 Tracking issues #507–#511 remain open for authenticated lifecycle and earning
 acceptance. Synthetic tests and anonymous protocol reads do not satisfy that gate.
 Both Fortnite issues are implemented together in the draft.

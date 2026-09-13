@@ -72,7 +72,7 @@ import { openHttpsLink } from "./links";
 import { IdleWatchlistPanel } from "./idleWatchlist";
 import { AutomationStatusLine, PlatformBar } from "./automation";
 import { automationPresentation, type AutomationPresentation } from "./automationStatus";
-import { changeTwitchExtensionEnabled, TwitchExtensionStatus } from "./twitchExtensions";
+import { changeTwitchExtensionEnabled, TwitchExtensionDrops } from "./twitchExtensions";
 import { SettingsView } from "./settings";
 import { TipsBanner } from "./tips";
 export function screenshotVariant(id: string | null | undefined): ScreenshotVariant {
@@ -761,13 +761,12 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
             <AutomationStatusLine
               platform={platform}
               presentation={presentation}
-              farmingTitle={activeCampaign?.title}
+              farmingTitle={session.supplementalWatch ? session.supplementalWatch.id === "nopixel" ? "NoPixelV" : "Fortnite" : activeCampaign?.title}
               farmingChannel={farmingChannel}
               watchingIdleWatchlist={!activeCampaign && Boolean(farmingChannel) && !session.supplementalWatch}
-              onFarmingTitleClick={onFarmingTitleClick}
+              onFarmingTitleClick={session.supplementalWatch ? undefined : onFarmingTitleClick}
               onResume={resumeAfterManualClose}
             />
-            {platform === "twitch" ? <TwitchExtensionStatus summaries={snapshot.state.twitchExtensions} onSetup={() => adapter.openLink("https://help.twitch.tv/s/article/how-to-configure-extensions")} /> : null}
           </>
         ) : null}
       </div>
@@ -807,6 +806,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
               </motion.div>
             ) : (
               <motion.div key="main" initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -14 }} transition={{ duration: 0.18 }} className="space-y-3">
+                {platform === "twitch" ? <TwitchExtensionDrops settings={settings} summaries={snapshot.state.twitchExtensions} onSetup={() => adapter.openLink("https://help.twitch.tv/s/article/how-to-configure-extensions")} /> : null}
                 <AnimatePresence initial={false}>
                   {noticeSlot === "update" && updateNotice ? (
                     <UpdateNotice

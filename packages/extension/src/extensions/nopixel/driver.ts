@@ -62,29 +62,42 @@ export function createNoPixelDriver(fetcher: Fetch, onJoined: () => void = () =>
         const progress = setup.watchtime && setup.connected ? parseNoPixelProgress(await request("/cards/rewards/daily-watchtime/progress")) : undefined;
         if (!active()) return;
         if (setup.watchtime && setup.connected && !progress) throw new ProviderFailure("compatibility-error");
-        let giveaway = setup.giveaways ? parseNoPixelGiveaway(await request("/channel/giveaway")) : null;
-        if (!active()) return;
-        if (giveaway === undefined) throw new ProviderFailure("compatibility-error");
-        if (!giveaway || giveaway.entered) joining = false;
-        if (giveaway && !giveaway.entered && !joining) {
-          // The published response need not contain a giveaway ID. Confirm
-          // server-held membership rather than inventing a client dedup key.
-          joining = true;
-          try { await request("/channel/giveaway/join", "POST"); }
-          catch (error) {
-            // A definite HTTP rejection did not enter the giveaway. A timeout
-            // is ambiguous, so retain the guard until server membership or a
-            // fresh session resolves it rather than blindly resubmitting.
-            if (error instanceof ProviderFailure && error.rejected) joining = false;
-            throw error;
-          }
-          if (!active()) return;
-          giveaway = parseNoPixelGiveaway(await request("/channel/giveaway"));
+        let giveaway: ReturnType<typeof parseNoPixelGiveaway> = null;
+        let giveawayUnavailable = false;
+        try {
+          giveaway = setup.giveaways ? parseNoPixelGiveaway(await request("/channel/giveaway")) : null;
           if (!active()) return;
           if (giveaway === undefined) throw new ProviderFailure("compatibility-error");
-          if (giveaway?.entered) { joining = false; onJoined(); }
+          if (!giveaway || giveaway.entered) joining = false;
+          if (giveaway && !giveaway.entered && !joining) {
+            // The published response need not contain a giveaway ID. Confirm
+            // server-held membership rather than inventing a client dedup key.
+            joining = true;
+            try { await request("/channel/giveaway/join", "POST"); }
+            catch (error) {
+              // A definite HTTP rejection did not enter the giveaway. A timeout
+              // is ambiguous, so retain the guard until server membership or a
+              // fresh session resolves it rather than blindly resubmitting.
+              if (error instanceof ProviderFailure && error.rejected) joining = false;
+              throw error;
+            }
+            if (!active()) return;
+            giveaway = parseNoPixelGiveaway(await request("/channel/giveaway"));
+            if (!active()) return;
+            if (giveaway === undefined) throw new ProviderFailure("compatibility-error");
+            if (giveaway?.entered) { joining = false; onJoined(); }
+          }
+        } catch (error) {
+          if (error instanceof ProviderFailure && error.reason === "auth-required") throw error;
+          // Giveaway reads/actions are independent of daily watchtime. A 404
+          // is not proof that no giveaway exists; preserve valid progress and
+          // mark only this action unavailable without making an unverified join.
+          giveawayUnavailable = true;
         }
-        emit(noPixelReport(setup, progress, giveaway));
+        if (!active()) return;
+        const report = noPixelReport(setup, progress, giveaway ?? null);
+        if (giveawayUnavailable) report.pending = [{ key: "giveaway", state: "blocked" }];
+        emit(report);
       } catch (error) {
         if (active()) emit({ status: "error", reasonCode: error instanceof ProviderFailure ? error.reason : "transport-error", progress: [], pending: [] });
       }

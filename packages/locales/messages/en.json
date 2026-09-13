@@ -1495,5 +1495,20 @@
   },
   "extensionAccountSetup": {
     "message": "Account setup"
+  },
+  "extensionGiveawayUnavailable": {
+    "message": "Giveaway check unavailable"
+  },
+  "extensionGiveawayEntered": {
+    "message": "Giveaway entered"
+  },
+  "extensionGiveawayOpen": {
+    "message": "Giveaway open"
+  },
+  "extensionRewardProgress": {
+    "message": "Rewards: $1/$2"
+  },
+  "extensionTakeoverActive": {
+    "message": "Takeover active"
   }
 }

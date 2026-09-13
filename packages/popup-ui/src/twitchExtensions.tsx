@@ -24,22 +24,49 @@ function reasonKey(summary: TwitchExtensionSummary): string {
     default: return summary.status === "error" ? "extensionUnavailable" : "extensionIdle";
   }
 }
-export function TwitchExtensionStatus({ summaries, onSetup }: { onSetup?(): void; summaries?: Partial<Record<TwitchExtensionProviderId, TwitchExtensionSummary>> }) {
+function ProviderSection({ name, summary, children, onSetup }: { name: string; summary?: TwitchExtensionSummary; children: React.ReactNode; onSetup?(): void }) {
   const t = useT();
-  if (!summaries || !providers.some(provider => summaries[provider.id])) return null;
-  return <div className="space-y-1 px-3 pb-2" aria-live="polite">
-    {providers.map(provider => {
-      const summary = summaries[provider.id];
-      if (!summary) return null;
-      return <div key={provider.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-        <span className="font-medium text-zinc-700 dark:text-zinc-200">{provider.name}</span>
-        <span>{t(reasonKey(summary))}</span>
-        {summary.channel ? <span>{summary.channel.username}</span> : null}
-        {summary.reasonCode === "identity-required" && onSetup ? <button type="button" onClick={onSetup} className="underline underline-offset-2">{t("extensionAccountSetup")}</button> : null}
-        {summary.progress.map(progress => <span key={progress.key}>{t(progress.key === "daily-pack" ? "extensionDailyPackProgress" : "extensionCaptureProgress", [String(progress.earned), String(progress.required)])}</span>)}
-      </div>;
-    })}
+  const complete = summary?.status === "complete";
+  const blocked = summary?.status === "error" || summary?.status === "unavailable";
+  return <section aria-label={name} className="rounded-xl border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700/60 dark:bg-zinc-800/60">
+    <div className="flex items-center justify-between gap-3">
+      <h2 className="text-xs font-semibold text-zinc-800 dark:text-zinc-100">{name}</h2>
+      <span className={`text-[11px] ${complete ? "text-emerald-700 dark:text-emerald-400" : blocked ? "text-amber-700 dark:text-amber-400" : "text-zinc-500 dark:text-zinc-400"}`}>{t(summary ? reasonKey(summary) : "extensionIdle")}</span>
+    </div>
+    {children}
+    {summary?.reasonCode === "identity-required" && onSetup ? <button type="button" onClick={onSetup} className="mt-2 text-[11px] font-medium text-purple-600 underline underline-offset-2 dark:text-purple-400">{t("extensionAccountSetup")}</button> : null}
+  </section>;
+}
+function RewardProgress({ label, earned, required, complete }: { label: string; earned: number; required: number; complete: boolean }) {
+  const fraction = required > 0 ? Math.min(1, earned / required) : complete ? 1 : 0;
+  return <div className="mt-2.5">
+    <div className="mb-1.5 text-[11px] tabular-nums text-zinc-600 dark:text-zinc-300">{label}</div>
+    <progress className="sr-only" aria-label={label} value={earned} max={Math.max(required, earned, 1)} />
+    <div aria-hidden="true" className="h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+      <div className={`h-full rounded-full ${complete ? "bg-emerald-500" : "bg-purple-500"}`} style={{ width: `${fraction * 100}%` }} />
+    </div>
   </div>;
+}
+function NoPixelDropSection({ summary, onSetup }: { summary?: TwitchExtensionSummary; onSetup?(): void }) {
+  const t = useT();
+  const daily = summary?.progress.find(progress => progress.key === "daily-pack");
+  return <ProviderSection name="NoPixelV" summary={summary} onSetup={onSetup}>
+    {daily ? <RewardProgress label={t("extensionDailyPackProgress", [String(daily.earned), String(daily.required)])} earned={daily.earned} required={daily.required} complete={summary?.status === "complete"} /> : null}
+    {summary?.pending.filter(action => action.key === "giveaway").map(action => <p key={action.key} className="mt-2 text-[11px] text-zinc-500 dark:text-zinc-400">{t(action.state === "blocked" ? "extensionGiveawayUnavailable" : action.state === "done" ? "extensionGiveawayEntered" : "extensionGiveawayOpen")}</p>)}
+  </ProviderSection>;
+}
+function FortniteDropSection({ summary, onSetup }: { summary?: TwitchExtensionSummary; onSetup?(): void }) {
+  const t = useT();
+  return <ProviderSection name="Fortnite" summary={summary} onSetup={onSetup}>
+    {summary?.progress.map(progress => <RewardProgress key={progress.key} label={t(progress.key === "rewards" ? "extensionRewardProgress" : "extensionCaptureProgress", [String(progress.earned), String(progress.required)])} earned={progress.earned} required={progress.required} complete={progress.earned >= progress.required} />)}
+    {summary?.pending.some(action => action.key === "takeover" && action.state === "done") ? <p className="mt-2 text-[11px] text-purple-600 dark:text-purple-400">{t("extensionTakeoverActive")}</p> : null}
+  </ProviderSection>;
+}
+export function TwitchExtensionDrops({ settings, summaries, onSetup }: { settings: ExtensionSettings; onSetup?(): void; summaries?: Partial<Record<TwitchExtensionProviderId, TwitchExtensionSummary>> }) {
+  return <>
+    {settings.twitchExtensions.nopixel.enabled ? <NoPixelDropSection summary={summaries?.nopixel} onSetup={onSetup} /> : null}
+    {settings.twitchExtensions.fortnite.enabled ? <FortniteDropSection summary={summaries?.fortnite} onSetup={onSetup} /> : null}
+  </>;
 }
 export function TwitchExtensionSettings({ settings, onChange, onTakeoversChange }: { onTakeoversChange(enabled: boolean): Promise<void>; settings: ExtensionSettings; onChange(provider: TwitchExtensionProviderId, enabled: boolean): Promise<boolean> }) {
   const t = useT();

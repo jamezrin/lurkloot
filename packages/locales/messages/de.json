@@ -1495,5 +1495,20 @@
   },
   "extensionAccountSetup": {
     "message": "Konto einrichten"
+  },
+  "extensionGiveawayUnavailable": {
+    "message": "Gewinnspielprüfung nicht verfügbar"
+  },
+  "extensionGiveawayEntered": {
+    "message": "Gewinnspielteilnahme bestätigt"
+  },
+  "extensionGiveawayOpen": {
+    "message": "Gewinnspiel offen"
+  },
+  "extensionRewardProgress": {
+    "message": "Belohnungen: $1/$2"
+  },
+  "extensionTakeoverActive": {
+    "message": "Übernahme aktiv"
   }
 }

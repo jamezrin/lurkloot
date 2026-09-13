@@ -1495,5 +1495,20 @@
   },
   "extensionAccountSetup": {
     "message": "Hesap kurulumu"
+  },
+  "extensionGiveawayUnavailable": {
+    "message": "Çekiliş kontrolü kullanılamıyor"
+  },
+  "extensionGiveawayEntered": {
+    "message": "Çekilişe katılım onaylandı"
+  },
+  "extensionGiveawayOpen": {
+    "message": "Çekiliş açık"
+  },
+  "extensionRewardProgress": {
+    "message": "Ödüller: $1/$2"
+  },
+  "extensionTakeoverActive": {
+    "message": "Ele geçirme etkin"
   }
 }

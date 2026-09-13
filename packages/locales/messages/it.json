@@ -1495,5 +1495,20 @@
   },
   "extensionAccountSetup": {
     "message": "Configura account"
+  },
+  "extensionGiveawayUnavailable": {
+    "message": "Verifica del sorteggio non disponibile"
+  },
+  "extensionGiveawayEntered": {
+    "message": "Partecipazione confermata"
+  },
+  "extensionGiveawayOpen": {
+    "message": "Sorteggio aperto"
+  },
+  "extensionRewardProgress": {
+    "message": "Ricompense: $1/$2"
+  },
+  "extensionTakeoverActive": {
+    "message": "Conquista attiva"
   }
 }

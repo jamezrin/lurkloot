@@ -1495,5 +1495,20 @@
   },
   "extensionAccountSetup": {
     "message": "إعداد الحساب"
+  },
+  "extensionGiveawayUnavailable": {
+    "message": "التحقق من السحب غير متاح"
+  },
+  "extensionGiveawayEntered": {
+    "message": "تم تأكيد المشاركة في السحب"
+  },
+  "extensionGiveawayOpen": {
+    "message": "السحب مفتوح"
+  },
+  "extensionRewardProgress": {
+    "message": "المكافآت: $1/$2"
+  },
+  "extensionTakeoverActive": {
+    "message": "الاستيلاء نشط"
   }
 }

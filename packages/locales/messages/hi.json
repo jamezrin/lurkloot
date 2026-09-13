@@ -1495,5 +1495,20 @@
   },
   "extensionAccountSetup": {
     "message": "खाता सेटअप"
+  },
+  "extensionGiveawayUnavailable": {
+    "message": "गिवअवे की जाँच उपलब्ध नहीं है"
+  },
+  "extensionGiveawayEntered": {
+    "message": "गिवअवे में भागीदारी की पुष्टि हुई"
+  },
+  "extensionGiveawayOpen": {
+    "message": "गिवअवे खुला है"
+  },
+  "extensionRewardProgress": {
+    "message": "पुरस्कार: $1/$2"
+  },
+  "extensionTakeoverActive": {
+    "message": "टेकओवर सक्रिय है"
   }
 }

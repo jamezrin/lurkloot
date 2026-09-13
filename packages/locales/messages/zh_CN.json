@@ -1495,5 +1495,20 @@
   },
   "extensionAccountSetup": {
     "message": "账户设置"
+  },
+  "extensionGiveawayUnavailable": {
+    "message": "暂时无法检查抽奖"
+  },
+  "extensionGiveawayEntered": {
+    "message": "已确认参加抽奖"
+  },
+  "extensionGiveawayOpen": {
+    "message": "抽奖开放中"
+  },
+  "extensionRewardProgress": {
+    "message": "奖励：$1/$2"
+  },
+  "extensionTakeoverActive": {
+    "message": "接管进行中"
   }
 }

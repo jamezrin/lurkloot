@@ -89,6 +89,7 @@ it("reports a rejected endpoint and status without response bodies or authorizat
   await driver.refresh!();
   expect(diagnostic).toHaveBeenCalledExactlyOnceWith("NoPixelV GET /channel/giveaway rejected: HTTP 404");
   expect(JSON.stringify(diagnostic.mock.calls)).not.toContain("private");
-  expect(s.emit).toHaveBeenLastCalledWith(expect.objectContaining({ reasonCode: "provider-error" }));
+  expect(s.emit).toHaveBeenLastCalledWith(expect.objectContaining({ status: "farming", reasonCode: "watchtime", progress: [{ key: "daily-pack", earned: 10, required: 60 }], pending: [{ key: "giveaway", state: "blocked" }] }));
+  expect(s.fetcher.mock.calls.some(([url]) => url.endsWith("/join"))).toBe(false);
   driver.stop();
 });

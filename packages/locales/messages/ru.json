@@ -1495,5 +1495,20 @@
   },
   "extensionAccountSetup": {
     "message": "Настроить аккаунт"
+  },
+  "extensionGiveawayUnavailable": {
+    "message": "Проверка розыгрыша недоступна"
+  },
+  "extensionGiveawayEntered": {
+    "message": "Участие в розыгрыше подтверждено"
+  },
+  "extensionGiveawayOpen": {
+    "message": "Розыгрыш открыт"
+  },
+  "extensionRewardProgress": {
+    "message": "Награды: $1/$2"
+  },
+  "extensionTakeoverActive": {
+    "message": "Захват активен"
   }
 }
