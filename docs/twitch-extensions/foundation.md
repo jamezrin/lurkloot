@@ -69,7 +69,11 @@ Authenticated background session acquisition passed the user-run read-only
 popup check for both providers: HTTP 200, no GQL errors, active installation,
 viewer token present, authenticated viewer and linked identity. Only public
 metadata and booleans were shared. This verifies authorization acquisition,
-not vendor earning. Actual earning without a Twitch tab still needs live confirmation.
+not vendor earning. A subsequent user-run tabless NoPixelV log records a
+server-confirmed giveaway join on `ssaab` at 2026-09-13T09:52:49.580Z, after
+the lane moved past temporarily unavailable `hazan`. Daily watchtime growth and
+Fortnite earning still need live confirmation; the unavailable-channel cause
+is under investigation.
 Tracking issues #507–#511 remain open for authenticated lifecycle and earning
 acceptance. Synthetic tests and anonymous protocol reads do not satisfy that gate.
 Both Fortnite issues are implemented together in the draft.

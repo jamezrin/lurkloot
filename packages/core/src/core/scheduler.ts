@@ -1359,7 +1359,7 @@ export async function runSchedulerTick(
           emit,
           platform,
           "debug",
-          `Switching watch target (${shouldKeep.reason}); ${previous.watchMode === "tabless" ? "heartbeat" : "playback"} ${isSessionHealthy(previous) ? "healthy" : "unhealthy"}`,
+          `Switching watch target (${shouldKeep.reason}); ${previous.watchMode === "tabless" ? "heartbeat" : "playback"} ${previous.watchMode === "tabless" && !previous.lastHeartbeatAt ? "not yet observed" : isSessionHealthy(previous) ? "healthy" : "unhealthy"}`,
         );
       }
       const decisionChanged = previous.campaignId !== decision.campaign?.id
