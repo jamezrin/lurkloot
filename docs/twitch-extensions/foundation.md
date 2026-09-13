@@ -4,7 +4,7 @@ The integration runs fully tabless. Authorization acquisition and provider
 activity use the privileged background; neither requires a Twitch tab or an
 overlay iframe. Work is tracked in draft #541. The popup exposes independent provider opt-ins
 and separate collapsible NoPixelV/Fortnite drop sections as soon as each is enabled; the
-watch status row contains the current channel and selection reason. takeover actions have a separate opt-in, off by default.
+watch status row contains the current channel and selection reason. Takeover actions have a separate opt-in, off by default.
 
 The authoritative design, public protocol evidence and credential-safe live
 validation instructions are in
@@ -72,6 +72,9 @@ validation instructions are in
 ![Provider settings and permission-denial state](settings.png)
 
 ## Remaining
+
+The [completion audit](acceptance.md) maps the requested scope to implementation
+evidence and records the remaining live gates.
 
 Authenticated background session acquisition passed the user-run read-only
 popup check for both providers: HTTP 200, no GQL errors, active installation,

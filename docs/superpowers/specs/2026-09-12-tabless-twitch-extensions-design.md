@@ -3,8 +3,9 @@
 This replaces the iframe-dependent runtime design in #506/#507 following the
 user's explicit requirement on 2026-09-12: Twitch Extension rewards must work
 with tabless farming, without depending on Twitch tabs or their provider frames.
-The existing PR #541 foundation is a draft; its frame-registration code is not
-connected to production and is not the runtime to finish implementing.
+PR #541 remains a draft pending live earning and lifecycle acceptance. The
+iframe registration and relay approach has been replaced by the implemented
+background transports; neither provider depends on a Twitch tab.
 
 ## Verified findings
 
@@ -144,8 +145,10 @@ Reference: https://developer.chrome.com/docs/extensions/how-to/web-platform/webs
 5. Implement and verify NoPixel earning and entry in #509 using its current bundle.
 6. Implement Fortnite session/rewards in #510 and interactive commands in #511.
 
-The authenticated session and vendor earning tests remain unverified. The
-session source is useful tested code, not a completed Twitch Extension feature.
+Authenticated background viewer authorization has passed the user-run popup
+probe for both providers. The complete provider implementations are connected
+to production in draft #541. Vendor earning and live lifecycle acceptance are
+separate gates; see the [completion audit](../../twitch-extensions/acceptance.md).
 
 ## Read-only authenticated validation
 
