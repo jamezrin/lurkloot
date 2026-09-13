@@ -494,10 +494,18 @@
   "failuresSuffix": {
     "message": "विफलताएँ"
   },
-  "kickPageContextRecoverySuccessesTitle": { "message": "Kick फ़ॉलबैक पेज रिकवरी" },
-  "kickPageContextRecoverySuccessesDescription": { "message": "इतने सफल रीफ़्रेश चक्रों के बाद एक्सटेंशन द्वारा खोला गया Kick फ़ॉलबैक पेज बंद करें।" },
-  "kickPageContextRecoverySuccessesDisabledReason": { "message": "यह सेटिंग बदलने के लिए Kick चालू करें।" },
-  "cyclesSuffix": { "message": "चक्र" },
+  "kickPageContextRecoverySuccessesTitle": {
+    "message": "Kick फ़ॉलबैक पेज रिकवरी"
+  },
+  "kickPageContextRecoverySuccessesDescription": {
+    "message": "इतने सफल रीफ़्रेश चक्रों के बाद एक्सटेंशन द्वारा खोला गया Kick फ़ॉलबैक पेज बंद करें।"
+  },
+  "kickPageContextRecoverySuccessesDisabledReason": {
+    "message": "यह सेटिंग बदलने के लिए Kick चालू करें।"
+  },
+  "cyclesSuffix": {
+    "message": "चक्र"
+  },
   "autoCloseTabsTitle": {
     "message": "फ़ार्मिंग टैब अपने आप बंद करें"
   },
@@ -1421,5 +1429,104 @@
   },
   "scrollRewardsRight": {
     "message": "पुरस्कारों को दाईं ओर स्क्रॉल करें"
+  },
+  "activityExtensionGiveawayJoined": {
+    "message": "$2 पर $1 के गिवअवे में भाग लिया।"
+  },
+  "activityExtensionSpriteCaptured": {
+    "message": "$2 पर $1 का स्प्राइट पकड़ा।"
+  },
+  "activityExtensionTakeoverStarted": {
+    "message": "$2 से $1 का हमला शुरू किया।"
+  },
+  "extensionSettingsTitle": {
+    "message": "Twitch एक्सटेंशन"
+  },
+  "extensionSettingsHint": {
+    "message": "Twitch टैब के बिना पुरस्कार पाएँ। Twitch स्वचालन, बहिष्करण और मैन्युअल विराम लागू होते हैं।"
+  },
+  "extensionNoPixelHint": {
+    "message": "दैनिक पैक पाएँ और उपहार प्रतियोगिताओं में शामिल हों।"
+  },
+  "extensionFortniteHint": {
+    "message": "स्प्राइट इकट्ठा करें और चरण पुरस्कार पाएँ।"
+  },
+  "extensionIdentityRequired": {
+    "message": "अपना एक्सटेंशन खाता लिंक करें"
+  },
+  "extensionPermissionRequired": {
+    "message": "प्रदाता की पहुँच की अनुमति दें"
+  },
+  "extensionAuthRequired": {
+    "message": "Twitch में लॉग इन करें"
+  },
+  "extensionChannelRequired": {
+    "message": "योग्य चैनल खोज रहे हैं"
+  },
+  "extensionComplete": {
+    "message": "पुरस्कार मिले"
+  },
+  "extensionFarming": {
+    "message": "संग्रह जारी"
+  },
+  "extensionPhaseClosed": {
+    "message": "कोई इंटरैक्टिव चरण खुला नहीं है"
+  },
+  "extensionConnecting": {
+    "message": "कनेक्ट हो रहा है"
+  },
+  "extensionUnavailable": {
+    "message": "अस्थायी रूप से अनुपलब्ध"
+  },
+  "extensionIdle": {
+    "message": "प्रतीक्षा"
+  },
+  "extensionDailyPackProgress": {
+    "message": "दैनिक पैक: $1/$2 मिनट"
+  },
+  "extensionCaptureProgress": {
+    "message": "संग्रह: $1/$2"
+  },
+  "extensionTakeoversTitle": {
+    "message": "Fortnite टेकओवर की अनुमति दें"
+  },
+  "extensionTakeoversHint": {
+    "message": "इंटरैक्टिव चरणों में योग्य टेकओवर शुरू करें। डिफ़ॉल्ट रूप से बंद।"
+  },
+  "extensionAccountSetup": {
+    "message": "खाता सेटअप"
+  },
+  "extensionGiveawayUnavailable": {
+    "message": "गिवअवे की जाँच उपलब्ध नहीं है"
+  },
+  "extensionGiveawayEntered": {
+    "message": "गिवअवे में भागीदारी की पुष्टि हुई"
+  },
+  "extensionGiveawayOpen": {
+    "message": "गिवअवे खुला है"
+  },
+  "extensionRewardProgress": {
+    "message": "पुरस्कार: $1/$2"
+  },
+  "extensionTakeoverActive": {
+    "message": "टेकओवर सक्रिय है"
+  },
+  "extensionWatchtimeComplete": {
+    "message": "देखने का समय पूरा हुआ"
+  },
+  "extensionUnopenedPacks": {
+    "message": "बंद पैक: $1"
+  },
+  "extensionPackCheckUnavailable": {
+    "message": "पैक मिलने की जाँच उपलब्ध नहीं है"
+  },
+  "extensionAutoOpenPacksTitle": {
+    "message": "NoPixelV पैक अपने आप खोलें"
+  },
+  "extensionAutoOpenPacksHint": {
+    "message": "बंद पैक के कार्ड दिखाता है। हर पैक खर्च होता है और इसे वापस नहीं किया जा सकता।"
+  },
+  "activityExtensionPackOpened": {
+    "message": "$1 ने $2 पर कार्ड पैक खोला"
   }
 }

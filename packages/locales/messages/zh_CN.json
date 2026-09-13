@@ -494,10 +494,18 @@
   "failuresSuffix": {
     "message": "次失败"
   },
-  "kickPageContextRecoverySuccessesTitle": { "message": "Kick 后备页面恢复" },
-  "kickPageContextRecoverySuccessesDescription": { "message": "在达到此成功刷新周期数后，关闭扩展打开的 Kick 后备页面。" },
-  "kickPageContextRecoverySuccessesDisabledReason": { "message": "启用 Kick 后可更改此设置。" },
-  "cyclesSuffix": { "message": "个周期" },
+  "kickPageContextRecoverySuccessesTitle": {
+    "message": "Kick 后备页面恢复"
+  },
+  "kickPageContextRecoverySuccessesDescription": {
+    "message": "在达到此成功刷新周期数后，关闭扩展打开的 Kick 后备页面。"
+  },
+  "kickPageContextRecoverySuccessesDisabledReason": {
+    "message": "启用 Kick 后可更改此设置。"
+  },
+  "cyclesSuffix": {
+    "message": "个周期"
+  },
   "autoCloseTabsTitle": {
     "message": "自动关闭挂机标签页"
   },
@@ -1421,5 +1429,104 @@
   },
   "scrollRewardsRight": {
     "message": "向右滚动奖励列表"
+  },
+  "activityExtensionGiveawayJoined": {
+    "message": "已参加 $2 频道的 $1 抽奖。"
+  },
+  "activityExtensionSpriteCaptured": {
+    "message": "已在 $2 频道捕获 $1 精灵。"
+  },
+  "activityExtensionTakeoverStarted": {
+    "message": "已从 $2 频道发起 $1 攻击。"
+  },
+  "extensionSettingsTitle": {
+    "message": "Twitch 扩展"
+  },
+  "extensionSettingsHint": {
+    "message": "无需 Twitch 标签页即可获取扩展奖励。遵循 Twitch 自动化、排除频道和手动暂停设置。"
+  },
+  "extensionNoPixelHint": {
+    "message": "获取每日卡包并参加抽奖。"
+  },
+  "extensionFortniteHint": {
+    "message": "收集精灵并获取阶段奖励。"
+  },
+  "extensionIdentityRequired": {
+    "message": "关联扩展账户"
+  },
+  "extensionPermissionRequired": {
+    "message": "请允许访问服务商"
+  },
+  "extensionAuthRequired": {
+    "message": "请登录 Twitch"
+  },
+  "extensionChannelRequired": {
+    "message": "正在寻找符合条件的频道"
+  },
+  "extensionComplete": {
+    "message": "已获得奖励"
+  },
+  "extensionFarming": {
+    "message": "正在收集"
+  },
+  "extensionPhaseClosed": {
+    "message": "当前没有开放的互动阶段"
+  },
+  "extensionConnecting": {
+    "message": "正在连接"
+  },
+  "extensionUnavailable": {
+    "message": "暂时不可用"
+  },
+  "extensionIdle": {
+    "message": "等待中"
+  },
+  "extensionDailyPackProgress": {
+    "message": "每日卡包：$1/$2 分钟"
+  },
+  "extensionCaptureProgress": {
+    "message": "收集进度：$1/$2"
+  },
+  "extensionTakeoversTitle": {
+    "message": "允许 Fortnite 攻占"
+  },
+  "extensionTakeoversHint": {
+    "message": "在互动阶段发起符合条件的攻占。默认关闭。"
+  },
+  "extensionAccountSetup": {
+    "message": "账户设置"
+  },
+  "extensionGiveawayUnavailable": {
+    "message": "暂时无法检查抽奖"
+  },
+  "extensionGiveawayEntered": {
+    "message": "已确认参加抽奖"
+  },
+  "extensionGiveawayOpen": {
+    "message": "抽奖开放中"
+  },
+  "extensionRewardProgress": {
+    "message": "奖励：$1/$2"
+  },
+  "extensionTakeoverActive": {
+    "message": "接管进行中"
+  },
+  "extensionWatchtimeComplete": {
+    "message": "观看时长已完成"
+  },
+  "extensionUnopenedPacks": {
+    "message": "未打开的卡包：$1"
+  },
+  "extensionPackCheckUnavailable": {
+    "message": "暂时无法检查卡包发放"
+  },
+  "extensionAutoOpenPacksTitle": {
+    "message": "自动打开 NoPixelV 卡包"
+  },
+  "extensionAutoOpenPacksHint": {
+    "message": "揭示未打开卡包中的卡牌。每个卡包都会被消耗，且无法撤销。"
+  },
+  "activityExtensionPackOpened": {
+    "message": "$1 在 $2 打开了一个卡包"
   }
 }

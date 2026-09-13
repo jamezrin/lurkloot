@@ -324,3 +324,13 @@ track emitted diagnostics, not unfinished transport requests. Activity-event mir
 and operational publication rules remain unchanged. CLI `discover --log debug`
 also constructs its adapters with an emitter and flushes/reports its discovery
 diagnostics before disposing the transport.
+
+## Tabless Twitch Extension rewards
+
+The extension host injects a browser-free supplemental target selector into the scheduler. After platform, authentication, exclusion and manual-pause gates, an enabled/granted provider can select a live channel independently of drop campaigns. Directory scans and active-installation reads are bounded, batched and cached. NoPixelV has priority over Fortnite; completion or unavailability releases the lane with bounded reprobes.
+
+Supplemental sessions carry their own watch identity and `tablessOnly` marker. Their heartbeat does not require invented campaign/reward IDs, and neither heartbeat failures nor ambiguous ordinary campaign discovery may cause tab fallback. Ordinary drop sessions retain their existing watch-mode policy.
+
+Channel-scoped viewer authorization is acquired through the normal Twitch background transport. Privileged provider drivers send it directly to their own optional backends. JWTs and vendor session/device properties remain in memory; only validated bounded outcomes and counters reach transient popup snapshots. Provider state is not restored from storage after worker restart. Disable, revocation, logout, channel changes and manual pause invalidate authority and cancel resources, including late results.
+
+NoPixelV uses its normal REST watchtime/giveaway protocol. Fortnite uses its normal socket handshake, versioned state reads and sprite capture commands; authoritative participant increments confirm captures, and actual server reward state determines completion. Optional takeovers require separate opt-in, server eligibility and ownership confirmation. See [provider details and live acceptance](twitch-extensions/foundation.md).

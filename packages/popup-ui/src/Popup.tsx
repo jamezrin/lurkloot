@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import type { ActivityPage, CategorySearchResult, CliCredentialBlob, DiagnosticsExport, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { ActivityHistoryRecord } from "@lurkloot/shared/events";
-import type { CategorySelection, ExtensionSettings, Platform } from "@lurkloot/shared/models";
+import type { CategorySelection, ExtensionSettings, Platform, TwitchExtensionProviderId } from "@lurkloot/shared/models";
 import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings, type SettingsPatch } from "@lurkloot/shared/settings";
 import { buildSettingsExportPayload, parseSettingsImportPayload } from "@lurkloot/shared/settingsExport";
 import { effectiveLocale, isRtlLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
@@ -72,6 +72,7 @@ import { openHttpsLink } from "./links";
 import { IdleWatchlistPanel } from "./idleWatchlist";
 import { AutomationStatusLine, PlatformBar } from "./automation";
 import { automationPresentation, type AutomationPresentation } from "./automationStatus";
+import { changeTwitchExtensionEnabled, TwitchExtensionDrops } from "./twitchExtensions";
 import { SettingsView } from "./settings";
 import { TipsBanner } from "./tips";
 export function screenshotVariant(id: string | null | undefined): ScreenshotVariant {
@@ -481,6 +482,14 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     return result.events.length;
   }
 
+  async function setExtensionEnabled(provider: TwitchExtensionProviderId, enabled: boolean): Promise<boolean> {
+    const result = await changeTwitchExtensionEnabled(adapter, provider, enabled);
+    if (enabled && !result) return false;
+    const next = await adapter.send<RuntimeSnapshot>({ type: "tickNow" });
+    setSnapshot(snapshotWithMergedSettings(next));
+    return result;
+  }
+
   async function updateSettings(patch: SettingsPatch, options?: { tickAfterSave?: boolean; tickAfterSavePlatforms?: Platform[] }): Promise<void> {
     if (!snapshot) return;
     const settingsPatch = patch;
@@ -752,10 +761,10 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
             <AutomationStatusLine
               platform={platform}
               presentation={presentation}
-              farmingTitle={activeCampaign?.title}
+              farmingTitle={session.supplementalWatch ? session.supplementalWatch.id === "nopixel" ? "NoPixelV" : "Fortnite" : activeCampaign?.title}
               farmingChannel={farmingChannel}
-              watchingIdleWatchlist={!activeCampaign && Boolean(farmingChannel)}
-              onFarmingTitleClick={onFarmingTitleClick}
+              watchingIdleWatchlist={!activeCampaign && Boolean(farmingChannel) && !session.supplementalWatch}
+              onFarmingTitleClick={session.supplementalWatch ? undefined : onFarmingTitleClick}
               onResume={resumeAfterManualClose}
             />
           </>
@@ -767,7 +776,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
           <AnimatePresence mode="wait" initial={false}>
             {settingsOpen ? (
               <motion.div key="settings" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }} transition={{ duration: 0.18 }} className="space-y-2.5">
-                <SettingsView suggestions={dropCategorySuggestions} onSearchCategories={searchCategories} settings={settings} onSettingsChange={updateSettings} onExportCredentials={exportCredentials} onExportSettings={exportSettings} onImportSettings={importSettings} onReset={resetExtension} exportConfirmationResetKey={settingsOpenGeneration} compatibilityRegistry={adapter.compatibilityRegistry} compatibilityResolution={compatibilityResolution} focusGroupId={preview && variantShowsPopup(initialVariant) && initialVariant.view === "settings" ? "general.drops" : undefined} />
+                <SettingsView suggestions={dropCategorySuggestions} onSearchCategories={searchCategories} settings={settings} onSettingsChange={updateSettings} onExtensionEnabledChange={adapter.requestTwitchExtensionPermission ? setExtensionEnabled : undefined} onExportCredentials={exportCredentials} onExportSettings={exportSettings} onImportSettings={importSettings} onReset={resetExtension} exportConfirmationResetKey={settingsOpenGeneration} compatibilityRegistry={adapter.compatibilityRegistry} compatibilityResolution={compatibilityResolution} focusGroupId={preview && variantShowsPopup(initialVariant) && initialVariant.view === "settings" ? "general.drops" : undefined} />
               </motion.div>
             ) : activityOpen ? (
               <motion.div key="activity" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }} transition={{ duration: 0.18 }}>
@@ -797,6 +806,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
               </motion.div>
             ) : (
               <motion.div key="main" initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -14 }} transition={{ duration: 0.18 }} className="space-y-3">
+                {platform === "twitch" ? <TwitchExtensionDrops settings={settings} summaries={snapshot.state.twitchExtensions} onSetup={() => adapter.openLink("https://help.twitch.tv/s/article/how-to-configure-extensions")} /> : null}
                 <AnimatePresence initial={false}>
                   {noticeSlot === "update" && updateNotice ? (
                     <UpdateNotice

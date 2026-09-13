@@ -494,10 +494,18 @@
   "failuresSuffix": {
     "message": "errori"
   },
-  "kickPageContextRecoverySuccessesTitle": { "message": "Ripristino della pagina di riserva Kick" },
-  "kickPageContextRecoverySuccessesDescription": { "message": "Chiude una pagina di riserva Kick aperta dall’estensione dopo questo numero di cicli di aggiornamento riusciti." },
-  "kickPageContextRecoverySuccessesDisabledReason": { "message": "Abilita Kick per modificare questa impostazione." },
-  "cyclesSuffix": { "message": "cicli" },
+  "kickPageContextRecoverySuccessesTitle": {
+    "message": "Ripristino della pagina di riserva Kick"
+  },
+  "kickPageContextRecoverySuccessesDescription": {
+    "message": "Chiude una pagina di riserva Kick aperta dall’estensione dopo questo numero di cicli di aggiornamento riusciti."
+  },
+  "kickPageContextRecoverySuccessesDisabledReason": {
+    "message": "Abilita Kick per modificare questa impostazione."
+  },
+  "cyclesSuffix": {
+    "message": "cicli"
+  },
   "autoCloseTabsTitle": {
     "message": "Chiudi automaticamente le schede di farming"
   },
@@ -1421,5 +1429,104 @@
   },
   "scrollRewardsRight": {
     "message": "Scorri le ricompense a destra"
+  },
+  "activityExtensionGiveawayJoined": {
+    "message": "Partecipazione a un giveaway di $1 su $2."
+  },
+  "activityExtensionSpriteCaptured": {
+    "message": "Sprite di $1 catturato su $2."
+  },
+  "activityExtensionTakeoverStarted": {
+    "message": "Attacco di $1 avviato da $2."
+  },
+  "extensionSettingsTitle": {
+    "message": "Estensioni Twitch"
+  },
+  "extensionSettingsHint": {
+    "message": "Ottieni ricompense senza schede Twitch. Si applicano automazione Twitch, esclusioni e pausa manuale."
+  },
+  "extensionNoPixelHint": {
+    "message": "Ottieni pacchetti giornalieri e partecipa alle estrazioni."
+  },
+  "extensionFortniteHint": {
+    "message": "Raccogli sprite e ottieni ricompense delle fasi."
+  },
+  "extensionIdentityRequired": {
+    "message": "Collega il tuo account all’estensione"
+  },
+  "extensionPermissionRequired": {
+    "message": "Consenti l’accesso al fornitore"
+  },
+  "extensionAuthRequired": {
+    "message": "Accedi a Twitch"
+  },
+  "extensionChannelRequired": {
+    "message": "Ricerca di un canale idoneo"
+  },
+  "extensionComplete": {
+    "message": "Ricompense ottenute"
+  },
+  "extensionFarming": {
+    "message": "Raccolta in corso"
+  },
+  "extensionPhaseClosed": {
+    "message": "Nessuna fase interattiva aperta"
+  },
+  "extensionConnecting": {
+    "message": "Connessione"
+  },
+  "extensionUnavailable": {
+    "message": "Temporaneamente non disponibile"
+  },
+  "extensionIdle": {
+    "message": "In attesa"
+  },
+  "extensionDailyPackProgress": {
+    "message": "Pacchetto giornaliero: $1/$2 minuti"
+  },
+  "extensionCaptureProgress": {
+    "message": "Collezione: $1/$2"
+  },
+  "extensionTakeoversTitle": {
+    "message": "Consenti attacchi Fortnite"
+  },
+  "extensionTakeoversHint": {
+    "message": "Avvia attacchi idonei durante le fasi interattive. Disattivato per impostazione predefinita."
+  },
+  "extensionAccountSetup": {
+    "message": "Configura account"
+  },
+  "extensionGiveawayUnavailable": {
+    "message": "Verifica del sorteggio non disponibile"
+  },
+  "extensionGiveawayEntered": {
+    "message": "Partecipazione confermata"
+  },
+  "extensionGiveawayOpen": {
+    "message": "Sorteggio aperto"
+  },
+  "extensionRewardProgress": {
+    "message": "Ricompense: $1/$2"
+  },
+  "extensionTakeoverActive": {
+    "message": "Conquista attiva"
+  },
+  "extensionWatchtimeComplete": {
+    "message": "Tempo di visione completato"
+  },
+  "extensionUnopenedPacks": {
+    "message": "Pacchetti da aprire: $1"
+  },
+  "extensionPackCheckUnavailable": {
+    "message": "Verifica della consegna non disponibile"
+  },
+  "extensionAutoOpenPacksTitle": {
+    "message": "Apri automaticamente i pacchetti NoPixelV"
+  },
+  "extensionAutoOpenPacksHint": {
+    "message": "Rivela le carte dei pacchetti chiusi. Ogni pacchetto viene consumato e non si può annullare."
+  },
+  "activityExtensionPackOpened": {
+    "message": "$1 ha aperto un pacchetto di carte su $2"
   }
 }

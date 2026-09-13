@@ -494,10 +494,18 @@
   "failuresSuffix": {
     "message": "حالات فشل"
   },
-  "kickPageContextRecoverySuccessesTitle": { "message": "استرداد صفحة Kick الاحتياطية" },
-  "kickPageContextRecoverySuccessesDescription": { "message": "أغلق صفحة Kick الاحتياطية التي فتحها الامتداد بعد هذا العدد من دورات التحديث الناجحة." },
-  "kickPageContextRecoverySuccessesDisabledReason": { "message": "فعّل Kick لتغيير هذا الإعداد." },
-  "cyclesSuffix": { "message": "دورات" },
+  "kickPageContextRecoverySuccessesTitle": {
+    "message": "استرداد صفحة Kick الاحتياطية"
+  },
+  "kickPageContextRecoverySuccessesDescription": {
+    "message": "أغلق صفحة Kick الاحتياطية التي فتحها الامتداد بعد هذا العدد من دورات التحديث الناجحة."
+  },
+  "kickPageContextRecoverySuccessesDisabledReason": {
+    "message": "فعّل Kick لتغيير هذا الإعداد."
+  },
+  "cyclesSuffix": {
+    "message": "دورات"
+  },
   "autoCloseTabsTitle": {
     "message": "إغلاق تبويبات الفارم تلقائيًا"
   },
@@ -1421,5 +1429,104 @@
   },
   "scrollRewardsRight": {
     "message": "تمرير المكافآت إلى اليمين"
+  },
+  "activityExtensionGiveawayJoined": {
+    "message": "تم الانضمام إلى سحب $1 على قناة $2."
+  },
+  "activityExtensionSpriteCaptured": {
+    "message": "تم التقاط كائن $1 على قناة $2."
+  },
+  "activityExtensionTakeoverStarted": {
+    "message": "تم بدء هجوم $1 من قناة $2."
+  },
+  "extensionSettingsTitle": {
+    "message": "إضافات Twitch"
+  },
+  "extensionSettingsHint": {
+    "message": "احصل على المكافآت دون تبويبات Twitch. تسري إعدادات الأتمتة والاستثناءات والإيقاف اليدوي."
+  },
+  "extensionNoPixelHint": {
+    "message": "احصل على الحزم اليومية وشارك في السحوبات."
+  },
+  "extensionFortniteHint": {
+    "message": "اجمع الشخصيات واحصل على مكافآت المراحل."
+  },
+  "extensionIdentityRequired": {
+    "message": "اربط حساب الإضافة"
+  },
+  "extensionPermissionRequired": {
+    "message": "اسمح بالوصول إلى المزوّد"
+  },
+  "extensionAuthRequired": {
+    "message": "سجّل الدخول إلى Twitch"
+  },
+  "extensionChannelRequired": {
+    "message": "البحث عن قناة مؤهلة"
+  },
+  "extensionComplete": {
+    "message": "تم الحصول على المكافآت"
+  },
+  "extensionFarming": {
+    "message": "جمع المكافآت"
+  },
+  "extensionPhaseClosed": {
+    "message": "لا توجد مرحلة تفاعلية مفتوحة"
+  },
+  "extensionConnecting": {
+    "message": "جارٍ الاتصال"
+  },
+  "extensionUnavailable": {
+    "message": "غير متاح مؤقتًا"
+  },
+  "extensionIdle": {
+    "message": "انتظار"
+  },
+  "extensionDailyPackProgress": {
+    "message": "الحزمة اليومية: $1/$2 دقيقة"
+  },
+  "extensionCaptureProgress": {
+    "message": "المجموعة: $1/$2"
+  },
+  "extensionTakeoversTitle": {
+    "message": "السماح بهجمات Fortnite"
+  },
+  "extensionTakeoversHint": {
+    "message": "ابدأ الهجمات المؤهلة خلال المراحل التفاعلية. معطّل افتراضيًا."
+  },
+  "extensionAccountSetup": {
+    "message": "إعداد الحساب"
+  },
+  "extensionGiveawayUnavailable": {
+    "message": "التحقق من السحب غير متاح"
+  },
+  "extensionGiveawayEntered": {
+    "message": "تم تأكيد المشاركة في السحب"
+  },
+  "extensionGiveawayOpen": {
+    "message": "السحب مفتوح"
+  },
+  "extensionRewardProgress": {
+    "message": "المكافآت: $1/$2"
+  },
+  "extensionTakeoverActive": {
+    "message": "الاستيلاء نشط"
+  },
+  "extensionWatchtimeComplete": {
+    "message": "اكتمل وقت المشاهدة"
+  },
+  "extensionUnopenedPacks": {
+    "message": "الحزم غير المفتوحة: $1"
+  },
+  "extensionPackCheckUnavailable": {
+    "message": "التحقق من تسليم الحزم غير متاح"
+  },
+  "extensionAutoOpenPacksTitle": {
+    "message": "فتح حزم NoPixelV تلقائيًا"
+  },
+  "extensionAutoOpenPacksHint": {
+    "message": "يكشف بطاقات الحزم غير المفتوحة. تُستهلك كل حزمة ولا يمكن التراجع."
+  },
+  "activityExtensionPackOpened": {
+    "message": "$1 فتح حزمة بطاقات على $2"
   }
 }

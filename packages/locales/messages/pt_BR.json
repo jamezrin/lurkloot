@@ -494,10 +494,18 @@
   "failuresSuffix": {
     "message": "falhas"
   },
-  "kickPageContextRecoverySuccessesTitle": { "message": "Recuperação da página alternativa da Kick" },
-  "kickPageContextRecoverySuccessesDescription": { "message": "Fecha uma página alternativa da Kick aberta pela extensão após este número de ciclos de atualização bem-sucedidos." },
-  "kickPageContextRecoverySuccessesDisabledReason": { "message": "Ative a Kick para alterar esta configuração." },
-  "cyclesSuffix": { "message": "ciclos" },
+  "kickPageContextRecoverySuccessesTitle": {
+    "message": "Recuperação da página alternativa da Kick"
+  },
+  "kickPageContextRecoverySuccessesDescription": {
+    "message": "Fecha uma página alternativa da Kick aberta pela extensão após este número de ciclos de atualização bem-sucedidos."
+  },
+  "kickPageContextRecoverySuccessesDisabledReason": {
+    "message": "Ative a Kick para alterar esta configuração."
+  },
+  "cyclesSuffix": {
+    "message": "ciclos"
+  },
   "autoCloseTabsTitle": {
     "message": "Fechar abas de farming automaticamente"
   },
@@ -1421,5 +1429,104 @@
   },
   "scrollRewardsRight": {
     "message": "Rolar recompensas para a direita"
+  },
+  "activityExtensionGiveawayJoined": {
+    "message": "Participou de um sorteio de $1 em $2."
+  },
+  "activityExtensionSpriteCaptured": {
+    "message": "Capturou um sprite de $1 em $2."
+  },
+  "activityExtensionTakeoverStarted": {
+    "message": "Iniciou um ataque de $1 a partir de $2."
+  },
+  "extensionSettingsTitle": {
+    "message": "Extensões da Twitch"
+  },
+  "extensionSettingsHint": {
+    "message": "Ganhe recompensas sem abas da Twitch. Automação, exclusões e pausa manual se aplicam."
+  },
+  "extensionNoPixelHint": {
+    "message": "Ganhe pacotes diários e participe de sorteios."
+  },
+  "extensionFortniteHint": {
+    "message": "Colete sprites e ganhe recompensas das fases."
+  },
+  "extensionIdentityRequired": {
+    "message": "Vincule sua conta à extensão"
+  },
+  "extensionPermissionRequired": {
+    "message": "Permita o acesso ao provedor"
+  },
+  "extensionAuthRequired": {
+    "message": "Entre na Twitch"
+  },
+  "extensionChannelRequired": {
+    "message": "Buscando um canal elegível"
+  },
+  "extensionComplete": {
+    "message": "Recompensas obtidas"
+  },
+  "extensionFarming": {
+    "message": "Coletando"
+  },
+  "extensionPhaseClosed": {
+    "message": "Nenhuma fase interativa aberta"
+  },
+  "extensionConnecting": {
+    "message": "Conectando"
+  },
+  "extensionUnavailable": {
+    "message": "Temporariamente indisponível"
+  },
+  "extensionIdle": {
+    "message": "Aguardando"
+  },
+  "extensionDailyPackProgress": {
+    "message": "Pacote diário: $1/$2 minutos"
+  },
+  "extensionCaptureProgress": {
+    "message": "Coleção: $1/$2"
+  },
+  "extensionTakeoversTitle": {
+    "message": "Permitir ataques do Fortnite"
+  },
+  "extensionTakeoversHint": {
+    "message": "Inicie ataques elegíveis nas fases interativas. Desativado por padrão."
+  },
+  "extensionAccountSetup": {
+    "message": "Configurar conta"
+  },
+  "extensionGiveawayUnavailable": {
+    "message": "Verificação do sorteio indisponível"
+  },
+  "extensionGiveawayEntered": {
+    "message": "Participação confirmada"
+  },
+  "extensionGiveawayOpen": {
+    "message": "Sorteio aberto"
+  },
+  "extensionRewardProgress": {
+    "message": "Recompensas: $1/$2"
+  },
+  "extensionTakeoverActive": {
+    "message": "Tomada de controle ativa"
+  },
+  "extensionWatchtimeComplete": {
+    "message": "Tempo de exibição concluído"
+  },
+  "extensionUnopenedPacks": {
+    "message": "Pacotes fechados: $1"
+  },
+  "extensionPackCheckUnavailable": {
+    "message": "Verificação de entrega indisponível"
+  },
+  "extensionAutoOpenPacksTitle": {
+    "message": "Abrir pacotes NoPixelV automaticamente"
+  },
+  "extensionAutoOpenPacksHint": {
+    "message": "Revela cartas de pacotes fechados. Cada pacote é consumido e a ação não pode ser desfeita."
+  },
+  "activityExtensionPackOpened": {
+    "message": "$1 abriu um pacote de cartas em $2"
   }
 }

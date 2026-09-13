@@ -116,7 +116,14 @@ export interface ChannelCheck {
   candidate: ChannelCandidate;
 }
 
+export interface SupplementalWatchTarget {
+  id: string;
+  channel: ChannelCandidate;
+  tablessOnly: true;
+}
+
 export interface WatchSession {
+  supplementalWatch?: { id: string; tablessOnly: true };
   platform: Platform;
   tabId?: number;
   tabManagedByExtension?: boolean;
@@ -167,6 +174,7 @@ export interface TablessHeartbeatCadence {
 }
 
 export type WatchReasonCode =
+  | "supplemental_watch"
   | "eligible_campaign"
   | "idle_watchlist_selected"
   | "no_eligible_channel"
@@ -397,7 +405,29 @@ export interface EngineSettings {
 // / keep-unmuted) is supplied to the engine through the injected WatchTabPort and
 // applyAdFocus, not read from settings by the engine; popup UI state (i18n, rate
 // nudge) is pure host state.
+export type TwitchExtensionProviderId = "nopixel" | "fortnite";
+export type TwitchExtensionStatus = "idle" | "discovering" | "connecting" | "farming" | "complete" | "unavailable" | "error";
+export type TwitchExtensionReasonCode = "disabled" | "permission-required" | "auth-required" | "identity-required"
+  | "channel-required" | "channel-ineligible" | "channel-not-connected" | "watchtime" | "giveaway" | "collecting"
+  | "phase-closed" | "rewards-complete" | "transport-error" | "compatibility-error" | "provider-error" | "connecting";
+export interface TwitchExtensionReport {
+  status: TwitchExtensionStatus;
+  reasonCode: TwitchExtensionReasonCode;
+  progress: { key: "daily-pack" | "phase-captures" | "phase-score" | "rewards"; earned: number; required: number }[];
+  pending: { key: "giveaway" | "participation" | "completion" | "takeover" | "account-link"; state: "open" | "done" | "blocked" }[];
+}
+export interface TwitchExtensionSummary extends TwitchExtensionReport {
+  channel?: { username: string; displayName?: string };
+  updatedAt: string;
+  retryAfter?: string;
+}
+export interface TwitchExtensionsSettings {
+  nopixel: { enabled: boolean; autoOpenPacks: boolean };
+  fortnite: { enabled: boolean; allowTakeovers: boolean };
+}
+
 export interface ExtensionSettings extends EngineSettings {
+  twitchExtensions: TwitchExtensionsSettings;
   // Number of committed Kick scheduler cycles using direct background fetches
   // required before an extension-owned fallback page is closed.
   kickPageContextRecoverySuccesses: number;
@@ -436,6 +466,9 @@ export interface ExtensionSettings extends EngineSettings {
 }
 
 export interface SchedulerState {
+  // Host transient summaries are attached to snapshots, not restored as an
+  // active provider session. Provider credentials never belong in this state.
+  twitchExtensions?: Partial<Record<TwitchExtensionProviderId, TwitchExtensionSummary>>;
   sessions: Record<Platform, WatchSession>;
   authHealth: Record<Platform, PlatformAuthHealth>;
   // Per-platform critical-failure detection. Persisted so the flag survives an

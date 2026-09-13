@@ -21,7 +21,8 @@ import { applySettingsPatch } from "@lurkloot/shared/settings";
 import { effectiveLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
 import { loadCatalog } from "@lurkloot/locales";
 import type { ExtensionSettings, Platform, SupportedLocale } from "@lurkloot/shared/models";
-import type { EventEmitter } from "@lurkloot/shared/events";
+import { withActivityDiagnostics } from "@lurkloot/core/activityDiagnostics";
+import type { EventEmitter, EngineEvent } from "@lurkloot/shared/events";
 import type { WatchTabPort } from "@lurkloot/core/adapter";
 import type { WebSocketFactory, WebSocketLike } from "@lurkloot/core/webSocket";
 import { createKickFetcher, KickAdapter, KickClaimState, KickDiscoveryState, KickPageContextRecoveryTracker } from "@lurkloot/core/kick";
@@ -36,6 +37,10 @@ import {
 } from "../src/core/activityMessages";
 import { twitchHeartbeatFetchText, twitchHeartbeatPost } from "../src/core/twitchHeartbeatTransport";
 import { createCredentialAvailabilityProvider } from "../src/core/credentialAvailability";
+import { createTwitchExtensionHost } from "../src/extensions/host";
+import { createTwitchExtensionSessionSource } from "../src/extensions/transport";
+import { createFortniteDriver } from "../src/extensions/fortnite/driver";
+import { createNoPixelDriver } from "../src/extensions/nopixel/driver";
 import { createCredentialHealthObserver } from "../src/core/credentialObserver";
 
 const localeCatalogs = new Map<string, MessageCatalog | undefined>();
@@ -204,6 +209,7 @@ const controller = createBackgroundController<ExtensionSettings>({
   discardPageContextRecoveryEvidence: (platform) => {
     if (platform === "kick") kickPageContextRecovery.discard();
   },
+  selectSupplementalWatchTarget: (platform, state, settings, signal) => platform === "twitch" ? extensionHost.chooseWatchTarget(settings, state, signal) : Promise.resolve(undefined),
   createAdapter: createExtensionAdapter,
   createAdapters: (emit, settings) => {
     const twitch = createExtensionAdapter("twitch", emit, settings);
@@ -218,6 +224,63 @@ const controller = createBackgroundController<ExtensionSettings>({
     };
   },
 });
+
+const extensionHost = createTwitchExtensionHost({
+  source: createTwitchExtensionSessionSource({
+    hasSession: async () => (await checkCredentialAvailability("twitch")).status === "available",
+    fetchJson: (url, init) => fetchTwitchInBackground(url, init),
+  }),
+  permissions: {
+    request: (details) => browser.permissions.request(details),
+    contains: (details) => browser.permissions.contains(details),
+  },
+  drivers: {
+    fortnite: async (session, emit, channel) => createFortniteDriver({ allowTakeovers: (await loadSettings()).twitchExtensions.fortnite.allowTakeovers, onTakeoverStarted: () => {
+      if (!channel || !/^[a-zA-Z0-9_]{1,25}$/.test(channel.username)) return;
+      const events: EngineEvent[] = [];
+      withActivityDiagnostics((event) => events.push(event))({ category: "activity", code: "twitch_extension_action", level: "info", platform: "twitch", data: { provider: "fortnite", action: "takeover_started", channel: channel.username } });
+      void reportEvents(events).catch(() => undefined);
+    }, createSocket: (url) => new WebSocket(url), onCaptured: () => {
+      if (!channel || !/^[a-zA-Z0-9_]{1,25}$/.test(channel.username)) return;
+      const events: EngineEvent[] = [];
+      withActivityDiagnostics((event) => events.push(event))({ category: "activity", code: "twitch_extension_action", level: "info", platform: "twitch", data: { provider: "fortnite", action: "sprite_captured", channel: channel.username } });
+      void reportEvents(events).catch(() => undefined);
+    } })(session, emit),
+    nopixel: async (session, emit, channel) => createNoPixelDriver((url, init) => fetch(url, init), () => {
+      if (!channel || !/^[a-zA-Z0-9_]{1,25}$/.test(channel.username)) return;
+      const events: EngineEvent[] = [];
+      withActivityDiagnostics((event) => events.push(event))({ category: "activity", code: "twitch_extension_action", level: "info", platform: "twitch", data: { provider: "nopixel", action: "giveaway_joined", channel: channel.username } });
+      void reportEvents(events).catch(() => undefined);
+    }, Date.now, (message) => {
+      void reportEvents([{ category: "diagnostic", platform: "twitch", level: "warn", message }]).catch(() => undefined);
+    }, { autoOpenPacks: (await loadSettings()).twitchExtensions.nopixel.autoOpenPacks, onOpened: () => {
+      if (!channel || !/^[a-zA-Z0-9_]{1,25}$/.test(channel.username)) return;
+      const events: EngineEvent[] = [];
+      withActivityDiagnostics((event) => events.push(event))({ category: "activity", code: "twitch_extension_action", level: "info", platform: "twitch", data: { provider: "nopixel", action: "pack_opened", channel: channel.username } });
+      void reportEvents(events).catch(() => undefined);
+    } })(session, emit),
+  },
+  loadSettings,
+  loadState,
+  savePatch: async (settingsPatch) => { await controller.handleMessage({ type: "saveSettings", settingsPatch }); },
+  diagnostic: (message) => { void reportEvents([{ category: "diagnostic", platform: "twitch", level: "warn", message }]).catch(() => undefined); },
+});
+
+async function reconcileExtensions(): Promise<void> {
+  try { await extensionHost.reconcile(); }
+  catch {
+    // Never include transport/provider exceptions or payloads in diagnostics.
+    void reportEvents([{ category: "diagnostic", platform: "twitch", level: "warn", message: "Twitch Extension background reconciliation failed." }]).catch(() => undefined);
+  }
+}
+
+function withExtensionSnapshot(value: unknown): unknown {
+  if (value && typeof value === "object" && "state" in value && "settings" in value) {
+    const snapshot = value as RuntimeSnapshot<ExtensionSettings>;
+    return { ...snapshot, state: { ...snapshot.state, twitchExtensions: extensionHost.snapshot() } };
+  }
+  return value;
+}
 
 // Builds the CLI credential blob from the user's live session cookies: Twitch
 // auth-token / unique_id and Kick session_token — exactly what the headless
@@ -244,6 +307,7 @@ let resetMutation: Promise<RuntimeSnapshot<ExtensionSettings>> | undefined;
 function resetExtension(): Promise<RuntimeSnapshot<ExtensionSettings>> {
   if (resetMutation) return resetMutation;
   resetMutation = (async () => {
+    extensionHost.invalidate();
     await controller.prepareForHostReset(async () => {
       kickClaimState.clear();
       await resetStorage();
@@ -261,7 +325,8 @@ const dispatchRuntimeMessage = createRuntimeMessageDispatcher({
   exportCliCredentials: buildCliCredentialBlob,
   resetExtension,
   handleActivityMessage,
-  handleCoreMessage: (message, sender) => controller.handleMessage(message, sender),
+  handleTwitchExtensionMessage: (message) => extensionHost.setEnabled(message.provider, message.enabled),
+  handleCoreMessage: async (message, sender) => withExtensionSnapshot(await controller.handleMessage(message, sender)),
 });
 
 export default defineBackground(() => {
@@ -270,8 +335,53 @@ export default defineBackground(() => {
       addListener: (listener) => browser.cookies.onChanged.addListener(listener),
       removeListener: (listener) => browser.cookies.onChanged.removeListener(listener),
     },
-    controller,
+    {
+      invalidateAuthHealth: (platform) => {
+        if (platform === "twitch") extensionHost.invalidate();
+        return controller.invalidateAuthHealth(platform);
+      },
+      checkAuthHealth: async (platform) => {
+        await controller.checkAuthHealth(platform);
+        if (platform === "twitch") await reconcileExtensions();
+      },
+    },
   );
+
+  browser.permissions.onRemoved.addListener((details) => {
+    void extensionHost.removed(details).catch(() => undefined);
+  });
+  browser.storage.onChanged.addListener((changes, area) => {
+    if (area !== "local") return;
+    const settingsChange = changes.settings;
+    const stateChange = changes.schedulerState;
+    if (!settingsChange && !stateChange) return;
+    // Cancellation precedes asynchronous reads whenever authority changes.
+    if (settingsChange) {
+      const previous = settingsChange.oldValue as ExtensionSettings | undefined;
+      const next = settingsChange.newValue as ExtensionSettings | undefined;
+      if (previous?.pauseOnManualWatch !== next?.pauseOnManualWatch
+        || previous?.platform?.twitch?.enabled !== next?.platform?.twitch?.enabled
+        || previous?.twitchExtensions?.nopixel?.enabled !== next?.twitchExtensions?.nopixel?.enabled
+        || previous?.twitchExtensions?.fortnite?.enabled !== next?.twitchExtensions?.fortnite?.enabled
+        || previous?.twitchExtensions?.nopixel?.autoOpenPacks !== next?.twitchExtensions?.nopixel?.autoOpenPacks
+        || previous?.twitchExtensions?.fortnite?.allowTakeovers !== next?.twitchExtensions?.fortnite?.allowTakeovers) extensionHost.invalidate();
+    }
+    if (stateChange) {
+      const previous = stateChange.oldValue as RuntimeSnapshot["state"] | undefined;
+      const next = stateChange.newValue as RuntimeSnapshot["state"] | undefined;
+      if (Boolean(previous?.manualClosePause?.twitch) !== Boolean(next?.manualClosePause?.twitch)
+        || previous?.manualWatch?.twitch?.active !== next?.manualWatch?.twitch?.active
+        || previous?.sessions?.twitch?.status !== next?.sessions?.twitch?.status
+        || previous?.sessions?.twitch?.channel?.channelId !== next?.sessions?.twitch?.channel?.channelId
+        || previous?.authHealth?.twitch?.status !== next?.authHealth?.twitch?.status) extensionHost.invalidate({
+          preserveCompleted: previous?.authHealth?.twitch?.status === "healthy" && next?.authHealth?.twitch?.status === "healthy",
+        });
+    }
+    void reconcileExtensions();
+  });
+  // Runs on every MV3 wake/MV2 background start. Stored grants are verified;
+  // provider credentials/resources are reacquired rather than restored.
+  void reconcileExtensions();
 
   browser.runtime.onInstalled.addListener(async (details) => {
     await controller.ensureAlarm();
@@ -291,9 +401,11 @@ export default defineBackground(() => {
 
   browser.runtime.onStartup.addListener(async () => {
     await controller.handleStartup();
+    await reconcileExtensions();
   });
 
   browser.alarms.onAlarm.addListener(createBackgroundAlarmListener(controller));
+  browser.alarms.onAlarm.addListener(() => { void reconcileExtensions(); });
 
   async function reconsiderTab(tabId: number, url: string | undefined): Promise<void> {
     if (!url) return;
@@ -337,7 +449,7 @@ export default defineBackground(() => {
   );
 
   browser.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendResponse) => {
-    void dispatchRuntimeMessage(message, sender).then(sendResponse);
+    void dispatchRuntimeMessage(message, sender).then(sendResponse, () => sendResponse({ error: "request-failed" }));
     return true;
   });
 

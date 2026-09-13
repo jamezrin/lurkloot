@@ -1429,5 +1429,104 @@
   },
   "scrollRewardsRight": {
     "message": "Scroll rewards right"
+  },
+  "activityExtensionGiveawayJoined": {
+    "message": "Joined a $1 giveaway on $2."
+  },
+  "activityExtensionSpriteCaptured": {
+    "message": "Captured a $1 sprite on $2."
+  },
+  "activityExtensionTakeoverStarted": {
+    "message": "Started a $1 takeover from $2."
+  },
+  "extensionSettingsTitle": {
+    "message": "Twitch extensions"
+  },
+  "extensionSettingsHint": {
+    "message": "Farm extension rewards without Twitch tabs. Twitch automation, exclusions and manual pause apply."
+  },
+  "extensionNoPixelHint": {
+    "message": "Earn daily packs and join giveaways."
+  },
+  "extensionFortniteHint": {
+    "message": "Collect sprites and earn phase rewards."
+  },
+  "extensionIdentityRequired": {
+    "message": "Link your extension account"
+  },
+  "extensionPermissionRequired": {
+    "message": "Allow provider access to enable"
+  },
+  "extensionAuthRequired": {
+    "message": "Log in to Twitch"
+  },
+  "extensionChannelRequired": {
+    "message": "Finding an eligible channel"
+  },
+  "extensionComplete": {
+    "message": "Rewards earned"
+  },
+  "extensionFarming": {
+    "message": "Farming"
+  },
+  "extensionPhaseClosed": {
+    "message": "No interactive phase is open"
+  },
+  "extensionConnecting": {
+    "message": "Connecting"
+  },
+  "extensionUnavailable": {
+    "message": "Temporarily unavailable"
+  },
+  "extensionIdle": {
+    "message": "Waiting"
+  },
+  "extensionDailyPackProgress": {
+    "message": "Daily pack: $1/$2 minutes"
+  },
+  "extensionCaptureProgress": {
+    "message": "Collection: $1/$2"
+  },
+  "extensionTakeoversTitle": {
+    "message": "Allow Fortnite takeovers"
+  },
+  "extensionTakeoversHint": {
+    "message": "Start eligible takeovers during interactive phases. Off by default."
+  },
+  "extensionAccountSetup": {
+    "message": "Account setup"
+  },
+  "extensionGiveawayUnavailable": {
+    "message": "Giveaway check unavailable"
+  },
+  "extensionGiveawayEntered": {
+    "message": "Giveaway entered"
+  },
+  "extensionGiveawayOpen": {
+    "message": "Giveaway open"
+  },
+  "extensionRewardProgress": {
+    "message": "Rewards: $1/$2"
+  },
+  "extensionTakeoverActive": {
+    "message": "Takeover active"
+  },
+  "extensionWatchtimeComplete": {
+    "message": "Watchtime complete"
+  },
+  "extensionUnopenedPacks": {
+    "message": "Unopened packs: $1"
+  },
+  "extensionPackCheckUnavailable": {
+    "message": "Pack delivery check unavailable"
+  },
+  "extensionAutoOpenPacksTitle": {
+    "message": "Open NoPixelV packs automatically"
+  },
+  "extensionAutoOpenPacksHint": {
+    "message": "Reveal cards from unopened packs. This consumes each pack and cannot be undone."
+  },
+  "activityExtensionPackOpened": {
+    "message": "$1 opened a card pack on $2"
   }
 }

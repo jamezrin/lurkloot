@@ -1,0 +1,126 @@
+import { describe, expect, it, vi } from "vitest";
+import type { TwitchExtensionDriverFactory } from "../src/extensions/runtime";
+import { createTwitchExtensionHost } from "../src/extensions/host";
+import { DEFAULT_SETTINGS, applySettingsPatch } from "@lurkloot/shared/settings";
+import { DEFAULT_STATE } from "@lurkloot/core/defaults";
+import type { SettingsPatch } from "@lurkloot/shared/settings";
+function setup() {
+  let settings = structuredClone(DEFAULT_SETTINGS);
+  const state = structuredClone(DEFAULT_STATE);
+  state.authHealth.twitch = { status: "healthy" };
+  state.sessions.twitch = { platform: "twitch", status: "watching", offlineChecks: 0, watchMode: "tabless", channel: { platform: "twitch", username: "buddha", url: "https://www.twitch.tv/buddha", channelId: "123" } };
+  const contains = vi.fn(async () => true);
+  const query = vi.fn(async () => ({ data: { user: { channel: { selfInstalledExtensions: [] } } } }));
+  const stop = vi.fn();
+  const source = { query, hasSession: async () => true, now: vi.fn(() => Date.now()) };
+  const drivers: { nopixel: TwitchExtensionDriverFactory } = { nopixel: async () => ({ stop }) };
+  const diagnostic = vi.fn();
+  const host = createTwitchExtensionHost({ source, permissions: { contains, request: async () => { throw new Error("UI must request grants"); } }, drivers, loadSettings: async () => settings, loadState: async () => state, savePatch: async (patch: SettingsPatch) => { settings = applySettingsPatch(settings, patch); }, diagnostic });
+  return { host, state, contains, query, stop, diagnostic, source, drivers, settings: () => settings, enableTwitch() { settings.platform.twitch.enabled = true; } };
+}
+describe("background tabless provider host", () => {
+  it("does not query with default provider settings", async () => {
+    const s = setup(); s.enableTwitch(); await s.host.reconcile();
+    expect(s.query).not.toHaveBeenCalled(); expect(s.host.snapshot()).toEqual({});
+  });
+  it("verifies pregranted enable and does not depend on a watch tab", async () => {
+    const s = setup(); s.enableTwitch(); expect(await s.host.setEnabled("nopixel", true)).toEqual({ enabled: true });
+    expect(s.query).toHaveBeenCalledOnce();
+    expect(s.state.sessions.twitch.tabId).toBeUndefined();
+    expect(s.host.snapshot().nopixel?.channel).toEqual({ username: "buddha" });
+  });
+  it("records bounded unavailable outcomes once per channel without raw responses", async () => {
+    const s = setup(); s.enableTwitch();
+    await s.host.setEnabled("nopixel", true);
+    await s.host.reconcile();
+    expect(s.diagnostic).toHaveBeenCalledExactlyOnceWith("Twitch extension nopixel unavailable on buddha: channel-ineligible");
+    s.state.sessions.twitch.channel = { ...s.state.sessions.twitch.channel!, username: "ssaab", channelId: "456", url: "https://www.twitch.tv/ssaab" };
+    await s.host.reconcile();
+    expect(s.diagnostic).toHaveBeenLastCalledWith("Twitch extension nopixel unavailable on ssaab: channel-ineligible");
+  });
+  it("preserves completion while ordinary drops resume and allows a bounded reprobe", async () => {
+    const s = setup(); s.enableTwitch();
+    const now = Date.now(); s.source.now.mockReturnValue(now);
+    const jwt = `e30.${btoa(JSON.stringify({ channel_id: "123", exp: Math.floor(now / 1000) + 3600, role: "viewer", opaque_user_id: "Utest", user_id: "42" }))}.signature`;
+    s.query.mockResolvedValue({ data: { user: { channel: { selfInstalledExtensions: [{ installation: { extension: { id: "nstuq90nghenyqwqme61jgvmtp253a", version: "1.1.2" }, activationConfig: { state: "ACTIVE" } }, token: { jwt } }] } } } } as never);
+    s.drivers.nopixel = async (_session, emit) => { emit({ status: "complete", reasonCode: "rewards-complete", progress: [{ key: "daily-pack", earned: 60, required: 60 }], pending: [] }); return { stop: s.stop }; };
+    await s.host.setEnabled("nopixel", true);
+    s.state.sessions.twitch.channel = { platform: "twitch", username: "babylings", url: "https://www.twitch.tv/babylings", channelId: "456" };
+    // Background cancels active authority before reconciling a normal channel
+    // transition; this must preserve only completed public outcomes/cooldowns.
+    s.host.invalidate({ preserveCompleted: true });
+    await s.host.reconcile();
+    expect(s.query).toHaveBeenCalledOnce(); expect(s.stop).toHaveBeenCalledOnce();
+    expect(s.host.snapshot().nopixel).toMatchObject({ status: "complete", channel: { username: "buddha" }, progress: [{ earned: 60, required: 60 }] });
+    expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toBeUndefined();
+    s.source.now.mockReturnValue(now + 5 * 60_000 + 1);
+    s.query.mockResolvedValueOnce({ data: { game: { streams: { edges: [{ node: { broadcaster: { id: "123", login: "buddha" } } }] } } } } as never).mockResolvedValueOnce({ data: { users: [{ id: "123", login: "buddha", channel: { selfInstalledExtensions: [{ installation: { extension: { id: "nstuq90nghenyqwqme61jgvmtp253a" }, activationConfig: { state: "ACTIVE" } } }] } }] } } as never);
+    expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toMatchObject({ id: "nopixel", channel: { username: "buddha" } });
+    s.state.sessions.twitch.channel = { platform: "twitch", username: "buddha", channelId: "123", url: "https://www.twitch.tv/buddha" };
+    await s.host.reconcile();
+    expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toBeUndefined();
+  });
+  it("rotates completed NoPixelV probes to another giveaway channel after cooldown", async () => {
+    const s = setup(); s.enableTwitch();
+    const now = Date.now(); s.source.now.mockReturnValue(now);
+    const jwt = `e30.${btoa(JSON.stringify({ channel_id: "123", exp: Math.floor(now / 1000) + 3600, role: "viewer", opaque_user_id: "Utest", user_id: "42" }))}.signature`;
+    const installation = { installation: { extension: { id: "nstuq90nghenyqwqme61jgvmtp253a", version: "1.1.2" }, activationConfig: { state: "ACTIVE" } } };
+    s.query.mockResolvedValueOnce({ data: { user: { channel: { selfInstalledExtensions: [{ ...installation, token: { jwt } }] } } } } as never);
+    s.drivers.nopixel = async (_session, emit) => { emit({ status: "complete", reasonCode: "rewards-complete", progress: [{ key: "daily-pack", earned: 60, required: 60 }], pending: [{ key: "giveaway", state: "blocked" }] }); return { stop: s.stop }; };
+    await s.host.setEnabled("nopixel", true);
+    s.host.invalidate({ preserveCompleted: true });
+    expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toBeUndefined();
+    s.source.now.mockReturnValue(now + 5 * 60_000 + 1);
+    s.query.mockResolvedValueOnce({ data: { game: { streams: { edges: ["buddha", "ssaab"].map((login, index) => ({ node: { broadcaster: { id: String(123 + index), login } } })) } } } } as never)
+      .mockResolvedValueOnce({ data: { users: ["buddha", "ssaab"].map((login, index) => ({ id: String(123 + index), login, channel: { selfInstalledExtensions: [installation] } })) } } as never);
+    expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toMatchObject({ channel: { username: "ssaab" } });
+    // Repeated selection before a new outcome remains stable and uses the cache.
+    expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toMatchObject({ channel: { username: "ssaab" } });
+    expect(s.query).toHaveBeenCalledTimes(3);
+    s.host.invalidate();
+    expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toMatchObject({ channel: { username: "buddha" } });
+    expect(s.query).toHaveBeenCalledTimes(3);
+  });
+  it("keeps an ungranted provider disabled", async () => {
+    const s = setup(); s.contains.mockResolvedValue(false);
+    expect(await s.host.setEnabled("nopixel", true)).toEqual({ enabled: false });
+    expect(s.settings().twitchExtensions.nopixel.enabled).toBe(false); expect(s.query).not.toHaveBeenCalled();
+  });
+  it("revocation disables and clears summaries", async () => {
+    const s = setup(); s.enableTwitch(); await s.host.setEnabled("nopixel", true);
+    s.contains.mockResolvedValue(false); await s.host.removed({ origins: ["https://nopixel.streamingtoolsmith.com/*"] });
+    expect(s.settings().twitchExtensions.nopixel.enabled).toBe(false); expect(s.host.snapshot()).toEqual({});
+  });
+  it("does not query during platform disablement, manual pause or auth failure", async () => {
+    const s = setup(); await s.host.setEnabled("nopixel", true); expect(s.query).not.toHaveBeenCalled();
+    s.enableTwitch(); s.state.sessions.twitch.status = "paused"; await s.host.reconcile(); expect(s.query).not.toHaveBeenCalled();
+    s.state.sessions.twitch.status = "watching"; s.state.authHealth.twitch = { status: "invalid_credentials" }; await s.host.reconcile(); expect(s.query).not.toHaveBeenCalled();
+  });
+  it("invalidates an in-flight reconciliation before it can restart", async () => {
+    const s = setup(); s.enableTwitch();
+    s.settings().twitchExtensions.nopixel.enabled = true;
+    let resolve!: () => void;
+    let reached!: () => void;
+    const checking = new Promise<void>((done) => { reached = done; });
+    s.contains.mockImplementation(async () => { reached(); await new Promise<void>((done) => { resolve = done; }); return true; });
+    const pending = s.host.reconcile(); await checking;
+    s.host.invalidate(); resolve(); await pending;
+    expect(s.query).not.toHaveBeenCalled();
+  });
+  it("discovers its own tabless channel without a drop campaign", async () => {
+    const s = setup(); s.enableTwitch(); s.settings().twitchExtensions.nopixel.enabled = true;
+    s.state.sessions.twitch = { platform: "twitch", status: "idle", offlineChecks: 0 };
+    s.query.mockResolvedValueOnce({ data: { game: { streams: { edges: [{ node: { broadcaster: { id: "123", login: "buddha" } } }] } } } } as never).mockResolvedValueOnce({ data: { users: [{ id: "123", login: "buddha", channel: { selfInstalledExtensions: [{ installation: { extension: { id: "nstuq90nghenyqwqme61jgvmtp253a" }, activationConfig: { state: "ACTIVE" } } }] } }] } } as never);
+    expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toMatchObject({ id: "nopixel", tablessOnly: true, channel: { channelId: "123" } });
+    expect(s.query).toHaveBeenCalledTimes(2);
+    await s.host.chooseWatchTarget(s.settings(), s.state);
+    expect(s.query).toHaveBeenCalledTimes(2);
+  });
+
+  it("stops acquisition immediately when manual-close authority precedes paused state", async () => {
+    const s = setup(); s.enableTwitch(); s.state.manualClosePause = { twitch: { platform: "twitch", closedAt: new Date().toISOString() } };
+    await s.host.setEnabled("nopixel", true);
+    expect(s.query).not.toHaveBeenCalled();
+  });
+
+});

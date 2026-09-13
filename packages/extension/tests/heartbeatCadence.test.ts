@@ -42,6 +42,12 @@ describe("tabless heartbeat cadence", () => {
     expect(heartbeatContextKey({ ...session, channel: undefined })).toBeUndefined();
   });
 
+  it("admits supplemental heartbeat targets without fabricated campaigns or rewards", () => {
+    const session = tablessSession({ campaignId: undefined, rewardId: undefined, supplementalWatch: { id: "nopixel", tablessOnly: true } });
+    expect(heartbeatContextKey(session)).toContain("nopixel");
+    expect(heartbeatContextKey(session)).not.toBe(heartbeatContextKey({ ...session, supplementalWatch: { id: "fortnite", tablessOnly: true } }));
+    expect(heartbeatContextKey({ ...session, supplementalWatch: undefined })).toBeUndefined();
+  });
   it("changes the normalized context key when the channel category changes", () => {
     const first = tablessSession({
       platform: "kick",

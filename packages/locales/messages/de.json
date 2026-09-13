@@ -494,10 +494,18 @@
   "failuresSuffix": {
     "message": "Fehler"
   },
-  "kickPageContextRecoverySuccessesTitle": { "message": "Wiederherstellung der Kick-Ausweichseite" },
-  "kickPageContextRecoverySuccessesDescription": { "message": "Schließt eine von der Erweiterung geöffnete Kick-Ausweichseite nach dieser Anzahl erfolgreicher Aktualisierungszyklen." },
-  "kickPageContextRecoverySuccessesDisabledReason": { "message": "Aktiviere Kick, um diese Einstellung zu ändern." },
-  "cyclesSuffix": { "message": "Zyklen" },
+  "kickPageContextRecoverySuccessesTitle": {
+    "message": "Wiederherstellung der Kick-Ausweichseite"
+  },
+  "kickPageContextRecoverySuccessesDescription": {
+    "message": "Schließt eine von der Erweiterung geöffnete Kick-Ausweichseite nach dieser Anzahl erfolgreicher Aktualisierungszyklen."
+  },
+  "kickPageContextRecoverySuccessesDisabledReason": {
+    "message": "Aktiviere Kick, um diese Einstellung zu ändern."
+  },
+  "cyclesSuffix": {
+    "message": "Zyklen"
+  },
   "autoCloseTabsTitle": {
     "message": "Farming-Tabs automatisch schließen"
   },
@@ -1421,5 +1429,104 @@
   },
   "scrollRewardsRight": {
     "message": "Belohnungen nach rechts scrollen"
+  },
+  "activityExtensionGiveawayJoined": {
+    "message": "An einer $1-Verlosung auf $2 teilgenommen."
+  },
+  "activityExtensionSpriteCaptured": {
+    "message": "Ein $1-Sprite auf $2 gesammelt."
+  },
+  "activityExtensionTakeoverStarted": {
+    "message": "Einen $1-Angriff von $2 gestartet."
+  },
+  "extensionSettingsTitle": {
+    "message": "Twitch-Erweiterungen"
+  },
+  "extensionSettingsHint": {
+    "message": "Erhalte Erweiterungsbelohnungen ohne Twitch-Tabs. Twitch-Automatisierung, Ausschlüsse und manuelle Pausen gelten."
+  },
+  "extensionNoPixelHint": {
+    "message": "Erhalte tägliche Pakete und nimm an Verlosungen teil."
+  },
+  "extensionFortniteHint": {
+    "message": "Sammle Sprites und erhalte Phasenbelohnungen."
+  },
+  "extensionIdentityRequired": {
+    "message": "Verknüpfe dein Erweiterungskonto"
+  },
+  "extensionPermissionRequired": {
+    "message": "Erlaube den Anbieterzugriff"
+  },
+  "extensionAuthRequired": {
+    "message": "Melde dich bei Twitch an"
+  },
+  "extensionChannelRequired": {
+    "message": "Geeigneten Kanal suchen"
+  },
+  "extensionComplete": {
+    "message": "Belohnungen erhalten"
+  },
+  "extensionFarming": {
+    "message": "Farmen"
+  },
+  "extensionPhaseClosed": {
+    "message": "Keine interaktive Phase geöffnet"
+  },
+  "extensionConnecting": {
+    "message": "Verbinden"
+  },
+  "extensionUnavailable": {
+    "message": "Vorübergehend nicht verfügbar"
+  },
+  "extensionIdle": {
+    "message": "Warten"
+  },
+  "extensionDailyPackProgress": {
+    "message": "Tagespaket: $1/$2 Minuten"
+  },
+  "extensionCaptureProgress": {
+    "message": "Sammlung: $1/$2"
+  },
+  "extensionTakeoversTitle": {
+    "message": "Fortnite-Übernahmen erlauben"
+  },
+  "extensionTakeoversHint": {
+    "message": "Starte zulässige Übernahmen während interaktiver Phasen. Standardmäßig aus."
+  },
+  "extensionAccountSetup": {
+    "message": "Konto einrichten"
+  },
+  "extensionGiveawayUnavailable": {
+    "message": "Gewinnspielprüfung nicht verfügbar"
+  },
+  "extensionGiveawayEntered": {
+    "message": "Gewinnspielteilnahme bestätigt"
+  },
+  "extensionGiveawayOpen": {
+    "message": "Gewinnspiel offen"
+  },
+  "extensionRewardProgress": {
+    "message": "Belohnungen: $1/$2"
+  },
+  "extensionTakeoverActive": {
+    "message": "Übernahme aktiv"
+  },
+  "extensionWatchtimeComplete": {
+    "message": "Zuschauzeit abgeschlossen"
+  },
+  "extensionUnopenedPacks": {
+    "message": "Ungeöffnete Pakete: $1"
+  },
+  "extensionPackCheckUnavailable": {
+    "message": "Lieferprüfung nicht verfügbar"
+  },
+  "extensionAutoOpenPacksTitle": {
+    "message": "NoPixelV-Pakete automatisch öffnen"
+  },
+  "extensionAutoOpenPacksHint": {
+    "message": "Deckt Karten aus ungeöffneten Paketen auf. Jedes Paket wird verbraucht; dies kann nicht rückgängig gemacht werden."
+  },
+  "activityExtensionPackOpened": {
+    "message": "$1 hat ein Kartenpaket auf $2 geöffnet"
   }
 }

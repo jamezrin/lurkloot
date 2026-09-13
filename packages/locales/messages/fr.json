@@ -494,10 +494,18 @@
   "failuresSuffix": {
     "message": "échecs"
   },
-  "kickPageContextRecoverySuccessesTitle": { "message": "Récupération de la page de secours Kick" },
-  "kickPageContextRecoverySuccessesDescription": { "message": "Ferme une page de secours Kick ouverte par l’extension après ce nombre de cycles d’actualisation réussis." },
-  "kickPageContextRecoverySuccessesDisabledReason": { "message": "Activez Kick pour modifier ce réglage." },
-  "cyclesSuffix": { "message": "cycles réussis" },
+  "kickPageContextRecoverySuccessesTitle": {
+    "message": "Récupération de la page de secours Kick"
+  },
+  "kickPageContextRecoverySuccessesDescription": {
+    "message": "Ferme une page de secours Kick ouverte par l’extension après ce nombre de cycles d’actualisation réussis."
+  },
+  "kickPageContextRecoverySuccessesDisabledReason": {
+    "message": "Activez Kick pour modifier ce réglage."
+  },
+  "cyclesSuffix": {
+    "message": "cycles réussis"
+  },
   "autoCloseTabsTitle": {
     "message": "Fermer automatiquement les onglets de farm"
   },
@@ -1421,5 +1429,104 @@
   },
   "scrollRewardsRight": {
     "message": "Faire défiler les récompenses vers la droite"
+  },
+  "activityExtensionGiveawayJoined": {
+    "message": "Participation à un tirage au sort $1 sur $2."
+  },
+  "activityExtensionSpriteCaptured": {
+    "message": "Sprite $1 capturé sur $2."
+  },
+  "activityExtensionTakeoverStarted": {
+    "message": "Attaque $1 lancée depuis $2."
+  },
+  "extensionSettingsTitle": {
+    "message": "Extensions Twitch"
+  },
+  "extensionSettingsHint": {
+    "message": "Obtenez des récompenses sans onglets Twitch. Automatisation Twitch, exclusions et pause manuelle restent applicables."
+  },
+  "extensionNoPixelHint": {
+    "message": "Obtenez des packs quotidiens et participez aux tirages."
+  },
+  "extensionFortniteHint": {
+    "message": "Collectez des sprites et obtenez les récompenses des phases."
+  },
+  "extensionIdentityRequired": {
+    "message": "Liez votre compte à l’extension"
+  },
+  "extensionPermissionRequired": {
+    "message": "Autorisez l’accès au fournisseur"
+  },
+  "extensionAuthRequired": {
+    "message": "Connectez-vous à Twitch"
+  },
+  "extensionChannelRequired": {
+    "message": "Recherche d’une chaîne éligible"
+  },
+  "extensionComplete": {
+    "message": "Récompenses obtenues"
+  },
+  "extensionFarming": {
+    "message": "Collecte en cours"
+  },
+  "extensionPhaseClosed": {
+    "message": "Aucune phase interactive ouverte"
+  },
+  "extensionConnecting": {
+    "message": "Connexion"
+  },
+  "extensionUnavailable": {
+    "message": "Temporairement indisponible"
+  },
+  "extensionIdle": {
+    "message": "En attente"
+  },
+  "extensionDailyPackProgress": {
+    "message": "Pack quotidien : $1/$2 minutes"
+  },
+  "extensionCaptureProgress": {
+    "message": "Collection : $1/$2"
+  },
+  "extensionTakeoversTitle": {
+    "message": "Autoriser les attaques Fortnite"
+  },
+  "extensionTakeoversHint": {
+    "message": "Lancez les attaques éligibles pendant les phases interactives. Désactivé par défaut."
+  },
+  "extensionAccountSetup": {
+    "message": "Configurer le compte"
+  },
+  "extensionGiveawayUnavailable": {
+    "message": "Vérification du tirage au sort indisponible"
+  },
+  "extensionGiveawayEntered": {
+    "message": "Participation confirmée"
+  },
+  "extensionGiveawayOpen": {
+    "message": "Tirage au sort ouvert"
+  },
+  "extensionRewardProgress": {
+    "message": "Récompenses : $1/$2"
+  },
+  "extensionTakeoverActive": {
+    "message": "Prise de contrôle active"
+  },
+  "extensionWatchtimeComplete": {
+    "message": "Temps de visionnage terminé"
+  },
+  "extensionUnopenedPacks": {
+    "message": "Packs non ouverts : $1"
+  },
+  "extensionPackCheckUnavailable": {
+    "message": "Vérification de livraison indisponible"
+  },
+  "extensionAutoOpenPacksTitle": {
+    "message": "Ouvrir automatiquement les packs NoPixelV"
+  },
+  "extensionAutoOpenPacksHint": {
+    "message": "Révèle les cartes des packs non ouverts. Chaque pack est consommé et cette action est irréversible."
+  },
+  "activityExtensionPackOpened": {
+    "message": "$1 a ouvert un pack de cartes sur $2"
   }
 }

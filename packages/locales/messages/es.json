@@ -494,10 +494,18 @@
   "failuresSuffix": {
     "message": "fallos"
   },
-  "kickPageContextRecoverySuccessesTitle": { "message": "Recuperación de la página auxiliar de Kick" },
-  "kickPageContextRecoverySuccessesDescription": { "message": "Cierra una página auxiliar de Kick abierta por la extensión tras este número de ciclos de actualización correctos." },
-  "kickPageContextRecoverySuccessesDisabledReason": { "message": "Activa Kick para cambiar este ajuste." },
-  "cyclesSuffix": { "message": "ciclos" },
+  "kickPageContextRecoverySuccessesTitle": {
+    "message": "Recuperación de la página auxiliar de Kick"
+  },
+  "kickPageContextRecoverySuccessesDescription": {
+    "message": "Cierra una página auxiliar de Kick abierta por la extensión tras este número de ciclos de actualización correctos."
+  },
+  "kickPageContextRecoverySuccessesDisabledReason": {
+    "message": "Activa Kick para cambiar este ajuste."
+  },
+  "cyclesSuffix": {
+    "message": "ciclos"
+  },
   "autoCloseTabsTitle": {
     "message": "Cerrar pestañas de farmeo automáticamente"
   },
@@ -1421,5 +1429,104 @@
   },
   "scrollRewardsRight": {
     "message": "Desplazar recompensas a la derecha"
+  },
+  "activityExtensionGiveawayJoined": {
+    "message": "Te uniste a un sorteo de $1 en $2."
+  },
+  "activityExtensionSpriteCaptured": {
+    "message": "Capturaste un sprite de $1 en $2."
+  },
+  "activityExtensionTakeoverStarted": {
+    "message": "Iniciaste un ataque de $1 desde $2."
+  },
+  "extensionSettingsTitle": {
+    "message": "Extensiones de Twitch"
+  },
+  "extensionSettingsHint": {
+    "message": "Obtén recompensas sin pestañas de Twitch. Se respetan la automatización, las exclusiones y la pausa manual."
+  },
+  "extensionNoPixelHint": {
+    "message": "Obtén paquetes diarios y participa en sorteos."
+  },
+  "extensionFortniteHint": {
+    "message": "Recoge sprites y obtén recompensas de fase."
+  },
+  "extensionIdentityRequired": {
+    "message": "Vincula tu cuenta de la extensión"
+  },
+  "extensionPermissionRequired": {
+    "message": "Permite el acceso al proveedor"
+  },
+  "extensionAuthRequired": {
+    "message": "Inicia sesión en Twitch"
+  },
+  "extensionChannelRequired": {
+    "message": "Buscando un canal apto"
+  },
+  "extensionComplete": {
+    "message": "Recompensas obtenidas"
+  },
+  "extensionFarming": {
+    "message": "Farmeando"
+  },
+  "extensionPhaseClosed": {
+    "message": "No hay una fase interactiva abierta"
+  },
+  "extensionConnecting": {
+    "message": "Conectando"
+  },
+  "extensionUnavailable": {
+    "message": "Temporalmente no disponible"
+  },
+  "extensionIdle": {
+    "message": "Esperando"
+  },
+  "extensionDailyPackProgress": {
+    "message": "Paquete diario: $1/$2 minutos"
+  },
+  "extensionCaptureProgress": {
+    "message": "Colección: $1/$2"
+  },
+  "extensionTakeoversTitle": {
+    "message": "Permitir ataques de Fortnite"
+  },
+  "extensionTakeoversHint": {
+    "message": "Inicia ataques aptos durante las fases interactivas. Desactivado por defecto."
+  },
+  "extensionAccountSetup": {
+    "message": "Configurar cuenta"
+  },
+  "extensionGiveawayUnavailable": {
+    "message": "Comprobación del sorteo no disponible"
+  },
+  "extensionGiveawayEntered": {
+    "message": "Participación en el sorteo confirmada"
+  },
+  "extensionGiveawayOpen": {
+    "message": "Sorteo abierto"
+  },
+  "extensionRewardProgress": {
+    "message": "Recompensas: $1/$2"
+  },
+  "extensionTakeoverActive": {
+    "message": "Toma de control activa"
+  },
+  "extensionWatchtimeComplete": {
+    "message": "Tiempo de visualización completado"
+  },
+  "extensionUnopenedPacks": {
+    "message": "Sobres sin abrir: $1"
+  },
+  "extensionPackCheckUnavailable": {
+    "message": "Comprobación de entrega no disponible"
+  },
+  "extensionAutoOpenPacksTitle": {
+    "message": "Abrir sobres de NoPixelV automáticamente"
+  },
+  "extensionAutoOpenPacksHint": {
+    "message": "Revela las cartas de los sobres cerrados. Consume cada sobre y no se puede deshacer."
+  },
+  "activityExtensionPackOpened": {
+    "message": "$1 abrió un sobre de cartas en $2"
   }
 }

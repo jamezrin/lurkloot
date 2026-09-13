@@ -231,6 +231,8 @@ function formatDisplayValue(value: string): string {
 
 function formatCurrentActivity(event: StoredEngineEvent & { category: "activity" }, t: TFunction): string {
   switch (event.code) {
+    case "twitch_extension_action":
+      return t({ pack_opened: "activityExtensionPackOpened", giveaway_joined: "activityExtensionGiveawayJoined", sprite_captured: "activityExtensionSpriteCaptured", takeover_started: "activityExtensionTakeoverStarted" }[event.data.action], [event.data.provider === "nopixel" ? "NoPixelV" : "Fortnite", event.data.channel]);
     case "farming_started":
       return t("activityFarmingStarted", [event.data.rewardName, event.data.campaignName]);
     case "farming_stopped":
@@ -280,6 +282,8 @@ export function buildActivityCard(event: ActivityHistoryRecord, t: TFunction): A
 
   const summary = formatCurrentActivity(event, t);
   switch (event.code) {
+    case "twitch_extension_action":
+      return { icon: "trophy", tone: "success", summary, chips: [event.data.channel] };
     case "reward_claimed":
       return {
         icon: "gift",

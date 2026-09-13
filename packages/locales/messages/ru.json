@@ -494,10 +494,18 @@
   "failuresSuffix": {
     "message": "сбоев"
   },
-  "kickPageContextRecoverySuccessesTitle": { "message": "Восстановление резервной страницы Kick" },
-  "kickPageContextRecoverySuccessesDescription": { "message": "Закрывать открытую расширением резервную страницу Kick после указанного числа успешных циклов обновления." },
-  "kickPageContextRecoverySuccessesDisabledReason": { "message": "Включите Kick, чтобы изменить эту настройку." },
-  "cyclesSuffix": { "message": "циклов" },
+  "kickPageContextRecoverySuccessesTitle": {
+    "message": "Восстановление резервной страницы Kick"
+  },
+  "kickPageContextRecoverySuccessesDescription": {
+    "message": "Закрывать открытую расширением резервную страницу Kick после указанного числа успешных циклов обновления."
+  },
+  "kickPageContextRecoverySuccessesDisabledReason": {
+    "message": "Включите Kick, чтобы изменить эту настройку."
+  },
+  "cyclesSuffix": {
+    "message": "циклов"
+  },
   "autoCloseTabsTitle": {
     "message": "Автозакрытие вкладок фарма"
   },
@@ -1421,5 +1429,104 @@
   },
   "scrollRewardsRight": {
     "message": "Прокрутить награды вправо"
+  },
+  "activityExtensionGiveawayJoined": {
+    "message": "Участие в розыгрыше $1 на канале $2."
+  },
+  "activityExtensionSpriteCaptured": {
+    "message": "Спрайт $1 пойман на канале $2."
+  },
+  "activityExtensionTakeoverStarted": {
+    "message": "Атака $1 начата с канала $2."
+  },
+  "extensionSettingsTitle": {
+    "message": "Расширения Twitch"
+  },
+  "extensionSettingsHint": {
+    "message": "Получайте награды без вкладок Twitch. Учитываются автоматизация Twitch, исключения и ручная пауза."
+  },
+  "extensionNoPixelHint": {
+    "message": "Получайте ежедневные наборы и участвуйте в розыгрышах."
+  },
+  "extensionFortniteHint": {
+    "message": "Собирайте спрайты и получайте награды этапов."
+  },
+  "extensionIdentityRequired": {
+    "message": "Привяжите аккаунт расширения"
+  },
+  "extensionPermissionRequired": {
+    "message": "Разрешите доступ к сервису"
+  },
+  "extensionAuthRequired": {
+    "message": "Войдите в Twitch"
+  },
+  "extensionChannelRequired": {
+    "message": "Поиск подходящего канала"
+  },
+  "extensionComplete": {
+    "message": "Награды получены"
+  },
+  "extensionFarming": {
+    "message": "Сбор наград"
+  },
+  "extensionPhaseClosed": {
+    "message": "Нет открытого интерактивного этапа"
+  },
+  "extensionConnecting": {
+    "message": "Подключение"
+  },
+  "extensionUnavailable": {
+    "message": "Временно недоступно"
+  },
+  "extensionIdle": {
+    "message": "Ожидание"
+  },
+  "extensionDailyPackProgress": {
+    "message": "Ежедневный набор: $1/$2 минут"
+  },
+  "extensionCaptureProgress": {
+    "message": "Коллекция: $1/$2"
+  },
+  "extensionTakeoversTitle": {
+    "message": "Разрешить атаки Fortnite"
+  },
+  "extensionTakeoversHint": {
+    "message": "Начинайте допустимые атаки во время интерактивных этапов. По умолчанию выключено."
+  },
+  "extensionAccountSetup": {
+    "message": "Настроить аккаунт"
+  },
+  "extensionGiveawayUnavailable": {
+    "message": "Проверка розыгрыша недоступна"
+  },
+  "extensionGiveawayEntered": {
+    "message": "Участие в розыгрыше подтверждено"
+  },
+  "extensionGiveawayOpen": {
+    "message": "Розыгрыш открыт"
+  },
+  "extensionRewardProgress": {
+    "message": "Награды: $1/$2"
+  },
+  "extensionTakeoverActive": {
+    "message": "Захват активен"
+  },
+  "extensionWatchtimeComplete": {
+    "message": "Время просмотра выполнено"
+  },
+  "extensionUnopenedPacks": {
+    "message": "Неоткрытые наборы: $1"
+  },
+  "extensionPackCheckUnavailable": {
+    "message": "Проверка выдачи недоступна"
+  },
+  "extensionAutoOpenPacksTitle": {
+    "message": "Автоматически открывать наборы NoPixelV"
+  },
+  "extensionAutoOpenPacksHint": {
+    "message": "Раскрывает карты в неоткрытых наборах. Каждый набор расходуется; отменить это нельзя."
+  },
+  "activityExtensionPackOpened": {
+    "message": "$1 открыл набор карт на $2"
   }
 }

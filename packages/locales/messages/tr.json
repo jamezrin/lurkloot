@@ -494,10 +494,18 @@
   "failuresSuffix": {
     "message": "hata"
   },
-  "kickPageContextRecoverySuccessesTitle": { "message": "Kick yedek sayfa kurtarma" },
-  "kickPageContextRecoverySuccessesDescription": { "message": "Uzantının açtığı Kick yedek sayfasını bu sayıda başarılı yenileme döngüsünden sonra kapatır." },
-  "kickPageContextRecoverySuccessesDisabledReason": { "message": "Bu ayarı değiştirmek için Kick’i etkinleştirin." },
-  "cyclesSuffix": { "message": "döngü" },
+  "kickPageContextRecoverySuccessesTitle": {
+    "message": "Kick yedek sayfa kurtarma"
+  },
+  "kickPageContextRecoverySuccessesDescription": {
+    "message": "Uzantının açtığı Kick yedek sayfasını bu sayıda başarılı yenileme döngüsünden sonra kapatır."
+  },
+  "kickPageContextRecoverySuccessesDisabledReason": {
+    "message": "Bu ayarı değiştirmek için Kick’i etkinleştirin."
+  },
+  "cyclesSuffix": {
+    "message": "döngü"
+  },
   "autoCloseTabsTitle": {
     "message": "Gereksiz sekmeleri kapat"
   },
@@ -1421,5 +1429,104 @@
   },
   "scrollRewardsRight": {
     "message": "Ödülleri sağa kaydır"
+  },
+  "activityExtensionGiveawayJoined": {
+    "message": "$2 kanalında bir $1 çekilişine katıldı."
+  },
+  "activityExtensionSpriteCaptured": {
+    "message": "$2 kanalında bir $1 sprite nesnesi yakaladı."
+  },
+  "activityExtensionTakeoverStarted": {
+    "message": "$2 kanalından bir $1 saldırısı başlattı."
+  },
+  "extensionSettingsTitle": {
+    "message": "Twitch uzantıları"
+  },
+  "extensionSettingsHint": {
+    "message": "Twitch sekmeleri olmadan ödül kazanın. Twitch otomasyonu, hariç tutmalar ve manuel duraklatma geçerlidir."
+  },
+  "extensionNoPixelHint": {
+    "message": "Günlük paketler kazanın ve çekilişlere katılın."
+  },
+  "extensionFortniteHint": {
+    "message": "Sprite toplayın ve aşama ödülleri kazanın."
+  },
+  "extensionIdentityRequired": {
+    "message": "Uzantı hesabınızı bağlayın"
+  },
+  "extensionPermissionRequired": {
+    "message": "Sağlayıcı erişimine izin verin"
+  },
+  "extensionAuthRequired": {
+    "message": "Twitch’e giriş yapın"
+  },
+  "extensionChannelRequired": {
+    "message": "Uygun kanal aranıyor"
+  },
+  "extensionComplete": {
+    "message": "Ödüller kazanıldı"
+  },
+  "extensionFarming": {
+    "message": "Toplanıyor"
+  },
+  "extensionPhaseClosed": {
+    "message": "Açık etkileşimli aşama yok"
+  },
+  "extensionConnecting": {
+    "message": "Bağlanıyor"
+  },
+  "extensionUnavailable": {
+    "message": "Geçici olarak kullanılamıyor"
+  },
+  "extensionIdle": {
+    "message": "Bekleniyor"
+  },
+  "extensionDailyPackProgress": {
+    "message": "Günlük paket: $1/$2 dakika"
+  },
+  "extensionCaptureProgress": {
+    "message": "Koleksiyon: $1/$2"
+  },
+  "extensionTakeoversTitle": {
+    "message": "Fortnite devralmalarına izin ver"
+  },
+  "extensionTakeoversHint": {
+    "message": "Etkileşimli aşamalarda uygun devralmaları başlatın. Varsayılan olarak kapalıdır."
+  },
+  "extensionAccountSetup": {
+    "message": "Hesap kurulumu"
+  },
+  "extensionGiveawayUnavailable": {
+    "message": "Çekiliş kontrolü kullanılamıyor"
+  },
+  "extensionGiveawayEntered": {
+    "message": "Çekilişe katılım onaylandı"
+  },
+  "extensionGiveawayOpen": {
+    "message": "Çekiliş açık"
+  },
+  "extensionRewardProgress": {
+    "message": "Ödüller: $1/$2"
+  },
+  "extensionTakeoverActive": {
+    "message": "Ele geçirme etkin"
+  },
+  "extensionWatchtimeComplete": {
+    "message": "İzleme süresi tamamlandı"
+  },
+  "extensionUnopenedPacks": {
+    "message": "Açılmamış paketler: $1"
+  },
+  "extensionPackCheckUnavailable": {
+    "message": "Paket teslim kontrolü kullanılamıyor"
+  },
+  "extensionAutoOpenPacksTitle": {
+    "message": "NoPixelV paketlerini otomatik aç"
+  },
+  "extensionAutoOpenPacksHint": {
+    "message": "Açılmamış paketlerin kartlarını gösterir. Her paket tüketilir ve işlem geri alınamaz."
+  },
+  "activityExtensionPackOpened": {
+    "message": "$1, $2 kanalında bir kart paketi açtı"
   }
 }

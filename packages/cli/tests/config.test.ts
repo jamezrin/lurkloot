@@ -367,3 +367,8 @@ describe("config export/import", () => {
     }
   });
 });
+
+
+it("rejects browser-only Twitch provider integration settings", () => {
+  expect(() => parseConfig({ settings: { twitchExtensions: { nopixel: { enabled: true } } } }, CONFIG_PATH)).toThrow(/extension-only/);
+});
