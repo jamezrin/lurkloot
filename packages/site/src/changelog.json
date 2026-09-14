@@ -50,7 +50,8 @@
         "kind": "fixed",
         "text": "Fixed tabless watching drifting off its fixed cadence, where one slow or late heartbeat pushed the following ones back instead of each keeping its own schedule. Heartbeats now run on a lane of their own per platform, late or overlapping sends are merged rather than repeated, and the cadence is restored correctly after a restart."
       }
-    ]
+    ],
+    "date": "2026-09-12"
   },
   {
     "version": "1.12.2",
