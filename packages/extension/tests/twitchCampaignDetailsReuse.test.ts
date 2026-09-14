@@ -428,3 +428,55 @@ describe("twitch campaign details reuse (#339)", () => {
     });
   });
 });
+
+
+describe("Twitch linking state across cached detail refreshes", () => {
+  it("updates linking from inventory and reports the raw source disagreement", async () => {
+    let connected = false;
+    let detailRequests = 0;
+    const events: EngineEvent[] = [];
+    const handle = (body: { operationName: string }) => {
+      if (body.operationName === "Inventory") return {
+        data: { currentUser: { id: "user-id", inventory: { dropCampaignsInProgress: [{
+          id: "a",
+          self: { isAccountConnected: connected },
+          timeBasedDrops: [{ id: "a-drop", requiredMinutesWatched: 60, self: { currentMinutesWatched: 21 } }],
+        }] } } },
+      };
+      if (body.operationName === "ViewerDropsDashboard") return dashboard([{ id: "a" }]);
+      if (body.operationName === "DropCampaignDetails") {
+        detailRequests += 1;
+        const response = details("a") as { data: { dropCampaign: Record<string, unknown> } };
+        response.data.dropCampaign.accountLinkURL = "https://account.wbgames.com/connect/twitch";
+        response.data.dropCampaign.self = { isAccountConnected: false };
+        return response;
+      }
+      throw new Error(`Unexpected operation ${body.operationName}`);
+    };
+    const fetcher: PageFetcher = {
+      fetchJson: vi.fn(async (_url: string, init?: RequestInit) => {
+        const body = JSON.parse(String(init?.body));
+        return Array.isArray(body) ? body.map(handle) : handle(body);
+      }) as PageFetcher["fetchJson"],
+    };
+    const discoveryState = new TwitchDiscoveryState();
+    const adapter = () => twitchAdapter(fetcher, undefined, undefined, { discoveryState }, (event) => events.push(event));
+    const first = await adapter().refreshCampaigns();
+    expect(first[0].accountLinked).toBe(false);
+    connected = true;
+    const second = await adapter().refreshCampaigns();
+    expect(second[0]).toMatchObject({ accountLinked: true, eligibility: "eligible" });
+    expect(detailRequests).toBe(1);
+    const diagnostic = events.filter((event) => event.category === "diagnostic"
+      && event.message.startsWith("Twitch account linking reconciliation: ")).at(-1);
+    expect(diagnostic?.category === "diagnostic" && JSON.parse(diagnostic.message.split(": ").slice(1).join(": ")))
+      .toMatchObject({
+        detailsSource: "cache",
+        inventory: { present: true, isAccountConnected: true },
+        dashboard: { present: true, isAccountConnected: true },
+        details: { isAccountConnected: false },
+        accountLinked: true,
+        watchedMinutes: 21,
+      });
+  });
+});
