@@ -3,7 +3,7 @@
 The integration runs fully tabless. Authorization acquisition and provider
 activity use the privileged background; neither requires a Twitch tab or an
 overlay iframe. Work is tracked in draft #541. The popup exposes independent provider opt-ins
-and separate collapsible NoPixelV/Fortnite drop sections as soon as each is enabled; the
+and separate collapsible NoPixelV/Fortnite drop sections below tips as soon as each is enabled; the
 watch status row contains the current channel and selection reason. Takeover actions have a separate opt-in, off by default.
 
 The authoritative design, public protocol evidence and credential-safe live
@@ -28,6 +28,11 @@ validation instructions are in
   results. Failed initialization aborts signal-bound resources immediately.
 - Permission gating requests backend access directly from an enable gesture;
   background enable verifies a pregranted origin. Denial leaves a provider off.
+  An explicit enable click records a timestamp-only intent before the native
+  prompt. Background completion watches both grant and intent arrival, verifies
+  the grant and consumes that intent within two minutes even if Chrome closes
+  the popup. Unsolicited grants do not enable providers; disable, revocation and
+  reset cancel intents, and reset drains in-flight enable requests.
   Startup verifies grants, revocation stops resources before async cleanup, and
   stale grants/verification cannot restart disabled resources.
 - Background startup/wake, alarms, settings/scheduler changes, credential
@@ -35,7 +40,10 @@ validation instructions are in
   transient summaries; no active provider session is restored from storage.
 - Browser-only settings default NoPixelV, Fortnite and takeovers off. CLI config
   rejects those keys. Required browser grants are unchanged; both vendor
-  backends are optional.
+  backends are optional. Settings places Twitch Extensions immediately after
+  Twitch, with independent NoPixelV/Fortnite subgroups containing their own
+  toggles. Group descriptions remain visible while collapsed, and search opens
+  matching providers without changing stored collapse preferences.
 - The NoPixel 1.1.2 driver uses Bearer auth, an initialization ping, channel
   setup, daily-watchtime reads and giveaway join/refetch. Joins are reported
   only after server membership confirms them. Definite HTTP failures can retry;
@@ -69,7 +77,9 @@ validation instructions are in
 - Chromium builds require Chrome 116+ for normal WebSocket traffic to maintain
   the MV3 worker. Firefox uses its persistent MV2 background page.
 
-![Provider settings and permission-denial state](settings.png)
+![Grouped provider settings, using synthetic preview data](settings.png)
+
+![Provider drops below tips, using synthetic preview data](providers.png)
 
 ## Remaining
 

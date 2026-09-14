@@ -1,3 +1,4 @@
+import { createTwitchExtensionGrantCompletion } from "../src/extensions/grantCompletion";
 import { browser } from "wxt/browser";
 import { loadSettings, loadState, loadTwitchIntegrity, resetStorage, saveSettings, saveState, saveTwitchIntegrity } from "../src/core/storage";
 import type { CliCredentialBlob, RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
@@ -266,6 +267,13 @@ const extensionHost = createTwitchExtensionHost({
   diagnostic: (message) => { void reportEvents([{ category: "diagnostic", platform: "twitch", level: "warn", message }]).catch(() => undefined); },
 });
 
+const extensionGrantCompletion = createTwitchExtensionGrantCompletion({
+  storage: browser.storage.local,
+  now: Date.now,
+  contains: (details) => browser.permissions.contains(details),
+  enable: async (provider) => { await extensionHost.setEnabled(provider, true); await controller.tickAndHandOff(["twitch"], "manual_tick"); },
+});
+
 async function reconcileExtensions(): Promise<void> {
   try { await extensionHost.reconcile(); }
   catch {
@@ -307,6 +315,10 @@ let resetMutation: Promise<RuntimeSnapshot<ExtensionSettings>> | undefined;
 function resetExtension(): Promise<RuntimeSnapshot<ExtensionSettings>> {
   if (resetMutation) return resetMutation;
   resetMutation = (async () => {
+    await extensionGrantCompletion.cancelAll();
+    // Disable invalidates permission generations and drains in-flight enables
+    // before reset can finish; a delayed grant cannot commit afterward.
+    await Promise.all([extensionHost.setEnabled("nopixel", false), extensionHost.setEnabled("fortnite", false)]);
     extensionHost.invalidate();
     await controller.prepareForHostReset(async () => {
       kickClaimState.clear();
@@ -325,7 +337,10 @@ const dispatchRuntimeMessage = createRuntimeMessageDispatcher({
   exportCliCredentials: buildCliCredentialBlob,
   resetExtension,
   handleActivityMessage,
-  handleTwitchExtensionMessage: (message) => extensionHost.setEnabled(message.provider, message.enabled),
+  handleTwitchExtensionMessage: async (message) => {
+    await extensionGrantCompletion.cancel(message.provider);
+    return extensionHost.setEnabled(message.provider, message.enabled);
+  },
   handleCoreMessage: async (message, sender) => withExtensionSnapshot(await controller.handleMessage(message, sender)),
 });
 
@@ -347,11 +362,16 @@ export default defineBackground(() => {
     },
   );
 
+  browser.permissions.onAdded.addListener((details) => {
+    void extensionGrantCompletion.added(details).catch(() => undefined);
+  });
   browser.permissions.onRemoved.addListener((details) => {
+    void extensionGrantCompletion.removed(details).catch(() => undefined);
     void extensionHost.removed(details).catch(() => undefined);
   });
   browser.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
+    void extensionGrantCompletion.changed(changes).catch(() => undefined);
     const settingsChange = changes.settings;
     const stateChange = changes.schedulerState;
     if (!settingsChange && !stateChange) return;

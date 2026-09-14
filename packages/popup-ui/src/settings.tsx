@@ -127,12 +127,14 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
     t("factoryResetHint"),
     t("factoryResetButton"),
   ].join(" ").toLocaleLowerCase();
-  const showExtensions = Boolean(onExtensionEnabledChange && (!query.trim() || `${t("extensionSettingsTitle")} ${t("extensionAutoOpenPacksTitle")} ${t("extensionAutoOpenPacksHint")} ${t("extensionTakeoversTitle")} ${t("extensionNoPixelHint")} ${t("extensionFortniteHint")} NoPixelV Fortnite`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())));
+  const showExtensions = Boolean(onExtensionEnabledChange && (!query.trim() || `${t("extensionSettingsTitle")} ${t("extensionSettingsHint")} ${t("extensionTakeoversHint")} ${t("extensionAutoOpenPacksTitle")} ${t("extensionAutoOpenPacksHint")} ${t("extensionTakeoversTitle")} ${t("extensionNoPixelHint")} ${t("extensionFortniteHint")} NoPixelV Fortnite`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())));
   const showActions = hasActions && (!searching || actionSearchText.includes(query.trim().toLocaleLowerCase()));
   const generalSection = visible.find((section) => section.id === "general");
   const platformSections = (Object.keys(PLATFORMS) as Platform[])
     .map((id) => visible.find((section) => section.id === id))
     .filter((section): section is NonNullable<typeof section> => Boolean(section));
+
+  const extensionSettings = showExtensions && onExtensionEnabledChange ? <TwitchExtensionSettings query={query} onAutoOpenPacksChange={autoOpenPacks => onSettingsChange({ twitchExtensions: { nopixel: { autoOpenPacks } } }, { tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] })} settings={settings} onChange={onExtensionEnabledChange} onTakeoversChange={allowTakeovers => onSettingsChange({ twitchExtensions: { fortnite: { allowTakeovers } } }, { tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] })} /> : null;
 
   function renderGroupContent(group: typeof sections[number]["groups"][number], includeDescription = true): React.ReactNode {
     return (
@@ -148,7 +150,6 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
   return (
     <div className="space-y-3">
       <SettingsSearchBox compact value={query} onChange={setQuery} />
-      {showExtensions && onExtensionEnabledChange ? <TwitchExtensionSettings onAutoOpenPacksChange={autoOpenPacks => onSettingsChange({ twitchExtensions: { nopixel: { autoOpenPacks } } }, { tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] })} settings={settings} onChange={onExtensionEnabledChange} onTakeoversChange={allowTakeovers => onSettingsChange({ twitchExtensions: { fortnite: { allowTakeovers } } }, { tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] })} /> : null}
 
       {visible.length === 0 && !showActions && !showExtensions ? (
         <p className="px-1 py-6 text-center text-xs text-zinc-400 dark:text-zinc-500">{t("settingsSearchNoResults", query.trim())}</p>
@@ -176,6 +177,7 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
                 </SettingsSection>
               </div>
             )),
+            section.id === "twitch" ? <React.Fragment key="twitch.extensions">{extensionSettings}</React.Fragment> : null,
           ])}
         </div>
       ) : (
@@ -189,25 +191,27 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
           ) : null)}
 
           {platformSections.map((section) => (
-            <SettingsSection
-              key={section.id}
-              id={section.id}
-              title={PLATFORMS[section.id as Platform].label}
-              description={section.description}
-            >
-              {section.rows.length > 0 ? (
-                <div className="divide-y divide-zinc-100 dark:divide-zinc-800/70">
-                  {section.rows.map((row) => <React.Fragment key={row.id}>{row.render()}</React.Fragment>)}
-                </div>
-              ) : null}
-              {section.groups.map((group) => (
-                <div key={group.id} id={`settings-group-${group.id}`}>
-                  <SettingsGroup title={t(group.titleKey)} description={group.description} badge={group.badge}>
-                    {group.entries.map((entry) => <React.Fragment key={entry.id}>{entry.render()}</React.Fragment>)}
-                  </SettingsGroup>
-                </div>
-              ))}
-            </SettingsSection>
+            <React.Fragment key={section.id}>
+              <SettingsSection
+                id={section.id}
+                title={PLATFORMS[section.id as Platform].label}
+                description={section.description}
+              >
+                {section.rows.length > 0 ? (
+                  <div className="divide-y divide-zinc-100 dark:divide-zinc-800/70">
+                    {section.rows.map((row) => <React.Fragment key={row.id}>{row.render()}</React.Fragment>)}
+                  </div>
+                ) : null}
+                {section.groups.map((group) => (
+                  <div key={group.id} id={`settings-group-${group.id}`}>
+                    <SettingsGroup title={t(group.titleKey)} description={group.description} badge={group.badge}>
+                      {group.entries.map((entry) => <React.Fragment key={entry.id}>{entry.render()}</React.Fragment>)}
+                    </SettingsGroup>
+                  </div>
+                ))}
+              </SettingsSection>
+              {section.id === "twitch" ? extensionSettings : null}
+            </React.Fragment>
           ))}
 
           {generalSection?.groups.find((group) => group.id === "general.advanced") ? (
@@ -217,6 +221,8 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
           ) : null}
         </div>
       )}
+
+      {searching && !visible.some(section => section.id === "twitch") ? extensionSettings : null}
 
       {showActions ? (
         <SettingsSection id="actions" title={t("settingsSectionAdvancedActions")} description={t("settingsSectionAdvancedActionsDescription")}>

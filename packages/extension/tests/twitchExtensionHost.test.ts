@@ -81,6 +81,18 @@ describe("background tabless provider host", () => {
     expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toMatchObject({ channel: { username: "buddha" } });
     expect(s.query).toHaveBeenCalledTimes(3);
   });
+  it("drains an in-flight enable before reset disablement completes", async () => {
+    const s = setup();
+    let finish!: (granted: boolean) => void;
+    s.contains.mockImplementationOnce(() => new Promise<boolean>(done => { finish = done; }));
+    const enabling = s.host.setEnabled("nopixel", true);
+    await vi.waitFor(() => expect(s.contains).toHaveBeenCalledOnce());
+    const disabling = s.host.setEnabled("nopixel", false);
+    finish(true);
+    await Promise.all([enabling, disabling]);
+    expect(s.settings().twitchExtensions.nopixel.enabled).toBe(false);
+    expect(s.query).not.toHaveBeenCalled();
+  });
   it("keeps an ungranted provider disabled", async () => {
     const s = setup(); s.contains.mockResolvedValue(false);
     expect(await s.host.setEnabled("nopixel", true)).toEqual({ enabled: false });

@@ -77,7 +77,7 @@ export function TwitchExtensionDrops({ settings, summaries, onSetup }: { setting
     {settings.twitchExtensions.fortnite.enabled ? <FortniteDropSection summary={summaries?.fortnite} onSetup={onSetup} /> : null}
   </>;
 }
-export function TwitchExtensionSettings({ settings, onChange, onTakeoversChange, onAutoOpenPacksChange }: { onAutoOpenPacksChange(enabled: boolean): Promise<void>; onTakeoversChange(enabled: boolean): Promise<void>; settings: ExtensionSettings; onChange(provider: TwitchExtensionProviderId, enabled: boolean): Promise<boolean> }) {
+export function TwitchExtensionSettings({ settings, onChange, onTakeoversChange, onAutoOpenPacksChange, query = "" }: { query?: string; onAutoOpenPacksChange(enabled: boolean): Promise<void>; onTakeoversChange(enabled: boolean): Promise<void>; settings: ExtensionSettings; onChange(provider: TwitchExtensionProviderId, enabled: boolean): Promise<boolean> }) {
   const t = useT();
   const [pending, setPending] = useState<TwitchExtensionProviderId>();
   const [failure, setFailure] = useState<string>();
@@ -102,11 +102,15 @@ export function TwitchExtensionSettings({ settings, onChange, onTakeoversChange,
     catch { setFailure("extensionUnavailable"); }
     finally { setPending(undefined); }
   }
-  return <SettingsSection id="twitch.extensions" title={t("extensionSettingsTitle")}>
-    <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{t("extensionSettingsHint")}</p>
-    {providers.map(provider => <SettingRow key={provider.id} title={provider.name} description={t(provider.hint)} checked={settings.twitchExtensions[provider.id].enabled} disabled={pending !== undefined} onChange={enabled => change(provider.id, enabled)} />)}
-    <SettingRow title={t("extensionAutoOpenPacksTitle")} description={t("extensionAutoOpenPacksHint")} checked={settings.twitchExtensions.nopixel.autoOpenPacks} disabled={pending !== undefined || !settings.twitchExtensions.nopixel.enabled} onChange={changeAutoOpenPacks} />
-    <SettingRow title={t("extensionTakeoversTitle")} description={t("extensionTakeoversHint")} checked={settings.twitchExtensions.fortnite.allowTakeovers} disabled={pending !== undefined || !settings.twitchExtensions.fortnite.enabled} onChange={changeTakeovers} />
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const groupMatch = !normalizedQuery || `${t("extensionSettingsTitle")} ${t("extensionSettingsHint")}`.toLocaleLowerCase().includes(normalizedQuery);
+  return <SettingsSection id="twitch.extensions" title={t("extensionSettingsTitle")} description={t("extensionSettingsHint")} forceExpanded={Boolean(normalizedQuery)}>
+    <div className="space-y-3 border-l border-zinc-200 pl-3 dark:border-zinc-800">
+      {providers.filter(provider => groupMatch || `${provider.name} ${t(provider.hint)} ${t(provider.id === "nopixel" ? "extensionAutoOpenPacksTitle" : "extensionTakeoversTitle")} ${t(provider.id === "nopixel" ? "extensionAutoOpenPacksHint" : "extensionTakeoversHint")}`.toLocaleLowerCase().includes(normalizedQuery)).map(provider => <SettingsSection key={provider.id} id={`twitch.extensions.${provider.id}`} title={provider.name} description={t(provider.hint)} forceExpanded={Boolean(normalizedQuery)}>
+        <SettingRow title={t("enabled")} description="" checked={settings.twitchExtensions[provider.id].enabled} disabled={pending !== undefined} onChange={enabled => change(provider.id, enabled)} />
+        {provider.id === "nopixel" ? <SettingRow title={t("extensionAutoOpenPacksTitle")} description={t("extensionAutoOpenPacksHint")} checked={settings.twitchExtensions.nopixel.autoOpenPacks} disabled={pending !== undefined || !settings.twitchExtensions.nopixel.enabled} onChange={changeAutoOpenPacks} /> : <SettingRow title={t("extensionTakeoversTitle")} description={t("extensionTakeoversHint")} checked={settings.twitchExtensions.fortnite.allowTakeovers} disabled={pending !== undefined || !settings.twitchExtensions.fortnite.enabled} onChange={changeTakeovers} />}
+      </SettingsSection>)}
+    </div>
     {failure ? <p role="status" className="text-[11px] text-amber-700 dark:text-amber-400">{t(failure)}</p> : null}
   </SettingsSection>;
 }
