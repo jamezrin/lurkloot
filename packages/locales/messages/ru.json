@@ -1442,6 +1442,9 @@
   "extensionSettingsTitle": {
     "message": "Расширения Twitch"
   },
+  "extensionDropsTitle": {
+    "message": "Расширения"
+  },
   "extensionSettingsHint": {
     "message": "Получайте награды без вкладок Twitch. Учитываются автоматизация Twitch, исключения и ручная пауза."
   },

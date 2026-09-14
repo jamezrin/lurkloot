@@ -1442,6 +1442,9 @@
   "extensionSettingsTitle": {
     "message": "Twitch एक्सटेंशन"
   },
+  "extensionDropsTitle": {
+    "message": "एक्सटेंशन"
+  },
   "extensionSettingsHint": {
     "message": "Twitch टैब के बिना पुरस्कार पाएँ। Twitch स्वचालन, बहिष्करण और मैन्युअल विराम लागू होते हैं।"
   },

@@ -1442,6 +1442,9 @@
   "extensionSettingsTitle": {
     "message": "Extensões da Twitch"
   },
+  "extensionDropsTitle": {
+    "message": "Extensões"
+  },
   "extensionSettingsHint": {
     "message": "Ganhe recompensas sem abas da Twitch. Automação, exclusões e pausa manual se aplicam."
   },

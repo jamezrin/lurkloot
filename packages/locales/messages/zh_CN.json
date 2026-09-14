@@ -1442,6 +1442,9 @@
   "extensionSettingsTitle": {
     "message": "Twitch 扩展"
   },
+  "extensionDropsTitle": {
+    "message": "扩展"
+  },
   "extensionSettingsHint": {
     "message": "无需 Twitch 标签页即可获取扩展奖励。遵循 Twitch 自动化、排除频道和手动暂停设置。"
   },

@@ -1442,6 +1442,9 @@
   "extensionSettingsTitle": {
     "message": "Twitch uzantıları"
   },
+  "extensionDropsTitle": {
+    "message": "Uzantılar"
+  },
   "extensionSettingsHint": {
     "message": "Twitch sekmeleri olmadan ödül kazanın. Twitch otomasyonu, hariç tutmalar ve manuel duraklatma geçerlidir."
   },

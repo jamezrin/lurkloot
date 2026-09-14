@@ -1442,6 +1442,9 @@
   "extensionSettingsTitle": {
     "message": "Estensioni Twitch"
   },
+  "extensionDropsTitle": {
+    "message": "Estensioni"
+  },
   "extensionSettingsHint": {
     "message": "Ottieni ricompense senza schede Twitch. Si applicano automazione Twitch, esclusioni e pausa manuale."
   },

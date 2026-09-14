@@ -1442,6 +1442,9 @@
   "extensionSettingsTitle": {
     "message": "Twitch extensions"
   },
+  "extensionDropsTitle": {
+    "message": "Extensions"
+  },
   "extensionSettingsHint": {
     "message": "Farm extension rewards without Twitch tabs. Twitch automation, exclusions and manual pause apply."
   },

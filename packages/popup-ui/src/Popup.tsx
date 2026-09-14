@@ -831,7 +831,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                   ) : null}
                 </AnimatePresence>
                 {settings.showTips ? <TipsBanner initialIndex={preview ? 0 : undefined} preview={preview} /> : null}
-                {platform === "twitch" ? <TwitchExtensionDrops settings={settings} summaries={snapshot.state.twitchExtensions} onSetup={() => adapter.openLink("https://help.twitch.tv/s/article/how-to-configure-extensions")} /> : null}
+                {platform === "twitch" ? <TwitchExtensionDrops settings={settings} summaries={snapshot.state.twitchExtensions} activeProvider={snapshot.state.sessions.twitch.supplementalWatch?.id} onSetup={() => adapter.openLink("https://help.twitch.tv/s/article/how-to-configure-extensions")} /> : null}
                 {criticalFailureReason ? (
                   <CriticalFailurePanel
                     platform={platform}

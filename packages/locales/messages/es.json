@@ -1442,6 +1442,9 @@
   "extensionSettingsTitle": {
     "message": "Extensiones de Twitch"
   },
+  "extensionDropsTitle": {
+    "message": "Extensiones"
+  },
   "extensionSettingsHint": {
     "message": "Obtén recompensas sin pestañas de Twitch. Se respetan la automatización, las exclusiones y la pausa manual."
   },

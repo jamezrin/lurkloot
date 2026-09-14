@@ -1442,6 +1442,9 @@
   "extensionSettingsTitle": {
     "message": "إضافات Twitch"
   },
+  "extensionDropsTitle": {
+    "message": "الإضافات"
+  },
   "extensionSettingsHint": {
     "message": "احصل على المكافآت دون تبويبات Twitch. تسري إعدادات الأتمتة والاستثناءات والإيقاف اليدوي."
   },

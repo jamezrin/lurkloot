@@ -1442,6 +1442,9 @@
   "extensionSettingsTitle": {
     "message": "Twitch-Erweiterungen"
   },
+  "extensionDropsTitle": {
+    "message": "Erweiterungen"
+  },
   "extensionSettingsHint": {
     "message": "Erhalte Erweiterungsbelohnungen ohne Twitch-Tabs. Twitch-Automatisierung, Ausschlüsse und manuelle Pausen gelten."
   },
