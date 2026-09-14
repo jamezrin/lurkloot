@@ -1310,7 +1310,9 @@ export async function runSchedulerTick(
       let { decision } = selection;
       let shouldKeep = selection.retention;
       let supplemental: SupplementalWatchTarget | undefined;
-      if (options.selectSupplementalWatchTarget && adapter.supportsTabless) {
+      // Priority: eligible drops, then supplemental extension rewards, then the
+      // Idle Watchlist. Only a non-drop decision may yield to a provider.
+      if (options.selectSupplementalWatchTarget && adapter.supportsTabless && decision.action !== "watch") {
         try {
           const target = await options.selectSupplementalWatchTarget(platform, nextState, options.signal);
           options.signal?.throwIfAborted();

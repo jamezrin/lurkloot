@@ -3,6 +3,7 @@ import { runSchedulerTick } from "@lurkloot/core/scheduler";
 import { DEFAULT_STATE } from "@lurkloot/core/defaults";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
+import type { DropCampaign } from "@lurkloot/shared/models";
 function fixture() {
   const state = structuredClone(DEFAULT_STATE), settings = structuredClone(DEFAULT_SETTINGS);
   state.authHealth.twitch = { status: "healthy" }; settings.platform.twitch.enabled = true;
@@ -42,5 +43,30 @@ describe("supplemental watch lane", () => {
     await runSchedulerTick(first.state, s.settings, s.adapters, { platforms: ["twitch"], discovery: { twitch: { campaigns: [], complete: false } }, selectSupplementalWatchTarget: async () => { throw new Error("private"); } });
     expect(s.adapter.prepareWatchTab).not.toHaveBeenCalled();
   });
-
+  it("keeps an eligible drop campaign ahead of supplemental rewards", async () => {
+    const s = fixture();
+    const campaign: DropCampaign = { id: "c1", platform: "twitch", name: "Drop", gameName: "Game", categoryId: "game", startsAt: new Date(Date.now() - 3_600_000).toISOString(), endsAt: new Date(Date.now() + 3_600_000).toISOString(), status: "active", accountLinked: true, eligibility: "eligible", priority: 1, rewards: [{ id: "r1", name: "Reward", requiredMinutes: 60, watchedMinutes: 10, status: "in_progress" }] };
+    const candidate = { platform: "twitch" as const, username: "dropper", url: "https://www.twitch.tv/dropper", channelId: "999", campaignId: "c1", categoryId: "game", live: true, isAclMatch: true };
+    s.adapter.refreshCampaigns = async () => [campaign];
+    s.adapter.listCandidateChannels = async () => [candidate];
+    const selectSupplementalWatchTarget = vi.fn(async () => s.target);
+    const result = await runSchedulerTick(s.state, s.settings, s.adapters, { platforms: ["twitch"], selectSupplementalWatchTarget });
+    expect(result.state.sessions.twitch).toMatchObject({ campaignId: "c1", channel: { username: "dropper" } });
+    expect(result.state.sessions.twitch.supplementalWatch).toBeUndefined();
+    expect(selectSupplementalWatchTarget).not.toHaveBeenCalled();
+    // Once a drop appears, an existing supplemental session hands it the lane.
+    const supplemental = await runSchedulerTick(s.state, s.settings, { ...s.adapters, twitch: { ...s.adapter, refreshCampaigns: async () => [], listCandidateChannels: async () => [] } }, { platforms: ["twitch"], selectSupplementalWatchTarget: async () => s.target });
+    expect(supplemental.state.sessions.twitch.supplementalWatch).toMatchObject({ id: "nopixel" });
+    const resumed = await runSchedulerTick(supplemental.state, s.settings, s.adapters, { platforms: ["twitch"], selectSupplementalWatchTarget: async () => s.target });
+    expect(resumed.state.sessions.twitch).toMatchObject({ campaignId: "c1", channel: { username: "dropper" } });
+    expect(resumed.state.sessions.twitch.supplementalWatch).toBeUndefined();
+  });
+  it("prefers supplemental rewards over the Idle Watchlist", async () => {
+    const s = fixture();
+    s.settings.platform.twitch.idleWatchlistChannels = ["lootforge"];
+    const result = await runSchedulerTick(s.state, s.settings, s.adapters, { platforms: ["twitch"], selectSupplementalWatchTarget: async () => s.target });
+    expect(result.state.sessions.twitch).toMatchObject({ supplementalWatch: { id: "nopixel" }, channel: { username: "buddha" } });
+    const withoutProvider = await runSchedulerTick(s.state, s.settings, s.adapters, { platforms: ["twitch"], selectSupplementalWatchTarget: async () => undefined });
+    expect(withoutProvider.state.sessions.twitch.channel?.username).toBe("lootforge");
+  });
 });
