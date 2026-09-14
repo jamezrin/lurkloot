@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Gift, Sparkles } from "lucide-react";
-import { SectionHeader } from "./primitives";
+import { SectionHeader, Toggle } from "./primitives";
 import type { ExtensionSettings, TwitchExtensionProviderId, TwitchExtensionSummary } from "@lurkloot/shared/models";
 import type { PopupAdapter } from "./types";
 import { useT } from "./context";
@@ -105,11 +105,10 @@ export function TwitchExtensionSettings({ settings, onChange, onTakeoversChange,
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const groupMatch = !normalizedQuery || `${t("extensionSettingsTitle")} ${t("extensionSettingsHint")}`.toLocaleLowerCase().includes(normalizedQuery);
   return <SettingsSection id="twitch.extensions" title={t("extensionSettingsTitle")} description={t("extensionSettingsHint")} forceExpanded={Boolean(normalizedQuery)}>
-    <div className="space-y-3 border-l border-zinc-200 pl-3 dark:border-zinc-800">
-      {providers.filter(provider => groupMatch || `${provider.name} ${t(provider.hint)} ${t(provider.id === "nopixel" ? "extensionAutoOpenPacksTitle" : "extensionTakeoversTitle")} ${t(provider.id === "nopixel" ? "extensionAutoOpenPacksHint" : "extensionTakeoversHint")}`.toLocaleLowerCase().includes(normalizedQuery)).map(provider => <SettingsSection key={provider.id} id={`twitch.extensions.${provider.id}`} title={provider.name} description={t(provider.hint)} forceExpanded={Boolean(normalizedQuery)}>
-        <SettingRow title={t("enabled")} description="" checked={settings.twitchExtensions[provider.id].enabled} disabled={pending !== undefined} onChange={enabled => change(provider.id, enabled)} />
+    <div className="space-y-2">
+      {providers.filter(provider => groupMatch || `${provider.name} ${t(provider.hint)} ${t(provider.id === "nopixel" ? "extensionAutoOpenPacksTitle" : "extensionTakeoversTitle")} ${t(provider.id === "nopixel" ? "extensionAutoOpenPacksHint" : "extensionTakeoversHint")}`.toLocaleLowerCase().includes(normalizedQuery)).map(provider => <div key={provider.id} className="rounded-xl border border-zinc-200 bg-zinc-50/60 px-2.5 py-2 dark:border-zinc-800 dark:bg-zinc-900/40"><SettingsSection id={`twitch.extensions.${provider.id}`} title={provider.name} description={t(provider.hint)} headerAction={<Toggle label={provider.name} checked={settings.twitchExtensions[provider.id].enabled} disabled={pending !== undefined} onChange={enabled => change(provider.id, enabled)} />} forceExpanded={Boolean(normalizedQuery)}>
         {provider.id === "nopixel" ? <SettingRow title={t("extensionAutoOpenPacksTitle")} description={t("extensionAutoOpenPacksHint")} checked={settings.twitchExtensions.nopixel.autoOpenPacks} disabled={pending !== undefined || !settings.twitchExtensions.nopixel.enabled} onChange={changeAutoOpenPacks} /> : <SettingRow title={t("extensionTakeoversTitle")} description={t("extensionTakeoversHint")} checked={settings.twitchExtensions.fortnite.allowTakeovers} disabled={pending !== undefined || !settings.twitchExtensions.fortnite.enabled} onChange={changeTakeovers} />}
-      </SettingsSection>)}
+      </SettingsSection></div>)}
     </div>
     {failure ? <p role="status" className="text-[11px] text-amber-700 dark:text-amber-400">{t(failure)}</p> : null}
   </SettingsSection>;

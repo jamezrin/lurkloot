@@ -42,7 +42,9 @@ validation instructions are in
   rejects those keys. Required browser grants are unchanged; both vendor
   backends are optional. Settings places Twitch Extensions immediately after
   Twitch, with independent NoPixelV/Fortnite subgroups containing their own
-  toggles. Group descriptions remain visible while collapsed, and search opens
+  toggles. Provider enable switches sit in the group headers and remain
+  available while collapsed; only provider-specific automation options appear
+  inside each compact card. Group descriptions remain visible while collapsed, and search opens
   matching providers without changing stored collapse preferences.
 - The NoPixel 1.1.2 driver uses Bearer auth, an initialization ping, channel
   setup, daily-watchtime reads and giveaway join/refetch. Joins are reported

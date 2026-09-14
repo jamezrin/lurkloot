@@ -8,13 +8,14 @@ import {
 import { usePopupRuntime, useT } from "./context";
 import { SearchBox, Toggle, cn } from "./primitives";
 
-export function SettingsSection({ id, title, description, badge, forceExpanded, children }: {
+export function SettingsSection({ id, title, description, badge, headerAction, forceExpanded, children }: {
   // Stable, locale-independent identity. Collapse state is keyed by this, not by
   // the translated title, so changing language does not reset the accordion.
   id: string;
   title: string;
   description?: string;
   badge?: React.ReactNode;
+  headerAction?: React.ReactNode;
   // While searching, sections holding matches are opened regardless of the
   // persisted state, and the persisted state is left untouched.
   forceExpanded?: boolean;
@@ -51,22 +52,23 @@ export function SettingsSection({ id, title, description, badge, forceExpanded, 
 
   return (
     <section id={`settings-section-${id}`} className="scroll-mt-2">
-      <header className="mb-1.5 px-0.5">
+      <header className="mb-1.5 flex items-start gap-2 px-0.5">
         <button
           type="button"
           aria-expanded={expanded}
           onClick={toggleCollapsed}
-          className="flex w-full items-start justify-between gap-3 rounded-lg px-1 py-1 text-left outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:hover:bg-zinc-900/70"
+          className="flex min-w-0 flex-1 items-start justify-between gap-3 rounded-lg px-1 py-1 text-left outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:hover:bg-zinc-900/70"
         >
           <span className="min-w-0">
             <span className="flex items-center gap-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{title}</span>
+              <span className={headerAction ? "text-[13px] font-semibold text-zinc-800 dark:text-zinc-100" : "text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400"}>{title}</span>
               {badge}
             </span>
             {description ? <span className="mt-1 block text-[11px] leading-snug text-zinc-400 dark:text-zinc-500">{description}</span> : null}
           </span>
           <ChevronDown size={14} className={cn("mt-0.5 shrink-0 text-zinc-400 transition-transform dark:text-zinc-500", expanded && "rotate-180")} />
         </button>
+        {headerAction ? <div className="shrink-0 pt-1">{headerAction}</div> : null}
       </header>
       {expanded ? <div className="space-y-3 px-0.5">{children}</div> : null}
     </section>
