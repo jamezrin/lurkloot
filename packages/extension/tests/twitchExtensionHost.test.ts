@@ -135,4 +135,50 @@ describe("background tabless provider host", () => {
     expect(s.query).not.toHaveBeenCalled();
   });
 
+  describe("provider selection stability", () => {
+    const noPixelInstall = { installation: { extension: { id: "nstuq90nghenyqwqme61jgvmtp253a", version: "1.1.2" }, activationConfig: { state: "ACTIVE" } } };
+    const fortniteInstall = { installation: { extension: { id: "x2nfeda4neuzvsp2zdqfln9nwxc7tp", version: "1.0.0" }, activationConfig: { state: "ACTIVE" } } };
+    function withDirectory(s: ReturnType<typeof setup>, now: number) {
+      const jwt = `e30.${btoa(JSON.stringify({ channel_id: "123", exp: Math.floor(now / 1000) + 3600, role: "viewer", opaque_user_id: "Utest", user_id: "42" }))}.signature`;
+      const streams: Record<string, { id: string; login: string; install: typeof noPixelInstall }> = {
+        "32982": { id: "123", login: "buddha", install: noPixelInstall },
+        "33214": { id: "789", login: "happyhappygal", install: fortniteInstall },
+      };
+      s.query.mockImplementation((async (_query: string, variables: Record<string, unknown>) => {
+        if (typeof variables.channelID === "string") return { data: { user: { channel: { selfInstalledExtensions: [{ ...noPixelInstall, token: { jwt } }] } } } };
+        if (typeof variables.gameID === "string") {
+          const stream = streams[variables.gameID];
+          return { data: { game: { streams: { edges: [{ node: { broadcaster: { id: stream.id, login: stream.login } } }] } } } };
+        }
+        const logins = variables.logins as string[];
+        return { data: { users: Object.values(streams).filter((stream) => logins.includes(stream.login)).map((stream) => ({ id: stream.id, login: stream.login, channel: { selfInstalledExtensions: [stream.install] } })) } };
+      }) as never);
+      (s.drivers as Record<string, TwitchExtensionDriverFactory>).fortnite = async () => ({ stop: s.stop });
+      s.settings().twitchExtensions.fortnite.enabled = true;
+    }
+
+    it("keeps the provider still earning on its channel instead of reprobing another", async () => {
+      const s = setup(); s.enableTwitch();
+      const now = Date.now(); s.source.now.mockReturnValue(now);
+      withDirectory(s, now);
+      s.settings().twitchExtensions.nopixel.enabled = true;
+      s.state.sessions.twitch = { platform: "twitch", status: "watching", offlineChecks: 0, watchMode: "tabless", supplementalWatch: { id: "fortnite", tablessOnly: true }, channel: { platform: "twitch", username: "happyhappygal", url: "https://www.twitch.tv/happyhappygal", channelId: "789", live: true } };
+      expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toMatchObject({ id: "fortnite", channel: { username: "happyhappygal" } });
+    });
+
+    it("remembers completion across Twitch toggles so a finished provider does not win the next tick", async () => {
+      const s = setup(); s.enableTwitch();
+      const now = Date.now(); s.source.now.mockReturnValue(now);
+      withDirectory(s, now);
+      s.drivers.nopixel = async (_session, emit) => { emit({ status: "complete", reasonCode: "rewards-complete", progress: [{ key: "daily-pack", earned: 60, required: 60 }], pending: [] }); return { stop: s.stop }; };
+      await s.host.setEnabled("nopixel", true);
+      // Disabling and re-enabling Twitch invalidates without preserving summaries.
+      s.host.invalidate();
+      s.state.sessions.twitch = { platform: "twitch", status: "idle", offlineChecks: 0 };
+      expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toMatchObject({ id: "fortnite", channel: { username: "happyhappygal" } });
+      // A credential change may be a different account: completion is re-learned.
+      s.host.invalidate({ forgetCompletion: true });
+      expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toMatchObject({ id: "nopixel", channel: { username: "buddha" } });
+    });
+  });
 });

@@ -19,6 +19,12 @@ export function createTwitchExtensionHost(options: {
   let generation = 0;
   const allowed = new Set<TwitchExtensionProviderId>();
   const completedUntil = new Map<TwitchExtensionProviderId, number>();
+  // Providers observed complete for this viewer. Unlike the short reprobe
+  // cooldown and the per-channel summaries, this survives ordinary authority
+  // changes (Twitch toggles, pauses, channel switches) so a finished provider
+  // is never revisited just to rediscover completion and then released again.
+  // Only logout, provider disable/revocation and reset forget it.
+  const knownComplete = new Set<TwitchExtensionProviderId>();
   let lastCompletedNoPixelChannel: string | undefined;
   const summaries: Partial<Record<TwitchExtensionProviderId, TwitchExtensionSummary>> = {};
   let channel: { username: string; displayName?: string } | undefined;
@@ -29,6 +35,8 @@ export function createTwitchExtensionHost(options: {
     report: (id, report) => {
       const previous = summaries[id];
       if (id === "nopixel" && report.status === "complete" && channel) lastCompletedNoPixelChannel = channel.username;
+      if (report.status === "complete") knownComplete.add(id);
+      else if (report.status === "farming" && report.progress.some((progress) => progress.earned < progress.required)) knownComplete.delete(id);
       if (report.status === "complete" && (completedUntil.get(id) ?? 0) <= options.source.now()) completedUntil.set(id, options.source.now() + 5 * 60_000);
       summaries[id] = { ...report, ...(channel ? { channel: { ...channel } } : {}), updatedAt: new Date(options.source.now()).toISOString() };
       if ((report.status === "error" || report.status === "unavailable")
@@ -51,7 +59,7 @@ export function createTwitchExtensionHost(options: {
     },
     enabled: async (id) => (await options.loadSettings()).twitchExtensions[id].enabled,
     setEnabled: async (id, enabled) => options.savePatch({ twitchExtensions: { [id]: { enabled } } }),
-    clearTransientState: async (id) => { delete summaries[id]; completedUntil.delete(id); if (id === "nopixel") lastCompletedNoPixelChannel = undefined; },
+    clearTransientState: async (id) => { delete summaries[id]; completedUntil.delete(id); knownComplete.delete(id); if (id === "nopixel") lastCompletedNoPixelChannel = undefined; },
   });
   const discovery = new Map<TwitchExtensionProviderId, { channels: ChannelCandidate[]; expiresAt: number; pending?: Promise<ChannelCandidate[]> }>();
   const unavailableUntil = new Map<string, number>();
@@ -61,7 +69,17 @@ export function createTwitchExtensionHost(options: {
     const manual = state.manualWatch?.twitch;
     if (!settings.platform.twitch.enabled || state.authHealth.twitch.status !== "healthy" || state.manualClosePause?.twitch
       || settings.pauseOnManualWatch && manual?.active && options.source.now() - Date.parse(manual.checkedAt) < MANUAL_WATCH_TTL_MS) return;
-    for (const provider of twitchExtensionProviders) {
+    // The provider already holding the session keeps it while it is still
+    // earning; a completed provider must not evict it for a reprobe. Among the
+    // rest, providers not known complete are tried before completed ones.
+    const session = state.sessions.twitch;
+    const holderId = session.status === "watching" ? session.supplementalWatch?.id : undefined;
+    const holderSummary = holderId ? summaries[holderId as TwitchExtensionProviderId] : undefined;
+    const holderEarning = holderId !== undefined && !knownComplete.has(holderId as TwitchExtensionProviderId)
+      && (!holderSummary || !["complete", "error", "unavailable"].includes(holderSummary.status));
+    const rank = (id: TwitchExtensionProviderId) => holderEarning && id === holderId ? 0 : knownComplete.has(id) ? 2 : 1;
+    const providers = [...twitchExtensionProviders].sort((a, b) => rank(a.id) - rank(b.id));
+    for (const provider of providers) {
       if (!settings.twitchExtensions[provider.id].enabled || !options.drivers[provider.id]) continue;
       if (!await options.permissions.contains({ origins: [provider.backendOrigin] })) continue;
       signal?.throwIfAborted();
@@ -88,11 +106,19 @@ export function createTwitchExtensionHost(options: {
       signal?.throwIfAborted();
       if (selectedGeneration !== generation) return;
       const excluded = new Set((settings.platform.twitch.excludedChannels ?? []).map(value => value.toLowerCase()));
+      const eligible = (candidate: ChannelCandidate) => !excluded.has(candidate.username) && (unavailableUntil.get(`${provider.id}:${candidate.username}`) ?? 0) <= now;
+      // Stay on the current channel while it is still a live, eligible stream
+      // for the provider holding the session; discovery refreshes every five
+      // minutes, so an offline channel drops out and selection moves on.
+      const current = holderEarning && provider.id === holderId
+        ? candidates.find(candidate => candidate.username === session.channel?.username.toLowerCase())
+        : undefined;
+      if (current && eligible(current)) return { id: provider.id, channel: current, tablessOnly: true };
       // Daily completion is viewer-wide, but giveaways belong to channels.
       // Rotate bounded reprobes rather than repeatedly visiting the first stream.
       const previousIndex = provider.id === "nopixel" ? candidates.findIndex(candidate => candidate.username === lastCompletedNoPixelChannel) : -1;
       const ordered = previousIndex < 0 ? candidates : [...candidates.slice(previousIndex + 1), ...candidates.slice(0, previousIndex + 1)];
-      const selected = ordered.find(candidate => !excluded.has(candidate.username) && (unavailableUntil.get(`${provider.id}:${candidate.username}`) ?? 0) <= now);
+      const selected = ordered.find(eligible);
       if (selected) return { id: provider.id, channel: selected, tablessOnly: true };
     }
   }
@@ -134,7 +160,7 @@ export function createTwitchExtensionHost(options: {
     await permissions.removed(details);
     await reconcile();
   }
-  function invalidate({ preserveCompleted = false }: { preserveCompleted?: boolean } = {}) {
+  function invalidate({ preserveCompleted = false, forgetCompletion = false }: { preserveCompleted?: boolean; forgetCompletion?: boolean } = {}) {
     generation += 1;
     runtime.stop();
     for (const id of Object.keys(summaries) as TwitchExtensionProviderId[]) {
@@ -143,6 +169,9 @@ export function createTwitchExtensionHost(options: {
       completedUntil.delete(id);
     }
     if (!preserveCompleted) { completedUntil.clear(); lastCompletedNoPixelChannel = undefined; }
+    // Completion belongs to the Twitch account; only an account/credential
+    // change (or disable/reset, via clearTransientState) may discard it.
+    if (forgetCompletion) knownComplete.clear();
   }
   function snapshot() {
     return structuredClone(summaries);

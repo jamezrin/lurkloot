@@ -352,7 +352,9 @@ export default defineBackground(() => {
     },
     {
       invalidateAuthHealth: (platform) => {
-        if (platform === "twitch") extensionHost.invalidate();
+        // A Twitch cookie change may be a different account, so provider
+        // completion learned for the previous viewer is discarded too.
+        if (platform === "twitch") extensionHost.invalidate({ forgetCompletion: true });
         return controller.invalidateAuthHealth(platform);
       },
       checkAuthHealth: async (platform) => {
