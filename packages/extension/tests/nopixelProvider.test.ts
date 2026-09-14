@@ -189,3 +189,11 @@ it("rejects unsafe numeric pack IDs and diagnoses compatibility without payloads
   expect(JSON.stringify(diagnostic.mock.calls)).not.toContain("private");
   driver.stop();
 });
+
+it("keeps auto-opening work pending when inventory fails after watchtime completes", async () => {
+  const s = setup(); const base = s.fetcher.getMockImplementation()!;
+  s.fetcher.mockImplementation(async (url, init) => url.endsWith("/progress") ? Response.json({ watch_time_earned: 60, watch_time_required: 60 }) : url.endsWith("/cards/packs") ? new Response(null, { status: 503 }) : base(url, init));
+  const driver = await createNoPixelDriver(s.fetcher, s.joined, Date.now, () => {}, { autoOpenPacks: true })(session, s.emit);
+  expect(s.emit).toHaveBeenLastCalledWith(expect.objectContaining({ status: "farming", reasonCode: "collecting", pending: expect.arrayContaining([{ key: "completion", state: "blocked" }]) }));
+  driver.stop();
+});

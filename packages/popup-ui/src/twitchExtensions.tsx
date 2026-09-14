@@ -53,7 +53,7 @@ function statusTone(summary: TwitchExtensionSummary | undefined): PillTone {
   }
 }
 
-interface Badge { key: string; icon: LucideIcon; tone: PillTone; label: string }
+interface Badge { key: string; icon: LucideIcon; tone: PillTone; label: string; count?: number }
 
 // Secondary states render as icon-only badges; the label is the tooltip and
 // accessible name so the row stays one line tall.
@@ -61,7 +61,7 @@ function StatusBadge({ badge }: { badge: Badge }) {
   const Icon = badge.icon;
   return (
     <span role="img" aria-label={badge.label} title={badge.label} className="inline-flex">
-      <Pill tone={badge.tone}><Icon size={9} /></Pill>
+      <Pill tone={badge.tone}><Icon size={9} />{badge.count !== undefined ? <span className="tabular-nums">{badge.count}</span> : null}</Pill>
     </span>
   );
 }
@@ -79,7 +79,7 @@ function providerDetails(provider: TwitchExtensionProviderId, summary: TwitchExt
     if (giveaway?.state === "open") badges.push({ key: "giveaway", icon: Gift, tone: "accent", label: t("extensionGiveawayOpen") });
     if (giveaway?.state === "blocked") badges.push({ key: "giveaway", icon: AlertTriangle, tone: "warning", label: t("extensionGiveawayUnavailable") });
     const unopened = summary.progress.find((item) => item.key === "rewards");
-    if (unopened) badges.push({ key: "packs", icon: Package, tone: "muted", label: t("extensionUnopenedPacks", String(unopened.required)) });
+    if (unopened) badges.push({ key: "packs", icon: Package, tone: "muted", label: t("extensionUnopenedPacks", String(unopened.required)), count: unopened.required });
     if (summary.pending.some((item) => item.key === "completion" && item.state === "blocked")) badges.push({ key: "pack-check", icon: AlertTriangle, tone: "warning", label: t("extensionPackCheckUnavailable") });
   } else {
     const captures = summary.progress.find((item) => item.key === "phase-captures") ?? summary.progress[0];

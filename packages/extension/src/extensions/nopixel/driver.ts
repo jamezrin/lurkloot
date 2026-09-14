@@ -148,6 +148,7 @@ export function createNoPixelDriver(fetcher: Fetch, onJoined: () => void = () =>
               diagnostic(`NoPixelV pack delivery/opening unavailable: ${reason}`);
             }
             report.pending.push({ key: "completion", state: "blocked" });
+            if (options.autoOpenPacks) { report.status = "farming"; report.reasonCode = "collecting"; }
           }
         }
         if (active()) emit(report);

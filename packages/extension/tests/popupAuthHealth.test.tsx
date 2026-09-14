@@ -43,6 +43,7 @@ async function mountWithSnapshots(
     settings: {
       ...base.settings,
       running: true,
+      twitchExtensions: { ...base.settings.twitchExtensions, nopixel: { ...base.settings.twitchExtensions.nopixel, enabled: Boolean(twitchSession?.supplementalWatch) } },
       platform: {
         ...base.settings.platform,
         twitch: { ...base.settings.platform.twitch, enabled: true },
@@ -142,6 +143,16 @@ describe("popup authentication health", () => {
     expect(hero).not.toBeNull();
     expect(hero?.textContent).toContain("Starting");
     expect(hero?.textContent).toContain("Starting automation...");
+  });
+
+  it.each(["paused", "idle"] as const)("does not mark a retained provider active when session is %s", async (status) => {
+    const { container } = await mountWithSnapshots([{ status: "healthy" }], {
+      status, watchMode: "tabless", supplementalWatch: { id: "nopixel", tablessOnly: true },
+    });
+    const provider = container.querySelector('article[aria-label="NoPixelV"]');
+    expect(provider).not.toBeNull();
+    expect(provider?.hasAttribute("aria-current")).toBe(false);
+    expect(provider?.querySelector(".animate-pulse")).toBeNull();
   });
 
   it("keeps a stale disabled session paused after automation is re-enabled", async () => {

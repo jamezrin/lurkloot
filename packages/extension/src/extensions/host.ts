@@ -19,12 +19,10 @@ export function createTwitchExtensionHost(options: {
   let generation = 0;
   const allowed = new Set<TwitchExtensionProviderId>();
   const completedUntil = new Map<TwitchExtensionProviderId, number>();
-  // Providers observed complete for this viewer. Unlike the short reprobe
-  // cooldown and the per-channel summaries, this survives ordinary authority
-  // changes (Twitch toggles, pauses, channel switches) so a finished provider
-  // is never revisited just to rediscover completion and then released again.
-  // Only logout, provider disable/revocation and reset forget it.
-  const knownComplete = new Set<TwitchExtensionProviderId>();
+  // Retain completion through ordinary transitions, but allow a bounded
+  // reprobe so new packs/giveaways and daily resets cannot be starved by the
+  // other provider. Thirty minutes avoids switching on every scheduler tick.
+  const knownComplete = new Map<TwitchExtensionProviderId, number>();
   let lastCompletedNoPixelChannel: string | undefined;
   const summaries: Partial<Record<TwitchExtensionProviderId, TwitchExtensionSummary>> = {};
   let channel: { username: string; displayName?: string } | undefined;
@@ -35,8 +33,16 @@ export function createTwitchExtensionHost(options: {
     report: (id, report) => {
       const previous = summaries[id];
       if (id === "nopixel" && report.status === "complete" && channel) lastCompletedNoPixelChannel = channel.username;
-      if (report.status === "complete") knownComplete.add(id);
-      else if (report.status === "farming" && report.progress.some((progress) => progress.earned < progress.required)) knownComplete.delete(id);
+      if (report.status === "complete") {
+        const now = options.source.now();
+        const nextDay = (Math.floor(now / 86_400_000) + 1) * 86_400_000;
+        knownComplete.set(id, id === "nopixel" ? Math.min(now + 30 * 60_000, nextDay) : now + 30 * 60_000);
+      } else if (report.status === "farming") knownComplete.delete(id);
+      else if ((report.status === "error" || report.status === "unavailable") && knownComplete.has(id)) {
+        // A failed due reprobe consumes its turn too; it must not repeatedly
+        // evict another earning provider while walking unavailable channels.
+        knownComplete.set(id, options.source.now() + 30 * 60_000);
+      }
       if (report.status === "complete" && (completedUntil.get(id) ?? 0) <= options.source.now()) completedUntil.set(id, options.source.now() + 5 * 60_000);
       summaries[id] = { ...report, ...(channel ? { channel: { ...channel } } : {}), updatedAt: new Date(options.source.now()).toISOString() };
       if ((report.status === "error" || report.status === "unavailable")
@@ -75,9 +81,14 @@ export function createTwitchExtensionHost(options: {
     const session = state.sessions.twitch;
     const holderId = session.status === "watching" ? session.supplementalWatch?.id : undefined;
     const holderSummary = holderId ? summaries[holderId as TwitchExtensionProviderId] : undefined;
-    const holderEarning = holderId !== undefined && !knownComplete.has(holderId as TwitchExtensionProviderId)
+    const nowForRanking = options.source.now();
+    const holderEarning = holderId !== undefined && (knownComplete.get(holderId as TwitchExtensionProviderId) ?? 0) <= nowForRanking
       && (!holderSummary || !["complete", "error", "unavailable"].includes(holderSummary.status));
-    const rank = (id: TwitchExtensionProviderId) => holderEarning && id === holderId ? 0 : knownComplete.has(id) ? 2 : 1;
+    const rank = (id: TwitchExtensionProviderId) => {
+      const completed = knownComplete.get(id);
+      if (completed !== undefined && completed <= nowForRanking) return -1;
+      return holderEarning && id === holderId ? 0 : completed !== undefined ? 2 : 1;
+    };
     const providers = [...twitchExtensionProviders].sort((a, b) => rank(a.id) - rank(b.id));
     for (const provider of providers) {
       if (!settings.twitchExtensions[provider.id].enabled || !options.drivers[provider.id]) continue;

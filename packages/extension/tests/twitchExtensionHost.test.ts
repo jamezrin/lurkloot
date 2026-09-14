@@ -157,6 +157,33 @@ describe("background tabless provider host", () => {
       s.settings().twitchExtensions.fortnite.enabled = true;
     }
 
+    it.each([10 * 60_000 + 1, 30 * 60_000 + 1, 24 * 60 * 60_000])("bounds completed provider deferral to %i milliseconds", async (elapsed) => {
+      const s = setup(); s.enableTwitch();
+      const now = Date.UTC(2026, 8, 14, 23, 50); s.source.now.mockReturnValue(now);
+      withDirectory(s, now);
+      s.drivers.nopixel = async (_session, emit) => { emit({ status: "complete", reasonCode: "rewards-complete", progress: [{ key: "daily-pack", earned: 60, required: 60 }], pending: [] }); return { stop: s.stop }; };
+      await s.host.setEnabled("nopixel", true);
+      s.host.invalidate({ preserveCompleted: true });
+      s.state.sessions.twitch = { platform: "twitch", status: "watching", offlineChecks: 0, watchMode: "tabless", supplementalWatch: { id: "fortnite", tablessOnly: true }, channel: { platform: "twitch", username: "happyhappygal", url: "https://www.twitch.tv/happyhappygal", channelId: "789", live: true } };
+      s.source.now.mockReturnValue(now + elapsed);
+      expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toMatchObject({ id: "nopixel" });
+    });
+
+    it("consumes due reprobe priority after an unavailable outcome", async () => {
+      const s = setup(); s.enableTwitch();
+      const now = Date.UTC(2026, 8, 14, 12); s.source.now.mockReturnValue(now);
+      withDirectory(s, now);
+      s.drivers.nopixel = async (_session, emit) => { emit({ status: "complete", reasonCode: "rewards-complete", progress: [{ key: "daily-pack", earned: 60, required: 60 }], pending: [] }); return { stop: s.stop }; };
+      await s.host.setEnabled("nopixel", true);
+      s.host.invalidate({ preserveCompleted: true });
+      s.source.now.mockReturnValue(now + 30 * 60_000 + 1);
+      s.drivers.nopixel = async (_session, emit) => { emit({ status: "unavailable", reasonCode: "channel-not-connected", progress: [], pending: [] }); return { stop: s.stop }; };
+      await s.host.reconcile();
+      expect(s.host.snapshot().nopixel?.status).toBe("unavailable");
+      s.state.sessions.twitch = { platform: "twitch", status: "watching", offlineChecks: 0, watchMode: "tabless", supplementalWatch: { id: "fortnite", tablessOnly: true }, channel: { platform: "twitch", username: "happyhappygal", url: "https://www.twitch.tv/happyhappygal", channelId: "789", live: true } };
+      expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toMatchObject({ id: "fortnite" });
+    });
+
     it("keeps the provider still earning on its channel instead of reprobing another", async () => {
       const s = setup(); s.enableTwitch();
       const now = Date.now(); s.source.now.mockReturnValue(now);
