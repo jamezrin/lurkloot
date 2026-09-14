@@ -866,17 +866,17 @@ describe("scheduler campaign selection", () => {
     expect(listCandidateChannels).not.toHaveBeenCalled();
   });
 
-  it("skips an unlinked Twitch campaign but still farms an unlinked Kick campaign", async () => {
+  it("farms unlinked watch campaigns on both platforms when enabled", async () => {
     const checkChannel = vi.fn(async (candidate: ChannelCandidate) => ({ live: true, categoryMatches: true, candidate }));
 
-    // Twitch cannot earn without a linked account → not selected.
+    // Account linking controls delivery, not watch progress.
     const twitch = await chooseCampaignDecision(
       "twitch",
-      [campaign("tw", { accountLinked: false })],
+      [campaign("tw", { accountLinked: false, eligibility: "account_not_linked" })],
       settings(),
       { listCandidateChannels: vi.fn(async () => [channel("creator")]), checkChannel },
     );
-    expect(twitch.action).toBe("idle");
+    expect(twitch.action).toBe("watch");
 
     // Kick accrues progress before linking, so an unlinked campaign is still farmed.
     const kick = await chooseCampaignDecision(
@@ -1612,7 +1612,7 @@ describe("scheduler tick", () => {
       campaign("farmable"),
     ];
     const twitch = adapter("twitch", rejected, [channel("creator")]);
-    const tickSettings = settings({ platform: { twitch: { enabled: true }, kick: { enabled: false } } });
+    const tickSettings = settings({ farmingEligibility: { farmUnlinkedCampaigns: false, farmSubscriptionCampaigns: true }, platform: { twitch: { enabled: true }, kick: { enabled: false } } });
     const tickAdapters = { twitch, kick: adapter("kick", [], []) };
     const campaignEvaluationFingerprints = {};
 
@@ -1622,12 +1622,12 @@ describe("scheduler tick", () => {
 
     expect(aggregate).toMatchObject({
       platform: "twitch",
-      message: "Campaign farming evaluation: 3 discovered, 1 farmable, 1 completed, 1 Twitch account linking required",
+      message: "Campaign farming evaluation: 3 discovered, 1 farmable, 1 completed, 1 unlinked campaigns disabled",
     });
     expect(details).toEqual([
       expect.objectContaining({
         platform: "twitch",
-        message: "Campaign rejected: linked-required (linked-required), reason=twitch_link_required",
+        message: "Campaign rejected: linked-required (linked-required), reason=unlinked_campaigns_disabled",
       }),
     ]);
 
@@ -1643,7 +1643,7 @@ describe("scheduler tick", () => {
     ]);
     const third = await runSchedulerTick(second.state, tickSettings, tickAdapters, { campaignEvaluationFingerprints });
     expect(third.events).toContainEqual(expect.objectContaining({
-      message: "Campaign farming evaluation: 3 discovered, 0 farmable, 1 completed, 2 Twitch account linking required",
+      message: "Campaign farming evaluation: 3 discovered, 0 farmable, 1 completed, 2 unlinked campaigns disabled",
     }));
   });
 
