@@ -492,6 +492,7 @@ function campaignDetailsFreshnessSpread(dropID: string): number {
 
 export class TwitchDiscoveryState {
   private readonly campaignDetailsByDropId = new Map<string, CachedCampaignDetails>();
+  private readonly accountLinkingDiagnosticFingerprints = new Map<string, string>();
   private readonly availableCampaignsByChannel = new Map<string, CachedAvailableCampaigns>();
   private readonly progressConfirmedAvailabilityByPair = new Map<string, ProgressConfirmedAvailability>();
   private authenticatedUserId?: string;
@@ -536,6 +537,7 @@ export class TwitchDiscoveryState {
       this.availabilityGeneration += 1;
       this.availableCampaignsByChannel.clear();
       this.progressConfirmedAvailabilityByPair.clear();
+      this.accountLinkingDiagnosticFingerprints.clear();
     }
     this.authenticatedUserId = userId;
     return identityChanged;
@@ -553,6 +555,29 @@ export class TwitchDiscoveryState {
       campaignIds,
       expiresAt: Date.now() + DISCOVERY_RETENTION_TTL_MS,
     };
+    const activeIds = new Set(campaignIds);
+    for (const campaignId of this.accountLinkingDiagnosticFingerprints.keys()) {
+      if (!activeIds.has(campaignId)) this.accountLinkingDiagnosticFingerprints.delete(campaignId);
+    }
+  }
+
+  shouldReportAccountLinking(
+    campaignId: string,
+    fingerprint: string,
+    relevant: boolean,
+    requestIdentity: TwitchAvailabilityRequestIdentity,
+  ): boolean {
+    if (requestIdentity.userId !== this.authenticatedUserId
+      || requestIdentity.generation !== this.availabilityGeneration) return false;
+    const previous = this.accountLinkingDiagnosticFingerprints.get(campaignId);
+    if (relevant) {
+      this.accountLinkingDiagnosticFingerprints.set(campaignId, fingerprint);
+      return previous !== fingerprint;
+    }
+    // Report a resolved disagreement once, then allow a future recurrence to
+    // have its own first occurrence. Keep state only for relevant campaigns.
+    this.accountLinkingDiagnosticFingerprints.delete(campaignId);
+    return previous !== undefined && previous !== fingerprint;
   }
 
   retainedDashboardCampaignIds(): string[] {
@@ -1200,17 +1225,25 @@ export class TwitchAdapter implements PlatformAdapter {
       // Surface the relevant API boundary without logging response bodies,
       // viewer identity, credentials, or drop-instance IDs. A progressing watch
       // campaign marked unlinked is useful evidence even if all sources agree.
-      if (!disagrees && !(campaign.accountLinked === false
-        && campaign.rewards.some((reward) => reward.watchedMinutes > 0))) continue;
+      const relevant = disagrees || (campaign.accountLinked === false
+        && campaign.rewards.some((reward) => reward.watchedMinutes > 0));
+      const linkingState = {
+        inventory: { present: Boolean(progress), isAccountConnected: inventoryConnected ?? null, hasAccountLinkUrl: Boolean(progress?.accountLinkURL?.trim()) },
+        dashboard: { present: Boolean(dashboardEntry), isAccountConnected: dashboardConnected ?? null },
+        details: { isAccountConnected: detailConnected ?? null, hasAccountLinkUrl: Boolean(detail?.accountLinkURL?.trim()) },
+        accountLinked: campaign.accountLinked,
+      };
+      // Progress and fresh/cache transitions are context, not linking changes.
+      // Shared discovery state preserves deduplication across adapter rebuilds.
+      if (!this.discoveryState.shouldReportAccountLinking(
+        campaign.id, JSON.stringify(linkingState), relevant, detailsRequestIdentity,
+      )) continue;
       diagnostic(this.emit, "debug", `Twitch account linking reconciliation: ${JSON.stringify({
         campaignId: campaign.id,
         name: campaign.name,
         detailsSource: cachedDetailsByDropId.has(campaign.id) ? "cache"
           : fetchedByDropId.get(campaign.id)?.status === "fulfilled" ? "fresh" : "retained",
-        inventory: { present: Boolean(progress), isAccountConnected: inventoryConnected ?? null, hasAccountLinkUrl: Boolean(progress?.accountLinkURL?.trim()) },
-        dashboard: { present: Boolean(dashboardEntry), isAccountConnected: dashboardConnected ?? null },
-        details: { isAccountConnected: detailConnected ?? null, hasAccountLinkUrl: Boolean(detail?.accountLinkURL?.trim()) },
-        accountLinked: campaign.accountLinked,
+        ...linkingState,
         watchedMinutes: Math.max(0, ...campaign.rewards.map((reward) => reward.watchedMinutes)),
       })}`, "twitch");
     }
