@@ -492,6 +492,7 @@ function campaignDetailsFreshnessSpread(dropID: string): number {
 
 export class TwitchDiscoveryState {
   private readonly campaignDetailsByDropId = new Map<string, CachedCampaignDetails>();
+  private readonly accountLinkingDiagnosticFingerprints = new Map<string, string>();
   private readonly availableCampaignsByChannel = new Map<string, CachedAvailableCampaigns>();
   private readonly progressConfirmedAvailabilityByPair = new Map<string, ProgressConfirmedAvailability>();
   private authenticatedUserId?: string;
@@ -536,6 +537,7 @@ export class TwitchDiscoveryState {
       this.availabilityGeneration += 1;
       this.availableCampaignsByChannel.clear();
       this.progressConfirmedAvailabilityByPair.clear();
+      this.accountLinkingDiagnosticFingerprints.clear();
     }
     this.authenticatedUserId = userId;
     return identityChanged;
@@ -553,6 +555,29 @@ export class TwitchDiscoveryState {
       campaignIds,
       expiresAt: Date.now() + DISCOVERY_RETENTION_TTL_MS,
     };
+    const activeIds = new Set(campaignIds);
+    for (const campaignId of this.accountLinkingDiagnosticFingerprints.keys()) {
+      if (!activeIds.has(campaignId)) this.accountLinkingDiagnosticFingerprints.delete(campaignId);
+    }
+  }
+
+  shouldReportAccountLinking(
+    campaignId: string,
+    fingerprint: string,
+    relevant: boolean,
+    requestIdentity: TwitchAvailabilityRequestIdentity,
+  ): boolean {
+    if (requestIdentity.userId !== this.authenticatedUserId
+      || requestIdentity.generation !== this.availabilityGeneration) return false;
+    const previous = this.accountLinkingDiagnosticFingerprints.get(campaignId);
+    if (relevant) {
+      this.accountLinkingDiagnosticFingerprints.set(campaignId, fingerprint);
+      return previous !== fingerprint;
+    }
+    // Report a resolved disagreement once, then allow a future recurrence to
+    // have its own first occurrence. Keep state only for relevant campaigns.
+    this.accountLinkingDiagnosticFingerprints.delete(campaignId);
+    return previous !== undefined && previous !== fingerprint;
   }
 
   retainedDashboardCampaignIds(): string[] {
@@ -1180,6 +1205,48 @@ export class TwitchAdapter implements PlatformAdapter {
     }
     const parsedDetails = parseTwitchCampaigns(detailedCampaigns as Parameters<typeof parseTwitchCampaigns>[0]);
     const mergedDetails = mergeTwitchCampaignProgress(parsedDetails, inventory as Parameters<typeof mergeTwitchCampaignProgress>[1]);
+    const rawInventory = inventory as Parameters<typeof mergeTwitchCampaignProgress>[1];
+    const inventoryUser = rawInventory.data?.currentUser;
+    const rawInventoryCampaigns = inventoryUser?.inventory?.dropCampaignsInProgress
+      ?? inventoryUser?.inventory?.dropCampaigns
+      ?? inventoryUser?.dropCampaigns
+      ?? [];
+    const rawDetails = detailedCampaigns as Parameters<typeof parseTwitchCampaigns>[0];
+    for (const campaign of mergedDetails) {
+      const detail = rawDetails.find((item) => item.id === campaign.id);
+      const progress = rawInventoryCampaigns.find((item) => item.id === campaign.id);
+      const dashboardEntry = dashboardCampaigns.find((item) => item.id === campaign.id);
+      const inventoryConnected = progress?.self?.isAccountConnected;
+      const detailConnected = detail?.self?.isAccountConnected;
+      const dashboardConnected = dashboardEntry?.self?.isAccountConnected;
+      const connectionStates = [inventoryConnected, detailConnected, dashboardConnected]
+        .filter((value): value is boolean => typeof value === "boolean");
+      const disagrees = connectionStates.includes(true) && connectionStates.includes(false);
+      // Surface the relevant API boundary without logging response bodies,
+      // viewer identity, credentials, or drop-instance IDs. A progressing watch
+      // campaign marked unlinked is useful evidence even if all sources agree.
+      const relevant = disagrees || (campaign.accountLinked === false
+        && campaign.rewards.some((reward) => reward.watchedMinutes > 0));
+      const linkingState = {
+        inventory: { present: Boolean(progress), isAccountConnected: inventoryConnected ?? null, hasAccountLinkUrl: Boolean(progress?.accountLinkURL?.trim()) },
+        dashboard: { present: Boolean(dashboardEntry), isAccountConnected: dashboardConnected ?? null },
+        details: { isAccountConnected: detailConnected ?? null, hasAccountLinkUrl: Boolean(detail?.accountLinkURL?.trim()) },
+        accountLinked: campaign.accountLinked,
+      };
+      // Progress and fresh/cache transitions are context, not linking changes.
+      // Shared discovery state preserves deduplication across adapter rebuilds.
+      if (!this.discoveryState.shouldReportAccountLinking(
+        campaign.id, JSON.stringify(linkingState), relevant, detailsRequestIdentity,
+      )) continue;
+      diagnostic(this.emit, "debug", `Twitch account linking reconciliation: ${JSON.stringify({
+        campaignId: campaign.id,
+        name: campaign.name,
+        detailsSource: cachedDetailsByDropId.has(campaign.id) ? "cache"
+          : fetchedByDropId.get(campaign.id)?.status === "fulfilled" ? "fresh" : "retained",
+        ...linkingState,
+        watchedMinutes: Math.max(0, ...campaign.rewards.map((reward) => reward.watchedMinutes)),
+      })}`, "twitch");
+    }
     const detailedIds = new Set(mergedDetails.map((campaign) => campaign?.id));
     // The Inventory payload omits campaign/reward end dates, so an ended
     // campaign that still has in-progress drops parses as "active". The

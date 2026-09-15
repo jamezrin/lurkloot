@@ -91,6 +91,7 @@ describe("subscription drop popup views", () => {
     const source = campaign("unlinked", [reward({ requiredMinutes: 60, requirement: "watch", isWatchBased: true })]);
     source.accountLinked = false;
     const currentSettings = mergeSettings(undefined);
+    currentSettings.farmingEligibility.farmUnlinkedCampaigns = false;
 
     const view = campaignViewFromCampaign(source, 0, idleSession, false, {
       skipUnfinishableRewards: currentSettings.skipUnfinishableRewards,
@@ -98,7 +99,7 @@ describe("subscription drop popup views", () => {
       settings: currentSettings,
     });
 
-    expect(view.farmingRejection).toEqual({ farmable: false, code: "twitch_link_required" });
+    expect(view.farmingRejection).toEqual({ farmable: false, code: "unlinked_campaigns_disabled" });
   });
 
   it("suppresses a stale rejection explanation while the campaign is actively farming", () => {

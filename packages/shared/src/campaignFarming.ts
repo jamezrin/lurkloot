@@ -82,7 +82,6 @@ export function evaluateCampaignFarming(
   if (campaignHasSubscriptionRewards(campaign) && !settings.farmingEligibility.farmSubscriptionCampaigns) {
     return rejected("subscription_campaigns_disabled");
   }
-  if (campaign.platform === "twitch" && accountUnlinked) return rejected("twitch_link_required");
   if (!campaignPassesCategoryFilter(campaign, settings.platform[campaign.platform])) {
     return rejected("category_filtered");
   }

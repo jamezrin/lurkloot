@@ -97,14 +97,11 @@ export function isRewardFarmableNow(
 export function campaignEligibleClass(campaign: DropCampaign, settings: EngineSettings): boolean {
   if (campaign.status !== "active") return false;
   if (hasCampaignEnded(campaign)) return false;
-  if (campaign.eligibility && campaign.eligibility !== "eligible") return false;
+  if (campaign.eligibility && campaign.eligibility !== "eligible" && campaign.eligibility !== "account_not_linked") return false;
   if (settings.excludedCampaignIds.includes(campaign.id)) return false;
   if (!campaignPassesFarmingEligibility(campaign, settings.farmingEligibility)) return false;
   if (!campaignPassesCategoryFilter(campaign, settings.platform[campaign.platform])) return false;
-  // Twitch cannot earn drops until the account is linked, so an unlinked Twitch
-  // campaign is never farmable regardless of farmUnlinkedCampaigns. Kick DOES
-  // accrue watch progress before linking (the link is only required to claim).
-  if (campaign.platform !== "kick" && campaign.accountLinked === false) return false;
+  // Linking is required for game delivery; the farming flag controls watch eligibility.
   return campaign.rewards.some((reward) => reward.status !== "claimed");
 }
 

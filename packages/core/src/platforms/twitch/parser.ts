@@ -392,7 +392,7 @@ export function mergeTwitchCampaignProgress(
   campaigns: DropCampaign[],
   inventory: TwitchInventory,
 ): DropCampaign[] {
-  const { gameEventDrops, earnedCounts } = inventorySource(inventory);
+  const { campaigns: rawInventoryCampaigns, gameEventDrops, earnedCounts } = inventorySource(inventory);
   const progressCampaigns = parseTwitchInventory(inventory);
   return campaigns.map((campaign) => {
     const progress = progressCampaigns.find((item) => item.id === campaign.id);
@@ -457,7 +457,14 @@ export function mergeTwitchCampaignProgress(
       : progress?.status === "completed"
         ? campaign.status
         : progress?.status ?? campaign.status;
-    return withCampaignStatus({ ...campaign, rewards }, status);
+    const inventoryConnected = rawInventoryCampaigns.find((item) => item.id === campaign.id)?.self?.isAccountConnected;
+    // Inventory is fetched every refresh, whereas details may be cached. Only
+    // an explicit connection field may override details: a URL-less inventory
+    // record parses as linked even when its connection state is absent.
+    const accountLinked = typeof inventoryConnected === "boolean"
+      ? !campaign.accountLinkUrl || inventoryConnected
+      : campaign.accountLinked;
+    return withCampaignStatus({ ...campaign, accountLinked, rewards }, status);
   });
 }
 

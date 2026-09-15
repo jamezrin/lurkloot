@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  campaignEligibleClass,
   campaignFarmable,
   campaignFilterCategories,
   campaignPassesFarmingEligibility,
@@ -165,9 +166,10 @@ describe("campaignFarmable", () => {
     expect(campaignFarmable(c, s)).toBe(false);
   });
 
-  it("is false for an unlinked Twitch campaign even with farmUnlinkedCampaigns on (platform block)", () => {
-    const c = campaign({ platform: "twitch", accountLinked: false });
-    expect(campaignFarmable(c, settings())).toBe(false);
+  it("is true for an unlinked Twitch campaign when farmUnlinkedCampaigns is on", () => {
+    const c = campaign({ platform: "twitch", accountLinked: false, eligibility: "account_not_linked" });
+    expect(campaignFarmable(c, settings())).toBe(true);
+    expect(campaignEligibleClass(c, settings())).toBe(true);
   });
 
   it("is true for an unlinked Kick campaign (no platform block)", () => {

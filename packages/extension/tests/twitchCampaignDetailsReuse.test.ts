@@ -428,3 +428,146 @@ describe("twitch campaign details reuse (#339)", () => {
     });
   });
 });
+
+
+describe("Twitch linking state across cached detail refreshes", () => {
+  function fixture() {
+    const state = {
+      connected: false,
+      detailConnected: false,
+      dashboardConnected: true,
+      watchedMinutes: 21,
+      userId: "user-id",
+      listed: true,
+      detailRequests: 0,
+    };
+    const events: EngineEvent[] = [];
+    const handle = (body: { operationName: string }) => {
+      if (body.operationName === "Inventory") return {
+        data: { currentUser: { id: state.userId, inventory: { dropCampaignsInProgress: state.listed ? [{
+          id: "a",
+          self: { isAccountConnected: state.connected },
+          timeBasedDrops: [{ id: "a-drop", requiredMinutesWatched: 60, self: { currentMinutesWatched: state.watchedMinutes } }],
+        }] : [] } } },
+      };
+      if (body.operationName === "ViewerDropsDashboard") return {
+        data: { currentUser: { id: state.userId, login: "viewer", dropCampaigns: state.listed ? [{
+          id: "a", status: "ACTIVE", self: { isAccountConnected: state.dashboardConnected },
+        }] : [] } },
+      };
+      if (body.operationName === "DropCampaignDetails") {
+        state.detailRequests += 1;
+        const response = details("a") as { data: { dropCampaign: Record<string, unknown> } };
+        response.data.dropCampaign.accountLinkURL = "https://account.wbgames.com/connect/twitch";
+        response.data.dropCampaign.self = { isAccountConnected: state.detailConnected };
+        return response;
+      }
+      throw new Error(`Unexpected operation ${body.operationName}`);
+    };
+    const fetcher: PageFetcher = {
+      fetchJson: vi.fn(async (_url: string, init?: RequestInit) => {
+        const body = JSON.parse(String(init?.body));
+        return Array.isArray(body) ? body.map(handle) : handle(body);
+      }) as PageFetcher["fetchJson"],
+    };
+    const discoveryState = new TwitchDiscoveryState();
+    return {
+      state,
+      discoveryState,
+      // Reconstruct the adapter every refresh, as the extension does.
+      refresh: () => twitchAdapter(fetcher, undefined, undefined, { discoveryState }, (event) => events.push(event)).refreshCampaigns(),
+      reports: () => events.flatMap((event) => event.category === "diagnostic"
+        && event.message.startsWith("Twitch account linking reconciliation: ")
+        ? [JSON.parse(event.message.slice("Twitch account linking reconciliation: ".length))]
+        : []),
+    };
+  }
+
+  it("updates linking from inventory and reports the raw source disagreement", async () => {
+    const { state, refresh, reports } = fixture();
+    const first = await refresh();
+    expect(first[0].accountLinked).toBe(false);
+    state.connected = true;
+    const second = await refresh();
+    expect(second[0]).toMatchObject({ accountLinked: true, eligibility: "eligible" });
+    expect(state.detailRequests).toBe(1);
+    expect(reports().at(-1)).toMatchObject({
+      detailsSource: "cache",
+      inventory: { present: true, isAccountConnected: true },
+      dashboard: { present: true, isAccountConnected: true },
+      details: { isAccountConnected: false },
+      accountLinked: true,
+      watchedMinutes: 21,
+    });
+  });
+
+  it("suppresses unchanged linking reports across adapter rebuilds, progress and cache changes", async () => {
+    const { state, refresh, reports, discoveryState } = fixture();
+    await refresh();
+    expect(reports()).toHaveLength(1);
+    state.watchedMinutes = 22;
+    await refresh();
+    discoveryState.expireCampaignDetailsFreshness("a");
+    state.watchedMinutes = 23;
+    await refresh();
+    expect(reports()).toHaveLength(1);
+  });
+
+  it("reports changed linking values, resolution, and a recurring disagreement", async () => {
+    const { state, refresh, reports, discoveryState } = fixture();
+    await refresh();
+    state.connected = true;
+    await refresh();
+    expect(reports()).toHaveLength(2);
+    state.detailConnected = true;
+    discoveryState.expireCampaignDetailsFreshness("a");
+    await refresh();
+    expect(reports()).toHaveLength(3);
+    expect(reports().at(-1)).toMatchObject({
+      inventory: { isAccountConnected: true },
+      details: { isAccountConnected: true },
+      dashboard: { isAccountConnected: true },
+      accountLinked: true,
+    });
+    await refresh();
+    expect(reports()).toHaveLength(3);
+    state.connected = false;
+    await refresh();
+    expect(reports()).toHaveLength(4);
+    await refresh();
+    expect(reports()).toHaveLength(4);
+  });
+
+  it("reports watch progress on an unlinked campaign once when all sources agree", async () => {
+    const { state, refresh, reports } = fixture();
+    state.dashboardConnected = false;
+    state.watchedMinutes = 0;
+    await refresh();
+    expect(reports()).toHaveLength(0);
+    state.watchedMinutes = 1;
+    await refresh();
+    state.watchedMinutes = 2;
+    await refresh();
+    expect(reports()).toHaveLength(1);
+    expect(reports()[0]).toMatchObject({ accountLinked: false, watchedMinutes: 1 });
+  });
+
+  it("reports the first occurrence again after a Twitch identity switch", async () => {
+    const { state, refresh, reports } = fixture();
+    await refresh();
+    await refresh();
+    state.userId = "other-user";
+    await refresh();
+    expect(reports()).toHaveLength(2);
+  });
+
+  it("forgets reports for campaigns removed from a successful dashboard", async () => {
+    const { state, refresh, reports } = fixture();
+    await refresh();
+    state.listed = false;
+    await refresh();
+    state.listed = true;
+    await refresh();
+    expect(reports()).toHaveLength(2);
+  });
+});
