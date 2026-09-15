@@ -74,6 +74,8 @@ export function formatCliEvent(event: EngineEvent): string {
   if (event.category === "diagnostic") return event.message;
 
   switch (event.code) {
+    case "twitch_extension_action":
+      return `${event.data.provider} ${event.data.action} on ${event.data.channel}`;
     case "farming_started":
       return `Started farming ${event.data.rewardName} from ${event.data.campaignName}`;
     case "farming_stopped":
