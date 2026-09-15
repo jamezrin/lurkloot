@@ -295,6 +295,29 @@ export default defineBackground(() => {
 
   browser.alarms.onAlarm.addListener(createBackgroundAlarmListener(controller));
 
+  async function reconsiderTab(tabId: number, url: string | undefined): Promise<void> {
+    if (!url) return;
+    await controller.handleTabUpdated(tabId, url);
+    // Ask for current playback rather than interpreting a platform URL as watching.
+    try {
+      const parsed = new URL(url);
+      if (!["twitch.tv", "www.twitch.tv", "kick.com", "www.kick.com"].includes(parsed.hostname)) return;
+      await browser.tabs.sendMessage(tabId, { type: "requestPlaybackTelemetry" });
+    } catch {
+      // A newly opened/navigating tab may not have its content script yet.
+      // Its initial report and periodic telemetry cover that case.
+    }
+  }
+
+  browser.tabs.onCreated.addListener((tab) => {
+    if (tab.id != null) void reconsiderTab(tab.id, tab.pendingUrl ?? tab.url);
+  });
+  browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    if (changeInfo.url || changeInfo.status === "complete") {
+      void reconsiderTab(tabId, changeInfo.url ?? tab.url);
+    }
+  });
+
   browser.tabs.onRemoved.addListener((tabId) => {
     void controller.handleTabRemoved(tabId);
   });
