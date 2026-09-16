@@ -2,6 +2,8 @@
 
 Issue [#548](https://github.com/jamezrin/lurkloot/issues/548) covers priority between watch sources. Campaign/category ranking and the order of channels inside the Idle Watchlist remain separate.
 
+Implemented in [PR #556](https://github.com/jamezrin/lurkloot/pull/556).
+
 Each platform has `platform[platform].watchSourcePriority`. Twitch defaults to Drops → NoPixelV → Fortnite → Idle Watchlist. Kick defaults to Drops → Idle Watchlist. Settings offers source-named up/down buttons and a per-platform reset. Disabled or ungranted providers remain orderable and yield at selection time. Saving an order requests a tick for that platform.
 
 ## Decisions made autonomously

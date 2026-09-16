@@ -42,6 +42,8 @@ Interface: append optional `source?: WatchSourceId` to the supplemental selector
 - [x] Run `pnpm verify` and `pnpm build:cli`.
 - [x] Use Playwright (Browser plugin absent) for compiled popup reorder/reset/search and keyboard checks at popup/narrow viewports; capture screenshots outside temporary code, publish useful PR evidence.
 - [x] Update implementation decisions and validation documentation.
-- [ ] Commit Conventionally, push, and open a separate PR with dependency on #541 and link #548. Replan the issue, inspect CI and address task-related failures.
+- [x] Commit Conventionally, push, and open a separate PR with dependency on #541 and link #548. Replan the issue.
+
+Delivered as [PR #556](https://github.com/jamezrin/lurkloot/pull/556), targeting #541's branch. [Issue #548](https://github.com/jamezrin/lurkloot/issues/548) now records the Twitch/Kick scope and resolved decisions. GitHub validation and build results are tracked on the PR; inspect them and address task-related failures before handoff.
 
 Final local evidence: `pnpm verify` passed all workspace typechecks, 2,260 extension tests, 199 CLI tests, tooling/site tests and both browser builds. CLI build and release-version check passed. Compiled-popup reorder/persistence/reset/search/focus, Arabic RTL, dark mode and overflow/error checks passed. Four material engine review findings were reproduced and fixed with regression coverage; final independent reviews have no remaining material findings. Screenshots and autonomous decisions are in `docs/watch-source-priority.md`.
