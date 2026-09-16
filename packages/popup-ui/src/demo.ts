@@ -93,6 +93,7 @@ function demoSnapshot(): RuntimeSnapshot {
     platform: {
       twitch: {
         enabled: true,
+        watchSourcePriority: [...DEFAULT_SETTINGS.platform.twitch.watchSourcePriority],
         idleWatchlistChannels: ["rivalspilot", "lootforge", "nightrunlive"],
         excludedChannels: ["spoilerboss"],
         strictCampaignAvailability: false,
@@ -107,6 +108,7 @@ function demoSnapshot(): RuntimeSnapshot {
       },
       kick: {
         enabled: true,
+        watchSourcePriority: [...DEFAULT_SETTINGS.platform.kick.watchSourcePriority],
         idleWatchlistChannels: ["greenroomgg", "pixelboost"],
         excludedChannels: [],
         // Exercises the inverse mode alongside Twitch's include list: Kick

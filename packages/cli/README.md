@@ -36,11 +36,26 @@ warning per command; use the global `--log debug|info|warn|error` option instead
 option is its sole event filter.
 
 Supported `settings` keys: `autoClaim`, `autoClaimChannelPoints`, `priorityMode`,
-`campaignPriorities`, `excludedCampaignIds`, `idleWatchlistFallbackOnly`,
+`campaignPriorities`, `excludedCampaignIds`,
 `preferKnownChannels`, `offlineRetryLimit`, `pollIntervalMinutes`,
 `notifyRewardEarned`, `notifyNoDropsLeft`, `farmingEligibility`, and per-platform
-`enabled`, `idleWatchlistChannels`, `excludedChannels`, `categoryMode`,
+`enabled`, `watchSourcePriority`, `idleWatchlistChannels`, `excludedChannels`, `categoryMode`,
 `categories`.
+
+`watchSourcePriority` selects the first eligible watch source independently for
+each platform. Twitch defaults to `["drops", "nopixel", "fortnite", "idle_watchlist"]`;
+Kick defaults to `["drops", "idle_watchlist"]`. Reorder the array to prefer a
+source, including while already watching. Unknown, duplicate and wrong-platform
+entries are discarded; missing sources append in their default order. Idle
+Watchlist keeps its own channel order. Excluded drop channels also apply to
+supplemental providers; explicitly listed Idle Watchlist channels remain allowed.
+The CLI currently has no NoPixelV or Fortnite provider, so those
+sources yield to the next eligible source even when placed first.
+
+The deprecated `idleWatchlistFallbackOnly` field remains accepted for existing
+configs. When a platform has no explicit priority and that field is `false`, it
+migrates to Idle Watchlist first. An explicit priority always wins, and the
+generated config uses the per-platform arrays.
 
 `categoryMode` is `"all"` (farm every category), `"include"` (farm only the
 categories in `categories`, whose order also sets category priority) or

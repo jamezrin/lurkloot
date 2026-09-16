@@ -159,16 +159,16 @@
     "message": "在 twitch.tv 和 kick.com 上添加 Lurkloot 按钮，点击后可在页面内打开此弹窗。"
   },
   "tipCampaignPriority": {
-    "message": "默认优先挂机获取掉宝，再观看备用观看列表中的频道。拖动活动旁的拖动柄即可调整挂机顺序。"
+    "message": "拖动手柄可调整掉宝活动的顺序。在平台设置中选择优先观看的来源。"
   },
   "tipMissingCampaigns": {
     "message": "找不到某个掉宝活动？请先查看相应平台的掉宝库存，再检查设置中的活动筛选条件。"
   },
   "tipCategorySelection": {
-    "message": "只想挂机特定游戏？请在平台设置中关闭“挂机所有分类”，再选择所需分类。"
+    "message": "使用平台设置中的分类筛选，仅包含所选游戏或排除不想观看的游戏。"
   },
   "tipIdleWatchlist": {
-    "message": "默认优先挂机获取掉宝；没有符合条件的掉宝时，会自动观看备用观看列表中的频道。"
+    "message": "在平台设置中调整观看来源优先级，选择何时观看待机列表中的频道。"
   },
   "tipTablessMode": {
     "message": "无标签页模式占用更少资源，必要时会改用静音标签页。"
@@ -452,12 +452,6 @@
   "idleWatchlistSettingsDescription": {
     "message": "没有符合条件的掉宝时使用的备用频道。"
   },
-  "idleWatchlistFallbackOnlyTitle": {
-    "message": "掉宝优先于备用观看列表"
-  },
-  "idleWatchlistFallbackOnlyDescription": {
-    "message": "一旦有符合条件的掉宝可挂机，便停止观看备用频道。关闭此选项后，会继续观看当前备用频道，直到其下播。"
-  },
   "preferKnownChannelsTitle": {
     "message": "优先选择已关注和备用观看列表中的频道"
   },
@@ -555,10 +549,10 @@
     "message": "高级与兼容性"
   },
   "twitchSectionDescription": {
-    "message": "频道积分、分类筛选、排除的频道以及 Twitch 兼容性。"
+    "message": "观看来源优先级、频道点数、分类、排除的频道及 Twitch 兼容性。"
   },
   "kickSectionDescription": {
-    "message": "每日挑战、分类筛选、排除的频道以及 Kick 兼容性。"
+    "message": "观看来源优先级、每日挑战、分类、排除的频道及 Kick 兼容性。"
   },
   "twitchAdvancedDescription": {
     "message": "活动可用性，以及 Lurkloot 使用的心跳和库存传输方式。仅在 Twitch 无法正常工作时才更改。"
@@ -1525,5 +1519,38 @@
   },
   "activityExtensionPackOpened": {
     "message": "$1 在 $2 打开了一个卡包"
+  },
+  "watchSourcePriorityTitle": {
+    "message": "观看来源优先级"
+  },
+  "watchSourcePriorityDescription": {
+    "message": "观看第一个可用来源。已禁用或不可用的来源会被跳过。"
+  },
+  "watchSourcePriorityMoveUp": {
+    "message": "上移$1"
+  },
+  "watchSourcePriorityMoveDown": {
+    "message": "下移$1"
+  },
+  "watchSourcePriorityReset": {
+    "message": "重置优先级"
+  },
+  "watchSourcePriorityMoved": {
+    "message": "$1的优先级现为$2。"
+  },
+  "watchSourcePriorityResetDone": {
+    "message": "观看来源优先级已重置。"
+  },
+  "watchSourceDrops": {
+    "message": "掉宝"
+  },
+  "watchSourceIdleWatchlist": {
+    "message": "待机观看列表"
+  },
+  "watchSourceNoPixel": {
+    "message": "NoPixelV"
+  },
+  "watchSourceFortnite": {
+    "message": "Fortnite"
   }
 }

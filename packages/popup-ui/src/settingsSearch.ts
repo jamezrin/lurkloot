@@ -37,6 +37,8 @@ export interface SettingsEntryNode {
   // user actually sees, and a query for that word finds nothing.
   titleSubstitution?: string;
   descriptionSubstitution?: string;
+  // Localized source names and other visible editor labels are searchable too.
+  searchKeys?: readonly string[];
 }
 
 export interface SettingsGroupNode<TEntry extends SettingsEntryNode = SettingsEntryNode> {
@@ -59,7 +61,7 @@ export interface FilterOptions {
 }
 
 function entryText(entry: SettingsEntryNode, t: TranslateFn): string[] {
-  return [t(entry.titleKey, entry.titleSubstitution), t(entry.descriptionKey, entry.descriptionSubstitution)];
+  return [t(entry.titleKey, entry.titleSubstitution), t(entry.descriptionKey, entry.descriptionSubstitution), ...(entry.searchKeys ?? []).map((key) => t(key))];
 }
 
 // An advanced entry is reachable in exactly two situations: the user asked for

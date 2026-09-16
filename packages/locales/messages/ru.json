@@ -159,16 +159,16 @@
     "message": "Добавляет кнопку Lurkloot на twitch.tv и kick.com, которая открывает это окно в виде панели на странице."
   },
   "tipCampaignPriority": {
-    "message": "Drops имеют приоритет над списком. Перетаскивайте кампании за ручку, чтобы задать порядок."
+    "message": "Перетаскивайте кампании за ручку, чтобы изменить порядок Drops. Выберите приоритетный источник в настройках платформы."
   },
   "tipMissingCampaigns": {
     "message": "Нет кампании? Проверьте инвентарь Drops платформы и фильтры в настройках."
   },
   "tipCategorySelection": {
-    "message": "Нужны только отдельные игры? Отключите «Фармить все категории» и выберите категории."
+    "message": "Используйте фильтр категорий платформы, чтобы включить только выбранные игры или исключить ненужные."
   },
   "tipIdleWatchlist": {
-    "message": "Список фармит выбранные каналы, когда нет доступных Drops."
+    "message": "Выберите, когда смотреть каналы списка ожидания, изменив приоритет источников в настройках платформы."
   },
   "tipTablessMode": {
     "message": "Режим без вкладок экономит ресурсы и при необходимости открывает вкладку без звука."
@@ -452,12 +452,6 @@
   "idleWatchlistSettingsDescription": {
     "message": "Общее поведение резервного списка."
   },
-  "idleWatchlistFallbackOnlyTitle": {
-    "message": "Отдавать приоритет drops перед списком просмотра в простое"
-  },
-  "idleWatchlistFallbackOnlyDescription": {
-    "message": "Покидает канал из списка просмотра в простое, как только появляется подходящий drop. Если выключено, продолжает смотреть его, пока он не уйдёт офлайн."
-  },
   "preferKnownChannelsTitle": {
     "message": "Отдавать предпочтение подписанным каналам и списку просмотра в простое"
   },
@@ -555,10 +549,10 @@
     "message": "Дополнительно и совместимость"
   },
   "twitchSectionDescription": {
-    "message": "Баллы канала, фильтр категорий, исключённые каналы и совместимость с Twitch."
+    "message": "Приоритет источников, баллы канала, категории, исключённые каналы и совместимость Twitch."
   },
   "kickSectionDescription": {
-    "message": "Ежедневные задания, фильтр категорий, исключённые каналы и совместимость с Kick."
+    "message": "Приоритет источников, ежедневные испытания, категории, исключённые каналы и совместимость Kick."
   },
   "twitchAdvancedDescription": {
     "message": "Доступность кампаний, а также транспорты сигналов и инвентаря, которые использует Lurkloot. Меняйте их, только если Twitch перестал работать."
@@ -1525,5 +1519,38 @@
   },
   "activityExtensionPackOpened": {
     "message": "$1 открыл набор карт на $2"
+  },
+  "watchSourcePriorityTitle": {
+    "message": "Приоритет источников"
+  },
+  "watchSourcePriorityDescription": {
+    "message": "Просматривается первый доступный источник. Отключённые и недоступные источники пропускаются."
+  },
+  "watchSourcePriorityMoveUp": {
+    "message": "Поднять $1"
+  },
+  "watchSourcePriorityMoveDown": {
+    "message": "Опустить $1"
+  },
+  "watchSourcePriorityReset": {
+    "message": "Сбросить приоритет"
+  },
+  "watchSourcePriorityMoved": {
+    "message": "$1 теперь имеет приоритет $2."
+  },
+  "watchSourcePriorityResetDone": {
+    "message": "Приоритет источников сброшен."
+  },
+  "watchSourceDrops": {
+    "message": "Drops"
+  },
+  "watchSourceIdleWatchlist": {
+    "message": "Список ожидания"
+  },
+  "watchSourceNoPixel": {
+    "message": "NoPixelV"
+  },
+  "watchSourceFortnite": {
+    "message": "Fortnite"
   }
 }

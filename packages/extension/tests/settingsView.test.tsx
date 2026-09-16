@@ -50,8 +50,15 @@ const labels: Record<string, string> = {
   campaignPriorityDescription: "How campaigns are chosen to farm.",
   preferKnownChannelsTitle: "Prefer followed and Idle Watchlist channels",
   preferKnownChannelsDescription: "Picks a channel you know over an unfamiliar one.",
-  idleWatchlistFallbackOnlyTitle: "Only when no drops are active",
-  idleWatchlistFallbackOnlyDescription: "Preserves drop priority automatically.",
+  watchSourcePriorityTitle: "Watch-source priority",
+  watchSourcePriorityDescription: "The first available source is watched. Disabled or unavailable sources are skipped.",
+  watchSourcePriorityMoveUp: "Move $1 up",
+  watchSourcePriorityMoveDown: "Move $1 down",
+  watchSourcePriorityReset: "Reset priority",
+  watchSourceDrops: "Drops",
+  watchSourceNoPixel: "NoPixelV",
+  watchSourceFortnite: "Fortnite",
+  watchSourceIdleWatchlist: "Idle Watchlist",
   farmUnlinkedTitle: "Farm campaigns without a linked account",
   farmUnlinkedDescription: "When off, campaigns that need you to link your account are skipped.",
   farmSubscriptionTitle: "Farm campaigns that require a subscription",
@@ -138,7 +145,10 @@ describe("deadline feasibility setting", () => {
       root = createRoot(container);
       root.render(
         <PopupRuntimeContext.Provider value={{ adapter, preview: true }}>
-          <I18nContext.Provider value={{ t: (key) => labels[key] ?? key, dir: "ltr", locale: "en" }}>
+          <I18nContext.Provider value={{ t: (key, substitution) => {
+            const values = Array.isArray(substitution) ? substitution : substitution === undefined ? [] : [substitution];
+            return values.reduce((text, value, index) => text.replaceAll(`$${index + 1}`, value), labels[key] ?? key);
+          }, dir: "ltr", locale: "en" }}>
             <SettingsView
               suggestions={{ twitch: [], kick: [] }}
               onSearchCategories={async () => []}
@@ -314,15 +324,15 @@ describe("deadline feasibility setting", () => {
     expect(chip.getAttribute("aria-pressed")).toBe("false");
   });
 
-  it("reconciles all platforms after changing Idle Watchlist fallback policy", () => {
+  it("reconciles the chosen platform after changing watch-source priority", () => {
     const { container, onSettingsChange } = mountSettings();
-    const toggle = container.querySelector('[role="switch"][aria-label="Only when no drops are active"]') as HTMLButtonElement;
+    const button = container.querySelector('button[aria-label="Move NoPixelV up"]') as HTMLButtonElement;
 
-    act(() => toggle.click());
+    act(() => button.click());
 
     expect(onSettingsChange).toHaveBeenCalledWith(
-      { idleWatchlistFallbackOnly: false },
-      { tickAfterSave: true },
+      { platform: { twitch: { watchSourcePriority: ["nopixel", "drops", "fortnite", "idle_watchlist"] } } },
+      { tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] },
     );
   });
 

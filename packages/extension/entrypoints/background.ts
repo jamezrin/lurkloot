@@ -210,7 +210,7 @@ const controller = createBackgroundController<ExtensionSettings>({
   discardPageContextRecoveryEvidence: (platform) => {
     if (platform === "kick") kickPageContextRecovery.discard();
   },
-  selectSupplementalWatchTarget: (platform, state, settings, signal) => platform === "twitch" ? extensionHost.chooseWatchTarget(settings, state, signal) : Promise.resolve(undefined),
+  selectSupplementalWatchTarget: (platform, state, settings, signal, source) => platform === "twitch" ? extensionHost.chooseWatchTarget(settings, state, signal, source) : Promise.resolve(undefined),
   createAdapter: createExtensionAdapter,
   createAdapters: (emit, settings) => {
     const twitch = createExtensionAdapter("twitch", emit, settings);

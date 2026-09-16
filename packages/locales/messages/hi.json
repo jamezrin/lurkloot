@@ -159,16 +159,16 @@
     "message": "twitch.tv और kick.com पर एक Lurkloot बटन जोड़ता है जो इस पॉपअप को पेज पर एक पैनल में खोलता है।"
   },
   "tipCampaignPriority": {
-    "message": "Drops को निष्क्रिय वॉचलिस्ट पर प्राथमिकता मिलती है। क्रम तय करने के लिए कैंपेन को ग्रिप से खींचें।"
+    "message": "ड्रॉप्स में अभियान का क्रम बदलने के लिए हैंडल से खींचें। प्लेटफ़ॉर्म सेटिंग्स में पहला स्रोत चुनें।"
   },
   "tipMissingCampaigns": {
     "message": "कैंपेन नहीं दिख रहा? प्लेटफ़ॉर्म की Drops इन्वेंट्री और सेटिंग्स के फ़िल्टर जाँचें।"
   },
   "tipCategorySelection": {
-    "message": "सिर्फ़ कुछ गेम चाहिए? ‘सभी श्रेणियाँ फ़ार्म करें’ बंद करके श्रेणियाँ चुनें।"
+    "message": "प्लेटफ़ॉर्म सेटिंग्स के श्रेणी फ़िल्टर से केवल चुने हुए गेम शामिल करें या अनचाहे गेम हटाएँ।"
   },
   "tipIdleWatchlist": {
-    "message": "योग्य Drops न होने पर निष्क्रिय वॉचलिस्ट चुने हुए चैनल फ़ार्म करती है।"
+    "message": "प्लेटफ़ॉर्म सेटिंग्स में स्रोतों की प्राथमिकता बदलकर चुनें कि निष्क्रिय वॉचलिस्ट के चैनल कब देखे जाएँ।"
   },
   "tipTablessMode": {
     "message": "टैबलेस मोड कम संसाधन इस्तेमाल करता है और ज़रूरत पर म्यूट टैब खोलता है।"
@@ -452,12 +452,6 @@
   "idleWatchlistSettingsDescription": {
     "message": "साझा फ़ॉलबैक वॉचलिस्ट व्यवहार।"
   },
-  "idleWatchlistFallbackOnlyTitle": {
-    "message": "निष्क्रिय वॉचलिस्ट से पहले drops को प्राथमिकता दें"
-  },
-  "idleWatchlistFallbackOnlyDescription": {
-    "message": "कोई योग्य drop उपलब्ध होते ही निष्क्रिय वॉचलिस्ट चैनल छोड़ देता है। बंद होने पर, चैनल के ऑफ़लाइन होने तक उसे देखता रहता है।"
-  },
   "preferKnownChannelsTitle": {
     "message": "फ़ॉलो किए गए और निष्क्रिय वॉचलिस्ट चैनलों को प्राथमिकता दें"
   },
@@ -555,10 +549,10 @@
     "message": "उन्नत और संगतता"
   },
   "twitchSectionDescription": {
-    "message": "चैनल पॉइंट, श्रेणी फ़िल्टर, बाहर रखे गए चैनल और Twitch संगतता।"
+    "message": "स्रोतों की प्राथमिकता, चैनल पॉइंट्स, श्रेणियाँ, बाहर किए गए चैनल और Twitch अनुकूलता।"
   },
   "kickSectionDescription": {
-    "message": "दैनिक चुनौतियाँ, श्रेणी फ़िल्टर, बाहर रखे गए चैनल और Kick संगतता।"
+    "message": "स्रोतों की प्राथमिकता, दैनिक चुनौतियाँ, श्रेणियाँ, बाहर किए गए चैनल और Kick अनुकूलता।"
   },
   "twitchAdvancedDescription": {
     "message": "अभियान उपलब्धता, साथ ही Lurkloot द्वारा उपयोग किए जाने वाले हार्टबीट और इन्वेंटरी ट्रांसपोर्ट। इन्हें तभी बदलें जब Twitch काम करना बंद कर दे।"
@@ -1525,5 +1519,38 @@
   },
   "activityExtensionPackOpened": {
     "message": "$1 ने $2 पर कार्ड पैक खोला"
+  },
+  "watchSourcePriorityTitle": {
+    "message": "देखने के स्रोतों की प्राथमिकता"
+  },
+  "watchSourcePriorityDescription": {
+    "message": "पहला उपलब्ध स्रोत देखा जाता है। बंद या अनुपलब्ध स्रोत छोड़ दिए जाते हैं।"
+  },
+  "watchSourcePriorityMoveUp": {
+    "message": "$1 को ऊपर करें"
+  },
+  "watchSourcePriorityMoveDown": {
+    "message": "$1 को नीचे करें"
+  },
+  "watchSourcePriorityReset": {
+    "message": "प्राथमिकता रीसेट करें"
+  },
+  "watchSourcePriorityMoved": {
+    "message": "$1 अब प्राथमिकता $2 पर है।"
+  },
+  "watchSourcePriorityResetDone": {
+    "message": "देखने के स्रोतों की प्राथमिकता रीसेट हुई।"
+  },
+  "watchSourceDrops": {
+    "message": "ड्रॉप्स"
+  },
+  "watchSourceIdleWatchlist": {
+    "message": "निष्क्रिय वॉचलिस्ट"
+  },
+  "watchSourceNoPixel": {
+    "message": "NoPixelV"
+  },
+  "watchSourceFortnite": {
+    "message": "Fortnite"
   }
 }

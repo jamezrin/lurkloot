@@ -1,8 +1,9 @@
 import { discoverTwitchExtensionChannels } from "@lurkloot/core/extensions/discovery";
 import { MANUAL_WATCH_TTL_MS } from "@lurkloot/core/scheduler";
 import { twitchExtensionProviders } from "@lurkloot/core/extensions/registry";
-import type { ChannelCandidate, ExtensionSettings, SchedulerState, SupplementalWatchTarget, TwitchExtensionProviderId, TwitchExtensionSummary } from "@lurkloot/shared/models";
+import type { ChannelCandidate, ExtensionSettings, SchedulerState, SupplementalWatchTarget, TwitchExtensionProviderId, TwitchExtensionSummary, WatchSourceId } from "@lurkloot/shared/models";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
+import { normalizeWatchSourcePriority } from "@lurkloot/shared/watchSources";
 import { createProviderPermissions, type ProviderPermissionPort } from "./permissions";
 import { createTwitchExtensionRuntime, type TwitchExtensionDriverFactory, type TwitchExtensionTarget } from "./runtime";
 import type { SessionSource } from "./session";
@@ -23,6 +24,11 @@ export function createTwitchExtensionHost(options: {
   // reprobe so new packs/giveaways and daily resets cannot be starved by the
   // other provider. Thirty minutes avoids switching on every scheduler tick.
   const knownComplete = new Map<TwitchExtensionProviderId, number>();
+  const activeReprobes = new Set<TwitchExtensionProviderId>();
+  const unavailableUntil = new Map<string, number>();
+  const completionDeadline = (id: TwitchExtensionProviderId, now: number, delay: number) => id === "nopixel"
+    ? Math.min(now + delay, (Math.floor(now / 86_400_000) + 1) * 86_400_000)
+    : now + delay;
   let lastCompletedNoPixelChannel: string | undefined;
   const summaries: Partial<Record<TwitchExtensionProviderId, TwitchExtensionSummary>> = {};
   let channel: { username: string; displayName?: string } | undefined;
@@ -35,15 +41,20 @@ export function createTwitchExtensionHost(options: {
       if (id === "nopixel" && report.status === "complete" && channel) lastCompletedNoPixelChannel = channel.username;
       if (report.status === "complete") {
         const now = options.source.now();
-        const nextDay = (Math.floor(now / 86_400_000) + 1) * 86_400_000;
-        knownComplete.set(id, id === "nopixel" ? Math.min(now + 30 * 60_000, nextDay) : now + 30 * 60_000);
+        knownComplete.set(id, completionDeadline(id, now, 30 * 60_000));
       } else if (report.status === "farming") knownComplete.delete(id);
-      else if ((report.status === "error" || report.status === "unavailable") && knownComplete.has(id)) {
+      else if ((report.status === "error" || report.status === "unavailable") && activeReprobes.has(id)) {
         // A failed due reprobe consumes its turn too; it must not repeatedly
         // evict another earning provider while walking unavailable channels.
-        knownComplete.set(id, options.source.now() + 30 * 60_000);
+        knownComplete.set(id, completionDeadline(id, options.source.now(), 30 * 60_000));
       }
-      if (report.status === "complete" && (completedUntil.get(id) ?? 0) <= options.source.now()) completedUntil.set(id, options.source.now() + 5 * 60_000);
+      if (["complete", "farming", "error", "unavailable"].includes(report.status)) activeReprobes.delete(id);
+      if (report.status === "complete" && (completedUntil.get(id) ?? 0) <= options.source.now()) completedUntil.set(id, completionDeadline(id, options.source.now(), 5 * 60_000));
+      if ((report.status === "error" || report.status === "unavailable") && channel) {
+        // Start cooldown from the observed failure once. Re-reading an old
+        // summary during selection must not renew it and starve this channel.
+        unavailableUntil.set(`${id}:${channel.username.toLowerCase()}`, options.source.now() + 5 * 60_000);
+      }
       summaries[id] = { ...report, ...(channel ? { channel: { ...channel } } : {}), updatedAt: new Date(options.source.now()).toISOString() };
       if ((report.status === "error" || report.status === "unavailable")
         && (previous?.status !== report.status || previous.reasonCode !== report.reasonCode || previous.channel?.username !== channel?.username)) {
@@ -65,45 +76,45 @@ export function createTwitchExtensionHost(options: {
     },
     enabled: async (id) => (await options.loadSettings()).twitchExtensions[id].enabled,
     setEnabled: async (id, enabled) => options.savePatch({ twitchExtensions: { [id]: { enabled } } }),
-    clearTransientState: async (id) => { delete summaries[id]; completedUntil.delete(id); knownComplete.delete(id); if (id === "nopixel") lastCompletedNoPixelChannel = undefined; },
+    clearTransientState: async (id) => {
+      delete summaries[id];
+      completedUntil.delete(id);
+      knownComplete.delete(id);
+      activeReprobes.delete(id);
+      discovery.delete(id);
+      for (const key of unavailableUntil.keys()) if (key.startsWith(`${id}:`)) unavailableUntil.delete(key);
+      if (id === "nopixel") lastCompletedNoPixelChannel = undefined;
+    },
   });
   const discovery = new Map<TwitchExtensionProviderId, { channels: ChannelCandidate[]; expiresAt: number; pending?: Promise<ChannelCandidate[]> }>();
-  const unavailableUntil = new Map<string, number>();
-  async function chooseWatchTarget(settings: ExtensionSettings, state: SchedulerState, signal?: AbortSignal): Promise<SupplementalWatchTarget | undefined> {
+  async function chooseWatchTarget(settings: ExtensionSettings, state: SchedulerState, signal?: AbortSignal, source?: WatchSourceId): Promise<SupplementalWatchTarget | undefined> {
     const selectedGeneration = generation;
     for (const [key, until] of unavailableUntil) if (until <= options.source.now()) unavailableUntil.delete(key);
     const manual = state.manualWatch?.twitch;
     if (!settings.platform.twitch.enabled || state.authHealth.twitch.status !== "healthy" || state.manualClosePause?.twitch
       || settings.pauseOnManualWatch && manual?.active && options.source.now() - Date.parse(manual.checkedAt) < MANUAL_WATCH_TTL_MS) return;
-    // The provider already holding the session keeps it while it is still
-    // earning; a completed provider must not evict it for a reprobe. Among the
-    // rest, providers not known complete are tried before completed ones.
+    // User order governs selection between providers. Retain an earning
+    // provider's current channel only within that source, after higher sources
+    // have yielded. Completion deadlines apply even without an earning holder.
     const session = state.sessions.twitch;
     const holderId = session.status === "watching" ? session.supplementalWatch?.id : undefined;
     const holderSummary = holderId ? summaries[holderId as TwitchExtensionProviderId] : undefined;
     const nowForRanking = options.source.now();
     const holderEarning = holderId !== undefined && (knownComplete.get(holderId as TwitchExtensionProviderId) ?? 0) <= nowForRanking
       && (!holderSummary || !["complete", "error", "unavailable"].includes(holderSummary.status));
-    const rank = (id: TwitchExtensionProviderId) => {
-      const completed = knownComplete.get(id);
-      if (completed !== undefined && completed <= nowForRanking) return -1;
-      return holderEarning && id === holderId ? 0 : completed !== undefined ? 2 : 1;
-    };
-    const providers = [...twitchExtensionProviders].sort((a, b) => rank(a.id) - rank(b.id));
+    const order = normalizeWatchSourcePriority("twitch", settings.platform.twitch.watchSourcePriority);
+    const providers = [...twitchExtensionProviders]
+      .filter(provider => source === undefined || provider.id === source)
+      .sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
     for (const provider of providers) {
       if (!settings.twitchExtensions[provider.id].enabled || !options.drivers[provider.id]) continue;
       if (!await options.permissions.contains({ origins: [provider.backendOrigin] })) continue;
       signal?.throwIfAborted();
       if (selectedGeneration !== generation) return;
-      const now = options.source.now(), summary = summaries[provider.id];
+      const now = options.source.now();
+      if ((knownComplete.get(provider.id) ?? 0) > now) continue;
       if ((completedUntil.get(provider.id) ?? 0) > now) continue;
       completedUntil.delete(provider.id);
-      if (summary && (summary.status === "error" || summary.status === "unavailable") && summary.channel) {
-        // A fixed provider error cannot poison Twitch auth or continuously
-        // preempt normal drops. Discovery moves on with a bounded cooldown.
-        const key = `${provider.id}:${summary.channel.username}`;
-        if (!unavailableUntil.has(key)) unavailableUntil.set(key, now + 5 * 60_000);
-      }
       let cache = discovery.get(provider.id);
       if (!cache) { cache = { channels: [], expiresAt: 0 }; discovery.set(provider.id, cache); }
       if (cache.expiresAt <= now && !cache.pending) {
@@ -150,12 +161,17 @@ export function createTwitchExtensionHost(options: {
     const selected: Partial<Record<TwitchExtensionProviderId, TwitchExtensionTarget>> = {};
     for (const provider of twitchExtensionProviders) {
       const id = provider.id;
+      activeReprobes.delete(id);
       if (!settings.twitchExtensions[id].enabled || !allowed.has(id)) { delete summaries[id]; continue; }
-      // Keep the completed earning summary while ordinary drops resume. A
-      // different channel without this provider must not replace completion
-      // with channel-ineligible during the bounded reprobe cooldown.
+      // Only the scheduler's selected due reprobe may revisit a completed
+      // provider. Incidental runs on lower sources must not renew its deadline.
+      const completionUntil = knownComplete.get(id);
+      if (completionUntil !== undefined && (completionUntil > options.source.now() || session.supplementalWatch?.id !== id)) continue;
       if ((completedUntil.get(id) ?? 0) > options.source.now()) continue;
-      if (canRun && candidate?.channelId) selected[id] = { channelId: candidate.channelId, username: candidate.username };
+      if (canRun && candidate?.channelId) {
+        selected[id] = { channelId: candidate.channelId, username: candidate.username };
+        if (completionUntil !== undefined) activeReprobes.add(id);
+      }
       else summaries[id] = { status: "idle", reasonCode: "channel-required", progress: [], pending: [], updatedAt: new Date(options.source.now()).toISOString() };
     }
     await runtime.update(selected);
@@ -174,15 +190,22 @@ export function createTwitchExtensionHost(options: {
   function invalidate({ preserveCompleted = false, forgetCompletion = false }: { preserveCompleted?: boolean; forgetCompletion?: boolean } = {}) {
     generation += 1;
     runtime.stop();
+    activeReprobes.clear();
     for (const id of Object.keys(summaries) as TwitchExtensionProviderId[]) {
-      if (preserveCompleted && summaries[id]?.status === "complete" && (completedUntil.get(id) ?? 0) > options.source.now()) continue;
+      if (!forgetCompletion && preserveCompleted && summaries[id]?.status === "complete" && (knownComplete.get(id) ?? 0) > options.source.now()) continue;
       delete summaries[id];
       completedUntil.delete(id);
     }
     if (!preserveCompleted) { completedUntil.clear(); lastCompletedNoPixelChannel = undefined; }
     // Completion belongs to the Twitch account; only an account/credential
     // change (or disable/reset, via clearTransientState) may discard it.
-    if (forgetCompletion) knownComplete.clear();
+    if (forgetCompletion) {
+      knownComplete.clear();
+      completedUntil.clear();
+      unavailableUntil.clear();
+      discovery.clear();
+      lastCompletedNoPixelChannel = undefined;
+    }
   }
   function snapshot() {
     return structuredClone(summaries);

@@ -12,6 +12,7 @@ import type {
   WatchDecision,
   WatchReasonCode,
   WatchSession,
+  WatchSourceId,
 } from "@lurkloot/shared/models";
 import { campaignPassesCategoryFilter, categoryPriorityScore } from "@lurkloot/shared/categories";
 import { evaluateCampaignFarming, type CampaignFarmingEvaluation, type CampaignFarmingRejectionCode } from "@lurkloot/shared/campaignFarming";
@@ -25,6 +26,7 @@ import {
   rewardFeasibility,
 } from "@lurkloot/shared/rewards";
 import { autoClaimChallengesFor, autoClaimChannelPointsFor, isFarmingActive } from "@lurkloot/shared/settings";
+import { normalizeWatchSourcePriority } from "@lurkloot/shared/watchSources";
 import type { EngineEvent, EventEmitter, FarmingStopReason, PageContextCloseReason } from "@lurkloot/shared/events";
 import { currentManagedPageContextTabs, currentManagedPageContextTabsRevision, forgetManagedPageContextTabs, hydrateManagedPageContextTabs, syncManagedTabBreakers, type SchedulerManagedPageContexts } from "./tabs";
 import type { LogLevel } from "@lurkloot/shared/logging";
@@ -213,6 +215,7 @@ export async function chooseCampaignDecision(
   // progress. Advisory, not an exclusion: a campaign whose only candidate is
   // skipped keeps it, since rotating to nothing is worse than a slow channel.
   skipChannels?: ReadonlySet<string>,
+  includeIdleWatchlist = true,
 ): Promise<WatchDecision> {
   const sorted = sortCampaigns(campaigns.filter((campaign) => isEligible(campaign, settings)), settings);
   const noCampaignReason = noEligibleCampaignReason(campaigns, settings);
@@ -249,6 +252,13 @@ export async function chooseCampaignDecision(
     reportMetrics?.({ campaignsChecked, candidatesChecked });
     return decision;
   };
+
+  const sourceOrder = normalizeWatchSourcePriority(platform, settings.platform[platform].watchSourcePriority);
+  const idleFirst = includeIdleWatchlist && sourceOrder.indexOf("idle_watchlist") < sourceOrder.indexOf("drops");
+  if (idleFirst) {
+    const idle = await chooseIdleWatchlistDecision(platform, settings, adapter, signal, () => { candidatesChecked += 1; });
+    if (idle) return finish(idle);
+  }
 
   for (const campaign of sorted) {
     const reward = activeReward(campaign, settings);
@@ -337,23 +347,11 @@ export async function chooseCampaignDecision(
     });
   }
 
-  const fallbackCandidates = settings.platform[platform].idleWatchlistChannels
-    .map((username) => username.trim().toLowerCase())
-    .filter(Boolean)
-    .map((username) => fallbackChannel(platform, username));
-  const fallback = await firstValidCandidate(fallbackCandidates, undefined, adapter, signal, () => {
+  const fallback = !includeIdleWatchlist || idleFirst ? undefined : await chooseIdleWatchlistDecision(platform, settings, adapter, signal, () => {
     candidatesChecked += 1;
   });
 
-  if (fallback) {
-    return finish({
-      platform,
-      action: "fallback",
-      channel: fallback,
-      reason: `${noCampaignReason}; Idle Watchlist channel selected`,
-      reasonCode: "idle_watchlist_selected",
-    });
-  }
+  if (fallback) return finish(fallback);
 
   return finish({
     platform,
@@ -361,6 +359,30 @@ export async function chooseCampaignDecision(
     reason: `${noCampaignReason} and no Idle Watchlist channels`,
     reasonCode: waitingForSubscription ? "campaign_ineligible" : "no_eligible_channel",
   });
+}
+
+async function chooseIdleWatchlistDecision(
+  platform: Platform,
+  settings: EngineSettings,
+  adapter: Pick<PlatformAdapter, "selectCandidateChannel" | "checkChannel">,
+  signal?: AbortSignal,
+  onCheck?: () => void,
+): Promise<WatchDecision | undefined> {
+  const fallbackCandidates = settings.platform[platform].idleWatchlistChannels
+    .map((username) => username.trim().toLowerCase())
+    .filter(Boolean)
+    .map((username) => fallbackChannel(platform, username));
+  const fallback = await firstValidCandidate(fallbackCandidates, undefined, adapter, signal, onCheck);
+
+  if (fallback) {
+    return {
+      platform,
+      action: "fallback",
+      channel: fallback,
+      reason: "Idle Watchlist channel selected by watch-source priority",
+      reasonCode: "idle_watchlist_selected",
+    };
+  }
 }
 
 function noEligibleCampaignReason(campaigns: DropCampaign[], settings: EngineSettings): string {
@@ -566,17 +588,28 @@ async function selectWatchTarget(
   settings: EngineSettings,
   adapter: Pick<PlatformAdapter, "listCandidateChannels" | "selectCandidateChannel" | "checkChannel" | "listFollowedChannels">,
   signal?: AbortSignal,
+  includeIdleWatchlist = true,
 ): Promise<SnapshotSelectionResult> {
-  if (previous.supplementalWatch) previous = { ...previous, status: "idle", channel: undefined, campaignId: undefined, rewardId: undefined };
-  const currentWatch = await evaluatePreferredCurrentWatch(previous, campaigns, settings, adapter, signal);
+  if (previous.supplementalWatch || !includeIdleWatchlist && !previous.campaignId) previous = { ...previous, status: "idle", channel: undefined, campaignId: undefined, rewardId: undefined };
+  const sourceOrder = normalizeWatchSourcePriority(platform, settings.platform[platform].watchSourcePriority);
+  // A retained drop is an optimization within its source. An Idle-first policy
+  // must check the watchlist before taking that optimization.
+  const idleAheadOfDrops = includeIdleWatchlist && sourceOrder.indexOf("idle_watchlist") < sourceOrder.indexOf("drops");
+  let candidatesChecked = 0;
+  const preferredIdle = idleAheadOfDrops
+    ? await chooseIdleWatchlistDecision(platform, settings, adapter, signal, () => { candidatesChecked += 1; })
+    : undefined;
+  const currentWatch = preferredIdle ? undefined : await evaluatePreferredCurrentWatch(previous, campaigns, settings, adapter, signal);
   let decision: WatchDecision;
   let retention: WatchRetention;
   let campaignsChecked = 0;
-  let candidatesChecked = 0;
-  if (currentWatch?.keep.keep) {
+  if (preferredIdle) {
+    decision = preferredIdle;
+    retention = await shouldKeepWatching(previous, decision, campaigns, settings, adapter, signal);
+  } else if (currentWatch?.keep.keep) {
     decision = currentWatch.decision;
     retention = currentWatch.keep;
-    candidatesChecked = 1;
+    candidatesChecked += 1;
   } else {
     const stalled = currentWatch?.keep.reasonCode === "no_progress" && previous.channel
       ? new Set([previous.channel.username.toLowerCase()])
@@ -589,9 +622,10 @@ async function selectWatchTarget(
       signal,
       (metrics) => {
         campaignsChecked = metrics.campaignsChecked;
-        candidatesChecked = metrics.candidatesChecked;
+        candidatesChecked += metrics.candidatesChecked;
       },
       stalled,
+      includeIdleWatchlist && !idleAheadOfDrops,
     );
     retention = currentWatch?.keep
       ?? await shouldKeepWatching(previous, decision, campaigns, settings, adapter, signal);
@@ -612,6 +646,66 @@ async function selectWatchTarget(
     decision = { ...decision, reason: retention.reason, reasonCode: retention.reasonCode };
   }
   return { decision, retention, campaignsChecked, candidatesChecked, fastPath: currentWatch?.keep.keep === true };
+}
+
+// Resolve sources lazily in user order. A failing source yields independently,
+// so a lower source's channel lookup cannot block a higher provider. Preserve
+// ordinary selection's existing metrics, reward ranking and retention policy.
+async function selectWatchSources(
+  platform: Platform,
+  previous: WatchSession,
+  settings: EngineSettings,
+  adapter: PlatformAdapter,
+  resolveOrdinary: (source: "drops" | "idle_watchlist") => Promise<SnapshotSelectionResult>,
+  resolveSupplemental: ((source: WatchSourceId) => Promise<SupplementalWatchTarget | undefined>) | undefined,
+  emit: EventEmitter,
+  signal?: AbortSignal,
+): Promise<{ selection: SnapshotSelectionResult; supplemental?: SupplementalWatchTarget }> {
+  let ordinary: SnapshotSelectionResult | undefined;
+  let ordinaryFailed = false;
+  let ordinaryError: unknown;
+  for (const source of normalizeWatchSourcePriority(platform, settings.platform[platform].watchSourcePriority)) {
+    signal?.throwIfAborted();
+    if (source === "drops" || source === "idle_watchlist") {
+      try {
+        ordinary = await resolveOrdinary(source);
+        const ordinarySource = ordinary.decision.action === "watch" ? "drops" : ordinary.decision.action === "fallback" ? "idle_watchlist" : undefined;
+        if (ordinarySource === source) return { selection: ordinary };
+      } catch (error) {
+        signal?.throwIfAborted();
+        if (authHealthFromError(error)) throw error;
+        ordinaryFailed = true;
+        ordinaryError = error;
+      }
+      continue;
+    }
+    if (!resolveSupplemental || !adapter.supportsTabless) continue;
+    try {
+      const target = await resolveSupplemental(source);
+      signal?.throwIfAborted();
+      if (!target || target.id !== source || target.tablessOnly !== true
+        || target.channel.platform !== platform || target.channel.live !== true
+        || (settings.platform[platform].excludedChannels ?? []).some(username => username.toLowerCase() === target.channel.username.toLowerCase())) continue;
+      const decision: WatchDecision = { platform, action: "fallback", channel: target.channel, reason: "Supplemental rewards selected by watch-source priority", reasonCode: "supplemental_watch" };
+      return {
+        supplemental: target,
+        selection: {
+          decision,
+          retention: { keep: previous.status === "watching" && previous.supplementalWatch?.id === target.id && previous.channel?.url === target.channel.url, offlineChecks: 0, playbackChecks: 0, reason: decision.reason, reasonCode: decision.reasonCode },
+          campaignsChecked: 0,
+          candidatesChecked: 0,
+          fastPath: false,
+        },
+      };
+    } catch {
+      signal?.throwIfAborted();
+      emitDiagnostic(emit, platform, "warn", "Supplemental rewards selection unavailable; checking the next watch source");
+    }
+  }
+  if (ordinaryFailed) throw ordinaryError;
+  // A complete order always evaluates an ordinary source, whose idle decision
+  // explains why no source won.
+  return { selection: ordinary! };
 }
 
 export interface SnapshotSelectionInput {
@@ -743,13 +837,17 @@ export async function selectWatchTargetFromSnapshot({
 function retainHealthyWatchOnAmbiguousDiscovery(
   previous: WatchSession,
   campaigns: DropCampaign[],
+  settings: EngineSettings,
 ): SnapshotSelectionResult | undefined {
-  if (previous.supplementalWatch || previous.status !== "watching" || !previous.channel || !isSessionHealthy(previous)) return undefined;
+  if (previous.supplementalWatch || !previous.campaignId || previous.status !== "watching" || !previous.channel || !isSessionHealthy(previous)) return undefined;
   const campaign = campaigns.find((candidate) => candidate.id === previous.campaignId);
   const reward = campaign?.rewards.find((candidate) => candidate.id === previous.rewardId);
+  if (!campaign || !isEligible(campaign, settings)
+    || activeReward(campaign, settings)?.id !== previous.rewardId
+    || settings.platform[previous.platform].excludedChannels?.includes(previous.channel.username.toLowerCase())) return undefined;
   const decision: WatchDecision = {
     platform: previous.platform,
-    action: previous.campaignId ? "watch" : "fallback",
+    action: "watch",
     campaign,
     reward,
     channel: previous.channel,
@@ -790,7 +888,7 @@ export type StopPageContextTabs = (
 ) => Promise<SchedulerManagedPageContexts> | SchedulerManagedPageContexts;
 
 export interface SchedulerTickOptions {
-  selectSupplementalWatchTarget?(platform: Platform, state: SchedulerState, signal?: AbortSignal): Promise<SupplementalWatchTarget | undefined>;
+  selectSupplementalWatchTarget?(platform: Platform, state: SchedulerState, signal?: AbortSignal, source?: WatchSourceId): Promise<SupplementalWatchTarget | undefined>;
   platforms?: Platform[];
   stopPageContextTabs?: StopPageContextTabs;
   waitingClaimRewardIds?: Partial<Record<Platform, Set<string>>>;
@@ -1178,7 +1276,7 @@ export async function runSchedulerTick(
       } catch (error) {
         options.signal?.throwIfAborted();
         if (authHealthFromError(error)) throw error;
-        if (!hasIdleWatchlistChannels(settings, platform)) throw error;
+        if (!hasIdleWatchlistChannels(settings, platform) && !(options.selectSupplementalWatchTarget && adapter.supportsTabless)) throw error;
         // Nothing is farmable this tick, so the decision logic below runs
         // against an empty list and the Idle Watchlist channel wins. State
         // keeps the campaigns from the last good discovery — same retention the
@@ -1304,30 +1402,34 @@ export async function runSchedulerTick(
       }
 
       const selectionStartedAt = Date.now();
-      const selection = options.selections?.[platform]
-        ?? (discoveryFailed ? retainHealthyWatchOnAmbiguousDiscovery(previous, campaigns) : undefined)
-        ?? await selectWatchTarget(platform, previous, campaigns, settings, adapter, options.signal);
-      let { decision } = selection;
-      let shouldKeep = selection.retention;
-      let supplemental: SupplementalWatchTarget | undefined;
-      // Priority: eligible drops, then supplemental extension rewards, then the
-      // Idle Watchlist. Only a non-drop decision may yield to a provider.
-      if (options.selectSupplementalWatchTarget && adapter.supportsTabless && decision.action !== "watch") {
-        try {
-          const target = await options.selectSupplementalWatchTarget(platform, nextState, options.signal);
-          options.signal?.throwIfAborted();
-          if (target && target.tablessOnly === true && /^[a-z0-9-]{1,64}$/.test(target.id)
-            && target.channel.platform === platform && target.channel.live === true
-            && !(platformSettings.excludedChannels ?? []).map(value => value.toLowerCase()).includes(target.channel.username.toLowerCase())) {
-            supplemental = target;
-            decision = { platform, action: "fallback", channel: target.channel, reason: "Supplemental rewards selected", reasonCode: "supplemental_watch" };
-            shouldKeep = { keep: previous.supplementalWatch?.id === target.id && previous.channel?.url === target.channel.url, offlineChecks: 0, playbackChecks: 0, reason: decision.reason, reasonCode: decision.reasonCode };
-          }
-        } catch {
-          options.signal?.throwIfAborted();
-          emitDiagnostic(emit, platform, "warn", "Supplemental rewards selection unavailable; continuing ordinary farming");
+      const retentionCampaigns = discoveryFailed
+        ? [...new Map([...nextState.campaigns[platform], ...campaigns].map(campaign => [campaign.id, campaign])).values()]
+        : campaigns;
+      const ambiguousRetention = discoveryFailed ? retainHealthyWatchOnAmbiguousDiscovery(previous, retentionCampaigns, settings) : undefined;
+      const sourceOrder = normalizeWatchSourcePriority(platform, platformSettings.watchSourcePriority);
+      const { selection, supplemental } = await selectWatchSources(platform, previous, settings, adapter, async source => {
+        const prepared = options.selections?.[platform];
+        if (source === "drops") {
+          if (prepared && prepared.decision.action !== "fallback") return prepared;
+          return ambiguousRetention ?? await selectWatchTarget(platform, previous, campaigns, settings, adapter, options.signal, false);
         }
-      }
+        // Keep the established subscription-only fallback suppression when
+        // Drops precedes Idle. An explicit Idle-first order remains eligible.
+        const idleSuppressed = sourceOrder.indexOf("drops") < sourceOrder.indexOf("idle_watchlist") && onlySubscriptionCampaigns(campaigns, settings);
+        let candidatesChecked = 0;
+        const idle = idleSuppressed ? undefined : await chooseIdleWatchlistDecision(platform, settings, adapter, options.signal, () => { candidatesChecked += 1; });
+        let decision: WatchDecision = idle ?? {
+          platform,
+          action: "idle",
+          reason: idleSuppressed ? noEligibleCampaignReason(campaigns, settings) : `${noEligibleCampaignReason(campaigns, settings)} and no Idle Watchlist channels`,
+          reasonCode: idleSuppressed || onlyWaitingSubscriptionCampaigns(campaigns, settings) ? "campaign_ineligible" : "no_eligible_channel",
+        };
+        const retention = await shouldKeepWatching(previous, decision, campaigns, settings, adapter, options.signal);
+        if (previous.status === "watching" && previous.channel) decision = { ...decision, reason: retention.reason, reasonCode: retention.reasonCode };
+        return { decision, retention, campaignsChecked: 0, candidatesChecked, fastPath: false };
+      }, options.selectSupplementalWatchTarget ? source => options.selectSupplementalWatchTarget!(platform, nextState, options.signal, source) : undefined, emit, options.signal);
+      let { decision } = selection;
+      const shouldKeep = selection.retention;
       if (options.selectionIsCurrent?.[platform]?.() === false) {
         emitDiagnostic(emit, platform, "debug", "Snapshot selection discarded after target health changed");
         continue;
@@ -1805,7 +1907,7 @@ async function shouldKeepWatching(
     return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: nextDecision.reason, reasonCode: nextDecision.reasonCode };
   }
   if (previous.campaignId && nextDecision.action !== "watch") {
-    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "Current campaign is no longer eligible", reasonCode: "campaign_ineligible" };
+    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: nextDecision.reason, reasonCode: nextDecision.reasonCode };
   }
   if (previous.campaignId && settings.platform[previous.platform].excludedChannels?.includes(previous.channel.username.toLowerCase())) {
     return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "Current channel is excluded from drops", reasonCode: "channel_excluded" };
@@ -1818,23 +1920,6 @@ async function shouldKeepWatching(
   // which the controller tracks and falls back to a tab on. Here we only keep or
   // switch the channel based on liveness/category, so skip playback retries.
   const isTabless = previous.watchMode === "tabless";
-  if (!settings.idleWatchlistFallbackOnly && !previous.campaignId && nextDecision.action === "watch") {
-    const fallbackCheck = await adapter.checkChannel(previous.channel, { signal });
-    const fallbackOfflineChecks = fallbackCheck.live ? 0 : previous.offlineChecks + 1;
-    if (fallbackCheck.live && fallbackCheck.categoryMatches) {
-      const fallbackPlaybackChecks = nextPlaybackChecks(previous, isTabless);
-      if (fallbackPlaybackChecks < settings.offlineRetryLimit) {
-        return {
-          keep: true,
-          offlineChecks: fallbackOfflineChecks,
-          playbackChecks: fallbackPlaybackChecks,
-          channel: channelFromCheck(previous.channel, fallbackCheck),
-          reason: "Keeping current Idle Watchlist tab",
-          reasonCode: "keeping_idle_watchlist",
-        };
-      }
-    }
-  }
 
   const changedTarget = nextDecision.channel?.url !== previous.channel.url;
   const differentCampaignAvailable = changedTarget

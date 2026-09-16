@@ -2,6 +2,8 @@ import type { CriticalHealthState } from "./criticalHealth";
 
 export type Platform = "twitch" | "kick";
 
+export type WatchSourceId = "drops" | "nopixel" | "fortnite" | "idle_watchlist";
+
 export type PlatformAuthStatus = "checking" | "healthy" | "missing_credentials" | "invalid_credentials" | "blocked" | "unavailable";
 
 export type PlatformAuthReasonCode = "credentials_missing" | "credentials_rejected" | "security_policy_blocked" | "credential_lookup_failed" | "platform_unavailable" | "network_unavailable";
@@ -294,6 +296,7 @@ export type CategoryMode = "all" | "include" | "exclude";
 
 export interface PlatformSettings {
   enabled: boolean;
+  watchSourcePriority: WatchSourceId[];
   idleWatchlistChannels: string[];
   excludedChannels?: string[];
   categoryMode: CategoryMode;
@@ -360,6 +363,7 @@ export interface EngineSettings {
   notifyRewardEarned: boolean;
   notifyNoDropsLeft: boolean;
   autoStartDropFarming: boolean;
+  /** @deprecated Compatibility input for profiles without watchSourcePriority. */
   idleWatchlistFallbackOnly: boolean;
   // Ranks Idle Watchlist and followed channels ahead of anonymous directory
   // channels when picking who to farm a campaign on (see chooseCampaignDecision

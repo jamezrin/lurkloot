@@ -14,6 +14,7 @@ import {
 } from "@lurkloot/shared/settings";
 import { CURRENT_SETTINGS_SCHEMA_VERSION, migrateSettings, type SettingsMigrationDiagnostic } from "@lurkloot/shared/settingsSchema";
 import { SETTINGS_EXPORT_KIND, type SettingsExportEnvelope } from "@lurkloot/shared/settingsExport";
+import { normalizePlatformWatchSourcePriority } from "@lurkloot/shared/watchSources";
 import type { CompatibilitySettings, EngineSettings, KickPlatformSettings, Platform, PlatformSettingsByPlatform, PriorityMode, TwitchPlatformSettings } from "@lurkloot/shared/models";
 
 // The CLI's own settings surface — intentionally decoupled from the extension's
@@ -28,6 +29,7 @@ export interface CliSettings {
   priorityMode: PriorityMode;
   campaignPriorities: Record<string, number>;
   excludedCampaignIds: string[];
+  /** @deprecated Compatibility input for profiles without watchSourcePriority. */
   idleWatchlistFallbackOnly: boolean;
   // See EngineSettings.preferKnownChannels. Applies to campaign channel
   // selection the same way headless as in the extension.
@@ -123,8 +125,8 @@ const CLI_SETTING_KEYS = new Set<string>([
 ]);
 
 const CLI_PLATFORM_KEYS: Record<Platform, Set<string>> = {
-  twitch: new Set(["enabled", "idleWatchlistChannels", "excludedChannels", "categoryMode", "categories", "autoClaimChannelPoints", "strictCampaignAvailability", "channelPointsPushClaim"]),
-  kick: new Set(["enabled", "idleWatchlistChannels", "excludedChannels", "categoryMode", "categories", "autoClaimChallenges"]),
+  twitch: new Set(["enabled", "watchSourcePriority", "idleWatchlistChannels", "excludedChannels", "categoryMode", "categories", "autoClaimChannelPoints", "strictCampaignAvailability", "channelPointsPushClaim"]),
+  kick: new Set(["enabled", "watchSourcePriority", "idleWatchlistChannels", "excludedChannels", "categoryMode", "categories", "autoClaimChallenges"]),
 };
 const CLI_COMPATIBILITY_KEYS: Record<Platform, Set<string>> = {
   twitch: new Set(["profile", "heartbeatTransport", "inventoryQueryVersion"]),
@@ -338,7 +340,7 @@ function parseMigratedCliSettings(value: Record<string, unknown>, diagnostics: S
     farmingEligibility: normalizeFarmingEligibility(v.farmingEligibility),
     notifyRewardEarned: booleanOr(v.notifyRewardEarned, DEFAULT_CLI_SETTINGS.notifyRewardEarned),
     notifyNoDropsLeft: booleanOr(v.notifyNoDropsLeft, DEFAULT_CLI_SETTINGS.notifyNoDropsLeft),
-    platform: normalizePlatform(v.platform),
+    platform: normalizePlatform(v.platform, v.idleWatchlistFallbackOnly),
     compatibility: normalizeCompatibility(v.compatibility),
   };
 }
@@ -359,7 +361,7 @@ function normalizeCompatibility(raw: EngineSettings["compatibility"] | undefined
   };
 }
 
-function normalizePlatform(raw: EngineSettings["platform"] | undefined): PlatformSettingsByPlatform {
+function normalizePlatform(raw: EngineSettings["platform"] | undefined, legacyFallbackOnly?: boolean): PlatformSettingsByPlatform {
   const common = (platform: Platform) => {
     const ps = (raw?.[platform] ?? {}) as Partial<TwitchPlatformSettings & KickPlatformSettings>;
     const defaults = DEFAULT_CLI_SETTINGS.platform[platform];
@@ -367,6 +369,7 @@ function normalizePlatform(raw: EngineSettings["platform"] | undefined): Platfor
       ps,
       base: {
         enabled: booleanOr(ps.enabled, defaults.enabled),
+        watchSourcePriority: normalizePlatformWatchSourcePriority(platform, ps, legacyFallbackOnly),
         idleWatchlistChannels: normalizeChannelList(ps.idleWatchlistChannels),
         excludedChannels: normalizeChannelList(ps.excludedChannels),
         categoryMode: normalizeCategoryMode(ps.categoryMode),

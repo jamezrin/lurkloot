@@ -259,6 +259,10 @@ describe("i18n", () => {
       "diagnosticsViewTab",
       // "Extensions" is spelled the same in French.
       "extensionDropsTitle",
+      // Watch-source labels include provider brands and the common Drops term.
+      "watchSourceNoPixel",
+      "watchSourceFortnite",
+      "watchSourceDrops",
       // Brand-only store screenshot eyebrow.
       "screenshotHeroEyebrow",
       "screenshotUpdatedHeadlessTitle",
