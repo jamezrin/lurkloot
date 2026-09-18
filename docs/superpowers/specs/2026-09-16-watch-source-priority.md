@@ -1,6 +1,6 @@
 # Watch-source priority for Twitch and Kick
 
-Implement #548 as a separate PR stacked on #541. The user authorizes autonomous design and implementation and requests that decisions be flagged at delivery.
+Implement #548 as a separate PR built on #541. The PR was initially stacked; it was retargeted to `develop` after #541 merged. The user authorizes autonomous design and implementation and requests that decisions be flagged at delivery.
 
 ## Policy
 

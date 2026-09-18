@@ -10,7 +10,7 @@
 
 ## Global constraints
 
-Work in `.worktrees/watch-source-priority` on `feat/watch-source-priority`. PR base is `feat/twitch-extension-foundation` (#541). Preserve within-source ranking, engine/browser boundary and security guards. Diagnostics remain English literals. No new permissions/dependencies. User explicitly requests no questions and delegates decisions.
+Work in `.worktrees/watch-source-priority` on `feat/watch-source-priority`. The PR originally targeted `feat/twitch-extension-foundation` (#541); after #541 merged, its base became `develop`. Preserve within-source ranking, engine/browser boundary and security guards. Diagnostics remain English literals. No new permissions/dependencies. User explicitly requests no questions and delegates decisions.
 
 ## Task 1: Shared settings, popup and CLI
 
@@ -44,6 +44,6 @@ Interface: append optional `source?: WatchSourceId` to the supplemental selector
 - [x] Update implementation decisions and validation documentation.
 - [x] Commit Conventionally, push, and open a separate PR with dependency on #541 and link #548. Replan the issue.
 
-Delivered as [PR #556](https://github.com/jamezrin/lurkloot/pull/556), targeting #541's branch. [Issue #548](https://github.com/jamezrin/lurkloot/issues/548) now records the Twitch/Kick scope and resolved decisions. GitHub validation and build results are tracked on the PR; inspect them and address task-related failures before handoff.
+Delivered as [PR #556](https://github.com/jamezrin/lurkloot/pull/556), retargeted to `develop` after #541 merged. [Issue #548](https://github.com/jamezrin/lurkloot/issues/548) records the Twitch/Kick scope and resolved decisions. GitHub validation and build results are tracked on the PR.
 
-Final local evidence: `pnpm verify` passed all workspace typechecks, 2,260 extension tests, 199 CLI tests, tooling/site tests and both browser builds. CLI build and release-version check passed. Compiled-popup reorder/persistence/reset/search/focus, Arabic RTL, dark mode and overflow/error checks passed. Four material engine review findings were reproduced and fixed with regression coverage; final independent reviews have no remaining material findings. Screenshots and autonomous decisions are in `docs/watch-source-priority.md`.
+Final local evidence after merging current `develop`: `pnpm verify` passed all workspace typechecks, 2,273 extension tests, 199 CLI tests, tooling/site tests and both browser builds. CLI build passed. Compiled-popup reorder/persistence/reset/search/focus, Arabic RTL, dark mode and overflow/error checks passed on the original PR head. Four material engine review findings were reproduced and fixed with regression coverage; final independent reviews have no remaining material findings. Screenshots and autonomous decisions are in `docs/watch-source-priority.md`.

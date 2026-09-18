@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  campaignEligibleClass,
   campaignFarmable,
   campaignFilterCategories,
   campaignPassesFarmingEligibility,
@@ -106,8 +107,10 @@ describe("campaignPassesFarmingEligibility", () => {
   it("skips an unlinked campaign only when farmUnlinkedCampaigns is off", () => {
     const off = { ...ELIGIBLE_ALL, farmUnlinkedCampaigns: false };
     expect(campaignPassesFarmingEligibility(campaign({ accountLinked: false }), off)).toBe(false);
+    expect(campaignPassesFarmingEligibility(campaign({ eligibility: "account_not_linked" }), off)).toBe(false);
     expect(campaignPassesFarmingEligibility(campaign({ accountLinked: true }), off)).toBe(true);
     expect(campaignPassesFarmingEligibility(campaign({ accountLinked: false }), ELIGIBLE_ALL)).toBe(true);
+    expect(campaignPassesFarmingEligibility(campaign({ eligibility: "account_not_linked" }), ELIGIBLE_ALL)).toBe(true);
   });
 
   it("skips a subscription campaign only when farmSubscriptionCampaigns is off", () => {
@@ -165,9 +168,10 @@ describe("campaignFarmable", () => {
     expect(campaignFarmable(c, s)).toBe(false);
   });
 
-  it("is false for an unlinked Twitch campaign even with farmUnlinkedCampaigns on (platform block)", () => {
-    const c = campaign({ platform: "twitch", accountLinked: false });
-    expect(campaignFarmable(c, settings())).toBe(false);
+  it("is true for an unlinked Twitch campaign when farmUnlinkedCampaigns is on", () => {
+    const c = campaign({ platform: "twitch", accountLinked: false, eligibility: "account_not_linked" });
+    expect(campaignFarmable(c, settings())).toBe(true);
+    expect(campaignEligibleClass(c, settings())).toBe(true);
   });
 
   it("is true for an unlinked Kick campaign (no platform block)", () => {
@@ -212,6 +216,12 @@ describe("isCampaignVisible not-linked / subscription class flags", () => {
     // Not farmed + hidden → gone.
     expect(visible(c, { dropsListFilter: { ...SHOW_ALL, showNotLinked: false }, farmingEligibility: NOT_FARMED_UNLINKED })).toBe(false);
     // Not farmed + shown → visible.
+    expect(visible(c, { dropsListFilter: { ...SHOW_ALL, showNotLinked: true }, farmingEligibility: NOT_FARMED_UNLINKED })).toBe(true);
+  });
+
+  it("uses showNotLinked when only the eligibility marks the campaign unlinked", () => {
+    const c = campaign({ eligibility: "account_not_linked" });
+    expect(visible(c, { dropsListFilter: { ...SHOW_ALL, showNotLinked: false }, farmingEligibility: NOT_FARMED_UNLINKED })).toBe(false);
     expect(visible(c, { dropsListFilter: { ...SHOW_ALL, showNotLinked: true }, farmingEligibility: NOT_FARMED_UNLINKED })).toBe(true);
   });
 

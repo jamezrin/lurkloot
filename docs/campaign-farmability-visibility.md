@@ -20,7 +20,7 @@ flowchart TD
     B -- no --> N1["FALSE"]
     B -- yes --> C{"already ended?<br/>hasCampaignEnded"}
     C -- yes --> N1
-    C -- no --> D{"eligibility set<br/>and ≠ eligible?"}
+    C -- no --> D{"eligibility set<br/>and neither eligible<br/>nor account_not_linked?"}
     D -- yes --> N1
     D -- no --> E{"id in<br/>excludedCampaignIds?"}
     E -- yes --> N1
@@ -28,12 +28,14 @@ flowchart TD
     F -- no --> N1
     F -- yes --> G{"category filtered?<br/>campaignPassesCategoryFilter<br/>(include/exclude)"}
     G -- yes --> N1
-    G -- no --> H{"Twitch AND<br/>not linked?"}
-    H -- yes --> N1
-    H -- no --> I{"any reward<br/>farmable right now?<br/>not claimed, preconditions met,<br/>relevant, deadline feasible"}
+    G -- no --> I{"any reward<br/>farmable right now?<br/>not claimed, preconditions met,<br/>relevant, deadline feasible"}
     I -- no --> N1
     I -- yes --> Y1["TRUE — engine farms it"]
 ```
+
+Account linking does not block watch progress on either platform.
+`farmUnlinkedCampaigns` controls whether unlinked campaigns are farmed; their
+linking status remains visible so users can connect their game account for delivery.
 
 `evaluateCampaignFarming` applies these gates and returns either
 `{ farmable: true }` or one stable rejection code plus relevant context such
