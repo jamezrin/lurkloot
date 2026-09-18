@@ -257,6 +257,8 @@ describe("i18n", () => {
       "siteAttributionShort",
       // "Diagnostics" is spelled the same in French.
       "diagnosticsViewTab",
+      // "Extensions" is spelled the same in French.
+      "extensionDropsTitle",
       // Brand-only store screenshot eyebrow.
       "screenshotHeroEyebrow",
       "screenshotUpdatedHeadlessTitle",
