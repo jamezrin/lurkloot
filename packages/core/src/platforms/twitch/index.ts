@@ -550,12 +550,14 @@ export class TwitchDiscoveryState {
     return { userId: this.authenticatedUserId, generation: this.availabilityGeneration };
   }
 
-  rememberDashboardCampaignIds(campaignIds: string[]): void {
+  rememberDashboardCampaignIds(campaignIds: string[], inventoryCampaignIds: readonly string[]): void {
     this.retainedDashboard = {
       campaignIds,
       expiresAt: Date.now() + DISCOVERY_RETENTION_TTL_MS,
     };
-    const activeIds = new Set(campaignIds);
+    // Inventory-only campaigns can also produce linking diagnostics. Keep their
+    // fingerprints while they remain present, even if the dashboard omits them.
+    const activeIds = new Set([...campaignIds, ...inventoryCampaignIds]);
     for (const campaignId of this.accountLinkingDiagnosticFingerprints.keys()) {
       if (!activeIds.has(campaignId)) this.accountLinkingDiagnosticFingerprints.delete(campaignId);
     }
@@ -1089,7 +1091,10 @@ export class TwitchAdapter implements PlatformAdapter {
     // not. Reuse the last dashboard we did get instead. `dashboardResponded`
     // stays false so the expiry stamping below never fires off a stale list.
     if (dashboardResult.ok && authenticatedUserId) {
-      this.discoveryState.rememberDashboardCampaignIds(freshCampaignIds);
+      this.discoveryState.rememberDashboardCampaignIds(
+        freshCampaignIds,
+        inventoryCampaigns.map((campaign) => campaign.id),
+      );
     }
     const discoverableCampaignIds = dashboardResult.ok
       ? freshCampaignIds
@@ -1212,7 +1217,21 @@ export class TwitchAdapter implements PlatformAdapter {
       ?? inventoryUser?.dropCampaigns
       ?? [];
     const rawDetails = detailedCampaigns as Parameters<typeof parseTwitchCampaigns>[0];
-    for (const campaign of mergedDetails) {
+    const detailedIds = new Set(mergedDetails.map((campaign) => campaign.id));
+    // The Inventory payload omits campaign/reward end dates, so an ended
+    // campaign that still has in-progress drops parses as "active". The
+    // dashboard is the authoritative signal for what is still running: if it
+    // responded and no longer lists this campaign as ACTIVE/UPCOMING, treat the
+    // inventory-only campaign as expired (unless it still has a claimable reward
+    // we should keep surfacing so the user can claim it).
+    const activeDashboardIds = new Set(discoverableCampaignIds);
+    const inventoryOnly = reconcileInventoryCampaignStatuses(
+      inventoryCampaigns.filter((campaign) => !detailedIds.has(campaign.id)),
+      activeDashboardIds,
+      dashboardResponded,
+    );
+    const campaigns = [...mergedDetails, ...inventoryOnly];
+    for (const campaign of campaigns) {
       const detail = rawDetails.find((item) => item.id === campaign.id);
       const progress = rawInventoryCampaigns.find((item) => item.id === campaign.id);
       const dashboardEntry = dashboardCampaigns.find((item) => item.id === campaign.id);
@@ -1241,26 +1260,14 @@ export class TwitchAdapter implements PlatformAdapter {
       diagnostic(this.emit, "debug", `Twitch account linking reconciliation: ${JSON.stringify({
         campaignId: campaign.id,
         name: campaign.name,
-        detailsSource: cachedDetailsByDropId.has(campaign.id) ? "cache"
-          : fetchedByDropId.get(campaign.id)?.status === "fulfilled" ? "fresh" : "retained",
+        detailsSource: !detail ? "inventory"
+          : cachedDetailsByDropId.has(campaign.id) ? "cache"
+            : fetchedByDropId.get(campaign.id)?.status === "fulfilled" ? "fresh" : "retained",
         ...linkingState,
         watchedMinutes: Math.max(0, ...campaign.rewards.map((reward) => reward.watchedMinutes)),
       })}`, "twitch");
     }
-    const detailedIds = new Set(mergedDetails.map((campaign) => campaign?.id));
-    // The Inventory payload omits campaign/reward end dates, so an ended
-    // campaign that still has in-progress drops parses as "active". The
-    // dashboard is the authoritative signal for what is still running: if it
-    // responded and no longer lists this campaign as ACTIVE/UPCOMING, treat the
-    // inventory-only campaign as expired (unless it still has a claimable reward
-    // we should keep surfacing so the user can claim it).
-    const activeDashboardIds = new Set(discoverableCampaignIds);
-    const inventoryOnly = reconcileInventoryCampaignStatuses(
-      inventoryCampaigns.filter((campaign) => !detailedIds.has(campaign.id)),
-      activeDashboardIds,
-      dashboardResponded,
-    );
-    return [...mergedDetails, ...inventoryOnly];
+    return campaigns;
   }
 
   async refreshCampaigns(

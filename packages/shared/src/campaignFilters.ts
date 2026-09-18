@@ -57,7 +57,8 @@ export function campaignPassesFarmingEligibility(
   campaign: DropCampaign,
   farmingEligibility: EngineSettings["farmingEligibility"],
 ): boolean {
-  if (campaign.accountLinked === false && !farmingEligibility.farmUnlinkedCampaigns) return false;
+  if ((campaign.accountLinked === false || campaign.eligibility === "account_not_linked")
+    && !farmingEligibility.farmUnlinkedCampaigns) return false;
   if (campaignHasSubscriptionRewards(campaign) && !farmingEligibility.farmSubscriptionCampaigns) return false;
   return true;
 }

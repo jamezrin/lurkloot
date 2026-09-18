@@ -107,8 +107,10 @@ describe("campaignPassesFarmingEligibility", () => {
   it("skips an unlinked campaign only when farmUnlinkedCampaigns is off", () => {
     const off = { ...ELIGIBLE_ALL, farmUnlinkedCampaigns: false };
     expect(campaignPassesFarmingEligibility(campaign({ accountLinked: false }), off)).toBe(false);
+    expect(campaignPassesFarmingEligibility(campaign({ eligibility: "account_not_linked" }), off)).toBe(false);
     expect(campaignPassesFarmingEligibility(campaign({ accountLinked: true }), off)).toBe(true);
     expect(campaignPassesFarmingEligibility(campaign({ accountLinked: false }), ELIGIBLE_ALL)).toBe(true);
+    expect(campaignPassesFarmingEligibility(campaign({ eligibility: "account_not_linked" }), ELIGIBLE_ALL)).toBe(true);
   });
 
   it("skips a subscription campaign only when farmSubscriptionCampaigns is off", () => {

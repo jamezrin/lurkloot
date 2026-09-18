@@ -439,16 +439,23 @@ describe("Twitch linking state across cached detail refreshes", () => {
       watchedMinutes: 21,
       userId: "user-id",
       listed: true,
+      inventoryOnly: false,
       detailRequests: 0,
     };
     const events: EngineEvent[] = [];
     const handle = (body: { operationName: string }) => {
       if (body.operationName === "Inventory") return {
-        data: { currentUser: { id: state.userId, inventory: { dropCampaignsInProgress: state.listed ? [{
+        data: { currentUser: { id: state.userId, inventory: { dropCampaignsInProgress: [...(state.listed ? [{
           id: "a",
           self: { isAccountConnected: state.connected },
           timeBasedDrops: [{ id: "a-drop", requiredMinutesWatched: 60, self: { currentMinutesWatched: state.watchedMinutes } }],
-        }] : [] } } },
+        }] : []), ...(state.inventoryOnly ? [{
+          id: "b",
+          name: "Inventory-only campaign",
+          accountLinkURL: "https://account.wbgames.com/connect/twitch",
+          self: { isAccountConnected: false },
+          timeBasedDrops: [{ id: "b-drop", requiredMinutesWatched: 60, self: { currentMinutesWatched: 5 } }],
+        }] : [])] } } },
       };
       if (body.operationName === "ViewerDropsDashboard") return {
         data: { currentUser: { id: state.userId, login: "viewer", dropCampaigns: state.listed ? [{
@@ -569,5 +576,25 @@ describe("Twitch linking state across cached detail refreshes", () => {
     state.listed = true;
     await refresh();
     expect(reports()).toHaveLength(2);
+  });
+
+  it("reports an inventory-only campaign from the final snapshot without repeating it", async () => {
+    const { state, refresh, reports } = fixture();
+    state.inventoryOnly = true;
+    const campaigns = await refresh();
+    expect(campaigns.find((campaign) => campaign.id === "b")).toMatchObject({
+      accountLinked: false,
+      status: "expired",
+    });
+    expect(reports().find((report) => report.campaignId === "b")).toMatchObject({
+      detailsSource: "inventory",
+      inventory: { present: true, isAccountConnected: false, hasAccountLinkUrl: true },
+      dashboard: { present: false, isAccountConnected: null },
+      details: { isAccountConnected: null, hasAccountLinkUrl: false },
+      accountLinked: false,
+      watchedMinutes: 5,
+    });
+    await refresh();
+    expect(reports().filter((report) => report.campaignId === "b")).toHaveLength(1);
   });
 });
