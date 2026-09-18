@@ -13,6 +13,8 @@ import {
 } from "./settingsControls";
 import { PlatformCategorySettings, PlatformExcludedChannels } from "./settingsPlatform";
 import { PlatformCompatibilitySettings } from "./compatibilitySettings";
+import { WatchSourcePriority, WATCH_SOURCE_NAME_KEYS } from "./watchSourcePriority";
+import { DEFAULT_WATCH_SOURCE_PRIORITY } from "@lurkloot/shared/watchSources";
 import type { SettingsEntryNode, SettingsGroupNode, SettingsSectionNode, TranslateFn } from "./settingsSearch";
 import type { GameItem, PopupCompatibilityRegistry, PopupCompatibilityResolution } from "./types";
 
@@ -201,12 +203,6 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
             render: () => <SettingRow title={t("preferKnownChannelsTitle")} description={t("preferKnownChannelsDescription")} checked={settings.preferKnownChannels} onChange={(value) => void onSettingsChange({ preferKnownChannels: value }, { tickAfterSave: true })} />,
           },
           {
-            id: "general.drops.idleWatchlistFallbackOnly",
-            titleKey: "idleWatchlistFallbackOnlyTitle",
-            descriptionKey: "idleWatchlistFallbackOnlyDescription",
-            render: () => <SettingRow title={t("idleWatchlistFallbackOnlyTitle")} description={t("idleWatchlistFallbackOnlyDescription")} checked={settings.idleWatchlistFallbackOnly} onChange={(value) => void onSettingsChange({ idleWatchlistFallbackOnly: value }, { tickAfterSave: true })} />,
-          },
-          {
             id: "general.drops.dropsListFilter",
             titleKey: "dropsListFilterTitle",
             descriptionKey: "dropsListFilterDescription",
@@ -384,6 +380,17 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
       };
 
     const groups: SettingsGroupDef[] = [
+      {
+        id: `${platform}.watchSourcePriority`,
+        titleKey: "watchSourcePriorityTitle",
+        entries: [{
+          id: `${platform}.watchSourcePriority.order`,
+          titleKey: "watchSourcePriorityTitle",
+          descriptionKey: "watchSourcePriorityDescription",
+          searchKeys: DEFAULT_WATCH_SOURCE_PRIORITY[platform].map((source) => WATCH_SOURCE_NAME_KEYS[source]),
+          render: () => <WatchSourcePriority platform={platform} value={settings.platform[platform].watchSourcePriority} onChange={(watchSourcePriority) => platformPatch(platform, { watchSourcePriority })} />,
+        }],
+      },
       {
         id: `${platform}.categories`,
         titleKey: "settingsGroupCategories",

@@ -1,5 +1,5 @@
 import type { ActivityHistoryRecord, EventCategory } from "./events";
-import type { CategorySelection, EngineSettings, ExtensionSettings, Platform, PlaybackTelemetry, SchedulerState } from "./models";
+import type { CategorySelection, EngineSettings, ExtensionSettings, Platform, PlaybackTelemetry, SchedulerState, TwitchExtensionProviderId } from "./models";
 import type { SettingsPatch } from "./settings";
 
 export type CoreRuntimeMessage =
@@ -23,6 +23,7 @@ export type CoreRuntimeMessage =
 
 export type RuntimeMessage =
   | CoreRuntimeMessage
+  | { type: "setTwitchExtensionEnabled"; provider: TwitchExtensionProviderId; enabled: boolean }
   | ({ type: "getActivity" } & ActivityQuery)
   | { type: "exportDiagnostics"; platform: Platform }
   | { type: "clearActivity" }

@@ -159,16 +159,16 @@
     "message": "Adds a Lurkloot button to twitch.tv and kick.com that opens this popup in a panel on the page."
   },
   "tipCampaignPriority": {
-    "message": "Drops take priority over the Idle Watchlist. Drag campaigns by the grip to set their farming order."
+    "message": "Drag campaigns by the grip to set their order within Drops. Choose which source comes first in platform settings."
   },
   "tipMissingCampaigns": {
     "message": "Missing a campaign? Check your platform's Drops inventory, then review campaign filters in Settings."
   },
   "tipCategorySelection": {
-    "message": "Only farming certain games? Turn off ‘Farm all categories’ in platform settings and choose your categories."
+    "message": "Use the category filter in platform settings to include only selected games or exclude games you do not want."
   },
   "tipIdleWatchlist": {
-    "message": "Drops stay first priority. The Idle Watchlist watches selected channels when no eligible drops are available."
+    "message": "Choose when Idle Watchlist channels are watched by changing watch-source priority in platform settings."
   },
   "tipTablessMode": {
     "message": "Tabless mode uses fewer resources and falls back to a muted tab when needed."
@@ -452,12 +452,6 @@
   "idleWatchlistSettingsDescription": {
     "message": "Fallback channels used when no eligible drops are available."
   },
-  "idleWatchlistFallbackOnlyTitle": {
-    "message": "Prioritize drops over the Idle Watchlist"
-  },
-  "idleWatchlistFallbackOnlyDescription": {
-    "message": "Leaves an Idle Watchlist channel as soon as an eligible drop becomes available. When off, keeps watching it until it goes offline."
-  },
   "preferKnownChannelsTitle": {
     "message": "Prefer followed and Idle Watchlist channels"
   },
@@ -555,10 +549,10 @@
     "message": "Advanced & compatibility"
   },
   "twitchSectionDescription": {
-    "message": "Channel points, category filter, excluded channels, and Twitch compatibility."
+    "message": "Watch-source priority, channel points, categories, excluded channels, and Twitch compatibility."
   },
   "kickSectionDescription": {
-    "message": "Daily challenges, category filter, excluded channels, and Kick compatibility."
+    "message": "Watch-source priority, daily challenges, categories, excluded channels, and Kick compatibility."
   },
   "twitchAdvancedDescription": {
     "message": "Campaign availability, plus the heartbeat and inventory transports Lurkloot uses. Change these only when Twitch stops working."
@@ -952,12 +946,6 @@
   },
   "screenshotUpdatedLicense": {
     "message": "Apache-2.0"
-  },
-  "screenshotUpdatedRating": {
-    "message": "4.9"
-  },
-  "screenshotUpdatedUsers": {
-    "message": "1,000+ users"
   },
   "autoClaimReady": {
     "message": "Auto-claim ready"
@@ -1429,5 +1417,140 @@
   },
   "scrollRewardsRight": {
     "message": "Scroll rewards right"
+  },
+  "activityExtensionGiveawayJoined": {
+    "message": "Joined a $1 giveaway on $2."
+  },
+  "activityExtensionSpriteCaptured": {
+    "message": "Captured a $1 sprite on $2."
+  },
+  "activityExtensionTakeoverStarted": {
+    "message": "Started a $1 takeover from $2."
+  },
+  "extensionSettingsTitle": {
+    "message": "Twitch extensions"
+  },
+  "extensionDropsTitle": {
+    "message": "Extensions"
+  },
+  "extensionSettingsHint": {
+    "message": "Farm extension rewards without Twitch tabs. Twitch automation, exclusions and manual pause apply."
+  },
+  "extensionNoPixelHint": {
+    "message": "Earn daily packs and join giveaways."
+  },
+  "extensionFortniteHint": {
+    "message": "Collect sprites and earn phase rewards."
+  },
+  "extensionIdentityRequired": {
+    "message": "Link your extension account"
+  },
+  "extensionPermissionRequired": {
+    "message": "Allow provider access to enable"
+  },
+  "extensionAuthRequired": {
+    "message": "Log in to Twitch"
+  },
+  "extensionChannelRequired": {
+    "message": "Finding an eligible channel"
+  },
+  "extensionComplete": {
+    "message": "Rewards earned"
+  },
+  "extensionFarming": {
+    "message": "Farming"
+  },
+  "extensionPhaseClosed": {
+    "message": "No interactive phase is open"
+  },
+  "extensionConnecting": {
+    "message": "Connecting"
+  },
+  "extensionUnavailable": {
+    "message": "Temporarily unavailable"
+  },
+  "extensionIdle": {
+    "message": "Waiting"
+  },
+  "extensionDailyPackProgress": {
+    "message": "Daily pack: $1/$2 minutes"
+  },
+  "extensionCaptureProgress": {
+    "message": "Collection: $1/$2"
+  },
+  "extensionTakeoversTitle": {
+    "message": "Allow Fortnite takeovers"
+  },
+  "extensionTakeoversHint": {
+    "message": "Start eligible takeovers during interactive phases. Off by default."
+  },
+  "extensionAccountSetup": {
+    "message": "Account setup"
+  },
+  "extensionGiveawayUnavailable": {
+    "message": "Giveaway check unavailable"
+  },
+  "extensionGiveawayEntered": {
+    "message": "Giveaway entered"
+  },
+  "extensionGiveawayOpen": {
+    "message": "Giveaway open"
+  },
+  "extensionRewardProgress": {
+    "message": "Rewards: $1/$2"
+  },
+  "extensionTakeoverActive": {
+    "message": "Takeover active"
+  },
+  "extensionWatchtimeComplete": {
+    "message": "Watchtime complete"
+  },
+  "extensionUnopenedPacks": {
+    "message": "Unopened packs: $1"
+  },
+  "extensionPackCheckUnavailable": {
+    "message": "Pack delivery check unavailable"
+  },
+  "extensionAutoOpenPacksTitle": {
+    "message": "Open NoPixelV packs automatically"
+  },
+  "extensionAutoOpenPacksHint": {
+    "message": "Reveal cards from unopened packs. This consumes each pack and cannot be undone."
+  },
+  "activityExtensionPackOpened": {
+    "message": "$1 opened a card pack on $2"
+  },
+  "watchSourcePriorityTitle": {
+    "message": "Watch-source priority"
+  },
+  "watchSourcePriorityDescription": {
+    "message": "The first available source is watched. Disabled or unavailable sources are skipped."
+  },
+  "watchSourcePriorityMoveUp": {
+    "message": "Move $1 up"
+  },
+  "watchSourcePriorityMoveDown": {
+    "message": "Move $1 down"
+  },
+  "watchSourcePriorityReset": {
+    "message": "Reset priority"
+  },
+  "watchSourcePriorityMoved": {
+    "message": "$1 is now priority $2."
+  },
+  "watchSourcePriorityResetDone": {
+    "message": "Watch-source priority reset."
+  },
+  "watchSourceDrops": {
+    "message": "Drops"
+  },
+  "watchSourceIdleWatchlist": {
+    "message": "Idle Watchlist"
+  },
+  "watchSourceNoPixel": {
+    "message": "NoPixelV"
+  },
+  "watchSourceFortnite": {
+    "message": "Fortnite"
   }
 }

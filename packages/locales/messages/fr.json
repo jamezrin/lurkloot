@@ -159,16 +159,16 @@
     "message": "Ajoute un bouton Lurkloot sur twitch.tv et kick.com qui ouvre cette fenêtre dans un panneau sur la page."
   },
   "tipCampaignPriority": {
-    "message": "Les drops ont priorité sur la liste de veille inactive. Faites glisser les campagnes par la poignée pour les ordonner."
+    "message": "Faites glisser les campagnes par la poignée pour ordonner les Drops. Choisissez la source prioritaire dans les paramètres de la plateforme."
   },
   "tipMissingCampaigns": {
     "message": "Une campagne manque ? Vérifiez l’inventaire Drops de la plateforme puis les filtres dans les paramètres."
   },
   "tipCategorySelection": {
-    "message": "Seulement certains jeux ? Désactivez « Farmer toutes les catégories » et choisissez vos catégories."
+    "message": "Utilisez le filtre de catégories de la plateforme pour inclure uniquement les jeux sélectionnés ou exclure ceux que vous ne voulez pas."
   },
   "tipIdleWatchlist": {
-    "message": "La liste de veille inactive farme les chaînes choisies lorsqu’aucun drop éligible n’est disponible."
+    "message": "Choisissez quand regarder les chaînes de la liste de veille grâce à la priorité des sources dans les paramètres de la plateforme."
   },
   "tipTablessMode": {
     "message": "Le mode sans onglet utilise moins de ressources et ouvre un onglet muet si nécessaire."
@@ -452,12 +452,6 @@
   "idleWatchlistSettingsDescription": {
     "message": "Comportement partagé de la liste de secours."
   },
-  "idleWatchlistFallbackOnlyTitle": {
-    "message": "Donner la priorité aux drops sur la Liste de veille inactive"
-  },
-  "idleWatchlistFallbackOnlyDescription": {
-    "message": "Quitte une chaîne de la Liste de veille inactive dès qu’un drop éligible devient disponible. Si désactivé, continue à la regarder jusqu’à ce qu’elle se déconnecte."
-  },
   "preferKnownChannelsTitle": {
     "message": "Préférer les chaînes suivies et celles de la Liste de veille inactive"
   },
@@ -494,10 +488,18 @@
   "failuresSuffix": {
     "message": "échecs"
   },
-  "kickPageContextRecoverySuccessesTitle": { "message": "Récupération de la page de secours Kick" },
-  "kickPageContextRecoverySuccessesDescription": { "message": "Ferme une page de secours Kick ouverte par l’extension après ce nombre de cycles d’actualisation réussis." },
-  "kickPageContextRecoverySuccessesDisabledReason": { "message": "Activez Kick pour modifier ce réglage." },
-  "cyclesSuffix": { "message": "cycles réussis" },
+  "kickPageContextRecoverySuccessesTitle": {
+    "message": "Récupération de la page de secours Kick"
+  },
+  "kickPageContextRecoverySuccessesDescription": {
+    "message": "Ferme une page de secours Kick ouverte par l’extension après ce nombre de cycles d’actualisation réussis."
+  },
+  "kickPageContextRecoverySuccessesDisabledReason": {
+    "message": "Activez Kick pour modifier ce réglage."
+  },
+  "cyclesSuffix": {
+    "message": "cycles réussis"
+  },
   "autoCloseTabsTitle": {
     "message": "Fermer automatiquement les onglets de farm"
   },
@@ -547,10 +549,10 @@
     "message": "Avancé et compatibilité"
   },
   "twitchSectionDescription": {
-    "message": "Points de chaîne, filtre de catégories, chaînes exclues et compatibilité Twitch."
+    "message": "Priorité des sources, points de chaîne, catégories, chaînes exclues et compatibilité Twitch."
   },
   "kickSectionDescription": {
-    "message": "Défis quotidiens, filtre de catégories, chaînes exclues et compatibilité Kick."
+    "message": "Priorité des sources, défis quotidiens, catégories, chaînes exclues et compatibilité Kick."
   },
   "twitchAdvancedDescription": {
     "message": "Disponibilité des campagnes, ainsi que les transports de battement et d'inventaire utilisés par Lurkloot. Ne les modifiez que si Twitch cesse de fonctionner."
@@ -944,12 +946,6 @@
   },
   "screenshotUpdatedLicense": {
     "message": "Apache-2.0"
-  },
-  "screenshotUpdatedRating": {
-    "message": "4.9"
-  },
-  "screenshotUpdatedUsers": {
-    "message": "plus de 1 000 utilisateurs"
   },
   "autoClaimReady": {
     "message": "Réclamation auto prête"
@@ -1421,5 +1417,140 @@
   },
   "scrollRewardsRight": {
     "message": "Faire défiler les récompenses vers la droite"
+  },
+  "activityExtensionGiveawayJoined": {
+    "message": "Participation à un tirage au sort $1 sur $2."
+  },
+  "activityExtensionSpriteCaptured": {
+    "message": "Sprite $1 capturé sur $2."
+  },
+  "activityExtensionTakeoverStarted": {
+    "message": "Attaque $1 lancée depuis $2."
+  },
+  "extensionSettingsTitle": {
+    "message": "Extensions Twitch"
+  },
+  "extensionDropsTitle": {
+    "message": "Extensions"
+  },
+  "extensionSettingsHint": {
+    "message": "Obtenez des récompenses sans onglets Twitch. Automatisation Twitch, exclusions et pause manuelle restent applicables."
+  },
+  "extensionNoPixelHint": {
+    "message": "Obtenez des packs quotidiens et participez aux tirages."
+  },
+  "extensionFortniteHint": {
+    "message": "Collectez des sprites et obtenez les récompenses des phases."
+  },
+  "extensionIdentityRequired": {
+    "message": "Liez votre compte à l’extension"
+  },
+  "extensionPermissionRequired": {
+    "message": "Autorisez l’accès au fournisseur"
+  },
+  "extensionAuthRequired": {
+    "message": "Connectez-vous à Twitch"
+  },
+  "extensionChannelRequired": {
+    "message": "Recherche d’une chaîne éligible"
+  },
+  "extensionComplete": {
+    "message": "Récompenses obtenues"
+  },
+  "extensionFarming": {
+    "message": "Collecte en cours"
+  },
+  "extensionPhaseClosed": {
+    "message": "Aucune phase interactive ouverte"
+  },
+  "extensionConnecting": {
+    "message": "Connexion"
+  },
+  "extensionUnavailable": {
+    "message": "Temporairement indisponible"
+  },
+  "extensionIdle": {
+    "message": "En attente"
+  },
+  "extensionDailyPackProgress": {
+    "message": "Pack quotidien : $1/$2 minutes"
+  },
+  "extensionCaptureProgress": {
+    "message": "Collection : $1/$2"
+  },
+  "extensionTakeoversTitle": {
+    "message": "Autoriser les attaques Fortnite"
+  },
+  "extensionTakeoversHint": {
+    "message": "Lancez les attaques éligibles pendant les phases interactives. Désactivé par défaut."
+  },
+  "extensionAccountSetup": {
+    "message": "Configurer le compte"
+  },
+  "extensionGiveawayUnavailable": {
+    "message": "Vérification du tirage au sort indisponible"
+  },
+  "extensionGiveawayEntered": {
+    "message": "Participation confirmée"
+  },
+  "extensionGiveawayOpen": {
+    "message": "Tirage au sort ouvert"
+  },
+  "extensionRewardProgress": {
+    "message": "Récompenses : $1/$2"
+  },
+  "extensionTakeoverActive": {
+    "message": "Prise de contrôle active"
+  },
+  "extensionWatchtimeComplete": {
+    "message": "Temps de visionnage terminé"
+  },
+  "extensionUnopenedPacks": {
+    "message": "Packs non ouverts : $1"
+  },
+  "extensionPackCheckUnavailable": {
+    "message": "Vérification de livraison indisponible"
+  },
+  "extensionAutoOpenPacksTitle": {
+    "message": "Ouvrir automatiquement les packs NoPixelV"
+  },
+  "extensionAutoOpenPacksHint": {
+    "message": "Révèle les cartes des packs non ouverts. Chaque pack est consommé et cette action est irréversible."
+  },
+  "activityExtensionPackOpened": {
+    "message": "$1 a ouvert un pack de cartes sur $2"
+  },
+  "watchSourcePriorityTitle": {
+    "message": "Priorité des sources"
+  },
+  "watchSourcePriorityDescription": {
+    "message": "La première source disponible est regardée. Les sources désactivées ou indisponibles sont ignorées."
+  },
+  "watchSourcePriorityMoveUp": {
+    "message": "Monter $1"
+  },
+  "watchSourcePriorityMoveDown": {
+    "message": "Descendre $1"
+  },
+  "watchSourcePriorityReset": {
+    "message": "Réinitialiser la priorité"
+  },
+  "watchSourcePriorityMoved": {
+    "message": "$1 est maintenant en priorité $2."
+  },
+  "watchSourcePriorityResetDone": {
+    "message": "Priorité des sources réinitialisée."
+  },
+  "watchSourceDrops": {
+    "message": "Drops"
+  },
+  "watchSourceIdleWatchlist": {
+    "message": "Liste de veille"
+  },
+  "watchSourceNoPixel": {
+    "message": "NoPixelV"
+  },
+  "watchSourceFortnite": {
+    "message": "Fortnite"
   }
 }

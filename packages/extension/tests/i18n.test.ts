@@ -206,8 +206,6 @@ describe("i18n", () => {
       screenshotUpdatedDockerTitle: "Docker",
       screenshotUpdatedDockerSub: "Same engine. In a container.",
       screenshotUpdatedLicense: "Apache-2.0",
-      screenshotUpdatedRating: "4.9",
-      screenshotUpdatedUsers: "1,000+ users",
     };
     const catalog = readCatalog("en");
     for (const [key, message] of Object.entries(english)) {
@@ -223,6 +221,10 @@ describe("i18n", () => {
       "screenshotActivityHeadline",
       "screenshotActivitySubcopy",
       "screenshotUpdatedReviews",
+      // Removed: the Chrome Web Store forbids listing assets that mimic an
+      // extension's rating, install count or other store standing.
+      "screenshotUpdatedRating",
+      "screenshotUpdatedUsers",
     ]) {
       expect(catalog[stale], stale).toBeUndefined();
     }
@@ -255,12 +257,17 @@ describe("i18n", () => {
       "siteAttributionShort",
       // "Diagnostics" is spelled the same in French.
       "diagnosticsViewTab",
+      // "Extensions" is spelled the same in French.
+      "extensionDropsTitle",
+      // Watch-source labels include provider brands and the common Drops term.
+      "watchSourceNoPixel",
+      "watchSourceFortnite",
+      "watchSourceDrops",
       // Brand-only store screenshot eyebrow.
       "screenshotHeroEyebrow",
       "screenshotUpdatedHeadlessTitle",
       "screenshotUpdatedDockerTitle",
       "screenshotUpdatedLicense",
-      "screenshotUpdatedRating",
     ]);
 
     for (const locale of localeCodes().filter((entry) => entry !== "en")) {

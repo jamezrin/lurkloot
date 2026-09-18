@@ -159,16 +159,16 @@
     "message": "在 twitch.tv 和 kick.com 上添加 Lurkloot 按钮，点击后可在页面内打开此弹窗。"
   },
   "tipCampaignPriority": {
-    "message": "默认优先挂机获取掉宝，再观看备用观看列表中的频道。拖动活动旁的拖动柄即可调整挂机顺序。"
+    "message": "拖动手柄可调整掉宝活动的顺序。在平台设置中选择优先观看的来源。"
   },
   "tipMissingCampaigns": {
     "message": "找不到某个掉宝活动？请先查看相应平台的掉宝库存，再检查设置中的活动筛选条件。"
   },
   "tipCategorySelection": {
-    "message": "只想挂机特定游戏？请在平台设置中关闭“挂机所有分类”，再选择所需分类。"
+    "message": "使用平台设置中的分类筛选，仅包含所选游戏或排除不想观看的游戏。"
   },
   "tipIdleWatchlist": {
-    "message": "默认优先挂机获取掉宝；没有符合条件的掉宝时，会自动观看备用观看列表中的频道。"
+    "message": "在平台设置中调整观看来源优先级，选择何时观看待机列表中的频道。"
   },
   "tipTablessMode": {
     "message": "无标签页模式占用更少资源，必要时会改用静音标签页。"
@@ -452,12 +452,6 @@
   "idleWatchlistSettingsDescription": {
     "message": "没有符合条件的掉宝时使用的备用频道。"
   },
-  "idleWatchlistFallbackOnlyTitle": {
-    "message": "掉宝优先于备用观看列表"
-  },
-  "idleWatchlistFallbackOnlyDescription": {
-    "message": "一旦有符合条件的掉宝可挂机，便停止观看备用频道。关闭此选项后，会继续观看当前备用频道，直到其下播。"
-  },
   "preferKnownChannelsTitle": {
     "message": "优先选择已关注和备用观看列表中的频道"
   },
@@ -494,10 +488,18 @@
   "failuresSuffix": {
     "message": "次失败"
   },
-  "kickPageContextRecoverySuccessesTitle": { "message": "Kick 后备页面恢复" },
-  "kickPageContextRecoverySuccessesDescription": { "message": "在达到此成功刷新周期数后，关闭扩展打开的 Kick 后备页面。" },
-  "kickPageContextRecoverySuccessesDisabledReason": { "message": "启用 Kick 后可更改此设置。" },
-  "cyclesSuffix": { "message": "个周期" },
+  "kickPageContextRecoverySuccessesTitle": {
+    "message": "Kick 后备页面恢复"
+  },
+  "kickPageContextRecoverySuccessesDescription": {
+    "message": "在达到此成功刷新周期数后，关闭扩展打开的 Kick 后备页面。"
+  },
+  "kickPageContextRecoverySuccessesDisabledReason": {
+    "message": "启用 Kick 后可更改此设置。"
+  },
+  "cyclesSuffix": {
+    "message": "个周期"
+  },
   "autoCloseTabsTitle": {
     "message": "自动关闭挂机标签页"
   },
@@ -547,10 +549,10 @@
     "message": "高级与兼容性"
   },
   "twitchSectionDescription": {
-    "message": "频道积分、分类筛选、排除的频道以及 Twitch 兼容性。"
+    "message": "观看来源优先级、频道点数、分类、排除的频道及 Twitch 兼容性。"
   },
   "kickSectionDescription": {
-    "message": "每日挑战、分类筛选、排除的频道以及 Kick 兼容性。"
+    "message": "观看来源优先级、每日挑战、分类、排除的频道及 Kick 兼容性。"
   },
   "twitchAdvancedDescription": {
     "message": "活动可用性，以及 Lurkloot 使用的心跳和库存传输方式。仅在 Twitch 无法正常工作时才更改。"
@@ -944,12 +946,6 @@
   },
   "screenshotUpdatedLicense": {
     "message": "Apache-2.0"
-  },
-  "screenshotUpdatedRating": {
-    "message": "4.9"
-  },
-  "screenshotUpdatedUsers": {
-    "message": "1,000+ 用户"
   },
   "autoClaimReady": {
     "message": "自动领取就绪"
@@ -1421,5 +1417,140 @@
   },
   "scrollRewardsRight": {
     "message": "向右滚动奖励列表"
+  },
+  "activityExtensionGiveawayJoined": {
+    "message": "已参加 $2 频道的 $1 抽奖。"
+  },
+  "activityExtensionSpriteCaptured": {
+    "message": "已在 $2 频道捕获 $1 精灵。"
+  },
+  "activityExtensionTakeoverStarted": {
+    "message": "已从 $2 频道发起 $1 攻击。"
+  },
+  "extensionSettingsTitle": {
+    "message": "Twitch 扩展"
+  },
+  "extensionDropsTitle": {
+    "message": "扩展"
+  },
+  "extensionSettingsHint": {
+    "message": "无需 Twitch 标签页即可获取扩展奖励。遵循 Twitch 自动化、排除频道和手动暂停设置。"
+  },
+  "extensionNoPixelHint": {
+    "message": "获取每日卡包并参加抽奖。"
+  },
+  "extensionFortniteHint": {
+    "message": "收集精灵并获取阶段奖励。"
+  },
+  "extensionIdentityRequired": {
+    "message": "关联扩展账户"
+  },
+  "extensionPermissionRequired": {
+    "message": "请允许访问服务商"
+  },
+  "extensionAuthRequired": {
+    "message": "请登录 Twitch"
+  },
+  "extensionChannelRequired": {
+    "message": "正在寻找符合条件的频道"
+  },
+  "extensionComplete": {
+    "message": "已获得奖励"
+  },
+  "extensionFarming": {
+    "message": "正在收集"
+  },
+  "extensionPhaseClosed": {
+    "message": "当前没有开放的互动阶段"
+  },
+  "extensionConnecting": {
+    "message": "正在连接"
+  },
+  "extensionUnavailable": {
+    "message": "暂时不可用"
+  },
+  "extensionIdle": {
+    "message": "等待中"
+  },
+  "extensionDailyPackProgress": {
+    "message": "每日卡包：$1/$2 分钟"
+  },
+  "extensionCaptureProgress": {
+    "message": "收集进度：$1/$2"
+  },
+  "extensionTakeoversTitle": {
+    "message": "允许 Fortnite 攻占"
+  },
+  "extensionTakeoversHint": {
+    "message": "在互动阶段发起符合条件的攻占。默认关闭。"
+  },
+  "extensionAccountSetup": {
+    "message": "账户设置"
+  },
+  "extensionGiveawayUnavailable": {
+    "message": "暂时无法检查抽奖"
+  },
+  "extensionGiveawayEntered": {
+    "message": "已确认参加抽奖"
+  },
+  "extensionGiveawayOpen": {
+    "message": "抽奖开放中"
+  },
+  "extensionRewardProgress": {
+    "message": "奖励：$1/$2"
+  },
+  "extensionTakeoverActive": {
+    "message": "接管进行中"
+  },
+  "extensionWatchtimeComplete": {
+    "message": "观看时长已完成"
+  },
+  "extensionUnopenedPacks": {
+    "message": "未打开的卡包：$1"
+  },
+  "extensionPackCheckUnavailable": {
+    "message": "暂时无法检查卡包发放"
+  },
+  "extensionAutoOpenPacksTitle": {
+    "message": "自动打开 NoPixelV 卡包"
+  },
+  "extensionAutoOpenPacksHint": {
+    "message": "揭示未打开卡包中的卡牌。每个卡包都会被消耗，且无法撤销。"
+  },
+  "activityExtensionPackOpened": {
+    "message": "$1 在 $2 打开了一个卡包"
+  },
+  "watchSourcePriorityTitle": {
+    "message": "观看来源优先级"
+  },
+  "watchSourcePriorityDescription": {
+    "message": "观看第一个可用来源。已禁用或不可用的来源会被跳过。"
+  },
+  "watchSourcePriorityMoveUp": {
+    "message": "上移$1"
+  },
+  "watchSourcePriorityMoveDown": {
+    "message": "下移$1"
+  },
+  "watchSourcePriorityReset": {
+    "message": "重置优先级"
+  },
+  "watchSourcePriorityMoved": {
+    "message": "$1的优先级现为$2。"
+  },
+  "watchSourcePriorityResetDone": {
+    "message": "观看来源优先级已重置。"
+  },
+  "watchSourceDrops": {
+    "message": "掉宝"
+  },
+  "watchSourceIdleWatchlist": {
+    "message": "待机观看列表"
+  },
+  "watchSourceNoPixel": {
+    "message": "NoPixelV"
+  },
+  "watchSourceFortnite": {
+    "message": "Fortnite"
   }
 }

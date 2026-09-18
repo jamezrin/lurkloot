@@ -7,6 +7,11 @@ import {
   withSchemaVersion,
 } from "@lurkloot/shared/settingsSchema";
 
+const defaultSourceSettings = {
+  twitch: { watchSourcePriority: ["drops", "nopixel", "fortnite", "idle_watchlist"] },
+  kick: { watchSourcePriority: ["drops", "idle_watchlist"] },
+};
+
 describe("settings schema versions", () => {
   it("treats an unversioned object as version 0", () => {
     const result = migrateSettings({ autoClaim: false });
@@ -18,7 +23,7 @@ describe("settings schema versions", () => {
   it("treats a missing or non-object payload as an empty version 0 document", () => {
     for (const raw of [undefined, null, "nope", 42, ["a"]]) {
       const result = migrateSettings(raw);
-      expect(result.settings).toEqual({ criticalFailurePromptEnabled: true });
+      expect(result.settings).toEqual({ criticalFailurePromptEnabled: true, platform: defaultSourceSettings });
       expect(result.fromVersion).toBe(0);
       expect(result.diagnostics).toEqual([]);
     }
@@ -113,8 +118,8 @@ describe("migration 1: legacy aliases", () => {
       idleWatchlistFallbackOnly: false,
       criticalFailurePromptEnabled: true,
       platform: {
-        twitch: { idleWatchlistChannels: ["Legacy"] },
-        kick: { idleWatchlistChannels: ["KickLegacy"] },
+        twitch: { idleWatchlistChannels: ["Legacy"], watchSourcePriority: ["idle_watchlist", "drops", "nopixel", "fortnite"] },
+        kick: { idleWatchlistChannels: ["KickLegacy"], watchSourcePriority: ["idle_watchlist", "drops"] },
       },
     });
     expect(result.settings).not.toHaveProperty("watchQueueFallbackOnly");
@@ -122,7 +127,7 @@ describe("migration 1: legacy aliases", () => {
 
   it("moves a top-level autoClaimChannelPoints onto platform.twitch", () => {
     const result = migrateSettings({ autoClaimChannelPoints: false });
-    expect(result.settings).toEqual({ platform: { twitch: { autoClaimChannelPoints: false } }, criticalFailurePromptEnabled: true });
+    expect(result.settings).toEqual({ platform: { ...defaultSourceSettings, twitch: { ...defaultSourceSettings.twitch, autoClaimChannelPoints: false } }, criticalFailurePromptEnabled: true });
     expect(result.diagnostics).toContainEqual({
       code: "moved_property",
       path: "autoClaimChannelPoints",
@@ -132,8 +137,8 @@ describe("migration 1: legacy aliases", () => {
   });
 
   it("renames verboseLogging to diagnosticLogging", () => {
-    expect(migrateSettings({ verboseLogging: true }).settings).toEqual({ diagnosticLogging: true, criticalFailurePromptEnabled: true });
-    expect(migrateSettings({ verboseLogging: false }).settings).toEqual({ diagnosticLogging: false, criticalFailurePromptEnabled: true });
+    expect(migrateSettings({ verboseLogging: true }).settings).toEqual({ diagnosticLogging: true, criticalFailurePromptEnabled: true, platform: defaultSourceSettings });
+    expect(migrateSettings({ verboseLogging: false }).settings).toEqual({ diagnosticLogging: false, criticalFailurePromptEnabled: true, platform: defaultSourceSettings });
   });
 
   it("drops an unhomeable legacy autoClaimChannelPoints when platform is not an object", () => {
@@ -148,7 +153,7 @@ describe("migration 1: legacy aliases", () => {
 
   it("drops an unhomeable legacy autoClaimChannelPoints when platform.twitch is not an object", () => {
     const result = migrateSettings({ autoClaimChannelPoints: false, platform: { twitch: null } });
-    expect(result.settings).toEqual({ platform: { twitch: null }, criticalFailurePromptEnabled: true });
+    expect(result.settings).toEqual({ platform: { ...defaultSourceSettings, twitch: null }, criticalFailurePromptEnabled: true });
     expect(result.diagnostics).toEqual([]);
   });
 
@@ -157,21 +162,21 @@ describe("migration 1: legacy aliases", () => {
     // wrong-typed current value and applies its default. The pre-registry
     // inline fallbacks instead fell through to the legacy value here.
     const logging = migrateSettings({ diagnosticLogging: "yes", verboseLogging: true });
-    expect(logging.settings).toEqual({ diagnosticLogging: "yes", criticalFailurePromptEnabled: true });
+    expect(logging.settings).toEqual({ diagnosticLogging: "yes", criticalFailurePromptEnabled: true, platform: defaultSourceSettings });
     expect(logging.diagnostics.map((d) => d.path)).toEqual(["verboseLogging"]);
 
     const points = migrateSettings({
       autoClaimChannelPoints: false,
       platform: { twitch: { autoClaimChannelPoints: "yes" } },
     });
-    expect(points.settings).toEqual({ platform: { twitch: { autoClaimChannelPoints: "yes" } }, criticalFailurePromptEnabled: true });
+    expect(points.settings).toEqual({ platform: { ...defaultSourceSettings, twitch: { ...defaultSourceSettings.twitch, autoClaimChannelPoints: "yes" } }, criticalFailurePromptEnabled: true });
     expect(points.diagnostics.map((d) => d.path)).toEqual(["autoClaimChannelPoints"]);
   });
 
   it("keeps a non-boolean legacy value verbatim so normalization decides", () => {
     // mergeSettings applies booleanOr afterwards; the migration only reshapes.
     expect(migrateSettings({ autoClaimChannelPoints: "yes" }).settings)
-      .toEqual({ platform: { twitch: { autoClaimChannelPoints: "yes" } }, criticalFailurePromptEnabled: true });
+      .toEqual({ platform: { ...defaultSourceSettings, twitch: { ...defaultSourceSettings.twitch, autoClaimChannelPoints: "yes" } }, criticalFailurePromptEnabled: true });
   });
 
   it("lets the current property win while still reporting the deprecated one", () => {
@@ -191,8 +196,8 @@ describe("migration 1: legacy aliases", () => {
       diagnosticLogging: false,
       criticalFailurePromptEnabled: true,
       platform: {
-        twitch: { idleWatchlistChannels: [], autoClaimChannelPoints: true },
-        kick: { idleWatchlistChannels: ["new"] },
+        twitch: { ...defaultSourceSettings.twitch, idleWatchlistChannels: [], autoClaimChannelPoints: true },
+        kick: { ...defaultSourceSettings.kick, idleWatchlistChannels: ["new"] },
       },
     });
     expect(result.diagnostics.map((d) => d.path)).toEqual([
@@ -225,7 +230,7 @@ describe("migration 1: legacy aliases", () => {
 
   it("leaves unrelated and malformed platform blocks alone", () => {
     expect(migrateSettings({ platform: "nope", other: 1 }).settings).toEqual({ platform: "nope", other: 1, criticalFailurePromptEnabled: true });
-    expect(migrateSettings({ platform: { twitch: null } }).settings).toEqual({ platform: { twitch: null }, criticalFailurePromptEnabled: true });
+    expect(migrateSettings({ platform: { twitch: null } }).settings).toEqual({ platform: { ...defaultSourceSettings, twitch: null }, criticalFailurePromptEnabled: true });
   });
 });
 

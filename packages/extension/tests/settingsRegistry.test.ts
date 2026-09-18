@@ -54,6 +54,8 @@ describe("settings registry", () => {
   // Both platforms now end in a `.advanced` group, and only Kick's is an editor
   // group — a suffix match here would wrongly exempt Twitch's toggle list too.
   const EDITOR_GROUP_IDS = [
+    "twitch.watchSourcePriority",
+    "kick.watchSourcePriority",
     "twitch.categories",
     "kick.categories",
     "twitch.channels",
@@ -136,7 +138,6 @@ describe("settings registry", () => {
         "general.drops.priorityMode",
         "general.drops.skipUnfinishable",
         "general.drops.preferKnownChannels",
-        "general.drops.idleWatchlistFallbackOnly",
         "general.drops.dropsListFilter",
         "general.drops.forgetExcluded",
         "general.farmingTabs.tabless",
@@ -153,12 +154,14 @@ describe("settings registry", () => {
         "general.advanced.deadlineSafetyMargin",
         "general.advanced.diagnosticLogging",
         "twitch.autoClaimChannelPoints",
+        "twitch.watchSourcePriority.order",
         "twitch.categories.mode",
         "twitch.channels.excluded",
         "twitch.advanced.channelPointsPushClaim",
         "twitch.advanced.strictCampaignAvailability",
         "twitch.compatibility.rows",
         "kick.autoClaimChallenges",
+        "kick.watchSourcePriority.order",
         "kick.categories.mode",
         "kick.channels.excluded",
         "kick.compatibility.rows",

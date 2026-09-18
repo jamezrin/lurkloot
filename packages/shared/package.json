@@ -11,6 +11,7 @@
     "./campaignFarming": "./src/campaignFarming.ts",
     "./messages": "./src/messages.ts",
     "./settings": "./src/settings.ts",
+    "./watchSources": "./src/watchSources.ts",
     "./settingsSchema": "./src/settingsSchema.ts",
     "./settingsExport": "./src/settingsExport.ts",
     "./i18n": "./src/i18n.ts",

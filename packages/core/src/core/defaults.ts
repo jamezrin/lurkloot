@@ -137,6 +137,7 @@ export function mergeSchedulerState(stored: Partial<SchedulerState> | undefined)
     managedWatchTabs: { ...DEFAULT_STATE.managedWatchTabs, ...stored?.managedWatchTabs },
     managedPageContextTabs: { ...DEFAULT_STATE.managedPageContextTabs, ...stored?.managedPageContextTabs },
     manualWatch: { ...stored?.manualWatch },
+    manualWatchTabs: { ...stored?.manualWatchTabs },
     campaigns: { ...DEFAULT_STATE.campaigns, ...stored?.campaigns },
     ...(criticalHealth ? { criticalHealth } : {}),
   };

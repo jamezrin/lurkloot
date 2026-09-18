@@ -1,3 +1,5 @@
+import { normalizePlatformWatchSourcePriority } from "./watchSources";
+
 // The single authority for versioned settings-shape migrations. Both hosts run
 // `migrateSettings` on their raw persisted payload *before* normalization: the
 // raw property information is what makes accurate deprecation diagnostics
@@ -6,7 +8,7 @@
 // See docs/architecture.md ("Settings Migrations") before adding one.
 
 // Incremented for every semantic settings-shape migration.
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 5;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 6;
 
 // Reserved metadata stored alongside the settings properties. It is stripped
 // before any runtime EngineSettings/ExtensionSettings/CliSettings value is
@@ -70,6 +72,7 @@ const MIGRATIONS: SettingsMigration[] = [
   { to: 3, migrate: migrateToV3 },
   { to: 4, migrate: migrateToV4 },
   { to: 5, migrate: migrateToV5 },
+  { to: 6, migrate: migrateToV6 },
 ];
 
 // Migration 1 consolidates every legacy shape that predates the registry: the
@@ -235,6 +238,20 @@ function migrateToV5(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
     // A current key always wins, matching renameProperty's convention.
     if (!Object.hasOwn(block, "categoryMode")) block.categoryMode = legacy === false ? "include" : "all";
   }
+  return raw;
+}
+
+// Materializes complete per-platform source orders so hosts persist the new
+// shape once, including the legacy preference for watching Idle first.
+function migrateToV6(raw: Record<string, unknown>, _diagnose: Diagnose): Record<string, unknown> {
+  for (const platform of ["twitch", "kick"] as const) {
+    const block = ensurePlatformBlock(raw, platform);
+    if (block && !Object.hasOwn(block, "watchSourcePriority")) {
+      block.watchSourcePriority = normalizePlatformWatchSourcePriority(platform, block, raw.idleWatchlistFallbackOnly);
+    }
+  }
+  // Keep the old serialized field for backward compatibility. Its old false
+  // sticky-idle preference now becomes predictable Idle-first selection.
   return raw;
 }
 

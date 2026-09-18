@@ -167,9 +167,13 @@ describe("store screenshot cameras", () => {
   it("fills updated with a text runtime board and no popup", async () => {
     const container = await mountShot("updated", "LIVE_POPUP");
     expect(container.textContent).toContain("Featureful. Always updated.");
-    expect(container.textContent).toContain("4.9");
-    expect(container.textContent).toContain("1,000+ users");
+    // The Chrome Web Store forbids listing assets that mimic an extension's
+    // rating, install count or other store standing, so the board carries no
+    // rating, star row or user total.
+    expect(container.textContent).not.toContain("4.9");
+    expect(container.textContent).not.toContain("1,000+ users");
     expect(container.textContent).not.toContain("25 reviews");
+    expect(container.querySelectorAll(".lucide-star")).toHaveLength(0);
     expect(container.textContent).toContain("Chromium-based browsers");
     expect(container.textContent).toContain("Chrome Web Store listing. Same extension.");
     expect(container.textContent).toContain("CLI");

@@ -1,5 +1,5 @@
 import type { CategorySearchResult, CoreRuntimeMessage, PlaybackControl, RuntimeSnapshot } from "@lurkloot/shared/messages";
-import type { ChannelCandidate, DropCampaign, DropReward, EngineSettings, ManagedWatchTab, Platform, PlatformAuthHealth, PlaybackTelemetry, SchedulerState, TablessHeartbeatCadence, WatchReasonCode, WatchSession } from "@lurkloot/shared/models";
+import type { ChannelCandidate, DropCampaign, DropReward, EngineSettings, ManagedWatchTab, Platform, PlatformAuthHealth, PlaybackTelemetry, SchedulerState, SupplementalWatchTarget, TablessHeartbeatCadence, WatchReasonCode, WatchSession, WatchSourceId } from "@lurkloot/shared/models";
 import type { ActivityEvent, DiagnosticEvent, EngineEvent, EventEmitter, EventReporter, FarmingStopReason, PageContextOpenReason } from "@lurkloot/shared/events";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 import { autoClaimChallengesFor, autoClaimChannelPointsFor, isFarmingActive } from "@lurkloot/shared/settings";
@@ -37,6 +37,7 @@ import {
   validTablessHeartbeatCadence,
 } from "../core/heartbeatCadence";
 import { mergePlatformState, schedulerStateEquivalent } from "./platformState";
+import { kickChannelFromUrl } from "../platforms/kick/channelUrl";
 import { twitchChannelFromUrl } from "../platforms/twitch/channelUrl";
 import {
   collectDiscoverySnapshot,
@@ -352,6 +353,7 @@ export interface BackgroundControllerDeps<S extends EngineSettings = EngineSetti
   ): Promise<boolean>;
   discardPageContextRecoveryEvidence?(platform: Platform): void;
   selectWatchTarget?: typeof selectWatchTargetFromSnapshot;
+  selectSupplementalWatchTarget?(platform: Platform, state: SchedulerState, settings: S, signal?: AbortSignal, source?: WatchSourceId): Promise<SupplementalWatchTarget | undefined>;
   // Delay used by the bounded post-claim handoff. Injected so tests can drive
   // the loop deterministically instead of racing real timers. Resolves early
   // (without throwing) when the signal aborts, so callers check `signal.aborted`
@@ -2767,6 +2769,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         }
         const result = await runSchedulerTick(state, settings, adapters, {
           platforms: schedulerPlatforms,
+          selectSupplementalWatchTarget: deps.selectSupplementalWatchTarget ? (platform, selectedState, selectedSignal, source) => deps.selectSupplementalWatchTarget!(platform, selectedState, settings, selectedSignal, source) : undefined,
           stopPageContextTabs: deps.stopPageContextTabs,
           waitingClaimRewardIds: nextWaitingClaimRewardIds,
           emit: claimObservingEmit,
@@ -2973,25 +2976,14 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   }
 
   async function handleTabRemoved(tabId: number): Promise<void> {
-    // Serialize the load-modify-persist under the state lock so it cannot race a
-    // concurrent tick()/heartbeat (both fire on a ~1-minute cadence while the
-    // user can close a tab at any moment). A removal never runs the scheduler
-    // directly (#193): it only records state, and the next ordinary alarm reads
-    // it. Closing a tab LurkLoot owns now records a per-platform pause, so the
-    // alarm keeps the platform paused instead of reopening the tab a minute
-    // later. The user's enabled/running settings are deliberately untouched;
-    // the popup shows the pause with a one-click resume.
+    const changed: Platform[] = [];
     await withStateLock(() => withEventCollector(async (emit, events) => {
       const state = await deps.loadState();
-      const manualPlatforms = (["twitch", "kick"] as Platform[]).filter((platform) => state.manualWatch?.[platform]?.tabId === tabId);
       let nextState = state;
-      if (manualPlatforms.length > 0) {
-        const manualWatch = { ...state.manualWatch };
-        for (const platform of manualPlatforms) delete manualWatch[platform];
-        nextState = {
-          ...state,
-          manualWatch,
-        };
+      for (const platform of PLATFORMS) {
+        if (state.manualWatch?.[platform]?.tabId !== tabId && !state.manualWatchTabs?.[platform]?.[tabId]) continue;
+        nextState = updateManualWatchTab(nextState, platform, tabId);
+        if (hasRecentManualWatch(state, platform) !== hasRecentManualWatch(nextState, platform)) changed.push(platform);
       }
 
       const closedManagedPlatforms: Platform[] = [];
@@ -3034,6 +3026,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
       if (nextState !== state || events.length > 0) await persistAndReport(nextState, events);
     }));
+    if (changed.length) tickInBackground(changed, "manual_watch");
   }
 
   // Explicit user action: clears the manual-close pause so the next tick may
@@ -3863,7 +3856,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         } else if (!ok && previousChecks === 0) {
           emit({ category: "diagnostic", platform, level: "warn", message: message ?? "Tabless watch heartbeat failed" });
         }
-        const fallback = !ok && heartbeatChecks >= settings.tablessFallbackFailureLimit;
+        const fallback = !current.supplementalWatch?.tablessOnly && !ok && heartbeatChecks >= settings.tablessFallbackFailureLimit;
         if (fallback) {
           emit({ category: "diagnostic", platform, level: "warn", message: "Tabless watch heartbeat keeps failing; falling back to a watch tab" });
         }
@@ -4403,7 +4396,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     senderTabId?: number,
     senderTabUrl?: string,
   ): Promise<void> {
-    let manualWatchStarted = false;
+    let manualWatchChanged = false;
     await withStateLock(() => withEventCollector(async (emit, events) => {
       const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
       const session = state.sessions[message.platform];
@@ -4415,7 +4408,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       if (!isManagedWatchTab) {
         if (senderTabId != null) {
           const manualWatch = recordManualWatchTelemetry(state, settings, message, senderTabId, senderTabUrl);
-          manualWatchStarted = manualWatch.started;
+          manualWatchChanged = manualWatch.changed;
           await persistPlatformAndReport(
             message.platform,
             manualWatch.state,
@@ -4468,7 +4461,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         await reportBestEffort(events);
       }
     }), [message.platform]);
-    if (manualWatchStarted) tickInBackground([message.platform], "manual_watch");
+    if (manualWatchChanged) tickInBackground([message.platform], "manual_watch");
   }
 
   function recordManualWatchTelemetry(
@@ -4477,33 +4470,76 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     message: Extract<CoreRuntimeMessage, { type: "playbackTelemetry" }>,
     senderTabId: number,
     senderTabUrl?: string,
-  ): { state: SchedulerState; started: boolean } {
+  ): { state: SchedulerState; changed: boolean } {
+    const channel = message.platform === "twitch"
+      ? twitchChannelFromUrl(senderTabUrl) : kickChannelFromUrl(senderTabUrl);
+    const owned = state.managedWatchTabs?.[message.platform]?.tabId === senderTabId
+      || state.managedPageContextTabs?.[message.platform]?.tabId === senderTabId;
+    const active = Boolean(channel) && !owned && settings.pauseOnManualWatch
+      && message.telemetry.playingVideoCount > 0 && !message.telemetry.documentHidden;
+    const next = updateManualWatchTab(state, message.platform, senderTabId, {
+      platform: message.platform, tabId: senderTabId,
+      checkedAt: new Date().toISOString(), active,
+      ...(channel ? { channel } : {}),
+    }, settings.pauseOnManualWatch);
+    return { state: next, changed: hasRecentManualWatch(state, message.platform)
+      !== hasRecentManualWatch(next, message.platform) };
+  }
+
+  function hasRecentManualWatch(state: SchedulerState, platform: Platform): boolean {
+    const watch = state.manualWatch?.[platform];
+    return Boolean(watch?.active && !isTimestampStale(watch.checkedAt, MANUAL_WATCH_TTL_MS, Date.now()));
+  }
+
+  function updateManualWatchTab(
+    state: SchedulerState, platform: Platform, tabId: number,
+    record?: NonNullable<SchedulerState["manualWatch"]>[Platform], enabled = true,
+  ): SchedulerState {
+    const previous = state.manualWatch?.[platform];
+    const tabs = { ...state.manualWatchTabs?.[platform] };
+    // Backfill the single-tab record saved by earlier versions.
+    if (!state.manualWatchTabs?.[platform] && previous) tabs[previous.tabId] = previous;
+    for (const [id, entry] of Object.entries(tabs)) {
+      if (!entry.active || isTimestampStale(entry.checkedAt, MANUAL_WATCH_TTL_MS, Date.now())) delete tabs[id];
+    }
+    delete tabs[tabId];
+    if (enabled && record?.active) tabs[tabId] = record;
     const manualWatch = { ...state.manualWatch };
-    if (!settings.pauseOnManualWatch) {
-      delete manualWatch[message.platform];
-      return { state: { ...state, manualWatch }, started: false };
+    const manualWatchTabs = { ...state.manualWatchTabs };
+    if (enabled) {
+      manualWatchTabs[platform] = tabs;
+      const remaining = Object.values(tabs);
+      const selected = remaining.find((entry) => entry.tabId === tabId)
+        ?? remaining.find((entry) => entry.tabId === previous?.tabId) ?? remaining[0] ?? record;
+      if (selected) manualWatch[platform] = selected;
+      else delete manualWatch[platform];
+    } else {
+      delete manualWatch[platform];
+      delete manualWatchTabs[platform];
     }
+    return { ...state, manualWatch, manualWatchTabs };
+  }
 
-    const active = message.telemetry.playingVideoCount > 0 && !message.telemetry.documentHidden;
-    const previous = manualWatch[message.platform];
-    const recentPrevious = previous?.active && !isTimestampStale(previous.checkedAt, MANUAL_WATCH_TTL_MS, Date.now());
-    if (!active && previous?.tabId !== senderTabId && recentPrevious) {
-      return { state, started: false };
-    }
-
-    manualWatch[message.platform] = {
-      platform: message.platform,
-      tabId: senderTabId,
-      checkedAt: new Date().toISOString(),
-      active,
-      ...(message.platform === "twitch"
-        ? { channel: twitchChannelFromUrl(senderTabUrl) }
-        : {}),
-    };
-    return {
-      state: { ...state, manualWatch },
-      started: active && !recentPrevious,
-    };
+  async function handleTabUpdated(tabId: number, url: string): Promise<void> {
+    const changed: Platform[] = [];
+    await withStateLock(() => withEventCollector(async (_emit, events) => {
+      const original = await deps.loadState();
+      let state = original;
+      for (const platform of PLATFORMS) {
+        const record = state.manualWatchTabs?.[platform]?.[tabId]
+          ?? (state.manualWatch?.[platform]?.tabId === tabId ? state.manualWatch[platform] : undefined);
+        if (!record) continue;
+        const channel = platform === "twitch" ? twitchChannelFromUrl(url) : kickChannelFromUrl(url);
+        // Keep the pause during channel switches until fresh playback arrives.
+        // Clearing here would reopen farming while the new player is loading.
+        if (channel) continue;
+        const wasActive = hasRecentManualWatch(state, platform);
+        state = updateManualWatchTab(state, platform, tabId);
+        if (wasActive !== hasRecentManualWatch(state, platform)) changed.push(platform);
+      }
+      if (state !== original) await persistAndReport(state, events);
+    }));
+    if (changed.length) tickInBackground(changed, "manual_watch");
   }
 
   async function applyAdFocusForState(
@@ -5298,6 +5334,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     ensureInstalledAt,
     handleStartup,
     handleTabRemoved,
+    handleTabUpdated,
     handleMessage,
     resumeAfterManualClose,
     captureTwitchIntegrity,

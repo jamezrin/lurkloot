@@ -159,16 +159,16 @@
     "message": "twitch.tv ve kick.com sitelerine, bu açılır pencereyi sayfa üzerinde bir panel olarak açan bir Lurkloot düğmesi ekler."
   },
   "tipCampaignPriority": {
-    "message": "Aktif kampanyalar yedek listenizden önceliklidir. Sıralamayı değiştirmek için sürükleyin."
+    "message": "Drop kampanyalarını sıralamak için tutamaçtan sürükleyin. Platform ayarlarında öncelikli kaynağı seçin."
   },
   "tipMissingCampaigns": {
     "message": "Bir kampanya görünmüyor mu? Platformun Drop sayfasını ve filtre ayarlarınızı kontrol edin."
   },
   "tipCategorySelection": {
-    "message": "Sadece belli oyunları mı izlemek istiyorsunuz? Platform ayarlarından filtreleme yapabilirsiniz."
+    "message": "Yalnızca seçilen oyunları dahil etmek veya istemediğiniz oyunları hariç tutmak için platform ayarlarındaki kategori filtresini kullanın."
   },
   "tipIdleWatchlist": {
-    "message": "Droplar her zaman önceliklidir. Boşta kaldığında seçtiğiniz yedek kanallar izlenir."
+    "message": "Boşta İzleme Listesi kanallarının ne zaman izleneceğini platform ayarlarındaki kaynak önceliğiyle seçin."
   },
   "tipTablessMode": {
     "message": "Sekmesiz mod daha az sistem kaynağı kullanır."
@@ -452,12 +452,6 @@
   "idleWatchlistSettingsDescription": {
     "message": "Drop yokken izlenecek kanallar."
   },
-  "idleWatchlistFallbackOnlyTitle": {
-    "message": "Droplara öncelik ver"
-  },
-  "idleWatchlistFallbackOnlyDescription": {
-    "message": "Yeni bir drop çıktığında yedek kanaldan hemen ayrılır."
-  },
   "preferKnownChannelsTitle": {
     "message": "Takip edilen ve yedek kanalları tercih et"
   },
@@ -494,10 +488,18 @@
   "failuresSuffix": {
     "message": "hata"
   },
-  "kickPageContextRecoverySuccessesTitle": { "message": "Kick yedek sayfa kurtarma" },
-  "kickPageContextRecoverySuccessesDescription": { "message": "Uzantının açtığı Kick yedek sayfasını bu sayıda başarılı yenileme döngüsünden sonra kapatır." },
-  "kickPageContextRecoverySuccessesDisabledReason": { "message": "Bu ayarı değiştirmek için Kick’i etkinleştirin." },
-  "cyclesSuffix": { "message": "döngü" },
+  "kickPageContextRecoverySuccessesTitle": {
+    "message": "Kick yedek sayfa kurtarma"
+  },
+  "kickPageContextRecoverySuccessesDescription": {
+    "message": "Uzantının açtığı Kick yedek sayfasını bu sayıda başarılı yenileme döngüsünden sonra kapatır."
+  },
+  "kickPageContextRecoverySuccessesDisabledReason": {
+    "message": "Bu ayarı değiştirmek için Kick’i etkinleştirin."
+  },
+  "cyclesSuffix": {
+    "message": "döngü"
+  },
   "autoCloseTabsTitle": {
     "message": "Gereksiz sekmeleri kapat"
   },
@@ -547,10 +549,10 @@
     "message": "Gelişmiş ve uyumluluk"
   },
   "twitchSectionDescription": {
-    "message": "Kanal puanları, kategori filtresi, hariç tutulan kanallar ve Twitch uyumluluğu."
+    "message": "Kaynak önceliği, kanal puanları, kategoriler, hariç tutulan kanallar ve Twitch uyumluluğu."
   },
   "kickSectionDescription": {
-    "message": "Günlük görevler, kategori filtresi, hariç tutulan kanallar ve Kick uyumluluğu."
+    "message": "Kaynak önceliği, günlük görevler, kategoriler, hariç tutulan kanallar ve Kick uyumluluğu."
   },
   "twitchAdvancedDescription": {
     "message": "Kampanya uygunluğu ve Lurkloot'un kullandığı sinyal ile envanter aktarımları. Bunları yalnızca Twitch çalışmayı bıraktığında değiştirin."
@@ -944,12 +946,6 @@
   },
   "screenshotUpdatedLicense": {
     "message": "Apache-2.0"
-  },
-  "screenshotUpdatedRating": {
-    "message": "4.9"
-  },
-  "screenshotUpdatedUsers": {
-    "message": "1.000+ kullanıcı"
   },
   "autoClaimReady": {
     "message": "Otomatik alma aktif"
@@ -1421,5 +1417,140 @@
   },
   "scrollRewardsRight": {
     "message": "Ödülleri sağa kaydır"
+  },
+  "activityExtensionGiveawayJoined": {
+    "message": "$2 kanalında bir $1 çekilişine katıldı."
+  },
+  "activityExtensionSpriteCaptured": {
+    "message": "$2 kanalında bir $1 sprite nesnesi yakaladı."
+  },
+  "activityExtensionTakeoverStarted": {
+    "message": "$2 kanalından bir $1 saldırısı başlattı."
+  },
+  "extensionSettingsTitle": {
+    "message": "Twitch uzantıları"
+  },
+  "extensionDropsTitle": {
+    "message": "Uzantılar"
+  },
+  "extensionSettingsHint": {
+    "message": "Twitch sekmeleri olmadan ödül kazanın. Twitch otomasyonu, hariç tutmalar ve manuel duraklatma geçerlidir."
+  },
+  "extensionNoPixelHint": {
+    "message": "Günlük paketler kazanın ve çekilişlere katılın."
+  },
+  "extensionFortniteHint": {
+    "message": "Sprite toplayın ve aşama ödülleri kazanın."
+  },
+  "extensionIdentityRequired": {
+    "message": "Uzantı hesabınızı bağlayın"
+  },
+  "extensionPermissionRequired": {
+    "message": "Sağlayıcı erişimine izin verin"
+  },
+  "extensionAuthRequired": {
+    "message": "Twitch’e giriş yapın"
+  },
+  "extensionChannelRequired": {
+    "message": "Uygun kanal aranıyor"
+  },
+  "extensionComplete": {
+    "message": "Ödüller kazanıldı"
+  },
+  "extensionFarming": {
+    "message": "Toplanıyor"
+  },
+  "extensionPhaseClosed": {
+    "message": "Açık etkileşimli aşama yok"
+  },
+  "extensionConnecting": {
+    "message": "Bağlanıyor"
+  },
+  "extensionUnavailable": {
+    "message": "Geçici olarak kullanılamıyor"
+  },
+  "extensionIdle": {
+    "message": "Bekleniyor"
+  },
+  "extensionDailyPackProgress": {
+    "message": "Günlük paket: $1/$2 dakika"
+  },
+  "extensionCaptureProgress": {
+    "message": "Koleksiyon: $1/$2"
+  },
+  "extensionTakeoversTitle": {
+    "message": "Fortnite devralmalarına izin ver"
+  },
+  "extensionTakeoversHint": {
+    "message": "Etkileşimli aşamalarda uygun devralmaları başlatın. Varsayılan olarak kapalıdır."
+  },
+  "extensionAccountSetup": {
+    "message": "Hesap kurulumu"
+  },
+  "extensionGiveawayUnavailable": {
+    "message": "Çekiliş kontrolü kullanılamıyor"
+  },
+  "extensionGiveawayEntered": {
+    "message": "Çekilişe katılım onaylandı"
+  },
+  "extensionGiveawayOpen": {
+    "message": "Çekiliş açık"
+  },
+  "extensionRewardProgress": {
+    "message": "Ödüller: $1/$2"
+  },
+  "extensionTakeoverActive": {
+    "message": "Ele geçirme etkin"
+  },
+  "extensionWatchtimeComplete": {
+    "message": "İzleme süresi tamamlandı"
+  },
+  "extensionUnopenedPacks": {
+    "message": "Açılmamış paketler: $1"
+  },
+  "extensionPackCheckUnavailable": {
+    "message": "Paket teslim kontrolü kullanılamıyor"
+  },
+  "extensionAutoOpenPacksTitle": {
+    "message": "NoPixelV paketlerini otomatik aç"
+  },
+  "extensionAutoOpenPacksHint": {
+    "message": "Açılmamış paketlerin kartlarını gösterir. Her paket tüketilir ve işlem geri alınamaz."
+  },
+  "activityExtensionPackOpened": {
+    "message": "$1, $2 kanalında bir kart paketi açtı"
+  },
+  "watchSourcePriorityTitle": {
+    "message": "İzleme kaynağı önceliği"
+  },
+  "watchSourcePriorityDescription": {
+    "message": "İlk kullanılabilir kaynak izlenir. Devre dışı veya kullanılamayan kaynaklar atlanır."
+  },
+  "watchSourcePriorityMoveUp": {
+    "message": "$1 kaynağını yukarı taşı"
+  },
+  "watchSourcePriorityMoveDown": {
+    "message": "$1 kaynağını aşağı taşı"
+  },
+  "watchSourcePriorityReset": {
+    "message": "Önceliği sıfırla"
+  },
+  "watchSourcePriorityMoved": {
+    "message": "$1 artık $2. öncelikte."
+  },
+  "watchSourcePriorityResetDone": {
+    "message": "İzleme kaynağı önceliği sıfırlandı."
+  },
+  "watchSourceDrops": {
+    "message": "Drop’lar"
+  },
+  "watchSourceIdleWatchlist": {
+    "message": "Boşta İzleme Listesi"
+  },
+  "watchSourceNoPixel": {
+    "message": "NoPixelV"
+  },
+  "watchSourceFortnite": {
+    "message": "Fortnite"
   }
 }

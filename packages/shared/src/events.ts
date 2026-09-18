@@ -1,6 +1,6 @@
 import type { CriticalFailureReason } from "./criticalHealth";
 import type { LogLevel } from "./logging";
-import type { Platform, PlatformAuthReasonCode, PlatformAuthStatus } from "./models";
+import type { Platform, PlatformAuthReasonCode, PlatformAuthStatus, TwitchExtensionProviderId } from "./models";
 
 export type FarmingStopReason =
   | "automation_disabled"
@@ -47,7 +47,10 @@ export type PageContextCloseReason =
   | "runtime_restart"
   | "managed_context_unusable";
 
+export type TwitchExtensionAction = "pack_opened" | "giveaway_joined" | "sprite_captured" | "takeover_started";
+
 export type ActivityEvent =
+  | { category: "activity"; code: "twitch_extension_action"; level: "info"; platform: "twitch"; message?: never; data: { provider: TwitchExtensionProviderId; action: TwitchExtensionAction; channel: string } }
   | { category: "activity"; code: "farming_started"; level: "info"; platform: Platform; message?: never; data: CampaignRewardData & { channel?: string } }
   | { category: "activity"; code: "farming_stopped"; level: "info" | "warn" | "error"; platform: Platform; message?: never; data: CampaignRewardData & { reason: FarmingStopReason } }
   | { category: "activity"; code: "reward_claimed"; level: "info"; platform: Platform; message?: never; data: CampaignRewardData & { method: "automatic" | "manual" } }

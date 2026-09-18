@@ -1,18 +1,20 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Download, RotateCcw, Terminal, Upload } from "lucide-react";
-import type { CategorySelection, ExtensionSettings, Platform } from "@lurkloot/shared/models";
+import type { CategorySelection, ExtensionSettings, Platform, TwitchExtensionProviderId } from "@lurkloot/shared/models";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 import { PLATFORMS } from "./constants";
 import { SettingsGroup, SettingsSearchBox, SettingsSection } from "./settingsControls";
 import { buildSettingsRegistry, type SettingsChangeOptions } from "./settingsRegistry";
 import { filterSettingsTree } from "./settingsSearch";
 import { useT } from "./context";
+import { TwitchExtensionSettings, twitchExtensionSearchText } from "./twitchExtensions";
 import type { GameItem, PopupCompatibilityRegistry, PopupCompatibilityResolution } from "./types";
 
-export function SettingsView({ suggestions, onSearchCategories, settings, onSettingsChange, onExportCredentials, onExportSettings, onImportSettings, onReset, exportConfirmationResetKey, compatibilityRegistry, compatibilityResolution, focusGroupId }: {
+export function SettingsView({ suggestions, onSearchCategories, settings, onSettingsChange, onExtensionEnabledChange, onExportCredentials, onExportSettings, onImportSettings, onReset, exportConfirmationResetKey, compatibilityRegistry, compatibilityResolution, focusGroupId }: {
   suggestions: Record<Platform, GameItem[]>;
   onSearchCategories(platform: Platform, query: string): Promise<CategorySelection[]>;
   settings: ExtensionSettings;
+  onExtensionEnabledChange?(provider: TwitchExtensionProviderId, enabled: boolean): Promise<boolean>;
   onSettingsChange(patch: SettingsPatch, options?: SettingsChangeOptions): Promise<void>;
   // Optional: when provided, the settings view shows an "Export credentials"
   // action for the headless CLI. The extension wires it; the demo omits it.
@@ -125,11 +127,22 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
     t("factoryResetHint"),
     t("factoryResetButton"),
   ].join(" ").toLocaleLowerCase();
+  const showExtensions = Boolean(onExtensionEnabledChange) && (!searching || twitchExtensionSearchText(t).includes(query.trim().toLocaleLowerCase()));
   const showActions = hasActions && (!searching || actionSearchText.includes(query.trim().toLocaleLowerCase()));
   const generalSection = visible.find((section) => section.id === "general");
   const platformSections = (Object.keys(PLATFORMS) as Platform[])
     .map((id) => visible.find((section) => section.id === id))
     .filter((section): section is NonNullable<typeof section> => Boolean(section));
+
+  const extensionSettings = showExtensions && onExtensionEnabledChange ? (
+    <TwitchExtensionSettings
+      query={query}
+      settings={settings}
+      onChange={onExtensionEnabledChange}
+      onAutoOpenPacksChange={(autoOpenPacks) => onSettingsChange({ twitchExtensions: { nopixel: { autoOpenPacks } } }, { tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] })}
+      onTakeoversChange={(allowTakeovers) => onSettingsChange({ twitchExtensions: { fortnite: { allowTakeovers } } }, { tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] })}
+    />
+  ) : null;
 
   function renderGroupContent(group: typeof sections[number]["groups"][number], includeDescription = true): React.ReactNode {
     return (
@@ -146,7 +159,7 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
     <div className="space-y-3">
       <SettingsSearchBox compact value={query} onChange={setQuery} />
 
-      {visible.length === 0 && !showActions ? (
+      {visible.length === 0 && !showActions && !showExtensions ? (
         <p className="px-1 py-6 text-center text-xs text-zinc-400 dark:text-zinc-500">{t("settingsSearchNoResults", query.trim())}</p>
       ) : searching ? (
         <div className="space-y-4">
@@ -172,6 +185,7 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
                 </SettingsSection>
               </div>
             )),
+            section.id === "twitch" ? <React.Fragment key="twitch.extensions">{extensionSettings}</React.Fragment> : null,
           ])}
         </div>
       ) : (
@@ -185,25 +199,27 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
           ) : null)}
 
           {platformSections.map((section) => (
-            <SettingsSection
-              key={section.id}
-              id={section.id}
-              title={PLATFORMS[section.id as Platform].label}
-              description={section.description}
-            >
-              {section.rows.length > 0 ? (
-                <div className="divide-y divide-zinc-100 dark:divide-zinc-800/70">
-                  {section.rows.map((row) => <React.Fragment key={row.id}>{row.render()}</React.Fragment>)}
-                </div>
-              ) : null}
-              {section.groups.map((group) => (
-                <div key={group.id} id={`settings-group-${group.id}`}>
-                  <SettingsGroup title={t(group.titleKey)} description={group.description} badge={group.badge}>
-                    {group.entries.map((entry) => <React.Fragment key={entry.id}>{entry.render()}</React.Fragment>)}
-                  </SettingsGroup>
-                </div>
-              ))}
-            </SettingsSection>
+            <React.Fragment key={section.id}>
+              <SettingsSection
+                id={section.id}
+                title={PLATFORMS[section.id as Platform].label}
+                description={section.description}
+              >
+                {section.rows.length > 0 ? (
+                  <div className="divide-y divide-zinc-100 dark:divide-zinc-800/70">
+                    {section.rows.map((row) => <React.Fragment key={row.id}>{row.render()}</React.Fragment>)}
+                  </div>
+                ) : null}
+                {section.groups.map((group) => (
+                  <div key={group.id} id={`settings-group-${group.id}`}>
+                    <SettingsGroup title={t(group.titleKey)} description={group.description} badge={group.badge}>
+                      {group.entries.map((entry) => <React.Fragment key={entry.id}>{entry.render()}</React.Fragment>)}
+                    </SettingsGroup>
+                  </div>
+                ))}
+              </SettingsSection>
+              {section.id === "twitch" ? extensionSettings : null}
+            </React.Fragment>
           ))}
 
           {generalSection?.groups.find((group) => group.id === "general.advanced") ? (
@@ -213,6 +229,8 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
           ) : null}
         </div>
       )}
+
+      {searching && !visible.some(section => section.id === "twitch") ? extensionSettings : null}
 
       {showActions ? (
         <SettingsSection id="actions" title={t("settingsSectionAdvancedActions")} description={t("settingsSectionAdvancedActionsDescription")}>

@@ -128,6 +128,17 @@ describe("TipsBanner", () => {
       "tipExcludedCampaigns",
       "tipTranslations",
       "tipTranslationsAction",
+      "watchSourcePriorityTitle",
+      "watchSourcePriorityDescription",
+      "watchSourcePriorityMoveUp",
+      "watchSourcePriorityMoveDown",
+      "watchSourcePriorityReset",
+      "watchSourcePriorityMoved",
+      "watchSourcePriorityResetDone",
+      "watchSourceDrops",
+      "watchSourceNoPixel",
+      "watchSourceFortnite",
+      "watchSourceIdleWatchlist",
     ];
     const locales = ["en", "es", "fr", "it", "ru", "de", "zh_CN", "hi", "pt_BR", "ar", "tr"];
 
