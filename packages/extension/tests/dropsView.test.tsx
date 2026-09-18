@@ -118,6 +118,7 @@ describe("campaign farming rejection presentation", () => {
       }],
     };
     const currentSettings = mergeSettings(undefined);
+    currentSettings.farmingEligibility.farmUnlinkedCampaigns = false;
     const { container } = mount(undefined, source, {
       skipUnfinishableRewards: currentSettings.skipUnfinishableRewards,
       deadlineSafetyMarginMinutes: currentSettings.deadlineSafetyMarginMinutes,
@@ -125,7 +126,7 @@ describe("campaign farming rejection presentation", () => {
     });
 
     expect(container.querySelector("[data-farming-rejection-indicator]")).not.toBeNull();
-    expect(container.textContent).toContain("campaignRejectionTwitchLinkRequired");
+    expect(container.textContent).toContain("campaignRejectionUnlinkedDisabled");
   });
 });
 
