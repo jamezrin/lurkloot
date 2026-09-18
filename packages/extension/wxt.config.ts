@@ -3,6 +3,7 @@ import { readdirSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { defineConfig } from "wxt";
 import tailwindcss from "@tailwindcss/vite";
+import { applyProviderOptionalPermissions } from "./src/extensions/manifest";
 
 // Native `_locales` are required by the manifest's localized store listing
 // (default_locale + __MSG__). They are not committed; we materialize them from
@@ -12,6 +13,9 @@ const messagesDir = dirname(createRequire(import.meta.url).resolve("@lurkloot/lo
 export default defineConfig({
   modules: ["@wxt-dev/module-react"],
   hooks: {
+    "build:manifestGenerated"(_wxt, manifest) {
+      applyProviderOptionalPermissions(manifest);
+    },
     "build:publicAssets"(_wxt, files) {
       for (const file of readdirSync(messagesDir)) {
         if (!file.endsWith(".json")) continue;

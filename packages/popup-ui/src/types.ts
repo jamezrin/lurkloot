@@ -1,5 +1,5 @@
 import type { CliCredentialBlob, RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
-import type { ClaimGuidance, CompatibilitySettings, DropCampaign, Platform, RewardRequirementType, SupportedLocale } from "@lurkloot/shared/models";
+import type { ClaimGuidance, CompatibilitySettings, DropCampaign, Platform, RewardRequirementType, SupportedLocale, TwitchExtensionProviderId } from "@lurkloot/shared/models";
 import type { SettingsExportPayload } from "@lurkloot/shared/settingsExport";
 import type { CampaignFarmingEvaluation } from "@lurkloot/shared/campaignFarming";
 
@@ -129,6 +129,7 @@ export function variantShowsPopup(variant: ScreenshotVariant): variant is Screen
 }
 
 export interface PopupAdapter {
+  requestTwitchExtensionPermission?(provider: TwitchExtensionProviderId): Promise<boolean>;
   version: string;
   send<T>(message: RuntimeMessage): Promise<T>;
   getStorage(keys?: string | string[]): Promise<Record<string, unknown>>;
