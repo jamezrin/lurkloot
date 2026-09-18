@@ -18,6 +18,7 @@ vi.mock("@lurkloot/core/controller", async (importOriginal) => ({
 
 vi.mock("wxt/browser", () => ({
   browser: {
+    storage: { local: { get: vi.fn(async () => ({})), set: vi.fn(async () => {}), remove: vi.fn(async () => {}) } },
     i18n: { getMessage: vi.fn() },
     cookies: { get: vi.fn(async () => ({ value: "token" })) },
   },

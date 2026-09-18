@@ -1,3 +1,4 @@
+import { requestTwitchExtensionGrant } from "../../src/extensions/grantCompletion";
 import { browser } from "wxt/browser";
 import type React from "react";
 import {
@@ -37,6 +38,11 @@ export const POPUP_LOCALE = localeFromUrl();
 export function createExtensionPopupAdapter(): PopupAdapter {
   return {
     version: browser.runtime.getManifest().version,
+    requestTwitchExtensionPermission: (provider) => requestTwitchExtensionGrant({
+      storage: browser.storage.local,
+      request: (details) => browser.permissions.request(details),
+      now: Date.now,
+    }, provider),
     send: (message) => browser.runtime.sendMessage(message),
     getStorage: (keys) => browser.storage.local.get(keys),
     setStorage: (values) => browser.storage.local.set(values),

@@ -9,7 +9,11 @@ export const CATEGORY_MODES: CategoryMode[] = ["all", "include", "exclude"];
 export const SUPPORTED_LOCALES: SupportedLocale[] = ["en", "es", "fr", "it", "ru", "de", "zh_CN", "hi", "pt_BR", "ar", "tr"];
 const LANGUAGE_OVERRIDES: LanguageOverride[] = ["browser", ...SUPPORTED_LOCALES];
 
-export type SettingsPatch = Partial<Omit<ExtensionSettings, "platform" | "compatibility" | "farmingEligibility" | "dropsListFilter">> & {
+export type SettingsPatch = Partial<Omit<ExtensionSettings, "platform" | "compatibility" | "farmingEligibility" | "dropsListFilter" | "twitchExtensions">> & {
+  twitchExtensions?: {
+    nopixel?: Partial<ExtensionSettings["twitchExtensions"]["nopixel"]>;
+    fortnite?: Partial<ExtensionSettings["twitchExtensions"]["fortnite"]>;
+  };
   platform?: {
     twitch?: Partial<TwitchPlatformSettings>;
     kick?: Partial<KickPlatformSettings>;
@@ -88,6 +92,7 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
 // The extension's full defaults: the engine contract plus the host-only knobs.
 export const DEFAULT_SETTINGS: ExtensionSettings = {
   ...DEFAULT_ENGINE_SETTINGS,
+  twitchExtensions: { nopixel: { enabled: false, autoOpenPacks: false }, fortnite: { enabled: false, allowTakeovers: false } },
   kickPageContextRecoverySuccesses: 3,
   muteFarmingTabs: true,
   keepFarmingVideosUnmuted: true,
@@ -203,6 +208,13 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
 export function mergeSettings(value: Partial<ExtensionSettings> | undefined): ExtensionSettings {
   return {
     ...mergeEngineSettings(value),
+    twitchExtensions: {
+      nopixel: { enabled: booleanOr(value?.twitchExtensions?.nopixel?.enabled, false), autoOpenPacks: booleanOr(value?.twitchExtensions?.nopixel?.autoOpenPacks, false) },
+      fortnite: {
+        enabled: booleanOr(value?.twitchExtensions?.fortnite?.enabled, false),
+        allowTakeovers: booleanOr(value?.twitchExtensions?.fortnite?.allowTakeovers, false),
+      },
+    },
     kickPageContextRecoverySuccesses: clampInteger(
       value?.kickPageContextRecoverySuccesses,
       1,
@@ -237,6 +249,10 @@ export function applySettingsPatch(current: ExtensionSettings, patch: SettingsPa
   return mergeSettings({
     ...current,
     ...patch,
+    twitchExtensions: {
+      nopixel: { ...current.twitchExtensions.nopixel, ...patch.twitchExtensions?.nopixel },
+      fortnite: { ...current.twitchExtensions.fortnite, ...patch.twitchExtensions?.fortnite },
+    },
     platform: {
       ...current.platform,
       twitch: {

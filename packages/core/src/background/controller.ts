@@ -1,5 +1,5 @@
 import type { CategorySearchResult, CoreRuntimeMessage, PlaybackControl, RuntimeSnapshot } from "@lurkloot/shared/messages";
-import type { ChannelCandidate, DropCampaign, DropReward, EngineSettings, ManagedWatchTab, Platform, PlatformAuthHealth, PlaybackTelemetry, SchedulerState, TablessHeartbeatCadence, WatchReasonCode, WatchSession } from "@lurkloot/shared/models";
+import type { ChannelCandidate, DropCampaign, DropReward, EngineSettings, ManagedWatchTab, Platform, PlatformAuthHealth, PlaybackTelemetry, SchedulerState, SupplementalWatchTarget, TablessHeartbeatCadence, WatchReasonCode, WatchSession } from "@lurkloot/shared/models";
 import type { ActivityEvent, DiagnosticEvent, EngineEvent, EventEmitter, EventReporter, FarmingStopReason, PageContextOpenReason } from "@lurkloot/shared/events";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 import { autoClaimChallengesFor, autoClaimChannelPointsFor, isFarmingActive } from "@lurkloot/shared/settings";
@@ -353,6 +353,7 @@ export interface BackgroundControllerDeps<S extends EngineSettings = EngineSetti
   ): Promise<boolean>;
   discardPageContextRecoveryEvidence?(platform: Platform): void;
   selectWatchTarget?: typeof selectWatchTargetFromSnapshot;
+  selectSupplementalWatchTarget?(platform: Platform, state: SchedulerState, settings: S, signal?: AbortSignal): Promise<SupplementalWatchTarget | undefined>;
   // Delay used by the bounded post-claim handoff. Injected so tests can drive
   // the loop deterministically instead of racing real timers. Resolves early
   // (without throwing) when the signal aborts, so callers check `signal.aborted`
@@ -2768,6 +2769,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         }
         const result = await runSchedulerTick(state, settings, adapters, {
           platforms: schedulerPlatforms,
+          selectSupplementalWatchTarget: deps.selectSupplementalWatchTarget ? (platform, selectedState, selectedSignal) => deps.selectSupplementalWatchTarget!(platform, selectedState, settings, selectedSignal) : undefined,
           stopPageContextTabs: deps.stopPageContextTabs,
           waitingClaimRewardIds: nextWaitingClaimRewardIds,
           emit: claimObservingEmit,
@@ -3854,7 +3856,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         } else if (!ok && previousChecks === 0) {
           emit({ category: "diagnostic", platform, level: "warn", message: message ?? "Tabless watch heartbeat failed" });
         }
-        const fallback = !ok && heartbeatChecks >= settings.tablessFallbackFailureLimit;
+        const fallback = !current.supplementalWatch?.tablessOnly && !ok && heartbeatChecks >= settings.tablessFallbackFailureLimit;
         if (fallback) {
           emit({ category: "diagnostic", platform, level: "warn", message: "Tabless watch heartbeat keeps failing; falling back to a watch tab" });
         }
