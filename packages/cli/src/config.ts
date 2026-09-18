@@ -57,8 +57,6 @@ export function defaultConfigJsonc(): string {
     "campaignPriorities": ${json(defaults.campaignPriorities)},
     "excludedCampaignIds": ${json(defaults.excludedCampaignIds)},
 
-    // Keep eligible drops first; use the Idle Watchlist only when none are available.
-    "idleWatchlistFallbackOnly": ${json(defaults.idleWatchlistFallbackOnly)},
     // Prefer an Idle Watchlist or followed channel over a bigger anonymous one
     // when picking who to farm a campaign on.
     "preferKnownChannels": ${json(defaults.preferKnownChannels)},
@@ -111,6 +109,9 @@ export function defaultConfigJsonc(): string {
     "platform": {
       "twitch": {
         "enabled": ${json(twitch.enabled)},
+        // First eligible source wins. Providers without a host implementation
+        // yield to the next source; the CLI currently skips NoPixelV and Fortnite.
+        "watchSourcePriority": ${json(twitch.watchSourcePriority)},
         "idleWatchlistChannels": ${json(twitch.idleWatchlistChannels)},
         "excludedChannels": ${json(twitch.excludedChannels)},
         // "all" farms every category, "include" farms only the categories
@@ -131,6 +132,7 @@ export function defaultConfigJsonc(): string {
       },
       "kick": {
         "enabled": ${json(kick.enabled)},
+        "watchSourcePriority": ${json(kick.watchSourcePriority)},
         "idleWatchlistChannels": ${json(kick.idleWatchlistChannels)},
         "excludedChannels": ${json(kick.excludedChannels)},
         // "all" farms every category, "include" farms only the categories

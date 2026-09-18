@@ -159,16 +159,16 @@
     "message": "Fügt auf twitch.tv und kick.com eine Lurkloot-Schaltfläche hinzu, die dieses Popup als Panel auf der Seite öffnet."
   },
   "tipCampaignPriority": {
-    "message": "Drops haben Vorrang vor der Leerlauf-Watchlist. Ziehe Kampagnen am Griff, um sie zu ordnen."
+    "message": "Ziehe Kampagnen am Griff, um ihre Reihenfolge innerhalb von Drops festzulegen. Wähle die bevorzugte Quelle in den Plattform-Einstellungen."
   },
   "tipMissingCampaigns": {
     "message": "Fehlt eine Kampagne? Prüfe das Drops-Inventar der Plattform und die Filter in den Einstellungen."
   },
   "tipCategorySelection": {
-    "message": "Nur bestimmte Spiele? Deaktiviere „Alle Kategorien farmen“ und wähle deine Kategorien."
+    "message": "Nutze den Kategoriefilter in den Plattform-Einstellungen, um nur ausgewählte Spiele einzuschließen oder unerwünschte Spiele auszuschließen."
   },
   "tipIdleWatchlist": {
-    "message": "Die Leerlauf-Watchlist farmt ausgewählte Kanäle, wenn keine geeigneten Drops verfügbar sind."
+    "message": "Ändere die Quellenpriorität in den Plattform-Einstellungen, um festzulegen, wann Kanäle der Leerlaufliste angesehen werden."
   },
   "tipTablessMode": {
     "message": "Der tablose Modus spart Ressourcen und öffnet bei Bedarf einen stummgeschalteten Tab."
@@ -452,12 +452,6 @@
   "idleWatchlistSettingsDescription": {
     "message": "Gemeinsames Verhalten der Ersatz-Leerlauf-Watchlist."
   },
-  "idleWatchlistFallbackOnlyTitle": {
-    "message": "Drops vor der Leerlauf-Watchlist priorisieren"
-  },
-  "idleWatchlistFallbackOnlyDescription": {
-    "message": "Verlässt einen Kanal der Leerlauf-Watchlist, sobald ein geeigneter Drop verfügbar ist. Wenn deaktiviert, wird er weiter angesehen, bis er offline geht."
-  },
   "preferKnownChannelsTitle": {
     "message": "Gefolgte und Leerlauf-Watchlist-Kanäle bevorzugen"
   },
@@ -555,10 +549,10 @@
     "message": "Erweitert & Kompatibilität"
   },
   "twitchSectionDescription": {
-    "message": "Kanalpunkte, Kategoriefilter, ausgeschlossene Kanäle und Twitch-Kompatibilität."
+    "message": "Quellenpriorität, Kanalpunkte, Kategorien, ausgeschlossene Kanäle und Twitch-Kompatibilität."
   },
   "kickSectionDescription": {
-    "message": "Tägliche Herausforderungen, Kategoriefilter, ausgeschlossene Kanäle und Kick-Kompatibilität."
+    "message": "Quellenpriorität, tägliche Herausforderungen, Kategorien, ausgeschlossene Kanäle und Kick-Kompatibilität."
   },
   "twitchAdvancedDescription": {
     "message": "Kampagnenverfügbarkeit sowie die von Lurkloot genutzten Heartbeat- und Inventar-Transporte. Ändere sie nur, wenn Twitch nicht mehr funktioniert."
@@ -1525,5 +1519,38 @@
   },
   "activityExtensionPackOpened": {
     "message": "$1 hat ein Kartenpaket auf $2 geöffnet"
+  },
+  "watchSourcePriorityTitle": {
+    "message": "Priorität der Quellen"
+  },
+  "watchSourcePriorityDescription": {
+    "message": "Die erste verfügbare Quelle wird angesehen. Deaktivierte oder nicht verfügbare Quellen werden übersprungen."
+  },
+  "watchSourcePriorityMoveUp": {
+    "message": "$1 nach oben verschieben"
+  },
+  "watchSourcePriorityMoveDown": {
+    "message": "$1 nach unten verschieben"
+  },
+  "watchSourcePriorityReset": {
+    "message": "Priorität zurücksetzen"
+  },
+  "watchSourcePriorityMoved": {
+    "message": "$1 hat jetzt Priorität $2."
+  },
+  "watchSourcePriorityResetDone": {
+    "message": "Priorität der Quellen zurückgesetzt."
+  },
+  "watchSourceDrops": {
+    "message": "Drops"
+  },
+  "watchSourceIdleWatchlist": {
+    "message": "Leerlaufliste"
+  },
+  "watchSourceNoPixel": {
+    "message": "NoPixelV"
+  },
+  "watchSourceFortnite": {
+    "message": "Fortnite"
   }
 }

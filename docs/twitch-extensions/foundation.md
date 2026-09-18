@@ -58,8 +58,9 @@ validation instructions are in
 
 - Independent discovery makes bounded directory and installation-list requests;
   it never obtains per-candidate viewer JWTs. A five-minute cache bounds scans.
-  NoPixelV gets the supplemental lane first, then Fortnite; completed providers
-  release it, and unavailable channels back off. Ordinary drops resume afterward.
+  Per-platform watch-source priority controls the lane; the default is Drops,
+  NoPixelV, Fortnite, then Idle Watchlist. Completed providers release it and
+  unavailable channels back off. See [selection policy](../watch-source-priority.md).
   Normal healthy channel changes cancel active resources while preserving completed
   public summaries and their bounded cooldowns. Authority loss/reset clears them.
 - The browser-free scheduler accepts a host-supplied supplemental target after
@@ -181,4 +182,4 @@ delivery remain live acceptance checks, not established by synthetic tests.
 
 ### Giveaway discovery after watchtime completion
 
-Daily watchtime completion is viewer-wide; giveaways are channel-specific. After the existing five-minute completion cooldown, NoPixelV discovery resumes after the last completed channel in its bounded candidate list, wrapping at the end. Selection remains stable until a new provider outcome. Disable, revocation and destructive authority invalidation clear this cursor. This lets subsequent probes reach other eligible giveaways while ordinary drops resume between probes.
+Daily watchtime completion is viewer-wide; giveaways are channel-specific. After the bounded 30-minute completion deferral (capped at the next UTC day), NoPixelV discovery resumes after the last completed channel in its bounded candidate list, wrapping at the end. It competes at its configured source priority. Selection remains stable until a new provider outcome. Disable, revocation and destructive authority invalidation clear this cursor. Subsequent probes can reach other eligible giveaways while lower sources resume between probes.

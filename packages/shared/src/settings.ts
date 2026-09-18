@@ -1,4 +1,5 @@
 import type { AdFocusMode, CategoryMode, CategorySelection, CompatibilitySettings, EngineSettings, ExtensionSettings, GithubStarNudgeStatus, KickPlatformSettings, LanguageOverride, Platform, PriorityMode, RateNudgeStatus, SupportedLocale, TwitchPlatformSettings } from "./models";
+import { DEFAULT_WATCH_SOURCE_PRIORITY, normalizePlatformWatchSourcePriority } from "./watchSources";
 
 const FARMING_PLATFORMS: Platform[] = ["twitch", "kick"];
 const AD_FOCUS_MODES: AdFocusMode[] = ["none", "tab", "window"];
@@ -40,6 +41,7 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
   platform: {
     twitch: {
       enabled: false,
+      watchSourcePriority: [...DEFAULT_WATCH_SOURCE_PRIORITY.twitch],
       idleWatchlistChannels: [],
       excludedChannels: [],
       categoryMode: "all",
@@ -50,6 +52,7 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
     },
     kick: {
       enabled: false,
+      watchSourcePriority: [...DEFAULT_WATCH_SOURCE_PRIORITY.kick],
       idleWatchlistChannels: [],
       excludedChannels: [],
       categoryMode: "all",
@@ -149,6 +152,7 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
     platform: {
       twitch: {
         enabled: booleanOr(platform?.twitch?.enabled, DEFAULT_ENGINE_SETTINGS.platform.twitch.enabled),
+        watchSourcePriority: normalizePlatformWatchSourcePriority("twitch", platform?.twitch, value?.idleWatchlistFallbackOnly),
         idleWatchlistChannels: normalizeChannelList(platform?.twitch?.idleWatchlistChannels),
         excludedChannels: normalizeChannelList(platform?.twitch?.excludedChannels),
         categoryMode: normalizeCategoryMode(platform?.twitch?.categoryMode),
@@ -159,6 +163,7 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
       },
       kick: {
         enabled: booleanOr(platform?.kick?.enabled, DEFAULT_ENGINE_SETTINGS.platform.kick.enabled),
+        watchSourcePriority: normalizePlatformWatchSourcePriority("kick", platform?.kick, value?.idleWatchlistFallbackOnly),
         idleWatchlistChannels: normalizeChannelList(platform?.kick?.idleWatchlistChannels),
         excludedChannels: normalizeChannelList(platform?.kick?.excludedChannels),
         categoryMode: normalizeCategoryMode(platform?.kick?.categoryMode),

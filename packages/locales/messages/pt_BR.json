@@ -159,16 +159,16 @@
     "message": "Adiciona um botão do Lurkloot em twitch.tv e kick.com que abre este popup em um painel na página."
   },
   "tipCampaignPriority": {
-    "message": "Drops têm prioridade sobre a lista. Arraste as campanhas pela alça para definir a ordem."
+    "message": "Arraste as campanhas pela alça para ordenar os Drops. Escolha a fonte prioritária nas configurações da plataforma."
   },
   "tipMissingCampaigns": {
     "message": "Não encontrou uma campanha? Confira o inventário de Drops da plataforma e os filtros nas configurações."
   },
   "tipCategorySelection": {
-    "message": "Quer apenas certos jogos? Desative “Farmar todas as categorias” e escolha as categorias."
+    "message": "Use o filtro de categorias da plataforma para incluir apenas os jogos selecionados ou excluir os que você não quer."
   },
   "tipIdleWatchlist": {
-    "message": "A lista farma os canais escolhidos quando não há Drops elegíveis."
+    "message": "Escolha quando assistir aos canais da lista de espera alterando a prioridade das fontes nas configurações da plataforma."
   },
   "tipTablessMode": {
     "message": "O modo sem abas usa menos recursos e abre uma aba silenciada quando necessário."
@@ -452,12 +452,6 @@
   "idleWatchlistSettingsDescription": {
     "message": "Comportamento compartilhado da lista alternativa."
   },
-  "idleWatchlistFallbackOnlyTitle": {
-    "message": "Priorizar drops em vez da Lista de visualização ociosa"
-  },
-  "idleWatchlistFallbackOnlyDescription": {
-    "message": "Sai de um canal da Lista de visualização ociosa assim que um drop elegível ficar disponível. Se desativado, continua assistindo até o canal ficar offline."
-  },
   "preferKnownChannelsTitle": {
     "message": "Preferir canais seguidos e da Lista de visualização ociosa"
   },
@@ -555,10 +549,10 @@
     "message": "Avançado e compatibilidade"
   },
   "twitchSectionDescription": {
-    "message": "Pontos do canal, filtro de categorias, canais excluídos e compatibilidade com a Twitch."
+    "message": "Prioridade das fontes, pontos do canal, categorias, canais excluídos e compatibilidade com a Twitch."
   },
   "kickSectionDescription": {
-    "message": "Desafios diários, filtro de categorias, canais excluídos e compatibilidade com a Kick."
+    "message": "Prioridade das fontes, desafios diários, categorias, canais excluídos e compatibilidade com a Kick."
   },
   "twitchAdvancedDescription": {
     "message": "Disponibilidade das campanhas e os transportes de heartbeat e inventário que o Lurkloot usa. Altere apenas se a Twitch parar de funcionar."
@@ -1525,5 +1519,38 @@
   },
   "activityExtensionPackOpened": {
     "message": "$1 abriu um pacote de cartas em $2"
+  },
+  "watchSourcePriorityTitle": {
+    "message": "Prioridade das fontes"
+  },
+  "watchSourcePriorityDescription": {
+    "message": "A primeira fonte disponível é assistida. Fontes desativadas ou indisponíveis são ignoradas."
+  },
+  "watchSourcePriorityMoveUp": {
+    "message": "Mover $1 para cima"
+  },
+  "watchSourcePriorityMoveDown": {
+    "message": "Mover $1 para baixo"
+  },
+  "watchSourcePriorityReset": {
+    "message": "Redefinir prioridade"
+  },
+  "watchSourcePriorityMoved": {
+    "message": "$1 agora tem prioridade $2."
+  },
+  "watchSourcePriorityResetDone": {
+    "message": "Prioridade das fontes redefinida."
+  },
+  "watchSourceDrops": {
+    "message": "Drops"
+  },
+  "watchSourceIdleWatchlist": {
+    "message": "Lista de espera"
+  },
+  "watchSourceNoPixel": {
+    "message": "NoPixelV"
+  },
+  "watchSourceFortnite": {
+    "message": "Fortnite"
   }
 }

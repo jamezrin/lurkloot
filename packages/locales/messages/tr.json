@@ -159,16 +159,16 @@
     "message": "twitch.tv ve kick.com sitelerine, bu açılır pencereyi sayfa üzerinde bir panel olarak açan bir Lurkloot düğmesi ekler."
   },
   "tipCampaignPriority": {
-    "message": "Aktif kampanyalar yedek listenizden önceliklidir. Sıralamayı değiştirmek için sürükleyin."
+    "message": "Drop kampanyalarını sıralamak için tutamaçtan sürükleyin. Platform ayarlarında öncelikli kaynağı seçin."
   },
   "tipMissingCampaigns": {
     "message": "Bir kampanya görünmüyor mu? Platformun Drop sayfasını ve filtre ayarlarınızı kontrol edin."
   },
   "tipCategorySelection": {
-    "message": "Sadece belli oyunları mı izlemek istiyorsunuz? Platform ayarlarından filtreleme yapabilirsiniz."
+    "message": "Yalnızca seçilen oyunları dahil etmek veya istemediğiniz oyunları hariç tutmak için platform ayarlarındaki kategori filtresini kullanın."
   },
   "tipIdleWatchlist": {
-    "message": "Droplar her zaman önceliklidir. Boşta kaldığında seçtiğiniz yedek kanallar izlenir."
+    "message": "Boşta İzleme Listesi kanallarının ne zaman izleneceğini platform ayarlarındaki kaynak önceliğiyle seçin."
   },
   "tipTablessMode": {
     "message": "Sekmesiz mod daha az sistem kaynağı kullanır."
@@ -452,12 +452,6 @@
   "idleWatchlistSettingsDescription": {
     "message": "Drop yokken izlenecek kanallar."
   },
-  "idleWatchlistFallbackOnlyTitle": {
-    "message": "Droplara öncelik ver"
-  },
-  "idleWatchlistFallbackOnlyDescription": {
-    "message": "Yeni bir drop çıktığında yedek kanaldan hemen ayrılır."
-  },
   "preferKnownChannelsTitle": {
     "message": "Takip edilen ve yedek kanalları tercih et"
   },
@@ -555,10 +549,10 @@
     "message": "Gelişmiş ve uyumluluk"
   },
   "twitchSectionDescription": {
-    "message": "Kanal puanları, kategori filtresi, hariç tutulan kanallar ve Twitch uyumluluğu."
+    "message": "Kaynak önceliği, kanal puanları, kategoriler, hariç tutulan kanallar ve Twitch uyumluluğu."
   },
   "kickSectionDescription": {
-    "message": "Günlük görevler, kategori filtresi, hariç tutulan kanallar ve Kick uyumluluğu."
+    "message": "Kaynak önceliği, günlük görevler, kategoriler, hariç tutulan kanallar ve Kick uyumluluğu."
   },
   "twitchAdvancedDescription": {
     "message": "Kampanya uygunluğu ve Lurkloot'un kullandığı sinyal ile envanter aktarımları. Bunları yalnızca Twitch çalışmayı bıraktığında değiştirin."
@@ -1525,5 +1519,38 @@
   },
   "activityExtensionPackOpened": {
     "message": "$1, $2 kanalında bir kart paketi açtı"
+  },
+  "watchSourcePriorityTitle": {
+    "message": "İzleme kaynağı önceliği"
+  },
+  "watchSourcePriorityDescription": {
+    "message": "İlk kullanılabilir kaynak izlenir. Devre dışı veya kullanılamayan kaynaklar atlanır."
+  },
+  "watchSourcePriorityMoveUp": {
+    "message": "$1 kaynağını yukarı taşı"
+  },
+  "watchSourcePriorityMoveDown": {
+    "message": "$1 kaynağını aşağı taşı"
+  },
+  "watchSourcePriorityReset": {
+    "message": "Önceliği sıfırla"
+  },
+  "watchSourcePriorityMoved": {
+    "message": "$1 artık $2. öncelikte."
+  },
+  "watchSourcePriorityResetDone": {
+    "message": "İzleme kaynağı önceliği sıfırlandı."
+  },
+  "watchSourceDrops": {
+    "message": "Drop’lar"
+  },
+  "watchSourceIdleWatchlist": {
+    "message": "Boşta İzleme Listesi"
+  },
+  "watchSourceNoPixel": {
+    "message": "NoPixelV"
+  },
+  "watchSourceFortnite": {
+    "message": "Fortnite"
   }
 }

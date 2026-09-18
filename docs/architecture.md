@@ -103,8 +103,8 @@ The popup and content scripts do not call adapters directly. They send typed run
 Important setting groups:
 
 - Global automation: `running`, `autoStartDropFarming`, per-platform `enabled`.
-- Farming behavior: `autoClaim`, `autoClaimChannelPoints`, `idleWatchlistFallbackOnly`, `priorityMode`, `campaignPriorities`, `excludedCampaignIds`, `farmingEligibility`.
-- Platform preferences: `platform[platform].idleWatchlistChannels`, `platform[platform].excludedChannels`, `platform[platform].categoryMode`, and `platform[platform].categories`.
+- Farming behavior: `autoClaim`, `autoClaimChannelPoints`, `priorityMode`, `campaignPriorities`, `excludedCampaignIds`, `farmingEligibility`.
+- Platform preferences: `platform[platform].watchSourcePriority`, `platform[platform].idleWatchlistChannels`, `platform[platform].excludedChannels`, `platform[platform].categoryMode`, and `platform[platform].categories`.
 
 `categoryMode` is `"all"`, `"include"` or `"exclude"`, and one stored `categories`
 list serves all three: `all` farms everything and leaves the list inactive,
@@ -196,13 +196,13 @@ Each scheduler tick runs enabled platforms independently:
 2. Skip the platform while it is in exponential backoff after repeated platform errors.
 3. Discover campaigns through the adapter and merge progress.
 4. Auto-claim claimable rewards when enabled.
-5. Select the best eligible campaign channel, or an Idle Watchlist fallback when no eligible campaign channel is available.
+5. Select the first eligible source in the platform's normalized `watchSourcePriority`, preserving campaign and channel ranking within each source. See [watch-source selection policy](watch-source-priority.md).
 6. Decide whether to keep the current target by checking channel liveness/category and recent playback or heartbeat telemetry.
 7. Use tabless watching when enabled and supported, or open, reuse, retarget, or stop the watch tab through the adapter.
 8. Claim channel points when enabled and supported by the adapter.
 9. Persist sessions, campaigns, managed-tab registrations, and backoff state, then publish activity records through the host event sink.
 
-Campaign ordering is shared across platforms: explicit campaign priority, platform game priority, campaign priority field, optional lowest-availability mode, ending soonest, then campaign name. Channel ordering within the selected campaign is also shared: allow-listed channels first, then channels the user has a relationship with (an Idle Watchlist entry ahead of a followed channel, via the adapter's optional `listFollowedChannels`), then viewer count. That preference only picks between channels that already qualify for the campaign, so it never changes what is farmed. `preferKnownChannels` (on by default) gates the whole thing; off, ordering is allow-list then viewer count only, and `listFollowedChannels` is never called. Per-platform excluded drop channels filter campaign candidates only; they do not suppress Idle Watchlist fallback channels. `farmingEligibility` also narrows eligibility, through its two farming flags (`farmUnlinkedCampaigns`, `farmSubscriptionCampaigns`); the separate `dropsListFilter` is a popup view preference that affects nothing the engine does.
+Campaign ordering is shared across platforms: explicit campaign priority, platform game priority, campaign priority field, optional lowest-availability mode, ending soonest, then campaign name. Channel ordering within the selected campaign is also shared: allow-listed channels first, then channels the user has a relationship with (an Idle Watchlist entry ahead of a followed channel, via the adapter's optional `listFollowedChannels`), then viewer count. That preference only picks between channels that already qualify for the campaign, so it never changes what is farmed. `preferKnownChannels` (on by default) gates the whole thing; off, ordering is allow-list then viewer count only, and `listFollowedChannels` is never called. Per-platform excluded drop channels filter campaign and supplemental provider candidates; they do not suppress explicitly listed Idle Watchlist channels. `farmingEligibility` also narrows eligibility, through its two farming flags (`farmUnlinkedCampaigns`, `farmSubscriptionCampaigns`); the separate `dropsListFilter` is a popup view preference that affects nothing the engine does.
 
 For exactly how a campaign's farmability (`campaignFarmable`, feeding `isEligible`) and its popup visibility (`isCampaignVisible`) are decided — and why they deliberately diverge on reward timing — see [`campaign-farmability-visibility.md`](campaign-farmability-visibility.md).
 
@@ -327,7 +327,7 @@ diagnostics before disposing the transport.
 
 ## Tabless Twitch Extension rewards
 
-The extension host injects a browser-free supplemental target selector into the scheduler. After platform, authentication, exclusion and manual-pause gates, an enabled/granted provider can select a live channel independently of drop campaigns. Directory scans and active-installation reads are bounded, batched and cached. NoPixelV has priority over Fortnite; completion or unavailability releases the lane with bounded reprobes.
+The extension host injects a browser-free supplemental target selector into the scheduler. After platform, authentication, exclusion and manual-pause gates, an enabled/granted provider can select a live channel independently of drop campaigns. Directory scans and active-installation reads are bounded, batched and cached. The platform's configured watch-source order controls selection and preemption; completion or unavailability releases the lane with bounded reprobes. See [source-priority decisions](watch-source-priority.md).
 
 Supplemental sessions carry their own watch identity and `tablessOnly` marker. Their heartbeat does not require invented campaign/reward IDs, and neither heartbeat failures nor ambiguous ordinary campaign discovery may cause tab fallback. Ordinary drop sessions retain their existing watch-mode policy.
 

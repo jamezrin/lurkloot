@@ -159,16 +159,16 @@
     "message": "Ajoute un bouton Lurkloot sur twitch.tv et kick.com qui ouvre cette fenêtre dans un panneau sur la page."
   },
   "tipCampaignPriority": {
-    "message": "Les drops ont priorité sur la liste de veille inactive. Faites glisser les campagnes par la poignée pour les ordonner."
+    "message": "Faites glisser les campagnes par la poignée pour ordonner les Drops. Choisissez la source prioritaire dans les paramètres de la plateforme."
   },
   "tipMissingCampaigns": {
     "message": "Une campagne manque ? Vérifiez l’inventaire Drops de la plateforme puis les filtres dans les paramètres."
   },
   "tipCategorySelection": {
-    "message": "Seulement certains jeux ? Désactivez « Farmer toutes les catégories » et choisissez vos catégories."
+    "message": "Utilisez le filtre de catégories de la plateforme pour inclure uniquement les jeux sélectionnés ou exclure ceux que vous ne voulez pas."
   },
   "tipIdleWatchlist": {
-    "message": "La liste de veille inactive farme les chaînes choisies lorsqu’aucun drop éligible n’est disponible."
+    "message": "Choisissez quand regarder les chaînes de la liste de veille grâce à la priorité des sources dans les paramètres de la plateforme."
   },
   "tipTablessMode": {
     "message": "Le mode sans onglet utilise moins de ressources et ouvre un onglet muet si nécessaire."
@@ -452,12 +452,6 @@
   "idleWatchlistSettingsDescription": {
     "message": "Comportement partagé de la liste de secours."
   },
-  "idleWatchlistFallbackOnlyTitle": {
-    "message": "Donner la priorité aux drops sur la Liste de veille inactive"
-  },
-  "idleWatchlistFallbackOnlyDescription": {
-    "message": "Quitte une chaîne de la Liste de veille inactive dès qu’un drop éligible devient disponible. Si désactivé, continue à la regarder jusqu’à ce qu’elle se déconnecte."
-  },
   "preferKnownChannelsTitle": {
     "message": "Préférer les chaînes suivies et celles de la Liste de veille inactive"
   },
@@ -555,10 +549,10 @@
     "message": "Avancé et compatibilité"
   },
   "twitchSectionDescription": {
-    "message": "Points de chaîne, filtre de catégories, chaînes exclues et compatibilité Twitch."
+    "message": "Priorité des sources, points de chaîne, catégories, chaînes exclues et compatibilité Twitch."
   },
   "kickSectionDescription": {
-    "message": "Défis quotidiens, filtre de catégories, chaînes exclues et compatibilité Kick."
+    "message": "Priorité des sources, défis quotidiens, catégories, chaînes exclues et compatibilité Kick."
   },
   "twitchAdvancedDescription": {
     "message": "Disponibilité des campagnes, ainsi que les transports de battement et d'inventaire utilisés par Lurkloot. Ne les modifiez que si Twitch cesse de fonctionner."
@@ -1525,5 +1519,38 @@
   },
   "activityExtensionPackOpened": {
     "message": "$1 a ouvert un pack de cartes sur $2"
+  },
+  "watchSourcePriorityTitle": {
+    "message": "Priorité des sources"
+  },
+  "watchSourcePriorityDescription": {
+    "message": "La première source disponible est regardée. Les sources désactivées ou indisponibles sont ignorées."
+  },
+  "watchSourcePriorityMoveUp": {
+    "message": "Monter $1"
+  },
+  "watchSourcePriorityMoveDown": {
+    "message": "Descendre $1"
+  },
+  "watchSourcePriorityReset": {
+    "message": "Réinitialiser la priorité"
+  },
+  "watchSourcePriorityMoved": {
+    "message": "$1 est maintenant en priorité $2."
+  },
+  "watchSourcePriorityResetDone": {
+    "message": "Priorité des sources réinitialisée."
+  },
+  "watchSourceDrops": {
+    "message": "Drops"
+  },
+  "watchSourceIdleWatchlist": {
+    "message": "Liste de veille"
+  },
+  "watchSourceNoPixel": {
+    "message": "NoPixelV"
+  },
+  "watchSourceFortnite": {
+    "message": "Fortnite"
   }
 }
