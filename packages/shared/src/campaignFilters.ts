@@ -154,7 +154,7 @@ export function isCampaignVisible(
   if (isCampaignFinished(campaign)) return filter.showFinished;
   if (isCampaignExpired(campaign)) return filter.showExpired;
   if (isCampaignUpcoming(campaign)) return filter.showUpcoming;
-  if (campaign.accountLinked === false) return filter.showNotLinked;
+  if (campaign.accountLinked === false || campaign.eligibility === "account_not_linked") return filter.showNotLinked;
   if (campaignHasSubscriptionRewards(campaign)) return filter.showSubscription;
   // An ordinary active campaign that campaignEligibleClass rejected for a reason
   // with no display flag (reward-independent — every branch above is covered)

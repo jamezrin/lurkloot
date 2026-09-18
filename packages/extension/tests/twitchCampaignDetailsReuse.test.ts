@@ -440,6 +440,7 @@ describe("Twitch linking state across cached detail refreshes", () => {
       userId: "user-id",
       listed: true,
       inventoryOnly: false,
+      detailAvailable: true,
       detailRequests: 0,
     };
     const events: EngineEvent[] = [];
@@ -447,6 +448,7 @@ describe("Twitch linking state across cached detail refreshes", () => {
       if (body.operationName === "Inventory") return {
         data: { currentUser: { id: state.userId, inventory: { dropCampaignsInProgress: [...(state.listed ? [{
           id: "a",
+          accountLinkURL: "https://account.wbgames.com/connect/twitch",
           self: { isAccountConnected: state.connected },
           timeBasedDrops: [{ id: "a-drop", requiredMinutesWatched: 60, self: { currentMinutesWatched: state.watchedMinutes } }],
         }] : []), ...(state.inventoryOnly ? [{
@@ -464,6 +466,7 @@ describe("Twitch linking state across cached detail refreshes", () => {
       };
       if (body.operationName === "DropCampaignDetails") {
         state.detailRequests += 1;
+        if (!state.detailAvailable) return { data: { dropCampaign: null } };
         const response = details("a") as { data: { dropCampaign: Record<string, unknown> } };
         response.data.dropCampaign.accountLinkURL = "https://account.wbgames.com/connect/twitch";
         response.data.dropCampaign.self = { isAccountConnected: state.detailConnected };
@@ -596,5 +599,39 @@ describe("Twitch linking state across cached detail refreshes", () => {
     });
     await refresh();
     expect(reports().filter((report) => report.campaignId === "b")).toHaveLength(1);
+  });
+
+  it("reports inventory-only progress when the dashboard has no discoverable campaigns", async () => {
+    const { state, refresh, reports } = fixture();
+    state.listed = false;
+    state.inventoryOnly = true;
+    expect((await refresh()).find((campaign) => campaign.id === "b")).toMatchObject({
+      accountLinked: false,
+      status: "active",
+    });
+    expect(reports().find((report) => report.campaignId === "b")).toMatchObject({
+      detailsSource: "inventory",
+      inventory: { present: true, isAccountConnected: false },
+      details: { isAccountConnected: null },
+      watchedMinutes: 5,
+    });
+    await refresh();
+    expect(reports().filter((report) => report.campaignId === "b")).toHaveLength(1);
+  });
+
+  it("reports inventory progress when no campaign detail response is available", async () => {
+    const { state, refresh, reports } = fixture();
+    state.detailAvailable = false;
+    state.dashboardConnected = false;
+    expect((await refresh()).find((campaign) => campaign.id === "a")).toMatchObject({
+      accountLinked: false,
+      status: "active",
+    });
+    expect(reports().find((report) => report.campaignId === "a")).toMatchObject({
+      detailsSource: "inventory",
+      inventory: { present: true, isAccountConnected: false },
+      dashboard: { present: true, isAccountConnected: false },
+      details: { isAccountConnected: null },
+    });
   });
 });

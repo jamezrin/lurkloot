@@ -219,6 +219,12 @@ describe("isCampaignVisible not-linked / subscription class flags", () => {
     expect(visible(c, { dropsListFilter: { ...SHOW_ALL, showNotLinked: true }, farmingEligibility: NOT_FARMED_UNLINKED })).toBe(true);
   });
 
+  it("uses showNotLinked when only the eligibility marks the campaign unlinked", () => {
+    const c = campaign({ eligibility: "account_not_linked" });
+    expect(visible(c, { dropsListFilter: { ...SHOW_ALL, showNotLinked: false }, farmingEligibility: NOT_FARMED_UNLINKED })).toBe(false);
+    expect(visible(c, { dropsListFilter: { ...SHOW_ALL, showNotLinked: true }, farmingEligibility: NOT_FARMED_UNLINKED })).toBe(true);
+  });
+
   it("keeps a farmed not-linked campaign visible even with showNotLinked off (invariant)", () => {
     const c = campaign({ accountLinked: false });
     // Farming this class forces visibility regardless of the display flag.
