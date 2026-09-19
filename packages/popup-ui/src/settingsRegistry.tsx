@@ -5,7 +5,6 @@ import { LOCALE_OPTIONS } from "@lurkloot/shared/i18n";
 import { PLATFORMS } from "./constants";
 import { Pill } from "./primitives";
 import {
-  DropsListFilterRow,
   ForgetExcludedCampaignsRow,
   NumberSettingRow,
   SelectSettingRow,
@@ -182,7 +181,6 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
                 description={t("campaignPriorityDescription")}
                 value={settings.priorityMode}
                 options={[
-                  { value: "priority_list_only", label: t("priorityListOnly") },
                   { value: "ending_soonest", label: t("endingSoonest") },
                   { value: "lowest_availability", label: t("lowAvailabilityFirst") },
                 ]}
@@ -201,15 +199,6 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
             titleKey: "preferKnownChannelsTitle",
             descriptionKey: "preferKnownChannelsDescription",
             render: () => <SettingRow title={t("preferKnownChannelsTitle")} description={t("preferKnownChannelsDescription")} checked={settings.preferKnownChannels} onChange={(value) => void onSettingsChange({ preferKnownChannels: value }, { tickAfterSave: true })} />,
-          },
-          {
-            id: "general.drops.dropsListFilter",
-            titleKey: "dropsListFilterTitle",
-            descriptionKey: "dropsListFilterDescription",
-            // Display-only: saving does not re-tick, matching other pure-view
-            // settings (e.g. the language/appearance rows), because it changes
-            // nothing the engine does.
-            render: () => <DropsListFilterRow value={settings.dropsListFilter} farmingEligibility={settings.farmingEligibility} onChange={(dropsListFilter) => void onSettingsChange({ dropsListFilter })} />,
           },
           {
             id: "general.drops.forgetExcluded",

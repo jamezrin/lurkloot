@@ -138,7 +138,6 @@ describe("settings registry", () => {
         "general.drops.priorityMode",
         "general.drops.skipUnfinishable",
         "general.drops.preferKnownChannels",
-        "general.drops.dropsListFilter",
         "general.drops.forgetExcluded",
         "general.farmingTabs.tabless",
         "general.farmingTabs.autoClose",

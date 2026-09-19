@@ -5,11 +5,12 @@ import type { DropCampaign, DropReward, WatchSession } from "@lurkloot/shared/mo
 import { mergeSettings } from "@lurkloot/shared/settings";
 import { I18nContext } from "../../popup-ui/src/context";
 import { DropsPanel } from "../../popup-ui/src/drops";
+import { evaluateCampaignFarming } from "@lurkloot/shared/campaignFarming";
 import {
   campaignFilterCategories,
+  campaignSection,
   campaignStats,
   campaignViewFromCampaign,
-  isCampaignVisible,
 } from "../../popup-ui/src/viewModels";
 import type { CampaignView, TFunction } from "../../popup-ui/src/types";
 
@@ -80,7 +81,7 @@ function renderDrops(campaigns: CampaignView[], refreshing = false): string {
       gameMap: {},
       refreshing,
       onRefreshCampaign: () => {},
-      onReorder: () => {},
+      onPinChange: () => {},
       onToggleExclude: () => {},
     }),
   ));
@@ -351,21 +352,22 @@ describe("subscription drop popup views", () => {
     const settings = mergeSettings(undefined);
 
     expect(campaignFilterCategories(source, excludedIds)).toEqual(["subscription"]);
-    // Decoupling: dropsListFilter is display-only, so a subscription campaign
-    // stays in the Drops list even when farmingEligibility would skip it. The
-    // view filter has no subscription axis to turn off.
-    expect(isCampaignVisible(source, settings, excludedIds)).toBe(true);
+    // Decoupling: a subscription campaign the user chose not to farm still
+    // appears in the popup — in Skipped, with its reason — rather than
+    // disappearing, so the Sub badges facet can still find it.
+    // A subscription-only campaign has nothing to watch, so it is skipped either
+    // way — but the reason changes, and it stays listed so the Sub badges facet
+    // can still find it.
+    expect(campaignSection(source, settings)).toBe("skipped");
+    expect(evaluateCampaignFarming(source, settings)).toMatchObject({ code: "subscription_required" });
     settings.farmingEligibility.farmSubscriptionCampaigns = false;
-    expect(isCampaignVisible(source, settings, excludedIds)).toBe(true);
-    expect(isCampaignVisible({
-      ...source,
-      rewards: [{ ...source.rewards[0], status: "claimable" }],
-    }, settings, excludedIds)).toBe(true);
+    expect(campaignSection(source, settings)).toBe("skipped");
+    expect(evaluateCampaignFarming(source, settings)).toMatchObject({ code: "subscription_campaigns_disabled" });
   });
 
-  // Kick used to drop ended campaigns at parse time, which made these two
-  // toggles dead on that platform; they must behave exactly as on Twitch.
-  it("applies the finished filter to a completed Kick campaign", () => {
+  // Kick used to drop ended campaigns at parse time, which made these lists
+  // empty on that platform; they must behave exactly as on Twitch.
+  it("sections a completed Kick campaign into Completed", () => {
     const source: DropCampaign = {
       ...campaign("kick-completed", [reward({ status: "claimed" })]),
       platform: "kick",
@@ -375,14 +377,10 @@ describe("subscription drop popup views", () => {
     const settings = mergeSettings(undefined);
 
     expect(campaignFilterCategories(source, excludedIds)).toEqual(["finished"]);
-    expect(settings.dropsListFilter.showFinished).toBe(true);
-    expect(isCampaignVisible(source, settings, excludedIds)).toBe(true);
-
-    settings.dropsListFilter.showFinished = false;
-    expect(isCampaignVisible(source, settings, excludedIds)).toBe(false);
+    expect(campaignSection(source, settings)).toBe("completed");
   });
 
-  it("applies the expired filter to an expired Kick campaign", () => {
+  it("sections an expired Kick campaign into Expired", () => {
     const source: DropCampaign = {
       ...campaign("kick-expired", [reward({ requiredMinutes: 30 })]),
       platform: "kick",
@@ -392,10 +390,6 @@ describe("subscription drop popup views", () => {
     const settings = mergeSettings(undefined);
 
     expect(campaignFilterCategories(source, excludedIds)).toEqual(["expired"]);
-    expect(settings.dropsListFilter.showExpired).toBe(false);
-    expect(isCampaignVisible(source, settings, excludedIds)).toBe(false);
-
-    settings.dropsListFilter.showExpired = true;
-    expect(isCampaignVisible(source, settings, excludedIds)).toBe(true);
+    expect(campaignSection(source, settings)).toBe("expired");
   });
 });

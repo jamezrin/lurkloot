@@ -3,7 +3,6 @@ import { Ban, ChevronDown, Lock } from "lucide-react";
 import type { ExtensionSettings } from "@lurkloot/shared/models";
 import {
   COLLAPSED_SETTINGS_SECTIONS_KEY,
-  DROPS_LIST_FILTERS,
 } from "./constants";
 import { usePopupRuntime, useT } from "./context";
 import { SearchBox, Toggle, cn } from "./primitives";
@@ -132,71 +131,6 @@ export function SettingRow({ title, description, checked, onChange, disabled = f
   );
 }
 
-// The Drops-list view control: one labelled group of chips over the
-// dropsListFilter flags. Pure display — the farming axis is now separate
-// SettingRow toggles — so there is a single group here, not the old
-// farming/display split.
-//
-// The not-linked/subscription chips carry a `lockedBy` farming flag. While that
-// flag is on, the matching class of campaign is always farmed and therefore
-// always visible (isCampaignVisible enforces this), so the chip is forced on and
-// disabled: it surfaces the invariant rather than offering a toggle that could
-// not take effect. The lock is display-only — a locked chip never writes to the
-// stored show-flag, so the user's hidden/shown preference survives to reappear
-// when farming is turned back off.
-export function DropsListFilterRow({ value, farmingEligibility, onChange }: {
-  value: ExtensionSettings["dropsListFilter"];
-  farmingEligibility: ExtensionSettings["farmingEligibility"];
-  onChange(value: ExtensionSettings["dropsListFilter"]): void | Promise<void>;
-}) {
-  const t = useT();
-  const toggle = (key: keyof ExtensionSettings["dropsListFilter"]) => onChange({ ...value, [key]: !value[key] });
-  return (
-    // role="group" + aria-labelledby, so a screen-reader user hears the row's
-    // name around the chips instead of an anonymous run of buttons.
-    // aria-labelledby rather than aria-label keeps the visible and accessible
-    // names from drifting apart; the id is unique on the page.
-    <div className="py-2.5" role="group" aria-labelledby="dropsListFilter-label">
-      <div id="dropsListFilter-label" className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{t("dropsListFilterTitle")}</div>
-      <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
-        {t("dropsListFilterDescription")}
-      </div>
-      <div className="mt-2 flex flex-wrap items-center gap-1">
-        {DROPS_LIST_FILTERS.map(({ key, label, lockedBy }) => {
-          // Farming forces the chip visible; otherwise it reflects the stored flag.
-          const locked = lockedBy ? farmingEligibility[lockedBy] : false;
-          const active = locked || value[key];
-          return (
-            <button
-              key={key}
-              type="button"
-              // Guard rather than omit: a locked chip must not mutate the stored
-              // show-flag, so the preference is preserved for when farming stops.
-              onClick={locked ? undefined : () => toggle(key)}
-              disabled={locked}
-              aria-disabled={locked}
-              aria-pressed={active}
-              title={locked ? t("dropsListFilterLockedHint") : undefined}
-              className={cn(
-                "flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold transition",
-                active
-                  ? "border-transparent text-[var(--accent-contrast)]"
-                  : "border-zinc-200 text-zinc-400 dark:border-zinc-700",
-                locked && "cursor-not-allowed opacity-70",
-              )}
-              style={active ? { backgroundColor: "var(--accent)" } : undefined}
-            >
-              {locked
-                ? <Lock size={8} style={{ color: "var(--accent-contrast)" }} aria-hidden />
-                : <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: active ? "var(--accent-contrast)" : "var(--accent)" }} />}
-              {t(label)}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 export function ForgetExcludedCampaignsRow({ count, onForget }: { count: number; onForget(): void | Promise<void> }) {
   const t = useT();

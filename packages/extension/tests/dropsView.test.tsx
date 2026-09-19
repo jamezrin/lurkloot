@@ -76,7 +76,7 @@ function mount(url?: string, source = sourceCampaign(url), viewOptions?: Paramet
             gameMap={{}}
             refreshing={false}
             onRefreshCampaign={() => undefined}
-            onReorder={() => undefined}
+            onPinChange={() => undefined}
             onToggleExclude={() => undefined}
           />
         </PopupRuntimeContext.Provider>
@@ -151,7 +151,7 @@ function renderDropsPanel(campaigns: ReturnType<typeof campaignViewFromCampaign>
           focus={focus}
           refreshing={false}
           onRefreshCampaign={() => undefined}
-          onReorder={() => undefined}
+          onPinChange={() => undefined}
           onToggleExclude={() => undefined}
         />
       </PopupRuntimeContext.Provider>
@@ -159,7 +159,7 @@ function renderDropsPanel(campaigns: ReturnType<typeof campaignViewFromCampaign>
   );
 }
 
-function mountCampaignList(initialCampaigns: ReturnType<typeof campaignViewFromCampaign>[], onReorder = vi.fn()) {
+function mountCampaignList(initialCampaigns: ReturnType<typeof campaignViewFromCampaign>[], onPinChange = vi.fn()) {
   const { document, window } = parseHTML("<div id=app></div>");
   vi.stubGlobal("window", window);
   vi.stubGlobal("document", document);
@@ -174,7 +174,7 @@ function mountCampaignList(initialCampaigns: ReturnType<typeof campaignViewFromC
     root!.render(
       <I18nContext.Provider value={{ t: (key) => ({ completedCampaigns: "Completed", finished: "Finished", later: "later", search: "Search" })[key] ?? key, dir: "ltr", locale: "en" }}>
         <PopupRuntimeContext.Provider value={{ adapter, preview: false }}>
-          <DropsPanel campaigns={campaigns} gameMap={{}} focus={focus} refreshing={false} onRefreshCampaign={() => undefined} onReorder={onReorder} onToggleExclude={() => undefined} />
+          <DropsPanel campaigns={campaigns} gameMap={{}} focus={focus} refreshing={false} onRefreshCampaign={() => undefined} onPinChange={onPinChange} onToggleExclude={() => undefined} />
         </PopupRuntimeContext.Provider>
       </I18nContext.Provider>,
     );
@@ -186,7 +186,7 @@ function mountCampaignList(initialCampaigns: ReturnType<typeof campaignViewFromC
   return {
     container,
     window,
-    onReorder,
+    onPinChange,
     rerender: (focus: { id: string; seq: number }, campaigns = initialCampaigns) => act(() => render(campaigns, focus)),
   };
 }
@@ -232,13 +232,13 @@ describe("completed campaign section", () => {
     expect(finishedRow?.querySelector("button[aria-label^='Set rank']")).toBeNull();
   });
 
-  it("preserves the stored position of a finished campaign when active ranks change", () => {
+  it("pins the campaign whose rank was typed, and nothing else", () => {
     const campaigns = [
       campaignViewFromCampaign({ ...sourceCampaign(), id: "first", name: "First active" }, 0, idleSession, false),
       campaignViewFromCampaign({ ...sourceCampaign(), id: "finished", name: "Finished campaign", status: "completed" }, 1, idleSession, false),
       campaignViewFromCampaign({ ...sourceCampaign(), id: "second", name: "Second active" }, 2, idleSession, false),
     ];
-    const { container, onReorder } = mountCampaignList(campaigns);
+    const { container, onPinChange } = mountCampaignList(campaigns);
     const rank = container.querySelector<HTMLButtonElement>('button[aria-label="Set rank of Second active"]');
     expect(rank?.textContent).toBe("2");
     act(() => rank?.click());
@@ -246,8 +246,10 @@ describe("completed campaign section", () => {
     act(() => setInputValue(input, "1"));
     act(() => blurRankInput(input));
 
-    expect(onReorder).toHaveBeenCalledOnce();
-    expect(onReorder.mock.calls[0]?.[0].map((campaign: { id: string }) => campaign.id)).toEqual(["second", "finished", "first"]);
+    // A typed rank pins exactly that campaign at that position; the finished
+    // campaign and the other active one keep whatever tier they had.
+    expect(onPinChange).toHaveBeenCalledOnce();
+    expect(onPinChange).toHaveBeenCalledWith("second", 0);
   });
 
   it("reveals and opens a finished campaign when the popup focuses it", () => {
@@ -350,7 +352,7 @@ describe("campaign rank input", () => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     // linkedom's HTMLInputElement has no select(); RankInput calls it on edit.
     Object.defineProperty(window.HTMLInputElement.prototype, "select", { configurable: true, value: () => undefined });
-    const onReorder = vi.fn();
+    const onPinChange = vi.fn();
     const adapter = { openLink: vi.fn() } as unknown as PopupAdapter;
     const campaigns = [
       campaignViewFromCampaign({ ...sourceCampaign(), id: "first", name: "First campaign" }, 0, idleSession, false),
@@ -368,7 +370,7 @@ describe("campaign rank input", () => {
               gameMap={{}}
               refreshing={false}
               onRefreshCampaign={() => undefined}
-              onReorder={onReorder}
+              onPinChange={onPinChange}
               onToggleExclude={() => undefined}
             />
           </PopupRuntimeContext.Provider>
@@ -390,8 +392,8 @@ describe("campaign rank input", () => {
       blurRankInput(input!);
     });
 
-    expect(onReorder).toHaveBeenCalledOnce();
-    expect(onReorder.mock.calls[0]?.[0].map((campaign: { id: string }) => campaign.id)).toEqual(["second", "first"]);
+    expect(onPinChange).toHaveBeenCalledOnce();
+    expect(onPinChange).toHaveBeenCalledWith("second", 0);
   });
 
   it("allows commit after Escape cancels a prior edit on the same row", () => {
@@ -406,7 +408,7 @@ describe("campaign rank input", () => {
     vi.stubGlobal("cancelAnimationFrame", () => undefined);
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     Object.defineProperty(window.HTMLInputElement.prototype, "select", { configurable: true, value: () => undefined });
-    const onReorder = vi.fn();
+    const onPinChange = vi.fn();
     const adapter = { openLink: vi.fn() } as unknown as PopupAdapter;
     const campaigns = [
       campaignViewFromCampaign({ ...sourceCampaign(), id: "first", name: "First campaign" }, 0, idleSession, false),
@@ -424,7 +426,7 @@ describe("campaign rank input", () => {
               gameMap={{}}
               refreshing={false}
               onRefreshCampaign={() => undefined}
-              onReorder={onReorder}
+              onPinChange={onPinChange}
               onToggleExclude={() => undefined}
             />
           </PopupRuntimeContext.Provider>
@@ -444,7 +446,7 @@ describe("campaign rank input", () => {
     act(() => {
       keyDownRankInput(inputAfterOpen!, "Escape");
     });
-    expect(onReorder).not.toHaveBeenCalled();
+    expect(onPinChange).not.toHaveBeenCalled();
 
     const input = openRank();
     expect(input).toBeDefined();
@@ -455,8 +457,8 @@ describe("campaign rank input", () => {
       blurRankInput(input!);
     });
 
-    expect(onReorder).toHaveBeenCalledOnce();
-    expect(onReorder.mock.calls[0]?.[0].map((campaign: { id: string }) => campaign.id)).toEqual(["second", "first"]);
+    expect(onPinChange).toHaveBeenCalledOnce();
+    expect(onPinChange).toHaveBeenCalledWith("second", 0);
   });
 
   it("does not expose a rank editor while searching", () => {
@@ -539,7 +541,7 @@ describe("initial drops expansion", () => {
               gameMap={{}}
               refreshing={false}
               onRefreshCampaign={() => undefined}
-              onReorder={() => undefined}
+              onPinChange={() => undefined}
               onToggleExclude={() => undefined}
             />
           </PopupRuntimeContext.Provider>
@@ -588,7 +590,7 @@ describe("initial drops expansion", () => {
               gameMap={{}}
               refreshing={false}
               onRefreshCampaign={() => undefined}
-              onReorder={() => undefined}
+              onPinChange={() => undefined}
               onToggleExclude={() => undefined}
             />
           </PopupRuntimeContext.Provider>

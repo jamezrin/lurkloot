@@ -108,7 +108,7 @@ export async function collectDiscoverySnapshot(
   const eligibilityTime = now();
   for (const campaign of campaigns) {
     signal.throwIfAborted();
-    if (settings && !evaluateCampaignFarming(campaign, settings, { includePriorityMode: true, now: eligibilityTime }).farmable) {
+    if (settings && !evaluateCampaignFarming(campaign, settings, { includePinnedOnly: true, now: eligibilityTime }).farmable) {
       observations.push({ campaign, candidates: [] });
       skippedBeforeChannelWork += 1;
       continue;

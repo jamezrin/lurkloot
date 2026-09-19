@@ -51,10 +51,14 @@ export function defaultConfigJsonc(): string {
     // Automatically claim completed drops.
     "autoClaim": ${json(defaults.autoClaim)},
 
-    // ending_soonest | lowest_availability | priority_list_only
+    // ending_soonest | lowest_availability
+    // Ranks every campaign no pin or favourite game already placed.
     "priorityMode": ${json(defaults.priorityMode)},
-    // Map campaign IDs to numeric priorities; larger numbers are preferred.
-    "campaignPriorities": ${json(defaults.campaignPriorities)},
+    // Campaign IDs to farm first, in this order. Everything else follows the
+    // favourite games below, then priorityMode.
+    "campaignPins": ${json(defaults.campaignPins)},
+    // Farm nothing but the pinned campaigns above.
+    "farmPinnedOnly": ${json(defaults.farmPinnedOnly)},
     "excludedCampaignIds": ${json(defaults.excludedCampaignIds)},
 
     // Prefer an Idle Watchlist or followed channel over a bigger anonymous one
@@ -115,11 +119,15 @@ export function defaultConfigJsonc(): string {
         "idleWatchlistChannels": ${json(twitch.idleWatchlistChannels)},
         "excludedChannels": ${json(twitch.excludedChannels)},
         // "all" farms every category, "include" farms only the categories
-        // listed below, "exclude" farms everything except them.
+        // listed below. Neither mode ranks.
         "categoryMode": ${json(twitch.categoryMode)},
-        // Used by "include" and "exclude". In "include" the order also sets
-        // category priority; in "exclude" the order does not matter.
+        // Used by "include". Order has no scheduling effect.
         "categories": ${json(twitch.categories)},
+        // Campaigns of these categories rank above the strategy, in this order,
+        // and below pinned campaigns.
+        "favouriteCategories": ${json(twitch.favouriteCategories)},
+        // Never farmed, in either mode.
+        "blockedCategories": ${json(twitch.blockedCategories)},
         // Claim channel-point bonuses while farming this platform.
         "autoClaimChannelPoints": ${json(twitch.autoClaimChannelPoints)},
         // Advanced: claim channel-point bonuses from Twitch's live Hermes
@@ -136,11 +144,15 @@ export function defaultConfigJsonc(): string {
         "idleWatchlistChannels": ${json(kick.idleWatchlistChannels)},
         "excludedChannels": ${json(kick.excludedChannels)},
         // "all" farms every category, "include" farms only the categories
-        // listed below, "exclude" farms everything except them.
+        // listed below. Neither mode ranks.
         "categoryMode": ${json(kick.categoryMode)},
-        // Used by "include" and "exclude". In "include" the order also sets
-        // category priority; in "exclude" the order does not matter.
+        // Used by "include". Order has no scheduling effect.
         "categories": ${json(kick.categories)},
+        // Campaigns of these categories rank above the strategy, in this order,
+        // and below pinned campaigns.
+        "favouriteCategories": ${json(kick.favouriteCategories)},
+        // Never farmed, in either mode.
+        "blockedCategories": ${json(kick.blockedCategories)},
         // Claim Kick's daily gamification challenges automatically.
         "autoClaimChallenges": ${json(kick.autoClaimChallenges)}
       }

@@ -58,12 +58,20 @@ function farmingCampaignId(campaigns: CampaignView[]): string | undefined {
   return campaigns.find((campaign) => campaign.lifecycle !== "finished" && Boolean(campaign.farmingChannel))?.id;
 }
 
-function mergeActiveOrder(campaigns: CampaignView[], reorderedActive: CampaignView[]): CampaignView[] {
-  let nextActive = 0;
-  return campaigns.map((campaign) => campaign.lifecycle === "finished" ? campaign : reorderedActive[nextActive++]!);
+// Where a campaign dropped at `toIndex` of the visible active list lands among
+// the pins. Dragging pins the dragged campaign and nothing else: every campaign
+// it passed keeps whatever tier it had, which is what stops one drag from
+// freezing the whole list into a manual order.
+function pinPositionFor(activeCampaigns: CampaignView[], campaignId: string, toIndex: number): number {
+  let position = 0;
+  for (let index = 0; index < toIndex && index < activeCampaigns.length; index += 1) {
+    const campaign = activeCampaigns[index]!;
+    if (campaign.id !== campaignId && campaign.pinned) position += 1;
+  }
+  return position;
 }
 
-export function DropsPanel({ campaigns, gameMap, focus, refreshing, startCollapsed = false, onRefreshCampaign, onReorder, onToggleExclude }: { campaigns: CampaignView[]; gameMap: Record<string, GameItem>; focus?: { id: string; seq: number } | null; refreshing: boolean; startCollapsed?: boolean; onRefreshCampaign(id: string): void | Promise<void>; onReorder(campaigns: CampaignView[]): void | Promise<void>; onToggleExclude(id: string): void | Promise<void> }) {
+export function DropsPanel({ campaigns, gameMap, focus, refreshing, startCollapsed = false, onRefreshCampaign, onPinChange, onToggleExclude }: { campaigns: CampaignView[]; gameMap: Record<string, GameItem>; focus?: { id: string; seq: number } | null; refreshing: boolean; startCollapsed?: boolean; onRefreshCampaign(id: string): void | Promise<void>; onPinChange(campaignId: string, position: number | null): void | Promise<void>; onToggleExclude(id: string): void | Promise<void> }) {
   const t = useT();
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -120,11 +128,16 @@ export function DropsPanel({ campaigns, gameMap, focus, refreshing, startCollaps
   function endDrag(event: SortableDragEndEvent): void {
     const next = reorderFromDragEnd(activeCampaigns, event);
     if (next === activeCampaigns) return;
-    void onReorder(mergeActiveOrder(campaigns, next));
+    const movedIndex = next.findIndex((campaign, index) => campaign.id !== activeCampaigns[index]?.id);
+    if (movedIndex === -1) return;
+    const moved = next[movedIndex]!;
+    void onPinChange(moved.id, pinPositionFor(activeCampaigns, moved.id, movedIndex));
   }
 
   function moveCampaign(fromIndex: number, toIndex: number): void {
-    void onReorder(mergeActiveOrder(campaigns, arrayMove(activeCampaigns, fromIndex, toIndex)));
+    const moved = activeCampaigns[fromIndex];
+    if (!moved) return;
+    void onPinChange(moved.id, pinPositionFor(activeCampaigns, moved.id, toIndex));
   }
 
   return (
@@ -603,7 +616,8 @@ function campaignRejectionMessageKey(code: NonNullable<CampaignView["farmingReje
     twitch_link_required: "campaignRejectionTwitchLinkRequired",
     subscription_campaigns_disabled: "campaignRejectionSubscriptionDisabled",
     category_filtered: "campaignRejectionCategoryFiltered",
-    priority_not_selected: "campaignRejectionPriorityNotSelected",
+    category_blocked: "campaignRejectionCategoryBlocked",
+    not_pinned: "campaignRejectionNotPinned",
     no_rewards: "campaignRejectionNoRewards",
     no_unclaimed_rewards: "campaignRejectionNoUnclaimedRewards",
     reward_prerequisites_unmet: "campaignRejectionPrerequisites",

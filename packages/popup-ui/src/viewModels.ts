@@ -1,5 +1,5 @@
 import type { DropCampaign, ExtensionSettings, Platform, WatchSession } from "@lurkloot/shared/models";
-import { NO_CATEGORY_ID, categoryPriorityScore, isUncategorizedCampaign } from "@lurkloot/shared/categories";
+import { NO_CATEGORY_ID, isUncategorizedCampaign } from "@lurkloot/shared/categories";
 import {
   campaignHasSubscriptionRewards,
   campaignHasWatchRewards,
@@ -11,9 +11,11 @@ import { isCampaignExpired, isCampaignFinished } from "@lurkloot/shared/campaign
 import { evaluateCampaignFarming } from "@lurkloot/shared/campaignFarming";
 export {
   campaignFilterCategories,
+  campaignSection,
   isCampaignExpired,
   isCampaignFinished,
-  isCampaignVisible,
+  isCampaignUpcoming,
+  type CampaignSection,
 } from "@lurkloot/shared/campaignFilters";
 import { CAMPAIGN_TINTS, GAME_ACCENTS, NO_CATEGORY_ACCENT, REWARD_TINTS } from "./constants";
 import { initials } from "./format";
@@ -27,25 +29,11 @@ function kickRewardImageUrl(value: string | undefined): string | undefined {
   return `${KICK_ASSET_BASE}/${value.replace(/^\/+/, "")}`;
 }
 
-export function sortCampaignsForPopup(campaigns: DropCampaign[], settings: ExtensionSettings): DropCampaign[] {
-  return [...campaigns].sort((left, right) => {
-    const leftPriority = settings.campaignPriorities[left.id] ?? left.priority;
-    const rightPriority = settings.campaignPriorities[right.id] ?? right.priority;
-    if (leftPriority != null && rightPriority != null && leftPriority !== rightPriority) return rightPriority - leftPriority;
-    if (leftPriority != null && rightPriority == null) return -1;
-    if (rightPriority != null && leftPriority == null) return 1;
-    const categoryOrder = categoryPriorityScore(left, settings.platform[left.platform])
-      - categoryPriorityScore(right, settings.platform[right.platform]);
-    if (categoryOrder !== 0) return categoryOrder;
-    const leftEnd = left.endsAt ? Date.parse(left.endsAt) : Number.MAX_SAFE_INTEGER;
-    const rightEnd = right.endsAt ? Date.parse(right.endsAt) : Number.MAX_SAFE_INTEGER;
-    return leftEnd - rightEnd;
-  });
-}
-
-export function prioritiesFromOrder(campaigns: Array<{ id: string }>): Record<string, number> {
-  return Object.fromEntries(campaigns.map((campaign, index) => [campaign.id, campaigns.length - index]));
-}
+// The popup renders exactly what the scheduler ranks: same function, same
+// settings, so the rank on a card is the position the engine acts on.
+export { rankCampaigns, campaignRankTier, pinCampaignAt, unpinCampaign, type CampaignRankTier } from "@lurkloot/shared/ranking";
+import { campaignRankTier } from "@lurkloot/shared/ranking";
+import { campaignSection } from "@lurkloot/shared/campaignFilters";
 
 export function gameItemsFromCampaigns(campaigns: DropCampaign[], t: TFunction): GameItem[] {
   const discovered = new Map<string, GameItem>();
@@ -115,14 +103,18 @@ export function campaignViewFromCampaign(
   feasibility?: { skipUnfinishableRewards: boolean; deadlineSafetyMarginMinutes: number; now?: number; settings?: ExtensionSettings },
 ): CampaignView {
   const farmingEvaluation = feasibility?.settings
-    ? evaluateCampaignFarming(campaign, feasibility.settings, { includePriorityMode: true, now: feasibility.now })
+    ? evaluateCampaignFarming(campaign, feasibility.settings, { includePinnedOnly: true, now: feasibility.now })
     : undefined;
+  const settings = feasibility?.settings;
   return {
     id: campaign.id,
     gameId: gameId(campaign),
     title: campaign.name,
     status: campaign.status,
     lifecycle: campaignLifecycleState(campaign),
+    pinned: settings ? settings.campaignPins.includes(campaign.id) : false,
+    rankTier: settings ? campaignRankTier(campaign, settings) : "strategy",
+    section: settings ? campaignSection(campaign, settings) : "queue",
     linked: campaign.accountLinked !== false,
     linkUrl: campaign.accountLinkUrl || undefined,
     pageUrl: campaign.url || undefined,

@@ -79,7 +79,7 @@ describe("watch-source scheduler policy", () => {
       endsAt: new Date(Date.now() + 3_600_000).toISOString(),
       rewards: [{ ...s.campaign.rewards[0], id: "replacement-reward", requiredMinutes: 5, watchedMinutes: 0, status: "locked" }],
     };
-    if (explicitPriority) s.settings.campaignPriorities = { replacement: 10 };
+    if (explicitPriority) s.settings.campaignPins = ["replacement"];
     const snapshot = {
       platform,
       revision: 1,

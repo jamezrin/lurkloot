@@ -14,7 +14,8 @@ import type {
   WatchSession,
   WatchSourceId,
 } from "@lurkloot/shared/models";
-import { campaignPassesCategoryFilter, categoryPriorityScore } from "@lurkloot/shared/categories";
+import { campaignPassesCategoryFilter } from "@lurkloot/shared/categories";
+import { campaignRankTier, pinIndex, rankCampaigns } from "@lurkloot/shared/ranking";
 import { evaluateCampaignFarming, type CampaignFarmingEvaluation, type CampaignFarmingRejectionCode } from "@lurkloot/shared/campaignFarming";
 import { campaignFarmable, campaignPassesFarmingEligibility, hasCampaignEnded } from "@lurkloot/shared/campaignFilters";
 import {
@@ -84,14 +85,13 @@ function chooseTablessWatch(
 
 function isEligible(campaign: DropCampaign, settings: EngineSettings): boolean {
   // campaignFarmable is the single shared definition of "is this campaign
-  // farmable" (shared with the popup's isCampaignVisible, so display and
-  // farming never drift apart). "Priority list only" is the one farming-
-  // strategy layer on top of it: it farms exclusively the campaigns the user
-  // explicitly reordered (campaignPriorities), which is deliberately NOT part
-  // of campaignFarmable — a deprioritized campaign must stay farmable-shaped
-  // for display so the user can still add it to the list.
+  // farmable" (shared with the popup's campaignSection, so display and farming
+  // never drift apart). "Farm pinned only" is the one farming-strategy layer on
+  // top of it: it farms exclusively pinned campaigns, and is deliberately NOT
+  // part of campaignFarmable — an unpinned campaign must stay farmable-shaped
+  // for display so the popup can still offer the pin.
   if (!campaignFarmable(campaign, settings)) return false;
-  if (settings.priorityMode === "priority_list_only" && !isInPriorityList(campaign, settings)) return false;
+  if (settings.farmPinnedOnly && !isPinned(campaign, settings)) return false;
   return true;
 }
 
@@ -149,44 +149,12 @@ function activeRewardFor(campaigns: readonly DropCampaign[], session: WatchSessi
   return campaign?.rewards.find((reward) => reward.id === session.rewardId);
 }
 
-function isInPriorityList(campaign: DropCampaign, settings: EngineSettings): boolean {
-  return settings.campaignPriorities[campaign.id] != null;
-}
-
-function availabilityScore(campaign: DropCampaign): number {
-  if (campaign.allowedChannels?.length) return campaign.allowedChannels.length;
-  return Number.MAX_SAFE_INTEGER;
-}
-
-function endScore(campaign: DropCampaign): number {
-  return campaign.endsAt ? Date.parse(campaign.endsAt) : Number.MAX_SAFE_INTEGER;
+function isPinned(campaign: DropCampaign, settings: EngineSettings): boolean {
+  return pinIndex(campaign, settings) !== -1;
 }
 
 export function sortCampaigns(campaigns: DropCampaign[], settings: EngineSettings): DropCampaign[] {
-  return [...campaigns].sort((left, right) => {
-    const leftPriority = settings.campaignPriorities[left.id] ?? left.priority;
-    const rightPriority = settings.campaignPriorities[right.id] ?? right.priority;
-    if (leftPriority != null && rightPriority != null && leftPriority !== rightPriority) return rightPriority - leftPriority;
-    if (leftPriority != null && rightPriority == null) return -1;
-    if (rightPriority != null && leftPriority == null) return 1;
-
-    const categoryOrder = categoryPriorityScore(left, settings.platform[left.platform])
-      - categoryPriorityScore(right, settings.platform[right.platform]);
-    if (categoryOrder !== 0) return categoryOrder;
-
-    const normalizedLeftPriority = leftPriority ?? 0;
-    const normalizedRightPriority = rightPriority ?? 0;
-    if (normalizedLeftPriority !== normalizedRightPriority) return normalizedRightPriority - normalizedLeftPriority;
-
-    if (settings.priorityMode === "lowest_availability") {
-      const availability = availabilityScore(left) - availabilityScore(right);
-      if (availability !== 0) return availability;
-    }
-
-    const ends = endScore(left) - endScore(right);
-    if (ends !== 0) return ends;
-    return left.name.localeCompare(right.name);
-  });
+  return rankCampaigns(campaigns, settings);
 }
 
 // Ranks candidates the user has a relationship with above anonymous directory
@@ -417,8 +385,8 @@ function noEligibleCampaignReason(campaigns: DropCampaign[], settings: EngineSet
   if (notExcluded.every((campaign) => !campaignPassesCategoryFilter(campaign, settings.platform[campaign.platform]))) {
     return "No campaigns match the categories filter";
   }
-  if (settings.priorityMode === "priority_list_only" && !notExcluded.some((campaign) => isInPriorityList(campaign, settings))) {
-    return "No prioritized campaigns are eligible";
+  if (settings.farmPinnedOnly && !notExcluded.some((campaign) => isPinned(campaign, settings))) {
+    return "No pinned campaigns are eligible";
   }
   const relevantCampaigns = notExcluded.filter((campaign) => campaign.status === "active" && !hasCampaignEnded(campaign));
   if (relevantCampaigns.length > 0 && relevantCampaigns.every((campaign) =>
@@ -735,7 +703,8 @@ export function campaignSearchFingerprint(
   return stableHash({
     campaign,
     settings: {
-      campaignPriorities: settings.campaignPriorities,
+      campaignPins: settings.campaignPins,
+      farmPinnedOnly: settings.farmPinnedOnly,
       excludedCampaignIds: settings.excludedCampaignIds,
       priorityMode: settings.priorityMode,
       farmingEligibility: settings.farmingEligibility,
@@ -915,7 +884,8 @@ const CAMPAIGN_REJECTION_LABELS: Record<CampaignFarmingRejectionCode, string> = 
   twitch_link_required: "Twitch account linking required",
   subscription_campaigns_disabled: "subscription campaigns disabled",
   category_filtered: "category filtered",
-  priority_not_selected: "not in priority list",
+  category_blocked: "game blocked",
+  not_pinned: "not pinned",
   no_rewards: "no rewards",
   no_unclaimed_rewards: "no unclaimed rewards",
   reward_prerequisites_unmet: "reward prerequisites unmet",
@@ -947,7 +917,7 @@ function emitCampaignEvaluationDiagnostics(
 ): void {
   const evaluations = campaigns.map((campaign) => ({
     campaign,
-    evaluation: evaluateCampaignFarming(campaign, settings, { includePriorityMode: true }),
+    evaluation: evaluateCampaignFarming(campaign, settings, { includePinnedOnly: true }),
   }));
   const fingerprint = campaignEvaluationFingerprint(evaluations);
   if (fingerprints?.[platform] === fingerprint) return;
@@ -1818,15 +1788,22 @@ function campaignDiagnosticFingerprint(campaigns: readonly DropCampaign[]): stri
     .join("|");
 }
 
+// Whether the candidate outranks the current watch because the USER placed it
+// there — a pin, or a favourite game — rather than because the live strategy
+// reshuffled them. Only an explicit placement may abandon progress already
+// earned on a healthy reward.
 function hasHigherExplicitCampaignPriority(
   candidate: DropCampaign,
   current: DropCampaign,
   settings: EngineSettings,
 ): boolean {
-  const candidatePriority = settings.campaignPriorities[candidate.id];
-  if (candidatePriority == null) return false;
-  const currentPriority = settings.campaignPriorities[current.id];
-  return currentPriority == null || candidatePriority > currentPriority;
+  const candidateTier = campaignRankTier(candidate, settings);
+  if (candidateTier === "strategy") return false;
+  const currentTier = campaignRankTier(current, settings);
+  if (candidateTier === "pinned") {
+    return currentTier !== "pinned" || pinIndex(candidate, settings) < pinIndex(current, settings);
+  }
+  return currentTier === "strategy";
 }
 
 async function evaluatePreferredCurrentWatch(

@@ -465,9 +465,7 @@ export async function runExtensionBaselineCell(
       twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: platform === "twitch" },
       kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: platform === "kick" },
     },
-    campaignPriorities: scenario === "higherPriorityUnavailable"
-      ? { [`${platform}-urgent`]: 10 }
-      : {},
+    campaignPins: scenario === "higherPriorityUnavailable" ? [`${platform}-urgent`] : [],
   };
   let state: SchedulerState = structuredClone(DEFAULT_STATE);
   if (scenario === "stable" || scenario === "retained" || scenario === "switch" || scenario === "higherPriorityUnavailable") {

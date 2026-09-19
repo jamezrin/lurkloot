@@ -39,9 +39,10 @@ import {
   channelViewFromSession,
   fallbackGame,
   gameItemsFromCampaigns,
-  isCampaignVisible,
-  prioritiesFromOrder,
-  sortCampaignsForPopup,
+  campaignSection,
+  pinCampaignAt,
+  rankCampaigns,
+  unpinCampaign,
   streamerItemFromFallback,
 } from "./viewModels";
 import { IconButton, cn } from "./primitives";
@@ -617,7 +618,10 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
 
   const compatibilityResolution = adapter.resolveCompatibility?.(settings.compatibility);
   const excludedIds = new Set(settings.excludedCampaignIds);
-  const rawCampaigns = sortCampaignsForPopup(snapshot.state.campaigns[platform].filter((campaign) => isCampaignVisible(campaign, settings, excludedIds)), settings);
+  // Every campaign the platform reported, in scheduler order. Sectioning
+  // (queue, skipped, upcoming, completed) happens in the list itself, so a
+  // campaign is never silently missing from the popup.
+  const rawCampaigns = rankCampaigns(snapshot.state.campaigns[platform], settings);
   const session = snapshot.state.sessions[platform];
   const sessionChannel = channelViewFromSession(session);
   const criticalFailure = snapshot.state.criticalHealth?.[platform];
@@ -860,7 +864,14 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                     focus={campaignFocus}
                     refreshing={refreshing}
                     onRefreshCampaign={() => refreshNow()}
-                    onReorder={(ordered) => updateSettings({ campaignPriorities: prioritiesFromOrder(ordered) }, { tickAfterSave: true })}
+                    onPinChange={(campaignId, position) => updateSettings(
+                      {
+                        campaignPins: position == null
+                          ? unpinCampaign(settings.campaignPins, campaignId)
+                          : pinCampaignAt(settings.campaignPins, campaignId, position),
+                      },
+                      { tickAfterSave: true },
+                    )}
                     onToggleExclude={(id) => {
                       const next = new Set(settings.excludedCampaignIds);
                       if (next.has(id)) next.delete(id);

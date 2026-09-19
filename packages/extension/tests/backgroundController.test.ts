@@ -8058,7 +8058,7 @@ describe("background controller", () => {
     const higher = { ...campaign("twitch"), id: "higher" };
     const current = { ...campaign("twitch"), id: "current" };
     const currentChannel = channel("twitch");
-    const configured = farming({ ...DEFAULT_SETTINGS, campaignPriorities: { higher: 10 } });
+    const configured = farming({ ...DEFAULT_SETTINGS, campaignPins: ["higher"] });
     const initialState: SchedulerState = {
       ...structuredClone(DEFAULT_STATE),
       campaigns: { ...DEFAULT_STATE.campaigns, twitch: [higher, current] },

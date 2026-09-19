@@ -63,9 +63,6 @@ const labels: Record<string, string> = {
   farmUnlinkedDescription: "When off, campaigns that need you to link your account are skipped.",
   farmSubscriptionTitle: "Farm campaigns that require a subscription",
   farmSubscriptionDescription: "When off, campaigns whose rewards need a channel subscription are skipped.",
-  dropsListFilterTitle: "Drops list view",
-  dropsListFilterDescription: "Choose which campaigns are shown in the Drops list.",
-  dropsListFilterLockedHint: "Always shown while you're farming these campaigns.",
   notLinked: "Not linked",
   subscriptionCampaigns: "Subscription campaigns",
   forgetExcludedTitle: "Forget excluded campaigns",
@@ -278,51 +275,8 @@ describe("deadline feasibility setting", () => {
     expect(container.querySelector('[role="switch"][aria-label="Farm campaigns that require a subscription"]')).not.toBeNull();
   });
 
-  it("exposes the Drops list view chip row with an accessible name", () => {
-    const { container } = mountSettings();
-    // Queried by role and accessible name rather than by text, so a refactor
-    // that drops the labelling leaves screen-reader users with an anonymous run
-    // of buttons and this test fails instead of passing silently.
-    const groups = [...container.querySelectorAll('[role="group"]')].map((group) => {
-      const labelId = group.getAttribute("aria-labelledby")!;
-      return {
-        name: container.querySelector(`#${labelId}`)?.textContent,
-        pills: [...group.querySelectorAll("button[aria-pressed]")].map((pill) => pill.textContent?.trim()),
-      };
-    });
 
-    expect(groups).toEqual([
-      { name: "Drops list view", pills: ["upcoming", "expired", "excluded", "finished", "Not linked", "Subscription campaigns"] },
-    ]);
-  });
 
-  it("locks the not-linked chip on and disables it while its campaigns are farmed", () => {
-    // farmUnlinkedCampaigns on: the class is always farmed, so the chip is forced
-    // visible and disabled — the farmed-implies-visible invariant, surfaced.
-    const { container } = mountSettings({
-      ...DEFAULT_SETTINGS,
-      farmingEligibility: { ...DEFAULT_SETTINGS.farmingEligibility, farmUnlinkedCampaigns: true },
-    });
-    const chip = [...container.querySelectorAll('button[aria-pressed]')].find((button) => button.textContent?.trim() === "Not linked") as HTMLButtonElement;
-    expect(chip).toBeTruthy();
-    expect(chip.getAttribute("aria-pressed")).toBe("true");
-    expect(chip.disabled).toBe(true);
-    expect(chip.getAttribute("aria-disabled")).toBe("true");
-  });
-
-  it("frees the not-linked chip as a normal toggle when its campaigns are not farmed", () => {
-    const { container } = mountSettings({
-      ...DEFAULT_SETTINGS,
-      farmingEligibility: { ...DEFAULT_SETTINGS.farmingEligibility, farmUnlinkedCampaigns: false },
-      dropsListFilter: { ...DEFAULT_SETTINGS.dropsListFilter, showNotLinked: false },
-    });
-    const chip = [...container.querySelectorAll('button[aria-pressed]')].find((button) => button.textContent?.trim() === "Not linked") as HTMLButtonElement;
-    expect(chip).toBeTruthy();
-    // Not farmed and hidden: a plain, enabled, unpressed toggle over showNotLinked.
-    expect(chip.disabled).toBe(false);
-    expect(chip.getAttribute("aria-disabled")).toBe("false");
-    expect(chip.getAttribute("aria-pressed")).toBe("false");
-  });
 
   it("reconciles the chosen platform after changing watch-source priority", () => {
     const { container, onSettingsChange } = mountSettings();
@@ -345,13 +299,13 @@ describe("deadline feasibility setting", () => {
     act(() => {
       // linkedom's select.value is getter-only, so the selection is staged the
       // same way compatibilitySettingsView.test.tsx does it.
-      for (const option of select.querySelectorAll("option")) option.selected = option.getAttribute("value") === "exclude";
-      Object.defineProperty(select, "value", { configurable: true, value: "exclude" });
+      for (const option of select.querySelectorAll("option")) option.selected = option.getAttribute("value") === "include";
+      Object.defineProperty(select, "value", { configurable: true, value: "include" });
       select.dispatchEvent(new window.Event("change", { bubbles: true }));
     });
 
     expect(onSettingsChange).toHaveBeenCalledWith(
-      { platform: { twitch: { categoryMode: "exclude" } } },
+      { platform: { twitch: { categoryMode: "include" } } },
       { tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] },
     );
   });

@@ -9,6 +9,7 @@
     "./categories": "./src/categories.ts",
     "./campaignFilters": "./src/campaignFilters.ts",
     "./campaignFarming": "./src/campaignFarming.ts",
+    "./ranking": "./src/ranking.ts",
     "./messages": "./src/messages.ts",
     "./settings": "./src/settings.ts",
     "./watchSources": "./src/watchSources.ts",

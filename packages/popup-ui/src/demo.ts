@@ -104,6 +104,10 @@ function demoSnapshot(): RuntimeSnapshot {
           { id: "starfall arena", name: "Starfall Arena" },
           { id: "spellforge", name: "Spellforge" },
         ],
+        // Starfall Arena is a favourite: its campaigns rank above the strategy
+        // without being pinned, which is what the demo is meant to show.
+        favouriteCategories: [{ id: "starfall arena", name: "Starfall Arena" }],
+        blockedCategories: [],
         autoClaimChannelPoints: true,
       },
       kick: {
@@ -111,20 +115,18 @@ function demoSnapshot(): RuntimeSnapshot {
         watchSourcePriority: [...DEFAULT_SETTINGS.platform.kick.watchSourcePriority],
         idleWatchlistChannels: ["greenroomgg", "pixelboost"],
         excludedChannels: [],
-        // Exercises the inverse mode alongside Twitch's include list: Kick
-        // farms every category except this one.
-        categoryMode: "exclude",
+        categoryMode: "all",
         categories: [
           { id: "just chatting", name: "Just Chatting" },
         ],
+        favouriteCategories: [],
+        // Exercises the denylist alongside Twitch's allowlist: Kick farms every
+        // category except this one.
+        blockedCategories: [{ id: "just chatting", name: "Just Chatting" }],
         autoClaimChallenges: true,
       },
     },
-    campaignPriorities: {
-      "tw-marathon": 3,
-      "tw-starfall": 2,
-      "tw-spellforge": 1,
-    },
+    campaignPins: ["tw-marathon", "tw-starfall"],
   });
 
   const twitchCampaigns: DropCampaign[] = [

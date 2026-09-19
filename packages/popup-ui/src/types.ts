@@ -2,6 +2,8 @@ import type { CliCredentialBlob, RuntimeMessage, RuntimeSnapshot } from "@lurklo
 import type { ClaimGuidance, CompatibilitySettings, DropCampaign, Platform, RewardRequirementType, SupportedLocale, TwitchExtensionProviderId } from "@lurkloot/shared/models";
 import type { SettingsExportPayload } from "@lurkloot/shared/settingsExport";
 import type { CampaignFarmingEvaluation } from "@lurkloot/shared/campaignFarming";
+import type { CampaignSection } from "@lurkloot/shared/campaignFilters";
+import type { CampaignRankTier } from "@lurkloot/shared/ranking";
 
 export type CompatibilityLifecycle = "recommended" | "legacy" | "experimental";
 export interface CompatibilityOptionMetadata {
@@ -86,6 +88,11 @@ export type CampaignView = {
   // The campaign's info/landing page, when one is provided.
   pageUrl?: string;
   excluded: boolean;
+  // Which tier of the shared ranking placed this campaign, and whether the user
+  // pinned it by hand. The list labels its group dividers from these.
+  pinned: boolean;
+  rankTier: CampaignRankTier;
+  section: CampaignSection;
   starts: string;
   ends: string;
   // All channels this drop is restricted to, each with a link to its page. Empty
