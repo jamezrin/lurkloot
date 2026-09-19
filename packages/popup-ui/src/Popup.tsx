@@ -618,10 +618,16 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
 
   const compatibilityResolution = adapter.resolveCompatibility?.(settings.compatibility);
   const excludedIds = new Set(settings.excludedCampaignIds);
-  // Every campaign the platform reported, in scheduler order. Sectioning
-  // (queue, skipped, upcoming, completed) happens in the list itself, so a
-  // campaign is never silently missing from the popup.
-  const rawCampaigns = rankCampaigns(snapshot.state.campaigns[platform], settings);
+  // The campaigns the list renders, in scheduler order: the queue itself, plus
+  // the finished ones the Completed subsection carries. Skipped and upcoming
+  // campaigns get their own groups in the Queue view.
+  const rawCampaigns = rankCampaigns(
+    snapshot.state.campaigns[platform].filter((campaign) => {
+      const section = campaignSection(campaign, settings);
+      return section === "queue" || section === "completed";
+    }),
+    settings,
+  );
   const session = snapshot.state.sessions[platform];
   const sessionChannel = channelViewFromSession(session);
   const criticalFailure = snapshot.state.criticalHealth?.[platform];

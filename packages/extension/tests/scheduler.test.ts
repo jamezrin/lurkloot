@@ -2244,6 +2244,53 @@ describe("scheduler tick", () => {
     expect(result.state.sessions.twitch.reasonCode).toBe("higher_priority_reward");
   });
 
+  it("keeps watching when only a favourite game outranks the current campaign", async () => {
+    // A star is a standing preference that re-fires whenever a campaign of that
+    // game appears, so it must not abandon progress already earned on a healthy
+    // reward — only a pin, which names one campaign, may do that.
+    const current = channel("current");
+    const replacement = channel("replacement");
+    const twitch = adapter(
+      "twitch",
+      [campaign("current"), campaign("starred", { gameName: "Starred Game" })],
+      [replacement],
+    );
+
+    const result = await runSchedulerTick(
+      {
+        ...baseState,
+        sessions: {
+          ...baseState.sessions,
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: current,
+            campaignId: "current",
+            rewardId: "reward-in_progress",
+            offlineChecks: 0,
+            playbackChecks: 0,
+            watchMode: "tabless",
+          },
+        },
+      },
+      settings({
+        platform: {
+          twitch: {
+            enabled: true,
+            idleWatchlistChannels: [],
+            favouriteCategories: [{ id: "starred game", name: "Starred Game" }],
+          },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(result.state.sessions.twitch.campaignId).toBe("current");
+    expect(result.state.sessions.twitch.reasonCode).not.toBe("higher_priority_reward");
+  });
+
   it("falls back to full selection when the current channel no longer offers the campaign", async () => {
     const current = channel("current");
     const replacement = channel("replacement");

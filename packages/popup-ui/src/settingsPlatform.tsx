@@ -1,7 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { arrayMove } from "@dnd-kit/helpers";
-import { DragDropProvider } from "@dnd-kit/react";
-import { useSortable } from "@dnd-kit/react/sortable";
 import { AlertTriangle, Plus, Search } from "lucide-react";
 import type { CategoryMode, CategorySelection, ExtensionSettings, Platform } from "@lurkloot/shared/models";
 import { GAME_ACCENTS, PLATFORMS } from "./constants";
@@ -10,12 +7,8 @@ import { initials } from "./format";
 import type { GameItem } from "./types";
 import {
   CompactRow,
-  DragHandle,
-  Pill,
   RemoveRowButton,
   reorderFromDragEnd,
-  preventNativeDrag,
-  type SortableDragEndEvent,
 } from "./primitives";
 import { SelectSettingRow } from "./settingsControls";
 

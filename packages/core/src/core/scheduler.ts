@@ -15,7 +15,7 @@ import type {
   WatchSourceId,
 } from "@lurkloot/shared/models";
 import { campaignPassesCategoryFilter } from "@lurkloot/shared/categories";
-import { campaignRankTier, pinIndex, rankCampaigns } from "@lurkloot/shared/ranking";
+import { pinIndex, rankCampaigns } from "@lurkloot/shared/ranking";
 import { evaluateCampaignFarming, type CampaignFarmingEvaluation, type CampaignFarmingRejectionCode } from "@lurkloot/shared/campaignFarming";
 import { campaignFarmable, campaignPassesFarmingEligibility, hasCampaignEnded } from "@lurkloot/shared/campaignFilters";
 import {
@@ -1788,22 +1788,25 @@ function campaignDiagnosticFingerprint(campaigns: readonly DropCampaign[]): stri
     .join("|");
 }
 
-// Whether the candidate outranks the current watch because the USER placed it
-// there — a pin, or a favourite game — rather than because the live strategy
-// reshuffled them. Only an explicit placement may abandon progress already
-// earned on a healthy reward.
+// Whether the candidate outranks the current watch because the user placed that
+// CAMPAIGN there by hand. Only a pin qualifies: it names one campaign and does
+// not move on its own, so honouring it can only ever discard progress the user
+// asked to discard.
+//
+// A favourite game deliberately does NOT qualify. It is a standing preference
+// that re-fires every time a campaign of that game appears, so treating it as an
+// override would abandon a healthy watch at 55/60 minutes the moment a new
+// campaign of a starred game showed up. Favourites still rank — they decide what
+// is picked NEXT — they just never interrupt earned progress.
 function hasHigherExplicitCampaignPriority(
   candidate: DropCampaign,
   current: DropCampaign,
   settings: EngineSettings,
 ): boolean {
-  const candidateTier = campaignRankTier(candidate, settings);
-  if (candidateTier === "strategy") return false;
-  const currentTier = campaignRankTier(current, settings);
-  if (candidateTier === "pinned") {
-    return currentTier !== "pinned" || pinIndex(candidate, settings) < pinIndex(current, settings);
-  }
-  return currentTier === "strategy";
+  const candidatePin = pinIndex(candidate, settings);
+  if (candidatePin === -1) return false;
+  const currentPin = pinIndex(current, settings);
+  return currentPin === -1 || candidatePin < currentPin;
 }
 
 async function evaluatePreferredCurrentWatch(
