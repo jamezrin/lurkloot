@@ -81,6 +81,7 @@ export function DropsPanel({ campaigns, gameMap, focus, refreshing, startCollaps
   const listRef = useRef<HTMLDivElement>(null);
   const searching = query.trim().length > 0;
   const visibleCampaigns = useMemo(() => filterCampaigns(campaigns, gameMap, query), [campaigns, gameMap, query]);
+  const focusedCampaignFinished = Boolean(focus && campaigns.some((campaign) => campaign.id === focus.id && campaign.lifecycle === "finished"));
 
   // Campaigns can arrive after mount, and the farmed campaign can change while the
   // popup is open. Expand the new one when that happens, but never collapse anything:
@@ -98,9 +99,9 @@ export function DropsPanel({ campaigns, gameMap, focus, refreshing, startCollaps
     setQuery("");
     setSearchOpen(false);
     setSectionExpanded(true);
-    if (campaigns.some((campaign) => campaign.id === focus.id && campaign.lifecycle === "finished")) setCompletedExpanded(true);
+    if (focusedCampaignFinished) setCompletedExpanded(true);
     setExpandedIds((current) => ({ ...current, [focus.id]: true }));
-  }, [focus?.seq]);
+  }, [focus?.id, focus?.seq, focusedCampaignFinished]);
 
   // Search and section expansion update asynchronously. Query the card only
   // after the visible list has been committed, otherwise a focus request made

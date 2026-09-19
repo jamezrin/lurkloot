@@ -159,7 +159,7 @@ function renderDropsPanel(campaigns: ReturnType<typeof campaignViewFromCampaign>
   );
 }
 
-function mountCampaignList(campaigns: ReturnType<typeof campaignViewFromCampaign>[], onReorder = vi.fn()) {
+function mountCampaignList(initialCampaigns: ReturnType<typeof campaignViewFromCampaign>[], onReorder = vi.fn()) {
   const { document, window } = parseHTML("<div id=app></div>");
   vi.stubGlobal("window", window);
   vi.stubGlobal("document", document);
@@ -170,7 +170,7 @@ function mountCampaignList(campaigns: ReturnType<typeof campaignViewFromCampaign
   Object.defineProperty(window.HTMLInputElement.prototype, "select", { configurable: true, value: () => undefined });
   const container = document.getElementById("app")!;
   const adapter = { openLink: vi.fn() } as unknown as PopupAdapter;
-  function render(focus?: { id: string; seq: number }) {
+  function render(campaigns: ReturnType<typeof campaignViewFromCampaign>[], focus?: { id: string; seq: number }) {
     root!.render(
       <I18nContext.Provider value={{ t: (key) => ({ completedCampaigns: "Completed", finished: "Finished", later: "later", search: "Search" })[key] ?? key, dir: "ltr", locale: "en" }}>
         <PopupRuntimeContext.Provider value={{ adapter, preview: false }}>
@@ -181,9 +181,14 @@ function mountCampaignList(campaigns: ReturnType<typeof campaignViewFromCampaign
   }
   act(() => {
     root = createRoot(container);
-    render();
+    render(initialCampaigns);
   });
-  return { container, window, onReorder, rerender: (focus: { id: string; seq: number }) => act(() => render(focus)) };
+  return {
+    container,
+    window,
+    onReorder,
+    rerender: (focus: { id: string; seq: number }, campaigns = initialCampaigns) => act(() => render(campaigns, focus)),
+  };
 }
 
 describe("completed campaign section", () => {
@@ -257,6 +262,21 @@ describe("completed campaign section", () => {
     expect(finishedRow).not.toBeNull();
     expect(finishedRow?.querySelector("button[aria-expanded='true']")).not.toBeNull();
     expect(scrollIntoView).toHaveBeenCalledOnce();
+  });
+
+  it("reveals a focused campaign when it becomes finished without a new focus request", () => {
+    const active = campaignViewFromCampaign({ ...sourceCampaign(), id: "focused", name: "Focused campaign" }, 0, idleSession, false);
+    const finished = { ...active, lifecycle: "finished" as const };
+    const focus = { id: "focused", seq: 1 };
+    const { container, window, rerender } = mountCampaignList([active]);
+    Object.defineProperty(window.HTMLElement.prototype, "scrollIntoView", { configurable: true, value: vi.fn() });
+
+    rerender(focus, [active]);
+    rerender(focus, [finished]);
+
+    expect(container.querySelector('[data-campaign-id="focused"]')).not.toBeNull();
+    const completedToggle = [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.includes("Completed"));
+    expect(completedToggle?.getAttribute("aria-expanded")).toBe("true");
   });
 
   it("finds a finished campaign while the section is collapsed", () => {
