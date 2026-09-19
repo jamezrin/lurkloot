@@ -12,10 +12,11 @@ import type { ActivityHistoryRecord } from "@lurkloot/shared/events";
 import type { CategorySelection, ExtensionSettings, Platform, TwitchExtensionProviderId } from "@lurkloot/shared/models";
 import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings, type SettingsPatch } from "@lurkloot/shared/settings";
 import { buildSettingsExportPayload, parseSettingsImportPayload } from "@lurkloot/shared/settingsExport";
-import { effectiveLocale, isRtlLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
+import { effectiveLocale, isRtlLocale, type MessageCatalog } from "@lurkloot/shared/i18n";
 import { loadCatalog } from "@lurkloot/locales";
 import { buildFailureReport } from "@lurkloot/shared/failureReport";
 import { I18nContext, PopupRuntimeContext } from "./context";
+import { createTranslator } from "./translator";
 import {
   GITHUB_STAR_NUDGE_MIN_DAYS,
   PLATFORM_INVENTORY_URLS,
@@ -130,14 +131,12 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   const languageOverride = initialState?.locale ?? snapshot?.settings.languageOverride ?? DEFAULT_SETTINGS.languageOverride;
   const locale = effectiveLocale(languageOverride, adapter.getUiLanguage());
   const dir = isRtlLocale(locale) ? "rtl" : "ltr";
-  const t: TFunction = (key, substitutions) => {
-    if (languageOverride === "browser") {
-      const message = adapter.getMessage(key, substitutions);
-      if (message) return message;
-    }
-    const message = translateFromCatalogs(key, substitutions, overrideCatalog, fallbackCatalog ?? overrideCatalog ?? {});
-    return message === key ? adapter.getMessage(key, substitutions) || message : message;
-  };
+  const t: TFunction = createTranslator({
+    languageOverride,
+    overrideCatalog,
+    fallbackCatalog,
+    getMessage: (key, substitutions) => adapter.getMessage(key, substitutions),
+  });
 
   function invalidateActivityRequests(
     nextPlatform: Platform = activityRequestScopeRef.current.platform,
