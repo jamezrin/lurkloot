@@ -302,6 +302,9 @@
   "finished": {
     "message": "Bitti"
   },
+  "completedCampaigns": {
+    "message": "Tamamlananlar"
+  },
   "upcomingPill": {
     "message": "Gelecek"
   },

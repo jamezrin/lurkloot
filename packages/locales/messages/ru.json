@@ -302,6 +302,9 @@
   "finished": {
     "message": "Завершённые"
   },
+  "completedCampaigns": {
+    "message": "Завершённые"
+  },
   "upcomingPill": {
     "message": "Предстоящая"
   },

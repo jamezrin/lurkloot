@@ -302,6 +302,9 @@
   "finished": {
     "message": "पूर्ण"
   },
+  "completedCampaigns": {
+    "message": "पूर्ण"
+  },
   "upcomingPill": {
     "message": "आगामी"
   },
