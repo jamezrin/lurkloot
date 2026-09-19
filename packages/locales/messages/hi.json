@@ -440,9 +440,6 @@
   "campaignPriorityDescription": {
     "message": "कैंपेन कैसे चुने जाते हैं। प्राथमिकता सूची केवल हाथ से क्रमबद्ध कैंपेन फ़ार्म करती है; बाकी विकल्प सभी कैंपेन में से चुनते हैं। प्लेटफ़ॉर्म सेटिंग्स में श्रेणियाँ सीमित करें।"
   },
-  "priorityListOnly": {
-    "message": "केवल प्राथमिकता सूची"
-  },
   "endingSoonest": {
     "message": "सबसे पहले समाप्त"
   },
@@ -635,8 +632,11 @@
   "campaignRejectionCategoryFiltered": {
     "message": "यह कैंपेन चुनी गई कैटेगरी से मेल नहीं खाता।"
   },
-  "campaignRejectionPriorityNotSelected": {
-    "message": "यह कैंपेन प्राथमिकता सूची में नहीं है।"
+  "campaignRejectionCategoryBlocked": {
+    "message": "यह गेम ब्लॉक है, इसलिए इसके कैंपेन कभी फ़ार्म नहीं होते।"
+  },
+  "campaignRejectionNotPinned": {
+    "message": "अभी सिर्फ़ पिन किए गए कैंपेन फ़ार्म होते हैं।"
   },
   "campaignRejectionNoRewards": {
     "message": "इस कैंपेन में फ़ार्म करने योग्य रिवॉर्ड नहीं हैं।"
@@ -728,26 +728,14 @@
   "categoryModeInclude": {
     "message": "केवल चयनित"
   },
-  "categoryModeExclude": {
-    "message": "चयनित को छोड़कर सभी"
-  },
   "includeCategoriesInstruction": {
     "message": "$1 पर केवल ये श्रेणियाँ फ़ार्म की जाती हैं।"
-  },
-  "excludeCategoriesInstruction": {
-    "message": "$1 पर इन्हें छोड़कर सभी श्रेणियाँ फ़ार्म की जाती हैं।"
   },
   "categoriesToFarm": {
     "message": "फ़ार्म करने की श्रेणियाँ"
   },
-  "dragToPrioritize": {
-    "message": "प्राथमिकता के लिए खींचें"
-  },
   "noCategoriesSelected": {
     "message": "कोई श्रेणी चयनित नहीं: $1 पर कुछ फ़ार्म नहीं होगा। नीचे श्रेणियाँ जोड़ें।"
-  },
-  "noCategoriesExcluded": {
-    "message": "कोई श्रेणी बाहर नहीं की गई: $1 की सभी श्रेणियाँ फ़ार्म होंगी। उन्हें छोड़ने के लिए नीचे श्रेणियाँ जोड़ें।"
   },
   "hasActiveDrops": {
     "message": "सक्रिय drops हैं"
@@ -784,15 +772,6 @@
   },
   "farmSubscriptionDescription": {
     "message": "बंद होने पर, जिन कैंपेन के इनाम के लिए चैनल सब्सक्रिप्शन ज़रूरी है, उन्हें छोड़ दिया जाता है।"
-  },
-  "dropsListFilterTitle": {
-    "message": "Drops सूची दृश्य"
-  },
-  "dropsListFilterDescription": {
-    "message": "चुनें कि Drops सूची में कौन से कैंपेन दिखें। क्लेम करने योग्य इनाम वाला कैंपेन हमेशा दिखता है।"
-  },
-  "dropsListFilterLockedHint": {
-    "message": "जब तक आप इन कैंपेन की फ़ार्मिंग कर रहे हैं, ये हमेशा दिखते हैं।"
   },
   "forgetExcludedTitle": {
     "message": "हटाए गए कैंपेन भूलें"

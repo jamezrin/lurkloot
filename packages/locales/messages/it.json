@@ -440,9 +440,6 @@
   "campaignPriorityDescription": {
     "message": "Definisce come vengono scelte le campagne. La lista priorità farma solo quelle riordinate manualmente; le altre opzioni scelgono tra tutte le campagne. Limita le categorie per piattaforma nelle impostazioni piattaforma."
   },
-  "priorityListOnly": {
-    "message": "Solo lista priorità"
-  },
   "endingSoonest": {
     "message": "Scadenza più vicina"
   },
@@ -635,8 +632,11 @@
   "campaignRejectionCategoryFiltered": {
     "message": "Questa campagna non corrisponde alle categorie selezionate."
   },
-  "campaignRejectionPriorityNotSelected": {
-    "message": "Questa campagna non è nella lista delle priorità."
+  "campaignRejectionCategoryBlocked": {
+    "message": "Questo gioco è bloccato, quindi le sue campagne non vengono mai farmate."
+  },
+  "campaignRejectionNotPinned": {
+    "message": "Al momento vengono farmate solo le campagne fissate."
   },
   "campaignRejectionNoRewards": {
     "message": "Questa campagna non ha ricompense farmabili."
@@ -728,26 +728,14 @@
   "categoryModeInclude": {
     "message": "Solo le selezionate"
   },
-  "categoryModeExclude": {
-    "message": "Tutte tranne le selezionate"
-  },
   "includeCategoriesInstruction": {
     "message": "Su $1 vengono farmate solo queste categorie."
-  },
-  "excludeCategoriesInstruction": {
-    "message": "Su $1 vengono farmate tutte le categorie tranne queste."
   },
   "categoriesToFarm": {
     "message": "Categorie da farmare"
   },
-  "dragToPrioritize": {
-    "message": "trascina per dare priorità"
-  },
   "noCategoriesSelected": {
     "message": "Nessuna categoria selezionata: non verrà farmato nulla su $1. Aggiungi categorie sotto."
-  },
-  "noCategoriesExcluded": {
-    "message": "Nessuna categoria esclusa: verranno farmate tutte le categorie di $1. Aggiungine qui sotto per saltarle."
   },
   "hasActiveDrops": {
     "message": "Ha drop attivi"
@@ -784,15 +772,6 @@
   },
   "farmSubscriptionDescription": {
     "message": "Se disattivato, le campagne le cui ricompense richiedono un abbonamento al canale vengono saltate."
-  },
-  "dropsListFilterTitle": {
-    "message": "Vista della lista Drop"
-  },
-  "dropsListFilterDescription": {
-    "message": "Scegli quali campagne sono mostrate nella lista Drop. Una campagna con ricompensa riscattabile resta sempre visibile."
-  },
-  "dropsListFilterLockedHint": {
-    "message": "Sempre mostrate mentre stai farmando queste campagne."
   },
   "forgetExcludedTitle": {
     "message": "Dimentica campagne escluse"

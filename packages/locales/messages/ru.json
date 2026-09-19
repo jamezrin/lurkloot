@@ -440,9 +440,6 @@
   "campaignPriorityDescription": {
     "message": "Как выбираются кампании для фарма. Список приоритета фармит только вручную упорядоченные кампании; остальные режимы выбирают среди всех кампаний. Ограничьте категории по платформам в настройках платформы."
   },
-  "priorityListOnly": {
-    "message": "Только список приоритета"
-  },
   "endingSoonest": {
     "message": "Заканчивается раньше"
   },
@@ -635,8 +632,11 @@
   "campaignRejectionCategoryFiltered": {
     "message": "Эта кампания не соответствует выбранным категориям."
   },
-  "campaignRejectionPriorityNotSelected": {
-    "message": "Этой кампании нет в списке приоритетов."
+  "campaignRejectionCategoryBlocked": {
+    "message": "Эта игра заблокирована, поэтому её кампании никогда не фармятся."
+  },
+  "campaignRejectionNotPinned": {
+    "message": "Сейчас фармятся только закреплённые кампании."
   },
   "campaignRejectionNoRewards": {
     "message": "В этой кампании нет доступных для фарминга наград."
@@ -728,26 +728,14 @@
   "categoryModeInclude": {
     "message": "Только выбранные"
   },
-  "categoryModeExclude": {
-    "message": "Все, кроме выбранных"
-  },
   "includeCategoriesInstruction": {
     "message": "На $1 фармятся только эти категории."
-  },
-  "excludeCategoriesInstruction": {
-    "message": "На $1 фармятся все категории, кроме этих."
   },
   "categoriesToFarm": {
     "message": "Категории для фарма"
   },
-  "dragToPrioritize": {
-    "message": "перетащите для приоритета"
-  },
   "noCategoriesSelected": {
     "message": "Категории не выбраны: на $1 ничего не будет фармиться. Добавьте категории ниже."
-  },
-  "noCategoriesExcluded": {
-    "message": "Категории не исключены: будут фармиться все категории $1. Добавьте категории ниже, чтобы пропускать их."
   },
   "hasActiveDrops": {
     "message": "Есть активные drops"
@@ -784,15 +772,6 @@
   },
   "farmSubscriptionDescription": {
     "message": "Когда выключено, кампании, награды которых требуют подписки на канал, пропускаются."
-  },
-  "dropsListFilterTitle": {
-    "message": "Отображение списка Drops"
-  },
-  "dropsListFilterDescription": {
-    "message": "Выберите, какие кампании показывать в списке Drops. Кампания с доступной наградой всегда видима."
-  },
-  "dropsListFilterLockedHint": {
-    "message": "Всегда показываются, пока вы фармите эти кампании."
   },
   "forgetExcludedTitle": {
     "message": "Забыть исключённые кампании"

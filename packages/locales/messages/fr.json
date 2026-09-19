@@ -440,9 +440,6 @@
   "campaignPriorityDescription": {
     "message": "Définit comment les campagnes sont choisies. La liste de priorité ne farme que les campagnes réordonnées manuellement ; les autres options choisissent parmi toutes les campagnes. Limitez les catégories par plateforme dans les paramètres de plateforme."
   },
-  "priorityListOnly": {
-    "message": "Liste de priorité uniquement"
-  },
   "endingSoonest": {
     "message": "Se termine le plus tôt"
   },
@@ -635,8 +632,11 @@
   "campaignRejectionCategoryFiltered": {
     "message": "Cette campagne ne correspond pas aux catégories sélectionnées."
   },
-  "campaignRejectionPriorityNotSelected": {
-    "message": "Cette campagne n'est pas dans la liste prioritaire."
+  "campaignRejectionCategoryBlocked": {
+    "message": "Ce jeu est bloqué, ses campagnes ne sont donc jamais farmées."
+  },
+  "campaignRejectionNotPinned": {
+    "message": "Seules les campagnes épinglées sont farmées pour l'instant."
   },
   "campaignRejectionNoRewards": {
     "message": "Cette campagne n'a aucune récompense à farmer."
@@ -728,26 +728,14 @@
   "categoryModeInclude": {
     "message": "Uniquement les sélectionnées"
   },
-  "categoryModeExclude": {
-    "message": "Toutes sauf les sélectionnées"
-  },
   "includeCategoriesInstruction": {
     "message": "Seules ces catégories sont farmées sur $1."
-  },
-  "excludeCategoriesInstruction": {
-    "message": "Toutes les catégories $1 sont farmées, sauf celles-ci."
   },
   "categoriesToFarm": {
     "message": "Catégories à farmer"
   },
-  "dragToPrioritize": {
-    "message": "glisser pour prioriser"
-  },
   "noCategoriesSelected": {
     "message": "Aucune catégorie sélectionnée : rien ne sera farmé sur $1. Ajoutez des catégories ci-dessous."
-  },
-  "noCategoriesExcluded": {
-    "message": "Aucune catégorie exclue — toutes les catégories $1 seront farmées. Ajoutez-en ci-dessous pour les ignorer."
   },
   "hasActiveDrops": {
     "message": "Drops actifs"
@@ -784,15 +772,6 @@
   },
   "farmSubscriptionDescription": {
     "message": "Si désactivé, les campagnes dont les récompenses nécessitent un abonnement à la chaîne sont ignorées."
-  },
-  "dropsListFilterTitle": {
-    "message": "Vue de la liste Drops"
-  },
-  "dropsListFilterDescription": {
-    "message": "Choisissez quelles campagnes sont affichées dans la liste Drops. Une campagne avec une récompense réclamable reste toujours visible."
-  },
-  "dropsListFilterLockedHint": {
-    "message": "Toujours affichées tant que vous farmez ces campagnes."
   },
   "forgetExcludedTitle": {
     "message": "Oublier les campagnes exclues"

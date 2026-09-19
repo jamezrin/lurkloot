@@ -440,9 +440,6 @@
   "campaignPriorityDescription": {
     "message": "يحدد كيفية اختيار الحملات للفارم. قائمة الأولوية تفارم فقط الحملات التي رتبتها يدويًا؛ الخيارات الأخرى تختار من كل الحملات. حدّد الفئات لكل منصة من إعدادات المنصة."
   },
-  "priorityListOnly": {
-    "message": "قائمة الأولوية فقط"
-  },
   "endingSoonest": {
     "message": "ينتهي أولًا"
   },
@@ -635,8 +632,11 @@
   "campaignRejectionCategoryFiltered": {
     "message": "هذه الحملة لا تطابق الفئات المحددة."
   },
-  "campaignRejectionPriorityNotSelected": {
-    "message": "هذه الحملة ليست في قائمة الأولوية."
+  "campaignRejectionCategoryBlocked": {
+    "message": "هذه اللعبة محظورة، لذلك لا يتم تجميع حملاتها أبدًا."
+  },
+  "campaignRejectionNotPinned": {
+    "message": "يتم الآن تجميع الحملات المثبتة فقط."
   },
   "campaignRejectionNoRewards": {
     "message": "لا تحتوي هذه الحملة على مكافآت قابلة للجمع."
@@ -728,26 +728,14 @@
   "categoryModeInclude": {
     "message": "المحددة فقط"
   },
-  "categoryModeExclude": {
-    "message": "الكل عدا المحددة"
-  },
   "includeCategoriesInstruction": {
     "message": "لن يتم الفارم على $1 إلا في هذه الفئات."
-  },
-  "excludeCategoriesInstruction": {
-    "message": "يتم الفارم في كل فئات $1 عدا هذه."
   },
   "categoriesToFarm": {
     "message": "الفئات للفارم"
   },
-  "dragToPrioritize": {
-    "message": "اسحب لتحديد الأولوية"
-  },
   "noCategoriesSelected": {
     "message": "لم يتم تحديد فئات: لن يتم فارم أي شيء على $1. أضف فئات أدناه."
-  },
-  "noCategoriesExcluded": {
-    "message": "لم يتم استبعاد أي فئة: سيتم الفارم في كل فئات $1. أضف فئات أدناه لتخطيها."
   },
   "hasActiveDrops": {
     "message": "لديه Drops نشطة"
@@ -784,15 +772,6 @@
   },
   "farmSubscriptionDescription": {
     "message": "عند الإيقاف، تُتخطى الحملات التي تحتاج مكافآتها إلى اشتراك في القناة."
-  },
-  "dropsListFilterTitle": {
-    "message": "عرض قائمة Drops"
-  },
-  "dropsListFilterDescription": {
-    "message": "اختر الحملات التي تظهر في قائمة Drops. تبقى الحملة ذات المكافأة القابلة للاستلام مرئية دائمًا."
-  },
-  "dropsListFilterLockedHint": {
-    "message": "تظهر دائمًا أثناء فارم هذه الحملات."
   },
   "forgetExcludedTitle": {
     "message": "نسيان الحملات المستبعدة"

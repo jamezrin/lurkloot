@@ -440,9 +440,6 @@
   "campaignPriorityDescription": {
     "message": "How campaigns are chosen to farm. Priority list only farms just the campaigns you've manually reordered; the others pick among all campaigns. Limit which categories are farmed per platform under Platform settings."
   },
-  "priorityListOnly": {
-    "message": "Priority list only"
-  },
   "endingSoonest": {
     "message": "Ending soonest"
   },
@@ -635,8 +632,11 @@
   "campaignRejectionCategoryFiltered": {
     "message": "This campaign does not match the selected categories."
   },
-  "campaignRejectionPriorityNotSelected": {
-    "message": "This campaign is not in the priority list."
+  "campaignRejectionCategoryBlocked": {
+    "message": "This game is blocked, so its campaigns are never farmed."
+  },
+  "campaignRejectionNotPinned": {
+    "message": "Only pinned campaigns are farmed right now."
   },
   "campaignRejectionNoRewards": {
     "message": "This campaign has no farmable rewards."
@@ -728,26 +728,14 @@
   "categoryModeInclude": {
     "message": "Only selected"
   },
-  "categoryModeExclude": {
-    "message": "All except selected"
-  },
   "includeCategoriesInstruction": {
     "message": "Only these categories are farmed on $1."
-  },
-  "excludeCategoriesInstruction": {
-    "message": "Every $1 category is farmed except these."
   },
   "categoriesToFarm": {
     "message": "Categories to farm"
   },
-  "dragToPrioritize": {
-    "message": "drag to prioritize"
-  },
   "noCategoriesSelected": {
     "message": "No categories selected — nothing will be farmed on $1. Add categories below."
-  },
-  "noCategoriesExcluded": {
-    "message": "No categories excluded — every $1 category will be farmed. Add categories below to skip them."
   },
   "hasActiveDrops": {
     "message": "Has active drops"
@@ -784,15 +772,6 @@
   },
   "farmSubscriptionDescription": {
     "message": "When off, campaigns whose rewards need a channel subscription are skipped."
-  },
-  "dropsListFilterTitle": {
-    "message": "Drops list view"
-  },
-  "dropsListFilterDescription": {
-    "message": "Choose which campaigns are shown in the Drops list. A campaign with a claimable reward always stays visible."
-  },
-  "dropsListFilterLockedHint": {
-    "message": "Always shown while you're farming these campaigns."
   },
   "forgetExcludedTitle": {
     "message": "Forget excluded campaigns"

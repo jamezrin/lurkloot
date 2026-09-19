@@ -440,9 +440,6 @@
   "campaignPriorityDescription": {
     "message": "Define como as campanhas são escolhidas. A lista de prioridade farma apenas campanhas reordenadas manualmente; as outras opções escolhem entre todas. Limite categorias por plataforma em Configurações da plataforma."
   },
-  "priorityListOnly": {
-    "message": "Somente lista de prioridade"
-  },
   "endingSoonest": {
     "message": "Termina primeiro"
   },
@@ -635,8 +632,11 @@
   "campaignRejectionCategoryFiltered": {
     "message": "Esta campanha não corresponde às categorias selecionadas."
   },
-  "campaignRejectionPriorityNotSelected": {
-    "message": "Esta campanha não está na lista de prioridades."
+  "campaignRejectionCategoryBlocked": {
+    "message": "Este jogo está bloqueado, então suas campanhas nunca são farmadas."
+  },
+  "campaignRejectionNotPinned": {
+    "message": "No momento, apenas campanhas fixadas são farmadas."
   },
   "campaignRejectionNoRewards": {
     "message": "Esta campanha não tem recompensas disponíveis para farm."
@@ -728,26 +728,14 @@
   "categoryModeInclude": {
     "message": "Apenas as selecionadas"
   },
-  "categoryModeExclude": {
-    "message": "Todas exceto as selecionadas"
-  },
   "includeCategoriesInstruction": {
     "message": "Na $1, apenas estas categorias são farmadas."
-  },
-  "excludeCategoriesInstruction": {
-    "message": "Na $1, todas as categorias são farmadas, exceto estas."
   },
   "categoriesToFarm": {
     "message": "Categorias para farmar"
   },
-  "dragToPrioritize": {
-    "message": "arraste para priorizar"
-  },
   "noCategoriesSelected": {
     "message": "Nenhuma categoria selecionada: nada será farmado no $1. Adicione categorias abaixo."
-  },
-  "noCategoriesExcluded": {
-    "message": "Nenhuma categoria excluída: todas as categorias da $1 serão farmadas. Adicione categorias abaixo para ignorá-las."
   },
   "hasActiveDrops": {
     "message": "Tem drops ativos"
@@ -784,15 +772,6 @@
   },
   "farmSubscriptionDescription": {
     "message": "Quando desativado, campanhas cujas recompensas exigem uma inscrição no canal são ignoradas."
-  },
-  "dropsListFilterTitle": {
-    "message": "Exibição da lista Drops"
-  },
-  "dropsListFilterDescription": {
-    "message": "Escolha quais campanhas são exibidas na lista Drops. Campanha com recompensa resgatável sempre fica visível."
-  },
-  "dropsListFilterLockedHint": {
-    "message": "Sempre exibidas enquanto você faz farming dessas campanhas."
   },
   "forgetExcludedTitle": {
     "message": "Esquecer campanhas excluídas"
