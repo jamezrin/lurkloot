@@ -159,6 +159,138 @@ function renderDropsPanel(campaigns: ReturnType<typeof campaignViewFromCampaign>
   );
 }
 
+function mountCampaignList(initialCampaigns: ReturnType<typeof campaignViewFromCampaign>[], onReorder = vi.fn()) {
+  const { document, window } = parseHTML("<div id=app></div>");
+  vi.stubGlobal("window", window);
+  vi.stubGlobal("document", document);
+  vi.stubGlobal("getComputedStyle", () => ({ direction: "ltr", columnGap: "0" }));
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => { callback(0); return 1; });
+  vi.stubGlobal("cancelAnimationFrame", () => undefined);
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  Object.defineProperty(window.HTMLInputElement.prototype, "select", { configurable: true, value: () => undefined });
+  const container = document.getElementById("app")!;
+  const adapter = { openLink: vi.fn() } as unknown as PopupAdapter;
+  function render(campaigns: ReturnType<typeof campaignViewFromCampaign>[], focus?: { id: string; seq: number }) {
+    root!.render(
+      <I18nContext.Provider value={{ t: (key) => ({ completedCampaigns: "Completed", finished: "Finished", later: "later", search: "Search" })[key] ?? key, dir: "ltr", locale: "en" }}>
+        <PopupRuntimeContext.Provider value={{ adapter, preview: false }}>
+          <DropsPanel campaigns={campaigns} gameMap={{}} focus={focus} refreshing={false} onRefreshCampaign={() => undefined} onReorder={onReorder} onToggleExclude={() => undefined} />
+        </PopupRuntimeContext.Provider>
+      </I18nContext.Provider>,
+    );
+  }
+  act(() => {
+    root = createRoot(container);
+    render(initialCampaigns);
+  });
+  return {
+    container,
+    window,
+    onReorder,
+    rerender: (focus: { id: string; seq: number }, campaigns = initialCampaigns) => act(() => render(campaigns, focus)),
+  };
+}
+
+describe("completed campaign section", () => {
+  it("keeps a 100% watched but unclaimed campaign in the active list", () => {
+    const claimable = campaignViewFromCampaign(sourceCampaign(), 0, idleSession, false);
+    const { container } = mountCampaignList([claimable]);
+
+    const row = container.querySelector<HTMLElement>('[data-campaign-id="kick-campaign"]');
+    expect(row).not.toBeNull();
+    expect(row?.textContent).toContain("100%");
+    expect(row?.textContent).not.toContain("Finished");
+    expect([...container.querySelectorAll("button")].some((button) => button.textContent?.includes("Completed"))).toBe(false);
+  });
+
+  it("keeps finished campaigns collapsed and shows one terminal status when opened", () => {
+    const settings = mergeSettings(undefined);
+    const feasibility = {
+      skipUnfinishableRewards: settings.skipUnfinishableRewards,
+      deadlineSafetyMarginMinutes: settings.deadlineSafetyMarginMinutes,
+      settings,
+    };
+    const finished = campaignViewFromCampaign({
+      ...sourceCampaign(), id: "finished", name: "Finished campaign", status: "completed",
+      rewards: [{ ...sourceCampaign().rewards[0]!, status: "claimed" }],
+    }, 0, farmingSession("active"), false, feasibility);
+    const active = campaignViewFromCampaign({ ...sourceCampaign(), id: "active", name: "Active campaign" }, 1, farmingSession("active"), false, feasibility);
+    const { container } = mountCampaignList([finished, active]);
+
+    expect(container.querySelector('[data-campaign-id="active"]')).not.toBeNull();
+    expect(container.querySelector('[data-campaign-id="finished"]')).toBeNull();
+    const completedToggle = [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.includes("Completed"));
+    expect(completedToggle?.getAttribute("aria-expanded")).toBe("false");
+
+    act(() => completedToggle?.click());
+    const finishedRow = container.querySelector<HTMLElement>('[data-campaign-id="finished"]');
+    expect(finishedRow).not.toBeNull();
+    expect(finishedRow?.textContent).toContain("Finished");
+    expect(finishedRow?.textContent).not.toContain("100%");
+    expect(finishedRow?.textContent).not.toContain("later");
+    expect(finishedRow?.querySelector("[data-farming-rejection-indicator]")).toBeNull();
+    expect(finishedRow?.querySelector("button[aria-label^='Set rank']")).toBeNull();
+  });
+
+  it("preserves the stored position of a finished campaign when active ranks change", () => {
+    const campaigns = [
+      campaignViewFromCampaign({ ...sourceCampaign(), id: "first", name: "First active" }, 0, idleSession, false),
+      campaignViewFromCampaign({ ...sourceCampaign(), id: "finished", name: "Finished campaign", status: "completed" }, 1, idleSession, false),
+      campaignViewFromCampaign({ ...sourceCampaign(), id: "second", name: "Second active" }, 2, idleSession, false),
+    ];
+    const { container, onReorder } = mountCampaignList(campaigns);
+    const rank = container.querySelector<HTMLButtonElement>('button[aria-label="Set rank of Second active"]');
+    expect(rank?.textContent).toBe("2");
+    act(() => rank?.click());
+    const input = findNumericRankInput(container)!;
+    act(() => setInputValue(input, "1"));
+    act(() => blurRankInput(input));
+
+    expect(onReorder).toHaveBeenCalledOnce();
+    expect(onReorder.mock.calls[0]?.[0].map((campaign: { id: string }) => campaign.id)).toEqual(["second", "finished", "first"]);
+  });
+
+  it("reveals and opens a finished campaign when the popup focuses it", () => {
+    const finished = campaignViewFromCampaign({ ...sourceCampaign(), id: "finished", name: "Finished campaign", status: "completed" }, 0, idleSession, false);
+    const { container, window, rerender } = mountCampaignList([finished]);
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(window.HTMLElement.prototype, "scrollIntoView", { configurable: true, value: scrollIntoView });
+
+    rerender({ id: "finished", seq: 1 });
+
+    const finishedRow = container.querySelector<HTMLElement>('[data-campaign-id="finished"]');
+    expect(finishedRow).not.toBeNull();
+    expect(finishedRow?.querySelector("button[aria-expanded='true']")).not.toBeNull();
+    expect(scrollIntoView).toHaveBeenCalledOnce();
+  });
+
+  it("reveals a focused campaign when it becomes finished without a new focus request", () => {
+    const active = campaignViewFromCampaign({ ...sourceCampaign(), id: "focused", name: "Focused campaign" }, 0, idleSession, false);
+    const finished = { ...active, lifecycle: "finished" as const };
+    const focus = { id: "focused", seq: 1 };
+    const { container, window, rerender } = mountCampaignList([active]);
+    Object.defineProperty(window.HTMLElement.prototype, "scrollIntoView", { configurable: true, value: vi.fn() });
+
+    rerender(focus, [active]);
+    rerender(focus, [finished]);
+
+    expect(container.querySelector('[data-campaign-id="focused"]')).not.toBeNull();
+    const completedToggle = [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.includes("Completed"));
+    expect(completedToggle?.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("finds a finished campaign while the section is collapsed", () => {
+    const finished = campaignViewFromCampaign({ ...sourceCampaign(), id: "finished", name: "Finished campaign", status: "completed" }, 0, idleSession, false);
+    const { container } = mountCampaignList([finished]);
+    act(() => container.querySelector<HTMLButtonElement>("button[aria-label='Search']")?.click());
+    const input = container.querySelector<HTMLInputElement>("input[type='search']")!;
+    act(() => setSearchQuery(input, "Finished campaign"));
+
+    expect(container.querySelector("article")?.textContent).toContain("Finished campaign");
+    expect(container.querySelector("article")?.textContent).toContain("Finished");
+  });
+});
+
 function setSearchQuery(input: HTMLInputElement, value: string): void {
   input.value = value;
   const propsKey = Object.keys(input).find((key) => key.startsWith("__reactProps$"));

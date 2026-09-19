@@ -313,6 +313,7 @@ describe("subscription drop popup views", () => {
   it("labels obtained subscription rewards as earned", () => {
     const source = campaign("earned-subscription", [
       reward({ id: "subscribe", name: "Earned Subscriber Badge", requirement: "subscription", requiredSubs: 1, status: "claimed" }),
+      reward({ id: "pending-subscribe", name: "Pending Subscriber Badge", requirement: "subscription", requiredSubs: 2 }),
     ]);
     const markup = renderDrops([expandedView(campaignViewFromCampaign(source, 0, idleSession, false))]);
 

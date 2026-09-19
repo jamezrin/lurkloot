@@ -55,7 +55,12 @@ export function initialExpandedIds(campaigns: CampaignView[]): Record<string, bo
 }
 
 function farmingCampaignId(campaigns: CampaignView[]): string | undefined {
-  return campaigns.find((campaign) => Boolean(campaign.farmingChannel))?.id;
+  return campaigns.find((campaign) => campaign.lifecycle !== "finished" && Boolean(campaign.farmingChannel))?.id;
+}
+
+function mergeActiveOrder(campaigns: CampaignView[], reorderedActive: CampaignView[]): CampaignView[] {
+  let nextActive = 0;
+  return campaigns.map((campaign) => campaign.lifecycle === "finished" ? campaign : reorderedActive[nextActive++]!);
 }
 
 export function DropsPanel({ campaigns, gameMap, focus, refreshing, startCollapsed = false, onRefreshCampaign, onReorder, onToggleExclude }: { campaigns: CampaignView[]; gameMap: Record<string, GameItem>; focus?: { id: string; seq: number } | null; refreshing: boolean; startCollapsed?: boolean; onRefreshCampaign(id: string): void | Promise<void>; onReorder(campaigns: CampaignView[]): void | Promise<void>; onToggleExclude(id: string): void | Promise<void> }) {
@@ -63,8 +68,11 @@ export function DropsPanel({ campaigns, gameMap, focus, refreshing, startCollaps
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [sectionExpanded, setSectionExpanded] = useState(true);
+  const [completedExpanded, setCompletedExpanded] = useState(false);
+  const activeCampaigns = campaigns.filter((campaign) => campaign.lifecycle !== "finished");
+  const finishedCampaigns = campaigns.filter((campaign) => campaign.lifecycle === "finished");
   const farmingId = farmingCampaignId(campaigns);
-  const farmingIndex = campaigns.findIndex((campaign) => campaign.id === farmingId);
+  const farmingIndex = activeCampaigns.findIndex((campaign) => campaign.id === farmingId);
   // `startCollapsed` is for the store screenshot that is about the Idle
   // Watchlist: the farmed campaign's reward grid would otherwise push the
   // watchlist off the bottom of the frame.
@@ -73,6 +81,7 @@ export function DropsPanel({ campaigns, gameMap, focus, refreshing, startCollaps
   const listRef = useRef<HTMLDivElement>(null);
   const searching = query.trim().length > 0;
   const visibleCampaigns = useMemo(() => filterCampaigns(campaigns, gameMap, query), [campaigns, gameMap, query]);
+  const focusedCampaignFinished = Boolean(focus && campaigns.some((campaign) => campaign.id === focus.id && campaign.lifecycle === "finished"));
 
   // Campaigns can arrive after mount, and the farmed campaign can change while the
   // popup is open. Expand the new one when that happens, but never collapse anything:
@@ -90,8 +99,9 @@ export function DropsPanel({ campaigns, gameMap, focus, refreshing, startCollaps
     setQuery("");
     setSearchOpen(false);
     setSectionExpanded(true);
+    if (focusedCampaignFinished) setCompletedExpanded(true);
     setExpandedIds((current) => ({ ...current, [focus.id]: true }));
-  }, [focus?.seq]);
+  }, [focus?.id, focus?.seq, focusedCampaignFinished]);
 
   // Search and section expansion update asynchronously. Query the card only
   // after the visible list has been committed, otherwise a focus request made
@@ -104,17 +114,17 @@ export function DropsPanel({ campaigns, gameMap, focus, refreshing, startCollaps
       el?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
     return () => cancelAnimationFrame(frame);
-  }, [focus?.id, focus?.seq, searching, searchOpen, sectionExpanded]);
-  const anyFarming = campaigns.some((campaign) => Boolean(campaign.farmingChannel));
+  }, [focus?.id, focus?.seq, searching, searchOpen, sectionExpanded, completedExpanded]);
+  const anyFarming = activeCampaigns.some((campaign) => Boolean(campaign.farmingChannel));
 
   function endDrag(event: SortableDragEndEvent): void {
-    const next = reorderFromDragEnd(campaigns, event);
-    if (next === campaigns) return;
-    void onReorder(next);
+    const next = reorderFromDragEnd(activeCampaigns, event);
+    if (next === activeCampaigns) return;
+    void onReorder(mergeActiveOrder(campaigns, next));
   }
 
   function moveCampaign(fromIndex: number, toIndex: number): void {
-    void onReorder(arrayMove(campaigns, fromIndex, toIndex));
+    void onReorder(mergeActiveOrder(campaigns, arrayMove(activeCampaigns, fromIndex, toIndex)));
   }
 
   return (
@@ -156,7 +166,7 @@ export function DropsPanel({ campaigns, gameMap, focus, refreshing, startCollaps
               ) : (
                 <div className="space-y-1">
                   {visibleCampaigns.map((campaign, visibleIndex) => {
-                    const index = campaigns.findIndex((item) => item.id === campaign.id);
+                    const index = activeCampaigns.findIndex((item) => item.id === campaign.id);
                     const priorityIndex = index === -1 ? visibleIndex : index;
                     return <CampaignCard key={campaign.id} campaign={campaign} index={priorityIndex} farmingIndex={farmingIndex} anyFarming={anyFarming} game={gameMap[campaign.gameId] ?? fallbackGame(campaign, priorityIndex, t)} expanded={Boolean(expandedIds[campaign.id])} refreshing={refreshing} onToggle={() => setExpandedIds((current) => ({ ...current, [campaign.id]: !current[campaign.id] }))} onRefreshCampaign={onRefreshCampaign} onToggleExclude={onToggleExclude} />;
                   })}
@@ -165,9 +175,25 @@ export function DropsPanel({ campaigns, gameMap, focus, refreshing, startCollaps
             ) : (
               <DragDropProvider onDragEnd={endDrag}>
                 <div ref={listRef} className="space-y-1">
-                  {campaigns.map((campaign, index) => (
-                    <SortableCampaign key={campaign.id} campaign={campaign} index={index} farmingIndex={farmingIndex} anyFarming={anyFarming} game={gameMap[campaign.gameId] ?? fallbackGame(campaign, index, t)} expanded={Boolean(expandedIds[campaign.id])} refreshing={refreshing} onToggle={() => setExpandedIds((current) => ({ ...current, [campaign.id]: !current[campaign.id] }))} onRefreshCampaign={onRefreshCampaign} onToggleExclude={onToggleExclude} rankCount={campaigns.length} onRankMove={(toIndex) => moveCampaign(index, toIndex)} />
+                  {activeCampaigns.map((campaign, index) => (
+                    <SortableCampaign key={campaign.id} campaign={campaign} index={index} farmingIndex={farmingIndex} anyFarming={anyFarming} game={gameMap[campaign.gameId] ?? fallbackGame(campaign, index, t)} expanded={Boolean(expandedIds[campaign.id])} refreshing={refreshing} onToggle={() => setExpandedIds((current) => ({ ...current, [campaign.id]: !current[campaign.id] }))} onRefreshCampaign={onRefreshCampaign} onToggleExclude={onToggleExclude} rankCount={activeCampaigns.length} onRankMove={(toIndex) => moveCampaign(index, toIndex)} />
                   ))}
+                  {finishedCampaigns.length > 0 ? (
+                    <div className="pt-1.5">
+                      <SectionHeader label={t("completedCampaigns")} count={String(finishedCampaigns.length)} icon={Check} expanded={completedExpanded} onToggle={() => setCompletedExpanded((current) => !current)} />
+                      <AnimatePresence initial={false}>
+                        {completedExpanded ? (
+                          <motion.div key="finished-campaigns" initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="space-y-1 overflow-hidden pt-1">
+                            {finishedCampaigns.map((campaign) => (
+                              <div key={campaign.id} data-campaign-id={campaign.id}>
+                                <CampaignCard campaign={campaign} index={0} farmingIndex={farmingIndex} anyFarming={anyFarming} game={gameMap[campaign.gameId] ?? fallbackGame(campaign, 0, t)} expanded={Boolean(expandedIds[campaign.id])} refreshing={refreshing} onToggle={() => setExpandedIds((current) => ({ ...current, [campaign.id]: !current[campaign.id] }))} onRefreshCampaign={onRefreshCampaign} onToggleExclude={onToggleExclude} />
+                              </div>
+                            ))}
+                          </motion.div>
+                        ) : null}
+                      </AnimatePresence>
+                    </div>
+                  ) : null}
                 </div>
               </DragDropProvider>
             )}
@@ -197,44 +223,49 @@ function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, expande
   // overflowing pill row does not read as a click on the card.
   const metaPointerX = useRef(0);
   const stats = campaignStats(campaign);
+  const finished = campaign.lifecycle === "finished";
   const isFarming = Boolean(campaign.farmingChannel);
-  const farmingRejection = isFarming ? undefined : campaign.farmingRejection;
+  const farmingRejection = isFarming || finished ? undefined : campaign.farmingRejection;
   const farmingRejectionMessage = farmingRejection
     ? t(campaignRejectionMessageKey(farmingRejection.code), farmingRejection.rewardName)
     : undefined;
-  const emphasized = isFarming || (!anyFarming && index === 0);
+  const emphasized = !finished && (isFarming || (!anyFarming && index === 0));
   const channelLabel = campaign.channels.length === 0 ? t("allChannels") : t("channelCount", String(campaign.channels.length));
   const timingLabel = campaign.status === "upcoming"
     ? t("startsIn", formatCountdown(campaign.starts, t))
     : t("endsIn", formatCountdown(campaign.ends, t));
-  const lifecyclePill = campaignLifecyclePill(campaign.lifecycle, t);
+  const lifecyclePill = finished ? undefined : campaignLifecyclePill(campaign.lifecycle, t);
   const showsWatchProgress = stats.kind === "watch" || stats.kind === "mixed";
-  const headlineStatus = stats.kind === "subscription"
+  const headlineStatus = finished
+    ? t("finished")
+    : stats.kind === "subscription"
     ? `${stats.completed}/${stats.totalRewards}`
     : stats.kind === "action"
       ? t("actionRequired")
       : `${(stats.progress ?? 0).toFixed(0)}%`;
   const claimGuidance = campaign.rewards.find((reward) => reward.claimGuidance)?.claimGuidance;
-  const waitingForStream = !isFarming && farmingIndex > index;
+  const waitingForStream = !finished && !isFarming && farmingIndex > index && campaign.hasWatchRewards && stats.remaining > 0 && !farmingRejection;
   const waitingReason = t("waitingEligibleStream");
   const waitingHint = `${waitingReason.charAt(0).toLocaleUpperCase()}${waitingReason.slice(1)}${/[.!?]$/.test(waitingReason) ? "" : "."}`;
   const waitingLabel = `${t("later").charAt(0).toLocaleUpperCase()}${t("later").slice(1)}`;
 
   return (
-    <article className={cn("overflow-hidden rounded-2xl border bg-white transition-shadow dark:bg-zinc-900", emphasized ? "border-[var(--accent-ring)]" : "border-zinc-200 dark:border-zinc-800", isOverlay ? "shadow-2xl shadow-black/25" : "shadow-sm", dimmed && "opacity-40")} style={emphasized && !isOverlay ? { boxShadow: "0 10px 30px -18px var(--accent-glow)" } : undefined}>
+    <article className={cn("overflow-hidden rounded-2xl border bg-white transition-shadow dark:bg-zinc-900", emphasized ? "border-[var(--accent-ring)]" : "border-zinc-200 dark:border-zinc-800", finished && "bg-zinc-50/60 dark:bg-zinc-900/60", isOverlay ? "shadow-2xl shadow-black/25" : "shadow-sm", dimmed && "opacity-40")} style={emphasized && !isOverlay ? { boxShadow: "0 10px 30px -18px var(--accent-glow)" } : undefined}>
       <div className="relative flex items-stretch">
         {/* Drag rail doubles as the priority column: grip and rank share a
             16px column centered in the rail so the number is a caption of the
             handle, not full-rail text. */}
-        <div className="flex w-7 shrink-0 items-center justify-center border-r border-zinc-100 bg-zinc-50/60 dark:border-zinc-800 dark:bg-zinc-800/40">
-          <div className="flex w-4 flex-col items-center gap-0.5">
-            {dragHandle ?? <GripVertical size={14} className="text-zinc-300 dark:text-zinc-600" />}
-            <RankInput index={index} count={rankCount ?? 0} label={campaign.title} onMove={onRankMove} size="rail" />
+        {!finished ? (
+          <div className="flex w-7 shrink-0 items-center justify-center border-r border-zinc-100 bg-zinc-50/60 dark:border-zinc-800 dark:bg-zinc-800/40">
+            <div className="flex w-4 flex-col items-center gap-0.5">
+              {dragHandle ?? <GripVertical size={14} className="text-zinc-300 dark:text-zinc-600" />}
+              <RankInput index={index} count={rankCount ?? 0} label={campaign.title} onMove={onRankMove} size="rail" />
+            </div>
           </div>
-        </div>
+        ) : null}
         {/* Full-area toggle behind the content so the page-link anchor can live next
             to the title without nesting an <a> inside a <button>. */}
-        <button type="button" onClick={onToggle} aria-expanded={expanded} aria-label={campaign.title} className="absolute inset-y-0 left-7 right-0 z-0 outline-none" />
+        <button type="button" onClick={onToggle} aria-expanded={expanded} aria-label={campaign.title} className={cn("absolute inset-y-0 right-0 z-0 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent-ring)]", finished ? "left-0" : "left-7")} />
         {/* Extra bottom padding is the progress bar's breathing room: the bar
             overlays the last 2px of it, leaving a clear gap under the pill row. */}
         <div className="pointer-events-none relative z-10 flex min-w-0 flex-1 items-center gap-2 px-1.5 pb-2 pt-1.5">
@@ -264,8 +295,8 @@ function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, expande
                 )}
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
-                <span className="text-[13px] font-bold tabular leading-none" style={{ color: "var(--accent-text)" }}>
-                  {headlineStatus}
+                <span className={cn("flex items-center gap-1 text-[13px] font-bold tabular leading-none", finished && "text-zinc-500 dark:text-zinc-400")} style={finished ? undefined : { color: "var(--accent-text)" }}>
+                  {finished ? <Check size={12} aria-hidden="true" /> : null}{headlineStatus}
                 </span>
                 <motion.div animate={{ rotate: expanded ? 180 : 0 }} transition={{ duration: 0.2 }} className="shrink-0 text-zinc-400 dark:text-zinc-500"><ChevronDown size={16} /></motion.div>
               </div>
@@ -289,10 +320,10 @@ function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, expande
             >
               <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: game.accent }} />
               <span className="truncate">{game.name}</span>
-              {campaign.hasSubscriptionRewards ? <Pill tone="outline"><Users size={9} /> {t("subscriptionRequired")}</Pill> : null}
-              {stats.kind === "action" ? <Pill tone="outline"><AlertTriangle size={9} /> {t("actionRequired")}</Pill> : null}
-              {isFarming && campaign.hasWatchRewards ? <Pill tone="accent"><Radio size={9} /> {t("farmingLabel")}</Pill> : null}
-              {waitingForStream && campaign.hasWatchRewards ? (
+              {!finished && campaign.hasSubscriptionRewards ? <Pill tone="outline"><Users size={9} /> {t("subscriptionRequired")}</Pill> : null}
+              {!finished && stats.kind === "action" ? <Pill tone="outline"><AlertTriangle size={9} /> {t("actionRequired")}</Pill> : null}
+              {!finished && isFarming && campaign.hasWatchRewards ? <Pill tone="accent"><Radio size={9} /> {t("farmingLabel")}</Pill> : null}
+              {waitingForStream ? (
                 <span title={waitingHint}>
                   <Pill tone="muted"><Clock3 size={9} /> {waitingLabel}</Pill>
                 </span>
@@ -302,8 +333,8 @@ function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, expande
                   <lifecyclePill.icon size={9} /> {lifecyclePill.label}
                 </Pill>
               )}
-              {!campaign.linked && <Pill tone="danger"><Link2 size={9} /> {t("notLinked")}</Pill>}
-              {campaign.excluded && campaign.hasWatchRewards ? <Pill tone="outline"><Ban size={9} /> {t("excluded")}</Pill> : null}
+              {!finished && !campaign.linked && <Pill tone="danger"><Link2 size={9} /> {t("notLinked")}</Pill>}
+              {!finished && campaign.excluded && campaign.hasWatchRewards ? <Pill tone="outline"><Ban size={9} /> {t("excluded")}</Pill> : null}
               {farmingRejectionMessage ? (
                 <span
                   data-farming-rejection-indicator
@@ -320,7 +351,7 @@ function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, expande
         </div>
         {/* Watch progress rides the card's bottom edge rather than taking a row
             of its own inside the collapsed layout. */}
-        {showsWatchProgress ? (
+        {!finished && showsWatchProgress ? (
           <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20">
             <ProgressBar value={stats.progress ?? 0} size="edge" glow={emphasized} />
           </div>
