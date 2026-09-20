@@ -3,7 +3,6 @@ import { AnimatePresence, motion } from "motion/react";
 import {
   ArrowLeft,
   Clock3,
-  Package,
   RotateCcw,
   Settings as SettingsIcon,
 } from "lucide-react";
@@ -758,6 +757,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
         onViewChange={changeView}
         onPlatformChange={selectPlatform}
         onAutomationToggle={setAutomation}
+        onOpenInventory={() => openHttpsLink(PLATFORM_INVENTORY_URLS[platform], adapter.openLink)}
       />
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -782,12 +782,6 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
           <div className="flex shrink-0 items-center gap-0.5">
             <IconButton label={t("refreshSchedule")} onClick={() => void refreshNow()} disabled={refreshing}>
               <RotateCcw size={16} className={cn(refreshing && "animate-spin")} />
-            </IconButton>
-            <IconButton
-              label={t("openInventory")}
-              onClick={() => openHttpsLink(PLATFORM_INVENTORY_URLS[platform], adapter.openLink)}
-            >
-              <Package size={16} />
             </IconButton>
           </div>
         </div>

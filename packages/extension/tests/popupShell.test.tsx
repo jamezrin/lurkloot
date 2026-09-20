@@ -138,6 +138,19 @@ describe("popup workspace shell", () => {
     expect(currentView(container)).toBe("watchlist");
   });
 
+  it("keeps the inventory link with the other bottom entries, not as a stray icon", async () => {
+    const container = await mountPopup();
+
+    const rail = container.querySelector("nav")!;
+    const order = [...rail.querySelectorAll<HTMLButtonElement>("button[data-view], button[data-rail-link]")]
+      .map((button) => button.dataset.view ?? `link:${button.dataset.railLink}`);
+
+    expect(order.slice(-3)).toEqual(["link:inventory", "activity", "settings"]);
+    // And it is a way out, never a destination that could read as current.
+    expect(rail.querySelector("[data-rail-link]")?.hasAttribute("aria-current")).toBe(false);
+    expect(container.querySelector('#popup-platform-panel button[aria-label="Open inventory"]')).toBeNull();
+  });
+
   it("marks the current destination for assistive technology", async () => {
     const container = await mountPopup();
 

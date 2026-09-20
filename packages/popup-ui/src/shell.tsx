@@ -1,5 +1,5 @@
 import React from "react";
-import { Clock3, Gamepad2, Eye, ListChecks, Puzzle, Settings as SettingsIcon, Trophy } from "lucide-react";
+import { ArrowUpRight, Clock3, Gamepad2, Eye, ListChecks, Package, Puzzle, Settings as SettingsIcon, Trophy } from "lucide-react";
 import type { Platform } from "@lurkloot/shared/models";
 import type { AutomationPresentation } from "./automationStatus";
 import { PLATFORMS } from "./constants";
@@ -50,7 +50,7 @@ export function viewForPlatform(view: PopupView, platform: Platform): PopupView 
  * At the popup's full width the entries carry their labels; the container query
  * below ~560px (the site's demo frame on a phone) collapses the rail to icons,
  * so the same tree serves both without a second layout. */
-export function WorkspaceRail({ view, platform, counts, presentation, automation, automationPending, version, onViewChange, onPlatformChange, onAutomationToggle }: {
+export function WorkspaceRail({ view, platform, counts, presentation, automation, automationPending, version, onViewChange, onPlatformChange, onAutomationToggle, onOpenInventory }: {
   view: PopupView;
   platform: Platform;
   counts: Partial<Record<PopupView, number>>;
@@ -61,6 +61,7 @@ export function WorkspaceRail({ view, platform, counts, presentation, automation
   onViewChange(view: PopupView): void;
   onPlatformChange(platform: Platform): void;
   onAutomationToggle(platform: Platform, value: boolean): Promise<void>;
+  onOpenInventory(): void;
 }): React.ReactElement {
   const t = useT();
   return (
@@ -87,9 +88,36 @@ export function WorkspaceRail({ view, platform, counts, presentation, automation
 
       <div className="flex-1" />
 
+      <div className="flex flex-col gap-0.5">
+        {/* The platform's own inventory page: a way out of the popup rather than
+            a destination in it, so it sits with the other bottom entries and
+            carries an external-link mark instead of ever reading as current. */}
+        <RailLink label={t("openInventory")} icon={Package} onClick={onOpenInventory} />
+      </div>
       <NavGroup items={FOOTER_ITEMS} view={view} platform={platform} counts={counts} onViewChange={onViewChange} />
       <div className="@[560px]:block hidden px-2 font-mono text-[10px] leading-tight text-zinc-400 dark:text-zinc-500">v{version}</div>
     </nav>
+  );
+}
+
+function RailLink({ label, icon: Icon, onClick }: {
+  label: string;
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+  onClick(): void;
+}): React.ReactElement {
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      data-rail-link="inventory"
+      onClick={onClick}
+      className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-start text-[12px] font-medium text-zinc-600 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+    >
+      <Icon size={14} className="shrink-0" />
+      <span className="@[560px]:inline hidden truncate">{label}</span>
+      <ArrowUpRight size={12} className="@[560px]:block ms-auto hidden shrink-0 text-zinc-400 dark:text-zinc-500" />
+    </button>
   );
 }
 
