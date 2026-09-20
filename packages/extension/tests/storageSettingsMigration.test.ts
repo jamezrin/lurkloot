@@ -156,4 +156,33 @@ describe("settings storage migration", () => {
     expect(set).toHaveBeenCalledTimes(2);
     expect(set.mock.calls[1]?.[0]).toEqual({ settings: withSchemaVersion(current) });
   });
+  it("loads a v6 document into pins, blocks and a persisted v7", async () => {
+    get.mockResolvedValue({
+      settings: {
+        schemaVersion: 6,
+        priorityMode: "priority_list_only",
+        campaignPriorities: { "campaign-low": 1, "campaign-high": 9 },
+        dropsListFilter: { showExpired: true },
+        platform: {
+          twitch: { categoryMode: "exclude", categories: [{ id: "cs2", name: "Counter-Strike 2" }] },
+        },
+      },
+    });
+
+    const settings = await loadSettings();
+
+    expect(settings.campaignPins).toEqual(["campaign-high", "campaign-low"]);
+    expect(settings.farmPinnedOnly).toBe(true);
+    expect(settings.priorityMode).toBe("ending_soonest");
+    expect(settings.platform.twitch.categoryMode).toBe("all");
+    expect(settings.platform.twitch.blockedCategories).toEqual([{ id: "cs2", name: "Counter-Strike 2" }]);
+    expect(settings.platform.twitch.categories).toEqual([]);
+    expect(settings).not.toHaveProperty("dropsListFilter");
+
+    // Persisted once, at the current version, so the migration does not replay.
+    expect(set).toHaveBeenCalledTimes(1);
+    const written = set.mock.calls[0]?.[0].settings;
+    expect(written.schemaVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
+    expect(written).not.toHaveProperty("campaignPriorities");
+  });
 });
