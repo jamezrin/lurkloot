@@ -26,7 +26,7 @@ import {
 /** The watchlist as a collapsible section under the drops list. Expansion and the
  * add form are controlled from the popup so the shared list toolbar can open
  * both — that toolbar is what replaced the Drops/Idle Watchlist tab pair. */
-export function IdleWatchlistPanel({ platform, streamers, expanded, adding, onExpandedChange, onAddingChange, onChange }: { platform: Platform; streamers: StreamerItem[]; expanded: boolean; adding: boolean; onExpandedChange(expanded: boolean): void; onAddingChange(adding: boolean): void; onChange(streamers: StreamerItem[]): void | Promise<void> }) {
+export function IdleWatchlistPanel({ platform, streamers, expanded, adding, collapsible = true, onExpandedChange, onAddingChange, onChange }: { platform: Platform; streamers: StreamerItem[]; expanded: boolean; adding: boolean; collapsible?: boolean; onExpandedChange(expanded: boolean): void; onAddingChange(adding: boolean): void; onChange(streamers: StreamerItem[]): void | Promise<void> }) {
   const t = useT();
   const [value, setValue] = useState("");
 
@@ -59,6 +59,7 @@ export function IdleWatchlistPanel({ platform, streamers, expanded, adding, onEx
         count={`${streamers.length}/${IDLE_WATCHLIST_LIMIT}`}
         icon={Play}
         expanded={expanded}
+        collapsible={collapsible}
         onToggle={() => onExpandedChange(!expanded)}
         action={(
           <IconButton

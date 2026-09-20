@@ -267,13 +267,13 @@
     "message": "Ajoute un bouton Lurkloot sur twitch.tv et kick.com qui ouvre cette fenêtre dans un panneau sur la page."
   },
   "tipCampaignPriority": {
-    "message": "Faites glisser les campagnes par la poignée pour ordonner les Drops. Choisissez la source prioritaire dans les paramètres de la plateforme."
+    "message": "Faites glisser une campagne pour l'épingler en tête, ou étoilez un jeu pour que ses campagnes soient toujours bien classées. Le reste suit l'ordre choisi dans la File."
   },
   "tipMissingCampaigns": {
     "message": "Une campagne manque ? Vérifiez l’inventaire Drops de la plateforme puis les filtres dans les paramètres."
   },
   "tipCategorySelection": {
-    "message": "Utilisez le filtre de catégories de la plateforme pour inclure uniquement les jeux sélectionnés ou exclure ceux que vous ne voulez pas."
+    "message": "La vue Jeux décide quels jeux sont farmés, lesquels passent en premier et lesquels ne le sont jamais."
   },
   "tipIdleWatchlist": {
     "message": "Choisissez quand regarder les chaînes de la liste de veille grâce à la priorité des sources dans les paramètres de la plateforme."
@@ -294,7 +294,7 @@
     "message": "Ouvrir une issue GitHub"
   },
   "tipExcludedCampaigns": {
-    "message": "Campagne exclue par erreur ? Restaurez-la dans les paramètres des Drops."
+    "message": "Campagne exclue par erreur ? Elle est sous Ignorées dans la File, avec un bouton pour la remettre."
   },
   "tipTranslations": {
     "message": "Les traductions sont maintenues automatiquement par IA. Aidez à les améliorer sur GitHub."
@@ -1675,6 +1675,9 @@
   },
   "gamesCampaignCount": {
     "message": "$1 campagnes en cours"
+  },
+  "gamesCampaignCountOne": {
+    "message": "1 campagne en cours"
   },
   "gamesNoCampaigns": {
     "message": "aucune campagne pour l'instant"

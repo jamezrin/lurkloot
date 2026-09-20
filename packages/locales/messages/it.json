@@ -267,13 +267,13 @@
     "message": "Aggiunge un pulsante Lurkloot su twitch.tv e kick.com che apre questo popup in un pannello nella pagina."
   },
   "tipCampaignPriority": {
-    "message": "Trascina le campagne dalla maniglia per ordinare i Drops. Scegli la fonte prioritaria nelle impostazioni della piattaforma."
+    "message": "Trascina una campagna per fissarla in cima, o metti una stella a un gioco perché le sue campagne stiano sempre in alto. Il resto segue l'ordine scelto nella Coda."
   },
   "tipMissingCampaigns": {
     "message": "Manca una campagna? Controlla l’inventario Drop della piattaforma e i filtri nelle impostazioni."
   },
   "tipCategorySelection": {
-    "message": "Usa il filtro categorie della piattaforma per includere solo i giochi selezionati o escludere quelli che non vuoi."
+    "message": "La vista Giochi decide quali giochi vengono farmati, quali vengono prima e quali mai."
   },
   "tipIdleWatchlist": {
     "message": "Scegli quando guardare i canali della lista di attesa cambiando la priorità delle fonti nelle impostazioni della piattaforma."
@@ -294,7 +294,7 @@
     "message": "Apri una issue GitHub"
   },
   "tipExcludedCampaigns": {
-    "message": "Hai escluso una campagna per errore? Ripristinala dalle impostazioni Drop."
+    "message": "Hai escluso una campagna per sbaglio? È sotto Saltate nella Coda, con un pulsante per rimetterla."
   },
   "tipTranslations": {
     "message": "Le traduzioni vengono gestite automaticamente con l'IA. Aiutaci a migliorarle su GitHub."
@@ -1675,6 +1675,9 @@
   },
   "gamesCampaignCount": {
     "message": "$1 campagne attive"
+  },
+  "gamesCampaignCountOne": {
+    "message": "1 campagna attiva"
   },
   "gamesNoCampaigns": {
     "message": "nessuna campagna al momento"

@@ -710,7 +710,8 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   }, {});
   const railCounts: Partial<Record<PopupView, number>> = {
     queue: campaigns.filter((campaign) => campaign.section === "queue").length,
-    completed: campaigns.filter((campaign) => campaign.section === "completed").length,
+    // Both tabs of that view, so the rail's number matches what it opens onto.
+    completed: campaigns.filter((campaign) => campaign.section === "completed" || campaign.section === "expired").length,
     games: settings.platform[platform].categoryMode === "all"
       ? dropCategorySuggestions[platform].length
       : settings.platform[platform].categories.length,
@@ -880,6 +881,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                     platform={platform}
                     streamers={screenshotWatchlist}
                     expanded
+                    collapsible={false}
                     adding={watchlistAdding}
                     onExpandedChange={() => undefined}
                     onAddingChange={setWatchlistAdding}

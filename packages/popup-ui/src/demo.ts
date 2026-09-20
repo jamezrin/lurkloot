@@ -186,6 +186,37 @@ function demoSnapshot(): RuntimeSnapshot {
         { id: "tw-spellforge-card", name: "Arcane Card Back", requiredMinutes: 60, watchedMinutes: 0, status: "locked" },
       ],
     },
+    // One of each ended state, so Completed is a populated view in the demo and
+    // in the store screenshots rather than an empty shell.
+    {
+      id: "tw-marathon-season1",
+      platform: "twitch",
+      name: "Marathon Legends Season 1",
+      gameName: "Marathon Legends",
+      categoryId: "marathon legends",
+      startsAt: inHours(-320),
+      endsAt: inHours(-96),
+      status: "completed",
+      accountLinked: true,
+      rewards: [
+        { id: "tw-marathon-season1-banner", name: "Season 1 Banner", requiredMinutes: 60, watchedMinutes: 60, status: "claimed" },
+        { id: "tw-marathon-season1-charm", name: "Relay Charm", requiredMinutes: 120, watchedMinutes: 120, status: "claimed" },
+      ],
+    },
+    {
+      id: "tw-starfall-preseason",
+      platform: "twitch",
+      name: "Starfall Arena Preseason",
+      gameName: "Starfall Arena",
+      categoryId: "starfall arena",
+      startsAt: inHours(-260),
+      endsAt: inHours(-48),
+      status: "expired",
+      accountLinked: true,
+      rewards: [
+        { id: "tw-starfall-preseason-skin", name: "Comet Skin", requiredMinutes: 180, watchedMinutes: 45, status: "locked" },
+      ],
+    },
   ];
 
   const kickCampaigns: DropCampaign[] = [

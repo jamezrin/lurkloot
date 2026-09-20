@@ -114,6 +114,21 @@ describe("popup workspace shell", () => {
     expect(currentView(container)).toBe("queue");
   });
 
+  it("does not strand the rail when a Twitch-only destination is left and returned to", async () => {
+    const container = await mountPopup();
+
+    go(container, "extensions");
+    act(() => container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Kick"]')?.click());
+    act(() => container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Twitch"]')?.click());
+
+    // Back on Twitch the entry exists again, but the view stayed where the
+    // fallback put it, so exactly one rail entry is current.
+    expect(currentView(container)).toBe("queue");
+    expect(rail(container, "extensions")).not.toBeNull();
+    expect([...container.querySelectorAll('[aria-current="page"]')]).toHaveLength(1);
+    expect(rail(container, "queue")?.getAttribute("aria-current")).toBe("page");
+  });
+
   it("keeps the destination when the platform changes under a shared view", async () => {
     const container = await mountPopup();
 

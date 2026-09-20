@@ -267,13 +267,13 @@
     "message": "Adds a Lurkloot button to twitch.tv and kick.com that opens this popup in a panel on the page."
   },
   "tipCampaignPriority": {
-    "message": "Drag campaigns by the grip to set their order within Drops. Choose which source comes first in platform settings."
+    "message": "Drag a campaign to pin it first, or star a game so its campaigns always rank high. Everything else follows the order you pick in the Queue."
   },
   "tipMissingCampaigns": {
     "message": "Missing a campaign? Check your platform's Drops inventory, then review campaign filters in Settings."
   },
   "tipCategorySelection": {
-    "message": "Use the category filter in platform settings to include only selected games or exclude games you do not want."
+    "message": "The Games view decides which games are farmed, which rank first, and which are never farmed at all."
   },
   "tipIdleWatchlist": {
     "message": "Choose when Idle Watchlist channels are watched by changing watch-source priority in platform settings."
@@ -294,7 +294,7 @@
     "message": "Open a GitHub issue"
   },
   "tipExcludedCampaigns": {
-    "message": "Excluded a campaign by mistake? Restore excluded campaigns from Drops settings."
+    "message": "Excluded a campaign by mistake? It is under Skipped in the Queue, with a button to put it back."
   },
   "tipTranslations": {
     "message": "Translations are maintained automatically with AI. Help improve them on GitHub."
@@ -1675,6 +1675,9 @@
   },
   "gamesCampaignCount": {
     "message": "$1 campaigns live"
+  },
+  "gamesCampaignCountOne": {
+    "message": "1 campaign live"
   },
   "gamesNoCampaigns": {
     "message": "no campaigns right now"

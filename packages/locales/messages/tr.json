@@ -267,13 +267,13 @@
     "message": "twitch.tv ve kick.com sitelerine, bu açılır pencereyi sayfa üzerinde bir panel olarak açan bir Lurkloot düğmesi ekler."
   },
   "tipCampaignPriority": {
-    "message": "Drop kampanyalarını sıralamak için tutamaçtan sürükleyin. Platform ayarlarında öncelikli kaynağı seçin."
+    "message": "Bir kampanyayı sürükleyerek başa sabitle ya da bir oyuna yıldız vererek kampanyalarının hep üstte olmasını sağla. Kalanı Sıra'da seçtiğin düzeni izler."
   },
   "tipMissingCampaigns": {
     "message": "Bir kampanya görünmüyor mu? Platformun Drop sayfasını ve filtre ayarlarınızı kontrol edin."
   },
   "tipCategorySelection": {
-    "message": "Yalnızca seçilen oyunları dahil etmek veya istemediğiniz oyunları hariç tutmak için platform ayarlarındaki kategori filtresini kullanın."
+    "message": "Oyunlar görünümü hangi oyunların farmlanacağını, hangilerinin önce geleceğini ve hangilerinin hiç farmlanmayacağını belirler."
   },
   "tipIdleWatchlist": {
     "message": "Boşta İzleme Listesi kanallarının ne zaman izleneceğini platform ayarlarındaki kaynak önceliğiyle seçin."
@@ -294,7 +294,7 @@
     "message": "GitHub'da konu açın"
   },
   "tipExcludedCampaigns": {
-    "message": "Geri getirmek istediğiniz kampanyaları Drops ayarlarından düzenleyebilirsiniz."
+    "message": "Yanlışlıkla bir kampanyayı mı çıkardın? Sıra'daki Atlanan bölümünde, geri koyma düğmesiyle duruyor."
   },
   "tipTranslations": {
     "message": "Çeviriler yapay zekâ ile otomatik olarak güncel tutulur. GitHub'da iyileştirmeye yardımcı olun."
@@ -1675,6 +1675,9 @@
   },
   "gamesCampaignCount": {
     "message": "$1 kampanya etkin"
+  },
+  "gamesCampaignCountOne": {
+    "message": "1 kampanya etkin"
   },
   "gamesNoCampaigns": {
     "message": "şu anda kampanya yok"

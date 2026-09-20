@@ -210,18 +210,23 @@ export function RankInput({ index, count, label, onMove, size }: { index: number
  * list instead of hiding it behind a tab. `action` is a sibling of the toggle,
  * not a child: the section's own actions belong on its heading, and a button
  * cannot nest inside a button. */
-export function SectionHeader({ label, count, expanded, icon: Icon, onToggle, action }: { label: string; count: string; expanded: boolean; icon: LucideIcon; onToggle(): void; action?: React.ReactNode }) {
+export function SectionHeader({ label, count, expanded, icon: Icon, onToggle, action, collapsible = true }: { label: string; count: string; expanded: boolean; icon: LucideIcon; onToggle(): void; action?: React.ReactNode; collapsible?: boolean }) {
   return (
     <div className="flex items-center gap-1">
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={expanded}
+        // In a destination of its own the section cannot fold away, so the
+        // toggle would be a control that does nothing.
+        {...(collapsible ? {} : { disabled: true, tabIndex: -1, "aria-hidden": true })}
         className="flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-1 py-1 text-[11px] font-semibold text-zinc-500 outline-none transition-colors hover:text-zinc-800 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:text-zinc-400 dark:hover:text-zinc-100"
       >
-        <motion.span animate={{ rotate: expanded ? 90 : 0 }} transition={{ duration: 0.18 }} className="flex shrink-0 items-center">
-          <ChevronRight size={13} />
-        </motion.span>
+        {collapsible ? (
+          <motion.span animate={{ rotate: expanded ? 90 : 0 }} transition={{ duration: 0.18 }} className="flex shrink-0 items-center">
+            <ChevronRight size={13} />
+          </motion.span>
+        ) : null}
         <Icon size={13} className="shrink-0" style={{ color: "var(--accent-text)" }} />
         <span className="truncate">{label}</span>
         <span className="ml-auto shrink-0 tabular text-zinc-400 dark:text-zinc-500">{count}</span>

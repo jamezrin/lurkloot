@@ -267,13 +267,13 @@
     "message": "Fügt auf twitch.tv und kick.com eine Lurkloot-Schaltfläche hinzu, die dieses Popup als Panel auf der Seite öffnet."
   },
   "tipCampaignPriority": {
-    "message": "Ziehe Kampagnen am Griff, um ihre Reihenfolge innerhalb von Drops festzulegen. Wähle die bevorzugte Quelle in den Plattform-Einstellungen."
+    "message": "Ziehe eine Kampagne nach oben, um sie anzuheften, oder markiere ein Spiel mit einem Stern, damit seine Kampagnen immer hoch stehen. Der Rest folgt der Reihenfolge aus der Warteschlange."
   },
   "tipMissingCampaigns": {
     "message": "Fehlt eine Kampagne? Prüfe das Drops-Inventar der Plattform und die Filter in den Einstellungen."
   },
   "tipCategorySelection": {
-    "message": "Nutze den Kategoriefilter in den Plattform-Einstellungen, um nur ausgewählte Spiele einzuschließen oder unerwünschte Spiele auszuschließen."
+    "message": "Die Spiele-Ansicht entscheidet, welche Spiele gefarmt werden, welche zuerst kommen und welche nie."
   },
   "tipIdleWatchlist": {
     "message": "Ändere die Quellenpriorität in den Plattform-Einstellungen, um festzulegen, wann Kanäle der Leerlaufliste angesehen werden."
@@ -294,7 +294,7 @@
     "message": "GitHub-Issue öffnen"
   },
   "tipExcludedCampaigns": {
-    "message": "Kampagne versehentlich ausgeschlossen? Stelle sie in den Drops-Einstellungen wieder her."
+    "message": "Eine Kampagne versehentlich ausgeschlossen? Sie steht unter Übersprungen in der Warteschlange, mit einer Taste zum Zurückholen."
   },
   "tipTranslations": {
     "message": "Übersetzungen werden automatisch mit KI gepflegt. Hilf mit, sie auf GitHub zu verbessern."
@@ -1675,6 +1675,9 @@
   },
   "gamesCampaignCount": {
     "message": "$1 Kampagnen aktiv"
+  },
+  "gamesCampaignCountOne": {
+    "message": "1 Kampagne aktiv"
   },
   "gamesNoCampaigns": {
     "message": "gerade keine Kampagnen"

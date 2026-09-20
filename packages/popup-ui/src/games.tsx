@@ -155,7 +155,9 @@ export function GamesPanel({
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[12px] font-semibold text-zinc-800 dark:text-zinc-100">{category.name}</div>
                   <div className="text-[10px] text-zinc-400 dark:text-zinc-500">
-                    {count > 0 ? t("gamesCampaignCount", String(count)) : t("gamesNoCampaigns")}
+                    {count === 0
+                      ? t("gamesNoCampaigns")
+                      : count === 1 ? t("gamesCampaignCountOne") : t("gamesCampaignCount", String(count))}
                   </div>
                 </div>
                 <button

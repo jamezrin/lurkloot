@@ -267,13 +267,13 @@
     "message": "在 twitch.tv 和 kick.com 上添加 Lurkloot 按钮，点击后可在页面内打开此弹窗。"
   },
   "tipCampaignPriority": {
-    "message": "拖动手柄可调整掉宝活动的顺序。在平台设置中选择优先观看的来源。"
+    "message": "拖动掉宝活动可将其置顶，给游戏加星可让它的活动始终靠前。其余按队列中选择的顺序排列。"
   },
   "tipMissingCampaigns": {
     "message": "找不到某个掉宝活动？请先查看相应平台的掉宝库存，再检查设置中的活动筛选条件。"
   },
   "tipCategorySelection": {
-    "message": "使用平台设置中的分类筛选，仅包含所选游戏或排除不想观看的游戏。"
+    "message": "“游戏”页面决定挂机哪些游戏、哪些优先，以及哪些永不挂机。"
   },
   "tipIdleWatchlist": {
     "message": "在平台设置中调整观看来源优先级，选择何时观看待机列表中的频道。"
@@ -294,7 +294,7 @@
     "message": "提交 GitHub issue"
   },
   "tipExcludedCampaigns": {
-    "message": "不小心排除了掉宝活动？可在掉宝设置中恢复。"
+    "message": "误排除了某个活动？它在队列的“已跳过”里，有按钮可以放回。"
   },
   "tipTranslations": {
     "message": "翻译由 AI 自动维护。欢迎在 GitHub 上帮助改进。"
@@ -1675,6 +1675,9 @@
   },
   "gamesCampaignCount": {
     "message": "$1 个进行中的活动"
+  },
+  "gamesCampaignCountOne": {
+    "message": "1 个进行中的活动"
   },
   "gamesNoCampaigns": {
     "message": "目前没有活动"
