@@ -86,6 +86,81 @@
   "navSettings": {
     "message": "Ayarlar"
   },
+  "queueGroupPinned": {
+    "message": "Sabitlenen"
+  },
+  "queueGroupPinnedHint": {
+    "message": "bir satırı buraya sürükleyin veya sıra yazın"
+  },
+  "queueGroupFavourite": {
+    "message": "Favori oyunlar"
+  },
+  "queueGroupStrategy": {
+    "message": "Sonra şuna göre"
+  },
+  "queueNotInQueue": {
+    "message": "Sırada değil"
+  },
+  "queueSkipped": {
+    "message": "Atlanan"
+  },
+  "queueUpcoming": {
+    "message": "Yaklaşan"
+  },
+  "queueStrategyLabel": {
+    "message": "Sonra şuna göre"
+  },
+  "queueFarmPinnedOnly": {
+    "message": "Yalnızca sabitlenenleri farmla"
+  },
+  "queueUnpinAll": {
+    "message": "Tümünü kaldır ($1)"
+  },
+  "queueUnpin": {
+    "message": "Kaldır"
+  },
+  "queueFacetLabel": {
+    "message": "Kampanya türü"
+  },
+  "queueFacetAll": {
+    "message": "Tümü"
+  },
+  "queueFacetDrops": {
+    "message": "Drop'lar"
+  },
+  "queueFacetBadges": {
+    "message": "Abone rozetleri"
+  },
+  "queueFixInclude": {
+    "message": "Dahil et"
+  },
+  "queueFixPin": {
+    "message": "Sabitle"
+  },
+  "queueFixGames": {
+    "message": "Oyunları aç"
+  },
+  "queueFixSettings": {
+    "message": "Ayarları aç"
+  },
+  "queueEmpty": {
+    "message": "Şu anda burada farmlanacak bir şey yok."
+  },
+  "queueEmptyBadges": {
+    "message": "Şu anda farmlanabilir abonelik kampanyası yok."
+  },
+  "completedTabFinished": {
+    "message": "Tamamlanan"
+  },
+  "completedTabExpired": {
+    "message": "Süresi dolan"
+  },
+  "completedEmptyFinished": {
+    "message": "Tüm ödüller alındığında kampanyalar buraya gelir."
+  },
+  "completedEmptyExpired": {
+    "message": "Kampanyalar tamamlanmadan biterse buraya gelir."
+  },
   "settingsTitle": {
     "message": "Ayarlar"
   },

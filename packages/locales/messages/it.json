@@ -86,6 +86,81 @@
   "navSettings": {
     "message": "Impostazioni"
   },
+  "queueGroupPinned": {
+    "message": "Fissate"
+  },
+  "queueGroupPinnedHint": {
+    "message": "trascina una riga qui o digita una posizione"
+  },
+  "queueGroupFavourite": {
+    "message": "Giochi preferiti"
+  },
+  "queueGroupStrategy": {
+    "message": "Poi per"
+  },
+  "queueNotInQueue": {
+    "message": "Fuori dalla coda"
+  },
+  "queueSkipped": {
+    "message": "Saltate"
+  },
+  "queueUpcoming": {
+    "message": "In arrivo"
+  },
+  "queueStrategyLabel": {
+    "message": "Poi per"
+  },
+  "queueFarmPinnedOnly": {
+    "message": "Farma solo le fissate"
+  },
+  "queueUnpinAll": {
+    "message": "Rimuovi tutte ($1)"
+  },
+  "queueUnpin": {
+    "message": "Rimuovi"
+  },
+  "queueFacetLabel": {
+    "message": "Tipo di campagna"
+  },
+  "queueFacetAll": {
+    "message": "Tutte"
+  },
+  "queueFacetDrops": {
+    "message": "Drops"
+  },
+  "queueFacetBadges": {
+    "message": "Badge abbonato"
+  },
+  "queueFixInclude": {
+    "message": "Includi"
+  },
+  "queueFixPin": {
+    "message": "Fissa"
+  },
+  "queueFixGames": {
+    "message": "Apri Giochi"
+  },
+  "queueFixSettings": {
+    "message": "Apri impostazioni"
+  },
+  "queueEmpty": {
+    "message": "Al momento non c'è niente da farmare."
+  },
+  "queueEmptyBadges": {
+    "message": "Al momento nessuna campagna in abbonamento è farmabile."
+  },
+  "completedTabFinished": {
+    "message": "Terminate"
+  },
+  "completedTabExpired": {
+    "message": "Scadute"
+  },
+  "completedEmptyFinished": {
+    "message": "Le campagne arrivano qui quando tutte le ricompense sono riscosse."
+  },
+  "completedEmptyExpired": {
+    "message": "Le campagne arrivano qui quando finiscono incomplete."
+  },
   "settingsTitle": {
     "message": "Impostazioni"
   },

@@ -265,6 +265,7 @@ describe("i18n", () => {
       "navGroupDrops",
       "navPlatform",
       "navExtensions",
+      "queueFacetDrops",
       // Watch-source labels include provider brands and the common Drops term.
       "watchSourceNoPixel",
       "watchSourceFortnite",

@@ -86,6 +86,81 @@
   "navSettings": {
     "message": "الإعدادات"
   },
+  "queueGroupPinned": {
+    "message": "مثبتة"
+  },
+  "queueGroupPinnedHint": {
+    "message": "اسحب صفًا إلى هنا أو اكتب ترتيبًا"
+  },
+  "queueGroupFavourite": {
+    "message": "الألعاب المفضلة"
+  },
+  "queueGroupStrategy": {
+    "message": "ثم حسب"
+  },
+  "queueNotInQueue": {
+    "message": "ليست في قائمة الانتظار"
+  },
+  "queueSkipped": {
+    "message": "متجاوَزة"
+  },
+  "queueUpcoming": {
+    "message": "قادمة"
+  },
+  "queueStrategyLabel": {
+    "message": "ثم حسب"
+  },
+  "queueFarmPinnedOnly": {
+    "message": "تجميع المثبتة فقط"
+  },
+  "queueUnpinAll": {
+    "message": "إلغاء تثبيت الكل ($1)"
+  },
+  "queueUnpin": {
+    "message": "إلغاء التثبيت"
+  },
+  "queueFacetLabel": {
+    "message": "نوع الحملة"
+  },
+  "queueFacetAll": {
+    "message": "الكل"
+  },
+  "queueFacetDrops": {
+    "message": "الجوائز"
+  },
+  "queueFacetBadges": {
+    "message": "شارات الاشتراك"
+  },
+  "queueFixInclude": {
+    "message": "تضمين"
+  },
+  "queueFixPin": {
+    "message": "تثبيت"
+  },
+  "queueFixGames": {
+    "message": "فتح الألعاب"
+  },
+  "queueFixSettings": {
+    "message": "فتح الإعدادات"
+  },
+  "queueEmpty": {
+    "message": "لا شيء لتجميعه هنا الآن."
+  },
+  "queueEmptyBadges": {
+    "message": "لا توجد حملات اشتراك قابلة للتجميع الآن."
+  },
+  "completedTabFinished": {
+    "message": "مكتملة"
+  },
+  "completedTabExpired": {
+    "message": "منتهية"
+  },
+  "completedEmptyFinished": {
+    "message": "تصل الحملات إلى هنا بعد المطالبة بكل المكافآت."
+  },
+  "completedEmptyExpired": {
+    "message": "تصل الحملات إلى هنا عندما تنتهي دون اكتمال."
+  },
   "settingsTitle": {
     "message": "الإعدادات"
   },

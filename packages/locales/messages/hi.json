@@ -86,6 +86,81 @@
   "navSettings": {
     "message": "सेटिंग्स"
   },
+  "queueGroupPinned": {
+    "message": "पिन किए गए"
+  },
+  "queueGroupPinnedHint": {
+    "message": "पंक्ति यहाँ खींचें, या रैंक टाइप करें"
+  },
+  "queueGroupFavourite": {
+    "message": "पसंदीदा गेम"
+  },
+  "queueGroupStrategy": {
+    "message": "फिर इसके अनुसार"
+  },
+  "queueNotInQueue": {
+    "message": "क़तार में नहीं"
+  },
+  "queueSkipped": {
+    "message": "छोड़े गए"
+  },
+  "queueUpcoming": {
+    "message": "आगामी"
+  },
+  "queueStrategyLabel": {
+    "message": "फिर इसके अनुसार"
+  },
+  "queueFarmPinnedOnly": {
+    "message": "सिर्फ़ पिन किए गए फ़ार्म करें"
+  },
+  "queueUnpinAll": {
+    "message": "सभी अनपिन करें ($1)"
+  },
+  "queueUnpin": {
+    "message": "अनपिन"
+  },
+  "queueFacetLabel": {
+    "message": "कैंपेन प्रकार"
+  },
+  "queueFacetAll": {
+    "message": "सभी"
+  },
+  "queueFacetDrops": {
+    "message": "ड्रॉप्स"
+  },
+  "queueFacetBadges": {
+    "message": "सब बैज"
+  },
+  "queueFixInclude": {
+    "message": "शामिल करें"
+  },
+  "queueFixPin": {
+    "message": "पिन करें"
+  },
+  "queueFixGames": {
+    "message": "गेम्स खोलें"
+  },
+  "queueFixSettings": {
+    "message": "सेटिंग्स खोलें"
+  },
+  "queueEmpty": {
+    "message": "अभी यहाँ फ़ार्म करने को कुछ नहीं है।"
+  },
+  "queueEmptyBadges": {
+    "message": "अभी कोई सब्सक्रिप्शन कैंपेन फ़ार्म करने योग्य नहीं है।"
+  },
+  "completedTabFinished": {
+    "message": "पूरे हुए"
+  },
+  "completedTabExpired": {
+    "message": "समाप्त"
+  },
+  "completedEmptyFinished": {
+    "message": "सभी इनाम क्लेम होने पर कैंपेन यहाँ आते हैं।"
+  },
+  "completedEmptyExpired": {
+    "message": "अधूरे खत्म होने पर कैंपेन यहाँ आते हैं।"
+  },
   "settingsTitle": {
     "message": "सेटिंग्स"
   },

@@ -86,6 +86,81 @@
   "navSettings": {
     "message": "Settings"
   },
+  "queueGroupPinned": {
+    "message": "Pinned"
+  },
+  "queueGroupPinnedHint": {
+    "message": "drag a row here, or type a rank"
+  },
+  "queueGroupFavourite": {
+    "message": "Favourite games"
+  },
+  "queueGroupStrategy": {
+    "message": "Then by"
+  },
+  "queueNotInQueue": {
+    "message": "Not in the queue"
+  },
+  "queueSkipped": {
+    "message": "Skipped"
+  },
+  "queueUpcoming": {
+    "message": "Upcoming"
+  },
+  "queueStrategyLabel": {
+    "message": "Then by"
+  },
+  "queueFarmPinnedOnly": {
+    "message": "Farm pinned only"
+  },
+  "queueUnpinAll": {
+    "message": "Unpin all ($1)"
+  },
+  "queueUnpin": {
+    "message": "Unpin"
+  },
+  "queueFacetLabel": {
+    "message": "Campaign type"
+  },
+  "queueFacetAll": {
+    "message": "All"
+  },
+  "queueFacetDrops": {
+    "message": "Drops"
+  },
+  "queueFacetBadges": {
+    "message": "Sub badges"
+  },
+  "queueFixInclude": {
+    "message": "Include"
+  },
+  "queueFixPin": {
+    "message": "Pin"
+  },
+  "queueFixGames": {
+    "message": "Open Games"
+  },
+  "queueFixSettings": {
+    "message": "Open settings"
+  },
+  "queueEmpty": {
+    "message": "Nothing to farm here right now."
+  },
+  "queueEmptyBadges": {
+    "message": "No subscription campaigns are farmable right now."
+  },
+  "completedTabFinished": {
+    "message": "Finished"
+  },
+  "completedTabExpired": {
+    "message": "Expired"
+  },
+  "completedEmptyFinished": {
+    "message": "Campaigns land here once every reward is claimed."
+  },
+  "completedEmptyExpired": {
+    "message": "Campaigns land here when they end unfinished."
+  },
   "settingsTitle": {
     "message": "Settings"
   },

@@ -86,6 +86,81 @@
   "navSettings": {
     "message": "Einstellungen"
   },
+  "queueGroupPinned": {
+    "message": "Angeheftet"
+  },
+  "queueGroupPinnedHint": {
+    "message": "Zeile hierher ziehen oder Rang eingeben"
+  },
+  "queueGroupFavourite": {
+    "message": "Lieblingsspiele"
+  },
+  "queueGroupStrategy": {
+    "message": "Danach nach"
+  },
+  "queueNotInQueue": {
+    "message": "Nicht in der Warteschlange"
+  },
+  "queueSkipped": {
+    "message": "Übersprungen"
+  },
+  "queueUpcoming": {
+    "message": "Demnächst"
+  },
+  "queueStrategyLabel": {
+    "message": "Danach nach"
+  },
+  "queueFarmPinnedOnly": {
+    "message": "Nur angeheftete farmen"
+  },
+  "queueUnpinAll": {
+    "message": "Alle lösen ($1)"
+  },
+  "queueUnpin": {
+    "message": "Lösen"
+  },
+  "queueFacetLabel": {
+    "message": "Kampagnentyp"
+  },
+  "queueFacetAll": {
+    "message": "Alle"
+  },
+  "queueFacetDrops": {
+    "message": "Drops"
+  },
+  "queueFacetBadges": {
+    "message": "Abo-Abzeichen"
+  },
+  "queueFixInclude": {
+    "message": "Aufnehmen"
+  },
+  "queueFixPin": {
+    "message": "Anheften"
+  },
+  "queueFixGames": {
+    "message": "Spiele öffnen"
+  },
+  "queueFixSettings": {
+    "message": "Einstellungen öffnen"
+  },
+  "queueEmpty": {
+    "message": "Gerade gibt es hier nichts zu farmen."
+  },
+  "queueEmptyBadges": {
+    "message": "Derzeit sind keine Abo-Kampagnen farmbar."
+  },
+  "completedTabFinished": {
+    "message": "Abgeschlossen"
+  },
+  "completedTabExpired": {
+    "message": "Abgelaufen"
+  },
+  "completedEmptyFinished": {
+    "message": "Kampagnen landen hier, sobald alle Belohnungen abgeholt sind."
+  },
+  "completedEmptyExpired": {
+    "message": "Kampagnen landen hier, wenn sie unvollendet enden."
+  },
   "settingsTitle": {
     "message": "Einstellungen"
   },

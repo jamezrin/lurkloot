@@ -6,7 +6,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DropCampaign, WatchSession } from "@lurkloot/shared/models";
 import { mergeSettings } from "@lurkloot/shared/settings";
 import { I18nContext, PopupRuntimeContext } from "../../popup-ui/src/context";
-import { DropsPanel, initialExpandedIds } from "../../popup-ui/src/drops";
+import { initialExpandedIds } from "../../popup-ui/src/drops";
+import { QueuePanel } from "../../popup-ui/src/queue";
+import { CompletedPanel } from "../../popup-ui/src/completed";
 import type { PopupAdapter } from "../../popup-ui/src/types";
 import { campaignViewFromCampaign } from "../../popup-ui/src/viewModels";
 import { createDemoPopupAdapter } from "../../popup-ui/src/demo";
@@ -71,13 +73,21 @@ function mount(url?: string, source = sourceCampaign(url), viewOptions?: Paramet
         locale: "en",
       }}>
         <PopupRuntimeContext.Provider value={{ adapter, preview: false }}>
-          <DropsPanel
+          <QueuePanel
             campaigns={[campaign]}
             gameMap={{}}
             refreshing={false}
+            strategy="ending_soonest"
+            pinnedCount={0}
+            farmPinnedOnly={false}
+            onStrategyChange={() => undefined}
+            onUnpinAll={() => undefined}
+            onFarmPinnedOnlyChange={() => undefined}
             onRefreshCampaign={() => undefined}
             onPinChange={() => undefined}
             onToggleExclude={() => undefined}
+            onOpenGames={() => undefined}
+            onOpenSettings={() => undefined}
           />
         </PopupRuntimeContext.Provider>
       </I18nContext.Provider>,
@@ -125,6 +135,9 @@ describe("campaign farming rejection presentation", () => {
       settings: currentSettings,
     });
 
+    // A campaign the engine refuses is in the Queue's Skipped group, which
+    // opens to show the reason rather than hiding the campaign.
+    act(() => container.querySelector<HTMLButtonElement>('[data-queue-disclosure="skipped"]')?.click());
     expect(container.querySelector("[data-farming-rejection-indicator]")).not.toBeNull();
     expect(container.textContent).toContain("campaignRejectionUnlinkedDisabled");
   });
@@ -145,14 +158,22 @@ function renderDropsPanel(campaigns: ReturnType<typeof campaignViewFromCampaign>
   root!.render(
     <I18nContext.Provider value={{ t: (key) => ({ search: "Search" })[key] ?? key, dir: "ltr", locale: "en" }}>
       <PopupRuntimeContext.Provider value={{ adapter, preview: false }}>
-        <DropsPanel
+        <QueuePanel
           campaigns={campaigns}
           gameMap={{}}
           focus={focus}
           refreshing={false}
+          strategy="ending_soonest"
+          pinnedCount={0}
+          farmPinnedOnly={false}
+          onStrategyChange={() => undefined}
+          onUnpinAll={() => undefined}
+          onFarmPinnedOnlyChange={() => undefined}
           onRefreshCampaign={() => undefined}
           onPinChange={() => undefined}
           onToggleExclude={() => undefined}
+          onOpenGames={() => undefined}
+          onOpenSettings={() => undefined}
         />
       </PopupRuntimeContext.Provider>
     </I18nContext.Provider>,
@@ -174,7 +195,7 @@ function mountCampaignList(initialCampaigns: ReturnType<typeof campaignViewFromC
     root!.render(
       <I18nContext.Provider value={{ t: (key) => ({ completedCampaigns: "Completed", finished: "Finished", later: "later", search: "Search" })[key] ?? key, dir: "ltr", locale: "en" }}>
         <PopupRuntimeContext.Provider value={{ adapter, preview: false }}>
-          <DropsPanel campaigns={campaigns} gameMap={{}} focus={focus} refreshing={false} onRefreshCampaign={() => undefined} onPinChange={onPinChange} onToggleExclude={() => undefined} />
+          <QueuePanel campaigns={campaigns} gameMap={{}} focus={focus} refreshing={false} strategy="ending_soonest" pinnedCount={0} farmPinnedOnly={false} onStrategyChange={() => undefined} onUnpinAll={() => undefined} onFarmPinnedOnlyChange={() => undefined} onRefreshCampaign={() => undefined} onPinChange={onPinChange} onToggleExclude={() => undefined} onOpenGames={() => undefined} onOpenSettings={() => undefined} />
         </PopupRuntimeContext.Provider>
       </I18nContext.Provider>,
     );
@@ -191,6 +212,37 @@ function mountCampaignList(initialCampaigns: ReturnType<typeof campaignViewFromC
   };
 }
 
+function renderCompletedPanel(campaigns: ReturnType<typeof campaignViewFromCampaign>[], focus?: { id: string; seq: number }) {
+  const adapter = { openLink: vi.fn() } as unknown as PopupAdapter;
+  root!.render(
+    <I18nContext.Provider value={{ t: (key) => ({ completedTabFinished: "Finished", completedTabExpired: "Expired", finished: "Finished", later: "later" })[key] ?? key, dir: "ltr", locale: "en" }}>
+      <PopupRuntimeContext.Provider value={{ adapter, preview: false }}>
+        <CompletedPanel campaigns={campaigns} gameMap={{}} focus={focus} refreshing={false} onRefreshCampaign={() => undefined} />
+      </PopupRuntimeContext.Provider>
+    </I18nContext.Provider>,
+  );
+}
+
+function mountCompleted(campaigns: ReturnType<typeof campaignViewFromCampaign>[]) {
+  const { document, window } = parseHTML("<div id=app></div>");
+  vi.stubGlobal("window", window);
+  vi.stubGlobal("document", document);
+  vi.stubGlobal("getComputedStyle", () => ({ direction: "ltr", columnGap: "0" }));
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => { callback(0); return 1; });
+  vi.stubGlobal("cancelAnimationFrame", () => undefined);
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const container = document.getElementById("app")!;
+  act(() => {
+    root = createRoot(container);
+    renderCompletedPanel(campaigns);
+  });
+  return {
+    container,
+    window,
+    rerender: (focus: { id: string; seq: number }, next = campaigns) => act(() => renderCompletedPanel(next, focus)),
+  };
+}
+
 describe("completed campaign section", () => {
   it("keeps a 100% watched but unclaimed campaign in the active list", () => {
     const claimable = campaignViewFromCampaign(sourceCampaign(), 0, idleSession, false);
@@ -203,7 +255,7 @@ describe("completed campaign section", () => {
     expect([...container.querySelectorAll("button")].some((button) => button.textContent?.includes("Completed"))).toBe(false);
   });
 
-  it("keeps finished campaigns collapsed and shows one terminal status when opened", () => {
+  it("shows one terminal status per finished row, and keeps it out of the queue", () => {
     const settings = mergeSettings(undefined);
     const feasibility = {
       skipUnfinishableRewards: settings.skipUnfinishableRewards,
@@ -219,11 +271,10 @@ describe("completed campaign section", () => {
 
     expect(container.querySelector('[data-campaign-id="active"]')).not.toBeNull();
     expect(container.querySelector('[data-campaign-id="finished"]')).toBeNull();
-    const completedToggle = [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.includes("Completed"));
-    expect(completedToggle?.getAttribute("aria-expanded")).toBe("false");
 
-    act(() => completedToggle?.click());
-    const finishedRow = container.querySelector<HTMLElement>('[data-campaign-id="finished"]');
+    const completed = mountCompleted([finished, active]);
+    expect(completed.container.querySelector('[data-campaign-id="active"]')).toBeNull();
+    const finishedRow = completed.container.querySelector<HTMLElement>('[data-campaign-id="finished"]');
     expect(finishedRow).not.toBeNull();
     expect(finishedRow?.textContent).toContain("Finished");
     expect(finishedRow?.textContent).not.toContain("100%");
@@ -233,10 +284,16 @@ describe("completed campaign section", () => {
   });
 
   it("pins the campaign whose rank was typed, and nothing else", () => {
+    const settings = mergeSettings(undefined);
+    const feasibility = {
+      skipUnfinishableRewards: settings.skipUnfinishableRewards,
+      deadlineSafetyMarginMinutes: settings.deadlineSafetyMarginMinutes,
+      settings,
+    };
     const campaigns = [
-      campaignViewFromCampaign({ ...sourceCampaign(), id: "first", name: "First active" }, 0, idleSession, false),
-      campaignViewFromCampaign({ ...sourceCampaign(), id: "finished", name: "Finished campaign", status: "completed" }, 1, idleSession, false),
-      campaignViewFromCampaign({ ...sourceCampaign(), id: "second", name: "Second active" }, 2, idleSession, false),
+      campaignViewFromCampaign({ ...sourceCampaign(), id: "first", name: "First active" }, 0, idleSession, false, feasibility),
+      campaignViewFromCampaign({ ...sourceCampaign(), id: "finished", name: "Finished campaign", status: "completed" }, 1, idleSession, false, feasibility),
+      campaignViewFromCampaign({ ...sourceCampaign(), id: "second", name: "Second active" }, 2, idleSession, false, feasibility),
     ];
     const { container, onPinChange } = mountCampaignList(campaigns);
     const rank = container.querySelector<HTMLButtonElement>('button[aria-label="Set rank of Second active"]');
@@ -252,33 +309,38 @@ describe("completed campaign section", () => {
     expect(onPinChange).toHaveBeenCalledWith("second", 0);
   });
 
-  it("reveals and opens a finished campaign when the popup focuses it", () => {
-    const finished = campaignViewFromCampaign({ ...sourceCampaign(), id: "finished", name: "Finished campaign", status: "completed" }, 0, idleSession, false);
-    const { container, window, rerender } = mountCampaignList([finished]);
-    const scrollIntoView = vi.fn();
-    Object.defineProperty(window.HTMLElement.prototype, "scrollIntoView", { configurable: true, value: scrollIntoView });
+  it("opens a finished campaign in Completed when the popup focuses it", () => {
+    const settings = mergeSettings(undefined);
+    const finished = campaignViewFromCampaign({
+      ...sourceCampaign(), id: "finished", name: "Finished campaign", status: "completed",
+      rewards: [{ ...sourceCampaign().rewards[0]!, status: "claimed" }],
+    }, 0, idleSession, false, {
+      skipUnfinishableRewards: settings.skipUnfinishableRewards,
+      deadlineSafetyMarginMinutes: settings.deadlineSafetyMarginMinutes,
+      settings,
+    });
+    const { container, rerender } = mountCompleted([finished]);
 
     rerender({ id: "finished", seq: 1 });
 
     const finishedRow = container.querySelector<HTMLElement>('[data-campaign-id="finished"]');
     expect(finishedRow).not.toBeNull();
     expect(finishedRow?.querySelector("button[aria-expanded='true']")).not.toBeNull();
-    expect(scrollIntoView).toHaveBeenCalledOnce();
   });
 
-  it("reveals a focused campaign when it becomes finished without a new focus request", () => {
-    const active = campaignViewFromCampaign({ ...sourceCampaign(), id: "focused", name: "Focused campaign" }, 0, idleSession, false);
-    const finished = { ...active, lifecycle: "finished" as const };
-    const focus = { id: "focused", seq: 1 };
-    const { container, window, rerender } = mountCampaignList([active]);
-    Object.defineProperty(window.HTMLElement.prototype, "scrollIntoView", { configurable: true, value: vi.fn() });
+  it("follows a focused campaign to the Expired tab", () => {
+    const settings = mergeSettings(undefined);
+    const expired = campaignViewFromCampaign({ ...sourceCampaign(), id: "gone", name: "Expired campaign", status: "expired" }, 0, idleSession, false, {
+      skipUnfinishableRewards: settings.skipUnfinishableRewards,
+      deadlineSafetyMarginMinutes: settings.deadlineSafetyMarginMinutes,
+      settings,
+    });
+    const { container, rerender } = mountCompleted([expired]);
 
-    rerender(focus, [active]);
-    rerender(focus, [finished]);
+    expect(container.querySelector('[data-campaign-id="gone"]')).toBeNull();
+    rerender({ id: "gone", seq: 1 });
 
-    expect(container.querySelector('[data-campaign-id="focused"]')).not.toBeNull();
-    const completedToggle = [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.includes("Completed"));
-    expect(completedToggle?.getAttribute("aria-expanded")).toBe("true");
+    expect(container.querySelector('[data-campaign-id="gone"]')).not.toBeNull();
   });
 
   it("finds a finished campaign while the section is collapsed", () => {
@@ -365,13 +427,21 @@ describe("campaign rank input", () => {
       root.render(
         <I18nContext.Provider value={{ t: (key) => ({ search: "Search" })[key] ?? key, dir: "ltr", locale: "en" }}>
           <PopupRuntimeContext.Provider value={{ adapter, preview: false }}>
-            <DropsPanel
+            <QueuePanel
               campaigns={campaigns}
               gameMap={{}}
               refreshing={false}
+              strategy="ending_soonest"
+              pinnedCount={0}
+              farmPinnedOnly={false}
+              onStrategyChange={() => undefined}
+              onUnpinAll={() => undefined}
+              onFarmPinnedOnlyChange={() => undefined}
               onRefreshCampaign={() => undefined}
               onPinChange={onPinChange}
               onToggleExclude={() => undefined}
+              onOpenGames={() => undefined}
+              onOpenSettings={() => undefined}
             />
           </PopupRuntimeContext.Provider>
         </I18nContext.Provider>,
@@ -421,13 +491,21 @@ describe("campaign rank input", () => {
       root.render(
         <I18nContext.Provider value={{ t: (key) => ({ search: "Search" })[key] ?? key, dir: "ltr", locale: "en" }}>
           <PopupRuntimeContext.Provider value={{ adapter, preview: false }}>
-            <DropsPanel
+            <QueuePanel
               campaigns={campaigns}
               gameMap={{}}
               refreshing={false}
+              strategy="ending_soonest"
+              pinnedCount={0}
+              farmPinnedOnly={false}
+              onStrategyChange={() => undefined}
+              onUnpinAll={() => undefined}
+              onFarmPinnedOnlyChange={() => undefined}
               onRefreshCampaign={() => undefined}
               onPinChange={onPinChange}
               onToggleExclude={() => undefined}
+              onOpenGames={() => undefined}
+              onOpenSettings={() => undefined}
             />
           </PopupRuntimeContext.Provider>
         </I18nContext.Provider>,
@@ -461,7 +539,7 @@ describe("campaign rank input", () => {
     expect(onPinChange).toHaveBeenCalledWith("second", 0);
   });
 
-  it("does not expose a rank editor while searching", () => {
+  it("exposes the rank editor while searching, against the full queue order", () => {
     const { document, window } = parseHTML("<div id=app></div>");
     vi.stubGlobal("window", window);
     vi.stubGlobal("document", document);
@@ -487,12 +565,15 @@ describe("campaign rank input", () => {
     const input = container.querySelector<HTMLInputElement>("input[type='search']")!;
     act(() => setSearchQuery(input, "Second"));
 
-    expect([...container.querySelectorAll("button")].find((button) => button.getAttribute("aria-label") === "Set rank of Second campaign")).toBeUndefined();
-    expect(findNumericRankInput(container)).toBeUndefined();
-    const rankSpan = container.querySelector<HTMLElement>("article .w-7 span");
-    expect(rankSpan?.textContent).toBe("2");
-    expect(rankSpan?.className).toContain("w-4");
-    expect(rankSpan?.className).not.toContain("w-full");
+    // #564: the rank a search result shows is its position in the full queue,
+    // and typing there moves it among the pins without closing the search.
+    const rank = [...container.querySelectorAll("button")]
+      .find((button) => button.getAttribute("aria-label") === "Set rank of Second campaign");
+    expect(rank).toBeDefined();
+    expect(rank?.textContent).toBe("2");
+    act(() => rank?.click());
+    expect(findNumericRankInput(container)).toBeDefined();
+    expect(container.querySelector<HTMLInputElement>("input[type='search']")?.value).toBe("Second");
   });
 });
 
@@ -536,13 +617,21 @@ describe("initial drops expansion", () => {
       root!.render(
         <I18nContext.Provider value={{ t: (key) => key, dir: "ltr", locale: "en" }}>
           <PopupRuntimeContext.Provider value={{ adapter, preview: false }}>
-            <DropsPanel
+            <QueuePanel
               campaigns={[campaign]}
               gameMap={{}}
               refreshing={false}
+              strategy="ending_soonest"
+              pinnedCount={0}
+              farmPinnedOnly={false}
+              onStrategyChange={() => undefined}
+              onUnpinAll={() => undefined}
+              onFarmPinnedOnlyChange={() => undefined}
               onRefreshCampaign={() => undefined}
               onPinChange={() => undefined}
               onToggleExclude={() => undefined}
+              onOpenGames={() => undefined}
+              onOpenSettings={() => undefined}
             />
           </PopupRuntimeContext.Provider>
         </I18nContext.Provider>,
@@ -585,13 +674,21 @@ describe("initial drops expansion", () => {
       root.render(
         <I18nContext.Provider value={{ t: (key) => key, dir: "ltr", locale: "en" }}>
           <PopupRuntimeContext.Provider value={{ adapter, preview: false }}>
-            <DropsPanel
+            <QueuePanel
               campaigns={[campaignViewFromCampaign(sourceCampaign(), 0, idleSession, false)]}
               gameMap={{}}
               refreshing={false}
+              strategy="ending_soonest"
+              pinnedCount={0}
+              farmPinnedOnly={false}
+              onStrategyChange={() => undefined}
+              onUnpinAll={() => undefined}
+              onFarmPinnedOnlyChange={() => undefined}
               onRefreshCampaign={() => undefined}
               onPinChange={() => undefined}
               onToggleExclude={() => undefined}
+              onOpenGames={() => undefined}
+              onOpenSettings={() => undefined}
             />
           </PopupRuntimeContext.Provider>
         </I18nContext.Provider>,
@@ -675,7 +772,9 @@ describe("initial drops expansion", () => {
     const input = container.querySelector<HTMLInputElement>("input[type='search']")!;
     act(() => setSearchQuery(input, "Second"));
 
-    const priority = container.querySelector<HTMLElement>("article .w-7 span");
+    // The rank a filtered row shows is still its place in the full queue, not
+    // its position among the results.
+    const priority = container.querySelector<HTMLElement>("article .w-7 button, article .w-7 span");
     expect(priority?.textContent).toBe("2");
   });
 });

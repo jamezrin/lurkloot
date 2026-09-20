@@ -86,6 +86,81 @@
   "navSettings": {
     "message": "设置"
   },
+  "queueGroupPinned": {
+    "message": "已置顶"
+  },
+  "queueGroupPinnedHint": {
+    "message": "将行拖到这里，或输入名次"
+  },
+  "queueGroupFavourite": {
+    "message": "收藏的游戏"
+  },
+  "queueGroupStrategy": {
+    "message": "然后按"
+  },
+  "queueNotInQueue": {
+    "message": "不在队列中"
+  },
+  "queueSkipped": {
+    "message": "已跳过"
+  },
+  "queueUpcoming": {
+    "message": "即将开始"
+  },
+  "queueStrategyLabel": {
+    "message": "然后按"
+  },
+  "queueFarmPinnedOnly": {
+    "message": "只挂机已置顶"
+  },
+  "queueUnpinAll": {
+    "message": "取消全部置顶（$1）"
+  },
+  "queueUnpin": {
+    "message": "取消置顶"
+  },
+  "queueFacetLabel": {
+    "message": "活动类型"
+  },
+  "queueFacetAll": {
+    "message": "全部"
+  },
+  "queueFacetDrops": {
+    "message": "掉宝"
+  },
+  "queueFacetBadges": {
+    "message": "订阅徽章"
+  },
+  "queueFixInclude": {
+    "message": "重新加入"
+  },
+  "queueFixPin": {
+    "message": "置顶"
+  },
+  "queueFixGames": {
+    "message": "打开游戏"
+  },
+  "queueFixSettings": {
+    "message": "打开设置"
+  },
+  "queueEmpty": {
+    "message": "目前没有可挂机的内容。"
+  },
+  "queueEmptyBadges": {
+    "message": "目前没有可挂机的订阅活动。"
+  },
+  "completedTabFinished": {
+    "message": "已完成"
+  },
+  "completedTabExpired": {
+    "message": "已过期"
+  },
+  "completedEmptyFinished": {
+    "message": "领取全部奖励后，活动会出现在这里。"
+  },
+  "completedEmptyExpired": {
+    "message": "活动未完成即结束时会出现在这里。"
+  },
   "settingsTitle": {
     "message": "设置"
   },

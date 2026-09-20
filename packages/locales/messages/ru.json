@@ -86,6 +86,81 @@
   "navSettings": {
     "message": "Настройки"
   },
+  "queueGroupPinned": {
+    "message": "Закреплённые"
+  },
+  "queueGroupPinnedHint": {
+    "message": "перетащите строку сюда или введите номер"
+  },
+  "queueGroupFavourite": {
+    "message": "Любимые игры"
+  },
+  "queueGroupStrategy": {
+    "message": "Затем по"
+  },
+  "queueNotInQueue": {
+    "message": "Не в очереди"
+  },
+  "queueSkipped": {
+    "message": "Пропущенные"
+  },
+  "queueUpcoming": {
+    "message": "Скоро"
+  },
+  "queueStrategyLabel": {
+    "message": "Затем по"
+  },
+  "queueFarmPinnedOnly": {
+    "message": "Фармить только закреплённые"
+  },
+  "queueUnpinAll": {
+    "message": "Открепить все ($1)"
+  },
+  "queueUnpin": {
+    "message": "Открепить"
+  },
+  "queueFacetLabel": {
+    "message": "Тип кампании"
+  },
+  "queueFacetAll": {
+    "message": "Все"
+  },
+  "queueFacetDrops": {
+    "message": "Дропы"
+  },
+  "queueFacetBadges": {
+    "message": "Значки подписки"
+  },
+  "queueFixInclude": {
+    "message": "Вернуть"
+  },
+  "queueFixPin": {
+    "message": "Закрепить"
+  },
+  "queueFixGames": {
+    "message": "Открыть игры"
+  },
+  "queueFixSettings": {
+    "message": "Открыть настройки"
+  },
+  "queueEmpty": {
+    "message": "Сейчас здесь нечего фармить."
+  },
+  "queueEmptyBadges": {
+    "message": "Сейчас нет доступных кампаний по подписке."
+  },
+  "completedTabFinished": {
+    "message": "Завершённые"
+  },
+  "completedTabExpired": {
+    "message": "Истёкшие"
+  },
+  "completedEmptyFinished": {
+    "message": "Кампании попадают сюда, когда все награды получены."
+  },
+  "completedEmptyExpired": {
+    "message": "Кампании попадают сюда, если закончились незавершёнными."
+  },
   "settingsTitle": {
     "message": "Настройки"
   },

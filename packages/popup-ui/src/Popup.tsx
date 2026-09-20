@@ -70,7 +70,8 @@ import { RateNudge, shouldShowGithubStarNudge, shouldShowRateNudge } from "./rat
 import { GithubStarNudge } from "./githubStarNudge";
 import { popupNoticeSlot } from "./popupNoticeSlot";
 import { UpdateNotice } from "./updateNotice";
-import { DropsPanel } from "./drops";
+import { QueuePanel } from "./queue";
+import { CompletedPanel } from "./completed";
 import { CriticalFailurePanel } from "./criticalFailure";
 import { openHttpsLink } from "./links";
 import { IdleWatchlistPanel } from "./idleWatchlist";
@@ -633,16 +634,11 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
 
   const compatibilityResolution = adapter.resolveCompatibility?.(settings.compatibility);
   const excludedIds = new Set(settings.excludedCampaignIds);
-  // The campaigns the list renders, in scheduler order: the queue itself, plus
-  // the finished ones the Completed subsection carries. Skipped and upcoming
-  // campaigns get their own groups in the Queue view.
-  const rawCampaigns = rankCampaigns(
-    snapshot.state.campaigns[platform].filter((campaign) => {
-      const section = campaignSection(campaign, settings);
-      return section === "queue" || section === "completed";
-    }),
-    settings,
-  );
+  // Every campaign the platform reported, in scheduler order. Each view picks
+  // the sections it owns (campaignSection), so a campaign is never missing from
+  // the popup entirely — it is in the Queue, under Skipped or Upcoming, or in
+  // Completed.
+  const rawCampaigns = rankCampaigns(snapshot.state.campaigns[platform], settings);
   const session = snapshot.state.sessions[platform];
   const sessionChannel = channelViewFromSession(session);
   const criticalFailure = snapshot.state.criticalHealth?.[platform];
@@ -906,14 +902,28 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                     openLink={adapter.openLink}
                     writeClipboard={adapter.writeClipboard ?? (async () => false)}
                   />
+                ) : view === "completed" ? (
+                  <CompletedPanel
+                    campaigns={campaigns}
+                    gameMap={gameMap}
+                    focus={campaignFocus}
+                    refreshing={refreshing}
+                    onRefreshCampaign={() => refreshNow()}
+                  />
                 ) : (
                   <>
                     {settings.showTips ? <TipsBanner initialIndex={preview ? 0 : undefined} preview={preview} /> : null}
-                    <DropsPanel
+                    <QueuePanel
                       campaigns={campaigns}
                       gameMap={gameMap}
                       focus={campaignFocus}
                       refreshing={refreshing}
+                      strategy={settings.priorityMode}
+                      pinnedCount={settings.campaignPins.length}
+                      farmPinnedOnly={settings.farmPinnedOnly}
+                      onStrategyChange={(priorityMode) => void updateSettings({ priorityMode }, { tickAfterSave: true })}
+                      onUnpinAll={() => void updateSettings({ campaignPins: [] }, { tickAfterSave: true })}
+                      onFarmPinnedOnlyChange={(farmPinnedOnly) => void updateSettings({ farmPinnedOnly }, { tickAfterSave: true })}
                       onRefreshCampaign={() => refreshNow()}
                       onPinChange={(campaignId, position) => updateSettings(
                         {
@@ -929,6 +939,8 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                         else next.add(id);
                         return updateSettings({ excludedCampaignIds: [...next] }, { tickAfterSave: true });
                       }}
+                      onOpenGames={() => changeView("games")}
+                      onOpenSettings={() => changeView("settings")}
                     />
                   </>
                 )}

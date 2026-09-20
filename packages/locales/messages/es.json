@@ -86,6 +86,81 @@
   "navSettings": {
     "message": "Ajustes"
   },
+  "queueGroupPinned": {
+    "message": "Fijadas"
+  },
+  "queueGroupPinnedHint": {
+    "message": "arrastra una fila aquí o escribe un puesto"
+  },
+  "queueGroupFavourite": {
+    "message": "Juegos favoritos"
+  },
+  "queueGroupStrategy": {
+    "message": "Después por"
+  },
+  "queueNotInQueue": {
+    "message": "Fuera de la cola"
+  },
+  "queueSkipped": {
+    "message": "Omitidas"
+  },
+  "queueUpcoming": {
+    "message": "Próximas"
+  },
+  "queueStrategyLabel": {
+    "message": "Después por"
+  },
+  "queueFarmPinnedOnly": {
+    "message": "Farmear solo fijadas"
+  },
+  "queueUnpinAll": {
+    "message": "Quitar fijadas ($1)"
+  },
+  "queueUnpin": {
+    "message": "Quitar"
+  },
+  "queueFacetLabel": {
+    "message": "Tipo de campaña"
+  },
+  "queueFacetAll": {
+    "message": "Todas"
+  },
+  "queueFacetDrops": {
+    "message": "Drops"
+  },
+  "queueFacetBadges": {
+    "message": "Insignias de sub"
+  },
+  "queueFixInclude": {
+    "message": "Incluir"
+  },
+  "queueFixPin": {
+    "message": "Fijar"
+  },
+  "queueFixGames": {
+    "message": "Abrir Juegos"
+  },
+  "queueFixSettings": {
+    "message": "Abrir ajustes"
+  },
+  "queueEmpty": {
+    "message": "Ahora mismo no hay nada que farmear."
+  },
+  "queueEmptyBadges": {
+    "message": "Ahora mismo no hay campañas de suscripción farmeables."
+  },
+  "completedTabFinished": {
+    "message": "Terminadas"
+  },
+  "completedTabExpired": {
+    "message": "Caducadas"
+  },
+  "completedEmptyFinished": {
+    "message": "Las campañas llegan aquí cuando reclamas todas sus recompensas."
+  },
+  "completedEmptyExpired": {
+    "message": "Las campañas llegan aquí cuando terminan sin completarse."
+  },
   "settingsTitle": {
     "message": "Configuración"
   },

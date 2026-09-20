@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import type { DropCampaign, DropReward, WatchSession } from "@lurkloot/shared/models";
 import { mergeSettings } from "@lurkloot/shared/settings";
 import { I18nContext } from "../../popup-ui/src/context";
-import { DropsPanel } from "../../popup-ui/src/drops";
+import { QueuePanel } from "../../popup-ui/src/queue";
 import { evaluateCampaignFarming } from "@lurkloot/shared/campaignFarming";
 import {
   campaignFilterCategories,
@@ -76,13 +76,21 @@ function renderDrops(campaigns: CampaignView[], refreshing = false): string {
   return renderToStaticMarkup(createElement(
     I18nContext.Provider,
     { value: { t: testT, dir: "ltr", locale: "en" } },
-    createElement(DropsPanel, {
+    createElement(QueuePanel, {
       campaigns,
       gameMap: {},
       refreshing,
+      strategy: "ending_soonest" as const,
+      pinnedCount: 0,
+      farmPinnedOnly: false,
+      onStrategyChange: () => {},
+      onUnpinAll: () => {},
+      onFarmPinnedOnlyChange: () => {},
       onRefreshCampaign: () => {},
       onPinChange: () => {},
       onToggleExclude: () => {},
+      onOpenGames: () => {},
+      onOpenSettings: () => {},
     }),
   ));
 }

@@ -86,6 +86,81 @@
   "navSettings": {
     "message": "Paramètres"
   },
+  "queueGroupPinned": {
+    "message": "Épinglées"
+  },
+  "queueGroupPinnedHint": {
+    "message": "faites glisser une ligne ici, ou saisissez un rang"
+  },
+  "queueGroupFavourite": {
+    "message": "Jeux favoris"
+  },
+  "queueGroupStrategy": {
+    "message": "Ensuite par"
+  },
+  "queueNotInQueue": {
+    "message": "Hors de la file"
+  },
+  "queueSkipped": {
+    "message": "Ignorées"
+  },
+  "queueUpcoming": {
+    "message": "À venir"
+  },
+  "queueStrategyLabel": {
+    "message": "Ensuite par"
+  },
+  "queueFarmPinnedOnly": {
+    "message": "Farmer seulement les épinglées"
+  },
+  "queueUnpinAll": {
+    "message": "Tout désépingler ($1)"
+  },
+  "queueUnpin": {
+    "message": "Désépingler"
+  },
+  "queueFacetLabel": {
+    "message": "Type de campagne"
+  },
+  "queueFacetAll": {
+    "message": "Toutes"
+  },
+  "queueFacetDrops": {
+    "message": "Drops"
+  },
+  "queueFacetBadges": {
+    "message": "Badges d'abonné"
+  },
+  "queueFixInclude": {
+    "message": "Inclure"
+  },
+  "queueFixPin": {
+    "message": "Épingler"
+  },
+  "queueFixGames": {
+    "message": "Ouvrir Jeux"
+  },
+  "queueFixSettings": {
+    "message": "Ouvrir les paramètres"
+  },
+  "queueEmpty": {
+    "message": "Rien à farmer pour l'instant."
+  },
+  "queueEmptyBadges": {
+    "message": "Aucune campagne d'abonnement n'est farmable pour l'instant."
+  },
+  "completedTabFinished": {
+    "message": "Terminées"
+  },
+  "completedTabExpired": {
+    "message": "Expirées"
+  },
+  "completedEmptyFinished": {
+    "message": "Les campagnes arrivent ici une fois toutes les récompenses réclamées."
+  },
+  "completedEmptyExpired": {
+    "message": "Les campagnes arrivent ici quand elles se terminent inachevées."
+  },
   "settingsTitle": {
     "message": "Paramètres"
   },

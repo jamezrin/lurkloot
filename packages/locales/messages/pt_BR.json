@@ -86,6 +86,81 @@
   "navSettings": {
     "message": "Configurações"
   },
+  "queueGroupPinned": {
+    "message": "Fixadas"
+  },
+  "queueGroupPinnedHint": {
+    "message": "arraste uma linha aqui ou digite uma posição"
+  },
+  "queueGroupFavourite": {
+    "message": "Jogos favoritos"
+  },
+  "queueGroupStrategy": {
+    "message": "Depois por"
+  },
+  "queueNotInQueue": {
+    "message": "Fora da fila"
+  },
+  "queueSkipped": {
+    "message": "Ignoradas"
+  },
+  "queueUpcoming": {
+    "message": "Em breve"
+  },
+  "queueStrategyLabel": {
+    "message": "Depois por"
+  },
+  "queueFarmPinnedOnly": {
+    "message": "Farmar só as fixadas"
+  },
+  "queueUnpinAll": {
+    "message": "Desafixar todas ($1)"
+  },
+  "queueUnpin": {
+    "message": "Desafixar"
+  },
+  "queueFacetLabel": {
+    "message": "Tipo de campanha"
+  },
+  "queueFacetAll": {
+    "message": "Todas"
+  },
+  "queueFacetDrops": {
+    "message": "Drops"
+  },
+  "queueFacetBadges": {
+    "message": "Emblemas de sub"
+  },
+  "queueFixInclude": {
+    "message": "Incluir"
+  },
+  "queueFixPin": {
+    "message": "Fixar"
+  },
+  "queueFixGames": {
+    "message": "Abrir Jogos"
+  },
+  "queueFixSettings": {
+    "message": "Abrir configurações"
+  },
+  "queueEmpty": {
+    "message": "Nada para farmar aqui agora."
+  },
+  "queueEmptyBadges": {
+    "message": "Nenhuma campanha de assinatura pode ser farmada agora."
+  },
+  "completedTabFinished": {
+    "message": "Concluídas"
+  },
+  "completedTabExpired": {
+    "message": "Expiradas"
+  },
+  "completedEmptyFinished": {
+    "message": "As campanhas chegam aqui quando todas as recompensas são resgatadas."
+  },
+  "completedEmptyExpired": {
+    "message": "As campanhas chegam aqui quando terminam incompletas."
+  },
   "settingsTitle": {
     "message": "Configurações"
   },
