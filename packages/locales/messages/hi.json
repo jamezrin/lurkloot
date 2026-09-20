@@ -1684,5 +1684,14 @@
   },
   "gamesEmpty": {
     "message": "अभी कोई $1 कैंपेन चालू नहीं है।"
+  },
+  "inPageOpenPanel": {
+    "message": "Lurkloot खोलें"
+  },
+  "inPageAddToWatchlist": {
+    "message": "$1 को आइडल वॉचलिस्ट में जोड़ें"
+  },
+  "inPageRemoveFromWatchlist": {
+    "message": "$1 को आइडल वॉचलिस्ट से हटाएँ"
   }
 }

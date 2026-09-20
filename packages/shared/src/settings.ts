@@ -144,7 +144,7 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
       twitch: {
         enabled: booleanOr(platform?.twitch?.enabled, DEFAULT_ENGINE_SETTINGS.platform.twitch.enabled),
         watchSourcePriority: normalizePlatformWatchSourcePriority("twitch", platform?.twitch, value?.idleWatchlistFallbackOnly),
-        idleWatchlistChannels: normalizeChannelList(platform?.twitch?.idleWatchlistChannels),
+        idleWatchlistChannels: normalizeChannelList(platform?.twitch?.idleWatchlistChannels, IDLE_WATCHLIST_LIMIT),
         excludedChannels: normalizeChannelList(platform?.twitch?.excludedChannels),
         categoryMode: normalizeCategoryMode(platform?.twitch?.categoryMode),
         categories: normalizeCategorySelections(platform?.twitch?.categories),
@@ -157,7 +157,7 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
       kick: {
         enabled: booleanOr(platform?.kick?.enabled, DEFAULT_ENGINE_SETTINGS.platform.kick.enabled),
         watchSourcePriority: normalizePlatformWatchSourcePriority("kick", platform?.kick, value?.idleWatchlistFallbackOnly),
-        idleWatchlistChannels: normalizeChannelList(platform?.kick?.idleWatchlistChannels),
+        idleWatchlistChannels: normalizeChannelList(platform?.kick?.idleWatchlistChannels, IDLE_WATCHLIST_LIMIT),
         excludedChannels: normalizeChannelList(platform?.kick?.excludedChannels),
         categoryMode: normalizeCategoryMode(platform?.kick?.categoryMode),
         categories: normalizeCategorySelections(platform?.kick?.categories),
@@ -366,12 +366,19 @@ export function normalizeFarmingEligibility(
   };
 }
 
-export function normalizeChannelList(value: string[] | undefined): string[] {
+// The Idle Watchlist's cap. The popup printed "n/20" long before anything
+// enforced it, so an in-page add could exceed a limit the UI claimed to have
+// (#563). Enforced here, where every host's writes converge, rather than in one
+// of the two surfaces that can add a channel.
+export const IDLE_WATCHLIST_LIMIT = 20;
+
+export function normalizeChannelList(value: string[] | undefined, limit?: number): string[] {
   if (!Array.isArray(value)) return [];
-  return [...new Set(value
+  const channels = [...new Set(value
     .filter((item): item is string => typeof item === "string")
     .map((item) => item.trim().replace(/^@+/, "").toLowerCase())
     .filter(Boolean))];
+  return limit === undefined ? channels : channels.slice(0, limit);
 }
 
 // The claim toggles are per-platform, so a scheduler loop holding `platform` as a

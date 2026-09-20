@@ -1684,5 +1684,14 @@
   },
   "gamesEmpty": {
     "message": "Aucune campagne $1 en cours."
+  },
+  "inPageOpenPanel": {
+    "message": "Ouvrir Lurkloot"
+  },
+  "inPageAddToWatchlist": {
+    "message": "Ajouter $1 à la liste d'attente"
+  },
+  "inPageRemoveFromWatchlist": {
+    "message": "Retirer $1 de la liste d'attente"
   }
 }

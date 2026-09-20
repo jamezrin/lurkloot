@@ -1684,5 +1684,14 @@
   },
   "gamesEmpty": {
     "message": "Nenhuma campanha da $1 ativa agora."
+  },
+  "inPageOpenPanel": {
+    "message": "Abrir o Lurkloot"
+  },
+  "inPageAddToWatchlist": {
+    "message": "Adicionar $1 à lista de reserva"
+  },
+  "inPageRemoveFromWatchlist": {
+    "message": "Remover $1 da lista de reserva"
   }
 }

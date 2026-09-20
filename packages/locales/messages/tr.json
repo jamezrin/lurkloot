@@ -1684,5 +1684,14 @@
   },
   "gamesEmpty": {
     "message": "Şu anda etkin $1 kampanyası yok."
+  },
+  "inPageOpenPanel": {
+    "message": "Lurkloot'u aç"
+  },
+  "inPageAddToWatchlist": {
+    "message": "$1 kanalını yedek listeye ekle"
+  },
+  "inPageRemoveFromWatchlist": {
+    "message": "$1 kanalını yedek listeden çıkar"
   }
 }

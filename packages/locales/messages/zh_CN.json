@@ -1684,5 +1684,14 @@
   },
   "gamesEmpty": {
     "message": "目前没有 $1 的进行中活动。"
+  },
+  "inPageOpenPanel": {
+    "message": "打开 Lurkloot"
+  },
+  "inPageAddToWatchlist": {
+    "message": "将 $1 加入空闲观看列表"
+  },
+  "inPageRemoveFromWatchlist": {
+    "message": "将 $1 移出空闲观看列表"
   }
 }

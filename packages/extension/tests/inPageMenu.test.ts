@@ -1,0 +1,146 @@
+import { parseHTML } from "linkedom";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const sendMessage = vi.fn(async () => undefined);
+const storageGet = vi.fn(async () => ({}) as Record<string, unknown>);
+
+vi.mock("wxt/browser", () => ({
+  browser: {
+    runtime: { sendMessage, getURL: vi.fn(() => "https://extension/panel.html") },
+    storage: { local: { get: storageGet, set: vi.fn() }, onChanged: { addListener: vi.fn() } },
+    i18n: { getMessage: vi.fn(() => "") },
+  },
+}));
+
+// The panel module keeps its button and menu in module state, so each test
+// mounts a fresh copy against its own document.
+async function mount(platform: "twitch" | "kick"): Promise<void> {
+  vi.resetModules();
+  const { mountInPagePanel } = await import("../src/core/inPagePanel");
+  mountInPagePanel(platform);
+  await settle();
+}
+
+// Twitch's nav, reduced to what resolveAnchorFor needs to place the button.
+const TWITCH_NAV = '<nav><div data-a-target="top-nav-container"><div class="top-nav__menu"><div data-a-target="user-menu-toggle"></div></div></div></nav>';
+
+function setUpPage(href: string): void {
+  const { document, window } = parseHTML(`<html><body>${TWITCH_NAV}</body></html>`);
+  globalThis.document = document as unknown as Document;
+  globalThis.window = window as unknown as Window & typeof globalThis;
+  // The panel's click handler asks whether the event target is an Element, and
+  // linkedom's classes are per-window rather than global.
+  globalThis.Element = window.Element as unknown as typeof Element;
+  globalThis.Node = window.Node as unknown as typeof Node;
+  globalThis.location = { href } as Location;
+  globalThis.MutationObserver = class {
+    observe(): void {}
+    disconnect(): void {}
+  } as unknown as typeof MutationObserver;
+  Object.defineProperty(globalThis.document, "fullscreenElement", { configurable: true, value: null });
+  for (const element of [window.HTMLElement.prototype]) {
+    Object.defineProperty(element, "getClientRects", { configurable: true, value: () => [{ width: 10, height: 10 }] });
+    Object.defineProperty(element, "getBoundingClientRect", { configurable: true, value: () => ({ top: 0, bottom: 40, left: 0, right: 200, width: 200, height: 40 }) });
+    Object.defineProperty(element, "focus", { configurable: true, value: () => undefined });
+  }
+}
+
+async function settle(): Promise<void> {
+  for (let attempt = 0; attempt < 10; attempt += 1) await Promise.resolve();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+function caret(): HTMLElement {
+  const element = globalThis.document.getElementById("lurkloot-nav-caret");
+  if (!element) throw new Error("Missing caret");
+  return element as unknown as HTMLElement;
+}
+
+function menuItems(): string[] {
+  const menu = globalThis.document.getElementById("lurkloot-nav-menu");
+  return menu ? [...menu.querySelectorAll("[role=menuitem]")].map((item) => item.textContent ?? "") : [];
+}
+
+async function openMenu(): Promise<void> {
+  caret().dispatchEvent(new globalThis.window.Event("click", { bubbles: true }));
+  await settle();
+}
+
+beforeEach(() => {
+  sendMessage.mockClear();
+  storageGet.mockReset();
+  storageGet.mockResolvedValue({
+    settings: { showInPagePanel: true, platform: { twitch: { idleWatchlistChannels: [] } } },
+    schedulerState: {},
+  });
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+describe("in-page nav menu", () => {
+  it("offers to add the channel the page is about", async () => {
+    setUpPage("https://www.twitch.tv/summit1g");
+    await mount("twitch");
+
+    await openMenu();
+
+    expect(menuItems()).toEqual(["Open Lurkloot", "Add summit1g to the idle watchlist"]);
+  });
+
+  it("sends the watchlist through saveSettings, with a tick for that platform", async () => {
+    setUpPage("https://www.twitch.tv/summit1g");
+    await mount("twitch");
+    await openMenu();
+
+    const add = globalThis.document.querySelectorAll("#lurkloot-nav-menu [role=menuitem]")[1]!;
+    add.dispatchEvent(new globalThis.window.Event("click", { bubbles: true }));
+    await settle();
+
+    expect(sendMessage).toHaveBeenCalledWith({
+      type: "saveSettings",
+      settingsPatch: { platform: { twitch: { idleWatchlistChannels: ["summit1g"] } } },
+      tickAfterSave: true,
+      tickAfterSavePlatforms: ["twitch"],
+    });
+    // The menu closes behind the action rather than leaving a stale list open.
+    expect(globalThis.document.getElementById("lurkloot-nav-menu")).toBeNull();
+  });
+
+  it("offers removal once the channel is already listed", async () => {
+    storageGet.mockResolvedValue({
+      settings: { showInPagePanel: true, platform: { twitch: { idleWatchlistChannels: ["summit1g"] } } },
+      schedulerState: {},
+    });
+    setUpPage("https://www.twitch.tv/summit1g");
+    await mount("twitch");
+
+    await openMenu();
+
+    expect(menuItems()[1]).toBe("Remove summit1g from the idle watchlist");
+  });
+
+  it("offers nothing but the panel on a page that is not a channel's", async () => {
+    setUpPage("https://www.twitch.tv/directory/game/Rust");
+    await mount("twitch");
+
+    await openMenu();
+
+    expect(menuItems()).toEqual(["Open Lurkloot"]);
+  });
+
+  it("closes on Escape", async () => {
+    setUpPage("https://www.twitch.tv/summit1g");
+    await mount("twitch");
+    await openMenu();
+
+    const menu = globalThis.document.getElementById("lurkloot-nav-menu")!;
+    const escape = new globalThis.window.Event("keydown", { bubbles: true }) as unknown as { key: string };
+    escape.key = "Escape";
+    menu.dispatchEvent(escape as unknown as Event);
+    await settle();
+
+    expect(globalThis.document.getElementById("lurkloot-nav-menu")).toBeNull();
+  });
+});

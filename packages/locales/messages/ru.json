@@ -1684,5 +1684,14 @@
   },
   "gamesEmpty": {
     "message": "Сейчас нет активных кампаний $1."
+  },
+  "inPageOpenPanel": {
+    "message": "Открыть Lurkloot"
+  },
+  "inPageAddToWatchlist": {
+    "message": "Добавить $1 в резервный список"
+  },
+  "inPageRemoveFromWatchlist": {
+    "message": "Убрать $1 из резервного списка"
   }
 }

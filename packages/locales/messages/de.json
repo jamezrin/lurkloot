@@ -1684,5 +1684,14 @@
   },
   "gamesEmpty": {
     "message": "Derzeit laufen keine $1-Kampagnen."
+  },
+  "inPageOpenPanel": {
+    "message": "Lurkloot öffnen"
+  },
+  "inPageAddToWatchlist": {
+    "message": "$1 zur Ersatzliste hinzufügen"
+  },
+  "inPageRemoveFromWatchlist": {
+    "message": "$1 aus der Ersatzliste entfernen"
   }
 }

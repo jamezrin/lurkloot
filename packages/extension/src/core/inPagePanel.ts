@@ -1,5 +1,7 @@
 import { browser } from "wxt/browser";
 import type { ExtensionSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
+// A constant, not a module with behaviour: this stays a dependency-free bundle.
+import { IDLE_WATCHLIST_LIMIT } from "@lurkloot/shared/settings";
 
 // Stage 1 of the in-page panel: an icon button in the site's own top-right nav,
 // and a draggable window hosting the panel document (entrypoints/inpagePanel),
@@ -14,6 +16,8 @@ import type { ExtensionSettings, Platform, SchedulerState } from "@lurkloot/shar
 // Everything here is styled with hand-written CSS for the same reason.
 
 const BUTTON_ID = "lurkloot-nav-button";
+const CARET_ID = "lurkloot-nav-caret";
+const MENU_ID = "lurkloot-nav-menu";
 const IDLE_BACKGROUND = "rgba(128,128,128,.22)";
 const HOVER_BACKGROUND = "rgba(128,128,128,.34)";
 
@@ -33,11 +37,11 @@ const SETTINGS_KEY = "settings";
 const STATE_KEY = "schedulerState";
 const UI_STATE_KEY = "inPagePanelUi";
 
-// The panel document renders <Popup>, whose root is h-[600px] w-[400px]. The
+// The panel document renders <Popup>, whose root is h-[600px] w-[720px]. The
 // frame is sized to match exactly: anything smaller reintroduces a scrollbar,
-// which steals width from the 400px the popup insists on and makes it overflow
+// which steals width from what the popup insists on and makes it overflow
 // horizontally.
-const PANEL_WIDTH = 400;
+const PANEL_WIDTH = 720;
 const PANEL_HEIGHT = 600;
 const TITLEBAR_HEIGHT = 32;
 const EDGE_MARGIN = 16;
@@ -182,6 +186,7 @@ function isManagedTab(state: Partial<SchedulerState> | undefined): boolean {
 }
 
 function teardown(): void {
+  closeMenu();
   anchorObserver?.disconnect();
   anchorObserver = undefined;
   button?.remove();
@@ -228,6 +233,49 @@ function ensureButton(): void {
   else target.element.append(button);
 }
 
+// Paths each site owns. Anything here is a site page, not a channel, so the
+// menu offers nothing for it. Exported-by-proximity like resolveAnchorFor: this
+// module stays dependency-free, so its pure parts are tested from here rather
+// than imported from somewhere shared.
+const RESERVED_PATHS: Record<Platform, Set<string>> = {
+  twitch: new Set([
+    "directory", "videos", "drops", "settings", "subscriptions", "wallet", "u", "popout", "moderator",
+    "downloads", "turbo", "prime", "jobs", "friends", "inventory", "payments", "store",
+  ]),
+  kick: new Set(["browse", "categories", "following", "dashboard", "search", "clips", "help", "about"]),
+};
+
+// The subpaths a channel page keeps for itself. A second segment outside this
+// list means the URL is something else that happens to start with a name.
+const CHANNEL_SUBPATHS: Record<Platform, Set<string>> = {
+  twitch: new Set(["about", "schedule", "videos", "clips", "clip", "home"]),
+  kick: new Set(["videos", "clips", "about"]),
+};
+
+/** The channel a page is about, or undefined when the page is not a channel's.
+ *
+ * Recomputed when the menu opens rather than tracked across navigation: both
+ * sites are SPAs, and a lazy read cannot go stale the way a cached one can. */
+export function channelFromLocation(forPlatform: Platform, href: string): string | undefined {
+  let path: string;
+  try {
+    path = new URL(href).pathname;
+  } catch {
+    return undefined;
+  }
+  const segments = path.split("/").filter(Boolean);
+  const [name, subpath, ...rest] = segments;
+  if (!name) return undefined;
+  const login = name.toLowerCase();
+  if (RESERVED_PATHS[forPlatform].has(login)) return undefined;
+  if (subpath !== undefined && !CHANNEL_SUBPATHS[forPlatform].has(subpath.toLowerCase())) return undefined;
+  // Only a clip carries a third segment (its slug); everything else stops here.
+  if (rest.length > 0 && !(forPlatform === "twitch" && subpath?.toLowerCase() === "clip" && rest.length === 1)) {
+    return undefined;
+  }
+  return login;
+}
+
 // The page console is where someone debugging a missing button would look.
 // There is no diagnostic channel from a content script into the activity log,
 // and adding one would cost more plumbing than this failure is worth.
@@ -266,12 +314,12 @@ function createButton(): HTMLButtonElement {
   const el = document.createElement("button");
   el.id = BUTTON_ID;
   el.type = "button";
-  el.innerHTML = `${ICON}<span>Lurkloot</span>`;
+  el.innerHTML = `${ICON}<span>Lurkloot</span><span id="${CARET_ID}" aria-hidden="true" style="opacity:.7;font-size:9px;line-height:1">▾</span>`;
   // The visible text is the accessible name, so no aria-label: adding one would
   // override what the user can actually read. Neither string is localized —
   // this module is dependency-free by design and cannot reach the locale
   // catalogs without pulling the popup bundle into every page load.
-  el.title = "Open Lurkloot";
+  el.title = message("inPageOpenPanel", "Open Lurkloot");
   el.setAttribute("aria-expanded", "false");
   el.style.cssText = [
     "all:unset",
@@ -298,8 +346,166 @@ function createButton(): HTMLButtonElement {
   ].join(";");
   el.addEventListener("mouseenter", () => { el.style.background = HOVER_BACKGROUND; });
   el.addEventListener("mouseleave", () => { el.style.background = IDLE_BACKGROUND; });
-  el.addEventListener("click", () => { void togglePanel(); });
+  el.addEventListener("click", (event) => {
+    // The caret is a child of the button (one nav footprint, one anchor to keep
+    // working on two sites that rewrite their navs), so the split is decided
+    // here rather than by nesting a second button inside this one.
+    if (event.target instanceof Element && event.target.closest(`#${CARET_ID}`)) {
+      event.preventDefault();
+      event.stopPropagation();
+      void toggleMenu();
+      return;
+    }
+    void togglePanel();
+  });
+  el.addEventListener("keydown", (event) => {
+    if (event.key !== "ArrowDown" || menu) return;
+    event.preventDefault();
+    void toggleMenu();
+  });
   return el;
+}
+
+/* -------------------------------------------------------------- nav menu */
+
+// Localized through browser.i18n, which is a browser API: it costs this bundle
+// nothing, unlike importing @lurkloot/locales. The English strings are the
+// fallback for a catalog that has not materialized.
+function message(key: string, fallback: string, substitution?: string): string {
+  const getMessage = browser.i18n?.getMessage as ((key: string, substitutions?: string[]) => string) | undefined;
+  const value = substitution ? getMessage?.(key, [substitution]) : getMessage?.(key);
+  return value || (substitution ? fallback.replace("$1", substitution) : fallback);
+}
+
+let menu: HTMLDivElement | undefined;
+
+async function toggleMenu(): Promise<void> {
+  if (menu) {
+    closeMenu();
+    return;
+  }
+  if (!button) return;
+  // Recomputed on open: both sites are SPAs, so a channel captured on
+  // navigation could be stale by the time the menu is used.
+  const channel = channelFromLocation(platform, location.href);
+  const watchlist = await readWatchlist();
+  const listed = channel ? watchlist.includes(channel) : false;
+
+  menu = document.createElement("div");
+  menu.id = MENU_ID;
+  menu.setAttribute("role", "menu");
+  menu.style.cssText = [
+    "position:fixed",
+    "z-index:2147483646",
+    "min-width:220px",
+    "padding:4px",
+    "border-radius:10px",
+    `background:${CHROME_SURFACE}`,
+    `color:${CHROME_TEXT}`,
+    "box-shadow:0 18px 40px -16px rgba(0,0,0,.55)",
+    "font:500 13px/1.3 system-ui, sans-serif",
+  ].join(";");
+
+  const items: Array<{ label: string; run(): void }> = [
+    { label: message("inPageOpenPanel", "Open Lurkloot"), run: () => { void togglePanel(); } },
+  ];
+  // The cap is enforced in normalizeChannelList, so an add past it would be
+  // silently dropped; the menu stops offering it instead.
+  const atLimit = watchlist.length >= IDLE_WATCHLIST_LIMIT;
+  if (channel && (listed || !atLimit)) {
+    items.push(listed
+      ? {
+        label: message("inPageRemoveFromWatchlist", "Remove $1 from the idle watchlist", channel),
+        run: () => { void writeWatchlist(watchlist.filter((entry) => entry !== channel)); },
+      }
+      : {
+        label: message("inPageAddToWatchlist", "Add $1 to the idle watchlist", channel),
+        run: () => { void writeWatchlist([...watchlist, channel]); },
+      });
+  }
+
+  const buttons = items.map((item, index) => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.setAttribute("role", "menuitem");
+    row.dataset.menuIndex = String(index);
+    row.textContent = item.label;
+    row.style.cssText = [
+      "all:unset",
+      "box-sizing:border-box",
+      "display:block",
+      "width:100%",
+      "cursor:pointer",
+      "padding:7px 9px",
+      "border-radius:7px",
+      "white-space:nowrap",
+      "overflow:hidden",
+      "text-overflow:ellipsis",
+    ].join(";");
+    row.addEventListener("mouseenter", () => { row.style.background = CHROME_HOVER; });
+    row.addEventListener("mouseleave", () => { row.style.background = "transparent"; });
+    row.addEventListener("click", () => { item.run(); closeMenu(); });
+    return row;
+  });
+  for (const row of buttons) menu.append(row);
+
+  menu.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.stopPropagation();
+      closeMenu();
+      button?.focus();
+      return;
+    }
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    event.preventDefault();
+    const current = buttons.findIndex((row) => row === document.activeElement);
+    const step = event.key === "ArrowDown" ? 1 : -1;
+    const next = (current + step + buttons.length) % buttons.length;
+    buttons[next]?.focus();
+  });
+
+  document.body.append(menu);
+  const anchor = button.getBoundingClientRect();
+  menu.style.top = `${Math.round(anchor.bottom + 6)}px`;
+  menu.style.left = `${Math.round(Math.max(8, Math.min(anchor.right - menu.offsetWidth, window.innerWidth - menu.offsetWidth - 8)))}px`;
+  button.setAttribute("aria-expanded", "true");
+  buttons[0]?.focus();
+  // Registered after this click finishes, so the click that opened the menu
+  // cannot immediately close it again.
+  setTimeout(() => document.addEventListener("click", onDocumentClick, true), 0);
+}
+
+function onDocumentClick(event: MouseEvent): void {
+  if (!menu) return;
+  const target = event.target;
+  if (target instanceof Node && (menu.contains(target) || button?.contains(target))) return;
+  closeMenu();
+}
+
+function closeMenu(): void {
+  document.removeEventListener("click", onDocumentClick, true);
+  menu?.remove();
+  menu = undefined;
+  button?.setAttribute("aria-expanded", "false");
+}
+
+async function readWatchlist(): Promise<string[]> {
+  const stored = await browser.storage.local.get(SETTINGS_KEY);
+  const settings = stored[SETTINGS_KEY] as Partial<ExtensionSettings> | undefined;
+  const channels = settings?.platform?.[platform]?.idleWatchlistChannels;
+  return Array.isArray(channels) ? channels : [];
+}
+
+// Written through the background's saveSettings so the list goes through
+// normalization and the scheduler tick. Writing storage.local directly would
+// skip both.
+async function writeWatchlist(channels: string[]): Promise<void> {
+  await browser.runtime.sendMessage({
+    type: "saveSettings",
+    settingsPatch: { platform: { [platform]: { idleWatchlistChannels: channels } } },
+    tickAfterSave: true,
+    tickAfterSavePlatforms: [platform],
+  }).catch(() => undefined);
 }
 
 // Twitch and Kick are both client-rendered: navigating re-renders the nav and

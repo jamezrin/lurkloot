@@ -1684,5 +1684,14 @@
   },
   "gamesEmpty": {
     "message": "لا توجد حملات $1 نشطة الآن."
+  },
+  "inPageOpenPanel": {
+    "message": "فتح Lurkloot"
+  },
+  "inPageAddToWatchlist": {
+    "message": "أضف $1 إلى قائمة الانتظار"
+  },
+  "inPageRemoveFromWatchlist": {
+    "message": "أزل $1 من قائمة الانتظار"
   }
 }

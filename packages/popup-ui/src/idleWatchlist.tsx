@@ -5,6 +5,7 @@ import { DragDropProvider } from "@dnd-kit/react";
 import { useSortable } from "@dnd-kit/react/sortable";
 import { Eye, Play, Plus } from "lucide-react";
 import type { Platform } from "@lurkloot/shared/models";
+import { IDLE_WATCHLIST_LIMIT } from "@lurkloot/shared/settings";
 import { useT } from "./context";
 import { formatViewers } from "./format";
 import { channelUrl } from "./viewModels";
@@ -55,13 +56,14 @@ export function IdleWatchlistPanel({ platform, streamers, expanded, adding, onEx
     <section id="idle-watchlist" className="space-y-1.5">
       <SectionHeader
         label={t("idleWatchlistTab")}
-        count={`${streamers.length}/20`}
+        count={`${streamers.length}/${IDLE_WATCHLIST_LIMIT}`}
         icon={Play}
         expanded={expanded}
         onToggle={() => onExpandedChange(!expanded)}
         action={(
           <IconButton
             label={t("addChannel")}
+            disabled={streamers.length >= IDLE_WATCHLIST_LIMIT}
             onClick={() => { onExpandedChange(true); onAddingChange(true); }}
           >
             <Plus size={15} />

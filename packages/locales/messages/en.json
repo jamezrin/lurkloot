@@ -1684,5 +1684,14 @@
   },
   "gamesEmpty": {
     "message": "No $1 campaigns are live right now."
+  },
+  "inPageOpenPanel": {
+    "message": "Open Lurkloot"
+  },
+  "inPageAddToWatchlist": {
+    "message": "Add $1 to the idle watchlist"
+  },
+  "inPageRemoveFromWatchlist": {
+    "message": "Remove $1 from the idle watchlist"
   }
 }
