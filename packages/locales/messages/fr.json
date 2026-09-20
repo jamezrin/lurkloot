@@ -77,9 +77,6 @@
   "navIdleWatchlist": {
     "message": "Liste d'attente"
   },
-  "navExtensions": {
-    "message": "Extensions"
-  },
   "navActivity": {
     "message": "Activité"
   },
@@ -1696,5 +1693,14 @@
   },
   "inPageRemoveFromWatchlist": {
     "message": "Retirer $1 de la liste d'attente"
+  },
+  "navNoPixel": {
+    "message": "NoPixel V"
+  },
+  "navFortnite": {
+    "message": "Fortnite"
+  },
+  "gamesBlockedEmpty": {
+    "message": "Rien n'est bloqué. Utilisez le ⊘ d'un jeu pour l'exclure du farming dans les deux modes."
   }
 }

@@ -26,7 +26,7 @@ import {
 /** The watchlist as a collapsible section under the drops list. Expansion and the
  * add form are controlled from the popup so the shared list toolbar can open
  * both — that toolbar is what replaced the Drops/Idle Watchlist tab pair. */
-export function IdleWatchlistPanel({ platform, streamers, expanded, adding, collapsible = true, onExpandedChange, onAddingChange, onChange }: { platform: Platform; streamers: StreamerItem[]; expanded: boolean; adding: boolean; collapsible?: boolean; onExpandedChange(expanded: boolean): void; onAddingChange(adding: boolean): void; onChange(streamers: StreamerItem[]): void | Promise<void> }) {
+export function IdleWatchlistPanel({ platform, streamers, expanded, adding, bare = false, onExpandedChange, onAddingChange, onChange }: { platform: Platform; streamers: StreamerItem[]; expanded: boolean; adding: boolean; bare?: boolean; onExpandedChange(expanded: boolean): void; onAddingChange(adding: boolean): void; onChange(streamers: StreamerItem[]): void | Promise<void> }) {
   const t = useT();
   const [value, setValue] = useState("");
 
@@ -52,25 +52,38 @@ export function IdleWatchlistPanel({ platform, streamers, expanded, adding, coll
     void onChange(streamers.filter((streamer) => streamer.id !== id));
   }
 
+  const addButton = (
+    <IconButton
+      label={t("addChannel")}
+      disabled={streamers.length >= IDLE_WATCHLIST_LIMIT}
+      onClick={() => { onExpandedChange(true); onAddingChange(true); }}
+    >
+      <Plus size={15} />
+    </IconButton>
+  );
+
   return (
     <section id="idle-watchlist" className="space-y-1.5">
-      <SectionHeader
-        label={t("idleWatchlistTab")}
-        count={`${streamers.length}/${IDLE_WATCHLIST_LIMIT}`}
-        icon={Play}
-        expanded={expanded}
-        collapsible={collapsible}
-        onToggle={() => onExpandedChange(!expanded)}
-        action={(
-          <IconButton
-            label={t("addChannel")}
-            disabled={streamers.length >= IDLE_WATCHLIST_LIMIT}
-            onClick={() => { onExpandedChange(true); onAddingChange(true); }}
-          >
-            <Plus size={15} />
-          </IconButton>
-        )}
-      />
+      {/* In its own destination the rail and the view title already name this
+          list, so it drops its heading and keeps only what the heading carried
+          that is not a repetition: the count and the add button. */}
+      {bare ? (
+        <div className="flex items-center justify-end gap-2 px-1">
+          <span className="font-mono text-[11px] text-zinc-400 tabular dark:text-zinc-500">
+            {streamers.length}/{IDLE_WATCHLIST_LIMIT}
+          </span>
+          {addButton}
+        </div>
+      ) : (
+        <SectionHeader
+          label={t("idleWatchlistTab")}
+          count={`${streamers.length}/${IDLE_WATCHLIST_LIMIT}`}
+          icon={Play}
+          expanded={expanded}
+          onToggle={() => onExpandedChange(!expanded)}
+          action={addButton}
+        />
+      )}
       <AnimatePresence initial={false}>
         {expanded ? (
           <motion.div key="watchlist" initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">

@@ -17,27 +17,38 @@
   --font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
 }
 
-/* One product accent, on :root rather than per platform.
+/* The accent follows the platform.
  *
- * Every accent used to BE the platform's brand colour, which made Twitch purple
- * and Kick green the product's identity and repainted the whole popup on a tab
- * switch (#566). The platform hues live on --platform-* now and are used only
- * where the UI has to say which platform something belongs to: the rail's
- * platform switch and per-row badges.
+ * Twitch purple and Kick green are what the user is looking at on the other
+ * side of the screen, so the popup reads as part of that platform's session
+ * while it is farming there. --platform-* stays available for anything that has
+ * to name a platform while another one is selected (the rail's switch).
  *
- * The value below is the pre-existing violet, kept deliberately: #566 chooses
- * the brand palette, and this file is now the single place that choice lands.
- * See docs/brand.md. */
-:root {
-  --accent: #7c5cff;
-  --accent-strong: #6947e4;
+ * This is the open half of #566: a product palette of its own would live here,
+ * and docs/brand.md holds the candidates. */
+[data-platform="twitch"] {
+  --accent: #9147ff;
+  --accent-strong: #7c3aed;
   --accent-contrast: #ffffff;
-  --accent-text: #5b3fd1;
-  --accent-soft: color-mix(in srgb, #7c5cff 12%, transparent);
-  --accent-softer: color-mix(in srgb, #7c5cff 6%, transparent);
-  --accent-ring: color-mix(in srgb, #7c5cff 40%, transparent);
-  --accent-glow: color-mix(in srgb, #7c5cff 38%, transparent);
+  --accent-text: #7c3aed;
+  --accent-soft: color-mix(in srgb, #9147ff 12%, transparent);
+  --accent-softer: color-mix(in srgb, #9147ff 6%, transparent);
+  --accent-ring: color-mix(in srgb, #9147ff 40%, transparent);
+  --accent-glow: color-mix(in srgb, #9147ff 38%, transparent);
+}
 
+[data-platform="kick"] {
+  --accent: #53fc18;
+  --accent-strong: #3fbf12;
+  --accent-contrast: #07140a;
+  --accent-text: #2f9e12;
+  --accent-soft: color-mix(in srgb, #53fc18 16%, transparent);
+  --accent-softer: color-mix(in srgb, #53fc18 8%, transparent);
+  --accent-ring: color-mix(in srgb, #53fc18 44%, transparent);
+  --accent-glow: color-mix(in srgb, #53fc18 36%, transparent);
+}
+
+:root {
   --platform-twitch: #9147ff;
   --platform-twitch-text: #7c3aed;
   --platform-kick: #53fc18;
@@ -45,12 +56,21 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --accent-text: #b9a5ff;
-    --accent-soft: color-mix(in srgb, #7c5cff 22%, transparent);
-    --accent-softer: color-mix(in srgb, #7c5cff 12%, transparent);
-    --accent-glow: color-mix(in srgb, #7c5cff 50%, transparent);
+  [data-platform="twitch"] {
+    --accent-text: #c4a7ff;
+    --accent-soft: color-mix(in srgb, #9147ff 22%, transparent);
+    --accent-softer: color-mix(in srgb, #9147ff 12%, transparent);
+    --accent-glow: color-mix(in srgb, #9147ff 50%, transparent);
+  }
 
+  [data-platform="kick"] {
+    --accent-text: #7bfd49;
+    --accent-soft: color-mix(in srgb, #53fc18 20%, transparent);
+    --accent-softer: color-mix(in srgb, #53fc18 11%, transparent);
+    --accent-glow: color-mix(in srgb, #53fc18 46%, transparent);
+  }
+
+  :root {
     --platform-twitch-text: #c4a7ff;
     --platform-kick-text: #7bfd49;
   }

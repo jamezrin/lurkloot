@@ -77,9 +77,6 @@
   "navIdleWatchlist": {
     "message": "Yedek izleme listesi"
   },
-  "navExtensions": {
-    "message": "Uzantılar"
-  },
   "navActivity": {
     "message": "Etkinlik"
   },
@@ -1696,5 +1693,14 @@
   },
   "inPageRemoveFromWatchlist": {
     "message": "$1 kanalını yedek listeden çıkar"
+  },
+  "navNoPixel": {
+    "message": "NoPixel V"
+  },
+  "navFortnite": {
+    "message": "Fortnite"
+  },
+  "gamesBlockedEmpty": {
+    "message": "Hiçbir şey engellenmedi. Bir oyundaki ⊘ ile onu her iki modda da farm dışında tutun."
   }
 }

@@ -1,5 +1,5 @@
 import React from "react";
-import { ArrowUpRight, Clock3, Gamepad2, Eye, ListChecks, Package, Puzzle, Settings as SettingsIcon, Trophy } from "lucide-react";
+import { ArrowUpRight, Clock3, Gamepad2, Eye, Gift, ListChecks, Package, Settings as SettingsIcon, Sparkles, Trophy } from "lucide-react";
 import type { Platform } from "@lurkloot/shared/models";
 import type { AutomationPresentation } from "./automationStatus";
 import { PLATFORMS } from "./constants";
@@ -11,9 +11,9 @@ import { Toggle, cn } from "./primitives";
 // switch applies to every view, so "which platform" and "which view" can never
 // be confused for one another the way the old settingsOpen/activityOpen booleans
 // were confused with the drops list.
-export type PopupView = "queue" | "completed" | "games" | "watchlist" | "extensions" | "activity" | "settings";
+export type PopupView = "queue" | "completed" | "games" | "watchlist" | "nopixel" | "fortnite" | "activity" | "settings";
 
-export const POPUP_VIEWS: PopupView[] = ["queue", "completed", "games", "watchlist", "extensions", "activity", "settings"];
+export const POPUP_VIEWS: PopupView[] = ["queue", "completed", "games", "watchlist", "nopixel", "fortnite", "activity", "settings"];
 
 interface NavItem {
   view: PopupView;
@@ -30,9 +30,13 @@ const DROPS_ITEMS: NavItem[] = [
   { view: "games", labelKey: "navGames", icon: Gamepad2 },
 ];
 
+// Each Twitch extension provider is its own destination: they share nothing
+// but the API they are farmed through, and a shared list could only afford a
+// name and a badge each.
 const IDLE_ITEMS: NavItem[] = [
   { view: "watchlist", labelKey: "navIdleWatchlist", icon: Eye },
-  { view: "extensions", labelKey: "navExtensions", icon: Puzzle, platform: "twitch" },
+  { view: "nopixel", labelKey: "navNoPixel", icon: Gift, platform: "twitch" },
+  { view: "fortnite", labelKey: "navFortnite", icon: Sparkles, platform: "twitch" },
 ];
 
 const FOOTER_ITEMS: NavItem[] = [

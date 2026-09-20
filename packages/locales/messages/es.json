@@ -77,9 +77,6 @@
   "navIdleWatchlist": {
     "message": "Lista de reserva"
   },
-  "navExtensions": {
-    "message": "Extensiones"
-  },
   "navActivity": {
     "message": "Actividad"
   },
@@ -1696,5 +1693,14 @@
   },
   "inPageRemoveFromWatchlist": {
     "message": "Quitar $1 de la lista de reserva"
+  },
+  "navNoPixel": {
+    "message": "NoPixel V"
+  },
+  "navFortnite": {
+    "message": "Fortnite"
+  },
+  "gamesBlockedEmpty": {
+    "message": "No hay nada bloqueado. Usa el ⊘ de un juego para que nunca se farmee, en ningún modo."
   }
 }

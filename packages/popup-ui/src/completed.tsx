@@ -39,7 +39,7 @@ export function CompletedPanel({ campaigns, gameMap, focus, refreshing, onRefres
 
   return (
     <section className="space-y-1.5">
-      <div role="group" aria-label={t("navCompleted")} className="flex items-center gap-0.5 rounded-full border border-zinc-200 p-0.5 dark:border-zinc-700">
+      <div role="group" aria-label={t("navCompleted")} className="inline-flex w-fit items-center gap-0.5 rounded-full border border-zinc-200 p-0.5 dark:border-zinc-700">
         {([["finished", finished.length], ["expired", expired.length]] as const).map(([value, count]) => (
           <button
             key={value}

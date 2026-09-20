@@ -121,12 +121,12 @@ export function SettingRow({ title, description, checked, onChange, disabled = f
   disabledReason?: string;
 }) {
   return (
-    <div className={cn("flex items-center gap-3 py-2.5", disabled && "opacity-60")} title={disabled ? disabledReason : undefined}>
-      <div className="min-w-0 flex-1">
-        <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{title}</div>
-        <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
+    <div className={cn("@[520px]:grid-cols-[minmax(0,13rem)_minmax(0,1fr)_auto] grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-0.5 py-2.5", disabled && "opacity-60")} title={disabled ? disabledReason : undefined}>
+      <div className="@[520px]:col-auto min-w-0 text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{title}</div>
+      <div className="@[520px]:col-auto @[520px]:row-auto @[520px]:mt-0 col-span-2 row-start-2 mt-0.5 min-w-0 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
+      <div className="@[520px]:row-auto row-start-1 justify-self-end">
+        <Toggle checked={checked} onChange={onChange} label={title} disabled={disabled} />
       </div>
-      <Toggle checked={checked} onChange={onChange} label={title} disabled={disabled} />
     </div>
   );
 }
@@ -174,7 +174,7 @@ export function SelectControl<T extends string>({ label, value, options, onChang
   disabledReason?: string;
 }) {
   return (
-    <label className={cn("flex min-w-0 max-w-[45%] shrink-0 items-center rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[11px] font-semibold text-zinc-500 focus-within:border-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400", disabled && "cursor-not-allowed")}>
+    <label className={cn("@[520px]:max-w-[15rem] flex min-w-[9.5rem] max-w-[11rem] shrink-0 items-center rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[11px] font-semibold text-zinc-500 focus-within:border-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400", disabled && "cursor-not-allowed")}>
       <select
         aria-label={label}
         title={disabled ? disabledReason : options.find((option) => option.value === value)?.label}
@@ -201,7 +201,7 @@ export function SelectSettingRow<T extends string>({ title, description, value, 
   disabledReason?: string;
 }) {
   return (
-    <div className={cn("flex items-center gap-3 py-2.5", disabled && "opacity-60")} title={disabled ? disabledReason : undefined}>
+    <div className={cn("flex items-center gap-4 py-2.5", disabled && "opacity-60")} title={disabled ? disabledReason : undefined}>
       <div className="min-w-0 flex-1">
         <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{title}</div>
         <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>

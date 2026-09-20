@@ -266,6 +266,9 @@ describe("i18n", () => {
       "navPlatform",
       "navExtensions",
       "queueFacetDrops",
+      // Provider names, which are brands and never translated.
+      "navNoPixel",
+      "navFortnite",
       // Watch-source labels include provider brands and the common Drops term.
       "watchSourceNoPixel",
       "watchSourceFortnite",

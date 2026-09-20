@@ -183,6 +183,99 @@ export function TwitchExtensionDrops({ settings, summaries, activeProvider, onSe
   );
 }
 
+export const TWITCH_EXTENSION_PROVIDERS = PROVIDERS;
+
+/** One provider, in a destination of its own.
+ *
+ * The grouped list could only afford a name, a count and a couple of badges per
+ * provider; here everything the summary carries is visible at once — status,
+ * progress, every badge, the provider's own option, and the way to turn it off. */
+export function TwitchExtensionView({ providerId, settings, summary, active, pending, onEnabledChange, onOptionChange, onSetup }: {
+  providerId: TwitchExtensionProviderId;
+  settings: ExtensionSettings;
+  summary?: TwitchExtensionSummary;
+  active: boolean;
+  pending: boolean;
+  onEnabledChange(enabled: boolean): void | Promise<void>;
+  onOptionChange(enabled: boolean): void | Promise<void>;
+  onSetup?(): void;
+}) {
+  const t = useT();
+  const provider = PROVIDERS.find((entry) => entry.id === providerId)!;
+  const Icon = provider.icon;
+  const enabled = settings.twitchExtensions[providerId].enabled;
+  const option = providerId === "nopixel"
+    ? settings.twitchExtensions.nopixel.autoOpenPacks
+    : settings.twitchExtensions.fortnite.allowTakeovers;
+  const { progress, badges } = providerDetails(providerId, summary, t);
+
+  return (
+    <section aria-label={provider.name} className="space-y-2">
+      <div className="flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", enabled ? "bg-[var(--accent-soft)] text-[var(--accent-text)]" : "bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500")}>
+          <Icon size={17} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 text-[13px] font-semibold text-zinc-900 dark:text-zinc-50">
+            {provider.name}
+            {active ? <span aria-hidden="true" className="h-1.5 w-1.5 animate-pulse rounded-full" style={{ backgroundColor: "var(--accent)" }} /> : null}
+          </div>
+          <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{t(provider.hint)}</div>
+        </div>
+        <Toggle checked={enabled} disabled={pending} onChange={onEnabledChange} label={provider.name} />
+      </div>
+
+      {enabled ? (
+        <>
+          <div className="space-y-2 rounded-2xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[12px] font-semibold text-zinc-800 dark:text-zinc-100">
+                {t(statusKey(providerId, summary))}
+              </span>
+              {progress ? (
+                <span className="font-mono text-[11px] tabular text-zinc-500 dark:text-zinc-400">{progress.earned}/{progress.required}</span>
+              ) : null}
+            </div>
+            {progress ? (
+              <>
+                <div className="h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+                  <div className="h-full rounded-full" style={{ width: `${progress.percent}%`, backgroundColor: "var(--accent)" }} />
+                </div>
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400">{progress.label}</p>
+              </>
+            ) : (
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">{t("extensionIdle")}</p>
+            )}
+            {badges.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5 pt-0.5">
+                {badges.map((badge) => <StatusBadge key={badge.key} badge={badge} />)}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="min-w-0 flex-1">
+              <div className="text-[12px] font-medium text-zinc-800 dark:text-zinc-100">{t(provider.optionTitle)}</div>
+              <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{t(provider.optionHint)}</div>
+            </div>
+            <Toggle checked={option} disabled={pending} onChange={onOptionChange} label={t(provider.optionTitle)} />
+          </div>
+        </>
+      ) : (
+        <p className="rounded-2xl border border-dashed border-zinc-200 p-3 text-[11px] leading-snug text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+          {t("extensionSettingsHint")}
+        </p>
+      )}
+
+      {onSetup ? (
+        <button type="button" onClick={onSetup} className="text-[11px] font-semibold text-[var(--accent-text)] hover:underline">
+          {t("extensionAccountSetup")}
+        </button>
+      ) : null}
+    </section>
+  );
+}
+
 export function twitchExtensionSearchText(t: (key: string) => string): string {
   return [
     t("extensionSettingsTitle"),

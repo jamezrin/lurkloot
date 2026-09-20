@@ -95,7 +95,7 @@ export function GamesPanel({
   return (
     <section className="space-y-2">
       <div className="flex items-center gap-1.5">
-        <div role="group" aria-label={t("categoryModeTitle")} className="flex items-center gap-0.5 rounded-full border border-zinc-200 p-0.5 dark:border-zinc-700">
+        <div role="group" aria-label={t("categoryModeTitle")} className="inline-flex w-fit items-center gap-0.5 rounded-full border border-zinc-200 p-0.5 dark:border-zinc-700">
           {(["all", "include"] as const).map((mode) => (
             <button
               key={mode}
@@ -201,12 +201,17 @@ export function GamesPanel({
         }}
       />
 
-      {blockedCategories.length > 0 ? (
-        <div className="space-y-1 pt-1">
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-[9.5px] uppercase tracking-[0.07em] text-zinc-400 dark:text-zinc-500">{t("gamesBlocked")}</span>
-            <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
-          </div>
+      <div className="space-y-1 pt-1">
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[9.5px] uppercase tracking-[0.07em] text-zinc-400 dark:text-zinc-500">{t("gamesBlocked")}</span>
+          <span className="truncate text-[10px] text-zinc-400 dark:text-zinc-500">{t("gamesBlockedHint")}</span>
+          <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+        </div>
+        {blockedCategories.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-zinc-200 px-2.5 py-2 text-[11px] leading-snug text-zinc-400 dark:border-zinc-700 dark:text-zinc-500">
+            {t("gamesBlockedEmpty")}
+          </p>
+        ) : null}
           {blockedCategories.map((category) => (
             <div
               key={category.id}
@@ -230,8 +235,7 @@ export function GamesPanel({
               </button>
             </div>
           ))}
-        </div>
-      ) : null}
+      </div>
     </section>
   );
 }

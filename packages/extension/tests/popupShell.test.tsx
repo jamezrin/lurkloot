@@ -61,7 +61,7 @@ describe("popup workspace shell", () => {
     const container = await mountPopup();
 
     expect(currentView(container)).toBe("queue");
-    for (const view of ["queue", "completed", "games", "watchlist", "extensions", "activity", "settings"]) {
+    for (const view of ["queue", "completed", "games", "watchlist", "nopixel", "fortnite", "activity", "settings"]) {
       expect(rail(container, view), view).not.toBeNull();
     }
   });
@@ -71,7 +71,10 @@ describe("popup workspace shell", () => {
 
     go(container, "watchlist");
     expect(currentView(container)).toBe("watchlist");
-    expect(panelText(container)).toContain("Idle Watchlist");
+    // The rail and the view title already say "Idle watchlist", so the panel
+    // itself carries the channels rather than repeating the name a third time.
+    expect(container.querySelector("#idle-watchlist")).not.toBeNull();
+    expect(panelText(container)).toContain("RivalsPilot");
 
     go(container, "settings");
     expect(currentView(container)).toBe("settings");
@@ -94,20 +97,22 @@ describe("popup workspace shell", () => {
     }
   });
 
-  it("hides the Twitch-only extensions destination on Kick", async () => {
+  it("hides the Twitch-only extension destinations on Kick", async () => {
     const container = await mountPopup();
 
-    expect(rail(container, "extensions")).not.toBeNull();
+    expect(rail(container, "nopixel")).not.toBeNull();
+    expect(rail(container, "fortnite")).not.toBeNull();
     act(() => container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Kick"]')?.click());
 
-    expect(rail(container, "extensions")).toBeNull();
+    expect(rail(container, "nopixel")).toBeNull();
+    expect(rail(container, "fortnite")).toBeNull();
   });
 
   it("leaves a Twitch-only destination when the platform changes under it", async () => {
     const container = await mountPopup();
 
-    go(container, "extensions");
-    expect(currentView(container)).toBe("extensions");
+    go(container, "fortnite");
+    expect(currentView(container)).toBe("fortnite");
 
     act(() => container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Kick"]')?.click());
 
@@ -117,14 +122,14 @@ describe("popup workspace shell", () => {
   it("does not strand the rail when a Twitch-only destination is left and returned to", async () => {
     const container = await mountPopup();
 
-    go(container, "extensions");
+    go(container, "nopixel");
     act(() => container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Kick"]')?.click());
     act(() => container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Twitch"]')?.click());
 
     // Back on Twitch the entry exists again, but the view stayed where the
     // fallback put it, so exactly one rail entry is current.
     expect(currentView(container)).toBe("queue");
-    expect(rail(container, "extensions")).not.toBeNull();
+    expect(rail(container, "nopixel")).not.toBeNull();
     expect([...container.querySelectorAll('[aria-current="page"]')]).toHaveLength(1);
     expect(rail(container, "queue")?.getAttribute("aria-current")).toBe("page");
   });

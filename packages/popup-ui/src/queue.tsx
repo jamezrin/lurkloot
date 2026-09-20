@@ -377,7 +377,7 @@ function FacetTabs({ facet, onChange }: { facet: QueueFacet; onChange(facet: Que
   const t = useT();
   const options: Array<[QueueFacet, string]> = [["all", "queueFacetAll"], ["drops", "queueFacetDrops"], ["badges", "queueFacetBadges"]];
   return (
-    <div role="group" aria-label={t("queueFacetLabel")} className="flex items-center gap-0.5 rounded-full border border-zinc-200 p-0.5 dark:border-zinc-700">
+    <div role="group" aria-label={t("queueFacetLabel")} className="inline-flex w-fit items-center gap-0.5 rounded-full border border-zinc-200 p-0.5 dark:border-zinc-700">
       {options.map(([value, labelKey]) => (
         <button
           key={value}

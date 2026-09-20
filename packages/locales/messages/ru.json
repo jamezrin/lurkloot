@@ -77,9 +77,6 @@
   "navIdleWatchlist": {
     "message": "Резервный список"
   },
-  "navExtensions": {
-    "message": "Расширения"
-  },
   "navActivity": {
     "message": "Активность"
   },
@@ -1696,5 +1693,14 @@
   },
   "inPageRemoveFromWatchlist": {
     "message": "Убрать $1 из резервного списка"
+  },
+  "navNoPixel": {
+    "message": "NoPixel V"
+  },
+  "navFortnite": {
+    "message": "Fortnite"
+  },
+  "gamesBlockedEmpty": {
+    "message": "Ничего не заблокировано. Нажмите ⊘ у игры, чтобы её не фармили ни в одном режиме."
   }
 }

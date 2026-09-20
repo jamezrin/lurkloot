@@ -77,9 +77,6 @@
   "navIdleWatchlist": {
     "message": "आइडल वॉचलिस्ट"
   },
-  "navExtensions": {
-    "message": "एक्सटेंशन"
-  },
   "navActivity": {
     "message": "गतिविधि"
   },
@@ -1696,5 +1693,14 @@
   },
   "inPageRemoveFromWatchlist": {
     "message": "$1 को आइडल वॉचलिस्ट से हटाएँ"
+  },
+  "navNoPixel": {
+    "message": "NoPixel V"
+  },
+  "navFortnite": {
+    "message": "Fortnite"
+  },
+  "gamesBlockedEmpty": {
+    "message": "कुछ भी ब्लॉक नहीं है। किसी गेम पर ⊘ दबाएँ ताकि वह दोनों मोड में फ़ार्म न हो।"
   }
 }

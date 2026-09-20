@@ -77,9 +77,6 @@
   "navIdleWatchlist": {
     "message": "Ersatzliste"
   },
-  "navExtensions": {
-    "message": "Erweiterungen"
-  },
   "navActivity": {
     "message": "Aktivität"
   },
@@ -1696,5 +1693,14 @@
   },
   "inPageRemoveFromWatchlist": {
     "message": "$1 aus der Ersatzliste entfernen"
+  },
+  "navNoPixel": {
+    "message": "NoPixel V"
+  },
+  "navFortnite": {
+    "message": "Fortnite"
+  },
+  "gamesBlockedEmpty": {
+    "message": "Nichts ist blockiert. Mit dem ⊘ eines Spiels bleibt es in beiden Modi ungefarmt."
   }
 }

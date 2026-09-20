@@ -76,7 +76,7 @@ import { openHttpsLink } from "./links";
 import { IdleWatchlistPanel } from "./idleWatchlist";
 import { AutomationStatusLine, PlatformBar } from "./automation";
 import { automationPresentation, type AutomationPresentation } from "./automationStatus";
-import { changeTwitchExtensionEnabled, TwitchExtensionDrops } from "./twitchExtensions";
+import { changeTwitchExtensionEnabled, TwitchExtensionView } from "./twitchExtensions";
 import { SettingsView } from "./settings";
 import { TipsBanner } from "./tips";
 export function screenshotVariant(id: string | null | undefined): ScreenshotVariant {
@@ -106,6 +106,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     return initialVariant.view === "watchlist" ? "watchlist" : "queue";
   });
   const [settingsOpenGeneration, setSettingsOpenGeneration] = useState(0);
+  const [extensionPending, setExtensionPending] = useState(false);
   const settingsOpen = view === "settings";
   const activityOpen = view === "activity";
   const [activityStream, setActivityStream] = useState<ActivityStream>(createActivityStream);
@@ -498,6 +499,19 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     return result.events.length;
   }
 
+  // The provider views drive the same handler the settings list does, with a
+  // pending flag so their toggle cannot be double-fired while the permission
+  // prompt and the tick are in flight.
+  async function changeExtensionEnabled(provider: TwitchExtensionProviderId, enabled: boolean): Promise<void> {
+    if (extensionPending) return;
+    setExtensionPending(true);
+    try {
+      await setExtensionEnabled(provider, enabled);
+    } finally {
+      setExtensionPending(false);
+    }
+  }
+
   async function setExtensionEnabled(provider: TwitchExtensionProviderId, enabled: boolean): Promise<boolean> {
     const result = await changeTwitchExtensionEnabled(adapter, provider, enabled);
     if (enabled && !result) return false;
@@ -721,7 +735,8 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     completed: "navCompleted",
     games: "navGames",
     watchlist: "navIdleWatchlist",
-    extensions: "navExtensions",
+    nopixel: "navNoPixel",
+    fortnite: "navFortnite",
     activity: "activityTitle",
     settings: "settingsTitle",
   };
@@ -786,7 +801,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
           </div>
         </div>
 
-        <div id="popup-platform-panel" className="nice-scroll min-h-0 flex-1 overflow-y-auto text-zinc-700 dark:text-zinc-300">
+        <div id="popup-platform-panel" className="nice-scroll @container min-h-0 flex-1 overflow-y-auto text-zinc-700 dark:text-zinc-300">
           <div className="space-y-2 p-3 pt-2">
             {/* The view itself is swapped outright rather than cross-faded: the
                 rail makes navigation frequent, and an exit animation would hold
@@ -818,7 +833,8 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                   ) : null}
                 </AnimatePresence>
                 {view === "settings" ? (
-                  <SettingsView suggestions={dropCategorySuggestions} onSearchCategories={searchCategories} settings={settings} onSettingsChange={updateSettings} onExtensionEnabledChange={adapter.requestTwitchExtensionPermission ? setExtensionEnabled : undefined} onExportCredentials={exportCredentials} onExportSettings={exportSettings} onImportSettings={importSettings} onReset={resetExtension} exportConfirmationResetKey={settingsOpenGeneration} compatibilityRegistry={adapter.compatibilityRegistry} compatibilityResolution={compatibilityResolution} focusGroupId={preview && variantShowsPopup(initialVariant) && initialVariant.view === "settings" ? "general.drops" : undefined} />
+                  <><SettingsView suggestions={dropCategorySuggestions} onSearchCategories={searchCategories} settings={settings} onSettingsChange={updateSettings} onExtensionEnabledChange={adapter.requestTwitchExtensionPermission ? setExtensionEnabled : undefined} onExportCredentials={exportCredentials} onExportSettings={exportSettings} onImportSettings={importSettings} onReset={resetExtension} exportConfirmationResetKey={settingsOpenGeneration} compatibilityRegistry={adapter.compatibilityRegistry} compatibilityResolution={compatibilityResolution} focusGroupId={preview && variantShowsPopup(initialVariant) && initialVariant.view === "settings" ? "general.drops" : undefined} />
+                  <AttributionFooter version={adapter.version} /></>
                 ) : view === "activity" ? (
                   <ActivityLog
                     activityEvents={activityStream.events}
@@ -875,7 +891,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                     platform={platform}
                     streamers={screenshotWatchlist}
                     expanded
-                    collapsible={false}
+                    bare
                     adding={watchlistAdding}
                     onExpandedChange={() => undefined}
                     onAddingChange={setWatchlistAdding}
@@ -890,8 +906,24 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                       { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
                     )}
                   />
-                ) : view === "extensions" ? (
-                  <TwitchExtensionDrops settings={settings} summaries={snapshot.state.twitchExtensions} activeProvider={snapshot.state.sessions.twitch.status === "watching" && snapshot.state.sessions.twitch.watchMode === "tabless" ? snapshot.state.sessions.twitch.supplementalWatch?.id : undefined} onSetup={() => adapter.openLink("https://help.twitch.tv/s/article/how-to-configure-extensions")} />
+                ) : view === "nopixel" || view === "fortnite" ? (
+                  <TwitchExtensionView
+                    providerId={view}
+                    settings={settings}
+                    summary={snapshot.state.twitchExtensions?.[view]}
+                    active={snapshot.state.sessions.twitch.status === "watching"
+                      && snapshot.state.sessions.twitch.watchMode === "tabless"
+                      && snapshot.state.sessions.twitch.supplementalWatch?.id === view}
+                    pending={extensionPending}
+                    onEnabledChange={(enabled) => void changeExtensionEnabled(view, enabled)}
+                    onOptionChange={(enabled) => void updateSettings(
+                      view === "nopixel"
+                        ? { twitchExtensions: { nopixel: { autoOpenPacks: enabled } } }
+                        : { twitchExtensions: { fortnite: { allowTakeovers: enabled } } },
+                      { tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] },
+                    )}
+                    onSetup={() => adapter.openLink("https://help.twitch.tv/s/article/how-to-configure-extensions")}
+                  />
                 ) : criticalFailureReason ? (
                   // A flagged platform loses its lists entirely: every drops
                   // view would be lying about what is being farmed.
@@ -962,7 +994,6 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
           </div>
         </div>
       </div>
-      {settingsOpen ? <AttributionFooter version={adapter.version} /> : null}
     </main>
     </I18nContext.Provider>
     </PopupRuntimeContext.Provider>

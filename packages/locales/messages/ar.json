@@ -77,9 +77,6 @@
   "navIdleWatchlist": {
     "message": "قائمة الانتظار للمشاهدة"
   },
-  "navExtensions": {
-    "message": "الإضافات"
-  },
   "navActivity": {
     "message": "النشاط"
   },
@@ -1696,5 +1693,14 @@
   },
   "inPageRemoveFromWatchlist": {
     "message": "أزل $1 من قائمة الانتظار"
+  },
+  "navNoPixel": {
+    "message": "NoPixel V"
+  },
+  "navFortnite": {
+    "message": "Fortnite"
+  },
+  "gamesBlockedEmpty": {
+    "message": "لا يوجد شيء محظور. استخدم ⊘ على لعبة لإبقائها خارج التجميع في كلا الوضعين."
   }
 }

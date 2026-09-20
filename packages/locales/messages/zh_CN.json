@@ -77,9 +77,6 @@
   "navIdleWatchlist": {
     "message": "空闲观看列表"
   },
-  "navExtensions": {
-    "message": "扩展"
-  },
   "navActivity": {
     "message": "活动"
   },
@@ -1696,5 +1693,14 @@
   },
   "inPageRemoveFromWatchlist": {
     "message": "将 $1 移出空闲观看列表"
+  },
+  "navNoPixel": {
+    "message": "NoPixel V"
+  },
+  "navFortnite": {
+    "message": "Fortnite"
+  },
+  "gamesBlockedEmpty": {
+    "message": "没有已屏蔽的游戏。点击游戏上的 ⊘ 可让它在两种模式下都不被挂机。"
   }
 }

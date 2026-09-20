@@ -77,9 +77,6 @@
   "navIdleWatchlist": {
     "message": "Idle watchlist"
   },
-  "navExtensions": {
-    "message": "Extensions"
-  },
   "navActivity": {
     "message": "Activity"
   },
@@ -1696,5 +1693,14 @@
   },
   "inPageRemoveFromWatchlist": {
     "message": "Remove $1 from the idle watchlist"
+  },
+  "navNoPixel": {
+    "message": "NoPixel V"
+  },
+  "navFortnite": {
+    "message": "Fortnite"
+  },
+  "gamesBlockedEmpty": {
+    "message": "Nothing is blocked. Use the ⊘ on a game to keep it out of farming in both modes."
   }
 }
