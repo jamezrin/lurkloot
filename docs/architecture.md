@@ -103,20 +103,42 @@ The popup and content scripts do not call adapters directly. They send typed run
 Important setting groups:
 
 - Global automation: `running`, `autoStartDropFarming`, per-platform `enabled`.
-- Farming behavior: `autoClaim`, `autoClaimChannelPoints`, `priorityMode`, `campaignPriorities`, `excludedCampaignIds`, `farmingEligibility`.
-- Platform preferences: `platform[platform].watchSourcePriority`, `platform[platform].idleWatchlistChannels`, `platform[platform].excludedChannels`, `platform[platform].categoryMode`, and `platform[platform].categories`.
+- Farming behavior: `autoClaim`, `autoClaimChannelPoints`, `priorityMode`, `campaignPins`, `farmPinnedOnly`, `excludedCampaignIds`, `farmingEligibility`.
+- Platform preferences: `platform[platform].watchSourcePriority`, `platform[platform].idleWatchlistChannels`, `platform[platform].excludedChannels`, `platform[platform].categoryMode`, `platform[platform].categories`, `platform[platform].favouriteCategories`, and `platform[platform].blockedCategories`.
 
-`categoryMode` is `"all"`, `"include"` or `"exclude"`, and one stored `categories`
-list serves all three: `all` farms everything and leaves the list inactive,
-`include` farms only the listed categories (an empty list farms nothing) with
-list order supplying category priority, and `exclude` farms everything except the
-listed categories (an empty list is equivalent to `all`) with list order carrying
-no scheduling meaning. Switching mode never rewrites the array, so returning to
-`include` restores the ordering the user had set. Both questions — does a
-campaign pass, and what is its category priority — are answered only by
-`campaignPassesCategoryFilter` and `categoryPriorityScore` in
-`@lurkloot/shared/categories`, so farming eligibility, Drops-list visibility,
-scheduler rejection reasons and priority scoring cannot disagree.
+`categoryMode` is `"all"` or `"include"`, and one stored `categories` list serves
+both: `all` farms everything and leaves the list inactive, `include` farms only
+the listed categories (an empty list farms nothing). Neither mode ranks —
+position in the list has no scheduling meaning — and switching mode never
+rewrites the array, so returning to `include` restores the selection the user
+had. `blockedCategories` is the single denylist and applies in both modes;
+`favouriteCategories` is the only way a category affects order, and it ranks
+rather than filters. `campaignPassesCategoryFilter`, `isCampaignCategoryBlocked`
+and `favouriteCategoryIndex` in `@lurkloot/shared/categories` answer all three
+questions, so farming eligibility, the popup's sections, scheduler rejection
+reasons and ranking cannot disagree.
+
+### Campaign ranking
+
+`rankCampaigns` in `@lurkloot/shared/ranking` is the only campaign order in the
+product. The scheduler picks from it, the keep-watching comparison reads it, and
+the popup's Queue renders it, so the rank on a card is the position the engine
+acts on. Three tiers, in order:
+
+1. `campaignPins` — an ordered, sparse list of campaign ids the user placed by
+   hand. Dragging a card, or typing a rank, pins that one campaign; everything
+   else keeps the tier it had.
+2. `platform[platform].favouriteCategories` — campaigns of starred games, in the
+   order they were starred. A standing preference that survives campaign churn,
+   so next season's campaign of a starred game is already high.
+3. `priorityMode` — one live strategy (`ending_soonest` or
+   `lowest_availability`), then name, then id.
+
+Eligibility is always decided before ranking (`evaluateCampaignFarming`), so a
+pin can never rescue a campaign an exclusion, a block or a class filter refused.
+`farmPinnedOnly` is an eligibility switch, not a mode: a strategy is always in
+effect. Only a pin counts as an explicit override for keep-watching — a
+favourite ranks what is picked next but never abandons earned progress.
 - Tab/playback behavior: `tablessMode`, `muteFarmingTabs`, `keepFarmingVideosUnmuted`, `pauseOnManualWatch`, `autoCloseFinishedDrops`, `offlineRetryLimit`.
 - Notifications: `notifyRewardEarned`, `notifyNoDropsLeft`.
 
@@ -188,6 +210,17 @@ profile that had hidden unlinked or subscription campaigns from its list will se
 them reappear in the Drops list, because those campaigns are farmed and the tool
 guarantees anything it farms is visible.
 
+Migration 7 collapses the old ranking stack into the pins/favourites/strategy
+model and retires the display filter it grew alongside. `campaignPriorities`
+(a dense id→number map) becomes the ordered `campaignPins` list, highest value
+first; `priorityMode: "priority_list_only"` becomes the `farmPinnedOnly` switch
+with the mode falling back to `ending_soonest`; a platform's
+`categoryMode: "exclude"` becomes `"all"` plus `blockedCategories`, the single
+denylist; and `dropsListFilter` is dropped, because the popup now groups
+campaigns into Queue, Skipped, Upcoming and Completed rather than hiding classes
+of them. Nothing here narrows farming: the same campaigns stay eligible, in the
+order the user's own placements imply.
+
 ## Scheduler Flow
 
 Each scheduler tick runs enabled platforms independently:
@@ -202,9 +235,12 @@ Each scheduler tick runs enabled platforms independently:
 8. Claim channel points when enabled and supported by the adapter.
 9. Persist sessions, campaigns, managed-tab registrations, and backoff state, then publish activity records through the host event sink.
 
-Campaign ordering is shared across platforms: explicit campaign priority, platform game priority, campaign priority field, optional lowest-availability mode, ending soonest, then campaign name. Channel ordering within the selected campaign is also shared: allow-listed channels first, then channels the user has a relationship with (an Idle Watchlist entry ahead of a followed channel, via the adapter's optional `listFollowedChannels`), then viewer count. That preference only picks between channels that already qualify for the campaign, so it never changes what is farmed. `preferKnownChannels` (on by default) gates the whole thing; off, ordering is allow-list then viewer count only, and `listFollowedChannels` is never called. Per-platform excluded drop channels filter campaign and supplemental provider candidates; they do not suppress explicitly listed Idle Watchlist channels. `farmingEligibility` also narrows eligibility, through its two farming flags (`farmUnlinkedCampaigns`, `farmSubscriptionCampaigns`); the separate `dropsListFilter` is a popup view preference that affects nothing the engine does.
+Campaign ordering is shared across platforms and lives in one function,
+`rankCampaigns` (see [Campaign ranking](#campaign-ranking)): pinned campaigns in
+pin order, then campaigns of favourite games in star order, then the single live
+strategy, then name and id. Channel ordering within the selected campaign is also shared: allow-listed channels first, then channels the user has a relationship with (an Idle Watchlist entry ahead of a followed channel, via the adapter's optional `listFollowedChannels`), then viewer count. That preference only picks between channels that already qualify for the campaign, so it never changes what is farmed. `preferKnownChannels` (on by default) gates the whole thing; off, ordering is allow-list then viewer count only, and `listFollowedChannels` is never called. Per-platform excluded drop channels filter campaign and supplemental provider candidates; they do not suppress explicitly listed Idle Watchlist channels. `farmingEligibility` also narrows eligibility, through its two farming flags (`farmUnlinkedCampaigns`, `farmSubscriptionCampaigns`), as do `blockedCategories` and `farmPinnedOnly` — all of them before ranking, never through it.
 
-For exactly how a campaign's farmability (`campaignFarmable`, feeding `isEligible`) and its popup visibility (`isCampaignVisible`) are decided — and why they deliberately diverge on reward timing — see [`campaign-farmability-visibility.md`](campaign-farmability-visibility.md).
+For exactly how a campaign's farmability (`campaignFarmable`, feeding `isEligible`) and the popup list it lands in (`campaignSection`) are decided — and why they deliberately diverge on reward timing — see [`campaign-farmability-visibility.md`](campaign-farmability-visibility.md).
 
 ## Same-Origin Fetching
 
@@ -284,7 +320,18 @@ Repeated offline, category mismatch, unhealthy playback checks, or unhealthy tab
 
 The popup is a controller UI, not a platform client. It requests snapshots and sends setting/action messages to the background controller. Manual reward claims are routed through the platform adapter so state updates, notifications, and event logging stay consistent with automated claims.
 
-The popup exposes platform-specific idle watchlists, excluded drop channels, game order, campaign priorities, notifications, and advanced playback settings. Changes that can affect the active scheduler target can request a targeted tick for the affected platform.
+The popup is a workspace: a rail carries the platform switch and one entry per
+destination — Queue, Completed, Games, Idle watchlist, Extensions (Twitch only),
+Activity, Settings — with the now-farming strip above all of them. Platform and
+destination are independent axes; a destination that exists on one platform only
+falls back to the Queue when the platform changes under it.
+
+`campaignSection` in `@lurkloot/shared/campaignFilters` puts every campaign in
+exactly one list — queue, skipped, upcoming, completed or expired — so a campaign
+is never missing from the popup and never in two places. The Queue groups its
+rows by ranking tier, and Skipped rows carry the reason the engine gave plus the
+single action that resolves it. Changes that can affect the active scheduler
+target can request a targeted tick for the affected platform.
 
 ## Activity and diagnostics
 

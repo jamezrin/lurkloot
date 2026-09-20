@@ -4,10 +4,11 @@ Two questions, one shared foundation.
 
 - `evaluateCampaignFarming` answers **"will the engine actually watch this, and if not, why?"**
 - `campaignFarmable` is the boolean compatibility wrapper around that evaluation.
-- `isCampaignVisible` answers **"does it show in the popup's Drops list?"**
+- `campaignSection` answers **"which of the popup's lists does it belong in?"**
 
 Both are built from the same `campaignEligibleClass` check, so a campaign the
-engine is farming can never be hidden from the person watching it happen.
+engine is farming is always in the Queue, in front of the person watching it
+happen.
 
 ## 1. Can the engine farm it right now? — `campaignFarmable`
 
@@ -56,49 +57,43 @@ just "does this campaign have anything left to earn or claim." This is the
 shape both farmability and visibility are built from.
 
 > **Why split it out:** a campaign can fail the reward-timing gate (deadline
-> too tight, a locked follow-up reward) without being structurally dead.
-> Hiding it would also hide it from `campaignPriorities` drag-reordering — in
-> "priority list only" mode that's the *only* way to make a campaign
-> farmable, so visibility deliberately stops one gate short of full
-> farmability.
+> too tight, a locked follow-up reward) without being structurally dead. The
+> popup keeps listing it — under Skipped, with the reason — so the user can
+> ease the deadline margin or pin it, rather than hunting for a campaign that
+> silently vanished.
 
-## 3. What shows in the popup? — `isCampaignVisible`
+## 3. Which list does the popup put it in? — `campaignSection`
 
-Two fast paths first, then the category filter (no override, always wins),
-then one bucket per remaining reason with its own display flag. The first
-`true` reason wins — buckets are checked in this fixed order.
+Every campaign lands in exactly one section, so none is missing and none is in
+two. Lifecycle first, then the engine's own farmability answer.
 
 ```mermaid
 flowchart TD
-    A["isCampaignVisible(campaign, settings)"] --> B{"any reward<br/>status === claimable?"}
-    B -- yes --> Y1["TRUE — claim it,<br/>regardless of anything else"]
-    B -- no --> C{"campaignEligibleClass?<br/>(section 2 above)"}
-    C -- yes --> Y2["TRUE — the invariant:<br/>farmable ⟹ visible"]
-    C -- no --> D{"outside selected<br/>categories?"}
-    D -- yes --> N1["FALSE — no override,<br/>ever"]
-    D -- no --> E{"excluded by id?"}
-    E -- yes --> F1["showExcluded decides"]
-    E -- no --> G{"finished?"}
-    G -- yes --> F2["showFinished decides"]
-    G -- no --> H{"expired?"}
-    H -- yes --> F3["showExpired decides"]
-    H -- no --> I{"upcoming?"}
-    I -- yes --> F4["showUpcoming decides"]
-    I -- no --> J{"not linked?"}
-    J -- yes --> F5["showNotLinked decides"]
-    J -- no --> K{"subscription-gated?"}
-    K -- yes --> F6["showSubscription decides"]
-    K -- no --> N2["FALSE — no bucket,<br/>no flag"]
+    A["campaignSection(campaign, settings)"] --> B{"finished?<br/>every reward claimed"}
+    B -- yes --> S1["completed"]
+    B -- no --> C{"expired?"}
+    C -- yes --> S2["expired"]
+    C -- no --> D{"upcoming?"}
+    D -- yes --> S3["upcoming"]
+    D -- no --> E{"evaluateCampaignFarming<br/>farmable, incl. farmPinnedOnly?"}
+    E -- yes --> S4["queue — ranked by rankCampaigns"]
+    E -- no --> S5["skipped — with its rejection code<br/>and the action that fixes it"]
 ```
+
+The Queue renders its rows grouped by ranking tier (pinned, favourite games,
+then the live strategy). Skipped and Upcoming sit below it, collapsed. Completed
+and Expired are their own destination, where a row shows one terminal state and
+no rank, drag handle, progress or warning.
 
 ## Reference
 
 | function | answers | used by |
 |---|---|---|
 | `evaluateCampaignFarming` | can it be farmed now; if not, what stable rejection code and context explain why? | scheduler diagnostics, popup view model, `campaignFarmable` |
-| `campaignEligibleClass` | could this campaign's class ever be farmed, ignoring reward timing? | `campaignFarmable`, `isCampaignVisible` |
+| `campaignEligibleClass` | could this campaign's class ever be farmed, ignoring reward timing? | `campaignFarmable`, `campaignSection` |
 | `campaignFarmable` | eligible class, and a reward is farmable right this moment | `isEligible` (scheduler) |
-| `isCampaignVisible` | should the Drops list render this campaign? | the popup (`Popup.tsx`) |
+| `campaignSection` | which popup list does this campaign belong in? | the popup (`Popup.tsx`, `queue.tsx`, `completed.tsx`) |
+| `rankCampaigns` | in which order are the farmable ones tried? | the scheduler and the Queue |
 | `isRewardFarmableNow` | not claimed, preconditions met, in its window, deadline feasible | `campaignFarmable` |
 | `campaignPassesFarmingEligibility` | is this campaign's class (not-linked / subscription) allowed at all? | `campaignEligibleClass` |
 
@@ -108,11 +103,11 @@ flowchart TD
 
 - `campaignFarmable` = that base **+** one extra reward-timing check (used
   for actual farming decisions).
-- `isCampaignVisible` uses **only** the base, never the extra check — so a
-  campaign that's momentarily un-farmable for timing reasons (tight deadline,
-  unmet precondition) stays visible instead of vanishing, and the category
-  filter is checked before all the display-flag buckets since nothing
-  overrides it.
+- `campaignSection` uses the full farmability answer to separate Queue from
+  Skipped, and the base is what guarantees the two can never disagree about a
+  campaign the engine is farming. A campaign that is momentarily un-farmable for
+  timing reasons (tight deadline, unmet precondition) is skipped rather than
+  hidden, with the reason on the row.
 
 ---
-*Source: `packages/shared/src/campaignFarming.ts`, `packages/shared/src/campaignFilters.ts`, `packages/shared/src/rewards.ts`*
+*Source: `packages/shared/src/campaignFarming.ts`, `packages/shared/src/campaignFilters.ts`, `packages/shared/src/ranking.ts`, `packages/shared/src/rewards.ts`*
