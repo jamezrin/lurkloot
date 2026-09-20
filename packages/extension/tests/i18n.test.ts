@@ -259,6 +259,12 @@ describe("i18n", () => {
       "diagnosticsViewTab",
       // "Extensions" is spelled the same in French.
       "extensionDropsTitle",
+      // Rail labels that are the same word in some languages: "Drops" is the
+      // common term the watch-source labels already share, "Platform" is spelled
+      // the same in Turkish, and "Extensions" the same in French.
+      "navGroupDrops",
+      "navPlatform",
+      "navExtensions",
       // Watch-source labels include provider brands and the common Drops term.
       "watchSourceNoPixel",
       "watchSourceFortnite",

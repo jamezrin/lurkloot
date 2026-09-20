@@ -53,6 +53,39 @@
   "settingsLanguageDescription": {
     "message": "Scegli la lingua usata dal popup e dalle notifiche dell’estensione."
   },
+  "navWorkspace": {
+    "message": "Area di lavoro"
+  },
+  "navPlatform": {
+    "message": "Piattaforma"
+  },
+  "navGroupDrops": {
+    "message": "Drops"
+  },
+  "navGroupIdle": {
+    "message": "Quando inattivo"
+  },
+  "navQueue": {
+    "message": "Coda"
+  },
+  "navCompleted": {
+    "message": "Completate"
+  },
+  "navGames": {
+    "message": "Giochi"
+  },
+  "navIdleWatchlist": {
+    "message": "Lista di riserva"
+  },
+  "navExtensions": {
+    "message": "Estensioni"
+  },
+  "navActivity": {
+    "message": "Attività"
+  },
+  "navSettings": {
+    "message": "Impostazioni"
+  },
   "settingsTitle": {
     "message": "Impostazioni"
   },

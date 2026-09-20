@@ -53,6 +53,39 @@
   "settingsLanguageDescription": {
     "message": "Выберите язык всплывающего окна и уведомлений расширения."
   },
+  "navWorkspace": {
+    "message": "Рабочая область"
+  },
+  "navPlatform": {
+    "message": "Платформа"
+  },
+  "navGroupDrops": {
+    "message": "Дропы"
+  },
+  "navGroupIdle": {
+    "message": "Когда нечего фармить"
+  },
+  "navQueue": {
+    "message": "Очередь"
+  },
+  "navCompleted": {
+    "message": "Завершённые"
+  },
+  "navGames": {
+    "message": "Игры"
+  },
+  "navIdleWatchlist": {
+    "message": "Резервный список"
+  },
+  "navExtensions": {
+    "message": "Расширения"
+  },
+  "navActivity": {
+    "message": "Активность"
+  },
+  "navSettings": {
+    "message": "Настройки"
+  },
   "settingsTitle": {
     "message": "Настройки"
   },

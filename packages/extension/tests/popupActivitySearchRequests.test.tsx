@@ -103,12 +103,12 @@ async function mount(): Promise<{ container: HTMLElement; sent: RuntimeMessage[]
   });
   await waitForCatalog();
 
-  const openActivity = container.querySelector<HTMLButtonElement>('button[aria-label="Open activity"]');
+  const openActivity = container.querySelector<HTMLButtonElement>('button[data-view="activity"]');
   if (!openActivity) throw new Error("Missing activity button");
   await act(async () => openActivity.click());
 
   const diagnosticsTab = await waitForElement(() =>
-    container.querySelector<HTMLButtonElement>('[role="tab"][aria-selected="false"]') ?? undefined);
+    container.querySelector<HTMLButtonElement>('[data-activity-view-tab="diagnostics"]') ?? undefined);
   await act(async () => diagnosticsTab.click());
 
   return { container, sent };

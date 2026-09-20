@@ -53,6 +53,39 @@
   "settingsLanguageDescription": {
     "message": "पॉपअप और एक्सटेंशन सूचनाओं की भाषा चुनें।"
   },
+  "navWorkspace": {
+    "message": "वर्कस्पेस"
+  },
+  "navPlatform": {
+    "message": "प्लेटफ़ॉर्म"
+  },
+  "navGroupDrops": {
+    "message": "ड्रॉप्स"
+  },
+  "navGroupIdle": {
+    "message": "खाली होने पर"
+  },
+  "navQueue": {
+    "message": "क़तार"
+  },
+  "navCompleted": {
+    "message": "पूर्ण"
+  },
+  "navGames": {
+    "message": "गेम्स"
+  },
+  "navIdleWatchlist": {
+    "message": "आइडल वॉचलिस्ट"
+  },
+  "navExtensions": {
+    "message": "एक्सटेंशन"
+  },
+  "navActivity": {
+    "message": "गतिविधि"
+  },
+  "navSettings": {
+    "message": "सेटिंग्स"
+  },
   "settingsTitle": {
     "message": "सेटिंग्स"
   },

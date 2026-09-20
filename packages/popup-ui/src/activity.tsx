@@ -184,6 +184,7 @@ export function ActivityLog({
                 key={String(diagnostics)}
                 type="button"
                 role="tab"
+                data-activity-view-tab={diagnostics ? "diagnostics" : "activity"}
                 aria-selected={showDiagnostics === diagnostics}
                 onClick={() => onShowDiagnosticsChange(diagnostics)}
                 className={`rounded-full px-2 py-0.5 text-[9px] font-semibold transition ${showDiagnostics === diagnostics ? "bg-zinc-600 text-white" : "text-zinc-400"}`}

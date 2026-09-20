@@ -149,6 +149,8 @@ describe("popup authentication health", () => {
     const { container } = await mountWithSnapshots([{ status: "healthy" }], {
       status, watchMode: "tabless", supplementalWatch: { id: "nopixel", tablessOnly: true },
     });
+    // Twitch extensions are their own rail destination now.
+    act(() => { container.querySelector<HTMLButtonElement>('button[data-view="extensions"]')?.click(); });
     const provider = container.querySelector('article[aria-label="NoPixelV"]');
     expect(provider).not.toBeNull();
     expect(provider?.hasAttribute("aria-current")).toBe(false);

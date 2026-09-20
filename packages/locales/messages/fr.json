@@ -53,6 +53,39 @@
   "settingsLanguageDescription": {
     "message": "Choisissez la langue utilisée par la fenêtre contextuelle et les notifications de l’extension."
   },
+  "navWorkspace": {
+    "message": "Espace de travail"
+  },
+  "navPlatform": {
+    "message": "Plateforme"
+  },
+  "navGroupDrops": {
+    "message": "Drops"
+  },
+  "navGroupIdle": {
+    "message": "En veille"
+  },
+  "navQueue": {
+    "message": "File"
+  },
+  "navCompleted": {
+    "message": "Terminées"
+  },
+  "navGames": {
+    "message": "Jeux"
+  },
+  "navIdleWatchlist": {
+    "message": "Liste d'attente"
+  },
+  "navExtensions": {
+    "message": "Extensions"
+  },
+  "navActivity": {
+    "message": "Activité"
+  },
+  "navSettings": {
+    "message": "Paramètres"
+  },
   "settingsTitle": {
     "message": "Paramètres"
   },

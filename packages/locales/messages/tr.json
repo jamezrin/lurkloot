@@ -53,6 +53,39 @@
   "settingsLanguageDescription": {
     "message": "Uygulama ve bildirim dilini seçin."
   },
+  "navWorkspace": {
+    "message": "Çalışma alanı"
+  },
+  "navPlatform": {
+    "message": "Platform"
+  },
+  "navGroupDrops": {
+    "message": "Drop'lar"
+  },
+  "navGroupIdle": {
+    "message": "Boştayken"
+  },
+  "navQueue": {
+    "message": "Sıra"
+  },
+  "navCompleted": {
+    "message": "Tamamlanan"
+  },
+  "navGames": {
+    "message": "Oyunlar"
+  },
+  "navIdleWatchlist": {
+    "message": "Yedek izleme listesi"
+  },
+  "navExtensions": {
+    "message": "Uzantılar"
+  },
+  "navActivity": {
+    "message": "Etkinlik"
+  },
+  "navSettings": {
+    "message": "Ayarlar"
+  },
   "settingsTitle": {
     "message": "Ayarlar"
   },

@@ -53,6 +53,39 @@
   "settingsLanguageDescription": {
     "message": "اختر اللغة المستخدمة في النافذة المنبثقة وإشعارات الإضافة."
   },
+  "navWorkspace": {
+    "message": "مساحة العمل"
+  },
+  "navPlatform": {
+    "message": "المنصة"
+  },
+  "navGroupDrops": {
+    "message": "الجوائز"
+  },
+  "navGroupIdle": {
+    "message": "عند الخمول"
+  },
+  "navQueue": {
+    "message": "قائمة الانتظار"
+  },
+  "navCompleted": {
+    "message": "المكتملة"
+  },
+  "navGames": {
+    "message": "الألعاب"
+  },
+  "navIdleWatchlist": {
+    "message": "قائمة الانتظار للمشاهدة"
+  },
+  "navExtensions": {
+    "message": "الإضافات"
+  },
+  "navActivity": {
+    "message": "النشاط"
+  },
+  "navSettings": {
+    "message": "الإعدادات"
+  },
   "settingsTitle": {
     "message": "الإعدادات"
   },

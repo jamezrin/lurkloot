@@ -53,6 +53,39 @@
   "settingsLanguageDescription": {
     "message": "Wähle die Sprache für Popup und Erweiterungsbenachrichtigungen."
   },
+  "navWorkspace": {
+    "message": "Arbeitsbereich"
+  },
+  "navPlatform": {
+    "message": "Plattform"
+  },
+  "navGroupDrops": {
+    "message": "Drops"
+  },
+  "navGroupIdle": {
+    "message": "Ohne Kampagne"
+  },
+  "navQueue": {
+    "message": "Warteschlange"
+  },
+  "navCompleted": {
+    "message": "Abgeschlossen"
+  },
+  "navGames": {
+    "message": "Spiele"
+  },
+  "navIdleWatchlist": {
+    "message": "Ersatzliste"
+  },
+  "navExtensions": {
+    "message": "Erweiterungen"
+  },
+  "navActivity": {
+    "message": "Aktivität"
+  },
+  "navSettings": {
+    "message": "Einstellungen"
+  },
   "settingsTitle": {
     "message": "Einstellungen"
   },

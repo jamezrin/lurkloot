@@ -53,6 +53,39 @@
   "settingsLanguageDescription": {
     "message": "选择弹窗和扩展通知使用的语言。"
   },
+  "navWorkspace": {
+    "message": "工作区"
+  },
+  "navPlatform": {
+    "message": "平台"
+  },
+  "navGroupDrops": {
+    "message": "掉宝"
+  },
+  "navGroupIdle": {
+    "message": "空闲时"
+  },
+  "navQueue": {
+    "message": "队列"
+  },
+  "navCompleted": {
+    "message": "已完成"
+  },
+  "navGames": {
+    "message": "游戏"
+  },
+  "navIdleWatchlist": {
+    "message": "空闲观看列表"
+  },
+  "navExtensions": {
+    "message": "扩展"
+  },
+  "navActivity": {
+    "message": "活动"
+  },
+  "navSettings": {
+    "message": "设置"
+  },
   "settingsTitle": {
     "message": "设置"
   },

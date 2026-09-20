@@ -53,6 +53,39 @@
   "settingsLanguageDescription": {
     "message": "Choose the language used by the popup and extension notifications."
   },
+  "navWorkspace": {
+    "message": "Workspace"
+  },
+  "navPlatform": {
+    "message": "Platform"
+  },
+  "navGroupDrops": {
+    "message": "Drops"
+  },
+  "navGroupIdle": {
+    "message": "When idle"
+  },
+  "navQueue": {
+    "message": "Queue"
+  },
+  "navCompleted": {
+    "message": "Completed"
+  },
+  "navGames": {
+    "message": "Games"
+  },
+  "navIdleWatchlist": {
+    "message": "Idle watchlist"
+  },
+  "navExtensions": {
+    "message": "Extensions"
+  },
+  "navActivity": {
+    "message": "Activity"
+  },
+  "navSettings": {
+    "message": "Settings"
+  },
   "settingsTitle": {
     "message": "Settings"
   },

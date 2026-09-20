@@ -53,6 +53,39 @@
   "settingsLanguageDescription": {
     "message": "Elige el idioma usado por la ventana emergente y las notificaciones de la extensión."
   },
+  "navWorkspace": {
+    "message": "Espacio de trabajo"
+  },
+  "navPlatform": {
+    "message": "Plataforma"
+  },
+  "navGroupDrops": {
+    "message": "Drops"
+  },
+  "navGroupIdle": {
+    "message": "Sin campañas"
+  },
+  "navQueue": {
+    "message": "Cola"
+  },
+  "navCompleted": {
+    "message": "Completadas"
+  },
+  "navGames": {
+    "message": "Juegos"
+  },
+  "navIdleWatchlist": {
+    "message": "Lista de reserva"
+  },
+  "navExtensions": {
+    "message": "Extensiones"
+  },
+  "navActivity": {
+    "message": "Actividad"
+  },
+  "navSettings": {
+    "message": "Ajustes"
+  },
   "settingsTitle": {
     "message": "Configuración"
   },
