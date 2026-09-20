@@ -192,7 +192,7 @@ function CategoryFilterEditor({ platform, mode, categories, suggestions, onChang
 // (already loaded, no network) and other categories (from a debounced live
 // search). Collapses when not focused so a long active-drops list doesn't
 // dominate the settings screen (issue #326).
-function CategoryPickerCombobox({ platform, suggestions, selectedIds, onSearch, onSelect }: {
+export function CategoryPickerCombobox({ platform, suggestions, selectedIds, onSearch, onSelect }: {
   platform: Platform;
   suggestions: GameItem[];
   selectedIds: Set<string>;

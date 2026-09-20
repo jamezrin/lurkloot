@@ -1642,5 +1642,41 @@
   },
   "watchSourceFortnite": {
     "message": "Fortnite"
+  },
+  "gamesStarHint": {
+    "message": "★ oyunu stratejinin üstüne koyar"
+  },
+  "gamesFavourite": {
+    "message": "$1 oyununu stratejinin üstüne koy"
+  },
+  "gamesUnfavourite": {
+    "message": "$1 önceliğini kaldır"
+  },
+  "gamesBlock": {
+    "message": "$1 asla farmlanmasın"
+  },
+  "gamesUnblock": {
+    "message": "Engeli kaldır"
+  },
+  "gamesBlocked": {
+    "message": "Engellenen"
+  },
+  "gamesBlockedHint": {
+    "message": "her iki modda da farmlanmaz"
+  },
+  "gamesBlockedKeepsStar": {
+    "message": "farmlanmaz · yıldız korunur"
+  },
+  "gamesCampaignCount": {
+    "message": "$1 kampanya etkin"
+  },
+  "gamesNoCampaigns": {
+    "message": "şu anda kampanya yok"
+  },
+  "gamesFarmGame": {
+    "message": "$1 farmla"
+  },
+  "gamesEmpty": {
+    "message": "Şu anda etkin $1 kampanyası yok."
   }
 }

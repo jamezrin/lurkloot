@@ -1642,5 +1642,41 @@
   },
   "watchSourceFortnite": {
     "message": "Fortnite"
+  },
+  "gamesStarHint": {
+    "message": "★ गेम को रणनीति से ऊपर रखता है"
+  },
+  "gamesFavourite": {
+    "message": "$1 को रणनीति से ऊपर रखें"
+  },
+  "gamesUnfavourite": {
+    "message": "$1 को प्राथमिकता देना बंद करें"
+  },
+  "gamesBlock": {
+    "message": "$1 कभी फ़ार्म न करें"
+  },
+  "gamesUnblock": {
+    "message": "अनब्लॉक"
+  },
+  "gamesBlocked": {
+    "message": "ब्लॉक"
+  },
+  "gamesBlockedHint": {
+    "message": "किसी भी मोड में फ़ार्म नहीं होता"
+  },
+  "gamesBlockedKeepsStar": {
+    "message": "फ़ार्म नहीं होता · स्टार सुरक्षित"
+  },
+  "gamesCampaignCount": {
+    "message": "$1 कैंपेन चालू"
+  },
+  "gamesNoCampaigns": {
+    "message": "अभी कोई कैंपेन नहीं"
+  },
+  "gamesFarmGame": {
+    "message": "$1 फ़ार्म करें"
+  },
+  "gamesEmpty": {
+    "message": "अभी कोई $1 कैंपेन चालू नहीं है।"
   }
 }

@@ -1642,5 +1642,41 @@
   },
   "watchSourceFortnite": {
     "message": "Fortnite"
+  },
+  "gamesStarHint": {
+    "message": "★ setzt ein Spiel über die Strategie"
+  },
+  "gamesFavourite": {
+    "message": "$1 über die Strategie setzen"
+  },
+  "gamesUnfavourite": {
+    "message": "$1 nicht mehr bevorzugen"
+  },
+  "gamesBlock": {
+    "message": "$1 nie farmen"
+  },
+  "gamesUnblock": {
+    "message": "Freigeben"
+  },
+  "gamesBlocked": {
+    "message": "Blockiert"
+  },
+  "gamesBlockedHint": {
+    "message": "wird in keinem Modus gefarmt"
+  },
+  "gamesBlockedKeepsStar": {
+    "message": "wird nicht gefarmt · Stern bleibt"
+  },
+  "gamesCampaignCount": {
+    "message": "$1 Kampagnen aktiv"
+  },
+  "gamesNoCampaigns": {
+    "message": "gerade keine Kampagnen"
+  },
+  "gamesFarmGame": {
+    "message": "$1 farmen"
+  },
+  "gamesEmpty": {
+    "message": "Derzeit laufen keine $1-Kampagnen."
   }
 }

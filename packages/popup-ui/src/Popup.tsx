@@ -18,7 +18,7 @@ import { buildFailureReport } from "@lurkloot/shared/failureReport";
 import { I18nContext, PopupRuntimeContext } from "./context";
 import { createTranslator } from "./translator";
 import { WorkspaceRail, viewForPlatform, type PopupView } from "./shell";
-import { PlatformCategorySettings } from "./settingsPlatform";
+import { GamesPanel } from "./games";
 import {
   GITHUB_STAR_NUDGE_MIN_DAYS,
   PLATFORM_INVENTORY_URLS,
@@ -699,6 +699,14 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     ? () => setCampaignFocus((prev) => ({ id: activeCampaign.id, seq: (prev?.seq ?? 0) + 1 }))
     : undefined;
   const mainViewOpen = !settingsOpen && !activityOpen;
+  // How many campaigns each game has in play right now, keyed the way a
+  // CategorySelection id compares (lowercased), for the Games view's counts.
+  const gameCampaignCounts = campaigns.reduce<Record<string, number>>((counts, campaign) => {
+    if (campaign.section !== "queue" && campaign.section !== "skipped") return counts;
+    const key = campaign.gameId.toLowerCase();
+    counts[key] = (counts[key] ?? 0) + 1;
+    return counts;
+  }, {});
   const railCounts: Partial<Record<PopupView, number>> = {
     queue: campaigns.filter((campaign) => campaign.section === "queue").length,
     completed: campaigns.filter((campaign) => campaign.section === "completed").length,
@@ -840,16 +848,25 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                     onExportAll={adapter.downloadFile ? exportDiagnosticsLog : undefined}
                   />
                 ) : view === "games" ? (
-                  <PlatformCategorySettings
+                  <GamesPanel
                     platform={platform}
-                    suggestions={dropCategorySuggestions[platform]}
                     settings={settings}
+                    suggestions={dropCategorySuggestions[platform]}
+                    campaignCounts={gameCampaignCounts}
                     onCategoryModeChange={(categoryMode) => void updateSettings(
                       { platform: { [platform]: { categoryMode } } },
                       { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
                     )}
                     onCategoriesChange={(categories) => void updateSettings(
                       { platform: { [platform]: { categories } } },
+                      { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
+                    )}
+                    onFavouritesChange={(favouriteCategories) => void updateSettings(
+                      { platform: { [platform]: { favouriteCategories } } },
+                      { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
+                    )}
+                    onBlockedChange={(blockedCategories) => void updateSettings(
+                      { platform: { [platform]: { blockedCategories } } },
                       { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
                     )}
                     onSearchCategories={(query) => searchCategories(platform, query)}

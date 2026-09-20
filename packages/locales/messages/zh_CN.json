@@ -1642,5 +1642,41 @@
   },
   "watchSourceFortnite": {
     "message": "Fortnite"
+  },
+  "gamesStarHint": {
+    "message": "★ 让游戏排在策略之上"
+  },
+  "gamesFavourite": {
+    "message": "让 $1 排在策略之上"
+  },
+  "gamesUnfavourite": {
+    "message": "不再让 $1 优先"
+  },
+  "gamesBlock": {
+    "message": "永不挂机 $1"
+  },
+  "gamesUnblock": {
+    "message": "取消屏蔽"
+  },
+  "gamesBlocked": {
+    "message": "已屏蔽"
+  },
+  "gamesBlockedHint": {
+    "message": "两种模式下都不会挂机"
+  },
+  "gamesBlockedKeepsStar": {
+    "message": "不会挂机 · 收藏已保留"
+  },
+  "gamesCampaignCount": {
+    "message": "$1 个进行中的活动"
+  },
+  "gamesNoCampaigns": {
+    "message": "目前没有活动"
+  },
+  "gamesFarmGame": {
+    "message": "挂机 $1"
+  },
+  "gamesEmpty": {
+    "message": "目前没有 $1 的进行中活动。"
   }
 }

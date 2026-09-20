@@ -1642,5 +1642,41 @@
   },
   "watchSourceFortnite": {
     "message": "Fortnite"
+  },
+  "gamesStarHint": {
+    "message": "★ ترفع اللعبة فوق الاستراتيجية"
+  },
+  "gamesFavourite": {
+    "message": "ارفع $1 فوق الاستراتيجية"
+  },
+  "gamesUnfavourite": {
+    "message": "أوقف ترتيب $1 فوق الاستراتيجية"
+  },
+  "gamesBlock": {
+    "message": "لا تجمّع $1 أبدًا"
+  },
+  "gamesUnblock": {
+    "message": "إلغاء الحظر"
+  },
+  "gamesBlocked": {
+    "message": "محظورة"
+  },
+  "gamesBlockedHint": {
+    "message": "لا يتم تجميعها في أي وضع"
+  },
+  "gamesBlockedKeepsStar": {
+    "message": "لا يتم تجميعها · النجمة محفوظة"
+  },
+  "gamesCampaignCount": {
+    "message": "$1 حملات نشطة"
+  },
+  "gamesNoCampaigns": {
+    "message": "لا توجد حملات الآن"
+  },
+  "gamesFarmGame": {
+    "message": "تجميع $1"
+  },
+  "gamesEmpty": {
+    "message": "لا توجد حملات $1 نشطة الآن."
   }
 }

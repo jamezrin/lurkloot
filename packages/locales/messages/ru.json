@@ -1642,5 +1642,41 @@
   },
   "watchSourceFortnite": {
     "message": "Fortnite"
+  },
+  "gamesStarHint": {
+    "message": "★ ставит игру выше стратегии"
+  },
+  "gamesFavourite": {
+    "message": "Поднять $1 выше стратегии"
+  },
+  "gamesUnfavourite": {
+    "message": "Больше не поднимать $1"
+  },
+  "gamesBlock": {
+    "message": "Никогда не фармить $1"
+  },
+  "gamesUnblock": {
+    "message": "Разблокировать"
+  },
+  "gamesBlocked": {
+    "message": "Заблокированы"
+  },
+  "gamesBlockedHint": {
+    "message": "не фармится ни в одном режиме"
+  },
+  "gamesBlockedKeepsStar": {
+    "message": "не фармится · звезда сохранена"
+  },
+  "gamesCampaignCount": {
+    "message": "Активных кампаний: $1"
+  },
+  "gamesNoCampaigns": {
+    "message": "сейчас нет кампаний"
+  },
+  "gamesFarmGame": {
+    "message": "Фармить $1"
+  },
+  "gamesEmpty": {
+    "message": "Сейчас нет активных кампаний $1."
   }
 }
