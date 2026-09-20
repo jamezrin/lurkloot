@@ -143,4 +143,35 @@ describe("in-page nav menu", () => {
 
     expect(globalThis.document.getElementById("lurkloot-nav-menu")).toBeNull();
   });
+
+  it("builds one menu even when the caret is clicked twice in a row", async () => {
+    setUpPage("https://www.twitch.tv/summit1g");
+    await mount("twitch");
+
+    // Both clicks land before the watchlist read resolves.
+    caret().dispatchEvent(new globalThis.window.Event("click", { bubbles: true }));
+    caret().dispatchEvent(new globalThis.window.Event("click", { bubbles: true }));
+    await settle();
+
+    expect(globalThis.document.querySelectorAll("#lurkloot-nav-menu")).toHaveLength(1);
+    expect(menuItems()).toEqual(["Open Lurkloot", "Add summit1g to the idle watchlist"]);
+  });
+
+  it("keeps the button reported as expanded while the panel is open behind a closed menu", async () => {
+    setUpPage("https://www.twitch.tv/summit1g");
+    await mount("twitch");
+
+    const button = globalThis.document.getElementById("lurkloot-nav-button")!;
+    button.dispatchEvent(new globalThis.window.Event("click", { bubbles: true }));
+    await settle();
+    expect(button.getAttribute("aria-expanded")).toBe("true");
+
+    await openMenu();
+    caret().dispatchEvent(new globalThis.window.Event("click", { bubbles: true }));
+    await settle();
+
+    // The menu closed; the panel did not, and one attribute speaks for both.
+    expect(globalThis.document.getElementById("lurkloot-nav-menu")).toBeNull();
+    expect(button.getAttribute("aria-expanded")).toBe("true");
+  });
 });

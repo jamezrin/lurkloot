@@ -58,9 +58,11 @@ shape both farmability and visibility are built from.
 
 > **Why split it out:** a campaign can fail the reward-timing gate (deadline
 > too tight, a locked follow-up reward) without being structurally dead. The
-> popup keeps listing it — under Skipped, with the reason — so the user can
-> ease the deadline margin or pin it, rather than hunting for a campaign that
-> silently vanished.
+> popup keeps listing it — under Skipped, with the reason — so the user can act
+> on that reason (here, ease the deadline margin) rather than hunt for a
+> campaign that silently vanished. Each Skipped row offers the action its own
+> rejection code calls for; pinning is the one for `not_pinned`, and it never
+> rescues a campaign another gate refused.
 
 ## 3. Which list does the popup put it in? — `campaignSection`
 

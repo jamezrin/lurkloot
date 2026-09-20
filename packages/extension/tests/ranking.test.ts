@@ -86,6 +86,16 @@ describe("rankCampaigns", () => {
     expect(ids(rankCampaigns([later, earlier], settings()))).toEqual(["a-campaign", "b-campaign"]);
   });
 
+  it("sorts a malformed end time like a missing one, keeping the tie-breakers", () => {
+    const broken = campaign("broken", { name: "Zeta", endsAt: "not a date" });
+    const missing = campaign("missing", { name: "Alpha" });
+    // Both score as "no deadline", so the name tie-break decides rather than a
+    // NaN comparison silently leaving the order to the sort implementation.
+    expect(ids(rankCampaigns([broken, missing], settings()))).toEqual(["missing", "broken"]);
+    expect(ids(rankCampaigns([missing, broken], settings()))).toEqual(["missing", "broken"]);
+    expect(ids(rankCampaigns([broken, endingSoon], settings()))).toEqual(["ending-soon", "broken"]);
+  });
+
   it("reports which tier ranked a campaign", () => {
     const configured = settings({
       campaignPins: ["ending-late"],

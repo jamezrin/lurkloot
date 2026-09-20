@@ -378,17 +378,38 @@ function message(key: string, fallback: string, substitution?: string): string {
 }
 
 let menu: HTMLDivElement | undefined;
+let openingMenu = false;
+
+// The button carries one aria-expanded for two things it can open, so closing
+// either has to report what is still open rather than "nothing".
+function syncExpanded(): void {
+  button?.setAttribute("aria-expanded", String(Boolean(menu) || Boolean(panel)));
+}
 
 async function toggleMenu(): Promise<void> {
   if (menu) {
     closeMenu();
     return;
   }
-  if (!button) return;
+  // Reading the watchlist is async, so a second click before it resolves would
+  // otherwise build a second menu and leak the first.
+  if (openingMenu || !button) return;
+  openingMenu = true;
+  try {
+    await buildMenu();
+  } finally {
+    openingMenu = false;
+  }
+}
+
+async function buildMenu(): Promise<void> {
   // Recomputed on open: both sites are SPAs, so a channel captured on
   // navigation could be stale by the time the menu is used.
   const channel = channelFromLocation(platform, location.href);
   const watchlist = await readWatchlist();
+  // The button can be torn down while that read is in flight (the setting
+  // turned off, the scheduler claiming this tab, fullscreen).
+  if (!button || !enabled || menu) return;
   const listed = channel ? watchlist.includes(channel) : false;
 
   menu = document.createElement("div");
@@ -468,7 +489,7 @@ async function toggleMenu(): Promise<void> {
   const anchor = button.getBoundingClientRect();
   menu.style.top = `${Math.round(anchor.bottom + 6)}px`;
   menu.style.left = `${Math.round(Math.max(8, Math.min(anchor.right - menu.offsetWidth, window.innerWidth - menu.offsetWidth - 8)))}px`;
-  button.setAttribute("aria-expanded", "true");
+  syncExpanded();
   buttons[0]?.focus();
   // Registered after this click finishes, so the click that opened the menu
   // cannot immediately close it again.
@@ -486,7 +507,7 @@ function closeMenu(): void {
   document.removeEventListener("click", onDocumentClick, true);
   menu?.remove();
   menu = undefined;
-  button?.setAttribute("aria-expanded", "false");
+  syncExpanded();
 }
 
 async function readWatchlist(): Promise<string[]> {
@@ -615,14 +636,14 @@ async function openPanel(): Promise<void> {
   position(ui?.left, ui?.top);
   makeDraggable(titlebar);
   applyVisibility();
-  button?.setAttribute("aria-expanded", "true");
+  syncExpanded();
 }
 
 function closePanel(): void {
   panel?.remove();
   panel = undefined;
   frame = undefined;
-  button?.setAttribute("aria-expanded", "false");
+  syncExpanded();
 }
 
 function applyVisibility(): void {

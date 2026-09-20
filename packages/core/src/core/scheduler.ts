@@ -385,7 +385,10 @@ function noEligibleCampaignReason(campaigns: DropCampaign[], settings: EngineSet
   if (notExcluded.every((campaign) => !campaignPassesCategoryFilter(campaign, settings.platform[campaign.platform]))) {
     return "No campaigns match the categories filter";
   }
-  if (settings.farmPinnedOnly && !notExcluded.some((campaign) => isPinned(campaign, settings))) {
+  // Eligible, not merely pinned: with pins that have all expired, "no pinned
+  // campaigns are eligible" is the accurate and more actionable reason.
+  if (settings.farmPinnedOnly
+    && !notExcluded.some((campaign) => isPinned(campaign, settings) && campaignFarmable(campaign, settings))) {
     return "No pinned campaigns are eligible";
   }
   const relevantCampaigns = notExcluded.filter((campaign) => campaign.status === "active" && !hasCampaignEnded(campaign));

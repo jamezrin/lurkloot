@@ -30,7 +30,11 @@ function availabilityScore(campaign: DropCampaign): number {
 }
 
 function endScore(campaign: DropCampaign): number {
-  return campaign.endsAt ? Date.parse(campaign.endsAt) : Number.MAX_SAFE_INTEGER;
+  if (!campaign.endsAt) return Number.MAX_SAFE_INTEGER;
+  const endsAt = Date.parse(campaign.endsAt);
+  // NaN compares false against everything, which would silently drop the
+  // name/id tie-breakers and leave the order up to the sort implementation.
+  return Number.isFinite(endsAt) ? endsAt : Number.MAX_SAFE_INTEGER;
 }
 
 // The single ranking every surface uses: the scheduler picks what to farm from
