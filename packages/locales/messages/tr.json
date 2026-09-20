@@ -1499,6 +1499,12 @@
   "manualWatchPauseDetail": {
     "message": "Bir yayını kendiniz izlerken farm duraklatılır. Bir sonraki kontrolde farmın otomatik olarak devam etmesi için yayını duraklatın, kapatın veya bu sekmeden başka bir yere geçin."
   },
+  "manualWatchPauseDetailNamed": {
+    "message": "Sen bir yayını izlerken farmlama duraklatılır."
+  },
+  "manualWatchPauseDetailNamedSuffix": {
+    "message": "— devam etmek için duraklat, kapat ya da başka sekmeye geç."
+  },
   "reorderItem": {
     "message": "$1 sırasını değiştir"
   },

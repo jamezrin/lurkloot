@@ -1499,6 +1499,12 @@
   "manualWatchPauseDetail": {
     "message": "Das Farmen ist pausiert, während du selbst einen Stream ansiehst. Pausiere ihn, schließe ihn oder wechsle von diesem Tab weg, damit das Farmen beim nächsten Check automatisch fortgesetzt wird."
   },
+  "manualWatchPauseDetailNamed": {
+    "message": "Das Farmen pausiert, während du selbst einen Stream schaust."
+  },
+  "manualWatchPauseDetailNamedSuffix": {
+    "message": "— pausieren, schließen oder wegwechseln, um fortzusetzen."
+  },
   "reorderItem": {
     "message": "$1 neu anordnen"
   },

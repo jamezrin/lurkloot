@@ -1499,6 +1499,12 @@
   "manualWatchPauseDetail": {
     "message": "El farmeo está pausado mientras ves un stream por tu cuenta. Paúsalo, ciérralo o cambia a otra pestaña para que el farmeo se reanude automáticamente en la próxima comprobación."
   },
+  "manualWatchPauseDetailNamed": {
+    "message": "El farmeo está en pausa mientras ves un directo tú mismo."
+  },
+  "manualWatchPauseDetailNamedSuffix": {
+    "message": "— páusalo, ciérralo o cambia de pestaña para reanudar."
+  },
   "reorderItem": {
     "message": "Reordenar $1"
   },

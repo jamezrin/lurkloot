@@ -690,6 +690,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
       authHealth: snapshot.state.authHealth[id],
       session: snapshot.state.sessions[id],
       manualClosePaused: Boolean(snapshot.state.manualClosePause?.[id]),
+      manualWatch: snapshot.state.manualWatch?.[id],
     })]),
   ) as Record<Platform, AutomationPresentation>;
   const presentation = automationPresentationByPlatform[platform];

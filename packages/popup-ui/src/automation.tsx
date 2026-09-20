@@ -189,6 +189,29 @@ export function AutomationStatusLine({ platform, presentation, farmingTitle, far
           </span>
         ) : presentation.state === "running" ? (
           <span className="truncate" title={t("waitingEligibleStream")}>{t("waitingEligibleStream")}</span>
+        ) : presentation.manualWatchChannel ? (
+          // "that tab" is not actionable with several streams open, so the pause
+          // names the stream that caused it and links to it (#562). Its own
+          // branch because detailKey renders with no arguments.
+          <span className={cn("min-w-0", roomy ? "line-clamp-2 leading-snug" : "truncate")}>
+            <span className="font-semibold text-zinc-600 dark:text-zinc-300">{t(presentation.badgeKey)}</span>
+            <span className="text-zinc-300 dark:text-zinc-600"> · </span>
+            {presentation.manualWatchChannel.url ? (
+              <a
+                href={presentation.manualWatchChannel.url}
+                target="_blank"
+                rel="noreferrer"
+                data-manual-watch-channel
+                className={cn(LINK_CLASS, "inline-block max-w-[7.5rem] align-bottom")}
+              >
+                {presentation.manualWatchChannel.name}
+              </a>
+            ) : (
+              <span data-manual-watch-channel className="font-semibold text-zinc-800 dark:text-zinc-100">{presentation.manualWatchChannel.name}</span>
+            )}
+            <span> </span>
+            {t("manualWatchPauseDetailNamedSuffix")}
+          </span>
         ) : (
           <span
             className={cn("min-w-0", roomy ? "line-clamp-2 leading-snug" : "truncate")}

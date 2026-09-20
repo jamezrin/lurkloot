@@ -1499,6 +1499,12 @@
   "manualWatchPauseDetail": {
     "message": "你亲自观看直播期间，挂机已暂停。暂停播放、关闭直播或切换到其他标签页后，挂机会在下次检查时自动恢复。"
   },
+  "manualWatchPauseDetailNamed": {
+    "message": "你自己在看直播时，挂机会暂停。"
+  },
+  "manualWatchPauseDetailNamedSuffix": {
+    "message": "— 暂停、关闭或切换到其他标签页即可恢复。"
+  },
   "reorderItem": {
     "message": "调整 $1 的顺序"
   },

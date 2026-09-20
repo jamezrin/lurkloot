@@ -1499,6 +1499,12 @@
   "manualWatchPauseDetail": {
     "message": "O farm está pausado enquanto você assiste a uma transmissão por conta própria. Pause-a, feche-a ou mude para outra aba para o farm retomar automaticamente na próxima verificação."
   },
+  "manualWatchPauseDetailNamed": {
+    "message": "O farming fica pausado enquanto você assiste a uma transmissão."
+  },
+  "manualWatchPauseDetailNamedSuffix": {
+    "message": "— pause, feche ou mude de aba para retomar."
+  },
   "reorderItem": {
     "message": "Reordenar $1"
   },

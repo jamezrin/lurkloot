@@ -28,6 +28,9 @@ const messages: Record<string, string> = {
   automationPausedTabClosed: "Paused — tab closed",
   watchTabClosedPauseDetail: "You closed the farming tab, so Lurkloot stopped farming here.",
   resumeFarming: "Resume farming",
+  automationPausedManualWatch: "Manual watching",
+  manualWatchPauseDetail: "Farming is paused while you're watching a stream yourself. Pause it, close it, or switch away from that tab to resume automatically on the next check.",
+  manualWatchPauseDetailNamedSuffix: "— pause it, close it, or switch away to resume.",
 };
 
 let root: Root | undefined;
@@ -263,5 +266,47 @@ describe("automation authentication status UI", () => {
     expect(twitchTab?.parentElement?.className).toContain("bg-[var(--accent-soft)]");
     expect(kickTab?.parentElement?.className).not.toContain("bg-[var(--accent-soft)]");
     expect(twitchTab?.parentElement?.querySelector(".inset-x-0.-bottom-px")).not.toBeNull();
+  });
+});
+
+describe("manual watch status line", () => {
+  const paused = {
+    platform: "twitch" as const,
+    enabled: true,
+    pending: false,
+    authHealth: { status: "healthy" } as PlatformAuthHealth,
+    session: { platform: "twitch" as const, status: "paused" as const, offlineChecks: 0, reasonCode: "manual_watch" as const },
+  };
+
+  it("links the stream that paused farming", () => {
+    const { container } = mount(
+      <AutomationStatusLine
+        platform="twitch"
+        presentation={automationPresentation({
+          ...paused,
+          manualWatch: {
+            platform: "twitch",
+            tabId: 3,
+            checkedAt: "2026-09-20T00:00:00.000Z",
+            active: true,
+            channel: { platform: "twitch", username: "summit1g", displayName: "Summit1G", url: "https://www.twitch.tv/summit1g" },
+          },
+        })}
+      />,
+    );
+
+    const link = container.querySelector<HTMLAnchorElement>("[data-manual-watch-channel]");
+    expect(link?.textContent).toBe("Summit1G");
+    expect(link?.getAttribute("href")).toBe("https://www.twitch.tv/summit1g");
+    expect(container.textContent).toContain("Manual watching");
+  });
+
+  it("keeps the unnamed explanation when no channel was recorded", () => {
+    const { container } = mount(
+      <AutomationStatusLine platform="twitch" presentation={automationPresentation(paused)} />,
+    );
+
+    expect(container.querySelector("[data-manual-watch-channel]")).toBeNull();
+    expect(container.textContent).toContain("Farming is paused while you're watching a stream yourself.");
   });
 });

@@ -1499,6 +1499,12 @@
   "manualWatchPauseDetail": {
     "message": "Le farming est en pause pendant que vous regardez vous-même un stream. Mettez-le en pause, fermez-le ou quittez cet onglet pour que le farming reprenne automatiquement lors de la prochaine vérification."
   },
+  "manualWatchPauseDetailNamed": {
+    "message": "Le farming est en pause pendant que vous regardez un stream vous-même."
+  },
+  "manualWatchPauseDetailNamedSuffix": {
+    "message": "— mettez-le en pause, fermez-le ou changez d'onglet pour reprendre."
+  },
   "reorderItem": {
     "message": "Réorganiser $1"
   },
