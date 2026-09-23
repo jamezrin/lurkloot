@@ -28,7 +28,9 @@
     "release:check": "node scripts/release.mjs check",
     "release:test": "node --test scripts/release.test.mjs scripts/release/*.test.mjs",
     "cws:test": "node --test scripts/cws.test.mjs",
-    "check": "pnpm cws:test && pnpm release:test && pnpm -r typecheck && pnpm test && pnpm build:site",
+    "locales:check": "node scripts/check-locales.mjs",
+    "locales:test": "node --test scripts/check-locales.test.mjs",
+    "check": "pnpm cws:test && pnpm release:test && pnpm locales:test && pnpm locales:check && pnpm -r typecheck && pnpm test && pnpm build:site",
     "verify": "pnpm check && pnpm build && pnpm build:firefox"
   },
   "devDependencies": {
