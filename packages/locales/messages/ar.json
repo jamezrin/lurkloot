@@ -413,14 +413,8 @@
   "expiredPill": {
     "message": "منتهية"
   },
-  "finishedPill": {
-    "message": "مكتملة"
-  },
   "complete": {
     "message": "مكتمل"
-  },
-  "nextReward": {
-    "message": "التالي: $1"
   },
   "startsIn": {
     "message": "يبدأ خلال $1"
@@ -437,20 +431,11 @@
   "done": {
     "message": "تم"
   },
-  "farmed": {
-    "message": "تم الفارم"
-  },
   "rewards": {
     "message": "المكافآت"
   },
-  "inCampaignOrder": {
-    "message": "حسب ترتيب الحملة"
-  },
   "allChannels": {
     "message": "كل القنوات"
-  },
-  "channelCount": {
-    "message": "$1 قنوات"
   },
   "includeInFarming": {
     "message": "تضمين في الفارم"

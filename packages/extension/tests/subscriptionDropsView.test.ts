@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { DropCampaign, DropReward, WatchSession } from "@lurkloot/shared/models";
@@ -51,7 +51,6 @@ const testMessages: Record<string, string> = {
   insufficientTimeRemaining: "Insufficient time remaining",
   left: "Left",
   notEarnableByWatching: "Not earnable by watching",
-  nextReward: "Next: $1",
   qualifyingSubscriptionsRequired: "Requires $1 qualifying subscriptions",
   subscribedRefresh: "I've subscribed — refresh status",
   subscriptionProgressUnknown: "Progress unavailable",
@@ -127,6 +126,11 @@ describe("subscription drop popup views", () => {
   });
 
   it("marks and explains watch rewards with insufficient time", () => {
+    // The campaign is live at the moment the feasibility check runs; pin the
+    // clock there too, or by the wall clock it has long since expired.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Date.parse("2026-07-19T12:00:00.000Z"));
+    onTestFinished(() => { vi.useRealTimers(); });
     const source = {
       ...campaign("timed", [reward({ requirement: "watch", requiredMinutes: 60, watchedMinutes: 30, status: "in_progress" })]),
       endsAt: "2026-07-19T12:34:59.999Z",

@@ -413,14 +413,8 @@
   "expiredPill": {
     "message": "समाप्त"
   },
-  "finishedPill": {
-    "message": "पूर्ण"
-  },
   "complete": {
     "message": "पूर्ण"
-  },
-  "nextReward": {
-    "message": "अगला: $1"
   },
   "startsIn": {
     "message": "$1 में शुरू"
@@ -437,20 +431,11 @@
   "done": {
     "message": "हो गया"
   },
-  "farmed": {
-    "message": "फ़ार्म किया"
-  },
   "rewards": {
     "message": "इनाम"
   },
-  "inCampaignOrder": {
-    "message": "कैंपेन क्रम में"
-  },
   "allChannels": {
     "message": "सभी चैनल"
-  },
-  "channelCount": {
-    "message": "$1 चैनल"
   },
   "includeInFarming": {
     "message": "फ़ार्मिंग में शामिल करें"

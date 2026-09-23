@@ -21,7 +21,7 @@ import type { CategorySelection } from "@lurkloot/shared/models";
 import { I18nContext, PopupRuntimeContext, useT } from "./context";
 import { formatCountdown, formatDateTime, formatMinutes, formatViewers } from "./format";
 import { campaignStats } from "./viewModels";
-import type { CampaignView, GameItem, RewardView } from "./types";
+import type { CampaignView, GameItem, RewardView, TFunction } from "./types";
 import {
   DragHandle,
   ImageWithFallback,
@@ -98,8 +98,9 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
   const stats = campaignStats(campaign);
   // `terminal` is "this campaign is over": the Completed view renders expired
   // rows exactly like finished ones — one state, no rank, no rail, no warning.
-  const finished = terminal || campaign.lifecycle === "finished";
-  const expired = finished && campaign.lifecycle === "expired";
+  // An expired campaign is over wherever it is shown, search results included.
+  const finished = terminal || campaign.lifecycle === "finished" || campaign.lifecycle === "expired";
+  const expired = campaign.lifecycle === "expired";
   const isFarming = !terminal && Boolean(campaign.farmingChannel);
   // Only watch rewards are farmed by watching: a subscription-only campaign the
   // session happens to point at is not "farming".
@@ -207,8 +208,8 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
                 label={finished
                   ? t(expired ? "expiredPill" : "finished")
                   : farmingNow ? t("farmingLabel")
-                  : upcoming ? t("startsIn", formatCountdown(campaign.starts, t))
-                  : t("campaignTimeLeft", formatCountdown(campaign.ends, t))}
+                  : upcoming ? startsLabel(campaign.starts, t)
+                  : timeLeftLabel(campaign.ends, t)}
               />
             )}
             {onPin ? (
@@ -368,7 +369,23 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
   );
 }
 
-function StatusPill({ tone, label }: { tone: "farming" | "hot" | "done" | "muted"; label: string }): React.ReactElement {
+// The collapsed row's deadline. A campaign with no end carries no deadline at
+// all rather than "later left", and one whose end has passed says so until the
+// next refresh marks it expired.
+function timeLeftLabel(ends: string, t: TFunction): string | undefined {
+  const at = Date.parse(ends);
+  if (Number.isNaN(at)) return undefined;
+  if (at <= Date.now()) return t("ended");
+  return t("campaignTimeLeft", formatCountdown(ends, t));
+}
+
+function startsLabel(starts: string, t: TFunction): string {
+  const at = Date.parse(starts);
+  return Number.isNaN(at) || at <= Date.now() ? t("upcomingPill") : t("startsIn", formatCountdown(starts, t));
+}
+
+function StatusPill({ tone, label }: { tone: "farming" | "hot" | "done" | "muted"; label?: string }): React.ReactElement | null {
+  if (!label) return null;
   return (
     <span
       data-campaign-status={tone}

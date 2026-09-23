@@ -47,7 +47,8 @@ export function formatDateTime(value: string, locale: string): string {
   const time = Date.parse(value);
   if (!value || Number.isNaN(time)) return "";
   try {
-    return new Date(time).toLocaleString(locale, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+    // Catalog codes use an underscore (pt_BR, zh_CN); BCP 47 wants a hyphen.
+    return new Date(time).toLocaleString(locale.replace(/_/g, "-"), { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
   } catch {
     return new Date(time).toLocaleString();
   }

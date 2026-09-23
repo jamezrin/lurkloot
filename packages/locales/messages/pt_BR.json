@@ -413,14 +413,8 @@
   "expiredPill": {
     "message": "Expirada"
   },
-  "finishedPill": {
-    "message": "Finalizada"
-  },
   "complete": {
     "message": "Concluído"
-  },
-  "nextReward": {
-    "message": "Próximo: $1"
   },
   "startsIn": {
     "message": "Começa em $1"
@@ -437,20 +431,11 @@
   "done": {
     "message": "Concluído"
   },
-  "farmed": {
-    "message": "Farmado"
-  },
   "rewards": {
     "message": "Recompensas"
   },
-  "inCampaignOrder": {
-    "message": "na ordem da campanha"
-  },
   "allChannels": {
     "message": "Todos os canais"
-  },
-  "channelCount": {
-    "message": "$1 canais"
   },
   "includeInFarming": {
     "message": "Incluir no farming"

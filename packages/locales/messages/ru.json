@@ -413,14 +413,8 @@
   "expiredPill": {
     "message": "Истекшая"
   },
-  "finishedPill": {
-    "message": "Завершённая"
-  },
   "complete": {
     "message": "Завершено"
-  },
-  "nextReward": {
-    "message": "Далее: $1"
   },
   "startsIn": {
     "message": "Начнется через $1"
@@ -437,20 +431,11 @@
   "done": {
     "message": "Готово"
   },
-  "farmed": {
-    "message": "Нафармлено"
-  },
   "rewards": {
     "message": "Награды"
   },
-  "inCampaignOrder": {
-    "message": "в порядке кампании"
-  },
   "allChannels": {
     "message": "Все каналы"
-  },
-  "channelCount": {
-    "message": "$1 каналов"
   },
   "includeInFarming": {
     "message": "Включить в фарм"

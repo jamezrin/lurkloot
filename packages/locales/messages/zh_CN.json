@@ -413,14 +413,8 @@
   "expiredPill": {
     "message": "已过期"
   },
-  "finishedPill": {
-    "message": "已完成"
-  },
   "complete": {
     "message": "完成"
-  },
-  "nextReward": {
-    "message": "下一个奖励：$1"
   },
   "startsIn": {
     "message": "$1 后开始"
@@ -437,20 +431,11 @@
   "done": {
     "message": "完成"
   },
-  "farmed": {
-    "message": "已挂机时长"
-  },
   "rewards": {
     "message": "奖励"
   },
-  "inCampaignOrder": {
-    "message": "按活动内奖励顺序"
-  },
   "allChannels": {
     "message": "所有频道"
-  },
-  "channelCount": {
-    "message": "$1 个频道"
   },
   "includeInFarming": {
     "message": "加入挂机"

@@ -228,6 +228,52 @@ describe("queue view", () => {
   });
 });
 
+function search(container: Element, value: string): void {
+  const input = container.querySelector<HTMLInputElement>("input[type='search']")!;
+  input.value = value;
+  const propsKey = Object.keys(input).find((key) => key.startsWith("__reactProps$"));
+  const props = propsKey
+    ? (input as unknown as Record<string, { onChange?(event: { target: HTMLInputElement }): void }>)[propsKey]
+    : undefined;
+  act(() => props?.onChange?.({ target: input }));
+}
+
+describe("campaign status pill", () => {
+  const status = (container: Element, id: string) =>
+    container.querySelector(`[data-campaign-id="${id}"] [data-campaign-status]`)?.textContent ?? null;
+
+  it("shows the time left only when the campaign has an end", () => {
+    const settings = mergeSettings(undefined);
+    const inTwoDays = new Date(Date.now() + 50 * 3_600_000).toISOString();
+    const { container } = queue(views([campaign("dated", { endsAt: inTwoDays }), campaign("undated")], settings), settings);
+
+    expect(status(container, "dated")).toMatch(/^campaignTimeLeft:2d/);
+    // No end date is not "later left": the row simply carries no deadline.
+    expect(status(container, "undated")).toBeNull();
+    expect(container.querySelector('[data-campaign-id="undated"]')?.textContent).not.toContain("later");
+  });
+
+  it("says a campaign has ended once its end has passed, before it is marked expired", () => {
+    const settings = mergeSettings(undefined);
+    const anHourAgo = new Date(Date.now() - 3_600_000).toISOString();
+    const passed = campaignViewFromCampaign(campaign("passed", { endsAt: anHourAgo }), 0, idleSession, false);
+    const { container } = queue([{ ...passed, section: "queue", lifecycle: undefined }], settings);
+
+    expect(status(container, "passed")).toBe("ended");
+  });
+
+  it("labels an expired campaign found by search as expired, with nothing to act on", () => {
+    const settings = mergeSettings(undefined);
+    const { container } = queue(views([campaign("live"), campaign("gone", { status: "expired" })], settings), settings);
+
+    search(container, "gone");
+    const row = container.querySelector('[data-campaign-id="gone"]')!;
+    expect(status(container, "gone")).toBe("expiredPill");
+    expect(row.querySelector("[data-queue-pin]")).toBeNull();
+    expect(row.querySelector("button[aria-label^='Set rank']")).toBeNull();
+  });
+});
+
 describe("campaign card actions", () => {
   it("pins a queued campaign from its own row", () => {
     const settings = mergeSettings({ campaignPins: ["pinned"] } as never);

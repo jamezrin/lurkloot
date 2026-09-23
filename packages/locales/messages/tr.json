@@ -413,14 +413,8 @@
   "expiredPill": {
     "message": "Bitti"
   },
-  "finishedPill": {
-    "message": "Tamamlandı"
-  },
   "complete": {
     "message": "Tamamlandı"
-  },
-  "nextReward": {
-    "message": "Sıradaki: $1"
   },
   "startsIn": {
     "message": "$1 içinde başlıyor"
@@ -437,20 +431,11 @@
   "done": {
     "message": "Bitti"
   },
-  "farmed": {
-    "message": "Toplandı"
-  },
   "rewards": {
     "message": "Ödüller"
   },
-  "inCampaignOrder": {
-    "message": "Kampanya sırasına göre"
-  },
   "allChannels": {
     "message": "Tüm kanallar"
-  },
-  "channelCount": {
-    "message": "$1 kanal"
   },
   "includeInFarming": {
     "message": "Listeye ekle"
