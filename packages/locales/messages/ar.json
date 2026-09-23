@@ -1702,5 +1702,89 @@
   },
   "gamesBlockedEmpty": {
     "message": "لا يوجد شيء محظور. استخدم ⊘ على لعبة لإبقائها خارج التجميع في كلا الوضعين."
+  },
+  "campaignRewardsProgress": {
+    "message": "$1 من $2 مكافآت"
+  },
+  "campaignTimeLeft": {
+    "message": "متبقٍ $1"
+  },
+  "campaignFactStarts": {
+    "message": "يبدأ"
+  },
+  "campaignFactEnds": {
+    "message": "ينتهي"
+  },
+  "campaignFactEnded": {
+    "message": "انتهت"
+  },
+  "campaignFactWatching": {
+    "message": "تتم المشاهدة"
+  },
+  "campaignFactChannels": {
+    "message": "القنوات"
+  },
+  "campaignFactNextReward": {
+    "message": "المكافأة التالية"
+  },
+  "campaignFactWhyRank": {
+    "message": "سبب هذا الترتيب"
+  },
+  "campaignMoreChannels": {
+    "message": "+$1 أخرى"
+  },
+  "campaignExclude": {
+    "message": "استبعاد"
+  },
+  "campaignCategoryBlocked": {
+    "message": "تم حظر $1"
+  },
+  "campaignPinToTop": {
+    "message": "تثبيت في الأعلى"
+  },
+  "campaignPinnedAt": {
+    "message": "مثبتة · $1"
+  },
+  "campaignFavourite": {
+    "message": "إضافة $1 إلى المفضلة"
+  },
+  "campaignFavouriteOn": {
+    "message": "$1 من المفضلة"
+  },
+  "campaignExcludeThis": {
+    "message": "هذه الحملة فقط"
+  },
+  "campaignExcludeThisHint": {
+    "message": "تستمر بقية حملات $1 في الجمع"
+  },
+  "campaignExcludeThisUndo": {
+    "message": "اخترها مجددًا لإعادة الحملة إلى القائمة"
+  },
+  "campaignExcludeCategory": {
+    "message": "الفئة «$1»"
+  },
+  "campaignExcludeCategoryHint": {
+    "message": "يحظر كل حملات $1 الآن ولاحقًا"
+  },
+  "campaignExcludeCategoryUndo": {
+    "message": "اخترها مجددًا لإلغاء حظر اللعبة"
+  },
+  "rewardMissed": {
+    "message": "لم تُكسب في الوقت"
+  },
+  "rankReasonPinned": {
+    "message": "مثبتة في المرتبة $1"
+  },
+  "rankReasonFavourite": {
+    "message": "$1 هي المفضلة رقم $2"
+  },
+  "rankReasonEnding": {
+    "message": "تنتهي قبل ما تحتها"
+  },
+  "rankReasonAvailability": {
+    "message": "قنوات أقل مما تحتها"
+  },
+  "queueEditFavourites": {
+    "message": "تعديل"
   }
 }

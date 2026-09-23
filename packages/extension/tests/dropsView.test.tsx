@@ -103,11 +103,14 @@ function mount(url?: string, source = sourceCampaign(url), viewOptions?: Paramet
 }
 
 describe("drops search controls", () => {
-  it("uses an action label for the campaign search button", () => {
+  it("keeps campaign search visible, with an accessible name", () => {
     const { container } = mount();
 
-    const searchButton = container.querySelector<HTMLButtonElement>("button[aria-label='Search']");
-    expect(searchButton).not.toBeNull();
+    // Search is a field in the toolbar rather than a button that opens one, so
+    // finding a campaign to pin or re-rank is never a two-step detour.
+    const search = container.querySelector<HTMLInputElement>("input[type='search']");
+    expect(search).not.toBeNull();
+    expect(search?.getAttribute("aria-label")).toBeTruthy();
   });
 });
 
@@ -346,7 +349,6 @@ describe("completed campaign section", () => {
   it("finds a finished campaign while the section is collapsed", () => {
     const finished = campaignViewFromCampaign({ ...sourceCampaign(), id: "finished", name: "Finished campaign", status: "completed" }, 0, idleSession, false);
     const { container } = mountCampaignList([finished]);
-    act(() => container.querySelector<HTMLButtonElement>("button[aria-label='Search']")?.click());
     const input = container.querySelector<HTMLInputElement>("input[type='search']")!;
     act(() => setSearchQuery(input, "Finished campaign"));
 
@@ -561,7 +563,6 @@ describe("campaign rank input", () => {
       renderDropsPanel(campaigns);
     });
 
-    act(() => container.querySelector<HTMLButtonElement>("button[aria-label='Search']")?.click());
     const input = container.querySelector<HTMLInputElement>("input[type='search']")!;
     act(() => setSearchQuery(input, "Second"));
 
@@ -736,7 +737,6 @@ describe("initial drops expansion", () => {
       renderDropsPanel(campaigns);
     });
 
-    act(() => container.querySelector<HTMLButtonElement>("button[aria-label='Search']")?.click());
     const input = container.querySelector<HTMLInputElement>("input[type='search']")!;
     act(() => setSearchQuery(input, "First"));
     expect(container.textContent).not.toContain("Second campaign");
@@ -768,7 +768,6 @@ describe("initial drops expansion", () => {
       renderDropsPanel(campaigns);
     });
 
-    act(() => container.querySelector<HTMLButtonElement>("button[aria-label='Search']")?.click());
     const input = container.querySelector<HTMLInputElement>("input[type='search']")!;
     act(() => setSearchQuery(input, "Second"));
 

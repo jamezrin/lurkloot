@@ -1702,5 +1702,89 @@
   },
   "gamesBlockedEmpty": {
     "message": "Hiçbir şey engellenmedi. Bir oyundaki ⊘ ile onu her iki modda da farm dışında tutun."
+  },
+  "campaignRewardsProgress": {
+    "message": "$1/$2 ödül"
+  },
+  "campaignTimeLeft": {
+    "message": "$1 kaldı"
+  },
+  "campaignFactStarts": {
+    "message": "Başlangıç"
+  },
+  "campaignFactEnds": {
+    "message": "Bitiş"
+  },
+  "campaignFactEnded": {
+    "message": "Bitti"
+  },
+  "campaignFactWatching": {
+    "message": "İzleniyor"
+  },
+  "campaignFactChannels": {
+    "message": "Kanallar"
+  },
+  "campaignFactNextReward": {
+    "message": "Sonraki ödül"
+  },
+  "campaignFactWhyRank": {
+    "message": "Neden bu sıra"
+  },
+  "campaignMoreChannels": {
+    "message": "+$1 daha"
+  },
+  "campaignExclude": {
+    "message": "Hariç tut"
+  },
+  "campaignCategoryBlocked": {
+    "message": "$1 engellendi"
+  },
+  "campaignPinToTop": {
+    "message": "En üste sabitle"
+  },
+  "campaignPinnedAt": {
+    "message": "Sabitlendi · $1"
+  },
+  "campaignFavourite": {
+    "message": "$1 oyununu favorile"
+  },
+  "campaignFavouriteOn": {
+    "message": "$1 favori"
+  },
+  "campaignExcludeThis": {
+    "message": "Yalnızca bu kampanya"
+  },
+  "campaignExcludeThisHint": {
+    "message": "Diğer $1 kampanyaları farmlanmaya devam eder"
+  },
+  "campaignExcludeThisUndo": {
+    "message": "Kampanyayı sıraya geri almak için yeniden seçin"
+  },
+  "campaignExcludeCategory": {
+    "message": "“$1” kategorisi"
+  },
+  "campaignExcludeCategoryHint": {
+    "message": "Tüm $1 kampanyalarını şimdi ve ileride engeller"
+  },
+  "campaignExcludeCategoryUndo": {
+    "message": "Oyunun engelini kaldırmak için yeniden seçin"
+  },
+  "rewardMissed": {
+    "message": "Zamanında kazanılmadı"
+  },
+  "rankReasonPinned": {
+    "message": "$1. sıraya sabitlendi"
+  },
+  "rankReasonFavourite": {
+    "message": "$1, $2. favori"
+  },
+  "rankReasonEnding": {
+    "message": "Alttakilerden önce biter"
+  },
+  "rankReasonAvailability": {
+    "message": "Alttakilerden daha az kanal"
+  },
+  "queueEditFavourites": {
+    "message": "Düzenle"
   }
 }

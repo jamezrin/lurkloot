@@ -1702,5 +1702,89 @@
   },
   "gamesBlockedEmpty": {
     "message": "Nothing is blocked. Use the ⊘ on a game to keep it out of farming in both modes."
+  },
+  "campaignRewardsProgress": {
+    "message": "$1 of $2 rewards"
+  },
+  "campaignTimeLeft": {
+    "message": "$1 left"
+  },
+  "campaignFactStarts": {
+    "message": "Starts"
+  },
+  "campaignFactEnds": {
+    "message": "Ends"
+  },
+  "campaignFactEnded": {
+    "message": "Ended"
+  },
+  "campaignFactWatching": {
+    "message": "Watching"
+  },
+  "campaignFactChannels": {
+    "message": "Channels"
+  },
+  "campaignFactNextReward": {
+    "message": "Next reward"
+  },
+  "campaignFactWhyRank": {
+    "message": "Why this rank"
+  },
+  "campaignMoreChannels": {
+    "message": "+$1 more"
+  },
+  "campaignExclude": {
+    "message": "Exclude"
+  },
+  "campaignCategoryBlocked": {
+    "message": "$1 blocked"
+  },
+  "campaignPinToTop": {
+    "message": "Pin to the top"
+  },
+  "campaignPinnedAt": {
+    "message": "Pinned · $1"
+  },
+  "campaignFavourite": {
+    "message": "Favourite $1"
+  },
+  "campaignFavouriteOn": {
+    "message": "$1 is a favourite"
+  },
+  "campaignExcludeThis": {
+    "message": "Only this campaign"
+  },
+  "campaignExcludeThisHint": {
+    "message": "Other $1 campaigns keep farming"
+  },
+  "campaignExcludeThisUndo": {
+    "message": "Choose it again to put the campaign back in the queue"
+  },
+  "campaignExcludeCategory": {
+    "message": "Category “$1”"
+  },
+  "campaignExcludeCategoryHint": {
+    "message": "Blocks every $1 campaign, now and later"
+  },
+  "campaignExcludeCategoryUndo": {
+    "message": "Choose it again to unblock the game"
+  },
+  "rewardMissed": {
+    "message": "Not earned in time"
+  },
+  "rankReasonPinned": {
+    "message": "Pinned at $1"
+  },
+  "rankReasonFavourite": {
+    "message": "$1 is favourite $2"
+  },
+  "rankReasonEnding": {
+    "message": "Ends sooner than those below"
+  },
+  "rankReasonAvailability": {
+    "message": "Fewer channels than those below"
+  },
+  "queueEditFavourites": {
+    "message": "Edit"
   }
 }

@@ -8,17 +8,7 @@ import { CategoryPickerCombobox } from "./settingsPlatform";
 import type { GameItem } from "./types";
 import { EmptyPanel, ImageWithFallback, cn } from "./primitives";
 
-function sameCategory(left: CategorySelection, right: CategorySelection): boolean {
-  return left.id.toLowerCase() === right.id.toLowerCase();
-}
-
-function contains(list: CategorySelection[], category: CategorySelection): boolean {
-  return list.some((entry) => sameCategory(entry, category));
-}
-
-function without(list: CategorySelection[], category: CategorySelection): CategorySelection[] {
-  return list.filter((entry) => !sameCategory(entry, category));
-}
+import { containsCategory as contains, favouriteTogglePatch, withoutCategory as without } from "./categoryActions";
 
 /** Which games are farmed, which rank above the strategy, and which are never
  * farmed — one screen, three states.
@@ -73,17 +63,9 @@ export function GamesPanel({
   );
 
   function toggleFavourite(category: CategorySelection): void {
-    if (contains(favouriteCategories, category)) {
-      void onFavouritesChange(without(favouriteCategories, category));
-      return;
-    }
-    void onFavouritesChange([...favouriteCategories, category]);
-    // A star is also a statement that the game should be farmed, so in the
-    // allowlist mode it selects the game rather than ranking something the
-    // filter would then drop.
-    if (categoryMode === "include" && !contains(categories, category)) {
-      void onCategoriesChange([...categories, category]);
-    }
+    const patch = favouriteTogglePatch(platformSettings, category);
+    if (patch.favouriteCategories) void onFavouritesChange(patch.favouriteCategories);
+    if (patch.categories) void onCategoriesChange(patch.categories);
   }
 
   function toggleSelected(category: CategorySelection): void {

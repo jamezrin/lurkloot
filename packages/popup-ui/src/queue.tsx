@@ -1,15 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { DragDropProvider } from "@dnd-kit/react";
 import { AnimatePresence, motion } from "motion/react";
-import { ChevronRight, Clock3, Pin, Search, X } from "lucide-react";
-import type { PriorityMode } from "@lurkloot/shared/models";
+import { ChevronRight, Clock3, Pin } from "lucide-react";
+import type { CategorySelection, PriorityMode } from "@lurkloot/shared/models";
 import { useT } from "./context";
 import { filterCampaigns } from "./campaignSearch";
 import { CampaignCard, SortableCampaign, campaignRejectionMessageKey, initialExpandedIds } from "./drops";
 import { fallbackGame } from "./viewModels";
 import type { CampaignRankTier } from "./viewModels";
 import type { CampaignView, GameItem } from "./types";
-import { EmptyPanel, IconButton, SearchBox, cn, reorderFromDragEnd, type SortableDragEndEvent } from "./primitives";
+import { EmptyPanel, SearchBox, Toggle, cn, reorderFromDragEnd, type SortableDragEndEvent } from "./primitives";
 
 // Which campaigns a facet admits. The facet reads across the queue AND the
 // skipped group on purpose: with subscription campaigns turned off, "Sub badges"
@@ -53,6 +53,8 @@ export function QueuePanel({
   onRefreshCampaign,
   onPinChange,
   onToggleExclude,
+  onToggleFavouriteCategory,
+  onToggleBlockedCategory,
   onOpenGames,
   onOpenSettings,
 }: {
@@ -69,12 +71,13 @@ export function QueuePanel({
   onRefreshCampaign(id: string): void | Promise<void>;
   onPinChange(campaignId: string, position: number | null): void | Promise<void>;
   onToggleExclude(id: string): void | Promise<void>;
+  onToggleFavouriteCategory?(category: CategorySelection): void | Promise<void>;
+  onToggleBlockedCategory?(category: CategorySelection): void | Promise<void>;
   onOpenGames(): void;
   onOpenSettings(): void;
 }): React.ReactElement {
   const t = useT();
   const [query, setQuery] = useState("");
-  const [searchOpen, setSearchOpen] = useState(false);
   const [facet, setFacet] = useState<QueueFacet>("all");
   const [showSkipped, setShowSkipped] = useState(false);
   const [showUpcoming, setShowUpcoming] = useState(false);
@@ -106,7 +109,6 @@ export function QueuePanel({
   useEffect(() => {
     if (!focus) return;
     setQuery("");
-    setSearchOpen(false);
     const target = campaigns.find((campaign) => campaign.id === focus.id);
     if (target?.section === "skipped") setShowSkipped(true);
     if (target?.section === "upcoming") setShowUpcoming(true);
@@ -142,74 +144,55 @@ export function QueuePanel({
   }
 
   const tiers: CampaignRankTier[] = ["pinned", "favourite", "strategy"];
+  const facetCounts: Record<QueueFacet, number> = {
+    all: campaigns.filter((campaign) => campaign.section === "queue").length,
+    drops: campaigns.filter((campaign) => campaign.section === "queue" && matchesFacet(campaign, "drops")).length,
+    badges: campaigns.filter((campaign) => campaign.section === "queue" && matchesFacet(campaign, "badges")).length,
+  };
+
+  // The layer of the ranking that placed a queued campaign, in words: the
+  // card shows it among its facts so the order never has to be guessed.
+  function rankReason(campaign: CampaignView, game: GameItem): string {
+    if (campaign.rankTier === "pinned" && campaign.pinIndex != null) return t("rankReasonPinned", String(campaign.pinIndex + 1));
+    if (campaign.rankTier === "favourite" && campaign.favouriteIndex != null) {
+      return t("rankReasonFavourite", [campaign.category?.name ?? game.name, String(campaign.favouriteIndex + 1)]);
+    }
+    return t(strategy === "lowest_availability" ? "rankReasonAvailability" : "rankReasonEnding");
+  }
+
+  // What every card in the list can do to its game, beyond the row's own actions.
+  const categoryActions = { onToggleFavouriteCategory, onToggleBlockedCategory };
 
   return (
     <section className="space-y-1.5">
-      <div className="flex items-center gap-1">
-        {searchOpen ? (
-          <>
-            <div className="min-w-0 flex-1">
-              <SearchBox compact autoFocus value={query} onChange={setQuery} placeholder={t("campaignSearchPlaceholder")} />
-            </div>
-            <IconButton label={t("closeSearch")} onClick={() => { setQuery(""); setSearchOpen(false); }}>
-              <X size={15} />
-            </IconButton>
-          </>
-        ) : (
-          <>
-            <FacetTabs facet={facet} onChange={setFacet} />
-            <div className="ms-auto flex items-center gap-1">
-              <IconButton label={t("search")} onClick={() => setSearchOpen(true)}>
-                <Search size={15} />
-              </IconButton>
-            </div>
-          </>
-        )}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <FacetTabs facet={facet} counts={facetCounts} onChange={setFacet} />
+        {/* The strategy lives where it acts. It ranks everything no pin or
+            favourite game already placed, which is what the label says. */}
+        <label className="ms-auto flex min-w-0 items-center gap-1 rounded-full border border-zinc-200 bg-white px-2 py-1 text-[11px] font-medium text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
+          <span className="shrink-0">{t("queueStrategyLabel")}</span>
+          <select
+            data-queue-strategy
+            aria-label={t("queueStrategyLabel")}
+            value={strategy}
+            onChange={(event) => void onStrategyChange(event.target.value as PriorityMode)}
+            className="min-w-0 bg-transparent font-semibold text-zinc-800 outline-none dark:text-zinc-100"
+          >
+            <option value="ending_soonest">{t("endingSoonest")}</option>
+            <option value="lowest_availability">{t("lowAvailabilityFirst")}</option>
+          </select>
+        </label>
       </div>
 
-      {searchOpen ? null : (
-        <div className="flex flex-wrap items-center gap-1.5">
-          {/* The strategy lives where it acts. It ranks everything no pin or
-              favourite game already placed, which is what the label says. */}
-          <label className="flex min-w-0 items-center gap-1 rounded-full border border-zinc-200 bg-white px-2 py-1 text-[11px] font-medium text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
-            <span className="shrink-0">{t("queueStrategyLabel")}</span>
-            <select
-              data-queue-strategy
-              aria-label={t("queueStrategyLabel")}
-              value={strategy}
-              onChange={(event) => void onStrategyChange(event.target.value as PriorityMode)}
-              className="min-w-0 bg-transparent font-semibold text-zinc-800 outline-none dark:text-zinc-100"
-            >
-              <option value="ending_soonest">{t("endingSoonest")}</option>
-              <option value="lowest_availability">{t("lowAvailabilityFirst")}</option>
-            </select>
-          </label>
-          <button
-            type="button"
-            data-queue-pinned-only
-            aria-pressed={farmPinnedOnly}
-            onClick={() => void onFarmPinnedOnlyChange(!farmPinnedOnly)}
-            className={cn(
-              "rounded-full border px-2 py-1 text-[11px] font-medium transition-colors",
-              farmPinnedOnly
-                ? "border-transparent bg-[var(--accent-soft)] text-[var(--accent-text)]"
-                : "border-zinc-200 text-zinc-500 hover:border-[var(--accent-ring)] dark:border-zinc-700 dark:text-zinc-400",
-            )}
-          >
-            {t("queueFarmPinnedOnly")}
-          </button>
-          {pinnedCount > 0 ? (
-            <button
-              type="button"
-              data-queue-unpin-all
-              onClick={() => void onUnpinAll()}
-              className="ms-auto rounded-full px-2 py-1 text-[11px] font-semibold text-[var(--accent-text)] hover:bg-[var(--accent-softer)]"
-            >
-              {t("queueUnpinAll", String(pinnedCount))}
-            </button>
-          ) : null}
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <SearchBox compact value={query} onChange={setQuery} placeholder={t("campaignSearchPlaceholder")} />
         </div>
-      )}
+        <label data-queue-pinned-only className="flex shrink-0 items-center gap-1.5 text-[11px] font-medium text-zinc-600 dark:text-zinc-300">
+          <Toggle size="sm" checked={farmPinnedOnly} onChange={(value) => void onFarmPinnedOnlyChange(value)} label={t("queueFarmPinnedOnly")} />
+          <span aria-hidden>{t("queueFarmPinnedOnly")}</span>
+        </label>
+      </div>
 
       {campaigns.length === 0 ? <EmptyPanel>{t("noCampaigns")}</EmptyPanel> : searching ? (
         searchResults.length === 0 ? (
@@ -237,6 +220,8 @@ export function QueuePanel({
                     onRankMove={queueIndex === -1 ? undefined : (toIndex) => moveCampaign(queueIndex, toIndex)}
                     onPin={campaign.section === "queue" ? () => void onPinChange(campaign.id, campaign.pinned ? null : pinnedCount) : undefined}
                     pinned={campaign.pinned}
+                    rankReason={campaign.section === "queue" ? rankReason(campaign, gameFor(campaign, index)) : undefined}
+                    {...categoryActions}
                   />
                 </div>
               );
@@ -256,6 +241,9 @@ export function QueuePanel({
                     hint={tier === "strategy"
                       ? t(strategy === "lowest_availability" ? "lowAvailabilityFirst" : "endingSoonest")
                       : tier === "pinned" ? t("queueGroupPinnedHint") : undefined}
+                    action={tier === "pinned" && pinnedCount > 0
+                      ? { label: t("queueUnpinAll", String(pinnedCount)), onClick: () => void onUnpinAll(), attribute: "data-queue-unpin-all" }
+                      : tier === "favourite" ? { label: t("queueEditFavourites"), onClick: onOpenGames } : undefined}
                   />
                   {rows.map((campaign) => {
                     const index = queued.indexOf(campaign);
@@ -275,6 +263,10 @@ export function QueuePanel({
                         onToggleExclude={onToggleExclude}
                         rankCount={queued.length}
                         onRankMove={(toIndex) => moveCampaign(index, toIndex)}
+                        pinned={campaign.pinned}
+                        onPin={() => void onPinChange(campaign.id, campaign.pinned ? null : pinnedCount)}
+                        rankReason={rankReason(campaign, gameFor(campaign, index))}
+                        {...categoryActions}
                       />
                     );
                   })}
@@ -315,6 +307,7 @@ export function QueuePanel({
                         onOpenSettings,
                         onPin: () => void onPinChange(campaign.id, pinnedCount),
                       }, t)}
+                      {...categoryActions}
                     />
                   </div>
                 ))}
@@ -342,6 +335,7 @@ export function QueuePanel({
                       onToggle={() => toggleExpanded(campaign.id)}
                       onRefreshCampaign={onRefreshCampaign}
                       onToggleExclude={onToggleExclude}
+                      {...categoryActions}
                     />
                   </div>
                 ))}
@@ -373,7 +367,7 @@ function skippedFix(
   return undefined;
 }
 
-function FacetTabs({ facet, onChange }: { facet: QueueFacet; onChange(facet: QueueFacet): void }): React.ReactElement {
+function FacetTabs({ facet, counts, onChange }: { facet: QueueFacet; counts: Record<QueueFacet, number>; onChange(facet: QueueFacet): void }): React.ReactElement {
   const t = useT();
   const options: Array<[QueueFacet, string]> = [["all", "queueFacetAll"], ["drops", "queueFacetDrops"], ["badges", "queueFacetBadges"]];
   return (
@@ -391,6 +385,7 @@ function FacetTabs({ facet, onChange }: { facet: QueueFacet; onChange(facet: Que
           )}
         >
           {t(labelKey)}
+          <span className={cn("ms-1 font-mono text-[9.5px] tabular", facet === value ? "opacity-70" : "text-zinc-400 dark:text-zinc-500")}>{counts[value]}</span>
         </button>
       ))}
     </div>
@@ -399,12 +394,24 @@ function FacetTabs({ facet, onChange }: { facet: QueueFacet; onChange(facet: Que
 
 // A group's label. Each divider names the layer that placed the rows under it,
 // so the order is explainable without help text.
-function GroupDivider({ label, hint }: { label: string; hint?: string }): React.ReactElement {
+function GroupDivider({ label, hint, action }: { label: string; hint?: string; action?: { label: string; onClick(): void; attribute?: string } }): React.ReactElement {
   return (
     <div className="flex items-center gap-2 pt-2">
       <span className="font-mono text-[9.5px] uppercase tracking-[0.07em] text-zinc-400 dark:text-zinc-500">{label}</span>
       {hint ? <span className="truncate text-[10px] text-zinc-400 dark:text-zinc-500">{hint}</span> : null}
       <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+      {/* The group's own action sits on its divider: Unpin all only exists
+          while there are pins, which is exactly when this divider does. */}
+      {action ? (
+        <button
+          type="button"
+          {...(action.attribute ? { [action.attribute]: "" } : {})}
+          onClick={action.onClick}
+          className="shrink-0 rounded-full px-1.5 py-0.5 text-[10.5px] font-semibold text-[var(--accent-text)] hover:bg-[var(--accent-softer)]"
+        >
+          {action.label}
+        </button>
+      ) : null}
     </div>
   );
 }

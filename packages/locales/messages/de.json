@@ -1702,5 +1702,89 @@
   },
   "gamesBlockedEmpty": {
     "message": "Nichts ist blockiert. Mit dem ⊘ eines Spiels bleibt es in beiden Modi ungefarmt."
+  },
+  "campaignRewardsProgress": {
+    "message": "$1 von $2 Belohnungen"
+  },
+  "campaignTimeLeft": {
+    "message": "noch $1"
+  },
+  "campaignFactStarts": {
+    "message": "Beginnt"
+  },
+  "campaignFactEnds": {
+    "message": "Endet"
+  },
+  "campaignFactEnded": {
+    "message": "Beendet"
+  },
+  "campaignFactWatching": {
+    "message": "Schaut"
+  },
+  "campaignFactChannels": {
+    "message": "Kanäle"
+  },
+  "campaignFactNextReward": {
+    "message": "Nächste Belohnung"
+  },
+  "campaignFactWhyRank": {
+    "message": "Warum dieser Rang"
+  },
+  "campaignMoreChannels": {
+    "message": "+$1 weitere"
+  },
+  "campaignExclude": {
+    "message": "Ausschließen"
+  },
+  "campaignCategoryBlocked": {
+    "message": "$1 blockiert"
+  },
+  "campaignPinToTop": {
+    "message": "Ganz oben anheften"
+  },
+  "campaignPinnedAt": {
+    "message": "Angeheftet · $1"
+  },
+  "campaignFavourite": {
+    "message": "$1 favorisieren"
+  },
+  "campaignFavouriteOn": {
+    "message": "$1 ist ein Favorit"
+  },
+  "campaignExcludeThis": {
+    "message": "Nur diese Kampagne"
+  },
+  "campaignExcludeThisHint": {
+    "message": "Andere $1-Kampagnen werden weiter gefarmt"
+  },
+  "campaignExcludeThisUndo": {
+    "message": "Erneut wählen, um die Kampagne wieder einzureihen"
+  },
+  "campaignExcludeCategory": {
+    "message": "Kategorie „$1“"
+  },
+  "campaignExcludeCategoryHint": {
+    "message": "Blockiert jede $1-Kampagne, jetzt und künftig"
+  },
+  "campaignExcludeCategoryUndo": {
+    "message": "Erneut wählen, um das Spiel freizugeben"
+  },
+  "rewardMissed": {
+    "message": "Nicht rechtzeitig verdient"
+  },
+  "rankReasonPinned": {
+    "message": "Angeheftet auf $1"
+  },
+  "rankReasonFavourite": {
+    "message": "$1 ist Favorit $2"
+  },
+  "rankReasonEnding": {
+    "message": "Endet früher als die darunter"
+  },
+  "rankReasonAvailability": {
+    "message": "Weniger Kanäle als die darunter"
+  },
+  "queueEditFavourites": {
+    "message": "Bearbeiten"
   }
 }

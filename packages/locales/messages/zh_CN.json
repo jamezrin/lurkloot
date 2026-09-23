@@ -1702,5 +1702,89 @@
   },
   "gamesBlockedEmpty": {
     "message": "没有已屏蔽的游戏。点击游戏上的 ⊘ 可让它在两种模式下都不被挂机。"
+  },
+  "campaignRewardsProgress": {
+    "message": "$1/$2 个奖励"
+  },
+  "campaignTimeLeft": {
+    "message": "剩余 $1"
+  },
+  "campaignFactStarts": {
+    "message": "开始"
+  },
+  "campaignFactEnds": {
+    "message": "结束"
+  },
+  "campaignFactEnded": {
+    "message": "已结束"
+  },
+  "campaignFactWatching": {
+    "message": "正在观看"
+  },
+  "campaignFactChannels": {
+    "message": "频道"
+  },
+  "campaignFactNextReward": {
+    "message": "下一个奖励"
+  },
+  "campaignFactWhyRank": {
+    "message": "为何排在这里"
+  },
+  "campaignMoreChannels": {
+    "message": "另有 $1 个"
+  },
+  "campaignExclude": {
+    "message": "排除"
+  },
+  "campaignCategoryBlocked": {
+    "message": "已屏蔽 $1"
+  },
+  "campaignPinToTop": {
+    "message": "置顶"
+  },
+  "campaignPinnedAt": {
+    "message": "已置顶 · $1"
+  },
+  "campaignFavourite": {
+    "message": "收藏 $1"
+  },
+  "campaignFavouriteOn": {
+    "message": "$1 已收藏"
+  },
+  "campaignExcludeThis": {
+    "message": "仅此活动"
+  },
+  "campaignExcludeThisHint": {
+    "message": "$1 的其他活动继续挂机"
+  },
+  "campaignExcludeThisUndo": {
+    "message": "再次选择可将活动放回队列"
+  },
+  "campaignExcludeCategory": {
+    "message": "分类“$1”"
+  },
+  "campaignExcludeCategoryHint": {
+    "message": "屏蔽 $1 的所有活动，包括以后的"
+  },
+  "campaignExcludeCategoryUndo": {
+    "message": "再次选择可取消屏蔽该游戏"
+  },
+  "rewardMissed": {
+    "message": "未能及时获得"
+  },
+  "rankReasonPinned": {
+    "message": "置顶第 $1 位"
+  },
+  "rankReasonFavourite": {
+    "message": "$1 是第 $2 个收藏"
+  },
+  "rankReasonEnding": {
+    "message": "比下方的更早结束"
+  },
+  "rankReasonAvailability": {
+    "message": "频道比下方的更少"
+  },
+  "queueEditFavourites": {
+    "message": "编辑"
   }
 }

@@ -1702,5 +1702,89 @@
   },
   "gamesBlockedEmpty": {
     "message": "कुछ भी ब्लॉक नहीं है। किसी गेम पर ⊘ दबाएँ ताकि वह दोनों मोड में फ़ार्म न हो।"
+  },
+  "campaignRewardsProgress": {
+    "message": "$2 में से $1 इनाम"
+  },
+  "campaignTimeLeft": {
+    "message": "$1 बाकी"
+  },
+  "campaignFactStarts": {
+    "message": "शुरू"
+  },
+  "campaignFactEnds": {
+    "message": "समाप्त"
+  },
+  "campaignFactEnded": {
+    "message": "समाप्त हुआ"
+  },
+  "campaignFactWatching": {
+    "message": "देख रहे हैं"
+  },
+  "campaignFactChannels": {
+    "message": "चैनल"
+  },
+  "campaignFactNextReward": {
+    "message": "अगला इनाम"
+  },
+  "campaignFactWhyRank": {
+    "message": "यह रैंक क्यों"
+  },
+  "campaignMoreChannels": {
+    "message": "+$1 और"
+  },
+  "campaignExclude": {
+    "message": "बाहर रखें"
+  },
+  "campaignCategoryBlocked": {
+    "message": "$1 ब्लॉक है"
+  },
+  "campaignPinToTop": {
+    "message": "सबसे ऊपर पिन करें"
+  },
+  "campaignPinnedAt": {
+    "message": "पिन किया · $1"
+  },
+  "campaignFavourite": {
+    "message": "$1 को पसंदीदा बनाएं"
+  },
+  "campaignFavouriteOn": {
+    "message": "$1 पसंदीदा है"
+  },
+  "campaignExcludeThis": {
+    "message": "सिर्फ़ यह कैंपेन"
+  },
+  "campaignExcludeThisHint": {
+    "message": "$1 के बाकी कैंपेन फ़ार्म होते रहेंगे"
+  },
+  "campaignExcludeThisUndo": {
+    "message": "कैंपेन को कतार में वापस लाने के लिए फिर से चुनें"
+  },
+  "campaignExcludeCategory": {
+    "message": "श्रेणी “$1”"
+  },
+  "campaignExcludeCategoryHint": {
+    "message": "$1 के सभी कैंपेन अभी और आगे भी ब्लॉक करता है"
+  },
+  "campaignExcludeCategoryUndo": {
+    "message": "गेम अनब्लॉक करने के लिए फिर से चुनें"
+  },
+  "rewardMissed": {
+    "message": "समय पर नहीं मिला"
+  },
+  "rankReasonPinned": {
+    "message": "$1 पर पिन किया"
+  },
+  "rankReasonFavourite": {
+    "message": "$1 पसंदीदा नंबर $2 है"
+  },
+  "rankReasonEnding": {
+    "message": "नीचे वालों से पहले खत्म होता है"
+  },
+  "rankReasonAvailability": {
+    "message": "नीचे वालों से कम चैनल"
+  },
+  "queueEditFavourites": {
+    "message": "बदलें"
   }
 }

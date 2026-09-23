@@ -1702,5 +1702,89 @@
   },
   "gamesBlockedEmpty": {
     "message": "Ничего не заблокировано. Нажмите ⊘ у игры, чтобы её не фармили ни в одном режиме."
+  },
+  "campaignRewardsProgress": {
+    "message": "$1 из $2 наград"
+  },
+  "campaignTimeLeft": {
+    "message": "Осталось $1"
+  },
+  "campaignFactStarts": {
+    "message": "Начало"
+  },
+  "campaignFactEnds": {
+    "message": "Конец"
+  },
+  "campaignFactEnded": {
+    "message": "Завершена"
+  },
+  "campaignFactWatching": {
+    "message": "Смотрим"
+  },
+  "campaignFactChannels": {
+    "message": "Каналы"
+  },
+  "campaignFactNextReward": {
+    "message": "Следующая награда"
+  },
+  "campaignFactWhyRank": {
+    "message": "Почему такое место"
+  },
+  "campaignMoreChannels": {
+    "message": "ещё $1"
+  },
+  "campaignExclude": {
+    "message": "Исключить"
+  },
+  "campaignCategoryBlocked": {
+    "message": "$1 заблокирована"
+  },
+  "campaignPinToTop": {
+    "message": "Закрепить наверху"
+  },
+  "campaignPinnedAt": {
+    "message": "Закреплена · $1"
+  },
+  "campaignFavourite": {
+    "message": "В избранное: $1"
+  },
+  "campaignFavouriteOn": {
+    "message": "$1 в избранном"
+  },
+  "campaignExcludeThis": {
+    "message": "Только эта кампания"
+  },
+  "campaignExcludeThisHint": {
+    "message": "Другие кампании $1 продолжат фармиться"
+  },
+  "campaignExcludeThisUndo": {
+    "message": "Выберите снова, чтобы вернуть кампанию в очередь"
+  },
+  "campaignExcludeCategory": {
+    "message": "Категория «$1»"
+  },
+  "campaignExcludeCategoryHint": {
+    "message": "Блокирует все кампании $1, сейчас и в будущем"
+  },
+  "campaignExcludeCategoryUndo": {
+    "message": "Выберите снова, чтобы разблокировать игру"
+  },
+  "rewardMissed": {
+    "message": "Не получена вовремя"
+  },
+  "rankReasonPinned": {
+    "message": "Закреплена на месте $1"
+  },
+  "rankReasonFavourite": {
+    "message": "$1 — избранное №$2"
+  },
+  "rankReasonEnding": {
+    "message": "Заканчивается раньше нижних"
+  },
+  "rankReasonAvailability": {
+    "message": "Меньше каналов, чем у нижних"
+  },
+  "queueEditFavourites": {
+    "message": "Изменить"
   }
 }

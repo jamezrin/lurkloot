@@ -70,6 +70,7 @@ import { GithubStarNudge } from "./githubStarNudge";
 import { popupNoticeSlot } from "./popupNoticeSlot";
 import { UpdateNotice } from "./updateNotice";
 import { QueuePanel } from "./queue";
+import { blockTogglePatch, favouriteTogglePatch } from "./categoryActions";
 import { CompletedPanel } from "./completed";
 import { CriticalFailurePanel } from "./criticalFailure";
 import { openHttpsLink } from "./links";
@@ -985,6 +986,14 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                         else next.add(id);
                         return updateSettings({ excludedCampaignIds: [...next] }, { tickAfterSave: true });
                       }}
+                      onToggleFavouriteCategory={(category) => updateSettings(
+                        { platform: { [platform]: favouriteTogglePatch(settings.platform[platform], category) } },
+                        { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
+                      )}
+                      onToggleBlockedCategory={(category) => updateSettings(
+                        { platform: { [platform]: blockTogglePatch(settings.platform[platform], category) } },
+                        { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
+                      )}
                       onOpenGames={() => changeView("games")}
                       onOpenSettings={() => changeView("settings")}
                     />

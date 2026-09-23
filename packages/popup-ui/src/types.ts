@@ -1,5 +1,5 @@
 import type { CliCredentialBlob, RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
-import type { ClaimGuidance, CompatibilitySettings, DropCampaign, Platform, RewardRequirementType, SupportedLocale, TwitchExtensionProviderId } from "@lurkloot/shared/models";
+import type { CategorySelection, ClaimGuidance, CompatibilitySettings, DropCampaign, Platform, RewardRequirementType, SupportedLocale, TwitchExtensionProviderId } from "@lurkloot/shared/models";
 import type { SettingsExportPayload } from "@lurkloot/shared/settingsExport";
 import type { CampaignFarmingEvaluation } from "@lurkloot/shared/campaignFarming";
 import type { CampaignSection } from "@lurkloot/shared/campaignFilters";
@@ -91,6 +91,16 @@ export type CampaignView = {
   // Which tier of the shared ranking placed this campaign, and whether the user
   // pinned it by hand. The list labels its group dividers from these.
   pinned: boolean;
+  // Zero-based place among the pins, and among the favourite games; absent
+  // when the campaign is not pinned or its game is not a favourite. The card's
+  // "why this rank" line reads these.
+  pinIndex?: number;
+  favouriteIndex?: number;
+  // The campaign's category as the settings lists store it, for starring or
+  // blocking the game from the card. Absent for uncategorized campaigns.
+  category?: CategorySelection;
+  categoryBlocked?: boolean;
+  favourited?: boolean;
   rankTier: CampaignRankTier;
   section: CampaignSection;
   starts: string;

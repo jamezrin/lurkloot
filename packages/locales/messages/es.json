@@ -1702,5 +1702,89 @@
   },
   "gamesBlockedEmpty": {
     "message": "No hay nada bloqueado. Usa el ⊘ de un juego para que nunca se farmee, en ningún modo."
+  },
+  "campaignRewardsProgress": {
+    "message": "$1 de $2 recompensas"
+  },
+  "campaignTimeLeft": {
+    "message": "Quedan $1"
+  },
+  "campaignFactStarts": {
+    "message": "Empieza"
+  },
+  "campaignFactEnds": {
+    "message": "Termina"
+  },
+  "campaignFactEnded": {
+    "message": "Terminó"
+  },
+  "campaignFactWatching": {
+    "message": "Viendo"
+  },
+  "campaignFactChannels": {
+    "message": "Canales"
+  },
+  "campaignFactNextReward": {
+    "message": "Siguiente recompensa"
+  },
+  "campaignFactWhyRank": {
+    "message": "Por qué este puesto"
+  },
+  "campaignMoreChannels": {
+    "message": "+$1 más"
+  },
+  "campaignExclude": {
+    "message": "Excluir"
+  },
+  "campaignCategoryBlocked": {
+    "message": "$1 bloqueado"
+  },
+  "campaignPinToTop": {
+    "message": "Fijar arriba"
+  },
+  "campaignPinnedAt": {
+    "message": "Fijada · $1"
+  },
+  "campaignFavourite": {
+    "message": "Favorito: $1"
+  },
+  "campaignFavouriteOn": {
+    "message": "$1 es favorito"
+  },
+  "campaignExcludeThis": {
+    "message": "Solo esta campaña"
+  },
+  "campaignExcludeThisHint": {
+    "message": "Las demás campañas de $1 se siguen farmeando"
+  },
+  "campaignExcludeThisUndo": {
+    "message": "Elígela de nuevo para devolver la campaña a la cola"
+  },
+  "campaignExcludeCategory": {
+    "message": "Categoría «$1»"
+  },
+  "campaignExcludeCategoryHint": {
+    "message": "Bloquea todas las campañas de $1, ahora y en el futuro"
+  },
+  "campaignExcludeCategoryUndo": {
+    "message": "Elígela de nuevo para desbloquear el juego"
+  },
+  "rewardMissed": {
+    "message": "No se consiguió a tiempo"
+  },
+  "rankReasonPinned": {
+    "message": "Fijada en el puesto $1"
+  },
+  "rankReasonFavourite": {
+    "message": "$1 es el favorito $2"
+  },
+  "rankReasonEnding": {
+    "message": "Termina antes que las de abajo"
+  },
+  "rankReasonAvailability": {
+    "message": "Menos canales que las de abajo"
+  },
+  "queueEditFavourites": {
+    "message": "Editar"
   }
 }

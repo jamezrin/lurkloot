@@ -108,6 +108,14 @@ function expand(container: Element, group: string): void {
   if (disclosure.getAttribute("aria-expanded") !== "true") act(() => disclosure.click());
 }
 
+function openCard(container: Element, id: string): Element {
+  const card = container.querySelector(`[data-campaign-id="${id}"]`);
+  const toggle = card?.querySelector<HTMLButtonElement>(`button[aria-expanded][aria-label="${id}"]`);
+  if (!card || !toggle) throw new Error(`Missing card: ${id}`);
+  if (toggle.getAttribute("aria-expanded") !== "true") act(() => toggle.click());
+  return card;
+}
+
 const rows = (container: Element, group: string): string[] =>
   [...container.querySelectorAll(`[data-queue-group="${group}"] [data-campaign-id]`)]
     .map((node) => node.getAttribute("data-campaign-id") ?? "");
@@ -220,6 +228,84 @@ describe("queue view", () => {
   });
 });
 
+describe("campaign card actions", () => {
+  it("pins a queued campaign from its own row", () => {
+    const settings = mergeSettings({ campaignPins: ["pinned"] } as never);
+    const onPinChange = vi.fn();
+    const { container } = queue(views([campaign("pinned"), campaign("ordinary")], settings), settings, { onPinChange });
+
+    const pin = container.querySelector<HTMLButtonElement>('[data-campaign-id="ordinary"] [data-queue-pin]');
+    expect(pin?.getAttribute("aria-pressed")).toBe("false");
+    act(() => pin!.click());
+    // A new pin goes after the existing ones, so pinning never reorders them.
+    expect(onPinChange).toHaveBeenCalledWith("ordinary", 1);
+  });
+
+  it("says which layer of the ranking placed each row", () => {
+    const settings = mergeSettings({
+      campaignPins: ["pinned"],
+      platform: { twitch: { favouriteCategories: [{ id: "starred", name: "Starred" }] } },
+    } as never);
+    const { container } = queue(views([campaign("pinned"), campaign("starred"), campaign("ordinary")], settings), settings);
+
+    expect(openCard(container, "pinned").textContent).toContain("rankReasonPinned:1");
+    expect(openCard(container, "starred").textContent).toContain("rankReasonFavourite:starred, 1");
+    expect(openCard(container, "ordinary").textContent).toContain("rankReasonEnding");
+  });
+
+  it("asks whether Exclude means this campaign or its whole game", () => {
+    const settings = mergeSettings(undefined);
+    const onToggleExclude = vi.fn();
+    const onToggleBlockedCategory = vi.fn();
+    const { container } = queue(views([campaign("rust", { categoryId: "263490", gameName: "Rust" })], settings), settings, { onToggleExclude, onToggleBlockedCategory });
+
+    const card = openCard(container, "rust");
+    const exclude = card.querySelector<HTMLButtonElement>("[data-campaign-exclude]")!;
+    expect(exclude.getAttribute("aria-haspopup")).toBe("menu");
+    expect(card.querySelector("[data-campaign-exclude-menu]")).toBeNull();
+
+    act(() => exclude.click());
+    const choices = [...card.querySelectorAll<HTMLButtonElement>("[role=menuitemcheckbox]")];
+    expect(choices.map((choice) => choice.textContent)).toEqual([
+      expect.stringContaining("campaignExcludeThis"),
+      expect.stringContaining("campaignExcludeCategory:Rust"),
+    ]);
+
+    act(() => choices[0]!.click());
+    expect(onToggleExclude).toHaveBeenCalledWith("rust");
+    // Choosing closes the menu rather than leaving a stale choice open.
+    expect(card.querySelector("[data-campaign-exclude-menu]")).toBeNull();
+
+    act(() => exclude.click());
+    act(() => card.querySelectorAll<HTMLButtonElement>("[role=menuitemcheckbox]")[1]!.click());
+    expect(onToggleBlockedCategory).toHaveBeenCalledWith({ id: "263490", name: "Rust" });
+  });
+
+  it("falls back to a plain Exclude toggle when there is no game to block", () => {
+    const settings = mergeSettings(undefined);
+    const onToggleExclude = vi.fn();
+    const uncategorized = campaign("event", { gameName: undefined, categoryId: undefined });
+    const { container } = queue(views([uncategorized], settings), settings, { onToggleExclude, onToggleBlockedCategory: vi.fn() });
+
+    const exclude = openCard(container, "event").querySelector<HTMLButtonElement>("[data-campaign-exclude]")!;
+    expect(exclude.getAttribute("aria-haspopup")).toBeNull();
+    act(() => exclude.click());
+    expect(onToggleExclude).toHaveBeenCalledWith("event");
+  });
+
+  it("stars the campaign's game from the card", () => {
+    const settings = mergeSettings(undefined);
+    const onToggleFavouriteCategory = vi.fn();
+    const { container } = queue(views([campaign("rust", { categoryId: "263490", gameName: "Rust" })], settings), settings, { onToggleFavouriteCategory });
+
+    const favourite = [...openCard(container, "rust").querySelectorAll<HTMLButtonElement>("button")]
+      .find((button) => button.textContent?.includes("campaignFavourite:Rust"));
+    expect(favourite?.getAttribute("aria-pressed")).toBe("false");
+    act(() => favourite!.click());
+    expect(onToggleFavouriteCategory).toHaveBeenCalledWith({ id: "263490", name: "Rust" });
+  });
+});
+
 describe("completed view", () => {
   function completed(campaigns: CampaignView[], overrides: Partial<React.ComponentProps<typeof CompletedPanel>> = {}) {
     return mount(
@@ -260,5 +346,23 @@ describe("completed view", () => {
     expect(row.querySelector("[data-campaign-rank]")).toBeNull();
     expect(row.querySelector("button[aria-label^='reorderItem']")).toBeNull();
     expect(row.querySelector("[data-farming-rejection-indicator]")).toBeNull();
+  });
+  it("marks the rewards an expired campaign never earned", () => {
+    const settings = mergeSettings(undefined);
+    const partlyEarned = campaign("gone", {
+      status: "expired",
+      rewards: [
+        { id: "got", name: "Got", requiredMinutes: 30, requirement: "watch", isWatchBased: true, watchedMinutes: 30, status: "claimed" },
+        { id: "lost", name: "Lost", requiredMinutes: 60, requirement: "watch", isWatchBased: true, watchedMinutes: 10, status: "locked" },
+      ],
+    } as never);
+    const { container } = completed(views([partlyEarned], settings));
+    act(() => container.querySelector<HTMLButtonElement>('[data-completed-tab="expired"]')!.click());
+
+    const card = openCard(container, "gone");
+    const missed = [...card.querySelectorAll("[data-reward-missed]")].map((tile) => tile.querySelector("[title]")?.getAttribute("title"));
+    expect(missed).toEqual(["Lost"]);
+    // An ended campaign offers nothing to change about its farming.
+    expect(card.querySelector("[data-campaign-exclude]")).toBeNull();
   });
 });

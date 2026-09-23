@@ -1702,5 +1702,89 @@
   },
   "gamesBlockedEmpty": {
     "message": "Nada está bloqueado. Use o ⊘ de um jogo para mantê-lo fora do farming nos dois modos."
+  },
+  "campaignRewardsProgress": {
+    "message": "$1 de $2 recompensas"
+  },
+  "campaignTimeLeft": {
+    "message": "Faltam $1"
+  },
+  "campaignFactStarts": {
+    "message": "Começa"
+  },
+  "campaignFactEnds": {
+    "message": "Termina"
+  },
+  "campaignFactEnded": {
+    "message": "Terminou"
+  },
+  "campaignFactWatching": {
+    "message": "Assistindo"
+  },
+  "campaignFactChannels": {
+    "message": "Canais"
+  },
+  "campaignFactNextReward": {
+    "message": "Próxima recompensa"
+  },
+  "campaignFactWhyRank": {
+    "message": "Por que esta posição"
+  },
+  "campaignMoreChannels": {
+    "message": "+$1 a mais"
+  },
+  "campaignExclude": {
+    "message": "Excluir"
+  },
+  "campaignCategoryBlocked": {
+    "message": "$1 bloqueado"
+  },
+  "campaignPinToTop": {
+    "message": "Fixar no topo"
+  },
+  "campaignPinnedAt": {
+    "message": "Fixada · $1"
+  },
+  "campaignFavourite": {
+    "message": "Favoritar $1"
+  },
+  "campaignFavouriteOn": {
+    "message": "$1 é favorito"
+  },
+  "campaignExcludeThis": {
+    "message": "Só esta campanha"
+  },
+  "campaignExcludeThisHint": {
+    "message": "As outras campanhas de $1 continuam sendo farmadas"
+  },
+  "campaignExcludeThisUndo": {
+    "message": "Escolha de novo para voltar a campanha para a fila"
+  },
+  "campaignExcludeCategory": {
+    "message": "Categoria “$1”"
+  },
+  "campaignExcludeCategoryHint": {
+    "message": "Bloqueia todas as campanhas de $1, agora e no futuro"
+  },
+  "campaignExcludeCategoryUndo": {
+    "message": "Escolha de novo para desbloquear o jogo"
+  },
+  "rewardMissed": {
+    "message": "Não obtida a tempo"
+  },
+  "rankReasonPinned": {
+    "message": "Fixada na posição $1"
+  },
+  "rankReasonFavourite": {
+    "message": "$1 é o favorito $2"
+  },
+  "rankReasonEnding": {
+    "message": "Termina antes das de baixo"
+  },
+  "rankReasonAvailability": {
+    "message": "Menos canais que as de baixo"
+  },
+  "queueEditFavourites": {
+    "message": "Editar"
   }
 }

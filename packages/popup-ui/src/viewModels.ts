@@ -1,5 +1,5 @@
-import type { DropCampaign, ExtensionSettings, Platform, WatchSession } from "@lurkloot/shared/models";
-import { NO_CATEGORY_ID, isUncategorizedCampaign } from "@lurkloot/shared/categories";
+import type { CategorySelection, DropCampaign, ExtensionSettings, Platform, WatchSession } from "@lurkloot/shared/models";
+import { NO_CATEGORY_ID, categoryListIndex, favouriteCategoryIndex, isCampaignCategoryBlocked, isUncategorizedCampaign } from "@lurkloot/shared/categories";
 import {
   campaignHasSubscriptionRewards,
   campaignHasWatchRewards,
@@ -59,6 +59,16 @@ export function gameItemsFromCampaigns(campaigns: DropCampaign[], t: TFunction):
   return [...discovered.values()].sort((left, right) => left.name.localeCompare(right.name));
 }
 
+// The campaign's category as the settings lists store it: the platform id with
+// the display name beside it, so a game starred or blocked from a campaign row
+// renders in Games even once no campaign of it is running. Uncategorized
+// campaigns have nothing to star or block.
+function campaignCategory(campaign: DropCampaign): CategorySelection | undefined {
+  if (isUncategorizedCampaign(campaign)) return undefined;
+  const name = campaign.gameName ?? campaign.categoryId ?? campaign.name;
+  return { id: campaign.categoryId ?? name, name, ...(campaign.gameImageUrl ? { imageUrl: campaign.gameImageUrl } : {}) };
+}
+
 function gameId(campaign: DropCampaign): string {
   if (isUncategorizedCampaign(campaign)) return NO_CATEGORY_ID;
   return (campaign.categoryId ?? campaign.gameName ?? campaign.name).trim().toLowerCase();
@@ -91,6 +101,10 @@ export function campaignStats(campaign: CampaignView): CampaignStats {
   return { kind, totalRequired, totalFarmed, remaining, progress, completed, totalRewards: campaign.rewards.length, nextReward, nextRewardRemaining, complete };
 }
 
+function indexOrUndefined(index: number): number | undefined {
+  return index === -1 ? undefined : index;
+}
+
 function rewardComplete(reward: RewardView): boolean {
   return reward.obtained || (reward.progress ?? 0) >= 100;
 }
@@ -113,6 +127,12 @@ export function campaignViewFromCampaign(
     status: campaign.status,
     lifecycle: campaignLifecycleState(campaign),
     pinned: settings ? settings.campaignPins.includes(campaign.id) : false,
+    pinIndex: settings ? indexOrUndefined(settings.campaignPins.indexOf(campaign.id)) : undefined,
+    category: campaignCategory(campaign),
+    favouriteIndex: settings ? indexOrUndefined(favouriteCategoryIndex(campaign, settings.platform[campaign.platform])) : undefined,
+    categoryBlocked: settings ? isCampaignCategoryBlocked(campaign, settings.platform[campaign.platform]) : false,
+    // Starred, whether or not a block currently stops the star from ranking.
+    favourited: settings ? categoryListIndex(campaign, settings.platform[campaign.platform].favouriteCategories) !== -1 : false,
     rankTier: settings ? campaignRankTier(campaign, settings) : "strategy",
     section: settings ? campaignSection(campaign, settings) : "queue",
     linked: campaign.accountLinked !== false,
