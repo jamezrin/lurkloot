@@ -62,9 +62,6 @@
   "navGroupDrops": {
     "message": "Drop'lar"
   },
-  "navGroupIdle": {
-    "message": "Boştayken"
-  },
   "navQueue": {
     "message": "Sıra"
   },
@@ -1786,5 +1783,17 @@
   },
   "queueEditFavourites": {
     "message": "Düzenle"
+  },
+  "navGroupSources": {
+    "message": "Diğer kaynaklar"
+  },
+  "navWatchingNow": {
+    "message": "Şu anda izleniyor"
+  },
+  "watchSourcePosition": {
+    "message": "$1 · $2/$3"
+  },
+  "watchSourceChangeOrder": {
+    "message": "İzleme sırasını değiştir"
   }
 }

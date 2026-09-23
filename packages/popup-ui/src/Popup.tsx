@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import type { ActivityPage, CategorySearchResult, CliCredentialBlob, DiagnosticsExport, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { ActivityHistoryRecord } from "@lurkloot/shared/events";
-import type { CategorySelection, ExtensionSettings, Platform, TwitchExtensionProviderId } from "@lurkloot/shared/models";
+import type { CategorySelection, ExtensionSettings, Platform, TwitchExtensionProviderId, WatchSourceId } from "@lurkloot/shared/models";
 import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings, type SettingsPatch } from "@lurkloot/shared/settings";
 import { buildSettingsExportPayload, parseSettingsImportPayload } from "@lurkloot/shared/settingsExport";
 import { effectiveLocale, isRtlLocale, type MessageCatalog } from "@lurkloot/shared/i18n";
@@ -70,6 +70,7 @@ import { GithubStarNudge } from "./githubStarNudge";
 import { popupNoticeSlot } from "./popupNoticeSlot";
 import { UpdateNotice } from "./updateNotice";
 import { QueuePanel } from "./queue";
+import { WATCH_SOURCE_NAME_KEYS } from "./watchSourcePriority";
 import { blockTogglePatch, favouriteTogglePatch } from "./categoryActions";
 import { CompletedPanel } from "./completed";
 import { CriticalFailurePanel } from "./criticalFailure";
@@ -125,6 +126,10 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   // Request to jump to a campaign in the drops list (expand + scroll). The seq
   // counter lets repeated clicks on the same campaign re-trigger the effect.
   const [campaignFocus, setCampaignFocus] = useState<{ id: string; seq: number } | null>(null);
+  // A settings group to scroll to when Settings opens, set only by a link into
+  // Settings (the watch-source chip) so opening Settings from the rail starts
+  // at the top as usual.
+  const [settingsFocus, setSettingsFocus] = useState<string | undefined>(undefined);
   const settingsRef = useRef<ExtensionSettings | null>(null);
   const settingsSaveQueue = useRef<Promise<void>>(Promise.resolve());
   const snapshotRequestGenerationRef = useRef(0);
@@ -441,7 +446,8 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   // Every rail destination goes through here so leaving Activity always settles
   // its in-flight requests, and entering Settings always rearms the one-shot
   // export confirmation.
-  function changeView(nextView: PopupView): void {
+  function changeView(nextView: PopupView, focusGroupId?: string): void {
+    setSettingsFocus(nextView === "settings" ? focusGroupId : undefined);
     if (nextView === view) return;
     if (activityOpen) closeActivityView();
     if (nextView === "settings") setSettingsOpenGeneration((current) => current + 1);
@@ -710,6 +716,16 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   const presentation = automationPresentationByPlatform[platform];
   const activeCampaign = campaigns.find((campaign) => campaign.farmingChannel);
   const farmingChannel = activeCampaign?.farmingChannel ?? sessionChannel;
+  // Which watch source the platform is on right now, read from the session the
+  // scheduler already reports: a supplemental watch names its provider, a
+  // campaign's channel is Drops, and any other channel came from the watchlist.
+  const liveSource: WatchSourceId | undefined = !automation[platform] || presentation.state !== "running"
+    ? undefined
+    : session.supplementalWatch ? (session.supplementalWatch.id === "nopixel" || session.supplementalWatch.id === "fortnite" ? session.supplementalWatch.id : undefined)
+    : activeCampaign ? "drops"
+    : farmingChannel ? "idle_watchlist"
+    : undefined;
+  const sourceOrder = settings.platform[platform].watchSourcePriority;
   const onFarmingTitleClick = activeCampaign
     ? () => setCampaignFocus((prev) => ({ id: activeCampaign.id, seq: (prev?.seq ?? 0) + 1 }))
     : undefined;
@@ -766,6 +782,8 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
         view={view}
         platform={platform}
         counts={railCounts}
+        sourceOrder={sourceOrder}
+        liveSource={liveSource}
         presentation={automationPresentationByPlatform}
         automation={automation}
         automationPending={automationPending}
@@ -782,6 +800,8 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
             old header hid it entirely. */}
         <div className="relative shrink-0 border-b border-zinc-200/70 bg-white/85 px-3 py-1.5 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/80">
           <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-linear-to-r from-transparent via-[var(--accent)] to-transparent" />
+          <div className="flex items-center gap-2">
+          <div className="min-w-0 flex-1">
           <AutomationStatusLine
             platform={platform}
             presentation={presentation}
@@ -791,6 +811,21 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
             onFarmingTitleClick={session.supplementalWatch ? undefined : onFarmingTitleClick}
             onResume={resumeAfterManualClose}
           />
+          </div>
+          {liveSource ? (
+            // Where the live source sits in the watch order, and the way to
+            // change that order: the first available source always wins.
+            <button
+              type="button"
+              data-watch-source-chip={liveSource}
+              title={t("watchSourceChangeOrder")}
+              onClick={() => changeView("settings", `${platform}.watchSourcePriority`)}
+              className="shrink-0 rounded-full border border-zinc-200 px-2 py-0.5 font-mono text-[10px] text-zinc-500 transition-colors hover:border-[var(--accent-ring)] hover:text-[var(--accent-text)] dark:border-zinc-700 dark:text-zinc-400"
+            >
+              {t("watchSourcePosition", [t(WATCH_SOURCE_NAME_KEYS[liveSource]), String(sourceOrder.indexOf(liveSource) + 1), String(sourceOrder.length)])}
+            </button>
+          ) : null}
+          </div>
         </div>
 
         <div className="flex shrink-0 items-center justify-between gap-2 px-3 pt-2">
@@ -834,7 +869,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                   ) : null}
                 </AnimatePresence>
                 {view === "settings" ? (
-                  <><SettingsView suggestions={dropCategorySuggestions} onSearchCategories={searchCategories} settings={settings} onSettingsChange={updateSettings} onExtensionEnabledChange={adapter.requestTwitchExtensionPermission ? setExtensionEnabled : undefined} onExportCredentials={exportCredentials} onExportSettings={exportSettings} onImportSettings={importSettings} onReset={resetExtension} exportConfirmationResetKey={settingsOpenGeneration} compatibilityRegistry={adapter.compatibilityRegistry} compatibilityResolution={compatibilityResolution} focusGroupId={preview && variantShowsPopup(initialVariant) && initialVariant.view === "settings" ? "general.drops" : undefined} />
+                  <><SettingsView suggestions={dropCategorySuggestions} onSearchCategories={searchCategories} settings={settings} onSettingsChange={updateSettings} onExtensionEnabledChange={adapter.requestTwitchExtensionPermission ? setExtensionEnabled : undefined} onExportCredentials={exportCredentials} onExportSettings={exportSettings} onImportSettings={importSettings} onReset={resetExtension} exportConfirmationResetKey={settingsOpenGeneration} compatibilityRegistry={adapter.compatibilityRegistry} compatibilityResolution={compatibilityResolution} focusGroupId={preview && variantShowsPopup(initialVariant) && initialVariant.view === "settings" ? "general.drops" : settingsFocus} />
                   <AttributionFooter version={adapter.version} /></>
                 ) : view === "activity" ? (
                   <ActivityLog

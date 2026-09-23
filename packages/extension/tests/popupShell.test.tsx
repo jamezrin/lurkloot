@@ -3,6 +3,8 @@ import { createRoot, type Root } from "react-dom/client";
 import { parseHTML } from "linkedom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createDemoPopupAdapter, Popup } from "@lurkloot/popup-ui";
+import { WorkspaceRail } from "../../popup-ui/src/shell";
+import type { AutomationPresentation } from "../../popup-ui/src/automationStatus";
 import { resetCatalogTracking, waitForCatalog } from "./helpers/popupCatalog";
 
 vi.mock("@lurkloot/locales", async (importOriginal) =>
@@ -156,6 +158,18 @@ describe("popup workspace shell", () => {
     expect(container.querySelector('#popup-platform-panel button[aria-label="Open inventory"]')).toBeNull();
   });
 
+  it("names the live watch source and links to its place in the order", async () => {
+    const container = await mountPopup();
+
+    const chip = container.querySelector<HTMLButtonElement>("[data-watch-source-chip]");
+    expect(chip?.dataset.watchSourceChip).toBe("drops");
+    expect(chip?.textContent).toBe("Drops · 1 of 4");
+    expect(rail(container, "queue")?.querySelector("[data-rail-live]")).not.toBeNull();
+
+    act(() => chip!.click());
+    expect(currentView(container)).toBe("settings");
+  });
+
   it("marks the current destination for assistive technology", async () => {
     const container = await mountPopup();
 
@@ -163,5 +177,58 @@ describe("popup workspace shell", () => {
 
     expect(rail(container, "games")?.getAttribute("aria-current")).toBe("page");
     expect(rail(container, "queue")?.getAttribute("aria-current")).toBeNull();
+  });
+});
+
+describe("workspace rail sources", () => {
+  function mountRail(props: Partial<React.ComponentProps<typeof WorkspaceRail>>): HTMLElement {
+    const { document, window } = parseHTML("<div id=app></div>");
+    vi.stubGlobal("window", window);
+    vi.stubGlobal("document", document);
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    const idle = { state: "idle" } as unknown as AutomationPresentation;
+    const container = document.getElementById("app")!;
+    act(() => {
+      root = createRoot(container);
+      root.render(
+        <WorkspaceRail
+          view="queue"
+          platform="twitch"
+          counts={{}}
+          sourceOrder={["drops", "nopixel", "fortnite", "idle_watchlist"]}
+          presentation={{ twitch: idle, kick: idle }}
+          automation={{ twitch: true, kick: true }}
+          automationPending={{ twitch: false, kick: false }}
+          version="0.0.0"
+          onViewChange={() => undefined}
+          onPlatformChange={() => undefined}
+          onAutomationToggle={async () => undefined}
+          onOpenInventory={() => undefined}
+          {...props}
+        />,
+      );
+    });
+    return container;
+  }
+
+  const sources = (container: Element): string[] =>
+    [...container.querySelectorAll<HTMLButtonElement>("button[data-view]")]
+      .map((button) => button.dataset.view!)
+      .filter((view) => ["nopixel", "fortnite", "watchlist"].includes(view));
+
+  it("lists the other sources in the platform's watch order", () => {
+    const container = mountRail({ sourceOrder: ["idle_watchlist", "drops", "fortnite", "nopixel"] });
+    expect(sources(container)).toEqual(["watchlist", "fortnite", "nopixel"]);
+  });
+
+  it("marks only the source being watched", () => {
+    const container = mountRail({ liveSource: "nopixel" });
+    const live = [...container.querySelectorAll("[data-rail-live]")].map((dot) => dot.closest("button")?.dataset.view);
+    expect(live).toEqual(["nopixel"]);
+  });
+
+  it("keeps Twitch-only sources off the Kick rail whatever the order says", () => {
+    const container = mountRail({ platform: "kick", sourceOrder: ["drops", "idle_watchlist"] });
+    expect(sources(container)).toEqual(["watchlist"]);
   });
 });

@@ -62,9 +62,6 @@
   "navGroupDrops": {
     "message": "掉宝"
   },
-  "navGroupIdle": {
-    "message": "空闲时"
-  },
   "navQueue": {
     "message": "队列"
   },
@@ -1786,5 +1783,17 @@
   },
   "queueEditFavourites": {
     "message": "编辑"
+  },
+  "navGroupSources": {
+    "message": "其他来源"
+  },
+  "navWatchingNow": {
+    "message": "正在观看"
+  },
+  "watchSourcePosition": {
+    "message": "$1 · 第 $2/$3 位"
+  },
+  "watchSourceChangeOrder": {
+    "message": "更改观看顺序"
   }
 }

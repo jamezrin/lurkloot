@@ -62,9 +62,6 @@
   "navGroupDrops": {
     "message": "Drops"
   },
-  "navGroupIdle": {
-    "message": "Sin campañas"
-  },
   "navQueue": {
     "message": "Cola"
   },
@@ -1786,5 +1783,17 @@
   },
   "queueEditFavourites": {
     "message": "Editar"
+  },
+  "navGroupSources": {
+    "message": "Otras fuentes"
+  },
+  "navWatchingNow": {
+    "message": "Se está viendo ahora"
+  },
+  "watchSourcePosition": {
+    "message": "$1 · $2 de $3"
+  },
+  "watchSourceChangeOrder": {
+    "message": "Cambiar el orden de visualización"
   }
 }

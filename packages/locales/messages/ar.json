@@ -62,9 +62,6 @@
   "navGroupDrops": {
     "message": "الجوائز"
   },
-  "navGroupIdle": {
-    "message": "عند الخمول"
-  },
   "navQueue": {
     "message": "قائمة الانتظار"
   },
@@ -1786,5 +1783,17 @@
   },
   "queueEditFavourites": {
     "message": "تعديل"
+  },
+  "navGroupSources": {
+    "message": "مصادر أخرى"
+  },
+  "navWatchingNow": {
+    "message": "تتم مشاهدته الآن"
+  },
+  "watchSourcePosition": {
+    "message": "$1 · $2 من $3"
+  },
+  "watchSourceChangeOrder": {
+    "message": "تغيير ترتيب المشاهدة"
   }
 }

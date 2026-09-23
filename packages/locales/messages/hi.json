@@ -62,9 +62,6 @@
   "navGroupDrops": {
     "message": "ड्रॉप्स"
   },
-  "navGroupIdle": {
-    "message": "खाली होने पर"
-  },
   "navQueue": {
     "message": "क़तार"
   },
@@ -1786,5 +1783,17 @@
   },
   "queueEditFavourites": {
     "message": "बदलें"
+  },
+  "navGroupSources": {
+    "message": "अन्य स्रोत"
+  },
+  "navWatchingNow": {
+    "message": "अभी देखा जा रहा है"
+  },
+  "watchSourcePosition": {
+    "message": "$1 · $3 में से $2"
+  },
+  "watchSourceChangeOrder": {
+    "message": "देखने का क्रम बदलें"
   }
 }

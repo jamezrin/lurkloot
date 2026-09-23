@@ -62,9 +62,6 @@
   "navGroupDrops": {
     "message": "Drops"
   },
-  "navGroupIdle": {
-    "message": "Quando ocioso"
-  },
   "navQueue": {
     "message": "Fila"
   },
@@ -1786,5 +1783,17 @@
   },
   "queueEditFavourites": {
     "message": "Editar"
+  },
+  "navGroupSources": {
+    "message": "Outras fontes"
+  },
+  "navWatchingNow": {
+    "message": "Sendo assistida agora"
+  },
+  "watchSourcePosition": {
+    "message": "$1 · $2 de $3"
+  },
+  "watchSourceChangeOrder": {
+    "message": "Mudar a ordem de exibição"
   }
 }

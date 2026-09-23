@@ -1,6 +1,6 @@
 import React from "react";
 import { ArrowUpRight, Clock3, Gamepad2, Eye, Gift, ListChecks, Package, Settings as SettingsIcon, Sparkles, Trophy } from "lucide-react";
-import type { Platform } from "@lurkloot/shared/models";
+import type { Platform, WatchSourceId } from "@lurkloot/shared/models";
 import type { AutomationPresentation } from "./automationStatus";
 import { PLATFORMS } from "./constants";
 import { useT } from "./context";
@@ -32,12 +32,21 @@ const DROPS_ITEMS: NavItem[] = [
 
 // Each Twitch extension provider is its own destination: they share nothing
 // but the API they are farmed through, and a shared list could only afford a
-// name and a badge each.
-const IDLE_ITEMS: NavItem[] = [
+// name and a badge each. The rail lists them in the user's watch order.
+const SOURCE_ITEMS: NavItem[] = [
   { view: "watchlist", labelKey: "navIdleWatchlist", icon: Eye },
   { view: "nopixel", labelKey: "navNoPixel", icon: Gift, platform: "twitch" },
   { view: "fortnite", labelKey: "navFortnite", icon: Sparkles, platform: "twitch" },
 ];
+
+// The view that shows each watch source. Drops is the whole Drops group, so its
+// live mark goes on the Queue.
+export const WATCH_SOURCE_VIEWS: Record<WatchSourceId, PopupView> = {
+  drops: "queue",
+  nopixel: "nopixel",
+  fortnite: "fortnite",
+  idle_watchlist: "watchlist",
+};
 
 const FOOTER_ITEMS: NavItem[] = [
   { view: "activity", labelKey: "navActivity", icon: Clock3 },
@@ -45,7 +54,7 @@ const FOOTER_ITEMS: NavItem[] = [
 ];
 
 export function viewForPlatform(view: PopupView, platform: Platform): PopupView {
-  const item = [...DROPS_ITEMS, ...IDLE_ITEMS, ...FOOTER_ITEMS].find((entry) => entry.view === view);
+  const item = [...DROPS_ITEMS, ...SOURCE_ITEMS, ...FOOTER_ITEMS].find((entry) => entry.view === view);
   return item?.platform && item.platform !== platform ? "queue" : view;
 }
 
@@ -54,9 +63,13 @@ export function viewForPlatform(view: PopupView, platform: Platform): PopupView 
  * At the popup's full width the entries carry their labels; the container query
  * below ~560px (the site's demo frame on a phone) collapses the rail to icons,
  * so the same tree serves both without a second layout. */
-export function WorkspaceRail({ view, platform, counts, presentation, automation, automationPending, version, onViewChange, onPlatformChange, onAutomationToggle, onOpenInventory }: {
+export function WorkspaceRail({ view, platform, counts, sourceOrder, liveSource, presentation, automation, automationPending, version, onViewChange, onPlatformChange, onAutomationToggle, onOpenInventory }: {
   view: PopupView;
   platform: Platform;
+  // The platform's watch-source priority, which orders the non-drops sources,
+  // and the source being watched right now, which the rail marks.
+  sourceOrder: readonly WatchSourceId[];
+  liveSource?: WatchSourceId;
   counts: Partial<Record<PopupView, number>>;
   presentation: Record<Platform, AutomationPresentation>;
   automation: Record<Platform, boolean>;
@@ -68,6 +81,11 @@ export function WorkspaceRail({ view, platform, counts, presentation, automation
   onOpenInventory(): void;
 }): React.ReactElement {
   const t = useT();
+  const liveView = liveSource ? WATCH_SOURCE_VIEWS[liveSource] : undefined;
+  const sourceItems = sourceOrder
+    .filter((source) => source !== "drops")
+    .map((source) => SOURCE_ITEMS.find((item) => item.view === WATCH_SOURCE_VIEWS[source]))
+    .filter((item): item is NavItem => Boolean(item));
   return (
     <nav
       aria-label={t("navWorkspace")}
@@ -87,8 +105,8 @@ export function WorkspaceRail({ view, platform, counts, presentation, automation
         onToggle={onAutomationToggle}
       />
 
-      <NavGroup labelKey="navGroupDrops" items={DROPS_ITEMS} view={view} platform={platform} counts={counts} onViewChange={onViewChange} />
-      <NavGroup labelKey="navGroupIdle" items={IDLE_ITEMS} view={view} platform={platform} counts={counts} onViewChange={onViewChange} />
+      <NavGroup labelKey="navGroupDrops" items={DROPS_ITEMS} view={view} platform={platform} counts={counts} liveView={liveView} onViewChange={onViewChange} />
+      <NavGroup labelKey="navGroupSources" items={sourceItems} view={view} platform={platform} counts={counts} liveView={liveView} onViewChange={onViewChange} />
 
       <div className="flex-1" />
 
@@ -125,8 +143,9 @@ function RailLink({ label, icon: Icon, onClick }: {
   );
 }
 
-function NavGroup({ labelKey, items, view, platform, counts, onViewChange }: {
+function NavGroup({ labelKey, items, view, platform, counts, liveView, onViewChange }: {
   labelKey?: string;
+  liveView?: PopupView;
   items: NavItem[];
   view: PopupView;
   platform: Platform;
@@ -163,7 +182,18 @@ function NavGroup({ labelKey, items, view, platform, counts, onViewChange }: {
                 : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800",
             )}
           >
-            <Icon size={14} className="shrink-0" />
+            <span className="relative shrink-0">
+              <Icon size={14} />
+              {liveView === item.view ? (
+                <span
+                  data-rail-live
+                  role="img"
+                  aria-label={t("navWatchingNow")}
+                  title={t("navWatchingNow")}
+                  className="absolute -end-1 -top-1 h-1.5 w-1.5 rounded-full bg-[var(--accent)] ring-2 ring-white dark:ring-zinc-900"
+                />
+              ) : null}
+            </span>
             <span className="@[560px]:inline hidden truncate">{label}</span>
             {count === undefined ? null : (
               <span className="@[560px]:inline ms-auto hidden font-mono text-[10.5px] text-zinc-400 tabular dark:text-zinc-500">{count}</span>
