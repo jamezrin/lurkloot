@@ -1810,5 +1810,17 @@
   },
   "gamesOtherGroupIncludeHint": {
     "message": "solo se farmean los marcados"
+  },
+  "watchSourcePlace": {
+    "message": "Puesto en el orden de visualización: $1 de $2"
+  },
+  "watchSourcePlaceFirst": {
+    "message": "Se ve antes que cualquier otra fuente."
+  },
+  "watchSourcePlaceAfter": {
+    "message": "Se ve cuando $1 no tienen nada que ver."
+  },
+  "watchSourceChangeOrderShort": {
+    "message": "Cambiar orden"
   }
 }

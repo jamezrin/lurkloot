@@ -1810,5 +1810,17 @@
   },
   "gamesOtherGroupIncludeHint": {
     "message": "仅挂机已勾选的"
+  },
+  "watchSourcePlace": {
+    "message": "观看顺序中的位置：第 $1/$2 位"
+  },
+  "watchSourcePlaceFirst": {
+    "message": "先于其他所有来源观看。"
+  },
+  "watchSourcePlaceAfter": {
+    "message": "当 $1 没有可观看的内容时观看。"
+  },
+  "watchSourceChangeOrderShort": {
+    "message": "更改顺序"
   }
 }

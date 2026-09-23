@@ -1810,5 +1810,17 @@
   },
   "gamesOtherGroupIncludeHint": {
     "message": "farmés seulement s’ils sont cochés"
+  },
+  "watchSourcePlace": {
+    "message": "Place dans l’ordre de visionnage : $1 sur $2"
+  },
+  "watchSourcePlaceFirst": {
+    "message": "Regardée avant toute autre source."
+  },
+  "watchSourcePlaceAfter": {
+    "message": "Regardée quand $1 n’ont rien à regarder."
+  },
+  "watchSourceChangeOrderShort": {
+    "message": "Modifier l’ordre"
   }
 }

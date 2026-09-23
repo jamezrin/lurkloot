@@ -1810,5 +1810,17 @@
   },
   "gamesOtherGroupIncludeHint": {
     "message": "nur angehakte werden gefarmt"
+  },
+  "watchSourcePlace": {
+    "message": "Platz in der Reihenfolge: $1 von $2"
+  },
+  "watchSourcePlaceFirst": {
+    "message": "Wird vor jeder anderen Quelle geschaut."
+  },
+  "watchSourcePlaceAfter": {
+    "message": "Wird geschaut, wenn $1 nichts zum Schauen haben."
+  },
+  "watchSourceChangeOrderShort": {
+    "message": "Reihenfolge ändern"
   }
 }

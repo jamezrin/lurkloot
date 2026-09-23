@@ -1810,5 +1810,17 @@
   },
   "gamesOtherGroupIncludeHint": {
     "message": "farmati solo se selezionati"
+  },
+  "watchSourcePlace": {
+    "message": "Posizione nell’ordine di visione: $1 di $2"
+  },
+  "watchSourcePlaceFirst": {
+    "message": "Guardata prima di ogni altra fonte."
+  },
+  "watchSourcePlaceAfter": {
+    "message": "Guardata quando $1 non hanno nulla da guardare."
+  },
+  "watchSourceChangeOrderShort": {
+    "message": "Cambia ordine"
   }
 }

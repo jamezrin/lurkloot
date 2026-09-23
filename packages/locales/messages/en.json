@@ -1810,5 +1810,17 @@
   },
   "gamesOtherGroupIncludeHint": {
     "message": "farmed only when ticked"
+  },
+  "watchSourcePlace": {
+    "message": "Place in the watch order: $1 of $2"
+  },
+  "watchSourcePlaceFirst": {
+    "message": "Watched before every other source."
+  },
+  "watchSourcePlaceAfter": {
+    "message": "Watched when $1 have nothing to watch."
+  },
+  "watchSourceChangeOrderShort": {
+    "message": "Change order"
   }
 }

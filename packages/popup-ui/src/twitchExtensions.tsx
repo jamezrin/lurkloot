@@ -5,6 +5,7 @@ import { Pill, ProgressBar, SectionHeader, Toggle, cn } from "./primitives";
 import type { ExtensionSettings, TwitchExtensionProviderId, TwitchExtensionSummary } from "@lurkloot/shared/models";
 import type { PopupAdapter } from "./types";
 import { useT } from "./context";
+import { WatchSourcePlace } from "./watchSourcePriority";
 import { SettingRow, SettingsSection } from "./settingsControls";
 
 type PillTone = React.ComponentProps<typeof Pill>["tone"];
@@ -190,7 +191,7 @@ export const TWITCH_EXTENSION_PROVIDERS = PROVIDERS;
  * The grouped list could only afford a name, a count and a couple of badges per
  * provider; here everything the summary carries is visible at once — status,
  * progress, every badge, the provider's own option, and the way to turn it off. */
-export function TwitchExtensionView({ providerId, settings, summary, active, pending, onEnabledChange, onOptionChange, onSetup }: {
+export function TwitchExtensionView({ providerId, settings, summary, active, pending, onEnabledChange, onOptionChange, onSetup, onChangeOrder }: {
   providerId: TwitchExtensionProviderId;
   settings: ExtensionSettings;
   summary?: TwitchExtensionSummary;
@@ -199,6 +200,7 @@ export function TwitchExtensionView({ providerId, settings, summary, active, pen
   onEnabledChange(enabled: boolean): void | Promise<void>;
   onOptionChange(enabled: boolean): void | Promise<void>;
   onSetup?(): void;
+  onChangeOrder?(): void;
 }) {
   const t = useT();
   const provider = PROVIDERS.find((entry) => entry.id === providerId)!;
@@ -266,6 +268,10 @@ export function TwitchExtensionView({ providerId, settings, summary, active, pen
           {t("extensionSettingsHint")}
         </p>
       )}
+
+      {onChangeOrder ? (
+        <WatchSourcePlace source={providerId} order={settings.platform.twitch.watchSourcePriority} onChangeOrder={onChangeOrder} />
+      ) : null}
 
       {onSetup ? (
         <button type="button" onClick={onSetup} className="text-[11px] font-semibold text-[var(--accent-text)] hover:underline">

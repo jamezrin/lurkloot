@@ -170,6 +170,18 @@ describe("popup workspace shell", () => {
     expect(currentView(container)).toBe("settings");
   });
 
+  it("says where an extension sits in the watch order, and links to change it", async () => {
+    const container = await mountPopup();
+    go(container, "fortnite");
+
+    const place = container.querySelector("[data-watch-source-place='fortnite']");
+    expect(place?.textContent).toContain("3 of 4");
+    expect(place?.textContent).toContain("Drops, NoPixelV");
+
+    act(() => place!.querySelector<HTMLButtonElement>("button")!.click());
+    expect(currentView(container)).toBe("settings");
+  });
+
   it("marks the current destination for assistive technology", async () => {
     const container = await mountPopup();
 

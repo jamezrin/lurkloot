@@ -1810,5 +1810,17 @@
   },
   "gamesOtherGroupIncludeHint": {
     "message": "تُجمع المحددة فقط"
+  },
+  "watchSourcePlace": {
+    "message": "الموضع في ترتيب المشاهدة: $1 من $2"
+  },
+  "watchSourcePlaceFirst": {
+    "message": "تُشاهد قبل أي مصدر آخر."
+  },
+  "watchSourcePlaceAfter": {
+    "message": "تُشاهد عندما لا يكون لدى $1 ما يُشاهد."
+  },
+  "watchSourceChangeOrderShort": {
+    "message": "تغيير الترتيب"
   }
 }

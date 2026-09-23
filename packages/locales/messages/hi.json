@@ -1810,5 +1810,17 @@
   },
   "gamesOtherGroupIncludeHint": {
     "message": "सिर्फ़ चुने गए फ़ार्म होते हैं"
+  },
+  "watchSourcePlace": {
+    "message": "देखने के क्रम में स्थान: $2 में से $1"
+  },
+  "watchSourcePlaceFirst": {
+    "message": "हर दूसरे स्रोत से पहले देखा जाता है।"
+  },
+  "watchSourcePlaceAfter": {
+    "message": "जब $1 में देखने को कुछ न हो, तब देखा जाता है।"
+  },
+  "watchSourceChangeOrderShort": {
+    "message": "क्रम बदलें"
   }
 }

@@ -89,3 +89,29 @@ export function WatchSourcePriority({ platform, value, onChange }: {
     </div>
   );
 }
+
+/** One source's place in its platform's watch order, said in words: what has
+ * to have nothing to watch before this source gets its turn. */
+export function WatchSourcePlace({ source, order, onChangeOrder }: {
+  source: WatchSourceId;
+  order: readonly WatchSourceId[];
+  onChangeOrder(): void;
+}) {
+  const t = useT();
+  const index = order.indexOf(source);
+  if (index === -1) return null;
+  const before = order.slice(0, index).map((entry) => t(WATCH_SOURCE_NAME_KEYS[entry]));
+  return (
+    <div data-watch-source-place={source} className="flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="min-w-0 flex-1">
+        <div className="text-[12px] font-medium text-zinc-800 dark:text-zinc-100">{t("watchSourcePlace", [String(index + 1), String(order.length)])}</div>
+        <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
+          {before.length === 0 ? t("watchSourcePlaceFirst") : t("watchSourcePlaceAfter", before.join(", "))}
+        </div>
+      </div>
+      <button type="button" onClick={onChangeOrder} className="shrink-0 rounded-full border border-zinc-200 px-2.5 py-1 text-[11px] font-semibold text-[var(--accent-text)] hover:border-[var(--accent-ring)] dark:border-zinc-700">
+        {t("watchSourceChangeOrderShort")}
+      </button>
+    </div>
+  );
+}

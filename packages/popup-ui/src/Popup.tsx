@@ -959,6 +959,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                       { tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] },
                     )}
                     onSetup={() => adapter.openLink("https://help.twitch.tv/s/article/how-to-configure-extensions")}
+                    onChangeOrder={() => changeView("settings", "twitch.watchSourcePriority")}
                   />
                 ) : criticalFailureReason ? (
                   // A flagged platform loses its lists entirely: every drops

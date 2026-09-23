@@ -1810,5 +1810,17 @@
   },
   "gamesOtherGroupIncludeHint": {
     "message": "yalnızca işaretliler farmlanır"
+  },
+  "watchSourcePlace": {
+    "message": "İzleme sırasındaki yeri: $1/$2"
+  },
+  "watchSourcePlaceFirst": {
+    "message": "Diğer tüm kaynaklardan önce izlenir."
+  },
+  "watchSourcePlaceAfter": {
+    "message": "$1 kaynaklarında izlenecek bir şey olmadığında izlenir."
+  },
+  "watchSourceChangeOrderShort": {
+    "message": "Sırayı değiştir"
   }
 }

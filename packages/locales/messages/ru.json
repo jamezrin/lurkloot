@@ -1810,5 +1810,17 @@
   },
   "gamesOtherGroupIncludeHint": {
     "message": "фармятся только отмеченные"
+  },
+  "watchSourcePlace": {
+    "message": "Место в порядке просмотра: $1 из $2"
+  },
+  "watchSourcePlaceFirst": {
+    "message": "Просматривается раньше всех других источников."
+  },
+  "watchSourcePlaceAfter": {
+    "message": "Просматривается, когда в $1 нечего смотреть."
+  },
+  "watchSourceChangeOrderShort": {
+    "message": "Изменить порядок"
   }
 }
