@@ -1795,5 +1795,20 @@
   },
   "watchSourceChangeOrder": {
     "message": "Modifier l’ordre de visionnage"
+  },
+  "gamesFavouritesGroup": {
+    "message": "Favoris"
+  },
+  "gamesFavouritesGroupHint": {
+    "message": "classés dans cet ordre, avant la stratégie"
+  },
+  "gamesOtherGroup": {
+    "message": "Autres jeux"
+  },
+  "gamesOtherGroupAllHint": {
+    "message": "tous farmés, sauf ceux bloqués"
+  },
+  "gamesOtherGroupIncludeHint": {
+    "message": "farmés seulement s’ils sont cochés"
   }
 }

@@ -1795,5 +1795,20 @@
   },
   "watchSourceChangeOrder": {
     "message": "Reihenfolge der Quellen ändern"
+  },
+  "gamesFavouritesGroup": {
+    "message": "Favoriten"
+  },
+  "gamesFavouritesGroupHint": {
+    "message": "in dieser Reihenfolge, vor der Strategie"
+  },
+  "gamesOtherGroup": {
+    "message": "Andere Spiele"
+  },
+  "gamesOtherGroupAllHint": {
+    "message": "alle gefarmt, außer blockierte"
+  },
+  "gamesOtherGroupIncludeHint": {
+    "message": "nur angehakte werden gefarmt"
   }
 }

@@ -1795,5 +1795,20 @@
   },
   "watchSourceChangeOrder": {
     "message": "تغيير ترتيب المشاهدة"
+  },
+  "gamesFavouritesGroup": {
+    "message": "المفضلة"
+  },
+  "gamesFavouritesGroupHint": {
+    "message": "بهذا الترتيب، قبل الاستراتيجية"
+  },
+  "gamesOtherGroup": {
+    "message": "ألعاب أخرى"
+  },
+  "gamesOtherGroupAllHint": {
+    "message": "تُجمع كلها عدا المحظورة"
+  },
+  "gamesOtherGroupIncludeHint": {
+    "message": "تُجمع المحددة فقط"
   }
 }

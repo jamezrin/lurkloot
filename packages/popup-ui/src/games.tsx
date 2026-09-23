@@ -8,7 +8,7 @@ import { CategoryPickerCombobox } from "./settingsPlatform";
 import type { GameItem } from "./types";
 import { EmptyPanel, ImageWithFallback, cn } from "./primitives";
 
-import { containsCategory as contains, favouriteTogglePatch, withoutCategory as without } from "./categoryActions";
+import { containsCategory as contains, favouriteTogglePatch, sameCategory, withoutCategory as without } from "./categoryActions";
 
 /** Which games are farmed, which rank above the strategy, and which are never
  * farmed — one screen, three states.
@@ -62,6 +62,19 @@ export function GamesPanel({
     [categories, blockedCategories],
   );
 
+  // Favourites first, in the order they rank, then everything else as listed:
+  // the order on screen is the order the stars apply in.
+  const ordered = useMemo(() => {
+    const favourites = favouriteCategories
+      .map((favourite) => listed.find((entry) => sameCategory(entry, favourite)))
+      .filter((entry): entry is CategorySelection => Boolean(entry));
+    const others = listed.filter((entry) => !contains(favouriteCategories, entry));
+    return [
+      ...favourites.map((category, index) => ({ category, index, first: index === 0 ? "favourites" as const : undefined })),
+      ...others.map((category, index) => ({ category, index: favourites.length + index, first: index === 0 ? "others" as const : undefined })),
+    ];
+  }, [listed, favouriteCategories]);
+
   function toggleFavourite(category: CategorySelection): void {
     const patch = favouriteTogglePatch(platformSettings, category);
     if (patch.favouriteCategories) void onFavouritesChange(patch.favouriteCategories);
@@ -101,13 +114,15 @@ export function GamesPanel({
         <EmptyPanel>{t(categoryMode === "include" ? "noCategoriesSelected" : "gamesEmpty", label)}</EmptyPanel>
       ) : (
         <div className="space-y-1">
-          {listed.map((category, index) => {
+          {ordered.map(({ category, index, first }) => {
             const favourite = contains(favouriteCategories, category);
+            const favouriteRank = favouriteCategories.findIndex((entry) => sameCategory(entry, category));
             const selected = categoryMode === "all" || contains(categories, category);
             const count = campaignCounts[category.id.toLowerCase()] ?? 0;
             return (
+              <React.Fragment key={category.id}>
+              {first ? <GamesDivider label={t(first === "favourites" ? "gamesFavouritesGroup" : "gamesOtherGroup")} hint={t(first === "favourites" ? "gamesFavouritesGroupHint" : categoryMode === "all" ? "gamesOtherGroupAllHint" : "gamesOtherGroupIncludeHint")} /> : null}
               <div
-                key={category.id}
                 data-game={category.id}
                 className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-2 py-1.5 dark:border-zinc-800 dark:bg-zinc-900"
               >
@@ -156,6 +171,9 @@ export function GamesPanel({
                 >
                   <Star size={14} fill={favourite ? "currentColor" : "none"} />
                 </button>
+                <span data-game-favourite-rank className="-ms-1.5 w-2 shrink-0 font-mono text-[10px] font-semibold text-[var(--accent-text)] tabular">
+                  {favourite && favouriteRank !== -1 ? favouriteRank + 1 : ""}
+                </span>
                 <button
                   type="button"
                   data-game-block
@@ -167,6 +185,7 @@ export function GamesPanel({
                   <Ban size={14} />
                 </button>
               </div>
+              </React.Fragment>
             );
           })}
         </div>
@@ -219,5 +238,15 @@ export function GamesPanel({
           ))}
       </div>
     </section>
+  );
+}
+
+function GamesDivider({ label, hint }: { label: string; hint: string }): React.ReactElement {
+  return (
+    <div className="flex items-center gap-2 pt-1">
+      <span className="font-mono text-[9.5px] uppercase tracking-[0.07em] text-zinc-400 dark:text-zinc-500">{label}</span>
+      <span className="truncate text-[10px] text-zinc-400 dark:text-zinc-500">{hint}</span>
+      <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+    </div>
   );
 }

@@ -1795,5 +1795,20 @@
   },
   "watchSourceChangeOrder": {
     "message": "Изменить порядок просмотра"
+  },
+  "gamesFavouritesGroup": {
+    "message": "Избранное"
+  },
+  "gamesFavouritesGroupHint": {
+    "message": "в этом порядке, выше стратегии"
+  },
+  "gamesOtherGroup": {
+    "message": "Другие игры"
+  },
+  "gamesOtherGroupAllHint": {
+    "message": "фармятся все, кроме заблокированных"
+  },
+  "gamesOtherGroupIncludeHint": {
+    "message": "фармятся только отмеченные"
   }
 }

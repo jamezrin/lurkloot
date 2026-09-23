@@ -1795,5 +1795,20 @@
   },
   "watchSourceChangeOrder": {
     "message": "Mudar a ordem de exibição"
+  },
+  "gamesFavouritesGroup": {
+    "message": "Favoritos"
+  },
+  "gamesFavouritesGroupHint": {
+    "message": "nesta ordem, acima da estratégia"
+  },
+  "gamesOtherGroup": {
+    "message": "Outros jogos"
+  },
+  "gamesOtherGroupAllHint": {
+    "message": "todos farmados, exceto os bloqueados"
+  },
+  "gamesOtherGroupIncludeHint": {
+    "message": "farmados só quando marcados"
   }
 }

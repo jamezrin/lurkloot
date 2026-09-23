@@ -1795,5 +1795,20 @@
   },
   "watchSourceChangeOrder": {
     "message": "Change the watch order"
+  },
+  "gamesFavouritesGroup": {
+    "message": "Favourites"
+  },
+  "gamesFavouritesGroupHint": {
+    "message": "ranked in this order, above the strategy"
+  },
+  "gamesOtherGroup": {
+    "message": "Other games"
+  },
+  "gamesOtherGroupAllHint": {
+    "message": "all farmed, except blocked ones"
+  },
+  "gamesOtherGroupIncludeHint": {
+    "message": "farmed only when ticked"
   }
 }

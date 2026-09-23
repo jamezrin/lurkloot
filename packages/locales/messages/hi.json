@@ -1795,5 +1795,20 @@
   },
   "watchSourceChangeOrder": {
     "message": "देखने का क्रम बदलें"
+  },
+  "gamesFavouritesGroup": {
+    "message": "पसंदीदा"
+  },
+  "gamesFavouritesGroupHint": {
+    "message": "इसी क्रम में, रणनीति से ऊपर"
+  },
+  "gamesOtherGroup": {
+    "message": "अन्य गेम"
+  },
+  "gamesOtherGroupAllHint": {
+    "message": "ब्लॉक किए गए को छोड़कर सभी फ़ार्म होते हैं"
+  },
+  "gamesOtherGroupIncludeHint": {
+    "message": "सिर्फ़ चुने गए फ़ार्म होते हैं"
   }
 }

@@ -1795,5 +1795,20 @@
   },
   "watchSourceChangeOrder": {
     "message": "İzleme sırasını değiştir"
+  },
+  "gamesFavouritesGroup": {
+    "message": "Favoriler"
+  },
+  "gamesFavouritesGroupHint": {
+    "message": "bu sırayla, stratejinin önünde"
+  },
+  "gamesOtherGroup": {
+    "message": "Diğer oyunlar"
+  },
+  "gamesOtherGroupAllHint": {
+    "message": "engellenenler dışında hepsi farmlanır"
+  },
+  "gamesOtherGroupIncludeHint": {
+    "message": "yalnızca işaretliler farmlanır"
   }
 }

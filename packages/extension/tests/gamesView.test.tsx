@@ -75,6 +75,23 @@ describe("games view", () => {
     expect(row(container, "rust")?.textContent).toContain("2");
   });
 
+  it("lists favourites first, in the order their stars rank, and numbers them", () => {
+    const { container } = mount(settingsWith({ categoryMode: "all", favouriteCategories: [other, rust] }));
+
+    const order = [...container.querySelectorAll<HTMLElement>("[data-game]")].map((node) => node.dataset.game);
+    expect(order).toEqual(["other", "rust"]);
+    expect(row(container, "other")?.querySelector("[data-game-favourite-rank]")?.textContent).toBe("1");
+    expect(row(container, "rust")?.querySelector("[data-game-favourite-rank]")?.textContent).toBe("2");
+  });
+
+  it("puts starred games above the rest", () => {
+    const { container } = mount(settingsWith({ categoryMode: "all", favouriteCategories: [other] }));
+
+    const order = [...container.querySelectorAll<HTMLElement>("[data-game]")].map((node) => node.dataset.game);
+    expect(order).toEqual(["other", "rust"]);
+    expect(row(container, "rust")?.querySelector("[data-game-favourite-rank]")?.textContent).toBe("");
+  });
+
   it("stars a game so its campaigns rank above the strategy", () => {
     const { container, props } = mount(settingsWith({ categoryMode: "all" }));
 

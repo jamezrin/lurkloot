@@ -1795,5 +1795,20 @@
   },
   "watchSourceChangeOrder": {
     "message": "更改观看顺序"
+  },
+  "gamesFavouritesGroup": {
+    "message": "收藏"
+  },
+  "gamesFavouritesGroupHint": {
+    "message": "按此顺序，排在策略之前"
+  },
+  "gamesOtherGroup": {
+    "message": "其他游戏"
+  },
+  "gamesOtherGroupAllHint": {
+    "message": "除已屏蔽的外全部挂机"
+  },
+  "gamesOtherGroupIncludeHint": {
+    "message": "仅挂机已勾选的"
   }
 }
