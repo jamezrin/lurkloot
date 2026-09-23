@@ -144,6 +144,11 @@ release to AMO.
 ## Branch model
 
 - Ordinary feature and fix pull requests into `develop` use squash merge.
+- After reviewing an ordinary `develop` pull request, maintainers may queue a squash merge with
+  `gh pr merge <number> --auto --squash`. GitHub merges it when the required checks pass. If the
+  checks have already passed, the command merges immediately. GitHub's auto-merge switch applies
+  repository-wide, so do not queue release or hotfix pull requests into `main`; merge those manually
+  after reviewing the candidate and version bump.
 - Release and hotfix pull requests into `main` use merge commits.
 - Rebase merging is disabled repository-wide.
 - Force pushes and deletions remain blocked on both protected branches.
