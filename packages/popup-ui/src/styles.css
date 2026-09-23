@@ -24,8 +24,9 @@
  * while it is farming there. --platform-* stays available for anything that has
  * to name a platform while another one is selected (the rail's switch).
  *
- * This is the open half of #566: a product palette of its own would live here,
- * and docs/brand.md holds the candidates. */
+ * Lurkloot's own colour, Ember (--brand-*), is for the few surfaces that are
+ * about Lurkloot rather than a platform — the update notice today — and never
+ * for farming state. docs/brand.md records the rule. */
 [data-platform="twitch"] {
   --accent: #9147ff;
   --accent-strong: #7c3aed;
@@ -49,6 +50,11 @@
 }
 
 :root {
+  --brand: #cf4420;
+  --brand-text: #b3391a;
+  --brand-contrast: #ffffff;
+  --brand-soft: color-mix(in srgb, #cf4420 11%, transparent);
+  --brand-ring: color-mix(in srgb, #cf4420 40%, transparent);
   --platform-twitch: #9147ff;
   --platform-twitch-text: #7c3aed;
   --platform-kick: #53fc18;
@@ -71,6 +77,11 @@
   }
 
   :root {
+    --brand: #ff8a5c;
+    --brand-text: #ff9f78;
+    --brand-contrast: #170904;
+    --brand-soft: color-mix(in srgb, #ff8a5c 16%, transparent);
+    --brand-ring: color-mix(in srgb, #ff8a5c 45%, transparent);
     --platform-twitch-text: #c4a7ff;
     --platform-kick-text: #7bfd49;
   }
