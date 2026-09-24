@@ -1816,5 +1816,14 @@
   },
   "campaignHideDetails": {
     "message": "Masquer les détails"
+  },
+  "settingsGamesPointerTitle": {
+    "message": "Jeux et catégories"
+  },
+  "settingsGamesPointerDescription": {
+    "message": "Choisissez quels jeux $1 sont farmés, mettez en favori ceux à placer en premier, ou bloquez-les."
+  },
+  "settingsGamesPointerAction": {
+    "message": "Ouvrir Jeux"
   }
 }

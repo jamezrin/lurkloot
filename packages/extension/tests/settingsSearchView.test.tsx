@@ -125,6 +125,9 @@ const labels: Record<string, string> = {
   autoClaimChallengesTitle: "Auto-claim daily challenges",
   autoClaimChallengesDescription: "Claim Kick's daily challenge reward once its watch-time goal is met.",
   categoryModeTitle: "Category filter",
+  settingsGamesPointerTitle: "Games and categories",
+  settingsGamesPointerDescription: "Choose which $1 games are farmed, star the ones that should rank first, or block them.",
+  settingsGamesPointerAction: "Open Games",
   categoryModeDescription: "Farm every $1 category, include only the categories you select, or exclude them.",
   categoryModeAll: "All categories",
   categoryModeInclude: "Only selected",
@@ -331,17 +334,16 @@ describe("settings search view", () => {
     expect(container.textContent).not.toContain("No settings match");
   });
 
-  // The mode names live in the option labels, which the search haystack (title
-  // + description) never sees, so the description has to carry them or the one
-  // control that excludes categories is unfindable by the word "exclude".
-  it("finds the category filter by the mode the user is looking for", () => {
+  // Categories are edited in Games now; Settings keeps a row pointing there,
+  // and every word that used to find the category filter still finds it.
+  it("finds the way to the category filter by the words the user is looking for", () => {
     for (const query of ["exclude", "include", "categor"]) {
       const { container } = mountSettings();
       const search = openSearch(container);
 
       act(() => setInputValue(search, query));
 
-      expect(container.textContent, query).toContain("Category filter");
+      expect(container.textContent, query).toContain("Games and categories");
       expect(container.textContent, query).not.toContain("No settings match");
     }
   });

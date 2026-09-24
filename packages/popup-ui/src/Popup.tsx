@@ -896,7 +896,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                   ) : null}
                 </AnimatePresence>
                 {view === "settings" ? (
-                  <><SettingsView suggestions={dropCategorySuggestions} onSearchCategories={searchCategories} settings={settings} onSettingsChange={updateSettings} onExtensionEnabledChange={adapter.requestTwitchExtensionPermission ? setExtensionEnabled : undefined} onExportCredentials={exportCredentials} onExportSettings={exportSettings} onImportSettings={importSettings} onReset={resetExtension} exportConfirmationResetKey={settingsOpenGeneration} compatibilityRegistry={adapter.compatibilityRegistry} compatibilityResolution={compatibilityResolution} focusGroupId={preview && variantShowsPopup(initialVariant) && initialVariant.view === "settings" ? "general.drops" : settingsFocus} />
+                  <><SettingsView suggestions={dropCategorySuggestions} onSearchCategories={searchCategories} settings={settings} onSettingsChange={updateSettings} onExtensionEnabledChange={adapter.requestTwitchExtensionPermission ? setExtensionEnabled : undefined} onExportCredentials={exportCredentials} onExportSettings={exportSettings} onImportSettings={importSettings} onReset={resetExtension} exportConfirmationResetKey={settingsOpenGeneration} compatibilityRegistry={adapter.compatibilityRegistry} compatibilityResolution={compatibilityResolution} onOpenGames={() => changeView("games")} focusGroupId={preview && variantShowsPopup(initialVariant) && initialVariant.view === "settings" ? "general.drops" : settingsFocus} />
                   <AttributionFooter version={adapter.version} /></>
                 ) : view === "activity" ? (
                   <ActivityLog

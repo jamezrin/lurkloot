@@ -1816,5 +1816,14 @@
   },
   "campaignHideDetails": {
     "message": "Ayrıntıları gizle"
+  },
+  "settingsGamesPointerTitle": {
+    "message": "Oyunlar ve kategoriler"
+  },
+  "settingsGamesPointerDescription": {
+    "message": "Hangi $1 oyunlarının farmlanacağını seçin, önce gelmesi gerekenleri favorileyin veya engelleyin."
+  },
+  "settingsGamesPointerAction": {
+    "message": "Oyunları aç"
   }
 }

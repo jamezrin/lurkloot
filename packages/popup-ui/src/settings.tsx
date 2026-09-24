@@ -12,7 +12,7 @@ import { scrollIntoPanel } from "./primitives";
 import { TwitchExtensionSettings, twitchExtensionSearchText } from "./twitchExtensions";
 import type { GameItem, PopupCompatibilityRegistry, PopupCompatibilityResolution } from "./types";
 
-export function SettingsView({ suggestions, onSearchCategories, settings, onSettingsChange, onExtensionEnabledChange, onExportCredentials, onExportSettings, onImportSettings, onReset, exportConfirmationResetKey, compatibilityRegistry, compatibilityResolution, focusGroupId }: {
+export function SettingsView({ suggestions, onSearchCategories, settings, onSettingsChange, onExtensionEnabledChange, onExportCredentials, onExportSettings, onImportSettings, onReset, exportConfirmationResetKey, compatibilityRegistry, compatibilityResolution, focusGroupId, onOpenGames }: {
   suggestions: Record<Platform, GameItem[]>;
   onSearchCategories(platform: Platform, query: string): Promise<CategorySelection[]>;
   settings: ExtensionSettings;
@@ -31,6 +31,7 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
   compatibilityRegistry?: PopupCompatibilityRegistry;
   compatibilityResolution?: PopupCompatibilityResolution;
   focusGroupId?: string;
+  onOpenGames?(): void;
 }) {
   const t = useT();
   const [query, setQuery] = useState("");
@@ -107,8 +108,8 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
   }
 
   const sections = useMemo(
-    () => buildSettingsRegistry({ t, settings, onSettingsChange, suggestions, onSearchCategories, compatibilityRegistry, compatibilityResolution }),
-    [t, settings, onSettingsChange, suggestions, onSearchCategories, compatibilityRegistry, compatibilityResolution],
+    () => buildSettingsRegistry({ t, settings, onSettingsChange, suggestions, onSearchCategories, compatibilityRegistry, compatibilityResolution, onOpenGames }),
+    [t, settings, onSettingsChange, suggestions, onSearchCategories, compatibilityRegistry, compatibilityResolution, onOpenGames],
   );
   const visible = useMemo(
     () => filterSettingsTree(sections, { t, query, showAdvanced: true }),

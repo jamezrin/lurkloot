@@ -1,5 +1,5 @@
 import React from "react";
-import { ArrowDown, ArrowUp, RotateCcw } from "lucide-react";
+import { ChevronDown, ChevronUp, Eye, Gift, ListChecks, RotateCcw, Sparkles } from "lucide-react";
 import type { Platform, WatchSourceId } from "@lurkloot/shared/models";
 import { DEFAULT_WATCH_SOURCE_PRIORITY, normalizeWatchSourcePriority } from "@lurkloot/shared/watchSources";
 import { useT } from "./context";
@@ -9,6 +9,14 @@ export const WATCH_SOURCE_NAME_KEYS: Record<WatchSourceId, string> = {
   nopixel: "watchSourceNoPixel",
   fortnite: "watchSourceFortnite",
   idle_watchlist: "watchSourceIdleWatchlist",
+};
+
+// The same icons the rail uses for each source, so the order reads as the rail does.
+const WATCH_SOURCE_ICONS: Record<WatchSourceId, React.ComponentType<{ size?: number; className?: string }>> = {
+  drops: ListChecks,
+  nopixel: Gift,
+  fortnite: Sparkles,
+  idle_watchlist: Eye,
 };
 
 export function WatchSourcePriority({ platform, value, onChange }: {
@@ -45,15 +53,18 @@ export function WatchSourcePriority({ platform, value, onChange }: {
     void onChange(next);
   };
 
-  const actionClass = "flex size-8 shrink-0 items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-text)] disabled:cursor-not-allowed disabled:opacity-30 dark:hover:bg-zinc-800 dark:hover:text-zinc-100";
+  const actionClass = "flex size-6 shrink-0 items-center justify-center rounded-md text-zinc-400 hover:bg-zinc-200/70 hover:text-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--accent-text)] disabled:cursor-not-allowed disabled:opacity-30 dark:hover:bg-zinc-700 dark:hover:text-zinc-100";
   return (
     <div className="space-y-2">
       <p className="text-[11px] leading-relaxed text-zinc-500 dark:text-zinc-400">{t("watchSourcePriorityDescription")}</p>
-      <ol aria-label={t("watchSourcePriorityTitle")} className="list-none space-y-1.5">
-        {order.map((source, index) => (
-          <li key={source} data-watch-source={source} className="flex items-center gap-2 rounded-xl border border-zinc-200/70 px-2.5 py-1.5 dark:border-zinc-700/60">
-            <span aria-hidden="true" className="w-4 shrink-0 text-center text-[11px] tabular-nums text-zinc-400">{index + 1}</span>
-            <span className="min-w-0 flex-1 text-xs font-medium text-zinc-700 dark:text-zinc-200">{t(WATCH_SOURCE_NAME_KEYS[source])}</span>
+      <ol aria-label={t("watchSourcePriorityTitle")} className="list-none space-y-1">
+        {order.map((source, index) => {
+          const Icon = WATCH_SOURCE_ICONS[source];
+          return (
+          <li key={source} data-watch-source={source} className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1 dark:border-zinc-800 dark:bg-zinc-950">
+            <span aria-hidden="true" className="w-4 shrink-0 text-end font-mono text-[11px] font-semibold tabular-nums text-zinc-400">{index + 1}</span>
+            <Icon size={14} aria-hidden className="shrink-0 text-zinc-500 dark:text-zinc-400" />
+            <span className="min-w-0 flex-1 text-[12px] font-semibold text-zinc-800 dark:text-zinc-100">{t(WATCH_SOURCE_NAME_KEYS[source])}</span>
             {(["up", "down"] as const).map((direction) => (
               <button
                 key={direction}
@@ -68,15 +79,16 @@ export function WatchSourcePriority({ platform, value, onChange }: {
                 className={actionClass}
                 onClick={(event) => move(source, direction === "up" ? -1 : 1, event.currentTarget)}
               >
-                {direction === "up" ? <ArrowUp size={14} aria-hidden="true" /> : <ArrowDown size={14} aria-hidden="true" />}
+                {direction === "up" ? <ChevronUp size={13} aria-hidden="true" /> : <ChevronDown size={13} aria-hidden="true" />}
               </button>
             ))}
           </li>
-        ))}
+          );
+        })}
       </ol>
       <button
         type="button"
-        className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-medium text-zinc-500 hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-text)] dark:hover:bg-zinc-800"
+        className="ms-auto flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-medium text-zinc-500 hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-text)] dark:hover:bg-zinc-800"
         onClick={() => {
           setAnnouncement(t("watchSourcePriorityResetDone"));
           void onChange([...DEFAULT_WATCH_SOURCE_PRIORITY[platform]]);

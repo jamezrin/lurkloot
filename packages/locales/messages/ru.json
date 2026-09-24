@@ -1816,5 +1816,14 @@
   },
   "campaignHideDetails": {
     "message": "Скрыть подробности"
+  },
+  "settingsGamesPointerTitle": {
+    "message": "Игры и категории"
+  },
+  "settingsGamesPointerDescription": {
+    "message": "Выберите, какие игры $1 фармить, отметьте те, что должны идти первыми, или заблокируйте их."
+  },
+  "settingsGamesPointerAction": {
+    "message": "Открыть «Игры»"
   }
 }

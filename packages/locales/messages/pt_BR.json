@@ -1816,5 +1816,14 @@
   },
   "campaignHideDetails": {
     "message": "Ocultar detalhes"
+  },
+  "settingsGamesPointerTitle": {
+    "message": "Jogos e categorias"
+  },
+  "settingsGamesPointerDescription": {
+    "message": "Escolha quais jogos da $1 são farmados, favorite os que devem vir primeiro ou bloqueie-os."
+  },
+  "settingsGamesPointerAction": {
+    "message": "Abrir Jogos"
   }
 }

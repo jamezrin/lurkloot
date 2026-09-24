@@ -1816,5 +1816,14 @@
   },
   "campaignHideDetails": {
     "message": "Details ausblenden"
+  },
+  "settingsGamesPointerTitle": {
+    "message": "Spiele und Kategorien"
+  },
+  "settingsGamesPointerDescription": {
+    "message": "Wähle, welche $1-Spiele gefarmt werden, markiere die, die zuerst kommen sollen, oder blockiere sie."
+  },
+  "settingsGamesPointerAction": {
+    "message": "Spiele öffnen"
   }
 }

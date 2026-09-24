@@ -66,7 +66,9 @@ export function SettingsSection({ id, title, description, badge, forceExpanded, 
             </span>
             {description ? <span className="mt-1 block text-[10.5px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</span> : null}
           </span>
-          <ChevronDown size={13} className={cn("mt-0.5 shrink-0 text-zinc-300 transition-transform group-hover:text-zinc-500 dark:text-zinc-600", expanded && "rotate-180")} />
+          {/* Shown on hover and focus while open, as the prototype has no
+              arrows; always shown while collapsed, so a folded section says so. */}
+          <ChevronDown size={13} className={cn("mt-0.5 shrink-0 text-zinc-400 transition-transform dark:text-zinc-500", expanded ? "rotate-180 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" : "")} />
         </button>
       </header>
       {expanded ? <div className="min-w-0 space-y-3 pb-2">{children}</div> : <div className="@[520px]:block hidden" />}
@@ -87,10 +89,9 @@ export function SettingsGroup({ title, description, badge, children }: {
   children: React.ReactNode;
 }) {
   return (
-    <div className="mt-3 first:mt-0">
-      <div className="mb-0.5 flex items-center gap-1.5 pt-1">
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{title}</span>
-        <span className="h-px flex-1 bg-zinc-100 dark:bg-zinc-800/70" />
+    <div className="mt-2 border-t border-zinc-200 pt-3 first:mt-0 first:border-t-0 first:pt-0 dark:border-zinc-800">
+      <div className="mb-0.5 flex items-center gap-1.5">
+        <span className="text-[12.5px] font-semibold text-zinc-900 dark:text-zinc-50">{title}</span>
         {badge}
       </div>
       {description ? <p className="mb-1.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</p> : null}
@@ -128,7 +129,7 @@ export function SettingRow({ title, description, checked, onChange, disabled = f
         <div className="text-[12.5px] font-semibold text-zinc-800 dark:text-zinc-100">{title}</div>
         <div className="mt-0.5 max-w-[46ch] text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
       </div>
-      <Toggle checked={checked} onChange={onChange} label={title} disabled={disabled} />
+      <Toggle size="sm" checked={checked} onChange={onChange} label={title} disabled={disabled} />
     </div>
   );
 }
@@ -255,6 +256,29 @@ export function NumberSettingRow({ title, description, value, min, max, suffix, 
         />
         {suffix}
       </label>
+    </div>
+  );
+}
+
+// A setting that lives in another view: its name and what it does, and the way
+// there. Settings points at Games rather than keeping a second category editor.
+export function SettingsLinkRow({ title, description, action, onClick }: { title: string; description: string; action: string; onClick?(): void }) {
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 py-2.5">
+      <div className="min-w-0">
+        <div className="text-[12.5px] font-semibold text-zinc-800 dark:text-zinc-100">{title}</div>
+        <div className="mt-0.5 max-w-[46ch] text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
+      </div>
+      {onClick ? (
+        <button
+          type="button"
+          data-settings-link
+          onClick={onClick}
+          className="shrink-0 rounded-full border border-zinc-200 px-2.5 py-1 text-[11px] font-semibold text-[var(--accent-text)] outline-none hover:border-[var(--accent-ring)] focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700"
+        >
+          {action}
+        </button>
+      ) : null}
     </div>
   );
 }

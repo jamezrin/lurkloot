@@ -1816,5 +1816,14 @@
   },
   "campaignHideDetails": {
     "message": "विवरण छिपाएं"
+  },
+  "settingsGamesPointerTitle": {
+    "message": "गेम और श्रेणियां"
+  },
+  "settingsGamesPointerDescription": {
+    "message": "चुनें कि $1 के कौन से गेम फ़ार्म हों, जिन्हें पहले रखना है उन्हें पसंदीदा बनाएं, या ब्लॉक करें।"
+  },
+  "settingsGamesPointerAction": {
+    "message": "गेम खोलें"
   }
 }

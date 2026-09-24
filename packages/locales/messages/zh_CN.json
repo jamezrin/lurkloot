@@ -1816,5 +1816,14 @@
   },
   "campaignHideDetails": {
     "message": "隐藏详情"
+  },
+  "settingsGamesPointerTitle": {
+    "message": "游戏与分类"
+  },
+  "settingsGamesPointerDescription": {
+    "message": "选择挂机哪些 $1 游戏，为应优先的游戏加星，或屏蔽它们。"
+  },
+  "settingsGamesPointerAction": {
+    "message": "打开游戏"
   }
 }

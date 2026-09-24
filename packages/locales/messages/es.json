@@ -1816,5 +1816,14 @@
   },
   "campaignHideDetails": {
     "message": "Ocultar detalles"
+  },
+  "settingsGamesPointerTitle": {
+    "message": "Juegos y categorías"
+  },
+  "settingsGamesPointerDescription": {
+    "message": "Elige qué juegos de $1 se farmean, marca con estrella los que deben ir primero o bloquéalos."
+  },
+  "settingsGamesPointerAction": {
+    "message": "Abrir Juegos"
   }
 }

@@ -1816,5 +1816,14 @@
   },
   "campaignHideDetails": {
     "message": "إخفاء التفاصيل"
+  },
+  "settingsGamesPointerTitle": {
+    "message": "الألعاب والفئات"
+  },
+  "settingsGamesPointerDescription": {
+    "message": "اختر ألعاب $1 التي تُجمع، وضع نجمة على ما يجب أن يأتي أولًا، أو احظرها."
+  },
+  "settingsGamesPointerAction": {
+    "message": "فتح الألعاب"
   }
 }

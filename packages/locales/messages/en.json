@@ -1816,5 +1816,14 @@
   },
   "campaignHideDetails": {
     "message": "Hide details"
+  },
+  "settingsGamesPointerTitle": {
+    "message": "Games and categories"
+  },
+  "settingsGamesPointerDescription": {
+    "message": "Choose which $1 games are farmed, star the ones that should rank first, or block them."
+  },
+  "settingsGamesPointerAction": {
+    "message": "Open Games"
   }
 }

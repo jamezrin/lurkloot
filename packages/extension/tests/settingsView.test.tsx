@@ -118,6 +118,9 @@ const labels: Record<string, string> = {
   twitchAdvancedDescription: "Campaign availability and the transports Lurkloot uses.",
   kickAdvancedDescription: "How Lurkloot opens Kick claim links.",
   categoryModeTitle: "Category filter",
+  settingsGamesPointerTitle: "Games and categories",
+  settingsGamesPointerDescription: "Choose which $1 games are farmed, star the ones that should rank first, or block them.",
+  settingsGamesPointerAction: "Open Games",
   categoryModeDescription: "Farm every $1 category, include only the categories you select, or exclude them.",
   categoryModeAll: "All categories",
   categoryModeInclude: "Only selected",
@@ -127,7 +130,7 @@ const labels: Record<string, string> = {
 };
 
 describe("deadline feasibility setting", () => {
-  function mountSettings(settings = DEFAULT_SETTINGS) {
+  function mountSettings(settings = DEFAULT_SETTINGS, onOpenGames?: () => void) {
     const { document, window } = parseHTML("<div id=app></div>");
     vi.stubGlobal("window", window);
     vi.stubGlobal("document", document);
@@ -150,6 +153,7 @@ describe("deadline feasibility setting", () => {
               settings={settings}
               onSettingsChange={onSettingsChange}
               exportConfirmationResetKey={0}
+              onOpenGames={onOpenGames}
             />
           </I18nContext.Provider>
         </PopupRuntimeContext.Provider>,
@@ -288,24 +292,18 @@ describe("deadline feasibility setting", () => {
     );
   });
 
-  // The mode change must ride platformPatch, which carries tickAfterSave for the
-  // one platform — the existing selection-invalidation path, not a new one.
-  it("targets category mode changes to their platform", () => {
-    const { container, onSettingsChange } = mountSettings();
-    const select = container.querySelector('select[aria-label="Category filter"]') as HTMLSelectElement;
+  // Categories are chosen, ranked and blocked in Games; Settings points there
+  // instead of keeping a second editor.
+  it("sends category editing to the Games view", () => {
+    const onOpenGames = vi.fn();
+    const { container } = mountSettings(DEFAULT_SETTINGS, onOpenGames);
 
-    act(() => {
-      // linkedom's select.value is getter-only, so the selection is staged the
-      // same way compatibilitySettingsView.test.tsx does it.
-      for (const option of select.querySelectorAll("option")) option.selected = option.getAttribute("value") === "include";
-      Object.defineProperty(select, "value", { configurable: true, value: "include" });
-      select.dispatchEvent(new window.Event("change", { bubbles: true }));
-    });
+    const links = [...container.querySelectorAll<HTMLButtonElement>("[data-settings-link]")];
+    expect(links.map((link) => link.textContent)).toEqual(["Open Games", "Open Games"]);
+    expect(container.querySelector('select[aria-label="Category filter"]')).toBeNull();
 
-    expect(onSettingsChange).toHaveBeenCalledWith(
-      { platform: { twitch: { categoryMode: "include" } } },
-      { tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] },
-    );
+    act(() => links[0]!.click());
+    expect(onOpenGames).toHaveBeenCalledOnce();
   });
 
   it("saves notification preferences without a scheduler tick", () => {

@@ -1816,5 +1816,14 @@
   },
   "campaignHideDetails": {
     "message": "Nascondi dettagli"
+  },
+  "settingsGamesPointerTitle": {
+    "message": "Giochi e categorie"
+  },
+  "settingsGamesPointerDescription": {
+    "message": "Scegli quali giochi di $1 farmare, aggiungi ai preferiti quelli da mettere prima o bloccali."
+  },
+  "settingsGamesPointerAction": {
+    "message": "Apri Giochi"
   }
 }
