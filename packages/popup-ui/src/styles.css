@@ -15,6 +15,22 @@
   --font-display: "Bricolage Grotesque", "Geist", ui-sans-serif, system-ui,
     sans-serif;
   --font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  /* Warm neutrals. The popup is written against Tailwind's zinc scale; zinc is
+     redefined here with a slight warm bias so every surface, line and grey text
+     leans the same way in both themes, instead of the cold blue-grey default
+     that #566 calls out. */
+  --color-zinc-50: #f3f2ef;
+  --color-zinc-100: #eae8e4;
+  --color-zinc-200: #dcd8d2;
+  --color-zinc-300: #c5c0b8;
+  --color-zinc-400: #9a958d;
+  --color-zinc-500: #7a766f;
+  --color-zinc-600: #56524c;
+  --color-zinc-700: #3d3a35;
+  --color-zinc-800: #2f2c28;
+  --color-zinc-900: #181715;
+  --color-zinc-950: #0f0e0d;
 }
 
 /* The accent follows the platform.
