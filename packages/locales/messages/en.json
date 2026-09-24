@@ -1825,5 +1825,56 @@
   },
   "settingsGamesPointerAction": {
     "message": "Open Games"
+  },
+  "idleWatchlistAddPlaceholder": {
+    "message": "Channel name or link"
+  },
+  "idleWatchlistFull": {
+    "message": "The list is full ($1 channels). Remove one to add another."
+  },
+  "idleWatchlistInvalid": {
+    "message": "Enter a channel name or a channel link."
+  },
+  "idleWatchlistDuplicate": {
+    "message": "$1 is already on the list."
+  },
+  "idleWatchlistOrderTitle": {
+    "message": "Watch order"
+  },
+  "idleWatchlistOrderHint": {
+    "message": "the first live channel is watched"
+  },
+  "gamesModeAllDescription": {
+    "message": "Every game with live drops is farmed, except blocked ones."
+  },
+  "gamesModeIncludeDescription": {
+    "message": "Only the games you tick are farmed."
+  },
+  "gamesStarLegend": {
+    "message": "ranks a game above the strategy"
+  },
+  "gamesBlockLegend": {
+    "message": "never farms it"
+  },
+  "gamesSearchPlaceholder": {
+    "message": "Find or add a $1 game"
+  },
+  "gamesAddGroup": {
+    "message": "Add from $1"
+  },
+  "gamesAddIncludeHint": {
+    "message": "adding a game ticks it"
+  },
+  "gamesAddAllHint": {
+    "message": "adding a game stars it"
+  },
+  "gamesAddActionFarm": {
+    "message": "Farm"
+  },
+  "gamesAddActionFavourite": {
+    "message": "Favourite"
+  },
+  "gamesNoMoreResults": {
+    "message": "No other games found."
   }
 }

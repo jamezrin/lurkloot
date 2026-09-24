@@ -66,8 +66,7 @@ describe("idle watchlist add form", () => {
     const { container, sent } = await mountPopup();
 
     openWatchlist(container);
-    act(() => byLabel(container, "Add channel")?.click());
-    const input = container.querySelector<HTMLInputElement>("form input");
+    const input = container.querySelector<HTMLInputElement>("[data-watchlist-input]");
     expect(input).not.toBeNull();
     act(() => {
       input!.value = "typed-for-twitch";
@@ -75,12 +74,11 @@ describe("idle watchlist add form", () => {
     });
 
     act(() => byLabel(container, "Kick")?.click());
-    expect(container.querySelector("form input")).toBeNull();
 
-    // Reopening on Kick starts empty rather than carrying the Twitch draft.
+    // The field stays open on Kick, but starts empty rather than carrying the
+    // Twitch draft.
     openWatchlist(container);
-    act(() => byLabel(container, "Add channel")?.click());
-    expect(container.querySelector<HTMLInputElement>("form input")?.value ?? "").toBe("");
+    expect(container.querySelector<HTMLInputElement>("[data-watchlist-input]")?.value ?? "").toBe("");
     expect(sent.filter((message) => message.type === "saveSettings")).toHaveLength(0);
   });
 });

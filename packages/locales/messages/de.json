@@ -1825,5 +1825,56 @@
   },
   "settingsGamesPointerAction": {
     "message": "Spiele öffnen"
+  },
+  "idleWatchlistAddPlaceholder": {
+    "message": "Kanalname oder Link"
+  },
+  "idleWatchlistFull": {
+    "message": "Die Liste ist voll ($1 Kanäle). Entferne einen, um einen weiteren hinzuzufügen."
+  },
+  "idleWatchlistInvalid": {
+    "message": "Gib einen Kanalnamen oder einen Kanallink ein."
+  },
+  "idleWatchlistDuplicate": {
+    "message": "$1 ist bereits auf der Liste."
+  },
+  "idleWatchlistOrderTitle": {
+    "message": "Reihenfolge"
+  },
+  "idleWatchlistOrderHint": {
+    "message": "der erste Live-Kanal wird geschaut"
+  },
+  "gamesModeAllDescription": {
+    "message": "Jedes Spiel mit aktiven Drops wird gefarmt, außer blockierte."
+  },
+  "gamesModeIncludeDescription": {
+    "message": "Nur angehakte Spiele werden gefarmt."
+  },
+  "gamesStarLegend": {
+    "message": "stellt ein Spiel über die Strategie"
+  },
+  "gamesBlockLegend": {
+    "message": "farmt es nie"
+  },
+  "gamesSearchPlaceholder": {
+    "message": "$1-Spiel finden oder hinzufügen"
+  },
+  "gamesAddGroup": {
+    "message": "Von $1 hinzufügen"
+  },
+  "gamesAddIncludeHint": {
+    "message": "Hinzufügen hakt das Spiel an"
+  },
+  "gamesAddAllHint": {
+    "message": "Hinzufügen markiert das Spiel als Favorit"
+  },
+  "gamesAddActionFarm": {
+    "message": "Farmen"
+  },
+  "gamesAddActionFavourite": {
+    "message": "Favorit"
+  },
+  "gamesNoMoreResults": {
+    "message": "Keine weiteren Spiele gefunden."
   }
 }

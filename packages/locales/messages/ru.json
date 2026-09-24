@@ -1825,5 +1825,56 @@
   },
   "settingsGamesPointerAction": {
     "message": "Открыть «Игры»"
+  },
+  "idleWatchlistAddPlaceholder": {
+    "message": "Имя или ссылка на канал"
+  },
+  "idleWatchlistFull": {
+    "message": "Список заполнен ($1 каналов). Удалите один, чтобы добавить другой."
+  },
+  "idleWatchlistInvalid": {
+    "message": "Введите имя канала или ссылку на него."
+  },
+  "idleWatchlistDuplicate": {
+    "message": "$1 уже в списке."
+  },
+  "idleWatchlistOrderTitle": {
+    "message": "Порядок просмотра"
+  },
+  "idleWatchlistOrderHint": {
+    "message": "смотрится первый канал в эфире"
+  },
+  "gamesModeAllDescription": {
+    "message": "Фармятся все игры с активными дропсами, кроме заблокированных."
+  },
+  "gamesModeIncludeDescription": {
+    "message": "Фармятся только отмеченные игры."
+  },
+  "gamesStarLegend": {
+    "message": "ставит игру выше стратегии"
+  },
+  "gamesBlockLegend": {
+    "message": "никогда её не фармит"
+  },
+  "gamesSearchPlaceholder": {
+    "message": "Найти или добавить игру $1"
+  },
+  "gamesAddGroup": {
+    "message": "Добавить из $1"
+  },
+  "gamesAddIncludeHint": {
+    "message": "добавление отмечает игру"
+  },
+  "gamesAddAllHint": {
+    "message": "добавление делает игру избранной"
+  },
+  "gamesAddActionFarm": {
+    "message": "Фармить"
+  },
+  "gamesAddActionFavourite": {
+    "message": "В избранное"
+  },
+  "gamesNoMoreResults": {
+    "message": "Других игр не найдено."
   }
 }

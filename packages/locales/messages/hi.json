@@ -1825,5 +1825,56 @@
   },
   "settingsGamesPointerAction": {
     "message": "गेम खोलें"
+  },
+  "idleWatchlistAddPlaceholder": {
+    "message": "चैनल का नाम या लिंक"
+  },
+  "idleWatchlistFull": {
+    "message": "सूची भरी है ($1 चैनल)। नया जोड़ने के लिए एक हटाएँ।"
+  },
+  "idleWatchlistInvalid": {
+    "message": "चैनल का नाम या चैनल लिंक दर्ज करें।"
+  },
+  "idleWatchlistDuplicate": {
+    "message": "$1 पहले से सूची में है।"
+  },
+  "idleWatchlistOrderTitle": {
+    "message": "देखने का क्रम"
+  },
+  "idleWatchlistOrderHint": {
+    "message": "पहला लाइव चैनल देखा जाता है"
+  },
+  "gamesModeAllDescription": {
+    "message": "सक्रिय ड्रॉप्स वाला हर गेम फ़ार्म होता है, ब्लॉक किए गए को छोड़कर।"
+  },
+  "gamesModeIncludeDescription": {
+    "message": "सिर्फ़ चुने गए गेम फ़ार्म होते हैं।"
+  },
+  "gamesStarLegend": {
+    "message": "गेम को रणनीति से ऊपर रखता है"
+  },
+  "gamesBlockLegend": {
+    "message": "इसे कभी फ़ार्म नहीं करता"
+  },
+  "gamesSearchPlaceholder": {
+    "message": "$1 गेम खोजें या जोड़ें"
+  },
+  "gamesAddGroup": {
+    "message": "$1 से जोड़ें"
+  },
+  "gamesAddIncludeHint": {
+    "message": "जोड़ने पर गेम चुना जाता है"
+  },
+  "gamesAddAllHint": {
+    "message": "जोड़ने पर गेम पसंदीदा बनता है"
+  },
+  "gamesAddActionFarm": {
+    "message": "फ़ार्म करें"
+  },
+  "gamesAddActionFavourite": {
+    "message": "पसंदीदा"
+  },
+  "gamesNoMoreResults": {
+    "message": "कोई और गेम नहीं मिला।"
   }
 }

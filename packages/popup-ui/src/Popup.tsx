@@ -105,7 +105,6 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   const [platform, setPlatform] = useState<Platform>(
     preview && variantShowsPopup(initialVariant) ? initialVariant.platform : "twitch",
   );
-  const [watchlistAdding, setWatchlistAdding] = useState(false);
   // One destination at a time. Platform is the other axis and is independent of
   // it, so every view keeps working on either platform.
   const [view, setView] = useState<PopupView>(() => {
@@ -446,9 +445,6 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     }
     setDiagnosticSearchQuery("");
     setPlatform(nextPlatform);
-    // The watchlist add form belongs to the platform it was opened on: leaving
-    // it open would submit a name typed for one platform into the other's list.
-    setWatchlistAdding(false);
     // Extensions are Twitch-only: switching to Kick while standing in that view
     // would leave the rail pointing at a destination it no longer lists.
     setView((current: PopupView) => viewForPlatform(current, nextPlatform));
@@ -623,7 +619,6 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
         setDiagnosticStream(createActivityStream());
         setShowDiagnostics(false);
         setPlatform("twitch");
-        setWatchlistAdding(false);
         setPendingChangelogVersion(undefined);
         setSnapshot(snapshotWithMergedSettings(nextSnapshot));
         setView("queue");
@@ -950,17 +945,14 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                     onSearchCategories={(query) => searchCategories(platform, query)}
                   />
                 ) : view === "watchlist" ? (
-                  // Keyed by platform so the add field's own text cannot survive
-                  // a platform switch either.
+                  // Keyed by platform so a half-typed channel cannot survive a
+                  // platform switch and land in the other platform's list.
                   <IdleWatchlistPanel
                     key={platform}
                     platform={platform}
                     streamers={screenshotWatchlist}
-                    expanded
-                    bare
-                    adding={watchlistAdding}
-                    onExpandedChange={() => undefined}
-                    onAddingChange={setWatchlistAdding}
+                    watchOrder={settings.platform[platform].watchSourcePriority}
+                    onChangeOrder={() => changeView("settings", `${platform}.watchSourcePriority`)}
                     onChange={(ordered) => updateSettings(
                       {
                         platform: {

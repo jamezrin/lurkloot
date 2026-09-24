@@ -1825,5 +1825,56 @@
   },
   "settingsGamesPointerAction": {
     "message": "打开游戏"
+  },
+  "idleWatchlistAddPlaceholder": {
+    "message": "频道名称或链接"
+  },
+  "idleWatchlistFull": {
+    "message": "列表已满（$1 个频道）。请先移除一个再添加。"
+  },
+  "idleWatchlistInvalid": {
+    "message": "请输入频道名称或频道链接。"
+  },
+  "idleWatchlistDuplicate": {
+    "message": "$1 已在列表中。"
+  },
+  "idleWatchlistOrderTitle": {
+    "message": "观看顺序"
+  },
+  "idleWatchlistOrderHint": {
+    "message": "观看第一个正在直播的频道"
+  },
+  "gamesModeAllDescription": {
+    "message": "所有有进行中掉宝的游戏都会挂机，已屏蔽的除外。"
+  },
+  "gamesModeIncludeDescription": {
+    "message": "只挂机你勾选的游戏。"
+  },
+  "gamesStarLegend": {
+    "message": "让游戏排在策略之前"
+  },
+  "gamesBlockLegend": {
+    "message": "永不挂机"
+  },
+  "gamesSearchPlaceholder": {
+    "message": "查找或添加 $1 游戏"
+  },
+  "gamesAddGroup": {
+    "message": "从 $1 添加"
+  },
+  "gamesAddIncludeHint": {
+    "message": "添加游戏会勾选它"
+  },
+  "gamesAddAllHint": {
+    "message": "添加游戏会将其收藏"
+  },
+  "gamesAddActionFarm": {
+    "message": "挂机"
+  },
+  "gamesAddActionFavourite": {
+    "message": "收藏"
+  },
+  "gamesNoMoreResults": {
+    "message": "未找到其他游戏。"
   }
 }

@@ -1825,5 +1825,56 @@
   },
   "settingsGamesPointerAction": {
     "message": "فتح الألعاب"
+  },
+  "idleWatchlistAddPlaceholder": {
+    "message": "اسم القناة أو رابطها"
+  },
+  "idleWatchlistFull": {
+    "message": "القائمة ممتلئة ($1 قناة). أزل واحدة لإضافة أخرى."
+  },
+  "idleWatchlistInvalid": {
+    "message": "أدخل اسم قناة أو رابطها."
+  },
+  "idleWatchlistDuplicate": {
+    "message": "$1 موجودة في القائمة بالفعل."
+  },
+  "idleWatchlistOrderTitle": {
+    "message": "ترتيب المشاهدة"
+  },
+  "idleWatchlistOrderHint": {
+    "message": "تُشاهَد أول قناة تبث مباشرة"
+  },
+  "gamesModeAllDescription": {
+    "message": "تُجمع كل لعبة لديها دروبس نشطة، باستثناء المحظورة."
+  },
+  "gamesModeIncludeDescription": {
+    "message": "تُجمع الألعاب التي تحددها فقط."
+  },
+  "gamesStarLegend": {
+    "message": "يضع اللعبة فوق الاستراتيجية"
+  },
+  "gamesBlockLegend": {
+    "message": "لا يجمعها أبدًا"
+  },
+  "gamesSearchPlaceholder": {
+    "message": "ابحث عن لعبة على $1 أو أضفها"
+  },
+  "gamesAddGroup": {
+    "message": "إضافة من $1"
+  },
+  "gamesAddIncludeHint": {
+    "message": "إضافة لعبة تحددها"
+  },
+  "gamesAddAllHint": {
+    "message": "إضافة لعبة تجعلها مفضلة"
+  },
+  "gamesAddActionFarm": {
+    "message": "اجمع"
+  },
+  "gamesAddActionFavourite": {
+    "message": "مفضلة"
+  },
+  "gamesNoMoreResults": {
+    "message": "لم يُعثر على ألعاب أخرى."
   }
 }

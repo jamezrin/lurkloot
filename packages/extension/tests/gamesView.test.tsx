@@ -31,6 +31,14 @@ const suggestions: GameItem[] = [
   { id: "other", name: "Other Game", short: "OG", accent: "#fff" },
 ];
 
+function type(value: string, container: Element): void {
+  const input = container.querySelector<HTMLInputElement>("[data-games-search]")!;
+  act(() => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
 function mount(settings: ExtensionSettings, handlers: Partial<React.ComponentProps<typeof GamesPanel>> = {}) {
   document.body.innerHTML = "<div id=app></div>";
   vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => { callback(0); return 1; });
@@ -128,6 +136,12 @@ describe("games view", () => {
     const blocked = settingsWith({ categoryMode: "include", categories: [rust], favouriteCategories: [rust], blockedCategories: [rust] });
     const { container, props } = mount(blocked);
 
+    // Blocked games wait behind a chip at the top that counts them.
+    const chip = container.querySelector<HTMLButtonElement>("[data-games-show-blocked]")!;
+    expect(chip.textContent).toContain("1");
+    expect(container.querySelector('[data-blocked-game="rust"]')).toBeNull();
+    act(() => chip.click());
+
     const blockedRow = container.querySelector('[data-blocked-game="rust"]');
     expect(blockedRow).not.toBeNull();
     expect(container.querySelector('[data-game="rust"]')).toBeNull();
@@ -144,6 +158,38 @@ describe("games view", () => {
 
     act(() => container.querySelector<HTMLButtonElement>('[data-game="rust"] [data-game-select]')?.click());
     expect(props.onCategoriesChange).toHaveBeenCalledWith([rust]);
+  });
+
+  it("filters the list from the search at the top, blocked games included", () => {
+    const { container } = mount(settingsWith({ categoryMode: "all", blockedCategories: [{ id: "rusty", name: "Rusty Lake" }] }));
+
+    type("rus", container);
+
+    expect(container.querySelector('[data-game="rust"]')).not.toBeNull();
+    expect(container.querySelector('[data-game="other"]')).toBeNull();
+    expect(container.querySelector('[data-blocked-game="rusty"]')).not.toBeNull();
+  });
+
+  it("says what adding a searched game does, and does it, in each mode", async () => {
+    const found: CategorySelection = { id: "new", name: "Rust Racing" };
+    for (const [categoryMode, action, handler] of [
+      ["include", "gamesAddActionFarm", "onCategoriesChange"],
+      ["all", "gamesAddActionFavourite", "onFavouritesChange"],
+    ] as const) {
+      const { container, props } = mount(settingsWith({ categoryMode }), { onSearchCategories: async () => [found, rust] });
+
+      type("rust", container);
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 400)); });
+
+      const result = container.querySelector('[data-game-result="new"]');
+      // A game already on screen is not offered again.
+      expect(container.querySelector('[data-game-result="rust"]')).toBeNull();
+      expect(result?.textContent).toContain(action);
+      act(() => result!.querySelector<HTMLButtonElement>("[data-game-add]")!.click());
+      expect(props[handler]).toHaveBeenCalledWith([found]);
+      act(() => root?.unmount());
+      root = undefined;
+    }
   });
 
   it("switches between farming every game and only the selected ones", () => {

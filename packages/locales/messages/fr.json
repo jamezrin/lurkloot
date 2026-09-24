@@ -1825,5 +1825,56 @@
   },
   "settingsGamesPointerAction": {
     "message": "Ouvrir Jeux"
+  },
+  "idleWatchlistAddPlaceholder": {
+    "message": "Nom ou lien de la chaîne"
+  },
+  "idleWatchlistFull": {
+    "message": "La liste est pleine ($1 chaînes). Retirez-en une pour en ajouter une autre."
+  },
+  "idleWatchlistInvalid": {
+    "message": "Saisissez un nom ou un lien de chaîne."
+  },
+  "idleWatchlistDuplicate": {
+    "message": "$1 est déjà dans la liste."
+  },
+  "idleWatchlistOrderTitle": {
+    "message": "Ordre de visionnage"
+  },
+  "idleWatchlistOrderHint": {
+    "message": "la première chaîne en direct est regardée"
+  },
+  "gamesModeAllDescription": {
+    "message": "Tous les jeux avec des drops actifs sont farmés, sauf ceux bloqués."
+  },
+  "gamesModeIncludeDescription": {
+    "message": "Seuls les jeux cochés sont farmés."
+  },
+  "gamesStarLegend": {
+    "message": "place un jeu au-dessus de la stratégie"
+  },
+  "gamesBlockLegend": {
+    "message": "ne le farme jamais"
+  },
+  "gamesSearchPlaceholder": {
+    "message": "Trouver ou ajouter un jeu $1"
+  },
+  "gamesAddGroup": {
+    "message": "Ajouter depuis $1"
+  },
+  "gamesAddIncludeHint": {
+    "message": "ajouter un jeu le coche"
+  },
+  "gamesAddAllHint": {
+    "message": "ajouter un jeu le met en favori"
+  },
+  "gamesAddActionFarm": {
+    "message": "Farmer"
+  },
+  "gamesAddActionFavourite": {
+    "message": "Favori"
+  },
+  "gamesNoMoreResults": {
+    "message": "Aucun autre jeu trouvé."
   }
 }

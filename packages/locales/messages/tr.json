@@ -1825,5 +1825,56 @@
   },
   "settingsGamesPointerAction": {
     "message": "Oyunları aç"
+  },
+  "idleWatchlistAddPlaceholder": {
+    "message": "Kanal adı veya bağlantısı"
+  },
+  "idleWatchlistFull": {
+    "message": "Liste dolu ($1 kanal). Başka birini eklemek için birini kaldırın."
+  },
+  "idleWatchlistInvalid": {
+    "message": "Bir kanal adı veya kanal bağlantısı girin."
+  },
+  "idleWatchlistDuplicate": {
+    "message": "$1 zaten listede."
+  },
+  "idleWatchlistOrderTitle": {
+    "message": "İzleme sırası"
+  },
+  "idleWatchlistOrderHint": {
+    "message": "ilk canlı kanal izlenir"
+  },
+  "gamesModeAllDescription": {
+    "message": "Etkin drop'u olan her oyun farmlanır, engellenenler hariç."
+  },
+  "gamesModeIncludeDescription": {
+    "message": "Yalnızca işaretlediğiniz oyunlar farmlanır."
+  },
+  "gamesStarLegend": {
+    "message": "bir oyunu stratejinin üstüne koyar"
+  },
+  "gamesBlockLegend": {
+    "message": "onu asla farmlamaz"
+  },
+  "gamesSearchPlaceholder": {
+    "message": "$1 oyunu bul veya ekle"
+  },
+  "gamesAddGroup": {
+    "message": "$1 üzerinden ekle"
+  },
+  "gamesAddIncludeHint": {
+    "message": "eklenen oyun işaretlenir"
+  },
+  "gamesAddAllHint": {
+    "message": "eklenen oyun favorilere alınır"
+  },
+  "gamesAddActionFarm": {
+    "message": "Farmla"
+  },
+  "gamesAddActionFavourite": {
+    "message": "Favori"
+  },
+  "gamesNoMoreResults": {
+    "message": "Başka oyun bulunamadı."
   }
 }
