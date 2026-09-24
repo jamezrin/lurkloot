@@ -6,6 +6,7 @@ import {
 } from "./constants";
 import { usePopupRuntime, useT } from "./context";
 import { SearchBox, Toggle, cn } from "./primitives";
+import { Dropdown } from "./dropdown";
 
 export function SettingsSection({ id, title, description, badge, forceExpanded, children }: {
   // Stable, locale-independent identity. Collapse state is keyed by this, not by
@@ -165,9 +166,10 @@ export function ForgetExcludedCampaignsRow({ count, onForget }: { count: number;
   );
 }
 
-// The bare select control. A native <select> sizes itself to its longest option,
-// so it is capped and allowed to shrink; long labels ellipsize instead of
-// squeezing whatever sits beside it. The full label stays available on hover.
+// The bare select control: the popup's own dropdown, since the OS menu of a
+// native <select> cannot follow the popup's theme. It is capped and allowed to
+// shrink; long labels ellipsize instead of squeezing whatever sits beside it,
+// and the full label stays available on hover.
 export function SelectControl<T extends string>({ label, value, options, onChange, disabled = false, disabledReason }: {
   label: string;
   value: T;
@@ -177,20 +179,17 @@ export function SelectControl<T extends string>({ label, value, options, onChang
   disabledReason?: string;
 }) {
   return (
-    <label className={cn("@[520px]:max-w-[15rem] flex min-w-[9.5rem] max-w-[11rem] shrink-0 items-center rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[11px] font-semibold text-zinc-500 focus-within:border-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400", disabled && "cursor-not-allowed")}>
-      <select
-        aria-label={label}
-        title={disabled ? disabledReason : options.find((option) => option.value === value)?.label}
-        disabled={disabled}
+    <div className="@[520px]:max-w-[15rem] min-w-[9.5rem] max-w-[11rem] shrink-0">
+      <Dropdown
+        label={label}
         value={value}
-        onChange={(event) => void onChange(event.target.value as T)}
-        className={cn("w-full truncate bg-transparent pr-1 outline-none", disabled && "cursor-not-allowed")}
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>{option.label}</option>
-        ))}
-      </select>
-    </label>
+        options={options}
+        onChange={onChange}
+        disabled={disabled}
+        title={disabled ? disabledReason : undefined}
+        className="rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[11px] font-semibold text-zinc-700 hover:border-zinc-300 focus-visible:border-[var(--accent-ring)] aria-expanded:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-zinc-600"
+      />
+    </div>
   );
 }
 

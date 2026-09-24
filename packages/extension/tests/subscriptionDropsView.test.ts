@@ -71,7 +71,13 @@ function expandedView(view: CampaignView): CampaignView {
   return { ...view, farmingChannel: { name: "test-channel" } };
 }
 
+// Inline styles are dropped: they carry CSS values (a visually hidden input's
+// `inset(50%)`) that the text assertions below would otherwise read as copy.
 function renderDrops(campaigns: CampaignView[], refreshing = false): string {
+  return renderQueueMarkup(campaigns, refreshing).replace(/ style="[^"]*"/g, "");
+}
+
+function renderQueueMarkup(campaigns: CampaignView[], refreshing: boolean): string {
   return renderToStaticMarkup(createElement(
     I18nContext.Provider,
     { value: { t: testT, dir: "ltr", locale: "en" } },

@@ -11,6 +11,7 @@ import type { CampaignRankTier } from "./viewModels";
 import type { CampaignView, GameItem } from "./types";
 import { ViewToolbar } from "./viewToolbar";
 import { EmptyPanel, SearchBox, Toggle, cn, reorderFromDragEnd, scrollIntoPanel, type SortableDragEndEvent } from "./primitives";
+import { Dropdown } from "./dropdown";
 
 // Which campaigns a facet admits. The facet reads across the queue AND the
 // skipped group on purpose: with subscription campaigns turned off, "Sub badges"
@@ -185,19 +186,20 @@ export function QueuePanel({
         <FacetTabs facet={facet} counts={facetCounts} onChange={setFacet} />
         {/* The strategy lives where it acts. It ranks everything no pin or
             favourite game already placed, which is what the label says. */}
-        <label className="ms-auto flex min-w-0 items-center gap-1 rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[11px] font-medium text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
-          <span className="shrink-0">{t("queueStrategyLabel")}</span>
-          <select
-            data-queue-strategy
-            aria-label={t("queueStrategyLabel")}
+        <div className="ms-auto min-w-0">
+          <Dropdown
+            label={t("queueStrategyLabel")}
             value={strategy}
-            onChange={(event) => void onStrategyChange(event.target.value as PriorityMode)}
-            className="min-w-0 bg-transparent font-semibold text-zinc-800 outline-none dark:text-zinc-100"
-          >
-            <option value="ending_soonest">{t("endingSoonest")}</option>
-            <option value="lowest_availability">{t("lowAvailabilityFirst")}</option>
-          </select>
-        </label>
+            options={[
+              { value: "ending_soonest", label: t("endingSoonest") },
+              { value: "lowest_availability", label: t("lowAvailabilityFirst") },
+            ]}
+            onChange={(value) => void onStrategyChange(value as PriorityMode)}
+            attributes={{ "data-queue-strategy": "" }}
+            prefix={<span className="shrink-0 font-medium text-zinc-500 dark:text-zinc-400">{t("queueStrategyLabel")}</span>}
+            className="rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[11px] font-semibold text-zinc-800 hover:border-zinc-300 focus-visible:border-[var(--accent-ring)] aria-expanded:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:border-zinc-600"
+          />
+        </div>
       </ViewToolbar>
 
       <div className="flex items-center gap-2">

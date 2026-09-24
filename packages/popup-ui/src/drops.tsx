@@ -31,6 +31,8 @@ import {
   cn,
   preventNativeDrag,
 } from "./primitives";
+import { Menu } from "@base-ui/react/menu";
+import { FLOATING_POPUP_CLASS, usePortalContainer } from "./dropdown";
 
 /** Cards start collapsed; only a campaign that is actively being farmed is worth
  * opening on mount. Anything else (completed, upcoming, merely first) would bury
@@ -437,9 +439,8 @@ function Fact({ label, value, children }: { label: string; value?: string; child
 }
 
 // Everything that can be done to one campaign, on the campaign. Exclude is one
-// button with two meanings, so it asks: this campaign, or its whole game. The
-// choice opens in flow under the row rather than floating, because the card
-// clips its overflow and the site demo scales the popup with a transform.
+// button with two meanings, so it asks: this campaign, or its whole game, in a
+// Base UI menu portalled out of the card (which clips its overflow).
 function CampaignActions({ campaign, gameName, finished, refreshing, pinned, onPin, onRefresh, onFavourite, onExclude, onBlock }: {
   campaign: CampaignView;
   gameName: string;
@@ -453,21 +454,10 @@ function CampaignActions({ campaign, gameName, finished, refreshing, pinned, onP
   onBlock?: () => void;
 }): React.ReactElement | null {
   const t = useT();
-  const [choosing, setChoosing] = useState(false);
-  const excludeButton = useRef<HTMLButtonElement>(null);
-  const firstChoice = useRef<HTMLButtonElement>(null);
+  const [portalRef, portalContainer] = usePortalContainer();
   const blocked = Boolean(campaign.categoryBlocked);
   const excludeActive = campaign.excluded || blocked;
   const hasChoice = Boolean(onExclude && onBlock);
-
-  useEffect(() => {
-    if (choosing) firstChoice.current?.focus();
-  }, [choosing]);
-
-  function close(): void {
-    setChoosing(false);
-    excludeButton.current?.focus();
-  }
 
   const excludeLabel = blocked
     ? t("campaignCategoryBlocked", gameName)
@@ -487,28 +477,42 @@ function CampaignActions({ campaign, gameName, finished, refreshing, pinned, onP
             {campaign.favourited ? t("campaignFavouriteOn", gameName) : t("campaignFavourite", gameName)}
           </ActionChip>
         ) : null}
-        {onExclude || onBlock ? (
+        {hasChoice ? (
+          <Menu.Root modal={false}>
+            <Menu.Trigger ref={portalRef} data-campaign-exclude className={excludeClass(excludeActive)}>
+              <Ban size={12} aria-hidden="true" />
+              {excludeLabel}
+              <ChevronDown size={11} aria-hidden="true" className="opacity-70 transition-transform [[data-popup-open]>&]:rotate-180" />
+            </Menu.Trigger>
+            <Menu.Portal container={portalContainer}>
+              <Menu.Positioner align="start" sideOffset={4} collisionPadding={8} className="z-50 outline-none">
+                <Menu.Popup aria-label={t("campaignExclude")} data-campaign-exclude-menu className={cn(FLOATING_POPUP_CLASS, "w-[17rem]")}>
+                  <ExcludeChoice
+                    checked={campaign.excluded}
+                    title={t("campaignExcludeThis")}
+                    hint={campaign.excluded ? t("campaignExcludeThisUndo") : t("campaignExcludeThisHint", gameName)}
+                    onClick={onExclude!}
+                  />
+                  <ExcludeChoice
+                    checked={blocked}
+                    title={t("campaignExcludeCategory", gameName)}
+                    hint={blocked ? t("campaignExcludeCategoryUndo") : t("campaignExcludeCategoryHint", gameName)}
+                    onClick={onBlock!}
+                  />
+                </Menu.Popup>
+              </Menu.Positioner>
+            </Menu.Portal>
+          </Menu.Root>
+        ) : onExclude || onBlock ? (
           <button
-            ref={excludeButton}
             type="button"
             data-campaign-exclude
-            aria-haspopup={hasChoice ? "menu" : undefined}
-            aria-expanded={hasChoice ? choosing : undefined}
-            aria-pressed={hasChoice ? undefined : excludeActive}
-            onClick={() => {
-              if (hasChoice) setChoosing((current) => !current);
-              else (onExclude ?? onBlock)!();
-            }}
-            className={cn(
-              "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors",
-              excludeActive
-                ? "border-amber-300/80 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"
-                : "border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-300 dark:hover:text-zinc-100",
-            )}
+            aria-pressed={excludeActive}
+            onClick={() => (onExclude ?? onBlock)!()}
+            className={excludeClass(excludeActive)}
           >
             <Ban size={12} aria-hidden="true" />
-            {hasChoice ? excludeLabel : campaign.excluded ? t("includeInFarming") : t("excludeFromFarming")}
-            {hasChoice ? <ChevronDown size={11} aria-hidden="true" className={cn("opacity-70 transition-transform", choosing && "rotate-180")} /> : null}
+            {campaign.excluded ? t("includeInFarming") : t("excludeFromFarming")}
           </button>
         ) : null}
         {onRefresh ? (
@@ -528,53 +532,35 @@ function CampaignActions({ campaign, gameName, finished, refreshing, pinned, onP
           </a>
         ) : null}
       </div>
-      {hasChoice && choosing ? (
-        <div
-          role="menu"
-          aria-label={t("campaignExclude")}
-          data-campaign-exclude-menu
-          onKeyDown={(event) => {
-            if (event.key === "Escape") { event.stopPropagation(); close(); }
-          }}
-          className="grid gap-1 rounded-xl border border-zinc-200 bg-white p-1 shadow-sm @[520px]:grid-cols-2 dark:border-zinc-700 dark:bg-zinc-900"
-        >
-          <ExcludeChoice
-            ref={firstChoice}
-            checked={campaign.excluded}
-            title={t("campaignExcludeThis")}
-            hint={campaign.excluded ? t("campaignExcludeThisUndo") : t("campaignExcludeThisHint", gameName)}
-            onClick={() => { onExclude!(); close(); }}
-          />
-          <ExcludeChoice
-            checked={blocked}
-            title={t("campaignExcludeCategory", gameName)}
-            hint={blocked ? t("campaignExcludeCategoryUndo") : t("campaignExcludeCategoryHint", gameName)}
-            onClick={() => { onBlock!(); close(); }}
-          />
-        </div>
-      ) : null}
     </div>
   );
 }
 
-const ExcludeChoice = React.forwardRef<HTMLButtonElement, { checked: boolean; title: string; hint: string; onClick(): void }>(
-  function ExcludeChoice({ checked, title, hint, onClick }, ref) {
-    return (
-      <button
-        ref={ref}
-        type="button"
-        role="menuitemcheckbox"
-        aria-checked={checked}
-        onClick={onClick}
-        className="grid grid-cols-[14px_minmax(0,1fr)] items-start gap-x-2 rounded-lg px-2 py-1.5 text-start outline-none hover:bg-zinc-50 focus-visible:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:hover:bg-zinc-800 dark:focus-visible:bg-zinc-800"
-      >
-        <span className="mt-0.5 text-[var(--ink-text)]">{checked ? <Check size={12} strokeWidth={3} /> : null}</span>
-        <span className="text-[11.5px] font-semibold text-zinc-800 dark:text-zinc-100">{title}</span>
-        <span className="col-start-2 text-[10.5px] text-zinc-500 dark:text-zinc-400">{hint}</span>
-      </button>
-    );
-  },
-);
+function excludeClass(active: boolean): string {
+  return cn(
+    "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]",
+    active
+      ? "border-amber-300/80 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"
+      : "border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 data-[popup-open]:border-zinc-400 dark:border-zinc-700 dark:text-zinc-300 dark:hover:text-zinc-100",
+  );
+}
+
+function ExcludeChoice({ checked, title, hint, onClick }: { checked: boolean; title: string; hint: string; onClick(): void }): React.ReactElement {
+  return (
+    <Menu.CheckboxItem
+      checked={checked}
+      closeOnClick
+      onClick={onClick}
+      className="grid cursor-default select-none grid-cols-[14px_minmax(0,1fr)] items-start gap-x-2 rounded-md px-2 py-1.5 text-start outline-none data-[highlighted]:bg-zinc-100 dark:data-[highlighted]:bg-zinc-800"
+    >
+      <Menu.CheckboxItemIndicator className="mt-0.5 text-[var(--ink-text)]">
+        <Check size={12} strokeWidth={3} />
+      </Menu.CheckboxItemIndicator>
+      <span className="col-start-2 row-start-1 text-[11.5px] font-semibold text-zinc-800 dark:text-zinc-100">{title}</span>
+      <span className="col-start-2 text-[10.5px] text-zinc-500 dark:text-zinc-400">{hint}</span>
+    </Menu.CheckboxItem>
+  );
+}
 
 function ActionChip({ pressed, disabled, onClick, icon, children }: { pressed?: boolean; disabled?: boolean; onClick(): void; icon: React.ReactNode; children: React.ReactNode }): React.ReactElement {
   return (

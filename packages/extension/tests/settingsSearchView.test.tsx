@@ -228,7 +228,7 @@ describe("settings search view", () => {
     const { container } = mountSettings();
     // Target the title span by its marker rather than by ordinal or styling,
     // so a badge, an icon or a restyle cannot silently shift what this reads.
-    const sectionTitles = [...container.querySelectorAll<HTMLButtonElement>('button[aria-expanded]')]
+    const sectionTitles = [...container.querySelectorAll<HTMLButtonElement>('section > header > button[aria-expanded]')]
       .map((button) => button.querySelector<HTMLSpanElement>("[data-settings-section-title]")?.textContent?.trim());
 
     expect(sectionTitles).toEqual([

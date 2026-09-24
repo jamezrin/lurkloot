@@ -1,7 +1,9 @@
+// @vitest-environment happy-dom
+// The card's Exclude menu is a Base UI menu, which needs real mouse and
+// keyboard events; linkedom has none.
 import React from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { parseHTML } from "linkedom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DropCampaign, ExtensionSettings, WatchSession } from "@lurkloot/shared/models";
 import { mergeSettings } from "@lurkloot/shared/settings";
@@ -62,10 +64,7 @@ function views(sources: DropCampaign[], settings: ExtensionSettings): CampaignVi
 }
 
 function mount(node: React.ReactElement): { container: HTMLElement; window: Window & typeof globalThis } {
-  const { document, window } = parseHTML("<div id=app></div>");
-  vi.stubGlobal("window", window);
-  vi.stubGlobal("document", document);
-  vi.stubGlobal("getComputedStyle", () => ({ direction: "ltr", columnGap: "0" }));
+  document.body.innerHTML = "<div id=app></div>";
   vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => { callback(0); return 1; });
   vi.stubGlobal("cancelAnimationFrame", () => undefined);
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
@@ -223,8 +222,8 @@ describe("queue view", () => {
     const onStrategyChange = vi.fn();
     const { container } = queue(views([campaign("one")], settings), settings, { onStrategyChange });
 
-    const strategy = container.querySelector<HTMLSelectElement>("[data-queue-strategy]");
-    expect(strategy?.value).toBe("lowest_availability");
+    const strategy = container.querySelector<HTMLButtonElement>("[data-queue-strategy]");
+    expect(strategy?.dataset.value).toBe("lowest_availability");
   });
 });
 
@@ -313,31 +312,37 @@ describe("campaign card actions", () => {
     expect(openCard(container, "ordinary").textContent).toContain("rankReasonEnding");
   });
 
-  it("asks whether Exclude means this campaign or its whole game", () => {
+  it("asks whether Exclude means this campaign or its whole game", async () => {
     const settings = mergeSettings(undefined);
     const onToggleExclude = vi.fn();
     const onToggleBlockedCategory = vi.fn();
     const { container } = queue(views([campaign("rust", { categoryId: "263490", gameName: "Rust" })], settings), settings, { onToggleExclude, onToggleBlockedCategory });
+    // The menu is portalled out of the card, so it is looked up on the document.
+    const menu = () => document.querySelector("[data-campaign-exclude-menu]");
+    const choices = () => [...document.querySelectorAll<HTMLElement>("[role=menuitemcheckbox]")];
+    const settle = (action: () => void) => act(async () => {
+      action();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
 
     const card = openCard(container, "rust");
     const exclude = card.querySelector<HTMLButtonElement>("[data-campaign-exclude]")!;
     expect(exclude.getAttribute("aria-haspopup")).toBe("menu");
-    expect(card.querySelector("[data-campaign-exclude-menu]")).toBeNull();
+    expect(menu()).toBeNull();
 
-    act(() => exclude.click());
-    const choices = [...card.querySelectorAll<HTMLButtonElement>("[role=menuitemcheckbox]")];
-    expect(choices.map((choice) => choice.textContent)).toEqual([
+    await settle(() => exclude.click());
+    expect(choices().map((choice) => choice.textContent)).toEqual([
       expect.stringContaining("campaignExcludeThis"),
       expect.stringContaining("campaignExcludeCategory:Rust"),
     ]);
 
-    act(() => choices[0]!.click());
+    await settle(() => choices()[0]!.click());
     expect(onToggleExclude).toHaveBeenCalledWith("rust");
     // Choosing closes the menu rather than leaving a stale choice open.
-    expect(card.querySelector("[data-campaign-exclude-menu]")).toBeNull();
+    expect(exclude.getAttribute("aria-expanded")).toBe("false");
 
-    act(() => exclude.click());
-    act(() => card.querySelectorAll<HTMLButtonElement>("[role=menuitemcheckbox]")[1]!.click());
+    await settle(() => exclude.click());
+    await settle(() => choices()[1]!.click());
     expect(onToggleBlockedCategory).toHaveBeenCalledWith({ id: "263490", name: "Rust" });
   });
 
