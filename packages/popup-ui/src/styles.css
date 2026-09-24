@@ -211,6 +211,18 @@
   padding-right: 0;
 }
 
+/* How a section opens: at its full height in one step, with only its contents
+   fading in. Animating height forced a layout on every frame, and in an
+   extension popup each layout is several full-document passes while Chrome
+   re-measures the window — which is what made opening a campaign stutter.
+   Opacity and transform animate on the compositor without any layout. */
+@keyframes lurk-reveal {
+  from { opacity: 0; transform: translateY(-3px); }
+}
+.lurk-reveal {
+  animation: lurk-reveal 160ms ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

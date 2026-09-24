@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { DragDropProvider } from "@dnd-kit/react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence } from "motion/react";
 import { ChevronRight, Clock3, Pin } from "lucide-react";
 import type { CategorySelection, PriorityMode } from "@lurkloot/shared/models";
 import { useT } from "./context";
@@ -530,16 +530,9 @@ function Disclosure({ group, label, count, hint, expanded, onToggle, children }:
       </button>
       <AnimatePresence initial={false}>
         {expanded ? (
-          <motion.div
-            key={`${group}-rows`}
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.18 }}
-            className="space-y-1 overflow-hidden"
-          >
+          <div key={`${group}-rows`} className="lurk-reveal space-y-1">
             {children}
-          </motion.div>
+          </div>
         ) : null}
       </AnimatePresence>
     </div>

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence } from "motion/react";
 import { arrayMove } from "@dnd-kit/helpers";
 import { DragDropProvider } from "@dnd-kit/react";
 import { useSortable } from "@dnd-kit/react/sortable";
@@ -86,7 +86,7 @@ export function IdleWatchlistPanel({ platform, streamers, expanded, adding, bare
       )}
       <AnimatePresence initial={false}>
         {expanded ? (
-          <motion.div key="watchlist" initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+          <div key="watchlist" className="lurk-reveal">
             <div className="space-y-1.5">
               {streamers.length === 0 ? <EmptyPanel>{t("noIdleWatchlist")}</EmptyPanel> : (
                 <DragDropProvider onDragEnd={endDrag}>
@@ -112,7 +112,7 @@ export function IdleWatchlistPanel({ platform, streamers, expanded, adding, bare
                 </form>
               ) : null}
             </div>
-          </motion.div>
+          </div>
         ) : null}
       </AnimatePresence>
     </section>

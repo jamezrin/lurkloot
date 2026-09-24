@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence } from "motion/react";
 import { AlertTriangle, Check, Gift, Package, Puzzle, Sparkles, type LucideIcon } from "lucide-react";
 import { Pill, ProgressBar, SectionHeader, Toggle, cn } from "./primitives";
 import type { ExtensionSettings, TwitchExtensionProviderId, TwitchExtensionSummary } from "@lurkloot/shared/models";
@@ -171,13 +171,13 @@ export function TwitchExtensionDrops({ settings, summaries, activeProvider, onSe
       />
       <AnimatePresence initial={false}>
         {expanded ? (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+          <div className="lurk-reveal">
             <div className="space-y-1.5">
               {enabled.map((provider) => (
                 <ProviderCard key={provider.id} provider={provider} summary={summaries?.[provider.id]} active={activeProvider === provider.id} onSetup={onSetup} />
               ))}
             </div>
-          </motion.div>
+          </div>
         ) : null}
       </AnimatePresence>
     </section>

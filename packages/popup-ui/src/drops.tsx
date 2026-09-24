@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useSortable } from "@dnd-kit/react/sortable";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence } from "motion/react";
 import {
   AlertTriangle,
   Ban,
@@ -252,7 +252,7 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
       </div>
       <AnimatePresence initial={false}>
         {expanded && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }} className="overflow-hidden">
+          <div className="lurk-reveal">
             <div className="space-y-2.5 border-t border-zinc-100 p-2.5 dark:border-zinc-800">
               {farmingRejectionMessage ? (
                 <div className="flex items-center gap-2 rounded-lg border border-amber-300/70 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
@@ -373,7 +373,7 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
                 onBlock={canBlock ? () => void onToggleBlockedCategory!(category!) : undefined}
               />
             </div>
-          </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </article>

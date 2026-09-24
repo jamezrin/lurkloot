@@ -802,7 +802,10 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
       data-view={view}
       // overflow-clip, not hidden: a hidden box can still be scrolled by script,
       // and nothing may move the frame itself.
-      className="@container relative flex h-[600px] w-[720px] overflow-clip border border-zinc-200/80 bg-zinc-50 shadow-2xl shadow-black/30 dark:border-zinc-800 dark:bg-zinc-950"
+      // contain-strict: the frame's size never depends on what is inside it, so
+      // a change inside never makes the extension popup re-lay-out and
+      // re-measure the whole document to resize its window.
+      className="@container relative flex h-[600px] w-[720px] overflow-clip [contain:strict] border border-zinc-200/80 bg-zinc-50 shadow-2xl shadow-black/30 dark:border-zinc-800 dark:bg-zinc-950"
     >
       <WorkspaceRail
         view={view}
