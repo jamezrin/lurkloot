@@ -246,7 +246,7 @@ describe("campaign status pill", () => {
     const inTwoDays = new Date(Date.now() + 50 * 3_600_000).toISOString();
     const { container } = queue(views([campaign("dated", { endsAt: inTwoDays }), campaign("undated")], settings), settings);
 
-    expect(status(container, "dated")).toMatch(/^campaignTimeLeft:2d/);
+    expect(status(container, "dated")).toMatch(/^2d/);
     // No end date is not "later left": the row simply carries no deadline.
     expect(status(container, "undated")).toBeNull();
     expect(container.querySelector('[data-campaign-id="undated"]')?.textContent).not.toContain("later");
@@ -259,6 +259,28 @@ describe("campaign status pill", () => {
     const { container } = queue([{ ...passed, section: "queue", lifecycle: undefined }], settings);
 
     expect(status(container, "passed")).toBe("ended");
+  });
+
+  it("shows the watching left next to the end, and marks what the end cuts off", () => {
+    const settings = mergeSettings(undefined);
+    const inAnHour = new Date(Date.now() + 60 * 60_000 + 30_000).toISOString();
+    const rewards = [
+      { id: "short", name: "short", requiredMinutes: 30, requirement: "watch" as const, isWatchBased: true, watchedMinutes: 30, status: "claimed" as const },
+      { id: "long", name: "long", requiredMinutes: 180, requirement: "watch" as const, isWatchBased: true, watchedMinutes: 30, status: "in_progress" as const },
+    ];
+    const tight = campaignViewFromCampaign(campaign("tight", { endsAt: inAnHour, rewards }), 0, idleSession, false);
+    const roomy = campaignViewFromCampaign(campaign("roomy", { endsAt: new Date(Date.now() + 50 * 3_600_000).toISOString(), rewards }), 1, idleSession, false);
+    const { container } = queue([{ ...tight, section: "queue" }, { ...roomy, section: "queue" }], settings);
+    const row = (id: string) => container.querySelector(`[data-campaign-id="${id}"]`)!;
+
+    // 150 of 180 minutes still to watch, whatever the end.
+    expect(row("tight").querySelector("[data-campaign-watch-left]")?.textContent).toBe("2h 30m");
+    expect(row("roomy").querySelector("[data-campaign-watch-left]")?.textContent).toBe("2h 30m");
+    // An hour left reaches minute 90 of 180: the long reward is cut off.
+    const cut = row("tight").querySelector<HTMLElement>("[data-campaign-out-of-time]");
+    expect(cut?.style.insetInlineStart).toMatch(/^50\./);
+    expect(row("tight").querySelector('[data-reward-marker="out-of-time"]')).not.toBeNull();
+    expect(row("roomy").querySelector("[data-campaign-out-of-time]")).toBeNull();
   });
 
   it("labels an expired campaign found by search as expired, with nothing to act on", () => {

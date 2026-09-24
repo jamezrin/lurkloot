@@ -8,8 +8,10 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Clock,
   ExternalLink,
   Gift,
+  Hourglass,
   Link2,
   MousePointerClick,
   Pin,
@@ -120,12 +122,25 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
   const canExclude = Boolean(onToggleExclude) && campaign.hasWatchRewards && !finished;
   const canBlock = Boolean(onToggleBlockedCategory && category) && !finished;
   const rewardsLabel = t("campaignRewardsProgress", [String(stats.completed), String(stats.totalRewards)]);
-  const deadline: { tone: DeadlineTone; label: string } | undefined = finished
+  const deadline: { tone: DeadlineTone; label: string; hint?: string } | undefined = finished
     ? { tone: expired ? "muted" : "done", label: t(expired ? "expiredPill" : "finished") }
-    : (() => {
-      const label = upcoming ? startsLabel(campaign.starts, t) : timeLeftLabel(campaign.ends, t);
-      return label ? { tone: endsSoon ? "hot" : "muted", label } : undefined;
-    })();
+    : upcoming
+      ? { tone: "muted", label: startsLabel(campaign.starts, t), hint: campaign.starts ? `${t("campaignFactStarts")} · ${formatDateTime(campaign.starts, locale)}` : undefined }
+      : (() => {
+        const label = timeLeftLabel(campaign.ends, t);
+        return label ? { tone: endsSoon ? "hot" : "muted", label, hint: `${t("campaignFactEnds")} · ${formatDateTime(campaign.ends, locale)}` } : undefined;
+      })();
+  // Watching still needed for every reward, set against the time the campaign
+  // has left to run. When it cannot all fit, the row says so and the bar marks
+  // how far the viewing can get before the end.
+  const watchLeft = !finished && timeline && timeline.remainingMinutes > 0 ? timeline.remainingMinutes : undefined;
+  const startsAt = Date.parse(campaign.starts);
+  const windowStart = upcoming && !Number.isNaN(startsAt) ? Math.max(Date.now(), startsAt) : Date.now();
+  const minutesToEnd = Number.isNaN(endsAt) ? undefined : Math.max(0, (endsAt - windowStart) / 60_000);
+  const outOfTime = watchLeft !== undefined && minutesToEnd !== undefined && watchLeft > minutesToEnd;
+  const reachable = outOfTime && timeline
+    ? (timeline.totalMinutes - timeline.remainingMinutes + minutesToEnd!) / timeline.totalMinutes
+    : undefined;
   // States that used to be pills, now icons after the title. The expanded card
   // lists the same states in words (a rejection has its own banner there).
   const notices: CampaignFlag[] = finished ? [] : [
@@ -213,12 +228,27 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
               {deadline ? (
                 <>
                   <span aria-hidden className="text-zinc-300 dark:text-zinc-600">·</span>
-                  <Deadline tone={deadline.tone} label={deadline.label} />
+                  <Deadline tone={deadline.tone} label={deadline.label} hint={deadline.hint} onClick={onToggle} />
+                </>
+              ) : null}
+              {watchLeft !== undefined ? (
+                <>
+                  <span aria-hidden className="text-zinc-300 dark:text-zinc-600">·</span>
+                  <RowFact
+                    attribute="data-campaign-watch-left"
+                    icon={<Hourglass size={10} aria-hidden="true" />}
+                    label={formatMinutes(watchLeft)}
+                    hint={outOfTime
+                      ? `${t("campaignLeft")} · ${formatMinutes(watchLeft)} · ${t("insufficientTimeRemaining")}`
+                      : `${t("campaignLeft")} · ${formatMinutes(watchLeft)}`}
+                    className={outOfTime ? "font-medium text-amber-600 dark:text-amber-400" : undefined}
+                    onClick={onToggle}
+                  />
                 </>
               ) : null}
             </div>
             {timeline && !finished ? (
-              <CampaignProgress timeline={timeline} rewardsLabel={rewardsLabel} onClick={onToggle} />
+              <CampaignProgress timeline={timeline} reachable={reachable} rewardsLabel={rewardsLabel} onClick={onToggle} />
             ) : null}
           </div>
           <div className="pointer-events-auto flex shrink-0 items-center gap-1">
@@ -417,7 +447,7 @@ function timeLeftLabel(ends: string, t: TFunction): string | undefined {
   const at = Date.parse(ends);
   if (Number.isNaN(at)) return undefined;
   if (at <= Date.now()) return t("ended");
-  return t("campaignTimeLeft", formatCountdown(ends, t));
+  return formatCountdown(ends, t);
 }
 
 function startsLabel(starts: string, t: TFunction): string {
@@ -428,19 +458,45 @@ function startsLabel(starts: string, t: TFunction): string {
 type DeadlineTone = "hot" | "done" | "muted";
 
 // The row's time line: how long is left, when it starts, or how it ended.
-function Deadline({ tone, label }: { tone: DeadlineTone; label: string }): React.ReactElement {
+function Deadline({ tone, label, hint, onClick }: { tone: DeadlineTone; label: string; hint?: string; onClick(): void }): React.ReactElement {
   return (
-    <span
-      data-campaign-status={tone}
+    <RowFact
+      attribute="data-campaign-status"
+      value={tone}
+      icon={tone === "done" ? <Check size={10} aria-hidden="true" /> : <Clock size={10} aria-hidden="true" />}
+      label={label}
+      hint={hint}
       className={cn(
-        "inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap tabular",
         tone === "hot" && "font-medium text-amber-600 dark:text-amber-400",
         tone === "done" && "font-medium text-[var(--ink-text)]",
       )}
-    >
-      {tone === "done" ? <Check size={10} aria-hidden="true" /> : null}
-      {label}
-    </span>
+      onClick={onClick}
+    />
+  );
+}
+
+// A short value on the row's second line, explained by its tooltip. With a
+// tooltip it takes the pointer, so it passes clicks on to the row toggle.
+function RowFact({ attribute, value = "", icon, label, hint, className, onClick }: {
+  attribute: string;
+  value?: string;
+  icon: React.ReactElement;
+  label: string;
+  hint?: string;
+  className?: string;
+  onClick(): void;
+}): React.ReactElement {
+  return (
+    <Tip label={hint}>
+      <span
+        {...{ [attribute]: value }}
+        onClick={hint ? onClick : undefined}
+        className={cn("inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap tabular", hint && "pointer-events-auto", className)}
+      >
+        {icon}
+        {label}
+      </span>
+    </Tip>
   );
 }
 
@@ -460,7 +516,7 @@ const FLAG_TONE = {
 /** The campaign's watch progress on one bar, with a small tick where each watch
  * reward becomes claimable. Ticks the viewing has passed turn solid. Positions
  * are logical, so the bar fills from the right in a right-to-left locale. */
-function CampaignProgress({ timeline, rewardsLabel, onClick }: { timeline: CampaignTimeline; rewardsLabel: string; onClick(): void }): React.ReactElement {
+function CampaignProgress({ timeline, reachable, rewardsLabel, onClick }: { timeline: CampaignTimeline; reachable?: number; rewardsLabel: string; onClick(): void }): React.ReactElement {
   // Rounded down, so the row never says 100% before the last reward is due.
   const percent = timeline.progress >= 1 ? 100 : Math.floor(timeline.progress * 100);
   return (
@@ -476,14 +532,24 @@ function CampaignProgress({ timeline, rewardsLabel, onClick }: { timeline: Campa
       >
         <div className="relative h-[11px] min-w-0 flex-1">
           <span className="absolute inset-x-0 top-[3px] h-[5px] rounded-full bg-zinc-200 dark:bg-zinc-800" />
+          {/* What the campaign ends before the viewing can reach. */}
+          {reachable !== undefined ? (
+            <span
+              data-campaign-out-of-time
+              className="absolute end-0 top-[3px] h-[5px] rounded-e-full bg-amber-500/30"
+              style={{ insetInlineStart: `${reachable * 100}%` }}
+            />
+          ) : null}
           <span className="absolute start-0 top-[3px] h-[5px] rounded-full bg-[var(--ink)]" style={{ width: `${timeline.progress * 100}%` }} />
           {timeline.markers.map((marker) => (
             <span
               key={marker.id}
-              data-reward-marker={marker.reached ? "reached" : "pending"}
+              data-reward-marker={marker.reached ? "reached" : reachable !== undefined && marker.at > reachable ? "out-of-time" : "pending"}
               className={cn(
                 "absolute top-0 h-[11px] w-0.5 rounded-full",
-                marker.reached ? "bg-[var(--ink)]" : "bg-zinc-300 dark:bg-zinc-600",
+                marker.reached ? "bg-[var(--ink)]"
+                  : reachable !== undefined && marker.at > reachable ? "bg-amber-500/70 dark:bg-amber-400/70"
+                  : "bg-zinc-300 dark:bg-zinc-600",
               )}
               // Kept inside the bar at both ends: a tick at 100% ends flush with it.
               style={{ insetInlineStart: `calc(${marker.at * 100}% - ${marker.at * 2}px)` }}
