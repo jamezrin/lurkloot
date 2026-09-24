@@ -120,13 +120,21 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
   const canBlock = Boolean(onToggleBlockedCategory && category) && !finished;
 
   return (
-    <article className={cn("overflow-hidden rounded-2xl border bg-white transition-shadow dark:bg-zinc-900", emphasized ? "border-[var(--accent-ring)]" : "border-zinc-200 dark:border-zinc-800", finished && "bg-zinc-50/60 dark:bg-zinc-900/60", farmingRejection && "border-dashed", isOverlay ? "shadow-2xl shadow-black/25" : "shadow-sm", dimmed && "opacity-40")} style={emphasized && !isOverlay ? { boxShadow: "0 10px 30px -18px var(--accent-glow)" } : undefined}>
+    <article className={cn(
+      "overflow-hidden rounded-[10px] border bg-white transition-shadow dark:bg-zinc-900",
+      emphasized ? "border-[var(--accent)] ring-2 ring-[var(--accent-soft)]" : "border-zinc-200 dark:border-zinc-800",
+      finished && "bg-zinc-50/60 dark:bg-zinc-900/60",
+      farmingRejection && "border-dashed bg-transparent dark:bg-transparent",
+      isOverlay && "shadow-2xl shadow-black/25",
+      dimmed && "opacity-40",
+    )}
+    >
       <div className="relative flex items-stretch">
         {/* Drag rail doubles as the priority column: grip and rank share a
             16px column centered in the rail so the number is a caption of the
             handle, not full-rail text. */}
         {!finished ? (
-          <div className="flex w-7 shrink-0 items-center justify-center border-e border-zinc-100 bg-zinc-50/60 dark:border-zinc-800 dark:bg-zinc-800/40">
+          <div className="flex w-7 shrink-0 items-center justify-center">
             <div className="flex w-4 flex-col items-center gap-0.5">
               {dragHandle ?? <GripVertical size={14} className="text-zinc-300 dark:text-zinc-600" />}
               <RankInput index={index} count={rankCount ?? 0} label={campaign.title} onMove={onRankMove} size="rail" />
@@ -170,7 +178,13 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
                 onToggle();
               }}
             >
-              <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: game.accent }} />
+              {!finished && showsWatchProgress ? (
+                <span aria-hidden className="h-[3px] w-11 shrink-0 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+                  <span className="block h-full rounded-full bg-[var(--accent)]" style={{ width: `${Math.min(100, stats.progress ?? 0)}%` }} />
+                </span>
+              ) : (
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: game.accent }} />
+              )}
               <span className="truncate">{game.name}</span>
               <span aria-hidden className="text-zinc-300 dark:text-zinc-600">·</span>
               <span className="shrink-0 tabular">{t("campaignRewardsProgress", [String(stats.completed), String(stats.totalRewards)])}</span>
@@ -231,13 +245,6 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
             <motion.div animate={{ rotate: expanded ? 90 : 0 }} transition={{ duration: 0.18 }} className="pointer-events-none grid h-6 w-5 place-items-center text-zinc-400 rtl:-scale-x-100 dark:text-zinc-500"><ChevronRight size={15} /></motion.div>
           </div>
         </div>
-        {/* Watch progress rides the card's bottom edge rather than taking a row
-            of its own inside the collapsed layout. */}
-        {!finished && showsWatchProgress ? (
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20">
-            <ProgressBar value={stats.progress ?? 0} size="edge" glow={emphasized} />
-          </div>
-        ) : null}
       </div>
       <AnimatePresence initial={false}>
         {expanded && (
