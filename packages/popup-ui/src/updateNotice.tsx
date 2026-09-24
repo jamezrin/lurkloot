@@ -3,6 +3,7 @@ import { motion } from "motion/react";
 import { Sparkles, X } from "lucide-react";
 import { useT } from "./context";
 import { cn } from "./primitives";
+import { Tip } from "./tooltip";
 
 export function UpdateNotice({ version, href, onDismiss }: {
   version: string;
@@ -40,18 +41,19 @@ export function UpdateNotice({ version, href, onDismiss }: {
           {t("updateNoticeAction")}
         </a>
       </div>
-      <button
-        type="button"
-        title={t("updateNoticeDismiss")}
-        aria-label={t("updateNoticeDismiss")}
-        onClick={onDismiss}
-        className={cn(
-          "flex h-6 w-6 shrink-0 items-center justify-center rounded-md outline-none transition-colors",
-          "text-zinc-400 hover:bg-black/5 hover:text-zinc-700 focus-visible:ring-2 focus-visible:ring-[var(--brand-ring)] dark:text-zinc-500 dark:hover:bg-white/5 dark:hover:text-zinc-200",
-        )}
-      >
-        <X size={13} />
-      </button>
+      <Tip label={t("updateNoticeDismiss")}>
+        <button
+          type="button"
+          aria-label={t("updateNoticeDismiss")}
+          onClick={onDismiss}
+          className={cn(
+            "flex h-6 w-6 shrink-0 items-center justify-center rounded-md outline-none transition-colors",
+            "text-zinc-400 hover:bg-black/5 hover:text-zinc-700 focus-visible:ring-2 focus-visible:ring-[var(--brand-ring)] dark:text-zinc-500 dark:hover:bg-white/5 dark:hover:text-zinc-200",
+          )}
+        >
+          <X size={13} />
+        </button>
+      </Tip>
     </motion.div>
   );
 }

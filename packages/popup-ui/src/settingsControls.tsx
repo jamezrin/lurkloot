@@ -8,6 +8,7 @@ import {
 import { usePopupRuntime, useT } from "./context";
 import { SearchBox, Toggle, cn } from "./primitives";
 import { Dropdown } from "./dropdown";
+import { Tip } from "./tooltip";
 
 export function SettingsSection({ id, title, description, badge, forceExpanded, children }: {
   // Stable, locale-independent identity. Collapse state is keyed by this, not by
@@ -126,13 +127,15 @@ export function SettingRow({ title, description, checked, onChange, disabled = f
   disabledReason?: string;
 }) {
   return (
-    <div className={cn("grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 py-2.5", disabled && "opacity-60")} title={disabled ? disabledReason : undefined}>
-      <div className="min-w-0">
-        <div className="text-[12.5px] font-semibold text-zinc-800 dark:text-zinc-100">{title}</div>
-        <div className="mt-0.5 max-w-[46ch] text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
+    <Tip label={disabled ? disabledReason : undefined}>
+      <div className={cn("grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 py-2.5", disabled && "opacity-60")}>
+        <div className="min-w-0">
+          <div className="text-[12.5px] font-semibold text-zinc-800 dark:text-zinc-100">{title}</div>
+          <div className="mt-0.5 max-w-[46ch] text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
+        </div>
+        <Toggle size="sm" checked={checked} onChange={onChange} label={title} disabled={disabled} />
       </div>
-      <Toggle size="sm" checked={checked} onChange={onChange} label={title} disabled={disabled} />
-    </div>
+    </Tip>
   );
 }
 
@@ -204,13 +207,15 @@ export function SelectSettingRow<T extends string>({ title, description, value, 
   disabledReason?: string;
 }) {
   return (
-    <div className={cn("flex items-center gap-4 py-2.5", disabled && "opacity-60")} title={disabled ? disabledReason : undefined}>
-      <div className="min-w-0 flex-1">
-        <div className="text-[12.5px] font-semibold text-zinc-800 dark:text-zinc-100">{title}</div>
-        <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
+    <Tip label={disabled ? disabledReason : undefined}>
+      <div className={cn("flex items-center gap-4 py-2.5", disabled && "opacity-60")}>
+        <div className="min-w-0 flex-1">
+          <div className="text-[12.5px] font-semibold text-zinc-800 dark:text-zinc-100">{title}</div>
+          <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
+        </div>
+        <SelectControl label={title} value={value} options={options} onChange={onChange} disabled={disabled} disabledReason={disabledReason} />
       </div>
-      <SelectControl label={title} value={value} options={options} onChange={onChange} disabled={disabled} disabledReason={disabledReason} />
-    </div>
+    </Tip>
   );
 }
 
@@ -226,46 +231,48 @@ export function NumberSettingRow({ title, description, value, min, max, suffix, 
 
   const stepButton = "grid h-5 w-5 shrink-0 place-items-center rounded-md text-zinc-400 outline-none transition-colors hover:bg-zinc-100 hover:text-zinc-800 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] data-[disabled]:pointer-events-none data-[disabled]:opacity-40 dark:hover:bg-zinc-800 dark:hover:text-zinc-100";
   return (
-    <div className={cn("flex items-center gap-3 py-2.5", disabled && "opacity-60")} title={disabled ? disabledReason : undefined}>
-      <div className="min-w-0 flex-1">
-        <div className="text-[12.5px] font-semibold text-zinc-800 dark:text-zinc-100">{title}</div>
-        <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
+    <Tip label={disabled ? disabledReason : undefined}>
+      <div className={cn("flex items-center gap-3 py-2.5", disabled && "opacity-60")}>
+        <div className="min-w-0 flex-1">
+          <div className="text-[12.5px] font-semibold text-zinc-800 dark:text-zinc-100">{title}</div>
+          <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
+        </div>
+        <NumberField.Root
+          value={draft}
+          min={min}
+          max={max}
+          step={1}
+          largeStep={10}
+          format={{ maximumFractionDigits: 0, useGrouping: false }}
+          disabled={disabled}
+          onValueChange={(next) => setDraft(next)}
+          onValueCommitted={(next) => {
+            if (next === null) {
+              setDraft(value);
+              return;
+            }
+            const clamped = Math.min(max, Math.max(min, Math.round(next)));
+            setDraft(clamped);
+            if (clamped !== value) void onChange(clamped);
+          }}
+          className={cn("shrink-0", disabled && "cursor-not-allowed")}
+        >
+          <NumberField.Group className="flex items-center gap-0.5 rounded-lg border border-zinc-200 bg-white p-0.5 text-[11px] font-semibold text-zinc-500 focus-within:border-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
+            <NumberField.Decrement aria-label={`${title} −`} className={stepButton}>
+              <Minus size={11} aria-hidden />
+            </NumberField.Decrement>
+            <NumberField.Input
+              aria-label={title}
+              className="w-9 bg-transparent text-center text-xs font-semibold tabular text-zinc-900 outline-none dark:text-zinc-100"
+            />
+            <NumberField.Increment aria-label={`${title} +`} className={stepButton}>
+              <Plus size={11} aria-hidden />
+            </NumberField.Increment>
+            <span className="pe-1.5 ps-0.5">{suffix}</span>
+          </NumberField.Group>
+        </NumberField.Root>
       </div>
-      <NumberField.Root
-        value={draft}
-        min={min}
-        max={max}
-        step={1}
-        largeStep={10}
-        format={{ maximumFractionDigits: 0, useGrouping: false }}
-        disabled={disabled}
-        onValueChange={(next) => setDraft(next)}
-        onValueCommitted={(next) => {
-          if (next === null) {
-            setDraft(value);
-            return;
-          }
-          const clamped = Math.min(max, Math.max(min, Math.round(next)));
-          setDraft(clamped);
-          if (clamped !== value) void onChange(clamped);
-        }}
-        className={cn("shrink-0", disabled && "cursor-not-allowed")}
-      >
-        <NumberField.Group className="flex items-center gap-0.5 rounded-lg border border-zinc-200 bg-white p-0.5 text-[11px] font-semibold text-zinc-500 focus-within:border-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
-          <NumberField.Decrement aria-label={`${title} −`} className={stepButton}>
-            <Minus size={11} aria-hidden />
-          </NumberField.Decrement>
-          <NumberField.Input
-            aria-label={title}
-            className="w-9 bg-transparent text-center text-xs font-semibold tabular text-zinc-900 outline-none dark:text-zinc-100"
-          />
-          <NumberField.Increment aria-label={`${title} +`} className={stepButton}>
-            <Plus size={11} aria-hidden />
-          </NumberField.Increment>
-          <span className="pe-1.5 ps-0.5">{suffix}</span>
-        </NumberField.Group>
-      </NumberField.Root>
-    </div>
+    </Tip>
   );
 }
 

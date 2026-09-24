@@ -11,6 +11,7 @@ import { EmptyPanel, ImageWithFallback, cn } from "./primitives";
 
 import { containsCategory as contains, favouriteTogglePatch, sameCategory, withoutCategory as without } from "./categoryActions";
 import { Checkbox, Segmented } from "./controls";
+import { Tip } from "./tooltip";
 
 /** Which games are farmed, which rank above the strategy, and which are never
  * farmed — one screen, three states.
@@ -141,33 +142,35 @@ export function GamesPanel({
                       : count === 1 ? t("gamesCampaignCountOne") : t("gamesCampaignCount", String(count))}
                   </div>
                 </div>
-                <button
-                  type="button"
-                  data-game-favourite
-                  aria-pressed={favourite}
-                  aria-label={t(favourite ? "gamesUnfavourite" : "gamesFavourite", category.name)}
-                  title={t(favourite ? "gamesUnfavourite" : "gamesFavourite", category.name)}
-                  onClick={() => toggleFavourite(category)}
-                  className={cn(
-                    "grid h-6 w-6 shrink-0 place-items-center rounded-lg transition-colors",
-                    favourite ? "text-amber-500 dark:text-amber-400" : "text-zinc-300 hover:text-zinc-500 dark:text-zinc-600 dark:hover:text-zinc-400",
-                  )}
-                >
-                  <Star size={14} fill={favourite ? "currentColor" : "none"} />
-                </button>
+                <Tip label={t(favourite ? "gamesUnfavourite" : "gamesFavourite", category.name)}>
+                  <button
+                    type="button"
+                    data-game-favourite
+                    aria-pressed={favourite}
+                    aria-label={t(favourite ? "gamesUnfavourite" : "gamesFavourite", category.name)}
+                    onClick={() => toggleFavourite(category)}
+                    className={cn(
+                      "grid h-6 w-6 shrink-0 place-items-center rounded-lg transition-colors",
+                      favourite ? "text-amber-500 dark:text-amber-400" : "text-zinc-300 hover:text-zinc-500 dark:text-zinc-600 dark:hover:text-zinc-400",
+                    )}
+                  >
+                    <Star size={14} fill={favourite ? "currentColor" : "none"} />
+                  </button>
+                </Tip>
                 <span data-game-favourite-rank className="-ms-1.5 w-2 shrink-0 font-mono text-[10px] font-semibold text-zinc-500 tabular dark:text-zinc-400">
                   {favourite && favouriteRank !== -1 ? favouriteRank + 1 : ""}
                 </span>
-                <button
-                  type="button"
-                  data-game-block
-                  aria-label={t("gamesBlock", category.name)}
-                  title={t("gamesBlock", category.name)}
-                  onClick={() => void onBlockedChange([...blockedCategories, category])}
-                  className="grid h-6 w-6 shrink-0 place-items-center rounded-lg text-zinc-300 transition-colors hover:text-red-500 dark:text-zinc-600"
-                >
-                  <Ban size={14} />
-                </button>
+                <Tip label={t("gamesBlock", category.name)}>
+                  <button
+                    type="button"
+                    data-game-block
+                    aria-label={t("gamesBlock", category.name)}
+                    onClick={() => void onBlockedChange([...blockedCategories, category])}
+                    className="grid h-6 w-6 shrink-0 place-items-center rounded-lg text-zinc-300 transition-colors hover:text-red-500 dark:text-zinc-600"
+                  >
+                    <Ban size={14} />
+                  </button>
+                </Tip>
               </div>
               </React.Fragment>
             );

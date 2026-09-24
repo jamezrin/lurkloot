@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 import { GITHUB_REPO_URL } from "./constants";
 import { useT } from "./context";
 import { cn } from "./primitives";
+import { Tip } from "./tooltip";
 
 export function GithubStarNudge({ onStar, onDismiss }: { onStar(): void; onDismiss(): void }): React.ReactElement {
   const t = useT();
@@ -38,18 +39,19 @@ export function GithubStarNudge({ onStar, onDismiss }: { onStar(): void; onDismi
           {t("githubStarNudgeAction")}
         </a>
       </div>
-      <button
-        type="button"
-        title={t("rateNudgeDismiss")}
-        aria-label={t("rateNudgeDismiss")}
-        onClick={onDismiss}
-        className={cn(
-          "flex h-6 w-6 shrink-0 items-center justify-center rounded-md outline-none transition-colors",
-          "text-zinc-400 hover:bg-black/5 hover:text-zinc-700 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:text-zinc-500 dark:hover:bg-white/5 dark:hover:text-zinc-200",
-        )}
-      >
-        <X size={13} />
-      </button>
+      <Tip label={t("rateNudgeDismiss")}>
+        <button
+          type="button"
+          aria-label={t("rateNudgeDismiss")}
+          onClick={onDismiss}
+          className={cn(
+            "flex h-6 w-6 shrink-0 items-center justify-center rounded-md outline-none transition-colors",
+            "text-zinc-400 hover:bg-black/5 hover:text-zinc-700 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:text-zinc-500 dark:hover:bg-white/5 dark:hover:text-zinc-200",
+          )}
+        >
+          <X size={13} />
+        </button>
+      </Tip>
     </motion.div>
   );
 }

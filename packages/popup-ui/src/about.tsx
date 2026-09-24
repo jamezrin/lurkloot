@@ -3,6 +3,7 @@ import { ArrowUpRight, Globe } from "lucide-react";
 import { useT } from "./context";
 import { CHROME_WEB_STORE_URL, GITHUB_REPO_URL, SITE_URL } from "./constants";
 import { SettingsSection } from "./settingsControls";
+import { Tip } from "./tooltip";
 
 // Where Lurkloot lives, as the last section of Settings: the version and the
 // links that used to sit in a footer under the page.
@@ -34,18 +35,19 @@ function AboutLink({ href, label, text, children }: {
   children: React.ReactNode;
 }): React.ReactElement {
   return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noreferrer"
-      title={label}
-      aria-label={label}
-      className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 px-2.5 py-1 text-[11px] font-semibold text-zinc-700 outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
-    >
-      {children}
-      <span>{text}</span>
-      <ArrowUpRight size={11} className="text-zinc-400 dark:text-zinc-500" />
-    </a>
+    <Tip label={label}>
+      <a
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        aria-label={label}
+        className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 px-2.5 py-1 text-[11px] font-semibold text-zinc-700 outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+      >
+        {children}
+        <span>{text}</span>
+        <ArrowUpRight size={11} className="text-zinc-400 dark:text-zinc-500" />
+      </a>
+    </Tip>
   );
 }
 

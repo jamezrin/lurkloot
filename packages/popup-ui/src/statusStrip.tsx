@@ -9,6 +9,7 @@ import { formatMinutes, formatViewers } from "./format";
 import { ImageWithFallback, Toggle, cn } from "./primitives";
 import type { CampaignView, FarmingChannelView } from "./types";
 import { campaignStats } from "./viewModels";
+import { Tip } from "./tooltip";
 
 /** The strip above every view: what is being watched, how far it has got, which
  * source it came from, and the switch for this platform.
@@ -99,9 +100,11 @@ function WatchingLines({ campaign, channel, supplementalName, onCampaignClick }:
     <div data-automation-state="running" className="min-w-0">
       <div className="flex min-w-0 items-center gap-1 text-[12.5px] font-semibold leading-tight text-zinc-900 dark:text-zinc-50">
         {campaign && onCampaignClick ? (
-          <button type="button" onClick={onCampaignClick} title={`${t("farmingLabel")} ${title}`} className="min-w-0 truncate text-start outline-none hover:text-[var(--accent-text)] focus-visible:text-[var(--accent-text)]">
-            {title}
-          </button>
+          <Tip label={`${t("farmingLabel")} ${title}`}>
+            <button type="button" onClick={onCampaignClick} className="min-w-0 truncate text-start outline-none hover:text-[var(--accent-text)] focus-visible:text-[var(--accent-text)]">
+              {title}
+            </button>
+          </Tip>
         ) : (
           <span className="min-w-0 truncate">{title}</span>
         )}
@@ -114,7 +117,9 @@ function WatchingLines({ campaign, channel, supplementalName, onCampaignClick }:
           <span className="max-w-[9rem] shrink-0 truncate font-semibold text-zinc-800 dark:text-zinc-100">{channel.name}</span>
         )}
         {channel.viewers != null ? (
-          <span className="shrink-0" title={t("viewerCount", formatViewers(channel.viewers))}>· {formatViewers(channel.viewers)}</span>
+          <Tip label={t("viewerCount", formatViewers(channel.viewers))}>
+            <span className="shrink-0">· {formatViewers(channel.viewers)}</span>
+          </Tip>
         ) : null}
         {reward ? (
           <span className="flex min-w-0 items-center gap-1">

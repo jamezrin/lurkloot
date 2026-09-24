@@ -32,7 +32,9 @@ import {
   preventNativeDrag,
 } from "./primitives";
 import { Menu } from "@base-ui/react/menu";
-import { FLOATING_POPUP_CLASS, usePortalContainer } from "./dropdown";
+import { FLOATING_POPUP_CLASS } from "./dropdown";
+import { usePortalContainer } from "./portal";
+import { Tip } from "./tooltip";
 
 /** Cards start collapsed; only a campaign that is actively being farmed is worth
  * opening on mount. Anything else (completed, upcoming, merely first) would bury
@@ -196,15 +198,16 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
               {!finished && !campaign.linked && <Pill tone="danger"><Link2 size={9} /> {t("notLinked")}</Pill>}
               {!finished && campaign.excluded && campaign.hasWatchRewards ? <Pill tone="outline"><Ban size={9} /> {t("excluded")}</Pill> : null}
               {farmingRejectionMessage ? (
-                <span
-                  data-farming-rejection-indicator
-                  role="img"
-                  aria-label={farmingRejectionMessage}
-                  title={farmingRejectionMessage}
-                  className="inline-flex shrink-0 text-amber-500 dark:text-amber-400"
-                >
-                  <AlertTriangle size={11} />
-                </span>
+                <Tip label={farmingRejectionMessage}>
+                  <span
+                    data-farming-rejection-indicator
+                    role="img"
+                    aria-label={farmingRejectionMessage}
+                    className="inline-flex shrink-0 text-amber-500 dark:text-amber-400"
+                  >
+                    <AlertTriangle size={11} />
+                  </span>
+                </Tip>
               ) : null}
             </div>
           </div>
@@ -229,20 +232,21 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
               />
             )}
             {onPin ? (
-              <button
-                type="button"
-                data-queue-pin
-                aria-pressed={Boolean(pinned)}
-                aria-label={t(pinned ? "queueUnpin" : "queueFixPin")}
-                title={t(pinned ? "queueUnpin" : "queueFixPin")}
-                onClick={(event) => { event.stopPropagation(); onPin(); }}
-                className={cn(
-                  "grid h-6 w-6 place-items-center rounded-md transition-colors",
-                  pinned ? "text-[var(--ink-text)]" : "text-zinc-300 hover:bg-zinc-100 hover:text-zinc-600 dark:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300",
-                )}
-              >
-                <Pin size={13} fill={pinned ? "currentColor" : "none"} />
-              </button>
+              <Tip label={t(pinned ? "queueUnpin" : "queueFixPin")}>
+                <button
+                  type="button"
+                  data-queue-pin
+                  aria-pressed={Boolean(pinned)}
+                  aria-label={t(pinned ? "queueUnpin" : "queueFixPin")}
+                  onClick={(event) => { event.stopPropagation(); onPin(); }}
+                  className={cn(
+                    "grid h-6 w-6 place-items-center rounded-md transition-colors",
+                    pinned ? "text-[var(--ink-text)]" : "text-zinc-300 hover:bg-zinc-100 hover:text-zinc-600 dark:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300",
+                  )}
+                >
+                  <Pin size={13} fill={pinned ? "currentColor" : "none"} />
+                </button>
+              </Tip>
             ) : null}
             {/* The chevron opens and closes the card like the row itself does.
                 It sits among the row's own controls, which take their clicks,
@@ -251,17 +255,18 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
                 technology, so this duplicate stays out of the tab order.
                 Rotated with CSS: a motion element per card made every list
                 mount pay for Motion's scroll measurement. */}
-            <button
-              type="button"
-              data-campaign-chevron
-              tabIndex={-1}
-              aria-hidden
-              title={t(expanded ? "campaignHideDetails" : "campaignShowDetails")}
-              onClick={(event) => { event.stopPropagation(); onToggle(); }}
-              className="grid h-6 w-6 place-items-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 rtl:-scale-x-100 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-            >
-              <ChevronRight size={15} className={cn("transition-transform duration-200 motion-reduce:transition-none", expanded && "rotate-90")} />
-            </button>
+            <Tip label={t(expanded ? "campaignHideDetails" : "campaignShowDetails")}>
+              <button
+                type="button"
+                data-campaign-chevron
+                tabIndex={-1}
+                aria-hidden
+                onClick={(event) => { event.stopPropagation(); onToggle(); }}
+                className="grid h-6 w-6 place-items-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 rtl:-scale-x-100 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+              >
+                <ChevronRight size={15} className={cn("transition-transform duration-200 motion-reduce:transition-none", expanded && "rotate-90")} />
+              </button>
+            </Tip>
           </div>
         </div>
       </div>
@@ -631,26 +636,28 @@ function RewardCarousel({ rewards, missed = false }: { rewards: RewardView[]; mi
         {rewards.map((reward) => <RewardTile key={reward.id} reward={reward} missed={missed} />)}
       </div>
       {canScrollLeft && (
-        <button
-          type="button"
-          onClick={() => scroll(-1)}
-          aria-label={t("scrollRewardsLeft")}
-          title={t("scrollRewardsLeft")}
-          className="absolute left-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-800 outline-none transition-colors hover:border-zinc-400 hover:text-black focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900/95 dark:text-zinc-200 dark:hover:bg-zinc-800"
-        >
-          <ChevronLeft size={16} aria-hidden="true" />
-        </button>
+        <Tip label={t("scrollRewardsLeft")}>
+          <button
+            type="button"
+            onClick={() => scroll(-1)}
+            aria-label={t("scrollRewardsLeft")}
+            className="absolute left-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-800 outline-none transition-colors hover:border-zinc-400 hover:text-black focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900/95 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            <ChevronLeft size={16} aria-hidden="true" />
+          </button>
+        </Tip>
       )}
       {canScrollRight && (
-        <button
-          type="button"
-          onClick={() => scroll(1)}
-          aria-label={t("scrollRewardsRight")}
-          title={t("scrollRewardsRight")}
-          className="absolute right-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-800 outline-none transition-colors hover:border-zinc-400 hover:text-black focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900/95 dark:text-zinc-200 dark:hover:bg-zinc-800"
-        >
-          <ChevronRight size={16} aria-hidden="true" />
-        </button>
+        <Tip label={t("scrollRewardsRight")}>
+          <button
+            type="button"
+            onClick={() => scroll(1)}
+            aria-label={t("scrollRewardsRight")}
+            className="absolute right-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-800 outline-none transition-colors hover:border-zinc-400 hover:text-black focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900/95 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            <ChevronRight size={16} aria-hidden="true" />
+          </button>
+        </Tip>
       )}
     </div>
   );
@@ -696,7 +703,9 @@ function RewardTile({ reward, missed = false }: { reward: RewardView; missed?: b
         } />
         {done && <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-white"><Check size={11} strokeWidth={3} /></span>}
       </div>
-      <div className="mb-1.5 line-clamp-1 text-[11px] font-medium text-zinc-800 dark:text-zinc-200" title={reward.name}>{reward.name}</div>
+      <Tip label={reward.name}>
+        <div className="mb-1.5 line-clamp-1 text-[11px] font-medium text-zinc-800 dark:text-zinc-200">{reward.name}</div>
+      </Tip>
       {reward.requirement === "watch" ? (
         <>
           <ProgressBar value={reward.progress ?? 0} size="sm" />

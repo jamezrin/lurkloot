@@ -22,6 +22,7 @@ import {
   preventNativeDrag,
   type SortableDragEndEvent,
 } from "./primitives";
+import { Tip } from "./tooltip";
 
 /** The watchlist as a collapsible section under the drops list. Expansion and the
  * add form are controlled from the popup so the shared list toolbar can open
@@ -139,11 +140,13 @@ function IdleWatchlistStatus({ streamer }: { streamer: StreamerItem }): React.Re
     // uses, so a bare number means viewers wherever it appears.
     const viewers = streamer.viewers != null ? t("viewerCount", formatViewers(streamer.viewers)) : undefined;
     return (
-      <span role={viewers ? "img" : undefined} aria-label={viewers} title={viewers}>
-        <Pill tone="live">
-          {streamer.viewers != null ? <><Eye size={9} aria-hidden />{formatViewers(streamer.viewers)}</> : t("live")}
-        </Pill>
-      </span>
+      <Tip label={viewers}>
+        <span role={viewers ? "img" : undefined} aria-label={viewers}>
+          <Pill tone="live">
+            {streamer.viewers != null ? <><Eye size={9} aria-hidden />{formatViewers(streamer.viewers)}</> : t("live")}
+          </Pill>
+        </span>
+      </Tip>
     );
   }
   return <></>;

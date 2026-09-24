@@ -8,6 +8,7 @@ import { statusColor } from "./automation";
 import { LurklootMark } from "./mark";
 import { cn } from "./primitives";
 import { Tabs } from "@base-ui/react/tabs";
+import { Tip } from "./tooltip";
 
 // The workspace's destinations. Platform is a separate axis: the rail's platform
 // switch applies to every view, so "which platform" and "which view" can never
@@ -116,7 +117,6 @@ export function WorkspaceRail({ view, platform, counts, sourceOrder, liveSource,
           type="button"
           data-rail-link="changelog"
           onClick={onOpenChangelog}
-          title={t("railWhatsNew")}
           className="rail-selected @[560px]:flex hidden items-center gap-1.5 rounded-lg px-2 py-1.5 text-start text-[11px] font-semibold text-zinc-100 outline-none hover:text-white focus-visible:ring-2 focus-visible:ring-white/40"
         >
           <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-white" />
@@ -138,7 +138,6 @@ function RailLink({ label, icon: Icon, onClick }: {
   return (
     <button
       type="button"
-      title={label}
       aria-label={label}
       data-rail-link="inventory"
       onClick={onClick}
@@ -178,7 +177,6 @@ function NavGroup({ labelKey, items, view, platform, counts, liveView, onViewCha
           <button
             key={item.view}
             type="button"
-            title={label}
             aria-label={label}
             aria-current={selected ? "page" : undefined}
             data-view={item.view}
@@ -193,13 +191,14 @@ function NavGroup({ labelKey, items, view, platform, counts, liveView, onViewCha
             <span className="relative shrink-0">
               <Icon size={14} />
               {liveView === item.view ? (
-                <span
-                  data-rail-live
-                  role="img"
-                  aria-label={t("navWatchingNow")}
-                  title={t("navWatchingNow")}
-                  className="absolute -end-1 -top-1 h-1.5 w-1.5 rounded-full bg-white ring-2 ring-[var(--rail-bg)]"
-                />
+                <Tip label={t("navWatchingNow")}>
+                  <span
+                    data-rail-live
+                    role="img"
+                    aria-label={t("navWatchingNow")}
+                    className="absolute -end-1 -top-1 h-1.5 w-1.5 rounded-full bg-white ring-2 ring-[var(--rail-bg)]"
+                  />
+                </Tip>
               ) : null}
             </span>
             <span className="@[560px]:inline hidden truncate">{label}</span>

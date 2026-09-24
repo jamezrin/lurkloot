@@ -7,6 +7,7 @@ import type { PopupAdapter } from "./types";
 import { useT } from "./context";
 import { WatchSourcePlace } from "./watchSourcePriority";
 import { SettingRow, SettingsSection } from "./settingsControls";
+import { Tip } from "./tooltip";
 
 type PillTone = React.ComponentProps<typeof Pill>["tone"];
 
@@ -61,9 +62,11 @@ interface Badge { key: string; icon: LucideIcon; tone: PillTone; label: string; 
 function StatusBadge({ badge }: { badge: Badge }) {
   const Icon = badge.icon;
   return (
-    <span role="img" aria-label={badge.label} title={badge.label} className="inline-flex">
-      <Pill tone={badge.tone}><Icon size={9} />{badge.count !== undefined ? <span className="tabular-nums">{badge.count}</span> : null}</Pill>
-    </span>
+    <Tip label={badge.label}>
+      <span role="img" aria-label={badge.label} className="inline-flex">
+        <Pill tone={badge.tone}><Icon size={9} />{badge.count !== undefined ? <span className="tabular-nums">{badge.count}</span> : null}</Pill>
+      </span>
+    </Tip>
   );
 }
 
@@ -120,19 +123,22 @@ function ProviderCard({ provider, summary, active, onSetup }: {
       {/* The full sentence ("Daily pack: 45/60 minutes") truncates beside the
           status pill at popup width, so the row shows the count and keeps the
           sentence as the tooltip and the <progress> accessible name. */}
-      <span className="min-w-0 flex-1 truncate text-[11px] font-medium tabular text-zinc-500 dark:text-zinc-400" title={progress?.label}>
-        {progress ? `${progress.earned}/${progress.required}` : null}
-      </span>
+      <Tip label={progress?.label}>
+        <span className="min-w-0 flex-1 truncate text-[11px] font-medium tabular text-zinc-500 dark:text-zinc-400">
+          {progress ? `${progress.earned}/${progress.required}` : null}
+        </span>
+      </Tip>
       {badges.map((badge) => <StatusBadge key={badge.key} badge={badge} />)}
       {summary?.reasonCode === "identity-required" && onSetup ? (
-        <button
-          type="button"
-          onClick={onSetup}
-          title={t("extensionAccountSetup")}
-          className="shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
-        >
-          <Pill tone="warning">{status}</Pill>
-        </button>
+        <Tip label={t("extensionAccountSetup")}>
+          <button
+            type="button"
+            onClick={onSetup}
+            className="shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+          >
+            <Pill tone="warning">{status}</Pill>
+          </button>
+        </Tip>
       ) : (
         <span className="shrink-0"><Pill tone={waiting ? "muted" : statusTone(summary)}>{status}</Pill></span>
       )}

@@ -84,6 +84,9 @@ import { automationPresentation, type AutomationPresentation } from "./automatio
 import { changeTwitchExtensionEnabled, TwitchExtensionView } from "./twitchExtensions";
 import { SettingsView } from "./settings";
 import { TipsBanner } from "./tips";
+import { TooltipScope } from "./tooltip";
+import { Tip } from "./tooltip";
+
 export function screenshotVariant(id: string | null | undefined): ScreenshotVariant {
   return SCREENSHOT_VARIANTS[id ?? "drops"] ?? SCREENSHOT_VARIANTS.drops;
 }
@@ -806,6 +809,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
       // re-measure the whole document to resize its window.
       className="@container relative flex h-[600px] w-[720px] overflow-clip [contain:strict] border border-zinc-200/80 bg-zinc-50 shadow-2xl shadow-black/30 dark:border-zinc-800 dark:bg-zinc-950"
     >
+      <TooltipScope>
       <WorkspaceRail
         view={view}
         platform={platform}
@@ -838,15 +842,16 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
           sourceChip={liveSource ? (
             // Where the live source sits in the watch order, and the way to
             // change that order: the first available source always wins.
-            <button
-              type="button"
-              data-watch-source-chip={liveSource}
-              title={t("watchSourceChangeOrder")}
-              onClick={() => changeView("settings", `${platform}.watchSourcePriority`)}
-              className="surface shrink-0 rounded-md px-2 py-0.5 text-[10.5px] font-medium text-zinc-600 tabular transition-colors hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white"
-            >
-              {t("watchSourcePosition", [t(WATCH_SOURCE_NAME_KEYS[liveSource]), String(sourceOrder.indexOf(liveSource) + 1), String(sourceOrder.length)])}
-            </button>
+            <Tip label={t("watchSourceChangeOrder")}>
+              <button
+                type="button"
+                data-watch-source-chip={liveSource}
+                onClick={() => changeView("settings", `${platform}.watchSourcePriority`)}
+                className="surface shrink-0 rounded-md px-2 py-0.5 text-[10.5px] font-medium text-zinc-600 tabular transition-colors hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white"
+              >
+                {t("watchSourcePosition", [t(WATCH_SOURCE_NAME_KEYS[liveSource]), String(sourceOrder.indexOf(liveSource) + 1), String(sourceOrder.length)])}
+              </button>
+            </Tip>
           ) : undefined}
         />
 
@@ -1065,6 +1070,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
         </div>
         </ViewToolbarSlotContext.Provider>
       </div>
+      </TooltipScope>
     </main>
     </I18nContext.Provider>
     </PopupRuntimeContext.Provider>

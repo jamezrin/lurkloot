@@ -5,6 +5,7 @@ import { usePopupRuntime, useT } from "./context";
 import { formatViewers } from "./format";
 import type { FarmingChannelView } from "./types";
 import { Pill, cn } from "./primitives";
+import { Tip } from "./tooltip";
 
 // Both names in the status line open something — the channel its stream, the
 // campaign its card — so both carry a standing underline rather than only
@@ -56,22 +57,28 @@ export function AutomationStatusLine({ platform, presentation, farmingTitle, far
                 truncation: the campaign name is also spelled out in the list
                 below, the channel is not written anywhere else. */}
             {farmingChannel.url ? (
-              <a href={farmingChannel.url} target="_blank" rel="noreferrer" title={`${t("watchingLabel")} ${farmingChannel.name}`} className={cn(LINK_CLASS, "max-w-[7.5rem] shrink-0")}>{farmingChannel.name}</a>
+              <Tip label={`${t("watchingLabel")} ${farmingChannel.name}`}>
+                <a href={farmingChannel.url} target="_blank" rel="noreferrer" className={cn(LINK_CLASS, "max-w-[7.5rem] shrink-0")}>{farmingChannel.name}</a>
+              </Tip>
             ) : (
               <span className="max-w-[7.5rem] shrink-0 truncate font-semibold text-zinc-800 dark:text-zinc-100">{farmingChannel.name}</span>
             )}
             {farmingChannel.viewers != null && (
               // The eye carries the meaning visually; role+label carries it to a
               // screen reader, which would otherwise hear a bare "18K".
-              <span className="shrink-0" role="img" aria-label={t("viewerCount", formatViewers(farmingChannel.viewers))} title={t("viewerCount", formatViewers(farmingChannel.viewers))}>
-                <Pill tone="muted"><Eye size={9} aria-hidden />{formatViewers(farmingChannel.viewers)}</Pill>
-              </span>
+              <Tip label={t("viewerCount", formatViewers(farmingChannel.viewers))}>
+                <span className="shrink-0" role="img" aria-label={t("viewerCount", formatViewers(farmingChannel.viewers))}>
+                  <Pill tone="muted"><Eye size={9} aria-hidden />{formatViewers(farmingChannel.viewers)}</Pill>
+                </span>
+              </Tip>
             )}
             {farmingTitle && (
               <span className="ml-auto flex min-w-0 items-center gap-1 pl-1">
                 <Gift size={11} className="shrink-0" aria-hidden style={{ color: "var(--accent-text)" }} />
                 {onFarmingTitleClick ? (
-                  <button type="button" onClick={onFarmingTitleClick} title={`${t("farmingLabel")} ${farmingTitle}`} className={cn(LINK_CLASS, "min-w-0 text-left")}>{farmingTitle}</button>
+                  <Tip label={`${t("farmingLabel")} ${farmingTitle}`}>
+                    <button type="button" onClick={onFarmingTitleClick} className={cn(LINK_CLASS, "min-w-0 text-left")}>{farmingTitle}</button>
+                  </Tip>
                 ) : (
                   <span className="min-w-0 truncate font-semibold text-zinc-800 dark:text-zinc-100">{farmingTitle}</span>
                 )}
@@ -85,7 +92,9 @@ export function AutomationStatusLine({ platform, presentation, farmingTitle, far
             )}
           </span>
         ) : presentation.state === "running" ? (
-          <span className="truncate" title={t("waitingEligibleStream")}>{t("waitingEligibleStream")}</span>
+          <Tip label={t("waitingEligibleStream")}>
+            <span className="truncate">{t("waitingEligibleStream")}</span>
+          </Tip>
         ) : presentation.manualWatchChannel ? (
           // "that tab" is not actionable with several streams open, so the pause
           // names the stream that caused it and links to it (#562). Its own
@@ -110,18 +119,17 @@ export function AutomationStatusLine({ platform, presentation, farmingTitle, far
             {t("manualWatchPauseDetailNamedSuffix")}
           </span>
         ) : (
-          <span
-            className={cn("min-w-0", roomy ? "line-clamp-2 leading-snug" : "truncate")}
-            title={detail ? `${t(presentation.badgeKey)} · ${detail}` : t(presentation.badgeKey)}
-          >
-            <span className="font-semibold text-zinc-600 dark:text-zinc-300">{t(presentation.badgeKey)}</span>
-            {detail ? (
-              <>
-                <span className="text-zinc-300 dark:text-zinc-600"> · </span>
-                {detail}
-              </>
-            ) : null}
-          </span>
+          <Tip label={detail ? `${t(presentation.badgeKey)} · ${detail}` : t(presentation.badgeKey)}>
+            <span className={cn("min-w-0", roomy ? "line-clamp-2 leading-snug" : "truncate")}>
+              <span className="font-semibold text-zinc-600 dark:text-zinc-300">{t(presentation.badgeKey)}</span>
+              {detail ? (
+                <>
+                  <span className="text-zinc-300 dark:text-zinc-600"> · </span>
+                  {detail}
+                </>
+              ) : null}
+            </span>
+          </Tip>
         )}
       </div>
       {action?.kind === "link" ? (

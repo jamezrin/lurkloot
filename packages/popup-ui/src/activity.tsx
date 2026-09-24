@@ -32,6 +32,7 @@ import {
   type ActivityCardIcon,
   type ActivityCardTone,
 } from "./activity.logic";
+import { Tip } from "./tooltip";
 
 // How long the button stays in its confirmation state after a successful copy.
 const COPY_FEEDBACK_MS = 2500;
@@ -311,18 +312,19 @@ function ActivityTimelineCard({ event }: { event: ActivityHistoryRecord }): Reac
         ) : null}
       </div>
       {card.campaignUrl && runtime ? (
-        <button
-          type="button"
-          aria-label={campaignActionLabel}
-          title={campaignActionLabel}
-          onClick={(clickEvent) => {
-            clickEvent.stopPropagation();
-            openHttpsLink(card.campaignUrl!, runtime.adapter.openLink);
-          }}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-zinc-400 outline-none transition-colors hover:bg-[var(--accent-soft)] hover:text-[var(--accent-text)] focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:text-zinc-500"
-        >
-          <ExternalLink size={13} aria-hidden="true" />
-        </button>
+        <Tip label={campaignActionLabel}>
+          <button
+            type="button"
+            aria-label={campaignActionLabel}
+            onClick={(clickEvent) => {
+              clickEvent.stopPropagation();
+              openHttpsLink(card.campaignUrl!, runtime.adapter.openLink);
+            }}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-zinc-400 outline-none transition-colors hover:bg-[var(--accent-soft)] hover:text-[var(--accent-text)] focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:text-zinc-500"
+          >
+            <ExternalLink size={13} aria-hidden="true" />
+          </button>
+        </Tip>
       ) : null}
     </li>
   );
