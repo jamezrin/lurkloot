@@ -844,7 +844,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
               data-watch-source-chip={liveSource}
               title={t("watchSourceChangeOrder")}
               onClick={() => changeView("settings", `${platform}.watchSourcePriority`)}
-              className="glass shrink-0 rounded-md px-2 py-0.5 text-[10.5px] font-medium text-zinc-600 tabular transition-colors hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white"
+              className="surface shrink-0 rounded-md px-2 py-0.5 text-[10.5px] font-medium text-zinc-600 tabular transition-colors hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white"
             >
               {t("watchSourcePosition", [t(WATCH_SOURCE_NAME_KEYS[liveSource]), String(sourceOrder.indexOf(liveSource) + 1), String(sourceOrder.length)])}
             </button>

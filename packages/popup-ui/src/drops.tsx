@@ -122,7 +122,7 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
   return (
     <article className={cn(
       "overflow-hidden rounded-[10px] border bg-white transition-shadow dark:bg-zinc-900",
-      emphasized ? "border-zinc-300 shadow-[0_1px_2px_rgb(0_0_0/.04),0_12px_28px_-18px_rgb(0_0_0/.35)] dark:border-zinc-700 dark:shadow-[0_12px_28px_-16px_rgb(0_0_0/.8)]" : "border-zinc-200 dark:border-zinc-800",
+      emphasized ? "border-[var(--ink)]" : "border-zinc-200 dark:border-zinc-800",
       finished && "bg-zinc-50/60 dark:bg-zinc-900/60",
       farmingRejection && "border-dashed bg-transparent dark:bg-transparent",
       isOverlay && "shadow-2xl shadow-black/25",
@@ -650,7 +650,7 @@ function RewardCarousel({ rewards, missed = false }: { rewards: RewardView[]; mi
           onClick={() => scroll(-1)}
           aria-label={t("scrollRewardsLeft")}
           title={t("scrollRewardsLeft")}
-          className="absolute left-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center glass rounded-full text-zinc-800 outline-none transition-colors hover:text-black focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900/95 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          className="absolute left-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-800 outline-none transition-colors hover:border-zinc-400 hover:text-black focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900/95 dark:text-zinc-200 dark:hover:bg-zinc-800"
         >
           <ChevronLeft size={16} aria-hidden="true" />
         </button>
@@ -661,7 +661,7 @@ function RewardCarousel({ rewards, missed = false }: { rewards: RewardView[]; mi
           onClick={() => scroll(1)}
           aria-label={t("scrollRewardsRight")}
           title={t("scrollRewardsRight")}
-          className="absolute right-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center glass rounded-full text-zinc-800 outline-none transition-colors hover:text-black focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900/95 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          className="absolute right-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-800 outline-none transition-colors hover:border-zinc-400 hover:text-black focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900/95 dark:text-zinc-200 dark:hover:bg-zinc-800"
         >
           <ChevronRight size={16} aria-hidden="true" />
         </button>

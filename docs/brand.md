@@ -5,29 +5,24 @@ still open.
 
 ## The rule
 
-**Chrome is ink; farming state is the platform's.** Lurkloot's own identity is
-matte black ink with glass for the few raised surfaces. Platform colour —
-Twitch purple under `[data-platform="twitch"]`, Kick green under
-`[data-platform="kick"]` — is kept for what the platform is doing: progress,
-the Farming pill, the live dots and the switch that turns farming on or off.
-The popup still reads as part of the platform's session where it matters, and
-as a product of its own everywhere else.
+**Lurkloot is flat and monochrome.** Black ink is the only accent — primary
+buttons, selections, switches, links, progress and the farming state — and it
+inverts to off-white on a dark ground. Surfaces are solid fills separated by
+hairlines: no gradients, no glows, no drop shadows.
 
-**`--platform-*` names a platform that is not the selected one.**
-`--platform-twitch`, `--platform-kick` and their `-text` variants exist for the
-rail's platform switch, per-row platform badges, and status dots — the places
-that have to say *which* platform while another one owns the accent. They are
-never a surface colour and never a hero gradient.
+**Platform colour only names a platform.** `--platform-twitch`,
+`--platform-kick` and their `-text` variants are for the status dots on the
+rail's Twitch/Kick switch and per-row platform badges. They are never a surface
+colour, a fill or a gradient.
 
 | Token | Means |
 | --- | --- |
-| `--ink` / `--ink-text` / `--ink-contrast` | Primary buttons, selected segments, ticked boxes, switches, links. `--ink-contrast` is text drawn on `--ink`. |
-| `--ink-soft` / `--ink-ring` | Pressed chips and hovers; focus rings (`--accent-ring` resolves to it). |
-| `--glass-*` | Raised surfaces: the status strip, the source chip, the carousel arrows. |
-| `--rail-*` | The matte black rail and its glass selection. |
-| `--accent` and its variants | The selected platform, for farming state only. |
-| `--platform-twitch` / `--platform-kick` | A platform other than the selected one. |
-| `--brand` and its variants | Aliases of `--ink`, kept for the update notice and nudges. |
+| `--ink` / `--ink-text` / `--ink-contrast` | The accent. `--ink-contrast` is text drawn on `--ink`. |
+| `--ink-soft` / `--ink-ring` | Pressed chips and hovers; focus rings. |
+| `--surface` / `--surface-edge` | A raised surface: solid fill and hairline (the status strip, the source chip). |
+| `--rail-*` | The black rail and its selected item. |
+| `--accent-*`, `--brand-*` | Aliases of ink, so components don't need to know. |
+| `--platform-twitch` / `--platform-kick` | Naming a platform. |
 
 Both files that define tokens follow this: `packages/popup-ui/src/styles.css`
 for the popup and the site's live demo, `packages/site/src/styles/global.css`
@@ -54,36 +49,26 @@ platform to belong to:
 The brand colour chosen for those surfaces does not replace the in-popup
 accent; it sits beside it, the way the platform switch already does.
 
-## Ink and glass: Lurkloot's own look
+## Black: Lurkloot's own look
 
 It replaces Ember, a red-orange that — with the warm beige neutrals it came
-with — read as one more generic AI-product palette.
+with — read as one more generic AI-product palette, and then a glass pass that
+was too decorative.
 
 | Token | Light | Dark |
 | --- | --- | --- |
-| `--ink` | `#121214` | `#ececee` |
-| `--ink-contrast` | `#fafafa` | `#0d0d0f` |
-| `--ink-soft` / `--ink-ring` | ink at 6% / 32% | white at 7% / 34% |
-| `--rail-bg` | `#0d0d0f` | `#0a0a0b` |
+| `--ink` | `#0a0a0a` | `#fafafa` |
+| `--ink-contrast` | `#ffffff` | `#0a0a0a` |
+| `--surface` / `--surface-edge` | `#ffffff` / `#e4e4e7` | `#111111` / `#262626` |
+| `--rail-bg` / `--rail-selected` | `#0a0a0a` / `#1f1f1f` | `#000000` / `#1c1c1c` |
 
-**Ink** inverts with the theme: on a dark ground primary actions are an
-off-white fill with dark text, so "black" chrome never disappears into the page.
-Neutrals are Tailwind's plain zinc, with no warm bias.
-
-**The rail is matte black in both themes** — the one signature surface. A
-static grain (a background image, painted once) takes the plastic sheen off it.
-The mark sits at its top: the icon's ring and play glyph on a black tile with a
-glass sheen (`packages/popup-ui/src/mark.tsx`).
-
-**Glass** is a translucent fill, a hairline edge and a lit top edge. It never
-uses `backdrop-filter`: an extension popup is re-laid-out on every auto-size
-probe, and a blur layer under scrolling content would be paid for each time. It
-is reserved for raised chrome — the status strip, the rail's selection and
-platform switch, the source chip, the carousel arrows — never repeated rows.
+Neutrals are Tailwind's plain zinc. **The rail is black in both themes**, and
+the mark sits at its top: the icon's ring and play glyph in black on a white
+tile (`packages/popup-ui/src/mark.tsx`).
 
 **Shape.** Cards are 10px, controls 6–8px (`rounded-md`/`rounded-lg`); round
-shapes are for status dots, switches and floating arrows only. Group labels are
-sentence case, not mono capitals.
+shapes are for status dots, switches and the floating carousel arrows only.
+Group labels are sentence case, not mono capitals.
 
 Still to do under #566:
 
@@ -91,8 +76,8 @@ Still to do under #566:
   gradient and the `--glow-*` shadows;
 - audit hard-coded colours in `packages/site/src/components/*` and `pages/*`;
 - redraw `packages/extension/public/icon/source.svg`, `logo-ring.svg` and
-  `chrome-store-logo-128.svg` as the rail's black mark, so the toolbar icon
-  matches the popup;
+  `chrome-store-logo-128.svg` as the rail's flat black-and-white mark, so the
+  toolbar icon matches the popup;
 - regenerate the Chrome Web Store screenshots and promo tiles — which must not
   depict store rating or standing, per the 1.13.0 rejection;
 - check AA contrast for text and interactive states in both themes.
@@ -109,4 +94,4 @@ site's global stylesheet, because `@font-face` inside its shadow root is
 ignored.
 
 The marketing site's own pages still use Bricolage Grotesque for display. Moving
-them to Archivo belongs with the rest of the site's move to ink and glass under #566.
+them to Archivo belongs with the rest of the site's move to the black identity under #566.

@@ -89,12 +89,10 @@ export function WorkspaceRail({ view, platform, counts, sourceOrder, liveSource,
   return (
     <nav
       aria-label={t("navWorkspace")}
-      className="matte @[560px]:w-[176px] flex w-[60px] shrink-0 flex-col gap-3 border-e border-[var(--rail-edge)] px-2 py-3 text-zinc-400"
+      className="rail @[560px]:w-[176px] flex w-[60px] shrink-0 flex-col gap-3 border-e border-[var(--rail-edge)] px-2 py-3 text-zinc-400"
     >
       <div className="flex items-center gap-2 px-1 pt-0.5">
-        {/* The mark is Lurkloot's own, so it stays ink and glass rather than
-            taking the platform's accent (docs/brand.md). */}
-        <LurklootMark size={26} className="shrink-0 drop-shadow-[0_2px_6px_rgb(0_0_0/.45)]" />
+        <LurklootMark size={26} className="shrink-0" />
         <span className="font-display @[560px]:inline hidden truncate text-[15px] font-bold tracking-[-0.02em] text-white">Lurkloot</span>
       </div>
 
@@ -118,9 +116,9 @@ export function WorkspaceRail({ view, platform, counts, sourceOrder, liveSource,
           data-rail-link="changelog"
           onClick={onOpenChangelog}
           title={t("railWhatsNew")}
-          className="rail-glass @[560px]:flex hidden items-center gap-1.5 rounded-lg px-2 py-1.5 text-start text-[11px] font-semibold text-zinc-100 outline-none hover:text-white focus-visible:ring-2 focus-visible:ring-white/40"
+          className="rail-selected @[560px]:flex hidden items-center gap-1.5 rounded-lg px-2 py-1.5 text-start text-[11px] font-semibold text-zinc-100 outline-none hover:text-white focus-visible:ring-2 focus-visible:ring-white/40"
         >
-          <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-white shadow-[0_0_6px_rgb(255_255_255/.7)]" />
+          <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-white" />
           {t("railWhatsNew")}
           <span className="ms-auto font-mono text-[10px] font-medium text-zinc-400">v{version}</span>
         </button>
@@ -187,7 +185,7 @@ function NavGroup({ labelKey, items, view, platform, counts, liveView, onViewCha
             className={cn(
               "flex w-full items-center gap-2 rounded-lg border px-2 py-1.5 text-start text-[12px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-white/40",
               selected
-                ? "rail-glass text-white"
+                ? "rail-selected border-transparent text-white"
                 : "border-transparent text-zinc-400 hover:bg-white/[0.05] hover:text-zinc-100",
             )}
           >
@@ -199,7 +197,7 @@ function NavGroup({ labelKey, items, view, platform, counts, liveView, onViewCha
                   role="img"
                   aria-label={t("navWatchingNow")}
                   title={t("navWatchingNow")}
-                  className="absolute -end-1 -top-1 h-1.5 w-1.5 rounded-full bg-[var(--accent)] ring-2 ring-[var(--rail-bg)]"
+                  className="absolute -end-1 -top-1 h-1.5 w-1.5 rounded-full bg-white ring-2 ring-[var(--rail-bg)]"
                 />
               ) : null}
             </span>
@@ -227,7 +225,7 @@ function PlatformRail({ active, presentation, onChange }: {
   const t = useT();
   const platformIds = Object.keys(PLATFORMS) as Platform[];
   return (
-    <div role="tablist" aria-label={t("navPlatform")} className="@[560px]:grid-cols-2 grid grid-cols-1 gap-0.5 rounded-[10px] border border-white/[0.06] bg-black/40 p-0.5 shadow-[inset_0_1px_2px_rgb(0_0_0/.5)]">
+    <div role="tablist" aria-label={t("navPlatform")} className="@[560px]:grid-cols-2 grid grid-cols-1 gap-0.5 rounded-lg border border-[var(--rail-edge)] p-0.5">
       {platformIds.map((id) => {
         const details = PLATFORMS[id];
         const status = presentation[id];
@@ -245,7 +243,7 @@ function PlatformRail({ active, presentation, onChange }: {
             onClick={() => onChange(id)}
             className={cn(
               "flex min-w-0 items-center justify-center gap-1.5 rounded-[7px] border px-1.5 py-1 text-[12px] font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-white/40",
-              selected ? "rail-glass text-white" : "border-transparent text-zinc-500 hover:text-zinc-200",
+              selected ? "rail-selected border-transparent text-white" : "border-transparent text-zinc-500 hover:text-zinc-200",
             )}
           >
             <span

@@ -38,7 +38,7 @@ export function StatusStrip({ platform, presentation, campaign, farmingChannel, 
   const watching = presentation.state === "running" && farmingChannel ? farmingChannel : undefined;
 
   return (
-    <div className="glass relative flex min-h-[58px] shrink-0 items-center gap-2.5 !border-x-0 !border-t-0 px-3.5 py-2">
+    <div className="relative flex min-h-[58px] shrink-0 items-center gap-2.5 border-b border-[var(--surface-edge)] bg-[var(--surface)] px-3.5 py-2">
       <StripLead campaign={watching ? campaign : undefined} presentation={presentation} enabled={enabled} watching={Boolean(watching)} supplemental={Boolean(supplementalName)} />
       <div className="min-w-0 flex-1">
         {watching ? (
@@ -50,7 +50,7 @@ export function StatusStrip({ platform, presentation, campaign, farmingChannel, 
         )}
       </div>
       {sourceChip}
-      <Toggle size="sm" checked={enabled} disabled={pending} onChange={onToggle} label={t("automationTitle", label)} color="var(--accent)" />
+      <Toggle size="sm" checked={enabled} disabled={pending} onChange={onToggle} label={t("automationTitle", label)} />
     </div>
   );
 }

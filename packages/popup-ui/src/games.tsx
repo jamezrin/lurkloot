@@ -101,7 +101,7 @@ export function GamesPanel({
               onClick={() => void onCategoryModeChange(mode)}
               className={cn(
                 "rounded-md px-2.5 py-0.5 text-[10px] font-semibold transition",
-                categoryMode === mode ? "bg-[var(--ink)] text-[var(--ink-contrast)] shadow-[inset_0_1px_0_rgb(255_255_255/.14),0_1px_2px_rgb(0_0_0/.18)]" : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200",
+                categoryMode === mode ? "bg-[var(--ink)] text-[var(--ink-contrast)]" : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200",
               )}
             >
               {t(mode === "all" ? "categoryModeAll" : "categoryModeInclude")}
