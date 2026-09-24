@@ -1225,6 +1225,60 @@ describe("createKickFetcher (background-first, tab fallback)", () => {
     await expect(fetcher.fetchJson("https://kick.com/api/v2/channels/x")).resolves.toEqual({ data: "from-tab" });
     expect(pageFetch).toHaveBeenCalledTimes(1);
   });
+
+  it.each([400, 404, 409, 422, 429])("keeps a definitive HTTP %i from the service worker instead of opening a page tab", async (status) => {
+    const rejection = new SafeFetchError({ kind: "http_error", status, reason: "INVALID_CLAIM" });
+    const pageFetch = vi.fn(async () => ({ data: "from-tab" }));
+    const onPageFallback = vi.fn(async () => undefined);
+    const fetcher = createKickFetcher({
+      background: async () => { throw rejection; },
+      pageFetch,
+      onPageFallback,
+    });
+
+    await expect(fetcher.fetchJson("https://web.kick.com/api/v1/drops/claim", { method: "POST" })).rejects.toBe(rejection);
+    expect(pageFetch).not.toHaveBeenCalled();
+    expect(onPageFallback).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["an authentication rejection", new SafeFetchError({ kind: "authentication_rejected", status: 403 })],
+    ["a request timeout", new SafeFetchError({ kind: "http_error", status: 408 })],
+    ["a server error", new SafeFetchError({ kind: "http_error", status: 503 })],
+    ["an http error without a status", new SafeFetchError({ kind: "http_error" })],
+    ["a WAF-blocked client error", new KickWafBlockedError({ kind: "security_policy_blocked", status: 400, reason: "Request blocked by security policy." })],
+    ["a network rejection", new KickWafBlockedError({ kind: "network_error", reason: "Failed to fetch" })],
+  ])("still falls back to the page tab on %s", async (_label, rejection) => {
+    const pageFetch = vi.fn(async () => ({ data: "from-tab" }));
+    const fetcher = createKickFetcher({
+      background: async () => { throw rejection; },
+      pageFetch,
+    });
+
+    await expect(fetcher.fetchJson("https://kick.com/api/v1/user")).resolves.toEqual({ data: "from-tab" });
+    expect(pageFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("answers an unlinked-account claim rejection with link guidance and no page tab", async () => {
+    const pageFetch = vi.fn(async () => ({ data: "from-tab" }));
+    const background = vi.fn(async () => {
+      throw new SafeFetchError({ kind: "http_error", status: 400, reason: "INVALID_CLAIM" });
+    });
+    const adapter = kickAdapter(createKickFetcher({ background, pageFetch }));
+    const campaign = {
+      id: "campaign",
+      name: "Linked Campaign",
+      accountLinked: false,
+      accountLinkUrl: "https://accounts.example/link",
+    } as DropCampaign;
+    const reward = { id: "reward", name: "Reward", status: "claimable", requiredMinutes: 1, watchedMinutes: 1 } as DropReward;
+
+    await expect(adapter.claimReward(campaign, reward)).resolves.toBe(false);
+
+    expect(background).toHaveBeenCalledTimes(1);
+    expect(pageFetch).not.toHaveBeenCalled();
+    expect(reward.claimGuidance).toEqual({ kind: "link_required", url: "https://accounts.example/link" });
+  });
 });
 
 describe("TwitchAdapter", () => {
