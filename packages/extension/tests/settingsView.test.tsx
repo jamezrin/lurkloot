@@ -315,3 +315,54 @@ describe("deadline feasibility setting", () => {
     expect(onSettingsChange).toHaveBeenCalledWith({ notifyRewardEarned: false });
   });
 });
+
+describe("settings actions and about", () => {
+  function mount(props: { version?: string; onReset?: () => Promise<void> }) {
+    const { document, window } = parseHTML("<div id=app></div>");
+    vi.stubGlobal("window", window);
+    vi.stubGlobal("document", document);
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    const container = document.getElementById("app")!;
+    act(() => {
+      root = createRoot(container);
+      root.render(
+        <PopupRuntimeContext.Provider value={{ adapter: {} as PopupAdapter, preview: true }}>
+          <I18nContext.Provider value={{ t: (key) => labels[key] ?? key, dir: "ltr", locale: "en" }}>
+            <SettingsView
+              suggestions={{ twitch: [], kick: [] }}
+              onSearchCategories={async () => []}
+              settings={DEFAULT_SETTINGS}
+              onSettingsChange={async () => undefined}
+              exportConfirmationResetKey={0}
+              {...props}
+            />
+          </I18nContext.Provider>
+        </PopupRuntimeContext.Provider>,
+      );
+    });
+    return container;
+  }
+
+  it("ends with an About section carrying the version and project links", () => {
+    const container = mount({ version: "9.9.9" });
+    const about = container.querySelector("#settings-section-about");
+    expect(about?.textContent).toContain("v9.9.9");
+    const links = [...(about?.querySelectorAll("a") ?? [])].map((link) => link.getAttribute("aria-label"));
+    expect(links).toEqual(["siteAttribution", "chromeWebStoreAttribution", "githubAttribution"]);
+    expect(container.querySelector("footer")).toBeNull();
+  });
+
+  it("confirms a reset in place, on the action's own row", async () => {
+    const onReset = vi.fn(async () => undefined);
+    const container = mount({ onReset });
+    const actions = container.querySelector("#settings-section-actions")!;
+    const button = (label: string) => [...actions.querySelectorAll("button")].find((candidate) => candidate.textContent === label);
+
+    act(() => button("factoryResetButton")!.click());
+    expect(actions.textContent).toContain("factoryResetConfirm");
+    expect(button("factoryResetButton")).toBeUndefined();
+
+    await act(async () => button("factoryResetConfirmButton")!.click());
+    expect(onReset).toHaveBeenCalledOnce();
+  });
+});
