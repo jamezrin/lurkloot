@@ -1,14 +1,10 @@
-import { useRef } from "react";
-import type { KeyboardEvent } from "react";
-import { motion } from "motion/react";
 import { Eye, Gift, Play, Radio } from "lucide-react";
 import type { Platform } from "@lurkloot/shared/models";
 import type { AutomationPresentation } from "./automationStatus";
-import { PLATFORMS } from "./constants";
 import { usePopupRuntime, useT } from "./context";
 import { formatViewers } from "./format";
 import type { FarmingChannelView } from "./types";
-import { Pill, Toggle, cn } from "./primitives";
+import { Pill, cn } from "./primitives";
 
 // Both names in the status line open something — the channel its stream, the
 // campaign its card — so both carry a standing underline rather than only
@@ -16,111 +12,12 @@ import { Pill, Toggle, cn } from "./primitives";
 export const LINK_CLASS = "truncate font-semibold text-zinc-800 underline decoration-dotted decoration-current/30 underline-offset-2 outline-none hover:text-[var(--accent-text)] hover:decoration-current focus-visible:text-[var(--accent-text)] dark:text-zinc-100";
 
 /** Colour of the status dot for a platform's current automation state. Shared by
- * the platform tabs and the status line so both read the same at a glance. */
+ * the rail's platform switch and the status line so both read the same at a glance. */
 export function statusColor(presentation: AutomationPresentation, operationalColor: string): string | undefined {
   if (presentation.operational) return operationalColor;
   if (presentation.state === "blocked") return "#ef4444";
   if (presentation.state === "needs_sign_in" || presentation.state === "unavailable") return "#f59e0b";
   return undefined;
-}
-
-/** Platform picker where each half carries its own automation switch.
- *
- * Every tab is a cell, not a button: a full-area button behind the content
- * selects the platform, and the switch sits above it, so a switch can live
- * inside a tab without nesting one button in another. Each half then reads
- * name-left / control-right, the same rhythm as the status line under it, and
- * a platform can be turned on without first switching to it. */
-export function PlatformBar({ active, presentation, enabled, pending, onChange, onToggle }: { active: Platform; presentation: Record<Platform, AutomationPresentation>; enabled: Record<Platform, boolean>; pending: Record<Platform, boolean>; onChange(platform: Platform): void; onToggle(platform: Platform, value: boolean): Promise<void> }) {
-  const t = useT();
-  const tabRefs = useRef<Partial<Record<Platform, HTMLButtonElement | null>>>({});
-  const platformIds = Object.keys(PLATFORMS) as Platform[];
-
-  function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, platform: Platform): void {
-    const currentIndex = platformIds.indexOf(platform);
-    if (currentIndex === -1) return;
-    const nextIndex = event.key === "ArrowRight" || event.key === "ArrowDown"
-      ? (currentIndex + 1) % platformIds.length
-      : event.key === "ArrowLeft" || event.key === "ArrowUp"
-        ? (currentIndex - 1 + platformIds.length) % platformIds.length
-        : event.key === "Home"
-          ? 0
-          : event.key === "End"
-            ? platformIds.length - 1
-            : -1;
-    if (nextIndex === -1) return;
-    event.preventDefault();
-    const nextPlatform = platformIds[nextIndex];
-    onChange(nextPlatform);
-    tabRefs.current[nextPlatform]?.focus();
-  }
-
-  return (
-    // The selected platform owns its span of the shared tab track; the accent
-    // surface, border, and underline keep it visually distinct at a glance.
-    <div role="tablist" aria-orientation="horizontal" className="mt-2 grid grid-cols-2 gap-3 border-b border-zinc-200 dark:border-zinc-800">
-      {Object.entries(PLATFORMS).map(([key, platform]) => {
-        const id = key as Platform;
-        const selected = active === id;
-        const status = presentation[id];
-        const indicatorColor = statusColor(status, platform.color);
-        return (
-          <div
-            key={id}
-            data-platform-status={id}
-            data-state={status.state}
-            className={cn(
-              "relative -mb-px flex min-w-0 items-center gap-1.5 rounded-t-md border px-2 pb-2 pt-1 transition-colors",
-              selected
-                ? "border-[var(--accent-ring)] border-b-[var(--accent-soft)] bg-[var(--accent-soft)] shadow-sm"
-                : "border-transparent hover:bg-zinc-100/80 dark:hover:bg-zinc-800/60",
-            )}
-          >
-            <button
-              type="button"
-              role="tab"
-              onClick={() => onChange(id)}
-              onKeyDown={(event) => handleTabKeyDown(event, id)}
-              aria-selected={selected}
-              aria-controls="popup-platform-panel"
-              aria-label={platform.label}
-              tabIndex={selected ? 0 : -1}
-              ref={(element) => { tabRefs.current[id] = element; }}
-              title={`${platform.label}: ${t(status.badgeKey)}`}
-              className="absolute inset-0 z-[1] rounded outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
-            />
-            <span className={cn("pointer-events-none relative z-10 flex min-w-0 flex-1 items-center gap-1.5 text-[12px] font-semibold transition-colors", selected ? "text-zinc-900 dark:text-white" : "text-zinc-400 dark:text-zinc-500")}>
-              <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded text-[10px] font-black transition-opacity" style={{ backgroundColor: selected ? platform.color : "transparent", color: selected ? (id === "kick" ? "#07140a" : "#fff") : platform.color, boxShadow: selected ? `0 0 12px -2px ${platform.color}` : undefined, opacity: selected ? 1 : 0.6 }}>
-                {platform.mark}
-              </span>
-              <span className="truncate">{platform.label}</span>
-              <span className="flex shrink-0 items-center" aria-hidden>
-                {indicatorColor ? <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: indicatorColor, boxShadow: `0 0 6px ${indicatorColor}` }} /> : <span className="h-1.5 w-1.5 rounded-full border border-zinc-400 dark:border-zinc-500" />}
-              </span>
-            </span>
-            <span className="relative z-10 shrink-0">
-              <Toggle
-                size="sm"
-                color={platform.color}
-                checked={enabled[id]}
-                onChange={(value) => onToggle(id, value)}
-                label={t("automationTitle", platform.label)}
-                disabled={pending[id]}
-              />
-            </span>
-            {selected && (
-              <motion.span
-                layoutId="platform-tab"
-                transition={{ type: "spring", stiffness: 520, damping: 38 }}
-                className="absolute inset-x-0 -bottom-px z-10 h-[2px] rounded-full"
-                style={{ backgroundColor: platform.color, boxShadow: `0 0 8px -1px ${platform.color}` }}
-              />
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
 }
 
 /** What the automation is doing right now, on one line of popup chrome.

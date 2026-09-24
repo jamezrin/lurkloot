@@ -12,6 +12,7 @@ import type { CampaignView, GameItem } from "./types";
 import { ViewToolbar } from "./viewToolbar";
 import { EmptyPanel, SearchBox, Toggle, cn, reorderFromDragEnd, scrollIntoPanel, type SortableDragEndEvent } from "./primitives";
 import { Dropdown } from "./dropdown";
+import { Segmented } from "./controls";
 
 // Which campaigns a facet admits. The facet reads across the queue AND the
 // skipped group on purpose: with subscription campaigns turned off, "Sub badges"
@@ -461,24 +462,13 @@ function FacetTabs({ facet, counts, onChange }: { facet: QueueFacet; counts: Rec
   const t = useT();
   const options: Array<[QueueFacet, string]> = [["all", "queueFacetAll"], ["drops", "queueFacetDrops"], ["badges", "queueFacetBadges"]];
   return (
-    <div role="group" aria-label={t("queueFacetLabel")} className="inline-flex w-fit items-center gap-0.5 rounded-lg border border-zinc-200 bg-zinc-100/70 p-0.5 dark:border-zinc-800 dark:bg-black/30">
-      {options.map(([value, labelKey]) => (
-        <button
-          key={value}
-          type="button"
-          data-queue-facet={value}
-          aria-pressed={facet === value}
-          onClick={() => onChange(value)}
-          className={cn(
-            "rounded-md px-2 py-0.5 text-[10px] font-semibold transition",
-            facet === value ? "bg-[var(--ink)] text-[var(--ink-contrast)]" : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200",
-          )}
-        >
-          {t(labelKey)}
-          <span className={cn("ms-1 font-mono text-[9.5px] tabular", facet === value ? "opacity-70" : "text-zinc-400 dark:text-zinc-500")}>{counts[value]}</span>
-        </button>
-      ))}
-    </div>
+    <Segmented
+      label={t("queueFacetLabel")}
+      value={facet}
+      itemAttribute="data-queue-facet"
+      options={options.map(([value, labelKey]) => ({ value, label: t(labelKey), count: counts[value] }))}
+      onChange={onChange}
+    />
   );
 }
 

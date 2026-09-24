@@ -23,6 +23,7 @@ import { EVENT_LEVEL_COLOR, PLATFORMS } from "./constants";
 import { PopupRuntimeContext, useT } from "./context";
 import { formatEventTime } from "./format";
 import { openHttpsLink } from "./links";
+import { Tabs } from "@base-ui/react/tabs";
 import { ImageWithFallback, Pill, SearchBox } from "./primitives";
 import {
   buildActivityCard,
@@ -178,21 +179,20 @@ export function ActivityLog({
       </div>
       <div className="flex flex-wrap items-center gap-1.5">
         {diagnosticLogging ? (
-          <div role="tablist" className="flex items-center gap-0.5 rounded-full border border-zinc-200 p-0.5 dark:border-zinc-700">
-            {([false, true] as const).map((diagnostics) => (
-              <button
-                key={String(diagnostics)}
-                type="button"
-                role="tab"
-                data-activity-view-tab={diagnostics ? "diagnostics" : "activity"}
-                aria-selected={showDiagnostics === diagnostics}
-                onClick={() => onShowDiagnosticsChange(diagnostics)}
-                className={`rounded-full px-2 py-0.5 text-[9px] font-semibold transition ${showDiagnostics === diagnostics ? "bg-zinc-600 text-white" : "text-zinc-400"}`}
-              >
-                {t(diagnostics ? "diagnosticsViewTab" : "activityViewTab")}
-              </button>
-            ))}
-          </div>
+          <Tabs.Root value={showDiagnostics ? "diagnostics" : "activity"} onValueChange={(value) => onShowDiagnosticsChange(value === "diagnostics")}>
+            <Tabs.List activateOnFocus className="flex items-center gap-0.5 rounded-lg border border-zinc-200 bg-zinc-100/70 p-0.5 dark:border-zinc-800 dark:bg-black/30">
+              {(["activity", "diagnostics"] as const).map((value) => (
+                <Tabs.Tab
+                  key={value}
+                  value={value}
+                  data-activity-view-tab={value}
+                  className="rounded-md px-2 py-0.5 text-[9px] font-semibold text-zinc-400 outline-none transition hover:text-zinc-600 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] data-[active]:bg-[var(--ink)] data-[active]:text-[var(--ink-contrast)] dark:hover:text-zinc-200"
+                >
+                  {t(value === "diagnostics" ? "diagnosticsViewTab" : "activityViewTab")}
+                </Tabs.Tab>
+              ))}
+            </Tabs.List>
+          </Tabs.Root>
         ) : null}
         {writeClipboard ? (
           <button

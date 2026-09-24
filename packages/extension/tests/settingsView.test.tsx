@@ -1,7 +1,9 @@
+// @vitest-environment happy-dom
+// Its switches, checkboxes and number fields are Base UI parts, which need
+// real mouse and keyboard events; linkedom has none.
 import React from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { parseHTML } from "linkedom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_SETTINGS, mergeSettings } from "@lurkloot/shared/settings";
 import { I18nContext, PopupRuntimeContext } from "../../popup-ui/src/context";
@@ -131,9 +133,7 @@ const labels: Record<string, string> = {
 
 describe("deadline feasibility setting", () => {
   function mountSettings(settings = DEFAULT_SETTINGS, onOpenGames?: () => void) {
-    const { document, window } = parseHTML("<div id=app></div>");
-    vi.stubGlobal("window", window);
-    vi.stubGlobal("document", document);
+    document.body.innerHTML = "<div id=app></div>";
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     const onSettingsChange = vi.fn(async () => undefined);
     const adapter = {} as PopupAdapter;
@@ -167,17 +167,16 @@ describe("deadline feasibility setting", () => {
     return { container, onSettingsChange };
   }
 
-  function setNumberInput(input: HTMLInputElement, value: string): void {
-    input.value = value;
-    input.dispatchEvent(new window.Event("input", { bubbles: true }));
-    input.dispatchEvent(new window.Event("change", { bubbles: true }));
-    // Linkedom does not route these events through React's ChangeEventPlugin,
-    // so mirror the browser's input-and-blur sequence through the stashed host
-    // props. The search-view test uses the same focused workaround.
-    const propsKey = Object.keys(input).find((key) => key.startsWith("__reactProps$"));
-    const props = propsKey ? (input as unknown as Record<string, { onBlur?(event: unknown): void; onChange?(event: unknown): void }>)[propsKey] : undefined;
-    props?.onChange?.({ target: input, currentTarget: input });
-    props?.onBlur?.({ currentTarget: input });
+  // Types into a Base UI number field and blurs it, which is when it commits.
+  // The native setter is used so React's value tracker sees a real change.
+  async function setNumberInput(input: HTMLInputElement, value: string): Promise<void> {
+    await act(async () => {
+      input.focus();
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.blur();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
   }
 
   it("defaults the toggle on and saves changes immediately", () => {
@@ -199,18 +198,23 @@ describe("deadline feasibility setting", () => {
     expect(input.disabled).toBe(true);
   });
 
-  it("renders and saves the tabless fallback threshold", () => {
+  it("renders and saves the tabless fallback threshold", async () => {
     const { container, onSettingsChange } = mountSettings();
     const input = container.querySelector(
       'input[aria-label="Tabless fallback threshold"]',
     ) as HTMLInputElement;
     expect(input.value).toBe("5");
-    expect(input.getAttribute("min")).toBe("1");
-    expect(input.getAttribute("max")).toBe("10");
 
-    act(() => setNumberInput(input, "7"));
+    await setNumberInput(input, "7");
     expect(onSettingsChange).toHaveBeenCalledWith(
       { tablessFallbackFailureLimit: 7 },
+      { tickAfterSave: true },
+    );
+
+    // Out-of-range entries clamp to the field's bounds (1–10).
+    await setNumberInput(input, "40");
+    expect(onSettingsChange).toHaveBeenLastCalledWith(
+      { tablessFallbackFailureLimit: 10 },
       { tickAfterSave: true },
     );
   });
@@ -223,16 +227,15 @@ describe("deadline feasibility setting", () => {
     expect(input.disabled).toBe(true);
   });
 
-  it("renders and saves the Kick fallback-page recovery threshold", () => {
-    const { container, onSettingsChange } = mountSettings();
+  it("renders and saves the Kick fallback-page recovery threshold", async () => {
+    // The field is only editable while Kick farming is on, which is off by default.
+    const { container, onSettingsChange } = mountSettings(mergeSettings({ platform: { kick: { enabled: true } } } as never));
     const input = container.querySelector(
       'input[aria-label="Kick fallback-page recovery"]',
     ) as HTMLInputElement;
     expect(input.value).toBe("3");
-    expect(input.getAttribute("min")).toBe("1");
-    expect(input.getAttribute("max")).toBe("10");
 
-    act(() => setNumberInput(input, "6"));
+    await setNumberInput(input, "6");
     expect(onSettingsChange).toHaveBeenCalledWith(
       { kickPageContextRecoverySuccesses: 6 },
       { tickAfterSave: true },
@@ -318,9 +321,7 @@ describe("deadline feasibility setting", () => {
 
 describe("settings actions and about", () => {
   function mount(props: { version?: string; onReset?: () => Promise<void> }) {
-    const { document, window } = parseHTML("<div id=app></div>");
-    vi.stubGlobal("window", window);
-    vi.stubGlobal("document", document);
+    document.body.innerHTML = "<div id=app></div>";
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     const container = document.getElementById("app")!;
     act(() => {

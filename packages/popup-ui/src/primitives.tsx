@@ -2,6 +2,7 @@ import React from "react";
 import { move } from "@dnd-kit/helpers";
 import type { DragDropProvider } from "@dnd-kit/react";
 import { motion } from "motion/react";
+import { Switch } from "@base-ui/react/switch";
 import { ChevronRight, GripVertical, Search, X, type LucideIcon } from "lucide-react";
 
 export function cn(...classes: Array<string | false | null | undefined>): string {
@@ -68,22 +69,36 @@ export function ImageWithFallback({ src, alt, className, fit = "cover", fallback
   return <img src={src} alt={alt} loading="lazy" className={cn("h-full w-full", fit === "cover" ? "object-cover" : "object-contain", className)} onError={() => setFailed(true)} />;
 }
 
-// `sm` is sized to sit inside a platform tab without growing its row. A switch
-// is ink by default; `color` gives it a platform's colour instead, for the few
-// switches that turn farming itself on or off.
+// A Base UI Switch drawn as the popup's switch. `sm` is sized to sit inside a
+// row without growing it. A switch is ink by default; `color` gives it a
+// platform's colour instead. It renders a real <button>, so `disabled` is the
+// native attribute and the switch takes part in keyboard focus like one.
 export function Toggle({ checked, onChange, label, disabled = false, size = "md", color }: { checked: boolean; onChange(value: boolean): void | Promise<void>; label: string; disabled?: boolean; size?: "sm" | "md"; color?: string }) {
   const small = size === "sm";
   return (
-    <button type="button" role="switch" aria-checked={checked} aria-label={label} disabled={disabled} onClick={() => void onChange(!checked)} className={cn("relative inline-flex shrink-0 items-center rounded-full p-0.5 transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]", small ? "h-[18px] w-[31px]" : "h-[22px] w-[38px]", checked ? "" : "bg-zinc-300 dark:bg-zinc-600", disabled && "cursor-not-allowed opacity-70")} style={checked ? { backgroundColor: color ?? "var(--ink)" } : undefined}>
-      {/* A CSS transform rather than a Motion layout animation: a layout-animated
-          element makes Motion measure the page on every update, which cost a
-          long list tens of milliseconds each time it rendered. */}
-      <span
-        aria-hidden
-        className={cn("rounded-full shadow-sm transition-transform duration-200 ease-out motion-reduce:transition-none", checked && !color ? "bg-[var(--ink-contrast)]" : "bg-white", small ? "h-[14px] w-[14px]" : "h-[18px] w-[18px]")}
-        style={{ transform: `translateX(${checked ? (small ? 13 : 16) : 0}px)` }}
+    <Switch.Root
+      checked={checked}
+      onCheckedChange={(value) => void onChange(value)}
+      disabled={disabled}
+      aria-label={label}
+      nativeButton
+      render={<button type="button" />}
+      className={cn(
+        "relative inline-flex shrink-0 items-center rounded-full bg-zinc-300 p-0.5 outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] data-[disabled]:cursor-not-allowed data-[disabled]:opacity-70 dark:bg-zinc-600",
+        small ? "h-[18px] w-[31px]" : "h-[22px] w-[38px]",
+      )}
+      style={checked ? { backgroundColor: color ?? "var(--ink)" } : undefined}
+    >
+      {/* A CSS transform, not a Motion layout animation: a layout-animated
+          element makes Motion measure the page on every update. */}
+      <Switch.Thumb
+        className={cn(
+          "rounded-full shadow-sm transition-transform duration-200 ease-out motion-reduce:transition-none",
+          checked && !color ? "bg-[var(--ink-contrast)]" : "bg-white",
+          small ? "h-[14px] w-[14px] data-[checked]:translate-x-[13px]" : "h-[18px] w-[18px] data-[checked]:translate-x-[16px]",
+        )}
       />
-    </button>
+    </Switch.Root>
   );
 }
 

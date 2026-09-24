@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Ban, ChevronDown, Lock } from "lucide-react";
+import { Ban, ChevronDown, Lock, Minus, Plus } from "lucide-react";
+import { NumberField } from "@base-ui/react/number-field";
 import type { ExtensionSettings } from "@lurkloot/shared/models";
 import {
   COLLAPSED_SETTINGS_SECTIONS_KEY,
@@ -213,48 +214,57 @@ export function SelectSettingRow<T extends string>({ title, description, value, 
   );
 }
 
+// A whole-number setting on Base UI's NumberField: typing, arrow keys (Shift for
+// tens), and the − / + buttons all clamp to min/max, and the value is saved once
+// it is committed — on blur, Enter, or a step — rather than on every keystroke.
 export function NumberSettingRow({ title, description, value, min, max, suffix, onChange, disabled = false, disabledReason }: { title: string; description: string; value: number; min: number; max: number; suffix: string; onChange(value: number): void | Promise<void>; disabled?: boolean; disabledReason?: string }) {
-  const [draft, setDraft] = useState(String(value));
+  const [draft, setDraft] = useState<number | null>(value);
 
   useEffect(() => {
-    setDraft(String(value));
+    setDraft(value);
   }, [value]);
 
-  function commit(rawValue = draft): void {
-    const nextValue = Number(rawValue);
-    if (!Number.isFinite(nextValue)) {
-      setDraft(String(value));
-      return;
-    }
-    const clamped = Math.min(max, Math.max(min, Math.round(nextValue)));
-    setDraft(String(clamped));
-    void onChange(clamped);
-  }
-
+  const stepButton = "grid h-5 w-5 shrink-0 place-items-center rounded-md text-zinc-400 outline-none transition-colors hover:bg-zinc-100 hover:text-zinc-800 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] data-[disabled]:pointer-events-none data-[disabled]:opacity-40 dark:hover:bg-zinc-800 dark:hover:text-zinc-100";
   return (
     <div className={cn("flex items-center gap-3 py-2.5", disabled && "opacity-60")} title={disabled ? disabledReason : undefined}>
       <div className="min-w-0 flex-1">
         <div className="text-[12.5px] font-semibold text-zinc-800 dark:text-zinc-100">{title}</div>
         <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
       </div>
-      <label className={cn("flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[11px] font-semibold text-zinc-500 focus-within:border-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400", disabled && "cursor-not-allowed")}>
-        <input
-          aria-label={title}
-          type="number"
-          disabled={disabled}
-          min={min}
-          max={max}
-          step={1}
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          onBlur={(event) => commit(event.currentTarget.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") event.currentTarget.blur();
-          }}
-          className="w-12 bg-transparent text-right text-xs font-semibold tabular text-zinc-900 outline-none dark:text-zinc-100"
-        />
-        {suffix}
-      </label>
+      <NumberField.Root
+        value={draft}
+        min={min}
+        max={max}
+        step={1}
+        largeStep={10}
+        format={{ maximumFractionDigits: 0, useGrouping: false }}
+        disabled={disabled}
+        onValueChange={(next) => setDraft(next)}
+        onValueCommitted={(next) => {
+          if (next === null) {
+            setDraft(value);
+            return;
+          }
+          const clamped = Math.min(max, Math.max(min, Math.round(next)));
+          setDraft(clamped);
+          if (clamped !== value) void onChange(clamped);
+        }}
+        className={cn("shrink-0", disabled && "cursor-not-allowed")}
+      >
+        <NumberField.Group className="flex items-center gap-0.5 rounded-lg border border-zinc-200 bg-white p-0.5 text-[11px] font-semibold text-zinc-500 focus-within:border-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
+          <NumberField.Decrement aria-label={`${title} −`} className={stepButton}>
+            <Minus size={11} aria-hidden />
+          </NumberField.Decrement>
+          <NumberField.Input
+            aria-label={title}
+            className="w-9 bg-transparent text-center text-xs font-semibold tabular text-zinc-900 outline-none dark:text-zinc-100"
+          />
+          <NumberField.Increment aria-label={`${title} +`} className={stepButton}>
+            <Plus size={11} aria-hidden />
+          </NumberField.Increment>
+          <span className="pe-1.5 ps-0.5">{suffix}</span>
+        </NumberField.Group>
+      </NumberField.Root>
     </div>
   );
 }

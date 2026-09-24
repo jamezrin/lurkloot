@@ -1,6 +1,8 @@
+// @vitest-environment happy-dom
+// Its switches, checkboxes and number fields are Base UI parts, which need
+// real mouse and keyboard events; linkedom has none.
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { parseHTML } from "linkedom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CategorySelection, ExtensionSettings } from "@lurkloot/shared/models";
 import { mergeSettings } from "@lurkloot/shared/settings";
@@ -30,10 +32,7 @@ const suggestions: GameItem[] = [
 ];
 
 function mount(settings: ExtensionSettings, handlers: Partial<React.ComponentProps<typeof GamesPanel>> = {}) {
-  const { document, window } = parseHTML("<div id=app></div>");
-  vi.stubGlobal("window", window);
-  vi.stubGlobal("document", document);
-  vi.stubGlobal("getComputedStyle", () => ({ direction: "ltr", columnGap: "0" }));
+  document.body.innerHTML = "<div id=app></div>";
   vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => { callback(0); return 1; });
   vi.stubGlobal("cancelAnimationFrame", () => undefined);
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);

@@ -7,6 +7,7 @@ import { useT } from "./context";
 import { statusColor } from "./automation";
 import { LurklootMark } from "./mark";
 import { cn } from "./primitives";
+import { Tabs } from "@base-ui/react/tabs";
 
 // The workspace's destinations. Platform is a separate axis: the rail's platform
 // switch applies to every view, so "which platform" and "which view" can never
@@ -225,36 +226,33 @@ function PlatformRail({ active, presentation, onChange }: {
   const t = useT();
   const platformIds = Object.keys(PLATFORMS) as Platform[];
   return (
-    <div role="tablist" aria-label={t("navPlatform")} className="@[560px]:grid-cols-2 grid grid-cols-1 gap-0.5 rounded-lg border border-[var(--rail-edge)] p-0.5">
-      {platformIds.map((id) => {
-        const details = PLATFORMS[id];
-        const status = presentation[id];
-        const indicatorColor = statusColor(status, details.color);
-        const selected = active === id;
-        return (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={selected}
-            aria-label={details.label}
-            data-platform-status={id}
-            data-state={status.state}
-            onClick={() => onChange(id)}
-            className={cn(
-              "flex min-w-0 items-center justify-center gap-1.5 rounded-[7px] border px-1.5 py-1 text-[12px] font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-white/40",
-              selected ? "rail-selected border-transparent text-white" : "border-transparent text-zinc-500 hover:text-zinc-200",
-            )}
-          >
-            <span
-              aria-hidden
-              className="h-[7px] w-[7px] shrink-0 rounded-full"
-              style={{ backgroundColor: indicatorColor ?? details.color, opacity: indicatorColor ? 1 : 0.35 }}
-            />
-            <span className="@[560px]:inline hidden truncate">{details.label}</span>
-          </button>
-        );
-      })}
-    </div>
+    // Base UI Tabs: arrow keys move between the platforms and select as they
+    // go, Home/End jump to the ends, and only the selected tab is a tab stop.
+    <Tabs.Root value={active} onValueChange={(value) => onChange(value as Platform)}>
+      <Tabs.List activateOnFocus aria-label={t("navPlatform")} className="@[560px]:grid-cols-2 grid grid-cols-1 gap-0.5 rounded-lg border border-[var(--rail-edge)] p-0.5">
+        {platformIds.map((id) => {
+          const details = PLATFORMS[id];
+          const status = presentation[id];
+          const indicatorColor = statusColor(status, details.color);
+          return (
+            <Tabs.Tab
+              key={id}
+              value={id}
+              aria-label={details.label}
+              data-platform-status={id}
+              data-state={status.state}
+              className="flex min-w-0 items-center justify-center gap-1.5 rounded-[7px] px-1.5 py-1 text-[12px] font-semibold text-zinc-500 outline-none transition-colors hover:text-zinc-200 focus-visible:ring-2 focus-visible:ring-white/40 data-[active]:bg-[var(--rail-selected)] data-[active]:text-white"
+            >
+              <span
+                aria-hidden
+                className="h-[7px] w-[7px] shrink-0 rounded-full"
+                style={{ backgroundColor: indicatorColor ?? details.color, opacity: indicatorColor ? 1 : 0.35 }}
+              />
+              <span className="@[560px]:inline hidden truncate">{details.label}</span>
+            </Tabs.Tab>
+          );
+        })}
+      </Tabs.List>
+    </Tabs.Root>
   );
 }

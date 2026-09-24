@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { Ban, Check, Star } from "lucide-react";
+import { Ban, Star } from "lucide-react";
 import type { CategoryMode, CategorySelection, ExtensionSettings, Platform } from "@lurkloot/shared/models";
 import { useT } from "./context";
 import { ViewToolbar } from "./viewToolbar";
@@ -10,6 +10,7 @@ import type { GameItem } from "./types";
 import { EmptyPanel, ImageWithFallback, cn } from "./primitives";
 
 import { containsCategory as contains, favouriteTogglePatch, sameCategory, withoutCategory as without } from "./categoryActions";
+import { Checkbox, Segmented } from "./controls";
 
 /** Which games are farmed, which rank above the strategy, and which are never
  * farmed — one screen, three states.
@@ -91,23 +92,13 @@ export function GamesPanel({
   return (
     <section className="space-y-2">
       <ViewToolbar>
-        <div role="group" aria-label={t("categoryModeTitle")} className="inline-flex w-fit items-center gap-0.5 rounded-lg border border-zinc-200 bg-zinc-100/70 p-0.5 dark:border-zinc-800 dark:bg-black/30">
-          {(["all", "include"] as const).map((mode) => (
-            <button
-              key={mode}
-              type="button"
-              data-games-mode={mode}
-              aria-pressed={categoryMode === mode}
-              onClick={() => void onCategoryModeChange(mode)}
-              className={cn(
-                "rounded-md px-2.5 py-0.5 text-[10px] font-semibold transition",
-                categoryMode === mode ? "bg-[var(--ink)] text-[var(--ink-contrast)]" : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200",
-              )}
-            >
-              {t(mode === "all" ? "categoryModeAll" : "categoryModeInclude")}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          label={t("categoryModeTitle")}
+          value={categoryMode}
+          itemAttribute="data-games-mode"
+          options={(["all", "include"] as const).map((mode) => ({ value: mode, label: t(mode === "all" ? "categoryModeAll" : "categoryModeInclude") }))}
+          onChange={(mode) => void onCategoryModeChange(mode)}
+        />
         <span className="truncate text-[10px] text-zinc-400 dark:text-zinc-500">{t("gamesStarHint")}</span>
       </ViewToolbar>
 
@@ -128,20 +119,12 @@ export function GamesPanel({
                 className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-2 py-1.5 dark:border-zinc-800 dark:bg-zinc-900"
               >
                 {categoryMode === "include" ? (
-                  <button
-                    type="button"
-                    data-game-select
-                    role="switch"
-                    aria-checked={selected}
-                    aria-label={t("gamesFarmGame", category.name)}
-                    onClick={() => toggleSelected(category)}
-                    className={cn(
-                      "grid h-4 w-4 shrink-0 place-items-center rounded-[5px] border",
-                      selected ? "border-[var(--ink)] bg-[var(--ink)] text-[var(--ink-contrast)]" : "border-zinc-300 text-transparent dark:border-zinc-600",
-                    )}
-                  >
-                    <Check size={10} />
-                  </button>
+                  <Checkbox
+                    checked={selected}
+                    onChange={() => toggleSelected(category)}
+                    label={t("gamesFarmGame", category.name)}
+                    attributes={{ "data-game-select": "" }}
+                  />
                 ) : null}
                 <div className="h-6 w-6 shrink-0 overflow-hidden rounded-md">
                   <ImageWithFallback src={category.imageUrl} alt={category.name} fit="cover" fallback={
