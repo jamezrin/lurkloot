@@ -9,7 +9,7 @@ import { CampaignCard, SortableCampaign, campaignRejectionMessageKey, initialExp
 import { fallbackGame } from "./viewModels";
 import type { CampaignRankTier } from "./viewModels";
 import type { CampaignView, GameItem } from "./types";
-import { EmptyPanel, SearchBox, Toggle, cn, reorderFromDragEnd, type SortableDragEndEvent } from "./primitives";
+import { EmptyPanel, SearchBox, Toggle, cn, reorderFromDragEnd, scrollIntoPanel, type SortableDragEndEvent } from "./primitives";
 
 // Which campaigns a facet admits. The facet reads across the queue AND the
 // skipped group on purpose: with subscription campaigns turned off, "Sub badges"
@@ -120,7 +120,7 @@ export function QueuePanel({
     const frame = requestAnimationFrame(() => {
       const cards = listRef.current?.querySelectorAll<HTMLElement>("[data-campaign-id]");
       const card = cards && [...cards].find((node) => node.dataset.campaignId === focus.id);
-      card?.scrollIntoView({ behavior: "smooth", block: "start" });
+      scrollIntoPanel(card, "smooth");
     });
     return () => cancelAnimationFrame(frame);
   }, [focus?.id, focus?.seq, searching, showSkipped, showUpcoming]);

@@ -7,6 +7,7 @@ import { SettingsGroup, SettingsSearchBox, SettingsSection } from "./settingsCon
 import { buildSettingsRegistry, type SettingsChangeOptions } from "./settingsRegistry";
 import { filterSettingsTree } from "./settingsSearch";
 import { useT } from "./context";
+import { scrollIntoPanel } from "./primitives";
 import { TwitchExtensionSettings, twitchExtensionSearchText } from "./twitchExtensions";
 import type { GameItem, PopupCompatibilityRegistry, PopupCompatibilityResolution } from "./types";
 
@@ -51,9 +52,10 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
     setResetFailed(false);
   }, [exportConfirmationResetKey]);
 
+  const rootRef = React.useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!focusGroupId) return;
-    document.getElementById(`settings-group-${focusGroupId}`)?.scrollIntoView?.({ block: "start" });
+    scrollIntoPanel(rootRef.current?.querySelector(`[id="settings-group-${focusGroupId}"]`));
   }, [focusGroupId]);
 
   // Export needs no arm/confirm step (it only reads, never mutates), but it
@@ -156,7 +158,7 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
   }
 
   return (
-    <div className="space-y-3">
+    <div ref={rootRef} className="space-y-3">
       <SettingsSearchBox compact value={query} onChange={setQuery} />
 
       {visible.length === 0 && !showActions && !showExtensions ? (

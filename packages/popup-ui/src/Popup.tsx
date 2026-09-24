@@ -46,7 +46,7 @@ import {
   unpinCampaign,
   streamerItemFromFallback,
 } from "./viewModels";
-import { IconButton, cn } from "./primitives";
+import { IconButton, cn, scrollIntoPanel } from "./primitives";
 import { ActivityLog } from "./activity";
 import {
   advanceActivityRequestScope,
@@ -216,7 +216,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
 
   useEffect(() => {
     if (!watchlistShot || !snapshot) return;
-    document.getElementById("idle-watchlist")?.scrollIntoView?.({ block: "start" });
+    scrollIntoPanel(document.getElementById("idle-watchlist"));
   }, [snapshot, watchlistShot]);
 
   useEffect(() => {
@@ -776,7 +776,9 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
       dir={dir}
       data-platform={platform}
       data-view={view}
-      className="@container flex h-[600px] w-[720px] overflow-hidden border border-zinc-200/80 bg-zinc-50 shadow-2xl shadow-black/30 dark:border-zinc-800 dark:bg-zinc-950"
+      // overflow-clip, not hidden: a hidden box can still be scrolled by script,
+      // and nothing may move the frame itself.
+      className="@container relative flex h-[600px] w-[720px] overflow-clip border border-zinc-200/80 bg-zinc-50 shadow-2xl shadow-black/30 dark:border-zinc-800 dark:bg-zinc-950"
     >
       <WorkspaceRail
         view={view}
@@ -837,7 +839,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
           </div>
         </div>
 
-        <div id="popup-platform-panel" className="nice-scroll @container min-h-0 flex-1 overflow-y-auto text-zinc-700 dark:text-zinc-300">
+        <div id="popup-platform-panel" data-scroll-panel className="nice-scroll @container min-h-0 flex-1 overflow-y-auto text-zinc-700 dark:text-zinc-300">
           <div className="space-y-2 p-3 pt-2">
             {/* The view itself is swapped outright rather than cross-faded: the
                 rail makes navigation frequent, and an exit animation would hold

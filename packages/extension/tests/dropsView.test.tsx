@@ -713,8 +713,8 @@ describe("initial drops expansion", () => {
     expect(toggle?.getAttribute("aria-expanded")).toBe("true");
   });
 
-  it("scrolls a focused campaign after clearing a filtered search", () => {
-    const { document, window } = parseHTML("<div id=app></div>");
+  it("scrolls a focused campaign after clearing a filtered search, moving only the panel", () => {
+    const { document, window } = parseHTML("<div data-scroll-panel id=panel><div id=app></div></div>");
     vi.stubGlobal("window", window);
     vi.stubGlobal("document", document);
     vi.stubGlobal("getComputedStyle", () => ({ direction: "ltr", columnGap: "0" }));
@@ -726,6 +726,10 @@ describe("initial drops expansion", () => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     const scrollIntoView = vi.fn();
     Object.defineProperty(window.HTMLElement.prototype, "scrollIntoView", { value: scrollIntoView });
+    Object.defineProperty(window.HTMLElement.prototype, "getBoundingClientRect", { configurable: true, value: () => ({ top: 0 }) });
+    const panel = document.getElementById("panel")!;
+    const scrollTo = vi.fn();
+    Object.defineProperty(panel, "scrollTo", { value: scrollTo });
     const container = document.getElementById("app")!;
     const campaigns = [
       campaignViewFromCampaign({ ...sourceCampaign(), id: "first", name: "First campaign" }, 0, idleSession, false),
@@ -743,7 +747,9 @@ describe("initial drops expansion", () => {
 
     act(() => renderDropsPanel(campaigns, { id: "second", seq: 1 }));
 
-    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
+    expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: "smooth" });
+    // scrollIntoView would also scroll the popup frame and the page around it.
+    expect(scrollIntoView).not.toHaveBeenCalled();
   });
 
   it("keeps the original priority number in filtered results", () => {

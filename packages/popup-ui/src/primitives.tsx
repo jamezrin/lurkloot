@@ -322,3 +322,16 @@ export function CompactRow({
     </div>
   );
 }
+
+/** Bring an element to the top of the popup's scrolling panel, and nothing else.
+ *
+ * `scrollIntoView` scrolls every scrollable ancestor, including ones a script
+ * may scroll though a user cannot — the popup frame and the extension page
+ * itself — so jumping to a Settings group used to shift the whole popup out of
+ * its window. This moves only the panel marked `data-scroll-panel`. */
+export function scrollIntoPanel(element: Element | null | undefined, behavior: ScrollBehavior = "auto"): void {
+  const panel = element?.closest<HTMLElement>("[data-scroll-panel]");
+  if (!element || !panel) return;
+  const top = element.getBoundingClientRect().top - panel.getBoundingClientRect().top + (panel.scrollTop || 0);
+  panel.scrollTo?.({ top: Math.max(0, top), behavior });
+}
