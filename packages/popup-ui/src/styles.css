@@ -223,11 +223,18 @@
   animation: lurk-reveal 160ms ease-out;
 }
 
+/* Reduced motion switches transitions and animations off rather than making
+   them near-instant. A tiny transition-duration on every element leaves the
+   default transition-property, `all`, in force everywhere: any inherited
+   colour change then started a transition for every derived property on every
+   descendant — eleven thousand at once in a traced click — and the popup
+   stalled dispatching their events. Nothing listens for transition or
+   animation end events, so none are needed. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
-    animation-duration: 0.001ms !important;
-    transition-duration: 0.001ms !important;
+    animation: none !important;
+    transition: none !important;
   }
 }
