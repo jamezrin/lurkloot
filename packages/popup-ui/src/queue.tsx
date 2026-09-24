@@ -185,7 +185,7 @@ export function QueuePanel({
         <FacetTabs facet={facet} counts={facetCounts} onChange={setFacet} />
         {/* The strategy lives where it acts. It ranks everything no pin or
             favourite game already placed, which is what the label says. */}
-        <label className="ms-auto flex min-w-0 items-center gap-1 rounded-full border border-zinc-200 bg-white px-2 py-1 text-[11px] font-medium text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
+        <label className="ms-auto flex min-w-0 items-center gap-1 rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[11px] font-medium text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
           <span className="shrink-0">{t("queueStrategyLabel")}</span>
           <select
             data-queue-strategy
@@ -459,7 +459,7 @@ function FacetTabs({ facet, counts, onChange }: { facet: QueueFacet; counts: Rec
   const t = useT();
   const options: Array<[QueueFacet, string]> = [["all", "queueFacetAll"], ["drops", "queueFacetDrops"], ["badges", "queueFacetBadges"]];
   return (
-    <div role="group" aria-label={t("queueFacetLabel")} className="inline-flex w-fit items-center gap-0.5 rounded-full border border-zinc-200 p-0.5 dark:border-zinc-700">
+    <div role="group" aria-label={t("queueFacetLabel")} className="inline-flex w-fit items-center gap-0.5 rounded-lg border border-zinc-200 bg-zinc-100/70 p-0.5 dark:border-zinc-800 dark:bg-black/30">
       {options.map(([value, labelKey]) => (
         <button
           key={value}
@@ -468,8 +468,8 @@ function FacetTabs({ facet, counts, onChange }: { facet: QueueFacet; counts: Rec
           aria-pressed={facet === value}
           onClick={() => onChange(value)}
           className={cn(
-            "rounded-full px-2 py-0.5 text-[10px] font-semibold transition",
-            facet === value ? "bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900" : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200",
+            "rounded-md px-2 py-0.5 text-[10px] font-semibold transition",
+            facet === value ? "bg-[var(--ink)] text-[var(--ink-contrast)] shadow-[inset_0_1px_0_rgb(255_255_255/.14),0_1px_2px_rgb(0_0_0/.18)]" : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200",
           )}
         >
           {t(labelKey)}
@@ -485,7 +485,7 @@ function FacetTabs({ facet, counts, onChange }: { facet: QueueFacet; counts: Rec
 function GroupDivider({ label, hint, action }: { label: string; hint?: string; action?: { label: string; onClick(): void; attribute?: string } }): React.ReactElement {
   return (
     <div className="flex items-center gap-2 pt-2">
-      <span className="font-mono text-[9.5px] uppercase tracking-[0.07em] text-zinc-400 dark:text-zinc-500">{label}</span>
+      <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">{label}</span>
       {hint ? <span className="truncate text-[10px] text-zinc-400 dark:text-zinc-500">{hint}</span> : null}
       <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
       {/* The group's own action sits on its divider: Unpin all only exists
@@ -495,7 +495,7 @@ function GroupDivider({ label, hint, action }: { label: string; hint?: string; a
           type="button"
           {...(action.attribute ? { [action.attribute]: "" } : {})}
           onClick={action.onClick}
-          className="shrink-0 rounded-full px-1.5 py-0.5 text-[10.5px] font-semibold text-[var(--accent-text)] hover:bg-[var(--accent-softer)]"
+          className="shrink-0 rounded-md px-1.5 py-0.5 text-[10.5px] font-semibold text-zinc-700 underline decoration-zinc-300 underline-offset-2 hover:bg-[var(--ink-soft)] hover:decoration-current dark:text-zinc-200 dark:decoration-zinc-600"
         >
           {action.label}
         </button>
@@ -520,7 +520,7 @@ function Disclosure({ group, label, count, hint, expanded, onToggle, children }:
         data-queue-disclosure={group}
         aria-expanded={expanded}
         onClick={onToggle}
-        className="flex w-full items-center gap-2 rounded-xl border border-dashed border-zinc-200 px-2.5 py-1.5 text-start text-[11px] text-zinc-500 hover:border-[var(--accent-ring)] dark:border-zinc-700 dark:text-zinc-400"
+        className="flex w-full items-center gap-2 rounded-xl border border-dashed border-zinc-200 px-2.5 py-1.5 text-start text-[11px] text-zinc-500 hover:border-zinc-400 dark:border-zinc-700 dark:text-zinc-400"
       >
         {group === "upcoming" ? <Clock3 size={12} className="shrink-0" /> : <Pin size={12} className="shrink-0" />}
         <span className="font-semibold text-zinc-700 dark:text-zinc-200">{label}</span>

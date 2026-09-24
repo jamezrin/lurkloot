@@ -5,6 +5,7 @@ import type { AutomationPresentation } from "./automationStatus";
 import { PLATFORMS } from "./constants";
 import { useT } from "./context";
 import { statusColor } from "./automation";
+import { LurklootMark } from "./mark";
 import { cn } from "./primitives";
 
 // The workspace's destinations. Platform is a separate axis: the rail's platform
@@ -88,15 +89,13 @@ export function WorkspaceRail({ view, platform, counts, sourceOrder, liveSource,
   return (
     <nav
       aria-label={t("navWorkspace")}
-      className="@[560px]:w-[176px] flex w-[60px] shrink-0 flex-col gap-3 border-e border-zinc-200 bg-white px-2 py-3 dark:border-zinc-800 dark:bg-zinc-900"
+      className="matte @[560px]:w-[176px] flex w-[60px] shrink-0 flex-col gap-3 border-e border-[var(--rail-edge)] px-2 py-3 text-zinc-400"
     >
-      <div className="flex items-center gap-2 px-1">
-        {/* The mark is Lurkloot's own, so it is drawn in Ember rather than in the
-            platform's accent (docs/brand.md). */}
-        <span aria-hidden className="grid h-6 w-6 shrink-0 place-items-center rounded-[7px] bg-[var(--brand)]">
-          <span className="h-2.5 w-2.5 rounded-full border-[2.5px] border-[var(--brand-contrast)]" />
-        </span>
-        <span className="font-display @[560px]:inline hidden truncate text-[14px] font-extrabold tracking-[-0.015em] text-zinc-900 dark:text-zinc-50">Lurkloot</span>
+      <div className="flex items-center gap-2 px-1 pt-0.5">
+        {/* The mark is Lurkloot's own, so it stays ink and glass rather than
+            taking the platform's accent (docs/brand.md). */}
+        <LurklootMark size={26} className="shrink-0 drop-shadow-[0_2px_6px_rgb(0_0_0/.45)]" />
+        <span className="font-display @[560px]:inline hidden truncate text-[15px] font-bold tracking-[-0.02em] text-white">Lurkloot</span>
       </div>
 
       <PlatformRail active={platform} presentation={presentation} onChange={onPlatformChange} />
@@ -119,14 +118,14 @@ export function WorkspaceRail({ view, platform, counts, sourceOrder, liveSource,
           data-rail-link="changelog"
           onClick={onOpenChangelog}
           title={t("railWhatsNew")}
-          className="@[560px]:flex hidden items-center gap-1.5 rounded-lg bg-[var(--brand-soft)] px-2 py-1.5 text-start text-[11px] font-semibold text-[var(--brand-text)] outline-none hover:brightness-95 focus-visible:ring-2 focus-visible:ring-[var(--brand-ring)]"
+          className="rail-glass @[560px]:flex hidden items-center gap-1.5 rounded-lg px-2 py-1.5 text-start text-[11px] font-semibold text-zinc-100 outline-none hover:text-white focus-visible:ring-2 focus-visible:ring-white/40"
         >
-          <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--brand)]" />
+          <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-white shadow-[0_0_6px_rgb(255_255_255/.7)]" />
           {t("railWhatsNew")}
-          <span className="ms-auto font-mono text-[10px] font-medium opacity-80">v{version}</span>
+          <span className="ms-auto font-mono text-[10px] font-medium text-zinc-400">v{version}</span>
         </button>
       ) : (
-        <div className="@[560px]:block hidden px-2 font-mono text-[10px] leading-tight text-zinc-400 dark:text-zinc-500">v{version}</div>
+        <div className="@[560px]:block hidden px-2 font-mono text-[10px] leading-tight text-zinc-500">v{version}</div>
       )}
     </nav>
   );
@@ -144,11 +143,11 @@ function RailLink({ label, icon: Icon, onClick }: {
       aria-label={label}
       data-rail-link="inventory"
       onClick={onClick}
-      className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-start text-[12px] font-medium text-zinc-600 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+      className="flex w-full items-center gap-2 rounded-lg border border-transparent px-2 py-1.5 text-start text-[12px] font-medium text-zinc-400 outline-none transition-colors hover:bg-white/[0.05] hover:text-zinc-100 focus-visible:ring-2 focus-visible:ring-white/40"
     >
       <Icon size={14} className="shrink-0" />
       <span className="@[560px]:inline hidden truncate">{label}</span>
-      <ArrowUpRight size={12} className="@[560px]:block ms-auto hidden shrink-0 text-zinc-400 dark:text-zinc-500" />
+      <ArrowUpRight size={12} className="@[560px]:block ms-auto hidden shrink-0 text-zinc-600" />
     </button>
   );
 }
@@ -167,7 +166,7 @@ function NavGroup({ labelKey, items, view, platform, counts, liveView, onViewCha
   return (
     <div className="flex flex-col gap-0.5">
       {labelKey ? (
-        <div className="@[560px]:block hidden px-2 pb-1 font-mono text-[9.5px] uppercase tracking-[0.08em] text-zinc-400 dark:text-zinc-500">
+        <div className="@[560px]:block hidden px-2 pb-1 text-[10.5px] font-medium tracking-[0.01em] text-zinc-500">
           {t(labelKey)}
         </div>
       ) : null}
@@ -186,10 +185,10 @@ function NavGroup({ labelKey, items, view, platform, counts, liveView, onViewCha
             data-view={item.view}
             onClick={() => onViewChange(item.view)}
             className={cn(
-              "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-start text-[12px] font-medium transition-colors",
+              "flex w-full items-center gap-2 rounded-lg border px-2 py-1.5 text-start text-[12px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-white/40",
               selected
-                ? "bg-[var(--accent-soft)] text-[var(--accent-text)]"
-                : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800",
+                ? "rail-glass text-white"
+                : "border-transparent text-zinc-400 hover:bg-white/[0.05] hover:text-zinc-100",
             )}
           >
             <span className="relative shrink-0">
@@ -200,13 +199,13 @@ function NavGroup({ labelKey, items, view, platform, counts, liveView, onViewCha
                   role="img"
                   aria-label={t("navWatchingNow")}
                   title={t("navWatchingNow")}
-                  className="absolute -end-1 -top-1 h-1.5 w-1.5 rounded-full bg-[var(--accent)] ring-2 ring-white dark:ring-zinc-900"
+                  className="absolute -end-1 -top-1 h-1.5 w-1.5 rounded-full bg-[var(--accent)] ring-2 ring-[var(--rail-bg)]"
                 />
               ) : null}
             </span>
             <span className="@[560px]:inline hidden truncate">{label}</span>
             {count === undefined ? null : (
-              <span className="@[560px]:inline ms-auto hidden font-mono text-[10.5px] text-zinc-400 tabular dark:text-zinc-500">{count}</span>
+              <span className={cn("@[560px]:inline ms-auto hidden font-mono text-[10.5px] tabular", selected ? "text-zinc-300" : "text-zinc-600")}>{count}</span>
             )}
           </button>
         );
@@ -228,7 +227,7 @@ function PlatformRail({ active, presentation, onChange }: {
   const t = useT();
   const platformIds = Object.keys(PLATFORMS) as Platform[];
   return (
-    <div role="tablist" aria-label={t("navPlatform")} className="@[560px]:grid-cols-2 grid grid-cols-1 gap-0.5 rounded-[10px] border border-zinc-200 bg-zinc-50 p-0.5 dark:border-zinc-800 dark:bg-zinc-950">
+    <div role="tablist" aria-label={t("navPlatform")} className="@[560px]:grid-cols-2 grid grid-cols-1 gap-0.5 rounded-[10px] border border-white/[0.06] bg-black/40 p-0.5 shadow-[inset_0_1px_2px_rgb(0_0_0/.5)]">
       {platformIds.map((id) => {
         const details = PLATFORMS[id];
         const status = presentation[id];
@@ -245,8 +244,8 @@ function PlatformRail({ active, presentation, onChange }: {
             data-state={status.state}
             onClick={() => onChange(id)}
             className={cn(
-              "flex min-w-0 items-center justify-center gap-1.5 rounded-lg px-1.5 py-1 text-[12px] font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]",
-              selected ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-50" : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200",
+              "flex min-w-0 items-center justify-center gap-1.5 rounded-[7px] border px-1.5 py-1 text-[12px] font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-white/40",
+              selected ? "rail-glass text-white" : "border-transparent text-zinc-500 hover:text-zinc-200",
             )}
           >
             <span

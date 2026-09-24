@@ -91,7 +91,7 @@ export function GamesPanel({
   return (
     <section className="space-y-2">
       <ViewToolbar>
-        <div role="group" aria-label={t("categoryModeTitle")} className="inline-flex w-fit items-center gap-0.5 rounded-full border border-zinc-200 p-0.5 dark:border-zinc-700">
+        <div role="group" aria-label={t("categoryModeTitle")} className="inline-flex w-fit items-center gap-0.5 rounded-lg border border-zinc-200 bg-zinc-100/70 p-0.5 dark:border-zinc-800 dark:bg-black/30">
           {(["all", "include"] as const).map((mode) => (
             <button
               key={mode}
@@ -100,8 +100,8 @@ export function GamesPanel({
               aria-pressed={categoryMode === mode}
               onClick={() => void onCategoryModeChange(mode)}
               className={cn(
-                "rounded-full px-2.5 py-0.5 text-[10px] font-semibold transition",
-                categoryMode === mode ? "bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900" : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200",
+                "rounded-md px-2.5 py-0.5 text-[10px] font-semibold transition",
+                categoryMode === mode ? "bg-[var(--ink)] text-[var(--ink-contrast)] shadow-[inset_0_1px_0_rgb(255_255_255/.14),0_1px_2px_rgb(0_0_0/.18)]" : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200",
               )}
             >
               {t(mode === "all" ? "categoryModeAll" : "categoryModeInclude")}
@@ -137,7 +137,7 @@ export function GamesPanel({
                     onClick={() => toggleSelected(category)}
                     className={cn(
                       "grid h-4 w-4 shrink-0 place-items-center rounded-[5px] border",
-                      selected ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-contrast)]" : "border-zinc-300 text-transparent dark:border-zinc-600",
+                      selected ? "border-[var(--ink)] bg-[var(--ink)] text-[var(--ink-contrast)]" : "border-zinc-300 text-transparent dark:border-zinc-600",
                     )}
                   >
                     <Check size={10} />
@@ -167,12 +167,12 @@ export function GamesPanel({
                   onClick={() => toggleFavourite(category)}
                   className={cn(
                     "grid h-6 w-6 shrink-0 place-items-center rounded-lg transition-colors",
-                    favourite ? "text-[var(--accent-text)]" : "text-zinc-300 hover:text-zinc-500 dark:text-zinc-600 dark:hover:text-zinc-400",
+                    favourite ? "text-amber-500 dark:text-amber-400" : "text-zinc-300 hover:text-zinc-500 dark:text-zinc-600 dark:hover:text-zinc-400",
                   )}
                 >
                   <Star size={14} fill={favourite ? "currentColor" : "none"} />
                 </button>
-                <span data-game-favourite-rank className="-ms-1.5 w-2 shrink-0 font-mono text-[10px] font-semibold text-[var(--accent-text)] tabular">
+                <span data-game-favourite-rank className="-ms-1.5 w-2 shrink-0 font-mono text-[10px] font-semibold text-zinc-500 tabular dark:text-zinc-400">
                   {favourite && favouriteRank !== -1 ? favouriteRank + 1 : ""}
                 </span>
                 <button
@@ -205,7 +205,7 @@ export function GamesPanel({
 
       <div className="space-y-1 pt-1">
         <div className="flex items-center gap-2">
-          <span className="font-mono text-[9.5px] uppercase tracking-[0.07em] text-zinc-400 dark:text-zinc-500">{t("gamesBlocked")}</span>
+          <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">{t("gamesBlocked")}</span>
           <span className="truncate text-[10px] text-zinc-400 dark:text-zinc-500">{t("gamesBlockedHint")}</span>
           <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
         </div>
@@ -231,7 +231,7 @@ export function GamesPanel({
                 type="button"
                 data-game-unblock
                 onClick={() => void onBlockedChange(without(blockedCategories, category))}
-                className="shrink-0 rounded-full border border-[var(--accent-ring)] px-2 py-0.5 text-[10px] font-semibold text-[var(--accent-text)] hover:bg-[var(--accent-softer)]"
+                className="shrink-0 rounded-md border border-zinc-300 px-2 py-0.5 text-[10px] font-semibold text-zinc-800 hover:bg-[var(--ink-soft)] dark:border-zinc-700 dark:text-zinc-100"
               >
                 {t("gamesUnblock")}
               </button>
@@ -245,7 +245,7 @@ export function GamesPanel({
 function GamesDivider({ label, hint }: { label: string; hint: string }): React.ReactElement {
   return (
     <div className="flex items-center gap-2 pt-1">
-      <span className="font-mono text-[9.5px] uppercase tracking-[0.07em] text-zinc-400 dark:text-zinc-500">{label}</span>
+      <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">{label}</span>
       <span className="truncate text-[10px] text-zinc-400 dark:text-zinc-500">{hint}</span>
       <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
     </div>

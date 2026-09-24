@@ -265,7 +265,7 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
                       <button
                         type="button"
                         disabled={importing}
-                        className="rounded-xl bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-[var(--accent-contrast)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:opacity-50"
+                        className="rounded-xl bg-[var(--ink)] px-3 py-1.5 text-xs font-semibold text-[var(--ink-contrast)] shadow-[inset_0_1px_0_rgb(255_255_255/.14),0_1px_2px_rgb(0_0_0/.2)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:opacity-50"
                         onClick={() => void confirmImport()}
                       >
                         {t("settingsImportConfirmButton")}
@@ -320,7 +320,7 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
                       </button>
                       <button
                         type="button"
-                        className="rounded-xl bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-[var(--accent-contrast)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+                        className="rounded-xl bg-[var(--ink)] px-3 py-1.5 text-xs font-semibold text-[var(--ink-contrast)] shadow-[inset_0_1px_0_rgb(255_255_255/.14),0_1px_2px_rgb(0_0_0/.2)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
                         onClick={() => {
                           setExportArmed(false);
                           void onExportCredentials();

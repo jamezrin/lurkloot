@@ -122,7 +122,7 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
   return (
     <article className={cn(
       "overflow-hidden rounded-[10px] border bg-white transition-shadow dark:bg-zinc-900",
-      emphasized ? "border-[var(--accent)] ring-2 ring-[var(--accent-soft)]" : "border-zinc-200 dark:border-zinc-800",
+      emphasized ? "border-zinc-300 shadow-[0_1px_2px_rgb(0_0_0/.04),0_12px_28px_-18px_rgb(0_0_0/.35)] dark:border-zinc-700 dark:shadow-[0_12px_28px_-16px_rgb(0_0_0/.8)]" : "border-zinc-200 dark:border-zinc-800",
       finished && "bg-zinc-50/60 dark:bg-zinc-900/60",
       farmingRejection && "border-dashed bg-transparent dark:bg-transparent",
       isOverlay && "shadow-2xl shadow-black/25",
@@ -157,7 +157,7 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
           <div className="min-w-0 flex-1">
             <div className="flex min-w-0 items-center gap-1">
               {campaign.favourited && !finished ? (
-                <Star size={11} aria-label={t("campaignFavouriteOn", game.name)} className="shrink-0 fill-current text-[var(--accent-text)]" />
+                <Star size={11} aria-label={t("campaignFavouriteOn", game.name)} className="shrink-0 fill-current text-amber-500 dark:text-amber-400" />
               ) : null}
               <span className="line-clamp-1 text-[13px] font-semibold leading-tight text-zinc-900 dark:text-zinc-50">{campaign.title}</span>
             </div>
@@ -212,7 +212,7 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
                 type="button"
                 data-queue-fix
                 onClick={(event) => { event.stopPropagation(); fix.onClick(); }}
-                className="shrink-0 rounded-full border border-[var(--accent-ring)] px-2 py-0.5 text-[10px] font-semibold text-[var(--accent-text)] hover:bg-[var(--accent-softer)]"
+                className="shrink-0 rounded-md border border-zinc-300 px-2 py-0.5 text-[10px] font-semibold text-zinc-800 hover:bg-[var(--ink-soft)] dark:border-zinc-700 dark:text-zinc-100"
               >
                 {fix.label}
               </button>
@@ -236,7 +236,7 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
                 onClick={(event) => { event.stopPropagation(); onPin(); }}
                 className={cn(
                   "grid h-6 w-6 place-items-center rounded-md transition-colors",
-                  pinned ? "text-[var(--accent-text)]" : "text-zinc-300 hover:bg-zinc-100 hover:text-zinc-600 dark:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300",
+                  pinned ? "text-[var(--ink-text)]" : "text-zinc-300 hover:bg-zinc-100 hover:text-zinc-600 dark:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300",
                 )}
               >
                 <Pin size={13} fill={pinned ? "currentColor" : "none"} />
@@ -272,7 +272,7 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
                   <AlertTriangle size={12} className="shrink-0" />
                   <span className="min-w-0 flex-1">{farmingRejectionMessage}</span>
                   {fix ? (
-                    <button type="button" onClick={fix.onClick} className="shrink-0 rounded-full border border-current px-2 py-0.5 text-[10px] font-semibold hover:bg-amber-100 dark:hover:bg-amber-500/20">
+                    <button type="button" onClick={fix.onClick} className="shrink-0 rounded-md border border-current px-2 py-0.5 text-[10px] font-semibold hover:bg-amber-100 dark:hover:bg-amber-500/20">
                       {fix.label}
                     </button>
                   ) : null}
@@ -293,8 +293,8 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
               ) : null}
               <div>
                 <div className="mb-1.5 flex items-center justify-between">
-                  <span className="flex items-center gap-1 text-[11px] font-semibold text-zinc-700 dark:text-zinc-200"><Gift size={12} style={{ color: "var(--accent-text)" }} /> {t("rewards")}</span>
-                  <span className="font-mono text-[11px] font-semibold tabular" style={{ color: "var(--accent-text)" }}>{stats.completed}/{stats.totalRewards}</span>
+                  <span className="flex items-center gap-1 text-[11px] font-semibold text-zinc-700 dark:text-zinc-200"><Gift size={12} className="text-zinc-400 dark:text-zinc-500" /> {t("rewards")}</span>
+                  <span className="font-mono text-[11px] font-semibold text-zinc-500 tabular dark:text-zinc-400">{stats.completed}/{stats.totalRewards}</span>
                 </div>
                 <RewardCarousel rewards={campaign.rewards} missed={expired} />
               </div>
@@ -309,7 +309,7 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
                 {!finished && farmingNow && campaign.farmingChannel ? (
                   <Fact label={t("campaignFactWatching")}>
                     {campaign.farmingChannel.url ? (
-                      <a href={campaign.farmingChannel.url} target="_blank" rel="noreferrer" className="font-semibold text-[var(--accent-text)] underline decoration-1 underline-offset-2">{campaign.farmingChannel.name}</a>
+                      <a href={campaign.farmingChannel.url} target="_blank" rel="noreferrer" className="font-semibold text-zinc-900 underline decoration-zinc-300 decoration-1 underline-offset-2 hover:decoration-current dark:text-zinc-50 dark:decoration-zinc-600">{campaign.farmingChannel.name}</a>
                     ) : campaign.farmingChannel.name}
                     {campaign.farmingChannel.viewers != null ? <span className="text-zinc-500 dark:text-zinc-400"> · {t("viewerCount", formatViewers(campaign.farmingChannel.viewers))}</span> : null}
                   </Fact>
@@ -320,7 +320,7 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
                         {campaign.channels.slice(0, 3).map((channel, channelIndex) => (
                           <React.Fragment key={channel.name}>
                             {channelIndex > 0 ? ", " : null}
-                            <a href={channel.url} target="_blank" rel="noreferrer" className="hover:text-[var(--accent-text)] hover:underline">{channel.name}</a>
+                            <a href={channel.url} target="_blank" rel="noreferrer" className="hover:text-zinc-900 hover:underline dark:hover:text-zinc-50">{channel.name}</a>
                           </React.Fragment>
                         ))}
                         {campaign.channels.length > 3 ? <span className="text-zinc-500 dark:text-zinc-400"> {t("campaignMoreChannels", String(campaign.channels.length - 3))}</span> : null}
@@ -430,7 +430,7 @@ function StatusPill({ tone, label }: { tone: "farming" | "hot" | "done" | "muted
 function Fact({ label, value, children }: { label: string; value?: string; children?: React.ReactNode }): React.ReactElement {
   return (
     <div className="flex min-w-0 flex-col gap-0.5">
-      <span className="font-mono text-[9px] uppercase tracking-[0.08em] text-zinc-400 dark:text-zinc-500">{label}</span>
+      <span className="text-[10.5px] text-zinc-500 dark:text-zinc-400">{label}</span>
       <span className="text-[11px] font-medium text-zinc-800 tabular dark:text-zinc-100">{value ?? children}</span>
     </div>
   );
@@ -500,7 +500,7 @@ function CampaignActions({ campaign, gameName, finished, refreshing, pinned, onP
               else (onExclude ?? onBlock)!();
             }}
             className={cn(
-              "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors",
+              "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors",
               excludeActive
                 ? "border-amber-300/80 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"
                 : "border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-300 dark:hover:text-zinc-100",
@@ -521,7 +521,7 @@ function CampaignActions({ campaign, gameName, finished, refreshing, pinned, onP
             href={campaign.pageUrl}
             target="_blank"
             rel="noreferrer"
-            className="ms-auto inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--accent-text)] hover:underline"
+            className="ms-auto inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--ink-text)] hover:underline"
           >
             {t("viewDropPage")}
             <ExternalLink size={11} aria-hidden="true" />
@@ -568,7 +568,7 @@ const ExcludeChoice = React.forwardRef<HTMLButtonElement, { checked: boolean; ti
         onClick={onClick}
         className="grid grid-cols-[14px_minmax(0,1fr)] items-start gap-x-2 rounded-lg px-2 py-1.5 text-start outline-none hover:bg-zinc-50 focus-visible:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:hover:bg-zinc-800 dark:focus-visible:bg-zinc-800"
       >
-        <span className="mt-0.5 text-[var(--accent-text)]">{checked ? <Check size={12} strokeWidth={3} /> : null}</span>
+        <span className="mt-0.5 text-[var(--ink-text)]">{checked ? <Check size={12} strokeWidth={3} /> : null}</span>
         <span className="text-[11.5px] font-semibold text-zinc-800 dark:text-zinc-100">{title}</span>
         <span className="col-start-2 text-[10.5px] text-zinc-500 dark:text-zinc-400">{hint}</span>
       </button>
@@ -584,9 +584,9 @@ function ActionChip({ pressed, disabled, onClick, icon, children }: { pressed?: 
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+        "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60",
         pressed
-          ? "border-[var(--accent-ring)] text-[var(--accent-text)]"
+          ? "border-zinc-400 bg-[var(--ink-soft)] text-[var(--ink-text)] dark:border-zinc-500"
           : "border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-300 dark:hover:text-zinc-100",
       )}
     >
@@ -650,7 +650,7 @@ function RewardCarousel({ rewards, missed = false }: { rewards: RewardView[]; mi
           onClick={() => scroll(-1)}
           aria-label={t("scrollRewardsLeft")}
           title={t("scrollRewardsLeft")}
-          className="absolute left-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-200 bg-white/95 text-zinc-700 shadow-md outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900/95 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          className="absolute left-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center glass rounded-full text-zinc-800 outline-none transition-colors hover:text-black focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900/95 dark:text-zinc-200 dark:hover:bg-zinc-800"
         >
           <ChevronLeft size={16} aria-hidden="true" />
         </button>
@@ -661,7 +661,7 @@ function RewardCarousel({ rewards, missed = false }: { rewards: RewardView[]; mi
           onClick={() => scroll(1)}
           aria-label={t("scrollRewardsRight")}
           title={t("scrollRewardsRight")}
-          className="absolute right-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-200 bg-white/95 text-zinc-700 shadow-md outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900/95 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          className="absolute right-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center glass rounded-full text-zinc-800 outline-none transition-colors hover:text-black focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900/95 dark:text-zinc-200 dark:hover:bg-zinc-800"
         >
           <ChevronRight size={16} aria-hidden="true" />
         </button>

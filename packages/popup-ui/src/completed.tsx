@@ -41,7 +41,7 @@ export function CompletedPanel({ campaigns, gameMap, focus, refreshing, onRefres
   return (
     <section className="space-y-1.5">
       <ViewToolbar>
-      <div role="group" aria-label={t("navCompleted")} className="inline-flex w-fit items-center gap-0.5 rounded-full border border-zinc-200 p-0.5 dark:border-zinc-700">
+      <div role="group" aria-label={t("navCompleted")} className="inline-flex w-fit items-center gap-0.5 rounded-lg border border-zinc-200 bg-zinc-100/70 p-0.5 dark:border-zinc-800 dark:bg-black/30">
         {([["finished", finished.length], ["expired", expired.length]] as const).map(([value, count]) => (
           <button
             key={value}
@@ -50,8 +50,8 @@ export function CompletedPanel({ campaigns, gameMap, focus, refreshing, onRefres
             aria-pressed={tab === value}
             onClick={() => setTab(value)}
             className={cn(
-              "rounded-full px-2.5 py-0.5 text-[10px] font-semibold transition",
-              tab === value ? "bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900" : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200",
+              "rounded-md px-2.5 py-0.5 text-[10px] font-semibold transition",
+              tab === value ? "bg-[var(--ink)] text-[var(--ink-contrast)] shadow-[inset_0_1px_0_rgb(255_255_255/.14),0_1px_2px_rgb(0_0_0/.18)]" : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200",
             )}
           >
             {t(value === "finished" ? "completedTabFinished" : "completedTabExpired")} {count}

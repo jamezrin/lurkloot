@@ -68,19 +68,19 @@ export function ImageWithFallback({ src, alt, className, fit = "cover", fallback
   return <img src={src} alt={alt} loading="lazy" className={cn("h-full w-full", fit === "cover" ? "object-cover" : "object-contain", className)} onError={() => setFailed(true)} />;
 }
 
-// `sm` is sized to sit inside a platform tab without growing its row. `color`
-// overrides the popup accent for switches that belong to a specific platform
-// rather than to the selected one.
+// `sm` is sized to sit inside a platform tab without growing its row. A switch
+// is ink by default; `color` gives it a platform's colour instead, for the few
+// switches that turn farming itself on or off.
 export function Toggle({ checked, onChange, label, disabled = false, size = "md", color }: { checked: boolean; onChange(value: boolean): void | Promise<void>; label: string; disabled?: boolean; size?: "sm" | "md"; color?: string }) {
   const small = size === "sm";
   return (
-    <button type="button" role="switch" aria-checked={checked} aria-label={label} disabled={disabled} onClick={() => void onChange(!checked)} className={cn("relative inline-flex shrink-0 items-center rounded-full p-0.5 transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]", small ? "h-[18px] w-[31px]" : "h-[22px] w-[38px]", checked ? "" : "bg-zinc-300 dark:bg-zinc-600", disabled && "cursor-not-allowed opacity-70")} style={checked ? { backgroundColor: color ?? "var(--accent)" } : undefined}>
+    <button type="button" role="switch" aria-checked={checked} aria-label={label} disabled={disabled} onClick={() => void onChange(!checked)} className={cn("relative inline-flex shrink-0 items-center rounded-full p-0.5 transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]", small ? "h-[18px] w-[31px]" : "h-[22px] w-[38px]", checked ? "" : "bg-zinc-300 dark:bg-zinc-600", disabled && "cursor-not-allowed opacity-70")} style={checked ? { backgroundColor: color ?? "var(--ink)" } : undefined}>
       {/* A CSS transform rather than a Motion layout animation: a layout-animated
           element makes Motion measure the page on every update, which cost a
           long list tens of milliseconds each time it rendered. */}
       <span
         aria-hidden
-        className={cn("rounded-full bg-white shadow-sm transition-transform duration-200 ease-out motion-reduce:transition-none", small ? "h-[14px] w-[14px]" : "h-[18px] w-[18px]")}
+        className={cn("rounded-full shadow-sm transition-transform duration-200 ease-out motion-reduce:transition-none", checked && !color ? "bg-[var(--ink-contrast)]" : "bg-white", small ? "h-[14px] w-[14px]" : "h-[18px] w-[18px]")}
         style={{ transform: `translateX(${checked ? (small ? 13 : 16) : 0}px)` }}
       />
     </button>
@@ -138,7 +138,7 @@ export function RankInput({ index, count, label, onMove, size }: { index: number
   const textClass = size === "rail"
     ? "flex w-4 items-center justify-center text-center text-[10px] font-bold tabular leading-none"
     : "w-4 text-center text-[11px] font-bold tabular";
-  const color: React.CSSProperties = { color: "var(--accent-text)" };
+  const color: React.CSSProperties = { color: "var(--ink-text)" };
 
   React.useEffect(() => {
     if (!editing) return;

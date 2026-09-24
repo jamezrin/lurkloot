@@ -5,12 +5,13 @@ still open.
 
 ## The rule
 
-**The accent follows the platform.** `--accent` and its variants resolve to
-Twitch purple under `[data-platform="twitch"]` and Kick green under
-`[data-platform="kick"]`, so every accented surface — buttons, focus rings, the
-farming emphasis, the rail's current destination, progress — belongs to the
-platform being farmed. The popup is a companion to a session on that site, and
-reading as part of it is worth more than a colour of our own would be.
+**Chrome is ink; farming state is the platform's.** Lurkloot's own identity is
+matte black ink with glass for the few raised surfaces. Platform colour —
+Twitch purple under `[data-platform="twitch"]`, Kick green under
+`[data-platform="kick"]` — is kept for what the platform is doing: progress,
+the Farming pill, the live dots and the switch that turns farming on or off.
+The popup still reads as part of the platform's session where it matters, and
+as a product of its own everywhere else.
 
 **`--platform-*` names a platform that is not the selected one.**
 `--platform-twitch`, `--platform-kick` and their `-text` variants exist for the
@@ -20,14 +21,13 @@ never a surface colour and never a hero gradient.
 
 | Token | Means |
 | --- | --- |
-| `--accent` | The selected platform's accent. Fills and strokes. |
-| `--accent-text` | The accent as text or an icon, contrast-corrected per theme. |
-| `--accent-contrast` | Text drawn *on* `--accent`. |
-| `--accent-soft` / `--accent-softer` | Accent-tinted surfaces (current rail item, farming row). |
-| `--accent-ring` | Focus rings. |
-| `--accent-glow` | The one decorative shadow. |
+| `--ink` / `--ink-text` / `--ink-contrast` | Primary buttons, selected segments, ticked boxes, switches, links. `--ink-contrast` is text drawn on `--ink`. |
+| `--ink-soft` / `--ink-ring` | Pressed chips and hovers; focus rings (`--accent-ring` resolves to it). |
+| `--glass-*` | Raised surfaces: the status strip, the source chip, the carousel arrows. |
+| `--rail-*` | The matte black rail and its glass selection. |
+| `--accent` and its variants | The selected platform, for farming state only. |
 | `--platform-twitch` / `--platform-kick` | A platform other than the selected one. |
-| `--brand` and its variants | Lurkloot itself. See Ember below. |
+| `--brand` and its variants | Aliases of `--ink`, kept for the update notice and nudges. |
 
 Both files that define tokens follow this: `packages/popup-ui/src/styles.css`
 for the popup and the site's live demo, `packages/site/src/styles/global.css`
@@ -54,36 +54,36 @@ platform to belong to:
 The brand colour chosen for those surfaces does not replace the in-popup
 accent; it sits beside it, the way the platform switch already does.
 
-## Ember: Lurkloot's own colour
+## Ink and glass: Lurkloot's own look
+
+It replaces Ember, a red-orange that — with the warm beige neutrals it came
+with — read as one more generic AI-product palette.
 
 | Token | Light | Dark |
 | --- | --- | --- |
-| `--brand` | `#cf4420` | `#ff8a5c` |
-| `--brand-text` | `#b3391a` | `#ff9f78` |
-| `--brand-contrast` | `#ffffff` | `#170904` |
-| `--brand-soft` / `--brand-ring` | Ember at 11% / 40% | Ember at 16% / 45% |
+| `--ink` | `#121214` | `#ececee` |
+| `--ink-contrast` | `#fafafa` | `#0d0d0f` |
+| `--ink-soft` / `--ink-ring` | ink at 6% / 32% | white at 7% / 34% |
+| `--rail-bg` | `#0d0d0f` | `#0a0a0b` |
 
-Twitch is violet and Kick is green. A red-orange sits clear of both hues, so
-anything drawn in Ember reads as Lurkloot rather than as either platform. It
-was picked over the other candidates from the interactive prototype (Teal,
-Marine, Cobalt, Copper, Ruby): Teal and Marine sit too close to Kick green,
-Cobalt too close to Twitch violet and to every other product, and Copper was
-already turned down.
+**Ink** inverts with the theme: on a dark ground primary actions are an
+off-white fill with dark text, so "black" chrome never disappears into the page.
+Neutrals are Tailwind's plain zinc, with no warm bias.
 
-**Where it goes.** The surfaces that are about Lurkloot rather than about a
-platform:
+**The rail is matte black in both themes** — the one signature surface. A
+static grain (a background image, painted once) takes the plastic sheen off it.
+The mark sits at its top: the icon's ring and play glyph on a black tile with a
+glass sheen (`packages/popup-ui/src/mark.tsx`).
 
-- in the popup, the update notice, and the mark once the icon is redrawn;
-- the marketing site, where it replaces the purple-to-lime `--signal`
-  gradient and the `--glow-*` shadows;
-- the icon, the logo ring and the store logo;
-- the store screenshots and promo tiles.
+**Glass** is a translucent fill, a hairline edge and a lit top edge. It never
+uses `backdrop-filter`: an extension popup is re-laid-out on every auto-size
+probe, and a blur layer under scrolling content would be paid for each time. It
+is reserved for raised chrome — the status strip, the rail's selection and
+platform switch, the source chip, the carousel arrows — never repeated rows.
 
-**Where it never goes.** Farming state. Progress, the farming row, toggles, the
-rail's current destination and focus rings belong to the platform being
-farmed, as the rule above says. Ember and the amber used for warnings sit near
-each other, so a warning keeps its icon and wording and never relies on hue
-alone.
+**Shape.** Cards are 10px, controls 6–8px (`rounded-md`/`rounded-lg`); round
+shapes are for status dots, switches and floating arrows only. Group labels are
+sentence case, not mono capitals.
 
 Still to do under #566:
 
@@ -91,7 +91,8 @@ Still to do under #566:
   gradient and the `--glow-*` shadows;
 - audit hard-coded colours in `packages/site/src/components/*` and `pages/*`;
 - redraw `packages/extension/public/icon/source.svg`, `logo-ring.svg` and
-  `chrome-store-logo-128.svg`, then use the mark in the popup's rail;
+  `chrome-store-logo-128.svg` as the rail's black mark, so the toolbar icon
+  matches the popup;
 - regenerate the Chrome Web Store screenshots and promo tiles — which must not
   depict store rating or standing, per the 1.13.0 rejection;
 - check AA contrast for text and interactive states in both themes.
@@ -108,4 +109,4 @@ site's global stylesheet, because `@font-face` inside its shadow root is
 ignored.
 
 The marketing site's own pages still use Bricolage Grotesque for display. Moving
-them to Archivo belongs with the rest of the site's move to Ember under #566.
+them to Archivo belongs with the rest of the site's move to ink and glass under #566.
