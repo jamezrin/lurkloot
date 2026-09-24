@@ -84,7 +84,7 @@
     "message": "已置顶"
   },
   "queueGroupPinnedHint": {
-    "message": "将行拖到这里，或输入名次"
+    "message": "拖动以排序，或输入名次"
   },
   "queueGroupFavourite": {
     "message": "收藏的游戏"

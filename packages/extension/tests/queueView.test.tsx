@@ -288,6 +288,19 @@ describe("campaign card actions", () => {
     expect(toggle()?.getAttribute("aria-expanded")).toBe("false");
   });
 
+  it("lets only the pins be dragged or given a rank", () => {
+    const settings = mergeSettings({ campaignPins: ["pinned"] } as never);
+    const { container } = queue(views([campaign("pinned"), campaign("ordinary")], settings), settings);
+    const row = (id: string) => container.querySelector(`[data-campaign-id="${id}"]`)!;
+
+    // The pins are one sortable list; everything below orders itself.
+    expect(row("pinned").querySelector('[aria-label^="reorderItem"]')).not.toBeNull();
+    expect(row("pinned").querySelector('button[aria-label^="Set rank of"]')).not.toBeNull();
+    expect(row("ordinary").querySelector('[aria-label^="reorderItem"]')).toBeNull();
+    expect(row("ordinary").querySelector('button[aria-label^="Set rank of"]')).toBeNull();
+    expect(row("ordinary").getAttribute("data-campaign-rank")).toBe("2");
+  });
+
   it("pins a queued campaign from its own row", () => {
     const settings = mergeSettings({ campaignPins: ["pinned"] } as never);
     const onPinChange = vi.fn();

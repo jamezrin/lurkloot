@@ -84,7 +84,7 @@
     "message": "Pinned"
   },
   "queueGroupPinnedHint": {
-    "message": "drag a row here, or type a rank"
+    "message": "drag to reorder, or type a rank"
   },
   "queueGroupFavourite": {
     "message": "Favourite games"

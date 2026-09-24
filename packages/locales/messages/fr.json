@@ -84,7 +84,7 @@
     "message": "Épinglées"
   },
   "queueGroupPinnedHint": {
-    "message": "faites glisser une ligne ici, ou saisissez un rang"
+    "message": "faites glisser pour réordonner, ou saisissez un rang"
   },
   "queueGroupFavourite": {
     "message": "Jeux favoris"

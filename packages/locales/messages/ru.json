@@ -84,7 +84,7 @@
     "message": "Закреплённые"
   },
   "queueGroupPinnedHint": {
-    "message": "перетащите строку сюда или введите номер"
+    "message": "перетащите для сортировки или введите номер"
   },
   "queueGroupFavourite": {
     "message": "Любимые игры"

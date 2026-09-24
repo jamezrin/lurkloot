@@ -84,7 +84,7 @@
     "message": "مثبتة"
   },
   "queueGroupPinnedHint": {
-    "message": "اسحب صفًا إلى هنا أو اكتب ترتيبًا"
+    "message": "اسحب لإعادة الترتيب أو اكتب ترتيبًا"
   },
   "queueGroupFavourite": {
     "message": "الألعاب المفضلة"

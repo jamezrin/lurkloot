@@ -156,7 +156,7 @@ function farmingSession(campaignId: string): WatchSession {
   };
 }
 
-function renderDropsPanel(campaigns: ReturnType<typeof campaignViewFromCampaign>[], focus?: { id: string; seq: number }) {
+function renderDropsPanel(campaigns: ReturnType<typeof campaignViewFromCampaign>[], focus?: { id: string; seq: number }, pinnedCount = 0) {
   const adapter = { openLink: vi.fn() } as unknown as PopupAdapter;
   root!.render(
     <I18nContext.Provider value={{ t: (key) => ({ search: "Search" })[key] ?? key, dir: "ltr", locale: "en" }}>
@@ -167,7 +167,7 @@ function renderDropsPanel(campaigns: ReturnType<typeof campaignViewFromCampaign>
           focus={focus}
           refreshing={false}
           strategy="ending_soonest"
-          pinnedCount={0}
+          pinnedCount={pinnedCount}
           farmPinnedOnly={false}
           onStrategyChange={() => undefined}
           onUnpinAll={() => undefined}
@@ -286,7 +286,7 @@ describe("completed campaign section", () => {
     expect(finishedRow?.querySelector("button[aria-label^='Set rank']")).toBeNull();
   });
 
-  it("pins the campaign whose rank was typed, and nothing else", () => {
+  it("shows a rank below the pins, but no editor for it", () => {
     const settings = mergeSettings(undefined);
     const feasibility = {
       skipUnfinishableRewards: settings.skipUnfinishableRewards,
@@ -295,21 +295,16 @@ describe("completed campaign section", () => {
     };
     const campaigns = [
       campaignViewFromCampaign({ ...sourceCampaign(), id: "first", name: "First active" }, 0, idleSession, false, feasibility),
-      campaignViewFromCampaign({ ...sourceCampaign(), id: "finished", name: "Finished campaign", status: "completed" }, 1, idleSession, false, feasibility),
-      campaignViewFromCampaign({ ...sourceCampaign(), id: "second", name: "Second active" }, 2, idleSession, false, feasibility),
+      campaignViewFromCampaign({ ...sourceCampaign(), id: "second", name: "Second active" }, 1, idleSession, false, feasibility),
     ];
-    const { container, onPinChange } = mountCampaignList(campaigns);
-    const rank = container.querySelector<HTMLButtonElement>('button[aria-label="Set rank of Second active"]');
-    expect(rank?.textContent).toBe("2");
-    act(() => rank?.click());
-    const input = findNumericRankInput(container)!;
-    act(() => setInputValue(input, "1"));
-    act(() => blurRankInput(input));
+    const { container } = mountCampaignList(campaigns);
 
-    // A typed rank pins exactly that campaign at that position; the finished
-    // campaign and the other active one keep whatever tier they had.
-    expect(onPinChange).toHaveBeenCalledOnce();
-    expect(onPinChange).toHaveBeenCalledWith("second", 0);
+    // Unpinned rows follow the strategy: their place is shown, not editable,
+    // and they carry no drag handle. Pinning is the way to place one by hand.
+    const second = container.querySelector<HTMLElement>('[data-campaign-id="second"]');
+    expect(second?.getAttribute("data-campaign-rank")).toBe("2");
+    expect(container.querySelector('button[aria-label="Set rank of Second active"]')).toBeNull();
+    expect(second?.querySelector("[class*='cursor-grab']")).toBeNull();
   });
 
   it("opens a finished campaign in Completed when the popup focuses it", () => {
@@ -402,8 +397,15 @@ function keyDownRankInput(input: HTMLInputElement, key: string): void {
   props?.onKeyDown?.({ key, preventDefault() {}, stopPropagation() {} });
 }
 
+// Views of the given campaigns with `pins` pinned, in that order, the way the
+// popup builds them from settings.campaignPins.
+function pinnedFeasibility(pins: string[]) {
+  const settings = mergeSettings({ campaignPins: pins } as never);
+  return { skipUnfinishableRewards: settings.skipUnfinishableRewards, deadlineSafetyMarginMinutes: settings.deadlineSafetyMarginMinutes, settings };
+}
+
 describe("campaign rank input", () => {
-  it("reorders via the typed rank on blur", () => {
+  it("moves a pin to the typed rank on blur", () => {
     const { document, window } = parseHTML("<div id=app></div>");
     vi.stubGlobal("window", window);
     vi.stubGlobal("document", document);
@@ -419,8 +421,8 @@ describe("campaign rank input", () => {
     const onPinChange = vi.fn();
     const adapter = { openLink: vi.fn() } as unknown as PopupAdapter;
     const campaigns = [
-      campaignViewFromCampaign({ ...sourceCampaign(), id: "first", name: "First campaign" }, 0, idleSession, false),
-      campaignViewFromCampaign({ ...sourceCampaign(), id: "second", name: "Second campaign" }, 1, idleSession, false),
+      campaignViewFromCampaign({ ...sourceCampaign(), id: "first", name: "First campaign" }, 0, idleSession, false, pinnedFeasibility(["first", "second"])),
+      campaignViewFromCampaign({ ...sourceCampaign(), id: "second", name: "Second campaign" }, 1, idleSession, false, pinnedFeasibility(["first", "second"])),
     ];
     const container = document.getElementById("app")!;
 
@@ -434,7 +436,7 @@ describe("campaign rank input", () => {
               gameMap={{}}
               refreshing={false}
               strategy="ending_soonest"
-              pinnedCount={0}
+              pinnedCount={2}
               farmPinnedOnly={false}
               onStrategyChange={() => undefined}
               onUnpinAll={() => undefined}
@@ -483,8 +485,8 @@ describe("campaign rank input", () => {
     const onPinChange = vi.fn();
     const adapter = { openLink: vi.fn() } as unknown as PopupAdapter;
     const campaigns = [
-      campaignViewFromCampaign({ ...sourceCampaign(), id: "first", name: "First campaign" }, 0, idleSession, false),
-      campaignViewFromCampaign({ ...sourceCampaign(), id: "second", name: "Second campaign" }, 1, idleSession, false),
+      campaignViewFromCampaign({ ...sourceCampaign(), id: "first", name: "First campaign" }, 0, idleSession, false, pinnedFeasibility(["first", "second"])),
+      campaignViewFromCampaign({ ...sourceCampaign(), id: "second", name: "Second campaign" }, 1, idleSession, false, pinnedFeasibility(["first", "second"])),
     ];
     const container = document.getElementById("app")!;
 
@@ -498,7 +500,7 @@ describe("campaign rank input", () => {
               gameMap={{}}
               refreshing={false}
               strategy="ending_soonest"
-              pinnedCount={0}
+              pinnedCount={2}
               farmPinnedOnly={false}
               onStrategyChange={() => undefined}
               onUnpinAll={() => undefined}
@@ -541,7 +543,7 @@ describe("campaign rank input", () => {
     expect(onPinChange).toHaveBeenCalledWith("second", 0);
   });
 
-  it("exposes the rank editor while searching, against the full queue order", () => {
+  it("exposes a pin's rank editor while searching, against the full queue order", () => {
     const { document, window } = parseHTML("<div id=app></div>");
     vi.stubGlobal("window", window);
     vi.stubGlobal("document", document);
@@ -554,13 +556,13 @@ describe("campaign rank input", () => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     const container = document.getElementById("app")!;
     const campaigns = [
-      campaignViewFromCampaign({ ...sourceCampaign(), id: "first", name: "First campaign" }, 0, idleSession, false),
-      campaignViewFromCampaign({ ...sourceCampaign(), id: "second", name: "Second campaign" }, 1, idleSession, false),
+      campaignViewFromCampaign({ ...sourceCampaign(), id: "first", name: "First campaign" }, 0, idleSession, false, pinnedFeasibility(["first", "second"])),
+      campaignViewFromCampaign({ ...sourceCampaign(), id: "second", name: "Second campaign" }, 1, idleSession, false, pinnedFeasibility(["first", "second"])),
     ];
 
     act(() => {
       root = createRoot(container);
-      renderDropsPanel(campaigns);
+      renderDropsPanel(campaigns, undefined, 2);
     });
 
     const input = container.querySelector<HTMLInputElement>("input[type='search']")!;

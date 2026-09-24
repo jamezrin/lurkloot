@@ -10,7 +10,6 @@ import {
   ChevronRight,
   ExternalLink,
   Gift,
-  GripVertical,
   Link2,
   Pin,
   RotateCcw,
@@ -136,11 +135,13 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
       <div className="relative flex items-stretch">
         {/* Drag rail doubles as the priority column: grip and rank share a
             16px column centered in the rail so the number is a caption of the
-            handle, not full-rail text. */}
+            handle, not full-rail text. Only pins can be dragged, so a row
+            without a handle shows its rank alone rather than a grip that
+            would promise a drag it cannot do. */}
         {!finished ? (
           <div className="flex w-7 shrink-0 items-center justify-center">
             <div className="flex w-4 flex-col items-center gap-0.5">
-              {dragHandle ?? <GripVertical size={14} className="text-zinc-300 dark:text-zinc-600" />}
+              {dragHandle}
               <RankInput index={index} count={rankCount ?? 0} label={campaign.title} onMove={onRankMove} size="rail" />
             </div>
           </div>

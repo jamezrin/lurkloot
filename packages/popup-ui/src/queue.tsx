@@ -30,16 +30,18 @@ function matchesFacet(campaign: CampaignView, facet: QueueFacet): boolean {
   return facet === "badges" ? campaign.hasSubscriptionRewards : !campaign.hasSubscriptionRewards;
 }
 
-// Where a campaign dropped at `toIndex` of the queue lands among the pins.
-// Dragging pins the dragged campaign and nothing else: every campaign it passed
-// keeps the tier it had, which is what stops one drag from freezing the list.
-function pinPositionFor(queued: CampaignView[], campaignId: string, toIndex: number): number {
-  let position = 0;
-  for (let index = 0; index < toIndex && index < queued.length; index += 1) {
-    const campaign = queued[index]!;
-    if (campaign.id !== campaignId && campaign.pinned) position += 1;
-  }
-  return position;
+// Only pins have a hand-made order. Everything below them is ranked by the
+// favourite games' order and then the strategy, so it is neither draggable nor
+// given a rank editor: moving one of those rows would mean pinning it, which
+// the pin button already says plainly.
+const pinnedOf = (queued: CampaignView[]): CampaignView[] => queued.filter((campaign) => campaign.rankTier === "pinned");
+
+// Where a pin moved to slot `toIndex` of the visible pins goes in the full pin
+// list: it takes the place of the pin now in that slot. A facet can hide some
+// pins, so the visible slot and the real position are not the same number.
+function pinPosition(visiblePins: CampaignView[], toIndex: number): number {
+  const displaced = visiblePins[Math.max(0, Math.min(toIndex, visiblePins.length - 1))];
+  return displaced?.pinIndex ?? toIndex;
 }
 
 export function QueuePanel({
@@ -141,8 +143,8 @@ export function QueuePanel({
     togglePin: (campaign) => void latest.current.onPinChange(campaign.id, campaign.pinned ? null : latest.current.pinnedCount),
     pinLast: (id) => void latest.current.onPinChange(id, latest.current.pinnedCount),
     rankMove: (id, toIndex) => {
-      const current = latest.current.queued;
-      if (current.some((campaign) => campaign.id === id)) void latest.current.onPinChange(id, pinPositionFor(current, id, toIndex));
+      const pins = pinnedOf(latest.current.queued);
+      if (pins.some((campaign) => campaign.id === id)) void latest.current.onPinChange(id, pinPosition(pins, toIndex));
     },
     favourite: (category) => void latest.current.onToggleFavouriteCategory?.(category),
     block: (category) => void latest.current.onToggleBlockedCategory?.(category),
@@ -153,14 +155,15 @@ export function QueuePanel({
 
   // Stable for the same reason as the row actions: the drag provider hands its
   // handler to every sortable card, so a fresh one per render re-rendered them all.
+  // Dragging only ever reorders the pins among themselves.
   const endDrag = React.useCallback((event: SortableDragEndEvent): void => {
-    const current = latest.current.queued;
-    const next = reorderFromDragEnd(current, event);
-    if (next === current) return;
-    const movedIndex = next.findIndex((campaign, index) => campaign.id !== current[index]?.id);
-    if (movedIndex === -1) return;
-    const moved = next[movedIndex]!;
-    void latest.current.onPinChange(moved.id, pinPositionFor(current, moved.id, movedIndex));
+    const pins = pinnedOf(latest.current.queued);
+    const next = reorderFromDragEnd(pins, event);
+    if (next === pins) return;
+    const movedId = event.operation.source?.id;
+    const toIndex = next.findIndex((campaign) => campaign.id === movedId);
+    if (toIndex === -1 || pins[toIndex]?.id === movedId) return;
+    void latest.current.onPinChange(String(movedId), pinPosition(pins, toIndex));
   }, []);
 
   const tiers: CampaignRankTier[] = ["pinned", "favourite", "strategy"];
@@ -231,9 +234,9 @@ export function QueuePanel({
                     game={gameMap[campaign.gameId]}
                     expanded={Boolean(expandedIds[campaign.id])}
                     refreshing={refreshing}
-                    // #564: a rank only means something among pins, so a search
-                    // result can be pinned and placed without leaving the query.
-                    rankCount={queued.length}
+                    // #564: a rank only means something among pins, so a pinned
+                    // search result can be placed without leaving the query.
+                    rankCount={pinnedCount}
                     rankReason={campaign.section === "queue" ? rankReason(campaign) : undefined}
                     actions={actions}
                     {...categoryActions}
@@ -244,44 +247,45 @@ export function QueuePanel({
           </div>
         )
       ) : (
-        <DragDropProvider onDragEnd={endDrag}>
           <div ref={listRef} className="space-y-1">
             {tiers.map((tier) => {
               const rows = queued.filter((campaign) => campaign.rankTier === tier);
               if (rows.length === 0) return null;
-              return (
+              const pinned = tier === "pinned";
+              const group = (
                 <div key={tier} data-queue-group={tier} className="space-y-1">
                   <GroupDivider
                     label={t(TIER_LABEL_KEYS[tier])}
                     hint={tier === "strategy"
                       ? t(strategy === "lowest_availability" ? "lowAvailabilityFirst" : "endingSoonest")
-                      : tier === "pinned" ? t("queueGroupPinnedHint") : undefined}
-                    action={tier === "pinned" && pinnedCount > 0
+                      : pinned ? t("queueGroupPinnedHint") : undefined}
+                    action={pinned && pinnedCount > 0
                       ? { label: t("queueUnpinAll", String(pinnedCount)), onClick: () => void onUnpinAll(), attribute: "data-queue-unpin-all" }
                       : tier === "favourite" ? { label: t("queueEditFavourites"), onClick: onOpenGames } : undefined}
                   />
-                  {rows.map((campaign) => {
-                    const index = queued.indexOf(campaign);
-                    return (
-                      <QueueRow
-                        key={campaign.id}
-                        kind="sortable"
-                        campaign={campaign}
-                        index={index}
-                        farmingIndex={farmingIndex}
-                        anyFarming={anyFarming}
-                        game={gameMap[campaign.gameId]}
-                        expanded={Boolean(expandedIds[campaign.id])}
-                        refreshing={refreshing}
-                        rankCount={queued.length}
-                        rankReason={rankReason(campaign)}
-                        actions={actions}
-                        {...categoryActions}
-                      />
-                    );
-                  })}
+                  {rows.map((campaign) => (
+                    <QueueRow
+                      key={campaign.id}
+                      kind={pinned ? "sortable" : "ranked"}
+                      campaign={campaign}
+                      index={queued.indexOf(campaign)}
+                      farmingIndex={farmingIndex}
+                      anyFarming={anyFarming}
+                      game={gameMap[campaign.gameId]}
+                      expanded={Boolean(expandedIds[campaign.id])}
+                      refreshing={refreshing}
+                      rankCount={rows.length}
+                      rankReason={rankReason(campaign)}
+                      actions={actions}
+                      {...categoryActions}
+                    />
+                  ))}
                 </div>
               );
+              // The pins are the only sortable list, in a drag scope of their
+              // own: no drop target exists outside them, so a row can never be
+              // dragged into a group that orders itself.
+              return pinned ? <DragDropProvider key={tier} onDragEnd={endDrag}>{group}</DragDropProvider> : group;
             })}
 
             {queued.length === 0 ? <EmptyPanel>{t(facet === "badges" ? "queueEmptyBadges" : "queueEmpty")}</EmptyPanel> : null}
@@ -344,7 +348,6 @@ export function QueuePanel({
               </Disclosure>
             ) : null}
           </div>
-        </DragDropProvider>
       )}
     </section>
   );
@@ -368,7 +371,7 @@ type RowActions = {
  * values and the panel's stable actions, so opening one card or a poll with
  * nothing new re-renders no other row. */
 const QueueRow = React.memo(function QueueRow({ kind, campaign, index, farmingIndex, anyFarming, game, expanded, refreshing, rankCount, rankReason, actions, canFavourite, canBlock }: {
-  kind: "search" | "sortable" | "skipped" | "upcoming";
+  kind: "search" | "sortable" | "ranked" | "skipped" | "upcoming";
   campaign: CampaignView;
   index: number;
   farmingIndex: number;
@@ -411,12 +414,26 @@ const QueueRow = React.memo(function QueueRow({ kind, campaign, index, farmingIn
       />
     );
   }
+  // A queued row below the pins: its rank is shown, not edited, and pinning it
+  // is the way to give it a hand-made place.
+  if (kind === "ranked") {
+    return (
+      <div data-campaign-id={campaign.id} data-campaign-rank={String(index + 1)}>
+        <CampaignCard
+          {...props}
+          pinned={false}
+          onPin={() => actions.togglePin(campaign)}
+          rankReason={rankReason}
+        />
+      </div>
+    );
+  }
   if (kind === "search") {
     return (
       <CampaignCard
         {...props}
         rankCount={rankCount}
-        onRankMove={queued ? (toIndex) => actions.rankMove(campaign.id, toIndex) : undefined}
+        onRankMove={campaign.pinned && campaign.pinIndex != null ? (toIndex) => actions.rankMove(campaign.id, toIndex) : undefined}
         onPin={queued ? () => actions.togglePin(campaign) : undefined}
         pinned={campaign.pinned}
         rankReason={rankReason}

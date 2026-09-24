@@ -84,7 +84,7 @@
     "message": "Fixadas"
   },
   "queueGroupPinnedHint": {
-    "message": "arraste uma linha aqui ou digite uma posição"
+    "message": "arraste para reordenar ou digite uma posição"
   },
   "queueGroupFavourite": {
     "message": "Jogos favoritos"
