@@ -176,6 +176,20 @@ export class KickPageContextRecoveryTracker {
   }
 }
 
+// The page fallback exists for failures tied to the service-worker origin: WAF
+// blocks, network/CORS rejections, challenge pages, auth rejections (a Cloudflare
+// 403 page classifies as one) and server errors. A definitive client error is
+// Kick's answer to the request itself, which the page tab would receive too, so
+// falling back would only open a kick.com tab for nothing — e.g. every claim on
+// an unlinked campaign answers 400 INVALID_CLAIM. Rate limiting (429) likewise
+// applies to the request, not its execution context.
+function isOriginIndependentKickFailure(error: unknown): boolean {
+  if (!isSafeFetchError(error) || error instanceof KickWafBlockedError) return false;
+  const { kind, status } = error.failure;
+  if (status === 429) return true;
+  return kind === "http_error" && status != null && status >= 400 && status < 500 && status !== 408;
+}
+
 // Try the background transport first, then the host's optional page fallback.
 // Only route transitions emit per-request events; successful requests are
 // counted until the caller flushes the drained logical operation.
@@ -217,9 +231,8 @@ export function createKickFetcher(deps: {
           result = await background(url, init);
         } catch (error) {
           init?.signal?.throwIfAborted();
-          // Rate limiting applies to the request, not its execution context.
           // CLI transports have no page fallback and retain their original error.
-          if (!pageFetch || (isSafeFetchError(error) && error.failure.status === 429)) throw error;
+          if (!pageFetch || isOriginIndependentKickFailure(error)) throw error;
           init?.signal?.throwIfAborted();
           result = await pageFetch(url, init);
           routeState.report(emit, host, "page", error instanceof KickWafBlockedError
