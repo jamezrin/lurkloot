@@ -75,7 +75,14 @@ export function Toggle({ checked, onChange, label, disabled = false, size = "md"
   const small = size === "sm";
   return (
     <button type="button" role="switch" aria-checked={checked} aria-label={label} disabled={disabled} onClick={() => void onChange(!checked)} className={cn("relative inline-flex shrink-0 items-center rounded-full p-0.5 transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]", small ? "h-[18px] w-[31px]" : "h-[22px] w-[38px]", checked ? "" : "bg-zinc-300 dark:bg-zinc-600", disabled && "cursor-not-allowed opacity-70")} style={checked ? { backgroundColor: color ?? "var(--accent)" } : undefined}>
-      <motion.span layout transition={{ type: "spring", stiffness: 550, damping: 32 }} className={cn("rounded-full bg-white shadow-sm", small ? "h-[14px] w-[14px]" : "h-[18px] w-[18px]")} style={{ marginLeft: checked ? (small ? 13 : 16) : 0 }} />
+      {/* A CSS transform rather than a Motion layout animation: a layout-animated
+          element makes Motion measure the page on every update, which cost a
+          long list tens of milliseconds each time it rendered. */}
+      <span
+        aria-hidden
+        className={cn("rounded-full bg-white shadow-sm transition-transform duration-200 ease-out motion-reduce:transition-none", small ? "h-[14px] w-[14px]" : "h-[18px] w-[18px]")}
+        style={{ transform: `translateX(${checked ? (small ? 13 : 16) : 0}px)` }}
+      />
     </button>
   );
 }

@@ -242,7 +242,11 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
                 <Pin size={13} fill={pinned ? "currentColor" : "none"} />
               </button>
             ) : null}
-            <motion.div animate={{ rotate: expanded ? 90 : 0 }} transition={{ duration: 0.18 }} className="pointer-events-none grid h-6 w-5 place-items-center text-zinc-400 rtl:-scale-x-100 dark:text-zinc-500"><ChevronRight size={15} /></motion.div>
+            {/* A CSS rotation: a motion element per card made every list mount
+                pay for Motion's scroll measurement once per card. */}
+            <span aria-hidden className="pointer-events-none grid h-6 w-5 place-items-center text-zinc-400 rtl:-scale-x-100 dark:text-zinc-500">
+              <ChevronRight size={15} className={cn("transition-transform duration-200 motion-reduce:transition-none", expanded && "rotate-90")} />
+            </span>
           </div>
         </div>
       </div>
