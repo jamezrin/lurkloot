@@ -48,26 +48,28 @@ export function SettingsSection({ id, title, description, badge, forceExpanded, 
 
   const expanded = forceExpanded || !collapsed;
 
+  // At full width the section's name and purpose sit in a label column beside
+  // its rows, so the width goes to the settings rather than to stacked headings.
   return (
-    <section id={`settings-section-${id}`} className="scroll-mt-2">
-      <header className="mb-1.5 px-0.5">
+    <section id={`settings-section-${id}`} className="@[520px]:grid-cols-[8.5rem_minmax(0,1fr)] grid scroll-mt-2 grid-cols-1 gap-x-5 border-t border-zinc-200 pt-3 first:border-t-0 first:pt-0 dark:border-zinc-800">
+      <header className="@[520px]:mb-0 mb-1.5">
         <button
           type="button"
           aria-expanded={expanded}
           onClick={toggleCollapsed}
-          className="flex w-full items-start justify-between gap-3 rounded-lg px-1 py-1 text-left outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:hover:bg-zinc-900/70"
+          className="group flex w-full items-start justify-between gap-2 rounded-lg py-1.5 text-start outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
         >
           <span className="min-w-0">
             <span className="flex items-center gap-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{title}</span>
+              <span data-settings-section-title className="font-display text-[12.5px] font-bold leading-tight text-zinc-900 dark:text-zinc-50">{title}</span>
               {badge}
             </span>
-            {description ? <span className="mt-1 block text-[11px] leading-snug text-zinc-400 dark:text-zinc-500">{description}</span> : null}
+            {description ? <span className="mt-1 block text-[10.5px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</span> : null}
           </span>
-          <ChevronDown size={14} className={cn("mt-0.5 shrink-0 text-zinc-400 transition-transform dark:text-zinc-500", expanded && "rotate-180")} />
+          <ChevronDown size={13} className={cn("mt-0.5 shrink-0 text-zinc-300 transition-transform group-hover:text-zinc-500 dark:text-zinc-600", expanded && "rotate-180")} />
         </button>
       </header>
-      {expanded ? <div className="space-y-3 px-0.5">{children}</div> : null}
+      {expanded ? <div className="min-w-0 space-y-3 pb-2">{children}</div> : <div className="@[520px]:block hidden" />}
     </section>
   );
 }
@@ -121,12 +123,12 @@ export function SettingRow({ title, description, checked, onChange, disabled = f
   disabledReason?: string;
 }) {
   return (
-    <div className={cn("@[520px]:grid-cols-[minmax(0,13rem)_minmax(0,1fr)_auto] grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-0.5 py-2.5", disabled && "opacity-60")} title={disabled ? disabledReason : undefined}>
-      <div className="@[520px]:col-auto min-w-0 text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{title}</div>
-      <div className="@[520px]:col-auto @[520px]:row-auto @[520px]:mt-0 col-span-2 row-start-2 mt-0.5 min-w-0 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
-      <div className="@[520px]:row-auto row-start-1 justify-self-end">
-        <Toggle checked={checked} onChange={onChange} label={title} disabled={disabled} />
+    <div className={cn("grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 py-2.5", disabled && "opacity-60")} title={disabled ? disabledReason : undefined}>
+      <div className="min-w-0">
+        <div className="text-[12.5px] font-semibold text-zinc-800 dark:text-zinc-100">{title}</div>
+        <div className="mt-0.5 max-w-[46ch] text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
       </div>
+      <Toggle checked={checked} onChange={onChange} label={title} disabled={disabled} />
     </div>
   );
 }
@@ -138,7 +140,7 @@ export function ForgetExcludedCampaignsRow({ count, onForget }: { count: number;
   return (
     <div className="flex items-center gap-3 py-2.5">
       <div className="min-w-0 flex-1">
-        <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{t("forgetExcludedTitle")}</div>
+        <div className="text-[12.5px] font-semibold text-zinc-800 dark:text-zinc-100">{t("forgetExcludedTitle")}</div>
         <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
           {t("forgetExcludedDescription")}
         </div>
@@ -203,7 +205,7 @@ export function SelectSettingRow<T extends string>({ title, description, value, 
   return (
     <div className={cn("flex items-center gap-4 py-2.5", disabled && "opacity-60")} title={disabled ? disabledReason : undefined}>
       <div className="min-w-0 flex-1">
-        <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{title}</div>
+        <div className="text-[12.5px] font-semibold text-zinc-800 dark:text-zinc-100">{title}</div>
         <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
       </div>
       <SelectControl label={title} value={value} options={options} onChange={onChange} disabled={disabled} disabledReason={disabledReason} />
@@ -232,7 +234,7 @@ export function NumberSettingRow({ title, description, value, min, max, suffix, 
   return (
     <div className={cn("flex items-center gap-3 py-2.5", disabled && "opacity-60")} title={disabled ? disabledReason : undefined}>
       <div className="min-w-0 flex-1">
-        <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{title}</div>
+        <div className="text-[12.5px] font-semibold text-zinc-800 dark:text-zinc-100">{title}</div>
         <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
       </div>
       <label className={cn("flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[11px] font-semibold text-zinc-500 focus-within:border-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400", disabled && "cursor-not-allowed")}>

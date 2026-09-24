@@ -223,10 +223,10 @@ describe("settings search view", () => {
 
   it("organizes the normal view into ordered collapsible settings sections", () => {
     const { container } = mountSettings();
-    // Target the title span by its class rather than by ordinal, so adding a
-    // badge or an icon to one section cannot silently shift what this reads.
+    // Target the title span by its marker rather than by ordinal or styling,
+    // so a badge, an icon or a restyle cannot silently shift what this reads.
     const sectionTitles = [...container.querySelectorAll<HTMLButtonElement>('button[aria-expanded]')]
-      .map((button) => button.querySelector<HTMLSpanElement>("span.uppercase")?.textContent?.trim());
+      .map((button) => button.querySelector<HTMLSpanElement>("[data-settings-section-title]")?.textContent?.trim());
 
     expect(sectionTitles).toEqual([
       "Appearance & behavior",
