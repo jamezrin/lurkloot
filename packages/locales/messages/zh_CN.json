@@ -1810,5 +1810,11 @@
   },
   "railWhatsNew": {
     "message": "新功能"
+  },
+  "campaignShowDetails": {
+    "message": "显示详情"
+  },
+  "campaignHideDetails": {
+    "message": "隐藏详情"
   }
 }

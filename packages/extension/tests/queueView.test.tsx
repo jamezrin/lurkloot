@@ -275,6 +275,20 @@ describe("campaign status pill", () => {
 });
 
 describe("campaign card actions", () => {
+  it("opens and closes a campaign from its chevron, which says what it does", () => {
+    const settings = mergeSettings(undefined);
+    const { container } = queue(views([campaign("one")], settings), settings);
+    const toggle = () => container.querySelector('[data-campaign-id="one"] button[aria-expanded][aria-label="one"]');
+    const chevron = () => container.querySelector<HTMLButtonElement>('[data-campaign-id="one"] [data-campaign-chevron]')!;
+
+    expect(chevron().getAttribute("title")).toBe("campaignShowDetails");
+    act(() => chevron().click());
+    expect(toggle()?.getAttribute("aria-expanded")).toBe("true");
+    expect(chevron().getAttribute("title")).toBe("campaignHideDetails");
+    act(() => chevron().click());
+    expect(toggle()?.getAttribute("aria-expanded")).toBe("false");
+  });
+
   it("pins a queued campaign from its own row", () => {
     const settings = mergeSettings({ campaignPins: ["pinned"] } as never);
     const onPinChange = vi.fn();

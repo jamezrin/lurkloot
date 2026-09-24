@@ -1810,5 +1810,11 @@
   },
   "railWhatsNew": {
     "message": "Novità"
+  },
+  "campaignShowDetails": {
+    "message": "Mostra dettagli"
+  },
+  "campaignHideDetails": {
+    "message": "Nascondi dettagli"
   }
 }

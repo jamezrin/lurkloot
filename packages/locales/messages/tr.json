@@ -1810,5 +1810,11 @@
   },
   "railWhatsNew": {
     "message": "Yenilikler"
+  },
+  "campaignShowDetails": {
+    "message": "Ayrıntıları göster"
+  },
+  "campaignHideDetails": {
+    "message": "Ayrıntıları gizle"
   }
 }

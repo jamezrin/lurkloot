@@ -242,11 +242,24 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
                 <Pin size={13} fill={pinned ? "currentColor" : "none"} />
               </button>
             ) : null}
-            {/* A CSS rotation: a motion element per card made every list mount
-                pay for Motion's scroll measurement once per card. */}
-            <span aria-hidden className="pointer-events-none grid h-6 w-5 place-items-center text-zinc-400 rtl:-scale-x-100 dark:text-zinc-500">
+            {/* The chevron opens and closes the card like the row itself does.
+                It sits among the row's own controls, which take their clicks,
+                so it has to be a button rather than a picture of one. The
+                row's full-area toggle already names the action for assistive
+                technology, so this duplicate stays out of the tab order.
+                Rotated with CSS: a motion element per card made every list
+                mount pay for Motion's scroll measurement. */}
+            <button
+              type="button"
+              data-campaign-chevron
+              tabIndex={-1}
+              aria-hidden
+              title={t(expanded ? "campaignHideDetails" : "campaignShowDetails")}
+              onClick={(event) => { event.stopPropagation(); onToggle(); }}
+              className="grid h-6 w-6 place-items-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 rtl:-scale-x-100 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+            >
               <ChevronRight size={15} className={cn("transition-transform duration-200 motion-reduce:transition-none", expanded && "rotate-90")} />
-            </span>
+            </button>
           </div>
         </div>
       </div>
