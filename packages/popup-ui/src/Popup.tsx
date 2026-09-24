@@ -829,7 +829,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
         {/* The view's title and its own controls share one row: a view hands
             them to ViewToolbar, which moves them into the slot here. */}
         <div className="flex shrink-0 items-center gap-2 px-3 pt-2.5">
-          <h1 className="font-display shrink-0 truncate text-[15px] font-bold text-zinc-900 dark:text-zinc-50">{viewTitle}</h1>
+          <h1 className="font-display shrink-0 truncate text-[15px] font-bold tracking-[-0.01em] text-zinc-900 dark:text-zinc-50">{viewTitle}</h1>
           <div ref={setToolbarSlot} data-view-toolbar className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5" />
           <div className="flex shrink-0 items-center gap-0.5">
             <IconButton label={t("refreshSchedule")} onClick={() => void refreshNow()} disabled={refreshing}>

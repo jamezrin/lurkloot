@@ -1,4 +1,7 @@
 @import "@fontsource-variable/bricolage-grotesque";
+/* The popup demo's display face. Declared here because @font-face inside the
+   demo's shadow root is ignored. */
+@import "@fontsource-variable/archivo";
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/geist-mono";
 

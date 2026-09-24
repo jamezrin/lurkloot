@@ -98,8 +98,14 @@ Still to do under #566:
 
 ## Typography
 
-`--font-display` (Bricolage Grotesque) for names and headings, `--font-sans`
-(Geist) for everything else, `--font-mono` (Geist Mono) for numbers that line
-up: ranks, counts, timestamps. #566 asks whether this pairing is distinctive
-enough — it is the same one a lot of recent projects reach for. Still open,
-and worth settling before the site and store assets are redone in Ember.
+The popup uses the prototype's pairing: `--font-display` (Archivo) for names and
+headings, `--font-sans` (Geist) for everything else, `--font-mono` (Geist Mono)
+for numbers that line up — ranks, counts, timestamps. All three are bundled
+through `@lurkloot/popup-ui/fonts.css`, which the extension's popup and in-page
+panel import; before that, the extension named Geist but never shipped it and
+fell back to the system font. The site demo declares the same families in the
+site's global stylesheet, because `@font-face` inside its shadow root is
+ignored.
+
+The marketing site's own pages still use Bricolage Grotesque for display. Moving
+them to Archivo belongs with the rest of the site's move to Ember under #566.

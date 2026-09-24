@@ -1,0 +1,10 @@
+/* The popup's typefaces, bundled so the extension renders them from its own
+   package instead of falling back to the system font: Archivo for names and
+   headings, Geist for text, Geist Mono for numbers that line up.
+
+   Import this from a document, not from a shadow root: @font-face rules inside
+   a shadow tree are ignored, so the site demo declares the same families in
+   its own global stylesheet. */
+@import "@fontsource-variable/archivo";
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";

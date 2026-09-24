@@ -96,7 +96,7 @@ export function WorkspaceRail({ view, platform, counts, sourceOrder, liveSource,
         <span aria-hidden className="grid h-6 w-6 shrink-0 place-items-center rounded-[7px] bg-[var(--brand)]">
           <span className="h-2.5 w-2.5 rounded-full border-[2.5px] border-[var(--brand-contrast)]" />
         </span>
-        <span className="font-display @[560px]:inline hidden truncate text-[14px] font-bold text-zinc-900 dark:text-zinc-50">Lurkloot</span>
+        <span className="font-display @[560px]:inline hidden truncate text-[14px] font-extrabold tracking-[-0.015em] text-zinc-900 dark:text-zinc-50">Lurkloot</span>
       </div>
 
       <PlatformRail active={platform} presentation={presentation} onChange={onPlatformChange} />

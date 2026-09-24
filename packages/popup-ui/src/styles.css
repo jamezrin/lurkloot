@@ -10,11 +10,15 @@
 @source "./**/*.{ts,tsx}";
 
 @theme {
-  --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
-    Roboto, sans-serif;
-  --font-display: "Bricolage Grotesque", "Geist", ui-sans-serif, system-ui,
-    sans-serif;
-  --font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  /* Archivo for names and headings, Geist for text, Geist Mono for numbers —
+     the prototype's pairing. fonts.css bundles all three; the plain names
+     follow the variable ones for anywhere they are installed instead. */
+  --font-sans: "Geist Variable", "Geist", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, sans-serif;
+  --font-display: "Archivo Variable", "Archivo", "Geist Variable", ui-sans-serif,
+    system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", "Geist Mono", ui-monospace, "SFMono-Regular",
+    Menlo, monospace;
 
   /* Warm neutrals. The popup is written against Tailwind's zinc scale; zinc is
      redefined here with a slight warm bias so every surface, line and grey text
