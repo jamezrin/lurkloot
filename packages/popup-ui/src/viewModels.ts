@@ -235,3 +235,37 @@ export function streamerItemFromFallback(username: string, session: WatchSession
     viewers: channel.viewerCount,
   };
 }
+
+/** Structural equality for plain view data: objects, arrays and primitives. */
+export function sameViewData(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true;
+  if (typeof left !== "object" || typeof right !== "object" || left === null || right === null) return false;
+  if (Array.isArray(left) !== Array.isArray(right)) return false;
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) return false;
+  return leftKeys.every((key) => sameViewData((left as Record<string, unknown>)[key], (right as Record<string, unknown>)[key]));
+}
+
+/** The value a render should hand down: the previous one when nothing in it
+ * changed, so memoised children see the same reference and skip. */
+export function reuseIfUnchanged<T>(previous: T | undefined, next: T): T {
+  return previous !== undefined && sameViewData(previous, next) ? previous : next;
+}
+
+/** Campaign views carried across a snapshot poll. Every poll builds fresh view
+ * objects; a campaign whose view is unchanged keeps its previous object, and a
+ * list with no change at all keeps its previous array, so a card re-renders
+ * only when something it shows actually changed. */
+export function reuseUnchangedViews(previous: CampaignView[] | undefined, next: CampaignView[]): CampaignView[] {
+  if (!previous) return next;
+  const byId = new Map(previous.map((view) => [view.id, view]));
+  let changed = previous.length !== next.length;
+  const shared = next.map((view, index) => {
+    const before = byId.get(view.id);
+    const kept = before && sameViewData(before, view) ? before : view;
+    if (kept !== previous[index]) changed = true;
+    return kept;
+  });
+  return changed ? shared : previous;
+}

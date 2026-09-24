@@ -126,23 +126,40 @@ export function QueuePanel({
     return () => cancelAnimationFrame(frame);
   }, [focus?.id, focus?.seq, searching, showSkipped, showUpcoming]);
 
-  const toggleExpanded = (id: string) => setExpandedIds((current) => ({ ...current, [id]: !current[id] }));
-  const gameFor = (campaign: CampaignView, index: number) => gameMap[campaign.gameId] ?? fallbackGame(campaign, index, t);
+  // Every row gets the same actions object for the life of the panel, and each
+  // action reads the latest props through a ref. Rows are memoised, so a row
+  // re-renders only when something it shows changed — not because the parent
+  // re-rendered and minted a fresh arrow for every card.
+  const latest = useRef({ queued, pinnedCount, onPinChange, onToggleExclude, onRefreshCampaign, onToggleFavouriteCategory, onToggleBlockedCategory, onOpenGames, onOpenSettings });
+  latest.current = { queued, pinnedCount, onPinChange, onToggleExclude, onRefreshCampaign, onToggleFavouriteCategory, onToggleBlockedCategory, onOpenGames, onOpenSettings };
+  const actions = useMemo<RowActions>(() => ({
+    toggle: (id) => setExpandedIds((current) => ({ ...current, [id]: !current[id] })),
+    refresh: (id) => void latest.current.onRefreshCampaign(id),
+    toggleExclude: (id) => void latest.current.onToggleExclude(id),
+    togglePin: (campaign) => void latest.current.onPinChange(campaign.id, campaign.pinned ? null : latest.current.pinnedCount),
+    pinLast: (id) => void latest.current.onPinChange(id, latest.current.pinnedCount),
+    rankMove: (id, toIndex) => {
+      const current = latest.current.queued;
+      if (current.some((campaign) => campaign.id === id)) void latest.current.onPinChange(id, pinPositionFor(current, id, toIndex));
+    },
+    favourite: (category) => void latest.current.onToggleFavouriteCategory?.(category),
+    block: (category) => void latest.current.onToggleBlockedCategory?.(category),
+    openGames: () => latest.current.onOpenGames(),
+    openSettings: () => latest.current.onOpenSettings(),
+  }), []);
+  const categoryActions = { canFavourite: Boolean(onToggleFavouriteCategory), canBlock: Boolean(onToggleBlockedCategory) };
 
-  function endDrag(event: SortableDragEndEvent): void {
-    const next = reorderFromDragEnd(queued, event);
-    if (next === queued) return;
-    const movedIndex = next.findIndex((campaign, index) => campaign.id !== queued[index]?.id);
+  // Stable for the same reason as the row actions: the drag provider hands its
+  // handler to every sortable card, so a fresh one per render re-rendered them all.
+  const endDrag = React.useCallback((event: SortableDragEndEvent): void => {
+    const current = latest.current.queued;
+    const next = reorderFromDragEnd(current, event);
+    if (next === current) return;
+    const movedIndex = next.findIndex((campaign, index) => campaign.id !== current[index]?.id);
     if (movedIndex === -1) return;
     const moved = next[movedIndex]!;
-    void onPinChange(moved.id, pinPositionFor(queued, moved.id, movedIndex));
-  }
-
-  function moveCampaign(fromIndex: number, toIndex: number): void {
-    const moved = queued[fromIndex];
-    if (!moved) return;
-    void onPinChange(moved.id, pinPositionFor(queued, moved.id, toIndex));
-  }
+    void latest.current.onPinChange(moved.id, pinPositionFor(current, moved.id, movedIndex));
+  }, []);
 
   const tiers: CampaignRankTier[] = ["pinned", "favourite", "strategy"];
   const facetCounts: Record<QueueFacet, number> = {
@@ -153,16 +170,14 @@ export function QueuePanel({
 
   // The layer of the ranking that placed a queued campaign, in words: the
   // card shows it among its facts so the order never has to be guessed.
-  function rankReason(campaign: CampaignView, game: GameItem): string {
+  function rankReason(campaign: CampaignView): string {
     if (campaign.rankTier === "pinned" && campaign.pinIndex != null) return t("rankReasonPinned", String(campaign.pinIndex + 1));
     if (campaign.rankTier === "favourite" && campaign.favouriteIndex != null) {
-      return t("rankReasonFavourite", [campaign.category?.name ?? game.name, String(campaign.favouriteIndex + 1)]);
+      return t("rankReasonFavourite", [campaign.category?.name ?? gameMap[campaign.gameId]?.name ?? campaign.title, String(campaign.favouriteIndex + 1)]);
     }
     return t(strategy === "lowest_availability" ? "rankReasonAvailability" : "rankReasonEnding");
   }
 
-  // What every card in the list can do to its game, beyond the row's own actions.
-  const categoryActions = { onToggleFavouriteCategory, onToggleBlockedCategory };
 
   return (
     <section className="space-y-1.5">
@@ -204,24 +219,20 @@ export function QueuePanel({
               const queueIndex = queued.findIndex((entry) => entry.id === campaign.id);
               return (
                 <div key={campaign.id} data-campaign-id={campaign.id} {...(queueIndex === -1 ? {} : { "data-campaign-rank": String(queueIndex + 1) })}>
-                  <CampaignCard
+                  <QueueRow
+                    kind="search"
                     campaign={campaign}
                     index={queueIndex === -1 ? index : queueIndex}
                     farmingIndex={farmingIndex}
                     anyFarming={anyFarming}
-                    game={gameFor(campaign, index)}
+                    game={gameMap[campaign.gameId]}
                     expanded={Boolean(expandedIds[campaign.id])}
                     refreshing={refreshing}
-                    onToggle={() => toggleExpanded(campaign.id)}
-                    onRefreshCampaign={onRefreshCampaign}
-                    onToggleExclude={onToggleExclude}
                     // #564: a rank only means something among pins, so a search
                     // result can be pinned and placed without leaving the query.
                     rankCount={queued.length}
-                    onRankMove={queueIndex === -1 ? undefined : (toIndex) => moveCampaign(queueIndex, toIndex)}
-                    onPin={campaign.section === "queue" ? () => void onPinChange(campaign.id, campaign.pinned ? null : pinnedCount) : undefined}
-                    pinned={campaign.pinned}
-                    rankReason={campaign.section === "queue" ? rankReason(campaign, gameFor(campaign, index)) : undefined}
+                    rankReason={campaign.section === "queue" ? rankReason(campaign) : undefined}
+                    actions={actions}
                     {...categoryActions}
                   />
                 </div>
@@ -249,24 +260,19 @@ export function QueuePanel({
                   {rows.map((campaign) => {
                     const index = queued.indexOf(campaign);
                     return (
-                      <SortableCampaign
+                      <QueueRow
                         key={campaign.id}
+                        kind="sortable"
                         campaign={campaign}
                         index={index}
-                        rank={index + 1}
                         farmingIndex={farmingIndex}
                         anyFarming={anyFarming}
-                        game={gameFor(campaign, index)}
+                        game={gameMap[campaign.gameId]}
                         expanded={Boolean(expandedIds[campaign.id])}
                         refreshing={refreshing}
-                        onToggle={() => toggleExpanded(campaign.id)}
-                        onRefreshCampaign={onRefreshCampaign}
-                        onToggleExclude={onToggleExclude}
                         rankCount={queued.length}
-                        onRankMove={(toIndex) => moveCampaign(index, toIndex)}
-                        pinned={campaign.pinned}
-                        onPin={() => void onPinChange(campaign.id, campaign.pinned ? null : pinnedCount)}
-                        rankReason={rankReason(campaign, gameFor(campaign, index))}
+                        rankReason={rankReason(campaign)}
+                        actions={actions}
                         {...categoryActions}
                       />
                     );
@@ -291,23 +297,16 @@ export function QueuePanel({
               >
                 {skipped.map((campaign, index) => (
                   <div key={campaign.id} data-campaign-id={campaign.id}>
-                    <CampaignCard
+                    <QueueRow
+                      kind="skipped"
                       campaign={campaign}
                       index={index}
                       farmingIndex={-1}
                       anyFarming={anyFarming}
-                      game={gameFor(campaign, index)}
+                      game={gameMap[campaign.gameId]}
                       expanded={Boolean(expandedIds[campaign.id])}
                       refreshing={refreshing}
-                      onToggle={() => toggleExpanded(campaign.id)}
-                      onRefreshCampaign={onRefreshCampaign}
-                      onToggleExclude={onToggleExclude}
-                      fix={skippedFix(campaign, {
-                        onToggleExclude,
-                        onOpenGames,
-                        onOpenSettings,
-                        onPin: () => void onPinChange(campaign.id, pinnedCount),
-                      }, t)}
+                      actions={actions}
                       {...categoryActions}
                     />
                   </div>
@@ -325,17 +324,16 @@ export function QueuePanel({
               >
                 {upcoming.map((campaign, index) => (
                   <div key={campaign.id} data-campaign-id={campaign.id}>
-                    <CampaignCard
+                    <QueueRow
+                      kind="upcoming"
                       campaign={campaign}
                       index={index}
                       farmingIndex={-1}
                       anyFarming={anyFarming}
-                      game={gameFor(campaign, index)}
+                      game={gameMap[campaign.gameId]}
                       expanded={Boolean(expandedIds[campaign.id])}
                       refreshing={refreshing}
-                      onToggle={() => toggleExpanded(campaign.id)}
-                      onRefreshCampaign={onRefreshCampaign}
-                      onToggleExclude={onToggleExclude}
+                      actions={actions}
                       {...categoryActions}
                     />
                   </div>
@@ -348,6 +346,95 @@ export function QueuePanel({
     </section>
   );
 }
+
+type RowActions = {
+  toggle(id: string): void;
+  refresh(id: string): void;
+  toggleExclude(id: string): void;
+  togglePin(campaign: CampaignView): void;
+  pinLast(id: string): void;
+  rankMove(id: string, toIndex: number): void;
+  favourite(category: CategorySelection): void;
+  block(category: CategorySelection): void;
+  openGames(): void;
+  openSettings(): void;
+};
+
+/** One campaign row in the queue, in whichever group it sits. Memoised: its
+ * props are the campaign view (kept across polls when unchanged), plain
+ * values and the panel's stable actions, so opening one card or a poll with
+ * nothing new re-renders no other row. */
+const QueueRow = React.memo(function QueueRow({ kind, campaign, index, farmingIndex, anyFarming, game, expanded, refreshing, rankCount, rankReason, actions, canFavourite, canBlock }: {
+  kind: "search" | "sortable" | "skipped" | "upcoming";
+  campaign: CampaignView;
+  index: number;
+  farmingIndex: number;
+  anyFarming: boolean;
+  game?: GameItem;
+  expanded: boolean;
+  refreshing: boolean;
+  rankCount?: number;
+  rankReason?: string;
+  actions: RowActions;
+  canFavourite: boolean;
+  canBlock: boolean;
+}): React.ReactElement {
+  const t = useT();
+  const queued = campaign.section === "queue";
+  const props = {
+    campaign,
+    index,
+    farmingIndex,
+    anyFarming,
+    game: game ?? fallbackGame(campaign, index, t),
+    expanded,
+    refreshing,
+    onToggle: () => actions.toggle(campaign.id),
+    onRefreshCampaign: actions.refresh,
+    onToggleExclude: actions.toggleExclude,
+    onToggleFavouriteCategory: canFavourite ? actions.favourite : undefined,
+    onToggleBlockedCategory: canBlock ? actions.block : undefined,
+  };
+  if (kind === "sortable") {
+    return (
+      <SortableCampaign
+        {...props}
+        rank={index + 1}
+        rankCount={rankCount}
+        onRankMove={(toIndex) => actions.rankMove(campaign.id, toIndex)}
+        pinned={campaign.pinned}
+        onPin={() => actions.togglePin(campaign)}
+        rankReason={rankReason}
+      />
+    );
+  }
+  if (kind === "search") {
+    return (
+      <CampaignCard
+        {...props}
+        rankCount={rankCount}
+        onRankMove={queued ? (toIndex) => actions.rankMove(campaign.id, toIndex) : undefined}
+        onPin={queued ? () => actions.togglePin(campaign) : undefined}
+        pinned={campaign.pinned}
+        rankReason={rankReason}
+      />
+    );
+  }
+  if (kind === "skipped") {
+    return (
+      <CampaignCard
+        {...props}
+        fix={skippedFix(campaign, {
+          onToggleExclude: actions.toggleExclude,
+          onOpenGames: actions.openGames,
+          onOpenSettings: actions.openSettings,
+          onPin: () => actions.pinLast(campaign.id),
+        }, t)}
+      />
+    );
+  }
+  return <CampaignCard {...props} />;
+});
 
 // The action that puts a skipped campaign back in the queue. Every reason the
 // evaluation can give either has one, or is a state the user fixes on the

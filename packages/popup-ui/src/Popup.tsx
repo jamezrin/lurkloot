@@ -28,6 +28,7 @@ import {
   SELECTED_PLATFORM_KEY,
 } from "./constants";
 import type {
+  CampaignView,
   GameItem,
   PopupAdapter,
   PopupInitialState,
@@ -37,6 +38,8 @@ import type {
 import { variantShowsPopup } from "./types";
 import {
   campaignViewFromCampaign,
+  reuseIfUnchanged,
+  reuseUnchangedViews,
   channelViewFromSession,
   fallbackGame,
   gameItemsFromCampaigns,
@@ -144,13 +147,18 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   const trimmedDiagnosticSearchQuery = diagnosticSearchQuery.trim();
   const languageOverride = initialState?.locale ?? snapshot?.settings.languageOverride ?? DEFAULT_SETTINGS.languageOverride;
   const locale = effectiveLocale(languageOverride, adapter.getUiLanguage());
-  const dir = isRtlLocale(locale) ? "rtl" : "ltr";
-  const t: TFunction = createTranslator({
+  const dir: "ltr" | "rtl" = isRtlLocale(locale) ? "rtl" : "ltr";
+  // Stable across renders, and so are the two context values below: every
+  // component reading them re-renders when they change identity, which made
+  // each five-second poll re-render every card and every translated string.
+  const t: TFunction = useMemo(() => createTranslator({
     languageOverride,
     overrideCatalog,
     fallbackCatalog,
     getMessage: (key, substitutions) => adapter.getMessage(key, substitutions),
-  });
+  }), [languageOverride, overrideCatalog, fallbackCatalog, adapter]);
+  const i18nValue = useMemo(() => ({ t, dir, locale }), [t, dir, locale]);
+  const runtimeValue = useMemo(() => ({ adapter, preview }), [adapter, preview]);
 
   function invalidateActivityRequests(
     nextPlatform: Platform = activityRequestScopeRef.current.platform,
@@ -620,11 +628,20 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
       }
     : undefined;
 
+  // What the last render derived from the snapshot. Derivation reruns only
+  // when its inputs changed, and its output keeps every view object that is
+  // unchanged, so memoised rows skip the five-second poll entirely.
+  const derived = useRef<{
+    inputs?: readonly unknown[];
+    campaigns?: CampaignView[];
+    gameMap?: Record<string, GameItem>;
+  }>({});
+
   if (!snapshot) {
     return (
-      <PopupRuntimeContext.Provider value={{ adapter, preview }}>
-      <I18nContext.Provider value={{ t, dir, locale }}>
-        <main dir={dir} className="grid h-[600px] w-[400px] place-items-center border border-zinc-200 bg-zinc-50 text-sm font-semibold text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400" data-platform="twitch">
+      <PopupRuntimeContext.Provider value={runtimeValue}>
+      <I18nContext.Provider value={i18nValue}>
+        <main dir={dir} className="grid h-[600px] w-[720px] place-items-center border border-zinc-200 bg-zinc-50 text-sm font-semibold text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400" data-platform="twitch">
           {t("loading")}
         </main>
       </I18nContext.Provider>
@@ -668,17 +685,21 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   const criticalFailureReason = settings.criticalFailurePromptEnabled && criticalFailure?.status === "flagged"
     ? criticalFailure.reason
     : undefined;
-  const campaigns = rawCampaigns.map((campaign, index) => campaignViewFromCampaign(
-    campaign,
-    index,
-    session,
-    excludedIds.has(campaign.id),
-    {
-      skipUnfinishableRewards: settings.skipUnfinishableRewards,
-      deadlineSafetyMarginMinutes: settings.deadlineSafetyMarginMinutes,
-      settings,
-    },
-  ));
+  const derivationInputs = [snapshot.state.campaigns[platform], snapshot.settings, session, platform, t] as const;
+  const inputsChanged = !derived.current.inputs || derivationInputs.some((input, index) => input !== derived.current.inputs![index]);
+  const campaigns = inputsChanged
+    ? reuseUnchangedViews(derived.current.campaigns, rawCampaigns.map((campaign, index) => campaignViewFromCampaign(
+      campaign,
+      index,
+      session,
+      excludedIds.has(campaign.id),
+      {
+        skipUnfinishableRewards: settings.skipUnfinishableRewards,
+        deadlineSafetyMarginMinutes: settings.deadlineSafetyMarginMinutes,
+        settings,
+      },
+    )))
+    : derived.current.campaigns!;
   const games = gameItemsFromCampaigns(snapshot.state.campaigns[platform], t);
   // Categories that currently have active drop campaigns, surfaced as one-tap
   // "Has active drops" suggestions in the category filter editor (zero network).
@@ -686,7 +707,8 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     twitch: gameItemsFromCampaigns(snapshot.state.campaigns.twitch, t),
     kick: gameItemsFromCampaigns(snapshot.state.campaigns.kick, t),
   };
-  const gameMap = Object.fromEntries(games.map((game) => [game.id, game]));
+  const gameMap = reuseIfUnchanged(derived.current.gameMap, Object.fromEntries(games.map((game) => [game.id, game])));
+  derived.current = { inputs: derivationInputs, campaigns, gameMap };
   const idleWatchlistChannels = settings.platform[platform].idleWatchlistChannels;
   const idleWatchlist = idleWatchlistChannels.map((username) => streamerItemFromFallback(username, session, t));
   const screenshotWatchlist = watchlistShot
@@ -772,8 +794,8 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   });
 
   return (
-      <PopupRuntimeContext.Provider value={{ adapter, preview }}>
-      <I18nContext.Provider value={{ t, dir, locale }}>
+      <PopupRuntimeContext.Provider value={runtimeValue}>
+      <I18nContext.Provider value={i18nValue}>
     <main
       dir={dir}
       data-platform={platform}
