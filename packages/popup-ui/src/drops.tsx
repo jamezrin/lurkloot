@@ -11,6 +11,7 @@ import {
   ExternalLink,
   Gift,
   Link2,
+  MousePointerClick,
   Pin,
   RotateCcw,
   Star,
@@ -19,12 +20,11 @@ import {
 import type { CategorySelection } from "@lurkloot/shared/models";
 import { I18nContext, PopupRuntimeContext, useT } from "./context";
 import { formatCountdown, formatDateTime, formatMinutes, formatViewers } from "./format";
-import { campaignStats } from "./viewModels";
-import type { CampaignView, GameItem, RewardView, TFunction } from "./types";
+import { campaignStats, campaignTimeline } from "./viewModels";
+import type { CampaignTimeline, CampaignView, GameItem, RewardView, TFunction } from "./types";
 import {
   DragHandle,
   ImageWithFallback,
-  Pill,
   ProgressBar,
   RankInput,
   cn,
@@ -95,10 +95,8 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
   const t = useT();
   const { locale } = React.useContext(I18nContext);
   const runtime = React.useContext(PopupRuntimeContext);
-  // Where the pointer went down on the meta row, so drag-scrolling an
-  // overflowing pill row does not read as a click on the card.
-  const metaPointerX = useRef(0);
   const stats = campaignStats(campaign);
+  const timeline = campaignTimeline(campaign);
   // `terminal` is "this campaign is over": the Completed view renders expired
   // rows exactly like finished ones — one state, no rank, no rail, no warning.
   // An expired campaign is over wherever it is shown, search results included.
@@ -121,6 +119,24 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
   const category = campaign.category;
   const canExclude = Boolean(onToggleExclude) && campaign.hasWatchRewards && !finished;
   const canBlock = Boolean(onToggleBlockedCategory && category) && !finished;
+  const rewardsLabel = t("campaignRewardsProgress", [String(stats.completed), String(stats.totalRewards)]);
+  const deadline: { tone: DeadlineTone; label: string } | undefined = finished
+    ? { tone: expired ? "muted" : "done", label: t(expired ? "expiredPill" : "finished") }
+    : (() => {
+      const label = upcoming ? startsLabel(campaign.starts, t) : timeLeftLabel(campaign.ends, t);
+      return label ? { tone: endsSoon ? "hot" : "muted", label } : undefined;
+    })();
+  // States that used to be pills, now icons after the title. The expanded card
+  // lists the same states in words (a rejection has its own banner there).
+  const notices: CampaignFlag[] = finished ? [] : [
+    ...(!campaign.linked ? [{ key: "not-linked", tone: "danger", icon: <Link2 size={12} />, label: t("notLinked") } as const] : []),
+    ...(campaign.hasSubscriptionRewards ? [{ key: "subscription", tone: "muted", icon: <Users size={12} />, label: t("subscriptionRequired") } as const] : []),
+    ...(stats.kind === "action" ? [{ key: "action", tone: "muted", icon: <MousePointerClick size={12} />, label: t("actionRequired") } as const] : []),
+    ...(campaign.excluded && campaign.hasWatchRewards ? [{ key: "excluded", tone: "muted", icon: <Ban size={12} />, label: t("excluded") } as const] : []),
+  ];
+  const flags: CampaignFlag[] = farmingRejectionMessage
+    ? [...notices, { key: "rejected", tone: "warning", icon: <AlertTriangle size={12} />, label: farmingRejectionMessage }]
+    : notices;
 
   return (
     <article className={cn(
@@ -149,10 +165,8 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
         {/* Full-area toggle behind the content, so the row's own buttons can
             sit on top of it without nesting a button inside a button. */}
         <button type="button" onClick={onToggle} aria-expanded={expanded} aria-label={campaign.title} className={cn("absolute inset-y-0 end-0 z-0 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent-ring)]", finished ? "start-0" : "start-7")} />
-        {/* Extra bottom padding is the progress bar's breathing room: the bar
-            overlays the last 2px of it, leaving a clear gap under the pill row. */}
-        <div className="pointer-events-none relative z-10 flex min-w-0 flex-1 items-center gap-2 px-1.5 pb-2 pt-1.5">
-          <div className="relative flex h-8 w-8 shrink-0 items-end overflow-hidden rounded-lg shadow-inner">
+        <div className="pointer-events-none relative z-10 flex min-w-0 flex-1 items-center gap-2.5 px-1.5 py-2">
+          <div className="relative flex h-9 w-9 shrink-0 items-end overflow-hidden rounded-lg shadow-inner">
             <ImageWithFallback src={campaign.imageUrl} alt={campaign.title} fit="cover" fallback={
               <div className={cn("flex h-full w-full items-end bg-gradient-to-br p-1.5", campaign.tint)}>
                 <span className="text-[11px] font-black leading-none tracking-normal text-white drop-shadow">{campaign.thumbnail}</span>
@@ -160,57 +174,50 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
             } />
           </div>
           <div className="min-w-0 flex-1">
+            {/* The title keeps the line to itself but for small state icons
+                right after it: each names its state in a tooltip, and the
+                expanded card spells it out. */}
             <div className="flex min-w-0 items-center gap-1">
               {campaign.favourited && !finished ? (
                 <Star size={11} aria-label={t("campaignFavouriteOn", game.name)} className="shrink-0 fill-current text-amber-500 dark:text-amber-400" />
               ) : null}
-              <span className="line-clamp-1 text-[13px] font-semibold leading-tight text-zinc-900 dark:text-zinc-50">{campaign.title}</span>
-            </div>
-            {/* Category and every state pill on one non-wrapping line. The
-                category name yields first (Pill cannot shrink below its text),
-                and past that the row scrolls rather than growing the card by a
-                line — which needs pointer events back, so the row re-implements
-                the expand toggle the content layer otherwise passes through. */}
-            <div
-              className="no-scrollbar pointer-events-auto mt-0.5 flex items-center gap-1.5 overflow-x-auto text-[11px] text-zinc-500 dark:text-zinc-400"
-              onPointerDown={(event) => { metaPointerX.current = event.clientX; }}
-              onClick={(event) => {
-                // Suppress only what is positively a pointer click that moved:
-                // that is a drag-scroll of this row, not a click on the card.
-                // `detail` is 0 for keyboard and programmatic clicks, which
-                // report clientX 0 and would otherwise look like a long drag.
-                if (event.detail > 0 && Math.abs(event.clientX - metaPointerX.current) >= 4) return;
-                onToggle();
-              }}
-            >
-              {!finished && showsWatchProgress ? (
-                <span aria-hidden className="h-[3px] w-11 shrink-0 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
-                  <span className="block h-full rounded-full bg-[var(--accent)]" style={{ width: `${Math.min(100, stats.progress ?? 0)}%` }} />
-                </span>
-              ) : (
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: game.accent }} />
-              )}
-              <span className="truncate">{game.name}</span>
-              <span aria-hidden className="text-zinc-300 dark:text-zinc-600">·</span>
-              <span className="shrink-0 tabular">{t("campaignRewardsProgress", [String(stats.completed), String(stats.totalRewards)])}</span>
-              {!finished && showsWatchProgress ? <span className="shrink-0 tabular">· {(stats.progress ?? 0).toFixed(0)}%</span> : null}
-              {!finished && campaign.hasSubscriptionRewards ? <Pill tone="outline"><Users size={9} /> {t("subscriptionRequired")}</Pill> : null}
-              {!finished && stats.kind === "action" ? <Pill tone="outline"><AlertTriangle size={9} /> {t("actionRequired")}</Pill> : null}
-              {!finished && !campaign.linked && <Pill tone="danger"><Link2 size={9} /> {t("notLinked")}</Pill>}
-              {!finished && campaign.excluded && campaign.hasWatchRewards ? <Pill tone="outline"><Ban size={9} /> {t("excluded")}</Pill> : null}
-              {farmingRejectionMessage ? (
-                <Tip label={farmingRejectionMessage}>
+              <span className="min-w-0 truncate text-[13px] font-semibold leading-tight text-zinc-900 dark:text-zinc-50">{campaign.title}</span>
+              {flags.map((flag) => (
+                <Tip key={flag.key} label={flag.label}>
                   <span
-                    data-farming-rejection-indicator
+                    data-campaign-flag={flag.key}
+                    {...(flag.key === "rejected" ? { "data-farming-rejection-indicator": "" } : {})}
                     role="img"
-                    aria-label={farmingRejectionMessage}
-                    className="inline-flex shrink-0 text-amber-500 dark:text-amber-400"
+                    aria-label={flag.label}
+                    // The content layer lets clicks through to the row's
+                    // toggle; a flag takes the pointer for its tooltip, so it
+                    // does the toggle's job itself.
+                    onClick={onToggle}
+                    className={cn("pointer-events-auto inline-flex shrink-0 p-px", FLAG_TONE[flag.tone])}
                   >
-                    <AlertTriangle size={11} />
+                    {flag.icon}
                   </span>
                 </Tip>
+              ))}
+            </div>
+            <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11px] leading-tight text-zinc-500 dark:text-zinc-400">
+              <span className="min-w-0 truncate">{game.name}</span>
+              {!timeline || finished ? (
+                <>
+                  <span aria-hidden className="text-zinc-300 dark:text-zinc-600">·</span>
+                  <span className="shrink-0 tabular">{rewardsLabel}</span>
+                </>
+              ) : null}
+              {deadline ? (
+                <>
+                  <span aria-hidden className="text-zinc-300 dark:text-zinc-600">·</span>
+                  <Deadline tone={deadline.tone} label={deadline.label} />
+                </>
               ) : null}
             </div>
+            {timeline && !finished ? (
+              <CampaignProgress timeline={timeline} label={`${rewardsLabel} · ${Math.round(timeline.progress * 100)}%`} onClick={onToggle} />
+            ) : null}
           </div>
           <div className="pointer-events-auto flex shrink-0 items-center gap-1">
             {fix ? (
@@ -222,16 +229,7 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
               >
                 {fix.label}
               </button>
-            ) : (
-              <StatusPill
-                tone={finished ? (expired ? "muted" : "done") : farmingNow ? "farming" : endsSoon ? "hot" : "muted"}
-                label={finished
-                  ? t(expired ? "expiredPill" : "finished")
-                  : farmingNow ? t("farmingLabel")
-                  : upcoming ? startsLabel(campaign.starts, t)
-                  : timeLeftLabel(campaign.ends, t)}
-              />
-            )}
+            ) : null}
             {onPin ? (
               <Tip label={t(pinned ? "queueUnpin" : "queueFixPin")}>
                 <button
@@ -285,6 +283,28 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
                     </button>
                   ) : null}
                 </div>
+              ) : null}
+              {notices.length > 0 ? (
+                <ul data-campaign-notices className="space-y-1">
+                  {notices.map((notice) => (
+                    <li key={notice.key} className={cn("flex min-h-5 items-center gap-1.5 text-[11px] font-medium", FLAG_TONE[notice.tone])}>
+                      <span className="flex shrink-0">{notice.icon}</span>
+                      <span className="min-w-0 flex-1">{notice.label}</span>
+                      {notice.key === "not-linked" && campaign.linkUrl ? (
+                        <a
+                          href={campaign.linkUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(event) => event.stopPropagation()}
+                          className="flex shrink-0 items-center gap-1 rounded-md border border-current px-2 py-0.5 text-[10px] font-semibold outline-none hover:bg-red-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:hover:bg-red-500/10"
+                        >
+                          {t("linkAccount")}
+                          <ExternalLink size={10} className="opacity-70" />
+                        </a>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
               ) : null}
               {stats.kind === "subscription" ? (
                 <div className="flex items-start justify-between gap-2 rounded-xl border border-zinc-100 bg-zinc-50/70 p-2.5 dark:border-zinc-800 dark:bg-zinc-800/40">
@@ -344,8 +364,8 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
                     label={t("campaignLeft")}
                     value={stats.complete
                       ? t("done")
-                      : campaign.hasWatchRewards && stats.remaining > 0
-                        ? formatMinutes(stats.remaining)
+                      : timeline && timeline.remainingMinutes > 0
+                        ? formatMinutes(timeline.remainingMinutes)
                         : t("subscriptionProgressUnknown")}
                   />
                 ) : null}
@@ -368,19 +388,6 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
                   </button>
                 </div>
               ) : null}
-              {!campaign.linked && campaign.linkUrl && (
-                <a
-                  href={campaign.linkUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={(event) => event.stopPropagation()}
-                  className="flex items-center gap-1.5 rounded-lg border border-amber-300/70 bg-amber-50 px-2 py-1.5 text-[11px] font-medium text-amber-700 outline-none transition-colors hover:border-amber-400 hover:bg-amber-100/70 focus-visible:ring-2 focus-visible:ring-amber-400 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/20"
-                >
-                  <Link2 size={12} className="shrink-0" />
-                  <span className="truncate">{t("linkAccount")}</span>
-                  <ExternalLink size={11} className="ms-auto shrink-0 opacity-70" />
-                </a>
-              )}
               <CampaignActions
                 campaign={campaign}
                 gameName={category?.name ?? game.name}
@@ -416,22 +423,70 @@ function startsLabel(starts: string, t: TFunction): string {
   return Number.isNaN(at) || at <= Date.now() ? t("upcomingPill") : t("startsIn", formatCountdown(starts, t));
 }
 
-function StatusPill({ tone, label }: { tone: "farming" | "hot" | "done" | "muted"; label?: string }): React.ReactElement | null {
-  if (!label) return null;
+type DeadlineTone = "hot" | "done" | "muted";
+
+// The row's time line: how long is left, when it starts, or how it ended.
+function Deadline({ tone, label }: { tone: DeadlineTone; label: string }): React.ReactElement {
   return (
     <span
       data-campaign-status={tone}
       className={cn(
-        "inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-[10px] font-medium tabular",
-        tone === "farming" && "bg-[var(--accent)] font-semibold text-[var(--accent-contrast)]",
-        tone === "hot" && "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
-        tone === "done" && "bg-[var(--accent-soft)] font-semibold text-[var(--accent-text)]",
-        tone === "muted" && "border border-zinc-200 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400",
+        "inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap tabular",
+        tone === "hot" && "font-medium text-amber-600 dark:text-amber-400",
+        tone === "done" && "font-medium text-[var(--ink-text)]",
       )}
     >
       {tone === "done" ? <Check size={10} aria-hidden="true" /> : null}
       {label}
     </span>
+  );
+}
+
+type CampaignFlag = {
+  key: string;
+  tone: keyof typeof FLAG_TONE;
+  icon: React.ReactElement;
+  label: string;
+};
+
+const FLAG_TONE = {
+  danger: "text-red-600 dark:text-red-400",
+  warning: "text-amber-600 dark:text-amber-400",
+  muted: "text-zinc-500 dark:text-zinc-400",
+} as const;
+
+/** The campaign's watch progress on one bar, with a small tick where each watch
+ * reward becomes claimable. Ticks the viewing has passed turn solid. Positions
+ * are logical, so the bar fills from the right in a right-to-left locale. */
+function CampaignProgress({ timeline, label, onClick }: { timeline: CampaignTimeline; label: string; onClick(): void }): React.ReactElement {
+  const percent = Math.round(timeline.progress * 100);
+  return (
+    <Tip label={label}>
+      <div
+        data-campaign-progress={percent}
+        role="img"
+        aria-label={label}
+        // Takes the pointer for its tooltip, so it passes the click on to the
+        // row toggle the content layer otherwise lets it reach.
+        onClick={onClick}
+        className="pointer-events-auto relative mt-1.5 h-[11px]"
+      >
+        <span className="absolute inset-x-0 top-[3px] h-[5px] rounded-full bg-zinc-200 dark:bg-zinc-800" />
+        <span className="absolute start-0 top-[3px] h-[5px] rounded-full bg-[var(--ink)]" style={{ width: `${timeline.progress * 100}%` }} />
+        {timeline.markers.map((marker) => (
+          <span
+            key={marker.id}
+            data-reward-marker={marker.reached ? "reached" : "pending"}
+            className={cn(
+              "absolute top-0 h-[11px] w-0.5 rounded-full",
+              marker.reached ? "bg-[var(--ink)]" : "bg-zinc-300 dark:bg-zinc-600",
+            )}
+            // Kept inside the bar at both ends: a tick at 100% ends flush with it.
+            style={{ insetInlineStart: `calc(${marker.at * 100}% - ${marker.at * 2}px)` }}
+          />
+        ))}
+      </div>
+    </Tip>
   );
 }
 

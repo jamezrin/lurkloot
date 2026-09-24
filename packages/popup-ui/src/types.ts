@@ -59,6 +59,8 @@ export type RewardView = {
   imageUrl?: string;
   claimGuidance?: ClaimGuidance;
   ineligibilityReason?: "insufficient_time";
+  // Rewards that must be claimed before this one starts counting (Twitch).
+  preconditionIds?: string[];
 };
 export type CampaignLifecycleState = "upcoming" | "expired" | "finished";
 
@@ -73,6 +75,22 @@ export type CampaignStats = {
   nextReward?: RewardView;
   nextRewardRemaining?: number;
   complete: boolean;
+};
+
+export type CampaignTimelineMarker = {
+  id: string;
+  name: string;
+  // Where on the campaign's watch timeline the reward becomes claimable, 0–1.
+  at: number;
+  reached: boolean;
+};
+
+export type CampaignTimeline = {
+  // How far along the watch timeline the campaign is, 0–1.
+  progress: number;
+  totalMinutes: number;
+  remainingMinutes: number;
+  markers: CampaignTimelineMarker[];
 };
 
 export type CampaignView = {

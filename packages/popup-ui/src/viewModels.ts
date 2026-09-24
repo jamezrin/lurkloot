@@ -19,7 +19,7 @@ export {
 } from "@lurkloot/shared/campaignFilters";
 import { CAMPAIGN_TINTS, GAME_ACCENTS, NO_CATEGORY_ACCENT, REWARD_TINTS } from "./constants";
 import { initials } from "./format";
-import type { CampaignLifecycleState, CampaignStats, CampaignView, ChannelLink, FarmingChannelView, GameItem, RewardView, StreamerItem, TFunction } from "./types";
+import type { CampaignLifecycleState, CampaignStats, CampaignTimeline, CampaignView, ChannelLink, FarmingChannelView, GameItem, RewardView, StreamerItem, TFunction } from "./types";
 
 const KICK_ASSET_BASE = "https://ext.kick.com";
 
@@ -101,6 +101,55 @@ export function campaignStats(campaign: CampaignView): CampaignStats {
   return { kind, totalRequired, totalFarmed, remaining, progress, completed, totalRewards: campaign.rewards.length, nextReward, nextRewardRemaining, complete };
 }
 
+/** The campaign's watch rewards laid out on one timeline of watched minutes.
+ * Watch rewards count up together from the same viewing, so a reward sits at
+ * its own required minutes; one gated on others (a Twitch precondition) starts
+ * counting only once the last of them is claimable, so it sits after them. The
+ * fill comes from the same timeline, so a reward that is done never sits ahead
+ * of it. Undefined when nothing in the campaign is earned by watching. */
+export function campaignTimeline(campaign: CampaignView): CampaignTimeline | undefined {
+  const watchRewards = campaign.rewards.filter(isWatchReward);
+  if (watchRewards.length === 0) return undefined;
+  const byId = new Map(watchRewards.map((reward) => [reward.id, reward]));
+  const starts = new Map<string, number>();
+  const claimAt = (reward: RewardView, seen: Set<string>): number => start(reward, seen) + Math.max(0, reward.requiredMinutes);
+  function start(reward: RewardView, seen: Set<string>): number {
+    const known = starts.get(reward.id);
+    if (known !== undefined) return known;
+    // A cycle in the data would recurse forever; treat the repeat as free.
+    if (seen.has(reward.id)) return 0;
+    seen.add(reward.id);
+    const value = Math.max(0, ...(reward.preconditionIds ?? []).flatMap((id) => {
+      const precondition = byId.get(id);
+      return precondition ? [claimAt(precondition, seen)] : [];
+    }));
+    starts.set(reward.id, value);
+    return value;
+  }
+  const at = watchRewards.map((reward) => claimAt(reward, new Set()));
+  const totalMinutes = Math.max(...at);
+  if (totalMinutes <= 0) return undefined;
+  // How far the viewing has got: the furthest point any reward has reached. A
+  // done reward counts its whole span even when its watched minutes read 0
+  // after the claim; one that has not started yet says nothing.
+  const position = Math.min(totalMinutes, Math.max(0, ...watchRewards.map((reward, index) => {
+    if (rewardComplete(reward)) return at[index]!;
+    const watched = (reward.requiredMinutes * (reward.progress ?? 0)) / 100;
+    return watched > 0 ? starts.get(reward.id)! + watched : 0;
+  })));
+  return {
+    progress: position / totalMinutes,
+    totalMinutes,
+    remainingMinutes: totalMinutes - position,
+    markers: watchRewards.map((reward, index) => ({
+      id: reward.id,
+      name: reward.name,
+      at: at[index]! / totalMinutes,
+      reached: rewardComplete(reward) || position >= at[index]!,
+    })),
+  };
+}
+
 function indexOrUndefined(index: number): number | undefined {
   return index === -1 ? undefined : index;
 }
@@ -174,6 +223,7 @@ export function campaignViewFromCampaign(
         imageUrl: campaign.platform === "kick" ? kickRewardImageUrl(reward.imageUrl) : reward.imageUrl,
         claimGuidance,
         ineligibilityReason: deadlineFeasibility?.kind === "insufficient_time" ? "insufficient_time" : undefined,
+        preconditionIds: reward.preconditionRewardIds?.length ? reward.preconditionRewardIds : undefined,
       };
     }),
     hasWatchRewards: campaignHasWatchRewards(campaign),

@@ -253,7 +253,7 @@ describe("completed campaign section", () => {
 
     const row = container.querySelector<HTMLElement>('[data-campaign-id="kick-campaign"]');
     expect(row).not.toBeNull();
-    expect(row?.textContent).toContain("100%");
+    expect(row?.querySelector("[data-campaign-progress]")?.getAttribute("data-campaign-progress")).toBe("100");
     expect(row?.textContent).not.toContain("Finished");
     expect([...container.querySelectorAll("button")].some((button) => button.textContent?.includes("Completed"))).toBe(false);
   });
@@ -280,7 +280,7 @@ describe("completed campaign section", () => {
     const finishedRow = completed.container.querySelector<HTMLElement>('[data-campaign-id="finished"]');
     expect(finishedRow).not.toBeNull();
     expect(finishedRow?.textContent).toContain("Finished");
-    expect(finishedRow?.textContent).not.toContain("100%");
+    expect(finishedRow?.querySelector("[data-campaign-progress]")).toBeNull();
     expect(finishedRow?.textContent).not.toContain("later");
     expect(finishedRow?.querySelector("[data-farming-rejection-indicator]")).toBeNull();
     expect(finishedRow?.querySelector("button[aria-label^='Set rank']")).toBeNull();
@@ -658,7 +658,7 @@ describe("initial drops expansion", () => {
   // The collapsed row's category/pill line takes pointer events back so an
   // overflowing pill row can be scrolled, which opts it out of the full-area
   // toggle behind the card content. It has to expand the card itself.
-  it("expands the card when the collapsed row's pill line is clicked", () => {
+  it("expands the card when the collapsed row's progress bar is clicked", () => {
     const { document, window } = parseHTML("<div id=app></div>");
     vi.stubGlobal("window", window);
     vi.stubGlobal("document", document);
@@ -699,18 +699,13 @@ describe("initial drops expansion", () => {
     });
 
     const toggle = container.querySelector("article button[aria-expanded]");
-    const pillLine = container.querySelector<HTMLElement>("article .no-scrollbar");
-    expect(pillLine).not.toBeNull();
+    // The bar takes the pointer for its tooltip, so it has to pass the click on
+    // to the row toggle behind it.
+    const bar = container.querySelector<HTMLElement>("article [data-campaign-progress]");
+    expect(bar).not.toBeNull();
     expect(toggle?.getAttribute("aria-expanded")).toBe("false");
 
-    // linkedom does not expose a MouseEvent constructor, so initialize the
-    // click fields the handler reads on its Event implementation instead.
-    const click = new window.Event("click", { bubbles: true });
-    Object.defineProperties(click, {
-      clientX: { value: 0 },
-      detail: { value: 1 },
-    });
-    act(() => pillLine?.dispatchEvent(click));
+    act(() => bar?.dispatchEvent(new window.Event("click", { bubbles: true })));
 
     expect(toggle?.getAttribute("aria-expanded")).toBe("true");
   });

@@ -10,6 +10,7 @@ import {
   campaignFilterCategories,
   campaignSection,
   campaignStats,
+  campaignTimeline,
   campaignViewFromCampaign,
 } from "../../popup-ui/src/viewModels";
 import type { CampaignView, TFunction } from "../../popup-ui/src/types";
@@ -224,7 +225,9 @@ describe("subscription drop popup views", () => {
 
     const markup = renderDrops([expandedView(view)]);
     expect(markup).toContain("30m left");
-    expect(markup).toContain("7h 30m");
+    // Watch rewards count up together from the same viewing, so the campaign
+    // is done when its longest reward is, not after the sum of them all.
+    expect(markup).toContain(">4h<");
     expect(markup).toContain("Campaign left");
     expect(markup).not.toContain(">left<");
   });
@@ -409,5 +412,72 @@ describe("subscription drop popup views", () => {
 
     expect(campaignFilterCategories(source, excludedIds)).toEqual(["expired"]);
     expect(campaignSection(source, settings)).toBe("expired");
+  });
+});
+
+describe("campaign watch timeline", () => {
+  const timeline = (rewards: DropReward[]) =>
+    campaignTimeline(campaignViewFromCampaign(campaign("timeline", rewards), 0, idleSession, false));
+  // A reward that is done never sits ahead of the fill.
+  const expectDoneBehindFill = (result: ReturnType<typeof campaignTimeline>) => {
+    for (const marker of result!.markers) {
+      if (marker.reached) expect(marker.at).toBeLessThanOrEqual(result!.progress + 1e-9);
+    }
+  };
+
+  it("places rewards that count up together at their own minutes", () => {
+    const result = timeline([
+      reward({ id: "hour", requirement: "watch", requiredMinutes: 60, watchedMinutes: 60, status: "claimable" }),
+      reward({ id: "two-hours", requirement: "watch", requiredMinutes: 120, watchedMinutes: 60, status: "in_progress" }),
+    ]);
+
+    expect(result).toMatchObject({ totalMinutes: 120, progress: 0.5, remainingMinutes: 60 });
+    expect(result!.markers.map((marker) => [marker.at, marker.reached])).toEqual([[0.5, true], [1, false]]);
+    expectDoneBehindFill(result);
+  });
+
+  it("places a reward gated on another after it", () => {
+    const result = timeline([
+      reward({ id: "first", requirement: "watch", requiredMinutes: 30, watchedMinutes: 30, status: "claimed" }),
+      reward({ id: "second", requirement: "watch", requiredMinutes: 90, watchedMinutes: 30, status: "in_progress", preconditionRewardIds: ["first"] }),
+    ]);
+
+    expect(result).toMatchObject({ totalMinutes: 120, progress: 0.5 });
+    expect(result!.markers.map((marker) => marker.at)).toEqual([0.25, 1]);
+    expectDoneBehindFill(result);
+  });
+
+  it("does not move a gated reward's start forward before its precondition is done", () => {
+    const result = timeline([
+      reward({ id: "first", requirement: "watch", requiredMinutes: 60, watchedMinutes: 15, status: "in_progress" }),
+      reward({ id: "second", requirement: "watch", requiredMinutes: 60, preconditionRewardIds: ["first"] }),
+    ]);
+
+    expect(result!.progress).toBe(15 / 120);
+  });
+
+  it("counts a claimed reward whose watched minutes reset", () => {
+    const result = timeline([
+      reward({ id: "claimed", requirement: "watch", requiredMinutes: 60, watchedMinutes: 0, status: "claimed" }),
+      reward({ id: "next", requirement: "watch", requiredMinutes: 240 }),
+    ]);
+
+    expect(result!.progress).toBe(0.25);
+    expect(result!.markers[0]).toMatchObject({ reached: true, at: 0.25 });
+    expectDoneBehindFill(result);
+  });
+
+  it("keeps a zero-minute reward at the start", () => {
+    const result = timeline([
+      reward({ id: "free", requirement: "watch", requiredMinutes: 0 }),
+      reward({ id: "hour", requirement: "watch", requiredMinutes: 60 }),
+    ]);
+
+    expect(result!.markers.map((marker) => marker.at)).toEqual([0, 1]);
+  });
+
+  it("has no timeline when nothing is earned by watching", () => {
+    expect(timeline([reward({ id: "sub", requirement: "subscription", requiredSubs: 1 })])).toBeUndefined();
+    expect(timeline([reward({ id: "free", requirement: "watch", requiredMinutes: 0 })])).toBeUndefined();
   });
 });
