@@ -253,7 +253,7 @@ describe("completed campaign section", () => {
 
     const row = container.querySelector<HTMLElement>('[data-campaign-id="kick-campaign"]');
     expect(row).not.toBeNull();
-    expect(row?.querySelector("[data-campaign-progress]")?.getAttribute("data-campaign-progress")).toBe("100");
+    expect(row?.querySelector("[data-campaign-progress]")?.textContent).toBe("100%");
     expect(row?.textContent).not.toContain("Finished");
     expect([...container.querySelectorAll("button")].some((button) => button.textContent?.includes("Completed"))).toBe(false);
   });

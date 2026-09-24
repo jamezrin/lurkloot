@@ -218,7 +218,7 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
               ) : null}
             </div>
             {timeline && !finished ? (
-              <CampaignProgress timeline={timeline} label={`${rewardsLabel} · ${Math.round(timeline.progress * 100)}%`} onClick={onToggle} />
+              <CampaignProgress timeline={timeline} rewardsLabel={rewardsLabel} onClick={onToggle} />
             ) : null}
           </div>
           <div className="pointer-events-auto flex shrink-0 items-center gap-1">
@@ -460,33 +460,37 @@ const FLAG_TONE = {
 /** The campaign's watch progress on one bar, with a small tick where each watch
  * reward becomes claimable. Ticks the viewing has passed turn solid. Positions
  * are logical, so the bar fills from the right in a right-to-left locale. */
-function CampaignProgress({ timeline, label, onClick }: { timeline: CampaignTimeline; label: string; onClick(): void }): React.ReactElement {
-  const percent = Math.round(timeline.progress * 100);
+function CampaignProgress({ timeline, rewardsLabel, onClick }: { timeline: CampaignTimeline; rewardsLabel: string; onClick(): void }): React.ReactElement {
+  // Rounded down, so the row never says 100% before the last reward is due.
+  const percent = timeline.progress >= 1 ? 100 : Math.floor(timeline.progress * 100);
   return (
-    <Tip label={label}>
+    <Tip label={rewardsLabel}>
       <div
         data-campaign-progress={percent}
         role="img"
-        aria-label={label}
+        aria-label={`${rewardsLabel} · ${percent}%`}
         // Takes the pointer for its tooltip, so it passes the click on to the
         // row toggle the content layer otherwise lets it reach.
         onClick={onClick}
-        className="pointer-events-auto relative mt-1.5 h-[11px]"
+        className="pointer-events-auto mt-1 flex items-center gap-2"
       >
-        <span className="absolute inset-x-0 top-[3px] h-[5px] rounded-full bg-zinc-200 dark:bg-zinc-800" />
-        <span className="absolute start-0 top-[3px] h-[5px] rounded-full bg-[var(--ink)]" style={{ width: `${timeline.progress * 100}%` }} />
-        {timeline.markers.map((marker) => (
-          <span
-            key={marker.id}
-            data-reward-marker={marker.reached ? "reached" : "pending"}
-            className={cn(
-              "absolute top-0 h-[11px] w-0.5 rounded-full",
-              marker.reached ? "bg-[var(--ink)]" : "bg-zinc-300 dark:bg-zinc-600",
-            )}
-            // Kept inside the bar at both ends: a tick at 100% ends flush with it.
-            style={{ insetInlineStart: `calc(${marker.at * 100}% - ${marker.at * 2}px)` }}
-          />
-        ))}
+        <div className="relative h-[11px] min-w-0 flex-1">
+          <span className="absolute inset-x-0 top-[3px] h-[5px] rounded-full bg-zinc-200 dark:bg-zinc-800" />
+          <span className="absolute start-0 top-[3px] h-[5px] rounded-full bg-[var(--ink)]" style={{ width: `${timeline.progress * 100}%` }} />
+          {timeline.markers.map((marker) => (
+            <span
+              key={marker.id}
+              data-reward-marker={marker.reached ? "reached" : "pending"}
+              className={cn(
+                "absolute top-0 h-[11px] w-0.5 rounded-full",
+                marker.reached ? "bg-[var(--ink)]" : "bg-zinc-300 dark:bg-zinc-600",
+              )}
+              // Kept inside the bar at both ends: a tick at 100% ends flush with it.
+              style={{ insetInlineStart: `calc(${marker.at * 100}% - ${marker.at * 2}px)` }}
+            />
+          ))}
+        </div>
+        <span aria-hidden className="w-8 shrink-0 text-end text-[10.5px] font-medium leading-none text-zinc-500 tabular dark:text-zinc-400">{percent}%</span>
       </div>
     </Tip>
   );
