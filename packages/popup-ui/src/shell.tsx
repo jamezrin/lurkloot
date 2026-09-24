@@ -188,7 +188,7 @@ function NavGroup({ labelKey, items, view, platform, counts, liveView, onViewCha
             className={cn(
               "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-start text-[12px] font-medium transition-colors",
               selected
-                ? "bg-[var(--accent-soft)] text-[var(--accent-text)] shadow-[inset_2px_0_0_var(--accent)]"
+                ? "bg-[var(--accent-soft)] text-[var(--accent-text)]"
                 : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800",
             )}
           >
