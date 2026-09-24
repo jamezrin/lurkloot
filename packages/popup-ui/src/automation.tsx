@@ -13,7 +13,7 @@ import { Pill, Toggle, cn } from "./primitives";
 // Both names in the status line open something — the channel its stream, the
 // campaign its card — so both carry a standing underline rather than only
 // revealing one on hover.
-const LINK_CLASS = "truncate font-semibold text-zinc-800 underline decoration-dotted decoration-current/30 underline-offset-2 outline-none hover:text-[var(--accent-text)] hover:decoration-current focus-visible:text-[var(--accent-text)] dark:text-zinc-100";
+export const LINK_CLASS = "truncate font-semibold text-zinc-800 underline decoration-dotted decoration-current/30 underline-offset-2 outline-none hover:text-[var(--accent-text)] hover:decoration-current focus-visible:text-[var(--accent-text)] dark:text-zinc-100";
 
 /** Colour of the status dot for a platform's current automation state. Shared by
  * the platform tabs and the status line so both read the same at a glance. */

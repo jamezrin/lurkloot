@@ -1807,5 +1807,8 @@
   },
   "watchSourceChangeOrderShort": {
     "message": "क्रम बदलें"
+  },
+  "railWhatsNew": {
+    "message": "नया क्या है"
   }
 }

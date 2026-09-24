@@ -1807,5 +1807,8 @@
   },
   "watchSourceChangeOrderShort": {
     "message": "Mudar ordem"
+  },
+  "railWhatsNew": {
+    "message": "Novidades"
   }
 }

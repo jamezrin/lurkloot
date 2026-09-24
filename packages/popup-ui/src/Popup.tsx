@@ -76,7 +76,8 @@ import { CompletedPanel } from "./completed";
 import { CriticalFailurePanel } from "./criticalFailure";
 import { openHttpsLink } from "./links";
 import { IdleWatchlistPanel } from "./idleWatchlist";
-import { AutomationStatusLine, PlatformBar } from "./automation";
+import { StatusStrip } from "./statusStrip";
+import { ViewToolbarSlotContext } from "./viewToolbar";
 import { automationPresentation, type AutomationPresentation } from "./automationStatus";
 import { changeTwitchExtensionEnabled, TwitchExtensionView } from "./twitchExtensions";
 import { SettingsView } from "./settings";
@@ -130,6 +131,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   // Settings (the watch-source chip) so opening Settings from the rail starts
   // at the top as usual.
   const [settingsFocus, setSettingsFocus] = useState<string | undefined>(undefined);
+  const [toolbarSlot, setToolbarSlot] = useState<HTMLElement | null>(null);
   const settingsRef = useRef<ExtensionSettings | null>(null);
   const settingsSaveQueue = useRef<Promise<void>>(Promise.resolve());
   const snapshotRequestGenerationRef = useRef(0);
@@ -787,34 +789,29 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
         sourceOrder={sourceOrder}
         liveSource={liveSource}
         presentation={automationPresentationByPlatform}
-        automation={automation}
-        automationPending={automationPending}
         version={adapter.version}
         onViewChange={changeView}
         onPlatformChange={selectPlatform}
-        onAutomationToggle={setAutomation}
         onOpenInventory={() => openHttpsLink(PLATFORM_INVENTORY_URLS[platform], adapter.openLink)}
+        onOpenChangelog={adapter.changelogUrl ? () => openHttpsLink(adapter.changelogUrl!(adapter.version), adapter.openLink) : undefined}
       />
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* The status strip sits above every view, so what is being farmed is
             never more than a glance away — including from Settings, where the
             old header hid it entirely. */}
-        <div className="relative shrink-0 border-b border-zinc-200/70 bg-white/85 px-3 py-1.5 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/80">
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-linear-to-r from-transparent via-[var(--accent)] to-transparent" />
-          <div className="flex items-center gap-2">
-          <div className="min-w-0 flex-1">
-          <AutomationStatusLine
-            platform={platform}
-            presentation={presentation}
-            farmingTitle={session.supplementalWatch ? session.supplementalWatch.id === "nopixel" ? "NoPixelV" : "Fortnite" : activeCampaign?.title}
-            farmingChannel={farmingChannel}
-            watchingIdleWatchlist={!activeCampaign && Boolean(farmingChannel) && !session.supplementalWatch}
-            onFarmingTitleClick={session.supplementalWatch ? undefined : onFarmingTitleClick}
-            onResume={resumeAfterManualClose}
-          />
-          </div>
-          {liveSource ? (
+        <StatusStrip
+          platform={platform}
+          presentation={presentation}
+          campaign={activeCampaign}
+          farmingChannel={farmingChannel}
+          supplementalName={session.supplementalWatch ? t(session.supplementalWatch.id === "nopixel" ? "navNoPixel" : "navFortnite") : undefined}
+          onCampaignClick={session.supplementalWatch ? undefined : onFarmingTitleClick}
+          onResume={resumeAfterManualClose}
+          enabled={automation[platform]}
+          pending={automationPending[platform]}
+          onToggle={(value) => setAutomation(platform, value)}
+          sourceChip={liveSource ? (
             // Where the live source sits in the watch order, and the way to
             // change that order: the first available source always wins.
             <button
@@ -826,12 +823,14 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
             >
               {t("watchSourcePosition", [t(WATCH_SOURCE_NAME_KEYS[liveSource]), String(sourceOrder.indexOf(liveSource) + 1), String(sourceOrder.length)])}
             </button>
-          ) : null}
-          </div>
-        </div>
+          ) : undefined}
+        />
 
-        <div className="flex shrink-0 items-center justify-between gap-2 px-3 pt-2">
-          <h1 className="font-display truncate text-[14px] font-bold text-zinc-900 dark:text-zinc-50">{viewTitle}</h1>
+        {/* The view's title and its own controls share one row: a view hands
+            them to ViewToolbar, which moves them into the slot here. */}
+        <div className="flex shrink-0 items-center gap-2 px-3 pt-2.5">
+          <h1 className="font-display shrink-0 truncate text-[15px] font-bold text-zinc-900 dark:text-zinc-50">{viewTitle}</h1>
+          <div ref={setToolbarSlot} data-view-toolbar className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5" />
           <div className="flex shrink-0 items-center gap-0.5">
             <IconButton label={t("refreshSchedule")} onClick={() => void refreshNow()} disabled={refreshing}>
               <RotateCcw size={16} className={cn(refreshing && "animate-spin")} />
@@ -839,6 +838,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
           </div>
         </div>
 
+        <ViewToolbarSlotContext.Provider value={toolbarSlot}>
         <div id="popup-platform-panel" data-scroll-panel className="nice-scroll @container min-h-0 flex-1 overflow-y-auto text-zinc-700 dark:text-zinc-300">
           <div className="space-y-2 p-3 pt-2">
             {/* The view itself is swapped outright rather than cross-faded: the
@@ -1040,6 +1040,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
             </div>
           </div>
         </div>
+        </ViewToolbarSlotContext.Provider>
       </div>
     </main>
     </I18nContext.Provider>

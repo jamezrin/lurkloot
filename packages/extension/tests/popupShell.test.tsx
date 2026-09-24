@@ -170,6 +170,27 @@ describe("popup workspace shell", () => {
     expect(currentView(container)).toBe("settings");
   });
 
+  it("jumps to Watch order by scrolling the panel alone, never the popup frame", async () => {
+    const container = await mountPopup();
+    const view = container.ownerDocument.defaultView as unknown as typeof globalThis;
+    const scrollIntoView = vi.fn();
+    const scrollTo = vi.fn();
+    Object.defineProperty(view.HTMLElement.prototype, "scrollIntoView", { configurable: true, value: scrollIntoView });
+    Object.defineProperty(view.HTMLElement.prototype, "scrollTo", { configurable: true, value: scrollTo });
+    Object.defineProperty(view.HTMLElement.prototype, "getBoundingClientRect", { configurable: true, value: () => ({ top: 0 }) });
+
+    act(() => container.querySelector<HTMLButtonElement>("[data-watch-source-chip]")!.click());
+
+    expect(currentView(container)).toBe("settings");
+    // scrollIntoView also scrolls every ancestor a script can scroll, which is
+    // what shifted the whole popup up out of its window.
+    expect(scrollIntoView).not.toHaveBeenCalled();
+    expect(scrollTo).toHaveBeenCalledOnce();
+    expect(scrollTo.mock.contexts[0]).toBe(container.querySelector("[data-scroll-panel]"));
+    // And the frame clips rather than hides, so no script can scroll it either.
+    expect(container.querySelector("main")?.className).toContain("overflow-clip");
+  });
+
   it("says where an extension sits in the watch order, and links to change it", async () => {
     const container = await mountPopup();
     go(container, "fortnite");
@@ -209,12 +230,9 @@ describe("workspace rail sources", () => {
           counts={{}}
           sourceOrder={["drops", "nopixel", "fortnite", "idle_watchlist"]}
           presentation={{ twitch: idle, kick: idle }}
-          automation={{ twitch: true, kick: true }}
-          automationPending={{ twitch: false, kick: false }}
           version="0.0.0"
           onViewChange={() => undefined}
           onPlatformChange={() => undefined}
-          onAutomationToggle={async () => undefined}
           onOpenInventory={() => undefined}
           {...props}
         />,

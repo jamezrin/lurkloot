@@ -9,6 +9,7 @@ import { CampaignCard, SortableCampaign, campaignRejectionMessageKey, initialExp
 import { fallbackGame } from "./viewModels";
 import type { CampaignRankTier } from "./viewModels";
 import type { CampaignView, GameItem } from "./types";
+import { ViewToolbar } from "./viewToolbar";
 import { EmptyPanel, SearchBox, Toggle, cn, reorderFromDragEnd, scrollIntoPanel, type SortableDragEndEvent } from "./primitives";
 
 // Which campaigns a facet admits. The facet reads across the queue AND the
@@ -165,7 +166,7 @@ export function QueuePanel({
 
   return (
     <section className="space-y-1.5">
-      <div className="flex flex-wrap items-center gap-1.5">
+      <ViewToolbar>
         <FacetTabs facet={facet} counts={facetCounts} onChange={setFacet} />
         {/* The strategy lives where it acts. It ranks everything no pin or
             favourite game already placed, which is what the label says. */}
@@ -182,7 +183,7 @@ export function QueuePanel({
             <option value="lowest_availability">{t("lowAvailabilityFirst")}</option>
           </select>
         </label>
-      </div>
+      </ViewToolbar>
 
       <div className="flex items-center gap-2">
         <div className="min-w-0 flex-1">

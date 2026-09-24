@@ -65,7 +65,7 @@
   --accent-glow: color-mix(in srgb, #53fc18 36%, transparent);
 }
 
-:root {
+:root, :host {
   --brand: #cf4420;
   --brand-text: #b3391a;
   --brand-contrast: #ffffff;
@@ -92,7 +92,7 @@
     --accent-glow: color-mix(in srgb, #53fc18 46%, transparent);
   }
 
-  :root {
+  :root, :host {
     --brand: #ff8a5c;
     --brand-text: #ff9f78;
     --brand-contrast: #170904;

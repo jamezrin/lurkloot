@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 import { Ban, Check, Star } from "lucide-react";
 import type { CategoryMode, CategorySelection, ExtensionSettings, Platform } from "@lurkloot/shared/models";
 import { useT } from "./context";
+import { ViewToolbar } from "./viewToolbar";
 import { GAME_ACCENTS, PLATFORMS } from "./constants";
 import { initials } from "./format";
 import { CategoryPickerCombobox } from "./settingsPlatform";
@@ -89,7 +90,7 @@ export function GamesPanel({
 
   return (
     <section className="space-y-2">
-      <div className="flex items-center gap-1.5">
+      <ViewToolbar>
         <div role="group" aria-label={t("categoryModeTitle")} className="inline-flex w-fit items-center gap-0.5 rounded-full border border-zinc-200 p-0.5 dark:border-zinc-700">
           {(["all", "include"] as const).map((mode) => (
             <button
@@ -108,7 +109,7 @@ export function GamesPanel({
           ))}
         </div>
         <span className="truncate text-[10px] text-zinc-400 dark:text-zinc-500">{t("gamesStarHint")}</span>
-      </div>
+      </ViewToolbar>
 
       {listed.length === 0 ? (
         <EmptyPanel>{t(categoryMode === "include" ? "noCategoriesSelected" : "gamesEmpty", label)}</EmptyPanel>

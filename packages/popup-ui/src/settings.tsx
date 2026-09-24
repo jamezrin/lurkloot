@@ -7,6 +7,7 @@ import { SettingsGroup, SettingsSearchBox, SettingsSection } from "./settingsCon
 import { buildSettingsRegistry, type SettingsChangeOptions } from "./settingsRegistry";
 import { filterSettingsTree } from "./settingsSearch";
 import { useT } from "./context";
+import { ViewToolbar } from "./viewToolbar";
 import { scrollIntoPanel } from "./primitives";
 import { TwitchExtensionSettings, twitchExtensionSearchText } from "./twitchExtensions";
 import type { GameItem, PopupCompatibilityRegistry, PopupCompatibilityResolution } from "./types";
@@ -159,7 +160,11 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
 
   return (
     <div ref={rootRef} className="space-y-3">
-      <SettingsSearchBox compact value={query} onChange={setQuery} />
+      <ViewToolbar>
+        <div className="ms-auto w-full max-w-[16rem]">
+          <SettingsSearchBox compact value={query} onChange={setQuery} />
+        </div>
+      </ViewToolbar>
 
       {visible.length === 0 && !showActions && !showExtensions ? (
         <p className="px-1 py-6 text-center text-xs text-zinc-400 dark:text-zinc-500">{t("settingsSearchNoResults", query.trim())}</p>

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useT } from "./context";
+import { ViewToolbar } from "./viewToolbar";
 import { CampaignCard } from "./drops";
 import { fallbackGame } from "./viewModels";
 import type { CampaignView, GameItem } from "./types";
@@ -39,6 +40,7 @@ export function CompletedPanel({ campaigns, gameMap, focus, refreshing, onRefres
 
   return (
     <section className="space-y-1.5">
+      <ViewToolbar>
       <div role="group" aria-label={t("navCompleted")} className="inline-flex w-fit items-center gap-0.5 rounded-full border border-zinc-200 p-0.5 dark:border-zinc-700">
         {([["finished", finished.length], ["expired", expired.length]] as const).map(([value, count]) => (
           <button
@@ -56,6 +58,7 @@ export function CompletedPanel({ campaigns, gameMap, focus, refreshing, onRefres
           </button>
         ))}
       </div>
+      </ViewToolbar>
 
       {rows.length === 0 ? (
         <EmptyPanel>{t(tab === "finished" ? "completedEmptyFinished" : "completedEmptyExpired")}</EmptyPanel>

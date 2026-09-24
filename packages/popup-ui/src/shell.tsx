@@ -5,7 +5,7 @@ import type { AutomationPresentation } from "./automationStatus";
 import { PLATFORMS } from "./constants";
 import { useT } from "./context";
 import { statusColor } from "./automation";
-import { Toggle, cn } from "./primitives";
+import { cn } from "./primitives";
 
 // The workspace's destinations. Platform is a separate axis: the rail's platform
 // switch applies to every view, so "which platform" and "which view" can never
@@ -63,7 +63,7 @@ export function viewForPlatform(view: PopupView, platform: Platform): PopupView 
  * At the popup's full width the entries carry their labels; the container query
  * below ~560px (the site's demo frame on a phone) collapses the rail to icons,
  * so the same tree serves both without a second layout. */
-export function WorkspaceRail({ view, platform, counts, sourceOrder, liveSource, presentation, automation, automationPending, version, onViewChange, onPlatformChange, onAutomationToggle, onOpenInventory }: {
+export function WorkspaceRail({ view, platform, counts, sourceOrder, liveSource, presentation, version, onViewChange, onPlatformChange, onOpenInventory, onOpenChangelog }: {
   view: PopupView;
   platform: Platform;
   // The platform's watch-source priority, which orders the non-drops sources,
@@ -72,13 +72,12 @@ export function WorkspaceRail({ view, platform, counts, sourceOrder, liveSource,
   liveSource?: WatchSourceId;
   counts: Partial<Record<PopupView, number>>;
   presentation: Record<Platform, AutomationPresentation>;
-  automation: Record<Platform, boolean>;
-  automationPending: Record<Platform, boolean>;
   version: string;
   onViewChange(view: PopupView): void;
   onPlatformChange(platform: Platform): void;
-  onAutomationToggle(platform: Platform, value: boolean): Promise<void>;
   onOpenInventory(): void;
+  // The release notes for this version, where the host can link to them.
+  onOpenChangelog?(): void;
 }): React.ReactElement {
   const t = useT();
   const liveView = liveSource ? WATCH_SOURCE_VIEWS[liveSource] : undefined;
@@ -92,18 +91,15 @@ export function WorkspaceRail({ view, platform, counts, sourceOrder, liveSource,
       className="@[560px]:w-[176px] flex w-[60px] shrink-0 flex-col gap-3 border-e border-zinc-200 bg-white px-2 py-3 dark:border-zinc-800 dark:bg-zinc-900"
     >
       <div className="flex items-center gap-2 px-1">
-        <img src="/logo-ring.svg" alt="" width={24} height={24} className="h-6 w-6 shrink-0 rounded-lg" style={{ boxShadow: "0 4px 14px -4px var(--accent-glow)" }} />
+        {/* The mark is Lurkloot's own, so it is drawn in Ember rather than in the
+            platform's accent (docs/brand.md). */}
+        <span aria-hidden className="grid h-6 w-6 shrink-0 place-items-center rounded-[7px] bg-[var(--brand)]">
+          <span className="h-2.5 w-2.5 rounded-full border-[2.5px] border-[var(--brand-contrast)]" />
+        </span>
         <span className="font-display @[560px]:inline hidden truncate text-[14px] font-bold text-zinc-900 dark:text-zinc-50">Lurkloot</span>
       </div>
 
-      <PlatformRail
-        active={platform}
-        presentation={presentation}
-        enabled={automation}
-        pending={automationPending}
-        onChange={onPlatformChange}
-        onToggle={onAutomationToggle}
-      />
+      <PlatformRail active={platform} presentation={presentation} onChange={onPlatformChange} />
 
       <NavGroup labelKey="navGroupDrops" items={DROPS_ITEMS} view={view} platform={platform} counts={counts} liveView={liveView} onViewChange={onViewChange} />
       <NavGroup labelKey="navGroupSources" items={sourceItems} view={view} platform={platform} counts={counts} liveView={liveView} onViewChange={onViewChange} />
@@ -117,7 +113,21 @@ export function WorkspaceRail({ view, platform, counts, sourceOrder, liveSource,
         <RailLink label={t("openInventory")} icon={Package} onClick={onOpenInventory} />
       </div>
       <NavGroup items={FOOTER_ITEMS} view={view} platform={platform} counts={counts} onViewChange={onViewChange} />
-      <div className="@[560px]:block hidden px-2 font-mono text-[10px] leading-tight text-zinc-400 dark:text-zinc-500">v{version}</div>
+      {onOpenChangelog ? (
+        <button
+          type="button"
+          data-rail-link="changelog"
+          onClick={onOpenChangelog}
+          title={t("railWhatsNew")}
+          className="@[560px]:flex hidden items-center gap-1.5 rounded-lg bg-[var(--brand-soft)] px-2 py-1.5 text-start text-[11px] font-semibold text-[var(--brand-text)] outline-none hover:brightness-95 focus-visible:ring-2 focus-visible:ring-[var(--brand-ring)]"
+        >
+          <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--brand)]" />
+          {t("railWhatsNew")}
+          <span className="ms-auto font-mono text-[10px] font-medium opacity-80">v{version}</span>
+        </button>
+      ) : (
+        <div className="@[560px]:block hidden px-2 font-mono text-[10px] leading-tight text-zinc-400 dark:text-zinc-500">v{version}</div>
+      )}
     </nav>
   );
 }
@@ -205,69 +215,47 @@ function NavGroup({ labelKey, items, view, platform, counts, liveView, onViewCha
   );
 }
 
-/** The platform switch, stacked for the rail.
+/** The platform switch: Twitch and Kick side by side, each with its status dot.
  *
- * Each row is a cell rather than a button: a full-area button selects the
- * platform and the automation switch sits above it, so a platform can be turned
- * on without first switching to it — the behaviour the old horizontal bar had. */
-function PlatformRail({ active, presentation, enabled, pending, onChange, onToggle }: {
+ * Turning a platform on or off is the strip's switch, beside what that
+ * platform is doing; here a platform is only picked. The dot still says how
+ * the other platform is getting on without switching to it. */
+function PlatformRail({ active, presentation, onChange }: {
   active: Platform;
   presentation: Record<Platform, AutomationPresentation>;
-  enabled: Record<Platform, boolean>;
-  pending: Record<Platform, boolean>;
   onChange(platform: Platform): void;
-  onToggle(platform: Platform, value: boolean): Promise<void>;
 }): React.ReactElement {
   const t = useT();
   const platformIds = Object.keys(PLATFORMS) as Platform[];
   return (
-    <div role="tablist" aria-orientation="vertical" aria-label={t("navPlatform")} className="flex flex-col gap-1 rounded-xl bg-zinc-100 p-1 dark:bg-zinc-800/60">
+    <div role="tablist" aria-label={t("navPlatform")} className="@[560px]:grid-cols-2 grid grid-cols-1 gap-0.5 rounded-[10px] border border-zinc-200 bg-zinc-50 p-0.5 dark:border-zinc-800 dark:bg-zinc-950">
       {platformIds.map((id) => {
         const details = PLATFORMS[id];
         const status = presentation[id];
         const indicatorColor = statusColor(status, details.color);
         const selected = active === id;
         return (
-          <div
+          <button
             key={id}
+            type="button"
+            role="tab"
+            aria-selected={selected}
+            aria-label={details.label}
             data-platform-status={id}
             data-state={status.state}
+            onClick={() => onChange(id)}
             className={cn(
-              "relative flex min-w-0 items-center gap-1.5 rounded-lg px-1.5 py-1",
-              selected ? "bg-white shadow-sm dark:bg-zinc-900" : "hover:bg-white/60 dark:hover:bg-zinc-900/50",
+              "flex min-w-0 items-center justify-center gap-1.5 rounded-lg px-1.5 py-1 text-[12px] font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]",
+              selected ? "bg-white text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-50" : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200",
             )}
           >
-            <button
-              type="button"
-              role="tab"
-              aria-selected={selected}
-              aria-label={details.label}
-              onClick={() => onChange(id)}
-              className="absolute inset-0 rounded-lg"
-            />
             <span
               aria-hidden
-              className="pointer-events-none relative z-10 h-2 w-2 shrink-0 rounded-full"
-              style={{ backgroundColor: indicatorColor ?? "currentColor", opacity: indicatorColor ? 1 : 0.35 }}
+              className="h-[7px] w-[7px] shrink-0 rounded-full"
+              style={{ backgroundColor: indicatorColor ?? details.color, opacity: indicatorColor ? 1 : 0.35 }}
             />
-            <span className={cn(
-              "@[560px]:inline pointer-events-none relative z-10 hidden truncate text-[12px] font-semibold",
-              selected ? "text-zinc-900 dark:text-zinc-50" : "text-zinc-500 dark:text-zinc-400",
-            )}
-            >
-              {details.label}
-            </span>
-            <span className="@[560px]:flex relative z-10 ms-auto hidden">
-              <Toggle
-                size="sm"
-                color={details.color}
-                checked={enabled[id]}
-                disabled={pending[id]}
-                onChange={(value) => void onToggle(id, value)}
-                label={t("automationTitle", details.label)}
-              />
-            </span>
-          </div>
+            <span className="@[560px]:inline hidden truncate">{details.label}</span>
+          </button>
         );
       })}
     </div>
