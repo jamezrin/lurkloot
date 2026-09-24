@@ -9,6 +9,15 @@
    utilities. */
 @source "./**/*.{ts,tsx}";
 
+/* Never generate Tailwind's .container utility. The scanner treats any bare
+   word as a candidate class — a comment mentioning a "container query" was
+   enough — and .container brings width breakpoints (@media width >= 40rem …).
+   An extension popup is re-measured after every layout by laying the document
+   out at a tiny width and back, so those breakpoints flipped on each pass and
+   forced a full style recalculation and relayout of the whole popup, several
+   times per click. The popup has one fixed size and needs no breakpoints. */
+@source not inline("container");
+
 @theme {
   /* Archivo for names and headings, Geist for text, Geist Mono for numbers —
      the prototype's pairing. fonts.css bundles all three; the plain names

@@ -104,6 +104,12 @@ importers:
         specifier: ^0.20.0
         version: 0.20.27(@types/node@24.13.6)(jiti@2.7.0)(rolldown@1.2.8)(rollup@4.62.2)(supports-color@10.2.2)
     devDependencies:
+      '@tailwindcss/node':
+        specifier: 4.3.3
+        version: 4.3.3
+      '@tailwindcss/oxide':
+        specifier: 4.3.3
+        version: 4.3.3
       '@tailwindcss/vite':
         specifier: ^4.3.0
         version: 4.3.3(vite@8.3.0(@types/node@24.13.6)(esbuild@0.27.7)(jiti@2.7.0))
