@@ -2821,6 +2821,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
               campaigns: discoveryState.snapshot?.campaigns.map(({ campaign }) => campaign)
                 ?? state.campaigns[discoveryPlatform],
               complete: discoveryState.snapshot !== undefined,
+              // A settings save threw this tick's refresh away; the save's own
+              // follow-up tick refreshes again and decides.
+              discarded: discoveryState.snapshot === undefined && discoveryState.lastAttempt?.discarded !== undefined,
             }];
           })),
         });

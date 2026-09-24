@@ -631,12 +631,21 @@ async function selectWatchSources(
   resolveSupplemental: ((source: WatchSourceId) => Promise<SupplementalWatchTarget | undefined>) | undefined,
   emit: EventEmitter,
   signal?: AbortSignal,
+  dropsUndecided = false,
 ): Promise<{ selection: SnapshotSelectionResult; supplemental?: SupplementalWatchTarget }> {
   let ordinary: SnapshotSelectionResult | undefined;
   let ordinaryFailed = false;
   let ordinaryError: unknown;
+  // With Drops undecided, a source below it may only keep what it is already
+  // watching: starting it would be undone as soon as discovery completes.
+  const currentSource: string | undefined = previous.status !== "watching"
+    ? undefined
+    : previous.supplementalWatch?.id ?? (previous.campaignId ? "drops" : "idle_watchlist");
+  let pastDrops = false;
   for (const source of normalizeWatchSourcePriority(platform, settings.platform[platform].watchSourcePriority)) {
     signal?.throwIfAborted();
+    if (pastDrops && dropsUndecided && source !== currentSource) continue;
+    if (source === "drops") pastDrops = true;
     if (source === "drops" || source === "idle_watchlist") {
       try {
         ordinary = await resolveOrdinary(source);
@@ -810,13 +819,20 @@ function retainHealthyWatchOnAmbiguousDiscovery(
   previous: WatchSession,
   campaigns: DropCampaign[],
   settings: EngineSettings,
+  onDecline?: (reason: string) => void,
 ): SnapshotSelectionResult | undefined {
-  if (previous.supplementalWatch || !previous.campaignId || previous.status !== "watching" || !previous.channel || !isSessionHealthy(previous)) return undefined;
+  if (previous.supplementalWatch || !previous.campaignId || previous.status !== "watching" || !previous.channel) return undefined;
+  const decline = (reason: string): undefined => {
+    onDecline?.(`Not keeping current watch while discovery is incomplete: ${reason}`);
+    return undefined;
+  };
+  if (!isSessionHealthy(previous)) return decline("the watch is unhealthy");
   const campaign = campaigns.find((candidate) => candidate.id === previous.campaignId);
   const reward = campaign?.rewards.find((candidate) => candidate.id === previous.rewardId);
-  if (!campaign || !isEligible(campaign, settings)
-    || activeReward(campaign, settings)?.id !== previous.rewardId
-    || settings.platform[previous.platform].excludedChannels?.includes(previous.channel.username.toLowerCase())) return undefined;
+  if (!campaign) return decline("its campaign is no longer known");
+  if (!isEligible(campaign, settings)) return decline("its campaign is no longer eligible under the current settings");
+  if (activeReward(campaign, settings)?.id !== previous.rewardId) return decline("its reward is no longer the campaign's active reward");
+  if (settings.platform[previous.platform].excludedChannels?.includes(previous.channel.username.toLowerCase())) return decline("its channel is excluded");
   const decision: WatchDecision = {
     platform: previous.platform,
     action: "watch",
@@ -873,6 +889,10 @@ export interface SchedulerTickOptions {
   discovery?: Partial<Record<Platform, {
     campaigns: DropCampaign[];
     complete: boolean;
+    // The refresh was thrown away (settings changed mid-flight), not failed:
+    // nothing is known about channels, so Drops is undecided rather than
+    // unavailable and no lower source may take over from it this tick.
+    discarded?: boolean;
   }>>;
   selections?: Partial<Record<Platform, SnapshotSelectionResult>>;
   selectionIsCurrent?: Partial<Record<Platform, () => boolean>>;
@@ -1233,6 +1253,7 @@ export async function runSchedulerTick(
       let campaigns: DropCampaign[];
       let discoveryFailed = false;
       const committedDiscovery = options.discovery?.[platform];
+      const discoveryDiscarded = committedDiscovery?.discarded === true && !committedDiscovery.complete;
       if (committedDiscovery) {
         campaigns = preserveClaimedRewards(committedDiscovery.campaigns, state.campaigns[platform]);
         discoveryFailed = !committedDiscovery.complete;
@@ -1378,7 +1399,9 @@ export async function runSchedulerTick(
       const retentionCampaigns = discoveryFailed
         ? [...new Map([...nextState.campaigns[platform], ...campaigns].map(campaign => [campaign.id, campaign])).values()]
         : campaigns;
-      const ambiguousRetention = discoveryFailed ? retainHealthyWatchOnAmbiguousDiscovery(previous, retentionCampaigns, settings) : undefined;
+      const ambiguousRetention = discoveryFailed
+        ? retainHealthyWatchOnAmbiguousDiscovery(previous, retentionCampaigns, settings, (message) => emitDiagnostic(emit, platform, "debug", message))
+        : undefined;
       const sourceOrder = normalizeWatchSourcePriority(platform, platformSettings.watchSourcePriority);
       const { selection, supplemental } = await selectWatchSources(platform, previous, settings, adapter, async source => {
         const prepared = options.selections?.[platform];
@@ -1400,8 +1423,11 @@ export async function runSchedulerTick(
         const retention = await shouldKeepWatching(previous, decision, campaigns, settings, adapter, options.signal);
         if (previous.status === "watching" && previous.channel) decision = { ...decision, reason: retention.reason, reasonCode: retention.reasonCode };
         return { decision, retention, campaignsChecked: 0, candidatesChecked, fastPath: false };
-      }, options.selectSupplementalWatchTarget ? source => options.selectSupplementalWatchTarget!(platform, nextState, options.signal, source) : undefined, emit, options.signal);
+      }, options.selectSupplementalWatchTarget ? source => options.selectSupplementalWatchTarget!(platform, nextState, options.signal, source) : undefined, emit, options.signal, discoveryDiscarded);
       let { decision } = selection;
+      if (discoveryDiscarded && decision.action === "idle") {
+        decision = { ...decision, reason: "Waiting for campaign discovery after a settings change" };
+      }
       const shouldKeep = selection.retention;
       if (options.selectionIsCurrent?.[platform]?.() === false) {
         emitDiagnostic(emit, platform, "debug", "Snapshot selection discarded after target health changed");

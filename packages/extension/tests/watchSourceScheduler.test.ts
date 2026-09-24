@@ -229,3 +229,62 @@ describe("watch-source scheduler policy", () => {
     expect(result.state.sessions.twitch.channel?.username).toBe("idlefirst");
   });
 });
+
+// A settings save throws away the discovery refresh in flight. The tick that
+// follows knows the campaigns but no channels, so Drops cannot be decided; a
+// lower source used to take over and was undone by the next full refresh.
+describe("watch-source policy while discovery was discarded", () => {
+  function discardedTick(s: ReturnType<typeof setup>, current: SchedulerState, selector: (platform: Platform, selectedState: SchedulerState, signal?: AbortSignal, source?: string) => Promise<SupplementalWatchTarget | undefined>) {
+    const adapter: PlatformAdapter = { ...s.adapter, listCandidateChannels: async () => [], checkChannel: async candidate => ({ live: false, categoryMatches: false, candidate }) };
+    return runSchedulerTick(current, s.settings, { twitch: adapter, kick: { ...adapter, platform: "kick" } }, {
+      platforms: ["twitch"],
+      selectSupplementalWatchTarget: selector,
+      discovery: { twitch: { campaigns: current.campaigns.twitch, complete: false, discarded: true } },
+    });
+  }
+  const healthy = (state: SchedulerState): SchedulerState => ({
+    ...state,
+    sessions: { ...state.sessions, twitch: { ...state.sessions.twitch, lastHeartbeatOk: true, lastHeartbeatAt: new Date().toISOString() } },
+  });
+  const nopixelLive = (s: ReturnType<typeof setup>) => async (_platform: Platform, _state: SchedulerState, _signal?: AbortSignal, source?: string) =>
+    source === "nopixel" ? s.target("nopixel") : undefined;
+
+  it("keeps a healthy drop watch instead of starting a lower source", async () => {
+    const s = setup();
+    s.settings.platform.twitch.idleWatchlistChannels = [];
+    const drops = await s.tick(s.state, async () => undefined);
+    expect(drops.state.sessions.twitch.campaignId).toBe("drop");
+
+    const next = await discardedTick(s, healthy(drops.state), nopixelLive(s));
+
+    expect(next.state.sessions.twitch).toMatchObject({ status: "watching", campaignId: "drop" });
+    expect(next.state.sessions.twitch.supplementalWatch).toBeUndefined();
+  });
+
+  it("waits rather than switching to a lower source when the save made the campaign ineligible", async () => {
+    const s = setup();
+    s.settings.platform.twitch.idleWatchlistChannels = [];
+    const drops = await s.tick(s.state, async () => undefined);
+    s.settings.excludedCampaignIds = ["drop"];
+
+    const next = await discardedTick(s, healthy(drops.state), nopixelLive(s));
+
+    expect(next.state.sessions.twitch.supplementalWatch).toBeUndefined();
+    expect(next.state.sessions.twitch.campaignId).toBeUndefined();
+    expect(next.events.map((event) => event.message)).toEqual(expect.arrayContaining([
+      "Not keeping current watch while discovery is incomplete: its campaign is no longer eligible under the current settings",
+    ]));
+  });
+
+  it("keeps a supplemental watch it was already on", async () => {
+    const s = setup();
+    s.settings.platform.twitch.idleWatchlistChannels = [];
+    s.settings.excludedCampaignIds = ["drop"];
+    const nopixel = await s.tick(s.state, nopixelLive(s));
+    expect(nopixel.state.sessions.twitch.supplementalWatch?.id).toBe("nopixel");
+
+    const next = await discardedTick(s, healthy(nopixel.state), nopixelLive(s));
+
+    expect(next.state.sessions.twitch.supplementalWatch?.id).toBe("nopixel");
+  });
+});

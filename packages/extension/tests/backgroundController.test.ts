@@ -1500,6 +1500,35 @@ describe("background controller", () => {
     });
   });
 
+  // A settings save drops the snapshot and throws away the refresh in flight.
+  // The tick used to decide as if nothing had been discovered, which handed
+  // the watch to a lower source until the save's follow-up tick switched back.
+  it("tells the scheduler when a settings save threw its discovery refresh away", async () => {
+    const env = harness();
+    const gate = deferred<void>();
+    let calls = 0;
+    vi.mocked(env.kick.refreshCampaigns).mockImplementation(async () => {
+      calls += 1;
+      if (calls === 1) await gate.promise;
+      return [campaign("kick")];
+    });
+
+    const tick = env.rawController.tick(["kick"]);
+    await vi.waitFor(() => expect(calls).toBe(1));
+    await env.rawController.handleMessage({ type: "saveSettings", settingsPatch: { platform: { kick: { excludedChannels: ["someone"] } } }, tickAfterSave: true, tickAfterSavePlatforms: ["kick"] });
+    gate.resolve();
+    await tick;
+
+    const messages = allDiagnostics(env).filter((event) => event.platform === "kick").map((event) => event.message);
+    expect(messages.find((message) => message.startsWith("Discovery refresh finished"))).toContain("discarded=stale_generation");
+    expect(messages).toContain("Campaign decision: idle (Waiting for campaign discovery after a settings change)");
+    expect(messages.some((message) => message.includes("No campaigns discovered"))).toBe(false);
+
+    // The save's own follow-up tick refreshes again and decides.
+    await env.rawController.settleBackgroundWork();
+    expect(env.state.sessions.kick).toMatchObject({ status: "watching", campaignId: campaign("kick").id });
+  });
+
   it("attributes Kick discovery duration, skipped inventory and unique channel checks", async () => {
     const env = harness();
     vi.mocked(env.kick.refreshCampaigns).mockResolvedValue([
