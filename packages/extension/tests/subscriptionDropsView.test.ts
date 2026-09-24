@@ -287,6 +287,18 @@ describe("subscription drop popup views", () => {
     expect(markup).not.toContain("Excluded");
   });
 
+  it("leaves the subscription notice to the panel in an open subscription-only card", () => {
+    const source = campaign("subscription-only", [
+      reward({ id: "subscribe", name: "Subscriber Sword", requirement: "subscription", requiredSubs: 1 }),
+    ]);
+    const markup = renderDrops([expandedView(campaignViewFromCampaign(source, 0, idleSession, false))]);
+
+    // The panel is headed "Subscription required" already; the notices list
+    // would only repeat it.
+    expect(markup).toContain('data-campaign-flag="subscription"');
+    expect(markup).not.toContain("data-campaign-notices");
+  });
+
   it("keeps watch controls and every reward on mixed campaigns", () => {
     const source = campaign("mixed", [
       reward({ id: "watch", name: "Watch Crown", requirement: "watch", requiredMinutes: 60, watchedMinutes: 30, status: "in_progress" }),

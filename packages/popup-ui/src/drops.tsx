@@ -134,6 +134,8 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
     ...(stats.kind === "action" ? [{ key: "action", tone: "muted", icon: <MousePointerClick size={12} />, label: t("actionRequired") } as const] : []),
     ...(campaign.excluded && campaign.hasWatchRewards ? [{ key: "excluded", tone: "muted", icon: <Ban size={12} />, label: t("excluded") } as const] : []),
   ];
+  // A subscription-only card already heads its panel with the same words.
+  const expandedNotices = stats.kind === "subscription" ? notices.filter((notice) => notice.key !== "subscription") : notices;
   const flags: CampaignFlag[] = farmingRejectionMessage
     ? [...notices, { key: "rejected", tone: "warning", icon: <AlertTriangle size={12} />, label: farmingRejectionMessage }]
     : notices;
@@ -284,9 +286,9 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
                   ) : null}
                 </div>
               ) : null}
-              {notices.length > 0 ? (
+              {expandedNotices.length > 0 ? (
                 <ul data-campaign-notices className="space-y-1">
-                  {notices.map((notice) => (
+                  {expandedNotices.map((notice) => (
                     <li key={notice.key} className={cn("flex min-h-5 items-center gap-1.5 text-[11px] font-medium", FLAG_TONE[notice.tone])}>
                       <span className="flex shrink-0">{notice.icon}</span>
                       <span className="min-w-0 flex-1">{notice.label}</span>
