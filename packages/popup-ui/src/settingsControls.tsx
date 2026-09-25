@@ -51,30 +51,37 @@ export function SettingsSection({ id, title, description, badge, forceExpanded, 
 
   const expanded = forceExpanded || !collapsed;
 
-  // At full width the section's name and purpose sit in a label column beside
-  // its rows, so the width goes to the settings rather than to stacked headings.
+  // At full width an open section's name and purpose sit in a label column
+  // beside its rows, so the width goes to the settings rather than to stacked
+  // headings. A folded section has no rows, so its header spans the full width:
+  // the name stays in the label column and the description moves into the
+  // content column, one compact line aligned with the open sections. The same
+  // button is kept across both states so focus survives the toggle.
   return (
-    <section id={`settings-section-${id}`} className="@[520px]:grid-cols-[8.5rem_minmax(0,1fr)] grid scroll-mt-2 grid-cols-1 gap-x-5 border-t border-zinc-200 pt-3 first:border-t-0 first:pt-0 dark:border-zinc-800">
-      <header className="@[520px]:mb-0 mb-1.5">
+    <section id={`settings-section-${id}`} className={cn("@[520px]:grid-cols-[8.5rem_minmax(0,1fr)] grid scroll-mt-2 grid-cols-1 gap-x-5 border-t border-zinc-200 first:border-t-0 first:pt-0 dark:border-zinc-800", expanded ? "pt-3" : "pt-2")}>
+      <header className={expanded ? "@[520px]:mb-0 mb-1.5" : "col-span-full"}>
         <button
           type="button"
           aria-expanded={expanded}
           onClick={toggleCollapsed}
-          className="group flex w-full items-start justify-between gap-2 rounded-lg py-1.5 text-start outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+          className={cn(
+            "group grid w-full grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 rounded-lg py-1.5 text-start outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]",
+            !expanded && "@[520px]:grid-cols-[8.5rem_minmax(0,1fr)_auto] @[520px]:gap-x-5",
+          )}
         >
-          <span className="min-w-0">
-            <span className="flex items-center gap-1.5">
-              <span data-settings-section-title className="font-display text-[12.5px] font-bold leading-tight text-zinc-900 dark:text-zinc-50">{title}</span>
-              {badge}
-            </span>
-            {description ? <span className="mt-1 block text-[10.5px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</span> : null}
+          <span className="col-start-1 row-start-1 flex min-w-0 items-center gap-1.5">
+            <span data-settings-section-title className="font-display text-[12.5px] font-bold leading-tight text-zinc-900 dark:text-zinc-50">{title}</span>
+            {badge}
           </span>
+          {description ? (
+            <span className={cn("col-start-1 row-start-2 mt-1 block min-w-0 text-[10.5px] leading-snug text-zinc-500 dark:text-zinc-400", !expanded && "@[520px]:col-start-2 @[520px]:row-start-1 @[520px]:mt-0.5 truncate")}>{description}</span>
+          ) : null}
           {/* Shown on hover and focus while open, as the prototype has no
               arrows; always shown while collapsed, so a folded section says so. */}
-          <ChevronDown size={13} className={cn("mt-0.5 shrink-0 text-zinc-400 transition-transform dark:text-zinc-500", expanded ? "rotate-180 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" : "")} />
+          <ChevronDown size={13} className={cn("col-start-2 row-start-1 mt-0.5 shrink-0 text-zinc-400 transition-transform dark:text-zinc-500", expanded ? "rotate-180 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" : "@[520px]:col-start-3")} />
         </button>
       </header>
-      {expanded ? <div className="min-w-0 space-y-3 pb-2">{children}</div> : <div className="@[520px]:block hidden" />}
+      {expanded ? <div className="min-w-0 space-y-3 pb-2">{children}</div> : null}
     </section>
   );
 }
