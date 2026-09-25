@@ -517,11 +517,11 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   // The provider views drive the same handler the settings list does, with a
   // pending flag so their toggle cannot be double-fired while the permission
   // prompt and the tick are in flight.
-  async function changeExtensionEnabled(provider: TwitchExtensionProviderId, enabled: boolean): Promise<void> {
+  async function changeExtensionEnabled(provider: TwitchExtensionProviderId, enabled: boolean): Promise<boolean | void> {
     if (extensionPending) return;
     setExtensionPending(true);
     try {
-      await setExtensionEnabled(provider, enabled);
+      return await setExtensionEnabled(provider, enabled);
     } finally {
       setExtensionPending(false);
     }
@@ -981,7 +981,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                       && snapshot.state.sessions.twitch.watchMode === "tabless"
                       && snapshot.state.sessions.twitch.supplementalWatch?.id === view}
                     pending={extensionPending}
-                    onEnabledChange={(enabled) => void changeExtensionEnabled(view, enabled)}
+                    onEnabledChange={(enabled) => changeExtensionEnabled(view, enabled)}
                     onOptionChange={(enabled) => void updateSettings(
                       view === "nopixel"
                         ? { twitchExtensions: { nopixel: { autoOpenPacks: enabled } } }

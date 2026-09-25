@@ -203,7 +203,8 @@ export function TwitchExtensionView({ providerId, settings, summary, active, pen
   summary?: TwitchExtensionSummary;
   active: boolean;
   pending: boolean;
-  onEnabledChange(enabled: boolean): void | Promise<void>;
+  // Resolves false when the browser denied the permission the provider needs.
+  onEnabledChange(enabled: boolean): Promise<boolean | void>;
   onOptionChange(enabled: boolean): void | Promise<void>;
   onSetup?(): void;
   onChangeOrder?(): void;
@@ -216,6 +217,19 @@ export function TwitchExtensionView({ providerId, settings, summary, active, pen
     ? settings.twitchExtensions.nopixel.autoOpenPacks
     : settings.twitchExtensions.fortnite.allowTakeovers;
   const { progress, badges } = providerDetails(providerId, summary, t);
+  const [failure, setFailure] = useState<string>();
+
+  // Same outcomes the settings section reports: a denied permission leaves
+  // the switch off, and saying why is the only thing that tells them apart.
+  async function changeEnabled(next: boolean): Promise<void> {
+    setFailure(undefined);
+    try {
+      const result = await onEnabledChange(next);
+      if (next && result === false) setFailure("extensionPermissionRequired");
+    } catch {
+      setFailure("extensionUnavailable");
+    }
+  }
 
   return (
     <section aria-label={provider.name} className="space-y-2">
@@ -230,8 +244,9 @@ export function TwitchExtensionView({ providerId, settings, summary, active, pen
           </div>
           <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{t(provider.hint)}</div>
         </div>
-        <Toggle checked={enabled} disabled={pending} onChange={onEnabledChange} label={provider.name} />
+        <Toggle checked={enabled} disabled={pending} onChange={(next) => void changeEnabled(next)} label={provider.name} />
       </div>
+      {failure ? <p role="status" data-extension-failure className="px-1 text-[11px] text-amber-700 dark:text-amber-400">{t(failure)}</p> : null}
 
       {enabled ? (
         <>

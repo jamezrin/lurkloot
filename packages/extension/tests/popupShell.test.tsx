@@ -113,6 +113,12 @@ describe("popup workspace shell", () => {
     expect(container.querySelector('[data-campaign-id="tw-marathon"] article button[aria-expanded="true"]')).not.toBeNull();
   });
 
+  it("names the watched channel's viewer count for screen readers", async () => {
+    const container = await mountPopup();
+    const count = container.querySelector('[data-automation-state="running"] [role="img"][aria-label$="viewers"]');
+    expect(count?.getAttribute("aria-label")).toBe("18K viewers");
+  });
+
   it("starts the Games search afresh on the other platform", async () => {
     const container = await mountPopup();
     go(container, "games");

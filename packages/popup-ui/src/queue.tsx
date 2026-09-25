@@ -92,6 +92,8 @@ export function QueuePanel({
 
   const inFacet = useMemo(() => campaigns.filter((campaign) => matchesFacet(campaign, facet)), [campaigns, facet]);
   const queued = useMemo(() => inFacet.filter((campaign) => campaign.section === "queue"), [inFacet]);
+  // Search reads across every facet, so its ranks come from the whole queue.
+  const allQueued = useMemo(() => campaigns.filter((campaign) => campaign.section === "queue"), [campaigns]);
   const skipped = useMemo(() => inFacet.filter((campaign) => campaign.section === "skipped"), [inFacet]);
   const upcoming = useMemo(() => inFacet.filter((campaign) => campaign.section === "upcoming"), [inFacet]);
   const searchResults = useMemo(() => filterCampaigns(campaigns, gameMap, query), [campaigns, gameMap, query]);
@@ -147,6 +149,8 @@ export function QueuePanel({
       const pins = pinnedOf(latest.current.queued);
       if (pins.some((campaign) => campaign.id === id)) void latest.current.onPinChange(id, pinPosition(pins, toIndex));
     },
+    // A search result's rank is its place among all pins, whatever the facet.
+    pinAt: (id, position) => void latest.current.onPinChange(id, position),
     favourite: (category) => void latest.current.onToggleFavouriteCategory?.(category),
     block: (category) => void latest.current.onToggleBlockedCategory?.(category),
     openGames: () => latest.current.onOpenGames(),
@@ -223,13 +227,13 @@ export function QueuePanel({
         ) : (
           <div data-queue-group="search" className="space-y-1">
             {searchResults.map((campaign, index) => {
-              const queueIndex = queued.findIndex((entry) => entry.id === campaign.id);
+              const queueIndex = allQueued.findIndex((entry) => entry.id === campaign.id);
               return (
                 <div key={campaign.id} data-campaign-id={campaign.id} {...(queueIndex === -1 ? {} : { "data-campaign-rank": String(queueIndex + 1) })}>
                   <QueueRow
                     kind="search"
                     campaign={campaign}
-                    index={queueIndex === -1 ? index : queueIndex}
+                    index={campaign.pinned && campaign.pinIndex != null ? campaign.pinIndex : queueIndex === -1 ? index : queueIndex}
                     farmingIndex={farmingIndex}
                     anyFarming={anyFarming}
                     game={gameMap[campaign.gameId]}
@@ -361,6 +365,7 @@ type RowActions = {
   togglePin(campaign: CampaignView): void;
   pinLast(id: string): void;
   rankMove(id: string, toIndex: number): void;
+  pinAt(id: string, position: number): void;
   favourite(category: CategorySelection): void;
   block(category: CategorySelection): void;
   openGames(): void;
@@ -434,7 +439,7 @@ const QueueRow = React.memo(function QueueRow({ kind, campaign, index, farmingIn
       <CampaignCard
         {...props}
         rankCount={rankCount}
-        onRankMove={campaign.pinned && campaign.pinIndex != null ? (toIndex) => actions.rankMove(campaign.id, toIndex) : undefined}
+        onRankMove={campaign.pinned && campaign.pinIndex != null ? (toIndex) => actions.pinAt(campaign.id, toIndex) : undefined}
         onPin={queued ? () => actions.togglePin(campaign) : undefined}
         pinned={campaign.pinned}
         rankReason={rankReason}

@@ -346,6 +346,28 @@ describe("campaign card actions", () => {
     expect(row("ordinary").getAttribute("data-campaign-rank")).toBe("2");
   });
 
+  it("places a searched pin by its real rank while a facet hides other pins", () => {
+    const settings = mergeSettings({ campaignPins: ["badge", "d1", "d2"], farmingEligibility: { farmSubscriptionCampaigns: true } } as never);
+    const badge = campaign("badge", {
+      rewards: [{ id: "sub", name: "Sub badge", requiredMinutes: 0, requirement: "subscription", requiredSubs: 1, watchedMinutes: 0, status: "locked" }],
+    });
+    const onPinChange = vi.fn();
+    const { container } = queue(views([badge, campaign("d1"), campaign("d2")], settings), settings, { onPinChange });
+    act(() => container.querySelector<HTMLButtonElement>('[data-queue-facet="drops"]')!.click());
+    search(container, "d2");
+
+    const rank = container.querySelector<HTMLButtonElement>('[data-campaign-id="d2"] button[aria-label="Set rank of d2"]')!;
+    // Its real place among all three pins, not its place among the two shown.
+    expect(rank.textContent).toBe("3");
+    act(() => rank.click());
+    const input = container.querySelector<HTMLInputElement>('[data-campaign-id="d2"] input')!;
+    const props = (element: Element) => (element as unknown as Record<string, { onChange?(event: { target: HTMLInputElement; currentTarget: HTMLInputElement }): void; onBlur?(): void }>)[Object.keys(element).find((key) => key.startsWith("__reactProps$"))!]!;
+    act(() => { input.value = "1"; props(input).onChange?.({ target: input, currentTarget: input }); });
+    act(() => props(input).onBlur?.());
+
+    expect(onPinChange).toHaveBeenCalledWith("d2", 0);
+  });
+
   it("pins a queued campaign from its own row", () => {
     const settings = mergeSettings({ campaignPins: ["pinned"] } as never);
     const onPinChange = vi.fn();

@@ -493,3 +493,40 @@ describe("campaign watch timeline", () => {
     expect(timeline([reward({ id: "free", requirement: "watch", requiredMinutes: 0 })])).toBeUndefined();
   });
 });
+
+describe("the exclude button on a campaign with nothing to watch", () => {
+  // A subscription-only campaign cannot be excluded on its own, so the only
+  // choice left is blocking its whole game; the button used to say "Exclude
+  // from farming" while it did that.
+  function render(view: CampaignView): string {
+    return renderToStaticMarkup(createElement(
+      I18nContext.Provider,
+      { value: { t: testT, dir: "ltr", locale: "en" } },
+      createElement(QueuePanel, {
+        campaigns: [view], gameMap: {}, refreshing: false, strategy: "ending_soonest" as const, pinnedCount: 0, farmPinnedOnly: false,
+        onStrategyChange: () => {}, onUnpinAll: () => {}, onFarmPinnedOnlyChange: () => {}, onRefreshCampaign: () => {},
+        onPinChange: () => {}, onToggleExclude: () => {}, onOpenGames: () => {}, onOpenSettings: () => {},
+        onToggleBlockedCategory: () => {},
+      }),
+    ));
+  }
+  const source = () => ({
+    ...campaign("sub-game", [reward({ id: "subscribe", requirement: "subscription", requiredSubs: 1 })]),
+    categoryId: "rust", gameName: "Rust",
+  });
+  const button = (markup: string) => /<button[^>]*data-campaign-exclude[^>]*>(.*?)<\/button>/.exec(markup);
+
+  it("names blocking the game as the action", () => {
+    const match = button(render(expandedView(campaignViewFromCampaign(source(), 0, idleSession, false))));
+    expect(match?.[0]).toContain('aria-pressed="false"');
+    expect(match?.[1]).toContain("gamesBlock");
+    expect(match?.[1]).not.toContain("Exclude from farming");
+  });
+
+  it("names the blocked game once it is blocked", () => {
+    const view = { ...expandedView(campaignViewFromCampaign(source(), 0, idleSession, false)), categoryBlocked: true };
+    const match = button(render(view));
+    expect(match?.[0]).toContain('aria-pressed="true"');
+    expect(match?.[1]).toContain("campaignCategoryBlocked");
+  });
+});

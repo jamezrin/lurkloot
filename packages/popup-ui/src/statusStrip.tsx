@@ -118,7 +118,7 @@ function WatchingLines({ campaign, channel, supplementalName, onCampaignClick }:
         )}
         {channel.viewers != null ? (
           <Tip label={t("viewerCount", formatViewers(channel.viewers))}>
-            <span className="shrink-0">· {formatViewers(channel.viewers)}</span>
+            <span role="img" aria-label={t("viewerCount", formatViewers(channel.viewers))} className="shrink-0">· {formatViewers(channel.viewers)}</span>
           </Tip>
         ) : null}
         {reward ? (

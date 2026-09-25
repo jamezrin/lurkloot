@@ -636,16 +636,29 @@ function CampaignActions({ campaign, gameName, finished, refreshing, pinned, onP
               </Menu.Positioner>
             </Menu.Portal>
           </Menu.Root>
-        ) : onExclude || onBlock ? (
+        ) : onExclude ? (
           <button
             type="button"
             data-campaign-exclude
-            aria-pressed={excludeActive}
-            onClick={() => (onExclude ?? onBlock)!()}
-            className={excludeClass(excludeActive)}
+            aria-pressed={campaign.excluded}
+            onClick={onExclude}
+            className={excludeClass(campaign.excluded)}
           >
             <Ban size={12} aria-hidden="true" />
             {campaign.excluded ? t("includeInFarming") : t("excludeFromFarming")}
+          </button>
+        ) : onBlock ? (
+          // Only the whole game can be kept out (a campaign with nothing to
+          // watch cannot be excluded on its own), so the button says so.
+          <button
+            type="button"
+            data-campaign-exclude
+            aria-pressed={blocked}
+            onClick={onBlock}
+            className={excludeClass(blocked)}
+          >
+            <Ban size={12} aria-hidden="true" />
+            {blocked ? t("campaignCategoryBlocked", gameName) : t("gamesBlock", gameName)}
           </button>
         ) : null}
         {onRefresh ? (
