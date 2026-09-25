@@ -31,7 +31,7 @@ function registerTailwindProperties(sheet: CSSStyleSheet | null) {
   }
 }
 
-export default function PopupDemo() {
+export default function PopupDemo({ frameless = false }: { frameless?: boolean }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<Root | null>(null);
 
@@ -41,7 +41,7 @@ export default function PopupDemo() {
 
     const shadow = host.shadowRoot ?? host.attachShadow({ mode: "open" });
     const style = document.createElement("style");
-    style.textContent = popupCss;
+    style.textContent = popupCss + (frameless ? "\nmain[data-platform] { border: 0 !important; box-shadow: none !important; }" : "");
     const mount = document.createElement("div");
     shadow.replaceChildren(style, mount);
 
@@ -66,7 +66,7 @@ export default function PopupDemo() {
       // Defer so StrictMode's dev double-invoke doesn't unmount mid-render.
       queueMicrotask(() => root.unmount());
     };
-  }, []);
+  }, [frameless]);
 
   return (
     <div

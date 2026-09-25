@@ -5,11 +5,8 @@
 // claiming, the Android-client headless path) — not the Kick page with the
 // nouns swapped. Keep it that way when editing: near-identical body copy across
 // the two pages is what makes them cannibalize each other in search.
-import Base from "../layouts/Base.astro";
-import SubNav from "../components/SubNav.astro";
-import BrowserPills from "../components/BrowserPills.astro";
+import Base from "../layouts/SitePage.astro";
 import Faq from "../components/Faq.astro";
-import Footer from "../components/Footer.astro";
 import { DOCKER_IMAGE, LINKS } from "../consts";
 import { twitchFaqItems } from "../faq";
 
@@ -55,6 +52,7 @@ const games = [
 ---
 
 <Base
+  sections={sections}
   title="Farm Twitch Drops Automatically — Free Twitch Drops Farmer | Lurkloot"
   description="Lurkloot is a free, open-source Twitch Drops farmer. It finds every campaign you can still earn, watches an eligible channel for you, switches as campaigns end, and auto-claims drops and channel points — in your browser or headless in Docker."
   faq={twitchFaqItems}
@@ -63,11 +61,10 @@ const games = [
     { name: "Twitch Drops farmer", href: LINKS.twitchFarmer },
   ]}
 >
-  <SubNav links={sections} />
 
-  <main class="lp lp--twitch">
+  <main id="content" class="lp lp--twitch">
     <section class="lp-hero">
-      <div class="wrap">
+      <div class="wrap"><div class="guide-hero-copy">
         <p class="eyebrow">Twitch Drops</p>
         <h1>Farm Twitch Drops Automatically</h1>
         <p class="lp-hero__lede">
@@ -76,23 +73,23 @@ const games = [
           claims each reward the moment it unlocks — while you do something else.
         </p>
         <div class="lp-hero__cta">
-          <a class="btn btn--primary btn--lg" href={LINKS.chrome} target="_blank" rel="noopener">
-            Add to your browser — free
+          <a class="home-button" href={LINKS.chrome} target="_blank" rel="noopener">
+            Get Lurkloot — free
           </a>
-          <a class="btn btn--ghost btn--lg" href="#headless">Run it headless</a>
+          <a class="home-text-link" href="#headless">Run it headless</a>
         </div>
         <div class="lp-hero__meta">
-          <span class="pill"><span class="dot"></span> No password, no account</span>
-          <span class="pill">Open source</span>
-          <span class="pill">Chromium + Firefox</span>
-        </div>
+          <span> No password, no account</span>
+          <span>Open source</span>
+          <span>Chromium + Firefox</span>
+        </div></div><aside class="guide-overview" aria-label="Twitch farming workflow"><h2>Your next drop, in order.</h2><ol><li><strong>Check your inventory</strong><p>Start with the rewards you still need.</p></li><li><strong>Find an eligible channel</strong><p>Watch where your progress counts.</p></li><li><strong>Claim each tier</strong><p>Collect rewards as they unlock.</p></li></ol></aside>
       </div>
     </section>
 
     <section id="what" class="lp-sec">
-      <div class="wrap">
+      <div class="wrap"><div class="guide-section-heading">
         <p class="eyebrow">What it does</p>
-        <h2>A Twitch Drops farmer that reads your inventory first</h2>
+        <h2>A Twitch Drops farmer that reads your inventory first</h2></div><div class="guide-section-body">
         <p>
           Most manual drop farming goes wrong in the same two places: watching a stream that
           is not actually enrolled in the campaign, and forgetting to claim a reward that
@@ -107,13 +104,13 @@ const games = [
           <li>Re-routes automatically when a stream ends, a campaign closes, or a tier completes.</li>
           <li>Optionally ignores campaigns that need an account link or a channel subscription.</li>
         </ul>
-      </div>
+      </div></div>
     </section>
 
     <section id="how" class="lp-sec">
-      <div class="wrap">
+      <div class="wrap"><div class="guide-section-heading">
         <p class="eyebrow">Setup</p>
-        <h2>How to farm Twitch Drops automatically</h2>
+        <h2>How to farm Twitch Drops automatically</h2></div><div class="guide-section-body">
         <p>Three steps, and only the first one needs you.</p>
         <ol class="lp-steps">
           {steps.map((step) => (
@@ -123,13 +120,13 @@ const games = [
             </li>
           ))}
         </ol>
-      </div>
+      </div></div>
     </section>
 
     <section id="afk" class="lp-sec">
-      <div class="wrap">
+      <div class="wrap"><div class="guide-section-heading">
         <p class="eyebrow">AFK</p>
-        <h2>Farm Twitch Drops while AFK — without a video tab</h2>
+        <h2>Farm Twitch Drops while AFK — without a video tab</h2></div><div class="guide-section-body">
         <p>
           The usual advice for AFK Twitch Drops is to leave a muted stream playing in a
           background tab. That works, and it also spends bandwidth, GPU and battery on
@@ -143,13 +140,13 @@ const games = [
           notices and falls back to a pinned, muted twitch.tv tab, so an overnight run does
           not silently earn nothing.
         </p>
-      </div>
+      </div></div>
     </section>
 
     <section id="claim" class="lp-sec">
-      <div class="wrap">
+      <div class="wrap"><div class="guide-section-heading">
         <p class="eyebrow">Rewards</p>
-        <h2>Automatic Twitch Drops claiming, tier by tier</h2>
+        <h2>Automatic Twitch Drops claiming, tier by tier</h2></div><div class="guide-section-body">
         <div class="lp-grid">
           <article class="lp-card">
             <h3>Drops the moment they unlock</h3>
@@ -178,34 +175,32 @@ const games = [
           <article class="lp-card">
             <h3>Your order, or a strategy</h3>
             <p>
-              Drag campaigns into the order you want, or choose ending-soonest, lowest
-              availability, or priority-list-only and let the scheduler decide.
+              Pin campaigns in your queue and drag them into order, or rank your favourite
+              games. Choose a strategy for the remaining campaigns, or farm pinned campaigns only.
             </p>
           </article>
         </div>
-      </div>
+      </div></div>
     </section>
 
     <section id="browsers" class="lp-sec">
-      <div class="wrap">
+      <div class="wrap"><div class="guide-section-heading">
         <p class="eyebrow">Browsers</p>
-        <h2>A Twitch Drops extension for every Chromium browser</h2>
+        <h2>A Twitch Drops extension for every Chromium browser</h2></div><div class="guide-section-body">
         <p>
           One Chrome Web Store listing covers Chrome, Edge, Brave, Opera and Vivaldi. Firefox
           builds are published on GitHub Releases. The extension asks only for the host
           permissions it needs to reach Twitch and Kick — there is no analytics endpoint and
           no Lurkloot server in the path.
         </p>
-        <div class="lp-browsers">
-          <BrowserPills />
-        </div>
-      </div>
+
+      </div></div>
     </section>
 
     <section id="headless" class="lp-sec">
-      <div class="wrap">
+      <div class="wrap"><div class="guide-section-heading">
         <p class="eyebrow">Headless</p>
-        <h2>Headless Twitch Drops farming in Docker</h2>
+        <h2>Headless Twitch Drops farming in Docker</h2></div><div class="guide-section-body">
         <p>
           The same farming engine ships as a command-line runtime with no browser at all.
           It talks to Twitch as the Android app client, which Twitch does not put behind
@@ -222,13 +217,13 @@ const games = [
         <p>
           <a href={LINKS.cli} target="_blank" rel="noopener">Read the headless CLI guide →</a>
         </p>
-      </div>
+      </div></div>
     </section>
 
     <section id="games" class="lp-sec">
-      <div class="wrap">
+      <div class="wrap"><div class="guide-section-heading">
         <p class="eyebrow">Coverage</p>
-        <h2>Works with any Twitch Drops campaign</h2>
+        <h2>Works with any Twitch Drops campaign</h2></div><div class="guide-section-body">
         <p>
           There is no per-game support list to wait on: Lurkloot discovers whatever Twitch is
           running, so a campaign that launched this morning is farmable this morning. That
@@ -239,13 +234,13 @@ const games = [
           — and every other game with an active campaign. Restrict it to a few games with the
           category filters, or leave it open and let it take whatever appears.
         </p>
-      </div>
+      </div></div>
     </section>
 
     <section id="safe" class="lp-sec">
-      <div class="wrap">
+      <div class="wrap"><div class="guide-section-heading">
         <p class="eyebrow">Trust</p>
-        <h2>Open source, and nothing leaves your machine</h2>
+        <h2>Open source, and nothing leaves your machine</h2></div><div class="guide-section-body">
         <p>
           Lurkloot never asks for your Twitch password, never exports your cookies, and has
           no server of its own to send anything to. It runs locally against the session you
@@ -260,7 +255,7 @@ const games = [
           <a href={LINKS.privacy}> privacy policy</a> spells out exactly what is stored and
           where.
         </p>
-      </div>
+      </div></div>
     </section>
 
     <Faq
@@ -281,25 +276,10 @@ const games = [
               <a href={LINKS.kickFarmer}> Kick Drops farmer</a> page covers what changes.
             </p>
           </div>
-          <a class="btn btn--ghost" href={LINKS.kickFarmer}>Kick Drops farmer →</a>
+          <a class="home-button home-button--outline" href={LINKS.kickFarmer}>Kick Drops farmer →</a>
         </div>
       </div>
     </section>
   </main>
 
-  <Footer />
 </Base>
-
-<style>
-  .lp--twitch {
-    --accent: var(--purple-soft);
-    --accent-glow: var(--glow-purple);
-  }
-  .lp-games {
-    font-family: var(--font-mono);
-    font-size: 0.88rem;
-    color: var(--text);
-    margin-top: 1.2rem;
-    line-height: 2;
-  }
-</style>

@@ -1,0 +1,13 @@
+---
+import Arrow from "./Arrow.astro";
+import { LINKS } from "../../consts";
+---
+<section class="home-section home-run" id="cli" aria-labelledby="run-title">
+  <div class="home-wrap">
+    <div class="home-section-head"><h2 id="run-title">At your desk.<br /><span>Or on your server.</span></h2><p>Two ways to run Lurkloot.<br />One shared farming engine.</p></div>
+    <div class="home-runtime-options">
+      <article><span class="home-number">FOR YOUR EVERYDAY BROWSER</span><h3>The extension.</h3><p>The easiest place to start. Use your logged-in sessions, manage everything in the popup, and let farming run while your browser stays open.</p><ul><li>Visual campaign queue and game controls</li><li>Background farming with muted-tab fallback</li><li>Optional reward notifications</li></ul><a class="home-button" href={LINKS.chrome} target="_blank" rel="noopener">Get Lurkloot — free <Arrow direction="out" /></a></article>
+      <article><span class="home-number">FOR THE MACHINE YOU LEAVE ON</span><h3>Headless + Docker.</h3><p>Run the core farming engine on a server, NAS, or Raspberry Pi. Authorize with a device code and manage your setup from the command line.</p><ul><li>No desktop browser required</li><li>Prebuilt images for amd64 and arm64</li><li>Persistent configuration on your own machine</li></ul><a class="home-button home-button--outline" href={LINKS.cli} target="_blank" rel="noopener">Read the setup guide <Arrow direction="out" /></a></article>
+    </div>
+  </div>
+</section>

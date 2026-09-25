@@ -5,6 +5,8 @@ import {
   Popup,
   PromoTile,
   StoreScreenshot,
+  StoreScreenshotDraft,
+  StorePromoDraft,
   createDemoPopupAdapter,
   openHttpsLink,
   screenshotVariant,
@@ -127,8 +129,22 @@ export const POPUP_ADAPTER: PopupAdapter = SCREENSHOT_MODE || PROMO_MODE
   : createExtensionPopupAdapter();
 
 export function PopupApp(): React.ReactElement {
+  if (PROMO_MODE && URL_PARAMS.has("draft")) {
+    return <StorePromoDraft format={PROMO_FORMAT} />;
+  }
+
   if (PROMO_MODE) {
     return <PromoTile format={PROMO_FORMAT} locale={POPUP_LOCALE} />;
+  }
+
+  if (SCREENSHOT_MODE && URL_PARAMS.has("draft")) {
+    const requested = URL_PARAMS.get("draft");
+    const story = requested === "games" || requested === "kick" || requested === "watchlist" || requested === "extensions" ? requested : "queue";
+    return (
+      <StoreScreenshotDraft story={story}>
+        <Popup adapter={POPUP_ADAPTER} initialState={{ preview: true, locale: "en", variant: screenshotVariant(story === "kick" ? "easy" : story === "watchlist" ? "extras" : "drops") }} />
+      </StoreScreenshotDraft>
+    );
   }
 
   if (SCREENSHOT_MODE) {

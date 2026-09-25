@@ -5,11 +5,8 @@
 // headless path) are different enough to deserve their own copy, and writing
 // them as a paraphrase of the Twitch page would make the two pages compete for
 // the same results. Section order is deliberately not the Twitch page's.
-import Base from "../layouts/Base.astro";
-import SubNav from "../components/SubNav.astro";
-import BrowserPills from "../components/BrowserPills.astro";
+import Base from "../layouts/SitePage.astro";
 import Faq from "../components/Faq.astro";
-import Footer from "../components/Footer.astro";
 import { DOCKER_IMAGE, LINKS } from "../consts";
 import { kickFaqItems } from "../faq";
 
@@ -37,6 +34,7 @@ const steps = [
 ---
 
 <Base
+  sections={sections}
   title="Farm Kick Drops Automatically — Free Kick Drops Farmer | Lurkloot"
   description="Lurkloot is a free, open-source Kick Drops farmer. It picks up new Kick campaigns in realtime, holds the watch session for you without a video tab, and auto-claims Kick drops and daily challenge cards — in your browser or headless in Docker."
   faq={kickFaqItems}
@@ -45,11 +43,10 @@ const steps = [
     { name: "Kick Drops farmer", href: LINKS.kickFarmer },
   ]}
 >
-  <SubNav links={sections} />
 
-  <main class="lp lp--kick">
+  <main id="content" class="lp lp--kick">
     <section class="lp-hero">
-      <div class="wrap">
+      <div class="wrap"><div class="guide-hero-copy">
         <p class="eyebrow">Kick Drops</p>
         <h1>Farm Kick Drops Automatically</h1>
         <p class="lp-hero__lede">
@@ -58,23 +55,23 @@ const steps = [
           drops and daily challenge cards without you opening Kick at all.
         </p>
         <div class="lp-hero__cta">
-          <a class="btn btn--primary btn--lg" href={LINKS.chrome} target="_blank" rel="noopener">
-            Add to your browser — free
+          <a class="home-button" href={LINKS.chrome} target="_blank" rel="noopener">
+            Get Lurkloot — free
           </a>
-          <a class="btn btn--ghost btn--lg" href="#headless">Run it headless</a>
+          <a class="home-text-link" href="#headless">Run it headless</a>
         </div>
         <div class="lp-hero__meta">
-          <span class="pill"><span class="dot"></span> No password, no cookie export</span>
-          <span class="pill">Open source</span>
-          <span class="pill">Realtime campaign signals</span>
-        </div>
+          <span> No password, no cookie export</span>
+          <span>Open source</span>
+          <span>Realtime campaign signals</span>
+        </div></div><aside class="guide-overview" aria-label="Kick farming workflow"><h2>Ready when a campaign is.</h2><ol><li><strong>Hear about new drops</strong><p>Realtime signals speed up discovery.</p></li><li><strong>Keep the session going</strong><p>Follow a live, eligible channel.</p></li><li><strong>Pick up the extras</strong><p>Collect drops and daily challenge cards.</p></li></ol></aside>
       </div>
     </section>
 
     <section id="what" class="lp-sec">
-      <div class="wrap">
+      <div class="wrap"><div class="guide-section-heading">
         <p class="eyebrow">What it does</p>
-        <h2>A Kick Drops farmer built around how Kick actually runs campaigns</h2>
+        <h2>A Kick Drops farmer built around how Kick actually runs campaigns</h2></div><div class="guide-section-body">
         <p>
           Kick drops are less predictable than Twitch's. Campaigns turn up with little
           warning, some windows are short, and the reward you want may only be dropping on a
@@ -88,13 +85,13 @@ const steps = [
           <li>Prefers channels you already follow when the choice is otherwise a coin flip.</li>
           <li>Keeps a Kick-only Idle Watchlist for the hours when no campaign is farmable.</li>
         </ul>
-      </div>
+      </div></div>
     </section>
 
     <section id="discovery" class="lp-sec">
-      <div class="wrap">
+      <div class="wrap"><div class="guide-section-heading">
         <p class="eyebrow">Kick-specific</p>
-        <h2>It hears a campaign start, instead of waiting to find it</h2>
+        <h2>It hears a campaign start, instead of waiting to find it</h2></div><div class="guide-section-body">
         <p>
           Kick broadcasts campaign events on a realtime channel, and Lurkloot subscribes to
           it for every category you farm. When a campaign opens, the extension is pushed a
@@ -107,13 +104,13 @@ const steps = [
           with backoff if Kick drops it — but a campaign that only runs for part of an
           evening is the case where the difference actually shows up in your inventory.
         </p>
-      </div>
+      </div></div>
     </section>
 
     <section id="how" class="lp-sec">
-      <div class="wrap">
+      <div class="wrap"><div class="guide-section-heading">
         <p class="eyebrow">Setup</p>
-        <h2>How to farm Kick Drops automatically</h2>
+        <h2>How to farm Kick Drops automatically</h2></div><div class="guide-section-body">
         <ol class="lp-steps">
           {steps.map((step) => (
             <li>
@@ -122,13 +119,13 @@ const steps = [
             </li>
           ))}
         </ol>
-      </div>
+      </div></div>
     </section>
 
     <section id="afk" class="lp-sec">
-      <div class="wrap">
+      <div class="wrap"><div class="guide-section-heading">
         <p class="eyebrow">AFK</p>
-        <h2>Farm Kick Drops while AFK</h2>
+        <h2>Farm Kick Drops while AFK</h2></div><div class="guide-section-body">
         <p>
           Lurkloot opens Kick's viewer connection straight from the extension's background
           worker, so the watch timer advances with no player, no video decoding and no tab
@@ -141,13 +138,13 @@ const steps = [
           to a pinned, muted kick.com tab within a tick or two. You keep farming either way —
           it just is not tabless in that session.
         </p>
-      </div>
+      </div></div>
     </section>
 
     <section id="claim" class="lp-sec">
-      <div class="wrap">
+      <div class="wrap"><div class="guide-section-heading">
         <p class="eyebrow">Rewards</p>
-        <h2>Automatic Kick Drops claiming — and the daily challenges</h2>
+        <h2>Automatic Kick Drops claiming — and the daily challenges</h2></div><div class="guide-section-body">
         <div class="lp-grid">
           <article class="lp-card">
             <h3>Drops claimed on completion</h3>
@@ -180,28 +177,26 @@ const steps = [
             </p>
           </article>
         </div>
-      </div>
+      </div></div>
     </section>
 
     <section id="browsers" class="lp-sec">
-      <div class="wrap">
+      <div class="wrap"><div class="guide-section-heading">
         <p class="eyebrow">Browsers</p>
-        <h2>A Kick Drops extension for every Chromium browser</h2>
+        <h2>A Kick Drops extension for every Chromium browser</h2></div><div class="guide-section-body">
         <p>
           Install it once from the Chrome Web Store and it runs in Chrome, Edge, Brave, Opera
           and Vivaldi; Firefox builds live on GitHub Releases. Twitch and Kick are managed
           from the same popup, so you are not running two tools that fight over your tabs.
         </p>
-        <div class="lp-browsers">
-          <BrowserPills />
-        </div>
-      </div>
+
+      </div></div>
     </section>
 
     <section id="headless" class="lp-sec">
-      <div class="wrap">
+      <div class="wrap"><div class="guide-section-heading">
         <p class="eyebrow">Headless</p>
-        <h2>Headless Kick Drops farming in Docker</h2>
+        <h2>Headless Kick Drops farming in Docker</h2></div><div class="guide-section-body">
         <p>
           Kick farms headlessly too, and the interesting part is how. Kick sits behind
           Cloudflare protection that inspects the TLS and HTTP/2 fingerprint of every
@@ -221,13 +216,13 @@ const steps = [
         <p>
           <a href={LINKS.cli} target="_blank" rel="noopener">Read the headless CLI guide →</a>
         </p>
-      </div>
+      </div></div>
     </section>
 
     <section id="safe" class="lp-sec">
-      <div class="wrap">
+      <div class="wrap"><div class="guide-section-heading">
         <p class="eyebrow">Trust</p>
-        <h2>Open source, no account, no telemetry</h2>
+        <h2>Open source, no account, no telemetry</h2></div><div class="guide-section-body">
         <p>
           Lurkloot has no server, so there is nowhere for your Kick session to be sent. It
           runs locally, uses the login you already have, and stores what it needs on your own
@@ -241,7 +236,7 @@ const steps = [
           your own discretion. The <a href={LINKS.privacy}>privacy policy</a> covers what is
           stored and where.
         </p>
-      </div>
+      </div></div>
     </section>
 
     <Faq
@@ -262,18 +257,10 @@ const steps = [
               <a href={LINKS.twitchFarmer}> Twitch Drops farmer</a> page goes through it.
             </p>
           </div>
-          <a class="btn btn--ghost" href={LINKS.twitchFarmer}>Twitch Drops farmer →</a>
+          <a class="home-button home-button--outline" href={LINKS.twitchFarmer}>Twitch Drops farmer →</a>
         </div>
       </div>
     </section>
   </main>
 
-  <Footer />
 </Base>
-
-<style>
-  .lp--kick {
-    --accent: var(--lime);
-    --accent-glow: var(--glow-lime);
-  }
-</style>

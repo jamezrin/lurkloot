@@ -1,0 +1,19 @@
+---
+import Base from "./Base.astro";
+import SubNav from "../components/SubNav.astro";
+import Footer from "../components/home/Footer.astro";
+import "../styles/home.css";
+import "../styles/editorial.css";
+const { sections = [], ...metadata } = Astro.props;
+---
+<Base {...metadata} theme="mono">
+  <a class="home-skip" href="#content">Skip to content</a>
+  <div class="home site-page">
+    <SubNav links={sections} />
+    <slot />
+    <Footer />
+  </div>
+</Base>
+<script>
+  import "../scripts/home-motion.ts";
+</script>
