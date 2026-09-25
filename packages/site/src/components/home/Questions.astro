@@ -1,0 +1,11 @@
+---
+import Arrow from "./Arrow.astro";
+import { LINKS } from "../../consts";
+import { homeFaqItems } from "../../homeFaq";
+---
+<section class="home-light home-section" id="faq" aria-labelledby="faq-title">
+  <div class="home-wrap home-questions">
+    <div><h2 id="faq-title">A few things<br />worth knowing.</h2><p>Your session stays yours. The extension runs in your browser, without a separate Lurkloot account or a password to hand over.</p><a class="home-text-link" href={LINKS.privacy}>Read the privacy policy <Arrow direction="out" /></a></div>
+    <div class="home-faq-list">{homeFaqItems.map((item) => <details><summary>{item.q}<span aria-hidden="true">+</span></summary><p>{item.a}</p></details>)}</div>
+  </div>
+</section>

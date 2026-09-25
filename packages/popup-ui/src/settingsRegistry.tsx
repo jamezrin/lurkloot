@@ -5,14 +5,16 @@ import { LOCALE_OPTIONS } from "@lurkloot/shared/i18n";
 import { PLATFORMS } from "./constants";
 import { Pill } from "./primitives";
 import {
-  DropsListFilterRow,
   ForgetExcludedCampaignsRow,
   NumberSettingRow,
   SelectSettingRow,
   SettingRow,
+  SettingsLinkRow,
 } from "./settingsControls";
-import { PlatformCategorySettings, PlatformExcludedChannels } from "./settingsPlatform";
+import { PlatformExcludedChannels } from "./settingsPlatform";
 import { PlatformCompatibilitySettings } from "./compatibilitySettings";
+import { WatchSourcePriority, WATCH_SOURCE_NAME_KEYS } from "./watchSourcePriority";
+import { DEFAULT_WATCH_SOURCE_PRIORITY } from "@lurkloot/shared/watchSources";
 import type { SettingsEntryNode, SettingsGroupNode, SettingsSectionNode, TranslateFn } from "./settingsSearch";
 import type { GameItem, PopupCompatibilityRegistry, PopupCompatibilityResolution } from "./types";
 
@@ -33,6 +35,9 @@ export interface SettingsRegistryContext {
   onSearchCategories(platform: Platform, query: string): Promise<CategorySelection[]>;
   compatibilityRegistry?: PopupCompatibilityRegistry;
   compatibilityResolution?: PopupCompatibilityResolution;
+  // Opens the Games view, where categories are chosen, ranked and blocked.
+  // Opens Games for that platform, switching to it first if needed.
+  onOpenGames?(platform: Platform): void;
 }
 
 export interface SettingsEntryDef extends SettingsEntryNode {
@@ -171,24 +176,6 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
             render: () => <SettingRow title={t("farmSubscriptionTitle")} description={t("farmSubscriptionDescription")} checked={settings.farmingEligibility.farmSubscriptionCampaigns} onChange={(value) => void onSettingsChange({ farmingEligibility: { farmSubscriptionCampaigns: value } }, { tickAfterSave: true })} />,
           },
           {
-            id: "general.drops.priorityMode",
-            titleKey: "campaignPriorityTitle",
-            descriptionKey: "campaignPriorityDescription",
-            render: () => (
-              <SelectSettingRow
-                title={t("campaignPriorityTitle")}
-                description={t("campaignPriorityDescription")}
-                value={settings.priorityMode}
-                options={[
-                  { value: "priority_list_only", label: t("priorityListOnly") },
-                  { value: "ending_soonest", label: t("endingSoonest") },
-                  { value: "lowest_availability", label: t("lowAvailabilityFirst") },
-                ]}
-                onChange={(value) => void onSettingsChange({ priorityMode: value }, { tickAfterSave: true })}
-              />
-            ),
-          },
-          {
             id: "general.drops.skipUnfinishable",
             titleKey: "skipUnfinishableRewardsTitle",
             descriptionKey: "skipUnfinishableRewardsDescription",
@@ -199,21 +186,6 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
             titleKey: "preferKnownChannelsTitle",
             descriptionKey: "preferKnownChannelsDescription",
             render: () => <SettingRow title={t("preferKnownChannelsTitle")} description={t("preferKnownChannelsDescription")} checked={settings.preferKnownChannels} onChange={(value) => void onSettingsChange({ preferKnownChannels: value }, { tickAfterSave: true })} />,
-          },
-          {
-            id: "general.drops.idleWatchlistFallbackOnly",
-            titleKey: "idleWatchlistFallbackOnlyTitle",
-            descriptionKey: "idleWatchlistFallbackOnlyDescription",
-            render: () => <SettingRow title={t("idleWatchlistFallbackOnlyTitle")} description={t("idleWatchlistFallbackOnlyDescription")} checked={settings.idleWatchlistFallbackOnly} onChange={(value) => void onSettingsChange({ idleWatchlistFallbackOnly: value }, { tickAfterSave: true })} />,
-          },
-          {
-            id: "general.drops.dropsListFilter",
-            titleKey: "dropsListFilterTitle",
-            descriptionKey: "dropsListFilterDescription",
-            // Display-only: saving does not re-tick, matching other pure-view
-            // settings (e.g. the language/appearance rows), because it changes
-            // nothing the engine does.
-            render: () => <DropsListFilterRow value={settings.dropsListFilter} farmingEligibility={settings.farmingEligibility} onChange={(dropsListFilter) => void onSettingsChange({ dropsListFilter })} />,
           },
           {
             id: "general.drops.forgetExcluded",
@@ -385,34 +357,35 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
 
     const groups: SettingsGroupDef[] = [
       {
+        id: `${platform}.watchSourcePriority`,
+        titleKey: "watchSourcePriorityTitle",
+        entries: [{
+          id: `${platform}.watchSourcePriority.order`,
+          titleKey: "watchSourcePriorityTitle",
+          descriptionKey: "watchSourcePriorityDescription",
+          searchKeys: DEFAULT_WATCH_SOURCE_PRIORITY[platform].map((source) => WATCH_SOURCE_NAME_KEYS[source]),
+          render: () => <WatchSourcePriority platform={platform} value={settings.platform[platform].watchSourcePriority} onChange={(watchSourcePriority) => platformPatch(platform, { watchSourcePriority })} />,
+        }],
+      },
+      {
         id: `${platform}.categories`,
         titleKey: "settingsGroupCategories",
-        // No description: the mode row directly below carries its own. The count
-        // only means anything while the list is actually being consulted, which
-        // is both filtered modes but not "all".
-        badge: settings.platform[platform].categoryMode === "all"
-          ? undefined
-          : <Pill tone="outline">{settings.platform[platform].categories.length}</Pill>,
+        // Which games are farmed, ranked or blocked is the Games view's job;
+        // Settings points there rather than keeping a second editor. The search
+        // keys keep every word that used to find the editor finding this row.
         entries: [
           {
-            id: `${platform}.categories.mode`,
-            titleKey: "categoryModeTitle",
-            descriptionKey: "categoryModeDescription",
-            // "Choose which $1 categories…" — without this the search haystack
-            // holds the literal "$1" instead of "Twitch"/"Kick", and a query for
-            // the platform name never finds this entry.
+            id: `${platform}.categories.games`,
+            titleKey: "settingsGamesPointerTitle",
+            descriptionKey: "settingsGamesPointerDescription",
             descriptionSubstitution: details.label,
+            searchKeys: ["categoryModeTitle", "categoryModeDescription", "categoryModeAll", "categoryModeInclude", "gamesBlocked", "gamesStarHint", "navGames"],
             render: () => (
-              <PlatformCategorySettings
-                platform={platform}
-                suggestions={ctx.suggestions[platform]}
-                settings={settings}
-                // Rides the same platformPatch path as every other per-platform
-                // setting, so a mode change invalidates the current target
-                // through the existing tickAfterSave lifecycle.
-                onCategoryModeChange={(categoryMode) => void platformPatch(platform, { categoryMode })}
-                onCategoriesChange={(categories) => void platformPatch(platform, { categories })}
-                onSearchCategories={(query) => ctx.onSearchCategories(platform, query)}
+              <SettingsLinkRow
+                title={t("settingsGamesPointerTitle")}
+                description={t("settingsGamesPointerDescription", details.label)}
+                action={t("settingsGamesPointerAction")}
+                onClick={() => ctx.onOpenGames?.(platform)}
               />
             ),
           },

@@ -42,13 +42,25 @@ describe("evaluateCampaignFarming", () => {
     ["upcoming", campaign({ status: "upcoming" }), settings()],
     ["expired", campaign({ status: "expired" }), settings()],
     ["completed", campaign({ status: "completed" }), settings()],
-    ["twitch_link_required", campaign({ accountLinked: false }), settings()],
     ["no_rewards", campaign({ rewards: [] }), settings()],
   ] as const)("returns %s for a rejected campaign", (code, source, currentSettings) => {
     expect(evaluateCampaignFarming(source, currentSettings, { now: NOW })).toMatchObject({
       farmable: false,
       code,
     });
+  });
+
+  it("farms an unlinked Twitch watch campaign with inventory progress when enabled", () => {
+    const source = campaign({
+      accountLinked: false,
+      eligibility: "account_not_linked",
+      rewards: [{ ...campaign().rewards[0]!, watchedMinutes: 1, status: "in_progress" }],
+    });
+    expect(evaluateCampaignFarming(source, settings(), { now: NOW })).toEqual({ farmable: true });
+    const disabled = settings();
+    disabled.farmingEligibility.farmUnlinkedCampaigns = false;
+    expect(evaluateCampaignFarming(source, disabled, { now: NOW }))
+      .toMatchObject({ farmable: false, code: "unlinked_campaigns_disabled" });
   });
 
   it("distinguishes a disabled unlinked class from Twitch's platform requirement", () => {
@@ -73,31 +85,48 @@ describe("evaluateCampaignFarming", () => {
       .toMatchObject({ farmable: false, code: "category_filtered" });
   });
 
-  it("returns category_filtered for a listed category in exclude mode", () => {
+  it("returns category_blocked for a blocked game, in either mode", () => {
     const currentSettings = settings();
     currentSettings.platform.twitch = {
       ...currentSettings.platform.twitch,
-      categoryMode: "exclude",
+      blockedCategories: [{ id: "game", name: "Game" }],
+    };
+    expect(evaluateCampaignFarming(campaign({ categoryId: "game" }), currentSettings, { now: NOW }))
+      .toMatchObject({ farmable: false, code: "category_blocked" });
+    expect(evaluateCampaignFarming(campaign({ categoryId: "other" }), currentSettings, { now: NOW }))
+      .toEqual({ farmable: true });
+
+    currentSettings.platform.twitch = {
+      ...currentSettings.platform.twitch,
+      categoryMode: "include",
       categories: [{ id: "game", name: "Game" }],
     };
     expect(evaluateCampaignFarming(campaign({ categoryId: "game" }), currentSettings, { now: NOW }))
-      .toMatchObject({ farmable: false, code: "category_filtered" });
-    expect(evaluateCampaignFarming(campaign({ categoryId: "other" }), currentSettings, { now: NOW }))
-      .toEqual({ farmable: true });
+      .toMatchObject({ farmable: false, code: "category_blocked" });
   });
 
-  it("farms everything when the exclude list is empty", () => {
+  it("farms everything when nothing is blocked", () => {
     const currentSettings = settings();
-    currentSettings.platform.twitch = { ...currentSettings.platform.twitch, categoryMode: "exclude", categories: [] };
+    currentSettings.platform.twitch = { ...currentSettings.platform.twitch, blockedCategories: [] };
     expect(evaluateCampaignFarming(campaign({ categoryId: "game" }), currentSettings, { now: NOW }))
       .toEqual({ farmable: true });
   });
 
-  it("returns priority_not_selected only when priority-list-only evaluation is requested", () => {
-    const currentSettings = settings({ priorityMode: "priority_list_only" });
-    expect(evaluateCampaignFarming(campaign(), currentSettings, { now: NOW, includePriorityMode: true }))
-      .toMatchObject({ farmable: false, code: "priority_not_selected" });
+  it("returns not_pinned only when the pinned-only switch is evaluated", () => {
+    const currentSettings = settings({ farmPinnedOnly: true });
+    expect(evaluateCampaignFarming(campaign(), currentSettings, { now: NOW, includePinnedOnly: true }))
+      .toMatchObject({ farmable: false, code: "not_pinned" });
     expect(evaluateCampaignFarming(campaign(), currentSettings, { now: NOW })).toEqual({ farmable: true });
+  });
+
+  it("never lets a pin rescue a campaign eligibility already rejected", () => {
+    const currentSettings = settings({ farmPinnedOnly: true, campaignPins: ["campaign"] });
+    currentSettings.platform.twitch = {
+      ...currentSettings.platform.twitch,
+      blockedCategories: [{ id: "game", name: "Game" }],
+    };
+    expect(evaluateCampaignFarming(campaign({ categoryId: "game" }), currentSettings, { now: NOW, includePinnedOnly: true }))
+      .toMatchObject({ farmable: false, code: "category_blocked" });
   });
 
   it.each([

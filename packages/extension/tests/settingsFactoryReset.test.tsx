@@ -89,7 +89,7 @@ describe("settings factory reset", () => {
     expect(resetExtension).toHaveBeenCalledOnce();
 
     await act(async () => finish(await createDemoPopupAdapter().send({ type: "getSnapshot" })));
-    expect(container.querySelector('button[aria-label="Open settings"]')).not.toBeNull();
+    expect(container.querySelector('button[data-view="settings"]')).not.toBeNull();
   });
 
   it("shows a retryable alert when reset fails", async () => {
@@ -105,6 +105,6 @@ describe("settings factory reset", () => {
     expect(container.querySelector('[role="alert"]')?.textContent).toContain("couldn't reset");
     await act(async () => byText(container, "Try reset again").click());
     expect(resetExtension).toHaveBeenCalledTimes(2);
-    expect(container.querySelector('button[aria-label="Open settings"]')).not.toBeNull();
+    expect(container.querySelector('button[data-view="settings"]')).not.toBeNull();
   });
 });

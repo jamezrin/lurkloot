@@ -36,18 +36,45 @@ warning per command; use the global `--log debug|info|warn|error` option instead
 option is its sole event filter.
 
 Supported `settings` keys: `autoClaim`, `autoClaimChannelPoints`, `priorityMode`,
-`campaignPriorities`, `excludedCampaignIds`, `idleWatchlistFallbackOnly`,
+`campaignPins`, `farmPinnedOnly`, `excludedCampaignIds`,
 `preferKnownChannels`, `offlineRetryLimit`, `pollIntervalMinutes`,
 `notifyRewardEarned`, `notifyNoDropsLeft`, `farmingEligibility`, and per-platform
-`enabled`, `idleWatchlistChannels`, `excludedChannels`, `categoryMode`,
-`categories`.
+`enabled`, `watchSourcePriority`, `idleWatchlistChannels`, `excludedChannels`, `categoryMode`,
+`categories`, `favouriteCategories`, `blockedCategories`.
 
-`categoryMode` is `"all"` (farm every category), `"include"` (farm only the
-categories in `categories`, whose order also sets category priority) or
-`"exclude"` (farm everything except them; an empty list then behaves like
-`"all"`). An unknown value is rejected rather than defaulted. A config still
+Campaign order has three layers, and only the last one is automatic:
+`campaignPins` lists campaign ids to farm first, in that order; then campaigns
+whose category is in that platform's `favouriteCategories`, in star order; then
+everything else by `priorityMode` (`ending_soonest` or `lowest_availability`).
+`farmPinnedOnly` narrows what may be farmed to the pinned campaigns and is
+eligibility, not order — a strategy is always in effect. A config still using
+the old `campaignPriorities` map or `priorityMode: "priority_list_only"` is
+migrated automatically, with a deprecation warning naming each moved key.
+
+`watchSourcePriority` selects the first eligible watch source independently for
+each platform. Twitch defaults to `["drops", "nopixel", "fortnite", "idle_watchlist"]`;
+Kick defaults to `["drops", "idle_watchlist"]`. Reorder the array to prefer a
+source, including while already watching. Unknown, duplicate and wrong-platform
+entries are discarded; missing sources append in their default order. Idle
+Watchlist keeps its own channel order. Excluded drop channels also apply to
+supplemental providers; explicitly listed Idle Watchlist channels remain allowed.
+The CLI currently has no NoPixelV or Fortnite provider, so those
+sources yield to the next eligible source even when placed first.
+
+The deprecated `idleWatchlistFallbackOnly` field remains accepted for existing
+configs. When a platform has no explicit priority and that field is `false`, it
+migrates to Idle Watchlist first. An explicit priority always wins, and the
+generated config uses the per-platform arrays.
+
+`categoryMode` is `"all"` (farm every category) or `"include"` (farm only the
+categories in `categories`). Neither mode ranks: list order has no scheduling
+effect. `blockedCategories` is never farmed in either mode, and
+`favouriteCategories` ranks its campaigns above the strategy without filtering
+anything. An unknown mode is rejected rather than defaulted. A config still
 using the old `farmAllCategories` boolean is migrated automatically — `false`
-becomes `"include"`, anything else becomes `"all"` — with a startup warning.
+becomes `"include"`, anything else becomes `"all"` — and a config using the
+removed `"exclude"` mode becomes `"all"` plus `blockedCategories`, both with a
+startup warning.
 
 `farmingEligibility` gates what the engine may farm. Its two keys both default
 `true`: set `farmUnlinkedCampaigns` to `false` to skip campaigns that need an
@@ -61,7 +88,9 @@ rejected.
 Rejected (extension-only, no effect headlessly): `running`, `tablessMode`,
 `muteFarmingTabs`, `keepFarmingVideosUnmuted`, `pauseOnManualWatch`,
 `adFocusMode`, `autoCloseFinishedDrops`, `autoStartDropFarming`,
-`languageOverride`, `rateNudgeStatus`, `githubStarNudgeStatus`, `diagnosticLogging`, `dropsListFilter`.
+`languageOverride`, `rateNudgeStatus`, `githubStarNudgeStatus`, `diagnosticLogging`.
+The retired `dropsListFilter` is no longer rejected: it is migrated away for
+every host, with a deprecation warning.
 
 ```jsonc
 {

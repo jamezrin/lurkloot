@@ -1,0 +1,13 @@
+---
+import { LINKS } from "../../consts";
+import Brand from "./Brand.astro";
+---
+<header class="home-nav home-wrap" id="top">
+  <Brand />
+  <nav aria-label="Main navigation">
+    <a href="#how-it-works">How it works</a>
+    <a href="#faq">FAQ</a>
+    <a href={LINKS.github} target="_blank" rel="noopener">GitHub</a>
+  </nav>
+  <a class="home-button home-button--small" href={LINKS.chrome} target="_blank" rel="noopener">Get Lurkloot</a>
+</header>

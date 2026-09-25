@@ -1,15 +1,20 @@
 import type { AdFocusMode, CategoryMode, CategorySelection, CompatibilitySettings, EngineSettings, ExtensionSettings, GithubStarNudgeStatus, KickPlatformSettings, LanguageOverride, Platform, PriorityMode, RateNudgeStatus, SupportedLocale, TwitchPlatformSettings } from "./models";
+import { DEFAULT_WATCH_SOURCE_PRIORITY, normalizePlatformWatchSourcePriority } from "./watchSources";
 
 const FARMING_PLATFORMS: Platform[] = ["twitch", "kick"];
 const AD_FOCUS_MODES: AdFocusMode[] = ["none", "tab", "window"];
-const PRIORITY_MODES: PriorityMode[] = ["ending_soonest", "lowest_availability", "priority_list_only"];
+const PRIORITY_MODES: PriorityMode[] = ["ending_soonest", "lowest_availability"];
 const RATE_NUDGE_STATUSES: RateNudgeStatus[] = ["pending", "rated", "dismissed"];
 const GITHUB_STAR_NUDGE_STATUSES: GithubStarNudgeStatus[] = ["pending", "starred", "dismissed"];
-export const CATEGORY_MODES: CategoryMode[] = ["all", "include", "exclude"];
+export const CATEGORY_MODES: CategoryMode[] = ["all", "include"];
 export const SUPPORTED_LOCALES: SupportedLocale[] = ["en", "es", "fr", "it", "ru", "de", "zh_CN", "hi", "pt_BR", "ar", "tr"];
 const LANGUAGE_OVERRIDES: LanguageOverride[] = ["browser", ...SUPPORTED_LOCALES];
 
-export type SettingsPatch = Partial<Omit<ExtensionSettings, "platform" | "compatibility" | "farmingEligibility" | "dropsListFilter">> & {
+export type SettingsPatch = Partial<Omit<ExtensionSettings, "platform" | "compatibility" | "farmingEligibility" | "twitchExtensions">> & {
+  twitchExtensions?: {
+    nopixel?: Partial<ExtensionSettings["twitchExtensions"]["nopixel"]>;
+    fortnite?: Partial<ExtensionSettings["twitchExtensions"]["fortnite"]>;
+  };
   platform?: {
     twitch?: Partial<TwitchPlatformSettings>;
     kick?: Partial<KickPlatformSettings>;
@@ -19,7 +24,6 @@ export type SettingsPatch = Partial<Omit<ExtensionSettings, "platform" | "compat
     kick?: Partial<CompatibilitySettings["kick"]>;
   };
   farmingEligibility?: Partial<ExtensionSettings["farmingEligibility"]>;
-  dropsListFilter?: Partial<ExtensionSettings["dropsListFilter"]>;
 };
 
 // The engine-contract defaults: the universal subset every host shares.
@@ -36,20 +40,26 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
   platform: {
     twitch: {
       enabled: false,
+      watchSourcePriority: [...DEFAULT_WATCH_SOURCE_PRIORITY.twitch],
       idleWatchlistChannels: [],
       excludedChannels: [],
       categoryMode: "all",
       categories: [],
+      favouriteCategories: [],
+      blockedCategories: [],
       autoClaimChannelPoints: true,
       strictCampaignAvailability: false,
       channelPointsPushClaim: true,
     },
     kick: {
       enabled: false,
+      watchSourcePriority: [...DEFAULT_WATCH_SOURCE_PRIORITY.kick],
       idleWatchlistChannels: [],
       excludedChannels: [],
       categoryMode: "all",
       categories: [],
+      favouriteCategories: [],
+      blockedCategories: [],
       autoClaimChallenges: true,
     },
   },
@@ -64,7 +74,8 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
       claimLinkHandling: "auto",
     },
   },
-  campaignPriorities: {},
+  campaignPins: [],
+  farmPinnedOnly: false,
   excludedCampaignIds: [],
   // Both classes are eligible by default: turning either off only ever farms
   // less, so no existing user's farming changes on upgrade.
@@ -88,23 +99,11 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
 // The extension's full defaults: the engine contract plus the host-only knobs.
 export const DEFAULT_SETTINGS: ExtensionSettings = {
   ...DEFAULT_ENGINE_SETTINGS,
+  twitchExtensions: { nopixel: { enabled: false, autoOpenPacks: false }, fortnite: { enabled: false, allowTakeovers: false } },
   kickPageContextRecoverySuccesses: 3,
   muteFarmingTabs: true,
   keepFarmingVideosUnmuted: true,
   autoCloseFinishedDrops: true,
-  // Preserve the previously hard-coded visible set exactly: show upcoming and
-  // finished, hide expired and excluded unless opted back in.
-  dropsListFilter: {
-    showUpcoming: true,
-    showExpired: false,
-    showFinished: true,
-    showExcluded: false,
-    // Not-linked and subscription campaigns show by default. These only hide a
-    // class the user has also chosen NOT to farm; a farmed class stays visible
-    // regardless (enforced in isCampaignVisible), so the default is show-all.
-    showNotLinked: true,
-    showSubscription: true,
-  },
   adFocusMode: "window",
   languageOverride: "browser",
   rateNudgeStatus: "pending",
@@ -144,20 +143,26 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
     platform: {
       twitch: {
         enabled: booleanOr(platform?.twitch?.enabled, DEFAULT_ENGINE_SETTINGS.platform.twitch.enabled),
-        idleWatchlistChannels: normalizeChannelList(platform?.twitch?.idleWatchlistChannels),
+        watchSourcePriority: normalizePlatformWatchSourcePriority("twitch", platform?.twitch, value?.idleWatchlistFallbackOnly),
+        idleWatchlistChannels: normalizeChannelList(platform?.twitch?.idleWatchlistChannels, IDLE_WATCHLIST_LIMIT),
         excludedChannels: normalizeChannelList(platform?.twitch?.excludedChannels),
         categoryMode: normalizeCategoryMode(platform?.twitch?.categoryMode),
         categories: normalizeCategorySelections(platform?.twitch?.categories),
+        favouriteCategories: normalizeCategorySelections(platform?.twitch?.favouriteCategories),
+        blockedCategories: normalizeCategorySelections(platform?.twitch?.blockedCategories),
         autoClaimChannelPoints: booleanOr(platform?.twitch?.autoClaimChannelPoints, DEFAULT_ENGINE_SETTINGS.platform.twitch.autoClaimChannelPoints),
         strictCampaignAvailability: booleanOr(platform?.twitch?.strictCampaignAvailability, DEFAULT_ENGINE_SETTINGS.platform.twitch.strictCampaignAvailability),
         channelPointsPushClaim: booleanOr(platform?.twitch?.channelPointsPushClaim, DEFAULT_ENGINE_SETTINGS.platform.twitch.channelPointsPushClaim),
       },
       kick: {
         enabled: booleanOr(platform?.kick?.enabled, DEFAULT_ENGINE_SETTINGS.platform.kick.enabled),
-        idleWatchlistChannels: normalizeChannelList(platform?.kick?.idleWatchlistChannels),
+        watchSourcePriority: normalizePlatformWatchSourcePriority("kick", platform?.kick, value?.idleWatchlistFallbackOnly),
+        idleWatchlistChannels: normalizeChannelList(platform?.kick?.idleWatchlistChannels, IDLE_WATCHLIST_LIMIT),
         excludedChannels: normalizeChannelList(platform?.kick?.excludedChannels),
         categoryMode: normalizeCategoryMode(platform?.kick?.categoryMode),
         categories: normalizeCategorySelections(platform?.kick?.categories),
+        favouriteCategories: normalizeCategorySelections(platform?.kick?.favouriteCategories),
+        blockedCategories: normalizeCategorySelections(platform?.kick?.blockedCategories),
         autoClaimChallenges: booleanOr(platform?.kick?.autoClaimChallenges, DEFAULT_ENGINE_SETTINGS.platform.kick.autoClaimChallenges),
       },
     },
@@ -172,7 +177,8 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
         claimLinkHandling: compatibilitySelectionOrAuto(compatibility?.kick?.claimLinkHandling),
       },
     },
-    campaignPriorities: normalizePriorities(value?.campaignPriorities),
+    campaignPins: normalizeIdList(value?.campaignPins),
+    farmPinnedOnly: booleanOr(value?.farmPinnedOnly, DEFAULT_ENGINE_SETTINGS.farmPinnedOnly),
     excludedCampaignIds: normalizeIdList(value?.excludedCampaignIds),
     farmingEligibility: normalizeFarmingEligibility(value?.farmingEligibility),
     offlineRetryLimit: clampInteger(value?.offlineRetryLimit, 1, 10, DEFAULT_ENGINE_SETTINGS.offlineRetryLimit),
@@ -203,6 +209,13 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
 export function mergeSettings(value: Partial<ExtensionSettings> | undefined): ExtensionSettings {
   return {
     ...mergeEngineSettings(value),
+    twitchExtensions: {
+      nopixel: { enabled: booleanOr(value?.twitchExtensions?.nopixel?.enabled, false), autoOpenPacks: booleanOr(value?.twitchExtensions?.nopixel?.autoOpenPacks, false) },
+      fortnite: {
+        enabled: booleanOr(value?.twitchExtensions?.fortnite?.enabled, false),
+        allowTakeovers: booleanOr(value?.twitchExtensions?.fortnite?.allowTakeovers, false),
+      },
+    },
     kickPageContextRecoverySuccesses: clampInteger(
       value?.kickPageContextRecoverySuccesses,
       1,
@@ -212,7 +225,6 @@ export function mergeSettings(value: Partial<ExtensionSettings> | undefined): Ex
     muteFarmingTabs: booleanOr(value?.muteFarmingTabs, DEFAULT_SETTINGS.muteFarmingTabs),
     keepFarmingVideosUnmuted: booleanOr(value?.keepFarmingVideosUnmuted, DEFAULT_SETTINGS.keepFarmingVideosUnmuted),
     autoCloseFinishedDrops: booleanOr(value?.autoCloseFinishedDrops, DEFAULT_SETTINGS.autoCloseFinishedDrops),
-    dropsListFilter: normalizeDropsListFilter(value?.dropsListFilter),
     adFocusMode: AD_FOCUS_MODES.includes(value?.adFocusMode as AdFocusMode)
       ? (value!.adFocusMode as AdFocusMode)
       : DEFAULT_SETTINGS.adFocusMode,
@@ -237,6 +249,10 @@ export function applySettingsPatch(current: ExtensionSettings, patch: SettingsPa
   return mergeSettings({
     ...current,
     ...patch,
+    twitchExtensions: {
+      nopixel: { ...current.twitchExtensions.nopixel, ...patch.twitchExtensions?.nopixel },
+      fortnite: { ...current.twitchExtensions.fortnite, ...patch.twitchExtensions?.fortnite },
+    },
     platform: {
       ...current.platform,
       twitch: {
@@ -261,10 +277,6 @@ export function applySettingsPatch(current: ExtensionSettings, patch: SettingsPa
     farmingEligibility: {
       ...current.farmingEligibility,
       ...patch.farmingEligibility,
-    },
-    dropsListFilter: {
-      ...current.dropsListFilter,
-      ...patch.dropsListFilter,
     },
   });
 }
@@ -333,7 +345,8 @@ export function normalizeCategorySelections(value: CategorySelection[] | undefin
 }
 
 // Campaign ids are case-sensitive and matched verbatim against campaign.id in
-// the scheduler, so unlike channel/game lists they must not be lowercased.
+// the scheduler, so unlike channel/game lists they must not be lowercased. Pins
+// use this too: order is the data, so the list is kept as given.
 export function normalizeIdList(value: string[] | undefined): string[] {
   if (!Array.isArray(value)) return [];
   return [...new Set(value
@@ -353,36 +366,19 @@ export function normalizeFarmingEligibility(
   };
 }
 
-// dropsListFilter is extension-only (host view preference), so it normalizes in
-// mergeSettings rather than the engine merge.
-function normalizeDropsListFilter(
-  value: Partial<ExtensionSettings["dropsListFilter"]> | undefined,
-): ExtensionSettings["dropsListFilter"] {
-  return {
-    showUpcoming: booleanOr(value?.showUpcoming, DEFAULT_SETTINGS.dropsListFilter.showUpcoming),
-    showExpired: booleanOr(value?.showExpired, DEFAULT_SETTINGS.dropsListFilter.showExpired),
-    showFinished: booleanOr(value?.showFinished, DEFAULT_SETTINGS.dropsListFilter.showFinished),
-    showExcluded: booleanOr(value?.showExcluded, DEFAULT_SETTINGS.dropsListFilter.showExcluded),
-    showNotLinked: booleanOr(value?.showNotLinked, DEFAULT_SETTINGS.dropsListFilter.showNotLinked),
-    showSubscription: booleanOr(value?.showSubscription, DEFAULT_SETTINGS.dropsListFilter.showSubscription),
-  };
-}
+// The Idle Watchlist's cap. The popup printed "n/20" long before anything
+// enforced it, so an in-page add could exceed a limit the UI claimed to have
+// (#563). Enforced here, where every host's writes converge, rather than in one
+// of the two surfaces that can add a channel.
+export const IDLE_WATCHLIST_LIMIT = 20;
 
-export function normalizeChannelList(value: string[] | undefined): string[] {
+export function normalizeChannelList(value: string[] | undefined, limit?: number): string[] {
   if (!Array.isArray(value)) return [];
-  return [...new Set(value
+  const channels = [...new Set(value
     .filter((item): item is string => typeof item === "string")
     .map((item) => item.trim().replace(/^@+/, "").toLowerCase())
     .filter(Boolean))];
-}
-
-export function normalizePriorities(value: Record<string, number> | undefined): Record<string, number> {
-  if (!value || typeof value !== "object") return {};
-  return Object.fromEntries(
-    Object.entries(value)
-      .filter(([campaignId, priority]) => campaignId.trim() && Number.isFinite(priority))
-      .map(([campaignId, priority]) => [campaignId.trim(), Math.round(priority)]),
-  );
+  return limit === undefined ? channels : channels.slice(0, limit);
 }
 
 // The claim toggles are per-platform, so a scheduler loop holding `platform` as a

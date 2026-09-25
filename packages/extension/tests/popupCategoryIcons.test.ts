@@ -9,7 +9,7 @@ import { gameItemsFromCampaigns } from "../../popup-ui/src/viewModels";
 const t = (key: string): string => key;
 
 describe("popup category icons", () => {
-  function renderSelectedCategory(imageUrl?: string, categoryMode: "include" | "exclude" = "include"): string {
+  function renderSelectedCategory(imageUrl?: string, categoryMode: "all" | "include" = "include"): string {
     const settings = mergeSettings(undefined);
     settings.platform.twitch.categoryMode = categoryMode;
     settings.platform.twitch.categories = [{
@@ -43,10 +43,10 @@ describe("popup category icons", () => {
     expect(markup).toContain(">FN</span>");
   });
 
-  // Exclude mode drops the reordering affordances (order is meaningless in a
-  // denylist) but keeps the row itself — artwork, name and removal — intact.
-  it("renders the same category artwork without rank controls in exclude mode", () => {
-    const markup = renderSelectedCategory("https://art.example/fortnite.jpg", "exclude");
+  // The allowlist no longer ranks anything (#352), so a row carries artwork,
+  // name and removal — and no reordering affordance at all.
+  it("renders category artwork without rank controls", () => {
+    const markup = renderSelectedCategory("https://art.example/fortnite.jpg");
 
     expect(markup).toContain('src="https://art.example/fortnite.jpg"');
     expect(markup).not.toContain("reorderItem");

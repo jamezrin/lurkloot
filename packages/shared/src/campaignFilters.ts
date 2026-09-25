@@ -1,6 +1,6 @@
 import { campaignPassesCategoryFilter } from "./categories";
 import { evaluateCampaignFarming } from "./campaignFarming";
-import type { CampaignFilterKey, DropCampaign, DropReward, EngineSettings, ExtensionSettings } from "./models";
+import type { CampaignFilterKey, DropCampaign, DropReward, EngineSettings } from "./models";
 import { campaignHasSubscriptionRewards, canClaimReward, isRewardDeadlineFeasible, isRewardRelevantNow } from "./rewards";
 
 export function isCampaignExpired(campaign: DropCampaign): boolean {
@@ -57,7 +57,8 @@ export function campaignPassesFarmingEligibility(
   campaign: DropCampaign,
   farmingEligibility: EngineSettings["farmingEligibility"],
 ): boolean {
-  if (campaign.accountLinked === false && !farmingEligibility.farmUnlinkedCampaigns) return false;
+  if ((campaign.accountLinked === false || campaign.eligibility === "account_not_linked")
+    && !farmingEligibility.farmUnlinkedCampaigns) return false;
   if (campaignHasSubscriptionRewards(campaign) && !farmingEligibility.farmSubscriptionCampaigns) return false;
   return true;
 }
@@ -84,82 +85,45 @@ export function isRewardFarmableNow(
 // timing of any individual reward (deadline feasibility, preconditions). This is
 // everything campaignFarmable checks except the final per-reward relevance
 // check, replaced with the much looser "has something left to earn or claim at
-// all". Deliberately separate from campaignFarmable: the popup's visibility
-// (isCampaignVisible) keys off THIS, not full farmability, because a campaign
-// that is momentarily un-farmable for reward-timing reasons (an infeasible
-// deadline under skipUnfinishableRewards, an unmet precondition on a locked
-// follow-up reward) is not a dead campaign — the user may want to see it, ease
-// the deadline margin, or (in "priority list only" mode) drag it into their
-// priority list, which is the ONLY way to make such a campaign farmable there.
-// Priority ordering is built from the currently-visible list (prioritiesFromOrder
-// in popup-ui), so hiding a campaign for a reward-timing reason would make it
-// permanently un-prioritizable — a real regression, not a stricter invariant.
+// all". Deliberately separate from campaignFarmable: a campaign that is
+// momentarily un-farmable for reward-timing reasons (an infeasible deadline
+// under skipUnfinishableRewards, an unmet precondition on a locked follow-up
+// reward) is not a dead campaign — the user may want to see it, ease the
+// deadline margin, or pin it — so the popup keeps showing it, in the Skipped
+// group, with the reason the evaluation gave.
 export function campaignEligibleClass(campaign: DropCampaign, settings: EngineSettings): boolean {
   if (campaign.status !== "active") return false;
   if (hasCampaignEnded(campaign)) return false;
-  if (campaign.eligibility && campaign.eligibility !== "eligible") return false;
+  if (campaign.eligibility && campaign.eligibility !== "eligible" && campaign.eligibility !== "account_not_linked") return false;
   if (settings.excludedCampaignIds.includes(campaign.id)) return false;
   if (!campaignPassesFarmingEligibility(campaign, settings.farmingEligibility)) return false;
   if (!campaignPassesCategoryFilter(campaign, settings.platform[campaign.platform])) return false;
-  // Twitch cannot earn drops until the account is linked, so an unlinked Twitch
-  // campaign is never farmable regardless of farmUnlinkedCampaigns. Kick DOES
-  // accrue watch progress before linking (the link is only required to claim).
-  if (campaign.platform !== "kick" && campaign.accountLinked === false) return false;
+  // Linking is required for game delivery; the farming flag controls watch eligibility.
   return campaign.rewards.some((reward) => reward.status !== "claimed");
 }
 
 // The single definition of "is this campaign farmable right now" — everything
-// the engine's isEligible checks EXCEPT settings.priorityMode. Priority-list-only
-// mode is a farming-strategy choice, not a fact about the campaign itself: a
-// campaign the user hasn't prioritized yet must stay eligible-class here (and
-// visible in isCampaignVisible below) so they can add it to the list, which is
-// why the scheduler layers that check on top of this rather than folding it in.
-// Strictly narrower than campaignEligibleClass — see that function for why
-// isCampaignVisible deliberately does NOT use this one.
+// the engine's isEligible checks EXCEPT the farmPinnedOnly switch. That switch
+// is a farming-strategy choice, not a fact about the campaign itself: a campaign
+// the user has not pinned yet must stay eligible-class here so the popup can
+// still list it (as Skipped, with "not pinned" as the reason) and offer the pin.
+// Strictly narrower than campaignEligibleClass.
 export function campaignFarmable(campaign: DropCampaign, settings: EngineSettings): boolean {
   return evaluateCampaignFarming(campaign, settings).farmable;
 }
 
-// What the popup asks. A claimable reward always stays visible so the user can
-// claim it, independent of farmability — claiming doesn't require the engine to
-// be actively farming the campaign. Everything else derives from
-// campaignEligibleClass (NOT the stricter campaignFarmable — see its comment):
-// if the campaign's class could ever be farmed, it's visible (the invariant
-// below); if not, visible only when a display flag explicitly says to show that
-// class of non-farmable campaign anyway.
+// Which section of the popup a campaign belongs to. One definition shared by
+// the popup's Queue, Skipped, Upcoming and Completed lists, so a campaign can
+// never be in two of them — and never missing from all four, which is what the
+// old per-class display toggles allowed.
 //
-// INVARIANT: a campaign that will be farmed is always visible here. This holds
-// because campaignFarmable is strictly narrower than campaignEligibleClass (same
-// checks, plus a reward-timing requirement) — so campaignFarmable-true implies
-// campaignEligibleClass-true, and the eligible-class check returns visible
-// immediately, before any filter flag is consulted. If a future change breaks
-// that subset relationship, the binding test in campaignFilters.test.ts fails.
-export function isCampaignVisible(
-  campaign: DropCampaign,
-  settings: ExtensionSettings,
-  excludedIds: ReadonlySet<string>,
-): boolean {
-  if (campaign.rewards.some((reward) => reward.status === "claimable")) return true;
-  if (campaignEligibleClass(campaign, settings)) return true;
-  // The category filter has no display-flag override anywhere, so it is
-  // checked first, ahead of every other bucket below — it wins even over a
-  // campaign that is ALSO excluded/finished/expired/upcoming/not-linked/
-  // subscription-gated with its matching display flag on. A category filtered
-  // out by include or exclude mode is gone from the Drops list, full stop, not
-  // just gone from farming. Same helper as campaignEligibleClass above, so the
-  // two can never disagree about what a mode means.
-  if (!campaignPassesCategoryFilter(campaign, settings.platform[campaign.platform])) return false;
-  // Not in a farmable class for some other reason. Bucket by why, and consult
-  // that class's display flag — the only way it can still be shown.
-  const filter = settings.dropsListFilter;
-  if (excludedIds.has(campaign.id)) return filter.showExcluded;
-  if (isCampaignFinished(campaign)) return filter.showFinished;
-  if (isCampaignExpired(campaign)) return filter.showExpired;
-  if (isCampaignUpcoming(campaign)) return filter.showUpcoming;
-  if (campaign.accountLinked === false) return filter.showNotLinked;
-  if (campaignHasSubscriptionRewards(campaign)) return filter.showSubscription;
-  // An ordinary active campaign that campaignEligibleClass rejected for a reason
-  // with no display flag (reward-independent — every branch above is covered)
-  // has none to fall back on: hidden.
-  return false;
+// INVARIANT: a campaign the engine will farm is always in "queue", because the
+// queue test is the engine's own evaluateCampaignFarming.
+export type CampaignSection = "queue" | "skipped" | "upcoming" | "completed" | "expired";
+
+export function campaignSection(campaign: DropCampaign, settings: EngineSettings): CampaignSection {
+  if (isCampaignFinished(campaign)) return "completed";
+  if (isCampaignExpired(campaign)) return "expired";
+  if (isCampaignUpcoming(campaign)) return "upcoming";
+  return evaluateCampaignFarming(campaign, settings, { includePinnedOnly: true }).farmable ? "queue" : "skipped";
 }

@@ -53,6 +53,108 @@
   "settingsLanguageDescription": {
     "message": "Uygulama ve bildirim dilini seçin."
   },
+  "navWorkspace": {
+    "message": "Çalışma alanı"
+  },
+  "navPlatform": {
+    "message": "Platform"
+  },
+  "navGroupDrops": {
+    "message": "Drop'lar"
+  },
+  "navQueue": {
+    "message": "Sıra"
+  },
+  "navCompleted": {
+    "message": "Tamamlanan"
+  },
+  "navGames": {
+    "message": "Oyunlar"
+  },
+  "navIdleWatchlist": {
+    "message": "Yedek izleme listesi"
+  },
+  "navActivity": {
+    "message": "Etkinlik"
+  },
+  "navSettings": {
+    "message": "Ayarlar"
+  },
+  "queueGroupPinned": {
+    "message": "Sabitlenen"
+  },
+  "queueGroupPinnedHint": {
+    "message": "sıralamak için sürükleyin veya sıra yazın"
+  },
+  "queueGroupFavourite": {
+    "message": "Favori oyunlar"
+  },
+  "queueGroupStrategy": {
+    "message": "Sonra şuna göre"
+  },
+  "queueNotInQueue": {
+    "message": "Sırada değil"
+  },
+  "queueSkipped": {
+    "message": "Atlanan"
+  },
+  "queueUpcoming": {
+    "message": "Yaklaşan"
+  },
+  "queueStrategyLabel": {
+    "message": "Sonra şuna göre"
+  },
+  "queueFarmPinnedOnly": {
+    "message": "Yalnızca sabitlenenleri farmla"
+  },
+  "queueUnpinAll": {
+    "message": "Tümünü kaldır ($1)"
+  },
+  "queueUnpin": {
+    "message": "Kaldır"
+  },
+  "queueFacetLabel": {
+    "message": "Kampanya türü"
+  },
+  "queueFacetAll": {
+    "message": "Tümü"
+  },
+  "queueFacetDrops": {
+    "message": "Drop'lar"
+  },
+  "queueFacetBadges": {
+    "message": "Abone rozetleri"
+  },
+  "queueFixInclude": {
+    "message": "Dahil et"
+  },
+  "queueFixPin": {
+    "message": "Sabitle"
+  },
+  "queueFixGames": {
+    "message": "Oyunları aç"
+  },
+  "queueFixSettings": {
+    "message": "Ayarları aç"
+  },
+  "queueEmpty": {
+    "message": "Şu anda burada farmlanacak bir şey yok."
+  },
+  "queueEmptyBadges": {
+    "message": "Şu anda farmlanabilir abonelik kampanyası yok."
+  },
+  "completedTabFinished": {
+    "message": "Tamamlanan"
+  },
+  "completedTabExpired": {
+    "message": "Süresi dolan"
+  },
+  "completedEmptyFinished": {
+    "message": "Tüm ödüller alındığında kampanyalar buraya gelir."
+  },
+  "completedEmptyExpired": {
+    "message": "Kampanyalar tamamlanmadan biterse buraya gelir."
+  },
   "settingsTitle": {
     "message": "Ayarlar"
   },
@@ -159,16 +261,16 @@
     "message": "twitch.tv ve kick.com sitelerine, bu açılır pencereyi sayfa üzerinde bir panel olarak açan bir Lurkloot düğmesi ekler."
   },
   "tipCampaignPriority": {
-    "message": "Aktif kampanyalar yedek listenizden önceliklidir. Sıralamayı değiştirmek için sürükleyin."
+    "message": "Bir kampanyayı sürükleyerek başa sabitle ya da bir oyuna yıldız vererek kampanyalarının hep üstte olmasını sağla. Kalanı Sıra'da seçtiğin düzeni izler."
   },
   "tipMissingCampaigns": {
     "message": "Bir kampanya görünmüyor mu? Platformun Drop sayfasını ve filtre ayarlarınızı kontrol edin."
   },
   "tipCategorySelection": {
-    "message": "Sadece belli oyunları mı izlemek istiyorsunuz? Platform ayarlarından filtreleme yapabilirsiniz."
+    "message": "Oyunlar görünümü hangi oyunların farmlanacağını, hangilerinin önce geleceğini ve hangilerinin hiç farmlanmayacağını belirler."
   },
   "tipIdleWatchlist": {
-    "message": "Droplar her zaman önceliklidir. Boşta kaldığında seçtiğiniz yedek kanallar izlenir."
+    "message": "Boşta İzleme Listesi kanallarının ne zaman izleneceğini platform ayarlarındaki kaynak önceliğiyle seçin."
   },
   "tipTablessMode": {
     "message": "Sekmesiz mod daha az sistem kaynağı kullanır."
@@ -186,7 +288,7 @@
     "message": "GitHub'da konu açın"
   },
   "tipExcludedCampaigns": {
-    "message": "Geri getirmek istediğiniz kampanyaları Drops ayarlarından düzenleyebilirsiniz."
+    "message": "Yanlışlıkla bir kampanyayı mı çıkardın? Sıra'daki Atlanan bölümünde, geri koyma düğmesiyle duruyor."
   },
   "tipTranslations": {
     "message": "Çeviriler yapay zekâ ile otomatik olarak güncel tutulur. GitHub'da iyileştirmeye yardımcı olun."
@@ -302,20 +404,17 @@
   "finished": {
     "message": "Bitti"
   },
+  "completedCampaigns": {
+    "message": "Tamamlananlar"
+  },
   "upcomingPill": {
     "message": "Gelecek"
   },
   "expiredPill": {
     "message": "Bitti"
   },
-  "finishedPill": {
-    "message": "Tamamlandı"
-  },
   "complete": {
     "message": "Tamamlandı"
-  },
-  "nextReward": {
-    "message": "Sıradaki: $1"
   },
   "startsIn": {
     "message": "$1 içinde başlıyor"
@@ -332,20 +431,11 @@
   "done": {
     "message": "Bitti"
   },
-  "farmed": {
-    "message": "Toplandı"
-  },
   "rewards": {
     "message": "Ödüller"
   },
-  "inCampaignOrder": {
-    "message": "Kampanya sırasına göre"
-  },
   "allChannels": {
     "message": "Tüm kanallar"
-  },
-  "channelCount": {
-    "message": "$1 kanal"
   },
   "includeInFarming": {
     "message": "Listeye ekle"
@@ -437,9 +527,6 @@
   "campaignPriorityDescription": {
     "message": "Hangi dropların önce toplanacağını seçin."
   },
-  "priorityListOnly": {
-    "message": "Sadece özel sıralamam"
-  },
   "endingSoonest": {
     "message": "Önce süresi bitmek üzere olanlar"
   },
@@ -451,12 +538,6 @@
   },
   "idleWatchlistSettingsDescription": {
     "message": "Drop yokken izlenecek kanallar."
-  },
-  "idleWatchlistFallbackOnlyTitle": {
-    "message": "Droplara öncelik ver"
-  },
-  "idleWatchlistFallbackOnlyDescription": {
-    "message": "Yeni bir drop çıktığında yedek kanaldan hemen ayrılır."
   },
   "preferKnownChannelsTitle": {
     "message": "Takip edilen ve yedek kanalları tercih et"
@@ -494,10 +575,18 @@
   "failuresSuffix": {
     "message": "hata"
   },
-  "kickPageContextRecoverySuccessesTitle": { "message": "Kick yedek sayfa kurtarma" },
-  "kickPageContextRecoverySuccessesDescription": { "message": "Uzantının açtığı Kick yedek sayfasını bu sayıda başarılı yenileme döngüsünden sonra kapatır." },
-  "kickPageContextRecoverySuccessesDisabledReason": { "message": "Bu ayarı değiştirmek için Kick’i etkinleştirin." },
-  "cyclesSuffix": { "message": "döngü" },
+  "kickPageContextRecoverySuccessesTitle": {
+    "message": "Kick yedek sayfa kurtarma"
+  },
+  "kickPageContextRecoverySuccessesDescription": {
+    "message": "Uzantının açtığı Kick yedek sayfasını bu sayıda başarılı yenileme döngüsünden sonra kapatır."
+  },
+  "kickPageContextRecoverySuccessesDisabledReason": {
+    "message": "Bu ayarı değiştirmek için Kick’i etkinleştirin."
+  },
+  "cyclesSuffix": {
+    "message": "döngü"
+  },
   "autoCloseTabsTitle": {
     "message": "Gereksiz sekmeleri kapat"
   },
@@ -547,10 +636,10 @@
     "message": "Gelişmiş ve uyumluluk"
   },
   "twitchSectionDescription": {
-    "message": "Kanal puanları, kategori filtresi, hariç tutulan kanallar ve Twitch uyumluluğu."
+    "message": "Kaynak önceliği, kanal puanları, kategoriler, hariç tutulan kanallar ve Twitch uyumluluğu."
   },
   "kickSectionDescription": {
-    "message": "Günlük görevler, kategori filtresi, hariç tutulan kanallar ve Kick uyumluluğu."
+    "message": "Kaynak önceliği, günlük görevler, kategoriler, hariç tutulan kanallar ve Kick uyumluluğu."
   },
   "twitchAdvancedDescription": {
     "message": "Kampanya uygunluğu ve Lurkloot'un kullandığı sinyal ile envanter aktarımları. Bunları yalnızca Twitch çalışmayı bıraktığında değiştirin."
@@ -630,8 +719,11 @@
   "campaignRejectionCategoryFiltered": {
     "message": "Bu kampanya seçili kategorilerle eşleşmiyor."
   },
-  "campaignRejectionPriorityNotSelected": {
-    "message": "Bu kampanya öncelik listesinde değil."
+  "campaignRejectionCategoryBlocked": {
+    "message": "Bu oyun engellendi, bu yüzden kampanyaları hiç farmlanmaz."
+  },
+  "campaignRejectionNotPinned": {
+    "message": "Şu anda yalnızca sabitlenmiş kampanyalar farmlanıyor."
   },
   "campaignRejectionNoRewards": {
     "message": "Bu kampanyada farmlanabilir ödül yok."
@@ -723,26 +815,14 @@
   "categoryModeInclude": {
     "message": "Yalnızca seçilenler"
   },
-  "categoryModeExclude": {
-    "message": "Seçilenler dışındaki tümü"
-  },
   "includeCategoriesInstruction": {
     "message": "$1 üzerinde yalnızca bu kategoriler toplanır."
-  },
-  "excludeCategoriesInstruction": {
-    "message": "$1 üzerinde bunlar dışındaki tüm kategoriler toplanır."
   },
   "categoriesToFarm": {
     "message": "Seçili kategoriler"
   },
-  "dragToPrioritize": {
-    "message": "Öncelik vermek için sürükleyin"
-  },
   "noCategoriesSelected": {
     "message": "Kategori seçilmedi. $1 üzerinde işlem yapılmayacak."
-  },
-  "noCategoriesExcluded": {
-    "message": "Hiçbir kategori hariç tutulmadı: tüm $1 kategorileri toplanacak. Atlamak için aşağıdan kategori ekleyin."
   },
   "hasActiveDrops": {
     "message": "Aktif droplar var"
@@ -779,15 +859,6 @@
   },
   "farmSubscriptionDescription": {
     "message": "Kapalıyken, ödülleri kanal aboneliği gerektiren kampanyalar atlanır."
-  },
-  "dropsListFilterTitle": {
-    "message": "Drop listesi görünümü"
-  },
-  "dropsListFilterDescription": {
-    "message": "Drop listesinde hangi kampanyaların gösterileceğini seçin. Alınabilir ödülü olan bir kampanya her zaman görünür kalır."
-  },
-  "dropsListFilterLockedHint": {
-    "message": "Bu kampanyaları farmladığın sürece her zaman gösterilir."
   },
   "forgetExcludedTitle": {
     "message": "Gizlenen kampanyaları sıfırla"
@@ -944,12 +1015,6 @@
   },
   "screenshotUpdatedLicense": {
     "message": "Apache-2.0"
-  },
-  "screenshotUpdatedRating": {
-    "message": "4.9"
-  },
-  "screenshotUpdatedUsers": {
-    "message": "1.000+ kullanıcı"
   },
   "autoClaimReady": {
     "message": "Otomatik alma aktif"
@@ -1413,6 +1478,12 @@
   "manualWatchPauseDetail": {
     "message": "Bir yayını kendiniz izlerken farm duraklatılır. Bir sonraki kontrolde farmın otomatik olarak devam etmesi için yayını duraklatın, kapatın veya bu sekmeden başka bir yere geçin."
   },
+  "manualWatchPauseDetailNamed": {
+    "message": "Sen bir yayını izlerken farmlama duraklatılır."
+  },
+  "manualWatchPauseDetailNamedSuffix": {
+    "message": "— devam etmek için duraklat, kapat ya da başka sekmeye geç."
+  },
   "reorderItem": {
     "message": "$1 sırasını değiştir"
   },
@@ -1421,5 +1492,395 @@
   },
   "scrollRewardsRight": {
     "message": "Ödülleri sağa kaydır"
+  },
+  "activityExtensionGiveawayJoined": {
+    "message": "$2 kanalında bir $1 çekilişine katıldı."
+  },
+  "activityExtensionSpriteCaptured": {
+    "message": "$2 kanalında bir $1 sprite nesnesi yakaladı."
+  },
+  "activityExtensionTakeoverStarted": {
+    "message": "$2 kanalından bir $1 saldırısı başlattı."
+  },
+  "extensionSettingsTitle": {
+    "message": "Twitch uzantıları"
+  },
+  "extensionDropsTitle": {
+    "message": "Uzantılar"
+  },
+  "extensionSettingsHint": {
+    "message": "Twitch sekmeleri olmadan ödül kazanın. Twitch otomasyonu, hariç tutmalar ve manuel duraklatma geçerlidir."
+  },
+  "extensionNoPixelHint": {
+    "message": "Günlük paketler kazanın ve çekilişlere katılın."
+  },
+  "extensionFortniteHint": {
+    "message": "Sprite toplayın ve aşama ödülleri kazanın."
+  },
+  "extensionIdentityRequired": {
+    "message": "Uzantı hesabınızı bağlayın"
+  },
+  "extensionPermissionRequired": {
+    "message": "Sağlayıcı erişimine izin verin"
+  },
+  "extensionAuthRequired": {
+    "message": "Twitch’e giriş yapın"
+  },
+  "extensionChannelRequired": {
+    "message": "Uygun kanal aranıyor"
+  },
+  "extensionComplete": {
+    "message": "Ödüller kazanıldı"
+  },
+  "extensionFarming": {
+    "message": "Toplanıyor"
+  },
+  "extensionPhaseClosed": {
+    "message": "Açık etkileşimli aşama yok"
+  },
+  "extensionConnecting": {
+    "message": "Bağlanıyor"
+  },
+  "extensionUnavailable": {
+    "message": "Geçici olarak kullanılamıyor"
+  },
+  "extensionIdle": {
+    "message": "Bekleniyor"
+  },
+  "extensionDailyPackProgress": {
+    "message": "Günlük paket: $1/$2 dakika"
+  },
+  "extensionCaptureProgress": {
+    "message": "Koleksiyon: $1/$2"
+  },
+  "extensionTakeoversTitle": {
+    "message": "Fortnite devralmalarına izin ver"
+  },
+  "extensionTakeoversHint": {
+    "message": "Etkileşimli aşamalarda uygun devralmaları başlatın. Varsayılan olarak kapalıdır."
+  },
+  "extensionAccountSetup": {
+    "message": "Hesap kurulumu"
+  },
+  "extensionGiveawayUnavailable": {
+    "message": "Çekiliş kontrolü kullanılamıyor"
+  },
+  "extensionGiveawayEntered": {
+    "message": "Çekilişe katılım onaylandı"
+  },
+  "extensionGiveawayOpen": {
+    "message": "Çekiliş açık"
+  },
+  "extensionRewardProgress": {
+    "message": "Ödüller: $1/$2"
+  },
+  "extensionTakeoverActive": {
+    "message": "Ele geçirme etkin"
+  },
+  "extensionWatchtimeComplete": {
+    "message": "İzleme süresi tamamlandı"
+  },
+  "extensionUnopenedPacks": {
+    "message": "Açılmamış paketler: $1"
+  },
+  "extensionPackCheckUnavailable": {
+    "message": "Paket teslim kontrolü kullanılamıyor"
+  },
+  "extensionAutoOpenPacksTitle": {
+    "message": "NoPixelV paketlerini otomatik aç"
+  },
+  "extensionAutoOpenPacksHint": {
+    "message": "Açılmamış paketlerin kartlarını gösterir. Her paket tüketilir ve işlem geri alınamaz."
+  },
+  "activityExtensionPackOpened": {
+    "message": "$1, $2 kanalında bir kart paketi açtı"
+  },
+  "watchSourcePriorityTitle": {
+    "message": "İzleme kaynağı önceliği"
+  },
+  "watchSourcePriorityDescription": {
+    "message": "İlk kullanılabilir kaynak izlenir. Devre dışı veya kullanılamayan kaynaklar atlanır."
+  },
+  "watchSourcePriorityMoveUp": {
+    "message": "$1 kaynağını yukarı taşı"
+  },
+  "watchSourcePriorityMoveDown": {
+    "message": "$1 kaynağını aşağı taşı"
+  },
+  "watchSourcePriorityReset": {
+    "message": "Önceliği sıfırla"
+  },
+  "watchSourcePriorityMoved": {
+    "message": "$1 artık $2. öncelikte."
+  },
+  "watchSourcePriorityResetDone": {
+    "message": "İzleme kaynağı önceliği sıfırlandı."
+  },
+  "watchSourceDrops": {
+    "message": "Drop’lar"
+  },
+  "watchSourceIdleWatchlist": {
+    "message": "Boşta İzleme Listesi"
+  },
+  "watchSourceNoPixel": {
+    "message": "NoPixelV"
+  },
+  "watchSourceFortnite": {
+    "message": "Fortnite"
+  },
+  "gamesStarHint": {
+    "message": "★ oyunu stratejinin üstüne koyar"
+  },
+  "gamesFavourite": {
+    "message": "$1 oyununu stratejinin üstüne koy"
+  },
+  "gamesUnfavourite": {
+    "message": "$1 önceliğini kaldır"
+  },
+  "gamesBlock": {
+    "message": "$1 asla farmlanmasın"
+  },
+  "gamesUnblock": {
+    "message": "Engeli kaldır"
+  },
+  "gamesBlocked": {
+    "message": "Engellenen"
+  },
+  "gamesBlockedHint": {
+    "message": "her iki modda da farmlanmaz"
+  },
+  "gamesBlockedKeepsStar": {
+    "message": "farmlanmaz · yıldız korunur"
+  },
+  "gamesCampaignCount": {
+    "message": "$1 kampanya etkin"
+  },
+  "gamesCampaignCountOne": {
+    "message": "1 kampanya etkin"
+  },
+  "gamesNoCampaigns": {
+    "message": "şu anda kampanya yok"
+  },
+  "gamesFarmGame": {
+    "message": "$1 farmla"
+  },
+  "gamesEmpty": {
+    "message": "Şu anda etkin $1 kampanyası yok."
+  },
+  "inPageOpenPanel": {
+    "message": "Lurkloot'u aç"
+  },
+  "inPageAddToWatchlist": {
+    "message": "$1 kanalını yedek listeye ekle"
+  },
+  "inPageRemoveFromWatchlist": {
+    "message": "$1 kanalını yedek listeden çıkar"
+  },
+  "navNoPixel": {
+    "message": "NoPixel V"
+  },
+  "navFortnite": {
+    "message": "Fortnite"
+  },
+  "gamesBlockedEmpty": {
+    "message": "Hiçbir şey engellenmedi. Bir oyundaki ⊘ ile onu her iki modda da farm dışında tutun."
+  },
+  "campaignRewardsProgress": {
+    "message": "$1/$2 ödül"
+  },
+  "campaignTimeLeft": {
+    "message": "$1 kaldı"
+  },
+  "campaignFactStarts": {
+    "message": "Başlangıç"
+  },
+  "campaignFactEnds": {
+    "message": "Bitiş"
+  },
+  "campaignFactEnded": {
+    "message": "Bitti"
+  },
+  "campaignFactWatching": {
+    "message": "İzleniyor"
+  },
+  "campaignFactChannels": {
+    "message": "Kanallar"
+  },
+  "campaignFactNextReward": {
+    "message": "Sonraki ödül"
+  },
+  "campaignFactWhyRank": {
+    "message": "Neden bu sıra"
+  },
+  "campaignMoreChannels": {
+    "message": "+$1 daha"
+  },
+  "campaignExclude": {
+    "message": "Hariç tut"
+  },
+  "campaignCategoryBlocked": {
+    "message": "$1 engellendi"
+  },
+  "campaignPinToTop": {
+    "message": "En üste sabitle"
+  },
+  "campaignPinnedAt": {
+    "message": "Sabitlendi · $1"
+  },
+  "campaignFavourite": {
+    "message": "$1 oyununu favorile"
+  },
+  "campaignFavouriteOn": {
+    "message": "$1 favori"
+  },
+  "campaignExcludeThis": {
+    "message": "Yalnızca bu kampanya"
+  },
+  "campaignExcludeThisHint": {
+    "message": "Diğer $1 kampanyaları farmlanmaya devam eder"
+  },
+  "campaignExcludeThisUndo": {
+    "message": "Kampanyayı sıraya geri almak için yeniden seçin"
+  },
+  "campaignExcludeCategory": {
+    "message": "“$1” kategorisi"
+  },
+  "campaignExcludeCategoryHint": {
+    "message": "Tüm $1 kampanyalarını şimdi ve ileride engeller"
+  },
+  "campaignExcludeCategoryUndo": {
+    "message": "Oyunun engelini kaldırmak için yeniden seçin"
+  },
+  "rewardMissed": {
+    "message": "Zamanında kazanılmadı"
+  },
+  "rankReasonPinned": {
+    "message": "$1. sıraya sabitlendi"
+  },
+  "rankReasonFavourite": {
+    "message": "$1, $2. favori"
+  },
+  "rankReasonEnding": {
+    "message": "Alttakilerden önce biter"
+  },
+  "rankReasonAvailability": {
+    "message": "Alttakilerden daha az kanal"
+  },
+  "queueEditFavourites": {
+    "message": "Düzenle"
+  },
+  "navWatchingNow": {
+    "message": "Şu anda izleniyor"
+  },
+  "watchSourcePosition": {
+    "message": "$1 · $2/$3"
+  },
+  "watchSourceChangeOrder": {
+    "message": "İzleme sırasını değiştir"
+  },
+  "gamesFavouritesGroup": {
+    "message": "Favoriler"
+  },
+  "gamesFavouritesGroupHint": {
+    "message": "bu sırayla, stratejinin önünde"
+  },
+  "gamesOtherGroup": {
+    "message": "Diğer oyunlar"
+  },
+  "gamesOtherGroupAllHint": {
+    "message": "engellenenler dışında hepsi farmlanır"
+  },
+  "gamesOtherGroupIncludeHint": {
+    "message": "yalnızca işaretliler farmlanır"
+  },
+  "watchSourcePlace": {
+    "message": "İzleme sırasındaki yeri: $1/$2"
+  },
+  "watchSourcePlaceFirst": {
+    "message": "Diğer tüm kaynaklardan önce izlenir."
+  },
+  "watchSourcePlaceAfter": {
+    "message": "$1 kaynaklarında izlenecek bir şey olmadığında izlenir."
+  },
+  "watchSourceChangeOrderShort": {
+    "message": "Sırayı değiştir"
+  },
+  "railWhatsNew": {
+    "message": "Yenilikler"
+  },
+  "campaignShowDetails": {
+    "message": "Ayrıntıları göster"
+  },
+  "campaignHideDetails": {
+    "message": "Ayrıntıları gizle"
+  },
+  "settingsGamesPointerTitle": {
+    "message": "Oyunlar ve kategoriler"
+  },
+  "settingsGamesPointerDescription": {
+    "message": "Hangi $1 oyunlarının farmlanacağını seçin, önce gelmesi gerekenleri favorileyin veya engelleyin."
+  },
+  "settingsGamesPointerAction": {
+    "message": "Oyunları aç"
+  },
+  "idleWatchlistAddPlaceholder": {
+    "message": "Kanal adı veya bağlantısı"
+  },
+  "idleWatchlistFull": {
+    "message": "Liste dolu ($1 kanal). Başka birini eklemek için birini kaldırın."
+  },
+  "idleWatchlistInvalid": {
+    "message": "Bir kanal adı veya kanal bağlantısı girin."
+  },
+  "idleWatchlistDuplicate": {
+    "message": "$1 zaten listede."
+  },
+  "idleWatchlistOrderTitle": {
+    "message": "İzleme sırası"
+  },
+  "idleWatchlistOrderHint": {
+    "message": "ilk canlı kanal izlenir"
+  },
+  "gamesModeAllDescription": {
+    "message": "Etkin drop'u olan her oyun farmlanır, engellenenler hariç."
+  },
+  "gamesModeIncludeDescription": {
+    "message": "Yalnızca işaretlediğiniz oyunlar farmlanır."
+  },
+  "gamesStarLegend": {
+    "message": "bir oyunu stratejinin üstüne koyar"
+  },
+  "gamesBlockLegend": {
+    "message": "onu asla farmlamaz"
+  },
+  "gamesSearchPlaceholder": {
+    "message": "$1 oyunu bul veya ekle"
+  },
+  "gamesAddGroup": {
+    "message": "$1 üzerinden ekle"
+  },
+  "gamesAddIncludeHint": {
+    "message": "eklenen oyun işaretlenir"
+  },
+  "gamesAddAllHint": {
+    "message": "eklenen oyun favorilere alınır"
+  },
+  "gamesAddActionFarm": {
+    "message": "Farmla"
+  },
+  "gamesAddActionFavourite": {
+    "message": "Favori"
+  },
+  "gamesNoMoreResults": {
+    "message": "Başka oyun bulunamadı."
+  },
+  "navBeta": {
+    "message": "Beta"
+  },
+  "navExtensions": {
+    "message": "Eklentiler"
+  },
+  "navGroupOthers": {
+    "message": "Diğer"
   }
 }

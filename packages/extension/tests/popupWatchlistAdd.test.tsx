@@ -52,14 +52,21 @@ async function mountPopup() {
 const byLabel = (container: Element, label: string) =>
   [...container.querySelectorAll("button")].find((button) => button.getAttribute("aria-label") === label);
 
+// The Idle Watchlist is its own rail destination now, so the form is reached by
+// navigating there rather than by expanding a section of the drops list. The
+// view swaps outright, so one act() settles it.
+function openWatchlist(container: Element): void {
+  act(() => { container.querySelector<HTMLButtonElement>('button[data-view="watchlist"]')?.click(); });
+}
+
 describe("idle watchlist add form", () => {
   // The add form and its text used to survive a platform switch, so a channel
   // typed for Twitch could be submitted into Kick's watchlist.
   it("drops a half-typed channel when the platform changes", async () => {
     const { container, sent } = await mountPopup();
 
-    act(() => byLabel(container, "Add channel")?.click());
-    const input = container.querySelector<HTMLInputElement>("form input");
+    openWatchlist(container);
+    const input = container.querySelector<HTMLInputElement>("[data-watchlist-input]");
     expect(input).not.toBeNull();
     act(() => {
       input!.value = "typed-for-twitch";
@@ -67,11 +74,11 @@ describe("idle watchlist add form", () => {
     });
 
     act(() => byLabel(container, "Kick")?.click());
-    expect(container.querySelector("form input")).toBeNull();
 
-    // Reopening on Kick starts empty rather than carrying the Twitch draft.
-    act(() => byLabel(container, "Add channel")?.click());
-    expect(container.querySelector<HTMLInputElement>("form input")?.value ?? "").toBe("");
+    // The field stays open on Kick, but starts empty rather than carrying the
+    // Twitch draft.
+    openWatchlist(container);
+    expect(container.querySelector<HTMLInputElement>("[data-watchlist-input]")?.value ?? "").toBe("");
     expect(sent.filter((message) => message.type === "saveSettings")).toHaveLength(0);
   });
 });

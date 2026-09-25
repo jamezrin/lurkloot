@@ -53,6 +53,108 @@
   "settingsLanguageDescription": {
     "message": "पॉपअप और एक्सटेंशन सूचनाओं की भाषा चुनें।"
   },
+  "navWorkspace": {
+    "message": "वर्कस्पेस"
+  },
+  "navPlatform": {
+    "message": "प्लेटफ़ॉर्म"
+  },
+  "navGroupDrops": {
+    "message": "ड्रॉप्स"
+  },
+  "navQueue": {
+    "message": "क़तार"
+  },
+  "navCompleted": {
+    "message": "पूर्ण"
+  },
+  "navGames": {
+    "message": "गेम्स"
+  },
+  "navIdleWatchlist": {
+    "message": "आइडल वॉचलिस्ट"
+  },
+  "navActivity": {
+    "message": "गतिविधि"
+  },
+  "navSettings": {
+    "message": "सेटिंग्स"
+  },
+  "queueGroupPinned": {
+    "message": "पिन किए गए"
+  },
+  "queueGroupPinnedHint": {
+    "message": "क्रम बदलने के लिए खींचें, या रैंक टाइप करें"
+  },
+  "queueGroupFavourite": {
+    "message": "पसंदीदा गेम"
+  },
+  "queueGroupStrategy": {
+    "message": "फिर इसके अनुसार"
+  },
+  "queueNotInQueue": {
+    "message": "क़तार में नहीं"
+  },
+  "queueSkipped": {
+    "message": "छोड़े गए"
+  },
+  "queueUpcoming": {
+    "message": "आगामी"
+  },
+  "queueStrategyLabel": {
+    "message": "फिर इसके अनुसार"
+  },
+  "queueFarmPinnedOnly": {
+    "message": "सिर्फ़ पिन किए गए फ़ार्म करें"
+  },
+  "queueUnpinAll": {
+    "message": "सभी अनपिन करें ($1)"
+  },
+  "queueUnpin": {
+    "message": "अनपिन"
+  },
+  "queueFacetLabel": {
+    "message": "कैंपेन प्रकार"
+  },
+  "queueFacetAll": {
+    "message": "सभी"
+  },
+  "queueFacetDrops": {
+    "message": "ड्रॉप्स"
+  },
+  "queueFacetBadges": {
+    "message": "सब बैज"
+  },
+  "queueFixInclude": {
+    "message": "शामिल करें"
+  },
+  "queueFixPin": {
+    "message": "पिन करें"
+  },
+  "queueFixGames": {
+    "message": "गेम्स खोलें"
+  },
+  "queueFixSettings": {
+    "message": "सेटिंग्स खोलें"
+  },
+  "queueEmpty": {
+    "message": "अभी यहाँ फ़ार्म करने को कुछ नहीं है।"
+  },
+  "queueEmptyBadges": {
+    "message": "अभी कोई सब्सक्रिप्शन कैंपेन फ़ार्म करने योग्य नहीं है।"
+  },
+  "completedTabFinished": {
+    "message": "पूरे हुए"
+  },
+  "completedTabExpired": {
+    "message": "समाप्त"
+  },
+  "completedEmptyFinished": {
+    "message": "सभी इनाम क्लेम होने पर कैंपेन यहाँ आते हैं।"
+  },
+  "completedEmptyExpired": {
+    "message": "अधूरे खत्म होने पर कैंपेन यहाँ आते हैं।"
+  },
   "settingsTitle": {
     "message": "सेटिंग्स"
   },
@@ -159,16 +261,16 @@
     "message": "twitch.tv और kick.com पर एक Lurkloot बटन जोड़ता है जो इस पॉपअप को पेज पर एक पैनल में खोलता है।"
   },
   "tipCampaignPriority": {
-    "message": "Drops को निष्क्रिय वॉचलिस्ट पर प्राथमिकता मिलती है। क्रम तय करने के लिए कैंपेन को ग्रिप से खींचें।"
+    "message": "किसी कैंपेन को खींचकर सबसे ऊपर पिन करें, या गेम को स्टार करें ताकि उसके कैंपेन हमेशा ऊपर रहें। बाक़ी क़तार में चुने क्रम से चलते हैं।"
   },
   "tipMissingCampaigns": {
     "message": "कैंपेन नहीं दिख रहा? प्लेटफ़ॉर्म की Drops इन्वेंट्री और सेटिंग्स के फ़िल्टर जाँचें।"
   },
   "tipCategorySelection": {
-    "message": "सिर्फ़ कुछ गेम चाहिए? ‘सभी श्रेणियाँ फ़ार्म करें’ बंद करके श्रेणियाँ चुनें।"
+    "message": "गेम्स व्यू तय करता है कि कौन-से गेम फ़ार्म हों, कौन पहले आएँ और कौन कभी न हों।"
   },
   "tipIdleWatchlist": {
-    "message": "योग्य Drops न होने पर निष्क्रिय वॉचलिस्ट चुने हुए चैनल फ़ार्म करती है।"
+    "message": "प्लेटफ़ॉर्म सेटिंग्स में स्रोतों की प्राथमिकता बदलकर चुनें कि निष्क्रिय वॉचलिस्ट के चैनल कब देखे जाएँ।"
   },
   "tipTablessMode": {
     "message": "टैबलेस मोड कम संसाधन इस्तेमाल करता है और ज़रूरत पर म्यूट टैब खोलता है।"
@@ -186,7 +288,7 @@
     "message": "GitHub issue खोलें"
   },
   "tipExcludedCampaigns": {
-    "message": "गलती से कैंपेन हटाया? उसे Drops सेटिंग्स से वापस लाएँ।"
+    "message": "ग़लती से कोई कैंपेन हटा दिया? वह क़तार के “छोड़े गए” में है, वापस लाने के बटन के साथ।"
   },
   "tipTranslations": {
     "message": "अनुवादों का रखरखाव AI द्वारा स्वचालित रूप से किया जाता है। उन्हें बेहतर बनाने में GitHub पर मदद करें।"
@@ -302,20 +404,17 @@
   "finished": {
     "message": "पूर्ण"
   },
+  "completedCampaigns": {
+    "message": "पूर्ण"
+  },
   "upcomingPill": {
     "message": "आगामी"
   },
   "expiredPill": {
     "message": "समाप्त"
   },
-  "finishedPill": {
-    "message": "पूर्ण"
-  },
   "complete": {
     "message": "पूर्ण"
-  },
-  "nextReward": {
-    "message": "अगला: $1"
   },
   "startsIn": {
     "message": "$1 में शुरू"
@@ -332,20 +431,11 @@
   "done": {
     "message": "हो गया"
   },
-  "farmed": {
-    "message": "फ़ार्म किया"
-  },
   "rewards": {
     "message": "इनाम"
   },
-  "inCampaignOrder": {
-    "message": "कैंपेन क्रम में"
-  },
   "allChannels": {
     "message": "सभी चैनल"
-  },
-  "channelCount": {
-    "message": "$1 चैनल"
   },
   "includeInFarming": {
     "message": "फ़ार्मिंग में शामिल करें"
@@ -437,9 +527,6 @@
   "campaignPriorityDescription": {
     "message": "कैंपेन कैसे चुने जाते हैं। प्राथमिकता सूची केवल हाथ से क्रमबद्ध कैंपेन फ़ार्म करती है; बाकी विकल्प सभी कैंपेन में से चुनते हैं। प्लेटफ़ॉर्म सेटिंग्स में श्रेणियाँ सीमित करें।"
   },
-  "priorityListOnly": {
-    "message": "केवल प्राथमिकता सूची"
-  },
   "endingSoonest": {
     "message": "सबसे पहले समाप्त"
   },
@@ -451,12 +538,6 @@
   },
   "idleWatchlistSettingsDescription": {
     "message": "साझा फ़ॉलबैक वॉचलिस्ट व्यवहार।"
-  },
-  "idleWatchlistFallbackOnlyTitle": {
-    "message": "निष्क्रिय वॉचलिस्ट से पहले drops को प्राथमिकता दें"
-  },
-  "idleWatchlistFallbackOnlyDescription": {
-    "message": "कोई योग्य drop उपलब्ध होते ही निष्क्रिय वॉचलिस्ट चैनल छोड़ देता है। बंद होने पर, चैनल के ऑफ़लाइन होने तक उसे देखता रहता है।"
   },
   "preferKnownChannelsTitle": {
     "message": "फ़ॉलो किए गए और निष्क्रिय वॉचलिस्ट चैनलों को प्राथमिकता दें"
@@ -494,10 +575,18 @@
   "failuresSuffix": {
     "message": "विफलताएँ"
   },
-  "kickPageContextRecoverySuccessesTitle": { "message": "Kick फ़ॉलबैक पेज रिकवरी" },
-  "kickPageContextRecoverySuccessesDescription": { "message": "इतने सफल रीफ़्रेश चक्रों के बाद एक्सटेंशन द्वारा खोला गया Kick फ़ॉलबैक पेज बंद करें।" },
-  "kickPageContextRecoverySuccessesDisabledReason": { "message": "यह सेटिंग बदलने के लिए Kick चालू करें।" },
-  "cyclesSuffix": { "message": "चक्र" },
+  "kickPageContextRecoverySuccessesTitle": {
+    "message": "Kick फ़ॉलबैक पेज रिकवरी"
+  },
+  "kickPageContextRecoverySuccessesDescription": {
+    "message": "इतने सफल रीफ़्रेश चक्रों के बाद एक्सटेंशन द्वारा खोला गया Kick फ़ॉलबैक पेज बंद करें।"
+  },
+  "kickPageContextRecoverySuccessesDisabledReason": {
+    "message": "यह सेटिंग बदलने के लिए Kick चालू करें।"
+  },
+  "cyclesSuffix": {
+    "message": "चक्र"
+  },
   "autoCloseTabsTitle": {
     "message": "फ़ार्मिंग टैब अपने आप बंद करें"
   },
@@ -547,10 +636,10 @@
     "message": "उन्नत और संगतता"
   },
   "twitchSectionDescription": {
-    "message": "चैनल पॉइंट, श्रेणी फ़िल्टर, बाहर रखे गए चैनल और Twitch संगतता।"
+    "message": "स्रोतों की प्राथमिकता, चैनल पॉइंट्स, श्रेणियाँ, बाहर किए गए चैनल और Twitch अनुकूलता।"
   },
   "kickSectionDescription": {
-    "message": "दैनिक चुनौतियाँ, श्रेणी फ़िल्टर, बाहर रखे गए चैनल और Kick संगतता।"
+    "message": "स्रोतों की प्राथमिकता, दैनिक चुनौतियाँ, श्रेणियाँ, बाहर किए गए चैनल और Kick अनुकूलता।"
   },
   "twitchAdvancedDescription": {
     "message": "अभियान उपलब्धता, साथ ही Lurkloot द्वारा उपयोग किए जाने वाले हार्टबीट और इन्वेंटरी ट्रांसपोर्ट। इन्हें तभी बदलें जब Twitch काम करना बंद कर दे।"
@@ -630,8 +719,11 @@
   "campaignRejectionCategoryFiltered": {
     "message": "यह कैंपेन चुनी गई कैटेगरी से मेल नहीं खाता।"
   },
-  "campaignRejectionPriorityNotSelected": {
-    "message": "यह कैंपेन प्राथमिकता सूची में नहीं है।"
+  "campaignRejectionCategoryBlocked": {
+    "message": "यह गेम ब्लॉक है, इसलिए इसके कैंपेन कभी फ़ार्म नहीं होते।"
+  },
+  "campaignRejectionNotPinned": {
+    "message": "अभी सिर्फ़ पिन किए गए कैंपेन फ़ार्म होते हैं।"
   },
   "campaignRejectionNoRewards": {
     "message": "इस कैंपेन में फ़ार्म करने योग्य रिवॉर्ड नहीं हैं।"
@@ -723,26 +815,14 @@
   "categoryModeInclude": {
     "message": "केवल चयनित"
   },
-  "categoryModeExclude": {
-    "message": "चयनित को छोड़कर सभी"
-  },
   "includeCategoriesInstruction": {
     "message": "$1 पर केवल ये श्रेणियाँ फ़ार्म की जाती हैं।"
-  },
-  "excludeCategoriesInstruction": {
-    "message": "$1 पर इन्हें छोड़कर सभी श्रेणियाँ फ़ार्म की जाती हैं।"
   },
   "categoriesToFarm": {
     "message": "फ़ार्म करने की श्रेणियाँ"
   },
-  "dragToPrioritize": {
-    "message": "प्राथमिकता के लिए खींचें"
-  },
   "noCategoriesSelected": {
     "message": "कोई श्रेणी चयनित नहीं: $1 पर कुछ फ़ार्म नहीं होगा। नीचे श्रेणियाँ जोड़ें।"
-  },
-  "noCategoriesExcluded": {
-    "message": "कोई श्रेणी बाहर नहीं की गई: $1 की सभी श्रेणियाँ फ़ार्म होंगी। उन्हें छोड़ने के लिए नीचे श्रेणियाँ जोड़ें।"
   },
   "hasActiveDrops": {
     "message": "सक्रिय drops हैं"
@@ -779,15 +859,6 @@
   },
   "farmSubscriptionDescription": {
     "message": "बंद होने पर, जिन कैंपेन के इनाम के लिए चैनल सब्सक्रिप्शन ज़रूरी है, उन्हें छोड़ दिया जाता है।"
-  },
-  "dropsListFilterTitle": {
-    "message": "Drops सूची दृश्य"
-  },
-  "dropsListFilterDescription": {
-    "message": "चुनें कि Drops सूची में कौन से कैंपेन दिखें। क्लेम करने योग्य इनाम वाला कैंपेन हमेशा दिखता है।"
-  },
-  "dropsListFilterLockedHint": {
-    "message": "जब तक आप इन कैंपेन की फ़ार्मिंग कर रहे हैं, ये हमेशा दिखते हैं।"
   },
   "forgetExcludedTitle": {
     "message": "हटाए गए कैंपेन भूलें"
@@ -944,12 +1015,6 @@
   },
   "screenshotUpdatedLicense": {
     "message": "Apache-2.0"
-  },
-  "screenshotUpdatedRating": {
-    "message": "4.9"
-  },
-  "screenshotUpdatedUsers": {
-    "message": "1,000+ उपयोगकर्ता"
   },
   "autoClaimReady": {
     "message": "ऑटो-क्लेम तैयार"
@@ -1413,6 +1478,12 @@
   "manualWatchPauseDetail": {
     "message": "आपके खुद कोई स्ट्रीम देखने के दौरान फ़ार्मिंग रुकी हुई है। अगली जाँच पर फ़ार्मिंग अपने आप फिर शुरू करने के लिए उसे रोकें, बंद करें या उस टैब से हट जाएँ।"
   },
+  "manualWatchPauseDetailNamed": {
+    "message": "जब आप खुद स्ट्रीम देख रहे होते हैं, फ़ार्मिंग रुक जाती है।"
+  },
+  "manualWatchPauseDetailNamedSuffix": {
+    "message": "— फिर से शुरू करने के लिए इसे रोकें, बंद करें या टैब बदलें।"
+  },
   "reorderItem": {
     "message": "$1 का क्रम बदलें"
   },
@@ -1421,5 +1492,395 @@
   },
   "scrollRewardsRight": {
     "message": "पुरस्कारों को दाईं ओर स्क्रॉल करें"
+  },
+  "activityExtensionGiveawayJoined": {
+    "message": "$2 पर $1 के गिवअवे में भाग लिया।"
+  },
+  "activityExtensionSpriteCaptured": {
+    "message": "$2 पर $1 का स्प्राइट पकड़ा।"
+  },
+  "activityExtensionTakeoverStarted": {
+    "message": "$2 से $1 का हमला शुरू किया।"
+  },
+  "extensionSettingsTitle": {
+    "message": "Twitch एक्सटेंशन"
+  },
+  "extensionDropsTitle": {
+    "message": "एक्सटेंशन"
+  },
+  "extensionSettingsHint": {
+    "message": "Twitch टैब के बिना पुरस्कार पाएँ। Twitch स्वचालन, बहिष्करण और मैन्युअल विराम लागू होते हैं।"
+  },
+  "extensionNoPixelHint": {
+    "message": "दैनिक पैक पाएँ और उपहार प्रतियोगिताओं में शामिल हों।"
+  },
+  "extensionFortniteHint": {
+    "message": "स्प्राइट इकट्ठा करें और चरण पुरस्कार पाएँ।"
+  },
+  "extensionIdentityRequired": {
+    "message": "अपना एक्सटेंशन खाता लिंक करें"
+  },
+  "extensionPermissionRequired": {
+    "message": "प्रदाता की पहुँच की अनुमति दें"
+  },
+  "extensionAuthRequired": {
+    "message": "Twitch में लॉग इन करें"
+  },
+  "extensionChannelRequired": {
+    "message": "योग्य चैनल खोज रहे हैं"
+  },
+  "extensionComplete": {
+    "message": "पुरस्कार मिले"
+  },
+  "extensionFarming": {
+    "message": "संग्रह जारी"
+  },
+  "extensionPhaseClosed": {
+    "message": "कोई इंटरैक्टिव चरण खुला नहीं है"
+  },
+  "extensionConnecting": {
+    "message": "कनेक्ट हो रहा है"
+  },
+  "extensionUnavailable": {
+    "message": "अस्थायी रूप से अनुपलब्ध"
+  },
+  "extensionIdle": {
+    "message": "प्रतीक्षा"
+  },
+  "extensionDailyPackProgress": {
+    "message": "दैनिक पैक: $1/$2 मिनट"
+  },
+  "extensionCaptureProgress": {
+    "message": "संग्रह: $1/$2"
+  },
+  "extensionTakeoversTitle": {
+    "message": "Fortnite टेकओवर की अनुमति दें"
+  },
+  "extensionTakeoversHint": {
+    "message": "इंटरैक्टिव चरणों में योग्य टेकओवर शुरू करें। डिफ़ॉल्ट रूप से बंद।"
+  },
+  "extensionAccountSetup": {
+    "message": "खाता सेटअप"
+  },
+  "extensionGiveawayUnavailable": {
+    "message": "गिवअवे की जाँच उपलब्ध नहीं है"
+  },
+  "extensionGiveawayEntered": {
+    "message": "गिवअवे में भागीदारी की पुष्टि हुई"
+  },
+  "extensionGiveawayOpen": {
+    "message": "गिवअवे खुला है"
+  },
+  "extensionRewardProgress": {
+    "message": "पुरस्कार: $1/$2"
+  },
+  "extensionTakeoverActive": {
+    "message": "टेकओवर सक्रिय है"
+  },
+  "extensionWatchtimeComplete": {
+    "message": "देखने का समय पूरा हुआ"
+  },
+  "extensionUnopenedPacks": {
+    "message": "बंद पैक: $1"
+  },
+  "extensionPackCheckUnavailable": {
+    "message": "पैक मिलने की जाँच उपलब्ध नहीं है"
+  },
+  "extensionAutoOpenPacksTitle": {
+    "message": "NoPixelV पैक अपने आप खोलें"
+  },
+  "extensionAutoOpenPacksHint": {
+    "message": "बंद पैक के कार्ड दिखाता है। हर पैक खर्च होता है और इसे वापस नहीं किया जा सकता।"
+  },
+  "activityExtensionPackOpened": {
+    "message": "$1 ने $2 पर कार्ड पैक खोला"
+  },
+  "watchSourcePriorityTitle": {
+    "message": "देखने के स्रोतों की प्राथमिकता"
+  },
+  "watchSourcePriorityDescription": {
+    "message": "पहला उपलब्ध स्रोत देखा जाता है। बंद या अनुपलब्ध स्रोत छोड़ दिए जाते हैं।"
+  },
+  "watchSourcePriorityMoveUp": {
+    "message": "$1 को ऊपर करें"
+  },
+  "watchSourcePriorityMoveDown": {
+    "message": "$1 को नीचे करें"
+  },
+  "watchSourcePriorityReset": {
+    "message": "प्राथमिकता रीसेट करें"
+  },
+  "watchSourcePriorityMoved": {
+    "message": "$1 अब प्राथमिकता $2 पर है।"
+  },
+  "watchSourcePriorityResetDone": {
+    "message": "देखने के स्रोतों की प्राथमिकता रीसेट हुई।"
+  },
+  "watchSourceDrops": {
+    "message": "ड्रॉप्स"
+  },
+  "watchSourceIdleWatchlist": {
+    "message": "निष्क्रिय वॉचलिस्ट"
+  },
+  "watchSourceNoPixel": {
+    "message": "NoPixelV"
+  },
+  "watchSourceFortnite": {
+    "message": "Fortnite"
+  },
+  "gamesStarHint": {
+    "message": "★ गेम को रणनीति से ऊपर रखता है"
+  },
+  "gamesFavourite": {
+    "message": "$1 को रणनीति से ऊपर रखें"
+  },
+  "gamesUnfavourite": {
+    "message": "$1 को प्राथमिकता देना बंद करें"
+  },
+  "gamesBlock": {
+    "message": "$1 कभी फ़ार्म न करें"
+  },
+  "gamesUnblock": {
+    "message": "अनब्लॉक"
+  },
+  "gamesBlocked": {
+    "message": "ब्लॉक"
+  },
+  "gamesBlockedHint": {
+    "message": "किसी भी मोड में फ़ार्म नहीं होता"
+  },
+  "gamesBlockedKeepsStar": {
+    "message": "फ़ार्म नहीं होता · स्टार सुरक्षित"
+  },
+  "gamesCampaignCount": {
+    "message": "$1 कैंपेन चालू"
+  },
+  "gamesCampaignCountOne": {
+    "message": "1 कैंपेन चालू"
+  },
+  "gamesNoCampaigns": {
+    "message": "अभी कोई कैंपेन नहीं"
+  },
+  "gamesFarmGame": {
+    "message": "$1 फ़ार्म करें"
+  },
+  "gamesEmpty": {
+    "message": "अभी कोई $1 कैंपेन चालू नहीं है।"
+  },
+  "inPageOpenPanel": {
+    "message": "Lurkloot खोलें"
+  },
+  "inPageAddToWatchlist": {
+    "message": "$1 को आइडल वॉचलिस्ट में जोड़ें"
+  },
+  "inPageRemoveFromWatchlist": {
+    "message": "$1 को आइडल वॉचलिस्ट से हटाएँ"
+  },
+  "navNoPixel": {
+    "message": "NoPixel V"
+  },
+  "navFortnite": {
+    "message": "Fortnite"
+  },
+  "gamesBlockedEmpty": {
+    "message": "कुछ भी ब्लॉक नहीं है। किसी गेम पर ⊘ दबाएँ ताकि वह दोनों मोड में फ़ार्म न हो।"
+  },
+  "campaignRewardsProgress": {
+    "message": "$2 में से $1 इनाम"
+  },
+  "campaignTimeLeft": {
+    "message": "$1 बाकी"
+  },
+  "campaignFactStarts": {
+    "message": "शुरू"
+  },
+  "campaignFactEnds": {
+    "message": "समाप्त"
+  },
+  "campaignFactEnded": {
+    "message": "समाप्त हुआ"
+  },
+  "campaignFactWatching": {
+    "message": "देख रहे हैं"
+  },
+  "campaignFactChannels": {
+    "message": "चैनल"
+  },
+  "campaignFactNextReward": {
+    "message": "अगला इनाम"
+  },
+  "campaignFactWhyRank": {
+    "message": "यह रैंक क्यों"
+  },
+  "campaignMoreChannels": {
+    "message": "+$1 और"
+  },
+  "campaignExclude": {
+    "message": "बाहर रखें"
+  },
+  "campaignCategoryBlocked": {
+    "message": "$1 ब्लॉक है"
+  },
+  "campaignPinToTop": {
+    "message": "सबसे ऊपर पिन करें"
+  },
+  "campaignPinnedAt": {
+    "message": "पिन किया · $1"
+  },
+  "campaignFavourite": {
+    "message": "$1 को पसंदीदा बनाएं"
+  },
+  "campaignFavouriteOn": {
+    "message": "$1 पसंदीदा है"
+  },
+  "campaignExcludeThis": {
+    "message": "सिर्फ़ यह कैंपेन"
+  },
+  "campaignExcludeThisHint": {
+    "message": "$1 के बाकी कैंपेन फ़ार्म होते रहेंगे"
+  },
+  "campaignExcludeThisUndo": {
+    "message": "कैंपेन को कतार में वापस लाने के लिए फिर से चुनें"
+  },
+  "campaignExcludeCategory": {
+    "message": "श्रेणी “$1”"
+  },
+  "campaignExcludeCategoryHint": {
+    "message": "$1 के सभी कैंपेन अभी और आगे भी ब्लॉक करता है"
+  },
+  "campaignExcludeCategoryUndo": {
+    "message": "गेम अनब्लॉक करने के लिए फिर से चुनें"
+  },
+  "rewardMissed": {
+    "message": "समय पर नहीं मिला"
+  },
+  "rankReasonPinned": {
+    "message": "$1 पर पिन किया"
+  },
+  "rankReasonFavourite": {
+    "message": "$1 पसंदीदा नंबर $2 है"
+  },
+  "rankReasonEnding": {
+    "message": "नीचे वालों से पहले खत्म होता है"
+  },
+  "rankReasonAvailability": {
+    "message": "नीचे वालों से कम चैनल"
+  },
+  "queueEditFavourites": {
+    "message": "बदलें"
+  },
+  "navWatchingNow": {
+    "message": "अभी देखा जा रहा है"
+  },
+  "watchSourcePosition": {
+    "message": "$1 · $3 में से $2"
+  },
+  "watchSourceChangeOrder": {
+    "message": "देखने का क्रम बदलें"
+  },
+  "gamesFavouritesGroup": {
+    "message": "पसंदीदा"
+  },
+  "gamesFavouritesGroupHint": {
+    "message": "इसी क्रम में, रणनीति से ऊपर"
+  },
+  "gamesOtherGroup": {
+    "message": "अन्य गेम"
+  },
+  "gamesOtherGroupAllHint": {
+    "message": "ब्लॉक किए गए को छोड़कर सभी फ़ार्म होते हैं"
+  },
+  "gamesOtherGroupIncludeHint": {
+    "message": "सिर्फ़ चुने गए फ़ार्म होते हैं"
+  },
+  "watchSourcePlace": {
+    "message": "देखने के क्रम में स्थान: $2 में से $1"
+  },
+  "watchSourcePlaceFirst": {
+    "message": "हर दूसरे स्रोत से पहले देखा जाता है।"
+  },
+  "watchSourcePlaceAfter": {
+    "message": "जब $1 में देखने को कुछ न हो, तब देखा जाता है।"
+  },
+  "watchSourceChangeOrderShort": {
+    "message": "क्रम बदलें"
+  },
+  "railWhatsNew": {
+    "message": "नया क्या है"
+  },
+  "campaignShowDetails": {
+    "message": "विवरण दिखाएं"
+  },
+  "campaignHideDetails": {
+    "message": "विवरण छिपाएं"
+  },
+  "settingsGamesPointerTitle": {
+    "message": "गेम और श्रेणियां"
+  },
+  "settingsGamesPointerDescription": {
+    "message": "चुनें कि $1 के कौन से गेम फ़ार्म हों, जिन्हें पहले रखना है उन्हें पसंदीदा बनाएं, या ब्लॉक करें।"
+  },
+  "settingsGamesPointerAction": {
+    "message": "गेम खोलें"
+  },
+  "idleWatchlistAddPlaceholder": {
+    "message": "चैनल का नाम या लिंक"
+  },
+  "idleWatchlistFull": {
+    "message": "सूची भरी है ($1 चैनल)। नया जोड़ने के लिए एक हटाएँ।"
+  },
+  "idleWatchlistInvalid": {
+    "message": "चैनल का नाम या चैनल लिंक दर्ज करें।"
+  },
+  "idleWatchlistDuplicate": {
+    "message": "$1 पहले से सूची में है।"
+  },
+  "idleWatchlistOrderTitle": {
+    "message": "देखने का क्रम"
+  },
+  "idleWatchlistOrderHint": {
+    "message": "पहला लाइव चैनल देखा जाता है"
+  },
+  "gamesModeAllDescription": {
+    "message": "सक्रिय ड्रॉप्स वाला हर गेम फ़ार्म होता है, ब्लॉक किए गए को छोड़कर।"
+  },
+  "gamesModeIncludeDescription": {
+    "message": "सिर्फ़ चुने गए गेम फ़ार्म होते हैं।"
+  },
+  "gamesStarLegend": {
+    "message": "गेम को रणनीति से ऊपर रखता है"
+  },
+  "gamesBlockLegend": {
+    "message": "इसे कभी फ़ार्म नहीं करता"
+  },
+  "gamesSearchPlaceholder": {
+    "message": "$1 गेम खोजें या जोड़ें"
+  },
+  "gamesAddGroup": {
+    "message": "$1 से जोड़ें"
+  },
+  "gamesAddIncludeHint": {
+    "message": "जोड़ने पर गेम चुना जाता है"
+  },
+  "gamesAddAllHint": {
+    "message": "जोड़ने पर गेम पसंदीदा बनता है"
+  },
+  "gamesAddActionFarm": {
+    "message": "फ़ार्म करें"
+  },
+  "gamesAddActionFavourite": {
+    "message": "पसंदीदा"
+  },
+  "gamesNoMoreResults": {
+    "message": "कोई और गेम नहीं मिला।"
+  },
+  "navBeta": {
+    "message": "बीटा"
+  },
+  "navExtensions": {
+    "message": "एक्सटेंशन"
+  },
+  "navGroupOthers": {
+    "message": "अन्य"
   }
 }

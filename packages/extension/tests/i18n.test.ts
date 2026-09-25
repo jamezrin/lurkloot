@@ -129,7 +129,7 @@ describe("i18n", () => {
 
   it("captures store artwork for every catalog locale", () => {
     expect(STORE_SCREENSHOT_LOCALES.map(({ code }: { code: string }) => code).sort()).toEqual(localeCodes().sort());
-    const promoSource = readFileSync(join(dirname(import.meta.dirname), "scripts/capture-store-promo.mjs"), "utf8");
+    const promoSource = readFileSync(join(dirname(import.meta.dirname), "scripts/capture-store.mjs"), "utf8");
     for (const locale of localeCodes()) expect(promoSource).toContain(`"${locale}"`);
   });
 
@@ -206,8 +206,6 @@ describe("i18n", () => {
       screenshotUpdatedDockerTitle: "Docker",
       screenshotUpdatedDockerSub: "Same engine. In a container.",
       screenshotUpdatedLicense: "Apache-2.0",
-      screenshotUpdatedRating: "4.9",
-      screenshotUpdatedUsers: "1,000+ users",
     };
     const catalog = readCatalog("en");
     for (const [key, message] of Object.entries(english)) {
@@ -223,6 +221,10 @@ describe("i18n", () => {
       "screenshotActivityHeadline",
       "screenshotActivitySubcopy",
       "screenshotUpdatedReviews",
+      // Removed: the Chrome Web Store forbids listing assets that mimic an
+      // extension's rating, install count or other store standing.
+      "screenshotUpdatedRating",
+      "screenshotUpdatedUsers",
     ]) {
       expect(catalog[stale], stale).toBeUndefined();
     }
@@ -255,12 +257,29 @@ describe("i18n", () => {
       "siteAttributionShort",
       // "Diagnostics" is spelled the same in French.
       "diagnosticsViewTab",
+      // "Extensions" is spelled the same in French.
+      "extensionDropsTitle",
+      // Rail labels that are the same word in some languages: "Drops" is the
+      // common term the watch-source labels already share, "Platform" is spelled
+      // the same in Turkish, and "Extensions" the same in French.
+      "navGroupDrops",
+      "navPlatform",
+      "navExtensions",
+      "queueFacetDrops",
+      // "Beta" is the same word in Spanish, German, Italian, Portuguese and Turkish.
+      "navBeta",
+      // Provider names, which are brands and never translated.
+      "navNoPixel",
+      "navFortnite",
+      // Watch-source labels include provider brands and the common Drops term.
+      "watchSourceNoPixel",
+      "watchSourceFortnite",
+      "watchSourceDrops",
       // Brand-only store screenshot eyebrow.
       "screenshotHeroEyebrow",
       "screenshotUpdatedHeadlessTitle",
       "screenshotUpdatedDockerTitle",
       "screenshotUpdatedLicense",
-      "screenshotUpdatedRating",
     ]);
 
     for (const locale of localeCodes().filter((entry) => entry !== "en")) {

@@ -2,7 +2,9 @@ import React from "react";
 import { move } from "@dnd-kit/helpers";
 import type { DragDropProvider } from "@dnd-kit/react";
 import { motion } from "motion/react";
+import { Switch } from "@base-ui/react/switch";
 import { ChevronRight, GripVertical, Search, X, type LucideIcon } from "lucide-react";
+import { Tip } from "./tooltip";
 
 export function cn(...classes: Array<string | false | null | undefined>): string {
   return classes.filter(Boolean).join(" ");
@@ -68,15 +70,36 @@ export function ImageWithFallback({ src, alt, className, fit = "cover", fallback
   return <img src={src} alt={alt} loading="lazy" className={cn("h-full w-full", fit === "cover" ? "object-cover" : "object-contain", className)} onError={() => setFailed(true)} />;
 }
 
-// `sm` is sized to sit inside a platform tab without growing its row. `color`
-// overrides the popup accent for switches that belong to a specific platform
-// rather than to the selected one.
+// A Base UI Switch drawn as the popup's switch. `sm` is sized to sit inside a
+// row without growing it. A switch is ink by default; `color` gives it a
+// platform's colour instead. It renders a real <button>, so `disabled` is the
+// native attribute and the switch takes part in keyboard focus like one.
 export function Toggle({ checked, onChange, label, disabled = false, size = "md", color }: { checked: boolean; onChange(value: boolean): void | Promise<void>; label: string; disabled?: boolean; size?: "sm" | "md"; color?: string }) {
   const small = size === "sm";
   return (
-    <button type="button" role="switch" aria-checked={checked} aria-label={label} disabled={disabled} onClick={() => void onChange(!checked)} className={cn("relative inline-flex shrink-0 items-center rounded-full p-0.5 transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]", small ? "h-[18px] w-[31px]" : "h-[22px] w-[38px]", checked ? "" : "bg-zinc-300 dark:bg-zinc-600", disabled && "cursor-not-allowed opacity-70")} style={checked ? { backgroundColor: color ?? "var(--accent)" } : undefined}>
-      <motion.span layout transition={{ type: "spring", stiffness: 550, damping: 32 }} className={cn("rounded-full bg-white shadow-sm", small ? "h-[14px] w-[14px]" : "h-[18px] w-[18px]")} style={{ marginLeft: checked ? (small ? 13 : 16) : 0 }} />
-    </button>
+    <Switch.Root
+      checked={checked}
+      onCheckedChange={(value) => void onChange(value)}
+      disabled={disabled}
+      aria-label={label}
+      nativeButton
+      render={<button type="button" />}
+      className={cn(
+        "relative inline-flex shrink-0 items-center rounded-full bg-zinc-300 p-0.5 outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] data-[disabled]:cursor-not-allowed data-[disabled]:opacity-70 dark:bg-zinc-600",
+        small ? "h-[18px] w-[31px]" : "h-[22px] w-[38px]",
+      )}
+      style={checked ? { backgroundColor: color ?? "var(--ink)" } : undefined}
+    >
+      {/* A CSS transform, not a Motion layout animation: a layout-animated
+          element makes Motion measure the page on every update. */}
+      <Switch.Thumb
+        className={cn(
+          "rounded-full shadow-sm transition-transform duration-200 ease-out motion-reduce:transition-none",
+          checked && !color ? "bg-[var(--ink-contrast)]" : "bg-white",
+          small ? "h-[14px] w-[14px] data-[checked]:translate-x-[13px]" : "h-[18px] w-[18px] data-[checked]:translate-x-[16px]",
+        )}
+      />
+    </Switch.Root>
   );
 }
 
@@ -93,23 +116,24 @@ export function Pill({ children, tone = "muted" }: { children: React.ReactNode; 
 }
 
 export function IconButton({ children, label, active, disabled, onClick }: { children: React.ReactNode; label: string; active?: boolean; disabled?: boolean; onClick(): void }) {
-  return <button type="button" title={label} aria-label={label} onClick={onClick} disabled={disabled} className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]", disabled ? "text-zinc-300 dark:text-zinc-700" : active ? "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100" : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-200")}>{children}</button>;
+  return <Tip label={label}><button type="button" aria-label={label} onClick={onClick} disabled={disabled} className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]", disabled ? "text-zinc-300 dark:text-zinc-700" : active ? "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100" : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-200")}>{children}</button></Tip>;
 }
 
 export function RemoveRowButton({ label, onClick }: { label: string; onClick(): void }) {
   return (
-    <button
-      type="button"
-      title={label}
-      aria-label={label}
-      onClick={(event) => {
-        event.stopPropagation();
-        onClick();
-      }}
-      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-zinc-400 transition-colors outline-none hover:bg-red-500/10 hover:text-red-600 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:text-zinc-500 dark:hover:text-red-400"
-    >
-      <X size={13} />
-    </button>
+    <Tip label={label}>
+      <button
+        type="button"
+        aria-label={label}
+        onClick={(event) => {
+          event.stopPropagation();
+          onClick();
+        }}
+        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-zinc-400 transition-colors outline-none hover:bg-red-500/10 hover:text-red-600 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:text-zinc-500 dark:hover:text-red-400"
+      >
+        <X size={13} />
+      </button>
+    </Tip>
   );
 }
 
@@ -131,7 +155,7 @@ export function RankInput({ index, count, label, onMove, size }: { index: number
   const textClass = size === "rail"
     ? "flex w-4 items-center justify-center text-center text-[10px] font-bold tabular leading-none"
     : "w-4 text-center text-[11px] font-bold tabular";
-  const color: React.CSSProperties = { color: "var(--accent-text)" };
+  const color: React.CSSProperties = { color: "var(--ink-text)" };
 
   React.useEffect(() => {
     if (!editing) return;
@@ -210,18 +234,23 @@ export function RankInput({ index, count, label, onMove, size }: { index: number
  * list instead of hiding it behind a tab. `action` is a sibling of the toggle,
  * not a child: the section's own actions belong on its heading, and a button
  * cannot nest inside a button. */
-export function SectionHeader({ label, count, expanded, icon: Icon, onToggle, action }: { label: string; count: string; expanded: boolean; icon: LucideIcon; onToggle(): void; action?: React.ReactNode }) {
+export function SectionHeader({ label, count, expanded, icon: Icon, onToggle, action, collapsible = true }: { label: string; count: string; expanded: boolean; icon: LucideIcon; onToggle(): void; action?: React.ReactNode; collapsible?: boolean }) {
   return (
     <div className="flex items-center gap-1">
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={expanded}
+        // In a destination of its own the section cannot fold away, so the
+        // toggle would be a control that does nothing.
+        {...(collapsible ? {} : { disabled: true, tabIndex: -1, "aria-hidden": true })}
         className="flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-1 py-1 text-[11px] font-semibold text-zinc-500 outline-none transition-colors hover:text-zinc-800 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:text-zinc-400 dark:hover:text-zinc-100"
       >
-        <motion.span animate={{ rotate: expanded ? 90 : 0 }} transition={{ duration: 0.18 }} className="flex shrink-0 items-center">
-          <ChevronRight size={13} />
-        </motion.span>
+        {collapsible ? (
+          <motion.span animate={{ rotate: expanded ? 90 : 0 }} transition={{ duration: 0.18 }} className="flex shrink-0 items-center">
+            <ChevronRight size={13} />
+          </motion.span>
+        ) : null}
         <Icon size={13} className="shrink-0" style={{ color: "var(--accent-text)" }} />
         <span className="truncate">{label}</span>
         <span className="ml-auto shrink-0 tabular text-zinc-400 dark:text-zinc-500">{count}</span>
@@ -316,4 +345,17 @@ export function CompactRow({
       {trailing}
     </div>
   );
+}
+
+/** Bring an element to the top of the popup's scrolling panel, and nothing else.
+ *
+ * `scrollIntoView` scrolls every scrollable ancestor, including ones a script
+ * may scroll though a user cannot — the popup frame and the extension page
+ * itself — so jumping to a Settings group used to shift the whole popup out of
+ * its window. This moves only the panel marked `data-scroll-panel`. */
+export function scrollIntoPanel(element: Element | null | undefined, behavior: ScrollBehavior = "auto"): void {
+  const panel = element?.closest<HTMLElement>("[data-scroll-panel]");
+  if (!element || !panel) return;
+  const top = element.getBoundingClientRect().top - panel.getBoundingClientRect().top + (panel.scrollTop || 0);
+  panel.scrollTo?.({ top: Math.max(0, top), behavior });
 }

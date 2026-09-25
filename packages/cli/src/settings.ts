@@ -10,10 +10,10 @@ import {
   normalizeFarmingEligibility,
   normalizeChannelList,
   normalizeIdList,
-  normalizePriorities,
 } from "@lurkloot/shared/settings";
 import { CURRENT_SETTINGS_SCHEMA_VERSION, migrateSettings, type SettingsMigrationDiagnostic } from "@lurkloot/shared/settingsSchema";
 import { SETTINGS_EXPORT_KIND, type SettingsExportEnvelope } from "@lurkloot/shared/settingsExport";
+import { normalizePlatformWatchSourcePriority } from "@lurkloot/shared/watchSources";
 import type { CompatibilitySettings, EngineSettings, KickPlatformSettings, Platform, PlatformSettingsByPlatform, PriorityMode, TwitchPlatformSettings } from "@lurkloot/shared/models";
 
 // The CLI's own settings surface — intentionally decoupled from the extension's
@@ -26,8 +26,14 @@ import type { CompatibilitySettings, EngineSettings, KickPlatformSettings, Platf
 export interface CliSettings {
   autoClaim: boolean;
   priorityMode: PriorityMode;
-  campaignPriorities: Record<string, number>;
+  // Ordered campaign ids that rank above everything the strategy places. The
+  // extension writes this by dragging a card; headless, it is hand-edited, so
+  // order is the data and no numeric weights are involved.
+  campaignPins: string[];
+  // Farm only the pinned campaigns. Eligibility, not ranking.
+  farmPinnedOnly: boolean;
   excludedCampaignIds: string[];
+  /** @deprecated Compatibility input for profiles without watchSourcePriority. */
   idleWatchlistFallbackOnly: boolean;
   // See EngineSettings.preferKnownChannels. Applies to campaign channel
   // selection the same way headless as in the extension.
@@ -46,7 +52,7 @@ export interface CliSettings {
   criticalFailurePromptEnabled: boolean;
   // Not extension-only: these two keys gate what the scheduler is allowed to
   // farm, so they change headless behavior. The display-only popup preference
-  // (dropsListFilter) is rejected as extension-only instead — a headless run has
+  // (the retired dropsListFilter) is migrated away instead — a headless run has
   // no Drops list to filter.
   farmingEligibility: EngineSettings["farmingEligibility"];
   // Gate the controller's reward/no-drops notifications, which the CLI renders
@@ -60,7 +66,7 @@ export interface CliSettings {
 // The two farming-eligibility toggles the CLI honours. Kept local (not imported)
 // because the shared split has no exported key tuple; only these two exist.
 const FARMING_ELIGIBILITY_KEYS: string[] = ["farmUnlinkedCampaigns", "farmSubscriptionCampaigns"];
-const PRIORITY_MODES: PriorityMode[] = ["ending_soonest", "lowest_availability", "priority_list_only"];
+const PRIORITY_MODES: PriorityMode[] = ["ending_soonest", "lowest_availability"];
 const PLATFORMS: Platform[] = ["twitch", "kick"];
 
 // Defaults are derived from the shared DEFAULT_SETTINGS so there is a single
@@ -68,7 +74,8 @@ const PLATFORMS: Platform[] = ["twitch", "kick"];
 export const DEFAULT_CLI_SETTINGS: CliSettings = {
   autoClaim: DEFAULT_SETTINGS.autoClaim,
   priorityMode: DEFAULT_SETTINGS.priorityMode,
-  campaignPriorities: { ...DEFAULT_SETTINGS.campaignPriorities },
+  campaignPins: [...DEFAULT_SETTINGS.campaignPins],
+  farmPinnedOnly: DEFAULT_SETTINGS.farmPinnedOnly,
   excludedCampaignIds: [...DEFAULT_SETTINGS.excludedCampaignIds],
   idleWatchlistFallbackOnly: DEFAULT_SETTINGS.idleWatchlistFallbackOnly,
   preferKnownChannels: DEFAULT_SETTINGS.preferKnownChannels,
@@ -100,7 +107,8 @@ export const DEFAULT_CLI_SETTINGS: CliSettings = {
 const CLI_SETTING_KEYS = new Set<string>([
   "autoClaim",
   "priorityMode",
-  "campaignPriorities",
+  "campaignPins",
+  "farmPinnedOnly",
   "excludedCampaignIds",
   "idleWatchlistFallbackOnly",
   "preferKnownChannels",
@@ -123,8 +131,8 @@ const CLI_SETTING_KEYS = new Set<string>([
 ]);
 
 const CLI_PLATFORM_KEYS: Record<Platform, Set<string>> = {
-  twitch: new Set(["enabled", "idleWatchlistChannels", "excludedChannels", "categoryMode", "categories", "autoClaimChannelPoints", "strictCampaignAvailability", "channelPointsPushClaim"]),
-  kick: new Set(["enabled", "idleWatchlistChannels", "excludedChannels", "categoryMode", "categories", "autoClaimChallenges"]),
+  twitch: new Set(["enabled", "watchSourcePriority", "idleWatchlistChannels", "excludedChannels", "categoryMode", "categories", "favouriteCategories", "blockedCategories", "autoClaimChannelPoints", "strictCampaignAvailability", "channelPointsPushClaim"]),
+  kick: new Set(["enabled", "watchSourcePriority", "idleWatchlistChannels", "excludedChannels", "categoryMode", "categories", "favouriteCategories", "blockedCategories", "autoClaimChallenges"]),
 };
 const CLI_COMPATIBILITY_KEYS: Record<Platform, Set<string>> = {
   twitch: new Set(["profile", "heartbeatTransport", "inventoryQueryVersion"]),
@@ -138,6 +146,7 @@ const CLI_COMPATIBILITY_KEYS: Record<Platform, Set<string>> = {
 // removed from the settings contract, so the schema migration strips it (with a
 // diagnostic) before this scan ever sees it.
 const EXTENSION_ONLY_KEYS = new Set<string>([
+  "twitchExtensions",
   "tablessMode",
   "muteFarmingTabs",
   "keepFarmingVideosUnmuted",
@@ -149,9 +158,6 @@ const EXTENSION_ONLY_KEYS = new Set<string>([
   "rateNudgeStatus",
   "githubStarNudgeStatus",
   "diagnosticLogging",
-  // Display-only popup preference for the Drops list; a headless run has no
-  // Drops list to filter, so it is rejected rather than silently ignored.
-  "dropsListFilter",
 ]);
 
 // A migration may rename a legacy key onto one the CLI rejects — `verboseLogging`
@@ -317,7 +323,8 @@ function parseMigratedCliSettings(value: Record<string, unknown>, diagnostics: S
     priorityMode: PRIORITY_MODES.includes(v.priorityMode as PriorityMode)
       ? (v.priorityMode as PriorityMode)
       : DEFAULT_CLI_SETTINGS.priorityMode,
-    campaignPriorities: normalizePriorities(v.campaignPriorities),
+    campaignPins: normalizeIdList(v.campaignPins),
+    farmPinnedOnly: booleanOr(v.farmPinnedOnly, DEFAULT_CLI_SETTINGS.farmPinnedOnly),
     excludedCampaignIds: normalizeIdList(v.excludedCampaignIds),
     idleWatchlistFallbackOnly: booleanOr(v.idleWatchlistFallbackOnly, DEFAULT_CLI_SETTINGS.idleWatchlistFallbackOnly),
     preferKnownChannels: booleanOr(v.preferKnownChannels, DEFAULT_CLI_SETTINGS.preferKnownChannels),
@@ -337,7 +344,7 @@ function parseMigratedCliSettings(value: Record<string, unknown>, diagnostics: S
     farmingEligibility: normalizeFarmingEligibility(v.farmingEligibility),
     notifyRewardEarned: booleanOr(v.notifyRewardEarned, DEFAULT_CLI_SETTINGS.notifyRewardEarned),
     notifyNoDropsLeft: booleanOr(v.notifyNoDropsLeft, DEFAULT_CLI_SETTINGS.notifyNoDropsLeft),
-    platform: normalizePlatform(v.platform),
+    platform: normalizePlatform(v.platform, v.idleWatchlistFallbackOnly),
     compatibility: normalizeCompatibility(v.compatibility),
   };
 }
@@ -358,7 +365,7 @@ function normalizeCompatibility(raw: EngineSettings["compatibility"] | undefined
   };
 }
 
-function normalizePlatform(raw: EngineSettings["platform"] | undefined): PlatformSettingsByPlatform {
+function normalizePlatform(raw: EngineSettings["platform"] | undefined, legacyFallbackOnly?: boolean): PlatformSettingsByPlatform {
   const common = (platform: Platform) => {
     const ps = (raw?.[platform] ?? {}) as Partial<TwitchPlatformSettings & KickPlatformSettings>;
     const defaults = DEFAULT_CLI_SETTINGS.platform[platform];
@@ -366,10 +373,13 @@ function normalizePlatform(raw: EngineSettings["platform"] | undefined): Platfor
       ps,
       base: {
         enabled: booleanOr(ps.enabled, defaults.enabled),
+        watchSourcePriority: normalizePlatformWatchSourcePriority(platform, ps, legacyFallbackOnly),
         idleWatchlistChannels: normalizeChannelList(ps.idleWatchlistChannels),
         excludedChannels: normalizeChannelList(ps.excludedChannels),
         categoryMode: normalizeCategoryMode(ps.categoryMode),
         categories: normalizeCategorySelections(ps.categories),
+        favouriteCategories: normalizeCategorySelections(ps.favouriteCategories),
+        blockedCategories: normalizeCategorySelections(ps.blockedCategories),
       },
     };
   };

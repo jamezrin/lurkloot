@@ -2,6 +2,8 @@ import type { CriticalHealthState } from "./criticalHealth";
 
 export type Platform = "twitch" | "kick";
 
+export type WatchSourceId = "drops" | "nopixel" | "fortnite" | "idle_watchlist";
+
 export type PlatformAuthStatus = "checking" | "healthy" | "missing_credentials" | "invalid_credentials" | "blocked" | "unavailable";
 
 export type PlatformAuthReasonCode = "credentials_missing" | "credentials_rejected" | "security_policy_blocked" | "credential_lookup_failed" | "platform_unavailable" | "network_unavailable";
@@ -116,7 +118,14 @@ export interface ChannelCheck {
   candidate: ChannelCandidate;
 }
 
+export interface SupplementalWatchTarget {
+  id: string;
+  channel: ChannelCandidate;
+  tablessOnly: true;
+}
+
 export interface WatchSession {
+  supplementalWatch?: { id: string; tablessOnly: true };
   platform: Platform;
   tabId?: number;
   tabManagedByExtension?: boolean;
@@ -167,6 +176,7 @@ export interface TablessHeartbeatCadence {
 }
 
 export type WatchReasonCode =
+  | "supplemental_watch"
   | "eligible_campaign"
   | "idle_watchlist_selected"
   | "no_eligible_channel"
@@ -229,7 +239,10 @@ export interface ManualWatchState {
   channel?: ChannelCandidate;
 }
 
-export type PriorityMode = "ending_soonest" | "lowest_availability" | "priority_list_only";
+// The one live strategy that ranks every campaign no pin or favourite game
+// already placed. "Farm pinned only" is an eligibility switch (farmPinnedOnly),
+// not a mode, so a strategy is always in effect.
+export type PriorityMode = "ending_soonest" | "lowest_availability";
 
 // Visibility categories for the Drops list. A campaign in one of these states is
 // only shown when its toggle is on; campaigns in none of them are always shown.
@@ -275,21 +288,29 @@ export interface CategorySelection {
   imageUrl?: string;
 }
 
-// How `categories` is interpreted. One list serves all three modes, so the
-// user's selection survives every mode switch untouched:
+// How `categories` is interpreted. Both modes keep the same list, so the user's
+// selection survives a mode switch untouched:
 // - "all": every category is farmable; the list is retained but inactive.
 // - "include": only listed categories are farmed (an empty list farms nothing).
-//   List order sets farming priority (see categoryPriorityScore).
-// - "exclude": every category except the listed ones is farmed (an empty list
-//   is equivalent to "all"). List order has no scheduling effect.
-export type CategoryMode = "all" | "include" | "exclude";
+// Neither mode ranks: list position has no scheduling effect. A category the
+// user wants ranked goes in favouriteCategories, and one they never want farmed
+// goes in blockedCategories, which applies in both modes.
+export type CategoryMode = "all" | "include";
 
 export interface PlatformSettings {
   enabled: boolean;
+  watchSourcePriority: WatchSourceId[];
   idleWatchlistChannels: string[];
   excludedChannels?: string[];
   categoryMode: CategoryMode;
   categories: CategorySelection[];
+  // Ordered. Campaigns of these categories rank above the live strategy, below
+  // pinned campaigns. Purely a ranking mark: it never makes a campaign farmable
+  // that eligibility rejected.
+  favouriteCategories: CategorySelection[];
+  // Never farmed, in either categoryMode. A blocked category keeps any star and
+  // list membership it had, so unblocking restores the previous state.
+  blockedCategories: CategorySelection[];
 }
 
 // Per-platform settings carry the claim toggles that only make sense on that
@@ -352,6 +373,7 @@ export interface EngineSettings {
   notifyRewardEarned: boolean;
   notifyNoDropsLeft: boolean;
   autoStartDropFarming: boolean;
+  /** @deprecated Compatibility input for profiles without watchSourcePriority. */
   idleWatchlistFallbackOnly: boolean;
   // Ranks Idle Watchlist and followed channels ahead of anonymous directory
   // channels when picking who to farm a campaign on (see chooseCampaignDecision
@@ -362,11 +384,16 @@ export interface EngineSettings {
   priorityMode: PriorityMode;
   platform: PlatformSettingsByPlatform;
   compatibility: CompatibilitySettings;
-  campaignPriorities: Record<string, number>;
+  // Ordered campaign ids the user placed by hand. Sparse by design: dragging one
+  // campaign pins that campaign and leaves every other one to the tiers below.
+  campaignPins: string[];
+  // Eligibility switch: farm only pinned campaigns. Separate from the pin list
+  // itself so pinning never doubles as "allowed to farm".
+  farmPinnedOnly: boolean;
   excludedCampaignIds: string[];
   // Which campaigns are eligible to farm. Both default true; turning one off
-  // skips that class in the scheduler's isEligible. Distinct from the popup's
-  // dropsListFilter (display-only) so "don't farm" never implies "don't show".
+  // skips that class in the scheduler's isEligible. A campaign a class filter
+  // rejects stays visible in the popup's Skipped group with its reason.
   farmingEligibility: {
     // off: skip campaigns with no linked account (real on Kick, which accrues
     // watch progress before linking).
@@ -397,27 +424,35 @@ export interface EngineSettings {
 // / keep-unmuted) is supplied to the engine through the injected WatchTabPort and
 // applyAdFocus, not read from settings by the engine; popup UI state (i18n, rate
 // nudge) is pure host state.
+export type TwitchExtensionProviderId = "nopixel" | "fortnite";
+export type TwitchExtensionStatus = "idle" | "discovering" | "connecting" | "farming" | "complete" | "unavailable" | "error";
+export type TwitchExtensionReasonCode = "disabled" | "permission-required" | "auth-required" | "identity-required"
+  | "channel-required" | "channel-ineligible" | "channel-not-connected" | "watchtime" | "giveaway" | "collecting"
+  | "phase-closed" | "rewards-complete" | "transport-error" | "compatibility-error" | "provider-error" | "connecting";
+export interface TwitchExtensionReport {
+  status: TwitchExtensionStatus;
+  reasonCode: TwitchExtensionReasonCode;
+  progress: { key: "daily-pack" | "phase-captures" | "phase-score" | "rewards"; earned: number; required: number }[];
+  pending: { key: "giveaway" | "participation" | "completion" | "takeover" | "account-link"; state: "open" | "done" | "blocked" }[];
+}
+export interface TwitchExtensionSummary extends TwitchExtensionReport {
+  channel?: { username: string; displayName?: string };
+  updatedAt: string;
+  retryAfter?: string;
+}
+export interface TwitchExtensionsSettings {
+  nopixel: { enabled: boolean; autoOpenPacks: boolean };
+  fortnite: { enabled: boolean; allowTakeovers: boolean };
+}
+
 export interface ExtensionSettings extends EngineSettings {
+  twitchExtensions: TwitchExtensionsSettings;
   // Number of committed Kick scheduler cycles using direct background fetches
   // required before an extension-owned fallback page is closed.
   kickPageContextRecoverySuccesses: number;
   muteFarmingTabs: boolean;
   keepFarmingVideosUnmuted: boolean;
   autoCloseFinishedDrops: boolean;
-  // Which campaigns appear in the Drops list. Pure display prefs: the engine
-  // never reads it, so it lives on ExtensionSettings, not the contract. The
-  // farming axis (farmingEligibility) is entirely separate. showNotLinked/
-  // showSubscription only ever hide a class that is NOT being farmed —
-  // not-linked/subscription campaigns stay visible while farmed regardless of
-  // these two flags (the visibility invariant, enforced in isCampaignVisible).
-  dropsListFilter: {
-    showUpcoming: boolean;     // default true
-    showExpired: boolean;      // default false
-    showFinished: boolean;     // default true
-    showExcluded: boolean;     // default false
-    showNotLinked: boolean;    // default true
-    showSubscription: boolean; // default true
-  };
   adFocusMode: AdFocusMode;
   languageOverride: LanguageOverride;
   rateNudgeStatus: RateNudgeStatus;
@@ -436,6 +471,9 @@ export interface ExtensionSettings extends EngineSettings {
 }
 
 export interface SchedulerState {
+  // Host transient summaries are attached to snapshots, not restored as an
+  // active provider session. Provider credentials never belong in this state.
+  twitchExtensions?: Partial<Record<TwitchExtensionProviderId, TwitchExtensionSummary>>;
   sessions: Record<Platform, WatchSession>;
   authHealth: Record<Platform, PlatformAuthHealth>;
   // Per-platform critical-failure detection. Persisted so the flag survives an
@@ -444,6 +482,7 @@ export interface SchedulerState {
   managedWatchTabs?: Partial<Record<Platform, ManagedWatchTab>>;
   managedPageContextTabs?: Partial<Record<Platform, ManagedPageContextTab>>;
   manualWatch?: Partial<Record<Platform, ManualWatchState>>;
+  manualWatchTabs?: Partial<Record<Platform, Record<string, ManualWatchState>>>;
   // Platforms paused because the user manually closed their managed watch tab.
   // Cleared only by an explicit resume from the popup/CLI host.
   manualClosePause?: Partial<Record<Platform, ManualClosePauseState>>;

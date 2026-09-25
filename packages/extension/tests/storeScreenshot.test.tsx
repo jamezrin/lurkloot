@@ -116,11 +116,11 @@ describe("extras screenshot popup", () => {
       );
     });
     await waitForCatalog();
-    const watchlistToggle = Array.from(container.querySelectorAll("button"))
-      .find((button) => button.textContent?.includes("Idle Watchlist"));
-    expect(watchlistToggle?.getAttribute("aria-expanded")).toBe("true");
+    // The watchlist is a rail destination now: it opens as the whole panel
+    // rather than as a section expanded inside the drops list, so there is no
+    // disclosure to assert and nothing to scroll to.
+    expect(container.querySelector("main")?.getAttribute("data-view")).toBe("watchlist");
     expect(container.querySelector("#idle-watchlist")).not.toBeNull();
-    expect(scrollIntoView).toHaveBeenCalledWith({ block: "start" });
     expect(container.textContent).toContain("LootForge");
     expect(container.textContent).toContain("NightRunLive");
     expect(container.textContent).toContain("6.2K");
@@ -167,9 +167,13 @@ describe("store screenshot cameras", () => {
   it("fills updated with a text runtime board and no popup", async () => {
     const container = await mountShot("updated", "LIVE_POPUP");
     expect(container.textContent).toContain("Featureful. Always updated.");
-    expect(container.textContent).toContain("4.9");
-    expect(container.textContent).toContain("1,000+ users");
+    // The Chrome Web Store forbids listing assets that mimic an extension's
+    // rating, install count or other store standing, so the board carries no
+    // rating, star row or user total.
+    expect(container.textContent).not.toContain("4.9");
+    expect(container.textContent).not.toContain("1,000+ users");
     expect(container.textContent).not.toContain("25 reviews");
+    expect(container.querySelectorAll(".lucide-star")).toHaveLength(0);
     expect(container.textContent).toContain("Chromium-based browsers");
     expect(container.textContent).toContain("Chrome Web Store listing. Same extension.");
     expect(container.textContent).toContain("CLI");

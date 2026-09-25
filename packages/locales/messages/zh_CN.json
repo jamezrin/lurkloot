@@ -53,6 +53,108 @@
   "settingsLanguageDescription": {
     "message": "选择弹窗和扩展通知使用的语言。"
   },
+  "navWorkspace": {
+    "message": "工作区"
+  },
+  "navPlatform": {
+    "message": "平台"
+  },
+  "navGroupDrops": {
+    "message": "掉宝"
+  },
+  "navQueue": {
+    "message": "队列"
+  },
+  "navCompleted": {
+    "message": "已完成"
+  },
+  "navGames": {
+    "message": "游戏"
+  },
+  "navIdleWatchlist": {
+    "message": "空闲观看列表"
+  },
+  "navActivity": {
+    "message": "活动"
+  },
+  "navSettings": {
+    "message": "设置"
+  },
+  "queueGroupPinned": {
+    "message": "已置顶"
+  },
+  "queueGroupPinnedHint": {
+    "message": "拖动以排序，或输入名次"
+  },
+  "queueGroupFavourite": {
+    "message": "收藏的游戏"
+  },
+  "queueGroupStrategy": {
+    "message": "然后按"
+  },
+  "queueNotInQueue": {
+    "message": "不在队列中"
+  },
+  "queueSkipped": {
+    "message": "已跳过"
+  },
+  "queueUpcoming": {
+    "message": "即将开始"
+  },
+  "queueStrategyLabel": {
+    "message": "然后按"
+  },
+  "queueFarmPinnedOnly": {
+    "message": "只挂机已置顶"
+  },
+  "queueUnpinAll": {
+    "message": "取消全部置顶（$1）"
+  },
+  "queueUnpin": {
+    "message": "取消置顶"
+  },
+  "queueFacetLabel": {
+    "message": "活动类型"
+  },
+  "queueFacetAll": {
+    "message": "全部"
+  },
+  "queueFacetDrops": {
+    "message": "掉宝"
+  },
+  "queueFacetBadges": {
+    "message": "订阅徽章"
+  },
+  "queueFixInclude": {
+    "message": "重新加入"
+  },
+  "queueFixPin": {
+    "message": "置顶"
+  },
+  "queueFixGames": {
+    "message": "打开游戏"
+  },
+  "queueFixSettings": {
+    "message": "打开设置"
+  },
+  "queueEmpty": {
+    "message": "目前没有可挂机的内容。"
+  },
+  "queueEmptyBadges": {
+    "message": "目前没有可挂机的订阅活动。"
+  },
+  "completedTabFinished": {
+    "message": "已完成"
+  },
+  "completedTabExpired": {
+    "message": "已过期"
+  },
+  "completedEmptyFinished": {
+    "message": "领取全部奖励后，活动会出现在这里。"
+  },
+  "completedEmptyExpired": {
+    "message": "活动未完成即结束时会出现在这里。"
+  },
   "settingsTitle": {
     "message": "设置"
   },
@@ -159,16 +261,16 @@
     "message": "在 twitch.tv 和 kick.com 上添加 Lurkloot 按钮，点击后可在页面内打开此弹窗。"
   },
   "tipCampaignPriority": {
-    "message": "默认优先挂机获取掉宝，再观看备用观看列表中的频道。拖动活动旁的拖动柄即可调整挂机顺序。"
+    "message": "拖动掉宝活动可将其置顶，给游戏加星可让它的活动始终靠前。其余按队列中选择的顺序排列。"
   },
   "tipMissingCampaigns": {
     "message": "找不到某个掉宝活动？请先查看相应平台的掉宝库存，再检查设置中的活动筛选条件。"
   },
   "tipCategorySelection": {
-    "message": "只想挂机特定游戏？请在平台设置中关闭“挂机所有分类”，再选择所需分类。"
+    "message": "“游戏”页面决定挂机哪些游戏、哪些优先，以及哪些永不挂机。"
   },
   "tipIdleWatchlist": {
-    "message": "默认优先挂机获取掉宝；没有符合条件的掉宝时，会自动观看备用观看列表中的频道。"
+    "message": "在平台设置中调整观看来源优先级，选择何时观看待机列表中的频道。"
   },
   "tipTablessMode": {
     "message": "无标签页模式占用更少资源，必要时会改用静音标签页。"
@@ -186,7 +288,7 @@
     "message": "提交 GitHub issue"
   },
   "tipExcludedCampaigns": {
-    "message": "不小心排除了掉宝活动？可在掉宝设置中恢复。"
+    "message": "误排除了某个活动？它在队列的“已跳过”里，有按钮可以放回。"
   },
   "tipTranslations": {
     "message": "翻译由 AI 自动维护。欢迎在 GitHub 上帮助改进。"
@@ -302,20 +404,17 @@
   "finished": {
     "message": "已完成"
   },
+  "completedCampaigns": {
+    "message": "已完成"
+  },
   "upcomingPill": {
     "message": "即将开始"
   },
   "expiredPill": {
     "message": "已过期"
   },
-  "finishedPill": {
-    "message": "已完成"
-  },
   "complete": {
     "message": "完成"
-  },
-  "nextReward": {
-    "message": "下一个奖励：$1"
   },
   "startsIn": {
     "message": "$1 后开始"
@@ -332,20 +431,11 @@
   "done": {
     "message": "完成"
   },
-  "farmed": {
-    "message": "已挂机时长"
-  },
   "rewards": {
     "message": "奖励"
   },
-  "inCampaignOrder": {
-    "message": "按活动内奖励顺序"
-  },
   "allChannels": {
     "message": "所有频道"
-  },
-  "channelCount": {
-    "message": "$1 个频道"
   },
   "includeInFarming": {
     "message": "加入挂机"
@@ -437,9 +527,6 @@
   "campaignPriorityDescription": {
     "message": "决定如何选择挂机的掉宝活动。“仅按优先级列表”只会挂机你手动排序过的活动；其他选项会从所有活动中选择。你还可以在平台设置中选择各平台参与挂机的分类。"
   },
-  "priorityListOnly": {
-    "message": "仅按优先级列表"
-  },
   "endingSoonest": {
     "message": "即将结束的优先"
   },
@@ -451,12 +538,6 @@
   },
   "idleWatchlistSettingsDescription": {
     "message": "没有符合条件的掉宝时使用的备用频道。"
-  },
-  "idleWatchlistFallbackOnlyTitle": {
-    "message": "掉宝优先于备用观看列表"
-  },
-  "idleWatchlistFallbackOnlyDescription": {
-    "message": "一旦有符合条件的掉宝可挂机，便停止观看备用频道。关闭此选项后，会继续观看当前备用频道，直到其下播。"
   },
   "preferKnownChannelsTitle": {
     "message": "优先选择已关注和备用观看列表中的频道"
@@ -494,10 +575,18 @@
   "failuresSuffix": {
     "message": "次失败"
   },
-  "kickPageContextRecoverySuccessesTitle": { "message": "Kick 后备页面恢复" },
-  "kickPageContextRecoverySuccessesDescription": { "message": "在达到此成功刷新周期数后，关闭扩展打开的 Kick 后备页面。" },
-  "kickPageContextRecoverySuccessesDisabledReason": { "message": "启用 Kick 后可更改此设置。" },
-  "cyclesSuffix": { "message": "个周期" },
+  "kickPageContextRecoverySuccessesTitle": {
+    "message": "Kick 后备页面恢复"
+  },
+  "kickPageContextRecoverySuccessesDescription": {
+    "message": "在达到此成功刷新周期数后，关闭扩展打开的 Kick 后备页面。"
+  },
+  "kickPageContextRecoverySuccessesDisabledReason": {
+    "message": "启用 Kick 后可更改此设置。"
+  },
+  "cyclesSuffix": {
+    "message": "个周期"
+  },
   "autoCloseTabsTitle": {
     "message": "自动关闭挂机标签页"
   },
@@ -547,10 +636,10 @@
     "message": "高级与兼容性"
   },
   "twitchSectionDescription": {
-    "message": "频道积分、分类筛选、排除的频道以及 Twitch 兼容性。"
+    "message": "观看来源优先级、频道点数、分类、排除的频道及 Twitch 兼容性。"
   },
   "kickSectionDescription": {
-    "message": "每日挑战、分类筛选、排除的频道以及 Kick 兼容性。"
+    "message": "观看来源优先级、每日挑战、分类、排除的频道及 Kick 兼容性。"
   },
   "twitchAdvancedDescription": {
     "message": "活动可用性，以及 Lurkloot 使用的心跳和库存传输方式。仅在 Twitch 无法正常工作时才更改。"
@@ -630,8 +719,11 @@
   "campaignRejectionCategoryFiltered": {
     "message": "此掉宝活动不属于所选分类。"
   },
-  "campaignRejectionPriorityNotSelected": {
-    "message": "此掉宝活动不在优先级列表中。"
+  "campaignRejectionCategoryBlocked": {
+    "message": "此游戏已被屏蔽，其掉宝活动不会被挂机。"
+  },
+  "campaignRejectionNotPinned": {
+    "message": "当前只挂机已置顶的掉宝活动。"
   },
   "campaignRejectionNoRewards": {
     "message": "此掉宝活动没有可挂机获取的奖励。"
@@ -723,26 +815,14 @@
   "categoryModeInclude": {
     "message": "仅所选分类"
   },
-  "categoryModeExclude": {
-    "message": "所选分类除外"
-  },
   "includeCategoriesInstruction": {
     "message": "在 $1 上只挂机这些分类。"
-  },
-  "excludeCategoriesInstruction": {
-    "message": "在 $1 上挂机除这些以外的所有分类。"
   },
   "categoriesToFarm": {
     "message": "要挂机的分类"
   },
-  "dragToPrioritize": {
-    "message": "拖动以调整优先级"
-  },
   "noCategoriesSelected": {
     "message": "未选择分类：不会在 $1 上挂机获取掉宝。请在下方添加分类。"
-  },
-  "noCategoriesExcluded": {
-    "message": "未排除任何分类：将挂机 $1 的所有分类。在下方添加分类即可跳过它们。"
   },
   "hasActiveDrops": {
     "message": "有进行中的掉宝"
@@ -779,15 +859,6 @@
   },
   "farmSubscriptionDescription": {
     "message": "关闭后，将跳过需要订阅频道才能获得奖励的掉宝活动。"
-  },
-  "dropsListFilterTitle": {
-    "message": "掉宝列表显示内容"
-  },
-  "dropsListFilterDescription": {
-    "message": "选择掉宝列表中显示哪些掉宝活动。含有可领取奖励的活动始终显示。"
-  },
-  "dropsListFilterLockedHint": {
-    "message": "正在挂机的掉宝活动始终显示。"
   },
   "forgetExcludedTitle": {
     "message": "恢复已排除的活动"
@@ -944,12 +1015,6 @@
   },
   "screenshotUpdatedLicense": {
     "message": "Apache-2.0"
-  },
-  "screenshotUpdatedRating": {
-    "message": "4.9"
-  },
-  "screenshotUpdatedUsers": {
-    "message": "1,000+ 用户"
   },
   "autoClaimReady": {
     "message": "自动领取就绪"
@@ -1413,6 +1478,12 @@
   "manualWatchPauseDetail": {
     "message": "你亲自观看直播期间，挂机已暂停。暂停播放、关闭直播或切换到其他标签页后，挂机会在下次检查时自动恢复。"
   },
+  "manualWatchPauseDetailNamed": {
+    "message": "你自己在看直播时，挂机会暂停。"
+  },
+  "manualWatchPauseDetailNamedSuffix": {
+    "message": "— 暂停、关闭或切换到其他标签页即可恢复。"
+  },
   "reorderItem": {
     "message": "调整 $1 的顺序"
   },
@@ -1421,5 +1492,395 @@
   },
   "scrollRewardsRight": {
     "message": "向右滚动奖励列表"
+  },
+  "activityExtensionGiveawayJoined": {
+    "message": "已参加 $2 频道的 $1 抽奖。"
+  },
+  "activityExtensionSpriteCaptured": {
+    "message": "已在 $2 频道捕获 $1 精灵。"
+  },
+  "activityExtensionTakeoverStarted": {
+    "message": "已从 $2 频道发起 $1 攻击。"
+  },
+  "extensionSettingsTitle": {
+    "message": "Twitch 扩展"
+  },
+  "extensionDropsTitle": {
+    "message": "扩展"
+  },
+  "extensionSettingsHint": {
+    "message": "无需 Twitch 标签页即可获取扩展奖励。遵循 Twitch 自动化、排除频道和手动暂停设置。"
+  },
+  "extensionNoPixelHint": {
+    "message": "获取每日卡包并参加抽奖。"
+  },
+  "extensionFortniteHint": {
+    "message": "收集精灵并获取阶段奖励。"
+  },
+  "extensionIdentityRequired": {
+    "message": "关联扩展账户"
+  },
+  "extensionPermissionRequired": {
+    "message": "请允许访问服务商"
+  },
+  "extensionAuthRequired": {
+    "message": "请登录 Twitch"
+  },
+  "extensionChannelRequired": {
+    "message": "正在寻找符合条件的频道"
+  },
+  "extensionComplete": {
+    "message": "已获得奖励"
+  },
+  "extensionFarming": {
+    "message": "正在收集"
+  },
+  "extensionPhaseClosed": {
+    "message": "当前没有开放的互动阶段"
+  },
+  "extensionConnecting": {
+    "message": "正在连接"
+  },
+  "extensionUnavailable": {
+    "message": "暂时不可用"
+  },
+  "extensionIdle": {
+    "message": "等待中"
+  },
+  "extensionDailyPackProgress": {
+    "message": "每日卡包：$1/$2 分钟"
+  },
+  "extensionCaptureProgress": {
+    "message": "收集进度：$1/$2"
+  },
+  "extensionTakeoversTitle": {
+    "message": "允许 Fortnite 攻占"
+  },
+  "extensionTakeoversHint": {
+    "message": "在互动阶段发起符合条件的攻占。默认关闭。"
+  },
+  "extensionAccountSetup": {
+    "message": "账户设置"
+  },
+  "extensionGiveawayUnavailable": {
+    "message": "暂时无法检查抽奖"
+  },
+  "extensionGiveawayEntered": {
+    "message": "已确认参加抽奖"
+  },
+  "extensionGiveawayOpen": {
+    "message": "抽奖开放中"
+  },
+  "extensionRewardProgress": {
+    "message": "奖励：$1/$2"
+  },
+  "extensionTakeoverActive": {
+    "message": "接管进行中"
+  },
+  "extensionWatchtimeComplete": {
+    "message": "观看时长已完成"
+  },
+  "extensionUnopenedPacks": {
+    "message": "未打开的卡包：$1"
+  },
+  "extensionPackCheckUnavailable": {
+    "message": "暂时无法检查卡包发放"
+  },
+  "extensionAutoOpenPacksTitle": {
+    "message": "自动打开 NoPixelV 卡包"
+  },
+  "extensionAutoOpenPacksHint": {
+    "message": "揭示未打开卡包中的卡牌。每个卡包都会被消耗，且无法撤销。"
+  },
+  "activityExtensionPackOpened": {
+    "message": "$1 在 $2 打开了一个卡包"
+  },
+  "watchSourcePriorityTitle": {
+    "message": "观看来源优先级"
+  },
+  "watchSourcePriorityDescription": {
+    "message": "观看第一个可用来源。已禁用或不可用的来源会被跳过。"
+  },
+  "watchSourcePriorityMoveUp": {
+    "message": "上移$1"
+  },
+  "watchSourcePriorityMoveDown": {
+    "message": "下移$1"
+  },
+  "watchSourcePriorityReset": {
+    "message": "重置优先级"
+  },
+  "watchSourcePriorityMoved": {
+    "message": "$1的优先级现为$2。"
+  },
+  "watchSourcePriorityResetDone": {
+    "message": "观看来源优先级已重置。"
+  },
+  "watchSourceDrops": {
+    "message": "掉宝"
+  },
+  "watchSourceIdleWatchlist": {
+    "message": "待机观看列表"
+  },
+  "watchSourceNoPixel": {
+    "message": "NoPixelV"
+  },
+  "watchSourceFortnite": {
+    "message": "Fortnite"
+  },
+  "gamesStarHint": {
+    "message": "★ 让游戏排在策略之上"
+  },
+  "gamesFavourite": {
+    "message": "让 $1 排在策略之上"
+  },
+  "gamesUnfavourite": {
+    "message": "不再让 $1 优先"
+  },
+  "gamesBlock": {
+    "message": "永不挂机 $1"
+  },
+  "gamesUnblock": {
+    "message": "取消屏蔽"
+  },
+  "gamesBlocked": {
+    "message": "已屏蔽"
+  },
+  "gamesBlockedHint": {
+    "message": "两种模式下都不会挂机"
+  },
+  "gamesBlockedKeepsStar": {
+    "message": "不会挂机 · 收藏已保留"
+  },
+  "gamesCampaignCount": {
+    "message": "$1 个进行中的活动"
+  },
+  "gamesCampaignCountOne": {
+    "message": "1 个进行中的活动"
+  },
+  "gamesNoCampaigns": {
+    "message": "目前没有活动"
+  },
+  "gamesFarmGame": {
+    "message": "挂机 $1"
+  },
+  "gamesEmpty": {
+    "message": "目前没有 $1 的进行中活动。"
+  },
+  "inPageOpenPanel": {
+    "message": "打开 Lurkloot"
+  },
+  "inPageAddToWatchlist": {
+    "message": "将 $1 加入空闲观看列表"
+  },
+  "inPageRemoveFromWatchlist": {
+    "message": "将 $1 移出空闲观看列表"
+  },
+  "navNoPixel": {
+    "message": "NoPixel V"
+  },
+  "navFortnite": {
+    "message": "Fortnite"
+  },
+  "gamesBlockedEmpty": {
+    "message": "没有已屏蔽的游戏。点击游戏上的 ⊘ 可让它在两种模式下都不被挂机。"
+  },
+  "campaignRewardsProgress": {
+    "message": "$1/$2 个奖励"
+  },
+  "campaignTimeLeft": {
+    "message": "剩余 $1"
+  },
+  "campaignFactStarts": {
+    "message": "开始"
+  },
+  "campaignFactEnds": {
+    "message": "结束"
+  },
+  "campaignFactEnded": {
+    "message": "已结束"
+  },
+  "campaignFactWatching": {
+    "message": "正在观看"
+  },
+  "campaignFactChannels": {
+    "message": "频道"
+  },
+  "campaignFactNextReward": {
+    "message": "下一个奖励"
+  },
+  "campaignFactWhyRank": {
+    "message": "为何排在这里"
+  },
+  "campaignMoreChannels": {
+    "message": "另有 $1 个"
+  },
+  "campaignExclude": {
+    "message": "排除"
+  },
+  "campaignCategoryBlocked": {
+    "message": "已屏蔽 $1"
+  },
+  "campaignPinToTop": {
+    "message": "置顶"
+  },
+  "campaignPinnedAt": {
+    "message": "已置顶 · $1"
+  },
+  "campaignFavourite": {
+    "message": "收藏 $1"
+  },
+  "campaignFavouriteOn": {
+    "message": "$1 已收藏"
+  },
+  "campaignExcludeThis": {
+    "message": "仅此活动"
+  },
+  "campaignExcludeThisHint": {
+    "message": "$1 的其他活动继续挂机"
+  },
+  "campaignExcludeThisUndo": {
+    "message": "再次选择可将活动放回队列"
+  },
+  "campaignExcludeCategory": {
+    "message": "分类“$1”"
+  },
+  "campaignExcludeCategoryHint": {
+    "message": "屏蔽 $1 的所有活动，包括以后的"
+  },
+  "campaignExcludeCategoryUndo": {
+    "message": "再次选择可取消屏蔽该游戏"
+  },
+  "rewardMissed": {
+    "message": "未能及时获得"
+  },
+  "rankReasonPinned": {
+    "message": "置顶第 $1 位"
+  },
+  "rankReasonFavourite": {
+    "message": "$1 是第 $2 个收藏"
+  },
+  "rankReasonEnding": {
+    "message": "比下方的更早结束"
+  },
+  "rankReasonAvailability": {
+    "message": "频道比下方的更少"
+  },
+  "queueEditFavourites": {
+    "message": "编辑"
+  },
+  "navWatchingNow": {
+    "message": "正在观看"
+  },
+  "watchSourcePosition": {
+    "message": "$1 · 第 $2/$3 位"
+  },
+  "watchSourceChangeOrder": {
+    "message": "更改观看顺序"
+  },
+  "gamesFavouritesGroup": {
+    "message": "收藏"
+  },
+  "gamesFavouritesGroupHint": {
+    "message": "按此顺序，排在策略之前"
+  },
+  "gamesOtherGroup": {
+    "message": "其他游戏"
+  },
+  "gamesOtherGroupAllHint": {
+    "message": "除已屏蔽的外全部挂机"
+  },
+  "gamesOtherGroupIncludeHint": {
+    "message": "仅挂机已勾选的"
+  },
+  "watchSourcePlace": {
+    "message": "观看顺序中的位置：第 $1/$2 位"
+  },
+  "watchSourcePlaceFirst": {
+    "message": "先于其他所有来源观看。"
+  },
+  "watchSourcePlaceAfter": {
+    "message": "当 $1 没有可观看的内容时观看。"
+  },
+  "watchSourceChangeOrderShort": {
+    "message": "更改顺序"
+  },
+  "railWhatsNew": {
+    "message": "新功能"
+  },
+  "campaignShowDetails": {
+    "message": "显示详情"
+  },
+  "campaignHideDetails": {
+    "message": "隐藏详情"
+  },
+  "settingsGamesPointerTitle": {
+    "message": "游戏与分类"
+  },
+  "settingsGamesPointerDescription": {
+    "message": "选择挂机哪些 $1 游戏，为应优先的游戏加星，或屏蔽它们。"
+  },
+  "settingsGamesPointerAction": {
+    "message": "打开游戏"
+  },
+  "idleWatchlistAddPlaceholder": {
+    "message": "频道名称或链接"
+  },
+  "idleWatchlistFull": {
+    "message": "列表已满（$1 个频道）。请先移除一个再添加。"
+  },
+  "idleWatchlistInvalid": {
+    "message": "请输入频道名称或频道链接。"
+  },
+  "idleWatchlistDuplicate": {
+    "message": "$1 已在列表中。"
+  },
+  "idleWatchlistOrderTitle": {
+    "message": "观看顺序"
+  },
+  "idleWatchlistOrderHint": {
+    "message": "观看第一个正在直播的频道"
+  },
+  "gamesModeAllDescription": {
+    "message": "所有有进行中掉宝的游戏都会挂机，已屏蔽的除外。"
+  },
+  "gamesModeIncludeDescription": {
+    "message": "只挂机你勾选的游戏。"
+  },
+  "gamesStarLegend": {
+    "message": "让游戏排在策略之前"
+  },
+  "gamesBlockLegend": {
+    "message": "永不挂机"
+  },
+  "gamesSearchPlaceholder": {
+    "message": "查找或添加 $1 游戏"
+  },
+  "gamesAddGroup": {
+    "message": "从 $1 添加"
+  },
+  "gamesAddIncludeHint": {
+    "message": "添加游戏会勾选它"
+  },
+  "gamesAddAllHint": {
+    "message": "添加游戏会将其收藏"
+  },
+  "gamesAddActionFarm": {
+    "message": "挂机"
+  },
+  "gamesAddActionFavourite": {
+    "message": "收藏"
+  },
+  "gamesNoMoreResults": {
+    "message": "未找到其他游戏。"
+  },
+  "navBeta": {
+    "message": "测试版"
+  },
+  "navExtensions": {
+    "message": "扩展"
+  },
+  "navGroupOthers": {
+    "message": "其他"
   }
 }

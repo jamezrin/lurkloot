@@ -1,89 +1,25 @@
 ---
 import { marked } from "marked";
-import Base from "../layouts/Base.astro";
-import SubNav from "../components/SubNav.astro";
-import Footer from "../components/Footer.astro";
-// Single source of truth: the same policy shipped with the extension + store.
-// Inlined at build via Vite ?raw so it doesn't depend on runtime file paths
-// (Astro 6 resolves import.meta.url to the emitted chunk, not the source).
+import Base from "../layouts/SitePage.astro";
 import source from "../../../../privacy-policy.md?raw";
-// Drop the leading H1 (we render our own page title) and convert to HTML.
+// Preserve the policy shared with the extension and store verbatim. Only add
+// stable heading anchors to its rendered HTML for the table of contents.
 const body = source.replace(/^#\s.*\n/, "");
-const html = marked.parse(body, { gfm: true, breaks: false });
+const contents: { id: string; title: string }[] = [];
+const html = String(marked.parse(body, { gfm: true, breaks: false })).replace(/<h2>(.*?)<\/h2>/g, (_, title: string) => {
+  const id = `policy-${contents.length + 1}`;
+  contents.push({ id, title: title.replace(/<[^>]*>/g, "") });
+  return `<h2 id="${id}">${title}</h2>`;
+});
 ---
-
-<Base
-  title="Privacy Policy — Lurkloot"
-  description="Lurkloot does not collect, transmit, sell, or share user data. Everything stays on your device. Read the full privacy policy."
->
-  <SubNav />
-
-  <main class="legal">
-    <div class="wrap legal__wrap">
-      <p class="eyebrow">Legal</p>
-      <h1>Privacy Policy</h1>
-      <article class="prose" set:html={html}></article>
-      <p class="legal__back"><a href="/">← Back to home</a></p>
-    </div>
+<Base title="Privacy Policy — Lurkloot" description="Lurkloot keeps settings and logs on your device, sends no analytics, and contacts platforms and opt-in reward providers directly. Read the privacy policy.">
+  <main id="content">
+    <header class="document-hero home-wrap"><p class="document-label">PRIVACY</p><h1>Your session.<br /><span>Your business.</span></h1><p>Privacy Policy</p></header>
+    <section class="home-light document-section">
+      <div class="home-wrap document-layout">
+        <nav class="document-toc" aria-label="Policy sections"><p>IN THIS POLICY</p>{contents.map(item => <a href={`#${item.id}`}>{item.title}</a>)}</nav>
+        <article class="document-prose" aria-label="Privacy Policy" set:html={html}></article>
+      </div>
+    </section>
   </main>
-
-  <Footer />
 </Base>
-
-<style>
-  .legal {
-    padding: clamp(3rem, 8vw, 6rem) 0 clamp(4rem, 8vw, 6rem);
-  }
-  .legal__wrap {
-    max-width: 760px;
-  }
-  .legal h1 {
-    font-family: var(--font-display);
-    font-weight: 700;
-    letter-spacing: -0.04em;
-    font-size: clamp(2.4rem, 6vw, 4rem);
-    margin: 0.6rem 0 0;
-  }
-
-  /* readable legal prose, on-brand */
-  .prose {
-    margin-top: clamp(2rem, 5vw, 3rem);
-    color: var(--muted);
-    font-size: 1.05rem;
-    line-height: 1.75;
-  }
-  .prose :global(h2) {
-    font-family: var(--font-display);
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    color: var(--text);
-    font-size: 1.5rem;
-    margin: 2.4rem 0 0.8rem;
-  }
-  .prose :global(p) { margin: 0 0 1.1rem; }
-  .prose :global(ul) { margin: 0 0 1.1rem; padding-left: 1.3rem; }
-  .prose :global(li) { margin: 0.4rem 0; }
-  .prose :global(li)::marker { color: var(--purple-soft); }
-  .prose :global(strong) { color: var(--text); }
-  .prose :global(a) {
-    color: var(--lime);
-    text-decoration: underline;
-    text-underline-offset: 3px;
-  }
-  .prose :global(code) {
-    font-family: var(--font-mono);
-    font-size: 0.88em;
-    padding: 0.12em 0.4em;
-    border-radius: 6px;
-    background: var(--ink-2);
-    border: 1px solid var(--line);
-    color: var(--text);
-  }
-  .legal__back {
-    margin-top: 3rem;
-    font-family: var(--font-mono);
-    font-size: 0.85rem;
-  }
-  .legal__back a { color: var(--muted); }
-  .legal__back a:hover { color: var(--lime); }
-</style>

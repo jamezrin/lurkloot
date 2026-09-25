@@ -8,18 +8,23 @@
     ".": "./src/index.ts",
     "./rateNudge": "./src/rateNudge.logic.ts",
     "./popupNoticeSlot": "./src/popupNoticeSlot.ts",
-    "./styles.css": "./src/styles.css"
+    "./styles.css": "./src/styles.css",
+    "./fonts.css": "./src/fonts.css"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@base-ui/react": "^1.8.0",
     "@dnd-kit/helpers": "^0.5.0",
     "@dnd-kit/react": "^0.5.0",
+    "@fontsource-variable/archivo": "^5.3.0",
+    "@fontsource-variable/geist": "^5.3.0",
+    "@fontsource-variable/geist-mono": "^5.3.0",
     "@lurkloot/locales": "workspace:*",
     "@lurkloot/shared": "workspace:*",
-    "motion": "^13.0.0",
     "lucide-react": "^1.0.0",
+    "motion": "^13.0.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "tailwindcss": "^4.3.0"

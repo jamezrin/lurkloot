@@ -53,6 +53,108 @@
   "settingsLanguageDescription": {
     "message": "اختر اللغة المستخدمة في النافذة المنبثقة وإشعارات الإضافة."
   },
+  "navWorkspace": {
+    "message": "مساحة العمل"
+  },
+  "navPlatform": {
+    "message": "المنصة"
+  },
+  "navGroupDrops": {
+    "message": "الجوائز"
+  },
+  "navQueue": {
+    "message": "قائمة الانتظار"
+  },
+  "navCompleted": {
+    "message": "المكتملة"
+  },
+  "navGames": {
+    "message": "الألعاب"
+  },
+  "navIdleWatchlist": {
+    "message": "قائمة الانتظار للمشاهدة"
+  },
+  "navActivity": {
+    "message": "النشاط"
+  },
+  "navSettings": {
+    "message": "الإعدادات"
+  },
+  "queueGroupPinned": {
+    "message": "مثبتة"
+  },
+  "queueGroupPinnedHint": {
+    "message": "اسحب لإعادة الترتيب أو اكتب ترتيبًا"
+  },
+  "queueGroupFavourite": {
+    "message": "الألعاب المفضلة"
+  },
+  "queueGroupStrategy": {
+    "message": "ثم حسب"
+  },
+  "queueNotInQueue": {
+    "message": "ليست في قائمة الانتظار"
+  },
+  "queueSkipped": {
+    "message": "متجاوَزة"
+  },
+  "queueUpcoming": {
+    "message": "قادمة"
+  },
+  "queueStrategyLabel": {
+    "message": "ثم حسب"
+  },
+  "queueFarmPinnedOnly": {
+    "message": "تجميع المثبتة فقط"
+  },
+  "queueUnpinAll": {
+    "message": "إلغاء تثبيت الكل ($1)"
+  },
+  "queueUnpin": {
+    "message": "إلغاء التثبيت"
+  },
+  "queueFacetLabel": {
+    "message": "نوع الحملة"
+  },
+  "queueFacetAll": {
+    "message": "الكل"
+  },
+  "queueFacetDrops": {
+    "message": "الجوائز"
+  },
+  "queueFacetBadges": {
+    "message": "شارات الاشتراك"
+  },
+  "queueFixInclude": {
+    "message": "تضمين"
+  },
+  "queueFixPin": {
+    "message": "تثبيت"
+  },
+  "queueFixGames": {
+    "message": "فتح الألعاب"
+  },
+  "queueFixSettings": {
+    "message": "فتح الإعدادات"
+  },
+  "queueEmpty": {
+    "message": "لا شيء لتجميعه هنا الآن."
+  },
+  "queueEmptyBadges": {
+    "message": "لا توجد حملات اشتراك قابلة للتجميع الآن."
+  },
+  "completedTabFinished": {
+    "message": "مكتملة"
+  },
+  "completedTabExpired": {
+    "message": "منتهية"
+  },
+  "completedEmptyFinished": {
+    "message": "تصل الحملات إلى هنا بعد المطالبة بكل المكافآت."
+  },
+  "completedEmptyExpired": {
+    "message": "تصل الحملات إلى هنا عندما تنتهي دون اكتمال."
+  },
   "settingsTitle": {
     "message": "الإعدادات"
   },
@@ -159,16 +261,16 @@
     "message": "يضيف زر Lurkloot إلى twitch.tv وkick.com لفتح هذه النافذة كلوحة داخل الصفحة."
   },
   "tipCampaignPriority": {
-    "message": "تأخذ Drops الأولوية على قائمة المشاهدة الخاملة. اسحب الحملات من المقبض لترتيب الفارم."
+    "message": "اسحب حملة لتثبيتها أولًا، أو ضع نجمة على لعبة لتبقى حملاتها في الأعلى. والباقي يتبع الترتيب الذي تختاره في قائمة الانتظار."
   },
   "tipMissingCampaigns": {
     "message": "هل هناك حملة مفقودة؟ تحقق من مخزون Drops في المنصة ثم من عوامل التصفية في الإعدادات."
   },
   "tipCategorySelection": {
-    "message": "تريد ألعابًا محددة فقط؟ عطّل «فارم كل الفئات» واختر فئاتك."
+    "message": "تحدد صفحة الألعاب ما يتم تجميعه، وما يأتي أولًا، وما لا يُجمّع أبدًا."
   },
   "tipIdleWatchlist": {
-    "message": "تفارم قائمة المشاهدة الخاملة القنوات المختارة عند عدم توفر Drops مؤهلة."
+    "message": "اختر متى تتم مشاهدة قنوات القائمة الاحتياطية بتغيير أولوية المصادر في إعدادات المنصة."
   },
   "tipTablessMode": {
     "message": "يستهلك الوضع بلا تبويبات موارد أقل ويفتح تبويبًا مكتومًا عند الحاجة."
@@ -186,7 +288,7 @@
     "message": "افتح issue على GitHub"
   },
   "tipExcludedCampaigns": {
-    "message": "استبعدت حملة بالخطأ؟ استعدها من إعدادات Drops."
+    "message": "استبعدت حملة بالخطأ؟ ستجدها ضمن المتجاوَزة في قائمة الانتظار، مع زر لإعادتها."
   },
   "tipTranslations": {
     "message": "تُصان الترجمات تلقائيًا بالذكاء الاصطناعي. ساعد في تحسينها على GitHub."
@@ -302,20 +404,17 @@
   "finished": {
     "message": "مكتملة"
   },
+  "completedCampaigns": {
+    "message": "المكتملة"
+  },
   "upcomingPill": {
     "message": "قادمة"
   },
   "expiredPill": {
     "message": "منتهية"
   },
-  "finishedPill": {
-    "message": "مكتملة"
-  },
   "complete": {
     "message": "مكتمل"
-  },
-  "nextReward": {
-    "message": "التالي: $1"
   },
   "startsIn": {
     "message": "يبدأ خلال $1"
@@ -332,20 +431,11 @@
   "done": {
     "message": "تم"
   },
-  "farmed": {
-    "message": "تم الفارم"
-  },
   "rewards": {
     "message": "المكافآت"
   },
-  "inCampaignOrder": {
-    "message": "حسب ترتيب الحملة"
-  },
   "allChannels": {
     "message": "كل القنوات"
-  },
-  "channelCount": {
-    "message": "$1 قنوات"
   },
   "includeInFarming": {
     "message": "تضمين في الفارم"
@@ -437,9 +527,6 @@
   "campaignPriorityDescription": {
     "message": "يحدد كيفية اختيار الحملات للفارم. قائمة الأولوية تفارم فقط الحملات التي رتبتها يدويًا؛ الخيارات الأخرى تختار من كل الحملات. حدّد الفئات لكل منصة من إعدادات المنصة."
   },
-  "priorityListOnly": {
-    "message": "قائمة الأولوية فقط"
-  },
   "endingSoonest": {
     "message": "ينتهي أولًا"
   },
@@ -451,12 +538,6 @@
   },
   "idleWatchlistSettingsDescription": {
     "message": "سلوك قائمة الاحتياط المشترك."
-  },
-  "idleWatchlistFallbackOnlyTitle": {
-    "message": "إعطاء الأولوية لـ Drops على قائمة المشاهدة الخاملة"
-  },
-  "idleWatchlistFallbackOnlyDescription": {
-    "message": "يغادر قناة قائمة المشاهدة الخاملة فور توفر drop مؤهل. عند التعطيل، يستمر في مشاهدتها حتى تصبح غير متصلة."
   },
   "preferKnownChannelsTitle": {
     "message": "تفضيل القنوات المتابَعة وقنوات قائمة المشاهدة الخاملة"
@@ -494,10 +575,18 @@
   "failuresSuffix": {
     "message": "حالات فشل"
   },
-  "kickPageContextRecoverySuccessesTitle": { "message": "استرداد صفحة Kick الاحتياطية" },
-  "kickPageContextRecoverySuccessesDescription": { "message": "أغلق صفحة Kick الاحتياطية التي فتحها الامتداد بعد هذا العدد من دورات التحديث الناجحة." },
-  "kickPageContextRecoverySuccessesDisabledReason": { "message": "فعّل Kick لتغيير هذا الإعداد." },
-  "cyclesSuffix": { "message": "دورات" },
+  "kickPageContextRecoverySuccessesTitle": {
+    "message": "استرداد صفحة Kick الاحتياطية"
+  },
+  "kickPageContextRecoverySuccessesDescription": {
+    "message": "أغلق صفحة Kick الاحتياطية التي فتحها الامتداد بعد هذا العدد من دورات التحديث الناجحة."
+  },
+  "kickPageContextRecoverySuccessesDisabledReason": {
+    "message": "فعّل Kick لتغيير هذا الإعداد."
+  },
+  "cyclesSuffix": {
+    "message": "دورات"
+  },
   "autoCloseTabsTitle": {
     "message": "إغلاق تبويبات الفارم تلقائيًا"
   },
@@ -547,10 +636,10 @@
     "message": "إعدادات متقدمة والتوافق"
   },
   "twitchSectionDescription": {
-    "message": "نقاط القناة وفلتر الفئات والقنوات المستبعدة والتوافق مع Twitch."
+    "message": "أولوية المصادر ونقاط القناة والفئات والقنوات المستبعدة وتوافق Twitch."
   },
   "kickSectionDescription": {
-    "message": "التحديات اليومية وفلتر الفئات والقنوات المستبعدة والتوافق مع Kick."
+    "message": "أولوية المصادر والتحديات اليومية والفئات والقنوات المستبعدة وتوافق Kick."
   },
   "twitchAdvancedDescription": {
     "message": "توفّر الحملات، إضافة إلى وسائل نقل النبض والمخزون التي يستخدمها Lurkloot. لا تغيّرها إلا إذا توقف Twitch عن العمل."
@@ -630,8 +719,11 @@
   "campaignRejectionCategoryFiltered": {
     "message": "هذه الحملة لا تطابق الفئات المحددة."
   },
-  "campaignRejectionPriorityNotSelected": {
-    "message": "هذه الحملة ليست في قائمة الأولوية."
+  "campaignRejectionCategoryBlocked": {
+    "message": "هذه اللعبة محظورة، لذلك لا يتم تجميع حملاتها أبدًا."
+  },
+  "campaignRejectionNotPinned": {
+    "message": "يتم الآن تجميع الحملات المثبتة فقط."
   },
   "campaignRejectionNoRewards": {
     "message": "لا تحتوي هذه الحملة على مكافآت قابلة للجمع."
@@ -723,26 +815,14 @@
   "categoryModeInclude": {
     "message": "المحددة فقط"
   },
-  "categoryModeExclude": {
-    "message": "الكل عدا المحددة"
-  },
   "includeCategoriesInstruction": {
     "message": "لن يتم الفارم على $1 إلا في هذه الفئات."
-  },
-  "excludeCategoriesInstruction": {
-    "message": "يتم الفارم في كل فئات $1 عدا هذه."
   },
   "categoriesToFarm": {
     "message": "الفئات للفارم"
   },
-  "dragToPrioritize": {
-    "message": "اسحب لتحديد الأولوية"
-  },
   "noCategoriesSelected": {
     "message": "لم يتم تحديد فئات: لن يتم فارم أي شيء على $1. أضف فئات أدناه."
-  },
-  "noCategoriesExcluded": {
-    "message": "لم يتم استبعاد أي فئة: سيتم الفارم في كل فئات $1. أضف فئات أدناه لتخطيها."
   },
   "hasActiveDrops": {
     "message": "لديه Drops نشطة"
@@ -779,15 +859,6 @@
   },
   "farmSubscriptionDescription": {
     "message": "عند الإيقاف، تُتخطى الحملات التي تحتاج مكافآتها إلى اشتراك في القناة."
-  },
-  "dropsListFilterTitle": {
-    "message": "عرض قائمة Drops"
-  },
-  "dropsListFilterDescription": {
-    "message": "اختر الحملات التي تظهر في قائمة Drops. تبقى الحملة ذات المكافأة القابلة للاستلام مرئية دائمًا."
-  },
-  "dropsListFilterLockedHint": {
-    "message": "تظهر دائمًا أثناء فارم هذه الحملات."
   },
   "forgetExcludedTitle": {
     "message": "نسيان الحملات المستبعدة"
@@ -944,12 +1015,6 @@
   },
   "screenshotUpdatedLicense": {
     "message": "Apache-2.0"
-  },
-  "screenshotUpdatedRating": {
-    "message": "4.9"
-  },
-  "screenshotUpdatedUsers": {
-    "message": "أكثر من 1,000 مستخدم"
   },
   "autoClaimReady": {
     "message": "الاستلام التلقائي جاهز"
@@ -1413,6 +1478,12 @@
   "manualWatchPauseDetail": {
     "message": "تم إيقاف الزراعة مؤقتًا أثناء مشاهدتك لبث مباشر بنفسك. أوقفه مؤقتًا أو أغلقه أو انتقل بعيدًا عن علامة التبويب هذه لاستئناف الزراعة تلقائيًا عند الفحص التالي."
   },
+  "manualWatchPauseDetailNamed": {
+    "message": "يتوقف التجميع مؤقتًا بينما تشاهد بثًا بنفسك."
+  },
+  "manualWatchPauseDetailNamedSuffix": {
+    "message": "— أوقفه أو أغلقه أو انتقل لعلامة تبويب أخرى للاستئناف."
+  },
   "reorderItem": {
     "message": "إعادة ترتيب $1"
   },
@@ -1421,5 +1492,395 @@
   },
   "scrollRewardsRight": {
     "message": "تمرير المكافآت إلى اليمين"
+  },
+  "activityExtensionGiveawayJoined": {
+    "message": "تم الانضمام إلى سحب $1 على قناة $2."
+  },
+  "activityExtensionSpriteCaptured": {
+    "message": "تم التقاط كائن $1 على قناة $2."
+  },
+  "activityExtensionTakeoverStarted": {
+    "message": "تم بدء هجوم $1 من قناة $2."
+  },
+  "extensionSettingsTitle": {
+    "message": "إضافات Twitch"
+  },
+  "extensionDropsTitle": {
+    "message": "الإضافات"
+  },
+  "extensionSettingsHint": {
+    "message": "احصل على المكافآت دون تبويبات Twitch. تسري إعدادات الأتمتة والاستثناءات والإيقاف اليدوي."
+  },
+  "extensionNoPixelHint": {
+    "message": "احصل على الحزم اليومية وشارك في السحوبات."
+  },
+  "extensionFortniteHint": {
+    "message": "اجمع الشخصيات واحصل على مكافآت المراحل."
+  },
+  "extensionIdentityRequired": {
+    "message": "اربط حساب الإضافة"
+  },
+  "extensionPermissionRequired": {
+    "message": "اسمح بالوصول إلى المزوّد"
+  },
+  "extensionAuthRequired": {
+    "message": "سجّل الدخول إلى Twitch"
+  },
+  "extensionChannelRequired": {
+    "message": "البحث عن قناة مؤهلة"
+  },
+  "extensionComplete": {
+    "message": "تم الحصول على المكافآت"
+  },
+  "extensionFarming": {
+    "message": "جمع المكافآت"
+  },
+  "extensionPhaseClosed": {
+    "message": "لا توجد مرحلة تفاعلية مفتوحة"
+  },
+  "extensionConnecting": {
+    "message": "جارٍ الاتصال"
+  },
+  "extensionUnavailable": {
+    "message": "غير متاح مؤقتًا"
+  },
+  "extensionIdle": {
+    "message": "انتظار"
+  },
+  "extensionDailyPackProgress": {
+    "message": "الحزمة اليومية: $1/$2 دقيقة"
+  },
+  "extensionCaptureProgress": {
+    "message": "المجموعة: $1/$2"
+  },
+  "extensionTakeoversTitle": {
+    "message": "السماح بهجمات Fortnite"
+  },
+  "extensionTakeoversHint": {
+    "message": "ابدأ الهجمات المؤهلة خلال المراحل التفاعلية. معطّل افتراضيًا."
+  },
+  "extensionAccountSetup": {
+    "message": "إعداد الحساب"
+  },
+  "extensionGiveawayUnavailable": {
+    "message": "التحقق من السحب غير متاح"
+  },
+  "extensionGiveawayEntered": {
+    "message": "تم تأكيد المشاركة في السحب"
+  },
+  "extensionGiveawayOpen": {
+    "message": "السحب مفتوح"
+  },
+  "extensionRewardProgress": {
+    "message": "المكافآت: $1/$2"
+  },
+  "extensionTakeoverActive": {
+    "message": "الاستيلاء نشط"
+  },
+  "extensionWatchtimeComplete": {
+    "message": "اكتمل وقت المشاهدة"
+  },
+  "extensionUnopenedPacks": {
+    "message": "الحزم غير المفتوحة: $1"
+  },
+  "extensionPackCheckUnavailable": {
+    "message": "التحقق من تسليم الحزم غير متاح"
+  },
+  "extensionAutoOpenPacksTitle": {
+    "message": "فتح حزم NoPixelV تلقائيًا"
+  },
+  "extensionAutoOpenPacksHint": {
+    "message": "يكشف بطاقات الحزم غير المفتوحة. تُستهلك كل حزمة ولا يمكن التراجع."
+  },
+  "activityExtensionPackOpened": {
+    "message": "$1 فتح حزمة بطاقات على $2"
+  },
+  "watchSourcePriorityTitle": {
+    "message": "أولوية مصادر المشاهدة"
+  },
+  "watchSourcePriorityDescription": {
+    "message": "تتم مشاهدة أول مصدر متاح. تُتخطى المصادر المعطلة أو غير المتاحة."
+  },
+  "watchSourcePriorityMoveUp": {
+    "message": "نقل $1 لأعلى"
+  },
+  "watchSourcePriorityMoveDown": {
+    "message": "نقل $1 لأسفل"
+  },
+  "watchSourcePriorityReset": {
+    "message": "إعادة تعيين الأولوية"
+  },
+  "watchSourcePriorityMoved": {
+    "message": "$1 الآن في الأولوية $2."
+  },
+  "watchSourcePriorityResetDone": {
+    "message": "تمت إعادة تعيين أولوية مصادر المشاهدة."
+  },
+  "watchSourceDrops": {
+    "message": "الدروب"
+  },
+  "watchSourceIdleWatchlist": {
+    "message": "قائمة المشاهدة الاحتياطية"
+  },
+  "watchSourceNoPixel": {
+    "message": "NoPixelV"
+  },
+  "watchSourceFortnite": {
+    "message": "Fortnite"
+  },
+  "gamesStarHint": {
+    "message": "★ ترفع اللعبة فوق الاستراتيجية"
+  },
+  "gamesFavourite": {
+    "message": "ارفع $1 فوق الاستراتيجية"
+  },
+  "gamesUnfavourite": {
+    "message": "أوقف ترتيب $1 فوق الاستراتيجية"
+  },
+  "gamesBlock": {
+    "message": "لا تجمّع $1 أبدًا"
+  },
+  "gamesUnblock": {
+    "message": "إلغاء الحظر"
+  },
+  "gamesBlocked": {
+    "message": "محظورة"
+  },
+  "gamesBlockedHint": {
+    "message": "لا يتم تجميعها في أي وضع"
+  },
+  "gamesBlockedKeepsStar": {
+    "message": "لا يتم تجميعها · النجمة محفوظة"
+  },
+  "gamesCampaignCount": {
+    "message": "$1 حملات نشطة"
+  },
+  "gamesCampaignCountOne": {
+    "message": "حملة واحدة نشطة"
+  },
+  "gamesNoCampaigns": {
+    "message": "لا توجد حملات الآن"
+  },
+  "gamesFarmGame": {
+    "message": "تجميع $1"
+  },
+  "gamesEmpty": {
+    "message": "لا توجد حملات $1 نشطة الآن."
+  },
+  "inPageOpenPanel": {
+    "message": "فتح Lurkloot"
+  },
+  "inPageAddToWatchlist": {
+    "message": "أضف $1 إلى قائمة الانتظار"
+  },
+  "inPageRemoveFromWatchlist": {
+    "message": "أزل $1 من قائمة الانتظار"
+  },
+  "navNoPixel": {
+    "message": "NoPixel V"
+  },
+  "navFortnite": {
+    "message": "Fortnite"
+  },
+  "gamesBlockedEmpty": {
+    "message": "لا يوجد شيء محظور. استخدم ⊘ على لعبة لإبقائها خارج التجميع في كلا الوضعين."
+  },
+  "campaignRewardsProgress": {
+    "message": "$1 من $2 مكافآت"
+  },
+  "campaignTimeLeft": {
+    "message": "متبقٍ $1"
+  },
+  "campaignFactStarts": {
+    "message": "يبدأ"
+  },
+  "campaignFactEnds": {
+    "message": "ينتهي"
+  },
+  "campaignFactEnded": {
+    "message": "انتهت"
+  },
+  "campaignFactWatching": {
+    "message": "تتم المشاهدة"
+  },
+  "campaignFactChannels": {
+    "message": "القنوات"
+  },
+  "campaignFactNextReward": {
+    "message": "المكافأة التالية"
+  },
+  "campaignFactWhyRank": {
+    "message": "سبب هذا الترتيب"
+  },
+  "campaignMoreChannels": {
+    "message": "+$1 أخرى"
+  },
+  "campaignExclude": {
+    "message": "استبعاد"
+  },
+  "campaignCategoryBlocked": {
+    "message": "تم حظر $1"
+  },
+  "campaignPinToTop": {
+    "message": "تثبيت في الأعلى"
+  },
+  "campaignPinnedAt": {
+    "message": "مثبتة · $1"
+  },
+  "campaignFavourite": {
+    "message": "إضافة $1 إلى المفضلة"
+  },
+  "campaignFavouriteOn": {
+    "message": "$1 من المفضلة"
+  },
+  "campaignExcludeThis": {
+    "message": "هذه الحملة فقط"
+  },
+  "campaignExcludeThisHint": {
+    "message": "تستمر بقية حملات $1 في الجمع"
+  },
+  "campaignExcludeThisUndo": {
+    "message": "اخترها مجددًا لإعادة الحملة إلى القائمة"
+  },
+  "campaignExcludeCategory": {
+    "message": "الفئة «$1»"
+  },
+  "campaignExcludeCategoryHint": {
+    "message": "يحظر كل حملات $1 الآن ولاحقًا"
+  },
+  "campaignExcludeCategoryUndo": {
+    "message": "اخترها مجددًا لإلغاء حظر اللعبة"
+  },
+  "rewardMissed": {
+    "message": "لم تُكسب في الوقت"
+  },
+  "rankReasonPinned": {
+    "message": "مثبتة في المرتبة $1"
+  },
+  "rankReasonFavourite": {
+    "message": "$1 هي المفضلة رقم $2"
+  },
+  "rankReasonEnding": {
+    "message": "تنتهي قبل ما تحتها"
+  },
+  "rankReasonAvailability": {
+    "message": "قنوات أقل مما تحتها"
+  },
+  "queueEditFavourites": {
+    "message": "تعديل"
+  },
+  "navWatchingNow": {
+    "message": "تتم مشاهدته الآن"
+  },
+  "watchSourcePosition": {
+    "message": "$1 · $2 من $3"
+  },
+  "watchSourceChangeOrder": {
+    "message": "تغيير ترتيب المشاهدة"
+  },
+  "gamesFavouritesGroup": {
+    "message": "المفضلة"
+  },
+  "gamesFavouritesGroupHint": {
+    "message": "بهذا الترتيب، قبل الاستراتيجية"
+  },
+  "gamesOtherGroup": {
+    "message": "ألعاب أخرى"
+  },
+  "gamesOtherGroupAllHint": {
+    "message": "تُجمع كلها عدا المحظورة"
+  },
+  "gamesOtherGroupIncludeHint": {
+    "message": "تُجمع المحددة فقط"
+  },
+  "watchSourcePlace": {
+    "message": "الموضع في ترتيب المشاهدة: $1 من $2"
+  },
+  "watchSourcePlaceFirst": {
+    "message": "تُشاهد قبل أي مصدر آخر."
+  },
+  "watchSourcePlaceAfter": {
+    "message": "تُشاهد عندما لا يكون لدى $1 ما يُشاهد."
+  },
+  "watchSourceChangeOrderShort": {
+    "message": "تغيير الترتيب"
+  },
+  "railWhatsNew": {
+    "message": "ما الجديد"
+  },
+  "campaignShowDetails": {
+    "message": "عرض التفاصيل"
+  },
+  "campaignHideDetails": {
+    "message": "إخفاء التفاصيل"
+  },
+  "settingsGamesPointerTitle": {
+    "message": "الألعاب والفئات"
+  },
+  "settingsGamesPointerDescription": {
+    "message": "اختر ألعاب $1 التي تُجمع، وضع نجمة على ما يجب أن يأتي أولًا، أو احظرها."
+  },
+  "settingsGamesPointerAction": {
+    "message": "فتح الألعاب"
+  },
+  "idleWatchlistAddPlaceholder": {
+    "message": "اسم القناة أو رابطها"
+  },
+  "idleWatchlistFull": {
+    "message": "القائمة ممتلئة ($1 قناة). أزل واحدة لإضافة أخرى."
+  },
+  "idleWatchlistInvalid": {
+    "message": "أدخل اسم قناة أو رابطها."
+  },
+  "idleWatchlistDuplicate": {
+    "message": "$1 موجودة في القائمة بالفعل."
+  },
+  "idleWatchlistOrderTitle": {
+    "message": "ترتيب المشاهدة"
+  },
+  "idleWatchlistOrderHint": {
+    "message": "تُشاهَد أول قناة تبث مباشرة"
+  },
+  "gamesModeAllDescription": {
+    "message": "تُجمع كل لعبة لديها دروبس نشطة، باستثناء المحظورة."
+  },
+  "gamesModeIncludeDescription": {
+    "message": "تُجمع الألعاب التي تحددها فقط."
+  },
+  "gamesStarLegend": {
+    "message": "يضع اللعبة فوق الاستراتيجية"
+  },
+  "gamesBlockLegend": {
+    "message": "لا يجمعها أبدًا"
+  },
+  "gamesSearchPlaceholder": {
+    "message": "ابحث عن لعبة على $1 أو أضفها"
+  },
+  "gamesAddGroup": {
+    "message": "إضافة من $1"
+  },
+  "gamesAddIncludeHint": {
+    "message": "إضافة لعبة تحددها"
+  },
+  "gamesAddAllHint": {
+    "message": "إضافة لعبة تجعلها مفضلة"
+  },
+  "gamesAddActionFarm": {
+    "message": "اجمع"
+  },
+  "gamesAddActionFavourite": {
+    "message": "مفضلة"
+  },
+  "gamesNoMoreResults": {
+    "message": "لم يُعثر على ألعاب أخرى."
+  },
+  "navBeta": {
+    "message": "تجريبي"
+  },
+  "navExtensions": {
+    "message": "الإضافات"
+  },
+  "navGroupOthers": {
+    "message": "أخرى"
   }
 }

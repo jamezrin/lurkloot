@@ -1,5 +1,7 @@
 import { browser } from "wxt/browser";
 import type { ExtensionSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
+// A constant, not a module with behaviour: this stays a dependency-free bundle.
+import { IDLE_WATCHLIST_LIMIT } from "@lurkloot/shared/settings";
 
 // Stage 1 of the in-page panel: an icon button in the site's own top-right nav,
 // and a draggable window hosting the panel document (entrypoints/inpagePanel),
@@ -14,6 +16,8 @@ import type { ExtensionSettings, Platform, SchedulerState } from "@lurkloot/shar
 // Everything here is styled with hand-written CSS for the same reason.
 
 const BUTTON_ID = "lurkloot-nav-button";
+const CARET_ID = "lurkloot-nav-caret";
+const MENU_ID = "lurkloot-nav-menu";
 const IDLE_BACKGROUND = "rgba(128,128,128,.22)";
 const HOVER_BACKGROUND = "rgba(128,128,128,.34)";
 
@@ -33,11 +37,13 @@ const SETTINGS_KEY = "settings";
 const STATE_KEY = "schedulerState";
 const UI_STATE_KEY = "inPagePanelUi";
 
-// The panel document renders <Popup>, whose root is h-[600px] w-[400px]. The
-// frame is sized to match exactly: anything smaller reintroduces a scrollbar,
-// which steals width from the 400px the popup insists on and makes it overflow
-// horizontally.
-const PANEL_WIDTH = 400;
+// The panel document renders <Popup>, whose root is h-[600px] and 720px wide
+// at most. The frame is that width when the window has room, and narrows with
+// a narrow window: the popup's root follows the frame, and below 560px its
+// rail folds to icons. It never goes under the popup page's 400px minimum,
+// which would bring back a horizontal scrollbar.
+const PANEL_WIDTH = 720;
+const PANEL_MIN_WIDTH = 400;
 const PANEL_HEIGHT = 600;
 const TITLEBAR_HEIGHT = 32;
 const EDGE_MARGIN = 16;
@@ -147,6 +153,7 @@ async function start(): Promise<void> {
     queueEnsureButton();
   });
   window.addEventListener("resize", () => {
+    fitPanelWidth();
     clampIntoViewport();
     // Crossing a responsive breakpoint swaps which nav is rendered, and no
     // mutation accompanies it.
@@ -182,6 +189,7 @@ function isManagedTab(state: Partial<SchedulerState> | undefined): boolean {
 }
 
 function teardown(): void {
+  closeMenu();
   anchorObserver?.disconnect();
   anchorObserver = undefined;
   button?.remove();
@@ -228,6 +236,49 @@ function ensureButton(): void {
   else target.element.append(button);
 }
 
+// Paths each site owns. Anything here is a site page, not a channel, so the
+// menu offers nothing for it. Exported-by-proximity like resolveAnchorFor: this
+// module stays dependency-free, so its pure parts are tested from here rather
+// than imported from somewhere shared.
+const RESERVED_PATHS: Record<Platform, Set<string>> = {
+  twitch: new Set([
+    "directory", "videos", "drops", "settings", "subscriptions", "wallet", "u", "popout", "moderator",
+    "downloads", "turbo", "prime", "jobs", "friends", "inventory", "payments", "store",
+  ]),
+  kick: new Set(["browse", "categories", "following", "dashboard", "search", "clips", "help", "about"]),
+};
+
+// The subpaths a channel page keeps for itself. A second segment outside this
+// list means the URL is something else that happens to start with a name.
+const CHANNEL_SUBPATHS: Record<Platform, Set<string>> = {
+  twitch: new Set(["about", "schedule", "videos", "clips", "clip", "home"]),
+  kick: new Set(["videos", "clips", "about"]),
+};
+
+/** The channel a page is about, or undefined when the page is not a channel's.
+ *
+ * Recomputed when the menu opens rather than tracked across navigation: both
+ * sites are SPAs, and a lazy read cannot go stale the way a cached one can. */
+export function channelFromLocation(forPlatform: Platform, href: string): string | undefined {
+  let path: string;
+  try {
+    path = new URL(href).pathname;
+  } catch {
+    return undefined;
+  }
+  const segments = path.split("/").filter(Boolean);
+  const [name, subpath, ...rest] = segments;
+  if (!name) return undefined;
+  const login = name.toLowerCase();
+  if (RESERVED_PATHS[forPlatform].has(login)) return undefined;
+  if (subpath !== undefined && !CHANNEL_SUBPATHS[forPlatform].has(subpath.toLowerCase())) return undefined;
+  // Only a clip carries a third segment (its slug); everything else stops here.
+  if (rest.length > 0 && !(forPlatform === "twitch" && subpath?.toLowerCase() === "clip" && rest.length === 1)) {
+    return undefined;
+  }
+  return login;
+}
+
 // The page console is where someone debugging a missing button would look.
 // There is no diagnostic channel from a content script into the activity log,
 // and adding one would cost more plumbing than this failure is worth.
@@ -266,12 +317,12 @@ function createButton(): HTMLButtonElement {
   const el = document.createElement("button");
   el.id = BUTTON_ID;
   el.type = "button";
-  el.innerHTML = `${ICON}<span>Lurkloot</span>`;
+  el.innerHTML = `${ICON}<span>Lurkloot</span><span id="${CARET_ID}" aria-hidden="true" style="opacity:.7;font-size:9px;line-height:1">▾</span>`;
   // The visible text is the accessible name, so no aria-label: adding one would
   // override what the user can actually read. Neither string is localized —
   // this module is dependency-free by design and cannot reach the locale
   // catalogs without pulling the popup bundle into every page load.
-  el.title = "Open Lurkloot";
+  el.title = message("inPageOpenPanel", "Open Lurkloot");
   el.setAttribute("aria-expanded", "false");
   el.style.cssText = [
     "all:unset",
@@ -298,8 +349,184 @@ function createButton(): HTMLButtonElement {
   ].join(";");
   el.addEventListener("mouseenter", () => { el.style.background = HOVER_BACKGROUND; });
   el.addEventListener("mouseleave", () => { el.style.background = IDLE_BACKGROUND; });
-  el.addEventListener("click", () => { void togglePanel(); });
+  el.addEventListener("click", (event) => {
+    // The caret is a child of the button (one nav footprint, one anchor to keep
+    // working on two sites that rewrite their navs), so the split is decided
+    // here rather than by nesting a second button inside this one.
+    if (event.target instanceof Element && event.target.closest(`#${CARET_ID}`)) {
+      event.preventDefault();
+      event.stopPropagation();
+      void toggleMenu();
+      return;
+    }
+    void togglePanel();
+  });
+  el.addEventListener("keydown", (event) => {
+    if (event.key !== "ArrowDown" || menu) return;
+    event.preventDefault();
+    void toggleMenu();
+  });
   return el;
+}
+
+/* -------------------------------------------------------------- nav menu */
+
+// Localized through browser.i18n, which is a browser API: it costs this bundle
+// nothing, unlike importing @lurkloot/locales. The English strings are the
+// fallback for a catalog that has not materialized.
+function message(key: string, fallback: string, substitution?: string): string {
+  const getMessage = browser.i18n?.getMessage as ((key: string, substitutions?: string[]) => string) | undefined;
+  const value = substitution ? getMessage?.(key, [substitution]) : getMessage?.(key);
+  return value || (substitution ? fallback.replace("$1", substitution) : fallback);
+}
+
+let menu: HTMLDivElement | undefined;
+let openingMenu = false;
+
+// The button carries one aria-expanded for two things it can open, so closing
+// either has to report what is still open rather than "nothing".
+function syncExpanded(): void {
+  button?.setAttribute("aria-expanded", String(Boolean(menu) || Boolean(panel)));
+}
+
+async function toggleMenu(): Promise<void> {
+  if (menu) {
+    closeMenu();
+    return;
+  }
+  // Reading the watchlist is async, so a second click before it resolves would
+  // otherwise build a second menu and leak the first.
+  if (openingMenu || !button) return;
+  openingMenu = true;
+  try {
+    await buildMenu();
+  } finally {
+    openingMenu = false;
+  }
+}
+
+async function buildMenu(): Promise<void> {
+  // Recomputed on open: both sites are SPAs, so a channel captured on
+  // navigation could be stale by the time the menu is used.
+  const channel = channelFromLocation(platform, location.href);
+  const watchlist = await readWatchlist();
+  // The button can be torn down while that read is in flight (the setting
+  // turned off, the scheduler claiming this tab, fullscreen).
+  if (!button || !enabled || menu) return;
+  const listed = channel ? watchlist.includes(channel) : false;
+
+  menu = document.createElement("div");
+  menu.id = MENU_ID;
+  menu.setAttribute("role", "menu");
+  menu.style.cssText = [
+    "position:fixed",
+    "z-index:2147483646",
+    "min-width:220px",
+    "padding:4px",
+    "border-radius:10px",
+    `background:${CHROME_SURFACE}`,
+    `color:${CHROME_TEXT}`,
+    "box-shadow:0 18px 40px -16px rgba(0,0,0,.55)",
+    "font:500 13px/1.3 system-ui, sans-serif",
+  ].join(";");
+
+  const items: Array<{ label: string; run(): void }> = [
+    { label: message("inPageOpenPanel", "Open Lurkloot"), run: () => { void togglePanel(); } },
+  ];
+  // The cap is enforced in normalizeChannelList, so an add past it would be
+  // silently dropped; the menu stops offering it instead.
+  const atLimit = watchlist.length >= IDLE_WATCHLIST_LIMIT;
+  if (channel && (listed || !atLimit)) {
+    items.push(listed
+      ? {
+        label: message("inPageRemoveFromWatchlist", "Remove $1 from the idle watchlist", channel),
+        run: () => { void changeWatchlist("remove", channel); },
+      }
+      : {
+        label: message("inPageAddToWatchlist", "Add $1 to the idle watchlist", channel),
+        run: () => { void changeWatchlist("add", channel); },
+      });
+  }
+
+  const buttons = items.map((item, index) => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.setAttribute("role", "menuitem");
+    row.dataset.menuIndex = String(index);
+    row.textContent = item.label;
+    row.style.cssText = [
+      "all:unset",
+      "box-sizing:border-box",
+      "display:block",
+      "width:100%",
+      "cursor:pointer",
+      "padding:7px 9px",
+      "border-radius:7px",
+      "white-space:nowrap",
+      "overflow:hidden",
+      "text-overflow:ellipsis",
+    ].join(";");
+    row.addEventListener("mouseenter", () => { row.style.background = CHROME_HOVER; });
+    row.addEventListener("mouseleave", () => { row.style.background = "transparent"; });
+    row.addEventListener("click", () => { item.run(); closeMenu(); });
+    return row;
+  });
+  for (const row of buttons) menu.append(row);
+
+  menu.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.stopPropagation();
+      closeMenu();
+      button?.focus();
+      return;
+    }
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    event.preventDefault();
+    const current = buttons.findIndex((row) => row === document.activeElement);
+    const step = event.key === "ArrowDown" ? 1 : -1;
+    const next = (current + step + buttons.length) % buttons.length;
+    buttons[next]?.focus();
+  });
+
+  document.body.append(menu);
+  const anchor = button.getBoundingClientRect();
+  menu.style.top = `${Math.round(anchor.bottom + 6)}px`;
+  menu.style.left = `${Math.round(Math.max(8, Math.min(anchor.right - menu.offsetWidth, window.innerWidth - menu.offsetWidth - 8)))}px`;
+  syncExpanded();
+  buttons[0]?.focus();
+  // Registered after this click finishes, so the click that opened the menu
+  // cannot immediately close it again.
+  setTimeout(() => document.addEventListener("click", onDocumentClick, true), 0);
+}
+
+function onDocumentClick(event: MouseEvent): void {
+  if (!menu) return;
+  const target = event.target;
+  if (target instanceof Node && (menu.contains(target) || button?.contains(target))) return;
+  closeMenu();
+}
+
+function closeMenu(): void {
+  document.removeEventListener("click", onDocumentClick, true);
+  menu?.remove();
+  menu = undefined;
+  syncExpanded();
+}
+
+async function readWatchlist(): Promise<string[]> {
+  const stored = await browser.storage.local.get(SETTINGS_KEY);
+  const settings = stored[SETTINGS_KEY] as Partial<ExtensionSettings> | undefined;
+  const channels = settings?.platform?.[platform]?.idleWatchlistChannels;
+  return Array.isArray(channels) ? channels : [];
+}
+
+// Sent as one add or remove, which the background applies to the list it has
+// stored when it saves. The menu's copy of the list is only as fresh as the
+// moment it opened: writing that copy back would undo anything the popup
+// changed since. Going through the background also keeps normalization and
+// the scheduler tick; writing storage.local directly would skip both.
+async function changeWatchlist(action: "add" | "remove", channel: string): Promise<void> {
+  await browser.runtime.sendMessage({ type: "updateIdleWatchlist", platform, channel, action }).catch(() => undefined);
 }
 
 // Twitch and Kick are both client-rendered: navigating re-renders the nav and
@@ -342,7 +569,6 @@ async function openPanel(): Promise<void> {
   panel.style.cssText = [
     "position:fixed",
     "z-index:2147483647",
-    `width:${PANEL_WIDTH}px`,
     "border-radius:12px",
     "overflow:hidden",
     "box-shadow:0 16px 48px rgba(0,0,0,.45)",
@@ -396,7 +622,6 @@ async function openPanel(): Promise<void> {
   frame.title = "Lurkloot";
   frame.src = browser.runtime.getURL("/inpagePanel.html");
   frame.style.cssText = [
-    `width:${PANEL_WIDTH}px`,
     `height:${PANEL_HEIGHT}px`,
     "border:0",
     "display:block",
@@ -405,18 +630,19 @@ async function openPanel(): Promise<void> {
 
   panel.append(titlebar, frame);
   document.body.append(panel);
+  fitPanelWidth();
 
   position(ui?.left, ui?.top);
   makeDraggable(titlebar);
   applyVisibility();
-  button?.setAttribute("aria-expanded", "true");
+  syncExpanded();
 }
 
 function closePanel(): void {
   panel?.remove();
   panel = undefined;
   frame = undefined;
-  button?.setAttribute("aria-expanded", "false");
+  syncExpanded();
 }
 
 function applyVisibility(): void {
@@ -436,6 +662,16 @@ function position(left: number | undefined, top: number | undefined): void {
   panel.style.left = `${left}px`;
   panel.style.top = `${top}px`;
   clampIntoViewport();
+}
+
+function panelWidth(): number {
+  return Math.max(PANEL_MIN_WIDTH, Math.min(PANEL_WIDTH, window.innerWidth - 2 * EDGE_MARGIN));
+}
+
+function fitPanelWidth(): void {
+  const width = `${panelWidth()}px`;
+  if (panel) panel.style.width = width;
+  if (frame) frame.style.width = width;
 }
 
 // A stored position can land off-screen after a resize or a monitor change.

@@ -1,0 +1,48 @@
+---
+import Arrow from "./Arrow.astro";
+import { LINKS } from "../../consts";
+import PopupDemo from "../../popup-ui/PopupDemo";
+---
+
+<section class="home-opening home-wrap" aria-labelledby="home-title">
+  <div class="home-intro">
+    <h1 id="home-title">Your drops.<br /><span>On autopilot.</span></h1>
+    <p>Farm Twitch and Kick drops, claim rewards, and keep your favourites in order. All from one quiet little workspace.</p>
+    <div class="home-actions">
+      <a class="home-button" href={LINKS.chrome} target="_blank" rel="noopener">Get Lurkloot — free <Arrow direction="out" /></a>
+      <a class="home-text-link" href="#demo">Explore the demo <Arrow direction="down" /></a>
+    </div>
+    <p class="home-install-note">No Lurkloot account. No subscription. Just install.</p>
+  </div>
+  <div class="home-demo" id="demo">
+    <div class="home-demo-caption"><span>YOUR WORKSPACE, AT A GLANCE</span><span class="home-demo-desktop-hint">Try it below</span><button class="home-demo-zoom" type="button" aria-pressed="false" aria-controls="popup-viewport">Enlarge demo</button></div>
+    <div class="home-demo-viewport" id="popup-viewport" data-lenis-prevent>
+      <div class="home-demo-scaler"><PopupDemo frameless client:load /></div>
+    </div>
+    <p class="home-demo-note">Interactive preview · sample data · no real farming</p>
+  </div>
+</section>
+<div class="home-proof home-wrap" aria-label="Product essentials">
+  <span>Twitch + Kick</span><span>Automatic claiming</span><span>Free &amp; open source</span>
+</div>
+<script>
+  // Scale the actual 720 × 600 workspace to its container, including on mobile.
+  // Reserving the scaled height prevents clipping and layout gaps.
+  const viewport = document.querySelector<HTMLElement>(".home-demo-viewport");
+  if (viewport) {
+    const observer = new ResizeObserver(([entry]) => {
+      viewport.style.setProperty("--popup-scale", String(Math.min(1, entry.contentRect.width / 720)));
+    });
+    observer.observe(viewport);
+    const zoom = document.querySelector<HTMLButtonElement>(".home-demo-zoom");
+    zoom?.addEventListener("click", () => {
+      const expanded = zoom.getAttribute("aria-pressed") !== "true";
+      zoom.setAttribute("aria-pressed", String(expanded));
+      zoom.textContent = expanded ? "Fit to screen" : "Enlarge demo";
+      viewport.dataset.expanded = String(expanded);
+      viewport.tabIndex = expanded ? 0 : -1;
+      if (expanded) viewport.setAttribute("aria-label", "Full-size popup preview. Scroll horizontally to explore.");
+      else viewport.removeAttribute("aria-label");
+    });
+  }
+</script>

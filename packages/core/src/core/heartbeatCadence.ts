@@ -10,7 +10,7 @@ export function nextHeartbeatDueAt(previousDueAt: number, attemptAt: number): nu
 
 export function heartbeatContextKey(session: WatchSession): string | undefined {
   const channel = session.channel;
-  if (session.watchMode !== "tabless" || !channel || !session.campaignId || !session.rewardId) return undefined;
+  if (session.watchMode !== "tabless" || !channel || (!session.campaignId || !session.rewardId) && !session.supplementalWatch) return undefined;
   return JSON.stringify([
     session.platform,
     channel.url,
@@ -18,8 +18,7 @@ export function heartbeatContextKey(session: WatchSession): string | undefined {
     channel.broadcastId ?? "",
     channel.channelId ?? "",
     channel.categoryId ?? "",
-    session.campaignId,
-    session.rewardId,
+    ...(session.supplementalWatch ? ["supplemental", session.supplementalWatch.id] : [session.campaignId, session.rewardId]),
   ]);
 }
 

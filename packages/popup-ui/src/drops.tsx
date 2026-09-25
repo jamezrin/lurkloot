@@ -1,8 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { arrayMove } from "@dnd-kit/helpers";
-import { DragDropProvider } from "@dnd-kit/react";
+import React, { useEffect, useRef, useState } from "react";
 import { useSortable } from "@dnd-kit/react/sortable";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence } from "motion/react";
 import {
   AlertTriangle,
   Ban,
@@ -10,235 +8,182 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Clock3,
+  Clock,
   ExternalLink,
   Gift,
-  GripVertical,
+  Hourglass,
   Link2,
-  Radio,
+  MousePointerClick,
+  Pin,
   RotateCcw,
-  Search,
-  Trophy,
+  Star,
   Users,
-  X,
-  type LucideIcon,
 } from "lucide-react";
-import { PopupRuntimeContext, useT } from "./context";
-import { filterCampaigns } from "./campaignSearch";
-import { formatCountdown, formatHours, formatMinutes } from "./format";
-import { campaignStats, fallbackGame } from "./viewModels";
-import type { CampaignLifecycleState, CampaignView, GameItem, RewardView, TFunction } from "./types";
+import type { CategorySelection } from "@lurkloot/shared/models";
+import { I18nContext, PopupRuntimeContext, useT } from "./context";
+import { formatCountdown, formatDateTime, formatMinutes, formatViewers } from "./format";
+import { campaignStats, campaignTimeline } from "./viewModels";
+import type { CampaignTimeline, CampaignView, GameItem, RewardView, TFunction } from "./types";
 import {
   DragHandle,
-  EmptyPanel,
-  IconButton,
   ImageWithFallback,
-  MetaStat,
-  Pill,
   ProgressBar,
   RankInput,
-  SearchBox,
-  SectionHeader,
   cn,
-  reorderFromDragEnd,
   preventNativeDrag,
-  type SortableDragEndEvent,
 } from "./primitives";
+import { Menu } from "@base-ui/react/menu";
+import { FLOATING_POPUP_CLASS } from "./dropdown";
+import { usePortalContainer } from "./portal";
+import { Tip } from "./tooltip";
 
 /** Cards start collapsed; only a campaign that is actively being farmed is worth
  * opening on mount. Anything else (completed, upcoming, merely first) would bury
  * the list under a reward grid the user did not ask for. */
 export function initialExpandedIds(campaigns: CampaignView[]): Record<string, boolean> {
   const farmingId = farmingCampaignId(campaigns);
-  const farmingIndex = campaigns.findIndex((campaign) => campaign.id === farmingId);
   return farmingId ? { [farmingId]: true } : {};
 }
 
 function farmingCampaignId(campaigns: CampaignView[]): string | undefined {
-  return campaigns.find((campaign) => Boolean(campaign.farmingChannel))?.id;
+  return campaigns.find((campaign) => campaign.lifecycle !== "finished" && Boolean(campaign.farmingChannel))?.id;
 }
 
-export function DropsPanel({ campaigns, gameMap, focus, refreshing, startCollapsed = false, onRefreshCampaign, onReorder, onToggleExclude }: { campaigns: CampaignView[]; gameMap: Record<string, GameItem>; focus?: { id: string; seq: number } | null; refreshing: boolean; startCollapsed?: boolean; onRefreshCampaign(id: string): void | Promise<void>; onReorder(campaigns: CampaignView[]): void | Promise<void>; onToggleExclude(id: string): void | Promise<void> }) {
-  const t = useT();
-  const [query, setQuery] = useState("");
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [sectionExpanded, setSectionExpanded] = useState(true);
-  const farmingId = farmingCampaignId(campaigns);
-  const farmingIndex = campaigns.findIndex((campaign) => campaign.id === farmingId);
-  // `startCollapsed` is for the store screenshot that is about the Idle
-  // Watchlist: the farmed campaign's reward grid would otherwise push the
-  // watchlist off the bottom of the frame.
-  const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>(() => startCollapsed ? {} : initialExpandedIds(campaigns));
-  const autoExpandedId = useRef<string | undefined>(farmingId);
-  const listRef = useRef<HTMLDivElement>(null);
-  const searching = query.trim().length > 0;
-  const visibleCampaigns = useMemo(() => filterCampaigns(campaigns, gameMap, query), [campaigns, gameMap, query]);
-
-  // Campaigns can arrive after mount, and the farmed campaign can change while the
-  // popup is open. Expand the new one when that happens, but never collapse anything:
-  // a card the user toggled by hand stays the way they left it.
-  useEffect(() => {
-    if (!farmingId || farmingId === autoExpandedId.current) return;
-    autoExpandedId.current = farmingId;
-    setExpandedIds((current) => ({ ...current, [farmingId]: true }));
-  }, [farmingId]);
-
-  // Jump to a campaign requested from elsewhere (e.g. the "Farming {campaign}"
-  // link in the status line): clear anything that could hide the card first.
-  useEffect(() => {
-    if (!focus) return;
-    setQuery("");
-    setSearchOpen(false);
-    setSectionExpanded(true);
-    setExpandedIds((current) => ({ ...current, [focus.id]: true }));
-  }, [focus?.seq]);
-
-  // Search and section expansion update asynchronously. Query the card only
-  // after the visible list has been committed, otherwise a focus request made
-  // while filtered/collapsed loses its scroll target.
-  useEffect(() => {
-    if (!focus || !sectionExpanded || searchOpen || searching) return;
-    const frame = requestAnimationFrame(() => {
-      const cards = listRef.current?.querySelectorAll<HTMLElement>("[data-campaign-id]");
-      const el = cards && Array.from(cards).find((card) => card.dataset.campaignId === focus.id);
-      el?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [focus?.id, focus?.seq, searching, searchOpen, sectionExpanded]);
-  const anyFarming = campaigns.some((campaign) => Boolean(campaign.farmingChannel));
-
-  function endDrag(event: SortableDragEndEvent): void {
-    const next = reorderFromDragEnd(campaigns, event);
-    if (next === campaigns) return;
-    void onReorder(next);
-  }
-
-  function moveCampaign(fromIndex: number, toIndex: number): void {
-    void onReorder(arrayMove(campaigns, fromIndex, toIndex));
-  }
-
-  return (
-    <section className="space-y-1.5">
-      {/* The list owns its own heading: name, count and the search that filters
-          it, the same shape the Idle Watchlist section has. */}
-      {searchOpen ? (
-        <div className="flex h-7 items-center gap-1">
-          <div className="min-w-0 flex-1">
-            <SearchBox compact autoFocus value={query} onChange={setQuery} placeholder={t("campaignSearchPlaceholder")} />
-          </div>
-          <IconButton label={t("closeSearch")} onClick={() => { setQuery(""); setSearchOpen(false); }}>
-            <X size={15} />
-          </IconButton>
-        </div>
-      ) : (
-        <SectionHeader
-          label={t("dropsTab")}
-          count={String(campaigns.length)}
-          icon={Gift}
-          expanded={sectionExpanded}
-          onToggle={() => setSectionExpanded((current) => !current)}
-          action={(
-            <IconButton
-              label={t("search")}
-              onClick={() => { setSearchOpen(true); setSectionExpanded(true); }}
-            >
-              <Search size={15} />
-            </IconButton>
-          )}
-        />
-      )}
-      <AnimatePresence initial={false}>
-        {sectionExpanded ? (
-          <motion.div key="campaigns" initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
-            {campaigns.length === 0 ? <EmptyPanel>{t("noCampaigns")}</EmptyPanel> : searching ? (
-              visibleCampaigns.length === 0 ? (
-                <p className="px-1 py-6 text-center text-xs text-zinc-400 dark:text-zinc-500">{t("campaignSearchNoResults", query.trim())}</p>
-              ) : (
-                <div className="space-y-1">
-                  {visibleCampaigns.map((campaign, visibleIndex) => {
-                    const index = campaigns.findIndex((item) => item.id === campaign.id);
-                    const priorityIndex = index === -1 ? visibleIndex : index;
-                    return <CampaignCard key={campaign.id} campaign={campaign} index={priorityIndex} farmingIndex={farmingIndex} anyFarming={anyFarming} game={gameMap[campaign.gameId] ?? fallbackGame(campaign, priorityIndex, t)} expanded={Boolean(expandedIds[campaign.id])} refreshing={refreshing} onToggle={() => setExpandedIds((current) => ({ ...current, [campaign.id]: !current[campaign.id] }))} onRefreshCampaign={onRefreshCampaign} onToggleExclude={onToggleExclude} />;
-                  })}
-                </div>
-              )
-            ) : (
-              <DragDropProvider onDragEnd={endDrag}>
-                <div ref={listRef} className="space-y-1">
-                  {campaigns.map((campaign, index) => (
-                    <SortableCampaign key={campaign.id} campaign={campaign} index={index} farmingIndex={farmingIndex} anyFarming={anyFarming} game={gameMap[campaign.gameId] ?? fallbackGame(campaign, index, t)} expanded={Boolean(expandedIds[campaign.id])} refreshing={refreshing} onToggle={() => setExpandedIds((current) => ({ ...current, [campaign.id]: !current[campaign.id] }))} onRefreshCampaign={onRefreshCampaign} onToggleExclude={onToggleExclude} rankCount={campaigns.length} onRankMove={(toIndex) => moveCampaign(index, toIndex)} />
-                  ))}
-                </div>
-              </DragDropProvider>
-            )}
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-    </section>
-  );
-}
-
-function SortableCampaign(props: { campaign: CampaignView; index: number; farmingIndex: number; anyFarming: boolean; game: GameItem; expanded: boolean; refreshing: boolean; onToggle(): void; onRefreshCampaign(id: string): void | Promise<void>; onToggleExclude(id: string): void | Promise<void>; rankCount?: number; onRankMove?: (toIndex: number) => void }) {
+export function SortableCampaign(props: Omit<CampaignCardProps, "dragHandle" | "dimmed" | "isOverlay"> & { rank?: number }) {
   // The new dnd-kit animates the real element, so there is no DragOverlay copy
   // and no transform/transition to apply by hand.
   const t = useT();
   const { ref, handleRef, isDragging } = useSortable({ id: props.campaign.id, index: props.index });
   return (
-    <div ref={ref} data-campaign-id={props.campaign.id} onDragStart={preventNativeDrag}>
+    <div ref={ref} data-campaign-id={props.campaign.id} data-campaign-rank={String(props.rank ?? props.index + 1)} onDragStart={preventNativeDrag}>
       <CampaignCard {...props} dimmed={isDragging} dragHandle={<DragHandle handleRef={handleRef} label={t("reorderItem", props.campaign.title)} />} />
     </div>
   );
 }
 
-function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, expanded, refreshing, onToggle, onRefreshCampaign, onToggleExclude, dragHandle, isOverlay = false, dimmed = false, rankCount, onRankMove }: { campaign: CampaignView; index: number; farmingIndex: number; anyFarming: boolean; game: GameItem; expanded: boolean; refreshing: boolean; onToggle(): void; onRefreshCampaign(id: string): void | Promise<void>; onToggleExclude?(id: string): void | Promise<void>; dragHandle?: React.ReactNode; isOverlay?: boolean; dimmed?: boolean; rankCount?: number; onRankMove?: (toIndex: number) => void }) {
+export type CampaignCardProps = {
+  campaign: CampaignView;
+  index: number;
+  farmingIndex: number;
+  anyFarming: boolean;
+  game: GameItem;
+  expanded: boolean;
+  refreshing: boolean;
+  onToggle(): void;
+  onRefreshCampaign(id: string): void | Promise<void>;
+  onToggleExclude?(id: string): void | Promise<void>;
+  dragHandle?: React.ReactNode;
+  isOverlay?: boolean;
+  dimmed?: boolean;
+  rankCount?: number;
+  onRankMove?: (toIndex: number) => void;
+  fix?: { label: string; onClick(): void };
+  terminal?: boolean;
+  pinned?: boolean;
+  onPin?: () => void;
+  // Why the ranking put this row where it is, shown among the facts. Only the
+  // queue passes it: nothing else on screen is ranked.
+  rankReason?: string;
+  onToggleFavouriteCategory?(category: CategorySelection): void | Promise<void>;
+  onToggleBlockedCategory?(category: CategorySelection): void | Promise<void>;
+};
+
+/** One campaign. Collapsed, a row: rank, name, progress, when it ends, a pin.
+ * Opened, everything about it and everything that can be done to it, so no
+ * action hides behind a menu: the rewards on a sliding row, the facts that
+ * explain its place, and the actions — with Exclude asking whether it means
+ * this campaign or its whole game. */
+export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, expanded, refreshing, onToggle, onRefreshCampaign, onToggleExclude, dragHandle, isOverlay = false, dimmed = false, rankCount, onRankMove, fix, terminal = false, pinned, onPin, rankReason, onToggleFavouriteCategory, onToggleBlockedCategory }: CampaignCardProps) {
   const t = useT();
+  const { locale } = React.useContext(I18nContext);
   const runtime = React.useContext(PopupRuntimeContext);
-  // Where the pointer went down on the meta row, so drag-scrolling an
-  // overflowing pill row does not read as a click on the card.
-  const metaPointerX = useRef(0);
   const stats = campaignStats(campaign);
-  const isFarming = Boolean(campaign.farmingChannel);
-  const farmingRejection = isFarming ? undefined : campaign.farmingRejection;
+  const timeline = campaignTimeline(campaign);
+  // `terminal` is "this campaign is over": the Completed view renders expired
+  // rows exactly like finished ones — one state, no rank, no rail, no warning.
+  // An expired campaign is over wherever it is shown, search results included.
+  const finished = terminal || campaign.lifecycle === "finished" || campaign.lifecycle === "expired";
+  const expired = campaign.lifecycle === "expired";
+  const isFarming = !terminal && Boolean(campaign.farmingChannel);
+  // Only watch rewards are farmed by watching: a subscription-only campaign the
+  // session happens to point at is not "farming".
+  const farmingNow = isFarming && campaign.hasWatchRewards;
+  const upcoming = !finished && campaign.status === "upcoming";
+  const farmingRejection = isFarming || finished ? undefined : campaign.farmingRejection;
   const farmingRejectionMessage = farmingRejection
     ? t(campaignRejectionMessageKey(farmingRejection.code), farmingRejection.rewardName)
     : undefined;
-  const emphasized = isFarming || (!anyFarming && index === 0);
-  const channelLabel = campaign.channels.length === 0 ? t("allChannels") : t("channelCount", String(campaign.channels.length));
-  const timingLabel = campaign.status === "upcoming"
-    ? t("startsIn", formatCountdown(campaign.starts, t))
-    : t("endsIn", formatCountdown(campaign.ends, t));
-  const lifecyclePill = campaignLifecyclePill(campaign.lifecycle, t);
+  const emphasized = !finished && (isFarming || (!anyFarming && index === 0 && !farmingRejection));
   const showsWatchProgress = stats.kind === "watch" || stats.kind === "mixed";
-  const headlineStatus = stats.kind === "subscription"
-    ? `${stats.completed}/${stats.totalRewards}`
-    : stats.kind === "action"
-      ? t("actionRequired")
-      : `${(stats.progress ?? 0).toFixed(0)}%`;
+  const endsAt = Date.parse(campaign.ends);
+  const endsSoon = !finished && !upcoming && !Number.isNaN(endsAt) && endsAt - Date.now() < 12 * 3_600_000;
   const claimGuidance = campaign.rewards.find((reward) => reward.claimGuidance)?.claimGuidance;
-  const waitingForStream = !isFarming && farmingIndex > index;
-  const waitingReason = t("waitingEligibleStream");
-  const waitingHint = `${waitingReason.charAt(0).toLocaleUpperCase()}${waitingReason.slice(1)}${/[.!?]$/.test(waitingReason) ? "" : "."}`;
-  const waitingLabel = `${t("later").charAt(0).toLocaleUpperCase()}${t("later").slice(1)}`;
+  const category = campaign.category;
+  const canExclude = Boolean(onToggleExclude) && campaign.hasWatchRewards && !finished;
+  const canBlock = Boolean(onToggleBlockedCategory && category) && !finished;
+  const rewardsLabel = t("campaignRewardsProgress", [String(stats.completed), String(stats.totalRewards)]);
+  const deadline: { tone: DeadlineTone; label: string; hint?: string } | undefined = finished
+    ? { tone: expired ? "muted" : "done", label: t(expired ? "expiredPill" : "finished") }
+    : upcoming
+      ? { tone: "muted", label: startsLabel(campaign.starts, t), hint: campaign.starts ? `${t("campaignFactStarts")} · ${formatDateTime(campaign.starts, locale)}` : undefined }
+      : (() => {
+        const label = timeLeftLabel(campaign.ends, t);
+        return label ? { tone: endsSoon ? "hot" : "muted", label, hint: `${t("campaignFactEnds")} · ${formatDateTime(campaign.ends, locale)}` } : undefined;
+      })();
+  // Watching still needed for every reward, set against the time the campaign
+  // has left to run. When it cannot all fit, the row says so and the bar marks
+  // how far the viewing can get before the end.
+  const watchLeft = !finished && timeline && timeline.remainingMinutes > 0 ? timeline.remainingMinutes : undefined;
+  const startsAt = Date.parse(campaign.starts);
+  const windowStart = upcoming && !Number.isNaN(startsAt) ? Math.max(Date.now(), startsAt) : Date.now();
+  const minutesToEnd = Number.isNaN(endsAt) ? undefined : Math.max(0, (endsAt - windowStart) / 60_000);
+  const outOfTime = watchLeft !== undefined && minutesToEnd !== undefined && watchLeft > minutesToEnd;
+  const reachable = outOfTime && timeline
+    ? (timeline.totalMinutes - timeline.remainingMinutes + minutesToEnd!) / timeline.totalMinutes
+    : undefined;
+  // States that used to be pills, now icons after the title. The expanded card
+  // lists the same states in words (a rejection has its own banner there).
+  const notices: CampaignFlag[] = finished ? [] : [
+    ...(!campaign.linked ? [{ key: "not-linked", tone: "danger", icon: <Link2 size={12} />, label: t("notLinked") } as const] : []),
+    ...(campaign.hasSubscriptionRewards ? [{ key: "subscription", tone: "muted", icon: <Users size={12} />, label: t("subscriptionRequired") } as const] : []),
+    ...(stats.kind === "action" ? [{ key: "action", tone: "muted", icon: <MousePointerClick size={12} />, label: t("actionRequired") } as const] : []),
+    ...(campaign.excluded && campaign.hasWatchRewards ? [{ key: "excluded", tone: "muted", icon: <Ban size={12} />, label: t("excluded") } as const] : []),
+  ];
+  // A subscription-only card already heads its panel with the same words.
+  const expandedNotices = stats.kind === "subscription" ? notices.filter((notice) => notice.key !== "subscription") : notices;
+  const flags: CampaignFlag[] = farmingRejectionMessage
+    ? [...notices, { key: "rejected", tone: "warning", icon: <AlertTriangle size={12} />, label: farmingRejectionMessage }]
+    : notices;
 
   return (
-    <article className={cn("overflow-hidden rounded-2xl border bg-white transition-shadow dark:bg-zinc-900", emphasized ? "border-[var(--accent-ring)]" : "border-zinc-200 dark:border-zinc-800", isOverlay ? "shadow-2xl shadow-black/25" : "shadow-sm", dimmed && "opacity-40")} style={emphasized && !isOverlay ? { boxShadow: "0 10px 30px -18px var(--accent-glow)" } : undefined}>
+    <article className={cn(
+      "overflow-hidden rounded-[10px] border bg-white transition-shadow dark:bg-zinc-900",
+      emphasized ? "border-[var(--ink)]" : "border-zinc-200 dark:border-zinc-800",
+      finished && "bg-zinc-50/60 dark:bg-zinc-900/60",
+      farmingRejection && "border-dashed bg-transparent dark:bg-transparent",
+      isOverlay && "shadow-2xl shadow-black/25",
+      dimmed && "opacity-40",
+    )}
+    >
       <div className="relative flex items-stretch">
         {/* Drag rail doubles as the priority column: grip and rank share a
             16px column centered in the rail so the number is a caption of the
-            handle, not full-rail text. */}
-        <div className="flex w-7 shrink-0 items-center justify-center border-r border-zinc-100 bg-zinc-50/60 dark:border-zinc-800 dark:bg-zinc-800/40">
-          <div className="flex w-4 flex-col items-center gap-0.5">
-            {dragHandle ?? <GripVertical size={14} className="text-zinc-300 dark:text-zinc-600" />}
-            <RankInput index={index} count={rankCount ?? 0} label={campaign.title} onMove={onRankMove} size="rail" />
+            handle, not full-rail text. Only pins can be dragged, so a row
+            without a handle shows its rank alone rather than a grip that
+            would promise a drag it cannot do. */}
+        {!finished ? (
+          <div className="flex w-7 shrink-0 items-center justify-center">
+            <div className="flex w-4 flex-col items-center gap-0.5">
+              {dragHandle}
+              <RankInput index={index} count={rankCount ?? 0} label={campaign.title} onMove={onRankMove} size="rail" />
+            </div>
           </div>
-        </div>
-        {/* Full-area toggle behind the content so the page-link anchor can live next
-            to the title without nesting an <a> inside a <button>. */}
-        <button type="button" onClick={onToggle} aria-expanded={expanded} aria-label={campaign.title} className="absolute inset-y-0 left-7 right-0 z-0 outline-none" />
-        {/* Extra bottom padding is the progress bar's breathing room: the bar
-            overlays the last 2px of it, leaving a clear gap under the pill row. */}
-        <div className="pointer-events-none relative z-10 flex min-w-0 flex-1 items-center gap-2 px-1.5 pb-2 pt-1.5">
-          <div className="relative flex h-8 w-8 shrink-0 items-end overflow-hidden rounded-lg shadow-inner">
+        ) : null}
+        {/* Full-area toggle behind the content, so the row's own buttons can
+            sit on top of it without nesting a button inside a button. */}
+        <button type="button" onClick={onToggle} aria-expanded={expanded} aria-label={campaign.title} className={cn("absolute inset-y-0 end-0 z-0 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent-ring)]", finished ? "start-0" : "start-7")} />
+        <div className="pointer-events-none relative z-10 flex min-w-0 flex-1 items-center gap-2.5 px-1.5 py-2">
+          <div className="relative flex h-9 w-9 shrink-0 items-end overflow-hidden rounded-lg shadow-inner">
             <ImageWithFallback src={campaign.imageUrl} alt={campaign.title} fit="cover" fallback={
               <div className={cn("flex h-full w-full items-end bg-gradient-to-br p-1.5", campaign.tint)}>
                 <span className="text-[11px] font-black leading-none tracking-normal text-white drop-shadow">{campaign.thumbnail}</span>
@@ -246,155 +191,217 @@ function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, expande
             } />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex min-w-0 items-center gap-1">
-                <span className="line-clamp-1 text-[13px] font-semibold leading-tight text-zinc-900 dark:text-zinc-50">{campaign.title}</span>
-                {campaign.pageUrl && (
-                  <a
-                    href={campaign.pageUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    onClick={(event) => event.stopPropagation()}
-                    aria-label={t("viewDropPage")}
-                    title={t("viewDropPage")}
-                    className="pointer-events-auto shrink-0 rounded p-0.5 text-zinc-400 outline-none transition-colors hover:text-[var(--accent-text)] focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:text-zinc-500"
+            {/* The title keeps the line to itself but for small state icons
+                right after it: each names its state in a tooltip, and the
+                expanded card spells it out. */}
+            <div className="flex min-w-0 items-center gap-1">
+              {campaign.favourited && !finished ? (
+                <Star size={11} aria-label={t("campaignFavouriteOn", game.name)} className="shrink-0 fill-current text-amber-500 dark:text-amber-400" />
+              ) : null}
+              <span className="min-w-0 truncate text-[13px] font-semibold leading-tight text-zinc-900 dark:text-zinc-50">{campaign.title}</span>
+              {flags.map((flag) => (
+                <Tip key={flag.key} label={flag.label}>
+                  <span
+                    data-campaign-flag={flag.key}
+                    {...(flag.key === "rejected" ? { "data-farming-rejection-indicator": "" } : {})}
+                    role="img"
+                    aria-label={flag.label}
+                    // The content layer lets clicks through to the row's
+                    // toggle; a flag takes the pointer for its tooltip, so it
+                    // does the toggle's job itself.
+                    onClick={onToggle}
+                    className={cn("pointer-events-auto inline-flex shrink-0 p-px", FLAG_TONE[flag.tone])}
                   >
-                    <ExternalLink size={12} />
-                  </a>
-                )}
-              </div>
-              <div className="flex shrink-0 items-center gap-1.5">
-                <span className="text-[13px] font-bold tabular leading-none" style={{ color: "var(--accent-text)" }}>
-                  {headlineStatus}
-                </span>
-                <motion.div animate={{ rotate: expanded ? 180 : 0 }} transition={{ duration: 0.2 }} className="shrink-0 text-zinc-400 dark:text-zinc-500"><ChevronDown size={16} /></motion.div>
-              </div>
+                    {flag.icon}
+                  </span>
+                </Tip>
+              ))}
             </div>
-            {/* Category and every state pill on one non-wrapping line. The
-                category name yields first (Pill cannot shrink below its text),
-                and past that the row scrolls rather than growing the card by a
-                line — which needs pointer events back, so the row re-implements
-                the expand toggle the content layer otherwise passes through. */}
-            <div
-              className="no-scrollbar pointer-events-auto mt-0.5 flex items-center gap-1.5 overflow-x-auto text-[11px] text-zinc-500 dark:text-zinc-400"
-              onPointerDown={(event) => { metaPointerX.current = event.clientX; }}
-              onClick={(event) => {
-                // Suppress only what is positively a pointer click that moved:
-                // that is a drag-scroll of this row, not a click on the card.
-                // `detail` is 0 for keyboard and programmatic clicks, which
-                // report clientX 0 and would otherwise look like a long drag.
-                if (event.detail > 0 && Math.abs(event.clientX - metaPointerX.current) >= 4) return;
-                onToggle();
-              }}
-            >
-              <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: game.accent }} />
-              <span className="truncate">{game.name}</span>
-              {campaign.hasSubscriptionRewards ? <Pill tone="outline"><Users size={9} /> {t("subscriptionRequired")}</Pill> : null}
-              {stats.kind === "action" ? <Pill tone="outline"><AlertTriangle size={9} /> {t("actionRequired")}</Pill> : null}
-              {isFarming && campaign.hasWatchRewards ? <Pill tone="accent"><Radio size={9} /> {t("farmingLabel")}</Pill> : null}
-              {waitingForStream && campaign.hasWatchRewards ? (
-                <span title={waitingHint}>
-                  <Pill tone="muted"><Clock3 size={9} /> {waitingLabel}</Pill>
-                </span>
+            <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[11px] leading-tight text-zinc-500 dark:text-zinc-400">
+              <span className="min-w-0 truncate">{game.name}</span>
+              {!timeline || finished ? (
+                <>
+                  <span aria-hidden className="text-zinc-300 dark:text-zinc-600">·</span>
+                  <span className="shrink-0 tabular">{rewardsLabel}</span>
+                </>
               ) : null}
-              {lifecyclePill && (
-                <Pill tone={lifecyclePill.tone}>
-                  <lifecyclePill.icon size={9} /> {lifecyclePill.label}
-                </Pill>
-              )}
-              {!campaign.linked && <Pill tone="danger"><Link2 size={9} /> {t("notLinked")}</Pill>}
-              {campaign.excluded && campaign.hasWatchRewards ? <Pill tone="outline"><Ban size={9} /> {t("excluded")}</Pill> : null}
-              {farmingRejectionMessage ? (
-                <span
-                  data-farming-rejection-indicator
-                  role="img"
-                  aria-label={farmingRejectionMessage}
-                  title={farmingRejectionMessage}
-                  className="inline-flex shrink-0 text-amber-500 dark:text-amber-400"
+              {deadline ? (
+                <>
+                  <span aria-hidden className="text-zinc-300 dark:text-zinc-600">·</span>
+                  <Deadline tone={deadline.tone} label={deadline.label} hint={deadline.hint} onClick={onToggle} />
+                </>
+              ) : null}
+              {watchLeft !== undefined ? (
+                <>
+                  <span aria-hidden className="text-zinc-300 dark:text-zinc-600">·</span>
+                  <RowFact
+                    attribute="data-campaign-watch-left"
+                    icon={<Hourglass size={10} aria-hidden="true" />}
+                    label={formatMinutes(watchLeft)}
+                    hint={outOfTime
+                      ? `${t("campaignLeft")} · ${formatMinutes(watchLeft)} · ${t("insufficientTimeRemaining")}`
+                      : `${t("campaignLeft")} · ${formatMinutes(watchLeft)}`}
+                    className={outOfTime ? "font-medium text-amber-600 dark:text-amber-400" : undefined}
+                    onClick={onToggle}
+                  />
+                </>
+              ) : null}
+            </div>
+            {timeline && !finished ? (
+              <CampaignProgress timeline={timeline} reachable={reachable} rewardsLabel={rewardsLabel} onClick={onToggle} />
+            ) : null}
+          </div>
+          <div className="pointer-events-auto flex shrink-0 items-center gap-1">
+            {fix ? (
+              <button
+                type="button"
+                data-queue-fix
+                onClick={(event) => { event.stopPropagation(); fix.onClick(); }}
+                className="shrink-0 rounded-md border border-zinc-300 px-2 py-0.5 text-[10px] font-semibold text-zinc-800 hover:bg-[var(--ink-soft)] dark:border-zinc-700 dark:text-zinc-100"
+              >
+                {fix.label}
+              </button>
+            ) : null}
+            {onPin ? (
+              <Tip label={t(pinned ? "queueUnpin" : "queueFixPin")}>
+                <button
+                  type="button"
+                  data-queue-pin
+                  aria-pressed={Boolean(pinned)}
+                  aria-label={t(pinned ? "queueUnpin" : "queueFixPin")}
+                  onClick={(event) => { event.stopPropagation(); onPin(); }}
+                  className={cn(
+                    "grid h-6 w-6 place-items-center rounded-md transition-colors",
+                    pinned ? "text-[var(--ink-text)]" : "text-zinc-300 hover:bg-zinc-100 hover:text-zinc-600 dark:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300",
+                  )}
                 >
-                  <AlertTriangle size={11} />
-                </span>
-              ) : null}
-            </div>
+                  <Pin size={13} fill={pinned ? "currentColor" : "none"} />
+                </button>
+              </Tip>
+            ) : null}
+            {/* The chevron opens and closes the card like the row itself does.
+                It sits among the row's own controls, which take their clicks,
+                so it has to be a button rather than a picture of one. The
+                row's full-area toggle already names the action for assistive
+                technology, so this duplicate stays out of the tab order.
+                Rotated with CSS: a motion element per card made every list
+                mount pay for Motion's scroll measurement. */}
+            <Tip label={t(expanded ? "campaignHideDetails" : "campaignShowDetails")}>
+              <button
+                type="button"
+                data-campaign-chevron
+                tabIndex={-1}
+                aria-hidden
+                onClick={(event) => { event.stopPropagation(); onToggle(); }}
+                className="grid h-6 w-6 place-items-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 rtl:-scale-x-100 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+              >
+                <ChevronRight size={15} className={cn("transition-transform duration-200 motion-reduce:transition-none", expanded && "rotate-90")} />
+              </button>
+            </Tip>
           </div>
         </div>
-        {/* Watch progress rides the card's bottom edge rather than taking a row
-            of its own inside the collapsed layout. */}
-        {showsWatchProgress ? (
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20">
-            <ProgressBar value={stats.progress ?? 0} size="edge" glow={emphasized} />
-          </div>
-        ) : null}
       </div>
       <AnimatePresence initial={false}>
         {expanded && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }} className="overflow-hidden">
-            <div className="space-y-2.5 p-2.5">
+          <div className="lurk-reveal">
+            <div className="space-y-2.5 border-t border-zinc-100 p-2.5 dark:border-zinc-800">
               {farmingRejectionMessage ? (
-                <div className="flex items-start gap-1.5 rounded-lg border border-amber-300/70 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
-                  <AlertTriangle size={12} className="mt-0.5 shrink-0" />
-                  <span>{farmingRejectionMessage}</span>
+                <div className="flex items-center gap-2 rounded-lg border border-amber-300/70 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+                  <AlertTriangle size={12} className="shrink-0" />
+                  <span className="min-w-0 flex-1">{farmingRejectionMessage}</span>
+                  {fix ? (
+                    <button type="button" onClick={fix.onClick} className="shrink-0 rounded-md border border-current px-2 py-0.5 text-[10px] font-semibold hover:bg-amber-100 dark:hover:bg-amber-500/20">
+                      {fix.label}
+                    </button>
+                  ) : null}
                 </div>
               ) : null}
+              {expandedNotices.length > 0 ? (
+                <ul data-campaign-notices className="space-y-1">
+                  {expandedNotices.map((notice) => (
+                    <li key={notice.key} className={cn("flex min-h-5 items-center gap-1.5 text-[11px] font-medium", FLAG_TONE[notice.tone])}>
+                      <span className="flex shrink-0">{notice.icon}</span>
+                      <span className="min-w-0 flex-1">{notice.label}</span>
+                      {notice.key === "not-linked" && campaign.linkUrl ? (
+                        <a
+                          href={campaign.linkUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(event) => event.stopPropagation()}
+                          className="flex shrink-0 items-center gap-1 rounded-md border border-current px-2 py-0.5 text-[10px] font-semibold outline-none hover:bg-red-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:hover:bg-red-500/10"
+                        >
+                          {t("linkAccount")}
+                          <ExternalLink size={10} className="opacity-70" />
+                        </a>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
               {stats.kind === "subscription" ? (
-                <div className="rounded-xl border border-zinc-100 bg-zinc-50/70 p-2.5 dark:border-zinc-800 dark:bg-zinc-800/40">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1 text-[10px] font-medium text-zinc-500 dark:text-zinc-400"><Clock3 size={10} /> {timingLabel}</div>
-                      <div className="mt-1 text-[11px] font-semibold text-zinc-700 dark:text-zinc-200">{t("subscriptionRequired")}</div>
-                      <div className="mt-0.5 text-[10px] text-zinc-500 dark:text-zinc-400">{t("notEarnableByWatching")}</div>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <div className="text-xs font-semibold tabular" style={{ color: "var(--accent-text)" }}>{stats.completed}/{stats.totalRewards}</div>
-                      <div className="mt-0.5 text-[9px] font-medium uppercase text-zinc-400 dark:text-zinc-500">{t("subscriptionRewards")}</div>
-                      <div className="mt-1 text-[10px] text-zinc-500 dark:text-zinc-400">{stats.complete ? t("complete") : t("subscriptionProgressUnknown")}</div>
-                    </div>
+                <div className="flex items-start justify-between gap-2 rounded-xl border border-zinc-100 bg-zinc-50/70 p-2.5 dark:border-zinc-800 dark:bg-zinc-800/40">
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-200">{t("subscriptionRequired")}</div>
+                    <div className="mt-0.5 text-[10px] text-zinc-500 dark:text-zinc-400">{t("notEarnableByWatching")}</div>
+                  </div>
+                  <div className="shrink-0 text-end">
+                    <div className="text-xs font-semibold tabular" style={{ color: "var(--accent-text)" }}>{stats.completed}/{stats.totalRewards}</div>
+                    <div className="mt-0.5 text-[9px] font-medium uppercase text-zinc-400 dark:text-zinc-500">{t("subscriptionRewards")}</div>
+                    <div className="mt-1 text-[10px] text-zinc-500 dark:text-zinc-400">{stats.complete ? t("complete") : t("subscriptionProgressUnknown")}</div>
                   </div>
                 </div>
-              ) : stats.kind === "action" ? (
-                <div className="rounded-xl border border-zinc-100 bg-zinc-50/70 p-2.5 dark:border-zinc-800 dark:bg-zinc-800/40">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1 text-[10px] font-medium text-zinc-500 dark:text-zinc-400"><Clock3 size={10} /> {timingLabel}</div>
-                      <div className="mt-1 text-[11px] font-semibold text-zinc-700 dark:text-zinc-200">{t("actionRequired")}</div>
-                    </div>
-                    <div className="shrink-0 text-xs font-semibold tabular" style={{ color: "var(--accent-text)" }}>{stats.completed}/{stats.totalRewards}</div>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="rounded-xl border border-zinc-100 bg-zinc-50/70 p-2.5 dark:border-zinc-800 dark:bg-zinc-800/40">
-                    <div className="flex items-end justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1 text-[10px] font-medium text-zinc-500 dark:text-zinc-400"><Clock3 size={10} /> {timingLabel}</div>
-                        {stats.complete
-                          ? <div className="mt-0.5 truncate text-[11px] font-medium" style={{ color: "var(--accent-text)" }}>{t("complete")}</div>
-                          : <div className="mt-0.5 truncate text-[11px] text-zinc-600 dark:text-zinc-300">{t("nextReward", stats.nextReward?.name ?? "")}</div>}
-                      </div>
-                      {!stats.complete && stats.nextRewardRemaining != null ? <div className="shrink-0 text-right text-[10px] tabular text-zinc-500 dark:text-zinc-400">{formatMinutes(stats.nextRewardRemaining)} {t("left").toLowerCase()}</div> : null}
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    <MetaStat icon={Clock3} label={t("farmed")} value={formatHours(stats.totalFarmed)} />
-                    <MetaStat
-                      icon={RotateCcw}
-                      label={t("campaignLeft")}
-                      value={stats.complete
-                        ? t("done")
-                        : campaign.hasWatchRewards && stats.remaining > 0
-                          ? formatMinutes(stats.remaining)
-                          : t("subscriptionProgressUnknown")}
-                    />
-                    <MetaStat icon={Trophy} label={t("rewards")} value={`${stats.completed}/${stats.totalRewards}`} />
-                  </div>
-                </>
-              )}
+              ) : null}
               <div>
                 <div className="mb-1.5 flex items-center justify-between">
-                  <span className="flex items-center gap-1 text-[11px] font-semibold text-zinc-700 dark:text-zinc-200"><Gift size={12} style={{ color: "var(--accent-text)" }} /> {t("rewards")}</span>
-                  <span className="text-[10px] text-zinc-400 dark:text-zinc-500">{t("inCampaignOrder")}</span>
+                  <span className="flex items-center gap-1 text-[11px] font-semibold text-zinc-700 dark:text-zinc-200"><Gift size={12} className="text-zinc-400 dark:text-zinc-500" /> {t("rewards")}</span>
+                  <span className="font-mono text-[11px] font-semibold text-zinc-500 tabular dark:text-zinc-400">{stats.completed}/{stats.totalRewards}</span>
                 </div>
-                <RewardCarousel rewards={campaign.rewards} />
+                <RewardCarousel rewards={campaign.rewards} missed={expired} />
+              </div>
+              <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                {upcoming ? <Fact label={t("campaignFactStarts")} value={formatDateTime(campaign.starts, locale)} /> : null}
+                {Number.isNaN(endsAt) ? null : (
+                  <Fact
+                    label={t(finished ? "campaignFactEnded" : "campaignFactEnds")}
+                    value={finished ? formatDateTime(campaign.ends, locale) : `${formatDateTime(campaign.ends, locale)} · ${formatCountdown(campaign.ends, t)}`}
+                  />
+                )}
+                {!finished && farmingNow && campaign.farmingChannel ? (
+                  <Fact label={t("campaignFactWatching")}>
+                    {campaign.farmingChannel.url ? (
+                      <a href={campaign.farmingChannel.url} target="_blank" rel="noreferrer" className="font-semibold text-zinc-900 underline decoration-zinc-300 decoration-1 underline-offset-2 hover:decoration-current dark:text-zinc-50 dark:decoration-zinc-600">{campaign.farmingChannel.name}</a>
+                    ) : campaign.farmingChannel.name}
+                    {campaign.farmingChannel.viewers != null ? <span className="text-zinc-500 dark:text-zinc-400"> · {t("viewerCount", formatViewers(campaign.farmingChannel.viewers))}</span> : null}
+                  </Fact>
+                ) : !finished ? (
+                  <Fact label={t("campaignFactChannels")}>
+                    {campaign.channels.length === 0 ? t("allChannels") : (
+                      <>
+                        {campaign.channels.slice(0, 3).map((channel, channelIndex) => (
+                          <React.Fragment key={channel.name}>
+                            {channelIndex > 0 ? ", " : null}
+                            <a href={channel.url} target="_blank" rel="noreferrer" className="hover:text-zinc-900 hover:underline dark:hover:text-zinc-50">{channel.name}</a>
+                          </React.Fragment>
+                        ))}
+                        {campaign.channels.length > 3 ? <span className="text-zinc-500 dark:text-zinc-400"> {t("campaignMoreChannels", String(campaign.channels.length - 3))}</span> : null}
+                      </>
+                    )}
+                  </Fact>
+                ) : null}
+                {!finished && !stats.complete && stats.nextReward && stats.nextRewardRemaining != null ? (
+                  <Fact label={t("campaignFactNextReward")} value={`${stats.nextReward.name} · ${formatMinutes(stats.nextRewardRemaining)} ${t("left").toLowerCase()}`} />
+                ) : null}
+                {!finished && showsWatchProgress ? (
+                  <Fact
+                    label={t("campaignLeft")}
+                    value={stats.complete
+                      ? t("done")
+                      : timeline && timeline.remainingMinutes > 0
+                        ? formatMinutes(timeline.remainingMinutes)
+                        : t("subscriptionProgressUnknown")}
+                  />
+                ) : null}
+                {rankReason ? <Fact label={t("campaignFactWhyRank")} value={rankReason} /> : null}
               </div>
               {claimGuidance ? (
                 <div className="rounded-lg border border-amber-300/70 bg-amber-50 px-2 py-1.5 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
@@ -409,79 +416,319 @@ function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, expande
                     className="mt-1 flex w-full items-center gap-1.5 rounded-md border border-amber-300/70 bg-white/60 px-2 py-1 text-[11px] font-medium outline-none transition-colors hover:border-amber-400 hover:bg-white focus-visible:ring-2 focus-visible:ring-amber-400 dark:border-amber-500/30 dark:bg-amber-950/20 dark:hover:bg-amber-950/40"
                   >
                     <span>{t("linkExternalGameAccount")}</span>
-                    <ExternalLink size={11} className="ml-auto shrink-0 opacity-70" />
+                    <ExternalLink size={11} className="ms-auto shrink-0 opacity-70" />
                   </button>
                 </div>
               ) : null}
-              {campaign.hasSubscriptionRewards ? (
-                <button
-                  type="button"
-                  onClick={() => void onRefreshCampaign(campaign.id)}
-                  disabled={refreshing}
-                  className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-[var(--accent-ring)] py-1.5 text-[11px] font-medium text-[var(--accent-text)] transition-colors hover:bg-[var(--accent-soft)] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <RotateCcw size={12} className={cn(refreshing && "animate-spin")} />
-                  {t("subscribedRefresh")}
-                </button>
-              ) : null}
-              <div className="rounded-lg bg-zinc-50 px-2 py-1.5 dark:bg-zinc-800/60">
-                <div className="flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                  <Users size={12} className="shrink-0" />
-                  <span className="truncate">{channelLabel}</span>
-                </div>
-                {campaign.channels.length > 0 && (
-                  <div className="no-scrollbar mt-1.5 flex max-h-24 flex-wrap gap-1 overflow-y-auto">
-                    {campaign.channels.map((channel) => (
-                      <a
-                        key={channel.name}
-                        href={channel.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        onClick={(event) => event.stopPropagation()}
-                        className="inline-flex max-w-full items-center rounded-md border border-zinc-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-zinc-600 outline-none transition-colors hover:border-[var(--accent-ring)] hover:text-zinc-900 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:text-white"
-                      >
-                        <span className="truncate">{channel.name}</span>
-                      </a>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {!campaign.linked && campaign.linkUrl && (
-                <a
-                  href={campaign.linkUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  onClick={(event) => event.stopPropagation()}
-                  className="flex items-center gap-1.5 rounded-lg border border-amber-300/70 bg-amber-50 px-2 py-1.5 text-[11px] font-medium text-amber-700 outline-none transition-colors hover:border-amber-400 hover:bg-amber-100/70 focus-visible:ring-2 focus-visible:ring-amber-400 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/20"
-                >
-                  <Link2 size={12} className="shrink-0" />
-                  <span className="truncate">{t("linkAccount")}</span>
-                  <ExternalLink size={11} className="ml-auto shrink-0 opacity-70" />
-                </a>
-              )}
-              {onToggleExclude && campaign.hasWatchRewards ? (
-                <button
-                  type="button"
-                  onClick={() => void onToggleExclude(campaign.id)}
-                  className={cn(
-                    "flex w-full items-center justify-center gap-1.5 rounded-lg border py-1.5 text-[11px] font-medium transition-colors",
-                    campaign.excluded
-                      ? "border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:text-zinc-800 dark:border-zinc-700 dark:text-zinc-300 dark:hover:text-zinc-100"
-                      : "border-red-500/30 text-red-600 hover:border-red-500/60 hover:bg-red-500/5 dark:text-red-400",
-                  )}
-                >
-                  <Ban size={12} /> {campaign.excluded ? t("includeInFarming") : t("excludeFromFarming")}
-                </button>
-              ) : null}
+              <CampaignActions
+                campaign={campaign}
+                gameName={category?.name ?? game.name}
+                finished={finished}
+                refreshing={refreshing}
+                pinned={pinned}
+                onPin={onPin}
+                onRefresh={campaign.hasSubscriptionRewards ? () => void onRefreshCampaign(campaign.id) : undefined}
+                onFavourite={onToggleFavouriteCategory && category && !finished ? () => void onToggleFavouriteCategory(category) : undefined}
+                onExclude={canExclude ? () => void onToggleExclude!(campaign.id) : undefined}
+                onBlock={canBlock ? () => void onToggleBlockedCategory!(category!) : undefined}
+              />
             </div>
-          </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </article>
   );
 }
 
-function RewardCarousel({ rewards }: { rewards: RewardView[] }) {
+// The collapsed row's deadline. A campaign with no end carries no deadline at
+// all rather than "later left", and one whose end has passed says so until the
+// next refresh marks it expired.
+function timeLeftLabel(ends: string, t: TFunction): string | undefined {
+  const at = Date.parse(ends);
+  if (Number.isNaN(at)) return undefined;
+  if (at <= Date.now()) return t("ended");
+  return formatCountdown(ends, t);
+}
+
+function startsLabel(starts: string, t: TFunction): string {
+  const at = Date.parse(starts);
+  return Number.isNaN(at) || at <= Date.now() ? t("upcomingPill") : t("startsIn", formatCountdown(starts, t));
+}
+
+type DeadlineTone = "hot" | "done" | "muted";
+
+// The row's time line: how long is left, when it starts, or how it ended.
+function Deadline({ tone, label, hint, onClick }: { tone: DeadlineTone; label: string; hint?: string; onClick(): void }): React.ReactElement {
+  return (
+    <RowFact
+      attribute="data-campaign-status"
+      value={tone}
+      icon={tone === "done" ? <Check size={10} aria-hidden="true" /> : <Clock size={10} aria-hidden="true" />}
+      label={label}
+      hint={hint}
+      className={cn(
+        tone === "hot" && "font-medium text-amber-600 dark:text-amber-400",
+        tone === "done" && "font-medium text-[var(--ink-text)]",
+      )}
+      onClick={onClick}
+    />
+  );
+}
+
+// A short value on the row's second line, explained by its tooltip. With a
+// tooltip it takes the pointer, so it passes clicks on to the row toggle.
+function RowFact({ attribute, value = "", icon, label, hint, className, onClick }: {
+  attribute: string;
+  value?: string;
+  icon: React.ReactElement;
+  label: string;
+  hint?: string;
+  className?: string;
+  onClick(): void;
+}): React.ReactElement {
+  return (
+    <Tip label={hint}>
+      <span
+        {...{ [attribute]: value }}
+        onClick={hint ? onClick : undefined}
+        className={cn("inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap tabular", hint && "pointer-events-auto", className)}
+      >
+        {icon}
+        {label}
+      </span>
+    </Tip>
+  );
+}
+
+type CampaignFlag = {
+  key: string;
+  tone: keyof typeof FLAG_TONE;
+  icon: React.ReactElement;
+  label: string;
+};
+
+const FLAG_TONE = {
+  danger: "text-red-600 dark:text-red-400",
+  warning: "text-amber-600 dark:text-amber-400",
+  muted: "text-zinc-500 dark:text-zinc-400",
+} as const;
+
+/** The campaign's watch progress on one bar, with a small tick where each watch
+ * reward becomes claimable. Ticks the viewing has passed turn solid. Positions
+ * are logical, so the bar fills from the right in a right-to-left locale. */
+function CampaignProgress({ timeline, reachable, rewardsLabel, onClick }: { timeline: CampaignTimeline; reachable?: number; rewardsLabel: string; onClick(): void }): React.ReactElement {
+  // Rounded down, so the row never says 100% before the last reward is due.
+  const percent = timeline.progress >= 1 ? 100 : Math.floor(timeline.progress * 100);
+  return (
+    <Tip label={rewardsLabel}>
+      <div
+        data-campaign-progress={percent}
+        role="img"
+        aria-label={`${rewardsLabel} · ${percent}%`}
+        // Takes the pointer for its tooltip, so it passes the click on to the
+        // row toggle the content layer otherwise lets it reach.
+        onClick={onClick}
+        className="pointer-events-auto mt-1 flex items-center gap-2"
+      >
+        <div className="relative h-[11px] min-w-0 flex-1">
+          <span className="absolute inset-x-0 top-[3px] h-[5px] rounded-full bg-zinc-200 dark:bg-zinc-800" />
+          {/* What the campaign ends before the viewing can reach. */}
+          {reachable !== undefined ? (
+            <span
+              data-campaign-out-of-time
+              className="absolute end-0 top-[3px] h-[5px] rounded-e-full bg-amber-500/30"
+              style={{ insetInlineStart: `${reachable * 100}%` }}
+            />
+          ) : null}
+          <span className="absolute start-0 top-[3px] h-[5px] rounded-full bg-[var(--ink)]" style={{ width: `${timeline.progress * 100}%` }} />
+          {timeline.markers.map((marker) => (
+            <span
+              key={marker.id}
+              data-reward-marker={marker.reached ? "reached" : reachable !== undefined && marker.at > reachable ? "out-of-time" : "pending"}
+              className={cn(
+                "absolute top-0 h-[11px] w-0.5 rounded-full",
+                marker.reached ? "bg-[var(--ink)]"
+                  : reachable !== undefined && marker.at > reachable ? "bg-amber-500/70 dark:bg-amber-400/70"
+                  : "bg-zinc-300 dark:bg-zinc-600",
+              )}
+              // Kept inside the bar at both ends: a tick at 100% ends flush with it.
+              style={{ insetInlineStart: `calc(${marker.at * 100}% - ${marker.at * 2}px)` }}
+            />
+          ))}
+        </div>
+        <span aria-hidden className="w-8 shrink-0 text-end text-[10.5px] font-medium leading-none text-zinc-500 tabular dark:text-zinc-400">{percent}%</span>
+      </div>
+    </Tip>
+  );
+}
+
+function Fact({ label, value, children }: { label: string; value?: string; children?: React.ReactNode }): React.ReactElement {
+  return (
+    <div className="flex min-w-0 flex-col gap-0.5">
+      <span className="text-[10.5px] text-zinc-500 dark:text-zinc-400">{label}</span>
+      <span className="text-[11px] font-medium text-zinc-800 tabular dark:text-zinc-100">{value ?? children}</span>
+    </div>
+  );
+}
+
+// Everything that can be done to one campaign, on the campaign. Exclude is one
+// button with two meanings, so it asks: this campaign, or its whole game, in a
+// Base UI menu portalled out of the card (which clips its overflow).
+function CampaignActions({ campaign, gameName, finished, refreshing, pinned, onPin, onRefresh, onFavourite, onExclude, onBlock }: {
+  campaign: CampaignView;
+  gameName: string;
+  finished: boolean;
+  refreshing: boolean;
+  pinned?: boolean;
+  onPin?: () => void;
+  onRefresh?: () => void;
+  onFavourite?: () => void;
+  onExclude?: () => void;
+  onBlock?: () => void;
+}): React.ReactElement | null {
+  const t = useT();
+  const [portalRef, portalContainer] = usePortalContainer();
+  const blocked = Boolean(campaign.categoryBlocked);
+  const excludeActive = campaign.excluded || blocked;
+  const hasChoice = Boolean(onExclude && onBlock);
+
+  const excludeLabel = blocked
+    ? t("campaignCategoryBlocked", gameName)
+    : campaign.excluded ? t("excluded") : t("campaignExclude");
+
+  if (!onPin && !onFavourite && !onExclude && !onBlock && !onRefresh && !campaign.pageUrl) return null;
+  return (
+    <div className="space-y-1.5">
+      <div className="flex flex-wrap items-center gap-1.5">
+        {onPin && !finished ? (
+          <ActionChip pressed={Boolean(pinned)} onClick={onPin} icon={<Pin size={12} fill={pinned ? "currentColor" : "none"} />}>
+            {pinned && campaign.pinIndex != null ? t("campaignPinnedAt", String(campaign.pinIndex + 1)) : t("campaignPinToTop")}
+          </ActionChip>
+        ) : null}
+        {onFavourite ? (
+          <ActionChip pressed={Boolean(campaign.favourited)} onClick={onFavourite} icon={<Star size={12} fill={campaign.favourited ? "currentColor" : "none"} />}>
+            {campaign.favourited ? t("campaignFavouriteOn", gameName) : t("campaignFavourite", gameName)}
+          </ActionChip>
+        ) : null}
+        {hasChoice ? (
+          <Menu.Root modal={false}>
+            <Menu.Trigger ref={portalRef} data-campaign-exclude className={excludeClass(excludeActive)}>
+              <Ban size={12} aria-hidden="true" />
+              {excludeLabel}
+              <ChevronDown size={11} aria-hidden="true" className="opacity-70 transition-transform [[data-popup-open]>&]:rotate-180" />
+            </Menu.Trigger>
+            <Menu.Portal container={portalContainer}>
+              <Menu.Positioner align="start" sideOffset={4} collisionPadding={8} className="z-50 outline-none">
+                <Menu.Popup aria-label={t("campaignExclude")} data-campaign-exclude-menu className={cn(FLOATING_POPUP_CLASS, "w-[17rem]")}>
+                  <ExcludeChoice
+                    checked={campaign.excluded}
+                    title={t("campaignExcludeThis")}
+                    hint={campaign.excluded ? t("campaignExcludeThisUndo") : t("campaignExcludeThisHint", gameName)}
+                    onClick={onExclude!}
+                  />
+                  <ExcludeChoice
+                    checked={blocked}
+                    title={t("campaignExcludeCategory", gameName)}
+                    hint={blocked ? t("campaignExcludeCategoryUndo") : t("campaignExcludeCategoryHint", gameName)}
+                    onClick={onBlock!}
+                  />
+                </Menu.Popup>
+              </Menu.Positioner>
+            </Menu.Portal>
+          </Menu.Root>
+        ) : onExclude ? (
+          <button
+            type="button"
+            data-campaign-exclude
+            aria-pressed={campaign.excluded}
+            onClick={onExclude}
+            className={excludeClass(campaign.excluded)}
+          >
+            <Ban size={12} aria-hidden="true" />
+            {campaign.excluded ? t("includeInFarming") : t("excludeFromFarming")}
+          </button>
+        ) : onBlock ? (
+          // Only the whole game can be kept out (a campaign with nothing to
+          // watch cannot be excluded on its own), so the button says so.
+          <button
+            type="button"
+            data-campaign-exclude
+            aria-pressed={blocked}
+            onClick={onBlock}
+            className={excludeClass(blocked)}
+          >
+            <Ban size={12} aria-hidden="true" />
+            {blocked ? t("campaignCategoryBlocked", gameName) : t("gamesBlock", gameName)}
+          </button>
+        ) : null}
+        {onRefresh ? (
+          <ActionChip onClick={onRefresh} disabled={refreshing} icon={<RotateCcw size={12} className={cn(refreshing && "animate-spin")} />}>
+            {t("subscribedRefresh")}
+          </ActionChip>
+        ) : null}
+        {campaign.pageUrl ? (
+          <a
+            href={campaign.pageUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="ms-auto inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--ink-text)] hover:underline"
+          >
+            {t("viewDropPage")}
+            <ExternalLink size={11} aria-hidden="true" />
+          </a>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function excludeClass(active: boolean): string {
+  return cn(
+    "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]",
+    active
+      ? "border-amber-300/80 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"
+      : "border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 data-[popup-open]:border-zinc-400 dark:border-zinc-700 dark:text-zinc-300 dark:hover:text-zinc-100",
+  );
+}
+
+function ExcludeChoice({ checked, title, hint, onClick }: { checked: boolean; title: string; hint: string; onClick(): void }): React.ReactElement {
+  return (
+    <Menu.CheckboxItem
+      checked={checked}
+      closeOnClick
+      onClick={onClick}
+      className="grid cursor-default select-none grid-cols-[14px_minmax(0,1fr)] items-start gap-x-2 rounded-md px-2 py-1.5 text-start outline-none data-[highlighted]:bg-zinc-100 dark:data-[highlighted]:bg-zinc-800"
+    >
+      <Menu.CheckboxItemIndicator className="mt-0.5 text-[var(--ink-text)]">
+        <Check size={12} strokeWidth={3} />
+      </Menu.CheckboxItemIndicator>
+      <span className="col-start-2 row-start-1 text-[11.5px] font-semibold text-zinc-800 dark:text-zinc-100">{title}</span>
+      <span className="col-start-2 text-[10.5px] text-zinc-500 dark:text-zinc-400">{hint}</span>
+    </Menu.CheckboxItem>
+  );
+}
+
+function ActionChip({ pressed, disabled, onClick, icon, children }: { pressed?: boolean; disabled?: boolean; onClick(): void; icon: React.ReactNode; children: React.ReactNode }): React.ReactElement {
+  return (
+    <button
+      type="button"
+      aria-pressed={pressed}
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+        pressed
+          ? "border-zinc-400 bg-[var(--ink-soft)] text-[var(--ink-text)] dark:border-zinc-500"
+          : "border-zinc-200 text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-300 dark:hover:text-zinc-100",
+      )}
+    >
+      {icon}
+      {children}
+    </button>
+  );
+}
+
+function RewardCarousel({ rewards, missed = false }: { rewards: RewardView[]; missed?: boolean }) {
   const t = useT();
   const rowRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -527,42 +774,37 @@ function RewardCarousel({ rewards }: { rewards: RewardView[] }) {
   return (
     <div className="relative -mx-0.5">
       <div ref={rowRef} className="no-scrollbar flex gap-2 overflow-x-auto px-0.5 pb-1">
-        {rewards.map((reward) => <RewardTile key={reward.id} reward={reward} />)}
+        {rewards.map((reward) => <RewardTile key={reward.id} reward={reward} missed={missed} />)}
       </div>
       {canScrollLeft && (
-        <button
-          type="button"
-          onClick={() => scroll(-1)}
-          aria-label={t("scrollRewardsLeft")}
-          title={t("scrollRewardsLeft")}
-          className="absolute left-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-200 bg-white/95 text-zinc-700 shadow-md outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900/95 dark:text-zinc-200 dark:hover:bg-zinc-800"
-        >
-          <ChevronLeft size={16} aria-hidden="true" />
-        </button>
+        <Tip label={t("scrollRewardsLeft")}>
+          <button
+            type="button"
+            onClick={() => scroll(-1)}
+            aria-label={t("scrollRewardsLeft")}
+            className="absolute left-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-800 outline-none transition-colors hover:border-zinc-400 hover:text-black focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900/95 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            <ChevronLeft size={16} aria-hidden="true" />
+          </button>
+        </Tip>
       )}
       {canScrollRight && (
-        <button
-          type="button"
-          onClick={() => scroll(1)}
-          aria-label={t("scrollRewardsRight")}
-          title={t("scrollRewardsRight")}
-          className="absolute right-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-200 bg-white/95 text-zinc-700 shadow-md outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900/95 dark:text-zinc-200 dark:hover:bg-zinc-800"
-        >
-          <ChevronRight size={16} aria-hidden="true" />
-        </button>
+        <Tip label={t("scrollRewardsRight")}>
+          <button
+            type="button"
+            onClick={() => scroll(1)}
+            aria-label={t("scrollRewardsRight")}
+            className="absolute right-1 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-800 outline-none transition-colors hover:border-zinc-400 hover:text-black focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900/95 dark:text-zinc-200 dark:hover:bg-zinc-800"
+          >
+            <ChevronRight size={16} aria-hidden="true" />
+          </button>
+        </Tip>
       )}
     </div>
   );
 }
 
-function campaignLifecyclePill(lifecycle: CampaignLifecycleState | undefined, t: TFunction): { icon: LucideIcon; label: string; tone: "muted" | "danger" | "outline" } | undefined {
-  if (lifecycle === "upcoming") return { icon: Clock3, label: t("upcomingPill"), tone: "muted" };
-  if (lifecycle === "expired") return { icon: AlertTriangle, label: t("expiredPill"), tone: "danger" };
-  if (lifecycle === "finished") return { icon: Check, label: t("finishedPill"), tone: "outline" };
-  return undefined;
-}
-
-function campaignRejectionMessageKey(code: NonNullable<CampaignView["farmingRejection"]>["code"]): string {
+export function campaignRejectionMessageKey(code: NonNullable<CampaignView["farmingRejection"]>["code"]): string {
   const keys: Record<NonNullable<CampaignView["farmingRejection"]>["code"], string> = {
     excluded: "campaignRejectionExcluded",
     upcoming: "campaignRejectionUpcoming",
@@ -572,7 +814,8 @@ function campaignRejectionMessageKey(code: NonNullable<CampaignView["farmingReje
     twitch_link_required: "campaignRejectionTwitchLinkRequired",
     subscription_campaigns_disabled: "campaignRejectionSubscriptionDisabled",
     category_filtered: "campaignRejectionCategoryFiltered",
-    priority_not_selected: "campaignRejectionPriorityNotSelected",
+    category_blocked: "campaignRejectionCategoryBlocked",
+    not_pinned: "campaignRejectionNotPinned",
     no_rewards: "campaignRejectionNoRewards",
     no_unclaimed_rewards: "campaignRejectionNoUnclaimedRewards",
     reward_prerequisites_unmet: "campaignRejectionPrerequisites",
@@ -586,12 +829,14 @@ function campaignRejectionMessageKey(code: NonNullable<CampaignView["farmingReje
   return keys[code];
 }
 
-function RewardTile({ reward }: { reward: RewardView }) {
+function RewardTile({ reward, missed = false }: { reward: RewardView; missed?: boolean }) {
   const t = useT();
   const done = reward.obtained || (reward.progress ?? 0) >= 100;
+  // An expired campaign's unearned rewards are gone, not pending.
+  const lost = missed && !reward.obtained;
   return (
-    <div className="w-[128px] shrink-0 rounded-xl border border-zinc-200 bg-white p-2 dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="relative mb-2 flex h-[68px] items-center justify-center overflow-hidden rounded-lg bg-zinc-50 dark:bg-zinc-800/40">
+    <div data-reward-missed={lost || undefined} className={cn("w-[128px] shrink-0 rounded-xl border bg-white p-2 dark:bg-zinc-900", lost ? "border-dashed border-zinc-300 dark:border-zinc-700" : "border-zinc-200 dark:border-zinc-800")}>
+      <div className={cn("relative mb-2 flex h-[68px] items-center justify-center overflow-hidden rounded-lg bg-zinc-50 dark:bg-zinc-800/40", lost && "opacity-50 grayscale")}>
         <ImageWithFallback src={reward.imageUrl} alt={reward.name} fit="contain" className="p-1" fallback={
           <div className={cn("flex h-full w-full items-center justify-center bg-gradient-to-br", reward.tint)}>
             <span className="px-1 text-center text-[11px] font-black tracking-wide text-zinc-900/70 mix-blend-multiply">{reward.art}</span>
@@ -599,7 +844,9 @@ function RewardTile({ reward }: { reward: RewardView }) {
         } />
         {done && <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-white"><Check size={11} strokeWidth={3} /></span>}
       </div>
-      <div className="mb-1.5 line-clamp-1 text-[11px] font-medium text-zinc-800 dark:text-zinc-200" title={reward.name}>{reward.name}</div>
+      <Tip label={reward.name}>
+        <div className="mb-1.5 line-clamp-1 text-[11px] font-medium text-zinc-800 dark:text-zinc-200">{reward.name}</div>
+      </Tip>
       {reward.requirement === "watch" ? (
         <>
           <ProgressBar value={reward.progress ?? 0} size="sm" />
@@ -609,7 +856,9 @@ function RewardTile({ reward }: { reward: RewardView }) {
             </span>
             <span className="tabular">{formatMinutes(reward.requiredMinutes)}</span>
           </div>
-          {reward.ineligibilityReason === "insufficient_time" ? (
+          {lost ? (
+            <div className="mt-1 text-[10px] font-semibold leading-tight text-amber-600 dark:text-amber-400">{t("rewardMissed")}</div>
+          ) : reward.ineligibilityReason === "insufficient_time" ? (
             <div className="mt-1 text-[10px] font-semibold leading-tight text-amber-600 dark:text-amber-400">
               {t("insufficientTimeRemaining")}
             </div>

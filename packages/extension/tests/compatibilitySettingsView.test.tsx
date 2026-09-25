@@ -1,7 +1,8 @@
+// @vitest-environment happy-dom
+// Base UI's Select needs real mouse and keyboard events, which linkedom lacks.
 import React, { useState } from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { parseHTML } from "linkedom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { COMPATIBILITY_REGISTRY, resolveCompatibility } from "@lurkloot/core";
 import { applySettingsPatch, DEFAULT_SETTINGS, type SettingsPatch } from "@lurkloot/shared/settings";
@@ -55,10 +56,8 @@ afterEach(() => {
 });
 
 function mount(onChange = vi.fn(), platform: Platform = "twitch") {
-  const { document, window } = parseHTML("<div id=app></div>");
-  vi.stubGlobal("window", window);
-  vi.stubGlobal("document", document);
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  document.body.innerHTML = "<div id=app></div>";
   const container = document.getElementById("app")!;
   function Harness() {
     const [settings, setSettings] = useState(DEFAULT_SETTINGS);
@@ -96,20 +95,42 @@ function byText(container: Element, text: string): HTMLButtonElement {
   return button as HTMLButtonElement;
 }
 
-function select(container: Element, label: string): HTMLSelectElement {
-  const element = container.querySelector(`select[aria-label="${label}"]`);
+// The compatibility selects are Base UI selects: a trigger button named by the
+// capability, and a listbox portalled to the body that exists only while open.
+function select(container: Element, label: string): HTMLButtonElement {
+  const element = container.querySelector(`button[aria-haspopup="listbox"][aria-label="${label}"]`);
   if (!element) throw new Error(`Missing select: ${label}`);
-  return element as HTMLSelectElement;
+  return element as HTMLButtonElement;
 }
 
-function choose(element: HTMLSelectElement, value: string): void {
-  for (const option of element.querySelectorAll("option")) option.selected = option.getAttribute("value") === value;
-  Object.defineProperty(element, "value", { configurable: true, value });
-  element.dispatchEvent(new window.Event("change", { bubbles: true }));
+async function settle(action: () => void): Promise<void> {
+  await act(async () => {
+    action();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+}
+
+// Opens the select, reads its options, and leaves it open for choose().
+async function openOptions(container: Element, label: string): Promise<HTMLElement[]> {
+  const trigger = select(container, label);
+  if (trigger.getAttribute("aria-expanded") !== "true") await settle(() => trigger.click());
+  return [...document.querySelectorAll<HTMLElement>('[role="option"]')];
+}
+
+async function options(container: Element, label: string): Promise<HTMLElement[]> {
+  const found = await openOptions(container, label);
+  await settle(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+  return found;
+}
+
+async function choose(container: Element, label: string, value: string): Promise<void> {
+  const option = (await openOptions(container, label)).find((candidate) => candidate.dataset.value === value);
+  if (!option) throw new Error(`Missing option: ${value}`);
+  await settle(() => option.click());
 }
 
 describe("extension compatibility settings", () => {
-  it("shows the twitch capabilities and what each one resolved to", () => {
+  it("shows the twitch capabilities and what each one resolved to", async () => {
     const { container } = mount(undefined, "twitch");
     for (const label of ["Profile", "Heartbeat transport", "Inventory query"]) {
       expect(container.textContent).toContain(label);
@@ -121,10 +142,10 @@ describe("extension compatibility settings", () => {
       expect(container.textContent).toContain(id);
     }
     // Full capability names stay as accessible names for the controls.
-    expect(select(container, "Twitch compatibility profile").textContent).toContain("Twitch July 2026");
+    expect((await options(container, "Twitch compatibility profile")).map((option) => option.textContent).join(" ")).toContain("Twitch July 2026");
   });
 
-  it("shows the kick capabilities and what each one resolved to", () => {
+  it("shows the kick capabilities and what each one resolved to", async () => {
     const { container } = mount(undefined, "kick");
     for (const label of ["Profile", "Claim handling"]) {
       expect(container.textContent).toContain(label);
@@ -134,62 +155,59 @@ describe("extension compatibility settings", () => {
     for (const id of ["kick-2026-07", "kick-claim-v2"]) {
       expect(container.textContent).toContain(id);
     }
-    expect(select(container, "Kick compatibility profile").textContent).toContain("Kick July 2026");
+    expect((await options(container, "Kick compatibility profile")).map((option) => option.textContent).join(" ")).toContain("Kick July 2026");
   });
 
-  it("renders only the requested platform's rows", () => {
+  it("renders only the requested platform's rows", async () => {
     const { container } = mount(undefined, "twitch");
     const text = container.textContent ?? "";
     expect(text).toContain("Heartbeat transport");
     expect(text).not.toContain("Claim handling");
   });
 
-  it("carries lifecycle into the option labels so the tradeoff is visible when choosing", () => {
+  it("carries lifecycle into the option labels so the tradeoff is visible when choosing", async () => {
     const { container } = mount(undefined, "twitch");
-    const heartbeat = select(container, "Twitch heartbeat transport");
-    const optionLabels = [...heartbeat.options].map((option) => option.textContent);
+    const optionLabels = (await options(container, "Twitch heartbeat transport")).map((option) => option.textContent);
     expect(optionLabels).toContain("Automatic");
     expect(optionLabels).toContain("Spade heartbeat v1 · Recommended");
     expect(optionLabels).toContain("GraphQL heartbeat v1 · Legacy");
   });
 
-  it("attributes inherited values to the profile and flags explicit overrides", () => {
+  it("attributes inherited values to the profile and flags explicit overrides", async () => {
     const { container } = mount(undefined, "twitch");
     expect(container.textContent).toContain("From profile");
     expect(container.textContent).not.toContain("Overridden");
 
-    act(() => choose(select(container, "Twitch heartbeat transport"), "twitch-heartbeat-gql-v1"));
+    await choose(container, "Twitch heartbeat transport", "twitch-heartbeat-gql-v1");
 
     expect(container.textContent).toContain("Overridden");
     // A legacy pick names its successor instead of silently going stale.
     expect(container.textContent).toContain("Replaced by Spade heartbeat v1");
   });
 
-  it("overrides twitch settings without a disclosure step, and restores just that platform", () => {
+  it("overrides twitch settings without a disclosure step, and restores just that platform", async () => {
     const { container, onChange } = mount(undefined, "twitch");
     expect(container.querySelectorAll('input[type="text"]')).toHaveLength(0);
 
-    expect([...select(container, "Twitch inventory query").options].map((option) => option.value)).toEqual(["auto", "twitch-inventory-v1", "twitch-inventory-v2"]);
+    expect((await options(container, "Twitch inventory query")).map((option) => option.dataset.value)).toEqual(["auto", "twitch-inventory-v1", "twitch-inventory-v2"]);
 
-    const heartbeat = select(container, "Twitch heartbeat transport");
-    expect(heartbeat.textContent).not.toContain("Trowel");
-    act(() => choose(heartbeat, "twitch-heartbeat-gql-v1"));
+    expect((await options(container, "Twitch heartbeat transport")).map((option) => option.textContent).join(" ")).not.toContain("Trowel");
+    await choose(container, "Twitch heartbeat transport", "twitch-heartbeat-gql-v1");
     expect(onChange).toHaveBeenNthCalledWith(1, { compatibility: { twitch: { heartbeatTransport: "twitch-heartbeat-gql-v1" } } });
 
-    act(() => byText(container, "Restore automatic compatibility").click());
+    await settle(() => byText(container, "Restore automatic compatibility").click());
     expect(onChange).toHaveBeenLastCalledWith({
       compatibility: { twitch: { profile: "auto", heartbeatTransport: "auto", inventoryQueryVersion: "auto" } },
     });
   });
 
-  it("overrides kick settings without a disclosure step, and restores just that platform", () => {
+  it("overrides kick settings without a disclosure step, and restores just that platform", async () => {
     const { container, onChange } = mount(undefined, "kick");
 
-    const claim = select(container, "Kick claim-link handling");
-    act(() => choose(claim, "kick-claim-v2"));
+    await choose(container, "Kick claim-link handling", "kick-claim-v2");
     expect(onChange).toHaveBeenNthCalledWith(1, { compatibility: { kick: { claimLinkHandling: "kick-claim-v2" } } });
 
-    act(() => byText(container, "Restore automatic compatibility").click());
+    await settle(() => byText(container, "Restore automatic compatibility").click());
     expect(onChange).toHaveBeenLastCalledWith({
       compatibility: { kick: { profile: "auto", claimLinkHandling: "auto" } },
     });

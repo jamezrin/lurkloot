@@ -64,8 +64,8 @@ export function TipsBanner({ initialIndex, preview = false }: { initialIndex?: n
 
   const tip = tips[tipIndex] ?? tips[0];
   return (
-    <div className="flex items-start gap-2 rounded-xl px-2.5 py-2 text-[11px]" style={{ backgroundColor: "var(--accent-softer)" }}>
-      <Info size={13} className="mt-0.5 shrink-0" style={{ color: "var(--accent-text)" }} />
+    <div className="flex items-start gap-2 rounded-[10px] border border-zinc-200 bg-white px-2.5 py-2 text-[11px] dark:border-zinc-800 dark:bg-zinc-900">
+      <Info size={13} className="mt-0.5 shrink-0 text-zinc-400 dark:text-zinc-500" />
       <AnimatePresence mode="wait" initial={false}>
         <motion.p
           key={tip.messageKey}
@@ -83,7 +83,7 @@ export function TipsBanner({ initialIndex, preview = false }: { initialIndex?: n
                 href={tip.href}
                 target="_blank"
                 rel="noreferrer"
-                className="font-semibold text-[var(--accent-text)] underline decoration-current/35 underline-offset-2 hover:decoration-current"
+                className="font-semibold text-zinc-800 underline decoration-current/35 dark:text-zinc-100 underline-offset-2 hover:decoration-current"
               >
                 {t(tip.actionKey)}
               </a>

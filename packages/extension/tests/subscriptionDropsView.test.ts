@@ -1,15 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { DropCampaign, DropReward, WatchSession } from "@lurkloot/shared/models";
 import { mergeSettings } from "@lurkloot/shared/settings";
 import { I18nContext } from "../../popup-ui/src/context";
-import { DropsPanel } from "../../popup-ui/src/drops";
+import { QueuePanel } from "../../popup-ui/src/queue";
+import { evaluateCampaignFarming } from "@lurkloot/shared/campaignFarming";
 import {
   campaignFilterCategories,
+  campaignSection,
   campaignStats,
+  campaignTimeline,
   campaignViewFromCampaign,
-  isCampaignVisible,
 } from "../../popup-ui/src/viewModels";
 import type { CampaignView, TFunction } from "../../popup-ui/src/types";
 
@@ -50,7 +52,6 @@ const testMessages: Record<string, string> = {
   insufficientTimeRemaining: "Insufficient time remaining",
   left: "Left",
   notEarnableByWatching: "Not earnable by watching",
-  nextReward: "Next: $1",
   qualifyingSubscriptionsRequired: "Requires $1 qualifying subscriptions",
   subscribedRefresh: "I've subscribed — refresh status",
   subscriptionProgressUnknown: "Progress unavailable",
@@ -71,17 +72,31 @@ function expandedView(view: CampaignView): CampaignView {
   return { ...view, farmingChannel: { name: "test-channel" } };
 }
 
+// Inline styles are dropped: they carry CSS values (a visually hidden input's
+// `inset(50%)`) that the text assertions below would otherwise read as copy.
 function renderDrops(campaigns: CampaignView[], refreshing = false): string {
+  return renderQueueMarkup(campaigns, refreshing).replace(/ style="[^"]*"/g, "");
+}
+
+function renderQueueMarkup(campaigns: CampaignView[], refreshing: boolean): string {
   return renderToStaticMarkup(createElement(
     I18nContext.Provider,
     { value: { t: testT, dir: "ltr", locale: "en" } },
-    createElement(DropsPanel, {
+    createElement(QueuePanel, {
       campaigns,
       gameMap: {},
       refreshing,
+      strategy: "ending_soonest" as const,
+      pinnedCount: 0,
+      farmPinnedOnly: false,
+      onStrategyChange: () => {},
+      onUnpinAll: () => {},
+      onFarmPinnedOnlyChange: () => {},
       onRefreshCampaign: () => {},
-      onReorder: () => {},
+      onPinChange: () => {},
       onToggleExclude: () => {},
+      onOpenGames: () => {},
+      onOpenSettings: () => {},
     }),
   ));
 }
@@ -91,6 +106,7 @@ describe("subscription drop popup views", () => {
     const source = campaign("unlinked", [reward({ requiredMinutes: 60, requirement: "watch", isWatchBased: true })]);
     source.accountLinked = false;
     const currentSettings = mergeSettings(undefined);
+    currentSettings.farmingEligibility.farmUnlinkedCampaigns = false;
 
     const view = campaignViewFromCampaign(source, 0, idleSession, false, {
       skipUnfinishableRewards: currentSettings.skipUnfinishableRewards,
@@ -98,7 +114,7 @@ describe("subscription drop popup views", () => {
       settings: currentSettings,
     });
 
-    expect(view.farmingRejection).toEqual({ farmable: false, code: "twitch_link_required" });
+    expect(view.farmingRejection).toEqual({ farmable: false, code: "unlinked_campaigns_disabled" });
   });
 
   it("suppresses a stale rejection explanation while the campaign is actively farming", () => {
@@ -117,6 +133,11 @@ describe("subscription drop popup views", () => {
   });
 
   it("marks and explains watch rewards with insufficient time", () => {
+    // The campaign is live at the moment the feasibility check runs; pin the
+    // clock there too, or by the wall clock it has long since expired.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Date.parse("2026-07-19T12:00:00.000Z"));
+    onTestFinished(() => { vi.useRealTimers(); });
     const source = {
       ...campaign("timed", [reward({ requirement: "watch", requiredMinutes: 60, watchedMinutes: 30, status: "in_progress" })]),
       endsAt: "2026-07-19T12:34:59.999Z",
@@ -204,7 +225,9 @@ describe("subscription drop popup views", () => {
 
     const markup = renderDrops([expandedView(view)]);
     expect(markup).toContain("30m left");
-    expect(markup).toContain("7h 30m");
+    // Watch rewards count up together from the same viewing, so the campaign
+    // is done when its longest reward is, not after the sum of them all.
+    expect(markup).toContain(">4h<");
     expect(markup).toContain("Campaign left");
     expect(markup).not.toContain(">left<");
   });
@@ -264,6 +287,18 @@ describe("subscription drop popup views", () => {
     expect(markup).not.toContain("Excluded");
   });
 
+  it("leaves the subscription notice to the panel in an open subscription-only card", () => {
+    const source = campaign("subscription-only", [
+      reward({ id: "subscribe", name: "Subscriber Sword", requirement: "subscription", requiredSubs: 1 }),
+    ]);
+    const markup = renderDrops([expandedView(campaignViewFromCampaign(source, 0, idleSession, false))]);
+
+    // The panel is headed "Subscription required" already; the notices list
+    // would only repeat it.
+    expect(markup).toContain('data-campaign-flag="subscription"');
+    expect(markup).not.toContain("data-campaign-notices");
+  });
+
   it("keeps watch controls and every reward on mixed campaigns", () => {
     const source = campaign("mixed", [
       reward({ id: "watch", name: "Watch Crown", requirement: "watch", requiredMinutes: 60, watchedMinutes: 30, status: "in_progress" }),
@@ -312,6 +347,7 @@ describe("subscription drop popup views", () => {
   it("labels obtained subscription rewards as earned", () => {
     const source = campaign("earned-subscription", [
       reward({ id: "subscribe", name: "Earned Subscriber Badge", requirement: "subscription", requiredSubs: 1, status: "claimed" }),
+      reward({ id: "pending-subscribe", name: "Pending Subscriber Badge", requirement: "subscription", requiredSubs: 2 }),
     ]);
     const markup = renderDrops([expandedView(campaignViewFromCampaign(source, 0, idleSession, false))]);
 
@@ -349,21 +385,22 @@ describe("subscription drop popup views", () => {
     const settings = mergeSettings(undefined);
 
     expect(campaignFilterCategories(source, excludedIds)).toEqual(["subscription"]);
-    // Decoupling: dropsListFilter is display-only, so a subscription campaign
-    // stays in the Drops list even when farmingEligibility would skip it. The
-    // view filter has no subscription axis to turn off.
-    expect(isCampaignVisible(source, settings, excludedIds)).toBe(true);
+    // Decoupling: a subscription campaign the user chose not to farm still
+    // appears in the popup — in Skipped, with its reason — rather than
+    // disappearing, so the Sub badges facet can still find it.
+    // A subscription-only campaign has nothing to watch, so it is skipped either
+    // way — but the reason changes, and it stays listed so the Sub badges facet
+    // can still find it.
+    expect(campaignSection(source, settings)).toBe("skipped");
+    expect(evaluateCampaignFarming(source, settings)).toMatchObject({ code: "subscription_required" });
     settings.farmingEligibility.farmSubscriptionCampaigns = false;
-    expect(isCampaignVisible(source, settings, excludedIds)).toBe(true);
-    expect(isCampaignVisible({
-      ...source,
-      rewards: [{ ...source.rewards[0], status: "claimable" }],
-    }, settings, excludedIds)).toBe(true);
+    expect(campaignSection(source, settings)).toBe("skipped");
+    expect(evaluateCampaignFarming(source, settings)).toMatchObject({ code: "subscription_campaigns_disabled" });
   });
 
-  // Kick used to drop ended campaigns at parse time, which made these two
-  // toggles dead on that platform; they must behave exactly as on Twitch.
-  it("applies the finished filter to a completed Kick campaign", () => {
+  // Kick used to drop ended campaigns at parse time, which made these lists
+  // empty on that platform; they must behave exactly as on Twitch.
+  it("sections a completed Kick campaign into Completed", () => {
     const source: DropCampaign = {
       ...campaign("kick-completed", [reward({ status: "claimed" })]),
       platform: "kick",
@@ -373,14 +410,10 @@ describe("subscription drop popup views", () => {
     const settings = mergeSettings(undefined);
 
     expect(campaignFilterCategories(source, excludedIds)).toEqual(["finished"]);
-    expect(settings.dropsListFilter.showFinished).toBe(true);
-    expect(isCampaignVisible(source, settings, excludedIds)).toBe(true);
-
-    settings.dropsListFilter.showFinished = false;
-    expect(isCampaignVisible(source, settings, excludedIds)).toBe(false);
+    expect(campaignSection(source, settings)).toBe("completed");
   });
 
-  it("applies the expired filter to an expired Kick campaign", () => {
+  it("sections an expired Kick campaign into Expired", () => {
     const source: DropCampaign = {
       ...campaign("kick-expired", [reward({ requiredMinutes: 30 })]),
       platform: "kick",
@@ -390,10 +423,110 @@ describe("subscription drop popup views", () => {
     const settings = mergeSettings(undefined);
 
     expect(campaignFilterCategories(source, excludedIds)).toEqual(["expired"]);
-    expect(settings.dropsListFilter.showExpired).toBe(false);
-    expect(isCampaignVisible(source, settings, excludedIds)).toBe(false);
+    expect(campaignSection(source, settings)).toBe("expired");
+  });
+});
 
-    settings.dropsListFilter.showExpired = true;
-    expect(isCampaignVisible(source, settings, excludedIds)).toBe(true);
+describe("campaign watch timeline", () => {
+  const timeline = (rewards: DropReward[]) =>
+    campaignTimeline(campaignViewFromCampaign(campaign("timeline", rewards), 0, idleSession, false));
+  // A reward that is done never sits ahead of the fill.
+  const expectDoneBehindFill = (result: ReturnType<typeof campaignTimeline>) => {
+    for (const marker of result!.markers) {
+      if (marker.reached) expect(marker.at).toBeLessThanOrEqual(result!.progress + 1e-9);
+    }
+  };
+
+  it("places rewards that count up together at their own minutes", () => {
+    const result = timeline([
+      reward({ id: "hour", requirement: "watch", requiredMinutes: 60, watchedMinutes: 60, status: "claimable" }),
+      reward({ id: "two-hours", requirement: "watch", requiredMinutes: 120, watchedMinutes: 60, status: "in_progress" }),
+    ]);
+
+    expect(result).toMatchObject({ totalMinutes: 120, progress: 0.5, remainingMinutes: 60 });
+    expect(result!.markers.map((marker) => [marker.at, marker.reached])).toEqual([[0.5, true], [1, false]]);
+    expectDoneBehindFill(result);
+  });
+
+  it("places a reward gated on another after it", () => {
+    const result = timeline([
+      reward({ id: "first", requirement: "watch", requiredMinutes: 30, watchedMinutes: 30, status: "claimed" }),
+      reward({ id: "second", requirement: "watch", requiredMinutes: 90, watchedMinutes: 30, status: "in_progress", preconditionRewardIds: ["first"] }),
+    ]);
+
+    expect(result).toMatchObject({ totalMinutes: 120, progress: 0.5 });
+    expect(result!.markers.map((marker) => marker.at)).toEqual([0.25, 1]);
+    expectDoneBehindFill(result);
+  });
+
+  it("does not move a gated reward's start forward before its precondition is done", () => {
+    const result = timeline([
+      reward({ id: "first", requirement: "watch", requiredMinutes: 60, watchedMinutes: 15, status: "in_progress" }),
+      reward({ id: "second", requirement: "watch", requiredMinutes: 60, preconditionRewardIds: ["first"] }),
+    ]);
+
+    expect(result!.progress).toBe(15 / 120);
+  });
+
+  it("counts a claimed reward whose watched minutes reset", () => {
+    const result = timeline([
+      reward({ id: "claimed", requirement: "watch", requiredMinutes: 60, watchedMinutes: 0, status: "claimed" }),
+      reward({ id: "next", requirement: "watch", requiredMinutes: 240 }),
+    ]);
+
+    expect(result!.progress).toBe(0.25);
+    expect(result!.markers[0]).toMatchObject({ reached: true, at: 0.25 });
+    expectDoneBehindFill(result);
+  });
+
+  it("keeps a zero-minute reward at the start", () => {
+    const result = timeline([
+      reward({ id: "free", requirement: "watch", requiredMinutes: 0 }),
+      reward({ id: "hour", requirement: "watch", requiredMinutes: 60 }),
+    ]);
+
+    expect(result!.markers.map((marker) => marker.at)).toEqual([0, 1]);
+  });
+
+  it("has no timeline when nothing is earned by watching", () => {
+    expect(timeline([reward({ id: "sub", requirement: "subscription", requiredSubs: 1 })])).toBeUndefined();
+    expect(timeline([reward({ id: "free", requirement: "watch", requiredMinutes: 0 })])).toBeUndefined();
+  });
+});
+
+describe("the exclude button on a campaign with nothing to watch", () => {
+  // A subscription-only campaign cannot be excluded on its own, so the only
+  // choice left is blocking its whole game; the button used to say "Exclude
+  // from farming" while it did that.
+  function render(view: CampaignView): string {
+    return renderToStaticMarkup(createElement(
+      I18nContext.Provider,
+      { value: { t: testT, dir: "ltr", locale: "en" } },
+      createElement(QueuePanel, {
+        campaigns: [view], gameMap: {}, refreshing: false, strategy: "ending_soonest" as const, pinnedCount: 0, farmPinnedOnly: false,
+        onStrategyChange: () => {}, onUnpinAll: () => {}, onFarmPinnedOnlyChange: () => {}, onRefreshCampaign: () => {},
+        onPinChange: () => {}, onToggleExclude: () => {}, onOpenGames: () => {}, onOpenSettings: () => {},
+        onToggleBlockedCategory: () => {},
+      }),
+    ));
+  }
+  const source = () => ({
+    ...campaign("sub-game", [reward({ id: "subscribe", requirement: "subscription", requiredSubs: 1 })]),
+    categoryId: "rust", gameName: "Rust",
+  });
+  const button = (markup: string) => /<button[^>]*data-campaign-exclude[^>]*>(.*?)<\/button>/.exec(markup);
+
+  it("names blocking the game as the action", () => {
+    const match = button(render(expandedView(campaignViewFromCampaign(source(), 0, idleSession, false))));
+    expect(match?.[0]).toContain('aria-pressed="false"');
+    expect(match?.[1]).toContain("gamesBlock");
+    expect(match?.[1]).not.toContain("Exclude from farming");
+  });
+
+  it("names the blocked game once it is blocked", () => {
+    const view = { ...expandedView(campaignViewFromCampaign(source(), 0, idleSession, false)), categoryBlocked: true };
+    const match = button(render(view));
+    expect(match?.[0]).toContain('aria-pressed="true"');
+    expect(match?.[1]).toContain("campaignCategoryBlocked");
   });
 });

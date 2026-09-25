@@ -163,9 +163,7 @@ export async function runCliBaselineCell(
       twitch: { ...DEFAULT_CLI_SETTINGS.platform.twitch, enabled: platform === "twitch" },
       kick: { ...DEFAULT_CLI_SETTINGS.platform.kick, enabled: platform === "kick" },
     },
-    campaignPriorities: scenario === "higherPriorityUnavailable"
-      ? { [`${platform}-urgent`]: 10 }
-      : {},
+    campaignPins: scenario === "higherPriorityUnavailable" ? [`${platform}-urgent`] : [],
   };
   const buildOne = (selectedPlatform: Platform, _emit: EventEmitter, engineSettings: EngineSettings) => {
     counts.adapterConstructions += 1;

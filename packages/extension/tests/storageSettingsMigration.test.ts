@@ -55,7 +55,7 @@ describe("settings storage migration", () => {
     expect(written.platform.twitch).not.toHaveProperty("watchQueueChannels");
   });
 
-  it("moves a stored campaignVisibility block's display keys into dropsListFilter, leaving farming at defaults", async () => {
+  it("retires a stored campaignVisibility block without reducing farming", async () => {
     get.mockResolvedValue({
       settings: {
         schemaVersion: 1,
@@ -65,22 +65,14 @@ describe("settings storage migration", () => {
 
     const settings = await loadSettings();
 
-    // campaignVisibility was display-only, so all six keys carry over as display
-    // preferences (including notLinked/subscription as showNotLinked/
-    // showSubscription) while farming stays at its defaults (both on) — no
-    // farming reduction on upgrade (see CAMPAIGN_VISIBILITY_MAPPING).
+    // campaignVisibility was display-only. v2 moved it to dropsListFilter and v7
+    // retired that block with the popup's sections, but neither step may turn a
+    // hidden class into an unfarmed one: farming stays at its defaults (both on).
     expect(settings.farmingEligibility).toEqual({
       farmUnlinkedCampaigns: true,
       farmSubscriptionCampaigns: true,
     });
-    expect(settings.dropsListFilter).toEqual({
-      showUpcoming: false,
-      showExpired: true,
-      showFinished: false,
-      showExcluded: true,
-      showNotLinked: false,
-      showSubscription: false,
-    });
+    expect(settings).not.toHaveProperty("dropsListFilter");
     expect(set).toHaveBeenCalledTimes(1);
     const written = set.mock.calls[0]?.[0].settings;
     expect(written).toEqual(withSchemaVersion(settings));
@@ -163,5 +155,34 @@ describe("settings storage migration", () => {
     await save;
     expect(set).toHaveBeenCalledTimes(2);
     expect(set.mock.calls[1]?.[0]).toEqual({ settings: withSchemaVersion(current) });
+  });
+  it("loads a v6 document into pins, blocks and a persisted v7", async () => {
+    get.mockResolvedValue({
+      settings: {
+        schemaVersion: 6,
+        priorityMode: "priority_list_only",
+        campaignPriorities: { "campaign-low": 1, "campaign-high": 9 },
+        dropsListFilter: { showExpired: true },
+        platform: {
+          twitch: { categoryMode: "exclude", categories: [{ id: "cs2", name: "Counter-Strike 2" }] },
+        },
+      },
+    });
+
+    const settings = await loadSettings();
+
+    expect(settings.campaignPins).toEqual(["campaign-high", "campaign-low"]);
+    expect(settings.farmPinnedOnly).toBe(true);
+    expect(settings.priorityMode).toBe("ending_soonest");
+    expect(settings.platform.twitch.categoryMode).toBe("all");
+    expect(settings.platform.twitch.blockedCategories).toEqual([{ id: "cs2", name: "Counter-Strike 2" }]);
+    expect(settings.platform.twitch.categories).toEqual([]);
+    expect(settings).not.toHaveProperty("dropsListFilter");
+
+    // Persisted once, at the current version, so the migration does not replay.
+    expect(set).toHaveBeenCalledTimes(1);
+    const written = set.mock.calls[0]?.[0].settings;
+    expect(written.schemaVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
+    expect(written).not.toHaveProperty("campaignPriorities");
   });
 });

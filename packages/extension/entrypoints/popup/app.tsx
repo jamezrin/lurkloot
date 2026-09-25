@@ -1,15 +1,14 @@
+import { requestTwitchExtensionGrant } from "../../src/extensions/grantCompletion";
 import { browser } from "wxt/browser";
 import type React from "react";
 import {
   Popup,
-  PromoTile,
-  StoreScreenshot,
+  StoreArtwork,
+  StorePromo,
   createDemoPopupAdapter,
   openHttpsLink,
   screenshotVariant,
-  variantShowsPopup,
   type PopupAdapter,
-  type ScreenshotVariant,
 } from "@lurkloot/popup-ui";
 import { SUPPORTED_LOCALES } from "@lurkloot/shared/settings";
 import type { SupportedLocale } from "@lurkloot/shared/models";
@@ -31,12 +30,16 @@ export const SCREENSHOT_MODE = URL_PARAMS.get("screenshot") === "store";
 export const PROMO_MODE = URL_PARAMS.get("screenshot") === "promo";
 export const PROMO_FORMAT: "small" | "marquee" =
   URL_PARAMS.get("format") === "marquee" ? "marquee" : "small";
-export const SCREENSHOT_VARIANT: ScreenshotVariant = screenshotVariant(URL_PARAMS.get("variant"));
 export const POPUP_LOCALE = localeFromUrl();
 
 export function createExtensionPopupAdapter(): PopupAdapter {
   return {
     version: browser.runtime.getManifest().version,
+    requestTwitchExtensionPermission: (provider) => requestTwitchExtensionGrant({
+      storage: browser.storage.local,
+      request: (details) => browser.permissions.request(details),
+      now: Date.now,
+    }, provider),
     send: (message) => browser.runtime.sendMessage(message),
     getStorage: (keys) => browser.storage.local.get(keys),
     setStorage: (values) => browser.storage.local.set(values),
@@ -122,16 +125,16 @@ export const POPUP_ADAPTER: PopupAdapter = SCREENSHOT_MODE || PROMO_MODE
 
 export function PopupApp(): React.ReactElement {
   if (PROMO_MODE) {
-    return <PromoTile format={PROMO_FORMAT} locale={POPUP_LOCALE} />;
+    return <StorePromo format={PROMO_FORMAT} locale={POPUP_LOCALE} />;
   }
 
   if (SCREENSHOT_MODE) {
+    const requested = URL_PARAMS.get("story");
+    const story = requested === "games" || requested === "kick" || requested === "watchlist" || requested === "extensions" ? requested : "queue";
     return (
-      <StoreScreenshot variant={SCREENSHOT_VARIANT} locale={POPUP_LOCALE}>
-        {variantShowsPopup(SCREENSHOT_VARIANT) ? (
-          <Popup adapter={POPUP_ADAPTER} initialState={{ preview: true, locale: POPUP_LOCALE, variant: SCREENSHOT_VARIANT }} />
-        ) : null}
-      </StoreScreenshot>
+      <StoreArtwork story={story} locale={POPUP_LOCALE}>
+        <Popup adapter={POPUP_ADAPTER} initialState={{ preview: true, locale: POPUP_LOCALE, variant: screenshotVariant(story === "kick" ? "easy" : story === "watchlist" ? "extras" : "drops") }} />
+      </StoreArtwork>
     );
   }
 

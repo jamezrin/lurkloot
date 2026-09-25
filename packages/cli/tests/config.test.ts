@@ -246,14 +246,18 @@ describe("loadConfig", () => {
     expect(parseJsonc(defaultConfigJsonc()).settings.farmingEligibility).toEqual(DEFAULT_CLI_SETTINGS.farmingEligibility);
   });
 
-  it("documents the category mode and its three values in the template", () => {
+  it("documents the category mode and both of its values in the template", () => {
     // The round-trip merges defaults, so an omitted key would still pass there.
     // Assert the template renders the key and explains every mode, since the
     // template doubles as the CLI settings reference.
     const template = defaultConfigJsonc();
     expect(template).toContain(`"categoryMode": "${DEFAULT_CLI_SETTINGS.platform.twitch.categoryMode}"`);
     expect(template).not.toContain("farmAllCategories");
-    for (const mode of ["all", "include", "exclude"]) expect(template).toContain(`"${mode}"`);
+    for (const mode of ["all", "include"]) expect(template).toContain(`"${mode}"`);
+    expect(template).not.toContain('"exclude"');
+    // Ranking and the denylist are their own lists now (#352).
+    expect(template).toContain('"favouriteCategories"');
+    expect(template).toContain('"blockedCategories"');
   });
 
   it("documents the post-claim handoff settings in the template", () => {
@@ -366,4 +370,9 @@ describe("config export/import", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+});
+
+
+it("rejects browser-only Twitch provider integration settings", () => {
+  expect(() => parseConfig({ settings: { twitchExtensions: { nopixel: { enabled: true } } } }, CONFIG_PATH)).toThrow(/extension-only/);
 });

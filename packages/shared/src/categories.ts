@@ -37,23 +37,34 @@ export function categoryListIndex(campaign: DropCampaign, list: CategorySelectio
 // stays true if that short circuit ever changes.
 export function campaignPassesCategoryFilter(
   campaign: DropCampaign,
-  platformSettings: Pick<PlatformSettings, "categoryMode" | "categories">,
+  platformSettings: Pick<PlatformSettings, "categoryMode" | "categories"> & Partial<Pick<PlatformSettings, "blockedCategories">>,
 ): boolean {
+  if (isCampaignCategoryBlocked(campaign, platformSettings)) return false;
   if (platformSettings.categoryMode === "all") return true;
-  const listed = categoryListIndex(campaign, platformSettings.categories) !== -1;
-  return platformSettings.categoryMode === "exclude" ? !listed : listed;
+  return categoryListIndex(campaign, platformSettings.categories) !== -1;
 }
 
-// Order within the per-platform categories list sets farming priority — but
-// only in "include" mode, where the list IS the user's ordered preference.
-// In "all" the (hidden) list must never silently reorder anything, and in
-// "exclude" the list is a denylist: position in it says nothing about how much
-// the user wants a category, so every campaign scores equal in both.
-export function categoryPriorityScore(
+// A blocked category is never farmed, in either mode. Blocking is the only
+// denylist: it replaced the old "exclude" category mode, so one campaign can no
+// longer be both allowed by the mode and refused by the list it is stored in.
+export function isCampaignCategoryBlocked(
   campaign: DropCampaign,
-  platformSettings: Pick<PlatformSettings, "categoryMode" | "categories">,
+  platformSettings: Partial<Pick<PlatformSettings, "blockedCategories">>,
+): boolean {
+  const blocked = platformSettings.blockedCategories;
+  if (!blocked?.length) return false;
+  return categoryListIndex(campaign, blocked) !== -1;
+}
+
+// Position of a campaign's category among the user's favourites, or -1. This is
+// the only way a category can affect ranking: the allowlist filters, favourites
+// rank, and a blocked category ranks nowhere because it is never farmed.
+export function favouriteCategoryIndex(
+  campaign: DropCampaign,
+  platformSettings: Partial<Pick<PlatformSettings, "favouriteCategories" | "blockedCategories">>,
 ): number {
-  if (platformSettings.categoryMode !== "include") return Number.MAX_SAFE_INTEGER;
-  const index = categoryListIndex(campaign, platformSettings.categories);
-  return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+  const favourites = platformSettings.favouriteCategories;
+  if (!favourites?.length) return -1;
+  if (isCampaignCategoryBlocked(campaign, platformSettings)) return -1;
+  return categoryListIndex(campaign, favourites);
 }

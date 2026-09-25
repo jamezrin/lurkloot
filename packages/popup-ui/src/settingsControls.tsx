@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from "react";
-import { Ban, ChevronDown, Lock } from "lucide-react";
+import { Ban, ChevronDown, Lock, Minus, Plus } from "lucide-react";
+import { NumberField } from "@base-ui/react/number-field";
 import type { ExtensionSettings } from "@lurkloot/shared/models";
 import {
   COLLAPSED_SETTINGS_SECTIONS_KEY,
-  DROPS_LIST_FILTERS,
 } from "./constants";
 import { usePopupRuntime, useT } from "./context";
 import { SearchBox, Toggle, cn } from "./primitives";
+import { Dropdown } from "./dropdown";
+import { Tip } from "./tooltip";
 
-export function SettingsSection({ id, title, description, badge, forceExpanded, children }: {
+export function SettingsSection({ id, title, description, badge, forceExpanded, collapsible = true, children }: {
   // Stable, locale-independent identity. Collapse state is keyed by this, not by
   // the translated title, so changing language does not reset the accordion.
   id: string;
@@ -18,13 +20,16 @@ export function SettingsSection({ id, title, description, badge, forceExpanded, 
   // While searching, sections holding matches are opened regardless of the
   // persisted state, and the persisted state is left untouched.
   forceExpanded?: boolean;
+  // A short, always-useful section (the about footer) stays open: it renders a
+  // plain heading and ignores any collapse state persisted for it earlier.
+  collapsible?: boolean;
   children: React.ReactNode;
 }) {
   const { adapter, preview } = usePopupRuntime();
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
-    if (preview) return;
+    if (preview || !collapsible) return;
     let mounted = true;
     void adapter.getStorage(COLLAPSED_SETTINGS_SECTIONS_KEY).then((stored) => {
       if (!mounted) return;
@@ -34,7 +39,7 @@ export function SettingsSection({ id, title, description, badge, forceExpanded, 
     return () => {
       mounted = false;
     };
-  }, [adapter, preview, id]);
+  }, [adapter, preview, id, collapsible]);
 
   function toggleCollapsed(): void {
     const nextCollapsed = !collapsed;
@@ -47,36 +52,58 @@ export function SettingsSection({ id, title, description, badge, forceExpanded, 
     });
   }
 
-  const expanded = forceExpanded || !collapsed;
+  const expanded = !collapsible || forceExpanded || !collapsed;
+  const headingText = (
+    <span className="flex min-w-0 items-center gap-1.5">
+      <span data-settings-section-title className="font-display text-[12.5px] font-bold leading-tight text-zinc-900 dark:text-zinc-50">{title}</span>
+      {badge}
+    </span>
+  );
 
+  // At full width an open section's name and purpose sit in a label column
+  // beside its rows, so the width goes to the settings rather than to stacked
+  // headings. A folded section has no rows, so its header spans the full width:
+  // the name stays in the label column and the description moves into the
+  // content column, one compact line aligned with the open sections. The same
+  // button is kept across both states so focus survives the toggle.
   return (
-    <section id={`settings-section-${id}`} className="scroll-mt-2">
-      <header className="mb-1.5 px-0.5">
-        <button
+    <section id={`settings-section-${id}`} className={cn("@[520px]:grid-cols-[8.5rem_minmax(0,1fr)] grid scroll-mt-2 grid-cols-1 gap-x-5 border-t border-zinc-200 first:border-t-0 first:pt-0 dark:border-zinc-800", expanded ? "pt-3" : "pt-2")}>
+      <header className={expanded ? "@[520px]:mb-0 mb-1.5" : "col-span-full"}>
+        {!collapsible ? (
+          <div className="py-1.5">
+            {headingText}
+            {description ? <span className="mt-1 block text-[10.5px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</span> : null}
+          </div>
+        ) : <button
           type="button"
           aria-expanded={expanded}
           onClick={toggleCollapsed}
-          className="flex w-full items-start justify-between gap-3 rounded-lg px-1 py-1 text-left outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:hover:bg-zinc-900/70"
+          className={cn(
+            "group grid w-full grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 rounded-lg py-1.5 text-start outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]",
+            !expanded && "@[520px]:grid-cols-[8.5rem_minmax(0,1fr)_auto] @[520px]:gap-x-5",
+          )}
         >
-          <span className="min-w-0">
-            <span className="flex items-center gap-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{title}</span>
-              {badge}
-            </span>
-            {description ? <span className="mt-1 block text-[11px] leading-snug text-zinc-400 dark:text-zinc-500">{description}</span> : null}
-          </span>
-          <ChevronDown size={14} className={cn("mt-0.5 shrink-0 text-zinc-400 transition-transform dark:text-zinc-500", expanded && "rotate-180")} />
-        </button>
+          <span className="col-start-1 row-start-1 min-w-0">{headingText}</span>
+          {description ? (
+            <span className={cn("col-start-1 row-start-2 mt-1 block min-w-0 text-[10.5px] leading-snug text-zinc-500 dark:text-zinc-400", !expanded && "@[520px]:col-start-2 @[520px]:row-start-1 @[520px]:mt-0.5 truncate")}>{description}</span>
+          ) : null}
+          {/* Shown on hover and focus while open, as the prototype has no
+              arrows; always shown while collapsed, so a folded section says so. */}
+          <ChevronDown size={13} className={cn("col-start-2 row-start-1 mt-0.5 shrink-0 text-zinc-400 transition-transform dark:text-zinc-500", expanded ? "rotate-180 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" : "@[520px]:col-start-3")} />
+        </button>}
       </header>
-      {expanded ? <div className="space-y-3 px-0.5">{children}</div> : null}
+      {expanded ? <div className="min-w-0 space-y-3 pb-2">{children}</div> : null}
     </section>
   );
 }
 
 // A labelled divider inside the flat settings flow. Groups do not collapse:
 // search is the direct route to a long page, and all advanced settings remain
-// available without a separate visual warning state.
-export function SettingsGroup({ title, description, badge, children }: {
+// available without a separate visual warning state. The anchor id sits on the
+// group itself rather than on a wrapper, so `first:` only matches the real first
+// group and every later group keeps its divider.
+export function SettingsGroup({ id, title, description, badge, children }: {
+  id?: string;
   title: string;
   // Groups whose whole body is one editor carry that editor's subtitle and count
   // here, so the editor itself renders bare instead of repeating the heading.
@@ -86,10 +113,9 @@ export function SettingsGroup({ title, description, badge, children }: {
   children: React.ReactNode;
 }) {
   return (
-    <div className="mt-3 first:mt-0">
-      <div className="mb-0.5 flex items-center gap-1.5 pt-1">
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{title}</span>
-        <span className="h-px flex-1 bg-zinc-100 dark:bg-zinc-800/70" />
+    <div id={id ? `settings-group-${id}` : undefined} className="mt-2 border-t border-zinc-200 pt-3 first:mt-0 first:border-t-0 first:pt-0 dark:border-zinc-800">
+      <div className="mb-0.5 flex items-center gap-1.5">
+        <span className="text-[12.5px] font-semibold text-zinc-900 dark:text-zinc-50">{title}</span>
         {badge}
       </div>
       {description ? <p className="mb-1.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</p> : null}
@@ -122,81 +148,18 @@ export function SettingRow({ title, description, checked, onChange, disabled = f
   disabledReason?: string;
 }) {
   return (
-    <div className={cn("flex items-center gap-3 py-2.5", disabled && "opacity-60")} title={disabled ? disabledReason : undefined}>
-      <div className="min-w-0 flex-1">
-        <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{title}</div>
-        <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
+    <Tip label={disabled ? disabledReason : undefined}>
+      <div className={cn("grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 py-2.5", disabled && "opacity-60")}>
+        <div className="min-w-0">
+          <div className="text-[12.5px] font-semibold text-zinc-800 dark:text-zinc-100">{title}</div>
+          <div className="mt-0.5 max-w-[46ch] text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
+        </div>
+        <Toggle size="sm" checked={checked} onChange={onChange} label={title} disabled={disabled} />
       </div>
-      <Toggle checked={checked} onChange={onChange} label={title} disabled={disabled} />
-    </div>
+    </Tip>
   );
 }
 
-// The Drops-list view control: one labelled group of chips over the
-// dropsListFilter flags. Pure display — the farming axis is now separate
-// SettingRow toggles — so there is a single group here, not the old
-// farming/display split.
-//
-// The not-linked/subscription chips carry a `lockedBy` farming flag. While that
-// flag is on, the matching class of campaign is always farmed and therefore
-// always visible (isCampaignVisible enforces this), so the chip is forced on and
-// disabled: it surfaces the invariant rather than offering a toggle that could
-// not take effect. The lock is display-only — a locked chip never writes to the
-// stored show-flag, so the user's hidden/shown preference survives to reappear
-// when farming is turned back off.
-export function DropsListFilterRow({ value, farmingEligibility, onChange }: {
-  value: ExtensionSettings["dropsListFilter"];
-  farmingEligibility: ExtensionSettings["farmingEligibility"];
-  onChange(value: ExtensionSettings["dropsListFilter"]): void | Promise<void>;
-}) {
-  const t = useT();
-  const toggle = (key: keyof ExtensionSettings["dropsListFilter"]) => onChange({ ...value, [key]: !value[key] });
-  return (
-    // role="group" + aria-labelledby, so a screen-reader user hears the row's
-    // name around the chips instead of an anonymous run of buttons.
-    // aria-labelledby rather than aria-label keeps the visible and accessible
-    // names from drifting apart; the id is unique on the page.
-    <div className="py-2.5" role="group" aria-labelledby="dropsListFilter-label">
-      <div id="dropsListFilter-label" className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{t("dropsListFilterTitle")}</div>
-      <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
-        {t("dropsListFilterDescription")}
-      </div>
-      <div className="mt-2 flex flex-wrap items-center gap-1">
-        {DROPS_LIST_FILTERS.map(({ key, label, lockedBy }) => {
-          // Farming forces the chip visible; otherwise it reflects the stored flag.
-          const locked = lockedBy ? farmingEligibility[lockedBy] : false;
-          const active = locked || value[key];
-          return (
-            <button
-              key={key}
-              type="button"
-              // Guard rather than omit: a locked chip must not mutate the stored
-              // show-flag, so the preference is preserved for when farming stops.
-              onClick={locked ? undefined : () => toggle(key)}
-              disabled={locked}
-              aria-disabled={locked}
-              aria-pressed={active}
-              title={locked ? t("dropsListFilterLockedHint") : undefined}
-              className={cn(
-                "flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold transition",
-                active
-                  ? "border-transparent text-[var(--accent-contrast)]"
-                  : "border-zinc-200 text-zinc-400 dark:border-zinc-700",
-                locked && "cursor-not-allowed opacity-70",
-              )}
-              style={active ? { backgroundColor: "var(--accent)" } : undefined}
-            >
-              {locked
-                ? <Lock size={8} style={{ color: "var(--accent-contrast)" }} aria-hidden />
-                : <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: active ? "var(--accent-contrast)" : "var(--accent)" }} />}
-              {t(label)}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 export function ForgetExcludedCampaignsRow({ count, onForget }: { count: number; onForget(): void | Promise<void> }) {
   const t = useT();
@@ -204,7 +167,7 @@ export function ForgetExcludedCampaignsRow({ count, onForget }: { count: number;
   return (
     <div className="flex items-center gap-3 py-2.5">
       <div className="min-w-0 flex-1">
-        <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{t("forgetExcludedTitle")}</div>
+        <div className="text-[12.5px] font-semibold text-zinc-800 dark:text-zinc-100">{t("forgetExcludedTitle")}</div>
         <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
           {t("forgetExcludedDescription")}
         </div>
@@ -228,9 +191,10 @@ export function ForgetExcludedCampaignsRow({ count, onForget }: { count: number;
   );
 }
 
-// The bare select control. A native <select> sizes itself to its longest option,
-// so it is capped and allowed to shrink; long labels ellipsize instead of
-// squeezing whatever sits beside it. The full label stays available on hover.
+// The bare select control: the popup's own dropdown, since the OS menu of a
+// native <select> cannot follow the popup's theme. It is capped and allowed to
+// shrink; long labels ellipsize instead of squeezing whatever sits beside it,
+// and the full label stays available on hover.
 export function SelectControl<T extends string>({ label, value, options, onChange, disabled = false, disabledReason }: {
   label: string;
   value: T;
@@ -240,20 +204,17 @@ export function SelectControl<T extends string>({ label, value, options, onChang
   disabledReason?: string;
 }) {
   return (
-    <label className={cn("flex min-w-0 max-w-[45%] shrink-0 items-center rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[11px] font-semibold text-zinc-500 focus-within:border-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400", disabled && "cursor-not-allowed")}>
-      <select
-        aria-label={label}
-        title={disabled ? disabledReason : options.find((option) => option.value === value)?.label}
-        disabled={disabled}
+    <div className="@[520px]:max-w-[15rem] min-w-[9.5rem] max-w-[11rem] shrink-0">
+      <Dropdown
+        label={label}
         value={value}
-        onChange={(event) => void onChange(event.target.value as T)}
-        className={cn("w-full truncate bg-transparent pr-1 outline-none", disabled && "cursor-not-allowed")}
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>{option.label}</option>
-        ))}
-      </select>
-    </label>
+        options={options}
+        onChange={onChange}
+        disabled={disabled}
+        title={disabled ? disabledReason : undefined}
+        className="rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[11px] font-semibold text-zinc-700 hover:border-zinc-300 focus-visible:border-[var(--accent-ring)] aria-expanded:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-zinc-600"
+      />
+    </div>
   );
 }
 
@@ -267,58 +228,94 @@ export function SelectSettingRow<T extends string>({ title, description, value, 
   disabledReason?: string;
 }) {
   return (
-    <div className={cn("flex items-center gap-3 py-2.5", disabled && "opacity-60")} title={disabled ? disabledReason : undefined}>
-      <div className="min-w-0 flex-1">
-        <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{title}</div>
-        <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
+    <Tip label={disabled ? disabledReason : undefined}>
+      <div className={cn("flex items-center gap-4 py-2.5", disabled && "opacity-60")}>
+        <div className="min-w-0 flex-1">
+          <div className="text-[12.5px] font-semibold text-zinc-800 dark:text-zinc-100">{title}</div>
+          <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
+        </div>
+        <SelectControl label={title} value={value} options={options} onChange={onChange} disabled={disabled} disabledReason={disabledReason} />
       </div>
-      <SelectControl label={title} value={value} options={options} onChange={onChange} disabled={disabled} disabledReason={disabledReason} />
-    </div>
+    </Tip>
   );
 }
 
+// A whole-number setting on Base UI's NumberField: typing, arrow keys (Shift for
+// tens), and the − / + buttons all clamp to min/max, and the value is saved once
+// it is committed — on blur, Enter, or a step — rather than on every keystroke.
 export function NumberSettingRow({ title, description, value, min, max, suffix, onChange, disabled = false, disabledReason }: { title: string; description: string; value: number; min: number; max: number; suffix: string; onChange(value: number): void | Promise<void>; disabled?: boolean; disabledReason?: string }) {
-  const [draft, setDraft] = useState(String(value));
+  const [draft, setDraft] = useState<number | null>(value);
 
   useEffect(() => {
-    setDraft(String(value));
+    setDraft(value);
   }, [value]);
 
-  function commit(rawValue = draft): void {
-    const nextValue = Number(rawValue);
-    if (!Number.isFinite(nextValue)) {
-      setDraft(String(value));
-      return;
-    }
-    const clamped = Math.min(max, Math.max(min, Math.round(nextValue)));
-    setDraft(String(clamped));
-    void onChange(clamped);
-  }
-
+  const stepButton = "grid h-5 w-5 shrink-0 place-items-center rounded-md text-zinc-400 outline-none transition-colors hover:bg-zinc-100 hover:text-zinc-800 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] data-[disabled]:pointer-events-none data-[disabled]:opacity-40 dark:hover:bg-zinc-800 dark:hover:text-zinc-100";
   return (
-    <div className={cn("flex items-center gap-3 py-2.5", disabled && "opacity-60")} title={disabled ? disabledReason : undefined}>
-      <div className="min-w-0 flex-1">
-        <div className="text-[13px] font-medium text-zinc-800 dark:text-zinc-100">{title}</div>
-        <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
-      </div>
-      <label className={cn("flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[11px] font-semibold text-zinc-500 focus-within:border-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400", disabled && "cursor-not-allowed")}>
-        <input
-          aria-label={title}
-          type="number"
-          disabled={disabled}
+    <Tip label={disabled ? disabledReason : undefined}>
+      <div className={cn("flex items-center gap-3 py-2.5", disabled && "opacity-60")}>
+        <div className="min-w-0 flex-1">
+          <div className="text-[12.5px] font-semibold text-zinc-800 dark:text-zinc-100">{title}</div>
+          <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
+        </div>
+        <NumberField.Root
+          value={draft}
           min={min}
           max={max}
           step={1}
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          onBlur={(event) => commit(event.currentTarget.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") event.currentTarget.blur();
+          largeStep={10}
+          format={{ maximumFractionDigits: 0, useGrouping: false }}
+          disabled={disabled}
+          onValueChange={(next) => setDraft(next)}
+          onValueCommitted={(next) => {
+            if (next === null) {
+              setDraft(value);
+              return;
+            }
+            const clamped = Math.min(max, Math.max(min, Math.round(next)));
+            setDraft(clamped);
+            if (clamped !== value) void onChange(clamped);
           }}
-          className="w-12 bg-transparent text-right text-xs font-semibold tabular text-zinc-900 outline-none dark:text-zinc-100"
-        />
-        {suffix}
-      </label>
+          className={cn("shrink-0", disabled && "cursor-not-allowed")}
+        >
+          <NumberField.Group className="flex items-center gap-0.5 rounded-lg border border-zinc-200 bg-white p-0.5 text-[11px] font-semibold text-zinc-500 focus-within:border-[var(--accent-ring)] dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
+            <NumberField.Decrement aria-label={`${title} −`} className={stepButton}>
+              <Minus size={11} aria-hidden />
+            </NumberField.Decrement>
+            <NumberField.Input
+              aria-label={title}
+              className="w-9 bg-transparent text-center text-xs font-semibold tabular text-zinc-900 outline-none dark:text-zinc-100"
+            />
+            <NumberField.Increment aria-label={`${title} +`} className={stepButton}>
+              <Plus size={11} aria-hidden />
+            </NumberField.Increment>
+            <span className="pe-1.5 ps-0.5">{suffix}</span>
+          </NumberField.Group>
+        </NumberField.Root>
+      </div>
+    </Tip>
+  );
+}
+
+// A setting that lives in another view: its name and what it does, and the way
+// there. Settings points at Games rather than keeping a second category editor.
+export function SettingsLinkRow({ title, description, action, onClick }: { title: string; description: string; action: string; onClick?(): void }) {
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 py-2.5">
+      <div className="min-w-0">
+        <div className="text-[12.5px] font-semibold text-zinc-800 dark:text-zinc-100">{title}</div>
+        <div className="mt-0.5 max-w-[46ch] text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
+      </div>
+      {onClick ? (
+        <button
+          type="button"
+          data-settings-link
+          onClick={onClick}
+          className="shrink-0 rounded-full border border-zinc-200 px-2.5 py-1 text-[11px] font-semibold text-[var(--accent-text)] outline-none hover:border-[var(--accent-ring)] focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700"
+        >
+          {action}
+        </button>
+      ) : null}
     </div>
   );
 }

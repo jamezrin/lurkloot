@@ -109,7 +109,7 @@ describe("scheduler campaign selection", () => {
       snapshot: fixture.snapshot,
       previous: fixture.previous,
       previousCampaigns: [fixture.higher, fixture.current],
-      settings: settings({ campaignPriorities: { higher: 10 } }),
+      settings: settings({ campaignPins: ["higher"] }),
     } as Parameters<typeof selectWatchTargetFromSnapshot>[0]);
 
     expect((first as unknown as { backoff?: { campaignId: string; retryAt: string } }).backoff).toMatchObject({
@@ -122,7 +122,7 @@ describe("scheduler campaign selection", () => {
       snapshot: { ...fixture.snapshot, revision: 2 },
       previous: fixture.previous,
       previousCampaigns: [fixture.higher, fixture.current],
-      settings: settings({ campaignPriorities: { higher: 10 } }),
+      settings: settings({ campaignPins: ["higher"] }),
       previousBackoff: (first as unknown as { backoff: unknown }).backoff,
     } as Parameters<typeof selectWatchTargetFromSnapshot>[0]);
 
@@ -138,7 +138,7 @@ describe("scheduler campaign selection", () => {
       snapshot: fixture.snapshot,
       previous: fixture.previous,
       previousCampaigns: [fixture.higher, fixture.current],
-      settings: settings({ campaignPriorities: { higher: 10 } }),
+      settings: settings({ campaignPins: ["higher"] }),
       previousBackoff: { campaignId: "higher", retryAt: "2026-09-08T04:05:00.000Z", fingerprint: "ignored-until-implemented" },
     } as Parameters<typeof selectWatchTargetFromSnapshot>[0]);
 
@@ -150,7 +150,7 @@ describe("scheduler campaign selection", () => {
     vi.useFakeTimers();
     vi.setSystemTime("2026-09-08T04:00:00.000Z");
     const fixture = negativeSearchFixture();
-    const originalSettings = settings({ campaignPriorities: { higher: 10 } });
+    const originalSettings = settings({ campaignPins: ["higher"] });
     const first = await selectWatchTargetFromSnapshot({
       snapshot: fixture.snapshot,
       previous: fixture.previous,
@@ -159,7 +159,7 @@ describe("scheduler campaign selection", () => {
     });
     const previousBackoff = (first as unknown as { backoff: { campaignId: string; retryAt: string; fingerprint: string } }).backoff;
     const cases = [
-      { snapshot: fixture.snapshot, previous: fixture.previous, settings: settings({ campaignPriorities: { higher: 20 } }), expectedCandidates: 2 },
+      { snapshot: fixture.snapshot, previous: fixture.previous, settings: settings({ campaignPins: ["higher", "other"] }), expectedCandidates: 2 },
       {
         snapshot: {
           ...fixture.snapshot,
@@ -207,13 +207,13 @@ describe("scheduler campaign selection", () => {
       snapshot: ambiguous.snapshot,
       previous: ambiguous.previous,
       previousCampaigns: [ambiguous.higher, ambiguous.current],
-      settings: settings({ campaignPriorities: { higher: 10 } }),
+      settings: settings({ campaignPins: ["higher"] }),
     });
     const kick = await selectWatchTargetFromSnapshot({
       snapshot: { ...ambiguous.snapshot, platform: "kick", campaigns: ambiguous.snapshot.campaigns.map(({ campaign: item, ...rest }) => ({ ...rest, campaign: { ...item, platform: "kick" as const } })) },
       previous: { ...ambiguous.previous, platform: "kick" },
       previousCampaigns: [ambiguous.higher, ambiguous.current].map((item) => ({ ...item, platform: "kick" })),
-      settings: settings({ campaignPriorities: { higher: 10 } }),
+      settings: settings({ campaignPins: ["higher"] }),
     });
 
     expect((twitch as unknown as { backoff?: unknown }).backoff).toBeUndefined();
@@ -369,24 +369,22 @@ describe("scheduler campaign selection", () => {
     }
   });
 
-  it("uses explicit priority before ending soonest", () => {
+  it("uses a pin before ending soonest", () => {
     const first = campaign("first", { endsAt: "2026-06-01T00:00:00.000Z" });
     const second = campaign("second", { endsAt: "2026-07-01T00:00:00.000Z" });
 
-    const sorted = sortCampaigns([first, second], settings({
-      campaignPriorities: { second: 5 },
-    }));
+    const sorted = sortCampaigns([first, second], settings({ campaignPins: ["second"] }));
 
     expect(sorted.map((item) => item.id)).toEqual(["second", "first"]);
   });
 
-  it("uses category-list order after explicit campaign priority", () => {
+  it("uses favourite-game order after pins", () => {
     const first = campaign("first", { gameName: "First Game", endsAt: "2026-06-01T00:00:00.000Z" });
     const second = campaign("second", { gameName: "Second Game", endsAt: "2026-07-01T00:00:00.000Z" });
 
     const sorted = sortCampaigns([first, second], settings({
       platform: {
-        twitch: { categoryMode: "include", categories: [{ id: "second game", name: "Second Game" }, { id: "first game", name: "First Game" }] },
+        twitch: { favouriteCategories: [{ id: "second game", name: "Second Game" }, { id: "first game", name: "First Game" }] },
       },
     }));
 
@@ -403,15 +401,18 @@ describe("scheduler campaign selection", () => {
     expect(sorted.map((item) => item.id)).toEqual(["first", "second"]);
   });
 
-  it("does not use category-list order in exclude mode", () => {
+  it("does not use the allowlist's order in include mode", () => {
     const first = campaign("first", { gameName: "First Game", endsAt: "2026-06-01T00:00:00.000Z" });
     const second = campaign("second", { gameName: "Second Game", endsAt: "2026-07-01T00:00:00.000Z" });
 
-    // The same list that would put "second" first in include mode is a denylist
-    // here, so position in it must not become a priority: ends-soonest wins.
+    // The allowlist decides WHETHER a campaign is farmed, never where it sits:
+    // only a pin or a favourite ranks, so ends-soonest wins here (#352).
     const sorted = sortCampaigns([second, first], settings({
       platform: {
-        twitch: { categoryMode: "exclude", categories: [{ id: "third game", name: "Third Game" }, { id: "second game", name: "Second Game" }] },
+        twitch: {
+          categoryMode: "include",
+          categories: [{ id: "second game", name: "Second Game" }, { id: "first game", name: "First Game" }],
+        },
       },
     }));
 
@@ -462,7 +463,7 @@ describe("scheduler campaign selection", () => {
     expect(decision.campaign?.id).toBe("uncategorized");
   });
 
-  it("exclude mode farms every category except the listed ones", async () => {
+  it("farms every category except the blocked ones", async () => {
     const excluded = campaign("excluded", { gameName: "Excluded Game" });
     const other = campaign("other", { gameName: "Other Game" });
 
@@ -471,7 +472,7 @@ describe("scheduler campaign selection", () => {
       [excluded, other],
       settings({
         platform: {
-          twitch: { categoryMode: "exclude", categories: [{ id: "excluded game", name: "Excluded Game" }] },
+          twitch: { blockedCategories: [{ id: "excluded game", name: "Excluded Game" }] },
         },
       }),
       {
@@ -484,11 +485,11 @@ describe("scheduler campaign selection", () => {
     expect(decision.campaign?.id).toBe("other");
   });
 
-  it("exclude mode with an empty list farms everything", async () => {
+  it("farms everything with an empty block list", async () => {
     const decision = await chooseCampaignDecision(
       "twitch",
       [campaign("any", { gameName: "Any Game" })],
-      settings({ platform: { twitch: { categoryMode: "exclude", categories: [] } } }),
+      settings({ platform: { twitch: { blockedCategories: [] } } }),
       {
         listCandidateChannels: vi.fn(async () => [channel("creator")]),
         checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
@@ -499,7 +500,7 @@ describe("scheduler campaign selection", () => {
     expect(decision.campaign?.id).toBe("any");
   });
 
-  it("exclude mode reports the shared categories-filter reason when everything is excluded", async () => {
+  it("reports the shared categories-filter reason when every game is blocked", async () => {
     const listCandidateChannels = vi.fn(async () => [channel("creator")]);
 
     const decision = await chooseCampaignDecision(
@@ -507,7 +508,7 @@ describe("scheduler campaign selection", () => {
       [campaign("any", { gameName: "Any Game" })],
       settings({
         platform: {
-          twitch: { categoryMode: "exclude", categories: [{ id: "any game", name: "Any Game" }] },
+          twitch: { blockedCategories: [{ id: "any game", name: "Any Game" }] },
         },
       }),
       {
@@ -539,13 +540,13 @@ describe("scheduler campaign selection", () => {
     expect(listCandidateChannels).not.toHaveBeenCalled();
   });
 
-  it("priority list only skips campaigns the user has not reordered", async () => {
+  it("farm pinned only skips campaigns the user has not pinned", async () => {
     const listCandidateChannels = vi.fn(async () => [channel("creator")]);
 
     const decision = await chooseCampaignDecision(
       "twitch",
       [campaign("unlisted", { gameName: "Unlisted Game" })],
-      settings({ priorityMode: "priority_list_only" }),
+      settings({ farmPinnedOnly: true }),
       {
         listCandidateChannels,
         checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
@@ -553,20 +554,20 @@ describe("scheduler campaign selection", () => {
     );
 
     expect(decision.action).toBe("idle");
-    expect(decision.reason).toContain("No prioritized campaigns are eligible");
+    expect(decision.reason).toContain("No pinned campaigns are eligible");
     expect(listCandidateChannels).not.toHaveBeenCalled();
   });
 
-  it("priority list only ignores the category list (decoupled)", async () => {
+  it("farm pinned only ignores the category list (decoupled)", async () => {
     const listCandidateChannels = vi.fn(async () => [channel("creator")]);
 
-    // A campaign whose category is allowed but which was never manually reordered
-    // is NOT farmed under priority_list_only — the two are independent now.
+    // A campaign whose category is allowed but which was never pinned is NOT
+    // farmed under farmPinnedOnly — the two are independent.
     const decision = await chooseCampaignDecision(
       "twitch",
       [campaign("listed", { gameName: "Listed Game" })],
       settings({
-        priorityMode: "priority_list_only",
+        farmPinnedOnly: true,
         platform: {
           twitch: { categoryMode: "include", categories: [{ id: "listed game", name: "Listed Game" }] },
         },
@@ -581,11 +582,11 @@ describe("scheduler campaign selection", () => {
     expect(listCandidateChannels).not.toHaveBeenCalled();
   });
 
-  it("priority list only farms a campaign present in campaignPriorities", async () => {
+  it("farm pinned only farms a pinned campaign", async () => {
     const decision = await chooseCampaignDecision(
       "twitch",
       [campaign("pinned"), campaign("unlisted")],
-      settings({ priorityMode: "priority_list_only", campaignPriorities: { pinned: 5 } }),
+      settings({ farmPinnedOnly: true, campaignPins: ["pinned"] }),
       {
         listCandidateChannels: vi.fn(async () => [channel("creator")]),
         checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
@@ -866,17 +867,17 @@ describe("scheduler campaign selection", () => {
     expect(listCandidateChannels).not.toHaveBeenCalled();
   });
 
-  it("skips an unlinked Twitch campaign but still farms an unlinked Kick campaign", async () => {
+  it("farms unlinked watch campaigns on both platforms when enabled", async () => {
     const checkChannel = vi.fn(async (candidate: ChannelCandidate) => ({ live: true, categoryMatches: true, candidate }));
 
-    // Twitch cannot earn without a linked account → not selected.
+    // Account linking controls delivery, not watch progress.
     const twitch = await chooseCampaignDecision(
       "twitch",
-      [campaign("tw", { accountLinked: false })],
+      [campaign("tw", { accountLinked: false, eligibility: "account_not_linked" })],
       settings(),
       { listCandidateChannels: vi.fn(async () => [channel("creator")]), checkChannel },
     );
-    expect(twitch.action).toBe("idle");
+    expect(twitch.action).toBe("watch");
 
     // Kick accrues progress before linking, so an unlinked campaign is still farmed.
     const kick = await chooseCampaignDecision(
@@ -1490,7 +1491,7 @@ describe("scheduler tick", () => {
         existingState,
         settings({
           priorityMode: "ending_soonest",
-          campaignPriorities: { ordinary: 10 },
+          campaignPins: ["ordinary"],
           deadlineSafetyMarginMinutes: 0,
           platform: { twitch: { enabled: true }, kick: { enabled: false } },
         }),
@@ -1612,7 +1613,7 @@ describe("scheduler tick", () => {
       campaign("farmable"),
     ];
     const twitch = adapter("twitch", rejected, [channel("creator")]);
-    const tickSettings = settings({ platform: { twitch: { enabled: true }, kick: { enabled: false } } });
+    const tickSettings = settings({ farmingEligibility: { farmUnlinkedCampaigns: false, farmSubscriptionCampaigns: true }, platform: { twitch: { enabled: true }, kick: { enabled: false } } });
     const tickAdapters = { twitch, kick: adapter("kick", [], []) };
     const campaignEvaluationFingerprints = {};
 
@@ -1622,12 +1623,12 @@ describe("scheduler tick", () => {
 
     expect(aggregate).toMatchObject({
       platform: "twitch",
-      message: "Campaign farming evaluation: 3 discovered, 1 farmable, 1 completed, 1 Twitch account linking required",
+      message: "Campaign farming evaluation: 3 discovered, 1 farmable, 1 completed, 1 unlinked campaigns disabled",
     });
     expect(details).toEqual([
       expect.objectContaining({
         platform: "twitch",
-        message: "Campaign rejected: linked-required (linked-required), reason=twitch_link_required",
+        message: "Campaign rejected: linked-required (linked-required), reason=unlinked_campaigns_disabled",
       }),
     ]);
 
@@ -1643,7 +1644,7 @@ describe("scheduler tick", () => {
     ]);
     const third = await runSchedulerTick(second.state, tickSettings, tickAdapters, { campaignEvaluationFingerprints });
     expect(third.events).toContainEqual(expect.objectContaining({
-      message: "Campaign farming evaluation: 3 discovered, 0 farmable, 1 completed, 2 Twitch account linking required",
+      message: "Campaign farming evaluation: 3 discovered, 0 farmable, 1 completed, 2 unlinked campaigns disabled",
     }));
   });
 
@@ -2139,7 +2140,10 @@ describe("scheduler tick", () => {
   });
 
   it.each(["ending_soonest", "lowest_availability"] as const)(
-    "keeps an in-progress Kick reward when %s ranks a new campaign first",
+    // The queue is the order farmed: a campaign ranked above the current one
+    // takes over once it can be farmed, even partway through a reward. The
+    // reward's minutes stay on the platform for when it is on top again.
+    "switches from an in-progress Kick reward when %s ranks another campaign first",
     async (priorityMode) => {
       const currentChannel = channel("current", {
         platform: "kick",
@@ -2190,15 +2194,62 @@ describe("scheduler tick", () => {
         { platforms: ["kick"] },
       );
 
-      expect(kick.listCandidateChannels).not.toHaveBeenCalled();
       expect(result.state.sessions.kick).toMatchObject({
         status: "watching",
-        campaignId: "current",
-        rewardId: "reward-in_progress",
-        reasonCode: "keeping_current_watch",
+        campaignId: "replacement",
+        channel: { username: "replacement" },
       });
+      expect(result.events).toContainEqual(expect.objectContaining({
+        message: expect.stringMatching(/^Switching watch target \(Higher priority eligible reward available\)/),
+      }));
+
+      // And stays there: the next check on the same data does not switch back.
+      const next = await runSchedulerTick(result.state, settings({
+        priorityMode,
+        platform: {
+          twitch: { enabled: false, idleWatchlistChannels: [] },
+          kick: { enabled: true, idleWatchlistChannels: [] },
+        },
+      }), { twitch: adapter("twitch", [], []), kick }, { platforms: ["kick"] });
+      expect(next.state.sessions.kick).toMatchObject({ campaignId: "replacement", reasonCode: "keeping_current_watch" });
     },
   );
+
+  it("keeps the current watch and its counters when the campaign ranked above has no live channel", async () => {
+    const current = channel("current");
+    const twitch = adapter(
+      "twitch",
+      [campaign("current", { endsAt: "2099-02-01T00:00:00.000Z" }), campaign("sooner", { endsAt: "2099-01-01T00:00:00.000Z" })],
+      [current],
+    );
+    // Only the current campaign has a channel to watch.
+    vi.mocked(twitch.listCandidateChannels).mockImplementation(async (target) => target.id === "current" ? [current] : []);
+
+    const result = await runSchedulerTick(
+      {
+        ...baseState,
+        sessions: {
+          ...baseState.sessions,
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: current,
+            campaignId: "current",
+            rewardId: "reward-in_progress",
+            offlineChecks: 1,
+            playbackChecks: 0,
+            watchMode: "tabless",
+          },
+        },
+      },
+      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(result.state.sessions.twitch).toMatchObject({ status: "watching", campaignId: "current", channel: { username: "current" } });
+    expect(result.state.sessions.twitch.reasonCode).not.toBe("higher_priority_reward");
+  });
 
   it("bypasses current-watch retention when a higher-priority campaign is available", async () => {
     const current = channel("current");
@@ -2227,7 +2278,7 @@ describe("scheduler tick", () => {
         },
       },
       settings({
-        campaignPriorities: { urgent: 10 },
+        campaignPins: ["urgent"],
         platform: {
           twitch: { enabled: true, idleWatchlistChannels: [] },
           kick: { enabled: false, idleWatchlistChannels: [] },
@@ -2240,6 +2291,52 @@ describe("scheduler tick", () => {
     expect(twitch.listCandidateChannels).toHaveBeenCalledOnce();
     expect(result.state.sessions.twitch.campaignId).toBe("urgent");
     expect(result.state.sessions.twitch.channel?.username).toBe("replacement");
+    expect(result.state.sessions.twitch.reasonCode).toBe("higher_priority_reward");
+  });
+
+  it("switches when a favourite game's campaign outranks the current one", async () => {
+    // Favourite games rank above the strategy in the queue, and the queue is
+    // the order farmed, reward in progress or not.
+    const current = channel("current");
+    const replacement = channel("replacement");
+    const twitch = adapter(
+      "twitch",
+      [campaign("current"), campaign("starred", { gameName: "Starred Game" })],
+      [replacement],
+    );
+
+    const result = await runSchedulerTick(
+      {
+        ...baseState,
+        sessions: {
+          ...baseState.sessions,
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: current,
+            campaignId: "current",
+            rewardId: "reward-in_progress",
+            offlineChecks: 0,
+            playbackChecks: 0,
+            watchMode: "tabless",
+          },
+        },
+      },
+      settings({
+        platform: {
+          twitch: {
+            enabled: true,
+            idleWatchlistChannels: [],
+            favouriteCategories: [{ id: "starred game", name: "Starred Game" }],
+          },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(result.state.sessions.twitch.campaignId).toBe("starred");
     expect(result.state.sessions.twitch.reasonCode).toBe("higher_priority_reward");
   });
 

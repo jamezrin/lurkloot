@@ -1,0 +1,44 @@
+---
+import Arrow from "./Arrow.astro";
+import { Image } from "astro:assets";
+import { LINKS } from "../../consts";
+import rust from "../../assets/games/rust.jpg";
+import warframe from "../../assets/games/warframe.jpg";
+import valorant from "../../assets/games/valorant.jpg";
+const steps = [
+  { title: "Sign in as usual.", text: "Install the extension and sign in to Twitch or Kick in your browser. Lurkloot uses your existing session." },
+  { title: "Set your priorities.", text: "Choose your games, review available campaigns, and decide what should be farmed first." },
+  { title: "Let it run.", text: "Lurkloot finds eligible channels, follows progress, switches when needed, and claims available rewards." },
+];
+const games = [{ name: "Rust", image: rust }, { name: "Warframe", image: warframe }, { name: "VALORANT", image: valorant }];
+---
+<section class="home-light home-section" id="how-it-works" aria-labelledby="workflow-title">
+  <div class="home-wrap">
+    <div class="home-section-head">
+      <h2 id="workflow-title">You pick the rewards.<br /><span>Lurkloot takes it from there.</span></h2>
+      <p>Less checking tabs.<br />More getting on with your day.</p>
+    </div>
+    <ol class="home-steps">
+      {steps.map((step, index) => <li><span class="home-number">0{index + 1}</span><h3>{step.title}</h3><p>{step.text}</p></li>)}
+    </ol>
+    <div class="home-priorities">
+      <div>
+        <h2>Make room for<br />your favourites.</h2>
+        <p>Give the games you care about a place at the front. Explore campaigns, adjust your queue, and see what’s earning progress without digging through settings.</p>
+        <p>When there are no eligible drops, your watchlist can keep Lurkloot watching the channels you choose.</p>
+        <a href="#demo" class="home-text-link">Find your way around the demo <Arrow direction="up" /></a>
+      </div>
+      <figure class="home-games">
+        <div class="home-game-art">
+          {games.map((game, index) => <div><Image src={game.image} alt={game.name} width={220} height={294} loading="lazy" /><span>0{index + 1}</span></div>)}
+        </div>
+        <figcaption>Your games. Your order. <span>Campaign availability varies.</span></figcaption>
+      </figure>
+    </div>
+    <div class="home-platforms" aria-label="Supported rewards">
+      <article><span class="home-number">01 / TWITCH</span><h3>Drops, handled.</h3><p>Track campaign rewards and automatically claim eligible drops and channel point bonuses.</p><a class="home-text-link" href={LINKS.twitchFarmer}>Explore Twitch support <Arrow direction="out" /></a></article>
+      <article><span class="home-number">02 / KICK</span><h3>Another platform. Same flow.</h3><p>Follow Kick campaigns, collect drops, and open daily challenge cards from the same workspace.</p><a class="home-text-link" href={LINKS.kickFarmer}>Explore Kick support <Arrow direction="out" /></a></article>
+      <article><span class="home-number">03 / TWITCH EXTENSIONS</span><h3>Go beyond drops.</h3><p>Enable optional support for selected Twitch extensions. Manage supported rewards alongside your regular farming.</p><p class="home-small">Optional permissions are requested when you enable support.</p></article>
+    </div>
+  </div>
+</section>

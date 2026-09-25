@@ -5,6 +5,14 @@ import { parseHTML } from "linkedom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createDemoPopupAdapter, Popup, type PopupAdapter } from "@lurkloot/popup-ui";
 
+// The rail is the popup's navigation: every destination is a button carrying
+// its view id, which keeps these tests independent of the nav copy.
+function byView(container: Element, view: string): HTMLButtonElement {
+  const button = container.querySelector(`button[data-view="${view}"]`);
+  if (!button) throw new Error(`Missing rail destination: ${view}`);
+  return button as HTMLButtonElement;
+}
+
 let root: Root | undefined;
 
 afterEach(() => {
@@ -47,10 +55,10 @@ describe("popup settings lifecycle", () => {
       await Promise.resolve();
     });
 
-    act(() => byLabel(container, "Open settings").click());
+    act(() => byView(container, "settings").click());
     expect(connectSettingsSession).not.toHaveBeenCalled();
 
-    act(() => byLabel(container, "Back").click());
+    act(() => byView(container, "queue").click());
     expect(connectSettingsSession).not.toHaveBeenCalled();
   });
 });

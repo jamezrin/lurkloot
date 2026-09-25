@@ -30,3 +30,5 @@ export type { ActivityCard, ActivityCardIcon, ActivityCardTone, DiagnosticsExpor
 export type { PopupAdapter, PopupInitialState, ScreenshotVariant } from "./types";
 export { variantShowsPopup } from "./types";
 export { SCREENSHOT_VARIANTS } from "./constants";
+
+export { StoreArtwork, StorePromo, type StoreStory } from "./storeArtwork";

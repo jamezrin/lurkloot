@@ -1,8 +1,8 @@
 import type { CategorySearchResult, CoreRuntimeMessage, PlaybackControl, RuntimeSnapshot } from "@lurkloot/shared/messages";
-import type { ChannelCandidate, DropCampaign, DropReward, EngineSettings, ManagedWatchTab, Platform, PlatformAuthHealth, PlaybackTelemetry, SchedulerState, TablessHeartbeatCadence, WatchReasonCode, WatchSession } from "@lurkloot/shared/models";
+import type { ChannelCandidate, DropCampaign, DropReward, EngineSettings, ManagedWatchTab, Platform, PlatformAuthHealth, PlaybackTelemetry, SchedulerState, SupplementalWatchTarget, TablessHeartbeatCadence, WatchReasonCode, WatchSession, WatchSourceId } from "@lurkloot/shared/models";
 import type { ActivityEvent, DiagnosticEvent, EngineEvent, EventEmitter, EventReporter, FarmingStopReason, PageContextOpenReason } from "@lurkloot/shared/events";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
-import { autoClaimChallengesFor, autoClaimChannelPointsFor, isFarmingActive } from "@lurkloot/shared/settings";
+import { autoClaimChallengesFor, autoClaimChannelPointsFor, IDLE_WATCHLIST_LIMIT, isFarmingActive } from "@lurkloot/shared/settings";
 import type { CompatibilityResolution, ResolvedCompatibility } from "@lurkloot/shared/compatibility";
 import { isWatchReward, reconcileCampaignAfterClaims } from "@lurkloot/shared/rewards";
 import { campaignSearchBackoffApplies, CHALLENGE_POLL_INTERVAL_MS, challengePollDue, claimReadyRewards, isPlaybackTelemetryHealthy, MANUAL_WATCH_TTL_MS, preserveClaimedRewards, runSchedulerTick, selectWatchTargetFromSnapshot, type SnapshotSelectionResult, type StopPageContextTabs } from "../core/scheduler";
@@ -37,6 +37,7 @@ import {
   validTablessHeartbeatCadence,
 } from "../core/heartbeatCadence";
 import { mergePlatformState, schedulerStateEquivalent } from "./platformState";
+import { kickChannelFromUrl } from "../platforms/kick/channelUrl";
 import { twitchChannelFromUrl } from "../platforms/twitch/channelUrl";
 import {
   collectDiscoverySnapshot,
@@ -105,6 +106,9 @@ export type TickTrigger =
   | "automation_toggle"
   | "platform_toggle"
   | "settings_saved"
+  // A save that only reordered what is farmed (pins, strategy, favourite
+  // games): the current discovery still holds, so the tick re-selects from it.
+  | "ranking_changed"
   | "manual_watch"
   | "manual_resume"
   | "manual_tick"
@@ -113,6 +117,24 @@ export type TickTrigger =
   | "claim_handoff"
   | "discovery_signal"
   | "unknown";
+
+// Settings that only decide the order campaigns are farmed in. Discovery does
+// not read them, so saving one keeps the discovered campaigns and channels.
+// Pins are the exception while "farm pinned only" is on: discovery then skips
+// unpinned campaigns, so a new pin needs its channels found.
+const RANKING_SETTING_KEYS = new Set(["priorityMode", "campaignPins"]);
+const RANKING_PLATFORM_SETTING_KEYS = new Set(["favouriteCategories"]);
+
+export function isRankingOnlyPatch(patch: SettingsPatch, current: Pick<EngineSettings, "farmPinnedOnly">): boolean {
+  const keys = Object.keys(patch);
+  if (keys.length === 0) return false;
+  if ("campaignPins" in patch && current.farmPinnedOnly) return false;
+  return keys.every((key) => {
+    if (key !== "platform") return RANKING_SETTING_KEYS.has(key);
+    return Object.values(patch.platform ?? {}).every((platformPatch) =>
+      Object.keys(platformPatch ?? {}).every((platformKey) => RANKING_PLATFORM_SETTING_KEYS.has(platformKey)));
+  });
+}
 type TickDiagnosticContext = Required<Pick<
   DiagnosticEvent,
   "globalTickId" | "platformTickId"
@@ -352,6 +374,7 @@ export interface BackgroundControllerDeps<S extends EngineSettings = EngineSetti
   ): Promise<boolean>;
   discardPageContextRecoveryEvidence?(platform: Platform): void;
   selectWatchTarget?: typeof selectWatchTargetFromSnapshot;
+  selectSupplementalWatchTarget?(platform: Platform, state: SchedulerState, settings: S, signal?: AbortSignal, source?: WatchSourceId): Promise<SupplementalWatchTarget | undefined>;
   // Delay used by the bounded post-claim handoff. Injected so tests can drive
   // the loop deterministically instead of racing real timers. Resolves early
   // (without throwing) when the signal aborts, so callers check `signal.aborted`
@@ -1753,18 +1776,24 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     return run;
   }
 
+  // `patch` may be worked out from the stored settings, inside the lock, for a
+  // change that has to apply to the latest value rather than a caller's copy.
   async function updateStoredSettings(
-    patch: SettingsPatch,
+    patchOrUpdate: SettingsPatch | ((current: S) => SettingsPatch),
     afterPersist?: (settings: S) => void,
     afterLoad?: (settings: S) => void,
   ): Promise<S> {
     return withSettingsLock(async () => {
+      const patch = typeof patchOrUpdate === "function" ? patchOrUpdate(await deps.loadSettings()) : patchOrUpdate;
       const patchKeys = Object.keys(patch);
       const invalidatedPlatforms = patchKeys.every((key) => key === "platform") && patch.platform
         ? PLATFORMS.filter((platform) => patch.platform?.[platform] !== undefined)
         : PLATFORMS;
+      const rankingOnly = isRankingOnlyPatch(patch, await deps.loadSettings());
       for (const platform of invalidatedPlatforms) {
-        discoveryLanes[platform].invalidate();
+        // Discovery does not depend on the ranking, so a reorder keeps it and
+        // only the selection made from it is redone.
+        if (!rankingOnly) discoveryLanes[platform].invalidate();
         invalidateSelection(platform);
       }
       if (!deps.applySettingsPatch) {
@@ -2243,7 +2272,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     // Equal-priority reasons keep their first trigger and all diagnostic counts.
     if (selectionBypassesBackoff(trigger)) return 3;
     if (selectionIsForced(trigger)) return 2;
-    return trigger === "alarm" || trigger === "discovery_signal" || trigger === "unknown" ? 0 : 1;
+    // A ranking change is lowest too: merged with anything that needs fresh
+    // discovery, that trigger wins and the tick refreshes.
+    return trigger === "alarm" || trigger === "discovery_signal" || trigger === "unknown" || trigger === "ranking_changed" ? 0 : 1;
   }
 
   function executePlatformTick(platform: Platform, request: TickRequest): void {
@@ -2650,7 +2681,12 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     const currentState = await withStateCommit(() => deps.loadState());
     const discoveryPlatforms = schedulerPlatforms.filter((platform) =>
       currentState.authHealth[platform].status === "healthy");
-    await refreshDiscovery(discoveryPlatforms, selectionBypassesBackoff(trigger), tickAdapters);
+    // A ranking change re-selects from the discovery already held; only a
+    // platform without one refreshes.
+    const refreshPlatforms = trigger === "ranking_changed"
+      ? discoveryPlatforms.filter((platform) => !discoveryLanes[platform].current().snapshot)
+      : discoveryPlatforms;
+    await refreshDiscovery(refreshPlatforms, selectionBypassesBackoff(trigger), tickAdapters);
     signal.throwIfAborted();
     const preparedSelections: Partial<Record<Platform, CommittedSelection>> = {};
     await Promise.all(discoveryPlatforms.map(async (selectionPlatform) => {
@@ -2767,6 +2803,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         }
         const result = await runSchedulerTick(state, settings, adapters, {
           platforms: schedulerPlatforms,
+          selectSupplementalWatchTarget: deps.selectSupplementalWatchTarget ? (platform, selectedState, selectedSignal, source) => deps.selectSupplementalWatchTarget!(platform, selectedState, settings, selectedSignal, source) : undefined,
           stopPageContextTabs: deps.stopPageContextTabs,
           waitingClaimRewardIds: nextWaitingClaimRewardIds,
           emit: claimObservingEmit,
@@ -2784,6 +2821,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
               campaigns: discoveryState.snapshot?.campaigns.map(({ campaign }) => campaign)
                 ?? state.campaigns[discoveryPlatform],
               complete: discoveryState.snapshot !== undefined,
+              // A settings save threw this tick's refresh away; the save's own
+              // follow-up tick refreshes again and decides.
+              discarded: discoveryState.snapshot === undefined && discoveryState.lastAttempt?.discarded !== undefined,
             }];
           })),
         });
@@ -2973,25 +3013,14 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   }
 
   async function handleTabRemoved(tabId: number): Promise<void> {
-    // Serialize the load-modify-persist under the state lock so it cannot race a
-    // concurrent tick()/heartbeat (both fire on a ~1-minute cadence while the
-    // user can close a tab at any moment). A removal never runs the scheduler
-    // directly (#193): it only records state, and the next ordinary alarm reads
-    // it. Closing a tab LurkLoot owns now records a per-platform pause, so the
-    // alarm keeps the platform paused instead of reopening the tab a minute
-    // later. The user's enabled/running settings are deliberately untouched;
-    // the popup shows the pause with a one-click resume.
+    const changed: Platform[] = [];
     await withStateLock(() => withEventCollector(async (emit, events) => {
       const state = await deps.loadState();
-      const manualPlatforms = (["twitch", "kick"] as Platform[]).filter((platform) => state.manualWatch?.[platform]?.tabId === tabId);
       let nextState = state;
-      if (manualPlatforms.length > 0) {
-        const manualWatch = { ...state.manualWatch };
-        for (const platform of manualPlatforms) delete manualWatch[platform];
-        nextState = {
-          ...state,
-          manualWatch,
-        };
+      for (const platform of PLATFORMS) {
+        if (state.manualWatch?.[platform]?.tabId !== tabId && !state.manualWatchTabs?.[platform]?.[tabId]) continue;
+        nextState = updateManualWatchTab(nextState, platform, tabId);
+        if (hasRecentManualWatch(state, platform) !== hasRecentManualWatch(nextState, platform)) changed.push(platform);
       }
 
       const closedManagedPlatforms: Platform[] = [];
@@ -3034,6 +3063,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
 
       if (nextState !== state || events.length > 0) await persistAndReport(nextState, events);
     }));
+    if (changed.length) tickInBackground(changed, "manual_watch");
   }
 
   // Explicit user action: clears the manual-close pause so the next tick may
@@ -3863,7 +3893,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         } else if (!ok && previousChecks === 0) {
           emit({ category: "diagnostic", platform, level: "warn", message: message ?? "Tabless watch heartbeat failed" });
         }
-        const fallback = !ok && heartbeatChecks >= settings.tablessFallbackFailureLimit;
+        const fallback = !current.supplementalWatch?.tablessOnly && !ok && heartbeatChecks >= settings.tablessFallbackFailureLimit;
         if (fallback) {
           emit({ category: "diagnostic", platform, level: "warn", message: "Tabless watch heartbeat keeps failing; falling back to a watch tab" });
         }
@@ -4403,7 +4433,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     senderTabId?: number,
     senderTabUrl?: string,
   ): Promise<void> {
-    let manualWatchStarted = false;
+    let manualWatchChanged = false;
     await withStateLock(() => withEventCollector(async (emit, events) => {
       const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
       const session = state.sessions[message.platform];
@@ -4415,7 +4445,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       if (!isManagedWatchTab) {
         if (senderTabId != null) {
           const manualWatch = recordManualWatchTelemetry(state, settings, message, senderTabId, senderTabUrl);
-          manualWatchStarted = manualWatch.started;
+          manualWatchChanged = manualWatch.changed;
           await persistPlatformAndReport(
             message.platform,
             manualWatch.state,
@@ -4468,7 +4498,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
         await reportBestEffort(events);
       }
     }), [message.platform]);
-    if (manualWatchStarted) tickInBackground([message.platform], "manual_watch");
+    if (manualWatchChanged) tickInBackground([message.platform], "manual_watch");
   }
 
   function recordManualWatchTelemetry(
@@ -4477,33 +4507,76 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     message: Extract<CoreRuntimeMessage, { type: "playbackTelemetry" }>,
     senderTabId: number,
     senderTabUrl?: string,
-  ): { state: SchedulerState; started: boolean } {
+  ): { state: SchedulerState; changed: boolean } {
+    const channel = message.platform === "twitch"
+      ? twitchChannelFromUrl(senderTabUrl) : kickChannelFromUrl(senderTabUrl);
+    const owned = state.managedWatchTabs?.[message.platform]?.tabId === senderTabId
+      || state.managedPageContextTabs?.[message.platform]?.tabId === senderTabId;
+    const active = Boolean(channel) && !owned && settings.pauseOnManualWatch
+      && message.telemetry.playingVideoCount > 0 && !message.telemetry.documentHidden;
+    const next = updateManualWatchTab(state, message.platform, senderTabId, {
+      platform: message.platform, tabId: senderTabId,
+      checkedAt: new Date().toISOString(), active,
+      ...(channel ? { channel } : {}),
+    }, settings.pauseOnManualWatch);
+    return { state: next, changed: hasRecentManualWatch(state, message.platform)
+      !== hasRecentManualWatch(next, message.platform) };
+  }
+
+  function hasRecentManualWatch(state: SchedulerState, platform: Platform): boolean {
+    const watch = state.manualWatch?.[platform];
+    return Boolean(watch?.active && !isTimestampStale(watch.checkedAt, MANUAL_WATCH_TTL_MS, Date.now()));
+  }
+
+  function updateManualWatchTab(
+    state: SchedulerState, platform: Platform, tabId: number,
+    record?: NonNullable<SchedulerState["manualWatch"]>[Platform], enabled = true,
+  ): SchedulerState {
+    const previous = state.manualWatch?.[platform];
+    const tabs = { ...state.manualWatchTabs?.[platform] };
+    // Backfill the single-tab record saved by earlier versions.
+    if (!state.manualWatchTabs?.[platform] && previous) tabs[previous.tabId] = previous;
+    for (const [id, entry] of Object.entries(tabs)) {
+      if (!entry.active || isTimestampStale(entry.checkedAt, MANUAL_WATCH_TTL_MS, Date.now())) delete tabs[id];
+    }
+    delete tabs[tabId];
+    if (enabled && record?.active) tabs[tabId] = record;
     const manualWatch = { ...state.manualWatch };
-    if (!settings.pauseOnManualWatch) {
-      delete manualWatch[message.platform];
-      return { state: { ...state, manualWatch }, started: false };
+    const manualWatchTabs = { ...state.manualWatchTabs };
+    if (enabled) {
+      manualWatchTabs[platform] = tabs;
+      const remaining = Object.values(tabs);
+      const selected = remaining.find((entry) => entry.tabId === tabId)
+        ?? remaining.find((entry) => entry.tabId === previous?.tabId) ?? remaining[0] ?? record;
+      if (selected) manualWatch[platform] = selected;
+      else delete manualWatch[platform];
+    } else {
+      delete manualWatch[platform];
+      delete manualWatchTabs[platform];
     }
+    return { ...state, manualWatch, manualWatchTabs };
+  }
 
-    const active = message.telemetry.playingVideoCount > 0 && !message.telemetry.documentHidden;
-    const previous = manualWatch[message.platform];
-    const recentPrevious = previous?.active && !isTimestampStale(previous.checkedAt, MANUAL_WATCH_TTL_MS, Date.now());
-    if (!active && previous?.tabId !== senderTabId && recentPrevious) {
-      return { state, started: false };
-    }
-
-    manualWatch[message.platform] = {
-      platform: message.platform,
-      tabId: senderTabId,
-      checkedAt: new Date().toISOString(),
-      active,
-      ...(message.platform === "twitch"
-        ? { channel: twitchChannelFromUrl(senderTabUrl) }
-        : {}),
-    };
-    return {
-      state: { ...state, manualWatch },
-      started: active && !recentPrevious,
-    };
+  async function handleTabUpdated(tabId: number, url: string): Promise<void> {
+    const changed: Platform[] = [];
+    await withStateLock(() => withEventCollector(async (_emit, events) => {
+      const original = await deps.loadState();
+      let state = original;
+      for (const platform of PLATFORMS) {
+        const record = state.manualWatchTabs?.[platform]?.[tabId]
+          ?? (state.manualWatch?.[platform]?.tabId === tabId ? state.manualWatch[platform] : undefined);
+        if (!record) continue;
+        const channel = platform === "twitch" ? twitchChannelFromUrl(url) : kickChannelFromUrl(url);
+        // Keep the pause during channel switches until fresh playback arrives.
+        // Clearing here would reopen farming while the new player is loading.
+        if (channel) continue;
+        const wasActive = hasRecentManualWatch(state, platform);
+        state = updateManualWatchTab(state, platform, tabId);
+        if (wasActive !== hasRecentManualWatch(state, platform)) changed.push(platform);
+      }
+      if (state !== original) await persistAndReport(state, events);
+    }));
+    if (changed.length) tickInBackground(changed, "manual_watch");
   }
 
   async function applyAdFocusForState(
@@ -4757,10 +4830,27 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     }
 
     if (message.type === "saveSettings") {
-      const settings = await updateStoredSettings(message.settingsPatch);
+      let rankingOnly = false;
+      const settings = await updateStoredSettings(message.settingsPatch, undefined, (current) => {
+        rankingOnly = isRankingOnlyPatch(message.settingsPatch, current);
+      });
       if (message.tickAfterSave && isFarmingActive(settings)) {
-        tickInBackground(message.tickAfterSavePlatforms, "settings_saved");
+        tickInBackground(message.tickAfterSavePlatforms, rankingOnly ? "ranking_changed" : "settings_saved");
       }
+      return snapshot();
+    }
+
+    if (message.type === "updateIdleWatchlist") {
+      const channel = message.channel.trim().replace(/^@/, "").toLowerCase();
+      const settings = channel ? await updateStoredSettings((current) => {
+        const listed = current.platform[message.platform].idleWatchlistChannels;
+        const present = listed.some((entry) => entry.toLowerCase() === channel);
+        const next = message.action === "remove"
+          ? listed.filter((entry) => entry.toLowerCase() !== channel)
+          : present || listed.length >= IDLE_WATCHLIST_LIMIT ? listed : [...listed, channel];
+        return { platform: { [message.platform]: { idleWatchlistChannels: next } } };
+      }) : await deps.loadSettings();
+      if (channel && isFarmingActive(settings)) tickInBackground([message.platform], "settings_saved");
       return snapshot();
     }
 
@@ -5298,6 +5388,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     ensureInstalledAt,
     handleStartup,
     handleTabRemoved,
+    handleTabUpdated,
     handleMessage,
     resumeAfterManualClose,
     captureTwitchIntegrity,

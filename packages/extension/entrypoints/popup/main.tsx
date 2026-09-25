@@ -1,4 +1,5 @@
 import { createRoot } from "react-dom/client";
+import "@lurkloot/popup-ui/fonts.css";
 import "@lurkloot/popup-ui/styles.css";
 import { PopupApp } from "./app";
 

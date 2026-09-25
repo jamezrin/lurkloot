@@ -1662,3 +1662,40 @@ describe("Twitch parsers", () => {
     expect(campaignHasClaimableReward(claimable)).toBe(true);
   });
 });
+
+
+describe("Twitch account linking reconciliation", () => {
+  it.each([true, false])("uses explicit fresh inventory linking state %s over cached details", (connected) => {
+    const details = parseTwitchCampaigns([{
+      id: "campaign",
+      accountLinkURL: "https://account.wbgames.com/connect/twitch",
+      self: { isAccountConnected: !connected },
+      timeBasedDrops: [{ id: "drop", requiredMinutesWatched: 30 }],
+    }]);
+    const merged = mergeTwitchCampaignProgress(details, {
+      data: { currentUser: { inventory: { dropCampaignsInProgress: [{
+        id: "campaign",
+        self: { isAccountConnected: connected },
+        timeBasedDrops: [{ id: "drop", requiredMinutesWatched: 30, self: { currentMinutesWatched: 21 } }],
+      }] } } },
+    });
+    expect(merged[0]).toMatchObject({
+      accountLinked: connected,
+      accountLinkUrl: "https://account.wbgames.com/connect/twitch",
+      eligibility: connected ? "eligible" : "account_not_linked",
+    });
+  });
+
+  it("preserves detail linking state when inventory omits the connection field", () => {
+    const details = parseTwitchCampaigns([{
+      id: "campaign",
+      accountLinkURL: "https://account.wbgames.com/connect/twitch",
+      self: { isAccountConnected: false },
+      timeBasedDrops: [{ id: "drop", requiredMinutesWatched: 30 }],
+    }]);
+    const merged = mergeTwitchCampaignProgress(details, {
+      data: { currentUser: { inventory: { dropCampaignsInProgress: [{ id: "campaign" }] } } },
+    });
+    expect(merged[0].accountLinked).toBe(false);
+  });
+});

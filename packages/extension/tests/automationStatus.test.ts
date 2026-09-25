@@ -233,3 +233,82 @@ describe("automation authentication presentation", () => {
     expect(JSON.stringify(result)).not.toContain(message);
   });
 });
+
+describe("manual watch channel", () => {
+  const watching: WatchSession = { platform: "twitch", status: "paused", offlineChecks: 0, reasonCode: "manual_watch" };
+
+  it("names the channel the user is watching themselves", () => {
+    const presentation = automationPresentation({
+      platform: "twitch",
+      enabled: true,
+      pending: false,
+      authHealth: health("healthy"),
+      session: watching,
+      manualWatch: {
+        platform: "twitch",
+        tabId: 7,
+        checkedAt: "2026-09-20T00:00:00.000Z",
+        active: true,
+        channel: { platform: "twitch", username: "summit1g", displayName: "Summit1G", url: "https://www.twitch.tv/summit1g" },
+      },
+    });
+
+    expect(presentation.state).toBe("paused");
+    expect(presentation.manualWatchChannel).toEqual({ name: "Summit1G", url: "https://www.twitch.tv/summit1g" });
+  });
+
+  it("falls back to the username when the record carries no display name", () => {
+    const presentation = automationPresentation({
+      platform: "twitch",
+      enabled: true,
+      pending: false,
+      authHealth: health("healthy"),
+      session: watching,
+      manualWatch: {
+        platform: "twitch",
+        tabId: 7,
+        checkedAt: "2026-09-20T00:00:00.000Z",
+        active: true,
+        channel: { platform: "twitch", username: "summit1g", url: "https://www.twitch.tv/summit1g" },
+      },
+    });
+
+    expect(presentation.manualWatchChannel?.name).toBe("summit1g");
+  });
+
+  it("keeps the unnamed copy when the record has no channel", () => {
+    const presentation = automationPresentation({
+      platform: "twitch",
+      enabled: true,
+      pending: false,
+      authHealth: health("healthy"),
+      session: watching,
+      manualWatch: { platform: "twitch", tabId: 7, checkedAt: "2026-09-20T00:00:00.000Z", active: true },
+    });
+
+    expect(presentation.detailKey).toBe("manualWatchPauseDetail");
+    expect(presentation.manualWatchChannel).toBeUndefined();
+  });
+
+  it("never names a channel while farming is running", () => {
+    // A record can outlive the pause it explained; only the session's own reason
+    // code may put the popup into the manual-watch state.
+    const presentation = automationPresentation({
+      platform: "twitch",
+      enabled: true,
+      pending: false,
+      authHealth: health("healthy"),
+      session: { platform: "twitch", status: "watching", offlineChecks: 0 },
+      manualWatch: {
+        platform: "twitch",
+        tabId: 7,
+        checkedAt: "2026-09-20T00:00:00.000Z",
+        active: true,
+        channel: { platform: "twitch", username: "summit1g", url: "https://www.twitch.tv/summit1g" },
+      },
+    });
+
+    expect(presentation.state).toBe("running");
+    expect(presentation.manualWatchChannel).toBeUndefined();
+  });
+});

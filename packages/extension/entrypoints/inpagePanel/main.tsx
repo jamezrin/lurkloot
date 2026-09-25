@@ -1,5 +1,6 @@
 import { createRoot } from "react-dom/client";
 import { Popup } from "@lurkloot/popup-ui";
+import "@lurkloot/popup-ui/fonts.css";
 import "@lurkloot/popup-ui/styles.css";
 import { createInPagePanelAdapter } from "../../src/core/inPagePanelAdapter";
 

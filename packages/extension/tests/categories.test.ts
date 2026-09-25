@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CategorySelection, DropCampaign, PlatformSettings } from "@lurkloot/shared/models";
-import { NO_CATEGORY_ID, campaignPassesCategoryFilter, categoryListIndex, categoryPriorityScore, isUncategorizedCampaign } from "@lurkloot/shared/categories";
+import { NO_CATEGORY_ID, campaignPassesCategoryFilter, categoryListIndex, favouriteCategoryIndex, isCampaignCategoryBlocked, isUncategorizedCampaign } from "@lurkloot/shared/categories";
 
 const campaign = (patch: Partial<DropCampaign> = {}): DropCampaign => ({
   id: "c",
@@ -65,45 +65,59 @@ describe("campaignPassesCategoryFilter", () => {
     expect(campaignPassesCategoryFilter(other, include)).toBe(false);
   });
 
-  it("passes everything except listed categories in exclude mode", () => {
-    const exclude: Pick<PlatformSettings, "categoryMode" | "categories"> = { categoryMode: "exclude", categories: [rust] };
-    expect(campaignPassesCategoryFilter(rustCampaign, exclude)).toBe(false);
-    expect(campaignPassesCategoryFilter(other, exclude)).toBe(true);
+  it("passes everything except blocked categories, in either mode", () => {
+    const blocked = { categoryMode: "all" as const, categories: [], blockedCategories: [rust] };
+    expect(campaignPassesCategoryFilter(rustCampaign, blocked)).toBe(false);
+    expect(campaignPassesCategoryFilter(other, blocked)).toBe(true);
+    // Blocking wins over an allowlist that admits the same category.
+    expect(campaignPassesCategoryFilter(rustCampaign, { categoryMode: "include", categories: [rust], blockedCategories: [rust] })).toBe(false);
   });
 
-  it("farms nothing on an empty include list and everything on an empty exclude list", () => {
+  it("farms nothing on an empty include list and everything with an empty block list", () => {
     expect(campaignPassesCategoryFilter(rustCampaign, { categoryMode: "include", categories: [] })).toBe(false);
-    expect(campaignPassesCategoryFilter(rustCampaign, { categoryMode: "exclude", categories: [] })).toBe(true);
-    expect(campaignPassesCategoryFilter(uncategorized, { categoryMode: "exclude", categories: [] })).toBe(true);
+    expect(campaignPassesCategoryFilter(rustCampaign, { categoryMode: "all", categories: [], blockedCategories: [] })).toBe(true);
+    expect(campaignPassesCategoryFilter(uncategorized, { categoryMode: "all", categories: [], blockedCategories: [] })).toBe(true);
   });
 
   it("applies both modes to the No category sentinel", () => {
     expect(campaignPassesCategoryFilter(uncategorized, { categoryMode: "include", categories: [noCategory] })).toBe(true);
-    expect(campaignPassesCategoryFilter(uncategorized, { categoryMode: "exclude", categories: [noCategory] })).toBe(false);
-    // A categorized campaign never matches the sentinel, so exclude keeps it.
-    expect(campaignPassesCategoryFilter(rustCampaign, { categoryMode: "exclude", categories: [noCategory] })).toBe(true);
+    expect(campaignPassesCategoryFilter(uncategorized, { categoryMode: "all", categories: [], blockedCategories: [noCategory] })).toBe(false);
+    // A categorized campaign never matches the sentinel, so blocking it keeps it.
+    expect(campaignPassesCategoryFilter(rustCampaign, { categoryMode: "all", categories: [], blockedCategories: [noCategory] })).toBe(true);
     expect(campaignPassesCategoryFilter(rustCampaign, { categoryMode: "include", categories: [noCategory] })).toBe(false);
   });
 });
 
-describe("categoryPriorityScore", () => {
+describe("favouriteCategoryIndex", () => {
   const rust: CategorySelection = { id: "13", name: "Rust" };
-  const other: CategorySelection = { id: "21", name: "Other" };
+  const otherGame: CategorySelection = { id: "21", name: "Other" };
   const rustCampaign = campaign({ categoryId: "13", gameName: "Rust" });
+  const other = campaign({ categoryId: "21", gameName: "Other" });
 
-  it("uses list position only in include mode", () => {
-    expect(categoryPriorityScore(rustCampaign, { categoryMode: "include", categories: [other, rust] })).toBe(1);
-    expect(categoryPriorityScore(rustCampaign, { categoryMode: "include", categories: [rust, other] })).toBe(0);
+  it("returns the position a category was starred in", () => {
+    expect(favouriteCategoryIndex(rustCampaign, { favouriteCategories: [otherGame, rust] })).toBe(1);
+    expect(favouriteCategoryIndex(rustCampaign, { favouriteCategories: [rust, otherGame] })).toBe(0);
   });
 
-  it("scores every campaign equal in all and exclude modes", () => {
-    const list = [other, rust];
-    expect(categoryPriorityScore(rustCampaign, { categoryMode: "all", categories: list })).toBe(Number.MAX_SAFE_INTEGER);
-    expect(categoryPriorityScore(rustCampaign, { categoryMode: "exclude", categories: list })).toBe(Number.MAX_SAFE_INTEGER);
+  it("returns -1 without favourites, or for an unstarred category", () => {
+    expect(favouriteCategoryIndex(rustCampaign, {})).toBe(-1);
+    expect(favouriteCategoryIndex(rustCampaign, { favouriteCategories: [otherGame] })).toBe(-1);
   });
 
-  it("scores an unlisted campaign last in include mode", () => {
-    expect(categoryPriorityScore(campaign({ gameName: "Unlisted" }), { categoryMode: "include", categories: [rust] }))
-      .toBe(Number.MAX_SAFE_INTEGER);
+  it("never ranks a blocked category, even when it is also starred", () => {
+    expect(favouriteCategoryIndex(rustCampaign, { favouriteCategories: [rust], blockedCategories: [rust] })).toBe(-1);
+  });
+});
+
+describe("isCampaignCategoryBlocked", () => {
+  const rust: CategorySelection = { id: "13", name: "Rust" };
+  const otherGame: CategorySelection = { id: "21", name: "Other" };
+  const rustCampaign = campaign({ categoryId: "13", gameName: "Rust" });
+  const other = campaign({ categoryId: "21", gameName: "Other" });
+
+  it("matches by id or name, and ignores an empty list", () => {
+    expect(isCampaignCategoryBlocked(rustCampaign, { blockedCategories: [rust] })).toBe(true);
+    expect(isCampaignCategoryBlocked(other, { blockedCategories: [rust] })).toBe(false);
+    expect(isCampaignCategoryBlocked(rustCampaign, { blockedCategories: [] })).toBe(false);
   });
 });

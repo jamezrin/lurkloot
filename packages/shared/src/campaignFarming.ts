@@ -1,4 +1,4 @@
-import { campaignPassesCategoryFilter } from "./categories";
+import { campaignPassesCategoryFilter, isCampaignCategoryBlocked } from "./categories";
 import type { DropCampaign, DropReward, EngineSettings } from "./models";
 import {
   campaignHasSubscriptionRewards,
@@ -18,7 +18,8 @@ export type CampaignFarmingRejectionCode =
   | "twitch_link_required"
   | "subscription_campaigns_disabled"
   | "category_filtered"
-  | "priority_not_selected"
+  | "category_blocked"
+  | "not_pinned"
   | "no_rewards"
   | "no_unclaimed_rewards"
   | "reward_prerequisites_unmet"
@@ -43,7 +44,9 @@ export type CampaignFarmingEvaluation =
     };
 
 export interface CampaignFarmingEvaluationOptions {
-  includePriorityMode?: boolean;
+  // Whether to apply the "farm pinned only" switch. The scheduler always does;
+  // the popup asks for it so a skipped campaign can explain itself.
+  includePinnedOnly?: boolean;
   now?: number;
 }
 
@@ -82,12 +85,14 @@ export function evaluateCampaignFarming(
   if (campaignHasSubscriptionRewards(campaign) && !settings.farmingEligibility.farmSubscriptionCampaigns) {
     return rejected("subscription_campaigns_disabled");
   }
-  if (campaign.platform === "twitch" && accountUnlinked) return rejected("twitch_link_required");
+  if (isCampaignCategoryBlocked(campaign, settings.platform[campaign.platform])) {
+    return rejected("category_blocked");
+  }
   if (!campaignPassesCategoryFilter(campaign, settings.platform[campaign.platform])) {
     return rejected("category_filtered");
   }
-  if (options.includePriorityMode && settings.priorityMode === "priority_list_only" && settings.campaignPriorities[campaign.id] == null) {
-    return rejected("priority_not_selected");
+  if (options.includePinnedOnly && settings.farmPinnedOnly && !settings.campaignPins.includes(campaign.id)) {
+    return rejected("not_pinned");
   }
   if (campaign.rewards.length === 0 || campaign.eligibility === "no_rewards") return rejected("no_rewards");
   const unclaimed = campaign.rewards.filter((reward) => reward.status !== "claimed");
