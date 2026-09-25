@@ -1876,5 +1876,8 @@
   },
   "gamesNoMoreResults": {
     "message": "कोई और गेम नहीं मिला।"
+  },
+  "navBeta": {
+    "message": "बीटा"
   }
 }

@@ -266,6 +266,8 @@ describe("i18n", () => {
       "navPlatform",
       "navExtensions",
       "queueFacetDrops",
+      // "Beta" is the same word in Spanish, German, Italian, Portuguese and Turkish.
+      "navBeta",
       // Provider names, which are brands and never translated.
       "navNoPixel",
       "navFortnite",

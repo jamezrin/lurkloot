@@ -132,6 +132,13 @@ describe("popup workspace shell", () => {
     expect(container.querySelector('[role="tab"][aria-label="Kick"]')?.getAttribute("aria-selected")).toBe("true");
   });
 
+  it("marks the Twitch extension destinations as beta, and only them", async () => {
+    const container = await mountPopup();
+    const beta = [...container.querySelectorAll("[data-rail-beta]")].map((tag) => tag.closest("button")?.getAttribute("data-view"));
+    expect(beta).toEqual(["nopixel", "fortnite"]);
+    expect(rail(container, "nopixel")?.getAttribute("aria-label")).toBe("NoPixel V, Beta");
+  });
+
   it("starts the Games search afresh on the other platform", async () => {
     const container = await mountPopup();
     go(container, "games");

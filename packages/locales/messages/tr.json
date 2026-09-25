@@ -1876,5 +1876,8 @@
   },
   "gamesNoMoreResults": {
     "message": "Başka oyun bulunamadı."
+  },
+  "navBeta": {
+    "message": "Beta"
   }
 }

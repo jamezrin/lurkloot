@@ -1876,5 +1876,8 @@
   },
   "gamesNoMoreResults": {
     "message": "未找到其他游戏。"
+  },
+  "navBeta": {
+    "message": "测试版"
   }
 }

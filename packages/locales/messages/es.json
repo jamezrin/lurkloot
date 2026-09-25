@@ -1876,5 +1876,8 @@
   },
   "gamesNoMoreResults": {
     "message": "No se encontraron más juegos."
+  },
+  "navBeta": {
+    "message": "Beta"
   }
 }

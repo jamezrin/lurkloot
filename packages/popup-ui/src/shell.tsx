@@ -25,6 +25,8 @@ interface NavItem {
   // Views that only exist on one platform. Extensions are Twitch-only, so the
   // rail hides the entry rather than showing a destination that would be empty.
   platform?: Platform;
+  // Still settling: the rail marks the entry so its rough edges are expected.
+  beta?: boolean;
 }
 
 const DROPS_ITEMS: NavItem[] = [
@@ -38,8 +40,8 @@ const DROPS_ITEMS: NavItem[] = [
 // name and a badge each. The rail lists them in the user's watch order.
 const SOURCE_ITEMS: NavItem[] = [
   { view: "watchlist", labelKey: "navIdleWatchlist", icon: Eye },
-  { view: "nopixel", labelKey: "navNoPixel", icon: Gift, platform: "twitch" },
-  { view: "fortnite", labelKey: "navFortnite", icon: Sparkles, platform: "twitch" },
+  { view: "nopixel", labelKey: "navNoPixel", icon: Gift, platform: "twitch", beta: true },
+  { view: "fortnite", labelKey: "navFortnite", icon: Sparkles, platform: "twitch", beta: true },
 ];
 
 // The view that shows each watch source. Drops is the whole Drops group, so its
@@ -177,7 +179,7 @@ function NavGroup({ labelKey, items, view, platform, counts, liveView, onViewCha
           <button
             key={item.view}
             type="button"
-            aria-label={label}
+            aria-label={item.beta ? `${label}, ${t("navBeta")}` : label}
             aria-current={selected ? "page" : undefined}
             data-view={item.view}
             onClick={() => onViewChange(item.view)}
@@ -202,6 +204,18 @@ function NavGroup({ labelKey, items, view, platform, counts, liveView, onViewCha
               ) : null}
             </span>
             <span className="@[560px]:inline hidden truncate">{label}</span>
+            {item.beta ? (
+              <span
+                data-rail-beta
+                aria-hidden
+                className={cn(
+                  "@[560px]:inline hidden shrink-0 rounded border px-1 py-px text-[8.5px] font-semibold uppercase leading-none tracking-[0.06em]",
+                  selected ? "border-white/30 text-zinc-200" : "border-white/15 text-zinc-500",
+                )}
+              >
+                {t("navBeta")}
+              </span>
+            ) : null}
             {count === undefined ? null : (
               <span className={cn("@[560px]:inline ms-auto hidden font-mono text-[10.5px] tabular", selected ? "text-zinc-300" : "text-zinc-600")}>{count}</span>
             )}
