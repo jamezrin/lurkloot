@@ -290,6 +290,35 @@ describe("watch-source policy while discovery was discarded", () => {
     expect(next.state.sessions.twitch.supplementalWatch).toBeUndefined();
   });
 
+  // Kick has no Twitch extensions; the source below Drops is the Idle
+  // Watchlist, and a discarded refresh must not hand the watch to it either.
+  it("keeps a Kick drop watch instead of starting the Idle Watchlist", async () => {
+    const s = setup("kick");
+    s.settings.platform.kick.watchSourcePriority = ["drops", "idle_watchlist"];
+    // A campaign ranked above the current one, with no channel live for it:
+    // the current watch is then not the top of the ranking, so keeping it
+    // takes the discarded-discovery hold rather than the plain fast path.
+    const sooner: DropCampaign = { ...s.campaign, id: "sooner", endsAt: new Date(Date.now() + 3_600_000).toISOString() };
+    s.adapter.refreshCampaigns = async () => [s.campaign, sooner];
+    const listAll = s.adapter.listCandidateChannels;
+    s.adapter.listCandidateChannels = async (campaign, options) => campaign.id === "sooner" ? [] : listAll(campaign, options);
+    const drops = await s.tick();
+    expect(drops.state.sessions.kick.campaignId).toBe("drop");
+    const adapter: PlatformAdapter = {
+      ...s.adapter,
+      listCandidateChannels: async () => [],
+      // Only the watchlist channels are live, as they would be to a lower source.
+      checkChannel: async (candidate) => ({ live: candidate.username.startsWith("idle"), categoryMatches: true, candidate }),
+    };
+
+    const next = await runSchedulerTick(drops.state, s.settings, { twitch: { ...adapter, platform: "twitch" }, kick: adapter }, {
+      platforms: ["kick"],
+      discovery: { kick: { campaigns: drops.state.campaigns.kick, complete: false, discarded: true } },
+    });
+
+    expect(next.state.sessions.kick).toMatchObject({ status: "watching", campaignId: "drop" });
+  });
+
   it("keeps a supplemental watch it was already on", async () => {
     const s = setup();
     s.settings.platform.twitch.idleWatchlistChannels = [];
