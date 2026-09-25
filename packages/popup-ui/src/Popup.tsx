@@ -747,8 +747,13 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     : farmingChannel ? "idle_watchlist"
     : undefined;
   const sourceOrder = settings.platform[platform].watchSourcePriority;
+  // The status strip shows in every view, but only the queue can reveal the
+  // card, so the link goes there first; the queue applies the focus as it opens.
   const onFarmingTitleClick = activeCampaign
-    ? () => setCampaignFocus((prev) => ({ id: activeCampaign.id, seq: (prev?.seq ?? 0) + 1 }))
+    ? () => {
+      setCampaignFocus((prev) => ({ id: activeCampaign.id, seq: (prev?.seq ?? 0) + 1 }));
+      changeView("queue");
+    }
     : undefined;
   const mainViewOpen = !settingsOpen && !activityOpen;
   // How many campaigns each game has in play right now, keyed the way a
@@ -921,7 +926,10 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                     onExportAll={adapter.downloadFile ? exportDiagnosticsLog : undefined}
                   />
                 ) : view === "games" ? (
+                  // Keyed by platform so a search typed on one platform, and
+                  // the results it found, cannot be added to the other's lists.
                   <GamesPanel
+                    key={platform}
                     platform={platform}
                     settings={settings}
                     suggestions={dropCategorySuggestions[platform]}

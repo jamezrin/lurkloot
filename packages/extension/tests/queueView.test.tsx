@@ -181,6 +181,29 @@ describe("queue view", () => {
     expect(rows(container, "strategy")).toEqual(["now"]);
   });
 
+  it("clears a facet that hides a campaign the status strip asks to show", () => {
+    const settings = mergeSettings({ farmingEligibility: { farmSubscriptionCampaigns: false } } as never);
+    const badge = campaign("badge", {
+      rewards: [{ id: "sub", name: "Sub badge", requiredMinutes: 0, requirement: "subscription", requiredSubs: 1, watchedMinutes: 0, status: "locked" }],
+    });
+    const list = views([campaign("drop"), badge], settings);
+    const panel = (focus?: { id: string; seq: number }) => (
+      <I18nContext.Provider value={{ t, dir: "ltr", locale: "en" }}>
+        <QueuePanel campaigns={list} gameMap={{}} focus={focus} refreshing={false} strategy={settings.priorityMode} pinnedCount={0} farmPinnedOnly={false}
+          onStrategyChange={() => undefined} onUnpinAll={() => undefined} onFarmPinnedOnlyChange={() => undefined} onRefreshCampaign={() => undefined}
+          onPinChange={() => undefined} onToggleExclude={() => undefined} onOpenGames={() => undefined} onOpenSettings={() => undefined} />
+      </I18nContext.Provider>
+    );
+    const { container } = mount(panel());
+    act(() => root!.render(panel()));
+    act(() => container.querySelector<HTMLButtonElement>('[data-queue-facet="badges"]')!.click());
+    expect(container.querySelector('[data-campaign-id="drop"]')).toBeNull();
+
+    act(() => root!.render(panel({ id: "drop", seq: 1 })));
+
+    expect(container.querySelector('[data-campaign-id="drop"]')).not.toBeNull();
+  });
+
   it("filters queue and skipped rows by campaign type", () => {
     const settings = mergeSettings({ farmingEligibility: { farmSubscriptionCampaigns: false } } as never);
     const badge = campaign("badge", {

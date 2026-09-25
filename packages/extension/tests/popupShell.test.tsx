@@ -99,6 +99,35 @@ describe("popup workspace shell", () => {
     }
   });
 
+  // The status strip shows in every view, but only the queue can reveal the
+  // farmed campaign's card: the link used to leave the user where they were.
+  it("opens the queue on the farmed campaign from any destination", async () => {
+    const container = await mountPopup();
+    go(container, "games");
+    const link = container.querySelector<HTMLButtonElement>('[data-automation-state="running"] button');
+    expect(link).not.toBeNull();
+
+    act(() => link!.click());
+
+    expect(currentView(container)).toBe("queue");
+    expect(container.querySelector('[data-campaign-id="tw-marathon"] article button[aria-expanded="true"]')).not.toBeNull();
+  });
+
+  it("starts the Games search afresh on the other platform", async () => {
+    const container = await mountPopup();
+    go(container, "games");
+    const input = container.querySelector<HTMLInputElement>("[data-games-search]")!;
+    const propsKey = Object.keys(input).find((key) => key.startsWith("__reactProps$"))!;
+    input.value = "marathon";
+    act(() => (input as unknown as Record<string, { onChange(event: { target: HTMLInputElement }): void }>)[propsKey]!.onChange({ target: input }));
+    // The search took: it narrowed the Twitch list to the one match.
+    expect([...container.querySelectorAll("[data-game]")].map((row) => row.getAttribute("data-game"))).toEqual(["marathon legends"]);
+
+    act(() => container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Kick"]')?.click());
+
+    expect(container.querySelector<HTMLInputElement>("[data-games-search]")?.value).toBe("");
+  });
+
   it("hides the Twitch-only extension destinations on Kick", async () => {
     const container = await mountPopup();
 

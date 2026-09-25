@@ -115,6 +115,7 @@ export function QueuePanel({
     if (!focus) return;
     setQuery("");
     const target = campaigns.find((campaign) => campaign.id === focus.id);
+    if (target && !matchesFacet(target, facet)) setFacet("all");
     if (target?.section === "skipped") setShowSkipped(true);
     if (target?.section === "upcoming") setShowUpcoming(true);
     setExpandedIds((current) => ({ ...current, [focus.id]: true }));
