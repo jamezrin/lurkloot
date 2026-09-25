@@ -23,6 +23,7 @@
     "screenshot:store:upload": "pnpm --filter @lurkloot/extension screenshot:store:upload",
     "screenshot:store:sync": "pnpm --filter @lurkloot/extension screenshot:store:sync",
     "promo:store": "pnpm --filter @lurkloot/extension promo:store",
+    "promo:store:sync": "pnpm --filter @lurkloot/extension promo:store:sync",
     "kick:inspect": "pnpm --filter @lurkloot/extension kick:inspect",
     "privacy:gist": "scripts/update-privacy-gist.sh",
     "release:check": "node scripts/release.mjs check",

@@ -31,4 +31,4 @@ export type { PopupAdapter, PopupInitialState, ScreenshotVariant } from "./types
 export { variantShowsPopup } from "./types";
 export { SCREENSHOT_VARIANTS } from "./constants";
 
-export { StoreScreenshotDraft, StorePromoDraft, type StoreDraftStory } from "./marketingDraft";
+export { StoreArtwork, StorePromo, type StoreStory } from "./storeArtwork";

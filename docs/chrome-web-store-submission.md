@@ -63,10 +63,12 @@ falls back when unhealthy, and confirm reward progress on the platforms' invento
 pnpm zip && pnpm zip:firefox     # extension packages
 pnpm screenshot:store            # artifacts/store-screenshots/<locale>/ (all 11)
 pnpm promo:store                 # artifacts/store-promo/<locale>/
+pnpm promo:store:sync            # same files as promo:store; does not upload
 ```
 
 Pass locale codes to limit, e.g. `pnpm screenshot:store es ar tr`. Turkish promo tiles are under
-`artifacts/store-promo/tr/`.
+`artifacts/store-promo/tr/`. `promo:store:sync` only writes those tiles. It does not replace
+anything in the Developer Dashboard.
 
 ## Replacing localized screenshots automatically
 

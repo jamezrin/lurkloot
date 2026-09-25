@@ -3,11 +3,11 @@ import { LurklootMark } from "./mark";
 
 import { isRtlLocale } from "@lurkloot/shared/i18n";
 import type { SupportedLocale } from "@lurkloot/shared/models";
-import { STORE_ARTWORK_COPY, type StoreArtworkCopy } from "./marketingDraftCopy";
+import { STORE_ARTWORK_COPY, type StoreArtworkCopy } from "./storeArtworkCopy";
 
-export type StoreDraftStory = keyof StoreArtworkCopy["stories"];
+export type StoreStory = keyof StoreArtworkCopy["stories"];
 
-export function StoreScreenshotDraft({ story, children, locale = "en" }: { story: StoreDraftStory; children: React.ReactNode; locale?: SupportedLocale }): React.ReactElement {
+export function StoreArtwork({ story, children, locale = "en" }: { story: StoreStory; children: React.ReactNode; locale?: SupportedLocale }): React.ReactElement {
   const text = STORE_ARTWORK_COPY[locale];
   const copy = text.stories[story];
   const rtl = isRtlLocale(locale);
@@ -17,7 +17,7 @@ export function StoreScreenshotDraft({ story, children, locale = "en" }: { story
   const muted = light ? "#606060" : "#a5a5a5";
   const line = light ? "#d8d8d8" : "#333333";
   return (
-    <div lang={locale.replace("_", "-")} data-store-draft={story} style={{ position: "relative", width: 1280, height: 800, overflow: "hidden", background: light ? "#f5f5f5" : "#101010", color: ink, fontFamily: "Geist, sans-serif" }}>
+    <div lang={locale.replace("_", "-")} data-store-artwork={story} style={{ position: "relative", width: 1280, height: 800, overflow: "hidden", background: light ? "#f5f5f5" : "#101010", color: ink, fontFamily: "Geist, sans-serif" }}>
       <header style={{ position: "absolute", top: 30, left: 48, right: 48, height: 58, display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: `1px solid ${line}`, paddingBottom: 20 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 23, fontWeight: 700, letterSpacing: "-0.8px" }}><LurklootMark size={32} />Lurkloot</div>
         <span style={{ fontSize: 12, letterSpacing: "1.5px", color: muted }}>{text.tagline}</span>
@@ -30,8 +30,8 @@ export function StoreScreenshotDraft({ story, children, locale = "en" }: { story
           {copy.points.map((point) => <div key={point} style={{ display: "flex", gap: 12, alignItems: "center", fontSize: 14 }}><span aria-hidden style={{ width: 4, height: 4, flexShrink: 0, background: ink }} />{point}</div>)}
         </div>
       </section>
-      <style>{`[data-store-draft] [data-watch-source-place] > div > div:last-child, [data-store-draft] button[data-view="nopixel"], [data-store-draft] button[data-view="fortnite"] { display: none !important; } [data-draft-popup] > main { border: 0 !important; box-shadow: none !important; }`}</style>
-      <div data-draft-popup style={{ position: "absolute", top: 128, left: 512, width: 720, height: 600, overflow: "hidden", boxShadow: "0 4px 16px rgba(0, 0, 0, 0.12)" }}>{story === "extensions" ? <ExtensionOverview copy={text.overview} rtl={rtl} /> : children}</div>
+      <style>{`[data-store-artwork] [data-watch-source-place] > div > div:last-child, [data-store-artwork] button[data-view="nopixel"], [data-store-artwork] button[data-view="fortnite"] { display: none !important; } [data-store-popup] > main { border: 0 !important; box-shadow: none !important; }`}</style>
+      <div data-store-popup style={{ position: "absolute", top: 128, left: 512, width: 720, height: 600, overflow: "hidden", boxShadow: "0 4px 16px rgba(0, 0, 0, 0.12)" }}>{story === "extensions" ? <ExtensionOverview copy={text.overview} rtl={rtl} /> : children}</div>
       <footer style={{ position: "absolute", left: 48, right: 48, bottom: 26, display: "flex", justifyContent: "space-between", fontSize: 11, color: muted }}>
         <span style={{ marginLeft: "auto" }}>{copy.caption}</span>
       </footer>
@@ -59,13 +59,13 @@ function ExtensionOverview({ copy, rtl }: { copy: StoreArtworkCopy["overview"]; 
   );
 }
 
-export function StorePromoDraft({ format, locale = "en" }: { format: "small" | "marquee"; locale?: SupportedLocale }): React.ReactElement {
+export function StorePromo({ format, locale = "en" }: { format: "small" | "marquee"; locale?: SupportedLocale }): React.ReactElement {
   const small = format === "small";
   const text = STORE_ARTWORK_COPY[locale];
   const rtl = isRtlLocale(locale);
   const localized = locale !== "en";
   return (
-    <div lang={locale.replace("_", "-")} data-promo-draft={format} style={{ width: small ? 440 : 1400, height: small ? 280 : 560, position: "relative", overflow: "hidden", background: "#101010", color: "#fafafa", fontFamily: "Geist, sans-serif", padding: small ? 26 : 48, boxSizing: "border-box" }}>
+    <div lang={locale.replace("_", "-")} data-store-promo={format} style={{ width: small ? 440 : 1400, height: small ? 280 : 560, position: "relative", overflow: "hidden", background: "#101010", color: "#fafafa", fontFamily: "Geist, sans-serif", padding: small ? 26 : 48, boxSizing: "border-box" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: small ? 20 : 26, fontWeight: 700, letterSpacing: -0.8 }}><LurklootMark size={small ? 28 : 36} />Lurkloot</div>
       <h1 data-artwork-heading style={{ fontFamily: "Archivo, sans-serif", fontWeight: 750, whiteSpace: "pre-line", width: small ? 388 : 690, direction: rtl ? "rtl" : "ltr", fontSize: small ? (localized ? 37 : 43) : (localized ? 60 : 76), lineHeight: rtl || locale === "hi" ? 1.2 : 1.02, letterSpacing: localized ? -0.5 : small ? -1.8 : -3.5, margin: small ? "23px 0 18px" : "66px 0 24px" }}>{text.stories.queue.title}</h1>
       <p data-promo-description dir={rtl ? "rtl" : "ltr"} style={{ width: small ? 388 : 690, color: "#b0b0b0", fontSize: small ? 13 : 20, lineHeight: 1.6, margin: 0 }}>{text.promo.lines.map((line) => <span key={line} style={{ display: "block" }}>{line}</span>)}</p>

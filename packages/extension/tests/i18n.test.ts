@@ -129,7 +129,7 @@ describe("i18n", () => {
 
   it("captures store artwork for every catalog locale", () => {
     expect(STORE_SCREENSHOT_LOCALES.map(({ code }: { code: string }) => code).sort()).toEqual(localeCodes().sort());
-    const promoSource = readFileSync(join(dirname(import.meta.dirname), "scripts/capture-store-promo.mjs"), "utf8");
+    const promoSource = readFileSync(join(dirname(import.meta.dirname), "scripts/capture-store.mjs"), "utf8");
     for (const locale of localeCodes()) expect(promoSource).toContain(`"${locale}"`);
   });
 
