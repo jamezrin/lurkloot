@@ -168,3 +168,8 @@ body.home-theme::before, body.home-theme::after { display: none; }
 }
 
 .home-footer nav { flex-wrap: wrap; }
+
+@media (prefers-reduced-motion: reduce) {
+  .home-button, .home-faq-list summary span { transition: none; }
+  .home-button:hover { transform: none; }
+}
