@@ -66,7 +66,8 @@ describe("watch-source scheduler policy", () => {
   });
 
   it.each((["twitch", "kick"] as const).flatMap(platform => [
-    { platform, idleLive: false, explicitPriority: false, expectedCampaign: "drop", expectedChannel: "dropper" },
+    // "replacement" ends sooner, so it ranks first and takes over.
+    { platform, idleLive: false, explicitPriority: false, expectedCampaign: "replacement", expectedChannel: "replacement" },
     { platform, idleLive: false, explicitPriority: true, expectedCampaign: "replacement", expectedChannel: "replacement" },
     { platform, idleLive: true, explicitPriority: false, expectedCampaign: undefined, expectedChannel: "idlefirst" },
   ]))("preserves within-source retention with Idle-first snapshots on $platform (Idle live: $idleLive, explicit campaign priority: $explicitPriority)", async ({ platform, idleLive, explicitPriority, expectedCampaign, expectedChannel }) => {

@@ -2140,7 +2140,10 @@ describe("scheduler tick", () => {
   });
 
   it.each(["ending_soonest", "lowest_availability"] as const)(
-    "keeps an in-progress Kick reward when %s ranks a new campaign first",
+    // The queue is the order farmed: a campaign ranked above the current one
+    // takes over once it can be farmed, even partway through a reward. The
+    // reward's minutes stay on the platform for when it is on top again.
+    "switches from an in-progress Kick reward when %s ranks another campaign first",
     async (priorityMode) => {
       const currentChannel = channel("current", {
         platform: "kick",
@@ -2191,15 +2194,62 @@ describe("scheduler tick", () => {
         { platforms: ["kick"] },
       );
 
-      expect(kick.listCandidateChannels).not.toHaveBeenCalled();
       expect(result.state.sessions.kick).toMatchObject({
         status: "watching",
-        campaignId: "current",
-        rewardId: "reward-in_progress",
-        reasonCode: "keeping_current_watch",
+        campaignId: "replacement",
+        channel: { username: "replacement" },
       });
+      expect(result.events).toContainEqual(expect.objectContaining({
+        message: expect.stringMatching(/^Switching watch target \(Higher priority eligible reward available\)/),
+      }));
+
+      // And stays there: the next check on the same data does not switch back.
+      const next = await runSchedulerTick(result.state, settings({
+        priorityMode,
+        platform: {
+          twitch: { enabled: false, idleWatchlistChannels: [] },
+          kick: { enabled: true, idleWatchlistChannels: [] },
+        },
+      }), { twitch: adapter("twitch", [], []), kick }, { platforms: ["kick"] });
+      expect(next.state.sessions.kick).toMatchObject({ campaignId: "replacement", reasonCode: "keeping_current_watch" });
     },
   );
+
+  it("keeps the current watch and its counters when the campaign ranked above has no live channel", async () => {
+    const current = channel("current");
+    const twitch = adapter(
+      "twitch",
+      [campaign("current", { endsAt: "2099-02-01T00:00:00.000Z" }), campaign("sooner", { endsAt: "2099-01-01T00:00:00.000Z" })],
+      [current],
+    );
+    // Only the current campaign has a channel to watch.
+    vi.mocked(twitch.listCandidateChannels).mockImplementation(async (target) => target.id === "current" ? [current] : []);
+
+    const result = await runSchedulerTick(
+      {
+        ...baseState,
+        sessions: {
+          ...baseState.sessions,
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: current,
+            campaignId: "current",
+            rewardId: "reward-in_progress",
+            offlineChecks: 1,
+            playbackChecks: 0,
+            watchMode: "tabless",
+          },
+        },
+      },
+      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
+
+    expect(result.state.sessions.twitch).toMatchObject({ status: "watching", campaignId: "current", channel: { username: "current" } });
+    expect(result.state.sessions.twitch.reasonCode).not.toBe("higher_priority_reward");
+  });
 
   it("bypasses current-watch retention when a higher-priority campaign is available", async () => {
     const current = channel("current");
@@ -2244,10 +2294,9 @@ describe("scheduler tick", () => {
     expect(result.state.sessions.twitch.reasonCode).toBe("higher_priority_reward");
   });
 
-  it("keeps watching when only a favourite game outranks the current campaign", async () => {
-    // A star is a standing preference that re-fires whenever a campaign of that
-    // game appears, so it must not abandon progress already earned on a healthy
-    // reward — only a pin, which names one campaign, may do that.
+  it("switches when a favourite game's campaign outranks the current one", async () => {
+    // Favourite games rank above the strategy in the queue, and the queue is
+    // the order farmed, reward in progress or not.
     const current = channel("current");
     const replacement = channel("replacement");
     const twitch = adapter(
@@ -2287,8 +2336,8 @@ describe("scheduler tick", () => {
       { platforms: ["twitch"] },
     );
 
-    expect(result.state.sessions.twitch.campaignId).toBe("current");
-    expect(result.state.sessions.twitch.reasonCode).not.toBe("higher_priority_reward");
+    expect(result.state.sessions.twitch.campaignId).toBe("starred");
+    expect(result.state.sessions.twitch.reasonCode).toBe("higher_priority_reward");
   });
 
   it("falls back to full selection when the current channel no longer offers the campaign", async () => {

@@ -1801,17 +1801,6 @@ function campaignDiagnosticFingerprint(campaigns: readonly DropCampaign[]): stri
 // override would abandon a healthy watch at 55/60 minutes the moment a new
 // campaign of a starred game showed up. Favourites still rank — they decide what
 // is picked NEXT — they just never interrupt earned progress.
-function hasHigherExplicitCampaignPriority(
-  candidate: DropCampaign,
-  current: DropCampaign,
-  settings: EngineSettings,
-): boolean {
-  const candidatePin = pinIndex(candidate, settings);
-  if (candidatePin === -1) return false;
-  const currentPin = pinIndex(current, settings);
-  return currentPin === -1 || candidatePin < currentPin;
-}
-
 async function evaluatePreferredCurrentWatch(
   previous: WatchSession,
   campaigns: readonly DropCampaign[],
@@ -1829,35 +1818,21 @@ async function evaluatePreferredCurrentWatch(
     campaigns.filter((campaign) => isEligible(campaign, settings)),
     settings,
   ).find((campaign) => activeReward(campaign, settings));
-  let retainedCampaign = preferredCampaign;
-  let retainedReward = preferredCampaign ? activeReward(preferredCampaign, settings) : undefined;
-  if (retainedCampaign?.id !== previous.campaignId || retainedReward?.id !== previous.rewardId) {
-    // Automatic ranking chooses the next reward to start; it must not discard
-    // progress already earned on a healthy, still-eligible reward. An explicit
-    // user priority remains an intentional override.
-    const currentCampaign = campaigns.find((campaign) => campaign.id === previous.campaignId);
-    const currentReward = currentCampaign?.rewards.find((reward) => reward.id === previous.rewardId);
-    const currentActiveReward = currentCampaign && isEligible(currentCampaign, settings)
-      ? activeReward(currentCampaign, settings)
-      : undefined;
-    const shouldRetainProgress = currentCampaign != null
-      && currentReward?.status === "in_progress"
-      && currentActiveReward?.id === currentReward.id
-      && (preferredCampaign == null
-        || !hasHigherExplicitCampaignPriority(preferredCampaign, currentCampaign, settings));
-    if (!shouldRetainProgress) return undefined;
-    retainedCampaign = currentCampaign;
-    retainedReward = currentReward;
-  }
+  // Only the top of the ranking is retained without a search. The ranking is
+  // the queue the user sees: pins in their order, then favourite games, then
+  // the chosen strategy. When anything above the current reward can be farmed,
+  // the full selection below finds it and switches. A reward left partway
+  // keeps its watched minutes on the platform and resumes when it is on top
+  // again.
+  const preferredReward = preferredCampaign ? activeReward(preferredCampaign, settings) : undefined;
+  if (preferredCampaign?.id !== previous.campaignId || preferredReward?.id !== previous.rewardId) return undefined;
   const decision: WatchDecision = {
     platform: previous.platform,
     action: "watch",
-    campaign: retainedCampaign,
-    reward: retainedReward,
+    campaign: preferredCampaign,
+    reward: preferredReward,
     channel: previous.channel,
-    reason: retainedCampaign?.id === preferredCampaign?.id
-      ? "Current campaign remains highest priority"
-      : "Current reward is already in progress",
+    reason: "Current campaign remains highest priority",
     reasonCode: "keeping_current_watch",
   };
   const keep = await shouldKeepWatching(previous, decision, campaigns, settings, adapter, signal);
