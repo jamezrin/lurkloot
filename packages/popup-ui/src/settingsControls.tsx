@@ -10,7 +10,7 @@ import { SearchBox, Toggle, cn } from "./primitives";
 import { Dropdown } from "./dropdown";
 import { Tip } from "./tooltip";
 
-export function SettingsSection({ id, title, description, badge, forceExpanded, children }: {
+export function SettingsSection({ id, title, description, badge, forceExpanded, collapsible = true, children }: {
   // Stable, locale-independent identity. Collapse state is keyed by this, not by
   // the translated title, so changing language does not reset the accordion.
   id: string;
@@ -20,13 +20,16 @@ export function SettingsSection({ id, title, description, badge, forceExpanded, 
   // While searching, sections holding matches are opened regardless of the
   // persisted state, and the persisted state is left untouched.
   forceExpanded?: boolean;
+  // A short, always-useful section (the about footer) stays open: it renders a
+  // plain heading and ignores any collapse state persisted for it earlier.
+  collapsible?: boolean;
   children: React.ReactNode;
 }) {
   const { adapter, preview } = usePopupRuntime();
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
-    if (preview) return;
+    if (preview || !collapsible) return;
     let mounted = true;
     void adapter.getStorage(COLLAPSED_SETTINGS_SECTIONS_KEY).then((stored) => {
       if (!mounted) return;
@@ -36,7 +39,7 @@ export function SettingsSection({ id, title, description, badge, forceExpanded, 
     return () => {
       mounted = false;
     };
-  }, [adapter, preview, id]);
+  }, [adapter, preview, id, collapsible]);
 
   function toggleCollapsed(): void {
     const nextCollapsed = !collapsed;
@@ -49,40 +52,58 @@ export function SettingsSection({ id, title, description, badge, forceExpanded, 
     });
   }
 
-  const expanded = forceExpanded || !collapsed;
+  const expanded = !collapsible || forceExpanded || !collapsed;
+  const headingText = (
+    <span className="flex min-w-0 items-center gap-1.5">
+      <span data-settings-section-title className="font-display text-[12.5px] font-bold leading-tight text-zinc-900 dark:text-zinc-50">{title}</span>
+      {badge}
+    </span>
+  );
 
-  // At full width the section's name and purpose sit in a label column beside
-  // its rows, so the width goes to the settings rather than to stacked headings.
+  // At full width an open section's name and purpose sit in a label column
+  // beside its rows, so the width goes to the settings rather than to stacked
+  // headings. A folded section has no rows, so its header spans the full width:
+  // the name stays in the label column and the description moves into the
+  // content column, one compact line aligned with the open sections. The same
+  // button is kept across both states so focus survives the toggle.
   return (
-    <section id={`settings-section-${id}`} className="@[520px]:grid-cols-[8.5rem_minmax(0,1fr)] grid scroll-mt-2 grid-cols-1 gap-x-5 border-t border-zinc-200 pt-3 first:border-t-0 first:pt-0 dark:border-zinc-800">
-      <header className="@[520px]:mb-0 mb-1.5">
-        <button
+    <section id={`settings-section-${id}`} className={cn("@[520px]:grid-cols-[8.5rem_minmax(0,1fr)] grid scroll-mt-2 grid-cols-1 gap-x-5 border-t border-zinc-200 first:border-t-0 first:pt-0 dark:border-zinc-800", expanded ? "pt-3" : "pt-2")}>
+      <header className={expanded ? "@[520px]:mb-0 mb-1.5" : "col-span-full"}>
+        {!collapsible ? (
+          <div className="py-1.5">
+            {headingText}
+            {description ? <span className="mt-1 block text-[10.5px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</span> : null}
+          </div>
+        ) : <button
           type="button"
           aria-expanded={expanded}
           onClick={toggleCollapsed}
-          className="group flex w-full items-start justify-between gap-2 rounded-lg py-1.5 text-start outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+          className={cn(
+            "group grid w-full grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 rounded-lg py-1.5 text-start outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]",
+            !expanded && "@[520px]:grid-cols-[8.5rem_minmax(0,1fr)_auto] @[520px]:gap-x-5",
+          )}
         >
-          <span className="min-w-0">
-            <span className="flex items-center gap-1.5">
-              <span data-settings-section-title className="font-display text-[12.5px] font-bold leading-tight text-zinc-900 dark:text-zinc-50">{title}</span>
-              {badge}
-            </span>
-            {description ? <span className="mt-1 block text-[10.5px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</span> : null}
-          </span>
+          <span className="col-start-1 row-start-1 min-w-0">{headingText}</span>
+          {description ? (
+            <span className={cn("col-start-1 row-start-2 mt-1 block min-w-0 text-[10.5px] leading-snug text-zinc-500 dark:text-zinc-400", !expanded && "@[520px]:col-start-2 @[520px]:row-start-1 @[520px]:mt-0.5 truncate")}>{description}</span>
+          ) : null}
           {/* Shown on hover and focus while open, as the prototype has no
               arrows; always shown while collapsed, so a folded section says so. */}
-          <ChevronDown size={13} className={cn("mt-0.5 shrink-0 text-zinc-400 transition-transform dark:text-zinc-500", expanded ? "rotate-180 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" : "")} />
-        </button>
+          <ChevronDown size={13} className={cn("col-start-2 row-start-1 mt-0.5 shrink-0 text-zinc-400 transition-transform dark:text-zinc-500", expanded ? "rotate-180 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" : "@[520px]:col-start-3")} />
+        </button>}
       </header>
-      {expanded ? <div className="min-w-0 space-y-3 pb-2">{children}</div> : <div className="@[520px]:block hidden" />}
+      {expanded ? <div className="min-w-0 space-y-3 pb-2">{children}</div> : null}
     </section>
   );
 }
 
 // A labelled divider inside the flat settings flow. Groups do not collapse:
 // search is the direct route to a long page, and all advanced settings remain
-// available without a separate visual warning state.
-export function SettingsGroup({ title, description, badge, children }: {
+// available without a separate visual warning state. The anchor id sits on the
+// group itself rather than on a wrapper, so `first:` only matches the real first
+// group and every later group keeps its divider.
+export function SettingsGroup({ id, title, description, badge, children }: {
+  id?: string;
   title: string;
   // Groups whose whole body is one editor carry that editor's subtitle and count
   // here, so the editor itself renders bare instead of repeating the heading.
@@ -92,7 +113,7 @@ export function SettingsGroup({ title, description, badge, children }: {
   children: React.ReactNode;
 }) {
   return (
-    <div className="mt-2 border-t border-zinc-200 pt-3 first:mt-0 first:border-t-0 first:pt-0 dark:border-zinc-800">
+    <div id={id ? `settings-group-${id}` : undefined} className="mt-2 border-t border-zinc-200 pt-3 first:mt-0 first:border-t-0 first:pt-0 dark:border-zinc-800">
       <div className="mb-0.5 flex items-center gap-1.5">
         <span className="text-[12.5px] font-semibold text-zinc-900 dark:text-zinc-50">{title}</span>
         {badge}

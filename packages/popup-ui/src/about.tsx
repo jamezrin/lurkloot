@@ -10,7 +10,7 @@ import { Tip } from "./tooltip";
 export function AboutSection({ version }: { version: string }): React.ReactElement {
   const t = useT();
   return (
-    <SettingsSection id="about" title="Lurkloot" description={`v${version}`}>
+    <SettingsSection id="about" title="Lurkloot" description={`v${version}`} collapsible={false}>
       <nav aria-label={t("attributionLinks")} className="flex flex-wrap items-center gap-1.5 py-1">
         <AboutLink href={SITE_URL} label={t("siteAttribution")} text={t("siteAttributionShort")}>
           <Globe size={12} />
