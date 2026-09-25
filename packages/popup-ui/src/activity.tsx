@@ -187,7 +187,7 @@ export function ActivityLog({
                   key={value}
                   value={value}
                   data-activity-view-tab={value}
-                  className="rounded-md px-2 py-0.5 text-[9px] font-semibold text-zinc-400 outline-none transition hover:text-zinc-600 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] data-[active]:bg-[var(--ink)] data-[active]:text-[var(--ink-contrast)] dark:hover:text-zinc-200"
+                  className="rounded-md px-2 py-0.5 text-[9px] font-semibold text-zinc-400 outline-none transition not-data-[active]:hover:text-zinc-600 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] data-[active]:bg-[var(--ink)] data-[active]:text-[var(--ink-contrast)] dark:not-data-[active]:hover:text-zinc-200"
                 >
                   {t(value === "diagnostics" ? "diagnosticsViewTab" : "activityViewTab")}
                 </Tabs.Tab>
