@@ -32,7 +32,7 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
   compatibilityRegistry?: PopupCompatibilityRegistry;
   compatibilityResolution?: PopupCompatibilityResolution;
   focusGroupId?: string;
-  onOpenGames?(): void;
+  onOpenGames?(platform: Platform): void;
   // The extension version, shown with the project links in the About section.
   version?: string;
 }) {

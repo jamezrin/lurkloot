@@ -36,7 +36,8 @@ export interface SettingsRegistryContext {
   compatibilityRegistry?: PopupCompatibilityRegistry;
   compatibilityResolution?: PopupCompatibilityResolution;
   // Opens the Games view, where categories are chosen, ranked and blocked.
-  onOpenGames?(): void;
+  // Opens Games for that platform, switching to it first if needed.
+  onOpenGames?(platform: Platform): void;
 }
 
 export interface SettingsEntryDef extends SettingsEntryNode {
@@ -384,7 +385,7 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
                 title={t("settingsGamesPointerTitle")}
                 description={t("settingsGamesPointerDescription", details.label)}
                 action={t("settingsGamesPointerAction")}
-                onClick={ctx.onOpenGames}
+                onClick={() => ctx.onOpenGames?.(platform)}
               />
             ),
           },

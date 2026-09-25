@@ -119,6 +119,19 @@ describe("popup workspace shell", () => {
     expect(count?.getAttribute("aria-label")).toBe("18K viewers");
   });
 
+  it("opens the Games view of the platform whose settings link was used", async () => {
+    const container = await mountPopup();
+    go(container, "settings");
+    const links = [...container.querySelectorAll<HTMLButtonElement>("[data-settings-link]")].filter((link) => link.textContent?.includes("Open Games"));
+    // One per platform, Twitch first then Kick.
+    expect(links).toHaveLength(2);
+
+    act(() => links[1]!.click());
+
+    expect(currentView(container)).toBe("games");
+    expect(container.querySelector('[role="tab"][aria-label="Kick"]')?.getAttribute("aria-selected")).toBe("true");
+  });
+
   it("starts the Games search afresh on the other platform", async () => {
     const container = await mountPopup();
     go(container, "games");

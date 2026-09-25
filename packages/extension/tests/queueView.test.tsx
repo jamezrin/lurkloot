@@ -368,6 +368,17 @@ describe("campaign card actions", () => {
     expect(onPinChange).toHaveBeenCalledWith("d2", 0);
   });
 
+  it("keeps a skipped campaign's fix when search finds it", () => {
+    // With "farm pinned only" on, an unpinned campaign is skipped and its fix
+    // is pinning it; search used to show it with no way to do that.
+    const settings = mergeSettings({ campaignPins: ["pinned"], farmPinnedOnly: true } as never);
+    const { container } = queue(views([campaign("pinned"), campaign("loose")], settings), settings);
+
+    search(container, "loose");
+
+    expect(container.querySelector('[data-campaign-id="loose"] [data-queue-fix]')).not.toBeNull();
+  });
+
   it("pins a queued campaign from its own row", () => {
     const settings = mergeSettings({ campaignPins: ["pinned"] } as never);
     const onPinChange = vi.fn();

@@ -438,6 +438,14 @@ const QueueRow = React.memo(function QueueRow({ kind, campaign, index, farmingIn
     return (
       <CampaignCard
         {...props}
+        // A skipped result keeps the action that puts it back in the queue
+        // (with "farm pinned only" on, that is pinning it).
+        fix={campaign.section === "skipped" ? skippedFix(campaign, {
+          onToggleExclude: actions.toggleExclude,
+          onOpenGames: actions.openGames,
+          onOpenSettings: actions.openSettings,
+          onPin: () => actions.pinLast(campaign.id),
+        }, t) : undefined}
         rankCount={rankCount}
         onRankMove={campaign.pinned && campaign.pinIndex != null ? (toIndex) => actions.pinAt(campaign.id, toIndex) : undefined}
         onPin={queued ? () => actions.togglePin(campaign) : undefined}
