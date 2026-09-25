@@ -351,6 +351,8 @@ describe("settings actions and about", () => {
     const links = [...(about?.querySelectorAll("a") ?? [])].map((link) => link.getAttribute("aria-label"));
     expect(links).toEqual(["siteAttribution", "chromeWebStoreAttribution", "githubAttribution"]);
     expect(container.querySelector("footer")).toBeNull();
+    // The footer is always open: no collapse toggle on its heading.
+    expect(about?.querySelector("[aria-expanded]")).toBeNull();
   });
 
   it("confirms a reset in place, on the action's own row", async () => {

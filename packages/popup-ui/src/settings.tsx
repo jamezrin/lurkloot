@@ -60,7 +60,9 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
   const rootRef = React.useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!focusGroupId) return;
-    scrollIntoPanel(rootRef.current?.querySelector(`[id="settings-group-${focusGroupId}"]`));
+    // General groups render as whole sections, platform groups as groups
+    // inside their platform's section; either anchor finds the target.
+    scrollIntoPanel(rootRef.current?.querySelector(`[id="settings-group-${focusGroupId}"], [id="settings-section-${focusGroupId}"]`));
   }, [focusGroupId]);
 
   // Export needs no arm/confirm step (it only reads, never mutates), but it
@@ -187,14 +189,13 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
               </SettingsSection>
             ) : null,
             ...section.groups.map((group) => (
-              <div key={group.id} id={`settings-group-${group.id}`}>
-                <SettingsSection
-                  id={group.id}
-                  title={section.id === "general" ? t(group.titleKey) : `${PLATFORMS[section.id as Platform].label} · ${t(group.titleKey)}`}
-                >
-                  {renderGroupContent(group, false)}
-                </SettingsSection>
-              </div>
+              <SettingsSection
+                key={group.id}
+                id={group.id}
+                title={section.id === "general" ? t(group.titleKey) : `${PLATFORMS[section.id as Platform].label} · ${t(group.titleKey)}`}
+              >
+                {renderGroupContent(group, false)}
+              </SettingsSection>
             )),
             section.id === "twitch" ? <React.Fragment key="twitch.extensions">{extensionSettings}</React.Fragment> : null,
           ])}
@@ -202,11 +203,9 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
       ) : (
         <div className="space-y-4">
           {generalSection?.groups.map((group) => group.id !== "general.advanced" ? (
-            <div key={group.id} id={`settings-group-${group.id}`}>
-              <SettingsSection id={group.id} title={t(group.titleKey)} description={group.description}>
-                {renderGroupContent(group, false)}
-              </SettingsSection>
-            </div>
+            <SettingsSection key={group.id} id={group.id} title={t(group.titleKey)} description={group.description}>
+              {renderGroupContent(group, false)}
+            </SettingsSection>
           ) : null)}
 
           {platformSections.map((section) => (
@@ -222,11 +221,9 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
                   </div>
                 ) : null}
                 {section.groups.map((group) => (
-                  <div key={group.id} id={`settings-group-${group.id}`}>
-                    <SettingsGroup title={t(group.titleKey)} description={group.description} badge={group.badge}>
-                      {group.entries.map((entry) => <React.Fragment key={entry.id}>{entry.render()}</React.Fragment>)}
-                    </SettingsGroup>
-                  </div>
+                  <SettingsGroup key={group.id} id={group.id} title={t(group.titleKey)} description={group.description} badge={group.badge}>
+                    {group.entries.map((entry) => <React.Fragment key={entry.id}>{entry.render()}</React.Fragment>)}
+                  </SettingsGroup>
                 ))}
               </SettingsSection>
               {section.id === "twitch" ? extensionSettings : null}

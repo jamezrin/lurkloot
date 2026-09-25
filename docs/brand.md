@@ -63,8 +63,9 @@ was too decorative.
 | `--rail-bg` / `--rail-selected` | `#0a0a0a` / `#1f1f1f` | `#000000` / `#1c1c1c` |
 
 Neutrals are Tailwind's plain zinc. **The rail is black in both themes**, and
-the mark sits at its top: the icon's ring and play glyph in black on a white
-tile (`packages/popup-ui/src/mark.tsx`).
+the mark sits at its top: the extension icon itself, ring and play glyph on
+the Twitch-purple to Kick-green tile (`packages/popup-ui/src/mark.tsx`). It is
+the one place the popup chrome keeps the platform blend.
 
 **Shape.** Cards are 10px, controls 6–8px (`rounded-md`/`rounded-lg`); round
 shapes are for status dots, switches and the floating carousel arrows only.
@@ -75,9 +76,6 @@ Still to do under #566:
 - apply it to `packages/site/src/styles/global.css`, replacing the `--signal`
   gradient and the `--glow-*` shadows;
 - audit hard-coded colours in `packages/site/src/components/*` and `pages/*`;
-- redraw `packages/extension/public/icon/source.svg`, `logo-ring.svg` and
-  `chrome-store-logo-128.svg` as the rail's flat black-and-white mark, so the
-  toolbar icon matches the popup;
 - regenerate the Chrome Web Store screenshots and promo tiles — which must not
   depict store rating or standing, per the 1.13.0 rejection;
 - check AA contrast for text and interactive states in both themes.
