@@ -75,8 +75,6 @@ const labels: Record<string, string> = {
   farmUnlinkedDescription: "When off, campaigns that need you to link your account are skipped.",
   farmSubscriptionTitle: "Farm campaigns that require a subscription",
   farmSubscriptionDescription: "When off, campaigns whose rewards need a channel subscription are skipped.",
-  dropsListFilterTitle: "Drops list view",
-  dropsListFilterDescription: "Choose which campaigns are shown in the Drops list.",
   forgetExcludedTitle: "Forget excluded campaigns",
   forgetExcludedDescription: "Clear every campaign you excluded from farming.",
   tablessTitle: "Tabless low-resource mode",
@@ -118,7 +116,6 @@ const labels: Record<string, string> = {
   off: "Off",
   tabOnly: "Tab only",
   tabAndWindow: "Tab + window",
-  priorityListOnly: "Priority list only",
   endingSoonest: "Ending soonest",
   lowAvailabilityFirst: "Low availability first",
   autoClaimChannelPointsTitle: "Auto-claim channel points",
@@ -128,10 +125,12 @@ const labels: Record<string, string> = {
   autoClaimChallengesTitle: "Auto-claim daily challenges",
   autoClaimChallengesDescription: "Claim Kick's daily challenge reward once its watch-time goal is met.",
   categoryModeTitle: "Category filter",
+  settingsGamesPointerTitle: "Games and categories",
+  settingsGamesPointerDescription: "Choose which $1 games are farmed, star the ones that should rank first, or block them.",
+  settingsGamesPointerAction: "Open Games",
   categoryModeDescription: "Farm every $1 category, include only the categories you select, or exclude them.",
   categoryModeAll: "All categories",
   categoryModeInclude: "Only selected",
-  categoryModeExclude: "All except selected",
   excludedChannelsTitle: "Excluded drop channels",
   excludedChannelsDescription: "Campaign farming will skip these streamers.",
   excludedChannelsEmpty: "No excluded drop channels.",
@@ -227,10 +226,10 @@ describe("settings search view", () => {
 
   it("organizes the normal view into ordered collapsible settings sections", () => {
     const { container } = mountSettings();
-    // Target the title span by its class rather than by ordinal, so adding a
-    // badge or an icon to one section cannot silently shift what this reads.
-    const sectionTitles = [...container.querySelectorAll<HTMLButtonElement>('button[aria-expanded]')]
-      .map((button) => button.querySelector<HTMLSpanElement>("span.uppercase")?.textContent?.trim());
+    // Target the title span by its marker rather than by ordinal or styling,
+    // so a badge, an icon or a restyle cannot silently shift what this reads.
+    const sectionTitles = [...container.querySelectorAll<HTMLButtonElement>('section > header > button[aria-expanded]')]
+      .map((button) => button.querySelector<HTMLSpanElement>("[data-settings-section-title]")?.textContent?.trim());
 
     expect(sectionTitles).toEqual([
       "Appearance & behavior",
@@ -335,17 +334,16 @@ describe("settings search view", () => {
     expect(container.textContent).not.toContain("No settings match");
   });
 
-  // The mode names live in the option labels, which the search haystack (title
-  // + description) never sees, so the description has to carry them or the one
-  // control that excludes categories is unfindable by the word "exclude".
-  it("finds the category filter by the mode the user is looking for", () => {
+  // Categories are edited in Games now; Settings keeps a row pointing there,
+  // and every word that used to find the category filter still finds it.
+  it("finds the way to the category filter by the words the user is looking for", () => {
     for (const query of ["exclude", "include", "categor"]) {
       const { container } = mountSettings();
       const search = openSearch(container);
 
       act(() => setInputValue(search, query));
 
-      expect(container.textContent, query).toContain("Category filter");
+      expect(container.textContent, query).toContain("Games and categories");
       expect(container.textContent, query).not.toContain("No settings match");
     }
   });

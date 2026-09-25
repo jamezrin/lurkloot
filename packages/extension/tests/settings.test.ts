@@ -15,7 +15,6 @@ describe("engine settings", () => {
     "rateNudgeStatus",
     "githubStarNudgeStatus",
     "diagnosticLogging",
-    "dropsListFilter",
   ] as const;
 
   it("normalizes the engine contract without the host-only fields", () => {
@@ -120,24 +119,11 @@ describe("settings", () => {
     expect(mergeSettings({ showTips: "no" } as never).showTips).toBe(true);
   });
 
-  it("defaults the drops list view flags while preserving persisted choices", () => {
-    expect(DEFAULT_SETTINGS.dropsListFilter).toEqual({
-      showUpcoming: true,
-      showExpired: false,
-      showFinished: true,
-      showExcluded: false,
-      showNotLinked: true,
-      showSubscription: true,
-    });
-    // A partial persisted record fills the rest from defaults.
-    expect(mergeSettings({ dropsListFilter: { showExpired: true } } as never).dropsListFilter).toEqual({
-      showUpcoming: true,
-      showExpired: true,
-      showFinished: true,
-      showExcluded: false,
-      showNotLinked: true,
-      showSubscription: true,
-    });
+  it("keeps campaign pins as an ordered, deduplicated id list", () => {
+    expect(DEFAULT_SETTINGS.campaignPins).toEqual([]);
+    expect(DEFAULT_SETTINGS.farmPinnedOnly).toBe(false);
+    expect(mergeSettings({ campaignPins: [" first ", "second", "first"] } as never).campaignPins)
+      .toEqual(["first", "second"]);
   });
 
   it("clamps persisted numeric settings to browser-safe ranges", () => {
@@ -219,10 +205,7 @@ describe("settings", () => {
         },
         kick: { enabled: false, idleWatchlistChannels: ["KickOne"], excludedChannels: ["KickSkip"], categories: [{ id: "cat-1", name: "Category" }] },
       },
-      campaignPriorities: {
-        " campaign ": 2.6,
-        broken: Number.NaN,
-      },
+      campaignPins: [" campaign ", "campaign", ""],
       excludedCampaignIds: [" Abc ", "abc", "Abc"],
     } as unknown as Parameters<typeof mergeSettings>[0]);
 
@@ -238,7 +221,7 @@ describe("settings", () => {
     expect(settings.platform.kick.idleWatchlistChannels).toEqual(["kickone"]);
     expect(settings.platform.kick.excludedChannels).toEqual(["kickskip"]);
     expect(settings.platform.kick.categories).toEqual([{ id: "cat-1", name: "Category" }]);
-    expect(settings.campaignPriorities).toEqual({ campaign: 3 });
+    expect(settings.campaignPins).toEqual(["campaign"]);
     // Campaign ids are trimmed and deduped but kept case-sensitive so they match
     // campaign.id verbatim in the scheduler (unlike channel/game lists).
     expect(settings.excludedCampaignIds).toEqual(["Abc", "abc"]);
@@ -257,7 +240,9 @@ describe("settings", () => {
     expect(DEFAULT_SETTINGS.priorityMode).toBe("ending_soonest");
     expect(mergeSettings(undefined).priorityMode).toBe("ending_soonest");
     expect(mergeSettings({ priorityMode: "lowest_availability" }).priorityMode).toBe("lowest_availability");
-    expect(mergeSettings({ priorityMode: "priority_list_only" }).priorityMode).toBe("priority_list_only");
+    // "priority_list_only" is no longer a mode; migration turns it into the
+    // farmPinnedOnly switch, and an unknown value falls back to the default.
+    expect(mergeSettings({ priorityMode: "priority_list_only" } as never).priorityMode).toBe("ending_soonest");
     expect(mergeSettings({ priorityMode: "nonsense" } as unknown as Parameters<typeof mergeSettings>[0]).priorityMode)
       .toBe("ending_soonest");
   });
@@ -319,7 +304,7 @@ describe("settings", () => {
   });
 
   it("keeps every valid category mode and falls back to all for an invalid one", () => {
-    for (const categoryMode of ["all", "include", "exclude"] as const) {
+    for (const categoryMode of ["all", "include"] as const) {
       expect(mergeSettings({ platform: { twitch: { categoryMode } } } as never).platform.twitch.categoryMode)
         .toBe(categoryMode);
     }
@@ -330,7 +315,7 @@ describe("settings", () => {
   });
 
   it("normalizes and dedupes the category list identically in every mode", () => {
-    for (const categoryMode of ["all", "include", "exclude"] as const) {
+    for (const categoryMode of ["all", "include"] as const) {
       const settings = mergeSettings({
         platform: {
           twitch: {
@@ -352,15 +337,29 @@ describe("settings", () => {
     }
   });
 
-  // The whole point of one shared list: an include ordering survives a round
-  // trip through exclude untouched, so switching back restores the priority.
+  // The whole point of one shared list: a selection survives a round trip
+  // through "all" untouched, so switching back restores it.
   it("preserves the stored list across mode switches", () => {
     const categories = [{ id: "13", name: "Rust" }, { id: "21", name: "Other" }];
     let settings = mergeSettings({ platform: { twitch: { categoryMode: "include", categories } } } as never);
-    settings = applySettingsPatch(settings, { platform: { twitch: { categoryMode: "exclude" } } });
+    settings = applySettingsPatch(settings, { platform: { twitch: { categoryMode: "all" } } });
     expect(settings.platform.twitch.categories).toEqual(categories);
     settings = applySettingsPatch(settings, { platform: { twitch: { categoryMode: "include" } } });
     expect(settings.platform.twitch.categories).toEqual(categories);
+  });
+
+  // Blocking suppresses a game without erasing the star or the selection, so
+  // unblocking restores exactly what was there.
+  it("keeps favourites and selections while a game is blocked", () => {
+    const rust = { id: "13", name: "Rust" };
+    let settings = mergeSettings({
+      platform: { twitch: { categoryMode: "include", categories: [rust], favouriteCategories: [rust] } },
+    } as never);
+    settings = applySettingsPatch(settings, { platform: { twitch: { blockedCategories: [rust] } } });
+    expect(settings.platform.twitch.favouriteCategories).toEqual([rust]);
+    expect(settings.platform.twitch.categories).toEqual([rust]);
+    settings = applySettingsPatch(settings, { platform: { twitch: { blockedCategories: [] } } });
+    expect(settings.platform.twitch.favouriteCategories).toEqual([rust]);
   });
 
   // Migration then normalization is the pipeline every host runs on a stored

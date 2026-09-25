@@ -149,7 +149,9 @@ describe("popup authentication health", () => {
     const { container } = await mountWithSnapshots([{ status: "healthy" }], {
       status, watchMode: "tabless", supplementalWatch: { id: "nopixel", tablessOnly: true },
     });
-    const provider = container.querySelector('article[aria-label="NoPixelV"]');
+    // Each provider is its own rail destination now.
+    act(() => { container.querySelector<HTMLButtonElement>('button[data-view="nopixel"]')?.click(); });
+    const provider = container.querySelector('[aria-label="NoPixelV"]');
     expect(provider).not.toBeNull();
     expect(provider?.hasAttribute("aria-current")).toBe(false);
     expect(provider?.querySelector(".animate-pulse")).toBeNull();

@@ -6,6 +6,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Popup, createDemoPopupAdapter, screenshotVariant, type PopupAdapter } from "@lurkloot/popup-ui";
 import { resetCatalogTracking, waitForCatalog } from "./helpers/popupCatalog";
 
+// The rail is the popup's navigation: every destination is a button carrying
+// its view id, which keeps these tests independent of the nav copy.
+function byView(container: Element, view: string): HTMLButtonElement {
+  const button = container.querySelector(`button[data-view="${view}"]`);
+  if (!button) throw new Error(`Missing rail destination: ${view}`);
+  return button as HTMLButtonElement;
+}
+
 vi.mock("@lurkloot/locales", async (importOriginal) =>
   (await import("./helpers/popupCatalog")).delayedLocales(importOriginal));
 
@@ -69,7 +77,7 @@ function byLabel(container: Element, label: string): HTMLButtonElement {
 }
 
 function openSettings(container: Element): void {
-  act(() => byLabel(container, "Open settings").click());
+  act(() => byView(container, "settings").click());
 }
 
 describe("settings credential export", () => {
@@ -105,7 +113,7 @@ describe("settings credential export", () => {
     act(() => byText(container, "Export credentials").click());
     expect(container.textContent).toContain("Confirm export");
 
-    act(() => byLabel(container, "Back").click());
+    act(() => byView(container, "queue").click());
     openSettings(container);
 
     expect(container.textContent).toContain("Export credentials");

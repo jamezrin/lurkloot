@@ -14,7 +14,8 @@ import type {
   WatchSession,
   WatchSourceId,
 } from "@lurkloot/shared/models";
-import { campaignPassesCategoryFilter, categoryPriorityScore } from "@lurkloot/shared/categories";
+import { campaignPassesCategoryFilter } from "@lurkloot/shared/categories";
+import { pinIndex, rankCampaigns } from "@lurkloot/shared/ranking";
 import { evaluateCampaignFarming, type CampaignFarmingEvaluation, type CampaignFarmingRejectionCode } from "@lurkloot/shared/campaignFarming";
 import { campaignFarmable, campaignPassesFarmingEligibility, hasCampaignEnded } from "@lurkloot/shared/campaignFilters";
 import {
@@ -84,14 +85,13 @@ function chooseTablessWatch(
 
 function isEligible(campaign: DropCampaign, settings: EngineSettings): boolean {
   // campaignFarmable is the single shared definition of "is this campaign
-  // farmable" (shared with the popup's isCampaignVisible, so display and
-  // farming never drift apart). "Priority list only" is the one farming-
-  // strategy layer on top of it: it farms exclusively the campaigns the user
-  // explicitly reordered (campaignPriorities), which is deliberately NOT part
-  // of campaignFarmable — a deprioritized campaign must stay farmable-shaped
-  // for display so the user can still add it to the list.
+  // farmable" (shared with the popup's campaignSection, so display and farming
+  // never drift apart). "Farm pinned only" is the one farming-strategy layer on
+  // top of it: it farms exclusively pinned campaigns, and is deliberately NOT
+  // part of campaignFarmable — an unpinned campaign must stay farmable-shaped
+  // for display so the popup can still offer the pin.
   if (!campaignFarmable(campaign, settings)) return false;
-  if (settings.priorityMode === "priority_list_only" && !isInPriorityList(campaign, settings)) return false;
+  if (settings.farmPinnedOnly && !isPinned(campaign, settings)) return false;
   return true;
 }
 
@@ -149,44 +149,12 @@ function activeRewardFor(campaigns: readonly DropCampaign[], session: WatchSessi
   return campaign?.rewards.find((reward) => reward.id === session.rewardId);
 }
 
-function isInPriorityList(campaign: DropCampaign, settings: EngineSettings): boolean {
-  return settings.campaignPriorities[campaign.id] != null;
-}
-
-function availabilityScore(campaign: DropCampaign): number {
-  if (campaign.allowedChannels?.length) return campaign.allowedChannels.length;
-  return Number.MAX_SAFE_INTEGER;
-}
-
-function endScore(campaign: DropCampaign): number {
-  return campaign.endsAt ? Date.parse(campaign.endsAt) : Number.MAX_SAFE_INTEGER;
+function isPinned(campaign: DropCampaign, settings: EngineSettings): boolean {
+  return pinIndex(campaign, settings) !== -1;
 }
 
 export function sortCampaigns(campaigns: DropCampaign[], settings: EngineSettings): DropCampaign[] {
-  return [...campaigns].sort((left, right) => {
-    const leftPriority = settings.campaignPriorities[left.id] ?? left.priority;
-    const rightPriority = settings.campaignPriorities[right.id] ?? right.priority;
-    if (leftPriority != null && rightPriority != null && leftPriority !== rightPriority) return rightPriority - leftPriority;
-    if (leftPriority != null && rightPriority == null) return -1;
-    if (rightPriority != null && leftPriority == null) return 1;
-
-    const categoryOrder = categoryPriorityScore(left, settings.platform[left.platform])
-      - categoryPriorityScore(right, settings.platform[right.platform]);
-    if (categoryOrder !== 0) return categoryOrder;
-
-    const normalizedLeftPriority = leftPriority ?? 0;
-    const normalizedRightPriority = rightPriority ?? 0;
-    if (normalizedLeftPriority !== normalizedRightPriority) return normalizedRightPriority - normalizedLeftPriority;
-
-    if (settings.priorityMode === "lowest_availability") {
-      const availability = availabilityScore(left) - availabilityScore(right);
-      if (availability !== 0) return availability;
-    }
-
-    const ends = endScore(left) - endScore(right);
-    if (ends !== 0) return ends;
-    return left.name.localeCompare(right.name);
-  });
+  return rankCampaigns(campaigns, settings);
 }
 
 // Ranks candidates the user has a relationship with above anonymous directory
@@ -417,8 +385,11 @@ function noEligibleCampaignReason(campaigns: DropCampaign[], settings: EngineSet
   if (notExcluded.every((campaign) => !campaignPassesCategoryFilter(campaign, settings.platform[campaign.platform]))) {
     return "No campaigns match the categories filter";
   }
-  if (settings.priorityMode === "priority_list_only" && !notExcluded.some((campaign) => isInPriorityList(campaign, settings))) {
-    return "No prioritized campaigns are eligible";
+  // Eligible, not merely pinned: with pins that have all expired, "no pinned
+  // campaigns are eligible" is the accurate and more actionable reason.
+  if (settings.farmPinnedOnly
+    && !notExcluded.some((campaign) => isPinned(campaign, settings) && campaignFarmable(campaign, settings))) {
+    return "No pinned campaigns are eligible";
   }
   const relevantCampaigns = notExcluded.filter((campaign) => campaign.status === "active" && !hasCampaignEnded(campaign));
   if (relevantCampaigns.length > 0 && relevantCampaigns.every((campaign) =>
@@ -660,12 +631,21 @@ async function selectWatchSources(
   resolveSupplemental: ((source: WatchSourceId) => Promise<SupplementalWatchTarget | undefined>) | undefined,
   emit: EventEmitter,
   signal?: AbortSignal,
+  dropsUndecided = false,
 ): Promise<{ selection: SnapshotSelectionResult; supplemental?: SupplementalWatchTarget }> {
   let ordinary: SnapshotSelectionResult | undefined;
   let ordinaryFailed = false;
   let ordinaryError: unknown;
+  // With Drops undecided, a source below it may only keep what it is already
+  // watching: starting it would be undone as soon as discovery completes.
+  const currentSource: string | undefined = previous.status !== "watching"
+    ? undefined
+    : previous.supplementalWatch?.id ?? (previous.campaignId ? "drops" : "idle_watchlist");
+  let pastDrops = false;
   for (const source of normalizeWatchSourcePriority(platform, settings.platform[platform].watchSourcePriority)) {
     signal?.throwIfAborted();
+    if (pastDrops && dropsUndecided && source !== currentSource) continue;
+    if (source === "drops") pastDrops = true;
     if (source === "drops" || source === "idle_watchlist") {
       try {
         ordinary = await resolveOrdinary(source);
@@ -735,7 +715,8 @@ export function campaignSearchFingerprint(
   return stableHash({
     campaign,
     settings: {
-      campaignPriorities: settings.campaignPriorities,
+      campaignPins: settings.campaignPins,
+      farmPinnedOnly: settings.farmPinnedOnly,
       excludedCampaignIds: settings.excludedCampaignIds,
       priorityMode: settings.priorityMode,
       farmingEligibility: settings.farmingEligibility,
@@ -838,13 +819,23 @@ function retainHealthyWatchOnAmbiguousDiscovery(
   previous: WatchSession,
   campaigns: DropCampaign[],
   settings: EngineSettings,
+  onDecline?: (reason: string) => void,
 ): SnapshotSelectionResult | undefined {
-  if (previous.supplementalWatch || !previous.campaignId || previous.status !== "watching" || !previous.channel || !isSessionHealthy(previous)) return undefined;
+  if (previous.supplementalWatch || !previous.campaignId || previous.status !== "watching" || !previous.channel) return undefined;
+  const decline = (reason: string): undefined => {
+    onDecline?.(`Not keeping current watch while discovery is incomplete: ${reason}`);
+    return undefined;
+  };
+  // A watch armed moments ago has no heartbeat yet; that is new, not broken,
+  // and dropping it here would stop it only for the next tick to restart it.
+  const justStarted = previous.watchMode === "tabless" && !previous.lastHeartbeatAt;
+  if (!justStarted && !isSessionHealthy(previous)) return decline("the watch is unhealthy");
   const campaign = campaigns.find((candidate) => candidate.id === previous.campaignId);
   const reward = campaign?.rewards.find((candidate) => candidate.id === previous.rewardId);
-  if (!campaign || !isEligible(campaign, settings)
-    || activeReward(campaign, settings)?.id !== previous.rewardId
-    || settings.platform[previous.platform].excludedChannels?.includes(previous.channel.username.toLowerCase())) return undefined;
+  if (!campaign) return decline("its campaign is no longer known");
+  if (!isEligible(campaign, settings)) return decline("its campaign is no longer eligible under the current settings");
+  if (activeReward(campaign, settings)?.id !== previous.rewardId) return decline("its reward is no longer the campaign's active reward");
+  if (settings.platform[previous.platform].excludedChannels?.includes(previous.channel.username.toLowerCase())) return decline("its channel is excluded");
   const decision: WatchDecision = {
     platform: previous.platform,
     action: "watch",
@@ -901,6 +892,10 @@ export interface SchedulerTickOptions {
   discovery?: Partial<Record<Platform, {
     campaigns: DropCampaign[];
     complete: boolean;
+    // The refresh was thrown away (settings changed mid-flight), not failed:
+    // nothing is known about channels, so Drops is undecided rather than
+    // unavailable and no lower source may take over from it this tick.
+    discarded?: boolean;
   }>>;
   selections?: Partial<Record<Platform, SnapshotSelectionResult>>;
   selectionIsCurrent?: Partial<Record<Platform, () => boolean>>;
@@ -915,7 +910,8 @@ const CAMPAIGN_REJECTION_LABELS: Record<CampaignFarmingRejectionCode, string> = 
   twitch_link_required: "Twitch account linking required",
   subscription_campaigns_disabled: "subscription campaigns disabled",
   category_filtered: "category filtered",
-  priority_not_selected: "not in priority list",
+  category_blocked: "game blocked",
+  not_pinned: "not pinned",
   no_rewards: "no rewards",
   no_unclaimed_rewards: "no unclaimed rewards",
   reward_prerequisites_unmet: "reward prerequisites unmet",
@@ -947,7 +943,7 @@ function emitCampaignEvaluationDiagnostics(
 ): void {
   const evaluations = campaigns.map((campaign) => ({
     campaign,
-    evaluation: evaluateCampaignFarming(campaign, settings, { includePriorityMode: true }),
+    evaluation: evaluateCampaignFarming(campaign, settings, { includePinnedOnly: true }),
   }));
   const fingerprint = campaignEvaluationFingerprint(evaluations);
   if (fingerprints?.[platform] === fingerprint) return;
@@ -1260,6 +1256,7 @@ export async function runSchedulerTick(
       let campaigns: DropCampaign[];
       let discoveryFailed = false;
       const committedDiscovery = options.discovery?.[platform];
+      const discoveryDiscarded = committedDiscovery?.discarded === true && !committedDiscovery.complete;
       if (committedDiscovery) {
         campaigns = preserveClaimedRewards(committedDiscovery.campaigns, state.campaigns[platform]);
         discoveryFailed = !committedDiscovery.complete;
@@ -1405,7 +1402,9 @@ export async function runSchedulerTick(
       const retentionCampaigns = discoveryFailed
         ? [...new Map([...nextState.campaigns[platform], ...campaigns].map(campaign => [campaign.id, campaign])).values()]
         : campaigns;
-      const ambiguousRetention = discoveryFailed ? retainHealthyWatchOnAmbiguousDiscovery(previous, retentionCampaigns, settings) : undefined;
+      const ambiguousRetention = discoveryFailed
+        ? retainHealthyWatchOnAmbiguousDiscovery(previous, retentionCampaigns, settings, (message) => emitDiagnostic(emit, platform, "debug", message))
+        : undefined;
       const sourceOrder = normalizeWatchSourcePriority(platform, platformSettings.watchSourcePriority);
       const { selection, supplemental } = await selectWatchSources(platform, previous, settings, adapter, async source => {
         const prepared = options.selections?.[platform];
@@ -1427,8 +1426,11 @@ export async function runSchedulerTick(
         const retention = await shouldKeepWatching(previous, decision, campaigns, settings, adapter, options.signal);
         if (previous.status === "watching" && previous.channel) decision = { ...decision, reason: retention.reason, reasonCode: retention.reasonCode };
         return { decision, retention, campaignsChecked: 0, candidatesChecked, fastPath: false };
-      }, options.selectSupplementalWatchTarget ? source => options.selectSupplementalWatchTarget!(platform, nextState, options.signal, source) : undefined, emit, options.signal);
+      }, options.selectSupplementalWatchTarget ? source => options.selectSupplementalWatchTarget!(platform, nextState, options.signal, source) : undefined, emit, options.signal, discoveryDiscarded);
       let { decision } = selection;
+      if (discoveryDiscarded && decision.action === "idle") {
+        decision = { ...decision, reason: "Waiting for campaign discovery after a settings change" };
+      }
       const shouldKeep = selection.retention;
       if (options.selectionIsCurrent?.[platform]?.() === false) {
         emitDiagnostic(emit, platform, "debug", "Snapshot selection discarded after target health changed");
@@ -1818,17 +1820,16 @@ function campaignDiagnosticFingerprint(campaigns: readonly DropCampaign[]): stri
     .join("|");
 }
 
-function hasHigherExplicitCampaignPriority(
-  candidate: DropCampaign,
-  current: DropCampaign,
-  settings: EngineSettings,
-): boolean {
-  const candidatePriority = settings.campaignPriorities[candidate.id];
-  if (candidatePriority == null) return false;
-  const currentPriority = settings.campaignPriorities[current.id];
-  return currentPriority == null || candidatePriority > currentPriority;
-}
-
+// Whether the candidate outranks the current watch because the user placed that
+// CAMPAIGN there by hand. Only a pin qualifies: it names one campaign and does
+// not move on its own, so honouring it can only ever discard progress the user
+// asked to discard.
+//
+// A favourite game deliberately does NOT qualify. It is a standing preference
+// that re-fires every time a campaign of that game appears, so treating it as an
+// override would abandon a healthy watch at 55/60 minutes the moment a new
+// campaign of a starred game showed up. Favourites still rank — they decide what
+// is picked NEXT — they just never interrupt earned progress.
 async function evaluatePreferredCurrentWatch(
   previous: WatchSession,
   campaigns: readonly DropCampaign[],
@@ -1846,35 +1847,21 @@ async function evaluatePreferredCurrentWatch(
     campaigns.filter((campaign) => isEligible(campaign, settings)),
     settings,
   ).find((campaign) => activeReward(campaign, settings));
-  let retainedCampaign = preferredCampaign;
-  let retainedReward = preferredCampaign ? activeReward(preferredCampaign, settings) : undefined;
-  if (retainedCampaign?.id !== previous.campaignId || retainedReward?.id !== previous.rewardId) {
-    // Automatic ranking chooses the next reward to start; it must not discard
-    // progress already earned on a healthy, still-eligible reward. An explicit
-    // user priority remains an intentional override.
-    const currentCampaign = campaigns.find((campaign) => campaign.id === previous.campaignId);
-    const currentReward = currentCampaign?.rewards.find((reward) => reward.id === previous.rewardId);
-    const currentActiveReward = currentCampaign && isEligible(currentCampaign, settings)
-      ? activeReward(currentCampaign, settings)
-      : undefined;
-    const shouldRetainProgress = currentCampaign != null
-      && currentReward?.status === "in_progress"
-      && currentActiveReward?.id === currentReward.id
-      && (preferredCampaign == null
-        || !hasHigherExplicitCampaignPriority(preferredCampaign, currentCampaign, settings));
-    if (!shouldRetainProgress) return undefined;
-    retainedCampaign = currentCampaign;
-    retainedReward = currentReward;
-  }
+  // Only the top of the ranking is retained without a search. The ranking is
+  // the queue the user sees: pins in their order, then favourite games, then
+  // the chosen strategy. When anything above the current reward can be farmed,
+  // the full selection below finds it and switches. A reward left partway
+  // keeps its watched minutes on the platform and resumes when it is on top
+  // again.
+  const preferredReward = preferredCampaign ? activeReward(preferredCampaign, settings) : undefined;
+  if (preferredCampaign?.id !== previous.campaignId || preferredReward?.id !== previous.rewardId) return undefined;
   const decision: WatchDecision = {
     platform: previous.platform,
     action: "watch",
-    campaign: retainedCampaign,
-    reward: retainedReward,
+    campaign: preferredCampaign,
+    reward: preferredReward,
     channel: previous.channel,
-    reason: retainedCampaign?.id === preferredCampaign?.id
-      ? "Current campaign remains highest priority"
-      : "Current reward is already in progress",
+    reason: "Current campaign remains highest priority",
     reasonCode: "keeping_current_watch",
   };
   const keep = await shouldKeepWatching(previous, decision, campaigns, settings, adapter, signal);

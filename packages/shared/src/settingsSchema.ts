@@ -8,7 +8,7 @@ import { normalizePlatformWatchSourcePriority } from "./watchSources";
 // See docs/architecture.md ("Settings Migrations") before adding one.
 
 // Incremented for every semantic settings-shape migration.
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 6;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 7;
 
 // Reserved metadata stored alongside the settings properties. It is stripped
 // before any runtime EngineSettings/ExtensionSettings/CliSettings value is
@@ -73,6 +73,7 @@ const MIGRATIONS: SettingsMigration[] = [
   { to: 4, migrate: migrateToV4 },
   { to: 5, migrate: migrateToV5 },
   { to: 6, migrate: migrateToV6 },
+  { to: 7, migrate: migrateToV7 },
 ];
 
 // Migration 1 consolidates every legacy shape that predates the registry: the
@@ -255,6 +256,68 @@ function migrateToV6(raw: Record<string, unknown>, _diagnose: Diagnose): Record<
   return raw;
 }
 
+// Collapses the old ranking stack into the pins/favourites/strategy model:
+// the dense campaignPriorities map becomes an ordered pin list, the
+// priority_list_only mode becomes the farmPinnedOnly switch, and an
+// exclude-mode category list becomes blockedCategories under the "all" mode.
+// The display-only dropsListFilter goes away entirely — Completed, Skipped and
+// Upcoming are sections of the popup now, not toggles.
+function migrateToV7(raw: Record<string, unknown>, diagnose: Diagnose): Record<string, unknown> {
+  if (Object.hasOwn(raw, "campaignPriorities")) {
+    const legacy = raw.campaignPriorities;
+    delete raw.campaignPriorities;
+    diagnose({
+      code: "moved_property",
+      path: "campaignPriorities",
+      replacement: "campaignPins",
+      message: "campaignPriorities is now the ordered campaignPins list",
+    });
+    if (!Object.hasOwn(raw, "campaignPins") && isPlainObject(legacy)) {
+      raw.campaignPins = Object.entries(legacy)
+        .filter((entry): entry is [string, number] => typeof entry[1] === "number" && Number.isFinite(entry[1]))
+        .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+        .map(([campaignId]) => campaignId);
+    }
+  }
+
+  if (raw.priorityMode === "priority_list_only") {
+    raw.priorityMode = "ending_soonest";
+    diagnose({
+      code: "moved_property",
+      path: "priorityMode",
+      replacement: "farmPinnedOnly",
+      message: "priorityMode \"priority_list_only\" is now the farmPinnedOnly switch",
+    });
+    if (!Object.hasOwn(raw, "farmPinnedOnly")) raw.farmPinnedOnly = true;
+  }
+
+  for (const platform of ["twitch", "kick"] as const) {
+    const block = platformBlock(raw, platform);
+    if (!block || block.categoryMode !== "exclude") continue;
+    const listed = block.categories;
+    block.categoryMode = "all";
+    block.categories = [];
+    diagnose({
+      code: "moved_property",
+      path: `platform.${platform}.categories`,
+      replacement: `platform.${platform}.blockedCategories`,
+      message: `platform.${platform} exclude-mode categories are now blockedCategories`,
+    });
+    if (!Object.hasOwn(block, "blockedCategories")) block.blockedCategories = Array.isArray(listed) ? listed : [];
+  }
+
+  if (Object.hasOwn(raw, "dropsListFilter")) {
+    delete raw.dropsListFilter;
+    diagnose({
+      code: "deprecated_property",
+      path: "dropsListFilter",
+      message: "dropsListFilter is deprecated; the popup groups campaigns into Queue, Completed, Skipped and Upcoming",
+    });
+  }
+
+  return raw;
+}
+
 // Creates a nested block only when it is safe to do so; a pre-existing malformed
 // block is left untouched so validation can report it verbatim.
 function ensureBlock(raw: Record<string, unknown>, key: string): Record<string, unknown> | undefined {
@@ -312,8 +375,12 @@ if (MIGRATIONS.length !== CURRENT_SETTINGS_SCHEMA_VERSION
   throw new Error("Settings migration registry is not a contiguous 1..CURRENT_SETTINGS_SCHEMA_VERSION sequence");
 }
 
-export function withSchemaVersion<T extends object>(settings: T): T & { schemaVersion: number } {
-  return { ...settings, [SETTINGS_SCHEMA_VERSION_KEY]: CURRENT_SETTINGS_SCHEMA_VERSION } as T & { schemaVersion: number };
+// `version` exists for tests that need a document stored by an older build.
+export function withSchemaVersion<T extends object>(
+  settings: T,
+  version: number = CURRENT_SETTINGS_SCHEMA_VERSION,
+): T & { schemaVersion: number } {
+  return { ...settings, [SETTINGS_SCHEMA_VERSION_KEY]: version } as T & { schemaVersion: number };
 }
 
 export function migrateSettings(raw: unknown): SettingsMigrationResult {

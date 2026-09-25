@@ -1,7 +1,9 @@
+// @vitest-environment happy-dom
+// Its switches, checkboxes and number fields are Base UI parts, which need
+// real mouse and keyboard events; linkedom has none.
 import React from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { parseHTML } from "linkedom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_SETTINGS, mergeSettings } from "@lurkloot/shared/settings";
 import { I18nContext, PopupRuntimeContext } from "../../popup-ui/src/context";
@@ -63,9 +65,6 @@ const labels: Record<string, string> = {
   farmUnlinkedDescription: "When off, campaigns that need you to link your account are skipped.",
   farmSubscriptionTitle: "Farm campaigns that require a subscription",
   farmSubscriptionDescription: "When off, campaigns whose rewards need a channel subscription are skipped.",
-  dropsListFilterTitle: "Drops list view",
-  dropsListFilterDescription: "Choose which campaigns are shown in the Drops list.",
-  dropsListFilterLockedHint: "Always shown while you're farming these campaigns.",
   notLinked: "Not linked",
   subscriptionCampaigns: "Subscription campaigns",
   forgetExcludedTitle: "Forget excluded campaigns",
@@ -109,7 +108,6 @@ const labels: Record<string, string> = {
   off: "Off",
   tabOnly: "Tab only",
   tabAndWindow: "Tab + window",
-  priorityListOnly: "Priority list only",
   endingSoonest: "Ending soonest",
   lowAvailabilityFirst: "Low availability first",
   autoClaimChannelPointsTitle: "Auto-claim channel points",
@@ -122,20 +120,20 @@ const labels: Record<string, string> = {
   twitchAdvancedDescription: "Campaign availability and the transports Lurkloot uses.",
   kickAdvancedDescription: "How Lurkloot opens Kick claim links.",
   categoryModeTitle: "Category filter",
+  settingsGamesPointerTitle: "Games and categories",
+  settingsGamesPointerDescription: "Choose which $1 games are farmed, star the ones that should rank first, or block them.",
+  settingsGamesPointerAction: "Open Games",
   categoryModeDescription: "Farm every $1 category, include only the categories you select, or exclude them.",
   categoryModeAll: "All categories",
   categoryModeInclude: "Only selected",
-  categoryModeExclude: "All except selected",
   excludedChannelsTitle: "Excluded drop channels",
   excludedChannelsDescription: "Campaign farming will skip these streamers.",
   excludedChannelsEmpty: "No excluded drop channels.",
 };
 
 describe("deadline feasibility setting", () => {
-  function mountSettings(settings = DEFAULT_SETTINGS) {
-    const { document, window } = parseHTML("<div id=app></div>");
-    vi.stubGlobal("window", window);
-    vi.stubGlobal("document", document);
+  function mountSettings(settings = DEFAULT_SETTINGS, onOpenGames?: () => void) {
+    document.body.innerHTML = "<div id=app></div>";
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     const onSettingsChange = vi.fn(async () => undefined);
     const adapter = {} as PopupAdapter;
@@ -155,6 +153,7 @@ describe("deadline feasibility setting", () => {
               settings={settings}
               onSettingsChange={onSettingsChange}
               exportConfirmationResetKey={0}
+              onOpenGames={onOpenGames}
             />
           </I18nContext.Provider>
         </PopupRuntimeContext.Provider>,
@@ -168,17 +167,16 @@ describe("deadline feasibility setting", () => {
     return { container, onSettingsChange };
   }
 
-  function setNumberInput(input: HTMLInputElement, value: string): void {
-    input.value = value;
-    input.dispatchEvent(new window.Event("input", { bubbles: true }));
-    input.dispatchEvent(new window.Event("change", { bubbles: true }));
-    // Linkedom does not route these events through React's ChangeEventPlugin,
-    // so mirror the browser's input-and-blur sequence through the stashed host
-    // props. The search-view test uses the same focused workaround.
-    const propsKey = Object.keys(input).find((key) => key.startsWith("__reactProps$"));
-    const props = propsKey ? (input as unknown as Record<string, { onBlur?(event: unknown): void; onChange?(event: unknown): void }>)[propsKey] : undefined;
-    props?.onChange?.({ target: input, currentTarget: input });
-    props?.onBlur?.({ currentTarget: input });
+  // Types into a Base UI number field and blurs it, which is when it commits.
+  // The native setter is used so React's value tracker sees a real change.
+  async function setNumberInput(input: HTMLInputElement, value: string): Promise<void> {
+    await act(async () => {
+      input.focus();
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.blur();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
   }
 
   it("defaults the toggle on and saves changes immediately", () => {
@@ -200,18 +198,23 @@ describe("deadline feasibility setting", () => {
     expect(input.disabled).toBe(true);
   });
 
-  it("renders and saves the tabless fallback threshold", () => {
+  it("renders and saves the tabless fallback threshold", async () => {
     const { container, onSettingsChange } = mountSettings();
     const input = container.querySelector(
       'input[aria-label="Tabless fallback threshold"]',
     ) as HTMLInputElement;
     expect(input.value).toBe("5");
-    expect(input.getAttribute("min")).toBe("1");
-    expect(input.getAttribute("max")).toBe("10");
 
-    act(() => setNumberInput(input, "7"));
+    await setNumberInput(input, "7");
     expect(onSettingsChange).toHaveBeenCalledWith(
       { tablessFallbackFailureLimit: 7 },
+      { tickAfterSave: true },
+    );
+
+    // Out-of-range entries clamp to the field's bounds (1–10).
+    await setNumberInput(input, "40");
+    expect(onSettingsChange).toHaveBeenLastCalledWith(
+      { tablessFallbackFailureLimit: 10 },
       { tickAfterSave: true },
     );
   });
@@ -224,16 +227,15 @@ describe("deadline feasibility setting", () => {
     expect(input.disabled).toBe(true);
   });
 
-  it("renders and saves the Kick fallback-page recovery threshold", () => {
-    const { container, onSettingsChange } = mountSettings();
+  it("renders and saves the Kick fallback-page recovery threshold", async () => {
+    // The field is only editable while Kick farming is on, which is off by default.
+    const { container, onSettingsChange } = mountSettings(mergeSettings({ platform: { kick: { enabled: true } } } as never));
     const input = container.querySelector(
       'input[aria-label="Kick fallback-page recovery"]',
     ) as HTMLInputElement;
     expect(input.value).toBe("3");
-    expect(input.getAttribute("min")).toBe("1");
-    expect(input.getAttribute("max")).toBe("10");
 
-    act(() => setNumberInput(input, "6"));
+    await setNumberInput(input, "6");
     expect(onSettingsChange).toHaveBeenCalledWith(
       { kickPageContextRecoverySuccesses: 6 },
       { tickAfterSave: true },
@@ -278,51 +280,8 @@ describe("deadline feasibility setting", () => {
     expect(container.querySelector('[role="switch"][aria-label="Farm campaigns that require a subscription"]')).not.toBeNull();
   });
 
-  it("exposes the Drops list view chip row with an accessible name", () => {
-    const { container } = mountSettings();
-    // Queried by role and accessible name rather than by text, so a refactor
-    // that drops the labelling leaves screen-reader users with an anonymous run
-    // of buttons and this test fails instead of passing silently.
-    const groups = [...container.querySelectorAll('[role="group"]')].map((group) => {
-      const labelId = group.getAttribute("aria-labelledby")!;
-      return {
-        name: container.querySelector(`#${labelId}`)?.textContent,
-        pills: [...group.querySelectorAll("button[aria-pressed]")].map((pill) => pill.textContent?.trim()),
-      };
-    });
 
-    expect(groups).toEqual([
-      { name: "Drops list view", pills: ["upcoming", "expired", "excluded", "finished", "Not linked", "Subscription campaigns"] },
-    ]);
-  });
 
-  it("locks the not-linked chip on and disables it while its campaigns are farmed", () => {
-    // farmUnlinkedCampaigns on: the class is always farmed, so the chip is forced
-    // visible and disabled — the farmed-implies-visible invariant, surfaced.
-    const { container } = mountSettings({
-      ...DEFAULT_SETTINGS,
-      farmingEligibility: { ...DEFAULT_SETTINGS.farmingEligibility, farmUnlinkedCampaigns: true },
-    });
-    const chip = [...container.querySelectorAll('button[aria-pressed]')].find((button) => button.textContent?.trim() === "Not linked") as HTMLButtonElement;
-    expect(chip).toBeTruthy();
-    expect(chip.getAttribute("aria-pressed")).toBe("true");
-    expect(chip.disabled).toBe(true);
-    expect(chip.getAttribute("aria-disabled")).toBe("true");
-  });
-
-  it("frees the not-linked chip as a normal toggle when its campaigns are not farmed", () => {
-    const { container } = mountSettings({
-      ...DEFAULT_SETTINGS,
-      farmingEligibility: { ...DEFAULT_SETTINGS.farmingEligibility, farmUnlinkedCampaigns: false },
-      dropsListFilter: { ...DEFAULT_SETTINGS.dropsListFilter, showNotLinked: false },
-    });
-    const chip = [...container.querySelectorAll('button[aria-pressed]')].find((button) => button.textContent?.trim() === "Not linked") as HTMLButtonElement;
-    expect(chip).toBeTruthy();
-    // Not farmed and hidden: a plain, enabled, unpressed toggle over showNotLinked.
-    expect(chip.disabled).toBe(false);
-    expect(chip.getAttribute("aria-disabled")).toBe("false");
-    expect(chip.getAttribute("aria-pressed")).toBe("false");
-  });
 
   it("reconciles the chosen platform after changing watch-source priority", () => {
     const { container, onSettingsChange } = mountSettings();
@@ -336,24 +295,18 @@ describe("deadline feasibility setting", () => {
     );
   });
 
-  // The mode change must ride platformPatch, which carries tickAfterSave for the
-  // one platform — the existing selection-invalidation path, not a new one.
-  it("targets category mode changes to their platform", () => {
-    const { container, onSettingsChange } = mountSettings();
-    const select = container.querySelector('select[aria-label="Category filter"]') as HTMLSelectElement;
+  // Categories are chosen, ranked and blocked in Games; Settings points there
+  // instead of keeping a second editor.
+  it("sends category editing to the Games view", () => {
+    const onOpenGames = vi.fn();
+    const { container } = mountSettings(DEFAULT_SETTINGS, onOpenGames);
 
-    act(() => {
-      // linkedom's select.value is getter-only, so the selection is staged the
-      // same way compatibilitySettingsView.test.tsx does it.
-      for (const option of select.querySelectorAll("option")) option.selected = option.getAttribute("value") === "exclude";
-      Object.defineProperty(select, "value", { configurable: true, value: "exclude" });
-      select.dispatchEvent(new window.Event("change", { bubbles: true }));
-    });
+    const links = [...container.querySelectorAll<HTMLButtonElement>("[data-settings-link]")];
+    expect(links.map((link) => link.textContent)).toEqual(["Open Games", "Open Games"]);
+    expect(container.querySelector('select[aria-label="Category filter"]')).toBeNull();
 
-    expect(onSettingsChange).toHaveBeenCalledWith(
-      { platform: { twitch: { categoryMode: "exclude" } } },
-      { tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] },
-    );
+    act(() => links[0]!.click());
+    expect(onOpenGames).toHaveBeenCalledOnce();
   });
 
   it("saves notification preferences without a scheduler tick", () => {
@@ -363,5 +316,54 @@ describe("deadline feasibility setting", () => {
     act(() => toggle.click());
 
     expect(onSettingsChange).toHaveBeenCalledWith({ notifyRewardEarned: false });
+  });
+});
+
+describe("settings actions and about", () => {
+  function mount(props: { version?: string; onReset?: () => Promise<void> }) {
+    document.body.innerHTML = "<div id=app></div>";
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    const container = document.getElementById("app")!;
+    act(() => {
+      root = createRoot(container);
+      root.render(
+        <PopupRuntimeContext.Provider value={{ adapter: {} as PopupAdapter, preview: true }}>
+          <I18nContext.Provider value={{ t: (key) => labels[key] ?? key, dir: "ltr", locale: "en" }}>
+            <SettingsView
+              suggestions={{ twitch: [], kick: [] }}
+              onSearchCategories={async () => []}
+              settings={DEFAULT_SETTINGS}
+              onSettingsChange={async () => undefined}
+              exportConfirmationResetKey={0}
+              {...props}
+            />
+          </I18nContext.Provider>
+        </PopupRuntimeContext.Provider>,
+      );
+    });
+    return container;
+  }
+
+  it("ends with an About section carrying the version and project links", () => {
+    const container = mount({ version: "9.9.9" });
+    const about = container.querySelector("#settings-section-about");
+    expect(about?.textContent).toContain("v9.9.9");
+    const links = [...(about?.querySelectorAll("a") ?? [])].map((link) => link.getAttribute("aria-label"));
+    expect(links).toEqual(["siteAttribution", "chromeWebStoreAttribution", "githubAttribution"]);
+    expect(container.querySelector("footer")).toBeNull();
+  });
+
+  it("confirms a reset in place, on the action's own row", async () => {
+    const onReset = vi.fn(async () => undefined);
+    const container = mount({ onReset });
+    const actions = container.querySelector("#settings-section-actions")!;
+    const button = (label: string) => [...actions.querySelectorAll("button")].find((candidate) => candidate.textContent === label);
+
+    act(() => button("factoryResetButton")!.click());
+    expect(actions.textContent).toContain("factoryResetConfirm");
+    expect(button("factoryResetButton")).toBeUndefined();
+
+    await act(async () => button("factoryResetConfirmButton")!.click());
+    expect(onReset).toHaveBeenCalledOnce();
   });
 });

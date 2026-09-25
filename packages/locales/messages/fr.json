@@ -53,6 +53,108 @@
   "settingsLanguageDescription": {
     "message": "Choisissez la langue utilisée par la fenêtre contextuelle et les notifications de l’extension."
   },
+  "navWorkspace": {
+    "message": "Espace de travail"
+  },
+  "navPlatform": {
+    "message": "Plateforme"
+  },
+  "navGroupDrops": {
+    "message": "Drops"
+  },
+  "navQueue": {
+    "message": "File"
+  },
+  "navCompleted": {
+    "message": "Terminées"
+  },
+  "navGames": {
+    "message": "Jeux"
+  },
+  "navIdleWatchlist": {
+    "message": "Liste d'attente"
+  },
+  "navActivity": {
+    "message": "Activité"
+  },
+  "navSettings": {
+    "message": "Paramètres"
+  },
+  "queueGroupPinned": {
+    "message": "Épinglées"
+  },
+  "queueGroupPinnedHint": {
+    "message": "faites glisser pour réordonner, ou saisissez un rang"
+  },
+  "queueGroupFavourite": {
+    "message": "Jeux favoris"
+  },
+  "queueGroupStrategy": {
+    "message": "Ensuite par"
+  },
+  "queueNotInQueue": {
+    "message": "Hors de la file"
+  },
+  "queueSkipped": {
+    "message": "Ignorées"
+  },
+  "queueUpcoming": {
+    "message": "À venir"
+  },
+  "queueStrategyLabel": {
+    "message": "Ensuite par"
+  },
+  "queueFarmPinnedOnly": {
+    "message": "Farmer seulement les épinglées"
+  },
+  "queueUnpinAll": {
+    "message": "Tout désépingler ($1)"
+  },
+  "queueUnpin": {
+    "message": "Désépingler"
+  },
+  "queueFacetLabel": {
+    "message": "Type de campagne"
+  },
+  "queueFacetAll": {
+    "message": "Toutes"
+  },
+  "queueFacetDrops": {
+    "message": "Drops"
+  },
+  "queueFacetBadges": {
+    "message": "Badges d'abonné"
+  },
+  "queueFixInclude": {
+    "message": "Inclure"
+  },
+  "queueFixPin": {
+    "message": "Épingler"
+  },
+  "queueFixGames": {
+    "message": "Ouvrir Jeux"
+  },
+  "queueFixSettings": {
+    "message": "Ouvrir les paramètres"
+  },
+  "queueEmpty": {
+    "message": "Rien à farmer pour l'instant."
+  },
+  "queueEmptyBadges": {
+    "message": "Aucune campagne d'abonnement n'est farmable pour l'instant."
+  },
+  "completedTabFinished": {
+    "message": "Terminées"
+  },
+  "completedTabExpired": {
+    "message": "Expirées"
+  },
+  "completedEmptyFinished": {
+    "message": "Les campagnes arrivent ici une fois toutes les récompenses réclamées."
+  },
+  "completedEmptyExpired": {
+    "message": "Les campagnes arrivent ici quand elles se terminent inachevées."
+  },
   "settingsTitle": {
     "message": "Paramètres"
   },
@@ -159,13 +261,13 @@
     "message": "Ajoute un bouton Lurkloot sur twitch.tv et kick.com qui ouvre cette fenêtre dans un panneau sur la page."
   },
   "tipCampaignPriority": {
-    "message": "Faites glisser les campagnes par la poignée pour ordonner les Drops. Choisissez la source prioritaire dans les paramètres de la plateforme."
+    "message": "Faites glisser une campagne pour l'épingler en tête, ou étoilez un jeu pour que ses campagnes soient toujours bien classées. Le reste suit l'ordre choisi dans la File."
   },
   "tipMissingCampaigns": {
     "message": "Une campagne manque ? Vérifiez l’inventaire Drops de la plateforme puis les filtres dans les paramètres."
   },
   "tipCategorySelection": {
-    "message": "Utilisez le filtre de catégories de la plateforme pour inclure uniquement les jeux sélectionnés ou exclure ceux que vous ne voulez pas."
+    "message": "La vue Jeux décide quels jeux sont farmés, lesquels passent en premier et lesquels ne le sont jamais."
   },
   "tipIdleWatchlist": {
     "message": "Choisissez quand regarder les chaînes de la liste de veille grâce à la priorité des sources dans les paramètres de la plateforme."
@@ -186,7 +288,7 @@
     "message": "Ouvrir une issue GitHub"
   },
   "tipExcludedCampaigns": {
-    "message": "Campagne exclue par erreur ? Restaurez-la dans les paramètres des Drops."
+    "message": "Campagne exclue par erreur ? Elle est sous Ignorées dans la File, avec un bouton pour la remettre."
   },
   "tipTranslations": {
     "message": "Les traductions sont maintenues automatiquement par IA. Aidez à les améliorer sur GitHub."
@@ -311,14 +413,8 @@
   "expiredPill": {
     "message": "Expirée"
   },
-  "finishedPill": {
-    "message": "Terminée"
-  },
   "complete": {
     "message": "Terminé"
-  },
-  "nextReward": {
-    "message": "Suivant : $1"
   },
   "startsIn": {
     "message": "Commence dans $1"
@@ -335,20 +431,11 @@
   "done": {
     "message": "Terminé"
   },
-  "farmed": {
-    "message": "Farmé"
-  },
   "rewards": {
     "message": "Récompenses"
   },
-  "inCampaignOrder": {
-    "message": "dans l’ordre de la campagne"
-  },
   "allChannels": {
     "message": "Toutes les chaînes"
-  },
-  "channelCount": {
-    "message": "$1 chaînes"
   },
   "includeInFarming": {
     "message": "Inclure dans le farm"
@@ -439,9 +526,6 @@
   },
   "campaignPriorityDescription": {
     "message": "Définit comment les campagnes sont choisies. La liste de priorité ne farme que les campagnes réordonnées manuellement ; les autres options choisissent parmi toutes les campagnes. Limitez les catégories par plateforme dans les paramètres de plateforme."
-  },
-  "priorityListOnly": {
-    "message": "Liste de priorité uniquement"
   },
   "endingSoonest": {
     "message": "Se termine le plus tôt"
@@ -635,8 +719,11 @@
   "campaignRejectionCategoryFiltered": {
     "message": "Cette campagne ne correspond pas aux catégories sélectionnées."
   },
-  "campaignRejectionPriorityNotSelected": {
-    "message": "Cette campagne n'est pas dans la liste prioritaire."
+  "campaignRejectionCategoryBlocked": {
+    "message": "Ce jeu est bloqué, ses campagnes ne sont donc jamais farmées."
+  },
+  "campaignRejectionNotPinned": {
+    "message": "Seules les campagnes épinglées sont farmées pour l'instant."
   },
   "campaignRejectionNoRewards": {
     "message": "Cette campagne n'a aucune récompense à farmer."
@@ -728,26 +815,14 @@
   "categoryModeInclude": {
     "message": "Uniquement les sélectionnées"
   },
-  "categoryModeExclude": {
-    "message": "Toutes sauf les sélectionnées"
-  },
   "includeCategoriesInstruction": {
     "message": "Seules ces catégories sont farmées sur $1."
-  },
-  "excludeCategoriesInstruction": {
-    "message": "Toutes les catégories $1 sont farmées, sauf celles-ci."
   },
   "categoriesToFarm": {
     "message": "Catégories à farmer"
   },
-  "dragToPrioritize": {
-    "message": "glisser pour prioriser"
-  },
   "noCategoriesSelected": {
     "message": "Aucune catégorie sélectionnée : rien ne sera farmé sur $1. Ajoutez des catégories ci-dessous."
-  },
-  "noCategoriesExcluded": {
-    "message": "Aucune catégorie exclue — toutes les catégories $1 seront farmées. Ajoutez-en ci-dessous pour les ignorer."
   },
   "hasActiveDrops": {
     "message": "Drops actifs"
@@ -784,15 +859,6 @@
   },
   "farmSubscriptionDescription": {
     "message": "Si désactivé, les campagnes dont les récompenses nécessitent un abonnement à la chaîne sont ignorées."
-  },
-  "dropsListFilterTitle": {
-    "message": "Vue de la liste Drops"
-  },
-  "dropsListFilterDescription": {
-    "message": "Choisissez quelles campagnes sont affichées dans la liste Drops. Une campagne avec une récompense réclamable reste toujours visible."
-  },
-  "dropsListFilterLockedHint": {
-    "message": "Toujours affichées tant que vous farmez ces campagnes."
   },
   "forgetExcludedTitle": {
     "message": "Oublier les campagnes exclues"
@@ -1412,6 +1478,12 @@
   "manualWatchPauseDetail": {
     "message": "Le farming est en pause pendant que vous regardez vous-même un stream. Mettez-le en pause, fermez-le ou quittez cet onglet pour que le farming reprenne automatiquement lors de la prochaine vérification."
   },
+  "manualWatchPauseDetailNamed": {
+    "message": "Le farming est en pause pendant que vous regardez un stream vous-même."
+  },
+  "manualWatchPauseDetailNamedSuffix": {
+    "message": "— mettez-le en pause, fermez-le ou changez d'onglet pour reprendre."
+  },
   "reorderItem": {
     "message": "Réorganiser $1"
   },
@@ -1555,5 +1627,260 @@
   },
   "watchSourceFortnite": {
     "message": "Fortnite"
+  },
+  "gamesStarHint": {
+    "message": "★ classe un jeu au-dessus de la stratégie"
+  },
+  "gamesFavourite": {
+    "message": "Classer $1 au-dessus de la stratégie"
+  },
+  "gamesUnfavourite": {
+    "message": "Ne plus classer $1 au-dessus"
+  },
+  "gamesBlock": {
+    "message": "Ne jamais farmer $1"
+  },
+  "gamesUnblock": {
+    "message": "Débloquer"
+  },
+  "gamesBlocked": {
+    "message": "Bloqués"
+  },
+  "gamesBlockedHint": {
+    "message": "jamais farmé, dans les deux modes"
+  },
+  "gamesBlockedKeepsStar": {
+    "message": "jamais farmé · étoile conservée"
+  },
+  "gamesCampaignCount": {
+    "message": "$1 campagnes en cours"
+  },
+  "gamesCampaignCountOne": {
+    "message": "1 campagne en cours"
+  },
+  "gamesNoCampaigns": {
+    "message": "aucune campagne pour l'instant"
+  },
+  "gamesFarmGame": {
+    "message": "Farmer $1"
+  },
+  "gamesEmpty": {
+    "message": "Aucune campagne $1 en cours."
+  },
+  "inPageOpenPanel": {
+    "message": "Ouvrir Lurkloot"
+  },
+  "inPageAddToWatchlist": {
+    "message": "Ajouter $1 à la liste d'attente"
+  },
+  "inPageRemoveFromWatchlist": {
+    "message": "Retirer $1 de la liste d'attente"
+  },
+  "navNoPixel": {
+    "message": "NoPixel V"
+  },
+  "navFortnite": {
+    "message": "Fortnite"
+  },
+  "gamesBlockedEmpty": {
+    "message": "Rien n'est bloqué. Utilisez le ⊘ d'un jeu pour l'exclure du farming dans les deux modes."
+  },
+  "campaignRewardsProgress": {
+    "message": "$1 récompenses sur $2"
+  },
+  "campaignTimeLeft": {
+    "message": "Encore $1"
+  },
+  "campaignFactStarts": {
+    "message": "Début"
+  },
+  "campaignFactEnds": {
+    "message": "Fin"
+  },
+  "campaignFactEnded": {
+    "message": "Terminée"
+  },
+  "campaignFactWatching": {
+    "message": "Regarde"
+  },
+  "campaignFactChannels": {
+    "message": "Chaînes"
+  },
+  "campaignFactNextReward": {
+    "message": "Récompense suivante"
+  },
+  "campaignFactWhyRank": {
+    "message": "Pourquoi ce rang"
+  },
+  "campaignMoreChannels": {
+    "message": "+$1 de plus"
+  },
+  "campaignExclude": {
+    "message": "Exclure"
+  },
+  "campaignCategoryBlocked": {
+    "message": "$1 bloqué"
+  },
+  "campaignPinToTop": {
+    "message": "Épingler en haut"
+  },
+  "campaignPinnedAt": {
+    "message": "Épinglée · $1"
+  },
+  "campaignFavourite": {
+    "message": "Mettre $1 en favori"
+  },
+  "campaignFavouriteOn": {
+    "message": "$1 est un favori"
+  },
+  "campaignExcludeThis": {
+    "message": "Seulement cette campagne"
+  },
+  "campaignExcludeThisHint": {
+    "message": "Les autres campagnes de $1 continuent"
+  },
+  "campaignExcludeThisUndo": {
+    "message": "Choisissez-la à nouveau pour remettre la campagne dans la file"
+  },
+  "campaignExcludeCategory": {
+    "message": "Catégorie « $1 »"
+  },
+  "campaignExcludeCategoryHint": {
+    "message": "Bloque toutes les campagnes de $1, maintenant et à l’avenir"
+  },
+  "campaignExcludeCategoryUndo": {
+    "message": "Choisissez-la à nouveau pour débloquer le jeu"
+  },
+  "rewardMissed": {
+    "message": "Pas obtenue à temps"
+  },
+  "rankReasonPinned": {
+    "message": "Épinglée au rang $1"
+  },
+  "rankReasonFavourite": {
+    "message": "$1 est le favori $2"
+  },
+  "rankReasonEnding": {
+    "message": "Se termine avant celles du dessous"
+  },
+  "rankReasonAvailability": {
+    "message": "Moins de chaînes que celles du dessous"
+  },
+  "queueEditFavourites": {
+    "message": "Modifier"
+  },
+  "navWatchingNow": {
+    "message": "Regardée en ce moment"
+  },
+  "watchSourcePosition": {
+    "message": "$1 · $2 sur $3"
+  },
+  "watchSourceChangeOrder": {
+    "message": "Modifier l’ordre de visionnage"
+  },
+  "gamesFavouritesGroup": {
+    "message": "Favoris"
+  },
+  "gamesFavouritesGroupHint": {
+    "message": "classés dans cet ordre, avant la stratégie"
+  },
+  "gamesOtherGroup": {
+    "message": "Autres jeux"
+  },
+  "gamesOtherGroupAllHint": {
+    "message": "tous farmés, sauf ceux bloqués"
+  },
+  "gamesOtherGroupIncludeHint": {
+    "message": "farmés seulement s’ils sont cochés"
+  },
+  "watchSourcePlace": {
+    "message": "Place dans l’ordre de visionnage : $1 sur $2"
+  },
+  "watchSourcePlaceFirst": {
+    "message": "Regardée avant toute autre source."
+  },
+  "watchSourcePlaceAfter": {
+    "message": "Regardée quand $1 n’ont rien à regarder."
+  },
+  "watchSourceChangeOrderShort": {
+    "message": "Modifier l’ordre"
+  },
+  "railWhatsNew": {
+    "message": "Nouveautés"
+  },
+  "campaignShowDetails": {
+    "message": "Afficher les détails"
+  },
+  "campaignHideDetails": {
+    "message": "Masquer les détails"
+  },
+  "settingsGamesPointerTitle": {
+    "message": "Jeux et catégories"
+  },
+  "settingsGamesPointerDescription": {
+    "message": "Choisissez quels jeux $1 sont farmés, mettez en favori ceux à placer en premier, ou bloquez-les."
+  },
+  "settingsGamesPointerAction": {
+    "message": "Ouvrir Jeux"
+  },
+  "idleWatchlistAddPlaceholder": {
+    "message": "Nom ou lien de la chaîne"
+  },
+  "idleWatchlistFull": {
+    "message": "La liste est pleine ($1 chaînes). Retirez-en une pour en ajouter une autre."
+  },
+  "idleWatchlistInvalid": {
+    "message": "Saisissez un nom ou un lien de chaîne."
+  },
+  "idleWatchlistDuplicate": {
+    "message": "$1 est déjà dans la liste."
+  },
+  "idleWatchlistOrderTitle": {
+    "message": "Ordre de visionnage"
+  },
+  "idleWatchlistOrderHint": {
+    "message": "la première chaîne en direct est regardée"
+  },
+  "gamesModeAllDescription": {
+    "message": "Tous les jeux avec des drops actifs sont farmés, sauf ceux bloqués."
+  },
+  "gamesModeIncludeDescription": {
+    "message": "Seuls les jeux cochés sont farmés."
+  },
+  "gamesStarLegend": {
+    "message": "place un jeu au-dessus de la stratégie"
+  },
+  "gamesBlockLegend": {
+    "message": "ne le farme jamais"
+  },
+  "gamesSearchPlaceholder": {
+    "message": "Trouver ou ajouter un jeu $1"
+  },
+  "gamesAddGroup": {
+    "message": "Ajouter depuis $1"
+  },
+  "gamesAddIncludeHint": {
+    "message": "ajouter un jeu le coche"
+  },
+  "gamesAddAllHint": {
+    "message": "ajouter un jeu le met en favori"
+  },
+  "gamesAddActionFarm": {
+    "message": "Farmer"
+  },
+  "gamesAddActionFavourite": {
+    "message": "Favori"
+  },
+  "gamesNoMoreResults": {
+    "message": "Aucun autre jeu trouvé."
+  },
+  "navBeta": {
+    "message": "Bêta"
+  },
+  "navExtensions": {
+    "message": "Extensions"
+  },
+  "navGroupOthers": {
+    "message": "Autres"
   }
 }

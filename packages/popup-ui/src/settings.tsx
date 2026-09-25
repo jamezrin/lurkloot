@@ -7,10 +7,13 @@ import { SettingsGroup, SettingsSearchBox, SettingsSection } from "./settingsCon
 import { buildSettingsRegistry, type SettingsChangeOptions } from "./settingsRegistry";
 import { filterSettingsTree } from "./settingsSearch";
 import { useT } from "./context";
+import { ViewToolbar } from "./viewToolbar";
+import { cn, scrollIntoPanel } from "./primitives";
+import { AboutSection } from "./about";
 import { TwitchExtensionSettings, twitchExtensionSearchText } from "./twitchExtensions";
 import type { GameItem, PopupCompatibilityRegistry, PopupCompatibilityResolution } from "./types";
 
-export function SettingsView({ suggestions, onSearchCategories, settings, onSettingsChange, onExtensionEnabledChange, onExportCredentials, onExportSettings, onImportSettings, onReset, exportConfirmationResetKey, compatibilityRegistry, compatibilityResolution, focusGroupId }: {
+export function SettingsView({ suggestions, onSearchCategories, settings, onSettingsChange, onExtensionEnabledChange, onExportCredentials, onExportSettings, onImportSettings, onReset, exportConfirmationResetKey, compatibilityRegistry, compatibilityResolution, focusGroupId, onOpenGames, version }: {
   suggestions: Record<Platform, GameItem[]>;
   onSearchCategories(platform: Platform, query: string): Promise<CategorySelection[]>;
   settings: ExtensionSettings;
@@ -29,6 +32,9 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
   compatibilityRegistry?: PopupCompatibilityRegistry;
   compatibilityResolution?: PopupCompatibilityResolution;
   focusGroupId?: string;
+  onOpenGames?(platform: Platform): void;
+  // The extension version, shown with the project links in the About section.
+  version?: string;
 }) {
   const t = useT();
   const [query, setQuery] = useState("");
@@ -51,9 +57,10 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
     setResetFailed(false);
   }, [exportConfirmationResetKey]);
 
+  const rootRef = React.useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!focusGroupId) return;
-    document.getElementById(`settings-group-${focusGroupId}`)?.scrollIntoView?.({ block: "start" });
+    scrollIntoPanel(rootRef.current?.querySelector(`[id="settings-group-${focusGroupId}"]`));
   }, [focusGroupId]);
 
   // Export needs no arm/confirm step (it only reads, never mutates), but it
@@ -104,8 +111,8 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
   }
 
   const sections = useMemo(
-    () => buildSettingsRegistry({ t, settings, onSettingsChange, suggestions, onSearchCategories, compatibilityRegistry, compatibilityResolution }),
-    [t, settings, onSettingsChange, suggestions, onSearchCategories, compatibilityRegistry, compatibilityResolution],
+    () => buildSettingsRegistry({ t, settings, onSettingsChange, suggestions, onSearchCategories, compatibilityRegistry, compatibilityResolution, onOpenGames }),
+    [t, settings, onSettingsChange, suggestions, onSearchCategories, compatibilityRegistry, compatibilityResolution, onOpenGames],
   );
   const visible = useMemo(
     () => filterSettingsTree(sections, { t, query, showAdvanced: true }),
@@ -156,8 +163,12 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
   }
 
   return (
-    <div className="space-y-3">
-      <SettingsSearchBox compact value={query} onChange={setQuery} />
+    <div ref={rootRef} className="space-y-3">
+      <ViewToolbar>
+        <div className="ms-auto w-full max-w-[16rem]">
+          <SettingsSearchBox compact value={query} onChange={setQuery} />
+        </div>
+      </ViewToolbar>
 
       {visible.length === 0 && !showActions && !showExtensions ? (
         <p className="px-1 py-6 text-center text-xs text-zinc-400 dark:text-zinc-500">{t("settingsSearchNoResults", query.trim())}</p>
@@ -234,167 +245,168 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
 
       {showActions ? (
         <SettingsSection id="actions" title={t("settingsSectionAdvancedActions")} description={t("settingsSectionAdvancedActionsDescription")}>
-          <div className="divide-y divide-zinc-100 rounded-xl border border-zinc-200/70 bg-white dark:divide-zinc-800/70 dark:border-zinc-800 dark:bg-zinc-900/40">
+          <div className="divide-y divide-zinc-100 dark:divide-zinc-800/70">
             {onExportSettings || onImportSettings ? (
-              <div className="p-2.5">
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{t("settingsExportTitle")}</div>
-                {importArmed ? (
-                  <div className="mt-1.5 space-y-2">
-                    <p className="text-xs leading-relaxed text-amber-700 dark:text-amber-300">{t("settingsImportConfirm")}</p>
-                    {importFailed ? <p role="alert" className="text-xs font-medium text-red-600 dark:text-red-400">{t("settingsImportFailed")}</p> : null}
-                    <div className="flex flex-wrap justify-end gap-2">
-                      <button
-                        type="button"
-                        disabled={importing}
-                        className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-600 outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                        onClick={() => {
-                          setImportArmed(false);
-                          setImportFailed(false);
-                        }}
-                      >
-                        {t("settingsImportCancel")}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={importing}
-                        className="rounded-xl bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-[var(--accent-contrast)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:opacity-50"
-                        onClick={() => void confirmImport()}
-                      >
-                        {t("settingsImportConfirmButton")}
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="mt-1.5 space-y-2">
-                    <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{t("settingsExportHint")}</p>
-                    {exportSettingsFailed ? <p role="alert" className="text-xs font-medium text-red-600 dark:text-red-400">{t("settingsExportFailed")}</p> : null}
-                    <div className="flex flex-wrap justify-end gap-2">
-                      {onExportSettings ? (
-                        <button
-                          type="button"
-                          disabled={exportingSettings}
-                          className="flex items-center gap-1.5 rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-600 outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                          onClick={() => void confirmExportSettings()}
-                        >
-                          <Download size={13} />
-                          {t("settingsExportButton")}
-                        </button>
-                      ) : null}
-                      {onImportSettings ? (
-                        <button
-                          type="button"
-                          className="flex items-center gap-1.5 rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-600 outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                          onClick={() => setImportArmed(true)}
-                        >
-                          <Upload size={13} />
-                          {t("settingsImportButton")}
-                        </button>
-                      ) : null}
-                    </div>
-                  </div>
-                )}
-              </div>
+              importArmed ? (
+                <ActionRow
+                  title={t("settingsExportTitle")}
+                  hint={t("settingsImportConfirm")}
+                  tone="warning"
+                  error={importFailed ? t("settingsImportFailed") : undefined}
+                >
+                  <ActionButton
+                    disabled={importing}
+                    onClick={() => {
+                      setImportArmed(false);
+                      setImportFailed(false);
+                    }}
+                  >
+                    {t("settingsImportCancel")}
+                  </ActionButton>
+                  <ActionButton primary disabled={importing} onClick={() => void confirmImport()}>
+                    {t("settingsImportConfirmButton")}
+                  </ActionButton>
+                </ActionRow>
+              ) : (
+                <ActionRow
+                  title={t("settingsExportTitle")}
+                  hint={t("settingsExportHint")}
+                  stack
+                  error={exportSettingsFailed ? t("settingsExportFailed") : undefined}
+                >
+                  {onExportSettings ? (
+                    <ActionButton disabled={exportingSettings} onClick={() => void confirmExportSettings()}>
+                      <Download size={12} />
+                      {t("settingsExportButton")}
+                    </ActionButton>
+                  ) : null}
+                  {onImportSettings ? (
+                    <ActionButton onClick={() => setImportArmed(true)}>
+                      <Upload size={12} />
+                      {t("settingsImportButton")}
+                    </ActionButton>
+                  ) : null}
+                </ActionRow>
+              )
             ) : null}
 
             {onExportCredentials ? (
-              <div className="p-2.5">
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">{t("cliExportTitle")}</div>
-                {exportArmed ? (
-                  <div className="mt-1.5 space-y-2">
-                    <p className="text-xs leading-relaxed text-amber-700 dark:text-amber-300">{t("cliExportConfirm")}</p>
-                    <div className="flex flex-wrap justify-end gap-2">
-                      <button
-                        type="button"
-                        className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-600 outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                        onClick={() => setExportArmed(false)}
-                      >
-                        {t("cliExportCancel")}
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded-xl bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-[var(--accent-contrast)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
-                        onClick={() => {
-                          setExportArmed(false);
-                          void onExportCredentials();
-                        }}
-                      >
-                        {t("cliExportConfirmButton")}
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  // The button stays secondary here and the accent is spent on the
-                  // confirm step, which is the one that actually writes session
-                  // tokens to disk.
-                  <div className="mt-1.5 space-y-2">
-                    <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{t("cliExportHint")}</p>
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        className="flex items-center gap-1.5 rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-600 outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                        onClick={() => setExportArmed(true)}
-                      >
-                        <Terminal size={13} />
-                        {t("cliExportButton")}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
+              exportArmed ? (
+                <ActionRow title={t("cliExportTitle")} hint={t("cliExportConfirm")} tone="warning">
+                  <ActionButton onClick={() => setExportArmed(false)}>{t("cliExportCancel")}</ActionButton>
+                  {/* The button stays secondary until here: the confirm step is
+                      the one that actually writes session tokens to disk. */}
+                  <ActionButton
+                    primary
+                    onClick={() => {
+                      setExportArmed(false);
+                      void onExportCredentials();
+                    }}
+                  >
+                    {t("cliExportConfirmButton")}
+                  </ActionButton>
+                </ActionRow>
+              ) : (
+                <ActionRow title={t("cliExportTitle")} hint={t("cliExportHint")}>
+                  <ActionButton onClick={() => setExportArmed(true)}>
+                    <Terminal size={12} />
+                    {t("cliExportButton")}
+                  </ActionButton>
+                </ActionRow>
+              )
             ) : null}
 
             {onReset ? (
-              <div className="p-2.5">
-                <div className="text-[11px] font-semibold uppercase tracking-wide text-red-500 dark:text-red-400">{t("factoryResetTitle")}</div>
-                {resetArmed ? (
-                  <div className="mt-1.5 space-y-2">
-                    <p className="text-xs leading-relaxed text-zinc-600 dark:text-zinc-300">{t("factoryResetConfirm")}</p>
-                    {resetFailed ? <p role="alert" className="text-xs font-medium text-red-600 dark:text-red-400">{t("factoryResetFailed")}</p> : null}
-                    <div className="flex flex-wrap justify-end gap-2">
-                      <button
-                        type="button"
-                        disabled={resetting}
-                        className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-600 outline-none transition-colors hover:bg-zinc-50 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                        onClick={() => {
-                          setResetArmed(false);
-                          setResetFailed(false);
-                        }}
-                      >
-                        {t("factoryResetCancel")}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={resetting}
-                        className="rounded-xl bg-red-600 px-3 py-1.5 text-xs font-semibold text-white outline-none transition-colors hover:bg-red-700 focus-visible:ring-2 focus-visible:ring-red-400 disabled:opacity-50 dark:bg-red-700 dark:hover:bg-red-600"
-                        onClick={() => void confirmReset()}
-                      >
-                        {t(resetting ? "factoryResetProgress" : resetFailed ? "factoryResetRetry" : "factoryResetConfirmButton")}
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="mt-1.5 space-y-2">
-                    <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{t("factoryResetHint")}</p>
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        className="flex items-center gap-1.5 rounded-xl border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 outline-none transition-colors hover:bg-red-50 focus-visible:ring-2 focus-visible:ring-red-400 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40"
-                        onClick={() => {
-                          setResetArmed(true);
-                          setResetFailed(false);
-                        }}
-                      >
-                        <RotateCcw size={13} />
-                        {t("factoryResetButton")}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
+              resetArmed ? (
+                <ActionRow
+                  title={t("factoryResetTitle")}
+                  hint={t("factoryResetConfirm")}
+                  danger
+                  error={resetFailed ? t("factoryResetFailed") : undefined}
+                >
+                  <ActionButton
+                    disabled={resetting}
+                    onClick={() => {
+                      setResetArmed(false);
+                      setResetFailed(false);
+                    }}
+                  >
+                    {t("factoryResetCancel")}
+                  </ActionButton>
+                  <ActionButton danger primary disabled={resetting} onClick={() => void confirmReset()}>
+                    {t(resetting ? "factoryResetProgress" : resetFailed ? "factoryResetRetry" : "factoryResetConfirmButton")}
+                  </ActionButton>
+                </ActionRow>
+              ) : (
+                <ActionRow title={t("factoryResetTitle")} hint={t("factoryResetHint")} danger>
+                  <ActionButton
+                    danger
+                    onClick={() => {
+                      setResetArmed(true);
+                      setResetFailed(false);
+                    }}
+                  >
+                    <RotateCcw size={12} />
+                    {t("factoryResetButton")}
+                  </ActionButton>
+                </ActionRow>
+              )
             ) : null}
           </div>
         </SettingsSection>
       ) : null}
+
+      {version && !searching ? <AboutSection version={version} /> : null}
     </div>
+  );
+}
+
+// One action per row, laid out like a setting: what it does on the left, its
+// buttons on the right. Arming an action swaps the row's hint for the
+// confirmation and its buttons for cancel/confirm, in place.
+function ActionRow({ title, hint, tone, danger = false, stack = false, error, children }: {
+  title: string;
+  hint: string;
+  tone?: "warning";
+  danger?: boolean;
+  // Two peer buttons stack, so their labels do not squeeze the hint.
+  stack?: boolean;
+  error?: string;
+  children: React.ReactNode;
+}): React.ReactElement {
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 py-2.5">
+      <div className="min-w-0">
+        <div className={cn("text-[12.5px] font-semibold", danger ? "text-red-600 dark:text-red-400" : "text-zinc-800 dark:text-zinc-100")}>{title}</div>
+        <div className={cn("mt-0.5 max-w-[46ch] text-[11px] leading-snug", tone === "warning" ? "text-amber-700 dark:text-amber-300" : "text-zinc-500 dark:text-zinc-400")}>{hint}</div>
+        {error ? <p role="alert" className="mt-1 text-[11px] font-medium text-red-600 dark:text-red-400">{error}</p> : null}
+      </div>
+      <div className={cn("flex shrink-0 gap-1.5", stack ? "flex-col items-stretch" : "items-center")}>{children}</div>
+    </div>
+  );
+}
+
+function ActionButton({ primary = false, danger = false, disabled, onClick, children }: {
+  primary?: boolean;
+  danger?: boolean;
+  disabled?: boolean;
+  onClick(): void;
+  children: React.ReactNode;
+}): React.ReactElement {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-1 whitespace-nowrap rounded-md px-2.5 py-1 text-[11px] font-semibold outline-none transition-colors focus-visible:ring-2 disabled:opacity-50",
+        primary && danger && "bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-400 dark:bg-red-700 dark:hover:bg-red-600",
+        primary && !danger && "bg-[var(--ink)] text-[var(--ink-contrast)] focus-visible:ring-[var(--accent-ring)]",
+        !primary && danger && "border border-red-200 text-red-600 hover:bg-red-50 focus-visible:ring-red-400 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40",
+        !primary && !danger && "border border-zinc-200 text-zinc-700 hover:bg-zinc-50 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800",
+      )}
+    >
+      {children}
+    </button>
   );
 }

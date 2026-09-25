@@ -98,11 +98,11 @@ async function mount(options?: {
     root.render(<Popup adapter={adapter} />);
   });
   await waitForCatalog();
-  const openActivity = container.querySelector<HTMLButtonElement>('button[aria-label="Open activity"]');
+  const openActivity = container.querySelector<HTMLButtonElement>('button[data-view="activity"]');
   if (!openActivity) throw new Error("Missing activity button");
   await act(async () => openActivity.click());
   const diagnosticsTab = await waitForElement(() =>
-    container.querySelector<HTMLButtonElement>('[role="tab"][aria-selected="false"]') ?? undefined);
+    container.querySelector<HTMLButtonElement>('[data-activity-view-tab="diagnostics"]') ?? undefined);
   await act(async () => diagnosticsTab.click());
   return { container, sent, downloadFile: downloadFile as ReturnType<typeof vi.fn> };
 }
@@ -131,9 +131,8 @@ describe("popup diagnostics export", () => {
       [...container.querySelectorAll<HTMLButtonElement>("button")]
         .find((button) => button.textContent === "Export all"));
     await act(async () => exportAll.click());
-    const back = await waitForElement(() =>
-      container.querySelector<HTMLButtonElement>('button[aria-label="Back"]') ?? undefined);
-    await act(async () => back.click());
+    // Leaving Activity is a rail destination now; the platform switch lives in
+    // the same rail, so the switch below is reached without a Back button.
     const kick = await waitForElement(() =>
       container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Kick"]') ?? undefined);
     await act(async () => kick.click());

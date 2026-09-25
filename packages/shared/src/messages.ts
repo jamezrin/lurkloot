@@ -8,6 +8,10 @@ export type CoreRuntimeMessage =
   | { type: "setPlatformEnabled"; platform: Platform; enabled: boolean }
   | { type: "setAutomation"; platform: Platform; enabled: boolean }
   | { type: "saveSettings"; settingsPatch: SettingsPatch; tickAfterSave?: boolean; tickAfterSavePlatforms?: Platform[] }
+  // One channel added to or removed from an Idle Watchlist, applied to the
+  // stored list at save time. A surface that sent its copy of the whole list
+  // would undo any change made elsewhere since it last read it.
+  | { type: "updateIdleWatchlist"; platform: Platform; channel: string; action: "add" | "remove" }
   | { type: "claimReward"; platform: Platform; campaignId: string; rewardId: string }
   | { type: "searchCategories"; platform: Platform; query: string }
   | { type: "tickNow" }

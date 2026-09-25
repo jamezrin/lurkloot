@@ -116,11 +116,11 @@ describe("extras screenshot popup", () => {
       );
     });
     await waitForCatalog();
-    const watchlistToggle = Array.from(container.querySelectorAll("button"))
-      .find((button) => button.textContent?.includes("Idle Watchlist"));
-    expect(watchlistToggle?.getAttribute("aria-expanded")).toBe("true");
+    // The watchlist is a rail destination now: it opens as the whole panel
+    // rather than as a section expanded inside the drops list, so there is no
+    // disclosure to assert and nothing to scroll to.
+    expect(container.querySelector("main")?.getAttribute("data-view")).toBe("watchlist");
     expect(container.querySelector("#idle-watchlist")).not.toBeNull();
-    expect(scrollIntoView).toHaveBeenCalledWith({ block: "start" });
     expect(container.textContent).toContain("LootForge");
     expect(container.textContent).toContain("NightRunLive");
     expect(container.textContent).toContain("6.2K");

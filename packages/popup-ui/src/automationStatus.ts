@@ -1,4 +1,4 @@
-import type { Platform, PlatformAuthHealth, WatchSession } from "@lurkloot/shared/models";
+import type { ManualWatchState, Platform, PlatformAuthHealth, WatchSession } from "@lurkloot/shared/models";
 
 export type AutomationPresentationState =
   | "starting"
@@ -20,6 +20,10 @@ export interface AutomationPresentation {
   tone: AutomationTone;
   operational: boolean;
   action?: AutomationAction;
+  // The stream the user is watching themselves, when that is what paused
+  // farming. Absent whenever the pause has another cause, so the status line
+  // can never name a channel that is not the reason (#562).
+  manualWatchChannel?: { name: string; url?: string };
 }
 
 export type AutomationAction =
@@ -39,6 +43,7 @@ export function automationPresentation({
   authHealth,
   session,
   manualClosePaused = false,
+  manualWatch,
 }: {
   platform: Platform;
   enabled: boolean;
@@ -46,6 +51,10 @@ export function automationPresentation({
   authHealth: PlatformAuthHealth;
   session?: WatchSession;
   manualClosePaused?: boolean;
+  // The platform's selected manual-watch record. Read only in the manual-watch
+  // state: the record can outlive the pause it explained, and the session's own
+  // reason code is the thing that says farming is paused for this reason.
+  manualWatch?: ManualWatchState;
 }): AutomationPresentation {
   if (pending) {
     return enabled
@@ -68,7 +77,19 @@ export function automationPresentation({
         return presentation("starting", "automationStarting", "startingAutomation");
       }
       if (session?.status === "paused" && session?.reasonCode === "manual_watch") {
-        return presentation("paused", "automationPausedManualWatch", "manualWatchPauseDetail", "warning");
+        const channel = manualWatch?.channel;
+        const named = channel
+          ? { name: channel.displayName ?? channel.username, ...(channel.url ? { url: channel.url } : {}) }
+          : undefined;
+        return {
+          ...presentation(
+            "paused",
+            "automationPausedManualWatch",
+            named ? "manualWatchPauseDetailNamed" : "manualWatchPauseDetail",
+            "warning",
+          ),
+          ...(named ? { manualWatchChannel: named } : {}),
+        };
       }
       if (
         session?.status === "paused"

@@ -66,7 +66,8 @@ describe("watch-source scheduler policy", () => {
   });
 
   it.each((["twitch", "kick"] as const).flatMap(platform => [
-    { platform, idleLive: false, explicitPriority: false, expectedCampaign: "drop", expectedChannel: "dropper" },
+    // "replacement" ends sooner, so it ranks first and takes over.
+    { platform, idleLive: false, explicitPriority: false, expectedCampaign: "replacement", expectedChannel: "replacement" },
     { platform, idleLive: false, explicitPriority: true, expectedCampaign: "replacement", expectedChannel: "replacement" },
     { platform, idleLive: true, explicitPriority: false, expectedCampaign: undefined, expectedChannel: "idlefirst" },
   ]))("preserves within-source retention with Idle-first snapshots on $platform (Idle live: $idleLive, explicit campaign priority: $explicitPriority)", async ({ platform, idleLive, explicitPriority, expectedCampaign, expectedChannel }) => {
@@ -79,7 +80,7 @@ describe("watch-source scheduler policy", () => {
       endsAt: new Date(Date.now() + 3_600_000).toISOString(),
       rewards: [{ ...s.campaign.rewards[0], id: "replacement-reward", requiredMinutes: 5, watchedMinutes: 0, status: "locked" }],
     };
-    if (explicitPriority) s.settings.campaignPriorities = { replacement: 10 };
+    if (explicitPriority) s.settings.campaignPins = ["replacement"];
     const snapshot = {
       platform,
       revision: 1,
@@ -226,5 +227,107 @@ describe("watch-source scheduler policy", () => {
     const result = await runSchedulerTick(drops.state, s.settings, { twitch: s.adapter, kick: { ...s.adapter, platform: "kick" } }, { platforms: ["twitch"], discovery: { twitch: { campaigns: [], complete: false } } });
     expect(result.state.sessions.twitch.campaignId).toBeUndefined();
     expect(result.state.sessions.twitch.channel?.username).toBe("idlefirst");
+  });
+});
+
+// A settings save throws away the discovery refresh in flight. The tick that
+// follows knows the campaigns but no channels, so Drops cannot be decided; a
+// lower source used to take over and was undone by the next full refresh.
+describe("watch-source policy while discovery was discarded", () => {
+  function discardedTick(s: ReturnType<typeof setup>, current: SchedulerState, selector: (platform: Platform, selectedState: SchedulerState, signal?: AbortSignal, source?: string) => Promise<SupplementalWatchTarget | undefined>) {
+    const adapter: PlatformAdapter = { ...s.adapter, listCandidateChannels: async () => [], checkChannel: async candidate => ({ live: false, categoryMatches: false, candidate }) };
+    return runSchedulerTick(current, s.settings, { twitch: adapter, kick: { ...adapter, platform: "kick" } }, {
+      platforms: ["twitch"],
+      selectSupplementalWatchTarget: selector,
+      discovery: { twitch: { campaigns: current.campaigns.twitch, complete: false, discarded: true } },
+    });
+  }
+  const healthy = (state: SchedulerState): SchedulerState => ({
+    ...state,
+    sessions: { ...state.sessions, twitch: { ...state.sessions.twitch, lastHeartbeatOk: true, lastHeartbeatAt: new Date().toISOString() } },
+  });
+  const nopixelLive = (s: ReturnType<typeof setup>) => async (_platform: Platform, _state: SchedulerState, _signal?: AbortSignal, source?: string) =>
+    source === "nopixel" ? s.target("nopixel") : undefined;
+
+  it("keeps a healthy drop watch instead of starting a lower source", async () => {
+    const s = setup();
+    s.settings.platform.twitch.idleWatchlistChannels = [];
+    const drops = await s.tick(s.state, async () => undefined);
+    expect(drops.state.sessions.twitch.campaignId).toBe("drop");
+
+    const next = await discardedTick(s, healthy(drops.state), nopixelLive(s));
+
+    expect(next.state.sessions.twitch).toMatchObject({ status: "watching", campaignId: "drop" });
+    expect(next.state.sessions.twitch.supplementalWatch).toBeUndefined();
+  });
+
+  it("waits rather than switching to a lower source when the save made the campaign ineligible", async () => {
+    const s = setup();
+    s.settings.platform.twitch.idleWatchlistChannels = [];
+    const drops = await s.tick(s.state, async () => undefined);
+    s.settings.excludedCampaignIds = ["drop"];
+
+    const next = await discardedTick(s, healthy(drops.state), nopixelLive(s));
+
+    expect(next.state.sessions.twitch.supplementalWatch).toBeUndefined();
+    expect(next.state.sessions.twitch.campaignId).toBeUndefined();
+    expect(next.events.map((event) => event.message)).toEqual(expect.arrayContaining([
+      "Not keeping current watch while discovery is incomplete: its campaign is no longer eligible under the current settings",
+    ]));
+  });
+
+  // Turning automation off mid-tick throws the refresh away too, often right
+  // after a watch was armed and before its first heartbeat.
+  it("keeps a drop watch that has not had its first heartbeat yet", async () => {
+    const s = setup();
+    s.settings.platform.twitch.idleWatchlistChannels = [];
+    const drops = await s.tick(s.state, async () => undefined);
+    expect(drops.state.sessions.twitch.lastHeartbeatAt).toBeUndefined();
+
+    const next = await discardedTick(s, drops.state, nopixelLive(s));
+
+    expect(next.state.sessions.twitch).toMatchObject({ status: "watching", campaignId: "drop" });
+    expect(next.state.sessions.twitch.supplementalWatch).toBeUndefined();
+  });
+
+  // Kick has no Twitch extensions; the source below Drops is the Idle
+  // Watchlist, and a discarded refresh must not hand the watch to it either.
+  it("keeps a Kick drop watch instead of starting the Idle Watchlist", async () => {
+    const s = setup("kick");
+    s.settings.platform.kick.watchSourcePriority = ["drops", "idle_watchlist"];
+    // A campaign ranked above the current one, with no channel live for it:
+    // the current watch is then not the top of the ranking, so keeping it
+    // takes the discarded-discovery hold rather than the plain fast path.
+    const sooner: DropCampaign = { ...s.campaign, id: "sooner", endsAt: new Date(Date.now() + 3_600_000).toISOString() };
+    s.adapter.refreshCampaigns = async () => [s.campaign, sooner];
+    const listAll = s.adapter.listCandidateChannels;
+    s.adapter.listCandidateChannels = async (campaign, options) => campaign.id === "sooner" ? [] : listAll(campaign, options);
+    const drops = await s.tick();
+    expect(drops.state.sessions.kick.campaignId).toBe("drop");
+    const adapter: PlatformAdapter = {
+      ...s.adapter,
+      listCandidateChannels: async () => [],
+      // Only the watchlist channels are live, as they would be to a lower source.
+      checkChannel: async (candidate) => ({ live: candidate.username.startsWith("idle"), categoryMatches: true, candidate }),
+    };
+
+    const next = await runSchedulerTick(drops.state, s.settings, { twitch: { ...adapter, platform: "twitch" }, kick: adapter }, {
+      platforms: ["kick"],
+      discovery: { kick: { campaigns: drops.state.campaigns.kick, complete: false, discarded: true } },
+    });
+
+    expect(next.state.sessions.kick).toMatchObject({ status: "watching", campaignId: "drop" });
+  });
+
+  it("keeps a supplemental watch it was already on", async () => {
+    const s = setup();
+    s.settings.platform.twitch.idleWatchlistChannels = [];
+    s.settings.excludedCampaignIds = ["drop"];
+    const nopixel = await s.tick(s.state, nopixelLive(s));
+    expect(nopixel.state.sessions.twitch.supplementalWatch?.id).toBe("nopixel");
+
+    const next = await discardedTick(s, healthy(nopixel.state), nopixelLive(s));
+
+    expect(next.state.sessions.twitch.supplementalWatch?.id).toBe("nopixel");
   });
 });

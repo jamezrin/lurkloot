@@ -6,7 +6,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DropCampaign, WatchSession } from "@lurkloot/shared/models";
 import { mergeSettings } from "@lurkloot/shared/settings";
 import { I18nContext, PopupRuntimeContext } from "../../popup-ui/src/context";
-import { DropsPanel, initialExpandedIds } from "../../popup-ui/src/drops";
+import { initialExpandedIds } from "../../popup-ui/src/drops";
+import { QueuePanel } from "../../popup-ui/src/queue";
+import { CompletedPanel } from "../../popup-ui/src/completed";
 import type { PopupAdapter } from "../../popup-ui/src/types";
 import { campaignViewFromCampaign } from "../../popup-ui/src/viewModels";
 import { createDemoPopupAdapter } from "../../popup-ui/src/demo";
@@ -71,13 +73,21 @@ function mount(url?: string, source = sourceCampaign(url), viewOptions?: Paramet
         locale: "en",
       }}>
         <PopupRuntimeContext.Provider value={{ adapter, preview: false }}>
-          <DropsPanel
+          <QueuePanel
             campaigns={[campaign]}
             gameMap={{}}
             refreshing={false}
+            strategy="ending_soonest"
+            pinnedCount={0}
+            farmPinnedOnly={false}
+            onStrategyChange={() => undefined}
+            onUnpinAll={() => undefined}
+            onFarmPinnedOnlyChange={() => undefined}
             onRefreshCampaign={() => undefined}
-            onReorder={() => undefined}
+            onPinChange={() => undefined}
             onToggleExclude={() => undefined}
+            onOpenGames={() => undefined}
+            onOpenSettings={() => undefined}
           />
         </PopupRuntimeContext.Provider>
       </I18nContext.Provider>,
@@ -93,11 +103,14 @@ function mount(url?: string, source = sourceCampaign(url), viewOptions?: Paramet
 }
 
 describe("drops search controls", () => {
-  it("uses an action label for the campaign search button", () => {
+  it("keeps campaign search visible, with an accessible name", () => {
     const { container } = mount();
 
-    const searchButton = container.querySelector<HTMLButtonElement>("button[aria-label='Search']");
-    expect(searchButton).not.toBeNull();
+    // Search is a field in the toolbar rather than a button that opens one, so
+    // finding a campaign to pin or re-rank is never a two-step detour.
+    const search = container.querySelector<HTMLInputElement>("input[type='search']");
+    expect(search).not.toBeNull();
+    expect(search?.getAttribute("aria-label")).toBeTruthy();
   });
 });
 
@@ -125,6 +138,9 @@ describe("campaign farming rejection presentation", () => {
       settings: currentSettings,
     });
 
+    // A campaign the engine refuses is in the Queue's Skipped group, which
+    // opens to show the reason rather than hiding the campaign.
+    act(() => container.querySelector<HTMLButtonElement>('[data-queue-disclosure="skipped"]')?.click());
     expect(container.querySelector("[data-farming-rejection-indicator]")).not.toBeNull();
     expect(container.textContent).toContain("campaignRejectionUnlinkedDisabled");
   });
@@ -140,26 +156,34 @@ function farmingSession(campaignId: string): WatchSession {
   };
 }
 
-function renderDropsPanel(campaigns: ReturnType<typeof campaignViewFromCampaign>[], focus?: { id: string; seq: number }) {
+function renderDropsPanel(campaigns: ReturnType<typeof campaignViewFromCampaign>[], focus?: { id: string; seq: number }, pinnedCount = 0) {
   const adapter = { openLink: vi.fn() } as unknown as PopupAdapter;
   root!.render(
     <I18nContext.Provider value={{ t: (key) => ({ search: "Search" })[key] ?? key, dir: "ltr", locale: "en" }}>
       <PopupRuntimeContext.Provider value={{ adapter, preview: false }}>
-        <DropsPanel
+        <QueuePanel
           campaigns={campaigns}
           gameMap={{}}
           focus={focus}
           refreshing={false}
+          strategy="ending_soonest"
+          pinnedCount={pinnedCount}
+          farmPinnedOnly={false}
+          onStrategyChange={() => undefined}
+          onUnpinAll={() => undefined}
+          onFarmPinnedOnlyChange={() => undefined}
           onRefreshCampaign={() => undefined}
-          onReorder={() => undefined}
+          onPinChange={() => undefined}
           onToggleExclude={() => undefined}
+          onOpenGames={() => undefined}
+          onOpenSettings={() => undefined}
         />
       </PopupRuntimeContext.Provider>
     </I18nContext.Provider>,
   );
 }
 
-function mountCampaignList(initialCampaigns: ReturnType<typeof campaignViewFromCampaign>[], onReorder = vi.fn()) {
+function mountCampaignList(initialCampaigns: ReturnType<typeof campaignViewFromCampaign>[], onPinChange = vi.fn()) {
   const { document, window } = parseHTML("<div id=app></div>");
   vi.stubGlobal("window", window);
   vi.stubGlobal("document", document);
@@ -174,7 +198,7 @@ function mountCampaignList(initialCampaigns: ReturnType<typeof campaignViewFromC
     root!.render(
       <I18nContext.Provider value={{ t: (key) => ({ completedCampaigns: "Completed", finished: "Finished", later: "later", search: "Search" })[key] ?? key, dir: "ltr", locale: "en" }}>
         <PopupRuntimeContext.Provider value={{ adapter, preview: false }}>
-          <DropsPanel campaigns={campaigns} gameMap={{}} focus={focus} refreshing={false} onRefreshCampaign={() => undefined} onReorder={onReorder} onToggleExclude={() => undefined} />
+          <QueuePanel campaigns={campaigns} gameMap={{}} focus={focus} refreshing={false} strategy="ending_soonest" pinnedCount={0} farmPinnedOnly={false} onStrategyChange={() => undefined} onUnpinAll={() => undefined} onFarmPinnedOnlyChange={() => undefined} onRefreshCampaign={() => undefined} onPinChange={onPinChange} onToggleExclude={() => undefined} onOpenGames={() => undefined} onOpenSettings={() => undefined} />
         </PopupRuntimeContext.Provider>
       </I18nContext.Provider>,
     );
@@ -186,8 +210,39 @@ function mountCampaignList(initialCampaigns: ReturnType<typeof campaignViewFromC
   return {
     container,
     window,
-    onReorder,
+    onPinChange,
     rerender: (focus: { id: string; seq: number }, campaigns = initialCampaigns) => act(() => render(campaigns, focus)),
+  };
+}
+
+function renderCompletedPanel(campaigns: ReturnType<typeof campaignViewFromCampaign>[], focus?: { id: string; seq: number }) {
+  const adapter = { openLink: vi.fn() } as unknown as PopupAdapter;
+  root!.render(
+    <I18nContext.Provider value={{ t: (key) => ({ completedTabFinished: "Finished", completedTabExpired: "Expired", finished: "Finished", later: "later" })[key] ?? key, dir: "ltr", locale: "en" }}>
+      <PopupRuntimeContext.Provider value={{ adapter, preview: false }}>
+        <CompletedPanel campaigns={campaigns} gameMap={{}} focus={focus} refreshing={false} onRefreshCampaign={() => undefined} />
+      </PopupRuntimeContext.Provider>
+    </I18nContext.Provider>,
+  );
+}
+
+function mountCompleted(campaigns: ReturnType<typeof campaignViewFromCampaign>[]) {
+  const { document, window } = parseHTML("<div id=app></div>");
+  vi.stubGlobal("window", window);
+  vi.stubGlobal("document", document);
+  vi.stubGlobal("getComputedStyle", () => ({ direction: "ltr", columnGap: "0" }));
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => { callback(0); return 1; });
+  vi.stubGlobal("cancelAnimationFrame", () => undefined);
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const container = document.getElementById("app")!;
+  act(() => {
+    root = createRoot(container);
+    renderCompletedPanel(campaigns);
+  });
+  return {
+    container,
+    window,
+    rerender: (focus: { id: string; seq: number }, next = campaigns) => act(() => renderCompletedPanel(next, focus)),
   };
 }
 
@@ -198,12 +253,12 @@ describe("completed campaign section", () => {
 
     const row = container.querySelector<HTMLElement>('[data-campaign-id="kick-campaign"]');
     expect(row).not.toBeNull();
-    expect(row?.textContent).toContain("100%");
+    expect(row?.querySelector("[data-campaign-progress]")?.textContent).toBe("100%");
     expect(row?.textContent).not.toContain("Finished");
     expect([...container.querySelectorAll("button")].some((button) => button.textContent?.includes("Completed"))).toBe(false);
   });
 
-  it("keeps finished campaigns collapsed and shows one terminal status when opened", () => {
+  it("shows one terminal status per finished row, and keeps it out of the queue", () => {
     const settings = mergeSettings(undefined);
     const feasibility = {
       skipUnfinishableRewards: settings.skipUnfinishableRewards,
@@ -219,70 +274,76 @@ describe("completed campaign section", () => {
 
     expect(container.querySelector('[data-campaign-id="active"]')).not.toBeNull();
     expect(container.querySelector('[data-campaign-id="finished"]')).toBeNull();
-    const completedToggle = [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.includes("Completed"));
-    expect(completedToggle?.getAttribute("aria-expanded")).toBe("false");
 
-    act(() => completedToggle?.click());
-    const finishedRow = container.querySelector<HTMLElement>('[data-campaign-id="finished"]');
+    const completed = mountCompleted([finished, active]);
+    expect(completed.container.querySelector('[data-campaign-id="active"]')).toBeNull();
+    const finishedRow = completed.container.querySelector<HTMLElement>('[data-campaign-id="finished"]');
     expect(finishedRow).not.toBeNull();
     expect(finishedRow?.textContent).toContain("Finished");
-    expect(finishedRow?.textContent).not.toContain("100%");
+    expect(finishedRow?.querySelector("[data-campaign-progress]")).toBeNull();
     expect(finishedRow?.textContent).not.toContain("later");
     expect(finishedRow?.querySelector("[data-farming-rejection-indicator]")).toBeNull();
     expect(finishedRow?.querySelector("button[aria-label^='Set rank']")).toBeNull();
   });
 
-  it("preserves the stored position of a finished campaign when active ranks change", () => {
+  it("shows a rank below the pins, but no editor for it", () => {
+    const settings = mergeSettings(undefined);
+    const feasibility = {
+      skipUnfinishableRewards: settings.skipUnfinishableRewards,
+      deadlineSafetyMarginMinutes: settings.deadlineSafetyMarginMinutes,
+      settings,
+    };
     const campaigns = [
-      campaignViewFromCampaign({ ...sourceCampaign(), id: "first", name: "First active" }, 0, idleSession, false),
-      campaignViewFromCampaign({ ...sourceCampaign(), id: "finished", name: "Finished campaign", status: "completed" }, 1, idleSession, false),
-      campaignViewFromCampaign({ ...sourceCampaign(), id: "second", name: "Second active" }, 2, idleSession, false),
+      campaignViewFromCampaign({ ...sourceCampaign(), id: "first", name: "First active" }, 0, idleSession, false, feasibility),
+      campaignViewFromCampaign({ ...sourceCampaign(), id: "second", name: "Second active" }, 1, idleSession, false, feasibility),
     ];
-    const { container, onReorder } = mountCampaignList(campaigns);
-    const rank = container.querySelector<HTMLButtonElement>('button[aria-label="Set rank of Second active"]');
-    expect(rank?.textContent).toBe("2");
-    act(() => rank?.click());
-    const input = findNumericRankInput(container)!;
-    act(() => setInputValue(input, "1"));
-    act(() => blurRankInput(input));
+    const { container } = mountCampaignList(campaigns);
 
-    expect(onReorder).toHaveBeenCalledOnce();
-    expect(onReorder.mock.calls[0]?.[0].map((campaign: { id: string }) => campaign.id)).toEqual(["second", "finished", "first"]);
+    // Unpinned rows follow the strategy: their place is shown, not editable,
+    // and they carry no drag handle. Pinning is the way to place one by hand.
+    const second = container.querySelector<HTMLElement>('[data-campaign-id="second"]');
+    expect(second?.getAttribute("data-campaign-rank")).toBe("2");
+    expect(container.querySelector('button[aria-label="Set rank of Second active"]')).toBeNull();
+    expect(second?.querySelector("[class*='cursor-grab']")).toBeNull();
   });
 
-  it("reveals and opens a finished campaign when the popup focuses it", () => {
-    const finished = campaignViewFromCampaign({ ...sourceCampaign(), id: "finished", name: "Finished campaign", status: "completed" }, 0, idleSession, false);
-    const { container, window, rerender } = mountCampaignList([finished]);
-    const scrollIntoView = vi.fn();
-    Object.defineProperty(window.HTMLElement.prototype, "scrollIntoView", { configurable: true, value: scrollIntoView });
+  it("opens a finished campaign in Completed when the popup focuses it", () => {
+    const settings = mergeSettings(undefined);
+    const finished = campaignViewFromCampaign({
+      ...sourceCampaign(), id: "finished", name: "Finished campaign", status: "completed",
+      rewards: [{ ...sourceCampaign().rewards[0]!, status: "claimed" }],
+    }, 0, idleSession, false, {
+      skipUnfinishableRewards: settings.skipUnfinishableRewards,
+      deadlineSafetyMarginMinutes: settings.deadlineSafetyMarginMinutes,
+      settings,
+    });
+    const { container, rerender } = mountCompleted([finished]);
 
     rerender({ id: "finished", seq: 1 });
 
     const finishedRow = container.querySelector<HTMLElement>('[data-campaign-id="finished"]');
     expect(finishedRow).not.toBeNull();
     expect(finishedRow?.querySelector("button[aria-expanded='true']")).not.toBeNull();
-    expect(scrollIntoView).toHaveBeenCalledOnce();
   });
 
-  it("reveals a focused campaign when it becomes finished without a new focus request", () => {
-    const active = campaignViewFromCampaign({ ...sourceCampaign(), id: "focused", name: "Focused campaign" }, 0, idleSession, false);
-    const finished = { ...active, lifecycle: "finished" as const };
-    const focus = { id: "focused", seq: 1 };
-    const { container, window, rerender } = mountCampaignList([active]);
-    Object.defineProperty(window.HTMLElement.prototype, "scrollIntoView", { configurable: true, value: vi.fn() });
+  it("follows a focused campaign to the Expired tab", () => {
+    const settings = mergeSettings(undefined);
+    const expired = campaignViewFromCampaign({ ...sourceCampaign(), id: "gone", name: "Expired campaign", status: "expired" }, 0, idleSession, false, {
+      skipUnfinishableRewards: settings.skipUnfinishableRewards,
+      deadlineSafetyMarginMinutes: settings.deadlineSafetyMarginMinutes,
+      settings,
+    });
+    const { container, rerender } = mountCompleted([expired]);
 
-    rerender(focus, [active]);
-    rerender(focus, [finished]);
+    expect(container.querySelector('[data-campaign-id="gone"]')).toBeNull();
+    rerender({ id: "gone", seq: 1 });
 
-    expect(container.querySelector('[data-campaign-id="focused"]')).not.toBeNull();
-    const completedToggle = [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.includes("Completed"));
-    expect(completedToggle?.getAttribute("aria-expanded")).toBe("true");
+    expect(container.querySelector('[data-campaign-id="gone"]')).not.toBeNull();
   });
 
   it("finds a finished campaign while the section is collapsed", () => {
     const finished = campaignViewFromCampaign({ ...sourceCampaign(), id: "finished", name: "Finished campaign", status: "completed" }, 0, idleSession, false);
     const { container } = mountCampaignList([finished]);
-    act(() => container.querySelector<HTMLButtonElement>("button[aria-label='Search']")?.click());
     const input = container.querySelector<HTMLInputElement>("input[type='search']")!;
     act(() => setSearchQuery(input, "Finished campaign"));
 
@@ -336,8 +397,15 @@ function keyDownRankInput(input: HTMLInputElement, key: string): void {
   props?.onKeyDown?.({ key, preventDefault() {}, stopPropagation() {} });
 }
 
+// Views of the given campaigns with `pins` pinned, in that order, the way the
+// popup builds them from settings.campaignPins.
+function pinnedFeasibility(pins: string[]) {
+  const settings = mergeSettings({ campaignPins: pins } as never);
+  return { skipUnfinishableRewards: settings.skipUnfinishableRewards, deadlineSafetyMarginMinutes: settings.deadlineSafetyMarginMinutes, settings };
+}
+
 describe("campaign rank input", () => {
-  it("reorders via the typed rank on blur", () => {
+  it("moves a pin to the typed rank on blur", () => {
     const { document, window } = parseHTML("<div id=app></div>");
     vi.stubGlobal("window", window);
     vi.stubGlobal("document", document);
@@ -350,11 +418,11 @@ describe("campaign rank input", () => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     // linkedom's HTMLInputElement has no select(); RankInput calls it on edit.
     Object.defineProperty(window.HTMLInputElement.prototype, "select", { configurable: true, value: () => undefined });
-    const onReorder = vi.fn();
+    const onPinChange = vi.fn();
     const adapter = { openLink: vi.fn() } as unknown as PopupAdapter;
     const campaigns = [
-      campaignViewFromCampaign({ ...sourceCampaign(), id: "first", name: "First campaign" }, 0, idleSession, false),
-      campaignViewFromCampaign({ ...sourceCampaign(), id: "second", name: "Second campaign" }, 1, idleSession, false),
+      campaignViewFromCampaign({ ...sourceCampaign(), id: "first", name: "First campaign" }, 0, idleSession, false, pinnedFeasibility(["first", "second"])),
+      campaignViewFromCampaign({ ...sourceCampaign(), id: "second", name: "Second campaign" }, 1, idleSession, false, pinnedFeasibility(["first", "second"])),
     ];
     const container = document.getElementById("app")!;
 
@@ -363,13 +431,21 @@ describe("campaign rank input", () => {
       root.render(
         <I18nContext.Provider value={{ t: (key) => ({ search: "Search" })[key] ?? key, dir: "ltr", locale: "en" }}>
           <PopupRuntimeContext.Provider value={{ adapter, preview: false }}>
-            <DropsPanel
+            <QueuePanel
               campaigns={campaigns}
               gameMap={{}}
               refreshing={false}
+              strategy="ending_soonest"
+              pinnedCount={2}
+              farmPinnedOnly={false}
+              onStrategyChange={() => undefined}
+              onUnpinAll={() => undefined}
+              onFarmPinnedOnlyChange={() => undefined}
               onRefreshCampaign={() => undefined}
-              onReorder={onReorder}
+              onPinChange={onPinChange}
               onToggleExclude={() => undefined}
+              onOpenGames={() => undefined}
+              onOpenSettings={() => undefined}
             />
           </PopupRuntimeContext.Provider>
         </I18nContext.Provider>,
@@ -390,8 +466,8 @@ describe("campaign rank input", () => {
       blurRankInput(input!);
     });
 
-    expect(onReorder).toHaveBeenCalledOnce();
-    expect(onReorder.mock.calls[0]?.[0].map((campaign: { id: string }) => campaign.id)).toEqual(["second", "first"]);
+    expect(onPinChange).toHaveBeenCalledOnce();
+    expect(onPinChange).toHaveBeenCalledWith("second", 0);
   });
 
   it("allows commit after Escape cancels a prior edit on the same row", () => {
@@ -406,11 +482,11 @@ describe("campaign rank input", () => {
     vi.stubGlobal("cancelAnimationFrame", () => undefined);
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     Object.defineProperty(window.HTMLInputElement.prototype, "select", { configurable: true, value: () => undefined });
-    const onReorder = vi.fn();
+    const onPinChange = vi.fn();
     const adapter = { openLink: vi.fn() } as unknown as PopupAdapter;
     const campaigns = [
-      campaignViewFromCampaign({ ...sourceCampaign(), id: "first", name: "First campaign" }, 0, idleSession, false),
-      campaignViewFromCampaign({ ...sourceCampaign(), id: "second", name: "Second campaign" }, 1, idleSession, false),
+      campaignViewFromCampaign({ ...sourceCampaign(), id: "first", name: "First campaign" }, 0, idleSession, false, pinnedFeasibility(["first", "second"])),
+      campaignViewFromCampaign({ ...sourceCampaign(), id: "second", name: "Second campaign" }, 1, idleSession, false, pinnedFeasibility(["first", "second"])),
     ];
     const container = document.getElementById("app")!;
 
@@ -419,13 +495,21 @@ describe("campaign rank input", () => {
       root.render(
         <I18nContext.Provider value={{ t: (key) => ({ search: "Search" })[key] ?? key, dir: "ltr", locale: "en" }}>
           <PopupRuntimeContext.Provider value={{ adapter, preview: false }}>
-            <DropsPanel
+            <QueuePanel
               campaigns={campaigns}
               gameMap={{}}
               refreshing={false}
+              strategy="ending_soonest"
+              pinnedCount={2}
+              farmPinnedOnly={false}
+              onStrategyChange={() => undefined}
+              onUnpinAll={() => undefined}
+              onFarmPinnedOnlyChange={() => undefined}
               onRefreshCampaign={() => undefined}
-              onReorder={onReorder}
+              onPinChange={onPinChange}
               onToggleExclude={() => undefined}
+              onOpenGames={() => undefined}
+              onOpenSettings={() => undefined}
             />
           </PopupRuntimeContext.Provider>
         </I18nContext.Provider>,
@@ -444,7 +528,7 @@ describe("campaign rank input", () => {
     act(() => {
       keyDownRankInput(inputAfterOpen!, "Escape");
     });
-    expect(onReorder).not.toHaveBeenCalled();
+    expect(onPinChange).not.toHaveBeenCalled();
 
     const input = openRank();
     expect(input).toBeDefined();
@@ -455,11 +539,11 @@ describe("campaign rank input", () => {
       blurRankInput(input!);
     });
 
-    expect(onReorder).toHaveBeenCalledOnce();
-    expect(onReorder.mock.calls[0]?.[0].map((campaign: { id: string }) => campaign.id)).toEqual(["second", "first"]);
+    expect(onPinChange).toHaveBeenCalledOnce();
+    expect(onPinChange).toHaveBeenCalledWith("second", 0);
   });
 
-  it("does not expose a rank editor while searching", () => {
+  it("exposes a pin's rank editor while searching, against the full queue order", () => {
     const { document, window } = parseHTML("<div id=app></div>");
     vi.stubGlobal("window", window);
     vi.stubGlobal("document", document);
@@ -472,25 +556,27 @@ describe("campaign rank input", () => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     const container = document.getElementById("app")!;
     const campaigns = [
-      campaignViewFromCampaign({ ...sourceCampaign(), id: "first", name: "First campaign" }, 0, idleSession, false),
-      campaignViewFromCampaign({ ...sourceCampaign(), id: "second", name: "Second campaign" }, 1, idleSession, false),
+      campaignViewFromCampaign({ ...sourceCampaign(), id: "first", name: "First campaign" }, 0, idleSession, false, pinnedFeasibility(["first", "second"])),
+      campaignViewFromCampaign({ ...sourceCampaign(), id: "second", name: "Second campaign" }, 1, idleSession, false, pinnedFeasibility(["first", "second"])),
     ];
 
     act(() => {
       root = createRoot(container);
-      renderDropsPanel(campaigns);
+      renderDropsPanel(campaigns, undefined, 2);
     });
 
-    act(() => container.querySelector<HTMLButtonElement>("button[aria-label='Search']")?.click());
     const input = container.querySelector<HTMLInputElement>("input[type='search']")!;
     act(() => setSearchQuery(input, "Second"));
 
-    expect([...container.querySelectorAll("button")].find((button) => button.getAttribute("aria-label") === "Set rank of Second campaign")).toBeUndefined();
-    expect(findNumericRankInput(container)).toBeUndefined();
-    const rankSpan = container.querySelector<HTMLElement>("article .w-7 span");
-    expect(rankSpan?.textContent).toBe("2");
-    expect(rankSpan?.className).toContain("w-4");
-    expect(rankSpan?.className).not.toContain("w-full");
+    // #564: the rank a search result shows is its position in the full queue,
+    // and typing there moves it among the pins without closing the search.
+    const rank = [...container.querySelectorAll("button")]
+      .find((button) => button.getAttribute("aria-label") === "Set rank of Second campaign");
+    expect(rank).toBeDefined();
+    expect(rank?.textContent).toBe("2");
+    act(() => rank?.click());
+    expect(findNumericRankInput(container)).toBeDefined();
+    expect(container.querySelector<HTMLInputElement>("input[type='search']")?.value).toBe("Second");
   });
 });
 
@@ -534,13 +620,21 @@ describe("initial drops expansion", () => {
       root!.render(
         <I18nContext.Provider value={{ t: (key) => key, dir: "ltr", locale: "en" }}>
           <PopupRuntimeContext.Provider value={{ adapter, preview: false }}>
-            <DropsPanel
+            <QueuePanel
               campaigns={[campaign]}
               gameMap={{}}
               refreshing={false}
+              strategy="ending_soonest"
+              pinnedCount={0}
+              farmPinnedOnly={false}
+              onStrategyChange={() => undefined}
+              onUnpinAll={() => undefined}
+              onFarmPinnedOnlyChange={() => undefined}
               onRefreshCampaign={() => undefined}
-              onReorder={() => undefined}
+              onPinChange={() => undefined}
               onToggleExclude={() => undefined}
+              onOpenGames={() => undefined}
+              onOpenSettings={() => undefined}
             />
           </PopupRuntimeContext.Provider>
         </I18nContext.Provider>,
@@ -564,7 +658,7 @@ describe("initial drops expansion", () => {
   // The collapsed row's category/pill line takes pointer events back so an
   // overflowing pill row can be scrolled, which opts it out of the full-area
   // toggle behind the card content. It has to expand the card itself.
-  it("expands the card when the collapsed row's pill line is clicked", () => {
+  it("expands the card when the collapsed row's progress bar is clicked", () => {
     const { document, window } = parseHTML("<div id=app></div>");
     vi.stubGlobal("window", window);
     vi.stubGlobal("document", document);
@@ -583,13 +677,21 @@ describe("initial drops expansion", () => {
       root.render(
         <I18nContext.Provider value={{ t: (key) => key, dir: "ltr", locale: "en" }}>
           <PopupRuntimeContext.Provider value={{ adapter, preview: false }}>
-            <DropsPanel
+            <QueuePanel
               campaigns={[campaignViewFromCampaign(sourceCampaign(), 0, idleSession, false)]}
               gameMap={{}}
               refreshing={false}
+              strategy="ending_soonest"
+              pinnedCount={0}
+              farmPinnedOnly={false}
+              onStrategyChange={() => undefined}
+              onUnpinAll={() => undefined}
+              onFarmPinnedOnlyChange={() => undefined}
               onRefreshCampaign={() => undefined}
-              onReorder={() => undefined}
+              onPinChange={() => undefined}
               onToggleExclude={() => undefined}
+              onOpenGames={() => undefined}
+              onOpenSettings={() => undefined}
             />
           </PopupRuntimeContext.Provider>
         </I18nContext.Provider>,
@@ -597,24 +699,19 @@ describe("initial drops expansion", () => {
     });
 
     const toggle = container.querySelector("article button[aria-expanded]");
-    const pillLine = container.querySelector<HTMLElement>("article .no-scrollbar");
-    expect(pillLine).not.toBeNull();
+    // The bar takes the pointer for its tooltip, so it has to pass the click on
+    // to the row toggle behind it.
+    const bar = container.querySelector<HTMLElement>("article [data-campaign-progress]");
+    expect(bar).not.toBeNull();
     expect(toggle?.getAttribute("aria-expanded")).toBe("false");
 
-    // linkedom does not expose a MouseEvent constructor, so initialize the
-    // click fields the handler reads on its Event implementation instead.
-    const click = new window.Event("click", { bubbles: true });
-    Object.defineProperties(click, {
-      clientX: { value: 0 },
-      detail: { value: 1 },
-    });
-    act(() => pillLine?.dispatchEvent(click));
+    act(() => bar?.dispatchEvent(new window.Event("click", { bubbles: true })));
 
     expect(toggle?.getAttribute("aria-expanded")).toBe("true");
   });
 
-  it("scrolls a focused campaign after clearing a filtered search", () => {
-    const { document, window } = parseHTML("<div id=app></div>");
+  it("scrolls a focused campaign after clearing a filtered search, moving only the panel", () => {
+    const { document, window } = parseHTML("<div data-scroll-panel id=panel><div id=app></div></div>");
     vi.stubGlobal("window", window);
     vi.stubGlobal("document", document);
     vi.stubGlobal("getComputedStyle", () => ({ direction: "ltr", columnGap: "0" }));
@@ -626,6 +723,10 @@ describe("initial drops expansion", () => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     const scrollIntoView = vi.fn();
     Object.defineProperty(window.HTMLElement.prototype, "scrollIntoView", { value: scrollIntoView });
+    Object.defineProperty(window.HTMLElement.prototype, "getBoundingClientRect", { configurable: true, value: () => ({ top: 0 }) });
+    const panel = document.getElementById("panel")!;
+    const scrollTo = vi.fn();
+    Object.defineProperty(panel, "scrollTo", { value: scrollTo });
     const container = document.getElementById("app")!;
     const campaigns = [
       campaignViewFromCampaign({ ...sourceCampaign(), id: "first", name: "First campaign" }, 0, idleSession, false),
@@ -637,14 +738,15 @@ describe("initial drops expansion", () => {
       renderDropsPanel(campaigns);
     });
 
-    act(() => container.querySelector<HTMLButtonElement>("button[aria-label='Search']")?.click());
     const input = container.querySelector<HTMLInputElement>("input[type='search']")!;
     act(() => setSearchQuery(input, "First"));
     expect(container.textContent).not.toContain("Second campaign");
 
     act(() => renderDropsPanel(campaigns, { id: "second", seq: 1 }));
 
-    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
+    expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: "smooth" });
+    // scrollIntoView would also scroll the popup frame and the page around it.
+    expect(scrollIntoView).not.toHaveBeenCalled();
   });
 
   it("keeps the original priority number in filtered results", () => {
@@ -669,11 +771,12 @@ describe("initial drops expansion", () => {
       renderDropsPanel(campaigns);
     });
 
-    act(() => container.querySelector<HTMLButtonElement>("button[aria-label='Search']")?.click());
     const input = container.querySelector<HTMLInputElement>("input[type='search']")!;
     act(() => setSearchQuery(input, "Second"));
 
-    const priority = container.querySelector<HTMLElement>("article .w-7 span");
+    // The rank a filtered row shows is still its place in the full queue, not
+    // its position among the results.
+    const priority = container.querySelector<HTMLElement>("article .w-7 button, article .w-7 span");
     expect(priority?.textContent).toBe("2");
   });
 });

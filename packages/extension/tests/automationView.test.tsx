@@ -3,7 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { parseHTML } from "linkedom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Platform, PlatformAuthHealth } from "@lurkloot/shared/models";
-import { AutomationStatusLine, PlatformBar } from "../../popup-ui/src/automation";
+import { AutomationStatusLine } from "../../popup-ui/src/automation";
 import type { AutomationPresentation } from "../../popup-ui/src/automationStatus";
 import { automationPresentation } from "../../popup-ui/src/automationStatus";
 import { I18nContext, PopupRuntimeContext } from "../../popup-ui/src/context";
@@ -28,6 +28,9 @@ const messages: Record<string, string> = {
   automationPausedTabClosed: "Paused — tab closed",
   watchTabClosedPauseDetail: "You closed the farming tab, so Lurkloot stopped farming here.",
   resumeFarming: "Resume farming",
+  automationPausedManualWatch: "Manual watching",
+  manualWatchPauseDetail: "Farming is paused while you're watching a stream yourself. Pause it, close it, or switch away from that tab to resume automatically on the next check.",
+  manualWatchPauseDetailNamedSuffix: "— pause it, close it, or switch away to resume.",
 };
 
 let root: Root | undefined;
@@ -73,47 +76,28 @@ function mount(element: React.ReactElement) {
   return { container, openLink };
 }
 
-// The popup header renders the platform bar (tabs + automation switch) directly
-// above the status line, so the assertions below exercise the pair the way the
-// user actually sees it.
+// The status line as the popup's status strip shows it. The platform switch
+// lives in the rail now; platformRail.test.tsx covers it.
 function mountHeader(options: {
   platform: Platform;
   presentation: AutomationPresentation;
-  other?: AutomationPresentation;
   farmingTitle?: string;
   farmingChannel?: { name: string };
   onResume?(): void;
-  onChange?(platform: Platform): void;
-  onToggle?(platform: Platform, value: boolean): Promise<void>;
 }) {
-  const otherPlatform: Platform = options.platform === "twitch" ? "kick" : "twitch";
-  const fallback = options.other ?? presentation(otherPlatform, { status: "healthy" });
   return mount(
-    <>
-      <PlatformBar
-        active={options.platform}
-        presentation={{
-          [options.platform]: options.presentation,
-          [otherPlatform]: fallback,
-        } as Record<Platform, AutomationPresentation>}
-        enabled={{ twitch: true, kick: true }}
-        pending={{ twitch: false, kick: false }}
-        onChange={options.onChange ?? (() => undefined)}
-        onToggle={options.onToggle ?? (async () => undefined)}
-      />
-      <AutomationStatusLine
-        platform={options.platform}
-        presentation={options.presentation}
-        farmingTitle={options.farmingTitle}
-        farmingChannel={options.farmingChannel}
-        onResume={options.onResume}
-      />
-    </>,
+    <AutomationStatusLine
+      platform={options.platform}
+      presentation={options.presentation}
+      farmingTitle={options.farmingTitle}
+      farmingChannel={options.farmingChannel}
+      onResume={options.onResume}
+    />,
   );
 }
 
 describe("automation authentication status UI", () => {
-  it("shows an explicit Twitch sign-in action and keeps the toggle enabled", () => {
+  it("shows an explicit Twitch sign-in action", () => {
     const { container, openLink } = mountHeader({
       platform: "twitch",
       presentation: presentation("twitch", { status: "missing_credentials" }),
@@ -125,7 +109,6 @@ describe("automation authentication status UI", () => {
     expect(action).not.toBeNull();
     act(() => action?.click());
     expect(openLink).toHaveBeenCalledWith("https://www.twitch.tv/login");
-    expect(container.querySelector('[data-platform-status="twitch"] [role="switch"]')?.hasAttribute("disabled")).toBe(false);
   });
 
   it("offers a one-click resume after the user closed the farming tab", () => {
@@ -161,18 +144,6 @@ describe("automation authentication status UI", () => {
     expect(container.querySelector('[data-automation-state="blocked"]')).not.toBeNull();
     expect(container.textContent).toContain("Kick rejected this browser profile");
     expect(container.querySelector("[data-auth-action]")).toBeNull();
-    expect(container.querySelector('[data-platform-status="kick"] [role="switch"]')?.hasAttribute("disabled")).toBe(false);
-  });
-
-  it("shows operational state independently for each platform", () => {
-    const { container } = mountHeader({
-      platform: "twitch",
-      presentation: presentation("twitch", { status: "healthy" }),
-      other: presentation("kick", { status: "unavailable", reasonCode: "platform_unavailable" }),
-    });
-
-    expect(container.querySelector('[data-platform-status="twitch"]')?.getAttribute("data-state")).toBe("running");
-    expect(container.querySelector('[data-platform-status="kick"]')?.getAttribute("data-state")).toBe("unavailable");
   });
 
   it("shows localized eligibility status instead of internal scheduler detail", () => {
@@ -212,56 +183,46 @@ describe("automation authentication status UI", () => {
     expect(container.textContent).not.toContain("stale-channel");
   });
 
-  it("toggles an unselected platform without selecting it", () => {
-    const onChange = vi.fn();
-    const onToggle = vi.fn(async () => undefined);
-    const { container } = mountHeader({
-      platform: "twitch",
-      presentation: presentation("twitch", { status: "healthy" }),
-      onChange,
-      onToggle,
-    });
+});
 
-    const kickSwitch = container.querySelector<HTMLButtonElement>('[data-platform-status="kick"] [role="switch"]');
-    act(() => kickSwitch?.click());
+describe("manual watch status line", () => {
+  const paused = {
+    platform: "twitch" as const,
+    enabled: true,
+    pending: false,
+    authHealth: { status: "healthy" } as PlatformAuthHealth,
+    session: { platform: "twitch" as const, status: "paused" as const, offlineChecks: 0, reasonCode: "manual_watch" as const },
+  };
 
-    expect(onToggle).toHaveBeenCalledWith("kick", false);
-    expect(onChange).not.toHaveBeenCalled();
+  it("links the stream that paused farming", () => {
+    const { container } = mount(
+      <AutomationStatusLine
+        platform="twitch"
+        presentation={automationPresentation({
+          ...paused,
+          manualWatch: {
+            platform: "twitch",
+            tabId: 3,
+            checkedAt: "2026-09-20T00:00:00.000Z",
+            active: true,
+            channel: { platform: "twitch", username: "summit1g", displayName: "Summit1G", url: "https://www.twitch.tv/summit1g" },
+          },
+        })}
+      />,
+    );
+
+    const link = container.querySelector<HTMLAnchorElement>("[data-manual-watch-channel]");
+    expect(link?.textContent).toBe("Summit1G");
+    expect(link?.getAttribute("href")).toBe("https://www.twitch.tv/summit1g");
+    expect(container.textContent).toContain("Manual watching");
   });
 
-  it("uses roving tab stops and arrow navigation for platform tabs", () => {
-    const onChange = vi.fn();
-    const { container } = mountHeader({
-      platform: "twitch",
-      presentation: presentation("twitch", { status: "healthy" }),
-      onChange,
-    });
+  it("keeps the unnamed explanation when no channel was recorded", () => {
+    const { container } = mount(
+      <AutomationStatusLine platform="twitch" presentation={automationPresentation(paused)} />,
+    );
 
-    const twitchTab = container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Twitch"]');
-    const kickTab = container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Kick"]');
-    expect(twitchTab?.getAttribute("tabindex")).toBe("0");
-    expect(kickTab?.getAttribute("tabindex")).toBe("-1");
-
-    const keydown = new window.Event("keydown", { bubbles: true });
-    Object.defineProperty(keydown, "key", { value: "ArrowRight" });
-    act(() => twitchTab?.dispatchEvent(keydown));
-
-    expect(onChange).toHaveBeenCalledWith("kick");
-  });
-
-  it("renders the selected platform as an accent-tinted active tab", () => {
-    const { container } = mountHeader({
-      platform: "twitch",
-      presentation: presentation("twitch", { status: "healthy" }),
-    });
-
-    const twitchTab = container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Twitch"]');
-    const kickTab = container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Kick"]');
-
-    expect(twitchTab?.parentElement?.className).toContain("-mb-px");
-    expect(twitchTab?.parentElement?.className).toContain("border-[var(--accent-ring)]");
-    expect(twitchTab?.parentElement?.className).toContain("bg-[var(--accent-soft)]");
-    expect(kickTab?.parentElement?.className).not.toContain("bg-[var(--accent-soft)]");
-    expect(twitchTab?.parentElement?.querySelector(".inset-x-0.-bottom-px")).not.toBeNull();
+    expect(container.querySelector("[data-manual-watch-channel]")).toBeNull();
+    expect(container.textContent).toContain("Farming is paused while you're watching a stream yourself.");
   });
 });

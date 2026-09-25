@@ -253,14 +253,10 @@ describe("schema v2", () => {
       },
     });
 
-    expect(result.settings.dropsListFilter).toEqual({
-      showUpcoming: false,
-      showExpired: true,
-      showFinished: false,
-      showExcluded: true,
-      showNotLinked: false,
-      showSubscription: true,
-    });
+    // v2 moved these display preferences to dropsListFilter; v7 retired that
+    // block entirely, so the end state carries neither. What matters is that a
+    // display-only preference never became a farming decision on the way.
+    expect(result.settings.dropsListFilter).toBeUndefined();
     // The migration never derives farming eligibility from a display-only
     // setting; normalization defaults both flags to on.
     expect(result.settings.farmingEligibility).toBeUndefined();
@@ -288,11 +284,9 @@ describe("schema v2", () => {
     });
 
     expect(result.settings.farmingEligibility).toBeUndefined();
-    // The two class keys are display preferences, preserved on dropsListFilter.
-    expect(result.settings.dropsListFilter).toEqual({
-      showNotLinked: false,
-      showSubscription: false,
-    });
+    // The two class keys were display preferences, and v7 retired the block
+    // that held them; neither may reappear as a farming flag.
+    expect(result.settings.dropsListFilter).toBeUndefined();
     // The move is still reported.
     expect(result.diagnostics.map((d) => d.path)).toContain("campaignVisibility");
   });
@@ -303,7 +297,7 @@ describe("schema v2", () => {
       campaignVisibility: { expired: true },
     });
 
-    expect(result.settings.dropsListFilter).toEqual({ showExpired: true });
+    expect(result.settings.dropsListFilter).toBeUndefined();
     expect(result.settings.farmingEligibility).toBeUndefined();
   });
 
@@ -454,10 +448,10 @@ describe("schema v5", () => {
   it("lets an already-current key win over the legacy one", () => {
     const migrated = migrateSettings({
       schemaVersion: 4,
-      platform: { twitch: { farmAllCategories: false, categoryMode: "exclude" } },
+      platform: { twitch: { farmAllCategories: false, categoryMode: "include" } },
     });
 
-    expect(migrated.settings.platform).toMatchObject({ twitch: { categoryMode: "exclude" } });
+    expect(migrated.settings.platform).toMatchObject({ twitch: { categoryMode: "include" } });
   });
 
   it("leaves a document without the legacy key untouched and reports nothing", () => {

@@ -1,7 +1,9 @@
 import type { CliCredentialBlob, RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
-import type { ClaimGuidance, CompatibilitySettings, DropCampaign, Platform, RewardRequirementType, SupportedLocale, TwitchExtensionProviderId } from "@lurkloot/shared/models";
+import type { CategorySelection, ClaimGuidance, CompatibilitySettings, DropCampaign, Platform, RewardRequirementType, SupportedLocale, TwitchExtensionProviderId } from "@lurkloot/shared/models";
 import type { SettingsExportPayload } from "@lurkloot/shared/settingsExport";
 import type { CampaignFarmingEvaluation } from "@lurkloot/shared/campaignFarming";
+import type { CampaignSection } from "@lurkloot/shared/campaignFilters";
+import type { CampaignRankTier } from "@lurkloot/shared/ranking";
 
 export type CompatibilityLifecycle = "recommended" | "legacy" | "experimental";
 export interface CompatibilityOptionMetadata {
@@ -57,6 +59,8 @@ export type RewardView = {
   imageUrl?: string;
   claimGuidance?: ClaimGuidance;
   ineligibilityReason?: "insufficient_time";
+  // Rewards that must be claimed before this one starts counting (Twitch).
+  preconditionIds?: string[];
 };
 export type CampaignLifecycleState = "upcoming" | "expired" | "finished";
 
@@ -73,6 +77,22 @@ export type CampaignStats = {
   complete: boolean;
 };
 
+export type CampaignTimelineMarker = {
+  id: string;
+  name: string;
+  // Where on the campaign's watch timeline the reward becomes claimable, 0–1.
+  at: number;
+  reached: boolean;
+};
+
+export type CampaignTimeline = {
+  // How far along the watch timeline the campaign is, 0–1.
+  progress: number;
+  totalMinutes: number;
+  remainingMinutes: number;
+  markers: CampaignTimelineMarker[];
+};
+
 export type CampaignView = {
   id: string;
   gameId: string;
@@ -86,6 +106,21 @@ export type CampaignView = {
   // The campaign's info/landing page, when one is provided.
   pageUrl?: string;
   excluded: boolean;
+  // Which tier of the shared ranking placed this campaign, and whether the user
+  // pinned it by hand. The list labels its group dividers from these.
+  pinned: boolean;
+  // Zero-based place among the pins, and among the favourite games; absent
+  // when the campaign is not pinned or its game is not a favourite. The card's
+  // "why this rank" line reads these.
+  pinIndex?: number;
+  favouriteIndex?: number;
+  // The campaign's category as the settings lists store it, for starring or
+  // blocking the game from the card. Absent for uncategorized campaigns.
+  category?: CategorySelection;
+  categoryBlocked?: boolean;
+  favourited?: boolean;
+  rankTier: CampaignRankTier;
+  section: CampaignSection;
   starts: string;
   ends: string;
   // All channels this drop is restricted to, each with a link to its page. Empty

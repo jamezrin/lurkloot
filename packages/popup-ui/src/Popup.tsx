@@ -3,19 +3,21 @@ import { AnimatePresence, motion } from "motion/react";
 import {
   ArrowLeft,
   Clock3,
-  Package,
   RotateCcw,
   Settings as SettingsIcon,
 } from "lucide-react";
 import type { ActivityPage, CategorySearchResult, CliCredentialBlob, DiagnosticsExport, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { ActivityHistoryRecord } from "@lurkloot/shared/events";
-import type { CategorySelection, ExtensionSettings, Platform, TwitchExtensionProviderId } from "@lurkloot/shared/models";
+import type { CategorySelection, ExtensionSettings, Platform, TwitchExtensionProviderId, WatchSourceId } from "@lurkloot/shared/models";
 import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings, type SettingsPatch } from "@lurkloot/shared/settings";
 import { buildSettingsExportPayload, parseSettingsImportPayload } from "@lurkloot/shared/settingsExport";
-import { effectiveLocale, isRtlLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
+import { effectiveLocale, isRtlLocale, type MessageCatalog } from "@lurkloot/shared/i18n";
 import { loadCatalog } from "@lurkloot/locales";
 import { buildFailureReport } from "@lurkloot/shared/failureReport";
 import { I18nContext, PopupRuntimeContext } from "./context";
+import { createTranslator } from "./translator";
+import { WorkspaceRail, viewForPlatform, type PopupView } from "./shell";
+import { GamesPanel } from "./games";
 import {
   GITHUB_STAR_NUDGE_MIN_DAYS,
   PLATFORM_INVENTORY_URLS,
@@ -26,6 +28,7 @@ import {
   SELECTED_PLATFORM_KEY,
 } from "./constants";
 import type {
+  CampaignView,
   GameItem,
   PopupAdapter,
   PopupInitialState,
@@ -35,15 +38,18 @@ import type {
 import { variantShowsPopup } from "./types";
 import {
   campaignViewFromCampaign,
+  reuseIfUnchanged,
+  reuseUnchangedViews,
   channelViewFromSession,
   fallbackGame,
   gameItemsFromCampaigns,
-  isCampaignVisible,
-  prioritiesFromOrder,
-  sortCampaignsForPopup,
+  campaignSection,
+  pinCampaignAt,
+  rankCampaigns,
+  unpinCampaign,
   streamerItemFromFallback,
 } from "./viewModels";
-import { IconButton, cn } from "./primitives";
+import { IconButton, cn, scrollIntoPanel } from "./primitives";
 import { ActivityLog } from "./activity";
 import {
   advanceActivityRequestScope,
@@ -61,20 +67,26 @@ import {
   type ActivityRequestScope,
   type ActivityStream,
 } from "./activity.logic";
-import { AttributionFooter } from "./footer";
 import { RateNudge, shouldShowGithubStarNudge, shouldShowRateNudge } from "./rateNudge";
 import { GithubStarNudge } from "./githubStarNudge";
 import { popupNoticeSlot } from "./popupNoticeSlot";
 import { UpdateNotice } from "./updateNotice";
-import { DropsPanel } from "./drops";
+import { QueuePanel } from "./queue";
+import { WATCH_SOURCE_NAME_KEYS } from "./watchSourcePriority";
+import { blockTogglePatch, favouriteTogglePatch } from "./categoryActions";
+import { CompletedPanel } from "./completed";
 import { CriticalFailurePanel } from "./criticalFailure";
 import { openHttpsLink } from "./links";
 import { IdleWatchlistPanel } from "./idleWatchlist";
-import { AutomationStatusLine, PlatformBar } from "./automation";
+import { StatusStrip } from "./statusStrip";
+import { ViewToolbarSlotContext } from "./viewToolbar";
 import { automationPresentation, type AutomationPresentation } from "./automationStatus";
-import { changeTwitchExtensionEnabled, TwitchExtensionDrops } from "./twitchExtensions";
+import { changeTwitchExtensionEnabled, TwitchExtensionView } from "./twitchExtensions";
 import { SettingsView } from "./settings";
 import { TipsBanner } from "./tips";
+import { TooltipScope } from "./tooltip";
+import { Tip } from "./tooltip";
+
 export function screenshotVariant(id: string | null | undefined): ScreenshotVariant {
   return SCREENSHOT_VARIANTS[id ?? "drops"] ?? SCREENSHOT_VARIANTS.drops;
 }
@@ -93,15 +105,17 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   const [platform, setPlatform] = useState<Platform>(
     preview && variantShowsPopup(initialVariant) ? initialVariant.platform : "twitch",
   );
-  // Drops and the Idle Watchlist share one view; the watchlist folds away under
-  // the campaigns until asked for (or until a screenshot variant wants it).
-  const [watchlistExpanded, setWatchlistExpanded] = useState(watchlistShot);
-  const [watchlistAdding, setWatchlistAdding] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(
-    preview && variantShowsPopup(initialVariant) && initialVariant.view === "settings",
-  );
+  // One destination at a time. Platform is the other axis and is independent of
+  // it, so every view keeps working on either platform.
+  const [view, setView] = useState<PopupView>(() => {
+    if (!preview || !variantShowsPopup(initialVariant)) return "queue";
+    if (initialVariant.view === "settings") return "settings";
+    return initialVariant.view === "watchlist" ? "watchlist" : "queue";
+  });
   const [settingsOpenGeneration, setSettingsOpenGeneration] = useState(0);
-  const [activityOpen, setActivityOpen] = useState(false);
+  const [extensionPending, setExtensionPending] = useState(false);
+  const settingsOpen = view === "settings";
+  const activityOpen = view === "activity";
   const [activityStream, setActivityStream] = useState<ActivityStream>(createActivityStream);
   const [diagnosticStream, setDiagnosticStream] = useState<ActivityStream>(createActivityStream);
   const [reportEvents, setReportEvents] = useState<ActivityHistoryRecord[]>([]);
@@ -117,6 +131,11 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   // Request to jump to a campaign in the drops list (expand + scroll). The seq
   // counter lets repeated clicks on the same campaign re-trigger the effect.
   const [campaignFocus, setCampaignFocus] = useState<{ id: string; seq: number } | null>(null);
+  // A settings group to scroll to when Settings opens, set only by a link into
+  // Settings (the watch-source chip) so opening Settings from the rail starts
+  // at the top as usual.
+  const [settingsFocus, setSettingsFocus] = useState<string | undefined>(undefined);
+  const [toolbarSlot, setToolbarSlot] = useState<HTMLElement | null>(null);
   const settingsRef = useRef<ExtensionSettings | null>(null);
   const settingsSaveQueue = useRef<Promise<void>>(Promise.resolve());
   const snapshotRequestGenerationRef = useRef(0);
@@ -129,15 +148,18 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   const trimmedDiagnosticSearchQuery = diagnosticSearchQuery.trim();
   const languageOverride = initialState?.locale ?? snapshot?.settings.languageOverride ?? DEFAULT_SETTINGS.languageOverride;
   const locale = effectiveLocale(languageOverride, adapter.getUiLanguage());
-  const dir = isRtlLocale(locale) ? "rtl" : "ltr";
-  const t: TFunction = (key, substitutions) => {
-    if (languageOverride === "browser") {
-      const message = adapter.getMessage(key, substitutions);
-      if (message) return message;
-    }
-    const message = translateFromCatalogs(key, substitutions, overrideCatalog, fallbackCatalog ?? overrideCatalog ?? {});
-    return message === key ? adapter.getMessage(key, substitutions) || message : message;
-  };
+  const dir: "ltr" | "rtl" = isRtlLocale(locale) ? "rtl" : "ltr";
+  // Stable across renders, and so are the two context values below: every
+  // component reading them re-renders when they change identity, which made
+  // each five-second poll re-render every card and every translated string.
+  const t: TFunction = useMemo(() => createTranslator({
+    languageOverride,
+    overrideCatalog,
+    fallbackCatalog,
+    getMessage: (key, substitutions) => adapter.getMessage(key, substitutions),
+  }), [languageOverride, overrideCatalog, fallbackCatalog, adapter]);
+  const i18nValue = useMemo(() => ({ t, dir, locale }), [t, dir, locale]);
+  const runtimeValue = useMemo(() => ({ adapter, preview }), [adapter, preview]);
 
   function invalidateActivityRequests(
     nextPlatform: Platform = activityRequestScopeRef.current.platform,
@@ -205,7 +227,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
 
   useEffect(() => {
     if (!watchlistShot || !snapshot) return;
-    document.getElementById("idle-watchlist")?.scrollIntoView?.({ block: "start" });
+    scrollIntoPanel(document.getElementById("idle-watchlist"));
   }, [snapshot, watchlistShot]);
 
   useEffect(() => {
@@ -423,10 +445,21 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     }
     setDiagnosticSearchQuery("");
     setPlatform(nextPlatform);
-    // The watchlist add form belongs to the platform it was opened on: leaving
-    // it open would submit a name typed for one platform into the other's list.
-    setWatchlistAdding(false);
+    // Extensions are Twitch-only: switching to Kick while standing in that view
+    // would leave the rail pointing at a destination it no longer lists.
+    setView((current: PopupView) => viewForPlatform(current, nextPlatform));
     if (!preview) void adapter.setStorage({ [SELECTED_PLATFORM_KEY]: nextPlatform });
+  }
+
+  // Every rail destination goes through here so leaving Activity always settles
+  // its in-flight requests, and entering Settings always rearms the one-shot
+  // export confirmation.
+  function changeView(nextView: PopupView, focusGroupId?: string): void {
+    setSettingsFocus(nextView === "settings" ? focusGroupId : undefined);
+    if (nextView === view) return;
+    if (activityOpen) closeActivityView();
+    if (nextView === "settings") setSettingsOpenGeneration((current) => current + 1);
+    setView(nextView);
   }
 
   function closeActivityView(): void {
@@ -441,7 +474,6 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     setClearActivityFailed(false);
     setDiagnosticSearchQuery("");
     setDiagnosticStream(createActivityStream());
-    setActivityOpen(false);
   }
 
   function handleShowDiagnosticsChange(nextShowDiagnostics: boolean): void {
@@ -480,6 +512,19 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
       "text/plain",
     );
     return result.events.length;
+  }
+
+  // The provider views drive the same handler the settings list does, with a
+  // pending flag so their toggle cannot be double-fired while the permission
+  // prompt and the tick are in flight.
+  async function changeExtensionEnabled(provider: TwitchExtensionProviderId, enabled: boolean): Promise<boolean | void> {
+    if (extensionPending) return;
+    setExtensionPending(true);
+    try {
+      return await setExtensionEnabled(provider, enabled);
+    } finally {
+      setExtensionPending(false);
+    }
   }
 
   async function setExtensionEnabled(provider: TwitchExtensionProviderId, enabled: boolean): Promise<boolean> {
@@ -574,19 +619,26 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
         setDiagnosticStream(createActivityStream());
         setShowDiagnostics(false);
         setPlatform("twitch");
-        setWatchlistExpanded(false);
-        setWatchlistAdding(false);
         setPendingChangelogVersion(undefined);
         setSnapshot(snapshotWithMergedSettings(nextSnapshot));
-        setSettingsOpen(false);
+        setView("queue");
       }
     : undefined;
 
+  // What the last render derived from the snapshot. Derivation reruns only
+  // when its inputs changed, and its output keeps every view object that is
+  // unchanged, so memoised rows skip the five-second poll entirely.
+  const derived = useRef<{
+    inputs?: readonly unknown[];
+    campaigns?: CampaignView[];
+    gameMap?: Record<string, GameItem>;
+  }>({});
+
   if (!snapshot) {
     return (
-      <PopupRuntimeContext.Provider value={{ adapter, preview }}>
-      <I18nContext.Provider value={{ t, dir, locale }}>
-        <main dir={dir} className="grid h-[600px] w-[400px] place-items-center border border-zinc-200 bg-zinc-50 text-sm font-semibold text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400" data-platform="twitch">
+      <PopupRuntimeContext.Provider value={runtimeValue}>
+      <I18nContext.Provider value={i18nValue}>
+        <main dir={dir} className="grid h-[600px] w-[720px] max-w-full place-items-center border border-zinc-200 bg-zinc-50 text-sm font-semibold text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400" data-platform="twitch">
           {t("loading")}
         </main>
       </I18nContext.Provider>
@@ -618,7 +670,11 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
 
   const compatibilityResolution = adapter.resolveCompatibility?.(settings.compatibility);
   const excludedIds = new Set(settings.excludedCampaignIds);
-  const rawCampaigns = sortCampaignsForPopup(snapshot.state.campaigns[platform].filter((campaign) => isCampaignVisible(campaign, settings, excludedIds)), settings);
+  // Every campaign the platform reported, in scheduler order. Each view picks
+  // the sections it owns (campaignSection), so a campaign is never missing from
+  // the popup entirely — it is in the Queue, under Skipped or Upcoming, or in
+  // Completed.
+  const rawCampaigns = rankCampaigns(snapshot.state.campaigns[platform], settings);
   const session = snapshot.state.sessions[platform];
   const sessionChannel = channelViewFromSession(session);
   const criticalFailure = snapshot.state.criticalHealth?.[platform];
@@ -626,17 +682,21 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   const criticalFailureReason = settings.criticalFailurePromptEnabled && criticalFailure?.status === "flagged"
     ? criticalFailure.reason
     : undefined;
-  const campaigns = rawCampaigns.map((campaign, index) => campaignViewFromCampaign(
-    campaign,
-    index,
-    session,
-    excludedIds.has(campaign.id),
-    {
-      skipUnfinishableRewards: settings.skipUnfinishableRewards,
-      deadlineSafetyMarginMinutes: settings.deadlineSafetyMarginMinutes,
-      settings,
-    },
-  ));
+  const derivationInputs = [snapshot.state.campaigns[platform], snapshot.settings, session, platform, t] as const;
+  const inputsChanged = !derived.current.inputs || derivationInputs.some((input, index) => input !== derived.current.inputs![index]);
+  const campaigns = inputsChanged
+    ? reuseUnchangedViews(derived.current.campaigns, rawCampaigns.map((campaign, index) => campaignViewFromCampaign(
+      campaign,
+      index,
+      session,
+      excludedIds.has(campaign.id),
+      {
+        skipUnfinishableRewards: settings.skipUnfinishableRewards,
+        deadlineSafetyMarginMinutes: settings.deadlineSafetyMarginMinutes,
+        settings,
+      },
+    )))
+    : derived.current.campaigns!;
   const games = gameItemsFromCampaigns(snapshot.state.campaigns[platform], t);
   // Categories that currently have active drop campaigns, surfaced as one-tap
   // "Has active drops" suggestions in the category filter editor (zero network).
@@ -644,7 +704,8 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     twitch: gameItemsFromCampaigns(snapshot.state.campaigns.twitch, t),
     kick: gameItemsFromCampaigns(snapshot.state.campaigns.kick, t),
   };
-  const gameMap = Object.fromEntries(games.map((game) => [game.id, game]));
+  const gameMap = reuseIfUnchanged(derived.current.gameMap, Object.fromEntries(games.map((game) => [game.id, game])));
+  derived.current = { inputs: derivationInputs, campaigns, gameMap };
   const idleWatchlistChannels = settings.platform[platform].idleWatchlistChannels;
   const idleWatchlist = idleWatchlistChannels.map((username) => streamerItemFromFallback(username, session, t));
   const screenshotWatchlist = watchlistShot
@@ -670,16 +731,59 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
       authHealth: snapshot.state.authHealth[id],
       session: snapshot.state.sessions[id],
       manualClosePaused: Boolean(snapshot.state.manualClosePause?.[id]),
+      manualWatch: snapshot.state.manualWatch?.[id],
     })]),
   ) as Record<Platform, AutomationPresentation>;
   const presentation = automationPresentationByPlatform[platform];
   const activeCampaign = campaigns.find((campaign) => campaign.farmingChannel);
   const farmingChannel = activeCampaign?.farmingChannel ?? sessionChannel;
+  // Which watch source the platform is on right now, read from the session the
+  // scheduler already reports: a supplemental watch names its provider, a
+  // campaign's channel is Drops, and any other channel came from the watchlist.
+  const liveSource: WatchSourceId | undefined = !automation[platform] || presentation.state !== "running"
+    ? undefined
+    : session.supplementalWatch ? (session.supplementalWatch.id === "nopixel" || session.supplementalWatch.id === "fortnite" ? session.supplementalWatch.id : undefined)
+    : activeCampaign ? "drops"
+    : farmingChannel ? "idle_watchlist"
+    : undefined;
+  const sourceOrder = settings.platform[platform].watchSourcePriority;
+  // The status strip shows in every view, but only the queue can reveal the
+  // card, so the link goes there first; the queue applies the focus as it opens.
   const onFarmingTitleClick = activeCampaign
-    ? () => setCampaignFocus((prev) => ({ id: activeCampaign.id, seq: (prev?.seq ?? 0) + 1 }))
+    ? () => {
+      setCampaignFocus((prev) => ({ id: activeCampaign.id, seq: (prev?.seq ?? 0) + 1 }));
+      changeView("queue");
+    }
     : undefined;
   const mainViewOpen = !settingsOpen && !activityOpen;
-  const viewTitle = settingsOpen ? t("settingsTitle") : activityOpen ? t("activityTitle") : "Lurkloot";
+  // How many campaigns each game has in play right now, keyed the way a
+  // CategorySelection id compares (lowercased), for the Games view's counts.
+  const gameCampaignCounts = campaigns.reduce<Record<string, number>>((counts, campaign) => {
+    if (campaign.section !== "queue" && campaign.section !== "skipped") return counts;
+    const key = campaign.gameId.toLowerCase();
+    counts[key] = (counts[key] ?? 0) + 1;
+    return counts;
+  }, {});
+  const railCounts: Partial<Record<PopupView, number>> = {
+    queue: campaigns.filter((campaign) => campaign.section === "queue").length,
+    // Both tabs of that view, so the rail's number matches what it opens onto.
+    completed: campaigns.filter((campaign) => campaign.section === "completed" || campaign.section === "expired").length,
+    games: settings.platform[platform].categoryMode === "all"
+      ? dropCategorySuggestions[platform].length
+      : settings.platform[platform].categories.length,
+    watchlist: settings.platform[platform].idleWatchlistChannels.length,
+  };
+  const VIEW_TITLE_KEYS: Record<PopupView, string> = {
+    queue: "navQueue",
+    completed: "navCompleted",
+    games: "navGames",
+    watchlist: "navIdleWatchlist",
+    nopixel: "navNoPixel",
+    fortnite: "navFortnite",
+    activity: "activityTitle",
+    settings: "settingsTitle",
+  };
+  const viewTitle = t(VIEW_TITLE_KEYS[view]);
   const updateNotice = pendingChangelogVersion && adapter.changelogUrl
     ? { version: pendingChangelogVersion, href: adapter.changelogUrl(pendingChangelogVersion) }
     : undefined;
@@ -692,120 +796,85 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   });
 
   return (
-      <PopupRuntimeContext.Provider value={{ adapter, preview }}>
-      <I18nContext.Provider value={{ t, dir, locale }}>
+      <PopupRuntimeContext.Provider value={runtimeValue}>
+      <I18nContext.Provider value={i18nValue}>
     <main
       dir={dir}
       data-platform={platform}
-      className="flex h-[600px] w-[400px] flex-col overflow-hidden border border-zinc-200/80 bg-zinc-50 shadow-2xl shadow-black/30 dark:border-zinc-800 dark:bg-zinc-950"
+      data-view={view}
+      // overflow-clip, not hidden: a hidden box can still be scrolled by script,
+      // and nothing may move the frame itself.
+      // contain-strict: the frame's size never depends on what is inside it, so
+      // a change inside never makes the extension popup re-lay-out and
+      // re-measure the whole document to resize its window.
+      className="@container relative flex h-[600px] w-[720px] max-w-full overflow-clip [contain:strict] border border-zinc-200/80 bg-zinc-50 shadow-2xl shadow-black/30 dark:border-zinc-800 dark:bg-zinc-950"
     >
-      {/* Every piece of chrome lives here, in one fixed block: brand + actions,
-          the platform picker with its automation switch, the status line, and the
-          list toolbar. Merging them is what freed the vertical space the campaign
-          list now uses. */}
-      <div className="relative shrink-0 border-b border-zinc-200/70 bg-white/85 px-3 pb-1.5 pt-2.5 backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/80">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-linear-to-r from-transparent via-[var(--accent)] to-transparent" />
-        <header className="flex items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-2">
-            <img src="/logo-ring.svg" alt="Lurkloot" width={28} height={28} className="h-7 w-7 shrink-0 rounded-lg shadow-sm" style={{ boxShadow: "0 4px 14px -4px var(--accent-glow)" }} />
-            <div className="font-display truncate text-[14px] font-bold tracking-normal text-zinc-900 dark:text-zinc-50">{viewTitle}</div>
-          </div>
-          <div className="flex shrink-0 items-center gap-0.5">
-            {settingsOpen ? (
-              <>
-                <IconButton
-                  label={t("back")}
-                  onClick={() => { setSettingsOpen(false); closeActivityView(); }}
-                >
-                  <ArrowLeft size={16} />
-                </IconButton>
-              </>
-            ) : activityOpen ? (
-              <IconButton
-                label={t("back")}
-                onClick={() => { setSettingsOpen(false); closeActivityView(); }}
-              >
-                <ArrowLeft size={16} />
-              </IconButton>
-            ) : (
-              <>
-                <IconButton label={t("refreshSchedule")} onClick={() => void refreshNow()} disabled={refreshing}>
-                  <RotateCcw size={16} className={cn(refreshing && "animate-spin")} />
-                </IconButton>
-                <IconButton
-                  label={t("openInventory")}
-                  onClick={() => openHttpsLink(PLATFORM_INVENTORY_URLS[platform], adapter.openLink)}
-                >
-                  <Package size={16} />
-                </IconButton>
-                <IconButton label={t("openActivity")} onClick={() => { setActivityOpen(true); setSettingsOpen(false); }}>
-                  <Clock3 size={16} />
-                </IconButton>
-                <IconButton label={t("openSettings")} onClick={() => { setSettingsOpenGeneration((current) => current + 1); setSettingsOpen(true); closeActivityView(); }}>
-                  <SettingsIcon size={16} />
-                </IconButton>
-              </>
-            )}
-          </div>
-        </header>
-        {mainViewOpen ? (
-          <>
-            <PlatformBar
-              active={platform}
-              presentation={automationPresentationByPlatform}
-              enabled={automation}
-              pending={automationPending}
-              onChange={selectPlatform}
-              onToggle={setAutomation}
-            />
-            <AutomationStatusLine
-              platform={platform}
-              presentation={presentation}
-              farmingTitle={session.supplementalWatch ? session.supplementalWatch.id === "nopixel" ? "NoPixelV" : "Fortnite" : activeCampaign?.title}
-              farmingChannel={farmingChannel}
-              watchingIdleWatchlist={!activeCampaign && Boolean(farmingChannel) && !session.supplementalWatch}
-              onFarmingTitleClick={session.supplementalWatch ? undefined : onFarmingTitleClick}
-              onResume={resumeAfterManualClose}
-            />
-          </>
-        ) : null}
-      </div>
+      <TooltipScope>
+      <WorkspaceRail
+        view={view}
+        platform={platform}
+        counts={railCounts}
+        sourceOrder={sourceOrder}
+        liveSource={liveSource}
+        presentation={automationPresentationByPlatform}
+        version={adapter.version}
+        onViewChange={changeView}
+        onPlatformChange={selectPlatform}
+        onOpenInventory={() => openHttpsLink(PLATFORM_INVENTORY_URLS[platform], adapter.openLink)}
+        onOpenChangelog={adapter.changelogUrl ? () => openHttpsLink(adapter.changelogUrl!(adapter.version), adapter.openLink) : undefined}
+      />
 
-      <div id="popup-platform-panel" className="nice-scroll min-h-0 flex-1 overflow-y-auto text-zinc-700 dark:text-zinc-300">
-        <div className="space-y-2 p-3 pt-2">
-          <AnimatePresence mode="wait" initial={false}>
-            {settingsOpen ? (
-              <motion.div key="settings" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }} transition={{ duration: 0.18 }} className="space-y-2.5">
-                <SettingsView suggestions={dropCategorySuggestions} onSearchCategories={searchCategories} settings={settings} onSettingsChange={updateSettings} onExtensionEnabledChange={adapter.requestTwitchExtensionPermission ? setExtensionEnabled : undefined} onExportCredentials={exportCredentials} onExportSettings={exportSettings} onImportSettings={importSettings} onReset={resetExtension} exportConfirmationResetKey={settingsOpenGeneration} compatibilityRegistry={adapter.compatibilityRegistry} compatibilityResolution={compatibilityResolution} focusGroupId={preview && variantShowsPopup(initialVariant) && initialVariant.view === "settings" ? "general.drops" : undefined} />
-              </motion.div>
-            ) : activityOpen ? (
-              <motion.div key="activity" initial={{ opacity: 0, x: 14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 14 }} transition={{ duration: 0.18 }}>
-                <ActivityLog
-                  activityEvents={activityStream.events}
-                  diagnosticEvents={diagnosticStream.events}
-                  platform={platform}
-                  lastTickAt={snapshot.state.lastTickAt}
-                  diagnosticLogging={settings.diagnosticLogging}
-                  showDiagnostics={showDiagnostics}
-                  hasMore={Boolean(showDiagnostics ? diagnosticStream.nextCursor : activityStream.nextCursor)}
-                  clearArmed={clearActivityArmed}
-                  clearFailed={clearActivityFailed}
-                  loadingMore={loadingMoreActivity}
-                  clearing={clearingActivity}
-                  version={adapter.version}
-                  locale={locale}
-                  searchQuery={diagnosticSearchQuery}
-                  onSearchQueryChange={setDiagnosticSearchQuery}
-                  searchingDiagnostics={Boolean(trimmedDiagnosticSearchQuery)}
-                  onShowDiagnosticsChange={handleShowDiagnosticsChange}
-                  onLoadMore={loadMoreActivity}
-                  onClear={clearActivityHistory}
-                  writeClipboard={adapter.writeClipboard}
-                  onExportAll={adapter.downloadFile ? exportDiagnosticsLog : undefined}
-                />
-              </motion.div>
-            ) : (
-              <motion.div key="main" initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -14 }} transition={{ duration: 0.18 }} className="space-y-3">
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* The status strip sits above every view, so what is being farmed is
+            never more than a glance away — including from Settings, where the
+            old header hid it entirely. */}
+        <StatusStrip
+          platform={platform}
+          presentation={presentation}
+          campaign={activeCampaign}
+          farmingChannel={farmingChannel}
+          supplementalName={session.supplementalWatch ? t(session.supplementalWatch.id === "nopixel" ? "navNoPixel" : "navFortnite") : undefined}
+          onCampaignClick={session.supplementalWatch ? undefined : onFarmingTitleClick}
+          onResume={resumeAfterManualClose}
+          enabled={automation[platform]}
+          pending={automationPending[platform]}
+          onToggle={(value) => setAutomation(platform, value)}
+          sourceChip={liveSource ? (
+            // Where the live source sits in the watch order, and the way to
+            // change that order: the first available source always wins.
+            <Tip label={t("watchSourceChangeOrder")}>
+              <button
+                type="button"
+                data-watch-source-chip={liveSource}
+                onClick={() => changeView("settings", `${platform}.watchSourcePriority`)}
+                className="surface shrink-0 rounded-md px-2 py-0.5 text-[10.5px] font-medium text-zinc-600 tabular transition-colors hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white"
+              >
+                {t("watchSourcePosition", [t(WATCH_SOURCE_NAME_KEYS[liveSource]), String(sourceOrder.indexOf(liveSource) + 1), String(sourceOrder.length)])}
+              </button>
+            </Tip>
+          ) : undefined}
+        />
+
+        {/* The view's title and its own controls share one row: a view hands
+            them to ViewToolbar, which moves them into the slot here. */}
+        <div className="flex shrink-0 items-center gap-2 px-3 pt-2.5">
+          <h1 className="font-display shrink-0 truncate text-[15px] font-bold tracking-[-0.01em] text-zinc-900 dark:text-zinc-50">{viewTitle}</h1>
+          <div ref={setToolbarSlot} data-view-toolbar className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5" />
+          <div className="flex shrink-0 items-center gap-0.5">
+            <IconButton label={t("refreshSchedule")} onClick={() => void refreshNow()} disabled={refreshing}>
+              <RotateCcw size={16} className={cn(refreshing && "animate-spin")} />
+            </IconButton>
+          </div>
+        </div>
+
+        <ViewToolbarSlotContext.Provider value={toolbarSlot}>
+        <div id="popup-platform-panel" data-scroll-panel className="nice-scroll @container min-h-0 flex-1 overflow-y-auto text-zinc-700 dark:text-zinc-300">
+          <div className="space-y-2 p-3 pt-2">
+            {/* The view itself is swapped outright rather than cross-faded: the
+                rail makes navigation frequent, and an exit animation would hold
+                the outgoing panel on screen every time. Notices below keep their
+                own enter/exit, which is where motion earns its place. */}
+            <div className="space-y-3">
                 <AnimatePresence initial={false}>
                   {noticeSlot === "update" && updateNotice ? (
                     <UpdateNotice
@@ -830,9 +899,101 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                     />
                   ) : null}
                 </AnimatePresence>
-                {settings.showTips ? <TipsBanner initialIndex={preview ? 0 : undefined} preview={preview} /> : null}
-                {platform === "twitch" ? <TwitchExtensionDrops settings={settings} summaries={snapshot.state.twitchExtensions} activeProvider={snapshot.state.sessions.twitch.status === "watching" && snapshot.state.sessions.twitch.watchMode === "tabless" ? snapshot.state.sessions.twitch.supplementalWatch?.id : undefined} onSetup={() => adapter.openLink("https://help.twitch.tv/s/article/how-to-configure-extensions")} /> : null}
-                {criticalFailureReason ? (
+                {view === "settings" ? (
+                  <SettingsView suggestions={dropCategorySuggestions} onSearchCategories={searchCategories} settings={settings} onSettingsChange={updateSettings} onExtensionEnabledChange={adapter.requestTwitchExtensionPermission ? setExtensionEnabled : undefined} onExportCredentials={exportCredentials} onExportSettings={exportSettings} onImportSettings={importSettings} onReset={resetExtension} exportConfirmationResetKey={settingsOpenGeneration} compatibilityRegistry={adapter.compatibilityRegistry} compatibilityResolution={compatibilityResolution} onOpenGames={(gamesPlatform) => { if (gamesPlatform !== platform) selectPlatform(gamesPlatform); changeView("games"); }} version={adapter.version} focusGroupId={preview && variantShowsPopup(initialVariant) && initialVariant.view === "settings" ? "general.drops" : settingsFocus} />
+                ) : view === "activity" ? (
+                  <ActivityLog
+                    activityEvents={activityStream.events}
+                    diagnosticEvents={diagnosticStream.events}
+                    platform={platform}
+                    lastTickAt={snapshot.state.lastTickAt}
+                    diagnosticLogging={settings.diagnosticLogging}
+                    showDiagnostics={showDiagnostics}
+                    hasMore={Boolean(showDiagnostics ? diagnosticStream.nextCursor : activityStream.nextCursor)}
+                    clearArmed={clearActivityArmed}
+                    clearFailed={clearActivityFailed}
+                    loadingMore={loadingMoreActivity}
+                    clearing={clearingActivity}
+                    version={adapter.version}
+                    locale={locale}
+                    searchQuery={diagnosticSearchQuery}
+                    onSearchQueryChange={setDiagnosticSearchQuery}
+                    searchingDiagnostics={Boolean(trimmedDiagnosticSearchQuery)}
+                    onShowDiagnosticsChange={handleShowDiagnosticsChange}
+                    onLoadMore={loadMoreActivity}
+                    onClear={clearActivityHistory}
+                    writeClipboard={adapter.writeClipboard}
+                    onExportAll={adapter.downloadFile ? exportDiagnosticsLog : undefined}
+                  />
+                ) : view === "games" ? (
+                  // Keyed by platform so a search typed on one platform, and
+                  // the results it found, cannot be added to the other's lists.
+                  <GamesPanel
+                    key={platform}
+                    platform={platform}
+                    settings={settings}
+                    suggestions={dropCategorySuggestions[platform]}
+                    campaignCounts={gameCampaignCounts}
+                    onCategoryModeChange={(categoryMode) => void updateSettings(
+                      { platform: { [platform]: { categoryMode } } },
+                      { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
+                    )}
+                    onCategoriesChange={(categories) => void updateSettings(
+                      { platform: { [platform]: { categories } } },
+                      { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
+                    )}
+                    onFavouritesChange={(favouriteCategories) => void updateSettings(
+                      { platform: { [platform]: { favouriteCategories } } },
+                      { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
+                    )}
+                    onBlockedChange={(blockedCategories) => void updateSettings(
+                      { platform: { [platform]: { blockedCategories } } },
+                      { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
+                    )}
+                    onSearchCategories={(query) => searchCategories(platform, query)}
+                  />
+                ) : view === "watchlist" ? (
+                  // Keyed by platform so a half-typed channel cannot survive a
+                  // platform switch and land in the other platform's list.
+                  <IdleWatchlistPanel
+                    key={platform}
+                    platform={platform}
+                    streamers={screenshotWatchlist}
+                    watchOrder={settings.platform[platform].watchSourcePriority}
+                    onChangeOrder={() => changeView("settings", `${platform}.watchSourcePriority`)}
+                    onChange={(ordered) => updateSettings(
+                      {
+                        platform: {
+                          [platform]: {
+                            idleWatchlistChannels: ordered.map((streamer) => streamer.id),
+                          },
+                        },
+                      },
+                      { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
+                    )}
+                  />
+                ) : view === "nopixel" || view === "fortnite" ? (
+                  <TwitchExtensionView
+                    providerId={view}
+                    settings={settings}
+                    summary={snapshot.state.twitchExtensions?.[view]}
+                    active={snapshot.state.sessions.twitch.status === "watching"
+                      && snapshot.state.sessions.twitch.watchMode === "tabless"
+                      && snapshot.state.sessions.twitch.supplementalWatch?.id === view}
+                    pending={extensionPending}
+                    onEnabledChange={(enabled) => changeExtensionEnabled(view, enabled)}
+                    onOptionChange={(enabled) => void updateSettings(
+                      view === "nopixel"
+                        ? { twitchExtensions: { nopixel: { autoOpenPacks: enabled } } }
+                        : { twitchExtensions: { fortnite: { allowTakeovers: enabled } } },
+                      { tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] },
+                    )}
+                    onSetup={() => adapter.openLink("https://help.twitch.tv/s/article/how-to-configure-extensions")}
+                    onChangeOrder={() => changeView("settings", "twitch.watchSourcePriority")}
+                  />
+                ) : criticalFailureReason ? (
+                  // A flagged platform loses its lists entirely: every drops
+                  // view would be lying about what is being farmed.
                   <CriticalFailurePanel
                     platform={platform}
                     reason={criticalFailureReason}
@@ -854,49 +1015,62 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                     openLink={adapter.openLink}
                     writeClipboard={adapter.writeClipboard ?? (async () => false)}
                   />
-                ) : (
-                  <DropsPanel
+                ) : view === "completed" ? (
+                  <CompletedPanel
                     campaigns={campaigns}
                     gameMap={gameMap}
                     focus={campaignFocus}
                     refreshing={refreshing}
                     onRefreshCampaign={() => refreshNow()}
-                    onReorder={(ordered) => updateSettings({ campaignPriorities: prioritiesFromOrder(ordered) }, { tickAfterSave: true })}
-                    onToggleExclude={(id) => {
-                      const next = new Set(settings.excludedCampaignIds);
-                      if (next.has(id)) next.delete(id);
-                      else next.add(id);
-                      return updateSettings({ excludedCampaignIds: [...next] }, { tickAfterSave: true });
-                    }}
                   />
-                )}
-                {/* Keyed by platform so the add field's own text cannot survive
-                    a platform switch either. */}
-                <IdleWatchlistPanel
-                  key={platform}
-                  platform={platform}
-                  streamers={screenshotWatchlist}
-                  expanded={watchlistExpanded}
-                  adding={watchlistAdding}
-                  onExpandedChange={(next) => { setWatchlistExpanded(next); if (!next) setWatchlistAdding(false); }}
-                  onAddingChange={setWatchlistAdding}
-                  onChange={(ordered) => updateSettings(
-                    {
-                      platform: {
-                        [platform]: {
-                          idleWatchlistChannels: ordered.map((streamer) => streamer.id),
+                ) : (
+                  <>
+                    {settings.showTips ? <TipsBanner initialIndex={preview ? 0 : undefined} preview={preview} /> : null}
+                    <QueuePanel
+                      campaigns={campaigns}
+                      gameMap={gameMap}
+                      focus={campaignFocus}
+                      refreshing={refreshing}
+                      strategy={settings.priorityMode}
+                      pinnedCount={settings.campaignPins.length}
+                      farmPinnedOnly={settings.farmPinnedOnly}
+                      onStrategyChange={(priorityMode) => void updateSettings({ priorityMode }, { tickAfterSave: true })}
+                      onUnpinAll={() => void updateSettings({ campaignPins: [] }, { tickAfterSave: true })}
+                      onFarmPinnedOnlyChange={(farmPinnedOnly) => void updateSettings({ farmPinnedOnly }, { tickAfterSave: true })}
+                      onRefreshCampaign={() => refreshNow()}
+                      onPinChange={(campaignId, position) => updateSettings(
+                        {
+                          campaignPins: position == null
+                            ? unpinCampaign(settings.campaignPins, campaignId)
+                            : pinCampaignAt(settings.campaignPins, campaignId, position),
                         },
-                      },
-                    },
-                    { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
-                  )}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
+                        { tickAfterSave: true },
+                      )}
+                      onToggleExclude={(id) => {
+                        const next = new Set(settings.excludedCampaignIds);
+                        if (next.has(id)) next.delete(id);
+                        else next.add(id);
+                        return updateSettings({ excludedCampaignIds: [...next] }, { tickAfterSave: true });
+                      }}
+                      onToggleFavouriteCategory={(category) => updateSettings(
+                        { platform: { [platform]: favouriteTogglePatch(settings.platform[platform], category) } },
+                        { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
+                      )}
+                      onToggleBlockedCategory={(category) => updateSettings(
+                        { platform: { [platform]: blockTogglePatch(settings.platform[platform], category) } },
+                        { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
+                      )}
+                      onOpenGames={() => changeView("games")}
+                      onOpenSettings={() => changeView("settings")}
+                    />
+                  </>
+                )}
+            </div>
+          </div>
         </div>
+        </ViewToolbarSlotContext.Provider>
       </div>
-      {settingsOpen ? <AttributionFooter version={adapter.version} /> : null}
+      </TooltipScope>
     </main>
     </I18nContext.Provider>
     </PopupRuntimeContext.Provider>

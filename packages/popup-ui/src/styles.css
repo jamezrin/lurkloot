@@ -9,49 +9,87 @@
    utilities. */
 @source "./**/*.{ts,tsx}";
 
+/* Never generate Tailwind's .container utility. The scanner treats any bare
+   word as a candidate class — a comment mentioning a "container query" was
+   enough — and .container brings width breakpoints (@media width >= 40rem …).
+   An extension popup is re-measured after every layout by laying the document
+   out at a tiny width and back, so those breakpoints flipped on each pass and
+   forced a full style recalculation and relayout of the whole popup, several
+   times per click. The popup has one fixed size and needs no breakpoints. */
+@source not inline("container");
+
 @theme {
-  --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
-    Roboto, sans-serif;
-  --font-display: "Bricolage Grotesque", "Geist", ui-sans-serif, system-ui,
-    sans-serif;
-  --font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  /* Archivo for names and headings, Geist for text, Geist Mono for numbers —
+     the prototype's pairing. fonts.css bundles all three; the plain names
+     follow the variable ones for anywhere they are installed instead. */
+  --font-sans: "Geist Variable", "Geist", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, sans-serif;
+  --font-display: "Archivo Variable", "Archivo", "Geist Variable", ui-sans-serif,
+    system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", "Geist Mono", ui-monospace, "SFMono-Regular",
+    Menlo, monospace;
 }
 
-[data-platform="twitch"] {
-  --accent: #9147ff;
-  --accent-strong: #7c3aed;
-  --accent-contrast: #ffffff;
-  --accent-text: #7c3aed;
-  --accent-soft: color-mix(in srgb, #9147ff 12%, transparent);
-  --accent-softer: color-mix(in srgb, #9147ff 6%, transparent);
-  --accent-ring: color-mix(in srgb, #9147ff 40%, transparent);
-  --accent-glow: color-mix(in srgb, #9147ff 38%, transparent);
-}
+/* Lurkloot is flat and monochrome. Black ink is the only accent: primary
+ * buttons, selections, switches, progress and the farming state all use it, and
+ * it inverts to off-white on a dark ground. Surfaces are solid fills separated
+ * by hairlines — no gradients, no glows, no drop shadows.
+ *
+ * Platform colour survives only where a platform has to be named: the status
+ * dots on the rail's Twitch/Kick switch and per-row platform badges
+ * (--platform-*). --accent-* are kept as aliases of ink so components need not
+ * know. docs/brand.md records the rule. */
+:root, :host {
+  --ink: #0a0a0a;
+  --ink-text: #0a0a0a;
+  --ink-contrast: #ffffff;
+  --ink-soft: rgb(10 10 10 / 0.06);
+  --ink-ring: rgb(10 10 10 / 0.35);
 
-[data-platform="kick"] {
-  --accent: #53fc18;
-  --accent-strong: #3fbf12;
-  --accent-contrast: #07140a;
-  --accent-text: #2f9e12;
-  --accent-soft: color-mix(in srgb, #53fc18 16%, transparent);
-  --accent-softer: color-mix(in srgb, #53fc18 8%, transparent);
-  --accent-ring: color-mix(in srgb, #53fc18 44%, transparent);
-  --accent-glow: color-mix(in srgb, #53fc18 36%, transparent);
+  --accent: var(--ink);
+  --accent-strong: var(--ink);
+  --accent-text: var(--ink-text);
+  --accent-contrast: var(--ink-contrast);
+  --accent-soft: var(--ink-soft);
+  --accent-softer: rgb(10 10 10 / 0.035);
+  --accent-ring: var(--ink-ring);
+  --accent-glow: transparent;
+  --brand: var(--ink);
+  --brand-text: var(--ink-text);
+  --brand-contrast: var(--ink-contrast);
+  --brand-soft: var(--ink-soft);
+  --brand-ring: var(--ink-ring);
+
+  /* A raised surface: one solid fill and a hairline. */
+  --surface: #ffffff;
+  --surface-edge: #e4e4e7;
+
+  /* The rail is black in both themes. */
+  --rail-bg: #0a0a0a;
+  --rail-edge: #1f1f1f;
+  --rail-selected: #1f1f1f;
+
+  --platform-twitch: #9147ff;
+  --platform-twitch-text: #7c3aed;
+  --platform-kick: #53fc18;
+  --platform-kick-text: #2f9e12;
 }
 
 @media (prefers-color-scheme: dark) {
-  [data-platform="twitch"] {
-    --accent-text: #c4a7ff;
-    --accent-soft: color-mix(in srgb, #9147ff 22%, transparent);
-    --accent-softer: color-mix(in srgb, #9147ff 12%, transparent);
-    --accent-glow: color-mix(in srgb, #9147ff 50%, transparent);
-  }
-
-  [data-platform="kick"] {
-    --accent-text: #7bfd49;
-    --accent-soft: color-mix(in srgb, #53fc18 20%, transparent);
-    --accent-softer: color-mix(in srgb, #53fc18 11%, transparent);
-    --accent-glow: color-mix(in srgb, #53fc18 46%, transparent);
+  :root, :host {
+    --ink: #fafafa;
+    --ink-text: #fafafa;
+    --ink-contrast: #0a0a0a;
+    --ink-soft: rgb(255 255 255 / 0.08);
+    --ink-ring: rgb(255 255 255 / 0.4);
+    --accent-softer: rgb(255 255 255 / 0.04);
+    --surface: #111111;
+    --surface-edge: #262626;
+    --rail-bg: #000000;
+    --rail-edge: #1a1a1a;
+    --rail-selected: #1c1c1c;
+    --platform-twitch-text: #c4a7ff;
+    --platform-kick-text: #7bfd49;
   }
 }
 
@@ -87,6 +125,19 @@
   ::selection {
     background-color: var(--accent-soft);
   }
+}
+
+@utility surface {
+  background-color: var(--surface);
+  border: 1px solid var(--surface-edge);
+}
+
+@utility rail {
+  background-color: var(--rail-bg);
+}
+
+@utility rail-selected {
+  background-color: var(--rail-selected);
 }
 
 @layer utilities {
@@ -159,11 +210,30 @@
   padding-right: 0;
 }
 
+/* How a section opens: at its full height in one step, with only its contents
+   fading in. Animating height forced a layout on every frame, and in an
+   extension popup each layout is several full-document passes while Chrome
+   re-measures the window — which is what made opening a campaign stutter.
+   Opacity and transform animate on the compositor without any layout. */
+@keyframes lurk-reveal {
+  from { opacity: 0; transform: translateY(-3px); }
+}
+.lurk-reveal {
+  animation: lurk-reveal 160ms ease-out;
+}
+
+/* Reduced motion switches transitions and animations off rather than making
+   them near-instant. A tiny transition-duration on every element leaves the
+   default transition-property, `all`, in force everywhere: any inherited
+   colour change then started a transition for every derived property on every
+   descendant — eleven thousand at once in a traced click — and the popup
+   stalled dispatching their events. Nothing listens for transition or
+   animation end events, so none are needed. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
-    animation-duration: 0.001ms !important;
-    transition-duration: 0.001ms !important;
+    animation: none !important;
+    transition: none !important;
   }
 }

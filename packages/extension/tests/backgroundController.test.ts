@@ -3,6 +3,7 @@ import {
   ALARM_NAME,
   createBackgroundAlarmListener,
   createBackgroundController,
+  isRankingOnlyPatch,
   KICK_CHALLENGES_ALARM_NAME,
   KICK_DROP_CLAIMS_ALARM_NAME,
   KICK_ALARM_NAME,
@@ -18,7 +19,7 @@ import { heartbeatContextKey } from "@lurkloot/core/heartbeatCadence";
 import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, Platform, PlatformAuthHealth, SchedulerState, WatchSession } from "@lurkloot/shared/models";
 import type { DiagnosticEvent, EngineEvent, EventEmitter } from "@lurkloot/shared/events";
 import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
-import { applySettingsPatch, DEFAULT_SETTINGS, isFarmingActive } from "@lurkloot/shared/settings";
+import { applySettingsPatch, DEFAULT_SETTINGS, IDLE_WATCHLIST_LIMIT, isFarmingActive } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "../src/core/storage";
 import type { PageFetcher, PlatformAdapter } from "@lurkloot/core/adapter";
 import { createKickFetcher, KickClaimState, KickDiscoveryState } from "@lurkloot/core/kick";
@@ -1410,6 +1411,122 @@ describe("background controller", () => {
         message: "Hermes reconnect failed",
       }));
     });
+  });
+
+  describe("reordering what is farmed", () => {
+    // Pins, the strategy and favourite games only reorder what discovery found,
+    // so a change to them re-selects at once instead of waiting a full refresh.
+    function twoCampaigns(env: ReturnType<typeof harness>) {
+      const sooner = { ...campaign("twitch"), id: "sooner", name: "Sooner", endsAt: "2099-01-01T00:00:00.000Z" };
+      const later = { ...campaign("twitch"), id: "later", name: "Later", endsAt: "2099-02-01T00:00:00.000Z" };
+      vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([sooner, later]);
+      vi.mocked(env.twitch.listCandidateChannels).mockImplementation(async (target) => [channel("twitch", {
+        username: `${target.id}-creator`, url: `https://www.twitch.tv/${target.id}-creator`,
+      })]);
+    }
+
+    it("switches to a newly pinned campaign without rediscovering", async () => {
+      const env = harness();
+      twoCampaigns(env);
+      await env.controller.tick(["twitch"]);
+      expect(env.state.sessions.twitch.campaignId).toBe("sooner");
+      const refreshes = vi.mocked(env.twitch.refreshCampaigns).mock.calls.length;
+
+      await env.controller.handleMessage({ type: "saveSettings", settingsPatch: { campaignPins: ["later"] }, tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] });
+
+      expect(env.state.sessions.twitch.campaignId).toBe("later");
+      expect(vi.mocked(env.twitch.refreshCampaigns).mock.calls.length).toBe(refreshes);
+    });
+
+    it("still rediscovers a new pin while only pins are farmed", async () => {
+      const env = harness(farming({ ...DEFAULT_SETTINGS, farmPinnedOnly: true, campaignPins: ["sooner"] }));
+      twoCampaigns(env);
+      await env.controller.tick(["twitch"]);
+      const refreshes = vi.mocked(env.twitch.refreshCampaigns).mock.calls.length;
+
+      await env.controller.handleMessage({ type: "saveSettings", settingsPatch: { campaignPins: ["later", "sooner"] }, tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] });
+
+      // Discovery skipped "later" while it was unpinned, so it needs its channels found.
+      expect(vi.mocked(env.twitch.refreshCampaigns).mock.calls.length).toBeGreaterThan(refreshes);
+      expect(env.state.sessions.twitch.campaignId).toBe("later");
+    });
+
+    it("tells a ranking-only save apart from one discovery reads", () => {
+      const off = { farmPinnedOnly: false };
+      expect(isRankingOnlyPatch({ campaignPins: ["a"] }, off)).toBe(true);
+      expect(isRankingOnlyPatch({ priorityMode: "lowest_availability" }, off)).toBe(true);
+      expect(isRankingOnlyPatch({ platform: { twitch: { favouriteCategories: [] } } }, off)).toBe(true);
+      expect(isRankingOnlyPatch({ campaignPins: ["a"] }, { farmPinnedOnly: true })).toBe(false);
+      expect(isRankingOnlyPatch({ farmPinnedOnly: true }, off)).toBe(false);
+      expect(isRankingOnlyPatch({ platform: { twitch: { favouriteCategories: [], categories: [] } } }, off)).toBe(false);
+      expect(isRankingOnlyPatch({}, off)).toBe(false);
+    });
+  });
+
+  describe("Idle Watchlist changes from the page", () => {
+    const listed = (env: ReturnType<typeof harness>) => env.settings.platform.twitch.idleWatchlistChannels;
+    const change = (env: ReturnType<typeof harness>, action: "add" | "remove", channel: string) =>
+      env.controller.handleMessage({ type: "updateIdleWatchlist", platform: "twitch", channel, action });
+
+    // The page menu read the list when it opened; the popup saved a newer one
+    // since. Applying the change to the stored list keeps both.
+    it("adds to the list as stored now, not as the page last read it", async () => {
+      const env = harness();
+      await env.controller.handleMessage({ type: "saveSettings", settingsPatch: { platform: { twitch: { idleWatchlistChannels: ["first", "second"] } } } });
+
+      await change(env, "add", "Third");
+
+      expect(listed(env)).toEqual(["first", "second", "third"]);
+    });
+
+    it("removes only that channel, and leaves a listed one where it is", async () => {
+      const env = harness();
+      await env.controller.handleMessage({ type: "saveSettings", settingsPatch: { platform: { twitch: { idleWatchlistChannels: ["first", "second", "third"] } } } });
+
+      await change(env, "add", "second");
+      expect(listed(env)).toEqual(["first", "second", "third"]);
+      await change(env, "remove", "SECOND");
+      expect(listed(env)).toEqual(["first", "third"]);
+    });
+
+    it("does not grow a full list", async () => {
+      const env = harness();
+      const full = Array.from({ length: IDLE_WATCHLIST_LIMIT }, (_, index) => `channel${index}`);
+      await env.controller.handleMessage({ type: "saveSettings", settingsPatch: { platform: { twitch: { idleWatchlistChannels: full } } } });
+
+      await change(env, "add", "extra");
+
+      expect(listed(env)).toEqual(full);
+    });
+  });
+
+  // A settings save drops the snapshot and throws away the refresh in flight.
+  // The tick used to decide as if nothing had been discovered, which handed
+  // the watch to a lower source until the save's follow-up tick switched back.
+  it("tells the scheduler when a settings save threw its discovery refresh away", async () => {
+    const env = harness();
+    const gate = deferred<void>();
+    let calls = 0;
+    vi.mocked(env.kick.refreshCampaigns).mockImplementation(async () => {
+      calls += 1;
+      if (calls === 1) await gate.promise;
+      return [campaign("kick")];
+    });
+
+    const tick = env.rawController.tick(["kick"]);
+    await vi.waitFor(() => expect(calls).toBe(1));
+    await env.rawController.handleMessage({ type: "saveSettings", settingsPatch: { platform: { kick: { excludedChannels: ["someone"] } } }, tickAfterSave: true, tickAfterSavePlatforms: ["kick"] });
+    gate.resolve();
+    await tick;
+
+    const messages = allDiagnostics(env).filter((event) => event.platform === "kick").map((event) => event.message);
+    expect(messages.find((message) => message.startsWith("Discovery refresh finished"))).toContain("discarded=stale_generation");
+    expect(messages).toContain("Campaign decision: idle (Waiting for campaign discovery after a settings change)");
+    expect(messages.some((message) => message.includes("No campaigns discovered"))).toBe(false);
+
+    // The save's own follow-up tick refreshes again and decides.
+    await env.rawController.settleBackgroundWork();
+    expect(env.state.sessions.kick).toMatchObject({ status: "watching", campaignId: campaign("kick").id });
   });
 
   it("attributes Kick discovery duration, skipped inventory and unique channel checks", async () => {
@@ -8058,7 +8175,7 @@ describe("background controller", () => {
     const higher = { ...campaign("twitch"), id: "higher" };
     const current = { ...campaign("twitch"), id: "current" };
     const currentChannel = channel("twitch");
-    const configured = farming({ ...DEFAULT_SETTINGS, campaignPriorities: { higher: 10 } });
+    const configured = farming({ ...DEFAULT_SETTINGS, campaignPins: ["higher"] });
     const initialState: SchedulerState = {
       ...structuredClone(DEFAULT_STATE),
       campaigns: { ...DEFAULT_STATE.campaigns, twitch: [higher, current] },

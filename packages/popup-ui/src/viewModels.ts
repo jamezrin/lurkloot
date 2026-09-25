@@ -1,5 +1,5 @@
-import type { DropCampaign, ExtensionSettings, Platform, WatchSession } from "@lurkloot/shared/models";
-import { NO_CATEGORY_ID, categoryPriorityScore, isUncategorizedCampaign } from "@lurkloot/shared/categories";
+import type { CategorySelection, DropCampaign, ExtensionSettings, Platform, WatchSession } from "@lurkloot/shared/models";
+import { NO_CATEGORY_ID, categoryListIndex, favouriteCategoryIndex, isCampaignCategoryBlocked, isUncategorizedCampaign } from "@lurkloot/shared/categories";
 import {
   campaignHasSubscriptionRewards,
   campaignHasWatchRewards,
@@ -11,13 +11,15 @@ import { isCampaignExpired, isCampaignFinished } from "@lurkloot/shared/campaign
 import { evaluateCampaignFarming } from "@lurkloot/shared/campaignFarming";
 export {
   campaignFilterCategories,
+  campaignSection,
   isCampaignExpired,
   isCampaignFinished,
-  isCampaignVisible,
+  isCampaignUpcoming,
+  type CampaignSection,
 } from "@lurkloot/shared/campaignFilters";
 import { CAMPAIGN_TINTS, GAME_ACCENTS, NO_CATEGORY_ACCENT, REWARD_TINTS } from "./constants";
 import { initials } from "./format";
-import type { CampaignLifecycleState, CampaignStats, CampaignView, ChannelLink, FarmingChannelView, GameItem, RewardView, StreamerItem, TFunction } from "./types";
+import type { CampaignLifecycleState, CampaignStats, CampaignTimeline, CampaignView, ChannelLink, FarmingChannelView, GameItem, RewardView, StreamerItem, TFunction } from "./types";
 
 const KICK_ASSET_BASE = "https://ext.kick.com";
 
@@ -27,25 +29,11 @@ function kickRewardImageUrl(value: string | undefined): string | undefined {
   return `${KICK_ASSET_BASE}/${value.replace(/^\/+/, "")}`;
 }
 
-export function sortCampaignsForPopup(campaigns: DropCampaign[], settings: ExtensionSettings): DropCampaign[] {
-  return [...campaigns].sort((left, right) => {
-    const leftPriority = settings.campaignPriorities[left.id] ?? left.priority;
-    const rightPriority = settings.campaignPriorities[right.id] ?? right.priority;
-    if (leftPriority != null && rightPriority != null && leftPriority !== rightPriority) return rightPriority - leftPriority;
-    if (leftPriority != null && rightPriority == null) return -1;
-    if (rightPriority != null && leftPriority == null) return 1;
-    const categoryOrder = categoryPriorityScore(left, settings.platform[left.platform])
-      - categoryPriorityScore(right, settings.platform[right.platform]);
-    if (categoryOrder !== 0) return categoryOrder;
-    const leftEnd = left.endsAt ? Date.parse(left.endsAt) : Number.MAX_SAFE_INTEGER;
-    const rightEnd = right.endsAt ? Date.parse(right.endsAt) : Number.MAX_SAFE_INTEGER;
-    return leftEnd - rightEnd;
-  });
-}
-
-export function prioritiesFromOrder(campaigns: Array<{ id: string }>): Record<string, number> {
-  return Object.fromEntries(campaigns.map((campaign, index) => [campaign.id, campaigns.length - index]));
-}
+// The popup renders exactly what the scheduler ranks: same function, same
+// settings, so the rank on a card is the position the engine acts on.
+export { rankCampaigns, campaignRankTier, pinCampaignAt, unpinCampaign, type CampaignRankTier } from "@lurkloot/shared/ranking";
+import { campaignRankTier } from "@lurkloot/shared/ranking";
+import { campaignSection } from "@lurkloot/shared/campaignFilters";
 
 export function gameItemsFromCampaigns(campaigns: DropCampaign[], t: TFunction): GameItem[] {
   const discovered = new Map<string, GameItem>();
@@ -69,6 +57,16 @@ export function gameItemsFromCampaigns(campaigns: DropCampaign[], t: TFunction):
       });
   });
   return [...discovered.values()].sort((left, right) => left.name.localeCompare(right.name));
+}
+
+// The campaign's category as the settings lists store it: the platform id with
+// the display name beside it, so a game starred or blocked from a campaign row
+// renders in Games even once no campaign of it is running. Uncategorized
+// campaigns have nothing to star or block.
+function campaignCategory(campaign: DropCampaign): CategorySelection | undefined {
+  if (isUncategorizedCampaign(campaign)) return undefined;
+  const name = campaign.gameName ?? campaign.categoryId ?? campaign.name;
+  return { id: campaign.categoryId ?? name, name, ...(campaign.gameImageUrl ? { imageUrl: campaign.gameImageUrl } : {}) };
 }
 
 function gameId(campaign: DropCampaign): string {
@@ -103,6 +101,59 @@ export function campaignStats(campaign: CampaignView): CampaignStats {
   return { kind, totalRequired, totalFarmed, remaining, progress, completed, totalRewards: campaign.rewards.length, nextReward, nextRewardRemaining, complete };
 }
 
+/** The campaign's watch rewards laid out on one timeline of watched minutes.
+ * Watch rewards count up together from the same viewing, so a reward sits at
+ * its own required minutes; one gated on others (a Twitch precondition) starts
+ * counting only once the last of them is claimable, so it sits after them. The
+ * fill comes from the same timeline, so a reward that is done never sits ahead
+ * of it. Undefined when nothing in the campaign is earned by watching. */
+export function campaignTimeline(campaign: CampaignView): CampaignTimeline | undefined {
+  const watchRewards = campaign.rewards.filter(isWatchReward);
+  if (watchRewards.length === 0) return undefined;
+  const byId = new Map(watchRewards.map((reward) => [reward.id, reward]));
+  const starts = new Map<string, number>();
+  const claimAt = (reward: RewardView, seen: Set<string>): number => start(reward, seen) + Math.max(0, reward.requiredMinutes);
+  function start(reward: RewardView, seen: Set<string>): number {
+    const known = starts.get(reward.id);
+    if (known !== undefined) return known;
+    // A cycle in the data would recurse forever; treat the repeat as free.
+    if (seen.has(reward.id)) return 0;
+    seen.add(reward.id);
+    const value = Math.max(0, ...(reward.preconditionIds ?? []).flatMap((id) => {
+      const precondition = byId.get(id);
+      return precondition ? [claimAt(precondition, seen)] : [];
+    }));
+    starts.set(reward.id, value);
+    return value;
+  }
+  const at = watchRewards.map((reward) => claimAt(reward, new Set()));
+  const totalMinutes = Math.max(...at);
+  if (totalMinutes <= 0) return undefined;
+  // How far the viewing has got: the furthest point any reward has reached. A
+  // done reward counts its whole span even when its watched minutes read 0
+  // after the claim; one that has not started yet says nothing.
+  const position = Math.min(totalMinutes, Math.max(0, ...watchRewards.map((reward, index) => {
+    if (rewardComplete(reward)) return at[index]!;
+    const watched = (reward.requiredMinutes * (reward.progress ?? 0)) / 100;
+    return watched > 0 ? starts.get(reward.id)! + watched : 0;
+  })));
+  return {
+    progress: position / totalMinutes,
+    totalMinutes,
+    remainingMinutes: totalMinutes - position,
+    markers: watchRewards.map((reward, index) => ({
+      id: reward.id,
+      name: reward.name,
+      at: at[index]! / totalMinutes,
+      reached: rewardComplete(reward) || position >= at[index]!,
+    })),
+  };
+}
+
+function indexOrUndefined(index: number): number | undefined {
+  return index === -1 ? undefined : index;
+}
+
 function rewardComplete(reward: RewardView): boolean {
   return reward.obtained || (reward.progress ?? 0) >= 100;
 }
@@ -115,14 +166,24 @@ export function campaignViewFromCampaign(
   feasibility?: { skipUnfinishableRewards: boolean; deadlineSafetyMarginMinutes: number; now?: number; settings?: ExtensionSettings },
 ): CampaignView {
   const farmingEvaluation = feasibility?.settings
-    ? evaluateCampaignFarming(campaign, feasibility.settings, { includePriorityMode: true, now: feasibility.now })
+    ? evaluateCampaignFarming(campaign, feasibility.settings, { includePinnedOnly: true, now: feasibility.now })
     : undefined;
+  const settings = feasibility?.settings;
   return {
     id: campaign.id,
     gameId: gameId(campaign),
     title: campaign.name,
     status: campaign.status,
     lifecycle: campaignLifecycleState(campaign),
+    pinned: settings ? settings.campaignPins.includes(campaign.id) : false,
+    pinIndex: settings ? indexOrUndefined(settings.campaignPins.indexOf(campaign.id)) : undefined,
+    category: campaignCategory(campaign),
+    favouriteIndex: settings ? indexOrUndefined(favouriteCategoryIndex(campaign, settings.platform[campaign.platform])) : undefined,
+    categoryBlocked: settings ? isCampaignCategoryBlocked(campaign, settings.platform[campaign.platform]) : false,
+    // Starred, whether or not a block currently stops the star from ranking.
+    favourited: settings ? categoryListIndex(campaign, settings.platform[campaign.platform].favouriteCategories) !== -1 : false,
+    rankTier: settings ? campaignRankTier(campaign, settings) : "strategy",
+    section: settings ? campaignSection(campaign, settings) : "queue",
     linked: campaign.accountLinked !== false,
     linkUrl: campaign.accountLinkUrl || undefined,
     pageUrl: campaign.url || undefined,
@@ -162,6 +223,7 @@ export function campaignViewFromCampaign(
         imageUrl: campaign.platform === "kick" ? kickRewardImageUrl(reward.imageUrl) : reward.imageUrl,
         claimGuidance,
         ineligibilityReason: deadlineFeasibility?.kind === "insufficient_time" ? "insufficient_time" : undefined,
+        preconditionIds: reward.preconditionRewardIds?.length ? reward.preconditionRewardIds : undefined,
       };
     }),
     hasWatchRewards: campaignHasWatchRewards(campaign),
@@ -222,4 +284,38 @@ export function streamerItemFromFallback(username: string, session: WatchSession
     subtitle: channel.categoryName,
     viewers: channel.viewerCount,
   };
+}
+
+/** Structural equality for plain view data: objects, arrays and primitives. */
+export function sameViewData(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true;
+  if (typeof left !== "object" || typeof right !== "object" || left === null || right === null) return false;
+  if (Array.isArray(left) !== Array.isArray(right)) return false;
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) return false;
+  return leftKeys.every((key) => sameViewData((left as Record<string, unknown>)[key], (right as Record<string, unknown>)[key]));
+}
+
+/** The value a render should hand down: the previous one when nothing in it
+ * changed, so memoised children see the same reference and skip. */
+export function reuseIfUnchanged<T>(previous: T | undefined, next: T): T {
+  return previous !== undefined && sameViewData(previous, next) ? previous : next;
+}
+
+/** Campaign views carried across a snapshot poll. Every poll builds fresh view
+ * objects; a campaign whose view is unchanged keeps its previous object, and a
+ * list with no change at all keeps its previous array, so a card re-renders
+ * only when something it shows actually changed. */
+export function reuseUnchangedViews(previous: CampaignView[] | undefined, next: CampaignView[]): CampaignView[] {
+  if (!previous) return next;
+  const byId = new Map(previous.map((view) => [view.id, view]));
+  let changed = previous.length !== next.length;
+  const shared = next.map((view, index) => {
+    const before = byId.get(view.id);
+    const kept = before && sameViewData(before, view) ? before : view;
+    if (kept !== previous[index]) changed = true;
+    return kept;
+  });
+  return changed ? shared : previous;
 }

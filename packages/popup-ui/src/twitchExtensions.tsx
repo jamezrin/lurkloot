@@ -1,11 +1,13 @@
 import React, { useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence } from "motion/react";
 import { AlertTriangle, Check, Gift, Package, Puzzle, Sparkles, type LucideIcon } from "lucide-react";
 import { Pill, ProgressBar, SectionHeader, Toggle, cn } from "./primitives";
 import type { ExtensionSettings, TwitchExtensionProviderId, TwitchExtensionSummary } from "@lurkloot/shared/models";
 import type { PopupAdapter } from "./types";
 import { useT } from "./context";
+import { WatchSourcePlace } from "./watchSourcePriority";
 import { SettingRow, SettingsSection } from "./settingsControls";
+import { Tip } from "./tooltip";
 
 type PillTone = React.ComponentProps<typeof Pill>["tone"];
 
@@ -60,9 +62,11 @@ interface Badge { key: string; icon: LucideIcon; tone: PillTone; label: string; 
 function StatusBadge({ badge }: { badge: Badge }) {
   const Icon = badge.icon;
   return (
-    <span role="img" aria-label={badge.label} title={badge.label} className="inline-flex">
-      <Pill tone={badge.tone}><Icon size={9} />{badge.count !== undefined ? <span className="tabular-nums">{badge.count}</span> : null}</Pill>
-    </span>
+    <Tip label={badge.label}>
+      <span role="img" aria-label={badge.label} className="inline-flex">
+        <Pill tone={badge.tone}><Icon size={9} />{badge.count !== undefined ? <span className="tabular-nums">{badge.count}</span> : null}</Pill>
+      </span>
+    </Tip>
   );
 }
 
@@ -119,19 +123,22 @@ function ProviderCard({ provider, summary, active, onSetup }: {
       {/* The full sentence ("Daily pack: 45/60 minutes") truncates beside the
           status pill at popup width, so the row shows the count and keeps the
           sentence as the tooltip and the <progress> accessible name. */}
-      <span className="min-w-0 flex-1 truncate text-[11px] font-medium tabular text-zinc-500 dark:text-zinc-400" title={progress?.label}>
-        {progress ? `${progress.earned}/${progress.required}` : null}
-      </span>
+      <Tip label={progress?.label}>
+        <span className="min-w-0 flex-1 truncate text-[11px] font-medium tabular text-zinc-500 dark:text-zinc-400">
+          {progress ? `${progress.earned}/${progress.required}` : null}
+        </span>
+      </Tip>
       {badges.map((badge) => <StatusBadge key={badge.key} badge={badge} />)}
       {summary?.reasonCode === "identity-required" && onSetup ? (
-        <button
-          type="button"
-          onClick={onSetup}
-          title={t("extensionAccountSetup")}
-          className="shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
-        >
-          <Pill tone="warning">{status}</Pill>
-        </button>
+        <Tip label={t("extensionAccountSetup")}>
+          <button
+            type="button"
+            onClick={onSetup}
+            className="shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+          >
+            <Pill tone="warning">{status}</Pill>
+          </button>
+        </Tip>
       ) : (
         <span className="shrink-0"><Pill tone={waiting ? "muted" : statusTone(summary)}>{status}</Pill></span>
       )}
@@ -170,15 +177,128 @@ export function TwitchExtensionDrops({ settings, summaries, activeProvider, onSe
       />
       <AnimatePresence initial={false}>
         {expanded ? (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
+          <div className="lurk-reveal">
             <div className="space-y-1.5">
               {enabled.map((provider) => (
                 <ProviderCard key={provider.id} provider={provider} summary={summaries?.[provider.id]} active={activeProvider === provider.id} onSetup={onSetup} />
               ))}
             </div>
-          </motion.div>
+          </div>
         ) : null}
       </AnimatePresence>
+    </section>
+  );
+}
+
+export const TWITCH_EXTENSION_PROVIDERS = PROVIDERS;
+
+/** One provider, in a destination of its own.
+ *
+ * The grouped list could only afford a name, a count and a couple of badges per
+ * provider; here everything the summary carries is visible at once — status,
+ * progress, every badge, the provider's own option, and the way to turn it off. */
+export function TwitchExtensionView({ providerId, settings, summary, active, pending, onEnabledChange, onOptionChange, onSetup, onChangeOrder }: {
+  providerId: TwitchExtensionProviderId;
+  settings: ExtensionSettings;
+  summary?: TwitchExtensionSummary;
+  active: boolean;
+  pending: boolean;
+  // Resolves false when the browser denied the permission the provider needs.
+  onEnabledChange(enabled: boolean): Promise<boolean | void>;
+  onOptionChange(enabled: boolean): void | Promise<void>;
+  onSetup?(): void;
+  onChangeOrder?(): void;
+}) {
+  const t = useT();
+  const provider = PROVIDERS.find((entry) => entry.id === providerId)!;
+  const Icon = provider.icon;
+  const enabled = settings.twitchExtensions[providerId].enabled;
+  const option = providerId === "nopixel"
+    ? settings.twitchExtensions.nopixel.autoOpenPacks
+    : settings.twitchExtensions.fortnite.allowTakeovers;
+  const { progress, badges } = providerDetails(providerId, summary, t);
+  const [failure, setFailure] = useState<string>();
+
+  // Same outcomes the settings section reports: a denied permission leaves
+  // the switch off, and saying why is the only thing that tells them apart.
+  async function changeEnabled(next: boolean): Promise<void> {
+    setFailure(undefined);
+    try {
+      const result = await onEnabledChange(next);
+      if (next && result === false) setFailure("extensionPermissionRequired");
+    } catch {
+      setFailure("extensionUnavailable");
+    }
+  }
+
+  return (
+    <section aria-label={provider.name} className="space-y-2">
+      <div className="flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", enabled ? "bg-[var(--accent-soft)] text-[var(--accent-text)]" : "bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500")}>
+          <Icon size={17} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 text-[13px] font-semibold text-zinc-900 dark:text-zinc-50">
+            {provider.name}
+            {active ? <span aria-hidden="true" className="h-1.5 w-1.5 animate-pulse rounded-full" style={{ backgroundColor: "var(--accent)" }} /> : null}
+          </div>
+          <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{t(provider.hint)}</div>
+        </div>
+        <Toggle checked={enabled} disabled={pending} onChange={(next) => void changeEnabled(next)} label={provider.name} />
+      </div>
+      {failure ? <p role="status" data-extension-failure className="px-1 text-[11px] text-amber-700 dark:text-amber-400">{t(failure)}</p> : null}
+
+      {enabled ? (
+        <>
+          <div className="space-y-2 rounded-2xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[12px] font-semibold text-zinc-800 dark:text-zinc-100">
+                {t(statusKey(providerId, summary))}
+              </span>
+              {progress ? (
+                <span className="font-mono text-[11px] tabular text-zinc-500 dark:text-zinc-400">{progress.earned}/{progress.required}</span>
+              ) : null}
+            </div>
+            {progress ? (
+              <>
+                <div className="h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+                  <div className="h-full rounded-full" style={{ width: `${progress.percent}%`, backgroundColor: "var(--accent)" }} />
+                </div>
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400">{progress.label}</p>
+              </>
+            ) : (
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">{t("extensionIdle")}</p>
+            )}
+            {badges.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5 pt-0.5">
+                {badges.map((badge) => <StatusBadge key={badge.key} badge={badge} />)}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="min-w-0 flex-1">
+              <div className="text-[12px] font-medium text-zinc-800 dark:text-zinc-100">{t(provider.optionTitle)}</div>
+              <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{t(provider.optionHint)}</div>
+            </div>
+            <Toggle checked={option} disabled={pending} onChange={onOptionChange} label={t(provider.optionTitle)} />
+          </div>
+        </>
+      ) : (
+        <p className="rounded-2xl border border-dashed border-zinc-200 p-3 text-[11px] leading-snug text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+          {t("extensionSettingsHint")}
+        </p>
+      )}
+
+      {onChangeOrder ? (
+        <WatchSourcePlace source={providerId} order={settings.platform.twitch.watchSourcePriority} onChangeOrder={onChangeOrder} />
+      ) : null}
+
+      {onSetup ? (
+        <button type="button" onClick={onSetup} className="text-[11px] font-semibold text-[var(--accent-text)] hover:underline">
+          {t("extensionAccountSetup")}
+        </button>
+      ) : null}
     </section>
   );
 }

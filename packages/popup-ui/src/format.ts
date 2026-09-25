@@ -40,3 +40,16 @@ export function formatViewers(count: number): string {
   if (count >= 1000) return `${(count / 1000).toFixed(count >= 10000 ? 0 : 1)}K`;
   return String(count);
 }
+
+// A campaign boundary as a reader wants it: weekday, date and time, in the
+// popup's own language rather than the browser's.
+export function formatDateTime(value: string, locale: string): string {
+  const time = Date.parse(value);
+  if (!value || Number.isNaN(time)) return "";
+  try {
+    // Catalog codes use an underscore (pt_BR, zh_CN); BCP 47 wants a hyphen.
+    return new Date(time).toLocaleString(locale.replace(/_/g, "-"), { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  } catch {
+    return new Date(time).toLocaleString();
+  }
+}

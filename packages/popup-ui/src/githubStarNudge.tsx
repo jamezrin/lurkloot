@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 import { GITHUB_REPO_URL } from "./constants";
 import { useT } from "./context";
 import { cn } from "./primitives";
+import { Tip } from "./tooltip";
 
 export function GithubStarNudge({ onStar, onDismiss }: { onStar(): void; onDismiss(): void }): React.ReactElement {
   const t = useT();
@@ -14,13 +15,13 @@ export function GithubStarNudge({ onStar, onDismiss }: { onStar(): void; onDismi
       exit={{ opacity: 0, y: -6 }}
       transition={{ duration: 0.18 }}
       className="relative flex items-start gap-2.5 rounded-xl px-3 py-2.5"
-      style={{ backgroundColor: "var(--accent-soft)" }}
+      style={{ backgroundColor: "var(--ink-soft)" }}
     >
-      <span className="mt-0.5 shrink-0" style={{ color: "var(--accent-text)" }}>
+      <span className="mt-0.5 shrink-0" style={{ color: "var(--ink-text)" }}>
         <GithubMark size={16} />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-[13px] font-semibold leading-tight" style={{ color: "var(--accent-text)" }}>
+        <p className="text-[13px] font-semibold leading-tight" style={{ color: "var(--ink-text)" }}>
           {t("githubStarNudgeTitle")}
         </p>
         <p className="mt-0.5 text-[11px] leading-snug text-zinc-600 dark:text-zinc-300">
@@ -31,25 +32,26 @@ export function GithubStarNudge({ onStar, onDismiss }: { onStar(): void; onDismi
           target="_blank"
           rel="noreferrer"
           onClick={onStar}
-          className="mt-2 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-semibold text-[var(--accent-contrast)] outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
-          style={{ backgroundColor: "var(--accent)" }}
+          className="mt-2 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-semibold text-[var(--ink-contrast)] outline-none transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]"
+          style={{ backgroundColor: "var(--ink)" }}
         >
           <GithubMark size={12} />
           {t("githubStarNudgeAction")}
         </a>
       </div>
-      <button
-        type="button"
-        title={t("rateNudgeDismiss")}
-        aria-label={t("rateNudgeDismiss")}
-        onClick={onDismiss}
-        className={cn(
-          "flex h-6 w-6 shrink-0 items-center justify-center rounded-md outline-none transition-colors",
-          "text-zinc-400 hover:bg-black/5 hover:text-zinc-700 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:text-zinc-500 dark:hover:bg-white/5 dark:hover:text-zinc-200",
-        )}
-      >
-        <X size={13} />
-      </button>
+      <Tip label={t("rateNudgeDismiss")}>
+        <button
+          type="button"
+          aria-label={t("rateNudgeDismiss")}
+          onClick={onDismiss}
+          className={cn(
+            "flex h-6 w-6 shrink-0 items-center justify-center rounded-md outline-none transition-colors",
+            "text-zinc-400 hover:bg-black/5 hover:text-zinc-700 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:text-zinc-500 dark:hover:bg-white/5 dark:hover:text-zinc-200",
+          )}
+        >
+          <X size={13} />
+        </button>
+      </Tip>
     </motion.div>
   );
 }
