@@ -3,6 +3,7 @@ import {
   ALARM_NAME,
   createBackgroundAlarmListener,
   createBackgroundController,
+  isRankingOnlyPatch,
   KICK_CHALLENGES_ALARM_NAME,
   KICK_DROP_CLAIMS_ALARM_NAME,
   KICK_ALARM_NAME,
@@ -1409,6 +1410,56 @@ describe("background controller", () => {
         level: "warn",
         message: "Hermes reconnect failed",
       }));
+    });
+  });
+
+  describe("reordering what is farmed", () => {
+    // Pins, the strategy and favourite games only reorder what discovery found,
+    // so a change to them re-selects at once instead of waiting a full refresh.
+    function twoCampaigns(env: ReturnType<typeof harness>) {
+      const sooner = { ...campaign("twitch"), id: "sooner", name: "Sooner", endsAt: "2099-01-01T00:00:00.000Z" };
+      const later = { ...campaign("twitch"), id: "later", name: "Later", endsAt: "2099-02-01T00:00:00.000Z" };
+      vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([sooner, later]);
+      vi.mocked(env.twitch.listCandidateChannels).mockImplementation(async (target) => [channel("twitch", {
+        username: `${target.id}-creator`, url: `https://www.twitch.tv/${target.id}-creator`,
+      })]);
+    }
+
+    it("switches to a newly pinned campaign without rediscovering", async () => {
+      const env = harness();
+      twoCampaigns(env);
+      await env.controller.tick(["twitch"]);
+      expect(env.state.sessions.twitch.campaignId).toBe("sooner");
+      const refreshes = vi.mocked(env.twitch.refreshCampaigns).mock.calls.length;
+
+      await env.controller.handleMessage({ type: "saveSettings", settingsPatch: { campaignPins: ["later"] }, tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] });
+
+      expect(env.state.sessions.twitch.campaignId).toBe("later");
+      expect(vi.mocked(env.twitch.refreshCampaigns).mock.calls.length).toBe(refreshes);
+    });
+
+    it("still rediscovers a new pin while only pins are farmed", async () => {
+      const env = harness(farming({ ...DEFAULT_SETTINGS, farmPinnedOnly: true, campaignPins: ["sooner"] }));
+      twoCampaigns(env);
+      await env.controller.tick(["twitch"]);
+      const refreshes = vi.mocked(env.twitch.refreshCampaigns).mock.calls.length;
+
+      await env.controller.handleMessage({ type: "saveSettings", settingsPatch: { campaignPins: ["later", "sooner"] }, tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] });
+
+      // Discovery skipped "later" while it was unpinned, so it needs its channels found.
+      expect(vi.mocked(env.twitch.refreshCampaigns).mock.calls.length).toBeGreaterThan(refreshes);
+      expect(env.state.sessions.twitch.campaignId).toBe("later");
+    });
+
+    it("tells a ranking-only save apart from one discovery reads", () => {
+      const off = { farmPinnedOnly: false };
+      expect(isRankingOnlyPatch({ campaignPins: ["a"] }, off)).toBe(true);
+      expect(isRankingOnlyPatch({ priorityMode: "lowest_availability" }, off)).toBe(true);
+      expect(isRankingOnlyPatch({ platform: { twitch: { favouriteCategories: [] } } }, off)).toBe(true);
+      expect(isRankingOnlyPatch({ campaignPins: ["a"] }, { farmPinnedOnly: true })).toBe(false);
+      expect(isRankingOnlyPatch({ farmPinnedOnly: true }, off)).toBe(false);
+      expect(isRankingOnlyPatch({ platform: { twitch: { favouriteCategories: [], categories: [] } } }, off)).toBe(false);
+      expect(isRankingOnlyPatch({}, off)).toBe(false);
     });
   });
 

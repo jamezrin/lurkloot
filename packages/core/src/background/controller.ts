@@ -106,6 +106,9 @@ export type TickTrigger =
   | "automation_toggle"
   | "platform_toggle"
   | "settings_saved"
+  // A save that only reordered what is farmed (pins, strategy, favourite
+  // games): the current discovery still holds, so the tick re-selects from it.
+  | "ranking_changed"
   | "manual_watch"
   | "manual_resume"
   | "manual_tick"
@@ -114,6 +117,24 @@ export type TickTrigger =
   | "claim_handoff"
   | "discovery_signal"
   | "unknown";
+
+// Settings that only decide the order campaigns are farmed in. Discovery does
+// not read them, so saving one keeps the discovered campaigns and channels.
+// Pins are the exception while "farm pinned only" is on: discovery then skips
+// unpinned campaigns, so a new pin needs its channels found.
+const RANKING_SETTING_KEYS = new Set(["priorityMode", "campaignPins"]);
+const RANKING_PLATFORM_SETTING_KEYS = new Set(["favouriteCategories"]);
+
+export function isRankingOnlyPatch(patch: SettingsPatch, current: Pick<EngineSettings, "farmPinnedOnly">): boolean {
+  const keys = Object.keys(patch);
+  if (keys.length === 0) return false;
+  if ("campaignPins" in patch && current.farmPinnedOnly) return false;
+  return keys.every((key) => {
+    if (key !== "platform") return RANKING_SETTING_KEYS.has(key);
+    return Object.values(patch.platform ?? {}).every((platformPatch) =>
+      Object.keys(platformPatch ?? {}).every((platformKey) => RANKING_PLATFORM_SETTING_KEYS.has(platformKey)));
+  });
+}
 type TickDiagnosticContext = Required<Pick<
   DiagnosticEvent,
   "globalTickId" | "platformTickId"
@@ -1768,8 +1789,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       const invalidatedPlatforms = patchKeys.every((key) => key === "platform") && patch.platform
         ? PLATFORMS.filter((platform) => patch.platform?.[platform] !== undefined)
         : PLATFORMS;
+      const rankingOnly = isRankingOnlyPatch(patch, await deps.loadSettings());
       for (const platform of invalidatedPlatforms) {
-        discoveryLanes[platform].invalidate();
+        // Discovery does not depend on the ranking, so a reorder keeps it and
+        // only the selection made from it is redone.
+        if (!rankingOnly) discoveryLanes[platform].invalidate();
         invalidateSelection(platform);
       }
       if (!deps.applySettingsPatch) {
@@ -2248,7 +2272,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     // Equal-priority reasons keep their first trigger and all diagnostic counts.
     if (selectionBypassesBackoff(trigger)) return 3;
     if (selectionIsForced(trigger)) return 2;
-    return trigger === "alarm" || trigger === "discovery_signal" || trigger === "unknown" ? 0 : 1;
+    // A ranking change is lowest too: merged with anything that needs fresh
+    // discovery, that trigger wins and the tick refreshes.
+    return trigger === "alarm" || trigger === "discovery_signal" || trigger === "unknown" || trigger === "ranking_changed" ? 0 : 1;
   }
 
   function executePlatformTick(platform: Platform, request: TickRequest): void {
@@ -2655,7 +2681,12 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     const currentState = await withStateCommit(() => deps.loadState());
     const discoveryPlatforms = schedulerPlatforms.filter((platform) =>
       currentState.authHealth[platform].status === "healthy");
-    await refreshDiscovery(discoveryPlatforms, selectionBypassesBackoff(trigger), tickAdapters);
+    // A ranking change re-selects from the discovery already held; only a
+    // platform without one refreshes.
+    const refreshPlatforms = trigger === "ranking_changed"
+      ? discoveryPlatforms.filter((platform) => !discoveryLanes[platform].current().snapshot)
+      : discoveryPlatforms;
+    await refreshDiscovery(refreshPlatforms, selectionBypassesBackoff(trigger), tickAdapters);
     signal.throwIfAborted();
     const preparedSelections: Partial<Record<Platform, CommittedSelection>> = {};
     await Promise.all(discoveryPlatforms.map(async (selectionPlatform) => {
@@ -4796,9 +4827,12 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     }
 
     if (message.type === "saveSettings") {
-      const settings = await updateStoredSettings(message.settingsPatch);
+      let rankingOnly = false;
+      const settings = await updateStoredSettings(message.settingsPatch, undefined, (current) => {
+        rankingOnly = isRankingOnlyPatch(message.settingsPatch, current);
+      });
       if (message.tickAfterSave && isFarmingActive(settings)) {
-        tickInBackground(message.tickAfterSavePlatforms, "settings_saved");
+        tickInBackground(message.tickAfterSavePlatforms, rankingOnly ? "ranking_changed" : "settings_saved");
       }
       return snapshot();
     }
