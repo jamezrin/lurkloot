@@ -276,6 +276,20 @@ describe("watch-source policy while discovery was discarded", () => {
     ]));
   });
 
+  // Turning automation off mid-tick throws the refresh away too, often right
+  // after a watch was armed and before its first heartbeat.
+  it("keeps a drop watch that has not had its first heartbeat yet", async () => {
+    const s = setup();
+    s.settings.platform.twitch.idleWatchlistChannels = [];
+    const drops = await s.tick(s.state, async () => undefined);
+    expect(drops.state.sessions.twitch.lastHeartbeatAt).toBeUndefined();
+
+    const next = await discardedTick(s, drops.state, nopixelLive(s));
+
+    expect(next.state.sessions.twitch).toMatchObject({ status: "watching", campaignId: "drop" });
+    expect(next.state.sessions.twitch.supplementalWatch).toBeUndefined();
+  });
+
   it("keeps a supplemental watch it was already on", async () => {
     const s = setup();
     s.settings.platform.twitch.idleWatchlistChannels = [];

@@ -826,7 +826,10 @@ function retainHealthyWatchOnAmbiguousDiscovery(
     onDecline?.(`Not keeping current watch while discovery is incomplete: ${reason}`);
     return undefined;
   };
-  if (!isSessionHealthy(previous)) return decline("the watch is unhealthy");
+  // A watch armed moments ago has no heartbeat yet; that is new, not broken,
+  // and dropping it here would stop it only for the next tick to restart it.
+  const justStarted = previous.watchMode === "tabless" && !previous.lastHeartbeatAt;
+  if (!justStarted && !isSessionHealthy(previous)) return decline("the watch is unhealthy");
   const campaign = campaigns.find((candidate) => candidate.id === previous.campaignId);
   const reward = campaign?.rewards.find((candidate) => candidate.id === previous.rewardId);
   if (!campaign) return decline("its campaign is no longer known");
