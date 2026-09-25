@@ -1,5 +1,54 @@
 [
   {
+    "version": "1.14.0",
+    "changes": [
+      {
+        "kind": "new",
+        "text": "Added beta support for Twitch Extensions, farmed without opening a Twitch tab. Each extension stays off until you enable it, and enabling it asks the browser for access to that extension’s site. NoPixel V earns the daily packs and joins giveaways, and can open packs for you if you turn that on; opening a pack consumes it and cannot be undone. Fortnite collects sprites and phase rewards, and can start takeovers during an interactive phase if you turn that on. Drop campaigns are still watched first unless you change the watch-source priority."
+      },
+      {
+        "kind": "new",
+        "text": "The Queue now shows the exact order Lurkloot farms in. Pinned campaigns come first, in the order you drag or type. Campaigns for games you have starred come next, in the order you starred them. Everything else follows your strategy, Ending soonest or Low availability first. A higher campaign takes over as soon as it can be farmed, even partway through a reward, and the reward it interrupted keeps its watched time until it is back on top. Changes to pins, stars, or the strategy apply immediately. When you update, your existing campaign order becomes pins, “Priority list only” becomes “Farm pinned only”, and a category list you had set to exclude becomes blocked games."
+      },
+      {
+        "kind": "new",
+        "text": "Games is now its own page. Choose between farming every game with live drops except the ones you block, or only the games you tick. A blocked game is never farmed in either mode. Search filters the list and can add a game from Twitch or Kick."
+      },
+      {
+        "kind": "new",
+        "text": "The popup has been rebuilt as a wider workspace. A rail on the left switches between Queue, Completed, Games, the other watch sources, Activity, and Settings, and a strip along the top shows what is being watched right now. In smaller windows, including the panel on Twitch and Kick, the layout shrinks to fit and the rail folds down to icons."
+      },
+      {
+        "kind": "new",
+        "text": "You can now choose which source is watched first, separately for Twitch and Kick, under Watch-source priority in each platform’s settings. Twitch defaults to Drops, then NoPixel V, then Fortnite, then the Idle Watchlist. Kick defaults to Drops, then the Idle Watchlist. Lurkloot watches the first source that has something to watch and skips any that are disabled or unavailable. If you had turned off “Prioritize drops over the Idle Watchlist”, the Idle Watchlist moves to the front. The CLI follows the same order."
+      },
+      {
+        "kind": "improved",
+        "text": "Each campaign row shows the game, when it ends, and how much watching is left, with a progress bar marking where each reward becomes claimable. Time left counts the longest watch the campaign needs, so rewards at 30 minutes, 1, 2, and 4 hours need 4 hours, not 7½. Opening a row shows its rewards, why it sits where it does, and buttons to pin it, star its game, or exclude it. An excluded campaign moves under Skipped in the Queue, with a button to put it back, and finished campaigns move under Completed."
+      },
+      {
+        "kind": "improved",
+        "text": "The Idle Watchlist’s add field now stays open. It accepts a channel name or a link, and tells you when the channel is already listed or the list is full at 20."
+      },
+      {
+        "kind": "improved",
+        "text": "The Lurkloot button on Twitch and Kick is now split in two. The button still opens the panel, and its menu adds or removes the current channel from the Idle Watchlist."
+      },
+      {
+        "kind": "fixed",
+        "text": "Fixed Twitch campaigns staying on “Not linked” and being skipped even with unlinked farming turned on. Campaigns you can watch without a linked account are now farmed when that setting is on, and the link state is read from the latest inventory instead of an older answer. The link is still shown, because some game rewards need it before they can be delivered."
+      },
+      {
+        "kind": "fixed",
+        "text": "Fixed farming staying paused after you stopped watching a stream yourself, until the next scheduled check. Lurkloot now pauses and resumes as soon as playback starts or stops, the tab is hidden, or you close it or leave the channel. Another stream you are still watching keeps farming paused. Settings, inventory, clips, and past broadcasts do not count as watching."
+      },
+      {
+        "kind": "fixed",
+        "text": "Fixed Kick opening a background tab for claims a tab cannot fix. A claim Kick rejects outright, such as one for an account that is not linked, is now reported with account-link guidance instead of opening kick.com. Login failures, blocks, and network errors still fall back to a page."
+      }
+    ]
+  },
+  {
     "version": "1.13.0",
     "changes": [
       {
