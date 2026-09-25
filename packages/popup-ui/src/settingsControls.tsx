@@ -88,8 +88,11 @@ export function SettingsSection({ id, title, description, badge, forceExpanded, 
 
 // A labelled divider inside the flat settings flow. Groups do not collapse:
 // search is the direct route to a long page, and all advanced settings remain
-// available without a separate visual warning state.
-export function SettingsGroup({ title, description, badge, children }: {
+// available without a separate visual warning state. The anchor id sits on the
+// group itself rather than on a wrapper, so `first:` only matches the real first
+// group and every later group keeps its divider.
+export function SettingsGroup({ id, title, description, badge, children }: {
+  id?: string;
   title: string;
   // Groups whose whole body is one editor carry that editor's subtitle and count
   // here, so the editor itself renders bare instead of repeating the heading.
@@ -99,7 +102,7 @@ export function SettingsGroup({ title, description, badge, children }: {
   children: React.ReactNode;
 }) {
   return (
-    <div className="mt-2 border-t border-zinc-200 pt-3 first:mt-0 first:border-t-0 first:pt-0 dark:border-zinc-800">
+    <div id={id ? `settings-group-${id}` : undefined} className="mt-2 border-t border-zinc-200 pt-3 first:mt-0 first:border-t-0 first:pt-0 dark:border-zinc-800">
       <div className="mb-0.5 flex items-center gap-1.5">
         <span className="text-[12.5px] font-semibold text-zinc-900 dark:text-zinc-50">{title}</span>
         {badge}
