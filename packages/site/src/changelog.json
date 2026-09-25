@@ -41,10 +41,6 @@
       {
         "kind": "fixed",
         "text": "Fixed Kick opening a background tab for a claim the tab cannot fix. A claim rejected because the account is not linked, and other errors Kick has already answered for good, are reported as they are, with the same account-link guidance, and kick.com stays closed. Login failures, blocks, and network errors still fall back to a page."
-      },
-      {
-        "kind": "fixed",
-        "text": "Fixed the NoPixel V and Fortnite switches staying greyed out on their old position until the next check finished, which could take the better part of a minute. The switch now updates as soon as the change is saved."
       }
     ]
   },
