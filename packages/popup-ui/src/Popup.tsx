@@ -530,8 +530,17 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   async function setExtensionEnabled(provider: TwitchExtensionProviderId, enabled: boolean): Promise<boolean> {
     const result = await changeTwitchExtensionEnabled(adapter, provider, enabled);
     if (enabled && !result) return false;
-    const next = await adapter.send<RuntimeSnapshot>({ type: "tickNow" });
-    setSnapshot(snapshotWithMergedSettings(next));
+    // The background has committed the setting; show it now. The follow-up
+    // tick can take tens of seconds, and the poll never refreshes settings, so
+    // waiting on it would leave the switch greyed out on its old position.
+    const nextSettings = applySettingsPatch(settingsRef.current ?? snapshot!.settings, { twitchExtensions: { [provider]: { enabled: result } } } as SettingsPatch);
+    settingsRef.current = nextSettings;
+    setSnapshot((current) => current ? { ...current, settings: nextSettings } : current);
+    const generation = snapshotRequestGenerationRef.current;
+    void adapter.send<RuntimeSnapshot>({ type: "tickNow" }).then((next) => {
+      if (generation !== snapshotRequestGenerationRef.current) return;
+      setSnapshot(snapshotPreservingLocalSettings(next));
+    }, () => undefined);
     return result;
   }
 
