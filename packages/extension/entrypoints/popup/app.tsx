@@ -130,7 +130,7 @@ export const POPUP_ADAPTER: PopupAdapter = SCREENSHOT_MODE || PROMO_MODE
 
 export function PopupApp(): React.ReactElement {
   if (PROMO_MODE && URL_PARAMS.has("draft")) {
-    return <StorePromoDraft format={PROMO_FORMAT} />;
+    return <StorePromoDraft format={PROMO_FORMAT} locale={POPUP_LOCALE} />;
   }
 
   if (PROMO_MODE) {
@@ -141,8 +141,8 @@ export function PopupApp(): React.ReactElement {
     const requested = URL_PARAMS.get("draft");
     const story = requested === "games" || requested === "kick" || requested === "watchlist" || requested === "extensions" ? requested : "queue";
     return (
-      <StoreScreenshotDraft story={story}>
-        <Popup adapter={POPUP_ADAPTER} initialState={{ preview: true, locale: "en", variant: screenshotVariant(story === "kick" ? "easy" : story === "watchlist" ? "extras" : "drops") }} />
+      <StoreScreenshotDraft story={story} locale={POPUP_LOCALE}>
+        <Popup adapter={POPUP_ADAPTER} initialState={{ preview: true, locale: POPUP_LOCALE, variant: screenshotVariant(story === "kick" ? "easy" : story === "watchlist" ? "extras" : "drops") }} />
       </StoreScreenshotDraft>
     );
   }
