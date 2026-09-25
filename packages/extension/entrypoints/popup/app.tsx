@@ -3,16 +3,12 @@ import { browser } from "wxt/browser";
 import type React from "react";
 import {
   Popup,
-  PromoTile,
-  StoreScreenshot,
-  StoreScreenshotDraft,
-  StorePromoDraft,
+  StoreArtwork,
+  StorePromo,
   createDemoPopupAdapter,
   openHttpsLink,
   screenshotVariant,
-  variantShowsPopup,
   type PopupAdapter,
-  type ScreenshotVariant,
 } from "@lurkloot/popup-ui";
 import { SUPPORTED_LOCALES } from "@lurkloot/shared/settings";
 import type { SupportedLocale } from "@lurkloot/shared/models";
@@ -34,7 +30,6 @@ export const SCREENSHOT_MODE = URL_PARAMS.get("screenshot") === "store";
 export const PROMO_MODE = URL_PARAMS.get("screenshot") === "promo";
 export const PROMO_FORMAT: "small" | "marquee" =
   URL_PARAMS.get("format") === "marquee" ? "marquee" : "small";
-export const SCREENSHOT_VARIANT: ScreenshotVariant = screenshotVariant(URL_PARAMS.get("variant"));
 export const POPUP_LOCALE = localeFromUrl();
 
 export function createExtensionPopupAdapter(): PopupAdapter {
@@ -129,31 +124,17 @@ export const POPUP_ADAPTER: PopupAdapter = SCREENSHOT_MODE || PROMO_MODE
   : createExtensionPopupAdapter();
 
 export function PopupApp(): React.ReactElement {
-  if (PROMO_MODE && URL_PARAMS.has("draft")) {
-    return <StorePromoDraft format={PROMO_FORMAT} locale={POPUP_LOCALE} />;
-  }
-
   if (PROMO_MODE) {
-    return <PromoTile format={PROMO_FORMAT} locale={POPUP_LOCALE} />;
-  }
-
-  if (SCREENSHOT_MODE && URL_PARAMS.has("draft")) {
-    const requested = URL_PARAMS.get("draft");
-    const story = requested === "games" || requested === "kick" || requested === "watchlist" || requested === "extensions" ? requested : "queue";
-    return (
-      <StoreScreenshotDraft story={story} locale={POPUP_LOCALE}>
-        <Popup adapter={POPUP_ADAPTER} initialState={{ preview: true, locale: POPUP_LOCALE, variant: screenshotVariant(story === "kick" ? "easy" : story === "watchlist" ? "extras" : "drops") }} />
-      </StoreScreenshotDraft>
-    );
+    return <StorePromo format={PROMO_FORMAT} locale={POPUP_LOCALE} />;
   }
 
   if (SCREENSHOT_MODE) {
+    const requested = URL_PARAMS.get("story");
+    const story = requested === "games" || requested === "kick" || requested === "watchlist" || requested === "extensions" ? requested : "queue";
     return (
-      <StoreScreenshot variant={SCREENSHOT_VARIANT} locale={POPUP_LOCALE}>
-        {variantShowsPopup(SCREENSHOT_VARIANT) ? (
-          <Popup adapter={POPUP_ADAPTER} initialState={{ preview: true, locale: POPUP_LOCALE, variant: SCREENSHOT_VARIANT }} />
-        ) : null}
-      </StoreScreenshot>
+      <StoreArtwork story={story} locale={POPUP_LOCALE}>
+        <Popup adapter={POPUP_ADAPTER} initialState={{ preview: true, locale: POPUP_LOCALE, variant: screenshotVariant(story === "kick" ? "easy" : story === "watchlist" ? "extras" : "drops") }} />
+      </StoreArtwork>
     );
   }
 
