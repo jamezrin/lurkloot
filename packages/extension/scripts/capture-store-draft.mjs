@@ -11,11 +11,17 @@ const root = resolve(".output/chrome-mv3");
 const outputDir = resolve(process.env.STORE_DRAFT_OUTPUT ?? "/tmp/lurkloot-store-draft");
 const candidates = ["popup.html", "popup/index.html"];
 
-// English-only art direction draft; does not upload anything.
+// Store artwork drafts, one folder per locale; does not upload anything.
 // From the repository root:
 //   pnpm build
-//   pnpm --filter @lurkloot/extension exec node scripts/capture-store-draft.mjs
+//   pnpm --filter @lurkloot/extension exec node scripts/capture-store-draft.mjs [locale...]
 // Optional: STORE_DRAFT_OUTPUT=/path/to/drafts
+const ALL_LOCALES = ["en", "es", "fr", "it", "ru", "de", "zh_CN", "hi", "pt_BR", "ar", "tr"];
+const requested = process.argv.slice(2);
+const locales = requested.length > 0 ? requested.filter((code) => ALL_LOCALES.includes(code)) : ALL_LOCALES;
+if (locales.length === 0) {
+  throw new Error(`No known locales in: ${requested.join(", ")}. Known: ${ALL_LOCALES.join(", ")}`);
+}
 
 const contentTypes = {
   ".css": "text/css; charset=utf-8",
@@ -117,34 +123,38 @@ try {
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
-  await mkdir(outputDir, { recursive: true });
-  for (const story of ["queue", "games", "kick", "watchlist", "extensions"]) {
-    await page.goto(`${origin}${popupPath}?screenshot=store&draft=${story}&locale=en`, { waitUntil: "networkidle" });
-    await page.waitForSelector(story === "extensions" ? '[data-extension-overview]' : story === "watchlist" ? '#idle-watchlist' : 'main[data-view="queue"] [data-campaign-id]');
-    if (story === "games") {
-      await page.locator('button[data-view="games"]').click();
-      await page.waitForSelector('[data-game]');
+  for (const locale of locales) {
+    const localeDir = join(outputDir, locale);
+    await mkdir(localeDir, { recursive: true });
+    await page.setViewportSize({ width: 1280, height: 800 });
+    for (const story of ["queue", "games", "kick", "watchlist", "extensions"]) {
+      await page.goto(`${origin}${popupPath}?screenshot=store&draft=${story}&locale=${locale}`, { waitUntil: "networkidle" });
+      await page.waitForSelector(story === "extensions" ? '[data-extension-overview]' : story === "watchlist" ? '#idle-watchlist' : 'main[data-view="queue"] [data-campaign-id]');
+      if (story === "games") {
+        await page.locator('button[data-view="games"]').click();
+        await page.waitForSelector('[data-game]');
+      }
+      await page.evaluate(async () => {
+        await document.fonts.ready;
+        await Promise.all([...document.images].map(image => image.decode().catch(() => undefined)));
+      });
+      await page.waitForTimeout(500);
+      const bounds = await page.locator('[data-draft-popup]').boundingBox();
+      if (!bounds || bounds.width !== 720 || bounds.height !== 600 || bounds.x + bounds.width > 1280 || bounds.y + bounds.height > 800) throw new Error(`Clipped popup: ${JSON.stringify(bounds)}`);
+      await page.screenshot({ path: join(localeDir, `${story}-1280x800.png`), clip: { x: 0, y: 0, width: 1280, height: 800 } });
+      const visibleText = (await page.locator('body').innerText()).replaceAll('Chrome Runner Skin', '');
+      if (/NoPixel|Fortnite|Firefox|Chrome/i.test(visibleText)) throw new Error(`Unexpected named provider or browser in ${story}: ${visibleText.match(/.{0,60}(?:NoPixel|Fortnite|Firefox|Chrome).{0,60}/gi)}`);
+      console.log(`[${locale}] Captured ${story}: ${JSON.stringify(bounds)}`);
     }
-    await page.evaluate(async () => {
-      await document.fonts.ready;
-      await Promise.all([...document.images].map(image => image.decode().catch(() => undefined)));
-    });
-    await page.waitForTimeout(500);
-    const bounds = await page.locator('[data-draft-popup]').boundingBox();
-    if (!bounds || bounds.width !== 720 || bounds.height !== 600 || bounds.x + bounds.width > 1280 || bounds.y + bounds.height > 800) throw new Error(`Clipped popup: ${JSON.stringify(bounds)}`);
-    await page.screenshot({ path: join(outputDir, `${story}-1280x800.png`), clip: { x: 0, y: 0, width: 1280, height: 800 } });
-    const visibleText = (await page.locator('body').innerText()).replaceAll('Chrome Runner Skin', '');
-    if (/NoPixel|Fortnite|Firefox|Chrome/i.test(visibleText)) throw new Error(`Unexpected named provider or browser in ${story}: ${visibleText.match(/.{0,60}(?:NoPixel|Fortnite|Firefox|Chrome).{0,60}/gi)}`);
-    console.log(`Captured ${story}: ${JSON.stringify(bounds)}`);
-  }
-  for (const format of [{ id: "small", width: 440, height: 280 }, { id: "marquee", width: 1400, height: 560 }]) {
-    await page.setViewportSize({ width: format.width, height: format.height });
-    await page.goto(`${origin}${popupPath}?screenshot=promo&draft=1&format=${format.id}&locale=en`, { waitUntil: "networkidle" });
-    await page.waitForSelector('[data-promo-draft]');
-    await page.evaluate(() => document.fonts.ready);
-    await page.screenshot({ path: join(outputDir, `promo-${format.id}-${format.width}x${format.height}.png`), omitBackground: false });
-    await execFileAsync("magick", [join(outputDir, `promo-${format.id}-${format.width}x${format.height}.png`), "-alpha", "off", "-define", "png:color-type=2", join(outputDir, `promo-${format.id}-${format.width}x${format.height}.png`)]);
-    console.log(`Captured promo ${format.id}`);
+    for (const format of [{ id: "small", width: 440, height: 280 }, { id: "marquee", width: 1400, height: 560 }]) {
+      await page.setViewportSize({ width: format.width, height: format.height });
+      await page.goto(`${origin}${popupPath}?screenshot=promo&draft=1&format=${format.id}&locale=${locale}`, { waitUntil: "networkidle" });
+      await page.waitForSelector('[data-promo-draft]');
+      await page.evaluate(() => document.fonts.ready);
+      await page.screenshot({ path: join(localeDir, `promo-${format.id}-${format.width}x${format.height}.png`), omitBackground: false });
+      await execFileAsync("magick", [join(localeDir, `promo-${format.id}-${format.width}x${format.height}.png`), "-alpha", "off", "-define", "png:color-type=2", join(localeDir, `promo-${format.id}-${format.width}x${format.height}.png`)]);
+      console.log(`[${locale}] Captured promo ${format.id}`);
+    }
   }
   if (errors.length) throw new Error(errors.join("\n"));
 } finally {
