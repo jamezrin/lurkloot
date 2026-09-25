@@ -1,35 +1,30 @@
 ---
-// Section order tells the story: hook (Hero, Why), show (How, the popup demo),
-// depth (Features, then the headless CLI that runs the same engine), proof
-// (Coverage: platforms + games), trust (Privacy, FAQ), close (CTA with the
-// objection-buster strip).
 import Base from "../layouts/Base.astro";
-import Hero from "../components/Hero.astro";
-import Manifesto from "../components/Manifesto.astro";
-import HowItWorks from "../components/HowItWorks.astro";
-import LiveDemo from "../components/LiveDemo.astro";
-import Features from "../components/Features.astro";
-import Cli from "../components/Cli.astro";
-import Coverage from "../components/Coverage.astro";
-import Privacy from "../components/Privacy.astro";
-import Faq from "../components/Faq.astro";
-import Cta from "../components/Cta.astro";
-import Footer from "../components/Footer.astro";
-import { faqItems } from "../faq";
+import Navigation from "../components/home/Navigation.astro";
+import Footer from "../components/home/Footer.astro";
+import Opening from "../components/home/Opening.astro";
+import Workflow from "../components/home/Workflow.astro";
+import RunAnywhere from "../components/home/RunAnywhere.astro";
+import Questions from "../components/home/Questions.astro";
+import Closing from "../components/home/Closing.astro";
+import { homeFaqItems } from "../homeFaq";
+import "../styles/home.css";
 ---
-
-<Base faq={faqItems}>
-  <main>
-    <Hero />
-    <Manifesto />
-    <HowItWorks />
-    <LiveDemo />
-    <Features />
-    <Cli />
-    <Coverage />
-    <Privacy />
-    <Faq />
-    <Cta />
-  </main>
-  <Footer />
+<Base faq={homeFaqItems} theme="mono">
+  <a class="home-skip" href="#content">Skip to content</a>
+  <div class="home">
+    <Navigation />
+    <main id="content">
+      <Opening />
+      <Workflow />
+      <RunAnywhere />
+      <Questions />
+      <Closing />
+    </main>
+    <Footer />
+  </div>
 </Base>
+
+<script>
+  import "../scripts/home-motion.ts";
+</script>

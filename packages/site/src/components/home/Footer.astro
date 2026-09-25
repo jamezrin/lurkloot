@@ -1,0 +1,8 @@
+---
+import { LINKS } from "../../consts";
+import Brand from "./Brand.astro";
+---
+<footer class="home-footer home-wrap">
+  <div class="home-footer-top"><Brand /><nav aria-label="Footer navigation"><a href={LINKS.twitchFarmer}>Twitch</a><a href={LINKS.kickFarmer}>Kick</a><a href={LINKS.privacy}>Privacy</a><a href={LINKS.changelog}>Changelog</a><a href={LINKS.github} target="_blank" rel="noopener">Source code</a></nav></div>
+  <div class="home-footer-bottom"><span>Free. Open source. Made by <a href={LINKS.x} target="_blank" rel="noopener">jamezrin</a>.</span><span>Independent project. Not affiliated with Twitch or Kick.</span></div>
+</footer>

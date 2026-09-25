@@ -6,6 +6,11 @@ export interface FaqItem {
   a: string;
 }
 
+export const multipleAccountsFaq: FaqItem = {
+  q: "Can I farm drops on multiple accounts at once?",
+  a: "Yes, one account per browser profile. The extension farms whichever account is signed in to the browser it runs in, so create a separate profile for each account (in Chrome, click your profile icon in the top-right corner), sign in to a different Twitch or Kick account in each one, and install Lurkloot in every profile. Each profile farms on its own with its own settings; there is no single dashboard across them. For many accounts, the headless CLI works the same way: give each account its own config directory, or its own Docker container and data volume.",
+};
+
 export const faqItems: FaqItem[] = [
   {
     q: "Is Lurkloot free?",
@@ -23,10 +28,7 @@ export const faqItems: FaqItem[] = [
     q: "Can I run it without a browser, on a server?",
     a: "Yes. Alongside the browser extension, Lurkloot ships a headless command-line version that runs the exact same farming engine with no browser at all — both Twitch and Kick farm over plain HTTP. There is a prebuilt, multi-arch Docker image, so you can leave it running 24/7 on a server, a NAS, or a Raspberry Pi. You authorize each platform once with a device-login code, then it just collects.",
   },
-  {
-    q: "Can I farm drops on multiple accounts at once?",
-    a: "Yes, one account per browser profile. The extension farms whichever account is signed in to the browser it runs in, so create a separate profile for each account (in Chrome, click your profile icon in the top-right corner), sign in to a different Twitch or Kick account in each one, and install Lurkloot in every profile. Each profile farms on its own with its own settings; there is no single dashboard across them. For many accounts, the headless CLI works the same way: give each account its own config directory, or its own Docker container and data volume.",
-  },
+  multipleAccountsFaq,
   {
     q: "Is Lurkloot open source?",
     a: "Yes. The whole codebase is open source on GitHub — the extension, the headless CLI, and the shared farming engine. You can read every line, build it yourself, and confirm exactly what it does. Since nothing is hidden and nothing phones home, you do not have to take our word for the privacy claims.",
@@ -76,7 +78,7 @@ export const twitchFaqItems: FaqItem[] = [
   },
   {
     q: "Can I choose which Twitch campaigns it farms first?",
-    a: "Yes. Drag campaigns into an explicit order, or pick a strategy — ending soonest, lowest availability, or priority-list only. You can exclude individual campaigns and channels, restrict it to chosen games, and decide whether campaigns that need an account link or an active channel subscription are farmed at all. A per-platform Idle Watchlist covers the hours when nothing is droppable.",
+    a: "Yes. Pin campaigns in the queue and reorder them, rank your favourite games, or choose a strategy for the remaining campaigns. You can also farm pinned campaigns only. You can exclude individual campaigns and channels, restrict it to chosen games, and decide whether campaigns that need an account link or an active channel subscription are farmed at all. A per-platform Idle Watchlist covers the hours when nothing is droppable.",
   },
 ];
 
