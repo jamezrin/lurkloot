@@ -2,7 +2,7 @@ import type { CategorySearchResult, CoreRuntimeMessage, PlaybackControl, Runtime
 import type { ChannelCandidate, DropCampaign, DropReward, EngineSettings, ManagedWatchTab, Platform, PlatformAuthHealth, PlaybackTelemetry, SchedulerState, SupplementalWatchTarget, TablessHeartbeatCadence, WatchReasonCode, WatchSession, WatchSourceId } from "@lurkloot/shared/models";
 import type { ActivityEvent, DiagnosticEvent, EngineEvent, EventEmitter, EventReporter, FarmingStopReason, PageContextOpenReason } from "@lurkloot/shared/events";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
-import { autoClaimChallengesFor, autoClaimChannelPointsFor, isFarmingActive } from "@lurkloot/shared/settings";
+import { autoClaimChallengesFor, autoClaimChannelPointsFor, IDLE_WATCHLIST_LIMIT, isFarmingActive } from "@lurkloot/shared/settings";
 import type { CompatibilityResolution, ResolvedCompatibility } from "@lurkloot/shared/compatibility";
 import { isWatchReward, reconcileCampaignAfterClaims } from "@lurkloot/shared/rewards";
 import { campaignSearchBackoffApplies, CHALLENGE_POLL_INTERVAL_MS, challengePollDue, claimReadyRewards, isPlaybackTelemetryHealthy, MANUAL_WATCH_TTL_MS, preserveClaimedRewards, runSchedulerTick, selectWatchTargetFromSnapshot, type SnapshotSelectionResult, type StopPageContextTabs } from "../core/scheduler";
@@ -1755,12 +1755,15 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     return run;
   }
 
+  // `patch` may be worked out from the stored settings, inside the lock, for a
+  // change that has to apply to the latest value rather than a caller's copy.
   async function updateStoredSettings(
-    patch: SettingsPatch,
+    patchOrUpdate: SettingsPatch | ((current: S) => SettingsPatch),
     afterPersist?: (settings: S) => void,
     afterLoad?: (settings: S) => void,
   ): Promise<S> {
     return withSettingsLock(async () => {
+      const patch = typeof patchOrUpdate === "function" ? patchOrUpdate(await deps.loadSettings()) : patchOrUpdate;
       const patchKeys = Object.keys(patch);
       const invalidatedPlatforms = patchKeys.every((key) => key === "platform") && patch.platform
         ? PLATFORMS.filter((platform) => patch.platform?.[platform] !== undefined)
@@ -4797,6 +4800,20 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
       if (message.tickAfterSave && isFarmingActive(settings)) {
         tickInBackground(message.tickAfterSavePlatforms, "settings_saved");
       }
+      return snapshot();
+    }
+
+    if (message.type === "updateIdleWatchlist") {
+      const channel = message.channel.trim().replace(/^@/, "").toLowerCase();
+      const settings = channel ? await updateStoredSettings((current) => {
+        const listed = current.platform[message.platform].idleWatchlistChannels;
+        const present = listed.some((entry) => entry.toLowerCase() === channel);
+        const next = message.action === "remove"
+          ? listed.filter((entry) => entry.toLowerCase() !== channel)
+          : present || listed.length >= IDLE_WATCHLIST_LIMIT ? listed : [...listed, channel];
+        return { platform: { [message.platform]: { idleWatchlistChannels: next } } };
+      }) : await deps.loadSettings();
+      if (channel && isFarmingActive(settings)) tickInBackground([message.platform], "settings_saved");
       return snapshot();
     }
 

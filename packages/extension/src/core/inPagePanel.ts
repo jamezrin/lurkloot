@@ -37,11 +37,13 @@ const SETTINGS_KEY = "settings";
 const STATE_KEY = "schedulerState";
 const UI_STATE_KEY = "inPagePanelUi";
 
-// The panel document renders <Popup>, whose root is h-[600px] w-[720px]. The
-// frame is sized to match exactly: anything smaller reintroduces a scrollbar,
-// which steals width from what the popup insists on and makes it overflow
-// horizontally.
+// The panel document renders <Popup>, whose root is h-[600px] and 720px wide
+// at most. The frame is that width when the window has room, and narrows with
+// a narrow window: the popup's root follows the frame, and below 560px its
+// rail folds to icons. It never goes under the popup page's 400px minimum,
+// which would bring back a horizontal scrollbar.
 const PANEL_WIDTH = 720;
+const PANEL_MIN_WIDTH = 400;
 const PANEL_HEIGHT = 600;
 const TITLEBAR_HEIGHT = 32;
 const EDGE_MARGIN = 16;
@@ -151,6 +153,7 @@ async function start(): Promise<void> {
     queueEnsureButton();
   });
   window.addEventListener("resize", () => {
+    fitPanelWidth();
     clampIntoViewport();
     // Crossing a responsive breakpoint swaps which nav is rendered, and no
     // mutation accompanies it.
@@ -437,11 +440,11 @@ async function buildMenu(): Promise<void> {
     items.push(listed
       ? {
         label: message("inPageRemoveFromWatchlist", "Remove $1 from the idle watchlist", channel),
-        run: () => { void writeWatchlist(watchlist.filter((entry) => entry !== channel)); },
+        run: () => { void changeWatchlist("remove", channel); },
       }
       : {
         label: message("inPageAddToWatchlist", "Add $1 to the idle watchlist", channel),
-        run: () => { void writeWatchlist([...watchlist, channel]); },
+        run: () => { void changeWatchlist("add", channel); },
       });
   }
 
@@ -517,16 +520,13 @@ async function readWatchlist(): Promise<string[]> {
   return Array.isArray(channels) ? channels : [];
 }
 
-// Written through the background's saveSettings so the list goes through
-// normalization and the scheduler tick. Writing storage.local directly would
-// skip both.
-async function writeWatchlist(channels: string[]): Promise<void> {
-  await browser.runtime.sendMessage({
-    type: "saveSettings",
-    settingsPatch: { platform: { [platform]: { idleWatchlistChannels: channels } } },
-    tickAfterSave: true,
-    tickAfterSavePlatforms: [platform],
-  }).catch(() => undefined);
+// Sent as one add or remove, which the background applies to the list it has
+// stored when it saves. The menu's copy of the list is only as fresh as the
+// moment it opened: writing that copy back would undo anything the popup
+// changed since. Going through the background also keeps normalization and
+// the scheduler tick; writing storage.local directly would skip both.
+async function changeWatchlist(action: "add" | "remove", channel: string): Promise<void> {
+  await browser.runtime.sendMessage({ type: "updateIdleWatchlist", platform, channel, action }).catch(() => undefined);
 }
 
 // Twitch and Kick are both client-rendered: navigating re-renders the nav and
@@ -569,7 +569,6 @@ async function openPanel(): Promise<void> {
   panel.style.cssText = [
     "position:fixed",
     "z-index:2147483647",
-    `width:${PANEL_WIDTH}px`,
     "border-radius:12px",
     "overflow:hidden",
     "box-shadow:0 16px 48px rgba(0,0,0,.45)",
@@ -623,7 +622,6 @@ async function openPanel(): Promise<void> {
   frame.title = "Lurkloot";
   frame.src = browser.runtime.getURL("/inpagePanel.html");
   frame.style.cssText = [
-    `width:${PANEL_WIDTH}px`,
     `height:${PANEL_HEIGHT}px`,
     "border:0",
     "display:block",
@@ -632,6 +630,7 @@ async function openPanel(): Promise<void> {
 
   panel.append(titlebar, frame);
   document.body.append(panel);
+  fitPanelWidth();
 
   position(ui?.left, ui?.top);
   makeDraggable(titlebar);
@@ -663,6 +662,16 @@ function position(left: number | undefined, top: number | undefined): void {
   panel.style.left = `${left}px`;
   panel.style.top = `${top}px`;
   clampIntoViewport();
+}
+
+function panelWidth(): number {
+  return Math.max(PANEL_MIN_WIDTH, Math.min(PANEL_WIDTH, window.innerWidth - 2 * EDGE_MARGIN));
+}
+
+function fitPanelWidth(): void {
+  const width = `${panelWidth()}px`;
+  if (panel) panel.style.width = width;
+  if (frame) frame.style.width = width;
 }
 
 // A stored position can land off-screen after a resize or a monitor change.

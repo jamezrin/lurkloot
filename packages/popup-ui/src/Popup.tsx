@@ -638,7 +638,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     return (
       <PopupRuntimeContext.Provider value={runtimeValue}>
       <I18nContext.Provider value={i18nValue}>
-        <main dir={dir} className="grid h-[600px] w-[720px] place-items-center border border-zinc-200 bg-zinc-50 text-sm font-semibold text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400" data-platform="twitch">
+        <main dir={dir} className="grid h-[600px] w-[720px] max-w-full place-items-center border border-zinc-200 bg-zinc-50 text-sm font-semibold text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400" data-platform="twitch">
           {t("loading")}
         </main>
       </I18nContext.Provider>
@@ -807,7 +807,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
       // contain-strict: the frame's size never depends on what is inside it, so
       // a change inside never makes the extension popup re-lay-out and
       // re-measure the whole document to resize its window.
-      className="@container relative flex h-[600px] w-[720px] overflow-clip [contain:strict] border border-zinc-200/80 bg-zinc-50 shadow-2xl shadow-black/30 dark:border-zinc-800 dark:bg-zinc-950"
+      className="@container relative flex h-[600px] w-[720px] max-w-full overflow-clip [contain:strict] border border-zinc-200/80 bg-zinc-50 shadow-2xl shadow-black/30 dark:border-zinc-800 dark:bg-zinc-950"
     >
       <TooltipScope>
       <WorkspaceRail

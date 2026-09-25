@@ -18,7 +18,7 @@ import { heartbeatContextKey } from "@lurkloot/core/heartbeatCadence";
 import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, Platform, PlatformAuthHealth, SchedulerState, WatchSession } from "@lurkloot/shared/models";
 import type { DiagnosticEvent, EngineEvent, EventEmitter } from "@lurkloot/shared/events";
 import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
-import { applySettingsPatch, DEFAULT_SETTINGS, isFarmingActive } from "@lurkloot/shared/settings";
+import { applySettingsPatch, DEFAULT_SETTINGS, IDLE_WATCHLIST_LIMIT, isFarmingActive } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "../src/core/storage";
 import type { PageFetcher, PlatformAdapter } from "@lurkloot/core/adapter";
 import { createKickFetcher, KickClaimState, KickDiscoveryState } from "@lurkloot/core/kick";
@@ -1409,6 +1409,43 @@ describe("background controller", () => {
         level: "warn",
         message: "Hermes reconnect failed",
       }));
+    });
+  });
+
+  describe("Idle Watchlist changes from the page", () => {
+    const listed = (env: ReturnType<typeof harness>) => env.settings.platform.twitch.idleWatchlistChannels;
+    const change = (env: ReturnType<typeof harness>, action: "add" | "remove", channel: string) =>
+      env.controller.handleMessage({ type: "updateIdleWatchlist", platform: "twitch", channel, action });
+
+    // The page menu read the list when it opened; the popup saved a newer one
+    // since. Applying the change to the stored list keeps both.
+    it("adds to the list as stored now, not as the page last read it", async () => {
+      const env = harness();
+      await env.controller.handleMessage({ type: "saveSettings", settingsPatch: { platform: { twitch: { idleWatchlistChannels: ["first", "second"] } } } });
+
+      await change(env, "add", "Third");
+
+      expect(listed(env)).toEqual(["first", "second", "third"]);
+    });
+
+    it("removes only that channel, and leaves a listed one where it is", async () => {
+      const env = harness();
+      await env.controller.handleMessage({ type: "saveSettings", settingsPatch: { platform: { twitch: { idleWatchlistChannels: ["first", "second", "third"] } } } });
+
+      await change(env, "add", "second");
+      expect(listed(env)).toEqual(["first", "second", "third"]);
+      await change(env, "remove", "SECOND");
+      expect(listed(env)).toEqual(["first", "third"]);
+    });
+
+    it("does not grow a full list", async () => {
+      const env = harness();
+      const full = Array.from({ length: IDLE_WATCHLIST_LIMIT }, (_, index) => `channel${index}`);
+      await env.controller.handleMessage({ type: "saveSettings", settingsPatch: { platform: { twitch: { idleWatchlistChannels: full } } } });
+
+      await change(env, "add", "extra");
+
+      expect(listed(env)).toEqual(full);
     });
   });
 

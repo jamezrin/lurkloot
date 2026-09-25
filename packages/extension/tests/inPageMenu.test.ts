@@ -89,7 +89,7 @@ describe("in-page nav menu", () => {
     expect(menuItems()).toEqual(["Open Lurkloot", "Add summit1g to the idle watchlist"]);
   });
 
-  it("sends the watchlist through saveSettings, with a tick for that platform", async () => {
+  it("sends the addition as one change, not a copy of the whole list", async () => {
     setUpPage("https://www.twitch.tv/summit1g");
     await mount("twitch");
     await openMenu();
@@ -98,12 +98,9 @@ describe("in-page nav menu", () => {
     add.dispatchEvent(new globalThis.window.Event("click", { bubbles: true }));
     await settle();
 
-    expect(sendMessage).toHaveBeenCalledWith({
-      type: "saveSettings",
-      settingsPatch: { platform: { twitch: { idleWatchlistChannels: ["summit1g"] } } },
-      tickAfterSave: true,
-      tickAfterSavePlatforms: ["twitch"],
-    });
+    // The background applies it to the list it has stored, so a change the
+    // popup made since the menu opened is not undone.
+    expect(sendMessage).toHaveBeenCalledWith({ type: "updateIdleWatchlist", platform: "twitch", channel: "summit1g", action: "add" });
     // The menu closes behind the action rather than leaving a stale list open.
     expect(globalThis.document.getElementById("lurkloot-nav-menu")).toBeNull();
   });
@@ -173,5 +170,31 @@ describe("in-page nav menu", () => {
     // The menu closed; the panel did not, and one attribute speaks for both.
     expect(globalThis.document.getElementById("lurkloot-nav-menu")).toBeNull();
     expect(button.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  // The frame used to be 720px whatever the window, so a narrow window cut the
+  // popup off; it now follows the window and the popup folds its rail to fit.
+  it("fits the panel to a narrow window and follows it as it resizes", async () => {
+    setUpPage("https://www.twitch.tv/summit1g");
+    Object.defineProperty(globalThis.window, "innerWidth", { configurable: true, writable: true, value: 600 });
+    Object.defineProperty(globalThis.window, "innerHeight", { configurable: true, writable: true, value: 900 });
+    await mount("twitch");
+    await openMenu();
+    globalThis.document.querySelectorAll("#lurkloot-nav-menu [role=menuitem]")[0]!.dispatchEvent(new globalThis.window.Event("click", { bubbles: true }));
+    await settle();
+    const panel = () => globalThis.document.getElementById("lurkloot-panel") as unknown as HTMLElement;
+    const frame = () => panel().querySelector("iframe") as unknown as HTMLElement;
+
+    expect(panel().style.width).toBe("568px");
+    expect(frame().style.width).toBe("568px");
+
+    globalThis.window.innerWidth = 1400;
+    globalThis.window.dispatchEvent(new globalThis.window.Event("resize"));
+    expect(panel().style.width).toBe("720px");
+
+    // Never under the popup page's own minimum, which would scroll sideways.
+    globalThis.window.innerWidth = 320;
+    globalThis.window.dispatchEvent(new globalThis.window.Event("resize"));
+    expect(frame().style.width).toBe("400px");
   });
 });
