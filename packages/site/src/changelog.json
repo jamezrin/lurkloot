@@ -46,7 +46,8 @@
         "kind": "fixed",
         "text": "Fixed Kick opening a background tab for claims a tab cannot fix. A claim Kick rejects outright, such as one for an account that is not linked, is now reported with account-link guidance instead of opening kick.com. Login failures, blocks, and network errors still fall back to a page."
       }
-    ]
+    ],
+    "date": "2026-09-25"
   },
   {
     "version": "1.13.0",
