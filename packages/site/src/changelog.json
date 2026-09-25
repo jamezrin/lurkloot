@@ -17,7 +17,7 @@
       },
       {
         "kind": "new",
-        "text": "Lurkloot can now farm NoPixel V and Fortnite rewards without opening a Twitch tab. NoPixel V earns the daily watch time, joins giveaways, and can open packs automatically if you turn that on. Opening a pack consumes it and cannot be undone. Fortnite collects sprites and phase rewards, and can start takeovers during an interactive phase if you turn that on. Both stay off until you enable them, which asks for access to that provider. Drop campaigns are still watched ahead of them unless you change the watch order."
+        "text": "Added support for Twitch Extensions. This support is in beta. Farming runs without opening a Twitch tab, and each extension stays off until you enable it, which asks for access to that provider. NoPixel V earns the daily watch time, joins giveaways, and can open packs automatically if you turn that on. Opening a pack consumes it and cannot be undone. Fortnite collects sprites and phase rewards, and can start takeovers during an interactive phase if you turn that on. Drop campaigns are still watched ahead of these extensions unless you change the watch order."
       },
       {
         "kind": "new",
