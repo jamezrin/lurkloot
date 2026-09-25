@@ -37,12 +37,17 @@ const DROPS_ITEMS: NavItem[] = [
 
 // Each Twitch extension provider is its own destination: they share nothing
 // but the API they are farmed through, and a shared list could only afford a
-// name and a badge each. The rail lists them in the user's watch order.
-const SOURCE_ITEMS: NavItem[] = [
-  { view: "watchlist", labelKey: "navIdleWatchlist", icon: Eye },
+// name and a badge each. They have a group of their own; the other watch
+// sources follow in another. Each group lists its entries in the user's watch
+// order.
+const EXTENSION_ITEMS: NavItem[] = [
   { view: "nopixel", labelKey: "navNoPixel", icon: Gift, platform: "twitch", beta: true },
   { view: "fortnite", labelKey: "navFortnite", icon: Sparkles, platform: "twitch", beta: true },
 ];
+const OTHER_ITEMS: NavItem[] = [
+  { view: "watchlist", labelKey: "navIdleWatchlist", icon: Eye },
+];
+const SOURCE_ITEMS: NavItem[] = [...EXTENSION_ITEMS, ...OTHER_ITEMS];
 
 // The view that shows each watch source. Drops is the whole Drops group, so its
 // live mark goes on the Queue.
@@ -86,9 +91,8 @@ export function WorkspaceRail({ view, platform, counts, sourceOrder, liveSource,
 }): React.ReactElement {
   const t = useT();
   const liveView = liveSource ? WATCH_SOURCE_VIEWS[liveSource] : undefined;
-  const sourceItems = sourceOrder
-    .filter((source) => source !== "drops")
-    .map((source) => SOURCE_ITEMS.find((item) => item.view === WATCH_SOURCE_VIEWS[source]))
+  const inWatchOrder = (items: NavItem[]): NavItem[] => sourceOrder
+    .map((source) => items.find((item) => item.view === WATCH_SOURCE_VIEWS[source]))
     .filter((item): item is NavItem => Boolean(item));
   return (
     <nav
@@ -103,7 +107,8 @@ export function WorkspaceRail({ view, platform, counts, sourceOrder, liveSource,
       <PlatformRail active={platform} presentation={presentation} onChange={onPlatformChange} />
 
       <NavGroup labelKey="navGroupDrops" items={DROPS_ITEMS} view={view} platform={platform} counts={counts} liveView={liveView} onViewChange={onViewChange} />
-      <NavGroup labelKey="navGroupSources" items={sourceItems} view={view} platform={platform} counts={counts} liveView={liveView} onViewChange={onViewChange} />
+      <NavGroup labelKey="navExtensions" items={inWatchOrder(EXTENSION_ITEMS)} view={view} platform={platform} counts={counts} liveView={liveView} onViewChange={onViewChange} />
+      <NavGroup labelKey="navGroupOthers" items={inWatchOrder(OTHER_ITEMS)} view={view} platform={platform} counts={counts} liveView={liveView} onViewChange={onViewChange} />
 
       <div className="flex-1" />
 
@@ -160,11 +165,14 @@ function NavGroup({ labelKey, items, view, platform, counts, liveView, onViewCha
   platform: Platform;
   counts: Partial<Record<PopupView, number>>;
   onViewChange(view: PopupView): void;
-}): React.ReactElement {
+}): React.ReactElement | null {
   const t = useT();
   const visible = items.filter((item) => !item.platform || item.platform === platform);
+  // A group with nothing on this platform (Extensions on Kick) is left out
+  // whole, heading included.
+  if (visible.length === 0) return null;
   return (
-    <div className="flex flex-col gap-0.5">
+    <div data-rail-group={labelKey} className="flex flex-col gap-0.5">
       {labelKey ? (
         <div className="@[560px]:block hidden px-2 pb-1 text-[10.5px] font-medium tracking-[0.01em] text-zinc-500">
           {t(labelKey)}

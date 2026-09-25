@@ -1769,9 +1769,6 @@
   "queueEditFavourites": {
     "message": "बदलें"
   },
-  "navGroupSources": {
-    "message": "अन्य स्रोत"
-  },
   "navWatchingNow": {
     "message": "अभी देखा जा रहा है"
   },
@@ -1879,5 +1876,11 @@
   },
   "navBeta": {
     "message": "बीटा"
+  },
+  "navExtensions": {
+    "message": "एक्सटेंशन"
+  },
+  "navGroupOthers": {
+    "message": "अन्य"
   }
 }

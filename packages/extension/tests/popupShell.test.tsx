@@ -301,9 +301,15 @@ describe("workspace rail sources", () => {
       .map((button) => button.dataset.view!)
       .filter((view) => ["nopixel", "fortnite", "watchlist"].includes(view));
 
-  it("lists the other sources in the platform's watch order", () => {
+  const group = (container: Element, key: string): string[] =>
+    [...container.querySelectorAll<HTMLButtonElement>(`[data-rail-group="${key}"] button[data-view]`)].map((button) => button.dataset.view!);
+
+  it("groups the Twitch extensions apart from the other sources, each in watch order", () => {
     const container = mountRail({ sourceOrder: ["idle_watchlist", "drops", "fortnite", "nopixel"] });
-    expect(sources(container)).toEqual(["watchlist", "fortnite", "nopixel"]);
+    expect(group(container, "navExtensions")).toEqual(["fortnite", "nopixel"]);
+    expect(group(container, "navGroupOthers")).toEqual(["watchlist"]);
+    // Extensions first, then the rest, whatever the watch order.
+    expect(sources(container)).toEqual(["fortnite", "nopixel", "watchlist"]);
   });
 
   it("marks only the source being watched", () => {
@@ -315,5 +321,7 @@ describe("workspace rail sources", () => {
   it("keeps Twitch-only sources off the Kick rail whatever the order says", () => {
     const container = mountRail({ platform: "kick", sourceOrder: ["drops", "idle_watchlist"] });
     expect(sources(container)).toEqual(["watchlist"]);
+    // With no extensions on Kick, the group and its heading are left out.
+    expect(container.querySelector('[data-rail-group="navExtensions"]')).toBeNull();
   });
 });

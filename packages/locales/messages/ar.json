@@ -1769,9 +1769,6 @@
   "queueEditFavourites": {
     "message": "تعديل"
   },
-  "navGroupSources": {
-    "message": "مصادر أخرى"
-  },
   "navWatchingNow": {
     "message": "تتم مشاهدته الآن"
   },
@@ -1879,5 +1876,11 @@
   },
   "navBeta": {
     "message": "تجريبي"
+  },
+  "navExtensions": {
+    "message": "الإضافات"
+  },
+  "navGroupOthers": {
+    "message": "أخرى"
   }
 }

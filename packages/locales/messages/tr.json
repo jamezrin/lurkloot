@@ -1769,9 +1769,6 @@
   "queueEditFavourites": {
     "message": "Düzenle"
   },
-  "navGroupSources": {
-    "message": "Diğer kaynaklar"
-  },
   "navWatchingNow": {
     "message": "Şu anda izleniyor"
   },
@@ -1879,5 +1876,11 @@
   },
   "navBeta": {
     "message": "Beta"
+  },
+  "navExtensions": {
+    "message": "Eklentiler"
+  },
+  "navGroupOthers": {
+    "message": "Diğer"
   }
 }

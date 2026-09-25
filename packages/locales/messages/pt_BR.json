@@ -1769,9 +1769,6 @@
   "queueEditFavourites": {
     "message": "Editar"
   },
-  "navGroupSources": {
-    "message": "Outras fontes"
-  },
   "navWatchingNow": {
     "message": "Sendo assistida agora"
   },
@@ -1879,5 +1876,11 @@
   },
   "navBeta": {
     "message": "Beta"
+  },
+  "navExtensions": {
+    "message": "Extensões"
+  },
+  "navGroupOthers": {
+    "message": "Outros"
   }
 }

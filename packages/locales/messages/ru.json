@@ -1769,9 +1769,6 @@
   "queueEditFavourites": {
     "message": "Изменить"
   },
-  "navGroupSources": {
-    "message": "Другие источники"
-  },
   "navWatchingNow": {
     "message": "Сейчас просматривается"
   },
@@ -1879,5 +1876,11 @@
   },
   "navBeta": {
     "message": "Бета"
+  },
+  "navExtensions": {
+    "message": "Расширения"
+  },
+  "navGroupOthers": {
+    "message": "Другое"
   }
 }

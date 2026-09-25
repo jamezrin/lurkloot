@@ -1769,9 +1769,6 @@
   "queueEditFavourites": {
     "message": "编辑"
   },
-  "navGroupSources": {
-    "message": "其他来源"
-  },
   "navWatchingNow": {
     "message": "正在观看"
   },
@@ -1879,5 +1876,11 @@
   },
   "navBeta": {
     "message": "测试版"
+  },
+  "navExtensions": {
+    "message": "扩展"
+  },
+  "navGroupOthers": {
+    "message": "其他"
   }
 }
