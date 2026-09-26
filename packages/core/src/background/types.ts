@@ -435,6 +435,7 @@ export interface ControllerCalls<S extends EngineSettings> {
   ensureCadenceJobs(settings?: S): Promise<void>;
   rescheduleTickJobs(): Promise<void>;
   ensureInstalledAt(installedAt?: string): Promise<void>;
+  reconcileStartup(): Promise<S>;
   handleStartup(): Promise<void>;
   snapshot(): Promise<RuntimeSnapshot<S>>;
   shutdown(): void;

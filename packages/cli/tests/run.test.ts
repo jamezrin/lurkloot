@@ -297,7 +297,9 @@ describe("CLI scheduler tick baseline", () => {
         // at startup before the first discovery completes.
         // Tick-owned adapters survive auth, discovery, and commit. Startup
         // recovery and the independent heartbeat path retain their own bundles.
-        adapterConstructions: 6,
+        // Since #593 the startup reconciliation also checks the Twitch
+        // channel-points observer, as the extension's startup does.
+        adapterConstructions: platform === "twitch" ? 7 : 6,
         watcherReconciliations: 1,
       });
       expect(result.durationsMs).toEqual({
@@ -641,6 +643,8 @@ interface HeartbeatDriverHarnessOptions {
   beforeCreateAdapter?: (platform: Platform) => void;
   logger?: Logger;
   once?: boolean;
+  // Wait for the first tick to start the watcher before returning.
+  awaitWatch?: boolean;
 }
 
 async function startHeartbeatDriver(options: HeartbeatDriverHarnessOptions = {}) {
@@ -686,6 +690,9 @@ async function startHeartbeatDriver(options: HeartbeatDriverHarnessOptions = {})
     refreshCalls += 1;
     return options.refreshCampaigns?.(refreshCalls) ?? [HEARTBEAT_TEST_CAMPAIGN];
   });
+  // The restart reconciliation pauses the seeded watch (#593), so the first
+  // tick selects it again from discovery.
+  twitch.listCandidateChannels = vi.fn(async () => [HEARTBEAT_TEST_CHANNEL]);
   twitch.checkChannel = vi.fn(async (candidate: ChannelCandidate): Promise<ChannelCheck> => ({
     live: true,
     categoryMatches: true,
@@ -725,7 +732,7 @@ async function startHeartbeatDriver(options: HeartbeatDriverHarnessOptions = {})
     ...(options.once ? { once: true } : {}),
   });
   await vi.waitFor(() => expect(twitch.refreshCampaigns).toHaveBeenCalledOnce());
-  await vi.waitFor(() => expect(watcher.start).toHaveBeenCalledOnce());
+  if (options.awaitWatch !== false) await vi.waitFor(() => expect(watcher.start).toHaveBeenCalledOnce());
   return { running, statePath, transport, twitch, watcher };
 }
 
@@ -757,15 +764,24 @@ describe("runLoop heartbeat driver", () => {
     }
   });
 
-  it("recovers a due heartbeat before the first discovery finishes and still shuts down", async () => {
+  // Behavior change (#593): a CLI start runs the shared restart
+  // reconciliation, so the previous process's watch is paused rather than
+  // recovered from its persisted heartbeat cadence.
+  it("pauses the previous process's watch at startup and sends it no heartbeat before discovery re-selects it", async () => {
     const blockedDiscovery = deferred<DropCampaign[]>();
     vi.setSystemTime(new Date("2026-09-02T12:01:00.000Z"));
-    const { running, transport, twitch, watcher } = await startHeartbeatDriver({
+    const { running, statePath, transport, twitch, watcher } = await startHeartbeatDriver({
       refreshCampaigns: async () => blockedDiscovery.promise,
+      awaitWatch: false,
     });
 
+    const state = JSON.parse(await readFile(statePath, "utf8")) as SchedulerState;
+    expect(state.sessions.twitch).toMatchObject({ status: "paused", reasonCode: "runtime_restart" });
+    expect(state.sessions.twitch.channel).toBeUndefined();
+    await vi.advanceTimersByTimeAsync(60_000);
     expect(twitch.refreshCampaigns).toHaveBeenCalledOnce();
-    expect(watcher.tick).toHaveBeenCalledOnce();
+    expect(watcher.start).not.toHaveBeenCalled();
+    expect(watcher.tick).not.toHaveBeenCalled();
 
     process.emit("SIGTERM");
     await running;
@@ -781,6 +797,13 @@ describe("runLoop heartbeat driver", () => {
         ? [HEARTBEAT_TEST_CAMPAIGN]
         : blockedDiscovery.promise,
     });
+    // The first tick anchors the cadence when it starts the watch.
+    const firstDueAt = await vi.waitFor(async () => {
+      const state = JSON.parse(await readFile(statePath, "utf8")) as SchedulerState;
+      const nextDueAt = Date.parse(state.sessions.twitch.tablessHeartbeat?.nextDueAt ?? "");
+      expect(nextDueAt).toBeGreaterThan(0);
+      return nextDueAt;
+    });
     try {
       for (let minute = 1; minute <= 6; minute += 1) {
         await vi.advanceTimersByTimeAsync(60_000);
@@ -788,7 +811,7 @@ describe("runLoop heartbeat driver", () => {
         await vi.waitFor(async () => {
           const state = JSON.parse(await readFile(statePath, "utf8")) as SchedulerState;
           expect(state.sessions.twitch.tablessHeartbeat?.nextDueAt).toBe(
-            new Date(HEARTBEAT_TEST_START.getTime() + (minute + 1) * 60_000).toISOString(),
+            new Date(firstDueAt + minute * 60_000).toISOString(),
           );
         });
       }
@@ -810,7 +833,7 @@ describe("runLoop heartbeat driver", () => {
           HEARTBEAT_TEST_START.getTime() + 7 * 60_000,
         );
         expect(state.sessions.twitch.tablessHeartbeat?.nextDueAt).toBe(
-          new Date(HEARTBEAT_TEST_START.getTime() + 8 * 60_000).toISOString(),
+          new Date(firstDueAt + 7 * 60_000).toISOString(),
         );
       });
       process.emit("SIGTERM");

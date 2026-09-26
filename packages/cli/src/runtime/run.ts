@@ -229,10 +229,12 @@ export async function runLoop(options: RunOptions): Promise<void> {
     process.once("SIGINT", handleSigint);
     process.once("SIGTERM", handleSigterm);
     void (async () => {
-      // Node timers end with the process, so every start registers the tick
-      // jobs (at pollIntervalMinutes) and the one-minute heartbeat job again.
+      // The restart reconciliation the extension runs on browser startup
+      // (#593): register the jobs again (Node timers end with the process),
+      // release heartbeat ownership held by the previous process, and pause
+      // the sessions it left watching. The CLI's own ticks then resume them.
       try {
-        await controller.ensureCadenceJobs();
+        await controller.reconcileStartup();
       } catch (error) {
         logger.error(error instanceof Error ? error.message : String(error), "run");
       }
