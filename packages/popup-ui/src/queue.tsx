@@ -302,7 +302,10 @@ export function QueuePanel({
                 group="skipped"
                 label={t("queueSkipped")}
                 count={skipped.length}
-                hint={[...new Set(skipped.map((campaign) => campaign.farmingRejection && t(campaignRejectionMessageKey(campaign.farmingRejection.code))))]
+                hint={[...new Set(skipped.map((campaign) => {
+                  const rejection = campaign.farmingRejection;
+                  return rejection && t(campaignRejectionMessageKey(rejection.code), rejection.rewardName);
+                }))]
                   .filter(Boolean).slice(0, 2).join(" · ")}
                 expanded={showSkipped}
                 onToggle={() => setShowSkipped((current) => !current)}
