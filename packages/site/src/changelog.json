@@ -6,7 +6,8 @@
         "kind": "fixed",
         "text": "Fixed the Skipped section summary showing $1 instead of the reward name when a campaign could not be farmed."
       }
-    ]
+    ],
+    "date": "2026-09-26"
   },
   {
     "version": "1.14.0",
