@@ -125,7 +125,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     ...createDiscoverySignals(ports, { signalSlice, tickSlice, lifecycleSlice }, calls),
     ...discovery,
     ...createTickAdmission(ports, { reportingSlice, integritySlice, signalSlice, tickSlice, lifecycleSlice }, calls),
-    ...createTickRun(ports, { claimSlice, discoverySlice, tickSlice }, calls),
+    ...createTickRun(ports, { claimSlice, discoverySlice, tickSlice, kickChallengeSlice, channelPointsSlice }, calls),
     ...createSettingsTransitions(transaction, { discoverySlice }, calls),
     ...createLifecycle(ports, { integritySlice, signalSlice, discoverySlice, tickSlice, settingsSlice, lifecycleSlice }, calls),
     ...createMessageHandler(ports, { integritySlice, signalSlice, tickSlice, settingsSlice, lifecycleSlice }, calls),

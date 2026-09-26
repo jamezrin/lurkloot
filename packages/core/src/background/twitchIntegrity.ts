@@ -370,8 +370,8 @@ export function createTwitchIntegrity<S extends EngineSettings>(
     // Installed outside withStateLock, and synchronously before the first await.
     //
     // A mint waits on setTwitchIntegrity waking its waiters (see core/tabs.ts),
-    // and the two paths that can force a refresh — runTick around
-    // runSchedulerTick, and runPlatformWatchHeartbeat around watcher.tick — both
+    // and the two paths that can force a refresh — runTick around the
+    // scheduler tick, and runPlatformWatchHeartbeat around watcher.tick — both
     // hold the platform lock across that wait. Installing under the same lock
     // made the waiter depend on a lock its own holder owns: the token arrived,
     // sat queued behind the tick, and the wait could only ever time out. Each

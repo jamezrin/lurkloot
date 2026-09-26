@@ -1502,8 +1502,8 @@ describe("background controller", () => {
       await env.controller.settleBackgroundWork();
       setTwitchIntegrity(undefined);
 
-      // refreshCampaigns runs inside runSchedulerTick, which runTick wraps in
-      // withStateLock for the whole scheduler run.
+      // refreshCampaigns runs during the Twitch tick, which holds the tick
+      // open until it returns.
       env.twitch.refreshCampaigns = vi.fn(async () => {
         await refreshGate.promise;
         return [campaign("twitch")];

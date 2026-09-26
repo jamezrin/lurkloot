@@ -1,10 +1,11 @@
-import type { PlatformAdapter } from "../platforms/adapter";
+import type { ClaimedChallenge, PlatformAdapter, PreparedWatchTab } from "../platforms/adapter";
 import type {
   ChannelCandidate,
   CampaignSearchBackoff,
   DropCampaign,
   DropReward,
   EngineSettings,
+  ManagedWatchTab,
   Platform,
   PlaybackTelemetry,
   SchedulerState,
@@ -29,7 +30,9 @@ import {
 import { autoClaimChallengesFor, autoClaimChannelPointsFor, isFarmingActive } from "@lurkloot/shared/settings";
 import { normalizeWatchSourcePriority } from "@lurkloot/shared/watchSources";
 import type { EngineEvent, EventEmitter, FarmingStopReason, PageContextCloseReason } from "@lurkloot/shared/events";
-import { currentManagedPageContextTabs, currentManagedPageContextTabsRevision, forgetManagedPageContextTabs, hydrateManagedPageContextTabs, syncManagedTabBreakers, type SchedulerManagedPageContexts } from "./tabs";
+import type { SchedulerManagedPageContexts } from "./tabs";
+import { perform } from "./effectExecutor";
+import type { ClaimReadyRewardEvent } from "./rewardClaims";
 import type { LogLevel } from "@lurkloot/shared/logging";
 import { authHealthFromError, isSafeFetchError } from "./fetchError";
 import { applyPlatformAuthHealth } from "./authHealth";
@@ -74,10 +77,10 @@ function activeReward(campaign: DropCampaign, settings: EngineSettings): DropRew
 function chooseTablessWatch(
   previous: WatchSession,
   settings: EngineSettings,
-  adapter: Pick<PlatformAdapter, "supportsTabless">,
+  host: { supportsTabless?: boolean },
   sameChannel: boolean,
 ): boolean {
-  if (!settings.tablessMode || !adapter.supportsTabless) return false;
+  if (!settings.tablessMode || !host.supportsTabless) return false;
   if (sameChannel && previous.watchMode === "tab" && previous.tablessFallback) return false;
   if (sameChannel && previous.watchMode === "tabless" && (previous.heartbeatChecks ?? 0) >= settings.tablessFallbackFailureLimit) return false;
   return true;
@@ -622,17 +625,19 @@ async function selectWatchTarget(
 // Resolve sources lazily in user order. A failing source yields independently,
 // so a lower source's channel lookup cannot block a higher provider. Preserve
 // ordinary selection's existing metrics, reward ranking and retention policy.
-async function selectWatchSources(
+async function* selectWatchSources(
   platform: Platform,
   previous: WatchSession,
   settings: EngineSettings,
-  adapter: PlatformAdapter,
+  supportsTabless: boolean,
   resolveOrdinary: (source: "drops" | "idle_watchlist") => Promise<SnapshotSelectionResult>,
-  resolveSupplemental: ((source: WatchSourceId) => Promise<SupplementalWatchTarget | undefined>) | undefined,
+  // Supplemental sources are only consulted when the host offers them; each one
+  // is resolved through a selectSupplementalTarget effect.
+  supplementalState: SchedulerState | undefined,
   emit: EventEmitter,
   signal?: AbortSignal,
   dropsUndecided = false,
-): Promise<{ selection: SnapshotSelectionResult; supplemental?: SupplementalWatchTarget }> {
+): AsyncGenerator<SchedulerEffect, { selection: SnapshotSelectionResult; supplemental?: SupplementalWatchTarget }, unknown> {
   let ordinary: SnapshotSelectionResult | undefined;
   let ordinaryFailed = false;
   let ordinaryError: unknown;
@@ -659,9 +664,9 @@ async function selectWatchSources(
       }
       continue;
     }
-    if (!resolveSupplemental || !adapter.supportsTabless) continue;
+    if (!supplementalState || !supportsTabless) continue;
     try {
-      const target = await resolveSupplemental(source);
+      const target = yield* perform<SchedulerEffects, "selectSupplementalTarget">({ type: "selectSupplementalTarget", platform, state: supplementalState, source });
       signal?.throwIfAborted();
       if (!target || target.id !== source || target.tablessOnly !== true
         || target.channel.platform !== platform || target.channel.live !== true
@@ -878,10 +883,85 @@ export type StopPageContextTabs = (
   options?: { platforms?: Platform[]; reason?: PageContextCloseReason; emit?: EventEmitter },
 ) => Promise<SchedulerManagedPageContexts> | SchedulerManagedPageContexts;
 
-export interface SchedulerTickOptions {
-  selectSupplementalWatchTarget?(platform: Platform, state: SchedulerState, signal?: AbortSignal, source?: WatchSourceId): Promise<SupplementalWatchTarget | undefined>;
+// Every side effect a scheduler tick can ask for (#599). The tick only names
+// them; the effect executor runs each through its one registered handler,
+// outside the tick's decisions, and resumes the tick with the result.
+export type SchedulerEffects = {
+  // Closes the watch tab `session` describes, when the extension manages it.
+  stopWatchTab: {
+    effect: { type: "stopWatchTab"; platform: Platform; session: WatchSession };
+    result: void;
+  };
+  // Releases the platform's managed page context. With `forgetOnFailure`, a
+  // failed release is reported and the context is forgotten anyway.
+  releasePageContexts: {
+    effect: {
+      type: "releasePageContexts";
+      platform: Platform;
+      contexts: SchedulerManagedPageContexts;
+      reason: PageContextCloseReason;
+      forgetOnFailure?: boolean;
+    };
+    result: SchedulerManagedPageContexts;
+  };
+  claimChallenges: {
+    effect: { type: "claimChallenges"; platform: Platform };
+    result: ClaimedChallenge[];
+  };
+  // Claims every ready reward in `campaigns`. `waitingRewardIds` is the tick's
+  // own copy of the rewards already waiting for their claim to be released.
+  claimRewards: {
+    effect: { type: "claimRewards"; platform: Platform; campaigns: DropCampaign[]; waitingRewardIds: Set<string> };
+    result: { campaigns: DropCampaign[]; events: ClaimReadyRewardEvent[] };
+  };
+  selectSupplementalTarget: {
+    effect: { type: "selectSupplementalTarget"; platform: Platform; state: SchedulerState; source: WatchSourceId };
+    result: SupplementalWatchTarget | undefined;
+  };
+  // Opens or reuses the watch tab for `channel`.
+  openWatchTab: {
+    effect: { type: "openWatchTab"; platform: Platform; channel: ChannelCandidate; session: WatchSession; managedTab?: ManagedWatchTab };
+    result: PreparedWatchTab;
+  };
+  claimChannelPoints: {
+    effect: { type: "claimChannelPoints"; platform: Platform; channel: ChannelCandidate };
+    result: boolean;
+  };
+};
+
+export type SchedulerEffectType = keyof SchedulerEffects;
+export type SchedulerEffect = SchedulerEffects[SchedulerEffectType]["effect"];
+
+// What the tick selects channels from: the committed discovery snapshot, read
+// in memory (selectionAdapterFromDiscoverySnapshot). Never a provider.
+export type SelectionView = Pick<PlatformAdapter, "listCandidateChannels" | "selectCandidateChannel" | "checkChannel" | "listFollowedChannels">;
+
+// What the platform's host can do, declared rather than probed from an adapter.
+export interface PlatformTickCapabilities {
+  supportsTabless: boolean;
+  claimChallenges: boolean;
+  claimChannelPoints: boolean;
+}
+
+export interface SchedulerTickDiscovery {
+  campaigns: DropCampaign[];
+  complete: boolean;
+  // The refresh was thrown away (settings changed mid-flight), not failed:
+  // nothing is known about channels, so Drops is undecided rather than
+  // unavailable and no lower source may take over from it this tick.
+  discarded?: boolean;
+}
+
+export interface SchedulerTickInput {
+  state: SchedulerState;
+  settings: EngineSettings;
   platforms?: Platform[];
-  stopPageContextTabs?: StopPageContextTabs;
+  // Required for every ticked platform: the tick never discovers campaigns.
+  discovery: Partial<Record<Platform, SchedulerTickDiscovery>>;
+  selectionViews: Partial<Record<Platform, SelectionView>>;
+  capabilities: Partial<Record<Platform, PlatformTickCapabilities>>;
+  // The host offers supplemental watch sources (selectSupplementalTarget).
+  supplementalSources?: boolean;
   waitingClaimRewardIds?: Partial<Record<Platform, Set<string>>>;
   emit?: EventEmitter;
   signal?: AbortSignal;
@@ -889,16 +969,17 @@ export interface SchedulerTickOptions {
   // it in memory so unchanged minute ticks stay quiet, while a worker restart
   // naturally emits a fresh snapshot for the next exported diagnostic log.
   campaignEvaluationFingerprints?: Partial<Record<Platform, string>>;
-  discovery?: Partial<Record<Platform, {
-    campaigns: DropCampaign[];
-    complete: boolean;
-    // The refresh was thrown away (settings changed mid-flight), not failed:
-    // nothing is known about channels, so Drops is undecided rather than
-    // unavailable and no lower source may take over from it this tick.
-    discarded?: boolean;
-  }>>;
   selections?: Partial<Record<Platform, SnapshotSelectionResult>>;
   selectionIsCurrent?: Partial<Record<Platform, () => boolean>>;
+}
+
+// A tick in progress: the draft next state, its decisions and its events. The
+// platforms' deciding generators share it, in platform order.
+export interface SchedulerTickDraft {
+  state: SchedulerState;
+  readonly decisions: WatchDecision[];
+  readonly events: EngineEvent[];
+  readonly emit: EventEmitter;
 }
 
 const CAMPAIGN_REJECTION_LABELS: Record<CampaignFarmingRejectionCode, string> = {
@@ -980,702 +1061,665 @@ function emitCampaignEvaluationDiagnostics(
   }
 }
 
-export async function runSchedulerTick(
-  state: SchedulerState,
-  settings: EngineSettings,
-  adapters: Record<Platform, PlatformAdapter>,
-  options: SchedulerTickOptions = {},
-): Promise<SchedulerTickResult> {
-  options.signal?.throwIfAborted();
-  const stopPageContextTabs = options.stopPageContextTabs ?? forgetManagedPageContextTabs;
-  const platforms = options.platforms ?? PLATFORMS;
-  const pageContextRevision = currentManagedPageContextTabsRevision();
-  hydrateManagedPageContextTabs(state.managedPageContextTabs ?? {}, platforms, pageContextRevision);
-  let nextState: SchedulerState = {
-    ...state,
-    campaigns: { ...state.campaigns },
-    sessions: { ...state.sessions },
-    managedWatchTabs: { ...state.managedWatchTabs },
-    managedPageContextTabs: { ...state.managedPageContextTabs },
-    deadlineInfeasibleRewardIds: { ...state.deadlineInfeasibleRewardIds },
-    lastTickAt: new Date().toISOString(),
-  };
-  const decisions: WatchDecision[] = [];
-  const events: EngineEvent[] = [];
-  const emit: EventEmitter = (event) => {
-    events.push(event);
-    options.emit?.(event);
-  };
-
-  async function suspendPlatformForAuthentication(
-    platform: Platform,
-    previous: WatchSession,
-    adapter: PlatformAdapter,
-  ): Promise<void> {
-    try {
-      await adapter.stopWatchTab?.(previous, { signal: options.signal });
-    } catch (error) {
-      emitDiagnostic(emit, platform, "warn", error instanceof Error ? error.message : "Could not stop watch tab");
-    }
-    nextState.sessions[platform] = {
-      ...previous,
-      status: "paused",
-      channel: undefined,
-      campaignId: undefined,
-      rewardId: undefined,
-      tabId: undefined,
-      tabManagedByExtension: undefined,
-      playback: undefined,
-      playbackChecks: 0,
-      retryAfter: undefined,
-      message: "Authentication unavailable",
-      reasonCode: "authentication_unhealthy",
-      watchMode: undefined,
-      tablessFallback: undefined,
-      heartbeatChecks: 0,
-      lastHeartbeatAt: undefined,
-      lastHeartbeatOk: undefined,
-      tablessHeartbeat: undefined,
-    };
-    nextState.campaigns[platform] = [];
-    nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
-    try {
-      nextState.managedPageContextTabs = await stopPageContextTabs(nextState.managedPageContextTabs ?? {}, {
-        platforms: [platform],
-        reason: "authentication_unhealthy",
-        emit,
-      });
-    } catch (error) {
-      emitDiagnostic(emit, platform, "warn", error instanceof Error ? error.message : "Could not stop page context");
-      nextState.managedPageContextTabs = forgetManagedPageContextTabs(nextState.managedPageContextTabs ?? {}, {
-        platforms: [platform],
-        reason: "authentication_unhealthy",
-        emit,
-      });
+export function startSchedulerTick(input: SchedulerTickInput): SchedulerTickDraft {
+  input.signal?.throwIfAborted();
+  for (const platform of input.platforms ?? PLATFORMS) {
+    if (!input.discovery[platform] || !input.selectionViews[platform] || !input.capabilities[platform]) {
+      throw new Error(`Scheduler tick for ${platform} is missing its discovery, selection or capability input`);
     }
   }
+  const { state } = input;
+  const events: EngineEvent[] = [];
+  return {
+    state: {
+      ...state,
+      campaigns: { ...state.campaigns },
+      sessions: { ...state.sessions },
+      managedWatchTabs: { ...state.managedWatchTabs },
+      managedPageContextTabs: { ...state.managedPageContextTabs },
+      deadlineInfeasibleRewardIds: { ...state.deadlineInfeasibleRewardIds },
+      lastTickAt: new Date().toISOString(),
+    },
+    decisions: [],
+    events,
+    emit: (event) => {
+      events.push(event);
+      input.emit?.(event);
+    },
+  };
+}
 
-  // Page-context creation lives several layers deep in tabs.ts with no access to
-  // scheduler state, so the breaker flags are mirrored into a module registry
-  // once per tick — and again after every observation, since an observation can
-  // release the breaker.
-  //
-  // When the kill switch is off the registry is cleared instead of mirrored.
-  // Otherwise a breaker latched before the switch was flipped would keep blocking
-  // page-context creation forever: observations no longer run to release it, and
-  // the popup no longer renders the panel that would dismiss it.
-  syncManagedTabBreakers(
-    settings.criticalFailurePromptEnabled ? nextState : {},
-    platforms,
-  );
+function yieldEffect<K extends SchedulerEffectType>(effect: SchedulerEffects[K]["effect"] & { type: K }) {
+  return perform<SchedulerEffects, K>(effect);
+}
 
-  for (const platform of platforms) {
-    options.signal?.throwIfAborted();
-    const previous = nextState.sessions[platform];
-    const platformSettings = settings.platform[platform];
-    const adapter = adapters[platform];
-    // Seeded neutral so every exit — including the paths that never reach the
-    // farming work — still applies a truthful observation. That matters because
-    // observeCriticalHealth is what prunes the tab-churn window and releases the
-    // managed-tab breaker: a platform that only ever takes an early exit (signed
-    // out, disabled) must still be able to recover from an open breaker.
-    // Overwritten below as the tick learns what actually happened.
-    let observation: CriticalHealthObservation = neutralObservation();
-    // Runs in the `finally` below, so every exit — early `continue`, thrown
-    // error, or normal completion — reaches the detector exactly once.
-    const applyObservation = (): void => {
-      if (!settings.criticalFailurePromptEnabled) return;
-      const transition = observeCriticalHealth(nextState, platform, observation);
-      nextState = transition.state;
-      syncManagedTabBreakers(nextState, [platform]);
-      // This runs inside a `finally`, so a throwing listener here would replace
-      // the in-flight error and abort the remaining platforms. Health reporting
-      // is never worth that.
-      if (transition.event) {
-        try {
-          emit(transition.event);
-        } catch {
-          // Ignored on purpose: see above.
-        }
-      }
-    };
+async function* suspendPlatformForAuthentication(
+  tick: SchedulerTickDraft,
+  platform: Platform,
+  previous: WatchSession,
+): AsyncGenerator<SchedulerEffect, void, unknown> {
+  try {
+    yield* yieldEffect({ type: "stopWatchTab", platform, session: previous });
+  } catch (error) {
+    emitDiagnostic(tick.emit, platform, "warn", error instanceof Error ? error.message : "Could not stop watch tab");
+  }
+  tick.state.sessions[platform] = {
+    ...previous,
+    status: "paused",
+    channel: undefined,
+    campaignId: undefined,
+    rewardId: undefined,
+    tabId: undefined,
+    tabManagedByExtension: undefined,
+    playback: undefined,
+    playbackChecks: 0,
+    retryAfter: undefined,
+    message: "Authentication unavailable",
+    reasonCode: "authentication_unhealthy",
+    watchMode: undefined,
+    tablessFallback: undefined,
+    heartbeatChecks: 0,
+    lastHeartbeatAt: undefined,
+    lastHeartbeatOk: undefined,
+    tablessHeartbeat: undefined,
+  };
+  tick.state.campaigns[platform] = [];
+  tick.state.managedWatchTabs = withoutManagedWatchTab(tick.state.managedWatchTabs, platform);
+  tick.state.managedPageContextTabs = yield* yieldEffect({
+    type: "releasePageContexts",
+    platform,
+    contexts: tick.state.managedPageContextTabs ?? {},
+    reason: "authentication_unhealthy",
+    forgetOnFailure: true,
+  });
+}
 
-    try {
-      // The user closed the watch tab LurkLoot opened. That is an explicit stop
-      // gesture, so stay paused until they resume from the popup rather than
-      // recovering on this (or any later) tick. Checked before every other gate
-      // so nothing re-opens a tab behind the user's back.
-      if (nextState.manualClosePause?.[platform]) {
-        await adapter.stopWatchTab?.(previous, { signal: options.signal });
-        nextState.sessions[platform] = {
-          ...previous,
-          status: "paused",
-          channel: undefined,
-          campaignId: undefined,
-          rewardId: undefined,
-          tabId: undefined,
-          tabManagedByExtension: undefined,
-          playback: undefined,
-          playbackChecks: 0,
-          errorChecks: 0,
-          retryAfter: undefined,
-          message: "Farming tab closed",
-          reasonCode: "manual_tab_close",
-          watchMode: undefined,
-          tablessFallback: undefined,
-          heartbeatChecks: 0,
-          lastHeartbeatAt: undefined,
-          lastHeartbeatOk: undefined,
-          tablessHeartbeat: undefined,
-        };
-        nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
-        nextState.managedPageContextTabs = await stopPageContextTabs(nextState.managedPageContextTabs ?? {}, { platforms: [platform], reason: "manual_tab_close", emit });
-        emitDiagnostic(emit, platform, "info", "Farming tab was closed manually; staying paused until the user resumes");
-        continue;
+// One platform's share of a scheduler tick. It decides from committed inputs
+// only and names every side effect it needs as a yielded SchedulerEffect; the
+// driver performs it and resumes the tick with its result, or throws its error
+// at the yield. The platform's page-context registry and managed-tab breaker
+// are mirrored by the driver before the first platform and after each one.
+export async function* decidePlatformTick(
+  tick: SchedulerTickDraft,
+  platform: Platform,
+  input: SchedulerTickInput,
+): AsyncGenerator<SchedulerEffect, void, unknown> {
+  const { settings, state, signal } = input;
+  const emit = tick.emit;
+  signal?.throwIfAborted();
+  const previous = tick.state.sessions[platform];
+  const platformSettings = settings.platform[platform];
+  const capabilities = input.capabilities[platform]!;
+  const selectionView = input.selectionViews[platform]!;
+  // Seeded neutral so every exit — including the paths that never reach the
+  // farming work — still applies a truthful observation. That matters because
+  // observeCriticalHealth is what prunes the tab-churn window and releases the
+  // managed-tab breaker: a platform that only ever takes an early exit (signed
+  // out, disabled) must still be able to recover from an open breaker.
+  // Overwritten below as the tick learns what actually happened.
+  let observation: CriticalHealthObservation = neutralObservation();
+  // Runs in the `finally` below, so every exit — early return, thrown error, or
+  // normal completion — reaches the detector exactly once.
+  const applyObservation = (): void => {
+    if (!settings.criticalFailurePromptEnabled) return;
+    const transition = observeCriticalHealth(tick.state, platform, observation);
+    tick.state = transition.state;
+    // This runs inside a `finally`, so a throwing listener here would replace
+    // the in-flight error and abort the remaining platforms. Health reporting
+    // is never worth that.
+    if (transition.event) {
+      try {
+        emit(transition.event);
+      } catch {
+        // Ignored on purpose: see above.
       }
-      if (settings.pauseOnManualWatch && hasRecentManualWatch(nextState, platform)) {
-        await adapter.stopWatchTab?.(previous, { signal: options.signal });
-        nextState.sessions[platform] = {
-          ...previous,
-          status: "paused",
-          channel: undefined,
-          campaignId: undefined,
-          rewardId: undefined,
-          tabId: undefined,
-          tabManagedByExtension: undefined,
-          playback: undefined,
-          playbackChecks: 0,
-          errorChecks: 0,
-          retryAfter: undefined,
-          message: "Manual watch detected",
-          reasonCode: "manual_watch",
-          watchMode: undefined,
-          tablessFallback: undefined,
-          heartbeatChecks: 0,
-          lastHeartbeatAt: undefined,
-          lastHeartbeatOk: undefined,
-          tablessHeartbeat: undefined,
-        };
-        nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
-        nextState.managedPageContextTabs = await stopPageContextTabs(nextState.managedPageContextTabs ?? {}, { platforms: [platform], reason: "manual_watch", emit });
-        observation = preconditionBreakObservation();
-        emitDiagnostic(emit, platform, "info", "Manual watch detected; pausing farming for this platform");
-        continue;
-      }
-      if (!platformSettings.enabled) {
-        // With no master switch, "automation is off" simply means no platform is
-        // enabled; this one being off while the other still farms stays a
-        // platform-scoped stop. Both reason codes remain meaningful.
-        const automationOff = !isFarmingActive(settings);
-        await adapter.stopWatchTab?.(previous, { signal: options.signal });
-        nextState.campaigns[platform] = [];
-        nextState.sessions[platform] = {
-          ...previous,
-          status: "paused",
-          channel: undefined,
-          campaignId: undefined,
-          rewardId: undefined,
-          tabId: undefined,
-          tabManagedByExtension: undefined,
-          playback: undefined,
-          playbackChecks: 0,
-          errorChecks: 0,
-          retryAfter: undefined,
-          message: "Automation disabled",
-          reasonCode: automationOff ? "automation_disabled" : "platform_disabled",
-          watchMode: undefined,
-          tablessFallback: undefined,
-          heartbeatChecks: 0,
-          lastHeartbeatAt: undefined,
-          lastHeartbeatOk: undefined,
-          tablessHeartbeat: undefined,
-        };
-        nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
-        nextState.managedPageContextTabs = await stopPageContextTabs(nextState.managedPageContextTabs ?? {}, {
-          platforms: [platform],
-          reason: automationOff ? "automation_disabled" : "platform_disabled",
-          emit,
-        });
-        emitDiagnostic(emit, platform, "info", automationOff ? "Automation disabled" : "Platform disabled");
-        continue;
-      }
+    }
+  };
 
-      if (nextState.authHealth[platform].status !== "healthy") {
-        await suspendPlatformForAuthentication(platform, previous, adapter);
-        continue;
-      }
+  try {
+    // The user closed the watch tab LurkLoot opened. That is an explicit stop
+    // gesture, so stay paused until they resume from the popup rather than
+    // recovering on this (or any later) tick. Checked before every other gate
+    // so nothing re-opens a tab behind the user's back.
+    if (tick.state.manualClosePause?.[platform]) {
+      yield* yieldEffect({ type: "stopWatchTab", platform, session: previous });
+      tick.state.sessions[platform] = {
+        ...previous,
+        status: "paused",
+        channel: undefined,
+        campaignId: undefined,
+        rewardId: undefined,
+        tabId: undefined,
+        tabManagedByExtension: undefined,
+        playback: undefined,
+        playbackChecks: 0,
+        errorChecks: 0,
+        retryAfter: undefined,
+        message: "Farming tab closed",
+        reasonCode: "manual_tab_close",
+        watchMode: undefined,
+        tablessFallback: undefined,
+        heartbeatChecks: 0,
+        lastHeartbeatAt: undefined,
+        lastHeartbeatOk: undefined,
+        tablessHeartbeat: undefined,
+      };
+      tick.state.managedWatchTabs = withoutManagedWatchTab(tick.state.managedWatchTabs, platform);
+      tick.state.managedPageContextTabs = yield* yieldEffect({ type: "releasePageContexts", platform, contexts: tick.state.managedPageContextTabs ?? {}, reason: "manual_tab_close" });
+      emitDiagnostic(emit, platform, "info", "Farming tab was closed manually; staying paused until the user resumes");
+      return;
+    }
+    if (settings.pauseOnManualWatch && hasRecentManualWatch(tick.state, platform)) {
+      yield* yieldEffect({ type: "stopWatchTab", platform, session: previous });
+      tick.state.sessions[platform] = {
+        ...previous,
+        status: "paused",
+        channel: undefined,
+        campaignId: undefined,
+        rewardId: undefined,
+        tabId: undefined,
+        tabManagedByExtension: undefined,
+        playback: undefined,
+        playbackChecks: 0,
+        errorChecks: 0,
+        retryAfter: undefined,
+        message: "Manual watch detected",
+        reasonCode: "manual_watch",
+        watchMode: undefined,
+        tablessFallback: undefined,
+        heartbeatChecks: 0,
+        lastHeartbeatAt: undefined,
+        lastHeartbeatOk: undefined,
+        tablessHeartbeat: undefined,
+      };
+      tick.state.managedWatchTabs = withoutManagedWatchTab(tick.state.managedWatchTabs, platform);
+      tick.state.managedPageContextTabs = yield* yieldEffect({ type: "releasePageContexts", platform, contexts: tick.state.managedPageContextTabs ?? {}, reason: "manual_watch" });
+      observation = preconditionBreakObservation();
+      emitDiagnostic(emit, platform, "info", "Manual watch detected; pausing farming for this platform");
+      return;
+    }
+    if (!platformSettings.enabled) {
+      // With no master switch, "automation is off" simply means no platform is
+      // enabled; this one being off while the other still farms stays a
+      // platform-scoped stop. Both reason codes remain meaningful.
+      const automationOff = !isFarmingActive(settings);
+      yield* yieldEffect({ type: "stopWatchTab", platform, session: previous });
+      tick.state.campaigns[platform] = [];
+      tick.state.sessions[platform] = {
+        ...previous,
+        status: "paused",
+        channel: undefined,
+        campaignId: undefined,
+        rewardId: undefined,
+        tabId: undefined,
+        tabManagedByExtension: undefined,
+        playback: undefined,
+        playbackChecks: 0,
+        errorChecks: 0,
+        retryAfter: undefined,
+        message: "Automation disabled",
+        reasonCode: automationOff ? "automation_disabled" : "platform_disabled",
+        watchMode: undefined,
+        tablessFallback: undefined,
+        heartbeatChecks: 0,
+        lastHeartbeatAt: undefined,
+        lastHeartbeatOk: undefined,
+        tablessHeartbeat: undefined,
+      };
+      tick.state.managedWatchTabs = withoutManagedWatchTab(tick.state.managedWatchTabs, platform);
+      tick.state.managedPageContextTabs = yield* yieldEffect({
+        type: "releasePageContexts",
+        platform,
+        contexts: tick.state.managedPageContextTabs ?? {},
+        reason: automationOff ? "automation_disabled" : "platform_disabled",
+      });
+      emitDiagnostic(emit, platform, "info", automationOff ? "Automation disabled" : "Platform disabled");
+      return;
+    }
 
-      // Account-level, so it runs whether or not this platform ends up watching:
-      // the watch-time threshold is usually met by a session that has already
-      // stopped. Failures are swallowed — gamification is strictly additive to
-      // farming and must never fail the tick or trip the error backoff.
-      if (autoClaimChallengesFor(settings, platform) && adapter.claimChallenges && challengePollDue(nextState, platform, Date.now())) {
-        // Stamped on attempt, not on success, so a persistently failing endpoint
-        // is retried on the next interval instead of on every tick.
-        nextState.gamification = {
-          ...nextState.gamification,
-          [platform]: { lastCheckedAt: new Date().toISOString() },
-        };
-        try {
-          for (const challenge of await adapter.claimChallenges({ signal: options.signal })) {
-            emit({
-              category: "activity",
-              code: "challenge_claimed",
-              level: "info",
-              platform,
-              data: { challengeId: challenge.id, rarity: challenge.rarity, recurrence: challenge.recurrence },
-            });
-          }
-        } catch (error) {
-          options.signal?.throwIfAborted();
-          if (authHealthFromError(error)) throw error;
-          emitDiagnostic(emit, platform, "warn", error instanceof Error ? error.message : "Challenge claim failed");
-        }
-      }
+    if (tick.state.authHealth[platform].status !== "healthy") {
+      yield* suspendPlatformForAuthentication(tick, platform, previous);
+      return;
+    }
 
-      if (isInBackoff(previous)) {
-        nextState.sessions[platform] = {
-          ...previous,
-          status: "error",
-          lastCheckedAt: new Date().toISOString(),
-          message: `Waiting until ${previous.retryAfter} before retrying after platform errors`,
-          reasonCode: "platform_backoff",
-          tablessHeartbeat: undefined,
-        };
-        observation = {
-          at: Date.now(),
-          failing: true,
-          progressed: false,
-          preconditionBroke: false,
-          record: { kind: "api_error", code: "platform_backoff" },
-        };
-        emitDiagnostic(emit, platform, "warn", nextState.sessions[platform].message ?? "Platform retry deferred");
-        continue;
-      }
-
-      let campaigns: DropCampaign[];
-      let discoveryFailed = false;
-      const committedDiscovery = options.discovery?.[platform];
-      const discoveryDiscarded = committedDiscovery?.discarded === true && !committedDiscovery.complete;
-      if (committedDiscovery) {
-        campaigns = preserveClaimedRewards(committedDiscovery.campaigns, state.campaigns[platform]);
-        discoveryFailed = !committedDiscovery.complete;
-      } else try {
-        const refreshStartedAt = Date.now();
-        campaigns = await adapter.refreshCampaigns(previous, { signal: options.signal });
-        emitDiagnostic(
-          emit,
-          platform,
-          "debug",
-          `Campaign refresh finished in ${Date.now() - refreshStartedAt}ms (${countLabel(campaigns.length, "campaign")})`,
-        );
-        campaigns = preserveClaimedRewards(campaigns, state.campaigns[platform]);
-      } catch (error) {
-        options.signal?.throwIfAborted();
-        if (authHealthFromError(error)) throw error;
-        if (!hasIdleWatchlistChannels(settings, platform) && !(options.selectSupplementalWatchTarget && adapter.supportsTabless)) throw error;
-        // Nothing is farmable this tick, so the decision logic below runs
-        // against an empty list and the Idle Watchlist channel wins. State
-        // keeps the campaigns from the last good discovery — same retention the
-        // rethrow path gets for free — so a transient outage does not blank the
-        // popup until the next successful tick.
-        campaigns = [];
-        discoveryFailed = true;
-        observation = apiErrorObservation(error);
-        const message = error instanceof Error ? error.message : "Drop discovery failed";
-        emitDiagnostic(emit, platform, "warn", `${message}; checking Idle Watchlist fallback`);
-        emitDiagnostic(emit, platform, "debug", `Drop discovery error (Idle Watchlist fallback): ${error instanceof Error ? error.stack ?? error.message : String(error)}`);
-      }
-      if (!discoveryFailed) {
-        nextState.campaigns[platform] = campaigns;
-        emitCampaignEvaluationDiagnostics(
-          emit,
-          platform,
-          campaigns,
-          settings,
-          options.campaignEvaluationFingerprints,
-        );
-        // The accrual arm. Fresh progress data is in hand, so record the active
-        // reward's watched minutes and compare them with the last observation.
-        //
-        // Its value is `watchedMinutes`: persisting it as `lastWatchedMinutes`
-        // puts "was this platform actually accruing?" in the failure report, which
-        // is what whoever triages the issue needs. `progressed` itself is inert —
-        // this is the only producer and it always reports `failing: false`, which
-        // resets on its own, so the flag can never change the outcome.
-        //
-        // That is deliberate. The prompt fires only on sustained API failure or
-        // managed-tab churn, the cases we can be certain about; a healthy API that
-        // accrues nothing belongs to the stuck detector (#53), not here. Do NOT
-        // make a healthy tick report `failing: true` to "activate" this.
-        const activeWatchReward = activeRewardFor(campaigns, nextState.sessions[platform]);
-        const previousWatchedMinutes = nextState.criticalHealth?.[platform]?.lastWatchedMinutes;
-        const watchedMinutes = activeWatchReward?.watchedMinutes;
-        observation = {
-          at: Date.now(),
-          failing: false,
-          progressed: watchedMinutes !== undefined
-            && previousWatchedMinutes !== undefined
-            && watchedMinutes > previousWatchedMinutes,
-          preconditionBroke: false,
-          watchedMinutes,
-        };
-        if (campaignDiagnosticFingerprint(campaigns) !== campaignDiagnosticFingerprint(state.campaigns[platform])) {
-          emitDiagnostic(emit, platform, "debug", `Campaign inventory changed (${campaigns.length} discovered)`);
-          const eligibleCount = campaigns.filter((campaign) => isEligible(campaign, settings)).length;
-          emitDiagnostic(emit, platform, "debug", `${eligibleCount} of ${campaigns.length} campaigns eligible after filtering`);
-        }
-      }
-
-      const previousInfeasibleRewardIds = new Set(state.deadlineInfeasibleRewardIds?.[platform]);
-      const currentInfeasibleRewardIds: string[] = [];
-      for (const campaign of campaigns) {
-        for (const reward of campaign.rewards) {
-          const feasibility = rewardFeasibility(
-            campaign,
-            reward,
-            settings.skipUnfinishableRewards,
-            settings.deadlineSafetyMarginMinutes,
-          );
-          if (feasibility.kind !== "insufficient_time") continue;
-          const diagnosticId = `${campaign.id}:${reward.id}`;
-          currentInfeasibleRewardIds.push(diagnosticId);
-          if (previousInfeasibleRewardIds.has(diagnosticId)) continue;
-          const availableMinutes = feasibility.availableMilliseconds / 60_000;
+    // Account-level, so it runs whether or not this platform ends up watching:
+    // the watch-time threshold is usually met by a session that has already
+    // stopped. Failures are swallowed — gamification is strictly additive to
+    // farming and must never fail the tick or trip the error backoff.
+    if (autoClaimChallengesFor(settings, platform) && capabilities.claimChallenges && challengePollDue(tick.state, platform, Date.now())) {
+      // Stamped on attempt, not on success, so a persistently failing endpoint
+      // is retried on the next interval instead of on every tick.
+      tick.state.gamification = {
+        ...tick.state.gamification,
+        [platform]: { lastCheckedAt: new Date().toISOString() },
+      };
+      try {
+        for (const challenge of yield* yieldEffect({ type: "claimChallenges", platform })) {
           emit({
-            category: "diagnostic",
-            platform,
+            category: "activity",
+            code: "challenge_claimed",
             level: "info",
-            code: "reward_insufficient_time",
-            message: `${campaign.name} / ${reward.name} has insufficient time: ${feasibility.remainingMinutes} watch minutes remain, ${availableMinutes.toFixed(2)} minutes are available before ${feasibility.deadline}, margin ${feasibility.marginMinutes} minutes`,
-            data: {
-              campaignId: campaign.id,
-              rewardId: reward.id,
-              remainingMinutes: feasibility.remainingMinutes,
-              availableMinutes,
-              deadline: feasibility.deadline,
-              marginMinutes: feasibility.marginMinutes,
-            },
+            platform,
+            data: { challengeId: challenge.id, rarity: challenge.rarity, recurrence: challenge.recurrence },
           });
         }
+      } catch (error) {
+        signal?.throwIfAborted();
+        if (authHealthFromError(error)) throw error;
+        emitDiagnostic(emit, platform, "warn", error instanceof Error ? error.message : "Challenge claim failed");
       }
-      nextState.deadlineInfeasibleRewardIds = {
-        ...nextState.deadlineInfeasibleRewardIds,
-        [platform]: currentInfeasibleRewardIds,
+    }
+
+    if (isInBackoff(previous)) {
+      tick.state.sessions[platform] = {
+        ...previous,
+        status: "error",
+        lastCheckedAt: new Date().toISOString(),
+        message: `Waiting until ${previous.retryAfter} before retrying after platform errors`,
+        reasonCode: "platform_backoff",
+        tablessHeartbeat: undefined,
       };
+      observation = {
+        at: Date.now(),
+        failing: true,
+        progressed: false,
+        preconditionBroke: false,
+        record: { kind: "api_error", code: "platform_backoff" },
+      };
+      emitDiagnostic(emit, platform, "warn", tick.state.sessions[platform].message ?? "Platform retry deferred");
+      return;
+    }
 
-      if (settings.autoClaim) {
-        const claimResult = await claimReadyRewards(
-          adapter,
-          campaigns,
-          options.waitingClaimRewardIds?.[platform] ?? new Set<string>(),
-          options.signal,
-        );
-        campaigns = claimResult.campaigns;
-        if (!discoveryFailed) {
-          nextState.campaigns[platform] = campaigns;
-        }
-        for (const event of claimResult.events) {
-          if (event.claimed) {
-            emit({
-              category: "activity",
-              platform,
-              level: "info",
-              code: "reward_claimed",
-              data: {
-                campaignId: event.campaignId,
-                campaignName: event.campaignName,
-                rewardId: event.rewardId,
-                rewardName: event.rewardName,
-                ...(event.rewardImageUrl ? { rewardImageUrl: event.rewardImageUrl } : {}),
-                ...(event.campaignUrl ? { campaignUrl: event.campaignUrl } : {}),
-                method: "automatic",
-              },
-            });
-          } else {
-            emitDiagnostic(emit, platform, event.level, event.message);
-          }
-        }
+    const committedDiscovery = input.discovery[platform]!;
+    const discoveryDiscarded = committedDiscovery.discarded === true && !committedDiscovery.complete;
+    let campaigns = preserveClaimedRewards(committedDiscovery.campaigns, state.campaigns[platform]);
+    const discoveryFailed = !committedDiscovery.complete;
+    if (!discoveryFailed) {
+      tick.state.campaigns[platform] = campaigns;
+      emitCampaignEvaluationDiagnostics(
+        emit,
+        platform,
+        campaigns,
+        settings,
+        input.campaignEvaluationFingerprints,
+      );
+      // The accrual arm. Fresh progress data is in hand, so record the active
+      // reward's watched minutes and compare them with the last observation.
+      //
+      // Its value is `watchedMinutes`: persisting it as `lastWatchedMinutes`
+      // puts "was this platform actually accruing?" in the failure report, which
+      // is what whoever triages the issue needs. `progressed` itself is inert —
+      // this is the only producer and it always reports `failing: false`, which
+      // resets on its own, so the flag can never change the outcome.
+      //
+      // That is deliberate. The prompt fires only on sustained API failure or
+      // managed-tab churn, the cases we can be certain about; a healthy API that
+      // accrues nothing belongs to the stuck detector (#53), not here. Do NOT
+      // make a healthy tick report `failing: true` to "activate" this.
+      const activeWatchReward = activeRewardFor(campaigns, tick.state.sessions[platform]);
+      const previousWatchedMinutes = tick.state.criticalHealth?.[platform]?.lastWatchedMinutes;
+      const watchedMinutes = activeWatchReward?.watchedMinutes;
+      observation = {
+        at: Date.now(),
+        failing: false,
+        progressed: watchedMinutes !== undefined
+          && previousWatchedMinutes !== undefined
+          && watchedMinutes > previousWatchedMinutes,
+        preconditionBroke: false,
+        watchedMinutes,
+      };
+      if (campaignDiagnosticFingerprint(campaigns) !== campaignDiagnosticFingerprint(state.campaigns[platform])) {
+        emitDiagnostic(emit, platform, "debug", `Campaign inventory changed (${campaigns.length} discovered)`);
+        const eligibleCount = campaigns.filter((campaign) => isEligible(campaign, settings)).length;
+        emitDiagnostic(emit, platform, "debug", `${eligibleCount} of ${campaigns.length} campaigns eligible after filtering`);
       }
+    }
 
-      const selectionStartedAt = Date.now();
-      const retentionCampaigns = discoveryFailed
-        ? [...new Map([...nextState.campaigns[platform], ...campaigns].map(campaign => [campaign.id, campaign])).values()]
-        : campaigns;
-      const ambiguousRetention = discoveryFailed
-        ? retainHealthyWatchOnAmbiguousDiscovery(previous, retentionCampaigns, settings, (message) => emitDiagnostic(emit, platform, "debug", message))
-        : undefined;
-      const sourceOrder = normalizeWatchSourcePriority(platform, platformSettings.watchSourcePriority);
-      const { selection, supplemental } = await selectWatchSources(platform, previous, settings, adapter, async source => {
-        const prepared = options.selections?.[platform];
-        if (source === "drops") {
-          if (prepared && prepared.decision.action !== "fallback") return prepared;
-          return ambiguousRetention ?? await selectWatchTarget(platform, previous, campaigns, settings, adapter, options.signal, false);
-        }
-        // Keep the established subscription-only fallback suppression when
-        // Drops precedes Idle. An explicit Idle-first order remains eligible.
-        const idleSuppressed = sourceOrder.indexOf("drops") < sourceOrder.indexOf("idle_watchlist") && onlySubscriptionCampaigns(campaigns, settings);
-        let candidatesChecked = 0;
-        const idle = idleSuppressed ? undefined : await chooseIdleWatchlistDecision(platform, settings, adapter, options.signal, () => { candidatesChecked += 1; });
-        let decision: WatchDecision = idle ?? {
-          platform,
-          action: "idle",
-          reason: idleSuppressed ? noEligibleCampaignReason(campaigns, settings) : `${noEligibleCampaignReason(campaigns, settings)} and no Idle Watchlist channels`,
-          reasonCode: idleSuppressed || onlyWaitingSubscriptionCampaigns(campaigns, settings) ? "campaign_ineligible" : "no_eligible_channel",
-        };
-        const retention = await shouldKeepWatching(previous, decision, campaigns, settings, adapter, options.signal);
-        if (previous.status === "watching" && previous.channel) decision = { ...decision, reason: retention.reason, reasonCode: retention.reasonCode };
-        return { decision, retention, campaignsChecked: 0, candidatesChecked, fastPath: false };
-      }, options.selectSupplementalWatchTarget ? source => options.selectSupplementalWatchTarget!(platform, nextState, options.signal, source) : undefined, emit, options.signal, discoveryDiscarded);
-      let { decision } = selection;
-      if (discoveryDiscarded && decision.action === "idle") {
-        decision = { ...decision, reason: "Waiting for campaign discovery after a settings change" };
-      }
-      const shouldKeep = selection.retention;
-      if (options.selectionIsCurrent?.[platform]?.() === false) {
-        emitDiagnostic(emit, platform, "debug", "Snapshot selection discarded after target health changed");
-        continue;
-      }
-      const campaignSearchBackoffs = { ...nextState.campaignSearchBackoffs };
-      if (selection.backoff) campaignSearchBackoffs[platform] = selection.backoff;
-      else delete campaignSearchBackoffs[platform];
-      nextState.campaignSearchBackoffs = campaignSearchBackoffs;
-      if (selection.fastPath) {
-        emitDiagnostic(
-          emit,
-          platform,
-          "debug",
-          `Campaign selection fast path retained current watch in ${Date.now() - selectionStartedAt}ms (${countLabel(selection.candidatesChecked, "candidate")} checked)`,
+    const previousInfeasibleRewardIds = new Set(state.deadlineInfeasibleRewardIds?.[platform]);
+    const currentInfeasibleRewardIds: string[] = [];
+    for (const campaign of campaigns) {
+      for (const reward of campaign.rewards) {
+        const feasibility = rewardFeasibility(
+          campaign,
+          reward,
+          settings.skipUnfinishableRewards,
+          settings.deadlineSafetyMarginMinutes,
         );
-      } else {
-        emitDiagnostic(
-          emit,
+        if (feasibility.kind !== "insufficient_time") continue;
+        const diagnosticId = `${campaign.id}:${reward.id}`;
+        currentInfeasibleRewardIds.push(diagnosticId);
+        if (previousInfeasibleRewardIds.has(diagnosticId)) continue;
+        const availableMinutes = feasibility.availableMilliseconds / 60_000;
+        emit({
+          category: "diagnostic",
           platform,
-          "debug",
-          `Campaign selection finished in ${Date.now() - selectionStartedAt}ms (${countLabel(selection.campaignsChecked, "campaign")} checked, ${countLabel(selection.candidatesChecked, "candidate")} checked)`,
-        );
+          level: "info",
+          code: "reward_insufficient_time",
+          message: `${campaign.name} / ${reward.name} has insufficient time: ${feasibility.remainingMinutes} watch minutes remain, ${availableMinutes.toFixed(2)} minutes are available before ${feasibility.deadline}, margin ${feasibility.marginMinutes} minutes`,
+          data: {
+            campaignId: campaign.id,
+            rewardId: reward.id,
+            remainingMinutes: feasibility.remainingMinutes,
+            availableMinutes,
+            deadline: feasibility.deadline,
+            marginMinutes: feasibility.marginMinutes,
+          },
+        });
       }
-      // The single site where a stop reason is decided for an existing watch, so
-      // the precondition-break arm is set here rather than at every consumer.
-      if (!shouldKeep.keep && previous.status === "watching" && ACCRUAL_PRECONDITION_BREAK_REASONS.has(shouldKeep.reasonCode)) {
-        observation = preconditionBreakObservation();
-      }
-      if (!shouldKeep.keep && previous.status === "watching") {
-        emitDiagnostic(
-          emit,
-          platform,
-          "debug",
-          `Switching watch target (${shouldKeep.reason}); ${previous.watchMode === "tabless" ? "heartbeat" : "playback"} ${previous.watchMode === "tabless" && !previous.lastHeartbeatAt ? "not yet observed" : isSessionHealthy(previous) ? "healthy" : "unhealthy"}`,
-        );
-      }
-      const decisionChanged = previous.campaignId !== decision.campaign?.id
-        || previous.rewardId !== decision.reward?.id
-        || previous.channel?.url !== decision.channel?.url
-        || actionForSession(previous) !== decision.action
-        || normalizedPreviousReasonCode(previous, decision) !== decision.reasonCode;
+    }
+    tick.state.deadlineInfeasibleRewardIds = {
+      ...tick.state.deadlineInfeasibleRewardIds,
+      [platform]: currentInfeasibleRewardIds,
+    };
 
-      decisions.push(decision);
-      if (decisionChanged) {
-        const decisionLevel = decision.action === "idle" || ["channel_offline", "watch_unhealthy", "platform_error"].includes(decision.reasonCode)
-          ? "warn"
-          : "debug";
-        emitDiagnostic(
-          emit,
-          platform,
-          decisionLevel,
-          `Campaign decision: ${decision.action}${decision.channel ? ` → ${decision.channel.displayName ?? decision.channel.username}` : ""} (${decision.reason})`,
-        );
-        emitDiagnostic(emit, platform, decisionLevel, decision.reason);
+    // Claims come before the watch decision: a claim can satisfy the next
+    // reward's precondition, which this same tick may then select.
+    if (settings.autoClaim) {
+      const claimResult = yield* yieldEffect({
+        type: "claimRewards",
+        platform,
+        campaigns,
+        waitingRewardIds: input.waitingClaimRewardIds?.[platform] ?? new Set<string>(),
+      });
+      campaigns = claimResult.campaigns;
+      if (!discoveryFailed) {
+        tick.state.campaigns[platform] = campaigns;
       }
-      if (decision.action === "idle") {
-        await adapter.stopWatchTab?.(previous, { signal: options.signal });
-        nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
-      }
-      const session = sessionForDecision(decision, previous, shouldKeep);
-      session.supplementalWatch = supplemental ? { id: supplemental.id, tablessOnly: true } : undefined;
-      if (decision.channel && decision.action !== "idle") {
-        // The breaker is open: a managed tab kept reopening for this platform.
-        // Opening another is exactly the user-hostile loop we detected, so the
-        // platform is parked rather than switched to tabless — the product
-        // decision is to pause, not to change watch modes behind the user's back.
-        // The `finally` on this loop still applies the tick's observation, which
-        // is what prunes the churn window and eventually releases the breaker.
-        if (settings.criticalFailurePromptEnabled && isManagedTabBreakerOpen(nextState, platform)) {
-          await adapter.stopWatchTab?.(previous, { signal: options.signal });
-          nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
-          nextState.sessions[platform] = {
-            ...session,
-            status: "idle",
-            lastCheckedAt: new Date().toISOString(),
-            message: "Paused after repeated tab reopening",
-            reasonCode: "critical_failure",
-            tabId: undefined,
-            tabManagedByExtension: undefined,
-            watchMode: undefined,
-            tablessHeartbeat: undefined,
-          };
-          emitDiagnostic(emit, platform, "warn", "Paused: a managed tab kept reopening");
-          continue;
-        }
-        const sameChannel = previous.channel?.url === decision.channel.url;
-        const useTabless = supplemental !== undefined || chooseTablessWatch(previous, settings, adapter, sameChannel);
-        session.offlineChecks = shouldKeep.keep ? shouldKeep.offlineChecks : 0;
-        session.playbackChecks = useTabless ? 0 : shouldKeep.playbackChecks;
-        // Both reset when the watch moves, so a fresh channel never inherits the
-        // previous one's stall count or its minutes baseline.
-        session.noProgressChecks = shouldKeep.keep && sameChannel ? shouldKeep.noProgressChecks ?? 0 : 0;
-        session.lastWatchedMinutes = shouldKeep.keep && sameChannel ? shouldKeep.lastWatchedMinutes : undefined;
-
-        if (useTabless) {
-          // Tabless: no video tab. Close any tab we previously opened for this
-          // platform; the controller starts/keeps the heartbeat watcher.
-          await adapter.stopWatchTab?.(previous, { signal: options.signal });
-          nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
-          session.watchMode = "tabless";
-          session.tablessFallback = false;
-          session.tabId = undefined;
-          session.watchTabOpenedAt = undefined;
-          session.tabManagedByExtension = undefined;
-          // Carry heartbeat health across the same channel; reset on a switch.
-          session.heartbeatChecks = sameChannel ? previous.heartbeatChecks ?? 0 : 0;
-          session.lastHeartbeatAt = sameChannel ? previous.lastHeartbeatAt : undefined;
-          session.lastHeartbeatOk = sameChannel ? previous.lastHeartbeatOk : undefined;
-          if (!sameChannel || previous.watchMode !== "tabless") {
-            emitDiagnostic(emit, platform, "debug", `Tabless watch armed for ${decision.channel.displayName ?? decision.channel.username}`);
-          }
+      for (const event of claimResult.events) {
+        if (event.claimed) {
+          emit({
+            category: "activity",
+            platform,
+            level: "info",
+            code: "reward_claimed",
+            data: {
+              campaignId: event.campaignId,
+              campaignName: event.campaignName,
+              rewardId: event.rewardId,
+              rewardName: event.rewardName,
+              ...(event.rewardImageUrl ? { rewardImageUrl: event.rewardImageUrl } : {}),
+              ...(event.campaignUrl ? { campaignUrl: event.campaignUrl } : {}),
+              method: "automatic",
+            },
+          });
         } else {
-          // Tab policy (mute / keep-unmuted / auto-close) is owned by the host's
-          // injected WatchTabPort, not the engine; the scheduler only forwards the
-          // managed-tab handle it tracks in state.
-          const watchTabOptions = nextState.managedWatchTabs?.[platform]
-            ? { managedTab: nextState.managedWatchTabs[platform] }
-            : {};
-          const previousManagedTabId = nextState.managedWatchTabs?.[platform]?.tabId;
-          const prepared = await adapter.prepareWatchTab(
-            decision.channel,
-            previous,
-            { ...watchTabOptions, signal: options.signal },
-          );
-          if (options.selectionIsCurrent?.[platform]?.() === false) {
-            if (prepared.managedByExtension && prepared.tabId !== previousManagedTabId) {
-              await adapter.stopWatchTab?.({
+          emitDiagnostic(emit, platform, event.level, event.message);
+        }
+      }
+    }
+
+    const selectionStartedAt = Date.now();
+    const retentionCampaigns = discoveryFailed
+      ? [...new Map([...tick.state.campaigns[platform], ...campaigns].map(campaign => [campaign.id, campaign])).values()]
+      : campaigns;
+    const ambiguousRetention = discoveryFailed
+      ? retainHealthyWatchOnAmbiguousDiscovery(previous, retentionCampaigns, settings, (message) => emitDiagnostic(emit, platform, "debug", message))
+      : undefined;
+    const sourceOrder = normalizeWatchSourcePriority(platform, platformSettings.watchSourcePriority);
+    const { selection, supplemental } = yield* selectWatchSources(platform, previous, settings, capabilities.supportsTabless, async source => {
+      const prepared = input.selections?.[platform];
+      if (source === "drops") {
+        if (prepared && prepared.decision.action !== "fallback") return prepared;
+        return ambiguousRetention ?? await selectWatchTarget(platform, previous, campaigns, settings, selectionView, signal, false);
+      }
+      // Keep the established subscription-only fallback suppression when
+      // Drops precedes Idle. An explicit Idle-first order remains eligible.
+      const idleSuppressed = sourceOrder.indexOf("drops") < sourceOrder.indexOf("idle_watchlist") && onlySubscriptionCampaigns(campaigns, settings);
+      let candidatesChecked = 0;
+      const idle = idleSuppressed ? undefined : await chooseIdleWatchlistDecision(platform, settings, selectionView, signal, () => { candidatesChecked += 1; });
+      let decision: WatchDecision = idle ?? {
+        platform,
+        action: "idle",
+        reason: idleSuppressed ? noEligibleCampaignReason(campaigns, settings) : `${noEligibleCampaignReason(campaigns, settings)} and no Idle Watchlist channels`,
+        reasonCode: idleSuppressed || onlyWaitingSubscriptionCampaigns(campaigns, settings) ? "campaign_ineligible" : "no_eligible_channel",
+      };
+      const retention = await shouldKeepWatching(previous, decision, campaigns, settings, selectionView, signal);
+      if (previous.status === "watching" && previous.channel) decision = { ...decision, reason: retention.reason, reasonCode: retention.reasonCode };
+      return { decision, retention, campaignsChecked: 0, candidatesChecked, fastPath: false };
+    }, input.supplementalSources ? tick.state : undefined, emit, signal, discoveryDiscarded);
+    let { decision } = selection;
+    if (discoveryDiscarded && decision.action === "idle") {
+      decision = { ...decision, reason: "Waiting for campaign discovery after a settings change" };
+    }
+    const shouldKeep = selection.retention;
+    if (input.selectionIsCurrent?.[platform]?.() === false) {
+      emitDiagnostic(emit, platform, "debug", "Snapshot selection discarded after target health changed");
+      return;
+    }
+    const campaignSearchBackoffs = { ...tick.state.campaignSearchBackoffs };
+    if (selection.backoff) campaignSearchBackoffs[platform] = selection.backoff;
+    else delete campaignSearchBackoffs[platform];
+    tick.state.campaignSearchBackoffs = campaignSearchBackoffs;
+    if (selection.fastPath) {
+      emitDiagnostic(
+        emit,
+        platform,
+        "debug",
+        `Campaign selection fast path retained current watch in ${Date.now() - selectionStartedAt}ms (${countLabel(selection.candidatesChecked, "candidate")} checked)`,
+      );
+    } else {
+      emitDiagnostic(
+        emit,
+        platform,
+        "debug",
+        `Campaign selection finished in ${Date.now() - selectionStartedAt}ms (${countLabel(selection.campaignsChecked, "campaign")} checked, ${countLabel(selection.candidatesChecked, "candidate")} checked)`,
+      );
+    }
+    // The single site where a stop reason is decided for an existing watch, so
+    // the precondition-break arm is set here rather than at every consumer.
+    if (!shouldKeep.keep && previous.status === "watching" && ACCRUAL_PRECONDITION_BREAK_REASONS.has(shouldKeep.reasonCode)) {
+      observation = preconditionBreakObservation();
+    }
+    if (!shouldKeep.keep && previous.status === "watching") {
+      emitDiagnostic(
+        emit,
+        platform,
+        "debug",
+        `Switching watch target (${shouldKeep.reason}); ${previous.watchMode === "tabless" ? "heartbeat" : "playback"} ${previous.watchMode === "tabless" && !previous.lastHeartbeatAt ? "not yet observed" : isSessionHealthy(previous) ? "healthy" : "unhealthy"}`,
+      );
+    }
+    const decisionChanged = previous.campaignId !== decision.campaign?.id
+      || previous.rewardId !== decision.reward?.id
+      || previous.channel?.url !== decision.channel?.url
+      || actionForSession(previous) !== decision.action
+      || normalizedPreviousReasonCode(previous, decision) !== decision.reasonCode;
+
+    tick.decisions.push(decision);
+    if (decisionChanged) {
+      const decisionLevel = decision.action === "idle" || ["channel_offline", "watch_unhealthy", "platform_error"].includes(decision.reasonCode)
+        ? "warn"
+        : "debug";
+      emitDiagnostic(
+        emit,
+        platform,
+        decisionLevel,
+        `Campaign decision: ${decision.action}${decision.channel ? ` → ${decision.channel.displayName ?? decision.channel.username}` : ""} (${decision.reason})`,
+      );
+      emitDiagnostic(emit, platform, decisionLevel, decision.reason);
+    }
+    if (decision.action === "idle") {
+      yield* yieldEffect({ type: "stopWatchTab", platform, session: previous });
+      tick.state.managedWatchTabs = withoutManagedWatchTab(tick.state.managedWatchTabs, platform);
+    }
+    const session = sessionForDecision(decision, previous, shouldKeep);
+    session.supplementalWatch = supplemental ? { id: supplemental.id, tablessOnly: true } : undefined;
+    if (decision.channel && decision.action !== "idle") {
+      // The breaker is open: a managed tab kept reopening for this platform.
+      // Opening another is exactly the user-hostile loop we detected, so the
+      // platform is parked rather than switched to tabless — the product
+      // decision is to pause, not to change watch modes behind the user's back.
+      // The `finally` below still applies the tick's observation, which is what
+      // prunes the churn window and eventually releases the breaker.
+      if (settings.criticalFailurePromptEnabled && isManagedTabBreakerOpen(tick.state, platform)) {
+        yield* yieldEffect({ type: "stopWatchTab", platform, session: previous });
+        tick.state.managedWatchTabs = withoutManagedWatchTab(tick.state.managedWatchTabs, platform);
+        tick.state.sessions[platform] = {
+          ...session,
+          status: "idle",
+          lastCheckedAt: new Date().toISOString(),
+          message: "Paused after repeated tab reopening",
+          reasonCode: "critical_failure",
+          tabId: undefined,
+          tabManagedByExtension: undefined,
+          watchMode: undefined,
+          tablessHeartbeat: undefined,
+        };
+        emitDiagnostic(emit, platform, "warn", "Paused: a managed tab kept reopening");
+        return;
+      }
+      const sameChannel = previous.channel?.url === decision.channel.url;
+      const useTabless = supplemental !== undefined || chooseTablessWatch(previous, settings, capabilities, sameChannel);
+      session.offlineChecks = shouldKeep.keep ? shouldKeep.offlineChecks : 0;
+      session.playbackChecks = useTabless ? 0 : shouldKeep.playbackChecks;
+      // Both reset when the watch moves, so a fresh channel never inherits the
+      // previous one's stall count or its minutes baseline.
+      session.noProgressChecks = shouldKeep.keep && sameChannel ? shouldKeep.noProgressChecks ?? 0 : 0;
+      session.lastWatchedMinutes = shouldKeep.keep && sameChannel ? shouldKeep.lastWatchedMinutes : undefined;
+
+      if (useTabless) {
+        // Tabless: no video tab. Close any tab we previously opened for this
+        // platform; the controller starts/keeps the heartbeat watcher.
+        yield* yieldEffect({ type: "stopWatchTab", platform, session: previous });
+        tick.state.managedWatchTabs = withoutManagedWatchTab(tick.state.managedWatchTabs, platform);
+        session.watchMode = "tabless";
+        session.tablessFallback = false;
+        session.tabId = undefined;
+        session.watchTabOpenedAt = undefined;
+        session.tabManagedByExtension = undefined;
+        // Carry heartbeat health across the same channel; reset on a switch.
+        session.heartbeatChecks = sameChannel ? previous.heartbeatChecks ?? 0 : 0;
+        session.lastHeartbeatAt = sameChannel ? previous.lastHeartbeatAt : undefined;
+        session.lastHeartbeatOk = sameChannel ? previous.lastHeartbeatOk : undefined;
+        if (!sameChannel || previous.watchMode !== "tabless") {
+          emitDiagnostic(emit, platform, "debug", `Tabless watch armed for ${decision.channel.displayName ?? decision.channel.username}`);
+        }
+      } else {
+        // Tab policy (mute / keep-unmuted / auto-close) is owned by the host's
+        // injected WatchTabPort, not the engine; the scheduler only forwards the
+        // managed-tab handle it tracks in state.
+        const managedTab = tick.state.managedWatchTabs?.[platform];
+        const previousManagedTabId = managedTab?.tabId;
+        const prepared = yield* yieldEffect({
+          type: "openWatchTab",
+          platform,
+          channel: decision.channel,
+          session: previous,
+          ...(managedTab ? { managedTab } : {}),
+        });
+        if (input.selectionIsCurrent?.[platform]?.() === false) {
+          if (prepared.managedByExtension && prepared.tabId !== previousManagedTabId) {
+            yield* yieldEffect({
+              type: "stopWatchTab",
+              platform,
+              session: {
                 ...previous,
                 status: "watching",
                 channel: decision.channel,
                 tabId: prepared.tabId,
                 tabManagedByExtension: true,
-              }, { signal: options.signal });
-            }
-            emitDiagnostic(emit, platform, "debug", "Snapshot selection discarded after target health changed");
-            continue;
-          }
-          // Only a genuinely NEW extension-managed tab counts as churn evidence.
-          // Reusing the tab we already track happens on every ordinary tick, and
-          // counting it would trip the breaker during completely normal farming.
-          if (settings.criticalFailurePromptEnabled && prepared.managedByExtension && prepared.tabId !== previousManagedTabId) {
-            const opened = recordManagedTabOpen(nextState, platform, Date.now(), { source: "watch_tab" });
-            nextState = opened.state;
-            if (opened.event) emit(opened.event);
-          }
-          session.tabId = prepared.tabId;
-          session.tabManagedByExtension = prepared.managedByExtension;
-          // Mark a deliberate fallback so the next tick stays on the tab for this
-          // channel instead of flipping back to a failing tabless heartbeat.
-          session.watchMode = "tab";
-          session.tablessFallback = Boolean(settings.tablessMode && adapter.supportsTabless);
-          session.tablessHeartbeat = undefined;
-          // A new tab id, a different channel, or a switch out of tabless all mean
-          // the page starts from scratch: restart the playback grace window (#250).
-          const freshTab = !sameChannel || previous.watchMode !== "tab" || previous.tabId !== prepared.tabId;
-          session.watchTabOpenedAt = freshTab ? new Date().toISOString() : previous.watchTabOpenedAt;
-          // The counter describes the tab we just replaced, not this one.
-          if (freshTab) session.playbackChecks = 0;
-          if (freshTab) {
-            emitDiagnostic(emit, platform, "debug", `Watch tab ready (tab ${prepared.tabId}, ${prepared.managedByExtension ? "extension-managed" : "user tab"}) for ${decision.channel.displayName ?? decision.channel.username}`);
-          }
-          if (prepared.managedByExtension) {
-            nextState.managedWatchTabs = {
-              ...nextState.managedWatchTabs,
-              [platform]: prepared.managedTab ?? {
-                platform,
-                tabId: prepared.tabId,
-                channelUrl: decision.channel.url,
-                ownedByExtension: true as const,
               },
-            };
-          } else {
-            nextState.managedWatchTabs = withoutManagedWatchTab(nextState.managedWatchTabs, platform);
+            });
           }
+          emitDiagnostic(emit, platform, "debug", "Snapshot selection discarded after target health changed");
+          return;
         }
-        if (autoClaimChannelPointsFor(settings, platform) && adapter.claimChannelPoints) {
-          try {
-            const claimed = await adapter.claimChannelPoints(decision.channel, { signal: options.signal });
-            if (claimed) {
-              emitDiagnostic(emit, platform, "info", `Claimed channel points for ${decision.channel.displayName ?? decision.channel.username}`);
-            }
-          } catch (error) {
-            options.signal?.throwIfAborted();
-            if (authHealthFromError(error)) throw error;
-            emitDiagnostic(
-              emit,
+        // Only a genuinely NEW extension-managed tab counts as churn evidence.
+        // Reusing the tab we already track happens on every ordinary tick, and
+        // counting it would trip the breaker during completely normal farming.
+        if (settings.criticalFailurePromptEnabled && prepared.managedByExtension && prepared.tabId !== previousManagedTabId) {
+          const opened = recordManagedTabOpen(tick.state, platform, Date.now(), { source: "watch_tab" });
+          tick.state = opened.state;
+          if (opened.event) emit(opened.event);
+        }
+        session.tabId = prepared.tabId;
+        session.tabManagedByExtension = prepared.managedByExtension;
+        // Mark a deliberate fallback so the next tick stays on the tab for this
+        // channel instead of flipping back to a failing tabless heartbeat.
+        session.watchMode = "tab";
+        session.tablessFallback = Boolean(settings.tablessMode && capabilities.supportsTabless);
+        session.tablessHeartbeat = undefined;
+        // A new tab id, a different channel, or a switch out of tabless all mean
+        // the page starts from scratch: restart the playback grace window (#250).
+        const freshTab = !sameChannel || previous.watchMode !== "tab" || previous.tabId !== prepared.tabId;
+        session.watchTabOpenedAt = freshTab ? new Date().toISOString() : previous.watchTabOpenedAt;
+        // The counter describes the tab we just replaced, not this one.
+        if (freshTab) session.playbackChecks = 0;
+        if (freshTab) {
+          emitDiagnostic(emit, platform, "debug", `Watch tab ready (tab ${prepared.tabId}, ${prepared.managedByExtension ? "extension-managed" : "user tab"}) for ${decision.channel.displayName ?? decision.channel.username}`);
+        }
+        if (prepared.managedByExtension) {
+          tick.state.managedWatchTabs = {
+            ...tick.state.managedWatchTabs,
+            [platform]: prepared.managedTab ?? {
               platform,
-              "warn",
-              error instanceof Error ? error.message : "Channel points claim failed",
-            );
-          }
+              tabId: prepared.tabId,
+              channelUrl: decision.channel.url,
+              ownedByExtension: true as const,
+            },
+          };
+        } else {
+          tick.state.managedWatchTabs = withoutManagedWatchTab(tick.state.managedWatchTabs, platform);
         }
       }
-      session.lastCheckedAt = new Date().toISOString();
-      session.errorChecks = 0;
-      session.retryAfter = undefined;
-      nextState.sessions[platform] = session;
-      nextState.managedPageContextTabs = currentManagedPageContextTabs();
-    } catch (error) {
-      const authHealth = authHealthFromError(error);
-      if (authHealth) {
-        const transition = applyPlatformAuthHealth(nextState, platform, authHealth);
-        nextState = transition.state;
-        if (transition.event) emit(transition.event);
-        await suspendPlatformForAuthentication(platform, previous, adapter);
-        continue;
+      if (autoClaimChannelPointsFor(settings, platform) && capabilities.claimChannelPoints) {
+        try {
+          const claimed = yield* yieldEffect({ type: "claimChannelPoints", platform, channel: decision.channel });
+          if (claimed) {
+            emitDiagnostic(emit, platform, "info", `Claimed channel points for ${decision.channel.displayName ?? decision.channel.username}`);
+          }
+        } catch (error) {
+          signal?.throwIfAborted();
+          if (authHealthFromError(error)) throw error;
+          emitDiagnostic(
+            emit,
+            platform,
+            "warn",
+            error instanceof Error ? error.message : "Channel points claim failed",
+          );
+        }
       }
-      // The tick died somewhere in the farming work. Without this the accrual
-      // observation set earlier (failing: false) would be what `finally` applies,
-      // so a platform failing every tick after a successful discovery would reset
-      // its own evidence forever and could never flag.
-      observation = apiErrorObservation(error);
-      const message = error instanceof Error ? error.message : "Platform scheduler failed";
-      const errorChecks = (previous.errorChecks ?? 0) + 1;
-      nextState.sessions[platform] = {
-        ...previous,
-        status: "error",
-        lastCheckedAt: new Date().toISOString(),
-        errorChecks,
-        retryAfter: nextRetryAfter(errorChecks),
-        message,
-        reasonCode: "platform_error",
-        tablessHeartbeat: undefined,
-      };
-      nextState.managedPageContextTabs = currentManagedPageContextTabs();
-      emitDiagnostic(emit, platform, "error", `${message}; retry after ${nextState.sessions[platform].retryAfter}`);
-      emitDiagnostic(emit, platform, "debug", `Tick failed from status "${previous.status}" (error #${errorChecks}); ${error instanceof Error && error.stack ? error.stack : message}`);
-    } finally {
-      applyObservation();
     }
+    session.lastCheckedAt = new Date().toISOString();
+    session.errorChecks = 0;
+    session.retryAfter = undefined;
+    tick.state.sessions[platform] = session;
+  } catch (error) {
+    const authHealth = authHealthFromError(error);
+    if (authHealth) {
+      const transition = applyPlatformAuthHealth(tick.state, platform, authHealth);
+      tick.state = transition.state;
+      if (transition.event) emit(transition.event);
+      yield* suspendPlatformForAuthentication(tick, platform, previous);
+      return;
+    }
+    // The tick died somewhere in the farming work. Without this the accrual
+    // observation set earlier (failing: false) would be what `finally` applies,
+    // so a platform failing every tick after a successful discovery would reset
+    // its own evidence forever and could never flag.
+    observation = apiErrorObservation(error);
+    const message = error instanceof Error ? error.message : "Platform scheduler failed";
+    const errorChecks = (previous.errorChecks ?? 0) + 1;
+    tick.state.sessions[platform] = {
+      ...previous,
+      status: "error",
+      lastCheckedAt: new Date().toISOString(),
+      errorChecks,
+      retryAfter: nextRetryAfter(errorChecks),
+      message,
+      reasonCode: "platform_error",
+      tablessHeartbeat: undefined,
+    };
+    emitDiagnostic(emit, platform, "error", `${message}; retry after ${tick.state.sessions[platform].retryAfter}`);
+    emitDiagnostic(emit, platform, "debug", `Tick failed from status "${previous.status}" (error #${errorChecks}); ${error instanceof Error && error.stack ? error.stack : message}`);
+  } finally {
+    applyObservation();
   }
-
-  nextState.managedPageContextTabs = currentManagedPageContextTabs();
-  return { state: nextState, decisions, events };
 }
 
 function hasRecentManualWatch(state: SchedulerState, platform: Platform): boolean {
   const manualWatch = state.manualWatch?.[platform];
   if (!manualWatch?.active) return false;
   return !isTimestampStale(manualWatch.checkedAt, MANUAL_WATCH_TTL_MS, Date.now());
-}
-
-function hasIdleWatchlistChannels(settings: EngineSettings, platform: Platform): boolean {
-  return settings.platform[platform].idleWatchlistChannels.some((username) => username.trim());
 }
 
 function withoutManagedWatchTab(
@@ -1698,91 +1742,7 @@ function nextRetryAfter(errorChecks: number): string {
   return new Date(Date.now() + minutes * 60 * 1000).toISOString();
 }
 
-export type ClaimReadyRewardEvent = {
-  level: "info";
-  message: string;
-  claimed: true;
-  campaignId: string;
-  campaignName: string;
-  rewardId: string;
-  rewardName: string;
-  rewardImageUrl?: string;
-  campaignUrl?: string;
-} | {
-  level: "info" | "warn" | "error";
-  message: string;
-  claimed?: false;
-};
-
-export async function claimReadyRewards(
-  adapter: PlatformAdapter,
-  campaigns: DropCampaign[],
-  previouslyWaitingRewardIds: Set<string>,
-  signal?: AbortSignal,
-): Promise<{ campaigns: DropCampaign[]; events: ClaimReadyRewardEvent[] }> {
-  const events: ClaimReadyRewardEvent[] = [];
-  const updated: DropCampaign[] = [];
-  const stillWaitingRewardIds = new Set<string>();
-
-  for (const campaign of campaigns) {
-    const rewards: DropReward[] = [];
-    for (const reward of campaign.rewards) {
-      signal?.throwIfAborted();
-      if (reward.status === "claimable" && canClaimReward(reward)) {
-        if (adapter.isClaimReady && !adapter.isClaimReady(reward)) {
-          // Watched to completion, but the platform hasn't released the claim
-          // yet (e.g. Twitch hasn't returned the drop-instance id). Defer; the
-          // next tick re-checks once progress data catches up.
-          rewards.push(reward);
-          stillWaitingRewardIds.add(reward.id);
-          if (!previouslyWaitingRewardIds.has(reward.id)) {
-            events.push({
-              level: "info",
-              message: `${reward.name} watched-complete; waiting for ${campaign.name} claim to be released`,
-            });
-          }
-          continue;
-        }
-        try {
-          const claimed = await adapter.claimReward(campaign, reward, { signal });
-          rewards.push(claimed ? { ...reward, status: "claimed", watchedMinutes: reward.requiredMinutes } : reward);
-          if (claimed) {
-            events.push({
-              level: "info",
-              message: `Claimed ${reward.name} from ${campaign.name}`,
-              claimed: true,
-              campaignId: campaign.id,
-              campaignName: campaign.name,
-              rewardId: reward.id,
-              rewardName: reward.name,
-              ...(reward.imageUrl ? { rewardImageUrl: reward.imageUrl } : {}),
-              ...(campaign.url ? { campaignUrl: campaign.url } : {}),
-            });
-          } else {
-            events.push({
-              level: "warn",
-              message: `Could not claim ${reward.name} from ${campaign.name}`,
-            });
-          }
-        } catch (error) {
-          rewards.push(reward);
-          events.push({
-            level: "error",
-            message: error instanceof Error ? error.message : `Claim failed for ${reward.name}`,
-          });
-        }
-      } else {
-        rewards.push(reward);
-      }
-    }
-    updated.push(reconcileCampaignAfterClaims(campaign, rewards));
-  }
-
-  previouslyWaitingRewardIds.clear();
-  for (const rewardId of stillWaitingRewardIds) previouslyWaitingRewardIds.add(rewardId);
-
-  return { campaigns: updated, events };
-}
+export { claimReadyRewards, type ClaimReadyRewardEvent } from "./rewardClaims";
 
 export function preserveClaimedRewards(
   campaigns: DropCampaign[],

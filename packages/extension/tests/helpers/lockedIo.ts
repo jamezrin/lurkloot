@@ -12,7 +12,7 @@ export type LockedIoKind = "provider" | "tab" | "timer" | "async-wait";
 // The lock that is held around the call:
 // - a lock helper whose argument body must contain the call, or
 // - "caller" when the whole function runs inside a lock its caller took
-//   (runSchedulerTick runs inside runTick's withStateLock).
+//   (Kick page-context recovery runs inside runTick's withStateLock).
 export type LockedIoLock = "withStateLock" | "withPlatformLock" | "withSettingsLock" | "withHeartbeatLane" | "caller";
 
 export type LockedIoOwner = 586 | 587 | 588 | 589 | 590 | 595 | 596 | 597 | 598 | 599;
@@ -20,7 +20,7 @@ export type LockedIoOwner = 586 | 587 | 588 | 589 | 590 | 595 | 596 | 597 | 598 
 export interface LockedIoEntry {
   readonly id: string;
   // Relative to packages/core/src.
-  readonly file: `background/${string}.ts` | "core/scheduler.ts";
+  readonly file: `background/${string}.ts`;
   // The named function that contains the lock (or, for "caller", the call).
   readonly site: string;
   readonly lock: LockedIoLock;
@@ -31,20 +31,7 @@ export interface LockedIoEntry {
 }
 
 export const LOCKED_IO_ALLOWLIST: readonly LockedIoEntry[] = [
-  // runSchedulerTick runs inside runTick's withStateLock(…, platforms). #599
-  // moves each effect out of the lock into its effect executor; #587 prepares
-  // supplemental selection outside the lock.
-  { id: "tick-reward-claims", file: "core/scheduler.ts", site: "runSchedulerTick", lock: "caller", call: "claimReadyRewards(", kind: "provider", owner: 599 },
-  { id: "tick-channel-points", file: "core/scheduler.ts", site: "runSchedulerTick", lock: "caller", call: "adapter.claimChannelPoints(", kind: "provider", owner: 599 },
-  { id: "tick-kick-challenges", file: "core/scheduler.ts", site: "runSchedulerTick", lock: "caller", call: "adapter.claimChallenges(", kind: "provider", owner: 599 },
-  { id: "tick-legacy-refresh", file: "core/scheduler.ts", site: "runSchedulerTick", lock: "caller", call: "adapter.refreshCampaigns(", kind: "provider", owner: 599 },
-  { id: "tick-watch-tab-open", file: "core/scheduler.ts", site: "runSchedulerTick", lock: "caller", call: "adapter.prepareWatchTab(", kind: "tab", owner: 599 },
-  { id: "tick-watch-tab-stop", file: "core/scheduler.ts", site: "runSchedulerTick", lock: "caller", call: "adapter.stopWatchTab?.(", kind: "tab", owner: 599 },
-  { id: "tick-page-context-release", file: "core/scheduler.ts", site: "runSchedulerTick", lock: "caller", call: "stopPageContextTabs(", kind: "tab", owner: 599 },
-  { id: "tick-supplemental-selection", file: "core/scheduler.ts", site: "runSchedulerTick", lock: "caller", call: "options.selectSupplementalWatchTarget!(", kind: "provider", owner: 587 },
-
-  // runTick's own withStateLock body, around and after runSchedulerTick.
-  { id: "tick-supplemental-host-call", file: "background/tickRun.ts", site: "runTick", lock: "withStateLock", call: "supplementalSources.select(", kind: "provider", owner: 587 },
+  // runTick's own withStateLock body, around and after the scheduler tick.
   { id: "tick-fallback-selection", file: "background/tickRun.ts", site: "runTick", lock: "withStateLock", call: "prepareSelection(", kind: "async-wait", owner: 587 },
   { id: "tick-discovery-signals", file: "background/tickRun.ts", site: "runTick", lock: "withStateLock", call: "reconcileDiscoverySignalControllers(", kind: "provider", owner: 587 },
   { id: "tick-ad-focus", file: "background/tickRun.ts", site: "runTick", lock: "withStateLock", call: "applyAdFocusForState(", kind: "tab", owner: 587 },
@@ -108,7 +95,7 @@ export const LOCKED_IO_ALLOWLIST: readonly LockedIoEntry[] = [
 // under `adapters[platform]`, and in a function its caller runs under a lock.
 // The scan now recognizes all three. That was a correction to the baseline,
 // not new locked I/O.
-export const LOCKED_IO_ALLOWLIST_SIZE = 43;
+export const LOCKED_IO_ALLOWLIST_SIZE = 34;
 
 // Calls that count as locked I/O when they appear inside a lock: ports and
 // adapter methods that reach a provider, a tab or a timer, and the controller

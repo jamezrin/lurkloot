@@ -126,9 +126,10 @@ export function createTickAdmission<S extends EngineSettings>(
     // Equal-priority reasons keep their first trigger and all diagnostic counts.
     if (selectionBypassesBackoff(trigger)) return 3;
     if (selectionIsForced(trigger)) return 2;
-    // A ranking change is lowest too: merged with anything that needs fresh
-    // discovery, that trigger wins and the tick refreshes.
-    return trigger === "alarm" || trigger === "discovery_signal" || trigger === "unknown" || trigger === "ranking_changed" ? 0 : 1;
+    // A ranking change (or a superseded tick's retry) is lowest too: merged
+    // with anything that needs fresh discovery, that trigger wins and the tick
+    // refreshes.
+    return trigger === "alarm" || trigger === "discovery_signal" || trigger === "unknown" || trigger === "ranking_changed" || trigger === "tick_superseded" ? 0 : 1;
   }
 
   function executePlatformTick(platform: Platform, request: TickRequest): void {

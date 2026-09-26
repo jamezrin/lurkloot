@@ -92,7 +92,7 @@ export function mergePlatformState(
 // convenience: a round trip through storage drops them, so the freshly built
 // state (which sets `channel: undefined` and friends explicitly) must compare
 // equal to the stored state that simply lacks those keys.
-function jsonEquivalent(left: unknown, right: unknown): boolean {
+export function jsonEquivalent(left: unknown, right: unknown): boolean {
   if (left === right) return true;
   if (typeof left !== "object" || typeof right !== "object" || left === null || right === null) return false;
   if (Array.isArray(left) || Array.isArray(right)) {

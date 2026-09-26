@@ -1,16 +1,18 @@
-import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
-import type { EventEmitter } from "@lurkloot/shared/events";
+import type { EngineSettings, Platform, SchedulerState, WatchSession, WatchSourceId } from "@lurkloot/shared/models";
+import type { EngineEvent, EventEmitter } from "@lurkloot/shared/events";
 import { isFarmingActive } from "@lurkloot/shared/settings";
-import { runSchedulerTick, type SnapshotSelectionResult } from "../core/scheduler";
+import type { SchedulerTickResult, SelectionView, SnapshotSelectionResult } from "../core/scheduler";
 import { syncManagedTabBreakers } from "../core/tabs";
 import { recordManagedTabOpen } from "../core/criticalHealth";
 import type { PlatformAdapter } from "../platforms/adapter";
-import { adapterFromDiscoverySnapshot } from "../core/discoverySnapshot";
+import { adapterFromDiscoverySnapshot, selectionAdapterFromDiscoverySnapshot } from "../core/discoverySnapshot";
 import { PLATFORMS } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
 import { AuthProbeSetupError } from "./errors";
 import { correlateTickDiagnostics, farmingLifecycleEvents } from "./helpers";
 import type { BackgroundHostPorts } from "./hostPorts";
+import { rebaseTickState, tickEffectFacts } from "./tickCommit";
+import { createTickEffectExecutor, runSchedulerTickEffects, tickCapabilities } from "./tickEffects";
 import type {
   ClaimedRewards,
   CommittedSelection,
@@ -25,7 +27,8 @@ import type {
 // One platform tick: selection, the scheduler tick and what runs around it.
 export function createTickRun<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
-  { claimSlice, discoverySlice, tickSlice }: Pick<ControllerSlices<S>, "claimSlice" | "discoverySlice" | "tickSlice">,
+  { claimSlice, discoverySlice, tickSlice, kickChallengeSlice, channelPointsSlice }: Pick<ControllerSlices<S>,
+    "claimSlice" | "discoverySlice" | "tickSlice" | "kickChallengeSlice" | "channelPointsSlice">,
   calls: Pick<ControllerCalls<S>,
     | "applyAdFocusForState"
     | "clearOperationalEvents"
@@ -52,6 +55,8 @@ export function createTickRun<S extends EngineSettings>(
     | "selectionBypassesBackoff"
     | "selectionIsForced"
     | "selectionKey"
+    | "stateRevision"
+    | "tickInBackground"
     | "withEventCollector"
     | "withStateLock"
   >,
@@ -82,10 +87,14 @@ export function createTickRun<S extends EngineSettings>(
     selectionBypassesBackoff,
     selectionIsForced,
     selectionKey,
+    stateRevision,
+    tickInBackground,
     withEventCollector,
     withStateLock,
   } = lateBound(calls);
   const supplementalSources = ports.twitch.supplementalSources;
+  // One executor per controller: each scheduler effect type has one handler.
+  const tickEffects = createTickEffectExecutor();
 
   async function tickPlatform(
     platform: Platform,
@@ -198,9 +207,9 @@ export function createTickRun<S extends EngineSettings>(
     const currentState = await readState();
     const discoveryPlatforms = schedulerPlatforms.filter((platform) =>
       currentState.authHealth[platform].status === "healthy");
-    // A ranking change re-selects from the discovery already held; only a
-    // platform without one refreshes.
-    const refreshPlatforms = trigger === "ranking_changed"
+    // A ranking change, or a retry after a superseded tick, re-selects from the
+    // discovery already held; only a platform without one refreshes.
+    const refreshPlatforms = trigger === "ranking_changed" || trigger === "tick_superseded"
       ? discoveryPlatforms.filter((platform) => !discoverySlice.discoveryLanes[platform].current().snapshot)
       : discoveryPlatforms;
     await refreshDiscovery(refreshPlatforms, selectionBypassesBackoff(trigger), tickAdapters);
@@ -224,244 +233,359 @@ export function createTickRun<S extends EngineSettings>(
     }));
     signal.throwIfAborted();
     const platform = schedulerPlatforms[0];
-    await withStateLock(() => withEventCollector(async (emit, events) => {
-      signal.throwIfAborted();
-      const settings = await ports.storage.loadSettings();
-      const state = await ports.storage.loadState();
+    const staleSelection = new Error("Snapshot selection lifecycle changed before publication");
+    // Three steps (#599). Under the platform lock, read the state and settings
+    // the tick decides from and settle its selections. With no lock held, run
+    // the scheduler tick and every effect it names. Under the lock again,
+    // rebase the result on whatever else committed meanwhile, then publish.
+    await withEventCollector(async (emit, events) => {
       const nextWaitingClaimRewardIds: Record<Platform, Set<string>> = {
         twitch: new Set(claimSlice.waitingClaimRewardIds.twitch),
         kick: new Set(claimSlice.waitingClaimRewardIds.kick),
       };
-      let nextState: SchedulerState;
-      let publicationLeases: Array<readonly [Platform, HeartbeatPublicationLease]> = [];
-      const pageContextRecoverySuccessPlatforms = new Set<Platform>();
-      try {
-        const adapters = Object.fromEntries(schedulerPlatforms.map((schedulerPlatform) => [
-          schedulerPlatform,
-          tickAdapters[schedulerPlatform]!.adapter(settings, emit, true),
-        ])) as Record<Platform, PlatformAdapter>;
-        for (const discoveryPlatform of schedulerPlatforms) {
-          adapters[discoveryPlatform] = adapterFromDiscoverySnapshot(
-            adapters[discoveryPlatform],
-            discoverySlice.discoveryLanes[discoveryPlatform].current().snapshot,
-            state.sessions[discoveryPlatform],
-          );
+      // Observed here rather than returned by the scheduler: the controller
+      // already sees every emitted event, and the post-claim handoff only
+      // needs to know which platforms claimed.
+      const claimObservingEmit: EventEmitter = (event) => {
+        if (event.category === "activity" && event.code === "reward_claimed" && event.platform) {
+          (claimedRewards[event.platform] ??= []).push(event.data.rewardId);
         }
-        const selections: Partial<Record<Platform, SnapshotSelectionResult>> = {};
-        for (const selectionPlatform of schedulerPlatforms) {
-          const snapshot = discoverySlice.discoveryLanes[selectionPlatform].current().snapshot;
-          if (!snapshot) continue;
-          const key = selectionKey(selectionPlatform, snapshot, settings, state);
-          let prepared = preparedSelections[selectionPlatform];
-          if (!prepared || prepared.key !== key || prepared.snapshotRevision !== snapshot.revision) {
-            const committed = prepared
-              ? selectionAlreadyCommitted(prepared, snapshot, state, selectionPlatform)
-              : undefined;
-            if (committed) {
-              selections[selectionPlatform] = committed;
-              continue;
+        emit(event);
+      };
+      // Snapshot revision is the publication gate. Heartbeat and playback
+      // health bump selectionGeneration without replacing discovery; dropping
+      // the tick for those would discard lastCheckedAt from current inventory.
+      const selectionsAreCurrent = (): boolean => schedulerPlatforms.every((selectionPlatform) => {
+        const prepared = preparedSelections[selectionPlatform];
+        const snapshot = discoverySlice.discoveryLanes[selectionPlatform].current().snapshot;
+        return !prepared || prepared.snapshotRevision === snapshot?.revision;
+      });
+
+      let decided: {
+        settings: S;
+        state: SchedulerState;
+        revision: number;
+        adapters: Record<Platform, PlatformAdapter>;
+        selections: Partial<Record<Platform, SnapshotSelectionResult>>;
+      } | undefined;
+      let failure: { error: unknown } | undefined;
+      await withStateLock(async () => {
+        signal.throwIfAborted();
+        const settings = await ports.storage.loadSettings();
+        const revision = stateRevision();
+        const state = await ports.storage.loadState();
+        try {
+          const adapters = Object.fromEntries(schedulerPlatforms.map((schedulerPlatform) => [
+            schedulerPlatform,
+            tickAdapters[schedulerPlatform]!.adapter(settings, emit, true),
+          ])) as Record<Platform, PlatformAdapter>;
+          for (const discoveryPlatform of schedulerPlatforms) {
+            adapters[discoveryPlatform] = adapterFromDiscoverySnapshot(
+              adapters[discoveryPlatform],
+              discoverySlice.discoveryLanes[discoveryPlatform].current().snapshot,
+              state.sessions[discoveryPlatform],
+            );
+          }
+          const selections: Partial<Record<Platform, SnapshotSelectionResult>> = {};
+          for (const selectionPlatform of schedulerPlatforms) {
+            const snapshot = discoverySlice.discoveryLanes[selectionPlatform].current().snapshot;
+            if (!snapshot) continue;
+            const key = selectionKey(selectionPlatform, snapshot, settings, state);
+            let prepared = preparedSelections[selectionPlatform];
+            if (!prepared || prepared.key !== key || prepared.snapshotRevision !== snapshot.revision) {
+              const committed = prepared
+                ? selectionAlreadyCommitted(prepared, snapshot, state, selectionPlatform)
+                : undefined;
+              if (committed) {
+                selections[selectionPlatform] = committed;
+                continue;
+              }
+              if (prepared) {
+                discoverySlice.discoveryEvents[selectionPlatform].push({
+                  category: "diagnostic",
+                  platform: selectionPlatform,
+                  level: "debug",
+                  message: `Snapshot selection discarded before commit (trigger=${trigger}, revision=${prepared.snapshotRevision})`,
+                });
+              }
+              prepared = await prepareSelection({
+                platform: selectionPlatform,
+                trigger,
+                snapshot,
+                settings,
+                state,
+                key,
+                force: selectionBackoffDue(selectionPlatform, state),
+                signal,
+                generation: discoverySlice.selectionGeneration[selectionPlatform],
+              });
             }
-            if (prepared) {
+            preparedSelections[selectionPlatform] = prepared;
+            if (prepared.generation !== discoverySlice.selectionGeneration[selectionPlatform]) {
               discoverySlice.discoveryEvents[selectionPlatform].push({
                 category: "diagnostic",
                 platform: selectionPlatform,
                 level: "debug",
-                message: `Snapshot selection discarded before commit (trigger=${trigger}, revision=${prepared.snapshotRevision})`,
+                message: `Snapshot selection discarded before commit after lifecycle change (trigger=${trigger}, revision=${prepared.snapshotRevision})`,
               });
+              continue;
             }
-            prepared = await prepareSelection({
-              platform: selectionPlatform,
-              trigger,
-              snapshot,
-              settings,
-              state,
-              key,
-              force: selectionBackoffDue(selectionPlatform, state),
-              signal,
-              generation: discoverySlice.selectionGeneration[selectionPlatform],
-            });
+            selections[selectionPlatform] = prepared.result;
           }
-          preparedSelections[selectionPlatform] = prepared;
-          if (prepared.generation !== discoverySlice.selectionGeneration[selectionPlatform]) {
-            discoverySlice.discoveryEvents[selectionPlatform].push({
-              category: "diagnostic",
-              platform: selectionPlatform,
-              level: "debug",
-              message: `Snapshot selection discarded before commit after lifecycle change (trigger=${trigger}, revision=${prepared.snapshotRevision})`,
-            });
-            continue;
-          }
-          selections[selectionPlatform] = prepared.result;
+          decided = { settings, state, revision, adapters, selections };
+        } catch (error) {
+          failure = { error };
+          decided = { settings, state, revision, adapters: {} as Record<Platform, PlatformAdapter>, selections: {} };
         }
-        // Snapshot revision is the publication gate. Heartbeat and playback
-        // health bump selectionGeneration without replacing discovery; dropping
-        // the tick for those would discard lastCheckedAt from current inventory.
-        const selectionsAreCurrent = (): boolean => schedulerPlatforms.every((selectionPlatform) => {
-          const prepared = preparedSelections[selectionPlatform];
-          const snapshot = discoverySlice.discoveryLanes[selectionPlatform].current().snapshot;
-          return !prepared || prepared.snapshotRevision === snapshot?.revision;
-        });
-        const staleSelection = new Error("Snapshot selection lifecycle changed before publication");
-        const assertSelectionsCurrent = (): void => {
-          if (!selectionsAreCurrent()) throw staleSelection;
-        };
-        // Observed here rather than returned by the scheduler: the controller
-        // already sees every emitted event, and the post-claim handoff only
-        // needs to know which platforms claimed.
-        const claimObservingEmit: EventEmitter = (event) => {
-          if (event.category === "activity" && event.code === "reward_claimed" && event.platform) {
-            (claimedRewards[event.platform] ??= []).push(event.data.rewardId);
-          }
-          emit(event);
-        };
-        const eventsBeforeTick = events.length;
-        for (const discoveryPlatform of schedulerPlatforms) {
-          for (const event of discoverySlice.discoveryEvents[discoveryPlatform].splice(0)) claimObservingEmit(event);
-        }
-        const result = await runSchedulerTick(state, settings, adapters, {
-          platforms: schedulerPlatforms,
-          selectSupplementalWatchTarget: supplementalSources ? (platform, selectedState, selectedSignal, source) => platform === "twitch" ? supplementalSources.select(selectedState, settings, selectedSignal, source) : Promise.resolve(undefined) : undefined,
-          stopPageContextTabs: ports.tabs?.stopPageContextTabs,
-          waitingClaimRewardIds: nextWaitingClaimRewardIds,
-          emit: claimObservingEmit,
-          signal,
-          campaignEvaluationFingerprints: tickSlice.campaignEvaluationFingerprints,
-          selections,
-          selectionIsCurrent: Object.fromEntries(schedulerPlatforms.map((selectionPlatform) => {
-            const prepared = preparedSelections[selectionPlatform];
-            return [selectionPlatform, () => prepared?.snapshotRevision
-              === discoverySlice.discoveryLanes[selectionPlatform].current().snapshot?.revision];
-          })),
-          discovery: Object.fromEntries(schedulerPlatforms.map((discoveryPlatform) => {
-            const discoveryState = discoverySlice.discoveryLanes[discoveryPlatform].current();
-            return [discoveryPlatform, {
-              campaigns: discoveryState.snapshot?.campaigns.map(({ campaign }) => campaign)
-                ?? state.campaigns[discoveryPlatform],
-              complete: discoveryState.snapshot !== undefined,
-              // A settings save threw this tick's refresh away; the save's own
-              // follow-up tick refreshes again and decides.
-              discarded: discoveryState.snapshot === undefined && discoveryState.lastAttempt?.discarded !== undefined,
-            }];
-          })),
-        });
-        for (const schedulerPlatform of schedulerPlatforms) {
-          if (
-            discoverySlice.discoveryLanes[schedulerPlatform].current().lastAttempt?.complete === true
-            && (result.state.sessions[schedulerPlatform].errorChecks ?? 0) === 0
-          ) {
-            pageContextRecoverySuccessPlatforms.add(schedulerPlatform);
-          }
-        }
-        signal.throwIfAborted();
-        assertSelectionsCurrent();
-        const lifecycleEvents = farmingLifecycleEvents(state, result.state);
-        for (const event of lifecycleEvents) emit(event);
-        await emitNotifications(settings, state, result.state, result.events);
-        signal.throwIfAborted();
-        assertSelectionsCurrent();
-        await applyAdFocusForState(result.state, emit, schedulerPlatforms);
-        signal.throwIfAborted();
-        assertSelectionsCurrent();
-        publicationLeases = await reconcileTablessWatchers(
-          result.state,
-          settings,
-          adapters,
-          emit,
-          schedulerPlatforms,
-        );
-        signal.throwIfAborted();
-        assertSelectionsCurrent();
-        await reconcileDiscoverySignalControllers(result.state, settings, adapters, emit, schedulerPlatforms);
-        if (schedulerPlatforms.includes("twitch")) {
-          await reconcileTwitchChannelPointsPush(settings, result.state, adapters.twitch, emit);
-        }
-        for (const schedulerPlatform of schedulerPlatforms) tickAdapters[schedulerPlatform]?.drain(claimObservingEmit);
-        signal.throwIfAborted();
-        assertSelectionsCurrent();
-        nextState = result.state;
-        if (settings.criticalFailurePromptEnabled) {
-          // Page-context tabs are created deep inside tabs.ts, which has no access
-          // to scheduler state, and their events come from the adapters' own
-          // emitter rather than the tick's. Reading them back off this tick's
-          // collected events catches every emitter, not just the wrapped one.
-          for (const event of events.slice(eventsBeforeTick)) {
-            if (event.category !== "activity" || event.code !== "page_context_opened") continue;
-            const transition = recordManagedTabOpen(nextState, event.platform, Date.now(), {
-              source: "page_context",
-              reason: event.data.reason,
-            });
-            nextState = transition.state;
-            if (transition.event) emit(transition.event);
-          }
-          // Keep the registry that gates page-context creation in step with the
-          // state we are about to persist, so the very next fetch is suppressed.
-          syncManagedTabBreakers(nextState, schedulerPlatforms);
-        }
-      } catch (error) {
-        // The tick was rolled back, so any partial claim set is not actionable.
-        for (const key of Object.keys(claimedRewards) as Platform[]) delete claimedRewards[key];
-        for (const schedulerPlatform of schedulerPlatforms) tickAdapters[schedulerPlatform]?.drain(emit);
-        clearOperationalEvents(events);
+      }, schedulerPlatforms);
+      const { settings, state, revision, adapters, selections } = decided!;
+      // What storage holds now: the tick's own read, unless something saved since.
+      const loadLatest = async (): Promise<SchedulerState> =>
+        stateRevision() === revision ? state : await ports.storage.loadState();
+
+      // The effects run here, with no lock held. The context is built outside
+      // every lock body: nothing the tick asks for may wait on one.
+      const effectContext = {
+        adapters,
+        stopPageContextTabs: ports.tabs?.stopPageContextTabs,
+        selectSupplementalTarget: supplementalSources
+          ? (supplementalPlatform: Platform, selectedState: SchedulerState, selectedSignal: AbortSignal | undefined, source: WatchSourceId) =>
+            supplementalPlatform === "twitch"
+              ? supplementalSources.select(selectedState, settings, selectedSignal, source)
+              : Promise.resolve(undefined)
+          : undefined,
+        claimGuards: {
+          rewards: claimSlice.rewardClaimGuards,
+          challenges: kickChallengeSlice,
+          channelPoints: channelPointsSlice,
+        },
+      };
+      const eventsBeforeTick = events.length;
+      let result: SchedulerTickResult | undefined;
+      if (!failure) {
         try {
-          if (signal.aborted) return;
-          if (error instanceof Error && error.message === "Snapshot selection lifecycle changed before publication") {
-            await applyAdFocusForState(state, emit, schedulerPlatforms);
-            publicationLeases.push(...await reconcileTablessWatchers(
-              state,
-              settings,
-              Object.fromEntries(schedulerPlatforms.map((schedulerPlatform) => [
-                schedulerPlatform,
-                tickAdapters[schedulerPlatform]!.adapter(settings, emit, true),
-              ])) as Record<Platform, PlatformAdapter>,
-              emit,
-              schedulerPlatforms,
-            ));
-            emit({ category: "diagnostic", level: "debug", platform, message: error.message });
-            await reportBestEffort(correlateTickDiagnostics(events, tickContext));
+          for (const discoveryPlatform of schedulerPlatforms) {
+            for (const event of discoverySlice.discoveryEvents[discoveryPlatform].splice(0)) claimObservingEmit(event);
+          }
+          result = await runSchedulerTickEffects({
+            state,
+            settings,
+            platforms: schedulerPlatforms,
+            supplementalSources: supplementalSources !== undefined,
+            waitingClaimRewardIds: nextWaitingClaimRewardIds,
+            emit: claimObservingEmit,
+            signal,
+            campaignEvaluationFingerprints: tickSlice.campaignEvaluationFingerprints,
+            selections,
+            selectionIsCurrent: Object.fromEntries(schedulerPlatforms.map((selectionPlatform) => {
+              const prepared = preparedSelections[selectionPlatform];
+              return [selectionPlatform, () => prepared?.snapshotRevision
+                === discoverySlice.discoveryLanes[selectionPlatform].current().snapshot?.revision];
+            })),
+            discovery: Object.fromEntries(schedulerPlatforms.map((discoveryPlatform) => {
+              const discoveryState = discoverySlice.discoveryLanes[discoveryPlatform].current();
+              return [discoveryPlatform, {
+                campaigns: discoveryState.snapshot?.campaigns.map(({ campaign }) => campaign)
+                  ?? state.campaigns[discoveryPlatform],
+                complete: discoveryState.snapshot !== undefined,
+                // A settings save threw this tick's refresh away; the save's own
+                // follow-up tick refreshes again and decides.
+                discarded: discoveryState.snapshot === undefined && discoveryState.lastAttempt?.discarded !== undefined,
+              }];
+            })),
+            selectionViews: Object.fromEntries(schedulerPlatforms.map((selectionPlatform) => [
+              selectionPlatform,
+              selectionAdapterFromDiscoverySnapshot(
+                discoverySlice.discoveryLanes[selectionPlatform].current().snapshot,
+                state.sessions[selectionPlatform],
+              ),
+            ])) as Partial<Record<Platform, SelectionView>>,
+            capabilities: Object.fromEntries(schedulerPlatforms.map((schedulerPlatform) => [
+              schedulerPlatform,
+              tickCapabilities(adapters[schedulerPlatform]),
+            ])),
+          }, tickEffects, effectContext);
+        } catch (error) {
+          failure = { error };
+        }
+      }
+
+      // Facts from a tick whose decision did not commit: what it claimed and
+      // the managed tab it closed are recorded; a tab it opened is closed below.
+      let openedTab: WatchSession | undefined;
+      let superseded = false;
+      let publicationLeases: Array<readonly [Platform, HeartbeatPublicationLease]> = [];
+      await withStateLock(async () => {
+        // Drops the tick's decision and its events, keeping only the activity
+        // of claims that happened, which rollBack returns.
+        const rollBack = (): EngineEvent[] => {
+          const factEvents = events.slice(eventsBeforeTick).filter((event) => event.category === "activity"
+            && (event.code === "reward_claimed" || event.code === "challenge_claimed"));
+          // The tick was rolled back, so any partial claim set is not actionable.
+          for (const key of Object.keys(claimedRewards) as Platform[]) delete claimedRewards[key];
+          for (const schedulerPlatform of schedulerPlatforms) tickAdapters[schedulerPlatform]?.drain(emit);
+          clearOperationalEvents(events);
+          return factEvents;
+        };
+        const commitFacts = async (latest: SchedulerState, reason: string, factEvents: readonly EngineEvent[]): Promise<void> => {
+          const facts = result ? tickEffectFacts(result.state, state, latest, platform) : { state: latest };
+          openedTab = facts.openedTab;
+          for (const event of factEvents) emit(event);
+          emit({ category: "diagnostic", level: "debug", platform, message: reason });
+          await persistPlatformAndReport(platform, facts.state, correlateTickDiagnostics(events, tickContext));
+        };
+        let latest: SchedulerState | undefined;
+        let nextState: SchedulerState;
+        const pageContextRecoverySuccessPlatforms = new Set<Platform>();
+        try {
+          if (failure) throw failure.error;
+          signal.throwIfAborted();
+          latest = await loadLatest();
+          if (!selectionsAreCurrent()) throw staleSelection;
+          const rebased = rebaseTickState(result!.state, state, latest, platform);
+          if (rebased.status === "conflict") {
+            superseded = true;
+            await commitFacts(latest, `Tick superseded before publication: ${rebased.reason}`, rollBack());
             return;
           }
-          const detail = error instanceof Error ? error.message : "Scheduler tick failed";
-          emit({ category: "activity", code: "interruption", level: "error", platform, data: { reason: "platform_error", detail } });
-          emit({ category: "diagnostic", level: "error", platform, message: detail });
-          const persisted = await persistPlatformAndReport(platform, state, correlateTickDiagnostics(events, tickContext));
-          if (persisted) {
-            await reconcilePageContextRecoveryAfterPersist([platform], state, settings, new Set(), tickContext);
+          const tickState = rebased.state;
+          for (const schedulerPlatform of schedulerPlatforms) {
+            if (
+              discoverySlice.discoveryLanes[schedulerPlatform].current().lastAttempt?.complete === true
+              && (tickState.sessions[schedulerPlatform].errorChecks ?? 0) === 0
+            ) {
+              pageContextRecoverySuccessPlatforms.add(schedulerPlatform);
+            }
+          }
+          const assertSelectionsCurrent = (): void => {
+            if (!selectionsAreCurrent()) throw staleSelection;
+          };
+          const lifecycleEvents = farmingLifecycleEvents(latest, tickState);
+          for (const event of lifecycleEvents) emit(event);
+          await emitNotifications(settings, latest, tickState, result!.events);
+          signal.throwIfAborted();
+          assertSelectionsCurrent();
+          await applyAdFocusForState(tickState, emit, schedulerPlatforms);
+          signal.throwIfAborted();
+          assertSelectionsCurrent();
+          publicationLeases = await reconcileTablessWatchers(
+            tickState,
+            settings,
+            adapters,
+            emit,
+            schedulerPlatforms,
+          );
+          signal.throwIfAborted();
+          assertSelectionsCurrent();
+          await reconcileDiscoverySignalControllers(tickState, settings, adapters, emit, schedulerPlatforms);
+          if (schedulerPlatforms.includes("twitch")) {
+            await reconcileTwitchChannelPointsPush(settings, tickState, adapters.twitch, emit);
+          }
+          for (const schedulerPlatform of schedulerPlatforms) tickAdapters[schedulerPlatform]?.drain(claimObservingEmit);
+          signal.throwIfAborted();
+          assertSelectionsCurrent();
+          nextState = tickState;
+          if (settings.criticalFailurePromptEnabled) {
+            // Page-context tabs are created deep inside tabs.ts, which has no access
+            // to scheduler state, and their events come from the adapters' own
+            // emitter rather than the tick's. Reading them back off this tick's
+            // collected events catches every emitter, not just the wrapped one.
+            for (const event of events.slice(eventsBeforeTick)) {
+              if (event.category !== "activity" || event.code !== "page_context_opened") continue;
+              const transition = recordManagedTabOpen(nextState, event.platform, Date.now(), {
+                source: "page_context",
+                reason: event.data.reason,
+              });
+              nextState = transition.state;
+              if (transition.event) emit(transition.event);
+            }
+            // Keep the registry that gates page-context creation in step with the
+            // state we are about to persist, so the very next fetch is suppressed.
+            syncManagedTabBreakers(nextState, schedulerPlatforms);
+          }
+        } catch (error) {
+          try {
+            if (signal.aborted) {
+              rollBack();
+              return;
+            }
+            latest ??= await loadLatest();
+            if (error === staleSelection) {
+              const factEvents = rollBack();
+              await applyAdFocusForState(latest, emit, schedulerPlatforms);
+              publicationLeases.push(...await reconcileTablessWatchers(
+                latest,
+                settings,
+                Object.fromEntries(schedulerPlatforms.map((schedulerPlatform) => [
+                  schedulerPlatform,
+                  tickAdapters[schedulerPlatform]!.adapter(settings, emit, true),
+                ])) as Record<Platform, PlatformAdapter>,
+                emit,
+                schedulerPlatforms,
+              ));
+              await commitFacts(latest, staleSelection.message, factEvents);
+              return;
+            }
+            rollBack();
+            const detail = error instanceof Error ? error.message : "Scheduler tick failed";
+            emit({ category: "activity", code: "interruption", level: "error", platform, data: { reason: "platform_error", detail } });
+            emit({ category: "diagnostic", level: "error", platform, message: detail });
+            const persisted = await persistPlatformAndReport(platform, latest, correlateTickDiagnostics(events, tickContext));
+            if (persisted) {
+              await reconcilePageContextRecoveryAfterPersist([platform], latest, settings, new Set(), tickContext);
+            }
+          } finally {
+            await Promise.all(publicationLeases.map(([leasePlatform, lease]) =>
+              releaseHeartbeatPublicationLease(leasePlatform, lease)));
+          }
+          return;
+        }
+        try {
+          const persisted = await persistPlatformAndReport(
+            platform,
+            nextState,
+            correlateTickDiagnostics(events, tickContext),
+            selectionsAreCurrent,
+            onPersisted,
+          );
+          if (!persisted) {
+            // The selection went stale while committing. The claims still
+            // stand, and so does the post-claim handoff they trigger.
+            const claimed = { ...claimedRewards };
+            const factEvents = rollBack();
+            Object.assign(claimedRewards, claimed);
+            await commitFacts(await loadLatest(), staleSelection.message, factEvents);
+            return;
+          }
+          await reconcilePageContextRecoveryAfterPersist(
+            schedulerPlatforms,
+            nextState,
+            settings,
+            pageContextRecoverySuccessPlatforms,
+            tickContext,
+          );
+          claimSlice.waitingClaimRewardIds[platform].clear();
+          for (const rewardId of nextWaitingClaimRewardIds[platform]) {
+            claimSlice.waitingClaimRewardIds[platform].add(rewardId);
           }
         } finally {
           await Promise.all(publicationLeases.map(([leasePlatform, lease]) =>
             releaseHeartbeatPublicationLease(leasePlatform, lease)));
         }
-        return;
-      }
-      try {
-        const persisted = await persistPlatformAndReport(
-          platform,
-          nextState,
-          correlateTickDiagnostics(events, tickContext),
-          () => schedulerPlatforms.every((selectionPlatform) => {
-            const prepared = preparedSelections[selectionPlatform];
-            const snapshot = discoverySlice.discoveryLanes[selectionPlatform].current().snapshot;
-            return !prepared || prepared.snapshotRevision === snapshot?.revision;
-          }),
-          onPersisted,
-        );
-        if (!persisted) return;
-        await reconcilePageContextRecoveryAfterPersist(
-          schedulerPlatforms,
-          nextState,
-          settings,
-          pageContextRecoverySuccessPlatforms,
-          tickContext,
-        );
-        claimSlice.waitingClaimRewardIds[platform].clear();
-        for (const rewardId of nextWaitingClaimRewardIds[platform]) {
-          claimSlice.waitingClaimRewardIds[platform].add(rewardId);
+      }, schedulerPlatforms);
+
+      // Outside the lock again: close a tab only the superseded decision
+      // wanted, and let a fresh tick decide from the state that won.
+      if (openedTab && !signal.aborted) {
+        try {
+          await tickEffects.run({ type: "stopWatchTab", platform, session: openedTab }, { ...effectContext, emit, signal });
+        } catch (error) {
+          emit({ category: "diagnostic", level: "warn", platform, message: error instanceof Error ? error.message : "Could not stop watch tab" });
+          await reportBestEffort(correlateTickDiagnostics(events, tickContext));
         }
-      } finally {
-        await Promise.all(publicationLeases.map(([leasePlatform, lease]) =>
-          releaseHeartbeatPublicationLease(leasePlatform, lease)));
       }
-    }, tickContext), schedulerPlatforms);
+      if (superseded) tickInBackground([platform], "tick_superseded");
+    }, tickContext);
     return claimedRewards;
   }
 

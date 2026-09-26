@@ -2,7 +2,7 @@ import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/
 import { autoClaimChallengesFor } from "@lurkloot/shared/settings";
 import { challengePollDue } from "../core/scheduler";
 import type { PlatformAdapter } from "../platforms/adapter";
-import { type ControllerSlices, lateBound } from "./context";
+import { claimExclusively, type ControllerSlices, lateBound } from "./context";
 import { correlateTickDiagnostics, hasRecentManualWatchForClaims } from "./helpers";
 import type { BackgroundHostPorts } from "./hostPorts";
 import type { ControllerCalls, TickDiagnosticContext } from "./types";
@@ -88,10 +88,14 @@ export function createKickChallenges<S extends EngineSettings>(
               kick: { lastCheckedAt: new Date().toISOString() },
             },
           };
-          adapter = createAdapter("kick", settings, emit, true);
+          const kickAdapter = adapter = createAdapter("kick", settings, emit, true);
           operation.signal.throwIfAborted();
           try {
-            const challenges = await adapter.claimChallenges?.({ signal: operation.signal }) ?? [];
+            // The tick may be claiming too: it does so with no lock held (#599).
+            const challenges = await claimExclusively(kickChallengeSlice, "kickChallengeClaimRunning", [], async () => {
+              const adapter = kickAdapter;
+              return await adapter.claimChallenges?.({ signal: operation.signal }) ?? [];
+            });
             operation.signal.throwIfAborted();
             for (const challenge of challenges) {
               emit({
