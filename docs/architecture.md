@@ -170,6 +170,31 @@ without being listed, or if a listed call has left its lock without the entry be
 Event reporting (`reportBestEffort`, `persistAndReport`) and notifications also run inside locks
 today. #585 moves operational publication after the commit.
 
+### Characterization coverage
+
+v1.15.0 extractions must keep these tests passing without editing their assertions, except in a PR
+labelled `behavior-change`. `controllerContract.test.ts` runs its cases once per host capability set
+(extension and CLI, `tests/helpers/controllerContract.ts`); #593 turns those sets into typed host
+ports and reuses the cases.
+
+| Invariant | Where it is tested |
+| --- | --- |
+| One active tick and one shared follow-up per platform; Twitch and Kick progress independently | `controllerContract.test.ts` (both hosts); `backgroundController.test.ts` ("coalesces same-platform ticks…", "admits one Twitch tick and one follow-up…", the "lets Kick … while Twitch …" cases) |
+| `ranking_changed` re-selects without rediscovery and loses to any trigger that needs fresh discovery | `controllerContract.test.ts`; `backgroundController.test.ts` ("reordering what is farmed") |
+| Cancelled work publishes no state or activity | `controllerContract.test.ts` (shutdown); `backgroundController.test.ts` ("aborts in-flight scheduler work…", "route evidence independent of state publication") |
+| Stale discovery, selection and heartbeat work cannot overwrite newer state | `backgroundController.test.ts` ("rejects a stale heartbeat…", "persists discovery after a due heartbeat invalidates a blocked snapshot selection", "does not let a stale … removal …") |
+| Heartbeat due time is independent of ticks | `backgroundController.test.ts` ("tabless heartbeat cadence", "lets Kick heartbeat and persist while Twitch heartbeat is still pending") |
+| Manual managed-tab closure | `backgroundController.test.ts` ("manual-watch event transitions", "clears manual watch activity when the source tab is closed") |
+| Service-worker restart | `backgroundController.test.ts` (the startup cleanup cases and "serializes service-worker restart recovery…"); `controllerContract.test.ts` (extension host) |
+| CLI process restart: no startup cleanup today (#593 changes this) | `controllerContract.test.ts` (CLI host) |
+| Job registration: the CLI registers none today (#593, #590 change this) | `controllerContract.test.ts` |
+| The popup reads the stored settings and state verbatim | `controllerContract.test.ts` ("runtime snapshot") |
+| Campaign ranking and #571's selection rules (mid-reward takeover, favourites, discarded refresh hold, just-armed watch) | `ranking.test.ts`, `rankingSettings.test.ts`, `scheduler.test.ts`, `watchSourceScheduler.test.ts` |
+| `updateIdleWatchlist` keeps a concurrent popup change | `backgroundController.test.ts` ("Idle Watchlist changes from the page") |
+| Supplemental lane: tabless only, released on completion or manual pause | `supplementalWatch.test.ts`, `twitchExtensionHost.test.ts` |
+| Supplemental lane: completion forgotten on restart (current behavior; #594 changes it) | `twitchExtensionHost.test.ts` ("forgets completion when a new host starts…") |
+| Locked I/O can only shrink | `lockedIoAllowlist.test.ts` |
+
 ## Runtime Messages
 
 The popup and content scripts do not call adapters directly. They send typed runtime messages from `@lurkloot/shared/messages`:

@@ -267,6 +267,33 @@ describe("background tabless provider host", () => {
       expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toMatchObject({ id: "nopixel" });
     });
 
+    // Current behavior, not intended (#584): completion and cooldowns live only
+    // in the host's memory, so a service-worker restart forgets them and the
+    // provider is probed again. #594 either persists them or bounds the re-probe.
+    it("forgets completion when a new host starts over the same settings and state", async () => {
+      const s = setup(); s.enableTwitch();
+      const now = Date.UTC(2026, 8, 14, 12); s.source.now.mockReturnValue(now);
+      withDirectory(s, now);
+      s.drivers.nopixel = async (_session, emit) => { emit({ status: "complete", reasonCode: "rewards-complete", progress: [], pending: [] }); return { stop: s.stop }; };
+      await s.host.setEnabled("nopixel", true);
+      s.host.invalidate({ preserveCompleted: true });
+      s.state.sessions.twitch.status = "idle";
+      s.settings().twitchExtensions.fortnite.enabled = false;
+      s.source.now.mockReturnValue(now + 10 * 60_000);
+      expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toBeUndefined();
+
+      const restarted = createTwitchExtensionHost({
+        source: s.source,
+        permissions: { contains: s.contains, request: async () => { throw new Error("UI must request grants"); } },
+        drivers: s.drivers,
+        loadSettings: async () => s.settings(),
+        loadState: async () => s.state,
+        savePatch: async () => undefined,
+        diagnostic: s.diagnostic,
+      });
+      expect(await restarted.chooseWatchTarget(s.settings(), s.state)).toMatchObject({ id: "nopixel" });
+    });
+
     it("allows a NoPixel daily reset across midnight inside the short completion cooldown", async () => {
       const s = setup(); s.enableTwitch();
       const now = Date.UTC(2026, 8, 14, 23, 59); s.source.now.mockReturnValue(now);
