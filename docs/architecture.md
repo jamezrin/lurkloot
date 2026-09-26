@@ -87,6 +87,89 @@ rather than reporting zero work. The attribution fields contain only counts;
 strict missing-evidence failures use fixed messages. Both extension and CLI run
 this collector and the same Kick adapter.
 
+## Background controller ownership and concurrency
+
+This section records how `createBackgroundController` (`packages/core/src/background/controller.ts`)
+owns its state and serializes its work **as of v1.14.0**. It is the baseline for the v1.15.0
+refactor (#583): each extraction issue updates the rows it moves, and #591 replaces this section
+with the final module ownership.
+
+### State ownership
+
+Everything below is created once per controller instance. "In memory" means it is lost on an MV3
+service-worker restart or a CLI process restart. "Persisted" means it is part of `SchedulerState`
+or settings, loaded and saved through the host's storage port (`storage.local` on the extension,
+`state.json` on the CLI).
+
+| State group | Where it lives | Written by | Invalidated by | Commit boundary | Restart | Hosts |
+| --- | --- | --- | --- | --- | --- | --- |
+| Scheduler state (`sessions`, `authHealth`, `campaigns`, `criticalHealth`, backoffs, `lastTickAt`) | Persisted | Ticks, heartbeats, auth, claims, message handlers | Newer commits for the same platform | `persistPlatformState` → `withStateCommit`, merged per platform by `mergePlatformState` | Reloaded. `handleStartup` runs `staleStartupCleanup` on the extension | Both |
+| Discovery lanes (`discoveryLanes`, `discoveryEvents`) | In memory, one `DiscoverySnapshotLane` per platform | `refreshDiscovery` | Settings saves that are not ranking-only, auth invalidation, `refreshDiscovery` itself, reset and shutdown | None: a snapshot is published by revision, not stored | Rediscovered on the first tick | Both |
+| Selection (`selectionCache`, `selectionRuns`, `pendingSelections`, `selectionGeneration`) | In memory | `prepareSelection` | `invalidateSelection`: every settings save (including ranking-only), auth invalidation, heartbeat results, playback telemetry, reset, shutdown | Consumed inside `runTick`'s platform lock | Recomputed | Both |
+| Tick admission (`tickAdmission`, `activeTicks`, `tickBatches`, `backgroundWork`) | In memory | `tick`, `tickInBackground`, `tickAndHandOff` | Disable, reset, shutdown | None | Empty | Both. Extension alarms and CLI intervals request ticks per platform |
+| Heartbeat lanes, watchers and publication leases (`heartbeatLanes`, `tablessWatchers`) | In memory, with the heartbeat cadence persisted in the session | `requestPlatformHeartbeat`, `reconcileTablessWatchers`, `commitHeartbeatResult` | Session changes, `clearHeartbeatOwnership`, shutdown | `withHeartbeatLane`, then `withStateCommit` **without** the platform lock | `handleStartup` releases ownership on the extension; the CLI does not call it | Both |
+| Discovery-signal controllers (`discoverySignalControllers`, `discoverySignalLifecycleOpen`) | In memory | `reconcileDiscoverySignalControllers` (from `runTick`) | Auth transitions, tab removal, settings, reset, shutdown | None | Recreated by the next tick | Both, when the adapter provides a factory |
+| Auth health (`authHealth`, `authRefreshGeneration`) | Health persisted, generations in memory | `probeAuthHealth`, `refreshAuthHealth`, `persistAuthHealth`, `invalidateAuthHealth` | A newer refresh generation | `persistAuthHealth` under the platform lock, then `withStateCommit` | Health reloaded, then re-probed | Both. Credentials come from cookies (extension) or the credential store (CLI) |
+| Manual watch (`manualWatch`, `manualWatchTabs`, `manualClosePause`, playback telemetry) | Persisted | `recordPlaybackTelemetry`, `handleTabUpdated`, `handleTabRemoved`, `resumeAfterManualClose` | Tab events, resume, TTL | Platform lock | Reloaded | Extension only; the CLI has no tabs |
+| Settings (`settingsMutation`, `twitchSettingsTransitionGeneration`) | Settings persisted, transition generation in memory | `updateStoredSettings`, `normalizeStartupSettings`, `updateIdleWatchlist` | Each settings commit. A ranking-only patch (`isRankingOnlyPatch`) keeps discovery and invalidates selection only | `withSettingsLock` | Reloaded and migrated (schema v7) | Both. The CLI's `saveSettings` is a no-op |
+| Page contexts and Kick recovery evidence | `core/tabs.ts` module globals, mirrored in persisted `managedPageContextTabs`. Recovery evidence in the extension host (`kickPageContextRecovery`) | Scheduler tick, `registerManagedPageContextTabs`, host fetch fallbacks | Release, reset, restart without auto-start | Copied into `SchedulerState` by the scheduler | Re-registered at startup when farming auto-starts | Extension only |
+| Claim operations (`dropClaimOperations`, `waitingClaimRewardIds`, `claimHandoffs`, `kickChallengeClaimOperations`, `twitchChannelPointsClaimInFlight`, channel-points push) | In memory. Claimed rewards are persisted through `campaigns` | Ticks, claim jobs, `claimRewardNow`, `runClaimHandoff`, the push | Disable, auth loss, reset, shutdown, `abortClaimHandoffs` at startup | Platform lock | In-flight work is lost; provider inventory is re-read | Both, but manual-watch claim jobs never fire on the CLI |
+| Twitch integrity (`installedTwitchIntegrity`, `persistedIntegrityToken`, `integrityLifecycleGeneration`) | In memory in the controller and in `core/tabs.ts` globals; the token is also persisted through `saveTwitchIntegrity` | Header capture, refresh, enable/disable transitions | A newer lifecycle generation | Settings lock, then the platform lock | Token reloaded from storage | Extension only |
+| Compatibility reporting (`reportedCompatibility`, route reports) and `campaignEvaluationFingerprints` | In memory | Adapter construction, ticks | Never, within a process | None | Reported again | Both |
+| Host jobs | `browser.alarms` (extension); `setInterval` for ticks and heartbeats only (CLI) | `ensureSchedulerAlarms`, `reconcile*Alarm`, integrity scheduling | Settings changes, disable | Settings lock | Alarms survive a service-worker restart; the CLI's `createAlarm` is a no-op | Both, with different job sets (#593) |
+| Twitch Extensions host (`generation`, `knownComplete`, `completedUntil`, `unavailableUntil`, summaries) | In memory in `packages/extension/src/extensions/host.ts` | The host's reconcile loop | `storage.onChanged` diffs of settings and scheduler state, every alarm | Outside the controller | Forgotten; providers are re-probed | Extension only |
+
+### Locks and queues
+
+All of these are promise chains: `run = previous.then(operation, operation)`.
+
+| Lock | Protects | Notes |
+| --- | --- | --- |
+| `withSettingsLock` (`settingsMutation`) | Settings read-modify-write | Also reschedules jobs while held (see below) |
+| `withStateLock(operation, platforms)` (`platformMutations`) | One platform's scheduler state and in-memory lifecycle | Takes each requested platform in the fixed order Twitch → Kick |
+| `withStateCommit` (`stateCommit`) | The global load → merge → save of `SchedulerState` | Its bodies only load and save state |
+| `withHeartbeatLane(platform)` | One platform's watcher, heartbeat reservations and publication leases | Independent of the platform lock |
+| `withTwitchIntegrityAlarmLock` | Creating and clearing the integrity refresh alarm | Taken inside the settings and platform locks |
+| Discovery lanes | One refresh per platform, with a coalesced follow-up | Not a lock on state |
+
+Nested acquisition orders found in the code, and none in the reverse direction:
+- settings → platform: `runTwitchIntegrityRefresh`, `prepareForHostReset`
+- settings → commit: each discovery refresh reads settings and state together (`createDiscoveryLane`)
+- platform → commit: `persistPlatformState` and `persistAuthHealth` under `withStateLock`
+- platform → heartbeat lane: `runTick` → `reconcileTablessWatchers`
+- settings or platform → integrity alarm lock
+
+Heartbeat results commit through `withStateCommit` without the platform lock. That is what keeps a
+due heartbeat independent of a long tick.
+
+### Work performed while a lock is held
+
+These are the v1.15.0 targets. The authoritative list is
+`packages/extension/tests/helpers/lockedIo.ts` (`LOCKED_IO_ALLOWLIST`), with the issue that removes
+each entry. `lockedIoAllowlist.test.ts` fails if a provider, tab or timer call appears inside a lock
+without being listed, or if a listed call has left its lock without the entry being deleted.
+
+- **Scheduler tick** (`runSchedulerTick`, inside `runTick`'s platform lock): reward claims, the
+  channel-points claim, Kick challenge claims, the legacy in-tick `refreshCampaigns`, watch-tab open
+  and stop, page-context release, and Twitch Extensions supplemental selection (permission checks and
+  provider GQL). Owners: #599, #587.
+- **`runTick` itself**, around the scheduler: tabless watcher reconciliation (#586), discovery-signal
+  and channel-points push reconciliation (#587, #590), ad focus (#587), and the fallback
+  `prepareSelection`, which can wait on another tick's selection run (#587).
+- **Heartbeat lane:** `watcher.start` (#586).
+- **Auth transitions** stop the discovery-signal observer and the channel-points push directly
+  (#595).
+- **Tab events and playback:** stopping discovery signals on tab removal, ad focus on telemetry
+  (#596).
+- **Host reset** closes watch tabs and page contexts under the settings and platform locks (#598).
+- **Claims outside the tick:** `claimRewardNow`, `runDropClaims` (which also refreshes campaigns) and
+  `runKickChallengeClaims` (#597, #588).
+- **Timers under the settings or platform lock:** integrity refresh scheduling (#589), scheduler,
+  claim and channel-points alarms on settings writes and at startup (#593, #597, #590).
+
+Event reporting (`reportBestEffort`, `persistAndReport`) and notifications also run inside locks
+today. #585 moves operational publication after the commit.
+
 ## Runtime Messages
 
 The popup and content scripts do not call adapters directly. They send typed runtime messages from `@lurkloot/shared/messages`:
