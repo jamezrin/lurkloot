@@ -38,6 +38,7 @@
     "./controller": "./src/background/controller.ts",
     "./background/platformState": "./src/background/platformState.ts",
     "./background/stateTransaction": "./src/background/stateTransaction.ts",
+    "./background/tickCommit": "./src/background/tickCommit.ts",
     "./background/tickEffects": "./src/background/tickEffects.ts",
     "./extensions/types": "./src/extensions/types.ts",
     "./extensions/registry": "./src/extensions/registry.ts",

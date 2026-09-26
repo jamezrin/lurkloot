@@ -108,23 +108,26 @@ which now read `<slice>.<field>`.
   the calls it provides. Modules resolve their calls through `lateBound` once every module exists.
 - `constants.ts`, `helpers.ts` and `errors.ts` hold the module-level values that more than one module uses.
   None of them imports a module, and the modules import no sibling except `stateTransaction.ts`
-  (for its types and `isRankingOnlyPatch`), so there are no import cycles.
+  (for its types and `isRankingOnlyPatch`), `platformState.ts`, and the tick's own helpers
+  `tickEffects.ts` and `tickCommit.ts`, so there are no import cycles.
 - `stateTransaction.ts` (#585) is the state transaction: it owns the settings, platform and commit
   locks, every settings and scheduler-state commit, and the after-commit hooks. It depends only on
   the storage ports, and `createBackgroundController` creates it before any module.
 - `hostPorts.ts` and `jobs.ts` (#593) are the host contract: the grouped ports and declared
   capabilities every module takes instead of flat deps, and the job scheduler port with the job
   table. See "Host ports and jobs" below.
+- `tickEffects.ts` and `tickCommit.ts` (#599) are the scheduler tick's effect executor with its
+  interim handlers, and the tick's three-way commit. See "Scheduler tick effects" below.
 
 The per-module slices and calls below are where #591's dependency check starts:
 
 | Module | Slices | Calls into | Provides |
 | --- | --- | --- | --- |
 | `stateTransaction.ts` | its own lock queues and hooks | none | the transaction (#585) |
-| `stateCommit.ts` | the transaction | `reporting` | 11 |
+| `stateCommit.ts` | the transaction | `reporting` | 12 |
 | `reporting.ts` | `reportingSlice` | `discovery` | 13 |
 | `tickAdmission.ts` | `reportingSlice`, `integritySlice`, `signalSlice`, `tickSlice`, `lifecycleSlice` | `claims`, `discovery`, `discoverySignals`, `reporting`, `stateCommit`, `tickRun` | 11 |
-| `tickRun.ts` | `claimSlice`, `discoverySlice`, `tickSlice` | `authHealth`, `channelPoints`, `discovery`, `discoverySignals`, `heartbeat`, `kickChallenges`, `manualWatch`, `reporting`, `stateCommit`, `twitchIntegrity` | 1 |
+| `tickRun.ts` | `claimSlice`, `discoverySlice`, `tickSlice`, `kickChallengeSlice`, `channelPointsSlice` (their claim guards) | `authHealth`, `channelPoints`, `discovery`, `discoverySignals`, `heartbeat`, `kickChallenges`, `manualWatch`, `reporting`, `stateCommit`, `tickAdmission`, `twitchIntegrity` | 1 |
 | `discovery.ts` | its own `discoverySlice`, `lifecycleSlice` | `reporting`, `stateCommit` | 10 |
 | `heartbeat.ts` | `heartbeatSlice`, `tickSlice`, `lifecycleSlice` | `discovery`, `reporting`, `stateCommit`, `tickAdmission` | 7 |
 | `twitchIntegrity.ts` | `integritySlice`, `settingsSlice`, `lifecycleSlice` | `reporting`, `stateCommit` | 8 |
@@ -163,8 +166,8 @@ or settings, loaded and saved through the host's storage port (`storage.local` o
 | Auth health (`authHealth`, `authRefreshGeneration`) | Health persisted, generations in memory | `probeAuthHealth`, `refreshAuthHealth`, `persistAuthHealth`, `invalidateAuthHealth` | A newer refresh generation | `persistAuthHealth` under the platform lock, then a transaction commit | Health reloaded, then re-probed | Both. Credentials come from cookies (extension) or the credential store (CLI) |
 | Manual watch (`manualWatch`, `manualWatchTabs`, `manualClosePause`, playback telemetry) | Persisted | `recordPlaybackTelemetry`, `handleTabUpdated`, `handleTabRemoved`, `resumeAfterManualClose` | Tab events, resume, TTL | Platform lock | Reloaded | Extension only; the CLI has no tabs |
 | Settings (`twitchSettingsTransitionGeneration`) | Settings persisted, transition generation in memory | `commitSettings` (every popup write, `updateIdleWatchlist`), `normalizeStartupSettings` | Each settings commit. Its per-platform effect decides: `selection` (ranking-only, `isRankingOnlyPatch`) keeps discovery, `discovery` invalidates both | The transaction's settings lock | Reloaded and migrated (schema v7) | Both. The CLI's `saveSettings` is a no-op |
-| Page contexts and Kick recovery evidence | `core/tabs.ts` module globals, mirrored in persisted `managedPageContextTabs`. Recovery evidence in the extension host (`kickPageContextRecovery`) | Scheduler tick, `registerManagedPageContextTabs`, host fetch fallbacks | Release, reset, restart without auto-start | Copied into `SchedulerState` by the scheduler | Re-registered at startup when farming auto-starts | Extension only |
-| Claim operations (`dropClaimOperations`, `waitingClaimRewardIds`, `claimHandoffs`, `kickChallengeClaimOperations`, `twitchChannelPointsClaimInFlight`, channel-points push) | In memory. Claimed rewards are persisted through `campaigns` | Ticks, claim jobs, `claimRewardNow`, `runClaimHandoff`, the push | Disable, auth loss, reset, shutdown, `abortClaimHandoffs` at startup | Platform lock | In-flight work is lost; provider inventory is re-read | Both, but manual-watch claim jobs never fire on the CLI |
+| Page contexts and Kick recovery evidence | `core/tabs.ts` module globals, mirrored in persisted `managedPageContextTabs`. Recovery evidence in the extension host (`kickPageContextRecovery`) | The tick's `releasePageContexts` effect, `registerManagedPageContextTabs`, host fetch fallbacks | Release, reset, restart without auto-start | Copied into `SchedulerState` by the tick driver (`runSchedulerTickEffects`), never by the deciding code | Re-registered at startup when farming auto-starts | Extension only |
+| Claim operations (`dropClaimOperations`, `waitingClaimRewardIds`, `claimHandoffs`, `kickChallengeClaimOperations`, `twitchChannelPointsClaimInFlight`, channel-points push) and claim guards (`rewardClaimGuards`, `kickChallengeClaimRunning`, `twitchChannelPointsClaimRunning`) | In memory. Claimed rewards are persisted through `campaigns` | Ticks, claim jobs, `claimRewardNow`, `runClaimHandoff`, the push | Disable, auth loss, reset, shutdown, `abortClaimHandoffs` at startup | Platform lock for the jobs; the tick claims with no lock and commits after (#599). The guards keep one request per reward, one Kick challenge claim and one channel-points claim in flight across every path | In-flight work is lost; provider inventory is re-read | Both, but manual-watch claim jobs never fire on the CLI |
 | Twitch integrity (`installedTwitchIntegrity`, `persistedIntegrityToken`, `integrityLifecycleGeneration`) | In memory in the controller and in `core/tabs.ts` globals; the token is also persisted through `saveTwitchIntegrity` | Header capture, refresh, enable/disable transitions | A newer lifecycle generation | Settings lock, then the platform lock | Token reloaded from storage | Extension only |
 | Compatibility reporting (`reportedCompatibility`, route reports) and `campaignEvaluationFingerprints` | In memory | Adapter construction, ticks | Never, within a process | None | Reported again | Both |
 | Host jobs | The job scheduler port: `browser.alarms` (extension), Node timers (CLI) | `ensureCadenceJobs`, `rescheduleTickJobs`, `reconcile*Alarm`, integrity scheduling | Settings changes, disable | Settings lock, except the tick jobs (rescheduled after it) | Alarms survive a service-worker restart; the CLI re-ensures its cadence jobs on start | Both; jobs whose capability a host lacks are inert (#593) |
@@ -201,13 +204,12 @@ These are the v1.15.0 targets. The authoritative list is
 each entry. `lockedIoAllowlist.test.ts` fails if a provider, tab or timer call appears inside a lock
 without being listed, or if a listed call has left its lock without the entry being deleted.
 
-- **Scheduler tick** (`runSchedulerTick`, inside `runTick`'s platform lock): reward claims, the
-  channel-points claim, Kick challenge claims, the legacy in-tick `refreshCampaigns`, watch-tab open
-  and stop, page-context release, and Twitch Extensions supplemental selection (permission checks and
-  provider GQL). Owners: #599, #587.
-- **`runTick` itself**, around the scheduler: tabless watcher reconciliation (#586), discovery-signal
-  and channel-points push reconciliation (#587, #590), ad focus (#587), and the fallback
-  `prepareSelection`, which can wait on another tick's selection run (#587).
+- **Scheduler tick:** none since #599. Its effects (claims, Kick challenges, channel points, watch
+  tabs, page-context release, Twitch Extensions supplemental selection) run between `runTick`'s two
+  platform-lock sections, with no lock held. See "Scheduler tick effects" below.
+- **`runTick` itself**, before and after the tick: the fallback `prepareSelection`, which can wait on
+  another tick's selection run (#587), and, before publishing, tabless watcher reconciliation (#586),
+  discovery-signal and channel-points push reconciliation (#587, #590) and ad focus (#587).
 - **Heartbeat lane:** `watcher.start` (#586).
 - **Auth transitions** stop the discovery-signal observer and the channel-points push directly
   (#595).
@@ -240,9 +242,9 @@ and never take the commit lock or call `saveState` themselves.
 - **Per-platform merge:** `SCHEDULER_STATE_MERGE` (`platformState.ts`) classifies every
   `SchedulerState` key as `platform`, `optionalPlatform`, `newestTimestamp` or `global`, and
   `mergePlatformState` is derived from it. A new key does not compile until it is classified.
-- **Things that already happened (#599):** a claim or a tab change commits without a guard, so it
-  merges even after its operation was superseded. A watch decision passes its generation as the
-  guard and never commits once stale.
+- **Things that already happened (#599):** a claim or a tab change is recorded even after its
+  operation was superseded. A watch decision commits only while its selection is current and nothing
+  it depended on changed; see "Scheduler tick effects".
 - **Settings:** every write is `commitSettings(update)`. `update` computes the patch from the
   settings read once inside the settings lock, and the result carries each touched platform's effect:
   `discovery` or `selection`. Discovery-lane and selection invalidation follow the effect, anything
@@ -270,6 +272,65 @@ commit, or a port is called under a lock from a call site missing from `LOCKED_I
 site check reads the async stack trace, so the lock queues are written with `await` and a release
 promise rather than `.then()` chains, which V8 cannot see through. `stateTransaction.test.ts`
 covers the rules themselves, including an unlisted call site failing and hook ordering.
+
+### Scheduler tick effects (#599)
+
+The scheduler tick decides; it performs nothing. `decidePlatformTick` (`core/scheduler.ts`) is an
+async generator per platform. Its inputs are plain values: the state and settings, the committed
+discovery (`complete`, or incomplete and possibly `discarded`), the prepared selection, an in-memory
+view of the discovery snapshot to select channels from (`selectionAdapterFromDiscoverySnapshot`),
+and declared capabilities (tabless, Kick challenges, channel points). It never calls an adapter, a
+port or the tab module. Each side effect it needs is yielded as a typed `SchedulerEffect`:
+
+| Effect | Interim handler (`background/tickEffects.ts`) | Final owner |
+| --- | --- | --- |
+| `claimRewards` | `claimReadyRewards` (`core/rewardClaims.ts`) | #597 |
+| `claimChannelPoints` | `adapter.claimChannelPoints` | #590 |
+| `claimChallenges` | `adapter.claimChallenges` | #588 |
+| `openWatchTab`, `stopWatchTab` | `adapter.prepareWatchTab` / `stopWatchTab` | #598, #587 |
+| `releasePageContexts` | the host's `stopPageContextTabs` | #588 |
+| `selectSupplementalTarget` | the Twitch Extensions host's `select` | #587 |
+
+The yielded effects in order are the tick's plan. It is produced incrementally rather than returned
+at once, because later decisions depend on earlier results. A claim can satisfy the next reward's
+precondition, which the same tick then selects. A new tab is closed again if the selection went
+stale while it opened. A failed effect is thrown back at its `yield`, so the tick's own `catch`
+still decides what it means: an authentication error suspends the platform and a watch-tab failure
+is a `platform_error` with backoff. `EffectExecutor` (`core/effectExecutor.ts`) maps each effect
+type to exactly one handler and throws when a second one registers. An owner issue replaces the
+interim registration with its service's handler; the tick itself never changes.
+`runSchedulerTickEffects` drives the platforms in order, running each yielded effect through the
+executor, and mirrors the page-context registry and managed-tab breaker around them. The deciding
+code never touches either.
+
+`runTick` runs a tick in three steps:
+1. **Under the platform lock:** read the settings and state, and settle the prepared selections.
+2. **With no lock held:** run the tick and its effects. Telemetry, heartbeats, tab events, claims
+   and auth transitions commit meanwhile rather than queueing behind the tick.
+3. **Under the platform lock again:** rebase the result on the stored state (`rebaseTickState`,
+   `tickCommit.ts`), then reconcile watchers, ad focus and observers and publish, as before.
+
+The rebase is a three-way merge per platform-owned key:
+- a key only another writer changed keeps that writer's value, as if it had run after the tick;
+- a key only the tick changed takes the tick's;
+- when both changed a key:
+  - playback telemetry is re-applied on top of the tick's session when the tick still watches the
+    same tab;
+  - heartbeat fields stay with the heartbeat's commit;
+  - the other writer's claims carry into the tick's inventory;
+  - anything else is a conflict.
+
+On a conflict, or when the selection went stale, the decision is dropped. `tickEffectFacts` still
+records the rewards the tick claimed and the managed tab it closed. A tab only the dropped decision
+opened is closed after the lock is released. A conflict also requests a `tick_superseded` follow-up
+tick, which re-selects from the discovery already held. An aborted tick (reset, shutdown) records
+nothing, as before.
+
+With the tick unlocked, the claim jobs no longer queue behind it, so every claim path reserves first
+and skips while another path holds the reservation: rewards per id (`RewardClaimGuard`: the tick, the
+drop-claim job and `claimRewardNow`), and one Kick challenge claim and one channel-points claim at a
+time. The in-tick `refreshCampaigns` fallback is gone: discovery reaches the tick only through the
+committed snapshot lane.
 
 ### Host ports and jobs (#593)
 
@@ -347,6 +408,8 @@ capability set (`EXTENSION_CAPABILITIES` and `CLI_CAPABILITIES`, through
 | `updateIdleWatchlist` keeps a concurrent popup change | `backgroundController/settingsTransitions.test.ts` ("Idle Watchlist changes from the page") |
 | Supplemental lane: tabless only, released on completion or manual pause | `supplementalWatch.test.ts`, `twitchExtensionHost.test.ts` |
 | Supplemental lane: completion forgotten on restart (current behavior; #594 changes it) | `twitchExtensionHost.test.ts` ("forgets completion when a new host starts…") |
+| The scheduler tick decides from plain inputs and names its effects; one handler per effect type | `schedulerEffects.test.ts` |
+| A tick's effects run with no lock held; concurrent telemetry is kept, a contradicting writer drops the decision but not the claims or tabs it produced, and an overlapping claim is requested once (#599) | `backgroundController/tickEffects.test.ts`; `tickCommit.test.ts` |
 | Locked I/O can only shrink | `lockedIoAllowlist.test.ts` (source scan); `tests/helpers/lockTracker.ts` (runtime, every harness) |
 | Lock order, nested commits, commit results, hooks and settings effects | `stateTransaction.test.ts`; `backgroundController/stateCommit.test.ts` ("calls after-commit hooks…") |
 | Every `SchedulerState` key merges per platform or is global | `platformState.test.ts` |
@@ -491,13 +554,15 @@ Each scheduler tick runs enabled platforms independently:
 
 1. Pause and clean up the platform if recent manual watch activity is detected, global automation is disabled, or that platform is disabled.
 2. Skip the platform while it is in exponential backoff after repeated platform errors.
-3. Discover campaigns through the adapter and merge progress.
+3. Take the campaigns from the committed discovery snapshot and merge progress. The tick never discovers campaigns itself.
 4. Auto-claim claimable rewards when enabled.
 5. Select the first eligible source in the platform's normalized `watchSourcePriority`, preserving campaign and channel ranking within each source. See [watch-source selection policy](watch-source-priority.md).
 6. Decide whether to keep the current target by checking channel liveness/category and recent playback or heartbeat telemetry.
 7. Use tabless watching when enabled and supported, or open, reuse, retarget, or stop the watch tab through the adapter.
 8. Claim channel points when enabled and supported by the adapter.
 9. Persist sessions, campaigns, managed-tab registrations, and backoff state, then publish activity records through the host event sink.
+
+Steps 1–8 decide and name their side effects; the tick's effect executor performs them with no lock held, and step 9 rebases the result on whatever else committed meanwhile. See [Scheduler tick effects](#scheduler-tick-effects-599).
 
 Campaign ordering is shared across platforms and lives in one function,
 `rankCampaigns` (see [Campaign ranking](#campaign-ranking)): pinned campaigns in
