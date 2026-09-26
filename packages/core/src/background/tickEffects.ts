@@ -1,7 +1,7 @@
 import type { Platform, SchedulerState, SupplementalWatchTarget, WatchSourceId } from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import { EffectExecutor, driveEffects } from "../core/effectExecutor";
-import { claimReadyRewards } from "../core/rewardClaims";
+import { claimReadyRewards, type RewardClaimGuard } from "../core/rewardClaims";
 import {
   decidePlatformTick,
   startSchedulerTick,
@@ -20,6 +20,7 @@ import {
 } from "../core/tabs";
 import type { PlatformAdapter } from "../platforms/adapter";
 import { PLATFORMS } from "./constants";
+import { claimExclusively } from "./context";
 
 // What an effect handler may use to perform a scheduler effect. It is built per
 // tick: the adapters are the tick's own.
@@ -29,6 +30,13 @@ export interface TickEffectContext {
   selectSupplementalTarget?(platform: Platform, state: SchedulerState, signal: AbortSignal | undefined, source: WatchSourceId): Promise<SupplementalWatchTarget | undefined>;
   emit: EventEmitter;
   signal?: AbortSignal;
+  // Shared with the jobs that make the same claims, which no longer queue
+  // behind the tick now that it holds no lock while claiming.
+  claimGuards?: {
+    rewards: Partial<Record<Platform, RewardClaimGuard>>;
+    challenges: { kickChallengeClaimRunning: boolean };
+    channelPoints: { twitchChannelPointsClaimRunning: boolean };
+  };
 }
 
 export type TickEffectExecutor = EffectExecutor<SchedulerEffects, TickEffectContext>;
@@ -68,11 +76,13 @@ export function registerInterimTickEffectHandlers(executor: TickEffectExecutor):
     })
     .register("claimChallenges", async ({ platform }, context) => {
       const adapter = adapterFor(context, platform);
-      return await adapter.claimChallenges?.({ signal: context.signal }) ?? [];
+      const claim = async () => await adapter.claimChallenges?.({ signal: context.signal }) ?? [];
+      const guards = context.claimGuards;
+      return guards ? await claimExclusively(guards.challenges, "kickChallengeClaimRunning", [], claim) : await claim();
     })
     .register("claimRewards", async ({ platform, campaigns, waitingRewardIds }, context) => {
       const adapter = adapterFor(context, platform);
-      return await claimReadyRewards(adapter, campaigns, waitingRewardIds, context.signal);
+      return await claimReadyRewards(adapter, campaigns, waitingRewardIds, context.signal, context.claimGuards?.rewards[platform]);
     })
     .register("selectSupplementalTarget", async ({ platform, state, source }, context) =>
       await context.selectSupplementalTarget?.(platform, state, context.signal, source))
@@ -85,7 +95,9 @@ export function registerInterimTickEffectHandlers(executor: TickEffectExecutor):
     })
     .register("claimChannelPoints", async ({ platform, channel }, context) => {
       const adapter = adapterFor(context, platform);
-      return await adapter.claimChannelPoints?.(channel, { signal: context.signal }) ?? false;
+      const claim = async () => await adapter.claimChannelPoints?.(channel, { signal: context.signal }) ?? false;
+      const guards = context.claimGuards;
+      return guards ? await claimExclusively(guards.channelPoints, "twitchChannelPointsClaimRunning", false, claim) : await claim();
     });
 }
 

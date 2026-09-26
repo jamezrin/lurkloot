@@ -35,6 +35,9 @@ export type TickTrigger =
   | "tabless_fallback"
   | "claim_handoff"
   | "discovery_signal"
+  // Another writer committed while the tick ran its effects, so the tick's
+  // decision was dropped (#599): decide again from the discovery already held.
+  | "tick_superseded"
   | "unknown";
 
 export type TickDiagnosticContext = Required<Pick<
@@ -237,6 +240,8 @@ export interface ControllerCalls<S extends EngineSettings> {
   withStateLock<T>(operation: () => Promise<T>, platforms?: readonly Platform[]): Promise<T>;
   trackHeartbeatLane<T>(operation: () => Promise<T>): Promise<T>;
   readState(): Promise<SchedulerState>;
+  // Bumped by every scheduler-state save.
+  stateRevision(): number;
   readSettingsAndState(): Promise<[S, SchedulerState]>;
   commitState(
     platforms: readonly Platform[],

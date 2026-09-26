@@ -269,6 +269,19 @@ export function createClaims<S extends EngineSettings>(
         return;
       }
 
+      // The tick claims with no lock held (#599): the same reward may be in
+      // flight there.
+      const guard = claimSlice.rewardClaimGuards[message.platform];
+      if (!guard.reserve(reward.id)) {
+        emit({
+          category: "diagnostic",
+          platform: message.platform,
+          level: "warn",
+          message: `${reward.name} is already being claimed`,
+        });
+        await persistPlatformAndReport(message.platform, state, events);
+        return;
+      }
       let stateWithCampaigns: SchedulerState;
       try {
         const adapter = createAdapters(settings, emit)[message.platform];
@@ -332,6 +345,8 @@ export function createClaims<S extends EngineSettings>(
         });
         await persistPlatformAndReport(message.platform, state, events);
         return;
+      } finally {
+        guard.release(reward.id);
       }
       await persistPlatformAndReport(message.platform, stateWithCampaigns, events);
     }), [message.platform]);
@@ -369,6 +384,7 @@ export function createClaims<S extends EngineSettings>(
             campaigns,
             claimSlice.waitingClaimRewardIds[platform],
             operation.signal,
+            claimSlice.rewardClaimGuards[platform],
           );
           operation.signal.throwIfAborted();
           const nextState: SchedulerState = {

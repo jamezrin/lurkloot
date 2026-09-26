@@ -2,6 +2,35 @@ import type { DropCampaign, DropReward } from "@lurkloot/shared/models";
 import { canClaimReward, reconcileCampaignAfterClaims } from "@lurkloot/shared/rewards";
 import type { PlatformAdapter } from "../platforms/adapter";
 
+// One claim request per reward at a time within one process (#599). The
+// scheduler tick claims outside every lock, so it can overlap the drop-claim
+// job or a manual claim for the same reward; each path reserves the reward
+// first and skips it while another path holds it. What happens after a claim
+// (the claim failure model) is #597's.
+export interface RewardClaimGuard {
+  // False when another path is claiming the reward right now.
+  reserve(rewardId: string): boolean;
+  release(rewardId: string): void;
+}
+
+export function createRewardClaimGuard(): RewardClaimGuard {
+  const inFlight = new Set<string>();
+  return {
+    reserve(rewardId) {
+      if (inFlight.has(rewardId)) return false;
+      inFlight.add(rewardId);
+      return true;
+    },
+    release(rewardId) {
+      inFlight.delete(rewardId);
+    },
+  };
+}
+
+function markClaimed(reward: DropReward): DropReward {
+  return { ...reward, status: "claimed", watchedMinutes: reward.requiredMinutes };
+}
+
 // Claims every ready reward in the given campaigns. The scheduler tick reaches
 // it only through its claimRewards effect; the drop-claim job calls it directly.
 export type ClaimReadyRewardEvent = {
@@ -25,6 +54,7 @@ export async function claimReadyRewards(
   campaigns: DropCampaign[],
   previouslyWaitingRewardIds: Set<string>,
   signal?: AbortSignal,
+  guard?: RewardClaimGuard,
 ): Promise<{ campaigns: DropCampaign[]; events: ClaimReadyRewardEvent[] }> {
   const events: ClaimReadyRewardEvent[] = [];
   const updated: DropCampaign[] = [];
@@ -49,9 +79,14 @@ export async function claimReadyRewards(
           }
           continue;
         }
+        if (guard && !guard.reserve(reward.id)) {
+          // Another path is claiming it right now and records its own result.
+          rewards.push(reward);
+          continue;
+        }
         try {
           const claimed = await adapter.claimReward(campaign, reward, { signal });
-          rewards.push(claimed ? { ...reward, status: "claimed", watchedMinutes: reward.requiredMinutes } : reward);
+          rewards.push(claimed ? markClaimed(reward) : reward);
           if (claimed) {
             events.push({
               level: "info",
@@ -76,6 +111,8 @@ export async function claimReadyRewards(
             level: "error",
             message: error instanceof Error ? error.message : `Claim failed for ${reward.name}`,
           });
+        } finally {
+          guard?.release(reward.id);
         }
       } else {
         rewards.push(reward);

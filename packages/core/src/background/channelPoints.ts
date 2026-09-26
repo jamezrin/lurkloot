@@ -6,7 +6,7 @@ import { isTimestampStale } from "../core/timestamps";
 import type { PlatformAdapter } from "../platforms/adapter";
 import type { TwitchChannelPointsClaimNotice, TwitchChannelPointsPushController } from "../platforms/twitch/channelPointsPush";
 import { TWITCH_CHANNEL_POINTS_ALARM_NAME } from "./constants";
-import { type ControllerSlices, lateBound } from "./context";
+import { claimExclusively, type ControllerSlices, lateBound } from "./context";
 import { emitHostCallbackError } from "./helpers";
 import type { BackgroundHostPorts } from "./hostPorts";
 import type { ControllerCalls } from "./types";
@@ -260,10 +260,11 @@ export function createChannelPoints<S extends EngineSettings>(
     if (!channelPointsSlice.twitchChannelPointsClaimInFlight.has(notice.claimId)) return;
     try {
       const adapter = createAdapter("twitch", settings, emit, true);
-      const claimed = await adapter.claimChannelPoints?.(channel, {
-        claimId: notice.claimId,
-        channelId: notice.channelId,
-      });
+      const claimed = await claimExclusively(channelPointsSlice, "twitchChannelPointsClaimRunning", false, async () =>
+        await adapter.claimChannelPoints?.(channel, {
+          claimId: notice.claimId,
+          channelId: notice.channelId,
+        }) ?? false);
       if (claimed) {
         emit({
           category: "diagnostic",
@@ -299,7 +300,8 @@ export function createChannelPoints<S extends EngineSettings>(
       if (!channel) return;
       try {
         const adapter = createAdapter("twitch", settings, emit, true);
-        const claimed = await adapter.claimChannelPoints?.(channel);
+        const claimed = await claimExclusively(channelPointsSlice, "twitchChannelPointsClaimRunning", false, async () =>
+          await adapter.claimChannelPoints?.(channel) ?? false);
         if (claimed) {
           emit({
             category: "diagnostic",

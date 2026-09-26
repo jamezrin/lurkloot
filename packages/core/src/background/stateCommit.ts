@@ -17,6 +17,7 @@ export function createStateCommit<S extends EngineSettings>(
   | "withStateLock"
   | "trackHeartbeatLane"
   | "readState"
+  | "stateRevision"
   | "readSettingsAndState"
   | "commitState"
   | "persistAndReport"
@@ -64,6 +65,7 @@ export function createStateCommit<S extends EngineSettings>(
     withStateLock: transaction.withStateLock,
     trackHeartbeatLane: transaction.trackHeartbeatLane,
     readState: transaction.readState,
+    stateRevision: transaction.stateRevision,
     readSettingsAndState: transaction.readSettingsAndState,
     commitState: transaction.commit,
     persistAndReport,

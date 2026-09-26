@@ -238,8 +238,13 @@ export function createStateTransaction<S extends EngineSettings>(ports: StateTra
     };
   }
 
+  // Counts saves. Every save goes through saveStateDirect, so an unchanged
+  // count means storage still holds what an earlier load returned.
+  let stateRevision = 0;
+
   async function saveStateDirect(state: SchedulerState): Promise<void> {
     const { events: _legacyEvents, ...operationalState } = state as SchedulerState & { events?: unknown };
+    stateRevision += 1;
     await ports.saveState(operationalState);
   }
 
@@ -427,6 +432,7 @@ export function createStateTransaction<S extends EngineSettings>(ports: StateTra
     withStateLock,
     trackHeartbeatLane,
     readState,
+    stateRevision: (): number => stateRevision,
     readSettingsAndState,
     commit,
     commitWholeState,

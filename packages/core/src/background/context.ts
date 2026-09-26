@@ -5,6 +5,7 @@ import type { TablessWatchController } from "../core/tablessWatch";
 import type { DiscoverySignalController } from "../core/discoverySignals";
 import type { TwitchChannelPointsPushController } from "../platforms/twitch/channelPointsPush";
 import { DiscoverySnapshotLane } from "../core/discoverySnapshot";
+import { createRewardClaimGuard, type RewardClaimGuard } from "../core/rewardClaims";
 import type {
   CommittedSelection,
   DiscoverySignalRefreshRequest,
@@ -95,23 +96,48 @@ export function createTwitchIntegritySlice(): TwitchIntegritySlice {
 export interface ChannelPointsSlice {
   twitchChannelPointsPush: TwitchChannelPointsPushController | undefined;
   readonly twitchChannelPointsClaimInFlight: Set<string>;
+  // A channel-points claim request is running. The scheduler tick claims with
+  // no lock held (#599), so the job and the push claim no longer queue behind
+  // it; whichever path starts second skips.
+  twitchChannelPointsClaimRunning: boolean;
 }
 
 export function createChannelPointsSlice(): ChannelPointsSlice {
   return {
     twitchChannelPointsPush: undefined,
     twitchChannelPointsClaimInFlight: new Set<string>(),
+    twitchChannelPointsClaimRunning: false,
   };
 }
 
 export interface KickChallengeSlice {
   readonly kickChallengeClaimOperations: Set<AbortController>;
+  // A Kick challenge claim request is running, from the tick or the job.
+  kickChallengeClaimRunning: boolean;
 }
 
 export function createKickChallengeSlice(): KickChallengeSlice {
   return {
     kickChallengeClaimOperations: new Set<AbortController>(),
+    kickChallengeClaimRunning: false,
   };
+}
+
+// Runs `claim` unless a claim of the same kind is already running, which
+// `slot` records; `skipped` is the result when it is.
+export async function claimExclusively<K extends string, T>(
+  slot: Record<K, boolean>,
+  key: K,
+  skipped: T,
+  claim: () => Promise<T>,
+): Promise<T> {
+  if (slot[key]) return skipped;
+  slot[key] = true;
+  try {
+    return await claim();
+  } finally {
+    slot[key] = false;
+  }
 }
 
 export interface AuthHealthSlice {
@@ -136,6 +162,9 @@ export interface ClaimSlice {
   readonly claimHandoffs: Map<Platform, AbortController>;
   readonly waitingClaimRewardIds: Record<Platform, Set<string>>;
   readonly dropClaimOperations: Record<Platform, Set<AbortController>>;
+  // One claim request per reward at a time, across the tick, the drop-claim
+  // job and manual claims.
+  readonly rewardClaimGuards: Record<Platform, RewardClaimGuard>;
 }
 
 export function createClaimSlice(): ClaimSlice {
@@ -148,6 +177,10 @@ export function createClaimSlice(): ClaimSlice {
     dropClaimOperations: {
       twitch: new Set<AbortController>(),
       kick: new Set<AbortController>(),
+    },
+    rewardClaimGuards: {
+      twitch: createRewardClaimGuard(),
+      kick: createRewardClaimGuard(),
     },
   };
 }
