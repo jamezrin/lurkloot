@@ -1,5 +1,11 @@
 import { vi } from "vitest";
-import { createBackgroundController, type BackgroundControllerDeps } from "@lurkloot/core/controller";
+import {
+  CLI_CAPABILITIES,
+  createBackgroundController,
+  EXTENSION_CAPABILITIES,
+  type HostCapabilities,
+  type JobSchedule,
+} from "@lurkloot/core/controller";
 import { resolveCompatibility } from "@lurkloot/core";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
@@ -9,42 +15,38 @@ import type { EngineEvent } from "@lurkloot/shared/events";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "../../src/core/storage";
 import { withLockTracker } from "./lockTracker";
+import { hostPortsFromMocks, type HostMocks } from "./hostPorts";
 
-// Builds a background controller the way each host does today, so contract
-// tests run once per declared capability set instead of once per host (#584).
-// #593 turns these descriptions into the typed host ports and reuses the tests.
+// Builds a background controller from the host ports each host passes (#593),
+// so contract tests run once per declared capability set instead of once per
+// host (#584).
 export interface CapabilitySet {
   readonly name: "extension" | "cli";
-  // Watch tabs, page contexts and ad focus (#598).
-  readonly browserTabs: boolean;
-  // Real job scheduling. The CLI's createAlarm is a no-op, and it drives only
-  // ticks and heartbeats from its own intervals (#593).
-  readonly jobs: boolean;
+  // What the host declares to the controller.
+  readonly declared: HostCapabilities;
   // Settings writes persist. The CLI reads a config file and never writes it.
   readonly persistsSettings: boolean;
-  // The host calls handleStartup when its process starts. The CLI does not
-  // (#593 gives both hosts one startup path).
+  // The host calls handleStartup when its process starts. The CLI only
+  // ensures its cadence jobs (the startup path is #593's behavior-change PR).
   readonly runsStartup: boolean;
 }
 
-export const EXTENSION_CAPABILITIES: CapabilitySet = {
+export const EXTENSION_HOST: CapabilitySet = {
   name: "extension",
-  browserTabs: true,
-  jobs: true,
+  declared: EXTENSION_CAPABILITIES,
   persistsSettings: true,
   runsStartup: true,
 };
 
-// Mirrors the deps packages/cli/src/runtime/run.ts passes today.
-export const CLI_CAPABILITIES: CapabilitySet = {
+// Mirrors the ports packages/cli/src/runtime/run.ts passes.
+export const CLI_HOST: CapabilitySet = {
   name: "cli",
-  browserTabs: false,
-  jobs: false,
+  declared: CLI_CAPABILITIES,
   persistsSettings: false,
   runsStartup: false,
 };
 
-export const CAPABILITY_SETS: readonly CapabilitySet[] = [EXTENSION_CAPABILITIES, CLI_CAPABILITIES];
+export const CAPABILITY_SETS: readonly CapabilitySet[] = [EXTENSION_HOST, CLI_HOST];
 
 export function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -122,7 +124,7 @@ function contractAdapter(platform: Platform, capabilities: CapabilitySet): Platf
     claimReward: vi.fn(async () => true),
     // The CLI injects a watch-tab port that throws on open.
     prepareWatchTab: vi.fn(async () => {
-      if (!capabilities.browserTabs) throw new Error("This host has no browser tabs");
+      if (!capabilities.declared.browserTabs) throw new Error("This host has no browser tabs");
       return { tabId: platform === "twitch" ? 10 : 20, managedByExtension: true };
     }),
     stopWatchTab: vi.fn(async () => undefined),
@@ -144,20 +146,43 @@ export interface ContractHostOptions {
 export interface ContractHost {
   readonly capabilities: CapabilitySet;
   readonly controller: ReturnType<typeof createBackgroundController<ExtensionSettings>>;
-  readonly deps: BackgroundControllerDeps<ExtensionSettings>;
+  readonly deps: HostMocks<ExtensionSettings>;
   readonly adapters: Record<Platform, PlatformAdapter>;
   readonly storage: ContractStorage;
   // Every state the controller saved, in order.
   readonly savedStates: SchedulerState[];
   // Every event reported to the host, in order.
   readonly reported: EngineEvent[];
-  // Job names registered through a host that really schedules jobs.
-  readonly createdJobs: string[];
+  // The host's job scheduler, as the controller left it.
+  readonly jobs: FakeJobScheduler;
   // What the host does when its process starts: the extension's service worker
-  // calls handleStartup; the CLI goes straight to its loops.
+  // calls handleStartup; the CLI ensures its cadence jobs.
   boot(): Promise<void>;
+  // Delivers a fire of `name` the way the host's scheduler would.
+  fire(name: string): Promise<void>;
   // A new process over the same storage, with fresh in-memory state.
   restart(): ContractHost;
+}
+
+// A job scheduler with the port's semantics and no clock: tests fire jobs by
+// hand, and `ensured` records every schedule in order.
+export class FakeJobScheduler {
+  readonly scheduled = new Map<string, JobSchedule>();
+  readonly ensured: string[] = [];
+  readonly cancelled: string[] = [];
+  async ensure(name: string, schedule: JobSchedule): Promise<void> {
+    this.scheduled.set(name, schedule);
+    this.ensured.push(name);
+  }
+  async cancel(name: string): Promise<boolean> {
+    this.cancelled.push(name);
+    return this.scheduled.delete(name);
+  }
+  async get(name: string): Promise<{ scheduledTime: number } | undefined> {
+    const schedule = this.scheduled.get(name);
+    if (!schedule) return undefined;
+    return { scheduledTime: "when" in schedule ? schedule.when : Date.now() + schedule.periodInMinutes * 60_000 };
+  }
 }
 
 export function contractHost(capabilities: CapabilitySet, options: ContractHostOptions = {}): ContractHost {
@@ -171,13 +196,13 @@ export function contractHost(capabilities: CapabilitySet, options: ContractHostO
   };
   const savedStates: SchedulerState[] = [];
   const reported: EngineEvent[] = [];
-  const createdJobs: string[] = [];
+  const jobs = new FakeJobScheduler();
   const compatibility = (settings: ExtensionSettings) =>
-    resolveCompatibility(settings.compatibility, capabilities.browserTabs
+    resolveCompatibility(settings.compatibility, capabilities.declared.browserTabs
       ? { host: "extension", twitchIdentity: "web" }
       : { host: "cli", twitchIdentity: "web" });
 
-  const common: BackgroundControllerDeps<ExtensionSettings> = {
+  const common: HostMocks<ExtensionSettings> = {
     loadSettings: vi.fn(async () => storage.settings),
     saveSettings: vi.fn(async (next: ExtensionSettings) => {
       if (capabilities.persistsSettings) storage.settings = next;
@@ -190,26 +215,32 @@ export function contractHost(capabilities: CapabilitySet, options: ContractHostO
     reportEvents: vi.fn(async (events: readonly EngineEvent[]) => {
       reported.push(...events);
     }),
-    createAlarm: vi.fn(async (name: string) => {
-      if (capabilities.jobs) createdJobs.push(name);
-    }),
+    createAlarm: vi.fn((name: string, schedule: JobSchedule) => jobs.ensure(name, schedule)),
+    getAlarm: vi.fn((name: string) => jobs.get(name)),
+    clearAlarm: vi.fn((name: string) => jobs.cancel(name)),
     createNotification: vi.fn(async () => undefined),
     createAdapters: vi.fn((_emit, settings: ExtensionSettings) => ({ adapters, ...compatibility(settings) })),
     createAdapter: vi.fn((platform: Platform, _emit, settings: ExtensionSettings) => ({ adapter: adapters[platform], ...compatibility(settings) })),
   };
-  const deps: BackgroundControllerDeps<ExtensionSettings> = capabilities.browserTabs
-    ? {
-      ...common,
-      getAlarm: vi.fn(async () => undefined),
-      clearAlarm: vi.fn(async () => true),
-      closeManagedTabs: vi.fn(async () => undefined),
-      applyAdFocus: vi.fn(async () => undefined),
-      loadTabPlaybackPolicy: vi.fn(async () => ({ keepVideosUnmuted: false })),
-      stopPageContextTabs: vi.fn(forgetManagedPageContextTabs),
-    }
-    : common;
+  const deps: HostMocks<ExtensionSettings> = {
+    ...common,
+    ...(capabilities.declared.browserTabs
+      ? {
+        closeManagedTabs: vi.fn(async () => undefined),
+        applyAdFocus: vi.fn(async () => undefined),
+        loadTabPlaybackPolicy: vi.fn(async () => ({ keepVideosUnmuted: false })),
+        stopPageContextTabs: vi.fn(forgetManagedPageContextTabs),
+      }
+      : {}),
+    ...(capabilities.declared.twitchIntegrityCapture
+      ? { ensureTwitchIntegrity: vi.fn(async () => true), cancelTwitchIntegrityAcquisition: vi.fn() }
+      : {}),
+    ...(capabilities.declared.supplementalSources
+      ? { selectSupplementalWatchTarget: vi.fn(async () => undefined) }
+      : {}),
+  };
 
-  const controller = createBackgroundController(withLockTracker(deps).deps);
+  const controller = createBackgroundController(hostPortsFromMocks(withLockTracker(deps).deps, capabilities.declared));
   return {
     capabilities,
     controller,
@@ -218,10 +249,12 @@ export function contractHost(capabilities: CapabilitySet, options: ContractHostO
     storage,
     savedStates,
     reported,
-    createdJobs,
+    jobs,
     async boot(): Promise<void> {
       if (capabilities.runsStartup) await controller.handleStartup();
+      else await controller.ensureCadenceJobs();
     },
+    fire: (name) => controller.runJob(name),
     restart(): ContractHost {
       controller.shutdown();
       return contractHost(capabilities, { storage });

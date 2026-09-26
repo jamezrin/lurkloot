@@ -8,11 +8,12 @@ import { twitchChannelFromUrl } from "../platforms/twitch/channelUrl";
 import { PLATFORMS } from "./constants";
 import { lateBound } from "./context";
 import { emitHostCallbackError } from "./helpers";
-import type { BackgroundControllerDeps, ControllerCalls } from "./types";
+import type { BackgroundHostPorts } from "./hostPorts";
+import type { ControllerCalls } from "./types";
 
 // Manual watch, managed-tab events and playback telemetry.
 export function createManualWatch<S extends EngineSettings>(
-  deps: BackgroundControllerDeps<S>,
+  ports: BackgroundHostPorts<S>,
   calls: Pick<ControllerCalls<S>,
     | "invalidateSelection"
     | "persistAndReport"
@@ -45,11 +46,12 @@ export function createManualWatch<S extends EngineSettings>(
     withEventCollector,
     withStateLock,
   } = lateBound(calls);
+  const { tabs } = ports;
 
   async function handleTabRemoved(tabId: number): Promise<void> {
     const changed: Platform[] = [];
     await withStateLock(() => withEventCollector(async (emit, events) => {
-      const state = await deps.loadState();
+      const state = await ports.storage.loadState();
       let nextState = state;
       for (const platform of PLATFORMS) {
         if (state.manualWatch?.[platform]?.tabId !== tabId && !state.manualWatchTabs?.[platform]?.[tabId]) continue;
@@ -104,7 +106,7 @@ export function createManualWatch<S extends EngineSettings>(
   // farm this platform again. Only the user can undo the gesture they made.
   async function resumeAfterManualClose(platform: Platform): Promise<void> {
     await withStateLock(() => withEventCollector(async (emit, events) => {
-      const state = await deps.loadState();
+      const state = await ports.storage.loadState();
       if (!state.manualClosePause?.[platform]) {
         await reportBestEffort(events);
         return;
@@ -123,7 +125,7 @@ export function createManualWatch<S extends EngineSettings>(
   ): Promise<void> {
     let manualWatchChanged = false;
     await withStateLock(() => withEventCollector(async (emit, events) => {
-      const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
+      const [settings, state] = await Promise.all([ports.storage.loadSettings(), ports.storage.loadState()]);
       const session = state.sessions[message.platform];
       const isManagedWatchTab = senderTabId != null
         && session.status === "watching"
@@ -177,8 +179,8 @@ export function createManualWatch<S extends EngineSettings>(
         invalidateSelection(message.platform);
       }
       try {
-        if (deps.applyAdFocus && session.status === "watching" && session.tabId === senderTabId) {
-          await deps.applyAdFocus(message.platform, session.tabId, Boolean(message.telemetry.adActive), emit);
+        if (tabs && session.status === "watching" && session.tabId === senderTabId) {
+          await tabs.applyAdFocus(message.platform, session.tabId, Boolean(message.telemetry.adActive), emit);
         }
       } catch (error) {
         emitHostCallbackError(emit, message.platform, error, "Could not apply ad focus");
@@ -248,7 +250,7 @@ export function createManualWatch<S extends EngineSettings>(
   async function handleTabUpdated(tabId: number, url: string): Promise<void> {
     const changed: Platform[] = [];
     await withStateLock(() => withEventCollector(async (_emit, events) => {
-      const original = await deps.loadState();
+      const original = await ports.storage.loadState();
       let state = original;
       for (const platform of PLATFORMS) {
         const record = state.manualWatchTabs?.[platform]?.[tabId]
@@ -272,12 +274,12 @@ export function createManualWatch<S extends EngineSettings>(
     emit: EventEmitter,
     platforms: readonly Platform[] = PLATFORMS,
   ): Promise<void> {
-    if (!deps.applyAdFocus) return;
+    if (!tabs) return;
     for (const platform of platforms) {
       const session = state.sessions[platform];
       const watching = session.status === "watching" && session.tabId != null;
       try {
-        await deps.applyAdFocus(platform, session.tabId, watching && Boolean(session.playback?.adActive), emit);
+        await tabs.applyAdFocus(platform, session.tabId, watching && Boolean(session.playback?.adActive), emit);
       } catch (error) {
         emitHostCallbackError(emit, platform, error, "Could not apply ad focus");
       }
@@ -288,7 +290,7 @@ export function createManualWatch<S extends EngineSettings>(
     message: Extract<CoreRuntimeMessage, { type: "getPlaybackControl" }>,
     senderTabId?: number,
   ): Promise<PlaybackControl> {
-    const [policy, state] = await Promise.all([deps.loadTabPlaybackPolicy?.(), deps.loadState()]);
+    const [policy, state] = await Promise.all([ports.tabs?.loadPlaybackPolicy(), ports.storage.loadState()]);
     const session = state.sessions[message.platform];
     return {
       managed: senderTabId != null

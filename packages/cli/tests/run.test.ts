@@ -890,7 +890,8 @@ describe("runLoop heartbeat driver", () => {
       },
     });
 
-    expect(vi.getTimerCount()).toBe(2);
+    // The Twitch and Kick tick jobs and the heartbeat job.
+    expect(vi.getTimerCount()).toBe(3);
     process.emit("SIGTERM");
     await disposeStarted.promise;
     expect(timerCountsAtDispose).toEqual([0]);

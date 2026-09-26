@@ -1,21 +1,15 @@
 import type { CategorySearchResult, CoreRuntimeMessage, PlaybackControl, RuntimeSnapshot } from "@lurkloot/shared/messages";
-import type { EngineSettings, ManagedWatchTab, Platform, PlaybackTelemetry, SchedulerState, SupplementalWatchTarget, TablessHeartbeatCadence, WatchSession, WatchSourceId } from "@lurkloot/shared/models";
-import type { DiagnosticEvent, EngineEvent, EventEmitter, EventReporter } from "@lurkloot/shared/events";
+import type { EngineSettings, Platform, PlaybackTelemetry, SchedulerState, TablessHeartbeatCadence, WatchSession } from "@lurkloot/shared/models";
+import type { DiagnosticEvent, EngineEvent, EventEmitter } from "@lurkloot/shared/events";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
-import type { CompatibilityResolution, ResolvedCompatibility } from "@lurkloot/shared/compatibility";
-import {
-  selectWatchTargetFromSnapshot,
-  type SnapshotSelectionResult,
-  type StopPageContextTabs,
-} from "../core/scheduler";
-import type { TwitchIntegrityRequest } from "../core/tabs";
-import type { IntegrityHeader, TwitchIntegrity } from "../core/twitchIntegrity";
+import type { SnapshotSelectionResult } from "../core/scheduler";
+import type { IntegrityHeader } from "../core/twitchIntegrity";
 import type { PlatformAdapter } from "../platforms/adapter";
 import type { TablessWatchController } from "../core/tablessWatch";
 import type { DiscoverySignalController } from "../core/discoverySignals";
 import type { DiscoverySnapshot, DiscoverySnapshotState } from "../core/discoverySnapshot";
 import { AuthProbeSetupError } from "./errors";
-import type { CommitGuard, CommitOptions, CommitResult, LockTracker, PreparedSettingsCommit } from "./stateTransaction";
+import type { CommitGuard, CommitOptions, CommitResult, PreparedSettingsCommit } from "./stateTransaction";
 
 // Reward ids claimed during one tick, per platform. The post-claim handoff needs
 // the ids (not just the platforms) so it can tell a genuine successor from the
@@ -47,10 +41,7 @@ export type TickDiagnosticContext = Required<Pick<
   DiagnosticEvent,
   "globalTickId" | "platformTickId"
 >>;
-export type CredentialAvailability =
-  | { status: "available" }
-  | { status: "missing" }
-  | { status: "unavailable" };
+export type { CredentialAvailability } from "./hostPorts";
 
 export interface CommittedHeartbeatContext {
   readonly generation: number;
@@ -148,76 +139,6 @@ export interface SettingsCommitOptions<S> {
   afterPersist?(settings: S): void;
 }
 
-// Generic over the host's settings type `S`, which must satisfy the engine
-// contract (EngineSettings). The extension parametrizes it with its fuller
-// ExtensionSettings (load/save round-trip the host-only fields); the CLI uses the
-// bare EngineSettings. The engine itself only ever reads EngineSettings fields.
-export interface BackgroundControllerDeps<S extends EngineSettings = EngineSettings> {
-  loadSettings(): Promise<S>;
-  saveSettings(settings: S): Promise<void>;
-  loadState(): Promise<SchedulerState>;
-  saveState(state: SchedulerState): Promise<void>;
-  authProbeTimeoutMs?: number;
-  reportEvents?: EventReporter;
-  createAlarm(
-    name: string,
-    options: { periodInMinutes: number } | { when: number },
-  ): Promise<void>;
-  getAlarm?(name: string): Promise<{ scheduledTime: number } | undefined>;
-  clearAlarm?(name: string): Promise<boolean>;
-  ensureTwitchIntegrity?(
-    emit: EventEmitter,
-    request?: TwitchIntegrityRequest,
-  ): Promise<boolean>;
-  cancelTwitchIntegrityAcquisition?(reason?: unknown): void;
-  createAdapters(emit: EventEmitter, settings: S): {
-    adapters: Record<Platform, PlatformAdapter>;
-    compatibility: ResolvedCompatibility;
-    warnings: CompatibilityResolution["warnings"];
-  };
-  createAdapter(platform: Platform, emit: EventEmitter, settings: S): {
-    adapter: PlatformAdapter;
-    compatibility: ResolvedCompatibility;
-    warnings: CompatibilityResolution["warnings"];
-  };
-  checkCredentialAvailability?(platform: Platform): Promise<CredentialAvailability>;
-  createNotification?(notification: { title: string; message: string }): Promise<void>;
-  translate?(key: string, substitutions?: string | string[]): string | Promise<string>;
-  closeManagedTabs?(tabs: ManagedWatchTab[]): Promise<void>;
-  // Tab-mode ad focus. The host (extension) owns the focus policy (adFocusMode),
-  // so the engine only reports whether an ad is active for a given watch tab.
-  applyAdFocus?(platform: Platform, tabId: number | undefined, adActive: boolean, emit: EventEmitter): Promise<void>;
-  // Tab-mode playback policy the host supplies to managed watch tabs. Defaults to
-  // keeping videos unmuted when the host does not provide it.
-  loadTabPlaybackPolicy?(): Promise<{ keepVideosUnmuted: boolean }>;
-  // Applies a popup settings patch to the host's full settings. Host-only; the
-  // CLI never sends settings-mutating messages, so it can omit this.
-  applySettingsPatch?(current: S, patch: SettingsPatch): S;
-  loadTwitchIntegrity?(): Promise<TwitchIntegrity | undefined>;
-  saveTwitchIntegrity?(value: TwitchIntegrity): Promise<void>;
-  // Browser-bound page-context tab teardown, injected into the scheduler tick.
-  // Omitted in headless/test runs, where the scheduler forgets contexts from
-  // state only (see runSchedulerTick / StopPageContextTabs).
-  stopPageContextTabs?: StopPageContextTabs;
-  // Test instrumentation for the state transaction's lock-order and locked-I/O
-  // checks (stateTransaction.ts). Hosts leave it out.
-  lockTracker?: LockTracker;
-  reconcilePageContextRecovery?(
-    platform: Platform,
-    settings: S,
-    options: { countBackgroundSuccess: boolean },
-    emit: EventEmitter,
-  ): Promise<boolean>;
-  discardPageContextRecoveryEvidence?(platform: Platform): void;
-  selectWatchTarget?: typeof selectWatchTargetFromSnapshot;
-  selectSupplementalWatchTarget?(platform: Platform, state: SchedulerState, settings: S, signal?: AbortSignal, source?: WatchSourceId): Promise<SupplementalWatchTarget | undefined>;
-  // Delay used by the bounded post-claim handoff. Injected so tests can drive
-  // the loop deterministically instead of racing real timers. Resolves early
-  // (without throwing) when the signal aborts, so callers check `signal.aborted`
-  // after awaiting rather than catching.
-  wait?(ms: number, signal: AbortSignal): Promise<void>;
-}
-
 export interface TickAdapterHandle<S extends EngineSettings> {
   readonly platform: Platform;
   adapter(settings: S, emit: EventEmitter, reportCompatibility?: boolean): PlatformAdapter;
@@ -302,6 +223,7 @@ export interface ControllerCalls<S extends EngineSettings> {
   ): DiagnosticEvent[];
   safeNotify(title: string, message: string): Promise<void>;
   tr(key: string, substitutions?: string | string[]): Promise<string>;
+  reportUnsupportedSettings(settings: EngineSettings, tickContext?: TickDiagnosticContext): Promise<void>;
   emitNotifications(
     settings: EngineSettings,
     previous: SchedulerState,
@@ -510,7 +432,8 @@ export interface ControllerCalls<S extends EngineSettings> {
 
   // lifecycle.ts
   ensureAlarm(): Promise<void>;
-  ensureSchedulerAlarms(periodInMinutes: number): Promise<void>;
+  ensureCadenceJobs(settings?: S): Promise<void>;
+  rescheduleTickJobs(): Promise<void>;
   ensureInstalledAt(installedAt?: string): Promise<void>;
   handleStartup(): Promise<void>;
   snapshot(): Promise<RuntimeSnapshot<S>>;

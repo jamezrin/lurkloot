@@ -14,8 +14,8 @@ import {
 } from "../core/discoverySnapshot";
 import { PLATFORMS } from "./constants";
 import { type ControllerSlices, type DiscoverySlice, lateBound } from "./context";
+import type { BackgroundHostPorts } from "./hostPorts";
 import type {
-  BackgroundControllerDeps,
   CommittedSelection,
   ControllerCalls,
   SelectionInput,
@@ -25,7 +25,7 @@ import type {
 
 // Discovery lanes and snapshot selection.
 export function createDiscovery<S extends EngineSettings>(
-  deps: BackgroundControllerDeps<S>,
+  ports: BackgroundHostPorts<S>,
   { lifecycleSlice }: Pick<ControllerSlices<S>, "lifecycleSlice">,
   calls: Pick<ControllerCalls<S>,
     | "createAdapter"
@@ -174,7 +174,7 @@ export function createDiscovery<S extends EngineSettings>(
     tickAdapters?: Partial<Record<Platform, TickAdapterHandle<S>>>,
   ): Promise<void> {
     if (lifecycleSlice.controllerShutdown) return;
-    const settings = await deps.loadSettings();
+    const settings = await ports.storage.loadSettings();
     await Promise.all(platforms.map(async (platform) => {
       if (bypassBackoff) discoverySlice.discoveryBackoffBypasses[platform] += 1;
       try {
@@ -246,7 +246,7 @@ export function createDiscovery<S extends EngineSettings>(
 
   async function evaluateSelection(input: SelectionInput<S>): Promise<CommittedSelection> {
     const startedAt = Date.now();
-    const result = await (deps.selectWatchTarget ?? selectWatchTargetFromSnapshot)({
+    const result = await (ports.testing?.selectWatchTarget ?? selectWatchTargetFromSnapshot)({
       snapshot: input.snapshot,
       previous: input.state.sessions[input.platform],
       previousCampaigns: input.state.campaigns[input.platform],

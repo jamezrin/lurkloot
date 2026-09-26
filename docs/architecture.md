@@ -112,6 +112,9 @@ which now read `<slice>.<field>`.
 - `stateTransaction.ts` (#585) is the state transaction: it owns the settings, platform and commit
   locks, every settings and scheduler-state commit, and the after-commit hooks. It depends only on
   the storage ports, and `createBackgroundController` creates it before any module.
+- `hostPorts.ts` and `jobs.ts` (#593) are the host contract: the grouped ports and declared
+  capabilities every module takes instead of flat deps, and the job scheduler port with the job
+  table. See "Host ports and jobs" below.
 
 The per-module slices and calls below are where #591's dependency check starts:
 
@@ -119,7 +122,7 @@ The per-module slices and calls below are where #591's dependency check starts:
 | --- | --- | --- | --- |
 | `stateTransaction.ts` | its own lock queues and hooks | none | the transaction (#585) |
 | `stateCommit.ts` | the transaction | `reporting` | 11 |
-| `reporting.ts` | `reportingSlice` | `discovery` | 12 |
+| `reporting.ts` | `reportingSlice` | `discovery` | 13 |
 | `tickAdmission.ts` | `reportingSlice`, `integritySlice`, `signalSlice`, `tickSlice`, `lifecycleSlice` | `claims`, `discovery`, `discoverySignals`, `reporting`, `stateCommit`, `tickRun` | 11 |
 | `tickRun.ts` | `claimSlice`, `discoverySlice`, `tickSlice` | `authHealth`, `channelPoints`, `discovery`, `discoverySignals`, `heartbeat`, `kickChallenges`, `manualWatch`, `reporting`, `stateCommit`, `twitchIntegrity` | 1 |
 | `discovery.ts` | its own `discoverySlice`, `lifecycleSlice` | `reporting`, `stateCommit` | 10 |
@@ -132,7 +135,7 @@ The per-module slices and calls below are where #591's dependency check starts:
 | `claims.ts` | `kickChallengeSlice`, `claimSlice`, `lifecycleSlice` | `heartbeat`, `lifecycle`, `reporting`, `stateCommit`, `tickAdmission` | 8 |
 | `discoverySignals.ts` | `signalSlice`, `tickSlice`, `lifecycleSlice` | `reporting`, `tickAdmission` | 9 |
 | `settingsTransitions.ts` | the transaction, `discoverySlice` | `channelPoints`, `claims`, `discovery`, `lifecycle`, `stateCommit`, `tickAdmission` | 2 |
-| `lifecycle.ts` | `integritySlice`, `signalSlice`, `discoverySlice`, `tickSlice`, `settingsSlice`, `lifecycleSlice` | `authHealth`, `channelPoints`, `claims`, `discovery`, `discoverySignals`, `heartbeat`, `reporting`, `settingsTransitions`, `stateCommit`, `tickAdmission`, `twitchIntegrity` | 7 |
+| `lifecycle.ts` | `integritySlice`, `signalSlice`, `discoverySlice`, `tickSlice`, `settingsSlice`, `lifecycleSlice` | `authHealth`, `channelPoints`, `claims`, `discovery`, `discoverySignals`, `heartbeat`, `reporting`, `settingsTransitions`, `stateCommit`, `tickAdmission`, `twitchIntegrity` | 8 |
 | `messages.ts` | `integritySlice`, `signalSlice`, `tickSlice`, `settingsSlice`, `lifecycleSlice` | `claims`, `discoverySignals`, `lifecycle`, `manualWatch`, `reporting`, `settingsTransitions`, `stateCommit`, `tickAdmission`, `twitchIntegrity` | 1 |
 
 Slices read outside their owner are the coupling the later issues remove: `lifecycleSlice`
@@ -164,7 +167,7 @@ or settings, loaded and saved through the host's storage port (`storage.local` o
 | Claim operations (`dropClaimOperations`, `waitingClaimRewardIds`, `claimHandoffs`, `kickChallengeClaimOperations`, `twitchChannelPointsClaimInFlight`, channel-points push) | In memory. Claimed rewards are persisted through `campaigns` | Ticks, claim jobs, `claimRewardNow`, `runClaimHandoff`, the push | Disable, auth loss, reset, shutdown, `abortClaimHandoffs` at startup | Platform lock | In-flight work is lost; provider inventory is re-read | Both, but manual-watch claim jobs never fire on the CLI |
 | Twitch integrity (`installedTwitchIntegrity`, `persistedIntegrityToken`, `integrityLifecycleGeneration`) | In memory in the controller and in `core/tabs.ts` globals; the token is also persisted through `saveTwitchIntegrity` | Header capture, refresh, enable/disable transitions | A newer lifecycle generation | Settings lock, then the platform lock | Token reloaded from storage | Extension only |
 | Compatibility reporting (`reportedCompatibility`, route reports) and `campaignEvaluationFingerprints` | In memory | Adapter construction, ticks | Never, within a process | None | Reported again | Both |
-| Host jobs | `browser.alarms` (extension); `setInterval` for ticks and heartbeats only (CLI) | `ensureSchedulerAlarms`, `reconcile*Alarm`, integrity scheduling | Settings changes, disable | Settings lock | Alarms survive a service-worker restart; the CLI's `createAlarm` is a no-op | Both, with different job sets (#593) |
+| Host jobs | The job scheduler port: `browser.alarms` (extension), Node timers (CLI) | `ensureCadenceJobs`, `rescheduleTickJobs`, `reconcile*Alarm`, integrity scheduling | Settings changes, disable | Settings lock, except the tick jobs (rescheduled after it) | Alarms survive a service-worker restart; the CLI re-ensures its cadence jobs on start | Both; jobs whose capability a host lacks are inert (#593) |
 | Twitch Extensions host (`generation`, `knownComplete`, `completedUntil`, `unavailableUntil`, summaries) | In memory in `packages/extension/src/extensions/host.ts` | The host's reconcile loop | `storage.onChanged` diffs of settings and scheduler state, every alarm | Outside the controller | Forgotten; providers are re-probed | Extension only |
 
 ### Locks and queues
@@ -213,8 +216,9 @@ without being listed, or if a listed call has left its lock without the entry be
 - **Host reset** closes watch tabs and page contexts under the settings and platform locks (#598).
 - **Claims outside the tick:** `claimRewardNow`, `runDropClaims` (which also refreshes campaigns) and
   `runKickChallengeClaims` (#597, #588).
-- **Timers under the settings or platform lock:** integrity refresh scheduling (#589), scheduler,
-  claim and channel-points alarms on settings writes and at startup (#593, #597, #590).
+- **Timers under the settings or platform lock:** integrity refresh scheduling (#589), claim and
+  channel-points alarms on settings writes and at startup (#597, #590). The tick jobs are
+  rescheduled after the settings lock is released (#593).
 
 Event reporting (`reportBestEffort`, `persistAndReport`) and notifications still run inside the
 platform locks, but only after the commit that carries them has been accepted (see below).
@@ -267,12 +271,54 @@ site check reads the async stack trace, so the lock queues are written with `awa
 promise rather than `.then()` chains, which V8 cannot see through. `stateTransaction.test.ts`
 covers the rules themselves, including an unlisted call site failing and hook ordering.
 
+### Host ports and jobs (#593)
+
+Both hosts build the controller from `BackgroundHostPorts` (`hostPorts.ts`), not from a flat list
+of optional hooks:
+
+| Port | Extension | CLI |
+| --- | --- | --- |
+| `storage` | `browser.storage.local` | `state.json` (saved atomically: temporary file, then rename); settings from the config file, never written |
+| `events` | Activity store, OS notifications, locale catalogs | The logger |
+| `jobs` | `browser.alarms` (`src/core/jobs.ts`) | Node timers (`src/runtime/jobs.ts`) |
+| `adapters` | Browser transports and compatibility resolution | Node transports |
+| `credentials` | Cookie observation | The file/env credential store |
+| `tabs`, `kick.pageContextRecovery` | Browser tabs (#598 splits them into role ports) | Absent |
+| `twitch.integrity` | Page capture | Absent |
+| `twitch.supplementalSources` | Twitch Extensions host (#587 adds `prepare`) | Absent |
+
+Each host passes a static `capabilities` object (`EXTENSION_CAPABILITIES`, `CLI_CAPABILITIES`),
+written by hand. `createBackgroundController` throws `HostCapabilityMismatchError` when a
+capability's ports are present without the capability or the other way round, so a missing port
+never switches a feature off silently. A setting that needs a capability the host lacks
+(`tablessMode: false` or `pauseOnManualWatch` without browser tabs) is reported once per
+controller as an English diagnostic, with no platform, and changes nothing else.
+
+The job scheduler port is the only way the engine schedules work. `jobs.ts` documents its
+semantics, and both implementations keep them: a minimum period (`MIN_JOB_PERIOD_MINUTES`), ensure
+replaces a job and restarts its period, cancel is idempotent, a one-shot job is gone once it fires,
+a suspended host fires once on wake rather than once per missed period, and a job can fire again
+while its last run is still going, so the services coalesce their own runs (tick admission,
+heartbeat lanes). Alarms survive a service-worker restart; Node timers do not, so the CLI calls
+`ensureCadenceJobs` on every start.
+
+`BACKGROUND_JOBS` lists every job and the capability it needs. A job whose capability the host
+lacks is inert: ensuring it schedules nothing and a fire of it does nothing. On the CLI that covers
+the manual-watch claim jobs and Kick challenges (browser tabs), the integrity refresh (integrity
+capture) and the one-minute channel-points job (`twitchChannelPointsJob`, which #590 enables). The
+host delivers fires to `controller.runJob(name)`. The CLI routes its tick jobs through its own tick
+driver, which adds disabled-platform cleanup and subscription reporting, and runs each at
+`pollIntervalMinutes` with the heartbeat job every minute, as before.
+
+What #593 leaves for a separate `behavior-change` PR: the CLI does not run `handleStartup` yet, so
+a CLI restart still skips startup cleanup and heartbeat-ownership release.
+
 ### Characterization coverage
 
 v1.15.0 extractions must keep these tests passing without editing their assertions, except in a PR
-labelled `behavior-change`. `controllerContract.test.ts` runs its cases once per host capability set
-(extension and CLI, `tests/helpers/controllerContract.ts`); #593 turns those sets into typed host
-ports and reuses the cases.
+labelled `behavior-change`. `controllerContract.test.ts` runs its cases once per declared host
+capability set (`EXTENSION_CAPABILITIES` and `CLI_CAPABILITIES`, through
+`tests/helpers/controllerContract.ts`), against fake ports.
 
 | Invariant | Where it is tested |
 | --- | --- |
@@ -283,8 +329,12 @@ ports and reuses the cases.
 | Heartbeat due time is independent of ticks | `backgroundController/heartbeat.test.ts` ("tabless heartbeat cadence", "lets Kick heartbeat and persist while Twitch heartbeat is still pending") |
 | Manual managed-tab closure | `backgroundController/manualWatch.test.ts` ("manual-watch event transitions", "clears manual watch activity when the source tab is closed") |
 | Service-worker restart | `backgroundController/lifecycle.test.ts` (the startup cleanup cases); `backgroundController/heartbeat.test.ts` ("serializes service-worker restart recovery…"); `controllerContract.test.ts` (extension host) |
-| CLI process restart: no startup cleanup today (#593 changes this) | `controllerContract.test.ts` (CLI host) |
-| Job registration: the CLI registers none today (#593, #590 change this) | `controllerContract.test.ts` |
+| CLI process restart: no startup cleanup yet (#593's behavior-change PR) | `controllerContract.test.ts` (CLI host) |
+| Job registration: the CLI registers only its tick and heartbeat jobs (#590 adds channel points); inert jobs are never scheduled or run | `controllerContract.test.ts` ("jobs") |
+| Duplicate and late job fires coalesce; no job runs after shutdown | `controllerContract.test.ts` ("jobs") |
+| Job scheduler semantics on each host | `hostPorts.test.ts` (`browser.alarms`); `packages/cli/tests/jobs.test.ts` (Node timers) |
+| Declared capabilities match the ports; unsupported settings are reported once | `hostPorts.test.ts`; `controllerContract.test.ts` ("capabilities") |
+| The CLI's `state.json` save is atomic | `packages/cli/tests/storage.test.ts` |
 | The popup reads the stored settings and state verbatim | `controllerContract.test.ts` ("runtime snapshot") |
 | Campaign ranking and #571's selection rules (mid-reward takeover, favourites, discarded refresh hold, just-armed watch) | `ranking.test.ts`, `rankingSettings.test.ts`, `scheduler.test.ts`, `watchSourceScheduler.test.ts` |
 | `updateIdleWatchlist` keeps a concurrent popup change | `backgroundController/settingsTransitions.test.ts` ("Idle Watchlist changes from the page") |

@@ -1,5 +1,6 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { randomUUID } from "node:crypto";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { basename, dirname, join } from "node:path";
 import type { SchedulerState } from "@lurkloot/shared/models";
 import { mergeSchedulerState } from "@lurkloot/core/defaults";
 
@@ -19,7 +20,19 @@ export async function loadState(path: string): Promise<SchedulerState> {
   }
 }
 
+// Atomic: the state is written to a temporary file in the same directory and
+// renamed over state.json, so a crash or a full disk mid-write leaves the
+// previous state intact instead of a truncated file. Each save uses its own
+// temporary file, so concurrent saves never interleave; the last rename wins.
 export async function saveState(path: string, state: SchedulerState): Promise<void> {
-  await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, `${JSON.stringify(state, null, 2)}\n`);
+  const directory = dirname(path);
+  await mkdir(directory, { recursive: true });
+  const temporary = join(directory, `.${basename(path)}.${randomUUID()}.tmp`);
+  try {
+    await writeFile(temporary, `${JSON.stringify(state, null, 2)}\n`);
+    await rename(temporary, path);
+  } catch (error) {
+    await rm(temporary, { force: true });
+    throw error;
+  }
 }

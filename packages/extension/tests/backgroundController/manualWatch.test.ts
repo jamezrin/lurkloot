@@ -12,6 +12,7 @@ import {
   farming,
   harness,
 } from "../helpers/backgroundController";
+import { hostPortsFromMocks } from "../helpers/hostPorts";
 
 // Manual watch, managed-tab events and playback telemetry.
 
@@ -158,7 +159,7 @@ describe("background controller", () => {
       const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
       await report(env, "twitch", 999, "https://www.twitch.tv/firstcreator");
       await report(env, "twitch", 1000, "https://www.twitch.tv/secondcreator");
-      const restored = createBackgroundController(env.deps);
+      const restored = createBackgroundController(hostPortsFromMocks(env.deps));
       await restored.handleTabRemoved(1000);
       await restored.settleBackgroundWork();
       expect(env.state.manualWatch?.twitch?.tabId).toBe(999);

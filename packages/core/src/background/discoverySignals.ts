@@ -5,11 +5,12 @@ import type { DiscoverySignalController } from "../core/discoverySignals";
 import { PLATFORMS } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
 import { emitHostCallbackError } from "./helpers";
-import type { BackgroundControllerDeps, ControllerCalls, DiscoverySignalRefreshRequest } from "./types";
+import type { BackgroundHostPorts } from "./hostPorts";
+import type { ControllerCalls, DiscoverySignalRefreshRequest } from "./types";
 
 // Discovery-signal controllers and the refreshes they request.
 export function createDiscoverySignals<S extends EngineSettings>(
-  deps: BackgroundControllerDeps<S>,
+  ports: BackgroundHostPorts<S>,
   { signalSlice, tickSlice, lifecycleSlice }: Pick<ControllerSlices<S>, "signalSlice" | "tickSlice" | "lifecycleSlice">,
   calls: Pick<ControllerCalls<S>,
     | "completeTickAndHandOff"
@@ -250,7 +251,7 @@ export function createDiscoverySignals<S extends EngineSettings>(
             continue;
           }
           signalSlice.discoverySignalRefreshPending[platform] = undefined;
-          const settings = await deps.loadSettings();
+          const settings = await ports.storage.loadSettings();
           if (!discoverySignalRefreshAllowed(platform, current)) continue;
           if (!settings.platform[platform].enabled) {
             signalSlice.discoverySignalRefreshPending[platform] = undefined;

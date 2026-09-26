@@ -19,8 +19,8 @@ import {
 import { PLATFORMS } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
 import { emitHostCallbackError } from "./helpers";
+import type { BackgroundHostPorts } from "./hostPorts";
 import type {
-  BackgroundControllerDeps,
   CommittedHeartbeatContext,
   ControllerCalls,
   HeartbeatAttempt,
@@ -44,7 +44,7 @@ const RECENT_HEARTBEAT_MS = 30_000;
 
 // Tabless watchers, heartbeat lanes and heartbeat commits.
 export function createHeartbeats<S extends EngineSettings>(
-  deps: BackgroundControllerDeps<S>,
+  ports: BackgroundHostPorts<S>,
   { heartbeatSlice, tickSlice, lifecycleSlice }: Pick<ControllerSlices<S>, "heartbeatSlice" | "tickSlice" | "lifecycleSlice">,
   calls: Pick<ControllerCalls<S>,
     | "createSelectedAdapters"
@@ -446,7 +446,7 @@ export function createHeartbeats<S extends EngineSettings>(
   // watcher and records its health on the session, falling back to a real tab
   // (by re-running the scheduler) when a heartbeat keeps failing.
   async function runWatchHeartbeat(): Promise<void> {
-    const settings = await deps.loadSettings();
+    const settings = await ports.storage.loadSettings();
     if (!isFarmingActive(settings)) return;
 
     const heartbeatResults = await Promise.allSettled(PLATFORMS.map((platform) =>
@@ -474,7 +474,7 @@ export function createHeartbeats<S extends EngineSettings>(
         // remove or replace that newer owner.
         const expectedRevision = heartbeatSlice.heartbeatLanes[platform].revision;
         const expectedPageContextRevision = currentManagedPageContextTabsRevision();
-        const nextState = await deps.loadState();
+        const nextState = await ports.storage.loadState();
         hydrateManagedPageContextTabs(
           nextState.managedPageContextTabs ?? {},
           [platform],

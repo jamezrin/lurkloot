@@ -6,11 +6,12 @@ import { dismissCriticalFailure } from "../core/criticalHealth";
 import type { PlatformAdapter } from "../platforms/adapter";
 import { type ControllerSlices, lateBound } from "./context";
 import { platformLabel, settingsTickTrigger } from "./helpers";
-import type { BackgroundControllerDeps, ControllerCalls } from "./types";
+import type { BackgroundHostPorts } from "./hostPorts";
+import type { ControllerCalls } from "./types";
 
 // Runtime message handling.
 export function createMessageHandler<S extends EngineSettings>(
-  deps: BackgroundControllerDeps<S>,
+  ports: BackgroundHostPorts<S>,
   { integritySlice, signalSlice, tickSlice, settingsSlice, lifecycleSlice }: Pick<ControllerSlices<S>,
     | "integritySlice"
     | "signalSlice"
@@ -205,7 +206,7 @@ export function createMessageHandler<S extends EngineSettings>(
 
     if (message.type === "resumeAfterManualClose") {
       await resumeAfterManualClose(message.platform);
-      const settings = await deps.loadSettings();
+      const settings = await ports.storage.loadSettings();
       if (settings.platform[message.platform].enabled) {
         await markPlatformsStarting([message.platform]);
         tickInBackground([message.platform], "manual_resume");
@@ -219,7 +220,7 @@ export function createMessageHandler<S extends EngineSettings>(
 
     if (message.type === "searchCategories") {
       return withEventCollector(async (emit, events) => {
-        const settings = await deps.loadSettings();
+        const settings = await ports.storage.loadSettings();
         let categories: CategorySearchResult["categories"] = [];
         let adapter: PlatformAdapter | undefined;
         try {
@@ -249,7 +250,7 @@ export function createMessageHandler<S extends EngineSettings>(
       // racing an alarm-driven tick would otherwise interleave loads and drop
       // one side's write to the persisted state.
       await withStateLock(() => withEventCollector(async (emit, events) => {
-        const state = await deps.loadState();
+        const state = await ports.storage.loadState();
         const transition = dismissCriticalFailure(state, message.platform, Date.now());
         if (transition.event) emit(transition.event);
         // Closing the breaker here is what lets farming resume immediately
