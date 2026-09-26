@@ -6,7 +6,8 @@ import { applyPlatformAuthHealth } from "../core/authHealth";
 import { type ControllerSlices, lateBound } from "./context";
 import { AuthProbeSetupError } from "./errors";
 import { correlateTickDiagnostics, platformLabel } from "./helpers";
-import type { BackgroundControllerDeps, ControllerCalls, TickAdapterHandle, TickDiagnosticContext } from "./types";
+import type { BackgroundHostPorts } from "./hostPorts";
+import type { ControllerCalls, TickAdapterHandle, TickDiagnosticContext } from "./types";
 
 // Must stay strictly greater than INTEGRITY_REFRESH_TIMEOUT_MS. A Twitch probe
 // runs through gqlWithIntegrityRetry, so a rejection makes it wait on a page
@@ -18,7 +19,7 @@ const DEFAULT_AUTH_PROBE_TIMEOUT_MS = INTEGRITY_REFRESH_TIMEOUT_MS + 5_000;
 
 // Auth health probes, refreshes and invalidation.
 export function createAuthHealth<S extends EngineSettings>(
-  deps: BackgroundControllerDeps<S>,
+  ports: BackgroundHostPorts<S>,
   { authSlice, discoverySlice }: Pick<ControllerSlices<S>, "authSlice" | "discoverySlice">,
   calls: Pick<ControllerCalls<S>,
     | "createAdapter"
@@ -79,7 +80,7 @@ export function createAuthHealth<S extends EngineSettings>(
     let timeout: ReturnType<typeof setTimeout> | undefined;
     const terminalProbe = (async (): Promise<PlatformAuthHealth> => {
       try {
-        const availability = await deps.checkCredentialAvailability?.(platform);
+        const availability = await ports.credentials?.checkAvailability(platform);
         if (availability?.status === "missing") {
           return {
             status: "missing_credentials",
@@ -116,7 +117,7 @@ export function createAuthHealth<S extends EngineSettings>(
           reasonCode: "network_unavailable",
           message: { key: "authNetworkUnavailable" },
         });
-      }, deps.authProbeTimeoutMs ?? DEFAULT_AUTH_PROBE_TIMEOUT_MS);
+      }, ports.testing?.authProbeTimeoutMs ?? DEFAULT_AUTH_PROBE_TIMEOUT_MS);
     });
     try {
       return await Promise.race([terminalProbe, timedOut, cancelled]);
@@ -210,7 +211,7 @@ export function createAuthHealth<S extends EngineSettings>(
         );
       }
     }
-    const settings = loadedSettings ?? await deps.loadSettings();
+    const settings = loadedSettings ?? await ports.storage.loadSettings();
     const enabled = platforms.filter((platform) => settings.platform[platform].enabled);
     const results = await Promise.allSettled(enabled.map(async (platform) => {
       const result = await withEventCollector(async (emit, events) => {
@@ -267,7 +268,7 @@ export function createAuthHealth<S extends EngineSettings>(
     tickContext?: TickDiagnosticContext,
   ): Promise<void> {
     await withStateLock(() => withEventCollector(async (emit, events) => {
-      const state = await deps.loadState();
+      const state = await ports.storage.loadState();
       for (const failure of failures) {
         emit({
           category: "activity",
@@ -302,11 +303,11 @@ export function createAuthHealth<S extends EngineSettings>(
     try {
       const generations = await beginAuthRefresh([platform]);
       const generation = generations[platform];
-      const settings = await deps.loadSettings();
+      const settings = await ports.storage.loadSettings();
       if (!settings.platform[platform].enabled) return;
       await withStateLock(() => withEventCollector(async (emit, events) => {
         if (generation === undefined || authSlice.authRefreshGeneration[platform] !== generation) return;
-        const state = await deps.loadState();
+        const state = await ports.storage.loadState();
         const transition = applyPlatformAuthHealth(state, platform, { status: "checking" });
         if (transition.event) emit(transition.event);
         await saveOperationalState(transition.state);

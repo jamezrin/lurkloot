@@ -1,8 +1,8 @@
 import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
 import { PLATFORMS } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
+import type { BackgroundHostPorts } from "./hostPorts";
 import type {
-  BackgroundControllerDeps,
   ClaimedRewards,
   ControllerCalls,
   DiscoverySignalRefreshRequest,
@@ -14,7 +14,7 @@ import type {
 
 // Tick admission: one active tick and one shared follow-up per platform, batches and hand-offs.
 export function createTickAdmission<S extends EngineSettings>(
-  deps: BackgroundControllerDeps<S>,
+  ports: BackgroundHostPorts<S>,
   { reportingSlice, integritySlice, signalSlice, tickSlice, lifecycleSlice }: Pick<ControllerSlices<S>,
     | "reportingSlice"
     | "integritySlice"
@@ -249,7 +249,7 @@ export function createTickAdmission<S extends EngineSettings>(
     transitionIsCurrent: () => boolean = () => true,
   ): Promise<void> {
     await withStateLock(async () => {
-      const state = await deps.loadState();
+      const state = await ports.storage.loadState();
       if (!transitionIsCurrent()) return;
       let changed = false;
       const sessions = { ...state.sessions };

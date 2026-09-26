@@ -1,17 +1,7 @@
-import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
+import type { EngineSettings } from "@lurkloot/shared/models";
 import { createAuthHealth } from "./authHealth";
 import { createChannelPoints } from "./channelPoints";
 import { createClaims } from "./claims";
-import {
-  KICK_ALARM_NAME,
-  KICK_CHALLENGES_ALARM_NAME,
-  KICK_DROP_CLAIMS_ALARM_NAME,
-  TWITCH_ALARM_NAME,
-  TWITCH_CHANNEL_POINTS_ALARM_NAME,
-  TWITCH_DROP_CLAIMS_ALARM_NAME,
-  TWITCH_INTEGRITY_ALARM_NAME,
-  WATCH_ALARM_NAME,
-} from "./constants";
 import {
   createAuthHealthSlice,
   createChannelPointsSlice,
@@ -39,7 +29,9 @@ import { createStateTransaction } from "./stateTransaction";
 import { createTickAdmission } from "./tickAdmission";
 import { createTickRun } from "./tickRun";
 import { createTwitchIntegrity } from "./twitchIntegrity";
-import type { BackgroundControllerDeps, ControllerCalls, TickTrigger } from "./types";
+import { assertHostCapabilities, type BackgroundHostPorts } from "./hostPorts";
+import { capabilityScopedJobs, runBackgroundJob } from "./jobs";
+import type { ControllerCalls } from "./types";
 
 export {
   ALARM_NAME,
@@ -64,42 +56,47 @@ export type {
   SettingsEffects,
   TransactionLock,
 } from "./stateTransaction";
-export type { ClaimedRewards, TickTrigger, CredentialAvailability, BackgroundControllerDeps } from "./types";
+export type { ClaimedRewards, TickTrigger } from "./types";
+export {
+  assertHostCapabilities,
+  CLI_CAPABILITIES,
+  EXTENSION_CAPABILITIES,
+  HostCapabilityMismatchError,
+} from "./hostPorts";
+export type {
+  AdaptersPort,
+  BackgroundHostPorts,
+  BrowserTabsPort,
+  CredentialAvailability,
+  CredentialsPort,
+  EventsPort,
+  HostCapabilities,
+  KickHostPorts,
+  KickPageContextRecoveryPort,
+  StoragePort,
+  SupplementalSourcesPort,
+  TestingPorts,
+  TwitchHostPorts,
+  TwitchIntegrityPort,
+} from "./hostPorts";
+export { BACKGROUND_JOBS, jobIsInert, MIN_JOB_PERIOD_MINUTES, runBackgroundJob } from "./jobs";
+export type { BackgroundJob, JobRunner, JobSchedule, JobSchedulerPort, ScheduledJob } from "./jobs";
 
-interface BackgroundAlarmController {
-  tickAndHandOff(platforms?: Platform[], trigger?: TickTrigger): Promise<SchedulerState | undefined>;
-  runWatchHeartbeat(): Promise<void>;
-  runTwitchChannelPointsClaim(): Promise<void>;
-  runDropClaims(platform: Platform): Promise<void>;
-  runKickChallengeClaims(): Promise<void>;
-  runTwitchIntegrityRefresh(): Promise<void>;
-}
-
-export function createBackgroundAlarmListener(controller: BackgroundAlarmController) {
+// Dispatches a fired browser alarm to its job (#593). Kept for hosts that
+// register an alarm listener; it is the controller's runJob.
+export function createBackgroundAlarmListener(controller: { runJob(name: string): Promise<void> }) {
   return (alarm: { name: string }): void => {
-    if (alarm.name === TWITCH_ALARM_NAME) {
-      void controller.tickAndHandOff(["twitch"], "alarm");
-    } else if (alarm.name === KICK_ALARM_NAME) {
-      void controller.tickAndHandOff(["kick"], "alarm");
-    } else if (alarm.name === WATCH_ALARM_NAME) {
-      void controller.runWatchHeartbeat();
-    } else if (alarm.name === TWITCH_CHANNEL_POINTS_ALARM_NAME) {
-      void controller.runTwitchChannelPointsClaim();
-    } else if (alarm.name === TWITCH_DROP_CLAIMS_ALARM_NAME) {
-      void controller.runDropClaims("twitch");
-    } else if (alarm.name === KICK_DROP_CLAIMS_ALARM_NAME) {
-      void controller.runDropClaims("kick");
-    } else if (alarm.name === KICK_CHALLENGES_ALARM_NAME) {
-      void controller.runKickChallengeClaims();
-    } else if (alarm.name === TWITCH_INTEGRITY_ALARM_NAME) {
-      void controller.runTwitchIntegrityRefresh();
-    }
+    void controller.runJob(alarm.name);
   };
 }
 
-export function createBackgroundController<S extends EngineSettings = EngineSettings>(deps: BackgroundControllerDeps<S>) {
+export function createBackgroundController<S extends EngineSettings = EngineSettings>(hostPorts: BackgroundHostPorts<S>) {
+  assertHostCapabilities(hostPorts);
+  const { capabilities } = hostPorts;
+  // Jobs a host cannot run are never scheduled (jobs.ts).
+  const ports: BackgroundHostPorts<S> = { ...hostPorts, jobs: capabilityScopedJobs(hostPorts.jobs, capabilities) };
   // Owns the locks, commits and after-commit hooks (#585).
-  const transaction = createStateTransaction(deps);
+  const transaction = createStateTransaction({ ...ports.storage, lockTracker: ports.testing?.lockTracker });
   const reportingSlice = createReportingSlice();
   const heartbeatSlice = createHeartbeatSlice();
   const integritySlice = createTwitchIntegritySlice();
@@ -114,24 +111,24 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // Each module takes the slices it uses and the calls it makes into other
   // modules. The calls resolve through `calls` once every module exists.
   const calls = {} as ControllerCalls<S>;
-  const { discoverySlice, ...discovery } = createDiscovery(deps, { lifecycleSlice }, calls);
+  const { discoverySlice, ...discovery } = createDiscovery(ports, { lifecycleSlice }, calls);
   Object.assign(calls, {
-    ...createReporting(deps, { reportingSlice }, calls),
+    ...createReporting(ports, { reportingSlice }, calls),
     ...createStateCommit(transaction, calls),
-    ...createHeartbeats(deps, { heartbeatSlice, tickSlice, lifecycleSlice }, calls),
-    ...createTwitchIntegrity(deps, { integritySlice, settingsSlice, lifecycleSlice }, calls),
-    ...createChannelPoints(deps, { channelPointsSlice, signalSlice, tickSlice, lifecycleSlice }, calls),
-    ...createKickChallenges(deps, { kickChallengeSlice, lifecycleSlice }, calls),
-    ...createAuthHealth(deps, { authSlice, discoverySlice }, calls),
-    ...createManualWatch(deps, calls),
-    ...createClaims(deps, { kickChallengeSlice, claimSlice, lifecycleSlice }, calls),
-    ...createDiscoverySignals(deps, { signalSlice, tickSlice, lifecycleSlice }, calls),
+    ...createHeartbeats(ports, { heartbeatSlice, tickSlice, lifecycleSlice }, calls),
+    ...createTwitchIntegrity(ports, { integritySlice, settingsSlice, lifecycleSlice }, calls),
+    ...createChannelPoints(ports, { channelPointsSlice, signalSlice, tickSlice, lifecycleSlice }, calls),
+    ...createKickChallenges(ports, { kickChallengeSlice, lifecycleSlice }, calls),
+    ...createAuthHealth(ports, { authSlice, discoverySlice }, calls),
+    ...createManualWatch(ports, calls),
+    ...createClaims(ports, { kickChallengeSlice, claimSlice, lifecycleSlice }, calls),
+    ...createDiscoverySignals(ports, { signalSlice, tickSlice, lifecycleSlice }, calls),
     ...discovery,
-    ...createTickAdmission(deps, { reportingSlice, integritySlice, signalSlice, tickSlice, lifecycleSlice }, calls),
-    ...createTickRun(deps, { claimSlice, discoverySlice, tickSlice }, calls),
+    ...createTickAdmission(ports, { reportingSlice, integritySlice, signalSlice, tickSlice, lifecycleSlice }, calls),
+    ...createTickRun(ports, { claimSlice, discoverySlice, tickSlice }, calls),
     ...createSettingsTransitions(transaction, { discoverySlice }, calls),
-    ...createLifecycle(deps, { integritySlice, signalSlice, discoverySlice, tickSlice, settingsSlice, lifecycleSlice }, calls),
-    ...createMessageHandler(deps, { integritySlice, signalSlice, tickSlice, settingsSlice, lifecycleSlice }, calls),
+    ...createLifecycle(ports, { integritySlice, signalSlice, discoverySlice, tickSlice, settingsSlice, lifecycleSlice }, calls),
+    ...createMessageHandler(ports, { integritySlice, signalSlice, tickSlice, settingsSlice, lifecycleSlice }, calls),
   } satisfies ControllerCalls<S>);
 
   // Prime the in-memory integrity token from storage whenever the background
@@ -142,8 +139,16 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     settingsSlice.twitchSettingsTransitionGeneration,
   );
 
+  // Runs the job a host's scheduler fired; unknown and inert jobs do nothing.
+  async function runJob(name: string): Promise<void> {
+    await runBackgroundJob(name, calls, capabilities);
+  }
+
   const api = {
+    capabilities,
+    runJob,
     ensureAlarm: calls.ensureAlarm,
+    ensureCadenceJobs: () => calls.ensureCadenceJobs(),
     ensureInstalledAt: calls.ensureInstalledAt,
     handleStartup: calls.handleStartup,
     handleTabRemoved: calls.handleTabRemoved,
@@ -175,6 +180,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // it is called from inside a host callback the controller is awaiting.
   return Object.fromEntries(Object.entries(api).map(([name, entry]) => [
     name,
-    (...args: unknown[]) => transaction.detach(() => (entry as (...args: unknown[]) => unknown)(...args)),
+    typeof entry === "function"
+      ? (...args: unknown[]) => transaction.detach(() => (entry as (...args: unknown[]) => unknown)(...args))
+      : entry,
   ])) as typeof api;
 }

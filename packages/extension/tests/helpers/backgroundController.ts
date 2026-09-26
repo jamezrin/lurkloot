@@ -1,7 +1,6 @@
 import { vi } from "vitest";
 import {
   createBackgroundController,
-  type BackgroundControllerDeps,
   type CredentialAvailability,
 } from "@lurkloot/core/controller";
 import { resolveCompatibility } from "@lurkloot/core";
@@ -21,6 +20,7 @@ import { applySettingsPatch, DEFAULT_SETTINGS } from "@lurkloot/shared/settings"
 import { DEFAULT_STATE } from "../../src/core/storage";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import { withLockTracker } from "./lockTracker";
+import { hostPortsFromMocks, type HostMocks } from "./hostPorts";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
 import type { StopPageContextTabs } from "@lurkloot/core/scheduler";
 import { forgetManagedPageContextTabs, type TwitchIntegrityRequest } from "@lurkloot/core/tabs";
@@ -272,9 +272,9 @@ export function harness(
       request?: TwitchIntegrityRequest,
     ) => Promise<boolean>;
     cancelTwitchIntegrityAcquisition?: (reason?: unknown) => void;
-    selectWatchTarget?: BackgroundControllerDeps<ExtensionSettings>["selectWatchTarget"];
-    reconcilePageContextRecovery?: BackgroundControllerDeps<ExtensionSettings>["reconcilePageContextRecovery"];
-    discardPageContextRecoveryEvidence?: BackgroundControllerDeps<ExtensionSettings>["discardPageContextRecoveryEvidence"];
+    selectWatchTarget?: HostMocks<ExtensionSettings>["selectWatchTarget"];
+    reconcilePageContextRecovery?: HostMocks<ExtensionSettings>["reconcilePageContextRecovery"];
+    discardPageContextRecoveryEvidence?: HostMocks<ExtensionSettings>["discardPageContextRecoveryEvidence"];
     initialState?: SchedulerState;
   } = {},
 ) {
@@ -352,7 +352,7 @@ export function harness(
   };
 
   const { deps: trackedDeps, tracker: lockTracker } = withLockTracker(deps);
-  const controller = createBackgroundController(trackedDeps);
+  const controller = createBackgroundController(hostPortsFromMocks(trackedDeps));
   // User-action messages dispatch their scheduler tick in the background and
   // return the snapshot immediately, so the popup is never held open for a
   // network-bound tick. Tests here assert on what the tick produced, so the

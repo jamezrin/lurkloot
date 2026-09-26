@@ -5,7 +5,8 @@ import { registerManagedPageContextTabs, setTwitchIntegrity } from "../core/tabs
 import { ALARM_NAME, KICK_ALARM_NAME, PLATFORMS, TWITCH_ALARM_NAME, WATCH_ALARM_NAME } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
 import { farmingLifecycleEvents } from "./helpers";
-import type { BackgroundControllerDeps, ControllerCalls } from "./types";
+import type { BackgroundHostPorts } from "./hostPorts";
+import type { ControllerCalls } from "./types";
 
 function staleStartupCleanup(state: SchedulerState, preservePageContexts = false): {
   hasStaleSession: boolean;
@@ -60,7 +61,7 @@ function pausedStartupSession(session: WatchSession): WatchSession {
 
 // Startup, jobs, snapshot, shutdown and host reset.
 export function createLifecycle<S extends EngineSettings>(
-  deps: BackgroundControllerDeps<S>,
+  ports: BackgroundHostPorts<S>,
   { integritySlice, signalSlice, discoverySlice, tickSlice, settingsSlice, lifecycleSlice }: Pick<ControllerSlices<S>,
     | "integritySlice"
     | "signalSlice"
@@ -101,7 +102,8 @@ export function createLifecycle<S extends EngineSettings>(
   >,
 ): Pick<ControllerCalls<S>,
   | "ensureAlarm"
-  | "ensureSchedulerAlarms"
+  | "ensureCadenceJobs"
+  | "rescheduleTickJobs"
   | "ensureInstalledAt"
   | "handleStartup"
   | "snapshot"
@@ -140,9 +142,8 @@ export function createLifecycle<S extends EngineSettings>(
   } = lateBound(calls);
 
   async function ensureAlarm(): Promise<void> {
-    const settings = await deps.loadSettings();
-    await ensureSchedulerAlarms(settings.pollIntervalMinutes);
-    await deps.createAlarm(WATCH_ALARM_NAME, { periodInMinutes: 1 });
+    const settings = await ports.storage.loadSettings();
+    await ensureCadenceJobs(settings);
     await reconcileTwitchChannelPointsAlarm(settings);
     await reconcileManualWatchClaimAlarms(settings);
     if (settings.autoStartDropFarming && isFarmingActive(settings)) {
@@ -153,16 +154,38 @@ export function createLifecycle<S extends EngineSettings>(
   }
 
   async function ensureSchedulerAlarms(periodInMinutes: number): Promise<void> {
-    await deps.clearAlarm?.(ALARM_NAME);
+    await ports.jobs.cancel(ALARM_NAME);
     await Promise.all([
-      deps.createAlarm(TWITCH_ALARM_NAME, { periodInMinutes }),
-      deps.createAlarm(KICK_ALARM_NAME, { periodInMinutes }),
+      ports.jobs.ensure(TWITCH_ALARM_NAME, { periodInMinutes }),
+      ports.jobs.ensure(KICK_ALARM_NAME, { periodInMinutes }),
     ]);
+  }
+
+  // The per-platform tick jobs at the poll interval and the 1-minute watch
+  // heartbeat job: the cadence every host runs.
+  async function ensureCadenceJobs(settings?: S): Promise<void> {
+    const { pollIntervalMinutes } = settings ?? await ports.storage.loadSettings();
+    await ensureSchedulerAlarms(pollIntervalMinutes);
+    await ports.jobs.ensure(WATCH_ALARM_NAME, { periodInMinutes: 1 });
+  }
+
+  // Re-anchors the tick jobs after a settings commit, with no lock held.
+  // Reschedules queue behind each other and each reads the settings when it
+  // runs, so the last one applies the latest poll interval even when commits
+  // finish out of order.
+  let tickJobsReschedule: Promise<void> = Promise.resolve();
+  function rescheduleTickJobs(): Promise<void> {
+    const run = tickJobsReschedule.then(async () => {
+      const { pollIntervalMinutes } = await ports.storage.loadSettings();
+      await ensureSchedulerAlarms(pollIntervalMinutes);
+    });
+    tickJobsReschedule = run.catch(() => undefined);
+    return run;
   }
 
   async function ensureInstalledAt(installedAt = new Date().toISOString()): Promise<void> {
     await withStateLock(async () => {
-      const state = await deps.loadState();
+      const state = await ports.storage.loadState();
       if (state.installedAt) return;
       await saveOperationalState({ ...state, installedAt });
     });
@@ -172,9 +195,8 @@ export function createLifecycle<S extends EngineSettings>(
     // A restart kills the watchers a handoff would transmit through, so leave
     // no loop running against them.
     abortClaimHandoffs();
-    const settings = await deps.loadSettings();
-    await ensureSchedulerAlarms(settings.pollIntervalMinutes);
-    await deps.createAlarm(WATCH_ALARM_NAME, { periodInMinutes: 1 });
+    const settings = await ports.storage.loadSettings();
+    await ensureCadenceJobs(settings);
     await reconcileTwitchChannelPointsAlarm(settings);
     await reconcileManualWatchClaimAlarms(settings);
     // A restart kills any in-memory watchers; atomically release their lane
@@ -183,7 +205,7 @@ export function createLifecycle<S extends EngineSettings>(
 
     const preservePageContexts = isFarmingActive(settings) && settings.autoStartDropFarming;
     const { state, cleanup } = await withStateLock(async () => {
-      const state = await deps.loadState();
+      const state = await ports.storage.loadState();
       registerManagedPageContextTabs(preservePageContexts ? state.managedPageContextTabs ?? {} : {});
       const cleanup = staleStartupCleanup(state, preservePageContexts);
       if (cleanup.hasStaleSession) {
@@ -202,12 +224,13 @@ export function createLifecycle<S extends EngineSettings>(
       return;
     }
 
-    if (deps.closeManagedTabs && cleanup.managedTabs.length > 0) {
-      await deps.closeManagedTabs(cleanup.managedTabs);
+    const { tabs } = ports;
+    if (tabs && cleanup.managedTabs.length > 0) {
+      await tabs.closeManagedTabs(cleanup.managedTabs);
     }
-    if (!preservePageContexts && deps.stopPageContextTabs && Object.keys(state.managedPageContextTabs ?? {}).length > 0) {
+    if (!preservePageContexts && tabs && Object.keys(state.managedPageContextTabs ?? {}).length > 0) {
       await withEventCollector(async (emit, events) => {
-        await deps.stopPageContextTabs!(state.managedPageContextTabs ?? {}, {
+        await tabs.stopPageContextTabs(state.managedPageContextTabs ?? {}, {
           platforms: ["twitch", "kick"],
           reason: "runtime_restart",
           emit,
@@ -227,8 +250,8 @@ export function createLifecycle<S extends EngineSettings>(
 
   async function snapshot(): Promise<RuntimeSnapshot<S>> {
     return {
-      settings: await deps.loadSettings(),
-      state: await deps.loadState(),
+      settings: await ports.storage.loadSettings(),
+      state: await ports.storage.loadState(),
     };
   }
 
@@ -275,16 +298,17 @@ export function createLifecycle<S extends EngineSettings>(
       abortClaimHandoffs();
       await clearHeartbeatOwnership(PLATFORMS);
       await withSettingsLock(() => withStateLock(() => withEventCollector(async (emit, events) => {
-        const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
+        const [settings, state] = await Promise.all([ports.storage.loadSettings(), ports.storage.loadState()]);
         const adapters = createAdapters(settings, emit);
         const managedTabs = Object.values(state.managedWatchTabs ?? {}).filter((tab): tab is ManagedWatchTab => tab?.ownedByExtension === true);
-        if (deps.closeManagedTabs && managedTabs.length > 0) await deps.closeManagedTabs(managedTabs);
+        const { tabs } = ports;
+        if (tabs && managedTabs.length > 0) await tabs.closeManagedTabs(managedTabs);
         for (const platform of PLATFORMS) {
-          await deps.applyAdFocus?.(platform, state.sessions[platform].tabId, false, emit);
+          if (tabs) await tabs.applyAdFocus(platform, state.sessions[platform].tabId, false, emit);
           await adapters[platform].stopWatchTab?.(state.sessions[platform], { closeManagedTabs: true });
         }
-        if (deps.stopPageContextTabs) {
-          await deps.stopPageContextTabs(state.managedPageContextTabs ?? {}, {
+        if (tabs) {
+          await tabs.stopPageContextTabs(state.managedPageContextTabs ?? {}, {
             platforms: PLATFORMS,
             reason: "automation_disabled",
             emit,
@@ -309,7 +333,8 @@ export function createLifecycle<S extends EngineSettings>(
 
   return {
     ensureAlarm,
-    ensureSchedulerAlarms,
+    ensureCadenceJobs,
+    rescheduleTickJobs,
     ensureInstalledAt,
     handleStartup,
     snapshot,

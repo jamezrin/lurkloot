@@ -8,7 +8,8 @@ import type { TwitchChannelPointsClaimNotice, TwitchChannelPointsPushController 
 import { TWITCH_CHANNEL_POINTS_ALARM_NAME } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
 import { emitHostCallbackError } from "./helpers";
-import type { BackgroundControllerDeps, ControllerCalls } from "./types";
+import type { BackgroundHostPorts } from "./hostPorts";
+import type { ControllerCalls } from "./types";
 
 function eligibleTwitchChannelPointsChannel(
   settings: EngineSettings,
@@ -28,7 +29,7 @@ function eligibleTwitchChannelPointsChannel(
 
 // Twitch channel points: the push observer, its claims and the one-minute job.
 export function createChannelPoints<S extends EngineSettings>(
-  deps: BackgroundControllerDeps<S>,
+  ports: BackgroundHostPorts<S>,
   { channelPointsSlice, signalSlice, tickSlice, lifecycleSlice }: Pick<ControllerSlices<S>,
     | "channelPointsSlice"
     | "signalSlice"
@@ -55,7 +56,7 @@ export function createChannelPoints<S extends EngineSettings>(
 
   async function clearTwitchChannelPointsAlarmBestEffort(): Promise<void> {
     try {
-      await deps.clearAlarm?.(TWITCH_CHANNEL_POINTS_ALARM_NAME);
+      await ports.jobs.cancel(TWITCH_CHANNEL_POINTS_ALARM_NAME);
     } catch {
       await reportBestEffort([{
         category: "diagnostic",
@@ -68,9 +69,9 @@ export function createChannelPoints<S extends EngineSettings>(
 
   async function reconcileTwitchChannelPointsAlarm(settings: S): Promise<void> {
     if (settings.platform.twitch.enabled && autoClaimChannelPointsFor(settings, "twitch")) {
-      await deps.createAlarm(TWITCH_CHANNEL_POINTS_ALARM_NAME, { periodInMinutes: 1 });
+      await ports.jobs.ensure(TWITCH_CHANNEL_POINTS_ALARM_NAME, { periodInMinutes: 1 });
     } else {
-      await deps.clearAlarm?.(TWITCH_CHANNEL_POINTS_ALARM_NAME);
+      await ports.jobs.cancel(TWITCH_CHANNEL_POINTS_ALARM_NAME);
     }
     reconcileTwitchChannelPointsPushFromSettingsInBackground(settings);
   }
@@ -206,7 +207,7 @@ export function createChannelPoints<S extends EngineSettings>(
           await stopTwitchChannelPointsPush(emit);
           return;
         }
-        const state = await deps.loadState();
+        const state = await ports.storage.loadState();
         if (
           state.authHealth.twitch.status !== "healthy"
           || !eligibleTwitchChannelPointsChannel(settings, state)
@@ -248,7 +249,7 @@ export function createChannelPoints<S extends EngineSettings>(
     emit: EventEmitter,
   ): Promise<void> {
     if (lifecycleSlice.controllerShutdown) return;
-    const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
+    const [settings, state] = await Promise.all([ports.storage.loadSettings(), ports.storage.loadState()]);
     if (!settings.platform.twitch.enabled
       || !autoClaimChannelPointsFor(settings, "twitch")
       || !settings.platform.twitch.channelPointsPushClaim
@@ -290,7 +291,7 @@ export function createChannelPoints<S extends EngineSettings>(
         await reportBestEffort(events);
         return;
       }
-      const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
+      const [settings, state] = await Promise.all([ports.storage.loadSettings(), ports.storage.loadState()]);
       if (!settings.platform.twitch.enabled
         || !autoClaimChannelPointsFor(settings, "twitch")
         || state.authHealth.twitch.status !== "healthy") return;

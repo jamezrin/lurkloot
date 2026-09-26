@@ -13,7 +13,8 @@ import {
 } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
 import { hasRecentManualWatchForClaims } from "./helpers";
-import type { BackgroundControllerDeps, ControllerCalls } from "./types";
+import type { BackgroundHostPorts, TestingPorts } from "./hostPorts";
+import type { ControllerCalls } from "./types";
 
 // Reasons a refreshed platform has nothing left to farm. Reaching one of these
 // means further refreshes would return the same answer, so the post-claim
@@ -32,7 +33,7 @@ function canClaimReward(reward: DropReward): boolean {
 
 // Drop claims, manual claims, claim handoffs and the manual-watch claim jobs.
 export function createClaims<S extends EngineSettings>(
-  deps: BackgroundControllerDeps<S>,
+  ports: BackgroundHostPorts<S>,
   { kickChallengeSlice, claimSlice, lifecycleSlice }: Pick<ControllerSlices<S>, "kickChallengeSlice" | "claimSlice" | "lifecycleSlice">,
   calls: Pick<ControllerCalls<S>,
     | "clearOperationalEvents"
@@ -77,7 +78,7 @@ export function createClaims<S extends EngineSettings>(
     withStateLock,
   } = lateBound(calls);
 
-  const wait: NonNullable<BackgroundControllerDeps<S>["wait"]> = deps.wait ?? ((ms, signal) => new Promise<void>((resolve) => {
+  const wait: NonNullable<TestingPorts["wait"]> = ports.testing?.wait ?? ((ms, signal) => new Promise<void>((resolve) => {
     if (signal.aborted) {
       resolve();
       return;
@@ -100,7 +101,7 @@ export function createClaims<S extends EngineSettings>(
       KICK_CHALLENGES_ALARM_NAME,
     ].map(async (name) => {
       try {
-        await deps.clearAlarm?.(name);
+        await ports.jobs.cancel(name);
       } catch {
         await reportBestEffort([{
           category: "diagnostic",
@@ -114,14 +115,14 @@ export function createClaims<S extends EngineSettings>(
   async function reconcileManualWatchClaimAlarms(settings: EngineSettings): Promise<void> {
     await Promise.all([
       settings.platform.twitch.enabled && settings.autoClaim
-        ? deps.createAlarm(TWITCH_DROP_CLAIMS_ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes })
-        : deps.clearAlarm?.(TWITCH_DROP_CLAIMS_ALARM_NAME),
+        ? ports.jobs.ensure(TWITCH_DROP_CLAIMS_ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes })
+        : ports.jobs.cancel(TWITCH_DROP_CLAIMS_ALARM_NAME),
       settings.platform.kick.enabled && settings.autoClaim
-        ? deps.createAlarm(KICK_DROP_CLAIMS_ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes })
-        : deps.clearAlarm?.(KICK_DROP_CLAIMS_ALARM_NAME),
+        ? ports.jobs.ensure(KICK_DROP_CLAIMS_ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes })
+        : ports.jobs.cancel(KICK_DROP_CLAIMS_ALARM_NAME),
       settings.platform.kick.enabled && autoClaimChallengesFor(settings, "kick")
-        ? deps.createAlarm(KICK_CHALLENGES_ALARM_NAME, { periodInMinutes: CHALLENGE_POLL_INTERVAL_MS / 60_000 })
-        : deps.clearAlarm?.(KICK_CHALLENGES_ALARM_NAME),
+        ? ports.jobs.ensure(KICK_CHALLENGES_ALARM_NAME, { periodInMinutes: CHALLENGE_POLL_INTERVAL_MS / 60_000 })
+        : ports.jobs.cancel(KICK_CHALLENGES_ALARM_NAME),
     ]);
   }
 
@@ -173,7 +174,7 @@ export function createClaims<S extends EngineSettings>(
     claimSlice.claimHandoffs.set(platform, abort);
 
     try {
-      const settings = await deps.loadSettings();
+      const settings = await ports.storage.loadSettings();
       if (abort.signal.aborted) return;
       if (!settings.postClaimHandoff) return;
       if (!settings.platform[platform].enabled) return;
@@ -184,7 +185,7 @@ export function createClaims<S extends EngineSettings>(
       // reported" without it ever reaching a sink, permanently suppressing it on
       // the next genuine tick. This is a capability lookup, not a reporting
       // context; the handoff's own tick() reports normally.
-      const { adapters } = deps.createAdapters(() => undefined, settings);
+      const { adapters } = ports.adapters.createAdapters(() => undefined, settings);
       if (!adapters[platform].supportsPostClaimHandoff) return;
 
       const claimed = new Set(justClaimedRewardIds);
@@ -195,7 +196,7 @@ export function createClaims<S extends EngineSettings>(
 
       // The triggering tick may already have found the successor, in which case
       // there is nothing to poll for — only a heartbeat to bring forward.
-      const before = await deps.loadState();
+      const before = await ports.storage.loadState();
       if (abort.signal.aborted) return;
       if (isSuccessor(before.sessions[platform])) {
         await requestPlatformHeartbeat(platform, settings, "immediate", before.sessions[platform]);
@@ -216,7 +217,7 @@ export function createClaims<S extends EngineSettings>(
         await tick([platform], "claim_handoff", onPersisted);
         if (abort.signal.aborted) break;
 
-        const session = (await deps.loadState()).sessions[platform];
+        const session = (await ports.storage.loadState()).sessions[platform];
         // Re-checked after the load: a cancellation during it must not still
         // transmit.
         if (abort.signal.aborted) break;
@@ -241,7 +242,7 @@ export function createClaims<S extends EngineSettings>(
     // update. The short commit merges this slice with any sibling-platform write.
     let claimedManually = false;
     await withStateLock(() => withEventCollector(async (emit, events) => {
-      const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
+      const [settings, state] = await Promise.all([ports.storage.loadSettings(), ports.storage.loadState()]);
       const campaigns = state.campaigns[message.platform];
       const campaign = campaigns.find((item) => item.id === message.campaignId);
       const reward = campaign?.rewards.find((item) => item.id === message.rewardId);
@@ -349,7 +350,7 @@ export function createClaims<S extends EngineSettings>(
         let adapter: PlatformAdapter | undefined;
         try {
           operation.signal.throwIfAborted();
-          const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
+          const [settings, state] = await Promise.all([ports.storage.loadSettings(), ports.storage.loadState()]);
           operation.signal.throwIfAborted();
           if (!settings.platform[platform].enabled
             || !settings.autoClaim

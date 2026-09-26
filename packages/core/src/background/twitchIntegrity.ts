@@ -11,11 +11,12 @@ import {
 } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
 import { correlateTickDiagnostics } from "./helpers";
-import type { BackgroundControllerDeps, ControllerCalls, TickDiagnosticContext } from "./types";
+import type { BackgroundHostPorts } from "./hostPorts";
+import type { ControllerCalls, TickDiagnosticContext } from "./types";
 
 // The Twitch integrity token: loading, capture, refresh scheduling and lifecycle.
 export function createTwitchIntegrity<S extends EngineSettings>(
-  deps: BackgroundControllerDeps<S>,
+  ports: BackgroundHostPorts<S>,
   { integritySlice, settingsSlice, lifecycleSlice }: Pick<ControllerSlices<S>, "integritySlice" | "settingsSlice" | "lifecycleSlice">,
   calls: Pick<ControllerCalls<S>,
     | "persistAndReport"
@@ -35,6 +36,7 @@ export function createTwitchIntegrity<S extends EngineSettings>(
   | "reconcileTwitchIntegrityLifecycle"
 > {
   const { persistAndReport, reportBestEffort, withEventCollector, withSettingsLock, withStateLock } = lateBound(calls);
+  const integrityPort = ports.twitch.integrity;
 
   function integrityRefreshJitter(token: string): number {
     let hash = 2166136261;
@@ -110,7 +112,7 @@ export function createTwitchIntegrity<S extends EngineSettings>(
 
   async function clearTwitchIntegrityAlarm(): Promise<void> {
     await withTwitchIntegrityAlarmLock(async () => {
-      await deps.clearAlarm?.(TWITCH_INTEGRITY_ALARM_NAME);
+      await ports.jobs.cancel(TWITCH_INTEGRITY_ALARM_NAME);
     });
   }
 
@@ -145,7 +147,7 @@ export function createTwitchIntegrity<S extends EngineSettings>(
     const scheduled = await withTwitchIntegrityAlarmLock(async () => {
       let existing: { scheduledTime: number } | undefined;
       try {
-        existing = await deps.getAlarm?.(TWITCH_INTEGRITY_ALARM_NAME);
+        existing = await ports.jobs.get(TWITCH_INTEGRITY_ALARM_NAME);
       } catch {
         existing = undefined;
       }
@@ -153,7 +155,7 @@ export function createTwitchIntegrity<S extends EngineSettings>(
         integritySlice.twitchIntegrityRefreshDue = undefined;
         return false;
       }
-      await deps.createAlarm(TWITCH_INTEGRITY_ALARM_NAME, { when });
+      await ports.jobs.ensure(TWITCH_INTEGRITY_ALARM_NAME, { when });
       return true;
     });
     if (!scheduled) return;
@@ -195,7 +197,7 @@ export function createTwitchIntegrity<S extends EngineSettings>(
     let settingsReadError: unknown;
     await withSettingsLock(async () => {
       try {
-        twitchEnabled = (await deps.loadSettings()).platform.twitch.enabled;
+        twitchEnabled = (await ports.storage.loadSettings()).platform.twitch.enabled;
       } catch (error) {
         settingsReadError = error;
       }
@@ -215,7 +217,7 @@ export function createTwitchIntegrity<S extends EngineSettings>(
         });
       }
       try {
-        integrity = await deps.loadTwitchIntegrity?.();
+        integrity = await ports.twitch.integrity?.load();
       } catch (error) {
         // A missing/corrupt stored token is non-fatal: fresh page traffic will
         // re-capture one, and claims simply stay best-effort until then.
@@ -264,7 +266,7 @@ export function createTwitchIntegrity<S extends EngineSettings>(
         try {
           await withSettingsLock(async () => {
             if (!ownsRefresh()) return;
-            const settings = await deps.loadSettings();
+            const settings = await ports.storage.loadSettings();
             if (!ownsRefresh()) return;
             if (!settings.platform.twitch.enabled) {
               closeTwitchIntegrityLifecycle("Twitch disabled");
@@ -276,7 +278,7 @@ export function createTwitchIntegrity<S extends EngineSettings>(
               if (!ownsRefresh()) return;
               let stored: TwitchIntegrity | undefined;
               try {
-                stored = await deps.loadTwitchIntegrity?.();
+                stored = await ports.twitch.integrity?.load();
               } catch {
                 emit({
                   category: "diagnostic",
@@ -297,7 +299,7 @@ export function createTwitchIntegrity<S extends EngineSettings>(
             });
           });
 
-          if (!shouldAcquire || !deps.ensureTwitchIntegrity || !ownsRefresh()) return;
+          if (!shouldAcquire || !integrityPort || !ownsRefresh()) return;
           const remainingMs = integrity
             ? Math.max(0, integrity.expiresAt - Date.now())
             : 0;
@@ -309,7 +311,7 @@ export function createTwitchIntegrity<S extends EngineSettings>(
               ? `Starting proactive Twitch integrity refresh with ${remainingMs}ms remaining`
               : "Starting proactive Twitch integrity refresh with no valid token available",
           });
-          const ready = await deps.ensureTwitchIntegrity(emit, {
+          const ready = await integrityPort.ensure(emit, {
             forceRefresh: true,
             reason: "proactive_refresh",
             ...(integrity ? { rejectedToken: integrity.integrity } : {}),
@@ -392,9 +394,9 @@ export function createTwitchIntegrity<S extends EngineSettings>(
     // delay Twitch token bookkeeping. Nothing waits on this, so queueing behind
     // an in-flight tick is harmless.
     await withStateLock(() => withEventCollector(async (emit, events) => {
-      if (integrity.integrity === integritySlice.persistedIntegrityToken || !deps.saveTwitchIntegrity) return;
+      if (integrity.integrity === integritySlice.persistedIntegrityToken || !integrityPort) return;
       try {
-        await deps.saveTwitchIntegrity(integrity);
+        await integrityPort.save(integrity);
         integritySlice.persistedIntegrityToken = integrity.integrity;
       } catch {
         emit({
@@ -417,7 +419,7 @@ export function createTwitchIntegrity<S extends EngineSettings>(
     await withSettingsLock(() => withEventCollector(async (emit, events) => {
       try {
         if (!ownsScheduling()) return;
-        const settings = await deps.loadSettings();
+        const settings = await ports.storage.loadSettings();
         if (!ownsScheduling() || !settings.platform.twitch.enabled) return;
         await scheduleTwitchIntegrityRefreshBestEffort(integrity, emit);
       } catch (error) {
@@ -439,9 +441,9 @@ export function createTwitchIntegrity<S extends EngineSettings>(
     try {
       await withStateLock(() => withEventCollector(async (emit, events) => {
         if (!integritySlice.integrityLifecycleOpen) return;
-        const settings = await deps.loadSettings();
+        const settings = await ports.storage.loadSettings();
         if (!integritySlice.integrityLifecycleOpen || !settings.criticalFailurePromptEnabled) return;
-        const state = await deps.loadState();
+        const state = await ports.storage.loadState();
         const transition = recordManagedTabOpen(state, "twitch", Date.now(), {
           source: "page_context",
           reason,
@@ -471,7 +473,7 @@ export function createTwitchIntegrity<S extends EngineSettings>(
       if (!integritySlice.integrityLifecycleOpen || !transitionIsCurrent()) return;
       let stored: TwitchIntegrity | undefined;
       try {
-        stored = await deps.loadTwitchIntegrity?.();
+        stored = await ports.twitch.integrity?.load();
       } catch {
         emit({
           category: "diagnostic",
@@ -494,13 +496,13 @@ export function createTwitchIntegrity<S extends EngineSettings>(
     signal: AbortSignal,
     tickContext: TickDiagnosticContext,
   ): Promise<boolean> {
-    const ensureTwitchIntegrity = deps.ensureTwitchIntegrity;
-    if (!settings.platform.twitch.enabled || !ensureTwitchIntegrity) return true;
+    if (!settings.platform.twitch.enabled || !integrityPort) return true;
+    const port = integrityPort;
     return withEventCollector(async (emit, events) => {
       const lifecycleGeneration = integritySlice.integrityLifecycleGeneration;
       const due = integritySlice.twitchIntegrityRefreshDue;
       try {
-        const ready = await ensureTwitchIntegrity(emit, {
+        const ready = await port.ensure(emit, {
           signal,
           reason: due ? "proactive_refresh" : "readiness",
           onManagedPageContextOpen: () => recordTwitchIntegrityManagedTabOpen(
@@ -525,7 +527,7 @@ export function createTwitchIntegrity<S extends EngineSettings>(
         return ready;
       } catch {
         signal.throwIfAborted();
-        const currentSettings = await deps.loadSettings();
+        const currentSettings = await ports.storage.loadSettings();
         if (
           lifecycleGeneration !== integritySlice.integrityLifecycleGeneration
           || !integritySlice.integrityLifecycleOpen
@@ -559,7 +561,7 @@ export function createTwitchIntegrity<S extends EngineSettings>(
       integritySlice.integrityLifecycleGeneration += 1;
     }
     integritySlice.integrityRefreshAbort?.abort(error);
-    deps.cancelTwitchIntegrityAcquisition?.(error);
+    ports.twitch.integrity?.cancelAcquisition(error);
   }
 
   function reopenTwitchIntegrityLifecycle(): void {

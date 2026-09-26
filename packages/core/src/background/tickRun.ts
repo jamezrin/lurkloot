@@ -10,8 +10,8 @@ import { PLATFORMS } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
 import { AuthProbeSetupError } from "./errors";
 import { correlateTickDiagnostics, farmingLifecycleEvents } from "./helpers";
+import type { BackgroundHostPorts } from "./hostPorts";
 import type {
-  BackgroundControllerDeps,
   ClaimedRewards,
   CommittedSelection,
   ControllerCalls,
@@ -24,7 +24,7 @@ import type {
 
 // One platform tick: selection, the scheduler tick and what runs around it.
 export function createTickRun<S extends EngineSettings>(
-  deps: BackgroundControllerDeps<S>,
+  ports: BackgroundHostPorts<S>,
   { claimSlice, discoverySlice, tickSlice }: Pick<ControllerSlices<S>, "claimSlice" | "discoverySlice" | "tickSlice">,
   calls: Pick<ControllerCalls<S>,
     | "applyAdFocusForState"
@@ -46,6 +46,7 @@ export function createTickRun<S extends EngineSettings>(
     | "reportAuthSetupFailures"
     | "readState"
     | "reportBestEffort"
+    | "reportUnsupportedSettings"
     | "selectionAlreadyCommitted"
     | "selectionBackoffDue"
     | "selectionBypassesBackoff"
@@ -75,6 +76,7 @@ export function createTickRun<S extends EngineSettings>(
     reportAuthSetupFailures,
     readState,
     reportBestEffort,
+    reportUnsupportedSettings,
     selectionAlreadyCommitted,
     selectionBackoffDue,
     selectionBypassesBackoff,
@@ -83,6 +85,7 @@ export function createTickRun<S extends EngineSettings>(
     withEventCollector,
     withStateLock,
   } = lateBound(calls);
+  const supplementalSources = ports.twitch.supplementalSources;
 
   async function tickPlatform(
     platform: Platform,
@@ -111,7 +114,7 @@ export function createTickRun<S extends EngineSettings>(
       if (abort.signal.aborted) return [platform, []];
       throw error;
     } finally {
-      deps.discardPageContextRecoveryEvidence?.(platform);
+      if (platform === "kick") ports.kick.pageContextRecovery?.discardEvidence();
       for (const adapter of Object.values(tickAdapters)) adapter.close();
       tickSlice.activeTicks.delete(abort);
       tickSlice.activePlatformTicks[platform] -= 1;
@@ -134,7 +137,8 @@ export function createTickRun<S extends EngineSettings>(
     onPersisted?: (state: SchedulerState) => void,
   ): Promise<ClaimedRewards> {
     const claimedRewards: ClaimedRewards = {};
-    const settings = await deps.loadSettings();
+    const settings = await ports.storage.loadSettings();
+    await reportUnsupportedSettings(settings, tickContext);
     const requestedPlatforms = platforms ?? PLATFORMS;
     const excludedPlatforms = new Set<Platform>();
     if (isFarmingActive(settings)) {
@@ -222,8 +226,8 @@ export function createTickRun<S extends EngineSettings>(
     const platform = schedulerPlatforms[0];
     await withStateLock(() => withEventCollector(async (emit, events) => {
       signal.throwIfAborted();
-      const settings = await deps.loadSettings();
-      const state = await deps.loadState();
+      const settings = await ports.storage.loadSettings();
+      const state = await ports.storage.loadState();
       const nextWaitingClaimRewardIds: Record<Platform, Set<string>> = {
         twitch: new Set(claimSlice.waitingClaimRewardIds.twitch),
         kick: new Set(claimSlice.waitingClaimRewardIds.kick),
@@ -316,8 +320,8 @@ export function createTickRun<S extends EngineSettings>(
         }
         const result = await runSchedulerTick(state, settings, adapters, {
           platforms: schedulerPlatforms,
-          selectSupplementalWatchTarget: deps.selectSupplementalWatchTarget ? (platform, selectedState, selectedSignal, source) => deps.selectSupplementalWatchTarget!(platform, selectedState, settings, selectedSignal, source) : undefined,
-          stopPageContextTabs: deps.stopPageContextTabs,
+          selectSupplementalWatchTarget: supplementalSources ? (platform, selectedState, selectedSignal, source) => platform === "twitch" ? supplementalSources.select(selectedState, settings, selectedSignal, source) : Promise.resolve(undefined) : undefined,
+          stopPageContextTabs: ports.tabs?.stopPageContextTabs,
           waitingClaimRewardIds: nextWaitingClaimRewardIds,
           emit: claimObservingEmit,
           signal,

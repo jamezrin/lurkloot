@@ -14,20 +14,20 @@ export function createSettingsTransitions<S extends EngineSettings>(
   calls: Pick<ControllerCalls<S>,
     | "abortIneligibleClaimOnlyOperations"
     | "cancelPendingTick"
-    | "ensureSchedulerAlarms"
     | "invalidateSelection"
     | "reconcileManualWatchClaimAlarms"
     | "reconcileTwitchChannelPointsAlarm"
+    | "rescheduleTickJobs"
     | "withSettingsLock"
   >,
 ): Pick<ControllerCalls<S>, "normalizeStartupSettings" | "commitSettings"> {
   const {
     abortIneligibleClaimOnlyOperations,
     cancelPendingTick,
-    ensureSchedulerAlarms,
     invalidateSelection,
     reconcileManualWatchClaimAlarms,
     reconcileTwitchChannelPointsAlarm,
+    rescheduleTickJobs,
     withSettingsLock,
   } = lateBound(calls);
 
@@ -71,7 +71,7 @@ export function createSettingsTransitions<S extends EngineSettings>(
     update: (current: S) => SettingsPatch,
     { afterLoad, afterPersist }: SettingsCommitOptions<S> = {},
   ): Promise<PreparedSettingsCommit<S>> {
-    return withSettingsLock(async () => {
+    const committed = await withSettingsLock(async () => {
       const commit = await transaction.prepareSettingsCommit(update);
       const invalidatedPlatforms = Object.keys(commit.effects) as Platform[];
       for (const platform of invalidatedPlatforms) {
@@ -88,11 +88,14 @@ export function createSettingsTransitions<S extends EngineSettings>(
         if (!settings.platform[platform].enabled) cancelPendingTick(platform);
       }
       afterPersist?.(settings);
-      await ensureSchedulerAlarms(settings.pollIntervalMinutes);
       await reconcileTwitchChannelPointsAlarm(settings);
       await reconcileManualWatchClaimAlarms(settings);
       return commit;
     });
+    // The tick jobs follow the committed poll interval, rescheduled once the
+    // settings lock is released (#593).
+    await rescheduleTickJobs();
+    return committed;
   }
 
   return {

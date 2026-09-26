@@ -7,7 +7,8 @@ import { withActivityDiagnostics } from "../core/activityDiagnostics";
 import { PLATFORMS } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
 import { platformLabel } from "./helpers";
-import type { BackgroundControllerDeps, ControllerCalls, TickAdapterHandle, TickDiagnosticContext } from "./types";
+import type { BackgroundHostPorts } from "./hostPorts";
+import type { ControllerCalls, TickAdapterHandle, TickDiagnosticContext } from "./types";
 
 const EN_RUNTIME_MESSAGES: Record<string, string> = {
   notificationRewardClaimed: "Reward claimed",
@@ -63,7 +64,7 @@ function hasCampaignEnded(campaign: DropCampaign): boolean {
 
 // Compatibility reporting, adapter handles, event reporting and notifications.
 export function createReporting<S extends EngineSettings>(
-  deps: BackgroundControllerDeps<S>,
+  ports: BackgroundHostPorts<S>,
   { reportingSlice }: Pick<ControllerSlices<S>, "reportingSlice">,
   calls: Pick<ControllerCalls<S>, "selectionFingerprint">,
 ): Pick<ControllerCalls<S>,
@@ -78,6 +79,7 @@ export function createReporting<S extends EngineSettings>(
   | "playbackEvents"
   | "safeNotify"
   | "tr"
+  | "reportUnsupportedSettings"
   | "emitNotifications"
 > {
   const { selectionFingerprint } = lateBound(calls);
@@ -140,7 +142,7 @@ export function createReporting<S extends EngineSettings>(
   }
 
   function createAdapters(settings: S, emit: EventEmitter): Record<Platform, PlatformAdapter> {
-    const construction = deps.createAdapters(emit, settings);
+    const construction = ports.adapters.createAdapters(emit, settings);
     reportAdapterCompatibility(construction, settings, emit, PLATFORMS);
     return construction.adapters;
   }
@@ -151,7 +153,7 @@ export function createReporting<S extends EngineSettings>(
     emit: EventEmitter,
     reportCompatibility = false,
   ): PlatformAdapter {
-    const construction = deps.createAdapter(platform, emit, settings);
+    const construction = ports.adapters.createAdapter(platform, emit, settings);
     if (reportCompatibility) {
       reportAdapterCompatibility(construction, settings, emit, [platform]);
     }
@@ -175,7 +177,7 @@ export function createReporting<S extends EngineSettings>(
     let pendingEvents: EngineEvent[] | undefined = [];
     const routeReports = new Set<Promise<void>>();
     let adapter: PlatformAdapter | undefined;
-    let construction: ReturnType<BackgroundControllerDeps<S>["createAdapter"]> | undefined;
+    let construction: ReturnType<BackgroundHostPorts<S>["adapters"]["createAdapter"]> | undefined;
     let compatibilityReported = false;
     let settingsFingerprint: string | undefined;
     return {
@@ -184,7 +186,7 @@ export function createReporting<S extends EngineSettings>(
         const nextFingerprint = JSON.stringify(settings);
         if (!adapter || settingsFingerprint !== nextFingerprint) {
           this.drain(emit);
-          construction = deps.createAdapter(platform, routeDiagnosticEmitter((event) => pendingEvents?.push(event), routeReports, tickContext), settings);
+          construction = ports.adapters.createAdapter(platform, routeDiagnosticEmitter((event) => pendingEvents?.push(event), routeReports, tickContext), settings);
           adapter = construction.adapter;
           settingsFingerprint = nextFingerprint;
           compatibilityReported = false;
@@ -286,7 +288,7 @@ export function createReporting<S extends EngineSettings>(
   }
 
   async function reportBestEffort(events: readonly EngineEvent[]): Promise<void> {
-    if (events.length === 0 || !deps.reportEvents) return;
+    if (events.length === 0) return;
     const correlateControllerRun = (events: readonly EngineEvent[]): EngineEvent[] =>
       events.map((event) =>
         event.category === "diagnostic"
@@ -296,7 +298,7 @@ export function createReporting<S extends EngineSettings>(
     if (correlatedEvents.some((event) => event.category === "diagnostic")) {
       reportingSlice.controllerRunAnnouncement ??= (async () => {
         try {
-          await deps.reportEvents?.([{
+          await ports.events.report([{
             category: "diagnostic",
             level: "debug",
             message: `Background controller run ${reportingSlice.controllerRunLabel} started`,
@@ -309,7 +311,7 @@ export function createReporting<S extends EngineSettings>(
       await reportingSlice.controllerRunAnnouncement;
     }
     try {
-      await deps.reportEvents(correlatedEvents);
+      await ports.events.report(correlatedEvents);
     } catch {
       // Host event persistence/output is best-effort.
     }
@@ -343,16 +345,36 @@ export function createReporting<S extends EngineSettings>(
   }
 
   async function safeNotify(title: string, message: string): Promise<void> {
-    if (!deps.createNotification) return;
     try {
-      await deps.createNotification({ title, message });
+      await ports.events.notify({ title, message });
     } catch {
       // Notification delivery is best-effort and must not fail scheduler ticks.
     }
   }
 
+  // Settings that need a capability this host does not declare (#593). Each is
+  // reported once per controller, with no platform, and changes nothing else.
+  const reportedUnsupportedSettings = new Set<string>();
+  async function reportUnsupportedSettings(settings: EngineSettings, tickContext?: TickDiagnosticContext): Promise<void> {
+    if (ports.capabilities.browserTabs) return;
+    const unsupported: Array<readonly [string, string]> = [];
+    if (!settings.tablessMode) {
+      unsupported.push(["tablessMode", "This host has no browser tabs, so it cannot open the watch tabs tablessMode=false asks for"]);
+    }
+    if (settings.pauseOnManualWatch) {
+      unsupported.push(["pauseOnManualWatch", "This host has no browser tabs, so pauseOnManualWatch has no effect"]);
+    }
+    const events = unsupported
+      .filter(([key]) => !reportedUnsupportedSettings.has(key))
+      .map(([key, message]): EngineEvent => {
+        reportedUnsupportedSettings.add(key);
+        return { category: "diagnostic", level: "warn", message, ...tickContext };
+      });
+    await reportBestEffort(events);
+  }
+
   async function tr(key: string, substitutions?: string | string[]): Promise<string> {
-    const translated = await deps.translate?.(key, substitutions);
+    const translated = await ports.events.translate?.(key, substitutions);
     if (translated) return translated;
     const template = EN_RUNTIME_MESSAGES[key] ?? key;
     const values = Array.isArray(substitutions)
@@ -424,6 +446,7 @@ export function createReporting<S extends EngineSettings>(
     playbackEvents,
     safeNotify,
     tr,
+    reportUnsupportedSettings,
     emitNotifications,
   };
 }

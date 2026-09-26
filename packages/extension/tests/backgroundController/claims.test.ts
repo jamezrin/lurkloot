@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  createBackgroundAlarmListener,
+  EXTENSION_CAPABILITIES,
+  runBackgroundJob,
   KICK_CHALLENGES_ALARM_NAME,
   KICK_DROP_CLAIMS_ALARM_NAME,
   TWITCH_DROP_CLAIMS_ALARM_NAME,
@@ -59,11 +60,9 @@ describe("background controller", () => {
         runDropClaims: vi.fn(async () => undefined),
         runKickChallengeClaims: vi.fn(async () => undefined),
       };
-      const listener = createBackgroundAlarmListener(controller);
-
-      listener({ name: TWITCH_DROP_CLAIMS_ALARM_NAME });
-      listener({ name: KICK_DROP_CLAIMS_ALARM_NAME });
-      listener({ name: KICK_CHALLENGES_ALARM_NAME });
+      for (const name of [TWITCH_DROP_CLAIMS_ALARM_NAME, KICK_DROP_CLAIMS_ALARM_NAME, KICK_CHALLENGES_ALARM_NAME]) {
+        void runBackgroundJob(name, controller, EXTENSION_CAPABILITIES);
+      }
 
       expect(controller.runDropClaims.mock.calls).toEqual([["twitch"], ["kick"]]);
       expect(controller.runKickChallengeClaims).toHaveBeenCalledOnce();

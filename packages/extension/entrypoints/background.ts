@@ -16,7 +16,8 @@ import {
   stopManagedPageContextTabs,
   stopWatchTab,
 } from "../src/core/tabs";
-import { createBackgroundAlarmListener, createBackgroundController } from "@lurkloot/core/controller";
+import { createBackgroundAlarmListener, createBackgroundController, EXTENSION_CAPABILITIES } from "@lurkloot/core/controller";
+import { createAlarmJobScheduler } from "../src/core/jobs";
 import { resolveCompatibility } from "@lurkloot/core";
 import { applySettingsPatch } from "@lurkloot/shared/settings";
 import { effectiveLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
@@ -148,81 +149,86 @@ function createExtensionAdapter(platform: Platform, emit: EventEmitter, settings
 }
 
 const controller = createBackgroundController<ExtensionSettings>({
-  loadSettings,
-  saveSettings,
-  loadState,
-  saveState,
-  reportEvents,
-  checkCredentialAvailability,
-  createAlarm: (name, options) => browser.alarms.create(name, options),
-  getAlarm: async (name) => {
-    const alarm = await browser.alarms.get(name);
-    return alarm ? { scheduledTime: alarm.scheduledTime } : undefined;
+  capabilities: EXTENSION_CAPABILITIES,
+  storage: { loadSettings, saveSettings, loadState, saveState, applySettingsPatch },
+  events: {
+    report: reportEvents,
+    notify: async ({ title, message }) => {
+      await browser.notifications.create({
+        type: "basic",
+        iconUrl: browser.runtime.getURL("/icon/128.png"),
+        title,
+        message,
+      });
+    },
+    translate,
   },
-  clearAlarm: (name) => browser.alarms.clear(name),
-  ensureTwitchIntegrity: (emit, request) => ensureTwitchIntegrity(emit, request),
-  cancelTwitchIntegrityAcquisition,
-  closeManagedTabs: async (tabs) => {
-    await Promise.all(tabs.map(async ({ tabId, channelUrl }) => {
-      try {
-        const tab = await browser.tabs.get(tabId);
-        if (tab.id === tabId && tab.url === channelUrl) await browser.tabs.remove(tabId);
-      } catch {
-        // The recorded tab may already be closed or its id may be stale.
-      }
-    }));
+  jobs: createAlarmJobScheduler(browser.alarms),
+  credentials: { checkAvailability: checkCredentialAvailability },
+  adapters: {
+    createAdapter: createExtensionAdapter,
+    createAdapters: (emit, settings) => {
+      const twitch = createExtensionAdapter("twitch", emit, settings);
+      const kick = createExtensionAdapter("kick", emit, settings);
+      return {
+        adapters: {
+          twitch: twitch.adapter,
+          kick: kick.adapter,
+        },
+        compatibility: twitch.compatibility,
+        warnings: twitch.warnings,
+      };
+    },
   },
-  createNotification: async ({ title, message }) => {
-    await browser.notifications.create({
-      type: "basic",
-      iconUrl: browser.runtime.getURL("/icon/128.png"),
-      title,
-      message,
-    });
+  tabs: {
+    closeManagedTabs: async (tabs) => {
+      await Promise.all(tabs.map(async ({ tabId, channelUrl }) => {
+        try {
+          const tab = await browser.tabs.get(tabId);
+          if (tab.id === tabId && tab.url === channelUrl) await browser.tabs.remove(tabId);
+        } catch {
+          // The recorded tab may already be closed or its id may be stale.
+        }
+      }));
+    },
+    stopPageContextTabs: (contexts, options) => stopManagedPageContextTabs(contexts, options),
+    applyAdFocus: async (platform, tabId, adActive, emit) => {
+      const { adFocusMode } = await loadSettings();
+      await applyAdFocus(platform, tabId, adActive, adFocusMode, emit);
+    },
+    loadPlaybackPolicy: async () => ({ keepVideosUnmuted: (await loadSettings()).keepFarmingVideosUnmuted !== false }),
   },
-  translate,
-  applySettingsPatch,
-  applyAdFocus: async (platform, tabId, adActive, emit) => {
-    const { adFocusMode } = await loadSettings();
-    await applyAdFocus(platform, tabId, adActive, adFocusMode, emit);
+  twitch: {
+    integrity: {
+      ensure: (emit, request) => ensureTwitchIntegrity(emit, request),
+      cancelAcquisition: cancelTwitchIntegrityAcquisition,
+      load: loadTwitchIntegrity,
+      save: saveTwitchIntegrity,
+    },
+    supplementalSources: {
+      select: (state, settings, signal, source) => extensionHost.chooseWatchTarget(settings, state, signal, source),
+    },
   },
-  loadTabPlaybackPolicy: async () => ({ keepVideosUnmuted: (await loadSettings()).keepFarmingVideosUnmuted !== false }),
-  loadTwitchIntegrity,
-  saveTwitchIntegrity,
-  stopPageContextTabs: (contexts, options) => stopManagedPageContextTabs(contexts, options),
-  reconcilePageContextRecovery: async (platform, settings, options, emit) => {
-    if (platform !== "kick") return false;
-    const observation = kickPageContextRecovery.take();
-    if (!observation) return false;
-    if (!options.countBackgroundSuccess) observation.backgroundHosts = [];
-    try {
-      return await reconcileManagedPageContextRecovery(
-        platform,
-        observation,
-        settings.kickPageContextRecoverySuccesses,
-        emit,
-      );
-    } catch (error) {
-      kickPageContextRecovery.restore(observation);
-      throw error;
-    }
-  },
-  discardPageContextRecoveryEvidence: (platform) => {
-    if (platform === "kick") kickPageContextRecovery.discard();
-  },
-  selectSupplementalWatchTarget: (platform, state, settings, signal, source) => platform === "twitch" ? extensionHost.chooseWatchTarget(settings, state, signal, source) : Promise.resolve(undefined),
-  createAdapter: createExtensionAdapter,
-  createAdapters: (emit, settings) => {
-    const twitch = createExtensionAdapter("twitch", emit, settings);
-    const kick = createExtensionAdapter("kick", emit, settings);
-    return {
-      adapters: {
-        twitch: twitch.adapter,
-        kick: kick.adapter,
+  kick: {
+    pageContextRecovery: {
+      reconcile: async (settings, options, emit) => {
+        const observation = kickPageContextRecovery.take();
+        if (!observation) return false;
+        if (!options.countBackgroundSuccess) observation.backgroundHosts = [];
+        try {
+          return await reconcileManagedPageContextRecovery(
+            "kick",
+            observation,
+            settings.kickPageContextRecoverySuccesses,
+            emit,
+          );
+        } catch (error) {
+          kickPageContextRecovery.restore(observation);
+          throw error;
+        }
       },
-      compatibility: twitch.compatibility,
-      warnings: twitch.warnings,
-    };
+      discardEvidence: () => kickPageContextRecovery.discard(),
+    },
   },
 });
 

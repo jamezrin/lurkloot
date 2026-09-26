@@ -1,5 +1,12 @@
-import { createBackgroundController, type CredentialAvailability, type TickTrigger } from "@lurkloot/core/controller";
-import { HEARTBEAT_INTERVAL_MS } from "@lurkloot/core/heartbeatCadence";
+import {
+  CLI_CAPABILITIES,
+  createBackgroundController,
+  KICK_ALARM_NAME,
+  TWITCH_ALARM_NAME,
+  WATCH_ALARM_NAME,
+  type CredentialAvailability,
+  type TickTrigger,
+} from "@lurkloot/core/controller";
 import type { Platform, SchedulerState } from "@lurkloot/shared/models";
 import { loadState, saveState } from "../storage";
 import { toEngineSettings, type CliSettings } from "../settings";
@@ -7,6 +14,7 @@ import type { TransportHandle } from "../transport";
 import type { Logger } from "../logger";
 import { reportCliEvents } from "../events";
 import { subscriptionWaitKeys } from "./status";
+import { createNodeJobScheduler } from "./jobs";
 
 export interface RunOptions {
   settings: CliSettings;
@@ -105,8 +113,8 @@ async function completeCliTickOnce(options: CliTickOptions, result: Promise<Sche
 
 // Headless farming loop. Reuses the engine's background controller — the same
 // tick (discovery → watch decisions → claims → state persistence) the extension
-// runs — backed by file storage and a self-driven interval instead of the
-// extension's alarms. Persists state.json every tick and shuts down cleanly on
+// runs — backed by file storage and Node timers instead of the extension's
+// alarms (runtime/jobs.ts). Persists state.json every tick and shuts down cleanly on
 // SIGINT/SIGTERM, disposing the transport.
 export async function runLoop(options: RunOptions): Promise<void> {
   const { settings, statePath, transport, logger } = options;
@@ -121,19 +129,32 @@ export async function runLoop(options: RunOptions): Promise<void> {
   const saveRuntimeState = options.stateStore?.save
     ?? (async (state: SchedulerState): Promise<void> => saveState(statePath, state));
 
+  // Timers fire into the controller once it exists.
+  let dispatchJob: (name: string) => void = () => undefined;
+  const jobs = createNodeJobScheduler((name) => dispatchJob(name));
   const controller = createBackgroundController({
-    loadSettings: async () => engineSettings,
-    // Settings come from the config file; the run loop never mutates them.
-    saveSettings: async () => {},
-    loadState: loadRuntimeState,
-    saveState: saveRuntimeState,
-    reportEvents: (events) => reportCliEvents(events, logger),
-    // The CLI drives its own interval below, so alarm scheduling is a no-op.
-    createAlarm: async () => {},
-    createAdapter: (platform, emit, currentSettings) => transport.createAdapter(platform, emit, currentSettings),
-    createAdapters: (emit, currentSettings) => transport.createAdapters(emit, currentSettings),
-    createNotification: async ({ title, message }) => logger.info(`${title}: ${message}`, "notify"),
-    ...(options.checkCredentialAvailability ? { checkCredentialAvailability: options.checkCredentialAvailability } : {}),
+    // No browser tabs, integrity capture or supplemental sources, and no
+    // one-minute channel-points job (#590).
+    capabilities: CLI_CAPABILITIES,
+    storage: {
+      loadSettings: async () => engineSettings,
+      // Settings come from the config file; the run loop never mutates them.
+      saveSettings: async () => {},
+      loadState: loadRuntimeState,
+      saveState: saveRuntimeState,
+    },
+    events: {
+      report: (events) => reportCliEvents(events, logger),
+      notify: async ({ title, message }) => logger.info(`${title}: ${message}`, "notify"),
+    },
+    jobs,
+    adapters: {
+      createAdapter: (platform, emit, currentSettings) => transport.createAdapter(platform, emit, currentSettings),
+      createAdapters: (emit, currentSettings) => transport.createAdapters(emit, currentSettings),
+    },
+    ...(options.checkCredentialAvailability ? { credentials: { checkAvailability: options.checkCredentialAvailability } } : {}),
+    twitch: {},
+    kick: {},
   });
 
   const tickOptions: CliTickOptions = {
@@ -143,43 +164,55 @@ export async function runLoop(options: RunOptions): Promise<void> {
   const platformTickOptions = enabledPlatforms.length > 0
     ? enabledPlatforms.map((platform) => ({ ...tickOptions, enabledPlatforms: [platform] }))
     : [tickOptions];
+  const optionsForTickJob = (platform: Platform): CliTickOptions | undefined => {
+    const index = enabledPlatforms.indexOf(platform);
+    if (index !== -1) return platformTickOptions[index];
+    // With no platform enabled the CLI still runs one cleanup pass per poll
+    // interval, as it always has; it rides the Twitch tick job.
+    return enabledPlatforms.length === 0 && platform === "twitch" ? tickOptions : undefined;
+  };
   const requestTicks = () => {
     // Admission is per platform all the way through the host driver: a fast
     // Kick interval must not accumulate observers waiting for a slow Twitch.
     for (const options of platformTickOptions) void runCliTickOnce(options);
   };
 
-  const heartbeatOnce = async () => {
+  const runJob = async (name: string) => {
     try {
-      await controller.runWatchHeartbeat();
+      await controller.runJob(name);
     } catch (error) {
-      logger.error(error instanceof Error ? error.message : String(error), "heartbeat");
+      logger.error(error instanceof Error ? error.message : String(error), name === WATCH_ALARM_NAME ? "heartbeat" : "job");
     }
+  };
+  // The engine's jobs, fired by the Node scheduler. Tick jobs go through the
+  // CLI's own tick driver, which adds its cleanup and subscription reporting.
+  dispatchJob = (name) => {
+    const platform = name === TWITCH_ALARM_NAME ? "twitch" : name === KICK_ALARM_NAME ? "kick" : undefined;
+    if (platform) {
+      const tickOptionsForJob = optionsForTickJob(platform);
+      if (tickOptionsForJob) void runCliTickOnce(tickOptionsForJob);
+      return;
+    }
+    void runJob(name);
   };
 
   logger.info("Starting farming loop", "run");
   if (options.once) {
+    jobs.dispose();
     await runCliTickOnce(tickOptions);
     await transport.dispose();
     return;
   }
 
-  const periodMs = Math.max(1, settings.pollIntervalMinutes) * 60_000;
   await new Promise<void>((resolveLoop, rejectLoop) => {
     let stopped = false;
-    const discoveryTimer = setInterval(requestTicks, periodMs);
-    const heartbeatTimer = setInterval(
-      () => void heartbeatOnce(),
-      HEARTBEAT_INTERVAL_MS,
-    );
     const handleSigint = () => void shutdown("SIGINT");
     const handleSigterm = () => void shutdown("SIGTERM");
     const shutdown = async (signal: string) => {
       if (stopped) return;
       stopped = true;
       logger.info(`Received ${signal}; shutting down`, "run");
-      clearInterval(discoveryTimer);
-      clearInterval(heartbeatTimer);
+      jobs.dispose();
       process.removeListener("SIGINT", handleSigint);
       process.removeListener("SIGTERM", handleSigterm);
       // Before disposing the transport: a post-claim handoff started by the last
@@ -195,10 +228,20 @@ export async function runLoop(options: RunOptions): Promise<void> {
     };
     process.once("SIGINT", handleSigint);
     process.once("SIGTERM", handleSigterm);
-    // Recovery and shutdown must not wait for initial discovery. A persisted
-    // cadence may already be due while the first campaign refresh is slow or
-    // blocked, and signal handlers need to be live for that entire interval.
-    void heartbeatOnce();
-    requestTicks();
+    void (async () => {
+      // Node timers end with the process, so every start registers the tick
+      // jobs (at pollIntervalMinutes) and the one-minute heartbeat job again.
+      try {
+        await controller.ensureCadenceJobs();
+      } catch (error) {
+        logger.error(error instanceof Error ? error.message : String(error), "run");
+      }
+      if (stopped) return;
+      // Recovery and shutdown must not wait for initial discovery. A persisted
+      // cadence may already be due while the first campaign refresh is slow or
+      // blocked, and signal handlers need to be live for that entire interval.
+      void runJob(WATCH_ALARM_NAME);
+      requestTicks();
+    })();
   });
 }

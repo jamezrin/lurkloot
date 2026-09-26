@@ -485,8 +485,8 @@ async function runCliHeartbeatOverlapCell(directory: string, platform: Platform)
   try {
     await milestones.wait("initialDiscoveryCompleted");
     await vi.waitFor(() => {
-      if (vi.getTimerCount() !== 2) {
-        throw new Error(`Expected both CLI host timers, observed ${vi.getTimerCount()}`);
+      if (vi.getTimerCount() !== 3) {
+        throw new Error(`Expected the three CLI job timers (two tick jobs, one heartbeat job), observed ${vi.getTimerCount()}`);
       }
     });
 

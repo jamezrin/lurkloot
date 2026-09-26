@@ -4,11 +4,12 @@ import { challengePollDue } from "../core/scheduler";
 import type { PlatformAdapter } from "../platforms/adapter";
 import { type ControllerSlices, lateBound } from "./context";
 import { correlateTickDiagnostics, hasRecentManualWatchForClaims } from "./helpers";
-import type { BackgroundControllerDeps, ControllerCalls, TickDiagnosticContext } from "./types";
+import type { BackgroundHostPorts } from "./hostPorts";
+import type { ControllerCalls, TickDiagnosticContext } from "./types";
 
 // Kick challenge claims and page-context recovery.
 export function createKickChallenges<S extends EngineSettings>(
-  deps: BackgroundControllerDeps<S>,
+  ports: BackgroundHostPorts<S>,
   { kickChallengeSlice, lifecycleSlice }: Pick<ControllerSlices<S>, "kickChallengeSlice" | "lifecycleSlice">,
   calls: Pick<ControllerCalls<S>,
     | "clearOperationalEvents"
@@ -37,12 +38,13 @@ export function createKickChallenges<S extends EngineSettings>(
     backgroundSuccessPlatforms: ReadonlySet<Platform>,
     tickContext: TickDiagnosticContext,
   ): Promise<void> {
-    if (!deps.reconcilePageContextRecovery) return;
-    for (const recoveryPlatform of platforms) {
+    const recovery = ports.kick.pageContextRecovery;
+    // Only Kick opens page contexts to recover from.
+    if (!recovery || !platforms.includes("kick")) return;
+    for (const recoveryPlatform of ["kick"] as const) {
       await withEventCollector(async (recoveryEmit, recoveryEvents) => {
         try {
-          const changed = await deps.reconcilePageContextRecovery!(
-            recoveryPlatform,
+          const changed = await recovery.reconcile(
             settings,
             { countBackgroundSuccess: backgroundSuccessPlatforms.has(recoveryPlatform) },
             recoveryEmit,
@@ -71,7 +73,7 @@ export function createKickChallenges<S extends EngineSettings>(
         let adapter: PlatformAdapter | undefined;
         try {
           operation.signal.throwIfAborted();
-          const [settings, state] = await Promise.all([deps.loadSettings(), deps.loadState()]);
+          const [settings, state] = await Promise.all([ports.storage.loadSettings(), ports.storage.loadState()]);
           operation.signal.throwIfAborted();
           if (!settings.platform.kick.enabled
             || !autoClaimChallengesFor(settings, "kick")

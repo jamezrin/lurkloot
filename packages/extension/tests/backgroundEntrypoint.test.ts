@@ -52,7 +52,9 @@ class FakeSocket implements WebSocketLike {
 }
 
 interface BackgroundAdapterDependencies {
-  createAdapter?: (platform: Platform, emit: EventEmitter, settings: ExtensionSettings) => { adapter: PlatformAdapter };
+  adapters?: {
+    createAdapter?: (platform: Platform, emit: EventEmitter, settings: ExtensionSettings) => { adapter: PlatformAdapter };
+  };
 }
 
 afterEach(() => {
@@ -71,17 +73,11 @@ describe("background integrity alarm wiring", () => {
     source.indexOf("browser.tabs.onRemoved.addListener"),
   );
 
-  it("injects the one-shot alarm and integrity lifecycle dependencies", () => {
-    expect(source).toContain("createAlarm: (name, options) => browser.alarms.create(name, options),");
-    expect(source).toContain([
-      "  getAlarm: async (name) => {",
-      "    const alarm = await browser.alarms.get(name);",
-      "    return alarm ? { scheduledTime: alarm.scheduledTime } : undefined;",
-      "  },",
-    ].join("\n"));
-    expect(source).toContain("clearAlarm: (name) => browser.alarms.clear(name),");
-    expect(source).toContain("ensureTwitchIntegrity: (emit, request) => ensureTwitchIntegrity(emit, request),");
-    expect(source).toContain("cancelTwitchIntegrityAcquisition,");
+  it("injects the job scheduler, capabilities and integrity lifecycle ports", () => {
+    expect(source).toContain("capabilities: EXTENSION_CAPABILITIES,");
+    expect(source).toContain("jobs: createAlarmJobScheduler(browser.alarms),");
+    expect(source).toContain("ensure: (emit, request) => ensureTwitchIntegrity(emit, request),");
+    expect(source).toContain("cancelAcquisition: cancelTwitchIntegrityAcquisition,");
   });
 
   it("registers the behavioral named-alarm dispatcher", () => {
@@ -91,25 +87,19 @@ describe("background integrity alarm wiring", () => {
   });
 
   it("behaviorally dispatches named alarms and ignores unrelated alarms", () => {
-    const createBackgroundAlarmListener = (
-      controllerModule as typeof controllerModule & {
-        createBackgroundAlarmListener?: (controller: {
-          tickAndHandOff(): Promise<void>;
-          runTwitchChannelPointsClaim(): Promise<void>;
-          runWatchHeartbeat(): Promise<void>;
-          runTwitchIntegrityRefresh(): Promise<void>;
-        }) => (alarm: { name: string }) => void;
-      }
-    ).createBackgroundAlarmListener;
-    expect(createBackgroundAlarmListener).toBeTypeOf("function");
-    if (!createBackgroundAlarmListener) return;
-    const controller = {
+    const runner = {
       tickAndHandOff: vi.fn(async () => undefined),
       runTwitchChannelPointsClaim: vi.fn(async () => undefined),
       runWatchHeartbeat: vi.fn(async () => undefined),
       runTwitchIntegrityRefresh: vi.fn(async () => undefined),
+      runDropClaims: vi.fn(async () => undefined),
+      runKickChallengeClaims: vi.fn(async () => undefined),
     };
-    const listener = createBackgroundAlarmListener(controller);
+    const listener = controllerModule.createBackgroundAlarmListener({
+      runJob: async (name) => {
+        await controllerModule.runBackgroundJob(name, runner, controllerModule.EXTENSION_CAPABILITIES);
+      },
+    });
 
     listener({ name: "lurkloot.tick.twitch" });
     listener({ name: "lurkloot.tick.kick" });
@@ -118,12 +108,12 @@ describe("background integrity alarm wiring", () => {
     listener({ name: "lurkloot.twitch-channel-points" });
     listener({ name: "unrelated.alarm" });
 
-    expect(controller.runTwitchIntegrityRefresh).toHaveBeenCalledOnce();
-    expect(controller.runTwitchChannelPointsClaim).toHaveBeenCalledOnce();
-    expect(controller.tickAndHandOff).toHaveBeenNthCalledWith(1, ["twitch"], "alarm");
-    expect(controller.tickAndHandOff).toHaveBeenNthCalledWith(2, ["kick"], "alarm");
-    expect(controller.tickAndHandOff).toHaveBeenCalledTimes(2);
-    expect(controller.runWatchHeartbeat).not.toHaveBeenCalled();
+    expect(runner.runTwitchIntegrityRefresh).toHaveBeenCalledOnce();
+    expect(runner.runTwitchChannelPointsClaim).toHaveBeenCalledOnce();
+    expect(runner.tickAndHandOff).toHaveBeenNthCalledWith(1, ["twitch"], "alarm");
+    expect(runner.tickAndHandOff).toHaveBeenNthCalledWith(2, ["kick"], "alarm");
+    expect(runner.tickAndHandOff).toHaveBeenCalledTimes(2);
+    expect(runner.runWatchHeartbeat).not.toHaveBeenCalled();
   });
 
   // The Twitch adapter reads strict campaign availability from settings, so a
@@ -160,7 +150,7 @@ describe("background integrity alarm wiring", () => {
         twitch: { ...DEFAULT_SETTINGS.platform.twitch, strictCampaignAvailability },
       },
     };
-    const adapter = deps?.createAdapter?.("twitch", () => undefined, settings).adapter;
+    const adapter = deps?.adapters?.createAdapter?.("twitch", () => undefined, settings).adapter;
     const selection = await adapter?.selectCandidateChannel?.(
       [{
         platform: "twitch",
@@ -198,7 +188,7 @@ describe("background integrity alarm wiring", () => {
 
     await import("../entrypoints/background");
 
-    const observer = deps?.createAdapter?.("kick", () => undefined, DEFAULT_SETTINGS).adapter.createDiscoverySignalController?.();
+    const observer = deps?.adapters?.createAdapter?.("kick", () => undefined, DEFAULT_SETTINGS).adapter.createDiscoverySignalController?.();
     await observer?.start({
       platform: "kick",
       channel: { platform: "kick", username: "creator", url: "https://kick.com/creator", categoryId: "42" },
@@ -231,7 +221,7 @@ describe("background integrity alarm wiring", () => {
 
     await import("../entrypoints/background");
 
-    const observer = deps?.createAdapter?.("twitch", () => undefined, DEFAULT_SETTINGS).adapter.createChannelPointsPushController?.();
+    const observer = deps?.adapters?.createAdapter?.("twitch", () => undefined, DEFAULT_SETTINGS).adapter.createChannelPointsPushController?.();
     await observer?.start(() => undefined);
 
     expect(observer).toBeDefined();

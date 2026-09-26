@@ -14,6 +14,16 @@ import type { EngineEvent, EventEmitter } from "@lurkloot/shared/events";
 import type { ChannelCandidate, DropCampaign, ExtensionSettings, Platform, SchedulerState, WatchSession } from "@lurkloot/shared/models";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "../../src/core/storage";
+import { forgetManagedPageContextTabs } from "@lurkloot/core/tabs";
+import { hostPortsFromMocks } from "./hostPorts";
+
+// The extension declares browser tabs; the baseline ticks never open one.
+const EXTENSION_TAB_MOCKS = {
+  closeManagedTabs: async () => undefined,
+  applyAdFocus: async () => undefined,
+  loadTabPlaybackPolicy: async () => ({ keepVideosUnmuted: true }),
+  stopPageContextTabs: forgetManagedPageContextTabs,
+};
 
 export interface TickBaselineCounts {
   // Calls across the PlatformAdapter boundary. These are not transport request
@@ -380,7 +390,7 @@ async function runExtensionHeartbeatOverlapCell(platform: Platform): Promise<Hos
     recorder.count("adapterConstructions");
     return { adapter: adapters[selectedPlatform], ...compatibility };
   };
-  const controller = createBackgroundController<ExtensionSettings>({
+  const controller = createBackgroundController<ExtensionSettings>(hostPortsFromMocks<ExtensionSettings>({
     loadSettings: async () => {
       recorder.count("settingsLoads");
       return settings;
@@ -397,6 +407,7 @@ async function runExtensionHeartbeatOverlapCell(platform: Platform): Promise<Hos
     },
     reportEvents,
     createAlarm: async () => undefined,
+    ...EXTENSION_TAB_MOCKS,
     ensureTwitchIntegrity: async () => true,
     createNotification: async () => undefined,
     createAdapter: (selectedPlatform) => resolutionFor(selectedPlatform),
@@ -404,7 +415,7 @@ async function runExtensionHeartbeatOverlapCell(platform: Platform): Promise<Hos
       recorder.count("adapterConstructions", 2);
       return { adapters, ...compatibility };
     },
-  });
+  }));
   const dispatchAlarm = createBackgroundAlarmListener(controller);
 
   try {
@@ -552,7 +563,7 @@ export async function runExtensionBaselineCell(
     recorder.count("adapterConstructions");
     return { adapter: adapters[selectedPlatform], ...compatibility };
   };
-  const controller = createBackgroundController<ExtensionSettings>({
+  const controller = createBackgroundController<ExtensionSettings>(hostPortsFromMocks<ExtensionSettings>({
     loadSettings: async () => {
       recorder.count("settingsLoads");
       return settings;
@@ -569,6 +580,7 @@ export async function runExtensionBaselineCell(
     },
     reportEvents,
     createAlarm: async () => undefined,
+    ...EXTENSION_TAB_MOCKS,
     ensureTwitchIntegrity: async () => true,
     createNotification: async () => undefined,
     createAdapter: (selectedPlatform) => resolutionFor(selectedPlatform),
@@ -576,7 +588,7 @@ export async function runExtensionBaselineCell(
       recorder.count("adapterConstructions", 2);
       return { adapters, ...compatibility };
     },
-  });
+  }));
 
   await controller.tickAndHandOff([platform], "alarm");
   return {
