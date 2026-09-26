@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import {
@@ -18,6 +18,10 @@ import {
 //   site also deletes its entry and lowers LOCKED_IO_ALLOWLIST_SIZE.
 const here = dirname(fileURLToPath(import.meta.url));
 const coreSrc = resolve(here, "../../core/src");
+// Every background controller module (#592 split controller.ts by owner).
+const BACKGROUND_FILES = readdirSync(resolve(coreSrc, "background"))
+  .filter((name): name is `${string}.ts` => name.endsWith(".ts"))
+  .map((name) => `background/${name}` as const);
 const LOCKS: readonly Exclude<LockedIoLock, "caller">[] = ["withStateLock", "withSettingsLock", "withHeartbeatLane"];
 // runSchedulerTick runs inside runTick's withStateLock, so its whole body is
 // locked.
@@ -168,11 +172,13 @@ interface FoundCall {
 // Every listed I/O call made while a lock is held, found in the source.
 function lockedCalls(): FoundCall[] {
   const found: FoundCall[] = [];
-  const { code, spans } = parse("background/controller.ts");
-  for (const lock of LOCKS) {
-    for (const { offset, body } of lockBodies(code, lock)) {
-      const site = enclosingFunction(spans, offset);
-      for (const match of body.matchAll(CALL_PATTERN)) found.push({ file: "background/controller.ts", site, call: match[1] });
+  for (const file of BACKGROUND_FILES) {
+    const { code, spans } = parse(file);
+    for (const lock of LOCKS) {
+      for (const { offset, body } of lockBodies(code, lock)) {
+        const site = enclosingFunction(spans, offset);
+        for (const match of body.matchAll(CALL_PATTERN)) found.push({ file, site, call: match[1] });
+      }
     }
   }
   for (const { file, site } of CALLER_LOCKED) {

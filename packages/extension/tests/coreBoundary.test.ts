@@ -61,7 +61,8 @@ describe("@lurkloot/core browser-free boundary", () => {
   });
 
   it("models credential availability without naming or carrying browser credentials", () => {
-    const controller = readFileSync(join(coreSrc, "background/controller.ts"), "utf8");
+    // Every background controller module (#592 split controller.ts by owner).
+    const controller = tsFiles(join(coreSrc, "background")).map((file) => readFileSync(file, "utf8")).join("\n");
     expect(controller).toContain("CredentialAvailability");
     expect(controller).not.toMatch(/auth-token|session_token|unique_id|cookie\.value/);
   });
