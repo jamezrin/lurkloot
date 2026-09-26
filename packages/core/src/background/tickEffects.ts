@@ -20,7 +20,7 @@ import {
 } from "../core/tabs";
 import type { PlatformAdapter } from "../platforms/adapter";
 import { PLATFORMS } from "./constants";
-import { claimExclusively } from "./context";
+import { claimChannelPointsUnlessRunning, claimExclusively } from "./context";
 
 // What an effect handler may use to perform a scheduler effect. It is built per
 // tick: the adapters are the tick's own.
@@ -35,7 +35,7 @@ export interface TickEffectContext {
   claimGuards?: {
     rewards: Partial<Record<Platform, RewardClaimGuard>>;
     challenges: { kickChallengeClaimRunning: boolean };
-    channelPoints: { twitchChannelPointsClaimRunning: boolean };
+    channelPoints: { twitchChannelPointsClaim: Promise<boolean> | undefined };
   };
 }
 
@@ -97,7 +97,7 @@ export function registerInterimTickEffectHandlers(executor: TickEffectExecutor):
       const adapter = adapterFor(context, platform);
       const claim = async () => await adapter.claimChannelPoints?.(channel, { signal: context.signal }) ?? false;
       const guards = context.claimGuards;
-      return guards ? await claimExclusively(guards.channelPoints, "twitchChannelPointsClaimRunning", false, claim) : await claim();
+      return guards ? await claimChannelPointsUnlessRunning(guards.channelPoints, claim) : await claim();
     });
 }
 
@@ -135,7 +135,11 @@ export async function runSchedulerTickEffects(
   const effectContext: TickEffectContext = { ...context, emit: tick.emit, signal: input.signal };
   for (const platform of platforms) {
     try {
-      await driveEffects(decidePlatformTick(tick, platform, input), (effect) => executor.run(effect, effectContext));
+      await driveEffects(
+        decidePlatformTick(tick, platform, input),
+        (effect) => executor.run(effect, effectContext),
+        input.signal,
+      );
     } finally {
       // An observation can release the breaker, and a provider call can open
       // or close a page context, so both are read back after every platform.

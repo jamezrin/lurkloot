@@ -1,7 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PreparedWatchTab } from "@lurkloot/core/adapter";
 import { DEFAULT_STATE } from "../../src/core/storage";
-import { allDiagnostics, campaign, deferred, harness } from "../helpers/backgroundController";
+import { allDiagnostics, campaign, deferred, establishedTablessEnv, harness } from "../helpers/backgroundController";
 
 // The scheduler tick runs its effects with no lock held (#599). Other writers
 // commit while an effect is in flight; the tick's commit keeps their changes as
@@ -17,6 +17,10 @@ const telemetry = {
 };
 
 describe("scheduler tick effects outside the lock", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("keeps playback telemetry that arrives while the watch tab opens", async () => {
     const env = harness();
     await env.controller.tick(["twitch"]);
@@ -104,5 +108,49 @@ describe("scheduler tick effects outside the lock", () => {
     expect(env.twitch.claimReward).toHaveBeenCalledOnce();
     expect(allDiagnostics(env).map((event) => event.message)).toContain("Reward is already being claimed");
     expect(env.state.campaigns.twitch[0].rewards[0].status).toBe("claimed");
+  });
+
+  it("starts no effect once a host reset aborts the tick", async () => {
+    const env = harness();
+    await env.controller.tick(["twitch"]);
+    const claimChannelPoints = vi.fn(async () => true);
+    env.twitch.claimChannelPoints = claimChannelPoints;
+    const opening = deferred<PreparedWatchTab>();
+    vi.mocked(env.twitch.prepareWatchTab).mockImplementationOnce(() => opening.promise);
+    const ticking = env.controller.tick(["twitch"]);
+    await vi.waitFor(() => expect(env.twitch.prepareWatchTab).toHaveBeenCalledTimes(2));
+
+    // Reset no longer waits for the tick's lock: the tab is still opening.
+    await env.rawController.prepareForHostReset();
+    const saves = env.deps.saveState.mock.calls.length;
+    opening.resolve({ tabId: 11, managedByExtension: true });
+    await ticking;
+
+    // Not even the clean-up a stale selection would ask for: an aborted tick
+    // starts nothing, as when it used to wait out the reset behind its lock.
+    expect(env.twitch.stopWatchTab).not.toHaveBeenCalledWith(expect.objectContaining({ tabId: 11 }), expect.anything());
+    expect(claimChannelPoints).not.toHaveBeenCalled();
+    expect(env.deps.saveState.mock.calls.length).toBe(saves);
+    expect(env.state.managedWatchTabs?.twitch?.tabId).not.toBe(11);
+  });
+
+  it("keeps a tabless tick current when a heartbeat commits during its channel-points claim", async () => {
+    const { env } = await establishedTablessEnv("twitch");
+    const claiming = deferred<boolean>();
+    env.twitch.claimChannelPoints = vi.fn(() => claiming.promise);
+    const firstCheckedAt = env.state.sessions.twitch.lastCheckedAt;
+
+    const ticking = env.controller.tick(["twitch"]);
+    await vi.waitFor(() => expect(env.twitch.claimChannelPoints).toHaveBeenCalledOnce());
+    await env.controller.runWatchHeartbeat();
+    expect(env.state.sessions.twitch.lastHeartbeatOk).toBe(true);
+    claiming.resolve(false);
+    await ticking;
+
+    expect(allDiagnostics(env).map((event) => event.message)).not.toContainEqual(
+      expect.stringContaining("Tick superseded"),
+    );
+    expect(env.state.sessions.twitch.lastHeartbeatOk).toBe(true);
+    expect(Date.parse(env.state.sessions.twitch.lastCheckedAt ?? "")).toBeGreaterThan(Date.parse(firstCheckedAt ?? ""));
   });
 });

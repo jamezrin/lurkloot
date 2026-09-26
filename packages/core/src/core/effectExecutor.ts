@@ -50,13 +50,20 @@ export async function* perform<C extends EffectCatalog, K extends keyof C & stri
 }
 
 // Runs a deciding generator to completion: every yielded effect goes through
-// `run`, and its result (or error) resumes the generator.
+// `run`, and its result (or error) resumes the generator. Once `signal` aborts,
+// no further effect starts: the generator is closed (its `finally` blocks run)
+// and the abort reason is thrown.
 export async function driveEffects<E extends Effect, R>(
   generator: AsyncGenerator<E, R, unknown>,
   run: (effect: E) => Promise<unknown>,
+  signal?: AbortSignal,
 ): Promise<R> {
   let step = await generator.next();
   while (!step.done) {
+    if (signal?.aborted) {
+      await generator.return(undefined as R);
+      signal.throwIfAborted();
+    }
     let result: unknown;
     try {
       result = await run(step.value);

@@ -140,6 +140,29 @@ describe("effect executor", () => {
     expect(result).toBe("10 then refused");
   });
 
+  it("starts no effect once the signal aborts, and still closes the deciding code", async () => {
+    const abort = new AbortController();
+    const ran: number[] = [];
+    let closed = false;
+    async function* decideTwice() {
+      try {
+        yield* perform<TestEffects, "ping">({ type: "ping", value: 1 });
+        yield* perform<TestEffects, "ping">({ type: "ping", value: 2 });
+      } finally {
+        closed = true;
+      }
+    }
+    const driving = driveEffects(decideTwice(), async (effect) => {
+      ran.push(effect.value);
+      abort.abort(new Error("reset"));
+      return 0;
+    }, abort.signal);
+
+    await expect(driving).rejects.toThrow("reset");
+    expect(ran).toEqual([1]);
+    expect(closed).toBe(true);
+  });
+
   it("registers one interim handler for every scheduler effect type", () => {
     const executor = createTickEffectExecutor();
     const types: SchedulerEffectType[] = [
