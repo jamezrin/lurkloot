@@ -19,7 +19,7 @@ Package-qualified paths below are written as `packages/<package>/...` when owner
 ## Runtime Components
 
 - `entrypoints/background.ts` registers extension lifecycle hooks, alarms, tab-removal handling, runtime message handling, and browser-specific adapters around `@lurkloot/core`.
-- `packages/core/src/background/controller.ts` coordinates settings/state persistence, scheduler ticks, popup messages, notifications, manual reward claims, and playback-control authorization.
+- `packages/core/src/background/controller.ts` assembles the controller from its owner modules in the same directory, which coordinate settings/state persistence, scheduler ticks, popup messages, notifications, manual reward claims, and playback-control authorization.
 - `packages/core/src/core/scheduler.ts` owns platform-independent campaign selection, Idle Watchlist fallback selection, auto-claiming, retry/backoff, session state, manual-watch pauses, and watch-mode lifecycle decisions.
 - `packages/core/src/platforms/adapter.ts` defines the `PlatformAdapter` contract. `packages/core/src/platforms/twitch/index.ts` and `packages/core/src/platforms/kick/index.ts` implement platform-specific discovery, progress, candidate, validation, claim, and tab preparation behavior.
 - `packages/core/src/core/tabs.ts` contains shared tab-management and page-context-fetch abstractions; `packages/extension/src/core/tabs.ts` binds those abstractions to live WXT/browser tab and cookie APIs.
@@ -89,10 +89,54 @@ this collector and the same Kick adapter.
 
 ## Background controller ownership and concurrency
 
-This section records how `createBackgroundController` (`packages/core/src/background/controller.ts`)
-owns its state and serializes its work **as of v1.14.0**. It is the baseline for the v1.15.0
-refactor (#583): each extraction issue updates the rows it moves, and #591 replaces this section
-with the final module ownership.
+This section records how `createBackgroundController` (`packages/core/src/background/`) owns its
+state and serializes its work **as of v1.14.0**. It is the baseline for the v1.15.0 refactor
+(#583): each extraction issue updates the rows it moves, and #591 replaces this section with the
+final module ownership.
+
+### Module layout
+
+#592 split the controller by owner without changing behavior. `controller.ts` keeps the public
+exports and assembles the modules. Every function body moved unchanged, apart from state accesses,
+which now read `<slice>.<field>`.
+
+- `context.ts` defines the mutable state as one slice per owner. `createBackgroundController`
+  creates each slice once and passes a module only the slices it uses. The discovery slice is the
+  exception: `createDiscovery` builds it, because its lanes refresh through that module.
+- `types.ts` declares `ControllerCalls`, every function one module calls in another (or that the
+  controller returns). Each module's parameters pick the calls it makes, and its return type picks
+  the calls it provides. Modules resolve their calls through `lateBound` once every module exists.
+- `constants.ts`, `helpers.ts` and `errors.ts` hold the module-level values that more than one module uses.
+  None of them imports a module, and the modules import no sibling except `settingsTransitions.ts`
+  (for `isRankingOnlyPatch`), so there are no import cycles.
+
+The per-module slices and calls below are where #591's dependency check starts:
+
+| Module | Slices | Calls into | Provides |
+| --- | --- | --- | --- |
+| `stateCommit.ts` | `commitSlice` | `reporting` | 8 |
+| `reporting.ts` | `reportingSlice` | `discovery` | 12 |
+| `tickAdmission.ts` | `reportingSlice`, `integritySlice`, `signalSlice`, `tickSlice`, `lifecycleSlice` | `claims`, `discovery`, `discoverySignals`, `reporting`, `stateCommit`, `tickRun` | 11 |
+| `tickRun.ts` | `claimSlice`, `discoverySlice`, `tickSlice` | `authHealth`, `channelPoints`, `discovery`, `discoverySignals`, `heartbeat`, `kickChallenges`, `manualWatch`, `reporting`, `stateCommit`, `twitchIntegrity` | 1 |
+| `discovery.ts` | its own `discoverySlice`, `lifecycleSlice` | `reporting`, `settingsTransitions`, `stateCommit` | 10 |
+| `heartbeat.ts` | `heartbeatSlice`, `tickSlice`, `lifecycleSlice` | `discovery`, `reporting`, `stateCommit`, `tickAdmission` | 7 |
+| `twitchIntegrity.ts` | `integritySlice`, `settingsSlice`, `lifecycleSlice` | `reporting`, `settingsTransitions`, `stateCommit` | 8 |
+| `channelPoints.ts` | `channelPointsSlice`, `signalSlice`, `tickSlice`, `lifecycleSlice` | `reporting`, `stateCommit` | 7 |
+| `kickChallenges.ts` | `kickChallengeSlice`, `lifecycleSlice` | `reporting`, `stateCommit` | 2 |
+| `authHealth.ts` | `authSlice`, `discoverySlice` | `channelPoints`, `discovery`, `discoverySignals`, `reporting`, `stateCommit` | 5 |
+| `manualWatch.ts` | none | `discovery`, `discoverySignals`, `reporting`, `stateCommit`, `tickAdmission` | 6 |
+| `claims.ts` | `kickChallengeSlice`, `claimSlice`, `lifecycleSlice` | `heartbeat`, `lifecycle`, `reporting`, `stateCommit`, `tickAdmission` | 8 |
+| `discoverySignals.ts` | `signalSlice`, `tickSlice`, `lifecycleSlice` | `reporting`, `tickAdmission` | 9 |
+| `settingsTransitions.ts` | `discoverySlice`, `settingsSlice` | `channelPoints`, `claims`, `discovery`, `lifecycle`, `tickAdmission` | 3 |
+| `lifecycle.ts` | `integritySlice`, `signalSlice`, `discoverySlice`, `tickSlice`, `settingsSlice`, `lifecycleSlice` | `authHealth`, `channelPoints`, `claims`, `discovery`, `discoverySignals`, `heartbeat`, `reporting`, `settingsTransitions`, `stateCommit`, `tickAdmission`, `twitchIntegrity` | 7 |
+| `messages.ts` | `integritySlice`, `signalSlice`, `tickSlice`, `settingsSlice`, `lifecycleSlice` | `claims`, `discoverySignals`, `lifecycle`, `manualWatch`, `reporting`, `settingsTransitions`, `stateCommit`, `tickAdmission`, `twitchIntegrity` | 1 |
+
+Slices read outside their owner are the coupling the later issues remove: `lifecycleSlice`
+(`controllerShutdown`) in nine modules, `tickSlice` in seven, `discoverySlice` in five.
+`campaignEvaluationFingerprints` sits in `tickSlice` because only a tick reads it.
+
+The characterization suite is split the same way, into `packages/extension/tests/backgroundController/<owner>.test.ts`,
+with shared fixtures in `tests/helpers/backgroundController.ts`. Every test keeps its full name.
 
 ### State ownership
 
@@ -179,18 +223,18 @@ ports and reuses the cases.
 
 | Invariant | Where it is tested |
 | --- | --- |
-| One active tick and one shared follow-up per platform; Twitch and Kick progress independently | `controllerContract.test.ts` (both hosts); `backgroundController.test.ts` ("coalesces same-platform ticks…", "admits one Twitch tick and one follow-up…", the "lets Kick … while Twitch …" cases) |
-| `ranking_changed` re-selects without rediscovery and loses to any trigger that needs fresh discovery | `controllerContract.test.ts`; `backgroundController.test.ts` ("reordering what is farmed") |
-| Cancelled work publishes no state or activity | `controllerContract.test.ts` (shutdown); `backgroundController.test.ts` ("aborts in-flight scheduler work…", "route evidence independent of state publication") |
-| Stale discovery, selection and heartbeat work cannot overwrite newer state | `backgroundController.test.ts` ("rejects a stale heartbeat…", "persists discovery after a due heartbeat invalidates a blocked snapshot selection", "does not let a stale … removal …") |
-| Heartbeat due time is independent of ticks | `backgroundController.test.ts` ("tabless heartbeat cadence", "lets Kick heartbeat and persist while Twitch heartbeat is still pending") |
-| Manual managed-tab closure | `backgroundController.test.ts` ("manual-watch event transitions", "clears manual watch activity when the source tab is closed") |
-| Service-worker restart | `backgroundController.test.ts` (the startup cleanup cases and "serializes service-worker restart recovery…"); `controllerContract.test.ts` (extension host) |
+| One active tick and one shared follow-up per platform; Twitch and Kick progress independently | `controllerContract.test.ts` (both hosts); `backgroundController/tickAdmission.test.ts` ("coalesces same-platform ticks…", "admits one Twitch tick and one follow-up…"); `backgroundController/stateCommit.test.ts` (the "lets Kick … while Twitch …" cases) |
+| `ranking_changed` re-selects without rediscovery and loses to any trigger that needs fresh discovery | `controllerContract.test.ts`; `backgroundController/settingsTransitions.test.ts` ("reordering what is farmed") |
+| Cancelled work publishes no state or activity | `controllerContract.test.ts` (shutdown); `backgroundController/lifecycle.test.ts` ("aborts in-flight scheduler work…"); `backgroundController/reporting.test.ts` ("route evidence independent of state publication") |
+| Stale discovery, selection and heartbeat work cannot overwrite newer state | `backgroundController/heartbeat.test.ts` ("rejects a stale heartbeat…", "persists discovery after a due heartbeat invalidates a blocked snapshot selection", "does not let a stale … removal …") |
+| Heartbeat due time is independent of ticks | `backgroundController/heartbeat.test.ts` ("tabless heartbeat cadence", "lets Kick heartbeat and persist while Twitch heartbeat is still pending") |
+| Manual managed-tab closure | `backgroundController/manualWatch.test.ts` ("manual-watch event transitions", "clears manual watch activity when the source tab is closed") |
+| Service-worker restart | `backgroundController/lifecycle.test.ts` (the startup cleanup cases); `backgroundController/heartbeat.test.ts` ("serializes service-worker restart recovery…"); `controllerContract.test.ts` (extension host) |
 | CLI process restart: no startup cleanup today (#593 changes this) | `controllerContract.test.ts` (CLI host) |
 | Job registration: the CLI registers none today (#593, #590 change this) | `controllerContract.test.ts` |
 | The popup reads the stored settings and state verbatim | `controllerContract.test.ts` ("runtime snapshot") |
 | Campaign ranking and #571's selection rules (mid-reward takeover, favourites, discarded refresh hold, just-armed watch) | `ranking.test.ts`, `rankingSettings.test.ts`, `scheduler.test.ts`, `watchSourceScheduler.test.ts` |
-| `updateIdleWatchlist` keeps a concurrent popup change | `backgroundController.test.ts` ("Idle Watchlist changes from the page") |
+| `updateIdleWatchlist` keeps a concurrent popup change | `backgroundController/settingsTransitions.test.ts` ("Idle Watchlist changes from the page") |
 | Supplemental lane: tabless only, released on completion or manual pause | `supplementalWatch.test.ts`, `twitchExtensionHost.test.ts` |
 | Supplemental lane: completion forgotten on restart (current behavior; #594 changes it) | `twitchExtensionHost.test.ts` ("forgets completion when a new host starts…") |
 | Locked I/O can only shrink | `lockedIoAllowlist.test.ts` |
