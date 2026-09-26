@@ -1,16 +1,17 @@
 import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import { isFarmingActive } from "@lurkloot/shared/settings";
-import { runSchedulerTick, type SnapshotSelectionResult } from "../core/scheduler";
+import type { SelectionView, SnapshotSelectionResult } from "../core/scheduler";
 import { syncManagedTabBreakers } from "../core/tabs";
 import { recordManagedTabOpen } from "../core/criticalHealth";
 import type { PlatformAdapter } from "../platforms/adapter";
-import { adapterFromDiscoverySnapshot } from "../core/discoverySnapshot";
+import { adapterFromDiscoverySnapshot, selectionAdapterFromDiscoverySnapshot } from "../core/discoverySnapshot";
 import { PLATFORMS } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
 import { AuthProbeSetupError } from "./errors";
 import { correlateTickDiagnostics, farmingLifecycleEvents } from "./helpers";
 import type { BackgroundHostPorts } from "./hostPorts";
+import { createTickEffectExecutor, runSchedulerTickEffects, tickCapabilities } from "./tickEffects";
 import type {
   ClaimedRewards,
   CommittedSelection,
@@ -86,6 +87,8 @@ export function createTickRun<S extends EngineSettings>(
     withStateLock,
   } = lateBound(calls);
   const supplementalSources = ports.twitch.supplementalSources;
+  // One executor per controller: each scheduler effect type has one handler.
+  const tickEffects = createTickEffectExecutor();
 
   async function tickPlatform(
     platform: Platform,
@@ -318,10 +321,11 @@ export function createTickRun<S extends EngineSettings>(
         for (const discoveryPlatform of schedulerPlatforms) {
           for (const event of discoverySlice.discoveryEvents[discoveryPlatform].splice(0)) claimObservingEmit(event);
         }
-        const result = await runSchedulerTick(state, settings, adapters, {
+        const result = await runSchedulerTickEffects({
+          state,
+          settings,
           platforms: schedulerPlatforms,
-          selectSupplementalWatchTarget: supplementalSources ? (platform, selectedState, selectedSignal, source) => platform === "twitch" ? supplementalSources.select(selectedState, settings, selectedSignal, source) : Promise.resolve(undefined) : undefined,
-          stopPageContextTabs: ports.tabs?.stopPageContextTabs,
+          supplementalSources: supplementalSources !== undefined,
           waitingClaimRewardIds: nextWaitingClaimRewardIds,
           emit: claimObservingEmit,
           signal,
@@ -343,6 +347,25 @@ export function createTickRun<S extends EngineSettings>(
               discarded: discoveryState.snapshot === undefined && discoveryState.lastAttempt?.discarded !== undefined,
             }];
           })),
+          selectionViews: Object.fromEntries(schedulerPlatforms.map((selectionPlatform) => [
+            selectionPlatform,
+            selectionAdapterFromDiscoverySnapshot(
+              discoverySlice.discoveryLanes[selectionPlatform].current().snapshot,
+              state.sessions[selectionPlatform],
+            ),
+          ])) as Partial<Record<Platform, SelectionView>>,
+          capabilities: Object.fromEntries(schedulerPlatforms.map((schedulerPlatform) => [
+            schedulerPlatform,
+            tickCapabilities(adapters[schedulerPlatform]),
+          ])),
+        }, tickEffects, {
+          adapters,
+          stopPageContextTabs: ports.tabs?.stopPageContextTabs,
+          selectSupplementalTarget: supplementalSources
+            ? (supplementalPlatform, selectedState, selectedSignal, source) => supplementalPlatform === "twitch"
+              ? supplementalSources.select(selectedState, settings, selectedSignal, source)
+              : Promise.resolve(undefined)
+            : undefined,
         });
         for (const schedulerPlatform of schedulerPlatforms) {
           if (

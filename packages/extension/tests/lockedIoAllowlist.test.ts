@@ -23,11 +23,11 @@ const BACKGROUND_FILES = readdirSync(resolve(coreSrc, "background"))
   .filter((name): name is `${string}.ts` => name.endsWith(".ts"))
   .map((name) => `background/${name}` as const);
 const LOCKS: readonly Exclude<LockedIoLock, "caller">[] = ["withStateLock", "withPlatformLock", "withSettingsLock", "withHeartbeatLane"];
-// Functions whose whole body runs inside a lock their caller holds:
-// runSchedulerTick and Kick page-context recovery both run inside runTick's
-// withStateLock.
+// Functions whose whole body runs inside a lock their caller holds: the
+// scheduler tick's effect handlers and Kick page-context recovery both run
+// inside runTick's withStateLock.
 const CALLER_LOCKED: readonly { file: LockedIoEntry["file"]; site: string }[] = [
-  { file: "core/scheduler.ts", site: "runSchedulerTick" },
+  { file: "background/tickEffects.ts", site: "registerInterimTickEffectHandlers" },
   { file: "background/kickChallenges.ts", site: "reconcilePageContextRecoveryAfterPersist" },
 ];
 

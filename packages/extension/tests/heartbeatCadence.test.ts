@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ChannelCandidate, DropCampaign, ExtensionSettings, SchedulerState, WatchSession } from "@lurkloot/shared/models";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
-import { runSchedulerTick } from "@lurkloot/core/scheduler";
+import { runSchedulerTick } from "./helpers/schedulerTick";
 import { heartbeatContextKey, nextHeartbeatDueAt } from "@lurkloot/core/heartbeatCadence";
 
 function tablessSession(patch: Partial<WatchSession> = {}): WatchSession {

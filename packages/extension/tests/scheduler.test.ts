@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, KickPlatformSettings, Platform, SchedulerState, TwitchPlatformSettings } from "@lurkloot/shared/models";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { NO_CATEGORY_ID } from "@lurkloot/shared/categories";
-import { chooseCampaignDecision, runSchedulerTick, selectWatchTargetFromSnapshot, sortCampaigns } from "@lurkloot/core/scheduler";
+import { chooseCampaignDecision, selectWatchTargetFromSnapshot, sortCampaigns } from "@lurkloot/core/scheduler";
+import { runSchedulerTick } from "./helpers/schedulerTick";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import { forgetManagedPageContextTabs, managedTabBreakerOpen, syncManagedTabBreakers } from "@lurkloot/core/tabs";
 import { SafeFetchError } from "@lurkloot/core/fetchError";
@@ -2063,10 +2064,6 @@ describe("scheduler tick", () => {
         event.category === "diagnostic",
     );
 
-    expect(diagnostics).toContainEqual(expect.objectContaining({
-      platform: "twitch",
-      message: expect.stringMatching(/^Campaign refresh finished in \d+ms \(1 campaign\)$/),
-    }));
     expect(diagnostics).not.toContainEqual(expect.objectContaining({
       message: expect.stringContaining("Campaign discovery finished"),
     }));
@@ -3956,8 +3953,8 @@ describe("scheduler tick", () => {
   });
 
   it("isolates adapter failures per platform", async () => {
-    const twitch = adapter("twitch", [], []);
-    vi.mocked(twitch.refreshCampaigns).mockRejectedValue(new Error("Twitch unavailable"));
+    const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
+    vi.mocked(twitch.prepareWatchTab).mockRejectedValue(new Error("Twitch unavailable"));
     const kickCandidate = { ...channel("kicklive"), platform: "kick" as const, url: "https://kick.com/kicklive" };
     const kick = adapter("kick", [campaign("kick-drops", { platform: "kick" })], [kickCandidate]);
 
@@ -3981,9 +3978,8 @@ describe("scheduler tick", () => {
     expect(result.events.some((event) => event.platform === "twitch" && event.level === "error")).toBe(true);
   });
 
-  it("uses Idle Watchlist fallback when drop discovery fails and idle watchlist channels exist", async () => {
+  it("uses Idle Watchlist fallback when drop discovery is incomplete and idle watchlist channels exist", async () => {
     const twitch = adapter("twitch", [], []);
-    vi.mocked(twitch.refreshCampaigns).mockRejectedValue(new Error("Twitch drops unavailable"));
     vi.mocked(twitch.checkChannel).mockResolvedValue({
       live: true,
       categoryMatches: true,
@@ -4001,6 +3997,7 @@ describe("scheduler tick", () => {
       },
       settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: ["fallback"] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
+      { discovery: { twitch: { campaigns: [], complete: false } } },
     );
 
     expect(twitch.prepareWatchTab).toHaveBeenCalledWith(
@@ -4014,13 +4011,11 @@ describe("scheduler tick", () => {
       errorChecks: 0,
       retryAfter: undefined,
     });
-    expect(result.events.some((event) => event.category === "diagnostic" && event.level === "warn" && event.message.includes("checking Idle Watchlist fallback"))).toBe(true);
   });
 
-  it("keeps previously discovered campaigns when discovery fails and the Idle Watchlist takes over", async () => {
+  it("keeps previously discovered campaigns when discovery is incomplete and the Idle Watchlist takes over", async () => {
     const known = campaign("known-drops");
     const twitch = adapter("twitch", [], []);
-    vi.mocked(twitch.refreshCampaigns).mockRejectedValue(new Error("Twitch drops unavailable"));
     vi.mocked(twitch.checkChannel).mockResolvedValue({
       live: true,
       categoryMatches: true,
@@ -4038,6 +4033,7 @@ describe("scheduler tick", () => {
       },
       settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: ["fallback"] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
+      { discovery: { twitch: { campaigns: [], complete: false } } },
     );
 
     expect(result.state.campaigns.twitch).toEqual([known]);
@@ -4046,13 +4042,11 @@ describe("scheduler tick", () => {
       channel: expect.objectContaining({ username: "fallback" }),
       campaignId: undefined,
     });
-    expect(result.events.some((event) => event.category === "diagnostic" && event.level === "warn" && event.message.includes("checking Idle Watchlist fallback"))).toBe(true);
   });
 
-  it("keeps previously discovered campaigns when discovery fails without idle watchlist channels", async () => {
+  it("keeps previously discovered campaigns when discovery is incomplete without idle watchlist channels", async () => {
     const known = campaign("known-drops");
     const twitch = adapter("twitch", [], []);
-    vi.mocked(twitch.refreshCampaigns).mockRejectedValue(new Error("Twitch drops unavailable"));
 
     const result = await runSchedulerTick(
       {
@@ -4065,10 +4059,10 @@ describe("scheduler tick", () => {
       },
       settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
       { twitch, kick: adapter("kick", [], []) },
+      { discovery: { twitch: { campaigns: [], complete: false } } },
     );
 
     expect(result.state.campaigns.twitch).toEqual([known]);
-    expect(result.state.sessions.twitch.status).toBe("error");
   });
 
   it("backs off failed platforms until their retry time", async () => {
@@ -4309,8 +4303,8 @@ describe("scheduler tick", () => {
   });
 
   it("keeps transient platform failures on ordinary backoff", async () => {
-    const kick = adapter("kick", [], []);
-    vi.mocked(kick.refreshCampaigns).mockRejectedValueOnce(
+    const kick = adapter("kick", [campaign("kick-drops", { platform: "kick" })], [{ ...channel("kicklive"), platform: "kick", url: "https://kick.com/kicklive" }]);
+    vi.mocked(kick.prepareWatchTab).mockRejectedValueOnce(
       new SafeFetchError({ kind: "http_error", status: 503 }),
     );
 
@@ -4332,7 +4326,7 @@ describe("scheduler tick", () => {
 
   it("does not turn an authentication failure into an Idle Watchlist session", async () => {
     const kick = adapter("kick", [], []);
-    vi.mocked(kick.refreshCampaigns).mockRejectedValueOnce(
+    kick.claimChallenges = vi.fn().mockRejectedValueOnce(
       new SafeFetchError({ kind: "authentication_rejected", status: 401 }),
     );
 
@@ -4341,7 +4335,7 @@ describe("scheduler tick", () => {
       settings({
         platform: {
           twitch: { enabled: false },
-          kick: { enabled: true, idleWatchlistChannels: ["public-creator"] },
+          kick: { enabled: true, idleWatchlistChannels: ["public-creator"], autoClaimChallenges: true },
         },
       }),
       { twitch: adapter("twitch", [], []), kick },
@@ -4565,11 +4559,11 @@ describe("scheduler critical health observations", () => {
 
   function failingAdapter(): PlatformAdapter {
     const twitch = adapter("twitch", [], [channel("fallback")]);
-    vi.mocked(twitch.refreshCampaigns).mockRejectedValue(new SafeFetchError({ kind: "http_error", status: 503 }));
+    vi.mocked(twitch.prepareWatchTab).mockRejectedValue(new SafeFetchError({ kind: "http_error", status: 503 }));
     return twitch;
   }
 
-  it("records a failing tick when discovery throws", async () => {
+  it("records a failing tick when the platform fails", async () => {
     const twitch = failingAdapter();
     const result = await runSchedulerTick(
       healthState,
@@ -4610,8 +4604,9 @@ describe("scheduler critical health observations", () => {
     );
     expect(first.state.criticalHealth?.twitch?.failingTicks).toBe(1);
 
+    // The failure's retry backoff has elapsed.
     const second = await runSchedulerTick(
-      first.state,
+      { ...first.state, sessions: { ...first.state.sessions, twitch: { ...first.state.sessions.twitch, retryAfter: undefined } } },
       tickSettings,
       { twitch: adapter("twitch", [campaign("drops")], [channel("creator")]), kick: adapter("kick", [], []) },
       { platforms: ["twitch"] },
@@ -4674,24 +4669,6 @@ describe("scheduler critical health observations", () => {
     expect(result.state.criticalHealth?.twitch?.records.at(-1)).toMatchObject({
       kind: "api_error",
       code: "platform_backoff",
-    });
-  });
-
-  it("records a failing tick when discovery throws and there is no idle watchlist", async () => {
-    const twitch = failingAdapter();
-    const result = await runSchedulerTick(
-      healthState,
-      healthSettings({ platform: { twitch: { idleWatchlistChannels: [] } } }),
-      { twitch, kick: adapter("kick", [], []) },
-      { platforms: ["twitch"] },
-    );
-
-    expect(result.state.sessions.twitch.reasonCode).toBe("platform_error");
-    expect(result.state.criticalHealth?.twitch?.failingTicks).toBe(1);
-    expect(result.state.criticalHealth?.twitch?.records.at(-1)).toMatchObject({
-      kind: "api_error",
-      code: "http_error",
-      status: 503,
     });
   });
 
@@ -4778,10 +4755,10 @@ describe("scheduler critical health observations", () => {
   });
 
   it("does not charge a failing tick for an outage that ends in an accrual precondition break", async () => {
-    // Discovery fails (a failing observation) but the tick then finds the idle
-    // watchlist channel it was watching has been superseded — an explainable
-    // stop, so the precondition arm must win and clear the counters.
-    const twitch = failingAdapter();
+    // Discovery is incomplete (no conclusion about accrual) and the tick then
+    // finds the idle watchlist channel it was watching has been superseded — an
+    // explainable stop, so the precondition arm must win and clear the counters.
+    const twitch = adapter("twitch", [], [channel("fallback")]);
     const result = await runSchedulerTick(
       {
         ...healthState,
@@ -4798,7 +4775,7 @@ describe("scheduler critical health observations", () => {
       },
       healthSettings(),
       { twitch, kick: adapter("kick", [], []) },
-      { platforms: ["twitch"] },
+      { platforms: ["twitch"], discovery: { twitch: { campaigns: [], complete: false } } },
     );
 
     expect(result.state.sessions.twitch.reasonCode).toBe("higher_priority_idle_watchlist");

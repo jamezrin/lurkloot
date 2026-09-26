@@ -7,6 +7,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./scheduler": "./src/core/scheduler.ts",
+    "./effectExecutor": "./src/core/effectExecutor.ts",
+    "./rewardClaims": "./src/core/rewardClaims.ts",
     "./tablessWatch": "./src/core/tablessWatch.ts",
     "./webSocket": "./src/core/webSocket.ts",
     "./discoverySignals": "./src/core/discoverySignals.ts",
@@ -36,6 +38,7 @@
     "./controller": "./src/background/controller.ts",
     "./background/platformState": "./src/background/platformState.ts",
     "./background/stateTransaction": "./src/background/stateTransaction.ts",
+    "./background/tickEffects": "./src/background/tickEffects.ts",
     "./extensions/types": "./src/extensions/types.ts",
     "./extensions/registry": "./src/extensions/registry.ts",
     "./extensions/reports": "./src/extensions/reports.ts",
