@@ -26,16 +26,17 @@ export interface CapabilitySet {
   readonly declared: HostCapabilities;
   // Settings writes persist. The CLI reads a config file and never writes it.
   readonly persistsSettings: boolean;
-  // The host calls handleStartup when its process starts. The CLI only
-  // ensures its cadence jobs (the startup path is #593's behavior-change PR).
-  readonly runsStartup: boolean;
+  // Both hosts run the shared restart reconciliation when their process starts
+  // (#593). The extension's handleStartup then resumes farming itself; the
+  // CLI calls reconcileStartup and resumes through its own tick driver.
+  readonly resumesOnStartup: boolean;
 }
 
 export const EXTENSION_HOST: CapabilitySet = {
   name: "extension",
   declared: EXTENSION_CAPABILITIES,
   persistsSettings: true,
-  runsStartup: true,
+  resumesOnStartup: true,
 };
 
 // Mirrors the ports packages/cli/src/runtime/run.ts passes.
@@ -43,7 +44,7 @@ export const CLI_HOST: CapabilitySet = {
   name: "cli",
   declared: CLI_CAPABILITIES,
   persistsSettings: false,
-  runsStartup: false,
+  resumesOnStartup: false,
 };
 
 export const CAPABILITY_SETS: readonly CapabilitySet[] = [EXTENSION_HOST, CLI_HOST];
@@ -155,8 +156,8 @@ export interface ContractHost {
   readonly reported: EngineEvent[];
   // The host's job scheduler, as the controller left it.
   readonly jobs: FakeJobScheduler;
-  // What the host does when its process starts: the extension's service worker
-  // calls handleStartup; the CLI ensures its cadence jobs.
+  // What the host does when its process starts: the extension calls
+  // handleStartup; the CLI calls reconcileStartup.
   boot(): Promise<void>;
   // Delivers a fire of `name` the way the host's scheduler would.
   fire(name: string): Promise<void>;
@@ -251,8 +252,8 @@ export function contractHost(capabilities: CapabilitySet, options: ContractHostO
     reported,
     jobs,
     async boot(): Promise<void> {
-      if (capabilities.runsStartup) await controller.handleStartup();
-      else await controller.ensureCadenceJobs();
+      if (capabilities.resumesOnStartup) await controller.handleStartup();
+      else await controller.reconcileStartup();
     },
     fire: (name) => controller.runJob(name),
     restart(): ContractHost {

@@ -401,14 +401,16 @@ function normalizePlatform(raw: EngineSettings["platform"] | undefined, legacyFa
 
 // Expands the CLI settings into the EngineSettings contract the shared engine
 // consumes. The CLI invariants are pinned: always tabless, never
-// pausing on a (nonexistent) manual watch, and never auto-starting via the
-// controller (the CLI drives tick() directly). Tab-policy fields are not part of
-// the engine contract — the CLI never opens a tab — so there is nothing to force.
+// pausing on a (nonexistent) manual watch, and always resuming the enabled
+// platforms when the process starts. The startup reconciliation reads
+// autoStartDropFarming (#593): false would switch the platforms off on every
+// start. The CLI still drives its ticks itself. Tab-policy fields are not part
+// of the engine contract — the CLI never opens a tab — so there is nothing to force.
 export function toEngineSettings(cli: CliSettings): EngineSettings {
   return mergeEngineSettings({
     ...cli,
     tablessMode: true,
     pauseOnManualWatch: false,
-    autoStartDropFarming: false,
+    autoStartDropFarming: true,
   });
 }

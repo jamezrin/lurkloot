@@ -154,11 +154,9 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
   });
 
   describe("process restart", () => {
-    // Current behavior, not intended: #593's behavior-change PR gives the CLI
-    // the same startup path.
-    it(capabilities.runsStartup
-      ? "pauses sessions left watching by the previous process, as a runtime restart"
-      : "leaves sessions left watching by the previous process untouched until its own ticks and heartbeats reconcile them", async () => {
+    // Both hosts run the shared restart reconciliation (#593; before it, the
+    // CLI left these sessions to its ticks and heartbeats).
+    it("pauses sessions left watching by the previous process, as a runtime restart, and releases their heartbeats", async () => {
       const previous = contractHost(capabilities, { state: watchingState() });
       const restarted = previous.restart();
       // Only the restart's own cleanup is under test here, not the farming it
@@ -166,21 +164,25 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
       const discovery = deferred<DropCampaign[]>();
       vi.mocked(restarted.adapters.twitch.refreshCampaigns).mockReturnValue(discovery.promise);
       vi.mocked(restarted.adapters.kick.refreshCampaigns).mockReturnValue(discovery.promise);
+      const watchers: CountingWatcher[] = [];
+      for (const platform of ["twitch", "kick"] as const) {
+        restarted.adapters[platform].createTablessWatcher = () => {
+          const watcher = new CountingWatcher(platform);
+          watchers.push(watcher);
+          return watcher;
+        };
+      }
 
       const boot = restarted.boot();
-      if (capabilities.runsStartup) {
-        await vi.waitFor(() => expect(restarted.savedStates.length).toBeGreaterThan(0));
-        const cleaned = restarted.savedStates[0];
-        for (const platform of ["twitch", "kick"] as const) {
-          expect(cleaned.sessions[platform]).toMatchObject({ status: "paused", reasonCode: "runtime_restart" });
-          expect(cleaned.sessions[platform].channel).toBeUndefined();
-        }
-      } else {
-        await boot;
-        expect(restarted.savedStates).toHaveLength(0);
-        expect(restarted.storage.state.sessions.twitch).toMatchObject({ status: "watching", campaignId: "twitch-campaign" });
-        expect(restarted.storage.state.sessions.kick).toMatchObject({ status: "watching", campaignId: "kick-campaign" });
+      await vi.waitFor(() => expect(restarted.savedStates.length).toBeGreaterThan(0));
+      const cleaned = restarted.savedStates[0];
+      for (const platform of ["twitch", "kick"] as const) {
+        expect(cleaned.sessions[platform]).toMatchObject({ status: "paused", reasonCode: "runtime_restart" });
+        expect(cleaned.sessions[platform].channel).toBeUndefined();
       }
+      // A heartbeat fire after the restart does not revive the previous watch.
+      await restarted.fire(WATCH_ALARM_NAME);
+      expect(watchers).toEqual([]);
 
       restarted.controller.shutdown();
       discovery.resolve([]);
@@ -191,7 +193,7 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
   describe("jobs", () => {
     const CADENCE_JOBS = [TWITCH_ALARM_NAME, KICK_ALARM_NAME, WATCH_ALARM_NAME];
 
-    it(capabilities.runsStartup
+    it(capabilities.declared.twitchChannelPointsJob
       ? "registers the cadence jobs, the one-minute channel-points job and the claim jobs at startup"
       : "registers only the tick and heartbeat cadence jobs, at the CLI's existing periods", async () => {
       const host = contractHost(capabilities);
@@ -203,7 +205,7 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
       expect(host.jobs.scheduled.get(TWITCH_ALARM_NAME)).toEqual({ periodInMinutes: pollIntervalMinutes });
       expect(host.jobs.scheduled.get(KICK_ALARM_NAME)).toEqual({ periodInMinutes: pollIntervalMinutes });
       expect(host.jobs.scheduled.get(WATCH_ALARM_NAME)).toEqual({ periodInMinutes: 1 });
-      if (capabilities.runsStartup) {
+      if (capabilities.declared.twitchChannelPointsJob) {
         expect([...host.jobs.scheduled.keys()]).toEqual(expect.arrayContaining([
           ...CADENCE_JOBS,
           TWITCH_CHANNEL_POINTS_ALARM_NAME,

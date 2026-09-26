@@ -150,6 +150,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     ensureAlarm: calls.ensureAlarm,
     ensureCadenceJobs: () => calls.ensureCadenceJobs(),
     ensureInstalledAt: calls.ensureInstalledAt,
+    reconcileStartup: calls.reconcileStartup,
     handleStartup: calls.handleStartup,
     handleTabRemoved: calls.handleTabRemoved,
     handleTabUpdated: calls.handleTabUpdated,

@@ -256,7 +256,8 @@ describe("toEngineSettings", () => {
     const engine = toEngineSettings(DEFAULT_CLI_SETTINGS);
     expect(engine.tablessMode).toBe(true);
     expect(engine.pauseOnManualWatch).toBe(false);
-    expect(engine.autoStartDropFarming).toBe(false);
+    // The shared startup reconciliation keeps the enabled platforms on (#593).
+    expect(engine.autoStartDropFarming).toBe(true);
   });
 
   it("maps the kept CLI fields through to the engine settings", () => {

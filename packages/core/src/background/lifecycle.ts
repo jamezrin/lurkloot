@@ -105,6 +105,7 @@ export function createLifecycle<S extends EngineSettings>(
   | "ensureCadenceJobs"
   | "rescheduleTickJobs"
   | "ensureInstalledAt"
+  | "reconcileStartup"
   | "handleStartup"
   | "snapshot"
   | "shutdown"
@@ -191,7 +192,12 @@ export function createLifecycle<S extends EngineSettings>(
     });
   }
 
-  async function handleStartup(): Promise<void> {
+  // The restart reconciliation every host runs when its process starts
+  // (#593): the extension on browser startup, the CLI on every process start.
+  // It re-ensures the jobs, releases heartbeat ownership held by the previous
+  // process, pauses sessions it left watching, releases its tabs, and returns
+  // the normalized settings. It does not resume farming.
+  async function reconcileStartup(): Promise<S> {
     // A restart kills the watchers a handoff would transmit through, so leave
     // no loop running against them.
     abortClaimHandoffs();
@@ -214,15 +220,7 @@ export function createLifecycle<S extends EngineSettings>(
       }
       return { state, cleanup };
     });
-    if (!cleanup.hasStaleSession) {
-      const nextSettings = await normalizeStartupSettings();
-      if (nextSettings.autoStartDropFarming && isFarmingActive(nextSettings)) {
-        await tick(undefined, "startup");
-      } else {
-        await refreshAuthHealth(PLATFORMS, nextSettings, true);
-      }
-      return;
-    }
+    if (!cleanup.hasStaleSession) return normalizeStartupSettings();
 
     const { tabs } = ports;
     if (tabs && cleanup.managedTabs.length > 0) {
@@ -239,12 +237,17 @@ export function createLifecycle<S extends EngineSettings>(
       });
     }
 
-    const nextSettings = await normalizeStartupSettings();
+    return normalizeStartupSettings();
+  }
 
-    if (isFarmingActive(nextSettings) && nextSettings.autoStartDropFarming) {
+  // The extension's startup: reconcile, then resume farming when the settings
+  // ask for it. The CLI resumes through its own tick driver instead.
+  async function handleStartup(): Promise<void> {
+    const settings = await reconcileStartup();
+    if (settings.autoStartDropFarming && isFarmingActive(settings)) {
       await tick(undefined, "startup");
     } else {
-      await refreshAuthHealth(PLATFORMS, nextSettings, true);
+      await refreshAuthHealth(PLATFORMS, settings, true);
     }
   }
 
@@ -336,6 +339,7 @@ export function createLifecycle<S extends EngineSettings>(
     ensureCadenceJobs,
     rescheduleTickJobs,
     ensureInstalledAt,
+    reconcileStartup,
     handleStartup,
     snapshot,
     shutdown,

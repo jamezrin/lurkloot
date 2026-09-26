@@ -154,11 +154,11 @@ or settings, loaded and saved through the host's storage port (`storage.local` o
 
 | State group | Where it lives | Written by | Invalidated by | Commit boundary | Restart | Hosts |
 | --- | --- | --- | --- | --- | --- | --- |
-| Scheduler state (`sessions`, `authHealth`, `campaigns`, `criticalHealth`, backoffs, `lastTickAt`) | Persisted | Ticks, heartbeats, auth, claims, message handlers | Newer commits for the same platform | The transaction's `commit` / `commitPlatformSnapshot`, merged per platform by `mergePlatformState` (derived from `SCHEDULER_STATE_MERGE`) | Reloaded. `handleStartup` runs `staleStartupCleanup` on the extension | Both |
+| Scheduler state (`sessions`, `authHealth`, `campaigns`, `criticalHealth`, backoffs, `lastTickAt`) | Persisted | Ticks, heartbeats, auth, claims, message handlers | Newer commits for the same platform | The transaction's `commit` / `commitPlatformSnapshot`, merged per platform by `mergePlatformState` (derived from `SCHEDULER_STATE_MERGE`) | Reloaded. `reconcileStartup` runs `staleStartupCleanup` on both hosts | Both |
 | Discovery lanes (`discoveryLanes`, `discoveryEvents`) | In memory, one `DiscoverySnapshotLane` per platform | `refreshDiscovery` | Settings saves that are not ranking-only, auth invalidation, `refreshDiscovery` itself, reset and shutdown | None: a snapshot is published by revision, not stored | Rediscovered on the first tick | Both |
 | Selection (`selectionCache`, `selectionRuns`, `pendingSelections`, `selectionGeneration`) | In memory | `prepareSelection` | `invalidateSelection`: every settings save (including ranking-only), auth invalidation, heartbeat results, playback telemetry, reset, shutdown | Consumed inside `runTick`'s platform lock | Recomputed | Both |
 | Tick admission (`tickAdmission`, `activeTicks`, `tickBatches`, `backgroundWork`) | In memory | `tick`, `tickInBackground`, `tickAndHandOff` | Disable, reset, shutdown | None | Empty | Both. Extension alarms and CLI intervals request ticks per platform |
-| Heartbeat lanes, watchers and publication leases (`heartbeatLanes`, `tablessWatchers`) | In memory, with the heartbeat cadence persisted in the session | `requestPlatformHeartbeat`, `reconcileTablessWatchers`, `commitHeartbeatResult` | Session changes, `clearHeartbeatOwnership`, shutdown | `withHeartbeatLane`, then a transaction commit **without** the platform lock | `handleStartup` releases ownership on the extension; the CLI does not call it | Both |
+| Heartbeat lanes, watchers and publication leases (`heartbeatLanes`, `tablessWatchers`) | In memory, with the heartbeat cadence persisted in the session | `requestPlatformHeartbeat`, `reconcileTablessWatchers`, `commitHeartbeatResult` | Session changes, `clearHeartbeatOwnership`, shutdown | `withHeartbeatLane`, then a transaction commit **without** the platform lock | `reconcileStartup` releases ownership on both hosts | Both |
 | Discovery-signal controllers (`discoverySignalControllers`, `discoverySignalLifecycleOpen`) | In memory | `reconcileDiscoverySignalControllers` (from `runTick`) | Auth transitions, tab removal, settings, reset, shutdown | None | Recreated by the next tick | Both, when the adapter provides a factory |
 | Auth health (`authHealth`, `authRefreshGeneration`) | Health persisted, generations in memory | `probeAuthHealth`, `refreshAuthHealth`, `persistAuthHealth`, `invalidateAuthHealth` | A newer refresh generation | `persistAuthHealth` under the platform lock, then a transaction commit | Health reloaded, then re-probed | Both. Credentials come from cookies (extension) or the credential store (CLI) |
 | Manual watch (`manualWatch`, `manualWatchTabs`, `manualClosePause`, playback telemetry) | Persisted | `recordPlaybackTelemetry`, `handleTabUpdated`, `handleTabRemoved`, `resumeAfterManualClose` | Tab events, resume, TTL | Platform lock | Reloaded | Extension only; the CLI has no tabs |
@@ -299,8 +299,8 @@ semantics, and both implementations keep them: a minimum period (`MIN_JOB_PERIOD
 replaces a job and restarts its period, cancel is idempotent, a one-shot job is gone once it fires,
 a suspended host fires once on wake rather than once per missed period, and a job can fire again
 while its last run is still going, so the services coalesce their own runs (tick admission,
-heartbeat lanes). Alarms survive a service-worker restart; Node timers do not, so the CLI calls
-`ensureCadenceJobs` on every start.
+heartbeat lanes). Alarms survive a service-worker restart; Node timers do not, so the CLI
+re-ensures its jobs on every start, through the startup reconciliation below.
 
 `BACKGROUND_JOBS` lists every job and the capability it needs. A job whose capability the host
 lacks is inert: ensuring it schedules nothing and a fire of it does nothing. On the CLI that covers
@@ -310,8 +310,15 @@ host delivers fires to `controller.runJob(name)`. The CLI routes its tick jobs t
 driver, which adds disabled-platform cleanup and subscription reporting, and runs each at
 `pollIntervalMinutes` with the heartbeat job every minute, as before.
 
-What #593 leaves for a separate `behavior-change` PR: the CLI does not run `handleStartup` yet, so
-a CLI restart still skips startup cleanup and heartbeat-ownership release.
+Both hosts run one restart reconciliation, `reconcileStartup`, when their process starts: the
+extension on browser startup (inside `handleStartup`), the CLI on every process start before its
+first heartbeat and ticks. It aborts claim handoffs, re-ensures the jobs, releases the heartbeat
+ownership the previous process held, pauses the sessions it left watching (`runtime_restart`),
+releases its tabs, and normalizes the settings. It does not resume farming: the extension's
+`handleStartup` then ticks (or refreshes auth health), and the CLI's own tick driver resumes. The
+CLI pins `autoStartDropFarming` to true, since it always resumes its enabled platforms and the
+reconciliation would otherwise switch them off. Before #593, a CLI restart skipped all of this and
+let heartbeat recovery resume the previous watch from its persisted cadence.
 
 ### Characterization coverage
 
@@ -329,7 +336,7 @@ capability set (`EXTENSION_CAPABILITIES` and `CLI_CAPABILITIES`, through
 | Heartbeat due time is independent of ticks | `backgroundController/heartbeat.test.ts` ("tabless heartbeat cadence", "lets Kick heartbeat and persist while Twitch heartbeat is still pending") |
 | Manual managed-tab closure | `backgroundController/manualWatch.test.ts` ("manual-watch event transitions", "clears manual watch activity when the source tab is closed") |
 | Service-worker restart | `backgroundController/lifecycle.test.ts` (the startup cleanup cases); `backgroundController/heartbeat.test.ts` ("serializes service-worker restart recovery…"); `controllerContract.test.ts` (extension host) |
-| CLI process restart: no startup cleanup yet (#593's behavior-change PR) | `controllerContract.test.ts` (CLI host) |
+| CLI process restart: the same reconciliation as the extension (#593) | `controllerContract.test.ts` (both hosts, "process restart"); `packages/cli/tests/run.test.ts` ("pauses the previous process's watch at startup…") |
 | Job registration: the CLI registers only its tick and heartbeat jobs (#590 adds channel points); inert jobs are never scheduled or run | `controllerContract.test.ts` ("jobs") |
 | Duplicate and late job fires coalesce; no job runs after shutdown | `controllerContract.test.ts` ("jobs") |
 | Job scheduler semantics on each host | `hostPorts.test.ts` (`browser.alarms`); `packages/cli/tests/jobs.test.ts` (Node timers) |
