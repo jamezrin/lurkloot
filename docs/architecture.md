@@ -107,27 +107,31 @@ which now read `<slice>.<field>`.
   controller returns). Each module's parameters pick the calls it makes, and its return type picks
   the calls it provides. Modules resolve their calls through `lateBound` once every module exists.
 - `constants.ts`, `helpers.ts` and `errors.ts` hold the module-level values that more than one module uses.
-  None of them imports a module, and the modules import no sibling except `settingsTransitions.ts`
-  (for `isRankingOnlyPatch`), so there are no import cycles.
+  None of them imports a module, and the modules import no sibling except `stateTransaction.ts`
+  (for its types and `isRankingOnlyPatch`), so there are no import cycles.
+- `stateTransaction.ts` (#585) is the state transaction: it owns the settings, platform and commit
+  locks, every settings and scheduler-state commit, and the after-commit hooks. It depends only on
+  the storage ports, and `createBackgroundController` creates it before any module.
 
 The per-module slices and calls below are where #591's dependency check starts:
 
 | Module | Slices | Calls into | Provides |
 | --- | --- | --- | --- |
-| `stateCommit.ts` | `commitSlice` | `reporting` | 8 |
+| `stateTransaction.ts` | its own lock queues and hooks | none | the transaction (#585) |
+| `stateCommit.ts` | the transaction | `reporting` | 11 |
 | `reporting.ts` | `reportingSlice` | `discovery` | 12 |
 | `tickAdmission.ts` | `reportingSlice`, `integritySlice`, `signalSlice`, `tickSlice`, `lifecycleSlice` | `claims`, `discovery`, `discoverySignals`, `reporting`, `stateCommit`, `tickRun` | 11 |
 | `tickRun.ts` | `claimSlice`, `discoverySlice`, `tickSlice` | `authHealth`, `channelPoints`, `discovery`, `discoverySignals`, `heartbeat`, `kickChallenges`, `manualWatch`, `reporting`, `stateCommit`, `twitchIntegrity` | 1 |
-| `discovery.ts` | its own `discoverySlice`, `lifecycleSlice` | `reporting`, `settingsTransitions`, `stateCommit` | 10 |
+| `discovery.ts` | its own `discoverySlice`, `lifecycleSlice` | `reporting`, `stateCommit` | 10 |
 | `heartbeat.ts` | `heartbeatSlice`, `tickSlice`, `lifecycleSlice` | `discovery`, `reporting`, `stateCommit`, `tickAdmission` | 7 |
-| `twitchIntegrity.ts` | `integritySlice`, `settingsSlice`, `lifecycleSlice` | `reporting`, `settingsTransitions`, `stateCommit` | 8 |
+| `twitchIntegrity.ts` | `integritySlice`, `settingsSlice`, `lifecycleSlice` | `reporting`, `stateCommit` | 8 |
 | `channelPoints.ts` | `channelPointsSlice`, `signalSlice`, `tickSlice`, `lifecycleSlice` | `reporting`, `stateCommit` | 7 |
 | `kickChallenges.ts` | `kickChallengeSlice`, `lifecycleSlice` | `reporting`, `stateCommit` | 2 |
 | `authHealth.ts` | `authSlice`, `discoverySlice` | `channelPoints`, `discovery`, `discoverySignals`, `reporting`, `stateCommit` | 5 |
 | `manualWatch.ts` | none | `discovery`, `discoverySignals`, `reporting`, `stateCommit`, `tickAdmission` | 6 |
 | `claims.ts` | `kickChallengeSlice`, `claimSlice`, `lifecycleSlice` | `heartbeat`, `lifecycle`, `reporting`, `stateCommit`, `tickAdmission` | 8 |
 | `discoverySignals.ts` | `signalSlice`, `tickSlice`, `lifecycleSlice` | `reporting`, `tickAdmission` | 9 |
-| `settingsTransitions.ts` | `discoverySlice`, `settingsSlice` | `channelPoints`, `claims`, `discovery`, `lifecycle`, `tickAdmission` | 3 |
+| `settingsTransitions.ts` | the transaction, `discoverySlice` | `channelPoints`, `claims`, `discovery`, `lifecycle`, `stateCommit`, `tickAdmission` | 2 |
 | `lifecycle.ts` | `integritySlice`, `signalSlice`, `discoverySlice`, `tickSlice`, `settingsSlice`, `lifecycleSlice` | `authHealth`, `channelPoints`, `claims`, `discovery`, `discoverySignals`, `heartbeat`, `reporting`, `settingsTransitions`, `stateCommit`, `tickAdmission`, `twitchIntegrity` | 7 |
 | `messages.ts` | `integritySlice`, `signalSlice`, `tickSlice`, `settingsSlice`, `lifecycleSlice` | `claims`, `discoverySignals`, `lifecycle`, `manualWatch`, `reporting`, `settingsTransitions`, `stateCommit`, `tickAdmission`, `twitchIntegrity` | 1 |
 
@@ -147,15 +151,15 @@ or settings, loaded and saved through the host's storage port (`storage.local` o
 
 | State group | Where it lives | Written by | Invalidated by | Commit boundary | Restart | Hosts |
 | --- | --- | --- | --- | --- | --- | --- |
-| Scheduler state (`sessions`, `authHealth`, `campaigns`, `criticalHealth`, backoffs, `lastTickAt`) | Persisted | Ticks, heartbeats, auth, claims, message handlers | Newer commits for the same platform | `persistPlatformState` → `withStateCommit`, merged per platform by `mergePlatformState` | Reloaded. `handleStartup` runs `staleStartupCleanup` on the extension | Both |
+| Scheduler state (`sessions`, `authHealth`, `campaigns`, `criticalHealth`, backoffs, `lastTickAt`) | Persisted | Ticks, heartbeats, auth, claims, message handlers | Newer commits for the same platform | The transaction's `commit` / `commitPlatformSnapshot`, merged per platform by `mergePlatformState` (derived from `SCHEDULER_STATE_MERGE`) | Reloaded. `handleStartup` runs `staleStartupCleanup` on the extension | Both |
 | Discovery lanes (`discoveryLanes`, `discoveryEvents`) | In memory, one `DiscoverySnapshotLane` per platform | `refreshDiscovery` | Settings saves that are not ranking-only, auth invalidation, `refreshDiscovery` itself, reset and shutdown | None: a snapshot is published by revision, not stored | Rediscovered on the first tick | Both |
 | Selection (`selectionCache`, `selectionRuns`, `pendingSelections`, `selectionGeneration`) | In memory | `prepareSelection` | `invalidateSelection`: every settings save (including ranking-only), auth invalidation, heartbeat results, playback telemetry, reset, shutdown | Consumed inside `runTick`'s platform lock | Recomputed | Both |
 | Tick admission (`tickAdmission`, `activeTicks`, `tickBatches`, `backgroundWork`) | In memory | `tick`, `tickInBackground`, `tickAndHandOff` | Disable, reset, shutdown | None | Empty | Both. Extension alarms and CLI intervals request ticks per platform |
-| Heartbeat lanes, watchers and publication leases (`heartbeatLanes`, `tablessWatchers`) | In memory, with the heartbeat cadence persisted in the session | `requestPlatformHeartbeat`, `reconcileTablessWatchers`, `commitHeartbeatResult` | Session changes, `clearHeartbeatOwnership`, shutdown | `withHeartbeatLane`, then `withStateCommit` **without** the platform lock | `handleStartup` releases ownership on the extension; the CLI does not call it | Both |
+| Heartbeat lanes, watchers and publication leases (`heartbeatLanes`, `tablessWatchers`) | In memory, with the heartbeat cadence persisted in the session | `requestPlatformHeartbeat`, `reconcileTablessWatchers`, `commitHeartbeatResult` | Session changes, `clearHeartbeatOwnership`, shutdown | `withHeartbeatLane`, then a transaction commit **without** the platform lock | `handleStartup` releases ownership on the extension; the CLI does not call it | Both |
 | Discovery-signal controllers (`discoverySignalControllers`, `discoverySignalLifecycleOpen`) | In memory | `reconcileDiscoverySignalControllers` (from `runTick`) | Auth transitions, tab removal, settings, reset, shutdown | None | Recreated by the next tick | Both, when the adapter provides a factory |
-| Auth health (`authHealth`, `authRefreshGeneration`) | Health persisted, generations in memory | `probeAuthHealth`, `refreshAuthHealth`, `persistAuthHealth`, `invalidateAuthHealth` | A newer refresh generation | `persistAuthHealth` under the platform lock, then `withStateCommit` | Health reloaded, then re-probed | Both. Credentials come from cookies (extension) or the credential store (CLI) |
+| Auth health (`authHealth`, `authRefreshGeneration`) | Health persisted, generations in memory | `probeAuthHealth`, `refreshAuthHealth`, `persistAuthHealth`, `invalidateAuthHealth` | A newer refresh generation | `persistAuthHealth` under the platform lock, then a transaction commit | Health reloaded, then re-probed | Both. Credentials come from cookies (extension) or the credential store (CLI) |
 | Manual watch (`manualWatch`, `manualWatchTabs`, `manualClosePause`, playback telemetry) | Persisted | `recordPlaybackTelemetry`, `handleTabUpdated`, `handleTabRemoved`, `resumeAfterManualClose` | Tab events, resume, TTL | Platform lock | Reloaded | Extension only; the CLI has no tabs |
-| Settings (`settingsMutation`, `twitchSettingsTransitionGeneration`) | Settings persisted, transition generation in memory | `updateStoredSettings`, `normalizeStartupSettings`, `updateIdleWatchlist` | Each settings commit. A ranking-only patch (`isRankingOnlyPatch`) keeps discovery and invalidates selection only | `withSettingsLock` | Reloaded and migrated (schema v7) | Both. The CLI's `saveSettings` is a no-op |
+| Settings (`twitchSettingsTransitionGeneration`) | Settings persisted, transition generation in memory | `commitSettings` (every popup write, `updateIdleWatchlist`), `normalizeStartupSettings` | Each settings commit. Its per-platform effect decides: `selection` (ranking-only, `isRankingOnlyPatch`) keeps discovery, `discovery` invalidates both | The transaction's settings lock | Reloaded and migrated (schema v7) | Both. The CLI's `saveSettings` is a no-op |
 | Page contexts and Kick recovery evidence | `core/tabs.ts` module globals, mirrored in persisted `managedPageContextTabs`. Recovery evidence in the extension host (`kickPageContextRecovery`) | Scheduler tick, `registerManagedPageContextTabs`, host fetch fallbacks | Release, reset, restart without auto-start | Copied into `SchedulerState` by the scheduler | Re-registered at startup when farming auto-starts | Extension only |
 | Claim operations (`dropClaimOperations`, `waitingClaimRewardIds`, `claimHandoffs`, `kickChallengeClaimOperations`, `twitchChannelPointsClaimInFlight`, channel-points push) | In memory. Claimed rewards are persisted through `campaigns` | Ticks, claim jobs, `claimRewardNow`, `runClaimHandoff`, the push | Disable, auth loss, reset, shutdown, `abortClaimHandoffs` at startup | Platform lock | In-flight work is lost; provider inventory is re-read | Both, but manual-watch claim jobs never fire on the CLI |
 | Twitch integrity (`installedTwitchIntegrity`, `persistedIntegrityToken`, `integrityLifecycleGeneration`) | In memory in the controller and in `core/tabs.ts` globals; the token is also persisted through `saveTwitchIntegrity` | Header capture, refresh, enable/disable transitions | A newer lifecycle generation | Settings lock, then the platform lock | Token reloaded from storage | Extension only |
@@ -169,9 +173,9 @@ All of these are promise chains: `run = previous.then(operation, operation)`.
 
 | Lock | Protects | Notes |
 | --- | --- | --- |
-| `withSettingsLock` (`settingsMutation`) | Settings read-modify-write | Also reschedules jobs while held (see below) |
-| `withStateLock(operation, platforms)` (`platformMutations`) | One platform's scheduler state and in-memory lifecycle | Takes each requested platform in the fixed order Twitch → Kick |
-| `withStateCommit` (`stateCommit`) | The global load → merge → save of `SchedulerState` | Its bodies only load and save state |
+| `withSettingsLock` | Settings read-modify-write | Also reschedules jobs while held (see below) |
+| `withStateLock(operation, platforms)` / `withPlatformLock` | One platform's scheduler state and in-memory lifecycle | Takes each requested platform in the fixed order Twitch → Kick |
+| Commit lock (inside `commit`, `commitPlatformSnapshot`, `readState`) | The global load → merge → save of `SchedulerState` | Private to the transaction; only a storage load and save run under it |
 | `withHeartbeatLane(platform)` | One platform's watcher, heartbeat reservations and publication leases | Independent of the platform lock |
 | `withTwitchIntegrityAlarmLock` | Creating and clearing the integrity refresh alarm | Taken inside the settings and platform locks |
 | Discovery lanes | One refresh per platform, with a coalesced follow-up | Not a lock on state |
@@ -180,10 +184,11 @@ Nested acquisition orders found in the code, and none in the reverse direction:
 - settings → platform: `runTwitchIntegrityRefresh`, `prepareForHostReset`
 - settings → commit: each discovery refresh reads settings and state together (`createDiscoveryLane`)
 - platform → commit: `persistPlatformState` and `persistAuthHealth` under `withStateLock`
+- platform → heartbeat lane → commit: `runTick` → `reconcileTablessWatchers`, and heartbeat result commits
 - platform → heartbeat lane: `runTick` → `reconcileTablessWatchers`
 - settings or platform → integrity alarm lock
 
-Heartbeat results commit through `withStateCommit` without the platform lock. That is what keeps a
+Heartbeat results commit through the transaction without the platform lock. That is what keeps a
 due heartbeat independent of a long tick.
 
 ### Work performed while a lock is held
@@ -211,8 +216,56 @@ without being listed, or if a listed call has left its lock without the entry be
 - **Timers under the settings or platform lock:** integrity refresh scheduling (#589), scheduler,
   claim and channel-points alarms on settings writes and at startup (#593, #597, #590).
 
-Event reporting (`reportBestEffort`, `persistAndReport`) and notifications also run inside locks
-today. #585 moves operational publication after the commit.
+Event reporting (`reportBestEffort`, `persistAndReport`) and notifications still run inside the
+platform locks, but only after the commit that carries them has been accepted (see below).
+
+### Commits, locks and publication (#585)
+
+`stateTransaction.ts` is the one owner of storage writes. The controller modules commit through it
+and never take the commit lock or call `saveState` themselves.
+
+- **Lock order:** settings → Twitch → Kick → heartbeat lane → commit. Acquire in this order only.
+  Only a storage load and save run under the commit lock; no lock may be held across provider, tab or
+  timer I/O except at the call sites listed in `LOCKED_IO_ALLOWLIST`.
+- **Commit:** `commit(platforms, guard, mutate)` loads the stored state, checks the guard, applies
+  the synchronous `mutate`, and returns `accepted`, `unchanged` (nothing to write, or an equivalent
+  state) or `stale`. The guard is the operation's expected generation, as an `AbortSignal` or a
+  predicate, so an aborted operation is stale. `commitPlatformSnapshot` merges one platform's part of
+  a snapshot the same way, keeping the live page-context registry and a still-current heartbeat
+  cadence; `persistPlatformState` and `persistPlatformAndReport` are built on it.
+- **Per-platform merge:** `SCHEDULER_STATE_MERGE` (`platformState.ts`) classifies every
+  `SchedulerState` key as `platform`, `optionalPlatform`, `newestTimestamp` or `global`, and
+  `mergePlatformState` is derived from it. A new key does not compile until it is classified.
+- **Things that already happened (#599):** a claim or a tab change commits without a guard, so it
+  merges even after its operation was superseded. A watch decision passes its generation as the
+  guard and never commits once stale.
+- **Settings:** every write is `commitSettings(update)`. `update` computes the patch from the
+  settings read once inside the settings lock, and the result carries each touched platform's effect:
+  `discovery` or `selection`. Discovery-lane and selection invalidation follow the effect, anything
+  unclassified counts as `discovery`, and `saveSettings` and `updateIdleWatchlist` pick their tick
+  trigger from it (`settingsTickTrigger`).
+- **Publication:** operational activity and notifications are collected with the operation and
+  reported only once its commit is accepted or found already stored. A stale commit, a storage failure
+  or a cancelled operation publishes none of it (`backgroundController/reporting.test.ts`,
+  `claims.test.ts`). Kick transport diagnostics (`kick_fetch_route`, `kick_fetch_summary`,
+  `kick_fetch_lifecycle_failed`) are the documented exception: `routeDiagnosticEmitter` reports them
+  as they happen, because they describe transport work that happened whether or not its operation
+  commits ("route evidence independent of state publication").
+- **After-commit hooks:** `controller.onCommit(hook)` registers a hook called once per accepted
+  settings or state commit, in registration order, with the committed change (`CommittedChange`).
+  Hooks run after the locks guarding the commit are released. A hook that changes state makes its
+  own commit, which is queued, never nested. They are a plain ordered list, not an event bus, and do
+  not rely on storage change events, which the CLI does not have. The tick (#587), auth (#595),
+  manual watch (#596) and the Twitch Extensions lane (#594) move onto them; #594 replaces the
+  extension host's `storage.onChanged` diffing with a hook on its settings and Twitch state changes.
+
+The test suite enforces the model. The characterization and contract harnesses give the controller
+a lock tracker (`tests/helpers/lockTracker.ts`, backed by `AsyncLocalStorage`) and guard every
+provider, tab and timer port. A test fails when a lock is taken out of order, a commit nests in a
+commit, or a port is called under a lock from a call site missing from `LOCKED_IO_ALLOWLIST`. The
+site check reads the async stack trace, so the lock queues are written with `await` and a release
+promise rather than `.then()` chains, which V8 cannot see through. `stateTransaction.test.ts`
+covers the rules themselves, including an unlisted call site failing and hook ordering.
 
 ### Characterization coverage
 
@@ -237,7 +290,9 @@ ports and reuses the cases.
 | `updateIdleWatchlist` keeps a concurrent popup change | `backgroundController/settingsTransitions.test.ts` ("Idle Watchlist changes from the page") |
 | Supplemental lane: tabless only, released on completion or manual pause | `supplementalWatch.test.ts`, `twitchExtensionHost.test.ts` |
 | Supplemental lane: completion forgotten on restart (current behavior; #594 changes it) | `twitchExtensionHost.test.ts` ("forgets completion when a new host starts…") |
-| Locked I/O can only shrink | `lockedIoAllowlist.test.ts` |
+| Locked I/O can only shrink | `lockedIoAllowlist.test.ts` (source scan); `tests/helpers/lockTracker.ts` (runtime, every harness) |
+| Lock order, nested commits, commit results, hooks and settings effects | `stateTransaction.test.ts`; `backgroundController/stateCommit.test.ts` ("calls after-commit hooks…") |
+| Every `SchedulerState` key merges per platform or is global | `platformState.test.ts` |
 
 ## Runtime Messages
 
