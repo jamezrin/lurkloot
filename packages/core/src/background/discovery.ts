@@ -30,8 +30,7 @@ export function createDiscovery<S extends EngineSettings>(
   calls: Pick<ControllerCalls<S>,
     | "createAdapter"
     | "withEventCollector"
-    | "withSettingsLock"
-    | "withStateCommit"
+    | "readSettingsAndState"
   >,
 ): Pick<ControllerCalls<S>,
   | "selectionFingerprint"
@@ -45,7 +44,7 @@ export function createDiscovery<S extends EngineSettings>(
   | "prepareSelection"
   | "selectionAlreadyCommitted"
 > & { discoverySlice: DiscoverySlice<S> } {
-  const { createAdapter, withEventCollector, withSettingsLock, withStateCommit } = lateBound(calls);
+  const { createAdapter, readSettingsAndState, withEventCollector } = lateBound(calls);
 
   // Created here rather than in context.ts: each lane refreshes through this
   // module's createDiscoveryLane.
@@ -75,8 +74,7 @@ export function createDiscovery<S extends EngineSettings>(
     return new DiscoverySnapshotLane<TickAdapterHandle<S> | undefined>(
       platform,
       async ({ signal, request: tickAdapter }) => {
-        const [settings, state] = await withSettingsLock(() => withStateCommit(() =>
-          Promise.all([deps.loadSettings(), deps.loadState()])));
+        const [settings, state] = await readSettingsAndState();
         if (!settings.platform[platform].enabled) {
           return {
             campaigns: [],

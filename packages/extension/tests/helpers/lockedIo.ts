@@ -86,9 +86,9 @@ export const LOCKED_IO_ALLOWLIST: readonly LockedIoEntry[] = [
   { id: "integrity-restore-schedule", file: "background/twitchIntegrity.ts", site: "restoreTwitchIntegritySchedule", lock: "withStateLock", call: "scheduleTwitchIntegrityRefreshBestEffort(", kind: "timer", owner: 589 },
 
   // Settings writes reschedule jobs while holding the settings lock.
-  { id: "settings-scheduler-alarms", file: "background/settingsTransitions.ts", site: "updateStoredSettings", lock: "withSettingsLock", call: "ensureSchedulerAlarms(", kind: "timer", owner: 593 },
-  { id: "settings-claim-alarms", file: "background/settingsTransitions.ts", site: "updateStoredSettings", lock: "withSettingsLock", call: "reconcileManualWatchClaimAlarms(", kind: "timer", owner: 597 },
-  { id: "settings-channel-points-alarm", file: "background/settingsTransitions.ts", site: "updateStoredSettings", lock: "withSettingsLock", call: "reconcileTwitchChannelPointsAlarm(", kind: "timer", owner: 590 },
+  { id: "settings-scheduler-alarms", file: "background/settingsTransitions.ts", site: "commitSettings", lock: "withSettingsLock", call: "ensureSchedulerAlarms(", kind: "timer", owner: 593 },
+  { id: "settings-claim-alarms", file: "background/settingsTransitions.ts", site: "commitSettings", lock: "withSettingsLock", call: "reconcileManualWatchClaimAlarms(", kind: "timer", owner: 597 },
+  { id: "settings-channel-points-alarm", file: "background/settingsTransitions.ts", site: "commitSettings", lock: "withSettingsLock", call: "reconcileTwitchChannelPointsAlarm(", kind: "timer", owner: 590 },
   { id: "startup-claim-alarms", file: "background/settingsTransitions.ts", site: "normalizeStartupSettings", lock: "withSettingsLock", call: "reconcileManualWatchClaimAlarms(", kind: "timer", owner: 597 },
   { id: "startup-channel-points-alarm", file: "background/settingsTransitions.ts", site: "normalizeStartupSettings", lock: "withSettingsLock", call: "reconcileTwitchChannelPointsAlarm(", kind: "timer", owner: 590 },
 ];

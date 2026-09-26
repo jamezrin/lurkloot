@@ -5,8 +5,7 @@ import { syncManagedTabBreakers } from "../core/tabs";
 import { dismissCriticalFailure } from "../core/criticalHealth";
 import type { PlatformAdapter } from "../platforms/adapter";
 import { type ControllerSlices, lateBound } from "./context";
-import { platformLabel } from "./helpers";
-import { isRankingOnlyPatch } from "./settingsTransitions";
+import { platformLabel, settingsTickTrigger } from "./helpers";
 import type { BackgroundControllerDeps, ControllerCalls } from "./types";
 
 // Runtime message handling.
@@ -38,7 +37,7 @@ export function createMessageHandler<S extends EngineSettings>(
     | "stopDiscoverySignalControllersAndReport"
     | "tickAndHandOff"
     | "tickInBackground"
-    | "updateStoredSettings"
+    | "commitSettings"
     | "withEventCollector"
     | "withStateLock"
   >,
@@ -62,7 +61,7 @@ export function createMessageHandler<S extends EngineSettings>(
     stopDiscoverySignalControllersAndReport,
     tickAndHandOff,
     tickInBackground,
-    updateStoredSettings,
+    commitSettings,
     withEventCollector,
     withStateLock,
   } = lateBound(calls);
@@ -113,24 +112,24 @@ export function createMessageHandler<S extends EngineSettings>(
       const stoppingTwitch = message.platform === "twitch" && !message.enabled;
       if (stoppingTwitch) closeTwitchIntegrityLifecycle("Twitch disabled");
       try {
-        await updateStoredSettings({
+        await commitSettings(() => ({
           platform: {
             [message.platform]: {
               enabled: message.enabled,
             },
           },
-        }, message.platform === "twitch"
-          ? (settings) => {
-              settingsSlice.lastPersistedTwitchEnabled = settings.platform.twitch.enabled;
-              if (twitchTransitionIsCurrent()) {
-                reconcileTwitchIntegrityLifecycle(settings.platform.twitch.enabled);
-              }
-            }
-          : undefined,
-        message.platform === "twitch"
-          ? (settings) => {
-              twitchSettingsLoaded = true;
-              settingsSlice.lastPersistedTwitchEnabled = settings.platform.twitch.enabled;
+        }), message.platform === "twitch"
+          ? {
+              afterLoad: (settings) => {
+                twitchSettingsLoaded = true;
+                settingsSlice.lastPersistedTwitchEnabled = settings.platform.twitch.enabled;
+              },
+              afterPersist: (settings) => {
+                settingsSlice.lastPersistedTwitchEnabled = settings.platform.twitch.enabled;
+                if (twitchTransitionIsCurrent()) {
+                  reconcileTwitchIntegrityLifecycle(settings.platform.twitch.enabled);
+                }
+              },
             }
           : undefined);
       } catch (error) {
@@ -181,27 +180,26 @@ export function createMessageHandler<S extends EngineSettings>(
     }
 
     if (message.type === "saveSettings") {
-      let rankingOnly = false;
-      const settings = await updateStoredSettings(message.settingsPatch, undefined, (current) => {
-        rankingOnly = isRankingOnlyPatch(message.settingsPatch, current);
-      });
+      const { settings, effects } = await commitSettings(() => message.settingsPatch);
       if (message.tickAfterSave && isFarmingActive(settings)) {
-        tickInBackground(message.tickAfterSavePlatforms, rankingOnly ? "ranking_changed" : "settings_saved");
+        tickInBackground(message.tickAfterSavePlatforms, settingsTickTrigger(effects));
       }
       return snapshot();
     }
 
     if (message.type === "updateIdleWatchlist") {
       const channel = message.channel.trim().replace(/^@/, "").toLowerCase();
-      const settings = channel ? await updateStoredSettings((current) => {
+      const commit = channel ? await commitSettings((current) => {
         const listed = current.platform[message.platform].idleWatchlistChannels;
         const present = listed.some((entry) => entry.toLowerCase() === channel);
         const next = message.action === "remove"
           ? listed.filter((entry) => entry.toLowerCase() !== channel)
           : present || listed.length >= IDLE_WATCHLIST_LIMIT ? listed : [...listed, channel];
         return { platform: { [message.platform]: { idleWatchlistChannels: next } } };
-      }) : await deps.loadSettings();
-      if (channel && isFarmingActive(settings)) tickInBackground([message.platform], "settings_saved");
+      }) : undefined;
+      if (commit && isFarmingActive(commit.settings)) {
+        tickInBackground([message.platform], settingsTickTrigger(commit.effects));
+      }
       return snapshot();
     }
 

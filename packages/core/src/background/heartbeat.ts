@@ -51,10 +51,11 @@ export function createHeartbeats<S extends EngineSettings>(
     | "diagnosticEvent"
     | "invalidateSelection"
     | "reportBestEffort"
-    | "saveOperationalStateDirect"
     | "tick"
     | "withEventCollector"
-    | "withStateCommit"
+    | "commitState"
+    | "readState"
+    | "trackHeartbeatLane"
   >,
 ): Pick<ControllerCalls<S>,
   | "releaseHeartbeatPublicationLease"
@@ -70,10 +71,11 @@ export function createHeartbeats<S extends EngineSettings>(
     diagnosticEvent,
     invalidateSelection,
     reportBestEffort,
-    saveOperationalStateDirect,
     tick,
     withEventCollector,
-    withStateCommit,
+    commitState,
+    readState,
+    trackHeartbeatLane,
   } = lateBound(calls);
 
   function withHeartbeatLane<T>(
@@ -81,7 +83,10 @@ export function createHeartbeats<S extends EngineSettings>(
     operation: (lane: HeartbeatLane) => Promise<T>,
   ): Promise<T> {
     const lane = heartbeatSlice.heartbeatLanes[platform];
-    const run = lane.mutation.then(() => operation(lane), () => operation(lane));
+    const run = lane.mutation.then(
+      () => trackHeartbeatLane(() => operation(lane)),
+      () => trackHeartbeatLane(() => operation(lane)),
+    );
     lane.mutation = run.then(() => undefined, () => undefined);
     return run;
   }
@@ -657,9 +662,9 @@ export function createHeartbeats<S extends EngineSettings>(
     recovery: HeartbeatRecoveryCommit,
     cadence: TablessHeartbeatCadence,
   ): Promise<boolean> {
-    return withStateCommit(async () => {
-      if (lifecycleSlice.controllerShutdown || !settings.platform[platform].enabled) return false;
-      const latest = await deps.loadState();
+    let recovered = false;
+    const result = await commitState([platform], () =>
+      !lifecycleSlice.controllerShutdown && settings.platform[platform].enabled, (latest) => {
       const current = latest.sessions[platform];
       if (
         latest.authHealth[platform].status !== "healthy"
@@ -667,7 +672,7 @@ export function createHeartbeats<S extends EngineSettings>(
         || current.watchMode !== "tabless"
         || heartbeatContextKey(current) !== recovery.contextKey
       ) {
-        return false;
+        return undefined;
       }
       const persisted = validTablessHeartbeatCadence(current);
       if (persisted) {
@@ -675,17 +680,19 @@ export function createHeartbeats<S extends EngineSettings>(
           persisted.generation === recovery.generation
           && persisted.nextDueAt === cadence.nextDueAt
         ) {
-          return true;
+          recovered = true;
+          return undefined;
         }
         if (
           !recovery.expectedPersistedCadence
           || persisted.generation !== recovery.expectedPersistedCadence.generation
           || persisted.nextDueAt !== recovery.expectedPersistedCadence.nextDueAt
         ) {
-          return false;
+          return undefined;
         }
       }
-      await saveOperationalStateDirect({
+      recovered = true;
+      return {
         ...latest,
         sessions: {
           ...latest.sessions,
@@ -694,9 +701,9 @@ export function createHeartbeats<S extends EngineSettings>(
             tablessHeartbeat: cadence,
           },
         },
-      });
-      return true;
+      };
     });
+    return result.status !== "stale" && recovered;
   }
 
   async function requestPlatformHeartbeat(
@@ -909,11 +916,13 @@ export function createHeartbeats<S extends EngineSettings>(
 
     let committedSession: WatchSession | undefined;
     try {
-      return await withStateCommit(async () => {
-        const latest = await deps.loadState();
+      let outcome = { stale: true, fallback: false };
+      let invalidatesSelection = false;
+      let nextCommittedSession: WatchSession | undefined;
+      await commitState([platform], undefined, (latest) => {
         const current = latest.sessions[platform];
         if (!heartbeatAuthorityMatches(current, attempt.generation, attempt.contextKey)) {
-          return { stale: true, fallback: false };
+          return undefined;
         }
 
         const previousChecks = current.heartbeatChecks ?? 0;
@@ -944,20 +953,24 @@ export function createHeartbeats<S extends EngineSettings>(
           emit({ category: "diagnostic", platform, level: "warn", message: "Tabless watch heartbeat keeps failing; falling back to a watch tab" });
         }
 
-        await saveOperationalStateDirect({
+        invalidatesSelection = current.lastHeartbeatOk !== ok || previousChecks !== heartbeatChecks;
+        nextCommittedSession = nextSession;
+        outcome = { stale: false, fallback };
+        return {
           ...latest,
           sessions: {
             ...latest.sessions,
             [platform]: nextSession,
           },
           managedPageContextTabs,
-        });
-        if (current.lastHeartbeatOk !== ok || previousChecks !== heartbeatChecks) {
-          invalidateSelection(platform);
-        }
-        committedSession = nextSession;
-        return { stale: false, fallback };
+        };
+      }, {
+        afterSave: () => {
+          if (invalidatesSelection) invalidateSelection(platform);
+          committedSession = nextCommittedSession;
+        },
       });
+      return outcome;
     } finally {
       await finishHeartbeatResultCommit(platform, reservation, committedSession);
     }
@@ -1042,14 +1055,12 @@ export function createHeartbeats<S extends EngineSettings>(
       && lane.committed.contextKey === fallback.contextKey);
     if (!ownsLane) return;
 
-    const ownsPersistedContext = await withStateCommit(async () => {
-      const latest = await deps.loadState();
-      return heartbeatAuthorityMatches(
-        latest.sessions[fallback.platform],
-        fallback.generation,
-        fallback.contextKey,
-      );
-    });
+    const latest = await readState();
+    const ownsPersistedContext = heartbeatAuthorityMatches(
+      latest.sessions[fallback.platform],
+      fallback.generation,
+      fallback.contextKey,
+    );
     if (!ownsPersistedContext) return;
 
     const stillOwnsLane = await withHeartbeatLane(fallback.platform, async (lane) =>

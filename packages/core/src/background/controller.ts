@@ -22,7 +22,6 @@ import {
   createLifecycleSlice,
   createReportingSlice,
   createSettingsSlice,
-  createStateCommitSlice,
   createTickAdmissionSlice,
   createTwitchIntegritySlice,
 } from "./context";
@@ -36,6 +35,7 @@ import { createMessageHandler } from "./messages";
 import { createReporting } from "./reporting";
 import { createSettingsTransitions } from "./settingsTransitions";
 import { createStateCommit } from "./stateCommit";
+import { createStateTransaction } from "./stateTransaction";
 import { createTickAdmission } from "./tickAdmission";
 import { createTickRun } from "./tickRun";
 import { createTwitchIntegrity } from "./twitchIntegrity";
@@ -54,7 +54,16 @@ export {
   TWITCH_INTEGRITY_REFRESH_LEAD_MS,
   TWITCH_INTEGRITY_REFRESH_JITTER_MAX_MS,
 } from "./constants";
-export { isRankingOnlyPatch } from "./settingsTransitions";
+export { isRankingOnlyPatch, LockOrderError, settingsPatchEffects, TRANSACTION_LOCKS } from "./stateTransaction";
+export type {
+  CommitHook,
+  CommitResult,
+  CommittedChange,
+  LockTracker,
+  SettingsEffect,
+  SettingsEffects,
+  TransactionLock,
+} from "./stateTransaction";
 export type { ClaimedRewards, TickTrigger, CredentialAvailability, BackgroundControllerDeps } from "./types";
 
 interface BackgroundAlarmController {
@@ -89,8 +98,9 @@ export function createBackgroundAlarmListener(controller: BackgroundAlarmControl
 }
 
 export function createBackgroundController<S extends EngineSettings = EngineSettings>(deps: BackgroundControllerDeps<S>) {
+  // Owns the locks, commits and after-commit hooks (#585).
+  const transaction = createStateTransaction(deps);
   const reportingSlice = createReportingSlice();
-  const commitSlice = createStateCommitSlice();
   const heartbeatSlice = createHeartbeatSlice();
   const integritySlice = createTwitchIntegritySlice();
   const channelPointsSlice = createChannelPointsSlice();
@@ -107,7 +117,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   const { discoverySlice, ...discovery } = createDiscovery(deps, { lifecycleSlice }, calls);
   Object.assign(calls, {
     ...createReporting(deps, { reportingSlice }, calls),
-    ...createStateCommit(deps, { commitSlice }, calls),
+    ...createStateCommit(transaction, calls),
     ...createHeartbeats(deps, { heartbeatSlice, tickSlice, lifecycleSlice }, calls),
     ...createTwitchIntegrity(deps, { integritySlice, settingsSlice, lifecycleSlice }, calls),
     ...createChannelPoints(deps, { channelPointsSlice, signalSlice, tickSlice, lifecycleSlice }, calls),
@@ -119,7 +129,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     ...discovery,
     ...createTickAdmission(deps, { reportingSlice, integritySlice, signalSlice, tickSlice, lifecycleSlice }, calls),
     ...createTickRun(deps, { claimSlice, discoverySlice, tickSlice }, calls),
-    ...createSettingsTransitions(deps, { discoverySlice, settingsSlice }, calls),
+    ...createSettingsTransitions(transaction, { discoverySlice }, calls),
     ...createLifecycle(deps, { integritySlice, signalSlice, discoverySlice, tickSlice, settingsSlice, lifecycleSlice }, calls),
     ...createMessageHandler(deps, { integritySlice, signalSlice, tickSlice, settingsSlice, lifecycleSlice }, calls),
   } satisfies ControllerCalls<S>);
@@ -157,5 +167,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     shutdown: calls.shutdown,
     prepareForHostReset: calls.prepareForHostReset,
     settleBackgroundWork: calls.settleBackgroundWork,
+    // Registers a hook called after each accepted settings or scheduler-state
+    // commit (stateTransaction.ts). Returns the unregister function.
+    onCommit: transaction.onCommit,
   };
 }
