@@ -155,10 +155,23 @@ export function createStateTransaction<S extends EngineSettings>(ports: StateTra
   }
 
   function withLock<T>(lock: Exclude<TransactionLock, "heartbeat">, operation: () => Promise<T>): Promise<T> {
-    const admitted = admit(lock, operation);
-    const run = chains[lock].then(admitted, admitted);
-    chains[lock] = run.then(() => undefined, () => undefined);
-    return run;
+    // Awaited, and released through its own promise rather than a .then() on
+    // the result: V8 follows an async stack trace only through a promise with a
+    // single reaction, and the test lock tracker reads that trace to find the
+    // call site of locked I/O.
+    const previous = chains[lock];
+    let release!: () => void;
+    chains[lock] = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    return admit(lock, async () => {
+      try {
+        await previous;
+        return await operation();
+      } finally {
+        release();
+      }
+    })();
   }
 
   function withSettingsLock<T>(operation: () => Promise<T>): Promise<T> {
@@ -397,6 +410,12 @@ export function createStateTransaction<S extends EngineSettings>(ports: StateTra
     }, ["settings"]);
   }
 
+  // Runs `operation` as holding no locks: the controller's public entry points
+  // are host events, never part of whatever operation happens to be running.
+  function detach<T>(operation: () => T): T {
+    return tracker ? tracker.run([], operation) : operation();
+  }
+
   // Resolves once every hook for the commits made so far has run.
   function settleCommitHooks(): Promise<void> {
     return hookQueue;
@@ -416,6 +435,7 @@ export function createStateTransaction<S extends EngineSettings>(ports: StateTra
     saveSettingsCommit,
     onCommit,
     settleCommitHooks,
+    detach,
   };
 }
 

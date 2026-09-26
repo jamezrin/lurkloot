@@ -142,7 +142,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     settingsSlice.twitchSettingsTransitionGeneration,
   );
 
-  return {
+  const api = {
     ensureAlarm: calls.ensureAlarm,
     ensureInstalledAt: calls.ensureInstalledAt,
     handleStartup: calls.handleStartup,
@@ -171,4 +171,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     // commit (stateTransaction.ts). Returns the unregister function.
     onCommit: transaction.onCommit,
   };
+  // Every entry point is a host event, so it starts outside any lock, even when
+  // it is called from inside a host callback the controller is awaiting.
+  return Object.fromEntries(Object.entries(api).map(([name, entry]) => [
+    name,
+    (...args: unknown[]) => transaction.detach(() => (entry as (...args: unknown[]) => unknown)(...args)),
+  ])) as typeof api;
 }

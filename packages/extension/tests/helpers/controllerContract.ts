@@ -8,6 +8,7 @@ import type { ChannelCandidate, DropCampaign, ExtensionSettings, Platform, Sched
 import type { EngineEvent } from "@lurkloot/shared/events";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "../../src/core/storage";
+import { withLockTracker } from "./lockTracker";
 
 // Builds a background controller the way each host does today, so contract
 // tests run once per declared capability set instead of once per host (#584).
@@ -208,7 +209,7 @@ export function contractHost(capabilities: CapabilitySet, options: ContractHostO
     }
     : common;
 
-  const controller = createBackgroundController(deps);
+  const controller = createBackgroundController(withLockTracker(deps).deps);
   return {
     capabilities,
     controller,

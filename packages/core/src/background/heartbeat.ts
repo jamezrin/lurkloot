@@ -83,12 +83,19 @@ export function createHeartbeats<S extends EngineSettings>(
     operation: (lane: HeartbeatLane) => Promise<T>,
   ): Promise<T> {
     const lane = heartbeatSlice.heartbeatLanes[platform];
-    const run = lane.mutation.then(
-      () => trackHeartbeatLane(() => operation(lane)),
-      () => trackHeartbeatLane(() => operation(lane)),
-    );
-    lane.mutation = run.then(() => undefined, () => undefined);
-    return run;
+    const previous = lane.mutation;
+    let release!: () => void;
+    lane.mutation = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    return trackHeartbeatLane(async () => {
+      try {
+        await previous;
+        return await operation(lane);
+      } finally {
+        release();
+      }
+    });
   }
 
   function newHeartbeatPublicationLease(): HeartbeatPublicationLease {

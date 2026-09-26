@@ -90,9 +90,22 @@ export function createTwitchIntegrity<S extends EngineSettings>(
   }
 
   function withTwitchIntegrityAlarmLock<T>(operation: () => Promise<T>): Promise<T> {
-    const run = integritySlice.twitchIntegrityAlarmMutation.then(operation, operation);
-    integritySlice.twitchIntegrityAlarmMutation = run.then(() => undefined, () => undefined);
-    return run;
+    // Awaited, and released through its own promise rather than a .then() on
+    // the result, so an async stack trace taken inside `operation` still
+    // reaches the caller (the test lock tracker reads it).
+    const previous = integritySlice.twitchIntegrityAlarmMutation;
+    let release!: () => void;
+    integritySlice.twitchIntegrityAlarmMutation = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    return (async () => {
+      try {
+        await previous;
+        return await operation();
+      } finally {
+        release();
+      }
+    })();
   }
 
   async function clearTwitchIntegrityAlarm(): Promise<void> {

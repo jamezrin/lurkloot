@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { DropCampaign, SchedulerState } from "@lurkloot/shared/models";
+import type { DropCampaign, ExtensionSettings, SchedulerState } from "@lurkloot/shared/models";
+import type { CommittedChange } from "@lurkloot/core/controller";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { campaign, channel, deferred, farming, harness } from "../helpers/backgroundController";
 
@@ -8,6 +9,31 @@ import { campaign, channel, deferred, farming, harness } from "../helpers/backgr
 describe("background controller", () => {
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it("calls after-commit hooks with each accepted settings and state commit", async () => {
+    const env = harness(farming(DEFAULT_SETTINGS));
+    const changes: CommittedChange<ExtensionSettings>[] = [];
+    env.controller.onCommit((change) => {
+      changes.push(change);
+    });
+
+    await env.controller.handleMessage({
+      type: "saveSettings",
+      settingsPatch: { priorityMode: "lowest_availability" },
+      tickAfterSave: true,
+      tickAfterSavePlatforms: ["twitch"],
+    });
+    await vi.waitFor(() => expect(changes.some((change) => change.kind === "state")).toBe(true));
+
+    expect(changes[0]).toEqual(expect.objectContaining({
+      kind: "settings",
+      effects: { twitch: "selection", kick: "selection" },
+    }));
+    await env.controller.settleBackgroundWork();
+    const last = changes.at(-1);
+    expect(last).toEqual(expect.objectContaining({ kind: "state" }));
+    expect(changes.slice(1).every((change) => change.kind === "state" && change.platforms.includes("twitch"))).toBe(true);
   });
 
   it("serializes concurrent state writers so neither update is lost", async () => {

@@ -13,7 +13,7 @@ export type LockedIoKind = "provider" | "tab" | "timer" | "async-wait";
 // - a lock helper whose argument body must contain the call, or
 // - "caller" when the whole function runs inside a lock its caller took
 //   (runSchedulerTick runs inside runTick's withStateLock).
-export type LockedIoLock = "withStateLock" | "withSettingsLock" | "withHeartbeatLane" | "caller";
+export type LockedIoLock = "withStateLock" | "withPlatformLock" | "withSettingsLock" | "withHeartbeatLane" | "caller";
 
 export type LockedIoOwner = 586 | 587 | 588 | 589 | 590 | 593 | 595 | 596 | 597 | 598 | 599;
 
@@ -71,6 +71,14 @@ export const LOCKED_IO_ALLOWLIST: readonly LockedIoEntry[] = [
   { id: "reset-close-watch-tabs", file: "background/lifecycle.ts", site: "prepareForHostReset", lock: "withStateLock", call: "deps.closeManagedTabs(", kind: "tab", owner: 598 },
   { id: "reset-stop-page-contexts", file: "background/lifecycle.ts", site: "prepareForHostReset", lock: "withStateLock", call: "deps.stopPageContextTabs(", kind: "tab", owner: 598 },
   { id: "reset-ad-focus", file: "background/lifecycle.ts", site: "prepareForHostReset", lock: "withStateLock", call: "deps.applyAdFocus?.(", kind: "tab", owner: 598 },
+  { id: "reset-stop-watch-tabs", file: "background/lifecycle.ts", site: "prepareForHostReset", lock: "withStateLock", call: "adapters[platform].stopWatchTab?.(", kind: "tab", owner: 598 },
+
+  // Twitch channel points claim under the Twitch platform lock.
+  { id: "channel-points-claim", file: "background/channelPoints.ts", site: "runTwitchChannelPointsClaim", lock: "withPlatformLock", call: "adapter.claimChannelPoints?.(", kind: "provider", owner: 590 },
+  { id: "channel-points-push-claim", file: "background/channelPoints.ts", site: "queueTwitchChannelPointsPushClaim", lock: "withPlatformLock", call: "claimTwitchChannelPointsFromPush(", kind: "provider", owner: 590 },
+
+  // Kick page-context recovery runs after the tick commit, inside runTick's lock.
+  { id: "tick-page-context-recovery", file: "background/kickChallenges.ts", site: "reconcilePageContextRecoveryAfterPersist", lock: "caller", call: "deps.reconcilePageContextRecovery!(", kind: "tab", owner: 588 },
 
   // Claims outside the tick.
   { id: "manual-claim", file: "background/claims.ts", site: "claimRewardNow", lock: "withStateLock", call: "adapter.claimReward(", kind: "provider", owner: 597 },
@@ -95,7 +103,13 @@ export const LOCKED_IO_ALLOWLIST: readonly LockedIoEntry[] = [
 
 // The size of the list. The test requires the list to be exactly this long, so
 // removing an entry means lowering it in the same change. Never raise it.
-export const LOCKED_IO_ALLOWLIST_SIZE = 40;
+//
+// #585 raised it once, from 40 to 44, to list v1.14.0 sites #584's source scan
+// could not see and the runtime lock tracker found: I/O under withPlatformLock,
+// under `adapters[platform]`, and in a function its caller runs under a lock.
+// The scan now recognizes all three. That was a correction to the baseline,
+// not new locked I/O.
+export const LOCKED_IO_ALLOWLIST_SIZE = 44;
 
 // Calls that count as locked I/O when they appear inside a lock: ports and
 // adapter methods that reach a provider, a tab or a timer, and the controller
@@ -104,6 +118,7 @@ export const LOCKED_IO_ALLOWLIST_SIZE = 40;
 export const LOCKED_IO_CALLS = [
   "adapter.claimReward", "adapter.claimChannelPoints", "adapter.claimChallenges", "adapter.refreshCampaigns",
   "adapter.checkAuthHealth", "adapter.searchCategories", "adapter.prepareWatchTab", "adapter.stopWatchTab",
+  "adapters[platform].stopWatchTab", "claimTwitchChannelPointsFromPush",
   "watcher.start", "watcher.stop", "controller.start", "controller.stop",
   "deps.closeManagedTabs", "deps.stopPageContextTabs", "deps.applyAdFocus", "deps.reconcilePageContextRecovery",
   "deps.discardPageContextRecoveryEvidence", "deps.createAlarm", "deps.clearAlarm", "deps.getAlarm",

@@ -20,6 +20,7 @@ import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
 import { applySettingsPatch, DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "../../src/core/storage";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
+import { withLockTracker } from "./lockTracker";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
 import type { StopPageContextTabs } from "@lurkloot/core/scheduler";
 import { forgetManagedPageContextTabs, type TwitchIntegrityRequest } from "@lurkloot/core/tabs";
@@ -350,7 +351,8 @@ export function harness(
       : {}),
   };
 
-  const controller = createBackgroundController(deps);
+  const { deps: trackedDeps, tracker: lockTracker } = withLockTracker(deps);
+  const controller = createBackgroundController(trackedDeps);
   // User-action messages dispatch their scheduler tick in the background and
   // return the snapshot immediately, so the popup is never held open for a
   // network-bound tick. Tests here assert on what the tick produced, so the
@@ -368,6 +370,7 @@ export function harness(
     controller: { ...controller, handleMessage },
     rawController: controller,
     deps,
+    lockTracker,
     get settings() {
       return currentSettings;
     },

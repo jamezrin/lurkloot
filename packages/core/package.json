@@ -35,6 +35,7 @@
     "./kick/watch": "./src/platforms/kick/watch.ts",
     "./controller": "./src/background/controller.ts",
     "./background/platformState": "./src/background/platformState.ts",
+    "./background/stateTransaction": "./src/background/stateTransaction.ts",
     "./extensions/types": "./src/extensions/types.ts",
     "./extensions/registry": "./src/extensions/registry.ts",
     "./extensions/reports": "./src/extensions/reports.ts",
