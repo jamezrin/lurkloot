@@ -2,7 +2,8 @@ import type { DropCampaign, DropReward, EngineSettings, Platform, SchedulerState
 import type { ActivityEvent, EngineEvent, EventEmitter, FarmingStopReason } from "@lurkloot/shared/events";
 import { MANUAL_WATCH_TTL_MS } from "../core/scheduler";
 import { isTimestampStale } from "../core/timestamps";
-import type { TickDiagnosticContext } from "./types";
+import type { SettingsEffects } from "./stateTransaction";
+import type { TickDiagnosticContext, TickTrigger } from "./types";
 
 export function correlateTickDiagnostics(
   events: readonly EngineEvent[],
@@ -10,6 +11,15 @@ export function correlateTickDiagnostics(
 ): EngineEvent[] {
   return events.map((event) =>
     event.category === "diagnostic" ? { ...event, ...tickContext } : event);
+}
+
+// The tick a settings commit asks for. A change that only reorders what is
+// farmed re-selects from the discovery already held; anything else rediscovers.
+export function settingsTickTrigger(effects: SettingsEffects): TickTrigger {
+  const values = Object.values(effects);
+  return values.length > 0 && values.every((effect) => effect === "selection")
+    ? "ranking_changed"
+    : "settings_saved";
 }
 
 export const FARMING_STOP_REASON_CODES: Record<FarmingStopReason, true> = {

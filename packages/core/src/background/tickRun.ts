@@ -44,6 +44,7 @@ export function createTickRun<S extends EngineSettings>(
     | "refreshDiscovery"
     | "releaseHeartbeatPublicationLease"
     | "reportAuthSetupFailures"
+    | "readState"
     | "reportBestEffort"
     | "selectionAlreadyCommitted"
     | "selectionBackoffDue"
@@ -51,7 +52,6 @@ export function createTickRun<S extends EngineSettings>(
     | "selectionIsForced"
     | "selectionKey"
     | "withEventCollector"
-    | "withStateCommit"
     | "withStateLock"
   >,
 ): Pick<ControllerCalls<S>, "tickPlatform"> {
@@ -73,6 +73,7 @@ export function createTickRun<S extends EngineSettings>(
     refreshDiscovery,
     releaseHeartbeatPublicationLease,
     reportAuthSetupFailures,
+    readState,
     reportBestEffort,
     selectionAlreadyCommitted,
     selectionBackoffDue,
@@ -80,7 +81,6 @@ export function createTickRun<S extends EngineSettings>(
     selectionIsForced,
     selectionKey,
     withEventCollector,
-    withStateCommit,
     withStateLock,
   } = lateBound(calls);
 
@@ -191,7 +191,7 @@ export function createTickRun<S extends EngineSettings>(
     const schedulerPlatforms = requestedPlatforms.filter((platform) =>
       !excludedPlatforms.has(platform));
     if (schedulerPlatforms.length === 0) return claimedRewards;
-    const currentState = await withStateCommit(() => deps.loadState());
+    const currentState = await readState();
     const discoveryPlatforms = schedulerPlatforms.filter((platform) =>
       currentState.authHealth[platform].status === "healthy");
     // A ranking change re-selects from the discovery already held; only a

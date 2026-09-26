@@ -45,21 +45,6 @@ export function createReportingSlice(): ReportingSlice {
   };
 }
 
-export interface StateCommitSlice {
-  readonly platformMutations: Record<Platform, Promise<unknown>>;
-  stateCommit: Promise<unknown>;
-}
-
-export function createStateCommitSlice(): StateCommitSlice {
-  return {
-    platformMutations: {
-      twitch: Promise.resolve(),
-      kick: Promise.resolve(),
-    },
-    stateCommit: Promise.resolve(),
-  };
-}
-
 export interface HeartbeatSlice {
   // Persistent tabless watchers, one per platform, kept alive across discovery
   // ticks (the WebSocket-based Kick watcher in particular must not be recreated
@@ -258,14 +243,12 @@ export function createTickAdmissionSlice(): TickAdmissionSlice {
 }
 
 export interface SettingsSlice {
-  settingsMutation: Promise<unknown>;
   twitchSettingsTransitionGeneration: number;
   lastPersistedTwitchEnabled: boolean | undefined;
 }
 
 export function createSettingsSlice(): SettingsSlice {
   return {
-    settingsMutation: Promise.resolve(),
     twitchSettingsTransitionGeneration: 0,
     lastPersistedTwitchEnabled: undefined,
   };
@@ -283,7 +266,6 @@ export function createLifecycleSlice(): LifecycleSlice {
 
 export interface ControllerSlices<S extends EngineSettings> {
   reportingSlice: ReportingSlice;
-  commitSlice: StateCommitSlice;
   heartbeatSlice: HeartbeatSlice;
   integritySlice: TwitchIntegritySlice;
   channelPointsSlice: ChannelPointsSlice;

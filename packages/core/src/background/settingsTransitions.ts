@@ -1,32 +1,16 @@
-import type { EngineSettings } from "@lurkloot/shared/models";
+import type { EngineSettings, Platform } from "@lurkloot/shared/models";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 import { isFarmingActive } from "@lurkloot/shared/settings";
-import { PLATFORMS } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
-import type { BackgroundControllerDeps, ControllerCalls } from "./types";
+import type { PreparedSettingsCommit, StateTransaction } from "./stateTransaction";
+import type { ControllerCalls, SettingsCommitOptions } from "./types";
 
-// Settings that only decide the order campaigns are farmed in. Discovery does
-// not read them, so saving one keeps the discovered campaigns and channels.
-// Pins are the exception while "farm pinned only" is on: discovery then skips
-// unpinned campaigns, so a new pin needs its channels found.
-const RANKING_SETTING_KEYS = new Set(["priorityMode", "campaignPins"]);
-const RANKING_PLATFORM_SETTING_KEYS = new Set(["favouriteCategories"]);
-
-export function isRankingOnlyPatch(patch: SettingsPatch, current: Pick<EngineSettings, "farmPinnedOnly">): boolean {
-  const keys = Object.keys(patch);
-  if (keys.length === 0) return false;
-  if ("campaignPins" in patch && current.farmPinnedOnly) return false;
-  return keys.every((key) => {
-    if (key !== "platform") return RANKING_SETTING_KEYS.has(key);
-    return Object.values(patch.platform ?? {}).every((platformPatch) =>
-      Object.keys(platformPatch ?? {}).every((platformKey) => RANKING_PLATFORM_SETTING_KEYS.has(platformKey)));
-  });
-}
+export { isRankingOnlyPatch } from "./stateTransaction";
 
 // Settings commits and the transitions they start.
 export function createSettingsTransitions<S extends EngineSettings>(
-  deps: BackgroundControllerDeps<S>,
-  { discoverySlice, settingsSlice }: Pick<ControllerSlices<S>, "discoverySlice" | "settingsSlice">,
+  transaction: StateTransaction<S>,
+  { discoverySlice }: Pick<ControllerSlices<S>, "discoverySlice">,
   calls: Pick<ControllerCalls<S>,
     | "abortIneligibleClaimOnlyOperations"
     | "cancelPendingTick"
@@ -34,8 +18,9 @@ export function createSettingsTransitions<S extends EngineSettings>(
     | "invalidateSelection"
     | "reconcileManualWatchClaimAlarms"
     | "reconcileTwitchChannelPointsAlarm"
+    | "withSettingsLock"
   >,
-): Pick<ControllerCalls<S>, "normalizeStartupSettings" | "withSettingsLock" | "updateStoredSettings"> {
+): Pick<ControllerCalls<S>, "normalizeStartupSettings" | "commitSettings"> {
   const {
     abortIneligibleClaimOnlyOperations,
     cancelPendingTick,
@@ -43,6 +28,7 @@ export function createSettingsTransitions<S extends EngineSettings>(
     invalidateSelection,
     reconcileManualWatchClaimAlarms,
     reconcileTwitchChannelPointsAlarm,
+    withSettingsLock,
   } = lateBound(calls);
 
   // On restart, autoStartDropFarming decides what happens to the platforms that
@@ -52,57 +38,52 @@ export function createSettingsTransitions<S extends EngineSettings>(
   // waited to resurrect a platform the moment the master switch came back.
   async function normalizeStartupSettings(): Promise<S> {
     return withSettingsLock(async () => {
-      const settings = await deps.loadSettings();
-      if (settings.autoStartDropFarming || !isFarmingActive(settings)) return settings;
-      const nextSettings = {
-        ...settings,
-        platform: {
-          ...settings.platform,
-          twitch: { ...settings.platform.twitch, enabled: false },
-          kick: { ...settings.platform.kick, enabled: false },
-        },
-      };
-      await deps.saveSettings(nextSettings);
+      let farming = false;
+      const commit = await transaction.prepareSettingsCommit((settings) => {
+        farming = !settings.autoStartDropFarming && isFarmingActive(settings);
+        return farming
+          ? { platform: { twitch: { enabled: false }, kick: { enabled: false } } }
+          : {};
+      }, (settings) => farming
+        ? {
+            ...settings,
+            platform: {
+              ...settings.platform,
+              twitch: { ...settings.platform.twitch, enabled: false },
+              kick: { ...settings.platform.kick, enabled: false },
+            },
+          }
+        : settings);
+      if (!farming) return commit.previous;
+      const nextSettings = commit.settings;
+      await transaction.saveSettingsCommit(commit);
       await reconcileTwitchChannelPointsAlarm(nextSettings);
       await reconcileManualWatchClaimAlarms(nextSettings);
       return nextSettings;
     });
   }
 
-  function withSettingsLock<T>(operation: () => Promise<T>): Promise<T> {
-    const run = settingsSlice.settingsMutation.then(operation, operation);
-    settingsSlice.settingsMutation = run.then(() => undefined, () => undefined);
-    return run;
-  }
-
-  // `patch` may be worked out from the stored settings, inside the lock, for a
-  // change that has to apply to the latest value rather than a caller's copy.
-  async function updateStoredSettings(
-    patchOrUpdate: SettingsPatch | ((current: S) => SettingsPatch),
-    afterPersist?: (settings: S) => void,
-    afterLoad?: (settings: S) => void,
-  ): Promise<S> {
+  // Every settings write: `update` works out the patch from the stored
+  // settings, read once inside the lock, so it applies to the latest value
+  // rather than a caller's copy. The result carries each platform's effect, and
+  // callers pick their tick trigger from it.
+  async function commitSettings(
+    update: (current: S) => SettingsPatch,
+    { afterLoad, afterPersist }: SettingsCommitOptions<S> = {},
+  ): Promise<PreparedSettingsCommit<S>> {
     return withSettingsLock(async () => {
-      const patch = typeof patchOrUpdate === "function" ? patchOrUpdate(await deps.loadSettings()) : patchOrUpdate;
-      const patchKeys = Object.keys(patch);
-      const invalidatedPlatforms = patchKeys.every((key) => key === "platform") && patch.platform
-        ? PLATFORMS.filter((platform) => patch.platform?.[platform] !== undefined)
-        : PLATFORMS;
-      const rankingOnly = isRankingOnlyPatch(patch, await deps.loadSettings());
+      const commit = await transaction.prepareSettingsCommit(update);
+      const invalidatedPlatforms = Object.keys(commit.effects) as Platform[];
       for (const platform of invalidatedPlatforms) {
         // Discovery does not depend on the ranking, so a reorder keeps it and
         // only the selection made from it is redone.
-        if (!rankingOnly) discoverySlice.discoveryLanes[platform].invalidate();
+        if (commit.effects[platform] === "discovery") discoverySlice.discoveryLanes[platform].invalidate();
         invalidateSelection(platform);
       }
-      if (!deps.applySettingsPatch) {
-        throw new Error("applySettingsPatch dependency is required to mutate settings");
-      }
-      const current = await deps.loadSettings();
-      afterLoad?.(current);
-      const settings = deps.applySettingsPatch(current, patch);
+      afterLoad?.(commit.previous);
+      const { settings } = commit;
       abortIneligibleClaimOnlyOperations(settings, "Claim automation disabled");
-      await deps.saveSettings(settings);
+      await transaction.saveSettingsCommit(commit);
       for (const platform of invalidatedPlatforms) {
         if (!settings.platform[platform].enabled) cancelPendingTick(platform);
       }
@@ -110,13 +91,12 @@ export function createSettingsTransitions<S extends EngineSettings>(
       await ensureSchedulerAlarms(settings.pollIntervalMinutes);
       await reconcileTwitchChannelPointsAlarm(settings);
       await reconcileManualWatchClaimAlarms(settings);
-      return settings;
+      return commit;
     });
   }
 
   return {
     normalizeStartupSettings,
-    withSettingsLock,
-    updateStoredSettings,
+    commitSettings,
   };
 }

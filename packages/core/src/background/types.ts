@@ -15,6 +15,7 @@ import type { TablessWatchController } from "../core/tablessWatch";
 import type { DiscoverySignalController } from "../core/discoverySignals";
 import type { DiscoverySnapshot, DiscoverySnapshotState } from "../core/discoverySnapshot";
 import { AuthProbeSetupError } from "./errors";
+import type { CommitGuard, CommitOptions, CommitResult, LockTracker, PreparedSettingsCommit } from "./stateTransaction";
 
 // Reward ids claimed during one tick, per platform. The post-claim handoff needs
 // the ids (not just the platforms) so it can tell a genuine successor from the
@@ -140,6 +141,13 @@ export interface HeartbeatLane {
   coalescedWithoutAttempt: number;
 }
 
+export interface SettingsCommitOptions<S> {
+  // Called with the stored settings the commit read, before it saves.
+  afterLoad?(previous: S): void;
+  // Called once the new settings are saved, before the settings lock is released.
+  afterPersist?(settings: S): void;
+}
+
 // Generic over the host's settings type `S`, which must satisfy the engine
 // contract (EngineSettings). The extension parametrizes it with its fuller
 // ExtensionSettings (load/save round-trip the host-only fields); the CLI uses the
@@ -191,6 +199,9 @@ export interface BackgroundControllerDeps<S extends EngineSettings = EngineSetti
   // Omitted in headless/test runs, where the scheduler forgets contexts from
   // state only (see runSchedulerTick / StopPageContextTabs).
   stopPageContextTabs?: StopPageContextTabs;
+  // Test instrumentation for the state transaction's lock-order and locked-I/O
+  // checks (stateTransaction.ts). Hosts leave it out.
+  lockTracker?: LockTracker;
   reconcilePageContextRecovery?(
     platform: Platform,
     settings: S,
@@ -299,9 +310,18 @@ export interface ControllerCalls<S extends EngineSettings> {
   ): Promise<void>;
 
   // stateCommit.ts
+  withSettingsLock<T>(operation: () => Promise<T>): Promise<T>;
   withPlatformLock<T>(platform: Platform, operation: () => Promise<T>): Promise<T>;
   withStateLock<T>(operation: () => Promise<T>, platforms?: readonly Platform[]): Promise<T>;
-  withStateCommit<T>(operation: () => Promise<T>): Promise<T>;
+  trackHeartbeatLane<T>(operation: () => Promise<T>): Promise<T>;
+  readState(): Promise<SchedulerState>;
+  readSettingsAndState(): Promise<[S, SchedulerState]>;
+  commitState(
+    platforms: readonly Platform[],
+    guard: CommitGuard | undefined,
+    mutate: (latest: SchedulerState) => SchedulerState | undefined,
+    options?: CommitOptions,
+  ): Promise<CommitResult>;
   persistAndReport(state: SchedulerState, events?: readonly EngineEvent[]): Promise<void>;
   persistPlatformAndReport(
     platform: Platform,
@@ -317,7 +337,6 @@ export interface ControllerCalls<S extends EngineSettings> {
     onPersisted?: (state: SchedulerState) => void,
   ): Promise<boolean>;
   saveOperationalState(state: SchedulerState): Promise<void>;
-  saveOperationalStateDirect(state: SchedulerState): Promise<void>;
 
   // heartbeat.ts
   releaseHeartbeatPublicationLease(platform: Platform, lease: HeartbeatPublicationLease): Promise<void>;
@@ -484,12 +503,10 @@ export interface ControllerCalls<S extends EngineSettings> {
 
   // settingsTransitions.ts
   normalizeStartupSettings(): Promise<S>;
-  withSettingsLock<T>(operation: () => Promise<T>): Promise<T>;
-  updateStoredSettings(
-    patchOrUpdate: SettingsPatch | ((current: S) => SettingsPatch),
-    afterPersist?: (settings: S) => void,
-    afterLoad?: (settings: S) => void,
-  ): Promise<S>;
+  commitSettings(
+    update: (current: S) => SettingsPatch,
+    options?: SettingsCommitOptions<S>,
+  ): Promise<PreparedSettingsCommit<S>>;
 
   // lifecycle.ts
   ensureAlarm(): Promise<void>;

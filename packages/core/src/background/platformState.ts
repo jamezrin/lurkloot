@@ -25,72 +25,62 @@ function newestTimestamp(
   return sourceTime > destinationTime ? source : destination;
 }
 
+// How each SchedulerState key is merged when one platform commits. The map is
+// exhaustive, so adding a key to SchedulerState fails to compile until it is
+// classified here:
+// - "platform": a record keyed by platform; the committing platform's entry
+//   replaces the stored one, and the other platform's entry is kept.
+// - "optionalPlatform": the same, except that an entry missing from the source
+//   deletes the stored one.
+// - "newestTimestamp": the newer of the two ISO timestamps wins.
+// - "global": not owned by either platform, so the stored value is kept. Its
+//   writers save it with a whole-state commit.
+export const SCHEDULER_STATE_MERGE = {
+  sessions: "platform",
+  authHealth: "platform",
+  campaigns: "platform",
+  criticalHealth: "optionalPlatform",
+  managedWatchTabs: "optionalPlatform",
+  managedPageContextTabs: "optionalPlatform",
+  manualWatch: "optionalPlatform",
+  manualWatchTabs: "optionalPlatform",
+  manualClosePause: "optionalPlatform",
+  gamification: "optionalPlatform",
+  campaignSearchBackoffs: "optionalPlatform",
+  deadlineInfeasibleRewardIds: "optionalPlatform",
+  lastTickAt: "newestTimestamp",
+  twitchExtensions: "global",
+  installedAt: "global",
+} as const satisfies Record<keyof SchedulerState, "platform" | "optionalPlatform" | "newestTimestamp" | "global">;
+
+export type SchedulerStateMergeKind = (typeof SCHEDULER_STATE_MERGE)[keyof SchedulerState];
+
+type KeysOfKind<K extends SchedulerStateMergeKind> = {
+  [Key in keyof SchedulerState]-?: (typeof SCHEDULER_STATE_MERGE)[Key] extends K ? Key : never;
+}[keyof SchedulerState];
+
+const MERGE_KEYS = Object.keys(SCHEDULER_STATE_MERGE) as (keyof SchedulerState)[];
+
 export function mergePlatformState(
   destination: SchedulerState,
   source: SchedulerState,
   platform: Platform,
 ): SchedulerState {
-  return {
-    ...destination,
-    sessions: {
-      ...destination.sessions,
-      [platform]: source.sessions[platform],
-    },
-    authHealth: {
-      ...destination.authHealth,
-      [platform]: source.authHealth[platform],
-    },
-    campaigns: {
-      ...destination.campaigns,
-      [platform]: source.campaigns[platform],
-    },
-    criticalHealth: mergeOptionalEntry(
-      destination.criticalHealth,
-      source.criticalHealth,
-      platform,
-    ),
-    managedWatchTabs: mergeOptionalEntry(
-      destination.managedWatchTabs,
-      source.managedWatchTabs,
-      platform,
-    ),
-    managedPageContextTabs: mergeOptionalEntry(
-      destination.managedPageContextTabs,
-      source.managedPageContextTabs,
-      platform,
-    ),
-    manualWatch: mergeOptionalEntry(
-      destination.manualWatch,
-      source.manualWatch,
-      platform,
-    ),
-    manualWatchTabs: mergeOptionalEntry(
-      destination.manualWatchTabs,
-      source.manualWatchTabs,
-      platform,
-    ),
-    manualClosePause: mergeOptionalEntry(
-      destination.manualClosePause,
-      source.manualClosePause,
-      platform,
-    ),
-    gamification: mergeOptionalEntry(
-      destination.gamification,
-      source.gamification,
-      platform,
-    ),
-    campaignSearchBackoffs: mergeOptionalEntry(
-      destination.campaignSearchBackoffs,
-      source.campaignSearchBackoffs,
-      platform,
-    ),
-    deadlineInfeasibleRewardIds: mergeOptionalEntry(
-      destination.deadlineInfeasibleRewardIds,
-      source.deadlineInfeasibleRewardIds,
-      platform,
-    ),
-    lastTickAt: newestTimestamp(destination.lastTickAt, source.lastTickAt),
-  };
+  const merged: Record<string, unknown> = { ...destination };
+  for (const key of MERGE_KEYS) {
+    const kind = SCHEDULER_STATE_MERGE[key];
+    if (kind === "platform") {
+      const field = key as KeysOfKind<"platform">;
+      merged[field] = { ...destination[field], [platform]: source[field][platform] };
+    } else if (kind === "optionalPlatform") {
+      const field = key as KeysOfKind<"optionalPlatform">;
+      merged[field] = mergeOptionalEntry<unknown>(destination[field], source[field], platform);
+    } else if (kind === "newestTimestamp") {
+      const field = key as KeysOfKind<"newestTimestamp">;
+      merged[field] = newestTimestamp(destination[field], source[field]);
+    }
+  }
+  return merged as unknown as SchedulerState;
 }
 
 // Structural comparison for the JSON-shaped scheduler state. Every field that

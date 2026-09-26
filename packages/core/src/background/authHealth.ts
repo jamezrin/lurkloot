@@ -24,15 +24,14 @@ export function createAuthHealth<S extends EngineSettings>(
     | "createAdapter"
     | "diagnosticEvent"
     | "invalidateSelection"
+    | "commitState"
     | "persistAndReport"
     | "reportBestEffort"
     | "reserveDiscoverySignalAuthRefresh"
     | "saveOperationalState"
-    | "saveOperationalStateDirect"
     | "stopDiscoverySignalController"
     | "stopTwitchChannelPointsPush"
     | "withEventCollector"
-    | "withStateCommit"
     | "withStateLock"
   >,
 ): Pick<ControllerCalls<S>,
@@ -46,15 +45,14 @@ export function createAuthHealth<S extends EngineSettings>(
     createAdapter,
     diagnosticEvent,
     invalidateSelection,
+    commitState,
     persistAndReport,
     reportBestEffort,
     reserveDiscoverySignalAuthRefresh,
     saveOperationalState,
-    saveOperationalStateDirect,
     stopDiscoverySignalController,
     stopTwitchChannelPointsPush,
     withEventCollector,
-    withStateCommit,
     withStateLock,
   } = lateBound(calls);
 
@@ -138,12 +136,11 @@ export function createAuthHealth<S extends EngineSettings>(
     return withStateLock(() => withEventCollector(async (emit, events) => {
       if (authSlice.authRefreshGeneration[platform] !== generation) return false;
       events.push(...probeEvents);
-      await withStateCommit(async () => {
-        const state = await deps.loadState();
+      await commitState([platform], undefined, (state) => {
         const transition = applyPlatformAuthHealth(state, platform, health);
         if (transition.event) emit(transition.event);
-        await saveOperationalStateDirect(transition.state);
-      });
+        return transition.state;
+      }, { writeEquivalent: true });
       if (health.status !== "healthy") {
         await stopDiscoverySignalController(platform, emit);
         if (platform === "twitch") await stopTwitchChannelPointsPush(emit);
