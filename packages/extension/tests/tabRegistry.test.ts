@@ -154,7 +154,7 @@ describe("tab registry isolation", () => {
 
   it("keeps no mutable state at module level in the tab modules", () => {
     const here = dirname(fileURLToPath(import.meta.url));
-    for (const file of ["../../core/src/core/tabRegistry.ts", "../src/core/browserTabs.ts"]) {
+    for (const file of ["../../core/src/core/tabRegistry.ts", "../src/core/browserTabs.ts", "../src/core/tabPorts.ts", "../src/core/tabs.ts"]) {
       const source = readFileSync(resolve(here, file), "utf8");
       const moduleState = source.split("\n").filter((line) =>
         /^let\s/.test(line) || /^const\s+\w+\s*(?::[^=]+)?=\s*new\s+(?:Map|Set|WeakMap|AbortController)\b/.test(line));

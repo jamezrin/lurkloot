@@ -404,6 +404,105 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
     });
   });
 
+  // The extension's real tab ports, run against a fake browser (#598). Every
+  // close the extension makes records why, so only the user's own close pauses
+  // the platform (#640), and a report from a tab the extension already closed
+  // is not the user watching (#641).
+  describe("browser tabs", () => {
+    const playing = { videoCount: 1, mutedVideoCount: 0, unmutedVideoCount: 1, playingVideoCount: 1, blockedPlaybackCount: 0, documentHidden: false };
+
+    async function watchInTab(host: ContractHost): Promise<number> {
+      await host.controller.tickAndHandOff(["twitch"], "alarm");
+      const tabId = host.storage.state.sessions.twitch.tabId;
+      expect(host.storage.state.sessions.twitch).toMatchObject({ status: "watching", watchMode: "tab", tabManagedByExtension: true });
+      expect(tabId !== undefined && host.browser?.has(tabId)).toBe(true);
+      return tabId!;
+    }
+
+    async function finishCampaign(host: ContractHost): Promise<void> {
+      vi.mocked(host.adapters.twitch.refreshCampaigns).mockResolvedValue([]);
+      await host.controller.tickAndHandOff(["twitch"], "alarm");
+      await host.settleTabEvents();
+    }
+
+    if (!capabilities.declared.browserTabs) {
+      it("has no tabs, so a tab event changes nothing", async () => {
+        const host = contractHost(capabilities, { settings: twitchOnly() });
+        await host.controller.tickAndHandOff(["twitch"], "alarm");
+        const before = structuredClone(host.storage.state);
+        await host.controller.handleTabRemoved(123);
+        await host.controller.settleBackgroundWork();
+        expect(host.storage.state).toEqual(before);
+        host.controller.shutdown();
+      });
+      return;
+    }
+
+    it("pauses the platform when the user closes its watch tab", async () => {
+      const host = contractHost(capabilities, { settings: twitchOnly({ tablessMode: false }) });
+      const tabId = await watchInTab(host);
+
+      host.browser!.userClose(tabId);
+      await host.settleTabEvents();
+
+      expect(host.storage.state.manualClosePause?.twitch).toBeDefined();
+      host.controller.shutdown();
+    });
+
+    it("closes its own watch tab without pausing when the campaign finishes", async () => {
+      const host = contractHost(capabilities, { settings: twitchOnly({ tablessMode: false, autoCloseFinishedDrops: true }) });
+      const tabId = await watchInTab(host);
+
+      await finishCampaign(host);
+
+      expect(host.browser!.has(tabId)).toBe(false);
+      expect(host.storage.state.manualClosePause?.twitch).toBeUndefined();
+      expect(host.storage.state.sessions.twitch.status).toBe("idle");
+      host.controller.shutdown();
+    });
+
+    it("leaves the watch tab open, unpinned and unmuted, when auto-close is off", async () => {
+      const host = contractHost(capabilities, { settings: twitchOnly({ tablessMode: false, autoCloseFinishedDrops: false }) });
+      const tabId = await watchInTab(host);
+
+      await finishCampaign(host);
+
+      expect(host.browser!.tabList.get(tabId)).toMatchObject({ pinned: false, mutedInfo: { muted: false } });
+      expect(host.storage.state.manualClosePause?.twitch).toBeUndefined();
+      host.controller.shutdown();
+    });
+
+    it("ignores late playback from a watch tab it closed", async () => {
+      const host = contractHost(capabilities, { settings: twitchOnly({ tablessMode: false, autoCloseFinishedDrops: true, pauseOnManualWatch: true }) });
+      const tabId = await watchInTab(host);
+      await finishCampaign(host);
+      expect(host.browser!.has(tabId)).toBe(false);
+
+      await host.controller.handleMessage(
+        { type: "playbackTelemetry", platform: "twitch", telemetry: playing },
+        { tab: { id: tabId, url: contractChannel("twitch").url } },
+      );
+      await host.controller.settleBackgroundWork();
+
+      expect(host.storage.state.manualWatch?.twitch?.active).not.toBe(true);
+      expect(host.storage.state.sessions.twitch.reasonCode).not.toBe("manual_watch");
+      host.controller.shutdown();
+    });
+
+    it("closes the watch tabs it left open when it restarts, without pausing", async () => {
+      const host = contractHost(capabilities, { settings: twitchOnly({ tablessMode: false }) });
+      const tabId = await watchInTab(host);
+
+      const restarted = host.restart();
+      await restarted.boot();
+      await restarted.settleTabEvents();
+
+      expect(restarted.browser!.has(tabId)).toBe(false);
+      expect(restarted.storage.state.manualClosePause?.twitch).toBeUndefined();
+      restarted.controller.shutdown();
+    });
+  });
+
   describe("runtime snapshot", () => {
     it("returns the stored settings and scheduler state as they are, which is all the popup reads", async () => {
       const host = contractHost(capabilities);
