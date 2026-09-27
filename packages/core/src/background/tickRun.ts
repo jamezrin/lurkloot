@@ -404,7 +404,7 @@ export function createTickRun<S extends EngineSettings>(
             ])) as Partial<Record<Platform, SelectionView>>,
             capabilities: Object.fromEntries(schedulerPlatforms.map((schedulerPlatform) => [
               schedulerPlatform,
-              tickCapabilities(adapters[schedulerPlatform]),
+              tickCapabilities(adapters[schedulerPlatform], ports.capabilities.browserTabs),
             ])),
           }, tickEffects, effectContext);
         } catch (error) {

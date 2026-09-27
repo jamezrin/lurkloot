@@ -32,6 +32,30 @@ const tickStarts = (host: ContractHost, platform: "twitch" | "kick") =>
   host.reported.filter((event) =>
     event.category === "diagnostic" && event.platform === platform && /Tick #\d+ started/.test(event.message)).length;
 
+class FailingWatcher implements TablessWatchController {
+  channelUrl: string | undefined;
+  ticks = 0;
+  constructor(readonly platform: "twitch" | "kick") {}
+  async start(channel: { url: string }): Promise<void> {
+    this.channelUrl = channel.url;
+  }
+  async tick() {
+    this.ticks += 1;
+    return { ok: false, live: true, message: "heartbeat rejected" };
+  }
+  drainEvents() {
+    return [];
+  }
+  async stop(): Promise<void> {
+    this.channelUrl = undefined;
+  }
+}
+
+const twitchOnly = (overrides: Partial<ReturnType<typeof farmingSettings>> = {}) => {
+  const settings = farmingSettings();
+  return { ...settings, ...overrides, platform: { ...settings.platform, kick: { ...settings.platform.kick, enabled: false } } };
+};
+
 class CountingWatcher implements TablessWatchController {
   channelUrl: string | undefined;
   started = 0;
@@ -315,10 +339,66 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
         expect(unsupported).toEqual([]);
       } else {
         expect(unsupported.map((event) => event.message)).toEqual([
-          "This host has no browser tabs, so it cannot open the watch tabs tablessMode=false asks for",
+          "This host has no browser tabs, so tablessMode=false has no effect: every watch is tabless",
           "This host has no browser tabs, so pauseOnManualWatch has no effect",
         ]);
         expect(unsupported.every((event) => event.platform === undefined)).toBe(true);
+      }
+      host.controller.shutdown();
+    });
+  });
+
+  // Tabless watching is derived from the missing browserTabs capability, not
+  // configured (#598): a host without tabs never asks for one.
+  describe("watch surface", () => {
+    it(capabilities.declared.browserTabs
+      ? "opens a watch tab when tablessMode is off"
+      : "watches tabless even when tablessMode is off", async () => {
+      const host = contractHost(capabilities, { settings: twitchOnly({ tablessMode: false }) });
+      const watcher = new CountingWatcher("twitch");
+      host.adapters.twitch.createTablessWatcher = () => watcher;
+      await host.controller.tickAndHandOff(["twitch"], "alarm");
+
+      if (capabilities.declared.browserTabs) {
+        expect(host.storage.state.sessions.twitch).toMatchObject({ status: "watching", watchMode: "tab" });
+        expect(host.deps.openWatchTab).toHaveBeenCalledOnce();
+        expect(watcher.started).toBe(0);
+      } else {
+        expect(host.storage.state.sessions.twitch).toMatchObject({ status: "watching", watchMode: "tabless" });
+        expect(watcher.started).toBe(1);
+      }
+      host.controller.shutdown();
+    });
+
+    it(capabilities.declared.browserTabs
+      ? "falls back to a watch tab when heartbeats keep failing"
+      : "stays tabless when heartbeats keep failing, with nothing to fall back to", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      const host = contractHost(capabilities, { settings: twitchOnly({ tablessFallbackFailureLimit: 1 }) });
+      const watcher = new FailingWatcher("twitch");
+      host.adapters.twitch.createTablessWatcher = () => watcher;
+      await host.controller.tickAndHandOff(["twitch"], "alarm");
+      expect(host.storage.state.sessions.twitch).toMatchObject({ watchMode: "tabless" });
+
+      vi.setSystemTime(Date.now() + 60_000);
+      await host.fire(WATCH_ALARM_NAME);
+      await host.controller.settleBackgroundWork();
+      expect(watcher.ticks).toBe(1);
+      const fallbackReported = host.reported.some((event) =>
+        event.category === "diagnostic" && event.message === "Tabless watch heartbeat keeps failing; falling back to a watch tab");
+
+      if (capabilities.declared.browserTabs) {
+        expect(fallbackReported).toBe(true);
+        expect(host.storage.state.sessions.twitch).toMatchObject({ watchMode: "tab" });
+        expect(host.deps.openWatchTab).toHaveBeenCalledOnce();
+      } else {
+        expect(fallbackReported).toBe(false);
+        expect(host.storage.state.sessions.twitch).toMatchObject({ watchMode: "tabless", heartbeatChecks: 1 });
+        // The next tick sees the failure count past the limit and still keeps
+        // the watch tabless instead of asking a host without tabs for one.
+        await host.controller.tickAndHandOff(["twitch"], "alarm");
+        expect(host.storage.state.sessions.twitch).toMatchObject({ status: "watching", watchMode: "tabless" });
+        expect(host.reported.filter((event) => event.category === "diagnostic" && event.level === "error")).toEqual([]);
       }
       host.controller.shutdown();
     });

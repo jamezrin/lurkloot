@@ -62,6 +62,9 @@ export interface SchedulerTickTestOptions {
   discovery?: Partial<Record<Platform, SchedulerTickDiscovery>>;
   selections?: Partial<Record<Platform, SnapshotSelectionResult>>;
   selectionIsCurrent?: Partial<Record<Platform, () => boolean>>;
+  // The host's browserTabs capability. On by default, like the extension; false
+  // runs the tick as the CLI does, with no watch-tab port at all.
+  browserTabs?: boolean;
 }
 
 // Platforms the tick will farm, so discovery is only asked where the tick would
@@ -90,6 +93,7 @@ export async function runSchedulerTick(
   options: SchedulerTickTestOptions = {},
 ): Promise<SchedulerTickResult> {
   const platforms = options.platforms ?? ["twitch", "kick"];
+  const browserTabs = options.browserTabs ?? true;
   const discovery: Partial<Record<Platform, SchedulerTickDiscovery>> = { ...options.discovery };
   for (const platform of platforms) {
     if (discovery[platform]) continue;
@@ -111,7 +115,7 @@ export async function runSchedulerTick(
     platforms,
     discovery,
     selectionViews: adapters,
-    capabilities: Object.fromEntries(platforms.map((platform) => [platform, tickCapabilities(adapters[platform])])),
+    capabilities: Object.fromEntries(platforms.map((platform) => [platform, tickCapabilities(adapters[platform], browserTabs)])),
     supplementalSources: options.selectSupplementalWatchTarget !== undefined,
     waitingClaimRewardIds: options.waitingClaimRewardIds,
     emit: options.emit,
@@ -122,7 +126,7 @@ export async function runSchedulerTick(
   }, createTickEffectExecutor(), {
     adapters,
     tabRegistry: options.tabRegistry ?? createTabRegistry(),
-    watchTabs: watchTabsFromMocks(adapters),
+    ...(browserTabs ? { watchTabs: watchTabsFromMocks(adapters) } : {}),
     stopPageContextTabs: options.stopPageContextTabs,
     selectSupplementalTarget: options.selectSupplementalWatchTarget,
   });
