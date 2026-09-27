@@ -47,6 +47,8 @@ export interface TabRegistry {
   retainedPageContextTabs: Map<Platform, ManagedPageContextTab>;
   // Tabs the engine is closing or has closed, and why (#598). Recorded before
   // the browser call, so the removal event that follows it finds the entry.
+  // Kept after that event: a result the closed tab sent before it went away
+  // can still arrive, and must be recognized as coming from a released tab.
   tabClosures: Map<number, Exclude<TabClosureOrigin, "user">>;
   retainedPageContextRevision: number;
   // Mirrors SchedulerState.criticalHealth[platform].breakerOpen. The page-context
@@ -463,8 +465,8 @@ export function recordManagedPageContextFallback(
   diagnostic(emit, "debug", `Retained managed page context on ${new URL(context.origin).host} because background access is still rejected`, platform);
 }
 
-// Enough for every tab one cycle can close; an entry whose removal event never
-// arrives (the host was restarting) must not linger for a reused tab id.
+// Enough to remember recent closes while their late results drain. Browsers do
+// not reuse tab ids within a session, so an old entry cannot misname a new tab.
 const MAX_TAB_CLOSURES = 64;
 
 // Records that the engine is about to close `tabId`. Call it before the browser
@@ -489,15 +491,15 @@ export function forgetTabClosure(registry: TabRegistry, tabId: number): void {
   registry.tabClosures.delete(tabId);
 }
 
-export function isTabClosing(registry: TabRegistry, tabId: number): boolean {
+// Whether the engine closed (or is closing) this tab. Anything such a tab
+// reports is a late result from a tab the engine no longer holds.
+export function isReleasedTab(registry: TabRegistry, tabId: number): boolean {
   return registry.tabClosures.has(tabId);
 }
 
 // Why a removed tab was closed: the engine's recorded reason, or the user.
-export function takeTabClosureOrigin(registry: TabRegistry, tabId: number): TabClosureOrigin {
-  const origin = registry.tabClosures.get(tabId);
-  registry.tabClosures.delete(tabId);
-  return origin ?? "user";
+export function tabClosureOrigin(registry: TabRegistry, tabId: number): TabClosureOrigin {
+  return registry.tabClosures.get(tabId) ?? "user";
 }
 
 // What one scheduler cycle's page-context evidence means for the retained

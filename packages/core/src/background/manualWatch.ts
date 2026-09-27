@@ -7,7 +7,7 @@ import { kickChannelFromUrl } from "../platforms/kick/channelUrl";
 import { twitchChannelFromUrl } from "../platforms/twitch/channelUrl";
 import { PLATFORMS } from "./constants";
 import { lateBound, type ControllerSlices } from "./context";
-import { takeTabClosureOrigin } from "../core/tabRegistry";
+import { isReleasedTab, tabClosureOrigin } from "../core/tabRegistry";
 import { emitHostCallbackError } from "./helpers";
 import type { BackgroundHostPorts } from "./hostPorts";
 import type { ControllerCalls } from "./types";
@@ -54,7 +54,7 @@ export function createManualWatch<S extends EngineSettings>(
     const changed: Platform[] = [];
     // Taken before the lock: the engine records why it closes a tab before it
     // asks the browser to, so this is already known when the event arrives.
-    const origin = takeTabClosureOrigin(tabRegistry, tabId);
+    const origin = tabClosureOrigin(tabRegistry, tabId);
     await withStateLock(() => withEventCollector(async (emit, events) => {
       const state = await ports.storage.loadState();
       let nextState = state;
@@ -135,6 +135,9 @@ export function createManualWatch<S extends EngineSettings>(
     senderTabId?: number,
     senderTabUrl?: string,
   ): Promise<void> {
+    // A report still in flight from a tab the engine closed is a late result:
+    // it is neither the managed tab's playback nor the user watching (#598).
+    if (senderTabId != null && isReleasedTab(tabRegistry, senderTabId)) return;
     let manualWatchChanged = false;
     await withStateLock(() => withEventCollector(async (emit, events) => {
       const [settings, state] = await Promise.all([ports.storage.loadSettings(), ports.storage.loadState()]);
