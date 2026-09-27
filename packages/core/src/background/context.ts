@@ -2,7 +2,7 @@ import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/
 import type { EngineEvent } from "@lurkloot/shared/events";
 import type { TwitchIntegrity } from "../core/twitchIntegrity";
 import type { TablessWatchController } from "../core/tablessWatch";
-import type { TabRegistry } from "../core/tabs";
+import { createTabRegistry, type TabRegistry } from "../core/tabs";
 import type { DiscoverySignalController } from "../core/discoverySignals";
 import type { TwitchChannelPointsPushController } from "../platforms/twitch/channelPointsPush";
 import { DiscoverySnapshotLane } from "../core/discoverySnapshot";
@@ -329,6 +329,12 @@ export function createLifecycleSlice(): LifecycleSlice {
   return {
     controllerShutdown: false,
   };
+}
+
+// One tab registry per controller (#598). A host with tabs passes the one its
+// tab mechanics use; a host without them gets an empty one of its own.
+export function createTabRegistrySlice(hostRegistry: TabRegistry | undefined): TabRegistry {
+  return hostRegistry ?? createTabRegistry();
 }
 
 export interface ControllerSlices<S extends EngineSettings> {

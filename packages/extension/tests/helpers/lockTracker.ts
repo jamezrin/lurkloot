@@ -130,10 +130,10 @@ export function createTestLockTracker(): TestLockTracker {
 // LOCKED_IO_CALLS, as the controller sees them).
 const ADAPTER_PORTS = new Set([
   "claimReward", "claimChannelPoints", "claimChallenges", "refreshCampaigns", "checkAuthHealth",
-  "searchCategories", "prepareWatchTab", "stopWatchTab",
+  "searchCategories",
 ]);
 const DEPS_PORTS = new Set([
-  "closeManagedTabs", "stopPageContextTabs", "applyAdFocus", "reconcilePageContextRecovery",
+  "openWatchTab", "stopWatchTab", "closeManagedTabs", "stopPageContextTabs", "applyAdFocus", "reconcilePageContextRecovery",
   "discardPageContextRecoveryEvidence", "createAlarm", "clearAlarm", "getAlarm", "ensureTwitchIntegrity",
   "selectSupplementalWatchTarget", "checkCredentialAvailability", "wait",
   // Not cancelTwitchIntegrityAcquisition: it aborts synchronously and waits on

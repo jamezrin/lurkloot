@@ -133,7 +133,7 @@ describe("background controller", () => {
 
     await env.controller.ensureAlarm();
 
-    expect(env.twitch.prepareWatchTab).toHaveBeenCalled();
+    expect(env.watchTabs.twitch.open).toHaveBeenCalled();
     expect(env.twitch.checkAuthHealth).toHaveBeenCalledOnce();
     expect(env.kick.checkAuthHealth).toHaveBeenCalledOnce();
   });
@@ -184,7 +184,7 @@ describe("background controller", () => {
     expect(env.deps.closeManagedTabs).toHaveBeenCalledWith([
       expect.objectContaining({ tabId: 44, channelUrl: "https://www.twitch.tv/twitch-creator", ownedByExtension: true }),
     ]);
-    expect(env.twitch.prepareWatchTab).toHaveBeenCalled();
+    expect(env.watchTabs.twitch.open).toHaveBeenCalled();
     expect(env.twitch.checkAuthHealth).toHaveBeenCalledOnce();
     expect(env.kick.checkAuthHealth).toHaveBeenCalledOnce();
     expect(env.state.sessions.twitch.status).toBe("watching");
@@ -224,7 +224,7 @@ describe("background controller", () => {
       expect.objectContaining({ tabId: 44, channelUrl: "https://www.twitch.tv/twitch-creator", ownedByExtension: true }),
     ]);
     expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
-    expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
+    expect(env.watchTabs.twitch.open).not.toHaveBeenCalled();
     expect(env.state.managedWatchTabs).toEqual({});
     expect(env.state.sessions.twitch).toMatchObject({
       status: "paused",
@@ -259,7 +259,7 @@ describe("background controller", () => {
     expect(env.deps.closeManagedTabs).toHaveBeenCalledWith([
       expect.objectContaining({ tabId: 55, channelUrl: "https://kick.com/kick-creator", ownedByExtension: true }),
     ]);
-    expect(env.kick.prepareWatchTab).not.toHaveBeenCalled();
+    expect(env.watchTabs.kick.open).not.toHaveBeenCalled();
     expect(env.state.sessions.kick.status).toBe("paused");
     expect(env.state.sessions.kick.tabId).toBeUndefined();
   });
@@ -352,7 +352,7 @@ describe("background controller", () => {
     expect(env.settings.platform.twitch.enabled).toBe(true);
     expect(env.deps.createAlarm).toHaveBeenCalledWith(TWITCH_ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
     expect(env.deps.createAlarm).toHaveBeenCalledWith(KICK_ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
-    expect(env.twitch.prepareWatchTab).toHaveBeenCalled();
+    expect(env.watchTabs.twitch.open).toHaveBeenCalled();
     // The snapshot returns ahead of the tick, reporting the prompt "starting"
     // transition; the watching status lands once the tick settles.
     expect(snapshot.state.sessions.twitch.status).toBe("starting");
@@ -376,11 +376,11 @@ describe("background controller", () => {
     await env.controller.handleMessage({ type: "setAutomation", platform: "kick", enabled: false });
 
     expect(isFarmingActive(env.settings)).toBe(false);
-    expect(env.twitch.stopWatchTab).toHaveBeenCalledWith(
+    expect(env.watchTabs.twitch.stop).toHaveBeenCalledWith(
       expect.objectContaining({ tabId: 10 }),
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
-    expect(env.kick.stopWatchTab).toHaveBeenCalledWith(
+    expect(env.watchTabs.kick.stop).toHaveBeenCalledWith(
       expect.objectContaining({ tabId: 20 }),
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
@@ -406,11 +406,11 @@ describe("background controller", () => {
 
     await env.controller.prepareForHostReset();
 
-    expect(env.twitch.stopWatchTab).toHaveBeenCalledWith(
+    expect(env.watchTabs.twitch.stop).toHaveBeenCalledWith(
       expect.objectContaining({ tabId: 10 }),
       expect.objectContaining({ closeManagedTabs: true }),
     );
-    expect(env.kick.stopWatchTab).toHaveBeenCalledWith(
+    expect(env.watchTabs.kick.stop).toHaveBeenCalledWith(
       expect.objectContaining({ tabId: 20 }),
       expect.objectContaining({ closeManagedTabs: true }),
     );

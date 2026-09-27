@@ -13,7 +13,6 @@ import { loadCatalog } from "@lurkloot/locales";
 import type { ExtensionSettings, Platform, SupportedLocale } from "@lurkloot/shared/models";
 import { withActivityDiagnostics } from "@lurkloot/core/activityDiagnostics";
 import type { EventEmitter, EngineEvent } from "@lurkloot/shared/events";
-import type { WatchTabPort } from "@lurkloot/core/adapter";
 import type { WebSocketFactory, WebSocketLike } from "@lurkloot/core/webSocket";
 import { createKickFetcher, KickAdapter, KickClaimState, KickDiscoveryState, KickPageContextRecoveryTracker } from "@lurkloot/core/kick";
 import { TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
@@ -93,28 +92,10 @@ async function translate(key: string, substitutions?: string | string[]): Promis
 
 function createExtensionAdapter(platform: Platform, emit: EventEmitter, settings: ExtensionSettings) {
   const resolution = resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" });
-  // The watch-tab port is operation-scoped so every browser diagnostic joins
-  // the same controller event batch as the adapter and scheduler events.
-  const watchTabPort: WatchTabPort = {
-    openPinnedMutedTab: async (channel, session, options) => {
-      const settings = await loadSettings();
-      return openPinnedMutedTab(channel, session, {
-        muted: settings.muteFarmingTabs,
-        keepVideosUnmuted: settings.keepFarmingVideosUnmuted,
-        closeManagedTabs: settings.autoCloseFinishedDrops,
-        ...options,
-      }, emit);
-    },
-    stopWatchTab: async (session, options) => {
-      const settings = await loadSettings();
-      return stopWatchTab(session, { closeManagedTabs: settings.autoCloseFinishedDrops, ...options }, emit);
-    },
-  };
   const adapter = platform === "twitch"
     ? new TwitchAdapter(
       { fetchJson: (url, init) => fetchTwitchInBackground(url, init) },
       (request) => ensureTwitchIntegrity(emit, request),
-      watchTabPort,
       {
         compatibility: resolution.compatibility.twitch,
         discoveryState: twitchDiscoveryState,
@@ -145,7 +126,6 @@ function createExtensionAdapter(platform: Platform, emit: EventEmitter, settings
           recordManagedPageContextFallback(host, operationEmit);
         },
       }),
-      watchTabPort,
       createBrowserWebSocket,
       { compatibility: resolution.compatibility.kick, claimState: kickClaimState, discoveryState: kickDiscoveryState },
       emit,
@@ -187,22 +167,40 @@ const controller = createBackgroundController<ExtensionSettings>({
     },
   },
   tabs: {
-    closeManagedTabs: async (tabs) => {
-      await Promise.all(tabs.map(async ({ tabId, channelUrl }) => {
-        try {
-          const tab = await browser.tabs.get(tabId);
-          if (tab.id === tabId && tab.url === channelUrl) await browser.tabs.remove(tabId);
-        } catch {
-          // The recorded tab may already be closed or its id may be stale.
-        }
-      }));
+    // The host's tab settings apply on top of the options the engine passes.
+    watch: {
+      open: async (channel, session, options, emit) => {
+        const settings = await loadSettings();
+        return openPinnedMutedTab(channel, session, {
+          muted: settings.muteFarmingTabs,
+          keepVideosUnmuted: settings.keepFarmingVideosUnmuted,
+          closeManagedTabs: settings.autoCloseFinishedDrops,
+          ...options,
+        }, emit);
+      },
+      stop: async (session, options, emit) => {
+        const settings = await loadSettings();
+        return stopWatchTab(session, { closeManagedTabs: settings.autoCloseFinishedDrops, ...options }, emit);
+      },
+      closeManaged: async (tabs) => {
+        await Promise.all(tabs.map(async ({ tabId, channelUrl }) => {
+          try {
+            const tab = await browser.tabs.get(tabId);
+            if (tab.id === tabId && tab.url === channelUrl) await browser.tabs.remove(tabId);
+          } catch {
+            // The recorded tab may already be closed or its id may be stale.
+          }
+        }));
+      },
+      applyAdFocus: async (platform, tabId, adActive, emit) => {
+        const { adFocusMode } = await loadSettings();
+        await applyAdFocus(platform, tabId, adActive, adFocusMode, emit);
+      },
+      loadPlaybackPolicy: async () => ({ keepVideosUnmuted: (await loadSettings()).keepFarmingVideosUnmuted !== false }),
     },
-    stopPageContextTabs: (contexts, options) => stopManagedPageContextTabs(contexts, options),
-    applyAdFocus: async (platform, tabId, adActive, emit) => {
-      const { adFocusMode } = await loadSettings();
-      await applyAdFocus(platform, tabId, adActive, adFocusMode, emit);
+    pageContexts: {
+      release: (contexts, options) => stopManagedPageContextTabs(contexts, options),
     },
-    loadPlaybackPolicy: async () => ({ keepVideosUnmuted: (await loadSettings()).keepFarmingVideosUnmuted !== false }),
   },
   twitch: {
     integrity: {

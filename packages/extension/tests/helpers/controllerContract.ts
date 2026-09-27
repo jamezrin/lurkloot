@@ -113,7 +113,7 @@ class ContractWatcher implements TablessWatchController {
   }
 }
 
-function contractAdapter(platform: Platform, capabilities: CapabilitySet): PlatformAdapter {
+function contractAdapter(platform: Platform): PlatformAdapter {
   return {
     platform,
     supportsTabless: true,
@@ -123,12 +123,6 @@ function contractAdapter(platform: Platform, capabilities: CapabilitySet): Platf
     listCandidateChannels: vi.fn(async () => [contractChannel(platform)]),
     checkChannel: vi.fn(async (candidate: ChannelCandidate) => ({ live: true, categoryMatches: true, candidate })),
     claimReward: vi.fn(async () => true),
-    // The CLI injects a watch-tab port that throws on open.
-    prepareWatchTab: vi.fn(async () => {
-      if (!capabilities.declared.browserTabs) throw new Error("This host has no browser tabs");
-      return { tabId: platform === "twitch" ? 10 : 20, managedByExtension: true };
-    }),
-    stopWatchTab: vi.fn(async () => undefined),
   };
 }
 
@@ -192,8 +186,8 @@ export function contractHost(capabilities: CapabilitySet, options: ContractHostO
     state: options.state ?? idleState(),
   };
   const adapters: Record<Platform, PlatformAdapter> = {
-    twitch: contractAdapter("twitch", capabilities),
-    kick: contractAdapter("kick", capabilities),
+    twitch: contractAdapter("twitch"),
+    kick: contractAdapter("kick"),
   };
   const savedStates: SchedulerState[] = [];
   const reported: EngineEvent[] = [];
@@ -229,6 +223,9 @@ export function contractHost(capabilities: CapabilitySet, options: ContractHostO
     ...(capabilities.declared.browserTabs
       ? {
         tabRegistry,
+        openWatchTab: vi.fn(async (channel: ChannelCandidate) =>
+          ({ tabId: channel.platform === "twitch" ? 10 : 20, managedByExtension: true })),
+        stopWatchTab: vi.fn(async () => undefined),
         closeManagedTabs: vi.fn(async () => undefined),
         applyAdFocus: vi.fn(async () => undefined),
         loadTabPlaybackPolicy: vi.fn(async () => ({ keepVideosUnmuted: false })),

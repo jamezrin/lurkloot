@@ -99,14 +99,13 @@ describe("twitch campaign details reuse (#339)", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     try {
       vi.setSystemTime("2026-08-31T12:00:00.000Z");
-      const first = await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns();
+      const first = await twitchAdapter(fetcher, undefined, { discoveryState }).refreshCampaigns();
       expect(requested).toEqual(["a", "b", "c"]);
       expect(fetcher.fetchJson).toHaveBeenCalledTimes(3);
 
       vi.setSystemTime("2026-08-31T12:01:00.000Z");
       const second = await twitchAdapter(
         fetcher,
-        undefined,
         undefined,
         { discoveryState },
         (event) => events.push(event),
@@ -133,12 +132,12 @@ describe("twitch campaign details reuse (#339)", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     try {
       vi.setSystemTime("2026-08-31T12:00:00.000Z");
-      await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns();
+      await twitchAdapter(fetcher, undefined, { discoveryState }).refreshCampaigns();
       requested.length = 0;
 
       listed = [{ id: "a" }, { id: "b" }, { id: "new" }];
       vi.setSystemTime("2026-08-31T12:01:00.000Z");
-      const campaigns = await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns();
+      const campaigns = await twitchAdapter(fetcher, undefined, { discoveryState }).refreshCampaigns();
 
       expect(requested).toEqual(["new"]);
       // Reuse must not reorder the snapshot: it stays in dashboard order.
@@ -159,11 +158,11 @@ describe("twitch campaign details reuse (#339)", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     try {
       vi.setSystemTime("2026-08-31T12:00:00.000Z");
-      await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns(session);
+      await twitchAdapter(fetcher, undefined, { discoveryState }).refreshCampaigns(session);
       requested.length = 0;
 
       vi.setSystemTime("2026-08-31T12:01:00.000Z");
-      await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns(session);
+      await twitchAdapter(fetcher, undefined, { discoveryState }).refreshCampaigns(session);
 
       expect(requested).toEqual(["farmed"]);
     } finally {
@@ -179,12 +178,12 @@ describe("twitch campaign details reuse (#339)", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     try {
       vi.setSystemTime("2026-08-31T12:00:00.000Z");
-      await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns();
+      await twitchAdapter(fetcher, undefined, { discoveryState }).refreshCampaigns();
       requested.length = 0;
 
       listed = [{ id: "a" }, { id: "starting", status: "ACTIVE" }];
       vi.setSystemTime("2026-08-31T12:01:00.000Z");
-      await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns();
+      await twitchAdapter(fetcher, undefined, { discoveryState }).refreshCampaigns();
 
       expect(requested).toEqual(["starting"]);
     } finally {
@@ -196,7 +195,7 @@ describe("twitch campaign details reuse (#339)", () => {
     const listed = [{ id: "a" }, { id: "claimed" }];
     const { fetcher, requested } = detailRecordingFetcher(() => listed);
     const discoveryState = new TwitchDiscoveryState();
-    const adapter = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
+    const adapter = twitchAdapter(fetcher, undefined, { discoveryState });
 
     vi.useFakeTimers({ toFake: ["Date"] });
     try {
@@ -209,7 +208,7 @@ describe("twitch campaign details reuse (#339)", () => {
       expect(await adapter.claimReward(campaign, reward)).toBe(true);
 
       vi.setSystemTime("2026-08-31T12:01:00.000Z");
-      await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns();
+      await twitchAdapter(fetcher, undefined, { discoveryState }).refreshCampaigns();
 
       expect(requested).toEqual(["claimed"]);
     } finally {
@@ -225,13 +224,13 @@ describe("twitch campaign details reuse (#339)", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     try {
       vi.setSystemTime("2026-08-31T12:00:00.000Z");
-      await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns();
+      await twitchAdapter(fetcher, undefined, { discoveryState }).refreshCampaigns();
       requested.length = 0;
 
       // Past the base freshness but inside the spread: some campaigns are due,
       // most are not. A single shared deadline would refetch all 40 here.
       vi.setSystemTime("2026-08-31T12:04:00.000Z");
-      await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns();
+      await twitchAdapter(fetcher, undefined, { discoveryState }).refreshCampaigns();
 
       expect(requested.length).toBeGreaterThan(0);
       expect(requested.length).toBeLessThan(listed.length);
@@ -247,11 +246,11 @@ describe("twitch campaign details reuse (#339)", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     try {
       vi.setSystemTime("2026-08-31T12:00:00.000Z");
-      await twitchAdapter(fetcher, undefined, undefined, { discoveryState: new TwitchDiscoveryState() }).refreshCampaigns();
+      await twitchAdapter(fetcher, undefined, { discoveryState: new TwitchDiscoveryState() }).refreshCampaigns();
       requested.length = 0;
 
       vi.setSystemTime("2026-08-31T12:01:00.000Z");
-      await twitchAdapter(fetcher, undefined, undefined, { discoveryState: new TwitchDiscoveryState() }).refreshCampaigns();
+      await twitchAdapter(fetcher, undefined, { discoveryState: new TwitchDiscoveryState() }).refreshCampaigns();
 
       expect(requested).toEqual(["a", "b"]);
     } finally {
@@ -319,13 +318,12 @@ describe("twitch campaign details reuse (#339)", () => {
     };
     const discoveryState = new TwitchDiscoveryState();
 
-    const oldRefresh = twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns();
+    const oldRefresh = twitchAdapter(fetcher, undefined, { discoveryState }).refreshCampaigns();
     await oldDetailsStarted.promise;
 
     activeUser = { id: "user-b-id", login: "user-b" };
     const currentRefresh = await twitchAdapter(
       fetcher,
-      undefined,
       undefined,
       { discoveryState },
     ).refreshCampaigns();
@@ -343,7 +341,6 @@ describe("twitch campaign details reuse (#339)", () => {
 
     const nextCurrentRefresh = await twitchAdapter(
       fetcher,
-      undefined,
       undefined,
       { discoveryState },
     ).refreshCampaigns();
@@ -485,7 +482,7 @@ describe("Twitch linking state across cached detail refreshes", () => {
       state,
       discoveryState,
       // Reconstruct the adapter every refresh, as the extension does.
-      refresh: () => twitchAdapter(fetcher, undefined, undefined, { discoveryState }, (event) => events.push(event)).refreshCampaigns(),
+      refresh: () => twitchAdapter(fetcher, undefined, { discoveryState }, (event) => events.push(event)).refreshCampaigns(),
       reports: () => events.flatMap((event) => event.category === "diagnostic"
         && event.message.startsWith("Twitch account linking reconciliation: ")
         ? [JSON.parse(event.message.slice("Twitch account linking reconciliation: ".length))]

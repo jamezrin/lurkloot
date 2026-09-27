@@ -104,7 +104,7 @@ function discoverer(refreshes: Array<DashboardEntry[] | Error>) {
     });
     return Array.isArray(body) ? responses : responses[0];
   });
-  const adapter = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
+  const adapter = twitchAdapter(fetcher, undefined, { discoveryState });
   return {
     async next() {
       refresh += 1;

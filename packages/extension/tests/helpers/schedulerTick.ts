@@ -1,6 +1,7 @@
-import type { EngineSettings, Platform, SchedulerState, SupplementalWatchTarget, WatchSession, WatchSourceId } from "@lurkloot/shared/models";
+import type { ChannelCandidate, EngineSettings, Platform, SchedulerState, SupplementalWatchTarget, WatchSession, WatchSourceId } from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
-import type { PlatformAdapter } from "@lurkloot/core/adapter";
+import type { PlatformAdapter, PreparedWatchTab, WatchTabOptions } from "@lurkloot/core/adapter";
+import type { WatchTabPort } from "@lurkloot/core/controller";
 import type {
   SchedulerTickDiscovery,
   SchedulerTickResult,
@@ -20,6 +21,33 @@ import { createTabRegistry, type TabRegistry } from "@lurkloot/core/tabs";
 // shape. It discovers the way the controller's discovery lane does, lets the
 // mock adapter answer channel checks, and runs the effects through the same
 // interim handlers the controller registers.
+// Watch tabs are the host's (#598), not the adapter's, but these tests predate
+// that and keep a fake adapter's watch-tab mocks next to its provider mocks. The
+// harness turns them into the WatchTabPort the tick calls.
+export interface WatchTabMocks {
+  prepareWatchTab?(channel: ChannelCandidate, session?: WatchSession, options?: Partial<WatchTabOptions>): Promise<PreparedWatchTab>;
+  stopWatchTab?(session: WatchSession, options?: Partial<WatchTabOptions>): Promise<void>;
+}
+
+export type SchedulerTestAdapter = PlatformAdapter & WatchTabMocks;
+export type SchedulerMockAdapter = PlatformAdapter & Required<WatchTabMocks>;
+
+function watchTabsFromMocks(adapters: Record<Platform, SchedulerTestAdapter>): WatchTabPort {
+  return {
+    open: async (channel, session, options) => {
+      const prepareWatchTab = adapters[channel.platform].prepareWatchTab;
+      if (!prepareWatchTab) throw new Error(`No ${channel.platform} watch-tab mock`);
+      return await prepareWatchTab(channel, session, options);
+    },
+    stop: async (session, options) => {
+      await adapters[session.platform].stopWatchTab?.(session, options);
+    },
+    closeManaged: async () => undefined,
+    applyAdFocus: async () => undefined,
+    loadPlaybackPolicy: async () => ({ keepVideosUnmuted: true }),
+  };
+}
+
 export interface SchedulerTickTestOptions {
   selectSupplementalWatchTarget?(platform: Platform, state: SchedulerState, signal?: AbortSignal, source?: WatchSourceId): Promise<SupplementalWatchTarget | undefined>;
   platforms?: Platform[];
@@ -58,7 +86,7 @@ function inBackoff(session: WatchSession): boolean {
 export async function runSchedulerTick(
   state: SchedulerState,
   settings: EngineSettings,
-  adapters: Record<Platform, PlatformAdapter>,
+  adapters: Record<Platform, SchedulerTestAdapter>,
   options: SchedulerTickTestOptions = {},
 ): Promise<SchedulerTickResult> {
   const platforms = options.platforms ?? ["twitch", "kick"];
@@ -94,6 +122,7 @@ export async function runSchedulerTick(
   }, createTickEffectExecutor(), {
     adapters,
     tabRegistry: options.tabRegistry ?? createTabRegistry(),
+    watchTabs: watchTabsFromMocks(adapters),
     stopPageContextTabs: options.stopPageContextTabs,
     selectSupplementalTarget: options.selectSupplementalWatchTarget,
   });

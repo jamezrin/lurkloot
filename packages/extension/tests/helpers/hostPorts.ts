@@ -4,18 +4,20 @@ import type {
   HostCapabilities,
   LockTracker,
 } from "@lurkloot/core/controller";
-import type { PlatformAdapter } from "@lurkloot/core/adapter";
+import type { PlatformAdapter, PreparedWatchTab, WatchTabOptions } from "@lurkloot/core/adapter";
 import type { StopPageContextTabs } from "@lurkloot/core/scheduler";
 import type { TabRegistry, TwitchIntegrityRequest } from "@lurkloot/core/tabs";
 import type { TwitchIntegrity } from "@lurkloot/core/twitchIntegrity";
 import type { CompatibilityResolution, ResolvedCompatibility } from "@lurkloot/shared/compatibility";
 import type { EngineEvent, EventEmitter } from "@lurkloot/shared/events";
 import type {
+  ChannelCandidate,
   EngineSettings,
   ManagedWatchTab,
   Platform,
   SchedulerState,
   SupplementalWatchTarget,
+  WatchSession,
   WatchSourceId,
 } from "@lurkloot/shared/models";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
@@ -48,6 +50,13 @@ export interface HostMocks<S extends EngineSettings> {
     compatibility: ResolvedCompatibility;
     warnings: CompatibilityResolution["warnings"];
   };
+  openWatchTab?(
+    channel: ChannelCandidate,
+    session: WatchSession | undefined,
+    options: Partial<WatchTabOptions>,
+    emit: EventEmitter,
+  ): Promise<PreparedWatchTab>;
+  stopWatchTab?(session: WatchSession, options: Partial<WatchTabOptions>, emit: EventEmitter): Promise<void>;
   closeManagedTabs?(tabs: ManagedWatchTab[]): Promise<void>;
   stopPageContextTabs?: StopPageContextTabs;
   applyAdFocus?(platform: Platform, tabId: number | undefined, adActive: boolean, emit: EventEmitter): Promise<void>;
@@ -131,14 +140,25 @@ export function hostPortsFromMocks<S extends EngineSettings>(
     ...(capabilities.browserTabs
       ? {
         tabs: {
-          closeManagedTabs: async (tabs: ManagedWatchTab[]) => {
-            await m.closeManagedTabs?.(tabs);
+          watch: {
+            open: async (channel: ChannelCandidate, session: WatchSession | undefined, options: Partial<WatchTabOptions>, emit: EventEmitter) => {
+              if (!m.openWatchTab) throw new Error("No openWatchTab mock");
+              return await m.openWatchTab(channel, session, options, emit);
+            },
+            stop: async (session: WatchSession, options: Partial<WatchTabOptions>, emit: EventEmitter) => {
+              await m.stopWatchTab?.(session, options, emit);
+            },
+            closeManaged: async (tabs: ManagedWatchTab[]) => {
+              await m.closeManagedTabs?.(tabs);
+            },
+            applyAdFocus: async (platform: Platform, tabId: number | undefined, adActive: boolean, emit: EventEmitter) => {
+              await m.applyAdFocus?.(platform, tabId, adActive, emit);
+            },
+            loadPlaybackPolicy: async () => (await m.loadTabPlaybackPolicy?.()) ?? { keepVideosUnmuted: true },
           },
-          stopPageContextTabs: ((contexts, options) => m.stopPageContextTabs!(contexts, options)) as StopPageContextTabs,
-          applyAdFocus: async (platform: Platform, tabId: number | undefined, adActive: boolean, emit: EventEmitter) => {
-            await m.applyAdFocus?.(platform, tabId, adActive, emit);
+          pageContexts: {
+            release: ((contexts, options) => m.stopPageContextTabs!(contexts, options)) as StopPageContextTabs,
           },
-          loadPlaybackPolicy: async () => (await m.loadTabPlaybackPolicy?.()) ?? { keepVideosUnmuted: true },
         },
       }
       : {}),

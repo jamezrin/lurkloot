@@ -12,6 +12,7 @@ import {
   createLifecycleSlice,
   createReportingSlice,
   createSettingsSlice,
+  createTabRegistrySlice,
   createTickAdmissionSlice,
   createTwitchIntegritySlice,
 } from "./context";
@@ -30,7 +31,6 @@ import { createTickAdmission } from "./tickAdmission";
 import { createTickRun } from "./tickRun";
 import { createTwitchIntegrity } from "./twitchIntegrity";
 import { assertHostCapabilities, type BackgroundHostPorts } from "./hostPorts";
-import { createTabRegistry } from "../core/tabs";
 import { capabilityScopedJobs, runBackgroundJob } from "./jobs";
 import type { ControllerCalls } from "./types";
 
@@ -74,11 +74,13 @@ export type {
   HostCapabilities,
   KickHostPorts,
   KickPageContextRecoveryPort,
+  PageContextPort,
   StoragePort,
   SupplementalSourcesPort,
   TestingPorts,
   TwitchHostPorts,
   TwitchIntegrityPort,
+  WatchTabPort,
 } from "./hostPorts";
 export { BACKGROUND_JOBS, jobIsInert, MIN_JOB_PERIOD_MINUTES, runBackgroundJob } from "./jobs";
 export type { BackgroundJob, JobRunner, JobSchedule, JobSchedulerPort, ScheduledJob } from "./jobs";
@@ -96,9 +98,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   const { capabilities } = hostPorts;
   // Jobs a host cannot run are never scheduled (jobs.ts).
   const ports: BackgroundHostPorts<S> = { ...hostPorts, jobs: capabilityScopedJobs(hostPorts.jobs, capabilities) };
-  // One tab registry per controller (#598). A host with tabs passes the one its
-  // tab mechanics use; a host without them gets an empty one of its own.
-  const tabRegistry = hostPorts.tabRegistry ?? createTabRegistry();
+  const tabRegistry = createTabRegistrySlice(hostPorts.tabRegistry);
   // Owns the locks, commits and after-commit hooks (#585).
   const transaction = createStateTransaction({ ...ports.storage, lockTracker: ports.testing?.lockTracker, tabRegistry });
   const reportingSlice = createReportingSlice();

@@ -3,7 +3,7 @@ import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, Kic
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { NO_CATEGORY_ID } from "@lurkloot/shared/categories";
 import { chooseCampaignDecision, selectWatchTargetFromSnapshot, sortCampaigns, type StopPageContextTabs } from "@lurkloot/core/scheduler";
-import { runSchedulerTick } from "./helpers/schedulerTick";
+import { runSchedulerTick, type SchedulerMockAdapter } from "./helpers/schedulerTick";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import { createTabRegistry, forgetManagedPageContextTabs, managedTabBreakerOpen, syncManagedTabBreakers, type TabRegistry } from "@lurkloot/core/tabs";
 import { SafeFetchError } from "@lurkloot/core/fetchError";
@@ -51,7 +51,7 @@ function settings(patch: SettingsPatch = {}): ExtensionSettings {
   };
 }
 
-function adapter(platform: Platform, campaigns: DropCampaign[], candidates: ChannelCandidate[]): PlatformAdapter {
+function adapter(platform: Platform, campaigns: DropCampaign[], candidates: ChannelCandidate[]): SchedulerMockAdapter {
   return {
     platform,
     checkAuthHealth: vi.fn(async () => ({ status: "checking" as const })),
@@ -4398,7 +4398,7 @@ describe("scheduler tick", () => {
 });
 
 describe("scheduler tabless mode", () => {
-  function tablessAdapter(campaigns: DropCampaign[], candidates: ChannelCandidate[]): PlatformAdapter {
+  function tablessAdapter(campaigns: DropCampaign[], candidates: ChannelCandidate[]): SchedulerMockAdapter {
     return { ...adapter("twitch", campaigns, candidates), supportsTabless: true };
   }
 

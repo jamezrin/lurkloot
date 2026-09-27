@@ -148,7 +148,7 @@ describe("KickAdapter", () => {
         };
       }
       throw new Error("progress unavailable");
-    }), undefined, undefined, (event) => events.push(event));
+    }), undefined, (event) => events.push(event));
 
     const campaigns = await adapter.refreshCampaigns();
 
@@ -188,7 +188,7 @@ describe("KickAdapter", () => {
       return new Promise((_, reject) => {
         init?.signal?.addEventListener("abort", () => reject(init.signal?.reason), { once: true });
       });
-    }), undefined, undefined, (event) => events.push(event));
+    }), undefined, (event) => events.push(event));
 
     const refresh = adapter.refreshCampaigns(undefined, { signal: abort.signal });
     const reason = new Error("cancelled");
@@ -208,7 +208,7 @@ describe("KickAdapter", () => {
     const fetchJson = vi.fn(async () => ({ id: 42 }));
     const fetcher = { fetchJson: fetchJson as PageFetcher["fetchJson"] };
 
-    await kickAdapter(fetcher, undefined, undefined, emit).checkAuthHealth(abort.signal);
+    await kickAdapter(fetcher, undefined, emit).checkAuthHealth(abort.signal);
 
     expect(fetchJson).toHaveBeenCalledWith(
       "https://kick.com/api/v1/user",
@@ -287,7 +287,7 @@ describe("KickAdapter", () => {
       host: "extension",
       twitchIdentity: "web",
     }).compatibility.kick;
-    const adapter = kickAdapter(fetcher, undefined, undefined, undefined, { compatibility });
+    const adapter = kickAdapter(fetcher, undefined, undefined, { compatibility });
     const campaign = { id: "campaign" } as DropCampaign;
     const reward = { id: "reward", status: "claimable", requiredMinutes: 1, watchedMinutes: 1 } as DropReward;
 
@@ -312,7 +312,7 @@ describe("KickAdapter", () => {
       ...DEFAULT_SETTINGS.compatibility,
       kick: { ...DEFAULT_SETTINGS.compatibility.kick, claimLinkHandling: "kick-claim-v1" },
     }, { host: "extension", twitchIdentity: "web" }).compatibility.kick;
-    const adapter = kickAdapter(fetcher, undefined, undefined, undefined, { compatibility });
+    const adapter = kickAdapter(fetcher, undefined, undefined, { compatibility });
     const campaign = { id: "campaign", accountLinked: true } as DropCampaign;
     const reward = { id: "reward", status: "claimable", requiredMinutes: 1, watchedMinutes: 1 } as DropReward;
 
@@ -332,8 +332,8 @@ describe("KickAdapter", () => {
     });
     const first: EngineEvent[] = [];
     const second: EngineEvent[] = [];
-    const firstAdapter = kickAdapter(failingFetcher, undefined, undefined, (event) => first.push(event));
-    const secondAdapter = kickAdapter(failingFetcher, undefined, undefined, (event) => second.push(event));
+    const firstAdapter = kickAdapter(failingFetcher, undefined, (event) => first.push(event));
+    const secondAdapter = kickAdapter(failingFetcher, undefined, (event) => second.push(event));
 
     await firstAdapter.refreshCampaigns();
     await secondAdapter.refreshCampaigns();
@@ -416,7 +416,7 @@ describe("KickAdapter", () => {
     const emit = vi.fn();
     const adapter = kickAdapter(jsonFetcher(() => {
       throw new SafeFetchError({ kind: "authentication_rejected", status: 401 });
-    }), undefined, undefined, emit);
+    }), undefined, emit);
 
     await expect(adapter.listFollowedChannels()).resolves.toEqual([]);
     expect(emit).toHaveBeenCalledWith(expect.objectContaining({
@@ -436,8 +436,8 @@ describe("KickAdapter", () => {
       return [{ channel: { slug: "friend" } }];
     });
     const discoveryState = new KickDiscoveryState();
-    const firstTick = kickAdapter(fetcher, undefined, undefined, undefined, { discoveryState });
-    const secondTick = kickAdapter(fetcher, undefined, undefined, undefined, { discoveryState });
+    const firstTick = kickAdapter(fetcher, undefined, undefined, { discoveryState });
+    const secondTick = kickAdapter(fetcher, undefined, undefined, { discoveryState });
 
     await expect(firstTick.listFollowedChannels()).resolves.toEqual(["friend"]);
     await expect(secondTick.listFollowedChannels()).resolves.toEqual(["friend"]);
@@ -460,13 +460,13 @@ describe("KickAdapter", () => {
         });
       });
       const discoveryState = new KickDiscoveryState();
-      const firstTick = kickAdapter(fetcher, undefined, undefined, undefined, { discoveryState });
+      const firstTick = kickAdapter(fetcher, undefined, undefined, { discoveryState });
 
       await expect(firstTick.listFollowedChannels()).resolves.toEqual(["stale-friend"]);
       expect(calls).toBe(1);
 
       vi.advanceTimersByTime(6 * 60_000); // past the 5-minute cache TTL
-      const secondTick = kickAdapter(fetcher, undefined, undefined, undefined, { discoveryState });
+      const secondTick = kickAdapter(fetcher, undefined, undefined, { discoveryState });
 
       // Resolves with the stale value without waiting on the (still-pending)
       // background refresh.
@@ -474,7 +474,7 @@ describe("KickAdapter", () => {
       expect(calls).toBe(2);
 
       resolveSecondFetch?.();
-      await vi.waitFor(() => expect(kickAdapter(fetcher, undefined, undefined, undefined, { discoveryState }).listFollowedChannels())
+      await vi.waitFor(() => expect(kickAdapter(fetcher, undefined, undefined, { discoveryState }).listFollowedChannels())
         .resolves.toEqual(["fresh-friend"]));
     } finally {
       vi.useRealTimers();
@@ -682,7 +682,7 @@ describe("KickAdapter", () => {
       if (url === "https://web.kick.com/api/v1/drops/progress") return progress;
       throw new Error(`Unexpected URL ${url}`);
     });
-    const adapter = kickAdapter(fetcher, undefined, undefined, (event) => events.push(event));
+    const adapter = kickAdapter(fetcher, undefined, (event) => events.push(event));
     const campaign = {
       id: "campaign",
       platform: "kick",
@@ -775,17 +775,17 @@ describe("KickAdapter", () => {
     const reward = { id: "reward", name: "Reward", status: "claimable", requiredMinutes: 1, watchedMinutes: 1 } as DropReward;
 
     const state = new KickClaimState();
-    await kickAdapter(fetcher, undefined, undefined, undefined, { claimState: state }).claimReward(campaign, reward);
-    await kickAdapter(fetcher, undefined, undefined, undefined, { claimState: state }).claimReward(campaign, reward);
+    await kickAdapter(fetcher, undefined, undefined, { claimState: state }).claimReward(campaign, reward);
+    await kickAdapter(fetcher, undefined, undefined, { claimState: state }).claimReward(campaign, reward);
 
     expect(claimPosts).toBe(1);
 
     state.clear();
-    await kickAdapter(fetcher, undefined, undefined, undefined, { claimState: state }).claimReward(campaign, reward);
+    await kickAdapter(fetcher, undefined, undefined, { claimState: state }).claimReward(campaign, reward);
 
     expect(claimPosts).toBe(2);
 
-    await kickAdapter(fetcher, undefined, undefined, undefined, { claimState: new KickClaimState() }).claimReward(campaign, reward);
+    await kickAdapter(fetcher, undefined, undefined, { claimState: new KickClaimState() }).claimReward(campaign, reward);
 
     expect(claimPosts).toBe(3);
   });
@@ -1390,7 +1390,6 @@ describe("TwitchAdapter", () => {
       jsonFetcher(() => ({ errors: [{ message: "Cannot query field followedLiveUsers" }] })),
       undefined,
       undefined,
-      undefined,
       emit,
     );
 
@@ -1418,8 +1417,8 @@ describe("TwitchAdapter", () => {
       return { data: { currentUser: { followedLiveUsers: { edges: [{ node: { login: "friend" } }] } } } };
     });
     const discoveryState = new TwitchDiscoveryState();
-    const firstTick = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
-    const secondTick = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
+    const firstTick = twitchAdapter(fetcher, undefined, { discoveryState });
+    const secondTick = twitchAdapter(fetcher, undefined, { discoveryState });
 
     await expect(firstTick.listFollowedChannels()).resolves.toEqual(["friend"]);
     await expect(secondTick.listFollowedChannels()).resolves.toEqual(["friend"]);
@@ -1440,11 +1439,11 @@ describe("TwitchAdapter", () => {
     });
     const discoveryState = new TwitchDiscoveryState();
     discoveryState.setAuthenticatedUser("user-1");
-    const firstTick = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
+    const firstTick = twitchAdapter(fetcher, undefined, { discoveryState });
     await expect(firstTick.listFollowedChannels()).resolves.toEqual(["first-account-friend"]);
 
     discoveryState.setAuthenticatedUser("user-2");
-    const secondTick = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
+    const secondTick = twitchAdapter(fetcher, undefined, { discoveryState });
 
     await expect(secondTick.listFollowedChannels()).resolves.toEqual(["second-account-friend"]);
     expect(calls).toBe(2);
@@ -1458,12 +1457,12 @@ describe("TwitchAdapter", () => {
     });
     const discoveryState = new TwitchDiscoveryState();
     discoveryState.setAuthenticatedUser("user-1");
-    const firstTick = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
+    const firstTick = twitchAdapter(fetcher, undefined, { discoveryState });
     await expect(firstTick.listFollowedChannels()).resolves.toEqual(["friend"]);
 
     // Discovery re-reports the same id every tick; that must not cost a refetch.
     discoveryState.setAuthenticatedUser("user-1");
-    const secondTick = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
+    const secondTick = twitchAdapter(fetcher, undefined, { discoveryState });
 
     await expect(secondTick.listFollowedChannels()).resolves.toEqual(["friend"]);
     expect(calls).toBe(1);
@@ -1486,13 +1485,13 @@ describe("TwitchAdapter", () => {
         });
       });
       const discoveryState = new TwitchDiscoveryState();
-      const firstTick = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
+      const firstTick = twitchAdapter(fetcher, undefined, { discoveryState });
 
       await expect(firstTick.listFollowedChannels()).resolves.toEqual(["stale-friend"]);
       expect(calls).toBe(1);
 
       vi.advanceTimersByTime(6 * 60_000); // past the 5-minute cache TTL
-      const secondTick = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
+      const secondTick = twitchAdapter(fetcher, undefined, { discoveryState });
 
       // Resolves with the stale value without waiting on the (still-pending)
       // background refresh.
@@ -1500,7 +1499,7 @@ describe("TwitchAdapter", () => {
       expect(calls).toBe(2);
 
       resolveSecondFetch?.();
-      await vi.waitFor(() => expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState }).listFollowedChannels())
+      await vi.waitFor(() => expect(twitchAdapter(fetcher, undefined, { discoveryState }).listFollowedChannels())
         .resolves.toEqual(["fresh-friend"]));
     } finally {
       vi.useRealTimers();
@@ -1513,7 +1512,7 @@ describe("TwitchAdapter", () => {
     const fetchJson = vi.fn(async () => ({ data: { currentUser: { id: "u" } } }));
     const fetcher = { fetchJson: fetchJson as PageFetcher["fetchJson"] };
 
-    await twitchAdapter(fetcher, undefined, undefined, undefined, emit).checkAuthHealth(abort.signal);
+    await twitchAdapter(fetcher, undefined, undefined, emit).checkAuthHealth(abort.signal);
 
     expect(fetchJson).toHaveBeenCalledWith(
       "https://gql.twitch.tv/gql",
@@ -1775,7 +1774,6 @@ describe("TwitchAdapter", () => {
       fetcher,
       undefined,
       undefined,
-      undefined,
       emit,
     ).refreshCampaigns();
 
@@ -1865,7 +1863,7 @@ describe("TwitchAdapter", () => {
     });
     const events: EngineEvent[] = [];
     const discoveryState = new TwitchDiscoveryState();
-    const firstAdapter = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
+    const firstAdapter = twitchAdapter(fetcher, undefined, { discoveryState });
 
     vi.useFakeTimers({ toFake: ["Date"] });
     try {
@@ -1875,7 +1873,7 @@ describe("TwitchAdapter", () => {
       // Past the detail reuse window, so "b" is actually re-requested and can
       // fail; retention is what has to carry it, not the reuse cache.
       vi.setSystemTime("2026-08-31T12:10:00.000Z");
-      const secondAdapter = twitchAdapter(fetcher, undefined, undefined, { discoveryState }, (event) => events.push(event));
+      const secondAdapter = twitchAdapter(fetcher, undefined, { discoveryState }, (event) => events.push(event));
       const campaigns = await secondAdapter.refreshCampaigns();
 
       expect(campaigns.map((campaign) => campaign.id)).toEqual(["a", "b"]);
@@ -1898,7 +1896,7 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected op ${op}`);
     });
     const events: EngineEvent[] = [];
-    const adapter = twitchAdapter(fetcher, undefined, undefined, undefined, (event) => events.push(event));
+    const adapter = twitchAdapter(fetcher, undefined, undefined, (event) => events.push(event));
 
     const campaigns = await adapter.refreshCampaigns();
 
@@ -1936,18 +1934,18 @@ describe("TwitchAdapter", () => {
     });
     const events: EngineEvent[] = [];
     const discoveryState = new TwitchDiscoveryState();
-    const firstAdapter = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
+    const firstAdapter = twitchAdapter(fetcher, undefined, { discoveryState });
 
     expect((await firstAdapter.refreshCampaigns()).map((campaign) => campaign.id)).toEqual(["a"]);
     dashboardFails = true;
-    const secondAdapter = twitchAdapter(fetcher, undefined, undefined, { discoveryState }, (event) => events.push(event));
+    const secondAdapter = twitchAdapter(fetcher, undefined, { discoveryState }, (event) => events.push(event));
     const campaigns = await secondAdapter.refreshCampaigns();
 
     expect(campaigns.map((campaign) => campaign.id)).toEqual(["a"]);
     expect(events.some((event) => event.category === "diagnostic" && event.level === "warn" && event.message.includes("dashboard"))).toBe(true);
 
     dashboardFails = false;
-    expect((await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns()).map((campaign) => campaign.id)).toEqual(["a"]);
+    expect((await twitchAdapter(fetcher, undefined, { discoveryState }).refreshCampaigns()).map((campaign) => campaign.id)).toEqual(["a"]);
   });
 
   it("does not retain dashboard campaigns when the dashboard genuinely returns none", async () => {
@@ -1966,17 +1964,17 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected op ${op}`);
     });
     const discoveryState = new TwitchDiscoveryState();
-    const firstAdapter = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
+    const firstAdapter = twitchAdapter(fetcher, undefined, { discoveryState });
 
     expect((await firstAdapter.refreshCampaigns()).map((campaign) => campaign.id)).toEqual(["campaign"]);
     dashboardIds = [];
-    const secondAdapter = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
+    const secondAdapter = twitchAdapter(fetcher, undefined, { discoveryState });
     const campaigns = await secondAdapter.refreshCampaigns();
 
     expect(campaigns).toEqual([]);
 
     dashboardFails = true;
-    const thirdAdapter = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
+    const thirdAdapter = twitchAdapter(fetcher, undefined, { discoveryState });
     const failedCampaigns = await thirdAdapter.refreshCampaigns();
 
     expect(failedCampaigns).toEqual([]);
@@ -2001,11 +1999,11 @@ describe("TwitchAdapter", () => {
     });
     const discoveryState = new TwitchDiscoveryState();
 
-    expect((await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns())
+    expect((await twitchAdapter(fetcher, undefined, { discoveryState }).refreshCampaigns())
       .map((campaign) => campaign.id)).toEqual(["retained"]);
     refresh = 2;
 
-    const campaigns = await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns();
+    const campaigns = await twitchAdapter(fetcher, undefined, { discoveryState }).refreshCampaigns();
 
     expect(campaigns).toEqual([]);
   });
@@ -2034,17 +2032,17 @@ describe("TwitchAdapter", () => {
     });
     const discoveryState = new TwitchDiscoveryState();
 
-    expect((await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns())
+    expect((await twitchAdapter(fetcher, undefined, { discoveryState }).refreshCampaigns())
       .map((campaign) => campaign.id)).toEqual(["retained"]);
     refresh = 2;
     fallbackInventoryFails = true;
 
-    await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns())
+    await expect(twitchAdapter(fetcher, undefined, { discoveryState }).refreshCampaigns())
       .resolves.toEqual([]);
 
     fallbackInventoryFails = false;
     dashboardFails = true;
-    await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns())
+    await expect(twitchAdapter(fetcher, undefined, { discoveryState }).refreshCampaigns())
       .resolves.toEqual([]);
   });
 
@@ -2083,12 +2081,12 @@ describe("TwitchAdapter", () => {
     });
     const discoveryState = new TwitchDiscoveryState();
 
-    expect((await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns())
+    expect((await twitchAdapter(fetcher, undefined, { discoveryState }).refreshCampaigns())
       .map((campaign) => campaign.id)).toEqual(["user-a-campaign"]);
     userId = "user-b";
     dashboardFails = true;
 
-    const campaigns = await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns();
+    const campaigns = await twitchAdapter(fetcher, undefined, { discoveryState }).refreshCampaigns();
 
     expect(campaigns).toEqual([]);
   });
@@ -2108,12 +2106,12 @@ describe("TwitchAdapter", () => {
     });
     const discoveryState = new TwitchDiscoveryState();
 
-    expect((await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns())
+    expect((await twitchAdapter(fetcher, undefined, { discoveryState }).refreshCampaigns())
       .map((campaign) => campaign.id)).toEqual(["shared-campaign-id"]);
     userId = "user-b";
     detailsFail = true;
 
-    const campaigns = await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns();
+    const campaigns = await twitchAdapter(fetcher, undefined, { discoveryState }).refreshCampaigns();
 
     expect(campaigns).toEqual([]);
   });
@@ -2160,19 +2158,19 @@ describe("TwitchAdapter", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     try {
       vi.setSystemTime("2026-08-31T12:00:00.000Z");
-      expect((await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns())
+      expect((await twitchAdapter(fetcher, undefined, { discoveryState }).refreshCampaigns())
         .map((campaign) => campaign.id)).toEqual(["campaign"]);
       detailResponse = "missing";
       // Each later refresh is stepped past the detail reuse window so it issues
       // a real request: reuse must not stand in for the authoritative "no such
       // campaign" answer this test is about.
       vi.setSystemTime("2026-08-31T12:10:00.000Z");
-      await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns())
+      await expect(twitchAdapter(fetcher, undefined, { discoveryState }).refreshCampaigns())
         .resolves.toEqual([]);
       detailResponse = "failure";
 
       vi.setSystemTime("2026-08-31T12:20:00.000Z");
-      await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns())
+      await expect(twitchAdapter(fetcher, undefined, { discoveryState }).refreshCampaigns())
         .resolves.toEqual([]);
     } finally {
       vi.useRealTimers();
@@ -2690,7 +2688,7 @@ describe("TwitchAdapter", () => {
 
     // Explicit v1 override: the recommended/automatic profile resolves to
     // inventory v2, but this test exercises v1's hash/fallback/parser pairing.
-    const campaigns = await twitchAdapter(fetcher, undefined, undefined, {
+    const campaigns = await twitchAdapter(fetcher, undefined, {
       compatibility: { ...TWITCH_COMPAT, inventory: "twitch-inventory-v1" },
     }).refreshCampaigns();
 
@@ -2733,7 +2731,6 @@ describe("TwitchAdapter", () => {
 
     const adapter = twitchAdapter(
       fetcher,
-      undefined,
       undefined,
       { compatibility },
       (event) => events.push(event),
@@ -3016,10 +3013,10 @@ describe("TwitchAdapter", () => {
     const candidate = { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" } as const;
     const campaign = { id: "campaign", categoryId: "game" } as DropCampaign;
 
-    const firstTick = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
+    const firstTick = twitchAdapter(fetcher, undefined, { discoveryState });
     await expect(firstTick.checkChannel(candidate, { campaign })).resolves.toMatchObject({ campaignMatches: true });
 
-    const secondTick = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
+    const secondTick = twitchAdapter(fetcher, undefined, { discoveryState });
     await expect(secondTick.checkChannel(candidate, { campaign })).resolves.toMatchObject({ campaignMatches: true });
 
     expect(availabilityCalls).toBe(1);
@@ -3059,7 +3056,7 @@ describe("TwitchAdapter", () => {
         throw new Error(`Unexpected op ${op}`);
       });
       const discoveryState = new TwitchDiscoveryState();
-      const adapter = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
+      const adapter = twitchAdapter(fetcher, undefined, { discoveryState });
       const mixedCandidate = { platform: "twitch", username: "mixed", url: "https://www.twitch.tv/mixed" } as const;
       const positiveCandidate = { platform: "twitch", username: "positive", url: "https://www.twitch.tv/positive" } as const;
       const emptyCandidate = { platform: "twitch", username: "empty", url: "https://www.twitch.tv/empty" } as const;
@@ -3168,11 +3165,11 @@ describe("TwitchAdapter", () => {
       const candidate = { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" } as const;
       const campaign = { id: "campaign-a", categoryId: "game" } as DropCampaign;
 
-      await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState })
+      await expect(twitchAdapter(fetcher, undefined, { discoveryState })
         .checkChannel(candidate, { campaign })).resolves.toMatchObject({ campaignMatches: false });
       expect(availabilityCalls).toBe(1);
 
-      const progress = await twitchAdapter(fetcher, undefined, undefined, { discoveryState })
+      const progress = await twitchAdapter(fetcher, undefined, { discoveryState })
         .refreshCampaigns({
           platform: "twitch",
           status: "watching",
@@ -3181,12 +3178,12 @@ describe("TwitchAdapter", () => {
         });
       expect(progress[0]?.rewards[0]?.watchedMinutes).toBe(11);
 
-      await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState })
+      await expect(twitchAdapter(fetcher, undefined, { discoveryState })
         .checkChannel(candidate, { campaign })).resolves.toMatchObject({ campaignMatches: true });
       expect(availabilityCalls).toBe(1);
 
       vi.advanceTimersByTime(5 * 60_000 + 1);
-      await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState })
+      await expect(twitchAdapter(fetcher, undefined, { discoveryState })
         .checkChannel(candidate, { campaign })).resolves.toMatchObject({ campaignMatches: false });
       expect(availabilityCalls).toBe(2);
     } finally {
@@ -3219,10 +3216,10 @@ describe("TwitchAdapter", () => {
     const candidate = { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" } as const;
     const campaign = { id: "campaign", categoryId: "game" } as DropCampaign;
 
-    await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState })
+    await expect(twitchAdapter(fetcher, undefined, { discoveryState })
       .checkChannel(candidate, { campaign })).resolves.toMatchObject({ campaignMatches: false });
     broadcastId = "broadcast-b";
-    await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState })
+    await expect(twitchAdapter(fetcher, undefined, { discoveryState })
       .checkChannel(candidate, { campaign })).resolves.toMatchObject({ campaignMatches: true });
 
     expect(availabilityCalls).toBe(2);
@@ -3248,11 +3245,11 @@ describe("TwitchAdapter", () => {
     const campaign = { id: "campaign", categoryId: "game" } as DropCampaign;
 
     discoveryState.setAuthenticatedUser("user-1");
-    const firstTick = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
+    const firstTick = twitchAdapter(fetcher, undefined, { discoveryState });
     await expect(firstTick.checkChannel(candidate, { campaign })).resolves.toMatchObject({ campaignMatches: true });
 
     discoveryState.setAuthenticatedUser("user-2");
-    const secondTick = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
+    const secondTick = twitchAdapter(fetcher, undefined, { discoveryState });
     await expect(secondTick.checkChannel(candidate, { campaign })).resolves.toMatchObject({ campaignMatches: true });
 
     expect(availabilityCalls).toBe(2);
@@ -3272,12 +3269,12 @@ describe("TwitchAdapter", () => {
       return twitchDashboard(["campaign"], userId);
     });
 
-    await twitchAdapter(fetcherFor("user-1"), undefined, undefined, { discoveryState }, emit).refreshCampaigns();
+    await twitchAdapter(fetcherFor("user-1"), undefined, { discoveryState }, emit).refreshCampaigns();
     expect(events.some((event) =>
       event.category === "diagnostic" && event.message.includes("identity changed"))).toBe(false);
 
     events.length = 0;
-    await twitchAdapter(fetcherFor("user-2"), undefined, undefined, { discoveryState }, emit).refreshCampaigns();
+    await twitchAdapter(fetcherFor("user-2"), undefined, { discoveryState }, emit).refreshCampaigns();
     expect(events).toContainEqual(expect.objectContaining({
       category: "diagnostic",
       message: "Twitch authenticated identity changed; discovery caches cleared",
@@ -3479,7 +3476,7 @@ describe("TwitchAdapter", () => {
       const campaign = { id: "campaign", name: "Campaign", categoryId: "game" } as DropCampaign;
 
       // First selection: a genuine miss, establishes the cache entry.
-      await twitchAdapter(fetcher, undefined, undefined, { discoveryState }, emit)
+      await twitchAdapter(fetcher, undefined, { discoveryState }, emit)
         .selectCandidateChannel?.([candidate], campaign);
       expect(events).toContainEqual(expect.objectContaining({
         category: "diagnostic",
@@ -3490,7 +3487,7 @@ describe("TwitchAdapter", () => {
       // Second selection, ~60s later (a fresh adapter, as a real tick would
       // be): the entry is still within TTL, so it must report as a hit.
       vi.advanceTimersByTime(60_001);
-      await twitchAdapter(fetcher, undefined, undefined, { discoveryState }, emit)
+      await twitchAdapter(fetcher, undefined, { discoveryState }, emit)
         .selectCandidateChannel?.([candidate], campaign);
       expect(events).toContainEqual(expect.objectContaining({
         category: "diagnostic",
@@ -3500,7 +3497,7 @@ describe("TwitchAdapter", () => {
 
       // Third selection, past the TTL: an expiration, not a fresh miss.
       vi.advanceTimersByTime(60_000);
-      await twitchAdapter(fetcher, undefined, undefined, { discoveryState }, emit)
+      await twitchAdapter(fetcher, undefined, { discoveryState }, emit)
         .selectCandidateChannel?.([candidate], campaign);
       expect(events).toContainEqual(expect.objectContaining({
         category: "diagnostic",
@@ -3531,7 +3528,7 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected op ${op}`);
     });
 
-    await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState }).checkChannel(
+    await expect(twitchAdapter(fetcher, undefined, { discoveryState }).checkChannel(
       { platform: "twitch", username: "channel-a", url: "https://www.twitch.tv/channel-a" },
       { campaign: { id: "campaign-a", categoryId: "game" } as DropCampaign },
     )).resolves.toMatchObject({ campaignMatches: true });
@@ -3585,7 +3582,7 @@ describe("TwitchAdapter", () => {
       },
     ];
 
-    const selection = await twitchAdapter(fetcher, undefined, undefined, { discoveryState }, (event) => {
+    const selection = await twitchAdapter(fetcher, undefined, { discoveryState }, (event) => {
       events.push(event);
     }).selectCandidateChannel?.(candidates, { id: "campaign-a", name: "Campaign", categoryId: "game" } as DropCampaign);
 
@@ -3626,11 +3623,11 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected op ${op}`);
     });
 
-    await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState }).checkChannel(
+    await expect(twitchAdapter(fetcher, undefined, { discoveryState }).checkChannel(
       { platform: "twitch", username: "channel-a", url: "https://www.twitch.tv/channel-a" },
       { campaign: { id: "campaign-b", categoryId: "game" } as DropCampaign },
     )).resolves.toMatchObject({ campaignMatches: false });
-    await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState }).checkChannel(
+    await expect(twitchAdapter(fetcher, undefined, { discoveryState }).checkChannel(
       { platform: "twitch", username: "channel-b", url: "https://www.twitch.tv/channel-b" },
       { campaign: { id: "campaign-a", categoryId: "game" } as DropCampaign },
     )).resolves.toMatchObject({ campaignMatches: false });
@@ -3687,7 +3684,7 @@ describe("TwitchAdapter", () => {
       });
     });
 
-    const selection = await twitchAdapter(fetcher, undefined, undefined, { discoveryState }, (event) => {
+    const selection = await twitchAdapter(fetcher, undefined, { discoveryState }, (event) => {
       events.push(event);
     }).selectCandidateChannel?.(
       candidates,
@@ -3723,10 +3720,10 @@ describe("TwitchAdapter", () => {
     const candidate = { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" } as const;
     const campaign = { id: "campaign", categoryId: "game" } as DropCampaign;
 
-    const firstTick = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
+    const firstTick = twitchAdapter(fetcher, undefined, { discoveryState });
     await expect(firstTick.checkChannel(candidate, { campaign })).resolves.toMatchObject({ campaignMatches: undefined });
 
-    const secondTick = twitchAdapter(fetcher, undefined, undefined, { discoveryState });
+    const secondTick = twitchAdapter(fetcher, undefined, { discoveryState });
     await expect(secondTick.checkChannel(candidate, { campaign })).resolves.toMatchObject({ campaignMatches: true });
 
     expect(availabilityCalls).toBe(2);
@@ -3749,8 +3746,8 @@ describe("TwitchAdapter", () => {
     const candidate = { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" } as const;
     const campaign = { id: "campaign", categoryId: "game" } as DropCampaign;
 
-    await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).checkChannel(candidate, { campaign });
-    await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).checkChannel(candidate, { campaign });
+    await twitchAdapter(fetcher, undefined, { discoveryState }).checkChannel(candidate, { campaign });
+    await twitchAdapter(fetcher, undefined, { discoveryState }).checkChannel(candidate, { campaign });
 
     expect(availabilityCalls).toBe(1);
   });
@@ -3773,9 +3770,9 @@ describe("TwitchAdapter", () => {
     const candidate = { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" } as const;
     const campaign = { id: "campaign", categoryId: "game" } as DropCampaign;
 
-    await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState }).checkChannel(candidate, { campaign }))
+    await expect(twitchAdapter(fetcher, undefined, { discoveryState }).checkChannel(candidate, { campaign }))
       .resolves.toMatchObject({ campaignMatches: undefined });
-    await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).checkChannel(candidate, { campaign });
+    await twitchAdapter(fetcher, undefined, { discoveryState }).checkChannel(candidate, { campaign });
 
     expect(availabilityCalls).toBe(2);
     expect(discoveryState.cachedChannelAvailability("channel-id", "broadcast-id", "campaign")).toEqual({ status: "miss" });
@@ -3798,9 +3795,9 @@ describe("TwitchAdapter", () => {
     const candidate = { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" } as const;
     const campaign = { id: "campaign", categoryId: "game" } as DropCampaign;
 
-    await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState }).checkChannel(candidate, { campaign }))
+    await expect(twitchAdapter(fetcher, undefined, { discoveryState }).checkChannel(candidate, { campaign }))
       .resolves.toMatchObject({ campaignMatches: undefined });
-    await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).checkChannel(candidate, { campaign });
+    await twitchAdapter(fetcher, undefined, { discoveryState }).checkChannel(candidate, { campaign });
 
     expect(availabilityCalls).toBe(2);
   });
@@ -3822,9 +3819,9 @@ describe("TwitchAdapter", () => {
     const candidate = { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" } as const;
     const campaign = { id: "campaign", categoryId: "game" } as DropCampaign;
 
-    await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState }).checkChannel(candidate, { campaign }))
+    await expect(twitchAdapter(fetcher, undefined, { discoveryState }).checkChannel(candidate, { campaign }))
       .resolves.toMatchObject({ campaignMatches: undefined });
-    await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).checkChannel(candidate, { campaign });
+    await twitchAdapter(fetcher, undefined, { discoveryState }).checkChannel(candidate, { campaign });
 
     expect(availabilityCalls).toBe(2);
   });
@@ -3890,7 +3887,7 @@ describe("TwitchAdapter", () => {
     const discoveryState = new TwitchDiscoveryState();
     const campaign = { id: "campaign", categoryId: "game" } as DropCampaign;
 
-    const selection = await twitchAdapter(fetcher, undefined, undefined, { discoveryState })
+    const selection = await twitchAdapter(fetcher, undefined, { discoveryState })
       .selectCandidateChannel?.(candidates, campaign);
 
     // channel-a's mismatched id is ambiguous, not a rejection: ambiguous falls
@@ -3999,7 +3996,7 @@ describe("TwitchAdapter", () => {
     const discoveryState = new TwitchDiscoveryState();
     const campaign = { id: "campaign", categoryId: "game" } as DropCampaign;
 
-    await twitchAdapter(fetcher, undefined, undefined, { discoveryState })
+    await twitchAdapter(fetcher, undefined, { discoveryState })
       .selectCandidateChannel?.(candidates, campaign);
 
     // The errors envelope forced a single-fallback retry for channel-a — if it
@@ -4047,7 +4044,7 @@ describe("TwitchAdapter", () => {
     const campaign = { id: "campaign", categoryId: "game" } as DropCampaign;
 
     // Request A starts under user-a but its network response is held open.
-    const pendingA = twitchAdapter(fetcher, undefined, undefined, { discoveryState })
+    const pendingA = twitchAdapter(fetcher, undefined, { discoveryState })
       .checkChannel(candidate, { campaign });
 
     // Wait until request A's availability lookup has actually been dispatched
@@ -4063,12 +4060,12 @@ describe("TwitchAdapter", () => {
     expect(discoveryState.cachedChannelAvailability("channel-id", "broadcast-id", "campaign")).toEqual({ status: "miss" });
 
     // A fresh request under user-b reaches the network and populates the cache.
-    await expect(twitchAdapter(fetcher, undefined, undefined, { discoveryState })
+    await expect(twitchAdapter(fetcher, undefined, { discoveryState })
       .checkChannel(candidate, { campaign })).resolves.toMatchObject({ campaignMatches: true });
     expect(availabilityCalls).toBe(2);
 
     // A third call under the same identity now hits the populated cache.
-    await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).checkChannel(candidate, { campaign });
+    await twitchAdapter(fetcher, undefined, { discoveryState }).checkChannel(candidate, { campaign });
     expect(availabilityCalls).toBe(2);
   });
 
@@ -4258,7 +4255,7 @@ describe("TwitchAdapter", () => {
       });
     });
 
-    const selection = await twitchAdapter(fetcher, undefined, undefined, {}, (event) => {
+    const selection = await twitchAdapter(fetcher, undefined, {}, (event) => {
       events.push(event);
     }).selectCandidateChannel?.(
       candidates,
@@ -4287,7 +4284,7 @@ describe("TwitchAdapter", () => {
       return [{ data: { user: { stream: null } } }];
     });
 
-    const selection = await twitchAdapter(fetcher, undefined, undefined, {}, (event) => {
+    const selection = await twitchAdapter(fetcher, undefined, {}, (event) => {
       events.push(event);
     }).selectCandidateChannel?.([{
       platform: "twitch",
@@ -4431,7 +4428,7 @@ describe("TwitchAdapter", () => {
       }
       throw new Error(`Unexpected operation ${String(body.operationName)}`);
     });
-    const adapter = twitchAdapter(fetcher, undefined, undefined, {}, (event) => {
+    const adapter = twitchAdapter(fetcher, undefined, {}, (event) => {
       if (event.category === "diagnostic") diagnostics.push(event.message);
     });
 
@@ -4645,7 +4642,7 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected op ${op}`);
     });
 
-    await twitchAdapter(fetcher, undefined, undefined, { discoveryState }, (event) => {
+    await twitchAdapter(fetcher, undefined, { discoveryState }, (event) => {
       events.push(event);
     }).refreshCampaigns({
       platform: "twitch",
@@ -4693,7 +4690,7 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected op ${op}`);
     });
 
-    await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns({
+    await twitchAdapter(fetcher, undefined, { discoveryState }).refreshCampaigns({
       platform: "twitch",
       status: "watching",
       offlineChecks: 0,
@@ -4737,7 +4734,7 @@ describe("TwitchAdapter", () => {
       throw new Error(`Unexpected op ${op}`);
     });
 
-    await twitchAdapter(fetcher, undefined, undefined, { discoveryState }).refreshCampaigns({
+    await twitchAdapter(fetcher, undefined, { discoveryState }).refreshCampaigns({
       platform: "twitch",
       status: "watching",
       offlineChecks: 0,
@@ -4911,7 +4908,6 @@ describe("TwitchAdapter client identity", () => {
     const adapter = twitchAdapter(
       jsonFetcher((_url, init) => { captured = init; return emptyCategories; }),
       undefined,
-      undefined,
       { clientId: "kd1unb4b3q4t58fwlpcbzcbnm76a8fp", userAgent: "Dalvik/android-app" },
     );
     await adapter.searchCategories("rust");
@@ -4977,7 +4973,7 @@ describe("TwitchAdapter integrity recovery", () => {
       return attempts === 1 ? INTEGRITY_REJECTION : { data: { currentUser: { id: "u" } } };
     });
 
-    await twitchAdapter(fetcher, ensureIntegrity, undefined, { currentIntegrity }).checkAuthHealth();
+    await twitchAdapter(fetcher, ensureIntegrity, { currentIntegrity }).checkAuthHealth();
 
     expect(sent[0]).toBe("token-1");
     expect(ensureIntegrity).toHaveBeenCalledWith(expect.objectContaining({
@@ -5020,7 +5016,7 @@ describe("TwitchAdapter integrity recovery", () => {
         : { data: { currentUser: { id: "u" } } };
     });
 
-    await expect(twitchAdapter(fetcher, ensureIntegrity, undefined, {
+    await expect(twitchAdapter(fetcher, ensureIntegrity, {
       currentIntegrity: () => rejected,
     }).checkAuthHealth()).resolves.toMatchObject({ status: "healthy" });
 
@@ -5040,7 +5036,7 @@ describe("TwitchAdapter integrity recovery", () => {
       return { data: { currentUser: { id: "u" } } };
     });
 
-    await twitchAdapter(fetcher, undefined, undefined, { currentIntegrity }).checkAuthHealth();
+    await twitchAdapter(fetcher, undefined, { currentIntegrity }).checkAuthHealth();
 
     expect(seen?.get("client-integrity")).toBe("bound-token");
     expect(seen?.get("x-device-id")).toBe("bound-device");
@@ -5085,7 +5081,6 @@ describe("TwitchAdapter integrity recovery", () => {
       const campaigns = await twitchAdapter(
         fetcher,
         ensureIntegrity,
-        undefined,
         {},
         (event) => events.push(event),
       ).refreshCampaigns();
@@ -5111,7 +5106,7 @@ describe("TwitchAdapter integrity recovery", () => {
         throw new Error(`Unexpected op ${op}`);
       });
 
-      await twitchAdapter(fetcher, ensureIntegrity, undefined, {}, (event) => events.push(event))
+      await twitchAdapter(fetcher, ensureIntegrity, {}, (event) => events.push(event))
         .refreshCampaigns();
 
       // Discovery makes two dashboard requests when both lists come back empty

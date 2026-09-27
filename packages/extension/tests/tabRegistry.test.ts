@@ -140,6 +140,16 @@ describe("tab registry isolation", () => {
     expect(tabState(second.tabRegistry)).toEqual(untouched);
   });
 
+  // #598: the scheduler receives page contexts as input and the controller
+  // facade gets its registry from a slice, so neither imports a tab module.
+  it("keeps the scheduler and the controller facade free of tab imports", () => {
+    const core = resolve(dirname(fileURLToPath(import.meta.url)), "../../core/src");
+    for (const file of ["core/scheduler.ts", "background/controller.ts"]) {
+      const source = readFileSync(resolve(core, file), "utf8");
+      expect(source, file).not.toMatch(/from\s+"[^"]*\/tabs"/);
+    }
+  });
+
   it("keeps no mutable state at module level in core/tabs", () => {
     const source = readFileSync(
       resolve(dirname(fileURLToPath(import.meta.url)), "../../core/src/core/tabs.ts"),

@@ -52,13 +52,13 @@ export const LOCKED_IO_ALLOWLIST: readonly LockedIoEntry[] = [
 
   // Manual watch, playback and tab events.
   { id: "tab-removed-discovery-signals", file: "background/manualWatch.ts", site: "handleTabRemoved", lock: "withStateLock", call: "stopDiscoverySignalControllers(", kind: "provider", owner: 596 },
-  { id: "playback-ad-focus", file: "background/manualWatch.ts", site: "recordPlaybackTelemetry", lock: "withStateLock", call: "tabs.applyAdFocus(", kind: "tab", owner: 596 },
+  { id: "playback-ad-focus", file: "background/manualWatch.ts", site: "recordPlaybackTelemetry", lock: "withStateLock", call: "tabs.watch.applyAdFocus(", kind: "tab", owner: 596 },
 
   // Host reset closes tabs while holding the settings and platform locks.
-  { id: "reset-close-watch-tabs", file: "background/lifecycle.ts", site: "prepareForHostReset", lock: "withStateLock", call: "tabs.closeManagedTabs(", kind: "tab", owner: 598 },
-  { id: "reset-stop-page-contexts", file: "background/lifecycle.ts", site: "prepareForHostReset", lock: "withStateLock", call: "tabs.stopPageContextTabs(", kind: "tab", owner: 598 },
-  { id: "reset-ad-focus", file: "background/lifecycle.ts", site: "prepareForHostReset", lock: "withStateLock", call: "tabs.applyAdFocus(", kind: "tab", owner: 598 },
-  { id: "reset-stop-watch-tabs", file: "background/lifecycle.ts", site: "prepareForHostReset", lock: "withStateLock", call: "adapters[platform].stopWatchTab?.(", kind: "tab", owner: 598 },
+  { id: "reset-close-watch-tabs", file: "background/lifecycle.ts", site: "prepareForHostReset", lock: "withStateLock", call: "tabs.watch.closeManaged(", kind: "tab", owner: 598 },
+  { id: "reset-stop-page-contexts", file: "background/lifecycle.ts", site: "prepareForHostReset", lock: "withStateLock", call: "tabs.pageContexts.release(", kind: "tab", owner: 598 },
+  { id: "reset-ad-focus", file: "background/lifecycle.ts", site: "prepareForHostReset", lock: "withStateLock", call: "tabs.watch.applyAdFocus(", kind: "tab", owner: 598 },
+  { id: "reset-stop-watch-tabs", file: "background/lifecycle.ts", site: "prepareForHostReset", lock: "withStateLock", call: "tabs.watch.stop(", kind: "tab", owner: 598 },
 
   // Twitch channel points claim under the Twitch platform lock.
   { id: "channel-points-claim", file: "background/channelPoints.ts", site: "runTwitchChannelPointsClaim", lock: "withPlatformLock", call: "adapter.claimChannelPoints?.(", kind: "provider", owner: 590 },
@@ -103,10 +103,13 @@ export const LOCKED_IO_ALLOWLIST_SIZE = 34;
 // listed; #585 covers publication order separately.
 export const LOCKED_IO_CALLS = [
   "adapter.claimReward", "adapter.claimChannelPoints", "adapter.claimChallenges", "adapter.refreshCampaigns",
-  "adapter.checkAuthHealth", "adapter.searchCategories", "adapter.prepareWatchTab", "adapter.stopWatchTab",
-  "adapters[platform].stopWatchTab", "claimTwitchChannelPointsFromPush",
+  "adapter.checkAuthHealth", "adapter.searchCategories", "claimTwitchChannelPointsFromPush",
   "watcher.start", "watcher.stop", "controller.start", "controller.stop",
-  "tabs.closeManagedTabs", "tabs.stopPageContextTabs", "tabs.applyAdFocus", "recovery.reconcile",
+  "tabs.watch.open", "tabs.watch.stop", "tabs.watch.closeManaged", "tabs.watch.applyAdFocus",
+  "tabs.pageContexts.release", "tabs?.watch.open", "tabs?.watch.stop", "tabs?.watch.closeManaged",
+  "tabs?.watch.applyAdFocus", "tabs?.pageContexts.release", "ports.tabs?.watch.open", "ports.tabs?.watch.stop",
+  "ports.tabs?.watch.closeManaged", "ports.tabs?.watch.applyAdFocus", "ports.tabs?.pageContexts.release",
+  "recovery.reconcile",
   "ports.kick.pageContextRecovery?.discardEvidence", "ports.jobs.ensure", "ports.jobs.cancel", "ports.jobs.get",
   "integrityPort.ensure", "port.ensure", "ports.twitch.integrity?.cancelAcquisition", "supplementalSources.select",
   "ports.credentials?.checkAvailability", "wait", "options.selectSupplementalWatchTarget",

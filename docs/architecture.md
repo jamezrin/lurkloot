@@ -288,8 +288,8 @@ port or the tab module. Each side effect it needs is yielded as a typed `Schedul
 | `claimRewards` | `claimReadyRewards` (`core/rewardClaims.ts`) | #597 |
 | `claimChannelPoints` | `adapter.claimChannelPoints` | #590 |
 | `claimChallenges` | `adapter.claimChallenges` | #588 |
-| `openWatchTab`, `stopWatchTab` | `adapter.prepareWatchTab` / `stopWatchTab` | #598, #587 |
-| `releasePageContexts` | the host's `stopPageContextTabs` | #588 |
+| `openWatchTab`, `stopWatchTab` | the host's `WatchTabPort` (`tabs.watch.open` / `stop`). Without it, opening throws and stopping does nothing | #587 |
+| `releasePageContexts` | the host's `PageContextPort` (`tabs.pageContexts.release`) | #588 |
 | `selectSupplementalTarget` | the Twitch Extensions host's `select` | #587 |
 
 The yielded effects in order are the tick's plan. It is produced incrementally rather than returned
@@ -347,7 +347,7 @@ of optional hooks:
 | `jobs` | `browser.alarms` (`src/core/jobs.ts`) | Node timers (`src/runtime/jobs.ts`) |
 | `adapters` | Browser transports and compatibility resolution | Node transports |
 | `credentials` | Cookie observation | The file/env credential store |
-| `tabs`, `kick.pageContextRecovery` | Browser tabs (#598 splits them into role ports) | Absent |
+| `tabs` (`watch`: `WatchTabPort`, `pageContexts`: `PageContextPort`), `tabRegistry`, `kick.pageContextRecovery` | Browser tabs. Watch tabs are the host's, not `PlatformAdapter`'s (#598) | Absent: every watch is tabless |
 | `twitch.integrity` | Page capture | Absent |
 | `twitch.supplementalSources` | Twitch Extensions host (#587 adds `prepare`) | Absent |
 
@@ -611,7 +611,7 @@ Kick may retain an extension-owned page-context tab when its service-worker fetc
 
 ## Watch Tabs
 
-Both adapters use the shared `openPinnedMutedTab` and `stopWatchTab` helpers.
+Watch tabs are a host capability, not part of `PlatformAdapter` (#598). The controller calls the host's `WatchTabPort`, which the extension implements with the shared `openPinnedMutedTabWithBrowser` and `stopWatchTabWithBrowser` helpers; the CLI has none, so it only watches tabless.
 
 Watch-tab preparation:
 

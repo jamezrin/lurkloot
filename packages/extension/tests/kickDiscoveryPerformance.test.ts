@@ -56,7 +56,7 @@ describe("Kick discovery batch", () => {
       },
       onPageFallback: () => { fallbacks += 1; if (settled) lateLifecycleUpdates += 1; },
     });
-    const adapter = kickAdapter(transport, undefined, undefined, undefined, { discoveryState });
+    const adapter = kickAdapter(transport, undefined, undefined, { discoveryState });
     vi.spyOn(adapter, "refreshCampaigns").mockImplementation(async () => {
       if (inventoryFails) throw new Error("inventory unavailable");
       return [];
@@ -239,7 +239,7 @@ describe("Kick discovery batch", () => {
   it("does not commit an aborted followed-channel lookup as a fresh empty cache entry", async () => {
     const pending = deferred<unknown>();
     const discoveryState = new KickDiscoveryState();
-    const adapter = kickAdapter(fetcher(() => pending.promise), undefined, undefined, undefined, { discoveryState });
+    const adapter = kickAdapter(fetcher(() => pending.promise), undefined, undefined, { discoveryState });
     const abort = new AbortController();
 
     const strictLookup = adapter.listFollowedChannels({ signal: abort.signal, requireComplete: true });
@@ -280,8 +280,7 @@ describe("Kick discovery batch", () => {
 
   it("rejects missing API and ambiguous page evidence without logging error details", async () => {
     const events: unknown[] = [];
-    const adapter = kickAdapter(fetcher((url) => url.includes("/api/") ? {} : { html: "<html>login</html>" }),
-      undefined, undefined, (event) => { events.push(event); });
+    const adapter = kickAdapter(fetcher((url) => url.includes("/api/") ? {} : { html: "<html>login</html>" }), undefined, (event) => { events.push(event); });
     await expect(adapter.checkChannels([{ channel: candidate() }])).rejects.toThrow("incomplete");
     expect(JSON.stringify(events)).not.toContain("<html>");
   });
@@ -291,7 +290,7 @@ describe("Kick discovery batch", () => {
     const adapter = kickAdapter(fetcher((url) => {
       if (url.includes("/api/")) throw new SafeFetchError({ kind: "http_error", status: 503 });
       return { html: "<html>unavailable</html>" };
-    }), undefined, undefined, (event) => { events.push(event); });
+    }), undefined, (event) => { events.push(event); });
 
     await expect(adapter.checkChannels([{ channel: candidate() }])).rejects.toThrow("incomplete");
     expect(JSON.stringify(events)).toContain("http_error status=503");
@@ -304,7 +303,7 @@ describe("Kick discovery batch", () => {
       return { html: '{"is_live":true,"category_id":13}' };
     });
     const events: unknown[] = [];
-    const adapter = kickAdapter(transport, undefined, undefined, (event) => { events.push(event); });
+    const adapter = kickAdapter(transport, undefined, (event) => { events.push(event); });
     const result = await adapter.checkChannels([
       { channel: candidate(), campaign: campaign() },
       { channel: candidate(), campaign: campaign({ id: "other", categoryId: "99" }) },

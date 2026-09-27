@@ -348,7 +348,8 @@ export function createTickRun<S extends EngineSettings>(
       const effectContext = {
         adapters,
         tabRegistry,
-        stopPageContextTabs: ports.tabs?.stopPageContextTabs,
+        watchTabs: ports.tabs?.watch,
+        stopPageContextTabs: ports.tabs?.pageContexts.release,
         selectSupplementalTarget: supplementalSources
           ? (supplementalPlatform: Platform, selectedState: SchedulerState, selectedSignal: AbortSignal | undefined, source: WatchSourceId) =>
             supplementalPlatform === "twitch"
