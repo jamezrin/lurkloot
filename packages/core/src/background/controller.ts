@@ -30,7 +30,7 @@ import { createStateTransaction } from "./stateTransaction";
 import { createTickAdmission } from "./tickAdmission";
 import { createTickRun } from "./tickRun";
 import { createTwitchIntegrity } from "./twitchIntegrity";
-import { assertHostCapabilities, type BackgroundHostPorts } from "./hostPorts";
+import { assertHostCapabilities, type BackgroundHostPorts, type TabEventsPort } from "./hostPorts";
 import { capabilityScopedJobs, runBackgroundJob } from "./jobs";
 import type { ControllerCalls } from "./types";
 
@@ -75,6 +75,7 @@ export type {
   KickHostPorts,
   KickPageContextRecoveryPort,
   PageContextPort,
+  TabEventsPort,
   StoragePort,
   SupplementalSourcesPort,
   TestingPorts,
@@ -156,8 +157,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     ensureInstalledAt: calls.ensureInstalledAt,
     reconcileStartup: calls.reconcileStartup,
     handleStartup: calls.handleStartup,
-    handleTabRemoved: calls.handleTabRemoved,
-    handleTabUpdated: calls.handleTabUpdated,
+    ...({
+      handleTabRemoved: calls.handleTabRemoved,
+      handleTabUpdated: calls.handleTabUpdated,
+    } satisfies TabEventsPort),
     handleMessage: calls.handleMessage,
     resumeAfterManualClose: calls.resumeAfterManualClose,
     captureTwitchIntegrity: calls.captureTwitchIntegrity,

@@ -13,7 +13,7 @@ import {
   currentValidTwitchIntegrity,
   hasValidTwitchIntegrity,
   isValidTwitchIntegrity,
-  takeTabClosureOrigin,
+  tabClosureOrigin,
   noteTwitchGqlRequest,
   recordManagedPageContextFallback,
   registerManagedPageContextTabs,
@@ -2838,8 +2838,7 @@ describe("tab closure origins", () => {
     await stopWatchTabWithBrowser(registry, browser, managedSession, { closureOrigin: "extension-cleanup" });
 
     expect(recordedAtRemoval).toBe("extension-cleanup");
-    expect(takeTabClosureOrigin(registry, 9)).toBe("extension-cleanup");
-    expect(takeTabClosureOrigin(registry, 9)).toBe("user");
+    expect(tabClosureOrigin(registry, 9)).toBe("extension-cleanup");
   });
 
   it("drops the record when the close fails, so a later close is the user's", async () => {
@@ -2848,7 +2847,7 @@ describe("tab closure origins", () => {
 
     await stopWatchTabWithBrowser(registry, browser, managedSession);
 
-    expect(takeTabClosureOrigin(registry, 9)).toBe("user");
+    expect(tabClosureOrigin(registry, 9)).toBe("user");
   });
 
   it("records the origin the engine gives for managed watch tabs", async () => {
@@ -2860,7 +2859,7 @@ describe("tab closure origins", () => {
     ], "host-restart");
 
     expect(browser.tabs.remove).toHaveBeenCalledWith(9);
-    expect(takeTabClosureOrigin(registry, 9)).toBe("host-restart");
+    expect(tabClosureOrigin(registry, 9)).toBe("host-restart");
   });
 
   it("closes tabs only through closeTab", () => {

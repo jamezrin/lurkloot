@@ -136,6 +136,16 @@ export interface WatchTabPort {
   loadPlaybackPolicy(): Promise<{ keepVideosUnmuted: boolean }>;
 }
 
+// The other direction (#598): the tab events a host with browser tabs forwards
+// to the controller, which implements this. Playback telemetry arrives as the
+// `playbackTelemetry` runtime message. Each is judged against the tab registry:
+// a removal carries the closure origin the engine recorded (only a `user` close
+// pauses farming), and a report from a tab the engine released is ignored.
+export interface TabEventsPort {
+  handleTabRemoved(tabId: number): Promise<void>;
+  handleTabUpdated(tabId: number, url: string): Promise<void>;
+}
+
 // The tabs the engine borrows to run requests in a platform page.
 export interface PageContextPort {
   // Page-context tab teardown, also injected into the scheduler tick.

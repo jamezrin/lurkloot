@@ -111,6 +111,24 @@ describe("background controller", () => {
       await env.controller.settleBackgroundWork();
     }
 
+    // #598: a playback report can still be in flight when the extension closes
+    // its watch tab. It comes from a tab the engine released, not from the
+    // user watching, so it must not publish a manual watch.
+    it("ignores late playback from a watch tab the extension closed", async () => {
+      const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
+      await env.controller.tick(["twitch"]);
+      expect(env.state.sessions.twitch).toMatchObject({ status: "watching", tabId: 10 });
+      vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([]);
+      await env.controller.tick(["twitch"]);
+      expect(env.watchTabs.twitch.stop).toHaveBeenCalledWith(expect.objectContaining({ tabId: 10 }), expect.anything());
+      await env.controller.handleTabRemoved(10);
+
+      await report(env, "twitch", 10, "https://www.twitch.tv/creator");
+
+      expect(env.state.manualWatch?.twitch?.active).not.toBe(true);
+      expect(env.state.sessions.twitch.reasonCode).not.toBe("manual_watch");
+    });
+
     it.each(["twitch", "kick"] as const)("resumes %s immediately after playback stops or becomes hidden", async (platform) => {
       for (const patch of [{ playingVideoCount: 0 }, { documentHidden: true }]) {
         const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
