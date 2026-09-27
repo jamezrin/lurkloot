@@ -7,10 +7,12 @@ import {
   cancelTwitchIntegrityAcquisition,
   createTabRegistry,
   currentValidTwitchIntegrity,
-  ensureTwitchIntegrityWithBrowser,
   setTwitchIntegrity,
+} from "@lurkloot/core/tabRegistry";
+import {
   type BrowserTabApi,
-} from "@lurkloot/core/tabs";
+  ensureTwitchIntegrityWithBrowser,
+} from "../../src/core/browserTabs";
 import { TAB_CHURN_LIMIT } from "@lurkloot/core/criticalHealth";
 import type { TwitchIntegrity } from "@lurkloot/core/twitchIntegrity";
 import {

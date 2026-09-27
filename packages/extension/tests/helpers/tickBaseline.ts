@@ -14,7 +14,7 @@ import type { EngineEvent, EventEmitter } from "@lurkloot/shared/events";
 import type { ChannelCandidate, DropCampaign, ExtensionSettings, Platform, SchedulerState, WatchSession } from "@lurkloot/shared/models";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "../../src/core/storage";
-import { createTabRegistry, forgetManagedPageContextTabs } from "@lurkloot/core/tabs";
+import { createTabRegistry, forgetManagedPageContextTabs } from "@lurkloot/core/tabRegistry";
 import { hostPortsFromMocks } from "./hostPorts";
 
 // The extension declares browser tabs. Opening the watch tab is the tab-mode

@@ -3,7 +3,7 @@ import { browser } from "wxt/browser";
 import { loadSettings, loadState, loadTwitchIntegrity, resetStorage, saveSettings, saveState, saveTwitchIntegrity } from "../src/core/storage";
 import type { CliCredentialBlob, RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import { createBrowserTabs } from "../src/core/tabs";
-import { createTabRegistry } from "@lurkloot/core/tabs";
+import { createTabRegistry } from "@lurkloot/core/tabRegistry";
 import { createBackgroundAlarmListener, createBackgroundController, EXTENSION_CAPABILITIES } from "@lurkloot/core/controller";
 import { createAlarmJobScheduler } from "../src/core/jobs";
 import { resolveCompatibility } from "@lurkloot/core";

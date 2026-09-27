@@ -1,6 +1,6 @@
 import type { EngineSettings } from "@lurkloot/shared/models";
 import type { DiagnosticEvent, EventEmitter } from "@lurkloot/shared/events";
-import { isValidTwitchIntegrity, noteTwitchGqlRequest, setTwitchIntegrity, syncManagedTabBreakers } from "../core/tabs";
+import { isValidTwitchIntegrity, noteTwitchGqlRequest, setTwitchIntegrity, syncManagedTabBreakers } from "../core/tabRegistry";
 import { recordManagedTabOpen } from "../core/criticalHealth";
 import { integrityFromHeaders } from "../core/twitchIntegrity";
 import type { IntegrityHeader, TwitchIntegrity } from "../core/twitchIntegrity";
@@ -369,7 +369,7 @@ export function createTwitchIntegrity<S extends EngineSettings>(
     if (!integrity) return;
     // Installed outside withStateLock, and synchronously before the first await.
     //
-    // A mint waits on setTwitchIntegrity waking its waiters (see core/tabs.ts),
+    // A mint waits on setTwitchIntegrity waking its waiters (see core/tabRegistry.ts),
     // and the two paths that can force a refresh — runTick around the
     // scheduler tick, and runPlatformWatchHeartbeat around watcher.tick — both
     // hold the platform lock across that wait. Installing under the same lock

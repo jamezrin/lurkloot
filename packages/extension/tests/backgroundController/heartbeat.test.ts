@@ -9,7 +9,7 @@ import { KickWatcher } from "@lurkloot/core/kick/watch";
 import { kickAdapter } from "../helpers/adapters";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
 import { selectWatchTargetFromSnapshot } from "@lurkloot/core/scheduler";
-import { recordManagedPageContextFallback, registerManagedPageContextTabs } from "@lurkloot/core/tabs";
+import { recordManagedPageContextFallback, registerManagedPageContextTabs } from "@lurkloot/core/tabRegistry";
 import {
   adapter,
   advanceToNextHeartbeatDue,

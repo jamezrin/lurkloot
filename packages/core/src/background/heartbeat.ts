@@ -5,7 +5,7 @@ import {
   currentManagedPageContextTabs,
   currentManagedPageContextTabsRevision,
   hydrateManagedPageContextTabs,
-} from "../core/tabs";
+} from "../core/tabRegistry";
 import type { PlatformAdapter } from "../platforms/adapter";
 import type { TablessWatchController, WatchContext } from "../core/tablessWatch";
 import {

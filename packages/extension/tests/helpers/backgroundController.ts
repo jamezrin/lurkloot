@@ -11,19 +11,21 @@ import type {
   DropReward,
   ExtensionSettings,
   Platform,
+  PreparedWatchTab,
   SchedulerState,
   WatchSession,
+  WatchTabOptions,
 } from "@lurkloot/shared/models";
 import type { DiagnosticEvent, EngineEvent, EventEmitter } from "@lurkloot/shared/events";
 import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
 import { applySettingsPatch, DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "../../src/core/storage";
-import type { PlatformAdapter, PreparedWatchTab, WatchTabOptions } from "@lurkloot/core/adapter";
+import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import { withLockTracker } from "./lockTracker";
 import { hostPortsFromMocks, type HostMocks } from "./hostPorts";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
 import type { StopPageContextTabs } from "@lurkloot/core/scheduler";
-import { createTabRegistry, forgetManagedPageContextTabs, type TabRegistry, type TwitchIntegrityRequest } from "@lurkloot/core/tabs";
+import { createTabRegistry, forgetManagedPageContextTabs, type TabRegistry, type TwitchIntegrityRequest } from "@lurkloot/core/tabRegistry";
 import type { IntegrityHeader, TwitchIntegrity } from "@lurkloot/core/twitchIntegrity";
 import type { DiscoverySignalController, DiscoverySignalTarget } from "@lurkloot/core/discoverySignals";
 import type { TwitchChannelPointsClaimNotice } from "@lurkloot/core/twitch/channelPointsPush";

@@ -60,6 +60,17 @@ describe("@lurkloot/core browser-free boundary", () => {
     expect(offenders, `core must stay i18n-free so diagnostics stay English; offending files:\n${offenders.join("\n")}`).toEqual([]);
   });
 
+  // #598: browser tabs are an extension-only capability. Core keeps the tab
+  // registry and its rules; opening, scripting and closing tabs lives in
+  // packages/extension/src/core/browserTabs.ts.
+  it("keeps browser tab mechanics out of core", () => {
+    const offenders = tsFiles(coreSrc).filter((file) => {
+      const code = readFileSync(file, "utf8").replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
+      return /\bBrowserTabApi\b|\bexecuteScript\b|\btabs\.(?:create|update|remove|query)\(/.test(code);
+    });
+    expect(offenders, `core must not drive browser tabs; offending files:\n${offenders.join("\n")}`).toEqual([]);
+  });
+
   it("models credential availability without naming or carrying browser credentials", () => {
     // Every background controller module (#592 split controller.ts by owner).
     const controller = tsFiles(join(coreSrc, "background")).map((file) => readFileSync(file, "utf8")).join("\n");

@@ -1,34 +1,33 @@
 import { browser } from "wxt/browser";
-import type { AdFocusMode, ChannelCandidate, Platform, SchedulerManagedPageContexts, WatchSession } from "@lurkloot/shared/models";
+import type { AdFocusMode, ChannelCandidate, Platform, PreparedWatchTab, SchedulerManagedPageContexts, WatchSession, WatchTabOptions } from "@lurkloot/shared/models";
 import type { EventEmitter, PageContextCloseReason } from "@lurkloot/shared/events";
 import {
-  applyAdFocusWithBrowser,
   cancelTwitchIntegrityAcquisition,
   currentValidTwitchIntegrity,
+  recordManagedPageContextFallback,
+  type TabRegistry,
+  type TwitchIntegrityRequest,
+} from "@lurkloot/core/tabRegistry";
+import { fetchKickInBackgroundWith, type CookieApi } from "@lurkloot/core/transport";
+import {
+  applyAdFocusWithBrowser,
   ensureTwitchIntegrityWithBrowser,
   fetchJsonInPageWithBrowser,
-  fetchKickInBackgroundWith,
   fetchTwitchInBackgroundWith,
   openPinnedMutedTabWithBrowser,
-  recordManagedPageContextFallback,
   reconcileManagedPageContextRecoveryWithBrowser,
   stopManagedPageContextTabsWithBrowser,
   stopWatchTabWithBrowser,
   TWITCH_PAGE_CONTEXT_URL,
   type BrowserTabApi,
-  type CookieApi,
   type PageFetchOptions,
-  type TabRegistry,
-  type TwitchIntegrityRequest,
-} from "@lurkloot/core/tabs";
-import type { KickPageContextCycleObservation, PreparedWatchTab, WatchTabOptions } from "@lurkloot/core/adapter";
+} from "./browserTabs";
+import type { KickPageContextCycleObservation } from "@lurkloot/core/adapter";
 
-// Browser-backed wrappers binding the pure `*WithBrowser` engine functions in
-// @lurkloot/core/tabs to the extension's live wxt/browser tabs/cookies APIs and
-// to one tab registry, which the host also hands to the controller (#598).
-// This is the seam that keeps the engine browser-free: the headless CLI injects
-// its own port implementations instead of these wrappers. New tab-bound logic
-// belongs in core's `*WithBrowser` function; only the `browser` binding lives here.
+// Binds the tab mechanics in ./browserTabs to the live wxt/browser tabs and
+// cookies APIs and to one tab registry, which the host also hands to the
+// controller (#598). browserTabs.ts takes the browser API as an argument so tests
+// can drive it with a fake; only the `browser` binding lives here.
 export function createBrowserTabs(registry: TabRegistry) {
   const browserApi = browser as BrowserTabApi;
   return {

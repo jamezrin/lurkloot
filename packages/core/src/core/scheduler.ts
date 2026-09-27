@@ -1,13 +1,14 @@
-import type { ClaimedChallenge, PlatformAdapter, PreparedWatchTab } from "../platforms/adapter";
+import type { ClaimedChallenge, PlatformAdapter } from "../platforms/adapter";
 import type {
-  ChannelCandidate,
   CampaignSearchBackoff,
+  ChannelCandidate,
   DropCampaign,
   DropReward,
   EngineSettings,
   ManagedWatchTab,
   Platform,
   PlaybackTelemetry,
+  PreparedWatchTab,
   SchedulerManagedPageContexts,
   SchedulerState,
   SupplementalWatchTarget,

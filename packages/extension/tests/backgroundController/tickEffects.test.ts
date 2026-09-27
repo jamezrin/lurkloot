@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { PreparedWatchTab } from "@lurkloot/core/adapter";
+import type { PreparedWatchTab } from "@lurkloot/shared/models";
 import { DEFAULT_STATE } from "../../src/core/storage";
 import { allDiagnostics, campaign, deferred, establishedTablessEnv, harness } from "../helpers/backgroundController";
 

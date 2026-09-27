@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createTransport } from "../src/transport";
 import { withHeartbeatTimeout } from "../src/transport/common";
 import { createTickEffectExecutor } from "@lurkloot/core/background/tickEffects";
-import { createTabRegistry } from "@lurkloot/core/tabs";
+import { createTabRegistry } from "@lurkloot/core/tabRegistry";
 import { DEFAULT_ENGINE_SETTINGS } from "@lurkloot/shared/settings";
 import type { DropCampaign, DropReward } from "@lurkloot/shared/models";
 import type { DiagnosticEvent, EngineEvent } from "@lurkloot/shared/events";

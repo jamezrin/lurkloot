@@ -9,7 +9,7 @@ import {
 import { resolveCompatibility } from "@lurkloot/core";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
-import { createTabRegistry, forgetManagedPageContextTabs } from "@lurkloot/core/tabs";
+import { createTabRegistry, forgetManagedPageContextTabs } from "@lurkloot/core/tabRegistry";
 import type { ChannelCandidate, DropCampaign, ExtensionSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
 import type { EngineEvent } from "@lurkloot/shared/events";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";

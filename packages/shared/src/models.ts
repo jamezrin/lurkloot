@@ -210,6 +210,22 @@ export interface ManagedWatchTab {
   ownedByExtension: true;
 }
 
+// The watch tab a host opened for the engine (#598: watch tabs are the host's
+// WatchTabPort, not the platform adapter's).
+export interface PreparedWatchTab {
+  tabId: number;
+  managedByExtension: boolean;
+  managedTab?: ManagedWatchTab;
+}
+
+export interface WatchTabOptions {
+  muted: boolean;
+  closeManagedTabs: boolean;
+  keepVideosUnmuted: boolean;
+  managedTab?: ManagedWatchTab;
+  signal?: AbortSignal;
+}
+
 export interface ManagedPageContextTab {
   platform: Platform;
   tabId: number;

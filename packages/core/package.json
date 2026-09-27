@@ -13,7 +13,7 @@
     "./webSocket": "./src/core/webSocket.ts",
     "./discoverySignals": "./src/core/discoverySignals.ts",
     "./twitchIntegrity": "./src/core/twitchIntegrity.ts",
-    "./tabs": "./src/core/tabs.ts",
+    "./tabRegistry": "./src/core/tabRegistry.ts",
     "./transport": "./src/core/transport.ts",
     "./kickBearerCases": "./src/core/kickBearerCases.ts",
     "./defaults": "./src/core/defaults.ts",

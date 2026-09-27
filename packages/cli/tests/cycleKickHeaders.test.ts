@@ -21,7 +21,7 @@ describe("kickHeaders", () => {
       .toBe("Bearer sess 789");
   });
 
-  // Every case here is shared with tabs.test.ts (needsKickSessionBearer) and
+  // Every case here is shared with browserTabs.test.ts (needsKickSessionBearer) and
   // pageFetchJson's own test, so all three copies of the predicate are pinned to
   // the same expectations. See packages/core/src/core/kickBearerCases.ts.
   it.each(KICK_BEARER_NEAR_MISS_CASES)("never attaches the session token to a %s", (_case, url) => {

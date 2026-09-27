@@ -4,7 +4,6 @@ import type {
   ChannelCheck,
   DropCampaign,
   DropReward,
-  ManagedWatchTab,
   Platform,
   PlatformAuthHealth,
   WatchSession,
@@ -20,20 +19,6 @@ export const ignoreEvent: EventEmitter = () => {};
 
 export function diagnostic(emit: EventEmitter, level: LogLevel, message: string, platform: Platform): void {
   emit({ category: "diagnostic", level, message, platform });
-}
-
-export interface PreparedWatchTab {
-  tabId: number;
-  managedByExtension: boolean;
-  managedTab?: ManagedWatchTab;
-}
-
-export interface WatchTabOptions {
-  muted: boolean;
-  closeManagedTabs: boolean;
-  keepVideosUnmuted: boolean;
-  managedTab?: ManagedWatchTab;
-  signal?: AbortSignal;
 }
 
 export interface AdapterOperationOptions {

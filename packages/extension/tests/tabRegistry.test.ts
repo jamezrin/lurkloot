@@ -5,19 +5,21 @@ import { dirname, resolve } from "node:path";
 import type { ChannelCandidate, WatchSession } from "@lurkloot/shared/models";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import {
-  applyAdFocusWithBrowser,
   createTabRegistry,
   currentManagedPageContextTabs,
   currentTwitchIntegrityWaiterCount,
   currentValidTwitchIntegrity,
-  ensureTwitchIntegrityWithBrowser,
   managedTabBreakerOpen,
   noteTwitchGqlRequest,
-  openPinnedMutedTabWithBrowser,
   registerManagedPageContextTabs,
   syncManagedTabBreakers,
   type TabRegistry,
-} from "@lurkloot/core/tabs";
+} from "@lurkloot/core/tabRegistry";
+import {
+  applyAdFocusWithBrowser,
+  ensureTwitchIntegrityWithBrowser,
+  openPinnedMutedTabWithBrowser,
+} from "../src/core/browserTabs";
 import { harness, integrityBundle, integrityHeaders } from "./helpers/backgroundController";
 
 // #598: tab state belongs to one controller's registry. Two controllers in one
@@ -150,13 +152,13 @@ describe("tab registry isolation", () => {
     }
   });
 
-  it("keeps no mutable state at module level in core/tabs", () => {
-    const source = readFileSync(
-      resolve(dirname(fileURLToPath(import.meta.url)), "../../core/src/core/tabs.ts"),
-      "utf8",
-    );
-    const moduleState = source.split("\n").filter((line) =>
-      /^let\s/.test(line) || /^const\s+\w+\s*(?::[^=]+)?=\s*new\s+(?:Map|Set|WeakMap|AbortController)\b/.test(line));
-    expect(moduleState).toEqual([]);
+  it("keeps no mutable state at module level in the tab modules", () => {
+    const here = dirname(fileURLToPath(import.meta.url));
+    for (const file of ["../../core/src/core/tabRegistry.ts", "../src/core/browserTabs.ts"]) {
+      const source = readFileSync(resolve(here, file), "utf8");
+      const moduleState = source.split("\n").filter((line) =>
+        /^let\s/.test(line) || /^const\s+\w+\s*(?::[^=]+)?=\s*new\s+(?:Map|Set|WeakMap|AbortController)\b/.test(line));
+      expect(moduleState, file).toEqual([]);
+    }
   });
 });

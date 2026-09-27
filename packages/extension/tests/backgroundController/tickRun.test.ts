@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
-import { managedTabBreakerOpen } from "@lurkloot/core/tabs";
+import { managedTabBreakerOpen } from "@lurkloot/core/tabRegistry";
 import { TAB_CHURN_LIMIT } from "@lurkloot/core/criticalHealth";
 import { campaign, farming, harness, notFarming } from "../helpers/backgroundController";
 

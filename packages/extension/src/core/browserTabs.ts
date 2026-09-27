@@ -1,25 +1,35 @@
-import type { AdFocusMode, ChannelCandidate, ManagedPageContextTab, ManagedWatchTab, Platform, SchedulerManagedPageContexts, WatchSession } from "@lurkloot/shared/models";
+import type { AdFocusMode, ChannelCandidate, ManagedPageContextTab, ManagedWatchTab, Platform, PreparedWatchTab, SchedulerManagedPageContexts, WatchSession, WatchTabOptions } from "@lurkloot/shared/models";
 import type { EventEmitter, PageContextCloseReason, PageContextOpenReason } from "@lurkloot/shared/events";
 import type { LogLevel } from "@lurkloot/shared/logging";
-import type { TwitchIntegrity } from "./twitchIntegrity";
-import type { KickPageContextCycleObservation, PreparedWatchTab, WatchTabOptions } from "../platforms/adapter";
-import { SafeFetchError, safeFetchFailure, type SafeFetchFailure } from "./fetchError";
+import type { KickPageContextCycleObservation } from "@lurkloot/core/adapter";
+import { SafeFetchError, safeFetchFailure, type SafeFetchFailure } from "@lurkloot/core/fetchError";
+import { isTimestampStale, PLAYBACK_TELEMETRY_MAX_AGE_MS } from "@lurkloot/core/timestamps";
+import { fetchTwitchInBackgroundWith as fetchTwitchInBackgroundWithIdentity, type CookieApi } from "@lurkloot/core/transport";
 import {
-  createTwitchRequestIdentity,
-  fetchTwitchInBackgroundWith as fetchTwitchInBackgroundWithIdentity,
-  type CookieApi,
-  type TwitchRequestIdentity,
-} from "./transport";
+  describeContextBoot,
+  forgetManagedPageContextTabs,
+  hasReplacementTwitchIntegrity,
+  hasValidTwitchIntegrity,
+  INTEGRITY_REFRESH_TIMEOUT_MS,
+  isValidTwitchIntegrity,
+  managedTabBreakerOpen,
+  observePageContextRecovery,
+  resetPlaybackPriming,
+  waitForIntegrityCapture,
+  type PageContextSource,
+  type PageContextTab,
+  type TabRegistry,
+  type TwitchIntegrityAcquisitionResult,
+  type TwitchIntegrityRequest,
+} from "@lurkloot/core/tabRegistry";
 
-// Re-exported while callers migrate to @lurkloot/core/transport (#598).
-export {
-  fetchKickInBackgroundWith,
-  KickWafBlockedError,
-  needsKickSessionBearer,
-  safeKickFailure,
-  type CookieApi,
-} from "./transport";
-import { isTimestampStale, PLAYBACK_TELEMETRY_MAX_AGE_MS } from "./timestamps";
+// The browser tab mechanics (#598): watch tabs, playback priming, ad focus,
+// page-context tabs and in-page fetches, and booting a twitch.tv page to mint an
+// integrity token. Only the extension has browser tabs, so this lives here. It
+// takes the browser API as an argument and never imports wxt, so tests drive it
+// with a fake. What a tab is for, and when one may be opened, closed or
+// recovered, is decided in core (@lurkloot/core/tabRegistry); this module only
+// performs it and records the outcome in the registry it is given.
 
 const ignoreEvent: EventEmitter = () => {};
 
@@ -54,108 +64,20 @@ interface BrowserTab {
   mutedInfo?: { muted?: boolean };
 }
 
-// Where a page-context tab came from. Only used for diagnostics: a freshly
-// created tab boots the SPA and issues authenticated GQL, while an inherited one
-// may be idle and issue nothing, which decides whether waiting for a token can
-// succeed at all.
-type PageContextSource = "created" | "user_tab" | "managed_tab" | "shared_entry";
-
-interface PageContextTab {
-  tabId: number;
-  createdByExtension: boolean;
-  retainedContext?: ManagedPageContextTab;
-  openedForRequest?: boolean;
-  source?: PageContextSource;
-}
-
-interface PageContextEntry {
-  promise: Promise<PageContextTab>;
-  refs: number;
-  abort: AbortController;
-}
-
-// Every tab the engine holds, and the state that goes with it, for one
-// controller (#598). Nothing here is module-level: two controllers in one
-// process each create their own registry and share no tab state. The host that
-// runs the tab mechanics and the controller that reads the snapshots must be
-// handed the same instance.
-export interface TabRegistry {
-  pageContextTabs: Map<string, PageContextEntry>;
-  retainedPageContextTabs: Map<Platform, ManagedPageContextTab>;
-  closingPageContextTabIds: Set<number>;
-  retainedPageContextRevision: number;
-  // Mirrors SchedulerState.criticalHealth[platform].breakerOpen. The page-context
-  // call sites are several layers deep and have no access to scheduler state, so
-  // the scheduler (and the controller, whenever it records an open) pushes the
-  // flag here instead. Watch tabs are gated directly in the scheduler, which
-  // already has the state in scope.
-  openManagedTabBreakers: Set<Platform>;
-  playbackPrimeStates: Map<Platform, PlaybackPrimeState>;
-  adFocusHolds: Map<Platform, number>;
-  adFocusExpired: Set<Platform>;
-  previousFocus: { tabId?: number; windowId?: number } | undefined;
-  twitchIntegrity: TwitchIntegrity | undefined;
-  latestTwitchIntegrityCapture: TwitchIntegrityCapture | undefined;
-  twitchIntegrityCapturesBySourceTab: Map<number, TwitchIntegrityCapture>;
-  twitchIntegrityCaptureGeneration: number;
-  integrityWaiters: Array<(capture?: TwitchIntegrityCapture) => void>;
-  twitchContextBoot: TwitchContextBootTiming | undefined;
-  inFlightIntegrityAcquisition: TwitchIntegrityAcquisition | undefined;
-  // Replays the valid captured integrity token on background Twitch GQL.
-  twitchRequestIdentity: TwitchRequestIdentity;
-}
-
-export function createTabRegistry(): TabRegistry {
-  const registry: TabRegistry = {
-    pageContextTabs: new Map(),
-    retainedPageContextTabs: new Map(),
-    closingPageContextTabIds: new Set(),
-    retainedPageContextRevision: 0,
-    openManagedTabBreakers: new Set(),
-    playbackPrimeStates: new Map(),
-    adFocusHolds: new Map(),
-    adFocusExpired: new Set(),
-    previousFocus: undefined,
-    twitchIntegrity: undefined,
-    latestTwitchIntegrityCapture: undefined,
-    twitchIntegrityCapturesBySourceTab: new Map(),
-    twitchIntegrityCaptureGeneration: 0,
-    integrityWaiters: [],
-    twitchContextBoot: undefined,
-    inFlightIntegrityAcquisition: undefined,
-    twitchRequestIdentity: createTwitchRequestIdentity(() => currentValidTwitchIntegrity(registry)),
-  };
-  return registry;
-}
-
-const ALL_PLATFORMS: readonly Platform[] = ["twitch", "kick"];
-
-export function syncManagedTabBreakers(
-  registry: TabRegistry,
-  state: { criticalHealth?: Partial<Record<Platform, { breakerOpen?: boolean }>> },
-  platforms: readonly Platform[] = ALL_PLATFORMS,
-): void {
-  for (const platform of platforms) {
-    if (state.criticalHealth?.[platform]?.breakerOpen) registry.openManagedTabBreakers.add(platform);
-    else registry.openManagedTabBreakers.delete(platform);
-  }
-}
-
-export function managedTabBreakerOpen(registry: TabRegistry, platform: Platform): boolean {
-  return registry.openManagedTabBreakers.has(platform);
-}
-
 function platformForOrigin(origin: string): Platform | undefined {
   if (origin === "https://kick.com" || origin === "https://www.kick.com") return "kick";
   if (origin === "https://www.twitch.tv" || origin === "https://twitch.tv") return "twitch";
   return undefined;
 }
+
 const DEFAULT_WATCH_TAB_OPTIONS: WatchTabOptions = {
   muted: true,
   closeManagedTabs: true,
   keepVideosUnmuted: true,
 };
+
 const PLAYBACK_PRIME_RESTORE_DELAY_MS = 1500;
+
 // Priming foreground-activates the watch tab for a moment, so it must never
 // become an open-ended loop: a tab whose player the browser permanently blocks
 // keeps reporting playingVideoCount === 0, which would otherwise flicker the tab
@@ -165,6 +87,7 @@ const PLAYBACK_PRIME_RESTORE_DELAY_MS = 1500;
 // as a tick finds playback healthy, so a genuinely deferred player is still
 // coaxed along.
 const PLAYBACK_PRIME_MAX_ATTEMPTS = 3;
+
 const PLAYBACK_PRIME_BACKOFF_MS = 5 * 60_000;
 
 export async function openPinnedMutedTabWithBrowser(
@@ -292,30 +215,7 @@ function shouldPrimePlayback(tab: BrowserTab, url: string, session?: WatchSessio
     || playback.playingVideoCount === 0;
 }
 
-interface PlaybackPrimeState {
-  channelUrl: string;
-  attempts: number;
-  lastAttemptAt: number;
-  exhausted: boolean;
-}
-
-// Keyed by platform, not by tab id: when playback never becomes healthy the
-// scheduler condemns the watch tab and opens a replacement, so the tab id is
-// different on every cycle. A per-tab budget would be reissued in full each time
-// and the cap would never engage. The watch target is what we rate-limit, so the
-// state carries the channel it was accrued for — a new tab for a *different*
-// channel is a legitimate reason to prime again, a new tab for the same channel
-// that keeps failing is the loop we must stop.
-
 export { PLAYBACK_PRIME_BACKOFF_MS, PLAYBACK_PRIME_MAX_ATTEMPTS };
-
-// Forgets the priming budget for a platform (or for every platform when none is
-// given), so the next request primes again. Called when a tick finds playback
-// healthy — genuine recovery, not merely a new tab.
-function resetPlaybackPriming(registry: TabRegistry, platform?: Platform): void {
-  if (platform == null) registry.playbackPrimeStates.clear();
-  else registry.playbackPrimeStates.delete(platform);
-}
 
 async function maybePrimeTabPlayback(
   registry: TabRegistry,
@@ -533,284 +433,10 @@ export interface PageFetchOptions {
   requireFreshPageContext?: boolean;
 }
 
-
-// The most recently captured Client-Integrity bundle from the live twitch.tv
-// page (see src/core/twitchIntegrity.ts). The background registers a webRequest
-// listener that feeds this via setTwitchIntegrity so authenticated GQL mutations
-// (e.g. drop claims) carry a valid integrity token. Defaults to undefined so
-// queries keep working anonymously / without integrity until one is captured.
-
-interface TwitchIntegrityCapture {
-  value: TwitchIntegrity;
-  sourceTabId?: number;
-  generation: number;
-}
-
-// Keep the latest capture from each attributed tab long enough for a managed
-// helper wait to identify its own replacement even if a user tab immediately
-// replays the previous token into the ordinary global slot.
-const MAX_TWITCH_INTEGRITY_SOURCE_CAPTURES = 32;
-
-// Treat a token expiring within this window as already stale, so a claim never
-// ships with one that expires mid-flight (the captured token is replayed and
-// the round-trip plus Twitch-side clock skew can otherwise straddle expiry).
-export const INTEGRITY_EXPIRY_SKEW_MS = 30_000;
-
 // Page context to open when no token has been captured: a logged-in twitch.tv
 // SPA route that immediately issues authenticated GQL carrying Client-Integrity,
 // which the background webRequest listener captures (see entrypoints/background.ts).
 export const TWITCH_PAGE_CONTEXT_URL = "https://www.twitch.tv/drops/inventory";
-
-// How long to wait for the live page to mint and send a token after we open it.
-//
-// This budgets for a cold twitch.tv boot, which is dominated by Kasada's
-// proof-of-work rather than by the page load: an observed boot reached
-// `status === "complete"` in 1.4s and only produced a token at 22s. The previous
-// 12s could not cover that, so the wait timed out, the operation degraded to
-// stale data, and the token landed anyway once nobody was waiting for it.
-//
-// Note that "the token landed once nobody was waiting" also had a second, then
-// unknown cause: the capture path installed tokens under the same platform lock
-// the waiting tick held, so a rejection-recovery wait could never be satisfied
-// no matter how long this budget was. That deadlock is fixed in the controller's
-// captureTwitchIntegrity. This budget still covers genuine cold-boot latency on
-// the readiness path, which has always run outside that lock.
-//
-// Raising it is only affordable because a forced refresh is now bounded by
-// rejectedToken (see below): a tick pays this once, not once per rejected
-// operation. Provisional — it covers a single observed sample with margin, and
-// the boot-phase diagnostics exist to replace it with a measured distribution.
-export const INTEGRITY_REFRESH_TIMEOUT_MS = 30_000;
-
-// Resolvers waiting for the next captured token (see waitForIntegrityCapture).
-
-// Test seam for proving terminal paths release their registered callbacks.
-export function currentTwitchIntegrityWaiterCount(registry: TabRegistry): number {
-  return registry.integrityWaiters.length;
-}
-
-// Phase timings for the twitch.tv page context currently being booted to mint an
-// integrity token. A cold boot costs far more than the document load: the tab
-// reports `status === "complete"` as soon as the HTML shell lands, but the token
-// only appears once the SPA has hydrated, authenticated, and completed Kasada's
-// proof-of-work (see src/core/twitchIntegrity.ts). Those phases are billed to
-// very different causes — a slow network, a slow SPA boot, or an expensive
-// challenge in a deprioritized background tab — and the aggregate wait duration
-// cannot tell them apart, so each boundary is stamped as it is crossed.
-interface TwitchContextBootTiming {
-  tabId: number;
-  createdAt: number;
-  readyAt?: number;
-  firstGqlAt?: number;
-}
-
-// Called for every gql.twitch.tv request the background sees, including the
-// anonymous ones that carry no Client-Integrity header. Those are exactly what
-// distinguishes "the SPA has not booted yet" from "the SPA is running but is
-// still solving the proof-of-work", which is the split the aggregate timeout
-// hides.
-export function noteTwitchGqlRequest(registry: TabRegistry, tabId: number | undefined, now: number = Date.now()): void {
-  if (tabId == null || registry.twitchContextBoot?.tabId !== tabId) return;
-  registry.twitchContextBoot.firstGqlAt ??= now;
-}
-
-function describeContextBoot(boot: TwitchContextBootTiming, now: number): string {
-  const since = (at: number | undefined): string => (at == null ? "never" : `${at - boot.createdAt}ms`);
-  return `tab ready at ${since(boot.readyAt)}, first GQL at ${since(boot.firstGqlAt)}, ${now - boot.createdAt}ms since the tab was created`;
-}
-
-export function isValidTwitchIntegrity(
-  value: TwitchIntegrity | undefined,
-  now: number = Date.now(),
-): value is TwitchIntegrity {
-  return value != null && value.expiresAt > now + INTEGRITY_EXPIRY_SKEW_MS;
-}
-
-export function hasValidTwitchIntegrity(registry: TabRegistry, now: number = Date.now()): boolean {
-  return isValidTwitchIntegrity(registry.twitchIntegrity, now);
-}
-
-export interface TwitchIntegrityCaptureOptions {
-  isNew?: boolean;
-  sourceTabId?: number;
-}
-
-export function setTwitchIntegrity(
-  registry: TabRegistry,
-  value: TwitchIntegrity | undefined,
-  options?: TwitchIntegrityCaptureOptions,
-  emit: EventEmitter = ignoreEvent,
-): void {
-  registry.twitchIntegrity = value;
-  const generation = ++registry.twitchIntegrityCaptureGeneration;
-  if (value == null) {
-    registry.latestTwitchIntegrityCapture = undefined;
-    registry.twitchIntegrityCapturesBySourceTab.clear();
-  } else {
-    const capture: TwitchIntegrityCapture = {
-      value,
-      generation,
-      ...(options?.sourceTabId != null ? { sourceTabId: options.sourceTabId } : {}),
-    };
-    registry.latestTwitchIntegrityCapture = capture;
-    if (capture.sourceTabId != null) {
-      // Delete first so the insertion order reflects capture recency; stale
-      // source entries must not grow without bound in a long-lived background.
-      registry.twitchIntegrityCapturesBySourceTab.delete(capture.sourceTabId);
-      registry.twitchIntegrityCapturesBySourceTab.set(capture.sourceTabId, capture);
-      while (registry.twitchIntegrityCapturesBySourceTab.size > MAX_TWITCH_INTEGRITY_SOURCE_CAPTURES) {
-        const oldestSourceTabId = registry.twitchIntegrityCapturesBySourceTab.keys().next().value;
-        if (oldestSourceTabId == null) break;
-        registry.twitchIntegrityCapturesBySourceTab.delete(oldestSourceTabId);
-      }
-    }
-  }
-  if (value && options?.isNew) {
-    const ttlSeconds = Math.max(0, Math.round((value.expiresAt - Date.now()) / 1000));
-    diagnostic(emit, "info", `Captured a fresh Twitch integrity token (expires ${new Date(value.expiresAt).toISOString()}, in ${ttlSeconds}s)`, "twitch");
-  }
-  if (value != null && registry.integrityWaiters.length > 0) {
-    const waiters = registry.integrityWaiters;
-    registry.integrityWaiters = [];
-    for (const resolve of waiters) resolve(registry.latestTwitchIntegrityCapture);
-  }
-}
-
-// A forced refresh runs after Twitch rejected a token the extension still
-// considers unexpired, so local expiry alone cannot decide success: the captured
-// token must also differ from the one that was rejected.
-export interface TwitchIntegrityRequest {
-  forceRefresh?: boolean;
-  signal?: AbortSignal;
-  reason?: "readiness" | "proactive_refresh" | "rejection_recovery";
-  onManagedPageContextOpen?: () => void | Promise<void>;
-  // Receives the exact bundle captured by the managed context. A forced GQL
-  // retry uses this callback to pin the trio it sends instead of reading the
-  // last-writer-wins global after a concurrent page capture.
-  onIntegrityCaptured?: (value: TwitchIntegrity) => void;
-  // The token the rejected request actually sent, captured before it was issued.
-  // Without it a forced refresh cannot tell "this caller was rejected on a token
-  // someone has already replaced" from "this caller was rejected on the token we
-  // currently hold" — only the second needs a new one minted. Omitted means
-  // unknown, which always mints.
-  rejectedToken?: string;
-}
-
-// The integrity bundle outgoing requests should carry, or undefined when there
-// is none to replay. Returned whole because the token is bound to the device id
-// and session id it was minted with — replaying the trio apart from each other
-// is rejected.
-//
-// Callers that assemble their own headers use this so the token they sent is
-// known exactly, rather than re-read later from a global that a concurrent
-// capture may have replaced in between. See TwitchIntegrityRequest.rejectedToken.
-export function currentValidTwitchIntegrity(registry: TabRegistry): TwitchIntegrity | undefined {
-  return hasValidTwitchIntegrity(registry) ? registry.twitchIntegrity : undefined;
-}
-
-interface TwitchIntegrityAcquisitionResult {
-  value: TwitchIntegrity;
-  managedContext: boolean;
-}
-
-// Minting boots a twitch.tv context and may wait ~22s for Kasada's proof-of-work,
-// so every caller shares one owned acquisition. The owned abort cancels the
-// underlying page context; only the creator's signal owns that lifecycle, while
-// later joiners race their own signal without disturbing everyone else.
-interface TwitchIntegrityAcquisition {
-  promise: Promise<TwitchIntegrityAcquisitionResult | undefined>;
-  abort: AbortController;
-}
-
-
-export function cancelTwitchIntegrityAcquisition(registry: TabRegistry, reason?: unknown): void {
-  registry.inFlightIntegrityAcquisition?.abort.abort(reason);
-}
-
-function hasReplacementTwitchIntegrity(registry: TabRegistry, rejectedToken?: string): boolean {
-  if (!hasValidTwitchIntegrity(registry)) return false;
-  return rejectedToken == null || registry.twitchIntegrity?.integrity !== rejectedToken;
-}
-
-function isReplacementCapture(capture: TwitchIntegrityCapture | undefined, rejectedToken?: string): boolean {
-  if (!capture || !isValidTwitchIntegrity(capture.value)) return false;
-  return rejectedToken == null || capture.value.integrity !== rejectedToken;
-}
-
-function captureForIntegrityWait(
-  registry: TabRegistry,
-  rejectedToken: string | undefined,
-  sourceTabId: number | undefined,
-  latestCapture?: TwitchIntegrityCapture,
-  minimumGeneration = 0,
-): TwitchIntegrityCapture | undefined {
-  if (sourceTabId != null) {
-    const sourceCapture = registry.twitchIntegrityCapturesBySourceTab.get(sourceTabId);
-    if (sourceCapture != null && sourceCapture.generation > minimumGeneration && isReplacementCapture(sourceCapture, rejectedToken)) return sourceCapture;
-    // Unattributed captures retain the historic global behavior. Once a
-    // capture has an explicit source, however, a different tab cannot satisfy
-    // this managed-context wait.
-    if (latestCapture != null && latestCapture.generation > minimumGeneration && isReplacementCapture(latestCapture, rejectedToken) && latestCapture.sourceTabId == null) return latestCapture;
-    return undefined;
-  }
-  const capture = latestCapture ?? registry.latestTwitchIntegrityCapture;
-  return capture != null && capture.generation > minimumGeneration && isReplacementCapture(capture, rejectedToken) ? capture : undefined;
-}
-
-// Resolves with the exact usable capture, or undefined after timeoutMs. A
-// captured token can be near-expiry — captureTwitchIntegrity does not gate on
-// expiry — so resolvers re-check validity. When rejectedToken is set,
-// re-capturing that same token does not settle the wait; the page may replay it
-// before minting a replacement.
-function waitForIntegrityCapture(
-  registry: TabRegistry,
-  timeoutMs: number,
-  rejectedToken?: string,
-  signal?: AbortSignal,
-  sourceTabId?: number,
-  minimumGeneration = 0,
-): Promise<TwitchIntegrityCapture | undefined> {
-  signal?.throwIfAborted();
-  const alreadyCaptured = captureForIntegrityWait(registry, rejectedToken, sourceTabId, undefined, minimumGeneration);
-  if (alreadyCaptured) return Promise.resolve(alreadyCaptured);
-  return new Promise((resolve, reject) => {
-    let settled = false;
-    const removeWaiter = () => {
-      registry.integrityWaiters = registry.integrityWaiters.filter((waiter) => waiter !== onCapture);
-    };
-    const cleanup = () => {
-      clearTimeout(timer);
-      signal?.removeEventListener("abort", onAbort);
-      removeWaiter();
-    };
-    const finish = (capture?: TwitchIntegrityCapture) => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      resolve(capture);
-    };
-    const onCapture = (capture?: TwitchIntegrityCapture) => {
-      if (settled) return;
-      // Not a replacement yet — keep waiting until the deadline instead of
-      // reporting the rejected token back as a successful refresh.
-      const replacement = captureForIntegrityWait(registry, rejectedToken, sourceTabId, capture, minimumGeneration);
-      if (!replacement) {
-        registry.integrityWaiters.push(onCapture);
-        return;
-      }
-      finish(replacement);
-    };
-    const onAbort = () => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      reject(signal?.reason);
-    };
-    const timer = setTimeout(finish, timeoutMs);
-    signal?.addEventListener("abort", onAbort, { once: true });
-    registry.integrityWaiters.push(onCapture);
-  });
-}
 
 // Ensures a valid Client-Integrity token exists before an authenticated mutation
 // (drop claims). When none is captured — e.g. tabless farming with no twitch.tv
@@ -1485,68 +1111,6 @@ async function waitForPageContextReady(
   }
 }
 
-export function registerManagedPageContextTabs(
-  registry: TabRegistry,
-  contexts: SchedulerManagedPageContexts,
-  platforms: readonly Platform[] = ALL_PLATFORMS,
-): void {
-  for (const platform of platforms) {
-    registry.retainedPageContextTabs.delete(platform);
-    const context = contexts[platform];
-    if (context) registry.retainedPageContextTabs.set(platform, context);
-    registry.retainedPageContextRevision += 1;
-  }
-}
-
-// Hydrates storage-owned metadata only when this platform has no live registry
-// entry. A provider request may update the registry while its storage read is
-// pending; an old read must never put that newer page context back. Callers can
-// pass the revision observed before the read to make that race explicit.
-export function hydrateManagedPageContextTabs(
-  registry: TabRegistry,
-  contexts: SchedulerManagedPageContexts,
-  platforms: readonly Platform[] = ALL_PLATFORMS,
-  expectedRevision?: number,
-): boolean {
-  if (expectedRevision !== undefined && expectedRevision !== registry.retainedPageContextRevision) return false;
-  for (const platform of platforms) {
-    if (registry.retainedPageContextTabs.has(platform)) continue;
-    const context = contexts[platform];
-    if (!context) continue;
-    registry.retainedPageContextTabs.set(platform, context);
-    registry.retainedPageContextRevision += 1;
-  }
-  return true;
-}
-
-export function currentManagedPageContextTabsRevision(registry: TabRegistry): number {
-  return registry.retainedPageContextRevision;
-}
-
-export function currentManagedPageContextTabs(registry: TabRegistry): SchedulerManagedPageContexts {
-  return Object.fromEntries(registry.retainedPageContextTabs) as SchedulerManagedPageContexts;
-}
-
-export function recordManagedPageContextFallback(
-  registry: TabRegistry,
-  platform: Platform,
-  host: string,
-  emit: EventEmitter = ignoreEvent,
-  now: number = Date.now(),
-): void {
-  const context = registry.retainedPageContextTabs.get(platform);
-  if (!context) return;
-  const updated: ManagedPageContextTab = {
-    ...context,
-    lastFallbackAt: new Date(now).toISOString(),
-    fallbackHost: host,
-    backgroundSuccesses: 0,
-  };
-  registry.retainedPageContextTabs.set(platform, updated);
-  registry.retainedPageContextRevision += 1;
-  diagnostic(emit, "debug", `Retained managed page context on ${new URL(context.origin).host} because background access is still rejected`, platform);
-}
-
 export async function reconcileManagedPageContextRecoveryWithBrowser(
   registry: TabRegistry,
   browserApi: BrowserTabApi,
@@ -1555,37 +1119,9 @@ export async function reconcileManagedPageContextRecoveryWithBrowser(
   requiredSuccesses: number,
   emit: EventEmitter = ignoreEvent,
 ): Promise<boolean> {
-  const context = registry.retainedPageContextTabs.get(platform);
-  if (!context) return false;
-
-  if (observation.fallbackHosts.length > 0) {
-    const fallbackHost = observation.fallbackHosts.at(-1)!;
-    registry.retainedPageContextTabs.set(platform, {
-      ...context,
-      lastFallbackAt: new Date().toISOString(),
-      fallbackHost,
-      backgroundSuccesses: 0,
-    });
-    registry.retainedPageContextRevision += 1;
-    diagnostic(emit, "debug", `Retained managed page context on ${new URL(context.origin).host} because this scheduler cycle still required page fallback`, platform);
-    return true;
-  }
-
-  if (!context.fallbackHost || !observation.backgroundHosts.includes(context.fallbackHost)) return false;
-
-  const updated: ManagedPageContextTab = {
-    ...context,
-    backgroundSuccesses: (context.backgroundSuccesses ?? 0) + 1,
-  };
-  registry.retainedPageContextTabs.set(platform, updated);
-  registry.retainedPageContextRevision += 1;
-  const threshold = Math.min(10, Math.max(1, Math.round(requiredSuccesses)));
-  const recovered = updated.backgroundSuccesses! >= threshold
-    && !registry.pageContextTabs.has(context.origin);
-  if (!recovered) {
-    diagnostic(emit, "debug", `Retained managed page context on ${new URL(context.origin).host} while background recovery is being confirmed`, platform);
-    return true;
-  }
+  const step = observePageContextRecovery(registry, platform, observation, requiredSuccesses, emit);
+  if (step.kind !== "recovered") return step.kind === "retained";
+  const { context, updated } = step;
 
   const verificationRevision = registry.retainedPageContextRevision;
   let retainedTab: Awaited<ReturnType<BrowserTabApi["tabs"]["get"]>>;
@@ -1655,27 +1191,6 @@ export async function reconcileManagedPageContextRecoveryWithBrowser(
   return true;
 }
 
-// Pure state cleanup: drop the given platforms from the contexts map and the
-// retained-tab registry, returning the next contexts. No browser access, so a
-// headless runtime — and the scheduler's default — can forget page contexts
-// without a tab API; the browser-backed variant below layers real tab removal
-// on top.
-export function forgetManagedPageContextTabs(
-  registry: TabRegistry,
-  contexts: SchedulerManagedPageContexts,
-  options: { platforms?: Platform[]; reason?: PageContextCloseReason; emit?: EventEmitter } = {},
-): SchedulerManagedPageContexts {
-  const platforms = options.platforms ?? ["twitch", "kick"];
-  const next = { ...contexts };
-  for (const platform of platforms) {
-    if (!next[platform]) continue;
-    delete next[platform];
-    registry.retainedPageContextTabs.delete(platform);
-    registry.retainedPageContextRevision += 1;
-  }
-  return next;
-}
-
 export async function stopManagedPageContextTabsWithBrowser(
   registry: TabRegistry,
   browserApi: BrowserTabApi,
@@ -1707,8 +1222,6 @@ export async function stopManagedPageContextTabsWithBrowser(
   }
   return forgetManagedPageContextTabs(registry, contexts, options);
 }
-
-export type { SchedulerManagedPageContexts };
 
 // Injected into a page's MAIN world via executeScript to fetch with the page's
 // cookies/session — used for Kick, which needs Cloudflare/session context. All

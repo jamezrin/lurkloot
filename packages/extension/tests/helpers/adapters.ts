@@ -1,7 +1,7 @@
 import { ignoreEvent, type PageFetcher } from "@lurkloot/core/adapter";
 import { KickAdapter, type KickAdapterOptions } from "@lurkloot/core/kick";
 import type { WebSocketFactory } from "@lurkloot/core/webSocket";
-import type { TwitchIntegrityRequest } from "@lurkloot/core/tabs";
+import type { TwitchIntegrityRequest } from "@lurkloot/core/tabRegistry";
 import { TwitchAdapter, type TwitchAdapterOptions } from "@lurkloot/core/twitch";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import { testCompatibility } from "./compatibility";
