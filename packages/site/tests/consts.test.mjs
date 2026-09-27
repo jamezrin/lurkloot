@@ -101,7 +101,7 @@ test("gives each indexable page a distinct title and description", async () => {
   assert.equal(descriptions.size, indexablePages.length);
 });
 
-test("describes encrypted transport and only user-initiated credential transfer", async () => {
+test("describes Twitch CLI login and only user-initiated Kick credential transfer", async () => {
   const twitch = await readFile(
     new URL("../dist/twitch-drops-farmer/index.html", import.meta.url),
     "utf8",
@@ -112,7 +112,8 @@ test("describes encrypted transport and only user-initiated credential transfer"
   );
 
   assert.doesNotMatch(twitch, /plain HTTP/);
-  assert.match(twitch, /through Twitch(?:'s|&#39;s) API/);
+  assert.match(twitch, /Twitch(?:'s|&#39;s) Smart TV device login/);
+  assert.match(twitch, /may miss campaigns/);
   assert.match(kick, /optional, user-initiated session-token transfer/i);
 });
 

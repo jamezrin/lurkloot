@@ -31,8 +31,16 @@ export function readCredentialBlob(source: string): PlatformCredentials {
   };
 }
 
-export function importCredentials(authDir: string, source: string): PlatformCredentials {
+export function importCredentials(authDir: string, source: string): { credentials: PlatformCredentials; ignoredTwitch: boolean } {
   const creds = readCredentialBlob(source);
-  saveCredentials(authDir, creds);
-  return creds;
+  // The extension exports a web-session token without its OAuth Client-ID.
+  // Guessing the CLI's Smart TV ID would create a mismatched authorization
+  // header, and the web identity cannot discover campaigns without integrity.
+  const ignoredTwitch = Boolean(creds.twitch?.authToken && !creds.twitch.clientId);
+  if (ignoredTwitch && !creds.kick?.sessionToken) {
+    throw new Error("A browser Twitch token cannot be used by the headless CLI; run auth twitch device-login instead");
+  }
+  const credentials = { ...creds, twitch: ignoredTwitch ? undefined : creds.twitch };
+  saveCredentials(authDir, credentials);
+  return { credentials, ignoredTwitch };
 }

@@ -1,12 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { credentialAvailabilityOf, describeCredentialHealth, forgetCredentials, hasKickAuth, hasTwitchAuth, loadCredentials } from "../src/authStore";
+import { credentialAvailabilityOf, describeCredentialHealth, forgetCredentials, hasKickAuth, hasTwitchAuth, loadCredentials, saveCredentials } from "../src/authStore";
 
 let dir: string;
 beforeEach(async () => { dir = await mkdtemp(join(tmpdir(), "lurkloot-auth-")); });
 afterEach(async () => { await rm(dir, { recursive: true, force: true }); });
+
+it.skipIf(process.platform === "win32")("restricts a saved credential store even when the existing file is readable by others", async () => {
+  const path = join(dir, "credentials.json");
+  await writeFile(path, JSON.stringify({ twitch: { authToken: "old" } }), { mode: 0o644 });
+  saveCredentials(dir, { twitch: { authToken: "new" } });
+  expect(statSync(path).mode & 0o777).toBe(0o600);
+});
 
 describe("loadCredentials", () => {
   it("returns empty credentials when there is no store and no env", () => {

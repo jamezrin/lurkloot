@@ -70,7 +70,7 @@ export const twitchFaqItems: FaqItem[] = [
   },
   {
     q: "Can I farm Twitch Drops on a server, with no browser?",
-    a: "Yes. The headless CLI talks to Twitch as the Android app client, which Twitch does not gate behind Client-Integrity, so discovery, watch progress and drop claims all work through Twitch's API with no browser and no integrity token. You authorize once with Twitch's device-code login — an activation URL and a short code you approve on any device — and a prebuilt multi-arch Docker image runs it 24/7 on a server, NAS or Raspberry Pi.",
+    a: "The headless CLI can run on a server or NAS without a browser. It uses Twitch's Smart TV device-code login. Twitch currently withholds the full campaign dashboard from headless clients, so the CLI scans live channels in games you configure and may miss offline or unscanned campaigns. The browser extension remains the choice for full campaign discovery while this CLI path is being verified end to end.",
   },
   {
     q: "Which browsers does the Twitch Drops extension work in?",

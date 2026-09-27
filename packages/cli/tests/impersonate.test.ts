@@ -136,13 +136,13 @@ describe("impersonate transport", () => {
     await handle.dispose();
   });
 
-  it("injects resolved Android compatibility into both adapters", async () => {
+  it("injects resolved Smart TV compatibility into both adapters", async () => {
     const client = fakeClient(() => Promise.resolve({ status: 200, data: {} }));
     const handle = await createImpersonateTransport({}, ENABLED, { initClient: async () => client });
 
     const construction = handle.createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS);
 
-    expect(construction.compatibility.twitch.heartbeat).toBe("twitch-heartbeat-trowel-v1");
+    expect(construction.compatibility.twitch.heartbeat).toBe("twitch-heartbeat-spade-v1");
     expect(construction.compatibility.twitch.profile).toBe("twitch-2026-07");
     expect(construction.adapters.twitch.compatibility).toEqual(construction.compatibility.twitch);
     expect(construction.adapters.kick.compatibility).toEqual(construction.compatibility.kick);
@@ -240,7 +240,7 @@ describe("impersonate transport", () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
       data: { user: { id: "channel-id", stream: { id: "broadcast-id" } } },
     }), { status: 200, headers: { "content-type": "application/json" } })));
-    const handle = await createImpersonateTransport({}, ENABLED, { initClient: async () => client });
+    const handle = await createImpersonateTransport({ twitch: { clientId: "kd1unb4b3q4t58fwlpcbzcbnm76a8fp" } }, ENABLED, { initClient: async () => client });
     const watcher = handle.adapters.twitch.createTablessWatcher!();
     await watcher.start({ platform: "twitch", username: "creator", url: "https://twitch.tv/creator" }, { userId: "viewer-id" });
 

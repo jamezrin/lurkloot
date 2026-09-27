@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Platform, PlatformAuthReasonCode, PlatformAuthStatus } from "@lurkloot/shared/models";
 import type { CredentialAvailability } from "@lurkloot/core/controller";
@@ -50,7 +50,7 @@ export function saveCredentials(authDir: string, creds: PlatformCredentials): vo
     twitch: pruneUndefined({ ...existing.twitch, ...creds.twitch }),
     kick: pruneUndefined({ ...existing.kick, ...creds.kick }),
   };
-  writeFileSync(path, `${JSON.stringify(merged, null, 2)}\n`);
+  writePrivateStore(path, merged);
 }
 
 // Removes a platform's stored credentials from <authDir>/credentials.json,
@@ -63,8 +63,13 @@ export function forgetCredentials(authDir: string, platform: keyof PlatformCrede
   const existing = readStore(path);
   if (!existing[platform]) return false;
   delete existing[platform];
-  writeFileSync(path, `${JSON.stringify(existing, null, 2)}\n`);
+  writePrivateStore(path, existing);
   return true;
+}
+
+function writePrivateStore(path: string, credentials: PlatformCredentials): void {
+  writeFileSync(path, `${JSON.stringify(credentials, null, 2)}\n`, { mode: 0o600 });
+  if (process.platform !== "win32") chmodSync(path, 0o600);
 }
 
 function pruneUndefined<T extends Record<string, unknown>>(value: T): T {
