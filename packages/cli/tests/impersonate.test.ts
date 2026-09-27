@@ -291,42 +291,28 @@ describe("impersonate transport", () => {
 });
 
 describe("createTvLinkAuthenticator", () => {
-  const CSRF_COOKIES = { "Set-Cookie": ["XSRF-TOKEN=tok%2D123; Path=/", "kick_session=sess; Path=/"] };
-
-  it("warms up CSRF then POSTs the code with cookies + X-XSRF-TOKEN, returning the token", async () => {
+  it("POSTs the code without a CSRF warm-up and returns the token", async () => {
     const calls: Captured[] = [];
     const client = fakeClient((url, options, method) => {
       calls.push({ url, options, method });
-      if (url.endsWith("/sanctum/csrf-cookie")) return Promise.resolve({ status: 204, data: "", headers: CSRF_COOKIES });
       return Promise.resolve({ status: 200, data: { token: "tv-session" } });
     });
     const result = await createTvLinkAuthenticator(client)("ABC-UUID", "123456");
     expect(result.token).toBe("tv-session");
 
-    const warmUp = calls.find((c) => c.url.endsWith("/sanctum/csrf-cookie"));
-    expect(warmUp?.method).toBe("get");
+    expect(calls).toHaveLength(1);
     const post = calls.find((c) => c.url.includes("/api/tv/link/authenticate/"));
     expect(post?.method).toBe("post");
     expect(post?.url).toBe("https://kick.com/api/tv/link/authenticate/ABC-UUID");
     expect(post?.options.ja3).toBe(CHROME_JA3);
-    expect(post?.options.headers["X-XSRF-TOKEN"]).toBe("tok-123"); // URL-decoded
-    expect(post?.options.headers.Cookie).toContain("XSRF-TOKEN=tok%2D123");
+    expect(post?.options.headers["X-XSRF-TOKEN"]).toBeUndefined();
+    expect(post?.options.headers.Cookie).toBeUndefined();
   });
 
-  it("warms up only once across polls", async () => {
-    let warmUps = 0;
-    const client = fakeClient((url) => {
-      if (url.endsWith("/sanctum/csrf-cookie")) { warmUps += 1; return Promise.resolve({ status: 204, data: "", headers: CSRF_COOKIES }); }
-      return Promise.resolve({ status: 403, data: '{"message":"Invalid setup UUID and Key"}' });
-    });
+  it("returns no token while the setup code is pending", async () => {
+    const client = fakeClient(() => Promise.resolve({ status: 403, data: '{"message":"Invalid setup UUID and Key"}' }));
     const authenticate = createTvLinkAuthenticator(client);
     expect(await authenticate("UUID", "000000")).toEqual({ token: undefined });
     expect(await authenticate("UUID", "000000")).toEqual({ token: undefined });
-    expect(warmUps).toBe(1);
-  });
-
-  it("throws if Kick issues no XSRF-TOKEN cookie", async () => {
-    const client = fakeClient(() => Promise.resolve({ status: 204, data: "", headers: { "Set-Cookie": ["kick_session=sess"] } }));
-    await expect(createTvLinkAuthenticator(client)("UUID", "000000")).rejects.toThrow(/XSRF-TOKEN/);
   });
 });
