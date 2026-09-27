@@ -184,7 +184,7 @@ describe("background controller", () => {
     expect(env.deps.createAlarm).toHaveBeenCalledWith(KICK_ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
     expect(env.deps.closeManagedTabs).toHaveBeenCalledWith([
       expect.objectContaining({ tabId: 44, channelUrl: "https://www.twitch.tv/twitch-creator", ownedByExtension: true }),
-    ]);
+    ], "host-restart");
     expect(env.watchTabs.twitch.open).toHaveBeenCalled();
     expect(env.twitch.checkAuthHealth).toHaveBeenCalledOnce();
     expect(env.kick.checkAuthHealth).toHaveBeenCalledOnce();
@@ -223,7 +223,7 @@ describe("background controller", () => {
     expect(isFarmingActive(env.settings)).toBe(false);
     expect(env.deps.closeManagedTabs).toHaveBeenCalledWith([
       expect.objectContaining({ tabId: 44, channelUrl: "https://www.twitch.tv/twitch-creator", ownedByExtension: true }),
-    ]);
+    ], "host-restart");
     expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
     expect(env.watchTabs.twitch.open).not.toHaveBeenCalled();
     expect(env.state.managedWatchTabs).toEqual({});
@@ -259,7 +259,7 @@ describe("background controller", () => {
     expect(isFarmingActive(env.settings)).toBe(false);
     expect(env.deps.closeManagedTabs).toHaveBeenCalledWith([
       expect.objectContaining({ tabId: 55, channelUrl: "https://kick.com/kick-creator", ownedByExtension: true }),
-    ]);
+    ], "host-restart");
     expect(env.watchTabs.kick.open).not.toHaveBeenCalled();
     expect(env.state.sessions.kick.status).toBe("paused");
     expect(env.state.sessions.kick.tabId).toBeUndefined();
@@ -544,7 +544,7 @@ describe("background controller", () => {
 
     await env.controller.prepareForHostReset();
 
-    expect(env.deps.closeManagedTabs).toHaveBeenCalledWith([expect.objectContaining({ tabId: 71 })]);
+    expect(env.deps.closeManagedTabs).toHaveBeenCalledWith([expect.objectContaining({ tabId: 71 })], "extension-cleanup");
   });
 
   it("holds controller mutations until host storage reset finishes", async () => {

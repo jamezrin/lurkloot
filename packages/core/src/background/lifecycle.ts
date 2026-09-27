@@ -223,7 +223,8 @@ export function createLifecycle<S extends EngineSettings>(
 
     const { tabs } = ports;
     if (tabs && cleanup.managedTabs.length > 0) {
-      await tabs.watch.closeManaged(cleanup.managedTabs);
+      // Tabs left over from before the host restarted.
+      await tabs.watch.closeManaged(cleanup.managedTabs, "host-restart");
     }
     if (!preservePageContexts && tabs && Object.keys(state.managedPageContextTabs ?? {}).length > 0) {
       await withEventCollector(async (emit, events) => {
@@ -327,7 +328,7 @@ export function createLifecycle<S extends EngineSettings>(
           };
           const managedTabs = Object.values(state.managedWatchTabs ?? {}).filter((tab): tab is ManagedWatchTab => tab?.ownedByExtension === true);
           if (managedTabs.length > 0) {
-            await attempt([...new Set(managedTabs.map((tab) => tab.platform))], "Could not close managed watch tabs", () => tabs.watch.closeManaged(managedTabs));
+            await attempt([...new Set(managedTabs.map((tab) => tab.platform))], "Could not close managed watch tabs", () => tabs.watch.closeManaged(managedTabs, "extension-cleanup"));
           }
           for (const platform of PLATFORMS) {
             await attempt([platform], "Could not release ad focus", () => tabs.watch.applyAdFocus(platform, state.sessions[platform].tabId, false, emit));

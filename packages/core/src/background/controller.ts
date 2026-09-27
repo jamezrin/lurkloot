@@ -124,7 +124,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     ...createChannelPoints(ports, { channelPointsSlice, signalSlice, tickSlice, lifecycleSlice }, calls),
     ...createKickChallenges(ports, { kickChallengeSlice, lifecycleSlice }, calls),
     ...createAuthHealth(ports, { authSlice, discoverySlice }, calls),
-    ...createManualWatch(ports, calls),
+    ...createManualWatch(ports, { tabRegistry }, calls),
     ...createClaims(ports, { kickChallengeSlice, claimSlice, lifecycleSlice }, calls),
     ...createDiscoverySignals(ports, { signalSlice, tickSlice, lifecycleSlice }, calls),
     ...discovery,

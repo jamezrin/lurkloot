@@ -218,12 +218,20 @@ export interface PreparedWatchTab {
   managedTab?: ManagedWatchTab;
 }
 
+// Why a tab the engine held was closed (#598). Only a `user` close is the
+// user's gesture; the others are the engine's own cleanup and must never be
+// read as the user closing a farming tab.
+export type TabClosureOrigin = "user" | "extension-cleanup" | "extension-recovery" | "host-restart";
+
 export interface WatchTabOptions {
   muted: boolean;
   closeManagedTabs: boolean;
   keepVideosUnmuted: boolean;
   managedTab?: ManagedWatchTab;
   signal?: AbortSignal;
+  // Recorded against the tab if stopping it closes it. Defaults to
+  // "extension-cleanup".
+  closureOrigin?: Exclude<TabClosureOrigin, "user">;
 }
 
 export interface ManagedPageContextTab {

@@ -1,4 +1,4 @@
-import type { ManagedPageContextTab, Platform, SchedulerManagedPageContexts } from "@lurkloot/shared/models";
+import type { ManagedPageContextTab, Platform, SchedulerManagedPageContexts, TabClosureOrigin } from "@lurkloot/shared/models";
 import type { EventEmitter, PageContextCloseReason } from "@lurkloot/shared/events";
 import type { LogLevel } from "@lurkloot/shared/logging";
 import type { TwitchIntegrity } from "./twitchIntegrity";
@@ -45,7 +45,9 @@ export interface PageContextEntry {
 export interface TabRegistry {
   pageContextTabs: Map<string, PageContextEntry>;
   retainedPageContextTabs: Map<Platform, ManagedPageContextTab>;
-  closingPageContextTabIds: Set<number>;
+  // Tabs the engine is closing or has closed, and why (#598). Recorded before
+  // the browser call, so the removal event that follows it finds the entry.
+  tabClosures: Map<number, Exclude<TabClosureOrigin, "user">>;
   retainedPageContextRevision: number;
   // Mirrors SchedulerState.criticalHealth[platform].breakerOpen. The page-context
   // call sites are several layers deep and have no access to scheduler state, so
@@ -84,7 +86,7 @@ export function createTabRegistry(): TabRegistry {
   const registry: TabRegistry = {
     pageContextTabs: new Map(),
     retainedPageContextTabs: new Map(),
-    closingPageContextTabIds: new Set(),
+    tabClosures: new Map(),
     retainedPageContextRevision: 0,
     openManagedTabBreakers: new Set(),
     playbackPrimeStates: new Map(),
@@ -459,6 +461,43 @@ export function recordManagedPageContextFallback(
   registry.retainedPageContextTabs.set(platform, updated);
   registry.retainedPageContextRevision += 1;
   diagnostic(emit, "debug", `Retained managed page context on ${new URL(context.origin).host} because background access is still rejected`, platform);
+}
+
+// Enough for every tab one cycle can close; an entry whose removal event never
+// arrives (the host was restarting) must not linger for a reused tab id.
+const MAX_TAB_CLOSURES = 64;
+
+// Records that the engine is about to close `tabId`. Call it before the browser
+// call: the removal event can arrive before that call resolves.
+export function noteTabClosure(
+  registry: TabRegistry,
+  tabId: number,
+  origin: Exclude<TabClosureOrigin, "user">,
+): void {
+  registry.tabClosures.delete(tabId);
+  registry.tabClosures.set(tabId, origin);
+  while (registry.tabClosures.size > MAX_TAB_CLOSURES) {
+    const oldest = registry.tabClosures.keys().next().value;
+    if (oldest == null) break;
+    registry.tabClosures.delete(oldest);
+  }
+}
+
+// For a close that did not happen, so a later user close of the same tab is
+// still the user's.
+export function forgetTabClosure(registry: TabRegistry, tabId: number): void {
+  registry.tabClosures.delete(tabId);
+}
+
+export function isTabClosing(registry: TabRegistry, tabId: number): boolean {
+  return registry.tabClosures.has(tabId);
+}
+
+// Why a removed tab was closed: the engine's recorded reason, or the user.
+export function takeTabClosureOrigin(registry: TabRegistry, tabId: number): TabClosureOrigin {
+  const origin = registry.tabClosures.get(tabId);
+  registry.tabClosures.delete(tabId);
+  return origin ?? "user";
 }
 
 // What one scheduler cycle's page-context evidence means for the retained

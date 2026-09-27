@@ -6,7 +6,8 @@ import { isTimestampStale } from "../core/timestamps";
 import { kickChannelFromUrl } from "../platforms/kick/channelUrl";
 import { twitchChannelFromUrl } from "../platforms/twitch/channelUrl";
 import { PLATFORMS } from "./constants";
-import { lateBound } from "./context";
+import { lateBound, type ControllerSlices } from "./context";
+import { takeTabClosureOrigin } from "../core/tabRegistry";
 import { emitHostCallbackError } from "./helpers";
 import type { BackgroundHostPorts } from "./hostPorts";
 import type { ControllerCalls } from "./types";
@@ -14,6 +15,7 @@ import type { ControllerCalls } from "./types";
 // Manual watch, managed-tab events and playback telemetry.
 export function createManualWatch<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
+  { tabRegistry }: Pick<ControllerSlices<S>, "tabRegistry">,
   calls: Pick<ControllerCalls<S>,
     | "invalidateSelection"
     | "persistAndReport"
@@ -50,6 +52,9 @@ export function createManualWatch<S extends EngineSettings>(
 
   async function handleTabRemoved(tabId: number): Promise<void> {
     const changed: Platform[] = [];
+    // Taken before the lock: the engine records why it closes a tab before it
+    // asks the browser to, so this is already known when the event arrives.
+    const origin = takeTabClosureOrigin(tabRegistry, tabId);
     await withStateLock(() => withEventCollector(async (emit, events) => {
       const state = await ports.storage.loadState();
       let nextState = state;
@@ -67,6 +72,13 @@ export function createManualWatch<S extends EngineSettings>(
           && session.tabManagedByExtension
           && session.tabId === tabId
         ) {
+          // Only the user's own close is a gesture to pause for (#598). The
+          // engine closing its tab, e.g. a tick that stopped watching with the
+          // tab not yet committed away, is its own decision to publish.
+          if (origin !== "user") {
+            emit({ category: "diagnostic", platform, level: "debug", message: `Managed watch tab ${tabId} was closed by the extension (${origin}); not pausing farming` });
+            continue;
+          }
           closedManagedPlatforms.push(platform);
           emit({ category: "diagnostic", platform, level: "info", message: "Managed watch tab was closed manually; pausing farming for this platform until the user resumes" });
         }

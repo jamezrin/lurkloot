@@ -49,6 +49,7 @@ const tabRegistry = createTabRegistry();
 const {
   applyAdFocus,
   cancelTwitchIntegrityAcquisition,
+  closeManagedWatchTabs,
   currentValidTwitchIntegrity,
   ensureTwitchIntegrity,
   fetchJsonInPage,
@@ -182,16 +183,7 @@ const controller = createBackgroundController<ExtensionSettings>({
         const settings = await loadSettings();
         return stopWatchTab(session, { closeManagedTabs: settings.autoCloseFinishedDrops, ...options }, emit);
       },
-      closeManaged: async (tabs) => {
-        await Promise.all(tabs.map(async ({ tabId, channelUrl }) => {
-          try {
-            const tab = await browser.tabs.get(tabId);
-            if (tab.id === tabId && tab.url === channelUrl) await browser.tabs.remove(tabId);
-          } catch {
-            // The recorded tab may already be closed or its id may be stale.
-          }
-        }));
-      },
+      closeManaged: (tabs, origin) => closeManagedWatchTabs(tabs, origin),
       applyAdFocus: async (platform, tabId, adActive, emit) => {
         const { adFocusMode } = await loadSettings();
         await applyAdFocus(platform, tabId, adActive, adFocusMode, emit);
