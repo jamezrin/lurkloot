@@ -11,6 +11,7 @@ import { MANUAL_WATCH_TTL_MS } from "@lurkloot/core/scheduler";
 import { createTickEffectExecutor, runSchedulerTickEffects, tickCapabilities } from "@lurkloot/core/background/tickEffects";
 import { authHealthFromError } from "@lurkloot/core/fetchError";
 import { isTimestampStale } from "@lurkloot/core/timestamps";
+import { createTabRegistry, type TabRegistry } from "@lurkloot/core/tabs";
 
 // The scheduler tick never discovers campaigns and never calls an adapter
 // (#599): the controller hands it a committed discovery snapshot and runs its
@@ -23,6 +24,9 @@ export interface SchedulerTickTestOptions {
   selectSupplementalWatchTarget?(platform: Platform, state: SchedulerState, signal?: AbortSignal, source?: WatchSourceId): Promise<SupplementalWatchTarget | undefined>;
   platforms?: Platform[];
   stopPageContextTabs?: StopPageContextTabs;
+  // The tab registry the tick mirrors page contexts and breakers into; a fresh
+  // one per tick unless the test inspects it.
+  tabRegistry?: TabRegistry;
   waitingClaimRewardIds?: Partial<Record<Platform, Set<string>>>;
   emit?: EventEmitter;
   signal?: AbortSignal;
@@ -89,6 +93,7 @@ export async function runSchedulerTick(
     selectionIsCurrent: options.selectionIsCurrent,
   }, createTickEffectExecutor(), {
     adapters,
+    tabRegistry: options.tabRegistry ?? createTabRegistry(),
     stopPageContextTabs: options.stopPageContextTabs,
     selectSupplementalTarget: options.selectSupplementalWatchTarget,
   });

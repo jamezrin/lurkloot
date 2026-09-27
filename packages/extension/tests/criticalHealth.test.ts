@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_CRITICAL_HEALTH, normalizeCriticalHealth } from "@lurkloot/shared/criticalHealth";
 import { DEFAULT_STATE, mergeSchedulerState } from "@lurkloot/core/defaults";
 import {
@@ -12,7 +12,7 @@ import {
   recordManagedTabOpen,
   isManagedTabBreakerOpen,
 } from "@lurkloot/core/criticalHealth";
-import { managedTabBreakerOpen, syncManagedTabBreakers } from "@lurkloot/core/tabs";
+import { createTabRegistry, managedTabBreakerOpen, syncManagedTabBreakers, type TabRegistry } from "@lurkloot/core/tabs";
 import type { SchedulerState } from "@lurkloot/shared/models";
 
 const START = Date.parse("2026-07-25T10:00:00.000Z");
@@ -522,9 +522,9 @@ describe("critical health persistence", () => {
 });
 
 describe("managed tab circuit breaker registry", () => {
-  afterEach(() => {
-    // Module-level registry: leave it closed so it cannot leak into other suites.
-    syncManagedTabBreakers(baseState());
+  let registry: TabRegistry;
+  beforeEach(() => {
+    registry = createTabRegistry();
   });
 
   it("mirrors the persisted breaker state", () => {
@@ -533,25 +533,25 @@ describe("managed tab circuit breaker registry", () => {
       state = recordManagedTabOpen(state, "kick", START + index * 60 * 1000, WATCH_TAB).state;
     }
 
-    syncManagedTabBreakers(state);
+    syncManagedTabBreakers(registry, state);
 
     expect(isManagedTabBreakerOpen(state, "kick")).toBe(true);
-    expect(managedTabBreakerOpen("kick")).toBe(true);
-    expect(managedTabBreakerOpen("twitch")).toBe(false);
+    expect(managedTabBreakerOpen(registry, "kick")).toBe(true);
+    expect(managedTabBreakerOpen(registry, "twitch")).toBe(false);
   });
 
   it("updates breaker mirrors only for the requested platform", () => {
-    syncManagedTabBreakers({
+    syncManagedTabBreakers(registry, {
       criticalHealth: {
         twitch: { ...DEFAULT_CRITICAL_HEALTH, breakerOpen: true },
         kick: { ...DEFAULT_CRITICAL_HEALTH, breakerOpen: true },
       },
     });
 
-    syncManagedTabBreakers({}, ["twitch"]);
+    syncManagedTabBreakers(registry, {}, ["twitch"]);
 
-    expect(managedTabBreakerOpen("twitch")).toBe(false);
-    expect(managedTabBreakerOpen("kick")).toBe(true);
+    expect(managedTabBreakerOpen(registry, "twitch")).toBe(false);
+    expect(managedTabBreakerOpen(registry, "kick")).toBe(true);
   });
 
   it("closes again once the failure is dismissed", () => {
@@ -559,14 +559,14 @@ describe("managed tab circuit breaker registry", () => {
     for (let index = 0; index < TAB_CHURN_LIMIT; index += 1) {
       state = recordManagedTabOpen(state, "kick", START + index * 60 * 1000, PAGE_CONTEXT).state;
     }
-    syncManagedTabBreakers(state);
-    expect(managedTabBreakerOpen("kick")).toBe(true);
+    syncManagedTabBreakers(registry, state);
+    expect(managedTabBreakerOpen(registry, "kick")).toBe(true);
 
     state = dismissCriticalFailure(state, "kick", START + 10 * 60 * 1000).state;
-    syncManagedTabBreakers(state);
+    syncManagedTabBreakers(registry, state);
 
     expect(isManagedTabBreakerOpen(state, "kick")).toBe(false);
-    expect(managedTabBreakerOpen("kick")).toBe(false);
+    expect(managedTabBreakerOpen(registry, "kick")).toBe(false);
   });
 });
 

@@ -12,7 +12,8 @@ import type { ControllerCalls } from "./types";
 // Runtime message handling.
 export function createMessageHandler<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
-  { integritySlice, signalSlice, tickSlice, settingsSlice, lifecycleSlice }: Pick<ControllerSlices<S>,
+  { integritySlice, signalSlice, tickSlice, settingsSlice, lifecycleSlice, tabRegistry }: Pick<ControllerSlices<S>,
+    | "tabRegistry"
     | "integritySlice"
     | "signalSlice"
     | "tickSlice"
@@ -255,7 +256,7 @@ export function createMessageHandler<S extends EngineSettings>(
         if (transition.event) emit(transition.event);
         // Closing the breaker here is what lets farming resume immediately
         // instead of waiting for the next tick to sync the registry.
-        syncManagedTabBreakers(transition.state, [message.platform]);
+        syncManagedTabBreakers(tabRegistry, transition.state, [message.platform]);
         await persistAndReport(transition.state, events);
       }));
       await tickAndHandOff(undefined, "critical_failure_dismissed");

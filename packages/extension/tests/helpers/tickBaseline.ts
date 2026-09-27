@@ -14,16 +14,23 @@ import type { EngineEvent, EventEmitter } from "@lurkloot/shared/events";
 import type { ChannelCandidate, DropCampaign, ExtensionSettings, Platform, SchedulerState, WatchSession } from "@lurkloot/shared/models";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "../../src/core/storage";
-import { forgetManagedPageContextTabs } from "@lurkloot/core/tabs";
+import { createTabRegistry, forgetManagedPageContextTabs } from "@lurkloot/core/tabs";
 import { hostPortsFromMocks } from "./hostPorts";
 
 // The extension declares browser tabs; the baseline ticks never open one.
-const EXTENSION_TAB_MOCKS = {
-  closeManagedTabs: async () => undefined,
-  applyAdFocus: async () => undefined,
-  loadTabPlaybackPolicy: async () => ({ keepVideosUnmuted: true }),
-  stopPageContextTabs: forgetManagedPageContextTabs,
-};
+function extensionTabMocks() {
+  const tabRegistry = createTabRegistry();
+  return {
+    tabRegistry,
+    closeManagedTabs: async () => undefined,
+    applyAdFocus: async () => undefined,
+    loadTabPlaybackPolicy: async () => ({ keepVideosUnmuted: true }),
+    stopPageContextTabs: (
+      contexts: Parameters<typeof forgetManagedPageContextTabs>[1],
+      options?: Parameters<typeof forgetManagedPageContextTabs>[2],
+    ) => forgetManagedPageContextTabs(tabRegistry, contexts, options),
+  };
+}
 
 export interface TickBaselineCounts {
   // Calls across the PlatformAdapter boundary. These are not transport request
@@ -407,7 +414,7 @@ async function runExtensionHeartbeatOverlapCell(platform: Platform): Promise<Hos
     },
     reportEvents,
     createAlarm: async () => undefined,
-    ...EXTENSION_TAB_MOCKS,
+    ...extensionTabMocks(),
     ensureTwitchIntegrity: async () => true,
     createNotification: async () => undefined,
     createAdapter: (selectedPlatform) => resolutionFor(selectedPlatform),
@@ -580,7 +587,7 @@ export async function runExtensionBaselineCell(
     },
     reportEvents,
     createAlarm: async () => undefined,
-    ...EXTENSION_TAB_MOCKS,
+    ...extensionTabMocks(),
     ensureTwitchIntegrity: async () => true,
     createNotification: async () => undefined,
     createAdapter: (selectedPlatform) => resolutionFor(selectedPlatform),

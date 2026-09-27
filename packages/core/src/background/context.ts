@@ -2,6 +2,7 @@ import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/
 import type { EngineEvent } from "@lurkloot/shared/events";
 import type { TwitchIntegrity } from "../core/twitchIntegrity";
 import type { TablessWatchController } from "../core/tablessWatch";
+import type { TabRegistry } from "../core/tabs";
 import type { DiscoverySignalController } from "../core/discoverySignals";
 import type { TwitchChannelPointsPushController } from "../platforms/twitch/channelPointsPush";
 import { DiscoverySnapshotLane } from "../core/discoverySnapshot";
@@ -343,6 +344,8 @@ export interface ControllerSlices<S extends EngineSettings> {
   tickSlice: TickAdmissionSlice;
   settingsSlice: SettingsSlice;
   lifecycleSlice: LifecycleSlice;
+  // Shared with the host that runs the tab mechanics (#598).
+  tabRegistry: TabRegistry;
 }
 
 // Calls into sibling modules. Modules call each other in both directions, so

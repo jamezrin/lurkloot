@@ -27,8 +27,8 @@ import type {
 // One platform tick: selection, the scheduler tick and what runs around it.
 export function createTickRun<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
-  { claimSlice, discoverySlice, tickSlice, kickChallengeSlice, channelPointsSlice }: Pick<ControllerSlices<S>,
-    "claimSlice" | "discoverySlice" | "tickSlice" | "kickChallengeSlice" | "channelPointsSlice">,
+  { claimSlice, discoverySlice, tickSlice, kickChallengeSlice, channelPointsSlice, tabRegistry }: Pick<ControllerSlices<S>,
+    "claimSlice" | "discoverySlice" | "tickSlice" | "kickChallengeSlice" | "channelPointsSlice" | "tabRegistry">,
   calls: Pick<ControllerCalls<S>,
     | "applyAdFocusForState"
     | "clearOperationalEvents"
@@ -347,6 +347,7 @@ export function createTickRun<S extends EngineSettings>(
       // every lock body: nothing the tick asks for may wait on one.
       const effectContext = {
         adapters,
+        tabRegistry,
         stopPageContextTabs: ports.tabs?.stopPageContextTabs,
         selectSupplementalTarget: supplementalSources
           ? (supplementalPlatform: Platform, selectedState: SchedulerState, selectedSignal: AbortSignal | undefined, source: WatchSourceId) =>
@@ -501,7 +502,7 @@ export function createTickRun<S extends EngineSettings>(
             }
             // Keep the registry that gates page-context creation in step with the
             // state we are about to persist, so the very next fetch is suppressed.
-            syncManagedTabBreakers(nextState, schedulerPlatforms);
+            syncManagedTabBreakers(tabRegistry, nextState, schedulerPlatforms);
           }
         } catch (error) {
           try {

@@ -1,11 +1,11 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, KickPlatformSettings, Platform, SchedulerState, TwitchPlatformSettings } from "@lurkloot/shared/models";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { NO_CATEGORY_ID } from "@lurkloot/shared/categories";
-import { chooseCampaignDecision, selectWatchTargetFromSnapshot, sortCampaigns } from "@lurkloot/core/scheduler";
+import { chooseCampaignDecision, selectWatchTargetFromSnapshot, sortCampaigns, type StopPageContextTabs } from "@lurkloot/core/scheduler";
 import { runSchedulerTick } from "./helpers/schedulerTick";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
-import { forgetManagedPageContextTabs, managedTabBreakerOpen, syncManagedTabBreakers } from "@lurkloot/core/tabs";
+import { createTabRegistry, forgetManagedPageContextTabs, managedTabBreakerOpen, syncManagedTabBreakers, type TabRegistry } from "@lurkloot/core/tabs";
 import { SafeFetchError } from "@lurkloot/core/fetchError";
 import { DEFAULT_CRITICAL_HEALTH } from "@lurkloot/shared/criticalHealth";
 import { TAB_CHURN_LIMIT, TAB_CHURN_WINDOW_MS } from "@lurkloot/core/criticalHealth";
@@ -1523,7 +1523,9 @@ describe("scheduler tick", () => {
       claimChallenges: vi.fn(async () => []),
       claimChannelPoints: vi.fn(async () => true),
     };
-    const stopPageContextTabs = vi.fn(forgetManagedPageContextTabs);
+    const tabRegistry = createTabRegistry();
+    const stopPageContextTabs = vi.fn<StopPageContextTabs>((contexts, options) =>
+      forgetManagedPageContextTabs(tabRegistry, contexts, options));
     const previous = {
       platform: "kick" as const,
       status: "watching" as const,
@@ -1552,7 +1554,7 @@ describe("scheduler tick", () => {
       },
       settings({ platform: { twitch: { enabled: false }, kick: { enabled: true } } }),
       { twitch: adapter("twitch", [], []), kick },
-      { platforms: ["kick"], stopPageContextTabs },
+      { platforms: ["kick"], stopPageContextTabs, tabRegistry },
     );
 
     expect(kick.stopWatchTab).toHaveBeenCalledWith(previous, { signal: undefined });
@@ -3770,7 +3772,9 @@ describe("scheduler tick", () => {
   it("retains a required Kick page context across ordinary watch preparation", async () => {
     const kickCandidate = { ...channel("kick-allowed"), platform: "kick" as const, url: "https://kick.com/kick-allowed" };
     const kick = adapter("kick", [campaign("kick-drops", { platform: "kick" })], [kickCandidate]);
-    const stopPageContextTabs = vi.fn(forgetManagedPageContextTabs);
+    const tabRegistry = createTabRegistry();
+    const stopPageContextTabs = vi.fn<StopPageContextTabs>((contexts, options) =>
+      forgetManagedPageContextTabs(tabRegistry, contexts, options));
     const managedContext = {
       platform: "kick" as const,
       tabId: 91,
@@ -3791,7 +3795,7 @@ describe("scheduler tick", () => {
       },
       settings({ platform: { twitch: { enabled: false }, kick: { enabled: true } } }),
       { twitch: adapter("twitch", [], []), kick },
-      { platforms: ["kick"], stopPageContextTabs },
+      { platforms: ["kick"], stopPageContextTabs, tabRegistry },
     );
 
     expect(kick.prepareWatchTab).toHaveBeenCalledOnce();
@@ -3858,7 +3862,9 @@ describe("scheduler tick", () => {
 
   it("stops the previous watch tab when automation is disabled", async () => {
     const twitch = adapter("twitch", [], []);
-    const stopPageContextTabs = vi.fn(forgetManagedPageContextTabs);
+    const tabRegistry = createTabRegistry();
+    const stopPageContextTabs = vi.fn<StopPageContextTabs>((contexts, options) =>
+      forgetManagedPageContextTabs(tabRegistry, contexts, options));
 
     const result = await runSchedulerTick(
       {
@@ -3880,7 +3886,7 @@ describe("scheduler tick", () => {
       },
       settings({ platform: { twitch: { enabled: false }, kick: { enabled: false } } }),
       { twitch, kick: adapter("kick", [], []) },
-      { stopPageContextTabs },
+      { stopPageContextTabs, tabRegistry },
     );
 
     expect(twitch.stopWatchTab).toHaveBeenCalledWith(
@@ -4862,8 +4868,9 @@ describe("scheduler managed tab circuit breaker", () => {
     },
   });
 
-  afterEach(() => {
-    syncManagedTabBreakers({});
+  let tabRegistry: TabRegistry;
+  beforeEach(() => {
+    tabRegistry = createTabRegistry();
   });
 
   it("does not open a watch tab while the breaker is open", async () => {
@@ -4873,7 +4880,7 @@ describe("scheduler managed tab circuit breaker", () => {
       { ...watchingState(), criticalHealth: { twitch: openBreakerHealth() } },
       breakerSettings(),
       { twitch, kick: adapter("kick", [], []) },
-      { platforms: ["twitch"] },
+      { platforms: ["twitch"], tabRegistry },
     );
 
     expect(twitch.prepareWatchTab).not.toHaveBeenCalled();
@@ -4881,7 +4888,7 @@ describe("scheduler managed tab circuit breaker", () => {
     expect(result.state.sessions.twitch.status).not.toBe("watching");
     expect(result.state.sessions.twitch.reasonCode).toBe("critical_failure");
     expect(result.state.managedWatchTabs?.twitch).toBeUndefined();
-    expect(managedTabBreakerOpen("twitch")).toBe(true);
+    expect(managedTabBreakerOpen(tabRegistry, "twitch")).toBe(true);
   });
 
   it("keeps ticking a breaker-paused platform so the breaker can release", async () => {
@@ -4891,7 +4898,7 @@ describe("scheduler managed tab circuit breaker", () => {
       { ...watchingState(), criticalHealth: { twitch: openBreakerHealth() } },
       breakerSettings(),
       { twitch, kick: adapter("kick", [], []) },
-      { platforms: ["twitch"] },
+      { platforms: ["twitch"], tabRegistry },
     );
 
     // Without this observation the churn window never prunes and an unflagged
@@ -4912,7 +4919,7 @@ describe("scheduler managed tab circuit breaker", () => {
       },
       breakerSettings(),
       { twitch, kick: adapter("kick", [], []) },
-      { platforms: ["twitch"] },
+      { platforms: ["twitch"], tabRegistry },
     );
 
     expect(result.state.criticalHealth?.twitch?.breakerOpen).toBe(false);
@@ -4925,7 +4932,7 @@ describe("scheduler managed tab circuit breaker", () => {
       { ...watchingState(), criticalHealth: { twitch: openBreakerHealth() } },
       breakerSettings({ criticalFailurePromptEnabled: false }),
       { twitch, kick: adapter("kick", [], []) },
-      { platforms: ["twitch"] },
+      { platforms: ["twitch"], tabRegistry },
     );
 
     expect(twitch.prepareWatchTab).toHaveBeenCalled();
@@ -4937,17 +4944,17 @@ describe("scheduler managed tab circuit breaker", () => {
     // A breaker latched before the kill switch was flipped would otherwise keep
     // blocking page-context creation forever: observations no longer run to
     // release it, and the popup no longer offers the panel that dismisses it.
-    syncManagedTabBreakers({ criticalHealth: { twitch: openBreakerHealth() } });
-    expect(managedTabBreakerOpen("twitch")).toBe(true);
+    syncManagedTabBreakers(tabRegistry, { criticalHealth: { twitch: openBreakerHealth() } });
+    expect(managedTabBreakerOpen(tabRegistry, "twitch")).toBe(true);
 
     await runSchedulerTick(
       { ...watchingState(), criticalHealth: { twitch: openBreakerHealth() } },
       breakerSettings({ criticalFailurePromptEnabled: false }),
       { twitch, kick: adapter("kick", [], []) },
-      { platforms: ["twitch"] },
+      { platforms: ["twitch"], tabRegistry },
     );
 
-    expect(managedTabBreakerOpen("twitch")).toBe(false);
+    expect(managedTabBreakerOpen(tabRegistry, "twitch")).toBe(false);
   });
 
   it("records each newly created managed watch tab", async () => {
@@ -4964,7 +4971,7 @@ describe("scheduler managed tab circuit breaker", () => {
       },
       breakerSettings(),
       { twitch, kick: adapter("kick", [], []) },
-      { platforms: ["twitch"] },
+      { platforms: ["twitch"], tabRegistry },
     );
 
     expect(result.state.criticalHealth?.twitch?.managedTabOpens).toHaveLength(1);

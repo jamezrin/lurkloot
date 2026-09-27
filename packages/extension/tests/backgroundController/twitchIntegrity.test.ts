@@ -5,10 +5,9 @@ import type { DiagnosticEvent } from "@lurkloot/shared/events";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import {
   cancelTwitchIntegrityAcquisition,
+  createTabRegistry,
   currentValidTwitchIntegrity,
   ensureTwitchIntegrityWithBrowser,
-  registerManagedPageContextTabs,
-  resetTwitchIntegrityRefreshBounds,
   setTwitchIntegrity,
   type BrowserTabApi,
 } from "@lurkloot/core/tabs";
@@ -37,11 +36,9 @@ describe("background controller", () => {
     beforeEach(() => {
       vi.useFakeTimers({ toFake: ["Date"] });
       vi.setSystemTime(new Date("2026-07-28T12:00:00.000Z"));
-      setTwitchIntegrity(undefined);
     });
 
     afterEach(() => {
-      setTwitchIntegrity(undefined);
       vi.useRealTimers();
     });
 
@@ -135,7 +132,7 @@ describe("background controller", () => {
 
       await env.controller.captureTwitchIntegrity(integrityHeaders(integrity));
 
-      expect(currentValidTwitchIntegrity()).toEqual(integrity);
+      expect(currentValidTwitchIntegrity(env.tabRegistry)).toEqual(integrity);
       expect(saveTwitchIntegrity).toHaveBeenCalledWith(integrity);
       expect(env.deps.createAlarm).not.toHaveBeenCalled();
     });
@@ -179,7 +176,7 @@ describe("background controller", () => {
       await capturing;
 
       expect(env.settings.platform.twitch.enabled).toBe(true);
-      expect(currentValidTwitchIntegrity()).toEqual(integrity);
+      expect(currentValidTwitchIntegrity(env.tabRegistry)).toEqual(integrity);
       expect(env.deps.createAlarm).toHaveBeenCalledWith(
         TWITCH_INTEGRITY_ALARM_NAME,
         expect.objectContaining({ when: expect.any(Number) }),
@@ -221,7 +218,7 @@ describe("background controller", () => {
       await Promise.all([capturing, disabling]);
 
       expect(env.settings.platform.twitch.enabled).toBe(false);
-      expect(currentValidTwitchIntegrity()).toEqual(integrity);
+      expect(currentValidTwitchIntegrity(env.tabRegistry)).toEqual(integrity);
       expect(env.deps.createAlarm.mock.calls.some(
         ([name]) => name === TWITCH_INTEGRITY_ALARM_NAME,
       )).toBe(false);
@@ -245,7 +242,7 @@ describe("background controller", () => {
 
       await env.controller.settleBackgroundWork();
 
-      expect(currentValidTwitchIntegrity()).toEqual(integrity);
+      expect(currentValidTwitchIntegrity(env.tabRegistry)).toEqual(integrity);
       expect(env.deps.createAlarm).not.toHaveBeenCalled();
     });
 
@@ -431,7 +428,7 @@ describe("background controller", () => {
 
       await expect(env.controller.captureTwitchIntegrity(integrityHeaders(integrity))).resolves.toBeUndefined();
 
-      expect(currentValidTwitchIntegrity()).toEqual(integrity);
+      expect(currentValidTwitchIntegrity(env.tabRegistry)).toEqual(integrity);
       expect(env.deps.createAlarm).toHaveBeenCalledWith(
         TWITCH_INTEGRITY_ALARM_NAME,
         expect.objectContaining({ when: expect.any(Number) }),
@@ -468,7 +465,7 @@ describe("background controller", () => {
       await expect(env.controller.captureTwitchIntegrity(integrityHeaders(integrity))).resolves.toBeUndefined();
 
       expect(saveTwitchIntegrity).toHaveBeenCalledWith(integrity);
-      expect(currentValidTwitchIntegrity()).toEqual(integrity);
+      expect(currentValidTwitchIntegrity(env.tabRegistry)).toEqual(integrity);
       expect(env.reportEvents.mock.calls.flatMap(([batch]) => batch)).toContainEqual(
         expect.objectContaining({
           category: "diagnostic",
@@ -501,13 +498,7 @@ describe("background controller", () => {
   });
 
   describe("Twitch integrity readiness", () => {
-    beforeEach(() => {
-      setTwitchIntegrity(undefined);
-    });
 
-    afterEach(() => {
-      setTwitchIntegrity(undefined);
-    });
 
     it("keeps a user-tab capture from satisfying a managed refresh wait", async () => {
       const browser = {
@@ -523,9 +514,10 @@ describe("background controller", () => {
       const replacement = integrityBundle({ integrity: "controller-user-token" });
       const env = harness(undefined, { loadTwitchIntegrity: async () => undefined });
       await env.controller.settleBackgroundWork();
-      setTwitchIntegrity(rejected, { sourceTabId: 7 });
+      setTwitchIntegrity(env.tabRegistry, rejected, { sourceTabId: 7 });
 
       const pending = ensureTwitchIntegrityWithBrowser(
+        env.tabRegistry,
         browser,
         "https://www.twitch.tv/drops/inventory",
         50,
@@ -553,9 +545,10 @@ describe("background controller", () => {
       const replacement = integrityBundle({ integrity: "controller-unattributed-token" });
       const env = harness(undefined, { loadTwitchIntegrity: async () => undefined });
       await env.controller.settleBackgroundWork();
-      setTwitchIntegrity(rejected, { sourceTabId: 7 });
+      setTwitchIntegrity(env.tabRegistry, rejected, { sourceTabId: 7 });
 
       const pending = ensureTwitchIntegrityWithBrowser(
+        env.tabRegistry,
         browser,
         "https://www.twitch.tv/drops/inventory",
         50,
@@ -1222,11 +1215,9 @@ describe("background controller", () => {
     beforeEach(() => {
       vi.useFakeTimers({ toFake: ["Date"] });
       vi.setSystemTime(new Date("2026-07-28T12:00:00.000Z"));
-      setTwitchIntegrity(undefined);
     });
 
     afterEach(() => {
-      setTwitchIntegrity(undefined);
       vi.useRealTimers();
     });
 
@@ -1368,19 +1359,19 @@ describe("background controller", () => {
           create: vi.fn(async () => ({ id: 93 })),
         },
       } satisfies BrowserTabApi;
-      registerManagedPageContextTabs({});
-      resetTwitchIntegrityRefreshBounds();
-      setTwitchIntegrity(undefined);
+      const tabRegistry = createTabRegistry();
       const env = harness(undefined, {
+        tabRegistry,
         loadTwitchIntegrity: async () => undefined,
         ensureTwitchIntegrity: (emit, request) => ensureTwitchIntegrityWithBrowser(
+          tabRegistry,
           browser,
           "https://www.twitch.tv/drops/inventory",
           5_000,
           emit,
           request,
         ),
-        cancelTwitchIntegrityAcquisition,
+        cancelTwitchIntegrityAcquisition: (reason) => cancelTwitchIntegrityAcquisition(tabRegistry, reason),
       });
       await env.controller.settleBackgroundWork();
 
@@ -1388,7 +1379,7 @@ describe("background controller", () => {
       await vi.waitFor(() => expect(browser.tabs.create).toHaveBeenCalledOnce());
       const ticking = env.controller.tick(["twitch"], "manual_tick");
       await vi.waitFor(() => expect(env.deps.ensureTwitchIntegrity).toHaveBeenCalledTimes(2));
-      setTwitchIntegrity(integrityBundle({
+      setTwitchIntegrity(env.tabRegistry, integrityBundle({
         integrity: "real-composition-replacement",
       }), { isNew: true });
       await Promise.all([refreshing, ticking]);
@@ -1403,8 +1394,6 @@ describe("background controller", () => {
       const managedTabOpens = env.state.criticalHealth?.twitch?.managedTabOpens.length;
       const recordedProactiveOpen = env.state.criticalHealth?.twitch?.records.some((record) =>
         record.kind === "context_open" && record.code === "proactive_integrity_refresh");
-      resetTwitchIntegrityRefreshBounds();
-      setTwitchIntegrity(undefined);
 
       expect(browser.tabs.create).toHaveBeenCalledOnce();
       expect(emittedActivity).toBe(false);
@@ -1472,7 +1461,7 @@ describe("background controller", () => {
       await new Promise<void>((resolve) => setTimeout(resolve, 0));
 
       const preflightWaitedForCapture = loadTwitchIntegrity.mock.calls.length === 0;
-      const memoryStayedFreshWhileSaving = currentValidTwitchIntegrity()?.integrity === replacement.integrity;
+      const memoryStayedFreshWhileSaving = currentValidTwitchIntegrity(env.tabRegistry)?.integrity === replacement.integrity;
 
       saveGate.resolve();
       await Promise.all([capturing, refreshing]);
@@ -1480,7 +1469,7 @@ describe("background controller", () => {
       expect(preflightWaitedForCapture).toBe(true);
       expect(memoryStayedFreshWhileSaving).toBe(true);
       expect(stored).toEqual(capturedReplacement);
-      expect(currentValidTwitchIntegrity()).toEqual(capturedReplacement);
+      expect(currentValidTwitchIntegrity(env.tabRegistry)).toEqual(capturedReplacement);
       const integrityAlarmCalls = env.deps.createAlarm.mock.calls.filter(
         ([name]) => name === TWITCH_INTEGRITY_ALARM_NAME,
       );
@@ -1500,7 +1489,6 @@ describe("background controller", () => {
       const refreshGate = deferred<void>();
       const env = harness(undefined, { loadTwitchIntegrity: async () => undefined });
       await env.controller.settleBackgroundWork();
-      setTwitchIntegrity(undefined);
 
       // refreshCampaigns runs during the Twitch tick, which holds the tick
       // open until it returns.
@@ -1515,11 +1503,10 @@ describe("background controller", () => {
       // Deliberately not awaited: persistence still queues behind the tick, and
       // the install must already have happened by the time the call returns.
       const capturing = env.controller.captureTwitchIntegrity(integrityHeaders(replacement));
-      const installedWhileLocked = currentValidTwitchIntegrity()?.integrity;
+      const installedWhileLocked = currentValidTwitchIntegrity(env.tabRegistry)?.integrity;
 
       refreshGate.resolve();
       await Promise.all([capturing, ticking]);
-      setTwitchIntegrity(undefined);
 
       expect(installedWhileLocked).toBe(replacement.integrity);
     });
@@ -1537,9 +1524,6 @@ describe("background controller", () => {
           create: vi.fn(async () => ({ id: 77 })),
         },
       } satisfies BrowserTabApi;
-      registerManagedPageContextTabs({});
-      resetTwitchIntegrityRefreshBounds();
-      setTwitchIntegrity(undefined);
       const env = harness(undefined, { loadTwitchIntegrity: async () => undefined });
       await env.controller.settleBackgroundWork();
 
@@ -1549,6 +1533,7 @@ describe("background controller", () => {
       // the platform lock, so before the fix it could only ever time out.
       env.twitch.refreshCampaigns = vi.fn(async () => {
         mintedInsideLock = await ensureTwitchIntegrityWithBrowser(
+          env.tabRegistry,
           browser,
           "https://www.twitch.tv/drops/inventory",
           1_000,
@@ -1564,8 +1549,6 @@ describe("background controller", () => {
 
       await ticking;
       await capturing;
-      resetTwitchIntegrityRefreshBounds();
-      setTwitchIntegrity(undefined);
 
       expect(mintedInsideLock).toBe(true);
     });

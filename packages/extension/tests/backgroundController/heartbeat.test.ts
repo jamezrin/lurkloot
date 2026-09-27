@@ -1491,7 +1491,7 @@ describe("background controller", () => {
   it("merge-safely persists page-context lifecycle metadata changed during a heartbeat", async () => {
     const heartbeatResult = deferred<{ ok: boolean; live?: boolean; message?: string }>();
     const watcher = fakeTablessWatcher(async () => {
-      recordManagedPageContextFallback("twitch", "gql.twitch.tv", undefined, Date.parse("2026-07-21T12:00:00.000Z"));
+      recordManagedPageContextFallback(env.tabRegistry, "twitch", "gql.twitch.tv", undefined, Date.parse("2026-07-21T12:00:00.000Z"));
       return heartbeatResult.promise;
     });
     const env = tablessEnv();
@@ -1505,7 +1505,7 @@ describe("background controller", () => {
       ownedByExtension: true as const,
     };
     env.state.managedPageContextTabs = { twitch: context };
-    registerManagedPageContextTabs({ twitch: context });
+    registerManagedPageContextTabs(env.tabRegistry, { twitch: context });
 
     advanceToNextHeartbeatDue();
     const heartbeat = env.controller.runWatchHeartbeat();
@@ -1537,6 +1537,7 @@ describe("background controller", () => {
     };
     const watcher = fakeTablessWatcher(async () => {
       recordManagedPageContextFallback(
+        env.tabRegistry,
         "twitch",
         "gql.twitch.tv",
         undefined,
@@ -1547,7 +1548,7 @@ describe("background controller", () => {
     const env = tablessEnv();
     env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
     env.state.managedPageContextTabs = { twitch: baseContext };
-    registerManagedPageContextTabs({ twitch: baseContext });
+    registerManagedPageContextTabs(env.tabRegistry, { twitch: baseContext });
     await env.controller.tick(["twitch"]);
     env.deps.applyAdFocus.mockImplementation(async () => {
       schedulerReachedPostTickWork.resolve();
@@ -1572,7 +1573,6 @@ describe("background controller", () => {
       backgroundSuccesses: 0,
       lastFallbackAt: "2026-09-02T12:01:00.000Z",
     });
-    registerManagedPageContextTabs({});
   });
 
   it("retains a current heartbeat when a stale scheduler snapshot persists the same target", async () => {

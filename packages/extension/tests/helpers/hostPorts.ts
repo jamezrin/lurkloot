@@ -6,7 +6,7 @@ import type {
 } from "@lurkloot/core/controller";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import type { StopPageContextTabs } from "@lurkloot/core/scheduler";
-import type { TwitchIntegrityRequest } from "@lurkloot/core/tabs";
+import type { TabRegistry, TwitchIntegrityRequest } from "@lurkloot/core/tabs";
 import type { TwitchIntegrity } from "@lurkloot/core/twitchIntegrity";
 import type { CompatibilityResolution, ResolvedCompatibility } from "@lurkloot/shared/compatibility";
 import type { EngineEvent, EventEmitter } from "@lurkloot/shared/events";
@@ -71,6 +71,8 @@ export interface HostMocks<S extends EngineSettings> {
   ): Promise<boolean>;
   discardPageContextRecoveryEvidence?(platform: Platform): void;
   lockTracker?: LockTracker;
+  // Shared with the tab functions a test drives directly (#598).
+  tabRegistry?: TabRegistry;
   wait?(ms: number, signal: AbortSignal): Promise<void>;
   selectWatchTarget?: NonNullable<BackgroundHostPorts["testing"]>["selectWatchTarget"];
   authProbeTimeoutMs?: number;
@@ -125,6 +127,7 @@ export function hostPortsFromMocks<S extends EngineSettings>(
     ...(m.checkCredentialAvailability
       ? { credentials: { checkAvailability: (platform: Platform) => m.checkCredentialAvailability!(platform) } }
       : {}),
+    ...(m.tabRegistry ? { tabRegistry: m.tabRegistry } : {}),
     ...(capabilities.browserTabs
       ? {
         tabs: {

@@ -2,20 +2,8 @@ import { createTwitchExtensionGrantCompletion } from "../src/extensions/grantCom
 import { browser } from "wxt/browser";
 import { loadSettings, loadState, loadTwitchIntegrity, resetStorage, saveSettings, saveState, saveTwitchIntegrity } from "../src/core/storage";
 import type { CliCredentialBlob, RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
-import {
-  applyAdFocus,
-  cancelTwitchIntegrityAcquisition,
-  currentValidTwitchIntegrity,
-  ensureTwitchIntegrity,
-  fetchJsonInPage,
-  fetchKickInBackground,
-  fetchTwitchInBackground,
-  openPinnedMutedTab,
-  recordManagedPageContextFallback,
-  reconcileManagedPageContextRecovery,
-  stopManagedPageContextTabs,
-  stopWatchTab,
-} from "../src/core/tabs";
+import { createBrowserTabs } from "../src/core/tabs";
+import { createTabRegistry } from "@lurkloot/core/tabs";
 import { createBackgroundAlarmListener, createBackgroundController, EXTENSION_CAPABILITIES } from "@lurkloot/core/controller";
 import { createAlarmJobScheduler } from "../src/core/jobs";
 import { resolveCompatibility } from "@lurkloot/core";
@@ -56,6 +44,23 @@ const reportEvents = createActivityEventReporter({
   loadDiagnosticLogging: async () => (await loadSettings()).diagnosticLogging,
   append: appendActivityEvents,
 });
+// One tab registry for this controller, shared by the browser tab mechanics
+// and the controller that reads its page-context snapshot (#598).
+const tabRegistry = createTabRegistry();
+const {
+  applyAdFocus,
+  cancelTwitchIntegrityAcquisition,
+  currentValidTwitchIntegrity,
+  ensureTwitchIntegrity,
+  fetchJsonInPage,
+  fetchKickInBackground,
+  fetchTwitchInBackground,
+  openPinnedMutedTab,
+  recordManagedPageContextFallback,
+  reconcileManagedPageContextRecovery,
+  stopManagedPageContextTabs,
+  stopWatchTab,
+} = createBrowserTabs(tabRegistry);
 const kickClaimState = new KickClaimState();
 const kickDiscoveryState = new KickDiscoveryState();
 const kickPageContextRecovery = new KickPageContextRecoveryTracker();
@@ -164,6 +169,7 @@ const controller = createBackgroundController<ExtensionSettings>({
     translate,
   },
   jobs: createAlarmJobScheduler(browser.alarms),
+  tabRegistry,
   credentials: { checkAvailability: checkCredentialAvailability },
   adapters: {
     createAdapter: createExtensionAdapter,

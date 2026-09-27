@@ -107,13 +107,9 @@ describe("background controller", () => {
 
     const heartbeat = env.controller.runWatchHeartbeat();
     await vi.waitFor(() => expect(env.deps.loadState).toHaveBeenCalled());
-    registerManagedPageContextTabs({ twitch: newerContext });
+    registerManagedPageContextTabs(env.tabRegistry, { twitch: newerContext });
     staleRead.resolve(staleState);
-    try {
-      await heartbeat;
-      expect(currentManagedPageContextTabs().twitch).toEqual(newerContext);
-    } finally {
-      registerManagedPageContextTabs({});
-    }
+    await heartbeat;
+    expect(currentManagedPageContextTabs(env.tabRegistry).twitch).toEqual(newerContext);
   });
 });

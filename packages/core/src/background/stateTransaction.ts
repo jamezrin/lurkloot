@@ -1,6 +1,6 @@
 import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
-import { currentManagedPageContextTabs, currentManagedPageContextTabsRevision } from "../core/tabs";
+import { currentManagedPageContextTabs, currentManagedPageContextTabsRevision, type TabRegistry } from "../core/tabs";
 import { heartbeatContextKey, validTablessHeartbeatCadence } from "../core/heartbeatCadence";
 import { mergePlatformState, schedulerStateEquivalent } from "./platformState";
 import { PLATFORMS } from "./constants";
@@ -124,6 +124,8 @@ export interface StateTransactionPorts<S extends EngineSettings> {
   saveState(state: SchedulerState): Promise<void>;
   applySettingsPatch?(current: S, patch: SettingsPatch): S;
   lockTracker?: LockTracker;
+  // The controller's tab registry, whose page-context snapshot the commit merges.
+  tabRegistry: TabRegistry;
 }
 
 export function createStateTransaction<S extends EngineSettings>(ports: StateTransactionPorts<S>) {
@@ -317,8 +319,8 @@ export function createStateTransaction<S extends EngineSettings>(ports: StateTra
           && currentCadence.contextKey === nextCadence.contextKey
           && heartbeatContextKey(currentSession) === currentCadence.contextKey
           && heartbeatContextKey(nextSession) === nextCadence.contextKey;
-        const pageContextRevision = currentManagedPageContextTabsRevision();
-        const livePageContexts = currentManagedPageContextTabs();
+        const pageContextRevision = currentManagedPageContextTabsRevision(ports.tabRegistry);
+        const livePageContexts = currentManagedPageContextTabs(ports.tabRegistry);
         const mergeSourcePageContexts = { ...snapshot.managedPageContextTabs };
         const livePageContext = livePageContexts[platform];
         if (livePageContext) mergeSourcePageContexts[platform] = livePageContext;
@@ -371,7 +373,7 @@ export function createStateTransaction<S extends EngineSettings>(ports: StateTra
             state: merged,
           };
         }
-        if (currentManagedPageContextTabsRevision() === pageContextRevision) {
+        if (currentManagedPageContextTabsRevision(ports.tabRegistry) === pageContextRevision) {
           if (result.status === "accepted") {
             notify({ kind: "state", platforms: [platform], previous: result.previous, state: result.state }, ["settings", platform]);
           } else {

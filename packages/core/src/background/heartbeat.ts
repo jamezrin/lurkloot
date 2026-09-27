@@ -45,7 +45,7 @@ const RECENT_HEARTBEAT_MS = 30_000;
 // Tabless watchers, heartbeat lanes and heartbeat commits.
 export function createHeartbeats<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
-  { heartbeatSlice, tickSlice, lifecycleSlice }: Pick<ControllerSlices<S>, "heartbeatSlice" | "tickSlice" | "lifecycleSlice">,
+  { heartbeatSlice, tickSlice, lifecycleSlice, tabRegistry }: Pick<ControllerSlices<S>, "heartbeatSlice" | "tickSlice" | "lifecycleSlice" | "tabRegistry">,
   calls: Pick<ControllerCalls<S>,
     | "createSelectedAdapters"
     | "diagnosticEvent"
@@ -473,9 +473,10 @@ export function createHeartbeats<S extends EngineSettings>(
         // publishes while this read is pending, the loaded snapshot must not
         // remove or replace that newer owner.
         const expectedRevision = heartbeatSlice.heartbeatLanes[platform].revision;
-        const expectedPageContextRevision = currentManagedPageContextTabsRevision();
+        const expectedPageContextRevision = currentManagedPageContextTabsRevision(tabRegistry);
         const nextState = await ports.storage.loadState();
         hydrateManagedPageContextTabs(
+          tabRegistry,
           nextState.managedPageContextTabs ?? {},
           [platform],
           expectedPageContextRevision,
@@ -946,7 +947,7 @@ export function createHeartbeats<S extends EngineSettings>(
           },
         };
         const managedPageContextTabs = { ...latest.managedPageContextTabs };
-        const pageContext = currentManagedPageContextTabs()[platform];
+        const pageContext = currentManagedPageContextTabs(tabRegistry)[platform];
         if (pageContext) managedPageContextTabs[platform] = pageContext;
         else delete managedPageContextTabs[platform];
 

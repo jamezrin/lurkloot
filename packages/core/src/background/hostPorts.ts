@@ -10,7 +10,7 @@ import type {
 } from "@lurkloot/shared/models";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 import type { selectWatchTargetFromSnapshot, StopPageContextTabs } from "../core/scheduler";
-import type { TwitchIntegrityRequest } from "../core/tabs";
+import type { TabRegistry, TwitchIntegrityRequest } from "../core/tabs";
 import type { TwitchIntegrity } from "../core/twitchIntegrity";
 import type { PlatformAdapter } from "../platforms/adapter";
 import type { JobSchedulerPort } from "./jobs";
@@ -167,6 +167,9 @@ export interface BackgroundHostPorts<S extends EngineSettings = EngineSettings> 
   adapters: AdaptersPort<S>;
   credentials?: CredentialsPort;
   tabs?: BrowserTabsPort;
+  // The registry the host's tab mechanics write to, shared with the controller
+  // (#598). Left out by a host without tabs; the controller then makes its own.
+  tabRegistry?: TabRegistry;
   twitch: TwitchHostPorts<S>;
   kick: KickHostPorts<S>;
   testing?: TestingPorts;
@@ -192,5 +195,10 @@ export function assertHostCapabilities<S extends EngineSettings>(ports: Backgrou
     throw new HostCapabilityMismatchError(present
       ? `The host passes ${port} but does not declare the ${capability} capability`
       : `The host declares the ${capability} capability but does not pass ${port}`);
+  }  // Not the other way round: a registry without tabs is harmless. But a tab host
+  // that forgets it would read integrity and page contexts from a registry the
+  // controller never writes to.
+  if (ports.capabilities.browserTabs && ports.tabRegistry === undefined) {
+    throw new HostCapabilityMismatchError("The host declares the browserTabs capability but does not pass tabRegistry");
   }
 }

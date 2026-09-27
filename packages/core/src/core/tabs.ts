@@ -1,4 +1,4 @@
-import type { AdFocusMode, ChannelCandidate, ManagedPageContextTab, ManagedWatchTab, Platform, WatchSession } from "@lurkloot/shared/models";
+import type { AdFocusMode, ChannelCandidate, ManagedPageContextTab, ManagedWatchTab, Platform, SchedulerManagedPageContexts, WatchSession } from "@lurkloot/shared/models";
 import type { EventEmitter, PageContextCloseReason, PageContextOpenReason } from "@lurkloot/shared/events";
 import type { LogLevel } from "@lurkloot/shared/logging";
 import type { TwitchIntegrity } from "./twitchIntegrity";
@@ -8,6 +8,7 @@ import {
   createTwitchRequestIdentity,
   fetchTwitchInBackgroundWith as fetchTwitchInBackgroundWithIdentity,
   type CookieApi,
+  type TwitchRequestIdentity,
 } from "./transport";
 
 // Re-exported while callers migrate to @lurkloot/core/transport (#598).
@@ -73,30 +74,75 @@ interface PageContextEntry {
   abort: AbortController;
 }
 
-const pageContextTabs = new Map<string, PageContextEntry>();
-const retainedPageContextTabs = new Map<Platform, ManagedPageContextTab>();
-const closingPageContextTabIds = new Set<number>();
-let retainedPageContextRevision = 0;
+// Every tab the engine holds, and the state that goes with it, for one
+// controller (#598). Nothing here is module-level: two controllers in one
+// process each create their own registry and share no tab state. The host that
+// runs the tab mechanics and the controller that reads the snapshots must be
+// handed the same instance.
+export interface TabRegistry {
+  pageContextTabs: Map<string, PageContextEntry>;
+  retainedPageContextTabs: Map<Platform, ManagedPageContextTab>;
+  closingPageContextTabIds: Set<number>;
+  retainedPageContextRevision: number;
+  // Mirrors SchedulerState.criticalHealth[platform].breakerOpen. The page-context
+  // call sites are several layers deep and have no access to scheduler state, so
+  // the scheduler (and the controller, whenever it records an open) pushes the
+  // flag here instead. Watch tabs are gated directly in the scheduler, which
+  // already has the state in scope.
+  openManagedTabBreakers: Set<Platform>;
+  playbackPrimeStates: Map<Platform, PlaybackPrimeState>;
+  adFocusHolds: Map<Platform, number>;
+  adFocusExpired: Set<Platform>;
+  previousFocus: { tabId?: number; windowId?: number } | undefined;
+  twitchIntegrity: TwitchIntegrity | undefined;
+  latestTwitchIntegrityCapture: TwitchIntegrityCapture | undefined;
+  twitchIntegrityCapturesBySourceTab: Map<number, TwitchIntegrityCapture>;
+  twitchIntegrityCaptureGeneration: number;
+  integrityWaiters: Array<(capture?: TwitchIntegrityCapture) => void>;
+  twitchContextBoot: TwitchContextBootTiming | undefined;
+  inFlightIntegrityAcquisition: TwitchIntegrityAcquisition | undefined;
+  // Replays the valid captured integrity token on background Twitch GQL.
+  twitchRequestIdentity: TwitchRequestIdentity;
+}
+
+export function createTabRegistry(): TabRegistry {
+  const registry: TabRegistry = {
+    pageContextTabs: new Map(),
+    retainedPageContextTabs: new Map(),
+    closingPageContextTabIds: new Set(),
+    retainedPageContextRevision: 0,
+    openManagedTabBreakers: new Set(),
+    playbackPrimeStates: new Map(),
+    adFocusHolds: new Map(),
+    adFocusExpired: new Set(),
+    previousFocus: undefined,
+    twitchIntegrity: undefined,
+    latestTwitchIntegrityCapture: undefined,
+    twitchIntegrityCapturesBySourceTab: new Map(),
+    twitchIntegrityCaptureGeneration: 0,
+    integrityWaiters: [],
+    twitchContextBoot: undefined,
+    inFlightIntegrityAcquisition: undefined,
+    twitchRequestIdentity: createTwitchRequestIdentity(() => currentValidTwitchIntegrity(registry)),
+  };
+  return registry;
+}
+
 const ALL_PLATFORMS: readonly Platform[] = ["twitch", "kick"];
-// Mirrors SchedulerState.criticalHealth[platform].breakerOpen. The page-context
-// call sites are several layers deep and have no access to scheduler state, so
-// the scheduler (and the controller, whenever it records an open) pushes the
-// flag here instead. Watch tabs are gated directly in the scheduler, which
-// already has the state in scope.
-const openManagedTabBreakers = new Set<Platform>();
 
 export function syncManagedTabBreakers(
+  registry: TabRegistry,
   state: { criticalHealth?: Partial<Record<Platform, { breakerOpen?: boolean }>> },
   platforms: readonly Platform[] = ALL_PLATFORMS,
 ): void {
   for (const platform of platforms) {
-    if (state.criticalHealth?.[platform]?.breakerOpen) openManagedTabBreakers.add(platform);
-    else openManagedTabBreakers.delete(platform);
+    if (state.criticalHealth?.[platform]?.breakerOpen) registry.openManagedTabBreakers.add(platform);
+    else registry.openManagedTabBreakers.delete(platform);
   }
 }
 
-export function managedTabBreakerOpen(platform: Platform): boolean {
-  return openManagedTabBreakers.has(platform);
+export function managedTabBreakerOpen(registry: TabRegistry, platform: Platform): boolean {
+  return registry.openManagedTabBreakers.has(platform);
 }
 
 function platformForOrigin(origin: string): Platform | undefined {
@@ -122,6 +168,7 @@ const PLAYBACK_PRIME_MAX_ATTEMPTS = 3;
 const PLAYBACK_PRIME_BACKOFF_MS = 5 * 60_000;
 
 export async function openPinnedMutedTabWithBrowser(
+  registry: TabRegistry,
   browserApi: BrowserTabApi,
   channel: ChannelCandidate,
   session?: WatchSession,
@@ -142,9 +189,9 @@ export async function openPinnedMutedTabWithBrowser(
         }
         if (!shouldPrimePlayback(tab, channel.url, session)) {
           // Playback is healthy, so the budget has served its purpose.
-          resetPlaybackPriming(channel.platform);
+          resetPlaybackPriming(registry, channel.platform);
         } else if (tabOptions.keepVideosUnmuted) {
-          await maybePrimeTabPlayback(browserApi, tab.id, channel, emit);
+          await maybePrimeTabPlayback(registry, browserApi, tab.id, channel, emit);
         }
         diagnostic(emit, "debug", `Reusing managed watch tab ${tab.id} for ${channel.username}`, channel.platform);
         tabOptions.signal?.throwIfAborted();
@@ -168,9 +215,9 @@ export async function openPinnedMutedTabWithBrowser(
         }
         if (!shouldPrimePlayback(tab, channel.url, session)) {
           // Playback is healthy, so the budget has served its purpose.
-          resetPlaybackPriming(channel.platform);
+          resetPlaybackPriming(registry, channel.platform);
         } else if (tabOptions.keepVideosUnmuted) {
-          await maybePrimeTabPlayback(browserApi, tab.id, channel, emit);
+          await maybePrimeTabPlayback(registry, browserApi, tab.id, channel, emit);
         }
         diagnostic(emit, "debug", `Reusing your tab ${tab.id} for ${channel.username}`, channel.platform);
         tabOptions.signal?.throwIfAborted();
@@ -218,7 +265,7 @@ export async function openPinnedMutedTabWithBrowser(
   if (tabOptions.keepVideosUnmuted) {
     // Deliberately no reset here: a replacement tab for the same failing channel
     // keeps spending the same budget, or the cap never engages under tab churn.
-    await maybePrimeTabPlayback(browserApi, tab.id, channel, emit);
+    await maybePrimeTabPlayback(registry, browserApi, tab.id, channel, emit);
   }
   diagnostic(emit, "info", `Opened watch tab ${tab.id} for ${channel.username}`, channel.platform);
   return { tabId: tab.id, managedByExtension: true, managedTab: managedTab(channel, tab.id) };
@@ -259,19 +306,19 @@ interface PlaybackPrimeState {
 // state carries the channel it was accrued for — a new tab for a *different*
 // channel is a legitimate reason to prime again, a new tab for the same channel
 // that keeps failing is the loop we must stop.
-const playbackPrimeStates = new Map<Platform, PlaybackPrimeState>();
 
 export { PLAYBACK_PRIME_BACKOFF_MS, PLAYBACK_PRIME_MAX_ATTEMPTS };
 
 // Forgets the priming budget for a platform (or for every platform when none is
 // given), so the next request primes again. Called when a tick finds playback
 // healthy — genuine recovery, not merely a new tab.
-export function resetPlaybackPriming(platform?: Platform): void {
-  if (platform == null) playbackPrimeStates.clear();
-  else playbackPrimeStates.delete(platform);
+function resetPlaybackPriming(registry: TabRegistry, platform?: Platform): void {
+  if (platform == null) registry.playbackPrimeStates.clear();
+  else registry.playbackPrimeStates.delete(platform);
 }
 
 async function maybePrimeTabPlayback(
+  registry: TabRegistry,
   browserApi: BrowserTabApi,
   tabId: number,
   channel: ChannelCandidate,
@@ -279,14 +326,14 @@ async function maybePrimeTabPlayback(
   now: number = Date.now(),
 ): Promise<void> {
   const platform = channel.platform;
-  const tracked = playbackPrimeStates.get(platform);
+  const tracked = registry.playbackPrimeStates.get(platform);
   const state = tracked?.channelUrl === channel.url
     ? tracked
     : { channelUrl: channel.url, attempts: 0, lastAttemptAt: 0, exhausted: false };
   if (state.exhausted) return;
 
   if (state.attempts >= PLAYBACK_PRIME_MAX_ATTEMPTS) {
-    playbackPrimeStates.set(platform, { ...state, exhausted: true });
+    registry.playbackPrimeStates.set(platform, { ...state, exhausted: true });
     diagnostic(
       emit,
       "warn",
@@ -301,7 +348,7 @@ async function maybePrimeTabPlayback(
     return;
   }
 
-  playbackPrimeStates.set(platform, { ...state, attempts: state.attempts + 1, lastAttemptAt: now });
+  registry.playbackPrimeStates.set(platform, { ...state, attempts: state.attempts + 1, lastAttemptAt: now });
   await primeTabPlayback(browserApi, tabId, platform, emit);
 }
 
@@ -383,13 +430,11 @@ export async function stopWatchTabWithBrowser(browserApi: BrowserTabApi, session
 // calls when the tab is not already where we want it. A hold is also capped —
 // a detector stuck reporting an ad must never pin the user's focus forever.
 const AD_FOCUS_MAX_HOLD_MS = 3 * 60 * 1000;
-const adFocusHolds = new Map<Platform, number>();
-const adFocusExpired = new Set<Platform>();
-let previousFocus: { tabId?: number; windowId?: number } | undefined;
 
 export { AD_FOCUS_MAX_HOLD_MS };
 
 export async function applyAdFocusWithBrowser(
+  registry: TabRegistry,
   browserApi: BrowserTabApi,
   platform: Platform,
   tabId: number | undefined,
@@ -398,31 +443,31 @@ export async function applyAdFocusWithBrowser(
   emit: EventEmitter = ignoreEvent,
 ): Promise<void> {
   if (mode === "none" || !adActive || tabId == null) {
-    adFocusExpired.delete(platform);
-    await releaseAdFocus(browserApi, platform, tabId, emit);
+    registry.adFocusExpired.delete(platform);
+    await releaseAdFocus(registry, browserApi, platform, tabId, emit);
     return;
   }
 
   // This ad episode already exhausted its cap; stay out of the user's way until
   // the platform stops reporting an ad.
-  if (adFocusExpired.has(platform)) return;
+  if (registry.adFocusExpired.has(platform)) return;
 
-  const heldSince = adFocusHolds.get(platform);
+  const heldSince = registry.adFocusHolds.get(platform);
   if (heldSince != null && Date.now() - heldSince >= AD_FOCUS_MAX_HOLD_MS) {
-    adFocusExpired.add(platform);
+    registry.adFocusExpired.add(platform);
     diagnostic(emit, "warn", `Ad focus held for over ${Math.round(AD_FOCUS_MAX_HOLD_MS / 1000)}s; releasing it`, platform);
-    await releaseAdFocus(browserApi, platform, tabId, emit);
+    await releaseAdFocus(registry, browserApi, platform, tabId, emit);
     return;
   }
 
-  if (adFocusHolds.size === 0) {
+  if (registry.adFocusHolds.size === 0) {
     const [active] = await browserApi.tabs.query({ active: true, currentWindow: true });
     if (active?.id !== tabId) {
-      previousFocus = { tabId: active?.id, windowId: active?.windowId };
+      registry.previousFocus = { tabId: active?.id, windowId: active?.windowId };
     }
   }
   const alreadyHeld = heldSince != null;
-  if (!alreadyHeld) adFocusHolds.set(platform, Date.now());
+  if (!alreadyHeld) registry.adFocusHolds.set(platform, Date.now());
 
   const tab = await browserApi.tabs.get(tabId).catch(() => undefined);
   const needsWindowFocus = mode === "window" && tab?.windowId != null && !(await isWindowFocused(browserApi, tab.windowId));
@@ -446,11 +491,11 @@ async function isWindowFocused(browserApi: BrowserTabApi, windowId: number): Pro
   return active?.windowId === windowId;
 }
 
-async function releaseAdFocus(browserApi: BrowserTabApi, platform: Platform, watchTabId: number | undefined, emit: EventEmitter): Promise<void> {
-  if (!adFocusHolds.delete(platform) || adFocusHolds.size > 0) return;
+async function releaseAdFocus(registry: TabRegistry, browserApi: BrowserTabApi, platform: Platform, watchTabId: number | undefined, emit: EventEmitter): Promise<void> {
+  if (!registry.adFocusHolds.delete(platform) || registry.adFocusHolds.size > 0) return;
 
-  const restore = previousFocus;
-  previousFocus = undefined;
+  const restore = registry.previousFocus;
+  registry.previousFocus = undefined;
   if (!restore?.tabId) return;
 
   // Only restore if the watch tab is still the active tab; otherwise the user
@@ -494,7 +539,6 @@ export interface PageFetchOptions {
 // listener that feeds this via setTwitchIntegrity so authenticated GQL mutations
 // (e.g. drop claims) carry a valid integrity token. Defaults to undefined so
 // queries keep working anonymously / without integrity until one is captured.
-let twitchIntegrity: TwitchIntegrity | undefined;
 
 interface TwitchIntegrityCapture {
   value: TwitchIntegrity;
@@ -505,9 +549,6 @@ interface TwitchIntegrityCapture {
 // Keep the latest capture from each attributed tab long enough for a managed
 // helper wait to identify its own replacement even if a user tab immediately
 // replays the previous token into the ordinary global slot.
-let latestTwitchIntegrityCapture: TwitchIntegrityCapture | undefined;
-const twitchIntegrityCapturesBySourceTab = new Map<number, TwitchIntegrityCapture>();
-let twitchIntegrityCaptureGeneration = 0;
 const MAX_TWITCH_INTEGRITY_SOURCE_CAPTURES = 32;
 
 // Treat a token expiring within this window as already stale, so a claim never
@@ -542,11 +583,10 @@ export const TWITCH_PAGE_CONTEXT_URL = "https://www.twitch.tv/drops/inventory";
 export const INTEGRITY_REFRESH_TIMEOUT_MS = 30_000;
 
 // Resolvers waiting for the next captured token (see waitForIntegrityCapture).
-let integrityWaiters: Array<(capture?: TwitchIntegrityCapture) => void> = [];
 
-// Test seam for proving terminal paths release their process-global callbacks.
-export function currentTwitchIntegrityWaiterCount(): number {
-  return integrityWaiters.length;
+// Test seam for proving terminal paths release their registered callbacks.
+export function currentTwitchIntegrityWaiterCount(registry: TabRegistry): number {
+  return registry.integrityWaiters.length;
 }
 
 // Phase timings for the twitch.tv page context currently being booted to mint an
@@ -563,16 +603,15 @@ interface TwitchContextBootTiming {
   readyAt?: number;
   firstGqlAt?: number;
 }
-let twitchContextBoot: TwitchContextBootTiming | undefined;
 
 // Called for every gql.twitch.tv request the background sees, including the
 // anonymous ones that carry no Client-Integrity header. Those are exactly what
 // distinguishes "the SPA has not booted yet" from "the SPA is running but is
 // still solving the proof-of-work", which is the split the aggregate timeout
 // hides.
-export function noteTwitchGqlRequest(tabId: number | undefined, now: number = Date.now()): void {
-  if (tabId == null || twitchContextBoot?.tabId !== tabId) return;
-  twitchContextBoot.firstGqlAt ??= now;
+export function noteTwitchGqlRequest(registry: TabRegistry, tabId: number | undefined, now: number = Date.now()): void {
+  if (tabId == null || registry.twitchContextBoot?.tabId !== tabId) return;
+  registry.twitchContextBoot.firstGqlAt ??= now;
 }
 
 function describeContextBoot(boot: TwitchContextBootTiming, now: number): string {
@@ -587,8 +626,8 @@ export function isValidTwitchIntegrity(
   return value != null && value.expiresAt > now + INTEGRITY_EXPIRY_SKEW_MS;
 }
 
-export function hasValidTwitchIntegrity(now: number = Date.now()): boolean {
-  return isValidTwitchIntegrity(twitchIntegrity, now);
+export function hasValidTwitchIntegrity(registry: TabRegistry, now: number = Date.now()): boolean {
+  return isValidTwitchIntegrity(registry.twitchIntegrity, now);
 }
 
 export interface TwitchIntegrityCaptureOptions {
@@ -597,31 +636,32 @@ export interface TwitchIntegrityCaptureOptions {
 }
 
 export function setTwitchIntegrity(
+  registry: TabRegistry,
   value: TwitchIntegrity | undefined,
   options?: TwitchIntegrityCaptureOptions,
   emit: EventEmitter = ignoreEvent,
 ): void {
-  twitchIntegrity = value;
-  const generation = ++twitchIntegrityCaptureGeneration;
+  registry.twitchIntegrity = value;
+  const generation = ++registry.twitchIntegrityCaptureGeneration;
   if (value == null) {
-    latestTwitchIntegrityCapture = undefined;
-    twitchIntegrityCapturesBySourceTab.clear();
+    registry.latestTwitchIntegrityCapture = undefined;
+    registry.twitchIntegrityCapturesBySourceTab.clear();
   } else {
     const capture: TwitchIntegrityCapture = {
       value,
       generation,
       ...(options?.sourceTabId != null ? { sourceTabId: options.sourceTabId } : {}),
     };
-    latestTwitchIntegrityCapture = capture;
+    registry.latestTwitchIntegrityCapture = capture;
     if (capture.sourceTabId != null) {
       // Delete first so the insertion order reflects capture recency; stale
       // source entries must not grow without bound in a long-lived background.
-      twitchIntegrityCapturesBySourceTab.delete(capture.sourceTabId);
-      twitchIntegrityCapturesBySourceTab.set(capture.sourceTabId, capture);
-      while (twitchIntegrityCapturesBySourceTab.size > MAX_TWITCH_INTEGRITY_SOURCE_CAPTURES) {
-        const oldestSourceTabId = twitchIntegrityCapturesBySourceTab.keys().next().value;
+      registry.twitchIntegrityCapturesBySourceTab.delete(capture.sourceTabId);
+      registry.twitchIntegrityCapturesBySourceTab.set(capture.sourceTabId, capture);
+      while (registry.twitchIntegrityCapturesBySourceTab.size > MAX_TWITCH_INTEGRITY_SOURCE_CAPTURES) {
+        const oldestSourceTabId = registry.twitchIntegrityCapturesBySourceTab.keys().next().value;
         if (oldestSourceTabId == null) break;
-        twitchIntegrityCapturesBySourceTab.delete(oldestSourceTabId);
+        registry.twitchIntegrityCapturesBySourceTab.delete(oldestSourceTabId);
       }
     }
   }
@@ -629,10 +669,10 @@ export function setTwitchIntegrity(
     const ttlSeconds = Math.max(0, Math.round((value.expiresAt - Date.now()) / 1000));
     diagnostic(emit, "info", `Captured a fresh Twitch integrity token (expires ${new Date(value.expiresAt).toISOString()}, in ${ttlSeconds}s)`, "twitch");
   }
-  if (value != null && integrityWaiters.length > 0) {
-    const waiters = integrityWaiters;
-    integrityWaiters = [];
-    for (const resolve of waiters) resolve(latestTwitchIntegrityCapture);
+  if (value != null && registry.integrityWaiters.length > 0) {
+    const waiters = registry.integrityWaiters;
+    registry.integrityWaiters = [];
+    for (const resolve of waiters) resolve(registry.latestTwitchIntegrityCapture);
   }
 }
 
@@ -664,8 +704,8 @@ export interface TwitchIntegrityRequest {
 // Callers that assemble their own headers use this so the token they sent is
 // known exactly, rather than re-read later from a global that a concurrent
 // capture may have replaced in between. See TwitchIntegrityRequest.rejectedToken.
-export function currentValidTwitchIntegrity(): TwitchIntegrity | undefined {
-  return hasValidTwitchIntegrity() ? twitchIntegrity : undefined;
+export function currentValidTwitchIntegrity(registry: TabRegistry): TwitchIntegrity | undefined {
+  return hasValidTwitchIntegrity(registry) ? registry.twitchIntegrity : undefined;
 }
 
 interface TwitchIntegrityAcquisitionResult {
@@ -682,25 +722,14 @@ interface TwitchIntegrityAcquisition {
   abort: AbortController;
 }
 
-let inFlightIntegrityAcquisition: TwitchIntegrityAcquisition | undefined;
 
-export function cancelTwitchIntegrityAcquisition(reason?: unknown): void {
-  inFlightIntegrityAcquisition?.abort.abort(reason);
+export function cancelTwitchIntegrityAcquisition(registry: TabRegistry, reason?: unknown): void {
+  registry.inFlightIntegrityAcquisition?.abort.abort(reason);
 }
 
-// Test seam: this module's integrity state is process-global by design (the
-// webRequest listener feeds it from outside any call), so suites that exercise
-// the bounds need a way back to a known state.
-export function resetTwitchIntegrityRefreshBounds(): void {
-  inFlightIntegrityAcquisition?.abort.abort();
-  inFlightIntegrityAcquisition = undefined;
-  integrityWaiters = [];
-  twitchIntegrityCapturesBySourceTab.clear();
-}
-
-function hasReplacementTwitchIntegrity(rejectedToken?: string): boolean {
-  if (!hasValidTwitchIntegrity()) return false;
-  return rejectedToken == null || twitchIntegrity?.integrity !== rejectedToken;
+function hasReplacementTwitchIntegrity(registry: TabRegistry, rejectedToken?: string): boolean {
+  if (!hasValidTwitchIntegrity(registry)) return false;
+  return rejectedToken == null || registry.twitchIntegrity?.integrity !== rejectedToken;
 }
 
 function isReplacementCapture(capture: TwitchIntegrityCapture | undefined, rejectedToken?: string): boolean {
@@ -709,13 +738,14 @@ function isReplacementCapture(capture: TwitchIntegrityCapture | undefined, rejec
 }
 
 function captureForIntegrityWait(
+  registry: TabRegistry,
   rejectedToken: string | undefined,
   sourceTabId: number | undefined,
   latestCapture?: TwitchIntegrityCapture,
   minimumGeneration = 0,
 ): TwitchIntegrityCapture | undefined {
   if (sourceTabId != null) {
-    const sourceCapture = twitchIntegrityCapturesBySourceTab.get(sourceTabId);
+    const sourceCapture = registry.twitchIntegrityCapturesBySourceTab.get(sourceTabId);
     if (sourceCapture != null && sourceCapture.generation > minimumGeneration && isReplacementCapture(sourceCapture, rejectedToken)) return sourceCapture;
     // Unattributed captures retain the historic global behavior. Once a
     // capture has an explicit source, however, a different tab cannot satisfy
@@ -723,7 +753,7 @@ function captureForIntegrityWait(
     if (latestCapture != null && latestCapture.generation > minimumGeneration && isReplacementCapture(latestCapture, rejectedToken) && latestCapture.sourceTabId == null) return latestCapture;
     return undefined;
   }
-  const capture = latestCapture ?? latestTwitchIntegrityCapture;
+  const capture = latestCapture ?? registry.latestTwitchIntegrityCapture;
   return capture != null && capture.generation > minimumGeneration && isReplacementCapture(capture, rejectedToken) ? capture : undefined;
 }
 
@@ -733,6 +763,7 @@ function captureForIntegrityWait(
 // re-capturing that same token does not settle the wait; the page may replay it
 // before minting a replacement.
 function waitForIntegrityCapture(
+  registry: TabRegistry,
   timeoutMs: number,
   rejectedToken?: string,
   signal?: AbortSignal,
@@ -740,12 +771,12 @@ function waitForIntegrityCapture(
   minimumGeneration = 0,
 ): Promise<TwitchIntegrityCapture | undefined> {
   signal?.throwIfAborted();
-  const alreadyCaptured = captureForIntegrityWait(rejectedToken, sourceTabId, undefined, minimumGeneration);
+  const alreadyCaptured = captureForIntegrityWait(registry, rejectedToken, sourceTabId, undefined, minimumGeneration);
   if (alreadyCaptured) return Promise.resolve(alreadyCaptured);
   return new Promise((resolve, reject) => {
     let settled = false;
     const removeWaiter = () => {
-      integrityWaiters = integrityWaiters.filter((waiter) => waiter !== onCapture);
+      registry.integrityWaiters = registry.integrityWaiters.filter((waiter) => waiter !== onCapture);
     };
     const cleanup = () => {
       clearTimeout(timer);
@@ -762,9 +793,9 @@ function waitForIntegrityCapture(
       if (settled) return;
       // Not a replacement yet — keep waiting until the deadline instead of
       // reporting the rejected token back as a successful refresh.
-      const replacement = captureForIntegrityWait(rejectedToken, sourceTabId, capture, minimumGeneration);
+      const replacement = captureForIntegrityWait(registry, rejectedToken, sourceTabId, capture, minimumGeneration);
       if (!replacement) {
-        integrityWaiters.push(onCapture);
+        registry.integrityWaiters.push(onCapture);
         return;
       }
       finish(replacement);
@@ -777,7 +808,7 @@ function waitForIntegrityCapture(
     };
     const timer = setTimeout(finish, timeoutMs);
     signal?.addEventListener("abort", onAbort, { once: true });
-    integrityWaiters.push(onCapture);
+    registry.integrityWaiters.push(onCapture);
   });
 }
 
@@ -790,6 +821,7 @@ function waitForIntegrityCapture(
 // different from the rejected one, and only ever boots an extension-owned
 // context so a user's own twitch.tv tab is never navigated or closed.
 export async function ensureTwitchIntegrityWithBrowser(
+  registry: TabRegistry,
   browserApi: BrowserTabApi,
   originUrl: string,
   timeoutMs: number = INTEGRITY_REFRESH_TIMEOUT_MS,
@@ -801,8 +833,8 @@ export async function ensureTwitchIntegrityWithBrowser(
   const reason = request?.reason
     ?? (forceRefresh ? "rejection_recovery" : "readiness");
   if (!forceRefresh) {
-    if (hasValidTwitchIntegrity()) return true;
-    const captured = await startTwitchIntegrityAcquisition(
+    if (hasValidTwitchIntegrity(registry)) return true;
+    const captured = await startTwitchIntegrityAcquisition(registry, 
       browserApi,
       originUrl,
       timeoutMs,
@@ -820,14 +852,14 @@ export async function ensureTwitchIntegrityWithBrowser(
   // Another operation's refresh already replaced the token this caller was
   // rejected on. It has not tried the current one yet, so minting again cannot
   // help it — and would cost another cold boot.
-  if (request?.rejectedToken != null && hasReplacementTwitchIntegrity(request.rejectedToken)) {
+  if (request?.rejectedToken != null && hasReplacementTwitchIntegrity(registry, request.rejectedToken)) {
     diagnostic(emit, "debug", "Reusing the Twitch integrity token another operation just minted instead of booting another page context", "twitch");
-    request.onIntegrityCaptured?.(latestTwitchIntegrityCapture?.value ?? twitchIntegrity!);
+    request.onIntegrityCaptured?.(registry.latestTwitchIntegrityCapture?.value ?? registry.twitchIntegrity!);
     return true;
   }
 
-  const rejectedToken = request?.rejectedToken ?? twitchIntegrity?.integrity;
-  const captured = await startTwitchIntegrityAcquisition(
+  const rejectedToken = request?.rejectedToken ?? registry.twitchIntegrity?.integrity;
+  const captured = await startTwitchIntegrityAcquisition(registry, 
     browserApi,
     originUrl,
     timeoutMs,
@@ -843,6 +875,7 @@ export async function ensureTwitchIntegrityWithBrowser(
 }
 
 function startTwitchIntegrityAcquisition(
+  registry: TabRegistry,
   browserApi: BrowserTabApi,
   originUrl: string,
   timeoutMs: number,
@@ -853,14 +886,14 @@ function startTwitchIntegrityAcquisition(
   onManagedPageContextOpen?: () => void | Promise<void>,
   ownerSignal?: AbortSignal,
 ): Promise<TwitchIntegrityAcquisitionResult | undefined> {
-  if (inFlightIntegrityAcquisition) {
+  if (registry.inFlightIntegrityAcquisition) {
     diagnostic(emit, "debug", "Joining the Twitch integrity acquisition already in flight", "twitch");
-    const joined = withAbortSignal(inFlightIntegrityAcquisition.promise, ownerSignal);
+    const joined = withAbortSignal(registry.inFlightIntegrityAcquisition.promise, ownerSignal);
     if (!forceRefresh) return joined;
     return joined.then((captured) => {
       ownerSignal?.throwIfAborted();
       if (captured && captured.managedContext && captured.value.integrity !== rejectedToken && isValidTwitchIntegrity(captured.value)) return captured;
-      return startTwitchIntegrityAcquisition(
+      return startTwitchIntegrityAcquisition(registry, 
         browserApi,
         originUrl,
         timeoutMs,
@@ -878,7 +911,7 @@ function startTwitchIntegrityAcquisition(
   const abortFromOwner = () => abort.abort(ownerSignal?.reason);
   ownerSignal?.addEventListener("abort", abortFromOwner, { once: true });
 
-  const promise = mintTwitchIntegrity(
+  const promise = mintTwitchIntegrity(registry, 
     browserApi,
     originUrl,
     timeoutMs,
@@ -890,18 +923,19 @@ function startTwitchIntegrityAcquisition(
     abort.signal,
   ).finally(() => {
     ownerSignal?.removeEventListener("abort", abortFromOwner);
-    twitchIntegrityCapturesBySourceTab.clear();
-    if (inFlightIntegrityAcquisition?.promise === promise) {
-      inFlightIntegrityAcquisition = undefined;
+    registry.twitchIntegrityCapturesBySourceTab.clear();
+    if (registry.inFlightIntegrityAcquisition?.promise === promise) {
+      registry.inFlightIntegrityAcquisition = undefined;
     }
   });
-  inFlightIntegrityAcquisition = { promise, abort };
+  registry.inFlightIntegrityAcquisition = { promise, abort };
   return promise;
 }
 
 // The page-context boot itself, with no bounding logic: callers reach it through
 // ensureTwitchIntegrityWithBrowser, which decides whether a boot is warranted.
 async function mintTwitchIntegrity(
+  registry: TabRegistry,
   browserApi: BrowserTabApi,
   originUrl: string,
   timeoutMs: number,
@@ -929,10 +963,10 @@ async function mintTwitchIntegrity(
     "twitch",
   );
   const origin = new URL(originUrl).origin;
-  const minimumCaptureGeneration = twitchIntegrityCaptureGeneration;
+  const minimumCaptureGeneration = registry.twitchIntegrityCaptureGeneration;
   let pageContext: PageContextTab | undefined;
   try {
-    pageContext = await acquirePageContextTab(browserApi, originUrl, origin, {
+    pageContext = await acquirePageContextTab(registry, browserApi, originUrl, origin, {
       retainPageContext: {
         platform: "twitch",
         retainCreatedPageContext: false,
@@ -961,7 +995,7 @@ async function mintTwitchIntegrity(
     // On success the capture itself is logged once by setTwitchIntegrity (info);
     // here we only surface the failure case so the log isn't doubled up.
     const startedAt = Date.now();
-    const captured = await waitForIntegrityCapture(
+    const captured = await waitForIntegrityCapture(registry, 
       timeoutMs,
       rejectedToken,
       signal,
@@ -972,7 +1006,7 @@ async function mintTwitchIntegrity(
     // Logged on both outcomes, not just the failure: a success that took 20s is
     // the same latency problem as a timeout, and only the phase split says which
     // part of the cold boot to attack.
-    const boot = twitchContextBoot?.tabId === pageContext.tabId ? twitchContextBoot : undefined;
+    const boot = registry.twitchContextBoot?.tabId === pageContext.tabId ? registry.twitchContextBoot : undefined;
     const phases = boot ? ` (${describeContextBoot(boot, settledAt)})` : "";
     if (!captured) {
       diagnostic(emit, reason === "proactive_refresh" ? "debug" : "warn", `Timed out waiting for a Twitch integrity token after ${settledAt - startedAt}ms from a ${source} page context${phases} (is twitch.tv logged in?)`, "twitch");
@@ -992,19 +1026,18 @@ async function mintTwitchIntegrity(
     return undefined;
   } finally {
     if (pageContext) {
-      await releasePageContextTab(browserApi, origin, pageContext, emit, signal?.aborted === true);
+      await releasePageContextTab(registry, browserApi, origin, pageContext, emit, signal?.aborted === true);
     }
   }
 }
 
 // The extension's Twitch identity replays the page-captured integrity token.
-const twitchRequestIdentity = createTwitchRequestIdentity(currentValidTwitchIntegrity);
-
-export function fetchTwitchInBackgroundWith<T>(api: CookieApi, url: string, init?: RequestInit): Promise<T> {
-  return fetchTwitchInBackgroundWithIdentity<T>(api, url, init, twitchRequestIdentity);
+export function fetchTwitchInBackgroundWith<T>(registry: TabRegistry, api: CookieApi, url: string, init?: RequestInit): Promise<T> {
+  return fetchTwitchInBackgroundWithIdentity<T>(api, url, init, registry.twitchRequestIdentity);
 }
 
 export async function fetchJsonInPageWithBrowser<T>(
+  registry: TabRegistry,
   browserApi: BrowserTabApi,
   originUrl: string,
   url: string,
@@ -1014,7 +1047,7 @@ export async function fetchJsonInPageWithBrowser<T>(
   const signal = init?.signal;
   signal?.throwIfAborted();
   const origin = new URL(originUrl).origin;
-  const pageContext = await acquirePageContextTab(browserApi, originUrl, origin, options, signal);
+  const pageContext = await acquirePageContextTab(registry, browserApi, originUrl, origin, options, signal);
 
   try {
     signal?.throwIfAborted();
@@ -1051,7 +1084,7 @@ export async function fetchJsonInPageWithBrowser<T>(
 
     throw new Error("No supported page script execution API is available");
   } finally {
-    await releasePageContextTab(
+    await releasePageContextTab(registry, 
       browserApi,
       origin,
       pageContext,
@@ -1091,6 +1124,7 @@ function unwrapPageFetchResult<T>(candidate: unknown): T {
 }
 
 async function acquirePageContextTab(
+  registry: TabRegistry,
   browserApi: BrowserTabApi,
   originUrl: string,
   origin: string,
@@ -1098,7 +1132,7 @@ async function acquirePageContextTab(
   signal?: AbortSignal | null,
 ): Promise<PageContextTab> {
   signal?.throwIfAborted();
-  let entry = pageContextTabs.get(origin);
+  let entry = registry.pageContextTabs.get(origin);
   let promise: Promise<PageContextTab>;
   if (entry) {
     // Inherited from a concurrent caller: this tab has already served its own
@@ -1113,11 +1147,11 @@ async function acquirePageContextTab(
   } else {
     const abort = new AbortController();
     entry = {
-      promise: findOrCreatePageContextTab(browserApi, originUrl, origin, options, abort.signal),
+      promise: findOrCreatePageContextTab(registry, browserApi, originUrl, origin, options, abort.signal),
       refs: 0,
       abort,
     };
-    pageContextTabs.set(origin, entry);
+    registry.pageContextTabs.set(origin, entry);
     promise = entry.promise;
   }
   entry.refs += 1;
@@ -1125,8 +1159,8 @@ async function acquirePageContextTab(
     return await withAbortSignal(promise, signal);
   } catch (error) {
     entry.refs -= 1;
-    if (entry.refs === 0 && pageContextTabs.get(origin) === entry) {
-      pageContextTabs.delete(origin);
+    if (entry.refs === 0 && registry.pageContextTabs.get(origin) === entry) {
+      registry.pageContextTabs.delete(origin);
       entry.abort.abort(signal?.aborted ? signal.reason : error);
     }
     throw error;
@@ -1134,31 +1168,32 @@ async function acquirePageContextTab(
 }
 
 async function releasePageContextTab(
+  registry: TabRegistry,
   browserApi: BrowserTabApi,
   origin: string,
   pageContext: PageContextTab,
   emit: EventEmitter = ignoreEvent,
   discardRetainedContext = false,
 ): Promise<void> {
-  const entry = pageContextTabs.get(origin);
+  const entry = registry.pageContextTabs.get(origin);
   if (!entry) return;
 
   entry.refs -= 1;
   if (entry.refs > 0) return;
 
-  pageContextTabs.delete(origin);
+  registry.pageContextTabs.delete(origin);
   if (!pageContext.createdByExtension) return;
   if (pageContext.retainedContext && !discardRetainedContext) {
-    retainedPageContextTabs.set(pageContext.retainedContext.platform, pageContext.retainedContext);
-    retainedPageContextRevision += 1;
+    registry.retainedPageContextTabs.set(pageContext.retainedContext.platform, pageContext.retainedContext);
+    registry.retainedPageContextRevision += 1;
     diagnostic(emit, "debug", `Retained managed page context on ${new URL(pageContext.retainedContext.origin).host} because it may still be required`, pageContext.retainedContext.platform);
     return;
   }
   if (pageContext.retainedContext) {
-    const retained = retainedPageContextTabs.get(pageContext.retainedContext.platform);
+    const retained = registry.retainedPageContextTabs.get(pageContext.retainedContext.platform);
     if (retained?.tabId === pageContext.tabId) {
-      retainedPageContextTabs.delete(pageContext.retainedContext.platform);
-      retainedPageContextRevision += 1;
+      registry.retainedPageContextTabs.delete(pageContext.retainedContext.platform);
+      registry.retainedPageContextRevision += 1;
     }
   }
   if (!browserApi.tabs.remove) return;
@@ -1171,6 +1206,7 @@ async function releasePageContextTab(
 }
 
 async function findOrCreatePageContextTab(
+  registry: TabRegistry,
   browserApi: BrowserTabApi,
   originUrl: string,
   origin: string,
@@ -1180,14 +1216,14 @@ async function findOrCreatePageContextTab(
   signal?.throwIfAborted();
   const retain = options?.retainPageContext;
   let openReason = options?.openReason ?? "background_rejected";
-  const retained = retain?.managedContext ?? (retain ? retainedPageContextTabs.get(retain.platform) : undefined);
+  const retained = retain?.managedContext ?? (retain ? registry.retainedPageContextTabs.get(retain.platform) : undefined);
   const tabs = await withAbortSignal(browserApi.tabs.query({ url: `${origin}/*` }), signal);
   const retainedIds = new Set(
-    [...retainedPageContextTabs.values(), retained]
+    [...registry.retainedPageContextTabs.values(), retained]
       .filter((tab): tab is ManagedPageContextTab => tab != null && tab.origin === origin)
       .map((tab) => tab.tabId),
   );
-  for (const tabId of closingPageContextTabIds) retainedIds.add(tabId);
+  for (const tabId of registry.closingPageContextTabIds) retainedIds.add(tabId);
   const requireFresh = options?.requireFreshPageContext === true;
   let tabId: number | undefined;
   for (const tab of tabs) {
@@ -1200,8 +1236,8 @@ async function findOrCreatePageContextTab(
   }
   if (tabId != null) {
     if (retained?.origin === origin) {
-      retainedPageContextTabs.delete(retained.platform);
-      retainedPageContextRevision += 1;
+      registry.retainedPageContextTabs.delete(retained.platform);
+      registry.retainedPageContextRevision += 1;
       const remove = browserApi.tabs.remove;
       if (!remove) {
         diagnostic(options?.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(retained.origin).host} because tab removal is unavailable`, retained.platform);
@@ -1230,8 +1266,8 @@ async function findOrCreatePageContextTab(
     try {
       const tab = await withAbortSignal(browserApi.tabs.get(retained.tabId), signal);
       if (tab?.id && tab.url?.startsWith(origin) && await isUsablePageContext(browserApi, tab.id, origin, signal)) {
-        retainedPageContextTabs.set(retained.platform, retained);
-        retainedPageContextRevision += 1;
+        registry.retainedPageContextTabs.set(retained.platform, retained);
+        registry.retainedPageContextRevision += 1;
         // We own this tab, so re-navigating it to boot the SPA again is safe —
         // it is the only way a retained (and by now idle) context issues the
         // authenticated request the caller is waiting on.
@@ -1245,8 +1281,8 @@ async function findOrCreatePageContextTab(
         diagnostic(options?.emit ?? ignoreEvent, "debug", `Reused managed page context on ${new URL(origin).host}`, retained.platform);
         return { tabId: tab.id, createdByExtension: true, retainedContext: retained, source: "managed_tab" };
       }
-      retainedPageContextTabs.delete(retained.platform);
-      retainedPageContextRevision += 1;
+      registry.retainedPageContextTabs.delete(retained.platform);
+      registry.retainedPageContextRevision += 1;
       openReason = "managed_context_unusable";
       if (tab?.id) {
         const remove = browserApi.tabs.remove;
@@ -1269,8 +1305,8 @@ async function findOrCreatePageContextTab(
       }
     } catch (error) {
       signal?.throwIfAborted();
-      retainedPageContextTabs.delete(retained.platform);
-      retainedPageContextRevision += 1;
+      registry.retainedPageContextTabs.delete(retained.platform);
+      registry.retainedPageContextRevision += 1;
       openReason = "managed_context_unusable";
       diagnostic(options?.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(origin).host} because it is unusable`, retained.platform);
     }
@@ -1280,7 +1316,7 @@ async function findOrCreatePageContextTab(
   // another one is exactly the user-hostile behaviour we detected, so the fetch
   // fails instead. It closes on its own once the churn evidence ages out.
   const contextPlatform = retain?.platform ?? platformForOrigin(origin);
-  if (contextPlatform && openManagedTabBreakers.has(contextPlatform)) {
+  if (contextPlatform && registry.openManagedTabBreakers.has(contextPlatform)) {
     throw new SafeFetchError({
       kind: "security_policy_blocked",
       reason: "Managed tab creation is suspended after repeated reopening",
@@ -1294,12 +1330,12 @@ async function findOrCreatePageContextTab(
     signal?.throwIfAborted();
     throw new Error(`Could not open page context for ${originUrl}`);
   }
-  if (contextPlatform === "twitch") twitchContextBoot = { tabId: tab.id, createdAt };
+  if (contextPlatform === "twitch") registry.twitchContextBoot = { tabId: tab.id, createdAt };
   try {
     signal?.throwIfAborted();
     await withAbortSignal(browserApi.tabs.update(tab.id, { muted: true, active: false }), signal);
     await waitForPageContextReady(browserApi, tab.id, origin, signal);
-    if (twitchContextBoot?.tabId === tab.id) twitchContextBoot.readyAt = Date.now();
+    if (registry.twitchContextBoot?.tabId === tab.id) registry.twitchContextBoot.readyAt = Date.now();
     if (!await isUsablePageContext(browserApi, tab.id, origin, signal)) {
       throw new SafeFetchError({
         kind: "security_policy_blocked",
@@ -1330,8 +1366,8 @@ async function findOrCreatePageContextTab(
       origin,
       ownedByExtension: true,
     };
-    retainedPageContextTabs.set(retain.platform, retainedContext);
-    retainedPageContextRevision += 1;
+    registry.retainedPageContextTabs.set(retain.platform, retainedContext);
+    registry.retainedPageContextRevision += 1;
     if (options?.emitPageContextActivity !== false) {
       options?.emit?.({
         category: "activity",
@@ -1450,14 +1486,15 @@ async function waitForPageContextReady(
 }
 
 export function registerManagedPageContextTabs(
+  registry: TabRegistry,
   contexts: SchedulerManagedPageContexts,
   platforms: readonly Platform[] = ALL_PLATFORMS,
 ): void {
   for (const platform of platforms) {
-    retainedPageContextTabs.delete(platform);
+    registry.retainedPageContextTabs.delete(platform);
     const context = contexts[platform];
-    if (context) retainedPageContextTabs.set(platform, context);
-    retainedPageContextRevision += 1;
+    if (context) registry.retainedPageContextTabs.set(platform, context);
+    registry.retainedPageContextRevision += 1;
   }
 }
 
@@ -1466,36 +1503,38 @@ export function registerManagedPageContextTabs(
 // pending; an old read must never put that newer page context back. Callers can
 // pass the revision observed before the read to make that race explicit.
 export function hydrateManagedPageContextTabs(
+  registry: TabRegistry,
   contexts: SchedulerManagedPageContexts,
   platforms: readonly Platform[] = ALL_PLATFORMS,
   expectedRevision?: number,
 ): boolean {
-  if (expectedRevision !== undefined && expectedRevision !== retainedPageContextRevision) return false;
+  if (expectedRevision !== undefined && expectedRevision !== registry.retainedPageContextRevision) return false;
   for (const platform of platforms) {
-    if (retainedPageContextTabs.has(platform)) continue;
+    if (registry.retainedPageContextTabs.has(platform)) continue;
     const context = contexts[platform];
     if (!context) continue;
-    retainedPageContextTabs.set(platform, context);
-    retainedPageContextRevision += 1;
+    registry.retainedPageContextTabs.set(platform, context);
+    registry.retainedPageContextRevision += 1;
   }
   return true;
 }
 
-export function currentManagedPageContextTabsRevision(): number {
-  return retainedPageContextRevision;
+export function currentManagedPageContextTabsRevision(registry: TabRegistry): number {
+  return registry.retainedPageContextRevision;
 }
 
-export function currentManagedPageContextTabs(): SchedulerManagedPageContexts {
-  return Object.fromEntries(retainedPageContextTabs) as SchedulerManagedPageContexts;
+export function currentManagedPageContextTabs(registry: TabRegistry): SchedulerManagedPageContexts {
+  return Object.fromEntries(registry.retainedPageContextTabs) as SchedulerManagedPageContexts;
 }
 
 export function recordManagedPageContextFallback(
+  registry: TabRegistry,
   platform: Platform,
   host: string,
   emit: EventEmitter = ignoreEvent,
   now: number = Date.now(),
 ): void {
-  const context = retainedPageContextTabs.get(platform);
+  const context = registry.retainedPageContextTabs.get(platform);
   if (!context) return;
   const updated: ManagedPageContextTab = {
     ...context,
@@ -1503,30 +1542,31 @@ export function recordManagedPageContextFallback(
     fallbackHost: host,
     backgroundSuccesses: 0,
   };
-  retainedPageContextTabs.set(platform, updated);
-  retainedPageContextRevision += 1;
+  registry.retainedPageContextTabs.set(platform, updated);
+  registry.retainedPageContextRevision += 1;
   diagnostic(emit, "debug", `Retained managed page context on ${new URL(context.origin).host} because background access is still rejected`, platform);
 }
 
 export async function reconcileManagedPageContextRecoveryWithBrowser(
+  registry: TabRegistry,
   browserApi: BrowserTabApi,
   platform: Platform,
   observation: KickPageContextCycleObservation,
   requiredSuccesses: number,
   emit: EventEmitter = ignoreEvent,
 ): Promise<boolean> {
-  const context = retainedPageContextTabs.get(platform);
+  const context = registry.retainedPageContextTabs.get(platform);
   if (!context) return false;
 
   if (observation.fallbackHosts.length > 0) {
     const fallbackHost = observation.fallbackHosts.at(-1)!;
-    retainedPageContextTabs.set(platform, {
+    registry.retainedPageContextTabs.set(platform, {
       ...context,
       lastFallbackAt: new Date().toISOString(),
       fallbackHost,
       backgroundSuccesses: 0,
     });
-    retainedPageContextRevision += 1;
+    registry.retainedPageContextRevision += 1;
     diagnostic(emit, "debug", `Retained managed page context on ${new URL(context.origin).host} because this scheduler cycle still required page fallback`, platform);
     return true;
   }
@@ -1537,32 +1577,32 @@ export async function reconcileManagedPageContextRecoveryWithBrowser(
     ...context,
     backgroundSuccesses: (context.backgroundSuccesses ?? 0) + 1,
   };
-  retainedPageContextTabs.set(platform, updated);
-  retainedPageContextRevision += 1;
+  registry.retainedPageContextTabs.set(platform, updated);
+  registry.retainedPageContextRevision += 1;
   const threshold = Math.min(10, Math.max(1, Math.round(requiredSuccesses)));
   const recovered = updated.backgroundSuccesses! >= threshold
-    && !pageContextTabs.has(context.origin);
+    && !registry.pageContextTabs.has(context.origin);
   if (!recovered) {
     diagnostic(emit, "debug", `Retained managed page context on ${new URL(context.origin).host} while background recovery is being confirmed`, platform);
     return true;
   }
 
-  const verificationRevision = retainedPageContextRevision;
+  const verificationRevision = registry.retainedPageContextRevision;
   let retainedTab: Awaited<ReturnType<BrowserTabApi["tabs"]["get"]>>;
   try {
     retainedTab = await browserApi.tabs.get(context.tabId);
   } catch {
-    retainedPageContextTabs.delete(platform);
-    retainedPageContextRevision += 1;
+    registry.retainedPageContextTabs.delete(platform);
+    registry.retainedPageContextRevision += 1;
     diagnostic(emit, "debug", `Forgot managed page context on ${new URL(context.origin).host} because the retained tab was already gone`, platform);
     return true;
   }
-  if (retainedPageContextRevision !== verificationRevision || pageContextTabs.has(context.origin)) {
+  if (registry.retainedPageContextRevision !== verificationRevision || registry.pageContextTabs.has(context.origin)) {
     return true;
   }
   if (retainedTab?.id !== context.tabId) {
-    retainedPageContextTabs.delete(platform);
-    retainedPageContextRevision += 1;
+    registry.retainedPageContextTabs.delete(platform);
+    registry.retainedPageContextRevision += 1;
     diagnostic(emit, "debug", `Forgot managed page context on ${new URL(context.origin).host} because the retained tab was already gone or changed`, platform);
     return true;
   }
@@ -1578,8 +1618,8 @@ export async function reconcileManagedPageContextRecoveryWithBrowser(
     return true;
   }
   if (retainedOrigin !== context.origin) {
-    retainedPageContextTabs.delete(platform);
-    retainedPageContextRevision += 1;
+    registry.retainedPageContextTabs.delete(platform);
+    registry.retainedPageContextRevision += 1;
     diagnostic(emit, "debug", `Forgot managed page context on ${new URL(context.origin).host} because the retained tab changed`, platform);
     return true;
   }
@@ -1591,9 +1631,9 @@ export async function reconcileManagedPageContextRecoveryWithBrowser(
   // Release ownership synchronously before the asynchronous close. A fallback
   // that starts from this point onward must acquire a fresh managed context,
   // so this recovery attempt cannot delete or close its replacement.
-  retainedPageContextTabs.delete(platform);
-  retainedPageContextRevision += 1;
-  closingPageContextTabIds.add(context.tabId);
+  registry.retainedPageContextTabs.delete(platform);
+  registry.retainedPageContextRevision += 1;
+  registry.closingPageContextTabIds.add(context.tabId);
   try {
     await remove(context.tabId);
     emit({
@@ -1604,13 +1644,13 @@ export async function reconcileManagedPageContextRecoveryWithBrowser(
       data: { host: new URL(context.origin).host, reason: "background_recovered" },
     });
   } catch {
-    if (!retainedPageContextTabs.has(platform)) {
-      retainedPageContextTabs.set(platform, updated);
-      retainedPageContextRevision += 1;
+    if (!registry.retainedPageContextTabs.has(platform)) {
+      registry.retainedPageContextTabs.set(platform, updated);
+      registry.retainedPageContextRevision += 1;
     }
     diagnostic(emit, "debug", `Retained managed page context on ${new URL(context.origin).host} because the tab could not be closed`, platform);
   } finally {
-    closingPageContextTabIds.delete(context.tabId);
+    registry.closingPageContextTabIds.delete(context.tabId);
   }
   return true;
 }
@@ -1621,6 +1661,7 @@ export async function reconcileManagedPageContextRecoveryWithBrowser(
 // without a tab API; the browser-backed variant below layers real tab removal
 // on top.
 export function forgetManagedPageContextTabs(
+  registry: TabRegistry,
   contexts: SchedulerManagedPageContexts,
   options: { platforms?: Platform[]; reason?: PageContextCloseReason; emit?: EventEmitter } = {},
 ): SchedulerManagedPageContexts {
@@ -1629,13 +1670,14 @@ export function forgetManagedPageContextTabs(
   for (const platform of platforms) {
     if (!next[platform]) continue;
     delete next[platform];
-    retainedPageContextTabs.delete(platform);
-    retainedPageContextRevision += 1;
+    registry.retainedPageContextTabs.delete(platform);
+    registry.retainedPageContextRevision += 1;
   }
   return next;
 }
 
 export async function stopManagedPageContextTabsWithBrowser(
+  registry: TabRegistry,
   browserApi: BrowserTabApi,
   contexts: SchedulerManagedPageContexts,
   options: { platforms?: Platform[]; reason?: PageContextCloseReason; emit?: EventEmitter } = {},
@@ -1663,10 +1705,10 @@ export async function stopManagedPageContextTabsWithBrowser(
       diagnostic(options.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(context.origin).host} because the tab was already gone`, platform);
     }
   }
-  return forgetManagedPageContextTabs(contexts, options);
+  return forgetManagedPageContextTabs(registry, contexts, options);
 }
 
-export type SchedulerManagedPageContexts = Partial<Record<Platform, ManagedPageContextTab>>;
+export type { SchedulerManagedPageContexts };
 
 // Injected into a page's MAIN world via executeScript to fetch with the page's
 // cookies/session — used for Kick, which needs Cloudflare/session context. All

@@ -23,7 +23,7 @@ import { withLockTracker } from "./lockTracker";
 import { hostPortsFromMocks, type HostMocks } from "./hostPorts";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
 import type { StopPageContextTabs } from "@lurkloot/core/scheduler";
-import { forgetManagedPageContextTabs, type TwitchIntegrityRequest } from "@lurkloot/core/tabs";
+import { createTabRegistry, forgetManagedPageContextTabs, type TabRegistry, type TwitchIntegrityRequest } from "@lurkloot/core/tabs";
 import type { IntegrityHeader, TwitchIntegrity } from "@lurkloot/core/twitchIntegrity";
 import type { DiscoverySignalController, DiscoverySignalTarget } from "@lurkloot/core/discoverySignals";
 import type { TwitchChannelPointsClaimNotice } from "@lurkloot/core/twitch/channelPointsPush";
@@ -276,6 +276,8 @@ export function harness(
     reconcilePageContextRecovery?: HostMocks<ExtensionSettings>["reconcilePageContextRecovery"];
     discardPageContextRecoveryEvidence?: HostMocks<ExtensionSettings>["discardPageContextRecoveryEvidence"];
     initialState?: SchedulerState;
+    // Passed when the test drives the tab functions on the same registry.
+    tabRegistry?: TabRegistry;
   } = {},
 ) {
   let currentSettings = settings;
@@ -295,6 +297,7 @@ export function harness(
   const channelPointsPushFactory = vi.fn(() => channelPointsPushController);
   twitch.createChannelPointsPushController = channelPointsPushFactory as unknown as PlatformAdapter["createChannelPointsPushController"];
   const reportEvents = vi.fn<(events: readonly EngineEvent[]) => Promise<void>>(async () => undefined);
+  const tabRegistry = overrides.tabRegistry ?? createTabRegistry();
   const deps = {
     loadSettings: vi.fn(async () => currentSettings),
     saveSettings: vi.fn(async (next: ExtensionSettings) => {
@@ -328,7 +331,9 @@ export function harness(
       ...resolveCompatibility(nextSettings.compatibility, { host: "extension", twitchIdentity: "web" }),
     })),
     reportEvents: vi.fn(overrides.reportEvents ?? reportEvents),
-    stopPageContextTabs: vi.fn(overrides.stopPageContextTabs ?? forgetManagedPageContextTabs),
+    stopPageContextTabs: vi.fn(overrides.stopPageContextTabs ?? ((contexts, options) =>
+      forgetManagedPageContextTabs(tabRegistry, contexts, options)) as StopPageContextTabs),
+    tabRegistry,
     ...(overrides.reconcilePageContextRecovery
       ? { reconcilePageContextRecovery: vi.fn(overrides.reconcilePageContextRecovery) }
       : {}),
@@ -370,6 +375,7 @@ export function harness(
     controller: { ...controller, handleMessage },
     rawController: controller,
     deps,
+    tabRegistry,
     lockTracker,
     get settings() {
       return currentSettings;
