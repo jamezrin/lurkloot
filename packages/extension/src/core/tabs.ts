@@ -1,5 +1,5 @@
 import { browser } from "wxt/browser";
-import type { AdFocusMode, ChannelCandidate, Platform, PreparedWatchTab, SchedulerManagedPageContexts, WatchSession, WatchTabOptions } from "@lurkloot/shared/models";
+import type { AdFocusMode, ChannelCandidate, ManagedWatchTab, Platform, PreparedWatchTab, SchedulerManagedPageContexts, TabClosureOrigin, WatchSession, WatchTabOptions } from "@lurkloot/shared/models";
 import type { EventEmitter, PageContextCloseReason } from "@lurkloot/shared/events";
 import {
   cancelTwitchIntegrityAcquisition,
@@ -11,6 +11,7 @@ import {
 import { fetchKickInBackgroundWith, type CookieApi } from "@lurkloot/core/transport";
 import {
   applyAdFocusWithBrowser,
+  closeManagedWatchTabsWithBrowser,
   ensureTwitchIntegrityWithBrowser,
   fetchJsonInPageWithBrowser,
   fetchTwitchInBackgroundWith,
@@ -36,7 +37,7 @@ export function createBrowserTabs(registry: TabRegistry) {
     },
 
     stopWatchTab(session: WatchSession, options?: Partial<WatchTabOptions>, emit?: EventEmitter): Promise<void> {
-      return stopWatchTabWithBrowser(browserApi, session, options, emit);
+      return stopWatchTabWithBrowser(registry, browserApi, session, options, emit);
     },
 
     applyAdFocus(platform: Platform, tabId: number | undefined, adActive: boolean, mode: AdFocusMode, emit?: EventEmitter): Promise<void> {
@@ -85,6 +86,10 @@ export function createBrowserTabs(registry: TabRegistry) {
         requiredSuccesses,
         emit,
       );
+    },
+
+    closeManagedWatchTabs(tabs: readonly ManagedWatchTab[], origin: Exclude<TabClosureOrigin, "user">): Promise<void> {
+      return closeManagedWatchTabsWithBrowser(registry, browserApi, tabs, origin);
     },
 
     stopManagedPageContextTabs(

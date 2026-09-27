@@ -25,7 +25,7 @@ import { withLockTracker } from "./lockTracker";
 import { hostPortsFromMocks, type HostMocks } from "./hostPorts";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
 import type { StopPageContextTabs } from "@lurkloot/core/scheduler";
-import { createTabRegistry, forgetManagedPageContextTabs, type TabRegistry, type TwitchIntegrityRequest } from "@lurkloot/core/tabRegistry";
+import { createTabRegistry, forgetManagedPageContextTabs, noteTabClosure, type TabRegistry, type TwitchIntegrityRequest } from "@lurkloot/core/tabRegistry";
 import type { IntegrityHeader, TwitchIntegrity } from "@lurkloot/core/twitchIntegrity";
 import type { DiscoverySignalController, DiscoverySignalTarget } from "@lurkloot/core/discoverySignals";
 import type { TwitchChannelPointsClaimNotice } from "@lurkloot/core/twitch/channelPointsPush";
@@ -330,8 +330,13 @@ export function harness(
     createNotification: vi.fn(async () => undefined),
     openWatchTab: vi.fn((channel: ChannelCandidate, session: WatchSession | undefined, options: Partial<WatchTabOptions>, _emit: EventEmitter) =>
       watchTabs[channel.platform].open(channel, session, options)),
-    stopWatchTab: vi.fn((session: WatchSession, options: Partial<WatchTabOptions>, _emit: EventEmitter) =>
-      watchTabs[session.platform].stop(session, options)),
+    // Like the extension, a close the host makes is recorded before it happens.
+    stopWatchTab: vi.fn((session: WatchSession, options: Partial<WatchTabOptions>, _emit: EventEmitter) => {
+      if (session.tabManagedByExtension && session.tabId != null && options.closeManagedTabs !== false) {
+        noteTabClosure(tabRegistry, session.tabId, options.closureOrigin ?? "extension-cleanup");
+      }
+      return watchTabs[session.platform].stop(session, options);
+    }),
     closeManagedTabs: vi.fn(async () => undefined),
     applyAdFocus: vi.fn<(platform: Platform, tabId: number | undefined, adActive: boolean, emit: EventEmitter) => Promise<void>>(async () => undefined),
     // Host-owned tab policy + settings-patch application (see background.ts).

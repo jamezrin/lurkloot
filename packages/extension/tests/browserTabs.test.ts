@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { EngineEvent } from "@lurkloot/shared/events";
 import type { ChannelCandidate, WatchSession } from "@lurkloot/shared/models";
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { activityDiagnostic } from "@lurkloot/core/activityDiagnostics";
 import {
   cancelTwitchIntegrityAcquisition,
@@ -10,6 +13,7 @@ import {
   currentValidTwitchIntegrity,
   hasValidTwitchIntegrity,
   isValidTwitchIntegrity,
+  takeTabClosureOrigin,
   noteTwitchGqlRequest,
   recordManagedPageContextFallback,
   registerManagedPageContextTabs,
@@ -24,6 +28,7 @@ import {
 import {
   AD_FOCUS_MAX_HOLD_MS,
   applyAdFocusWithBrowser,
+  closeManagedWatchTabsWithBrowser,
   ensureTwitchIntegrityWithBrowser,
   fetchJsonInPageWithBrowser,
   fetchTwitchInBackgroundWith,
@@ -136,7 +141,7 @@ describe("tab manager", () => {
     expect(events.every((event) => event.platform === "twitch")).toBe(true);
 
     events.length = 0;
-    await stopWatchTabWithBrowser(browser, { platform: "twitch", status: "watching", offlineChecks: 0, tabId: 9, tabManagedByExtension: true }, undefined, emit);
+    await stopWatchTabWithBrowser(registry, browser, { platform: "twitch", status: "watching", offlineChecks: 0, tabId: 9, tabManagedByExtension: true }, undefined, emit);
     expect(events.some((event) => event.level === "debug" && event.message.includes("Closed managed watch tab 9"))).toBe(true);
   });
 
@@ -869,7 +874,7 @@ describe("tab manager", () => {
   it("closes extension-managed watch tabs on stop", async () => {
     const browser = browserMock();
 
-    await stopWatchTabWithBrowser(browser, {
+    await stopWatchTabWithBrowser(registry, browser, {
       platform: "twitch",
       status: "watching",
       offlineChecks: 0,
@@ -884,7 +889,7 @@ describe("tab manager", () => {
   it("restores reused user tabs on stop instead of closing them", async () => {
     const browser = browserMock();
 
-    await stopWatchTabWithBrowser(browser, {
+    await stopWatchTabWithBrowser(registry, browser, {
       platform: "twitch",
       status: "watching",
       offlineChecks: 0,
@@ -2814,5 +2819,56 @@ describe("ad focus manager", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+// #598: a tab the engine closes carries the reason it was closed, so the
+// removal event that follows is never read as the user closing a farming tab.
+describe("tab closure origins", () => {
+  const managedSession: WatchSession = { platform: "twitch", status: "watching", offlineChecks: 0, tabId: 9, tabManagedByExtension: true };
+
+  it("records the origin before the browser removes the tab", async () => {
+    const browser = browserMock();
+    let recordedAtRemoval: string | undefined;
+    browser.tabs.remove.mockImplementation(async () => {
+      recordedAtRemoval = registry.tabClosures.get(9);
+      return undefined;
+    });
+
+    await stopWatchTabWithBrowser(registry, browser, managedSession, { closureOrigin: "extension-cleanup" });
+
+    expect(recordedAtRemoval).toBe("extension-cleanup");
+    expect(takeTabClosureOrigin(registry, 9)).toBe("extension-cleanup");
+    expect(takeTabClosureOrigin(registry, 9)).toBe("user");
+  });
+
+  it("drops the record when the close fails, so a later close is the user's", async () => {
+    const browser = browserMock();
+    browser.tabs.remove.mockRejectedValue(new Error("No tab with id: 9"));
+
+    await stopWatchTabWithBrowser(registry, browser, managedSession);
+
+    expect(takeTabClosureOrigin(registry, 9)).toBe("user");
+  });
+
+  it("records the origin the engine gives for managed watch tabs", async () => {
+    const browser = browserMock();
+    browser.tabs.get.mockResolvedValue({ id: 9, url: channel.url });
+
+    await closeManagedWatchTabsWithBrowser(registry, browser, [
+      { platform: "twitch", tabId: 9, channelUrl: channel.url, ownedByExtension: true },
+    ], "host-restart");
+
+    expect(browser.tabs.remove).toHaveBeenCalledWith(9);
+    expect(takeTabClosureOrigin(registry, 9)).toBe("host-restart");
+  });
+
+  it("closes tabs only through closeTab", () => {
+    const source = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), "../src/core/browserTabs.ts"), "utf8")
+      .replace(/\/\/.*$/gm, "");
+    const helper = source.slice(source.indexOf("async function closeTab("));
+    const helperEnd = helper.indexOf("\n}\n") + 3;
+    const outside = source.replace(helper.slice(0, helperEnd), "");
+    expect(outside).not.toMatch(/\bremove\s*(?:\?\.)?\s*\(/);
   });
 });

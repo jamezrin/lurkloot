@@ -50,6 +50,29 @@ describe("scheduler tick effects outside the lock", () => {
     expect(committedWhenFocused).toBe("watching");
   });
 
+  // #598: the tick closes its own tab with no lock held, so the browser's
+  // removal event can land before the tick commits, while the stored session
+  // still names that tab. Its recorded closure origin keeps it from reading as
+  // the user closing the farming tab (a regression from #599).
+  it("does not pause farming when the tick's own close reaches tab removal first", async () => {
+    const env = harness();
+    await env.controller.tick(["twitch"]);
+    expect(env.state.sessions.twitch).toMatchObject({ status: "watching", tabId: 10 });
+    vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([]);
+    env.watchTabs.twitch.stop.mockImplementation(async (session) => {
+      if (session.tabId != null) await env.rawController.handleTabRemoved(session.tabId);
+    });
+
+    await env.controller.tick(["twitch"]);
+
+    expect(env.watchTabs.twitch.stop).toHaveBeenCalled();
+    expect(env.state.manualClosePause?.twitch).toBeUndefined();
+    expect(env.state.sessions.twitch.reasonCode).not.toBe("manual_tab_close");
+    expect(allDiagnostics(env).map((event) => event.message)).toContain(
+      "Managed watch tab 10 was closed by the extension (extension-cleanup); not pausing farming",
+    );
+  });
+
   it("keeps playback telemetry that arrives while the watch tab opens", async () => {
     const env = harness();
     await env.controller.tick(["twitch"]);

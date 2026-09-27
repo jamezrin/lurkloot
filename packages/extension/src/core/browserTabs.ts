@@ -1,4 +1,4 @@
-import type { AdFocusMode, ChannelCandidate, ManagedPageContextTab, ManagedWatchTab, Platform, PreparedWatchTab, SchedulerManagedPageContexts, WatchSession, WatchTabOptions } from "@lurkloot/shared/models";
+import type { AdFocusMode, ChannelCandidate, ManagedPageContextTab, ManagedWatchTab, Platform, PreparedWatchTab, SchedulerManagedPageContexts, TabClosureOrigin, WatchSession, WatchTabOptions } from "@lurkloot/shared/models";
 import type { EventEmitter, PageContextCloseReason, PageContextOpenReason } from "@lurkloot/shared/events";
 import type { LogLevel } from "@lurkloot/shared/logging";
 import type { KickPageContextCycleObservation } from "@lurkloot/core/adapter";
@@ -8,11 +8,13 @@ import { fetchTwitchInBackgroundWith as fetchTwitchInBackgroundWithIdentity, typ
 import {
   describeContextBoot,
   forgetManagedPageContextTabs,
+  forgetTabClosure,
   hasReplacementTwitchIntegrity,
   hasValidTwitchIntegrity,
   INTEGRITY_REFRESH_TIMEOUT_MS,
   isValidTwitchIntegrity,
   managedTabBreakerOpen,
+  noteTabClosure,
   observePageContextRecovery,
   resetPlaybackPriming,
   waitForIntegrityCapture,
@@ -35,6 +37,45 @@ const ignoreEvent: EventEmitter = () => {};
 
 function diagnostic(emit: EventEmitter, level: LogLevel, message: string, platform?: Platform): void {
   emit({ category: "diagnostic", level, message, platform });
+}
+
+// The only place the engine closes a tab (#598). The origin is recorded
+// before the browser call, because the removal event can arrive before that
+// call resolves, and dropped again if the close fails, so a later user close
+// of the same tab still reads as the user's. browserTabs.test.ts checks that no
+// other code here calls tabs.remove.
+async function closeTab(
+  registry: TabRegistry,
+  browserApi: BrowserTabApi,
+  tabId: number,
+  origin: Exclude<TabClosureOrigin, "user">,
+): Promise<void> {
+  const remove = browserApi.tabs.remove;
+  if (!remove) throw new Error("Tab removal is unavailable");
+  noteTabClosure(registry, tabId, origin);
+  try {
+    await remove(tabId);
+  } catch (error) {
+    forgetTabClosure(registry, tabId);
+    throw error;
+  }
+}
+
+// Closes the managed watch tabs a state held, if each still shows its channel.
+export async function closeManagedWatchTabsWithBrowser(
+  registry: TabRegistry,
+  browserApi: BrowserTabApi,
+  tabs: readonly ManagedWatchTab[],
+  origin: Exclude<TabClosureOrigin, "user">,
+): Promise<void> {
+  await Promise.all(tabs.map(async ({ tabId, channelUrl }) => {
+    try {
+      const tab = await browserApi.tabs.get(tabId);
+      if (tab?.id === tabId && tab.url === channelUrl) await closeTab(registry, browserApi, tabId, origin);
+    } catch {
+      // The recorded tab may already be closed or its id may be stale.
+    }
+  }));
 }
 
 export interface BrowserTabApi {
@@ -158,7 +199,7 @@ export async function openPinnedMutedTabWithBrowser(
   for (const tabId of extraManagedTabIds) {
     if (!browserApi.tabs.remove) continue;
     try {
-      await browserApi.tabs.remove(tabId);
+      await closeTab(registry, browserApi, tabId, "extension-cleanup");
       diagnostic(emit, "debug", `Removed stale watch tab ${tabId}`, channel.platform);
     } catch {
       // Stale managed tab ids should not block creating the replacement.
@@ -177,7 +218,7 @@ export async function openPinnedMutedTabWithBrowser(
   if (tabOptions.signal?.aborted) {
     if (browserApi.tabs.remove) {
       try {
-        await browserApi.tabs.remove(tab.id);
+        await closeTab(registry, browserApi, tab.id, "extension-cleanup");
       } catch {
         // The new managed tab may already have been closed independently.
       }
@@ -295,13 +336,19 @@ function managedTab(channel: ChannelCandidate, tabId: number): ManagedWatchTab {
   };
 }
 
-export async function stopWatchTabWithBrowser(browserApi: BrowserTabApi, session: WatchSession, options?: Partial<WatchTabOptions>, emit: EventEmitter = ignoreEvent): Promise<void> {
+export async function stopWatchTabWithBrowser(
+  registry: TabRegistry,
+  browserApi: BrowserTabApi,
+  session: WatchSession,
+  options?: Partial<WatchTabOptions>,
+  emit: EventEmitter = ignoreEvent,
+): Promise<void> {
   const tabOptions = { ...DEFAULT_WATCH_TAB_OPTIONS, ...options };
   tabOptions.signal?.throwIfAborted();
   if (!session.tabId) return;
   try {
     if (session.tabManagedByExtension && tabOptions.closeManagedTabs && browserApi.tabs.remove) {
-      await browserApi.tabs.remove(session.tabId);
+      await closeTab(registry, browserApi, session.tabId, tabOptions.closureOrigin ?? "extension-cleanup");
       diagnostic(emit, "debug", `Closed managed watch tab ${session.tabId}`, session.platform);
       tabOptions.signal?.throwIfAborted();
       return;
@@ -825,7 +872,7 @@ async function releasePageContextTab(
   if (!browserApi.tabs.remove) return;
 
   try {
-    await browserApi.tabs.remove(pageContext.tabId);
+    await closeTab(registry, browserApi, pageContext.tabId, "extension-cleanup");
   } catch {
     // The temporary context tab may have been closed manually before cleanup.
   }
@@ -849,7 +896,7 @@ async function findOrCreatePageContextTab(
       .filter((tab): tab is ManagedPageContextTab => tab != null && tab.origin === origin)
       .map((tab) => tab.tabId),
   );
-  for (const tabId of registry.closingPageContextTabIds) retainedIds.add(tabId);
+  for (const tabId of registry.tabClosures.keys()) retainedIds.add(tabId);
   const requireFresh = options?.requireFreshPageContext === true;
   let tabId: number | undefined;
   for (const tab of tabs) {
@@ -864,12 +911,11 @@ async function findOrCreatePageContextTab(
     if (retained?.origin === origin) {
       registry.retainedPageContextTabs.delete(retained.platform);
       registry.retainedPageContextRevision += 1;
-      const remove = browserApi.tabs.remove;
-      if (!remove) {
+      if (!browserApi.tabs.remove) {
         diagnostic(options?.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(retained.origin).host} because tab removal is unavailable`, retained.platform);
       } else {
         try {
-          await withAbortSignal(remove(retained.tabId), signal);
+          await withAbortSignal(closeTab(registry, browserApi, retained.tabId, "extension-cleanup"), signal);
           options?.emit?.({
             category: "activity",
             code: "page_context_closed",
@@ -911,12 +957,11 @@ async function findOrCreatePageContextTab(
       registry.retainedPageContextRevision += 1;
       openReason = "managed_context_unusable";
       if (tab?.id) {
-        const remove = browserApi.tabs.remove;
-        if (!remove) {
+        if (!browserApi.tabs.remove) {
           diagnostic(options?.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(origin).host} because tab removal is unavailable`, retained.platform);
         } else {
           try {
-            await withAbortSignal(remove(retained.tabId), signal);
+            await withAbortSignal(closeTab(registry, browserApi, retained.tabId, "extension-cleanup"), signal);
             options?.emit?.({
               category: "activity",
               code: "page_context_closed",
@@ -971,7 +1016,7 @@ async function findOrCreatePageContextTab(
     signal?.throwIfAborted();
   } catch (error) {
     try {
-      await browserApi.tabs.remove?.(tab.id);
+      if (browserApi.tabs.remove) await closeTab(registry, browserApi, tab.id, "extension-cleanup");
     } catch {
       // The unusable page may already have been closed.
     }
@@ -1159,8 +1204,7 @@ export async function reconcileManagedPageContextRecoveryWithBrowser(
     diagnostic(emit, "debug", `Forgot managed page context on ${new URL(context.origin).host} because the retained tab changed`, platform);
     return true;
   }
-  const remove = browserApi.tabs.remove;
-  if (!remove) {
+  if (!browserApi.tabs.remove) {
     diagnostic(emit, "debug", `Retained managed page context on ${new URL(context.origin).host} because tab removal is unavailable`, platform);
     return true;
   }
@@ -1169,9 +1213,8 @@ export async function reconcileManagedPageContextRecoveryWithBrowser(
   // so this recovery attempt cannot delete or close its replacement.
   registry.retainedPageContextTabs.delete(platform);
   registry.retainedPageContextRevision += 1;
-  registry.closingPageContextTabIds.add(context.tabId);
   try {
-    await remove(context.tabId);
+    await closeTab(registry, browserApi, context.tabId, "extension-recovery");
     emit({
       category: "activity",
       code: "page_context_closed",
@@ -1185,8 +1228,6 @@ export async function reconcileManagedPageContextRecoveryWithBrowser(
       registry.retainedPageContextRevision += 1;
     }
     diagnostic(emit, "debug", `Retained managed page context on ${new URL(context.origin).host} because the tab could not be closed`, platform);
-  } finally {
-    registry.closingPageContextTabIds.delete(context.tabId);
   }
   return true;
 }
@@ -1201,13 +1242,12 @@ export async function stopManagedPageContextTabsWithBrowser(
   for (const platform of platforms) {
     const context = contexts[platform];
     if (!context) continue;
-    const remove = browserApi.tabs.remove;
-    if (!remove) {
+    if (!browserApi.tabs.remove) {
       diagnostic(options.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(context.origin).host} because tab removal is unavailable`, platform);
       continue;
     }
     try {
-      await remove(context.tabId);
+      await closeTab(registry, browserApi, context.tabId, "extension-cleanup");
       options.emit?.({
         category: "activity",
         code: "page_context_closed",

@@ -18,6 +18,7 @@ import type {
   PreparedWatchTab,
   SchedulerState,
   SupplementalWatchTarget,
+  TabClosureOrigin,
   WatchSession,
   WatchSourceId,
   WatchTabOptions,
@@ -59,7 +60,7 @@ export interface HostMocks<S extends EngineSettings> {
     emit: EventEmitter,
   ): Promise<PreparedWatchTab>;
   stopWatchTab?(session: WatchSession, options: Partial<WatchTabOptions>, emit: EventEmitter): Promise<void>;
-  closeManagedTabs?(tabs: ManagedWatchTab[]): Promise<void>;
+  closeManagedTabs?(tabs: ManagedWatchTab[], origin?: Exclude<TabClosureOrigin, "user">): Promise<void>;
   stopPageContextTabs?: StopPageContextTabs;
   applyAdFocus?(platform: Platform, tabId: number | undefined, adActive: boolean, emit: EventEmitter): Promise<void>;
   loadTabPlaybackPolicy?(): Promise<{ keepVideosUnmuted: boolean }>;
@@ -150,8 +151,8 @@ export function hostPortsFromMocks<S extends EngineSettings>(
             stop: async (session: WatchSession, options: Partial<WatchTabOptions>, emit: EventEmitter) => {
               await m.stopWatchTab?.(session, options, emit);
             },
-            closeManaged: async (tabs: ManagedWatchTab[]) => {
-              await m.closeManagedTabs?.(tabs);
+            closeManaged: async (tabs: ManagedWatchTab[], origin: Exclude<TabClosureOrigin, "user">) => {
+              await m.closeManagedTabs?.(tabs, origin);
             },
             applyAdFocus: async (platform: Platform, tabId: number | undefined, adActive: boolean, emit: EventEmitter) => {
               await m.applyAdFocus?.(platform, tabId, adActive, emit);

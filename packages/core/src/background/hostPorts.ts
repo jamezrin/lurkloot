@@ -8,6 +8,7 @@ import type {
   PreparedWatchTab,
   SchedulerState,
   SupplementalWatchTarget,
+  TabClosureOrigin,
   WatchSession,
   WatchSourceId,
   WatchTabOptions,
@@ -112,6 +113,11 @@ export interface BrowserTabsPort {
 // The pinned, muted tab a platform is watched in. The host applies its own tab
 // settings (muting, keeping videos unmuted, closing managed tabs) on top of the
 // options the engine passes, and reports its diagnostics through `emit`.
+//
+// Whenever `stop` or `closeManaged` closes a tab, the host records why with
+// noteTabClosure (tabRegistry.ts) before it asks the browser to, and drops the
+// record if the close fails. The controller reads it when the removal event
+// arrives, so only a close the user made pauses farming (#598).
 export interface WatchTabPort {
   open(
     channel: ChannelCandidate,
@@ -120,7 +126,9 @@ export interface WatchTabPort {
     emit: EventEmitter,
   ): Promise<PreparedWatchTab>;
   stop(session: WatchSession, options: Partial<WatchTabOptions>, emit: EventEmitter): Promise<void>;
-  closeManaged(tabs: ManagedWatchTab[]): Promise<void>;
+  // Closes the managed watch tabs a state held; `origin` is recorded against
+  // each tab it closes, so its removal event is not read as the user's.
+  closeManaged(tabs: ManagedWatchTab[], origin: Exclude<TabClosureOrigin, "user">): Promise<void>;
   // Tab-mode ad focus. The host owns the focus policy (adFocusMode), so the
   // engine only reports whether an ad is active for a given watch tab.
   applyAdFocus(platform: Platform, tabId: number | undefined, adActive: boolean, emit: EventEmitter): Promise<void>;
