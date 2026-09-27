@@ -23,12 +23,10 @@ const BACKGROUND_FILES = readdirSync(resolve(coreSrc, "background"))
   .filter((name): name is `${string}.ts` => name.endsWith(".ts"))
   .map((name) => `background/${name}` as const);
 const LOCKS: readonly Exclude<LockedIoLock, "caller">[] = ["withStateLock", "withPlatformLock", "withSettingsLock", "withHeartbeatLane"];
-// Functions whose whole body runs inside a lock their caller holds: Kick
-// page-context recovery runs inside runTick's withStateLock. The scheduler
-// tick's effects (#599) run with no lock held.
-const CALLER_LOCKED: readonly { file: LockedIoEntry["file"]; site: string }[] = [
-  { file: "background/kickChallenges.ts", site: "reconcilePageContextRecoveryAfterPersist" },
-];
+// Functions whose whole body runs inside a lock their caller holds. None do
+// now: the scheduler tick's effects (#599) and Kick page-context recovery
+// (#598) both run after the tick releases its lock.
+const CALLER_LOCKED: readonly { file: LockedIoEntry["file"]; site: string }[] = [];
 
 // Index just past the string, template literal or comment starting at `index`,
 // or `index` itself when none starts there. Template substitutions are scanned

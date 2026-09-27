@@ -4,7 +4,7 @@ import { isFarmingActive } from "@lurkloot/shared/settings";
 import { registerManagedPageContextTabs, setTwitchIntegrity } from "../core/tabRegistry";
 import { ALARM_NAME, KICK_ALARM_NAME, PLATFORMS, TWITCH_ALARM_NAME, WATCH_ALARM_NAME } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
-import { farmingLifecycleEvents } from "./helpers";
+import { emitHostCallbackError, farmingLifecycleEvents } from "./helpers";
 import type { BackgroundHostPorts } from "./hostPorts";
 import type { ControllerCalls } from "./types";
 
@@ -299,23 +299,11 @@ export function createLifecycle<S extends EngineSettings>(
       await clearManualWatchClaimAlarmsBestEffort();
       abortClaimHandoffs();
       await clearHeartbeatOwnership(PLATFORMS);
-      await withSettingsLock(() => withStateLock(() => withEventCollector(async (emit, events) => {
-        const state = await ports.storage.loadState();
-        const managedTabs = Object.values(state.managedWatchTabs ?? {}).filter((tab): tab is ManagedWatchTab => tab?.ownedByExtension === true);
-        const { tabs } = ports;
-        if (tabs && managedTabs.length > 0) await tabs.watch.closeManaged(managedTabs);
-        for (const platform of PLATFORMS) {
-          if (!tabs) continue;
-          await tabs.watch.applyAdFocus(platform, state.sessions[platform].tabId, false, emit);
-          await tabs.watch.stop(state.sessions[platform], { closeManagedTabs: true }, emit);
-        }
-        if (tabs) {
-          await tabs.pageContexts.release(state.managedPageContextTabs ?? {}, {
-            platforms: PLATFORMS,
-            reason: "automation_disabled",
-            emit,
-          });
-        }
+      // The locks cover only the reset itself. The tabs the reset state no
+      // longer holds are closed afterwards, with no lock held (#598): tick
+      // admission stays suspended until then, so nothing can reopen them.
+      const state = await withSettingsLock(() => withStateLock(async () => {
+        const previous = await ports.storage.loadState();
         registerManagedPageContextTabs(tabRegistry, {});
         integritySlice.installedTwitchIntegrity = undefined;
         integritySlice.persistedIntegrityToken = undefined;
@@ -323,8 +311,36 @@ export function createLifecycle<S extends EngineSettings>(
         setTwitchIntegrity(tabRegistry, undefined);
         await resetHostStorage?.();
         settingsSlice.lastPersistedTwitchEnabled = undefined;
-        await reportBestEffort(events);
-      })));
+        return previous;
+      }));
+      const { tabs } = ports;
+      if (tabs) {
+        // The reset has already committed, so a tab the host cannot close is
+        // reported and skipped rather than failing the reset.
+        await withEventCollector(async (emit, events) => {
+          const attempt = async (platforms: readonly Platform[], message: string, operation: () => unknown) => {
+            try {
+              await operation();
+            } catch (error) {
+              for (const platform of platforms) emitHostCallbackError(emit, platform, error, message);
+            }
+          };
+          const managedTabs = Object.values(state.managedWatchTabs ?? {}).filter((tab): tab is ManagedWatchTab => tab?.ownedByExtension === true);
+          if (managedTabs.length > 0) {
+            await attempt([...new Set(managedTabs.map((tab) => tab.platform))], "Could not close managed watch tabs", () => tabs.watch.closeManaged(managedTabs));
+          }
+          for (const platform of PLATFORMS) {
+            await attempt([platform], "Could not release ad focus", () => tabs.watch.applyAdFocus(platform, state.sessions[platform].tabId, false, emit));
+            await attempt([platform], "Could not stop watch tab", () => tabs.watch.stop(state.sessions[platform], { closeManagedTabs: true }, emit));
+          }
+          await attempt(PLATFORMS, "Could not stop page contexts", () => tabs.pageContexts.release(state.managedPageContextTabs ?? {}, {
+            platforms: PLATFORMS,
+            reason: "automation_disabled",
+            emit,
+          }));
+          await reportBestEffort(events);
+        });
+      }
     } finally {
       if (!lifecycleSlice.controllerShutdown) {
         signalSlice.discoverySignalLifecycleOpen = true;

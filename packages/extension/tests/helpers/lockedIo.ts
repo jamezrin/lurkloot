@@ -12,7 +12,7 @@ export type LockedIoKind = "provider" | "tab" | "timer" | "async-wait";
 // The lock that is held around the call:
 // - a lock helper whose argument body must contain the call, or
 // - "caller" when the whole function runs inside a lock its caller took
-//   (Kick page-context recovery runs inside runTick's withStateLock).
+//   (none now: Kick page-context recovery left runTick's lock in #598).
 export type LockedIoLock = "withStateLock" | "withPlatformLock" | "withSettingsLock" | "withHeartbeatLane" | "caller";
 
 export type LockedIoOwner = 586 | 587 | 588 | 589 | 590 | 595 | 596 | 597 | 598 | 599;
@@ -34,7 +34,6 @@ export const LOCKED_IO_ALLOWLIST: readonly LockedIoEntry[] = [
   // runTick's own withStateLock body, around and after the scheduler tick.
   { id: "tick-fallback-selection", file: "background/tickRun.ts", site: "runTick", lock: "withStateLock", call: "prepareSelection(", kind: "async-wait", owner: 587 },
   { id: "tick-discovery-signals", file: "background/tickRun.ts", site: "runTick", lock: "withStateLock", call: "reconcileDiscoverySignalControllers(", kind: "provider", owner: 587 },
-  { id: "tick-ad-focus", file: "background/tickRun.ts", site: "runTick", lock: "withStateLock", call: "applyAdFocusForState(", kind: "tab", owner: 587 },
   { id: "tick-tabless-watchers", file: "background/tickRun.ts", site: "runTick", lock: "withStateLock", call: "reconcileTablessWatchers(", kind: "provider", owner: 586 },
   { id: "tick-channel-points-push", file: "background/tickRun.ts", site: "runTick", lock: "withStateLock", call: "reconcileTwitchChannelPointsPush(", kind: "provider", owner: 590 },
 
@@ -54,18 +53,11 @@ export const LOCKED_IO_ALLOWLIST: readonly LockedIoEntry[] = [
   { id: "tab-removed-discovery-signals", file: "background/manualWatch.ts", site: "handleTabRemoved", lock: "withStateLock", call: "stopDiscoverySignalControllers(", kind: "provider", owner: 596 },
   { id: "playback-ad-focus", file: "background/manualWatch.ts", site: "recordPlaybackTelemetry", lock: "withStateLock", call: "tabs.watch.applyAdFocus(", kind: "tab", owner: 596 },
 
-  // Host reset closes tabs while holding the settings and platform locks.
-  { id: "reset-close-watch-tabs", file: "background/lifecycle.ts", site: "prepareForHostReset", lock: "withStateLock", call: "tabs.watch.closeManaged(", kind: "tab", owner: 598 },
-  { id: "reset-stop-page-contexts", file: "background/lifecycle.ts", site: "prepareForHostReset", lock: "withStateLock", call: "tabs.pageContexts.release(", kind: "tab", owner: 598 },
-  { id: "reset-ad-focus", file: "background/lifecycle.ts", site: "prepareForHostReset", lock: "withStateLock", call: "tabs.watch.applyAdFocus(", kind: "tab", owner: 598 },
-  { id: "reset-stop-watch-tabs", file: "background/lifecycle.ts", site: "prepareForHostReset", lock: "withStateLock", call: "tabs.watch.stop(", kind: "tab", owner: 598 },
-
   // Twitch channel points claim under the Twitch platform lock.
   { id: "channel-points-claim", file: "background/channelPoints.ts", site: "runTwitchChannelPointsClaim", lock: "withPlatformLock", call: "adapter.claimChannelPoints?.(", kind: "provider", owner: 590 },
   { id: "channel-points-push-claim", file: "background/channelPoints.ts", site: "queueTwitchChannelPointsPushClaim", lock: "withPlatformLock", call: "claimTwitchChannelPointsFromPush(", kind: "provider", owner: 590 },
 
   // Kick page-context recovery runs after the tick commit, inside runTick's lock.
-  { id: "tick-page-context-recovery", file: "background/kickChallenges.ts", site: "reconcilePageContextRecoveryAfterPersist", lock: "caller", call: "recovery.reconcile(", kind: "tab", owner: 588 },
 
   // Claims outside the tick.
   { id: "manual-claim", file: "background/claims.ts", site: "claimRewardNow", lock: "withStateLock", call: "adapter.claimReward(", kind: "provider", owner: 597 },
@@ -95,7 +87,7 @@ export const LOCKED_IO_ALLOWLIST: readonly LockedIoEntry[] = [
 // under `adapters[platform]`, and in a function its caller runs under a lock.
 // The scan now recognizes all three. That was a correction to the baseline,
 // not new locked I/O.
-export const LOCKED_IO_ALLOWLIST_SIZE = 34;
+export const LOCKED_IO_ALLOWLIST_SIZE = 28;
 
 // Calls that count as locked I/O when they appear inside a lock: ports and
 // adapter methods that reach a provider, a tab or a timer, and the controller

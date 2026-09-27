@@ -312,7 +312,6 @@ export interface ControllerCalls<S extends EngineSettings> {
   // kickChallenges.ts
   reconcilePageContextRecoveryAfterPersist(
     platforms: readonly Platform[],
-    state: SchedulerState,
     settings: S,
     backgroundSuccessPlatforms: ReadonlySet<Platform>,
     tickContext: TickDiagnosticContext,

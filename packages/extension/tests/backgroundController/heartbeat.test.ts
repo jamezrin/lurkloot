@@ -379,7 +379,9 @@ describe("background controller", () => {
     const allowSchedulerSave = deferred<void>();
     const persist = env.deps.saveState.getMockImplementation()!;
     let blockNextSave = false;
-    env.deps.applyAdFocus.mockImplementation(async () => {
+    // The tick's stopWatchTab effect runs just before it commits (ad focus now
+    // runs only after the commit, #598), so the next save is the commit.
+    env.deps.stopWatchTab.mockImplementation(async () => {
       blockNextSave = true;
     });
     env.deps.saveState.mockImplementation(async (next) => {
@@ -468,10 +470,16 @@ describe("background controller", () => {
     expect(firstCheckedAt).toBeDefined();
     const focusStarted = deferred<void>();
     const allowFocus = deferred<void>();
-    env.deps.applyAdFocus.mockImplementation(async () => {
+    // Pause the tick inside its platform lock, between its rebase and its
+    // commit, where channel-points push reconciliation runs (#598 moved ad
+    // focus, the previous hook, after the commit).
+    const push = env.channelPointsPushController;
+    const start = push.start.bind(push);
+    push.start = async (onClaimAvailable) => {
       focusStarted.resolve();
       await allowFocus.promise;
-    });
+      await start(onClaimAvailable);
+    };
     watcher.tick.mockClear();
 
     const discovery = env.controller.tick(["twitch"]);
@@ -1550,10 +1558,16 @@ describe("background controller", () => {
     env.state.managedPageContextTabs = { twitch: baseContext };
     registerManagedPageContextTabs(env.tabRegistry, { twitch: baseContext });
     await env.controller.tick(["twitch"]);
-    env.deps.applyAdFocus.mockImplementation(async () => {
+    // Pause the tick inside its platform lock, after it rebased on the stored
+    // state and before it commits: channel-points push reconciliation runs
+    // there (#598 moved ad focus, the previous hook, after the commit).
+    const push = env.channelPointsPushController;
+    const start = push.start.bind(push);
+    push.start = async (onClaimAvailable) => {
       schedulerReachedPostTickWork.resolve();
       await allowScheduler.promise;
-    });
+      await start(onClaimAvailable);
+    };
     vi.setSystemTime(new Date("2026-09-02T12:01:00.000Z"));
 
     const schedulerTick = env.controller.tick(["twitch"]);

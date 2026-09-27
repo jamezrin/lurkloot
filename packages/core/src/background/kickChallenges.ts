@@ -33,7 +33,6 @@ export function createKickChallenges<S extends EngineSettings>(
 
   async function reconcilePageContextRecoveryAfterPersist(
     platforms: readonly Platform[],
-    state: SchedulerState,
     settings: S,
     backgroundSuccessPlatforms: ReadonlySet<Platform>,
     tickContext: TickDiagnosticContext,
@@ -49,7 +48,13 @@ export function createKickChallenges<S extends EngineSettings>(
             { countBackgroundSuccess: backgroundSuccessPlatforms.has(recoveryPlatform) },
             recoveryEmit,
           );
-          if (changed) await persistPlatformState(recoveryPlatform, state);
+          // Runs after the tick's commit with no lock held (#598), so the page
+          // contexts it changed are committed onto the latest state.
+          if (changed) {
+            await withStateLock(async () => {
+              await persistPlatformState(recoveryPlatform, await ports.storage.loadState());
+            }, [recoveryPlatform]);
+          }
         } catch (error) {
           recoveryEmit({
             category: "diagnostic",

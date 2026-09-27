@@ -210,13 +210,12 @@ without being listed, or if a listed call has left its lock without the entry be
   platform-lock sections, with no lock held. See "Scheduler tick effects" below.
 - **`runTick` itself**, before and after the tick: the fallback `prepareSelection`, which can wait on
   another tick's selection run (#587), and, before publishing, tabless watcher reconciliation (#586),
-  discovery-signal and channel-points push reconciliation (#587, #590) and ad focus (#587).
+  discovery-signal and channel-points push reconciliation (#587, #590).
 - **Heartbeat lane:** `watcher.start` (#586).
 - **Auth transitions** stop the discovery-signal observer and the channel-points push directly
   (#595).
 - **Tab events and playback:** stopping discovery signals on tab removal, ad focus on telemetry
   (#596).
-- **Host reset** closes watch tabs and page contexts under the settings and platform locks (#598).
 - **Claims outside the tick:** `claimRewardNow`, `runDropClaims` (which also refreshes campaigns) and
   `runKickChallengeClaims` (#597, #588).
 - **Timers under the settings or platform lock:** integrity refresh scheduling (#589), claim and
@@ -304,12 +303,16 @@ interim registration with its service's handler; the tick itself never changes.
 executor, and mirrors the page contexts and managed-tab breaker of the controller's tab registry around them. The deciding
 code never touches either.
 
-`runTick` runs a tick in three steps:
+`runTick` runs a tick in four steps:
 1. **Under the platform lock:** read the settings and state, and settle the prepared selections.
 2. **With no lock held:** run the tick and its effects. Telemetry, heartbeats, tab events, claims
    and auth transitions commit meanwhile rather than queueing behind the tick.
 3. **Under the platform lock again:** rebase the result on the stored state (`rebaseTickState`,
-   `tickCommit.ts`), then reconcile watchers, ad focus and observers and publish, as before.
+   `tickCommit.ts`), then reconcile watchers and observers and publish, as before.
+4. **With no lock held again (#598):** apply ad focus for the committed sessions and run Kick
+   page-context recovery, which re-reads the latest state under the platform lock before it
+   persists a changed page context. Host reset works the same way: it clears the registry and
+   storage under its locks, then closes the tabs the old state held.
 
 The rebase is a three-way merge per platform-owned key:
 - a key only another writer changed keeps that writer's value, as if it had run after the tick;

@@ -430,7 +430,9 @@ describe("background controller", () => {
     it.each(["abort after discovery drain", "stale publication rejection"])("keeps route evidence through %s without publishing discarded activity", async (mode) => {
       const env = routeEnv();
       let interrupted = false;
-      env.deps.applyAdFocus.mockImplementation(async () => {
+      // The tick's stopWatchTab effect runs after discovery drains and before
+      // the tick publishes (ad focus now runs only after it commits, #598).
+      env.deps.stopWatchTab.mockImplementation(async () => {
         if (mode === "abort after discovery drain") {
           interrupted = true;
           env.controller.shutdown();

@@ -417,6 +417,13 @@ export function createTickRun<S extends EngineSettings>(
       let openedTab: WatchSession | undefined;
       let superseded = false;
       let publicationLeases: Array<readonly [Platform, HeartbeatPublicationLease]> = [];
+      // Tab work for the state this tick committed, run once the lock is
+      // released (#598): ad focus follows the committed sessions, and Kick
+      // page-context recovery acts on the committed page contexts.
+      let afterCommit: {
+        adFocus?: SchedulerState;
+        recovery?: { platforms: readonly Platform[]; successPlatforms: ReadonlySet<Platform> };
+      } = {};
       await withStateLock(async () => {
         // Drops the tick's decision and its events, keeping only the activity
         // of claims that happened, which rollBack returns.
@@ -467,9 +474,6 @@ export function createTickRun<S extends EngineSettings>(
           await emitNotifications(settings, latest, tickState, result!.events);
           signal.throwIfAborted();
           assertSelectionsCurrent();
-          await applyAdFocusForState(tickState, emit, schedulerPlatforms);
-          signal.throwIfAborted();
-          assertSelectionsCurrent();
           publicationLeases = await reconcileTablessWatchers(
             tickState,
             settings,
@@ -514,7 +518,7 @@ export function createTickRun<S extends EngineSettings>(
             latest ??= await loadLatest();
             if (error === staleSelection) {
               const factEvents = rollBack();
-              await applyAdFocusForState(latest, emit, schedulerPlatforms);
+              afterCommit = { adFocus: latest };
               publicationLeases.push(...await reconcileTablessWatchers(
                 latest,
                 settings,
@@ -533,9 +537,7 @@ export function createTickRun<S extends EngineSettings>(
             emit({ category: "activity", code: "interruption", level: "error", platform, data: { reason: "platform_error", detail } });
             emit({ category: "diagnostic", level: "error", platform, message: detail });
             const persisted = await persistPlatformAndReport(platform, latest, correlateTickDiagnostics(events, tickContext));
-            if (persisted) {
-              await reconcilePageContextRecoveryAfterPersist([platform], latest, settings, new Set(), tickContext);
-            }
+            if (persisted) afterCommit = { recovery: { platforms: [platform], successPlatforms: new Set() } };
           } finally {
             await Promise.all(publicationLeases.map(([leasePlatform, lease]) =>
               releaseHeartbeatPublicationLease(leasePlatform, lease)));
@@ -559,13 +561,10 @@ export function createTickRun<S extends EngineSettings>(
             await commitFacts(await loadLatest(), staleSelection.message, factEvents);
             return;
           }
-          await reconcilePageContextRecoveryAfterPersist(
-            schedulerPlatforms,
-            nextState,
-            settings,
-            pageContextRecoverySuccessPlatforms,
-            tickContext,
-          );
+          afterCommit = {
+            adFocus: nextState,
+            recovery: { platforms: schedulerPlatforms, successPlatforms: pageContextRecoverySuccessPlatforms },
+          };
           claimSlice.waitingClaimRewardIds[platform].clear();
           for (const rewardId of nextWaitingClaimRewardIds[platform]) {
             claimSlice.waitingClaimRewardIds[platform].add(rewardId);
@@ -575,6 +574,20 @@ export function createTickRun<S extends EngineSettings>(
             releaseHeartbeatPublicationLease(leasePlatform, lease)));
         }
       }, schedulerPlatforms);
+
+      if (!signal.aborted && afterCommit.adFocus) {
+        const reported = events.length;
+        await applyAdFocusForState(afterCommit.adFocus, emit, schedulerPlatforms);
+        await reportBestEffort(correlateTickDiagnostics(events.slice(reported), tickContext));
+      }
+      if (!signal.aborted && afterCommit.recovery) {
+        await reconcilePageContextRecoveryAfterPersist(
+          afterCommit.recovery.platforms,
+          settings,
+          afterCommit.recovery.successPlatforms,
+          tickContext,
+        );
+      }
 
       // Outside the lock again: close a tab only the superseded decision
       // wanted, and let a fresh tick decide from the state that won.
