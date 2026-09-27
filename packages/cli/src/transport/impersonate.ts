@@ -1,4 +1,4 @@
-import { fetchTwitchInBackgroundWith } from "@lurkloot/core/tabs";
+import { fetchTwitchInBackgroundWith } from "@lurkloot/core/transport";
 import type { PlatformCredentials } from "../authStore";
 import { twitchCookieApi } from "./cookieApi";
 import { createCycleKickFetcher, createCycleKickWebSocketFactory, initCycle, type CycleTLSClient } from "./cycle";

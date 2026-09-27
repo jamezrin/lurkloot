@@ -14,6 +14,7 @@
     "./discoverySignals": "./src/core/discoverySignals.ts",
     "./twitchIntegrity": "./src/core/twitchIntegrity.ts",
     "./tabs": "./src/core/tabs.ts",
+    "./transport": "./src/core/transport.ts",
     "./kickBearerCases": "./src/core/kickBearerCases.ts",
     "./defaults": "./src/core/defaults.ts",
     "./authHealth": "./src/core/authHealth.ts",

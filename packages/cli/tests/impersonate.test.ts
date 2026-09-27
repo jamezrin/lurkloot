@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { KickWafBlockedError } from "@lurkloot/core/tabs";
+import { KickWafBlockedError } from "@lurkloot/core/transport";
 import { isSafeFetchError } from "@lurkloot/core/fetchError";
 import { createImpersonateTransport } from "../src/transport/impersonate";
 import { createTvLinkAuthenticator } from "../src/transport/cycle";

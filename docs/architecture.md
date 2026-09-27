@@ -23,6 +23,7 @@ Package-qualified paths below are written as `packages/<package>/...` when owner
 - `packages/core/src/core/scheduler.ts` owns platform-independent campaign selection, Idle Watchlist fallback selection, auto-claiming, retry/backoff, session state, manual-watch pauses, and watch-mode lifecycle decisions.
 - `packages/core/src/platforms/adapter.ts` defines the `PlatformAdapter` contract. `packages/core/src/platforms/twitch/index.ts` and `packages/core/src/platforms/kick/index.ts` implement platform-specific discovery, progress, candidate, validation, claim, and tab preparation behavior.
 - `packages/core/src/core/tabs.ts` contains shared tab-management and page-context-fetch abstractions; `packages/extension/src/core/tabs.ts` binds those abstractions to live WXT/browser tab and cookie APIs.
+- `packages/core/src/core/transport.ts` (`@lurkloot/core/transport`) holds the cookie-backed background fetchers for Twitch GQL and Kick's API, with no tab state. The Twitch fetcher takes an injected request identity (integrity token and client session id), so the extension replays the page-captured token and tabless hosts send none. The CLI imports only this module, never `@lurkloot/core/tabs`; `packages/cli/tests/tabBoundary.test.ts` guards that (#598).
 - `entrypoints/twitch.content.ts` and `entrypoints/kick.content.ts` start shared playback telemetry/control on platform pages.
 - `entrypoints/popup/` adapts WXT/browser APIs to the shared React popup UI in `packages/popup-ui`, which talks only to the background controller through runtime messages.
 
