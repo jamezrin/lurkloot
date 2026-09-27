@@ -1,6 +1,6 @@
 import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
-import { currentManagedPageContextTabs, currentManagedPageContextTabsRevision, type TabRegistry } from "../core/tabs";
+import { currentManagedPageContextTabs, currentManagedPageContextTabsRevision, type TabRegistry } from "../core/tabRegistry";
 import { heartbeatContextKey, validTablessHeartbeatCadence } from "../core/heartbeatCadence";
 import { mergePlatformState, schedulerStateEquivalent } from "./platformState";
 import { PLATFORMS } from "./constants";

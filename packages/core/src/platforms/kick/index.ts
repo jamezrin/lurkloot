@@ -303,7 +303,7 @@ export class KickAdapter implements PlatformAdapter {
     try {
       // Kick serves this endpoint anonymously as `200 {}` instead of rejecting it, so the
       // identity check below is what separates a real session from a credential-free one.
-      // It only works because kick.com is in KICK_AUTH_HOSTS (core/tabs.ts) and therefore
+      // It only works because this path is in KICK_BEARER_PATHS (core/transport.ts) and therefore
       // gets session_token replayed as a Bearer; without that header Kick returns the
       // empty object and a signed-in account looks signed out.
       const response = await this.fetcher.fetchJson<KickIdentityResponse>(

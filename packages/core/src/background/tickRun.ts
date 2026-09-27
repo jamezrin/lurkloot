@@ -2,7 +2,7 @@ import type { EngineSettings, Platform, SchedulerState, WatchSession, WatchSourc
 import type { EngineEvent, EventEmitter } from "@lurkloot/shared/events";
 import { isFarmingActive } from "@lurkloot/shared/settings";
 import type { SchedulerTickResult, SelectionView, SnapshotSelectionResult } from "../core/scheduler";
-import { syncManagedTabBreakers } from "../core/tabs";
+import { syncManagedTabBreakers } from "../core/tabRegistry";
 import { recordManagedTabOpen } from "../core/criticalHealth";
 import type { PlatformAdapter } from "../platforms/adapter";
 import { adapterFromDiscoverySnapshot, selectionAdapterFromDiscoverySnapshot } from "../core/discoverySnapshot";

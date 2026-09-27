@@ -12,7 +12,7 @@ import {
   recordManagedTabOpen,
   isManagedTabBreakerOpen,
 } from "@lurkloot/core/criticalHealth";
-import { createTabRegistry, managedTabBreakerOpen, syncManagedTabBreakers, type TabRegistry } from "@lurkloot/core/tabs";
+import { createTabRegistry, managedTabBreakerOpen, syncManagedTabBreakers, type TabRegistry } from "@lurkloot/core/tabRegistry";
 import type { SchedulerState } from "@lurkloot/shared/models";
 
 const START = Date.parse("2026-07-25T10:00:00.000Z");

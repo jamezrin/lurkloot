@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SchedulerState } from "@lurkloot/shared/models";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "../../src/core/storage";
-import { currentManagedPageContextTabs, registerManagedPageContextTabs } from "@lurkloot/core/tabs";
+import { currentManagedPageContextTabs, registerManagedPageContextTabs } from "@lurkloot/core/tabRegistry";
 import { deferred, farming, harness, tablessEnv } from "../helpers/backgroundController";
 
 // Kick page-context recovery.

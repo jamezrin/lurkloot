@@ -5,7 +5,7 @@ import { NO_CATEGORY_ID } from "@lurkloot/shared/categories";
 import { chooseCampaignDecision, selectWatchTargetFromSnapshot, sortCampaigns, type StopPageContextTabs } from "@lurkloot/core/scheduler";
 import { runSchedulerTick, type SchedulerMockAdapter } from "./helpers/schedulerTick";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
-import { createTabRegistry, forgetManagedPageContextTabs, managedTabBreakerOpen, syncManagedTabBreakers, type TabRegistry } from "@lurkloot/core/tabs";
+import { createTabRegistry, forgetManagedPageContextTabs, managedTabBreakerOpen, syncManagedTabBreakers, type TabRegistry } from "@lurkloot/core/tabRegistry";
 import { SafeFetchError } from "@lurkloot/core/fetchError";
 import { DEFAULT_CRITICAL_HEALTH } from "@lurkloot/shared/criticalHealth";
 import { TAB_CHURN_LIMIT, TAB_CHURN_WINDOW_MS } from "@lurkloot/core/criticalHealth";

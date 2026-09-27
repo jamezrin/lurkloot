@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createTabRegistry } from "@lurkloot/core/tabs";
+import { createTabRegistry } from "@lurkloot/core/tabRegistry";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";

@@ -7,7 +7,7 @@ import { DEFAULT_STATE } from "../../src/core/storage";
 import type { PageFetcher } from "@lurkloot/core/adapter";
 import { createKickFetcher, KickClaimState, KickDiscoveryState } from "@lurkloot/core/kick";
 import { kickAdapter } from "../helpers/adapters";
-import { KickWafBlockedError } from "@lurkloot/core/tabs";
+import { KickWafBlockedError } from "@lurkloot/core/transport";
 import { allDiagnostics, campaign, deferred, farming, harness, reward } from "../helpers/backgroundController";
 
 // Compatibility reporting, event publication, route evidence and notifications.

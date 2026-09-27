@@ -3,34 +3,38 @@ import type { EngineEvent } from "@lurkloot/shared/events";
 import type { ChannelCandidate, WatchSession } from "@lurkloot/shared/models";
 import { activityDiagnostic } from "@lurkloot/core/activityDiagnostics";
 import {
-  AD_FOCUS_MAX_HOLD_MS,
-  applyAdFocusWithBrowser,
   cancelTwitchIntegrityAcquisition,
   createTabRegistry,
   currentManagedPageContextTabs,
-  currentValidTwitchIntegrity,
   currentTwitchIntegrityWaiterCount,
-  ensureTwitchIntegrityWithBrowser,
-  fetchJsonInPageWithBrowser,
-  fetchKickInBackgroundWith,
-  fetchTwitchInBackgroundWith,
+  currentValidTwitchIntegrity,
   hasValidTwitchIntegrity,
   isValidTwitchIntegrity,
-  KickWafBlockedError,
   noteTwitchGqlRequest,
+  recordManagedPageContextFallback,
+  registerManagedPageContextTabs,
+  setTwitchIntegrity,
+  type TabRegistry,
+  type TwitchIntegrityRequest,
+} from "@lurkloot/core/tabRegistry";
+import {
+  fetchKickInBackgroundWith,
+  KickWafBlockedError,
+} from "@lurkloot/core/transport";
+import {
+  AD_FOCUS_MAX_HOLD_MS,
+  applyAdFocusWithBrowser,
+  ensureTwitchIntegrityWithBrowser,
+  fetchJsonInPageWithBrowser,
+  fetchTwitchInBackgroundWith,
   openPinnedMutedTabWithBrowser,
   pageFetchJson,
   PLAYBACK_PRIME_BACKOFF_MS,
   PLAYBACK_PRIME_MAX_ATTEMPTS,
   reconcileManagedPageContextRecoveryWithBrowser,
-  recordManagedPageContextFallback,
-  registerManagedPageContextTabs,
-  setTwitchIntegrity,
   stopManagedPageContextTabsWithBrowser,
   stopWatchTabWithBrowser,
-  type TabRegistry,
-  type TwitchIntegrityRequest,
-} from "@lurkloot/core/tabs";
+} from "../src/core/browserTabs";
 import { isSafeFetchError } from "@lurkloot/core/fetchError";
 import { KICK_BEARER_NEAR_MISS_CASES, KICK_BEARER_POSITIVE_CASES } from "@lurkloot/core/kickBearerCases";
 
@@ -2610,7 +2614,7 @@ describe("pageFetchJson", () => {
     }
   });
 
-  // Shared with tabs.test.ts's fetchKickInBackgroundWith suite and
+  // Shared with this file's fetchKickInBackgroundWith suite and
   // cycleKickHeaders.test.ts (kickHeaders), so all three copies of the
   // predicate are pinned to the same expectations. See
   // packages/core/src/core/kickBearerCases.ts.

@@ -1,7 +1,7 @@
 import type { CategorySearchResult, CoreRuntimeMessage, PlaybackControl, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { EngineSettings } from "@lurkloot/shared/models";
 import { IDLE_WATCHLIST_LIMIT, isFarmingActive } from "@lurkloot/shared/settings";
-import { syncManagedTabBreakers } from "../core/tabs";
+import { syncManagedTabBreakers } from "../core/tabRegistry";
 import { dismissCriticalFailure } from "../core/criticalHealth";
 import type { PlatformAdapter } from "../platforms/adapter";
 import { type ControllerSlices, lateBound } from "./context";

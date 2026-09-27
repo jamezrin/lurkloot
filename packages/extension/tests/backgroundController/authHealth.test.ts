@@ -4,7 +4,7 @@ import type { PlatformAuthHealth } from "@lurkloot/shared/models";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { createKickFetcher } from "@lurkloot/core/kick";
 import { kickAdapter } from "../helpers/adapters";
-import { KickWafBlockedError } from "@lurkloot/core/tabs";
+import { KickWafBlockedError } from "@lurkloot/core/transport";
 import { channel, deferred, farming, harness } from "../helpers/backgroundController";
 
 // Auth health probes, refreshes and invalidation.

@@ -18,7 +18,7 @@ import {
   hydrateManagedPageContextTabs,
   syncManagedTabBreakers,
   type TabRegistry,
-} from "../core/tabs";
+} from "../core/tabRegistry";
 import type { PlatformAdapter } from "../platforms/adapter";
 import type { WatchTabPort } from "./hostPorts";
 import { PLATFORMS } from "./constants";

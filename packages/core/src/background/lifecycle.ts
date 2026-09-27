@@ -1,7 +1,7 @@
 import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { EngineSettings, ManagedWatchTab, Platform, SchedulerState, WatchSession } from "@lurkloot/shared/models";
 import { isFarmingActive } from "@lurkloot/shared/settings";
-import { registerManagedPageContextTabs, setTwitchIntegrity } from "../core/tabs";
+import { registerManagedPageContextTabs, setTwitchIntegrity } from "../core/tabRegistry";
 import { ALARM_NAME, KICK_ALARM_NAME, PLATFORMS, TWITCH_ALARM_NAME, WATCH_ALARM_NAME } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
 import { farmingLifecycleEvents } from "./helpers";

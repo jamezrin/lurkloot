@@ -1,6 +1,6 @@
-import type { ChannelCandidate, EngineSettings, Platform, SchedulerState, SupplementalWatchTarget, WatchSession, WatchSourceId } from "@lurkloot/shared/models";
+import type { ChannelCandidate, EngineSettings, Platform, PreparedWatchTab, SchedulerState, SupplementalWatchTarget, WatchSession, WatchSourceId, WatchTabOptions } from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
-import type { PlatformAdapter, PreparedWatchTab, WatchTabOptions } from "@lurkloot/core/adapter";
+import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import type { WatchTabPort } from "@lurkloot/core/controller";
 import type {
   SchedulerTickDiscovery,
@@ -12,7 +12,7 @@ import { MANUAL_WATCH_TTL_MS } from "@lurkloot/core/scheduler";
 import { createTickEffectExecutor, runSchedulerTickEffects, tickCapabilities } from "@lurkloot/core/background/tickEffects";
 import { authHealthFromError } from "@lurkloot/core/fetchError";
 import { isTimestampStale } from "@lurkloot/core/timestamps";
-import { createTabRegistry, type TabRegistry } from "@lurkloot/core/tabs";
+import { createTabRegistry, type TabRegistry } from "@lurkloot/core/tabRegistry";
 
 // The scheduler tick never discovers campaigns and never calls an adapter
 // (#599): the controller hands it a committed discovery snapshot and runs its

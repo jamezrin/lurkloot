@@ -5,16 +5,18 @@ import type {
   EngineSettings,
   ManagedWatchTab,
   Platform,
+  PreparedWatchTab,
   SchedulerState,
   SupplementalWatchTarget,
   WatchSession,
   WatchSourceId,
+  WatchTabOptions,
 } from "@lurkloot/shared/models";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 import type { selectWatchTargetFromSnapshot, StopPageContextTabs } from "../core/scheduler";
-import type { TabRegistry, TwitchIntegrityRequest } from "../core/tabs";
+import type { TabRegistry, TwitchIntegrityRequest } from "../core/tabRegistry";
 import type { TwitchIntegrity } from "../core/twitchIntegrity";
-import type { PlatformAdapter, PreparedWatchTab, WatchTabOptions } from "../platforms/adapter";
+import type { PlatformAdapter } from "../platforms/adapter";
 import type { JobSchedulerPort } from "./jobs";
 import type { LockTracker } from "./stateTransaction";
 

@@ -1,6 +1,6 @@
 import type { EngineSettings, Platform, PlatformAuthHealth } from "@lurkloot/shared/models";
 import type { EngineEvent } from "@lurkloot/shared/events";
-import { INTEGRITY_REFRESH_TIMEOUT_MS } from "../core/tabs";
+import { INTEGRITY_REFRESH_TIMEOUT_MS } from "../core/tabRegistry";
 import type { PlatformAdapter } from "../platforms/adapter";
 import { applyPlatformAuthHealth } from "../core/authHealth";
 import { type ControllerSlices, lateBound } from "./context";

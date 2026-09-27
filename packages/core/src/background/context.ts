@@ -2,7 +2,7 @@ import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/
 import type { EngineEvent } from "@lurkloot/shared/events";
 import type { TwitchIntegrity } from "../core/twitchIntegrity";
 import type { TablessWatchController } from "../core/tablessWatch";
-import { createTabRegistry, type TabRegistry } from "../core/tabs";
+import { createTabRegistry, type TabRegistry } from "../core/tabRegistry";
 import type { DiscoverySignalController } from "../core/discoverySignals";
 import type { TwitchChannelPointsPushController } from "../platforms/twitch/channelPointsPush";
 import { DiscoverySnapshotLane } from "../core/discoverySnapshot";

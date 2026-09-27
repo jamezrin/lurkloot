@@ -4,9 +4,9 @@ import type {
   HostCapabilities,
   LockTracker,
 } from "@lurkloot/core/controller";
-import type { PlatformAdapter, PreparedWatchTab, WatchTabOptions } from "@lurkloot/core/adapter";
+import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import type { StopPageContextTabs } from "@lurkloot/core/scheduler";
-import type { TabRegistry, TwitchIntegrityRequest } from "@lurkloot/core/tabs";
+import type { TabRegistry, TwitchIntegrityRequest } from "@lurkloot/core/tabRegistry";
 import type { TwitchIntegrity } from "@lurkloot/core/twitchIntegrity";
 import type { CompatibilityResolution, ResolvedCompatibility } from "@lurkloot/shared/compatibility";
 import type { EngineEvent, EventEmitter } from "@lurkloot/shared/events";
@@ -15,10 +15,12 @@ import type {
   EngineSettings,
   ManagedWatchTab,
   Platform,
+  PreparedWatchTab,
   SchedulerState,
   SupplementalWatchTarget,
   WatchSession,
   WatchSourceId,
+  WatchTabOptions,
 } from "@lurkloot/shared/models";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 
