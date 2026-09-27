@@ -1,4 +1,4 @@
-import type { CookieApi } from "@lurkloot/core/tabs";
+import type { CookieApi } from "@lurkloot/core/transport";
 import type { PlatformCredentials } from "../authStore";
 
 // Backs the engine's cookie-reading fetchers (fetchTwitchInBackgroundWith /

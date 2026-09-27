@@ -1,4 +1,4 @@
-import { fetchKickInBackgroundWith, fetchTwitchInBackgroundWith } from "@lurkloot/core/tabs";
+import { fetchKickInBackgroundWith, fetchTwitchInBackgroundWith } from "@lurkloot/core/transport";
 import type { PlatformCredentials } from "../authStore";
 import { kickCookieApi, twitchCookieApi } from "./cookieApi";
 import { createCliAdapters, withHeartbeatTimeout, type EnabledPlatforms, type TransportHandle } from "./common";

@@ -1,5 +1,5 @@
 import initCycleTLS, { type CycleTLSClient, type CycleTLSWebSocketResponse } from "cycletls";
-import { KickWafBlockedError, needsKickSessionBearer, safeKickFailure } from "@lurkloot/core/tabs";
+import { KickWafBlockedError, needsKickSessionBearer, safeKickFailure } from "@lurkloot/core/transport";
 import { SafeFetchError } from "@lurkloot/core/fetchError";
 import type { PageFetcher } from "@lurkloot/core/adapter";
 import type { WebSocketFactory, WebSocketLike, WebSocketMessageEventLike } from "@lurkloot/core/webSocket";

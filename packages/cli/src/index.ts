@@ -5,7 +5,7 @@ import yargs, { type Argv, type ArgumentsCamelCase, type CommandModule } from "y
 import { hideBin } from "yargs/helpers";
 import type { DropCampaign, Platform } from "@lurkloot/shared/models";
 import type { EngineEvent } from "@lurkloot/shared/events";
-import { KickWafBlockedError } from "@lurkloot/core/tabs";
+import { KickWafBlockedError } from "@lurkloot/core/transport";
 import { assertExportOutputPath, loadConfig, saveConfigSettings, TRANSPORTS, type CliConfig, type Transport } from "./config";
 import { buildCliSettingsExportPayload, parseCliSettingsImportPayload } from "./settings";
 import { credentialAvailabilityOf, describeCredentialHealth, forgetCredentials, hasKickAuth, hasTwitchAuth, loadCredentials } from "./authStore";
