@@ -26,9 +26,10 @@ The CLI has its **own** settings schema — it is *not* the extension's
 `ExtensionSettings` verbatim. Only settings that do something in the headless,
 tabless watch path are accepted; the schema is validated strictly, so an unknown
 key (or an extension-only one copy-pasted from the browser config) is a **hard
-error** that names the offender. `running` and `tablessMode` are gone — the CLI
-always runs and is always tabless. **Credentials never go in the config** — they
-live in the auth store.
+error** that names the offender. `running` is gone — the CLI always runs. The CLI
+has no browser tabs, so it always watches tabless: `tablessMode` is derived, not
+configured. A config that still sets it loads, with a warning that the key is
+ignored. **Credentials never go in the config** — they live in the auth store.
 
 Legacy `settings.enabledLogLevels` is accepted but ignored, with one actionable
 warning per command; use the global `--log debug|info|warn|error` option instead.
@@ -85,8 +86,7 @@ the run logs a warning saying so. A config still using the old name
 `farmingEligibility`), with one deprecation warning per command, rather than
 rejected.
 
-Rejected (extension-only, no effect headlessly): `running`, `tablessMode`,
-`muteFarmingTabs`, `keepFarmingVideosUnmuted`, `pauseOnManualWatch`,
+Rejected (extension-only, no effect headlessly): `running`, `muteFarmingTabs`, `keepFarmingVideosUnmuted`, `pauseOnManualWatch`,
 `adFocusMode`, `autoCloseFinishedDrops`, `autoStartDropFarming`,
 `languageOverride`, `rateNudgeStatus`, `githubStarNudgeStatus`, `diagnosticLogging`.
 The retired `dropsListFilter` is no longer rejected: it is migrated away for

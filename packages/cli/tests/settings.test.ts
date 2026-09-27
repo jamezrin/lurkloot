@@ -158,9 +158,20 @@ describe("parseCliSettings", () => {
 
   it("hard-errors on extension-only keys, naming them", () => {
     expect(() => parseCliSettings({ adFocusMode: "window" })).toThrow(/"adFocusMode" is an extension-only setting/);
-    expect(() => parseCliSettings({ tablessMode: true })).toThrow(/"tablessMode" is an extension-only setting/);
     expect(() => parseCliSettings({ diagnosticLogging: true })).toThrow(/"diagnosticLogging" is an extension-only setting/);
     expect(() => parseCliSettings({ githubStarNudgeStatus: "pending" })).toThrow(/"githubStarNudgeStatus" is an extension-only setting/);
+  });
+
+  it.each([true, false])("accepts and ignores tablessMode: %s, which the CLI derives from having no tabs", (tablessMode) => {
+    const result = parseCliSettingsWithDiagnostics({ tablessMode, pollIntervalMinutes: 7 });
+
+    expect(result.settings).not.toHaveProperty("tablessMode");
+    expect(result.settings.pollIntervalMinutes).toBe(7);
+    expect(result.diagnostics).toEqual([{
+      code: "deprecated_property",
+      path: "tablessMode",
+      message: '"tablessMode" is ignored: the CLI has no browser tabs, so it always watches tabless',
+    }]);
   });
 
   it("accepts farmingEligibility now that it gates farming", () => {
@@ -254,7 +265,8 @@ describe("parseCliSettings", () => {
 describe("toEngineSettings", () => {
   it("pins the headless invariants regardless of CLI input", () => {
     const engine = toEngineSettings(DEFAULT_CLI_SETTINGS);
-    expect(engine.tablessMode).toBe(true);
+    // tablessMode is not pinned: the engine derives tabless watching from the
+    // missing browserTabs capability (#598, controllerContract.test.ts).
     expect(engine.pauseOnManualWatch).toBe(false);
     // The shared startup reconciliation keeps the enabled platforms on (#593).
     expect(engine.autoStartDropFarming).toBe(true);

@@ -73,6 +73,12 @@ describe("parseConfig", () => {
     ]);
   });
 
+  it("loads a config that still sets tablessMode, warning that it is ignored", () => {
+    const config = parseConfig({ settings: { tablessMode: false } }, CONFIG_PATH);
+    expect(config.settings).not.toHaveProperty("tablessMode");
+    expect(config.warnings).toEqual(["settings.tablessMode is deprecated and ignored"]);
+  });
+
   it("has no config warnings by default", () => {
     expect(parseConfig({}, CONFIG_PATH).warnings).toEqual([]);
   });

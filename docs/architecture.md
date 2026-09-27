@@ -361,6 +361,12 @@ never switches a feature off silently. A setting that needs a capability the hos
 (`tablessMode: false` or `pauseOnManualWatch` without browser tabs) is reported once per
 controller as an English diagnostic, with no platform, and changes nothing else.
 
+Without `browserTabs`, the watch surface is derived rather than configured: the tick passes
+`watchTabs: false` in each platform's `PlatformTickCapabilities`, so the scheduler always watches
+tabless, and heartbeat failures never fall back to a tab. The scheduler's no-progress check still
+rotates a channel whose watch accrues nothing. The CLI accepts a config that sets `tablessMode`
+and ignores it with a warning.
+
 The job scheduler port is the only way the engine schedules work. `jobs.ts` documents its
 semantics, and both implementations keep them: a minimum period (`MIN_JOB_PERIOD_MINUTES`), ensure
 replaces a job and restarts its period, cancel is idempotent, a one-shot job is gone once it fires,
@@ -634,7 +640,7 @@ Stopping behavior depends on ownership and settings:
 
 ## Tabless Watch
 
-When `tablessMode` is enabled, supported adapters create a `TablessWatchController` instead of opening a watch tab. Twitch sends minute-watched GraphQL events. Kick maintains a viewer WebSocket and sends watch livestream events. The one-minute watch alarm records heartbeat health in the platform session; repeated failures mark the target for fallback to a visible muted tab.
+When `tablessMode` is enabled, or the host has no browser tabs, supported adapters create a `TablessWatchController` instead of opening a watch tab. Twitch sends minute-watched GraphQL events. Kick maintains a viewer WebSocket and sends watch livestream events. The one-minute watch alarm records heartbeat health in the platform session; repeated failures mark the target for fallback to a visible muted tab, on a host that has tabs.
 
 ## Playback Telemetry and Control
 

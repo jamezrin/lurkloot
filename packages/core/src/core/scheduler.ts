@@ -71,16 +71,19 @@ function activeReward(campaign: DropCampaign, settings: EngineSettings): DropRew
     ?? earnable.find((reward) => reward.status === "locked");
 }
 
-// Decides whether to farm this channel without a tab. Off unless tabless mode is
-// enabled and the platform supports it; falls back to a tab (returns false) when
-// we deliberately switched to a tab for this same channel, or when tabless
-// heartbeats have been failing past the tabless fallback limit.
+// Decides whether to farm this channel without a tab. Always on when the host
+// cannot open watch tabs, so tabless is derived there rather than configured.
+// Otherwise off unless tabless mode is enabled and the platform supports it;
+// falls back to a tab (returns false) when we deliberately switched to a tab for
+// this same channel, or when tabless heartbeats have been failing past the
+// tabless fallback limit.
 function chooseTablessWatch(
   previous: WatchSession,
   settings: EngineSettings,
-  host: { supportsTabless?: boolean },
+  host: { supportsTabless?: boolean; watchTabs: boolean },
   sameChannel: boolean,
 ): boolean {
+  if (!host.watchTabs) return true;
   if (!settings.tablessMode || !host.supportsTabless) return false;
   if (sameChannel && previous.watchMode === "tab" && previous.tablessFallback) return false;
   if (sameChannel && previous.watchMode === "tabless" && (previous.heartbeatChecks ?? 0) >= settings.tablessFallbackFailureLimit) return false;
@@ -940,6 +943,9 @@ export type SelectionView = Pick<PlatformAdapter, "listCandidateChannels" | "sel
 // What the platform's host can do, declared rather than probed from an adapter.
 export interface PlatformTickCapabilities {
   supportsTabless: boolean;
+  // The host can open watch tabs (capability `browserTabs`). Without it every
+  // watch is tabless, whatever `tablessMode` says (#598).
+  watchTabs: boolean;
   claimChallenges: boolean;
   claimChannelPoints: boolean;
 }

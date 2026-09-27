@@ -298,7 +298,8 @@ describe("createTransport", () => {
 });
 
 // The CLI declares no browser tabs, so the tick runs with no watch-tab port
-// (#598): opening a tab fails loudly and stopping one is a harmless no-op.
+// (#598). The scheduler never asks for a tab there, so opening one is a broken
+// invariant that fails loudly, and stopping one is a harmless no-op.
 describe("watch tabs without the browserTabs capability", () => {
   const context = { adapters: {}, tabRegistry: createTabRegistry(), emit: () => undefined };
 
@@ -308,7 +309,7 @@ describe("watch tabs without the browserTabs capability", () => {
       platform: "twitch",
       channel: { platform: "twitch", username: "x", url: "https://twitch.tv/x" },
       session: { platform: "twitch", status: "idle", offlineChecks: 0 },
-    }, context)).rejects.toThrow('Tab-based watch is unavailable headlessly; keep "tablessMode" enabled in the config');
+    }, context)).rejects.toThrow("Watch tabs need the browserTabs capability, which this host does not declare");
   });
 
   it("treats stopping as a harmless no-op", async () => {

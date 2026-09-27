@@ -84,7 +84,7 @@ function input(campaigns: DropCampaign[], candidate: ChannelCandidate, patch: Pa
     platforms: ["twitch"],
     discovery: { twitch: { campaigns, complete: true } },
     selectionViews: { twitch: selectionAdapterFromDiscoverySnapshot(discovered, state.sessions.twitch) },
-    capabilities: { twitch: { supportsTabless: true, claimChallenges: false, claimChannelPoints: true } },
+    capabilities: { twitch: { supportsTabless: true, watchTabs: true, claimChallenges: false, claimChannelPoints: true } },
     ...patch,
   };
 }
