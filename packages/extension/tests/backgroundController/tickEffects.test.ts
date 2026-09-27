@@ -36,6 +36,20 @@ describe("scheduler tick effects outside the lock", () => {
     expect(allDiagnostics(env).map((event) => event.message)).toContain("Opened a watch tab for the test");
   });
 
+  // #598: ad focus follows the state the tick committed, and runs after the
+  // commit with no lock held.
+  it("applies ad focus only after the tick has committed", async () => {
+    const env = harness();
+    let committedWhenFocused: unknown;
+    env.deps.applyAdFocus.mockImplementation(async (platform) => {
+      if (platform === "twitch") committedWhenFocused = env.state.sessions.twitch.status;
+    });
+
+    await env.controller.tick(["twitch"]);
+
+    expect(committedWhenFocused).toBe("watching");
+  });
+
   it("keeps playback telemetry that arrives while the watch tab opens", async () => {
     const env = harness();
     await env.controller.tick(["twitch"]);

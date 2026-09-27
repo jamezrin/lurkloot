@@ -3,6 +3,7 @@ import { ALARM_NAME, KICK_ALARM_NAME, TWITCH_ALARM_NAME } from "@lurkloot/core/c
 import { DEFAULT_SETTINGS, isFarmingActive } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "../../src/core/storage";
 import {
+  allDiagnostics,
   asSnapshot,
   campaign,
   channel,
@@ -418,6 +419,42 @@ describe("background controller", () => {
       expect.objectContaining({ twitch: expect.objectContaining({ tabId: 66 }) }),
       expect.objectContaining({ platforms: ["twitch", "kick"], emit: expect.any(Function) }),
     );
+  });
+
+  // #598: the reset commits first and closes the tabs afterwards, with no lock
+  // held (the runtime lock tracker fails any tab call made under a lock).
+  it("closes a host reset's tabs only after the reset has committed", async () => {
+    const env = harness(farming({ ...DEFAULT_SETTINGS, autoCloseFinishedDrops: false }));
+    await env.controller.tick();
+    const order: string[] = [];
+    const resetHostStorage = vi.fn(async () => {
+      order.push("reset");
+    });
+    env.watchTabs.twitch.stop.mockImplementation(async () => {
+      order.push("stop twitch tab");
+    });
+    env.deps.stopPageContextTabs.mockImplementation((contexts) => {
+      order.push("release page contexts");
+      return contexts;
+    });
+
+    await env.controller.prepareForHostReset(resetHostStorage);
+
+    expect(order).toEqual(["reset", "stop twitch tab", "release page contexts"]);
+  });
+
+  it("finishes a committed host reset when a tab cannot be closed", async () => {
+    const env = harness(farming({ ...DEFAULT_SETTINGS, autoCloseFinishedDrops: false }));
+    await env.controller.tick();
+    const resetHostStorage = vi.fn(async () => undefined);
+    env.watchTabs.twitch.stop.mockRejectedValue(new Error("tab close failed"));
+
+    await expect(env.controller.prepareForHostReset(resetHostStorage)).resolves.toBeUndefined();
+
+    expect(resetHostStorage).toHaveBeenCalledOnce();
+    expect(env.watchTabs.kick.stop).toHaveBeenCalled();
+    expect(env.deps.stopPageContextTabs).toHaveBeenCalled();
+    expect(allDiagnostics(env).map((event) => event.message)).toContain("tab close failed");
   });
 
   it("preempts an in-flight scheduler tick before resetting host storage", async () => {
