@@ -82,7 +82,6 @@ export function createLifecycle<S extends EngineSettings>(
     | "clearTwitchChannelPointsAlarmBestEffort"
     | "clearTwitchIntegrityAlarmBestEffort"
     | "closeTwitchIntegrityLifecycle"
-    | "createAdapters"
     | "invalidateDiscoverySignalAdmission"
     | "invalidateSelection"
     | "normalizeStartupSettings"
@@ -123,7 +122,6 @@ export function createLifecycle<S extends EngineSettings>(
     clearTwitchChannelPointsAlarmBestEffort,
     clearTwitchIntegrityAlarmBestEffort,
     closeTwitchIntegrityLifecycle,
-    createAdapters,
     invalidateDiscoverySignalAdmission,
     invalidateSelection,
     normalizeStartupSettings,
@@ -225,11 +223,11 @@ export function createLifecycle<S extends EngineSettings>(
 
     const { tabs } = ports;
     if (tabs && cleanup.managedTabs.length > 0) {
-      await tabs.closeManagedTabs(cleanup.managedTabs);
+      await tabs.watch.closeManaged(cleanup.managedTabs);
     }
     if (!preservePageContexts && tabs && Object.keys(state.managedPageContextTabs ?? {}).length > 0) {
       await withEventCollector(async (emit, events) => {
-        await tabs.stopPageContextTabs(state.managedPageContextTabs ?? {}, {
+        await tabs.pageContexts.release(state.managedPageContextTabs ?? {}, {
           platforms: ["twitch", "kick"],
           reason: "runtime_restart",
           emit,
@@ -302,17 +300,17 @@ export function createLifecycle<S extends EngineSettings>(
       abortClaimHandoffs();
       await clearHeartbeatOwnership(PLATFORMS);
       await withSettingsLock(() => withStateLock(() => withEventCollector(async (emit, events) => {
-        const [settings, state] = await Promise.all([ports.storage.loadSettings(), ports.storage.loadState()]);
-        const adapters = createAdapters(settings, emit);
+        const state = await ports.storage.loadState();
         const managedTabs = Object.values(state.managedWatchTabs ?? {}).filter((tab): tab is ManagedWatchTab => tab?.ownedByExtension === true);
         const { tabs } = ports;
-        if (tabs && managedTabs.length > 0) await tabs.closeManagedTabs(managedTabs);
+        if (tabs && managedTabs.length > 0) await tabs.watch.closeManaged(managedTabs);
         for (const platform of PLATFORMS) {
-          if (tabs) await tabs.applyAdFocus(platform, state.sessions[platform].tabId, false, emit);
-          await adapters[platform].stopWatchTab?.(state.sessions[platform], { closeManagedTabs: true });
+          if (!tabs) continue;
+          await tabs.watch.applyAdFocus(platform, state.sessions[platform].tabId, false, emit);
+          await tabs.watch.stop(state.sessions[platform], { closeManagedTabs: true }, emit);
         }
         if (tabs) {
-          await tabs.stopPageContextTabs(state.managedPageContextTabs ?? {}, {
+          await tabs.pageContexts.release(state.managedPageContextTabs ?? {}, {
             platforms: PLATFORMS,
             reason: "automation_disabled",
             emit,

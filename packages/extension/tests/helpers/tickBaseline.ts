@@ -17,11 +17,21 @@ import { DEFAULT_STATE } from "../../src/core/storage";
 import { createTabRegistry, forgetManagedPageContextTabs } from "@lurkloot/core/tabs";
 import { hostPortsFromMocks } from "./hostPorts";
 
-// The extension declares browser tabs; the baseline ticks never open one.
-function extensionTabMocks() {
+// The extension declares browser tabs. Opening the watch tab is the tab-mode
+// watcher reconciliation.
+function extensionTabMocks(recorder: TickBaselineRecorder) {
   const tabRegistry = createTabRegistry();
   return {
     tabRegistry,
+    openWatchTab: async (channel: ChannelCandidate) => {
+      recorder.count("watcherReconciliations");
+      await recorder.clock.advance("watcher", 5);
+      return {
+        tabId: channel.platform === "twitch" ? 10 : 20,
+        managedByExtension: true,
+      };
+    },
+    stopWatchTab: async () => undefined,
     closeManagedTabs: async () => undefined,
     applyAdFocus: async () => undefined,
     loadTabPlaybackPolicy: async () => ({ keepVideosUnmuted: true }),
@@ -177,15 +187,6 @@ export function createCountingAdapter(
       };
     },
     claimReward: async () => false,
-    prepareWatchTab: async () => {
-      recorder.count("watcherReconciliations");
-      await recorder.clock.advance("watcher", 5);
-      return {
-        tabId: platform === "twitch" ? 10 : 20,
-        managedByExtension: true,
-      };
-    },
-    stopWatchTab: async () => undefined,
   };
 }
 
@@ -414,7 +415,7 @@ async function runExtensionHeartbeatOverlapCell(platform: Platform): Promise<Hos
     },
     reportEvents,
     createAlarm: async () => undefined,
-    ...extensionTabMocks(),
+    ...extensionTabMocks(recorder),
     ensureTwitchIntegrity: async () => true,
     createNotification: async () => undefined,
     createAdapter: (selectedPlatform) => resolutionFor(selectedPlatform),
@@ -587,7 +588,7 @@ export async function runExtensionBaselineCell(
     },
     reportEvents,
     createAlarm: async () => undefined,
-    ...extensionTabMocks(),
+    ...extensionTabMocks(recorder),
     ensureTwitchIntegrity: async () => true,
     createNotification: async () => undefined,
     createAdapter: (selectedPlatform) => resolutionFor(selectedPlatform),

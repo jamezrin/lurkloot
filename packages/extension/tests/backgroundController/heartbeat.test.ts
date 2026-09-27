@@ -242,7 +242,7 @@ describe("background controller", () => {
         tablessHeartbeat: expect.objectContaining({ generation: 2 }),
       });
       expect(env.state.sessions.twitch.lastHeartbeatAt).toBeDefined();
-      expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
+      expect(env.watchTabs.twitch.open).not.toHaveBeenCalled();
       const diagnostics = allDiagnostics(env).map((event) => event.message);
       expect(diagnostics).not.toContain("Tabless watch heartbeat recovered");
       expect(diagnostics).not.toContain("old heartbeat rejected");
@@ -303,7 +303,7 @@ describe("background controller", () => {
       lastHeartbeatOk: true,
       tablessHeartbeat: expect.objectContaining({ generation: 2 }),
     });
-    expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
+    expect(env.watchTabs.twitch.open).not.toHaveBeenCalled();
     expect(allDiagnostics(env).map((event) => event.message))
       .not.toContain("obsolete generation failed");
     expect(aggregateHeartbeatDiagnostics(env, "twitch")).toHaveLength(1);
@@ -541,7 +541,7 @@ describe("background controller", () => {
       env.deps.createAdapter.mockImplementation((platform, emit, settings) => ({
         adapter: platform === "kick" ? kickAdapter(createKickFetcher({
           background: async (url) => url.endsWith("/user") ? { id: 42 } : { data: [] },
-        }), undefined, undefined, emit) : env.twitch,
+        }), undefined, emit) : env.twitch,
         ...resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" }),
       }));
       if (twitchOperation === "heartbeat") {
@@ -815,7 +815,7 @@ describe("background controller", () => {
         nextDueAt: "2026-09-02T12:00:00.000Z",
       });
       expect(env.deps.saveState).toHaveBeenCalledTimes(savesBeforeOldResult);
-      expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
+      expect(env.watchTabs.twitch.open).not.toHaveBeenCalled();
       const diagnostics = allDiagnostics(env).map((event) => event.message);
       expect(diagnostics).not.toContain("obsolete lane heartbeat failed");
       expect(diagnostics).not.toContain(
@@ -1406,7 +1406,7 @@ describe("background controller", () => {
 
     await env.controller.tick();
 
-    expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
+    expect(env.watchTabs.twitch.open).not.toHaveBeenCalled();
     expect(env.state.sessions.twitch.watchMode).toBe("tabless");
     expect(watcher.start).toHaveBeenCalledWith(
       expect.objectContaining({ url: "https://www.twitch.tv/twitch-creator" }),
@@ -1637,7 +1637,7 @@ describe("background controller", () => {
     });
     expect(allDiagnostics(env).filter((event) =>
       event.message === "heartbeat transport rejected")).toHaveLength(1);
-    expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
+    expect(env.watchTabs.twitch.open).not.toHaveBeenCalled();
   });
 
   it("reports heartbeat recovered for a current-generation result", async () => {
@@ -1719,12 +1719,12 @@ describe("background controller", () => {
 
     advanceToNextHeartbeatDue();
     await env.controller.runWatchHeartbeat(); // heartbeatChecks -> 1
-    expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
+    expect(env.watchTabs.twitch.open).not.toHaveBeenCalled();
 
     advanceToNextHeartbeatDue();
     await env.controller.runWatchHeartbeat(); // heartbeatChecks -> 2, triggers fallback
 
-    expect(env.twitch.prepareWatchTab).toHaveBeenCalled();
+    expect(env.watchTabs.twitch.open).toHaveBeenCalled();
     expect(env.state.sessions.twitch.watchMode).toBe("tab");
     expect(env.state.sessions.twitch.tablessFallback).toBe(true);
     expect(watcher.stop).toHaveBeenCalled();
@@ -1774,14 +1774,14 @@ describe("background controller", () => {
       });
       await env.controller.tick();
       vi.mocked(env.twitch.refreshCampaigns).mockClear();
-      vi.mocked(env.twitch.prepareWatchTab).mockClear();
+      vi.mocked(env.watchTabs.twitch.open).mockClear();
       replaceAuthorityAfterCommit = true;
 
       advanceToNextHeartbeatDue();
       await env.controller.runWatchHeartbeat();
 
       expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
-      expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
+      expect(env.watchTabs.twitch.open).not.toHaveBeenCalled();
       expect(env.state.sessions.twitch.tablessHeartbeat).toMatchObject(
         authority === "generation"
           ? { generation: 2 }

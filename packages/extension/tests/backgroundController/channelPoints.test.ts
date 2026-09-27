@@ -236,8 +236,8 @@ describe("background controller", () => {
 
       expect(env.twitch.claimChannelPoints).not.toHaveBeenCalled();
       expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
-      expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
-      expect(env.twitch.stopWatchTab).not.toHaveBeenCalled();
+      expect(env.watchTabs.twitch.open).not.toHaveBeenCalled();
+      expect(env.watchTabs.twitch.stop).not.toHaveBeenCalled();
     });
 
     it("reports claim failures without changing scheduler state or starting other work", async () => {
@@ -268,8 +268,8 @@ describe("background controller", () => {
       expect(env.state).toEqual(before);
       expect(env.deps.saveState).not.toHaveBeenCalled();
       expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
-      expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
-      expect(env.twitch.stopWatchTab).not.toHaveBeenCalled();
+      expect(env.watchTabs.twitch.open).not.toHaveBeenCalled();
+      expect(env.watchTabs.twitch.stop).not.toHaveBeenCalled();
       expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
         platform: "twitch",
         level: "warn",

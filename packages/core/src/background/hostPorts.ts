@@ -1,18 +1,20 @@
 import type { CompatibilityResolution, ResolvedCompatibility } from "@lurkloot/shared/compatibility";
 import type { EventEmitter, EventReporter } from "@lurkloot/shared/events";
 import type {
+  ChannelCandidate,
   EngineSettings,
   ManagedWatchTab,
   Platform,
   SchedulerState,
   SupplementalWatchTarget,
+  WatchSession,
   WatchSourceId,
 } from "@lurkloot/shared/models";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 import type { selectWatchTargetFromSnapshot, StopPageContextTabs } from "../core/scheduler";
 import type { TabRegistry, TwitchIntegrityRequest } from "../core/tabs";
 import type { TwitchIntegrity } from "../core/twitchIntegrity";
-import type { PlatformAdapter } from "../platforms/adapter";
+import type { PlatformAdapter, PreparedWatchTab, WatchTabOptions } from "../platforms/adapter";
 import type { JobSchedulerPort } from "./jobs";
 import type { LockTracker } from "./stateTransaction";
 
@@ -24,9 +26,9 @@ import type { LockTracker } from "./stateTransaction";
 // Declared by hand by each host. Two hosts and a handful of capabilities need
 // no dependency resolution.
 export interface HostCapabilities {
-  // Watch tabs, page-context tabs, tab events and ad focus (`tabs`, and the Kick
-  // page-context recovery in `kick.pageContextRecovery`). #598 splits these
-  // into WatchTabPort, PageContextPort and TabEventsPort.
+  // Watch tabs and ad focus (`tabs.watch`), page-context tabs (`tabs.pageContexts`,
+  // and the Kick page-context recovery in `kick.pageContextRecovery`), and the
+  // tab registry they share (`tabRegistry`). Without it every watch is tabless.
   readonly browserTabs: boolean;
   // Capturing a Twitch integrity token through a browser page (`twitch.integrity`).
   readonly twitchIntegrityCapture: boolean;
@@ -98,17 +100,36 @@ export interface AdaptersPort<S extends EngineSettings> {
   };
 }
 
-// Browser tabs (capability `browserTabs`). An interim grouping of the tab hooks
-// the controller calls directly; #598 replaces it with the three role ports.
+// Browser tabs (capability `browserTabs`), one port per role (#598). Only the
+// extension implements them; the engine decides when a tab is opened or closed.
 export interface BrowserTabsPort {
-  closeManagedTabs(tabs: ManagedWatchTab[]): Promise<void>;
-  // Page-context tab teardown, also injected into the scheduler tick.
-  stopPageContextTabs: StopPageContextTabs;
+  watch: WatchTabPort;
+  pageContexts: PageContextPort;
+}
+
+// The pinned, muted tab a platform is watched in. The host applies its own tab
+// settings (muting, keeping videos unmuted, closing managed tabs) on top of the
+// options the engine passes, and reports its diagnostics through `emit`.
+export interface WatchTabPort {
+  open(
+    channel: ChannelCandidate,
+    session: WatchSession | undefined,
+    options: Partial<WatchTabOptions>,
+    emit: EventEmitter,
+  ): Promise<PreparedWatchTab>;
+  stop(session: WatchSession, options: Partial<WatchTabOptions>, emit: EventEmitter): Promise<void>;
+  closeManaged(tabs: ManagedWatchTab[]): Promise<void>;
   // Tab-mode ad focus. The host owns the focus policy (adFocusMode), so the
   // engine only reports whether an ad is active for a given watch tab.
   applyAdFocus(platform: Platform, tabId: number | undefined, adActive: boolean, emit: EventEmitter): Promise<void>;
   // The playback policy the host applies to managed watch tabs.
   loadPlaybackPolicy(): Promise<{ keepVideosUnmuted: boolean }>;
+}
+
+// The tabs the engine borrows to run requests in a platform page.
+export interface PageContextPort {
+  // Page-context tab teardown, also injected into the scheduler tick.
+  release: StopPageContextTabs;
 }
 
 // Twitch integrity capture through a browser page (capability

@@ -1,4 +1,4 @@
-import { ignoreEvent, unavailableWatchTabPort, type PageFetcher, type WatchTabPort } from "@lurkloot/core/adapter";
+import { ignoreEvent, type PageFetcher } from "@lurkloot/core/adapter";
 import { KickAdapter, type KickAdapterOptions } from "@lurkloot/core/kick";
 import type { WebSocketFactory } from "@lurkloot/core/webSocket";
 import type { TwitchIntegrityRequest } from "@lurkloot/core/tabs";
@@ -18,14 +18,12 @@ export const KICK_COMPAT = testCompatibility().kick;
 export function twitchAdapter(
   fetcher: PageFetcher,
   ensureIntegrity?: (request?: TwitchIntegrityRequest) => Promise<boolean>,
-  watchTabPort?: WatchTabPort,
   options?: Partial<TwitchAdapterOptions>,
   emit?: EventEmitter,
 ): TwitchAdapter {
   return new TwitchAdapter(
     fetcher,
     ensureIntegrity ?? (async () => false),
-    watchTabPort ?? unavailableWatchTabPort,
     // Strict availability is off in production (#400) but on here: these
     // fixtures were written against exact AvailableDrops validation and still
     // cover it. Tests for the default path pass `false` explicitly.
@@ -36,14 +34,12 @@ export function twitchAdapter(
 
 export function kickAdapter(
   fetcher: PageFetcher,
-  watchTabPort?: WatchTabPort,
   webSocketFactory?: WebSocketFactory,
   emit?: EventEmitter,
   options?: Partial<KickAdapterOptions>,
 ): KickAdapter {
   return new KickAdapter(
     fetcher,
-    watchTabPort ?? unavailableWatchTabPort,
     webSocketFactory,
     { compatibility: KICK_COMPAT, ...options },
     emit ?? ignoreEvent,

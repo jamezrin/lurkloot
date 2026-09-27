@@ -6,7 +6,7 @@ import type { CredentialAvailability } from "@lurkloot/core/controller";
 import { resolveCompatibility } from "@lurkloot/core";
 import { heartbeatContextKey } from "@lurkloot/core/heartbeatCadence";
 import type { ChannelCandidate, ChannelCheck, DropCampaign, EngineSettings, Platform, PlatformAuthHealth, SchedulerState, WatchSession } from "@lurkloot/shared/models";
-import type { PlatformAdapter, PreparedWatchTab } from "@lurkloot/core/adapter";
+import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import type { HeartbeatResult, TablessWatchController } from "@lurkloot/core/tablessWatch";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import { createTransport } from "../src/transport";
@@ -36,8 +36,6 @@ function fakeAdapter(platform: Platform, health: PlatformAuthHealth): PlatformAd
     listCandidateChannels: async () => [],
     checkChannel: async (candidate: ChannelCandidate): Promise<ChannelCheck> => ({ live: false, categoryMatches: false, candidate }),
     claimReward: async () => false,
-    prepareWatchTab: async (): Promise<PreparedWatchTab> => ({ tabId: 0, managedByExtension: false }),
-    stopWatchTab: async () => {},
   };
 }
 

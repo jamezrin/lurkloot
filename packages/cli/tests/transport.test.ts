@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createTransport } from "../src/transport";
-import { tablessWatchPort, withHeartbeatTimeout } from "../src/transport/common";
+import { withHeartbeatTimeout } from "../src/transport/common";
+import { createTickEffectExecutor } from "@lurkloot/core/background/tickEffects";
+import { createTabRegistry } from "@lurkloot/core/tabs";
 import { DEFAULT_ENGINE_SETTINGS } from "@lurkloot/shared/settings";
 import type { DropCampaign, DropReward } from "@lurkloot/shared/models";
 import type { DiagnosticEvent, EngineEvent } from "@lurkloot/shared/events";
@@ -295,14 +297,26 @@ describe("createTransport", () => {
   // (with cycletls/Playwright handled there, so no real subprocess spawns here).
 });
 
-describe("tablessWatchPort", () => {
-  it("fails loudly when asked to open a watch tab", () => {
-    expect(() => tablessWatchPort.openPinnedMutedTab({ platform: "twitch", username: "x", url: "https://twitch.tv/x" }))
-      .toThrow(/Tab-based watch is unavailable/);
+// The CLI declares no browser tabs, so the tick runs with no watch-tab port
+// (#598): opening a tab fails loudly and stopping one is a harmless no-op.
+describe("watch tabs without the browserTabs capability", () => {
+  const context = { adapters: {}, tabRegistry: createTabRegistry(), emit: () => undefined };
+
+  it("fails loudly when asked to open a watch tab", async () => {
+    await expect(createTickEffectExecutor().run({
+      type: "openWatchTab",
+      platform: "twitch",
+      channel: { platform: "twitch", username: "x", url: "https://twitch.tv/x" },
+      session: { platform: "twitch", status: "idle", offlineChecks: 0 },
+    }, context)).rejects.toThrow('Tab-based watch is unavailable headlessly; keep "tablessMode" enabled in the config');
   });
 
   it("treats stopping as a harmless no-op", async () => {
-    await expect(tablessWatchPort.stopWatchTab({ platform: "twitch", status: "idle", offlineChecks: 0 })).resolves.toBeUndefined();
+    await expect(createTickEffectExecutor().run({
+      type: "stopWatchTab",
+      platform: "twitch",
+      session: { platform: "twitch", status: "idle", offlineChecks: 0 },
+    }, context)).resolves.toBeUndefined();
   });
 });
 

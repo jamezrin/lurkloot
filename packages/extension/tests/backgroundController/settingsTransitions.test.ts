@@ -408,7 +408,7 @@ describe("background controller", () => {
     }));
 
     expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
-    expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
+    expect(env.watchTabs.twitch.open).not.toHaveBeenCalled();
     expect(env.kick.refreshCampaigns).toHaveBeenCalled();
     expect(snapshot.settings.platform.kick.idleWatchlistChannels).toEqual(["fallback"]);
   });
@@ -450,7 +450,7 @@ describe("background controller", () => {
       settingsPatch: { notifyRewardEarned: false },
     }));
 
-    expect(env.twitch.stopWatchTab).not.toHaveBeenCalled();
+    expect(env.watchTabs.twitch.stop).not.toHaveBeenCalled();
     expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
     expect(snapshot.state.sessions.twitch.status).toBe("watching");
   });

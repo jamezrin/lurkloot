@@ -100,7 +100,6 @@ describe("Kick discovery signals", () => {
     const fetcher = { fetchJson: async <T,>(): Promise<T> => ({}) as T };
     const adapter = kickAdapter(
       fetcher,
-      undefined,
       () => new FakeSocket(),
     );
 

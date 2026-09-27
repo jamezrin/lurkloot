@@ -737,7 +737,7 @@ describe("background controller", () => {
 
     // The removal itself never runs the scheduler (#193).
     expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
-    expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
+    expect(env.watchTabs.twitch.open).not.toHaveBeenCalled();
     expect(env.state.manualClosePause?.twitch).toMatchObject({ platform: "twitch" });
     expect(env.state.sessions.twitch).toMatchObject({
       platform: "twitch",
@@ -751,11 +751,11 @@ describe("background controller", () => {
 
     await env.controller.tick();
 
-    expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
+    expect(env.watchTabs.twitch.open).not.toHaveBeenCalled();
     expect(env.state.sessions.twitch.status).toBe("paused");
     expect(env.state.sessions.twitch.reasonCode).toBe("manual_tab_close");
     // The other platform keeps farming.
-    expect(env.kick.prepareWatchTab).toHaveBeenCalledOnce();
+    expect(env.watchTabs.kick.open).toHaveBeenCalledOnce();
   });
 
   it("resumes farming for the platform when the user asks to resume", async () => {
@@ -776,7 +776,7 @@ describe("background controller", () => {
 
     expect(snapshot.state.manualClosePause?.twitch).toBeUndefined();
     expect(env.state.manualClosePause?.twitch).toBeUndefined();
-    expect(env.twitch.prepareWatchTab).toHaveBeenCalledOnce();
+    expect(env.watchTabs.twitch.open).toHaveBeenCalledOnce();
     expect(env.state.sessions.twitch.status).toBe("watching");
   });
 
@@ -797,7 +797,7 @@ describe("background controller", () => {
 
     await env.controller.tick();
 
-    expect(env.twitch.prepareWatchTab).toHaveBeenCalledOnce();
+    expect(env.watchTabs.twitch.open).toHaveBeenCalledOnce();
   });
 
   it("does not pause when a managed page-context tab is closed", async () => {
@@ -826,7 +826,7 @@ describe("background controller", () => {
 
     await env.controller.tick();
 
-    expect(env.kick.prepareWatchTab).toHaveBeenCalledOnce();
+    expect(env.watchTabs.kick.open).toHaveBeenCalledOnce();
   });
 
   it("does not confuse a removed page-context tab with the active farming tab", async () => {
@@ -861,7 +861,7 @@ describe("background controller", () => {
 
     expect(env.state.sessions.kick.tabId).toBe(20);
     expect(env.state.managedWatchTabs?.kick?.tabId).toBe(20);
-    expect(env.kick.prepareWatchTab).not.toHaveBeenCalled();
+    expect(env.watchTabs.kick.open).not.toHaveBeenCalled();
   });
 
   it("ignores removed tabs that are not the active managed watch tab", async () => {
@@ -878,7 +878,7 @@ describe("background controller", () => {
     await env.controller.handleTabRemoved(999);
 
     expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
-    expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
+    expect(env.watchTabs.twitch.open).not.toHaveBeenCalled();
   });
 
   it("does not reopen a closed tab for a disabled platform", async () => {
@@ -902,7 +902,7 @@ describe("background controller", () => {
     await env.controller.handleTabRemoved(10);
 
     expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
-    expect(env.twitch.prepareWatchTab).not.toHaveBeenCalled();
+    expect(env.watchTabs.twitch.open).not.toHaveBeenCalled();
   });
 
   it("tracks one managed watch tab per running platform", async () => {

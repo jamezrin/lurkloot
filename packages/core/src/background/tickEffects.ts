@@ -20,6 +20,7 @@ import {
   type TabRegistry,
 } from "../core/tabs";
 import type { PlatformAdapter } from "../platforms/adapter";
+import type { WatchTabPort } from "./hostPorts";
 import { PLATFORMS } from "./constants";
 import { claimChannelPointsUnlessRunning, claimExclusively } from "./context";
 
@@ -29,6 +30,8 @@ export interface TickEffectContext {
   adapters: Partial<Record<Platform, PlatformAdapter>>;
   // The controller's tab registry (#598).
   tabRegistry: TabRegistry;
+  // Absent when the host has no browser tabs: every watch is then tabless.
+  watchTabs?: WatchTabPort;
   stopPageContextTabs?: StopPageContextTabs;
   selectSupplementalTarget?(platform: Platform, state: SchedulerState, signal: AbortSignal | undefined, source: WatchSourceId): Promise<SupplementalWatchTarget | undefined>;
   emit: EventEmitter;
@@ -51,15 +54,16 @@ function adapterFor(context: TickEffectContext, platform: Platform): PlatformAda
 }
 
 // The interim handlers (#599): each is the call the scheduler tick used to make
-// itself, unchanged. The owning services take these over one effect type at a
+// itself, except that watch tabs now go to the host's WatchTabPort (#598). The owning services take these over one effect type at a
 // time: reward claims (#597), channel points (#590), Kick challenges and page
 // contexts (#588), watch tabs (#598/#587) and supplemental selection (#587).
 // Each owner registers its own handler in place of the interim one.
 export function registerInterimTickEffectHandlers(executor: TickEffectExecutor): TickEffectExecutor {
   return executor
-    .register("stopWatchTab", async ({ platform, session }, context) => {
-      const adapter = adapterFor(context, platform);
-      await adapter.stopWatchTab?.(session, { signal: context.signal });
+    // Without a watch-tab port there is no tab to stop, but the scheduler still
+    // asks, to clean up idle and disabled platforms.
+    .register("stopWatchTab", async ({ session }, context) => {
+      await context.watchTabs?.stop(session, { signal: context.signal }, context.emit);
     })
     .register("releasePageContexts", async ({ platform, contexts, reason, forgetOnFailure }, context) => {
       const forget: StopPageContextTabs = (forgotten, forgetOptions) =>
@@ -91,12 +95,14 @@ export function registerInterimTickEffectHandlers(executor: TickEffectExecutor):
     })
     .register("selectSupplementalTarget", async ({ platform, state, source }, context) =>
       await context.selectSupplementalTarget?.(platform, state, context.signal, source))
-    .register("openWatchTab", async ({ platform, channel, session, managedTab }, context) => {
-      const adapter = adapterFor(context, platform);
-      return await adapter.prepareWatchTab(channel, session, {
+    .register("openWatchTab", async ({ channel, session, managedTab }, context) => {
+      if (!context.watchTabs) {
+        throw new Error('Tab-based watch is unavailable headlessly; keep "tablessMode" enabled in the config');
+      }
+      return await context.watchTabs.open(channel, session, {
         ...(managedTab ? { managedTab } : {}),
         signal: context.signal,
-      });
+      }, context.emit);
     })
     .register("claimChannelPoints", async ({ platform, channel }, context) => {
       const adapter = adapterFor(context, platform);

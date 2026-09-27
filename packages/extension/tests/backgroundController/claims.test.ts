@@ -140,8 +140,8 @@ describe("background controller", () => {
         platform,
         data: expect.objectContaining({ method: "automatic", rewardId: "reward" }),
       }));
-      expect(platformAdapter.prepareWatchTab).not.toHaveBeenCalled();
-      expect(platformAdapter.stopWatchTab).not.toHaveBeenCalled();
+      expect(env.watchTabs[platform].open).not.toHaveBeenCalled();
+      expect(env.watchTabs[platform].stop).not.toHaveBeenCalled();
     });
 
     it("claims Kick challenges without changing the paused session", async () => {
@@ -179,8 +179,8 @@ describe("background controller", () => {
         platform: "kick",
         data: { challengeId: "daily", rarity: "epic", recurrence: "daily" },
       }));
-      expect(env.kick.prepareWatchTab).not.toHaveBeenCalled();
-      expect(env.kick.stopWatchTab).not.toHaveBeenCalled();
+      expect(env.watchTabs.kick.open).not.toHaveBeenCalled();
+      expect(env.watchTabs.kick.stop).not.toHaveBeenCalled();
     });
 
     it("does not duplicate drop or challenge claims without a recent manual watch", async () => {
@@ -1021,7 +1021,7 @@ describe("background controller", () => {
       expect(watcher.tick).not.toHaveBeenCalled();
       // The tick that detected the successor already re-pointed the tab.
       expect(env.state.sessions.twitch.rewardId).toBe("reward-2");
-      expect(env.twitch.prepareWatchTab).toHaveBeenCalled();
+      expect(env.watchTabs.twitch.open).toHaveBeenCalled();
     });
   });
 });

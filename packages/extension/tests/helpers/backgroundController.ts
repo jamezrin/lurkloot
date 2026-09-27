@@ -18,7 +18,7 @@ import type { DiagnosticEvent, EngineEvent, EventEmitter } from "@lurkloot/share
 import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
 import { applySettingsPatch, DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "../../src/core/storage";
-import type { PlatformAdapter } from "@lurkloot/core/adapter";
+import type { PlatformAdapter, PreparedWatchTab, WatchTabOptions } from "@lurkloot/core/adapter";
 import { withLockTracker } from "./lockTracker";
 import { hostPortsFromMocks, type HostMocks } from "./hostPorts";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
@@ -200,8 +200,16 @@ export function adapter(platform: Platform): PlatformAdapter {
     listCandidateChannels: vi.fn(async () => [channel(platform)]),
     checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
     claimReward: vi.fn(async () => true),
-    prepareWatchTab: vi.fn(async () => ({ tabId: platform === "twitch" ? 10 : 20, managedByExtension: true })),
-    stopWatchTab: vi.fn(async () => undefined),
+  };
+}
+
+// The host's watch tabs, one pair of mocks per platform (#598). The flat
+// openWatchTab/stopWatchTab mocks the controller calls dispatch to these.
+export function watchTabMocks(platform: Platform) {
+  return {
+    open: vi.fn(async (_channel: ChannelCandidate, _session?: WatchSession, _options?: Partial<WatchTabOptions>): Promise<PreparedWatchTab> =>
+      ({ tabId: platform === "twitch" ? 10 : 20, managedByExtension: true })),
+    stop: vi.fn(async (_session: WatchSession, _options?: Partial<WatchTabOptions>) => undefined),
   };
 }
 
@@ -290,6 +298,7 @@ export function harness(
   };
   const twitch = adapter("twitch");
   const kick = adapter("kick");
+  const watchTabs = { twitch: watchTabMocks("twitch"), kick: watchTabMocks("kick") };
   const discoverySignalController = new FakeDiscoverySignalController("kick");
   const discoverySignalFactory = vi.fn(() => discoverySignalController);
   kick.createDiscoverySignalController = discoverySignalFactory;
@@ -317,6 +326,10 @@ export function harness(
     ensureTwitchIntegrity: vi.fn(overrides.ensureTwitchIntegrity ?? (async () => true)),
     cancelTwitchIntegrityAcquisition: vi.fn(overrides.cancelTwitchIntegrityAcquisition ?? (() => undefined)),
     createNotification: vi.fn(async () => undefined),
+    openWatchTab: vi.fn((channel: ChannelCandidate, session: WatchSession | undefined, options: Partial<WatchTabOptions>, _emit: EventEmitter) =>
+      watchTabs[channel.platform].open(channel, session, options)),
+    stopWatchTab: vi.fn((session: WatchSession, options: Partial<WatchTabOptions>, _emit: EventEmitter) =>
+      watchTabs[session.platform].stop(session, options)),
     closeManagedTabs: vi.fn(async () => undefined),
     applyAdFocus: vi.fn<(platform: Platform, tabId: number | undefined, adActive: boolean, emit: EventEmitter) => Promise<void>>(async () => undefined),
     // Host-owned tab policy + settings-patch application (see background.ts).
@@ -375,6 +388,7 @@ export function harness(
     controller: { ...controller, handleMessage },
     rawController: controller,
     deps,
+    watchTabs,
     tabRegistry,
     lockTracker,
     get settings() {

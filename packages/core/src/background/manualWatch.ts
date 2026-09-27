@@ -180,7 +180,7 @@ export function createManualWatch<S extends EngineSettings>(
       }
       try {
         if (tabs && session.status === "watching" && session.tabId === senderTabId) {
-          await tabs.applyAdFocus(message.platform, session.tabId, Boolean(message.telemetry.adActive), emit);
+          await tabs.watch.applyAdFocus(message.platform, session.tabId, Boolean(message.telemetry.adActive), emit);
         }
       } catch (error) {
         emitHostCallbackError(emit, message.platform, error, "Could not apply ad focus");
@@ -279,7 +279,7 @@ export function createManualWatch<S extends EngineSettings>(
       const session = state.sessions[platform];
       const watching = session.status === "watching" && session.tabId != null;
       try {
-        await tabs.applyAdFocus(platform, session.tabId, watching && Boolean(session.playback?.adActive), emit);
+        await tabs.watch.applyAdFocus(platform, session.tabId, watching && Boolean(session.playback?.adActive), emit);
       } catch (error) {
         emitHostCallbackError(emit, platform, error, "Could not apply ad focus");
       }
@@ -290,7 +290,7 @@ export function createManualWatch<S extends EngineSettings>(
     message: Extract<CoreRuntimeMessage, { type: "getPlaybackControl" }>,
     senderTabId?: number,
   ): Promise<PlaybackControl> {
-    const [policy, state] = await Promise.all([ports.tabs?.loadPlaybackPolicy(), ports.storage.loadState()]);
+    const [policy, state] = await Promise.all([ports.tabs?.watch.loadPlaybackPolicy(), ports.storage.loadState()]);
     const session = state.sessions[message.platform];
     return {
       managed: senderTabId != null

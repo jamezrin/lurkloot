@@ -21,15 +21,30 @@ describe("scheduler tick effects outside the lock", () => {
     vi.useRealTimers();
   });
 
+  // The watch-tab port is the host's, not the adapter's (#598), so it gets the
+  // tick's emitter per call: its diagnostics join the tick's reported events.
+  it("reports the watch-tab port's diagnostics with the tick", async () => {
+    const env = harness();
+    env.deps.openWatchTab.mockImplementationOnce(async (channel, _session, _options, emit) => {
+      emit({ category: "diagnostic", level: "debug", platform: channel.platform, message: "Opened a watch tab for the test" });
+      return { tabId: 10, managedByExtension: true };
+    });
+
+    await env.controller.tick(["twitch"]);
+
+    expect(env.state.sessions.twitch).toMatchObject({ status: "watching", tabId: 10 });
+    expect(allDiagnostics(env).map((event) => event.message)).toContain("Opened a watch tab for the test");
+  });
+
   it("keeps playback telemetry that arrives while the watch tab opens", async () => {
     const env = harness();
     await env.controller.tick(["twitch"]);
     expect(env.state.sessions.twitch).toMatchObject({ status: "watching", tabId: 10 });
 
     const opening = deferred<PreparedWatchTab>();
-    vi.mocked(env.twitch.prepareWatchTab).mockImplementationOnce(() => opening.promise);
+    vi.mocked(env.watchTabs.twitch.open).mockImplementationOnce(() => opening.promise);
     const ticking = env.controller.tick(["twitch"]);
-    await vi.waitFor(() => expect(env.twitch.prepareWatchTab).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(env.watchTabs.twitch.open).toHaveBeenCalledTimes(2));
 
     // The platform lock is free while the tab opens, so telemetry commits now
     // instead of queueing behind the tick.
@@ -55,9 +70,9 @@ describe("scheduler tick effects outside the lock", () => {
     expect(env.state.managedWatchTabs?.twitch?.tabId).toBe(10);
 
     const opening = deferred<PreparedWatchTab>();
-    vi.mocked(env.twitch.prepareWatchTab).mockImplementationOnce(() => opening.promise);
+    vi.mocked(env.watchTabs.twitch.open).mockImplementationOnce(() => opening.promise);
     const ticking = env.controller.tick(["twitch"]);
-    await vi.waitFor(() => expect(env.twitch.prepareWatchTab).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(env.watchTabs.twitch.open).toHaveBeenCalledTimes(2));
 
     await env.rawController.handleTabRemoved(10);
     expect(env.state.manualClosePause?.twitch).toBeDefined();
@@ -68,7 +83,7 @@ describe("scheduler tick effects outside the lock", () => {
 
     expect(env.state.sessions.twitch).toMatchObject({ status: "paused", reasonCode: "manual_tab_close" });
     expect(env.state.managedWatchTabs?.twitch).toBeUndefined();
-    expect(env.twitch.stopWatchTab).toHaveBeenCalledWith(
+    expect(env.watchTabs.twitch.stop).toHaveBeenCalledWith(
       expect.objectContaining({ tabId: 11, tabManagedByExtension: true }),
       expect.anything(),
     );
@@ -116,9 +131,9 @@ describe("scheduler tick effects outside the lock", () => {
     const claimChannelPoints = vi.fn(async () => true);
     env.twitch.claimChannelPoints = claimChannelPoints;
     const opening = deferred<PreparedWatchTab>();
-    vi.mocked(env.twitch.prepareWatchTab).mockImplementationOnce(() => opening.promise);
+    vi.mocked(env.watchTabs.twitch.open).mockImplementationOnce(() => opening.promise);
     const ticking = env.controller.tick(["twitch"]);
-    await vi.waitFor(() => expect(env.twitch.prepareWatchTab).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(env.watchTabs.twitch.open).toHaveBeenCalledTimes(2));
 
     // Reset no longer waits for the tick's lock: the tab is still opening.
     await env.rawController.prepareForHostReset();
@@ -128,7 +143,7 @@ describe("scheduler tick effects outside the lock", () => {
 
     // Not even the clean-up a stale selection would ask for: an aborted tick
     // starts nothing, as when it used to wait out the reset behind its lock.
-    expect(env.twitch.stopWatchTab).not.toHaveBeenCalledWith(expect.objectContaining({ tabId: 11 }), expect.anything());
+    expect(env.watchTabs.twitch.stop).not.toHaveBeenCalledWith(expect.objectContaining({ tabId: 11 }), expect.anything());
     expect(claimChannelPoints).not.toHaveBeenCalled();
     expect(env.deps.saveState.mock.calls.length).toBe(saves);
     expect(env.state.managedWatchTabs?.twitch?.tabId).not.toBe(11);

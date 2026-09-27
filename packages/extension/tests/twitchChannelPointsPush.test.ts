@@ -742,7 +742,6 @@ describe("Twitch channel-points push adapter factory", () => {
     const observer = twitchAdapter(
       fetcher,
       undefined,
-      undefined,
       { webSocketFactory: () => new FakeSocket(), getAuthToken: async () => "token" },
     ).createChannelPointsPushController?.();
 

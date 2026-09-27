@@ -117,7 +117,7 @@ describe("background controller", () => {
       }) as PageFetcher["fetchJson"],
     };
     vi.mocked(env.deps.createAdapter).mockImplementation((_platform, emit, settings) => ({
-      adapter: twitchAdapter(fetcher, undefined, undefined, { discoveryState }, emit),
+      adapter: twitchAdapter(fetcher, undefined, { discoveryState }, emit),
       ...resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" }),
     }));
 

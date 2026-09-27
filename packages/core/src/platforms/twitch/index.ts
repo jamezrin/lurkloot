@@ -7,7 +7,7 @@ import type { TwitchIntegrity } from "../../core/twitchIntegrity";
 import { PendingWatcherDiagnostics, type HeartbeatResult, type TablessWatchController, type WatchContext } from "../../core/tablessWatch";
 import { StaleWhileRevalidateCache } from "../../core/staleCache";
 import type { WebSocketFactory } from "../../core/webSocket";
-import { diagnostic, ignoreEvent, type AdapterOperationOptions, type CandidateChannelSelection, type ChannelPointsClaimOptions, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
+import { diagnostic, ignoreEvent, type AdapterOperationOptions, type CandidateChannelSelection, type ChannelPointsClaimOptions, type PageFetcher, type PlatformAdapter } from "../adapter";
 import { TwitchChannelPointsPushController } from "./channelPointsPush";
 import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchCampaigns, twitchCandidatesFromCampaign, withCampaignStatus } from "./parser";
 import type { ResolvedCompatibility, TwitchIdentity } from "../../compatibility/types";
@@ -981,10 +981,9 @@ export class TwitchAdapter implements PlatformAdapter {
     // pass `async () => false` for "no integrity available". No default: a
     // required options.compatibility below would follow an optional parameter,
     // which TypeScript rejects (a required parameter cannot follow an optional
-    // one), so this and watchTabPort lost their defaults too.
+    // one), so this lost its default too. Watch tabs are not the adapter's
+    // concern: the host's WatchTabPort opens them (#598).
     private readonly ensureIntegrity: (request?: TwitchIntegrityRequest) => Promise<boolean>,
-    // Tab-based watch is browser-bound, so it is injected (see WatchTabPort).
-    private readonly watchTabPort: WatchTabPort,
     // Identity the GQL requests present. Defaults to the WEB client (what the
     // extension uses). A headless runtime can pass a non-web client id + matching
     // user agent (e.g. the Android app) so Twitch never gates it behind integrity
@@ -2318,14 +2317,6 @@ export class TwitchAdapter implements PlatformAdapter {
       integrityOverride,
     );
     return result.data?.claimCommunityPoints?.status !== "CLAIM_NOT_AVAILABLE";
-  }
-
-  prepareWatchTab(channel: ChannelCandidate, session?: WatchSession, options?: Partial<WatchTabOptions>) {
-    return this.watchTabPort.openPinnedMutedTab(channel, session, options);
-  }
-
-  stopWatchTab(session: WatchSession, options?: Partial<WatchTabOptions>): Promise<void> {
-    return this.watchTabPort.stopWatchTab(session, options);
   }
 
   // Tabless farming: send Twitch's minute-watched telemetry instead of opening a

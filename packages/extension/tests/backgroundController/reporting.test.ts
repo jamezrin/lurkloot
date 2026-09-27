@@ -311,7 +311,7 @@ describe("background controller", () => {
       adapters: { twitch: env.twitch, kick: kickAdapter(createKickFetcher({
         background: async (url) => url.includes("/search") ? { categories: [] } : { success: true },
         routeState: discoveryState.routeDiagnostics,
-      }), undefined, undefined, emit, { discoveryState }) },
+      }), undefined, emit, { discoveryState }) },
       ...resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" }),
     }));
     await env.controller.handleMessage({ type: "searchCategories", platform: "kick", query: "private-query" });
@@ -421,7 +421,7 @@ describe("background controller", () => {
           routeState: discoveryState.routeDiagnostics,
           onBackgroundSuccess,
           onPageFallback: (_host, operationEmit) => operationEmit({ category: "activity", code: "page_context_opened", level: "info", platform: "kick", data: { host: "kick.com", reason: "background_rejected" } }),
-        }), undefined, undefined, emit, { discoveryState }) : env.twitch,
+        }), undefined, emit, { discoveryState }) : env.twitch,
         ...resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" }),
       }));
       return env;
@@ -526,7 +526,7 @@ describe("background controller", () => {
         },
         pageFetch: async () => ({ data: [] }),
         onPageFallback: () => { throw new Error("secret lifecycle"); },
-      }), undefined, undefined, emit, { discoveryState });
+      }), undefined, emit, { discoveryState });
       // Simulate a host capability becoming unavailable during reconciliation,
       // after network discovery but before scheduler publication.
       Object.defineProperty(kick, "createDiscoverySignalController", { get: () => { throw new Error("publication failed"); } });
@@ -566,7 +566,7 @@ describe("background controller", () => {
           return { data: [] };
         },
         pageFetch: async () => { throw new Error("unexpected fallback"); },
-      }), undefined, undefined, emit, { discoveryState }) : env.twitch,
+      }), undefined, emit, { discoveryState }) : env.twitch,
       ...resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" }),
     }));
     for (let tick = 0; tick < 50; tick += 1) await env.controller.tick(["kick"]);
@@ -630,7 +630,7 @@ describe("background controller", () => {
     };
     const claimState = new KickClaimState();
     env.deps.createAdapter.mockImplementation((platform, emit, settings) => {
-      const kick = kickAdapter(fetcher, undefined, undefined, emit, { claimState });
+      const kick = kickAdapter(fetcher, undefined, emit, { claimState });
       kick.listCandidateChannels = vi.fn(async () => []);
       return {
         adapter: platform === "kick" ? kick : env.twitch,
@@ -659,7 +659,7 @@ describe("background controller", () => {
     expect(claimPosts).toBe(2);
 
     const separateState = new KickClaimState();
-    const separateAdapter = kickAdapter(fetcher, undefined, undefined, () => {}, { claimState: separateState });
+    const separateAdapter = kickAdapter(fetcher, undefined, () => {}, { claimState: separateState });
     await separateAdapter.claimReward(campaign("kick", "claimable"), campaign("kick", "claimable").rewards[0]);
     expect(claimPosts).toBe(3);
   });
