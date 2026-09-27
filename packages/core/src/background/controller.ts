@@ -30,6 +30,7 @@ import { createTickAdmission } from "./tickAdmission";
 import { createTickRun } from "./tickRun";
 import { createTwitchIntegrity } from "./twitchIntegrity";
 import { assertHostCapabilities, type BackgroundHostPorts } from "./hostPorts";
+import { createTabRegistry } from "../core/tabs";
 import { capabilityScopedJobs, runBackgroundJob } from "./jobs";
 import type { ControllerCalls } from "./types";
 
@@ -95,8 +96,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   const { capabilities } = hostPorts;
   // Jobs a host cannot run are never scheduled (jobs.ts).
   const ports: BackgroundHostPorts<S> = { ...hostPorts, jobs: capabilityScopedJobs(hostPorts.jobs, capabilities) };
+  // One tab registry per controller (#598). A host with tabs passes the one its
+  // tab mechanics use; a host without them gets an empty one of its own.
+  const tabRegistry = hostPorts.tabRegistry ?? createTabRegistry();
   // Owns the locks, commits and after-commit hooks (#585).
-  const transaction = createStateTransaction({ ...ports.storage, lockTracker: ports.testing?.lockTracker });
+  const transaction = createStateTransaction({ ...ports.storage, lockTracker: ports.testing?.lockTracker, tabRegistry });
   const reportingSlice = createReportingSlice();
   const heartbeatSlice = createHeartbeatSlice();
   const integritySlice = createTwitchIntegritySlice();
@@ -115,8 +119,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   Object.assign(calls, {
     ...createReporting(ports, { reportingSlice }, calls),
     ...createStateCommit(transaction, calls),
-    ...createHeartbeats(ports, { heartbeatSlice, tickSlice, lifecycleSlice }, calls),
-    ...createTwitchIntegrity(ports, { integritySlice, settingsSlice, lifecycleSlice }, calls),
+    ...createHeartbeats(ports, { heartbeatSlice, tickSlice, lifecycleSlice, tabRegistry }, calls),
+    ...createTwitchIntegrity(ports, { integritySlice, settingsSlice, lifecycleSlice, tabRegistry }, calls),
     ...createChannelPoints(ports, { channelPointsSlice, signalSlice, tickSlice, lifecycleSlice }, calls),
     ...createKickChallenges(ports, { kickChallengeSlice, lifecycleSlice }, calls),
     ...createAuthHealth(ports, { authSlice, discoverySlice }, calls),
@@ -125,10 +129,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     ...createDiscoverySignals(ports, { signalSlice, tickSlice, lifecycleSlice }, calls),
     ...discovery,
     ...createTickAdmission(ports, { reportingSlice, integritySlice, signalSlice, tickSlice, lifecycleSlice }, calls),
-    ...createTickRun(ports, { claimSlice, discoverySlice, tickSlice, kickChallengeSlice, channelPointsSlice }, calls),
+    ...createTickRun(ports, { claimSlice, discoverySlice, tickSlice, kickChallengeSlice, channelPointsSlice, tabRegistry }, calls),
     ...createSettingsTransitions(transaction, { discoverySlice }, calls),
-    ...createLifecycle(ports, { integritySlice, signalSlice, discoverySlice, tickSlice, settingsSlice, lifecycleSlice }, calls),
-    ...createMessageHandler(ports, { integritySlice, signalSlice, tickSlice, settingsSlice, lifecycleSlice }, calls),
+    ...createLifecycle(ports, { integritySlice, signalSlice, discoverySlice, tickSlice, settingsSlice, lifecycleSlice, tabRegistry }, calls),
+    ...createMessageHandler(ports, { integritySlice, signalSlice, tickSlice, settingsSlice, lifecycleSlice, tabRegistry }, calls),
   } satisfies ControllerCalls<S>);
 
   // Prime the in-memory integrity token from storage whenever the background

@@ -17,7 +17,7 @@ import type { ControllerCalls, TickDiagnosticContext } from "./types";
 // The Twitch integrity token: loading, capture, refresh scheduling and lifecycle.
 export function createTwitchIntegrity<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
-  { integritySlice, settingsSlice, lifecycleSlice }: Pick<ControllerSlices<S>, "integritySlice" | "settingsSlice" | "lifecycleSlice">,
+  { integritySlice, settingsSlice, lifecycleSlice, tabRegistry }: Pick<ControllerSlices<S>, "integritySlice" | "settingsSlice" | "lifecycleSlice" | "tabRegistry">,
   calls: Pick<ControllerCalls<S>,
     | "persistAndReport"
     | "reportBestEffort"
@@ -60,7 +60,7 @@ export function createTwitchIntegrity<S extends EngineSettings>(
     sourceTabId?: number,
   ): void {
     integritySlice.installedTwitchIntegrity = integrity;
-    setTwitchIntegrity(integrity, { isNew, sourceTabId }, emit);
+    setTwitchIntegrity(tabRegistry, integrity, { isNew, sourceTabId }, emit);
   }
 
   function currentInstalledTwitchIntegrity(): TwitchIntegrity | undefined {
@@ -364,7 +364,7 @@ export function createTwitchIntegrity<S extends EngineSettings>(
   async function captureTwitchIntegrity(headers: IntegrityHeader[] | undefined, tabId?: number): Promise<void> {
     // Noted before the integrity filter: an anonymous GQL request carries no
     // Client-Integrity header but still proves the SPA has booted.
-    noteTwitchGqlRequest(tabId);
+    noteTwitchGqlRequest(tabRegistry, tabId);
     const integrity = integrityFromHeaders(headers);
     if (!integrity) return;
     // Installed outside withStateLock, and synchronously before the first await.
@@ -449,7 +449,7 @@ export function createTwitchIntegrity<S extends EngineSettings>(
           reason,
         });
         if (transition.event) emit(transition.event);
-        syncManagedTabBreakers(transition.state, ["twitch"]);
+        syncManagedTabBreakers(tabRegistry, transition.state, ["twitch"]);
         await persistAndReport(
           transition.state,
           tickContext ? correlateTickDiagnostics(events, tickContext) : events,

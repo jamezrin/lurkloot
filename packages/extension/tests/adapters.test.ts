@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PageFetcher, PlatformAdapter } from "@lurkloot/core/adapter";
 import { createKickClaimCapability, createKickFetcher, KickAdapter, KickClaimState, KickDiscoveryState, KickPageContextRecoveryTracker } from "@lurkloot/core/kick";
-import { fetchTwitchInBackgroundWith, KickWafBlockedError } from "@lurkloot/core/tabs";
+import { fetchTwitchInBackgroundWith, KickWafBlockedError } from "@lurkloot/core/transport";
 import type { TwitchIntegrityRequest } from "@lurkloot/core/tabs";
 import { readFileSync } from "node:fs";
 import { TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";

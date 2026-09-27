@@ -17,6 +17,7 @@ import {
   forgetManagedPageContextTabs,
   hydrateManagedPageContextTabs,
   syncManagedTabBreakers,
+  type TabRegistry,
 } from "../core/tabs";
 import type { PlatformAdapter } from "../platforms/adapter";
 import { PLATFORMS } from "./constants";
@@ -26,6 +27,8 @@ import { claimChannelPointsUnlessRunning, claimExclusively } from "./context";
 // tick: the adapters are the tick's own.
 export interface TickEffectContext {
   adapters: Partial<Record<Platform, PlatformAdapter>>;
+  // The controller's tab registry (#598).
+  tabRegistry: TabRegistry;
   stopPageContextTabs?: StopPageContextTabs;
   selectSupplementalTarget?(platform: Platform, state: SchedulerState, signal: AbortSignal | undefined, source: WatchSourceId): Promise<SupplementalWatchTarget | undefined>;
   emit: EventEmitter;
@@ -59,7 +62,9 @@ export function registerInterimTickEffectHandlers(executor: TickEffectExecutor):
       await adapter.stopWatchTab?.(session, { signal: context.signal });
     })
     .register("releasePageContexts", async ({ platform, contexts, reason, forgetOnFailure }, context) => {
-      const stopPageContextTabs = context.stopPageContextTabs ?? forgetManagedPageContextTabs;
+      const forget: StopPageContextTabs = (forgotten, forgetOptions) =>
+        forgetManagedPageContextTabs(context.tabRegistry, forgotten, forgetOptions);
+      const stopPageContextTabs = context.stopPageContextTabs ?? forget;
       const options = { platforms: [platform], reason, emit: context.emit };
       if (!forgetOnFailure) return await stopPageContextTabs(contexts, options);
       try {
@@ -71,7 +76,7 @@ export function registerInterimTickEffectHandlers(executor: TickEffectExecutor):
           level: "warn",
           message: error instanceof Error ? error.message : "Could not stop page context",
         });
-        return forgetManagedPageContextTabs(contexts, options);
+        return forget(contexts, options);
       }
     })
     .register("claimChallenges", async ({ platform }, context) => {
@@ -114,10 +119,10 @@ export function tickCapabilities(adapter: PlatformAdapter): PlatformTickCapabili
 }
 
 // Runs one scheduler tick: each platform decides in turn, and every effect it
-// names goes through `executor`. The page-context registry and the managed-tab
-// breaker live in core/tabs.ts until #598 replaces them with ports, so they are
-// mirrored here, never in the deciding code: hydrated and synced before the
-// first platform, then synced after each one.
+// names goes through `executor`. The page-context snapshot and the managed-tab
+// breaker live in the controller's tab registry, so they are mirrored here,
+// never in the deciding code: hydrated and synced before the first platform,
+// then synced after each one.
 export async function runSchedulerTickEffects(
   input: SchedulerTickInput,
   executor: TickEffectExecutor,
@@ -125,13 +130,14 @@ export async function runSchedulerTickEffects(
 ): Promise<SchedulerTickResult> {
   const platforms = input.platforms ?? PLATFORMS;
   const tick = startSchedulerTick(input);
-  const pageContextRevision = currentManagedPageContextTabsRevision();
-  hydrateManagedPageContextTabs(input.state.managedPageContextTabs ?? {}, platforms, pageContextRevision);
+  const { tabRegistry } = context;
+  const pageContextRevision = currentManagedPageContextTabsRevision(tabRegistry);
+  hydrateManagedPageContextTabs(tabRegistry, input.state.managedPageContextTabs ?? {}, platforms, pageContextRevision);
   // When the kill switch is off the breaker registry is cleared instead of
   // mirrored. Otherwise a breaker latched before the switch was flipped would
   // keep blocking page-context creation forever: observations no longer run to
   // release it, and the popup no longer renders the panel that would dismiss it.
-  syncManagedTabBreakers(input.settings.criticalFailurePromptEnabled ? tick.state : {}, platforms);
+  syncManagedTabBreakers(tabRegistry, input.settings.criticalFailurePromptEnabled ? tick.state : {}, platforms);
   const effectContext: TickEffectContext = { ...context, emit: tick.emit, signal: input.signal };
   for (const platform of platforms) {
     try {
@@ -143,8 +149,8 @@ export async function runSchedulerTickEffects(
     } finally {
       // An observation can release the breaker, and a provider call can open
       // or close a page context, so both are read back after every platform.
-      if (input.settings.criticalFailurePromptEnabled) syncManagedTabBreakers(tick.state, [platform]);
-      tick.state.managedPageContextTabs = currentManagedPageContextTabs();
+      if (input.settings.criticalFailurePromptEnabled) syncManagedTabBreakers(tabRegistry, tick.state, [platform]);
+      tick.state.managedPageContextTabs = currentManagedPageContextTabs(tabRegistry);
     }
   }
   return { state: tick.state, decisions: tick.decisions, events: tick.events };

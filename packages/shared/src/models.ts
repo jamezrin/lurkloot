@@ -221,6 +221,10 @@ export interface ManagedPageContextTab {
   backgroundSuccesses?: number;
 }
 
+// The page-context tabs the engine holds, one per platform, as persisted in
+// SchedulerState.managedPageContextTabs.
+export type SchedulerManagedPageContexts = Partial<Record<Platform, ManagedPageContextTab>>;
+
 // Recorded when the user closes an extension-owned watch tab. Closing the
 // window LurkLoot opened is the most direct "stop" gesture available, so the
 // scheduler treats it as an explicit per-platform pause until the user resumes

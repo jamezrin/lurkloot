@@ -115,6 +115,9 @@ describe("host capabilities", () => {
     expect(() => assertHostCapabilities({ ...ports, tabs: undefined })).toThrow(
       new HostCapabilityMismatchError("The host declares the browserTabs capability but does not pass tabs"),
     );
+    expect(() => assertHostCapabilities({ ...ports, tabRegistry: undefined })).toThrow(
+      "The host declares the browserTabs capability but does not pass tabRegistry",
+    );
     expect(() => createBackgroundController({ ...ports, twitch: { ...ports.twitch, integrity: undefined } })).toThrow(
       "The host declares the twitchIntegrityCapture capability but does not pass twitch.integrity",
     );

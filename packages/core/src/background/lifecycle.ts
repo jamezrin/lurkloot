@@ -62,7 +62,8 @@ function pausedStartupSession(session: WatchSession): WatchSession {
 // Startup, jobs, snapshot, shutdown and host reset.
 export function createLifecycle<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
-  { integritySlice, signalSlice, discoverySlice, tickSlice, settingsSlice, lifecycleSlice }: Pick<ControllerSlices<S>,
+  { integritySlice, signalSlice, discoverySlice, tickSlice, settingsSlice, lifecycleSlice, tabRegistry }: Pick<ControllerSlices<S>,
+    | "tabRegistry"
     | "integritySlice"
     | "signalSlice"
     | "discoverySlice"
@@ -212,7 +213,7 @@ export function createLifecycle<S extends EngineSettings>(
     const preservePageContexts = isFarmingActive(settings) && settings.autoStartDropFarming;
     const { state, cleanup } = await withStateLock(async () => {
       const state = await ports.storage.loadState();
-      registerManagedPageContextTabs(preservePageContexts ? state.managedPageContextTabs ?? {} : {});
+      registerManagedPageContextTabs(tabRegistry, preservePageContexts ? state.managedPageContextTabs ?? {} : {});
       const cleanup = staleStartupCleanup(state, preservePageContexts);
       if (cleanup.hasStaleSession) {
         const restartEvents = farmingLifecycleEvents(state, cleanup.state);
@@ -317,11 +318,11 @@ export function createLifecycle<S extends EngineSettings>(
             emit,
           });
         }
-        registerManagedPageContextTabs({});
+        registerManagedPageContextTabs(tabRegistry, {});
         integritySlice.installedTwitchIntegrity = undefined;
         integritySlice.persistedIntegrityToken = undefined;
         integritySlice.twitchIntegrityRefreshDue = undefined;
-        setTwitchIntegrity(undefined);
+        setTwitchIntegrity(tabRegistry, undefined);
         await resetHostStorage?.();
         settingsSlice.lastPersistedTwitchEnabled = undefined;
         await reportBestEffort(events);

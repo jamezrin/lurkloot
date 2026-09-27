@@ -8,6 +8,7 @@ import type {
   ManagedWatchTab,
   Platform,
   PlaybackTelemetry,
+  SchedulerManagedPageContexts,
   SchedulerState,
   SupplementalWatchTarget,
   WatchDecision,
@@ -30,7 +31,6 @@ import {
 import { autoClaimChallengesFor, autoClaimChannelPointsFor, isFarmingActive } from "@lurkloot/shared/settings";
 import { normalizeWatchSourcePriority } from "@lurkloot/shared/watchSources";
 import type { EngineEvent, EventEmitter, FarmingStopReason, PageContextCloseReason } from "@lurkloot/shared/events";
-import type { SchedulerManagedPageContexts } from "./tabs";
 import { perform } from "./effectExecutor";
 import type { ClaimReadyRewardEvent } from "./rewardClaims";
 import type { LogLevel } from "@lurkloot/shared/logging";

@@ -1,17 +1,13 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
-import { managedTabBreakerOpen, syncManagedTabBreakers } from "@lurkloot/core/tabs";
+import { managedTabBreakerOpen } from "@lurkloot/core/tabs";
 import { TAB_CHURN_LIMIT } from "@lurkloot/core/criticalHealth";
 import { campaign, farming, harness, notFarming } from "../helpers/backgroundController";
 
 // One platform tick: critical health and no-op persistence.
 
 describe("background controller critical health", () => {
-  afterEach(() => {
-    syncManagedTabBreakers({});
-  });
-
   it("records page context opens into the critical health detector", async () => {
     const env = harness(farming(DEFAULT_SETTINGS));
     // Adapters are constructed with the tick's emitter before discovery runs, so
@@ -58,7 +54,7 @@ describe("background controller critical health", () => {
     }
 
     expect(env.state.criticalHealth?.kick?.breakerOpen).toBe(true);
-    expect(managedTabBreakerOpen("kick")).toBe(true);
+    expect(managedTabBreakerOpen(env.tabRegistry, "kick")).toBe(true);
   });
 });
 

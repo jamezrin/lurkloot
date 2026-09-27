@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { createTabRegistry } from "@lurkloot/core/tabs";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -38,6 +39,7 @@ function store(initialSettings: ExtensionSettings = DEFAULT_SETTINGS) {
     }),
     applySettingsPatch,
     lockTracker: tracker,
+    tabRegistry: createTabRegistry(),
   };
   const transaction = createStateTransaction<ExtensionSettings>(ports);
   return { transaction, ports, tracker, state: () => state, settings: () => settings };

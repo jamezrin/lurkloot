@@ -9,7 +9,7 @@ import {
 import { resolveCompatibility } from "@lurkloot/core";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
-import { forgetManagedPageContextTabs } from "@lurkloot/core/tabs";
+import { createTabRegistry, forgetManagedPageContextTabs } from "@lurkloot/core/tabs";
 import type { ChannelCandidate, DropCampaign, ExtensionSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
 import type { EngineEvent } from "@lurkloot/shared/events";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
@@ -223,14 +223,16 @@ export function contractHost(capabilities: CapabilitySet, options: ContractHostO
     createAdapters: vi.fn((_emit, settings: ExtensionSettings) => ({ adapters, ...compatibility(settings) })),
     createAdapter: vi.fn((platform: Platform, _emit, settings: ExtensionSettings) => ({ adapter: adapters[platform], ...compatibility(settings) })),
   };
+  const tabRegistry = createTabRegistry();
   const deps: HostMocks<ExtensionSettings> = {
     ...common,
     ...(capabilities.declared.browserTabs
       ? {
+        tabRegistry,
         closeManagedTabs: vi.fn(async () => undefined),
         applyAdFocus: vi.fn(async () => undefined),
         loadTabPlaybackPolicy: vi.fn(async () => ({ keepVideosUnmuted: false })),
-        stopPageContextTabs: vi.fn(forgetManagedPageContextTabs),
+        stopPageContextTabs: vi.fn((contexts, options) => forgetManagedPageContextTabs(tabRegistry, contexts, options)),
       }
       : {}),
     ...(capabilities.declared.twitchIntegrityCapture
