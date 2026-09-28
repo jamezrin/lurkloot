@@ -1,38 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { importCredentials, readCredentialBlob } from "../src/auth/importCredentials";
-import { loadCredentials } from "../src/authStore";
 import { pollForToken } from "../src/auth/twitchDeviceFlow";
 import { pollForToken as pollForKickToken, requestTvLink } from "../src/auth/kickDeviceFlow";
 
 let dir: string;
 beforeEach(async () => { dir = await mkdtemp(join(tmpdir(), "lurkloot-login-")); });
 afterEach(async () => { await rm(dir, { recursive: true, force: true }); vi.restoreAllMocks(); });
-
-describe("importCredentials", () => {
-  it("round-trips an extension export through the auth store", async () => {
-    const blob = join(dir, "export.json");
-    await writeFile(blob, JSON.stringify({ version: 1, credentials: { twitch: { authToken: "tw" }, kick: { sessionToken: "kk" } } }));
-    importCredentials(dir, blob);
-    const creds = loadCredentials(dir, {});
-    expect(creds.twitch?.authToken).toBe("tw");
-    expect(creds.kick?.sessionToken).toBe("kk");
-  });
-
-  it("rejects a bare { twitch, kick } blob (must be wrapped in credentials)", async () => {
-    const blob = join(dir, "bare.json");
-    await writeFile(blob, JSON.stringify({ twitch: { authToken: "bare-tw" } }));
-    expect(() => readCredentialBlob(blob)).toThrow(/missing a "credentials" object/);
-  });
-
-  it("rejects a blob with no usable credential", async () => {
-    const blob = join(dir, "empty.json");
-    await writeFile(blob, JSON.stringify({ credentials: {} }));
-    expect(() => readCredentialBlob(blob)).toThrow(/no Twitch auth token or Kick session token/);
-  });
-});
 
 describe("kick device-flow", () => {
   it("builds a TV link with an uppercase uuid, 6-digit code, and login URL", () => {

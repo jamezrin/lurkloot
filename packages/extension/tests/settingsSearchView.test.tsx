@@ -180,7 +180,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function mountSettings(settings = DEFAULT_SETTINGS, actions: Partial<Pick<React.ComponentProps<typeof SettingsView>, "onExportSettings" | "onImportSettings" | "onReset" | "onExportCredentials">> = {}) {
+function mountSettings(settings = DEFAULT_SETTINGS, actions: Partial<Pick<React.ComponentProps<typeof SettingsView>, "onExportSettings" | "onImportSettings" | "onReset">> = {}) {
   const { document, window } = parseHTML("<div id=app></div>");
   vi.stubGlobal("window", window);
   vi.stubGlobal("document", document);

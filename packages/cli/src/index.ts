@@ -12,7 +12,6 @@ import { credentialAvailabilityOf, describeCredentialHealth, forgetCredentials, 
 import { createTransport, type EnabledPlatforms } from "./transport";
 import { runLoop } from "./runtime/run";
 import { formatDiscoveredCampaign } from "./runtime/status";
-import { importCredentials } from "./auth/importCredentials";
 import { twitchDeviceLogin } from "./auth/twitchDeviceFlow";
 import { kickDeviceLogin } from "./auth/kickDeviceFlow";
 import { createLogger } from "./logger";
@@ -213,19 +212,6 @@ const authCommand: CommandModule = {
   command: "auth",
   describe: "Manage stored credentials",
   builder: (y) => y
-    .command({
-      command: "import <file>",
-      describe: 'Import an extension credential export ("-" = stdin)',
-      builder: (yy) => yy.positional("file", { type: "string", describe: "Export file, or - to read stdin", demandOption: true }),
-      handler: (argv) => {
-        const logger = loggerOf(argv);
-        const { authDir } = configOf(argv, logger);
-        // yargs-parser renders a bare "-" positional as "" — restore the stdin sentinel.
-        const file = argv.file === "" ? "-" : String(argv.file);
-        const creds = importCredentials(authDir, file);
-        logger.info(`Imported credentials${creds.twitch?.authToken ? " (twitch)" : ""}${creds.kick?.sessionToken ? " (kick)" : ""} into ${authDir}`, "auth");
-      },
-    })
     .command(platformAuthCommand("twitch"))
     .command(platformAuthCommand("kick"))
     .command({

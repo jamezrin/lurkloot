@@ -50,10 +50,6 @@ function handleDemoMessage(message: RuntimeMessage): RuntimeSnapshot | PlaybackC
     case "claimReward":
     case "playbackTelemetry":
     case "clearActivity":
-    // The demo host never offers credential export (no exportCredentials hook),
-    // so this is unreachable — return a snapshot to keep the switch exhaustive.
-    case "exportCliCredentials":
-      return demoSnapshot();
     case "getActivity":
       return { events: [], nextCursor: undefined };
     case "exportDiagnostics":

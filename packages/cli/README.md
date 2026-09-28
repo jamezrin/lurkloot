@@ -132,7 +132,6 @@ the store; `auth status` reports what is present.
 ```bash
 pnpm cli auth twitch device-login    # Twitch device-code OAuth, no browser
 pnpm cli auth kick device-login      # Kick smart-TV link flow, no browser
-pnpm cli auth import creds.json      # import an extension export ("-" = stdin)
 pnpm cli auth kick logout            # forget stored credentials for a platform
 pnpm cli auth status
 ```
@@ -145,9 +144,6 @@ pnpm cli auth status
   Kick TV app uses): it prints a `kick.com/tv/login` URL + a 6-digit code; open
   it on any device where you're signed in to Kick and confirm the code, and the
   session token is saved — no cookie export needed.
-- **`auth import`** ingests a credential blob exported by the extension
-  (Settings → **Export credentials**) — another way to supply a **Kick** session
-  token headlessly.
 
 Env-var overrides (useful for Docker secrets) take precedence over the store:
 `SA_TWITCH_AUTH_TOKEN`, `SA_TWITCH_DEVICE_ID`, `SA_TWITCH_CLIENT_ID`,
@@ -161,7 +157,6 @@ Env-var overrides (useful for Docker secrets) take precedence over the store:
   persisting `state.json`. `pnpm cli run --once` is the explicit refresh command:
   it discovers campaigns, refreshes authoritative progress, claims eligible
   rewards, persists state, and exits.
-- `auth import <file>` — import an extension credential export ("-" = stdin).
 - `auth twitch device-login` — Twitch device-code OAuth (no browser).
 - `auth kick device-login` — Kick smart-TV link flow (no browser).
 - `auth <platform> logout` — forget the stored `twitch` / `kick` credentials (an
@@ -222,5 +217,5 @@ docker run --rm -v "$PWD/data:/data" lurkloot-cli discover --config /data/config
 
 Authenticate first — `auth twitch device-login` / `auth kick device-login` work
 headlessly inside the container, or run them on any host and mount the resulting
-`auth/` dir in. A Kick token can also come from an extension export
-(`auth import`) or `SA_KICK_SESSION_TOKEN`.
+`auth/` dir in. `SA_KICK_SESSION_TOKEN` can also provide a Kick token via an
+environment override.

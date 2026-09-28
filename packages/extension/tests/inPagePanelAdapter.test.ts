@@ -14,12 +14,9 @@ const { createInPagePanelAdapter } = await import("../src/core/inPagePanelAdapte
 describe("in-page panel adapter", () => {
   // These are not incidental gaps. `PopupAdapter` makes them optional precisely
   // so a host can decline them, and the popup hides the corresponding action
-  // when one is absent. exportCredentials is the load-bearing case: it writes
-  // the Twitch auth-token and Kick session_token to a file, and must not be
-  // reachable from a surface opened on a streaming page. If someone adds one of
-  // these to the adapter, that action silently appears in the in-page panel.
+  // when one is absent. If someone adds one of these to the adapter, that
+  // action silently appears in the in-page panel.
   it.each([
-    "exportCredentials",
     "exportSettings",
     "importSettings",
     "downloadFile",

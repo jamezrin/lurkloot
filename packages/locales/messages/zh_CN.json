@@ -1076,27 +1076,6 @@
   "removeItem": {
     "message": "移除 $1"
   },
-  "cliExportTitle": {
-    "message": "无界面 CLI"
-  },
-  "cliExportDescription": {
-    "message": "使用 Lurkloot CLI 在服务器或 Docker 中挂机获取掉宝，并复用此浏览器的登录会话。"
-  },
-  "cliExportHint": {
-    "message": "导出你的 Twitch 和 Kick 会话令牌，供 CLI 的“login --import”命令使用。请妥善保管文件——任何获得文件的人都能使用你的登录会话。"
-  },
-  "cliExportConfirm": {
-    "message": "这会将你的 Twitch 和 Kick 会话令牌下载为一个文件。任何拥有该文件的人都能在这些网站上以你的身份操作。是否继续？"
-  },
-  "cliExportCancel": {
-    "message": "取消"
-  },
-  "cliExportConfirmButton": {
-    "message": "确认导出"
-  },
-  "cliExportButton": {
-    "message": "导出登录凭据"
-  },
   "settingsExportTitle": {
     "message": "导入/导出设置"
   },

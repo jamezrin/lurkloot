@@ -6,7 +6,7 @@ import {
   RotateCcw,
   Settings as SettingsIcon,
 } from "lucide-react";
-import type { ActivityPage, CategorySearchResult, CliCredentialBlob, DiagnosticsExport, RuntimeSnapshot } from "@lurkloot/shared/messages";
+import type { ActivityPage, CategorySearchResult, DiagnosticsExport, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { ActivityHistoryRecord } from "@lurkloot/shared/events";
 import type { CategorySelection, ExtensionSettings, Platform, TwitchExtensionProviderId, WatchSourceId } from "@lurkloot/shared/models";
 import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings, type SettingsPatch } from "@lurkloot/shared/settings";
@@ -607,16 +607,6 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     return result.categories;
   }
 
-  // Exports the session tokens the headless CLI's `login --import` consumes.
-  // Gated behind inline confirmation in the settings view; available only when
-  // the host adapter supports credential export (the live extension, not demo).
-  const exportCredentials = adapter.exportCredentials
-    ? async () => {
-        const blob = await adapter.send<CliCredentialBlob>({ type: "exportCliCredentials" });
-        adapter.exportCredentials?.(blob);
-      }
-    : undefined;
-
   const resetExtension = adapter.resetExtension
     ? async () => {
         await settingsSaveQueue.current.catch(() => undefined);
@@ -909,7 +899,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                   ) : null}
                 </AnimatePresence>
                 {view === "settings" ? (
-                  <SettingsView suggestions={dropCategorySuggestions} onSearchCategories={searchCategories} settings={settings} onSettingsChange={updateSettings} onExtensionEnabledChange={adapter.requestTwitchExtensionPermission ? setExtensionEnabled : undefined} onExportCredentials={exportCredentials} onExportSettings={exportSettings} onImportSettings={importSettings} onReset={resetExtension} exportConfirmationResetKey={settingsOpenGeneration} compatibilityRegistry={adapter.compatibilityRegistry} compatibilityResolution={compatibilityResolution} onOpenGames={(gamesPlatform) => { if (gamesPlatform !== platform) selectPlatform(gamesPlatform); changeView("games"); }} version={adapter.version} focusGroupId={preview && variantShowsPopup(initialVariant) && initialVariant.view === "settings" ? "general.drops" : settingsFocus} />
+                  <SettingsView suggestions={dropCategorySuggestions} onSearchCategories={searchCategories} settings={settings} onSettingsChange={updateSettings} onExtensionEnabledChange={adapter.requestTwitchExtensionPermission ? setExtensionEnabled : undefined} onExportSettings={exportSettings} onImportSettings={importSettings} onReset={resetExtension} exportConfirmationResetKey={settingsOpenGeneration} compatibilityRegistry={adapter.compatibilityRegistry} compatibilityResolution={compatibilityResolution} onOpenGames={(gamesPlatform) => { if (gamesPlatform !== platform) selectPlatform(gamesPlatform); changeView("games"); }} version={adapter.version} focusGroupId={preview && variantShowsPopup(initialVariant) && initialVariant.view === "settings" ? "general.drops" : settingsFocus} />
                 ) : view === "activity" ? (
                   <ActivityLog
                     activityEvents={activityStream.events}

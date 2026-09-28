@@ -8,11 +8,8 @@ import { openHttpsLink, type PopupAdapter } from "@lurkloot/popup-ui";
 // `createDemoPopupAdapter` uses for the site demo. The panel document is
 // origin-isolated from the host page, but the omissions stand on their own
 // merits: this surface is opened from a streaming page, so the destructive and
-// credential-bearing actions belong in the toolbar popup regardless.
+// actions belong in the toolbar popup regardless.
 //
-//   exportCredentials  Writes the Twitch auth-token and Kick session_token to a
-//                      file. It must not exist on a surface rendered inside a
-//                      streaming page; see CLAUDE.md on credential export.
 //   exportSettings     File pickers and downloads belong in the toolbar popup.
 //   importSettings
 //   downloadFile

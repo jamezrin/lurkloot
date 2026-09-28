@@ -1076,27 +1076,6 @@
   "removeItem": {
     "message": "$1 öğesini sil"
   },
-  "cliExportTitle": {
-    "message": "Komut Satırı (CLI) Sürümü"
-  },
-  "cliExportDescription": {
-    "message": "Oturumunuzu aktararak sunucuda veya Docker üzerinde tarayıcısız toplama yapın."
-  },
-  "cliExportHint": {
-    "message": "Twitch ve Kick giriş bilgilerinizi dışa aktarır. Bu dosyayı güvende tutun; erişimi olan herkes hesabınızı kullanabilir."
-  },
-  "cliExportConfirm": {
-    "message": "Giriş anahtarlarınız bir dosyaya indirilecek. Bu dosya hesabınıza erişim sağlar. Devam edilsin mi?"
-  },
-  "cliExportCancel": {
-    "message": "İptal"
-  },
-  "cliExportConfirmButton": {
-    "message": "Dışa aktarmayı onayla"
-  },
-  "cliExportButton": {
-    "message": "Giriş bilgilerini indir"
-  },
   "settingsExportTitle": {
     "message": "Ayarları içe/dışa aktar"
   },

@@ -46,6 +46,23 @@ function writeLegacyConfig(dir: string): string {
   return path;
 }
 
+describe("CLI auth commands", () => {
+  it("offers device login and status without credential import", () => {
+    const result = runCli(CONFIG_PATH, ["auth", "--help"]);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("twitch");
+    expect(result.stdout).toContain("kick");
+    expect(result.stdout).toContain("status");
+    expect(result.stdout).not.toMatch(/\bimport\b/);
+  });
+
+  it("rejects the removed credential import command", () => {
+    const result = runCli(CONFIG_PATH, ["auth", "import", "credentials.json"]);
+    expect(result.status).not.toBe(0);
+    expect(`${result.stdout}${result.stderr}`).not.toContain("Imported credentials");
+  });
+});
+
 describe("parseConfig", () => {
   it("defaults to the impersonate transport and <configDir>/auth", () => {
     const config = parseConfig({}, CONFIG_PATH);

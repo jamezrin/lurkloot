@@ -109,6 +109,6 @@ export const kickFaqItems: FaqItem[] = [
   },
   {
     q: "Do I need a Kick password or a cookie export?",
-    a: "Neither. In the browser the extension reuses the Kick session you are already logged into. Headless, the smart-TV link approval hands back a session token directly, so the CLI requires no export. An optional, user-initiated session-token transfer from the extension is also available if you want to move an existing session.",
+    a: "Neither. In the browser the extension reuses the Kick session you are already logged into. Headless, the smart-TV link approval hands back a session token directly, so the CLI requires no export.",
   },
 ];

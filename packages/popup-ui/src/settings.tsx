@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Download, RotateCcw, Terminal, Upload } from "lucide-react";
+import { Download, RotateCcw, Upload } from "lucide-react";
 import type { CategorySelection, ExtensionSettings, Platform, TwitchExtensionProviderId } from "@lurkloot/shared/models";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 import { PLATFORMS } from "./constants";
@@ -13,15 +13,12 @@ import { AboutSection } from "./about";
 import { TwitchExtensionSettings, twitchExtensionSearchText } from "./twitchExtensions";
 import type { GameItem, PopupCompatibilityRegistry, PopupCompatibilityResolution } from "./types";
 
-export function SettingsView({ suggestions, onSearchCategories, settings, onSettingsChange, onExtensionEnabledChange, onExportCredentials, onExportSettings, onImportSettings, onReset, exportConfirmationResetKey, compatibilityRegistry, compatibilityResolution, focusGroupId, onOpenGames, version }: {
+export function SettingsView({ suggestions, onSearchCategories, settings, onSettingsChange, onExtensionEnabledChange, onExportSettings, onImportSettings, onReset, exportConfirmationResetKey, compatibilityRegistry, compatibilityResolution, focusGroupId, onOpenGames, version }: {
   suggestions: Record<Platform, GameItem[]>;
   onSearchCategories(platform: Platform, query: string): Promise<CategorySelection[]>;
   settings: ExtensionSettings;
   onExtensionEnabledChange?(provider: TwitchExtensionProviderId, enabled: boolean): Promise<boolean>;
   onSettingsChange(patch: SettingsPatch, options?: SettingsChangeOptions): Promise<void>;
-  // Optional: when provided, the settings view shows an "Export credentials"
-  // action for the headless CLI. The extension wires it; the demo omits it.
-  onExportCredentials?: () => void | Promise<void>;
   // Optional: download the current settings as a portable JSON file.
   onExportSettings?: () => void | Promise<void>;
   // Optional: prompt for a settings file and apply it. Resolves false when the
@@ -38,7 +35,6 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
 }) {
   const t = useT();
   const [query, setQuery] = useState("");
-  const [exportArmed, setExportArmed] = useState(false);
   const [exportingSettings, setExportingSettings] = useState(false);
   const [exportSettingsFailed, setExportSettingsFailed] = useState(false);
   const [importArmed, setImportArmed] = useState(false);
@@ -48,7 +44,6 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
   const [resetting, setResetting] = useState(false);
   const [resetFailed, setResetFailed] = useState(false);
   useEffect(() => {
-    setExportArmed(false);
     setExportingSettings(false);
     setExportSettingsFailed(false);
     setImportArmed(false);
@@ -121,7 +116,7 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
     [sections, t, query],
   );
   const searching = query.trim().length > 0;
-  const hasActions = Boolean(onExportSettings || onImportSettings || onExportCredentials || onReset);
+  const hasActions = Boolean(onExportSettings || onImportSettings || onReset);
   const actionSearchText = [
     t("settingsSectionAdvancedActions"),
     t("settingsSectionAdvancedActionsDescription"),
@@ -129,9 +124,6 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
     t("settingsExportHint"),
     t("settingsExportButton"),
     t("settingsImportButton"),
-    t("cliExportTitle"),
-    t("cliExportHint"),
-    t("cliExportButton"),
     t("factoryResetTitle"),
     t("factoryResetHint"),
     t("factoryResetButton"),
@@ -283,32 +275,6 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
                       {t("settingsImportButton")}
                     </ActionButton>
                   ) : null}
-                </ActionRow>
-              )
-            ) : null}
-
-            {onExportCredentials ? (
-              exportArmed ? (
-                <ActionRow title={t("cliExportTitle")} hint={t("cliExportConfirm")} tone="warning">
-                  <ActionButton onClick={() => setExportArmed(false)}>{t("cliExportCancel")}</ActionButton>
-                  {/* The button stays secondary until here: the confirm step is
-                      the one that actually writes session tokens to disk. */}
-                  <ActionButton
-                    primary
-                    onClick={() => {
-                      setExportArmed(false);
-                      void onExportCredentials();
-                    }}
-                  >
-                    {t("cliExportConfirmButton")}
-                  </ActionButton>
-                </ActionRow>
-              ) : (
-                <ActionRow title={t("cliExportTitle")} hint={t("cliExportHint")}>
-                  <ActionButton onClick={() => setExportArmed(true)}>
-                    <Terminal size={12} />
-                    {t("cliExportButton")}
-                  </ActionButton>
                 </ActionRow>
               )
             ) : null}

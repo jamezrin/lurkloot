@@ -18,7 +18,6 @@ interface RuntimeMessageSender {
 }
 
 interface RuntimeMessageDispatcherDeps {
-  exportCliCredentials(): Promise<unknown>;
   resetExtension(): Promise<unknown>;
   handleActivityMessage(message: RuntimeMessage): Promise<unknown>;
   handleTwitchExtensionMessage?(message: Extract<RuntimeMessage, { type: "setTwitchExtensionEnabled" }>): Promise<unknown>;
@@ -60,7 +59,6 @@ export function createActivityEventReporter(deps: ActivityEventReporterDeps) {
 export function createRuntimeMessageDispatcher(deps: RuntimeMessageDispatcherDeps) {
   return (message: RuntimeMessage, sender?: RuntimeMessageSender): Promise<unknown> => {
     if (message.type === "setTwitchExtensionEnabled") return deps.handleTwitchExtensionMessage?.(message) ?? Promise.resolve(undefined);
-    if (message.type === "exportCliCredentials") return deps.exportCliCredentials();
     if (message.type === "resetExtension") return deps.resetExtension();
     if (message.type === "getTabId") return Promise.resolve(sender?.tab?.id);
     if (message.type === "getActivity" || message.type === "exportDiagnostics" || message.type === "clearActivity") {

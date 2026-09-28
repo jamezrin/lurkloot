@@ -1,4 +1,4 @@
-import type { CliCredentialBlob, RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
+import type { RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { CategorySelection, ClaimGuidance, CompatibilitySettings, DropCampaign, Platform, RewardRequirementType, SupportedLocale, TwitchExtensionProviderId } from "@lurkloot/shared/models";
 import type { SettingsExportPayload } from "@lurkloot/shared/settingsExport";
 import type { CampaignFarmingEvaluation } from "@lurkloot/shared/campaignFarming";
@@ -177,9 +177,6 @@ export interface PopupAdapter {
   getPendingChangelogVersion?(): Promise<string | undefined>;
   dismissPendingChangelogVersion?(): Promise<void>;
   changelogUrl?(version: string): string;
-  // Optional: download/persist an exported credential blob for the headless CLI.
-  // Only the live extension implements it (the demo omits it, hiding the action).
-  exportCredentials?(blob: CliCredentialBlob): void;
   // Optional: download the current settings as a portable JSON file. Only the
   // live extension implements it (the demo omits it, hiding the action).
   exportSettings?(payload: SettingsExportPayload): void;

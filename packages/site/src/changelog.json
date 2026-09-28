@@ -4,6 +4,10 @@
     "changes": [
       {
         "kind": "improved",
+        "text": "Twitch and Kick device login are now the supported CLI sign-in paths. The extension no longer downloads session credentials, and the CLI no longer imports them."
+      },
+      {
+        "kind": "improved",
         "text": "Claiming a reward or opening and closing a watch tab no longer holds up everything else Lurkloot is tracking, so playback, heartbeats and tab changes are recorded as they happen instead of queueing behind them. A reward claimed just before Lurkloot switched to another target is now still recorded and shown in Activity."
       },
       {

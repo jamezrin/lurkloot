@@ -32,7 +32,6 @@ export type RuntimeMessage =
   | { type: "exportDiagnostics"; platform: Platform }
   | { type: "clearActivity" }
   | { type: "resetExtension" }
-  | { type: "exportCliCredentials" }
   // Answers with the asking tab's own id, which a content script cannot read
   // for itself. The in-page panel compares it against
   // SchedulerState.managedWatchTabs to stay out of the extension's own farming
@@ -40,18 +39,6 @@ export type RuntimeMessage =
   // id is stable, so the caller can re-evaluate from persisted scheduler state
   // as it changes, instead of racing the background's tab registration.
   | { type: "getTabId" };
-
-// Credential blob the popup exports for the headless CLI's `login --import`. It
-// carries only the session tokens the CLI transports replay — never anything the
-// config holds — and is produced from the user's live cookies on explicit,
-// confirm-gated request.
-export interface CliCredentialBlob {
-  version: number;
-  credentials: {
-    twitch?: { authToken?: string; deviceId?: string };
-    kick?: { sessionToken?: string };
-  };
-}
 
 // Parametrized over the host's settings type so the generic background
 // controller can return its own `S`. Defaults to ExtensionSettings, the only
