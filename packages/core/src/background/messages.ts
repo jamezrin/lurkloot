@@ -12,15 +12,15 @@ import type { ControllerCalls } from "./types";
 // Runtime message handling.
 export function createMessageHandler<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
-  { integritySlice, signalSlice, tickSlice, settingsSlice, lifecycleSlice, tabRegistry }: Pick<ControllerSlices<S>,
+  { signalSlice, tickSlice, settingsSlice, lifecycleSlice, tabRegistry }: Pick<ControllerSlices<S>,
     | "tabRegistry"
-    | "integritySlice"
     | "signalSlice"
     | "tickSlice"
     | "settingsSlice"
     | "lifecycleSlice"
   >,
   calls: Pick<ControllerCalls<S>,
+    | "twitchIntegrityLifecycleOpen"
     | "abortClaimHandoffs"
     | "claimRewardNow"
     | "clearTwitchIntegrityAlarmBestEffort"
@@ -45,6 +45,7 @@ export function createMessageHandler<S extends EngineSettings>(
   >,
 ): Pick<ControllerCalls<S>, "handleMessage"> {
   const {
+    twitchIntegrityLifecycleOpen,
     abortClaimHandoffs,
     claimRewardNow,
     clearTwitchIntegrityAlarmBestEffort,
@@ -108,7 +109,7 @@ export function createMessageHandler<S extends EngineSettings>(
         !lifecycleSlice.controllerShutdown
         && twitchTransitionGeneration === settingsSlice.twitchSettingsTransitionGeneration;
       const twitchLifecycleOpenBeforeTransition = message.platform === "twitch"
-        ? integritySlice.integrityLifecycleOpen
+        ? twitchIntegrityLifecycleOpen()
         : undefined;
       let twitchSettingsLoaded = false;
       const stoppingTwitch = message.platform === "twitch" && !message.enabled;

@@ -295,6 +295,10 @@ export interface ControllerCalls<S extends EngineSettings> {
   prepareTwitchIntegrity(settings: S, signal: AbortSignal, tickContext: TickDiagnosticContext): Promise<boolean>;
   closeTwitchIntegrityLifecycle(reason: string): void;
   reconcileTwitchIntegrityLifecycle(enabled: boolean | undefined): void;
+  startInitialTwitchIntegrityLoad(): void;
+  awaitInitialTwitchIntegrityLoad(): Promise<void>;
+  twitchIntegrityLifecycleOpen(): boolean;
+  resetTwitchIntegrity(): void;
 
   // channelPoints.ts
   abortTwitchChannelPointsClaims(reason: string): void;

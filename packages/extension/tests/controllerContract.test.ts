@@ -6,8 +6,10 @@ import {
   TWITCH_ALARM_NAME,
   TWITCH_CHANNEL_POINTS_ALARM_NAME,
   TWITCH_DROP_CLAIMS_ALARM_NAME,
+  TWITCH_INTEGRITY_ALARM_NAME,
   WATCH_ALARM_NAME,
 } from "@lurkloot/core/controller";
+import { integrityBundle, integrityHeaders } from "./helpers/backgroundController";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
 import type { DropCampaign, SchedulerState, WatchSession } from "@lurkloot/shared/models";
@@ -306,6 +308,30 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
       vi.setSystemTime(Date.now() + 60_000);
       await host.fire(WATCH_ALARM_NAME);
       expect(watcher.ticks).toBe(2);
+      host.controller.shutdown();
+    });
+
+    // The integrity refresh job (#589) must be correct under duplicate and late
+    // fires: one refresh runs at a time, and a fire that finds a token not yet
+    // due only reschedules.
+    it.runIf(capabilities.declared.twitchIntegrityCapture)("runs one integrity refresh for duplicate or late refresh job fires", async () => {
+      const host = contractHost(capabilities);
+      const refreshing = deferred<boolean>();
+      vi.mocked(host.deps.ensureTwitchIntegrity!).mockImplementationOnce(async () => await refreshing.promise);
+
+      const fires = [host.fire(TWITCH_INTEGRITY_ALARM_NAME)];
+      await vi.waitFor(() => expect(host.deps.ensureTwitchIntegrity).toHaveBeenCalledOnce());
+      fires.push(host.fire(TWITCH_INTEGRITY_ALARM_NAME), host.fire(TWITCH_INTEGRITY_ALARM_NAME));
+      await Promise.all(fires.slice(1));
+      expect(host.deps.ensureTwitchIntegrity).toHaveBeenCalledOnce();
+      await host.controller.captureTwitchIntegrity(integrityHeaders(integrityBundle()));
+      refreshing.resolve(true);
+      await Promise.all(fires);
+
+      // Late: the token captured meanwhile is not due, so the fire only reschedules.
+      await host.fire(TWITCH_INTEGRITY_ALARM_NAME);
+      expect(host.deps.ensureTwitchIntegrity).toHaveBeenCalledOnce();
+      expect(host.jobs.scheduled.get(TWITCH_INTEGRITY_ALARM_NAME)).toMatchObject({ when: expect.any(Number) });
       host.controller.shutdown();
     });
 
