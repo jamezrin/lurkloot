@@ -111,7 +111,7 @@ export function createDiscoverySignals<S extends EngineSettings>(
           && session.status === "watching"
           && Boolean(channel),
         factory: adapters[platform].createDiscoverySignalController,
-        open: () => signalSlice.discoverySignalLifecycleOpen && !lifecycleSlice.controllerShutdown,
+        open: () => lifecycleSlice.observersOpen && !lifecycleSlice.controllerShutdown,
         since: since[platform] ?? slot.epoch,
         emit,
         onChange: () => invalidateDiscoverySignalAdmission(platform),
@@ -170,7 +170,7 @@ export function createDiscoverySignals<S extends EngineSettings>(
     request: DiscoverySignalRefreshRequest,
   ): boolean {
     return !lifecycleSlice.controllerShutdown
-      && signalSlice.discoverySignalLifecycleOpen
+      && lifecycleSlice.observersOpen
       && !signalSlice.discoverySignalPlatformBlocked[platform]
       && signalSlice.discoverySignalAuthRefreshes[platform] === 0
       && signalSlice.discoverySignalAdmissionGeneration[platform] === request.generation

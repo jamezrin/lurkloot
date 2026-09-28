@@ -223,7 +223,6 @@ export function createClaimSlice(): ClaimSlice {
 export interface DiscoverySignalSlice {
   readonly discoverySignalSlots: Record<Platform, ObserverSlot<DiscoverySignalController>>;
   readonly discoverySignalPlatformBlocked: Record<Platform, boolean>;
-  discoverySignalLifecycleOpen: boolean;
   readonly discoverySignalRefreshRunning: Record<Platform, boolean>;
   readonly discoverySignalRefreshPending: Record<Platform, DiscoverySignalRefreshRequest | undefined>;
   readonly discoverySignalAuthRefreshes: Record<Platform, number>;
@@ -232,17 +231,16 @@ export interface DiscoverySignalSlice {
 
 export function createDiscoverySignalSlice(): DiscoverySignalSlice {
   return {
-    // The discovery-signal observer keeps a failed start and retries it on the
-    // next reconcile, as it always has.
+    // A failed start stops and clears the observer, and the next reconcile
+    // creates a fresh one (#587), as the channel-points push always has.
     discoverySignalSlots: {
-      twitch: new ObserverSlot<DiscoverySignalController>("twitch", "discovery signal observer", "retain"),
-      kick: new ObserverSlot<DiscoverySignalController>("kick", "discovery signal observer", "retain"),
+      twitch: new ObserverSlot<DiscoverySignalController>("twitch", "discovery signal observer", "discard"),
+      kick: new ObserverSlot<DiscoverySignalController>("kick", "discovery signal observer", "discard"),
     },
     discoverySignalPlatformBlocked: {
       twitch: false,
       kick: false,
     },
-    discoverySignalLifecycleOpen: true,
     discoverySignalRefreshRunning: {
       twitch: false,
       kick: false,
@@ -329,11 +327,17 @@ export function createSettingsSlice(): SettingsSlice {
 
 export interface LifecycleSlice {
   controllerShutdown: boolean;
+  // One gate for every long-lived observer kind (#587): the discovery-signal
+  // observers and the Twitch channel-points push. Closed by shutdown and for
+  // the length of a host reset; while closed, no observer is created, and one
+  // that finishes starting is stopped again.
+  observersOpen: boolean;
 }
 
 export function createLifecycleSlice(): LifecycleSlice {
   return {
     controllerShutdown: false,
+    observersOpen: true,
   };
 }
 
