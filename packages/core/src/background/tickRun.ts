@@ -40,7 +40,8 @@ export function createTickRun<S extends EngineSettings>(
     | "prepareSelection"
     | "reselectUnderLock"
     | "prepareTwitchIntegrity"
-    | "reconcileDiscoverySignalControllers"
+    | "reconcileDiscoverySignalsAfterCommit"
+    | "discoverySignalEpochs"
     | "reconcilePageContextRecoveryAfterPersist"
     | "reconcileTablessWatchers"
     | "reconcileTwitchChannelPointsPush"
@@ -73,7 +74,8 @@ export function createTickRun<S extends EngineSettings>(
     prepareSelection,
     reselectUnderLock,
     prepareTwitchIntegrity,
-    reconcileDiscoverySignalControllers,
+    reconcileDiscoverySignalsAfterCommit,
+    discoverySignalEpochs,
     reconcilePageContextRecoveryAfterPersist,
     reconcileTablessWatchers,
     reconcileTwitchChannelPointsPush,
@@ -419,12 +421,14 @@ export function createTickRun<S extends EngineSettings>(
       let openedTab: WatchSession | undefined;
       let superseded = false;
       let publicationLeases: Array<readonly [Platform, HeartbeatPublicationLease]> = [];
-      // Tab work for the state this tick committed, run once the lock is
-      // released (#598): ad focus follows the committed sessions, and Kick
-      // page-context recovery acts on the committed page contexts.
+      // Work for the state this tick committed, run once the lock is released:
+      // ad focus follows the committed sessions and Kick page-context recovery
+      // acts on the committed page contexts (#598), and the discovery-signal
+      // observers follow the latest committed state (#587).
       let afterCommit: {
         adFocus?: SchedulerState;
         recovery?: { platforms: readonly Platform[]; successPlatforms: ReadonlySet<Platform> };
+        discoverySignals?: { committed: SchedulerState; since: Partial<Record<Platform, number>> };
       } = {};
       await withStateLock(async () => {
         // Drops the tick's decision and its events, keeping only the activity
@@ -485,7 +489,6 @@ export function createTickRun<S extends EngineSettings>(
           );
           signal.throwIfAborted();
           assertSelectionsCurrent();
-          await reconcileDiscoverySignalControllers(tickState, settings, adapters, emit, schedulerPlatforms);
           if (schedulerPlatforms.includes("twitch")) {
             await reconcileTwitchChannelPointsPush(settings, tickState, adapters.twitch, emit);
           }
@@ -566,6 +569,7 @@ export function createTickRun<S extends EngineSettings>(
           afterCommit = {
             adFocus: nextState,
             recovery: { platforms: schedulerPlatforms, successPlatforms: pageContextRecoverySuccessPlatforms },
+            discoverySignals: { committed: nextState, since: discoverySignalEpochs(schedulerPlatforms) },
           };
           claimSlice.waitingClaimRewardIds[platform].clear();
           for (const rewardId of nextWaitingClaimRewardIds[platform]) {
@@ -588,6 +592,18 @@ export function createTickRun<S extends EngineSettings>(
           afterCommit.recovery.successPlatforms,
           tickContext,
         );
+      }
+      if (!signal.aborted && afterCommit.discoverySignals) {
+        const reported = events.length;
+        await reconcileDiscoverySignalsAfterCommit(
+          afterCommit.discoverySignals.committed,
+          afterCommit.discoverySignals.since,
+          settings,
+          adapters,
+          emit,
+          schedulerPlatforms,
+        );
+        await reportBestEffort(correlateTickDiagnostics(events.slice(reported), tickContext));
       }
 
       // Outside the lock again: close a tab only the superseded decision

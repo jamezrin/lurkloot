@@ -1,4 +1,5 @@
 import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
+import { ObserverSlot } from "./observerSlot";
 import type { EngineEvent } from "@lurkloot/shared/events";
 import type { TwitchIntegrity } from "../core/twitchIntegrity";
 import type { TablessWatchController } from "../core/tablessWatch";
@@ -220,7 +221,7 @@ export function createClaimSlice(): ClaimSlice {
 }
 
 export interface DiscoverySignalSlice {
-  readonly discoverySignalControllers: Map<Platform, DiscoverySignalController>;
+  readonly discoverySignalSlots: Record<Platform, ObserverSlot<DiscoverySignalController>>;
   readonly discoverySignalPlatformBlocked: Record<Platform, boolean>;
   discoverySignalLifecycleOpen: boolean;
   readonly discoverySignalRefreshRunning: Record<Platform, boolean>;
@@ -231,7 +232,12 @@ export interface DiscoverySignalSlice {
 
 export function createDiscoverySignalSlice(): DiscoverySignalSlice {
   return {
-    discoverySignalControllers: new Map<Platform, DiscoverySignalController>(),
+    // The discovery-signal observer keeps a failed start and retries it on the
+    // next reconcile, as it always has.
+    discoverySignalSlots: {
+      twitch: new ObserverSlot<DiscoverySignalController>("twitch", "discovery signal observer", "retain"),
+      kick: new ObserverSlot<DiscoverySignalController>("kick", "discovery signal observer", "retain"),
+    },
     discoverySignalPlatformBlocked: {
       twitch: false,
       kick: false,

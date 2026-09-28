@@ -181,6 +181,106 @@ describe("discovery signal lifecycle", () => {
     expect(env.kick.refreshCampaigns).not.toHaveBeenCalled();
   });
 
+  // Pins today's failed-start handling (#587): the observer is kept and its
+  // start() is retried on the next tick, on the same instance.
+  it("keeps an observer whose start failed and starts it again on the next tick", async () => {
+    const env = harness(kickOnlySettings());
+    configureKickDiscoverySession(env);
+    vi.spyOn(env.discoverySignalController, "start").mockRejectedValueOnce(new Error("observer start failed"));
+
+    await env.controller.tick(["kick"], "manual_tick");
+    expect(env.discoverySignalController.stops).toBe(0);
+    await env.controller.tick(["kick"], "manual_tick");
+
+    expect(env.kick.createDiscoverySignalController).toHaveBeenCalledOnce();
+    expect(env.discoverySignalController.start).toHaveBeenCalledTimes(2);
+    expect(env.discoverySignalController.stops).toBe(0);
+  });
+
+  // The observers are reconciled after the tick commits, with no lock held
+  // (#587), so an auth transition can land while an observer is starting.
+  it("stops an observer that finishes starting after auth was invalidated", async () => {
+    const env = harness(kickOnlySettings());
+    configureKickDiscoverySession(env);
+    const started = deferred<void>();
+    const start = env.discoverySignalController.start.bind(env.discoverySignalController);
+    vi.spyOn(env.discoverySignalController, "start").mockImplementationOnce(async (target, onSignal) => {
+      await start(target, onSignal);
+      await started.promise;
+    });
+
+    const tick = env.controller.tick(["kick"], "manual_tick");
+    await vi.waitFor(() => expect(env.discoverySignalController.start).toHaveBeenCalledOnce());
+    await env.controller.invalidateAuthHealth("kick");
+    started.resolve();
+    await tick;
+
+    // Once by the auth transition, and again once start() finished, since a
+    // stop during start may not close a transport that was still opening.
+    expect(env.discoverySignalController.stops).toBe(2);
+    vi.mocked(env.kick.refreshCampaigns).mockClear();
+    env.discoverySignalController.emitCapturedSignal();
+    await env.controller.settleBackgroundWork();
+    expect(env.kick.refreshCampaigns).not.toHaveBeenCalled();
+  });
+
+  it("does not create an observer when auth was invalidated between the commit and the reconcile", async () => {
+    const recovering = deferred<void>();
+    const env = harness(kickOnlySettings(), {
+      // Kick page-context recovery runs after the commit and before the
+      // observers are reconciled; hold it there.
+      reconcilePageContextRecovery: async () => {
+        await recovering.promise;
+        return false;
+      },
+    });
+    configureKickDiscoverySession(env);
+
+    const tick = env.controller.tick(["kick"], "manual_tick");
+    await vi.waitFor(() => expect(env.deps.reconcilePageContextRecovery).toHaveBeenCalledOnce());
+    expect(env.state.sessions.kick.status).toBe("watching");
+    await env.controller.invalidateAuthHealth("kick");
+    recovering.resolve();
+    await tick;
+
+    expect(env.kick.createDiscoverySignalController).not.toHaveBeenCalled();
+    expect(env.discoverySignalController.starts).toEqual([]);
+  });
+
+  it("does not start an observer when auth was invalidated while the tick's effects ran", async () => {
+    const env = harness(kickOnlySettings());
+    configureKickDiscoverySession(env);
+    const opening = deferred<void>();
+    const open = env.watchTabs.kick.open.getMockImplementation()!;
+    env.watchTabs.kick.open.mockImplementationOnce(async (...args) => {
+      await opening.promise;
+      return await open(...args);
+    });
+
+    const tick = env.controller.tick(["kick"], "manual_tick");
+    await vi.waitFor(() => expect(env.watchTabs.kick.open).toHaveBeenCalledOnce());
+    await env.controller.invalidateAuthHealth("kick");
+    opening.resolve();
+    await tick;
+
+    expect(env.discoverySignalController.starts).toEqual([]);
+  });
+
+  it("keeps the committed watch when reconciling the observer after the commit throws", async () => {
+    const env = harness(kickOnlySettings());
+    configureKickDiscoverySession(env);
+    Object.defineProperty(env.kick, "createDiscoverySignalController", {
+      get: () => { throw new Error("observer factory unavailable"); },
+    });
+
+    await env.controller.tick(["kick"], "manual_tick");
+
+    expect(env.state.sessions.kick).toMatchObject({ status: "watching", channel: { categoryId: "42" } });
+    expect(allDiagnostics(env)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ level: "warn", message: "Discovery signal observer reconcile failed: observer factory unavailable" }),
+    ]));
+  });
+
   it("invalidating auth stops the observer while health is checking", async () => {
     const env = harness(kickOnlySettings());
     await startKickDiscoverySession(env);

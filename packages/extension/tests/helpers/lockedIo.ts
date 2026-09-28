@@ -32,7 +32,6 @@ export interface LockedIoEntry {
 
 export const LOCKED_IO_ALLOWLIST: readonly LockedIoEntry[] = [
   // runTick's own withStateLock body, around and after the scheduler tick.
-  { id: "tick-discovery-signals", file: "background/tickRun.ts", site: "runTick", lock: "withStateLock", call: "reconcileDiscoverySignalControllers(", kind: "provider", owner: 587 },
   { id: "tick-tabless-watchers", file: "background/tickRun.ts", site: "runTick", lock: "withStateLock", call: "reconcileTablessWatchers(", kind: "provider", owner: 586 },
   { id: "tick-channel-points-push", file: "background/tickRun.ts", site: "runTick", lock: "withStateLock", call: "reconcileTwitchChannelPointsPush(", kind: "provider", owner: 590 },
 
@@ -86,7 +85,7 @@ export const LOCKED_IO_ALLOWLIST: readonly LockedIoEntry[] = [
 // under `adapters[platform]`, and in a function its caller runs under a lock.
 // The scan now recognizes all three. That was a correction to the baseline,
 // not new locked I/O.
-export const LOCKED_IO_ALLOWLIST_SIZE = 27;
+export const LOCKED_IO_ALLOWLIST_SIZE = 26;
 
 // Calls that count as locked I/O when they appear inside a lock: ports and
 // adapter methods that reach a provider, a tab or a timer, and the controller
@@ -105,7 +104,7 @@ export const LOCKED_IO_CALLS = [
   "integrityPort.ensure", "port.ensure", "ports.twitch.integrity?.cancelAcquisition", "supplementalSources.select",
   "ports.credentials?.checkAvailability", "wait", "options.selectSupplementalWatchTarget",
   "claimReadyRewards", "stopPageContextTabs", "applyAdFocusForState", "reconcileTablessWatchers",
-  "reconcileDiscoverySignalControllers", "reconcileTwitchChannelPointsPush", "stopDiscoverySignalController",
+  "reconcileDiscoverySignalControllers", "reconcileDiscoverySignalsAfterCommit", "reconcileTwitchChannelPointsPush", "stopDiscoverySignalController",
   "stopDiscoverySignalControllers", "stopTwitchChannelPointsPush", "ensureSchedulerAlarms",
   "reconcileManualWatchClaimAlarms", "reconcileTwitchChannelPointsAlarm", "scheduleTwitchIntegrityRefresh",
   "scheduleTwitchIntegrityRefreshBestEffort", "clearTwitchIntegrityAlarm", "clearTwitchIntegrityAlarmBestEffort",
