@@ -519,6 +519,7 @@ describe("background controller", () => {
       },
     });
     const discoveryState = new KickDiscoveryState();
+    let discovered = false;
     env.deps.createAdapter.mockImplementation((platform, emit, settings) => {
       const kick = kickAdapter(createKickFetcher({
         routeState: discoveryState.routeDiagnostics,
@@ -526,18 +527,25 @@ describe("background controller", () => {
           if (url.endsWith("/user")) return { id: 42 };
           throw new KickWafBlockedError("secret");
         },
-        pageFetch: async () => ({ data: [] }),
+        pageFetch: async () => {
+          discovered = true;
+          return { data: [] };
+        },
         onPageFallback: () => { throw new Error("secret lifecycle"); },
       }), undefined, emit, { discoveryState });
-      // Simulate a host capability becoming unavailable during reconciliation,
-      // after network discovery but before scheduler publication.
-      Object.defineProperty(kick, "createDiscoverySignalController", { get: () => { throw new Error("publication failed"); } });
       return {
         adapter: platform === "kick" ? kick : env.twitch,
         ...resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" }),
       };
     });
-    await env.controller.tick(["kick"]);
+    // Every state save fails once network discovery has run, so the tick
+    // cannot publish its state.
+    const save = env.deps.saveState.getMockImplementation()!;
+    env.deps.saveState.mockImplementation(async (next) => {
+      if (discovered) throw new Error("publication failed");
+      await save(next);
+    });
+    await expect(env.controller.tick(["kick"])).rejects.toThrow("publication failed");
     const diagnostics = allDiagnostics(env);
     expect(diagnostics.some((event) => event.code === "kick_fetch_route" && event.message.includes("using page tab"))).toBe(true);
     expect(diagnostics.filter((event) => event.code === "kick_fetch_lifecycle_failed").length).toBeGreaterThanOrEqual(2);

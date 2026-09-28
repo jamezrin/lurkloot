@@ -4,7 +4,6 @@ import type { PlatformAdapter } from "../platforms/adapter";
 import type { DiscoverySignalController } from "../core/discoverySignals";
 import { PLATFORMS } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
-import { emitHostCallbackError } from "./helpers";
 import type { BackgroundHostPorts } from "./hostPorts";
 import type { ControllerCalls, DiscoverySignalRefreshRequest } from "./types";
 
@@ -27,6 +26,8 @@ export function createDiscoverySignals<S extends EngineSettings>(
   | "stopDiscoverySignalControllersAndReport"
   | "stopDiscoverySignalControllersInBackground"
   | "reconcileDiscoverySignalControllers"
+  | "reconcileDiscoverySignalsAfterCommit"
+  | "discoverySignalEpochs"
   | "invalidateDiscoverySignalAdmission"
   | "discoverySignalRefreshAllowed"
   | "reserveDiscoverySignalAuthRefresh"
@@ -42,31 +43,17 @@ export function createDiscoverySignals<S extends EngineSettings>(
     withEventCollector,
   } = lateBound(calls);
 
-  function drainDiscoverySignalEvents(
-    controller: DiscoverySignalController,
-    emit: EventEmitter,
-  ): void {
-    for (const event of controller.drainEvents()) emit(event);
+  function discoverySignalObserver(platform: Platform): DiscoverySignalController | undefined {
+    return signalSlice.discoverySignalSlots[platform].current;
   }
 
   async function stopDiscoverySignalController(
     platform: Platform,
     emit: EventEmitter,
   ): Promise<void> {
-    invalidateDiscoverySignalAdmission(platform);
-    const controller = signalSlice.discoverySignalControllers.get(platform);
-    if (!controller) return;
-    // Delete before awaiting host cleanup so a callback captured by an obsolete
-    // controller cannot enqueue work while its socket/timer teardown finishes.
-    signalSlice.discoverySignalControllers.delete(platform);
-    drainDiscoverySignalEvents(controller, emit);
-    try {
-      await controller.stop();
-    } catch (error) {
-      emitHostCallbackError(emit, platform, error, "Could not stop the discovery signal observer");
-    } finally {
-      drainDiscoverySignalEvents(controller, emit);
-    }
+    await signalSlice.discoverySignalSlots[platform].stop(emit, {
+      onChange: () => invalidateDiscoverySignalAdmission(platform),
+    });
   }
 
   async function stopDiscoverySignalControllers(
@@ -101,79 +88,70 @@ export function createDiscoverySignals<S extends EngineSettings>(
     tickSlice.backgroundWork = tickSlice.backgroundWork.then(() => run, () => run);
   }
 
+  // Starts or stops each platform's observer for `state`. `since` holds each
+  // slot's epoch read before `state` was: a stop in between (an auth
+  // transition, a removed tab) means `state` is out of date, so the observer is
+  // not created, or is stopped again once its start finishes.
   async function reconcileDiscoverySignalControllers(
     state: SchedulerState,
     settings: EngineSettings,
     adapters: Record<Platform, PlatformAdapter>,
     emit: EventEmitter,
-    platforms?: Platform[],
+    platforms: readonly Platform[] = PLATFORMS,
+    since: Partial<Record<Platform, number>> = {},
   ): Promise<void> {
-    const targets = platforms ?? PLATFORMS;
-    for (const platform of targets) {
+    for (const platform of platforms) {
+      const slot = signalSlice.discoverySignalSlots[platform];
       const session = state.sessions[platform];
-      const adapter = adapters[platform];
-      const factory = adapter.createDiscoverySignalController;
-      const wanted = signalSlice.discoverySignalLifecycleOpen
-        && !signalSlice.discoverySignalPlatformBlocked[platform]
-        && settings.platform[platform].enabled
-        && state.authHealth[platform].status === "healthy"
-        && session.status === "watching"
-        && Boolean(session.channel)
-        && Boolean(factory);
-      const existing = signalSlice.discoverySignalControllers.get(platform);
-
-      if (!wanted || !session.channel || !factory) {
-        if (existing) await stopDiscoverySignalController(platform, emit);
-        continue;
-      }
-
-      let controller = existing;
-      if (!controller) {
-        try {
-          controller = factory();
-          invalidateDiscoverySignalAdmission(platform);
-          signalSlice.discoverySignalControllers.set(platform, controller);
-        } catch (error) {
-          emitHostCallbackError(emit, platform, error, "Could not create the discovery signal observer");
-          continue;
-        }
-      }
-
-      drainDiscoverySignalEvents(controller, emit);
-      try {
-        await controller.start(
-          { platform, channel: session.channel },
+      const channel = session.channel;
+      await slot.reconcile({
+        wanted: !signalSlice.discoverySignalPlatformBlocked[platform]
+          && settings.platform[platform].enabled
+          && state.authHealth[platform].status === "healthy"
+          && session.status === "watching"
+          && Boolean(channel),
+        factory: adapters[platform].createDiscoverySignalController,
+        open: () => signalSlice.discoverySignalLifecycleOpen && !lifecycleSlice.controllerShutdown,
+        since: since[platform] ?? slot.epoch,
+        emit,
+        onChange: () => invalidateDiscoverySignalAdmission(platform),
+        start: (controller) => controller.start(
+          { platform, channel: channel! },
           () => {
-            if (signalSlice.discoverySignalControllers.get(platform) !== controller) return;
+            if (discoverySignalObserver(platform) !== controller) return;
             queueDiscoverySignalRefresh(platform, controller);
           },
-        );
-      } catch (error) {
-        emitHostCallbackError(emit, platform, error, "Could not start the discovery signal observer");
-      } finally {
-        drainDiscoverySignalEvents(controller, emit);
-      }
+        ),
+      });
+    }
+  }
 
-      // Reset/shutdown/disable cleanup can race a host controller whose start()
-      // awaits transport setup. Teardown wins, and the just-finished obsolete
-      // start must not retain its callback or transport.
-      if (
-        signalSlice.discoverySignalControllers.get(platform) !== controller
-        || !signalSlice.discoverySignalLifecycleOpen
-        || lifecycleSlice.controllerShutdown
-      ) {
-        if (signalSlice.discoverySignalControllers.get(platform) === controller) {
-          invalidateDiscoverySignalAdmission(platform);
-          signalSlice.discoverySignalControllers.delete(platform);
-        }
-        try {
-          await controller.stop();
-        } catch (error) {
-          emitHostCallbackError(emit, platform, error, "Could not stop the discovery signal observer");
-        } finally {
-          drainDiscoverySignalEvents(controller, emit);
-        }
-      }
+  // Each platform's slot epoch, read where the state the observers follow is
+  // committed, under its lock.
+  function discoverySignalEpochs(platforms: readonly Platform[]): Partial<Record<Platform, number>> {
+    return Object.fromEntries(platforms.map((platform) =>
+      [platform, signalSlice.discoverySignalSlots[platform].epoch]));
+  }
+
+  // After a tick commits (#587), with no lock held: reconciles against the
+  // state the tick committed. A stop since the commit (auth transition, removed
+  // tab, disabled platform) bumps the epoch, so the observer backs off.
+  async function reconcileDiscoverySignalsAfterCommit(
+    committed: SchedulerState,
+    since: Partial<Record<Platform, number>>,
+    settings: EngineSettings,
+    adapters: Record<Platform, PlatformAdapter>,
+    emit: EventEmitter,
+    platforms: readonly Platform[],
+  ): Promise<void> {
+    try {
+      await reconcileDiscoverySignalControllers(committed, settings, adapters, emit, platforms, since);
+    } catch (error) {
+      diagnosticEvent(
+        "warn",
+        `Discovery signal observer reconcile failed: ${error instanceof Error ? error.message : String(error)}`,
+        platforms.length === 1 ? platforms[0] : undefined,
+      );
     }
   }
 
@@ -196,7 +174,7 @@ export function createDiscoverySignals<S extends EngineSettings>(
       && !signalSlice.discoverySignalPlatformBlocked[platform]
       && signalSlice.discoverySignalAuthRefreshes[platform] === 0
       && signalSlice.discoverySignalAdmissionGeneration[platform] === request.generation
-      && signalSlice.discoverySignalControllers.get(platform) === request.controller;
+      && discoverySignalObserver(platform) === request.controller;
   }
 
   function reserveDiscoverySignalAuthRefresh(platform: Platform): () => void {
@@ -284,6 +262,8 @@ export function createDiscoverySignals<S extends EngineSettings>(
     stopDiscoverySignalControllersAndReport,
     stopDiscoverySignalControllersInBackground,
     reconcileDiscoverySignalControllers,
+    reconcileDiscoverySignalsAfterCommit,
+    discoverySignalEpochs,
     invalidateDiscoverySignalAdmission,
     discoverySignalRefreshAllowed,
     reserveDiscoverySignalAuthRefresh,

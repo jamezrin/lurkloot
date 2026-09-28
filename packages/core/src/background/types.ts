@@ -370,7 +370,17 @@ export interface ControllerCalls<S extends EngineSettings> {
     settings: EngineSettings,
     adapters: Record<Platform, PlatformAdapter>,
     emit: EventEmitter,
-    platforms?: Platform[],
+    platforms?: readonly Platform[],
+    since?: Partial<Record<Platform, number>>,
+  ): Promise<void>;
+  discoverySignalEpochs(platforms: readonly Platform[]): Partial<Record<Platform, number>>;
+  reconcileDiscoverySignalsAfterCommit(
+    committed: SchedulerState,
+    since: Partial<Record<Platform, number>>,
+    settings: EngineSettings,
+    adapters: Record<Platform, PlatformAdapter>,
+    emit: EventEmitter,
+    platforms: readonly Platform[],
   ): Promise<void>;
   invalidateDiscoverySignalAdmission(platform: Platform): void;
   discoverySignalRefreshAllowed(platform: Platform, request: DiscoverySignalRefreshRequest): boolean;
