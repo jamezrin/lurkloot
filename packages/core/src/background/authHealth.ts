@@ -17,22 +17,21 @@ import type { ControllerCalls, TickAdapterHandle, TickDiagnosticContext } from "
 // — left the wait and its tab running unowned behind it.
 const DEFAULT_AUTH_PROBE_TIMEOUT_MS = INTEGRITY_REFRESH_TIMEOUT_MS + 5_000;
 
-// Auth health probes, refreshes and invalidation.
+// The auth-health service (#595): each platform's probes, refreshes and
+// invalidation. Auth transitions are commits; the services that depend on auth
+// react to them from their own after-commit hooks, so nothing here calls into
+// them.
 export function createAuthHealth<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
-  { authSlice, discoverySlice }: Pick<ControllerSlices<S>, "authSlice" | "discoverySlice">,
+  { discoverySlice }: Pick<ControllerSlices<S>, "discoverySlice">,
   calls: Pick<ControllerCalls<S>,
     | "createAdapter"
     | "diagnosticEvent"
     | "invalidateSelection"
     | "commitState"
-    | "persistAndReport"
     | "reportBestEffort"
     | "reserveDiscoverySignalAuthRefresh"
-    | "saveOperationalState"
-    | "stopDiscoverySignalController"
-    | "stopTwitchChannelPointsPush"
-    | "abortTwitchChannelPointsClaims"
+    | "settleCommitHooks"
     | "withEventCollector"
     | "withStateLock"
   >,
@@ -48,16 +47,16 @@ export function createAuthHealth<S extends EngineSettings>(
     diagnosticEvent,
     invalidateSelection,
     commitState,
-    persistAndReport,
     reportBestEffort,
     reserveDiscoverySignalAuthRefresh,
-    saveOperationalState,
-    stopDiscoverySignalController,
-    stopTwitchChannelPointsPush,
-    abortTwitchChannelPointsClaims,
+    settleCommitHooks,
     withEventCollector,
     withStateLock,
   } = lateBound(calls);
+
+  // Bumped when a probe or refresh starts; a result from an older generation
+  // was superseded and is dropped. Only read and bumped under the platform lock.
+  const refreshGeneration: Record<Platform, number> = { twitch: 0, kick: 0 };
 
   async function probeAuthHealth(
     platform: Platform,
@@ -137,20 +136,13 @@ export function createAuthHealth<S extends EngineSettings>(
     tickContext?: TickDiagnosticContext,
   ): Promise<boolean> {
     return withStateLock(() => withEventCollector(async (emit, events) => {
-      if (authSlice.authRefreshGeneration[platform] !== generation) return false;
+      if (refreshGeneration[platform] !== generation) return false;
       events.push(...probeEvents);
       await commitState([platform], undefined, (state) => {
         const transition = applyPlatformAuthHealth(state, platform, health);
         if (transition.event) emit(transition.event);
         return transition.state;
       }, { writeEquivalent: true });
-      if (health.status !== "healthy") {
-        await stopDiscoverySignalController(platform, emit);
-        if (platform === "twitch") {
-          abortTwitchChannelPointsClaims("Twitch authentication lost");
-          await stopTwitchChannelPointsPush(emit);
-        }
-      }
       await reportBestEffort(tickContext
         ? correlateTickDiagnostics(events, tickContext)
         : events);
@@ -162,8 +154,8 @@ export function createAuthHealth<S extends EngineSettings>(
     return withStateLock(async () => {
       const generations: Partial<Record<Platform, number>> = {};
       for (const platform of platforms) {
-        authSlice.authRefreshGeneration[platform] += 1;
-        generations[platform] = authSlice.authRefreshGeneration[platform];
+        refreshGeneration[platform] += 1;
+        generations[platform] = refreshGeneration[platform];
       }
       return generations;
     }, platforms);
@@ -268,12 +260,14 @@ export function createAuthHealth<S extends EngineSettings>(
     throwRefreshFailures(results);
   }
 
+  // A setup failure is only reported once its "unavailable" health was
+  // committed (refreshAuthHealth), so dependents have already reacted to it
+  // from their after-commit hooks; this only publishes the interruption.
   async function reportAuthSetupFailures(
     failures: readonly AuthProbeSetupError[],
     tickContext?: TickDiagnosticContext,
   ): Promise<void> {
-    await withStateLock(() => withEventCollector(async (emit, events) => {
-      const state = await ports.storage.loadState();
+    await withEventCollector(async (emit, events) => {
       for (const failure of failures) {
         emit({
           category: "activity",
@@ -282,25 +276,20 @@ export function createAuthHealth<S extends EngineSettings>(
           platform: failure.platform,
           data: { reason: "platform_error", detail: failure.message },
         });
-        await stopDiscoverySignalController(failure.platform, emit);
-        if (failure.platform === "twitch") {
-          abortTwitchChannelPointsClaims("Twitch authentication lost");
-          await stopTwitchChannelPointsPush(emit);
-        }
       }
-      await persistAndReport(
-        state,
-        tickContext ? correlateTickDiagnostics(events, tickContext) : events,
-      );
-    }));
+      await reportBestEffort(tickContext ? correlateTickDiagnostics(events, tickContext) : events);
+    });
   }
 
+  // The host's entry points resolve once dependents have reacted to the
+  // transition: the platform's after-commit hooks have run.
   async function checkAuthHealth(platform: Platform): Promise<void> {
     const releaseDiscoverySignalAuthRefresh = reserveDiscoverySignalAuthRefresh(platform);
     try {
       await refreshAuthHealth([platform]);
     } finally {
       releaseDiscoverySignalAuthRefresh();
+      await settleCommitHooks([platform]);
     }
   }
 
@@ -314,20 +303,17 @@ export function createAuthHealth<S extends EngineSettings>(
       const settings = await ports.storage.loadSettings();
       if (!settings.platform[platform].enabled) return;
       await withStateLock(() => withEventCollector(async (emit, events) => {
-        if (generation === undefined || authSlice.authRefreshGeneration[platform] !== generation) return;
-        const state = await ports.storage.loadState();
-        const transition = applyPlatformAuthHealth(state, platform, { status: "checking" });
-        if (transition.event) emit(transition.event);
-        await saveOperationalState(transition.state);
-        await stopDiscoverySignalController(platform, emit);
-        if (platform === "twitch") {
-          abortTwitchChannelPointsClaims("Twitch authentication lost");
-          await stopTwitchChannelPointsPush(emit);
-        }
+        if (generation === undefined || refreshGeneration[platform] !== generation) return;
+        await commitState([platform], undefined, (state) => {
+          const transition = applyPlatformAuthHealth(state, platform, { status: "checking" });
+          if (transition.event) emit(transition.event);
+          return transition.state;
+        }, { writeEquivalent: true });
         await reportBestEffort(events);
-      }));
+      }), [platform]);
     } finally {
       releaseDiscoverySignalAuthRefresh();
+      await settleCommitHooks([platform]);
     }
   }
 

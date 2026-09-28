@@ -234,6 +234,38 @@ describe("state transaction", () => {
       expect(tracker.violations).toEqual([]);
     });
 
+    it("queues hooks per platform, so a held Twitch hook does not hold Kick's", async () => {
+      const { transaction } = store();
+      let release!: () => void;
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const seen: string[] = [];
+      transaction.onCommit(async (change) => {
+        const label = change.kind === "state" ? change.platforms.join("+") : "settings";
+        if (label === "twitch") await held;
+        seen.push(label);
+      });
+
+      await transaction.commit(["twitch"], undefined, (latest) => watching(latest, "twitch"));
+      await transaction.commit(["kick"], undefined, (latest) => ({
+        ...latest,
+        sessions: { ...latest.sessions, kick: { ...latest.sessions.kick, message: "kick" } },
+      }));
+      await transaction.settleCommitHooks(["kick"]);
+      expect(seen).toEqual(["kick"]);
+      // A settings commit's hooks wait behind every platform's.
+      await transaction.withSettingsLock(async () => {
+        await transaction.saveSettingsCommit(await transaction.prepareSettingsCommit(() => ({ priorityMode: "lowest_availability" })));
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(seen).toEqual(["kick"]);
+
+      release();
+      await transaction.settleCommitHooks();
+      expect(seen).toEqual(["kick", "twitch", "settings"]);
+    });
+
     it("stops calling a hook once it is unregistered and survives a failing hook", async () => {
       const { transaction } = store();
       const failing = vi.fn(() => {

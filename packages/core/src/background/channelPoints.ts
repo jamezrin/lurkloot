@@ -9,6 +9,7 @@ import { TWITCH_CHANNEL_POINTS_ALARM_NAME } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
 import { emitHostCallbackError } from "./helpers";
 import type { BackgroundHostPorts } from "./hostPorts";
+import type { StateTransaction } from "./stateTransaction";
 import type { BackgroundJob } from "./jobs";
 import { ObserverSlot } from "./observerSlot";
 import type { TickEffectExecutor } from "./tickEffects";
@@ -86,6 +87,7 @@ export const TWITCH_CHANNEL_POINTS_JOBS: Readonly<Record<string, BackgroundJob>>
 // effect and the one-minute job. Their state is this service's own.
 export function createChannelPoints<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
+  transaction: Pick<StateTransaction<S>, "onCommit">,
   { tickSlice, lifecycleSlice }: Pick<ControllerSlices<S>, "tickSlice" | "lifecycleSlice">,
   calls: Pick<ControllerCalls<S>,
     | "createAdapter"
@@ -126,6 +128,19 @@ export function createChannelPoints<S extends EngineSettings>(
   function abortTwitchChannelPointsClaims(reason: string): void {
     for (const operation of claimOperations) operation.abort(new Error(reason));
   }
+
+  // After a commit that leaves Twitch auth unhealthy (#595): logout, a
+  // rejected or unavailable probe, an account change being checked. The hook
+  // acts on the commit it observes even when auth was restored since, so an
+  // account change always ends the old viewer's work; a push restarted in
+  // between is started again by the next reconcile. Claims are aborted before
+  // any await.
+  transaction.onCommit(async (change) => {
+    if (change.kind !== "state" || !change.platforms.includes("twitch")) return;
+    if (change.state.authHealth.twitch.status === "healthy") return;
+    abortTwitchChannelPointsClaims("Twitch authentication lost");
+    await stopTwitchChannelPointsPushAndReport();
+  });
 
   function abortIneligibleTwitchChannelPointsClaims(settings: EngineSettings, reason: string): void {
     if (settings.platform.twitch.enabled && autoClaimChannelPointsFor(settings, "twitch")) return;

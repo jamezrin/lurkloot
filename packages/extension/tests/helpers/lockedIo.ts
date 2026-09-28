@@ -39,12 +39,6 @@ export const LOCKED_IO_ALLOWLIST: readonly LockedIoEntry[] = [
 
   // Auth transitions stop observers directly, under the platform lock (#595
   // replaces the calls with the observers' own after-commit hooks).
-  { id: "auth-persist-discovery-signal", file: "background/authHealth.ts", site: "persistAuthHealth", lock: "withStateLock", call: "stopDiscoverySignalController(", kind: "provider", owner: 595 },
-  { id: "auth-persist-channel-points", file: "background/authHealth.ts", site: "persistAuthHealth", lock: "withStateLock", call: "stopTwitchChannelPointsPush(", kind: "provider", owner: 595 },
-  { id: "auth-setup-discovery-signal", file: "background/authHealth.ts", site: "reportAuthSetupFailures", lock: "withStateLock", call: "stopDiscoverySignalController(", kind: "provider", owner: 595 },
-  { id: "auth-setup-channel-points", file: "background/authHealth.ts", site: "reportAuthSetupFailures", lock: "withStateLock", call: "stopTwitchChannelPointsPush(", kind: "provider", owner: 595 },
-  { id: "auth-invalidate-discovery-signal", file: "background/authHealth.ts", site: "invalidateAuthHealth", lock: "withStateLock", call: "stopDiscoverySignalController(", kind: "provider", owner: 595 },
-  { id: "auth-invalidate-channel-points", file: "background/authHealth.ts", site: "invalidateAuthHealth", lock: "withStateLock", call: "stopTwitchChannelPointsPush(", kind: "provider", owner: 595 },
 
   // Manual watch, playback and tab events.
   { id: "tab-removed-discovery-signals", file: "background/manualWatch.ts", site: "handleTabRemoved", lock: "withStateLock", call: "stopDiscoverySignalControllers(", kind: "provider", owner: 596 },
@@ -71,7 +65,7 @@ export const LOCKED_IO_ALLOWLIST: readonly LockedIoEntry[] = [
 // under `adapters[platform]`, and in a function its caller runs under a lock.
 // The scan now recognizes all three. That was a correction to the baseline,
 // not new locked I/O.
-export const LOCKED_IO_ALLOWLIST_SIZE = 16;
+export const LOCKED_IO_ALLOWLIST_SIZE = 10;
 
 // Calls that count as locked I/O when they appear inside a lock: ports and
 // adapter methods that reach a provider, a tab or a timer, and the controller
