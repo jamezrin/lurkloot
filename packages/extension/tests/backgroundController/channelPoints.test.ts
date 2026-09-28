@@ -451,6 +451,39 @@ describe("background controller", () => {
       expect(claimFailures(env)).toEqual([]);
     });
 
+    // An account change: the invalidation's hook can run after the recheck has
+    // already committed "healthy" for the new viewer. The hook still acts on
+    // the transition it observes, so the old viewer's claim is aborted (#595).
+    it("aborts the job's claim when the invalidation's hook runs after auth was rechecked healthy", async () => {
+      const env = harness(farming(DEFAULT_SETTINGS));
+      watchingTwitch(env);
+      const claim = hangingClaim(env);
+      const holding = deferred<void>();
+      const held = deferred<void>();
+      let blocked = false;
+      env.rawController.onCommit(async (change) => {
+        if (blocked || change.kind !== "state" || !change.platforms.includes("twitch")) return;
+        blocked = true;
+        holding.resolve();
+        await held.promise;
+      });
+
+      const job = env.controller.runTwitchChannelPointsClaim();
+      await vi.waitFor(() => expect(env.twitch.claimChannelPoints).toHaveBeenCalledOnce());
+      const firstCheck = env.controller.checkAuthHealth("twitch");
+      await holding.promise;
+      const invalidating = env.controller.invalidateAuthHealth("twitch");
+      await vi.waitFor(() => expect(env.state.authHealth.twitch.status).toBe("checking"));
+      const secondCheck = env.controller.checkAuthHealth("twitch");
+      await vi.waitFor(() => expect(env.state.authHealth.twitch.status).toBe("healthy"));
+      held.resolve();
+      await Promise.all([firstCheck, invalidating, secondCheck, job]);
+
+      expect(claim.signal()?.aborted).toBe(true);
+      expect((claim.signal()?.reason as Error).message).toBe("Twitch authentication lost");
+      expect(claimFailures(env)).toEqual([]);
+    });
+
     it("keeps the job's claim running through a save that leaves claiming on", async () => {
       const env = harness(farming(DEFAULT_SETTINGS));
       watchingTwitch(env);
@@ -808,6 +841,54 @@ describe("background controller", () => {
 
       expect(env.channelPointsPushFactory).not.toHaveBeenCalled();
       expect(env.channelPointsPushController.starts).toBe(0);
+    });
+
+    // Auth transitions reach the push through its after-commit hook (#595).
+    // A hook acts on the commit it observes, so one that runs late may stop a
+    // push restarted after auth recovered; the next reconcile starts it again.
+    it("restarts an observer that an older auth commit's late hook stopped", async () => {
+      const env = harness(pushSettings());
+      await startObserver(env);
+      const stopping = deferred<void>();
+      const stop = vi.spyOn(env.channelPointsPushController, "stop").mockImplementationOnce(() => stopping.promise);
+
+      const first = env.controller.invalidateAuthHealth("twitch");
+      await vi.waitFor(() => expect(stop).toHaveBeenCalledOnce());
+      const saves = env.deps.saveState.mock.calls.length;
+      const second = env.controller.invalidateAuthHealth("twitch");
+      await vi.waitFor(() => expect(env.deps.saveState.mock.calls.length).toBeGreaterThan(saves));
+      const checking = env.controller.checkAuthHealth("twitch");
+      await vi.waitFor(() => expect(env.state.authHealth.twitch.status).toBe("healthy"));
+      await env.controller.ensureAlarm();
+      await vi.waitFor(() => expect(env.channelPointsPushController.starts).toBe(2));
+
+      stopping.resolve();
+      await Promise.all([first, second, checking]);
+      await env.rawController.settleBackgroundWork();
+      expect(stop).toHaveBeenCalledTimes(2);
+
+      await env.controller.ensureAlarm();
+      await env.rawController.settleBackgroundWork();
+      expect(env.channelPointsPushController.starts).toBe(3);
+      expect(stop).toHaveBeenCalledTimes(2);
+    });
+
+    it("does not hold a Kick auth transition behind a Twitch observer that is still stopping", async () => {
+      const env = harness(pushSettings());
+      await startObserver(env);
+      const stopping = deferred<void>();
+      vi.spyOn(env.channelPointsPushController, "stop").mockImplementationOnce(() => stopping.promise);
+
+      const twitch = env.controller.invalidateAuthHealth("twitch");
+      await vi.waitFor(() => expect(env.channelPointsPushController.stop).toHaveBeenCalledOnce());
+      try {
+        await env.controller.invalidateAuthHealth("kick");
+        expect(env.state.authHealth.kick.status).toBe("checking");
+      } finally {
+        stopping.resolve();
+        await twitch;
+      }
+      expect(env.state.authHealth.twitch.status).toBe("checking");
     });
 
     it("starts the observer from the state a tick commits", async () => {

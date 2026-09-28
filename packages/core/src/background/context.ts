@@ -95,19 +95,6 @@ export async function claimExclusively<K extends string, T>(
   }
 }
 
-export interface AuthHealthSlice {
-  readonly authRefreshGeneration: Record<Platform, number>;
-}
-
-export function createAuthHealthSlice(): AuthHealthSlice {
-  return {
-    authRefreshGeneration: {
-      twitch: 0,
-      kick: 0,
-    },
-  };
-}
-
 export interface ClaimSlice {
   // In-flight post-claim handoffs, one per platform. A claim arriving while a
   // handoff is already running for that platform is absorbed by the running
@@ -269,7 +256,6 @@ export interface ControllerSlices<S extends EngineSettings> {
   reportingSlice: ReportingSlice;
   heartbeatSlice: HeartbeatSlice;
   kickChallengeSlice: KickChallengeSlice;
-  authSlice: AuthHealthSlice;
   claimSlice: ClaimSlice;
   signalSlice: DiscoverySignalSlice;
   discoverySlice: DiscoverySlice<S>;

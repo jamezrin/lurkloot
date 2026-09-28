@@ -125,19 +125,19 @@ The per-module slices and calls below are where #591's dependency check starts:
 | Module | Slices | Calls into | Provides |
 | --- | --- | --- | --- |
 | `stateTransaction.ts` | its own lock queues and hooks | none | the transaction (#585) |
-| `stateCommit.ts` | the transaction | `reporting` | 12 |
+| `stateCommit.ts` | the transaction | `reporting` | 13 |
 | `reporting.ts` | `reportingSlice` | `discovery` | 13 |
 | `tickAdmission.ts` | `reportingSlice`, `signalSlice`, `tickSlice`, `lifecycleSlice` | `claims`, `discovery`, `discoverySignals`, `reporting`, `stateCommit`, `tickRun` | 11 |
 | `tickRun.ts` | `claimSlice`, `discoverySlice`, `tickSlice`, `kickChallengeSlice` (their claim guards) | `authHealth`, `channelPoints`, `discovery`, `discoverySignals`, `heartbeat`, `kickChallenges`, `manualWatch`, `reporting`, `stateCommit`, `tickAdmission`, `twitchIntegrity` | 1 |
 | `discovery.ts` | its own `discoverySlice`, `lifecycleSlice` | `reporting`, `stateCommit` | 10 |
 | `heartbeat.ts` | `heartbeatSlice`, `tickSlice`, `lifecycleSlice` | `discovery`, `reporting`, `stateCommit`, `tickAdmission` | 7 |
 | `twitchIntegrity.ts` | its own state (lifecycle generation, persisted token, refresh due, the startup load; #589), `settingsSlice`, `lifecycleSlice`, the tab registry's token | `reporting`, `stateCommit` | 12 |
-| `channelPoints.ts` | its own push slot, claim gate and push-claim queue (#590), `tickSlice`, `lifecycleSlice` | `reporting`, `stateCommit` | 10 |
+| `channelPoints.ts` | its own push slot, claim gate and push-claim queue (#590), `tickSlice`, `lifecycleSlice`, a commit hook | `reporting`, `stateCommit` | 10 |
 | `kickChallenges.ts` | `kickChallengeSlice`, `lifecycleSlice` | `reporting`, `stateCommit` | 2 |
-| `authHealth.ts` | `authSlice`, `discoverySlice` | `channelPoints`, `discovery`, `discoverySignals`, `reporting`, `stateCommit` | 5 |
+| `authHealth.ts` | its own refresh generations (#595), `discoverySlice` | `discovery`, `discoverySignals`, `reporting`, `stateCommit` | 5 |
 | `manualWatch.ts` | none | `discovery`, `discoverySignals`, `reporting`, `stateCommit`, `tickAdmission` | 6 |
 | `claims.ts` | `kickChallengeSlice`, `claimSlice`, `lifecycleSlice` | `heartbeat`, `lifecycle`, `reporting`, `stateCommit`, `tickAdmission` | 8 |
-| `discoverySignals.ts` | `signalSlice`, `tickSlice`, `lifecycleSlice` | `reporting`, `tickAdmission` | 9 |
+| `discoverySignals.ts` | `signalSlice`, `tickSlice`, `lifecycleSlice`, a commit hook | `reporting`, `tickAdmission` | 9 |
 | `settingsTransitions.ts` | the transaction, `discoverySlice` | `channelPoints`, `claims`, `discovery`, `lifecycle`, `stateCommit`, `tickAdmission` | 2 |
 | `lifecycle.ts` | `signalSlice`, `discoverySlice`, `tickSlice`, `settingsSlice`, `lifecycleSlice` | `authHealth`, `channelPoints`, `claims`, `discovery`, `discoverySignals`, `heartbeat`, `reporting`, `settingsTransitions`, `stateCommit`, `tickAdmission`, `twitchIntegrity` | 8 |
 | `messages.ts` | `signalSlice`, `tickSlice`, `settingsSlice`, `lifecycleSlice` | `claims`, `discoverySignals`, `lifecycle`, `manualWatch`, `reporting`, `settingsTransitions`, `stateCommit`, `tickAdmission`, `twitchIntegrity` | 1 |
@@ -164,7 +164,7 @@ or settings, loaded and saved through the host's storage port (`storage.local` o
 | Tick admission (`tickAdmission`, `activeTicks`, `tickBatches`, `backgroundWork`) | In memory | `tick`, `tickInBackground`, `tickAndHandOff` | Disable, reset, shutdown | None | Empty | Both. Extension alarms and CLI intervals request ticks per platform |
 | Heartbeat lanes, watchers and publication leases (`heartbeatLanes`, `tablessWatchers`) | In memory, with the heartbeat cadence persisted in the session | `requestPlatformHeartbeat`, `reconcileTablessWatchers`, `commitHeartbeatResult` | Session changes, `clearHeartbeatOwnership`, shutdown | `withHeartbeatLane`, then a transaction commit **without** the platform lock | `reconcileStartup` releases ownership on both hosts | Both |
 | Discovery-signal controllers (`discoverySignalSlots`, one `ObserverSlot` per platform, gated by `lifecycleSlice.observersOpen`; a failed start is stopped and cleared, and the next tick starts a fresh observer) | In memory | `reconcileDiscoverySignalsAfterCommit` (from `runTick`, after its commit, against the committed state; a stop since the commit bumps the slot's epoch, so the observer backs off) | Auth transitions, tab removal, settings, reset, shutdown | None | Recreated by the next tick | Both, when the adapter provides a factory |
-| Auth health (`authHealth`, `authRefreshGeneration`) | Health persisted, generations in memory | `probeAuthHealth`, `refreshAuthHealth`, `persistAuthHealth`, `invalidateAuthHealth` | A newer refresh generation | `persistAuthHealth` under the platform lock, then a transaction commit | Health reloaded, then re-probed | Both. Credentials come from cookies (extension) or the credential store (CLI) |
+| Auth health (`authHealth`; the service's refresh generations) | Health persisted, generations in memory | `probeAuthHealth`, `refreshAuthHealth`, `persistAuthHealth`, `invalidateAuthHealth` | A newer refresh generation | `persistAuthHealth` under the platform lock, then a transaction commit; dependents react from their commit hooks (#595) | Health reloaded, then re-probed | Both. Credentials come from cookies (extension) or the credential store (CLI) |
 | Manual watch (`manualWatch`, `manualWatchTabs`, `manualClosePause`, playback telemetry) | Persisted | `recordPlaybackTelemetry`, `handleTabUpdated`, `handleTabRemoved`, `resumeAfterManualClose` | Tab events, resume, TTL | Platform lock | Reloaded | Extension only; the CLI has no tabs |
 | Settings (`twitchSettingsTransitionGeneration`) | Settings persisted, transition generation in memory | `commitSettings` (every popup write, `updateIdleWatchlist`), `normalizeStartupSettings` | Each settings commit. Its per-platform effect decides: `selection` (ranking-only, `isRankingOnlyPatch`) keeps discovery, `discovery` invalidates both | The transaction's settings lock | Reloaded and migrated (schema v7) | Both. The CLI's `saveSettings` is a no-op |
 | Page contexts and Kick recovery evidence | The controller's tab registry (`createTabRegistry`, one per controller; the extension host passes the one its tab mechanics write to), mirrored in persisted `managedPageContextTabs`. Recovery evidence in the extension host (`kickPageContextRecovery`) | The tick's `releasePageContexts` effect, `registerManagedPageContextTabs`, host fetch fallbacks | Release, reset, restart without auto-start | Copied into `SchedulerState` by the tick driver (`runSchedulerTickEffects`), never by the deciding code | Re-registered at startup when farming auto-starts | Extension only |
@@ -215,8 +215,6 @@ without being listed, or if a listed call has left its lock without the entry be
   straight over the discovery snapshot: it never joins another tick's selection run or goes
   through the testing selection hook, so it is not locked I/O (#587).
 - **Heartbeat lane:** `watcher.start` (#586).
-- **Auth transitions** stop the discovery-signal observer and the channel-points push directly
-  (#595).
 - **Tab events and playback:** stopping discovery signals on tab removal, ad focus on telemetry
   (#596).
 - **Claims outside the tick:** `claimRewardNow`, `runDropClaims` (which also refreshes campaigns) and
@@ -265,9 +263,23 @@ and never take the commit lock or call `saveState` themselves.
   settings or state commit, in registration order, with the committed change (`CommittedChange`).
   Hooks run after the locks guarding the commit are released. A hook that changes state makes its
   own commit, which is queued, never nested. They are a plain ordered list, not an event bus, and do
-  not rely on storage change events, which the CLI does not have. The tick (#587), auth (#595),
-  manual watch (#596) and the Twitch Extensions lane (#594) move onto them; #594 replaces the
-  extension host's `storage.onChanged` diffing with a hook on its settings and Twitch state changes.
+  not rely on storage change events, which the CLI does not have. Hooks queue per platform: a state
+  commit's hooks run in commit order behind earlier commits to the platforms it wrote, and a
+  settings commit's behind every platform's, so a Twitch hook that is still stopping an observer
+  never holds up Kick. `settleCommitHooks(platforms)` waits for them.
+- **Auth transitions (#595)** are commits. The channel-points push (and its job and push claims)
+  and the discovery-signal observers stop from their own commit hooks when the commit leaves the
+  platform's auth unhealthy. A hook acts on the commit it observes even if auth was restored since,
+  so an account change (invalidate, then a healthy recheck for the new viewer) always ends the old
+  viewer's work; an observer restarted in between is started again by the next reconcile. No
+  dependent needs a synchronous auth answer yet, so the service exposes no readiness query. The host's `invalidateAuthHealth` and `checkAuthHealth`, and a tick
+  after its auth refresh, wait for the platform's hooks, so the stops still finish first. The
+  auth service does not reference its dependents; it still closes discovery-signal admission
+  synchronously on invalidation (`reserveDiscoverySignalAuthRefresh`), which must happen before its
+  first await and so cannot wait for a hook. Manual watch (#596) and the Twitch Extensions lane
+  (#594) move onto hooks next; #594 replaces the extension host's `storage.onChanged` diffing, and
+  its Twitch-cookie `forgetCompletion` wrapper, with a hook on its settings and Twitch state
+  changes.
 
 The test suite enforces the model. The characterization and contract harnesses give the controller
 a lock tracker (`tests/helpers/lockTracker.ts`, backed by `AsyncLocalStorage`) and guard every

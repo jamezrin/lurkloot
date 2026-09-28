@@ -58,6 +58,7 @@ export function createTickRun<S extends EngineSettings>(
     | "selectionBypassesBackoff"
     | "selectionIsForced"
     | "selectionKey"
+    | "settleCommitHooks"
     | "stateRevision"
     | "tickInBackground"
     | "twitchChannelPointsPushEpoch"
@@ -94,6 +95,7 @@ export function createTickRun<S extends EngineSettings>(
     selectionBypassesBackoff,
     selectionIsForced,
     selectionKey,
+    settleCommitHooks,
     stateRevision,
     tickInBackground,
     twitchChannelPointsPushEpoch,
@@ -211,6 +213,9 @@ export function createTickRun<S extends EngineSettings>(
           }
           if (reportingFailure !== undefined) throw reportingFailure;
         }
+        // Dependents stop what the refreshed auth no longer allows from their
+        // after-commit hooks (#595); the tick goes on once they have.
+        await settleCommitHooks(authPlatforms);
       }
     }
     const schedulerPlatforms = requestedPlatforms.filter((platform) =>

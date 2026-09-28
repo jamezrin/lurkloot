@@ -3,7 +3,6 @@ import { createAuthHealth } from "./authHealth";
 import { createChannelPoints } from "./channelPoints";
 import { createClaims } from "./claims";
 import {
-  createAuthHealthSlice,
   createClaimSlice,
   createDiscoverySignalSlice,
   createHeartbeatSlice,
@@ -102,7 +101,6 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   const reportingSlice = createReportingSlice();
   const heartbeatSlice = createHeartbeatSlice();
   const kickChallengeSlice = createKickChallengeSlice();
-  const authSlice = createAuthHealthSlice();
   const claimSlice = createClaimSlice();
   const signalSlice = createDiscoverySignalSlice();
   const tickSlice = createTickAdmissionSlice();
@@ -117,12 +115,12 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     ...createStateCommit(transaction, calls),
     ...createHeartbeats(ports, { heartbeatSlice, tickSlice, lifecycleSlice, tabRegistry }, calls),
     ...createTwitchIntegrity(ports, { settingsSlice, lifecycleSlice, tabRegistry }, calls),
-    ...createChannelPoints(ports, { tickSlice, lifecycleSlice }, calls),
+    ...createChannelPoints(ports, transaction, { tickSlice, lifecycleSlice }, calls),
     ...createKickChallenges(ports, { kickChallengeSlice, lifecycleSlice }, calls),
-    ...createAuthHealth(ports, { authSlice, discoverySlice }, calls),
+    ...createAuthHealth(ports, { discoverySlice }, calls),
     ...createManualWatch(ports, { tabRegistry }, calls),
     ...createClaims(ports, { kickChallengeSlice, claimSlice, lifecycleSlice }, calls),
-    ...createDiscoverySignals(ports, { signalSlice, tickSlice, lifecycleSlice }, calls),
+    ...createDiscoverySignals(ports, transaction, { signalSlice, tickSlice, lifecycleSlice }, calls),
     ...discovery,
     ...createTickAdmission(ports, { reportingSlice, signalSlice, tickSlice, lifecycleSlice }, calls),
     ...createTickRun(ports, { claimSlice, discoverySlice, tickSlice, kickChallengeSlice, tabRegistry }, calls),

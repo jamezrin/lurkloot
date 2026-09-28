@@ -5,11 +5,13 @@ import type { DiscoverySignalController } from "../core/discoverySignals";
 import { PLATFORMS } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
 import type { BackgroundHostPorts } from "./hostPorts";
+import type { StateTransaction } from "./stateTransaction";
 import type { ControllerCalls, DiscoverySignalRefreshRequest } from "./types";
 
 // Discovery-signal controllers and the refreshes they request.
 export function createDiscoverySignals<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
+  transaction: Pick<StateTransaction<S>, "onCommit">,
   { signalSlice, tickSlice, lifecycleSlice }: Pick<ControllerSlices<S>, "signalSlice" | "tickSlice" | "lifecycleSlice">,
   calls: Pick<ControllerCalls<S>,
     | "completeTickAndHandOff"
@@ -42,6 +44,16 @@ export function createDiscoverySignals<S extends EngineSettings>(
     tickTriggerSummary,
     withEventCollector,
   } = lateBound(calls);
+
+  // After a commit that leaves a platform's auth unhealthy (#595), its
+  // observer stops, even when auth was restored since (an account change); an
+  // observer restarted in between is started again by the next reconcile.
+  transaction.onCommit(async (change) => {
+    if (change.kind !== "state") return;
+    const { state } = change;
+    const platforms = change.platforms.filter((platform) => state.authHealth[platform].status !== "healthy");
+    if (platforms.length > 0) await stopDiscoverySignalControllersAndReport(platforms);
+  });
 
   function discoverySignalObserver(platform: Platform): DiscoverySignalController | undefined {
     return signalSlice.discoverySignalSlots[platform].current;

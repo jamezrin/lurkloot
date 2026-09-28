@@ -137,7 +137,13 @@ export function createStateTransaction<S extends EngineSettings>(ports: StateTra
     commit: Promise.resolve(),
   };
   const hooks: CommitHook<S>[] = [];
-  let hookQueue: Promise<void> = Promise.resolve();
+  // One hook queue per platform. A state commit's hooks queue on the lanes of
+  // the platforms it wrote, a settings commit's on every lane, so hooks for one
+  // platform's commits run in commit order and never wait on the other's.
+  const hookLanes: Record<Platform, Promise<void>> = {
+    twitch: Promise.resolve(),
+    kick: Promise.resolve(),
+  };
 
   // Checks the lock order for the calling operation and returns `operation`
   // wrapped to run as holding `lock` as well.
@@ -229,7 +235,10 @@ export function createStateTransaction<S extends EngineSettings>(ports: StateTra
         }
       }
     };
-    hookQueue = hookQueue.then(() => (tracker ? tracker.run([], run) : run()));
+    const lanes = change.kind === "state" ? change.platforms : PLATFORMS;
+    const previous = Promise.all(lanes.map((lane) => hookLanes[lane]));
+    const queued = previous.then(() => (tracker ? tracker.run([], run) : run()));
+    for (const lane of lanes) hookLanes[lane] = queued;
   }
 
   function onCommit(hook: CommitHook<S>): () => void {
@@ -423,9 +432,10 @@ export function createStateTransaction<S extends EngineSettings>(ports: StateTra
     return tracker ? tracker.run([], operation) : operation();
   }
 
-  // Resolves once every hook for the commits made so far has run.
-  function settleCommitHooks(): Promise<void> {
-    return hookQueue;
+  // Resolves once every hook for the commits made so far to `platforms` (by
+  // default, every platform) has run.
+  async function settleCommitHooks(platforms: readonly Platform[] = PLATFORMS): Promise<void> {
+    await Promise.all(platforms.map((platform) => hookLanes[platform]));
   }
 
   return {

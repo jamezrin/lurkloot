@@ -265,6 +265,9 @@ export interface ControllerCalls<S extends EngineSettings> {
     onPersisted?: (state: SchedulerState) => void,
   ): Promise<boolean>;
   saveOperationalState(state: SchedulerState): Promise<void>;
+  // Resolves once every after-commit hook for the commits made so far to
+  // `platforms` (by default, every platform) has run.
+  settleCommitHooks(platforms?: readonly Platform[]): Promise<void>;
 
   // heartbeat.ts
   releaseHeartbeatPublicationLease(platform: Platform, lease: HeartbeatPublicationLease): Promise<void>;
