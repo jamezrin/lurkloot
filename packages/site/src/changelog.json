@@ -1,5 +1,26 @@
 [
   {
+    "version": "1.15.0",
+    "changes": [
+      {
+        "kind": "improved",
+        "text": "Claiming a reward or opening and closing a watch tab no longer holds up everything else Lurkloot is tracking, so playback, heartbeats and tab changes are recorded as they happen instead of queueing behind them. A reward claimed just before Lurkloot switched to another target is now still recorded and shown in Activity."
+      },
+      {
+        "kind": "improved",
+        "text": "When the CLI starts, it now cleans up after the previous run the same way the extension does after a browser restart. A watch that was still running is paused and picked up again by the first check, instead of resuming the old process’s heartbeat schedule."
+      },
+      {
+        "kind": "improved",
+        "text": "The CLI no longer refuses to start when its config sets tablessMode, for example in settings copied from the extension. The CLI has no browser tabs and always watches without one, so the setting is ignored with a warning."
+      },
+      {
+        "kind": "fixed",
+        "text": "When heartbeats kept failing, the CLI tried to fall back to a watch tab it cannot open and then failed on every check. It now keeps watching without a tab, and a channel that stops earning drop progress is still switched out as before."
+      }
+    ]
+  },
+  {
     "version": "1.14.0",
     "changes": [
       {
