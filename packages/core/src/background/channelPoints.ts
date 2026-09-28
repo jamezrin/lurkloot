@@ -30,9 +30,8 @@ function eligibleTwitchChannelPointsChannel(
 // Twitch channel points: the push observer, its claims and the one-minute job.
 export function createChannelPoints<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
-  { channelPointsSlice, signalSlice, tickSlice, lifecycleSlice }: Pick<ControllerSlices<S>,
+  { channelPointsSlice, tickSlice, lifecycleSlice }: Pick<ControllerSlices<S>,
     | "channelPointsSlice"
-    | "signalSlice"
     | "tickSlice"
     | "lifecycleSlice"
   >,
@@ -131,7 +130,7 @@ export function createChannelPoints<S extends EngineSettings>(
     state: SchedulerState,
     factory: PlatformAdapter["createChannelPointsPushController"],
   ): boolean {
-    return signalSlice.discoverySignalLifecycleOpen
+    return lifecycleSlice.observersOpen
       && !lifecycleSlice.controllerShutdown
       && settings.platform.twitch.enabled
       && autoClaimChannelPointsFor(settings, "twitch")
@@ -179,7 +178,7 @@ export function createChannelPoints<S extends EngineSettings>(
 
     if (
       channelPointsSlice.twitchChannelPointsPush !== controller
-      || !signalSlice.discoverySignalLifecycleOpen
+      || !lifecycleSlice.observersOpen
       || lifecycleSlice.controllerShutdown
     ) {
       if (channelPointsSlice.twitchChannelPointsPush === controller) channelPointsSlice.twitchChannelPointsPush = undefined;
@@ -199,7 +198,7 @@ export function createChannelPoints<S extends EngineSettings>(
       try {
         if (
           lifecycleSlice.controllerShutdown
-          || !signalSlice.discoverySignalLifecycleOpen
+          || !lifecycleSlice.observersOpen
           || !settings.platform.twitch.enabled
           || !autoClaimChannelPointsFor(settings, "twitch")
           || !settings.platform.twitch.channelPointsPushClaim

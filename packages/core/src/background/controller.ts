@@ -121,7 +121,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     ...createStateCommit(transaction, calls),
     ...createHeartbeats(ports, { heartbeatSlice, tickSlice, lifecycleSlice, tabRegistry }, calls),
     ...createTwitchIntegrity(ports, { integritySlice, settingsSlice, lifecycleSlice, tabRegistry }, calls),
-    ...createChannelPoints(ports, { channelPointsSlice, signalSlice, tickSlice, lifecycleSlice }, calls),
+    ...createChannelPoints(ports, { channelPointsSlice, tickSlice, lifecycleSlice }, calls),
     ...createKickChallenges(ports, { kickChallengeSlice, lifecycleSlice }, calls),
     ...createAuthHealth(ports, { authSlice, discoverySlice }, calls),
     ...createManualWatch(ports, { tabRegistry }, calls),
@@ -131,7 +131,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     ...createTickAdmission(ports, { reportingSlice, integritySlice, signalSlice, tickSlice, lifecycleSlice }, calls),
     ...createTickRun(ports, { claimSlice, discoverySlice, tickSlice, kickChallengeSlice, channelPointsSlice, tabRegistry }, calls),
     ...createSettingsTransitions(transaction, { discoverySlice }, calls),
-    ...createLifecycle(ports, { integritySlice, signalSlice, discoverySlice, tickSlice, settingsSlice, lifecycleSlice, tabRegistry }, calls),
+    ...createLifecycle(ports, { integritySlice, discoverySlice, tickSlice, settingsSlice, lifecycleSlice, tabRegistry }, calls),
     ...createMessageHandler(ports, { integritySlice, signalSlice, tickSlice, settingsSlice, lifecycleSlice, tabRegistry }, calls),
   } satisfies ControllerCalls<S>);
 

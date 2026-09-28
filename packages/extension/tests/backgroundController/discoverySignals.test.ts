@@ -181,20 +181,22 @@ describe("discovery signal lifecycle", () => {
     expect(env.kick.refreshCampaigns).not.toHaveBeenCalled();
   });
 
-  // Pins today's failed-start handling (#587): the observer is kept and its
-  // start() is retried on the next tick, on the same instance.
-  it("keeps an observer whose start failed and starts it again on the next tick", async () => {
+  // #587 (behavior change): an observer whose start failed is stopped and
+  // cleared, and the next tick creates a fresh one, as the channel-points push
+  // always has. It used to be kept and started again on the same instance.
+  it("stops an observer whose start failed and creates a fresh one on the next tick", async () => {
     const env = harness(kickOnlySettings());
     configureKickDiscoverySession(env);
     vi.spyOn(env.discoverySignalController, "start").mockRejectedValueOnce(new Error("observer start failed"));
 
     await env.controller.tick(["kick"], "manual_tick");
-    expect(env.discoverySignalController.stops).toBe(0);
+    expect(env.discoverySignalController.stops).toBe(1);
     await env.controller.tick(["kick"], "manual_tick");
 
-    expect(env.kick.createDiscoverySignalController).toHaveBeenCalledOnce();
+    expect(env.kick.createDiscoverySignalController).toHaveBeenCalledTimes(2);
     expect(env.discoverySignalController.start).toHaveBeenCalledTimes(2);
-    expect(env.discoverySignalController.stops).toBe(0);
+    expect(env.discoverySignalController.stops).toBe(1);
+    expect(env.discoverySignalController.targetKey).toBe("42");
   });
 
   // The observers are reconciled after the tick commits, with no lock held

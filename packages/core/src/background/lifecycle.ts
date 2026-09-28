@@ -62,10 +62,9 @@ function pausedStartupSession(session: WatchSession): WatchSession {
 // Startup, jobs, snapshot, shutdown and host reset.
 export function createLifecycle<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
-  { integritySlice, signalSlice, discoverySlice, tickSlice, settingsSlice, lifecycleSlice, tabRegistry }: Pick<ControllerSlices<S>,
+  { integritySlice, discoverySlice, tickSlice, settingsSlice, lifecycleSlice, tabRegistry }: Pick<ControllerSlices<S>,
     | "tabRegistry"
     | "integritySlice"
-    | "signalSlice"
     | "discoverySlice"
     | "tickSlice"
     | "settingsSlice"
@@ -264,7 +263,7 @@ export function createLifecycle<S extends EngineSettings>(
       discoverySlice.discoveryLanes[platform].stop();
       invalidateSelection(platform);
     }
-    signalSlice.discoverySignalLifecycleOpen = false;
+    lifecycleSlice.observersOpen = false;
     for (const platform of PLATFORMS) invalidateDiscoverySignalAdmission(platform);
     settingsSlice.twitchSettingsTransitionGeneration += 1;
     abortActiveTicks("Controller shutdown");
@@ -282,7 +281,7 @@ export function createLifecycle<S extends EngineSettings>(
 
   async function prepareForHostReset(resetHostStorage?: () => Promise<void>): Promise<void> {
     tickSlice.tickAdmissionSuspended = true;
-    signalSlice.discoverySignalLifecycleOpen = false;
+    lifecycleSlice.observersOpen = false;
     try {
       for (const platform of PLATFORMS) invalidateDiscoverySignalAdmission(platform);
       settingsSlice.twitchSettingsTransitionGeneration += 1;
@@ -344,7 +343,7 @@ export function createLifecycle<S extends EngineSettings>(
       }
     } finally {
       if (!lifecycleSlice.controllerShutdown) {
-        signalSlice.discoverySignalLifecycleOpen = true;
+        lifecycleSlice.observersOpen = true;
         tickSlice.tickAdmissionSuspended = false;
       }
     }

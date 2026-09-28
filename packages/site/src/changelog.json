@@ -17,6 +17,10 @@
       {
         "kind": "fixed",
         "text": "When heartbeats kept failing, the CLI tried to fall back to a watch tab it cannot open and then failed on every check. It now keeps watching without a tab, and a channel that stops earning drop progress is still switched out as before."
+      },
+      {
+        "kind": "fixed",
+        "text": "If the connection that listens for Kick flash drop announcements fails to open, Lurkloot now opens a fresh one on the next check instead of retrying the one that failed. This applies to both the extension and the CLI."
       }
     ]
   },
