@@ -10,6 +10,7 @@ import type { DiscoverySignalController } from "../core/discoverySignals";
 import type { DiscoverySnapshot, DiscoverySnapshotState } from "../core/discoverySnapshot";
 import { AuthProbeSetupError } from "./errors";
 import type { CommitGuard, CommitOptions, CommitResult, PreparedSettingsCommit } from "./stateTransaction";
+import type { TickEffectExecutor } from "./tickEffects";
 
 // Reward ids claimed during one tick, per platform. The post-claim handoff needs
 // the ids (not just the platforms) so it can tell a genuine successor from the
@@ -300,19 +301,22 @@ export interface ControllerCalls<S extends EngineSettings> {
   reconcileTwitchChannelPointsAlarm(settings: S): Promise<void>;
   stopTwitchChannelPointsPush(emit: EventEmitter): Promise<void>;
   stopTwitchChannelPointsPushAndReport(): Promise<void>;
+  rescheduleTwitchChannelPointsJob(): Promise<void>;
   stopTwitchChannelPointsPushInBackground(): void;
-  reconcileTwitchChannelPointsPush(
+  twitchChannelPointsPushEpoch(): number;
+  reconcileTwitchChannelPointsPushAfterCommit(
+    committed: SchedulerState,
+    since: number,
     settings: EngineSettings,
-    state: SchedulerState,
     adapter: PlatformAdapter,
     emit: EventEmitter,
   ): Promise<void>;
+  registerTwitchChannelPointsEffects(executor: TickEffectExecutor): TickEffectExecutor;
   runTwitchChannelPointsClaim(): Promise<void>;
 
   // kickChallenges.ts
   reconcilePageContextRecoveryAfterPersist(
     platforms: readonly Platform[],
-    settings: S,
     backgroundSuccessPlatforms: ReadonlySet<Platform>,
     tickContext: TickDiagnosticContext,
   ): Promise<void>;
@@ -371,7 +375,17 @@ export interface ControllerCalls<S extends EngineSettings> {
     settings: EngineSettings,
     adapters: Record<Platform, PlatformAdapter>,
     emit: EventEmitter,
-    platforms?: Platform[],
+    platforms?: readonly Platform[],
+    since?: Partial<Record<Platform, number>>,
+  ): Promise<void>;
+  discoverySignalEpochs(platforms: readonly Platform[]): Partial<Record<Platform, number>>;
+  reconcileDiscoverySignalsAfterCommit(
+    committed: SchedulerState,
+    since: Partial<Record<Platform, number>>,
+    settings: EngineSettings,
+    adapters: Record<Platform, PlatformAdapter>,
+    emit: EventEmitter,
+    platforms: readonly Platform[],
   ): Promise<void>;
   invalidateDiscoverySignalAdmission(platform: Platform): void;
   discoverySignalRefreshAllowed(platform: Platform, request: DiscoverySignalRefreshRequest): boolean;
@@ -392,6 +406,7 @@ export interface ControllerCalls<S extends EngineSettings> {
   selectionBackoffDue(platform: Platform, state: SchedulerState): boolean;
   invalidateSelection(platform: Platform): void;
   prepareSelection(input: SelectionInput<S>): Promise<CommittedSelection>;
+  reselectUnderLock(input: SelectionInput<S>): Promise<CommittedSelection>;
   selectionAlreadyCommitted(
     prepared: CommittedSelection,
     snapshot: DiscoverySnapshot,

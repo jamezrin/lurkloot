@@ -141,13 +141,12 @@ const CLI_COMPATIBILITY_KEYS: Record<Platform, Set<string>> = {
 
 // Settings that exist in the extension but are inert in the CLI's tabless path.
 // Called out by name so a config copy-pasted from the extension gets an
-// actionable error instead of a silently-ignored knob. `tablessMode` lives here
-// too: the CLI is always tabless. `running` is deliberately absent: it was
-// removed from the settings contract, so the schema migration strips it (with a
-// diagnostic) before this scan ever sees it.
+// actionable error instead of a silently-ignored knob. `running` is deliberately
+// absent: it was removed from the settings contract, so the schema migration
+// strips it (with a diagnostic) before this scan ever sees it. So is
+// `tablessMode`, which the CLI accepts and ignores (see withoutTablessMode).
 const EXTENSION_ONLY_KEYS = new Set<string>([
   "twitchExtensions",
-  "tablessMode",
   "muteFarmingTabs",
   "keepFarmingVideosUnmuted",
   "pauseOnManualWatch",
@@ -195,7 +194,24 @@ export function parseCliSettingsWithDiagnostics(raw: unknown): CliSettingsParseR
     throw new Error('Config "settings" must be a JSON object');
   }
   const migration = migrateSettings(raw);
-  return { settings: parseMigratedCliSettings(migration.settings, migration.diagnostics), diagnostics: migration.diagnostics };
+  const diagnostics = [...migration.diagnostics];
+  const settings = withoutTablessMode(migration.settings, diagnostics);
+  return { settings: parseMigratedCliSettings(settings, diagnostics), diagnostics };
+}
+
+// The CLI has no browser tabs, so the engine derives tabless watching from the
+// missing capability (#598) and `tablessMode` has nothing left to decide. A
+// config that still sets it, to either value, keeps loading: the key is dropped
+// with a warning instead of failing the whole config.
+function withoutTablessMode(value: Record<string, unknown>, diagnostics: SettingsMigrationDiagnostic[]): Record<string, unknown> {
+  if (!Object.hasOwn(value, "tablessMode")) return value;
+  const { tablessMode: _ignored, ...rest } = value;
+  diagnostics.push({
+    code: "deprecated_property",
+    path: "tablessMode",
+    message: '"tablessMode" is ignored: the CLI has no browser tabs, so it always watches tabless',
+  });
+  return rest;
 }
 
 export function parseCliSettings(raw: unknown): CliSettings {
@@ -400,16 +416,17 @@ function normalizePlatform(raw: EngineSettings["platform"] | undefined, legacyFa
 }
 
 // Expands the CLI settings into the EngineSettings contract the shared engine
-// consumes. The CLI invariants are pinned: always tabless, never
-// pausing on a (nonexistent) manual watch, and always resuming the enabled
-// platforms when the process starts. The startup reconciliation reads
-// autoStartDropFarming (#593): false would switch the platforms off on every
-// start. The CLI still drives its ticks itself. Tab-policy fields are not part
-// of the engine contract — the CLI never opens a tab — so there is nothing to force.
+// consumes. The CLI invariants are pinned: never pausing on a (nonexistent)
+// manual watch, and always resuming the enabled platforms when the process
+// starts. The startup reconciliation reads autoStartDropFarming (#593): false
+// would switch the platforms off on every start. The CLI still drives its ticks
+// itself. Tabless watching is not pinned here: the engine derives it from the
+// missing browserTabs capability (#598), so `tablessMode` keeps its default and
+// decides nothing. Tab-policy fields are not part of the engine contract
+// either — the CLI never opens a tab — so there is nothing to force.
 export function toEngineSettings(cli: CliSettings): EngineSettings {
   return mergeEngineSettings({
     ...cli,
-    tablessMode: true,
     pauseOnManualWatch: false,
     autoStartDropFarming: true,
   });

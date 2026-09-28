@@ -2869,5 +2869,10 @@ describe("tab closure origins", () => {
     const helperEnd = helper.indexOf("\n}\n") + 3;
     const outside = source.replace(helper.slice(0, helperEnd), "");
     expect(outside).not.toMatch(/\bremove\s*(?:\?\.)?\s*\(/);
+    // The modules that bind the mechanics to a browser close nothing themselves.
+    for (const file of ["../src/core/tabPorts.ts", "../src/core/tabs.ts", "../entrypoints/background.ts"]) {
+      const binding = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), file), "utf8").replace(/\/\/.*$/gm, "");
+      expect(binding, file).not.toMatch(/\bremove\s*(?:\?\.)?\s*\(/);
+    }
   });
 });

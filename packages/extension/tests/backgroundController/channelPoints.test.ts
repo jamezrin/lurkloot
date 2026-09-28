@@ -305,8 +305,7 @@ describe("background controller", () => {
       expect(env.twitch.claimChannelPoints).not.toHaveBeenCalled();
     });
 
-    it("serializes repeated claims and normal Twitch scheduler work", async () => {
-      const env = harness(farming(DEFAULT_SETTINGS));
+    function watchingTwitch(env: ReturnType<typeof harness>): void {
       env.state.authHealth = {
         ...env.state.authHealth,
         twitch: { status: "healthy", checkedAt: new Date().toISOString() },
@@ -318,6 +317,14 @@ describe("background controller", () => {
         offlineChecks: 0,
         watchMode: "tab",
       };
+    }
+
+    // The job used to claim under the Twitch platform lock, so a tick waited
+    // for it. It holds no lock now (#590): the tick runs, and its own claim
+    // skips while the job's request is still running.
+    it("sends one claim at a time without holding Twitch scheduler work behind it", async () => {
+      const env = harness(farming(DEFAULT_SETTINGS));
+      watchingTwitch(env);
       const firstClaim = deferred<boolean>();
       let concurrentClaims = 0;
       let maxConcurrentClaims = 0;
@@ -332,16 +339,31 @@ describe("background controller", () => {
       const first = env.controller.runTwitchChannelPointsClaim();
       await vi.waitFor(() => expect(env.twitch.claimChannelPoints).toHaveBeenCalledOnce());
       const second = env.controller.runTwitchChannelPointsClaim();
-      const tick = env.controller.tick(["twitch"]);
-      await Promise.resolve();
+      await env.controller.tick(["twitch"]);
+      await second;
 
+      expect(env.twitch.refreshCampaigns).toHaveBeenCalledOnce();
       expect(env.twitch.claimChannelPoints).toHaveBeenCalledOnce();
-      expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
       firstClaim.resolve(false);
-      await Promise.all([first, second, tick]);
+      await first;
 
       expect(maxConcurrentClaims).toBe(1);
-      expect(env.twitch.refreshCampaigns).toHaveBeenCalledOnce();
+      expect(env.twitch.claimChannelPoints).toHaveBeenCalledOnce();
+    });
+
+    it("sends one request when the job fires during the tick's claim", async () => {
+      const env = harness(farming(DEFAULT_SETTINGS));
+      watchingTwitch(env);
+      const tickClaim = deferred<boolean>();
+      env.twitch.claimChannelPoints = vi.fn(async () => await tickClaim.promise);
+
+      const tick = env.controller.tick(["twitch"]);
+      await vi.waitFor(() => expect(env.twitch.claimChannelPoints).toHaveBeenCalledOnce());
+      await env.controller.runTwitchChannelPointsClaim();
+      tickClaim.resolve(true);
+      await tick;
+
+      expect(env.twitch.claimChannelPoints).toHaveBeenCalledOnce();
     });
   });
 
@@ -491,6 +513,27 @@ describe("background controller", () => {
       expect(env.channelPointsPushController.stops).toBe(1);
     });
 
+    it("stops the observer when Twitch is disabled even if rescheduling the tick jobs fails", async () => {
+      let alarmsFail = false;
+      const env = harness(pushSettings(), {
+        createAlarm: async (name) => {
+          if (alarmsFail && name === TWITCH_ALARM_NAME) throw new Error("alarms unavailable");
+        },
+      });
+      await startObserver(env);
+      alarmsFail = true;
+
+      await expect(env.controller.handleMessage({
+        type: "saveSettings",
+        settingsPatch: { platform: { twitch: { enabled: false } } },
+      })).rejects.toThrow("alarms unavailable");
+      await env.rawController.settleBackgroundWork();
+
+      expect(env.settings.platform.twitch.enabled).toBe(false);
+      expect(env.deps.clearAlarm).toHaveBeenCalledWith(TWITCH_CHANNEL_POINTS_ALARM_NAME);
+      expect(env.channelPointsPushController.stops).toBe(1);
+    });
+
     it("starts or stops from a live-event setting toggle without waiting for the alarm", async () => {
       const env = harness(pushSettings({ channelPointsPushClaim: false }));
       configureEligibleChannel(env);
@@ -616,6 +659,67 @@ describe("background controller", () => {
       firstClaim.resolve(true);
       await env.controller.settleBackgroundWork();
       expect(env.twitch.claimChannelPoints).toHaveBeenCalledOnce();
+    });
+
+    it("runs live-event claims one at a time, each once, behind a running job claim", async () => {
+      const env = harness(pushSettings());
+      await startObserver(env);
+      const jobClaim = deferred<boolean>();
+      let concurrentClaims = 0;
+      let maxConcurrentClaims = 0;
+      const claimIds: Array<string | undefined> = [];
+      env.twitch.claimChannelPoints = vi.fn(async (_channel, options) => {
+        claimIds.push(options?.claimId);
+        concurrentClaims += 1;
+        maxConcurrentClaims = Math.max(maxConcurrentClaims, concurrentClaims);
+        if (!options?.claimId) await jobClaim.promise;
+        await Promise.resolve();
+        concurrentClaims -= 1;
+        return true;
+      });
+
+      const job = env.controller.runTwitchChannelPointsClaim();
+      await vi.waitFor(() => expect(env.twitch.claimChannelPoints).toHaveBeenCalledOnce());
+      env.channelPointsPushController.emitClaim({ claimId: "claim-1", channelId: "channel-1" });
+      env.channelPointsPushController.emitClaim({ claimId: "claim-2", channelId: "channel-1" });
+      env.channelPointsPushController.emitClaim({ claimId: "claim-1", channelId: "channel-1" });
+      jobClaim.resolve(true);
+      await job;
+      await env.controller.settleBackgroundWork();
+
+      expect(claimIds).toEqual([undefined, "claim-1", "claim-2"]);
+      expect(maxConcurrentClaims).toBe(1);
+    });
+
+    it("does not start the observer when auth was invalidated between a tick's commit and its reconcile", async () => {
+      const env = harness(pushSettings());
+      configureEligibleChannel(env);
+      env.twitch.claimChannelPoints = vi.fn(async () => false);
+      // Ad focus follows the committed sessions before the push is reconciled;
+      // hold it there.
+      const focusing = deferred<void>();
+      env.deps.applyAdFocus.mockImplementationOnce(async () => await focusing.promise);
+
+      const tick = env.controller.tick(["twitch"], "manual_tick");
+      await vi.waitFor(() => expect(env.deps.applyAdFocus).toHaveBeenCalledOnce());
+      expect(env.state.sessions.twitch.status).toBe("watching");
+      await env.controller.invalidateAuthHealth("twitch");
+      focusing.resolve();
+      await tick;
+      await env.rawController.settleBackgroundWork();
+
+      expect(env.channelPointsPushFactory).not.toHaveBeenCalled();
+      expect(env.channelPointsPushController.starts).toBe(0);
+    });
+
+    it("starts the observer from the state a tick commits", async () => {
+      const env = harness(pushSettings());
+      configureEligibleChannel(env);
+      env.twitch.claimChannelPoints = vi.fn(async () => false);
+
+      await env.controller.tick(["twitch"], "manual_tick");
+
+      expect(env.channelPointsPushController.starts).toBe(1);
     });
 
     it("does not mutate session error or heartbeat state when the observer reports a failure", async () => {

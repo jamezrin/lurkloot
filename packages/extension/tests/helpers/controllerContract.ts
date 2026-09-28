@@ -8,12 +8,15 @@ import {
 } from "@lurkloot/core/controller";
 import { resolveCompatibility } from "@lurkloot/core";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
+import { KickPageContextRecoveryTracker } from "@lurkloot/core/kick";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
-import { createTabRegistry, forgetManagedPageContextTabs } from "@lurkloot/core/tabRegistry";
+import { createTabRegistry } from "@lurkloot/core/tabRegistry";
 import type { ChannelCandidate, DropCampaign, ExtensionSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
 import type { EngineEvent } from "@lurkloot/shared/events";
-import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
+import { applySettingsPatch, DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "../../src/core/storage";
+import { createExtensionTabPorts } from "../../src/core/tabPorts";
+import { FakeBrowser } from "./fakeBrowser";
 import { withLockTracker } from "./lockTracker";
 import { hostPortsFromMocks, type HostMocks } from "./hostPorts";
 
@@ -69,8 +72,8 @@ export const contractCampaign = (platform: Platform): DropCampaign => ({
 
 export const contractChannel = (platform: Platform): ChannelCandidate => ({
   platform,
-  username: `${platform}-creator`,
-  url: platform === "twitch" ? "https://www.twitch.tv/twitch-creator" : "https://kick.com/kick-creator",
+  username: `${platform}_creator`,
+  url: platform === "twitch" ? "https://www.twitch.tv/twitch_creator" : "https://kick.com/kick_creator",
   live: true,
 });
 
@@ -136,6 +139,8 @@ export interface ContractHostOptions {
   readonly state?: SchedulerState;
   // Shared storage, so a restarted host sees what the previous one saved.
   readonly storage?: ContractStorage;
+  // Shared tabs, which outlive a restart like storage does.
+  readonly browser?: FakeBrowser;
 }
 
 export interface ContractHost {
@@ -144,6 +149,11 @@ export interface ContractHost {
   readonly deps: HostMocks<ExtensionSettings>;
   readonly adapters: Record<Platform, PlatformAdapter>;
   readonly storage: ContractStorage;
+  // The browser behind the extension's real tab ports; absent without tabs.
+  readonly browser?: FakeBrowser;
+  // Waits until every tab event the browser fired has reached the controller
+  // and the work it started has settled.
+  settleTabEvents(): Promise<void>;
   // Every state the controller saved, in order.
   readonly savedStates: SchedulerState[];
   // Every event reported to the host, in order.
@@ -199,6 +209,7 @@ export function contractHost(capabilities: CapabilitySet, options: ContractHostO
 
   const common: HostMocks<ExtensionSettings> = {
     loadSettings: vi.fn(async () => storage.settings),
+    applySettingsPatch,
     saveSettings: vi.fn(async (next: ExtensionSettings) => {
       if (capabilities.persistsSettings) storage.settings = next;
     }),
@@ -217,19 +228,28 @@ export function contractHost(capabilities: CapabilitySet, options: ContractHostO
     createAdapters: vi.fn((_emit, settings: ExtensionSettings) => ({ adapters, ...compatibility(settings) })),
     createAdapter: vi.fn((platform: Platform, _emit, settings: ExtensionSettings) => ({ adapter: adapters[platform], ...compatibility(settings) })),
   };
+  // The extension runs its real tab ports against a fake browser (#598); each
+  // port call still goes through a spy, so tests can assert on it and the lock
+  // tracker still sees it. The ports read settings straight from storage rather
+  // than through the loadSettings mock, as they do not belong to the controller.
   const tabRegistry = createTabRegistry();
+  const browser = capabilities.declared.browserTabs ? options.browser ?? new FakeBrowser() : undefined;
+  const tabs = browser
+    ? createExtensionTabPorts(tabRegistry, browser, async () => storage.settings, { kick: new KickPageContextRecoveryTracker() })
+    : undefined;
   const deps: HostMocks<ExtensionSettings> = {
     ...common,
-    ...(capabilities.declared.browserTabs
+    ...(tabs
       ? {
         tabRegistry,
-        openWatchTab: vi.fn(async (channel: ChannelCandidate) =>
-          ({ tabId: channel.platform === "twitch" ? 10 : 20, managedByExtension: true })),
-        stopWatchTab: vi.fn(async () => undefined),
-        closeManagedTabs: vi.fn(async () => undefined),
-        applyAdFocus: vi.fn(async () => undefined),
-        loadTabPlaybackPolicy: vi.fn(async () => ({ keepVideosUnmuted: false })),
-        stopPageContextTabs: vi.fn((contexts, options) => forgetManagedPageContextTabs(tabRegistry, contexts, options)),
+        openWatchTab: vi.fn(tabs.watch.open),
+        stopWatchTab: vi.fn(tabs.watch.stop),
+        closeManagedTabs: vi.fn(async (managed, origin = "extension-cleanup") => await tabs.watch.closeManaged(managed, origin)),
+        applyAdFocus: vi.fn(tabs.watch.applyAdFocus),
+        loadTabPlaybackPolicy: vi.fn(tabs.watch.loadPlaybackPolicy),
+        stopPageContextTabs: vi.fn(tabs.pageContexts.release),
+        reconcilePageContextRecovery: vi.fn(tabs.pageContexts.recover),
+        discardPageContextRecoveryEvidence: vi.fn(tabs.pageContexts.discardRecoveryEvidence),
       }
       : {}),
     ...(capabilities.declared.twitchIntegrityCapture
@@ -241,12 +261,19 @@ export function contractHost(capabilities: CapabilitySet, options: ContractHostO
   };
 
   const controller = createBackgroundController(hostPortsFromMocks(withLockTracker(deps).deps, capabilities.declared));
+  // What background.ts does with tabs.onRemoved.
+  const tabEvents = new Set<Promise<void>>();
+  const unsubscribe = browser?.onRemoved((tabId) => {
+    const handled = controller.handleTabRemoved(tabId).finally(() => tabEvents.delete(handled));
+    tabEvents.add(handled);
+  });
   return {
     capabilities,
     controller,
     deps,
     adapters,
     storage,
+    browser,
     savedStates,
     reported,
     jobs,
@@ -255,9 +282,17 @@ export function contractHost(capabilities: CapabilitySet, options: ContractHostO
       else await controller.reconcileStartup();
     },
     fire: (name) => controller.runJob(name),
+    async settleTabEvents(): Promise<void> {
+      // onRemoved fires on a later microtask than the removal, so yield once
+      // before looking for handlers still in flight.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      while (tabEvents.size > 0) await Promise.all(tabEvents);
+      await controller.settleBackgroundWork();
+    },
     restart(): ContractHost {
       controller.shutdown();
-      return contractHost(capabilities, { storage });
+      unsubscribe?.();
+      return contractHost(capabilities, { storage, browser });
     },
   };
 }

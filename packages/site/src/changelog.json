@@ -8,7 +8,27 @@
       },
       {
         "kind": "fixed",
-        "text": "Fixed headless watching in the CLI: Twitch now reads its heartbeat settings correctly, Kick connects its viewer socket, and a headless run keeps retrying heartbeats instead of attempting to open a browser tab."
+        "text": "Fixed headless watching in the CLI: Twitch now reads its heartbeat settings correctly, and Kick connects its viewer socket."
+      },
+      {
+        "kind": "improved",
+        "text": "Claiming a reward or opening and closing a watch tab no longer holds up everything else Lurkloot is tracking, so playback, heartbeats and tab changes are recorded as they happen instead of queueing behind them. A reward claimed just before Lurkloot switched to another target is now still recorded and shown in Activity."
+      },
+      {
+        "kind": "improved",
+        "text": "When the CLI starts, it now cleans up after the previous run the same way the extension does after a browser restart. A watch that was still running is paused and picked up again by the first check, instead of resuming the old process’s heartbeat schedule."
+      },
+      {
+        "kind": "improved",
+        "text": "The CLI no longer refuses to start when its config sets tablessMode, for example in settings copied from the extension. The CLI has no browser tabs and always watches without one, so the setting is ignored with a warning."
+      },
+      {
+        "kind": "fixed",
+        "text": "When heartbeats kept failing, the CLI tried to fall back to a watch tab it cannot open and then failed on every check. It now keeps watching without a tab, and a channel that stops earning drop progress is still switched out as before."
+      },
+      {
+        "kind": "fixed",
+        "text": "If the connection that listens for Kick flash drop announcements fails to open, Lurkloot now opens a fresh one on the next check instead of retrying the one that failed. This applies to both the extension and the CLI."
       }
     ]
   },

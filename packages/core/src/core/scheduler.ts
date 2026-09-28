@@ -71,18 +71,20 @@ function activeReward(campaign: DropCampaign, settings: EngineSettings): DropRew
     ?? earnable.find((reward) => reward.status === "locked");
 }
 
-// Decides whether to farm this channel without a tab. Off unless tabless mode is
-// enabled and the platform supports it; browser hosts fall back to a tab
-// (returns false) after repeated tabless heartbeat failures. Headless hosts
-// cannot open a tab, so they keep trying tabless watching.
+// Decides whether to farm this channel without a tab. Always on when the host
+// cannot open watch tabs, so tabless is derived there rather than configured.
+// Otherwise off unless tabless mode is enabled and the platform supports it;
+// falls back to a tab (returns false) when we deliberately switched to a tab for
+// this same channel, or when tabless heartbeats have been failing past the
+// tabless fallback limit.
 function chooseTablessWatch(
   previous: WatchSession,
   settings: EngineSettings,
-  host: { supportsTabless?: boolean; supportsWatchTabs?: boolean },
+  host: { supportsTabless?: boolean; watchTabs: boolean },
   sameChannel: boolean,
 ): boolean {
+  if (!host.watchTabs) return true;
   if (!settings.tablessMode || !host.supportsTabless) return false;
-  if (host.supportsWatchTabs === false) return true;
   if (sameChannel && previous.watchMode === "tab" && previous.tablessFallback) return false;
   if (sameChannel && previous.watchMode === "tabless" && (previous.heartbeatChecks ?? 0) >= settings.tablessFallbackFailureLimit) return false;
   return true;
@@ -941,7 +943,9 @@ export type SelectionView = Pick<PlatformAdapter, "listCandidateChannels" | "sel
 // What the platform's host can do, declared rather than probed from an adapter.
 export interface PlatformTickCapabilities {
   supportsTabless: boolean;
-  supportsWatchTabs?: boolean;
+  // The host can open watch tabs (capability `browserTabs`). Without it every
+  // watch is tabless, whatever `tablessMode` says (#598).
+  watchTabs: boolean;
   claimChallenges: boolean;
   claimChannelPoints: boolean;
 }

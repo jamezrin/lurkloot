@@ -19,6 +19,57 @@ function setup() {
   return { host, state, contains, query, stop, diagnostic, source, drivers, settings: () => settings, enableTwitch() { settings.platform.twitch.enabled = true; } };
 }
 describe("background tabless provider host", () => {
+  // #587: every caller shares one discovery per provider, but under its own
+  // signal. One tick cancelling must not reject another tick waiting on it.
+  describe("shared channel discovery", () => {
+    const directory = { data: { game: { streams: { edges: [{ node: { broadcaster: { id: "123", login: "buddha" } } }] } } } };
+    const installations = { data: { users: [{ id: "123", login: "buddha", channel: { selfInstalledExtensions: [{ installation: { extension: { id: "nstuq90nghenyqwqme61jgvmtp253a" }, activationConfig: { state: "ACTIVE" } } }] } }] } };
+    function discovering() {
+      const s = setup(); s.enableTwitch();
+      s.settings().twitchExtensions.nopixel.enabled = true;
+      let release!: (value: unknown) => void;
+      const signals: Array<AbortSignal | undefined> = [];
+      s.query.mockImplementation((async (query: string, _variables: Record<string, unknown>, signal?: AbortSignal) => {
+        signals.push(signal);
+        if (query.includes("ExtensionDirectory")) return await new Promise((resolve) => { release = resolve; });
+        return installations;
+      }) as never);
+      return { s, signals, release: () => release(directory) };
+    }
+
+    it("rejects only the caller that cancelled, and still answers the others", async () => {
+      const { s, release } = discovering();
+      const cancelled = new AbortController();
+      const first = s.host.chooseWatchTarget(s.settings(), s.state, cancelled.signal);
+      const second = s.host.chooseWatchTarget(s.settings(), s.state, new AbortController().signal);
+      await vi.waitFor(() => expect(s.query).toHaveBeenCalledOnce());
+
+      cancelled.abort(new Error("tick cancelled"));
+      await expect(first).rejects.toThrow("tick cancelled");
+      release();
+
+      await expect(second).resolves.toMatchObject({ id: "nopixel", channel: { username: "buddha" } });
+      expect(s.query).toHaveBeenCalledTimes(2);
+    });
+
+    it("stops the discovery once its last caller leaves, and starts a fresh one next time", async () => {
+      const { s, signals, release } = discovering();
+      const cancelled = new AbortController();
+      const only = s.host.chooseWatchTarget(s.settings(), s.state, cancelled.signal);
+      await vi.waitFor(() => expect(s.query).toHaveBeenCalledOnce());
+
+      cancelled.abort(new Error("tick cancelled"));
+      await expect(only).rejects.toThrow("tick cancelled");
+      expect(signals[0]?.aborted).toBe(true);
+      release();
+
+      const next = s.host.chooseWatchTarget(s.settings(), s.state);
+      await vi.waitFor(() => expect(s.query).toHaveBeenCalledTimes(2));
+      release();
+      await expect(next).resolves.toMatchObject({ id: "nopixel", channel: { username: "buddha" } });
+    });
+  });
+
   it("does not query with default provider settings", async () => {
     const s = setup(); s.enableTwitch(); await s.host.reconcile();
     expect(s.query).not.toHaveBeenCalled(); expect(s.host.snapshot()).toEqual({});

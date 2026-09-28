@@ -86,7 +86,32 @@ export function createTwitchExtensionHost(options: {
       if (id === "nopixel") lastCompletedNoPixelChannel = undefined;
     },
   });
-  const discovery = new Map<TwitchExtensionProviderId, { channels: ChannelCandidate[]; expiresAt: number; pending?: Promise<ChannelCandidate[]> }>();
+  // One channel discovery per provider at a time, shared by every caller. It
+  // runs under its own abort controller rather than the first caller's signal,
+  // so cancelling one tick cannot reject another tick waiting on it (#587). It
+  // is aborted only once the last caller waiting on it has left.
+  interface SharedDiscovery { promise: Promise<ChannelCandidate[]>; abort: AbortController; waiters: number }
+  const discovery = new Map<TwitchExtensionProviderId, { channels: ChannelCandidate[]; expiresAt: number; pending?: SharedDiscovery }>();
+  async function awaitSharedDiscovery(shared: SharedDiscovery, signal?: AbortSignal): Promise<ChannelCandidate[]> {
+    shared.waiters += 1;
+    try {
+      if (!signal) return await shared.promise;
+      signal.throwIfAborted();
+      let onAbort!: () => void;
+      const aborted = new Promise<never>((_resolve, reject) => {
+        onAbort = () => reject(signal.reason);
+        signal.addEventListener("abort", onAbort, { once: true });
+      });
+      try {
+        return await Promise.race([shared.promise, aborted]);
+      } finally {
+        signal.removeEventListener("abort", onAbort);
+      }
+    } finally {
+      shared.waiters -= 1;
+      if (shared.waiters === 0) shared.abort.abort(new DOMException("No caller is waiting for this discovery", "AbortError"));
+    }
+  }
   async function chooseWatchTarget(settings: ExtensionSettings, state: SchedulerState, signal?: AbortSignal, source?: WatchSourceId): Promise<SupplementalWatchTarget | undefined> {
     const selectedGeneration = generation;
     for (const [key, until] of unavailableUntil) if (until <= options.source.now()) unavailableUntil.delete(key);
@@ -117,14 +142,21 @@ export function createTwitchExtensionHost(options: {
       completedUntil.delete(provider.id);
       let cache = discovery.get(provider.id);
       if (!cache) { cache = { channels: [], expiresAt: 0 }; discovery.set(provider.id, cache); }
-      if (cache.expiresAt <= now && !cache.pending) {
+      // A discovery aborted because every caller left may not have settled yet;
+      // a new caller starts a fresh one rather than inheriting that abort.
+      if (cache.expiresAt <= now && (!cache.pending || cache.pending.abort.signal.aborted)) {
         const entry = cache;
-        entry.pending = discoverTwitchExtensionChannels({ provider, query: options.source.query, excludedChannels: settings.platform.twitch.excludedChannels ?? [], signal }).then(channels => {
+        const abort = new AbortController();
+        const shared: SharedDiscovery = { abort, waiters: 0, promise: Promise.resolve([]) };
+        shared.promise = discoverTwitchExtensionChannels({ provider, query: options.source.query, excludedChannels: settings.platform.twitch.excludedChannels ?? [], signal: abort.signal }).then(channels => {
           if (selectedGeneration === generation) { entry.channels = channels; entry.expiresAt = options.source.now() + 5 * 60_000; }
           return channels;
-        }).finally(() => { entry.pending = undefined; });
+        }).finally(() => { if (entry.pending === shared) entry.pending = undefined; });
+        // A discovery every caller has left may reject with nobody listening.
+        shared.promise.catch(() => undefined);
+        entry.pending = shared;
       }
-      const candidates = cache.pending ? await cache.pending : cache.channels;
+      const candidates = cache.pending ? await awaitSharedDiscovery(cache.pending, signal) : cache.channels;
       signal?.throwIfAborted();
       if (selectedGeneration !== generation) return;
       const excluded = new Set((settings.platform.twitch.excludedChannels ?? []).map(value => value.toLowerCase()));

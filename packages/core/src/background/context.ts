@@ -1,10 +1,10 @@
 import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
+import { ObserverSlot } from "./observerSlot";
 import type { EngineEvent } from "@lurkloot/shared/events";
 import type { TwitchIntegrity } from "../core/twitchIntegrity";
 import type { TablessWatchController } from "../core/tablessWatch";
 import { createTabRegistry, type TabRegistry } from "../core/tabRegistry";
 import type { DiscoverySignalController } from "../core/discoverySignals";
-import type { TwitchChannelPointsPushController } from "../platforms/twitch/channelPointsPush";
 import { DiscoverySnapshotLane } from "../core/discoverySnapshot";
 import { createRewardClaimGuard, type RewardClaimGuard } from "../core/rewardClaims";
 import type {
@@ -94,56 +94,6 @@ export function createTwitchIntegritySlice(): TwitchIntegritySlice {
   };
 }
 
-export interface ChannelPointsSlice {
-  twitchChannelPointsPush: TwitchChannelPointsPushController | undefined;
-  readonly twitchChannelPointsClaimInFlight: Set<string>;
-  // The channel-points claim request that is running, if any. The scheduler
-  // tick claims with no lock held (#599), so the job and the push claim no
-  // longer queue behind it (see claimChannelPointsUnlessRunning).
-  twitchChannelPointsClaim: Promise<boolean> | undefined;
-}
-
-export function createChannelPointsSlice(): ChannelPointsSlice {
-  return {
-    twitchChannelPointsPush: undefined,
-    twitchChannelPointsClaimInFlight: new Set<string>(),
-    twitchChannelPointsClaim: undefined,
-  };
-}
-
-async function runChannelPointsClaim(
-  slice: Pick<ChannelPointsSlice, "twitchChannelPointsClaim">,
-  claim: () => Promise<boolean>,
-): Promise<boolean> {
-  const running = claim();
-  slice.twitchChannelPointsClaim = running;
-  try {
-    return await running;
-  } finally {
-    if (slice.twitchChannelPointsClaim === running) slice.twitchChannelPointsClaim = undefined;
-  }
-}
-
-// The tick and the one-minute job claim whatever bonus is available, so while
-// another claim runs they have nothing to add and skip.
-export async function claimChannelPointsUnlessRunning(
-  slice: Pick<ChannelPointsSlice, "twitchChannelPointsClaim">,
-  claim: () => Promise<boolean>,
-): Promise<boolean> {
-  if (slice.twitchChannelPointsClaim) return false;
-  return await runChannelPointsClaim(slice, claim);
-}
-
-// A push names one claim, which a request already running may predate, so the
-// push waits its turn instead, as it did behind the tick's lock.
-export async function claimChannelPointsAfterRunning(
-  slice: Pick<ChannelPointsSlice, "twitchChannelPointsClaim">,
-  claim: () => Promise<boolean>,
-): Promise<boolean> {
-  while (slice.twitchChannelPointsClaim) await slice.twitchChannelPointsClaim.catch(() => undefined);
-  return await runChannelPointsClaim(slice, claim);
-}
-
 export interface KickChallengeSlice {
   readonly kickChallengeClaimOperations: Set<AbortController>;
   // A Kick challenge claim request is running, from the tick or the job.
@@ -220,9 +170,8 @@ export function createClaimSlice(): ClaimSlice {
 }
 
 export interface DiscoverySignalSlice {
-  readonly discoverySignalControllers: Map<Platform, DiscoverySignalController>;
+  readonly discoverySignalSlots: Record<Platform, ObserverSlot<DiscoverySignalController>>;
   readonly discoverySignalPlatformBlocked: Record<Platform, boolean>;
-  discoverySignalLifecycleOpen: boolean;
   readonly discoverySignalRefreshRunning: Record<Platform, boolean>;
   readonly discoverySignalRefreshPending: Record<Platform, DiscoverySignalRefreshRequest | undefined>;
   readonly discoverySignalAuthRefreshes: Record<Platform, number>;
@@ -231,12 +180,16 @@ export interface DiscoverySignalSlice {
 
 export function createDiscoverySignalSlice(): DiscoverySignalSlice {
   return {
-    discoverySignalControllers: new Map<Platform, DiscoverySignalController>(),
+    // A failed start stops and clears the observer, and the next reconcile
+    // creates a fresh one (#587), as the channel-points push always has.
+    discoverySignalSlots: {
+      twitch: new ObserverSlot<DiscoverySignalController>("twitch", "discovery signal observer", "discard"),
+      kick: new ObserverSlot<DiscoverySignalController>("kick", "discovery signal observer", "discard"),
+    },
     discoverySignalPlatformBlocked: {
       twitch: false,
       kick: false,
     },
-    discoverySignalLifecycleOpen: true,
     discoverySignalRefreshRunning: {
       twitch: false,
       kick: false,
@@ -323,11 +276,17 @@ export function createSettingsSlice(): SettingsSlice {
 
 export interface LifecycleSlice {
   controllerShutdown: boolean;
+  // One gate for every long-lived observer kind (#587): the discovery-signal
+  // observers and the Twitch channel-points push. Closed by shutdown and for
+  // the length of a host reset; while closed, no observer is created, and one
+  // that finishes starting is stopped again.
+  observersOpen: boolean;
 }
 
 export function createLifecycleSlice(): LifecycleSlice {
   return {
     controllerShutdown: false,
+    observersOpen: true,
   };
 }
 
@@ -341,7 +300,6 @@ export interface ControllerSlices<S extends EngineSettings> {
   reportingSlice: ReportingSlice;
   heartbeatSlice: HeartbeatSlice;
   integritySlice: TwitchIntegritySlice;
-  channelPointsSlice: ChannelPointsSlice;
   kickChallengeSlice: KickChallengeSlice;
   authSlice: AuthHealthSlice;
   claimSlice: ClaimSlice;

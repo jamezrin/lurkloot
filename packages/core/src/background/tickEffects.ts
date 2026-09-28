@@ -22,7 +22,7 @@ import {
 import type { PlatformAdapter } from "../platforms/adapter";
 import type { WatchTabPort } from "./hostPorts";
 import { PLATFORMS } from "./constants";
-import { claimChannelPointsUnlessRunning, claimExclusively } from "./context";
+import { claimExclusively } from "./context";
 
 // What an effect handler may use to perform a scheduler effect. It is built per
 // tick: the adapters are the tick's own.
@@ -41,7 +41,6 @@ export interface TickEffectContext {
   claimGuards?: {
     rewards: Partial<Record<Platform, RewardClaimGuard>>;
     challenges: { kickChallengeClaimRunning: boolean };
-    channelPoints: { twitchChannelPointsClaim: Promise<boolean> | undefined };
   };
 }
 
@@ -55,9 +54,10 @@ function adapterFor(context: TickEffectContext, platform: Platform): PlatformAda
 
 // The interim handlers (#599): each is the call the scheduler tick used to make
 // itself, except that watch tabs now go to the host's WatchTabPort (#598). The owning services take these over one effect type at a
-// time: reward claims (#597), channel points (#590), Kick challenges and page
-// contexts (#588), watch tabs (#598/#587) and supplemental selection (#587).
-// Each owner registers its own handler in place of the interim one.
+// time: reward claims (#597), Kick challenges and page contexts (#588), watch
+// tabs (#598/#587) and supplemental selection (#587). Each owner registers its
+// own handler in place of the interim one. Channel points already has (#590):
+// see registerChannelPointsClaimEffect in channelPoints.ts.
 export function registerInterimTickEffectHandlers(executor: TickEffectExecutor): TickEffectExecutor {
   return executor
     // Without a watch-tab port there is no tab to stop, but the scheduler still
@@ -97,18 +97,12 @@ export function registerInterimTickEffectHandlers(executor: TickEffectExecutor):
       await context.selectSupplementalTarget?.(platform, state, context.signal, source))
     .register("openWatchTab", async ({ channel, session, managedTab }, context) => {
       if (!context.watchTabs) {
-        throw new Error("Tab-based watch is unavailable on this host");
+        throw new Error("Watch tabs need the browserTabs capability, which this host does not declare");
       }
       return await context.watchTabs.open(channel, session, {
         ...(managedTab ? { managedTab } : {}),
         signal: context.signal,
       }, context.emit);
-    })
-    .register("claimChannelPoints", async ({ platform, channel }, context) => {
-      const adapter = adapterFor(context, platform);
-      const claim = async () => await adapter.claimChannelPoints?.(channel, { signal: context.signal }) ?? false;
-      const guards = context.claimGuards;
-      return guards ? await claimChannelPointsUnlessRunning(guards.channelPoints, claim) : await claim();
     });
 }
 
@@ -116,10 +110,10 @@ export function createTickEffectExecutor(): TickEffectExecutor {
   return registerInterimTickEffectHandlers(new EffectExecutor<SchedulerEffects, TickEffectContext>());
 }
 
-export function tickCapabilities(adapter: PlatformAdapter, supportsWatchTabs = true): PlatformTickCapabilities {
+export function tickCapabilities(adapter: PlatformAdapter, watchTabs: boolean): PlatformTickCapabilities {
   return {
     supportsTabless: Boolean(adapter.supportsTabless),
-    supportsWatchTabs,
+    watchTabs,
     claimChallenges: typeof adapter.claimChallenges === "function",
     claimChannelPoints: typeof adapter.claimChannelPoints === "function",
   };

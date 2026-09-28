@@ -2,7 +2,8 @@ import { createTwitchExtensionGrantCompletion } from "../src/extensions/grantCom
 import { browser } from "wxt/browser";
 import { loadSettings, loadState, loadTwitchIntegrity, resetStorage, saveSettings, saveState, saveTwitchIntegrity } from "../src/core/storage";
 import type { CliCredentialBlob, RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
-import { createBrowserTabs } from "../src/core/tabs";
+import { createBrowserTabs, liveBrowserTabApi } from "../src/core/tabs";
+import { createExtensionTabPorts } from "../src/core/tabPorts";
 import { createTabRegistry } from "@lurkloot/core/tabRegistry";
 import { createBackgroundAlarmListener, createBackgroundController, EXTENSION_CAPABILITIES } from "@lurkloot/core/controller";
 import { createAlarmJobScheduler } from "../src/core/jobs";
@@ -47,19 +48,13 @@ const reportEvents = createActivityEventReporter({
 // and the controller that reads its page-context snapshot (#598).
 const tabRegistry = createTabRegistry();
 const {
-  applyAdFocus,
   cancelTwitchIntegrityAcquisition,
-  closeManagedWatchTabs,
   currentValidTwitchIntegrity,
   ensureTwitchIntegrity,
   fetchJsonInPage,
   fetchKickInBackground,
   fetchTwitchInBackground,
-  openPinnedMutedTab,
   recordManagedPageContextFallback,
-  reconcileManagedPageContextRecovery,
-  stopManagedPageContextTabs,
-  stopWatchTab,
 } = createBrowserTabs(tabRegistry);
 const kickClaimState = new KickClaimState();
 const kickDiscoveryState = new KickDiscoveryState();
@@ -167,33 +162,7 @@ const controller = createBackgroundController<ExtensionSettings>({
       };
     },
   },
-  tabs: {
-    // The host's tab settings apply on top of the options the engine passes.
-    watch: {
-      open: async (channel, session, options, emit) => {
-        const settings = await loadSettings();
-        return openPinnedMutedTab(channel, session, {
-          muted: settings.muteFarmingTabs,
-          keepVideosUnmuted: settings.keepFarmingVideosUnmuted,
-          closeManagedTabs: settings.autoCloseFinishedDrops,
-          ...options,
-        }, emit);
-      },
-      stop: async (session, options, emit) => {
-        const settings = await loadSettings();
-        return stopWatchTab(session, { closeManagedTabs: settings.autoCloseFinishedDrops, ...options }, emit);
-      },
-      closeManaged: (tabs, origin) => closeManagedWatchTabs(tabs, origin),
-      applyAdFocus: async (platform, tabId, adActive, emit) => {
-        const { adFocusMode } = await loadSettings();
-        await applyAdFocus(platform, tabId, adActive, adFocusMode, emit);
-      },
-      loadPlaybackPolicy: async () => ({ keepVideosUnmuted: (await loadSettings()).keepFarmingVideosUnmuted !== false }),
-    },
-    pageContexts: {
-      release: (contexts, options) => stopManagedPageContextTabs(contexts, options),
-    },
-  },
+  tabs: createExtensionTabPorts(tabRegistry, liveBrowserTabApi, loadSettings, { kick: kickPageContextRecovery }),
   twitch: {
     integrity: {
       ensure: (emit, request) => ensureTwitchIntegrity(emit, request),
@@ -203,27 +172,6 @@ const controller = createBackgroundController<ExtensionSettings>({
     },
     supplementalSources: {
       select: (state, settings, signal, source) => extensionHost.chooseWatchTarget(settings, state, signal, source),
-    },
-  },
-  kick: {
-    pageContextRecovery: {
-      reconcile: async (settings, options, emit) => {
-        const observation = kickPageContextRecovery.take();
-        if (!observation) return false;
-        if (!options.countBackgroundSuccess) observation.backgroundHosts = [];
-        try {
-          return await reconcileManagedPageContextRecovery(
-            "kick",
-            observation,
-            settings.kickPageContextRecoverySuccesses,
-            emit,
-          );
-        } catch (error) {
-          kickPageContextRecovery.restore(observation);
-          throw error;
-        }
-      },
-      discardEvidence: () => kickPageContextRecovery.discard(),
     },
   },
 });

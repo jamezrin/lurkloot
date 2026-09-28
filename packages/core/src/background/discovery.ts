@@ -42,6 +42,7 @@ export function createDiscovery<S extends EngineSettings>(
   | "selectionBackoffDue"
   | "invalidateSelection"
   | "prepareSelection"
+  | "reselectUnderLock"
   | "selectionAlreadyCommitted"
 > & { discoverySlice: DiscoverySlice<S> } {
   const { createAdapter, readSettingsAndState, withEventCollector } = lateBound(calls);
@@ -244,9 +245,12 @@ export function createDiscovery<S extends EngineSettings>(
     delete discoverySlice.pendingSelections[platform];
   }
 
-  async function evaluateSelection(input: SelectionInput<S>): Promise<CommittedSelection> {
+  async function evaluateSelection(
+    input: SelectionInput<S>,
+    select: typeof selectWatchTargetFromSnapshot = ports.testing?.selectWatchTarget ?? selectWatchTargetFromSnapshot,
+  ): Promise<CommittedSelection> {
     const startedAt = Date.now();
-    const result = await (ports.testing?.selectWatchTarget ?? selectWatchTargetFromSnapshot)({
+    const result = await select({
       snapshot: input.snapshot,
       previous: input.state.sessions[input.platform],
       previousCampaigns: input.state.campaigns[input.platform],
@@ -279,7 +283,9 @@ export function createDiscovery<S extends EngineSettings>(
     return { key: input.key, snapshotRevision: input.snapshot.revision, generation: input.generation, result };
   }
 
-  async function prepareSelection(input: SelectionInput<S>): Promise<CommittedSelection> {
+  // The cached selection for this exact key and generation, unless the input
+  // forces a fresh evaluation.
+  function reuseCachedSelection(input: SelectionInput<S>): CommittedSelection | undefined {
     const cached = discoverySlice.selectionCache[input.platform];
     if (!input.force && cached?.key === input.key && cached.generation === input.generation) {
       discoverySlice.discoveryEvents[input.platform].push({
@@ -305,6 +311,12 @@ export function createDiscovery<S extends EngineSettings>(
       discoverySlice.selectionCache[input.platform] = reused;
       return reused;
     }
+    return undefined;
+  }
+
+  async function prepareSelection(input: SelectionInput<S>): Promise<CommittedSelection> {
+    const reused = reuseCachedSelection(input);
+    if (reused) return reused;
     const running = discoverySlice.selectionRuns[input.platform];
     if (running) {
       discoverySlice.pendingSelections[input.platform] = input;
@@ -344,6 +356,21 @@ export function createDiscovery<S extends EngineSettings>(
     } finally {
       if (discoverySlice.selectionRuns[input.platform] === run) delete discoverySlice.selectionRuns[input.platform];
     }
+  }
+
+  // Re-selection inside the tick's platform lock (#587), for when the selection
+  // prepared before the lock no longer matches. It evaluates straight over the
+  // discovery snapshot: it never joins or replaces another tick's selection run,
+  // and never goes through the testing selection hook, so no work started
+  // elsewhere can hold this platform's lock and no port is called under it.
+  async function reselectUnderLock(input: SelectionInput<S>): Promise<CommittedSelection> {
+    const reused = reuseCachedSelection(input);
+    if (reused) return reused;
+    const evaluated = await evaluateSelection(input, selectWatchTargetFromSnapshot);
+    if (input.generation === discoverySlice.selectionGeneration[input.platform]) {
+      discoverySlice.selectionCache[input.platform] = evaluated;
+    }
+    return evaluated;
   }
 
   function selectionAlreadyCommitted(
@@ -397,6 +424,7 @@ export function createDiscovery<S extends EngineSettings>(
     selectionBackoffDue,
     invalidateSelection,
     prepareSelection,
+    reselectUnderLock,
     selectionAlreadyCommitted,
   };
 }

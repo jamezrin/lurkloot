@@ -22,7 +22,7 @@ Package-qualified paths below are written as `packages/<package>/...` when owner
 - `packages/core/src/background/controller.ts` assembles the controller from its owner modules in the same directory, which coordinate settings/state persistence, scheduler ticks, popup messages, notifications, manual reward claims, and playback-control authorization.
 - `packages/core/src/core/scheduler.ts` owns platform-independent campaign selection, Idle Watchlist fallback selection, auto-claiming, retry/backoff, session state, manual-watch pauses, and watch-mode lifecycle decisions.
 - `packages/core/src/platforms/adapter.ts` defines the `PlatformAdapter` contract. `packages/core/src/platforms/twitch/index.ts` and `packages/core/src/platforms/kick/index.ts` implement platform-specific discovery, progress, candidate, validation, claim, and tab preparation behavior.
-- Browser tabs are an extension-only capability (#598). `packages/core/src/core/tabRegistry.ts` (`@lurkloot/core/tabRegistry`) is the engine's side: the tab state and the rules for it (the managed-tab breaker, page-context snapshots and the recovery threshold, integrity captures and waits), with no browser code. `packages/extension/src/core/browserTabs.ts` holds the mechanics (watch tabs, playback priming, ad focus, page-context tabs and in-page fetches, the twitch.tv boot that mints an integrity token) against an injected `BrowserTabApi`, and `packages/extension/src/core/tabs.ts` binds them to the live WXT/browser APIs. `coreBoundary.test.ts` keeps tab mechanics out of core. Tab state (page contexts, the managed-tab breaker, playback priming, ad focus, integrity captures and waiters) lives in a `TabRegistry`, one per controller, never at module level. The extension creates it, binds its tab functions to it with `createBrowserTabs`, and passes it to the controller as `tabRegistry`; a host without tabs gets an empty one from the controller. `tests/tabRegistry.test.ts` checks that two controllers share no tab state (#598). Every tab the engine closes goes through `closeTab` in `browserTabs.ts`, which records a closure origin (`extension-cleanup`, `extension-recovery` or `host-restart`) in the registry before the browser call. `handleTabRemoved` takes that origin, defaulting to `user`, and only a `user` close of the managed watch tab creates a manual-close pause. The tick closes its tab with no lock held, so the removal event can land before it commits. The record outlives the removal event (bounded, since browsers do not reuse tab ids), so a playback report still in flight from a tab the engine closed is dropped as a late result instead of reading as the user watching. The host forwards tab events through `TabEventsPort` (`handleTabRemoved`, `handleTabUpdated`).
+- Browser tabs are an extension-only capability (#598). `packages/core/src/core/tabRegistry.ts` (`@lurkloot/core/tabRegistry`) is the engine's side: the tab state and the rules for it (the managed-tab breaker, page-context snapshots and the recovery threshold, integrity captures and waits), with no browser code. `packages/extension/src/core/browserTabs.ts` holds the mechanics (watch tabs, playback priming, ad focus, page-context tabs and in-page fetches, the twitch.tv boot that mints an integrity token) against an injected `BrowserTabApi`, `packages/extension/src/core/tabPorts.ts` (`createExtensionTabPorts`) builds the controller's `tabs` ports from them and the user's tab settings, and `packages/extension/src/core/tabs.ts` binds the rest to the live WXT/browser APIs. `coreBoundary.test.ts` keeps tab mechanics out of core. Tab state (page contexts, the managed-tab breaker, playback priming, ad focus, integrity captures and waiters) lives in a `TabRegistry`, one per controller, never at module level. The extension creates it, binds its tab functions to it with `createBrowserTabs`, and passes it to the controller as `tabRegistry`; a host without tabs gets an empty one from the controller. `tests/tabRegistry.test.ts` checks that two controllers share no tab state (#598). Every tab the engine closes goes through `closeTab` in `browserTabs.ts`, which records a closure origin (`extension-cleanup`, `extension-recovery` or `host-restart`) in the registry before the browser call. `handleTabRemoved` takes that origin, defaulting to `user`, and only a `user` close of the managed watch tab creates a manual-close pause. The tick closes its tab with no lock held, so the removal event can land before it commits. The record outlives the removal event (bounded, since browsers do not reuse tab ids), so a playback report still in flight from a tab the engine closed is dropped as a late result instead of reading as the user watching. The host forwards tab events through `TabEventsPort` (`handleTabRemoved`, `handleTabUpdated`).
 - `packages/core/src/core/transport.ts` (`@lurkloot/core/transport`) holds the cookie-backed background fetchers for Twitch GQL and Kick's API, with no tab state. The Twitch fetcher takes an injected request identity (integrity token and client session id), so the extension replays the page-captured token and tabless hosts send none. The CLI imports only this module and no tab code; `packages/cli/tests/tabBoundary.test.ts` guards that (#598).
 - `entrypoints/twitch.content.ts` and `entrypoints/kick.content.ts` start shared playback telemetry/control on platform pages.
 - `entrypoints/popup/` adapts WXT/browser APIs to the shared React popup UI in `packages/popup-ui`, which talks only to the background controller through runtime messages.
@@ -128,11 +128,11 @@ The per-module slices and calls below are where #591's dependency check starts:
 | `stateCommit.ts` | the transaction | `reporting` | 12 |
 | `reporting.ts` | `reportingSlice` | `discovery` | 13 |
 | `tickAdmission.ts` | `reportingSlice`, `integritySlice`, `signalSlice`, `tickSlice`, `lifecycleSlice` | `claims`, `discovery`, `discoverySignals`, `reporting`, `stateCommit`, `tickRun` | 11 |
-| `tickRun.ts` | `claimSlice`, `discoverySlice`, `tickSlice`, `kickChallengeSlice`, `channelPointsSlice` (their claim guards) | `authHealth`, `channelPoints`, `discovery`, `discoverySignals`, `heartbeat`, `kickChallenges`, `manualWatch`, `reporting`, `stateCommit`, `tickAdmission`, `twitchIntegrity` | 1 |
+| `tickRun.ts` | `claimSlice`, `discoverySlice`, `tickSlice`, `kickChallengeSlice` (their claim guards) | `authHealth`, `channelPoints`, `discovery`, `discoverySignals`, `heartbeat`, `kickChallenges`, `manualWatch`, `reporting`, `stateCommit`, `tickAdmission`, `twitchIntegrity` | 1 |
 | `discovery.ts` | its own `discoverySlice`, `lifecycleSlice` | `reporting`, `stateCommit` | 10 |
 | `heartbeat.ts` | `heartbeatSlice`, `tickSlice`, `lifecycleSlice` | `discovery`, `reporting`, `stateCommit`, `tickAdmission` | 7 |
 | `twitchIntegrity.ts` | `integritySlice`, `settingsSlice`, `lifecycleSlice` | `reporting`, `stateCommit` | 8 |
-| `channelPoints.ts` | `channelPointsSlice`, `signalSlice`, `tickSlice`, `lifecycleSlice` | `reporting`, `stateCommit` | 7 |
+| `channelPoints.ts` | its own push slot, claim gate and push-claim queue (#590), `tickSlice`, `lifecycleSlice` | `reporting`, `stateCommit` | 10 |
 | `kickChallenges.ts` | `kickChallengeSlice`, `lifecycleSlice` | `reporting`, `stateCommit` | 2 |
 | `authHealth.ts` | `authSlice`, `discoverySlice` | `channelPoints`, `discovery`, `discoverySignals`, `reporting`, `stateCommit` | 5 |
 | `manualWatch.ts` | none | `discovery`, `discoverySignals`, `reporting`, `stateCommit`, `tickAdmission` | 6 |
@@ -160,15 +160,15 @@ or settings, loaded and saved through the host's storage port (`storage.local` o
 | --- | --- | --- | --- | --- | --- | --- |
 | Scheduler state (`sessions`, `authHealth`, `campaigns`, `criticalHealth`, backoffs, `lastTickAt`) | Persisted | Ticks, heartbeats, auth, claims, message handlers | Newer commits for the same platform | The transaction's `commit` / `commitPlatformSnapshot`, merged per platform by `mergePlatformState` (derived from `SCHEDULER_STATE_MERGE`) | Reloaded. `reconcileStartup` runs `staleStartupCleanup` on both hosts | Both |
 | Discovery lanes (`discoveryLanes`, `discoveryEvents`) | In memory, one `DiscoverySnapshotLane` per platform | `refreshDiscovery` | Settings saves that are not ranking-only, auth invalidation, `refreshDiscovery` itself, reset and shutdown | None: a snapshot is published by revision, not stored | Rediscovered on the first tick | Both |
-| Selection (`selectionCache`, `selectionRuns`, `pendingSelections`, `selectionGeneration`) | In memory | `prepareSelection` | `invalidateSelection`: every settings save (including ranking-only), auth invalidation, heartbeat results, playback telemetry, reset, shutdown | Consumed inside `runTick`'s platform lock | Recomputed | Both |
+| Selection (`selectionCache`, `selectionRuns`, `pendingSelections`, `selectionGeneration`) | In memory | `prepareSelection` (before the lock), `reselectUnderLock` (inside it, never through `selectionRuns`) | `invalidateSelection`: every settings save (including ranking-only), auth invalidation, heartbeat results, playback telemetry, reset, shutdown | Consumed inside `runTick`'s platform lock | Recomputed | Both |
 | Tick admission (`tickAdmission`, `activeTicks`, `tickBatches`, `backgroundWork`) | In memory | `tick`, `tickInBackground`, `tickAndHandOff` | Disable, reset, shutdown | None | Empty | Both. Extension alarms and CLI intervals request ticks per platform |
 | Heartbeat lanes, watchers and publication leases (`heartbeatLanes`, `tablessWatchers`) | In memory, with the heartbeat cadence persisted in the session | `requestPlatformHeartbeat`, `reconcileTablessWatchers`, `commitHeartbeatResult` | Session changes, `clearHeartbeatOwnership`, shutdown | `withHeartbeatLane`, then a transaction commit **without** the platform lock | `reconcileStartup` releases ownership on both hosts | Both |
-| Discovery-signal controllers (`discoverySignalControllers`, `discoverySignalLifecycleOpen`) | In memory | `reconcileDiscoverySignalControllers` (from `runTick`) | Auth transitions, tab removal, settings, reset, shutdown | None | Recreated by the next tick | Both, when the adapter provides a factory |
+| Discovery-signal controllers (`discoverySignalSlots`, one `ObserverSlot` per platform, gated by `lifecycleSlice.observersOpen`; a failed start is stopped and cleared, and the next tick starts a fresh observer) | In memory | `reconcileDiscoverySignalsAfterCommit` (from `runTick`, after its commit, against the committed state; a stop since the commit bumps the slot's epoch, so the observer backs off) | Auth transitions, tab removal, settings, reset, shutdown | None | Recreated by the next tick | Both, when the adapter provides a factory |
 | Auth health (`authHealth`, `authRefreshGeneration`) | Health persisted, generations in memory | `probeAuthHealth`, `refreshAuthHealth`, `persistAuthHealth`, `invalidateAuthHealth` | A newer refresh generation | `persistAuthHealth` under the platform lock, then a transaction commit | Health reloaded, then re-probed | Both. Credentials come from cookies (extension) or the credential store (CLI) |
 | Manual watch (`manualWatch`, `manualWatchTabs`, `manualClosePause`, playback telemetry) | Persisted | `recordPlaybackTelemetry`, `handleTabUpdated`, `handleTabRemoved`, `resumeAfterManualClose` | Tab events, resume, TTL | Platform lock | Reloaded | Extension only; the CLI has no tabs |
 | Settings (`twitchSettingsTransitionGeneration`) | Settings persisted, transition generation in memory | `commitSettings` (every popup write, `updateIdleWatchlist`), `normalizeStartupSettings` | Each settings commit. Its per-platform effect decides: `selection` (ranking-only, `isRankingOnlyPatch`) keeps discovery, `discovery` invalidates both | The transaction's settings lock | Reloaded and migrated (schema v7) | Both. The CLI's `saveSettings` is a no-op |
 | Page contexts and Kick recovery evidence | The controller's tab registry (`createTabRegistry`, one per controller; the extension host passes the one its tab mechanics write to), mirrored in persisted `managedPageContextTabs`. Recovery evidence in the extension host (`kickPageContextRecovery`) | The tick's `releasePageContexts` effect, `registerManagedPageContextTabs`, host fetch fallbacks | Release, reset, restart without auto-start | Copied into `SchedulerState` by the tick driver (`runSchedulerTickEffects`), never by the deciding code | Re-registered at startup when farming auto-starts | Extension only |
-| Claim operations (`dropClaimOperations`, `waitingClaimRewardIds`, `claimHandoffs`, `kickChallengeClaimOperations`, `twitchChannelPointsClaimInFlight`, channel-points push) and claim guards (`rewardClaimGuards`, `kickChallengeClaimRunning`, `twitchChannelPointsClaim`) | In memory. Claimed rewards are persisted through `campaigns` | Ticks, claim jobs, `claimRewardNow`, `runClaimHandoff`, the push | Disable, auth loss, reset, shutdown, `abortClaimHandoffs` at startup | Platform lock for the jobs; the tick claims with no lock and commits after (#599). The guards keep one request per reward, one Kick challenge claim and one channel-points claim in flight across every path | In-flight work is lost; provider inventory is re-read | Both, but manual-watch claim jobs never fire on the CLI |
+| Claim operations (`dropClaimOperations`, `waitingClaimRewardIds`, `claimHandoffs`, `kickChallengeClaimOperations`, the channel-points service's push-claim queue and push observer) and claim guards (`rewardClaimGuards`, `kickChallengeClaimRunning`, the channel-points `ChannelPointsClaimGate`) | In memory. Claimed rewards are persisted through `campaigns` | Ticks, claim jobs, `claimRewardNow`, `runClaimHandoff`, the push | Disable, auth loss, reset, shutdown, `abortClaimHandoffs` at startup | Platform lock for the drop-claim and Kick challenge jobs; the tick (#599) and the channel-points job and push (#590) claim with no lock. The guards keep one request per reward, one Kick challenge claim and one channel-points claim in flight across every path | In-flight work is lost; provider inventory is re-read | Both, but manual-watch claim jobs never fire on the CLI |
 | Twitch integrity (`installedTwitchIntegrity`, `persistedIntegrityToken`, `integrityLifecycleGeneration`) | In memory in the controller and in its tab registry, with the capture waiters and in-flight acquisition; the token is also persisted through `saveTwitchIntegrity` | Header capture, refresh, enable/disable transitions | A newer lifecycle generation | Settings lock, then the platform lock | Token reloaded from storage | Extension only |
 | Compatibility reporting (`reportedCompatibility`, route reports) and `campaignEvaluationFingerprints` | In memory | Adapter construction, ticks | Never, within a process | None | Reported again | Both |
 | Host jobs | The job scheduler port: `browser.alarms` (extension), Node timers (CLI) | `ensureCadenceJobs`, `rescheduleTickJobs`, `reconcile*Alarm`, integrity scheduling | Settings changes, disable | Settings lock, except the tick jobs (rescheduled after it) | Alarms survive a service-worker restart; the CLI re-ensures its cadence jobs on start | Both; jobs whose capability a host lacks are inert (#593) |
@@ -208,9 +208,12 @@ without being listed, or if a listed call has left its lock without the entry be
 - **Scheduler tick:** none since #599. Its effects (claims, Kick challenges, channel points, watch
   tabs, page-context release, Twitch Extensions supplemental selection) run between `runTick`'s two
   platform-lock sections, with no lock held. See "Scheduler tick effects" below.
-- **`runTick` itself**, before and after the tick: the fallback `prepareSelection`, which can wait on
-  another tick's selection run (#587), and, before publishing, tabless watcher reconciliation (#586),
-  discovery-signal and channel-points push reconciliation (#587, #590).
+- **`runTick` itself**, before publishing: tabless watcher reconciliation (#586). The
+  discovery-signal observers (#587) and the channel-points push (#590) are reconciled after the
+  commit, with no lock held. When the selection prepared before the lock
+  no longer matches, the tick re-selects inside the lock with `reselectUnderLock`, which evaluates
+  straight over the discovery snapshot: it never joins another tick's selection run or goes
+  through the testing selection hook, so it is not locked I/O (#587).
 - **Heartbeat lane:** `watcher.start` (#586).
 - **Auth transitions** stop the discovery-signal observer and the channel-points push directly
   (#595).
@@ -218,9 +221,9 @@ without being listed, or if a listed call has left its lock without the entry be
   (#596).
 - **Claims outside the tick:** `claimRewardNow`, `runDropClaims` (which also refreshes campaigns) and
   `runKickChallengeClaims` (#597, #588).
-- **Timers under the settings or platform lock:** integrity refresh scheduling (#589), claim and
-  channel-points alarms on settings writes and at startup (#597, #590). The tick jobs are
-  rescheduled after the settings lock is released (#593).
+- **Timers under the settings or platform lock:** integrity refresh scheduling (#589), claim alarms
+  on settings writes and at startup (#597). The tick jobs (#593) and the channel-points job (#590)
+  are rescheduled after the settings lock is released, from the latest stored settings.
 
 Event reporting (`reportBestEffort`, `persistAndReport`) and notifications still run inside the
 platform locks, but only after the commit that carries them has been accepted (see below).
@@ -285,7 +288,7 @@ port or the tab module. Each side effect it needs is yielded as a typed `Schedul
 | Effect | Interim handler (`background/tickEffects.ts`) | Final owner |
 | --- | --- | --- |
 | `claimRewards` | `claimReadyRewards` (`core/rewardClaims.ts`) | #597 |
-| `claimChannelPoints` | `adapter.claimChannelPoints` | #590 |
+| `claimChannelPoints` | none: the channel-points service's own handler (`registerChannelPointsClaimEffect`) | #590 (done) |
 | `claimChallenges` | `adapter.claimChallenges` | #588 |
 | `openWatchTab`, `stopWatchTab` | the host's `WatchTabPort` (`tabs.watch.open` / `stop`). Without it, opening throws and stopping does nothing | #587 |
 | `releasePageContexts` | the host's `PageContextPort` (`tabs.pageContexts.release`) | #588 |
@@ -334,7 +337,10 @@ With the tick unlocked, the claim jobs no longer queue behind it, so every claim
 and skips while another path holds the reservation: rewards per id (`RewardClaimGuard`: the tick, the
 drop-claim job and `claimRewardNow`), and one Kick challenge claim and one channel-points claim at a
 time. A channel-points push names one specific claim, so it waits for a running claim instead of
-skipping, as it used to wait behind the tick's lock. An aborted tick starts no further effect:
+skipping, as it used to wait behind the tick's lock. The channel-points job and push claims take no
+lock either (#590): one `ChannelPointsClaimGate` covers the tick, the job and the push, and push
+claims run one at a time from their own queue, so a job fire during a tick's claim sends nothing and
+Twitch farming never waits on a claim. An aborted tick starts no further effect:
 `driveEffects` checks the tick's signal before each one. The in-tick `refreshCampaigns` fallback is gone: discovery reaches the tick only through the
 committed snapshot lane.
 
@@ -350,7 +356,7 @@ of optional hooks:
 | `jobs` | `browser.alarms` (`src/core/jobs.ts`) | Node timers (`src/runtime/jobs.ts`) |
 | `adapters` | Browser transports and compatibility resolution | Node transports |
 | `credentials` | Cookie observation | The file/env credential store |
-| `tabs` (`watch`: `WatchTabPort`, `pageContexts`: `PageContextPort`), `tabRegistry`, `kick.pageContextRecovery` | Browser tabs. Watch tabs are the host's, not `PlatformAdapter`'s (#598) | Absent: every watch is tabless |
+| `tabs` (`watch`: `WatchTabPort`, `pageContexts`: `PageContextPort`, which also carries page-context recovery), `tabRegistry` | Browser tabs. Watch tabs are the host's, not `PlatformAdapter`'s (#598) | Absent: every watch is tabless |
 | `twitch.integrity` | Page capture | Absent |
 | `twitch.supplementalSources` | Twitch Extensions host (#587 adds `prepare`) | Absent |
 
@@ -360,6 +366,12 @@ capability's ports are present without the capability or the other way round, so
 never switches a feature off silently. A setting that needs a capability the host lacks
 (`tablessMode: false` or `pauseOnManualWatch` without browser tabs) is reported once per
 controller as an English diagnostic, with no platform, and changes nothing else.
+
+Without `browserTabs`, the watch surface is derived rather than configured: the tick passes
+`watchTabs: false` in each platform's `PlatformTickCapabilities`, so the scheduler always watches
+tabless, and heartbeat failures never fall back to a tab. The scheduler's no-progress check still
+rotates a channel whose watch accrues nothing. The CLI accepts a config that sets `tablessMode`
+and ignores it with a warning.
 
 The job scheduler port is the only way the engine schedules work. `jobs.ts` documents its
 semantics, and both implementations keep them: a minimum period (`MIN_JOB_PERIOD_MINUTES`), ensure
@@ -392,7 +404,10 @@ let heartbeat recovery resume the previous watch from its persisted cadence.
 v1.15.0 extractions must keep these tests passing without editing their assertions, except in a PR
 labelled `behavior-change`. `controllerContract.test.ts` runs its cases once per declared host
 capability set (`EXTENSION_CAPABILITIES` and `CLI_CAPABILITIES`, through
-`tests/helpers/controllerContract.ts`), against fake ports.
+`tests/helpers/controllerContract.ts`), against fake ports. The extension set runs the extension's
+real browser-tabs ports (`createExtensionTabPorts`) against a fake browser tab API
+(`tests/helpers/fakeBrowser.ts`), so the wiring between the tab mechanics and the controller is
+tested too (#598).
 
 | Invariant | Where it is tested |
 | --- | --- |
@@ -408,6 +423,8 @@ capability set (`EXTENSION_CAPABILITIES` and `CLI_CAPABILITIES`, through
 | Duplicate and late job fires coalesce; no job runs after shutdown | `controllerContract.test.ts` ("jobs") |
 | Job scheduler semantics on each host | `hostPorts.test.ts` (`browser.alarms`); `packages/cli/tests/jobs.test.ts` (Node timers) |
 | Declared capabilities match the ports; unsupported settings are reported once | `hostPorts.test.ts`; `controllerContract.test.ts` ("capabilities") |
+| Without browser tabs every watch is tabless and heartbeat failures never fall back to a tab | `controllerContract.test.ts` ("watch surface") |
+| Only a user close of the watch tab pauses; the extension's own closes (finished campaign, restart) do not, and late playback from a closed tab is ignored | `controllerContract.test.ts` ("browser tabs", extension host) |
 | The CLI's `state.json` save is atomic | `packages/cli/tests/storage.test.ts` |
 | The popup reads the stored settings and state verbatim | `controllerContract.test.ts` ("runtime snapshot") |
 | Campaign ranking and #571's selection rules (mid-reward takeover, favourites, discarded refresh hold, just-armed watch) | `ranking.test.ts`, `rankingSettings.test.ts`, `scheduler.test.ts`, `watchSourceScheduler.test.ts` |
@@ -585,7 +602,7 @@ For Kick, `pageFetchJson` reads `session_token` from the Kick page context and a
 
 Temporary page-context tabs are reference-counted per origin and removed after the fetches complete when the extension created them. Existing user tabs reused for page-context fetches are not closed.
 
-Kick may retain an extension-owned page-context tab when its service-worker fetch is rejected. One extension-host tracker receives successful route callbacks from every Kick fetcher, including the controller-lifetime tabless watcher, and drains only after scheduler state persists; residual evidence is discarded on every uncommitted tick exit. A fallback always resets recovery immediately, including on an incomplete cycle; only a complete, error-free direct cycle advances it once, regardless of request count. After the configurable number of consecutive direct cycles (three by default, 1–10 in Advanced settings), the extension verifies and closes that exact managed tab. Unreadable or concurrently changed tab ownership is retained for a safe retry, while ownership is released synchronously immediately before removal so a new fallback acquires a separate context. The counter is persisted with scheduler state so service-worker restarts do not reset or resurrect ownership. The CLI has no browser page-context tabs and does not expose this setting.
+Kick may retain an extension-owned page-context tab when its service-worker fetch is rejected. One extension-host tracker receives successful route callbacks from every Kick fetcher, including the controller-lifetime tabless watcher, and drains only after scheduler state persists; residual evidence is discarded on every uncommitted tick exit. A fallback always resets recovery immediately, including on an incomplete cycle; only a complete, error-free direct cycle advances it once, regardless of request count. After the configurable number of consecutive direct cycles (three by default, 1–10 in Advanced settings), the extension verifies and closes that exact managed tab. Unreadable or concurrently changed tab ownership is retained for a safe retry, while ownership is released synchronously immediately before removal so a new fallback acquires a separate context. The counter is persisted with scheduler state so service-worker restarts do not reset or resurrect ownership. The engine drives recovery through the host's `PageContextPort` (#598): `recover(platform, { countBackgroundSuccess }, emit)` after a committed cycle, and `discardRecoveryEvidence(platform)` on an uncommitted exit. The extension's port (`createExtensionTabPorts`) holds the tracker, applies the configured threshold and runs the registry's recovery rule. The CLI has no browser page-context tabs and does not expose this setting.
 
 ## Twitch Integration
 
@@ -634,7 +651,7 @@ Stopping behavior depends on ownership and settings:
 
 ## Tabless Watch
 
-When `tablessMode` is enabled, supported adapters create a `TablessWatchController` instead of opening a watch tab. Twitch sends minute-watched events. Kick maintains a viewer WebSocket and sends watch livestream events. The one-minute watch alarm records heartbeat health in the platform session. A browser host can fall back to a visible muted tab after repeated failures; the headless CLI keeps retrying tabless heartbeats because it cannot open a tab.
+When `tablessMode` is enabled, or the host has no browser tabs, supported adapters create a `TablessWatchController` instead of opening a watch tab. Twitch sends minute-watched GraphQL events. Kick maintains a viewer WebSocket and sends watch livestream events. The one-minute watch alarm records heartbeat health in the platform session. A browser host can fall back to a visible muted tab after repeated failures; the headless CLI keeps retrying tabless heartbeats because it cannot open a tab.
 
 ## Playback Telemetry and Control
 

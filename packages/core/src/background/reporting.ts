@@ -359,7 +359,7 @@ export function createReporting<S extends EngineSettings>(
     if (ports.capabilities.browserTabs) return;
     const unsupported: Array<readonly [string, string]> = [];
     if (!settings.tablessMode) {
-      unsupported.push(["tablessMode", "This host has no browser tabs, so it cannot open the watch tabs tablessMode=false asks for"]);
+      unsupported.push(["tablessMode", "This host has no browser tabs, so tablessMode=false has no effect: every watch is tabless"]);
     }
     if (settings.pauseOnManualWatch) {
       unsupported.push(["pauseOnManualWatch", "This host has no browser tabs, so pauseOnManualWatch has no effect"]);

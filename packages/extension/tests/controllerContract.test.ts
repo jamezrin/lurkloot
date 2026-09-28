@@ -8,6 +8,7 @@ import {
   TWITCH_DROP_CLAIMS_ALARM_NAME,
   WATCH_ALARM_NAME,
 } from "@lurkloot/core/controller";
+import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
 import type { DropCampaign, SchedulerState, WatchSession } from "@lurkloot/shared/models";
 import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
@@ -31,6 +32,30 @@ import {
 const tickStarts = (host: ContractHost, platform: "twitch" | "kick") =>
   host.reported.filter((event) =>
     event.category === "diagnostic" && event.platform === platform && /Tick #\d+ started/.test(event.message)).length;
+
+class FailingWatcher implements TablessWatchController {
+  channelUrl: string | undefined;
+  ticks = 0;
+  constructor(readonly platform: "twitch" | "kick") {}
+  async start(channel: { url: string }): Promise<void> {
+    this.channelUrl = channel.url;
+  }
+  async tick() {
+    this.ticks += 1;
+    return { ok: false, live: true, message: "heartbeat rejected" };
+  }
+  drainEvents() {
+    return [];
+  }
+  async stop(): Promise<void> {
+    this.channelUrl = undefined;
+  }
+}
+
+const twitchOnly = (overrides: Partial<ReturnType<typeof farmingSettings>> = {}) => {
+  const settings = farmingSettings();
+  return { ...settings, ...overrides, platform: { ...settings.platform, kick: { ...settings.platform.kick, enabled: false } } };
+};
 
 class CountingWatcher implements TablessWatchController {
   channelUrl: string | undefined;
@@ -315,11 +340,235 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
         expect(unsupported).toEqual([]);
       } else {
         expect(unsupported.map((event) => event.message)).toEqual([
-          "This host has no browser tabs, so it cannot open the watch tabs tablessMode=false asks for",
+          "This host has no browser tabs, so tablessMode=false has no effect: every watch is tabless",
           "This host has no browser tabs, so pauseOnManualWatch has no effect",
         ]);
         expect(unsupported.every((event) => event.platform === undefined)).toBe(true);
       }
+      host.controller.shutdown();
+    });
+  });
+
+  // Tabless watching is derived from the missing browserTabs capability, not
+  // configured (#598): a host without tabs never asks for one.
+  describe("watch surface", () => {
+    it(capabilities.declared.browserTabs
+      ? "opens a watch tab when tablessMode is off"
+      : "watches tabless even when tablessMode is off", async () => {
+      const host = contractHost(capabilities, { settings: twitchOnly({ tablessMode: false }) });
+      const watcher = new CountingWatcher("twitch");
+      host.adapters.twitch.createTablessWatcher = () => watcher;
+      await host.controller.tickAndHandOff(["twitch"], "alarm");
+
+      if (capabilities.declared.browserTabs) {
+        expect(host.storage.state.sessions.twitch).toMatchObject({ status: "watching", watchMode: "tab" });
+        expect(host.deps.openWatchTab).toHaveBeenCalledOnce();
+        expect(watcher.started).toBe(0);
+      } else {
+        expect(host.storage.state.sessions.twitch).toMatchObject({ status: "watching", watchMode: "tabless" });
+        expect(watcher.started).toBe(1);
+      }
+      host.controller.shutdown();
+    });
+
+    it(capabilities.declared.browserTabs
+      ? "falls back to a watch tab when heartbeats keep failing"
+      : "stays tabless when heartbeats keep failing, with nothing to fall back to", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      const host = contractHost(capabilities, { settings: twitchOnly({ tablessFallbackFailureLimit: 1 }) });
+      const watcher = new FailingWatcher("twitch");
+      host.adapters.twitch.createTablessWatcher = () => watcher;
+      await host.controller.tickAndHandOff(["twitch"], "alarm");
+      expect(host.storage.state.sessions.twitch).toMatchObject({ watchMode: "tabless" });
+
+      vi.setSystemTime(Date.now() + 60_000);
+      await host.fire(WATCH_ALARM_NAME);
+      await host.controller.settleBackgroundWork();
+      expect(watcher.ticks).toBe(1);
+      const fallbackReported = host.reported.some((event) =>
+        event.category === "diagnostic" && event.message === "Tabless watch heartbeat keeps failing; falling back to a watch tab");
+
+      if (capabilities.declared.browserTabs) {
+        expect(fallbackReported).toBe(true);
+        expect(host.storage.state.sessions.twitch).toMatchObject({ watchMode: "tab" });
+        expect(host.deps.openWatchTab).toHaveBeenCalledOnce();
+      } else {
+        expect(fallbackReported).toBe(false);
+        expect(host.storage.state.sessions.twitch).toMatchObject({ watchMode: "tabless", heartbeatChecks: 1 });
+        // The next tick sees the failure count past the limit and still keeps
+        // the watch tabless instead of asking a host without tabs for one.
+        await host.controller.tickAndHandOff(["twitch"], "alarm");
+        expect(host.storage.state.sessions.twitch).toMatchObject({ status: "watching", watchMode: "tabless" });
+        expect(host.reported.filter((event) => event.category === "diagnostic" && event.level === "error")).toEqual([]);
+      }
+      host.controller.shutdown();
+    });
+  });
+
+  // The extension's real tab ports, run against a fake browser (#598). Every
+  // close the extension makes records why, so only the user's own close pauses
+  // the platform (#640), and a report from a tab the extension already closed
+  // is not the user watching (#641).
+  describe("browser tabs", () => {
+    const playing = { videoCount: 1, mutedVideoCount: 0, unmutedVideoCount: 1, playingVideoCount: 1, blockedPlaybackCount: 0, documentHidden: false };
+
+    async function watchInTab(host: ContractHost): Promise<number> {
+      await host.controller.tickAndHandOff(["twitch"], "alarm");
+      const tabId = host.storage.state.sessions.twitch.tabId;
+      expect(host.storage.state.sessions.twitch).toMatchObject({ status: "watching", watchMode: "tab", tabManagedByExtension: true });
+      expect(tabId !== undefined && host.browser?.has(tabId)).toBe(true);
+      return tabId!;
+    }
+
+    async function finishCampaign(host: ContractHost): Promise<void> {
+      vi.mocked(host.adapters.twitch.refreshCampaigns).mockResolvedValue([]);
+      await host.controller.tickAndHandOff(["twitch"], "alarm");
+      await host.settleTabEvents();
+    }
+
+    if (!capabilities.declared.browserTabs) {
+      it("has no tabs, so a tab event changes nothing", async () => {
+        const host = contractHost(capabilities, { settings: twitchOnly() });
+        await host.controller.tickAndHandOff(["twitch"], "alarm");
+        const before = structuredClone(host.storage.state);
+        await host.controller.handleTabRemoved(123);
+        await host.controller.settleBackgroundWork();
+        expect(host.storage.state).toEqual(before);
+        host.controller.shutdown();
+      });
+      return;
+    }
+
+    it("pauses the platform when the user closes its watch tab", async () => {
+      const host = contractHost(capabilities, { settings: twitchOnly({ tablessMode: false }) });
+      const tabId = await watchInTab(host);
+
+      host.browser!.userClose(tabId);
+      await host.settleTabEvents();
+
+      expect(host.storage.state.manualClosePause?.twitch).toBeDefined();
+      host.controller.shutdown();
+    });
+
+    it("closes its own watch tab without pausing when the campaign finishes", async () => {
+      const host = contractHost(capabilities, { settings: twitchOnly({ tablessMode: false, autoCloseFinishedDrops: true }) });
+      const tabId = await watchInTab(host);
+
+      await finishCampaign(host);
+
+      expect(host.browser!.has(tabId)).toBe(false);
+      expect(host.storage.state.manualClosePause?.twitch).toBeUndefined();
+      expect(host.storage.state.sessions.twitch.status).toBe("idle");
+      host.controller.shutdown();
+    });
+
+    it("leaves the watch tab open, unpinned and unmuted, when auto-close is off", async () => {
+      const host = contractHost(capabilities, { settings: twitchOnly({ tablessMode: false, autoCloseFinishedDrops: false }) });
+      const tabId = await watchInTab(host);
+
+      await finishCampaign(host);
+
+      expect(host.browser!.tabList.get(tabId)).toMatchObject({ pinned: false, mutedInfo: { muted: false } });
+      expect(host.storage.state.manualClosePause?.twitch).toBeUndefined();
+      host.controller.shutdown();
+    });
+
+    it("ignores late playback from a watch tab it closed", async () => {
+      const host = contractHost(capabilities, { settings: twitchOnly({ tablessMode: false, autoCloseFinishedDrops: true, pauseOnManualWatch: true }) });
+      const tabId = await watchInTab(host);
+      await finishCampaign(host);
+      expect(host.browser!.has(tabId)).toBe(false);
+
+      await host.controller.handleMessage(
+        { type: "playbackTelemetry", platform: "twitch", telemetry: playing },
+        { tab: { id: tabId, url: contractChannel("twitch").url } },
+      );
+      await host.controller.settleBackgroundWork();
+
+      expect(host.storage.state.manualWatch?.twitch?.active).not.toBe(true);
+      expect(host.storage.state.sessions.twitch.reasonCode).not.toBe("manual_watch");
+      host.controller.shutdown();
+    });
+
+    it("closes the watch tabs it left open when it restarts, without pausing", async () => {
+      const host = contractHost(capabilities, { settings: twitchOnly({ tablessMode: false }) });
+      const tabId = await watchInTab(host);
+
+      const restarted = host.restart();
+      await restarted.boot();
+      await restarted.settleTabEvents();
+
+      expect(restarted.browser!.has(tabId)).toBe(false);
+      expect(restarted.storage.state.manualClosePause?.twitch).toBeUndefined();
+      restarted.controller.shutdown();
+    });
+  });
+
+  // #587: Twitch Extensions discovery runs as a tick effect with no lock held,
+  // so a provider that never answers cannot hold up anything else.
+  describe("blocked Twitch Extensions provider", () => {
+    // Fails instead of hanging when the promise is held up.
+    const within = async <T>(promise: Promise<T>, label: string): Promise<T> => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const timeout = new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label} waited on the blocked provider`)), 1_000);
+      });
+      try {
+        return await Promise.race([promise, timeout]);
+      } finally {
+        clearTimeout(timer);
+      }
+    };
+
+    it.runIf(capabilities.declared.supplementalSources)("delays neither Kick, a settings save nor shutdown", async () => {
+      const host = contractHost(capabilities);
+      // No drops on Twitch, so the tick asks the Twitch Extensions source,
+      // which never answers until its tick is cancelled.
+      vi.mocked(host.adapters.twitch.refreshCampaigns).mockResolvedValue([]);
+      vi.mocked(host.deps.selectSupplementalWatchTarget!).mockImplementation((_platform, _state, _settings, signal) =>
+        new Promise((_resolve, reject) => signal?.addEventListener("abort", () => reject(signal.reason), { once: true })));
+
+      const twitchTick = host.controller.tickAndHandOff(["twitch"], "alarm");
+      await vi.waitFor(() => expect(host.deps.selectSupplementalWatchTarget).toHaveBeenCalled());
+
+      await within(host.controller.tickAndHandOff(["kick"], "alarm"), "A Kick tick");
+      expect(host.storage.state.sessions.kick).toMatchObject({ status: "watching", campaignId: "kick-campaign" });
+      await within(host.controller.handleMessage({ type: "saveSettings", settingsPatch: { pollIntervalMinutes: 7 } }), "A settings save");
+      expect(host.storage.settings.pollIntervalMinutes).toBe(7);
+
+      host.controller.shutdown();
+      await within(twitchTick.catch(() => undefined), "Shutdown");
+    });
+  });
+
+  // The push observer follows the state each tick commits, on every host
+  // (#590): it is reconciled after the commit, with no lock held.
+  describe("Twitch channel points", () => {
+    it("starts the push observer after a tick that watches Twitch", async () => {
+      const settings = twitchOnly();
+      const host = contractHost(capabilities, {
+        settings: {
+          ...settings,
+          platform: {
+            ...settings.platform,
+            twitch: { ...settings.platform.twitch, autoClaimChannelPoints: true, channelPointsPushClaim: true },
+          },
+        },
+      });
+      let starts = 0;
+      host.adapters.twitch.createChannelPointsPushController = (() => ({
+        subscribed: false,
+        start: async () => {
+          starts += 1;
+        },
+        stop: async () => undefined,
+        drainEvents: () => [],
+      })) as unknown as NonNullable<PlatformAdapter["createChannelPointsPushController"]>;
+
+      await host.controller.tickAndHandOff(["twitch"], "alarm");
+
+      expect(host.storage.state.sessions.twitch.status).toBe("watching");
+      expect(starts).toBe(1);
       host.controller.shutdown();
     });
   });
