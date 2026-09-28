@@ -13,7 +13,7 @@ import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
 import { createTabRegistry } from "@lurkloot/core/tabRegistry";
 import type { ChannelCandidate, DropCampaign, ExtensionSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
 import type { EngineEvent } from "@lurkloot/shared/events";
-import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
+import { applySettingsPatch, DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "../../src/core/storage";
 import { createExtensionTabPorts } from "../../src/core/tabPorts";
 import { FakeBrowser } from "./fakeBrowser";
@@ -209,6 +209,7 @@ export function contractHost(capabilities: CapabilitySet, options: ContractHostO
 
   const common: HostMocks<ExtensionSettings> = {
     loadSettings: vi.fn(async () => storage.settings),
+    applySettingsPatch,
     saveSettings: vi.fn(async (next: ExtensionSettings) => {
       if (capabilities.persistsSettings) storage.settings = next;
     }),

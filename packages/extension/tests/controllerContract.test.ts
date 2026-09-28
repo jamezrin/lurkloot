@@ -503,6 +503,43 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
     });
   });
 
+  // #587: Twitch Extensions discovery runs as a tick effect with no lock held,
+  // so a provider that never answers cannot hold up anything else.
+  describe("blocked Twitch Extensions provider", () => {
+    // Fails instead of hanging when the promise is held up.
+    const within = async <T>(promise: Promise<T>, label: string): Promise<T> => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const timeout = new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label} waited on the blocked provider`)), 1_000);
+      });
+      try {
+        return await Promise.race([promise, timeout]);
+      } finally {
+        clearTimeout(timer);
+      }
+    };
+
+    it.runIf(capabilities.declared.supplementalSources)("delays neither Kick, a settings save nor shutdown", async () => {
+      const host = contractHost(capabilities);
+      // No drops on Twitch, so the tick asks the Twitch Extensions source,
+      // which never answers until its tick is cancelled.
+      vi.mocked(host.adapters.twitch.refreshCampaigns).mockResolvedValue([]);
+      vi.mocked(host.deps.selectSupplementalWatchTarget!).mockImplementation((_platform, _state, _settings, signal) =>
+        new Promise((_resolve, reject) => signal?.addEventListener("abort", () => reject(signal.reason), { once: true })));
+
+      const twitchTick = host.controller.tickAndHandOff(["twitch"], "alarm");
+      await vi.waitFor(() => expect(host.deps.selectSupplementalWatchTarget).toHaveBeenCalled());
+
+      await within(host.controller.tickAndHandOff(["kick"], "alarm"), "A Kick tick");
+      expect(host.storage.state.sessions.kick).toMatchObject({ status: "watching", campaignId: "kick-campaign" });
+      await within(host.controller.handleMessage({ type: "saveSettings", settingsPatch: { pollIntervalMinutes: 7 } }), "A settings save");
+      expect(host.storage.settings.pollIntervalMinutes).toBe(7);
+
+      host.controller.shutdown();
+      await within(twitchTick.catch(() => undefined), "Shutdown");
+    });
+  });
+
   describe("runtime snapshot", () => {
     it("returns the stored settings and scheduler state as they are, which is all the popup reads", async () => {
       const host = contractHost(capabilities);
