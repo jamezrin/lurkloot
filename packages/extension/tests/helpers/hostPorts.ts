@@ -3,6 +3,7 @@ import type {
   CredentialAvailability,
   HostCapabilities,
   LockTracker,
+  PageContextRecoveryOptions,
 } from "@lurkloot/core/controller";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import type { StopPageContextTabs } from "@lurkloot/core/scheduler";
@@ -77,8 +78,7 @@ export interface HostMocks<S extends EngineSettings> {
   ): Promise<SupplementalWatchTarget | undefined>;
   reconcilePageContextRecovery?(
     platform: Platform,
-    settings: S,
-    options: { countBackgroundSuccess: boolean },
+    options: PageContextRecoveryOptions,
     emit: EventEmitter,
   ): Promise<boolean>;
   discardPageContextRecoveryEvidence?(platform: Platform): void;
@@ -161,6 +161,9 @@ export function hostPortsFromMocks<S extends EngineSettings>(
           },
           pageContexts: {
             release: ((contexts, options) => m.stopPageContextTabs!(contexts, options)) as StopPageContextTabs,
+            recover: async (platform: Platform, options: PageContextRecoveryOptions, emit: EventEmitter) =>
+              (await m.reconcilePageContextRecovery?.(platform, options, emit)) ?? false,
+            discardRecoveryEvidence: (platform: Platform) => m.discardPageContextRecoveryEvidence?.(platform),
           },
         },
       }
@@ -187,15 +190,6 @@ export function hostPortsFromMocks<S extends EngineSettings>(
         }
         : {}),
     },
-    kick: capabilities.browserTabs
-      ? {
-        pageContextRecovery: {
-          reconcile: async (settings, options, emit) =>
-            (await m.reconcilePageContextRecovery?.("kick", settings, options, emit)) ?? false,
-          discardEvidence: () => m.discardPageContextRecoveryEvidence?.("kick"),
-        },
-      }
-      : {},
     testing: {
       ...(m.lockTracker ? { lockTracker: m.lockTracker } : {}),
       ...(m.wait ? { wait: (ms: number, signal: AbortSignal) => m.wait!(ms, signal) } : {}),

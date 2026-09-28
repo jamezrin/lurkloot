@@ -29,9 +29,9 @@ import type { LockTracker } from "./stateTransaction";
 // Declared by hand by each host. Two hosts and a handful of capabilities need
 // no dependency resolution.
 export interface HostCapabilities {
-  // Watch tabs and ad focus (`tabs.watch`), page-context tabs (`tabs.pageContexts`,
-  // and the Kick page-context recovery in `kick.pageContextRecovery`), and the
-  // tab registry they share (`tabRegistry`). Without it every watch is tabless.
+  // Watch tabs and ad focus (`tabs.watch`), page-context tabs and their recovery
+  // (`tabs.pageContexts`), and the tab registry they share (`tabRegistry`).
+  // Without it every watch is tabless.
   readonly browserTabs: boolean;
   // Capturing a Twitch integrity token through a browser page (`twitch.integrity`).
   readonly twitchIntegrityCapture: boolean;
@@ -150,6 +150,22 @@ export interface TabEventsPort {
 export interface PageContextPort {
   // Page-context tab teardown, also injected into the scheduler tick.
   release: StopPageContextTabs;
+  // Recovery from a page context opened when a background request was rejected
+  // (only Kick opens one). The host gathers route evidence as requests run; this
+  // takes what one committed cycle gathered and applies the registry's recovery
+  // rule (observePageContextRecovery), closing the platform's retained page
+  // context once direct requests have worked for the host's configured number
+  // of cycles in a row. Resolves true when the page contexts changed. The engine
+  // decides when a cycle counts; the host keeps the evidence and the tab.
+  recover(platform: Platform, options: PageContextRecoveryOptions, emit: EventEmitter): Promise<boolean>;
+  // Drops the evidence a cycle gathered when that cycle did not commit.
+  discardRecoveryEvidence(platform: Platform): void;
+}
+
+export interface PageContextRecoveryOptions {
+  // False when the cycle's discovery did not complete, so its direct successes
+  // must not count towards recovery; a fallback still resets it.
+  countBackgroundSuccess: boolean;
 }
 
 // Twitch integrity capture through a browser page (capability
@@ -178,17 +194,6 @@ export interface TwitchHostPorts<S extends EngineSettings> {
   supplementalSources?: SupplementalSourcesPort<S>;
 }
 
-// Kick page contexts opened when a background request was rejected, closed
-// again once direct requests work (part of capability `browserTabs`).
-export interface KickPageContextRecoveryPort<S extends EngineSettings> {
-  reconcile(settings: S, options: { countBackgroundSuccess: boolean }, emit: EventEmitter): Promise<boolean>;
-  discardEvidence(): void;
-}
-
-export interface KickHostPorts<S extends EngineSettings> {
-  pageContextRecovery?: KickPageContextRecoveryPort<S>;
-}
-
 // Seams for tests. Hosts leave them out.
 export interface TestingPorts {
   // The state transaction's lock-order and locked-I/O checks (stateTransaction.ts).
@@ -212,7 +217,6 @@ export interface BackgroundHostPorts<S extends EngineSettings = EngineSettings> 
   // (#598). Left out by a host without tabs; the controller then makes its own.
   tabRegistry?: TabRegistry;
   twitch: TwitchHostPorts<S>;
-  kick: KickHostPorts<S>;
   testing?: TestingPorts;
 }
 
@@ -227,7 +231,6 @@ export class HostCapabilityMismatchError extends Error {
 export function assertHostCapabilities<S extends EngineSettings>(ports: BackgroundHostPorts<S>): void {
   const checks: Array<readonly [keyof HostCapabilities, string, boolean]> = [
     ["browserTabs", "tabs", ports.tabs !== undefined],
-    ["browserTabs", "kick.pageContextRecovery", ports.kick.pageContextRecovery !== undefined],
     ["twitchIntegrityCapture", "twitch.integrity", ports.twitch.integrity !== undefined],
     ["supplementalSources", "twitch.supplementalSources", ports.twitch.supplementalSources !== undefined],
   ];

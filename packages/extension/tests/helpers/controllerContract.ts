@@ -8,6 +8,7 @@ import {
 } from "@lurkloot/core/controller";
 import { resolveCompatibility } from "@lurkloot/core";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
+import { KickPageContextRecoveryTracker } from "@lurkloot/core/kick";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
 import { createTabRegistry } from "@lurkloot/core/tabRegistry";
 import type { ChannelCandidate, DropCampaign, ExtensionSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
@@ -232,7 +233,9 @@ export function contractHost(capabilities: CapabilitySet, options: ContractHostO
   // than through the loadSettings mock, as they do not belong to the controller.
   const tabRegistry = createTabRegistry();
   const browser = capabilities.declared.browserTabs ? options.browser ?? new FakeBrowser() : undefined;
-  const tabs = browser ? createExtensionTabPorts(tabRegistry, browser, async () => storage.settings) : undefined;
+  const tabs = browser
+    ? createExtensionTabPorts(tabRegistry, browser, async () => storage.settings, { kick: new KickPageContextRecoveryTracker() })
+    : undefined;
   const deps: HostMocks<ExtensionSettings> = {
     ...common,
     ...(tabs
@@ -244,6 +247,8 @@ export function contractHost(capabilities: CapabilitySet, options: ContractHostO
         applyAdFocus: vi.fn(tabs.watch.applyAdFocus),
         loadTabPlaybackPolicy: vi.fn(tabs.watch.loadPlaybackPolicy),
         stopPageContextTabs: vi.fn(tabs.pageContexts.release),
+        reconcilePageContextRecovery: vi.fn(tabs.pageContexts.recover),
+        discardPageContextRecoveryEvidence: vi.fn(tabs.pageContexts.discardRecoveryEvidence),
       }
       : {}),
     ...(capabilities.declared.twitchIntegrityCapture

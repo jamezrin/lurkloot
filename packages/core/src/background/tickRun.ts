@@ -123,7 +123,7 @@ export function createTickRun<S extends EngineSettings>(
       if (abort.signal.aborted) return [platform, []];
       throw error;
     } finally {
-      if (platform === "kick") ports.kick.pageContextRecovery?.discardEvidence();
+      if (platform === "kick") ports.tabs?.pageContexts.discardRecoveryEvidence(platform);
       for (const adapter of Object.values(tickAdapters)) adapter.close();
       tickSlice.activeTicks.delete(abort);
       tickSlice.activePlatformTicks[platform] -= 1;
@@ -583,7 +583,6 @@ export function createTickRun<S extends EngineSettings>(
       if (!signal.aborted && afterCommit.recovery) {
         await reconcilePageContextRecoveryAfterPersist(
           afterCommit.recovery.platforms,
-          settings,
           afterCommit.recovery.successPlatforms,
           tickContext,
         );

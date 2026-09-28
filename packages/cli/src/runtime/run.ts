@@ -154,7 +154,6 @@ export async function runLoop(options: RunOptions): Promise<void> {
     },
     ...(options.checkCredentialAvailability ? { credentials: { checkAvailability: options.checkCredentialAvailability } } : {}),
     twitch: {},
-    kick: {},
   });
 
   const tickOptions: CliTickOptions = {
