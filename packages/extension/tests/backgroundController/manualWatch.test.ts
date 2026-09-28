@@ -288,7 +288,7 @@ describe("background controller", () => {
     await env.controller.runTwitchChannelPointsClaim();
     expect(env.twitch.claimChannelPoints).toHaveBeenCalledWith(expect.objectContaining({
       username: "secondcreator",
-    }));
+    }), { signal: expect.any(AbortSignal) });
 
     await env.controller.handleMessage(
       { type: "playbackTelemetry", platform: "twitch", telemetry },

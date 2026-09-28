@@ -13,6 +13,7 @@ export function createSettingsTransitions<S extends EngineSettings>(
   { discoverySlice }: Pick<ControllerSlices<S>, "discoverySlice">,
   calls: Pick<ControllerCalls<S>,
     | "abortIneligibleClaimOnlyOperations"
+    | "abortIneligibleTwitchChannelPointsClaims"
     | "cancelPendingTick"
     | "invalidateSelection"
     | "reconcileManualWatchClaimAlarms"
@@ -23,6 +24,7 @@ export function createSettingsTransitions<S extends EngineSettings>(
 ): Pick<ControllerCalls<S>, "normalizeStartupSettings" | "commitSettings"> {
   const {
     abortIneligibleClaimOnlyOperations,
+    abortIneligibleTwitchChannelPointsClaims,
     cancelPendingTick,
     invalidateSelection,
     reconcileManualWatchClaimAlarms,
@@ -93,6 +95,7 @@ export function createSettingsTransitions<S extends EngineSettings>(
         afterLoad?.(commit.previous);
         const { settings } = commit;
         abortIneligibleClaimOnlyOperations(settings, "Claim automation disabled");
+        abortIneligibleTwitchChannelPointsClaims(settings, "Channel points claiming disabled");
         await transaction.saveSettingsCommit(commit);
         saved = true;
         for (const platform of invalidatedPlatforms) {

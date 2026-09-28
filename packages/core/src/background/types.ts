@@ -297,6 +297,8 @@ export interface ControllerCalls<S extends EngineSettings> {
   reconcileTwitchIntegrityLifecycle(enabled: boolean | undefined): void;
 
   // channelPoints.ts
+  abortTwitchChannelPointsClaims(reason: string): void;
+  abortIneligibleTwitchChannelPointsClaims(settings: EngineSettings, reason: string): void;
   clearTwitchChannelPointsAlarmBestEffort(): Promise<void>;
   reconcileTwitchChannelPointsAlarm(settings: S): Promise<void>;
   stopTwitchChannelPointsPush(emit: EventEmitter): Promise<void>;

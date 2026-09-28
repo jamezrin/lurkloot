@@ -806,7 +806,10 @@ describe("runLoop heartbeat driver", () => {
       await vi.advanceTimersByTimeAsync(60_000);
       await vi.waitFor(() => expect(claimChannelPoints).toHaveBeenCalledTimes(3));
       expect(twitch.refreshCampaigns).toHaveBeenCalledOnce();
-      expect(claimChannelPoints).toHaveBeenLastCalledWith(expect.objectContaining({ username: "heartbeat-creator" }));
+      expect(claimChannelPoints).toHaveBeenLastCalledWith(
+        expect.objectContaining({ username: "heartbeat-creator" }),
+        { signal: expect.any(AbortSignal) },
+      );
     } finally {
       process.emit("SIGTERM");
       await running;
