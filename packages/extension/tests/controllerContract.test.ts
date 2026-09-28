@@ -8,6 +8,7 @@ import {
   TWITCH_DROP_CLAIMS_ALARM_NAME,
   WATCH_ALARM_NAME,
 } from "@lurkloot/core/controller";
+import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
 import type { DropCampaign, SchedulerState, WatchSession } from "@lurkloot/shared/models";
 import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
@@ -537,6 +538,38 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
 
       host.controller.shutdown();
       await within(twitchTick.catch(() => undefined), "Shutdown");
+    });
+  });
+
+  // The push observer follows the state each tick commits, on every host
+  // (#590): it is reconciled after the commit, with no lock held.
+  describe("Twitch channel points", () => {
+    it("starts the push observer after a tick that watches Twitch", async () => {
+      const settings = twitchOnly();
+      const host = contractHost(capabilities, {
+        settings: {
+          ...settings,
+          platform: {
+            ...settings.platform,
+            twitch: { ...settings.platform.twitch, autoClaimChannelPoints: true, channelPointsPushClaim: true },
+          },
+        },
+      });
+      let starts = 0;
+      host.adapters.twitch.createChannelPointsPushController = (() => ({
+        subscribed: false,
+        start: async () => {
+          starts += 1;
+        },
+        stop: async () => undefined,
+        drainEvents: () => [],
+      })) as unknown as NonNullable<PlatformAdapter["createChannelPointsPushController"]>;
+
+      await host.controller.tickAndHandOff(["twitch"], "alarm");
+
+      expect(host.storage.state.sessions.twitch.status).toBe("watching");
+      expect(starts).toBe(1);
+      host.controller.shutdown();
     });
   });
 

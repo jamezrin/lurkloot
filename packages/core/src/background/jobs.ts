@@ -4,11 +4,11 @@ import {
   KICK_CHALLENGES_ALARM_NAME,
   KICK_DROP_CLAIMS_ALARM_NAME,
   TWITCH_ALARM_NAME,
-  TWITCH_CHANNEL_POINTS_ALARM_NAME,
   TWITCH_DROP_CLAIMS_ALARM_NAME,
   TWITCH_INTEGRITY_ALARM_NAME,
   WATCH_ALARM_NAME,
 } from "./constants";
+import { TWITCH_CHANNEL_POINTS_JOBS } from "./channelPoints";
 import type { HostCapabilities } from "./hostPorts";
 
 // The job scheduler port (#593): the only way the engine schedules work. The
@@ -69,10 +69,7 @@ export const BACKGROUND_JOBS: Readonly<Record<string, BackgroundJob>> = {
   [TWITCH_ALARM_NAME]: { run: (runner) => runner.tickAndHandOff(["twitch"], "alarm") },
   [KICK_ALARM_NAME]: { run: (runner) => runner.tickAndHandOff(["kick"], "alarm") },
   [WATCH_ALARM_NAME]: { run: (runner) => runner.runWatchHeartbeat() },
-  [TWITCH_CHANNEL_POINTS_ALARM_NAME]: {
-    run: (runner) => runner.runTwitchChannelPointsClaim(),
-    requires: "twitchChannelPointsJob",
-  },
+  ...TWITCH_CHANNEL_POINTS_JOBS,
   // The claim jobs claim for a manually watched tab, which needs browser tabs.
   [TWITCH_DROP_CLAIMS_ALARM_NAME]: { run: (runner) => runner.runDropClaims("twitch"), requires: "browserTabs" },
   [KICK_DROP_CLAIMS_ALARM_NAME]: { run: (runner) => runner.runDropClaims("kick"), requires: "browserTabs" },

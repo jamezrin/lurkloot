@@ -12,7 +12,7 @@ import { AuthProbeSetupError } from "./errors";
 import { correlateTickDiagnostics, farmingLifecycleEvents } from "./helpers";
 import type { BackgroundHostPorts } from "./hostPorts";
 import { rebaseTickState, tickEffectFacts } from "./tickCommit";
-import { createTickEffectExecutor, runSchedulerTickEffects, tickCapabilities } from "./tickEffects";
+import { createTickEffectExecutor, runSchedulerTickEffects, tickCapabilities, type TickEffectExecutor } from "./tickEffects";
 import type {
   ClaimedRewards,
   CommittedSelection,
@@ -27,8 +27,8 @@ import type {
 // One platform tick: selection, the scheduler tick and what runs around it.
 export function createTickRun<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
-  { claimSlice, discoverySlice, tickSlice, kickChallengeSlice, channelPointsSlice, tabRegistry }: Pick<ControllerSlices<S>,
-    "claimSlice" | "discoverySlice" | "tickSlice" | "kickChallengeSlice" | "channelPointsSlice" | "tabRegistry">,
+  { claimSlice, discoverySlice, tickSlice, kickChallengeSlice, tabRegistry }: Pick<ControllerSlices<S>,
+    "claimSlice" | "discoverySlice" | "tickSlice" | "kickChallengeSlice" | "tabRegistry">,
   calls: Pick<ControllerCalls<S>,
     | "applyAdFocusForState"
     | "clearOperationalEvents"
@@ -44,7 +44,8 @@ export function createTickRun<S extends EngineSettings>(
     | "discoverySignalEpochs"
     | "reconcilePageContextRecoveryAfterPersist"
     | "reconcileTablessWatchers"
-    | "reconcileTwitchChannelPointsPush"
+    | "reconcileTwitchChannelPointsPushAfterCommit"
+    | "registerTwitchChannelPointsEffects"
     | "refreshAuthHealth"
     | "refreshDiscovery"
     | "releaseHeartbeatPublicationLease"
@@ -59,6 +60,7 @@ export function createTickRun<S extends EngineSettings>(
     | "selectionKey"
     | "stateRevision"
     | "tickInBackground"
+    | "twitchChannelPointsPushEpoch"
     | "withEventCollector"
     | "withStateLock"
   >,
@@ -78,7 +80,8 @@ export function createTickRun<S extends EngineSettings>(
     discoverySignalEpochs,
     reconcilePageContextRecoveryAfterPersist,
     reconcileTablessWatchers,
-    reconcileTwitchChannelPointsPush,
+    reconcileTwitchChannelPointsPushAfterCommit,
+    registerTwitchChannelPointsEffects,
     refreshAuthHealth,
     refreshDiscovery,
     releaseHeartbeatPublicationLease,
@@ -93,12 +96,17 @@ export function createTickRun<S extends EngineSettings>(
     selectionKey,
     stateRevision,
     tickInBackground,
+    twitchChannelPointsPushEpoch,
     withEventCollector,
     withStateLock,
   } = lateBound(calls);
   const supplementalSources = ports.twitch.supplementalSources;
-  // One executor per controller: each scheduler effect type has one handler.
-  const tickEffects = createTickEffectExecutor();
+  // One executor per controller: each scheduler effect type has one handler,
+  // the interim ones plus those of the services that own theirs. Built on first
+  // use, once every module's calls are bound.
+  let tickEffectExecutor: TickEffectExecutor | undefined;
+  const tickEffects = (): TickEffectExecutor =>
+    tickEffectExecutor ??= registerTwitchChannelPointsEffects(createTickEffectExecutor());
 
   async function tickPlatform(
     platform: Platform,
@@ -363,7 +371,6 @@ export function createTickRun<S extends EngineSettings>(
         claimGuards: {
           rewards: claimSlice.rewardClaimGuards,
           challenges: kickChallengeSlice,
-          channelPoints: channelPointsSlice,
         },
       };
       const eventsBeforeTick = events.length;
@@ -410,7 +417,7 @@ export function createTickRun<S extends EngineSettings>(
               schedulerPlatform,
               tickCapabilities(adapters[schedulerPlatform], ports.capabilities.browserTabs),
             ])),
-          }, tickEffects, effectContext);
+          }, tickEffects(), effectContext);
         } catch (error) {
           failure = { error };
         }
@@ -424,11 +431,13 @@ export function createTickRun<S extends EngineSettings>(
       // Work for the state this tick committed, run once the lock is released:
       // ad focus follows the committed sessions and Kick page-context recovery
       // acts on the committed page contexts (#598), and the discovery-signal
-      // observers follow the latest committed state (#587).
+      // observers (#587) and the Twitch channel-points push (#590) follow the
+      // latest committed state.
       let afterCommit: {
         adFocus?: SchedulerState;
         recovery?: { platforms: readonly Platform[]; successPlatforms: ReadonlySet<Platform> };
         discoverySignals?: { committed: SchedulerState; since: Partial<Record<Platform, number>> };
+        channelPointsPush?: { committed: SchedulerState; since: number };
       } = {};
       await withStateLock(async () => {
         // Drops the tick's decision and its events, keeping only the activity
@@ -489,9 +498,6 @@ export function createTickRun<S extends EngineSettings>(
           );
           signal.throwIfAborted();
           assertSelectionsCurrent();
-          if (schedulerPlatforms.includes("twitch")) {
-            await reconcileTwitchChannelPointsPush(settings, tickState, adapters.twitch, emit);
-          }
           for (const schedulerPlatform of schedulerPlatforms) tickAdapters[schedulerPlatform]?.drain(claimObservingEmit);
           signal.throwIfAborted();
           assertSelectionsCurrent();
@@ -570,6 +576,9 @@ export function createTickRun<S extends EngineSettings>(
             adFocus: nextState,
             recovery: { platforms: schedulerPlatforms, successPlatforms: pageContextRecoverySuccessPlatforms },
             discoverySignals: { committed: nextState, since: discoverySignalEpochs(schedulerPlatforms) },
+            ...(schedulerPlatforms.includes("twitch")
+              ? { channelPointsPush: { committed: nextState, since: twitchChannelPointsPushEpoch() } }
+              : {}),
           };
           claimSlice.waitingClaimRewardIds[platform].clear();
           for (const rewardId of nextWaitingClaimRewardIds[platform]) {
@@ -605,12 +614,23 @@ export function createTickRun<S extends EngineSettings>(
         );
         await reportBestEffort(correlateTickDiagnostics(events.slice(reported), tickContext));
       }
+      if (!signal.aborted && afterCommit.channelPointsPush) {
+        const reported = events.length;
+        await reconcileTwitchChannelPointsPushAfterCommit(
+          afterCommit.channelPointsPush.committed,
+          afterCommit.channelPointsPush.since,
+          settings,
+          adapters.twitch,
+          emit,
+        );
+        await reportBestEffort(correlateTickDiagnostics(events.slice(reported), tickContext));
+      }
 
       // Outside the lock again: close a tab only the superseded decision
       // wanted, and let a fresh tick decide from the state that won.
       if (openedTab && !signal.aborted) {
         try {
-          await tickEffects.run({ type: "stopWatchTab", platform, session: openedTab }, { ...effectContext, emit, signal });
+          await tickEffects().run({ type: "stopWatchTab", platform, session: openedTab }, { ...effectContext, emit, signal });
         } catch (error) {
           emit({ category: "diagnostic", level: "warn", platform, message: error instanceof Error ? error.message : "Could not stop watch tab" });
           await reportBestEffort(correlateTickDiagnostics(events, tickContext));

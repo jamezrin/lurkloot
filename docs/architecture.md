@@ -128,11 +128,11 @@ The per-module slices and calls below are where #591's dependency check starts:
 | `stateCommit.ts` | the transaction | `reporting` | 12 |
 | `reporting.ts` | `reportingSlice` | `discovery` | 13 |
 | `tickAdmission.ts` | `reportingSlice`, `integritySlice`, `signalSlice`, `tickSlice`, `lifecycleSlice` | `claims`, `discovery`, `discoverySignals`, `reporting`, `stateCommit`, `tickRun` | 11 |
-| `tickRun.ts` | `claimSlice`, `discoverySlice`, `tickSlice`, `kickChallengeSlice`, `channelPointsSlice` (their claim guards) | `authHealth`, `channelPoints`, `discovery`, `discoverySignals`, `heartbeat`, `kickChallenges`, `manualWatch`, `reporting`, `stateCommit`, `tickAdmission`, `twitchIntegrity` | 1 |
+| `tickRun.ts` | `claimSlice`, `discoverySlice`, `tickSlice`, `kickChallengeSlice` (their claim guards) | `authHealth`, `channelPoints`, `discovery`, `discoverySignals`, `heartbeat`, `kickChallenges`, `manualWatch`, `reporting`, `stateCommit`, `tickAdmission`, `twitchIntegrity` | 1 |
 | `discovery.ts` | its own `discoverySlice`, `lifecycleSlice` | `reporting`, `stateCommit` | 10 |
 | `heartbeat.ts` | `heartbeatSlice`, `tickSlice`, `lifecycleSlice` | `discovery`, `reporting`, `stateCommit`, `tickAdmission` | 7 |
 | `twitchIntegrity.ts` | `integritySlice`, `settingsSlice`, `lifecycleSlice` | `reporting`, `stateCommit` | 8 |
-| `channelPoints.ts` | `channelPointsSlice`, `signalSlice`, `tickSlice`, `lifecycleSlice` | `reporting`, `stateCommit` | 7 |
+| `channelPoints.ts` | its own push slot, claim gate and push-claim queue (#590), `tickSlice`, `lifecycleSlice` | `reporting`, `stateCommit` | 10 |
 | `kickChallenges.ts` | `kickChallengeSlice`, `lifecycleSlice` | `reporting`, `stateCommit` | 2 |
 | `authHealth.ts` | `authSlice`, `discoverySlice` | `channelPoints`, `discovery`, `discoverySignals`, `reporting`, `stateCommit` | 5 |
 | `manualWatch.ts` | none | `discovery`, `discoverySignals`, `reporting`, `stateCommit`, `tickAdmission` | 6 |
@@ -168,7 +168,7 @@ or settings, loaded and saved through the host's storage port (`storage.local` o
 | Manual watch (`manualWatch`, `manualWatchTabs`, `manualClosePause`, playback telemetry) | Persisted | `recordPlaybackTelemetry`, `handleTabUpdated`, `handleTabRemoved`, `resumeAfterManualClose` | Tab events, resume, TTL | Platform lock | Reloaded | Extension only; the CLI has no tabs |
 | Settings (`twitchSettingsTransitionGeneration`) | Settings persisted, transition generation in memory | `commitSettings` (every popup write, `updateIdleWatchlist`), `normalizeStartupSettings` | Each settings commit. Its per-platform effect decides: `selection` (ranking-only, `isRankingOnlyPatch`) keeps discovery, `discovery` invalidates both | The transaction's settings lock | Reloaded and migrated (schema v7) | Both. The CLI's `saveSettings` is a no-op |
 | Page contexts and Kick recovery evidence | The controller's tab registry (`createTabRegistry`, one per controller; the extension host passes the one its tab mechanics write to), mirrored in persisted `managedPageContextTabs`. Recovery evidence in the extension host (`kickPageContextRecovery`) | The tick's `releasePageContexts` effect, `registerManagedPageContextTabs`, host fetch fallbacks | Release, reset, restart without auto-start | Copied into `SchedulerState` by the tick driver (`runSchedulerTickEffects`), never by the deciding code | Re-registered at startup when farming auto-starts | Extension only |
-| Claim operations (`dropClaimOperations`, `waitingClaimRewardIds`, `claimHandoffs`, `kickChallengeClaimOperations`, `twitchChannelPointsClaimInFlight`, channel-points push) and claim guards (`rewardClaimGuards`, `kickChallengeClaimRunning`, `twitchChannelPointsClaim`) | In memory. Claimed rewards are persisted through `campaigns` | Ticks, claim jobs, `claimRewardNow`, `runClaimHandoff`, the push | Disable, auth loss, reset, shutdown, `abortClaimHandoffs` at startup | Platform lock for the jobs; the tick claims with no lock and commits after (#599). The guards keep one request per reward, one Kick challenge claim and one channel-points claim in flight across every path | In-flight work is lost; provider inventory is re-read | Both, but manual-watch claim jobs never fire on the CLI |
+| Claim operations (`dropClaimOperations`, `waitingClaimRewardIds`, `claimHandoffs`, `kickChallengeClaimOperations`, the channel-points service's push-claim queue and push observer) and claim guards (`rewardClaimGuards`, `kickChallengeClaimRunning`, the channel-points `ChannelPointsClaimGate`) | In memory. Claimed rewards are persisted through `campaigns` | Ticks, claim jobs, `claimRewardNow`, `runClaimHandoff`, the push | Disable, auth loss, reset, shutdown, `abortClaimHandoffs` at startup | Platform lock for the drop-claim and Kick challenge jobs; the tick (#599) and the channel-points job and push (#590) claim with no lock. The guards keep one request per reward, one Kick challenge claim and one channel-points claim in flight across every path | In-flight work is lost; provider inventory is re-read | Both, but manual-watch claim jobs never fire on the CLI |
 | Twitch integrity (`installedTwitchIntegrity`, `persistedIntegrityToken`, `integrityLifecycleGeneration`) | In memory in the controller and in its tab registry, with the capture waiters and in-flight acquisition; the token is also persisted through `saveTwitchIntegrity` | Header capture, refresh, enable/disable transitions | A newer lifecycle generation | Settings lock, then the platform lock | Token reloaded from storage | Extension only |
 | Compatibility reporting (`reportedCompatibility`, route reports) and `campaignEvaluationFingerprints` | In memory | Adapter construction, ticks | Never, within a process | None | Reported again | Both |
 | Host jobs | The job scheduler port: `browser.alarms` (extension), Node timers (CLI) | `ensureCadenceJobs`, `rescheduleTickJobs`, `reconcile*Alarm`, integrity scheduling | Settings changes, disable | Settings lock, except the tick jobs (rescheduled after it) | Alarms survive a service-worker restart; the CLI re-ensures its cadence jobs on start | Both; jobs whose capability a host lacks are inert (#593) |
@@ -208,9 +208,9 @@ without being listed, or if a listed call has left its lock without the entry be
 - **Scheduler tick:** none since #599. Its effects (claims, Kick challenges, channel points, watch
   tabs, page-context release, Twitch Extensions supplemental selection) run between `runTick`'s two
   platform-lock sections, with no lock held. See "Scheduler tick effects" below.
-- **`runTick` itself**, before publishing: tabless watcher reconciliation (#586) and channel-points
-  push reconciliation (#590). The discovery-signal observers are reconciled after the commit, with no
-  lock held (#587). When the selection prepared before the lock
+- **`runTick` itself**, before publishing: tabless watcher reconciliation (#586). The
+  discovery-signal observers (#587) and the channel-points push (#590) are reconciled after the
+  commit, with no lock held. When the selection prepared before the lock
   no longer matches, the tick re-selects inside the lock with `reselectUnderLock`, which evaluates
   straight over the discovery snapshot: it never joins another tick's selection run or goes
   through the testing selection hook, so it is not locked I/O (#587).
@@ -221,9 +221,9 @@ without being listed, or if a listed call has left its lock without the entry be
   (#596).
 - **Claims outside the tick:** `claimRewardNow`, `runDropClaims` (which also refreshes campaigns) and
   `runKickChallengeClaims` (#597, #588).
-- **Timers under the settings or platform lock:** integrity refresh scheduling (#589), claim and
-  channel-points alarms on settings writes and at startup (#597, #590). The tick jobs are
-  rescheduled after the settings lock is released (#593).
+- **Timers under the settings or platform lock:** integrity refresh scheduling (#589), claim alarms
+  on settings writes and at startup (#597). The tick jobs (#593) and the channel-points job (#590)
+  are rescheduled after the settings lock is released, from the latest stored settings.
 
 Event reporting (`reportBestEffort`, `persistAndReport`) and notifications still run inside the
 platform locks, but only after the commit that carries them has been accepted (see below).
@@ -288,7 +288,7 @@ port or the tab module. Each side effect it needs is yielded as a typed `Schedul
 | Effect | Interim handler (`background/tickEffects.ts`) | Final owner |
 | --- | --- | --- |
 | `claimRewards` | `claimReadyRewards` (`core/rewardClaims.ts`) | #597 |
-| `claimChannelPoints` | `adapter.claimChannelPoints` | #590 |
+| `claimChannelPoints` | none: the channel-points service's own handler (`registerChannelPointsClaimEffect`) | #590 (done) |
 | `claimChallenges` | `adapter.claimChallenges` | #588 |
 | `openWatchTab`, `stopWatchTab` | the host's `WatchTabPort` (`tabs.watch.open` / `stop`). Without it, opening throws and stopping does nothing | #587 |
 | `releasePageContexts` | the host's `PageContextPort` (`tabs.pageContexts.release`) | #588 |
@@ -337,7 +337,10 @@ With the tick unlocked, the claim jobs no longer queue behind it, so every claim
 and skips while another path holds the reservation: rewards per id (`RewardClaimGuard`: the tick, the
 drop-claim job and `claimRewardNow`), and one Kick challenge claim and one channel-points claim at a
 time. A channel-points push names one specific claim, so it waits for a running claim instead of
-skipping, as it used to wait behind the tick's lock. An aborted tick starts no further effect:
+skipping, as it used to wait behind the tick's lock. The channel-points job and push claims take no
+lock either (#590): one `ChannelPointsClaimGate` covers the tick, the job and the push, and push
+claims run one at a time from their own queue, so a job fire during a tick's claim sends nothing and
+Twitch farming never waits on a claim. An aborted tick starts no further effect:
 `driveEffects` checks the tick's signal before each one. The in-tick `refreshCampaigns` fallback is gone: discovery reaches the tick only through the
 committed snapshot lane.
 

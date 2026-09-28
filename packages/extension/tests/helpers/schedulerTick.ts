@@ -9,6 +9,7 @@ import type {
   StopPageContextTabs,
 } from "@lurkloot/core/scheduler";
 import { MANUAL_WATCH_TTL_MS } from "@lurkloot/core/scheduler";
+import { ChannelPointsClaimGate, registerChannelPointsClaimEffect } from "@lurkloot/core/background/channelPoints";
 import { createTickEffectExecutor, runSchedulerTickEffects, tickCapabilities } from "@lurkloot/core/background/tickEffects";
 import { authHealthFromError } from "@lurkloot/core/fetchError";
 import { isTimestampStale } from "@lurkloot/core/timestamps";
@@ -123,7 +124,7 @@ export async function runSchedulerTick(
     campaignEvaluationFingerprints: options.campaignEvaluationFingerprints,
     selections: options.selections,
     selectionIsCurrent: options.selectionIsCurrent,
-  }, createTickEffectExecutor(), {
+  }, registerChannelPointsClaimEffect(createTickEffectExecutor(), new ChannelPointsClaimGate()), {
     adapters,
     tabRegistry: options.tabRegistry ?? createTabRegistry(),
     ...(browserTabs ? { watchTabs: watchTabsFromMocks(adapters) } : {}),
