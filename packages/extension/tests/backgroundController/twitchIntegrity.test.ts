@@ -1780,6 +1780,108 @@ describe("background controller", () => {
       },
     );
 
+    // Behavior change (#589): Twitch integrity follows the stored enabled flag
+    // whichever message saved it. A settings save, such as an import, that
+    // switched Twitch off used to leave the refresh running and scheduled.
+    it("cancels acquisition and clears the alarm when a settings save disables Twitch", async () => {
+      let acquisitionSignal: AbortSignal | undefined;
+      const env = harness(undefined, {
+        loadTwitchIntegrity: async () => undefined,
+        ensureTwitchIntegrity: async (_emit, request) => new Promise<boolean>((_resolve, reject) => {
+          acquisitionSignal = request?.signal;
+          request?.signal?.addEventListener("abort", () => reject(request.signal?.reason), { once: true });
+        }),
+      });
+      await env.controller.settleBackgroundWork();
+      const refreshing = env.controller.runTwitchIntegrityRefresh();
+      await vi.waitFor(() => expect(acquisitionSignal).toBeDefined());
+
+      await env.rawController.handleMessage({
+        type: "saveSettings",
+        settingsPatch: { platform: { twitch: { enabled: false } } },
+      });
+
+      expect(acquisitionSignal?.aborted).toBe(true);
+      expect(env.deps.clearAlarm).toHaveBeenCalledWith(TWITCH_INTEGRITY_ALARM_NAME);
+      await refreshing;
+      // The lifecycle is closed: a refresh job that fires now does nothing.
+      env.deps.ensureTwitchIntegrity.mockClear();
+      await env.controller.runTwitchIntegrityRefresh();
+      expect(env.deps.ensureTwitchIntegrity).not.toHaveBeenCalled();
+      await env.rawController.settleBackgroundWork();
+    });
+
+    it("cancels acquisition as soon as a settings save that disables Twitch starts writing", async () => {
+      let acquisitionSignal: AbortSignal | undefined;
+      const writing = deferred<void>();
+      let holdWrite = false;
+      const env = harness(undefined, {
+        loadTwitchIntegrity: async () => undefined,
+        ensureTwitchIntegrity: async (_emit, request) => new Promise<boolean>((_resolve, reject) => {
+          acquisitionSignal = request?.signal;
+          request?.signal?.addEventListener("abort", () => reject(request.signal?.reason), { once: true });
+        }),
+        saveSettings: async () => {
+          if (holdWrite) await writing.promise;
+        },
+      });
+      await env.controller.settleBackgroundWork();
+      const refreshing = env.controller.runTwitchIntegrityRefresh();
+      await vi.waitFor(() => expect(acquisitionSignal).toBeDefined());
+      holdWrite = true;
+
+      const saving = env.rawController.handleMessage({
+        type: "saveSettings",
+        settingsPatch: { platform: { twitch: { enabled: false } } },
+      });
+      await vi.waitFor(() => expect(env.deps.saveSettings).toHaveBeenCalled());
+      expect(acquisitionSignal?.aborted).toBe(true);
+      writing.resolve();
+      await saving;
+      await refreshing;
+      await env.rawController.settleBackgroundWork();
+    });
+
+    it("recreates the refresh schedule when a settings save re-enables Twitch", async () => {
+      const integrity = integrityBundle({
+        integrity: "reschedule-after-import",
+        expiresAt: Date.now() + 30 * 60_000,
+      });
+      const env = harness(undefined, {
+        loadTwitchIntegrity: async () => integrity,
+      });
+      await env.controller.settleBackgroundWork();
+      await env.rawController.handleMessage({
+        type: "saveSettings",
+        settingsPatch: { platform: { twitch: { enabled: false } } },
+      });
+      await env.rawController.settleBackgroundWork();
+      env.deps.createAlarm.mockClear();
+
+      await env.rawController.handleMessage({
+        type: "saveSettings",
+        settingsPatch: { platform: { twitch: { enabled: true } } },
+      });
+
+      expect(env.deps.createAlarm).toHaveBeenCalledWith(
+        TWITCH_INTEGRITY_ALARM_NAME,
+        expect.objectContaining({ when: expect.any(Number) }),
+      );
+      await env.rawController.settleBackgroundWork();
+    });
+
+    it("leaves the integrity schedule alone on a settings save that does not toggle Twitch", async () => {
+      const env = harness(undefined, { loadTwitchIntegrity: async () => undefined });
+      await env.controller.settleBackgroundWork();
+      env.deps.clearAlarm.mockClear();
+      env.deps.cancelTwitchIntegrityAcquisition.mockClear();
+
+      await env.rawController.handleMessage({ type: "saveSettings", settingsPatch: { pollIntervalMinutes: 12 } });
+
+      expect(env.deps.clearAlarm).not.toHaveBeenCalledWith(TWITCH_INTEGRITY_ALARM_NAME);
+      expect(env.deps.cancelTwitchIntegrityAcquisition).not.toHaveBeenCalled();
+    });
+
     it("cancels acquisition and clears the alarm when Twitch is disabled", async () => {
       let acquisitionSignal: AbortSignal | undefined;
       const env = harness(undefined, {

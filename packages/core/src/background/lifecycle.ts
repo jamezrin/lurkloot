@@ -312,7 +312,6 @@ export function createLifecycle<S extends EngineSettings>(
         registerManagedPageContextTabs(tabRegistry, {});
         resetTwitchIntegrity();
         await resetHostStorage?.();
-        settingsSlice.lastPersistedTwitchEnabled = undefined;
         return previous;
       }));
       const { tabs } = ports;

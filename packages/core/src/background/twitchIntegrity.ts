@@ -38,6 +38,13 @@ interface TwitchIntegrityState {
   refreshAbort: AbortController | undefined;
   lifecycleGeneration: number;
   lifecycleOpen: boolean;
+  // Settings saves in flight that disable Twitch. While one is pending no
+  // refresh or schedule is admitted; a save that fails simply ends it, so
+  // there is nothing to roll back (#589).
+  pendingDisables: number;
+  // Serializes the reconciles that follow committed Twitch enable/disable.
+  transitionReconcile: Promise<void>;
+  transitionGeneration: number;
   persistedToken: string | undefined;
   // A missing rejectedToken means there was no usable bundle when the refresh
   // became due. Keeping the wrapper object distinguishes that from "not due."
@@ -64,10 +71,10 @@ export function createTwitchIntegrity<S extends EngineSettings>(
   | "restoreTwitchIntegritySchedule"
   | "prepareTwitchIntegrity"
   | "closeTwitchIntegrityLifecycle"
-  | "reconcileTwitchIntegrityLifecycle"
+  | "holdTwitchIntegrityForDisable"
+  | "reconcileTwitchIntegrityAfterCommit"
   | "startInitialTwitchIntegrityLoad"
   | "awaitInitialTwitchIntegrityLoad"
-  | "twitchIntegrityLifecycleOpen"
   | "resetTwitchIntegrity"
 > {
   const { persistAndReport, reportBestEffort, withEventCollector, withStateLock } = lateBound(calls);
@@ -79,10 +86,19 @@ export function createTwitchIntegrity<S extends EngineSettings>(
     refreshAbort: undefined,
     lifecycleGeneration: 0,
     lifecycleOpen: true,
+    pendingDisables: 0,
+    transitionReconcile: Promise.resolve(),
+    transitionGeneration: 0,
     persistedToken: undefined,
     refreshDue: undefined,
     initialLoad: Promise.resolve(),
   };
+
+  // Whether new integrity work is admitted: the lifecycle is open and no save
+  // that disables Twitch is in flight.
+  function lifecycleAdmits(): boolean {
+    return integritySlice.lifecycleOpen && integritySlice.pendingDisables === 0;
+  }
 
   function integrityRefreshJitter(token: string): number {
     let hash = 2166136261;
@@ -292,7 +308,7 @@ export function createTwitchIntegrity<S extends EngineSettings>(
       if (isValidTwitchIntegrity(integrity)) {
         const current = reconcileStoredTwitchIntegrity(integrity);
         const ownsSchedule = (): boolean =>
-          twitchEnabled === true && integritySlice.lifecycleOpen && ownsStartupLoad();
+          twitchEnabled === true && lifecycleAdmits() && ownsStartupLoad();
         if (ownsSchedule()) {
           await scheduleTwitchIntegrityRefreshBestEffort(current!, emit, ownsSchedule);
         }
@@ -309,7 +325,7 @@ export function createTwitchIntegrity<S extends EngineSettings>(
   }
 
   async function runTwitchIntegrityRefresh(): Promise<void> {
-    if (!integritySlice.lifecycleOpen || integritySlice.refreshAbort) return;
+    if (!lifecycleAdmits() || integritySlice.refreshAbort) return;
     const abort = new AbortController();
     integritySlice.refreshAbort = abort;
     const lifecycleGeneration = integritySlice.lifecycleGeneration;
@@ -317,7 +333,7 @@ export function createTwitchIntegrity<S extends EngineSettings>(
       integritySlice.refreshAbort === abort
       && !abort.signal.aborted
       && integritySlice.lifecycleGeneration === lifecycleGeneration
-      && integritySlice.lifecycleOpen;
+      && lifecycleAdmits();
 
     try {
       await integritySlice.initialLoad;
@@ -479,7 +495,7 @@ export function createTwitchIntegrity<S extends EngineSettings>(
     const settingsTransitionGeneration = settingsSlice.twitchSettingsTransitionGeneration;
     const ownsScheduling = (): boolean =>
       !lifecycleSlice.controllerShutdown
-      && integritySlice.lifecycleOpen
+      && lifecycleAdmits()
       && integritySlice.lifecycleGeneration === lifecycleGeneration
       && settingsSlice.twitchSettingsTransitionGeneration === settingsTransitionGeneration;
     await withEventCollector(async (emit, events) => {
@@ -506,9 +522,9 @@ export function createTwitchIntegrity<S extends EngineSettings>(
   ): Promise<void> {
     try {
       await withStateLock(() => withEventCollector(async (emit, events) => {
-        if (!integritySlice.lifecycleOpen) return;
+        if (!lifecycleAdmits()) return;
         const settings = await ports.storage.loadSettings();
-        if (!integritySlice.lifecycleOpen || !settings.criticalFailurePromptEnabled) return;
+        if (!lifecycleAdmits() || !settings.criticalFailurePromptEnabled) return;
         const state = await ports.storage.loadState();
         const transition = recordManagedTabOpen(state, "twitch", Date.now(), {
           source: "page_context",
@@ -535,7 +551,7 @@ export function createTwitchIntegrity<S extends EngineSettings>(
   async function restoreTwitchIntegritySchedule(
     transitionIsCurrent: () => boolean,
   ): Promise<void> {
-    const ownsRestore = (): boolean => integritySlice.lifecycleOpen && transitionIsCurrent();
+    const ownsRestore = (): boolean => lifecycleAdmits() && transitionIsCurrent();
     await withIntegrityBookkeeping(() => withEventCollector(async (emit, events) => {
       if (!ownsRestore()) return;
       let stored: TwitchIntegrity | undefined;
@@ -597,7 +613,7 @@ export function createTwitchIntegrity<S extends EngineSettings>(
         const currentSettings = await ports.storage.loadSettings();
         if (
           lifecycleGeneration !== integritySlice.lifecycleGeneration
-          || !integritySlice.lifecycleOpen
+          || !lifecycleAdmits()
           || !currentSettings.platform.twitch.enabled
         ) {
           emit({
@@ -637,9 +653,45 @@ export function createTwitchIntegrity<S extends EngineSettings>(
     integritySlice.lifecycleGeneration += 1;
   }
 
-  function reconcileTwitchIntegrityLifecycle(enabled: boolean | undefined): void {
-    if (enabled === true) reopenTwitchIntegrityLifecycle();
-    else if (enabled === false) closeTwitchIntegrityLifecycle("Twitch disabled");
+  // A settings save that disables Twitch, from as soon as it is known: it
+  // cancels the acquisition and refresh in flight at once, since a mint can
+  // run for ~22s, and admits no new integrity work until the hold is
+  // released, whether or not the save succeeded. Nothing to roll back.
+  function holdTwitchIntegrityForDisable(): () => void {
+    const error = new Error("Twitch disabled");
+    integritySlice.refreshAbort?.abort(error);
+    ports.twitch.integrity?.cancelAcquisition(error);
+    integritySlice.pendingDisables += 1;
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      integritySlice.pendingDisables -= 1;
+    };
+  }
+
+  // After a save that changed, or tried to change, Twitch's enabled flag,
+  // whatever sent it (#589): the lifecycle and the refresh schedule follow the
+  // latest stored settings. Serialized, so saves that finish out of order
+  // still converge on the last one.
+  function reconcileTwitchIntegrityAfterCommit(): Promise<void> {
+    const generation = ++integritySlice.transitionGeneration;
+    const isCurrent = (): boolean =>
+      !lifecycleSlice.controllerShutdown && integritySlice.transitionGeneration === generation;
+    const run = integritySlice.transitionReconcile.then(async () => {
+      if (!isCurrent()) return;
+      const { enabled } = (await ports.storage.loadSettings()).platform.twitch;
+      if (!isCurrent()) return;
+      if (!enabled) {
+        closeTwitchIntegrityLifecycle("Twitch disabled");
+        await clearTwitchIntegrityAlarmBestEffort();
+        return;
+      }
+      reopenTwitchIntegrityLifecycle();
+      await restoreTwitchIntegritySchedule(isCurrent);
+    });
+    integritySlice.transitionReconcile = run.catch(() => undefined);
+    return run;
   }
 
   // Primes the in-memory token from storage whenever the background script
@@ -656,10 +708,6 @@ export function createTwitchIntegrity<S extends EngineSettings>(
     return integritySlice.initialLoad;
   }
 
-  function twitchIntegrityLifecycleOpen(): boolean {
-    return integritySlice.lifecycleOpen;
-  }
-
   // Host reset: forgets the token, in memory and as
   // persisted, and any refresh that was due.
   function resetTwitchIntegrity(): void {
@@ -672,7 +720,6 @@ export function createTwitchIntegrity<S extends EngineSettings>(
   return {
     startInitialTwitchIntegrityLoad,
     awaitInitialTwitchIntegrityLoad,
-    twitchIntegrityLifecycleOpen,
     resetTwitchIntegrity,
     clearTwitchIntegrityAlarmBestEffort,
     loadStoredTwitchIntegrity,
@@ -681,6 +728,7 @@ export function createTwitchIntegrity<S extends EngineSettings>(
     restoreTwitchIntegritySchedule,
     prepareTwitchIntegrity,
     closeTwitchIntegrityLifecycle,
-    reconcileTwitchIntegrityLifecycle,
+    holdTwitchIntegrityForDisable,
+    reconcileTwitchIntegrityAfterCommit,
   };
 }

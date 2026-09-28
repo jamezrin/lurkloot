@@ -24,6 +24,10 @@
       },
       {
         "kind": "fixed",
+        "text": "Importing settings that switch Twitch off now also stops Lurkloot from refreshing its Twitch request token in the background, the same as turning Twitch off with its switch. Importing settings that switch it back on resumes the refresh."
+      },
+      {
+        "kind": "fixed",
         "text": "When heartbeats kept failing, the CLI tried to fall back to a watch tab it cannot open and then failed on every check. It now keeps watching without a tab, and a channel that stops earning drop progress is still switched out as before."
       },
       {
