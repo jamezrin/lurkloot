@@ -74,6 +74,7 @@ export function createLifecycle<S extends EngineSettings>(
     | "abortActiveTicks"
     | "abortClaimHandoffs"
     | "abortClaimOnlyOperations"
+    | "abortTwitchChannelPointsClaims"
     | "cancelHeartbeatPublicationLeases"
     | "clearHeartbeatOwnership"
     | "clearHeartbeatOwnershipInBackground"
@@ -114,6 +115,7 @@ export function createLifecycle<S extends EngineSettings>(
     abortActiveTicks,
     abortClaimHandoffs,
     abortClaimOnlyOperations,
+    abortTwitchChannelPointsClaims,
     cancelHeartbeatPublicationLeases,
     clearHeartbeatOwnership,
     clearHeartbeatOwnershipInBackground,
@@ -269,6 +271,7 @@ export function createLifecycle<S extends EngineSettings>(
     abortActiveTicks("Controller shutdown");
     closeTwitchIntegrityLifecycle("Controller shutdown");
     abortClaimOnlyOperations("Controller shutdown");
+    abortTwitchChannelPointsClaims("Controller shutdown");
     void clearTwitchIntegrityAlarmBestEffort();
     void clearTwitchChannelPointsAlarmBestEffort();
     void clearManualWatchClaimAlarmsBestEffort();
@@ -292,6 +295,7 @@ export function createLifecycle<S extends EngineSettings>(
       abortActiveTicks("Host reset");
       closeTwitchIntegrityLifecycle("Host reset");
       abortClaimOnlyOperations("Host reset");
+      abortTwitchChannelPointsClaims("Host reset");
       await stopDiscoverySignalControllersAndReport(PLATFORMS);
       await stopTwitchChannelPointsPushAndReport();
       await clearTwitchIntegrityAlarmBestEffort();

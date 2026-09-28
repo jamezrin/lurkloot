@@ -32,6 +32,7 @@ export function createAuthHealth<S extends EngineSettings>(
     | "saveOperationalState"
     | "stopDiscoverySignalController"
     | "stopTwitchChannelPointsPush"
+    | "abortTwitchChannelPointsClaims"
     | "withEventCollector"
     | "withStateLock"
   >,
@@ -53,6 +54,7 @@ export function createAuthHealth<S extends EngineSettings>(
     saveOperationalState,
     stopDiscoverySignalController,
     stopTwitchChannelPointsPush,
+    abortTwitchChannelPointsClaims,
     withEventCollector,
     withStateLock,
   } = lateBound(calls);
@@ -144,7 +146,10 @@ export function createAuthHealth<S extends EngineSettings>(
       }, { writeEquivalent: true });
       if (health.status !== "healthy") {
         await stopDiscoverySignalController(platform, emit);
-        if (platform === "twitch") await stopTwitchChannelPointsPush(emit);
+        if (platform === "twitch") {
+          abortTwitchChannelPointsClaims("Twitch authentication lost");
+          await stopTwitchChannelPointsPush(emit);
+        }
       }
       await reportBestEffort(tickContext
         ? correlateTickDiagnostics(events, tickContext)
@@ -278,7 +283,10 @@ export function createAuthHealth<S extends EngineSettings>(
           data: { reason: "platform_error", detail: failure.message },
         });
         await stopDiscoverySignalController(failure.platform, emit);
-        if (failure.platform === "twitch") await stopTwitchChannelPointsPush(emit);
+        if (failure.platform === "twitch") {
+          abortTwitchChannelPointsClaims("Twitch authentication lost");
+          await stopTwitchChannelPointsPush(emit);
+        }
       }
       await persistAndReport(
         state,
@@ -312,7 +320,10 @@ export function createAuthHealth<S extends EngineSettings>(
         if (transition.event) emit(transition.event);
         await saveOperationalState(transition.state);
         await stopDiscoverySignalController(platform, emit);
-        if (platform === "twitch") await stopTwitchChannelPointsPush(emit);
+        if (platform === "twitch") {
+          abortTwitchChannelPointsClaims("Twitch authentication lost");
+          await stopTwitchChannelPointsPush(emit);
+        }
         await reportBestEffort(events);
       }));
     } finally {

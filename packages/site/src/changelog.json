@@ -20,6 +20,10 @@
       },
       {
         "kind": "fixed",
+        "text": "Turning off Twitch or channel points claiming, losing the Twitch sign-in, or resetting Lurkloot now also cancels a channel points claim that is still in progress, instead of letting it finish."
+      },
+      {
+        "kind": "fixed",
         "text": "When heartbeats kept failing, the CLI tried to fall back to a watch tab it cannot open and then failed on every check. It now keeps watching without a tab, and a channel that stops earning drop progress is still switched out as before."
       },
       {
