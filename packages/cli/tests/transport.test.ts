@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createTransport } from "../src/transport";
 import { withHeartbeatTimeout } from "../src/transport/common";
-import { createTickEffectExecutor } from "@lurkloot/core/background/tickEffects";
+import { createTickEffectExecutor, tickCapabilities } from "@lurkloot/core/background/tickEffects";
 import { createTabRegistry } from "@lurkloot/core/tabRegistry";
 import { DEFAULT_ENGINE_SETTINGS } from "@lurkloot/shared/settings";
 import type { DropCampaign, DropReward } from "@lurkloot/shared/models";
@@ -381,13 +381,17 @@ describe("createTransport", () => {
 describe("watch tabs without the browserTabs capability", () => {
   const context = { adapters: {}, tabRegistry: createTabRegistry(), emit: () => undefined };
 
+  it("declares that a headless host cannot fall back to a watch tab", () => {
+    expect(tickCapabilities({ platform: "twitch", supportsTabless: true } as never, false).supportsWatchTabs).toBe(false);
+  });
+
   it("fails loudly when asked to open a watch tab", async () => {
     await expect(createTickEffectExecutor().run({
       type: "openWatchTab",
       platform: "twitch",
       channel: { platform: "twitch", username: "x", url: "https://twitch.tv/x" },
       session: { platform: "twitch", status: "idle", offlineChecks: 0 },
-    }, context)).rejects.toThrow('Tab-based watch is unavailable headlessly; keep "tablessMode" enabled in the config');
+    }, context)).rejects.toThrow("Tab-based watch is unavailable on this host");
   });
 
   it("treats stopping as a harmless no-op", async () => {

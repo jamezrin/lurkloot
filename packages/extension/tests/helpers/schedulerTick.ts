@@ -49,6 +49,7 @@ function watchTabsFromMocks(adapters: Record<Platform, SchedulerTestAdapter>): W
 }
 
 export interface SchedulerTickTestOptions {
+  browserTabs?: boolean;
   selectSupplementalWatchTarget?(platform: Platform, state: SchedulerState, signal?: AbortSignal, source?: WatchSourceId): Promise<SupplementalWatchTarget | undefined>;
   platforms?: Platform[];
   stopPageContextTabs?: StopPageContextTabs;
@@ -111,7 +112,7 @@ export async function runSchedulerTick(
     platforms,
     discovery,
     selectionViews: adapters,
-    capabilities: Object.fromEntries(platforms.map((platform) => [platform, tickCapabilities(adapters[platform])])),
+    capabilities: Object.fromEntries(platforms.map((platform) => [platform, tickCapabilities(adapters[platform], options.browserTabs !== false)])),
     supplementalSources: options.selectSupplementalWatchTarget !== undefined,
     waitingClaimRewardIds: options.waitingClaimRewardIds,
     emit: options.emit,

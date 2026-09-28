@@ -258,10 +258,10 @@ describe("impersonate transport", () => {
     const client = fakeClient((url, options, method) => {
       calls.push({ url, options, method });
       if (url === "https://www.twitch.tv/creator") {
-        return Promise.resolve({ status: 200, data: '<script src="https://static.twitch.tv/config/settings.js"></script>' });
+        return Promise.resolve({ status: 200, data: Buffer.from('<script src="https://static.twitch.tv/config/settings.js"></script>') });
       }
       if (url === "https://static.twitch.tv/config/settings.js") {
-        return Promise.resolve({ status: 200, data: '{"spade_url":"https://spade.twitch.tv/track"}' });
+        return Promise.resolve({ status: 200, data: Buffer.from('{"spade_url":"https://spade.twitch.tv/track"}') });
       }
       return Promise.resolve({ status: 204, data: "" });
     });

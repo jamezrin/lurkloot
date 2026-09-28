@@ -130,7 +130,8 @@ test before this path can be called verified end to end.
 Kick's Cloudflare WAF inspects the TLS/JA3 + HTTP-2 fingerprint, so a plain Node
 request is rejected (HTTP 403). The `impersonate` transport sends a real Chrome
 fingerprint via [cycletls](https://github.com/Danny-Dasilva/CycleTLS) and reaches
-Kick's API and viewer socket without a browser.
+Kick's API without a browser. The viewer socket uses Node's WebSocket client
+with the same Kick session bearer.
 
 ## Auth
 

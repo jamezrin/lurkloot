@@ -15,7 +15,7 @@ describe("kickHeaders", () => {
 
   // This transport is the one copy that reaches Kick over wss, not just https —
   // the viewer WebSocket goes through this same header builder (see
-  // createCycleKickWebSocketFactory in ../src/transport/cycle.ts).
+  // createNodeKickWebSocketFactory in ../src/transport/cycle.ts).
   it("attaches the session token to websockets.kick.com over wss", () => {
     expect(kickHeaders("wss://websockets.kick.com/viewer", undefined, creds).authorization)
       .toBe("Bearer sess 789");

@@ -97,7 +97,7 @@ export function registerInterimTickEffectHandlers(executor: TickEffectExecutor):
       await context.selectSupplementalTarget?.(platform, state, context.signal, source))
     .register("openWatchTab", async ({ channel, session, managedTab }, context) => {
       if (!context.watchTabs) {
-        throw new Error('Tab-based watch is unavailable headlessly; keep "tablessMode" enabled in the config');
+        throw new Error("Tab-based watch is unavailable on this host");
       }
       return await context.watchTabs.open(channel, session, {
         ...(managedTab ? { managedTab } : {}),
@@ -116,9 +116,10 @@ export function createTickEffectExecutor(): TickEffectExecutor {
   return registerInterimTickEffectHandlers(new EffectExecutor<SchedulerEffects, TickEffectContext>());
 }
 
-export function tickCapabilities(adapter: PlatformAdapter): PlatformTickCapabilities {
+export function tickCapabilities(adapter: PlatformAdapter, supportsWatchTabs = true): PlatformTickCapabilities {
   return {
     supportsTabless: Boolean(adapter.supportsTabless),
+    supportsWatchTabs,
     claimChallenges: typeof adapter.claimChallenges === "function",
     claimChannelPoints: typeof adapter.claimChannelPoints === "function",
   };

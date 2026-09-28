@@ -634,7 +634,7 @@ Stopping behavior depends on ownership and settings:
 
 ## Tabless Watch
 
-When `tablessMode` is enabled, supported adapters create a `TablessWatchController` instead of opening a watch tab. Twitch sends minute-watched GraphQL events. Kick maintains a viewer WebSocket and sends watch livestream events. The one-minute watch alarm records heartbeat health in the platform session; repeated failures mark the target for fallback to a visible muted tab.
+When `tablessMode` is enabled, supported adapters create a `TablessWatchController` instead of opening a watch tab. Twitch sends minute-watched events. Kick maintains a viewer WebSocket and sends watch livestream events. The one-minute watch alarm records heartbeat health in the platform session. A browser host can fall back to a visible muted tab after repeated failures; the headless CLI keeps retrying tabless heartbeats because it cannot open a tab.
 
 ## Playback Telemetry and Control
 

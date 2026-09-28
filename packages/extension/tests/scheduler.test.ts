@@ -4402,7 +4402,7 @@ describe("scheduler tabless mode", () => {
     return { ...adapter("twitch", campaigns, candidates), supportsTabless: true };
   }
 
-  async function runTablessFallbackCase(heartbeatChecks: number, overrides: SettingsPatch) {
+  async function runTablessFallbackCase(heartbeatChecks: number, overrides: SettingsPatch, browserTabs = true) {
     const twitch = tablessAdapter([campaign("drops")], [channel("creator")]);
     vi.mocked(twitch.checkChannel).mockResolvedValue({ live: true, categoryMatches: true, candidate: channel("creator") });
 
@@ -4432,6 +4432,7 @@ describe("scheduler tabless mode", () => {
         platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } },
       }),
       { twitch, kick: adapter("kick", [], []) },
+      { browserTabs },
     );
 
     return { result, twitch };
@@ -4481,6 +4482,16 @@ describe("scheduler tabless mode", () => {
       watchMode: "tab",
       tablessFallback: true,
     });
+  });
+
+  it("keeps a headless host tabless after failed heartbeats", async () => {
+    const { result, twitch } = await runTablessFallbackCase(5, {
+      offlineRetryLimit: 10,
+      tablessFallbackFailureLimit: 5,
+    }, false);
+
+    expect(twitch.prepareWatchTab).not.toHaveBeenCalled();
+    expect(result.state.sessions.twitch.watchMode).toBe("tabless");
   });
 
   it("honors a non-default tabless fallback threshold", async () => {

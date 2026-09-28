@@ -956,7 +956,8 @@ export function createHeartbeats<S extends EngineSettings>(
         } else if (!ok && previousChecks === 0) {
           emit({ category: "diagnostic", platform, level: "warn", message: message ?? "Tabless watch heartbeat failed" });
         }
-        const fallback = !current.supplementalWatch?.tablessOnly && !ok && heartbeatChecks >= settings.tablessFallbackFailureLimit;
+        const fallback = ports.capabilities.browserTabs
+          && !current.supplementalWatch?.tablessOnly && !ok && heartbeatChecks >= settings.tablessFallbackFailureLimit;
         if (fallback) {
           emit({ category: "diagnostic", platform, level: "warn", message: "Tabless watch heartbeat keeps failing; falling back to a watch tab" });
         }

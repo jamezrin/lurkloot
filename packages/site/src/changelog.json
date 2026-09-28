@@ -5,6 +5,10 @@
       {
         "kind": "fixed",
         "text": "The headless Twitch CLI now starts new device logins with Twitch's Smart TV client. When Twitch hides the campaign dashboard, the CLI scans live channels in configured games for drops. This is partial discovery: campaigns on offline or unscanned channels may be missed. Browser Twitch tokens from extension exports are skipped rather than used with the wrong client identity. Kick TV device login no longer requires a CSRF cookie that Kick stopped issuing."
+      },
+      {
+        "kind": "fixed",
+        "text": "Fixed headless watching in the CLI: Twitch now reads its heartbeat settings correctly, Kick connects its viewer socket, and a headless run keeps retrying heartbeats instead of attempting to open a browser tab."
       }
     ]
   },
