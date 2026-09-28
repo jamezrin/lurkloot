@@ -15,16 +15,14 @@ describe("background controller", () => {
   it("reconciles one Kick route observation only after the scheduler cycle persists", async () => {
     const order: string[] = [];
     let countBackgroundSuccess: boolean | undefined;
-    let observedThreshold: number | undefined;
     const env = harness(farming(DEFAULT_SETTINGS), {
       saveState: async () => { order.push("persist"); },
       initialState: {
         ...structuredClone(DEFAULT_STATE),
         authHealth: { ...DEFAULT_STATE.authHealth, kick: { status: "healthy" } },
       },
-      reconcilePageContextRecovery: async (_platform, settings, options) => {
+      reconcilePageContextRecovery: async (_platform, options) => {
         order.push("reconcile");
-        observedThreshold = settings.kickPageContextRecoverySuccesses;
         countBackgroundSuccess = options.countBackgroundSuccess;
         return false;
       },
@@ -34,14 +32,13 @@ describe("background controller", () => {
 
     expect(order[0]).toBe("persist");
     expect(order).toContain("reconcile");
-    expect(observedThreshold).toBe(3);
     expect(countBackgroundSuccess).toBe(true);
     expect(env.deps.reconcilePageContextRecovery).toHaveBeenCalledTimes(1);
   });
 
   it("reconciles retained Kick route evidence after a failed discovery state persists", async () => {
     let countBackgroundSuccess: boolean | undefined;
-    const reconcile = vi.fn(async (_platform, _settings, options) => {
+    const reconcile = vi.fn(async (_platform, options) => {
       countBackgroundSuccess = options.countBackgroundSuccess;
       return false;
     });

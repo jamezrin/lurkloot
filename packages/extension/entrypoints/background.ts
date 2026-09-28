@@ -55,7 +55,6 @@ const {
   fetchKickInBackground,
   fetchTwitchInBackground,
   recordManagedPageContextFallback,
-  reconcileManagedPageContextRecovery,
 } = createBrowserTabs(tabRegistry);
 const kickClaimState = new KickClaimState();
 const kickDiscoveryState = new KickDiscoveryState();
@@ -163,7 +162,7 @@ const controller = createBackgroundController<ExtensionSettings>({
       };
     },
   },
-  tabs: createExtensionTabPorts(tabRegistry, liveBrowserTabApi, loadSettings),
+  tabs: createExtensionTabPorts(tabRegistry, liveBrowserTabApi, loadSettings, { kick: kickPageContextRecovery }),
   twitch: {
     integrity: {
       ensure: (emit, request) => ensureTwitchIntegrity(emit, request),
@@ -173,27 +172,6 @@ const controller = createBackgroundController<ExtensionSettings>({
     },
     supplementalSources: {
       select: (state, settings, signal, source) => extensionHost.chooseWatchTarget(settings, state, signal, source),
-    },
-  },
-  kick: {
-    pageContextRecovery: {
-      reconcile: async (settings, options, emit) => {
-        const observation = kickPageContextRecovery.take();
-        if (!observation) return false;
-        if (!options.countBackgroundSuccess) observation.backgroundHosts = [];
-        try {
-          return await reconcileManagedPageContextRecovery(
-            "kick",
-            observation,
-            settings.kickPageContextRecoverySuccesses,
-            emit,
-          );
-        } catch (error) {
-          kickPageContextRecovery.restore(observation);
-          throw error;
-        }
-      },
-      discardEvidence: () => kickPageContextRecovery.discard(),
     },
   },
 });

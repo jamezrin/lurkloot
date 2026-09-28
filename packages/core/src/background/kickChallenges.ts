@@ -33,18 +33,17 @@ export function createKickChallenges<S extends EngineSettings>(
 
   async function reconcilePageContextRecoveryAfterPersist(
     platforms: readonly Platform[],
-    settings: S,
     backgroundSuccessPlatforms: ReadonlySet<Platform>,
     tickContext: TickDiagnosticContext,
   ): Promise<void> {
-    const recovery = ports.kick.pageContextRecovery;
+    const pageContexts = ports.tabs?.pageContexts;
     // Only Kick opens page contexts to recover from.
-    if (!recovery || !platforms.includes("kick")) return;
+    if (!pageContexts || !platforms.includes("kick")) return;
     for (const recoveryPlatform of ["kick"] as const) {
       await withEventCollector(async (recoveryEmit, recoveryEvents) => {
         try {
-          const changed = await recovery.reconcile(
-            settings,
+          const changed = await pageContexts.recover(
+            recoveryPlatform,
             { countBackgroundSuccess: backgroundSuccessPlatforms.has(recoveryPlatform) },
             recoveryEmit,
           );

@@ -1,5 +1,4 @@
 import { browser } from "wxt/browser";
-import type { Platform } from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import {
   cancelTwitchIntegrityAcquisition,
@@ -13,20 +12,18 @@ import {
   ensureTwitchIntegrityWithBrowser,
   fetchJsonInPageWithBrowser,
   fetchTwitchInBackgroundWith,
-  reconcileManagedPageContextRecoveryWithBrowser,
   TWITCH_PAGE_CONTEXT_URL,
   type BrowserTabApi,
   type PageFetchOptions,
 } from "./browserTabs";
-import type { KickPageContextCycleObservation } from "@lurkloot/core/adapter";
 
 // The live wxt/browser tab API. background.ts hands it to createExtensionTabPorts
 // (./tabPorts) for the controller's tab ports; everything else here is bound to
 // it directly.
 export const liveBrowserTabApi = browser as BrowserTabApi;
 
-// Binds the remaining tab mechanics in ./browserTabs (integrity capture, page
-// fetches, Kick page-context recovery) and the cookie fetchers to the live
+// Binds the remaining tab mechanics in ./browserTabs (integrity capture and page
+// fetches) and the cookie fetchers to the live
 // browser and to one tab registry, which the host also hands to the controller
 // (#598). browserTabs.ts takes the browser API as an argument so tests can drive
 // it with a fake; only the `browser` binding lives here.
@@ -59,22 +56,6 @@ export function createBrowserTabs(registry: TabRegistry) {
 
     recordManagedPageContextFallback(host: string, emit?: EventEmitter): void {
       recordManagedPageContextFallback(registry, "kick", host, emit);
-    },
-
-    reconcileManagedPageContextRecovery(
-      platform: Platform,
-      observation: KickPageContextCycleObservation,
-      requiredSuccesses: number,
-      emit?: EventEmitter,
-    ): Promise<boolean> {
-      return reconcileManagedPageContextRecoveryWithBrowser(
-        registry,
-        browserApi,
-        platform,
-        observation,
-        requiredSuccesses,
-        emit,
-      );
     },
 
   };
