@@ -235,13 +235,11 @@ export function createTickAdmissionSlice(): TickAdmissionSlice {
 
 export interface SettingsSlice {
   twitchSettingsTransitionGeneration: number;
-  lastPersistedTwitchEnabled: boolean | undefined;
 }
 
 export function createSettingsSlice(): SettingsSlice {
   return {
     twitchSettingsTransitionGeneration: 0,
-    lastPersistedTwitchEnabled: undefined,
   };
 }
 

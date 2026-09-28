@@ -136,11 +136,11 @@ export interface HeartbeatLane {
   coalescedWithoutAttempt: number;
 }
 
-export interface SettingsCommitOptions<S> {
-  // Called with the stored settings the commit read, before it saves.
-  afterLoad?(previous: S): void;
-  // Called once the new settings are saved, before the settings lock is released.
-  afterPersist?(settings: S): void;
+export interface SettingsCommitOptions {
+  // The patch the caller is about to commit, when it knows it before the
+  // settings lock: services that must react at once (a Twitch disable cancels
+  // an integrity mint in flight, #589) act on it while the commit waits.
+  intent?: SettingsPatch;
 }
 
 export interface TickAdapterHandle<S extends EngineSettings> {
@@ -294,10 +294,10 @@ export interface ControllerCalls<S extends EngineSettings> {
   restoreTwitchIntegritySchedule(transitionIsCurrent: () => boolean): Promise<void>;
   prepareTwitchIntegrity(settings: S, signal: AbortSignal, tickContext: TickDiagnosticContext): Promise<boolean>;
   closeTwitchIntegrityLifecycle(reason: string): void;
-  reconcileTwitchIntegrityLifecycle(enabled: boolean | undefined): void;
+  holdTwitchIntegrityForDisable(): () => void;
+  reconcileTwitchIntegrityAfterCommit(): Promise<void>;
   startInitialTwitchIntegrityLoad(): void;
   awaitInitialTwitchIntegrityLoad(): Promise<void>;
-  twitchIntegrityLifecycleOpen(): boolean;
   resetTwitchIntegrity(): void;
 
   // channelPoints.ts
@@ -452,7 +452,7 @@ export interface ControllerCalls<S extends EngineSettings> {
   normalizeStartupSettings(): Promise<S>;
   commitSettings(
     update: (current: S) => SettingsPatch,
-    options?: SettingsCommitOptions<S>,
+    options?: SettingsCommitOptions,
   ): Promise<PreparedSettingsCommit<S>>;
 
   // lifecycle.ts
