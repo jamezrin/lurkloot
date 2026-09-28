@@ -15,6 +15,10 @@
         "text": "The CLI no longer refuses to start when its config sets tablessMode, for example in settings copied from the extension. The CLI has no browser tabs and always watches without one, so the setting is ignored with a warning."
       },
       {
+        "kind": "improved",
+        "text": "The CLI now checks for a Twitch channel points bonus every minute, like the extension, instead of only once per poll interval. It never sends a second claim while one is still running."
+      },
+      {
         "kind": "fixed",
         "text": "When heartbeats kept failing, the CLI tried to fall back to a watch tab it cannot open and then failed on every check. It now keeps watching without a tab, and a channel that stops earning drop progress is still switched out as before."
       },

@@ -37,23 +37,18 @@ export interface HostCapabilities {
   readonly twitchIntegrityCapture: boolean;
   // Supplemental watch sources such as Twitch Extensions (`twitch.supplementalSources`).
   readonly supplementalSources: boolean;
-  // Runs the 1-minute Twitch channel-points job. Without it, channel points are
-  // claimed as a tick side effect at poll cadence. #590 enables it on the CLI.
-  readonly twitchChannelPointsJob: boolean;
 }
 
 export const EXTENSION_CAPABILITIES: HostCapabilities = {
   browserTabs: true,
   twitchIntegrityCapture: true,
   supplementalSources: true,
-  twitchChannelPointsJob: true,
 };
 
 export const CLI_CAPABILITIES: HostCapabilities = {
   browserTabs: false,
   twitchIntegrityCapture: false,
   supplementalSources: false,
-  twitchChannelPointsJob: false,
 };
 
 // Generic over the host's settings type `S`, which must satisfy the engine
