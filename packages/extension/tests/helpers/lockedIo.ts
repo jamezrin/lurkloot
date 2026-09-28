@@ -32,7 +32,6 @@ export interface LockedIoEntry {
 
 export const LOCKED_IO_ALLOWLIST: readonly LockedIoEntry[] = [
   // runTick's own withStateLock body, around and after the scheduler tick.
-  { id: "tick-fallback-selection", file: "background/tickRun.ts", site: "runTick", lock: "withStateLock", call: "prepareSelection(", kind: "async-wait", owner: 587 },
   { id: "tick-discovery-signals", file: "background/tickRun.ts", site: "runTick", lock: "withStateLock", call: "reconcileDiscoverySignalControllers(", kind: "provider", owner: 587 },
   { id: "tick-tabless-watchers", file: "background/tickRun.ts", site: "runTick", lock: "withStateLock", call: "reconcileTablessWatchers(", kind: "provider", owner: 586 },
   { id: "tick-channel-points-push", file: "background/tickRun.ts", site: "runTick", lock: "withStateLock", call: "reconcileTwitchChannelPointsPush(", kind: "provider", owner: 590 },
@@ -87,7 +86,7 @@ export const LOCKED_IO_ALLOWLIST: readonly LockedIoEntry[] = [
 // under `adapters[platform]`, and in a function its caller runs under a lock.
 // The scan now recognizes all three. That was a correction to the baseline,
 // not new locked I/O.
-export const LOCKED_IO_ALLOWLIST_SIZE = 28;
+export const LOCKED_IO_ALLOWLIST_SIZE = 27;
 
 // Calls that count as locked I/O when they appear inside a lock: ports and
 // adapter methods that reach a provider, a tab or a timer, and the controller

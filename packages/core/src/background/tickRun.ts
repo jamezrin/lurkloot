@@ -38,6 +38,7 @@ export function createTickRun<S extends EngineSettings>(
     | "flattenedRefreshFailures"
     | "persistPlatformAndReport"
     | "prepareSelection"
+    | "reselectUnderLock"
     | "prepareTwitchIntegrity"
     | "reconcileDiscoverySignalControllers"
     | "reconcilePageContextRecoveryAfterPersist"
@@ -70,6 +71,7 @@ export function createTickRun<S extends EngineSettings>(
     flattenedRefreshFailures,
     persistPlatformAndReport,
     prepareSelection,
+    reselectUnderLock,
     prepareTwitchIntegrity,
     reconcileDiscoverySignalControllers,
     reconcilePageContextRecoveryAfterPersist,
@@ -308,7 +310,7 @@ export function createTickRun<S extends EngineSettings>(
                   message: `Snapshot selection discarded before commit (trigger=${trigger}, revision=${prepared.snapshotRevision})`,
                 });
               }
-              prepared = await prepareSelection({
+              prepared = await reselectUnderLock({
                 platform: selectionPlatform,
                 trigger,
                 snapshot,

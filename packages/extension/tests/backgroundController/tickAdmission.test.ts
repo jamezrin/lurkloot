@@ -176,6 +176,30 @@ describe("background controller", () => {
     expect(allDiagnostics(env).filter((event) => event.platform === "twitch" && /Tick #2 finished/.test(event.message))[0]?.message).toContain("after 0ms");
   });
 
+  // #587: when the selection prepared before the lock no longer matches the
+  // state read under it, the tick re-selects inside the lock straight from the
+  // discovery snapshot. It must not go back through the shared selection run or
+  // the injectable selection hook, either of which could keep the lock waiting
+  // on work started elsewhere.
+  it("re-selects inside the lock from the snapshot alone when the prepared selection went stale", async () => {
+    const env = harness(farming(DEFAULT_SETTINGS), {
+      selectWatchTarget: async (input) => {
+        const result = await selectWatchTargetFromSnapshot(input);
+        // Something commits between the tick's selection and its lock, so the
+        // state the tick decides from no longer matches what it selected for.
+        env.state.sessions.twitch.offlineChecks = 1;
+        return result;
+      },
+    });
+
+    await env.controller.tick(["twitch"], "alarm");
+
+    expect(env.deps.selectWatchTarget).toHaveBeenCalledOnce();
+    expect(allDiagnostics(env).some((event) => event.platform === "twitch"
+      && event.message.startsWith("Snapshot selection discarded before commit"))).toBe(true);
+    expect(env.state.sessions.twitch).toMatchObject({ status: "watching", campaignId: "twitch-campaign" });
+  });
+
   it.each(["manual_tick", "manual_resume", "claim_handoff"] as const)("preserves %s backoff overrides behind a pending alarm", async (trigger) => {
     const env = harness(farming(DEFAULT_SETTINGS), { selectWatchTarget: selectWatchTargetFromSnapshot });
     const discovery = deferred<DropCampaign[]>();
