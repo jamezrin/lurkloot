@@ -58,13 +58,6 @@ export const LOCKED_IO_ALLOWLIST: readonly LockedIoEntry[] = [
   { id: "drop-claims-claim", file: "background/claims.ts", site: "runDropClaims", lock: "withStateLock", call: "claimReadyRewards(", kind: "provider", owner: 597 },
   { id: "kick-challenge-claims", file: "background/kickChallenges.ts", site: "runKickChallengeClaims", lock: "withStateLock", call: "adapter.claimChallenges?.(", kind: "provider", owner: 588 },
 
-  // Twitch integrity schedules or clears its refresh alarm under a lock.
-  { id: "integrity-load-schedule", file: "background/twitchIntegrity.ts", site: "loadStoredTwitchIntegrity", lock: "withStateLock", call: "scheduleTwitchIntegrityRefreshBestEffort(", kind: "timer", owner: 589 },
-  { id: "integrity-refresh-schedule", file: "background/twitchIntegrity.ts", site: "runTwitchIntegrityRefresh", lock: "withSettingsLock", call: "scheduleTwitchIntegrityRefreshBestEffort(", kind: "timer", owner: 589 },
-  { id: "integrity-refresh-clear", file: "background/twitchIntegrity.ts", site: "runTwitchIntegrityRefresh", lock: "withSettingsLock", call: "clearTwitchIntegrityAlarmBestEffort(", kind: "timer", owner: 589 },
-  { id: "integrity-capture-schedule", file: "background/twitchIntegrity.ts", site: "captureTwitchIntegrity", lock: "withSettingsLock", call: "scheduleTwitchIntegrityRefreshBestEffort(", kind: "timer", owner: 589 },
-  { id: "integrity-restore-schedule", file: "background/twitchIntegrity.ts", site: "restoreTwitchIntegritySchedule", lock: "withStateLock", call: "scheduleTwitchIntegrityRefreshBestEffort(", kind: "timer", owner: 589 },
-
   // Settings writes reschedule jobs while holding the settings lock.
   { id: "settings-claim-alarms", file: "background/settingsTransitions.ts", site: "commitSettings", lock: "withSettingsLock", call: "reconcileManualWatchClaimAlarms(", kind: "timer", owner: 597 },
   { id: "startup-claim-alarms", file: "background/settingsTransitions.ts", site: "normalizeStartupSettings", lock: "withSettingsLock", call: "reconcileManualWatchClaimAlarms(", kind: "timer", owner: 597 },
@@ -78,7 +71,7 @@ export const LOCKED_IO_ALLOWLIST: readonly LockedIoEntry[] = [
 // under `adapters[platform]`, and in a function its caller runs under a lock.
 // The scan now recognizes all three. That was a correction to the baseline,
 // not new locked I/O.
-export const LOCKED_IO_ALLOWLIST_SIZE = 21;
+export const LOCKED_IO_ALLOWLIST_SIZE = 16;
 
 // Calls that count as locked I/O when they appear inside a lock: ports and
 // adapter methods that reach a provider, a tab or a timer, and the controller

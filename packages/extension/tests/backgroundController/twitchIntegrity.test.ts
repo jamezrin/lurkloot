@@ -185,6 +185,60 @@ describe("background controller", () => {
       );
     });
 
+    // The refresh alarm is scheduled on the service's own lane, not under the
+    // settings lock (#589): the schedule re-checks it still owns the lifecycle
+    // right before setting the alarm, so a disable that lands while it waits
+    // wins.
+    it("does not set a capture's refresh alarm once Twitch is disabled while the schedule waits", async () => {
+      const integrity = integrityBundle({ integrity: "captured-before-disable" });
+      const lookup = deferred<void>();
+      let holdLookup = false;
+      const env = harness(undefined, {
+        loadTwitchIntegrity: async () => undefined,
+        saveTwitchIntegrity: async () => undefined,
+        getAlarm: async () => {
+          if (holdLookup) await lookup.promise;
+          return undefined;
+        },
+      });
+      await env.controller.settleBackgroundWork();
+      env.deps.createAlarm.mockClear();
+      holdLookup = true;
+
+      const capturing = env.controller.captureTwitchIntegrity(integrityHeaders(integrity));
+      await vi.waitFor(() => expect(env.deps.getAlarm).toHaveBeenCalledWith(TWITCH_INTEGRITY_ALARM_NAME));
+      const disabling = env.rawController.handleMessage({
+        type: "setPlatformEnabled",
+        platform: "twitch",
+        enabled: false,
+      });
+      await vi.waitFor(() => expect(env.deps.saveSettings).toHaveBeenCalled());
+      lookup.resolve();
+      await Promise.all([capturing, disabling]);
+
+      expect(env.settings.platform.twitch.enabled).toBe(false);
+      expect(env.deps.createAlarm).not.toHaveBeenCalledWith(TWITCH_INTEGRITY_ALARM_NAME, expect.anything());
+    });
+
+    // A capture persists on the service's bookkeeping lane, no longer under the
+    // state lock the reset takes (#589), so the reset marks the token it wipes.
+    it("does not write back a captured token after a host reset wiped it", async () => {
+      const load = deferred<TwitchIntegrity | undefined>();
+      const env = harness(undefined, {
+        // The startup load holds the bookkeeping lane.
+        loadTwitchIntegrity: async () => await load.promise,
+        saveTwitchIntegrity: async () => undefined,
+      });
+
+      const capturing = env.controller.captureTwitchIntegrity(integrityHeaders(integrityBundle({ integrity: "captured-before-reset" })));
+      await env.controller.prepareForHostReset();
+      load.resolve(undefined);
+      await capturing;
+      await env.controller.settleBackgroundWork();
+
+      expect(env.deps.saveTwitchIntegrity).not.toHaveBeenCalled();
+    });
+
     it("keeps a successful disable authoritative over a capture waiting for persistence", async () => {
       const integrity = integrityBundle({
         integrity: "captured-during-successful-disable",
