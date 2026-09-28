@@ -10,6 +10,7 @@ import type { DiscoverySignalController } from "../core/discoverySignals";
 import type { DiscoverySnapshot, DiscoverySnapshotState } from "../core/discoverySnapshot";
 import { AuthProbeSetupError } from "./errors";
 import type { CommitGuard, CommitOptions, CommitResult, PreparedSettingsCommit } from "./stateTransaction";
+import type { TickEffectExecutor } from "./tickEffects";
 
 // Reward ids claimed during one tick, per platform. The post-claim handoff needs
 // the ids (not just the platforms) so it can tell a genuine successor from the
@@ -300,13 +301,17 @@ export interface ControllerCalls<S extends EngineSettings> {
   reconcileTwitchChannelPointsAlarm(settings: S): Promise<void>;
   stopTwitchChannelPointsPush(emit: EventEmitter): Promise<void>;
   stopTwitchChannelPointsPushAndReport(): Promise<void>;
+  rescheduleTwitchChannelPointsJob(): Promise<void>;
   stopTwitchChannelPointsPushInBackground(): void;
-  reconcileTwitchChannelPointsPush(
+  twitchChannelPointsPushEpoch(): number;
+  reconcileTwitchChannelPointsPushAfterCommit(
+    committed: SchedulerState,
+    since: number,
     settings: EngineSettings,
-    state: SchedulerState,
     adapter: PlatformAdapter,
     emit: EventEmitter,
   ): Promise<void>;
+  registerTwitchChannelPointsEffects(executor: TickEffectExecutor): TickEffectExecutor;
   runTwitchChannelPointsClaim(): Promise<void>;
 
   // kickChallenges.ts

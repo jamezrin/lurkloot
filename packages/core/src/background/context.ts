@@ -5,7 +5,6 @@ import type { TwitchIntegrity } from "../core/twitchIntegrity";
 import type { TablessWatchController } from "../core/tablessWatch";
 import { createTabRegistry, type TabRegistry } from "../core/tabRegistry";
 import type { DiscoverySignalController } from "../core/discoverySignals";
-import type { TwitchChannelPointsPushController } from "../platforms/twitch/channelPointsPush";
 import { DiscoverySnapshotLane } from "../core/discoverySnapshot";
 import { createRewardClaimGuard, type RewardClaimGuard } from "../core/rewardClaims";
 import type {
@@ -93,56 +92,6 @@ export function createTwitchIntegritySlice(): TwitchIntegritySlice {
     // Replaced by createBackgroundController once every module exists.
     initialTwitchIntegrityLoad: Promise.resolve(),
   };
-}
-
-export interface ChannelPointsSlice {
-  twitchChannelPointsPush: TwitchChannelPointsPushController | undefined;
-  readonly twitchChannelPointsClaimInFlight: Set<string>;
-  // The channel-points claim request that is running, if any. The scheduler
-  // tick claims with no lock held (#599), so the job and the push claim no
-  // longer queue behind it (see claimChannelPointsUnlessRunning).
-  twitchChannelPointsClaim: Promise<boolean> | undefined;
-}
-
-export function createChannelPointsSlice(): ChannelPointsSlice {
-  return {
-    twitchChannelPointsPush: undefined,
-    twitchChannelPointsClaimInFlight: new Set<string>(),
-    twitchChannelPointsClaim: undefined,
-  };
-}
-
-async function runChannelPointsClaim(
-  slice: Pick<ChannelPointsSlice, "twitchChannelPointsClaim">,
-  claim: () => Promise<boolean>,
-): Promise<boolean> {
-  const running = claim();
-  slice.twitchChannelPointsClaim = running;
-  try {
-    return await running;
-  } finally {
-    if (slice.twitchChannelPointsClaim === running) slice.twitchChannelPointsClaim = undefined;
-  }
-}
-
-// The tick and the one-minute job claim whatever bonus is available, so while
-// another claim runs they have nothing to add and skip.
-export async function claimChannelPointsUnlessRunning(
-  slice: Pick<ChannelPointsSlice, "twitchChannelPointsClaim">,
-  claim: () => Promise<boolean>,
-): Promise<boolean> {
-  if (slice.twitchChannelPointsClaim) return false;
-  return await runChannelPointsClaim(slice, claim);
-}
-
-// A push names one claim, which a request already running may predate, so the
-// push waits its turn instead, as it did behind the tick's lock.
-export async function claimChannelPointsAfterRunning(
-  slice: Pick<ChannelPointsSlice, "twitchChannelPointsClaim">,
-  claim: () => Promise<boolean>,
-): Promise<boolean> {
-  while (slice.twitchChannelPointsClaim) await slice.twitchChannelPointsClaim.catch(() => undefined);
-  return await runChannelPointsClaim(slice, claim);
 }
 
 export interface KickChallengeSlice {
@@ -351,7 +300,6 @@ export interface ControllerSlices<S extends EngineSettings> {
   reportingSlice: ReportingSlice;
   heartbeatSlice: HeartbeatSlice;
   integritySlice: TwitchIntegritySlice;
-  channelPointsSlice: ChannelPointsSlice;
   kickChallengeSlice: KickChallengeSlice;
   authSlice: AuthHealthSlice;
   claimSlice: ClaimSlice;

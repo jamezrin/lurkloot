@@ -11,6 +11,7 @@ import {
   type SchedulerTickInput,
 } from "@lurkloot/core/scheduler";
 import { selectionAdapterFromDiscoverySnapshot, type DiscoverySnapshot } from "@lurkloot/core/discoverySnapshot";
+import { ChannelPointsClaimGate, registerChannelPointsClaimEffect } from "@lurkloot/core/background/channelPoints";
 import { createTickEffectExecutor } from "@lurkloot/core/background/tickEffects";
 import { DEFAULT_STATE } from "../src/core/storage";
 
@@ -163,14 +164,23 @@ describe("effect executor", () => {
     expect(closed).toBe(true);
   });
 
-  it("registers one interim handler for every scheduler effect type", () => {
+  it("registers one interim handler for every scheduler effect type no service owns yet", () => {
     const executor = createTickEffectExecutor();
     const types: SchedulerEffectType[] = [
       "stopWatchTab", "releasePageContexts", "claimChallenges", "claimRewards",
-      "selectSupplementalTarget", "openWatchTab", "claimChannelPoints",
+      "selectSupplementalTarget", "openWatchTab",
     ];
     for (const type of types) expect(executor.has(type)).toBe(true);
     expect(() => executor.register("claimRewards", async ({ campaigns }) => ({ campaigns, events: [] }))).toThrow();
+  });
+
+  it("leaves the channel-points claim to the channel-points service's one handler", () => {
+    const executor = createTickEffectExecutor();
+    expect(executor.has("claimChannelPoints")).toBe(false);
+
+    registerChannelPointsClaimEffect(executor, new ChannelPointsClaimGate());
+    expect(executor.has("claimChannelPoints")).toBe(true);
+    expect(() => registerChannelPointsClaimEffect(executor, new ChannelPointsClaimGate())).toThrow();
   });
 });
 
