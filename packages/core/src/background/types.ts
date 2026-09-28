@@ -391,6 +391,7 @@ export interface ControllerCalls<S extends EngineSettings> {
   selectionBackoffDue(platform: Platform, state: SchedulerState): boolean;
   invalidateSelection(platform: Platform): void;
   prepareSelection(input: SelectionInput<S>): Promise<CommittedSelection>;
+  reselectUnderLock(input: SelectionInput<S>): Promise<CommittedSelection>;
   selectionAlreadyCommitted(
     prepared: CommittedSelection,
     snapshot: DiscoverySnapshot,
