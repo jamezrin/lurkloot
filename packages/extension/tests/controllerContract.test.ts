@@ -218,9 +218,11 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
   describe("jobs", () => {
     const CADENCE_JOBS = [TWITCH_ALARM_NAME, KICK_ALARM_NAME, WATCH_ALARM_NAME];
 
-    it(capabilities.declared.twitchChannelPointsJob
+    // Behavior change (#590): the CLI registers the one-minute channel-points
+    // job too, where it used to claim channel points only at poll cadence.
+    it(capabilities.declared.browserTabs
       ? "registers the cadence jobs, the one-minute channel-points job and the claim jobs at startup"
-      : "registers only the tick and heartbeat cadence jobs, at the CLI's existing periods", async () => {
+      : "registers the tick and heartbeat cadence jobs and the one-minute channel-points job", async () => {
       const host = contractHost(capabilities);
       vi.mocked(host.adapters.twitch.refreshCampaigns).mockResolvedValue([]);
       vi.mocked(host.adapters.kick.refreshCampaigns).mockResolvedValue([]);
@@ -230,7 +232,8 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
       expect(host.jobs.scheduled.get(TWITCH_ALARM_NAME)).toEqual({ periodInMinutes: pollIntervalMinutes });
       expect(host.jobs.scheduled.get(KICK_ALARM_NAME)).toEqual({ periodInMinutes: pollIntervalMinutes });
       expect(host.jobs.scheduled.get(WATCH_ALARM_NAME)).toEqual({ periodInMinutes: 1 });
-      if (capabilities.declared.twitchChannelPointsJob) {
+      expect(host.jobs.scheduled.get(TWITCH_CHANNEL_POINTS_ALARM_NAME)).toEqual({ periodInMinutes: 1 });
+      if (capabilities.declared.browserTabs) {
         expect([...host.jobs.scheduled.keys()]).toEqual(expect.arrayContaining([
           ...CADENCE_JOBS,
           TWITCH_CHANNEL_POINTS_ALARM_NAME,
@@ -238,8 +241,7 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
           KICK_DROP_CLAIMS_ALARM_NAME,
         ]));
       } else {
-        // #590 enables the CLI's one-minute channel-points job.
-        expect([...host.jobs.scheduled.keys()].sort()).toEqual([...CADENCE_JOBS].sort());
+        expect([...host.jobs.scheduled.keys()].sort()).toEqual([...CADENCE_JOBS, TWITCH_CHANNEL_POINTS_ALARM_NAME].sort());
       }
       host.controller.shutdown();
     });

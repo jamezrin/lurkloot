@@ -76,13 +76,10 @@ export function registerChannelPointsClaimEffect(
   });
 }
 
-// The one-minute job. On a host without the capability it is inert, and
-// channel points are claimed by the tick at poll cadence.
+// The one-minute job, on every host: the CLI runs it too since #590, so it no
+// longer claims only at poll cadence.
 export const TWITCH_CHANNEL_POINTS_JOBS: Readonly<Record<string, BackgroundJob>> = {
-  [TWITCH_CHANNEL_POINTS_ALARM_NAME]: {
-    run: (runner) => runner.runTwitchChannelPointsClaim(),
-    requires: "twitchChannelPointsJob",
-  },
+  [TWITCH_CHANNEL_POINTS_ALARM_NAME]: { run: (runner) => runner.runTwitchChannelPointsClaim() },
 };
 
 // Twitch channel points (#590): the push observer, its claim queue, the claim

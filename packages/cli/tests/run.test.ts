@@ -296,8 +296,9 @@ describe("CLI scheduler tick baseline", () => {
         // Tick-owned adapters survive auth, discovery, and commit. Startup
         // recovery and the independent heartbeat path retain their own bundles.
         // Since #593 the startup reconciliation also checks the Twitch
-        // channel-points observer, as the extension's startup does.
-        adapterConstructions: platform === "twitch" ? 7 : 6,
+        // channel-points observer, as the extension's startup does. Since #590
+        // the one-minute channel-points job fires in this window too.
+        adapterConstructions: platform === "twitch" ? 8 : 6,
         watcherReconciliations: 1,
       });
       expect(result.durationsMs).toEqual({
@@ -643,6 +644,7 @@ interface HeartbeatDriverHarnessOptions {
   once?: boolean;
   // Wait for the first tick to start the watcher before returning.
   awaitWatch?: boolean;
+  claimChannelPoints?: PlatformAdapter["claimChannelPoints"];
 }
 
 async function startHeartbeatDriver(options: HeartbeatDriverHarnessOptions = {}) {
@@ -684,6 +686,7 @@ async function startHeartbeatDriver(options: HeartbeatDriverHarnessOptions = {})
   const twitch = fakeAdapter("twitch", HEALTHY);
   twitch.supportsTabless = true;
   twitch.createTablessWatcher = () => watcher;
+  if (options.claimChannelPoints) twitch.claimChannelPoints = options.claimChannelPoints;
   twitch.refreshCampaigns = vi.fn(async () => {
     refreshCalls += 1;
     return options.refreshCampaigns?.(refreshCalls) ?? [HEARTBEAT_TEST_CAMPAIGN];
@@ -786,6 +789,52 @@ describe("runLoop heartbeat driver", () => {
     expect(transport.dispose).toHaveBeenCalledOnce();
 
     blockedDiscovery.resolve([HEARTBEAT_TEST_CAMPAIGN]);
+  });
+
+  // Behavior change (#590): the CLI runs the one-minute channel-points job, like
+  // the extension. It used to claim channel points only as a side effect of a
+  // tick, at the seven-minute poll interval.
+  it("claims channel points every minute, independently of the seven-minute discovery period", async () => {
+    const claimChannelPoints = vi.fn(async () => false);
+    const { running, twitch } = await startHeartbeatDriver({ claimChannelPoints });
+    try {
+      // The first tick claims as part of its watch.
+      await vi.waitFor(() => expect(claimChannelPoints).toHaveBeenCalledOnce());
+
+      await vi.advanceTimersByTimeAsync(60_000);
+      await vi.waitFor(() => expect(claimChannelPoints).toHaveBeenCalledTimes(2));
+      await vi.advanceTimersByTimeAsync(60_000);
+      await vi.waitFor(() => expect(claimChannelPoints).toHaveBeenCalledTimes(3));
+      expect(twitch.refreshCampaigns).toHaveBeenCalledOnce();
+      expect(claimChannelPoints).toHaveBeenLastCalledWith(expect.objectContaining({ username: "heartbeat-creator" }));
+    } finally {
+      process.emit("SIGTERM");
+      await running;
+    }
+  });
+
+  it("sends no second channel-points request while one is still running", async () => {
+    const pending = deferred<boolean>();
+    let calls = 0;
+    const claimChannelPoints = vi.fn(async () => {
+      calls += 1;
+      return calls === 1 ? false : await pending.promise;
+    });
+    const { running, twitch } = await startHeartbeatDriver({ claimChannelPoints });
+    try {
+      await vi.waitFor(() => expect(claimChannelPoints).toHaveBeenCalledOnce());
+      // The job's claim is held open, so later job fires and the next tick
+      // find it running and send nothing.
+      await vi.advanceTimersByTimeAsync(60_000);
+      await vi.waitFor(() => expect(claimChannelPoints).toHaveBeenCalledTimes(2));
+      await vi.advanceTimersByTimeAsync(6 * 60_000);
+      await vi.waitFor(() => expect(twitch.refreshCampaigns).toHaveBeenCalledTimes(2));
+      expect(claimChannelPoints).toHaveBeenCalledTimes(2);
+      pending.resolve(false);
+    } finally {
+      process.emit("SIGTERM");
+      await running;
+    }
   });
 
   it("attempts a due heartbeat while discovery is blocked", async () => {
@@ -911,8 +960,9 @@ describe("runLoop heartbeat driver", () => {
       },
     });
 
-    // The Twitch and Kick tick jobs and the heartbeat job.
-    expect(vi.getTimerCount()).toBe(3);
+    // The Twitch and Kick tick jobs, the heartbeat job and (since #590) the
+    // one-minute channel-points job.
+    expect(vi.getTimerCount()).toBe(4);
     process.emit("SIGTERM");
     await disposeStarted.promise;
     expect(timerCountsAtDispose).toEqual([0]);

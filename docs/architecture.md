@@ -383,8 +383,9 @@ re-ensures its jobs on every start, through the startup reconciliation below.
 
 `BACKGROUND_JOBS` lists every job and the capability it needs. A job whose capability the host
 lacks is inert: ensuring it schedules nothing and a fire of it does nothing. On the CLI that covers
-the manual-watch claim jobs and Kick challenges (browser tabs), the integrity refresh (integrity
-capture) and the one-minute channel-points job (`twitchChannelPointsJob`, which #590 enables). The
+the manual-watch claim jobs and Kick challenges (browser tabs) and the integrity refresh (integrity
+capture). The one-minute channel-points job runs on both hosts (#590); the CLI used to claim channel
+points only at poll cadence. The
 host delivers fires to `controller.runJob(name)`. The CLI routes its tick jobs through its own tick
 driver, which adds disabled-platform cleanup and subscription reporting, and runs each at
 `pollIntervalMinutes` with the heartbeat job every minute, as before.
@@ -419,7 +420,7 @@ tested too (#598).
 | Manual managed-tab closure | `backgroundController/manualWatch.test.ts` ("manual-watch event transitions", "clears manual watch activity when the source tab is closed") |
 | Service-worker restart | `backgroundController/lifecycle.test.ts` (the startup cleanup cases); `backgroundController/heartbeat.test.ts` ("serializes service-worker restart recovery…"); `controllerContract.test.ts` (extension host) |
 | CLI process restart: the same reconciliation as the extension (#593) | `controllerContract.test.ts` (both hosts, "process restart"); `packages/cli/tests/run.test.ts` ("pauses the previous process's watch at startup…") |
-| Job registration: the CLI registers only its tick and heartbeat jobs (#590 adds channel points); inert jobs are never scheduled or run | `controllerContract.test.ts` ("jobs") |
+| Job registration: the CLI registers its tick and heartbeat jobs and the one-minute channel-points job (#590); inert jobs are never scheduled or run | `controllerContract.test.ts` ("jobs") |
 | Duplicate and late job fires coalesce; no job runs after shutdown | `controllerContract.test.ts` ("jobs") |
 | Job scheduler semantics on each host | `hostPorts.test.ts` (`browser.alarms`); `packages/cli/tests/jobs.test.ts` (Node timers) |
 | Declared capabilities match the ports; unsupported settings are reported once | `hostPorts.test.ts`; `controllerContract.test.ts` ("capabilities") |
