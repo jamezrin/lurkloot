@@ -1,7 +1,7 @@
 import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { EngineSettings, ManagedWatchTab, Platform, SchedulerState, WatchSession } from "@lurkloot/shared/models";
 import { isFarmingActive } from "@lurkloot/shared/settings";
-import { registerManagedPageContextTabs, setTwitchIntegrity } from "../core/tabRegistry";
+import { registerManagedPageContextTabs } from "../core/tabRegistry";
 import { ALARM_NAME, KICK_ALARM_NAME, PLATFORMS, TWITCH_ALARM_NAME, WATCH_ALARM_NAME } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
 import { emitHostCallbackError, farmingLifecycleEvents } from "./helpers";
@@ -62,15 +62,15 @@ function pausedStartupSession(session: WatchSession): WatchSession {
 // Startup, jobs, snapshot, shutdown and host reset.
 export function createLifecycle<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
-  { integritySlice, discoverySlice, tickSlice, settingsSlice, lifecycleSlice, tabRegistry }: Pick<ControllerSlices<S>,
+  { discoverySlice, tickSlice, settingsSlice, lifecycleSlice, tabRegistry }: Pick<ControllerSlices<S>,
     | "tabRegistry"
-    | "integritySlice"
     | "discoverySlice"
     | "tickSlice"
     | "settingsSlice"
     | "lifecycleSlice"
   >,
   calls: Pick<ControllerCalls<S>,
+    | "resetTwitchIntegrity"
     | "abortActiveTicks"
     | "abortClaimHandoffs"
     | "abortClaimOnlyOperations"
@@ -112,6 +112,7 @@ export function createLifecycle<S extends EngineSettings>(
   | "prepareForHostReset"
 > {
   const {
+    resetTwitchIntegrity,
     abortActiveTicks,
     abortClaimHandoffs,
     abortClaimOnlyOperations,
@@ -309,10 +310,7 @@ export function createLifecycle<S extends EngineSettings>(
       const state = await withSettingsLock(() => withStateLock(async () => {
         const previous = await ports.storage.loadState();
         registerManagedPageContextTabs(tabRegistry, {});
-        integritySlice.installedTwitchIntegrity = undefined;
-        integritySlice.persistedIntegrityToken = undefined;
-        integritySlice.twitchIntegrityRefreshDue = undefined;
-        setTwitchIntegrity(tabRegistry, undefined);
+        resetTwitchIntegrity();
         await resetHostStorage?.();
         settingsSlice.lastPersistedTwitchEnabled = undefined;
         return previous;

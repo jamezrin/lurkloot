@@ -15,14 +15,14 @@ import type {
 // Tick admission: one active tick and one shared follow-up per platform, batches and hand-offs.
 export function createTickAdmission<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
-  { reportingSlice, integritySlice, signalSlice, tickSlice, lifecycleSlice }: Pick<ControllerSlices<S>,
+  { reportingSlice, signalSlice, tickSlice, lifecycleSlice }: Pick<ControllerSlices<S>,
     | "reportingSlice"
-    | "integritySlice"
     | "signalSlice"
     | "tickSlice"
     | "lifecycleSlice"
   >,
   calls: Pick<ControllerCalls<S>,
+    | "awaitInitialTwitchIntegrityLoad"
     | "diagnosticEvent"
     | "discoverySignalRefreshAllowed"
     | "runClaimHandoff"
@@ -47,6 +47,7 @@ export function createTickAdmission<S extends EngineSettings>(
   | "completeTickAndHandOff"
 > {
   const {
+    awaitInitialTwitchIntegrityLoad,
     diagnosticEvent,
     discoverySignalRefreshAllowed,
     runClaimHandoff,
@@ -230,7 +231,7 @@ export function createTickAdmission<S extends EngineSettings>(
   // triggered has actually landed. Settling drains the chain until it stops
   // growing, so a tick that queues a post-claim handoff is covered too.
   async function settleBackgroundWork(): Promise<void> {
-    await integritySlice.initialTwitchIntegrityLoad;
+    await awaitInitialTwitchIntegrityLoad();
     let pending = tickSlice.backgroundWork;
     for (;;) {
       await pending;

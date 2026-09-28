@@ -13,7 +13,6 @@ import {
   createSettingsSlice,
   createTabRegistrySlice,
   createTickAdmissionSlice,
-  createTwitchIntegritySlice,
 } from "./context";
 import { createDiscovery } from "./discovery";
 import { createDiscoverySignals } from "./discoverySignals";
@@ -102,7 +101,6 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   const transaction = createStateTransaction({ ...ports.storage, lockTracker: ports.testing?.lockTracker, tabRegistry });
   const reportingSlice = createReportingSlice();
   const heartbeatSlice = createHeartbeatSlice();
-  const integritySlice = createTwitchIntegritySlice();
   const kickChallengeSlice = createKickChallengeSlice();
   const authSlice = createAuthHealthSlice();
   const claimSlice = createClaimSlice();
@@ -118,7 +116,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     ...createReporting(ports, { reportingSlice }, calls),
     ...createStateCommit(transaction, calls),
     ...createHeartbeats(ports, { heartbeatSlice, tickSlice, lifecycleSlice, tabRegistry }, calls),
-    ...createTwitchIntegrity(ports, { integritySlice, settingsSlice, lifecycleSlice, tabRegistry }, calls),
+    ...createTwitchIntegrity(ports, { settingsSlice, lifecycleSlice, tabRegistry }, calls),
     ...createChannelPoints(ports, { tickSlice, lifecycleSlice }, calls),
     ...createKickChallenges(ports, { kickChallengeSlice, lifecycleSlice }, calls),
     ...createAuthHealth(ports, { authSlice, discoverySlice }, calls),
@@ -126,20 +124,15 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     ...createClaims(ports, { kickChallengeSlice, claimSlice, lifecycleSlice }, calls),
     ...createDiscoverySignals(ports, { signalSlice, tickSlice, lifecycleSlice }, calls),
     ...discovery,
-    ...createTickAdmission(ports, { reportingSlice, integritySlice, signalSlice, tickSlice, lifecycleSlice }, calls),
+    ...createTickAdmission(ports, { reportingSlice, signalSlice, tickSlice, lifecycleSlice }, calls),
     ...createTickRun(ports, { claimSlice, discoverySlice, tickSlice, kickChallengeSlice, tabRegistry }, calls),
     ...createSettingsTransitions(transaction, { discoverySlice }, calls),
-    ...createLifecycle(ports, { integritySlice, discoverySlice, tickSlice, settingsSlice, lifecycleSlice, tabRegistry }, calls),
-    ...createMessageHandler(ports, { integritySlice, signalSlice, tickSlice, settingsSlice, lifecycleSlice, tabRegistry }, calls),
+    ...createLifecycle(ports, { discoverySlice, tickSlice, settingsSlice, lifecycleSlice, tabRegistry }, calls),
+    ...createMessageHandler(ports, { signalSlice, tickSlice, settingsSlice, lifecycleSlice, tabRegistry }, calls),
   } satisfies ControllerCalls<S>);
 
-  // Prime the in-memory integrity token from storage whenever the background
-  // script (re)evaluates, so a claim right after a service-worker wake can use
-  // the last captured token before any fresh page traffic is observed.
-  integritySlice.initialTwitchIntegrityLoad = calls.loadStoredTwitchIntegrity(
-    integritySlice.integrityLifecycleGeneration,
-    settingsSlice.twitchSettingsTransitionGeneration,
-  );
+  // Prime the in-memory integrity token from storage (twitchIntegrity.ts).
+  calls.startInitialTwitchIntegrityLoad();
 
   // Runs the job a host's scheduler fired; unknown and inert jobs do nothing.
   async function runJob(name: string): Promise<void> {

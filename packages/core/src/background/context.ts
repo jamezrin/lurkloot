@@ -65,35 +65,6 @@ export function createHeartbeatSlice(): HeartbeatSlice {
   };
 }
 
-export interface TwitchIntegritySlice {
-  twitchIntegrityAlarmMutation: Promise<unknown>;
-  integrityRefreshAbort: AbortController | undefined;
-  integrityLifecycleGeneration: number;
-  integrityLifecycleOpen: boolean;
-  installedTwitchIntegrity: TwitchIntegrity | undefined;
-  persistedIntegrityToken: string | undefined;
-  // A missing rejectedToken means there was no usable bundle when the refresh
-  // became due. Keeping the wrapper object distinguishes that from "not due."
-  twitchIntegrityRefreshDue: { rejectedToken?: string } | undefined;
-  // The startup load of the stored integrity token. createBackgroundController
-  // starts it once every module exists.
-  initialTwitchIntegrityLoad: Promise<void>;
-}
-
-export function createTwitchIntegritySlice(): TwitchIntegritySlice {
-  return {
-    twitchIntegrityAlarmMutation: Promise.resolve(),
-    integrityRefreshAbort: undefined,
-    integrityLifecycleGeneration: 0,
-    integrityLifecycleOpen: true,
-    installedTwitchIntegrity: undefined,
-    persistedIntegrityToken: undefined,
-    twitchIntegrityRefreshDue: undefined,
-    // Replaced by createBackgroundController once every module exists.
-    initialTwitchIntegrityLoad: Promise.resolve(),
-  };
-}
-
 export interface KickChallengeSlice {
   readonly kickChallengeClaimOperations: Set<AbortController>;
   // A Kick challenge claim request is running, from the tick or the job.
@@ -299,7 +270,6 @@ export function createTabRegistrySlice(hostRegistry: TabRegistry | undefined): T
 export interface ControllerSlices<S extends EngineSettings> {
   reportingSlice: ReportingSlice;
   heartbeatSlice: HeartbeatSlice;
-  integritySlice: TwitchIntegritySlice;
   kickChallengeSlice: KickChallengeSlice;
   authSlice: AuthHealthSlice;
   claimSlice: ClaimSlice;

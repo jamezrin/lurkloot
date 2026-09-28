@@ -5,11 +5,11 @@ import {
   KICK_DROP_CLAIMS_ALARM_NAME,
   TWITCH_ALARM_NAME,
   TWITCH_DROP_CLAIMS_ALARM_NAME,
-  TWITCH_INTEGRITY_ALARM_NAME,
   WATCH_ALARM_NAME,
 } from "./constants";
 import { TWITCH_CHANNEL_POINTS_JOBS } from "./channelPoints";
 import type { HostCapabilities } from "./hostPorts";
+import { TWITCH_INTEGRITY_JOBS } from "./twitchIntegrity";
 
 // The job scheduler port (#593): the only way the engine schedules work. The
 // extension implements it with browser.alarms, the CLI with Node timers.
@@ -74,10 +74,7 @@ export const BACKGROUND_JOBS: Readonly<Record<string, BackgroundJob>> = {
   [TWITCH_DROP_CLAIMS_ALARM_NAME]: { run: (runner) => runner.runDropClaims("twitch"), requires: "browserTabs" },
   [KICK_DROP_CLAIMS_ALARM_NAME]: { run: (runner) => runner.runDropClaims("kick"), requires: "browserTabs" },
   [KICK_CHALLENGES_ALARM_NAME]: { run: (runner) => runner.runKickChallengeClaims(), requires: "browserTabs" },
-  [TWITCH_INTEGRITY_ALARM_NAME]: {
-    run: (runner) => runner.runTwitchIntegrityRefresh(),
-    requires: "twitchIntegrityCapture",
-  },
+  ...TWITCH_INTEGRITY_JOBS,
 };
 
 export function jobIsInert(name: string, capabilities: HostCapabilities): boolean {
