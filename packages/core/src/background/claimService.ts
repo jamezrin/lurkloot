@@ -1,6 +1,6 @@
 import type { CoreRuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
-import type { DropReward, EngineSettings, Platform, SchedulerState, WatchReasonCode, WatchSession } from "@lurkloot/shared/models";
-import type { EngineEvent } from "@lurkloot/shared/events";
+import type { DropCampaign, DropReward, EngineSettings, Platform, SchedulerState, WatchReasonCode, WatchSession } from "@lurkloot/shared/models";
+import type { EngineEvent, EventEmitter } from "@lurkloot/shared/events";
 import { reconcileCampaignAfterClaims } from "@lurkloot/shared/rewards";
 import { claimReadyRewards, preserveClaimedRewards } from "../core/scheduler";
 import { createRewardClaimGuard, type RewardClaimGuard } from "../core/rewardClaims";
@@ -12,6 +12,7 @@ import {
 } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
 import type { BackgroundJob } from "./jobs";
+import type { StateTransaction } from "./stateTransaction";
 import type { TickEffectExecutor } from "./tickEffects";
 import { pausedForManualWatch } from "../core/manualWatch";
 import type { BackgroundHostPorts, TestingPorts } from "./hostPorts";
@@ -53,7 +54,14 @@ export function registerRewardClaimEffect(
   return executor.register("claimRewards", async ({ platform, campaigns, waitingRewardIds }, context) => {
     const adapter = context.adapters[platform];
     if (!adapter) throw new Error(`No ${platform} adapter for the scheduler effect`);
-    return await claimReadyRewards(adapter, campaigns, waitingRewardIds, context.signal, guards[platform]);
+    return await claimReadyRewards(
+      adapter,
+      campaigns,
+      waitingRewardIds,
+      context.signal,
+      guards[platform],
+      context.heldRewardClaims?.[platform],
+    );
   });
 }
 
@@ -74,12 +82,30 @@ function withManualClaim(state: SchedulerState, platform: Platform, campaignId: 
   };
 }
 
+// Marks the rewards in `rewardIds` claimed in `state`, wherever they still are.
+function withClaimedRewards(state: SchedulerState, platform: Platform, rewardIds: ReadonlySet<string>): SchedulerState {
+  return {
+    ...state,
+    campaigns: {
+      ...state.campaigns,
+      [platform]: state.campaigns[platform].map((item) => {
+        if (!item.rewards.some((candidate) => rewardIds.has(candidate.id))) return item;
+        const rewards = item.rewards.map((candidate) => rewardIds.has(candidate.id)
+          ? { ...candidate, status: "claimed" as const, watchedMinutes: candidate.requiredMinutes }
+          : candidate);
+        return reconcileCampaignAfterClaims(item, rewards);
+      }),
+    },
+  };
+}
+
 // The claim service (#597): the reward-claim effect, the drop-claim jobs, the
 // post-claim handoff and manual claims, with the in-flight state they share.
 // Every claim request runs with no lock held; only its result is committed,
 // onto the latest state.
 export function createClaimService<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
+  transaction: Pick<StateTransaction<S>, "onCommit">,
   { lifecycleSlice }: Pick<ControllerSlices<S>, "lifecycleSlice">,
   calls: Pick<ControllerCalls<S>,
     | "clearOperationalEvents"
@@ -104,6 +130,7 @@ export function createClaimService<S extends EngineSettings>(
   | "registerRewardClaimEffects"
   | "waitingClaimRewardIds"
   | "recordWaitingClaimRewardIds"
+  | "releaseRewardClaims"
   | "abortIneligibleClaimOnlyOperations"
   | "abortClaimOnlyOperations"
   | "abortClaimHandoffs"
@@ -144,6 +171,18 @@ export function createClaimService<S extends EngineSettings>(
     kick: createRewardClaimGuard(),
   };
   let jobReschedule: Promise<void> = Promise.resolve();
+
+  // A commit that leaves a platform's authentication unhealthy ends its claim
+  // work (#597): the drop-claim job's run and the post-claim handoff, whose
+  // requests could only fail now. The tick's own claims follow its signal.
+  transaction.onCommit((change) => {
+    if (change.kind !== "state") return;
+    for (const platform of change.platforms) {
+      if (change.state.authHealth[platform].status === "healthy") continue;
+      for (const operation of dropClaimOperations[platform]) operation.abort(new Error("Authentication lost"));
+      abortClaimHandoffs(platform);
+    }
+  });
 
   const wait: NonNullable<TestingPorts["wait"]> = ports.testing?.wait ?? ((ms, signal) => new Promise<void>((resolve) => {
     if (signal.aborted) {
@@ -200,6 +239,11 @@ export function createClaimService<S extends EngineSettings>(
   // The tick claims from a copy and records it back only when it commits.
   function waitingClaimRewardIds(): Record<Platform, Set<string>> {
     return { twitch: new Set(waitingRewardIds.twitch), kick: new Set(waitingRewardIds.kick) };
+  }
+
+  // Ends the reservations a claimer held until its commit (#597).
+  function releaseRewardClaims(platform: Platform, rewardIds: Iterable<string>): void {
+    for (const rewardId of rewardIds) rewardClaimGuards[platform].release(rewardId);
   }
 
   function recordWaitingClaimRewardIds(platform: Platform, rewardIds: ReadonlySet<string>): void {
@@ -412,23 +456,63 @@ export function createClaimService<S extends EngineSettings>(
         await reportBestEffort(events);
         return;
       } finally {
-        guard.release(reward.id);
+        // A claim that went through stays reserved until it is committed.
+        if (!claimedManually) guard.release(reward.id);
       }
       if (!claimedManually) {
         await reportBestEffort(events);
         return;
       }
-      await withStateLock(async () => {
-        const latest = await ports.storage.loadState();
-        await persistPlatformAndReport(
-          message.platform,
-          withManualClaim(latest, message.platform, campaign.id, reward.id),
-          events,
-        );
-      }, [message.platform]);
+      try {
+        await withStateLock(async () => {
+          const latest = await ports.storage.loadState();
+          await persistPlatformAndReport(
+            message.platform,
+            withManualClaim(latest, message.platform, campaign.id, reward.id),
+            events,
+          );
+        }, [message.platform]);
+      } finally {
+        guard.release(reward.id);
+      }
     });
     if (claimedManually) await runClaimHandoff(message.platform, [message.rewardId]);
     return snapshot();
+  }
+
+  // Commits and publishes the claims a cancelled drop-claim run had already
+  // sent and seen accepted.
+  async function recordAcceptedClaims(
+    platform: Platform,
+    campaigns: readonly DropCampaign[],
+    rewardIds: ReadonlySet<string>,
+    emit: EventEmitter,
+    events: EngineEvent[],
+  ): Promise<void> {
+    for (const item of campaigns) {
+      for (const candidate of item.rewards) {
+        if (!rewardIds.has(candidate.id)) continue;
+        emit({
+          category: "activity",
+          platform,
+          level: "info",
+          code: "reward_claimed",
+          data: {
+            campaignId: item.id,
+            campaignName: item.name,
+            rewardId: candidate.id,
+            rewardName: candidate.name,
+            ...(candidate.imageUrl ? { rewardImageUrl: candidate.imageUrl } : {}),
+            ...(item.url ? { campaignUrl: item.url } : {}),
+            method: "automatic",
+          },
+        });
+      }
+    }
+    await withStateLock(async () => {
+      const latest = await ports.storage.loadState();
+      await persistPlatformAndReport(platform, withClaimedRewards(latest, platform, rewardIds), events);
+    }, [platform]);
   }
 
   // The drop-claim job claims while the user watches by hand, which pauses the
@@ -441,9 +525,13 @@ export function createClaimService<S extends EngineSettings>(
     if (dropClaimOperations[platform].size > 0) return;
     const operation = new AbortController();
     dropClaimOperations[platform].add(operation);
+    // The rewards this run claimed, reserved until its commit has landed.
+    const held = new Set<string>();
     try {
       await withEventCollector(async (emit, events) => {
         let adapter: PlatformAdapter | undefined;
+        // The campaigns the run claims from, to name what it claimed.
+        let claimCampaigns: DropCampaign[] | undefined;
         try {
           operation.signal.throwIfAborted();
           // Read under the lock, like a manual claim, so a claim being
@@ -465,13 +553,14 @@ export function createClaimService<S extends EngineSettings>(
             requireComplete: true,
           });
           operation.signal.throwIfAborted();
-          const campaigns = preserveClaimedRewards(refreshed, state.campaigns[platform]);
+          const campaigns = claimCampaigns = preserveClaimedRewards(refreshed, state.campaigns[platform]);
           const claimResult = await claimReadyRewards(
             adapter,
             campaigns,
             waitingRewardIds[platform],
             operation.signal,
             rewardClaimGuards[platform],
+            held,
           );
           operation.signal.throwIfAborted();
           for (const event of claimResult.events) {
@@ -516,7 +605,15 @@ export function createClaimService<S extends EngineSettings>(
         } catch (error) {
           adapter?.flushRouteDiagnostics?.(emit);
           clearOperationalEvents(events);
-          if (operation.signal.aborted) return;
+          if (operation.signal.aborted) {
+            // A claim the provider accepted before the abort still happened, so
+            // it is recorded and published once. Shutdown and reset are the
+            // exceptions: nothing is written past them.
+            if (held.size > 0 && claimCampaigns && !lifecycleSlice.controllerShutdown && lifecycleSlice.observersOpen) {
+              await recordAcceptedClaims(platform, claimCampaigns, held, emit, events);
+            }
+            return;
+          }
           emit({
             category: "diagnostic",
             platform,
@@ -527,6 +624,7 @@ export function createClaimService<S extends EngineSettings>(
         }
       });
     } finally {
+      releaseRewardClaims(platform, held);
       dropClaimOperations[platform].delete(operation);
     }
   }
@@ -538,6 +636,7 @@ export function createClaimService<S extends EngineSettings>(
     registerRewardClaimEffects,
     waitingClaimRewardIds,
     recordWaitingClaimRewardIds,
+    releaseRewardClaims,
     abortIneligibleClaimOnlyOperations,
     abortClaimOnlyOperations,
     abortClaimHandoffs,

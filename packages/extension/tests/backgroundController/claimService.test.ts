@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import type { DropCampaign } from "@lurkloot/shared/models";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
-import { campaign, deferred, farming, harness } from "../helpers/backgroundController";
-import type { SchedulerState } from "@lurkloot/shared/models";
+import { campaign, channel, deferred, farming, harness, reward } from "../helpers/backgroundController";
+import type { PreparedWatchTab, SchedulerState } from "@lurkloot/shared/models";
 
 // The claim service (#597): the drop-claim job and manual claims send their
 // requests with no lock held and commit only their result, onto the latest
@@ -147,5 +147,143 @@ describe("claim service", () => {
 
     expect(env.twitch.claimReward).toHaveBeenCalledOnce();
     expect(claimedEvents(env)).toHaveLength(1);
+  });
+
+  describe("reservation until commit", () => {
+    // A tick that claims the first reward, then stalls opening the watch tab
+    // for the next one, before it commits anything.
+    function tickStalledAfterClaim() {
+      const env = harness(farming({ ...DEFAULT_SETTINGS, autoClaim: true }));
+      vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([{
+        ...campaign("twitch", "claimable"),
+        rewards: [reward("claimable"), { ...reward("in_progress"), id: "next" }],
+      }]);
+      vi.mocked(env.twitch.listCandidateChannels).mockResolvedValue([channel("twitch")]);
+      const opening = deferred<void>();
+      const open = env.watchTabs.twitch.open.getMockImplementation()!;
+      env.watchTabs.twitch.open.mockImplementationOnce(async (...args) => {
+        await opening.promise;
+        return await open(...args);
+      });
+      return { env, opening };
+    }
+
+    it("sends no second claim for a reward the tick claimed but has not committed", async () => {
+      const { env, opening } = tickStalledAfterClaim();
+
+      const ticking = env.controller.tick(["twitch"]);
+      await vi.waitFor(() => expect(env.watchTabs.twitch.open).toHaveBeenCalledOnce());
+      expect(env.twitch.claimReward).toHaveBeenCalledOnce();
+      await env.rawController.handleMessage({
+        type: "claimReward",
+        platform: "twitch",
+        campaignId: "twitch-campaign",
+        rewardId: "reward",
+      });
+      opening.resolve();
+      await ticking;
+      await env.controller.settleBackgroundWork();
+
+      expect(env.twitch.claimReward).toHaveBeenCalledOnce();
+      expect(claimedEvents(env)).toHaveLength(1);
+      expect(env.state.campaigns.twitch[0].rewards[0].status).toBe("claimed");
+    });
+
+    it("releases the reward when the tick holding it is aborted", async () => {
+      const { env, opening } = tickStalledAfterClaim();
+
+      const ticking = env.controller.tick(["twitch"]);
+      await vi.waitFor(() => expect(env.watchTabs.twitch.open).toHaveBeenCalledOnce());
+      await env.controller.prepareForHostReset();
+      opening.resolve();
+      await Promise.allSettled([ticking]);
+      // The aborted tick recorded nothing, so the reward is claimable again.
+      env.state.campaigns.twitch = [campaign("twitch", "claimable")];
+      await env.rawController.handleMessage({
+        type: "claimReward",
+        platform: "twitch",
+        campaignId: "twitch-campaign",
+        rewardId: "reward",
+      });
+
+      expect(env.twitch.claimReward).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe("authentication loss", () => {
+    it("ends a drop-claim run before it claims", async () => {
+      const env = harness(farming({ ...DEFAULT_SETTINGS, autoClaim: true }));
+      watchingTwitchByHand(env);
+      const refresh = deferred<DropCampaign[]>();
+      env.twitch.refreshCampaigns = vi.fn(async () => refresh.promise);
+
+      const claiming = env.controller.runDropClaims("twitch");
+      await vi.waitFor(() => expect(env.twitch.refreshCampaigns).toHaveBeenCalledOnce());
+      await env.controller.invalidateAuthHealth("twitch");
+      refresh.resolve([campaign("twitch", "claimable")]);
+      await claiming;
+
+      expect(env.twitch.claimReward).not.toHaveBeenCalled();
+      expect(claimedEvents(env)).toHaveLength(0);
+    });
+
+    it("ends a running post-claim handoff", async () => {
+      const parked: AbortSignal[] = [];
+      const env = harness(farming({ ...DEFAULT_SETTINGS, autoClaim: true, postClaimHandoff: true }), {
+        wait: (_ms, signal) => new Promise<void>((resolve) => {
+          parked.push(signal);
+          signal.addEventListener("abort", () => resolve(), { once: true });
+        }),
+      });
+      env.twitch.supportsPostClaimHandoff = true;
+      env.state.authHealth = { ...env.state.authHealth, twitch: { status: "healthy", checkedAt: new Date().toISOString() } };
+
+      const handoff = env.controller.runClaimHandoff("twitch", ["reward"]);
+      await vi.waitFor(() => expect(parked).toHaveLength(1));
+      await env.controller.invalidateAuthHealth("twitch");
+      await handoff;
+
+      expect(parked[0].aborted).toBe(true);
+    });
+
+    it("records a claim the provider accepted before authentication was lost", async () => {
+      const env = harness(farming({ ...DEFAULT_SETTINGS, autoClaim: true }));
+      watchingTwitchByHand(env);
+      env.twitch.refreshCampaigns = vi.fn(async () => [campaign("twitch", "claimable")]);
+      const accepted = deferred<boolean>();
+      vi.mocked(env.twitch.claimReward).mockReturnValue(accepted.promise);
+
+      const claiming = env.controller.runDropClaims("twitch");
+      await vi.waitFor(() => expect(env.twitch.claimReward).toHaveBeenCalledOnce());
+      await env.controller.invalidateAuthHealth("twitch");
+      accepted.resolve(true);
+      await claiming;
+
+      expect(env.state.campaigns.twitch[0].rewards[0].status).toBe("claimed");
+      expect(claimedEvents(env)).toHaveLength(1);
+    });
+
+    it("leaves the other platform's drop-claim run alone", async () => {
+      const env = harness(farming({ ...DEFAULT_SETTINGS, autoClaim: true }));
+      env.state.authHealth = {
+        twitch: { status: "healthy", checkedAt: new Date().toISOString() },
+        kick: { status: "healthy", checkedAt: new Date().toISOString() },
+      };
+      env.state.sessions.kick = { platform: "kick", status: "paused", offlineChecks: 0, reasonCode: "manual_watch" };
+      env.state.manualWatch = {
+        kick: { platform: "kick", tabId: 92, checkedAt: new Date().toISOString(), active: true },
+      };
+      const refresh = deferred<DropCampaign[]>();
+      env.kick.refreshCampaigns = vi.fn(async () => refresh.promise);
+
+      const claiming = env.controller.runDropClaims("kick");
+      await vi.waitFor(() => expect(env.kick.refreshCampaigns).toHaveBeenCalledOnce());
+      await env.controller.invalidateAuthHealth("twitch");
+      refresh.resolve([campaign("kick", "claimable")]);
+      await claiming;
+
+      expect(env.kick.claimReward).toHaveBeenCalledOnce();
+      expect(env.state.campaigns.kick[0].rewards[0].status).toBe("claimed");
+    });
   });
 });

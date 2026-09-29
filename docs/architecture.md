@@ -377,11 +377,19 @@ There is no local claim journal: the provider's inventory is the source of truth
 intent before sending would not help, because after a crash the engine still could not tell whether
 the request reached the provider.
 
-- **Within one process**, the claim service's `RewardClaimGuard`s allow one request per reward at a
-  time across overlapping ticks, manual claims, the drop-claim job and the handoff loop. Every one of
-  them sends with no lock held and then commits its result onto the latest state:
+- **Within one process**, the claim service's `RewardClaimGuard`s allow one request per reward
+  across overlapping ticks, manual claims, the drop-claim job and the handoff loop. A reward whose
+  claim succeeded stays reserved until its claimer's commit has landed, however that ends (the tick
+  releases its rewards when it ends, committed, superseded or aborted), since until then storage
+  still shows it claimable to everyone else. Every path sends with no lock held and then commits its
+  result onto the latest state:
   `preserveClaimedRewards` keeps a claim another path committed meanwhile, and a manual claim marks
   only its own reward.
+- **Cancellation:** disabling claims, a reset or a shutdown aborts the drop-claim job's runs and
+  the post-claim handoff, and so does a commit that leaves the platform's authentication unhealthy
+  (an after-commit hook). A claim cancelled before it was sent records nothing. A claim the provider
+  had already accepted is still committed and published once, except on shutdown or reset, which
+  write nothing; the inventory re-read then records it. Ticks are aborted only by shutdown and reset.
 - **Across a restart**, the process may have stopped after the provider accepted a claim and before
   the state was saved. On restart the reward is still unclaimed locally and nothing was published
   for it. The next discovery re-reads the provider's inventory before any claim runs. A reward the

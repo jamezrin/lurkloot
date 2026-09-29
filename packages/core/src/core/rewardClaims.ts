@@ -5,8 +5,9 @@ import type { PlatformAdapter } from "../platforms/adapter";
 // One claim request per reward at a time within one process (#599). The
 // scheduler tick claims outside every lock, so it can overlap the drop-claim
 // job or a manual claim for the same reward; each path reserves the reward
-// first and skips it while another path holds it. What happens after a claim
-// (the claim failure model) is #597's.
+// first and skips it while another path holds it. A claim that succeeded
+// stays reserved until its claimer has committed it (#597): until then the
+// stored state still shows it claimable to everyone else.
 export interface RewardClaimGuard {
   // False when another path is claiming the reward right now.
   reserve(rewardId: string): boolean;
@@ -55,6 +56,9 @@ export async function claimReadyRewards(
   previouslyWaitingRewardIds: Set<string>,
   signal?: AbortSignal,
   guard?: RewardClaimGuard,
+  // Receives each reward claimed here, still reserved: the caller releases it
+  // once its commit has landed, whatever that commit's outcome.
+  held?: Set<string>,
 ): Promise<{ campaigns: DropCampaign[]; events: ClaimReadyRewardEvent[] }> {
   const events: ClaimReadyRewardEvent[] = [];
   const updated: DropCampaign[] = [];
@@ -84,9 +88,14 @@ export async function claimReadyRewards(
           rewards.push(reward);
           continue;
         }
+        let keepReserved = false;
         try {
           const claimed = await adapter.claimReward(campaign, reward, { signal });
           rewards.push(claimed ? markClaimed(reward) : reward);
+          if (claimed && guard && held) {
+            held.add(reward.id);
+            keepReserved = true;
+          }
           if (claimed) {
             events.push({
               level: "info",
@@ -112,7 +121,7 @@ export async function claimReadyRewards(
             message: error instanceof Error ? error.message : `Claim failed for ${reward.name}`,
           });
         } finally {
-          guard?.release(reward.id);
+          if (!keepReserved) guard?.release(reward.id);
         }
       } else {
         rewards.push(reward);
