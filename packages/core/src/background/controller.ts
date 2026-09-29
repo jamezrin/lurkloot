@@ -107,7 +107,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   Object.assign(calls, {
     ...createReporting(ports, { reportingSlice }, calls),
     ...createStateCommit(transaction, calls),
-    ...createHeartbeatCoordinator(ports, { tickSlice, lifecycleSlice, tabRegistry }, calls),
+    ...createHeartbeatCoordinator(ports, transaction, { tickSlice, lifecycleSlice, tabRegistry }, calls),
     ...createTwitchIntegrity(ports, { settingsSlice, lifecycleSlice, tabRegistry }, calls),
     ...createChannelPoints(ports, transaction, { tickSlice, lifecycleSlice }, calls),
     ...createKickRuntime(ports, { lifecycleSlice }, calls),

@@ -748,11 +748,8 @@ describe("background controller", () => {
     vi.setSystemTime(new Date("2026-09-02T12:00:00.000Z"));
     const oldResult = deferred<{ ok: boolean; live?: boolean; message?: string }>();
     const allowSuccessorSave = deferred<void>();
+    const successorSaveStarted = deferred<void>();
     const oldWatcher = fakeTablessWatcher(() => oldResult.promise);
-    oldWatcher.stop.mockImplementation(async () => {
-      await allowSuccessorSave.promise;
-      oldWatcher.channelUrl = undefined;
-    });
     const successorWatcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
     const successorChannel = channel("twitch", {
       username: "successor-creator",
@@ -787,18 +784,21 @@ describe("background controller", () => {
     env.deps.saveState.mockClear();
     vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([successorCampaign]);
     vi.mocked(env.twitch.listCandidateChannels).mockResolvedValue([successorChannel]);
+    const persist = env.deps.saveState.getMockImplementation()!;
+    env.deps.saveState.mockImplementation(async (next) => {
+      if (next.sessions.twitch.rewardId === "successor-reward") {
+        successorSaveStarted.resolve();
+        await allowSuccessorSave.promise;
+      }
+      await persist(next);
+    });
 
     const successorTick = env.controller.tick(["twitch"]);
-    // Displaced-watcher cleanup starts only after commitHeartbeatContext has
-    // published the complete successor, and scheduler persistence follows it.
-    await vi.waitFor(() => expect(oldWatcher.stop).toHaveBeenCalledOnce());
-    expect(successorWatcher.start).toHaveBeenCalledWith(
-      expect.objectContaining({
-        username: "successor-creator",
-        broadcastId: "successor-broadcast",
-      }),
-      expect.any(Object),
-    );
+    // The successor reserved the lane inside the tick lock (#586). Its watcher
+    // starts, and the old one stops, only after this save commits.
+    await successorSaveStarted.promise;
+    expect(successorWatcher.start).not.toHaveBeenCalled();
+    expect(oldWatcher.stop).not.toHaveBeenCalled();
     const savesBeforeOldResult = env.deps.saveState.mock.calls.length;
 
     try {
@@ -840,6 +840,14 @@ describe("background controller", () => {
       await successorTick;
     }
 
+    expect(successorWatcher.start).toHaveBeenCalledWith(
+      expect.objectContaining({
+        username: "successor-creator",
+        broadcastId: "successor-broadcast",
+      }),
+      expect.any(Object),
+    );
+    expect(oldWatcher.stop).toHaveBeenCalledOnce();
     expect(env.state.sessions.twitch).toMatchObject({
       channel: expect.objectContaining({
         username: "successor-creator",
@@ -884,6 +892,8 @@ describe("background controller", () => {
 
     const successorTick = env.controller.tick(["twitch"]);
     await vi.waitFor(() => expect(successorWatcher.start).toHaveBeenCalledOnce());
+    // The switch committed before its watcher started (#586).
+    expect(env.state.sessions.twitch.rewardId).toBe("lease-successor-reward");
     const alarm = env.controller.runWatchHeartbeat();
     try {
       await drainMicrotasks();
@@ -909,7 +919,129 @@ describe("background controller", () => {
     expect(successorWatcher.tick).toHaveBeenCalledOnce();
   });
 
-  it("keeps an initial published watcher authoritative until scheduler persistence", async () => {
+  // #586: the tick commits before its watcher starts, and a restart recovery
+  // starts its watcher with no lane held, so neither blocks the other.
+  it("commits a tick while a restart recovery's watcher start is blocked, and the recovery that lost stops its watcher", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-02T12:00:00.000Z"));
+    const allowRecoveryStart = deferred<void>();
+    const recovered = fakeTablessWatcher(async () => ({ ok: true, live: true }));
+    recovered.start.mockImplementation(async (candidate) => {
+      await allowRecoveryStart.promise;
+      recovered.channelUrl = candidate.url;
+    });
+    const successorWatcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
+    const successorChannel = channel("twitch", {
+      username: "recovery-successor",
+      url: "https://www.twitch.tv/recovery-successor",
+      broadcastId: "recovery-successor-broadcast",
+    });
+    const successorCampaign: DropCampaign = {
+      ...campaign("twitch"),
+      id: "recovery-successor-campaign",
+      rewards: [{ ...reward(), id: "recovery-successor-reward" }],
+    };
+    const env = tablessEnv();
+    env.twitch.createTablessWatcher = vi.fn()
+      .mockReturnValueOnce(recovered)
+      .mockReturnValueOnce(successorWatcher);
+    env.state.authHealth.twitch = { status: "healthy" };
+    env.state.sessions.twitch = {
+      platform: "twitch",
+      status: "watching",
+      offlineChecks: 0,
+      watchMode: "tabless",
+      channel: channel("twitch", { broadcastId: "restored-broadcast" }),
+      campaignId: "restored-campaign",
+      rewardId: "restored-reward",
+      heartbeatChecks: 0,
+    };
+    env.state.sessions.twitch.tablessHeartbeat = dueHeartbeatCadence(env.state.sessions.twitch);
+
+    const recovery = env.controller.runWatchHeartbeat();
+    await vi.waitFor(() => expect(recovered.start).toHaveBeenCalledOnce());
+    vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([successorCampaign]);
+    vi.mocked(env.twitch.listCandidateChannels).mockResolvedValue([successorChannel]);
+    try {
+      await env.controller.tick(["twitch"]);
+      expect(successorWatcher.start).toHaveBeenCalledOnce();
+      expect(env.state.sessions.twitch).toMatchObject({ rewardId: "recovery-successor-reward" });
+    } finally {
+      allowRecoveryStart.resolve();
+      await recovery;
+    }
+
+    expect(recovered.stop).toHaveBeenCalledOnce();
+    expect(recovered.tick).not.toHaveBeenCalled();
+    expect(successorWatcher.stop).not.toHaveBeenCalled();
+    expect(env.state.sessions.twitch.tablessHeartbeat).toMatchObject({
+      contextKey: heartbeatContextKey(env.state.sessions.twitch),
+    });
+    // vi.waitFor advances the faked clock, so the successor's anchor can be a
+    // few milliseconds past 12:00:00. Move past its first slot.
+    vi.setSystemTime(new Date("2026-09-02T12:02:00.000Z"));
+    await env.controller.runWatchHeartbeat();
+    expect(successorWatcher.tick).toHaveBeenCalledOnce();
+  });
+
+  it("releases its reservation when the tick does not commit, so heartbeats keep running", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-02T12:00:00.000Z"));
+    const watcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
+    const successorWatcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
+    const env = tablessEnv();
+    env.twitch.createTablessWatcher = vi.fn()
+      .mockReturnValueOnce(watcher)
+      .mockReturnValueOnce(successorWatcher);
+    await env.controller.tick(["twitch"]);
+    vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([{
+      ...campaign("twitch"),
+      id: "uncommitted-campaign",
+      rewards: [{ ...reward(), id: "uncommitted-reward" }],
+    }]);
+    const persist = env.deps.saveState.getMockImplementation()!;
+    env.deps.saveState.mockImplementation(async (next) => {
+      if (next.sessions.twitch.rewardId === "uncommitted-reward") throw new Error("storage unavailable");
+      await persist(next);
+    });
+
+    await env.controller.tick(["twitch"]).catch(() => undefined);
+
+    expect(env.state.sessions.twitch.rewardId).not.toBe("uncommitted-reward");
+    expect(successorWatcher.start).not.toHaveBeenCalled();
+    expect(watcher.stop).not.toHaveBeenCalled();
+    vi.setSystemTime(new Date("2026-09-02T12:01:00.000Z"));
+    await env.controller.runWatchHeartbeat();
+    expect(watcher.tick).toHaveBeenCalledOnce();
+  });
+
+  it("starts nothing when shutdown lands between the reservation and the commit", async () => {
+    const allowSchedulerSave = deferred<void>();
+    const schedulerSaveStarted = deferred<void>();
+    const watcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
+    const env = tablessEnv();
+    env.twitch.createTablessWatcher = vi.fn(() => watcher);
+    const persist = env.deps.saveState.getMockImplementation()!;
+    env.deps.saveState.mockImplementation(async (next) => {
+      if (next.sessions.twitch.tablessHeartbeat !== undefined) {
+        schedulerSaveStarted.resolve();
+        await allowSchedulerSave.promise;
+      }
+      await persist(next);
+    });
+
+    const schedulerTick = env.controller.tick(["twitch"]);
+    await schedulerSaveStarted.promise;
+    env.controller.shutdown();
+    allowSchedulerSave.resolve();
+    await schedulerTick.catch(() => undefined);
+    await env.controller.settleBackgroundWork();
+
+    expect(watcher.start).not.toHaveBeenCalled();
+    expect(watcher.tick).not.toHaveBeenCalled();
+  });
+
+  it("keeps an initial reserved watcher authoritative until scheduler persistence", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-09-02T12:00:00.000Z"));
     const allowSchedulerSave = deferred<void>();
@@ -935,7 +1067,8 @@ describe("background controller", () => {
 
     const schedulerTick = env.controller.tick(["twitch"]);
     await schedulerSaveStarted.promise;
-    expect(watcher.start).toHaveBeenCalledOnce();
+    // Reserved inside the tick lock; it starts once the save commits (#586).
+    expect(watcher.start).not.toHaveBeenCalled();
     const alarm = env.controller.runWatchHeartbeat();
     try {
       await drainMicrotasks();
@@ -946,6 +1079,7 @@ describe("background controller", () => {
       await Promise.all([schedulerTick, alarm]);
     }
 
+    expect(watcher.start).toHaveBeenCalledOnce();
     expect(watcher.tick).not.toHaveBeenCalled();
     expect(watcher.stop).not.toHaveBeenCalled();
     expect(obsoleteRecovery.start).not.toHaveBeenCalled();
@@ -961,7 +1095,7 @@ describe("background controller", () => {
     expect(watcher.tick).toHaveBeenCalledTimes(2);
   });
 
-  it("keeps the published successor authoritative while its scheduler save is pending", async () => {
+  it("keeps the reserved successor authoritative while its scheduler save is pending", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-09-02T12:00:00.000Z"));
     const allowSuccessorSave = deferred<void>();
@@ -1000,14 +1134,15 @@ describe("background controller", () => {
 
     const successorTick = env.controller.tick(["twitch"]);
     await successorSaveStarted.promise;
-    expect(successorWatcher.start).toHaveBeenCalledOnce();
-    // The lane now owns generation 2, while loadState still returns the old
+    expect(successorWatcher.start).not.toHaveBeenCalled();
+    // The lane has reserved generation 2, while loadState still returns the old
     // generation-1 session until the blocked scheduler save completes.
     const alarm = env.controller.runWatchHeartbeat();
     await drainMicrotasks();
     allowSuccessorSave.resolve();
     await Promise.all([successorTick, alarm]);
 
+    expect(successorWatcher.start).toHaveBeenCalledOnce();
     expect(successorWatcher.stop).not.toHaveBeenCalled();
     expect(obsoleteRecovery.start).not.toHaveBeenCalled();
     expect(obsoleteRecovery.tick).not.toHaveBeenCalled();
@@ -1737,6 +1872,8 @@ describe("background controller", () => {
 
     advanceToNextHeartbeatDue();
     await env.controller.runWatchHeartbeat(); // heartbeatChecks -> 2, triggers fallback
+    // The commit hook hands the fallback to a background tick (#586).
+    await env.controller.settleBackgroundWork();
 
     expect(env.watchTabs.twitch.open).toHaveBeenCalled();
     expect(env.state.sessions.twitch.watchMode).toBe("tab");
@@ -1753,15 +1890,12 @@ describe("background controller", () => {
       env.twitch.createTablessWatcher = () => fakeTablessWatcher(
         async () => ({ ok: false, live: true }),
       ) as unknown as TablessWatchController;
-      const reportEvents = env.deps.reportEvents.getMockImplementation()!;
-      env.deps.reportEvents.mockImplementation(async (events) => {
-        await reportEvents(events);
-        if (
-          replaceAuthorityAfterCommit
-          && events.some((event) =>
-            event.category === "diagnostic"
-            && event.message.startsWith("Tabless heartbeat timing "))
-        ) {
+      // Replaced right after the failing result's save, before the commit
+      // hook that would hand the fallback to a tick has run.
+      const persist = env.deps.saveState.getMockImplementation()!;
+      env.deps.saveState.mockImplementation(async (next) => {
+        await persist(next);
+        if (replaceAuthorityAfterCommit && next.sessions.twitch.lastHeartbeatOk === false) {
           replaceAuthorityAfterCommit = false;
           const current = env.state.sessions.twitch;
           const nextSession: WatchSession = authority === "generation"
@@ -1793,6 +1927,7 @@ describe("background controller", () => {
 
       advanceToNextHeartbeatDue();
       await env.controller.runWatchHeartbeat();
+      await env.controller.settleBackgroundWork();
 
       expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
       expect(env.watchTabs.twitch.open).not.toHaveBeenCalled();
