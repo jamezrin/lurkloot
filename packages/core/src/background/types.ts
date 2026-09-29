@@ -374,9 +374,13 @@ export interface ControllerCalls<S extends EngineSettings> {
     senderTabId?: number,
   ): Promise<PlaybackControl>;
 
-  // claims.ts
-  clearManualWatchClaimAlarmsBestEffort(): Promise<void>;
-  reconcileManualWatchClaimAlarms(settings: EngineSettings): Promise<void>;
+  // claimService.ts
+  clearDropClaimJobsBestEffort(): Promise<void>;
+  reconcileDropClaimJobs(settings: EngineSettings): Promise<void>;
+  rescheduleDropClaimJobs(): Promise<void>;
+  registerRewardClaimEffects(executor: TickEffectExecutor): TickEffectExecutor;
+  waitingClaimRewardIds(): Record<Platform, Set<string>>;
+  recordWaitingClaimRewardIds(platform: Platform, rewardIds: ReadonlySet<string>): void;
   abortIneligibleClaimOnlyOperations(settings: EngineSettings, reason: string): void;
   abortClaimOnlyOperations(reason: string): void;
   abortClaimHandoffs(platform?: Platform): void;

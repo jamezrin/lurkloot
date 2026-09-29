@@ -3,6 +3,7 @@ import type { DropReward, EngineSettings, Platform, SchedulerState, WatchReasonC
 import type { EngineEvent } from "@lurkloot/shared/events";
 import { reconcileCampaignAfterClaims } from "@lurkloot/shared/rewards";
 import { claimReadyRewards, preserveClaimedRewards } from "../core/scheduler";
+import { createRewardClaimGuard, type RewardClaimGuard } from "../core/rewardClaims";
 import type { PlatformAdapter } from "../platforms/adapter";
 import {
   KICK_DROP_CLAIMS_ALARM_NAME,
@@ -10,6 +11,8 @@ import {
   TWITCH_DROP_CLAIMS_ALARM_NAME,
 } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
+import type { BackgroundJob } from "./jobs";
+import type { TickEffectExecutor } from "./tickEffects";
 import { pausedForManualWatch } from "../core/manualWatch";
 import type { BackgroundHostPorts, TestingPorts } from "./hostPorts";
 import type { ControllerCalls } from "./types";
@@ -29,10 +32,55 @@ function canClaimReward(reward: DropReward): boolean {
   return Number.isNaN(claimUntil) || Date.now() < claimUntil;
 }
 
-// Drop claims, manual claims, claim handoffs and the manual-watch claim jobs.
-export function createClaims<S extends EngineSettings>(
+// The drop-claim jobs claim for a manually watched tab, which needs browser
+// tabs; elsewhere the tick claims.
+export const DROP_CLAIM_JOBS: Readonly<Record<string, BackgroundJob>> = {
+  [TWITCH_DROP_CLAIMS_ALARM_NAME]: { run: (runner) => runner.runDropClaims("twitch"), requires: "browserTabs" },
+  [KICK_DROP_CLAIMS_ALARM_NAME]: { run: (runner) => runner.runDropClaims("kick"), requires: "browserTabs" },
+};
+
+const DROP_CLAIM_JOB_NAMES: Record<Platform, string> = {
+  twitch: TWITCH_DROP_CLAIMS_ALARM_NAME,
+  kick: KICK_DROP_CLAIMS_ALARM_NAME,
+};
+
+// The reward-claim effect a scheduler tick plans (#599). This is its only
+// handler, and it shares `guards` with the drop-claim job and manual claims.
+export function registerRewardClaimEffect(
+  executor: TickEffectExecutor,
+  guards: Partial<Record<Platform, RewardClaimGuard>>,
+): TickEffectExecutor {
+  return executor.register("claimRewards", async ({ platform, campaigns, waitingRewardIds }, context) => {
+    const adapter = context.adapters[platform];
+    if (!adapter) throw new Error(`No ${platform} adapter for the scheduler effect`);
+    return await claimReadyRewards(adapter, campaigns, waitingRewardIds, context.signal, guards[platform]);
+  });
+}
+
+// Marks one claimed reward in `state`, if its campaign is still there.
+function withManualClaim(state: SchedulerState, platform: Platform, campaignId: string, rewardId: string): SchedulerState {
+  return {
+    ...state,
+    campaigns: {
+      ...state.campaigns,
+      [platform]: state.campaigns[platform].map((item) => {
+        if (item.id !== campaignId) return item;
+        const rewards = item.rewards.map((candidate) => candidate.id === rewardId
+          ? { ...candidate, status: "claimed" as const, watchedMinutes: candidate.requiredMinutes }
+          : candidate);
+        return reconcileCampaignAfterClaims(item, rewards);
+      }),
+    },
+  };
+}
+
+// The claim service (#597): the reward-claim effect, the drop-claim jobs, the
+// post-claim handoff and manual claims, with the in-flight state they share.
+// Every claim request runs with no lock held; only its result is committed,
+// onto the latest state.
+export function createClaimService<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
-  { claimSlice, lifecycleSlice }: Pick<ControllerSlices<S>, "claimSlice" | "lifecycleSlice">,
+  { lifecycleSlice }: Pick<ControllerSlices<S>, "lifecycleSlice">,
   calls: Pick<ControllerCalls<S>,
     | "clearOperationalEvents"
     | "createAdapter"
@@ -50,8 +98,12 @@ export function createClaims<S extends EngineSettings>(
     | "withStateLock"
   >,
 ): Pick<ControllerCalls<S>,
-  | "clearManualWatchClaimAlarmsBestEffort"
-  | "reconcileManualWatchClaimAlarms"
+  | "clearDropClaimJobsBestEffort"
+  | "reconcileDropClaimJobs"
+  | "rescheduleDropClaimJobs"
+  | "registerRewardClaimEffects"
+  | "waitingClaimRewardIds"
+  | "recordWaitingClaimRewardIds"
   | "abortIneligibleClaimOnlyOperations"
   | "abortClaimOnlyOperations"
   | "abortClaimHandoffs"
@@ -75,6 +127,23 @@ export function createClaims<S extends EngineSettings>(
     withEventCollector,
     withStateLock,
   } = lateBound(calls);
+  // In-flight post-claim handoffs, one per platform. A claim arriving while a
+  // handoff is already running for that platform is absorbed by the running
+  // loop rather than starting a second one, which is what keeps the work
+  // bounded. These loops coordinate only with each other.
+  const claimHandoffs = new Map<Platform, AbortController>();
+  // Rewards watched to completion whose claim the platform has not released
+  // yet, as of the last committed tick.
+  const waitingRewardIds: Record<Platform, Set<string>> = { twitch: new Set(), kick: new Set() };
+  // The drop-claim job's runs in flight. Disable, reset and shutdown abort them.
+  const dropClaimOperations: Record<Platform, Set<AbortController>> = { twitch: new Set(), kick: new Set() };
+  // One claim request per reward at a time, across the tick, the drop-claim
+  // job and manual claims.
+  const rewardClaimGuards: Record<Platform, RewardClaimGuard> = {
+    twitch: createRewardClaimGuard(),
+    kick: createRewardClaimGuard(),
+  };
+  let jobReschedule: Promise<void> = Promise.resolve();
 
   const wait: NonNullable<TestingPorts["wait"]> = ports.testing?.wait ?? ((ms, signal) => new Promise<void>((resolve) => {
     if (signal.aborted) {
@@ -92,11 +161,8 @@ export function createClaims<S extends EngineSettings>(
     signal.addEventListener("abort", onAbort, { once: true });
   }));
 
-  async function clearManualWatchClaimAlarmsBestEffort(): Promise<void> {
-    await Promise.all([
-      TWITCH_DROP_CLAIMS_ALARM_NAME,
-      KICK_DROP_CLAIMS_ALARM_NAME,
-    ].map(async (name) => {
+  async function clearDropClaimJobsBestEffort(): Promise<void> {
+    await Promise.all(PLATFORMS.map((platform) => DROP_CLAIM_JOB_NAMES[platform]).map(async (name) => {
       try {
         await ports.jobs.cancel(name);
       } catch {
@@ -109,27 +175,48 @@ export function createClaims<S extends EngineSettings>(
     }));
   }
 
-  async function reconcileManualWatchClaimAlarms(settings: EngineSettings): Promise<void> {
-    await Promise.all([
-      settings.platform.twitch.enabled && settings.autoClaim
-        ? ports.jobs.ensure(TWITCH_DROP_CLAIMS_ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes })
-        : ports.jobs.cancel(TWITCH_DROP_CLAIMS_ALARM_NAME),
-      settings.platform.kick.enabled && settings.autoClaim
-        ? ports.jobs.ensure(KICK_DROP_CLAIMS_ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes })
-        : ports.jobs.cancel(KICK_DROP_CLAIMS_ALARM_NAME),
-    ]);
+  async function reconcileDropClaimJobs(settings: EngineSettings): Promise<void> {
+    await Promise.all(PLATFORMS.map((platform) => settings.platform[platform].enabled && settings.autoClaim
+      ? ports.jobs.ensure(DROP_CLAIM_JOB_NAMES[platform], { periodInMinutes: settings.pollIntervalMinutes })
+      : ports.jobs.cancel(DROP_CLAIM_JOB_NAMES[platform])));
+  }
+
+  // After a settings commit, with the settings lock released. Runs are
+  // serialized and each reads the latest stored settings, so commits that
+  // finish out of order still leave the jobs matching the last one.
+  function rescheduleDropClaimJobs(): Promise<void> {
+    const run = jobReschedule.then(async () => {
+      if (lifecycleSlice.controllerShutdown) return;
+      await reconcileDropClaimJobs(await ports.storage.loadSettings());
+    });
+    jobReschedule = run.catch(() => undefined);
+    return run;
+  }
+
+  function registerRewardClaimEffects(executor: TickEffectExecutor): TickEffectExecutor {
+    return registerRewardClaimEffect(executor, rewardClaimGuards);
+  }
+
+  // The tick claims from a copy and records it back only when it commits.
+  function waitingClaimRewardIds(): Record<Platform, Set<string>> {
+    return { twitch: new Set(waitingRewardIds.twitch), kick: new Set(waitingRewardIds.kick) };
+  }
+
+  function recordWaitingClaimRewardIds(platform: Platform, rewardIds: ReadonlySet<string>): void {
+    waitingRewardIds[platform].clear();
+    for (const rewardId of rewardIds) waitingRewardIds[platform].add(rewardId);
   }
 
   function abortIneligibleClaimOnlyOperations(settings: EngineSettings, reason: string): void {
     for (const platform of PLATFORMS) {
       if (settings.platform[platform].enabled && settings.autoClaim) continue;
-      for (const controller of claimSlice.dropClaimOperations[platform]) controller.abort(new Error(reason));
+      for (const controller of dropClaimOperations[platform]) controller.abort(new Error(reason));
     }
   }
 
   function abortClaimOnlyOperations(reason: string): void {
     for (const platform of PLATFORMS) {
-      for (const controller of claimSlice.dropClaimOperations[platform]) controller.abort(new Error(reason));
+      for (const controller of dropClaimOperations[platform]) controller.abort(new Error(reason));
     }
   }
 
@@ -138,10 +225,10 @@ export function createClaims<S extends EngineSettings>(
   // Scoped when a single platform is switched off: with per-platform toggles,
   // cancelling every handoff would abort work the other platform still needs.
   function abortClaimHandoffs(platform?: Platform): void {
-    for (const [handoffPlatform, controller] of claimSlice.claimHandoffs) {
+    for (const [handoffPlatform, controller] of claimHandoffs) {
       if (platform && handoffPlatform !== platform) continue;
       controller.abort();
-      claimSlice.claimHandoffs.delete(handoffPlatform);
+      claimHandoffs.delete(handoffPlatform);
     }
   }
 
@@ -155,13 +242,13 @@ export function createClaims<S extends EngineSettings>(
     justClaimedRewardIds: readonly string[] = [],
     onPersisted?: (state: SchedulerState) => void,
   ): Promise<void> {
-    if (claimSlice.claimHandoffs.has(platform)) return;
+    if (claimHandoffs.has(platform)) return;
     // Reserved synchronously, before the first await. Registering after the
     // async setup would let two triggers past the guard into concurrent loops,
     // and would let an abortClaimHandoffs() landing mid-setup miss this handoff
     // entirely.
     const abort = new AbortController();
-    claimSlice.claimHandoffs.set(platform, abort);
+    claimHandoffs.set(platform, abort);
 
     try {
       const settings = await ports.storage.loadSettings();
@@ -220,21 +307,25 @@ export function createClaims<S extends EngineSettings>(
         if (session.status !== "watching" && isNothingLeftToFarm(session.reasonCode)) return;
       }
     } finally {
-      if (claimSlice.claimHandoffs.get(platform) === abort) claimSlice.claimHandoffs.delete(platform);
+      if (claimHandoffs.get(platform) === abort) claimHandoffs.delete(platform);
     }
   }
 
   async function claimRewardNow(
     message: Extract<CoreRuntimeMessage, { type: "claimReward" }>,
   ): Promise<RuntimeSnapshot<S>> {
-    // Hold the owning platform lock across the whole load→persist so a concurrent
-    // same-platform tick or telemetry write can't clobber the claimed-reward
-    // update. The short commit merges this slice with any sibling-platform write.
+    // The claim request runs with no lock held (#597). Only the claimed reward
+    // is committed, under the platform lock, onto the latest state.
     let claimedManually = false;
-    await withStateLock(() => withEventCollector(async (emit, events) => {
-      const [settings, state] = await Promise.all([ports.storage.loadSettings(), ports.storage.loadState()]);
-      const campaigns = state.campaigns[message.platform];
-      const campaign = campaigns.find((item) => item.id === message.campaignId);
+    await withEventCollector(async (emit, events) => {
+      // Read under the lock, so a tick still committing a claim of this reward
+      // is waited for rather than read as claimable. The lock is released
+      // before the request is sent.
+      const [settings, state] = await withStateLock(
+        () => Promise.all([ports.storage.loadSettings(), ports.storage.loadState()]),
+        [message.platform],
+      );
+      const campaign = state.campaigns[message.platform].find((item) => item.id === message.campaignId);
       const reward = campaign?.rewards.find((item) => item.id === message.rewardId);
 
       if (!campaign || !reward) {
@@ -244,7 +335,7 @@ export function createClaims<S extends EngineSettings>(
           level: "warn",
           message: "Reward claim skipped because the campaign or reward is no longer available",
         });
-        await persistPlatformAndReport(message.platform, state, events);
+        await reportBestEffort(events);
         return;
       }
 
@@ -255,13 +346,13 @@ export function createClaims<S extends EngineSettings>(
           level: "warn",
           message: `${reward.name} is not ready to claim`,
         });
-        await persistPlatformAndReport(message.platform, state, events);
+        await reportBestEffort(events);
         return;
       }
 
-      // The tick claims with no lock held (#599): the same reward may be in
-      // flight there.
-      const guard = claimSlice.rewardClaimGuards[message.platform];
+      // The tick and the drop-claim job claim with no lock held too: the same
+      // reward may be in flight there.
+      const guard = rewardClaimGuards[message.platform];
       if (!guard.reserve(reward.id)) {
         emit({
           category: "diagnostic",
@@ -269,10 +360,9 @@ export function createClaims<S extends EngineSettings>(
           level: "warn",
           message: `${reward.name} is already being claimed`,
         });
-        await persistPlatformAndReport(message.platform, state, events);
+        await reportBestEffort(events);
         return;
       }
-      let stateWithCampaigns: SchedulerState;
       try {
         const adapter = createAdapters(settings, emit)[message.platform];
         let claimed: boolean;
@@ -282,20 +372,6 @@ export function createClaims<S extends EngineSettings>(
           adapter.flushRouteDiagnostics?.(emit);
         }
         claimedManually = claimed;
-        const nextCampaigns = campaigns.map((item) => {
-          if (item.id !== campaign.id) return item;
-          const rewards = item.rewards.map((candidate) => candidate.id === reward.id && claimed
-            ? { ...candidate, status: "claimed" as const, watchedMinutes: candidate.requiredMinutes }
-            : candidate);
-          return reconcileCampaignAfterClaims(item, rewards);
-        });
-        stateWithCampaigns = {
-          ...state,
-          campaigns: {
-            ...state.campaigns,
-            [message.platform]: nextCampaigns,
-          },
-        };
         const claimEvent: EngineEvent = claimed
           ? {
             category: "activity",
@@ -333,31 +409,52 @@ export function createClaims<S extends EngineSettings>(
           level: "error",
           message: error instanceof Error ? error.message : `Claim failed for ${reward.name}`,
         });
-        await persistPlatformAndReport(message.platform, state, events);
+        await reportBestEffort(events);
         return;
       } finally {
         guard.release(reward.id);
       }
-      await persistPlatformAndReport(message.platform, stateWithCampaigns, events);
-    }), [message.platform]);
-    // Outside the lock: runClaimHandoff ticks, which takes the lock itself.
+      if (!claimedManually) {
+        await reportBestEffort(events);
+        return;
+      }
+      await withStateLock(async () => {
+        const latest = await ports.storage.loadState();
+        await persistPlatformAndReport(
+          message.platform,
+          withManualClaim(latest, message.platform, campaign.id, reward.id),
+          events,
+        );
+      }, [message.platform]);
+    });
     if (claimedManually) await runClaimHandoff(message.platform, [message.rewardId]);
     return snapshot();
   }
 
+  // The drop-claim job claims while the user watches by hand, which pauses the
+  // tick. It refreshes and claims with no lock held (#597), then commits the
+  // refreshed campaigns onto the latest state, keeping any claim committed
+  // meanwhile.
   async function runDropClaims(platform: Platform): Promise<void> {
     if (lifecycleSlice.controllerShutdown) return;
+    // A fire while this platform's job still runs adds nothing to it.
+    if (dropClaimOperations[platform].size > 0) return;
     const operation = new AbortController();
-    claimSlice.dropClaimOperations[platform].add(operation);
+    dropClaimOperations[platform].add(operation);
     try {
-      await withStateLock(() => withEventCollector(async (emit, events) => {
-        if (lifecycleSlice.controllerShutdown) return;
+      await withEventCollector(async (emit, events) => {
         let adapter: PlatformAdapter | undefined;
         try {
           operation.signal.throwIfAborted();
-          const [settings, state] = await Promise.all([ports.storage.loadSettings(), ports.storage.loadState()]);
+          // Read under the lock, like a manual claim, so a claim being
+          // committed is waited for; the requests run once it is released.
+          const [settings, state] = await withStateLock(
+            () => Promise.all([ports.storage.loadSettings(), ports.storage.loadState()]),
+            [platform],
+          );
           operation.signal.throwIfAborted();
-          if (!settings.platform[platform].enabled
+          if (lifecycleSlice.controllerShutdown
+            || !settings.platform[platform].enabled
             || !settings.autoClaim
             || state.authHealth[platform].status !== "healthy"
             || !pausedForManualWatch(settings, state, platform)) return;
@@ -372,18 +469,11 @@ export function createClaims<S extends EngineSettings>(
           const claimResult = await claimReadyRewards(
             adapter,
             campaigns,
-            claimSlice.waitingClaimRewardIds[platform],
+            waitingRewardIds[platform],
             operation.signal,
-            claimSlice.rewardClaimGuards[platform],
+            rewardClaimGuards[platform],
           );
           operation.signal.throwIfAborted();
-          const nextState: SchedulerState = {
-            ...state,
-            campaigns: {
-              ...state.campaigns,
-              [platform]: claimResult.campaigns,
-            },
-          };
           for (const event of claimResult.events) {
             if (event.claimed) {
               emit({
@@ -407,9 +497,21 @@ export function createClaims<S extends EngineSettings>(
           }
           operation.signal.throwIfAborted();
           adapter.flushRouteDiagnostics?.(emit);
-          await persistPlatformState(platform, nextState, () => !operation.signal.aborted);
+          const committed = await withStateLock(async () => {
+            const latest = await ports.storage.loadState();
+            const next: SchedulerState = {
+              ...latest,
+              campaigns: {
+                ...latest.campaigns,
+                [platform]: preserveClaimedRewards(claimResult.campaigns, latest.campaigns[platform]),
+              },
+            };
+            const persisted = await persistPlatformState(platform, next, () => !operation.signal.aborted);
+            return persisted ? { latest, next } : undefined;
+          }, [platform]);
           operation.signal.throwIfAborted();
-          await emitNotifications(settings, state, nextState, events);
+          if (!committed) return;
+          await emitNotifications(settings, committed.latest, committed.next, events);
           await reportBestEffort(events);
         } catch (error) {
           adapter?.flushRouteDiagnostics?.(emit);
@@ -423,15 +525,19 @@ export function createClaims<S extends EngineSettings>(
           });
           await reportBestEffort(events);
         }
-      }), [platform]);
+      });
     } finally {
-      claimSlice.dropClaimOperations[platform].delete(operation);
+      dropClaimOperations[platform].delete(operation);
     }
   }
 
   return {
-    clearManualWatchClaimAlarmsBestEffort,
-    reconcileManualWatchClaimAlarms,
+    clearDropClaimJobsBestEffort,
+    reconcileDropClaimJobs,
+    rescheduleDropClaimJobs,
+    registerRewardClaimEffects,
+    waitingClaimRewardIds,
+    recordWaitingClaimRewardIds,
     abortIneligibleClaimOnlyOperations,
     abortClaimOnlyOperations,
     abortClaimHandoffs,

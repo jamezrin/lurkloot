@@ -1,9 +1,8 @@
 import type { EngineSettings } from "@lurkloot/shared/models";
 import { createAuthHealth } from "./authHealth";
 import { createChannelPoints } from "./channelPoints";
-import { createClaims } from "./claims";
+import { createClaimService } from "./claimService";
 import {
-  createClaimSlice,
   createDiscoverySignalSlice,
   createHeartbeatSlice,
   createLifecycleSlice,
@@ -99,7 +98,6 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   const transaction = createStateTransaction({ ...ports.storage, lockTracker: ports.testing?.lockTracker, tabRegistry });
   const reportingSlice = createReportingSlice();
   const heartbeatSlice = createHeartbeatSlice();
-  const claimSlice = createClaimSlice();
   const signalSlice = createDiscoverySignalSlice();
   const tickSlice = createTickAdmissionSlice();
   const settingsSlice = createSettingsSlice();
@@ -117,11 +115,11 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     ...createKickRuntime(ports, { lifecycleSlice }, calls),
     ...createAuthHealth(ports, { discoverySlice }, calls),
     ...createManualWatch(ports, { tabRegistry, lifecycleSlice }, calls),
-    ...createClaims(ports, { claimSlice, lifecycleSlice }, calls),
+    ...createClaimService(ports, { lifecycleSlice }, calls),
     ...createDiscoverySignals(ports, transaction, { signalSlice, tickSlice, lifecycleSlice }, calls),
     ...discovery,
     ...createTickAdmission(ports, transaction, { reportingSlice, signalSlice, tickSlice, lifecycleSlice }, calls),
-    ...createTickRun(ports, { claimSlice, discoverySlice, tickSlice, tabRegistry }, calls),
+    ...createTickRun(ports, { discoverySlice, tickSlice, tabRegistry }, calls),
     ...createSettingsTransitions(transaction, { discoverySlice }, calls),
     ...createLifecycle(ports, { discoverySlice, tickSlice, settingsSlice, lifecycleSlice, tabRegistry }, calls),
     ...createMessageHandler(ports, { signalSlice, tickSlice, settingsSlice, lifecycleSlice, tabRegistry }, calls),

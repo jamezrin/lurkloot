@@ -1,12 +1,11 @@
 import type { Platform } from "@lurkloot/shared/models";
 import {
   KICK_ALARM_NAME,
-  KICK_DROP_CLAIMS_ALARM_NAME,
   TWITCH_ALARM_NAME,
-  TWITCH_DROP_CLAIMS_ALARM_NAME,
   WATCH_ALARM_NAME,
 } from "./constants";
 import { TWITCH_CHANNEL_POINTS_JOBS } from "./channelPoints";
+import { DROP_CLAIM_JOBS } from "./claimService";
 import { KICK_RUNTIME_JOBS } from "./kickRuntime";
 import type { HostCapabilities } from "./hostPorts";
 import { TWITCH_INTEGRITY_JOBS } from "./twitchIntegrity";
@@ -70,9 +69,7 @@ export const BACKGROUND_JOBS: Readonly<Record<string, BackgroundJob>> = {
   [KICK_ALARM_NAME]: { run: (runner) => runner.tickAndHandOff(["kick"], "alarm") },
   [WATCH_ALARM_NAME]: { run: (runner) => runner.runWatchHeartbeat() },
   ...TWITCH_CHANNEL_POINTS_JOBS,
-  // The claim jobs claim for a manually watched tab, which needs browser tabs.
-  [TWITCH_DROP_CLAIMS_ALARM_NAME]: { run: (runner) => runner.runDropClaims("twitch"), requires: "browserTabs" },
-  [KICK_DROP_CLAIMS_ALARM_NAME]: { run: (runner) => runner.runDropClaims("kick"), requires: "browserTabs" },
+  ...DROP_CLAIM_JOBS,
   ...KICK_RUNTIME_JOBS,
   ...TWITCH_INTEGRITY_JOBS,
 };

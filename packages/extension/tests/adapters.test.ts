@@ -1259,6 +1259,24 @@ describe("createKickFetcher (background-first, tab fallback)", () => {
     expect(pageFetch).toHaveBeenCalledTimes(1);
   });
 
+  // The claim failure model (#597): Kick's answer to a duplicate claim is not
+  // known, so a definitive rejection for a linked account stays a claim failure.
+  it("fails a linked-account claim rejection without guidance or a page tab", async () => {
+    const pageFetch = vi.fn(async () => ({ data: "from-tab" }));
+    const rejection = new SafeFetchError({ kind: "http_error", status: 400, reason: "INVALID_CLAIM" });
+    const background = vi.fn(async () => {
+      throw rejection;
+    });
+    const adapter = kickAdapter(createKickFetcher({ background, pageFetch }));
+    const campaign = { id: "campaign", name: "Linked Campaign", accountLinked: true } as DropCampaign;
+    const reward = { id: "reward", name: "Reward", status: "claimable", requiredMinutes: 1, watchedMinutes: 1 } as DropReward;
+
+    await expect(adapter.claimReward(campaign, reward)).rejects.toBe(rejection);
+
+    expect(pageFetch).not.toHaveBeenCalled();
+    expect(reward.claimGuidance).toBeUndefined();
+  });
+
   it("answers an unlinked-account claim rejection with link guidance and no page tab", async () => {
     const pageFetch = vi.fn(async () => ({ data: "from-tab" }));
     const background = vi.fn(async () => {
@@ -4760,6 +4778,21 @@ describe("TwitchAdapter", () => {
     await expect(adapter.claimReward({ id: "campaign" } as DropCampaign, reward)).resolves.toBe(true);
     // A valid integrity token is ensured before the claim is sent.
     expect(ensureIntegrity).toHaveBeenCalledTimes(1);
+  });
+
+  // The claim failure model (#597): a claim sent again after a restart lost
+  // the save is answered as already claimed, which counts as the claim.
+  it("counts a Twitch answer that the drop was already claimed as a successful claim", async () => {
+    const fetcher = jsonFetcher((_url, init) => {
+      if (operation(init) === "DropsPage_ClaimDropRewards") {
+        return { data: { claimDropRewards: { status: "DROP_INSTANCE_ALREADY_CLAIMED" } } };
+      }
+      throw new Error(`Unexpected op ${operation(init)}`);
+    });
+    const adapter = twitchAdapter(fetcher, vi.fn(async () => true));
+    const reward = { id: "drop", name: "Reward", requiredMinutes: 60, watchedMinutes: 60, status: "claimable", claimId: "instance-id" } as DropReward;
+
+    await expect(adapter.claimReward({ id: "campaign" } as DropCampaign, reward)).resolves.toBe(true);
   });
 
   it("does not call Twitch or ensure integrity, and reports not claim-ready, when the drop-instance id is missing", async () => {

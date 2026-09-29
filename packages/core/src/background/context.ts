@@ -6,7 +6,6 @@ import type { TablessWatchController } from "../core/tablessWatch";
 import { createTabRegistry, type TabRegistry } from "../core/tabRegistry";
 import type { DiscoverySignalController } from "../core/discoverySignals";
 import { DiscoverySnapshotLane } from "../core/discoverySnapshot";
-import { createRewardClaimGuard, type RewardClaimGuard } from "../core/rewardClaims";
 import type {
   CommittedSelection,
   DiscoverySignalRefreshRequest,
@@ -61,38 +60,6 @@ export function createHeartbeatSlice(): HeartbeatSlice {
     heartbeatLanes: {
       twitch: { mutation: Promise.resolve(), revision: 0, coalescedWithoutAttempt: 0 },
       kick: { mutation: Promise.resolve(), revision: 0, coalescedWithoutAttempt: 0 },
-    },
-  };
-}
-
-export interface ClaimSlice {
-  // In-flight post-claim handoffs, one per platform. A claim arriving while a
-  // handoff is already running for that platform is absorbed by the running
-  // loop rather than starting a second one, which is what keeps the work
-  // bounded. Per-controller, unlike the storage lock: these loops coordinate
-  // only with each other.
-  readonly claimHandoffs: Map<Platform, AbortController>;
-  readonly waitingClaimRewardIds: Record<Platform, Set<string>>;
-  readonly dropClaimOperations: Record<Platform, Set<AbortController>>;
-  // One claim request per reward at a time, across the tick, the drop-claim
-  // job and manual claims.
-  readonly rewardClaimGuards: Record<Platform, RewardClaimGuard>;
-}
-
-export function createClaimSlice(): ClaimSlice {
-  return {
-    claimHandoffs: new Map<Platform, AbortController>(),
-    waitingClaimRewardIds: {
-      twitch: new Set<string>(),
-      kick: new Set<string>(),
-    },
-    dropClaimOperations: {
-      twitch: new Set<AbortController>(),
-      kick: new Set<AbortController>(),
-    },
-    rewardClaimGuards: {
-      twitch: createRewardClaimGuard(),
-      kick: createRewardClaimGuard(),
     },
   };
 }
@@ -225,7 +192,6 @@ export function createTabRegistrySlice(hostRegistry: TabRegistry | undefined): T
 export interface ControllerSlices<S extends EngineSettings> {
   reportingSlice: ReportingSlice;
   heartbeatSlice: HeartbeatSlice;
-  claimSlice: ClaimSlice;
   signalSlice: DiscoverySignalSlice;
   discoverySlice: DiscoverySlice<S>;
   tickSlice: TickAdmissionSlice;

@@ -28,8 +28,8 @@ import type {
 // One platform tick: selection, the scheduler tick and what runs around it.
 export function createTickRun<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
-  { claimSlice, discoverySlice, tickSlice, tabRegistry }: Pick<ControllerSlices<S>,
-    "claimSlice" | "discoverySlice" | "tickSlice" | "tabRegistry">,
+  { discoverySlice, tickSlice, tabRegistry }: Pick<ControllerSlices<S>,
+    "discoverySlice" | "tickSlice" | "tabRegistry">,
   calls: Pick<ControllerCalls<S>,
     | "applyAdFocusForState"
     | "clearOperationalEvents"
@@ -47,7 +47,9 @@ export function createTickRun<S extends EngineSettings>(
     | "observeTickCycle"
     | "reconcileTablessWatchers"
     | "reconcileTwitchChannelPointsPushAfterCommit"
+    | "recordWaitingClaimRewardIds"
     | "registerKickRuntimeEffects"
+    | "registerRewardClaimEffects"
     | "registerTwitchChannelPointsEffects"
     | "refreshAuthHealth"
     | "refreshDiscovery"
@@ -65,6 +67,7 @@ export function createTickRun<S extends EngineSettings>(
     | "stateRevision"
     | "tickInBackground"
     | "twitchChannelPointsPushEpoch"
+    | "waitingClaimRewardIds"
     | "withEventCollector"
     | "withStateLock"
   >,
@@ -86,7 +89,9 @@ export function createTickRun<S extends EngineSettings>(
     observeTickCycle,
     reconcileTablessWatchers,
     reconcileTwitchChannelPointsPushAfterCommit,
+    recordWaitingClaimRewardIds,
     registerKickRuntimeEffects,
+    registerRewardClaimEffects,
     registerTwitchChannelPointsEffects,
     refreshAuthHealth,
     refreshDiscovery,
@@ -104,6 +109,7 @@ export function createTickRun<S extends EngineSettings>(
     stateRevision,
     tickInBackground,
     twitchChannelPointsPushEpoch,
+    waitingClaimRewardIds,
     withEventCollector,
     withStateLock,
   } = lateBound(calls);
@@ -113,7 +119,9 @@ export function createTickRun<S extends EngineSettings>(
   // use, once every module's calls are bound.
   let tickEffectExecutor: TickEffectExecutor | undefined;
   const tickEffects = (): TickEffectExecutor =>
-    tickEffectExecutor ??= registerKickRuntimeEffects(registerTwitchChannelPointsEffects(createTickEffectExecutor()));
+    tickEffectExecutor ??= registerRewardClaimEffects(
+      registerKickRuntimeEffects(registerTwitchChannelPointsEffects(createTickEffectExecutor())),
+    );
 
   async function tickPlatform(
     platform: Platform,
@@ -261,10 +269,7 @@ export function createTickRun<S extends EngineSettings>(
     // the scheduler tick and every effect it names. Under the lock again,
     // rebase the result on whatever else committed meanwhile, then publish.
     await withEventCollector(async (emit, events) => {
-      const nextWaitingClaimRewardIds: Record<Platform, Set<string>> = {
-        twitch: new Set(claimSlice.waitingClaimRewardIds.twitch),
-        kick: new Set(claimSlice.waitingClaimRewardIds.kick),
-      };
+      const nextWaitingClaimRewardIds = waitingClaimRewardIds();
       // Observed here rather than returned by the scheduler: the controller
       // already sees every emitted event, and the post-claim handoff only
       // needs to know which platforms claimed.
@@ -377,9 +382,6 @@ export function createTickRun<S extends EngineSettings>(
               ? supplementalSources.select(selectedState, settings, selectedSignal, source)
               : Promise.resolve(undefined)
           : undefined,
-        claimGuards: {
-          rewards: claimSlice.rewardClaimGuards,
-        },
       };
       const eventsBeforeTick = events.length;
       let result: SchedulerTickResult | undefined;
@@ -585,10 +587,7 @@ export function createTickRun<S extends EngineSettings>(
               ? { channelPointsPush: { committed: nextState, since: twitchChannelPointsPushEpoch() } }
               : {}),
           };
-          claimSlice.waitingClaimRewardIds[platform].clear();
-          for (const rewardId of nextWaitingClaimRewardIds[platform]) {
-            claimSlice.waitingClaimRewardIds[platform].add(rewardId);
-          }
+          recordWaitingClaimRewardIds(platform, nextWaitingClaimRewardIds[platform]);
         } finally {
           await Promise.all(publicationLeases.map(([leasePlatform, lease]) =>
             releaseHeartbeatPublicationLease(leasePlatform, lease)));
