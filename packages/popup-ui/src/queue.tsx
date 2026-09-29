@@ -171,6 +171,12 @@ export function QueuePanel({
     void latest.current.onPinChange(String(movedId), pinPosition(pins, toIndex));
   }, []);
 
+  const strategyOptions: Array<{ value: PriorityMode; label: string }> = [
+    { value: "ending_soonest", label: t("endingSoonest") },
+    { value: "lowest_availability", label: t("lowAvailabilityFirst") },
+  ];
+  const strategyLabel = strategyOptions.find((option) => option.value === strategy)?.label ?? "";
+
   const tiers: CampaignRankTier[] = ["pinned", "favourite", "strategy"];
   const facetCounts: Record<QueueFacet, number> = {
     all: campaigns.filter((campaign) => campaign.section === "queue").length,
@@ -194,20 +200,22 @@ export function QueuePanel({
       <ViewToolbar>
         <FacetTabs facet={facet} counts={facetCounts} onChange={setFacet} />
         {/* The strategy lives where it acts. It ranks everything no pin or
-            favourite game already placed, which is what the label says. */}
-        <div className="ms-auto min-w-0">
-          <Dropdown
-            label={t("queueStrategyLabel")}
-            value={strategy}
-            options={[
-              { value: "ending_soonest", label: t("endingSoonest") },
-              { value: "lowest_availability", label: t("lowAvailabilityFirst") },
-            ]}
-            onChange={(value) => void onStrategyChange(value as PriorityMode)}
-            attributes={{ "data-queue-strategy": "" }}
-            prefix={<span className="shrink-0 font-medium text-zinc-500 dark:text-zinc-400">{t("queueStrategyLabel")}</span>}
-            className="rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[11px] font-semibold text-zinc-800 hover:border-zinc-300 focus-visible:border-[var(--accent-ring)] aria-expanded:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:border-zinc-600"
-          />
+            favourite game already placed, which is what its group divider
+            says as "Then by <mode>", so the trigger shows only the mode. A
+            zero basis keeps it on the title row: a long mode ellipsizes
+            instead of wrapping the toolbar onto a second line. */}
+        <div className="flex min-w-0 flex-1 basis-0 justify-end">
+          <div className="min-w-0 max-w-full">
+            <Dropdown
+              label={t("queueStrategyLabel")}
+              title={`${t("queueStrategyLabel")}: ${strategyLabel}`}
+              value={strategy}
+              options={strategyOptions}
+              onChange={(value) => void onStrategyChange(value as PriorityMode)}
+              attributes={{ "data-queue-strategy": "" }}
+              className="rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[11px] font-semibold text-zinc-800 hover:border-zinc-300 focus-visible:border-[var(--accent-ring)] aria-expanded:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:border-zinc-600"
+            />
+          </div>
         </div>
       </ViewToolbar>
 
@@ -262,7 +270,7 @@ export function QueuePanel({
                   <GroupDivider
                     label={t(TIER_LABEL_KEYS[tier])}
                     hint={tier === "strategy"
-                      ? t(strategy === "lowest_availability" ? "lowAvailabilityFirst" : "endingSoonest")
+                      ? strategyLabel
                       : pinned ? t("queueGroupPinnedHint") : undefined}
                     action={pinned && pinnedCount > 0
                       ? { label: t("queueUnpinAll", String(pinnedCount)), onClick: () => void onUnpinAll(), attribute: "data-queue-unpin-all" }
