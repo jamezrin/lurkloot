@@ -162,7 +162,7 @@ or settings, loaded and saved through the host's storage port (`storage.local` o
 | Discovery lanes (`discoveryLanes`, `discoveryEvents`) | In memory, one `DiscoverySnapshotLane` per platform | `refreshDiscovery` | Settings saves that are not ranking-only, auth invalidation, `refreshDiscovery` itself, reset and shutdown | None: a snapshot is published by revision, not stored | Rediscovered on the first tick | Both |
 | Selection (`selectionCache`, `selectionRuns`, `pendingSelections`, `selectionGeneration`) | In memory | `prepareSelection` (before the lock), `reselectUnderLock` (inside it, never through `selectionRuns`) | `invalidateSelection`: every settings save (including ranking-only), auth invalidation, heartbeat results, playback telemetry, reset, shutdown | Consumed inside `runTick`'s platform lock | Recomputed | Both |
 | Tick admission (`tickAdmission`, `activeTicks`, `tickBatches`, `backgroundWork`) | In memory | `tick`, `tickInBackground`, `tickAndHandOff` | Disable, reset, shutdown | None | Empty | Both. Extension alarms and CLI intervals request ticks per platform |
-| Heartbeat lanes, watchers and publication leases (`heartbeatLanes`, `tablessWatchers`, private to `heartbeat.ts` since #586) | In memory, with the heartbeat cadence persisted in the session | `requestPlatformHeartbeat`, `reconcileTablessWatchers`, `commitHeartbeatResult` | Session changes, `clearHeartbeatOwnership`, shutdown | `withHeartbeatLane`, then a transaction commit **without** the platform lock | `reconcileStartup` releases ownership on both hosts | Both |
+| Heartbeat lanes, watchers and publication leases (`heartbeatLanes`, `tablessWatchers`, private to `heartbeat.ts` since #586) | In memory, with the heartbeat cadence persisted in the session | `requestPlatformHeartbeat`, `reserveTablessWatchers` (inside the tick lock) and its `publish` (after the commit), restart recovery, `commitHeartbeatResult` | Session changes, `clearHeartbeatOwnership`, shutdown | `withHeartbeatLane`, which never spans watcher I/O (#586), then a transaction commit **without** the platform lock | `reconcileStartup` releases ownership on both hosts | Both |
 | Discovery-signal controllers (`discoverySignalSlots`, one `ObserverSlot` per platform, gated by `lifecycleSlice.observersOpen`; a failed start is stopped and cleared, and the next tick starts a fresh observer) | In memory | `reconcileDiscoverySignalsAfterCommit` (from `runTick`, after its commit, against the committed state; a stop since the commit bumps the slot's epoch, so the observer backs off) | Auth transitions, tab removal, settings, reset, shutdown | None | Recreated by the next tick | Both, when the adapter provides a factory |
 | Auth health (`authHealth`; the service's refresh generations) | Health persisted, generations in memory | `probeAuthHealth`, `refreshAuthHealth`, `persistAuthHealth`, `invalidateAuthHealth` | A newer refresh generation | `persistAuthHealth` under the platform lock, then a transaction commit; dependents react from their commit hooks (#595) | Health reloaded, then re-probed | Both. Credentials come from cookies (extension) or the credential store (CLI) |
 | Manual watch (`manualWatch`, `manualWatchTabs`, `manualClosePause`, playback telemetry) | Persisted | `recordPlaybackTelemetry`, `handleTabUpdated`, `handleTabRemoved`, `resumeAfterManualClose` | Tab events, resume, TTL | Platform lock; dependents react from their commit hooks (#596) | Reloaded | Extension only; the CLI has no tabs |
@@ -183,7 +183,7 @@ All of these are promise chains: `run = previous.then(operation, operation)`.
 | `withSettingsLock` | Settings read-modify-write | Jobs are rescheduled after it is released (#590, #597, #588) |
 | `withStateLock(operation, platforms)` / `withPlatformLock` | One platform's scheduler state and in-memory lifecycle | Takes each requested platform in the fixed order Twitch → Kick |
 | Commit lock (inside `commit`, `commitPlatformSnapshot`, `readState`) | The global load → merge → save of `SchedulerState` | Private to the transaction; only a storage load and save run under it |
-| `withHeartbeatLane(platform)` | One platform's watcher, heartbeat reservations and publication leases | Independent of the platform lock |
+| `withHeartbeatLane(platform)` | One platform's watcher, heartbeat reservations and publication leases | Independent of the platform lock. Holds only in-memory bookkeeping: watchers start and stop outside it (#586) |
 | `withTwitchIntegrityAlarmLock` | Creating and clearing the integrity refresh alarm | Taken inside the settings and platform locks |
 | Discovery lanes | One refresh per platform, with a coalesced follow-up | Not a lock on state |
 
@@ -191,8 +191,7 @@ Nested acquisition orders found in the code, and none in the reverse direction:
 - settings → platform: `runTwitchIntegrityRefresh`, `prepareForHostReset`
 - settings → commit: each discovery refresh reads settings and state together (`createDiscoveryLane`)
 - platform → commit: `persistPlatformState` and `persistAuthHealth` under `withStateLock`
-- platform → heartbeat lane → commit: `runTick` → `reconcileTablessWatchers`, and heartbeat result commits
-- platform → heartbeat lane: `runTick` → `reconcileTablessWatchers`
+- platform → heartbeat lane: `runTick` → `reserveTablessWatchers`, in-memory bookkeeping only
 - settings or platform → integrity alarm lock
 
 Heartbeat results commit through the transaction without the platform lock. That is what keeps a
@@ -200,21 +199,22 @@ due heartbeat independent of a long tick.
 
 ### Work performed while a lock is held
 
-These are the v1.15.0 targets. The authoritative list is
-`packages/extension/tests/helpers/lockedIo.ts` (`LOCKED_IO_ALLOWLIST`), with the issue that removes
-each entry. `lockedIoAllowlist.test.ts` fails if a provider, tab or timer call appears inside a lock
-without being listed, or if a listed call has left its lock without the entry being deleted.
+None, since #586. `packages/extension/tests/helpers/lockedIo.ts` (`LOCKED_IO_ALLOWLIST`) listed each
+site with the v1.15.0 issue that removed it, and is now empty. `lockedIoAllowlist.test.ts` fails if a
+provider, tab or timer call appears inside a lock.
 
 - **Scheduler tick:** none since #599. Its effects (claims, Kick challenges, channel points, watch
   tabs, page-context release, Twitch Extensions supplemental selection) run between `runTick`'s two
   platform-lock sections, with no lock held. See "Scheduler tick effects" below.
-- **`runTick` itself**, before publishing: tabless watcher reconciliation (#586). The
-  discovery-signal observers (#587) and the channel-points push (#590) are reconciled after the
-  commit, with no lock held. When the selection prepared before the lock
+- **`runTick` itself**, before publishing: none. It reserves the tabless watchers inside the lock
+  and publishes them first thing after the commit, with no lock held (#586; see "Tabless heartbeat
+  coordinator" below). The discovery-signal observers (#587) and the channel-points push (#590) are
+  reconciled after the commit, with no lock held. When the selection prepared before the lock
   no longer matches, the tick re-selects inside the lock with `reselectUnderLock`, which evaluates
   straight over the discovery snapshot: it never joins another tick's selection run or goes
   through the testing selection hook, so it is not locked I/O (#587).
-- **Heartbeat lane:** `watcher.start` (#586).
+- **Heartbeat lane:** none. Restart recovery reserves the lane, starts its watcher with no lane
+  held, and publishes it only if the reservation is still the lane's (#586).
 - **Claims outside the tick:** none. `claimRewardNow` and the drop-claim job (`runDropClaims`, which
   also refreshes campaigns) claim with no lock held and commit their result onto the latest state
   (#597). The Kick challenge job commits only its poll stamp (#588).
@@ -233,7 +233,7 @@ and never take the commit lock or call `saveState` themselves.
 
 - **Lock order:** settings → Twitch → Kick → heartbeat lane → commit. Acquire in this order only.
   Only a storage load and save run under the commit lock; no lock may be held across provider, tab or
-  timer I/O except at the call sites listed in `LOCKED_IO_ALLOWLIST`.
+  timer I/O (`LOCKED_IO_ALLOWLIST` is empty since #586).
 - **Commit:** `commit(platforms, guard, mutate)` loads the stored state, checks the guard, applies
   the synchronous `mutate`, and returns `accepted`, `unchanged` (nothing to write, or an equivalent
   state) or `stale`. The guard is the operation's expected generation, as an `AbortSignal` or a
@@ -403,6 +403,31 @@ the request reached the provider.
     `claimReward` classifies it as `link_required` only when `campaign.accountLinked === false`;
     otherwise it is a claim failure. Record the observed response here once seen.
 
+### Tabless heartbeat coordinator (#586)
+
+`heartbeat.ts` owns each platform's tabless watcher, heartbeat lane, generation high-water mark and
+publication lease, and the one-minute watch job both hosts fire. No lock is held while a watcher
+starts, stops or sends a heartbeat.
+
+- **Ticks reserve, then publish.** Inside its platform lock, a tick calls `reserveTablessWatchers`.
+  That only does in-memory work: it allocates a new context's generation, stamps the cadence on the
+  session the tick commits, constructs the watcher (no I/O) and takes a publication lease. After
+  the commit, before any other follow-up, the tick publishes: it starts the new watcher, makes it
+  the lane's context if the lease is still the lane's, and stops the one it replaced. A tick that
+  does not commit, or is aborted, releases the reservation and starts nothing.
+- **While a lease is pending**, heartbeats and restart recovery wait for it. A result for the
+  context it replaces is stale at once, so it never waits on the tick's commit.
+- **Restart recovery** reserves the lane, starts its watcher with no lane held, and publishes it
+  only if nothing replaced the reservation meanwhile. A recovery that lost to a tick or to ownership
+  cleanup stops its own watcher.
+- **Tab fallback.** `fallsBackToTab` is the rule: a host with browser tabs, a session that is not
+  tabless-only supplemental, and failures at `tablessFallbackFailureLimit`. When a watch-job
+  heartbeat's failing result commits past it, the coordinator's commit hook checks that the context
+  still owns the lane and the stored session, then ticks the platform in the background
+  (`tabless_fallback`). The tick moves the watch to a tab through the watch-tab port. The job ends
+  once the hook has run. A post-claim handoff's immediate heartbeat leaves the fallback to the next
+  job or tick, as before.
+
 ### Host ports and jobs (#593)
 
 Both hosts build the controller from `BackgroundHostPorts` (`hostPorts.ts`), not from a flat list
@@ -478,6 +503,7 @@ tested too (#598).
 | Cancelled work publishes no state or activity | `controllerContract.test.ts` (shutdown); `backgroundController/lifecycle.test.ts` ("aborts in-flight scheduler work…"); `backgroundController/reporting.test.ts` ("route evidence independent of state publication") |
 | Stale discovery, selection and heartbeat work cannot overwrite newer state | `backgroundController/heartbeat.test.ts` ("rejects a stale heartbeat…", "persists discovery after a due heartbeat invalidates a blocked snapshot selection", "does not let a stale … removal …") |
 | Heartbeat due time is independent of ticks | `backgroundController/heartbeat.test.ts` ("tabless heartbeat cadence", "lets Kick heartbeat and persist while Twitch heartbeat is still pending") |
+| Tabless watchers start, beat and stop with no lock held; a tick commits before its watcher starts, and a reservation that does not commit, or a restart recovery that lost to one, starts nothing it keeps (#586) | `controllerContract.test.ts` ("starts, beats and stops tabless watchers with no lock held", both hosts); `backgroundController/heartbeat.test.ts` ("commits a tick while a restart recovery's watcher start is blocked…", "releases its reservation when the tick does not commit…", "starts nothing when shutdown lands…") |
 | Manual managed-tab closure | `backgroundController/manualWatch.test.ts` ("manual-watch event transitions", "clears manual watch activity when the source tab is closed") |
 | Service-worker restart | `backgroundController/lifecycle.test.ts` (the startup cleanup cases); `backgroundController/heartbeat.test.ts` ("serializes service-worker restart recovery…"); `controllerContract.test.ts` (extension host) |
 | CLI process restart: the same reconciliation as the extension (#593) | `controllerContract.test.ts` (both hosts, "process restart"); `packages/cli/tests/run.test.ts` ("pauses the previous process's watch at startup…") |

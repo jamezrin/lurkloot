@@ -17,7 +17,7 @@ import type {
   ClaimedRewards,
   CommittedSelection,
   ControllerCalls,
-  HeartbeatPublicationLease,
+  HeartbeatReservation,
   SelectionInput,
   TickAdapterHandle,
   TickCycleOutcome,
@@ -45,7 +45,7 @@ export function createTickRun<S extends EngineSettings>(
     | "reconcileDiscoverySignalsAfterCommit"
     | "discoverySignalEpochs"
     | "observeTickCycle"
-    | "reconcileTablessWatchers"
+    | "reserveTablessWatchers"
     | "reconcileTwitchChannelPointsPushAfterCommit"
     | "recordWaitingClaimRewardIds"
     | "releaseRewardClaims"
@@ -54,7 +54,6 @@ export function createTickRun<S extends EngineSettings>(
     | "registerTwitchChannelPointsEffects"
     | "refreshAuthHealth"
     | "refreshDiscovery"
-    | "releaseHeartbeatPublicationLease"
     | "reportAuthSetupFailures"
     | "readState"
     | "reportBestEffort"
@@ -88,7 +87,7 @@ export function createTickRun<S extends EngineSettings>(
     reconcileDiscoverySignalsAfterCommit,
     discoverySignalEpochs,
     observeTickCycle,
-    reconcileTablessWatchers,
+    reserveTablessWatchers,
     reconcileTwitchChannelPointsPushAfterCommit,
     recordWaitingClaimRewardIds,
     releaseRewardClaims,
@@ -97,7 +96,6 @@ export function createTickRun<S extends EngineSettings>(
     registerTwitchChannelPointsEffects,
     refreshAuthHealth,
     refreshDiscovery,
-    releaseHeartbeatPublicationLease,
     reportAuthSetupFailures,
     readState,
     reportBestEffort,
@@ -445,13 +443,15 @@ export function createTickRun<S extends EngineSettings>(
       // the managed tab it closed are recorded; a tab it opened is closed below.
       let openedTab: WatchSession | undefined;
       let superseded = false;
-      let publicationLeases: Array<readonly [Platform, HeartbeatPublicationLease]> = [];
+      // The tabless watchers this tick reserved inside the lock (#586).
+      let heartbeat: HeartbeatReservation | undefined;
       // Work for the state this tick committed, run once the lock is released:
-      // ad focus follows the committed sessions, the services that follow tick
-      // cycles observe this one (#588), and the discovery-signal observers
-      // (#587) and the Twitch channel-points push (#590) follow the latest
-      // committed state.
+      // the reserved tabless watchers are published, ad focus follows the
+      // committed sessions, the services that follow tick cycles observe this
+      // one (#588), and the discovery-signal observers (#587) and the Twitch
+      // channel-points push (#590) follow the latest committed state.
       let afterCommit: {
+        heartbeat?: HeartbeatReservation;
         adFocus?: SchedulerState;
         cycle?: TickCycleOutcome;
         discoverySignals?: { committed: SchedulerState; since: Partial<Record<Platform, number>> };
@@ -504,13 +504,7 @@ export function createTickRun<S extends EngineSettings>(
           await emitNotifications(settings, latest, tickState, result!.events);
           signal.throwIfAborted();
           assertSelectionsCurrent();
-          publicationLeases = await reconcileTablessWatchers(
-            tickState,
-            settings,
-            adapters,
-            emit,
-            schedulerPlatforms,
-          );
+          heartbeat = await reserveTablessWatchers(tickState, settings, adapters, schedulerPlatforms);
           signal.throwIfAborted();
           assertSelectionsCurrent();
           for (const schedulerPlatform of schedulerPlatforms) tickAdapters[schedulerPlatform]?.drain(claimObservingEmit);
@@ -544,18 +538,19 @@ export function createTickRun<S extends EngineSettings>(
             latest ??= await loadLatest();
             if (error === staleSelection) {
               const factEvents = rollBack();
-              afterCommit = { adFocus: latest };
-              publicationLeases.push(...await reconcileTablessWatchers(
+              // The watchers follow the state that won instead.
+              await heartbeat?.release();
+              heartbeat = await reserveTablessWatchers(
                 latest,
                 settings,
                 Object.fromEntries(schedulerPlatforms.map((schedulerPlatform) => [
                   schedulerPlatform,
                   tickAdapters[schedulerPlatform]!.adapter(settings, emit, true),
                 ])) as Record<Platform, PlatformAdapter>,
-                emit,
                 schedulerPlatforms,
-              ));
+              );
               await commitFacts(latest, staleSelection.message, factEvents);
+              afterCommit = { heartbeat, adFocus: latest };
               return;
             }
             rollBack();
@@ -565,8 +560,7 @@ export function createTickRun<S extends EngineSettings>(
             const persisted = await persistPlatformAndReport(platform, latest, correlateTickDiagnostics(events, tickContext));
             if (persisted) afterCommit = { cycle: { status: "failed" } };
           } finally {
-            await Promise.all(publicationLeases.map(([leasePlatform, lease]) =>
-              releaseHeartbeatPublicationLease(leasePlatform, lease)));
+            if (heartbeat !== afterCommit.heartbeat) await heartbeat?.release();
           }
           return;
         }
@@ -588,6 +582,7 @@ export function createTickRun<S extends EngineSettings>(
             return;
           }
           afterCommit = {
+            heartbeat,
             adFocus: nextState,
             cycle: { status: "committed", state: nextState, discoveryComplete },
             discoverySignals: { committed: nextState, since: discoverySignalEpochs(schedulerPlatforms) },
@@ -597,10 +592,21 @@ export function createTickRun<S extends EngineSettings>(
           };
           recordWaitingClaimRewardIds(platform, nextWaitingClaimRewardIds[platform]);
         } finally {
-          await Promise.all(publicationLeases.map(([leasePlatform, lease]) =>
-            releaseHeartbeatPublicationLease(leasePlatform, lease)));
+          if (heartbeat !== afterCommit.heartbeat) await heartbeat?.release();
         }
       }, schedulerPlatforms);
+
+      // First, so no other follow-up delays a due heartbeat: start, switch or
+      // stop the reserved watchers, now that their state is committed.
+      if (afterCommit.heartbeat) {
+        if (signal.aborted) {
+          await afterCommit.heartbeat.release();
+        } else {
+          const reported = events.length;
+          await afterCommit.heartbeat.publish(emit);
+          await reportBestEffort(correlateTickDiagnostics(events.slice(reported), tickContext));
+        }
+      }
 
       if (!signal.aborted && afterCommit.adFocus) {
         const reported = events.length;

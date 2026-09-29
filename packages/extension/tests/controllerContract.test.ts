@@ -81,6 +81,28 @@ class CountingWatcher implements TablessWatchController {
   }
 }
 
+// Records the locks held around each call the controller makes into it.
+class LockRecordingWatcher implements TablessWatchController {
+  channelUrl: string | undefined;
+  readonly calls: Array<{ call: "start" | "tick" | "stop"; held: readonly string[] }> = [];
+  constructor(readonly platform: "twitch" | "kick", private readonly heldLocks: () => readonly string[]) {}
+  async start(channel: { url: string }): Promise<void> {
+    this.calls.push({ call: "start", held: this.heldLocks() });
+    this.channelUrl = channel.url;
+  }
+  async tick() {
+    this.calls.push({ call: "tick", held: this.heldLocks() });
+    return { ok: true, live: true };
+  }
+  drainEvents() {
+    return [];
+  }
+  async stop(): Promise<void> {
+    this.calls.push({ call: "stop", held: this.heldLocks() });
+    this.channelUrl = undefined;
+  }
+}
+
 function watchingState(): SchedulerState {
   const state = idleState();
   const watching = (platform: "twitch" | "kick"): WatchSession => ({
@@ -504,6 +526,41 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
         expect(host.reported.filter((event) => event.category === "diagnostic" && event.level === "error")).toEqual([]);
       }
       host.controller.shutdown();
+    });
+
+    // No lock is held while a watcher starts, sends a heartbeat or stops (#586):
+    // not the tick's platform lock, not the heartbeat lane.
+    it("starts, beats and stops tabless watchers with no lock held", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      const host = contractHost(capabilities, { settings: twitchOnly() });
+      const watchers: LockRecordingWatcher[] = [];
+      host.adapters.twitch.createTablessWatcher = () => {
+        const watcher = new LockRecordingWatcher("twitch", host.heldLocks);
+        watchers.push(watcher);
+        return watcher;
+      };
+      await host.controller.tickAndHandOff(["twitch"], "alarm");
+      vi.setSystemTime(Date.now() + 60_000);
+      await host.fire(WATCH_ALARM_NAME);
+      // A new target replaces the watcher.
+      vi.mocked(host.adapters.twitch.refreshCampaigns).mockResolvedValue([{ ...contractCampaign("twitch"), id: "successor-campaign" }]);
+      vi.mocked(host.adapters.twitch.listCandidateChannels).mockResolvedValue([{ ...contractChannel("twitch"), campaignId: "successor-campaign" }]);
+      await host.controller.tickAndHandOff(["twitch"], "alarm");
+      // A new process recovers the persisted watch on its first heartbeat.
+      host.controller.shutdown();
+      const restarted = contractHost(capabilities, { settings: twitchOnly(), storage: host.storage });
+      restarted.adapters.twitch.createTablessWatcher = () => {
+        const watcher = new LockRecordingWatcher("twitch", restarted.heldLocks);
+        watchers.push(watcher);
+        return watcher;
+      };
+      await restarted.fire(WATCH_ALARM_NAME);
+
+      const calls = watchers.flatMap((watcher) => watcher.calls);
+      expect(calls.map(({ call }) => call)).toEqual(expect.arrayContaining(["start", "tick", "stop"]));
+      expect(watchers.length).toBeGreaterThanOrEqual(3);
+      expect(calls.filter(({ held }) => held.length > 0)).toEqual([]);
+      restarted.controller.shutdown();
     });
 
     // A tabless-only supplemental session (Twitch Extensions, #541/#556) never

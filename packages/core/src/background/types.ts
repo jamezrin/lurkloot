@@ -70,7 +70,10 @@ export interface HeartbeatAttempt {
   readonly attemptAt: number;
   readonly synchronizationDelayMs: number;
   coalescedCalls: number;
-  readonly promise: Promise<HeartbeatFallback | undefined>;
+  // Whether the watch job's heartbeat ran or joined it. Only those ask for a
+  // tab fallback.
+  scheduled: boolean;
+  readonly promise: Promise<void>;
 }
 
 export interface HeartbeatFallback {
@@ -93,24 +96,50 @@ export interface HeartbeatRecoveryCommit {
   readonly settle: () => void;
 }
 
+// A tick's claim on a lane, from its reservation inside the platform lock until
+// it publishes or releases after the commit. Heartbeats and recovery wait for
+// it to settle; a result for the context it replaces is stale.
 export interface HeartbeatPublicationLease {
-  published?: CommittedHeartbeatContext;
-  readonly admissionReady: Promise<void>;
-  readonly markPublished: (context: CommittedHeartbeatContext) => void;
   readonly settled: Promise<void>;
   readonly settle: () => void;
 }
 
-export interface HeartbeatContextPublication {
-  accepted: boolean;
-  cadence?: TablessHeartbeatCadence;
-  committed?: CommittedHeartbeatContext;
-  replaced?: TablessWatchController;
-}
+// What a tick's reservation does to one platform's watcher once it commits.
+export type WatcherPlan =
+  | { readonly kind: "none"; readonly platform: Platform }
+  | {
+      readonly kind: "keep";
+      readonly platform: Platform;
+      readonly watcher: TablessWatchController;
+      readonly cadence: TablessHeartbeatCadence | undefined;
+    }
+  | { readonly kind: "stop"; readonly platform: Platform; readonly lease: HeartbeatPublicationLease }
+  | {
+      readonly kind: "start";
+      readonly platform: Platform;
+      readonly lease: HeartbeatPublicationLease;
+      readonly session: WatchSession;
+      readonly watcher: TablessWatchController;
+      // False for a watcher published without a context, started again
+      // instead of replaced.
+      readonly created: boolean;
+      // Absent when the session has no heartbeat context.
+      readonly context?: {
+        readonly generation: number;
+        readonly contextKey: string;
+        readonly cadence: TablessHeartbeatCadence;
+      };
+    };
 
-export type HeartbeatContextPublicationDecision = HeartbeatContextPublication | {
-  waitFor: Promise<void>;
-};
+// The tabless watchers a tick reserved inside its lock (#586).
+export interface HeartbeatReservation {
+  // After the tick's commit, with no lock held: starts, switches or stops the
+  // watchers and publishes them. Nothing is published once a newer
+  // reservation or ownership cleanup replaced this one.
+  publish(emit: EventEmitter): Promise<void>;
+  // When the tick does not commit: gives the reservations up unpublished.
+  release(): Promise<void>;
+}
 
 export interface HeartbeatWatcherRemoval {
   accepted: boolean;
@@ -125,17 +154,18 @@ export interface HeartbeatLane {
   mutation: Promise<unknown>;
   revision: number;
   committed?: CommittedHeartbeatContext;
-  // Discovery reserves this before starting, switching, or stopping a watcher
-  // and holds it until the corresponding scheduler state has been persisted.
-  // Recovery waits while a new owner is unpublished, while a heartbeat may use
-  // the complete published context before persistence finishes. Its result then
-  // waits for lease settlement outside provider I/O and every lock.
+  // A tick reserves this inside its platform lock before starting, switching or
+  // stopping a watcher, and ends it when it publishes after its commit or gives
+  // the reservation up (#586). Heartbeats and recovery wait for it; a result
+  // for the context it replaces is rejected at once.
   publicationLease?: HeartbeatPublicationLease;
   inFlight?: HeartbeatAttempt;
-  // Reserved only after transport completes. Context publishers wait for this
-  // promise outside the lane, so either publication wins and rejects the old
-  // result or the current result persists before publication becomes visible.
+  // Reserved only after transport completes, while the result commits. A
+  // publication does not wait for it: the result's commit only lands while the
+  // stored session still carries its generation.
   resultCommit?: HeartbeatResultCommit;
+  // Set from a restart recovery's reservation until its watcher is published
+  // and its cadence persisted. The watcher starts with no lane held.
   recoveryCommit?: HeartbeatRecoveryCommit;
   generationHighWater?: number;
   lastCompletedGeneration?: number;
@@ -278,15 +308,13 @@ export interface ControllerCalls<S extends EngineSettings> {
 
   // heartbeat.ts
   ensureHeartbeatJob(): Promise<void>;
-  releaseHeartbeatPublicationLease(platform: Platform, lease: HeartbeatPublicationLease): Promise<void>;
   cancelHeartbeatPublicationLeases(platforms: readonly Platform[]): Promise<void>;
-  reconcileTablessWatchers(
+  reserveTablessWatchers(
     state: SchedulerState,
     settings: EngineSettings,
     adapters: Record<Platform, PlatformAdapter>,
-    emit: EventEmitter,
-    platforms?: Platform[],
-  ): Promise<Array<readonly [Platform, HeartbeatPublicationLease]>>;
+    platforms?: readonly Platform[],
+  ): Promise<HeartbeatReservation>;
   clearHeartbeatOwnership(platforms: readonly Platform[]): Promise<void>;
   clearHeartbeatOwnershipInBackground(platforms: readonly Platform[]): void;
   runWatchHeartbeat(): Promise<void>;
@@ -295,7 +323,7 @@ export interface ControllerCalls<S extends EngineSettings> {
     settings: S,
     kind: HeartbeatAttemptKind,
     session?: WatchSession,
-  ): Promise<HeartbeatFallback | undefined>;
+  ): Promise<void>;
 
   // twitchIntegrity.ts
   clearTwitchIntegrityAlarmBestEffort(emit?: EventEmitter): Promise<void>;
