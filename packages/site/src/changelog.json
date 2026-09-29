@@ -4,7 +4,7 @@
     "changes": [
       {
         "kind": "fixed",
-        "text": "Fixed the Queue strategy picker spilling onto a second line in languages with longer names, such as German or Spanish with Low availability first selected. It now stays next to the Queue tabs and shows only the strategy, which the Then by divider already names."
+        "text": "Fixed the Queue strategy picker spilling onto a second line in languages with longer names, such as German, or Spanish with Low availability first selected. The picker now sits on the Then by divider, above the campaigns it orders, so it reads as one phrase, for example “Then by Low availability first”."
       }
     ],
     "date": "2026-09-29"
