@@ -48,6 +48,7 @@ export function createTickRun<S extends EngineSettings>(
     | "reconcileTablessWatchers"
     | "reconcileTwitchChannelPointsPushAfterCommit"
     | "recordWaitingClaimRewardIds"
+    | "releaseRewardClaims"
     | "registerKickRuntimeEffects"
     | "registerRewardClaimEffects"
     | "registerTwitchChannelPointsEffects"
@@ -90,6 +91,7 @@ export function createTickRun<S extends EngineSettings>(
     reconcileTablessWatchers,
     reconcileTwitchChannelPointsPushAfterCommit,
     recordWaitingClaimRewardIds,
+    releaseRewardClaims,
     registerKickRuntimeEffects,
     registerRewardClaimEffects,
     registerTwitchChannelPointsEffects,
@@ -136,6 +138,9 @@ export function createTickRun<S extends EngineSettings>(
       platformTickId: ++tickSlice.platformTickSequence[platform],
     };
     const tickAdapters = { [platform]: createTickAdapterHandle(platform, tickContext) };
+    // The rewards this tick claims stay reserved until it has committed them
+    // (#597), and are released however the tick ends.
+    const heldRewardClaims: Record<Platform, Set<string>> = { twitch: new Set(), kick: new Set() };
     const tickStartedAt = Date.now();
     diagnosticEvent(
       "debug",
@@ -144,13 +149,14 @@ export function createTickRun<S extends EngineSettings>(
       tickContext,
     );
     try {
-      const claimed = await runTick(tickContext, [platform], abort.signal, trigger, tickAdapters, onPersisted);
+      const claimed = await runTick(tickContext, [platform], abort.signal, trigger, tickAdapters, heldRewardClaims, onPersisted);
       return [platform, claimed[platform] ?? []];
     } catch (error) {
       if (abort.signal.aborted) return [platform, []];
       throw error;
     } finally {
       endTickCycle(platform);
+      for (const heldPlatform of PLATFORMS) releaseRewardClaims(heldPlatform, heldRewardClaims[heldPlatform]);
       for (const adapter of Object.values(tickAdapters)) adapter.close();
       tickSlice.activeTicks.delete(abort);
       tickSlice.activePlatformTicks[platform] -= 1;
@@ -170,6 +176,7 @@ export function createTickRun<S extends EngineSettings>(
     signal: AbortSignal,
     trigger: TickTrigger,
     tickAdapters: Partial<Record<Platform, TickAdapterHandle<S>>>,
+    heldRewardClaims: Record<Platform, Set<string>>,
     onPersisted?: (state: SchedulerState) => void,
   ): Promise<ClaimedRewards> {
     const claimedRewards: ClaimedRewards = {};
@@ -375,6 +382,7 @@ export function createTickRun<S extends EngineSettings>(
       const effectContext = {
         adapters,
         tabRegistry,
+        heldRewardClaims,
         watchTabs: ports.tabs?.watch,
         selectSupplementalTarget: supplementalSources
           ? (supplementalPlatform: Platform, selectedState: SchedulerState, selectedSignal: AbortSignal | undefined, source: WatchSourceId) =>

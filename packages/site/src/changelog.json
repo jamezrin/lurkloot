@@ -49,6 +49,14 @@
       {
         "kind": "fixed",
         "text": "A Kick daily challenge check that happened just before Lurkloot switched to another target is now remembered, so the next check waits the usual ten minutes instead of running again at once."
+      },
+      {
+        "kind": "fixed",
+        "text": "Claiming a drop by hand while Lurkloot was already claiming it could send the claim twice and show it twice in Activity. A drop Lurkloot has just claimed is now held until the claim is saved, so it is claimed and shown once."
+      },
+      {
+        "kind": "fixed",
+        "text": "Losing your sign-in now also stops a drop claim check running while you watch by hand, and the quick switch to the next drop after a claim, instead of letting them run on with requests that could only fail. A drop that was already claimed before that is still recorded and shown in Activity."
       }
     ]
   },

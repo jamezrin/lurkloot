@@ -31,6 +31,8 @@ export interface TickEffectContext {
   selectSupplementalTarget?(platform: Platform, state: SchedulerState, signal: AbortSignal | undefined, source: WatchSourceId): Promise<SupplementalWatchTarget | undefined>;
   emit: EventEmitter;
   signal?: AbortSignal;
+  // The rewards this tick claimed, still reserved until its commit (#597).
+  heldRewardClaims?: Partial<Record<Platform, Set<string>>>;
 }
 
 export type TickEffectExecutor = EffectExecutor<SchedulerEffects, TickEffectContext>;
