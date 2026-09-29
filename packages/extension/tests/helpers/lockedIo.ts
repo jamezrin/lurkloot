@@ -41,8 +41,6 @@ export const LOCKED_IO_ALLOWLIST: readonly LockedIoEntry[] = [
   // replaces the calls with the observers' own after-commit hooks).
 
   // Manual watch, playback and tab events.
-  { id: "tab-removed-discovery-signals", file: "background/manualWatch.ts", site: "handleTabRemoved", lock: "withStateLock", call: "stopDiscoverySignalControllers(", kind: "provider", owner: 596 },
-  { id: "playback-ad-focus", file: "background/manualWatch.ts", site: "recordPlaybackTelemetry", lock: "withStateLock", call: "tabs.watch.applyAdFocus(", kind: "tab", owner: 596 },
 
   // Kick page-context recovery runs after the tick commit, inside runTick's lock.
 
@@ -65,7 +63,7 @@ export const LOCKED_IO_ALLOWLIST: readonly LockedIoEntry[] = [
 // under `adapters[platform]`, and in a function its caller runs under a lock.
 // The scan now recognizes all three. That was a correction to the baseline,
 // not new locked I/O.
-export const LOCKED_IO_ALLOWLIST_SIZE = 10;
+export const LOCKED_IO_ALLOWLIST_SIZE = 8;
 
 // Calls that count as locked I/O when they appear inside a lock: ports and
 // adapter methods that reach a provider, a tab or a timer, and the controller

@@ -3,7 +3,8 @@ import { autoClaimChallengesFor } from "@lurkloot/shared/settings";
 import { challengePollDue } from "../core/scheduler";
 import type { PlatformAdapter } from "../platforms/adapter";
 import { claimExclusively, type ControllerSlices, lateBound } from "./context";
-import { correlateTickDiagnostics, hasRecentManualWatchForClaims } from "./helpers";
+import { correlateTickDiagnostics } from "./helpers";
+import { pausedForManualWatch } from "../core/manualWatch";
 import type { BackgroundHostPorts } from "./hostPorts";
 import type { ControllerCalls, TickDiagnosticContext } from "./types";
 
@@ -82,7 +83,7 @@ export function createKickChallenges<S extends EngineSettings>(
           if (!settings.platform.kick.enabled
             || !autoClaimChallengesFor(settings, "kick")
             || state.authHealth.kick.status !== "healthy"
-            || !hasRecentManualWatchForClaims(settings, state, "kick")
+            || !pausedForManualWatch(settings, state, "kick")
             || !challengePollDue(state, "kick", Date.now())) return;
 
           const nextState: SchedulerState = {

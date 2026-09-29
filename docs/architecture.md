@@ -127,7 +127,7 @@ The per-module slices and calls below are where #591's dependency check starts:
 | `stateTransaction.ts` | its own lock queues and hooks | none | the transaction (#585) |
 | `stateCommit.ts` | the transaction | `reporting` | 13 |
 | `reporting.ts` | `reportingSlice` | `discovery` | 13 |
-| `tickAdmission.ts` | `reportingSlice`, `signalSlice`, `tickSlice`, `lifecycleSlice` | `claims`, `discovery`, `discoverySignals`, `reporting`, `stateCommit`, `tickRun` | 11 |
+| `tickAdmission.ts` | `reportingSlice`, `signalSlice`, `tickSlice`, `lifecycleSlice`, a commit hook | `claims`, `discovery`, `discoverySignals`, `reporting`, `stateCommit`, `tickRun` | 11 |
 | `tickRun.ts` | `claimSlice`, `discoverySlice`, `tickSlice`, `kickChallengeSlice` (their claim guards) | `authHealth`, `channelPoints`, `discovery`, `discoverySignals`, `heartbeat`, `kickChallenges`, `manualWatch`, `reporting`, `stateCommit`, `tickAdmission`, `twitchIntegrity` | 1 |
 | `discovery.ts` | its own `discoverySlice`, `lifecycleSlice` | `reporting`, `stateCommit` | 10 |
 | `heartbeat.ts` | `heartbeatSlice`, `tickSlice`, `lifecycleSlice` | `discovery`, `reporting`, `stateCommit`, `tickAdmission` | 7 |
@@ -135,7 +135,7 @@ The per-module slices and calls below are where #591's dependency check starts:
 | `channelPoints.ts` | its own push slot, claim gate and push-claim queue (#590), `tickSlice`, `lifecycleSlice`, a commit hook | `reporting`, `stateCommit` | 10 |
 | `kickChallenges.ts` | `kickChallengeSlice`, `lifecycleSlice` | `reporting`, `stateCommit` | 2 |
 | `authHealth.ts` | its own refresh generations (#595), `discoverySlice` | `discovery`, `discoverySignals`, `reporting`, `stateCommit` | 5 |
-| `manualWatch.ts` | none | `discovery`, `discoverySignals`, `reporting`, `stateCommit`, `tickAdmission` | 6 |
+| `manualWatch.ts` | `lifecycleSlice` | `discovery`, `reporting`, `stateCommit` | 6 |
 | `claims.ts` | `kickChallengeSlice`, `claimSlice`, `lifecycleSlice` | `heartbeat`, `lifecycle`, `reporting`, `stateCommit`, `tickAdmission` | 8 |
 | `discoverySignals.ts` | `signalSlice`, `tickSlice`, `lifecycleSlice`, a commit hook | `reporting`, `tickAdmission` | 9 |
 | `settingsTransitions.ts` | the transaction, `discoverySlice` | `channelPoints`, `claims`, `discovery`, `lifecycle`, `stateCommit`, `tickAdmission` | 2 |
@@ -165,7 +165,7 @@ or settings, loaded and saved through the host's storage port (`storage.local` o
 | Heartbeat lanes, watchers and publication leases (`heartbeatLanes`, `tablessWatchers`) | In memory, with the heartbeat cadence persisted in the session | `requestPlatformHeartbeat`, `reconcileTablessWatchers`, `commitHeartbeatResult` | Session changes, `clearHeartbeatOwnership`, shutdown | `withHeartbeatLane`, then a transaction commit **without** the platform lock | `reconcileStartup` releases ownership on both hosts | Both |
 | Discovery-signal controllers (`discoverySignalSlots`, one `ObserverSlot` per platform, gated by `lifecycleSlice.observersOpen`; a failed start is stopped and cleared, and the next tick starts a fresh observer) | In memory | `reconcileDiscoverySignalsAfterCommit` (from `runTick`, after its commit, against the committed state; a stop since the commit bumps the slot's epoch, so the observer backs off) | Auth transitions, tab removal, settings, reset, shutdown | None | Recreated by the next tick | Both, when the adapter provides a factory |
 | Auth health (`authHealth`; the service's refresh generations) | Health persisted, generations in memory | `probeAuthHealth`, `refreshAuthHealth`, `persistAuthHealth`, `invalidateAuthHealth` | A newer refresh generation | `persistAuthHealth` under the platform lock, then a transaction commit; dependents react from their commit hooks (#595) | Health reloaded, then re-probed | Both. Credentials come from cookies (extension) or the credential store (CLI) |
-| Manual watch (`manualWatch`, `manualWatchTabs`, `manualClosePause`, playback telemetry) | Persisted | `recordPlaybackTelemetry`, `handleTabUpdated`, `handleTabRemoved`, `resumeAfterManualClose` | Tab events, resume, TTL | Platform lock | Reloaded | Extension only; the CLI has no tabs |
+| Manual watch (`manualWatch`, `manualWatchTabs`, `manualClosePause`, playback telemetry) | Persisted | `recordPlaybackTelemetry`, `handleTabUpdated`, `handleTabRemoved`, `resumeAfterManualClose` | Tab events, resume, TTL | Platform lock; dependents react from their commit hooks (#596) | Reloaded | Extension only; the CLI has no tabs |
 | Settings (`twitchSettingsTransitionGeneration`) | Settings persisted, transition generation in memory | `commitSettings` (every popup write, `updateIdleWatchlist`), `normalizeStartupSettings` | Each settings commit. Its per-platform effect decides: `selection` (ranking-only, `isRankingOnlyPatch`) keeps discovery, `discovery` invalidates both | The transaction's settings lock | Reloaded and migrated (schema v7) | Both. The CLI's `saveSettings` is a no-op |
 | Page contexts and Kick recovery evidence | The controller's tab registry (`createTabRegistry`, one per controller; the extension host passes the one its tab mechanics write to), mirrored in persisted `managedPageContextTabs`. Recovery evidence in the extension host (`kickPageContextRecovery`) | The tick's `releasePageContexts` effect, `registerManagedPageContextTabs`, host fetch fallbacks | Release, reset, restart without auto-start | Copied into `SchedulerState` by the tick driver (`runSchedulerTickEffects`), never by the deciding code | Re-registered at startup when farming auto-starts | Extension only |
 | Claim operations (`dropClaimOperations`, `waitingClaimRewardIds`, `claimHandoffs`, `kickChallengeClaimOperations`, the channel-points service's claim operations, push-claim queue and push observer) and claim guards (`rewardClaimGuards`, `kickChallengeClaimRunning`, the channel-points `ChannelPointsClaimGate`) | In memory. Claimed rewards are persisted through `campaigns` | Ticks, claim jobs, `claimRewardNow`, `runClaimHandoff`, the push | Disable, auth loss, reset, shutdown, `abortClaimHandoffs` at startup | Platform lock for the drop-claim and Kick challenge jobs; the tick (#599) and the channel-points job and push (#590) claim with no lock. The guards keep one request per reward, one Kick challenge claim and one channel-points claim in flight across every path | In-flight work is lost; provider inventory is re-read | Both, but manual-watch claim jobs never fire on the CLI |
@@ -215,8 +215,6 @@ without being listed, or if a listed call has left its lock without the entry be
   straight over the discovery snapshot: it never joins another tick's selection run or goes
   through the testing selection hook, so it is not locked I/O (#587).
 - **Heartbeat lane:** `watcher.start` (#586).
-- **Tab events and playback:** stopping discovery signals on tab removal, ad focus on telemetry
-  (#596).
 - **Claims outside the tick:** `claimRewardNow`, `runDropClaims` (which also refreshes campaigns) and
   `runKickChallengeClaims` (#597, #588).
 - **Timers under the settings or platform lock:** claim alarms
@@ -276,10 +274,19 @@ and never take the commit lock or call `saveState` themselves.
   after its auth refresh, wait for the platform's hooks, so the stops still finish first. The
   auth service does not reference its dependents; it still closes discovery-signal admission
   synchronously on invalidation (`reserveDiscoverySignalAuthRefresh`), which must happen before its
-  first await and so cannot wait for a hook. Manual watch (#596) and the Twitch Extensions lane
-  (#594) move onto hooks next; #594 replaces the extension host's `storage.onChanged` diffing, and
+  first await and so cannot wait for a hook. The Twitch Extensions lane (#594) moves onto hooks
+  next; #594 replaces the extension host's `storage.onChanged` diffing, and
   its Twitch-cookie `forgetCompletion` wrapper, with a hook on its settings and Twitch state
   changes.
+- **Manual watch (#596)** is a pure query, `recentManualWatch` / `hasRecentManualWatch` /
+  `pausedForManualWatch` in `core/manualWatch.ts`, that the scheduler, the claim jobs and channel
+  points read; only the manual-watch service writes the records. The Twitch Extensions host still
+  has its own check, whose edge cases differ (a future stamp), until it moves onto the query. Its commits reach dependents through hooks: tick admission ticks a platform whose
+  manual watch started or ended, judging both sides at the commit's `committedAt`, and the
+  discovery-signal observer stops when a commit takes its session from watching to anything else
+  (a manual tab close pausing it). Ad focus on telemetry follows the committed session after the
+  lock is released, and is skipped once a host reset or shutdown has closed the observers. The tab
+  events and playback telemetry resolve once the platform's hooks have run.
 
 The test suite enforces the model. The characterization and contract harnesses give the controller
 a lock tracker (`tests/helpers/lockTracker.ts`, backed by `AsyncLocalStorage`) and guard every

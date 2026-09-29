@@ -1,7 +1,5 @@
 import type { DropCampaign, DropReward, EngineSettings, Platform, SchedulerState, WatchReasonCode, WatchSession } from "@lurkloot/shared/models";
 import type { ActivityEvent, EngineEvent, EventEmitter, FarmingStopReason } from "@lurkloot/shared/events";
-import { MANUAL_WATCH_TTL_MS } from "../core/scheduler";
-import { isTimestampStale } from "../core/timestamps";
 import type { SettingsEffects } from "./stateTransaction";
 import type { TickDiagnosticContext, TickTrigger } from "./types";
 
@@ -56,20 +54,6 @@ export function emitHostCallbackError(
     level: "warn",
     message: error instanceof Error ? error.message : fallbackMessage,
   });
-}
-
-export function hasRecentManualWatchForClaims(
-  settings: EngineSettings,
-  state: SchedulerState,
-  platform: Platform,
-  now = Date.now(),
-): boolean {
-  const manualWatch = state.manualWatch?.[platform];
-  return Boolean(
-    settings.pauseOnManualWatch
-    && manualWatch?.active
-    && !isTimestampStale(manualWatch.checkedAt, MANUAL_WATCH_TTL_MS, now),
-  );
 }
 
 export function farmingLifecycleEvents(previous: SchedulerState, next: SchedulerState): ActivityEvent[] {
