@@ -1,5 +1,15 @@
 [
   {
+    "version": "1.14.2",
+    "changes": [
+      {
+        "kind": "fixed",
+        "text": "Fixed the Queue strategy picker spilling onto a second line in languages with longer names, such as German or Spanish with Low availability first selected. It now stays next to the Queue tabs and shows only the strategy, which the Then by divider already names."
+      }
+    ],
+    "date": "2026-09-29"
+  },
+  {
     "version": "1.14.1",
     "changes": [
       {
