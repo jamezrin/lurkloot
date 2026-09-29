@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createTransport } from "../src/transport";
+import { createCliAdapters } from "../src/transport/common";
 import { withHeartbeatTimeout } from "../src/transport/common";
 import { createTickEffectExecutor, tickCapabilities } from "@lurkloot/core/background/tickEffects";
 import { createTabRegistry } from "@lurkloot/core/tabRegistry";
@@ -65,6 +66,34 @@ function retainedTwitchCampaignDetails(): unknown {
 }
 
 describe("createTransport", () => {
+  it("retries a web-client auth probe with the CLI-minted integrity bundle", async () => {
+    const requests: Array<Record<string, string>> = [];
+    const bundle = { integrity: "minted", deviceId: "device-id", clientSessionId: "session-id", expiresAt: Date.now() + 60_000 };
+    let current: typeof bundle | undefined;
+    const ensure = vi.fn(async (request?: { onIntegrityCaptured?: (value: typeof bundle) => void }) => {
+      current = bundle;
+      request?.onIntegrityCaptured?.(bundle);
+      return true;
+    });
+    const built = createCliAdapters({ twitch: { authToken: "web-token", clientId: "kimne78kx3ncx6brgo4mv6wki5h1ko" } }, {
+      twitchFetcher: () => ({ fetchJson: async <T>(_url: string, init?: RequestInit): Promise<T> => {
+        const headers = init?.headers as Record<string, string>;
+        requests.push(headers);
+        return (headers["Client-Integrity"]
+          ? { data: { currentUser: { id: "viewer" } } }
+          : { errors: [{ message: "failed integrity check" }] }) as T;
+      } }),
+      twitchHeartbeat: () => ({ heartbeatFetchText: async () => "", heartbeatPost: async () => ({ status: 200 }) }),
+      kickFetcher: () => ({ fetchJson: async <T>() => ({}) as T }),
+      twitchIntegrity: { current: () => current, ensure },
+    });
+
+    expect((await built.adapters.twitch.checkAuthHealth()).status).toBe("healthy");
+    expect(ensure).toHaveBeenCalledOnce();
+    expect(requests).toHaveLength(2);
+    expect(requests[1]).toMatchObject({ "Client-Integrity": "minted", "X-Device-Id": "device-id", "Client-Session-Id": "session-id" });
+  });
+
   it("keeps route counts useful in CLI debug output across fresh adapters", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response('{"id":42}', { status: 200, headers: { "content-type": "application/json" } })));
     const events: EngineEvent[] = [];

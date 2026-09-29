@@ -607,7 +607,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     return result.categories;
   }
 
-  // Exports the session tokens the headless CLI's `login --import` consumes.
+  // Exports the session credentials the headless CLI's `auth import` consumes.
   // Gated behind inline confirmation in the settings view; available only when
   // the host adapter supports credential export (the live extension, not demo).
   const exportCredentials = adapter.exportCredentials

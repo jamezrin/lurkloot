@@ -224,7 +224,7 @@ const authCommand: CommandModule = {
         const file = argv.file === "" ? "-" : String(argv.file);
         const { credentials: creds, ignoredTwitch } = importCredentials(authDir, file);
         logger.info(`Imported credentials${creds.twitch?.authToken ? " (twitch)" : ""}${creds.kick?.sessionToken ? " (kick)" : ""} into ${authDir}`, "auth");
-        if (ignoredTwitch) logger.warn("Skipped the extension's Twitch web token; run auth twitch device-login for a Smart TV token", "auth");
+        if (ignoredTwitch) logger.warn("Skipped the Twitch web token because the export lacked a device ID or Kasada cookie; export again from the updated extension", "auth");
       },
     })
     .command(platformAuthCommand("twitch"))
@@ -245,6 +245,7 @@ const authCommand: CommandModule = {
           twitch: {
             authToken: hasTwitchAuth(creds),
             deviceId: Boolean(creds.twitch?.deviceId),
+            kasadaSessionCookie: Boolean(creds.twitch?.kasadaSessionCookie),
             source: health.twitch.source,
             status: health.twitch.status,
             ...(health.twitch.reasonCode ? { reasonCode: health.twitch.reasonCode } : {}),

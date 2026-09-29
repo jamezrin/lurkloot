@@ -1,5 +1,7 @@
 import type { Transport } from "../config";
-import type { PlatformCredentials } from "../authStore";
+import { saveCredentials, type PlatformCredentials } from "../authStore";
+import { TwitchWebIntegrityManager } from "../auth/twitchWebIntegrity";
+import { TWITCH_WEB_CLIENT_ID } from "../twitch";
 import { createHttpTransport } from "./http";
 import { createImpersonateTransport } from "./impersonate";
 import type { EnabledPlatforms, TransportHandle } from "./common";
@@ -13,14 +15,23 @@ export type { TransportHandle, EnabledPlatforms } from "./common";
 export async function createTransport(
   transport: Transport,
   credentials: PlatformCredentials,
-  _authDir: string,
+  authDir: string,
   enabled: EnabledPlatforms,
 ): Promise<TransportHandle> {
+  const twitch = credentials.twitch;
+  const webIntegrity = enabled.twitch && twitch?.clientId === TWITCH_WEB_CLIENT_ID && twitch.authToken
+    ? new TwitchWebIntegrityManager({
+      authToken: twitch.authToken,
+      deviceId: twitch.deviceId ?? "",
+      kasadaSessionCookie: twitch.kasadaSessionCookie,
+      onSessionCookie: (value) => saveCredentials(authDir, { twitch: { kasadaSessionCookie: value } }),
+    })
+    : undefined;
   switch (transport) {
     case "http":
-      return createHttpTransport(credentials, enabled);
+      return createHttpTransport(credentials, enabled, webIntegrity);
     case "impersonate":
-      return createImpersonateTransport(credentials, enabled);
+      return createImpersonateTransport(credentials, enabled, {}, webIntegrity);
     default:
       throw new Error(`Unknown transport: ${transport as string}`);
   }

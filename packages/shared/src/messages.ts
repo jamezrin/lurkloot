@@ -41,14 +41,13 @@ export type RuntimeMessage =
   // as it changes, instead of racing the background's tab registration.
   | { type: "getTabId" };
 
-// Credential blob the popup exports for the headless CLI's `login --import`. It
-// carries only the session tokens the CLI transports replay — never anything the
-// config holds — and is produced from the user's live cookies on explicit,
-// confirm-gated request.
+// Credential blob the popup exports for the headless CLI's `auth import`. It
+// carries the live Twitch/Kick session credentials and Twitch's Kasada cookie
+// only on an explicit, confirm-gated request.
 export interface CliCredentialBlob {
   version: number;
   credentials: {
-    twitch?: { authToken?: string; deviceId?: string };
+    twitch?: { authToken?: string; deviceId?: string; kasadaSessionCookie?: string };
     kick?: { sessionToken?: string };
   };
 }

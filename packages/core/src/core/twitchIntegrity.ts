@@ -14,6 +14,17 @@ export interface TwitchIntegrity {
   expiresAt: number; // epoch ms
 }
 
+// A host refresh request. The extension may satisfy this through a managed
+// page context; the CLI satisfies it through Node's web-integrity minter.
+export interface TwitchIntegrityRequest {
+  forceRefresh?: boolean;
+  signal?: AbortSignal;
+  reason?: "readiness" | "proactive_refresh" | "rejection_recovery";
+  onManagedPageContextOpen?: () => void | Promise<void>;
+  onIntegrityCaptured?: (value: TwitchIntegrity) => void;
+  rejectedToken?: string;
+}
+
 export interface IntegrityHeader {
   name: string;
   value?: string;

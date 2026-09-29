@@ -39,6 +39,7 @@ export default defineConfig({
     permissions: ["alarms", "storage", "tabs", "scripting", "notifications", "cookies", "webRequest"],
     host_permissions: [
       "https://*.twitch.tv/*",
+      "https://k.twitchcdn.net/*",
       "https://*.kick.com/*"
     ],
     // The in-page panel is an extension page the twitch/kick content scripts

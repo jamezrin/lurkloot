@@ -2,7 +2,7 @@ import { fetchTwitchInBackgroundWith } from "@lurkloot/core/transport";
 import type { PlatformCredentials } from "../authStore";
 import { twitchCookieApi } from "./cookieApi";
 import { createCycleKickFetcher, createNodeKickWebSocketFactory, initCycle, type CycleTLSClient } from "./cycle";
-import { CHROME_HTTP2, CHROME_JA3, createCliAdapters, headersToObject, withHeartbeatTimeout, type EnabledPlatforms, type TransportHandle } from "./common";
+import { CHROME_HTTP2, CHROME_JA3, createCliAdapters, headersToObject, withHeartbeatTimeout, type CliTwitchIntegrity, type EnabledPlatforms, type TransportHandle } from "./common";
 
 export interface ImpersonateDeps {
   // Injectable for tests; defaults to spawning the real cycletls subprocess.
@@ -18,9 +18,11 @@ export async function createImpersonateTransport(
   creds: PlatformCredentials,
   _enabled: EnabledPlatforms,
   deps: ImpersonateDeps = {},
+  twitchIntegrity?: CliTwitchIntegrity,
 ): Promise<TransportHandle> {
   const cycleTLS = await (deps.initClient ?? initCycle)();
   const { adapters, createAdapter, createAdapters } = createCliAdapters(creds, {
+    twitchIntegrity,
     twitchFetcher: () => ({ fetchJson: (url, init) => fetchTwitchInBackgroundWith(twitchCookieApi(creds), url, init) }),
     twitchHeartbeat: (identity) => ({
       heartbeatFetchText: async (url, init) => {

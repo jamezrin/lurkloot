@@ -7,11 +7,13 @@ const here = dirname(fileURLToPath(import.meta.url));
 const source = readFileSync(resolve(here, "../wxt.config.ts"), "utf8");
 
 describe("extension host permissions", () => {
-  it("requires only the Twitch and Kick wildcard hosts", () => {
+  it("requires Twitch, Kick, and only the exact Kasada cookie host", () => {
     const required = source.match(/host_permissions:\s*\[([\s\S]*?)\]/)?.[1] ?? "";
 
     expect(required).toContain('"https://*.twitch.tv/*"');
     expect(required).toContain('"https://*.kick.com/*"');
+    expect(required).toContain('"https://k.twitchcdn.net/*"');
+    expect(required).not.toContain('"https://*.twitchcdn.net/*"');
     for (const origin of [
       "https://www.twitch.tv/*",
       "https://gql.twitch.tv/*",

@@ -9,6 +9,12 @@ import type { TwitchHeartbeatFetchText, TwitchHeartbeatPost } from "@lurkloot/co
 import { resolveCompatibility, type CompatibilityResolution } from "@lurkloot/core";
 import type { PlatformCredentials } from "../authStore";
 import { twitchClientIdentity } from "../twitch";
+import type { TwitchIntegrity, TwitchIntegrityRequest } from "@lurkloot/core/twitchIntegrity";
+
+export interface CliTwitchIntegrity {
+  current(): TwitchIntegrity | undefined;
+  ensure(request?: TwitchIntegrityRequest): Promise<boolean>;
+}
 
 // A built set of platform adapters plus a teardown hook (e.g. to stop the
 // cycletls subprocess the impersonate transport owns). Every transport returns
@@ -52,6 +58,7 @@ export function createLazyAdapters(
 // tabless watch wiring) is identical between the http and impersonate
 // transports and lives here once.
 export interface CliTransportDeps {
+  twitchIntegrity?: CliTwitchIntegrity;
   twitchFetcher(): PageFetcher;
   twitchHeartbeat(identity: ReturnType<typeof twitchClientIdentity>): {
     heartbeatFetchText: TwitchHeartbeatFetchText;
@@ -78,9 +85,10 @@ export function createCliAdapters(
     const adapter = platform === "twitch"
       ? new TwitchAdapter(
         deps.twitchFetcher(),
-        async () => false,
+        (request) => deps.twitchIntegrity?.ensure(request) ?? Promise.resolve(false),
         {
           ...identity,
+          ...(deps.twitchIntegrity ? { currentIntegrity: () => deps.twitchIntegrity?.current() } : {}),
           compatibility: resolution.compatibility.twitch,
           discoveryState: twitchDiscoveryState,
           strictCampaignAvailability: settings.platform.twitch.strictCampaignAvailability,

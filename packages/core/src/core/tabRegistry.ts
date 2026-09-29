@@ -1,7 +1,8 @@
 import type { ManagedPageContextTab, Platform, SchedulerManagedPageContexts, TabClosureOrigin } from "@lurkloot/shared/models";
 import type { EventEmitter, PageContextCloseReason } from "@lurkloot/shared/events";
 import type { LogLevel } from "@lurkloot/shared/logging";
-import type { TwitchIntegrity } from "./twitchIntegrity";
+import type { TwitchIntegrity, TwitchIntegrityRequest } from "./twitchIntegrity";
+export type { TwitchIntegrityRequest } from "./twitchIntegrity";
 import type { KickPageContextCycleObservation } from "../platforms/adapter";
 import { createTwitchRequestIdentity, type TwitchRequestIdentity } from "./transport";
 
@@ -271,23 +272,6 @@ export function setTwitchIntegrity(
 // A forced refresh runs after Twitch rejected a token the extension still
 // considers unexpired, so local expiry alone cannot decide success: the captured
 // token must also differ from the one that was rejected.
-export interface TwitchIntegrityRequest {
-  forceRefresh?: boolean;
-  signal?: AbortSignal;
-  reason?: "readiness" | "proactive_refresh" | "rejection_recovery";
-  onManagedPageContextOpen?: () => void | Promise<void>;
-  // Receives the exact bundle captured by the managed context. A forced GQL
-  // retry uses this callback to pin the trio it sends instead of reading the
-  // last-writer-wins global after a concurrent page capture.
-  onIntegrityCaptured?: (value: TwitchIntegrity) => void;
-  // The token the rejected request actually sent, captured before it was issued.
-  // Without it a forced refresh cannot tell "this caller was rejected on a token
-  // someone has already replaced" from "this caller was rejected on the token we
-  // currently hold" — only the second needs a new one minted. Omitted means
-  // unknown, which always mints.
-  rejectedToken?: string;
-}
-
 // The integrity bundle outgoing requests should carry, or undefined when there
 // is none to replay. Returned whole because the token is bound to the device id
 // and session id it was minted with — replaying the trio apart from each other
