@@ -525,7 +525,7 @@
     "message": "Priorità campagna"
   },
   "campaignPriorityDescription": {
-    "message": "Definisce come vengono scelte le campagne. La lista priorità farma solo quelle riordinate manualmente; le altre opzioni scelgono tra tutte le campagne. Limita le categorie per piattaforma nelle impostazioni piattaforma."
+    "message": "Ordina le campagne della Coda che non sono fissate né di un gioco preferito. Puoi cambiarlo anche dal separatore «Poi per» nella Coda."
   },
   "endingSoonest": {
     "message": "Scadenza più vicina"

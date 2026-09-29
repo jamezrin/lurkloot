@@ -132,6 +132,7 @@ describe("settings registry", () => {
         "general.appearance.inPagePanel",
         "general.notifications.rewardEarned",
         "general.notifications.noDropsLeft",
+        "general.drops.strategy",
         "general.drops.autoClaim",
         "general.drops.farmUnlinked",
         "general.drops.farmSubscription",
