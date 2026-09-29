@@ -126,6 +126,47 @@ describe("background controller", () => {
     },
   );
 
+  it("forgets a retained page context the user closed, without pausing Kick", async () => {
+    const tabRegistry = createTabRegistry();
+    const env = harness(farming(DEFAULT_SETTINGS), { tabRegistry });
+    const retained = {
+      platform: "kick" as const,
+      tabId: 66,
+      originUrl: "https://kick.com/",
+      origin: "https://kick.com",
+      ownedByExtension: true as const,
+    };
+    env.state.managedPageContextTabs = { kick: retained };
+    registerManagedPageContextTabs(tabRegistry, { kick: retained });
+    const sessionBefore = structuredClone(env.state.sessions.kick);
+
+    await env.controller.handleTabRemoved(66);
+
+    expect(env.state.managedPageContextTabs?.kick).toBeUndefined();
+    expect(currentManagedPageContextTabs(tabRegistry).kick).toBeUndefined();
+    expect(env.state.manualClosePause?.kick).toBeUndefined();
+    expect(env.state.sessions.kick).toEqual(sessionBefore);
+  });
+
+  it("keeps a page context the registry already holds in another tab", async () => {
+    const tabRegistry = createTabRegistry();
+    const env = harness(farming(DEFAULT_SETTINGS), { tabRegistry });
+    const retained = {
+      platform: "kick" as const,
+      tabId: 66,
+      originUrl: "https://kick.com/",
+      origin: "https://kick.com",
+      ownedByExtension: true as const,
+    };
+    env.state.managedPageContextTabs = { kick: retained };
+    registerManagedPageContextTabs(tabRegistry, { kick: { ...retained, tabId: 77 } });
+
+    await env.controller.handleTabRemoved(66);
+
+    expect(env.state.managedPageContextTabs?.kick).toBeUndefined();
+    expect(currentManagedPageContextTabs(tabRegistry).kick?.tabId).toBe(77);
+  });
+
   it("does not hydrate an old persisted page context over a newer registry update", async () => {
     const staleRead = deferred<SchedulerState>();
     const env = tablessEnv();

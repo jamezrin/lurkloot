@@ -41,6 +41,14 @@
       {
         "kind": "fixed",
         "text": "Twitch Extensions farming now judges whether you are watching Twitch by the same rule as drop farming, so a viewing record with a timestamp in the future (after the system clock was set back) no longer keeps it paused."
+      },
+      {
+        "kind": "fixed",
+        "text": "If you close the Kick tab Lurkloot keeps open for requests Kick rejects in the background, Lurkloot now forgets it straight away, and opens a fresh one the next time Kick needs it instead of first looking for the tab you closed. Closing it never pauses farming."
+      },
+      {
+        "kind": "fixed",
+        "text": "A Kick daily challenge check that happened just before Lurkloot switched to another target is now remembered, so the next check waits the usual ten minutes instead of running again at once."
       }
     ]
   },

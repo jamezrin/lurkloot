@@ -8,7 +8,7 @@ import { kickChannelFromUrl } from "../platforms/kick/channelUrl";
 import { twitchChannelFromUrl } from "../platforms/twitch/channelUrl";
 import { PLATFORMS } from "./constants";
 import { lateBound, type ControllerSlices } from "./context";
-import { isReleasedTab, tabClosureOrigin } from "../core/tabRegistry";
+import { forgetRemovedPageContextTab, isReleasedTab, tabClosureOrigin } from "../core/tabRegistry";
 import { emitHostCallbackError } from "./helpers";
 import type { BackgroundHostPorts } from "./hostPorts";
 import type { ControllerCalls } from "./types";
@@ -125,6 +125,15 @@ export function createManualWatch<S extends EngineSettings>(
         }
         nextState = { ...nextState, sessions, managedWatchTabs, manualClosePause };
       }
+
+      // A retained page context whose tab is gone is forgotten (#588), so the
+      // next page fallback opens a fresh one instead of probing a missing tab.
+      // It is not a watch tab, so even the user's close pauses nothing.
+      const forgotten = forgetRemovedPageContextTab(tabRegistry, nextState.managedPageContextTabs ?? {}, tabId);
+      for (const platform of forgotten.platforms) {
+        emit({ category: "diagnostic", platform, level: "debug", message: `Forgot managed page context in tab ${tabId} because the tab was closed (${origin})` });
+      }
+      if (forgotten.platforms.length > 0) nextState = { ...nextState, managedPageContextTabs: forgotten.contexts };
 
       if (nextState !== state || events.length > 0) {
         await persistAndReport(nextState, events);
