@@ -122,10 +122,12 @@ every host, with a deprecation warning.
 | `impersonate` | ✅ | ✅ **cycletls Chrome JA3/HTTP-2** | Recommended default. Reaches both with no browser. |
 
 New Twitch device logins use the **SMARTBOX (Smart TV) client**. Previously
-issued Android tokens retain their recorded client ID. Twitch currently hides
-its campaign dashboard from headless clients, so CLI discovery is partial as
-described above. Watch progress and claiming still need an account-level live
-test before this path can be called verified end to end.
+issued Android tokens retain their recorded client ID. Twitch may hide its
+campaign dashboard from those clients, so CLI discovery can be partial as
+described above. An imported web session from the updated extension uses the
+web client identity and mints its own integrity token in Node; its protected
+dashboard request was verified live. Twitch drop claiming with the CLI alone
+still needs an account-level live test.
 
 Kick's Cloudflare WAF inspects the TLS/JA3 + HTTP-2 fingerprint, so a plain Node
 request is rejected (HTTP 403). The `impersonate` transport sends a real Chrome
@@ -153,15 +155,18 @@ pnpm cli auth status
   Kick TV app uses): it prints a `kick.com/tv/login` URL + a 6-digit code; open
   it on any device where you're signed in to Kick and confirm the code, and the
   session token is saved — no cookie export needed.
-- **`auth import`** ingests a credential blob exported by the extension
-  (Settings → **Export credentials**) — another way to supply a **Kick** session
-  token headlessly. It skips the extension's Twitch browser token because that
-  token cannot be used with the CLI's Smart TV client. Run
-  `auth twitch device-login` for Twitch instead.
+- **`auth import`** ingests a credential blob exported by the updated extension
+  (Settings → **Export credentials**) for Twitch and/or Kick. A Twitch web
+  import needs the exported device ID and Kasada session cookie as well as the
+  OAuth token. The CLI validates the web client identity, mints integrity
+  without launching a browser, and persists cookie rotation in its private
+  auth store. Older exports lacking these fields cannot import Twitch; export
+  again from the updated extension or use `auth twitch device-login`.
 
 Env-var overrides (useful for Docker secrets) take precedence over the store:
 `SA_TWITCH_AUTH_TOKEN`, `SA_TWITCH_DEVICE_ID`, `SA_TWITCH_CLIENT_ID`,
-`SA_KICK_SESSION_TOKEN`.
+`SA_KICK_SESSION_TOKEN`. The rotating Kasada cookie is loaded only from the
+private auth store, so a stale environment value cannot override a refresh.
 
 ## Commands
 
@@ -232,5 +237,5 @@ docker run --rm -v "$PWD/data:/data" lurkloot-cli discover --config /data/config
 
 Authenticate first — `auth twitch device-login` / `auth kick device-login` work
 headlessly inside the container, or run them on any host and mount the resulting
-`auth/` dir in. A Kick token can also come from an extension export
-(`auth import`) or `SA_KICK_SESSION_TOKEN`.
+`auth/` dir in. An updated extension export can also supply Twitch and Kick
+credentials through `auth import`; Kick alone can use `SA_KICK_SESSION_TOKEN`.
