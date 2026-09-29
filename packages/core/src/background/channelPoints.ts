@@ -1,8 +1,7 @@
 import type { ChannelCandidate, EngineSettings, SchedulerState } from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import { autoClaimChannelPointsFor } from "@lurkloot/shared/settings";
-import { MANUAL_WATCH_TTL_MS } from "../core/scheduler";
-import { isTimestampStale } from "../core/timestamps";
+import { pausedForManualWatch, recentManualWatch } from "../core/manualWatch";
 import type { PlatformAdapter } from "../platforms/adapter";
 import type { TwitchChannelPointsClaimNotice, TwitchChannelPointsPushController } from "../platforms/twitch/channelPointsPush";
 import { TWITCH_CHANNEL_POINTS_ALARM_NAME } from "./constants";
@@ -20,12 +19,8 @@ function eligibleTwitchChannelPointsChannel(
   state: SchedulerState,
   now = Date.now(),
 ): ChannelCandidate | undefined {
-  const manualWatch = state.manualWatch?.twitch;
-  const recentManualWatch = settings.pauseOnManualWatch
-    && manualWatch?.active
-    && !isTimestampStale(manualWatch.checkedAt, MANUAL_WATCH_TTL_MS, now);
-  if (recentManualWatch) {
-    return manualWatch.channel;
+  if (pausedForManualWatch(settings, state, "twitch", now)) {
+    return recentManualWatch(state, "twitch", now)?.channel;
   }
   const session = state.sessions.twitch;
   return session.status === "watching" ? session.channel : undefined;

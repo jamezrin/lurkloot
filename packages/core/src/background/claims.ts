@@ -12,7 +12,7 @@ import {
   TWITCH_DROP_CLAIMS_ALARM_NAME,
 } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
-import { hasRecentManualWatchForClaims } from "./helpers";
+import { pausedForManualWatch } from "../core/manualWatch";
 import type { BackgroundHostPorts, TestingPorts } from "./hostPorts";
 import type { ControllerCalls } from "./types";
 
@@ -370,7 +370,7 @@ export function createClaims<S extends EngineSettings>(
           if (!settings.platform[platform].enabled
             || !settings.autoClaim
             || state.authHealth[platform].status !== "healthy"
-            || !hasRecentManualWatchForClaims(settings, state, platform)) return;
+            || !pausedForManualWatch(settings, state, platform)) return;
 
           adapter = createAdapter(platform, settings, emit, true);
           const refreshed = await adapter.refreshCampaigns(state.sessions[platform], {

@@ -437,6 +437,24 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
   // close the extension makes records why, so only the user's own close pauses
   // the platform (#640), and a report from a tab the extension already closed
   // is not the user watching (#641).
+  // #596: a manual-watch tick starts from the commit that starts or ends the
+  // user's viewing, never from a tick's own commit. Without browser tabs
+  // nothing reports viewing, so manual watch stays inactive.
+  describe("manual watch", () => {
+    it("never starts a manual-watch tick from the scheduler's own commits", async () => {
+      const host = contractHost(capabilities, { settings: twitchOnly() });
+
+      await host.controller.tickAndHandOff(["twitch"], "alarm");
+      await host.controller.tickAndHandOff(["twitch"], "alarm");
+      await host.controller.settleBackgroundWork();
+
+      expect(host.storage.state.manualWatch?.twitch).toBeUndefined();
+      expect(host.reported.filter((event) =>
+        event.category === "diagnostic" && event.message.includes("trigger=manual_watch"))).toEqual([]);
+      host.controller.shutdown();
+    });
+  });
+
   describe("browser tabs", () => {
     const playing = { videoCount: 1, mutedVideoCount: 0, unmutedVideoCount: 1, playingVideoCount: 1, blockedPlaybackCount: 0, documentHidden: false };
 

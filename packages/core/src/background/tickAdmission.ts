@@ -1,7 +1,9 @@
 import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
 import { PLATFORMS } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
+import { hasRecentManualWatch } from "../core/manualWatch";
 import type { BackgroundHostPorts } from "./hostPorts";
+import type { StateTransaction } from "./stateTransaction";
 import type {
   ClaimedRewards,
   ControllerCalls,
@@ -15,6 +17,7 @@ import type {
 // Tick admission: one active tick and one shared follow-up per platform, batches and hand-offs.
 export function createTickAdmission<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
+  transaction: Pick<StateTransaction<S>, "onCommit">,
   { reportingSlice, signalSlice, tickSlice, lifecycleSlice }: Pick<ControllerSlices<S>,
     | "reportingSlice"
     | "signalSlice"
@@ -58,6 +61,18 @@ export function createTickAdmission<S extends EngineSettings>(
     tickPlatform,
     withStateLock,
   } = lateBound(calls);
+
+  // A commit that starts or ends the user's manual watch of a platform (#596)
+  // ticks it, so farming pauses for, or resumes after, their viewing. Both
+  // sides are judged at the commit's time. The tick is not awaited: it waits
+  // for this platform's hooks, this one included.
+  transaction.onCommit((change) => {
+    if (change.kind !== "state") return;
+    const { previous, state, committedAt } = change;
+    const changed = change.platforms.filter((platform) =>
+      hasRecentManualWatch(previous, platform, committedAt) !== hasRecentManualWatch(state, platform, committedAt));
+    if (changed.length > 0) tickInBackground(changed, "manual_watch");
+  });
 
   function tickTriggerSummary(reasons: TickRequest["reasons"]): string {
     const entries = Object.entries(reasons);

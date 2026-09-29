@@ -104,6 +104,10 @@ export type CommittedChange<S> =
       readonly platforms: readonly Platform[];
       readonly previous: SchedulerState;
       readonly state: SchedulerState;
+      // When the commit was accepted (ms since the epoch). A hook that judges
+      // time-dependent facts, such as a manual watch's freshness, judges both
+      // sides at this moment rather than whenever it happens to run.
+      readonly committedAt: number;
     }
   | {
       readonly kind: "settings";
@@ -290,7 +294,7 @@ export function createStateTransaction<S extends EngineSettings>(ports: StateTra
       }
       await saveStateDirect(next);
       options.afterSave?.(next);
-      notify({ kind: "state", platforms, previous: latest, state: next }, ["settings", ...platforms]);
+      notify({ kind: "state", platforms, previous: latest, state: next, committedAt: Date.now() }, ["settings", ...platforms]);
       return { status: "accepted", previous: latest, state: next };
     });
   }
@@ -357,7 +361,7 @@ export function createStateTransaction<S extends EngineSettings>(ports: StateTra
           // An earlier pass may already have written; its hooks still run, but
           // the superseded operation publishes nothing.
           if (result?.status === "accepted") {
-            notify({ kind: "state", platforms: [platform], previous: result.previous, state: result.state }, ["settings", platform]);
+            notify({ kind: "state", platforms: [platform], previous: result.previous, state: result.state, committedAt: Date.now() }, ["settings", platform]);
           }
           return { status: "stale" };
         }
@@ -384,7 +388,7 @@ export function createStateTransaction<S extends EngineSettings>(ports: StateTra
         }
         if (currentManagedPageContextTabsRevision(ports.tabRegistry) === pageContextRevision) {
           if (result.status === "accepted") {
-            notify({ kind: "state", platforms: [platform], previous: result.previous, state: result.state }, ["settings", platform]);
+            notify({ kind: "state", platforms: [platform], previous: result.previous, state: result.state, committedAt: Date.now() }, ["settings", platform]);
           } else {
             result = { status: "unchanged", state: latest };
           }

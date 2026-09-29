@@ -45,13 +45,18 @@ export function createDiscoverySignals<S extends EngineSettings>(
     withEventCollector,
   } = lateBound(calls);
 
-  // After a commit that leaves a platform's auth unhealthy (#595), its
-  // observer stops, even when auth was restored since (an account change); an
-  // observer restarted in between is started again by the next reconcile.
+  // After a commit that leaves a platform's auth unhealthy (#595), or that
+  // ends its watch session (a manual tab close pausing it, #596), its observer
+  // stops. The hook acts on the commit it observes even when that has changed
+  // since (an account change); an observer restarted in between is started
+  // again by the next reconcile. Only the watching-to-not-watching transition
+  // counts, so commits made while idle do not keep bumping the slot's epoch.
   transaction.onCommit(async (change) => {
     if (change.kind !== "state") return;
-    const { state } = change;
-    const platforms = change.platforms.filter((platform) => state.authHealth[platform].status !== "healthy");
+    const { previous, state } = change;
+    const platforms = change.platforms.filter((platform) =>
+      state.authHealth[platform].status !== "healthy"
+      || (previous.sessions[platform].status === "watching" && state.sessions[platform].status !== "watching"));
     if (platforms.length > 0) await stopDiscoverySignalControllersAndReport(platforms);
   });
 
