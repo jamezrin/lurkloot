@@ -6,7 +6,6 @@ import {
   createClaimSlice,
   createDiscoverySignalSlice,
   createHeartbeatSlice,
-  createKickChallengeSlice,
   createLifecycleSlice,
   createReportingSlice,
   createSettingsSlice,
@@ -16,7 +15,7 @@ import {
 import { createDiscovery } from "./discovery";
 import { createDiscoverySignals } from "./discoverySignals";
 import { createHeartbeats } from "./heartbeat";
-import { createKickChallenges } from "./kickChallenges";
+import { createKickRuntime } from "./kickRuntime";
 import { createLifecycle } from "./lifecycle";
 import { createManualWatch } from "./manualWatch";
 import { createMessageHandler } from "./messages";
@@ -100,7 +99,6 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   const transaction = createStateTransaction({ ...ports.storage, lockTracker: ports.testing?.lockTracker, tabRegistry });
   const reportingSlice = createReportingSlice();
   const heartbeatSlice = createHeartbeatSlice();
-  const kickChallengeSlice = createKickChallengeSlice();
   const claimSlice = createClaimSlice();
   const signalSlice = createDiscoverySignalSlice();
   const tickSlice = createTickAdmissionSlice();
@@ -116,14 +114,14 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     ...createHeartbeats(ports, { heartbeatSlice, tickSlice, lifecycleSlice, tabRegistry }, calls),
     ...createTwitchIntegrity(ports, { settingsSlice, lifecycleSlice, tabRegistry }, calls),
     ...createChannelPoints(ports, transaction, { tickSlice, lifecycleSlice }, calls),
-    ...createKickChallenges(ports, { kickChallengeSlice, lifecycleSlice }, calls),
+    ...createKickRuntime(ports, { lifecycleSlice }, calls),
     ...createAuthHealth(ports, { discoverySlice }, calls),
     ...createManualWatch(ports, { tabRegistry, lifecycleSlice }, calls),
-    ...createClaims(ports, { kickChallengeSlice, claimSlice, lifecycleSlice }, calls),
+    ...createClaims(ports, { claimSlice, lifecycleSlice }, calls),
     ...createDiscoverySignals(ports, transaction, { signalSlice, tickSlice, lifecycleSlice }, calls),
     ...discovery,
     ...createTickAdmission(ports, transaction, { reportingSlice, signalSlice, tickSlice, lifecycleSlice }, calls),
-    ...createTickRun(ports, { claimSlice, discoverySlice, tickSlice, kickChallengeSlice, tabRegistry }, calls),
+    ...createTickRun(ports, { claimSlice, discoverySlice, tickSlice, tabRegistry }, calls),
     ...createSettingsTransitions(transaction, { discoverySlice }, calls),
     ...createLifecycle(ports, { discoverySlice, tickSlice, settingsSlice, lifecycleSlice, tabRegistry }, calls),
     ...createMessageHandler(ports, { signalSlice, tickSlice, settingsSlice, lifecycleSlice, tabRegistry }, calls),

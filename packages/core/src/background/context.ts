@@ -65,36 +65,6 @@ export function createHeartbeatSlice(): HeartbeatSlice {
   };
 }
 
-export interface KickChallengeSlice {
-  readonly kickChallengeClaimOperations: Set<AbortController>;
-  // A Kick challenge claim request is running, from the tick or the job.
-  kickChallengeClaimRunning: boolean;
-}
-
-export function createKickChallengeSlice(): KickChallengeSlice {
-  return {
-    kickChallengeClaimOperations: new Set<AbortController>(),
-    kickChallengeClaimRunning: false,
-  };
-}
-
-// Runs `claim` unless a claim of the same kind is already running, which
-// `slot` records; `skipped` is the result when it is.
-export async function claimExclusively<K extends string, T>(
-  slot: Record<K, boolean>,
-  key: K,
-  skipped: T,
-  claim: () => Promise<T>,
-): Promise<T> {
-  if (slot[key]) return skipped;
-  slot[key] = true;
-  try {
-    return await claim();
-  } finally {
-    slot[key] = false;
-  }
-}
-
 export interface ClaimSlice {
   // In-flight post-claim handoffs, one per platform. A claim arriving while a
   // handoff is already running for that platform is absorbed by the running
@@ -255,7 +225,6 @@ export function createTabRegistrySlice(hostRegistry: TabRegistry | undefined): T
 export interface ControllerSlices<S extends EngineSettings> {
   reportingSlice: ReportingSlice;
   heartbeatSlice: HeartbeatSlice;
-  kickChallengeSlice: KickChallengeSlice;
   claimSlice: ClaimSlice;
   signalSlice: DiscoverySignalSlice;
   discoverySlice: DiscoverySlice<S>;

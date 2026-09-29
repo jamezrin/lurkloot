@@ -143,7 +143,8 @@ export interface TabEventsPort {
 
 // The tabs the engine borrows to run requests in a platform page.
 export interface PageContextPort {
-  // Page-context tab teardown, also injected into the scheduler tick.
+  // Page-context tab teardown, also the Kick runtime's handler for the
+  // scheduler tick's releasePageContexts effect (#588).
   release: StopPageContextTabs;
   // Recovery from a page context opened when a background request was rejected
   // (only Kick opens one). The host gathers route evidence as requests run; this

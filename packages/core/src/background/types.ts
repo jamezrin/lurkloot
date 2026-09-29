@@ -47,6 +47,13 @@ export type TickDiagnosticContext = Required<Pick<
 >>;
 export type { CredentialAvailability } from "./hostPorts";
 
+// What a tick cycle's commit left, for the services that follow tick cycles
+// (Kick page-context recovery, #588): the committed state and the platforms
+// whose discovery completed, or a failure the tick persisted instead.
+export type TickCycleOutcome =
+  | { status: "committed"; state: SchedulerState; discoveryComplete: ReadonlySet<Platform> }
+  | { status: "failed" };
+
 export interface CommittedHeartbeatContext {
   readonly generation: number;
   readonly contextKey: string;
@@ -323,12 +330,19 @@ export interface ControllerCalls<S extends EngineSettings> {
   registerTwitchChannelPointsEffects(executor: TickEffectExecutor): TickEffectExecutor;
   runTwitchChannelPointsClaim(): Promise<void>;
 
-  // kickChallenges.ts
-  reconcilePageContextRecoveryAfterPersist(
+  // kickRuntime.ts
+  abortKickChallengeClaims(reason: string): void;
+  abortIneligibleKickChallengeClaims(settings: EngineSettings, reason: string): void;
+  clearKickChallengeJobBestEffort(): Promise<void>;
+  reconcileKickChallengeJob(settings: EngineSettings): Promise<void>;
+  rescheduleKickChallengeJob(): Promise<void>;
+  registerKickRuntimeEffects(executor: TickEffectExecutor): TickEffectExecutor;
+  observeTickCycle(
     platforms: readonly Platform[],
-    backgroundSuccessPlatforms: ReadonlySet<Platform>,
+    outcome: TickCycleOutcome,
     tickContext: TickDiagnosticContext,
   ): Promise<void>;
+  endTickCycle(platform: Platform): void;
   runKickChallengeClaims(): Promise<void>;
 
   // authHealth.ts

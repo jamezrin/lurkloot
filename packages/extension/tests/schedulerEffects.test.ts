@@ -12,6 +12,7 @@ import {
 } from "@lurkloot/core/scheduler";
 import { selectionAdapterFromDiscoverySnapshot, type DiscoverySnapshot } from "@lurkloot/core/discoverySnapshot";
 import { ChannelPointsClaimGate, registerChannelPointsClaimEffect } from "@lurkloot/core/background/channelPoints";
+import { KickChallengeClaimGate, registerKickRuntimeEffects } from "@lurkloot/core/background/kickRuntime";
 import { createTickEffectExecutor } from "@lurkloot/core/background/tickEffects";
 import { DEFAULT_STATE } from "../src/core/storage";
 
@@ -167,11 +168,21 @@ describe("effect executor", () => {
   it("registers one interim handler for every scheduler effect type no service owns yet", () => {
     const executor = createTickEffectExecutor();
     const types: SchedulerEffectType[] = [
-      "stopWatchTab", "releasePageContexts", "claimChallenges", "claimRewards",
-      "selectSupplementalTarget", "openWatchTab",
+      "stopWatchTab", "claimRewards", "selectSupplementalTarget", "openWatchTab",
     ];
     for (const type of types) expect(executor.has(type)).toBe(true);
     expect(() => executor.register("claimRewards", async ({ campaigns }) => ({ campaigns, events: [] }))).toThrow();
+  });
+
+  it("leaves the challenge claim and page-context release to the Kick runtime's one handler each", () => {
+    const executor = createTickEffectExecutor();
+    expect(executor.has("claimChallenges")).toBe(false);
+    expect(executor.has("releasePageContexts")).toBe(false);
+
+    registerKickRuntimeEffects(executor, new KickChallengeClaimGate());
+    expect(executor.has("claimChallenges")).toBe(true);
+    expect(executor.has("releasePageContexts")).toBe(true);
+    expect(() => registerKickRuntimeEffects(executor, new KickChallengeClaimGate())).toThrow();
   });
 
   it("leaves the channel-points claim to the channel-points service's one handler", () => {

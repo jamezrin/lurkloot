@@ -1,12 +1,10 @@
 import type { CoreRuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { DropReward, EngineSettings, Platform, SchedulerState, WatchReasonCode, WatchSession } from "@lurkloot/shared/models";
 import type { EngineEvent } from "@lurkloot/shared/events";
-import { autoClaimChallengesFor } from "@lurkloot/shared/settings";
 import { reconcileCampaignAfterClaims } from "@lurkloot/shared/rewards";
-import { CHALLENGE_POLL_INTERVAL_MS, claimReadyRewards, preserveClaimedRewards } from "../core/scheduler";
+import { claimReadyRewards, preserveClaimedRewards } from "../core/scheduler";
 import type { PlatformAdapter } from "../platforms/adapter";
 import {
-  KICK_CHALLENGES_ALARM_NAME,
   KICK_DROP_CLAIMS_ALARM_NAME,
   PLATFORMS,
   TWITCH_DROP_CLAIMS_ALARM_NAME,
@@ -34,7 +32,7 @@ function canClaimReward(reward: DropReward): boolean {
 // Drop claims, manual claims, claim handoffs and the manual-watch claim jobs.
 export function createClaims<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
-  { kickChallengeSlice, claimSlice, lifecycleSlice }: Pick<ControllerSlices<S>, "kickChallengeSlice" | "claimSlice" | "lifecycleSlice">,
+  { claimSlice, lifecycleSlice }: Pick<ControllerSlices<S>, "claimSlice" | "lifecycleSlice">,
   calls: Pick<ControllerCalls<S>,
     | "clearOperationalEvents"
     | "createAdapter"
@@ -98,7 +96,6 @@ export function createClaims<S extends EngineSettings>(
     await Promise.all([
       TWITCH_DROP_CLAIMS_ALARM_NAME,
       KICK_DROP_CLAIMS_ALARM_NAME,
-      KICK_CHALLENGES_ALARM_NAME,
     ].map(async (name) => {
       try {
         await ports.jobs.cancel(name);
@@ -120,9 +117,6 @@ export function createClaims<S extends EngineSettings>(
       settings.platform.kick.enabled && settings.autoClaim
         ? ports.jobs.ensure(KICK_DROP_CLAIMS_ALARM_NAME, { periodInMinutes: settings.pollIntervalMinutes })
         : ports.jobs.cancel(KICK_DROP_CLAIMS_ALARM_NAME),
-      settings.platform.kick.enabled && autoClaimChallengesFor(settings, "kick")
-        ? ports.jobs.ensure(KICK_CHALLENGES_ALARM_NAME, { periodInMinutes: CHALLENGE_POLL_INTERVAL_MS / 60_000 })
-        : ports.jobs.cancel(KICK_CHALLENGES_ALARM_NAME),
     ]);
   }
 
@@ -131,16 +125,12 @@ export function createClaims<S extends EngineSettings>(
       if (settings.platform[platform].enabled && settings.autoClaim) continue;
       for (const controller of claimSlice.dropClaimOperations[platform]) controller.abort(new Error(reason));
     }
-    if (!settings.platform.kick.enabled || !autoClaimChallengesFor(settings, "kick")) {
-      for (const controller of kickChallengeSlice.kickChallengeClaimOperations) controller.abort(new Error(reason));
-    }
   }
 
   function abortClaimOnlyOperations(reason: string): void {
     for (const platform of PLATFORMS) {
       for (const controller of claimSlice.dropClaimOperations[platform]) controller.abort(new Error(reason));
     }
-    for (const controller of kickChallengeSlice.kickChallengeClaimOperations) controller.abort(new Error(reason));
   }
 
   // Aborts every in-flight handoff. Called when farming stops, when a settings
