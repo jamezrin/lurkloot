@@ -1,13 +1,13 @@
 import type { Platform } from "@lurkloot/shared/models";
 import {
   KICK_ALARM_NAME,
-  KICK_CHALLENGES_ALARM_NAME,
   KICK_DROP_CLAIMS_ALARM_NAME,
   TWITCH_ALARM_NAME,
   TWITCH_DROP_CLAIMS_ALARM_NAME,
   WATCH_ALARM_NAME,
 } from "./constants";
 import { TWITCH_CHANNEL_POINTS_JOBS } from "./channelPoints";
+import { KICK_RUNTIME_JOBS } from "./kickRuntime";
 import type { HostCapabilities } from "./hostPorts";
 import { TWITCH_INTEGRITY_JOBS } from "./twitchIntegrity";
 
@@ -64,7 +64,7 @@ export interface BackgroundJob {
 }
 
 // Every job the engine schedules. Services own their entries as they are
-// extracted (#586–#590, #597).
+// extracted (#586–#590, #597, #588).
 export const BACKGROUND_JOBS: Readonly<Record<string, BackgroundJob>> = {
   [TWITCH_ALARM_NAME]: { run: (runner) => runner.tickAndHandOff(["twitch"], "alarm") },
   [KICK_ALARM_NAME]: { run: (runner) => runner.tickAndHandOff(["kick"], "alarm") },
@@ -73,7 +73,7 @@ export const BACKGROUND_JOBS: Readonly<Record<string, BackgroundJob>> = {
   // The claim jobs claim for a manually watched tab, which needs browser tabs.
   [TWITCH_DROP_CLAIMS_ALARM_NAME]: { run: (runner) => runner.runDropClaims("twitch"), requires: "browserTabs" },
   [KICK_DROP_CLAIMS_ALARM_NAME]: { run: (runner) => runner.runDropClaims("kick"), requires: "browserTabs" },
-  [KICK_CHALLENGES_ALARM_NAME]: { run: (runner) => runner.runKickChallengeClaims(), requires: "browserTabs" },
+  ...KICK_RUNTIME_JOBS,
   ...TWITCH_INTEGRITY_JOBS,
 };
 

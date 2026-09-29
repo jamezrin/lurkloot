@@ -15,7 +15,7 @@ export type LockedIoKind = "provider" | "tab" | "timer" | "async-wait";
 //   (none now: Kick page-context recovery left runTick's lock in #598).
 export type LockedIoLock = "withStateLock" | "withPlatformLock" | "withSettingsLock" | "withHeartbeatLane" | "caller";
 
-export type LockedIoOwner = 586 | 587 | 588 | 589 | 590 | 595 | 596 | 597 | 598 | 599;
+export type LockedIoOwner = 586 | 587 | 589 | 590 | 595 | 596 | 597 | 598 | 599;
 
 export interface LockedIoEntry {
   readonly id: string;
@@ -42,13 +42,10 @@ export const LOCKED_IO_ALLOWLIST: readonly LockedIoEntry[] = [
 
   // Manual watch, playback and tab events.
 
-  // Kick page-context recovery runs after the tick commit, inside runTick's lock.
-
   // Claims outside the tick.
   { id: "manual-claim", file: "background/claims.ts", site: "claimRewardNow", lock: "withStateLock", call: "adapter.claimReward(", kind: "provider", owner: 597 },
   { id: "drop-claims-refresh", file: "background/claims.ts", site: "runDropClaims", lock: "withStateLock", call: "adapter.refreshCampaigns(", kind: "provider", owner: 597 },
   { id: "drop-claims-claim", file: "background/claims.ts", site: "runDropClaims", lock: "withStateLock", call: "claimReadyRewards(", kind: "provider", owner: 597 },
-  { id: "kick-challenge-claims", file: "background/kickChallenges.ts", site: "runKickChallengeClaims", lock: "withStateLock", call: "adapter.claimChallenges?.(", kind: "provider", owner: 588 },
 
   // Settings writes reschedule jobs while holding the settings lock.
   { id: "settings-claim-alarms", file: "background/settingsTransitions.ts", site: "commitSettings", lock: "withSettingsLock", call: "reconcileManualWatchClaimAlarms(", kind: "timer", owner: 597 },
@@ -63,7 +60,7 @@ export const LOCKED_IO_ALLOWLIST: readonly LockedIoEntry[] = [
 // under `adapters[platform]`, and in a function its caller runs under a lock.
 // The scan now recognizes all three. That was a correction to the baseline,
 // not new locked I/O.
-export const LOCKED_IO_ALLOWLIST_SIZE = 8;
+export const LOCKED_IO_ALLOWLIST_SIZE = 7;
 
 // Calls that count as locked I/O when they appear inside a lock: ports and
 // adapter methods that reach a provider, a tab or a timer, and the controller

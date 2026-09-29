@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   BACKGROUND_JOBS,
   KICK_ALARM_NAME,
+  KICK_CHALLENGES_ALARM_NAME,
   KICK_DROP_CLAIMS_ALARM_NAME,
   TWITCH_ALARM_NAME,
   TWITCH_CHANNEL_POINTS_ALARM_NAME,
@@ -615,6 +616,31 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
 
       expect(host.storage.state.sessions.twitch.status).toBe("watching");
       expect(starts).toBe(1);
+      host.controller.shutdown();
+    });
+  });
+
+  // Kick challenges belong to the Kick runtime (#588) on every host. The tick
+  // claims them at its poll cadence. Only a host with tabs, where a manual
+  // watch can pause the tick, schedules the ten-minute challenge job.
+  describe("Kick challenges", () => {
+    it(capabilities.declared.browserTabs
+      ? "claims Kick challenges from the tick and schedules the challenge job"
+      : "claims Kick challenges from the tick, with no challenge job", async () => {
+      const host = contractHost(capabilities);
+      host.adapters.kick.claimChallenges = vi.fn(async () => [{ id: "daily", rarity: "epic", recurrence: "daily" }]);
+      await host.boot();
+
+      await host.controller.tickAndHandOff(["kick"], "alarm");
+
+      expect(host.adapters.kick.claimChallenges).toHaveBeenCalledOnce();
+      expect(host.storage.state.gamification?.kick?.lastCheckedAt).toBeDefined();
+      expect(host.reported).toContainEqual(expect.objectContaining({
+        category: "activity",
+        code: "challenge_claimed",
+        platform: "kick",
+      }));
+      expect(host.jobs.scheduled.has(KICK_CHALLENGES_ALARM_NAME)).toBe(capabilities.declared.browserTabs);
       host.controller.shutdown();
     });
   });

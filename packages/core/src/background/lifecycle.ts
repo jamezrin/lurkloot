@@ -74,10 +74,12 @@ export function createLifecycle<S extends EngineSettings>(
     | "abortActiveTicks"
     | "abortClaimHandoffs"
     | "abortClaimOnlyOperations"
+    | "abortKickChallengeClaims"
     | "abortTwitchChannelPointsClaims"
     | "cancelHeartbeatPublicationLeases"
     | "clearHeartbeatOwnership"
     | "clearHeartbeatOwnershipInBackground"
+    | "clearKickChallengeJobBestEffort"
     | "clearManualWatchClaimAlarmsBestEffort"
     | "clearTwitchChannelPointsAlarmBestEffort"
     | "clearTwitchIntegrityAlarmBestEffort"
@@ -86,6 +88,7 @@ export function createLifecycle<S extends EngineSettings>(
     | "invalidateSelection"
     | "normalizeStartupSettings"
     | "persistAndReport"
+    | "reconcileKickChallengeJob"
     | "reconcileManualWatchClaimAlarms"
     | "reconcileTwitchChannelPointsAlarm"
     | "refreshAuthHealth"
@@ -116,10 +119,12 @@ export function createLifecycle<S extends EngineSettings>(
     abortActiveTicks,
     abortClaimHandoffs,
     abortClaimOnlyOperations,
+    abortKickChallengeClaims,
     abortTwitchChannelPointsClaims,
     cancelHeartbeatPublicationLeases,
     clearHeartbeatOwnership,
     clearHeartbeatOwnershipInBackground,
+    clearKickChallengeJobBestEffort,
     clearManualWatchClaimAlarmsBestEffort,
     clearTwitchChannelPointsAlarmBestEffort,
     clearTwitchIntegrityAlarmBestEffort,
@@ -128,6 +133,7 @@ export function createLifecycle<S extends EngineSettings>(
     invalidateSelection,
     normalizeStartupSettings,
     persistAndReport,
+    reconcileKickChallengeJob,
     reconcileManualWatchClaimAlarms,
     reconcileTwitchChannelPointsAlarm,
     refreshAuthHealth,
@@ -148,6 +154,7 @@ export function createLifecycle<S extends EngineSettings>(
     await ensureCadenceJobs(settings);
     await reconcileTwitchChannelPointsAlarm(settings);
     await reconcileManualWatchClaimAlarms(settings);
+    await reconcileKickChallengeJob(settings);
     if (settings.autoStartDropFarming && isFarmingActive(settings)) {
       await tick(undefined, "install");
     } else {
@@ -206,6 +213,7 @@ export function createLifecycle<S extends EngineSettings>(
     await ensureCadenceJobs(settings);
     await reconcileTwitchChannelPointsAlarm(settings);
     await reconcileManualWatchClaimAlarms(settings);
+    await reconcileKickChallengeJob(settings);
     // A restart kills any in-memory watchers; atomically release their lane
     // ownership before host cleanup, then let tick() rebuild fresh instances.
     await clearHeartbeatOwnership(PLATFORMS);
@@ -272,10 +280,12 @@ export function createLifecycle<S extends EngineSettings>(
     abortActiveTicks("Controller shutdown");
     closeTwitchIntegrityLifecycle("Controller shutdown");
     abortClaimOnlyOperations("Controller shutdown");
+    abortKickChallengeClaims("Controller shutdown");
     abortTwitchChannelPointsClaims("Controller shutdown");
     void clearTwitchIntegrityAlarmBestEffort();
     void clearTwitchChannelPointsAlarmBestEffort();
     void clearManualWatchClaimAlarmsBestEffort();
+    void clearKickChallengeJobBestEffort();
     abortClaimHandoffs();
     void cancelHeartbeatPublicationLeases(PLATFORMS);
     clearHeartbeatOwnershipInBackground(PLATFORMS);
@@ -296,12 +306,14 @@ export function createLifecycle<S extends EngineSettings>(
       abortActiveTicks("Host reset");
       closeTwitchIntegrityLifecycle("Host reset");
       abortClaimOnlyOperations("Host reset");
+      abortKickChallengeClaims("Host reset");
       abortTwitchChannelPointsClaims("Host reset");
       await stopDiscoverySignalControllersAndReport(PLATFORMS);
       await stopTwitchChannelPointsPushAndReport();
       await clearTwitchIntegrityAlarmBestEffort();
       await clearTwitchChannelPointsAlarmBestEffort();
       await clearManualWatchClaimAlarmsBestEffort();
+      await clearKickChallengeJobBestEffort();
       abortClaimHandoffs();
       await clearHeartbeatOwnership(PLATFORMS);
       // The locks cover only the reset itself. The tabs the reset state no

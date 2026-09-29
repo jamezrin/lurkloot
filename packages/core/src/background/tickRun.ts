@@ -20,6 +20,7 @@ import type {
   HeartbeatPublicationLease,
   SelectionInput,
   TickAdapterHandle,
+  TickCycleOutcome,
   TickDiagnosticContext,
   TickTrigger,
 } from "./types";
@@ -27,14 +28,15 @@ import type {
 // One platform tick: selection, the scheduler tick and what runs around it.
 export function createTickRun<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
-  { claimSlice, discoverySlice, tickSlice, kickChallengeSlice, tabRegistry }: Pick<ControllerSlices<S>,
-    "claimSlice" | "discoverySlice" | "tickSlice" | "kickChallengeSlice" | "tabRegistry">,
+  { claimSlice, discoverySlice, tickSlice, tabRegistry }: Pick<ControllerSlices<S>,
+    "claimSlice" | "discoverySlice" | "tickSlice" | "tabRegistry">,
   calls: Pick<ControllerCalls<S>,
     | "applyAdFocusForState"
     | "clearOperationalEvents"
     | "createTickAdapterHandle"
     | "diagnosticEvent"
     | "emitNotifications"
+    | "endTickCycle"
     | "flattenedRefreshFailures"
     | "persistPlatformAndReport"
     | "prepareSelection"
@@ -42,9 +44,10 @@ export function createTickRun<S extends EngineSettings>(
     | "prepareTwitchIntegrity"
     | "reconcileDiscoverySignalsAfterCommit"
     | "discoverySignalEpochs"
-    | "reconcilePageContextRecoveryAfterPersist"
+    | "observeTickCycle"
     | "reconcileTablessWatchers"
     | "reconcileTwitchChannelPointsPushAfterCommit"
+    | "registerKickRuntimeEffects"
     | "registerTwitchChannelPointsEffects"
     | "refreshAuthHealth"
     | "refreshDiscovery"
@@ -72,6 +75,7 @@ export function createTickRun<S extends EngineSettings>(
     createTickAdapterHandle,
     diagnosticEvent,
     emitNotifications,
+    endTickCycle,
     flattenedRefreshFailures,
     persistPlatformAndReport,
     prepareSelection,
@@ -79,9 +83,10 @@ export function createTickRun<S extends EngineSettings>(
     prepareTwitchIntegrity,
     reconcileDiscoverySignalsAfterCommit,
     discoverySignalEpochs,
-    reconcilePageContextRecoveryAfterPersist,
+    observeTickCycle,
     reconcileTablessWatchers,
     reconcileTwitchChannelPointsPushAfterCommit,
+    registerKickRuntimeEffects,
     registerTwitchChannelPointsEffects,
     refreshAuthHealth,
     refreshDiscovery,
@@ -108,7 +113,7 @@ export function createTickRun<S extends EngineSettings>(
   // use, once every module's calls are bound.
   let tickEffectExecutor: TickEffectExecutor | undefined;
   const tickEffects = (): TickEffectExecutor =>
-    tickEffectExecutor ??= registerTwitchChannelPointsEffects(createTickEffectExecutor());
+    tickEffectExecutor ??= registerKickRuntimeEffects(registerTwitchChannelPointsEffects(createTickEffectExecutor()));
 
   async function tickPlatform(
     platform: Platform,
@@ -137,7 +142,7 @@ export function createTickRun<S extends EngineSettings>(
       if (abort.signal.aborted) return [platform, []];
       throw error;
     } finally {
-      if (platform === "kick") ports.tabs?.pageContexts.discardRecoveryEvidence(platform);
+      endTickCycle(platform);
       for (const adapter of Object.values(tickAdapters)) adapter.close();
       tickSlice.activeTicks.delete(abort);
       tickSlice.activePlatformTicks[platform] -= 1;
@@ -366,7 +371,6 @@ export function createTickRun<S extends EngineSettings>(
         adapters,
         tabRegistry,
         watchTabs: ports.tabs?.watch,
-        stopPageContextTabs: ports.tabs?.pageContexts.release,
         selectSupplementalTarget: supplementalSources
           ? (supplementalPlatform: Platform, selectedState: SchedulerState, selectedSignal: AbortSignal | undefined, source: WatchSourceId) =>
             supplementalPlatform === "twitch"
@@ -375,7 +379,6 @@ export function createTickRun<S extends EngineSettings>(
           : undefined,
         claimGuards: {
           rewards: claimSlice.rewardClaimGuards,
-          challenges: kickChallengeSlice,
         },
       };
       const eventsBeforeTick = events.length;
@@ -434,13 +437,13 @@ export function createTickRun<S extends EngineSettings>(
       let superseded = false;
       let publicationLeases: Array<readonly [Platform, HeartbeatPublicationLease]> = [];
       // Work for the state this tick committed, run once the lock is released:
-      // ad focus follows the committed sessions and Kick page-context recovery
-      // acts on the committed page contexts (#598), and the discovery-signal
-      // observers (#587) and the Twitch channel-points push (#590) follow the
-      // latest committed state.
+      // ad focus follows the committed sessions, the services that follow tick
+      // cycles observe this one (#588), and the discovery-signal observers
+      // (#587) and the Twitch channel-points push (#590) follow the latest
+      // committed state.
       let afterCommit: {
         adFocus?: SchedulerState;
-        recovery?: { platforms: readonly Platform[]; successPlatforms: ReadonlySet<Platform> };
+        cycle?: TickCycleOutcome;
         discoverySignals?: { committed: SchedulerState; since: Partial<Record<Platform, number>> };
         channelPointsPush?: { committed: SchedulerState; since: number };
       } = {};
@@ -465,7 +468,7 @@ export function createTickRun<S extends EngineSettings>(
         };
         let latest: SchedulerState | undefined;
         let nextState: SchedulerState;
-        const pageContextRecoverySuccessPlatforms = new Set<Platform>();
+        const discoveryComplete = new Set<Platform>();
         try {
           if (failure) throw failure.error;
           signal.throwIfAborted();
@@ -479,11 +482,8 @@ export function createTickRun<S extends EngineSettings>(
           }
           const tickState = rebased.state;
           for (const schedulerPlatform of schedulerPlatforms) {
-            if (
-              discoverySlice.discoveryLanes[schedulerPlatform].current().lastAttempt?.complete === true
-              && (tickState.sessions[schedulerPlatform].errorChecks ?? 0) === 0
-            ) {
-              pageContextRecoverySuccessPlatforms.add(schedulerPlatform);
+            if (discoverySlice.discoveryLanes[schedulerPlatform].current().lastAttempt?.complete === true) {
+              discoveryComplete.add(schedulerPlatform);
             }
           }
           const assertSelectionsCurrent = (): void => {
@@ -553,7 +553,7 @@ export function createTickRun<S extends EngineSettings>(
             emit({ category: "activity", code: "interruption", level: "error", platform, data: { reason: "platform_error", detail } });
             emit({ category: "diagnostic", level: "error", platform, message: detail });
             const persisted = await persistPlatformAndReport(platform, latest, correlateTickDiagnostics(events, tickContext));
-            if (persisted) afterCommit = { recovery: { platforms: [platform], successPlatforms: new Set() } };
+            if (persisted) afterCommit = { cycle: { status: "failed" } };
           } finally {
             await Promise.all(publicationLeases.map(([leasePlatform, lease]) =>
               releaseHeartbeatPublicationLease(leasePlatform, lease)));
@@ -579,7 +579,7 @@ export function createTickRun<S extends EngineSettings>(
           }
           afterCommit = {
             adFocus: nextState,
-            recovery: { platforms: schedulerPlatforms, successPlatforms: pageContextRecoverySuccessPlatforms },
+            cycle: { status: "committed", state: nextState, discoveryComplete },
             discoverySignals: { committed: nextState, since: discoverySignalEpochs(schedulerPlatforms) },
             ...(schedulerPlatforms.includes("twitch")
               ? { channelPointsPush: { committed: nextState, since: twitchChannelPointsPushEpoch() } }
@@ -600,12 +600,8 @@ export function createTickRun<S extends EngineSettings>(
         await applyAdFocusForState(afterCommit.adFocus, emit, schedulerPlatforms);
         await reportBestEffort(correlateTickDiagnostics(events.slice(reported), tickContext));
       }
-      if (!signal.aborted && afterCommit.recovery) {
-        await reconcilePageContextRecoveryAfterPersist(
-          afterCommit.recovery.platforms,
-          afterCommit.recovery.successPlatforms,
-          tickContext,
-        );
+      if (!signal.aborted && afterCommit.cycle) {
+        await observeTickCycle(schedulerPlatforms, afterCommit.cycle, tickContext);
       }
       if (!signal.aborted && afterCommit.discoverySignals) {
         const reported = events.length;
