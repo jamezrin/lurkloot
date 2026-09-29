@@ -279,9 +279,10 @@ and never take the commit lock or call `saveState` themselves.
   its Twitch-cookie `forgetCompletion` wrapper, with a hook on its settings and Twitch state
   changes.
 - **Manual watch (#596)** is a pure query, `recentManualWatch` / `hasRecentManualWatch` /
-  `pausedForManualWatch` in `core/manualWatch.ts`, that the scheduler, the claim jobs and channel
-  points read; only the manual-watch service writes the records. The Twitch Extensions host still
-  has its own check, whose edge cases differ (a future stamp), until it moves onto the query. Its commits reach dependents through hooks: tick admission ticks a platform whose
+  `pausedForManualWatch` in `core/manualWatch.ts`, that the scheduler, the claim jobs, channel
+  points and the Twitch Extensions host read; only the manual-watch service writes the records.
+  The service refuses telemetry from a tab that was removed, whoever closed it, so a
+  late report cannot bring back the manual watch the close ended. Its commits reach dependents through hooks: tick admission ticks a platform whose
   manual watch started or ended, judging both sides at the commit's `committedAt`, and the
   discovery-signal observer stops when a commit takes its session from watching to anything else
   (a manual tab close pausing it). Ad focus on telemetry follows the committed session after the

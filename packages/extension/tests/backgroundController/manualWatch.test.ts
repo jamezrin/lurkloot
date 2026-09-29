@@ -411,6 +411,37 @@ describe("background controller", () => {
     expect(env.state.manualWatch?.twitch).toBeUndefined();
   });
 
+  // #596 (behavior change): a report still in flight from a tab the user
+  // closed is a late result, like one from a tab the engine closed. It must
+  // not bring back the manual watch the close just ended.
+  it("ignores late playback from a manual-watch tab the user closed", async () => {
+    const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
+    await env.controller.tick(["twitch"]);
+    const playing = {
+      videoCount: 1,
+      mutedVideoCount: 0,
+      unmutedVideoCount: 1,
+      playingVideoCount: 1,
+      blockedPlaybackCount: 0,
+      documentHidden: false,
+    };
+    await env.controller.handleMessage({ type: "playbackTelemetry", platform: "twitch", telemetry: playing }, { tab: { id: 999, url: "https://www.twitch.tv/creator" } });
+    expect(env.state.manualWatch?.twitch?.active).toBe(true);
+
+    await env.controller.handleTabRemoved(999);
+    await env.controller.settleBackgroundWork();
+    expect(env.state.manualWatch?.twitch).toBeUndefined();
+    env.reportEvents.mockClear();
+
+    await env.controller.handleMessage({ type: "playbackTelemetry", platform: "twitch", telemetry: playing }, { tab: { id: 999, url: "https://www.twitch.tv/creator" } });
+    await env.controller.settleBackgroundWork();
+
+    expect(env.state.manualWatch?.twitch).toBeUndefined();
+    expect(env.state.manualWatchTabs?.twitch?.[999]).toBeUndefined();
+    expect(allDiagnostics(env).some((event) =>
+      event.message.includes("started (trigger=manual_watch"))).toBe(false);
+  });
+
   it("marks manual watch inactive when the same tab stops visible playback", async () => {
     const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
     env.state.manualWatch = {
