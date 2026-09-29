@@ -141,6 +141,8 @@ export interface ContractHostOptions {
   readonly storage?: ContractStorage;
   // Shared tabs, which outlive a restart like storage does.
   readonly browser?: FakeBrowser;
+  // The post-claim handoff's delay, so a test drives the loop by hand.
+  readonly wait?: (ms: number, signal: AbortSignal) => Promise<void>;
 }
 
 export interface ContractHost {
@@ -227,6 +229,7 @@ export function contractHost(capabilities: CapabilitySet, options: ContractHostO
     createNotification: vi.fn(async () => undefined),
     createAdapters: vi.fn((_emit, settings: ExtensionSettings) => ({ adapters, ...compatibility(settings) })),
     createAdapter: vi.fn((platform: Platform, _emit, settings: ExtensionSettings) => ({ adapter: adapters[platform], ...compatibility(settings) })),
+    ...(options.wait ? { wait: options.wait } : {}),
   };
   // The extension runs its real tab ports against a fake browser (#598); each
   // port call still goes through a spy, so tests can assert on it and the lock

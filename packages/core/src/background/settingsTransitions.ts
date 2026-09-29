@@ -19,7 +19,7 @@ export function createSettingsTransitions<S extends EngineSettings>(
     | "reconcileTwitchIntegrityAfterCommit"
     | "cancelPendingTick"
     | "invalidateSelection"
-    | "reconcileManualWatchClaimAlarms"
+    | "rescheduleDropClaimJobs"
     | "rescheduleKickChallengeJob"
     | "rescheduleTickJobs"
     | "rescheduleTwitchChannelPointsJob"
@@ -34,12 +34,26 @@ export function createSettingsTransitions<S extends EngineSettings>(
     reconcileTwitchIntegrityAfterCommit,
     cancelPendingTick,
     invalidateSelection,
-    reconcileManualWatchClaimAlarms,
+    rescheduleDropClaimJobs,
     rescheduleKickChallengeJob,
     rescheduleTickJobs,
     rescheduleTwitchChannelPointsJob,
     withSettingsLock,
   } = lateBound(calls);
+
+  // The jobs that follow the saved settings once the settings lock is
+  // released: channel points and its push (#590), the drop-claim jobs (#597)
+  // and the Kick challenge job (#588). Each runs even if another failed, and
+  // the first failure is rethrown.
+  async function rescheduleSettingsJobs(): Promise<void> {
+    const results = await Promise.allSettled([
+      rescheduleTwitchChannelPointsJob(),
+      rescheduleDropClaimJobs(),
+      rescheduleKickChallengeJob(),
+    ]);
+    const failure = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
+    if (failure) throw failure.reason;
+  }
 
   // On restart, autoStartDropFarming decides what happens to the platforms that
   // were farming: enabled means keep going, disabled means switch them off. It
@@ -70,20 +84,10 @@ export function createSettingsTransitions<S extends EngineSettings>(
         const nextSettings = commit.settings;
         await transaction.saveSettingsCommit(commit);
         saved = true;
-        await reconcileManualWatchClaimAlarms(nextSettings);
         return nextSettings;
       });
     } finally {
-      // The channel-points job and push (#590) and the Kick challenge job
-      // (#588) follow the saved settings once the settings lock is released,
-      // even if another job's reschedule failed after the save.
-      if (saved) {
-        try {
-          await rescheduleTwitchChannelPointsJob();
-        } finally {
-          await rescheduleKickChallengeJob();
-        }
-      }
+      if (saved) await rescheduleSettingsJobs();
     }
   }
 
@@ -128,7 +132,6 @@ export function createSettingsTransitions<S extends EngineSettings>(
         for (const platform of invalidatedPlatforms) {
           if (!settings.platform[platform].enabled) cancelPendingTick(platform);
         }
-        await reconcileManualWatchClaimAlarms(settings);
         return commit;
       });
       // The tick jobs follow the committed poll interval, rescheduled once the
@@ -136,20 +139,13 @@ export function createSettingsTransitions<S extends EngineSettings>(
       await rescheduleTickJobs();
       return committed;
     } finally {
-      // So do the channel-points job and push (#590) and the Kick challenge
-      // job (#588), even when another job's reschedule failed after the save:
-      // disabling Twitch must still stop the push. They read the latest stored
-      // settings.
+      // So do the settings jobs, even when the tick jobs' reschedule failed
+      // after the save: disabling Twitch must still stop the push. They read
+      // the latest stored settings.
       try {
         // A failed save ends its hold on integrity work before the reconcile.
         if (!saved) releaseTwitchIntegrityHold();
-        if (saved) {
-          try {
-            await rescheduleTwitchChannelPointsJob();
-          } finally {
-            await rescheduleKickChallengeJob();
-          }
-        }
+        if (saved) await rescheduleSettingsJobs();
         // Twitch integrity follows the stored enabled flag (#589), whichever
         // message saved it. A disable that failed to save reconciles too: it
         // held off integrity work while pending, and the stored flag, still

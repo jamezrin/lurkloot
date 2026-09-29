@@ -1,7 +1,6 @@
 import type { Platform, SchedulerState, SupplementalWatchTarget, WatchSourceId } from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import { EffectExecutor, driveEffects } from "../core/effectExecutor";
-import { claimReadyRewards, type RewardClaimGuard } from "../core/rewardClaims";
 import {
   decidePlatformTick,
   startSchedulerTick,
@@ -32,38 +31,24 @@ export interface TickEffectContext {
   selectSupplementalTarget?(platform: Platform, state: SchedulerState, signal: AbortSignal | undefined, source: WatchSourceId): Promise<SupplementalWatchTarget | undefined>;
   emit: EventEmitter;
   signal?: AbortSignal;
-  // Shared with the jobs that make the same claims, which no longer queue
-  // behind the tick now that it holds no lock while claiming.
-  claimGuards?: {
-    rewards: Partial<Record<Platform, RewardClaimGuard>>;
-  };
 }
 
 export type TickEffectExecutor = EffectExecutor<SchedulerEffects, TickEffectContext>;
 
-function adapterFor(context: TickEffectContext, platform: Platform): PlatformAdapter {
-  const adapter = context.adapters[platform];
-  if (!adapter) throw new Error(`No ${platform} adapter for the scheduler effect`);
-  return adapter;
-}
-
 // The interim handlers (#599): each is the call the scheduler tick used to make
 // itself, except that watch tabs now go to the host's WatchTabPort (#598). The
-// owning services take these over one effect type at a time: reward claims
-// (#597), watch tabs (#598/#587) and supplemental selection (#587). Each owner
-// registers its own handler in place of the interim one. Channel points (#590) and the Kick runtime (#588) already have:
-// see registerChannelPointsClaimEffect in channelPoints.ts and
-// registerKickRuntimeEffects in kickRuntime.ts.
+// owning services take these over one effect type at a time: watch tabs
+// (#598/#587) and supplemental selection (#587). Each owner registers its own
+// handler in place of the interim one. Channel points (#590), the Kick runtime
+// (#588) and the claim service (#597) already have: see
+// registerChannelPointsClaimEffect in channelPoints.ts, registerKickRuntimeEffects
+// in kickRuntime.ts and registerRewardClaimEffect in claimService.ts.
 export function registerInterimTickEffectHandlers(executor: TickEffectExecutor): TickEffectExecutor {
   return executor
     // Without a watch-tab port there is no tab to stop, but the scheduler still
     // asks, to clean up idle and disabled platforms.
     .register("stopWatchTab", async ({ session }, context) => {
       await context.watchTabs?.stop(session, { signal: context.signal }, context.emit);
-    })
-    .register("claimRewards", async ({ platform, campaigns, waitingRewardIds }, context) => {
-      const adapter = adapterFor(context, platform);
-      return await claimReadyRewards(adapter, campaigns, waitingRewardIds, context.signal, context.claimGuards?.rewards[platform]);
     })
     .register("selectSupplementalTarget", async ({ platform, state, source }, context) =>
       await context.selectSupplementalTarget?.(platform, state, context.signal, source))

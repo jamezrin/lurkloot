@@ -181,6 +181,79 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
     });
   });
 
+  // The claim failure model (#597): with no claim journal, the provider's
+  // inventory decides what happened to a claim the previous process sent.
+  describe("claim failure model", () => {
+    it("sends no claim and publishes nothing for a reward the provider accepted before the save was lost", async () => {
+      const claimable = { id: "twitch-reward", name: "Reward", requiredMinutes: 60, watchedMinutes: 60, status: "claimable" as const, claimId: "claim-1" };
+      const previous = contractHost(capabilities, {
+        settings: twitchOnly({ autoClaim: true }),
+        state: { ...idleState(), campaigns: { twitch: [{ ...contractCampaign("twitch"), rewards: [claimable] }], kick: [] } },
+      });
+      const restarted = previous.restart();
+      vi.mocked(restarted.adapters.twitch.refreshCampaigns).mockResolvedValue([
+        { ...contractCampaign("twitch"), rewards: [{ ...claimable, status: "claimed" }] },
+      ]);
+
+      await restarted.boot();
+      await restarted.controller.tickAndHandOff(["twitch"], "alarm");
+
+      expect(restarted.adapters.twitch.claimReward).not.toHaveBeenCalled();
+      expect(restarted.reported.some((event) => event.category === "activity" && event.code === "reward_claimed")).toBe(false);
+      expect(restarted.storage.state.campaigns.twitch[0].rewards[0].status).toBe("claimed");
+      restarted.controller.shutdown();
+    });
+  });
+
+  // The post-claim handoff and its cancellation are the claim service's
+  // (#597), and behave the same on both hosts.
+  describe("post-claim handoff", () => {
+    const handoffSettings = () => twitchOnly({ autoClaim: true, postClaimHandoff: true });
+
+    it("moves on to the next reward once inventory reveals it", async () => {
+      let reveal = false;
+      const host = contractHost(capabilities, {
+        settings: handoffSettings(),
+        wait: async () => {
+          reveal = true;
+        },
+      });
+      host.adapters.twitch.supportsPostClaimHandoff = true;
+      vi.mocked(host.adapters.twitch.refreshCampaigns).mockImplementation(async () => [{
+        ...contractCampaign("twitch"),
+        rewards: [
+          { id: "twitch-reward", name: "Reward", requiredMinutes: 60, watchedMinutes: 60, status: "claimed" },
+          ...(reveal ? [{ id: "next-reward", name: "Next", requiredMinutes: 60, watchedMinutes: 0, status: "in_progress" as const }] : []),
+        ],
+      }]);
+
+      await host.controller.runClaimHandoff("twitch", ["twitch-reward"]);
+
+      expect(host.storage.state.sessions.twitch).toMatchObject({ status: "watching", rewardId: "next-reward" });
+      host.controller.shutdown();
+    });
+
+    it("ends a running handoff on shutdown without refreshing again", async () => {
+      const parked: AbortSignal[] = [];
+      const host = contractHost(capabilities, {
+        settings: handoffSettings(),
+        wait: (_ms, signal) => new Promise<void>((resolve) => {
+          parked.push(signal);
+          signal.addEventListener("abort", () => resolve(), { once: true });
+        }),
+      });
+      host.adapters.twitch.supportsPostClaimHandoff = true;
+
+      const handoff = host.controller.runClaimHandoff("twitch", ["twitch-reward"]);
+      await vi.waitFor(() => expect(parked).toHaveLength(1));
+      host.controller.shutdown();
+      await handoff;
+
+      expect(parked[0].aborted).toBe(true);
+      expect(host.adapters.twitch.refreshCampaigns).not.toHaveBeenCalled();
+    });
+  });
+
   describe("process restart", () => {
     // Both hosts run the shared restart reconciliation (#593; before it, the
     // CLI left these sessions to its ticks and heartbeats).
