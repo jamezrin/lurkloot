@@ -171,6 +171,11 @@ export function QueuePanel({
     void latest.current.onPinChange(String(movedId), pinPosition(pins, toIndex));
   }, []);
 
+  const strategyOptions: Array<{ value: PriorityMode; label: string }> = [
+    { value: "ending_soonest", label: t("endingSoonest") },
+    { value: "lowest_availability", label: t("lowAvailabilityFirst") },
+  ];
+
   const tiers: CampaignRankTier[] = ["pinned", "favourite", "strategy"];
   const facetCounts: Record<QueueFacet, number> = {
     all: campaigns.filter((campaign) => campaign.section === "queue").length,
@@ -193,22 +198,6 @@ export function QueuePanel({
     <section className="space-y-1.5">
       <ViewToolbar>
         <FacetTabs facet={facet} counts={facetCounts} onChange={setFacet} />
-        {/* The strategy lives where it acts. It ranks everything no pin or
-            favourite game already placed, which is what the label says. */}
-        <div className="ms-auto min-w-0">
-          <Dropdown
-            label={t("queueStrategyLabel")}
-            value={strategy}
-            options={[
-              { value: "ending_soonest", label: t("endingSoonest") },
-              { value: "lowest_availability", label: t("lowAvailabilityFirst") },
-            ]}
-            onChange={(value) => void onStrategyChange(value as PriorityMode)}
-            attributes={{ "data-queue-strategy": "" }}
-            prefix={<span className="shrink-0 font-medium text-zinc-500 dark:text-zinc-400">{t("queueStrategyLabel")}</span>}
-            className="rounded-lg border border-zinc-200 bg-white px-2 py-1 text-[11px] font-semibold text-zinc-800 hover:border-zinc-300 focus-visible:border-[var(--accent-ring)] aria-expanded:border-zinc-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:border-zinc-600"
-          />
-        </div>
       </ViewToolbar>
 
       <div className="flex items-center gap-2">
@@ -262,7 +251,19 @@ export function QueuePanel({
                   <GroupDivider
                     label={t(TIER_LABEL_KEYS[tier])}
                     hint={tier === "strategy"
-                      ? t(strategy === "lowest_availability" ? "lowAvailabilityFirst" : "endingSoonest")
+                      // The strategy lives where it acts: it ranks exactly
+                      // the rows under this divider, so the divider's hint is
+                      // the picker and reads "Then by <mode>".
+                      ? (
+                        <Dropdown
+                          label={t("queueStrategyLabel")}
+                          value={strategy}
+                          options={strategyOptions}
+                          onChange={(value) => void onStrategyChange(value as PriorityMode)}
+                          attributes={{ "data-queue-strategy": "" }}
+                          className="rounded-md px-1 py-0.5 text-[10.5px] font-semibold text-zinc-700 hover:bg-[var(--ink-soft)] focus-visible:ring-1 focus-visible:ring-[var(--accent-ring)] aria-expanded:bg-[var(--ink-soft)] dark:text-zinc-200"
+                        />
+                      )
                       : pinned ? t("queueGroupPinnedHint") : undefined}
                     action={pinned && pinnedCount > 0
                       ? { label: t("queueUnpinAll", String(pinnedCount)), onClick: () => void onUnpinAll(), attribute: "data-queue-unpin-all" }
@@ -508,11 +509,11 @@ function FacetTabs({ facet, counts, onChange }: { facet: QueueFacet; counts: Rec
 
 // A group's label. Each divider names the layer that placed the rows under it,
 // so the order is explainable without help text.
-function GroupDivider({ label, hint, action }: { label: string; hint?: string; action?: { label: string; onClick(): void; attribute?: string } }): React.ReactElement {
+function GroupDivider({ label, hint, action }: { label: string; hint?: React.ReactNode; action?: { label: string; onClick(): void; attribute?: string } }): React.ReactElement {
   return (
     <div className="flex items-center gap-2 pt-2">
       <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">{label}</span>
-      {hint ? <span className="truncate text-[10px] text-zinc-400 dark:text-zinc-500">{hint}</span> : null}
+      {typeof hint === "string" ? <span className="truncate text-[10px] text-zinc-400 dark:text-zinc-500">{hint}</span> : hint ? <div className="-ms-1 min-w-0">{hint}</div> : null}
       <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
       {/* The group's own action sits on its divider: Unpin all only exists
           while there are pins, which is exactly when this divider does. */}

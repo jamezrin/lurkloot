@@ -1,5 +1,15 @@
 [
   {
+    "version": "1.14.2",
+    "changes": [
+      {
+        "kind": "fixed",
+        "text": "Fixed the Queue strategy picker spilling onto a second line in languages with longer names, such as German, or Spanish with Low availability first selected. The picker now sits on the Then by divider, above the campaigns it orders, so it reads as one phrase, for example “Then by Low availability first”. It is also back in Settings under Drops as Campaign priority, so you can change it even while every queued campaign is pinned or for a favourite game."
+      }
+    ],
+    "date": "2026-09-29"
+  },
+  {
     "version": "1.14.1",
     "changes": [
       {

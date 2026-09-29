@@ -525,7 +525,7 @@
     "message": "Campaign priority"
   },
   "campaignPriorityDescription": {
-    "message": "How campaigns are chosen to farm. Priority list only farms just the campaigns you've manually reordered; the others pick among all campaigns. Limit which categories are farmed per platform under Platform settings."
+    "message": "Orders the campaigns in the Queue that aren't pinned or for a favourite game. You can also change it from the Then by divider in the Queue."
   },
   "endingSoonest": {
     "message": "Ending soonest"

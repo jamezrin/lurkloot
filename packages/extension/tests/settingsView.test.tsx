@@ -268,6 +268,26 @@ describe("deadline feasibility setting", () => {
     );
   });
 
+  // The Queue's Then by divider hides with its tier, so Settings keeps the
+  // strategy reachable when every queued campaign is pinned or starred.
+  it("saves the queue strategy from the Drops group and re-ticks", async () => {
+    const { container, onSettingsChange } = mountSettings({ ...DEFAULT_SETTINGS, priorityMode: "ending_soonest" });
+    const trigger = container.querySelector('button[aria-haspopup="listbox"][aria-label="Campaign priority"]') as HTMLButtonElement;
+    expect(trigger.dataset.value).toBe("ending_soonest");
+
+    await act(async () => {
+      trigger.click();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    const option = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find((candidate) => candidate.dataset.value === "lowest_availability");
+    await act(async () => {
+      option?.click();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(onSettingsChange).toHaveBeenCalledWith({ priorityMode: "lowest_availability" }, { tickAfterSave: true });
+  });
+
   it("renders both farming-eligibility rows as full toggles", () => {
     const { container } = mountSettings();
     const text = container.textContent ?? "";
