@@ -13,6 +13,9 @@ import { emitHostCallbackError } from "./helpers";
 import type { BackgroundHostPorts } from "./hostPorts";
 import type { ControllerCalls } from "./types";
 
+// Enough to remember recent closes while their late reports drain.
+const MAX_REMOVED_TABS = 64;
+
 // Manual watch, managed-tab events and playback telemetry.
 export function createManualWatch<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
@@ -48,8 +51,25 @@ export function createManualWatch<S extends EngineSettings>(
     withStateLock,
   } = lateBound(calls);
   const { tabs } = ports;
+  // Tabs that were removed, whoever closed them, oldest first and bounded like
+  // the registry's engine closures. A report still in flight from one is a
+  // late result: it must not bring back the manual watch its close ended.
+  // (A URL update only ever clears a record, so it needs no such check.)
+  // Browsers do not reuse tab ids within a session.
+  const removedTabs = new Set<number>();
+
+  function noteRemovedTab(tabId: number): void {
+    removedTabs.delete(tabId);
+    removedTabs.add(tabId);
+    while (removedTabs.size > MAX_REMOVED_TABS) {
+      const oldest = removedTabs.values().next().value;
+      if (oldest == null) break;
+      removedTabs.delete(oldest);
+    }
+  }
 
   async function handleTabRemoved(tabId: number): Promise<void> {
+    noteRemovedTab(tabId);
     // Taken before the lock: the engine records why it closes a tab before it
     // asks the browser to, so this is already known when the event arrives.
     const origin = tabClosureOrigin(tabRegistry, tabId);
@@ -139,9 +159,10 @@ export function createManualWatch<S extends EngineSettings>(
     senderTabUrl?: string,
   ): Promise<void> {
     let manualWatchReported = false;
-    // A report still in flight from a tab the engine closed is a late result:
-    // it is neither the managed tab's playback nor the user watching (#598).
-    if (senderTabId != null && isReleasedTab(tabRegistry, senderTabId)) return;
+    // A report still in flight from a tab that was closed, by the engine
+    // (#598) or by the user (#596), is a late result: it is neither the
+    // managed tab's playback nor the user watching.
+    if (senderTabId != null && (isReleasedTab(tabRegistry, senderTabId) || removedTabs.has(senderTabId))) return;
     // The committed session's ad state, when the report was the managed tab's.
     let adFocus: { tabId: number; adActive: boolean } | undefined;
     await withStateLock(() => withEventCollector(async (emit, events) => {

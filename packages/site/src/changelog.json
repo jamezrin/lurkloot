@@ -33,6 +33,14 @@
       {
         "kind": "fixed",
         "text": "If the connection that listens for Kick flash drop announcements fails to open, Lurkloot now opens a fresh one on the next check instead of retrying the one that failed. This applies to both the extension and the CLI."
+      },
+      {
+        "kind": "fixed",
+        "text": "Closing a tab where you were watching Twitch or Kick yourself now reliably resumes farming. A playback report still on its way from the closed tab could briefly pause farming again as if you were still watching."
+      },
+      {
+        "kind": "fixed",
+        "text": "Twitch Extensions farming now judges whether you are watching Twitch by the same rule as drop farming, so a viewing record with a timestamp in the future (after the system clock was set back) no longer keeps it paused."
       }
     ]
   },
