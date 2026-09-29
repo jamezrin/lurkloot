@@ -16,10 +16,11 @@ import {
   validHeartbeatGeneration,
   validTablessHeartbeatCadence,
 } from "../core/heartbeatCadence";
-import { PLATFORMS } from "./constants";
+import { PLATFORMS, WATCH_ALARM_NAME } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
 import { emitHostCallbackError } from "./helpers";
 import type { BackgroundHostPorts } from "./hostPorts";
+import type { BackgroundJob } from "./jobs";
 import type {
   CommittedHeartbeatContext,
   ControllerCalls,
@@ -42,10 +43,24 @@ import type {
 // still transmits.
 const RECENT_HEARTBEAT_MS = 30_000;
 
-// Tabless watchers, heartbeat lanes and heartbeat commits.
-export function createHeartbeats<S extends EngineSettings>(
+// The one-minute watch job, which runs every due heartbeat. Both hosts fire it:
+// the extension from browser.alarms, the CLI from its Node scheduler.
+export const HEARTBEAT_JOBS: Readonly<Record<string, BackgroundJob>> = {
+  [WATCH_ALARM_NAME]: { run: (runner) => runner.runWatchHeartbeat() },
+};
+
+function newHeartbeatLane(): HeartbeatLane {
+  return { mutation: Promise.resolve(), revision: 0, coalescedWithoutAttempt: 0 };
+}
+
+// The tabless heartbeat coordinator (#586). It owns each platform's watcher,
+// heartbeat lane, generation high-water mark and publication lease, admits due
+// heartbeats, commits their results, recovers watchers after a restart, and
+// asks for a tab fallback. The Twitch and Kick heartbeat transports stay in
+// their TablessWatchController implementations.
+export function createHeartbeatCoordinator<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
-  { heartbeatSlice, tickSlice, lifecycleSlice, tabRegistry }: Pick<ControllerSlices<S>, "heartbeatSlice" | "tickSlice" | "lifecycleSlice" | "tabRegistry">,
+  { tickSlice, lifecycleSlice, tabRegistry }: Pick<ControllerSlices<S>, "tickSlice" | "lifecycleSlice" | "tabRegistry">,
   calls: Pick<ControllerCalls<S>,
     | "createSelectedAdapters"
     | "diagnosticEvent"
@@ -58,6 +73,7 @@ export function createHeartbeats<S extends EngineSettings>(
     | "trackHeartbeatLane"
   >,
 ): Pick<ControllerCalls<S>,
+  | "ensureHeartbeatJob"
   | "releaseHeartbeatPublicationLease"
   | "cancelHeartbeatPublicationLeases"
   | "reconcileTablessWatchers"
@@ -78,11 +94,25 @@ export function createHeartbeats<S extends EngineSettings>(
     trackHeartbeatLane,
   } = lateBound(calls);
 
+  // Persistent tabless watchers, one per platform, kept alive across ticks (the
+  // WebSocket-based Kick watcher in particular must not be recreated each tick).
+  const tablessWatchers = new Map<Platform, TablessWatchController>();
+  const heartbeatLanes: Record<Platform, HeartbeatLane> = {
+    twitch: newHeartbeatLane(),
+    kick: newHeartbeatLane(),
+  };
+
+  // The heartbeat cadence is fixed at one minute (#336); each run admits only
+  // the heartbeats that are due.
+  async function ensureHeartbeatJob(): Promise<void> {
+    await ports.jobs.ensure(WATCH_ALARM_NAME, { periodInMinutes: 1 });
+  }
+
   function withHeartbeatLane<T>(
     platform: Platform,
     operation: (lane: HeartbeatLane) => Promise<T>,
   ): Promise<T> {
-    const lane = heartbeatSlice.heartbeatLanes[platform];
+    const lane = heartbeatLanes[platform];
     const previous = lane.mutation;
     let release!: () => void;
     lane.mutation = new Promise<void>((resolve) => {
@@ -184,7 +214,7 @@ export function createHeartbeats<S extends EngineSettings>(
           const previous = lane.committed;
           if (!contextKey) {
             lane.committed = undefined;
-            heartbeatSlice.tablessWatchers.set(platform, watcher);
+            tablessWatchers.set(platform, watcher);
             lane.revision += 1;
             return {
               accepted: true,
@@ -227,7 +257,7 @@ export function createHeartbeats<S extends EngineSettings>(
           });
           lane.generationHighWater = Math.max(lane.generationHighWater ?? 0, generation);
           lane.committed = committed;
-          heartbeatSlice.tablessWatchers.set(platform, watcher);
+          tablessWatchers.set(platform, watcher);
           if (publicationLease && lane.publicationLease === publicationLease) {
             publicationLease.markPublished(committed);
           }
@@ -260,9 +290,9 @@ export function createHeartbeats<S extends EngineSettings>(
             return { accepted: false };
           }
           if (lane.resultCommit) return { waitFor: lane.resultCommit.settled };
-          const watcher = lane.committed?.watcher ?? heartbeatSlice.tablessWatchers.get(platform);
+          const watcher = lane.committed?.watcher ?? tablessWatchers.get(platform);
           lane.committed = undefined;
-          heartbeatSlice.tablessWatchers.delete(platform);
+          tablessWatchers.delete(platform);
           lane.revision += 1;
           return { accepted: true, watcher };
         },
@@ -303,7 +333,7 @@ export function createHeartbeats<S extends EngineSettings>(
       const contextKey = heartbeatContextKey(session);
       const ownership = await withHeartbeatLane(platform, async (lane) => {
         const committed = lane.committed;
-        const watcher = committed?.watcher ?? heartbeatSlice.tablessWatchers.get(platform);
+        const watcher = committed?.watcher ?? tablessWatchers.get(platform);
         const keepsCommittedContext = wantsTabless
           && adapter.createTablessWatcher !== undefined
           && contextKey !== undefined
@@ -472,7 +502,7 @@ export function createHeartbeats<S extends EngineSettings>(
         // Capture the lane revision before loading storage. If another recovery
         // publishes while this read is pending, the loaded snapshot must not
         // remove or replace that newer owner.
-        const expectedRevision = heartbeatSlice.heartbeatLanes[platform].revision;
+        const expectedRevision = heartbeatLanes[platform].revision;
         const expectedPageContextRevision = currentManagedPageContextTabsRevision(tabRegistry);
         const nextState = await ports.storage.loadState();
         hydrateManagedPageContextTabs(
@@ -550,7 +580,7 @@ export function createHeartbeats<S extends EngineSettings>(
         if (lane.resultCommit) return { waitFor: lane.resultCommit.settled };
         const discarded = lane.committed.watcher;
         lane.committed = undefined;
-        heartbeatSlice.tablessWatchers.delete(platform);
+        tablessWatchers.delete(platform);
         lane.revision += 1;
         return { discarded, retry: wantsTabless };
       }
@@ -615,7 +645,7 @@ export function createHeartbeats<S extends EngineSettings>(
         watcher,
       });
       lane.generationHighWater = Math.max(lane.generationHighWater ?? 0, generation);
-      heartbeatSlice.tablessWatchers.set(platform, watcher);
+      tablessWatchers.set(platform, watcher);
       lane.revision += 1;
       return { cadence, ready: true };
     });
@@ -653,7 +683,7 @@ export function createHeartbeats<S extends EngineSettings>(
           ) {
             discarded = lane.committed.watcher;
             lane.committed = undefined;
-            heartbeatSlice.tablessWatchers.delete(platform);
+            tablessWatchers.delete(platform);
             lane.revision += 1;
           }
           candidateRecovery.settle();
@@ -956,11 +986,7 @@ export function createHeartbeats<S extends EngineSettings>(
         } else if (!ok && previousChecks === 0) {
           emit({ category: "diagnostic", platform, level: "warn", message: message ?? "Tabless watch heartbeat failed" });
         }
-        // Without browser tabs there is nothing to fall back to: the watch stays
-        // tabless and the scheduler's no-progress check rotates a dead channel.
-        const fallback = ports.capabilities.browserTabs
-          && !current.supplementalWatch?.tablessOnly
-          && !ok && heartbeatChecks >= settings.tablessFallbackFailureLimit;
+        const fallback = !ok && fallsBackToTab(current, heartbeatChecks, settings);
         if (fallback) {
           emit({ category: "diagnostic", platform, level: "warn", message: "Tabless watch heartbeat keeps failing; falling back to a watch tab" });
         }
@@ -1052,6 +1078,17 @@ export function createHeartbeats<S extends EngineSettings>(
     });
   }
 
+  // Whether heartbeat failures move this session to a watch tab. Never without
+  // browser tabs: the watch stays tabless and the scheduler's no-progress check
+  // rotates a dead channel. Never for a tabless-only supplemental session
+  // (Twitch Extensions, #541/#556), whatever its failure count: it has no tab
+  // to fall back to.
+  function fallsBackToTab(session: WatchSession, heartbeatChecks: number, settings: S): boolean {
+    if (!ports.capabilities.browserTabs) return false;
+    if (session.supplementalWatch?.tablessOnly) return false;
+    return heartbeatChecks >= settings.tablessFallbackFailureLimit;
+  }
+
   function heartbeatAuthorityMatches(
     session: WatchSession,
     generation: number,
@@ -1083,6 +1120,7 @@ export function createHeartbeats<S extends EngineSettings>(
   }
 
   return {
+    ensureHeartbeatJob,
     releaseHeartbeatPublicationLease,
     cancelHeartbeatPublicationLeases,
     reconcileTablessWatchers,

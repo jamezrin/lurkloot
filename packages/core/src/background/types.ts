@@ -277,6 +277,7 @@ export interface ControllerCalls<S extends EngineSettings> {
   settleCommitHooks(platforms?: readonly Platform[]): Promise<void>;
 
   // heartbeat.ts
+  ensureHeartbeatJob(): Promise<void>;
   releaseHeartbeatPublicationLease(platform: Platform, lease: HeartbeatPublicationLease): Promise<void>;
   cancelHeartbeatPublicationLeases(platforms: readonly Platform[]): Promise<void>;
   reconcileTablessWatchers(

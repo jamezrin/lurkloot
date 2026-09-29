@@ -4,7 +4,6 @@ import { createChannelPoints } from "./channelPoints";
 import { createClaimService } from "./claimService";
 import {
   createDiscoverySignalSlice,
-  createHeartbeatSlice,
   createLifecycleSlice,
   createReportingSlice,
   createSettingsSlice,
@@ -13,7 +12,7 @@ import {
 } from "./context";
 import { createDiscovery } from "./discovery";
 import { createDiscoverySignals } from "./discoverySignals";
-import { createHeartbeats } from "./heartbeat";
+import { createHeartbeatCoordinator } from "./heartbeat";
 import { createKickRuntime } from "./kickRuntime";
 import { createLifecycle } from "./lifecycle";
 import { createManualWatch } from "./manualWatch";
@@ -97,7 +96,6 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // Owns the locks, commits and after-commit hooks (#585).
   const transaction = createStateTransaction({ ...ports.storage, lockTracker: ports.testing?.lockTracker, tabRegistry });
   const reportingSlice = createReportingSlice();
-  const heartbeatSlice = createHeartbeatSlice();
   const signalSlice = createDiscoverySignalSlice();
   const tickSlice = createTickAdmissionSlice();
   const settingsSlice = createSettingsSlice();
@@ -109,7 +107,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   Object.assign(calls, {
     ...createReporting(ports, { reportingSlice }, calls),
     ...createStateCommit(transaction, calls),
-    ...createHeartbeats(ports, { heartbeatSlice, tickSlice, lifecycleSlice, tabRegistry }, calls),
+    ...createHeartbeatCoordinator(ports, { tickSlice, lifecycleSlice, tabRegistry }, calls),
     ...createTwitchIntegrity(ports, { settingsSlice, lifecycleSlice, tabRegistry }, calls),
     ...createChannelPoints(ports, transaction, { tickSlice, lifecycleSlice }, calls),
     ...createKickRuntime(ports, { lifecycleSlice }, calls),
