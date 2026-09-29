@@ -130,7 +130,7 @@ The per-module slices and calls below are where #591's dependency check starts:
 | `tickAdmission.ts` | `reportingSlice`, `signalSlice`, `tickSlice`, `lifecycleSlice`, a commit hook | `claimService`, `discovery`, `discoverySignals`, `reporting`, `stateCommit`, `tickRun` | 11 |
 | `tickRun.ts` | `discoverySlice`, `tickSlice` | `authHealth`, `channelPoints`, `claimService`, `discovery`, `discoverySignals`, `heartbeat`, `kickRuntime`, `manualWatch`, `reporting`, `stateCommit`, `tickAdmission`, `twitchIntegrity` | 1 |
 | `discovery.ts` | its own `discoverySlice`, `lifecycleSlice` | `reporting`, `stateCommit` | 10 |
-| `heartbeat.ts` | `heartbeatSlice`, `tickSlice`, `lifecycleSlice` | `discovery`, `reporting`, `stateCommit`, `tickAdmission` | 7 |
+| `heartbeat.ts` | its own watchers, heartbeat lanes, generation high-water marks and publication leases, and the watch job (#586), `tickSlice`, `lifecycleSlice` | `discovery`, `reporting`, `stateCommit`, `tickAdmission` | 8 |
 | `twitchIntegrity.ts` | its own state (lifecycle generation, persisted token, refresh due, the startup load; #589), `settingsSlice`, `lifecycleSlice`, the tab registry's token | `reporting`, `stateCommit` | 12 |
 | `channelPoints.ts` | its own push slot, claim gate and push-claim queue (#590), `tickSlice`, `lifecycleSlice`, a commit hook | `reporting`, `stateCommit` | 10 |
 | `kickRuntime.ts` | its own challenge claim gate, claim operations and job reschedule queue (#588), `lifecycleSlice` | `reporting`, `stateCommit` | 9 |
@@ -162,7 +162,7 @@ or settings, loaded and saved through the host's storage port (`storage.local` o
 | Discovery lanes (`discoveryLanes`, `discoveryEvents`) | In memory, one `DiscoverySnapshotLane` per platform | `refreshDiscovery` | Settings saves that are not ranking-only, auth invalidation, `refreshDiscovery` itself, reset and shutdown | None: a snapshot is published by revision, not stored | Rediscovered on the first tick | Both |
 | Selection (`selectionCache`, `selectionRuns`, `pendingSelections`, `selectionGeneration`) | In memory | `prepareSelection` (before the lock), `reselectUnderLock` (inside it, never through `selectionRuns`) | `invalidateSelection`: every settings save (including ranking-only), auth invalidation, heartbeat results, playback telemetry, reset, shutdown | Consumed inside `runTick`'s platform lock | Recomputed | Both |
 | Tick admission (`tickAdmission`, `activeTicks`, `tickBatches`, `backgroundWork`) | In memory | `tick`, `tickInBackground`, `tickAndHandOff` | Disable, reset, shutdown | None | Empty | Both. Extension alarms and CLI intervals request ticks per platform |
-| Heartbeat lanes, watchers and publication leases (`heartbeatLanes`, `tablessWatchers`) | In memory, with the heartbeat cadence persisted in the session | `requestPlatformHeartbeat`, `reconcileTablessWatchers`, `commitHeartbeatResult` | Session changes, `clearHeartbeatOwnership`, shutdown | `withHeartbeatLane`, then a transaction commit **without** the platform lock | `reconcileStartup` releases ownership on both hosts | Both |
+| Heartbeat lanes, watchers and publication leases (`heartbeatLanes`, `tablessWatchers`, private to `heartbeat.ts` since #586) | In memory, with the heartbeat cadence persisted in the session | `requestPlatformHeartbeat`, `reconcileTablessWatchers`, `commitHeartbeatResult` | Session changes, `clearHeartbeatOwnership`, shutdown | `withHeartbeatLane`, then a transaction commit **without** the platform lock | `reconcileStartup` releases ownership on both hosts | Both |
 | Discovery-signal controllers (`discoverySignalSlots`, one `ObserverSlot` per platform, gated by `lifecycleSlice.observersOpen`; a failed start is stopped and cleared, and the next tick starts a fresh observer) | In memory | `reconcileDiscoverySignalsAfterCommit` (from `runTick`, after its commit, against the committed state; a stop since the commit bumps the slot's epoch, so the observer backs off) | Auth transitions, tab removal, settings, reset, shutdown | None | Recreated by the next tick | Both, when the adapter provides a factory |
 | Auth health (`authHealth`; the service's refresh generations) | Health persisted, generations in memory | `probeAuthHealth`, `refreshAuthHealth`, `persistAuthHealth`, `invalidateAuthHealth` | A newer refresh generation | `persistAuthHealth` under the platform lock, then a transaction commit; dependents react from their commit hooks (#595) | Health reloaded, then re-probed | Both. Credentials come from cookies (extension) or the credential store (CLI) |
 | Manual watch (`manualWatch`, `manualWatchTabs`, `manualClosePause`, playback telemetry) | Persisted | `recordPlaybackTelemetry`, `handleTabUpdated`, `handleTabRemoved`, `resumeAfterManualClose` | Tab events, resume, TTL | Platform lock; dependents react from their commit hooks (#596) | Reloaded | Extension only; the CLI has no tabs |
@@ -428,9 +428,11 @@ controller as an English diagnostic, with no platform, and changes nothing else.
 
 Without `browserTabs`, the watch surface is derived rather than configured: the tick passes
 `watchTabs: false` in each platform's `PlatformTickCapabilities`, so the scheduler always watches
-tabless, and heartbeat failures never fall back to a tab. The scheduler's no-progress check still
-rotates a channel whose watch accrues nothing. The CLI accepts a config that sets `tablessMode`
-and ignores it with a warning.
+tabless, and heartbeat failures never fall back to a tab. Neither do a tabless-only supplemental
+session's (Twitch Extensions), on any host: the heartbeat coordinator owns both rules
+(`fallsBackToTab`), and the scheduler always watches such a session tabless. The scheduler's
+no-progress check still rotates a channel whose watch accrues nothing. The CLI accepts a config
+that sets `tablessMode` and ignores it with a warning.
 
 The job scheduler port is the only way the engine schedules work. `jobs.ts` documents its
 semantics, and both implementations keep them: a minimum period (`MIN_JOB_PERIOD_MINUTES`), ensure

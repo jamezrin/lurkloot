@@ -2,7 +2,7 @@ import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { EngineSettings, ManagedWatchTab, Platform, SchedulerState, WatchSession } from "@lurkloot/shared/models";
 import { isFarmingActive } from "@lurkloot/shared/settings";
 import { registerManagedPageContextTabs } from "../core/tabRegistry";
-import { ALARM_NAME, KICK_ALARM_NAME, PLATFORMS, TWITCH_ALARM_NAME, WATCH_ALARM_NAME } from "./constants";
+import { ALARM_NAME, KICK_ALARM_NAME, PLATFORMS, TWITCH_ALARM_NAME } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
 import { emitHostCallbackError, farmingLifecycleEvents } from "./helpers";
 import type { BackgroundHostPorts } from "./hostPorts";
@@ -77,6 +77,7 @@ export function createLifecycle<S extends EngineSettings>(
     | "abortKickChallengeClaims"
     | "abortTwitchChannelPointsClaims"
     | "cancelHeartbeatPublicationLeases"
+    | "ensureHeartbeatJob"
     | "clearHeartbeatOwnership"
     | "clearHeartbeatOwnershipInBackground"
     | "clearKickChallengeJobBestEffort"
@@ -122,6 +123,7 @@ export function createLifecycle<S extends EngineSettings>(
     abortKickChallengeClaims,
     abortTwitchChannelPointsClaims,
     cancelHeartbeatPublicationLeases,
+    ensureHeartbeatJob,
     clearHeartbeatOwnership,
     clearHeartbeatOwnershipInBackground,
     clearKickChallengeJobBestEffort,
@@ -175,7 +177,7 @@ export function createLifecycle<S extends EngineSettings>(
   async function ensureCadenceJobs(settings?: S): Promise<void> {
     const { pollIntervalMinutes } = settings ?? await ports.storage.loadSettings();
     await ensureSchedulerAlarms(pollIntervalMinutes);
-    await ports.jobs.ensure(WATCH_ALARM_NAME, { periodInMinutes: 1 });
+    await ensureHeartbeatJob();
   }
 
   // Re-anchors the tick jobs after a settings commit, with no lock held.

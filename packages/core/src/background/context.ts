@@ -2,14 +2,12 @@ import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/
 import { ObserverSlot } from "./observerSlot";
 import type { EngineEvent } from "@lurkloot/shared/events";
 import type { TwitchIntegrity } from "../core/twitchIntegrity";
-import type { TablessWatchController } from "../core/tablessWatch";
 import { createTabRegistry, type TabRegistry } from "../core/tabRegistry";
 import type { DiscoverySignalController } from "../core/discoverySignals";
 import { DiscoverySnapshotLane } from "../core/discoverySnapshot";
 import type {
   CommittedSelection,
   DiscoverySignalRefreshRequest,
-  HeartbeatLane,
   PlatformTickResult,
   SelectionInput,
   TickAdapterHandle,
@@ -43,24 +41,6 @@ export function createReportingSlice(): ReportingSlice {
     controllerRunAnnouncement: undefined,
     reportedCompatibility: new Map<Platform, string>(),
     reportedCompatibilityWarnings: new Set<string>(),
-  };
-}
-
-export interface HeartbeatSlice {
-  // Persistent tabless watchers, one per platform, kept alive across discovery
-  // ticks (the WebSocket-based Kick watcher in particular must not be recreated
-  // each tick). Reconciled against the scheduler's per-platform session state.
-  readonly tablessWatchers: Map<Platform, TablessWatchController>;
-  readonly heartbeatLanes: Record<Platform, HeartbeatLane>;
-}
-
-export function createHeartbeatSlice(): HeartbeatSlice {
-  return {
-    tablessWatchers: new Map<Platform, TablessWatchController>(),
-    heartbeatLanes: {
-      twitch: { mutation: Promise.resolve(), revision: 0, coalescedWithoutAttempt: 0 },
-      kick: { mutation: Promise.resolve(), revision: 0, coalescedWithoutAttempt: 0 },
-    },
   };
 }
 
@@ -191,7 +171,6 @@ export function createTabRegistrySlice(hostRegistry: TabRegistry | undefined): T
 
 export interface ControllerSlices<S extends EngineSettings> {
   reportingSlice: ReportingSlice;
-  heartbeatSlice: HeartbeatSlice;
   signalSlice: DiscoverySignalSlice;
   discoverySlice: DiscoverySlice<S>;
   tickSlice: TickAdmissionSlice;

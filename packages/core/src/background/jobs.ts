@@ -1,11 +1,8 @@
 import type { Platform } from "@lurkloot/shared/models";
-import {
-  KICK_ALARM_NAME,
-  TWITCH_ALARM_NAME,
-  WATCH_ALARM_NAME,
-} from "./constants";
+import { KICK_ALARM_NAME, TWITCH_ALARM_NAME } from "./constants";
 import { TWITCH_CHANNEL_POINTS_JOBS } from "./channelPoints";
 import { DROP_CLAIM_JOBS } from "./claimService";
+import { HEARTBEAT_JOBS } from "./heartbeat";
 import { KICK_RUNTIME_JOBS } from "./kickRuntime";
 import type { HostCapabilities } from "./hostPorts";
 import { TWITCH_INTEGRITY_JOBS } from "./twitchIntegrity";
@@ -67,7 +64,7 @@ export interface BackgroundJob {
 export const BACKGROUND_JOBS: Readonly<Record<string, BackgroundJob>> = {
   [TWITCH_ALARM_NAME]: { run: (runner) => runner.tickAndHandOff(["twitch"], "alarm") },
   [KICK_ALARM_NAME]: { run: (runner) => runner.tickAndHandOff(["kick"], "alarm") },
-  [WATCH_ALARM_NAME]: { run: (runner) => runner.runWatchHeartbeat() },
+  ...HEARTBEAT_JOBS,
   ...TWITCH_CHANNEL_POINTS_JOBS,
   ...DROP_CLAIM_JOBS,
   ...KICK_RUNTIME_JOBS,

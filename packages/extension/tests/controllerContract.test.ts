@@ -505,6 +505,39 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
       }
       host.controller.shutdown();
     });
+
+    // A tabless-only supplemental session (Twitch Extensions, #541/#556) never
+    // falls back to a tab, whatever its failure count (#586).
+    it.runIf(capabilities.declared.supplementalSources)("keeps a tabless-only supplemental watch tabless when heartbeats keep failing", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      const host = contractHost(capabilities, { settings: twitchOnly({ tablessMode: false, tablessFallbackFailureLimit: 1 }) });
+      vi.mocked(host.adapters.twitch.refreshCampaigns).mockResolvedValue([]);
+      vi.mocked(host.deps.selectSupplementalWatchTarget!).mockResolvedValue({
+        id: "nopixel",
+        tablessOnly: true,
+        channel: { ...contractChannel("twitch"), campaignId: undefined, live: true },
+      });
+      const watcher = new FailingWatcher("twitch");
+      host.adapters.twitch.createTablessWatcher = () => watcher;
+      await host.controller.tickAndHandOff(["twitch"], "alarm");
+      expect(host.storage.state.sessions.twitch).toMatchObject({ watchMode: "tabless", supplementalWatch: { tablessOnly: true } });
+
+      for (let failure = 1; failure <= 3; failure += 1) {
+        vi.setSystemTime(Date.now() + 60_000);
+        await host.fire(WATCH_ALARM_NAME);
+        await host.controller.settleBackgroundWork();
+        expect(host.storage.state.sessions.twitch).toMatchObject({ watchMode: "tabless", heartbeatChecks: failure });
+        // A poll tick past the limit keeps it tabless too.
+        await host.controller.tickAndHandOff(["twitch"], "alarm");
+      }
+
+      expect(watcher.ticks).toBe(3);
+      expect(host.storage.state.sessions.twitch).toMatchObject({ status: "watching", watchMode: "tabless" });
+      expect(host.deps.openWatchTab).not.toHaveBeenCalled();
+      expect(host.reported.some((event) =>
+        event.category === "diagnostic" && event.message === "Tabless watch heartbeat keeps failing; falling back to a watch tab")).toBe(false);
+      host.controller.shutdown();
+    });
   });
 
   // The extension's real tab ports, run against a fake browser (#598). Every
