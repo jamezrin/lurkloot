@@ -1,4 +1,4 @@
-import type { EngineSettings, Platform, SchedulerState, WatchSession, WatchSourceId } from "@lurkloot/shared/models";
+import type { EngineSettings, Platform, SchedulerState, WatchSession } from "@lurkloot/shared/models";
 import type { EngineEvent, EventEmitter } from "@lurkloot/shared/events";
 import { isFarmingActive } from "@lurkloot/shared/settings";
 import type { SchedulerTickResult, SelectionView, SnapshotSelectionResult } from "../core/scheduler";
@@ -51,6 +51,8 @@ export function createTickRun<S extends EngineSettings>(
     | "releaseRewardClaims"
     | "registerKickRuntimeEffects"
     | "registerRewardClaimEffects"
+    | "registerSupplementalTargetEffects"
+    | "registerWatchTabEffectHandlers"
     | "registerTwitchChannelPointsEffects"
     | "refreshAuthHealth"
     | "refreshDiscovery"
@@ -93,6 +95,8 @@ export function createTickRun<S extends EngineSettings>(
     releaseRewardClaims,
     registerKickRuntimeEffects,
     registerRewardClaimEffects,
+    registerSupplementalTargetEffects,
+    registerWatchTabEffectHandlers,
     registerTwitchChannelPointsEffects,
     refreshAuthHealth,
     refreshDiscovery,
@@ -113,14 +117,15 @@ export function createTickRun<S extends EngineSettings>(
     withEventCollector,
     withStateLock,
   } = lateBound(calls);
-  const supplementalSources = ports.twitch.supplementalSources;
   // One executor per controller: each scheduler effect type has one handler,
   // the interim ones plus those of the services that own theirs. Built on first
   // use, once every module's calls are bound.
   let tickEffectExecutor: TickEffectExecutor | undefined;
   const tickEffects = (): TickEffectExecutor =>
     tickEffectExecutor ??= registerRewardClaimEffects(
-      registerKickRuntimeEffects(registerTwitchChannelPointsEffects(createTickEffectExecutor())),
+      registerKickRuntimeEffects(registerTwitchChannelPointsEffects(
+        registerSupplementalTargetEffects(registerWatchTabEffectHandlers(createTickEffectExecutor())),
+      )),
     );
 
   async function tickPlatform(
@@ -379,15 +384,9 @@ export function createTickRun<S extends EngineSettings>(
       // every lock body: nothing the tick asks for may wait on one.
       const effectContext = {
         adapters,
+        settings,
         tabRegistry,
         heldRewardClaims,
-        watchTabs: ports.tabs?.watch,
-        selectSupplementalTarget: supplementalSources
-          ? (supplementalPlatform: Platform, selectedState: SchedulerState, selectedSignal: AbortSignal | undefined, source: WatchSourceId) =>
-            supplementalPlatform === "twitch"
-              ? supplementalSources.select(selectedState, settings, selectedSignal, source)
-              : Promise.resolve(undefined)
-          : undefined,
       };
       const eventsBeforeTick = events.length;
       let result: SchedulerTickResult | undefined;
@@ -400,7 +399,7 @@ export function createTickRun<S extends EngineSettings>(
             state,
             settings,
             platforms: schedulerPlatforms,
-            supplementalSources: supplementalSources !== undefined,
+            supplementalSources: ports.capabilities.supplementalSources,
             waitingClaimRewardIds: nextWaitingClaimRewardIds,
             emit: claimObservingEmit,
             signal,

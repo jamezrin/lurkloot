@@ -117,8 +117,10 @@ which now read `<slice>.<field>`.
 - `hostPorts.ts` and `jobs.ts` (#593) are the host contract: the grouped ports and declared
   capabilities every module takes instead of flat deps, and the job scheduler port with the job
   table. See "Host ports and jobs" below.
-- `tickEffects.ts` and `tickCommit.ts` (#599) are the scheduler tick's effect executor with its
-  interim handlers, and the tick's three-way commit. See "Scheduler tick effects" below.
+- `tickEffects.ts` and `tickCommit.ts` (#599) are the scheduler tick's effect executor, which the
+  owning services fill, and the tick's three-way commit. See "Scheduler tick effects" below.
+- `supplementalSources.ts` (#591) owns the supplemental-sources port and registers the
+  `selectSupplementalTarget` handler, so the tick never touches that Twitch-only port.
 
 The per-module slices and calls below are where #591's dependency check starts:
 
@@ -135,7 +137,8 @@ The per-module slices and calls below are where #591's dependency check starts:
 | `channelPoints.ts` | its own push slot, claim gate and push-claim queue (#590), `tickSlice`, `lifecycleSlice`, a commit hook | `reporting`, `stateCommit` | 10 |
 | `kickRuntime.ts` | its own challenge claim gate, claim operations and job reschedule queue (#588), `lifecycleSlice` | `reporting`, `stateCommit` | 9 |
 | `authHealth.ts` | its own refresh generations (#595), `discoverySlice` | `discovery`, `discoverySignals`, `reporting`, `stateCommit` | 5 |
-| `manualWatch.ts` | `lifecycleSlice` | `discovery`, `reporting`, `stateCommit` | 6 |
+| `manualWatch.ts` | the watch-tab effect handlers (#591), `lifecycleSlice` | `discovery`, `reporting`, `stateCommit` | 7 |
+| `supplementalSources.ts` | the supplemental target effect handler (#591) | none | 1 |
 | `claimService.ts` | its own handoffs, waiting reward ids, drop-claim operations, reward claim guards and job reschedule queue (#597), `lifecycleSlice` | `heartbeat`, `lifecycle`, `reporting`, `stateCommit`, `tickAdmission` | 12 |
 | `discoverySignals.ts` | `signalSlice`, `tickSlice`, `lifecycleSlice`, a commit hook | `reporting`, `tickAdmission` | 9 |
 | `settingsTransitions.ts` | the transaction, `discoverySlice` | `channelPoints`, `claimService`, `discovery`, `kickRuntime`, `lifecycle`, `stateCommit`, `tickAdmission` | 2 |
@@ -307,14 +310,14 @@ view of the discovery snapshot to select channels from (`selectionAdapterFromDis
 and declared capabilities (tabless, Kick challenges, channel points). It never calls an adapter, a
 port or the tab module. Each side effect it needs is yielded as a typed `SchedulerEffect`:
 
-| Effect | Interim handler (`background/tickEffects.ts`) | Final owner |
-| --- | --- | --- |
-| `claimRewards` | none: the claim service's own handler (`registerRewardClaimEffect`), which runs `claimReadyRewards` (`core/rewardClaims.ts`) with the `RewardClaimGuard`s it shares with the drop-claim job and manual claims | #597 (done) |
-| `claimChannelPoints` | none: the channel-points service's own handler (`registerChannelPointsClaimEffect`) | #590 (done) |
-| `claimChallenges` | none: the Kick runtime's own handler (`registerKickRuntimeEffects`), which shares its `KickChallengeClaimGate` with the job | #588 (done) |
-| `openWatchTab`, `stopWatchTab` | the host's `WatchTabPort` (`tabs.watch.open` / `stop`). Without it, opening throws and stopping does nothing | #587 |
-| `releasePageContexts` | none: the Kick runtime's own handler, which calls the host's `PageContextPort` (`tabs.pageContexts.release`), or only forgets the contexts without one | #588 (done) |
-| `selectSupplementalTarget` | the Twitch Extensions host's `select` | #587 |
+| Effect | Owner and handler |
+| --- | --- |
+| `claimRewards` | The claim service (#597): `registerRewardClaimEffect`, which runs `claimReadyRewards` (`core/rewardClaims.ts`) with the `RewardClaimGuard`s it shares with the drop-claim job and manual claims |
+| `claimChannelPoints` | The channel-points service (#590): `registerChannelPointsClaimEffect` |
+| `claimChallenges` | The Kick runtime (#588): `registerKickRuntimeEffects`, which shares its `KickChallengeClaimGate` with the job |
+| `openWatchTab`, `stopWatchTab` | Manual watch (#591): `registerWatchTabEffects`, through the host's `WatchTabPort` (`tabs.watch.open` / `stop`). Without the port, opening throws and stopping does nothing |
+| `releasePageContexts` | The Kick runtime (#588): through the host's `PageContextPort` (`tabs.pageContexts.release`), or only forgetting the contexts without one |
+| `selectSupplementalTarget` | `supplementalSources.ts` (#591): `registerSupplementalTargetEffect`, through the host's supplemental-sources port, for Twitch only |
 
 The yielded effects in order are the tick's plan. It is produced incrementally rather than returned
 at once, because later decisions depend on earlier results. A claim can satisfy the next reward's
@@ -322,8 +325,9 @@ precondition, which the same tick then selects. A new tab is closed again if the
 stale while it opened. A failed effect is thrown back at its `yield`, so the tick's own `catch`
 still decides what it means: an authentication error suspends the platform and a watch-tab failure
 is a `platform_error` with backoff. `EffectExecutor` (`core/effectExecutor.ts`) maps each effect
-type to exactly one handler and throws when a second one registers. An owner issue replaces the
-interim registration with its service's handler; the tick itself never changes.
+type to exactly one handler and throws when a second one registers. `createTickEffectExecutor`
+starts empty: each owning service registers its handlers, binding the host ports they use, and the
+tick composes them once per controller. No interim handler remains (#591).
 `runSchedulerTickEffects` drives the platforms in order, running each yielded effect through the
 executor, and mirrors the page contexts and managed-tab breaker of the controller's tab registry around them. The deciding
 code never touches either.

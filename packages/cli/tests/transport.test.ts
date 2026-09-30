@@ -1,7 +1,9 @@
+import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createTransport } from "../src/transport";
 import { withHeartbeatTimeout } from "../src/transport/common";
-import { createTickEffectExecutor } from "@lurkloot/core/background/tickEffects";
+import { createTickEffectExecutor as createEmptyTickEffectExecutor } from "@lurkloot/core/background/tickEffects";
+import { registerWatchTabEffects } from "@lurkloot/core/background/manualWatch";
 import { createTabRegistry } from "@lurkloot/core/tabRegistry";
 import { DEFAULT_ENGINE_SETTINGS } from "@lurkloot/shared/settings";
 import type { DropCampaign, DropReward } from "@lurkloot/shared/models";
@@ -301,7 +303,9 @@ describe("createTransport", () => {
 // (#598). The scheduler never asks for a tab there, so opening one is a broken
 // invariant that fails loudly, and stopping one is a harmless no-op.
 describe("watch tabs without the browserTabs capability", () => {
-  const context = { adapters: {}, tabRegistry: createTabRegistry(), emit: () => undefined };
+  const context = { adapters: {}, settings: DEFAULT_SETTINGS, tabRegistry: createTabRegistry(), emit: () => undefined };
+  // Manual watch owns the watch-tab effects (#591); the CLI registers them with no port.
+  const createTickEffectExecutor = () => registerWatchTabEffects(createEmptyTickEffectExecutor(), undefined);
 
   it("fails loudly when asked to open a watch tab", async () => {
     await expect(createTickEffectExecutor().run({

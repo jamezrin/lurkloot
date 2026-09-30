@@ -398,6 +398,10 @@ export interface ControllerCalls<S extends EngineSettings> {
   ): Promise<void>;
   handleTabUpdated(tabId: number, url: string): Promise<void>;
   applyAdFocusForState(state: SchedulerState, emit: EventEmitter, platforms?: readonly Platform[]): Promise<void>;
+  registerWatchTabEffectHandlers(executor: TickEffectExecutor): TickEffectExecutor;
+
+  // supplementalSources.ts
+  registerSupplementalTargetEffects(executor: TickEffectExecutor): TickEffectExecutor;
   getPlaybackControl(
     message: Extract<CoreRuntimeMessage, { type: "getPlaybackControl" }>,
     senderTabId?: number,
