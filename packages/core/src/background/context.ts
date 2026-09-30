@@ -2,15 +2,12 @@ import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/
 import { ObserverSlot } from "./observerSlot";
 import type { EngineEvent } from "@lurkloot/shared/events";
 import type { TwitchIntegrity } from "../core/twitchIntegrity";
-import type { TablessWatchController } from "../core/tablessWatch";
 import { createTabRegistry, type TabRegistry } from "../core/tabRegistry";
 import type { DiscoverySignalController } from "../core/discoverySignals";
 import { DiscoverySnapshotLane } from "../core/discoverySnapshot";
-import { createRewardClaimGuard, type RewardClaimGuard } from "../core/rewardClaims";
 import type {
   CommittedSelection,
   DiscoverySignalRefreshRequest,
-  HeartbeatLane,
   PlatformTickResult,
   SelectionInput,
   TickAdapterHandle,
@@ -44,128 +41,6 @@ export function createReportingSlice(): ReportingSlice {
     controllerRunAnnouncement: undefined,
     reportedCompatibility: new Map<Platform, string>(),
     reportedCompatibilityWarnings: new Set<string>(),
-  };
-}
-
-export interface HeartbeatSlice {
-  // Persistent tabless watchers, one per platform, kept alive across discovery
-  // ticks (the WebSocket-based Kick watcher in particular must not be recreated
-  // each tick). Reconciled against the scheduler's per-platform session state.
-  readonly tablessWatchers: Map<Platform, TablessWatchController>;
-  readonly heartbeatLanes: Record<Platform, HeartbeatLane>;
-}
-
-export function createHeartbeatSlice(): HeartbeatSlice {
-  return {
-    tablessWatchers: new Map<Platform, TablessWatchController>(),
-    heartbeatLanes: {
-      twitch: { mutation: Promise.resolve(), revision: 0, coalescedWithoutAttempt: 0 },
-      kick: { mutation: Promise.resolve(), revision: 0, coalescedWithoutAttempt: 0 },
-    },
-  };
-}
-
-export interface TwitchIntegritySlice {
-  twitchIntegrityAlarmMutation: Promise<unknown>;
-  integrityRefreshAbort: AbortController | undefined;
-  integrityLifecycleGeneration: number;
-  integrityLifecycleOpen: boolean;
-  installedTwitchIntegrity: TwitchIntegrity | undefined;
-  persistedIntegrityToken: string | undefined;
-  // A missing rejectedToken means there was no usable bundle when the refresh
-  // became due. Keeping the wrapper object distinguishes that from "not due."
-  twitchIntegrityRefreshDue: { rejectedToken?: string } | undefined;
-  // The startup load of the stored integrity token. createBackgroundController
-  // starts it once every module exists.
-  initialTwitchIntegrityLoad: Promise<void>;
-}
-
-export function createTwitchIntegritySlice(): TwitchIntegritySlice {
-  return {
-    twitchIntegrityAlarmMutation: Promise.resolve(),
-    integrityRefreshAbort: undefined,
-    integrityLifecycleGeneration: 0,
-    integrityLifecycleOpen: true,
-    installedTwitchIntegrity: undefined,
-    persistedIntegrityToken: undefined,
-    twitchIntegrityRefreshDue: undefined,
-    // Replaced by createBackgroundController once every module exists.
-    initialTwitchIntegrityLoad: Promise.resolve(),
-  };
-}
-
-export interface KickChallengeSlice {
-  readonly kickChallengeClaimOperations: Set<AbortController>;
-  // A Kick challenge claim request is running, from the tick or the job.
-  kickChallengeClaimRunning: boolean;
-}
-
-export function createKickChallengeSlice(): KickChallengeSlice {
-  return {
-    kickChallengeClaimOperations: new Set<AbortController>(),
-    kickChallengeClaimRunning: false,
-  };
-}
-
-// Runs `claim` unless a claim of the same kind is already running, which
-// `slot` records; `skipped` is the result when it is.
-export async function claimExclusively<K extends string, T>(
-  slot: Record<K, boolean>,
-  key: K,
-  skipped: T,
-  claim: () => Promise<T>,
-): Promise<T> {
-  if (slot[key]) return skipped;
-  slot[key] = true;
-  try {
-    return await claim();
-  } finally {
-    slot[key] = false;
-  }
-}
-
-export interface AuthHealthSlice {
-  readonly authRefreshGeneration: Record<Platform, number>;
-}
-
-export function createAuthHealthSlice(): AuthHealthSlice {
-  return {
-    authRefreshGeneration: {
-      twitch: 0,
-      kick: 0,
-    },
-  };
-}
-
-export interface ClaimSlice {
-  // In-flight post-claim handoffs, one per platform. A claim arriving while a
-  // handoff is already running for that platform is absorbed by the running
-  // loop rather than starting a second one, which is what keeps the work
-  // bounded. Per-controller, unlike the storage lock: these loops coordinate
-  // only with each other.
-  readonly claimHandoffs: Map<Platform, AbortController>;
-  readonly waitingClaimRewardIds: Record<Platform, Set<string>>;
-  readonly dropClaimOperations: Record<Platform, Set<AbortController>>;
-  // One claim request per reward at a time, across the tick, the drop-claim
-  // job and manual claims.
-  readonly rewardClaimGuards: Record<Platform, RewardClaimGuard>;
-}
-
-export function createClaimSlice(): ClaimSlice {
-  return {
-    claimHandoffs: new Map<Platform, AbortController>(),
-    waitingClaimRewardIds: {
-      twitch: new Set<string>(),
-      kick: new Set<string>(),
-    },
-    dropClaimOperations: {
-      twitch: new Set<AbortController>(),
-      kick: new Set<AbortController>(),
-    },
-    rewardClaimGuards: {
-      twitch: createRewardClaimGuard(),
-      kick: createRewardClaimGuard(),
-    },
   };
 }
 
@@ -264,13 +139,11 @@ export function createTickAdmissionSlice(): TickAdmissionSlice {
 
 export interface SettingsSlice {
   twitchSettingsTransitionGeneration: number;
-  lastPersistedTwitchEnabled: boolean | undefined;
 }
 
 export function createSettingsSlice(): SettingsSlice {
   return {
     twitchSettingsTransitionGeneration: 0,
-    lastPersistedTwitchEnabled: undefined,
   };
 }
 
@@ -298,11 +171,6 @@ export function createTabRegistrySlice(hostRegistry: TabRegistry | undefined): T
 
 export interface ControllerSlices<S extends EngineSettings> {
   reportingSlice: ReportingSlice;
-  heartbeatSlice: HeartbeatSlice;
-  integritySlice: TwitchIntegritySlice;
-  kickChallengeSlice: KickChallengeSlice;
-  authSlice: AuthHealthSlice;
-  claimSlice: ClaimSlice;
   signalSlice: DiscoverySignalSlice;
   discoverySlice: DiscoverySlice<S>;
   tickSlice: TickAdmissionSlice;

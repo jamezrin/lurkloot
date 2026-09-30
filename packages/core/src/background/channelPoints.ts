@@ -1,14 +1,14 @@
 import type { ChannelCandidate, EngineSettings, SchedulerState } from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import { autoClaimChannelPointsFor } from "@lurkloot/shared/settings";
-import { MANUAL_WATCH_TTL_MS } from "../core/scheduler";
-import { isTimestampStale } from "../core/timestamps";
+import { pausedForManualWatch, recentManualWatch } from "../core/manualWatch";
 import type { PlatformAdapter } from "../platforms/adapter";
 import type { TwitchChannelPointsClaimNotice, TwitchChannelPointsPushController } from "../platforms/twitch/channelPointsPush";
 import { TWITCH_CHANNEL_POINTS_ALARM_NAME } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
 import { emitHostCallbackError } from "./helpers";
 import type { BackgroundHostPorts } from "./hostPorts";
+import type { StateTransaction } from "./stateTransaction";
 import type { BackgroundJob } from "./jobs";
 import { ObserverSlot } from "./observerSlot";
 import type { TickEffectExecutor } from "./tickEffects";
@@ -19,12 +19,8 @@ function eligibleTwitchChannelPointsChannel(
   state: SchedulerState,
   now = Date.now(),
 ): ChannelCandidate | undefined {
-  const manualWatch = state.manualWatch?.twitch;
-  const recentManualWatch = settings.pauseOnManualWatch
-    && manualWatch?.active
-    && !isTimestampStale(manualWatch.checkedAt, MANUAL_WATCH_TTL_MS, now);
-  if (recentManualWatch) {
-    return manualWatch.channel;
+  if (pausedForManualWatch(settings, state, "twitch", now)) {
+    return recentManualWatch(state, "twitch", now)?.channel;
   }
   const session = state.sessions.twitch;
   return session.status === "watching" ? session.channel : undefined;
@@ -76,19 +72,17 @@ export function registerChannelPointsClaimEffect(
   });
 }
 
-// The one-minute job. On a host without the capability it is inert, and
-// channel points are claimed by the tick at poll cadence.
+// The one-minute job, on every host: the CLI runs it too since #590, so it no
+// longer claims only at poll cadence.
 export const TWITCH_CHANNEL_POINTS_JOBS: Readonly<Record<string, BackgroundJob>> = {
-  [TWITCH_CHANNEL_POINTS_ALARM_NAME]: {
-    run: (runner) => runner.runTwitchChannelPointsClaim(),
-    requires: "twitchChannelPointsJob",
-  },
+  [TWITCH_CHANNEL_POINTS_ALARM_NAME]: { run: (runner) => runner.runTwitchChannelPointsClaim() },
 };
 
 // Twitch channel points (#590): the push observer, its claim queue, the claim
 // effect and the one-minute job. Their state is this service's own.
 export function createChannelPoints<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
+  transaction: Pick<StateTransaction<S>, "onCommit">,
   { tickSlice, lifecycleSlice }: Pick<ControllerSlices<S>, "tickSlice" | "lifecycleSlice">,
   calls: Pick<ControllerCalls<S>,
     | "createAdapter"
@@ -97,6 +91,8 @@ export function createChannelPoints<S extends EngineSettings>(
     | "withEventCollector"
   >,
 ): Pick<ControllerCalls<S>,
+  | "abortTwitchChannelPointsClaims"
+  | "abortIneligibleTwitchChannelPointsClaims"
   | "clearTwitchChannelPointsAlarmBestEffort"
   | "reconcileTwitchChannelPointsAlarm"
   | "rescheduleTwitchChannelPointsJob"
@@ -118,7 +114,52 @@ export function createChannelPoints<S extends EngineSettings>(
   const pushClaimsInFlight = new Set<string>();
   // Push claims run one after another, in the order their notices arrived.
   let pushClaimQueue: Promise<void> = Promise.resolve();
+  // The job's and the push's claim requests in flight. Disable, auth loss,
+  // reset and shutdown abort them (#590); the tick's claim follows the tick's
+  // own signal.
+  const claimOperations = new Set<AbortController>();
   let jobReschedule: Promise<void> = Promise.resolve();
+
+  function abortTwitchChannelPointsClaims(reason: string): void {
+    for (const operation of claimOperations) operation.abort(new Error(reason));
+  }
+
+  // After a commit that leaves Twitch auth unhealthy (#595): logout, a
+  // rejected or unavailable probe, an account change being checked. The hook
+  // acts on the commit it observes even when auth was restored since, so an
+  // account change always ends the old viewer's work; a push restarted in
+  // between is started again by the next reconcile. Claims are aborted before
+  // any await.
+  transaction.onCommit(async (change) => {
+    if (change.kind !== "state" || !change.platforms.includes("twitch")) return;
+    if (change.state.authHealth.twitch.status === "healthy") return;
+    abortTwitchChannelPointsClaims("Twitch authentication lost");
+    await stopTwitchChannelPointsPushAndReport();
+  });
+
+  function abortIneligibleTwitchChannelPointsClaims(settings: EngineSettings, reason: string): void {
+    if (settings.platform.twitch.enabled && autoClaimChannelPointsFor(settings, "twitch")) return;
+    abortTwitchChannelPointsClaims(reason);
+  }
+
+  // Runs one job or push claim under its own abort controller. An aborted
+  // claim ends quietly, like the other claim jobs.
+  async function runClaimOperation(
+    emit: EventEmitter,
+    channel: ChannelCandidate,
+    claim: (signal: AbortSignal) => Promise<boolean>,
+  ): Promise<void> {
+    const operation = new AbortController();
+    claimOperations.add(operation);
+    try {
+      emitClaimResult(emit, channel, await claim(operation.signal));
+    } catch (error) {
+      if (operation.signal.aborted) return;
+      emitClaimFailure(emit, error);
+    } finally {
+      claimOperations.delete(operation);
+    }
+  }
 
   function observersOpen(): boolean {
     return lifecycleSlice.observersOpen && !lifecycleSlice.controllerShutdown;
@@ -335,16 +376,15 @@ export function createChannelPoints<S extends EngineSettings>(
     if (!channel) return;
     if (channel.channelId !== undefined && channel.channelId !== notice.channelId) return;
     if (!pushClaimsInFlight.has(notice.claimId)) return;
-    try {
+    await runClaimOperation(emit, channel, async (signal) => await claims.afterRunning(async () => {
+      signal.throwIfAborted();
       const adapter = createAdapter("twitch", settings, emit, true);
-      emitClaimResult(emit, channel, await claims.afterRunning(async () =>
-        await adapter.claimChannelPoints?.(channel, {
-          claimId: notice.claimId,
-          channelId: notice.channelId,
-        }) ?? false));
-    } catch (error) {
-      emitClaimFailure(emit, error);
-    }
+      return await adapter.claimChannelPoints?.(channel, {
+        claimId: notice.claimId,
+        channelId: notice.channelId,
+        signal,
+      }) ?? false;
+    }));
   }
 
   // The one-minute job. It takes no lock: a tick or push claim already running
@@ -365,11 +405,11 @@ export function createChannelPoints<S extends EngineSettings>(
       const channel = eligibleTwitchChannelPointsChannel(settings, state);
       if (!channel) return;
       try {
-        const adapter = createAdapter("twitch", settings, emit, true);
-        emitClaimResult(emit, channel, await claims.unlessRunning(async () =>
-          await adapter.claimChannelPoints?.(channel) ?? false));
-      } catch (error) {
-        emitClaimFailure(emit, error);
+        await runClaimOperation(emit, channel, async (signal) => {
+          const adapter = createAdapter("twitch", settings, emit, true);
+          return await claims.unlessRunning(async () =>
+            await adapter.claimChannelPoints?.(channel, { signal }) ?? false);
+        });
       } finally {
         await reportBestEffort(events);
       }
@@ -381,6 +421,8 @@ export function createChannelPoints<S extends EngineSettings>(
   }
 
   return {
+    abortTwitchChannelPointsClaims,
+    abortIneligibleTwitchChannelPointsClaims,
     clearTwitchChannelPointsAlarmBestEffort,
     reconcileTwitchChannelPointsAlarm,
     rescheduleTwitchChannelPointsJob,

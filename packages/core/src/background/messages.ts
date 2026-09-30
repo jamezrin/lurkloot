@@ -1,6 +1,6 @@
 import type { CategorySearchResult, CoreRuntimeMessage, PlaybackControl, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { EngineSettings } from "@lurkloot/shared/models";
-import { IDLE_WATCHLIST_LIMIT, isFarmingActive } from "@lurkloot/shared/settings";
+import { IDLE_WATCHLIST_LIMIT, isFarmingActive, type SettingsPatch } from "@lurkloot/shared/settings";
 import { syncManagedTabBreakers } from "../core/tabRegistry";
 import { dismissCriticalFailure } from "../core/criticalHealth";
 import type { PlatformAdapter } from "../platforms/adapter";
@@ -12,9 +12,8 @@ import type { ControllerCalls } from "./types";
 // Runtime message handling.
 export function createMessageHandler<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
-  { integritySlice, signalSlice, tickSlice, settingsSlice, lifecycleSlice, tabRegistry }: Pick<ControllerSlices<S>,
+  { signalSlice, tickSlice, settingsSlice, lifecycleSlice, tabRegistry }: Pick<ControllerSlices<S>,
     | "tabRegistry"
-    | "integritySlice"
     | "signalSlice"
     | "tickSlice"
     | "settingsSlice"
@@ -23,17 +22,13 @@ export function createMessageHandler<S extends EngineSettings>(
   calls: Pick<ControllerCalls<S>,
     | "abortClaimHandoffs"
     | "claimRewardNow"
-    | "clearTwitchIntegrityAlarmBestEffort"
-    | "closeTwitchIntegrityLifecycle"
     | "createAdapters"
     | "diagnosticEvent"
     | "getPlaybackControl"
     | "markPlatformsStarting"
     | "persistAndReport"
-    | "reconcileTwitchIntegrityLifecycle"
     | "recordPlaybackTelemetry"
     | "reportBestEffort"
-    | "restoreTwitchIntegritySchedule"
     | "resumeAfterManualClose"
     | "snapshot"
     | "stopDiscoverySignalControllersAndReport"
@@ -47,17 +42,13 @@ export function createMessageHandler<S extends EngineSettings>(
   const {
     abortClaimHandoffs,
     claimRewardNow,
-    clearTwitchIntegrityAlarmBestEffort,
-    closeTwitchIntegrityLifecycle,
     createAdapters,
     diagnosticEvent,
     getPlaybackControl,
     markPlatformsStarting,
     persistAndReport,
-    reconcileTwitchIntegrityLifecycle,
     recordPlaybackTelemetry,
     reportBestEffort,
-    restoreTwitchIntegritySchedule,
     resumeAfterManualClose,
     snapshot,
     stopDiscoverySignalControllersAndReport,
@@ -107,58 +98,16 @@ export function createMessageHandler<S extends EngineSettings>(
       const twitchTransitionIsCurrent = (): boolean =>
         !lifecycleSlice.controllerShutdown
         && twitchTransitionGeneration === settingsSlice.twitchSettingsTransitionGeneration;
-      const twitchLifecycleOpenBeforeTransition = message.platform === "twitch"
-        ? integritySlice.integrityLifecycleOpen
-        : undefined;
-      let twitchSettingsLoaded = false;
-      const stoppingTwitch = message.platform === "twitch" && !message.enabled;
-      if (stoppingTwitch) closeTwitchIntegrityLifecycle("Twitch disabled");
-      try {
-        await commitSettings(() => ({
-          platform: {
-            [message.platform]: {
-              enabled: message.enabled,
-            },
-          },
-        }), message.platform === "twitch"
-          ? {
-              afterLoad: (settings) => {
-                twitchSettingsLoaded = true;
-                settingsSlice.lastPersistedTwitchEnabled = settings.platform.twitch.enabled;
-              },
-              afterPersist: (settings) => {
-                settingsSlice.lastPersistedTwitchEnabled = settings.platform.twitch.enabled;
-                if (twitchTransitionIsCurrent()) {
-                  reconcileTwitchIntegrityLifecycle(settings.platform.twitch.enabled);
-                }
-              },
-            }
-          : undefined);
-      } catch (error) {
-        if (message.platform === "twitch" && twitchTransitionIsCurrent()) {
-          const rollbackEnabled = twitchSettingsLoaded
-            ? settingsSlice.lastPersistedTwitchEnabled
-            : twitchLifecycleOpenBeforeTransition;
-          reconcileTwitchIntegrityLifecycle(rollbackEnabled);
-          if (stoppingTwitch && rollbackEnabled === true) {
-            await restoreTwitchIntegritySchedule(twitchTransitionIsCurrent);
-          }
-        }
-        throw error;
-      }
+      // Twitch integrity follows the committed setting on its own (#589): the
+      // commit cancels a mint in flight when it disables Twitch, and the
+      // integrity service reconciles its lifecycle and schedule after it.
+      const patch: SettingsPatch = { platform: { [message.platform]: { enabled: message.enabled } } };
+      await commitSettings(() => patch, { intent: patch });
       signalSlice.discoverySignalPlatformBlocked[message.platform] = !message.enabled;
       if (!message.enabled) {
         await stopDiscoverySignalControllersAndReport([message.platform]);
       }
-      if (message.platform === "twitch") {
-        if (!twitchTransitionIsCurrent()) return snapshot();
-        if (message.enabled) {
-          await restoreTwitchIntegritySchedule(twitchTransitionIsCurrent);
-        } else {
-          await clearTwitchIntegrityAlarmBestEffort();
-        }
-        if (!twitchTransitionIsCurrent()) return snapshot();
-      }
+      if (message.platform === "twitch" && !twitchTransitionIsCurrent()) return snapshot();
       if (message.enabled) {
         await markPlatformsStarting(
           [message.platform],

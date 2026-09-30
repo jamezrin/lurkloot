@@ -104,6 +104,10 @@ export type CommittedChange<S> =
       readonly platforms: readonly Platform[];
       readonly previous: SchedulerState;
       readonly state: SchedulerState;
+      // When the commit was accepted (ms since the epoch). A hook that judges
+      // time-dependent facts, such as a manual watch's freshness, judges both
+      // sides at this moment rather than whenever it happens to run.
+      readonly committedAt: number;
     }
   | {
       readonly kind: "settings";
@@ -137,7 +141,13 @@ export function createStateTransaction<S extends EngineSettings>(ports: StateTra
     commit: Promise.resolve(),
   };
   const hooks: CommitHook<S>[] = [];
-  let hookQueue: Promise<void> = Promise.resolve();
+  // One hook queue per platform. A state commit's hooks queue on the lanes of
+  // the platforms it wrote, a settings commit's on every lane, so hooks for one
+  // platform's commits run in commit order and never wait on the other's.
+  const hookLanes: Record<Platform, Promise<void>> = {
+    twitch: Promise.resolve(),
+    kick: Promise.resolve(),
+  };
 
   // Checks the lock order for the calling operation and returns `operation`
   // wrapped to run as holding `lock` as well.
@@ -229,7 +239,10 @@ export function createStateTransaction<S extends EngineSettings>(ports: StateTra
         }
       }
     };
-    hookQueue = hookQueue.then(() => (tracker ? tracker.run([], run) : run()));
+    const lanes = change.kind === "state" ? change.platforms : PLATFORMS;
+    const previous = Promise.all(lanes.map((lane) => hookLanes[lane]));
+    const queued = previous.then(() => (tracker ? tracker.run([], run) : run()));
+    for (const lane of lanes) hookLanes[lane] = queued;
   }
 
   function onCommit(hook: CommitHook<S>): () => void {
@@ -281,7 +294,7 @@ export function createStateTransaction<S extends EngineSettings>(ports: StateTra
       }
       await saveStateDirect(next);
       options.afterSave?.(next);
-      notify({ kind: "state", platforms, previous: latest, state: next }, ["settings", ...platforms]);
+      notify({ kind: "state", platforms, previous: latest, state: next, committedAt: Date.now() }, ["settings", ...platforms]);
       return { status: "accepted", previous: latest, state: next };
     });
   }
@@ -348,7 +361,7 @@ export function createStateTransaction<S extends EngineSettings>(ports: StateTra
           // An earlier pass may already have written; its hooks still run, but
           // the superseded operation publishes nothing.
           if (result?.status === "accepted") {
-            notify({ kind: "state", platforms: [platform], previous: result.previous, state: result.state }, ["settings", platform]);
+            notify({ kind: "state", platforms: [platform], previous: result.previous, state: result.state, committedAt: Date.now() }, ["settings", platform]);
           }
           return { status: "stale" };
         }
@@ -375,7 +388,7 @@ export function createStateTransaction<S extends EngineSettings>(ports: StateTra
         }
         if (currentManagedPageContextTabsRevision(ports.tabRegistry) === pageContextRevision) {
           if (result.status === "accepted") {
-            notify({ kind: "state", platforms: [platform], previous: result.previous, state: result.state }, ["settings", platform]);
+            notify({ kind: "state", platforms: [platform], previous: result.previous, state: result.state, committedAt: Date.now() }, ["settings", platform]);
           } else {
             result = { status: "unchanged", state: latest };
           }
@@ -423,9 +436,10 @@ export function createStateTransaction<S extends EngineSettings>(ports: StateTra
     return tracker ? tracker.run([], operation) : operation();
   }
 
-  // Resolves once every hook for the commits made so far has run.
-  function settleCommitHooks(): Promise<void> {
-    return hookQueue;
+  // Resolves once every hook for the commits made so far to `platforms` (by
+  // default, every platform) has run.
+  async function settleCommitHooks(platforms: readonly Platform[] = PLATFORMS): Promise<void> {
+    await Promise.all(platforms.map((platform) => hookLanes[platform]));
   }
 
   return {

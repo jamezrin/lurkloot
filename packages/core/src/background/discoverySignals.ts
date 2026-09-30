@@ -5,11 +5,13 @@ import type { DiscoverySignalController } from "../core/discoverySignals";
 import { PLATFORMS } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
 import type { BackgroundHostPorts } from "./hostPorts";
+import type { StateTransaction } from "./stateTransaction";
 import type { ControllerCalls, DiscoverySignalRefreshRequest } from "./types";
 
 // Discovery-signal controllers and the refreshes they request.
 export function createDiscoverySignals<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
+  transaction: Pick<StateTransaction<S>, "onCommit">,
   { signalSlice, tickSlice, lifecycleSlice }: Pick<ControllerSlices<S>, "signalSlice" | "tickSlice" | "lifecycleSlice">,
   calls: Pick<ControllerCalls<S>,
     | "completeTickAndHandOff"
@@ -42,6 +44,21 @@ export function createDiscoverySignals<S extends EngineSettings>(
     tickTriggerSummary,
     withEventCollector,
   } = lateBound(calls);
+
+  // After a commit that leaves a platform's auth unhealthy (#595), or that
+  // ends its watch session (a manual tab close pausing it, #596), its observer
+  // stops. The hook acts on the commit it observes even when that has changed
+  // since (an account change); an observer restarted in between is started
+  // again by the next reconcile. Only the watching-to-not-watching transition
+  // counts, so commits made while idle do not keep bumping the slot's epoch.
+  transaction.onCommit(async (change) => {
+    if (change.kind !== "state") return;
+    const { previous, state } = change;
+    const platforms = change.platforms.filter((platform) =>
+      state.authHealth[platform].status !== "healthy"
+      || (previous.sessions[platform].status === "watching" && state.sessions[platform].status !== "watching"));
+    if (platforms.length > 0) await stopDiscoverySignalControllersAndReport(platforms);
+  });
 
   function discoverySignalObserver(platform: Platform): DiscoverySignalController | undefined {
     return signalSlice.discoverySignalSlots[platform].current;

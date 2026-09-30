@@ -545,6 +545,29 @@ export function observePageContextRecovery(
 // headless runtime — and the scheduler's default — can forget page contexts
 // without a tab API; the browser-backed variant below layers real tab removal
 // on top.
+// Forgets the retained page contexts whose tab was removed, from the registry
+// and from `contexts`, whoever closed it (#588). A context the registry now
+// holds in another tab is kept. Returns the platforms it forgot.
+export function forgetRemovedPageContextTab(
+  registry: TabRegistry,
+  contexts: SchedulerManagedPageContexts,
+  tabId: number,
+): { contexts: SchedulerManagedPageContexts; platforms: Platform[] } {
+  const next = { ...contexts };
+  const platforms: Platform[] = [];
+  for (const platform of ["twitch", "kick"] as const) {
+    const retained = registry.retainedPageContextTabs.get(platform);
+    const stored = next[platform];
+    if (retained?.tabId === tabId) {
+      registry.retainedPageContextTabs.delete(platform);
+      registry.retainedPageContextRevision += 1;
+    }
+    if (stored?.tabId === tabId) delete next[platform];
+    if (retained?.tabId === tabId || stored?.tabId === tabId) platforms.push(platform);
+  }
+  return { contexts: next, platforms };
+}
+
 export function forgetManagedPageContextTabs(
   registry: TabRegistry,
   contexts: SchedulerManagedPageContexts,

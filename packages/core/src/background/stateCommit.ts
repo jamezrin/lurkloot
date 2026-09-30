@@ -24,6 +24,7 @@ export function createStateCommit<S extends EngineSettings>(
   | "persistPlatformAndReport"
   | "persistPlatformState"
   | "saveOperationalState"
+  | "settleCommitHooks"
 > {
   const { reportBestEffort } = lateBound(calls);
 
@@ -72,5 +73,6 @@ export function createStateCommit<S extends EngineSettings>(
     persistPlatformAndReport,
     persistPlatformState,
     saveOperationalState,
+    settleCommitHooks: transaction.settleCommitHooks,
   };
 }

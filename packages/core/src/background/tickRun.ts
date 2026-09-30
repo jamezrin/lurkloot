@@ -17,9 +17,10 @@ import type {
   ClaimedRewards,
   CommittedSelection,
   ControllerCalls,
-  HeartbeatPublicationLease,
+  HeartbeatReservation,
   SelectionInput,
   TickAdapterHandle,
+  TickCycleOutcome,
   TickDiagnosticContext,
   TickTrigger,
 } from "./types";
@@ -27,14 +28,15 @@ import type {
 // One platform tick: selection, the scheduler tick and what runs around it.
 export function createTickRun<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
-  { claimSlice, discoverySlice, tickSlice, kickChallengeSlice, tabRegistry }: Pick<ControllerSlices<S>,
-    "claimSlice" | "discoverySlice" | "tickSlice" | "kickChallengeSlice" | "tabRegistry">,
+  { discoverySlice, tickSlice, tabRegistry }: Pick<ControllerSlices<S>,
+    "discoverySlice" | "tickSlice" | "tabRegistry">,
   calls: Pick<ControllerCalls<S>,
     | "applyAdFocusForState"
     | "clearOperationalEvents"
     | "createTickAdapterHandle"
     | "diagnosticEvent"
     | "emitNotifications"
+    | "endTickCycle"
     | "flattenedRefreshFailures"
     | "persistPlatformAndReport"
     | "prepareSelection"
@@ -42,13 +44,16 @@ export function createTickRun<S extends EngineSettings>(
     | "prepareTwitchIntegrity"
     | "reconcileDiscoverySignalsAfterCommit"
     | "discoverySignalEpochs"
-    | "reconcilePageContextRecoveryAfterPersist"
-    | "reconcileTablessWatchers"
+    | "observeTickCycle"
+    | "reserveTablessWatchers"
     | "reconcileTwitchChannelPointsPushAfterCommit"
+    | "recordWaitingClaimRewardIds"
+    | "releaseRewardClaims"
+    | "registerKickRuntimeEffects"
+    | "registerRewardClaimEffects"
     | "registerTwitchChannelPointsEffects"
     | "refreshAuthHealth"
     | "refreshDiscovery"
-    | "releaseHeartbeatPublicationLease"
     | "reportAuthSetupFailures"
     | "readState"
     | "reportBestEffort"
@@ -58,9 +63,11 @@ export function createTickRun<S extends EngineSettings>(
     | "selectionBypassesBackoff"
     | "selectionIsForced"
     | "selectionKey"
+    | "settleCommitHooks"
     | "stateRevision"
     | "tickInBackground"
     | "twitchChannelPointsPushEpoch"
+    | "waitingClaimRewardIds"
     | "withEventCollector"
     | "withStateLock"
   >,
@@ -71,6 +78,7 @@ export function createTickRun<S extends EngineSettings>(
     createTickAdapterHandle,
     diagnosticEvent,
     emitNotifications,
+    endTickCycle,
     flattenedRefreshFailures,
     persistPlatformAndReport,
     prepareSelection,
@@ -78,13 +86,16 @@ export function createTickRun<S extends EngineSettings>(
     prepareTwitchIntegrity,
     reconcileDiscoverySignalsAfterCommit,
     discoverySignalEpochs,
-    reconcilePageContextRecoveryAfterPersist,
-    reconcileTablessWatchers,
+    observeTickCycle,
+    reserveTablessWatchers,
     reconcileTwitchChannelPointsPushAfterCommit,
+    recordWaitingClaimRewardIds,
+    releaseRewardClaims,
+    registerKickRuntimeEffects,
+    registerRewardClaimEffects,
     registerTwitchChannelPointsEffects,
     refreshAuthHealth,
     refreshDiscovery,
-    releaseHeartbeatPublicationLease,
     reportAuthSetupFailures,
     readState,
     reportBestEffort,
@@ -94,9 +105,11 @@ export function createTickRun<S extends EngineSettings>(
     selectionBypassesBackoff,
     selectionIsForced,
     selectionKey,
+    settleCommitHooks,
     stateRevision,
     tickInBackground,
     twitchChannelPointsPushEpoch,
+    waitingClaimRewardIds,
     withEventCollector,
     withStateLock,
   } = lateBound(calls);
@@ -106,7 +119,9 @@ export function createTickRun<S extends EngineSettings>(
   // use, once every module's calls are bound.
   let tickEffectExecutor: TickEffectExecutor | undefined;
   const tickEffects = (): TickEffectExecutor =>
-    tickEffectExecutor ??= registerTwitchChannelPointsEffects(createTickEffectExecutor());
+    tickEffectExecutor ??= registerRewardClaimEffects(
+      registerKickRuntimeEffects(registerTwitchChannelPointsEffects(createTickEffectExecutor())),
+    );
 
   async function tickPlatform(
     platform: Platform,
@@ -121,6 +136,9 @@ export function createTickRun<S extends EngineSettings>(
       platformTickId: ++tickSlice.platformTickSequence[platform],
     };
     const tickAdapters = { [platform]: createTickAdapterHandle(platform, tickContext) };
+    // The rewards this tick claims stay reserved until it has committed them
+    // (#597), and are released however the tick ends.
+    const heldRewardClaims: Record<Platform, Set<string>> = { twitch: new Set(), kick: new Set() };
     const tickStartedAt = Date.now();
     diagnosticEvent(
       "debug",
@@ -129,13 +147,14 @@ export function createTickRun<S extends EngineSettings>(
       tickContext,
     );
     try {
-      const claimed = await runTick(tickContext, [platform], abort.signal, trigger, tickAdapters, onPersisted);
+      const claimed = await runTick(tickContext, [platform], abort.signal, trigger, tickAdapters, heldRewardClaims, onPersisted);
       return [platform, claimed[platform] ?? []];
     } catch (error) {
       if (abort.signal.aborted) return [platform, []];
       throw error;
     } finally {
-      if (platform === "kick") ports.tabs?.pageContexts.discardRecoveryEvidence(platform);
+      endTickCycle(platform);
+      for (const heldPlatform of PLATFORMS) releaseRewardClaims(heldPlatform, heldRewardClaims[heldPlatform]);
       for (const adapter of Object.values(tickAdapters)) adapter.close();
       tickSlice.activeTicks.delete(abort);
       tickSlice.activePlatformTicks[platform] -= 1;
@@ -155,6 +174,7 @@ export function createTickRun<S extends EngineSettings>(
     signal: AbortSignal,
     trigger: TickTrigger,
     tickAdapters: Partial<Record<Platform, TickAdapterHandle<S>>>,
+    heldRewardClaims: Record<Platform, Set<string>>,
     onPersisted?: (state: SchedulerState) => void,
   ): Promise<ClaimedRewards> {
     const claimedRewards: ClaimedRewards = {};
@@ -211,6 +231,9 @@ export function createTickRun<S extends EngineSettings>(
           }
           if (reportingFailure !== undefined) throw reportingFailure;
         }
+        // Dependents stop what the refreshed auth no longer allows from their
+        // after-commit hooks (#595); the tick goes on once they have.
+        await settleCommitHooks(authPlatforms);
       }
     }
     const schedulerPlatforms = requestedPlatforms.filter((platform) =>
@@ -251,10 +274,7 @@ export function createTickRun<S extends EngineSettings>(
     // the scheduler tick and every effect it names. Under the lock again,
     // rebase the result on whatever else committed meanwhile, then publish.
     await withEventCollector(async (emit, events) => {
-      const nextWaitingClaimRewardIds: Record<Platform, Set<string>> = {
-        twitch: new Set(claimSlice.waitingClaimRewardIds.twitch),
-        kick: new Set(claimSlice.waitingClaimRewardIds.kick),
-      };
+      const nextWaitingClaimRewardIds = waitingClaimRewardIds();
       // Observed here rather than returned by the scheduler: the controller
       // already sees every emitted event, and the post-claim handoff only
       // needs to know which platforms claimed.
@@ -360,18 +380,14 @@ export function createTickRun<S extends EngineSettings>(
       const effectContext = {
         adapters,
         tabRegistry,
+        heldRewardClaims,
         watchTabs: ports.tabs?.watch,
-        stopPageContextTabs: ports.tabs?.pageContexts.release,
         selectSupplementalTarget: supplementalSources
           ? (supplementalPlatform: Platform, selectedState: SchedulerState, selectedSignal: AbortSignal | undefined, source: WatchSourceId) =>
             supplementalPlatform === "twitch"
               ? supplementalSources.select(selectedState, settings, selectedSignal, source)
               : Promise.resolve(undefined)
           : undefined,
-        claimGuards: {
-          rewards: claimSlice.rewardClaimGuards,
-          challenges: kickChallengeSlice,
-        },
       };
       const eventsBeforeTick = events.length;
       let result: SchedulerTickResult | undefined;
@@ -427,15 +443,17 @@ export function createTickRun<S extends EngineSettings>(
       // the managed tab it closed are recorded; a tab it opened is closed below.
       let openedTab: WatchSession | undefined;
       let superseded = false;
-      let publicationLeases: Array<readonly [Platform, HeartbeatPublicationLease]> = [];
+      // The tabless watchers this tick reserved inside the lock (#586).
+      let heartbeat: HeartbeatReservation | undefined;
       // Work for the state this tick committed, run once the lock is released:
-      // ad focus follows the committed sessions and Kick page-context recovery
-      // acts on the committed page contexts (#598), and the discovery-signal
-      // observers (#587) and the Twitch channel-points push (#590) follow the
-      // latest committed state.
+      // the reserved tabless watchers are published, ad focus follows the
+      // committed sessions, the services that follow tick cycles observe this
+      // one (#588), and the discovery-signal observers (#587) and the Twitch
+      // channel-points push (#590) follow the latest committed state.
       let afterCommit: {
+        heartbeat?: HeartbeatReservation;
         adFocus?: SchedulerState;
-        recovery?: { platforms: readonly Platform[]; successPlatforms: ReadonlySet<Platform> };
+        cycle?: TickCycleOutcome;
         discoverySignals?: { committed: SchedulerState; since: Partial<Record<Platform, number>> };
         channelPointsPush?: { committed: SchedulerState; since: number };
       } = {};
@@ -460,7 +478,7 @@ export function createTickRun<S extends EngineSettings>(
         };
         let latest: SchedulerState | undefined;
         let nextState: SchedulerState;
-        const pageContextRecoverySuccessPlatforms = new Set<Platform>();
+        const discoveryComplete = new Set<Platform>();
         try {
           if (failure) throw failure.error;
           signal.throwIfAborted();
@@ -474,11 +492,8 @@ export function createTickRun<S extends EngineSettings>(
           }
           const tickState = rebased.state;
           for (const schedulerPlatform of schedulerPlatforms) {
-            if (
-              discoverySlice.discoveryLanes[schedulerPlatform].current().lastAttempt?.complete === true
-              && (tickState.sessions[schedulerPlatform].errorChecks ?? 0) === 0
-            ) {
-              pageContextRecoverySuccessPlatforms.add(schedulerPlatform);
+            if (discoverySlice.discoveryLanes[schedulerPlatform].current().lastAttempt?.complete === true) {
+              discoveryComplete.add(schedulerPlatform);
             }
           }
           const assertSelectionsCurrent = (): void => {
@@ -489,13 +504,7 @@ export function createTickRun<S extends EngineSettings>(
           await emitNotifications(settings, latest, tickState, result!.events);
           signal.throwIfAborted();
           assertSelectionsCurrent();
-          publicationLeases = await reconcileTablessWatchers(
-            tickState,
-            settings,
-            adapters,
-            emit,
-            schedulerPlatforms,
-          );
+          heartbeat = await reserveTablessWatchers(tickState, settings, adapters, schedulerPlatforms);
           signal.throwIfAborted();
           assertSelectionsCurrent();
           for (const schedulerPlatform of schedulerPlatforms) tickAdapters[schedulerPlatform]?.drain(claimObservingEmit);
@@ -529,18 +538,19 @@ export function createTickRun<S extends EngineSettings>(
             latest ??= await loadLatest();
             if (error === staleSelection) {
               const factEvents = rollBack();
-              afterCommit = { adFocus: latest };
-              publicationLeases.push(...await reconcileTablessWatchers(
+              // The watchers follow the state that won instead.
+              await heartbeat?.release();
+              heartbeat = await reserveTablessWatchers(
                 latest,
                 settings,
                 Object.fromEntries(schedulerPlatforms.map((schedulerPlatform) => [
                   schedulerPlatform,
                   tickAdapters[schedulerPlatform]!.adapter(settings, emit, true),
                 ])) as Record<Platform, PlatformAdapter>,
-                emit,
                 schedulerPlatforms,
-              ));
+              );
               await commitFacts(latest, staleSelection.message, factEvents);
+              afterCommit = { heartbeat, adFocus: latest };
               return;
             }
             rollBack();
@@ -548,10 +558,9 @@ export function createTickRun<S extends EngineSettings>(
             emit({ category: "activity", code: "interruption", level: "error", platform, data: { reason: "platform_error", detail } });
             emit({ category: "diagnostic", level: "error", platform, message: detail });
             const persisted = await persistPlatformAndReport(platform, latest, correlateTickDiagnostics(events, tickContext));
-            if (persisted) afterCommit = { recovery: { platforms: [platform], successPlatforms: new Set() } };
+            if (persisted) afterCommit = { cycle: { status: "failed" } };
           } finally {
-            await Promise.all(publicationLeases.map(([leasePlatform, lease]) =>
-              releaseHeartbeatPublicationLease(leasePlatform, lease)));
+            if (heartbeat !== afterCommit.heartbeat) await heartbeat?.release();
           }
           return;
         }
@@ -573,34 +582,39 @@ export function createTickRun<S extends EngineSettings>(
             return;
           }
           afterCommit = {
+            heartbeat,
             adFocus: nextState,
-            recovery: { platforms: schedulerPlatforms, successPlatforms: pageContextRecoverySuccessPlatforms },
+            cycle: { status: "committed", state: nextState, discoveryComplete },
             discoverySignals: { committed: nextState, since: discoverySignalEpochs(schedulerPlatforms) },
             ...(schedulerPlatforms.includes("twitch")
               ? { channelPointsPush: { committed: nextState, since: twitchChannelPointsPushEpoch() } }
               : {}),
           };
-          claimSlice.waitingClaimRewardIds[platform].clear();
-          for (const rewardId of nextWaitingClaimRewardIds[platform]) {
-            claimSlice.waitingClaimRewardIds[platform].add(rewardId);
-          }
+          recordWaitingClaimRewardIds(platform, nextWaitingClaimRewardIds[platform]);
         } finally {
-          await Promise.all(publicationLeases.map(([leasePlatform, lease]) =>
-            releaseHeartbeatPublicationLease(leasePlatform, lease)));
+          if (heartbeat !== afterCommit.heartbeat) await heartbeat?.release();
         }
       }, schedulerPlatforms);
+
+      // First, so no other follow-up delays a due heartbeat: start, switch or
+      // stop the reserved watchers, now that their state is committed.
+      if (afterCommit.heartbeat) {
+        if (signal.aborted) {
+          await afterCommit.heartbeat.release();
+        } else {
+          const reported = events.length;
+          await afterCommit.heartbeat.publish(emit);
+          await reportBestEffort(correlateTickDiagnostics(events.slice(reported), tickContext));
+        }
+      }
 
       if (!signal.aborted && afterCommit.adFocus) {
         const reported = events.length;
         await applyAdFocusForState(afterCommit.adFocus, emit, schedulerPlatforms);
         await reportBestEffort(correlateTickDiagnostics(events.slice(reported), tickContext));
       }
-      if (!signal.aborted && afterCommit.recovery) {
-        await reconcilePageContextRecoveryAfterPersist(
-          afterCommit.recovery.platforms,
-          afterCommit.recovery.successPlatforms,
-          tickContext,
-        );
+      if (!signal.aborted && afterCommit.cycle) {
+        await observeTickCycle(schedulerPlatforms, afterCommit.cycle, tickContext);
       }
       if (!signal.aborted && afterCommit.discoverySignals) {
         const reported = events.length;

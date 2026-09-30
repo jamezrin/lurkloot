@@ -1,5 +1,5 @@
 import { discoverTwitchExtensionChannels } from "@lurkloot/core/extensions/discovery";
-import { MANUAL_WATCH_TTL_MS } from "@lurkloot/core/scheduler";
+import { pausedForManualWatch } from "@lurkloot/core/manualWatch";
 import { twitchExtensionProviders } from "@lurkloot/core/extensions/registry";
 import type { ChannelCandidate, ExtensionSettings, SchedulerState, SupplementalWatchTarget, TwitchExtensionProviderId, TwitchExtensionSummary, WatchSourceId } from "@lurkloot/shared/models";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
@@ -115,9 +115,8 @@ export function createTwitchExtensionHost(options: {
   async function chooseWatchTarget(settings: ExtensionSettings, state: SchedulerState, signal?: AbortSignal, source?: WatchSourceId): Promise<SupplementalWatchTarget | undefined> {
     const selectedGeneration = generation;
     for (const [key, until] of unavailableUntil) if (until <= options.source.now()) unavailableUntil.delete(key);
-    const manual = state.manualWatch?.twitch;
     if (!settings.platform.twitch.enabled || state.authHealth.twitch.status !== "healthy" || state.manualClosePause?.twitch
-      || settings.pauseOnManualWatch && manual?.active && options.source.now() - Date.parse(manual.checkedAt) < MANUAL_WATCH_TTL_MS) return;
+      || pausedForManualWatch(settings, state, "twitch", options.source.now())) return;
     // User order governs selection between providers. Retain an earning
     // provider's current channel only within that source, after higher sources
     // have yielded. Completion deadlines apply even without an earning holder.
@@ -184,8 +183,7 @@ export function createTwitchExtensionHost(options: {
     if (selectedGeneration !== generation) return;
     const session = state.sessions.twitch;
     const candidate = session.channel;
-    const manual = state.manualWatch?.twitch;
-    const paused = Boolean(state.manualClosePause?.twitch) || Boolean(settings.pauseOnManualWatch && manual?.active && options.source.now() - Date.parse(manual.checkedAt) < MANUAL_WATCH_TTL_MS);
+    const paused = Boolean(state.manualClosePause?.twitch) || pausedForManualWatch(settings, state, "twitch", options.source.now());
     const canRun = !paused && settings.platform.twitch.enabled && state.authHealth.twitch.status === "healthy"
       && session.status === "watching" && Boolean(candidate?.channelId);
     channel = canRun && candidate && /^[a-zA-Z0-9_]{1,25}$/.test(candidate.username)

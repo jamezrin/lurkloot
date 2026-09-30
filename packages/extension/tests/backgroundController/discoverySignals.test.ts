@@ -300,6 +300,54 @@ describe("discovery signal lifecycle", () => {
     expect(env.kick.refreshCampaigns).not.toHaveBeenCalled();
   });
 
+  // The observer stops from its after-commit hook (#595), and the host's auth
+  // entry point and the tick wait for that hook before they resolve.
+  it("resolves auth invalidation only once the observer has stopped", async () => {
+    const env = harness(kickOnlySettings());
+    await startKickDiscoverySession(env);
+    const stopping = deferred<void>();
+    const stop = vi.spyOn(env.discoverySignalController, "stop").mockImplementationOnce(() => stopping.promise);
+    let resolved = false;
+
+    const invalidating = env.controller.invalidateAuthHealth("kick").then(() => {
+      resolved = true;
+    });
+    await vi.waitFor(() => expect(stop).toHaveBeenCalledOnce());
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(resolved).toBe(false);
+    stopping.resolve();
+    await invalidating;
+
+    expect(env.state.authHealth.kick.status).toBe("checking");
+  });
+
+  it("finishes a tick whose probe found auth unhealthy only once the observer has stopped", async () => {
+    const env = harness(kickOnlySettings());
+    await startKickDiscoverySession(env);
+    const stopping = deferred<void>();
+    const stop = vi.spyOn(env.discoverySignalController, "stop").mockImplementationOnce(() => stopping.promise);
+    vi.mocked(env.kick.checkAuthHealth).mockResolvedValue({
+      status: "invalid_credentials",
+      checkedAt: "2026-08-12T12:00:00.000Z",
+      reasonCode: "credentials_rejected",
+      message: { key: "authInvalidCredentials" },
+    });
+    vi.mocked(env.kick.refreshCampaigns).mockClear();
+    let resolved = false;
+
+    const ticking = env.controller.tick(["kick"], "manual_tick").then(() => {
+      resolved = true;
+    });
+    await vi.waitFor(() => expect(stop).toHaveBeenCalledOnce());
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(resolved).toBe(false);
+    expect(env.kick.refreshCampaigns).not.toHaveBeenCalled();
+    stopping.resolve();
+    await ticking;
+
+    expect(env.state.authHealth.kick.status).toBe("invalid_credentials");
+  });
+
   it("blocks signal admission before auth invalidation acquires the platform lock", async () => {
     const env = harness(kickOnlySettings());
     await startKickDiscoverySession(env);

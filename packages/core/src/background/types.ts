@@ -47,6 +47,13 @@ export type TickDiagnosticContext = Required<Pick<
 >>;
 export type { CredentialAvailability } from "./hostPorts";
 
+// What a tick cycle's commit left, for the services that follow tick cycles
+// (Kick page-context recovery, #588): the committed state and the platforms
+// whose discovery completed, or a failure the tick persisted instead.
+export type TickCycleOutcome =
+  | { status: "committed"; state: SchedulerState; discoveryComplete: ReadonlySet<Platform> }
+  | { status: "failed" };
+
 export interface CommittedHeartbeatContext {
   readonly generation: number;
   readonly contextKey: string;
@@ -63,7 +70,10 @@ export interface HeartbeatAttempt {
   readonly attemptAt: number;
   readonly synchronizationDelayMs: number;
   coalescedCalls: number;
-  readonly promise: Promise<HeartbeatFallback | undefined>;
+  // Whether the watch job's heartbeat ran or joined it. Only those ask for a
+  // tab fallback.
+  scheduled: boolean;
+  readonly promise: Promise<void>;
 }
 
 export interface HeartbeatFallback {
@@ -86,24 +96,50 @@ export interface HeartbeatRecoveryCommit {
   readonly settle: () => void;
 }
 
+// A tick's claim on a lane, from its reservation inside the platform lock until
+// it publishes or releases after the commit. Heartbeats and recovery wait for
+// it to settle; a result for the context it replaces is stale.
 export interface HeartbeatPublicationLease {
-  published?: CommittedHeartbeatContext;
-  readonly admissionReady: Promise<void>;
-  readonly markPublished: (context: CommittedHeartbeatContext) => void;
   readonly settled: Promise<void>;
   readonly settle: () => void;
 }
 
-export interface HeartbeatContextPublication {
-  accepted: boolean;
-  cadence?: TablessHeartbeatCadence;
-  committed?: CommittedHeartbeatContext;
-  replaced?: TablessWatchController;
-}
+// What a tick's reservation does to one platform's watcher once it commits.
+export type WatcherPlan =
+  | { readonly kind: "none"; readonly platform: Platform }
+  | {
+      readonly kind: "keep";
+      readonly platform: Platform;
+      readonly watcher: TablessWatchController;
+      readonly cadence: TablessHeartbeatCadence | undefined;
+    }
+  | { readonly kind: "stop"; readonly platform: Platform; readonly lease: HeartbeatPublicationLease }
+  | {
+      readonly kind: "start";
+      readonly platform: Platform;
+      readonly lease: HeartbeatPublicationLease;
+      readonly session: WatchSession;
+      readonly watcher: TablessWatchController;
+      // False for a watcher published without a context, started again
+      // instead of replaced.
+      readonly created: boolean;
+      // Absent when the session has no heartbeat context.
+      readonly context?: {
+        readonly generation: number;
+        readonly contextKey: string;
+        readonly cadence: TablessHeartbeatCadence;
+      };
+    };
 
-export type HeartbeatContextPublicationDecision = HeartbeatContextPublication | {
-  waitFor: Promise<void>;
-};
+// The tabless watchers a tick reserved inside its lock (#586).
+export interface HeartbeatReservation {
+  // After the tick's commit, with no lock held: starts, switches or stops the
+  // watchers and publishes them. Nothing is published once a newer
+  // reservation or ownership cleanup replaced this one.
+  publish(emit: EventEmitter): Promise<void>;
+  // When the tick does not commit: gives the reservations up unpublished.
+  release(): Promise<void>;
+}
 
 export interface HeartbeatWatcherRemoval {
   accepted: boolean;
@@ -118,17 +154,18 @@ export interface HeartbeatLane {
   mutation: Promise<unknown>;
   revision: number;
   committed?: CommittedHeartbeatContext;
-  // Discovery reserves this before starting, switching, or stopping a watcher
-  // and holds it until the corresponding scheduler state has been persisted.
-  // Recovery waits while a new owner is unpublished, while a heartbeat may use
-  // the complete published context before persistence finishes. Its result then
-  // waits for lease settlement outside provider I/O and every lock.
+  // A tick reserves this inside its platform lock before starting, switching or
+  // stopping a watcher, and ends it when it publishes after its commit or gives
+  // the reservation up (#586). Heartbeats and recovery wait for it; a result
+  // for the context it replaces is rejected at once.
   publicationLease?: HeartbeatPublicationLease;
   inFlight?: HeartbeatAttempt;
-  // Reserved only after transport completes. Context publishers wait for this
-  // promise outside the lane, so either publication wins and rejects the old
-  // result or the current result persists before publication becomes visible.
+  // Reserved only after transport completes, while the result commits. A
+  // publication does not wait for it: the result's commit only lands while the
+  // stored session still carries its generation.
   resultCommit?: HeartbeatResultCommit;
+  // Set from a restart recovery's reservation until its watcher is published
+  // and its cadence persisted. The watcher starts with no lane held.
   recoveryCommit?: HeartbeatRecoveryCommit;
   generationHighWater?: number;
   lastCompletedGeneration?: number;
@@ -136,11 +173,11 @@ export interface HeartbeatLane {
   coalescedWithoutAttempt: number;
 }
 
-export interface SettingsCommitOptions<S> {
-  // Called with the stored settings the commit read, before it saves.
-  afterLoad?(previous: S): void;
-  // Called once the new settings are saved, before the settings lock is released.
-  afterPersist?(settings: S): void;
+export interface SettingsCommitOptions {
+  // The patch the caller is about to commit, when it knows it before the
+  // settings lock: services that must react at once (a Twitch disable cancels
+  // an integrity mint in flight, #589) act on it while the commit waits.
+  intent?: SettingsPatch;
 }
 
 export interface TickAdapterHandle<S extends EngineSettings> {
@@ -265,17 +302,19 @@ export interface ControllerCalls<S extends EngineSettings> {
     onPersisted?: (state: SchedulerState) => void,
   ): Promise<boolean>;
   saveOperationalState(state: SchedulerState): Promise<void>;
+  // Resolves once every after-commit hook for the commits made so far to
+  // `platforms` (by default, every platform) has run.
+  settleCommitHooks(platforms?: readonly Platform[]): Promise<void>;
 
   // heartbeat.ts
-  releaseHeartbeatPublicationLease(platform: Platform, lease: HeartbeatPublicationLease): Promise<void>;
+  ensureHeartbeatJob(): Promise<void>;
   cancelHeartbeatPublicationLeases(platforms: readonly Platform[]): Promise<void>;
-  reconcileTablessWatchers(
+  reserveTablessWatchers(
     state: SchedulerState,
     settings: EngineSettings,
     adapters: Record<Platform, PlatformAdapter>,
-    emit: EventEmitter,
-    platforms?: Platform[],
-  ): Promise<Array<readonly [Platform, HeartbeatPublicationLease]>>;
+    platforms?: readonly Platform[],
+  ): Promise<HeartbeatReservation>;
   clearHeartbeatOwnership(platforms: readonly Platform[]): Promise<void>;
   clearHeartbeatOwnershipInBackground(platforms: readonly Platform[]): void;
   runWatchHeartbeat(): Promise<void>;
@@ -284,7 +323,7 @@ export interface ControllerCalls<S extends EngineSettings> {
     settings: S,
     kind: HeartbeatAttemptKind,
     session?: WatchSession,
-  ): Promise<HeartbeatFallback | undefined>;
+  ): Promise<void>;
 
   // twitchIntegrity.ts
   clearTwitchIntegrityAlarmBestEffort(emit?: EventEmitter): Promise<void>;
@@ -294,9 +333,15 @@ export interface ControllerCalls<S extends EngineSettings> {
   restoreTwitchIntegritySchedule(transitionIsCurrent: () => boolean): Promise<void>;
   prepareTwitchIntegrity(settings: S, signal: AbortSignal, tickContext: TickDiagnosticContext): Promise<boolean>;
   closeTwitchIntegrityLifecycle(reason: string): void;
-  reconcileTwitchIntegrityLifecycle(enabled: boolean | undefined): void;
+  holdTwitchIntegrityForDisable(): () => void;
+  reconcileTwitchIntegrityAfterCommit(): Promise<void>;
+  startInitialTwitchIntegrityLoad(): void;
+  awaitInitialTwitchIntegrityLoad(): Promise<void>;
+  resetTwitchIntegrity(): void;
 
   // channelPoints.ts
+  abortTwitchChannelPointsClaims(reason: string): void;
+  abortIneligibleTwitchChannelPointsClaims(settings: EngineSettings, reason: string): void;
   clearTwitchChannelPointsAlarmBestEffort(): Promise<void>;
   reconcileTwitchChannelPointsAlarm(settings: S): Promise<void>;
   stopTwitchChannelPointsPush(emit: EventEmitter): Promise<void>;
@@ -314,12 +359,19 @@ export interface ControllerCalls<S extends EngineSettings> {
   registerTwitchChannelPointsEffects(executor: TickEffectExecutor): TickEffectExecutor;
   runTwitchChannelPointsClaim(): Promise<void>;
 
-  // kickChallenges.ts
-  reconcilePageContextRecoveryAfterPersist(
+  // kickRuntime.ts
+  abortKickChallengeClaims(reason: string): void;
+  abortIneligibleKickChallengeClaims(settings: EngineSettings, reason: string): void;
+  clearKickChallengeJobBestEffort(): Promise<void>;
+  reconcileKickChallengeJob(settings: EngineSettings): Promise<void>;
+  rescheduleKickChallengeJob(): Promise<void>;
+  registerKickRuntimeEffects(executor: TickEffectExecutor): TickEffectExecutor;
+  observeTickCycle(
     platforms: readonly Platform[],
-    backgroundSuccessPlatforms: ReadonlySet<Platform>,
+    outcome: TickCycleOutcome,
     tickContext: TickDiagnosticContext,
   ): Promise<void>;
+  endTickCycle(platform: Platform): void;
   runKickChallengeClaims(): Promise<void>;
 
   // authHealth.ts
@@ -351,9 +403,14 @@ export interface ControllerCalls<S extends EngineSettings> {
     senderTabId?: number,
   ): Promise<PlaybackControl>;
 
-  // claims.ts
-  clearManualWatchClaimAlarmsBestEffort(): Promise<void>;
-  reconcileManualWatchClaimAlarms(settings: EngineSettings): Promise<void>;
+  // claimService.ts
+  clearDropClaimJobsBestEffort(): Promise<void>;
+  reconcileDropClaimJobs(settings: EngineSettings): Promise<void>;
+  rescheduleDropClaimJobs(): Promise<void>;
+  registerRewardClaimEffects(executor: TickEffectExecutor): TickEffectExecutor;
+  waitingClaimRewardIds(): Record<Platform, Set<string>>;
+  recordWaitingClaimRewardIds(platform: Platform, rewardIds: ReadonlySet<string>): void;
+  releaseRewardClaims(platform: Platform, rewardIds: Iterable<string>): void;
   abortIneligibleClaimOnlyOperations(settings: EngineSettings, reason: string): void;
   abortClaimOnlyOperations(reason: string): void;
   abortClaimHandoffs(platform?: Platform): void;
@@ -446,7 +503,7 @@ export interface ControllerCalls<S extends EngineSettings> {
   normalizeStartupSettings(): Promise<S>;
   commitSettings(
     update: (current: S) => SettingsPatch,
-    options?: SettingsCommitOptions<S>,
+    options?: SettingsCommitOptions,
   ): Promise<PreparedSettingsCommit<S>>;
 
   // lifecycle.ts

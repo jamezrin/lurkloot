@@ -288,7 +288,7 @@ describe("background controller", () => {
     await env.controller.runTwitchChannelPointsClaim();
     expect(env.twitch.claimChannelPoints).toHaveBeenCalledWith(expect.objectContaining({
       username: "secondcreator",
-    }));
+    }), { signal: expect.any(AbortSignal) });
 
     await env.controller.handleMessage(
       { type: "playbackTelemetry", platform: "twitch", telemetry },
@@ -317,6 +317,59 @@ describe("background controller", () => {
     const immediateTickStarts = allDiagnostics(env).filter((event) =>
       event.message.includes("started (trigger=manual_watch"));
     expect(immediateTickStarts).toHaveLength(1);
+  });
+
+  // #596: the tick admission's commit hook starts the manual-watch tick. Hooks
+  // run once earlier ones finish, so it judges freshness at the commit's time:
+  // a manual watch that ended counts as ended even when the hook runs after
+  // the record would have gone stale anyway.
+  it("ticks when a manual watch ends, judged at the commit even when its hook runs late", async () => {
+    const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
+    const checkedAt = new Date(Date.now() - 18_000).toISOString();
+    const record = { platform: "twitch" as const, tabId: 999, active: true, checkedAt };
+    env.state.manualWatch = { twitch: record };
+    env.state.manualWatchTabs = { twitch: { 999: record } };
+    env.state.manualClosePause = { kick: { platform: "kick", closedAt: new Date().toISOString() } };
+    const holding = deferred<void>();
+    const held = deferred<void>();
+    let blocked = false;
+    env.rawController.onCommit(async () => {
+      if (blocked) return;
+      blocked = true;
+      holding.resolve();
+      await held.promise;
+    });
+    const later = Date.now() + 5_000;
+
+    const resuming = env.controller.resumeAfterManualClose("kick");
+    await holding.promise;
+    const updating = env.controller.handleTabUpdated(999, "https://www.twitch.tv/drops/inventory");
+    await vi.waitFor(() => expect(env.state.manualWatch?.twitch).toBeUndefined());
+    const now = vi.spyOn(Date, "now").mockReturnValue(later);
+    try {
+      held.resolve();
+      await Promise.all([resuming, updating]);
+    } finally {
+      now.mockRestore();
+    }
+    await env.controller.settleBackgroundWork();
+
+    expect(allDiagnostics(env).filter((event) =>
+      event.message.includes("started (trigger=manual_watch"))).toHaveLength(1);
+  });
+
+  it("does not start a manual-watch tick from a tick that pauses for manual watch", async () => {
+    const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
+    const record = { platform: "twitch" as const, tabId: 999, active: true, checkedAt: new Date().toISOString() };
+    env.state.manualWatch = { twitch: record };
+    env.state.manualWatchTabs = { twitch: { 999: record } };
+
+    await env.controller.tick(["twitch"]);
+    await env.controller.settleBackgroundWork();
+
+    expect(env.state.sessions.twitch.reasonCode).toBe("manual_watch");
+    expect(allDiagnostics(env).some((event) =>
+      event.message.includes("started (trigger=manual_watch"))).toBe(false);
   });
 
   it("does not tick when non-managed Twitch playback is inactive", async () => {
@@ -356,6 +409,37 @@ describe("background controller", () => {
     await env.controller.handleTabRemoved(999);
 
     expect(env.state.manualWatch?.twitch).toBeUndefined();
+  });
+
+  // #596 (behavior change): a report still in flight from a tab the user
+  // closed is a late result, like one from a tab the engine closed. It must
+  // not bring back the manual watch the close just ended.
+  it("ignores late playback from a manual-watch tab the user closed", async () => {
+    const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
+    await env.controller.tick(["twitch"]);
+    const playing = {
+      videoCount: 1,
+      mutedVideoCount: 0,
+      unmutedVideoCount: 1,
+      playingVideoCount: 1,
+      blockedPlaybackCount: 0,
+      documentHidden: false,
+    };
+    await env.controller.handleMessage({ type: "playbackTelemetry", platform: "twitch", telemetry: playing }, { tab: { id: 999, url: "https://www.twitch.tv/creator" } });
+    expect(env.state.manualWatch?.twitch?.active).toBe(true);
+
+    await env.controller.handleTabRemoved(999);
+    await env.controller.settleBackgroundWork();
+    expect(env.state.manualWatch?.twitch).toBeUndefined();
+    env.reportEvents.mockClear();
+
+    await env.controller.handleMessage({ type: "playbackTelemetry", platform: "twitch", telemetry: playing }, { tab: { id: 999, url: "https://www.twitch.tv/creator" } });
+    await env.controller.settleBackgroundWork();
+
+    expect(env.state.manualWatch?.twitch).toBeUndefined();
+    expect(env.state.manualWatchTabs?.twitch?.[999]).toBeUndefined();
+    expect(allDiagnostics(env).some((event) =>
+      event.message.includes("started (trigger=manual_watch"))).toBe(false);
   });
 
   it("marks manual watch inactive when the same tab stops visible playback", async () => {
@@ -475,6 +559,42 @@ describe("background controller", () => {
       .flatMap((events) => events)
       .filter((event) => event.category === "diagnostic" && event.message === "focus-adjusted");
     expect(focusDiagnostics).toHaveLength(1);
+  });
+
+  // Ad focus follows the committed session with no lock held (#596). A host
+  // reset that starts meanwhile releases focus, so the report must not take it
+  // again.
+  it("does not focus for an ad reported just before a host reset", async () => {
+    const env = harness(farming(DEFAULT_SETTINGS));
+    await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: true });
+    env.deps.applyAdFocus.mockClear();
+    const saving = deferred<void>();
+    const save = env.deps.saveState.getMockImplementation()!;
+    env.deps.saveState.mockImplementationOnce(async (next) => {
+      await saving.promise;
+      await save(next);
+    });
+    const saves = env.deps.saveState.mock.calls.length;
+
+    const reporting = env.controller.handleMessage({
+      type: "playbackTelemetry",
+      platform: "twitch",
+      telemetry: {
+        videoCount: 1,
+        mutedVideoCount: 0,
+        unmutedVideoCount: 1,
+        playingVideoCount: 1,
+        blockedPlaybackCount: 0,
+        documentHidden: false,
+        adActive: true,
+      },
+    }, { tab: { id: 10 } });
+    await vi.waitFor(() => expect(env.deps.saveState.mock.calls.length).toBeGreaterThan(saves));
+    const resetting = env.controller.prepareForHostReset();
+    saving.resolve();
+    await Promise.all([reporting, resetting]);
+
+    expect(env.deps.applyAdFocus).not.toHaveBeenCalledWith("twitch", 10, true, expect.any(Function));
   });
 
   it("keeps persisted playback telemetry when applying ad focus fails", async () => {

@@ -1,24 +1,19 @@
 import type { EngineSettings } from "@lurkloot/shared/models";
 import { createAuthHealth } from "./authHealth";
 import { createChannelPoints } from "./channelPoints";
-import { createClaims } from "./claims";
+import { createClaimService } from "./claimService";
 import {
-  createAuthHealthSlice,
-  createClaimSlice,
   createDiscoverySignalSlice,
-  createHeartbeatSlice,
-  createKickChallengeSlice,
   createLifecycleSlice,
   createReportingSlice,
   createSettingsSlice,
   createTabRegistrySlice,
   createTickAdmissionSlice,
-  createTwitchIntegritySlice,
 } from "./context";
 import { createDiscovery } from "./discovery";
 import { createDiscoverySignals } from "./discoverySignals";
-import { createHeartbeats } from "./heartbeat";
-import { createKickChallenges } from "./kickChallenges";
+import { createHeartbeatCoordinator } from "./heartbeat";
+import { createKickRuntime } from "./kickRuntime";
 import { createLifecycle } from "./lifecycle";
 import { createManualWatch } from "./manualWatch";
 import { createMessageHandler } from "./messages";
@@ -101,11 +96,6 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // Owns the locks, commits and after-commit hooks (#585).
   const transaction = createStateTransaction({ ...ports.storage, lockTracker: ports.testing?.lockTracker, tabRegistry });
   const reportingSlice = createReportingSlice();
-  const heartbeatSlice = createHeartbeatSlice();
-  const integritySlice = createTwitchIntegritySlice();
-  const kickChallengeSlice = createKickChallengeSlice();
-  const authSlice = createAuthHealthSlice();
-  const claimSlice = createClaimSlice();
   const signalSlice = createDiscoverySignalSlice();
   const tickSlice = createTickAdmissionSlice();
   const settingsSlice = createSettingsSlice();
@@ -117,29 +107,24 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   Object.assign(calls, {
     ...createReporting(ports, { reportingSlice }, calls),
     ...createStateCommit(transaction, calls),
-    ...createHeartbeats(ports, { heartbeatSlice, tickSlice, lifecycleSlice, tabRegistry }, calls),
-    ...createTwitchIntegrity(ports, { integritySlice, settingsSlice, lifecycleSlice, tabRegistry }, calls),
-    ...createChannelPoints(ports, { tickSlice, lifecycleSlice }, calls),
-    ...createKickChallenges(ports, { kickChallengeSlice, lifecycleSlice }, calls),
-    ...createAuthHealth(ports, { authSlice, discoverySlice }, calls),
-    ...createManualWatch(ports, { tabRegistry }, calls),
-    ...createClaims(ports, { kickChallengeSlice, claimSlice, lifecycleSlice }, calls),
-    ...createDiscoverySignals(ports, { signalSlice, tickSlice, lifecycleSlice }, calls),
+    ...createHeartbeatCoordinator(ports, transaction, { tickSlice, lifecycleSlice, tabRegistry }, calls),
+    ...createTwitchIntegrity(ports, { settingsSlice, lifecycleSlice, tabRegistry }, calls),
+    ...createChannelPoints(ports, transaction, { tickSlice, lifecycleSlice }, calls),
+    ...createKickRuntime(ports, { lifecycleSlice }, calls),
+    ...createAuthHealth(ports, { discoverySlice }, calls),
+    ...createManualWatch(ports, { tabRegistry, lifecycleSlice }, calls),
+    ...createClaimService(ports, transaction, { lifecycleSlice }, calls),
+    ...createDiscoverySignals(ports, transaction, { signalSlice, tickSlice, lifecycleSlice }, calls),
     ...discovery,
-    ...createTickAdmission(ports, { reportingSlice, integritySlice, signalSlice, tickSlice, lifecycleSlice }, calls),
-    ...createTickRun(ports, { claimSlice, discoverySlice, tickSlice, kickChallengeSlice, tabRegistry }, calls),
+    ...createTickAdmission(ports, transaction, { reportingSlice, signalSlice, tickSlice, lifecycleSlice }, calls),
+    ...createTickRun(ports, { discoverySlice, tickSlice, tabRegistry }, calls),
     ...createSettingsTransitions(transaction, { discoverySlice }, calls),
-    ...createLifecycle(ports, { integritySlice, discoverySlice, tickSlice, settingsSlice, lifecycleSlice, tabRegistry }, calls),
-    ...createMessageHandler(ports, { integritySlice, signalSlice, tickSlice, settingsSlice, lifecycleSlice, tabRegistry }, calls),
+    ...createLifecycle(ports, { discoverySlice, tickSlice, settingsSlice, lifecycleSlice, tabRegistry }, calls),
+    ...createMessageHandler(ports, { signalSlice, tickSlice, settingsSlice, lifecycleSlice, tabRegistry }, calls),
   } satisfies ControllerCalls<S>);
 
-  // Prime the in-memory integrity token from storage whenever the background
-  // script (re)evaluates, so a claim right after a service-worker wake can use
-  // the last captured token before any fresh page traffic is observed.
-  integritySlice.initialTwitchIntegrityLoad = calls.loadStoredTwitchIntegrity(
-    integritySlice.integrityLifecycleGeneration,
-    settingsSlice.twitchSettingsTransitionGeneration,
-  );
+  // Prime the in-memory integrity token from storage (twitchIntegrity.ts).
+  calls.startInitialTwitchIntegrityLoad();
 
   // Runs the job a host's scheduler fired; unknown and inert jobs do nothing.
   async function runJob(name: string): Promise<void> {
