@@ -1,4 +1,5 @@
 import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
+import type { EngineEvent } from "@lurkloot/shared/events";
 import {
   campaignSearchBackoffApplies,
   isPlaybackTelemetryHealthy,
@@ -44,7 +45,12 @@ export function createDiscovery<S extends EngineSettings>(
   | "prepareSelection"
   | "reselectUnderLock"
   | "selectionAlreadyCommitted"
-> & { discoverySlice: DiscoverySlice<S> } {
+  | "invalidateDiscoveryLane"
+  | "stopDiscoveryLane"
+  | "recordDiscoveryEvent"
+  | "drainDiscoveryEvents"
+  | "selectionGeneration"
+> {
   const { createAdapter, readSettingsAndState, withEventCollector } = lateBound(calls);
 
   // Created here rather than in context.ts: each lane refreshes through this
@@ -239,6 +245,30 @@ export function createDiscovery<S extends EngineSettings>(
     return retryAt !== undefined && Date.parse(retryAt) <= Date.now();
   }
 
+  // A discovery result no longer stands (a settings change, a reset).
+  function invalidateDiscoveryLane(platform: Platform): void {
+    discoverySlice.discoveryLanes[platform].invalidate();
+  }
+
+  function stopDiscoveryLane(platform: Platform): void {
+    discoverySlice.discoveryLanes[platform].stop();
+  }
+
+  // Discovery and selection diagnostics wait here until the tick that consumes
+  // them reports them, correlated with its own.
+  function recordDiscoveryEvent(platform: Platform, event: EngineEvent): void {
+    discoverySlice.discoveryEvents[platform].push(event);
+  }
+
+  function drainDiscoveryEvents(platform: Platform): EngineEvent[] {
+    return discoverySlice.discoveryEvents[platform].splice(0);
+  }
+
+  // The generation a selection must still carry to be committed.
+  function selectionGeneration(platform: Platform): number {
+    return discoverySlice.selectionGeneration[platform];
+  }
+
   function invalidateSelection(platform: Platform): void {
     discoverySlice.selectionGeneration[platform] += 1;
     delete discoverySlice.selectionCache[platform];
@@ -414,7 +444,6 @@ export function createDiscovery<S extends EngineSettings>(
   }
 
   return {
-    discoverySlice,
     selectionFingerprint,
     refreshDiscovery,
     discoverySnapshot,
@@ -426,5 +455,10 @@ export function createDiscovery<S extends EngineSettings>(
     prepareSelection,
     reselectUnderLock,
     selectionAlreadyCommitted,
+    invalidateDiscoveryLane,
+    stopDiscoveryLane,
+    recordDiscoveryEvent,
+    drainDiscoveryEvents,
+    selectionGeneration,
   };
 }

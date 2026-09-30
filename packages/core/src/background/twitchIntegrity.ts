@@ -56,12 +56,13 @@ interface TwitchIntegrityState {
 // The Twitch integrity token: loading, capture, refresh scheduling and lifecycle.
 export function createTwitchIntegrity<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
-  { settingsSlice, lifecycleSlice, tabRegistry }: Pick<ControllerSlices<S>, "settingsSlice" | "lifecycleSlice" | "tabRegistry">,
+  { lifecycleSlice, tabRegistry }: Pick<ControllerSlices<S>, "lifecycleSlice" | "tabRegistry">,
   calls: Pick<ControllerCalls<S>,
     | "persistAndReport"
     | "reportBestEffort"
     | "withEventCollector"
     | "withStateLock"
+    | "currentTwitchSettingsTransition"
   >,
 ): Pick<ControllerCalls<S>,
   | "clearTwitchIntegrityAlarmBestEffort"
@@ -77,7 +78,13 @@ export function createTwitchIntegrity<S extends EngineSettings>(
   | "awaitInitialTwitchIntegrityLoad"
   | "resetTwitchIntegrity"
 > {
-  const { persistAndReport, reportBestEffort, withEventCollector, withStateLock } = lateBound(calls);
+  const {
+    currentTwitchSettingsTransition,
+    persistAndReport,
+    reportBestEffort,
+    withEventCollector,
+    withStateLock,
+  } = lateBound(calls);
   const integrityPort = ports.twitch.integrity;
   const integritySlice: TwitchIntegrityState = {
     bookkeeping: Promise.resolve(),
@@ -282,7 +289,7 @@ export function createTwitchIntegrity<S extends EngineSettings>(
       const ownsStartupLoad = (): boolean =>
         !lifecycleSlice.controllerShutdown
         && integritySlice.lifecycleGeneration === lifecycleGeneration
-        && settingsSlice.twitchSettingsTransitionGeneration === settingsTransitionGeneration;
+        && currentTwitchSettingsTransition() === settingsTransitionGeneration;
       let integrity: TwitchIntegrity | undefined;
       if (settingsReadError) {
         emit({
@@ -492,12 +499,12 @@ export function createTwitchIntegrity<S extends EngineSettings>(
     }));
     if (!isNew) return;
     const lifecycleGeneration = integritySlice.lifecycleGeneration;
-    const settingsTransitionGeneration = settingsSlice.twitchSettingsTransitionGeneration;
+    const settingsTransitionGeneration = currentTwitchSettingsTransition();
     const ownsScheduling = (): boolean =>
       !lifecycleSlice.controllerShutdown
       && lifecycleAdmits()
       && integritySlice.lifecycleGeneration === lifecycleGeneration
-      && settingsSlice.twitchSettingsTransitionGeneration === settingsTransitionGeneration;
+      && currentTwitchSettingsTransition() === settingsTransitionGeneration;
     await withEventCollector(async (emit, events) => {
       try {
         if (!ownsScheduling()) return;
@@ -700,7 +707,7 @@ export function createTwitchIntegrity<S extends EngineSettings>(
   function startInitialTwitchIntegrityLoad(): void {
     integritySlice.initialLoad = loadStoredTwitchIntegrity(
       integritySlice.lifecycleGeneration,
-      settingsSlice.twitchSettingsTransitionGeneration,
+      currentTwitchSettingsTransition(),
     );
   }
 

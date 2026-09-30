@@ -3,7 +3,7 @@ import type { EngineEvent } from "@lurkloot/shared/events";
 import { INTEGRITY_REFRESH_TIMEOUT_MS } from "../core/tabRegistry";
 import type { PlatformAdapter } from "../platforms/adapter";
 import { applyPlatformAuthHealth } from "../core/authHealth";
-import { type ControllerSlices, lateBound } from "./context";
+import { lateBound } from "./context";
 import { AuthProbeSetupError } from "./errors";
 import { correlateTickDiagnostics, platformLabel } from "./helpers";
 import type { BackgroundHostPorts } from "./hostPorts";
@@ -23,10 +23,10 @@ const DEFAULT_AUTH_PROBE_TIMEOUT_MS = INTEGRITY_REFRESH_TIMEOUT_MS + 5_000;
 // them.
 export function createAuthHealth<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
-  { discoverySlice }: Pick<ControllerSlices<S>, "discoverySlice">,
   calls: Pick<ControllerCalls<S>,
     | "createAdapter"
     | "diagnosticEvent"
+    | "invalidateDiscoveryLane"
     | "invalidateSelection"
     | "commitState"
     | "reportBestEffort"
@@ -45,6 +45,7 @@ export function createAuthHealth<S extends EngineSettings>(
   const {
     createAdapter,
     diagnosticEvent,
+    invalidateDiscoveryLane,
     invalidateSelection,
     commitState,
     reportBestEffort,
@@ -294,7 +295,7 @@ export function createAuthHealth<S extends EngineSettings>(
   }
 
   async function invalidateAuthHealth(platform: Platform): Promise<void> {
-    discoverySlice.discoveryLanes[platform].invalidate();
+    invalidateDiscoveryLane(platform);
     invalidateSelection(platform);
     const releaseDiscoverySignalAuthRefresh = reserveDiscoverySignalAuthRefresh(platform);
     try {

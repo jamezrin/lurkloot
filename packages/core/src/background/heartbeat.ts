@@ -62,7 +62,7 @@ function newHeartbeatLane(): HeartbeatLane {
 export function createHeartbeatCoordinator<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
   transaction: Pick<StateTransaction<S>, "onCommit">,
-  { tickSlice, lifecycleSlice, tabRegistry }: Pick<ControllerSlices<S>, "tickSlice" | "lifecycleSlice" | "tabRegistry">,
+  { lifecycleSlice, tabRegistry }: Pick<ControllerSlices<S>, "lifecycleSlice" | "tabRegistry">,
   calls: Pick<ControllerCalls<S>,
     | "createSelectedAdapters"
     | "diagnosticEvent"
@@ -74,6 +74,7 @@ export function createHeartbeatCoordinator<S extends EngineSettings>(
     | "commitState"
     | "readState"
     | "trackHeartbeatLane"
+    | "trackBackgroundWork"
   >,
 ): Pick<ControllerCalls<S>,
   | "ensureHeartbeatJob"
@@ -95,6 +96,7 @@ export function createHeartbeatCoordinator<S extends EngineSettings>(
     commitState,
     readState,
     trackHeartbeatLane,
+    trackBackgroundWork,
   } = lateBound(calls);
 
   // Persistent tabless watchers, one per platform, kept alive across ticks (the
@@ -455,7 +457,7 @@ export function createHeartbeatCoordinator<S extends EngineSettings>(
         platform,
       );
     });
-    tickSlice.backgroundWork = tickSlice.backgroundWork.then(() => run, () => run);
+    trackBackgroundWork(run);
   }
 
   // Fired by the 1-minute watch job. Runs one heartbeat per active tabless

@@ -81,6 +81,7 @@ export function createReporting<S extends EngineSettings>(
   | "tr"
   | "reportUnsupportedSettings"
   | "emitNotifications"
+  | "settleRouteReports"
 > {
   const { selectionFingerprint } = lateBound(calls);
 
@@ -434,7 +435,14 @@ export function createReporting<S extends EngineSettings>(
     }
   }
 
+  // Waits for the route reports in flight; true when none remain.
+  async function settleRouteReports(): Promise<boolean> {
+    await Promise.allSettled([...reportingSlice.pendingRouteReports]);
+    return reportingSlice.pendingRouteReports.size === 0;
+  }
+
   return {
+    settleRouteReports,
     createAdapters,
     createAdapter,
     createSelectedAdapters,

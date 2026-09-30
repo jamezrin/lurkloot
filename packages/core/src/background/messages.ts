@@ -12,15 +12,10 @@ import type { ControllerCalls } from "./types";
 // Runtime message handling.
 export function createMessageHandler<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
-  { signalSlice, tickSlice, settingsSlice, lifecycleSlice, tabRegistry }: Pick<ControllerSlices<S>,
-    | "tabRegistry"
-    | "signalSlice"
-    | "tickSlice"
-    | "settingsSlice"
-    | "lifecycleSlice"
-  >,
+  { lifecycleSlice, tabRegistry }: Pick<ControllerSlices<S>, "tabRegistry" | "lifecycleSlice">,
   calls: Pick<ControllerCalls<S>,
     | "abortClaimHandoffs"
+    | "beginTwitchSettingsTransition"
     | "claimRewardNow"
     | "createAdapters"
     | "diagnosticEvent"
@@ -30,6 +25,7 @@ export function createMessageHandler<S extends EngineSettings>(
     | "recordPlaybackTelemetry"
     | "reportBestEffort"
     | "resumeAfterManualClose"
+    | "setDiscoverySignalPlatformBlocked"
     | "snapshot"
     | "stopDiscoverySignalControllersAndReport"
     | "tickAndHandOff"
@@ -37,10 +33,12 @@ export function createMessageHandler<S extends EngineSettings>(
     | "commitSettings"
     | "withEventCollector"
     | "withStateLock"
+    | "platformTickRunning"
   >,
 ): Pick<ControllerCalls<S>, "handleMessage"> {
   const {
     abortClaimHandoffs,
+    beginTwitchSettingsTransition,
     claimRewardNow,
     createAdapters,
     diagnosticEvent,
@@ -50,6 +48,7 @@ export function createMessageHandler<S extends EngineSettings>(
     recordPlaybackTelemetry,
     reportBestEffort,
     resumeAfterManualClose,
+    setDiscoverySignalPlatformBlocked,
     snapshot,
     stopDiscoverySignalControllersAndReport,
     tickAndHandOff,
@@ -57,6 +56,7 @@ export function createMessageHandler<S extends EngineSettings>(
     commitSettings,
     withEventCollector,
     withStateLock,
+    platformTickRunning,
   } = lateBound(calls);
 
   async function handleMessage(
@@ -83,7 +83,7 @@ export function createMessageHandler<S extends EngineSettings>(
       const platformLabel = message.platform === "twitch" ? "Twitch" : "Kick";
       const action = message.enabled ? "enable" : "disable";
       diagnosticEvent("info", `User requested ${platformLabel} automation ${action}`, message.platform);
-      if (tickSlice.activePlatformTicks[message.platform] > 0) {
+      if (platformTickRunning(message.platform)) {
         diagnosticEvent(
           "info",
           `${platformLabel} automation ${action} queued behind an active tick`,
@@ -92,18 +92,15 @@ export function createMessageHandler<S extends EngineSettings>(
       }
       // Stopping must cancel any loop still refreshing in the background.
       if (!message.enabled) abortClaimHandoffs(message.platform);
-      const twitchTransitionGeneration = message.platform === "twitch"
-        ? ++settingsSlice.twitchSettingsTransitionGeneration
-        : undefined;
+      const twitchTransition = message.platform === "twitch" ? beginTwitchSettingsTransition() : undefined;
       const twitchTransitionIsCurrent = (): boolean =>
-        !lifecycleSlice.controllerShutdown
-        && twitchTransitionGeneration === settingsSlice.twitchSettingsTransitionGeneration;
+        !lifecycleSlice.controllerShutdown && twitchTransition?.() === true;
       // Twitch integrity follows the committed setting on its own (#589): the
       // commit cancels a mint in flight when it disables Twitch, and the
       // integrity service reconciles its lifecycle and schedule after it.
       const patch: SettingsPatch = { platform: { [message.platform]: { enabled: message.enabled } } };
       await commitSettings(() => patch, { intent: patch });
-      signalSlice.discoverySignalPlatformBlocked[message.platform] = !message.enabled;
+      setDiscoverySignalPlatformBlocked(message.platform, !message.enabled);
       if (!message.enabled) {
         await stopDiscoverySignalControllersAndReport([message.platform]);
       }
