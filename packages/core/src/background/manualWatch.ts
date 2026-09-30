@@ -1,4 +1,4 @@
-import type { CoreRuntimeMessage, PlaybackControl } from "@lurkloot/shared/messages";
+import type { CoreRuntimeMessage, PlaybackControl, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import { isPlaybackTelemetryHealthy } from "../core/scheduler";
@@ -8,7 +8,8 @@ import { kickChannelFromUrl } from "../platforms/kick/channelUrl";
 import { twitchChannelFromUrl } from "../platforms/twitch/channelUrl";
 import { PLATFORMS } from "./constants";
 import { lateBound, type ControllerSlices } from "./context";
-import { forgetRemovedPageContextTab, isReleasedTab, tabClosureOrigin } from "../core/tabRegistry";
+import { forgetRemovedPageContextTab, isReleasedTab, syncManagedTabBreakers, tabClosureOrigin } from "../core/tabRegistry";
+import { dismissCriticalFailure as dismissedCriticalFailure } from "../core/criticalHealth";
 import { emitHostCallbackError } from "./helpers";
 import type { BackgroundHostPorts, WatchTabPort } from "./hostPorts";
 import type { TickEffectExecutor } from "./tickEffects";
@@ -51,6 +52,10 @@ export function createManualWatch<S extends EngineSettings>(
     | "settleCommitHooks"
     | "withEventCollector"
     | "withStateLock"
+    | "markPlatformsStarting"
+    | "snapshot"
+    | "tickAndHandOff"
+    | "tickInBackground"
   >,
 ): Pick<ControllerCalls<S>,
   | "handleTabRemoved"
@@ -60,6 +65,8 @@ export function createManualWatch<S extends EngineSettings>(
   | "applyAdFocusForState"
   | "getPlaybackControl"
   | "registerWatchTabEffectHandlers"
+  | "resumeFarmingAfterManualClose"
+  | "dismissCriticalFailure"
 > {
   const {
     invalidateSelection,
@@ -71,6 +78,10 @@ export function createManualWatch<S extends EngineSettings>(
     settleCommitHooks,
     withEventCollector,
     withStateLock,
+    markPlatformsStarting,
+    snapshot,
+    tickAndHandOff,
+    tickInBackground,
   } = lateBound(calls);
   const { tabs } = ports;
   // Tabs that were removed, whoever closed them, oldest first and bounded like
@@ -379,7 +390,40 @@ export function createManualWatch<S extends EngineSettings>(
     };
   }
 
+  // The popup's resume after the user closed a managed tab (#591: moved here
+  // from messages.ts).
+  async function resumeFarmingAfterManualClose(platform: Platform): Promise<RuntimeSnapshot<S>> {
+    await resumeAfterManualClose(platform);
+    const settings = await ports.storage.loadSettings();
+    if (settings.platform[platform].enabled) {
+      await markPlatformsStarting([platform]);
+      tickInBackground([platform], "manual_resume");
+    }
+    return snapshot();
+  }
+
+  // Dismissing the critical-failure prompt resets the detector and closes the
+  // managed-tab breaker, so farming resumes.
+  async function dismissCriticalFailure(platform: Platform): Promise<RuntimeSnapshot<S>> {
+    // Serialized like every other load→mutate→persist handler here: a dismiss
+    // racing an alarm-driven tick would otherwise interleave loads and drop
+    // one side's write to the persisted state.
+    await withStateLock(() => withEventCollector(async (emit, events) => {
+      const state = await ports.storage.loadState();
+      const transition = dismissedCriticalFailure(state, platform, Date.now());
+      if (transition.event) emit(transition.event);
+      // Closing the breaker here is what lets farming resume immediately
+      // instead of waiting for the next tick to sync the registry.
+      syncManagedTabBreakers(tabRegistry, transition.state, [platform]);
+      await persistAndReport(transition.state, events);
+    }));
+    await tickAndHandOff(undefined, "critical_failure_dismissed");
+    return snapshot();
+  }
+
   return {
+    resumeFarmingAfterManualClose,
+    dismissCriticalFailure,
     registerWatchTabEffectHandlers: (executor) => registerWatchTabEffects(executor, tabs?.watch),
     handleTabRemoved,
     resumeAfterManualClose,

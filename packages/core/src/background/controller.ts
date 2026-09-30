@@ -120,9 +120,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     ...discovery,
     ...createTickAdmission(ports, transaction, { tickSlice, lifecycleSlice }, calls),
     ...createTickRun(ports, { tickSlice, tabRegistry }, calls),
-    ...createSettingsTransitions(transaction, { settingsSlice }, calls),
+    ...createSettingsTransitions(transaction, { settingsSlice, lifecycleSlice }, calls),
     ...createLifecycle(ports, { lifecycleSlice, tabRegistry }, calls),
-    ...createMessageHandler(ports, { lifecycleSlice, tabRegistry }, calls),
+    ...createMessageHandler(calls),
   } satisfies ControllerCalls<S>);
 
   // Prime the in-memory integrity token from storage (twitchIntegrity.ts).

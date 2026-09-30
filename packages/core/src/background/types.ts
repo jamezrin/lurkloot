@@ -448,6 +448,16 @@ export interface ControllerCalls<S extends EngineSettings> {
     onPersisted?: (state: SchedulerState) => void,
   ): Promise<void>;
   claimRewardNow(message: Extract<CoreRuntimeMessage, { type: "claimReward" }>): Promise<RuntimeSnapshot<S>>;
+
+  // Runtime message handlers, each in the module that owns what it changes
+  // (#591). messages.ts only routes to them.
+  setPlatformEnabled(message: Extract<CoreRuntimeMessage, { type: "setPlatformEnabled" | "setAutomation" }>): Promise<RuntimeSnapshot<S>>;
+  saveSettingsFromMessage(message: Extract<CoreRuntimeMessage, { type: "saveSettings" }>): Promise<RuntimeSnapshot<S>>;
+  updateIdleWatchlist(message: Extract<CoreRuntimeMessage, { type: "updateIdleWatchlist" }>): Promise<RuntimeSnapshot<S>>;
+  resumeFarmingAfterManualClose(platform: Platform): Promise<RuntimeSnapshot<S>>;
+  dismissCriticalFailure(platform: Platform): Promise<RuntimeSnapshot<S>>;
+  searchCategories(message: Extract<CoreRuntimeMessage, { type: "searchCategories" }>): Promise<CategorySearchResult>;
+  tickNow(): Promise<RuntimeSnapshot<S>>;
   runDropClaims(platform: Platform): Promise<void>;
 
   // discoverySignals.ts
