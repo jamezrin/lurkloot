@@ -164,3 +164,23 @@ describe("driver activity publication", () => {
     s.runtime.stop();
   });
 });
+
+// #594: the lane reconciles on each minute heartbeat commit. A refresh due a
+// few milliseconds after that commit must not wait for the next one.
+describe("refresh cadence", () => {
+  it("refreshes a driver whose floor is a few seconds away, and not one further off", async () => {
+    const s = setup(); s.driver.mockImplementation(async () => ({ stop: s.stop, refresh: s.refresh }));
+    s.query.mockImplementation(async () => {
+      const jwt = `eyJheader.${btoa(JSON.stringify({ channel_id: "123", exp: 1_800_000_000 + 3600, role: "viewer", opaque_user_id: "Uviewer", user_id: "viewer" })).replace(/=/g, "")}.signature`;
+      return { data: { user: { channel: { selfInstalledExtensions: [{ installation: { extension: { id: provider.extensionId, version: "1.1.2" }, activationConfig: { state: "ACTIVE" } }, token: { jwt } }] } } } };
+    });
+    await s.runtime.update(selected);
+    s.advance(provider.minRefreshIntervalMs - 6_000);
+    await s.runtime.update(selected);
+    expect(s.refresh).not.toHaveBeenCalled();
+    s.advance(2_000);
+    await s.runtime.update(selected);
+    expect(s.refresh).toHaveBeenCalledOnce();
+    s.runtime.stop();
+  });
+});

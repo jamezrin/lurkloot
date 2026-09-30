@@ -27,6 +27,7 @@ import {
 } from "../src/core/activityMessages";
 import { twitchHeartbeatFetchText, twitchHeartbeatPost } from "../src/core/twitchHeartbeatTransport";
 import { createCredentialAvailabilityProvider } from "../src/core/credentialAvailability";
+import { createTwitchExtensionCommitHook } from "../src/extensions/commitHook";
 import { createTwitchExtensionHost } from "../src/extensions/host";
 import { createTwitchExtensionSessionSource } from "../src/extensions/transport";
 import { createFortniteDriver } from "../src/extensions/fortnite/driver";
@@ -237,13 +238,14 @@ const extensionGrantCompletion = createTwitchExtensionGrantCompletion({
   enable: async (provider) => { await extensionHost.setEnabled(provider, true); await controller.tickAndHandOff(["twitch"], "manual_tick"); },
 });
 
-async function reconcileExtensions(): Promise<void> {
-  try { await extensionHost.reconcile(); }
-  catch {
-    // Never include transport/provider exceptions or payloads in diagnostics.
-    void reportEvents([{ category: "diagnostic", platform: "twitch", level: "warn", message: "Twitch Extension background reconciliation failed." }]).catch(() => undefined);
-  }
-}
+// The lane follows the controller's accepted commits (#594), not storage events
+// or alarms. A worker wake, startup and an auth check reconcile it too.
+const extensionCommits = createTwitchExtensionCommitHook(extensionHost, () => {
+  // Never include transport/provider exceptions or payloads in diagnostics.
+  void reportEvents([{ category: "diagnostic", platform: "twitch", level: "warn", message: "Twitch Extension background reconciliation failed." }]).catch(() => undefined);
+});
+controller.onCommit(extensionCommits.onCommit);
+const reconcileExtensions = extensionCommits.reconcile;
 
 function withExtensionSnapshot(value: unknown): unknown {
   if (value && typeof value === "object" && "state" in value && "settings" in value) {
@@ -334,35 +336,10 @@ export default defineBackground(() => {
     void extensionGrantCompletion.removed(details).catch(() => undefined);
     void extensionHost.removed(details).catch(() => undefined);
   });
+  // The grant flow's own intent keys; the lane itself follows commits.
   browser.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
     void extensionGrantCompletion.changed(changes).catch(() => undefined);
-    const settingsChange = changes.settings;
-    const stateChange = changes.schedulerState;
-    if (!settingsChange && !stateChange) return;
-    // Cancellation precedes asynchronous reads whenever authority changes.
-    if (settingsChange) {
-      const previous = settingsChange.oldValue as ExtensionSettings | undefined;
-      const next = settingsChange.newValue as ExtensionSettings | undefined;
-      if (previous?.pauseOnManualWatch !== next?.pauseOnManualWatch
-        || previous?.platform?.twitch?.enabled !== next?.platform?.twitch?.enabled
-        || previous?.twitchExtensions?.nopixel?.enabled !== next?.twitchExtensions?.nopixel?.enabled
-        || previous?.twitchExtensions?.fortnite?.enabled !== next?.twitchExtensions?.fortnite?.enabled
-        || previous?.twitchExtensions?.nopixel?.autoOpenPacks !== next?.twitchExtensions?.nopixel?.autoOpenPacks
-        || previous?.twitchExtensions?.fortnite?.allowTakeovers !== next?.twitchExtensions?.fortnite?.allowTakeovers) extensionHost.invalidate();
-    }
-    if (stateChange) {
-      const previous = stateChange.oldValue as RuntimeSnapshot["state"] | undefined;
-      const next = stateChange.newValue as RuntimeSnapshot["state"] | undefined;
-      if (Boolean(previous?.manualClosePause?.twitch) !== Boolean(next?.manualClosePause?.twitch)
-        || previous?.manualWatch?.twitch?.active !== next?.manualWatch?.twitch?.active
-        || previous?.sessions?.twitch?.status !== next?.sessions?.twitch?.status
-        || previous?.sessions?.twitch?.channel?.channelId !== next?.sessions?.twitch?.channel?.channelId
-        || previous?.authHealth?.twitch?.status !== next?.authHealth?.twitch?.status) extensionHost.invalidate({
-          preserveCompleted: previous?.authHealth?.twitch?.status === "healthy" && next?.authHealth?.twitch?.status === "healthy",
-        });
-    }
-    void reconcileExtensions();
   });
   // Runs on every MV3 wake/MV2 background start. Stored grants are verified;
   // provider credentials/resources are reacquired rather than restored.
@@ -390,7 +367,6 @@ export default defineBackground(() => {
   });
 
   browser.alarms.onAlarm.addListener(createBackgroundAlarmListener(controller));
-  browser.alarms.onAlarm.addListener(() => { void reconcileExtensions(); });
 
   async function reconsiderTab(tabId: number, url: string | undefined): Promise<void> {
     if (!url) return;

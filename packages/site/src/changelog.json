@@ -57,6 +57,10 @@
       {
         "kind": "fixed",
         "text": "Losing your sign-in now also stops a drop claim check running while you watch by hand, and the quick switch to the next drop after a claim, instead of letting them run on with requests that could only fail. A drop that was already claimed before that is still recorded and shown in Activity."
+      },
+      {
+        "kind": "improved",
+        "text": "NoPixelV and Fortnite rewards now stop as soon as a change that affects them is saved, such as pausing, signing out of Twitch or switching channel. They no longer re-check their providers on every background timer, only when something relevant changes and once a minute while they are earning."
       }
     ]
   },

@@ -128,7 +128,8 @@ describe("background integrity alarm wiring", () => {
     let deps: BackgroundAdapterDependencies | undefined;
     createBackgroundController.mockImplementation((nextDeps) => {
       deps = nextDeps;
-      return {};
+      // background.ts registers the Twitch Extensions commit hook (#594).
+      return { onCommit: vi.fn() };
     });
     const operations: string[] = [];
     vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: RequestInit) => {
@@ -173,7 +174,8 @@ describe("background integrity alarm wiring", () => {
     let deps: BackgroundAdapterDependencies | undefined;
     createBackgroundController.mockImplementation((nextDeps) => {
       deps = nextDeps;
-      return {};
+      // background.ts registers the Twitch Extensions commit hook (#594).
+      return { onCommit: vi.fn() };
     });
     const sockets: FakeSocket[] = [];
     vi.stubGlobal("WebSocket", class {
@@ -205,7 +207,8 @@ describe("background integrity alarm wiring", () => {
     let deps: BackgroundAdapterDependencies | undefined;
     createBackgroundController.mockImplementation((nextDeps) => {
       deps = nextDeps;
-      return {};
+      // background.ts registers the Twitch Extensions commit hook (#594).
+      return { onCommit: vi.fn() };
     });
     const sockets: FakeSocket[] = [];
     vi.stubGlobal("WebSocket", class {
