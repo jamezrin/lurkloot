@@ -61,6 +61,26 @@
     ]
   },
   {
+    "version": "1.14.2",
+    "changes": [
+      {
+        "kind": "fixed",
+        "text": "Fixed the Queue strategy picker spilling onto a second line in languages with longer names, such as German, or Spanish with Low availability first selected. The picker now sits on the Then by divider, above the campaigns it orders, so it reads as one phrase, for example “Then by Low availability first”. It is also back in Settings under Drops as Campaign priority, so you can change it even while every queued campaign is pinned or for a favourite game."
+      }
+    ],
+    "date": "2026-09-29"
+  },
+  {
+    "version": "1.14.1",
+    "changes": [
+      {
+        "kind": "fixed",
+        "text": "Fixed the Skipped section summary showing $1 instead of the reward name when a campaign could not be farmed."
+      }
+    ],
+    "date": "2026-09-26"
+  },
+  {
     "version": "1.14.0",
     "changes": [
       {
@@ -107,7 +127,8 @@
         "kind": "fixed",
         "text": "Fixed Kick opening a background tab for claims a tab cannot fix. A claim Kick rejects outright, such as one for an account that is not linked, is now reported with account-link guidance instead of opening kick.com. Login failures, blocks, and network errors still fall back to a page."
       }
-    ]
+    ],
+    "date": "2026-09-25"
   },
   {
     "version": "1.13.0",

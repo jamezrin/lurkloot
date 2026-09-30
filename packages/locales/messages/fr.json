@@ -525,7 +525,7 @@
     "message": "Priorité des campagnes"
   },
   "campaignPriorityDescription": {
-    "message": "Définit comment les campagnes sont choisies. La liste de priorité ne farme que les campagnes réordonnées manuellement ; les autres options choisissent parmi toutes les campagnes. Limitez les catégories par plateforme dans les paramètres de plateforme."
+    "message": "Ordonne les campagnes de la File qui ne sont ni épinglées ni liées à un jeu favori. Vous pouvez aussi la modifier depuis le séparateur « Ensuite par » de la File."
   },
   "endingSoonest": {
     "message": "Se termine le plus tôt"
