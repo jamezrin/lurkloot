@@ -306,6 +306,30 @@ export interface ControllerCalls<S extends EngineSettings> {
   // `platforms` (by default, every platform) has run.
   settleCommitHooks(platforms?: readonly Platform[]): Promise<void>;
 
+  // Owner methods for state other modules used to write directly (#591).
+  // discovery.ts
+  invalidateDiscoveryLane(platform: Platform): void;
+  stopDiscoveryLane(platform: Platform): void;
+  recordDiscoveryEvent(platform: Platform, event: EngineEvent): void;
+  drainDiscoveryEvents(platform: Platform): EngineEvent[];
+  selectionGeneration(platform: Platform): number;
+  // tickAdmission.ts
+  trackBackgroundWork(run: Promise<unknown>): void;
+  suspendTickAdmission(): void;
+  resumeTickAdmission(): void;
+  discardStalePendingTick(platform: Platform): void;
+  platformTickRunning(platform: Platform): boolean;
+  platformTickAdmitted(platform: Platform): boolean;
+  // reporting.ts
+  settleRouteReports(): Promise<boolean>;
+  // discoverySignals.ts
+  setDiscoverySignalPlatformBlocked(platform: Platform, blocked: boolean): void;
+  takeAllowedDiscoverySignalRefresh(platform: Platform): DiscoverySignalRefreshRequest | undefined;
+  // settingsTransitions.ts
+  beginTwitchSettingsTransition(): () => boolean;
+  invalidateTwitchSettingsTransitions(): void;
+  currentTwitchSettingsTransition(): number;
+
   // heartbeat.ts
   ensureHeartbeatJob(): Promise<void>;
   cancelHeartbeatPublicationLeases(platforms: readonly Platform[]): Promise<void>;

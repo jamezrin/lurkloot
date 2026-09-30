@@ -10,7 +10,7 @@ export { isRankingOnlyPatch } from "./stateTransaction";
 // Settings commits and the transitions they start.
 export function createSettingsTransitions<S extends EngineSettings>(
   transaction: StateTransaction<S>,
-  { discoverySlice }: Pick<ControllerSlices<S>, "discoverySlice">,
+  { settingsSlice }: Pick<ControllerSlices<S>, "settingsSlice">,
   calls: Pick<ControllerCalls<S>,
     | "abortIneligibleClaimOnlyOperations"
     | "abortIneligibleKickChallengeClaims"
@@ -18,6 +18,7 @@ export function createSettingsTransitions<S extends EngineSettings>(
     | "holdTwitchIntegrityForDisable"
     | "reconcileTwitchIntegrityAfterCommit"
     | "cancelPendingTick"
+    | "invalidateDiscoveryLane"
     | "invalidateSelection"
     | "rescheduleDropClaimJobs"
     | "rescheduleKickChallengeJob"
@@ -25,7 +26,13 @@ export function createSettingsTransitions<S extends EngineSettings>(
     | "rescheduleTwitchChannelPointsJob"
     | "withSettingsLock"
   >,
-): Pick<ControllerCalls<S>, "normalizeStartupSettings" | "commitSettings"> {
+): Pick<ControllerCalls<S>,
+  | "normalizeStartupSettings"
+  | "commitSettings"
+  | "beginTwitchSettingsTransition"
+  | "invalidateTwitchSettingsTransitions"
+  | "currentTwitchSettingsTransition"
+> {
   const {
     abortIneligibleClaimOnlyOperations,
     abortIneligibleKickChallengeClaims,
@@ -33,6 +40,7 @@ export function createSettingsTransitions<S extends EngineSettings>(
     holdTwitchIntegrityForDisable,
     reconcileTwitchIntegrityAfterCommit,
     cancelPendingTick,
+    invalidateDiscoveryLane,
     invalidateSelection,
     rescheduleDropClaimJobs,
     rescheduleKickChallengeJob,
@@ -116,7 +124,7 @@ export function createSettingsTransitions<S extends EngineSettings>(
         for (const platform of invalidatedPlatforms) {
           // Discovery does not depend on the ranking, so a reorder keeps it and
           // only the selection made from it is redone.
-          if (commit.effects[platform] === "discovery") discoverySlice.discoveryLanes[platform].invalidate();
+          if (commit.effects[platform] === "discovery") invalidateDiscoveryLane(platform);
           invalidateSelection(platform);
         }
         const { settings } = commit;
@@ -159,7 +167,27 @@ export function createSettingsTransitions<S extends EngineSettings>(
     }
   }
 
+  // A Twitch enable or disable in progress. Starting one, shutdown or a reset
+  // supersedes every earlier one; the returned check says whether this one is
+  // still the latest.
+  function beginTwitchSettingsTransition(): () => boolean {
+    const generation = ++settingsSlice.twitchSettingsTransitionGeneration;
+    return () => generation === settingsSlice.twitchSettingsTransitionGeneration;
+  }
+
+  function invalidateTwitchSettingsTransitions(): void {
+    settingsSlice.twitchSettingsTransitionGeneration += 1;
+  }
+
+  // The latest Twitch transition, for work that must not outlive it.
+  function currentTwitchSettingsTransition(): number {
+    return settingsSlice.twitchSettingsTransitionGeneration;
+  }
+
   return {
+    currentTwitchSettingsTransition,
+    beginTwitchSettingsTransition,
+    invalidateTwitchSettingsTransitions,
     normalizeStartupSettings,
     commitSettings,
   };

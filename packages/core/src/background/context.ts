@@ -172,7 +172,6 @@ export function createTabRegistrySlice(hostRegistry: TabRegistry | undefined): T
 export interface ControllerSlices<S extends EngineSettings> {
   reportingSlice: ReportingSlice;
   signalSlice: DiscoverySignalSlice;
-  discoverySlice: DiscoverySlice<S>;
   tickSlice: TickAdmissionSlice;
   settingsSlice: SettingsSlice;
   lifecycleSlice: LifecycleSlice;

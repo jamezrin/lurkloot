@@ -128,25 +128,32 @@ The per-module slices and calls below are where #591's dependency check starts:
 | --- | --- | --- | --- |
 | `stateTransaction.ts` | its own lock queues and hooks | none | the transaction (#585) |
 | `stateCommit.ts` | the transaction | `reporting` | 13 |
-| `reporting.ts` | `reportingSlice` | `discovery` | 13 |
-| `tickAdmission.ts` | `reportingSlice`, `signalSlice`, `tickSlice`, `lifecycleSlice`, a commit hook | `claimService`, `discovery`, `discoverySignals`, `reporting`, `stateCommit`, `tickRun` | 11 |
-| `tickRun.ts` | `discoverySlice`, `tickSlice` | `authHealth`, `channelPoints`, `claimService`, `discovery`, `discoverySignals`, `heartbeat`, `kickRuntime`, `manualWatch`, `reporting`, `stateCommit`, `tickAdmission`, `twitchIntegrity` | 1 |
-| `discovery.ts` | its own `discoverySlice`, `lifecycleSlice` | `reporting`, `stateCommit` | 10 |
-| `heartbeat.ts` | its own watchers, heartbeat lanes, generation high-water marks and publication leases, and the watch job (#586), `tickSlice`, `lifecycleSlice` | `discovery`, `reporting`, `stateCommit`, `tickAdmission` | 8 |
-| `twitchIntegrity.ts` | its own state (lifecycle generation, persisted token, refresh due, the startup load; #589), `settingsSlice`, `lifecycleSlice`, the tab registry's token | `reporting`, `stateCommit` | 12 |
-| `channelPoints.ts` | its own push slot, claim gate and push-claim queue (#590), `tickSlice`, `lifecycleSlice`, a commit hook | `reporting`, `stateCommit` | 10 |
+| `reporting.ts` | `reportingSlice` | `discovery` | 14 |
+| `tickAdmission.ts` | `tickSlice` (with `tickRun`, the tick coordinator), `lifecycleSlice` (read), a commit hook | `claimService`, `discovery`, `discoverySignals`, `reporting`, `stateCommit`, `tickRun` | 17 |
+| `tickRun.ts` | `tickSlice` (with `tickAdmission`) | `authHealth`, `channelPoints`, `claimService`, `discovery`, `discoverySignals`, `heartbeat`, `kickRuntime`, `manualWatch`, `reporting`, `stateCommit`, `tickAdmission`, `twitchIntegrity` | 1 |
+| `discovery.ts` | its own `discoverySlice`, `lifecycleSlice` (read) | `reporting`, `stateCommit` | 16 |
+| `heartbeat.ts` | its own watchers, heartbeat lanes, generation high-water marks and publication leases, and the watch job (#586), `lifecycleSlice` (read) | `discovery`, `reporting`, `stateCommit`, `tickAdmission` | 7 |
+| `twitchIntegrity.ts` | its own state (lifecycle generation, persisted token, refresh due, the startup load; #589), `lifecycleSlice` (read), the tab registry's token | `reporting`, `settingsTransitions`, `stateCommit` | 12 |
+| `channelPoints.ts` | its own push slot, claim gate and push-claim queue (#590), `lifecycleSlice` (read), a commit hook | `reporting`, `stateCommit`, `tickAdmission` | 12 |
 | `kickRuntime.ts` | its own challenge claim gate, claim operations and job reschedule queue (#588), `lifecycleSlice` | `reporting`, `stateCommit` | 9 |
-| `authHealth.ts` | its own refresh generations (#595), `discoverySlice` | `discovery`, `discoverySignals`, `reporting`, `stateCommit` | 5 |
-| `manualWatch.ts` | the watch-tab effect handlers (#591), `lifecycleSlice` | `discovery`, `reporting`, `stateCommit` | 7 |
+| `authHealth.ts` | its own refresh generations (#595) | `discovery`, `discoverySignals`, `reporting`, `stateCommit` | 5 |
+| `manualWatch.ts` | the watch-tab effect handlers (#591), `lifecycleSlice` (read) | `discovery`, `reporting`, `stateCommit` | 7 |
 | `supplementalSources.ts` | the supplemental target effect handler (#591) | none | 1 |
-| `claimService.ts` | its own handoffs, waiting reward ids, drop-claim operations, reward claim guards and job reschedule queue (#597), `lifecycleSlice` | `heartbeat`, `lifecycle`, `reporting`, `stateCommit`, `tickAdmission` | 12 |
-| `discoverySignals.ts` | `signalSlice`, `tickSlice`, `lifecycleSlice`, a commit hook | `reporting`, `tickAdmission` | 9 |
-| `settingsTransitions.ts` | the transaction, `discoverySlice` | `channelPoints`, `claimService`, `discovery`, `kickRuntime`, `lifecycle`, `stateCommit`, `tickAdmission` | 2 |
-| `lifecycle.ts` | `signalSlice`, `discoverySlice`, `tickSlice`, `settingsSlice`, `lifecycleSlice` | `authHealth`, `channelPoints`, `claimService`, `discovery`, `discoverySignals`, `heartbeat`, `kickRuntime`, `reporting`, `settingsTransitions`, `stateCommit`, `tickAdmission`, `twitchIntegrity` | 8 |
-| `messages.ts` | `signalSlice`, `tickSlice`, `settingsSlice`, `lifecycleSlice` | `claimService`, `discoverySignals`, `lifecycle`, `manualWatch`, `reporting`, `settingsTransitions`, `stateCommit`, `tickAdmission`, `twitchIntegrity` | 1 |
+| `claimService.ts` | its own handoffs, waiting reward ids, drop-claim operations, reward claim guards and job reschedule queue (#597), `lifecycleSlice` | `heartbeat`, `lifecycle`, `reporting`, `stateCommit`, `tickAdmission` | 13 |
+| `discoverySignals.ts` | `signalSlice`, `lifecycleSlice` (read), a commit hook | `reporting`, `tickAdmission` | 13 |
+| `settingsTransitions.ts` | the transaction, `settingsSlice` (the Twitch settings-transition generation) | `channelPoints`, `claimService`, `discovery`, `kickRuntime`, `lifecycle`, `stateCommit`, `tickAdmission` | 5 |
+| `lifecycle.ts` | `lifecycleSlice` | `authHealth`, `channelPoints`, `claimService`, `discovery`, `discoverySignals`, `heartbeat`, `kickRuntime`, `reporting`, `settingsTransitions`, `stateCommit`, `tickAdmission`, `twitchIntegrity` | 9 |
+| `messages.ts` | `lifecycleSlice` (read) | `claimService`, `discoverySignals`, `lifecycle`, `manualWatch`, `reporting`, `settingsTransitions`, `stateCommit`, `tickAdmission`, `twitchIntegrity` | 1 |
 
-Slices read outside their owner are the coupling the later issues remove: `lifecycleSlice`
-(`controllerShutdown`) in nine modules, `tickSlice` in seven, `discoverySlice` in five.
+Each module changes only its own state (#591). Where another module needs to change it, the
+owner provides a narrow method: tick admission's `trackBackgroundWork`, `suspendTickAdmission`
+and `discardStalePendingTick`; discovery's `invalidateDiscoveryLane`, `recordDiscoveryEvent` and
+`drainDiscoveryEvents`; discovery signals' `setDiscoverySignalPlatformBlocked` and
+`takeAllowedDiscoverySignalRefresh`; settings transitions' `beginTwitchSettingsTransition`. Reads go
+through queries too (`discoverySnapshot`, `selectionGeneration`, `platformTickRunning`,
+`currentTwitchSettingsTransition`, `settleRouteReports`). The one slice still read directly is
+`lifecycleSlice`, for its shutdown and observer flags. `tickSlice` belongs to the tick coordinator,
+which is `tickAdmission.ts` and `tickRun.ts` together (#587).
 `campaignEvaluationFingerprints` sits in `tickSlice` because only a tick reads it.
 
 The characterization suite is split the same way, into `packages/extension/tests/backgroundController/<owner>.test.ts`,
