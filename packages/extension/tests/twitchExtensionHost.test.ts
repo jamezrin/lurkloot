@@ -15,7 +15,7 @@ function setup() {
   const source = { query, hasSession: async () => true, now: vi.fn(() => Date.now()) };
   const drivers: { nopixel: TwitchExtensionDriverFactory } = { nopixel: async () => ({ stop }) };
   const diagnostic = vi.fn();
-  const host = createTwitchExtensionHost({ source, permissions: { contains, request: async () => { throw new Error("UI must request grants"); } }, drivers, loadSettings: async () => settings, loadState: async () => state, savePatch: async (patch: SettingsPatch) => { settings = applySettingsPatch(settings, patch); }, diagnostic });
+  const host = createTwitchExtensionHost({ source, permissions: { contains, request: async () => { throw new Error("UI must request grants"); } }, drivers, loadSettings: async () => settings, loadState: async () => state, savePatch: async (patch: SettingsPatch) => { settings = applySettingsPatch(settings, patch); }, diagnostic, publish: vi.fn() });
   return { host, state, contains, query, stop, diagnostic, source, drivers, settings: () => settings, enableTwitch() { settings.platform.twitch.enabled = true; } };
 }
 describe("background tabless provider host", () => {
@@ -368,6 +368,7 @@ describe("background tabless provider host", () => {
         loadState: async () => s.state,
         savePatch: async () => undefined,
         diagnostic: s.diagnostic,
+        publish: vi.fn(),
       });
       expect(await restarted.chooseWatchTarget(s.settings(), s.state)).toMatchObject({ id: "nopixel" });
     });

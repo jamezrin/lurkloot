@@ -176,6 +176,26 @@ const controller = createBackgroundController<ExtensionSettings>({
   },
 });
 
+// A driver's activity, published through its session so that nothing is
+// reported once the session has ended (#594).
+function publishDriverAction(
+  publish: ((events: readonly EngineEvent[]) => void) | undefined,
+  channel: { username: string } | undefined,
+  provider: "fortnite" | "nopixel",
+  action: "takeover_started" | "sprite_captured" | "giveaway_joined" | "pack_opened",
+): void {
+  if (!publish || !channel || !/^[a-zA-Z0-9_]{1,25}$/.test(channel.username)) return;
+  const events: EngineEvent[] = [];
+  withActivityDiagnostics((event) => events.push(event))({
+    category: "activity",
+    code: "twitch_extension_action",
+    level: "info",
+    platform: "twitch",
+    data: { provider, action, channel: channel.username },
+  });
+  publish(events);
+}
+
 const extensionHost = createTwitchExtensionHost({
   source: createTwitchExtensionSessionSource({
     hasSession: async () => (await checkCredentialAvailability("twitch")).status === "available",
@@ -186,35 +206,28 @@ const extensionHost = createTwitchExtensionHost({
     contains: (details) => browser.permissions.contains(details),
   },
   drivers: {
-    fortnite: async (session, emit, channel) => createFortniteDriver({ allowTakeovers: (await loadSettings()).twitchExtensions.fortnite.allowTakeovers, onTakeoverStarted: () => {
-      if (!channel || !/^[a-zA-Z0-9_]{1,25}$/.test(channel.username)) return;
-      const events: EngineEvent[] = [];
-      withActivityDiagnostics((event) => events.push(event))({ category: "activity", code: "twitch_extension_action", level: "info", platform: "twitch", data: { provider: "fortnite", action: "takeover_started", channel: channel.username } });
-      void reportEvents(events).catch(() => undefined);
-    }, createSocket: (url) => new WebSocket(url), onCaptured: () => {
-      if (!channel || !/^[a-zA-Z0-9_]{1,25}$/.test(channel.username)) return;
-      const events: EngineEvent[] = [];
-      withActivityDiagnostics((event) => events.push(event))({ category: "activity", code: "twitch_extension_action", level: "info", platform: "twitch", data: { provider: "fortnite", action: "sprite_captured", channel: channel.username } });
-      void reportEvents(events).catch(() => undefined);
-    } })(session, emit),
-    nopixel: async (session, emit, channel) => createNoPixelDriver((url, init) => fetch(url, init), () => {
-      if (!channel || !/^[a-zA-Z0-9_]{1,25}$/.test(channel.username)) return;
-      const events: EngineEvent[] = [];
-      withActivityDiagnostics((event) => events.push(event))({ category: "activity", code: "twitch_extension_action", level: "info", platform: "twitch", data: { provider: "nopixel", action: "giveaway_joined", channel: channel.username } });
-      void reportEvents(events).catch(() => undefined);
-    }, Date.now, (message) => {
-      void reportEvents([{ category: "diagnostic", platform: "twitch", level: "warn", message }]).catch(() => undefined);
-    }, { autoOpenPacks: (await loadSettings()).twitchExtensions.nopixel.autoOpenPacks, onOpened: () => {
-      if (!channel || !/^[a-zA-Z0-9_]{1,25}$/.test(channel.username)) return;
-      const events: EngineEvent[] = [];
-      withActivityDiagnostics((event) => events.push(event))({ category: "activity", code: "twitch_extension_action", level: "info", platform: "twitch", data: { provider: "nopixel", action: "pack_opened", channel: channel.username } });
-      void reportEvents(events).catch(() => undefined);
-    } })(session, emit),
+    fortnite: async (session, emit, channel, publish) => createFortniteDriver({
+      allowTakeovers: (await loadSettings()).twitchExtensions.fortnite.allowTakeovers,
+      onTakeoverStarted: () => publishDriverAction(publish, channel, "fortnite", "takeover_started"),
+      createSocket: (url) => new WebSocket(url),
+      onCaptured: () => publishDriverAction(publish, channel, "fortnite", "sprite_captured"),
+    })(session, emit, channel, publish),
+    nopixel: async (session, emit, channel, publish) => createNoPixelDriver(
+      (url, init) => fetch(url, init),
+      () => publishDriverAction(publish, channel, "nopixel", "giveaway_joined"),
+      Date.now,
+      (message) => publish?.([{ category: "diagnostic", platform: "twitch", level: "warn", message }]),
+      {
+        autoOpenPacks: (await loadSettings()).twitchExtensions.nopixel.autoOpenPacks,
+        onOpened: () => publishDriverAction(publish, channel, "nopixel", "pack_opened"),
+      },
+    )(session, emit, channel, publish),
   },
   loadSettings,
   loadState,
   savePatch: async (settingsPatch) => { await controller.handleMessage({ type: "saveSettings", settingsPatch }); },
   diagnostic: (message) => { void reportEvents([{ category: "diagnostic", platform: "twitch", level: "warn", message }]).catch(() => undefined); },
+  publish: (events) => { void reportEvents(events).catch(() => undefined); },
 });
 
 const extensionGrantCompletion = createTwitchExtensionGrantCompletion({
