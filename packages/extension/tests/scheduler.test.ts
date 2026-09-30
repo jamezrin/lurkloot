@@ -4997,3 +4997,33 @@ describe("scheduler managed tab circuit breaker", () => {
     expect(second.state.criticalHealth?.twitch?.managedTabOpens).toHaveLength(1);
   });
 });
+
+// #591: both hosts tick a disabled platform on every poll, so it says so once.
+describe("disabled platform diagnostics", () => {
+  it("logs that a platform is disabled once, when it becomes disabled", async () => {
+    const { runSchedulerTick } = await import("./helpers/schedulerTick");
+    const { DEFAULT_STATE } = await import("@lurkloot/core/defaults");
+    const { DEFAULT_SETTINGS } = await import("@lurkloot/shared/settings");
+    const settings = structuredClone(DEFAULT_SETTINGS);
+    settings.platform.twitch.enabled = true;
+    settings.platform.kick.enabled = false;
+    const adapter = (platform: "twitch" | "kick") => ({
+      platform,
+      checkAuthHealth: async () => ({ status: "healthy" as const }),
+      refreshCampaigns: async () => [],
+      listCandidateChannels: async () => [],
+      checkChannel: async (candidate: never) => ({ live: true, categoryMatches: true, candidate }),
+      claimReward: async () => true,
+    });
+    const adapters = { twitch: adapter("twitch"), kick: adapter("kick") } as never;
+    const disabledLogs = (events: readonly { category: string; message?: string }[]) =>
+      events.filter((event) => event.category === "diagnostic" && event.message === "Platform disabled");
+
+    const first = await runSchedulerTick(structuredClone(DEFAULT_STATE), settings, adapters, { platforms: ["kick"] });
+    const second = await runSchedulerTick(first.state, settings, adapters, { platforms: ["kick"] });
+
+    expect(disabledLogs(first.events)).toHaveLength(1);
+    expect(disabledLogs(second.events)).toHaveLength(0);
+    expect(second.state.sessions.kick).toMatchObject({ status: "paused", reasonCode: "platform_disabled" });
+  });
+});

@@ -69,6 +69,10 @@
       {
         "kind": "improved",
         "text": "When NoPixelV or Fortnite keeps failing to count watch time on a channel, Lurkloot now moves on to another channel or reward source for a few minutes instead of staying on it."
+      },
+      {
+        "kind": "improved",
+        "text": "The CLI now runs its checks the same way the extension does, including for a platform that is switched off, which only clears what that platform left behind. A switched-off platform is now reported once when it is switched off, instead of on every check, in the CLI and in the extension's diagnostics."
       }
     ]
   },

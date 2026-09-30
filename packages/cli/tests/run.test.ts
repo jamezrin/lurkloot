@@ -12,7 +12,7 @@ import type { EventEmitter } from "@lurkloot/shared/events";
 import { createTransport } from "../src/transport";
 import type { TransportHandle } from "../src/transport";
 import { DEFAULT_CLI_SETTINGS } from "../src/settings";
-import { runCliTickOnce, runLoop } from "../src/runtime/run";
+import { createSubscriptionWaitReporter, runLoop } from "../src/runtime/run";
 import { createLogger } from "../src/logger";
 import type { Logger } from "../src/logger";
 import { runCliBaselineCell } from "./helpers/tickBaseline";
@@ -126,107 +126,53 @@ function stateWithSubscriptionWait(id: string): SchedulerState {
   };
 }
 
-describe("CLI committed tick consumption", () => {
-  const engineSettings = DEFAULT_CLI_SETTINGS as unknown as EngineSettings;
-  const enabledPlatforms: Platform[] = ["twitch"];
-
-  it("uses the returned committed state without a fallback load", async () => {
-    const state = stateWithSubscriptionWait("success");
-    const loadState = vi.fn(async () => structuredClone(DEFAULT_STATE));
+// #591: the CLI logs subscription waits from committed state (a commit hook),
+// not from a tick driver of its own.
+describe("CLI subscription wait reporting", () => {
+  it("logs each newly waiting reward once", () => {
     const logger = createLogger("error");
     logger.info = vi.fn();
+    const report = createSubscriptionWaitReporter(logger);
 
-    await runCliTickOnce({
-      controller: { tickAndHandOff: vi.fn(async () => state) },
-      enabledPlatforms,
-      engineSettings,
-      loadState,
-      seenSubscriptionWaits: new Set(),
-      logger,
-    });
+    report(stateWithSubscriptionWait("first"));
+    report(stateWithSubscriptionWait("first"));
 
-    expect(loadState).not.toHaveBeenCalled();
-    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining("Reward success"), "twitch");
+    expect(logger.info).toHaveBeenCalledOnce();
+    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining("Reward first"), "twitch");
   });
 
-  it("logs a failed tick without consuming fallback state", async () => {
-    const logger = createLogger("error");
-    logger.error = vi.fn();
-    const loadState = vi.fn(async () => stateWithSubscriptionWait("stale"));
-
-    await runCliTickOnce({
-      controller: { tickAndHandOff: vi.fn(async () => { throw new Error("tick failed"); }) },
-      enabledPlatforms,
-      engineSettings,
-      loadState,
-      seenSubscriptionWaits: new Set(),
-      logger,
-    });
-
-    expect(loadState).not.toHaveBeenCalled();
-    expect(logger.error).toHaveBeenCalledWith("tick failed", "tick");
-  });
-
-  it("consumes the final handoff result and clears resolved subscription waits", async () => {
-    const seen = new Set<string>();
+  it("logs a stored wait in a one-shot run whose ticks commit nothing", async () => {
     const logger = createLogger("error");
     logger.info = vi.fn();
-    const tickAndHandOff = vi.fn()
-      .mockResolvedValueOnce(stateWithSubscriptionWait("handoff"))
-      .mockResolvedValueOnce(structuredClone(DEFAULT_STATE))
-      .mockResolvedValueOnce(stateWithSubscriptionWait("handoff"));
-    const options = {
-      controller: { tickAndHandOff }, enabledPlatforms, engineSettings,
-      loadState: vi.fn(async () => structuredClone(DEFAULT_STATE)),
-      seenSubscriptionWaits: seen, logger,
-    };
+    await runLoop({
+      settings: DEFAULT_CLI_SETTINGS,
+      statePath: join(dir, "state.json"),
+      transport: await fakeTransport({
+        twitch: { status: "healthy", checkedAt: "2026-09-01T20:00:00.000Z" },
+        kick: { status: "healthy", checkedAt: "2026-09-01T20:00:00.000Z" },
+      }),
+      logger,
+      once: true,
+      // Storage refuses every write, so no tick commits and no commit hook
+      // runs; only the run's own report can log the stored wait.
+      stateStore: {
+        load: async () => stateWithSubscriptionWait("stored"),
+        save: async () => { throw new Error("read-only storage"); },
+      },
+    });
+    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining("Reward stored"), "twitch");
+  });
 
-    await runCliTickOnce(options);
-    await runCliTickOnce(options);
-    await runCliTickOnce(options);
+  it("logs a reward again after it stopped waiting and waits again", () => {
+    const logger = createLogger("error");
+    logger.info = vi.fn();
+    const report = createSubscriptionWaitReporter(logger);
+
+    report(stateWithSubscriptionWait("again"));
+    report(structuredClone(DEFAULT_STATE));
+    report(stateWithSubscriptionWait("again"));
 
     expect(logger.info).toHaveBeenCalledTimes(2);
-  });
-
-  it("does not associate overlapping results with each other", async () => {
-    const first = deferred<SchedulerState>();
-    const second = deferred<SchedulerState>();
-    const logger = createLogger("error");
-    logger.info = vi.fn();
-    const tickAndHandOff = vi.fn()
-      .mockReturnValueOnce(first.promise)
-      .mockReturnValueOnce(second.promise);
-    const options = () => ({
-      controller: { tickAndHandOff }, enabledPlatforms, engineSettings,
-      loadState: vi.fn(async () => structuredClone(DEFAULT_STATE)),
-      seenSubscriptionWaits: new Set<string>(), logger,
-    });
-
-    const firstRun = runCliTickOnce(options());
-    const secondRun = runCliTickOnce(options());
-    second.resolve(stateWithSubscriptionWait("second"));
-    await secondRun;
-    first.resolve(stateWithSubscriptionWait("first"));
-    await firstRun;
-
-    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining("Reward first"), "twitch");
-    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining("Reward second"), "twitch");
-  });
-
-  it("processes a coalesced scheduler result once across recurring CLI calls", async () => {
-    const pending = deferred<SchedulerState>();
-    const logger = createLogger("error");
-    const loadState = vi.fn(async () => structuredClone(DEFAULT_STATE));
-    const options = {
-      controller: { tickAndHandOff: vi.fn(() => pending.promise) },
-      enabledPlatforms, engineSettings, loadState, seenSubscriptionWaits: new Set<string>(), logger,
-    };
-    const first = runCliTickOnce(options);
-    const second = runCliTickOnce(options);
-    const shared = first === second;
-    pending.resolve(structuredClone(DEFAULT_STATE));
-    await Promise.all([first, second]);
-    expect(shared).toBe(true);
   });
 });
 
@@ -297,8 +243,10 @@ describe("CLI scheduler tick baseline", () => {
         // recovery and the independent heartbeat path retain their own bundles.
         // Since #593 the startup reconciliation also checks the Twitch
         // channel-points observer, as the extension's startup does. Since #590
-        // the one-minute channel-points job fires in this window too.
-        adapterConstructions: platform === "twitch" ? 8 : 6,
+        // the one-minute channel-points job fires in this window too. Since
+        // #591 the CLI runs both tick jobs, like the extension, so the disabled
+        // platform's ticks construct its adapter as well.
+        adapterConstructions: platform === "twitch" ? 10 : 8,
         watcherReconciliations: 1,
       });
       expect(result.durationsMs).toEqual({
@@ -325,10 +273,13 @@ describe("CLI scheduler tick baseline", () => {
       host: "cli",
       platform,
       scenario: "idle",
-      // The stacked controller now performs five shared-engine loads in both
-      // hosts; the former CLI-only post-tick reload would make this six.
-      stateLoads: 5,
-      stateSaves: 2,
+      // The stacked controller performs five shared-engine loads in both hosts.
+      // Since #591 a one-shot run fires both tick jobs, like every poll: the
+      // disabled platform's tick adds four loads and saves its disabled state
+      // once, and the run reads the state once more to report stored
+      // subscription waits.
+      stateLoads: 10,
+      stateSaves: 3,
       counts: {
         adapterOperations: 2,
         campaignDiscovery: 1,
@@ -337,7 +288,8 @@ describe("CLI scheduler tick baseline", () => {
         heartbeatAttempts: 0,
         heartbeatBlockedByDiscovery: 0,
         discoveryBlockedByHeartbeat: 0,
-        adapterConstructions: 1,
+        // One per tick job: the disabled platform ticks too (#591).
+        adapterConstructions: 2,
         watcherReconciliations: 0,
       },
       durationsMs: {
@@ -365,7 +317,8 @@ describe("CLI scheduler tick baseline", () => {
       campaignDiscovery: 1,
       candidateListings: 1,
       channelChecks: 1,
-      adapterConstructions: 1,
+      // One per tick job: the disabled platform ticks too (#591).
+      adapterConstructions: 2,
       watcherReconciliations: 1,
     });
     expect(result.outcomeCampaignId).toBe(`${platform}-campaign`);
@@ -413,7 +366,8 @@ describe("CLI scheduler tick baseline", () => {
       campaignDiscovery: 1,
       candidateListings: scenario === "higherPriorityUnavailable" ? 2 : 1,
       channelChecks: scenario === "higherPriorityUnavailable" ? 2 : 1,
-      adapterConstructions: 1,
+      // One per tick job: the disabled platform ticks too (#591).
+      adapterConstructions: 2,
       watcherReconciliations: 1,
     });
     expect(result.durationsMs).toEqual({
