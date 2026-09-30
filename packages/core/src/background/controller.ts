@@ -21,6 +21,7 @@ import { createReporting } from "./reporting";
 import { createSettingsTransitions } from "./settingsTransitions";
 import { createStateCommit } from "./stateCommit";
 import { createStateTransaction } from "./stateTransaction";
+import { createSupplementalSources } from "./supplementalSources";
 import { createTickAdmission } from "./tickAdmission";
 import { createTickRun } from "./tickRun";
 import { createTwitchIntegrity } from "./twitchIntegrity";
@@ -113,6 +114,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     ...createKickRuntime(ports, { lifecycleSlice }, calls),
     ...createAuthHealth(ports, { discoverySlice }, calls),
     ...createManualWatch(ports, { tabRegistry, lifecycleSlice }, calls),
+    ...createSupplementalSources(ports),
     ...createClaimService(ports, transaction, { lifecycleSlice }, calls),
     ...createDiscoverySignals(ports, transaction, { signalSlice, tickSlice, lifecycleSlice }, calls),
     ...discovery,

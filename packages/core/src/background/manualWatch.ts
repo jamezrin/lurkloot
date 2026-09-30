@@ -10,13 +10,34 @@ import { PLATFORMS } from "./constants";
 import { lateBound, type ControllerSlices } from "./context";
 import { forgetRemovedPageContextTab, isReleasedTab, tabClosureOrigin } from "../core/tabRegistry";
 import { emitHostCallbackError } from "./helpers";
-import type { BackgroundHostPorts } from "./hostPorts";
+import type { BackgroundHostPorts, WatchTabPort } from "./hostPorts";
+import type { TickEffectExecutor } from "./tickEffects";
 import type { ControllerCalls } from "./types";
 
 // Enough to remember recent closes while their late reports drain.
 const MAX_REMOVED_TABS = 64;
 
-// Manual watch, managed-tab events and playback telemetry.
+// The scheduler's watch-tab effects (#591), performed through the host's
+// WatchTabPort (#598). Without the port every watch is tabless: the scheduler
+// never asks to open a tab there, so that fails loudly, but it still asks to
+// stop one when a platform goes idle or is disabled, which does nothing.
+export function registerWatchTabEffects(executor: TickEffectExecutor, watchTabs: WatchTabPort | undefined): TickEffectExecutor {
+  return executor
+    .register("stopWatchTab", async ({ session }, context) => {
+      await watchTabs?.stop(session, { signal: context.signal }, context.emit);
+    })
+    .register("openWatchTab", async ({ channel, session, managedTab }, context) => {
+      if (!watchTabs) {
+        throw new Error("Watch tabs need the browserTabs capability, which this host does not declare");
+      }
+      return await watchTabs.open(channel, session, {
+        ...(managedTab ? { managedTab } : {}),
+        signal: context.signal,
+      }, context.emit);
+    });
+}
+
+// Manual watch, managed watch tabs, tab events and playback telemetry.
 export function createManualWatch<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
   { tabRegistry, lifecycleSlice }: Pick<ControllerSlices<S>, "tabRegistry" | "lifecycleSlice">,
@@ -38,6 +59,7 @@ export function createManualWatch<S extends EngineSettings>(
   | "handleTabUpdated"
   | "applyAdFocusForState"
   | "getPlaybackControl"
+  | "registerWatchTabEffectHandlers"
 > {
   const {
     invalidateSelection,
@@ -358,6 +380,7 @@ export function createManualWatch<S extends EngineSettings>(
   }
 
   return {
+    registerWatchTabEffectHandlers: (executor) => registerWatchTabEffects(executor, tabs?.watch),
     handleTabRemoved,
     resumeAfterManualClose,
     recordPlaybackTelemetry,
