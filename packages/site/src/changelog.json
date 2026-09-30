@@ -61,6 +61,14 @@
       {
         "kind": "improved",
         "text": "NoPixelV and Fortnite rewards now stop as soon as a change that affects them is saved, such as pausing, signing out of Twitch or switching channel. They no longer re-check their providers on every background timer, only when something relevant changes and once a minute while they are earning."
+      },
+      {
+        "kind": "fixed",
+        "text": "NoPixelV and Fortnite now remember which rewards are finished, and which channels to avoid for a while, when the browser stops and restarts Lurkloot in the background. A finished provider is no longer checked again on every restart, where it could keep taking turns from the other one."
+      },
+      {
+        "kind": "improved",
+        "text": "When NoPixelV or Fortnite keeps failing to count watch time on a channel, Lurkloot now moves on to another channel or reward source for a few minutes instead of staying on it."
       }
     ]
   },

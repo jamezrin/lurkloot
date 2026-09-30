@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import type { TwitchExtensionDriverFactory } from "../src/extensions/runtime";
-import { createTwitchExtensionHost } from "../src/extensions/host";
+import { createTwitchExtensionHost, type TwitchExtensionLaneMemoryPort } from "../src/extensions/host";
 import { DEFAULT_SETTINGS, applySettingsPatch } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "@lurkloot/core/defaults";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
-function setup() {
+function setup(memory?: TwitchExtensionLaneMemoryPort, viewerLogin: () => Promise<string | undefined> = async () => "viewer") {
   let settings = structuredClone(DEFAULT_SETTINGS);
   const state = structuredClone(DEFAULT_STATE);
   state.authHealth.twitch = { status: "healthy" };
@@ -15,8 +15,9 @@ function setup() {
   const source = { query, hasSession: async () => true, now: vi.fn(() => Date.now()) };
   const drivers: { nopixel: TwitchExtensionDriverFactory } = { nopixel: async () => ({ stop }) };
   const diagnostic = vi.fn();
-  const host = createTwitchExtensionHost({ source, permissions: { contains, request: async () => { throw new Error("UI must request grants"); } }, drivers, loadSettings: async () => settings, loadState: async () => state, savePatch: async (patch: SettingsPatch) => { settings = applySettingsPatch(settings, patch); }, diagnostic, publish: vi.fn() });
-  return { host, state, contains, query, stop, diagnostic, source, drivers, settings: () => settings, enableTwitch() { settings.platform.twitch.enabled = true; } };
+  const requestTick = vi.fn();
+  const host = createTwitchExtensionHost({ source, permissions: { contains, request: async () => { throw new Error("UI must request grants"); } }, drivers, loadSettings: async () => settings, loadState: async () => state, savePatch: async (patch: SettingsPatch) => { settings = applySettingsPatch(settings, patch); }, diagnostic, publish: vi.fn(), memory, requestTick, viewerLogin });
+  return { requestTick, host, state, contains, query, stop, diagnostic, source, drivers, settings: () => settings, enableTwitch() { settings.platform.twitch.enabled = true; } };
 }
 describe("background tabless provider host", () => {
   // #587: every caller shares one discovery per provider, but under its own
@@ -345,11 +346,19 @@ describe("background tabless provider host", () => {
       expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toMatchObject({ id: "nopixel" });
     });
 
-    // Current behavior, not intended (#584): completion and cooldowns live only
-    // in the host's memory, so a service-worker restart forgets them and the
-    // provider is probed again. #594 either persists them or bounds the re-probe.
-    it("forgets completion when a new host starts over the same settings and state", async () => {
-      const s = setup(); s.enableTwitch();
+    // #594: completion and cooldowns are kept in the lane's memory, so a
+    // service-worker restart does not probe a finished provider again.
+    function laneMemory() {
+      const stored: { value?: unknown } = {};
+      const port: TwitchExtensionLaneMemoryPort = {
+        load: async () => structuredClone(stored.value),
+        save: async (value) => { stored.value = structuredClone(value); },
+      };
+      return { stored, port };
+    }
+
+    async function completedThenRestarted(memory?: TwitchExtensionLaneMemoryPort, restartedLogin = "viewer") {
+      const s = setup(memory); s.enableTwitch();
       const now = Date.UTC(2026, 8, 14, 12); s.source.now.mockReturnValue(now);
       withDirectory(s, now);
       s.drivers.nopixel = async (_session, emit) => { emit({ status: "complete", reasonCode: "rewards-complete", progress: [], pending: [] }); return { stop: s.stop }; };
@@ -360,7 +369,7 @@ describe("background tabless provider host", () => {
       s.source.now.mockReturnValue(now + 10 * 60_000);
       expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toBeUndefined();
 
-      const restarted = createTwitchExtensionHost({
+      const restart = () => createTwitchExtensionHost({
         source: s.source,
         permissions: { contains: s.contains, request: async () => { throw new Error("UI must request grants"); } },
         drivers: s.drivers,
@@ -369,8 +378,170 @@ describe("background tabless provider host", () => {
         savePatch: async () => undefined,
         diagnostic: s.diagnostic,
         publish: vi.fn(),
+        memory,
+        viewerLogin: async () => restartedLogin,
       });
+      return { s, now, restart };
+    }
+
+    it("remembers completion when a new host starts over the same lane memory", async () => {
+      const memory = laneMemory();
+      const { s, now, restart } = await completedThenRestarted(memory.port);
+      await vi.waitFor(() => expect(memory.stored.value).toMatchObject({ knownComplete: { nopixel: expect.any(Number) } }));
+
+      const restarted = restart();
+      expect(await restarted.chooseWatchTarget(s.settings(), s.state)).toBeUndefined();
+      s.source.now.mockReturnValue(now + 30 * 60_000 + 1);
       expect(await restarted.chooseWatchTarget(s.settings(), s.state)).toMatchObject({ id: "nopixel" });
+    });
+
+    it("does not restore completion that an account change dropped before the memory loaded", async () => {
+      const memory = laneMemory();
+      const { s, restart } = await completedThenRestarted(memory.port);
+      await vi.waitFor(() => expect(memory.stored.value).toMatchObject({ knownComplete: { nopixel: expect.any(Number) } }));
+
+      const restarted = restart();
+      restarted.invalidate({ forgetCompletion: true });
+      expect(await restarted.chooseWatchTarget(s.settings(), s.state)).toMatchObject({ id: "nopixel" });
+      await vi.waitFor(() => expect(memory.stored.value).toMatchObject({ knownComplete: {} }));
+    });
+
+    it("does not restore memory saved for another Twitch login", async () => {
+      const memory = laneMemory();
+      const { s, restart } = await completedThenRestarted(memory.port, "someone_else");
+      await vi.waitFor(() => expect(memory.stored.value).toMatchObject({ owner: "viewer", knownComplete: { nopixel: expect.any(Number) } }));
+      expect(await restart().chooseWatchTarget(s.settings(), s.state)).toMatchObject({ id: "nopixel" });
+    });
+
+    it("keeps what the lane learned when Twitch re-sets the cookie for the same login", async () => {
+      const memory = laneMemory();
+      const { s } = await completedThenRestarted(memory.port);
+      await vi.waitFor(() => expect(memory.stored.value).toMatchObject({ knownComplete: { nopixel: expect.any(Number) } }));
+      await s.host.credentialsChanged();
+      expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toBeUndefined();
+      expect(memory.stored.value).toMatchObject({ owner: "viewer", knownComplete: { nopixel: expect.any(Number) } });
+    });
+
+    it("forgets what the lane learned when the Twitch login changes", async () => {
+      const memory = laneMemory();
+      let login = "viewer";
+      const s = setup(memory.port, async () => login); s.enableTwitch();
+      const now = Date.UTC(2026, 8, 14, 12); s.source.now.mockReturnValue(now);
+      withDirectory(s, now);
+      s.drivers.nopixel = async (_session, emit) => { emit({ status: "complete", reasonCode: "rewards-complete", progress: [], pending: [] }); return { stop: s.stop }; };
+      await s.host.setEnabled("nopixel", true);
+      s.state.sessions.twitch.status = "idle";
+      s.settings().twitchExtensions.fortnite.enabled = false;
+      s.source.now.mockReturnValue(now + 10 * 60_000);
+      expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toBeUndefined();
+
+      login = "someone_else";
+      await s.host.credentialsChanged();
+      expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toMatchObject({ id: "nopixel" });
+      await vi.waitFor(() => expect(memory.stored.value).toMatchObject({ owner: "someone_else", knownComplete: {} }));
+    });
+
+    it("stops the providers at once when the cookie changes, whoever is signed in", async () => {
+      const s = setup(); s.enableTwitch();
+      const now = Date.UTC(2026, 8, 14, 12); s.source.now.mockReturnValue(now);
+      withDirectory(s, now);
+      s.drivers.nopixel = async (_session, emit) => { emit({ status: "farming", reasonCode: "watchtime", progress: [], pending: [] }); return { stop: s.stop }; };
+      await s.host.setEnabled("nopixel", true);
+      await s.host.reconcile();
+      s.stop.mockClear();
+      const changed = s.host.credentialsChanged();
+      expect(s.stop).toHaveBeenCalled();
+      await changed;
+    });
+
+    it("probes a finished provider again after a restart without lane memory", async () => {
+      const { s, restart } = await completedThenRestarted();
+      expect(await restart().chooseWatchTarget(s.settings(), s.state)).toMatchObject({ id: "nopixel" });
+    });
+
+    it("drops a disabled provider's completion from the lane memory", async () => {
+      const memory = laneMemory();
+      const { s } = await completedThenRestarted(memory.port);
+      await vi.waitFor(() => expect(memory.stored.value).toMatchObject({ knownComplete: { nopixel: expect.any(Number) } }));
+      await s.host.setEnabled("nopixel", false);
+      await vi.waitFor(() => expect(memory.stored.value).toMatchObject({ knownComplete: {} }));
+    });
+
+    // #586 moved here: a tabless-only session whose heartbeats keep failing
+    // cools its channel, like an unavailable report, instead of a tab fallback.
+    describe("heartbeat failures", () => {
+      async function farming() {
+        const s = setup(); s.enableTwitch();
+        const now = Date.UTC(2026, 8, 14, 12); s.source.now.mockReturnValue(now);
+        withDirectory(s, now);
+        s.settings().twitchExtensions.fortnite.enabled = false;
+        s.drivers.nopixel = async (_session, emit) => { emit({ status: "farming", reasonCode: "watchtime", progress: [], pending: [] }); return { stop: s.stop }; };
+        await s.host.setEnabled("nopixel", true);
+        expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toMatchObject({ id: "nopixel", channel: { username: "buddha" } });
+        const limit = s.settings().tablessFallbackFailureLimit;
+        return { s, now, limit };
+      }
+
+      it("moves off the channel once failures reach the fallback limit, for the channel cooldown", async () => {
+        const { s, now, limit } = await farming();
+        await s.host.recordHeartbeatFailure({ provider: "nopixel", username: "Buddha", heartbeatChecks: limit });
+        // The scheduler chooses again at once, not at its next poll.
+        expect(s.requestTick).toHaveBeenCalledOnce();
+        expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toBeUndefined();
+        expect(s.diagnostic).toHaveBeenCalledWith("Twitch extension nopixel heartbeat keeps failing on Buddha; trying another channel");
+        s.source.now.mockReturnValue(now + 5 * 60_000 + 1);
+        expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toMatchObject({ id: "nopixel", channel: { username: "buddha" } });
+      });
+
+      it("keeps the channel below the fallback limit", async () => {
+        const { s, limit } = await farming();
+        await s.host.recordHeartbeatFailure({ provider: "nopixel", username: "buddha", heartbeatChecks: limit - 1 });
+        expect(s.requestTick).not.toHaveBeenCalled();
+        expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toMatchObject({ id: "nopixel" });
+      });
+
+      it("never renews an active cooldown on further failures", async () => {
+        const { s, now, limit } = await farming();
+        await s.host.recordHeartbeatFailure({ provider: "nopixel", username: "buddha", heartbeatChecks: limit });
+        s.source.now.mockReturnValue(now + 4 * 60_000);
+        await s.host.recordHeartbeatFailure({ provider: "nopixel", username: "buddha", heartbeatChecks: limit + 1 });
+        expect(s.requestTick).toHaveBeenCalledOnce();
+        s.source.now.mockReturnValue(now + 5 * 60_000 + 1);
+        expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toMatchObject({ id: "nopixel" });
+      });
+
+      it("defers the provider for its completion window when a due reprobe's heartbeat keeps failing", async () => {
+        const s = setup(); s.enableTwitch();
+        const now = Date.UTC(2026, 8, 14, 12); s.source.now.mockReturnValue(now);
+        withDirectory(s, now);
+        s.settings().twitchExtensions.fortnite.enabled = false;
+        let starts = 0;
+        // Complete on the first run; the reprobe reports nothing before failing.
+        s.drivers.nopixel = async (_session, emit) => {
+          starts += 1;
+          if (starts === 1) emit({ status: "complete", reasonCode: "rewards-complete", progress: [], pending: [] });
+          return { stop: s.stop };
+        };
+        await s.host.setEnabled("nopixel", true);
+        const reprobeAt = now + 30 * 60_000 + 1;
+        s.source.now.mockReturnValue(reprobeAt);
+        s.state.sessions.twitch.supplementalWatch = { id: "nopixel", tablessOnly: true };
+        await s.host.reconcile();
+
+        await s.host.recordHeartbeatFailure({ provider: "nopixel", username: "buddha", heartbeatChecks: s.settings().tablessFallbackFailureLimit });
+
+        // Past the channel's cooldown, the provider is still deferred.
+        s.source.now.mockReturnValue(reprobeAt + 6 * 60_000);
+        expect(await s.host.chooseWatchTarget(s.settings(), s.state, undefined, "nopixel")).toBeUndefined();
+        s.source.now.mockReturnValue(reprobeAt + 30 * 60_000 + 1);
+        expect(await s.host.chooseWatchTarget(s.settings(), s.state, undefined, "nopixel")).toMatchObject({ id: "nopixel" });
+      });
+
+      it("ignores a source that is not a Twitch extension provider", async () => {
+        const { s, limit } = await farming();
+        await s.host.recordHeartbeatFailure({ provider: "drops", username: "buddha", heartbeatChecks: limit });
+        expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toMatchObject({ id: "nopixel" });
+      });
     });
 
     it("allows a NoPixel daily reset across midnight inside the short completion cooldown", async () => {

@@ -92,6 +92,26 @@ describe("Twitch Extensions commit effects", () => {
       .toEqual({ invalidate: { preserveCompleted: true }, reconcile: true });
   });
 
+  it("hands a tabless-only session's failed heartbeat result to the host", () => {
+    expect(twitchExtensionCommitEffect(stateChange((state) => {
+      state.sessions.twitch.lastHeartbeatAt = new Date().toISOString();
+      state.sessions.twitch.lastHeartbeatOk = false;
+      state.sessions.twitch.heartbeatChecks = 2;
+    }))).toEqual({ reconcile: true, heartbeatFailure: { provider: "nopixel", username: "buddha", heartbeatChecks: 2 } });
+  });
+
+  it.each([
+    ["a successful result", (state: SchedulerState) => { state.sessions.twitch.lastHeartbeatAt = new Date().toISOString(); state.sessions.twitch.lastHeartbeatOk = true; }],
+    ["a commit with no new result", (state: SchedulerState) => { state.sessions.twitch.lastHeartbeatOk = false; }],
+    ["an ordinary drop session", (state: SchedulerState) => {
+      state.sessions.twitch.supplementalWatch = undefined;
+      state.sessions.twitch.lastHeartbeatAt = new Date().toISOString();
+      state.sessions.twitch.lastHeartbeatOk = false;
+    }],
+  ])("hands nothing to the host for %s", (_name, mutate) => {
+    expect(twitchExtensionCommitEffect(stateChange(mutate)).heartbeatFailure).toBeUndefined();
+  });
+
   it("invalidates and drops completion when Twitch auth stops being healthy", () => {
     expect(twitchExtensionCommitEffect(stateChange((state) => {
       state.authHealth.twitch = { status: "invalid_credentials", checkedAt: new Date().toISOString(), reasonCode: "credentials_rejected", message: { key: "authInvalidCredentials" } };
