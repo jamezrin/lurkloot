@@ -483,16 +483,17 @@ lacks is inert: ensuring it schedules nothing and a fire of it does nothing. On 
 the manual-watch claim jobs and Kick challenges (browser tabs) and the integrity refresh (integrity
 capture). The one-minute channel-points job runs on both hosts (#590); the CLI used to claim channel
 points only at poll cadence. The
-host delivers fires to `controller.runJob(name)`. The CLI routes its tick jobs through its own tick
-driver, which adds disabled-platform cleanup and subscription reporting, and runs each at
-`pollIntervalMinutes` with the heartbeat job every minute, as before.
+host delivers fires to `controller.runJob(name)`. Since #591 that includes the CLI's tick jobs: it has
+no tick driver of its own. A disabled platform's tick cleans up its state, as it always did on the
+extension, and logs "Platform disabled" once, when it becomes disabled. The CLI logs subscription
+waits from an after-commit hook, and once at startup for waits already stored.
 
 Both hosts run one restart reconciliation, `reconcileStartup`, when their process starts: the
 extension on browser startup (inside `handleStartup`), the CLI on every process start before its
 first heartbeat and ticks. It aborts claim handoffs, re-ensures the jobs, releases the heartbeat
 ownership the previous process held, pauses the sessions it left watching (`runtime_restart`),
 releases its tabs, and normalizes the settings. It does not resume farming: the extension's
-`handleStartup` then ticks (or refreshes auth health), and the CLI's own tick driver resumes. The
+`handleStartup` then ticks (or refreshes auth health), and the CLI fires its tick jobs. The
 CLI pins `autoStartDropFarming` to true, since it always resumes its enabled platforms and the
 reconciliation would otherwise switch them off. Before #593, a CLI restart skipped all of this and
 let heartbeat recovery resume the previous watch from its persisted cadence.

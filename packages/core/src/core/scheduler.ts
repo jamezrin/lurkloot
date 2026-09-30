@@ -1281,7 +1281,12 @@ export async function* decidePlatformTick(
         contexts: tick.state.managedPageContextTabs ?? {},
         reason: automationOff ? "automation_disabled" : "platform_disabled",
       });
-      emitDiagnostic(emit, platform, "info", automationOff ? "Automation disabled" : "Platform disabled");
+      // Said once, when the platform becomes disabled: its tick job keeps
+      // firing on every host, and a disabled platform has nothing new to say.
+      const reasonCode = automationOff ? "automation_disabled" : "platform_disabled";
+      if (previous.status !== "paused" || previous.reasonCode !== reasonCode) {
+        emitDiagnostic(emit, platform, "info", automationOff ? "Automation disabled" : "Platform disabled");
+      }
       return;
     }
 
