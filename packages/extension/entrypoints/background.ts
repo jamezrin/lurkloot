@@ -62,6 +62,7 @@ const kickDiscoveryState = new KickDiscoveryState();
 const kickPageContextRecovery = new KickPageContextRecoveryTracker();
 const twitchDiscoveryState = new TwitchDiscoveryState();
 const KICK_PAGE_CONTEXT_URL = "https://kick.com/drops/inventory";
+const TWITCH_EXTENSION_LANE_KEY = "twitchExtensionLane";
 const createBrowserWebSocket: WebSocketFactory = (url) => new WebSocket(url) as unknown as WebSocketLike;
 const checkCredentialAvailability = createCredentialAvailabilityProvider({
   get: (details) => browser.cookies.get(details),
@@ -229,6 +230,16 @@ const extensionHost = createTwitchExtensionHost({
   savePatch: async (settingsPatch) => { await controller.handleMessage({ type: "saveSettings", settingsPatch }); },
   diagnostic: (message) => { void reportEvents([{ category: "diagnostic", platform: "twitch", level: "warn", message }]).catch(() => undefined); },
   publish: (events) => { void reportEvents(events).catch(() => undefined); },
+  // Completion and cooldowns outlive the service worker (#594). Reset clears
+  // the key with the rest of local storage.
+  memory: {
+    load: async () => (await browser.storage.local.get(TWITCH_EXTENSION_LANE_KEY))[TWITCH_EXTENSION_LANE_KEY],
+    save: (memory) => browser.storage.local.set({ [TWITCH_EXTENSION_LANE_KEY]: memory }),
+  },
+  // Twitch's `login` cookie holds the username, not a credential.
+  viewerLogin: async () => (await browser.cookies.get({ url: "https://www.twitch.tv", name: "login" }))?.value,
+  // Never awaited: it runs from the lane's commit hook.
+  requestTick: () => { void controller.tick(["twitch"], "tabless_fallback").catch(() => undefined); },
 });
 
 const extensionGrantCompletion = createTwitchExtensionGrantCompletion({
@@ -317,9 +328,9 @@ export default defineBackground(() => {
     },
     {
       invalidateAuthHealth: (platform) => {
-        // A Twitch cookie change may be a different account, so provider
-        // completion learned for the previous viewer is discarded too.
-        if (platform === "twitch") extensionHost.invalidate({ forgetCompletion: true });
+        // A Twitch cookie change may be a different account: the providers
+        // stop, and what the lane learned is dropped if the login changed.
+        if (platform === "twitch") void extensionHost.credentialsChanged().catch(() => undefined);
         return controller.invalidateAuthHealth(platform);
       },
       checkAuthHealth: async (platform) => {
