@@ -100,7 +100,6 @@ export function mockedCapabilities<S extends EngineSettings>(mocks: HostMocks<S>
     browserTabs,
     twitchIntegrityCapture: mocks.ensureTwitchIntegrity !== undefined,
     supplementalSources: mocks.selectSupplementalWatchTarget !== undefined,
-    twitchChannelPointsJob: browserTabs,
   };
 }
 

@@ -181,6 +181,33 @@ describe("background tabless provider host", () => {
     expect(s.query).toHaveBeenCalledTimes(2);
   });
 
+  // #596: the lane pauses for the user's viewing through the shared
+  // manual-watch query, the same rule farming uses.
+  describe("manual watch", () => {
+    function discoverable() {
+      const s = setup(); s.enableTwitch(); s.settings().twitchExtensions.nopixel.enabled = true;
+      s.settings().pauseOnManualWatch = true;
+      s.state.sessions.twitch = { platform: "twitch", status: "idle", offlineChecks: 0 };
+      s.query.mockResolvedValueOnce({ data: { game: { streams: { edges: [{ node: { broadcaster: { id: "123", login: "buddha" } } }] } } } } as never).mockResolvedValueOnce({ data: { users: [{ id: "123", login: "buddha", channel: { selfInstalledExtensions: [{ installation: { extension: { id: "nstuq90nghenyqwqme61jgvmtp253a" }, activationConfig: { state: "ACTIVE" } } }] } }] } } as never);
+      return s;
+    }
+
+    it("chooses no channel while the user is watching Twitch", async () => {
+      const s = discoverable();
+      s.state.manualWatch = { twitch: { platform: "twitch", tabId: 9, active: true, checkedAt: new Date(s.source.now()).toISOString() } };
+      expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toBeUndefined();
+      expect(s.query).not.toHaveBeenCalled();
+    });
+
+    // A clock rollback can leave a stamp in the future. Farming already counts
+    // it as stale, so the lane no longer pauses on it either (behavior change).
+    it("does not pause for a manual watch stamped in the future", async () => {
+      const s = discoverable();
+      s.state.manualWatch = { twitch: { platform: "twitch", tabId: 9, active: true, checkedAt: new Date(s.source.now() + 60_000).toISOString() } };
+      expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toMatchObject({ id: "nopixel", channel: { channelId: "123" } });
+    });
+  });
+
   it("stops acquisition immediately when manual-close authority precedes paused state", async () => {
     const s = setup(); s.enableTwitch(); s.state.manualClosePause = { twitch: { platform: "twitch", closedAt: new Date().toISOString() } };
     await s.host.setEnabled("nopixel", true);

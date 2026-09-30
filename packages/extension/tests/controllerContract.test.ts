@@ -2,12 +2,15 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   BACKGROUND_JOBS,
   KICK_ALARM_NAME,
+  KICK_CHALLENGES_ALARM_NAME,
   KICK_DROP_CLAIMS_ALARM_NAME,
   TWITCH_ALARM_NAME,
   TWITCH_CHANNEL_POINTS_ALARM_NAME,
   TWITCH_DROP_CLAIMS_ALARM_NAME,
+  TWITCH_INTEGRITY_ALARM_NAME,
   WATCH_ALARM_NAME,
 } from "@lurkloot/core/controller";
+import { integrityBundle, integrityHeaders } from "./helpers/backgroundController";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
 import type { DropCampaign, SchedulerState, WatchSession } from "@lurkloot/shared/models";
@@ -74,6 +77,28 @@ class CountingWatcher implements TablessWatchController {
     return [];
   }
   async stop(): Promise<void> {
+    this.channelUrl = undefined;
+  }
+}
+
+// Records the locks held around each call the controller makes into it.
+class LockRecordingWatcher implements TablessWatchController {
+  channelUrl: string | undefined;
+  readonly calls: Array<{ call: "start" | "tick" | "stop"; held: readonly string[] }> = [];
+  constructor(readonly platform: "twitch" | "kick", private readonly heldLocks: () => readonly string[]) {}
+  async start(channel: { url: string }): Promise<void> {
+    this.calls.push({ call: "start", held: this.heldLocks() });
+    this.channelUrl = channel.url;
+  }
+  async tick() {
+    this.calls.push({ call: "tick", held: this.heldLocks() });
+    return { ok: true, live: true };
+  }
+  drainEvents() {
+    return [];
+  }
+  async stop(): Promise<void> {
+    this.calls.push({ call: "stop", held: this.heldLocks() });
     this.channelUrl = undefined;
   }
 }
@@ -178,6 +203,79 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
     });
   });
 
+  // The claim failure model (#597): with no claim journal, the provider's
+  // inventory decides what happened to a claim the previous process sent.
+  describe("claim failure model", () => {
+    it("sends no claim and publishes nothing for a reward the provider accepted before the save was lost", async () => {
+      const claimable = { id: "twitch-reward", name: "Reward", requiredMinutes: 60, watchedMinutes: 60, status: "claimable" as const, claimId: "claim-1" };
+      const previous = contractHost(capabilities, {
+        settings: twitchOnly({ autoClaim: true }),
+        state: { ...idleState(), campaigns: { twitch: [{ ...contractCampaign("twitch"), rewards: [claimable] }], kick: [] } },
+      });
+      const restarted = previous.restart();
+      vi.mocked(restarted.adapters.twitch.refreshCampaigns).mockResolvedValue([
+        { ...contractCampaign("twitch"), rewards: [{ ...claimable, status: "claimed" }] },
+      ]);
+
+      await restarted.boot();
+      await restarted.controller.tickAndHandOff(["twitch"], "alarm");
+
+      expect(restarted.adapters.twitch.claimReward).not.toHaveBeenCalled();
+      expect(restarted.reported.some((event) => event.category === "activity" && event.code === "reward_claimed")).toBe(false);
+      expect(restarted.storage.state.campaigns.twitch[0].rewards[0].status).toBe("claimed");
+      restarted.controller.shutdown();
+    });
+  });
+
+  // The post-claim handoff and its cancellation are the claim service's
+  // (#597), and behave the same on both hosts.
+  describe("post-claim handoff", () => {
+    const handoffSettings = () => twitchOnly({ autoClaim: true, postClaimHandoff: true });
+
+    it("moves on to the next reward once inventory reveals it", async () => {
+      let reveal = false;
+      const host = contractHost(capabilities, {
+        settings: handoffSettings(),
+        wait: async () => {
+          reveal = true;
+        },
+      });
+      host.adapters.twitch.supportsPostClaimHandoff = true;
+      vi.mocked(host.adapters.twitch.refreshCampaigns).mockImplementation(async () => [{
+        ...contractCampaign("twitch"),
+        rewards: [
+          { id: "twitch-reward", name: "Reward", requiredMinutes: 60, watchedMinutes: 60, status: "claimed" },
+          ...(reveal ? [{ id: "next-reward", name: "Next", requiredMinutes: 60, watchedMinutes: 0, status: "in_progress" as const }] : []),
+        ],
+      }]);
+
+      await host.controller.runClaimHandoff("twitch", ["twitch-reward"]);
+
+      expect(host.storage.state.sessions.twitch).toMatchObject({ status: "watching", rewardId: "next-reward" });
+      host.controller.shutdown();
+    });
+
+    it("ends a running handoff on shutdown without refreshing again", async () => {
+      const parked: AbortSignal[] = [];
+      const host = contractHost(capabilities, {
+        settings: handoffSettings(),
+        wait: (_ms, signal) => new Promise<void>((resolve) => {
+          parked.push(signal);
+          signal.addEventListener("abort", () => resolve(), { once: true });
+        }),
+      });
+      host.adapters.twitch.supportsPostClaimHandoff = true;
+
+      const handoff = host.controller.runClaimHandoff("twitch", ["twitch-reward"]);
+      await vi.waitFor(() => expect(parked).toHaveLength(1));
+      host.controller.shutdown();
+      await handoff;
+
+      expect(parked[0].aborted).toBe(true);
+      expect(host.adapters.twitch.refreshCampaigns).not.toHaveBeenCalled();
+    });
+  });
+
   describe("process restart", () => {
     // Both hosts run the shared restart reconciliation (#593; before it, the
     // CLI left these sessions to its ticks and heartbeats).
@@ -218,9 +316,11 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
   describe("jobs", () => {
     const CADENCE_JOBS = [TWITCH_ALARM_NAME, KICK_ALARM_NAME, WATCH_ALARM_NAME];
 
-    it(capabilities.declared.twitchChannelPointsJob
+    // Behavior change (#590): the CLI registers the one-minute channel-points
+    // job too, where it used to claim channel points only at poll cadence.
+    it(capabilities.declared.browserTabs
       ? "registers the cadence jobs, the one-minute channel-points job and the claim jobs at startup"
-      : "registers only the tick and heartbeat cadence jobs, at the CLI's existing periods", async () => {
+      : "registers the tick and heartbeat cadence jobs and the one-minute channel-points job", async () => {
       const host = contractHost(capabilities);
       vi.mocked(host.adapters.twitch.refreshCampaigns).mockResolvedValue([]);
       vi.mocked(host.adapters.kick.refreshCampaigns).mockResolvedValue([]);
@@ -230,7 +330,8 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
       expect(host.jobs.scheduled.get(TWITCH_ALARM_NAME)).toEqual({ periodInMinutes: pollIntervalMinutes });
       expect(host.jobs.scheduled.get(KICK_ALARM_NAME)).toEqual({ periodInMinutes: pollIntervalMinutes });
       expect(host.jobs.scheduled.get(WATCH_ALARM_NAME)).toEqual({ periodInMinutes: 1 });
-      if (capabilities.declared.twitchChannelPointsJob) {
+      expect(host.jobs.scheduled.get(TWITCH_CHANNEL_POINTS_ALARM_NAME)).toEqual({ periodInMinutes: 1 });
+      if (capabilities.declared.browserTabs) {
         expect([...host.jobs.scheduled.keys()]).toEqual(expect.arrayContaining([
           ...CADENCE_JOBS,
           TWITCH_CHANNEL_POINTS_ALARM_NAME,
@@ -238,8 +339,7 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
           KICK_DROP_CLAIMS_ALARM_NAME,
         ]));
       } else {
-        // #590 enables the CLI's one-minute channel-points job.
-        expect([...host.jobs.scheduled.keys()].sort()).toEqual([...CADENCE_JOBS].sort());
+        expect([...host.jobs.scheduled.keys()].sort()).toEqual([...CADENCE_JOBS, TWITCH_CHANNEL_POINTS_ALARM_NAME].sort());
       }
       host.controller.shutdown();
     });
@@ -304,6 +404,30 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
       vi.setSystemTime(Date.now() + 60_000);
       await host.fire(WATCH_ALARM_NAME);
       expect(watcher.ticks).toBe(2);
+      host.controller.shutdown();
+    });
+
+    // The integrity refresh job (#589) must be correct under duplicate and late
+    // fires: one refresh runs at a time, and a fire that finds a token not yet
+    // due only reschedules.
+    it.runIf(capabilities.declared.twitchIntegrityCapture)("runs one integrity refresh for duplicate or late refresh job fires", async () => {
+      const host = contractHost(capabilities);
+      const refreshing = deferred<boolean>();
+      vi.mocked(host.deps.ensureTwitchIntegrity!).mockImplementationOnce(async () => await refreshing.promise);
+
+      const fires = [host.fire(TWITCH_INTEGRITY_ALARM_NAME)];
+      await vi.waitFor(() => expect(host.deps.ensureTwitchIntegrity).toHaveBeenCalledOnce());
+      fires.push(host.fire(TWITCH_INTEGRITY_ALARM_NAME), host.fire(TWITCH_INTEGRITY_ALARM_NAME));
+      await Promise.all(fires.slice(1));
+      expect(host.deps.ensureTwitchIntegrity).toHaveBeenCalledOnce();
+      await host.controller.captureTwitchIntegrity(integrityHeaders(integrityBundle()));
+      refreshing.resolve(true);
+      await Promise.all(fires);
+
+      // Late: the token captured meanwhile is not due, so the fire only reschedules.
+      await host.fire(TWITCH_INTEGRITY_ALARM_NAME);
+      expect(host.deps.ensureTwitchIntegrity).toHaveBeenCalledOnce();
+      expect(host.jobs.scheduled.get(TWITCH_INTEGRITY_ALARM_NAME)).toMatchObject({ when: expect.any(Number) });
       host.controller.shutdown();
     });
 
@@ -403,12 +527,98 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
       }
       host.controller.shutdown();
     });
+
+    // No lock is held while a watcher starts, sends a heartbeat or stops (#586):
+    // not the tick's platform lock, not the heartbeat lane.
+    it("starts, beats and stops tabless watchers with no lock held", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      const host = contractHost(capabilities, { settings: twitchOnly() });
+      const watchers: LockRecordingWatcher[] = [];
+      host.adapters.twitch.createTablessWatcher = () => {
+        const watcher = new LockRecordingWatcher("twitch", host.heldLocks);
+        watchers.push(watcher);
+        return watcher;
+      };
+      await host.controller.tickAndHandOff(["twitch"], "alarm");
+      vi.setSystemTime(Date.now() + 60_000);
+      await host.fire(WATCH_ALARM_NAME);
+      // A new target replaces the watcher.
+      vi.mocked(host.adapters.twitch.refreshCampaigns).mockResolvedValue([{ ...contractCampaign("twitch"), id: "successor-campaign" }]);
+      vi.mocked(host.adapters.twitch.listCandidateChannels).mockResolvedValue([{ ...contractChannel("twitch"), campaignId: "successor-campaign" }]);
+      await host.controller.tickAndHandOff(["twitch"], "alarm");
+      // A new process recovers the persisted watch on its first heartbeat.
+      host.controller.shutdown();
+      const restarted = contractHost(capabilities, { settings: twitchOnly(), storage: host.storage });
+      restarted.adapters.twitch.createTablessWatcher = () => {
+        const watcher = new LockRecordingWatcher("twitch", restarted.heldLocks);
+        watchers.push(watcher);
+        return watcher;
+      };
+      await restarted.fire(WATCH_ALARM_NAME);
+
+      const calls = watchers.flatMap((watcher) => watcher.calls);
+      expect(calls.map(({ call }) => call)).toEqual(expect.arrayContaining(["start", "tick", "stop"]));
+      expect(watchers.length).toBeGreaterThanOrEqual(3);
+      expect(calls.filter(({ held }) => held.length > 0)).toEqual([]);
+      restarted.controller.shutdown();
+    });
+
+    // A tabless-only supplemental session (Twitch Extensions, #541/#556) never
+    // falls back to a tab, whatever its failure count (#586).
+    it.runIf(capabilities.declared.supplementalSources)("keeps a tabless-only supplemental watch tabless when heartbeats keep failing", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      const host = contractHost(capabilities, { settings: twitchOnly({ tablessMode: false, tablessFallbackFailureLimit: 1 }) });
+      vi.mocked(host.adapters.twitch.refreshCampaigns).mockResolvedValue([]);
+      vi.mocked(host.deps.selectSupplementalWatchTarget!).mockResolvedValue({
+        id: "nopixel",
+        tablessOnly: true,
+        channel: { ...contractChannel("twitch"), campaignId: undefined, live: true },
+      });
+      const watcher = new FailingWatcher("twitch");
+      host.adapters.twitch.createTablessWatcher = () => watcher;
+      await host.controller.tickAndHandOff(["twitch"], "alarm");
+      expect(host.storage.state.sessions.twitch).toMatchObject({ watchMode: "tabless", supplementalWatch: { tablessOnly: true } });
+
+      for (let failure = 1; failure <= 3; failure += 1) {
+        vi.setSystemTime(Date.now() + 60_000);
+        await host.fire(WATCH_ALARM_NAME);
+        await host.controller.settleBackgroundWork();
+        expect(host.storage.state.sessions.twitch).toMatchObject({ watchMode: "tabless", heartbeatChecks: failure });
+        // A poll tick past the limit keeps it tabless too.
+        await host.controller.tickAndHandOff(["twitch"], "alarm");
+      }
+
+      expect(watcher.ticks).toBe(3);
+      expect(host.storage.state.sessions.twitch).toMatchObject({ status: "watching", watchMode: "tabless" });
+      expect(host.deps.openWatchTab).not.toHaveBeenCalled();
+      expect(host.reported.some((event) =>
+        event.category === "diagnostic" && event.message === "Tabless watch heartbeat keeps failing; falling back to a watch tab")).toBe(false);
+      host.controller.shutdown();
+    });
   });
 
   // The extension's real tab ports, run against a fake browser (#598). Every
   // close the extension makes records why, so only the user's own close pauses
   // the platform (#640), and a report from a tab the extension already closed
   // is not the user watching (#641).
+  // #596: a manual-watch tick starts from the commit that starts or ends the
+  // user's viewing, never from a tick's own commit. Without browser tabs
+  // nothing reports viewing, so manual watch stays inactive.
+  describe("manual watch", () => {
+    it("never starts a manual-watch tick from the scheduler's own commits", async () => {
+      const host = contractHost(capabilities, { settings: twitchOnly() });
+
+      await host.controller.tickAndHandOff(["twitch"], "alarm");
+      await host.controller.tickAndHandOff(["twitch"], "alarm");
+      await host.controller.settleBackgroundWork();
+
+      expect(host.storage.state.manualWatch?.twitch).toBeUndefined();
+      expect(host.reported.filter((event) =>
+        event.category === "diagnostic" && event.message.includes("trigger=manual_watch"))).toEqual([]);
+      host.controller.shutdown();
+    });
+  });
+
   describe("browser tabs", () => {
     const playing = { videoCount: 1, mutedVideoCount: 0, unmutedVideoCount: 1, playingVideoCount: 1, blockedPlaybackCount: 0, documentHidden: false };
 
@@ -569,6 +779,31 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
 
       expect(host.storage.state.sessions.twitch.status).toBe("watching");
       expect(starts).toBe(1);
+      host.controller.shutdown();
+    });
+  });
+
+  // Kick challenges belong to the Kick runtime (#588) on every host. The tick
+  // claims them at its poll cadence. Only a host with tabs, where a manual
+  // watch can pause the tick, schedules the ten-minute challenge job.
+  describe("Kick challenges", () => {
+    it(capabilities.declared.browserTabs
+      ? "claims Kick challenges from the tick and schedules the challenge job"
+      : "claims Kick challenges from the tick, with no challenge job", async () => {
+      const host = contractHost(capabilities);
+      host.adapters.kick.claimChallenges = vi.fn(async () => [{ id: "daily", rarity: "epic", recurrence: "daily" }]);
+      await host.boot();
+
+      await host.controller.tickAndHandOff(["kick"], "alarm");
+
+      expect(host.adapters.kick.claimChallenges).toHaveBeenCalledOnce();
+      expect(host.storage.state.gamification?.kick?.lastCheckedAt).toBeDefined();
+      expect(host.reported).toContainEqual(expect.objectContaining({
+        category: "activity",
+        code: "challenge_claimed",
+        platform: "kick",
+      }));
+      expect(host.jobs.scheduled.has(KICK_CHALLENGES_ALARM_NAME)).toBe(capabilities.declared.browserTabs);
       host.controller.shutdown();
     });
   });

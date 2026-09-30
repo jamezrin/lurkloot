@@ -23,12 +23,48 @@
         "text": "The CLI no longer refuses to start when its config sets tablessMode, for example in settings copied from the extension. The CLI has no browser tabs and always watches without one, so the setting is ignored with a warning."
       },
       {
+        "kind": "improved",
+        "text": "The CLI now checks for a Twitch channel points bonus every minute, like the extension, instead of only once per poll interval. It never sends a second claim while one is still running."
+      },
+      {
+        "kind": "fixed",
+        "text": "Turning off Twitch or channel points claiming, losing the Twitch sign-in, or resetting Lurkloot now also cancels a channel points claim that is still in progress, instead of letting it finish."
+      },
+      {
+        "kind": "fixed",
+        "text": "Importing settings that switch Twitch off now also stops Lurkloot from refreshing its Twitch request token in the background, the same as turning Twitch off with its switch. Importing settings that switch it back on resumes the refresh."
+      },
+      {
         "kind": "fixed",
         "text": "When heartbeats kept failing, the CLI tried to fall back to a watch tab it cannot open and then failed on every check. It now keeps watching without a tab, and a channel that stops earning drop progress is still switched out as before."
       },
       {
         "kind": "fixed",
         "text": "If the connection that listens for Kick flash drop announcements fails to open, Lurkloot now opens a fresh one on the next check instead of retrying the one that failed. This applies to both the extension and the CLI."
+      },
+      {
+        "kind": "fixed",
+        "text": "Closing a tab where you were watching Twitch or Kick yourself now reliably resumes farming. A playback report still on its way from the closed tab could briefly pause farming again as if you were still watching."
+      },
+      {
+        "kind": "fixed",
+        "text": "Twitch Extensions farming now judges whether you are watching Twitch by the same rule as drop farming, so a viewing record with a timestamp in the future (after the system clock was set back) no longer keeps it paused."
+      },
+      {
+        "kind": "fixed",
+        "text": "If you close the Kick tab Lurkloot keeps open for requests Kick rejects in the background, Lurkloot now forgets it straight away, and opens a fresh one the next time Kick needs it instead of first looking for the tab you closed. Closing it never pauses farming."
+      },
+      {
+        "kind": "fixed",
+        "text": "A Kick daily challenge check that happened just before Lurkloot switched to another target is now remembered, so the next check waits the usual ten minutes instead of running again at once."
+      },
+      {
+        "kind": "fixed",
+        "text": "Claiming a drop by hand while Lurkloot was already claiming it could send the claim twice and show it twice in Activity. A drop Lurkloot has just claimed is now held until the claim is saved, so it is claimed and shown once."
+      },
+      {
+        "kind": "fixed",
+        "text": "Losing your sign-in now also stops a drop claim check running while you watch by hand, and the quick switch to the next drop after a claim, instead of letting them run on with requests that could only fail. A drop that was already claimed before that is still recorded and shown in Activity."
       }
     ]
   },

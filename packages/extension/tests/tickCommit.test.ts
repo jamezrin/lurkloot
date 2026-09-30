@@ -107,4 +107,15 @@ describe("facts of a dropped tick", () => {
     expect(facts.state.managedWatchTabs?.twitch).toBeUndefined();
     expect(facts.openedTab).toMatchObject({ tabId: 11, tabManagedByExtension: true, status: "watching" });
   });
+
+  it("records the challenge poll a superseded tick made, unless a newer one was committed", () => {
+    const polled = { ...draft, gamification: { kick: { lastCheckedAt: "2026-09-26T12:00:00.000Z" } } };
+
+    const facts = tickEffectFacts(polled, before, before, "kick");
+    expect(facts.state.gamification?.kick).toEqual({ lastCheckedAt: "2026-09-26T12:00:00.000Z" });
+
+    const newer = { ...before, gamification: { kick: { lastCheckedAt: "2026-09-26T12:05:00.000Z" } } };
+    expect(tickEffectFacts(polled, before, newer, "kick").state.gamification?.kick)
+      .toEqual({ lastCheckedAt: "2026-09-26T12:05:00.000Z" });
+  });
 });

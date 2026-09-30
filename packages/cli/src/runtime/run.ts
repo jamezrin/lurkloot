@@ -133,8 +133,7 @@ export async function runLoop(options: RunOptions): Promise<void> {
   let dispatchJob: (name: string) => void = () => undefined;
   const jobs = createNodeJobScheduler((name) => dispatchJob(name));
   const controller = createBackgroundController({
-    // No browser tabs, integrity capture or supplemental sources, and no
-    // one-minute channel-points job (#590).
+    // No browser tabs, integrity capture or supplemental sources.
     capabilities: CLI_CAPABILITIES,
     storage: {
       loadSettings: async () => engineSettings,

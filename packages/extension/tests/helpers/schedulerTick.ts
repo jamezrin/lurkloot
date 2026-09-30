@@ -10,6 +10,8 @@ import type {
 } from "@lurkloot/core/scheduler";
 import { MANUAL_WATCH_TTL_MS } from "@lurkloot/core/scheduler";
 import { ChannelPointsClaimGate, registerChannelPointsClaimEffect } from "@lurkloot/core/background/channelPoints";
+import { registerRewardClaimEffect } from "@lurkloot/core/background/claimService";
+import { KickChallengeClaimGate, registerKickRuntimeEffects } from "@lurkloot/core/background/kickRuntime";
 import { createTickEffectExecutor, runSchedulerTickEffects, tickCapabilities } from "@lurkloot/core/background/tickEffects";
 import { authHealthFromError } from "@lurkloot/core/fetchError";
 import { isTimestampStale } from "@lurkloot/core/timestamps";
@@ -124,11 +126,17 @@ export async function runSchedulerTick(
     campaignEvaluationFingerprints: options.campaignEvaluationFingerprints,
     selections: options.selections,
     selectionIsCurrent: options.selectionIsCurrent,
-  }, registerChannelPointsClaimEffect(createTickEffectExecutor(), new ChannelPointsClaimGate()), {
+  }, registerRewardClaimEffect(
+    registerKickRuntimeEffects(
+      registerChannelPointsClaimEffect(createTickEffectExecutor(), new ChannelPointsClaimGate()),
+      new KickChallengeClaimGate(),
+      options.stopPageContextTabs,
+    ),
+    {},
+  ), {
     adapters,
     tabRegistry: options.tabRegistry ?? createTabRegistry(),
     ...(browserTabs ? { watchTabs: watchTabsFromMocks(adapters) } : {}),
-    stopPageContextTabs: options.stopPageContextTabs,
     selectSupplementalTarget: options.selectSupplementalWatchTarget,
   });
 }

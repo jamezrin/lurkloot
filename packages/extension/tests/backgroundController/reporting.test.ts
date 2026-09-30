@@ -231,12 +231,19 @@ describe("background controller", () => {
 
     await env.controller.tick();
 
-    expect(calls).toEqual([
-      "state", "events",
-      "state", "events",
-      "state", "events",
-      "state", "events",
-    ]);
+    // Each platform saves, then publishes. The two platforms' ticks run under
+    // their own locks, so their pairs may interleave (#589 took the startup
+    // integrity load off both locks, which used to serialize them): no batch
+    // is ever published ahead of the saves before it.
+    expect(calls.filter((call) => call === "state")).toHaveLength(4);
+    expect(calls.filter((call) => call === "events")).toHaveLength(4);
+    expect(calls[0]).toBe("state");
+    let saved = 0;
+    for (const call of calls) {
+      if (call === "state") saved += 1;
+      else saved -= 1;
+      expect(saved).toBeGreaterThanOrEqual(0);
+    }
   });
 
   it("does not publish tick events when the corresponding state save fails", async () => {

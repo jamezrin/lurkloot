@@ -100,13 +100,11 @@ describe("host capabilities", () => {
       browserTabs: true,
       twitchIntegrityCapture: true,
       supplementalSources: true,
-      twitchChannelPointsJob: true,
     });
     expect(CLI_CAPABILITIES).toEqual({
       browserTabs: false,
       twitchIntegrityCapture: false,
       supplementalSources: false,
-      twitchChannelPointsJob: false,
     });
   });
 
@@ -138,7 +136,8 @@ describe("host capabilities", () => {
     }
     expect(jobIsInert(TWITCH_ALARM_NAME, CLI_CAPABILITIES)).toBe(false);
     expect(jobIsInert(WATCH_ALARM_NAME, CLI_CAPABILITIES)).toBe(false);
-    expect(jobIsInert(TWITCH_CHANNEL_POINTS_ALARM_NAME, CLI_CAPABILITIES)).toBe(true);
+    // Behavior change (#590): the CLI runs the one-minute channel-points job.
+    expect(jobIsInert(TWITCH_CHANNEL_POINTS_ALARM_NAME, CLI_CAPABILITIES)).toBe(false);
   });
 });
 

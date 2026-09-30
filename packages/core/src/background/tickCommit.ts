@@ -104,8 +104,8 @@ export function rebaseTickState(
   return { status: "current", state: result as unknown as SchedulerState };
 }
 
-// What a tick whose decision went stale still records: rewards it claimed, and
-// managed watch tabs it closed. A tab it opened is returned for closing, since
+// What a tick whose decision went stale still records: rewards it claimed, the
+// challenge poll it made, and managed watch tabs it closed. A tab it opened is returned for closing, since
 // nothing will track it.
 export function tickEffectFacts(
   draft: SchedulerState,
@@ -120,6 +120,12 @@ export function tickEffectFacts(
       [platform]: preserveClaimedRewards(latest.campaigns[platform], draft.campaigns[platform]),
     },
   };
+  // A challenge poll the tick made happened whether or not its decision
+  // stands (#588), so its stamp is kept too, unless a newer one was committed.
+  const polled = newestCheck(draft.gamification?.[platform], latest.gamification?.[platform]);
+  if (polled && polled !== latest.gamification?.[platform]) {
+    state.gamification = { ...latest.gamification, [platform]: polled };
+  }
   const previousTab = before.managedWatchTabs?.[platform];
   const draftTab = draft.managedWatchTabs?.[platform];
   const latestTab = latest.managedWatchTabs?.[platform];

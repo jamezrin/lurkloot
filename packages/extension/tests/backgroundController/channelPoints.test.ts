@@ -154,7 +154,7 @@ describe("background controller", () => {
       await env.controller.runTwitchChannelPointsClaim();
 
       expect(env.twitch.claimChannelPoints).toHaveBeenCalledOnce();
-      expect(env.twitch.claimChannelPoints).toHaveBeenCalledWith(manualChannel);
+      expect(env.twitch.claimChannelPoints).toHaveBeenCalledWith(manualChannel, { signal: expect.any(AbortSignal) });
       expect(env.state.sessions.twitch).toEqual(beforeSession);
       expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
         platform: "twitch",
@@ -182,7 +182,7 @@ describe("background controller", () => {
       await env.controller.runTwitchChannelPointsClaim();
 
       expect(env.twitch.claimChannelPoints).toHaveBeenCalledOnce();
-      expect(env.twitch.claimChannelPoints).toHaveBeenCalledWith(managedChannel);
+      expect(env.twitch.claimChannelPoints).toHaveBeenCalledWith(managedChannel, { signal: expect.any(AbortSignal) });
       expect(allDiagnostics(env).some((event) => event.message.includes("Claimed channel points"))).toBe(false);
     });
 
@@ -364,6 +364,137 @@ describe("background controller", () => {
       await tick;
 
       expect(env.twitch.claimChannelPoints).toHaveBeenCalledOnce();
+    });
+  });
+
+  // Behavior change (#590): the job's and the push's claims no longer run on
+  // after Twitch is disabled, its auth is lost, or the host resets or shuts
+  // down. They used to finish, since only the tick's claim had a signal.
+  describe("Twitch channel points claim aborts", () => {
+    function watchingTwitch(env: ReturnType<typeof harness>): void {
+      env.state.authHealth = {
+        ...env.state.authHealth,
+        twitch: { status: "healthy", checkedAt: new Date().toISOString() },
+      };
+      env.state.sessions.twitch = {
+        platform: "twitch",
+        status: "watching",
+        channel: channel("twitch"),
+        offlineChecks: 0,
+        watchMode: "tab",
+      };
+    }
+
+    // A claim request that only ends when it is aborted.
+    function hangingClaim(env: ReturnType<typeof harness>): { signal: () => AbortSignal | undefined } {
+      let signal: AbortSignal | undefined;
+      env.twitch.claimChannelPoints = vi.fn(async (_channel, options) => {
+        signal = options?.signal;
+        return await new Promise<boolean>((_resolve, reject) => {
+          options?.signal?.addEventListener("abort", () => reject(options.signal!.reason), { once: true });
+        });
+      });
+      return { signal: () => signal };
+    }
+
+    const claimFailures = (env: ReturnType<typeof harness>) =>
+      allDiagnostics(env).filter((event) => event.platform === "twitch" && event.level === "warn");
+
+    it.each([
+      {
+        name: "Twitch is disabled",
+        reason: "Channel points claiming disabled",
+        trigger: async (env: ReturnType<typeof harness>) => {
+          await env.controller.handleMessage({ type: "saveSettings", settingsPatch: { platform: { twitch: { enabled: false } } } });
+        },
+      },
+      {
+        name: "channel points claiming is turned off",
+        reason: "Channel points claiming disabled",
+        trigger: async (env: ReturnType<typeof harness>) => {
+          await env.controller.handleMessage({ type: "saveSettings", settingsPatch: { platform: { twitch: { autoClaimChannelPoints: false } } } });
+        },
+      },
+      {
+        name: "Twitch auth is invalidated",
+        reason: "Twitch authentication lost",
+        trigger: async (env: ReturnType<typeof harness>) => {
+          await env.controller.invalidateAuthHealth("twitch");
+        },
+      },
+      {
+        name: "the host resets",
+        reason: "Host reset",
+        trigger: async (env: ReturnType<typeof harness>) => {
+          await env.controller.prepareForHostReset();
+        },
+      },
+      {
+        name: "the controller shuts down",
+        reason: "Controller shutdown",
+        trigger: async (env: ReturnType<typeof harness>) => {
+          env.controller.shutdown();
+        },
+      },
+    ])("aborts the job's claim when $name, without reporting a failure", async ({ reason, trigger }) => {
+      const env = harness(farming(DEFAULT_SETTINGS));
+      watchingTwitch(env);
+      const claim = hangingClaim(env);
+
+      const job = env.controller.runTwitchChannelPointsClaim();
+      await vi.waitFor(() => expect(env.twitch.claimChannelPoints).toHaveBeenCalledOnce());
+      await trigger(env);
+      await job;
+
+      expect(claim.signal()?.aborted).toBe(true);
+      expect((claim.signal()?.reason as Error).message).toBe(reason);
+      expect(claimFailures(env)).toEqual([]);
+    });
+
+    // An account change: the invalidation's hook can run after the recheck has
+    // already committed "healthy" for the new viewer. The hook still acts on
+    // the transition it observes, so the old viewer's claim is aborted (#595).
+    it("aborts the job's claim when the invalidation's hook runs after auth was rechecked healthy", async () => {
+      const env = harness(farming(DEFAULT_SETTINGS));
+      watchingTwitch(env);
+      const claim = hangingClaim(env);
+      const holding = deferred<void>();
+      const held = deferred<void>();
+      let blocked = false;
+      env.rawController.onCommit(async (change) => {
+        if (blocked || change.kind !== "state" || !change.platforms.includes("twitch")) return;
+        blocked = true;
+        holding.resolve();
+        await held.promise;
+      });
+
+      const job = env.controller.runTwitchChannelPointsClaim();
+      await vi.waitFor(() => expect(env.twitch.claimChannelPoints).toHaveBeenCalledOnce());
+      const firstCheck = env.controller.checkAuthHealth("twitch");
+      await holding.promise;
+      const invalidating = env.controller.invalidateAuthHealth("twitch");
+      await vi.waitFor(() => expect(env.state.authHealth.twitch.status).toBe("checking"));
+      const secondCheck = env.controller.checkAuthHealth("twitch");
+      await vi.waitFor(() => expect(env.state.authHealth.twitch.status).toBe("healthy"));
+      held.resolve();
+      await Promise.all([firstCheck, invalidating, secondCheck, job]);
+
+      expect(claim.signal()?.aborted).toBe(true);
+      expect((claim.signal()?.reason as Error).message).toBe("Twitch authentication lost");
+      expect(claimFailures(env)).toEqual([]);
+    });
+
+    it("keeps the job's claim running through a save that leaves claiming on", async () => {
+      const env = harness(farming(DEFAULT_SETTINGS));
+      watchingTwitch(env);
+      const claim = hangingClaim(env);
+
+      void env.controller.runTwitchChannelPointsClaim();
+      await vi.waitFor(() => expect(env.twitch.claimChannelPoints).toHaveBeenCalledOnce());
+      await env.controller.handleMessage({ type: "saveSettings", settingsPatch: { pollIntervalMinutes: 12 } });
+
+      expect(claim.signal()?.aborted).toBe(false);
+      env.controller.shutdown();
     });
   });
 
@@ -606,7 +737,7 @@ describe("background controller", () => {
       await env.controller.runTwitchChannelPointsClaim();
 
       expect(env.twitch.claimChannelPoints).toHaveBeenCalledOnce();
-      expect(env.twitch.claimChannelPoints).toHaveBeenCalledWith(eligible);
+      expect(env.twitch.claimChannelPoints).toHaveBeenCalledWith(eligible, { signal: expect.any(AbortSignal) });
     });
 
     it("claims from a live-event notice for the eligible channel", async () => {
@@ -712,6 +843,54 @@ describe("background controller", () => {
       expect(env.channelPointsPushController.starts).toBe(0);
     });
 
+    // Auth transitions reach the push through its after-commit hook (#595).
+    // A hook acts on the commit it observes, so one that runs late may stop a
+    // push restarted after auth recovered; the next reconcile starts it again.
+    it("restarts an observer that an older auth commit's late hook stopped", async () => {
+      const env = harness(pushSettings());
+      await startObserver(env);
+      const stopping = deferred<void>();
+      const stop = vi.spyOn(env.channelPointsPushController, "stop").mockImplementationOnce(() => stopping.promise);
+
+      const first = env.controller.invalidateAuthHealth("twitch");
+      await vi.waitFor(() => expect(stop).toHaveBeenCalledOnce());
+      const saves = env.deps.saveState.mock.calls.length;
+      const second = env.controller.invalidateAuthHealth("twitch");
+      await vi.waitFor(() => expect(env.deps.saveState.mock.calls.length).toBeGreaterThan(saves));
+      const checking = env.controller.checkAuthHealth("twitch");
+      await vi.waitFor(() => expect(env.state.authHealth.twitch.status).toBe("healthy"));
+      await env.controller.ensureAlarm();
+      await vi.waitFor(() => expect(env.channelPointsPushController.starts).toBe(2));
+
+      stopping.resolve();
+      await Promise.all([first, second, checking]);
+      await env.rawController.settleBackgroundWork();
+      expect(stop).toHaveBeenCalledTimes(2);
+
+      await env.controller.ensureAlarm();
+      await env.rawController.settleBackgroundWork();
+      expect(env.channelPointsPushController.starts).toBe(3);
+      expect(stop).toHaveBeenCalledTimes(2);
+    });
+
+    it("does not hold a Kick auth transition behind a Twitch observer that is still stopping", async () => {
+      const env = harness(pushSettings());
+      await startObserver(env);
+      const stopping = deferred<void>();
+      vi.spyOn(env.channelPointsPushController, "stop").mockImplementationOnce(() => stopping.promise);
+
+      const twitch = env.controller.invalidateAuthHealth("twitch");
+      await vi.waitFor(() => expect(env.channelPointsPushController.stop).toHaveBeenCalledOnce());
+      try {
+        await env.controller.invalidateAuthHealth("kick");
+        expect(env.state.authHealth.kick.status).toBe("checking");
+      } finally {
+        stopping.resolve();
+        await twitch;
+      }
+      expect(env.state.authHealth.twitch.status).toBe("checking");
+    });
+
     it("starts the observer from the state a tick commits", async () => {
       const env = harness(pushSettings());
       configureEligibleChannel(env);
@@ -720,6 +899,26 @@ describe("background controller", () => {
       await env.controller.tick(["twitch"], "manual_tick");
 
       expect(env.channelPointsPushController.starts).toBe(1);
+    });
+
+    it("aborts a live-event claim on shutdown, without reporting a failure", async () => {
+      const env = harness(pushSettings());
+      await startObserver(env);
+      let signal: AbortSignal | undefined;
+      env.twitch.claimChannelPoints = vi.fn(async (_channel, options) => {
+        signal = options?.signal;
+        return await new Promise<boolean>((_resolve, reject) => {
+          options?.signal?.addEventListener("abort", () => reject(options.signal!.reason), { once: true });
+        });
+      });
+
+      env.channelPointsPushController.emitClaim({ claimId: "claim-1", channelId: "channel-1" });
+      await vi.waitFor(() => expect(env.twitch.claimChannelPoints).toHaveBeenCalledOnce());
+      env.controller.shutdown();
+      await env.rawController.settleBackgroundWork();
+
+      expect(signal?.aborted).toBe(true);
+      expect(allDiagnostics(env)).not.toContainEqual(expect.objectContaining({ level: "warn", message: "Controller shutdown" }));
     });
 
     it("does not mutate session error or heartbeat state when the observer reports a failure", async () => {

@@ -1,8 +1,8 @@
 import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { EngineSettings, ManagedWatchTab, Platform, SchedulerState, WatchSession } from "@lurkloot/shared/models";
 import { isFarmingActive } from "@lurkloot/shared/settings";
-import { registerManagedPageContextTabs, setTwitchIntegrity } from "../core/tabRegistry";
-import { ALARM_NAME, KICK_ALARM_NAME, PLATFORMS, TWITCH_ALARM_NAME, WATCH_ALARM_NAME } from "./constants";
+import { registerManagedPageContextTabs } from "../core/tabRegistry";
+import { ALARM_NAME, KICK_ALARM_NAME, PLATFORMS, TWITCH_ALARM_NAME } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
 import { emitHostCallbackError, farmingLifecycleEvents } from "./helpers";
 import type { BackgroundHostPorts } from "./hostPorts";
@@ -62,22 +62,26 @@ function pausedStartupSession(session: WatchSession): WatchSession {
 // Startup, jobs, snapshot, shutdown and host reset.
 export function createLifecycle<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
-  { integritySlice, discoverySlice, tickSlice, settingsSlice, lifecycleSlice, tabRegistry }: Pick<ControllerSlices<S>,
+  { discoverySlice, tickSlice, settingsSlice, lifecycleSlice, tabRegistry }: Pick<ControllerSlices<S>,
     | "tabRegistry"
-    | "integritySlice"
     | "discoverySlice"
     | "tickSlice"
     | "settingsSlice"
     | "lifecycleSlice"
   >,
   calls: Pick<ControllerCalls<S>,
+    | "resetTwitchIntegrity"
     | "abortActiveTicks"
     | "abortClaimHandoffs"
     | "abortClaimOnlyOperations"
+    | "abortKickChallengeClaims"
+    | "abortTwitchChannelPointsClaims"
     | "cancelHeartbeatPublicationLeases"
+    | "ensureHeartbeatJob"
     | "clearHeartbeatOwnership"
     | "clearHeartbeatOwnershipInBackground"
-    | "clearManualWatchClaimAlarmsBestEffort"
+    | "clearKickChallengeJobBestEffort"
+    | "clearDropClaimJobsBestEffort"
     | "clearTwitchChannelPointsAlarmBestEffort"
     | "clearTwitchIntegrityAlarmBestEffort"
     | "closeTwitchIntegrityLifecycle"
@@ -85,7 +89,8 @@ export function createLifecycle<S extends EngineSettings>(
     | "invalidateSelection"
     | "normalizeStartupSettings"
     | "persistAndReport"
-    | "reconcileManualWatchClaimAlarms"
+    | "reconcileKickChallengeJob"
+    | "reconcileDropClaimJobs"
     | "reconcileTwitchChannelPointsAlarm"
     | "refreshAuthHealth"
     | "reportBestEffort"
@@ -111,13 +116,18 @@ export function createLifecycle<S extends EngineSettings>(
   | "prepareForHostReset"
 > {
   const {
+    resetTwitchIntegrity,
     abortActiveTicks,
     abortClaimHandoffs,
     abortClaimOnlyOperations,
+    abortKickChallengeClaims,
+    abortTwitchChannelPointsClaims,
     cancelHeartbeatPublicationLeases,
+    ensureHeartbeatJob,
     clearHeartbeatOwnership,
     clearHeartbeatOwnershipInBackground,
-    clearManualWatchClaimAlarmsBestEffort,
+    clearKickChallengeJobBestEffort,
+    clearDropClaimJobsBestEffort,
     clearTwitchChannelPointsAlarmBestEffort,
     clearTwitchIntegrityAlarmBestEffort,
     closeTwitchIntegrityLifecycle,
@@ -125,7 +135,8 @@ export function createLifecycle<S extends EngineSettings>(
     invalidateSelection,
     normalizeStartupSettings,
     persistAndReport,
-    reconcileManualWatchClaimAlarms,
+    reconcileKickChallengeJob,
+    reconcileDropClaimJobs,
     reconcileTwitchChannelPointsAlarm,
     refreshAuthHealth,
     reportBestEffort,
@@ -144,7 +155,8 @@ export function createLifecycle<S extends EngineSettings>(
     const settings = await ports.storage.loadSettings();
     await ensureCadenceJobs(settings);
     await reconcileTwitchChannelPointsAlarm(settings);
-    await reconcileManualWatchClaimAlarms(settings);
+    await reconcileDropClaimJobs(settings);
+    await reconcileKickChallengeJob(settings);
     if (settings.autoStartDropFarming && isFarmingActive(settings)) {
       await tick(undefined, "install");
     } else {
@@ -165,7 +177,7 @@ export function createLifecycle<S extends EngineSettings>(
   async function ensureCadenceJobs(settings?: S): Promise<void> {
     const { pollIntervalMinutes } = settings ?? await ports.storage.loadSettings();
     await ensureSchedulerAlarms(pollIntervalMinutes);
-    await ports.jobs.ensure(WATCH_ALARM_NAME, { periodInMinutes: 1 });
+    await ensureHeartbeatJob();
   }
 
   // Re-anchors the tick jobs after a settings commit, with no lock held.
@@ -202,7 +214,8 @@ export function createLifecycle<S extends EngineSettings>(
     const settings = await ports.storage.loadSettings();
     await ensureCadenceJobs(settings);
     await reconcileTwitchChannelPointsAlarm(settings);
-    await reconcileManualWatchClaimAlarms(settings);
+    await reconcileDropClaimJobs(settings);
+    await reconcileKickChallengeJob(settings);
     // A restart kills any in-memory watchers; atomically release their lane
     // ownership before host cleanup, then let tick() rebuild fresh instances.
     await clearHeartbeatOwnership(PLATFORMS);
@@ -269,9 +282,12 @@ export function createLifecycle<S extends EngineSettings>(
     abortActiveTicks("Controller shutdown");
     closeTwitchIntegrityLifecycle("Controller shutdown");
     abortClaimOnlyOperations("Controller shutdown");
+    abortKickChallengeClaims("Controller shutdown");
+    abortTwitchChannelPointsClaims("Controller shutdown");
     void clearTwitchIntegrityAlarmBestEffort();
     void clearTwitchChannelPointsAlarmBestEffort();
-    void clearManualWatchClaimAlarmsBestEffort();
+    void clearDropClaimJobsBestEffort();
+    void clearKickChallengeJobBestEffort();
     abortClaimHandoffs();
     void cancelHeartbeatPublicationLeases(PLATFORMS);
     clearHeartbeatOwnershipInBackground(PLATFORMS);
@@ -292,11 +308,14 @@ export function createLifecycle<S extends EngineSettings>(
       abortActiveTicks("Host reset");
       closeTwitchIntegrityLifecycle("Host reset");
       abortClaimOnlyOperations("Host reset");
+      abortKickChallengeClaims("Host reset");
+      abortTwitchChannelPointsClaims("Host reset");
       await stopDiscoverySignalControllersAndReport(PLATFORMS);
       await stopTwitchChannelPointsPushAndReport();
       await clearTwitchIntegrityAlarmBestEffort();
       await clearTwitchChannelPointsAlarmBestEffort();
-      await clearManualWatchClaimAlarmsBestEffort();
+      await clearDropClaimJobsBestEffort();
+      await clearKickChallengeJobBestEffort();
       abortClaimHandoffs();
       await clearHeartbeatOwnership(PLATFORMS);
       // The locks cover only the reset itself. The tabs the reset state no
@@ -305,12 +324,8 @@ export function createLifecycle<S extends EngineSettings>(
       const state = await withSettingsLock(() => withStateLock(async () => {
         const previous = await ports.storage.loadState();
         registerManagedPageContextTabs(tabRegistry, {});
-        integritySlice.installedTwitchIntegrity = undefined;
-        integritySlice.persistedIntegrityToken = undefined;
-        integritySlice.twitchIntegrityRefreshDue = undefined;
-        setTwitchIntegrity(tabRegistry, undefined);
+        resetTwitchIntegrity();
         await resetHostStorage?.();
-        settingsSlice.lastPersistedTwitchEnabled = undefined;
         return previous;
       }));
       const { tabs } = ports;

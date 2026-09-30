@@ -15,7 +15,7 @@ export type LockedIoKind = "provider" | "tab" | "timer" | "async-wait";
 //   (none now: Kick page-context recovery left runTick's lock in #598).
 export type LockedIoLock = "withStateLock" | "withPlatformLock" | "withSettingsLock" | "withHeartbeatLane" | "caller";
 
-export type LockedIoOwner = 586 | 587 | 588 | 589 | 590 | 595 | 596 | 597 | 598 | 599;
+export type LockedIoOwner = 587 | 589 | 590 | 595 | 596 | 598 | 599;
 
 export interface LockedIoEntry {
   readonly id: string;
@@ -30,45 +30,10 @@ export interface LockedIoEntry {
   readonly owner: LockedIoOwner;
 }
 
-export const LOCKED_IO_ALLOWLIST: readonly LockedIoEntry[] = [
-  // runTick's own withStateLock body, around and after the scheduler tick.
-  { id: "tick-tabless-watchers", file: "background/tickRun.ts", site: "runTick", lock: "withStateLock", call: "reconcileTablessWatchers(", kind: "provider", owner: 586 },
-
-  // Heartbeat lane: the watcher starts while its platform's lane is held.
-  { id: "heartbeat-watcher-start", file: "background/heartbeat.ts", site: "preparePlatformHeartbeatContext", lock: "withHeartbeatLane", call: "watcher.start(", kind: "provider", owner: 586 },
-
-  // Auth transitions stop observers directly, under the platform lock (#595
-  // replaces the calls with the observers' own after-commit hooks).
-  { id: "auth-persist-discovery-signal", file: "background/authHealth.ts", site: "persistAuthHealth", lock: "withStateLock", call: "stopDiscoverySignalController(", kind: "provider", owner: 595 },
-  { id: "auth-persist-channel-points", file: "background/authHealth.ts", site: "persistAuthHealth", lock: "withStateLock", call: "stopTwitchChannelPointsPush(", kind: "provider", owner: 595 },
-  { id: "auth-setup-discovery-signal", file: "background/authHealth.ts", site: "reportAuthSetupFailures", lock: "withStateLock", call: "stopDiscoverySignalController(", kind: "provider", owner: 595 },
-  { id: "auth-setup-channel-points", file: "background/authHealth.ts", site: "reportAuthSetupFailures", lock: "withStateLock", call: "stopTwitchChannelPointsPush(", kind: "provider", owner: 595 },
-  { id: "auth-invalidate-discovery-signal", file: "background/authHealth.ts", site: "invalidateAuthHealth", lock: "withStateLock", call: "stopDiscoverySignalController(", kind: "provider", owner: 595 },
-  { id: "auth-invalidate-channel-points", file: "background/authHealth.ts", site: "invalidateAuthHealth", lock: "withStateLock", call: "stopTwitchChannelPointsPush(", kind: "provider", owner: 595 },
-
-  // Manual watch, playback and tab events.
-  { id: "tab-removed-discovery-signals", file: "background/manualWatch.ts", site: "handleTabRemoved", lock: "withStateLock", call: "stopDiscoverySignalControllers(", kind: "provider", owner: 596 },
-  { id: "playback-ad-focus", file: "background/manualWatch.ts", site: "recordPlaybackTelemetry", lock: "withStateLock", call: "tabs.watch.applyAdFocus(", kind: "tab", owner: 596 },
-
-  // Kick page-context recovery runs after the tick commit, inside runTick's lock.
-
-  // Claims outside the tick.
-  { id: "manual-claim", file: "background/claims.ts", site: "claimRewardNow", lock: "withStateLock", call: "adapter.claimReward(", kind: "provider", owner: 597 },
-  { id: "drop-claims-refresh", file: "background/claims.ts", site: "runDropClaims", lock: "withStateLock", call: "adapter.refreshCampaigns(", kind: "provider", owner: 597 },
-  { id: "drop-claims-claim", file: "background/claims.ts", site: "runDropClaims", lock: "withStateLock", call: "claimReadyRewards(", kind: "provider", owner: 597 },
-  { id: "kick-challenge-claims", file: "background/kickChallenges.ts", site: "runKickChallengeClaims", lock: "withStateLock", call: "adapter.claimChallenges?.(", kind: "provider", owner: 588 },
-
-  // Twitch integrity schedules or clears its refresh alarm under a lock.
-  { id: "integrity-load-schedule", file: "background/twitchIntegrity.ts", site: "loadStoredTwitchIntegrity", lock: "withStateLock", call: "scheduleTwitchIntegrityRefreshBestEffort(", kind: "timer", owner: 589 },
-  { id: "integrity-refresh-schedule", file: "background/twitchIntegrity.ts", site: "runTwitchIntegrityRefresh", lock: "withSettingsLock", call: "scheduleTwitchIntegrityRefreshBestEffort(", kind: "timer", owner: 589 },
-  { id: "integrity-refresh-clear", file: "background/twitchIntegrity.ts", site: "runTwitchIntegrityRefresh", lock: "withSettingsLock", call: "clearTwitchIntegrityAlarmBestEffort(", kind: "timer", owner: 589 },
-  { id: "integrity-capture-schedule", file: "background/twitchIntegrity.ts", site: "captureTwitchIntegrity", lock: "withSettingsLock", call: "scheduleTwitchIntegrityRefreshBestEffort(", kind: "timer", owner: 589 },
-  { id: "integrity-restore-schedule", file: "background/twitchIntegrity.ts", site: "restoreTwitchIntegritySchedule", lock: "withStateLock", call: "scheduleTwitchIntegrityRefreshBestEffort(", kind: "timer", owner: 589 },
-
-  // Settings writes reschedule jobs while holding the settings lock.
-  { id: "settings-claim-alarms", file: "background/settingsTransitions.ts", site: "commitSettings", lock: "withSettingsLock", call: "reconcileManualWatchClaimAlarms(", kind: "timer", owner: 597 },
-  { id: "startup-claim-alarms", file: "background/settingsTransitions.ts", site: "normalizeStartupSettings", lock: "withSettingsLock", call: "reconcileManualWatchClaimAlarms(", kind: "timer", owner: 597 },
-];
+// Empty since #586 removed the last two, the tabless watcher starts under the
+// tick's state lock and under the heartbeat lane. No lock is held around
+// provider, tab or timer I/O any more, and the scan still fails any new site.
+export const LOCKED_IO_ALLOWLIST: readonly LockedIoEntry[] = [];
 
 // The size of the list. The test requires the list to be exactly this long, so
 // removing an entry means lowering it in the same change. Never raise it.
@@ -78,7 +43,7 @@ export const LOCKED_IO_ALLOWLIST: readonly LockedIoEntry[] = [
 // under `adapters[platform]`, and in a function its caller runs under a lock.
 // The scan now recognizes all three. That was a correction to the baseline,
 // not new locked I/O.
-export const LOCKED_IO_ALLOWLIST_SIZE = 21;
+export const LOCKED_IO_ALLOWLIST_SIZE = 0;
 
 // Calls that count as locked I/O when they appear inside a lock: ports and
 // adapter methods that reach a provider, a tab or a timer, and the controller

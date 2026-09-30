@@ -7,6 +7,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./scheduler": "./src/core/scheduler.ts",
+    "./manualWatch": "./src/core/manualWatch.ts",
     "./effectExecutor": "./src/core/effectExecutor.ts",
     "./rewardClaims": "./src/core/rewardClaims.ts",
     "./tablessWatch": "./src/core/tablessWatch.ts",
@@ -38,6 +39,8 @@
     "./kick/watch": "./src/platforms/kick/watch.ts",
     "./controller": "./src/background/controller.ts",
     "./background/channelPoints": "./src/background/channelPoints.ts",
+    "./background/claimService": "./src/background/claimService.ts",
+    "./background/kickRuntime": "./src/background/kickRuntime.ts",
     "./background/observerSlot": "./src/background/observerSlot.ts",
     "./background/platformState": "./src/background/platformState.ts",
     "./background/stateTransaction": "./src/background/stateTransaction.ts",

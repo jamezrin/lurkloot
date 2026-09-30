@@ -40,12 +40,13 @@ import { applyPlatformAuthHealth } from "./authHealth";
 import type { CriticalHealthObservation } from "./criticalHealth";
 import { isManagedTabBreakerOpen, observeCriticalHealth, recordManagedTabOpen } from "./criticalHealth";
 import { isTimestampStale, PLAYBACK_TELEMETRY_MAX_AGE_MS } from "./timestamps";
+import { pausedForManualWatch } from "./manualWatch";
 import { heartbeatContextKey, validTablessHeartbeatCadence } from "./heartbeatCadence";
 import { selectionAdapterFromDiscoverySnapshot, type DiscoverySnapshot } from "./discoverySnapshot";
 
 const PLATFORMS: Platform[] = ["twitch", "kick"];
 const MAX_PLATFORM_BACKOFF_MINUTES = 30;
-export const MANUAL_WATCH_TTL_MS = 20_000;
+export { MANUAL_WATCH_TTL_MS } from "./manualWatch";
 
 // Kick's daily challenge window is hours long, so a ten-minute poll is far more
 // than responsive enough while keeping the request count negligible.
@@ -1216,7 +1217,7 @@ export async function* decidePlatformTick(
       emitDiagnostic(emit, platform, "info", "Farming tab was closed manually; staying paused until the user resumes");
       return;
     }
-    if (settings.pauseOnManualWatch && hasRecentManualWatch(tick.state, platform)) {
+    if (pausedForManualWatch(settings, tick.state, platform)) {
       yield* yieldEffect({ type: "stopWatchTab", platform, session: previous });
       tick.state.sessions[platform] = {
         ...previous,
@@ -1721,12 +1722,6 @@ export async function* decidePlatformTick(
   } finally {
     applyObservation();
   }
-}
-
-function hasRecentManualWatch(state: SchedulerState, platform: Platform): boolean {
-  const manualWatch = state.manualWatch?.[platform];
-  if (!manualWatch?.active) return false;
-  return !isTimestampStale(manualWatch.checkedAt, MANUAL_WATCH_TTL_MS, Date.now());
 }
 
 function withoutManagedWatchTab(

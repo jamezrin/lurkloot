@@ -1,21 +1,25 @@
 import type { CoreRuntimeMessage, PlaybackControl } from "@lurkloot/shared/messages";
 import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
-import { isPlaybackTelemetryHealthy, MANUAL_WATCH_TTL_MS } from "../core/scheduler";
+import { isPlaybackTelemetryHealthy } from "../core/scheduler";
+import { MANUAL_WATCH_TTL_MS } from "../core/manualWatch";
 import { isTimestampStale } from "../core/timestamps";
 import { kickChannelFromUrl } from "../platforms/kick/channelUrl";
 import { twitchChannelFromUrl } from "../platforms/twitch/channelUrl";
 import { PLATFORMS } from "./constants";
 import { lateBound, type ControllerSlices } from "./context";
-import { isReleasedTab, tabClosureOrigin } from "../core/tabRegistry";
+import { forgetRemovedPageContextTab, isReleasedTab, tabClosureOrigin } from "../core/tabRegistry";
 import { emitHostCallbackError } from "./helpers";
 import type { BackgroundHostPorts } from "./hostPorts";
 import type { ControllerCalls } from "./types";
 
+// Enough to remember recent closes while their late reports drain.
+const MAX_REMOVED_TABS = 64;
+
 // Manual watch, managed-tab events and playback telemetry.
 export function createManualWatch<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
-  { tabRegistry }: Pick<ControllerSlices<S>, "tabRegistry">,
+  { tabRegistry, lifecycleSlice }: Pick<ControllerSlices<S>, "tabRegistry" | "lifecycleSlice">,
   calls: Pick<ControllerCalls<S>,
     | "invalidateSelection"
     | "persistAndReport"
@@ -23,8 +27,7 @@ export function createManualWatch<S extends EngineSettings>(
     | "persistPlatformState"
     | "playbackEvents"
     | "reportBestEffort"
-    | "stopDiscoverySignalControllers"
-    | "tickInBackground"
+    | "settleCommitHooks"
     | "withEventCollector"
     | "withStateLock"
   >,
@@ -43,25 +46,40 @@ export function createManualWatch<S extends EngineSettings>(
     persistPlatformState,
     playbackEvents,
     reportBestEffort,
-    stopDiscoverySignalControllers,
-    tickInBackground,
+    settleCommitHooks,
     withEventCollector,
     withStateLock,
   } = lateBound(calls);
   const { tabs } = ports;
+  // Tabs that were removed, whoever closed them, oldest first and bounded like
+  // the registry's engine closures. A report still in flight from one is a
+  // late result: it must not bring back the manual watch its close ended.
+  // (A URL update only ever clears a record, so it needs no such check.)
+  // Browsers do not reuse tab ids within a session.
+  const removedTabs = new Set<number>();
+
+  function noteRemovedTab(tabId: number): void {
+    removedTabs.delete(tabId);
+    removedTabs.add(tabId);
+    while (removedTabs.size > MAX_REMOVED_TABS) {
+      const oldest = removedTabs.values().next().value;
+      if (oldest == null) break;
+      removedTabs.delete(oldest);
+    }
+  }
 
   async function handleTabRemoved(tabId: number): Promise<void> {
-    const changed: Platform[] = [];
+    noteRemovedTab(tabId);
     // Taken before the lock: the engine records why it closes a tab before it
     // asks the browser to, so this is already known when the event arrives.
     const origin = tabClosureOrigin(tabRegistry, tabId);
+    let committed = false;
     await withStateLock(() => withEventCollector(async (emit, events) => {
       const state = await ports.storage.loadState();
       let nextState = state;
       for (const platform of PLATFORMS) {
         if (state.manualWatch?.[platform]?.tabId !== tabId && !state.manualWatchTabs?.[platform]?.[tabId]) continue;
         nextState = updateManualWatchTab(nextState, platform, tabId);
-        if (hasRecentManualWatch(state, platform) !== hasRecentManualWatch(nextState, platform)) changed.push(platform);
       }
 
       const closedManagedPlatforms: Platform[] = [];
@@ -106,12 +124,26 @@ export function createManualWatch<S extends EngineSettings>(
           };
         }
         nextState = { ...nextState, sessions, managedWatchTabs, manualClosePause };
-        await stopDiscoverySignalControllers(closedManagedPlatforms, emit);
       }
 
-      if (nextState !== state || events.length > 0) await persistAndReport(nextState, events);
+      // A retained page context whose tab is gone is forgotten (#588), so the
+      // next page fallback opens a fresh one instead of probing a missing tab.
+      // It is not a watch tab, so even the user's close pauses nothing.
+      const forgotten = forgetRemovedPageContextTab(tabRegistry, nextState.managedPageContextTabs ?? {}, tabId);
+      for (const platform of forgotten.platforms) {
+        emit({ category: "diagnostic", platform, level: "debug", message: `Forgot managed page context in tab ${tabId} because the tab was closed (${origin})` });
+      }
+      if (forgotten.platforms.length > 0) nextState = { ...nextState, managedPageContextTabs: forgotten.contexts };
+
+      if (nextState !== state || events.length > 0) {
+        await persistAndReport(nextState, events);
+        committed = true;
+      }
     }));
-    if (changed.length) tickInBackground(changed, "manual_watch");
+    // Dependents react to the commit from their hooks: a paused session stops
+    // its discovery-signal observer, and a manual watch that ended ticks the
+    // platform. The host's event resolves once they have.
+    if (committed) await settleCommitHooks();
   }
 
   // Explicit user action: clears the manual-close pause so the next tick may
@@ -135,10 +167,13 @@ export function createManualWatch<S extends EngineSettings>(
     senderTabId?: number,
     senderTabUrl?: string,
   ): Promise<void> {
-    // A report still in flight from a tab the engine closed is a late result:
-    // it is neither the managed tab's playback nor the user watching (#598).
-    if (senderTabId != null && isReleasedTab(tabRegistry, senderTabId)) return;
-    let manualWatchChanged = false;
+    let manualWatchReported = false;
+    // A report still in flight from a tab that was closed, by the engine
+    // (#598) or by the user (#596), is a late result: it is neither the
+    // managed tab's playback nor the user watching.
+    if (senderTabId != null && (isReleasedTab(tabRegistry, senderTabId) || removedTabs.has(senderTabId))) return;
+    // The committed session's ad state, when the report was the managed tab's.
+    let adFocus: { tabId: number; adActive: boolean } | undefined;
     await withStateLock(() => withEventCollector(async (emit, events) => {
       const [settings, state] = await Promise.all([ports.storage.loadSettings(), ports.storage.loadState()]);
       const session = state.sessions[message.platform];
@@ -149,11 +184,10 @@ export function createManualWatch<S extends EngineSettings>(
 
       if (!isManagedWatchTab) {
         if (senderTabId != null) {
-          const manualWatch = recordManualWatchTelemetry(state, settings, message, senderTabId, senderTabUrl);
-          manualWatchChanged = manualWatch.changed;
+          manualWatchReported = true;
           await persistPlatformAndReport(
             message.platform,
-            manualWatch.state,
+            recordManualWatchTelemetry(state, settings, message, senderTabId, senderTabUrl),
             events,
           );
         }
@@ -188,22 +222,36 @@ export function createManualWatch<S extends EngineSettings>(
         : [];
       for (const event of playbackDiagnostics) emit(event);
 
-      await persistPlatformState(message.platform, nextState);
+      await persistPlatformState(message.platform, nextState, undefined, (committed) => {
+        const committedSession = committed.sessions[message.platform];
+        if (committedSession.status === "watching" && committedSession.tabId === senderTabId) {
+          adFocus = { tabId: senderTabId, adActive: Boolean(committedSession.playback?.adActive) };
+        }
+      });
       if ((previous ? isPlaybackTelemetryHealthy(previous) : undefined)
         !== isPlaybackTelemetryHealthy(telemetry)) {
         invalidateSelection(message.platform);
       }
-      try {
-        if (tabs && session.status === "watching" && session.tabId === senderTabId) {
-          await tabs.watch.applyAdFocus(message.platform, session.tabId, Boolean(message.telemetry.adActive), emit);
-        }
-      } catch (error) {
-        emitHostCallbackError(emit, message.platform, error, "Could not apply ad focus");
-      } finally {
-        await reportBestEffort(events);
-      }
+      await reportBestEffort(events);
     }), [message.platform]);
-    if (manualWatchChanged) tickInBackground([message.platform], "manual_watch");
+    // Ad focus follows the committed session, with no lock held (#596). A host
+    // reset or shutdown since the commit has already released focus.
+    const focus = adFocus;
+    if (focus && tabs && lifecycleSlice.observersOpen && !lifecycleSlice.controllerShutdown) {
+      await withEventCollector(async (emit, events) => {
+        try {
+          await tabs.watch.applyAdFocus(message.platform, focus.tabId, focus.adActive, emit);
+        } catch (error) {
+          emitHostCallbackError(emit, message.platform, error, "Could not apply ad focus");
+        } finally {
+          await reportBestEffort(events);
+        }
+      });
+    }
+    // A manual watch that started or ended ticks the platform from the tick
+    // admission's hook; the report resolves once it has been requested. The
+    // managed tab's own playback never changes manual watch, so it does not wait.
+    if (manualWatchReported) await settleCommitHooks([message.platform]);
   }
 
   function recordManualWatchTelemetry(
@@ -212,25 +260,18 @@ export function createManualWatch<S extends EngineSettings>(
     message: Extract<CoreRuntimeMessage, { type: "playbackTelemetry" }>,
     senderTabId: number,
     senderTabUrl?: string,
-  ): { state: SchedulerState; changed: boolean } {
+  ): SchedulerState {
     const channel = message.platform === "twitch"
       ? twitchChannelFromUrl(senderTabUrl) : kickChannelFromUrl(senderTabUrl);
     const owned = state.managedWatchTabs?.[message.platform]?.tabId === senderTabId
       || state.managedPageContextTabs?.[message.platform]?.tabId === senderTabId;
     const active = Boolean(channel) && !owned && settings.pauseOnManualWatch
       && message.telemetry.playingVideoCount > 0 && !message.telemetry.documentHidden;
-    const next = updateManualWatchTab(state, message.platform, senderTabId, {
+    return updateManualWatchTab(state, message.platform, senderTabId, {
       platform: message.platform, tabId: senderTabId,
       checkedAt: new Date().toISOString(), active,
       ...(channel ? { channel } : {}),
     }, settings.pauseOnManualWatch);
-    return { state: next, changed: hasRecentManualWatch(state, message.platform)
-      !== hasRecentManualWatch(next, message.platform) };
-  }
-
-  function hasRecentManualWatch(state: SchedulerState, platform: Platform): boolean {
-    const watch = state.manualWatch?.[platform];
-    return Boolean(watch?.active && !isTimestampStale(watch.checkedAt, MANUAL_WATCH_TTL_MS, Date.now()));
   }
 
   function updateManualWatchTab(
@@ -263,7 +304,7 @@ export function createManualWatch<S extends EngineSettings>(
   }
 
   async function handleTabUpdated(tabId: number, url: string): Promise<void> {
-    const changed: Platform[] = [];
+    let committed = false;
     await withStateLock(() => withEventCollector(async (_emit, events) => {
       const original = await ports.storage.loadState();
       let state = original;
@@ -275,13 +316,14 @@ export function createManualWatch<S extends EngineSettings>(
         // Keep the pause during channel switches until fresh playback arrives.
         // Clearing here would reopen farming while the new player is loading.
         if (channel) continue;
-        const wasActive = hasRecentManualWatch(state, platform);
         state = updateManualWatchTab(state, platform, tabId);
-        if (wasActive !== hasRecentManualWatch(state, platform)) changed.push(platform);
       }
-      if (state !== original) await persistAndReport(state, events);
+      if (state !== original) {
+        await persistAndReport(state, events);
+        committed = true;
+      }
     }));
-    if (changed.length) tickInBackground(changed, "manual_watch");
+    if (committed) await settleCommitHooks();
   }
 
   async function applyAdFocusForState(

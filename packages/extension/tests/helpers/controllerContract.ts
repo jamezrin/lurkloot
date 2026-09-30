@@ -141,6 +141,8 @@ export interface ContractHostOptions {
   readonly storage?: ContractStorage;
   // Shared tabs, which outlive a restart like storage does.
   readonly browser?: FakeBrowser;
+  // The post-claim handoff's delay, so a test drives the loop by hand.
+  readonly wait?: (ms: number, signal: AbortSignal) => Promise<void>;
 }
 
 export interface ContractHost {
@@ -160,6 +162,9 @@ export interface ContractHost {
   readonly reported: EngineEvent[];
   // The host's job scheduler, as the controller left it.
   readonly jobs: FakeJobScheduler;
+  // The locks the controller holds at the moment of reading, as the lock
+  // tracker sees them.
+  heldLocks(): readonly string[];
   // What the host does when its process starts: the extension calls
   // handleStartup; the CLI calls reconcileStartup.
   boot(): Promise<void>;
@@ -227,6 +232,7 @@ export function contractHost(capabilities: CapabilitySet, options: ContractHostO
     createNotification: vi.fn(async () => undefined),
     createAdapters: vi.fn((_emit, settings: ExtensionSettings) => ({ adapters, ...compatibility(settings) })),
     createAdapter: vi.fn((platform: Platform, _emit, settings: ExtensionSettings) => ({ adapter: adapters[platform], ...compatibility(settings) })),
+    ...(options.wait ? { wait: options.wait } : {}),
   };
   // The extension runs its real tab ports against a fake browser (#598); each
   // port call still goes through a spy, so tests can assert on it and the lock
@@ -260,7 +266,8 @@ export function contractHost(capabilities: CapabilitySet, options: ContractHostO
       : {}),
   };
 
-  const controller = createBackgroundController(hostPortsFromMocks(withLockTracker(deps).deps, capabilities.declared));
+  const { deps: trackedDeps, tracker } = withLockTracker(deps);
+  const controller = createBackgroundController(hostPortsFromMocks(trackedDeps, capabilities.declared));
   // What background.ts does with tabs.onRemoved.
   const tabEvents = new Set<Promise<void>>();
   const unsubscribe = browser?.onRemoved((tabId) => {
@@ -277,6 +284,7 @@ export function contractHost(capabilities: CapabilitySet, options: ContractHostO
     savedStates,
     reported,
     jobs,
+    heldLocks: () => tracker.held(),
     async boot(): Promise<void> {
       if (capabilities.resumesOnStartup) await controller.handleStartup();
       else await controller.reconcileStartup();
