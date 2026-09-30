@@ -1,3 +1,4 @@
+import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
 import { PLATFORMS } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
@@ -35,6 +36,7 @@ export function createTickAdmission<S extends EngineSettings>(
     | "tickPlatform"
     | "withStateLock"
     | "settleRouteReports"
+    | "snapshot"
   >,
 ): Pick<ControllerCalls<S>,
   | "tickTriggerSummary"
@@ -54,6 +56,7 @@ export function createTickAdmission<S extends EngineSettings>(
   | "discardStalePendingTick"
   | "platformTickRunning"
   | "platformTickAdmitted"
+  | "tickNow"
 > {
   const {
     awaitInitialTwitchIntegrityLoad,
@@ -68,6 +71,7 @@ export function createTickAdmission<S extends EngineSettings>(
     tickPlatform,
     withStateLock,
     settleRouteReports,
+    snapshot,
   } = lateBound(calls);
 
   // A commit that starts or ends the user's manual watch of a platform (#596)
@@ -383,7 +387,14 @@ export function createTickAdmission<S extends EngineSettings>(
     return tickSlice.tickAdmission[platform].active !== undefined;
   }
 
+  // The popup's "check now" (#591: moved here from messages.ts).
+  async function tickNow(): Promise<RuntimeSnapshot<S>> {
+    await tickAndHandOff(undefined, "manual_tick");
+    return snapshot();
+  }
+
   return {
+    tickNow,
     platformTickRunning,
     platformTickAdmitted,
     tickTriggerSummary,

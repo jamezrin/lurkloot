@@ -1,5 +1,7 @@
 import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
 import type { EngineEvent } from "@lurkloot/shared/events";
+import type { CategorySearchResult, CoreRuntimeMessage } from "@lurkloot/shared/messages";
+import type { PlatformAdapter } from "../platforms/adapter";
 import {
   campaignSearchBackoffApplies,
   isPlaybackTelemetryHealthy,
@@ -32,6 +34,8 @@ export function createDiscovery<S extends EngineSettings>(
     | "createAdapter"
     | "withEventCollector"
     | "readSettingsAndState"
+    | "createAdapters"
+    | "reportBestEffort"
   >,
 ): Pick<ControllerCalls<S>,
   | "selectionFingerprint"
@@ -50,8 +54,15 @@ export function createDiscovery<S extends EngineSettings>(
   | "recordDiscoveryEvent"
   | "drainDiscoveryEvents"
   | "selectionGeneration"
+  | "searchCategories"
 > {
-  const { createAdapter, readSettingsAndState, withEventCollector } = lateBound(calls);
+  const {
+    createAdapter,
+    readSettingsAndState,
+    withEventCollector,
+    createAdapters,
+    reportBestEffort,
+  } = lateBound(calls);
 
   // Created here rather than in context.ts: each lane refreshes through this
   // module's createDiscoveryLane.
@@ -443,7 +454,34 @@ export function createDiscovery<S extends EngineSettings>(
     };
   }
 
+  // The popup's category search (#591: moved here from messages.ts).
+  async function searchCategories(
+    message: Extract<CoreRuntimeMessage, { type: "searchCategories" }>,
+  ): Promise<CategorySearchResult> {
+    return withEventCollector(async (emit, events) => {
+      const settings = await ports.storage.loadSettings();
+      let categories: CategorySearchResult["categories"] = [];
+      let adapter: PlatformAdapter | undefined;
+      try {
+        adapter = createAdapters(settings, emit)[message.platform];
+        categories = await adapter.searchCategories?.(message.query) ?? [];
+      } catch (error) {
+        emit({
+          category: "diagnostic",
+          level: "warn",
+          message: `Category search failed: ${error instanceof Error ? error.message : String(error)}`,
+          platform: message.platform,
+        });
+      } finally {
+        adapter?.flushRouteDiagnostics?.(emit);
+      }
+      await reportBestEffort(events);
+      return { categories };
+    });
+  }
+
   return {
+    searchCategories,
     selectionFingerprint,
     refreshDiscovery,
     discoverySnapshot,

@@ -129,21 +129,21 @@ The per-module slices and calls below are where #591's dependency check starts:
 | `stateTransaction.ts` | its own lock queues and hooks | none | the transaction (#585) |
 | `stateCommit.ts` | the transaction | `reporting` | 13 |
 | `reporting.ts` | `reportingSlice` | `discovery` | 14 |
-| `tickAdmission.ts` | `tickSlice` (with `tickRun`, the tick coordinator), `lifecycleSlice` (read), a commit hook | `claimService`, `discovery`, `discoverySignals`, `reporting`, `stateCommit`, `tickRun` | 17 |
+| `tickAdmission.ts` | `tickSlice` (with `tickRun`, the tick coordinator), `lifecycleSlice` (read), a commit hook | `claimService`, `discovery`, `discoverySignals`, `reporting`, `stateCommit`, `tickRun` | 18 |
 | `tickRun.ts` | `tickSlice` (with `tickAdmission`) | `authHealth`, `channelPoints`, `claimService`, `discovery`, `discoverySignals`, `heartbeat`, `kickRuntime`, `manualWatch`, `reporting`, `stateCommit`, `tickAdmission`, `twitchIntegrity` | 1 |
-| `discovery.ts` | its own `discoverySlice`, `lifecycleSlice` (read) | `reporting`, `stateCommit` | 16 |
+| `discovery.ts` | its own `discoverySlice`, `lifecycleSlice` (read) | `reporting`, `stateCommit` | 17 |
 | `heartbeat.ts` | its own watchers, heartbeat lanes, generation high-water marks and publication leases, and the watch job (#586), `lifecycleSlice` (read) | `discovery`, `reporting`, `stateCommit`, `tickAdmission` | 7 |
 | `twitchIntegrity.ts` | its own state (lifecycle generation, persisted token, refresh due, the startup load; #589), `lifecycleSlice` (read), the tab registry's token | `reporting`, `settingsTransitions`, `stateCommit` | 12 |
 | `channelPoints.ts` | its own push slot, claim gate and push-claim queue (#590), `lifecycleSlice` (read), a commit hook | `reporting`, `stateCommit`, `tickAdmission` | 12 |
 | `kickRuntime.ts` | its own challenge claim gate, claim operations and job reschedule queue (#588), `lifecycleSlice` | `reporting`, `stateCommit` | 9 |
 | `authHealth.ts` | its own refresh generations (#595) | `discovery`, `discoverySignals`, `reporting`, `stateCommit` | 5 |
-| `manualWatch.ts` | the watch-tab effect handlers (#591), `lifecycleSlice` (read) | `discovery`, `reporting`, `stateCommit` | 7 |
+| `manualWatch.ts` | the watch-tab effect handlers (#591), `lifecycleSlice` (read) | `discovery`, `reporting`, `stateCommit`, `tickAdmission` | 9 |
 | `supplementalSources.ts` | the supplemental target effect handler (#591) | none | 1 |
 | `claimService.ts` | its own handoffs, waiting reward ids, drop-claim operations, reward claim guards and job reschedule queue (#597), `lifecycleSlice` | `heartbeat`, `lifecycle`, `reporting`, `stateCommit`, `tickAdmission` | 13 |
 | `discoverySignals.ts` | `signalSlice`, `lifecycleSlice` (read), a commit hook | `reporting`, `tickAdmission` | 13 |
-| `settingsTransitions.ts` | the transaction, `settingsSlice` (the Twitch settings-transition generation) | `channelPoints`, `claimService`, `discovery`, `kickRuntime`, `lifecycle`, `stateCommit`, `tickAdmission` | 5 |
+| `settingsTransitions.ts` | the transaction, `settingsSlice` (the Twitch settings-transition generation), `lifecycleSlice` (read) | `channelPoints`, `claimService`, `discovery`, `discoverySignals`, `kickRuntime`, `lifecycle`, `stateCommit`, `tickAdmission` | 8 |
 | `lifecycle.ts` | `lifecycleSlice` | `authHealth`, `channelPoints`, `claimService`, `discovery`, `discoverySignals`, `heartbeat`, `kickRuntime`, `reporting`, `settingsTransitions`, `stateCommit`, `tickAdmission`, `twitchIntegrity` | 9 |
-| `messages.ts` | `lifecycleSlice` (read) | `claimService`, `discoverySignals`, `lifecycle`, `manualWatch`, `reporting`, `settingsTransitions`, `stateCommit`, `tickAdmission`, `twitchIntegrity` | 1 |
+| `messages.ts` | none: a routing table, one entry per runtime message (#591) | `claimService`, `discovery`, `manualWatch`, `reporting`, `settingsTransitions`, `tickAdmission` | 1 |
 
 Each module changes only its own state (#591). Where another module needs to change it, the
 owner provides a narrow method: tick admission's `trackBackgroundWork`, `suspendTickAdmission`
