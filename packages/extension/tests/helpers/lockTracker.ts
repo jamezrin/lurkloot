@@ -1,21 +1,14 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { afterEach, expect } from "vitest";
-import { readFileSync } from "node:fs";
-import { dirname, relative, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import type { LockTracker, TransactionLock } from "@lurkloot/core/controller";
-import { LOCKED_IO_ALLOWLIST } from "./lockedIo";
 
 // The state transaction's test instrumentation (#585). Each operation knows
 // which transaction locks it holds, through AsyncLocalStorage, so:
 // - a lock taken out of order, or a commit nested in a commit, is a violation;
-// - a port (provider, tab or timer) called while a lock is held is a violation
-//   unless a frame on its stack is a call site on #584's locked-I/O allowlist.
+// - a port (provider, tab or timer) called while a lock is held is a violation,
+//   with no exceptions since #591 deleted #584's allowlist.
 // Violations are recorded as well as thrown or reported, because best-effort
 // callers swallow errors; the suites using the tracker assert there are none.
-
-const here = dirname(fileURLToPath(import.meta.url));
-const coreSrc = resolve(here, "../../../core/src");
 
 export interface LockViolation {
   readonly message: string;
@@ -30,36 +23,6 @@ export interface TestLockTracker extends LockTracker {
   // context: a test's storage mock that starts another operation mid-save
   // simulates concurrent work, which holds none of the caller's locks.
   detach<T>(operation: () => T): T;
-}
-
-const sourceLines = new Map<string, readonly string[]>();
-function lineOf(file: string, line: number): string {
-  let lines = sourceLines.get(file);
-  if (!lines) {
-    lines = readFileSync(resolve(coreSrc, file), "utf8").split("\n");
-    sourceLines.set(file, lines);
-  }
-  return lines[line - 1] ?? "";
-}
-
-// packages/core/src-relative file and line of each stack frame in the engine.
-function engineFrames(stack: string): { file: string; line: number }[] {
-  const frames: { file: string; line: number }[] = [];
-  for (const match of stack.matchAll(/\(?((?:file:\/\/)?\/[^\s()]+?\.ts):(\d+):\d+\)?/g)) {
-    const path = match[1]!.replace(/^file:\/\//, "");
-    const file = relative(coreSrc, path);
-    if (file.startsWith("..")) continue;
-    frames.push({ file, line: Number(match[2]) });
-  }
-  return frames;
-}
-
-// True when some engine frame on the stack is an allowlisted locked-I/O call.
-export function allowlistedCallSite(stack: string): boolean {
-  return engineFrames(stack).some(({ file, line }) => {
-    const source = lineOf(file, line);
-    return LOCKED_IO_ALLOWLIST.some((entry) => entry.file === file && source.includes(entry.call));
-  });
 }
 
 interface HeldLock {
@@ -116,9 +79,7 @@ export function createTestLockTracker(): TestLockTracker {
           Error.stackTraceLimit = 200;
           const stack = new Error().stack ?? "";
           Error.stackTraceLimit = limit;
-          if (!allowlistedCallSite(stack)) {
-            violations.push({ message: `${name} called while holding ${locks.join(" → ")}`, stack });
-          }
+          violations.push({ message: `${name} called while holding ${locks.join(" → ")}`, stack });
         }
         return port(...args);
       }) as typeof port;
