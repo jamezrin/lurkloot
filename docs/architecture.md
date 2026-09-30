@@ -202,9 +202,9 @@ due heartbeat independent of a long tick.
 
 ### Work performed while a lock is held
 
-None, since #586. `packages/extension/tests/helpers/lockedIo.ts` (`LOCKED_IO_ALLOWLIST`) listed each
-site with the v1.15.0 issue that removed it, and is now empty. `lockedIoAllowlist.test.ts` fails if a
-provider, tab or timer call appears inside a lock.
+None, since #586, and with no exceptions: #584's allowlist of v1.14.0 sites was emptied by the
+v1.15.0 issues and deleted in #591. `lockedIo.test.ts` fails if a provider, tab or timer call
+appears inside a lock, and the runtime lock tracker fails any guarded port called while one is held.
 
 - **Scheduler tick:** none since #599. Its effects (claims, Kick challenges, channel points, watch
   tabs, page-context release, Twitch Extensions supplemental selection) run between `runTick`'s two
@@ -236,7 +236,7 @@ and never take the commit lock or call `saveState` themselves.
 
 - **Lock order:** settings → Twitch → Kick → heartbeat lane → commit. Acquire in this order only.
   Only a storage load and save run under the commit lock; no lock may be held across provider, tab or
-  timer I/O (`LOCKED_IO_ALLOWLIST` is empty since #586).
+  timer I/O, with no exceptions (#591).
 - **Commit:** `commit(platforms, guard, mutate)` loads the stored state, checks the guard, applies
   the synchronous `mutate`, and returns `accepted`, `unchanged` (nothing to write, or an equivalent
   state) or `stale`. The guard is the operation's expected generation, as an `AbortSignal` or a
@@ -296,9 +296,9 @@ and never take the commit lock or call `saveState` themselves.
 The test suite enforces the model. The characterization and contract harnesses give the controller
 a lock tracker (`tests/helpers/lockTracker.ts`, backed by `AsyncLocalStorage`) and guard every
 provider, tab and timer port. A test fails when a lock is taken out of order, a commit nests in a
-commit, or a port is called under a lock from a call site missing from `LOCKED_IO_ALLOWLIST`. The
-site check reads the async stack trace, so the lock queues are written with `await` and a release
-promise rather than `.then()` chains, which V8 cannot see through. `stateTransaction.test.ts`
+commit, or a port is called while a lock is held. The lock queues are written with `await` and a
+release promise rather than `.then()` chains, so the tracker's `AsyncLocalStorage` context and the
+violation's async stack trace follow the operation. `stateTransaction.test.ts`
 covers the rules themselves, including an unlisted call site failing and hook ordering.
 
 ### Scheduler tick effects (#599)
@@ -525,7 +525,8 @@ tested too (#598).
 | Supplemental lane: completion forgotten on restart (current behavior; #594 changes it) | `twitchExtensionHost.test.ts` ("forgets completion when a new host starts…") |
 | The scheduler tick decides from plain inputs and names its effects; one handler per effect type | `schedulerEffects.test.ts` |
 | A tick's effects run with no lock held; concurrent telemetry is kept, a contradicting writer drops the decision but not the claims or tabs it produced, and an overlapping claim is requested once (#599) | `backgroundController/tickEffects.test.ts`; `tickCommit.test.ts` |
-| Locked I/O can only shrink | `lockedIoAllowlist.test.ts` (source scan); `tests/helpers/lockTracker.ts` (runtime, every harness) |
+| No I/O while a lock is held, with no exceptions (#591) | `lockedIo.test.ts` (source scan); `tests/helpers/lockTracker.ts` (runtime, every harness) |
+| No import cycles between engine modules, no Twitch/Kick branches in the facade, no browser-tab code outside the extension (#591) | `engineBoundary.test.ts` |
 | Lock order, nested commits, commit results, hooks and settings effects | `stateTransaction.test.ts`; `backgroundController/stateCommit.test.ts` ("calls after-commit hooks…") |
 | Every `SchedulerState` key merges per platform or is global | `platformState.test.ts` |
 
@@ -559,6 +560,27 @@ rather than filters. `campaignPassesCategoryFilter`, `isCampaignCategoryBlocked`
 and `favouriteCategoryIndex` in `@lurkloot/shared/categories` answer all three
 questions, so farming eligibility, the popup's sections, scheduler rejection
 reasons and ranking cannot disagree.
+
+### Engine ownership at a glance
+
+The background engine (`@lurkloot/core`, `background/`) is a set of owned services behind a thin
+facade (#583, #591). "Background controller ownership and concurrency" above has the detail.
+
+- **Ownership.** `controller.ts` only composes the services and routes host entry points. Each
+  service (tick coordination, heartbeat, auth health, manual watch, claims, Twitch integrity,
+  channel points, the Kick runtime, supplemental sources) changes only its own state. Others use
+  its queries or react to its commits through after-commit hooks. Each scheduler effect type has
+  exactly one handler, registered by its owner.
+- **Concurrency (#585).** One transaction owns every storage write. Locks are taken in the order
+  settings → Twitch → Kick → heartbeat lane → commit, and no lock is ever held across provider,
+  tab or timer I/O. Stale or cancelled work publishes neither state nor activity.
+- **Claims (#597).** A claim is sent with no lock held and committed onto the latest state. A
+  reward stays reserved until that commit lands. Sign-in loss ends claim work, and a claim the
+  provider accepted before an abort is still recorded.
+- **Hosts.** Both hosts construct the controller from the same host ports and run the same jobs and
+  startup reconciliation. The extension declares every capability: browser tabs, Twitch
+  integrity capture and supplemental sources. The CLI declares none of them, so it always watches
+  tabless and its jobs that need those capabilities are inert.
 
 ### Campaign ranking
 
