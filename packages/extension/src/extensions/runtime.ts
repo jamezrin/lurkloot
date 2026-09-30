@@ -18,6 +18,10 @@ export type TwitchExtensionDriverFactory = (
   publish?: (events: readonly EngineEvent[]) => void,
 ) => Promise<TwitchExtensionDriver>;
 
+function refreshSlackMs(minRefreshIntervalMs: number): number {
+  return Math.min(5_000, minRefreshIntervalMs / 10);
+}
+
 export function createTwitchExtensionRuntime(options: {
   source: SessionSource;
   contains(origin: string): Promise<boolean>;
@@ -96,7 +100,10 @@ export function createTwitchExtensionRuntime(options: {
       if (entry?.channelId !== channelId) { stop(id); entry = undefined; }
       if (entry?.pending) { work.push(entry.pending); continue; }
       const now = options.source.now();
-      if (entry && now < entry.nextRefreshAt) continue;
+      // The lane reconciles on each minute heartbeat commit (#594), so a floor
+      // of one minute would miss every other heartbeat by milliseconds. A
+      // refresh due within a tenth of its floor (at most 5 s) runs now.
+      if (entry && now + refreshSlackMs(provider.minRefreshIntervalMs) < entry.nextRefreshAt) continue;
       if (entry?.driver && entry.expiresAt > now + 60_000) {
         const active = entry;
         active.nextRefreshAt = now + provider.minRefreshIntervalMs;
