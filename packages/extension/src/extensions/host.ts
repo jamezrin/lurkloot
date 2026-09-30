@@ -2,6 +2,7 @@ import { discoverTwitchExtensionChannels } from "@lurkloot/core/extensions/disco
 import { pausedForManualWatch } from "@lurkloot/core/manualWatch";
 import { twitchExtensionProviders } from "@lurkloot/core/extensions/registry";
 import type { ChannelCandidate, ExtensionSettings, SchedulerState, SupplementalWatchTarget, TwitchExtensionProviderId, TwitchExtensionSummary, WatchSourceId } from "@lurkloot/shared/models";
+import type { EngineEvent } from "@lurkloot/shared/events";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 import { normalizeWatchSourcePriority } from "@lurkloot/shared/watchSources";
 import { createProviderPermissions, type ProviderPermissionPort } from "./permissions";
@@ -16,6 +17,8 @@ export function createTwitchExtensionHost(options: {
   loadState(): Promise<SchedulerState>;
   savePatch(patch: SettingsPatch): Promise<void>;
   diagnostic(message: string): void;
+  // Publishes driver activity; the runtime drops it once the session ended.
+  publish(events: readonly EngineEvent[]): void;
 }) {
   let generation = 0;
   const allowed = new Set<TwitchExtensionProviderId>();
@@ -65,6 +68,7 @@ export function createTwitchExtensionHost(options: {
       }
     },
     onViolation: (_id, diagnostic) => options.diagnostic(diagnostic),
+    publish: options.publish,
   });
   const permissions = createProviderPermissions({
     permissions: options.permissions,
