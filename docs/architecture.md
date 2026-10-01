@@ -91,9 +91,9 @@ this collector and the same Kick adapter.
 ## Background controller ownership and concurrency
 
 This section records how `createBackgroundController` (`packages/core/src/background/`) owns its
-state and serializes its work **as of v1.14.0**. It is the baseline for the v1.15.0 refactor
-(#583): each extraction issue updates the rows it moves, and #591 replaces this section with the
-final module ownership.
+state and serializes its work since the v1.15.0 engine refactor (#583): the owned services, their
+locks and commit hooks, and the effect handlers each one registers. "Engine ownership at a glance",
+under "Settings Model", is the short version.
 
 ### Module layout
 

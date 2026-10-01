@@ -6,9 +6,8 @@
 // still decide what a failure means. The driver below runs each yielded effect
 // through the executor, in the order the generator yields them.
 //
-// Every effect type has exactly one handler at any time. An owner that takes an
-// effect over replaces the interim handler's registration; it never adds a
-// second one, so registering a type twice throws.
+// Every effect type has exactly one handler, registered by the service that
+// owns it; registering a type twice throws.
 
 export interface Effect {
   readonly type: string;

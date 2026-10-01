@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, KickPlatformSettings, Platform, SchedulerState, TwitchPlatformSettings } from "@lurkloot/shared/models";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { NO_CATEGORY_ID } from "@lurkloot/shared/categories";
-import { chooseCampaignDecision, selectWatchTargetFromSnapshot, sortCampaigns, type StopPageContextTabs } from "@lurkloot/core/scheduler";
+import { chooseCampaignDecision, selectWatchTargetFromSnapshot, type StopPageContextTabs } from "@lurkloot/core/scheduler";
+import { rankCampaigns } from "@lurkloot/shared/ranking";
 import { runSchedulerTick, type SchedulerMockAdapter } from "./helpers/schedulerTick";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import { createTabRegistry, forgetManagedPageContextTabs, managedTabBreakerOpen, syncManagedTabBreakers, type TabRegistry } from "@lurkloot/core/tabRegistry";
@@ -374,7 +375,7 @@ describe("scheduler campaign selection", () => {
     const first = campaign("first", { endsAt: "2026-06-01T00:00:00.000Z" });
     const second = campaign("second", { endsAt: "2026-07-01T00:00:00.000Z" });
 
-    const sorted = sortCampaigns([first, second], settings({ campaignPins: ["second"] }));
+    const sorted = rankCampaigns([first, second], settings({ campaignPins: ["second"] }));
 
     expect(sorted.map((item) => item.id)).toEqual(["second", "first"]);
   });
@@ -383,7 +384,7 @@ describe("scheduler campaign selection", () => {
     const first = campaign("first", { gameName: "First Game", endsAt: "2026-06-01T00:00:00.000Z" });
     const second = campaign("second", { gameName: "Second Game", endsAt: "2026-07-01T00:00:00.000Z" });
 
-    const sorted = sortCampaigns([first, second], settings({
+    const sorted = rankCampaigns([first, second], settings({
       platform: {
         twitch: { favouriteCategories: [{ id: "second game", name: "Second Game" }, { id: "first game", name: "First Game" }] },
       },
@@ -397,7 +398,7 @@ describe("scheduler campaign selection", () => {
     const second = campaign("second", { gameName: "Second Game", endsAt: "2026-07-01T00:00:00.000Z" });
 
     // categoryMode stays "all" (default), so the list is inert: ends-soonest wins.
-    const sorted = sortCampaigns([second, first], settings({}));
+    const sorted = rankCampaigns([second, first], settings({}));
 
     expect(sorted.map((item) => item.id)).toEqual(["first", "second"]);
   });
@@ -408,7 +409,7 @@ describe("scheduler campaign selection", () => {
 
     // The allowlist decides WHETHER a campaign is farmed, never where it sits:
     // only a pin or a favourite ranks, so ends-soonest wins here (#352).
-    const sorted = sortCampaigns([second, first], settings({
+    const sorted = rankCampaigns([second, first], settings({
       platform: {
         twitch: {
           categoryMode: "include",
