@@ -27,6 +27,10 @@ export type SettingsPatch = Partial<Omit<ExtensionSettings, "platform" | "compat
 };
 
 // The engine-contract defaults: the universal subset every host shares.
+// chrome.alarms floors periodInMinutes at 1, so sub-minute values are inert.
+export const POLL_INTERVAL_MIN_MINUTES = 1;
+export const POLL_INTERVAL_MAX_MINUTES = 60;
+
 export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
   autoClaim: true,
   tablessMode: true,
@@ -188,8 +192,12 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
       10,
       DEFAULT_ENGINE_SETTINGS.tablessFallbackFailureLimit,
     ),
-    // chrome.alarms floors periodInMinutes at 1, so sub-minute values are inert.
-    pollIntervalMinutes: clampNumber(value?.pollIntervalMinutes, 1, 60, DEFAULT_ENGINE_SETTINGS.pollIntervalMinutes),
+    pollIntervalMinutes: clampNumber(
+      value?.pollIntervalMinutes,
+      POLL_INTERVAL_MIN_MINUTES,
+      POLL_INTERVAL_MAX_MINUTES,
+      DEFAULT_ENGINE_SETTINGS.pollIntervalMinutes,
+    ),
     postClaimHandoff: booleanOr(value?.postClaimHandoff, DEFAULT_ENGINE_SETTINGS.postClaimHandoff),
     postClaimHandoffIntervalSeconds: clampInteger(value?.postClaimHandoffIntervalSeconds, 1, 30, DEFAULT_ENGINE_SETTINGS.postClaimHandoffIntervalSeconds),
     postClaimHandoffMaxSeconds: clampInteger(value?.postClaimHandoffMaxSeconds, 5, 120, DEFAULT_ENGINE_SETTINGS.postClaimHandoffMaxSeconds),

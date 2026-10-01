@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 import { COMPATIBILITY_REGISTRY, resolveCompatibility } from "@lurkloot/core";
-import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
+import { DEFAULT_SETTINGS, mergeEngineSettings, POLL_INTERVAL_MAX_MINUTES, POLL_INTERVAL_MIN_MINUTES } from "@lurkloot/shared/settings";
 import { buildSettingsRegistry } from "../../popup-ui/src/settingsRegistry";
 
 const englishPath = createRequire(import.meta.url).resolve("@lurkloot/locales/messages/en.json");
@@ -166,5 +166,18 @@ describe("settings registry", () => {
         "kick.compatibility.rows",
       ]
     `);
+  });
+
+  it("only offers scheduler intervals the engine keeps", () => {
+    const entry = registry()
+      .flatMap((section) => section.groups.flatMap((group) => group.entries))
+      .find((candidate) => candidate.id === "general.advanced.pollInterval");
+    const row = entry?.render() as { props: { min: number; max: number } } | undefined;
+    expect(row?.props.min).toBe(POLL_INTERVAL_MIN_MINUTES * 60);
+    expect(row?.props.max).toBe(POLL_INTERVAL_MAX_MINUTES * 60);
+    // Both ends survive the engine clamp unchanged, so nothing the row offers
+    // is silently rewritten on save.
+    expect(mergeEngineSettings({ pollIntervalMinutes: row!.props.min / 60 }).pollIntervalMinutes).toBe(row!.props.min / 60);
+    expect(mergeEngineSettings({ pollIntervalMinutes: row!.props.max / 60 }).pollIntervalMinutes).toBe(row!.props.max / 60);
   });
 });
