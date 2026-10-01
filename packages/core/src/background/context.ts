@@ -12,8 +12,11 @@ import type {
   SelectionInput,
   TickAdapterHandle,
   TickBatch,
+  TickDiagnosticContext,
   TickRequest,
 } from "./types";
+import type { SettingsPatch } from "@lurkloot/shared/settings";
+import type { PreparedSettingsCommit } from "./stateTransaction";
 
 // Mutable controller state, one slice per owner (docs/architecture.md,
 // "Background controller ownership and concurrency"). createBackgroundController
@@ -137,13 +140,37 @@ export function createTickAdmissionSlice(): TickAdmissionSlice {
   };
 }
 
-export interface SettingsSlice {
-  twitchSettingsTransitionGeneration: number;
+// One turn of a settings commit, for a service that has to take part in it
+// rather than only react afterwards (#696): Twitch integrity holds off its
+// work from the moment a save may disable Twitch until it has reconciled.
+export interface SettingsCommitTurn<S> {
+  // In the settings lock, once the commit is worked out and before it is saved.
+  prepared(commit: PreparedSettingsCommit<S>): void;
+  // After the save and the settings jobs' reschedule, or after the save failed
+  // (`saved` false). `proceed` is false when the jobs' reschedule failed.
+  end(saved: boolean, proceed: boolean): Promise<void>;
 }
 
-export function createSettingsSlice(): SettingsSlice {
+// Per-platform policy that platform-neutral modules (settings transitions,
+// tick coordination) apply without naming a platform (#696). Each platform's
+// own service registers its part at construction; a platform that registered
+// nothing needs nothing.
+export interface PlatformPolicySlice<S extends EngineSettings> {
+  // Asked before a tick farms the platform; false keeps it out of the tick.
+  tickReadiness: Partial<Record<Platform, (settings: S, signal: AbortSignal, tickContext: TickDiagnosticContext) => Promise<boolean>>>;
+  // Starts the platform switch's transition, superseding earlier ones, and
+  // returns whether this one is still the latest.
+  switchTransitions: Partial<Record<Platform, () => () => boolean>>;
+  // Joins every settings commit, from before its lock is taken. `intent` is
+  // what the caller means to save, when it is known up front.
+  settingsCommitParticipants: Array<(intent: SettingsPatch | undefined) => SettingsCommitTurn<S>>;
+}
+
+export function createPlatformPolicySlice<S extends EngineSettings>(): PlatformPolicySlice<S> {
   return {
-    twitchSettingsTransitionGeneration: 0,
+    tickReadiness: {},
+    switchTransitions: {},
+    settingsCommitParticipants: [],
   };
 }
 
@@ -173,7 +200,7 @@ export interface ControllerSlices<S extends EngineSettings> {
   reportingSlice: ReportingSlice;
   signalSlice: DiscoverySignalSlice;
   tickSlice: TickAdmissionSlice;
-  settingsSlice: SettingsSlice;
+  policySlice: PlatformPolicySlice<S>;
   lifecycleSlice: LifecycleSlice;
   // Shared with the host that runs the tab mechanics (#598).
   tabRegistry: TabRegistry;

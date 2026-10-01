@@ -42,6 +42,9 @@ interface TwitchIntegrityState {
   // refresh or schedule is admitted; a save that fails simply ends it, so
   // there is nothing to roll back (#589).
   pendingDisables: number;
+  // The latest Twitch switch transition (enable or disable from the popup).
+  // Starting one, shutdown or a reset supersedes every earlier one (#696).
+  settingsTransitionGeneration: number;
   // Serializes the reconciles that follow committed Twitch enable/disable.
   transitionReconcile: Promise<void>;
   transitionGeneration: number;
@@ -56,13 +59,12 @@ interface TwitchIntegrityState {
 // The Twitch integrity token: loading, capture, refresh scheduling and lifecycle.
 export function createTwitchIntegrity<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
-  { lifecycleSlice, tabRegistry }: Pick<ControllerSlices<S>, "lifecycleSlice" | "tabRegistry">,
+  { lifecycleSlice, tabRegistry, policySlice }: Pick<ControllerSlices<S>, "lifecycleSlice" | "tabRegistry" | "policySlice">,
   calls: Pick<ControllerCalls<S>,
     | "persistAndReport"
     | "reportBestEffort"
     | "withEventCollector"
     | "withStateLock"
-    | "currentTwitchSettingsTransition"
   >,
 ): Pick<ControllerCalls<S>,
   | "clearTwitchIntegrityAlarmBestEffort"
@@ -70,16 +72,13 @@ export function createTwitchIntegrity<S extends EngineSettings>(
   | "runTwitchIntegrityRefresh"
   | "captureTwitchIntegrity"
   | "restoreTwitchIntegritySchedule"
-  | "prepareTwitchIntegrity"
   | "closeTwitchIntegrityLifecycle"
-  | "holdTwitchIntegrityForDisable"
-  | "reconcileTwitchIntegrityAfterCommit"
+  | "invalidateTwitchSettingsTransitions"
   | "startInitialTwitchIntegrityLoad"
   | "awaitInitialTwitchIntegrityLoad"
   | "resetTwitchIntegrity"
 > {
   const {
-    currentTwitchSettingsTransition,
     persistAndReport,
     reportBestEffort,
     withEventCollector,
@@ -94,12 +93,70 @@ export function createTwitchIntegrity<S extends EngineSettings>(
     lifecycleGeneration: 0,
     lifecycleOpen: true,
     pendingDisables: 0,
+    settingsTransitionGeneration: 0,
     transitionReconcile: Promise.resolve(),
     transitionGeneration: 0,
     persistedToken: undefined,
     refreshDue: undefined,
     initialLoad: Promise.resolve(),
   };
+
+  // A Twitch enable or disable in progress. Starting one, shutdown or a reset
+  // supersedes every earlier one; the returned check says whether this one is
+  // still the latest.
+  function beginTwitchSettingsTransition(): () => boolean {
+    const generation = ++integritySlice.settingsTransitionGeneration;
+    return () => generation === integritySlice.settingsTransitionGeneration;
+  }
+
+  function invalidateTwitchSettingsTransitions(): void {
+    integritySlice.settingsTransitionGeneration += 1;
+  }
+
+  // The latest Twitch transition, for work that must not outlive it.
+  function currentTwitchSettingsTransition(): number {
+    return integritySlice.settingsTransitionGeneration;
+  }
+
+  // Integrity's part in the platform-neutral modules (#696): Twitch may only
+  // tick once integrity is ready; the Twitch switch's transition is this
+  // service's; and every settings save that may disable Twitch is held and
+  // reconciled here.
+  policySlice.tickReadiness.twitch = (settings, signal, tickContext) =>
+    prepareTwitchIntegrity(settings, signal, tickContext);
+  policySlice.switchTransitions.twitch = () => {
+    const isCurrent = beginTwitchSettingsTransition();
+    return () => !lifecycleSlice.controllerShutdown && isCurrent();
+  };
+  policySlice.settingsCommitParticipants.push((intent) => {
+    // A save that disables Twitch holds off integrity work from as early as
+    // it is known (#589) until the save has reconciled, or failed.
+    let release: (() => void) | undefined = intent?.platform?.twitch?.enabled === false
+      ? holdTwitchIntegrityForDisable()
+      : undefined;
+    let enabledChanged = false;
+    return {
+      prepared: (commit) => {
+        enabledChanged = commit.previous.platform.twitch.enabled !== commit.settings.platform.twitch.enabled;
+        if (enabledChanged && !commit.settings.platform.twitch.enabled) release ??= holdTwitchIntegrityForDisable();
+      },
+      end: async (saved, proceed) => {
+        try {
+          // A failed save ends its hold on integrity work before the reconcile.
+          if (!saved) release?.();
+          // Integrity follows the stored enabled flag (#589), whichever message
+          // saved it. A disable that failed to save reconciles too: it held off
+          // integrity work while pending, and the stored flag, still enabled,
+          // brings the schedule back. Nothing is rolled back.
+          if (proceed && (enabledChanged || (release && !saved))) await reconcileTwitchIntegrityAfterCommit();
+        } finally {
+          // A disable admits no integrity work until its lifecycle has closed,
+          // or until its save failed.
+          release?.();
+        }
+      },
+    };
+  });
 
   // Whether new integrity work is admitted: the lifecycle is open and no save
   // that disables Twitch is in flight.
@@ -733,9 +790,7 @@ export function createTwitchIntegrity<S extends EngineSettings>(
     runTwitchIntegrityRefresh,
     captureTwitchIntegrity,
     restoreTwitchIntegritySchedule,
-    prepareTwitchIntegrity,
     closeTwitchIntegrityLifecycle,
-    holdTwitchIntegrityForDisable,
-    reconcileTwitchIntegrityAfterCommit,
+    invalidateTwitchSettingsTransitions,
   };
 }
