@@ -11,6 +11,7 @@ import { type ControllerSlices, lateBound } from "./context";
 import { AuthProbeSetupError } from "./errors";
 import { correlateTickDiagnostics, farmingLifecycleEvents } from "./helpers";
 import type { BackgroundHostPorts } from "./hostPorts";
+import type { StateTransaction, TickConclusion } from "./stateTransaction";
 import { rebaseTickState, tickEffectFacts } from "./tickCommit";
 import { createTickEffectExecutor, runSchedulerTickEffects, tickCapabilities, type TickEffectExecutor } from "./tickEffects";
 import type {
@@ -28,6 +29,7 @@ import type {
 // One platform tick: selection, the scheduler tick and what runs around it.
 export function createTickRun<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
+  transaction: Pick<StateTransaction<S>, "concludeTick">,
   { tickSlice, tabRegistry }: Pick<ControllerSlices<S>, "tickSlice" | "tabRegistry">,
   calls: Pick<ControllerCalls<S>,
     | "applyAdFocusForState"
@@ -41,11 +43,9 @@ export function createTickRun<S extends EngineSettings>(
     | "prepareSelection"
     | "reselectUnderLock"
     | "prepareTwitchIntegrity"
-    | "reconcileDiscoverySignalsAfterCommit"
     | "discoverySignalEpochs"
     | "observeTickCycle"
     | "reserveTablessWatchers"
-    | "reconcileTwitchChannelPointsPushAfterCommit"
     | "recordWaitingClaimRewardIds"
     | "releaseRewardClaims"
     | "registerKickRuntimeEffects"
@@ -89,11 +89,9 @@ export function createTickRun<S extends EngineSettings>(
     prepareSelection,
     reselectUnderLock,
     prepareTwitchIntegrity,
-    reconcileDiscoverySignalsAfterCommit,
     discoverySignalEpochs,
     observeTickCycle,
     reserveTablessWatchers,
-    reconcileTwitchChannelPointsPushAfterCommit,
     recordWaitingClaimRewardIds,
     releaseRewardClaims,
     registerKickRuntimeEffects,
@@ -454,15 +452,17 @@ export function createTickRun<S extends EngineSettings>(
       let heartbeat: HeartbeatReservation | undefined;
       // Work for the state this tick committed, run once the lock is released:
       // the reserved tabless watchers are published, ad focus follows the
-      // committed sessions, the services that follow tick cycles observe this
-      // one (#588), and the discovery-signal observers (#587) and the Twitch
-      // channel-points push (#590) follow the latest committed state.
+      // committed sessions, and the services that follow tick cycles observe
+      // this one (#588). Last, the tick publishes its conclusion: the
+      // discovery-signal observers (#587) and the Twitch channel-points push
+      // (#590) follow it from their own hooks (#695).
+      // The work the conclusion's hooks handed back (see TickConclusion.follow).
+      const followed: Promise<void>[] = [];
       let afterCommit: {
         heartbeat?: HeartbeatReservation;
         adFocus?: SchedulerState;
         cycle?: TickCycleOutcome;
-        discoverySignals?: { committed: SchedulerState; since: Partial<Record<Platform, number>> };
-        channelPointsPush?: { committed: SchedulerState; since: number };
+        conclusion?: TickConclusion<S>;
       } = {};
       await withStateLock(async () => {
         // Drops the tick's decision and its events, keeping only the activity
@@ -592,10 +592,22 @@ export function createTickRun<S extends EngineSettings>(
             heartbeat,
             adFocus: nextState,
             cycle: { status: "committed", state: nextState, discoveryComplete },
-            discoverySignals: { committed: nextState, since: discoverySignalEpochs(schedulerPlatforms) },
-            ...(schedulerPlatforms.includes("twitch")
-              ? { channelPointsPush: { committed: nextState, since: twitchChannelPointsPushEpoch() } }
-              : {}),
+            // Built under the lock, so the observer epochs are the commit's.
+            conclusion: {
+              platforms: schedulerPlatforms,
+              state: nextState,
+              settings,
+              adapters,
+              signal,
+              observerEpochs: {
+                discoverySignals: discoverySignalEpochs(schedulerPlatforms),
+                channelPointsPush: twitchChannelPointsPushEpoch(),
+              },
+              correlate: (hookEvents) => correlateTickDiagnostics(hookEvents, tickContext),
+              follow: (work) => {
+                followed.push(work);
+              },
+            },
           };
           recordWaitingClaimRewardIds(platform, nextWaitingClaimRewardIds[platform]);
         } finally {
@@ -623,28 +635,14 @@ export function createTickRun<S extends EngineSettings>(
       if (!signal.aborted && afterCommit.cycle) {
         await observeTickCycle(schedulerPlatforms, afterCommit.cycle, tickContext);
       }
-      if (!signal.aborted && afterCommit.discoverySignals) {
-        const reported = events.length;
-        await reconcileDiscoverySignalsAfterCommit(
-          afterCommit.discoverySignals.committed,
-          afterCommit.discoverySignals.since,
-          settings,
-          adapters,
-          emit,
-          schedulerPlatforms,
-        );
-        await reportBestEffort(correlateTickDiagnostics(events.slice(reported), tickContext));
-      }
-      if (!signal.aborted && afterCommit.channelPointsPush) {
-        const reported = events.length;
-        await reconcileTwitchChannelPointsPushAfterCommit(
-          afterCommit.channelPointsPush.committed,
-          afterCommit.channelPointsPush.since,
-          settings,
-          adapters.twitch,
-          emit,
-        );
-        await reportBestEffort(correlateTickDiagnostics(events.slice(reported), tickContext));
+      // Published after the follow-ups above, so a stop committed meanwhile
+      // (an auth invalidation during page-context recovery) has bumped the
+      // epochs and its hooks run first. The tick ends once the observers have
+      // reconciled, as it did when it reconciled them itself.
+      if (!signal.aborted && afterCommit.conclusion) {
+        transaction.concludeTick(afterCommit.conclusion);
+        await settleCommitHooks(schedulerPlatforms);
+        await Promise.all(followed);
       }
 
       // Outside the lock again: close a tab only the superseded decision

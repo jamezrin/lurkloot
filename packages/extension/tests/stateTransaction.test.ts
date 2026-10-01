@@ -198,6 +198,43 @@ describe("state transaction", () => {
       expect(tracker.violations).toEqual([]);
     });
 
+    // #695: the services that follow ticks hear a tick's conclusion, whether or
+    // not its commit changed the stored state.
+    it("runs tick-conclusion hooks behind the tick's commit hooks, on its platform's lane", async () => {
+      const { transaction, tracker } = store();
+      const calls: string[] = [];
+      transaction.onCommit((change) => {
+        calls.push(`commit:${change.kind}`);
+      });
+      transaction.onTickConcluded((tick) => {
+        expect(tracker.held()).toEqual([]);
+        calls.push(`tick:${tick.platforms.join(",")}`);
+      });
+      const conclusion = (state: SchedulerState) => ({
+        platforms: ["twitch" as const],
+        state,
+        settings: DEFAULT_SETTINGS,
+        adapters: {} as never,
+        signal: new AbortController().signal,
+        observerEpochs: { discoverySignals: {}, channelPointsPush: 0 },
+        correlate: (events: never[]) => events,
+        follow: () => undefined,
+      });
+
+      await transaction.withStateLock(async () => {
+        const accepted = await transaction.commit(["twitch"], undefined, (latest) => watching(latest, "hooked"));
+        transaction.concludeTick(conclusion(accepted.status === "accepted" ? accepted.state : DEFAULT_STATE));
+        // A tick whose commit wrote nothing still concludes.
+        const unchanged = await transaction.commit(["twitch"], undefined, () => undefined);
+        transaction.concludeTick(conclusion(unchanged.status === "unchanged" ? unchanged.state : DEFAULT_STATE));
+        expect(calls).toEqual([]);
+      }, ["twitch"]);
+      await transaction.settleCommitHooks(["twitch"]);
+
+      expect(calls).toEqual(["commit:state", "tick:twitch", "tick:twitch"]);
+      expect(tracker.violations).toEqual([]);
+    });
+
     it("queues a hook's own commit behind the one it observes", async () => {
       const { transaction, tracker, state } = store();
       const seen: string[] = [];
