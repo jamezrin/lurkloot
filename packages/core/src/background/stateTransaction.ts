@@ -1,5 +1,7 @@
+import type { EngineEvent } from "@lurkloot/shared/events";
 import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
+import type { PlatformAdapter } from "../platforms/adapter";
 import { currentManagedPageContextTabs, currentManagedPageContextTabsRevision, type TabRegistry } from "../core/tabRegistry";
 import { heartbeatContextKey, validTablessHeartbeatCadence } from "../core/heartbeatCadence";
 import { mergePlatformState, schedulerStateEquivalent } from "./platformState";
@@ -122,6 +124,35 @@ export type CommittedChange<S> =
       readonly startup: boolean;
     };
 
+// A tick that committed its decision, whether or not that changed the stored
+// state (#695). The services that follow a tick (the discovery-signal
+// observers, the channel-points push) reconcile against it from their own
+// hook. A superseded or failed tick concludes nothing.
+export interface TickConclusion<S> {
+  readonly platforms: readonly Platform[];
+  // The state the tick committed.
+  readonly state: SchedulerState;
+  readonly settings: S;
+  readonly adapters: Record<Platform, PlatformAdapter>;
+  // Aborted once the tick is cancelled: a hook then does nothing.
+  readonly signal: AbortSignal;
+  // Each observer's epoch, read under the tick's lock when it committed. A
+  // stop since then bumps it, so a reconcile against this commit backs off.
+  readonly observerEpochs: {
+    readonly discoverySignals: Partial<Record<Platform, number>>;
+    readonly channelPointsPush: number;
+  };
+  // Tags a hook's own diagnostics with the tick, as the tick tags its own.
+  correlate(events: readonly EngineEvent[]): EngineEvent[];
+  // Hands the tick work it waits for before it ends. A hook starts long work
+  // (an observer opening its socket) and returns, rather than awaiting it:
+  // the hook lane would otherwise hold up every later hook on the platform,
+  // such as the stop an auth invalidation commits meanwhile.
+  follow(work: Promise<void>): void;
+}
+
+export type TickConclusionHook<S> = (tick: TickConclusion<S>) => void | Promise<void>;
+
 // Called once per accepted commit, in registration order, after the locks
 // guarding the commit are released. A hook that changes state makes its own
 // commit; it is queued like any other, never nested in the one it observes.
@@ -147,6 +178,7 @@ export function createStateTransaction<S extends EngineSettings>(ports: StateTra
     commit: Promise.resolve(),
   };
   const hooks: CommitHook<S>[] = [];
+  const tickHooks: TickConclusionHook<S>[] = [];
   // One hook queue per platform. A state commit's hooks queue on the lanes of
   // the platforms it wrote, a settings commit's on every lane, so hooks for one
   // platform's commits run in commit order and never wait on the other's.
@@ -230,25 +262,50 @@ export function createStateTransaction<S extends EngineSettings>(ports: StateTra
   }
 
   function notify(change: CommittedChange<S>, locks: readonly Exclude<TransactionLock, "heartbeat" | "commit">[]): void {
-    if (hooks.length === 0) return;
+    enqueueHooks(hooks, change, change.kind === "state" ? change.platforms : PLATFORMS, locks);
+  }
+
+  // Queues `registered` to run with `value` on `lanes`, once `locks` are
+  // released.
+  function enqueueHooks<T>(
+    registered: readonly ((value: T) => void | Promise<void>)[],
+    value: T,
+    lanes: readonly Platform[],
+    locks: readonly Exclude<TransactionLock, "heartbeat" | "commit">[],
+  ): void {
+    if (registered.length === 0) return;
     // The tails of the locks guarding this commit, as they are now: the hooks
     // run once the committing operation (and anything queued before it) has
     // released them, not while the commit's caller still holds them.
     const released = Promise.all(locks.map((lock) => chains[lock]));
     const run = async () => {
       await released;
-      for (const hook of [...hooks]) {
+      for (const hook of [...registered]) {
         try {
-          await hook(change);
+          await hook(value);
         } catch {
           // A hook's failure is its own; it cannot undo an accepted commit.
         }
       }
     };
-    const lanes = change.kind === "state" ? change.platforms : PLATFORMS;
     const previous = Promise.all(lanes.map((lane) => hookLanes[lane]));
     const queued = previous.then(() => (tracker ? tracker.run([], run) : run()));
     for (const lane of lanes) hookLanes[lane] = queued;
+  }
+
+  // Publishes a tick's conclusion to the hooks that follow ticks. Called with
+  // the tick's platform locks held; the hooks queue on those platforms' lanes
+  // behind its commit's own hooks.
+  function concludeTick(tick: TickConclusion<S>): void {
+    enqueueHooks(tickHooks, tick, tick.platforms, ["settings", ...tick.platforms]);
+  }
+
+  function onTickConcluded(hook: TickConclusionHook<S>): () => void {
+    tickHooks.push(hook);
+    return () => {
+      const index = tickHooks.indexOf(hook);
+      if (index !== -1) tickHooks.splice(index, 1);
+    };
   }
 
   function onCommit(hook: CommitHook<S>): () => void {
@@ -467,6 +524,8 @@ export function createStateTransaction<S extends EngineSettings>(ports: StateTra
     prepareSettingsCommit,
     saveSettingsCommit,
     onCommit,
+    concludeTick,
+    onTickConcluded,
     settleCommitHooks,
     detach,
   };

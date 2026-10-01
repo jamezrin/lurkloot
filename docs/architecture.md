@@ -173,7 +173,7 @@ or settings, loaded and saved through the host's storage port (`storage.local` o
 | Selection (`selectionCache`, `selectionRuns`, `pendingSelections`, `selectionGeneration`) | In memory | `prepareSelection` (before the lock), `reselectUnderLock` (inside it, never through `selectionRuns`) | `invalidateSelection`: every settings save (including ranking-only), auth invalidation, heartbeat results, playback telemetry, reset, shutdown | Consumed inside `runTick`'s platform lock | Recomputed | Both |
 | Tick admission (`tickAdmission`, `activeTicks`, `tickBatches`, `backgroundWork`) | In memory | `tick`, `tickInBackground`, `tickAndHandOff` | Disable, reset, shutdown | None | Empty | Both. Extension alarms and CLI intervals request ticks per platform |
 | Heartbeat lanes, watchers and publication leases (`heartbeatLanes`, `tablessWatchers`, private to `heartbeat.ts` since #586) | In memory, with the heartbeat cadence persisted in the session | `requestPlatformHeartbeat`, `reserveTablessWatchers` (inside the tick lock) and its `publish` (after the commit), restart recovery, `commitHeartbeatResult` | Session changes, `clearHeartbeatOwnership`, shutdown | `withHeartbeatLane`, which never spans watcher I/O (#586), then a transaction commit **without** the platform lock | `reconcileStartup` releases ownership on both hosts | Both |
-| Discovery-signal controllers (`discoverySignalSlots`, one `ObserverSlot` per platform, gated by `lifecycleSlice.observersOpen`; a failed start is stopped and cleared, and the next tick starts a fresh observer) | In memory | `reconcileDiscoverySignalsAfterCommit` (from `runTick`, after its commit, against the committed state; a stop since the commit bumps the slot's epoch, so the observer backs off) | Auth transitions, tab removal, settings, reset, shutdown | None | Recreated by the next tick | Both, when the adapter provides a factory |
+| Discovery-signal controllers (`discoverySignalSlots`, one `ObserverSlot` per platform, gated by `lifecycleSlice.observersOpen`; a failed start is stopped and cleared, and the next tick starts a fresh observer) | In memory | The discovery-signal service's `onTickConcluded` hook (after a tick commits, against the committed state; a stop since the commit bumps the slot's epoch, so the observer backs off) | Auth transitions, tab removal, settings, reset, shutdown | None | Recreated by the next tick | Both, when the adapter provides a factory |
 | Auth health (`authHealth`; the service's refresh generations) | Health persisted, generations in memory | `probeAuthHealth`, `refreshAuthHealth`, `persistAuthHealth`, `invalidateAuthHealth` | A newer refresh generation | `persistAuthHealth` under the platform lock, then a transaction commit; dependents react from their commit hooks (#595) | Health reloaded, then re-probed | Both. Credentials come from cookies (extension) or the credential store (CLI) |
 | Manual watch (`manualWatch`, `manualWatchTabs`, `manualClosePause`, playback telemetry) | Persisted | `recordPlaybackTelemetry`, `handleTabUpdated`, `handleTabRemoved`, `resumeAfterManualClose` | Tab events, resume, TTL | Platform lock; dependents react from their commit hooks (#596) | Reloaded | Extension only; the CLI has no tabs |
 | Settings (`twitchSettingsTransitionGeneration`) | Settings persisted, transition generation in memory | `commitSettings` (every popup write, `updateIdleWatchlist`), `normalizeStartupSettings` | Each settings commit. Its per-platform effect decides: `selection` (ranking-only, `isRankingOnlyPatch`) keeps discovery, `discovery` invalidates both | The transaction's settings lock | Reloaded and migrated (schema v7) | Both. The CLI's `saveSettings` is a no-op |
@@ -330,10 +330,39 @@ and never take the commit lock or call `saveState` themselves.
   - **Pending-tick cancellation** (`cancelPendingTick`) for a platform the save left switched off: as
     a hook it could also discard a trigger requested after the save, such as the platform switch's
     own follow-up tick.
-  - **The Twitch integrity hold and reconcile** around a save that disables Twitch stay in
-    `commitSettings` until #696 gives the integrity service its own transition.
-  - `markPlatformsStarting` stays with the platform switch for the same reason: it carries the
-    Twitch transition guard #696 moves.
+  - `markPlatformsStarting` stays with the platform switch, guarded by the switch's transition
+    check (below).
+- **Platform policy (#696).** Settings transitions and tick coordination are platform-neutral: no
+  Twitch or Kick decision, which `engineBoundary.test.ts` enforces for `authHealth.ts`,
+  `stateTransaction.ts`, `stateCommit.ts`, `tickAdmission.ts`, `tickRun.ts`, `tickCommit.ts`,
+  `tickEffects.ts` and `settingsTransitions.ts`. Platform-keyed data (`PLATFORMS` loops, lock and
+  lane tables) is allowed. A platform's own service registers its policy in the controller's
+  `PlatformPolicySlice`, and only Twitch integrity registers any:
+  - **Tick readiness:** before a tick farms Twitch, integrity prepares its token; a platform that
+    is not ready is kept out of the tick.
+  - **Switch transition:** integrity owns the Twitch switch's transition generation. A later switch,
+    shutdown or reset supersedes it, and the switch stops before marking the platform starting or
+    ticking once it is not current. A platform with no transition is always current.
+  - **Settings-commit participant:** a service that must take part in a settings commit, not only
+    react to it. Integrity joins every commit before the lock (holding off its work when the
+    caller's intent disables Twitch), again in the lock before the save (holding off when the
+    commit disables Twitch), and ends its turn after the settings jobs are rescheduled (or after
+    the save failed). It then reconciles its lifecycle and schedule if Twitch's enabled flag
+    changed, or if a held disable failed to save, and releases the hold. A hook would run too late
+    for the hold, and could not tell which save's hold to release.
+- **Tick conclusions (#695).** The discovery-signal observers and the Twitch channel-points push
+  follow each tick from their own `onTickConcluded` hooks, not from calls in `tickRun.ts`. A tick
+  that commits its decision (accepted, or found already stored) builds a `TickConclusion` under
+  its platform lock, with the committed state, its settings and adapters, its signal and each
+  observer's epoch as of the commit. It publishes the conclusion once its other follow-ups
+  (heartbeat publication, ad focus, the cycle observation) are done. The hooks queue on the
+  platform's lane behind every commit hook queued so far, so a stop committed in the meantime runs
+  first and bumps the epoch the reconcile then backs off from. A superseded or failed tick
+  concludes nothing. A hook starts its reconcile and hands the promise back
+  (`TickConclusion.follow`) instead of awaiting it, because an observer opening its socket must not
+  hold up later hooks on the lane. The tick waits for those promises, as it waited for the
+  reconcilers it used to call itself. Conclusions are a separate registry from `onCommit`: a tick
+  whose commit writes nothing still concludes, while an unchanged commit notifies no commit hook.
 
 The test suite enforces the model. The characterization and contract harnesses give the controller
 a lock tracker (`tests/helpers/lockTracker.ts`, backed by `AsyncLocalStorage`) and guard every
@@ -612,8 +641,11 @@ facade (#583, #591). "Background controller ownership and concurrency" above has
 - **Ownership.** `controller.ts` only composes the services and routes host entry points. Each
   service (tick coordination, heartbeat, auth health, manual watch, claims, Twitch integrity,
   channel points, the Kick runtime, supplemental sources) changes only its own state. Others use
-  its queries or react to its commits through after-commit hooks. Each scheduler effect type has
-  exactly one handler, registered by its owner.
+  its queries, or react to its commits and to tick conclusions through their own hooks (#695). The
+  calls that must stay in the committing operation, such as selection invalidation before a
+  settings save is visible, are listed under "Settings reactions". Host events (startup, shutdown,
+  reset) are wired directly in `lifecycle.ts`. Each scheduler effect type has exactly one handler,
+  registered by its owner.
 - **Concurrency (#585).** One transaction owns every storage write. Locks are taken in the order
   settings → Twitch → Kick → heartbeat lane → commit, and no lock is ever held across provider,
   tab or timer I/O. Stale or cancelled work publishes neither state nor activity.

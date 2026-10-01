@@ -6,7 +6,7 @@ import {
   createDiscoverySignalSlice,
   createLifecycleSlice,
   createReportingSlice,
-  createSettingsSlice,
+  createPlatformPolicySlice,
   createTabRegistrySlice,
   createTickAdmissionSlice,
 } from "./context";
@@ -99,7 +99,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   const reportingSlice = createReportingSlice();
   const signalSlice = createDiscoverySignalSlice();
   const tickSlice = createTickAdmissionSlice();
-  const settingsSlice = createSettingsSlice();
+  const policySlice = createPlatformPolicySlice<S>();
   const lifecycleSlice = createLifecycleSlice();
   // Each module takes the slices it uses and the calls it makes into other
   // modules. The calls resolve through `calls` once every module exists.
@@ -109,7 +109,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     ...createReporting(ports, { reportingSlice }, calls),
     ...createStateCommit(transaction, calls),
     ...createHeartbeatCoordinator(ports, transaction, { lifecycleSlice, tabRegistry }, calls),
-    ...createTwitchIntegrity(ports, { lifecycleSlice, tabRegistry }, calls),
+    ...createTwitchIntegrity(ports, { lifecycleSlice, tabRegistry, policySlice }, calls),
     ...createChannelPoints(ports, transaction, { lifecycleSlice }, calls),
     ...createKickRuntime(ports, transaction, { lifecycleSlice }, calls),
     ...createAuthHealth(ports, calls),
@@ -119,8 +119,8 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     ...createDiscoverySignals(ports, transaction, { signalSlice, lifecycleSlice }, calls),
     ...discovery,
     ...createTickAdmission(ports, transaction, { tickSlice, lifecycleSlice }, calls),
-    ...createTickRun(ports, { tickSlice, tabRegistry }, calls),
-    ...createSettingsTransitions(transaction, { settingsSlice, lifecycleSlice }, calls),
+    ...createTickRun(ports, transaction, { tickSlice, tabRegistry, policySlice }, calls),
+    ...createSettingsTransitions(transaction, { policySlice }, calls),
     ...createLifecycle(ports, { lifecycleSlice, tabRegistry }, calls),
     ...createMessageHandler(calls),
   } satisfies ControllerCalls<S>);

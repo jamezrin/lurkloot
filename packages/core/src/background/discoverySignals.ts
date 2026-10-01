@@ -11,7 +11,7 @@ import type { ControllerCalls, DiscoverySignalRefreshRequest } from "./types";
 // Discovery-signal controllers and the refreshes they request.
 export function createDiscoverySignals<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
-  transaction: Pick<StateTransaction<S>, "onCommit">,
+  transaction: Pick<StateTransaction<S>, "onCommit" | "onTickConcluded">,
   { signalSlice, lifecycleSlice }: Pick<ControllerSlices<S>, "signalSlice" | "lifecycleSlice">,
   calls: Pick<ControllerCalls<S>,
     | "completeTickAndHandOff"
@@ -30,7 +30,6 @@ export function createDiscoverySignals<S extends EngineSettings>(
   | "stopDiscoverySignalControllersAndReport"
   | "stopDiscoverySignalControllersInBackground"
   | "reconcileDiscoverySignalControllers"
-  | "reconcileDiscoverySignalsAfterCommit"
   | "discoverySignalEpochs"
   | "invalidateDiscoverySignalAdmission"
   | "discoverySignalRefreshAllowed"
@@ -169,9 +168,25 @@ export function createDiscoverySignals<S extends EngineSettings>(
       [platform, signalSlice.discoverySignalSlots[platform].epoch]));
   }
 
-  // After a tick commits (#587), with no lock held: reconciles against the
-  // state the tick committed. A stop since the commit (auth transition, removed
-  // tab, disabled platform) bumps the epoch, so the observer backs off.
+  // After a tick commits (#587, #695), with no lock held: each observer follows
+  // the state the tick committed. A stop since the commit (auth transition,
+  // removed tab, disabled platform) bumps the epoch, so the observer backs off.
+  // The commit's own stop hook above runs first, on the same lane.
+  transaction.onTickConcluded((tick) => {
+    if (tick.signal.aborted) return;
+    tick.follow(withEventCollector(async (emit, events) => {
+      await reconcileDiscoverySignalsAfterCommit(
+        tick.state,
+        tick.observerEpochs.discoverySignals,
+        tick.settings,
+        tick.adapters,
+        emit,
+        tick.platforms,
+      );
+      await reportBestEffort(tick.correlate(events));
+    }));
+  });
+
   async function reconcileDiscoverySignalsAfterCommit(
     committed: SchedulerState,
     since: Partial<Record<Platform, number>>,
@@ -308,7 +323,6 @@ export function createDiscoverySignals<S extends EngineSettings>(
     stopDiscoverySignalControllersAndReport,
     stopDiscoverySignalControllersInBackground,
     reconcileDiscoverySignalControllers,
-    reconcileDiscoverySignalsAfterCommit,
     discoverySignalEpochs,
     invalidateDiscoverySignalAdmission,
     discoverySignalRefreshAllowed,

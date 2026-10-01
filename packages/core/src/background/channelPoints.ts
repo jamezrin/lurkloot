@@ -82,7 +82,7 @@ export const TWITCH_CHANNEL_POINTS_JOBS: Readonly<Record<string, BackgroundJob>>
 // effect and the one-minute job. Their state is this service's own.
 export function createChannelPoints<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
-  transaction: Pick<StateTransaction<S>, "onCommit">,
+  transaction: Pick<StateTransaction<S>, "onCommit" | "onTickConcluded">,
   { lifecycleSlice }: Pick<ControllerSlices<S>, "lifecycleSlice">,
   calls: Pick<ControllerCalls<S>,
     | "createAdapter"
@@ -100,7 +100,6 @@ export function createChannelPoints<S extends EngineSettings>(
   | "stopTwitchChannelPointsPushAndReport"
   | "stopTwitchChannelPointsPushInBackground"
   | "twitchChannelPointsPushEpoch"
-  | "reconcileTwitchChannelPointsPushAfterCommit"
   | "registerTwitchChannelPointsEffects"
   | "runTwitchChannelPointsClaim"
 > {
@@ -280,9 +279,23 @@ export function createChannelPoints<S extends EngineSettings>(
     return push.epoch;
   }
 
-  // After a tick commits, with no lock held: reconciles against the state the
-  // tick committed. A stop since the commit bumps the epoch, so the push backs
-  // off.
+  // After a Twitch tick commits (#695), with no lock held: the push follows
+  // the state the tick committed. A stop since the commit bumps the epoch, so
+  // the push backs off.
+  transaction.onTickConcluded((tick) => {
+    if (tick.signal.aborted || !tick.platforms.includes("twitch")) return;
+    tick.follow(withEventCollector(async (emit, events) => {
+      await reconcileTwitchChannelPointsPushAfterCommit(
+        tick.state,
+        tick.observerEpochs.channelPointsPush,
+        tick.settings,
+        tick.adapters.twitch,
+        emit,
+      );
+      await reportBestEffort(tick.correlate(events));
+    }));
+  });
+
   async function reconcileTwitchChannelPointsPushAfterCommit(
     committed: SchedulerState,
     since: number,
@@ -436,7 +449,6 @@ export function createChannelPoints<S extends EngineSettings>(
     stopTwitchChannelPointsPushAndReport,
     stopTwitchChannelPointsPushInBackground,
     twitchChannelPointsPushEpoch,
-    reconcileTwitchChannelPointsPushAfterCommit,
     registerTwitchChannelPointsEffects,
     runTwitchChannelPointsClaim,
   };

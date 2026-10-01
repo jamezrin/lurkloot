@@ -324,10 +324,6 @@ export interface ControllerCalls<S extends EngineSettings> {
   settleRouteReports(): Promise<boolean>;
   // discoverySignals.ts
   takeAllowedDiscoverySignalRefresh(platform: Platform): DiscoverySignalRefreshRequest | undefined;
-  // settingsTransitions.ts
-  beginTwitchSettingsTransition(): () => boolean;
-  invalidateTwitchSettingsTransitions(): void;
-  currentTwitchSettingsTransition(): number;
 
   // heartbeat.ts
   ensureHeartbeatJob(): Promise<void>;
@@ -354,10 +350,9 @@ export interface ControllerCalls<S extends EngineSettings> {
   runTwitchIntegrityRefresh(): Promise<void>;
   captureTwitchIntegrity(headers: IntegrityHeader[] | undefined, tabId?: number): Promise<void>;
   restoreTwitchIntegritySchedule(transitionIsCurrent: () => boolean): Promise<void>;
-  prepareTwitchIntegrity(settings: S, signal: AbortSignal, tickContext: TickDiagnosticContext): Promise<boolean>;
   closeTwitchIntegrityLifecycle(reason: string): void;
-  holdTwitchIntegrityForDisable(): () => void;
-  reconcileTwitchIntegrityAfterCommit(): Promise<void>;
+  // Supersedes every Twitch switch transition in progress (shutdown, reset).
+  invalidateTwitchSettingsTransitions(): void;
   startInitialTwitchIntegrityLoad(): void;
   awaitInitialTwitchIntegrityLoad(): Promise<void>;
   resetTwitchIntegrity(): void;
@@ -371,13 +366,6 @@ export interface ControllerCalls<S extends EngineSettings> {
   rescheduleTwitchChannelPointsJob(): Promise<void>;
   stopTwitchChannelPointsPushInBackground(): void;
   twitchChannelPointsPushEpoch(): number;
-  reconcileTwitchChannelPointsPushAfterCommit(
-    committed: SchedulerState,
-    since: number,
-    settings: EngineSettings,
-    adapter: PlatformAdapter,
-    emit: EventEmitter,
-  ): Promise<void>;
   registerTwitchChannelPointsEffects(executor: TickEffectExecutor): TickEffectExecutor;
   runTwitchChannelPointsClaim(): Promise<void>;
 
@@ -470,14 +458,6 @@ export interface ControllerCalls<S extends EngineSettings> {
     since?: Partial<Record<Platform, number>>,
   ): Promise<void>;
   discoverySignalEpochs(platforms: readonly Platform[]): Partial<Record<Platform, number>>;
-  reconcileDiscoverySignalsAfterCommit(
-    committed: SchedulerState,
-    since: Partial<Record<Platform, number>>,
-    settings: EngineSettings,
-    adapters: Record<Platform, PlatformAdapter>,
-    emit: EventEmitter,
-    platforms: readonly Platform[],
-  ): Promise<void>;
   invalidateDiscoverySignalAdmission(platform: Platform): void;
   discoverySignalRefreshAllowed(platform: Platform, request: DiscoverySignalRefreshRequest): boolean;
   reserveDiscoverySignalAuthRefresh(platform: Platform): () => void;
