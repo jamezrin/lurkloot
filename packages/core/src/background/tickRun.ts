@@ -30,7 +30,7 @@ import type {
 export function createTickRun<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
   transaction: Pick<StateTransaction<S>, "concludeTick">,
-  { tickSlice, tabRegistry }: Pick<ControllerSlices<S>, "tickSlice" | "tabRegistry">,
+  { tickSlice, tabRegistry, policySlice }: Pick<ControllerSlices<S>, "tickSlice" | "tabRegistry" | "policySlice">,
   calls: Pick<ControllerCalls<S>,
     | "applyAdFocusForState"
     | "clearOperationalEvents"
@@ -42,7 +42,6 @@ export function createTickRun<S extends EngineSettings>(
     | "persistPlatformAndReport"
     | "prepareSelection"
     | "reselectUnderLock"
-    | "prepareTwitchIntegrity"
     | "discoverySignalEpochs"
     | "observeTickCycle"
     | "reserveTablessWatchers"
@@ -88,7 +87,6 @@ export function createTickRun<S extends EngineSettings>(
     persistPlatformAndReport,
     prepareSelection,
     reselectUnderLock,
-    prepareTwitchIntegrity,
     discoverySignalEpochs,
     observeTickCycle,
     reserveTablessWatchers,
@@ -193,9 +191,11 @@ export function createTickRun<S extends EngineSettings>(
     const requestedPlatforms = platforms ?? PLATFORMS;
     const excludedPlatforms = new Set<Platform>();
     if (isFarmingActive(settings)) {
-      if (requestedPlatforms.includes("twitch")) {
-        const twitchReady = await prepareTwitchIntegrity(settings, signal, tickContext);
-        if (!twitchReady) excludedPlatforms.add("twitch");
+      // A platform's own service may hold it out of the tick until it is
+      // ready (#696): Twitch integrity, before Twitch is farmed.
+      for (const platform of requestedPlatforms) {
+        const ready = policySlice.tickReadiness[platform];
+        if (ready && !(await ready(settings, signal, tickContext))) excludedPlatforms.add(platform);
       }
       const authPlatforms = requestedPlatforms.filter((platform) => !excludedPlatforms.has(platform));
       if (authPlatforms.length > 0) {

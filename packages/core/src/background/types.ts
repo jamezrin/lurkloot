@@ -324,10 +324,6 @@ export interface ControllerCalls<S extends EngineSettings> {
   settleRouteReports(): Promise<boolean>;
   // discoverySignals.ts
   takeAllowedDiscoverySignalRefresh(platform: Platform): DiscoverySignalRefreshRequest | undefined;
-  // settingsTransitions.ts
-  beginTwitchSettingsTransition(): () => boolean;
-  invalidateTwitchSettingsTransitions(): void;
-  currentTwitchSettingsTransition(): number;
 
   // heartbeat.ts
   ensureHeartbeatJob(): Promise<void>;
@@ -354,10 +350,9 @@ export interface ControllerCalls<S extends EngineSettings> {
   runTwitchIntegrityRefresh(): Promise<void>;
   captureTwitchIntegrity(headers: IntegrityHeader[] | undefined, tabId?: number): Promise<void>;
   restoreTwitchIntegritySchedule(transitionIsCurrent: () => boolean): Promise<void>;
-  prepareTwitchIntegrity(settings: S, signal: AbortSignal, tickContext: TickDiagnosticContext): Promise<boolean>;
   closeTwitchIntegrityLifecycle(reason: string): void;
-  holdTwitchIntegrityForDisable(): () => void;
-  reconcileTwitchIntegrityAfterCommit(): Promise<void>;
+  // Supersedes every Twitch switch transition in progress (shutdown, reset).
+  invalidateTwitchSettingsTransitions(): void;
   startInitialTwitchIntegrityLoad(): void;
   awaitInitialTwitchIntegrityLoad(): Promise<void>;
   resetTwitchIntegrity(): void;

@@ -330,10 +330,26 @@ and never take the commit lock or call `saveState` themselves.
   - **Pending-tick cancellation** (`cancelPendingTick`) for a platform the save left switched off: as
     a hook it could also discard a trigger requested after the save, such as the platform switch's
     own follow-up tick.
-  - **The Twitch integrity hold and reconcile** around a save that disables Twitch stay in
-    `commitSettings` until #696 gives the integrity service its own transition.
-  - `markPlatformsStarting` stays with the platform switch for the same reason: it carries the
-    Twitch transition guard #696 moves.
+  - `markPlatformsStarting` stays with the platform switch, guarded by the switch's transition
+    check (below).
+- **Platform policy (#696).** Settings transitions and tick coordination are platform-neutral: no
+  Twitch or Kick decision, which `engineBoundary.test.ts` enforces for `authHealth.ts`,
+  `stateTransaction.ts`, `stateCommit.ts`, `tickAdmission.ts`, `tickRun.ts`, `tickCommit.ts`,
+  `tickEffects.ts` and `settingsTransitions.ts`. Platform-keyed data (`PLATFORMS` loops, lock and
+  lane tables) is allowed. A platform's own service registers its policy in the controller's
+  `PlatformPolicySlice`, and only Twitch integrity registers any:
+  - **Tick readiness:** before a tick farms Twitch, integrity prepares its token; a platform that
+    is not ready is kept out of the tick.
+  - **Switch transition:** integrity owns the Twitch switch's transition generation. A later switch,
+    shutdown or reset supersedes it, and the switch stops before marking the platform starting or
+    ticking once it is not current. A platform with no transition is always current.
+  - **Settings-commit participant:** a service that must take part in a settings commit, not only
+    react to it. Integrity joins every commit before the lock (holding off its work when the
+    caller's intent disables Twitch), again in the lock before the save (holding off when the
+    commit disables Twitch), and ends its turn after the settings jobs are rescheduled (or after
+    the save failed). It then reconciles its lifecycle and schedule if Twitch's enabled flag
+    changed, or if a held disable failed to save, and releases the hold. A hook would run too late
+    for the hold, and could not tell which save's hold to release.
 - **Tick conclusions (#695).** The discovery-signal observers and the Twitch channel-points push
   follow each tick from their own `onTickConcluded` hooks, not from calls in `tickRun.ts`. A tick
   that commits its decision (accepted, or found already stored) builds a `TickConclusion` under
