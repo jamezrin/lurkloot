@@ -27,6 +27,7 @@ export function createSettingsTransitions<S extends EngineSettings>(
     | "diagnosticEvent"
     | "markPlatformsStarting"
     | "platformTickRunning"
+    | "settleCommitHooks"
     | "snapshot"
     | "tickInBackground"
   >,
@@ -54,6 +55,7 @@ export function createSettingsTransitions<S extends EngineSettings>(
     diagnosticEvent,
     markPlatformsStarting,
     platformTickRunning,
+    settleCommitHooks,
     snapshot,
     tickInBackground,
   } = lateBound(calls);
@@ -225,9 +227,8 @@ export function createSettingsTransitions<S extends EngineSettings>(
     // integrity service reconciles its lifecycle and schedule after it.
     // Stopping also ends the platform's post-claim handoff and blocks and
     // stops its discovery-signal observer, through those services' own hooks.
-    // Not awaited: a hook waits for every save queued behind this one, and a
-    // caller may be one of them. They run as soon as the settings lock is
-    // released, ahead of the follow-up tick's work.
+    // commitSettings does not wait for them (see there); the follow-up tick
+    // below does.
     const patch: SettingsPatch = { platform: { [message.platform]: { enabled: message.enabled } } };
     await commitSettings(() => patch, { intent: patch });
     if (message.platform === "twitch" && !twitchTransitionIsCurrent()) return snapshot();
@@ -242,6 +243,10 @@ export function createSettingsTransitions<S extends EngineSettings>(
         return snapshot();
       }
     }
+    // The follow-up tick reconciles the observer, so the switch's hooks must
+    // have run: otherwise a disable still stopping it leaves the platform
+    // blocked, and the observer only starts a tick later.
+    await settleCommitHooks([message.platform]);
     // Always scoped to the toggled platform. Nothing about this change can
     // affect the other one any more, so it is never dragged through this
     // platform's discovery.

@@ -317,8 +317,9 @@ and never take the commit lock or call `saveState` themselves.
 
   `commitSettings` does not wait for these hooks. A commit's hooks wait for every operation queued
   on the settings lock when it committed, so a save that waited for its own hooks would deadlock
-  with a caller's next save. The hooks run once the settings lock is released, ahead of the
-  follow-up tick's work.
+  with a caller's next save. The platform switch waits for the platform's hooks once its own
+  transition is known to be current, before its follow-up tick, so that tick reconciles the
+  observer with the block already lifted.
 
   These calls stay in the settings lock, before the save is visible, on purpose:
   - **Discovery and selection invalidation** (`invalidateDiscoveryLane`, `invalidateSelection`): a
