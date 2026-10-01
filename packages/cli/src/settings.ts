@@ -12,6 +12,7 @@ import {
   normalizeIdList,
   POLL_INTERVAL_MAX_MINUTES,
   POLL_INTERVAL_MIN_MINUTES,
+  IDLE_WATCHLIST_LIMIT,
 } from "@lurkloot/shared/settings";
 import { CURRENT_SETTINGS_SCHEMA_VERSION, migrateSettings, type SettingsMigrationDiagnostic } from "@lurkloot/shared/settingsSchema";
 import { SETTINGS_EXPORT_KIND, type SettingsExportEnvelope } from "@lurkloot/shared/settingsExport";
@@ -170,17 +171,28 @@ const EXTENSION_ONLY_KEYS = new Set<string>([
 // "renamed from" framing even though they also wrote the current name directly;
 // that collision is pathological (an extension-only key in two forms in a CLI
 // config) and still names a real offending line, so it is left as-is.
-function describeOffender(key: string, diagnostics: SettingsMigrationDiagnostic[]): string {
-  const renamedFrom = diagnostics.find((diagnostic) => diagnostic.replacement === key)?.path;
+function describeOffender(key: string, diagnostics: CliSettingsDiagnostic[]): string {
+  const renamedFrom = diagnostics.find((diagnostic) => diagnostic.code !== "limit_exceeded" && diagnostic.replacement === key)?.path;
   const subject = renamedFrom ? `"${renamedFrom}" (renamed to "${key}")` : `"${key}"`;
   return EXTENSION_ONLY_KEYS.has(key)
     ? `${subject} is an extension-only setting with no effect in the CLI; remove it`
     : `unknown CLI setting ${subject}`;
 }
 
+// A value the CLI accepted but had to cut down to fit an engine limit. Unlike a
+// migration diagnostic, its message names what was dropped, so the user can
+// fix the config file that still lists it.
+export interface CliSettingsLimitDiagnostic {
+  code: "limit_exceeded";
+  path: string;
+  message: string;
+}
+
+export type CliSettingsDiagnostic = SettingsMigrationDiagnostic | CliSettingsLimitDiagnostic;
+
 export interface CliSettingsParseResult {
   settings: CliSettings;
-  diagnostics: SettingsMigrationDiagnostic[];
+  diagnostics: CliSettingsDiagnostic[];
 }
 
 // Parses and validates the `settings` block of a CLI config. Runs the shared
@@ -196,7 +208,7 @@ export function parseCliSettingsWithDiagnostics(raw: unknown): CliSettingsParseR
     throw new Error('Config "settings" must be a JSON object');
   }
   const migration = migrateSettings(raw);
-  const diagnostics = [...migration.diagnostics];
+  const diagnostics: CliSettingsDiagnostic[] = [...migration.diagnostics];
   const settings = withoutTablessMode(migration.settings, diagnostics);
   return { settings: parseMigratedCliSettings(settings, diagnostics), diagnostics };
 }
@@ -205,7 +217,7 @@ export function parseCliSettingsWithDiagnostics(raw: unknown): CliSettingsParseR
 // missing capability (#598) and `tablessMode` has nothing left to decide. A
 // config that still sets it, to either value, keeps loading: the key is dropped
 // with a warning instead of failing the whole config.
-function withoutTablessMode(value: Record<string, unknown>, diagnostics: SettingsMigrationDiagnostic[]): Record<string, unknown> {
+function withoutTablessMode(value: Record<string, unknown>, diagnostics: CliSettingsDiagnostic[]): Record<string, unknown> {
   if (!Object.hasOwn(value, "tablessMode")) return value;
   const { tablessMode: _ignored, ...rest } = value;
   diagnostics.push({
@@ -254,8 +266,9 @@ export function parseCliSettingsImportPayload(raw: unknown): CliSettingsParseRes
 
 // Validates and normalizes an already-migrated settings payload. See
 // parseCliSettingsWithDiagnostics for the full contract; `diagnostics` is passed
-// through only so a renamed-away key can be named by its original path in errors.
-function parseMigratedCliSettings(value: Record<string, unknown>, diagnostics: SettingsMigrationDiagnostic[]): CliSettings {
+// through so a renamed-away key can be named by its original path in errors, and
+// so values cut down to an engine limit can be reported.
+function parseMigratedCliSettings(value: Record<string, unknown>, diagnostics: CliSettingsDiagnostic[]): CliSettings {
   const offenders: string[] = [];
 
   for (const key of Object.keys(value)) {
@@ -362,7 +375,7 @@ function parseMigratedCliSettings(value: Record<string, unknown>, diagnostics: S
     farmingEligibility: normalizeFarmingEligibility(v.farmingEligibility),
     notifyRewardEarned: booleanOr(v.notifyRewardEarned, DEFAULT_CLI_SETTINGS.notifyRewardEarned),
     notifyNoDropsLeft: booleanOr(v.notifyNoDropsLeft, DEFAULT_CLI_SETTINGS.notifyNoDropsLeft),
-    platform: normalizePlatform(v.platform, v.idleWatchlistFallbackOnly),
+    platform: normalizePlatform(v.platform, v.idleWatchlistFallbackOnly, diagnostics),
     compatibility: normalizeCompatibility(v.compatibility),
   };
 }
@@ -383,7 +396,11 @@ function normalizeCompatibility(raw: EngineSettings["compatibility"] | undefined
   };
 }
 
-function normalizePlatform(raw: EngineSettings["platform"] | undefined, legacyFallbackOnly?: boolean): PlatformSettingsByPlatform {
+function normalizePlatform(
+  raw: EngineSettings["platform"] | undefined,
+  legacyFallbackOnly: boolean | undefined,
+  diagnostics: CliSettingsDiagnostic[],
+): PlatformSettingsByPlatform {
   const common = (platform: Platform) => {
     const ps = (raw?.[platform] ?? {}) as Partial<TwitchPlatformSettings & KickPlatformSettings>;
     const defaults = DEFAULT_CLI_SETTINGS.platform[platform];
@@ -392,7 +409,7 @@ function normalizePlatform(raw: EngineSettings["platform"] | undefined, legacyFa
       base: {
         enabled: booleanOr(ps.enabled, defaults.enabled),
         watchSourcePriority: normalizePlatformWatchSourcePriority(platform, ps, legacyFallbackOnly),
-        idleWatchlistChannels: normalizeChannelList(ps.idleWatchlistChannels),
+        idleWatchlistChannels: limitIdleWatchlist(platform, ps.idleWatchlistChannels, diagnostics),
         excludedChannels: normalizeChannelList(ps.excludedChannels),
         categoryMode: normalizeCategoryMode(ps.categoryMode),
         categories: normalizeCategorySelections(ps.categories),
@@ -415,6 +432,23 @@ function normalizePlatform(raw: EngineSettings["platform"] | undefined, legacyFa
       autoClaimChallenges: booleanOr(kick.ps.autoClaimChallenges, DEFAULT_CLI_SETTINGS.platform.kick.autoClaimChallenges),
     },
   };
+}
+
+// The engine keeps at most IDLE_WATCHLIST_LIMIT idle watchlist channels and the
+// popup refuses to add more, but a config file can list any number. Keep the
+// first ones, as the engine would, and name the rest instead of dropping them
+// silently.
+function limitIdleWatchlist(platform: Platform, channels: string[] | undefined, diagnostics: CliSettingsDiagnostic[]): string[] {
+  const normalized = normalizeChannelList(channels);
+  const dropped = normalized.slice(IDLE_WATCHLIST_LIMIT);
+  if (dropped.length > 0) {
+    diagnostics.push({
+      code: "limit_exceeded",
+      path: `platform.${platform}.idleWatchlistChannels`,
+      message: `The ${platform} idle watchlist holds at most ${IDLE_WATCHLIST_LIMIT} channels; ignoring the other ${dropped.length}: ${dropped.join(", ")}`,
+    });
+  }
+  return normalized.slice(0, IDLE_WATCHLIST_LIMIT);
 }
 
 // Expands the CLI settings into the EngineSettings contract the shared engine

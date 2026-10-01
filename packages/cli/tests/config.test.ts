@@ -79,6 +79,24 @@ describe("parseConfig", () => {
     expect(config.warnings).toEqual(["settings.tablessMode is deprecated and ignored"]);
   });
 
+  it("keeps the first 20 idle watchlist channels and names the ones it drops", () => {
+    const channels = Array.from({ length: 23 }, (_, index) => `channel${index + 1}`);
+    const config = parseConfig({ settings: { platform: { kick: { idleWatchlistChannels: channels } } } }, CONFIG_PATH);
+    expect(config.settings.platform.kick.idleWatchlistChannels).toEqual(channels.slice(0, 20));
+    expect(config.warnings).toEqual([
+      "settings.platform.kick.idleWatchlistChannels: The kick idle watchlist holds at most 20 channels; ignoring the other 3: channel21, channel22, channel23",
+    ]);
+  });
+
+  it("does not warn for an idle watchlist at the limit, counting duplicates once", () => {
+    const channels = Array.from({ length: 20 }, (_, index) => `channel${index + 1}`);
+    const config = parseConfig({
+      settings: { platform: { twitch: { idleWatchlistChannels: [...channels, "Channel1", "@channel2"] } } },
+    }, CONFIG_PATH);
+    expect(config.settings.platform.twitch.idleWatchlistChannels).toEqual(channels);
+    expect(config.warnings).toEqual([]);
+  });
+
   it("has no config warnings by default", () => {
     expect(parseConfig({}, CONFIG_PATH).warnings).toEqual([]);
   });
