@@ -150,3 +150,67 @@ export function evaluateCampaignFarming(
   return precedence.flatMap((code) => blockers.filter((blocker) => blocker.code === code))[0]
     ?? rejected("no_farmable_reward");
 }
+
+export type CampaignFarmingRejection = Rejection;
+
+// Blockers only the user can clear, on the platform or elsewhere: no setting
+// in Lurkloot makes these campaigns farmable (#677).
+export const OUTSIDE_ACTION_REJECTION_CODES: ReadonlySet<CampaignFarmingRejectionCode> = new Set([
+  "twitch_link_required",
+  "reward_prerequisites_unmet",
+  "subscription_required",
+  "action_required",
+]);
+
+// Every blocker a user would meet in turn, fixing each one Lurkloot can fix
+// (#677): the evaluation, replayed with each settings blocker lifted. It ends
+// at a blocker no setting lifts, or once the campaign would be farmable, so a
+// "Pin" or "Include" that is not enough on its own can say what comes next.
+// The first entry is always evaluateCampaignFarming's answer.
+export function campaignFarmingBlockers(
+  campaign: DropCampaign,
+  settings: EngineSettings,
+  options: CampaignFarmingEvaluationOptions = {},
+): Rejection[] {
+  const blockers: Rejection[] = [];
+  let current: EngineSettings | undefined = settings;
+  while (current) {
+    const evaluation = evaluateCampaignFarming(campaign, current, options);
+    if (evaluation.farmable) break;
+    blockers.push(evaluation);
+    current = withBlockerLifted(campaign, current, evaluation.code);
+  }
+  return blockers;
+}
+
+// The settings with this campaign's blocker lifted, or undefined when no
+// setting can lift it. Each case clears a blocker evaluateCampaignFarming
+// checks before it, so the replay always moves on.
+function withBlockerLifted(
+  campaign: DropCampaign,
+  settings: EngineSettings,
+  code: CampaignFarmingRejectionCode,
+): EngineSettings | undefined {
+  const withPlatform = (patch: Partial<EngineSettings["platform"][typeof campaign.platform]>): EngineSettings => ({
+    ...settings,
+    platform: { ...settings.platform, [campaign.platform]: { ...settings.platform[campaign.platform], ...patch } },
+  });
+  switch (code) {
+    case "excluded":
+      return { ...settings, excludedCampaignIds: settings.excludedCampaignIds.filter((id) => id !== campaign.id) };
+    case "not_pinned":
+      return { ...settings, campaignPins: [...settings.campaignPins, campaign.id] };
+    case "unlinked_campaigns_disabled":
+      return { ...settings, farmingEligibility: { ...settings.farmingEligibility, farmUnlinkedCampaigns: true } };
+    case "subscription_campaigns_disabled":
+      return { ...settings, farmingEligibility: { ...settings.farmingEligibility, farmSubscriptionCampaigns: true } };
+    case "category_blocked":
+      return withPlatform({ blockedCategories: [] });
+    case "category_filtered":
+      return withPlatform({ categoryMode: "all" });
+    case "insufficient_time":
+      return { ...settings, skipUnfinishableRewards: false };
+    default:
+      return undefined;
+  }
+}

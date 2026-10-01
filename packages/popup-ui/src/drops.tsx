@@ -113,6 +113,12 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
   const farmingRejectionMessage = farmingRejection
     ? t(campaignRejectionMessageKey(farmingRejection.code), farmingRejection.rewardName)
     : undefined;
+  // Fixing the first reason is not always enough (#677): say what comes next,
+  // so a fix that leaves the campaign skipped does not look like it failed.
+  const nextBlocker = farmingRejection ? campaign.laterBlockers?.[0] : undefined;
+  const nextBlockerMessage = nextBlocker
+    ? t("campaignRejectionThen", t(campaignRejectionMessageKey(nextBlocker.code), nextBlocker.rewardName))
+    : undefined;
   const emphasized = !finished && (isFarming || (!anyFarming && index === 0 && !farmingRejection));
   const showsWatchProgress = stats.kind === "watch" || stats.kind === "mixed";
   const endsAt = Date.parse(campaign.ends);
@@ -308,7 +314,10 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
               {farmingRejectionMessage ? (
                 <div className="flex items-center gap-2 rounded-lg border border-amber-300/70 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
                   <AlertTriangle size={12} className="shrink-0" />
-                  <span className="min-w-0 flex-1">{farmingRejectionMessage}</span>
+                  <span className="min-w-0 flex-1">
+                    {farmingRejectionMessage}
+                    {nextBlockerMessage ? <span data-campaign-next-blocker className="block opacity-80">{nextBlockerMessage}</span> : null}
+                  </span>
                   {fix ? (
                     <button type="button" onClick={fix.onClick} className="shrink-0 rounded-md border border-current px-2 py-0.5 text-[10px] font-semibold hover:bg-amber-100 dark:hover:bg-amber-500/20">
                       {fix.label}

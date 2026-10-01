@@ -98,6 +98,12 @@
   "queueSkipped": {
     "message": "Übersprungen"
   },
+  "queueActionRequired": {
+    "message": "Aktion erforderlich"
+  },
+  "queueActionRequiredHint": {
+    "message": "Erfordert ein Abo oder einen anderen Schritt außerhalb von Lurkloot. Anheften und Favoriten ändern nur die Reihenfolge."
+  },
   "queueUpcoming": {
     "message": "Demnächst"
   },
@@ -754,6 +760,9 @@
   },
   "campaignRejectionActionRequired": {
     "message": "$1 erfordert eine andere Aktion als Zuschauen."
+  },
+  "campaignRejectionThen": {
+    "message": "Danach: $1"
   },
   "campaignRejectionNoFarmableReward": {
     "message": "Derzeit kann keine Belohnung dieser Kampagne gefarmt werden."

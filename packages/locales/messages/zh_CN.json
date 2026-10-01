@@ -98,6 +98,12 @@
   "queueSkipped": {
     "message": "已跳过"
   },
+  "queueActionRequired": {
+    "message": "需要操作"
+  },
+  "queueActionRequiredHint": {
+    "message": "需要订阅或在 Lurkloot 之外完成其他步骤。置顶和收藏只会改变顺序。"
+  },
   "queueUpcoming": {
     "message": "即将开始"
   },
@@ -754,6 +760,9 @@
   },
   "campaignRejectionActionRequired": {
     "message": "$1 需要执行观看以外的操作。"
+  },
+  "campaignRejectionThen": {
+    "message": "之后：$1"
   },
   "campaignRejectionNoFarmableReward": {
     "message": "此掉宝活动目前没有可挂机获取的奖励。"
