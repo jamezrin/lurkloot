@@ -111,7 +111,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     ...createHeartbeatCoordinator(ports, transaction, { lifecycleSlice, tabRegistry }, calls),
     ...createTwitchIntegrity(ports, { lifecycleSlice, tabRegistry }, calls),
     ...createChannelPoints(ports, transaction, { lifecycleSlice }, calls),
-    ...createKickRuntime(ports, { lifecycleSlice }, calls),
+    ...createKickRuntime(ports, transaction, { lifecycleSlice }, calls),
     ...createAuthHealth(ports, calls),
     ...createManualWatch(ports, { tabRegistry, lifecycleSlice }, calls),
     ...createSupplementalSources(ports),

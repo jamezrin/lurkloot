@@ -1,5 +1,6 @@
 import { browser } from "wxt/browser";
 import { openHttpsLink, type PopupAdapter } from "@lurkloot/popup-ui";
+import { createRuntimeRequestSender } from "./runtimeRequests";
 
 // Popup adapter for the in-page panel document (entrypoints/inpagePanel).
 //
@@ -27,7 +28,7 @@ import { openHttpsLink, type PopupAdapter } from "@lurkloot/popup-ui";
 export function createInPagePanelAdapter(): PopupAdapter {
   return {
     version: browser.runtime.getManifest().version,
-    send: (message) => browser.runtime.sendMessage(message),
+    send: createRuntimeRequestSender((message) => browser.runtime.sendMessage(message)),
     getStorage: (keys) => browser.storage.local.get(keys),
     setStorage: (values) => browser.storage.local.set(values),
     getMessage: (key, substitutions) => browser.i18n.getMessage(key as never, substitutions),

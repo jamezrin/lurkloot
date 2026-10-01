@@ -93,7 +93,6 @@ export function createChannelPoints<S extends EngineSettings>(
   >,
 ): Pick<ControllerCalls<S>,
   | "abortTwitchChannelPointsClaims"
-  | "abortIneligibleTwitchChannelPointsClaims"
   | "clearTwitchChannelPointsAlarmBestEffort"
   | "reconcileTwitchChannelPointsAlarm"
   | "rescheduleTwitchChannelPointsJob"
@@ -136,6 +135,13 @@ export function createChannelPoints<S extends EngineSettings>(
     if (change.state.authHealth.twitch.status === "healthy") return;
     abortTwitchChannelPointsClaims("Twitch authentication lost");
     await stopTwitchChannelPointsPushAndReport();
+  });
+
+  // A settings save that disables Twitch or channel-points claiming cancels a
+  // claim still in flight, once it is saved.
+  transaction.onCommit((change) => {
+    if (change.kind !== "settings" || change.startup) return;
+    abortIneligibleTwitchChannelPointsClaims(change.settings, "Channel points claiming disabled");
   });
 
   function abortIneligibleTwitchChannelPointsClaims(settings: EngineSettings, reason: string): void {
@@ -423,7 +429,6 @@ export function createChannelPoints<S extends EngineSettings>(
 
   return {
     abortTwitchChannelPointsClaims,
-    abortIneligibleTwitchChannelPointsClaims,
     clearTwitchChannelPointsAlarmBestEffort,
     reconcileTwitchChannelPointsAlarm,
     rescheduleTwitchChannelPointsJob,

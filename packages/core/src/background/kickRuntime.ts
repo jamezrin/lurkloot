@@ -9,6 +9,7 @@ import { correlateTickDiagnostics } from "./helpers";
 import { pausedForManualWatch } from "../core/manualWatch";
 import type { BackgroundHostPorts } from "./hostPorts";
 import type { BackgroundJob } from "./jobs";
+import type { StateTransaction } from "./stateTransaction";
 import type { TickEffectExecutor } from "./tickEffects";
 import type { ControllerCalls, TickCycleOutcome, TickDiagnosticContext } from "./types";
 
@@ -87,6 +88,7 @@ function newerCheck(
 // rule stays in the tab registry.
 export function createKickRuntime<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
+  transaction: Pick<StateTransaction<S>, "onCommit">,
   { lifecycleSlice }: Pick<ControllerSlices<S>, "lifecycleSlice">,
   calls: Pick<ControllerCalls<S>,
     | "clearOperationalEvents"
@@ -99,7 +101,6 @@ export function createKickRuntime<S extends EngineSettings>(
   >,
 ): Pick<ControllerCalls<S>,
   | "abortKickChallengeClaims"
-  | "abortIneligibleKickChallengeClaims"
   | "clearKickChallengeJobBestEffort"
   | "endTickCycle"
   | "observeTickCycle"
@@ -134,6 +135,13 @@ export function createKickRuntime<S extends EngineSettings>(
   function abortIneligibleKickChallengeClaims(settings: EngineSettings, reason: string): void {
     if (!challengeClaimsEnabled(settings)) abortKickChallengeClaims(reason);
   }
+
+  // A settings save that disables Kick or challenge claiming cancels a claim
+  // still in flight, once it is saved.
+  transaction.onCommit((change) => {
+    if (change.kind !== "settings" || change.startup) return;
+    abortIneligibleKickChallengeClaims(change.settings, "Claim automation disabled");
+  });
 
   async function reconcileKickChallengeJob(settings: EngineSettings): Promise<void> {
     if (challengeClaimsEnabled(settings)) {
@@ -299,7 +307,6 @@ export function createKickRuntime<S extends EngineSettings>(
 
   return {
     abortKickChallengeClaims,
-    abortIneligibleKickChallengeClaims,
     clearKickChallengeJobBestEffort,
     endTickCycle,
     observeTickCycle,
