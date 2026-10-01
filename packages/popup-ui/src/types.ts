@@ -105,6 +105,9 @@ export type CampaignView = {
   linkUrl?: string;
   // The campaign's info/landing page, when one is provided.
   pageUrl?: string;
+  // Twitch's Drops-filtered directory page for the campaign's game. Twitch
+  // only: Kick has no equivalent page.
+  categoryDropsUrl?: string;
   excluded: boolean;
   // Which tier of the shared ranking placed this campaign, and whether the user
   // pinned it by hand. The list labels its group dividers from these.

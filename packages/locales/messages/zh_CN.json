@@ -392,6 +392,12 @@
   "viewDropPage": {
     "message": "查看掉宝页面"
   },
+  "campaignDropDetails": {
+    "message": "掉宝详情"
+  },
+  "campaignCategoryDrops": {
+    "message": "分类掉宝"
+  },
   "upcoming": {
     "message": "即将开始"
   },
@@ -1714,6 +1720,9 @@
   },
   "campaignMoreChannels": {
     "message": "另有 $1 个"
+  },
+  "campaignFewerChannels": {
+    "message": "收起"
   },
   "campaignExclude": {
     "message": "排除"
