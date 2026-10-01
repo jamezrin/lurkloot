@@ -121,8 +121,8 @@ export function createTickRun<S extends EngineSettings>(
     selectionGeneration,
   } = lateBound(calls);
   // One executor per controller: each scheduler effect type has one handler,
-  // the interim ones plus those of the services that own theirs. Built on first
-  // use, once every module's calls are bound.
+  // registered by the service that owns it. Built on first use, once every
+  // module's calls are bound.
   let tickEffectExecutor: TickEffectExecutor | undefined;
   const tickEffects = (): TickEffectExecutor =>
     tickEffectExecutor ??= registerRewardClaimEffects(

@@ -161,10 +161,6 @@ function isPinned(campaign: DropCampaign, settings: EngineSettings): boolean {
   return pinIndex(campaign, settings) !== -1;
 }
 
-export function sortCampaigns(campaigns: DropCampaign[], settings: EngineSettings): DropCampaign[] {
-  return rankCampaigns(campaigns, settings);
-}
-
 // Ranks candidates the user has a relationship with above anonymous directory
 // channels: an explicit Idle Watchlist entry first, then a followed channel.
 // Purely a tie-break among channels that already qualify for the campaign, so it
@@ -193,7 +189,7 @@ export async function chooseCampaignDecision(
   skipChannels?: ReadonlySet<string>,
   includeIdleWatchlist = true,
 ): Promise<WatchDecision> {
-  const sorted = sortCampaigns(campaigns.filter((campaign) => isEligible(campaign, settings)), settings);
+  const sorted = rankCampaigns(campaigns.filter((campaign) => isEligible(campaign, settings)), settings);
   const noCampaignReason = noEligibleCampaignReason(campaigns, settings);
   const waitingForSubscription = onlyWaitingSubscriptionCampaigns(campaigns, settings);
   const subscriptionOnly = onlySubscriptionCampaigns(campaigns, settings);
@@ -763,7 +759,7 @@ function authoritativeUnavailableCampaign(
   settings: EngineSettings,
 ): DropCampaign | undefined {
   if (snapshot.platform !== "twitch" || previous.status !== "watching" || !isSessionHealthy(previous)) return undefined;
-  const eligible = sortCampaigns(campaigns.filter((campaign) => isEligible(campaign, settings)), settings);
+  const eligible = rankCampaigns(campaigns.filter((campaign) => isEligible(campaign, settings)), settings);
   const currentIndex = eligible.findIndex((campaign) => campaign.id === previous.campaignId);
   if (currentIndex <= 0) return undefined;
   return eligible.slice(0, currentIndex).find((campaign) => {
@@ -1820,7 +1816,7 @@ async function evaluatePreferredCurrentWatch(
   if (previous.status !== "watching" || !previous.channel || !previous.campaignId || !previous.rewardId) {
     return undefined;
   }
-  const preferredCampaign = sortCampaigns(
+  const preferredCampaign = rankCampaigns(
     campaigns.filter((campaign) => isEligible(campaign, settings)),
     settings,
   ).find((campaign) => activeReward(campaign, settings));
