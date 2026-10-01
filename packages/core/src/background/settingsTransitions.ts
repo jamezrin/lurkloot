@@ -2,6 +2,7 @@ import type { CoreRuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messa
 import type { EngineSettings, Platform } from "@lurkloot/shared/models";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 import { IDLE_WATCHLIST_LIMIT, isFarmingActive } from "@lurkloot/shared/settings";
+import { PLATFORM_NAMES } from "./constants";
 import { settingsTickTrigger } from "./helpers";
 import { type ControllerSlices, lateBound } from "./context";
 import type { PreparedSettingsCommit, StateTransaction } from "./stateTransaction";
@@ -12,10 +13,8 @@ export { isRankingOnlyPatch } from "./stateTransaction";
 // Settings commits and the transitions they start.
 export function createSettingsTransitions<S extends EngineSettings>(
   transaction: StateTransaction<S>,
-  { settingsSlice, lifecycleSlice }: Pick<ControllerSlices<S>, "settingsSlice" | "lifecycleSlice">,
+  { policySlice }: Pick<ControllerSlices<S>, "policySlice">,
   calls: Pick<ControllerCalls<S>,
-    | "holdTwitchIntegrityForDisable"
-    | "reconcileTwitchIntegrityAfterCommit"
     | "cancelPendingTick"
     | "invalidateDiscoveryLane"
     | "invalidateSelection"
@@ -34,16 +33,11 @@ export function createSettingsTransitions<S extends EngineSettings>(
 ): Pick<ControllerCalls<S>,
   | "normalizeStartupSettings"
   | "commitSettings"
-  | "beginTwitchSettingsTransition"
-  | "invalidateTwitchSettingsTransitions"
-  | "currentTwitchSettingsTransition"
   | "setPlatformEnabled"
   | "saveSettingsFromMessage"
   | "updateIdleWatchlist"
 > {
   const {
-    holdTwitchIntegrityForDisable,
-    reconcileTwitchIntegrityAfterCommit,
     cancelPendingTick,
     invalidateDiscoveryLane,
     invalidateSelection,
@@ -120,22 +114,19 @@ export function createSettingsTransitions<S extends EngineSettings>(
   // commit hooks (docs/architecture.md, "Engine ownership at a glance"): claim
   // aborts and the platform switch's handoff and observer stops. What stays
   // here runs in the lock, before the save is visible, and is documented there
-  // as an exception: discovery and selection invalidation, pending-tick
-  // cancellation, and (until #696) the Twitch integrity hold and reconcile.
+  // as an exception: discovery and selection invalidation, and pending-tick
+  // cancellation. A service that has to take part in the commit itself, not
+  // only react to it, joins it as a participant (`settingsCommitParticipants`,
+  // #696): Twitch integrity, which holds off its work while a save may
+  // disable Twitch.
   async function commitSettings(
     update: (current: S) => SettingsPatch,
     { intent }: SettingsCommitOptions = {},
   ): Promise<PreparedSettingsCommit<S>> {
     let saved = false;
-    let twitchEnabledChanged = false;
-    // A save that disables Twitch holds off integrity work from as early as it
-    // is known (#589) until the lifecycle has closed, or the save failed.
-    let endTwitchIntegrityHold: (() => void) | undefined = intent?.platform?.twitch?.enabled === false
-      ? holdTwitchIntegrityForDisable()
-      : undefined;
-    const releaseTwitchIntegrityHold = (): void => {
-      endTwitchIntegrityHold?.();
-    };
+    // Joined before the lock, so a participant can act on the caller's intent
+    // as early as it is known.
+    const turns = policySlice.settingsCommitParticipants.map((participant) => participant(intent));
     try {
       const committed = await withSettingsLock(async () => {
         const commit = await transaction.prepareSettingsCommit(update);
@@ -146,17 +137,13 @@ export function createSettingsTransitions<S extends EngineSettings>(
           if (commit.effects[platform] === "discovery") invalidateDiscoveryLane(platform);
           invalidateSelection(platform);
         }
-        const { settings } = commit;
-        twitchEnabledChanged = commit.previous.platform.twitch.enabled !== settings.platform.twitch.enabled;
-        if (twitchEnabledChanged && !settings.platform.twitch.enabled) {
-          endTwitchIntegrityHold ??= holdTwitchIntegrityForDisable();
-        }
+        for (const turn of turns) turn.prepared(commit);
         await transaction.saveSettingsCommit(commit);
         saved = true;
         // Before the lock is released, so it never discards a trigger requested
         // after the save, such as the platform switch's own follow-up tick.
         for (const platform of invalidatedPlatforms) {
-          if (!settings.platform[platform].enabled) cancelPendingTick(platform);
+          if (!commit.settings.platform[platform].enabled) cancelPendingTick(platform);
         }
         return commit;
       });
@@ -167,39 +154,18 @@ export function createSettingsTransitions<S extends EngineSettings>(
     } finally {
       // So do the settings jobs, even when the tick jobs' reschedule failed
       // after the save: disabling Twitch must still stop the push. They read
-      // the latest stored settings.
+      // the latest stored settings. The participants end their turn after
+      // them, or once the save has failed.
+      let proceed = true;
       try {
-        // A failed save ends its hold on integrity work before the reconcile.
-        if (!saved) releaseTwitchIntegrityHold();
         if (saved) await rescheduleSettingsJobs();
-        // Twitch integrity follows the stored enabled flag (#589), whichever
-        // message saved it. A disable that failed to save reconciles too: it
-        // held off integrity work while pending, and the stored flag, still
-        // enabled, brings the schedule back. Nothing is rolled back.
-        if (twitchEnabledChanged || (endTwitchIntegrityHold && !saved)) await reconcileTwitchIntegrityAfterCommit();
+      } catch (error) {
+        proceed = false;
+        throw error;
       } finally {
-        // A disable admits no integrity work until its lifecycle has closed,
-        // or until its save failed.
-        releaseTwitchIntegrityHold();
+        for (const turn of turns) await turn.end(saved, proceed);
       }
     }
-  }
-
-  // A Twitch enable or disable in progress. Starting one, shutdown or a reset
-  // supersedes every earlier one; the returned check says whether this one is
-  // still the latest.
-  function beginTwitchSettingsTransition(): () => boolean {
-    const generation = ++settingsSlice.twitchSettingsTransitionGeneration;
-    return () => generation === settingsSlice.twitchSettingsTransitionGeneration;
-  }
-
-  function invalidateTwitchSettingsTransitions(): void {
-    settingsSlice.twitchSettingsTransitionGeneration += 1;
-  }
-
-  // The latest Twitch transition, for work that must not outlive it.
-  function currentTwitchSettingsTransition(): number {
-    return settingsSlice.twitchSettingsTransitionGeneration;
   }
 
   // The popup's platform switch (#591: moved here from messages.ts). The
@@ -209,7 +175,7 @@ export function createSettingsTransitions<S extends EngineSettings>(
   async function setPlatformEnabled(
     message: Extract<CoreRuntimeMessage, { type: "setPlatformEnabled" | "setAutomation" }>,
   ): Promise<RuntimeSnapshot<S>> {
-    const platformLabel = message.platform === "twitch" ? "Twitch" : "Kick";
+    const platformLabel = PLATFORM_NAMES[message.platform];
     const action = message.enabled ? "enable" : "disable";
     diagnosticEvent("info", `User requested ${platformLabel} automation ${action}`, message.platform);
     if (platformTickRunning(message.platform)) {
@@ -219,29 +185,24 @@ export function createSettingsTransitions<S extends EngineSettings>(
         message.platform,
       );
     }
-    const twitchTransition = message.platform === "twitch" ? beginTwitchSettingsTransition() : undefined;
-    const twitchTransitionIsCurrent = (): boolean =>
-      !lifecycleSlice.controllerShutdown && twitchTransition?.() === true;
-    // Twitch integrity follows the committed setting on its own (#589): the
-    // commit cancels a mint in flight when it disables Twitch, and the
-    // integrity service reconciles its lifecycle and schedule after it.
+    // A platform whose service owns its switch transition (Twitch integrity,
+    // #696) says whether this switch is still the latest; a later switch,
+    // shutdown or reset supersedes it. Any other platform's always is.
+    const beginTransition = policySlice.switchTransitions[message.platform];
+    const transitionIsCurrent = beginTransition ? beginTransition() : () => true;
+    // Twitch integrity takes part in the commit (#589, #696): it cancels a
+    // mint in flight when the save disables Twitch, and reconciles its
+    // lifecycle and schedule after it.
     // Stopping also ends the platform's post-claim handoff and blocks and
     // stops its discovery-signal observer, through those services' own hooks.
     // commitSettings does not wait for them (see there); the follow-up tick
     // below does.
     const patch: SettingsPatch = { platform: { [message.platform]: { enabled: message.enabled } } };
     await commitSettings(() => patch, { intent: patch });
-    if (message.platform === "twitch" && !twitchTransitionIsCurrent()) return snapshot();
+    if (!transitionIsCurrent()) return snapshot();
     if (message.enabled) {
-      await markPlatformsStarting(
-        [message.platform],
-        message.platform === "twitch"
-          ? twitchTransitionIsCurrent
-          : undefined,
-      );
-      if (message.platform === "twitch" && !twitchTransitionIsCurrent()) {
-        return snapshot();
-      }
+      await markPlatformsStarting([message.platform], transitionIsCurrent);
+      if (!transitionIsCurrent()) return snapshot();
     }
     // The follow-up tick reconciles the observer, so the switch's hooks must
     // have run: otherwise a disable still stopping it leaves the platform
@@ -292,9 +253,6 @@ export function createSettingsTransitions<S extends EngineSettings>(
     setPlatformEnabled,
     saveSettingsFromMessage,
     updateIdleWatchlist,
-    currentTwitchSettingsTransition,
-    beginTwitchSettingsTransition,
-    invalidateTwitchSettingsTransitions,
     normalizeStartupSettings,
     commitSettings,
   };
