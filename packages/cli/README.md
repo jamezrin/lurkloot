@@ -158,9 +158,10 @@ pnpm cli auth status
 - **`auth import`** ingests a credential blob exported by the updated extension
   (Settings → **Export credentials**) for Twitch and/or Kick. A Twitch web
   import needs the exported device ID and Kasada session cookie as well as the
-  OAuth token. The extension reads that cookie from `k.twitchcdn.net`, so the
-  export asks for that one extra site permission; decline it and the export
-  carries only the login cookies. The CLI validates the web client identity, mints integrity
+  OAuth token. The extension reads that cookie from `k.twitchcdn.net`, so
+  clicking **Export credentials** asks for that one extra site permission. If
+  the popup closes when the browser asks, open it and export again. Decline
+  the permission and the export carries only the login cookies. The CLI validates the web client identity, mints integrity
   without launching a browser, and persists cookie rotation in its private
   auth store. Older exports lacking these fields cannot import Twitch; export
   again from the updated extension or use `auth twitch device-login`.

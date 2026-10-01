@@ -181,8 +181,8 @@ export interface PopupAdapter {
   // Only the live extension implements it (the demo omits it, hiding the action).
   exportCredentials?(blob: CliCredentialBlob): void;
   // Optional: ask for the extra host the credential export reads Twitch's Kasada
-  // cookie from. Called first in the confirm click so the browser still sees a
-  // user gesture. Resolves false when the user declines.
+  // cookie from. Called synchronously in the click that arms the export, a
+  // separate click from the download. Resolves false when the user declines.
   requestCredentialExportPermission?(): Promise<boolean>;
   // Optional: download the current settings as a portable JSON file. Only the
   // live extension implements it (the demo omits it, hiding the action).

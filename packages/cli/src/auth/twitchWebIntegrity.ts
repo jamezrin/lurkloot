@@ -119,9 +119,15 @@ const WEB_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko";
 const SDK_BASE = "https://k.twitchcdn.net/149e9513-01fa-4fb0-aad4-566afd725d1b/2d206a39-8ed7-437e-a3be-862e0f06eea3";
 const SDK_VERSION = "j-1.2.797";
 const CLIENT_VERSION = "672c1fb4-8cec-4bfd-9af8-88bb8c1f5ad4";
-const SDK_USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36";
+// One ordinary desktop Chrome identity for every request in a mint: a headless
+// marker, or a different agent between clearance and mint, is an easy flag.
+const WEB_USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36";
 const EXPIRY_SKEW_MS = 30_000;
 const REQUEST_TIMEOUT_MS = 15_000;
+// A failed mint repeats the whole SDK exchange, so retries wait 1, 2, 4… up to
+// 30 minutes rather than hitting Twitch's anti-bot endpoints on every call.
+const FAILURE_BACKOFF_MS = 60_000;
+const MAX_FAILURE_BACKOFF_MS = 30 * 60_000;
 
 export interface TwitchWebIntegrityOptions {
   authToken: string;
@@ -129,6 +135,7 @@ export interface TwitchWebIntegrityOptions {
   kasadaSessionCookie?: string;
   fetcher?: (url: string, init?: RequestInit) => Promise<Response>;
   onSessionCookie?: (value: string) => void;
+  now?: () => number;
 }
 
 function jsonResponse<T>(response: Response, label: string): Promise<T> {
@@ -152,10 +159,14 @@ export class TwitchWebIntegrityManager {
   private sessionCookie?: string;
   private bundle?: TwitchIntegrity;
   private inFlight?: { promise: Promise<boolean>; controller: AbortController; waiters: number };
+  private failures = 0;
+  private retryAt = 0;
+  private readonly now: () => number;
 
   constructor(private readonly options: TwitchWebIntegrityOptions) {
     this.fetcher = options.fetcher ?? fetch;
     this.sessionCookie = options.kasadaSessionCookie;
+    this.now = options.now ?? Date.now;
   }
 
   current(): TwitchIntegrity | undefined {
@@ -170,8 +181,23 @@ export class TwitchWebIntegrityManager {
       return true;
     }
     if (!this.inFlight) {
+      // Inside the backoff window the caller proceeds without a token, as it
+      // would when the extension cannot capture one. The failure itself was
+      // already raised to the caller whose mint failed.
+      if (this.now() < this.retryAt) return false;
       const flight = { controller: new AbortController(), waiters: 0, promise: undefined as unknown as Promise<boolean> };
-      flight.promise = this.mint(flight.controller.signal).finally(() => {
+      flight.promise = this.mint(flight.controller.signal).then((minted) => {
+        this.failures = 0;
+        this.retryAt = 0;
+        return minted;
+      }, (error: unknown) => {
+        // Cancellation by the last waiter says nothing about Twitch.
+        if (!flight.controller.signal.aborted) {
+          this.retryAt = this.now() + Math.min(FAILURE_BACKOFF_MS * 2 ** this.failures, MAX_FAILURE_BACKOFF_MS);
+          this.failures++;
+        }
+        throw error;
+      }).finally(() => {
         if (this.inFlight === flight) this.inFlight = undefined;
       });
       this.inFlight = flight;
@@ -215,7 +241,7 @@ export class TwitchWebIntegrityManager {
     if (identity.client_id !== WEB_CLIENT_ID) throw new Error("Twitch OAuth token does not belong to the web client");
 
     const sdk = await this.fetchBounded(`${SDK_BASE}/p.js?x-kpsdk-v=${SDK_VERSION}`, {
-      headers: { "User-Agent": SDK_USER_AGENT, Referer: "https://www.twitch.tv/" },
+      headers: { "User-Agent": WEB_USER_AGENT, Referer: "https://www.twitch.tv/" },
     }, signal);
     if (!sdk.ok) throw new Error(`Twitch SDK script failed: HTTP ${sdk.status}`);
     const salts = decodeKasadaSaltCandidates(await sdk.text());
@@ -224,7 +250,7 @@ export class TwitchWebIntegrityManager {
     const fp = await this.fetchBounded(`${SDK_BASE}/fp?x-kpsdk-v=${SDK_VERSION}`, {
       headers: {
         Cookie: `KP_UIDz-ssn=${this.sessionCookie}`,
-        "User-Agent": SDK_USER_AGENT,
+        "User-Agent": WEB_USER_AGENT,
         Referer: "https://www.twitch.tv/",
         Origin: "https://www.twitch.tv",
       },
@@ -245,6 +271,7 @@ export class TwitchWebIntegrityManager {
       "X-Device-Id": deviceId,
       "Client-Session-Id": this.sessionId,
       "Client-Version": CLIENT_VERSION,
+      "User-Agent": WEB_USER_AGENT,
       Origin: "https://www.twitch.tv",
       Referer: "https://www.twitch.tv/",
     };

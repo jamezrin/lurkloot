@@ -292,7 +292,15 @@ function resetExtension(): Promise<RuntimeSnapshot<ExtensionSettings>> {
 // extension can do. Keep it ahead of activity routing and core delegation.
 const dispatchRuntimeMessage = createRuntimeMessageDispatcher({
   exportCliCredentials: () => buildCliCredentialBlob(
-    async (url, name) => (await browser.cookies.get({ url, name }))?.value ?? undefined,
+    async (url, name, partitionedUnder) => {
+      try {
+        const details = partitionedUnder ? { url, name, partitionKey: { topLevelSite: partitionedUnder } } : { url, name };
+        return (await browser.cookies.get(details))?.value ?? undefined;
+      } catch {
+        // Browsers without partitioned-cookie support reject `partitionKey`.
+        return undefined;
+      }
+    },
     () => browser.permissions.contains({ origins: [KASADA_COOKIE_ORIGIN] }),
   ),
   resetExtension,

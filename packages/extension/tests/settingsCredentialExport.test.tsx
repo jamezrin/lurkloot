@@ -108,17 +108,20 @@ describe("settings credential export", () => {
     expect(confirm).not.toHaveBeenCalled();
   });
 
-  it("asks for the Kasada host inside the confirm click and still exports when declined", async () => {
+  it("asks for the Kasada host when arming, not in the click that downloads", async () => {
     const requestPermission = vi.fn(async () => false);
     const { container, exportCredentials } = await mount(requestPermission);
 
+    // A synchronous act: the request must start inside the click, or the
+    // browser no longer treats it as a user gesture.
     act(() => byText(container, "Export credentials").click());
-    // A synchronous act: the request must start before anything is awaited,
-    // or the browser no longer treats it as part of the click.
-    act(() => byText(container, "Confirm export").click());
     expect(requestPermission).toHaveBeenCalledTimes(1);
+    expect(exportCredentials).not.toHaveBeenCalled();
 
-    await act(async () => undefined);
+    // Chrome's prompt can destroy the popup, so confirming must not prompt
+    // again. A declined grant still exports the login cookies.
+    await act(async () => byText(container, "Confirm export").click());
+    expect(requestPermission).toHaveBeenCalledTimes(1);
     expect(exportCredentials).toHaveBeenCalledTimes(1);
   });
 

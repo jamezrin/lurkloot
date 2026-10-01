@@ -96,6 +96,77 @@ describe("TwitchWebIntegrityManager", () => {
     await expect(manager.ensure()).rejects.toThrow(/Kasada session cookie.*extension export/i);
   });
 
+  it("backs off after a failed mint instead of repeating the SDK exchange on every call", async () => {
+    let now = 1_000_000;
+    let clearanceCalls = 0;
+    let clearanceOk = false;
+    const userAgents = new Set<string | null>();
+    const manager = new TwitchWebIntegrityManager({
+      authToken: "web-token", deviceId: "device-id", kasadaSessionCookie: "seed", now: () => now,
+      fetcher: async (input, init) => {
+        const path = new URL(input).pathname;
+        if (path === "/oauth2/validate") return Response.json({ client_id: "kimne78kx3ncx6brgo4mv6wki5h1ko" });
+        userAgents.add(new Headers(init?.headers).get("user-agent"));
+        if (path.endsWith("/p.js")) return new Response(packedSample);
+        if (path.endsWith("/fp")) {
+          clearanceCalls++;
+          return clearanceOk ? new Response("ok", { headers: { "x-kpsdk-ct": "clearance" } }) : new Response("blocked", { status: 429 });
+        }
+        if (path === "/integrity") return Response.json({ token: "valid-token", expiration: Date.now() + 60_000 });
+        if (path === "/gql") return Response.json({ data: { currentUser: { dropCampaigns: [] } } });
+        throw new Error(`Unexpected request ${path}`);
+      },
+    });
+
+    await expect(manager.ensure()).rejects.toThrow(/clearance failed: HTTP 429/);
+    expect(await manager.ensure({ forceRefresh: true })).toBe(false);
+    expect(clearanceCalls).toBe(1);
+
+    now += 60_000;
+    await expect(manager.ensure()).rejects.toThrow(/clearance failed/);
+    expect(clearanceCalls).toBe(2);
+    now += 60_000;
+    expect(await manager.ensure()).toBe(false);
+    expect(clearanceCalls).toBe(2);
+
+    now += 60_000;
+    clearanceOk = true;
+    expect(await manager.ensure()).toBe(true);
+    expect(clearanceCalls).toBe(3);
+    expect([...userAgents]).toHaveLength(1);
+    expect([...userAgents][0]).toMatch(/ Chrome\/\d+/);
+    expect([...userAgents][0]).not.toMatch(/Headless/);
+  });
+
+  it("does not back off when every waiter cancelled the mint", async () => {
+    const controller = new AbortController();
+    let validations = 0;
+    const manager = new TwitchWebIntegrityManager({
+      authToken: "web-token", deviceId: "device-id", kasadaSessionCookie: "seed",
+      fetcher: async (input, init) => {
+        const path = new URL(input).pathname;
+        if (path === "/oauth2/validate") {
+          validations++;
+          if (validations === 1) {
+            return new Promise<Response>((_, reject) => init?.signal?.addEventListener("abort", () => reject(init.signal?.reason)));
+          }
+          return Response.json({ client_id: "kimne78kx3ncx6brgo4mv6wki5h1ko" });
+        }
+        if (path.endsWith("/p.js")) return new Response(packedSample);
+        if (path.endsWith("/fp")) return new Response("ok", { headers: { "x-kpsdk-ct": "clearance" } });
+        if (path === "/integrity") return Response.json({ token: "valid-token", expiration: Date.now() + 60_000 });
+        if (path === "/gql") return Response.json({ data: { currentUser: { dropCampaigns: [] } } });
+        throw new Error(`Unexpected request ${path}`);
+      },
+    });
+
+    const cancelled = manager.ensure({ signal: controller.signal });
+    controller.abort();
+    await expect(cancelled).rejects.toMatchObject({ name: "AbortError" });
+    expect(await manager.ensure()).toBe(true);
+    expect(validations).toBe(2);
+  });
+
   it("retries dashboard validation inline when the persisted hash expires", async () => {
     const queries: Record<string, unknown>[] = [];
     const manager = new TwitchWebIntegrityManager({

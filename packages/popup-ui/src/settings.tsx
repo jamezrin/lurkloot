@@ -13,7 +13,7 @@ import { AboutSection } from "./about";
 import { TwitchExtensionSettings, twitchExtensionSearchText } from "./twitchExtensions";
 import type { GameItem, PopupCompatibilityRegistry, PopupCompatibilityResolution } from "./types";
 
-export function SettingsView({ suggestions, onSearchCategories, settings, onSettingsChange, onExtensionEnabledChange, onExportCredentials, onExportSettings, onImportSettings, onReset, exportConfirmationResetKey, compatibilityRegistry, compatibilityResolution, focusGroupId, onOpenGames, version }: {
+export function SettingsView({ suggestions, onSearchCategories, settings, onSettingsChange, onExtensionEnabledChange, onExportCredentials, onArmExportCredentials, onExportSettings, onImportSettings, onReset, exportConfirmationResetKey, compatibilityRegistry, compatibilityResolution, focusGroupId, onOpenGames, version }: {
   suggestions: Record<Platform, GameItem[]>;
   onSearchCategories(platform: Platform, query: string): Promise<CategorySelection[]>;
   settings: ExtensionSettings;
@@ -22,6 +22,10 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
   // Optional: when provided, the settings view shows an "Export credentials"
   // action for the headless CLI. The extension wires it; the demo omits it.
   onExportCredentials?: () => void | Promise<void>;
+  // Runs inside the click that arms the export, while it is still a user
+  // gesture. The browser prompt it may open can close the popup, so it must
+  // not share a click with the download.
+  onArmExportCredentials?: () => void;
   // Optional: download the current settings as a portable JSON file.
   onExportSettings?: () => void | Promise<void>;
   // Optional: prompt for a settings file and apply it. Resolves false when the
@@ -305,7 +309,12 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
                 </ActionRow>
               ) : (
                 <ActionRow title={t("cliExportTitle")} hint={t("cliExportHint")}>
-                  <ActionButton onClick={() => setExportArmed(true)}>
+                  <ActionButton
+                    onClick={() => {
+                      onArmExportCredentials?.();
+                      setExportArmed(true);
+                    }}
+                  >
                     <Terminal size={12} />
                     {t("cliExportButton")}
                   </ActionButton>
