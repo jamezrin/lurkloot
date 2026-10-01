@@ -1,5 +1,6 @@
 import { twitchExtensionProviders } from "@lurkloot/core/extensions/registry";
 import { validateTwitchExtensionReport } from "@lurkloot/core/extensions/reports";
+import type { EngineEvent } from "@lurkloot/shared/events";
 import type { TwitchExtensionProviderId, TwitchExtensionReport } from "@lurkloot/shared/models";
 import { withTwitchExtensionSession, type DriverSession, type SessionSource, type TwitchExtensionSessionOutcome } from "./session";
 
@@ -8,7 +9,18 @@ export interface TwitchExtensionDriver {
   refresh?(): Promise<void>;
 }
 export interface TwitchExtensionTarget { channelId: string; username?: string }
-export type TwitchExtensionDriverFactory = (session: DriverSession, emit: (value: unknown) => void, channel?: { username: string }) => Promise<TwitchExtensionDriver>;
+// `publish` reports a driver's activity (a pack opened, a giveaway joined). Like
+// `emit`, it publishes nothing once the session is stopped or replaced (#594).
+export type TwitchExtensionDriverFactory = (
+  session: DriverSession,
+  emit: (value: unknown) => void,
+  channel?: { username: string },
+  publish?: (events: readonly EngineEvent[]) => void,
+) => Promise<TwitchExtensionDriver>;
+
+function refreshSlackMs(minRefreshIntervalMs: number): number {
+  return Math.min(5_000, minRefreshIntervalMs / 10);
+}
 
 export function createTwitchExtensionRuntime(options: {
   source: SessionSource;
@@ -16,6 +28,7 @@ export function createTwitchExtensionRuntime(options: {
   drivers: Partial<Record<TwitchExtensionProviderId, TwitchExtensionDriverFactory>>;
   report(provider: TwitchExtensionProviderId, report: TwitchExtensionReport): void;
   onViolation(provider: TwitchExtensionProviderId, diagnostic: string): void;
+  publish(events: readonly EngineEvent[]): void;
 }) {
   interface Entry {
     channelId: string;
@@ -43,8 +56,15 @@ export function createTwitchExtensionRuntime(options: {
       dispose(entry);
     }
   }
+  // Whether reports from `entry` still count: it is the provider's current
+  // session and nothing stopped it. Every stop, channel change, quarantine and
+  // host invalidation (disable, revocation, logout, manual pause, restart) ends
+  // it first, so late driver output publishes nothing.
+  function live(id: TwitchExtensionProviderId, entry: Entry): boolean {
+    return entries.get(id) === entry && !entry.abort.signal.aborted;
+  }
   function emit(id: TwitchExtensionProviderId, entry: Entry, value: unknown) {
-    if (entries.get(id) !== entry || entry.abort.signal.aborted) return;
+    if (!live(id, entry)) return;
     const report = validateTwitchExtensionReport(value);
     if (!report) {
       quarantined.add(id);
@@ -80,7 +100,10 @@ export function createTwitchExtensionRuntime(options: {
       if (entry?.channelId !== channelId) { stop(id); entry = undefined; }
       if (entry?.pending) { work.push(entry.pending); continue; }
       const now = options.source.now();
-      if (entry && now < entry.nextRefreshAt) continue;
+      // The lane reconciles on each minute heartbeat commit (#594), so a floor
+      // of one minute would miss every other heartbeat by milliseconds. A
+      // refresh due within a tenth of its floor (at most 5 s) runs now.
+      if (entry && now + refreshSlackMs(provider.minRefreshIntervalMs) < entry.nextRefreshAt) continue;
       if (entry?.driver && entry.expiresAt > now + 60_000) {
         const active = entry;
         active.nextRefreshAt = now + provider.minRefreshIntervalMs;
@@ -113,7 +136,12 @@ export function createTwitchExtensionRuntime(options: {
               emit(id, next, { status: "unavailable", reasonCode: "auth-required", progress: [], pending: [] });
               stop(id);
             }, Math.min(2_147_483_647, Math.max(0, session.expiresAt - options.source.now())));
-            const driver = await factory(session, (value) => emit(id, next, value), username ? { username } : undefined);
+            const driver = await factory(
+              session,
+              (value) => emit(id, next, value),
+              username ? { username } : undefined,
+              (events) => { if (live(id, next)) options.publish(events); },
+            );
             next.driver = driver;
             if (next.abort.signal.aborted || entries.get(id) !== next) dispose(next);
           }, next.abort.signal);

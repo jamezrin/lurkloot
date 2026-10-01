@@ -27,6 +27,7 @@ import {
 } from "../src/core/activityMessages";
 import { twitchHeartbeatFetchText, twitchHeartbeatPost } from "../src/core/twitchHeartbeatTransport";
 import { createCredentialAvailabilityProvider } from "../src/core/credentialAvailability";
+import { createTwitchExtensionCommitHook } from "../src/extensions/commitHook";
 import { createTwitchExtensionHost } from "../src/extensions/host";
 import { createTwitchExtensionSessionSource } from "../src/extensions/transport";
 import { createFortniteDriver } from "../src/extensions/fortnite/driver";
@@ -62,6 +63,7 @@ const kickDiscoveryState = new KickDiscoveryState();
 const kickPageContextRecovery = new KickPageContextRecoveryTracker();
 const twitchDiscoveryState = new TwitchDiscoveryState();
 const KICK_PAGE_CONTEXT_URL = "https://kick.com/drops/inventory";
+const TWITCH_EXTENSION_LANE_KEY = "twitchExtensionLane";
 const createBrowserWebSocket: WebSocketFactory = (url) => new WebSocket(url) as unknown as WebSocketLike;
 const checkCredentialAvailability = createCredentialAvailabilityProvider({
   get: (details) => browser.cookies.get(details),
@@ -177,6 +179,26 @@ const controller = createBackgroundController<ExtensionSettings>({
   },
 });
 
+// A driver's activity, published through its session so that nothing is
+// reported once the session has ended (#594).
+function publishDriverAction(
+  publish: ((events: readonly EngineEvent[]) => void) | undefined,
+  channel: { username: string } | undefined,
+  provider: "fortnite" | "nopixel",
+  action: "takeover_started" | "sprite_captured" | "giveaway_joined" | "pack_opened",
+): void {
+  if (!publish || !channel || !/^[a-zA-Z0-9_]{1,25}$/.test(channel.username)) return;
+  const events: EngineEvent[] = [];
+  withActivityDiagnostics((event) => events.push(event))({
+    category: "activity",
+    code: "twitch_extension_action",
+    level: "info",
+    platform: "twitch",
+    data: { provider, action, channel: channel.username },
+  });
+  publish(events);
+}
+
 const extensionHost = createTwitchExtensionHost({
   source: createTwitchExtensionSessionSource({
     hasSession: async () => (await checkCredentialAvailability("twitch")).status === "available",
@@ -187,35 +209,38 @@ const extensionHost = createTwitchExtensionHost({
     contains: (details) => browser.permissions.contains(details),
   },
   drivers: {
-    fortnite: async (session, emit, channel) => createFortniteDriver({ allowTakeovers: (await loadSettings()).twitchExtensions.fortnite.allowTakeovers, onTakeoverStarted: () => {
-      if (!channel || !/^[a-zA-Z0-9_]{1,25}$/.test(channel.username)) return;
-      const events: EngineEvent[] = [];
-      withActivityDiagnostics((event) => events.push(event))({ category: "activity", code: "twitch_extension_action", level: "info", platform: "twitch", data: { provider: "fortnite", action: "takeover_started", channel: channel.username } });
-      void reportEvents(events).catch(() => undefined);
-    }, createSocket: (url) => new WebSocket(url), onCaptured: () => {
-      if (!channel || !/^[a-zA-Z0-9_]{1,25}$/.test(channel.username)) return;
-      const events: EngineEvent[] = [];
-      withActivityDiagnostics((event) => events.push(event))({ category: "activity", code: "twitch_extension_action", level: "info", platform: "twitch", data: { provider: "fortnite", action: "sprite_captured", channel: channel.username } });
-      void reportEvents(events).catch(() => undefined);
-    } })(session, emit),
-    nopixel: async (session, emit, channel) => createNoPixelDriver((url, init) => fetch(url, init), () => {
-      if (!channel || !/^[a-zA-Z0-9_]{1,25}$/.test(channel.username)) return;
-      const events: EngineEvent[] = [];
-      withActivityDiagnostics((event) => events.push(event))({ category: "activity", code: "twitch_extension_action", level: "info", platform: "twitch", data: { provider: "nopixel", action: "giveaway_joined", channel: channel.username } });
-      void reportEvents(events).catch(() => undefined);
-    }, Date.now, (message) => {
-      void reportEvents([{ category: "diagnostic", platform: "twitch", level: "warn", message }]).catch(() => undefined);
-    }, { autoOpenPacks: (await loadSettings()).twitchExtensions.nopixel.autoOpenPacks, onOpened: () => {
-      if (!channel || !/^[a-zA-Z0-9_]{1,25}$/.test(channel.username)) return;
-      const events: EngineEvent[] = [];
-      withActivityDiagnostics((event) => events.push(event))({ category: "activity", code: "twitch_extension_action", level: "info", platform: "twitch", data: { provider: "nopixel", action: "pack_opened", channel: channel.username } });
-      void reportEvents(events).catch(() => undefined);
-    } })(session, emit),
+    fortnite: async (session, emit, channel, publish) => createFortniteDriver({
+      allowTakeovers: (await loadSettings()).twitchExtensions.fortnite.allowTakeovers,
+      onTakeoverStarted: () => publishDriverAction(publish, channel, "fortnite", "takeover_started"),
+      createSocket: (url) => new WebSocket(url),
+      onCaptured: () => publishDriverAction(publish, channel, "fortnite", "sprite_captured"),
+    })(session, emit, channel, publish),
+    nopixel: async (session, emit, channel, publish) => createNoPixelDriver(
+      (url, init) => fetch(url, init),
+      () => publishDriverAction(publish, channel, "nopixel", "giveaway_joined"),
+      Date.now,
+      (message) => publish?.([{ category: "diagnostic", platform: "twitch", level: "warn", message }]),
+      {
+        autoOpenPacks: (await loadSettings()).twitchExtensions.nopixel.autoOpenPacks,
+        onOpened: () => publishDriverAction(publish, channel, "nopixel", "pack_opened"),
+      },
+    )(session, emit, channel, publish),
   },
   loadSettings,
   loadState,
   savePatch: async (settingsPatch) => { await controller.handleMessage({ type: "saveSettings", settingsPatch }); },
   diagnostic: (message) => { void reportEvents([{ category: "diagnostic", platform: "twitch", level: "warn", message }]).catch(() => undefined); },
+  publish: (events) => { void reportEvents(events).catch(() => undefined); },
+  // Completion and cooldowns outlive the service worker (#594). Reset clears
+  // the key with the rest of local storage.
+  memory: {
+    load: async () => (await browser.storage.local.get(TWITCH_EXTENSION_LANE_KEY))[TWITCH_EXTENSION_LANE_KEY],
+    save: (memory) => browser.storage.local.set({ [TWITCH_EXTENSION_LANE_KEY]: memory }),
+  },
+  // Twitch's `login` cookie holds the username, not a credential.
+  viewerLogin: async () => (await browser.cookies.get({ url: "https://www.twitch.tv", name: "login" }))?.value,
+  // Never awaited: it runs from the lane's commit hook.
+  requestTick: () => { void controller.tick(["twitch"], "tabless_fallback").catch(() => undefined); },
 });
 
 const extensionGrantCompletion = createTwitchExtensionGrantCompletion({
@@ -225,13 +250,14 @@ const extensionGrantCompletion = createTwitchExtensionGrantCompletion({
   enable: async (provider) => { await extensionHost.setEnabled(provider, true); await controller.tickAndHandOff(["twitch"], "manual_tick"); },
 });
 
-async function reconcileExtensions(): Promise<void> {
-  try { await extensionHost.reconcile(); }
-  catch {
-    // Never include transport/provider exceptions or payloads in diagnostics.
-    void reportEvents([{ category: "diagnostic", platform: "twitch", level: "warn", message: "Twitch Extension background reconciliation failed." }]).catch(() => undefined);
-  }
-}
+// The lane follows the controller's accepted commits (#594), not storage events
+// or alarms. A worker wake, startup and an auth check reconcile it too.
+const extensionCommits = createTwitchExtensionCommitHook(extensionHost, () => {
+  // Never include transport/provider exceptions or payloads in diagnostics.
+  void reportEvents([{ category: "diagnostic", platform: "twitch", level: "warn", message: "Twitch Extension background reconciliation failed." }]).catch(() => undefined);
+});
+controller.onCommit(extensionCommits.onCommit);
+const reconcileExtensions = extensionCommits.reconcile;
 
 function withExtensionSnapshot(value: unknown): unknown {
   if (value && typeof value === "object" && "state" in value && "settings" in value) {
@@ -284,9 +310,9 @@ export default defineBackground(() => {
     },
     {
       invalidateAuthHealth: (platform) => {
-        // A Twitch cookie change may be a different account, so provider
-        // completion learned for the previous viewer is discarded too.
-        if (platform === "twitch") extensionHost.invalidate({ forgetCompletion: true });
+        // A Twitch cookie change may be a different account: the providers
+        // stop, and what the lane learned is dropped if the login changed.
+        if (platform === "twitch") void extensionHost.credentialsChanged().catch(() => undefined);
         return controller.invalidateAuthHealth(platform);
       },
       checkAuthHealth: async (platform) => {
@@ -303,35 +329,10 @@ export default defineBackground(() => {
     void extensionGrantCompletion.removed(details).catch(() => undefined);
     void extensionHost.removed(details).catch(() => undefined);
   });
+  // The grant flow's own intent keys; the lane itself follows commits.
   browser.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
     void extensionGrantCompletion.changed(changes).catch(() => undefined);
-    const settingsChange = changes.settings;
-    const stateChange = changes.schedulerState;
-    if (!settingsChange && !stateChange) return;
-    // Cancellation precedes asynchronous reads whenever authority changes.
-    if (settingsChange) {
-      const previous = settingsChange.oldValue as ExtensionSettings | undefined;
-      const next = settingsChange.newValue as ExtensionSettings | undefined;
-      if (previous?.pauseOnManualWatch !== next?.pauseOnManualWatch
-        || previous?.platform?.twitch?.enabled !== next?.platform?.twitch?.enabled
-        || previous?.twitchExtensions?.nopixel?.enabled !== next?.twitchExtensions?.nopixel?.enabled
-        || previous?.twitchExtensions?.fortnite?.enabled !== next?.twitchExtensions?.fortnite?.enabled
-        || previous?.twitchExtensions?.nopixel?.autoOpenPacks !== next?.twitchExtensions?.nopixel?.autoOpenPacks
-        || previous?.twitchExtensions?.fortnite?.allowTakeovers !== next?.twitchExtensions?.fortnite?.allowTakeovers) extensionHost.invalidate();
-    }
-    if (stateChange) {
-      const previous = stateChange.oldValue as RuntimeSnapshot["state"] | undefined;
-      const next = stateChange.newValue as RuntimeSnapshot["state"] | undefined;
-      if (Boolean(previous?.manualClosePause?.twitch) !== Boolean(next?.manualClosePause?.twitch)
-        || previous?.manualWatch?.twitch?.active !== next?.manualWatch?.twitch?.active
-        || previous?.sessions?.twitch?.status !== next?.sessions?.twitch?.status
-        || previous?.sessions?.twitch?.channel?.channelId !== next?.sessions?.twitch?.channel?.channelId
-        || previous?.authHealth?.twitch?.status !== next?.authHealth?.twitch?.status) extensionHost.invalidate({
-          preserveCompleted: previous?.authHealth?.twitch?.status === "healthy" && next?.authHealth?.twitch?.status === "healthy",
-        });
-    }
-    void reconcileExtensions();
   });
   // Runs on every MV3 wake/MV2 background start. Stored grants are verified;
   // provider credentials/resources are reacquired rather than restored.
@@ -359,7 +360,6 @@ export default defineBackground(() => {
   });
 
   browser.alarms.onAlarm.addListener(createBackgroundAlarmListener(controller));
-  browser.alarms.onAlarm.addListener(() => { void reconcileExtensions(); });
 
   async function reconsiderTab(tabId: number, url: string | undefined): Promise<void> {
     if (!url) return;

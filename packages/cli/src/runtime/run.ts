@@ -5,7 +5,6 @@ import {
   TWITCH_ALARM_NAME,
   WATCH_ALARM_NAME,
   type CredentialAvailability,
-  type TickTrigger,
 } from "@lurkloot/core/controller";
 import type { Platform, SchedulerState } from "@lurkloot/shared/models";
 import { loadState, saveState } from "../storage";
@@ -35,80 +34,21 @@ export interface RunOptions {
   };
 }
 
-function disabledPlatformsNeedingCleanup(
-  state: SchedulerState,
-  settings: ReturnType<typeof toEngineSettings>,
-): Platform[] {
-  return (["twitch", "kick"] as const).filter((platform) => {
-    if (settings.platform[platform].enabled) return false;
-    const session = state.sessions[platform];
-    return state.campaigns[platform].length > 0
-      || session.channel !== undefined
-      || session.campaignId !== undefined
-      || session.rewardId !== undefined
-      || session.watchMode !== undefined
-      || state.managedWatchTabs?.[platform] !== undefined;
-  });
-}
-
-interface CliTickDriver {
-  tickAndHandOff(platforms?: Platform[], trigger?: TickTrigger): Promise<SchedulerState | undefined>;
-}
-
-interface CliTickOptions {
-  controller: CliTickDriver;
-  enabledPlatforms: Platform[];
-  engineSettings: ReturnType<typeof toEngineSettings>;
-  loadState(): Promise<SchedulerState>;
-  seenSubscriptionWaits: Set<string>;
-  logger: Logger;
-}
-
-// Each stable driver options object owns one observer per admitted tick result.
-// Repeated intervals still request the coalesced follow-up, but do not attach
-// another reporting/fallback-state continuation to its shared promise.
-const cliTickResults = new WeakMap<CliTickOptions, WeakMap<Promise<SchedulerState | undefined>, Promise<void>>>();
-
-export function runCliTickOnce(options: CliTickOptions): Promise<void> {
-  let result: Promise<SchedulerState | undefined>;
-  try {
-    result = options.controller.tickAndHandOff(options.enabledPlatforms, "alarm");
-  } catch (error) {
-    options.logger.error(error instanceof Error ? error.message : String(error), "tick");
-    return Promise.resolve();
-  }
-  let pending = cliTickResults.get(options);
-  if (!pending) {
-    pending = new WeakMap();
-    cliTickResults.set(options, pending);
-  }
-  const existing = pending.get(result);
-  if (existing) return existing;
-  const run = completeCliTickOnce(options, result);
-  pending.set(result, run);
-  return run;
-}
-
-async function completeCliTickOnce(options: CliTickOptions, result: Promise<SchedulerState | undefined>): Promise<void> {
-  const { controller, engineSettings, loadState, seenSubscriptionWaits, logger } = options;
-  try {
-    let state = await result ?? await loadState();
-    const staleDisabledPlatforms = disabledPlatformsNeedingCleanup(state, engineSettings);
-    if (staleDisabledPlatforms.length > 0) {
-      state = await controller.tickAndHandOff(staleDisabledPlatforms) ?? await loadState();
-    }
+// Logs each campaign reward newly waiting on a subscription once, and forgets
+// the ones that stopped waiting, so a reward that waits again is logged again.
+export function createSubscriptionWaitReporter(logger: Logger): (state: SchedulerState) => void {
+  const seen = new Set<string>();
+  return (state) => {
     const waits = subscriptionWaitKeys([...state.campaigns.twitch, ...state.campaigns.kick]);
-    for (const key of seenSubscriptionWaits) {
-      if (!waits.has(key)) seenSubscriptionWaits.delete(key);
+    for (const key of seen) {
+      if (!waits.has(key)) seen.delete(key);
     }
     for (const [key, message] of waits) {
-      if (seenSubscriptionWaits.has(key)) continue;
-      seenSubscriptionWaits.add(key);
+      if (seen.has(key)) continue;
+      seen.add(key);
       logger.info(message, key.slice(0, key.indexOf(":")) as Platform);
     }
-  } catch (error) {
-    logger.error(error instanceof Error ? error.message : String(error), "tick");
-  }
+  };
 }
 
 // Headless farming loop. Reuses the engine's background controller — the same
@@ -121,9 +61,6 @@ export async function runLoop(options: RunOptions): Promise<void> {
   // The shared engine works on the EngineSettings contract; expand the CLI's
   // schema once, pinning the headless invariants (always running, always tabless).
   const engineSettings = toEngineSettings(settings);
-  const enabledPlatforms = (["twitch", "kick"] as const).filter((platform) =>
-    engineSettings.platform[platform].enabled);
-  const seenSubscriptionWaits = new Set<string>();
   const loadRuntimeState = options.stateStore?.load
     ?? (async (): Promise<SchedulerState> => loadState(statePath));
   const saveRuntimeState = options.stateStore?.save
@@ -155,49 +92,40 @@ export async function runLoop(options: RunOptions): Promise<void> {
     twitch: {},
   });
 
-  const tickOptions: CliTickOptions = {
-    controller, enabledPlatforms, engineSettings,
-    loadState: loadRuntimeState, seenSubscriptionWaits, logger,
-  };
-  const platformTickOptions = enabledPlatforms.length > 0
-    ? enabledPlatforms.map((platform) => ({ ...tickOptions, enabledPlatforms: [platform] }))
-    : [tickOptions];
-  const optionsForTickJob = (platform: Platform): CliTickOptions | undefined => {
-    const index = enabledPlatforms.indexOf(platform);
-    if (index !== -1) return platformTickOptions[index];
-    // With no platform enabled the CLI still runs one cleanup pass per poll
-    // interval, as it always has; it rides the Twitch tick job.
-    return enabledPlatforms.length === 0 && platform === "twitch" ? tickOptions : undefined;
-  };
-  const requestTicks = () => {
-    // Admission is per platform all the way through the host driver: a fast
-    // Kick interval must not accumulate observers waiting for a slow Twitch.
-    for (const options of platformTickOptions) void runCliTickOnce(options);
-  };
+  // The CLI's own view of committed state: subscription waits it has not
+  // logged yet. The engine decides everything else.
+  const reportSubscriptionWaits = createSubscriptionWaitReporter(logger);
+  controller.onCommit((change) => {
+    if (change.kind === "state") reportSubscriptionWaits(change.state);
+  });
 
   const runJob = async (name: string) => {
     try {
       await controller.runJob(name);
     } catch (error) {
-      logger.error(error instanceof Error ? error.message : String(error), name === WATCH_ALARM_NAME ? "heartbeat" : "job");
+      const scope = name === WATCH_ALARM_NAME
+        ? "heartbeat"
+        : name === TWITCH_ALARM_NAME || name === KICK_ALARM_NAME ? "tick" : "job";
+      logger.error(error instanceof Error ? error.message : String(error), scope);
     }
   };
-  // The engine's jobs, fired by the Node scheduler. Tick jobs go through the
-  // CLI's own tick driver, which adds its cleanup and subscription reporting.
+  // The engine's jobs, fired by the Node scheduler: the same jobs the
+  // extension's alarms fire, tick jobs included (#591).
   dispatchJob = (name) => {
-    const platform = name === TWITCH_ALARM_NAME ? "twitch" : name === KICK_ALARM_NAME ? "kick" : undefined;
-    if (platform) {
-      const tickOptionsForJob = optionsForTickJob(platform);
-      if (tickOptionsForJob) void runCliTickOnce(tickOptionsForJob);
-      return;
-    }
     void runJob(name);
   };
 
   logger.info("Starting farming loop", "run");
   if (options.once) {
     jobs.dispose();
-    await runCliTickOnce(tickOptions);
+    await Promise.all([runJob(TWITCH_ALARM_NAME), runJob(KICK_ALARM_NAME)]);
+    await controller.settleBackgroundWork();
+    // A tick that changed nothing commits nothing, so report stored waits too.
+    try {
+      reportSubscriptionWaits(await loadRuntimeState());
+    } catch (error) {
+      logger.error(error instanceof Error ? error.message : String(error), "run");
+    }
     await transport.dispose();
     return;
   }
@@ -240,8 +168,15 @@ export async function runLoop(options: RunOptions): Promise<void> {
       // Recovery and shutdown must not wait for initial discovery. A persisted
       // cadence may already be due while the first campaign refresh is slow or
       // blocked, and signal handlers need to be live for that entire interval.
+      // Waits already stored are logged once, even when no tick changes them.
+      try {
+        reportSubscriptionWaits(await loadRuntimeState());
+      } catch (error) {
+        logger.error(error instanceof Error ? error.message : String(error), "run");
+      }
       void runJob(WATCH_ALARM_NAME);
-      requestTicks();
+      void runJob(TWITCH_ALARM_NAME);
+      void runJob(KICK_ALARM_NAME);
     })();
   });
 }

@@ -306,6 +306,30 @@ export interface ControllerCalls<S extends EngineSettings> {
   // `platforms` (by default, every platform) has run.
   settleCommitHooks(platforms?: readonly Platform[]): Promise<void>;
 
+  // Owner methods for state other modules used to write directly (#591).
+  // discovery.ts
+  invalidateDiscoveryLane(platform: Platform): void;
+  stopDiscoveryLane(platform: Platform): void;
+  recordDiscoveryEvent(platform: Platform, event: EngineEvent): void;
+  drainDiscoveryEvents(platform: Platform): EngineEvent[];
+  selectionGeneration(platform: Platform): number;
+  // tickAdmission.ts
+  trackBackgroundWork(run: Promise<unknown>): void;
+  suspendTickAdmission(): void;
+  resumeTickAdmission(): void;
+  discardStalePendingTick(platform: Platform): void;
+  platformTickRunning(platform: Platform): boolean;
+  platformTickAdmitted(platform: Platform): boolean;
+  // reporting.ts
+  settleRouteReports(): Promise<boolean>;
+  // discoverySignals.ts
+  setDiscoverySignalPlatformBlocked(platform: Platform, blocked: boolean): void;
+  takeAllowedDiscoverySignalRefresh(platform: Platform): DiscoverySignalRefreshRequest | undefined;
+  // settingsTransitions.ts
+  beginTwitchSettingsTransition(): () => boolean;
+  invalidateTwitchSettingsTransitions(): void;
+  currentTwitchSettingsTransition(): number;
+
   // heartbeat.ts
   ensureHeartbeatJob(): Promise<void>;
   cancelHeartbeatPublicationLeases(platforms: readonly Platform[]): Promise<void>;
@@ -398,6 +422,10 @@ export interface ControllerCalls<S extends EngineSettings> {
   ): Promise<void>;
   handleTabUpdated(tabId: number, url: string): Promise<void>;
   applyAdFocusForState(state: SchedulerState, emit: EventEmitter, platforms?: readonly Platform[]): Promise<void>;
+  registerWatchTabEffectHandlers(executor: TickEffectExecutor): TickEffectExecutor;
+
+  // supplementalSources.ts
+  registerSupplementalTargetEffects(executor: TickEffectExecutor): TickEffectExecutor;
   getPlaybackControl(
     message: Extract<CoreRuntimeMessage, { type: "getPlaybackControl" }>,
     senderTabId?: number,
@@ -420,6 +448,16 @@ export interface ControllerCalls<S extends EngineSettings> {
     onPersisted?: (state: SchedulerState) => void,
   ): Promise<void>;
   claimRewardNow(message: Extract<CoreRuntimeMessage, { type: "claimReward" }>): Promise<RuntimeSnapshot<S>>;
+
+  // Runtime message handlers, each in the module that owns what it changes
+  // (#591). messages.ts only routes to them.
+  setPlatformEnabled(message: Extract<CoreRuntimeMessage, { type: "setPlatformEnabled" | "setAutomation" }>): Promise<RuntimeSnapshot<S>>;
+  saveSettingsFromMessage(message: Extract<CoreRuntimeMessage, { type: "saveSettings" }>): Promise<RuntimeSnapshot<S>>;
+  updateIdleWatchlist(message: Extract<CoreRuntimeMessage, { type: "updateIdleWatchlist" }>): Promise<RuntimeSnapshot<S>>;
+  resumeFarmingAfterManualClose(platform: Platform): Promise<RuntimeSnapshot<S>>;
+  dismissCriticalFailure(platform: Platform): Promise<RuntimeSnapshot<S>>;
+  searchCategories(message: Extract<CoreRuntimeMessage, { type: "searchCategories" }>): Promise<CategorySearchResult>;
+  tickNow(): Promise<RuntimeSnapshot<S>>;
   runDropClaims(platform: Platform): Promise<void>;
 
   // discoverySignals.ts

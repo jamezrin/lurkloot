@@ -1,6 +1,8 @@
+import type { CoreRuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { EngineSettings, Platform } from "@lurkloot/shared/models";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
-import { isFarmingActive } from "@lurkloot/shared/settings";
+import { IDLE_WATCHLIST_LIMIT, isFarmingActive } from "@lurkloot/shared/settings";
+import { settingsTickTrigger } from "./helpers";
 import { type ControllerSlices, lateBound } from "./context";
 import type { PreparedSettingsCommit, StateTransaction } from "./stateTransaction";
 import type { ControllerCalls, SettingsCommitOptions } from "./types";
@@ -10,7 +12,7 @@ export { isRankingOnlyPatch } from "./stateTransaction";
 // Settings commits and the transitions they start.
 export function createSettingsTransitions<S extends EngineSettings>(
   transaction: StateTransaction<S>,
-  { discoverySlice }: Pick<ControllerSlices<S>, "discoverySlice">,
+  { settingsSlice, lifecycleSlice }: Pick<ControllerSlices<S>, "settingsSlice" | "lifecycleSlice">,
   calls: Pick<ControllerCalls<S>,
     | "abortIneligibleClaimOnlyOperations"
     | "abortIneligibleKickChallengeClaims"
@@ -18,14 +20,32 @@ export function createSettingsTransitions<S extends EngineSettings>(
     | "holdTwitchIntegrityForDisable"
     | "reconcileTwitchIntegrityAfterCommit"
     | "cancelPendingTick"
+    | "invalidateDiscoveryLane"
     | "invalidateSelection"
     | "rescheduleDropClaimJobs"
     | "rescheduleKickChallengeJob"
     | "rescheduleTickJobs"
     | "rescheduleTwitchChannelPointsJob"
     | "withSettingsLock"
+    | "abortClaimHandoffs"
+    | "diagnosticEvent"
+    | "markPlatformsStarting"
+    | "platformTickRunning"
+    | "setDiscoverySignalPlatformBlocked"
+    | "snapshot"
+    | "stopDiscoverySignalControllersAndReport"
+    | "tickInBackground"
   >,
-): Pick<ControllerCalls<S>, "normalizeStartupSettings" | "commitSettings"> {
+): Pick<ControllerCalls<S>,
+  | "normalizeStartupSettings"
+  | "commitSettings"
+  | "beginTwitchSettingsTransition"
+  | "invalidateTwitchSettingsTransitions"
+  | "currentTwitchSettingsTransition"
+  | "setPlatformEnabled"
+  | "saveSettingsFromMessage"
+  | "updateIdleWatchlist"
+> {
   const {
     abortIneligibleClaimOnlyOperations,
     abortIneligibleKickChallengeClaims,
@@ -33,12 +53,21 @@ export function createSettingsTransitions<S extends EngineSettings>(
     holdTwitchIntegrityForDisable,
     reconcileTwitchIntegrityAfterCommit,
     cancelPendingTick,
+    invalidateDiscoveryLane,
     invalidateSelection,
     rescheduleDropClaimJobs,
     rescheduleKickChallengeJob,
     rescheduleTickJobs,
     rescheduleTwitchChannelPointsJob,
     withSettingsLock,
+    abortClaimHandoffs,
+    diagnosticEvent,
+    markPlatformsStarting,
+    platformTickRunning,
+    setDiscoverySignalPlatformBlocked,
+    snapshot,
+    stopDiscoverySignalControllersAndReport,
+    tickInBackground,
   } = lateBound(calls);
 
   // The jobs that follow the saved settings once the settings lock is
@@ -116,7 +145,7 @@ export function createSettingsTransitions<S extends EngineSettings>(
         for (const platform of invalidatedPlatforms) {
           // Discovery does not depend on the ranking, so a reorder keeps it and
           // only the selection made from it is redone.
-          if (commit.effects[platform] === "discovery") discoverySlice.discoveryLanes[platform].invalidate();
+          if (commit.effects[platform] === "discovery") invalidateDiscoveryLane(platform);
           invalidateSelection(platform);
         }
         const { settings } = commit;
@@ -159,7 +188,114 @@ export function createSettingsTransitions<S extends EngineSettings>(
     }
   }
 
+  // A Twitch enable or disable in progress. Starting one, shutdown or a reset
+  // supersedes every earlier one; the returned check says whether this one is
+  // still the latest.
+  function beginTwitchSettingsTransition(): () => boolean {
+    const generation = ++settingsSlice.twitchSettingsTransitionGeneration;
+    return () => generation === settingsSlice.twitchSettingsTransitionGeneration;
+  }
+
+  function invalidateTwitchSettingsTransitions(): void {
+    settingsSlice.twitchSettingsTransitionGeneration += 1;
+  }
+
+  // The latest Twitch transition, for work that must not outlive it.
+  function currentTwitchSettingsTransition(): number {
+    return settingsSlice.twitchSettingsTransitionGeneration;
+  }
+
+  // The popup's platform switch (#591: moved here from messages.ts). The
+  // setPlatformEnabled and setAutomation messages are the same operation now
+  // that there is no master switch to flip alongside the platform flag. Both are
+  // kept: they are separate wire messages with existing callers.
+  async function setPlatformEnabled(
+    message: Extract<CoreRuntimeMessage, { type: "setPlatformEnabled" | "setAutomation" }>,
+  ): Promise<RuntimeSnapshot<S>> {
+    const platformLabel = message.platform === "twitch" ? "Twitch" : "Kick";
+    const action = message.enabled ? "enable" : "disable";
+    diagnosticEvent("info", `User requested ${platformLabel} automation ${action}`, message.platform);
+    if (platformTickRunning(message.platform)) {
+      diagnosticEvent(
+        "info",
+        `${platformLabel} automation ${action} queued behind an active tick`,
+        message.platform,
+      );
+    }
+    // Stopping must cancel any loop still refreshing in the background.
+    if (!message.enabled) abortClaimHandoffs(message.platform);
+    const twitchTransition = message.platform === "twitch" ? beginTwitchSettingsTransition() : undefined;
+    const twitchTransitionIsCurrent = (): boolean =>
+      !lifecycleSlice.controllerShutdown && twitchTransition?.() === true;
+    // Twitch integrity follows the committed setting on its own (#589): the
+    // commit cancels a mint in flight when it disables Twitch, and the
+    // integrity service reconciles its lifecycle and schedule after it.
+    const patch: SettingsPatch = { platform: { [message.platform]: { enabled: message.enabled } } };
+    await commitSettings(() => patch, { intent: patch });
+    setDiscoverySignalPlatformBlocked(message.platform, !message.enabled);
+    if (!message.enabled) {
+      await stopDiscoverySignalControllersAndReport([message.platform]);
+    }
+    if (message.platform === "twitch" && !twitchTransitionIsCurrent()) return snapshot();
+    if (message.enabled) {
+      await markPlatformsStarting(
+        [message.platform],
+        message.platform === "twitch"
+          ? twitchTransitionIsCurrent
+          : undefined,
+      );
+      if (message.platform === "twitch" && !twitchTransitionIsCurrent()) {
+        return snapshot();
+      }
+    }
+    // Always scoped to the toggled platform. Nothing about this change can
+    // affect the other one any more, so it is never dragged through this
+    // platform's discovery.
+    tickInBackground(
+      [message.platform],
+      message.type === "setAutomation" ? "automation_toggle" : "platform_toggle",
+      () => diagnosticEvent("info", `${platformLabel} automation ${action} completed`, message.platform),
+    );
+    return snapshot();
+  }
+
+  async function saveSettingsFromMessage(
+    message: Extract<CoreRuntimeMessage, { type: "saveSettings" }>,
+  ): Promise<RuntimeSnapshot<S>> {
+    const { settings, effects } = await commitSettings(() => message.settingsPatch);
+    if (message.tickAfterSave && isFarmingActive(settings)) {
+      tickInBackground(message.tickAfterSavePlatforms, settingsTickTrigger(effects));
+    }
+    return snapshot();
+  }
+
+  // One channel added to or removed from an Idle Watchlist, applied to the list
+  // as it is stored at save time.
+  async function updateIdleWatchlist(
+    message: Extract<CoreRuntimeMessage, { type: "updateIdleWatchlist" }>,
+  ): Promise<RuntimeSnapshot<S>> {
+    const channel = message.channel.trim().replace(/^@/, "").toLowerCase();
+    const commit = channel ? await commitSettings((current) => {
+      const listed = current.platform[message.platform].idleWatchlistChannels;
+      const present = listed.some((entry) => entry.toLowerCase() === channel);
+      const next = message.action === "remove"
+        ? listed.filter((entry) => entry.toLowerCase() !== channel)
+        : present || listed.length >= IDLE_WATCHLIST_LIMIT ? listed : [...listed, channel];
+      return { platform: { [message.platform]: { idleWatchlistChannels: next } } };
+    }) : undefined;
+    if (commit && isFarmingActive(commit.settings)) {
+      tickInBackground([message.platform], settingsTickTrigger(commit.effects));
+    }
+    return snapshot();
+  }
+
   return {
+    setPlatformEnabled,
+    saveSettingsFromMessage,
+    updateIdleWatchlist,
+    currentTwitchSettingsTransition,
+    beginTwitchSettingsTransition,
+    invalidateTwitchSettingsTransitions,
     normalizeStartupSettings,
     commitSettings,
   };

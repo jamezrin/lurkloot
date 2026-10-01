@@ -1,5 +1,5 @@
 import React from "react";
-import type { CategorySelection, ExtensionSettings, LanguageOverride, Platform } from "@lurkloot/shared/models";
+import type { CategorySelection, ExtensionSettings, LanguageOverride, Platform, PriorityMode } from "@lurkloot/shared/models";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 import { LOCALE_OPTIONS } from "@lurkloot/shared/i18n";
 import { PLATFORMS } from "./constants";
@@ -154,6 +154,26 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
         titleKey: "settingsGroupDrops",
         description: t("dropsSettingsDescription"),
         entries: [
+          // The Queue's Then by divider is the primary home of the strategy,
+          // but it only renders while that tier has rows. This row keeps the
+          // strategy reachable when every queued campaign is pinned or starred.
+          {
+            id: "general.drops.strategy",
+            titleKey: "campaignPriorityTitle",
+            descriptionKey: "campaignPriorityDescription",
+            render: () => (
+              <SelectSettingRow<PriorityMode>
+                title={t("campaignPriorityTitle")}
+                description={t("campaignPriorityDescription")}
+                value={settings.priorityMode}
+                options={[
+                  { value: "ending_soonest", label: t("endingSoonest") },
+                  { value: "lowest_availability", label: t("lowAvailabilityFirst") },
+                ]}
+                onChange={(value) => void onSettingsChange({ priorityMode: value }, { tickAfterSave: true })}
+              />
+            ),
+          },
           {
             id: "general.drops.autoClaim",
             titleKey: "autoClaimTitle",

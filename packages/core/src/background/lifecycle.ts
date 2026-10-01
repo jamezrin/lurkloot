@@ -62,13 +62,7 @@ function pausedStartupSession(session: WatchSession): WatchSession {
 // Startup, jobs, snapshot, shutdown and host reset.
 export function createLifecycle<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
-  { discoverySlice, tickSlice, settingsSlice, lifecycleSlice, tabRegistry }: Pick<ControllerSlices<S>,
-    | "tabRegistry"
-    | "discoverySlice"
-    | "tickSlice"
-    | "settingsSlice"
-    | "lifecycleSlice"
-  >,
+  { lifecycleSlice, tabRegistry }: Pick<ControllerSlices<S>, "tabRegistry" | "lifecycleSlice">,
   calls: Pick<ControllerCalls<S>,
     | "resetTwitchIntegrity"
     | "abortActiveTicks"
@@ -103,6 +97,11 @@ export function createLifecycle<S extends EngineSettings>(
     | "withEventCollector"
     | "withSettingsLock"
     | "withStateLock"
+    | "invalidateDiscoveryLane"
+    | "invalidateTwitchSettingsTransitions"
+    | "resumeTickAdmission"
+    | "stopDiscoveryLane"
+    | "suspendTickAdmission"
   >,
 ): Pick<ControllerCalls<S>,
   | "ensureAlarm"
@@ -149,6 +148,11 @@ export function createLifecycle<S extends EngineSettings>(
     withEventCollector,
     withSettingsLock,
     withStateLock,
+    invalidateDiscoveryLane,
+    invalidateTwitchSettingsTransitions,
+    resumeTickAdmission,
+    stopDiscoveryLane,
+    suspendTickAdmission,
   } = lateBound(calls);
 
   async function ensureAlarm(): Promise<void> {
@@ -273,12 +277,12 @@ export function createLifecycle<S extends EngineSettings>(
   function shutdown(): void {
     lifecycleSlice.controllerShutdown = true;
     for (const platform of PLATFORMS) {
-      discoverySlice.discoveryLanes[platform].stop();
+      stopDiscoveryLane(platform);
       invalidateSelection(platform);
     }
     lifecycleSlice.observersOpen = false;
     for (const platform of PLATFORMS) invalidateDiscoverySignalAdmission(platform);
-    settingsSlice.twitchSettingsTransitionGeneration += 1;
+    invalidateTwitchSettingsTransitions();
     abortActiveTicks("Controller shutdown");
     closeTwitchIntegrityLifecycle("Controller shutdown");
     abortClaimOnlyOperations("Controller shutdown");
@@ -296,13 +300,13 @@ export function createLifecycle<S extends EngineSettings>(
   }
 
   async function prepareForHostReset(resetHostStorage?: () => Promise<void>): Promise<void> {
-    tickSlice.tickAdmissionSuspended = true;
+    suspendTickAdmission();
     lifecycleSlice.observersOpen = false;
     try {
       for (const platform of PLATFORMS) invalidateDiscoverySignalAdmission(platform);
-      settingsSlice.twitchSettingsTransitionGeneration += 1;
+      invalidateTwitchSettingsTransitions();
       for (const platform of PLATFORMS) {
-        discoverySlice.discoveryLanes[platform].invalidate();
+        invalidateDiscoveryLane(platform);
         invalidateSelection(platform);
       }
       abortActiveTicks("Host reset");
@@ -359,7 +363,7 @@ export function createLifecycle<S extends EngineSettings>(
     } finally {
       if (!lifecycleSlice.controllerShutdown) {
         lifecycleSlice.observersOpen = true;
-        tickSlice.tickAdmissionSuspended = false;
+        resumeTickAdmission();
       }
     }
   }

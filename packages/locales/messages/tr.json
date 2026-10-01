@@ -525,7 +525,7 @@
     "message": "Kampanya Önceliği"
   },
   "campaignPriorityDescription": {
-    "message": "Hangi dropların önce toplanacağını seçin."
+    "message": "Sıradaki sabitlenmemiş ve favori oyunlara ait olmayan kampanyaları sıralar. Bunu Sıra'daki “Sonra şuna göre” ayırıcısından da değiştirebilirsiniz."
   },
   "endingSoonest": {
     "message": "Önce süresi bitmek üzere olanlar"

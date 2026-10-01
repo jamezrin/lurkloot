@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, SchedulerState } from "@lurkloot/shared/models";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { EffectExecutor, driveEffects, perform } from "@lurkloot/core/effectExecutor";
@@ -15,6 +15,9 @@ import { ChannelPointsClaimGate, registerChannelPointsClaimEffect } from "@lurkl
 import { registerRewardClaimEffect } from "@lurkloot/core/background/claimService";
 import { KickChallengeClaimGate, registerKickRuntimeEffects } from "@lurkloot/core/background/kickRuntime";
 import { createTickEffectExecutor } from "@lurkloot/core/background/tickEffects";
+import { registerWatchTabEffects } from "@lurkloot/core/background/manualWatch";
+import { registerSupplementalTargetEffect } from "@lurkloot/core/background/supplementalSources";
+import { createTabRegistry } from "@lurkloot/core/tabRegistry";
 import { DEFAULT_STATE } from "../src/core/storage";
 
 // The scheduler tick decides from plain inputs and names its side effects
@@ -166,11 +169,41 @@ describe("effect executor", () => {
     expect(closed).toBe(true);
   });
 
-  it("registers one interim handler for every scheduler effect type no service owns yet", () => {
+  // #591: no interim handlers remain. Every effect type is registered by the
+  // service that owns it, exactly once.
+  it("starts empty: every scheduler effect type belongs to an owning service", () => {
     const executor = createTickEffectExecutor();
-    const types: SchedulerEffectType[] = ["stopWatchTab", "selectSupplementalTarget", "openWatchTab"];
-    for (const type of types) expect(executor.has(type)).toBe(true);
-    expect(() => executor.register("openWatchTab", async () => ({ tabId: 1, managedByExtension: true }))).toThrow();
+    const types: SchedulerEffectType[] = [
+      "stopWatchTab", "openWatchTab", "selectSupplementalTarget",
+      "claimRewards", "claimChallenges", "releasePageContexts", "claimChannelPoints",
+    ];
+    for (const type of types) expect(executor.has(type)).toBe(false);
+  });
+
+  it("leaves watch tabs to manual watch's handlers", () => {
+    const executor = createTickEffectExecutor();
+    registerWatchTabEffects(executor, undefined);
+    expect(executor.has("openWatchTab")).toBe(true);
+    expect(executor.has("stopWatchTab")).toBe(true);
+    expect(() => registerWatchTabEffects(executor, undefined)).toThrow();
+  });
+
+  it("leaves supplemental target selection to the supplemental sources' one handler", () => {
+    const executor = createTickEffectExecutor();
+    registerSupplementalTargetEffect(executor, undefined);
+    expect(executor.has("selectSupplementalTarget")).toBe(true);
+    expect(() => registerSupplementalTargetEffect(executor, undefined)).toThrow();
+  });
+
+  it("selects supplemental targets only for Twitch, through the port", async () => {
+    const select = vi.fn(async () => ({ id: "nopixel", tablessOnly: true as const, channel: { platform: "twitch" as const, username: "x", url: "https://www.twitch.tv/x", live: true } }));
+    const executor = registerSupplementalTargetEffect(createTickEffectExecutor(), { select });
+    const context = { adapters: {}, settings: DEFAULT_SETTINGS, tabRegistry: createTabRegistry(), emit: () => undefined };
+    const state = structuredClone(DEFAULT_STATE);
+    await expect(executor.run({ type: "selectSupplementalTarget", platform: "kick", state, source: "nopixel" }, context)).resolves.toBeUndefined();
+    await expect(executor.run({ type: "selectSupplementalTarget", platform: "twitch", state, source: "nopixel" }, context)).resolves.toMatchObject({ id: "nopixel" });
+    expect(select).toHaveBeenCalledOnce();
+    expect(select).toHaveBeenCalledWith(state, DEFAULT_SETTINGS, undefined, "nopixel");
   });
 
   it("leaves the reward claim to the claim service's one handler", () => {

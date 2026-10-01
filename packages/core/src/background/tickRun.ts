@@ -1,4 +1,4 @@
-import type { EngineSettings, Platform, SchedulerState, WatchSession, WatchSourceId } from "@lurkloot/shared/models";
+import type { EngineSettings, Platform, SchedulerState, WatchSession } from "@lurkloot/shared/models";
 import type { EngineEvent, EventEmitter } from "@lurkloot/shared/events";
 import { isFarmingActive } from "@lurkloot/shared/settings";
 import type { SchedulerTickResult, SelectionView, SnapshotSelectionResult } from "../core/scheduler";
@@ -28,8 +28,7 @@ import type {
 // One platform tick: selection, the scheduler tick and what runs around it.
 export function createTickRun<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
-  { discoverySlice, tickSlice, tabRegistry }: Pick<ControllerSlices<S>,
-    "discoverySlice" | "tickSlice" | "tabRegistry">,
+  { tickSlice, tabRegistry }: Pick<ControllerSlices<S>, "tickSlice" | "tabRegistry">,
   calls: Pick<ControllerCalls<S>,
     | "applyAdFocusForState"
     | "clearOperationalEvents"
@@ -51,6 +50,8 @@ export function createTickRun<S extends EngineSettings>(
     | "releaseRewardClaims"
     | "registerKickRuntimeEffects"
     | "registerRewardClaimEffects"
+    | "registerSupplementalTargetEffects"
+    | "registerWatchTabEffectHandlers"
     | "registerTwitchChannelPointsEffects"
     | "refreshAuthHealth"
     | "refreshDiscovery"
@@ -70,6 +71,10 @@ export function createTickRun<S extends EngineSettings>(
     | "waitingClaimRewardIds"
     | "withEventCollector"
     | "withStateLock"
+    | "drainDiscoveryEvents"
+    | "recordDiscoveryEvent"
+    | "discoverySnapshot"
+    | "selectionGeneration"
   >,
 ): Pick<ControllerCalls<S>, "tickPlatform"> {
   const {
@@ -93,6 +98,8 @@ export function createTickRun<S extends EngineSettings>(
     releaseRewardClaims,
     registerKickRuntimeEffects,
     registerRewardClaimEffects,
+    registerSupplementalTargetEffects,
+    registerWatchTabEffectHandlers,
     registerTwitchChannelPointsEffects,
     refreshAuthHealth,
     refreshDiscovery,
@@ -112,15 +119,20 @@ export function createTickRun<S extends EngineSettings>(
     waitingClaimRewardIds,
     withEventCollector,
     withStateLock,
+    drainDiscoveryEvents,
+    recordDiscoveryEvent,
+    discoverySnapshot,
+    selectionGeneration,
   } = lateBound(calls);
-  const supplementalSources = ports.twitch.supplementalSources;
   // One executor per controller: each scheduler effect type has one handler,
   // the interim ones plus those of the services that own theirs. Built on first
   // use, once every module's calls are bound.
   let tickEffectExecutor: TickEffectExecutor | undefined;
   const tickEffects = (): TickEffectExecutor =>
     tickEffectExecutor ??= registerRewardClaimEffects(
-      registerKickRuntimeEffects(registerTwitchChannelPointsEffects(createTickEffectExecutor())),
+      registerKickRuntimeEffects(registerTwitchChannelPointsEffects(
+        registerSupplementalTargetEffects(registerWatchTabEffectHandlers(createTickEffectExecutor())),
+      )),
     );
 
   async function tickPlatform(
@@ -245,13 +257,13 @@ export function createTickRun<S extends EngineSettings>(
     // A ranking change, or a retry after a superseded tick, re-selects from the
     // discovery already held; only a platform without one refreshes.
     const refreshPlatforms = trigger === "ranking_changed" || trigger === "tick_superseded"
-      ? discoveryPlatforms.filter((platform) => !discoverySlice.discoveryLanes[platform].current().snapshot)
+      ? discoveryPlatforms.filter((platform) => !discoverySnapshot(platform).snapshot)
       : discoveryPlatforms;
     await refreshDiscovery(refreshPlatforms, selectionBypassesBackoff(trigger), tickAdapters);
     signal.throwIfAborted();
     const preparedSelections: Partial<Record<Platform, CommittedSelection>> = {};
     await Promise.all(discoveryPlatforms.map(async (selectionPlatform) => {
-      const snapshot = discoverySlice.discoveryLanes[selectionPlatform].current().snapshot;
+      const snapshot = discoverySnapshot(selectionPlatform).snapshot;
       if (!snapshot) return;
       const input: SelectionInput<S> = {
         platform: selectionPlatform,
@@ -262,7 +274,7 @@ export function createTickRun<S extends EngineSettings>(
         key: selectionKey(selectionPlatform, snapshot, settings, currentState),
         force: selectionIsForced(trigger) || selectionBackoffDue(selectionPlatform, currentState),
         signal,
-        generation: discoverySlice.selectionGeneration[selectionPlatform],
+        generation: selectionGeneration(selectionPlatform),
       };
       preparedSelections[selectionPlatform] = await prepareSelection(input);
     }));
@@ -289,7 +301,7 @@ export function createTickRun<S extends EngineSettings>(
       // the tick for those would discard lastCheckedAt from current inventory.
       const selectionsAreCurrent = (): boolean => schedulerPlatforms.every((selectionPlatform) => {
         const prepared = preparedSelections[selectionPlatform];
-        const snapshot = discoverySlice.discoveryLanes[selectionPlatform].current().snapshot;
+        const snapshot = discoverySnapshot(selectionPlatform).snapshot;
         return !prepared || prepared.snapshotRevision === snapshot?.revision;
       });
 
@@ -314,13 +326,13 @@ export function createTickRun<S extends EngineSettings>(
           for (const discoveryPlatform of schedulerPlatforms) {
             adapters[discoveryPlatform] = adapterFromDiscoverySnapshot(
               adapters[discoveryPlatform],
-              discoverySlice.discoveryLanes[discoveryPlatform].current().snapshot,
+              discoverySnapshot(discoveryPlatform).snapshot,
               state.sessions[discoveryPlatform],
             );
           }
           const selections: Partial<Record<Platform, SnapshotSelectionResult>> = {};
           for (const selectionPlatform of schedulerPlatforms) {
-            const snapshot = discoverySlice.discoveryLanes[selectionPlatform].current().snapshot;
+            const snapshot = discoverySnapshot(selectionPlatform).snapshot;
             if (!snapshot) continue;
             const key = selectionKey(selectionPlatform, snapshot, settings, state);
             let prepared = preparedSelections[selectionPlatform];
@@ -333,7 +345,7 @@ export function createTickRun<S extends EngineSettings>(
                 continue;
               }
               if (prepared) {
-                discoverySlice.discoveryEvents[selectionPlatform].push({
+                recordDiscoveryEvent(selectionPlatform, {
                   category: "diagnostic",
                   platform: selectionPlatform,
                   level: "debug",
@@ -349,12 +361,12 @@ export function createTickRun<S extends EngineSettings>(
                 key,
                 force: selectionBackoffDue(selectionPlatform, state),
                 signal,
-                generation: discoverySlice.selectionGeneration[selectionPlatform],
+                generation: selectionGeneration(selectionPlatform),
               });
             }
             preparedSelections[selectionPlatform] = prepared;
-            if (prepared.generation !== discoverySlice.selectionGeneration[selectionPlatform]) {
-              discoverySlice.discoveryEvents[selectionPlatform].push({
+            if (prepared.generation !== selectionGeneration(selectionPlatform)) {
+              recordDiscoveryEvent(selectionPlatform, {
                 category: "diagnostic",
                 platform: selectionPlatform,
                 level: "debug",
@@ -379,28 +391,22 @@ export function createTickRun<S extends EngineSettings>(
       // every lock body: nothing the tick asks for may wait on one.
       const effectContext = {
         adapters,
+        settings,
         tabRegistry,
         heldRewardClaims,
-        watchTabs: ports.tabs?.watch,
-        selectSupplementalTarget: supplementalSources
-          ? (supplementalPlatform: Platform, selectedState: SchedulerState, selectedSignal: AbortSignal | undefined, source: WatchSourceId) =>
-            supplementalPlatform === "twitch"
-              ? supplementalSources.select(selectedState, settings, selectedSignal, source)
-              : Promise.resolve(undefined)
-          : undefined,
       };
       const eventsBeforeTick = events.length;
       let result: SchedulerTickResult | undefined;
       if (!failure) {
         try {
           for (const discoveryPlatform of schedulerPlatforms) {
-            for (const event of discoverySlice.discoveryEvents[discoveryPlatform].splice(0)) claimObservingEmit(event);
+            for (const event of drainDiscoveryEvents(discoveryPlatform)) claimObservingEmit(event);
           }
           result = await runSchedulerTickEffects({
             state,
             settings,
             platforms: schedulerPlatforms,
-            supplementalSources: supplementalSources !== undefined,
+            supplementalSources: ports.capabilities.supplementalSources,
             waitingClaimRewardIds: nextWaitingClaimRewardIds,
             emit: claimObservingEmit,
             signal,
@@ -409,10 +415,10 @@ export function createTickRun<S extends EngineSettings>(
             selectionIsCurrent: Object.fromEntries(schedulerPlatforms.map((selectionPlatform) => {
               const prepared = preparedSelections[selectionPlatform];
               return [selectionPlatform, () => prepared?.snapshotRevision
-                === discoverySlice.discoveryLanes[selectionPlatform].current().snapshot?.revision];
+                === discoverySnapshot(selectionPlatform).snapshot?.revision];
             })),
             discovery: Object.fromEntries(schedulerPlatforms.map((discoveryPlatform) => {
-              const discoveryState = discoverySlice.discoveryLanes[discoveryPlatform].current();
+              const discoveryState = discoverySnapshot(discoveryPlatform);
               return [discoveryPlatform, {
                 campaigns: discoveryState.snapshot?.campaigns.map(({ campaign }) => campaign)
                   ?? state.campaigns[discoveryPlatform],
@@ -425,7 +431,7 @@ export function createTickRun<S extends EngineSettings>(
             selectionViews: Object.fromEntries(schedulerPlatforms.map((selectionPlatform) => [
               selectionPlatform,
               selectionAdapterFromDiscoverySnapshot(
-                discoverySlice.discoveryLanes[selectionPlatform].current().snapshot,
+                discoverySnapshot(selectionPlatform).snapshot,
                 state.sessions[selectionPlatform],
               ),
             ])) as Partial<Record<Platform, SelectionView>>,
@@ -492,7 +498,7 @@ export function createTickRun<S extends EngineSettings>(
           }
           const tickState = rebased.state;
           for (const schedulerPlatform of schedulerPlatforms) {
-            if (discoverySlice.discoveryLanes[schedulerPlatform].current().lastAttempt?.complete === true) {
+            if (discoverySnapshot(schedulerPlatform).lastAttempt?.complete === true) {
               discoveryComplete.add(schedulerPlatform);
             }
           }

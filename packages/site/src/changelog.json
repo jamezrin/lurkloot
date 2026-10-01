@@ -65,8 +65,44 @@
       {
         "kind": "fixed",
         "text": "Losing your sign-in now also stops a drop claim check running while you watch by hand, and the quick switch to the next drop after a claim, instead of letting them run on with requests that could only fail. A drop that was already claimed before that is still recorded and shown in Activity."
+      },
+      {
+        "kind": "improved",
+        "text": "NoPixelV and Fortnite rewards now stop as soon as a change that affects them is saved, such as pausing, signing out of Twitch or switching channel. They no longer re-check their providers on every background timer, only when something relevant changes and once a minute while they are earning."
+      },
+      {
+        "kind": "fixed",
+        "text": "NoPixelV and Fortnite now remember which rewards are finished, and which channels to avoid for a while, when the browser stops and restarts Lurkloot in the background. A finished provider is no longer checked again on every restart, where it could keep taking turns from the other one."
+      },
+      {
+        "kind": "improved",
+        "text": "When NoPixelV or Fortnite keeps failing to count watch time on a channel, Lurkloot now moves on to another channel or reward source for a few minutes instead of staying on it."
+      },
+      {
+        "kind": "improved",
+        "text": "The CLI now runs its checks the same way the extension does, including for a platform that is switched off, which only clears what that platform left behind. A switched-off platform is now reported once when it is switched off, instead of on every check, in the CLI and in the extension's diagnostics."
       }
     ]
+  },
+  {
+    "version": "1.14.2",
+    "changes": [
+      {
+        "kind": "fixed",
+        "text": "Fixed the Queue strategy picker spilling onto a second line in languages with longer names, such as German, or Spanish with Low availability first selected. The picker now sits on the Then by divider, above the campaigns it orders, so it reads as one phrase, for example “Then by Low availability first”. It is also back in Settings under Drops as Campaign priority, so you can change it even while every queued campaign is pinned or for a favourite game."
+      }
+    ],
+    "date": "2026-09-29"
+  },
+  {
+    "version": "1.14.1",
+    "changes": [
+      {
+        "kind": "fixed",
+        "text": "Fixed the Skipped section summary showing $1 instead of the reward name when a campaign could not be farmed."
+      }
+    ],
+    "date": "2026-09-26"
   },
   {
     "version": "1.14.0",
@@ -115,7 +151,8 @@
         "kind": "fixed",
         "text": "Fixed Kick opening a background tab for claims a tab cannot fix. A claim Kick rejects outright, such as one for an account that is not linked, is now reported with account-link guidance instead of opening kick.com. Login failures, blocks, and network errors still fall back to a page."
       }
-    ]
+    ],
+    "date": "2026-09-25"
   },
   {
     "version": "1.13.0",
