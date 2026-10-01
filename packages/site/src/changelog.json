@@ -12,6 +12,10 @@
       },
       {
         "kind": "fixed",
+        "text": "When Lurkloot fails to save a setting, the popup now puts the switch or value back where it was instead of showing a change that was never saved. A failed refresh or automation switch no longer leaves the popup showing an empty or broken view."
+      },
+      {
+        "kind": "fixed",
         "text": "The headless Twitch CLI now starts new device logins with Twitch's Smart TV client. When Twitch hides the campaign dashboard, the CLI scans live channels in configured games for drops. This is partial discovery: campaigns on offline or unscanned channels may be missed. Browser Twitch tokens from extension exports are skipped rather than used with the wrong client identity. Kick TV device login no longer requires a CSRF cookie that Kick stopped issuing."
       },
       {
