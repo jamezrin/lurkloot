@@ -132,7 +132,10 @@ Project-specific rules that will otherwise send a pull request back:
 These are product constraints, not just style preferences:
 
 - Do not add features that store credentials, export cookies, or bypass platform detection. Lurkloot
-  relies on a normal logged-in browser session and visible muted tabs.
+  relies on a normal logged-in browser session and visible muted tabs. The headless CLI is the one
+  narrow exception (#653): its private auth store, the user-confirmed Export credentials action
+  (including Twitch's Kasada session cookie through the optional `k.twitchcdn.net` permission), and
+  the CLI minting Twitch web integrity from that cookie. See the security section of `AGENTS.md`.
 - Keep `permissions` and `host_permissions` in `packages/extension/wxt.config.ts` scoped to the
   services already declared, and document any new permission in the pull request description.
 - No telemetry, no Lurkloot account, and no routing of user activity through a Lurkloot server.
