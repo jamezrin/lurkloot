@@ -182,7 +182,7 @@ const TWITCH_CAMPAIGN_FIELDS = `{
   detailsURL
   self { isAccountConnected }
   game { id name displayName slug boxArtURL }
-  allow { channels { name login } }
+  allow { channels { id name } }
   timeBasedDrops {
     id
     name
@@ -193,6 +193,29 @@ const TWITCH_CAMPAIGN_FIELDS = `{
     preconditionDrops { id }
     benefitEdges { benefit { id name imageAssetURL distributionType } }
     self { currentMinutesWatched isClaimed dropInstanceID }
+  }
+}`;
+
+const TWITCH_AVAILABLE_CAMPAIGN_FIELDS = `{
+  id
+  name
+  imageURL
+  startAt
+  endAt
+  status
+  accountLinkURL
+  detailsURL
+  game { id name displayName slug boxArtURL }
+  allow { channels { id name } }
+  timeBasedDrops {
+    id
+    name
+    startAt
+    endAt
+    requiredMinutesWatched
+    requiredSubs
+    preconditionDrops { id }
+    benefitEdges { benefit { id name imageAssetURL distributionType } }
   }
 }`;
 
@@ -226,10 +249,13 @@ const TWITCH_INLINE_QUERIES: Partial<Record<string, string>> = {
       }
     }
   }`,
+  // Live-channel discovery parses whole campaigns from this response, so the
+  // inline fallback must carry them too. No per-user `self`: inventory
+  // reconciliation supplies claim state, and the query also runs anonymously.
   DropsHighlightService_AvailableDrops: `query DropsHighlightService_AvailableDrops($channelID: ID!) {
     channel(id: $channelID) {
       id
-      viewerDropCampaigns { id }
+      viewerDropCampaigns ${TWITCH_AVAILABLE_CAMPAIGN_FIELDS}
     }
   }`,
   ChannelPointsContext: `query ChannelPointsContext($channelLogin: String!) {
@@ -396,7 +422,7 @@ interface TwitchCurrentDropData {
 interface TwitchAvailableDropsData {
   channel?: {
     id?: string;
-    viewerDropCampaigns?: Array<Parameters<typeof parseTwitchCampaigns>[0][number]> | null;
+    viewerDropCampaigns?: Array<Parameters<typeof parseTwitchCampaigns>[0][number] | null> | null;
   } | null;
 }
 
@@ -445,6 +471,13 @@ interface CachedCampaignDetails {
 interface CachedDashboardCampaigns {
   campaignIds: string[];
   expiresAt: number;
+}
+
+// Twitch's own slug shape, for when a configured game's slug cannot be looked
+// up: "Tom Clancy's Rainbow Six Siege" -> "tom-clancys-rainbow-six-siege".
+export function twitchSlugFromName(name: string): string {
+  return name.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+    .replace(/['’]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
 function reconcileInventoryCampaignStatuses(
@@ -974,6 +1007,7 @@ export class TwitchAdapter implements PlatformAdapter {
   private readonly gqlTransport: TwitchGqlTransport;
   private readonly inventoryCapability: TwitchInventoryCapability;
   private readonly discoveryState: TwitchDiscoveryState;
+  private readonly gameSlugs = new Map<string, string>();
 
   constructor(
     // Twitch GQL is unreachable from the twitch.tv page context (CORS / anti-
@@ -1160,7 +1194,13 @@ export class TwitchAdapter implements PlatformAdapter {
         new Set(discoverableCampaignIds),
         dashboardResponded,
       );
-      const discovered = await this.discoverLiveChannelCampaigns(campaigns, signal);
+      // A bare AvailableDrops campaign carries no claim state. A campaign the
+      // user already finished is absent from the in-progress inventory, so only
+      // the inventory's earned rewards stop it from being farmed again.
+      const discovered = mergeTwitchCampaignProgress(
+        await this.discoverLiveChannelCampaigns(campaigns, signal),
+        inventory as Parameters<typeof mergeTwitchCampaignProgress>[1],
+      );
       reportAccountLinking([...campaigns, ...discovered]);
       return [...campaigns, ...discovered];
     }
@@ -1291,13 +1331,17 @@ export class TwitchAdapter implements PlatformAdapter {
     signal?: AbortSignal,
   ): Promise<DropCampaign[]> {
     if (!this.options.liveDiscoveryGames) return [];
-    const games = new Map<string, string>();
+    // The persisted directory query takes a game's URL slug ("escape-from-tarkov"),
+    // not the display name settings hold ("Escape from Tarkov"). Inventory
+    // campaigns carry their slug; configured games resolve theirs by id.
+    const games = new Map<string, { id?: string; name: string; slug?: string }>();
     for (const game of this.options.liveDiscoveryGames) {
-      if (game.name.trim()) games.set(game.id || game.name.toLowerCase(), game.name.trim());
+      const name = game.name.trim();
+      if (name) games.set(game.id || name.toLowerCase(), { id: game.id || undefined, name });
     }
     for (const campaign of inventoryCampaigns) {
-      const name = campaign.slug ?? campaign.gameName;
-      if (name) games.set(campaign.categoryId ?? name.toLowerCase(), name);
+      const name = campaign.gameName ?? campaign.slug;
+      if (name) games.set(campaign.categoryId ?? name.toLowerCase(), { id: campaign.categoryId, name, slug: campaign.slug });
     }
     if (games.size === 0) {
       diagnostic(this.emit, "warn", "Twitch campaign dashboard is empty; configure Twitch categories to scan live channels for campaigns", "twitch");
@@ -1308,12 +1352,15 @@ export class TwitchAdapter implements PlatformAdapter {
     const discovered = new Map<string, Parameters<typeof parseTwitchCampaigns>[0][number]>();
     let successfulDirectories = 0;
     let lastDirectoryError: unknown;
-    for (const gameName of [...games.values()].slice(0, 4)) {
+    const scanned = [...games.values()].slice(0, 4);
+    const slugs = await this.resolveGameSlugs(scanned, signal);
+    for (const game of scanned) {
       signal?.throwIfAborted();
+      const gameName = game.name;
       let directory: TwitchGqlResponse<TwitchDirectoryData>;
       try {
         directory = await this.gqlWithIntegrityRetry<TwitchDirectoryData>("DirectoryPage_Game", TWITCH_QUERIES.gameDirectoryHash, {
-          slug: gameName,
+          slug: slugs.get(game) ?? twitchSlugFromName(gameName),
           imageWidth: 50,
           includeCostreaming: false,
           options: {
@@ -1352,7 +1399,7 @@ export class TwitchAdapter implements PlatformAdapter {
           continue;
         }
         for (const campaign of response.data?.channel?.viewerDropCampaigns ?? []) {
-          if (!campaign.id || !campaign.game || !campaign.timeBasedDrops?.length || knownIds.has(campaign.id)) continue;
+          if (!campaign?.id || !campaign.game || !campaign.timeBasedDrops?.length || knownIds.has(campaign.id)) continue;
           const existing = discovered.get(campaign.id);
           const channels = new Map<string, { name: string }>();
           for (const channel of existing?.allow?.channels ?? []) {
@@ -1372,6 +1419,43 @@ export class TwitchAdapter implements PlatformAdapter {
     if (successfulDirectories === 0 && lastDirectoryError) throw lastDirectoryError;
     diagnostic(this.emit, "info", `Twitch live-channel discovery found ${discovered.size} campaigns across ${Math.min(games.size, 4)} configured games`, "twitch");
     return parseTwitchCampaigns([...discovered.values()]);
+  }
+
+  // Looks up configured games' slugs by id in one anonymous request (public
+  // data, so no integrity token), caching them for this adapter. A failed
+  // lookup falls back to deriving the slug from the name.
+  private async resolveGameSlugs(
+    games: readonly { id?: string; name: string; slug?: string }[],
+    signal?: AbortSignal,
+  ): Promise<Map<{ id?: string; name: string; slug?: string }, string>> {
+    const slugs = new Map<{ id?: string; name: string; slug?: string }, string>();
+    const unresolved = new Set<string>();
+    for (const game of games) {
+      const known = game.slug ?? (game.id ? this.gameSlugs.get(game.id) : undefined);
+      if (known) slugs.set(game, known);
+      else if (game.id && /^\d+$/.test(game.id)) unresolved.add(game.id);
+    }
+    if (unresolved.size > 0) {
+      const ids = [...unresolved];
+      const query = `query GameSlugs(${ids.map((_, index) => `$g${index}: ID!`).join(", ")}) {\n${ids.map((_, index) => `  g${index}: game(id: $g${index}) { id slug }`).join("\n")}\n}`;
+      try {
+        const response = await this.gql<Record<string, { id?: string; slug?: string } | null>>(
+          "GameSlugs", "", Object.fromEntries(ids.map((id, index) => [`g${index}`, id])), query, "omit", this.emit, signal,
+        );
+        for (const game of Object.values(response.data ?? {})) {
+          if (game?.id && game.slug) this.gameSlugs.set(game.id, game.slug);
+        }
+      } catch (error) {
+        signal?.throwIfAborted();
+        const message = error instanceof Error ? error.message : String(error);
+        diagnostic(this.emit, "warn", `Twitch game slug lookup failed; deriving slugs from names: ${message}`, "twitch");
+      }
+      for (const game of games) {
+        const resolved = game.id ? this.gameSlugs.get(game.id) : undefined;
+        if (resolved && !slugs.has(game)) slugs.set(game, resolved);
+      }
+    }
+    return slugs;
   }
 
   async refreshCampaigns(

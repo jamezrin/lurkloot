@@ -256,6 +256,122 @@ describe("createTransport", () => {
     await handle.dispose();
   });
 
+  function liveDiscoveryFetch(overrides: {
+    inventory?: unknown;
+    gameSlugs?: (variables: Record<string, string>) => Response;
+    availableDrops?: (request: { query?: string; extensions?: unknown }) => Response;
+    // Answer the directory only for the real slug, as Twitch does.
+    requireSlug?: boolean;
+  } = {}) {
+    const requests: { operationName: string; variables: Record<string, unknown>; query?: string; extensions?: unknown }[] = [];
+    const campaign = {
+      id: "new-campaign", name: "New campaign",
+      game: { id: "491931", name: "Escape from Tarkov", displayName: "Escape from Tarkov", slug: "escape-from-tarkov" },
+      endAt: "2099-01-01T00:00:00Z",
+      timeBasedDrops: [{ id: "reward-id", name: "Reward", requiredMinutesWatched: 60,
+        startAt: "2026-01-01T00:00:00Z", benefitEdges: [{ benefit: { id: "benefit-id", name: "Benefit" } }] }],
+    };
+    vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: RequestInit) => {
+      const request = JSON.parse(String(init?.body));
+      requests.push(request);
+      switch (request.operationName) {
+        case "Inventory": return twitchResponse(overrides.inventory ?? emptyTwitchInventory());
+        case "ViewerDropsDashboard": return twitchResponse({ data: { currentUser: { id: "viewer-id", dropCampaigns: null } } });
+        case "GameSlugs": return overrides.gameSlugs?.(request.variables)
+          ?? twitchResponse({ data: { g0: { id: "491931", slug: "escape-from-tarkov" } } });
+        case "DirectoryPage_Game":
+          if (overrides.requireSlug && request.variables.slug !== "escape-from-tarkov") return twitchResponse({ errors: [{ message: "service error" }] });
+          return twitchResponse({ data: { game: { streams: { edges: [{ node: {
+            broadcaster: { id: "channel-id", login: "creator" },
+          } }] } } } });
+        case "DropsHighlightService_AvailableDrops": return overrides.availableDrops?.(request)
+          ?? twitchResponse({ data: { channel: { id: "channel-id", viewerDropCampaigns: [campaign] } } });
+        default: throw new Error(`Unexpected operation ${request.operationName}`);
+      }
+    }));
+    return { requests, campaign };
+  }
+
+  function tarkovSettings() {
+    const settings = structuredClone(DEFAULT_ENGINE_SETTINGS);
+    settings.platform.twitch.categories = [{ id: "491931", name: "Escape from Tarkov" }];
+    return settings;
+  }
+
+  it("scans a configured game's directory by its slug, not its display name", async () => {
+    const { requests } = liveDiscoveryFetch({ requireSlug: true });
+    const handle = await createTransport("http", {}, "/tmp/auth", ENABLED);
+    const adapter = handle.createAdapters(() => {}, tarkovSettings()).adapters.twitch;
+
+    expect((await adapter.refreshCampaigns()).map((campaign) => campaign.id)).toEqual(["new-campaign"]);
+    await adapter.refreshCampaigns();
+
+    expect(requests.filter((request) => request.operationName === "DirectoryPage_Game").map((request) => request.variables.slug))
+      .toEqual(["escape-from-tarkov", "escape-from-tarkov"]);
+    // Cached for the adapter: the second refresh does not look the slug up again.
+    expect(requests.filter((request) => request.operationName === "GameSlugs")).toHaveLength(1);
+    await handle.dispose();
+  });
+
+  it("derives a slug from the name when the slug lookup fails", async () => {
+    const { requests } = liveDiscoveryFetch({ requireSlug: true, gameSlugs: () => new Response("unavailable", { status: 503 }) });
+    const handle = await createTransport("http", {}, "/tmp/auth", ENABLED);
+
+    const campaigns = await handle.createAdapters(() => {}, tarkovSettings()).adapters.twitch.refreshCampaigns();
+
+    expect(campaigns.map((campaign) => campaign.id)).toEqual(["new-campaign"]);
+    expect(requests.find((request) => request.operationName === "DirectoryPage_Game")?.variables.slug).toBe("escape-from-tarkov");
+    await handle.dispose();
+  });
+
+  it("does not offer a discovered campaign whose rewards the inventory says were earned", async () => {
+    liveDiscoveryFetch({
+      inventory: { data: { currentUser: { id: "viewer-id", inventory: {
+        dropCampaignsInProgress: [],
+        gameEventDrops: [{ id: "benefit-id", benefit: { id: "benefit-id" }, lastAwardedAt: "2026-09-01T00:00:00Z" }],
+      } } } },
+    });
+    const handle = await createTransport("http", {}, "/tmp/auth", ENABLED);
+
+    const [campaign] = await handle.createAdapters(() => {}, tarkovSettings()).adapters.twitch.refreshCampaigns();
+
+    expect(campaign?.rewards.map((reward) => reward.status)).toEqual(["claimed"]);
+    expect(campaign?.status).toBe("completed");
+    await handle.dispose();
+  });
+
+  it("keeps discovering after the AvailableDrops persisted hash is retired", async () => {
+    let inlineQuery: string | undefined;
+    const { campaign } = liveDiscoveryFetch({
+      availableDrops: (request) => {
+        if (!request.query) return twitchResponse({ errors: [{ message: "PersistedQueryNotFound" }] });
+        inlineQuery = request.query;
+        return twitchResponse({ data: { channel: { id: "channel-id", viewerDropCampaigns: [campaign] } } });
+      },
+    });
+    const handle = await createTransport("http", {}, "/tmp/auth", ENABLED);
+
+    const campaigns = await handle.createAdapters(() => {}, tarkovSettings()).adapters.twitch.refreshCampaigns();
+
+    expect(campaigns.map((item) => item.id)).toEqual(["new-campaign"]);
+    // Discovery needs the game and reward tiers, not only the campaign id.
+    expect(inlineQuery).toMatch(/game \{[^}]*slug/);
+    expect(inlineQuery).toContain("timeBasedDrops");
+    await handle.dispose();
+  });
+
+  it("skips a null campaign entry instead of failing the whole refresh", async () => {
+    const { campaign } = liveDiscoveryFetch({
+      availableDrops: () => twitchResponse({ data: { channel: { id: "channel-id", viewerDropCampaigns: [null, campaign] } } }),
+    });
+    const handle = await createTransport("http", {}, "/tmp/auth", ENABLED);
+
+    const campaigns = await handle.createAdapters(() => {}, tarkovSettings()).adapters.twitch.refreshCampaigns();
+
+    expect(campaigns.map((item) => item.id)).toEqual(["new-campaign"]);
+    await handle.dispose();
+  });
+
   it("continues scanning other games after one live-directory failure", async () => {
     vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: RequestInit) => {
       const request = JSON.parse(String(init?.body));
@@ -263,7 +379,7 @@ describe("createTransport", () => {
         case "Inventory": return twitchResponse(emptyTwitchInventory());
         case "ViewerDropsDashboard": return twitchResponse({ data: { currentUser: { id: "viewer-id", dropCampaigns: null } } });
         case "DirectoryPage_Game":
-          if (request.variables.slug === "Broken") throw new Error("temporary directory failure");
+          if (request.variables.slug === "broken") throw new Error("temporary directory failure");
           return twitchResponse({ data: { game: { streams: { edges: [{ node: {
             broadcaster: { id: "channel-id", login: "creator" },
           } }] } } } });
