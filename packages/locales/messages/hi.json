@@ -392,6 +392,12 @@
   "viewDropPage": {
     "message": "ड्रॉप पेज देखें"
   },
+  "campaignDropDetails": {
+    "message": "ड्रॉप विवरण"
+  },
+  "campaignCategoryDrops": {
+    "message": "श्रेणी ड्रॉप"
+  },
   "upcoming": {
     "message": "आगामी"
   },
@@ -1714,6 +1720,9 @@
   },
   "campaignMoreChannels": {
     "message": "+$1 और"
+  },
+  "campaignFewerChannels": {
+    "message": "कम दिखाएँ"
   },
   "campaignExclude": {
     "message": "बाहर रखें"

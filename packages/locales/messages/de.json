@@ -392,6 +392,12 @@
   "viewDropPage": {
     "message": "Drop-Seite ansehen"
   },
+  "campaignDropDetails": {
+    "message": "Drop-Details"
+  },
+  "campaignCategoryDrops": {
+    "message": "Drops der Kategorie"
+  },
   "upcoming": {
     "message": "Bevorstehend"
   },
@@ -1714,6 +1720,9 @@
   },
   "campaignMoreChannels": {
     "message": "+$1 weitere"
+  },
+  "campaignFewerChannels": {
+    "message": "Weniger anzeigen"
   },
   "campaignExclude": {
     "message": "Ausschließen"
