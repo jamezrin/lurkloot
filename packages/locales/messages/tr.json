@@ -98,6 +98,12 @@
   "queueSkipped": {
     "message": "Atlanan"
   },
+  "queueActionRequired": {
+    "message": "İşlem gerekli"
+  },
+  "queueActionRequiredHint": {
+    "message": "Abonelik veya Lurkloot dışında başka bir adım gerekir. Sabitleme ve favoriler yalnızca sırayı değiştirir."
+  },
   "queueUpcoming": {
     "message": "Yaklaşan"
   },
@@ -754,6 +760,9 @@
   },
   "campaignRejectionActionRequired": {
     "message": "$1 izlemek dışında bir işlem gerektiriyor."
+  },
+  "campaignRejectionThen": {
+    "message": "Ardından: $1"
   },
   "campaignRejectionNoFarmableReward": {
     "message": "Bu kampanyada şu anda farmlanabilecek ödül yok."

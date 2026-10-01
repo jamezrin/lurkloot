@@ -8,6 +8,10 @@
       },
       {
         "kind": "fixed",
+        "text": "The Queue now lists campaigns that only you can unblock, such as ones that need a subscription or another step on Twitch or Kick, under a separate Action required group instead of Skipped. A skipped campaign also says what would still block it once you fix the first reason, so including or pinning it no longer looks like it did nothing when another reason remains."
+      },
+      {
+        "kind": "fixed",
         "text": "If Lurkloot keeps failing to load a platform's drop campaigns, it now counts toward the prompt that offers to report a persistent problem, as it did before campaign loading moved out of the regular check. Until now only failures later in the check counted, so a platform that could never load its campaigns never showed the prompt."
       },
       {

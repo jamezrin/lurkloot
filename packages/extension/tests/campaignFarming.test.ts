@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluateCampaignFarming } from "@lurkloot/shared/campaignFarming";
+import { campaignFarmingBlockers, evaluateCampaignFarming } from "@lurkloot/shared/campaignFarming";
 import type { DropCampaign, ExtensionSettings } from "@lurkloot/shared/models";
 import { mergeSettings } from "@lurkloot/shared/settings";
 
@@ -162,5 +162,43 @@ describe("evaluateCampaignFarming", () => {
 
   it("returns farmable when any reward can currently be earned", () => {
     expect(evaluateCampaignFarming(campaign(), settings(), { now: NOW })).toEqual({ farmable: true });
+  });
+});
+
+describe("campaignFarmingBlockers (#677)", () => {
+  const subscription = {
+    id: "sub",
+    name: "Sub badge",
+    requiredMinutes: 0,
+    requiredSubs: 1,
+    watchedMinutes: 0,
+    status: "locked" as const,
+    requirement: "subscription" as const,
+  };
+
+  it("lists each blocker a user meets in turn, ending at one no setting lifts", () => {
+    const current = settings({ excludedCampaignIds: ["campaign"], farmPinnedOnly: true });
+    const blockers = campaignFarmingBlockers(campaign({ rewards: [subscription] }), current, { includePinnedOnly: true, now: NOW });
+
+    expect(blockers.map((blocker) => blocker.code)).toEqual(["excluded", "not_pinned", "subscription_required"]);
+    expect(blockers[0]).toEqual(evaluateCampaignFarming(campaign({ rewards: [subscription] }), current, { includePinnedOnly: true, now: NOW }));
+  });
+
+  it("stops once the campaign would be farmable", () => {
+    const blockers = campaignFarmingBlockers(campaign(), settings({ excludedCampaignIds: ["campaign"] }), { now: NOW });
+
+    expect(blockers.map((blocker) => blocker.code)).toEqual(["excluded"]);
+  });
+
+  it("lifts an unfinishable-reward skip and ends there", () => {
+    const tight = campaign({ endsAt: new Date(NOW + 10 * 60_000).toISOString() });
+    const blockers = campaignFarmingBlockers(tight, settings({ skipUnfinishableRewards: true }), { now: NOW });
+
+    // With the skip off the reward is farmable again, so the chain stops.
+    expect(blockers.map((blocker) => blocker.code)).toEqual(["insufficient_time"]);
+  });
+
+  it("is empty for a farmable campaign", () => {
+    expect(campaignFarmingBlockers(campaign(), settings(), { now: NOW })).toEqual([]);
   });
 });

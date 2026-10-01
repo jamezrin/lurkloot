@@ -98,6 +98,12 @@
   "queueSkipped": {
     "message": "Saltate"
   },
+  "queueActionRequired": {
+    "message": "Azione richiesta"
+  },
+  "queueActionRequiredHint": {
+    "message": "Richiede un abbonamento o un altro passaggio fuori da Lurkloot. Fissare e preferire cambiano solo l’ordine."
+  },
   "queueUpcoming": {
     "message": "In arrivo"
   },
@@ -754,6 +760,9 @@
   },
   "campaignRejectionActionRequired": {
     "message": "$1 richiede un'azione diversa dalla visione."
+  },
+  "campaignRejectionThen": {
+    "message": "Poi: $1"
   },
   "campaignRejectionNoFarmableReward": {
     "message": "Nessuna ricompensa di questa campagna può essere farmata ora."

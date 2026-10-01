@@ -8,7 +8,7 @@ import {
   rewardFeasibility,
 } from "@lurkloot/shared/rewards";
 import { isCampaignExpired, isCampaignFinished } from "@lurkloot/shared/campaignFilters";
-import { evaluateCampaignFarming } from "@lurkloot/shared/campaignFarming";
+import { campaignFarmingBlockers, OUTSIDE_ACTION_REJECTION_CODES } from "@lurkloot/shared/campaignFarming";
 export {
   campaignFilterCategories,
   campaignSection,
@@ -165,9 +165,9 @@ export function campaignViewFromCampaign(
   excluded: boolean,
   feasibility?: { skipUnfinishableRewards: boolean; deadlineSafetyMarginMinutes: number; now?: number; settings?: ExtensionSettings },
 ): CampaignView {
-  const farmingEvaluation = feasibility?.settings
-    ? evaluateCampaignFarming(campaign, feasibility.settings, { includePinnedOnly: true, now: feasibility.now })
-    : undefined;
+  const farmingBlockers = feasibility?.settings
+    ? campaignFarmingBlockers(campaign, feasibility.settings, { includePinnedOnly: true, now: feasibility.now })
+    : [];
   const settings = feasibility?.settings;
   return {
     id: campaign.id,
@@ -229,7 +229,9 @@ export function campaignViewFromCampaign(
     }),
     hasWatchRewards: campaignHasWatchRewards(campaign),
     hasSubscriptionRewards: campaignHasSubscriptionRewards(campaign),
-    farmingRejection: farmingEvaluation && !farmingEvaluation.farmable ? farmingEvaluation : undefined,
+    farmingRejection: farmingBlockers[0],
+    laterBlockers: farmingBlockers.slice(1),
+    needsOutsideAction: farmingBlockers[0] !== undefined && OUTSIDE_ACTION_REJECTION_CODES.has(farmingBlockers[0].code),
   };
 }
 

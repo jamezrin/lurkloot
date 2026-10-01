@@ -85,6 +85,7 @@ export function QueuePanel({
   const [query, setQuery] = useState("");
   const [facet, setFacet] = useState<QueueFacet>("all");
   const [showSkipped, setShowSkipped] = useState(false);
+  const [showActionRequired, setShowActionRequired] = useState(false);
   const [showUpcoming, setShowUpcoming] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>(() => initialExpandedIds(campaigns));
   const listRef = useRef<HTMLDivElement>(null);
@@ -94,7 +95,10 @@ export function QueuePanel({
   const queued = useMemo(() => inFacet.filter((campaign) => campaign.section === "queue"), [inFacet]);
   // Search reads across every facet, so its ranks come from the whole queue.
   const allQueued = useMemo(() => campaigns.filter((campaign) => campaign.section === "queue"), [campaigns]);
-  const skipped = useMemo(() => inFacet.filter((campaign) => campaign.section === "skipped"), [inFacet]);
+  // Skipped splits by who can fix it (#677): a setting in Lurkloot, or only the
+  // user, outside it.
+  const skipped = useMemo(() => inFacet.filter((campaign) => campaign.section === "skipped" && !campaign.needsOutsideAction), [inFacet]);
+  const actionRequired = useMemo(() => inFacet.filter((campaign) => campaign.section === "skipped" && campaign.needsOutsideAction), [inFacet]);
   const upcoming = useMemo(() => inFacet.filter((campaign) => campaign.section === "upcoming"), [inFacet]);
   const searchResults = useMemo(() => filterCampaigns(campaigns, gameMap, query), [campaigns, gameMap, query]);
   const farmingIndex = queued.findIndex((campaign) => Boolean(campaign.farmingChannel));
@@ -118,7 +122,10 @@ export function QueuePanel({
     setQuery("");
     const target = campaigns.find((campaign) => campaign.id === focus.id);
     if (target && !matchesFacet(target, facet)) setFacet("all");
-    if (target?.section === "skipped") setShowSkipped(true);
+    if (target?.section === "skipped") {
+      if (target.needsOutsideAction) setShowActionRequired(true);
+      else setShowSkipped(true);
+    }
     if (target?.section === "upcoming") setShowUpcoming(true);
     setExpandedIds((current) => ({ ...current, [focus.id]: true }));
   }, [focus?.id, focus?.seq]);
@@ -131,7 +138,7 @@ export function QueuePanel({
       scrollIntoPanel(card, "smooth");
     });
     return () => cancelAnimationFrame(frame);
-  }, [focus?.id, focus?.seq, searching, showSkipped, showUpcoming]);
+  }, [focus?.id, focus?.seq, searching, showSkipped, showActionRequired, showUpcoming]);
 
   // Every row gets the same actions object for the life of the panel, and each
   // action reads the latest props through a ref. Rows are memoised, so a row
@@ -296,7 +303,35 @@ export function QueuePanel({
 
             {queued.length === 0 ? <EmptyPanel>{t(facet === "badges" ? "queueEmptyBadges" : "queueEmpty")}</EmptyPanel> : null}
 
-            {skipped.length > 0 || upcoming.length > 0 ? <GroupDivider label={t("queueNotInQueue")} /> : null}
+            {skipped.length > 0 || actionRequired.length > 0 || upcoming.length > 0 ? <GroupDivider label={t("queueNotInQueue")} /> : null}
+
+            {actionRequired.length > 0 ? (
+              <Disclosure
+                group="action-required"
+                label={t("queueActionRequired")}
+                count={actionRequired.length}
+                hint={t("queueActionRequiredHint")}
+                expanded={showActionRequired}
+                onToggle={() => setShowActionRequired((current) => !current)}
+              >
+                {actionRequired.map((campaign, index) => (
+                  <div key={campaign.id} data-campaign-id={campaign.id}>
+                    <QueueRow
+                      kind="skipped"
+                      campaign={campaign}
+                      index={index}
+                      farmingIndex={-1}
+                      anyFarming={anyFarming}
+                      game={gameMap[campaign.gameId]}
+                      expanded={Boolean(expandedIds[campaign.id])}
+                      refreshing={refreshing}
+                      actions={actions}
+                      {...categoryActions}
+                    />
+                  </div>
+                ))}
+              </Disclosure>
+            ) : null}
 
             {skipped.length > 0 ? (
               <Disclosure

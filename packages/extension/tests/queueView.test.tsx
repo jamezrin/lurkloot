@@ -222,6 +222,32 @@ describe("queue view", () => {
     expect(rows(container, "strategy")).toEqual([]);
   });
 
+  it("lists a campaign only an outside action can unblock under Action required, apart from Skipped (#677)", () => {
+    const settings = mergeSettings({ excludedCampaignIds: ["excluded"] } as never);
+    const subscriptionReward = { id: "sub", name: "Sub badge", requiredMinutes: 0, requirement: "subscription" as const, requiredSubs: 1, watchedMinutes: 0, status: "locked" as const };
+    const { container } = queue(views([
+      campaign("excluded"),
+      campaign("needs-sub", { rewards: [subscriptionReward] }),
+    ], settings), settings);
+
+    expand(container, "skipped");
+    expand(container, "action-required");
+    expect(rows(container, "skipped")).toEqual(["excluded"]);
+    expect(rows(container, "action-required")).toEqual(["needs-sub"]);
+  });
+
+  it("says what will still block a skipped campaign once its fix is applied (#677)", () => {
+    const settings = mergeSettings({ excludedCampaignIds: ["both"] } as never);
+    const subscriptionReward = { id: "sub", name: "Sub badge", requiredMinutes: 0, requirement: "subscription" as const, requiredSubs: 1, watchedMinutes: 0, status: "locked" as const };
+    const { container } = queue(views([campaign("both", { rewards: [subscriptionReward] })], settings), settings);
+
+    // Excluded by the user's own choice, so it stays in Skipped, and says the
+    // subscription is what comes after including it.
+    expand(container, "skipped");
+    const card = openCard(container, "both");
+    expect(card.querySelector("[data-campaign-next-blocker]")?.textContent).toContain("campaignRejectionThen");
+  });
+
   it("clears every pin from one control", () => {
     const settings = mergeSettings({ campaignPins: ["one", "two"] } as never);
     const onUnpinAll = vi.fn();
