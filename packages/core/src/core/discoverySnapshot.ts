@@ -44,6 +44,10 @@ export interface DiscoveryAttempt {
   finishedAt: number;
   complete: boolean;
   failure?: string;
+  // What the refresh threw, kept so the tick can feed it to the critical-failure
+  // detector with its SafeFetchError breadcrumb. Absent for a discarded refresh
+  // and for an incomplete result that did not throw (platform disabled).
+  error?: unknown;
   discarded?: "stale_generation" | "stopped";
   coalesced: number;
   metrics?: DiscoveryRefreshMetrics;
@@ -455,7 +459,7 @@ export class DiscoverySnapshotLane<TRequest = undefined> {
           failure: error instanceof Error ? error.message : String(error),
           ...(this.stopped || generation !== this.generation
             ? { discarded: this.stopped ? "stopped" as const : "stale_generation" as const }
-            : {}),
+            : { error }),
           coalesced,
         },
       };

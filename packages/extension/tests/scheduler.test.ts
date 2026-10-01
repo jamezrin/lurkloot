@@ -4771,6 +4771,86 @@ describe("scheduler critical health observations", () => {
     expect(result.state.criticalHealth?.twitch?.breakerOpen).toBe(false);
   });
 
+  it("records a failing tick with the breadcrumb when discovery fails", async () => {
+    const twitch = adapter("twitch", [], [channel("fallback")]);
+    vi.mocked(twitch.refreshCampaigns).mockRejectedValue(new SafeFetchError({ kind: "http_error", status: 502 }));
+    const result = await runSchedulerTick(healthState, healthSettings(), { twitch, kick: adapter("kick", [], []) }, { platforms: ["twitch"] });
+
+    expect(result.state.criticalHealth?.twitch?.failingTicks).toBe(1);
+    expect(result.state.criticalHealth?.twitch?.records.at(-1)).toMatchObject({
+      kind: "api_error",
+      code: "http_error",
+      status: 502,
+    });
+  });
+
+  it("records a failing tick when discovery fails while an older snapshot keeps the tick farming", async () => {
+    const result = await runSchedulerTick(
+      {
+        ...healthState,
+        criticalHealth: { twitch: { ...DEFAULT_CRITICAL_HEALTH, failingMs: 2_000_000, failingTicks: 5 } },
+      },
+      healthSettings(),
+      { twitch: adapter("twitch", [campaign("drops")], [channel("creator")]), kick: adapter("kick", [], []) },
+      {
+        platforms: ["twitch"],
+        discovery: { twitch: { campaigns: [campaign("drops")], complete: true, failure: new SafeFetchError({ kind: "http_error", status: 504 }) } },
+      },
+    );
+
+    expect(result.state.criticalHealth?.twitch?.failingTicks).toBe(6);
+    expect(result.state.criticalHealth?.twitch?.records.at(-1)).toMatchObject({ kind: "api_error", code: "http_error", status: 504 });
+  });
+
+  it("does not count a discarded discovery refresh as failing", async () => {
+    const result = await runSchedulerTick(
+      healthState,
+      healthSettings(),
+      { twitch: adapter("twitch", [], [channel("fallback")]), kick: adapter("kick", [], []) },
+      { platforms: ["twitch"], discovery: { twitch: { campaigns: [], complete: false, discarded: true } } },
+    );
+
+    expect(result.state.criticalHealth?.twitch?.failingTicks).toBe(0);
+    expect(result.state.criticalHealth?.twitch?.records ?? []).toEqual([]);
+  });
+
+  it("leaves a discovery authentication failure to auth health", async () => {
+    const result = await runSchedulerTick(
+      healthState,
+      healthSettings(),
+      { twitch: adapter("twitch", [], [channel("fallback")]), kick: adapter("kick", [], []) },
+      {
+        platforms: ["twitch"],
+        discovery: { twitch: { campaigns: [], complete: false, failure: new SafeFetchError({ kind: "authentication_rejected", status: 401 }) } },
+      },
+    );
+
+    expect(result.state.criticalHealth?.twitch?.failingTicks ?? 0).toBe(0);
+  });
+
+  it("lets an accrual precondition break win over a failed discovery in the same tick", async () => {
+    const twitch = adapter("twitch", [], [channel("fallback")]);
+    const result = await runSchedulerTick(
+      {
+        ...healthState,
+        sessions: {
+          ...healthState.sessions,
+          twitch: { platform: "twitch", status: "watching", channel: channel("creator"), offlineChecks: 0 },
+        },
+        criticalHealth: { twitch: { ...DEFAULT_CRITICAL_HEALTH, failingMs: 2_000_000, failingTicks: 5 } },
+      },
+      healthSettings(),
+      { twitch, kick: adapter("kick", [], []) },
+      {
+        platforms: ["twitch"],
+        discovery: { twitch: { campaigns: [], complete: false, failure: new SafeFetchError({ kind: "http_error", status: 503 }) } },
+      },
+    );
+
+    expect(result.state.sessions.twitch.reasonCode).toBe("higher_priority_idle_watchlist");
+    expect(result.state.criticalHealth?.twitch?.failingTicks).toBe(0);
+  });
+
   it("does not charge a failing tick for an outage that ends in an accrual precondition break", async () => {
     // Discovery is incomplete (no conclusion about accrual) and the tick then
     // finds the idle watchlist channel it was watching has been superseded — an

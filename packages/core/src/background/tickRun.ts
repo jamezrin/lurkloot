@@ -426,6 +426,7 @@ export function createTickRun<S extends EngineSettings>(
                 // A settings save threw this tick's refresh away; the save's own
                 // follow-up tick refreshes again and decides.
                 discarded: discoveryState.snapshot === undefined && discoveryState.lastAttempt?.discarded !== undefined,
+                failure: discoveryState.lastAttempt?.error,
               }];
             })),
             selectionViews: Object.fromEntries(schedulerPlatforms.map((selectionPlatform) => [

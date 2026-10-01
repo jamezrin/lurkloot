@@ -3,6 +3,7 @@ import type { EventEmitter } from "@lurkloot/shared/events";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { managedTabBreakerOpen } from "@lurkloot/core/tabRegistry";
 import { TAB_CHURN_LIMIT } from "@lurkloot/core/criticalHealth";
+import { SafeFetchError } from "@lurkloot/core/fetchError";
 import { campaign, farming, harness, notFarming } from "../helpers/backgroundController";
 
 // One platform tick: critical health and no-op persistence.
@@ -55,6 +56,20 @@ describe("background controller critical health", () => {
 
     expect(env.state.criticalHealth?.kick?.breakerOpen).toBe(true);
     expect(managedTabBreakerOpen(env.tabRegistry, "kick")).toBe(true);
+  });
+
+  // #629: discovery runs in its own lane, so its failure only reaches the
+  // detector if the lane hands it to the tick.
+  it("records a failing tick when the discovery refresh throws", async () => {
+    const env = harness(farming(DEFAULT_SETTINGS));
+    env.kick.refreshCampaigns = vi.fn(async () => {
+      throw new SafeFetchError({ kind: "http_error", status: 503 });
+    });
+
+    await env.controller.tick(["kick"]);
+
+    expect(env.state.criticalHealth?.kick?.failingTicks).toBe(1);
+    expect(env.state.criticalHealth?.kick?.records.at(-1)).toMatchObject({ kind: "api_error", code: "http_error", status: 503 });
   });
 });
 

@@ -112,7 +112,7 @@ export async function runSchedulerTick(
     } catch (error) {
       options.signal?.throwIfAborted();
       if (authHealthFromError(error)) throw error;
-      discovery[platform] = { campaigns: state.campaigns[platform], complete: false };
+      discovery[platform] = { campaigns: state.campaigns[platform], complete: false, failure: error };
     }
   }
   return await runSchedulerTickEffects({
