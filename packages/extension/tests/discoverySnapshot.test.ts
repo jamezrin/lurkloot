@@ -20,10 +20,12 @@ const complete = (): DiscoveryRefreshResult => ({ campaigns: [], idleCandidates:
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((next) => {
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((next, fail) => {
     resolve = next;
+    reject = fail;
   });
-  return { promise, resolve };
+  return { promise, resolve, reject };
 }
 
 describe("DiscoverySnapshotLane", () => {
@@ -96,6 +98,38 @@ describe("DiscoverySnapshotLane", () => {
     await lane.settle();
     expect(lane.current().snapshot).toBe(coherent);
     expect(lane.current().lastAttempt?.failure).toBe("offline");
+  });
+
+  it("keeps what a failed refresh threw, and only that, for the critical-failure detector", async () => {
+    const offline = new Error("offline");
+    const refresh = vi.fn()
+      .mockResolvedValueOnce({ campaigns: [], idleCandidates: [], followedChannels: [], complete: false, failure: "Platform disabled", metrics })
+      .mockRejectedValueOnce(offline)
+      .mockResolvedValueOnce(complete());
+    const lane = new DiscoverySnapshotLane("kick", refresh);
+
+    lane.request();
+    await lane.settle();
+    expect(lane.current().lastAttempt?.error).toBeUndefined();
+    lane.request();
+    await lane.settle();
+    expect(lane.current().lastAttempt?.error).toBe(offline);
+    lane.request();
+    await lane.settle();
+    expect(lane.current().lastAttempt?.error).toBeUndefined();
+  });
+
+  it("does not keep the error of a refresh that was thrown away", async () => {
+    const refresh = deferred<DiscoveryRefreshResult>();
+    const lane = new DiscoverySnapshotLane("twitch", () => refresh.promise);
+
+    lane.request();
+    lane.invalidate();
+    refresh.reject(new Error("offline"));
+    await lane.settle();
+
+    expect(lane.current().lastAttempt?.discarded).toBe("stale_generation");
+    expect(lane.current().lastAttempt?.error).toBeUndefined();
   });
 
   it("discards an in-flight result after invalidation", async () => {

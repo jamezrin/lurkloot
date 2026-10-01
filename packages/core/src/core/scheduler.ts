@@ -958,6 +958,9 @@ export interface SchedulerTickDiscovery {
   // nothing is known about channels, so Drops is undecided rather than
   // unavailable and no lower source may take over from it this tick.
   discarded?: boolean;
+  // The latest refresh threw. `campaigns` (and `complete`) may still come from
+  // an older snapshot, so this is what tells the tick discovery is failing.
+  failure?: unknown;
 }
 
 export interface SchedulerTickInput {
@@ -1386,6 +1389,13 @@ export async function* decidePlatformTick(
         const eligibleCount = campaigns.filter((campaign) => isEligible(campaign, settings)).length;
         emitDiagnostic(emit, platform, "debug", `${eligibleCount} of ${campaigns.length} campaigns eligible after filtering`);
       }
+    }
+    // A refresh that threw is a failing tick, even while an older snapshot keeps
+    // the tick farming: its progress numbers are stale, so the accrual arm above
+    // proves nothing. Auth failures belong to auth health, not this detector. An
+    // accrual precondition break later in the tick still overrides this.
+    if (committedDiscovery.failure !== undefined && !authHealthFromError(committedDiscovery.failure)) {
+      observation = apiErrorObservation(committedDiscovery.failure);
     }
 
     const previousInfeasibleRewardIds = new Set(state.deadlineInfeasibleRewardIds?.[platform]);

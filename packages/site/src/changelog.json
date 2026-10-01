@@ -4,6 +4,10 @@
     "changes": [
       {
         "kind": "fixed",
+        "text": "If Lurkloot keeps failing to load a platform's drop campaigns, it now counts toward the prompt that offers to report a persistent problem, as it did before campaign loading moved out of the regular check. Until now only failures later in the check counted, so a platform that could never load its campaigns never showed the prompt."
+      },
+      {
+        "kind": "fixed",
         "text": "The scheduler interval setting no longer offers 30 to 59 seconds. Lurkloot always checked at most once a minute, so those values were quietly treated as 60 seconds. The shortest interval you can pick is now 60 seconds."
       },
       {
