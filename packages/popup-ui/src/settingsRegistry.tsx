@@ -1,6 +1,6 @@
 import React from "react";
 import type { CategorySelection, ExtensionSettings, LanguageOverride, Platform, PriorityMode } from "@lurkloot/shared/models";
-import type { SettingsPatch } from "@lurkloot/shared/settings";
+import { POLL_INTERVAL_MAX_MINUTES, POLL_INTERVAL_MIN_MINUTES, type SettingsPatch } from "@lurkloot/shared/settings";
 import { LOCALE_OPTIONS } from "@lurkloot/shared/i18n";
 import { PLATFORMS } from "./constants";
 import { Pill } from "./primitives";
@@ -279,7 +279,7 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
             id: "general.advanced.pollInterval",
             titleKey: "schedulerIntervalTitle",
             descriptionKey: "schedulerIntervalDescription",
-            render: () => <NumberSettingRow title={t("schedulerIntervalTitle")} description={t("schedulerIntervalDescription")} value={Math.round(settings.pollIntervalMinutes * 60)} min={30} max={3600} suffix={t("secondsSuffix")} onChange={(value) => void onSettingsChange({ pollIntervalMinutes: value / 60 })} />,
+            render: () => <NumberSettingRow title={t("schedulerIntervalTitle")} description={t("schedulerIntervalDescription")} value={Math.round(settings.pollIntervalMinutes * 60)} min={POLL_INTERVAL_MIN_MINUTES * 60} max={POLL_INTERVAL_MAX_MINUTES * 60} suffix={t("secondsSuffix")} onChange={(value) => void onSettingsChange({ pollIntervalMinutes: value / 60 })} />,
           },
           {
             id: "general.advanced.tablessFallbackFailureLimit",

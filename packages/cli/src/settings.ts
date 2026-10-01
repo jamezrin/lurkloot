@@ -10,6 +10,8 @@ import {
   normalizeFarmingEligibility,
   normalizeChannelList,
   normalizeIdList,
+  POLL_INTERVAL_MAX_MINUTES,
+  POLL_INTERVAL_MIN_MINUTES,
 } from "@lurkloot/shared/settings";
 import { CURRENT_SETTINGS_SCHEMA_VERSION, migrateSettings, type SettingsMigrationDiagnostic } from "@lurkloot/shared/settingsSchema";
 import { SETTINGS_EXPORT_KIND, type SettingsExportEnvelope } from "@lurkloot/shared/settingsExport";
@@ -345,7 +347,7 @@ function parseMigratedCliSettings(value: Record<string, unknown>, diagnostics: S
     idleWatchlistFallbackOnly: booleanOr(v.idleWatchlistFallbackOnly, DEFAULT_CLI_SETTINGS.idleWatchlistFallbackOnly),
     preferKnownChannels: booleanOr(v.preferKnownChannels, DEFAULT_CLI_SETTINGS.preferKnownChannels),
     offlineRetryLimit: clampInteger(v.offlineRetryLimit, 1, 10, DEFAULT_CLI_SETTINGS.offlineRetryLimit),
-    pollIntervalMinutes: clampNumber(v.pollIntervalMinutes, 1, 60, DEFAULT_CLI_SETTINGS.pollIntervalMinutes),
+    pollIntervalMinutes: clampNumber(v.pollIntervalMinutes, POLL_INTERVAL_MIN_MINUTES, POLL_INTERVAL_MAX_MINUTES, DEFAULT_CLI_SETTINGS.pollIntervalMinutes),
     postClaimHandoff: booleanOr(v.postClaimHandoff, DEFAULT_CLI_SETTINGS.postClaimHandoff),
     postClaimHandoffIntervalSeconds: clampInteger(v.postClaimHandoffIntervalSeconds, 1, 30, DEFAULT_CLI_SETTINGS.postClaimHandoffIntervalSeconds),
     postClaimHandoffMaxSeconds: clampInteger(v.postClaimHandoffMaxSeconds, 5, 120, DEFAULT_CLI_SETTINGS.postClaimHandoffMaxSeconds),

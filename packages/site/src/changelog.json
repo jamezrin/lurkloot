@@ -4,6 +4,10 @@
     "changes": [
       {
         "kind": "fixed",
+        "text": "The scheduler interval setting no longer offers 30 to 59 seconds. Lurkloot always checked at most once a minute, so those values were quietly treated as 60 seconds. The shortest interval you can pick is now 60 seconds."
+      },
+      {
+        "kind": "fixed",
         "text": "The headless Twitch CLI now starts new device logins with Twitch's Smart TV client. When Twitch hides the campaign dashboard, the CLI scans live channels in configured games for drops. This is partial discovery: campaigns on offline or unscanned channels may be missed. Browser Twitch tokens from extension exports are skipped rather than used with the wrong client identity. Kick TV device login no longer requires a CSRF cookie that Kick stopped issuing."
       },
       {
