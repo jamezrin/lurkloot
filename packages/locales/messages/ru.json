@@ -392,6 +392,12 @@
   "viewDropPage": {
     "message": "Открыть страницу дропа"
   },
+  "campaignDropDetails": {
+    "message": "Подробности дропа"
+  },
+  "campaignCategoryDrops": {
+    "message": "Дропы категории"
+  },
   "upcoming": {
     "message": "Предстоящие"
   },
@@ -1714,6 +1720,9 @@
   },
   "campaignMoreChannels": {
     "message": "ещё $1"
+  },
+  "campaignFewerChannels": {
+    "message": "Свернуть"
   },
   "campaignExclude": {
     "message": "Исключить"
