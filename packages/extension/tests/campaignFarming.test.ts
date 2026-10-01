@@ -190,6 +190,14 @@ describe("campaignFarmingBlockers (#677)", () => {
     expect(blockers.map((blocker) => blocker.code)).toEqual(["excluded"]);
   });
 
+  it("lifts an unfinishable-reward skip and ends there", () => {
+    const tight = campaign({ endsAt: new Date(NOW + 10 * 60_000).toISOString() });
+    const blockers = campaignFarmingBlockers(tight, settings({ skipUnfinishableRewards: true }), { now: NOW });
+
+    // With the skip off the reward is farmable again, so the chain stops.
+    expect(blockers.map((blocker) => blocker.code)).toEqual(["insufficient_time"]);
+  });
+
   it("is empty for a farmable campaign", () => {
     expect(campaignFarmingBlockers(campaign(), settings(), { now: NOW })).toEqual([]);
   });
