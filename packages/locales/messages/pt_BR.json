@@ -525,7 +525,7 @@
     "message": "Prioridade da campanha"
   },
   "campaignPriorityDescription": {
-    "message": "Define como as campanhas são escolhidas. A lista de prioridade farma apenas campanhas reordenadas manualmente; as outras opções escolhem entre todas. Limite categorias por plataforma em Configurações da plataforma."
+    "message": "Ordena as campanhas da Fila que não estão fixadas nem são de um jogo favorito. Você também pode alterar isso no divisor “Depois por” da Fila."
   },
   "endingSoonest": {
     "message": "Termina primeiro"

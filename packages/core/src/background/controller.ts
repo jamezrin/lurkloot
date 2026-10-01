@@ -21,6 +21,7 @@ import { createReporting } from "./reporting";
 import { createSettingsTransitions } from "./settingsTransitions";
 import { createStateCommit } from "./stateCommit";
 import { createStateTransaction } from "./stateTransaction";
+import { createSupplementalSources } from "./supplementalSources";
 import { createTickAdmission } from "./tickAdmission";
 import { createTickRun } from "./tickRun";
 import { createTwitchIntegrity } from "./twitchIntegrity";
@@ -103,24 +104,25 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   // Each module takes the slices it uses and the calls it makes into other
   // modules. The calls resolve through `calls` once every module exists.
   const calls = {} as ControllerCalls<S>;
-  const { discoverySlice, ...discovery } = createDiscovery(ports, { lifecycleSlice }, calls);
+  const discovery = createDiscovery(ports, { lifecycleSlice }, calls);
   Object.assign(calls, {
     ...createReporting(ports, { reportingSlice }, calls),
     ...createStateCommit(transaction, calls),
-    ...createHeartbeatCoordinator(ports, transaction, { tickSlice, lifecycleSlice, tabRegistry }, calls),
-    ...createTwitchIntegrity(ports, { settingsSlice, lifecycleSlice, tabRegistry }, calls),
-    ...createChannelPoints(ports, transaction, { tickSlice, lifecycleSlice }, calls),
+    ...createHeartbeatCoordinator(ports, transaction, { lifecycleSlice, tabRegistry }, calls),
+    ...createTwitchIntegrity(ports, { lifecycleSlice, tabRegistry }, calls),
+    ...createChannelPoints(ports, transaction, { lifecycleSlice }, calls),
     ...createKickRuntime(ports, { lifecycleSlice }, calls),
-    ...createAuthHealth(ports, { discoverySlice }, calls),
+    ...createAuthHealth(ports, calls),
     ...createManualWatch(ports, { tabRegistry, lifecycleSlice }, calls),
+    ...createSupplementalSources(ports),
     ...createClaimService(ports, transaction, { lifecycleSlice }, calls),
-    ...createDiscoverySignals(ports, transaction, { signalSlice, tickSlice, lifecycleSlice }, calls),
+    ...createDiscoverySignals(ports, transaction, { signalSlice, lifecycleSlice }, calls),
     ...discovery,
-    ...createTickAdmission(ports, transaction, { reportingSlice, signalSlice, tickSlice, lifecycleSlice }, calls),
-    ...createTickRun(ports, { discoverySlice, tickSlice, tabRegistry }, calls),
-    ...createSettingsTransitions(transaction, { discoverySlice }, calls),
-    ...createLifecycle(ports, { discoverySlice, tickSlice, settingsSlice, lifecycleSlice, tabRegistry }, calls),
-    ...createMessageHandler(ports, { signalSlice, tickSlice, settingsSlice, lifecycleSlice, tabRegistry }, calls),
+    ...createTickAdmission(ports, transaction, { tickSlice, lifecycleSlice }, calls),
+    ...createTickRun(ports, { tickSlice, tabRegistry }, calls),
+    ...createSettingsTransitions(transaction, { settingsSlice, lifecycleSlice }, calls),
+    ...createLifecycle(ports, { lifecycleSlice, tabRegistry }, calls),
+    ...createMessageHandler(calls),
   } satisfies ControllerCalls<S>);
 
   // Prime the in-memory integrity token from storage (twitchIntegrity.ts).

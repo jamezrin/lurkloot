@@ -13,6 +13,8 @@ import { ChannelPointsClaimGate, registerChannelPointsClaimEffect } from "@lurkl
 import { registerRewardClaimEffect } from "@lurkloot/core/background/claimService";
 import { KickChallengeClaimGate, registerKickRuntimeEffects } from "@lurkloot/core/background/kickRuntime";
 import { createTickEffectExecutor, runSchedulerTickEffects, tickCapabilities } from "@lurkloot/core/background/tickEffects";
+import { registerWatchTabEffects } from "@lurkloot/core/background/manualWatch";
+import { registerSupplementalTargetEffect } from "@lurkloot/core/background/supplementalSources";
 import { authHealthFromError } from "@lurkloot/core/fetchError";
 import { isTimestampStale } from "@lurkloot/core/timestamps";
 import { createTabRegistry, type TabRegistry } from "@lurkloot/core/tabRegistry";
@@ -97,6 +99,7 @@ export async function runSchedulerTick(
 ): Promise<SchedulerTickResult> {
   const platforms = options.platforms ?? ["twitch", "kick"];
   const browserTabs = options.browserTabs ?? true;
+  const selectSupplementalWatchTarget = options.selectSupplementalWatchTarget;
   const discovery: Partial<Record<Platform, SchedulerTickDiscovery>> = { ...options.discovery };
   for (const platform of platforms) {
     if (discovery[platform]) continue;
@@ -128,15 +131,22 @@ export async function runSchedulerTick(
     selectionIsCurrent: options.selectionIsCurrent,
   }, registerRewardClaimEffect(
     registerKickRuntimeEffects(
-      registerChannelPointsClaimEffect(createTickEffectExecutor(), new ChannelPointsClaimGate()),
+      registerChannelPointsClaimEffect(
+        registerSupplementalTargetEffect(
+          registerWatchTabEffects(createTickEffectExecutor(), browserTabs ? watchTabsFromMocks(adapters) : undefined),
+          selectSupplementalWatchTarget
+            ? { select: (selectState, _settings, signal, source) => selectSupplementalWatchTarget("twitch", selectState, signal, source) }
+            : undefined,
+        ),
+        new ChannelPointsClaimGate(),
+      ),
       new KickChallengeClaimGate(),
       options.stopPageContextTabs,
     ),
     {},
   ), {
     adapters,
+    settings,
     tabRegistry: options.tabRegistry ?? createTabRegistry(),
-    ...(browserTabs ? { watchTabs: watchTabsFromMocks(adapters) } : {}),
-    selectSupplementalTarget: options.selectSupplementalWatchTarget,
   });
 }

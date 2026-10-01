@@ -1,8 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 import { createTabRegistry } from "@lurkloot/core/tabRegistry";
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import {
   type CommittedChange,
   createStateTransaction,
@@ -12,8 +9,7 @@ import {
 import type { ExtensionSettings, SchedulerState } from "@lurkloot/shared/models";
 import { applySettingsPatch, DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "../src/core/storage";
-import { LOCKED_IO_ALLOWLIST } from "./helpers/lockedIo";
-import { allowlistedCallSite, createTestLockTracker } from "./helpers/lockTracker";
+import { createTestLockTracker } from "./helpers/lockTracker";
 
 // The state transaction (#585): commit results, lock order, nested commits,
 // locked-I/O detection, after-commit hooks and settings effects.
@@ -171,18 +167,6 @@ describe("state transaction", () => {
       expect(tracker.violations.map((violation) => violation.message)).toEqual([
         "deps.createAlarm called while holding settings",
       ]);
-    });
-
-    it("accepts a port called under a lock from an allowlisted call site", () => {
-      const here = dirname(fileURLToPath(import.meta.url));
-      for (const entry of LOCKED_IO_ALLOWLIST) {
-        const path = resolve(here, "../../core/src", entry.file);
-        const line = readFileSync(path, "utf8").split("\n").findIndex((source) => source.includes(entry.call)) + 1;
-        expect(line, entry.id).toBeGreaterThan(0);
-        expect(allowlistedCallSite(`Error\n    at run (${path}:${line}:7)`), entry.id).toBe(true);
-      }
-      const unlisted = resolve(here, "../../core/src/background/stateTransaction.ts");
-      expect(allowlistedCallSite(`Error\n    at run (${unlisted}:1:1)`)).toBe(false);
     });
   });
 

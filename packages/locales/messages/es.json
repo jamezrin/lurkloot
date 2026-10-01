@@ -525,7 +525,7 @@
     "message": "Prioridad de campaña"
   },
   "campaignPriorityDescription": {
-    "message": "Cómo se eligen las campañas para farmear. La lista de prioridad solo farmea las campañas reordenadas manualmente; las otras opciones eligen entre todas las campañas. Limita las categorías por plataforma en Configuración de plataforma."
+    "message": "Ordena las campañas de la Cola que no están fijadas ni son de un juego favorito. También puedes cambiarlo desde el separador «Después por» de la Cola."
   },
   "endingSoonest": {
     "message": "Termina antes"

@@ -2,31 +2,19 @@ import { describe, expect, it } from "vitest";
 import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
-import {
-  LOCKED_IO_ALLOWLIST,
-  LOCKED_IO_ALLOWLIST_SIZE,
-  LOCKED_IO_CALLS,
-  type LockedIoEntry,
-  type LockedIoLock,
-} from "./helpers/lockedIo";
+import { LOCKED_IO_CALLS, LOCKS } from "./helpers/lockedIo";
 
-// Keeps the locked-I/O allowlist (#584) exact while v1.15.0 removes its
-// entries. It reads the source rather than running it:
-// - every provider, tab or timer call found inside a lock must be listed, so no
-//   new one can appear unnoticed;
-// - every listed call must still be inside its lock, so the PR that fixes a
-//   site also deletes its entry and lowers LOCKED_IO_ALLOWLIST_SIZE.
+// No provider, tab or timer call runs while a lock is held (#583). This reads
+// the source rather than running it, so a call inside a lock fails here even on
+// a path no test drives. #584 listed the v1.14.0 sites on an allowlist that the
+// v1.15.0 issues emptied; #591 deleted it, so there are no exceptions.
 const here = dirname(fileURLToPath(import.meta.url));
 const coreSrc = resolve(here, "../../core/src");
 // Every background controller module (#592 split controller.ts by owner).
 const BACKGROUND_FILES = readdirSync(resolve(coreSrc, "background"))
   .filter((name): name is `${string}.ts` => name.endsWith(".ts"))
   .map((name) => `background/${name}` as const);
-const LOCKS: readonly Exclude<LockedIoLock, "caller">[] = ["withStateLock", "withPlatformLock", "withSettingsLock", "withHeartbeatLane"];
-// Functions whose whole body runs inside a lock their caller holds. None do
-// now: the scheduler tick's effects (#599) and Kick page-context recovery
-// (#598) both run after the tick releases its lock.
-const CALLER_LOCKED: readonly { file: LockedIoEntry["file"]; site: string }[] = [];
+type BackgroundFile = (typeof BACKGROUND_FILES)[number];
 
 // Index just past the string, template literal or comment starting at `index`,
 // or `index` itself when none starts there. Template substitutions are scanned
@@ -151,8 +139,8 @@ interface Parsed {
   readonly spans: FunctionSpan[];
 }
 
-const parsed = new Map<LockedIoEntry["file"], Parsed>();
-function parse(file: LockedIoEntry["file"]): Parsed {
+const parsed = new Map<BackgroundFile, Parsed>();
+function parse(file: BackgroundFile): Parsed {
   let result = parsed.get(file);
   if (!result) {
     const code = codeOnly(readFileSync(resolve(coreSrc, file), "utf8"));
@@ -163,7 +151,7 @@ function parse(file: LockedIoEntry["file"]): Parsed {
 }
 
 interface FoundCall {
-  readonly file: LockedIoEntry["file"];
+  readonly file: BackgroundFile;
   readonly site: string;
   readonly call: string;
 }
@@ -180,53 +168,16 @@ function lockedCalls(): FoundCall[] {
       }
     }
   }
-  for (const { file, site } of CALLER_LOCKED) {
-    const scheduler = parse(file);
-    const span = scheduler.spans.find((candidate) => candidate.name === site);
-    if (!span) throw new Error(`function ${site} not found in core/src/${file}`);
-    for (const match of scheduler.code.slice(span.start, span.end).matchAll(CALL_PATTERN)) found.push({ file, site, call: match[1] });
-  }
   return found;
 }
 
 // The name a found call is reported under, e.g. "adapter.claimChallenges".
 const callName = (call: string): string => call.replace(/\s*!?\s*(?:\?\.)?\($/, "");
 
-describe("locked-I/O allowlist (#584)", () => {
-  it("has unique ids", () => {
-    const ids = LOCKED_IO_ALLOWLIST.map((entry) => entry.id);
-    expect(new Set(ids).size).toBe(ids.length);
-  });
-
-  it("only shrinks: its length matches LOCKED_IO_ALLOWLIST_SIZE", () => {
-    expect(
-      LOCKED_IO_ALLOWLIST.length,
-      "Removing an entry lowers LOCKED_IO_ALLOWLIST_SIZE in the same change. No change may add an entry or raise the size.",
-    ).toBe(LOCKED_IO_ALLOWLIST_SIZE);
-  });
-
-  it("lists every provider, tab and timer call made while a lock is held", () => {
-    const unlisted = lockedCalls().filter((found) => !LOCKED_IO_ALLOWLIST.some((entry) =>
-      entry.file === found.file && entry.site === found.site && callName(entry.call) === found.call));
-    const described = [...new Set(unlisted.map((found) => `${found.call} in ${found.site} (core/src/${found.file})`))];
-    expect(
-      described,
-      "New I/O inside a lock. Move it out of the lock instead of listing it (#583).",
-    ).toEqual([]);
-  });
-
-  it.each(LOCKED_IO_ALLOWLIST.map((entry) => [entry.id, entry] as const))("%s is still inside its lock", (_id, entry) => {
-    const { code, spans } = parse(entry.file);
-    const span = spans.find((candidate) => candidate.name === entry.site);
-    expect(span, `function ${entry.site} not found in core/src/${entry.file}`).toBeDefined();
-    const body = code.slice(span!.start, span!.end);
-    const scopes = entry.lock === "caller" ? [body] : lockBodies(body, entry.lock).map((scope) => scope.body);
-    expect(scopes.length, `${entry.site} no longer calls ${entry.lock}`).toBeGreaterThan(0);
-    expect(
-      scopes.some((scope) => scope.includes(entry.call)),
-      `${entry.call} no longer runs inside ${entry.lock} in ${entry.site}. If #${entry.owner} fixed it, delete "${entry.id}" and lower LOCKED_IO_ALLOWLIST_SIZE.`,
-    ).toBe(true);
-    expect(LOCKED_IO_CALLS as readonly string[], `${entry.id}: add ${callName(entry.call)} to LOCKED_IO_CALLS`).toContain(callName(entry.call));
+describe("locked I/O (#583)", () => {
+  it("makes no provider, tab or timer call while a lock is held", () => {
+    const locked = [...new Set(lockedCalls().map((found) => `${found.call} in ${found.site} (core/src/${found.file})`))];
+    expect(locked, "I/O inside a lock. Move it out of the lock (#583): there is no allowlist.").toEqual([]);
   });
 
   it("ignores parentheses and calls inside strings, templates and comments", () => {

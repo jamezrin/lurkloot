@@ -12,15 +12,17 @@ import type { ControllerCalls, DiscoverySignalRefreshRequest } from "./types";
 export function createDiscoverySignals<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
   transaction: Pick<StateTransaction<S>, "onCommit">,
-  { signalSlice, tickSlice, lifecycleSlice }: Pick<ControllerSlices<S>, "signalSlice" | "tickSlice" | "lifecycleSlice">,
+  { signalSlice, lifecycleSlice }: Pick<ControllerSlices<S>, "signalSlice" | "lifecycleSlice">,
   calls: Pick<ControllerCalls<S>,
     | "completeTickAndHandOff"
     | "diagnosticEvent"
     | "reportBestEffort"
+    | "discardStalePendingTick"
     | "requestTickBatch"
-    | "retainCurrentTickReasons"
     | "tickTriggerSummary"
+    | "trackBackgroundWork"
     | "withEventCollector"
+    | "platformTickAdmitted"
   >,
 ): Pick<ControllerCalls<S>,
   | "stopDiscoverySignalController"
@@ -34,15 +36,19 @@ export function createDiscoverySignals<S extends EngineSettings>(
   | "discoverySignalRefreshAllowed"
   | "reserveDiscoverySignalAuthRefresh"
   | "startPendingDiscoverySignalRefresh"
+  | "setDiscoverySignalPlatformBlocked"
+  | "takeAllowedDiscoverySignalRefresh"
 > {
   const {
     completeTickAndHandOff,
     diagnosticEvent,
     reportBestEffort,
+    discardStalePendingTick,
     requestTickBatch,
-    retainCurrentTickReasons,
     tickTriggerSummary,
+    trackBackgroundWork,
     withEventCollector,
+    platformTickAdmitted,
   } = lateBound(calls);
 
   // After a commit that leaves a platform's auth unhealthy (#595), or that
@@ -102,7 +108,7 @@ export function createDiscoverySignals<S extends EngineSettings>(
         platform,
       );
     });
-    tickSlice.backgroundWork = tickSlice.backgroundWork.then(() => run, () => run);
+    trackBackgroundWork(run);
   }
 
   // Starts or stops each platform's observer for `state`. `since` holds each
@@ -175,11 +181,21 @@ export function createDiscoverySignals<S extends EngineSettings>(
   function invalidateDiscoverySignalAdmission(platform: Platform): void {
     signalSlice.discoverySignalRefreshPending[platform] = undefined;
     signalSlice.discoverySignalAdmissionGeneration[platform] += 1;
-    const pending = tickSlice.tickAdmission[platform].pending;
-    if (pending && !retainCurrentTickReasons(platform, pending)) {
-      tickSlice.tickAdmission[platform].pending = undefined;
-      pending.resolve([platform, []]);
-    }
+    discardStalePendingTick(platform);
+  }
+
+  // A platform switched off blocks its observer until it is switched on again.
+  function setDiscoverySignalPlatformBlocked(platform: Platform, blocked: boolean): void {
+    signalSlice.discoverySignalPlatformBlocked[platform] = blocked;
+  }
+
+  // The queued discovery-signal refresh, handed to a tick that is about to run
+  // anyway, if it is still allowed. It is no longer queued afterwards.
+  function takeAllowedDiscoverySignalRefresh(platform: Platform): DiscoverySignalRefreshRequest | undefined {
+    const request = signalSlice.discoverySignalRefreshPending[platform];
+    if (!request || !discoverySignalRefreshAllowed(platform, request)) return undefined;
+    signalSlice.discoverySignalRefreshPending[platform] = undefined;
+    return request;
   }
 
   function discoverySignalRefreshAllowed(
@@ -223,7 +239,7 @@ export function createDiscoverySignals<S extends EngineSettings>(
   }
 
   function startPendingDiscoverySignalRefresh(platform: Platform): void {
-    if (signalSlice.discoverySignalRefreshRunning[platform] || tickSlice.tickAdmission[platform].active) return;
+    if (signalSlice.discoverySignalRefreshRunning[platform] || platformTickAdmitted(platform)) return;
     const queued = signalSlice.discoverySignalRefreshPending[platform];
     if (!queued) return;
     if (!discoverySignalRefreshAllowed(platform, queued)) {
@@ -270,7 +286,7 @@ export function createDiscoverySignals<S extends EngineSettings>(
       );
     });
 
-    tickSlice.backgroundWork = tickSlice.backgroundWork.then(() => run, () => run);
+    trackBackgroundWork(run);
   }
 
   return {
@@ -285,5 +301,7 @@ export function createDiscoverySignals<S extends EngineSettings>(
     discoverySignalRefreshAllowed,
     reserveDiscoverySignalAuthRefresh,
     startPendingDiscoverySignalRefresh,
+    setDiscoverySignalPlatformBlocked,
+    takeAllowedDiscoverySignalRefresh,
   };
 }

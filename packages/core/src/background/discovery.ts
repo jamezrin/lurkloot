@@ -1,4 +1,7 @@
 import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
+import type { EngineEvent } from "@lurkloot/shared/events";
+import type { CategorySearchResult, CoreRuntimeMessage } from "@lurkloot/shared/messages";
+import type { PlatformAdapter } from "../platforms/adapter";
 import {
   campaignSearchBackoffApplies,
   isPlaybackTelemetryHealthy,
@@ -31,6 +34,8 @@ export function createDiscovery<S extends EngineSettings>(
     | "createAdapter"
     | "withEventCollector"
     | "readSettingsAndState"
+    | "createAdapters"
+    | "reportBestEffort"
   >,
 ): Pick<ControllerCalls<S>,
   | "selectionFingerprint"
@@ -44,8 +49,20 @@ export function createDiscovery<S extends EngineSettings>(
   | "prepareSelection"
   | "reselectUnderLock"
   | "selectionAlreadyCommitted"
-> & { discoverySlice: DiscoverySlice<S> } {
-  const { createAdapter, readSettingsAndState, withEventCollector } = lateBound(calls);
+  | "invalidateDiscoveryLane"
+  | "stopDiscoveryLane"
+  | "recordDiscoveryEvent"
+  | "drainDiscoveryEvents"
+  | "selectionGeneration"
+  | "searchCategories"
+> {
+  const {
+    createAdapter,
+    readSettingsAndState,
+    withEventCollector,
+    createAdapters,
+    reportBestEffort,
+  } = lateBound(calls);
 
   // Created here rather than in context.ts: each lane refreshes through this
   // module's createDiscoveryLane.
@@ -239,6 +256,30 @@ export function createDiscovery<S extends EngineSettings>(
     return retryAt !== undefined && Date.parse(retryAt) <= Date.now();
   }
 
+  // A discovery result no longer stands (a settings change, a reset).
+  function invalidateDiscoveryLane(platform: Platform): void {
+    discoverySlice.discoveryLanes[platform].invalidate();
+  }
+
+  function stopDiscoveryLane(platform: Platform): void {
+    discoverySlice.discoveryLanes[platform].stop();
+  }
+
+  // Discovery and selection diagnostics wait here until the tick that consumes
+  // them reports them, correlated with its own.
+  function recordDiscoveryEvent(platform: Platform, event: EngineEvent): void {
+    discoverySlice.discoveryEvents[platform].push(event);
+  }
+
+  function drainDiscoveryEvents(platform: Platform): EngineEvent[] {
+    return discoverySlice.discoveryEvents[platform].splice(0);
+  }
+
+  // The generation a selection must still carry to be committed.
+  function selectionGeneration(platform: Platform): number {
+    return discoverySlice.selectionGeneration[platform];
+  }
+
   function invalidateSelection(platform: Platform): void {
     discoverySlice.selectionGeneration[platform] += 1;
     delete discoverySlice.selectionCache[platform];
@@ -413,8 +454,34 @@ export function createDiscovery<S extends EngineSettings>(
     };
   }
 
+  // The popup's category search (#591: moved here from messages.ts).
+  async function searchCategories(
+    message: Extract<CoreRuntimeMessage, { type: "searchCategories" }>,
+  ): Promise<CategorySearchResult> {
+    return withEventCollector(async (emit, events) => {
+      const settings = await ports.storage.loadSettings();
+      let categories: CategorySearchResult["categories"] = [];
+      let adapter: PlatformAdapter | undefined;
+      try {
+        adapter = createAdapters(settings, emit)[message.platform];
+        categories = await adapter.searchCategories?.(message.query) ?? [];
+      } catch (error) {
+        emit({
+          category: "diagnostic",
+          level: "warn",
+          message: `Category search failed: ${error instanceof Error ? error.message : String(error)}`,
+          platform: message.platform,
+        });
+      } finally {
+        adapter?.flushRouteDiagnostics?.(emit);
+      }
+      await reportBestEffort(events);
+      return { categories };
+    });
+  }
+
   return {
-    discoverySlice,
+    searchCategories,
     selectionFingerprint,
     refreshDiscovery,
     discoverySnapshot,
@@ -426,5 +493,10 @@ export function createDiscovery<S extends EngineSettings>(
     prepareSelection,
     reselectUnderLock,
     selectionAlreadyCommitted,
+    invalidateDiscoveryLane,
+    stopDiscoveryLane,
+    recordDiscoveryEvent,
+    drainDiscoveryEvents,
+    selectionGeneration,
   };
 }

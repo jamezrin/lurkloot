@@ -1,3 +1,4 @@
+import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
 import { PLATFORMS } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
@@ -18,9 +19,7 @@ import type {
 export function createTickAdmission<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
   transaction: Pick<StateTransaction<S>, "onCommit">,
-  { reportingSlice, signalSlice, tickSlice, lifecycleSlice }: Pick<ControllerSlices<S>,
-    | "reportingSlice"
-    | "signalSlice"
+  { tickSlice, lifecycleSlice }: Pick<ControllerSlices<S>,
     | "tickSlice"
     | "lifecycleSlice"
   >,
@@ -33,8 +32,11 @@ export function createTickAdmission<S extends EngineSettings>(
     | "selectionBypassesBackoff"
     | "selectionIsForced"
     | "startPendingDiscoverySignalRefresh"
+    | "takeAllowedDiscoverySignalRefresh"
     | "tickPlatform"
     | "withStateLock"
+    | "settleRouteReports"
+    | "snapshot"
   >,
 ): Pick<ControllerCalls<S>,
   | "tickTriggerSummary"
@@ -48,6 +50,13 @@ export function createTickAdmission<S extends EngineSettings>(
   | "markPlatformsStarting"
   | "tickAndHandOff"
   | "completeTickAndHandOff"
+  | "trackBackgroundWork"
+  | "suspendTickAdmission"
+  | "resumeTickAdmission"
+  | "discardStalePendingTick"
+  | "platformTickRunning"
+  | "platformTickAdmitted"
+  | "tickNow"
 > {
   const {
     awaitInitialTwitchIntegrityLoad,
@@ -58,8 +67,11 @@ export function createTickAdmission<S extends EngineSettings>(
     selectionBypassesBackoff,
     selectionIsForced,
     startPendingDiscoverySignalRefresh,
+    takeAllowedDiscoverySignalRefresh,
     tickPlatform,
     withStateLock,
+    settleRouteReports,
+    snapshot,
   } = lateBound(calls);
 
   // A commit that starts or ends the user's manual watch of a platform (#596)
@@ -166,11 +178,8 @@ export function createTickAdmission<S extends EngineSettings>(
         const pending = lane.pending;
         lane.pending = undefined;
         if (pending) {
-          const signalRequest = signalSlice.discoverySignalRefreshPending[platform];
-          if (signalRequest && discoverySignalRefreshAllowed(platform, signalRequest)) {
-            mergeDiscoverySignal(pending, signalRequest);
-            signalSlice.discoverySignalRefreshPending[platform] = undefined;
-          }
+          const signalRequest = takeAllowedDiscoverySignalRefresh(platform);
+          if (signalRequest) mergeDiscoverySignal(pending, signalRequest);
           diagnosticEvent("debug", `Coalesced scheduler triggers (${tickTriggerSummary(pending.reasons)})`, platform);
           executePlatformTick(platform, pending);
         } else startPendingDiscoverySignalRefresh(platform);
@@ -238,7 +247,32 @@ export function createTickAdmission<S extends EngineSettings>(
         const platform = platforms?.length === 1 ? platforms[0] : undefined;
         diagnosticEvent("warn", `Background tick (trigger=${trigger}) failed: ${error instanceof Error ? error.message : String(error)}`, platform);
       });
+    trackBackgroundWork(run);
+  }
+
+  // Work nobody awaits (a background tick, an observer stop, a push claim), so
+  // settleBackgroundWork can wait for it.
+  function trackBackgroundWork(run: Promise<unknown>): void {
     tickSlice.backgroundWork = tickSlice.backgroundWork.then(() => run, () => run);
+  }
+
+  // Host reset holds new ticks back until it has finished.
+  function suspendTickAdmission(): void {
+    tickSlice.tickAdmissionSuspended = true;
+  }
+
+  function resumeTickAdmission(): void {
+    tickSlice.tickAdmissionSuspended = false;
+  }
+
+  // A tick queued for reasons that no longer hold (only discovery signals whose
+  // admission was invalidated) is dropped.
+  function discardStalePendingTick(platform: Platform): void {
+    const pending = tickSlice.tickAdmission[platform].pending;
+    if (pending && !retainCurrentTickReasons(platform, pending)) {
+      tickSlice.tickAdmission[platform].pending = undefined;
+      pending.resolve([platform, []]);
+    }
   }
 
   // Detached ticks have no caller to await them, which leaves observers (tests,
@@ -250,8 +284,8 @@ export function createTickAdmission<S extends EngineSettings>(
     let pending = tickSlice.backgroundWork;
     for (;;) {
       await pending;
-      await Promise.allSettled([...reportingSlice.pendingRouteReports]);
-      if (tickSlice.backgroundWork === pending && reportingSlice.pendingRouteReports.size === 0) return;
+      const reportsSettled = await settleRouteReports();
+      if (tickSlice.backgroundWork === pending && reportsSettled) return;
       pending = tickSlice.backgroundWork;
     }
   }
@@ -343,7 +377,26 @@ export function createTickAdmission<S extends EngineSettings>(
     return handoff;
   }
 
+  // Whether one of the platform's ticks is running right now.
+  function platformTickRunning(platform: Platform): boolean {
+    return tickSlice.activePlatformTicks[platform] > 0;
+  }
+
+  // Whether the platform's admission lane has a tick it admitted and not finished.
+  function platformTickAdmitted(platform: Platform): boolean {
+    return tickSlice.tickAdmission[platform].active !== undefined;
+  }
+
+  // The popup's "check now" (#591: moved here from messages.ts).
+  async function tickNow(): Promise<RuntimeSnapshot<S>> {
+    await tickAndHandOff(undefined, "manual_tick");
+    return snapshot();
+  }
+
   return {
+    tickNow,
+    platformTickRunning,
+    platformTickAdmitted,
     tickTriggerSummary,
     cancelPendingTick,
     retainCurrentTickReasons,
@@ -355,5 +408,9 @@ export function createTickAdmission<S extends EngineSettings>(
     markPlatformsStarting,
     tickAndHandOff,
     completeTickAndHandOff,
+    trackBackgroundWork,
+    suspendTickAdmission,
+    resumeTickAdmission,
+    discardStalePendingTick,
   };
 }

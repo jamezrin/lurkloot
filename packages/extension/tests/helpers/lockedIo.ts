@@ -1,49 +1,13 @@
-// Every place the v1.14.0 engine performs provider, tab or timer I/O (or an
-// async wait on unrelated work) while it holds a lock. v1.15.0 (#583) removes
-// them: each entry names the issue that does, and that issue deletes its entry
-// in the same PR. lockedIoAllowlist.test.ts scans the source both ways: a call
-// from LOCKED_IO_CALLS inside a lock that is not listed fails, and a listed call
-// that is no longer inside its lock fails. The list's length is pinned to
-// LOCKED_IO_ALLOWLIST_SIZE, so it can only shrink. docs/architecture.md
-// ("Background controller ownership and concurrency") explains the locks.
+// Provider, tab and timer I/O must never run while a lock is held (#583, #585).
+// v1.14.0 did so at 44 sites. Each v1.15.0 issue moved its sites out, and #591
+// deleted the allowlist that tracked them once it was empty: there are no
+// exceptions. lockedIo.test.ts scans the source for these calls inside a lock,
+// and the runtime lock tracker (lockTracker.ts) fails any guarded port called
+// while one is held. docs/architecture.md ("Background controller ownership and
+// concurrency") explains the locks.
 
-export type LockedIoKind = "provider" | "tab" | "timer" | "async-wait";
-
-// The lock that is held around the call:
-// - a lock helper whose argument body must contain the call, or
-// - "caller" when the whole function runs inside a lock its caller took
-//   (none now: Kick page-context recovery left runTick's lock in #598).
-export type LockedIoLock = "withStateLock" | "withPlatformLock" | "withSettingsLock" | "withHeartbeatLane" | "caller";
-
-export type LockedIoOwner = 587 | 589 | 590 | 595 | 596 | 598 | 599;
-
-export interface LockedIoEntry {
-  readonly id: string;
-  // Relative to packages/core/src.
-  readonly file: `background/${string}.ts`;
-  // The named function that contains the lock (or, for "caller", the call).
-  readonly site: string;
-  readonly lock: LockedIoLock;
-  // A literal substring of the call, as it appears in the source.
-  readonly call: string;
-  readonly kind: LockedIoKind;
-  readonly owner: LockedIoOwner;
-}
-
-// Empty since #586 removed the last two, the tabless watcher starts under the
-// tick's state lock and under the heartbeat lane. No lock is held around
-// provider, tab or timer I/O any more, and the scan still fails any new site.
-export const LOCKED_IO_ALLOWLIST: readonly LockedIoEntry[] = [];
-
-// The size of the list. The test requires the list to be exactly this long, so
-// removing an entry means lowering it in the same change. Never raise it.
-//
-// #585 raised it once, from 40 to 44, to list v1.14.0 sites #584's source scan
-// could not see and the runtime lock tracker found: I/O under withPlatformLock,
-// under `adapters[platform]`, and in a function its caller runs under a lock.
-// The scan now recognizes all three. That was a correction to the baseline,
-// not new locked I/O.
-export const LOCKED_IO_ALLOWLIST_SIZE = 0;
+// The lock helpers whose argument body runs while the lock is held.
+export const LOCKS = ["withStateLock", "withPlatformLock", "withSettingsLock", "withHeartbeatLane"] as const;
 
 // Calls that count as locked I/O when they appear inside a lock: ports and
 // adapter methods that reach a provider, a tab or a timer, and the controller

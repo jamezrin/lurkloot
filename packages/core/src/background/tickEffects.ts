@@ -1,4 +1,4 @@
-import type { Platform, SchedulerState, SupplementalWatchTarget, WatchSourceId } from "@lurkloot/shared/models";
+import type { EngineSettings, Platform } from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import { EffectExecutor, driveEffects } from "../core/effectExecutor";
 import {
@@ -17,18 +17,16 @@ import {
   type TabRegistry,
 } from "../core/tabRegistry";
 import type { PlatformAdapter } from "../platforms/adapter";
-import type { WatchTabPort } from "./hostPorts";
 import { PLATFORMS } from "./constants";
 
 // What an effect handler may use to perform a scheduler effect. It is built per
-// tick: the adapters are the tick's own.
+// tick: the adapters and settings are the tick's own. Host ports are not here:
+// each owning service binds the ports its handlers use when it registers them.
 export interface TickEffectContext {
   adapters: Partial<Record<Platform, PlatformAdapter>>;
+  settings: EngineSettings;
   // The controller's tab registry (#598).
   tabRegistry: TabRegistry;
-  // Absent when the host has no browser tabs: every watch is then tabless.
-  watchTabs?: WatchTabPort;
-  selectSupplementalTarget?(platform: Platform, state: SchedulerState, signal: AbortSignal | undefined, source: WatchSourceId): Promise<SupplementalWatchTarget | undefined>;
   emit: EventEmitter;
   signal?: AbortSignal;
   // The rewards this tick claimed, still reserved until its commit (#597).
@@ -37,36 +35,13 @@ export interface TickEffectContext {
 
 export type TickEffectExecutor = EffectExecutor<SchedulerEffects, TickEffectContext>;
 
-// The interim handlers (#599): each is the call the scheduler tick used to make
-// itself, except that watch tabs now go to the host's WatchTabPort (#598). The
-// owning services take these over one effect type at a time: watch tabs
-// (#598/#587) and supplemental selection (#587). Each owner registers its own
-// handler in place of the interim one. Channel points (#590), the Kick runtime
-// (#588) and the claim service (#597) already have: see
-// registerChannelPointsClaimEffect in channelPoints.ts, registerKickRuntimeEffects
-// in kickRuntime.ts and registerRewardClaimEffect in claimService.ts.
-export function registerInterimTickEffectHandlers(executor: TickEffectExecutor): TickEffectExecutor {
-  return executor
-    // Without a watch-tab port there is no tab to stop, but the scheduler still
-    // asks, to clean up idle and disabled platforms.
-    .register("stopWatchTab", async ({ session }, context) => {
-      await context.watchTabs?.stop(session, { signal: context.signal }, context.emit);
-    })
-    .register("selectSupplementalTarget", async ({ platform, state, source }, context) =>
-      await context.selectSupplementalTarget?.(platform, state, context.signal, source))
-    .register("openWatchTab", async ({ channel, session, managedTab }, context) => {
-      if (!context.watchTabs) {
-        throw new Error("Watch tabs need the browserTabs capability, which this host does not declare");
-      }
-      return await context.watchTabs.open(channel, session, {
-        ...(managedTab ? { managedTab } : {}),
-        signal: context.signal,
-      }, context.emit);
-    });
-}
-
+// An empty executor. Every scheduler effect type's handler is registered by the
+// service that owns it (#591): watch tabs by manual watch (manualWatch.ts),
+// supplemental selection by supplementalSources.ts, channel points by
+// channelPoints.ts (#590), challenges and page contexts by the Kick runtime
+// (#588) and reward claims by the claim service (#597).
 export function createTickEffectExecutor(): TickEffectExecutor {
-  return registerInterimTickEffectHandlers(new EffectExecutor<SchedulerEffects, TickEffectContext>());
+  return new EffectExecutor<SchedulerEffects, TickEffectContext>();
 }
 
 export function tickCapabilities(adapter: PlatformAdapter, watchTabs: boolean): PlatformTickCapabilities {

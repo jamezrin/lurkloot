@@ -2,13 +2,19 @@ import { describe, expect, it, vi } from "vitest";
 import { createTwitchExtensionRuntime } from "../src/extensions/runtime";
 import { twitchExtensionProviders } from "@lurkloot/core/extensions/registry";
 import type { DriverSession } from "../src/extensions/session";
+import type { EngineEvent } from "@lurkloot/shared/events";
 
 const provider = twitchExtensionProviders[0];
 function setup() {
   let now = 1_800_000_000_000;
   const stop = vi.fn();
   const refresh = vi.fn(async () => {});
-  const driver = vi.fn(async (_session: DriverSession, emit: (value: unknown) => void) => {
+  const driver = vi.fn(async (
+    _session: DriverSession,
+    emit: (value: unknown) => void,
+    _channel?: { username: string },
+    _publish?: (events: readonly EngineEvent[]) => void,
+  ) => {
     emit({ status: "farming", reasonCode: "watchtime", progress: [], pending: [] });
     return { stop, refresh };
   });
@@ -19,8 +25,9 @@ function setup() {
   const contains = vi.fn(async () => true);
   const report = vi.fn();
   const violation = vi.fn();
-  const runtime = createTwitchExtensionRuntime({ source: { query, hasSession: async () => true, now: () => now }, contains, drivers: { nopixel: driver }, report, onViolation: violation });
-  return { runtime, driver, query, stop, refresh, contains, report, violation, advance(ms: number) { now += ms; } };
+  const publish = vi.fn();
+  const runtime = createTwitchExtensionRuntime({ source: { query, hasSession: async () => true, now: () => now }, contains, drivers: { nopixel: driver }, report, onViolation: violation, publish });
+  return { runtime, driver, query, stop, refresh, contains, report, violation, publish, advance(ms: number) { now += ms; } };
 }
 const selected = { nopixel: "123" };
 describe("privileged tabless provider runtime", () => {
@@ -110,4 +117,70 @@ it("reacquires rejected provider authorization on a bounded retry", async () => 
   s.advance(60_000); await s.runtime.update(selected);
   expect(s.query).toHaveBeenCalledTimes(2);
   s.runtime.stop();
+});
+
+// #594: driver activity publishes only while its session is the provider's
+// current one. Disable, revocation, logout, manual pause and restart all end the
+// session through stop or a new selection, so their late activity is dropped.
+describe("driver activity publication", () => {
+  const activity = [{ category: "diagnostic" as const, level: "info" as const, message: "pack opened" }];
+  const publisherOf = (s: ReturnType<typeof setup>, call = 0) => s.driver.mock.calls[call][3]!;
+
+  it("publishes while the session is current", async () => {
+    const s = setup(); await s.runtime.update(selected);
+    publisherOf(s)(activity);
+    expect(s.publish).toHaveBeenCalledWith(activity);
+    s.runtime.stop();
+  });
+
+  it("publishes nothing after the session is stopped", async () => {
+    const s = setup(); await s.runtime.update(selected);
+    s.runtime.stop();
+    publisherOf(s)(activity);
+    expect(s.publish).not.toHaveBeenCalled();
+  });
+
+  it("publishes nothing from the previous channel's session after a channel change", async () => {
+    const s = setup(); await s.runtime.update(selected);
+    const previous = publisherOf(s);
+    await s.runtime.update({ nopixel: "456" });
+    previous(activity);
+    expect(s.publish).not.toHaveBeenCalled();
+    s.runtime.stop();
+  });
+
+  it("publishes nothing after the driver is quarantined for an invalid report", async () => {
+    const s = setup(); await s.runtime.update(selected);
+    s.driver.mock.calls[0][1]({ status: "farming", reasonCode: "watchtime", progress: [], pending: [], token: "private" });
+    publisherOf(s)(activity);
+    expect(s.publish).not.toHaveBeenCalled();
+  });
+
+  it("publishes nothing once the session's authorization is rejected", async () => {
+    const s = setup(); await s.runtime.update(selected);
+    s.driver.mock.calls[0][1]({ status: "error", reasonCode: "auth-required", progress: [], pending: [] });
+    publisherOf(s)(activity);
+    expect(s.publish).not.toHaveBeenCalled();
+    s.runtime.stop();
+  });
+});
+
+// #594: the lane reconciles on each minute heartbeat commit. A refresh due a
+// few milliseconds after that commit must not wait for the next one.
+describe("refresh cadence", () => {
+  it("refreshes a driver whose floor is a few seconds away, and not one further off", async () => {
+    const s = setup(); s.driver.mockImplementation(async () => ({ stop: s.stop, refresh: s.refresh }));
+    s.query.mockImplementation(async () => {
+      const jwt = `eyJheader.${btoa(JSON.stringify({ channel_id: "123", exp: 1_800_000_000 + 3600, role: "viewer", opaque_user_id: "Uviewer", user_id: "viewer" })).replace(/=/g, "")}.signature`;
+      return { data: { user: { channel: { selfInstalledExtensions: [{ installation: { extension: { id: provider.extensionId, version: "1.1.2" }, activationConfig: { state: "ACTIVE" } }, token: { jwt } }] } } } };
+    });
+    await s.runtime.update(selected);
+    s.advance(provider.minRefreshIntervalMs - 6_000);
+    await s.runtime.update(selected);
+    expect(s.refresh).not.toHaveBeenCalled();
+    s.advance(2_000);
+    await s.runtime.update(selected);
+    expect(s.refresh).toHaveBeenCalledOnce();
+    s.runtime.stop();
+  });
 });

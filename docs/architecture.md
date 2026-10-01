@@ -117,8 +117,10 @@ which now read `<slice>.<field>`.
 - `hostPorts.ts` and `jobs.ts` (#593) are the host contract: the grouped ports and declared
   capabilities every module takes instead of flat deps, and the job scheduler port with the job
   table. See "Host ports and jobs" below.
-- `tickEffects.ts` and `tickCommit.ts` (#599) are the scheduler tick's effect executor with its
-  interim handlers, and the tick's three-way commit. See "Scheduler tick effects" below.
+- `tickEffects.ts` and `tickCommit.ts` (#599) are the scheduler tick's effect executor, which the
+  owning services fill, and the tick's three-way commit. See "Scheduler tick effects" below.
+- `supplementalSources.ts` (#591) owns the supplemental-sources port and registers the
+  `selectSupplementalTarget` handler, so the tick never touches that Twitch-only port.
 
 The per-module slices and calls below are where #591's dependency check starts:
 
@@ -126,24 +128,32 @@ The per-module slices and calls below are where #591's dependency check starts:
 | --- | --- | --- | --- |
 | `stateTransaction.ts` | its own lock queues and hooks | none | the transaction (#585) |
 | `stateCommit.ts` | the transaction | `reporting` | 13 |
-| `reporting.ts` | `reportingSlice` | `discovery` | 13 |
-| `tickAdmission.ts` | `reportingSlice`, `signalSlice`, `tickSlice`, `lifecycleSlice`, a commit hook | `claimService`, `discovery`, `discoverySignals`, `reporting`, `stateCommit`, `tickRun` | 11 |
-| `tickRun.ts` | `discoverySlice`, `tickSlice` | `authHealth`, `channelPoints`, `claimService`, `discovery`, `discoverySignals`, `heartbeat`, `kickRuntime`, `manualWatch`, `reporting`, `stateCommit`, `tickAdmission`, `twitchIntegrity` | 1 |
-| `discovery.ts` | its own `discoverySlice`, `lifecycleSlice` | `reporting`, `stateCommit` | 10 |
-| `heartbeat.ts` | its own watchers, heartbeat lanes, generation high-water marks and publication leases, and the watch job (#586), `tickSlice`, `lifecycleSlice` | `discovery`, `reporting`, `stateCommit`, `tickAdmission` | 8 |
-| `twitchIntegrity.ts` | its own state (lifecycle generation, persisted token, refresh due, the startup load; #589), `settingsSlice`, `lifecycleSlice`, the tab registry's token | `reporting`, `stateCommit` | 12 |
-| `channelPoints.ts` | its own push slot, claim gate and push-claim queue (#590), `tickSlice`, `lifecycleSlice`, a commit hook | `reporting`, `stateCommit` | 10 |
+| `reporting.ts` | `reportingSlice` | `discovery` | 14 |
+| `tickAdmission.ts` | `tickSlice` (with `tickRun`, the tick coordinator), `lifecycleSlice` (read), a commit hook | `claimService`, `discovery`, `discoverySignals`, `reporting`, `stateCommit`, `tickRun` | 18 |
+| `tickRun.ts` | `tickSlice` (with `tickAdmission`) | `authHealth`, `channelPoints`, `claimService`, `discovery`, `discoverySignals`, `heartbeat`, `kickRuntime`, `manualWatch`, `reporting`, `stateCommit`, `tickAdmission`, `twitchIntegrity` | 1 |
+| `discovery.ts` | its own `discoverySlice`, `lifecycleSlice` (read) | `reporting`, `stateCommit` | 17 |
+| `heartbeat.ts` | its own watchers, heartbeat lanes, generation high-water marks and publication leases, and the watch job (#586), `lifecycleSlice` (read) | `discovery`, `reporting`, `stateCommit`, `tickAdmission` | 7 |
+| `twitchIntegrity.ts` | its own state (lifecycle generation, persisted token, refresh due, the startup load; #589), `lifecycleSlice` (read), the tab registry's token | `reporting`, `settingsTransitions`, `stateCommit` | 12 |
+| `channelPoints.ts` | its own push slot, claim gate and push-claim queue (#590), `lifecycleSlice` (read), a commit hook | `reporting`, `stateCommit`, `tickAdmission` | 12 |
 | `kickRuntime.ts` | its own challenge claim gate, claim operations and job reschedule queue (#588), `lifecycleSlice` | `reporting`, `stateCommit` | 9 |
-| `authHealth.ts` | its own refresh generations (#595), `discoverySlice` | `discovery`, `discoverySignals`, `reporting`, `stateCommit` | 5 |
-| `manualWatch.ts` | `lifecycleSlice` | `discovery`, `reporting`, `stateCommit` | 6 |
-| `claimService.ts` | its own handoffs, waiting reward ids, drop-claim operations, reward claim guards and job reschedule queue (#597), `lifecycleSlice` | `heartbeat`, `lifecycle`, `reporting`, `stateCommit`, `tickAdmission` | 12 |
-| `discoverySignals.ts` | `signalSlice`, `tickSlice`, `lifecycleSlice`, a commit hook | `reporting`, `tickAdmission` | 9 |
-| `settingsTransitions.ts` | the transaction, `discoverySlice` | `channelPoints`, `claimService`, `discovery`, `kickRuntime`, `lifecycle`, `stateCommit`, `tickAdmission` | 2 |
-| `lifecycle.ts` | `signalSlice`, `discoverySlice`, `tickSlice`, `settingsSlice`, `lifecycleSlice` | `authHealth`, `channelPoints`, `claimService`, `discovery`, `discoverySignals`, `heartbeat`, `kickRuntime`, `reporting`, `settingsTransitions`, `stateCommit`, `tickAdmission`, `twitchIntegrity` | 8 |
-| `messages.ts` | `signalSlice`, `tickSlice`, `settingsSlice`, `lifecycleSlice` | `claimService`, `discoverySignals`, `lifecycle`, `manualWatch`, `reporting`, `settingsTransitions`, `stateCommit`, `tickAdmission`, `twitchIntegrity` | 1 |
+| `authHealth.ts` | its own refresh generations (#595) | `discovery`, `discoverySignals`, `reporting`, `stateCommit` | 5 |
+| `manualWatch.ts` | the watch-tab effect handlers (#591), `lifecycleSlice` (read) | `discovery`, `reporting`, `stateCommit`, `tickAdmission` | 9 |
+| `supplementalSources.ts` | the supplemental target effect handler (#591) | none | 1 |
+| `claimService.ts` | its own handoffs, waiting reward ids, drop-claim operations, reward claim guards and job reschedule queue (#597), `lifecycleSlice` | `heartbeat`, `lifecycle`, `reporting`, `stateCommit`, `tickAdmission` | 13 |
+| `discoverySignals.ts` | `signalSlice`, `lifecycleSlice` (read), a commit hook | `reporting`, `tickAdmission` | 13 |
+| `settingsTransitions.ts` | the transaction, `settingsSlice` (the Twitch settings-transition generation), `lifecycleSlice` (read) | `channelPoints`, `claimService`, `discovery`, `discoverySignals`, `kickRuntime`, `lifecycle`, `stateCommit`, `tickAdmission` | 8 |
+| `lifecycle.ts` | `lifecycleSlice` | `authHealth`, `channelPoints`, `claimService`, `discovery`, `discoverySignals`, `heartbeat`, `kickRuntime`, `reporting`, `settingsTransitions`, `stateCommit`, `tickAdmission`, `twitchIntegrity` | 9 |
+| `messages.ts` | none: a routing table, one entry per runtime message (#591) | `claimService`, `discovery`, `manualWatch`, `reporting`, `settingsTransitions`, `tickAdmission` | 1 |
 
-Slices read outside their owner are the coupling the later issues remove: `lifecycleSlice`
-(`controllerShutdown`) in nine modules, `tickSlice` in seven, `discoverySlice` in five.
+Each module changes only its own state (#591). Where another module needs to change it, the
+owner provides a narrow method: tick admission's `trackBackgroundWork`, `suspendTickAdmission`
+and `discardStalePendingTick`; discovery's `invalidateDiscoveryLane`, `recordDiscoveryEvent` and
+`drainDiscoveryEvents`; discovery signals' `setDiscoverySignalPlatformBlocked` and
+`takeAllowedDiscoverySignalRefresh`; settings transitions' `beginTwitchSettingsTransition`. Reads go
+through queries too (`discoverySnapshot`, `selectionGeneration`, `platformTickRunning`,
+`currentTwitchSettingsTransition`, `settleRouteReports`). The one slice still read directly is
+`lifecycleSlice`, for its shutdown and observer flags. `tickSlice` belongs to the tick coordinator,
+which is `tickAdmission.ts` and `tickRun.ts` together (#587).
 `campaignEvaluationFingerprints` sits in `tickSlice` because only a tick reads it.
 
 The characterization suite is split the same way, into `packages/extension/tests/backgroundController/<owner>.test.ts`,
@@ -172,7 +182,7 @@ or settings, loaded and saved through the host's storage port (`storage.local` o
 | Twitch integrity (the token, the persisted token, the lifecycle generation) | The integrity service's own state (#589). The token has one in-memory copy, in the tab registry, with the capture waiters and in-flight acquisition; the service is its only writer; the token is also persisted through `saveTwitchIntegrity` | Header capture, refresh, and Twitch's enabled flag from any settings save (#589): a save that disables Twitch cancels a mint in flight and holds off integrity work until it ends, and a serialized reconcile after it follows the stored flag, so a failed save needs no rollback | A newer lifecycle generation, and for persistence a host reset | The service's own lanes, no controller lock (#589): token bookkeeping, then the refresh alarm. A schedule re-checks it owns the lifecycle inside the alarm lane, where a disable's clear also runs | Token reloaded from storage | Extension only |
 | Compatibility reporting (`reportedCompatibility`, route reports) and `campaignEvaluationFingerprints` | In memory | Adapter construction, ticks | Never, within a process | None | Reported again | Both |
 | Host jobs | The job scheduler port: `browser.alarms` (extension), Node timers (CLI) | `ensureCadenceJobs`, `rescheduleTickJobs`, each service's reconcile and reschedule, integrity scheduling | Settings changes, disable | After the settings lock is released, from the latest stored settings; the integrity alarm has its own lane (#589) | Alarms survive a service-worker restart; the CLI re-ensures its cadence jobs on start | Both; jobs whose capability a host lacks are inert (#593) |
-| Twitch Extensions host (`generation`, `knownComplete`, `completedUntil`, `unavailableUntil`, summaries) | In memory in `packages/extension/src/extensions/host.ts` | The host's reconcile loop | `storage.onChanged` diffs of settings and scheduler state, every alarm | Outside the controller | Forgotten; providers are re-probed | Extension only |
+| Twitch Extensions host (`generation`, `knownComplete`, `completedUntil`, `unavailableUntil`, summaries) | In memory in `packages/extension/src/extensions/host.ts`; the completion and cooldown deadlines are also stored under `twitchExtensionLane` in local storage (#594) | The host's reconcile loop | The controller's accepted commits, through the lane's commit hook (`src/extensions/commitHook.ts`, #594): Twitch state commits and settings commits that are not ranking-only | Outside the controller | Deadlines restored from `twitchExtensionLane`, validated and with expired entries dropped; summaries and sessions are re-acquired | Extension only |
 
 ### Locks and queues
 
@@ -199,9 +209,9 @@ due heartbeat independent of a long tick.
 
 ### Work performed while a lock is held
 
-None, since #586. `packages/extension/tests/helpers/lockedIo.ts` (`LOCKED_IO_ALLOWLIST`) listed each
-site with the v1.15.0 issue that removed it, and is now empty. `lockedIoAllowlist.test.ts` fails if a
-provider, tab or timer call appears inside a lock.
+None, since #586, and with no exceptions: #584's allowlist of v1.14.0 sites was emptied by the
+v1.15.0 issues and deleted in #591. `lockedIo.test.ts` fails if a provider, tab or timer call
+appears inside a lock, and the runtime lock tracker fails any guarded port called while one is held.
 
 - **Scheduler tick:** none since #599. Its effects (claims, Kick challenges, channel points, watch
   tabs, page-context release, Twitch Extensions supplemental selection) run between `runTick`'s two
@@ -233,7 +243,7 @@ and never take the commit lock or call `saveState` themselves.
 
 - **Lock order:** settings → Twitch → Kick → heartbeat lane → commit. Acquire in this order only.
   Only a storage load and save run under the commit lock; no lock may be held across provider, tab or
-  timer I/O (`LOCKED_IO_ALLOWLIST` is empty since #586).
+  timer I/O, with no exceptions (#591).
 - **Commit:** `commit(platforms, guard, mutate)` loads the stored state, checks the guard, applies
   the synchronous `mutate`, and returns `accepted`, `unchanged` (nothing to write, or an equivalent
   state) or `stale`. The guard is the operation's expected generation, as an `AbortSignal` or a
@@ -293,9 +303,9 @@ and never take the commit lock or call `saveState` themselves.
 The test suite enforces the model. The characterization and contract harnesses give the controller
 a lock tracker (`tests/helpers/lockTracker.ts`, backed by `AsyncLocalStorage`) and guard every
 provider, tab and timer port. A test fails when a lock is taken out of order, a commit nests in a
-commit, or a port is called under a lock from a call site missing from `LOCKED_IO_ALLOWLIST`. The
-site check reads the async stack trace, so the lock queues are written with `await` and a release
-promise rather than `.then()` chains, which V8 cannot see through. `stateTransaction.test.ts`
+commit, or a port is called while a lock is held. The lock queues are written with `await` and a
+release promise rather than `.then()` chains, so the tracker's `AsyncLocalStorage` context and the
+violation's async stack trace follow the operation. `stateTransaction.test.ts`
 covers the rules themselves, including an unlisted call site failing and hook ordering.
 
 ### Scheduler tick effects (#599)
@@ -307,14 +317,14 @@ view of the discovery snapshot to select channels from (`selectionAdapterFromDis
 and declared capabilities (tabless, Kick challenges, channel points). It never calls an adapter, a
 port or the tab module. Each side effect it needs is yielded as a typed `SchedulerEffect`:
 
-| Effect | Interim handler (`background/tickEffects.ts`) | Final owner |
-| --- | --- | --- |
-| `claimRewards` | none: the claim service's own handler (`registerRewardClaimEffect`), which runs `claimReadyRewards` (`core/rewardClaims.ts`) with the `RewardClaimGuard`s it shares with the drop-claim job and manual claims | #597 (done) |
-| `claimChannelPoints` | none: the channel-points service's own handler (`registerChannelPointsClaimEffect`) | #590 (done) |
-| `claimChallenges` | none: the Kick runtime's own handler (`registerKickRuntimeEffects`), which shares its `KickChallengeClaimGate` with the job | #588 (done) |
-| `openWatchTab`, `stopWatchTab` | the host's `WatchTabPort` (`tabs.watch.open` / `stop`). Without it, opening throws and stopping does nothing | #587 |
-| `releasePageContexts` | none: the Kick runtime's own handler, which calls the host's `PageContextPort` (`tabs.pageContexts.release`), or only forgets the contexts without one | #588 (done) |
-| `selectSupplementalTarget` | the Twitch Extensions host's `select` | #587 |
+| Effect | Owner and handler |
+| --- | --- |
+| `claimRewards` | The claim service (#597): `registerRewardClaimEffect`, which runs `claimReadyRewards` (`core/rewardClaims.ts`) with the `RewardClaimGuard`s it shares with the drop-claim job and manual claims |
+| `claimChannelPoints` | The channel-points service (#590): `registerChannelPointsClaimEffect` |
+| `claimChallenges` | The Kick runtime (#588): `registerKickRuntimeEffects`, which shares its `KickChallengeClaimGate` with the job |
+| `openWatchTab`, `stopWatchTab` | Manual watch (#591): `registerWatchTabEffects`, through the host's `WatchTabPort` (`tabs.watch.open` / `stop`). Without the port, opening throws and stopping does nothing |
+| `releasePageContexts` | The Kick runtime (#588): through the host's `PageContextPort` (`tabs.pageContexts.release`), or only forgetting the contexts without one |
+| `selectSupplementalTarget` | `supplementalSources.ts` (#591): `registerSupplementalTargetEffect`, through the host's supplemental-sources port, for Twitch only |
 
 The yielded effects in order are the tick's plan. It is produced incrementally rather than returned
 at once, because later decisions depend on earlier results. A claim can satisfy the next reward's
@@ -322,8 +332,9 @@ precondition, which the same tick then selects. A new tab is closed again if the
 stale while it opened. A failed effect is thrown back at its `yield`, so the tick's own `catch`
 still decides what it means: an authentication error suspends the platform and a watch-tab failure
 is a `platform_error` with backoff. `EffectExecutor` (`core/effectExecutor.ts`) maps each effect
-type to exactly one handler and throws when a second one registers. An owner issue replaces the
-interim registration with its service's handler; the tick itself never changes.
+type to exactly one handler and throws when a second one registers. `createTickEffectExecutor`
+starts empty: each owning service registers its handlers, binding the host ports they use, and the
+tick composes them once per controller. No interim handler remains (#591).
 `runSchedulerTickEffects` drives the platforms in order, running each yielded effect through the
 executor, and mirrors the page contexts and managed-tab breaker of the controller's tab registry around them. The deciding
 code never touches either.
@@ -472,16 +483,17 @@ lacks is inert: ensuring it schedules nothing and a fire of it does nothing. On 
 the manual-watch claim jobs and Kick challenges (browser tabs) and the integrity refresh (integrity
 capture). The one-minute channel-points job runs on both hosts (#590); the CLI used to claim channel
 points only at poll cadence. The
-host delivers fires to `controller.runJob(name)`. The CLI routes its tick jobs through its own tick
-driver, which adds disabled-platform cleanup and subscription reporting, and runs each at
-`pollIntervalMinutes` with the heartbeat job every minute, as before.
+host delivers fires to `controller.runJob(name)`. Since #591 that includes the CLI's tick jobs: it has
+no tick driver of its own. A disabled platform's tick cleans up its state, as it always did on the
+extension, and logs "Platform disabled" once, when it becomes disabled. The CLI logs subscription
+waits from an after-commit hook, and once at startup for waits already stored.
 
 Both hosts run one restart reconciliation, `reconcileStartup`, when their process starts: the
 extension on browser startup (inside `handleStartup`), the CLI on every process start before its
 first heartbeat and ticks. It aborts claim handoffs, re-ensures the jobs, releases the heartbeat
 ownership the previous process held, pauses the sessions it left watching (`runtime_restart`),
 releases its tabs, and normalizes the settings. It does not resume farming: the extension's
-`handleStartup` then ticks (or refreshes auth health), and the CLI's own tick driver resumes. The
+`handleStartup` then ticks (or refreshes auth health), and the CLI fires its tick jobs. The
 CLI pins `autoStartDropFarming` to true, since it always resumes its enabled platforms and the
 reconciliation would otherwise switch them off. Before #593, a CLI restart skipped all of this and
 let heartbeat recovery resume the previous watch from its persisted cadence.
@@ -521,7 +533,8 @@ tested too (#598).
 | Supplemental lane: completion forgotten on restart (current behavior; #594 changes it) | `twitchExtensionHost.test.ts` ("forgets completion when a new host starts…") |
 | The scheduler tick decides from plain inputs and names its effects; one handler per effect type | `schedulerEffects.test.ts` |
 | A tick's effects run with no lock held; concurrent telemetry is kept, a contradicting writer drops the decision but not the claims or tabs it produced, and an overlapping claim is requested once (#599) | `backgroundController/tickEffects.test.ts`; `tickCommit.test.ts` |
-| Locked I/O can only shrink | `lockedIoAllowlist.test.ts` (source scan); `tests/helpers/lockTracker.ts` (runtime, every harness) |
+| No I/O while a lock is held, with no exceptions (#591) | `lockedIo.test.ts` (source scan); `tests/helpers/lockTracker.ts` (runtime, every harness) |
+| No import cycles between engine modules, no Twitch/Kick branches in the facade, no browser-tab code outside the extension (#591) | `engineBoundary.test.ts` |
 | Lock order, nested commits, commit results, hooks and settings effects | `stateTransaction.test.ts`; `backgroundController/stateCommit.test.ts` ("calls after-commit hooks…") |
 | Every `SchedulerState` key merges per platform or is global | `platformState.test.ts` |
 
@@ -555,6 +568,27 @@ rather than filters. `campaignPassesCategoryFilter`, `isCampaignCategoryBlocked`
 and `favouriteCategoryIndex` in `@lurkloot/shared/categories` answer all three
 questions, so farming eligibility, the popup's sections, scheduler rejection
 reasons and ranking cannot disagree.
+
+### Engine ownership at a glance
+
+The background engine (`@lurkloot/core`, `background/`) is a set of owned services behind a thin
+facade (#583, #591). "Background controller ownership and concurrency" above has the detail.
+
+- **Ownership.** `controller.ts` only composes the services and routes host entry points. Each
+  service (tick coordination, heartbeat, auth health, manual watch, claims, Twitch integrity,
+  channel points, the Kick runtime, supplemental sources) changes only its own state. Others use
+  its queries or react to its commits through after-commit hooks. Each scheduler effect type has
+  exactly one handler, registered by its owner.
+- **Concurrency (#585).** One transaction owns every storage write. Locks are taken in the order
+  settings → Twitch → Kick → heartbeat lane → commit, and no lock is ever held across provider,
+  tab or timer I/O. Stale or cancelled work publishes neither state nor activity.
+- **Claims (#597).** A claim is sent with no lock held and committed onto the latest state. A
+  reward stays reserved until that commit lands. Sign-in loss ends claim work, and a claim the
+  provider accepted before an abort is still recorded.
+- **Hosts.** Both hosts construct the controller from the same host ports and run the same jobs and
+  startup reconciliation. The extension declares every capability: browser tabs, Twitch
+  integrity capture and supplemental sources. The CLI declares none of them, so it always watches
+  tabless and its jobs that need those capabilities are inert.
 
 ### Campaign ranking
 
@@ -816,8 +850,8 @@ diagnostics before disposing the transport.
 
 The extension host injects a browser-free supplemental target selector into the scheduler. After platform, authentication, exclusion and manual-pause gates, an enabled/granted provider can select a live channel independently of drop campaigns. Directory scans and active-installation reads are bounded, batched and cached. The platform's configured watch-source order controls selection and preemption; completion or unavailability releases the lane with bounded reprobes. See [source-priority decisions](watch-source-priority.md).
 
-Supplemental sessions carry their own watch identity and `tablessOnly` marker. Their heartbeat does not require invented campaign/reward IDs, and neither heartbeat failures nor ambiguous ordinary campaign discovery may cause tab fallback. Ordinary drop sessions retain their existing watch-mode policy.
+Supplemental sessions carry their own watch identity and `tablessOnly` marker. Their heartbeat does not require invented campaign/reward IDs, and neither heartbeat failures nor ambiguous ordinary campaign discovery may cause tab fallback. Instead, once a failing heartbeat result reaches `tablessFallbackFailureLimit`, the lane's commit hook cools that provider's channel for five minutes, like an unavailable report, so the next selection moves to another channel or source. A failed due reprobe consumes its turn, and further failures never renew an active cooldown (#594). Ordinary drop sessions retain their existing watch-mode policy.
 
-Channel-scoped viewer authorization is acquired through the normal Twitch background transport. Privileged provider drivers send it directly to their own optional backends. JWTs and vendor session/device properties remain in memory; only validated bounded outcomes and counters reach transient popup snapshots. Provider state is not restored from storage after worker restart. Disable, revocation, logout, channel changes and manual pause invalidate authority and cancel resources, including late results.
+Channel-scoped viewer authorization is acquired through the normal Twitch background transport. Privileged provider drivers send it directly to their own optional backends. JWTs and vendor session/device properties remain in memory; only validated bounded outcomes and counters reach transient popup snapshots. Provider sessions are not restored after a worker restart. The lane's completion and cooldown deadlines are (#594): the host stores them under `twitchExtensionLane` whenever they change, as provider ids, epoch deadlines and channel logins only, and restores them on the next start after validating each entry and dropping expired ones. Without that, an MV3 worker that is stopped between alarms would forget a finished provider and probe it again on every wake. The memory is tied to the signed-in Twitch login, read from Twitch's `login` cookie (a username, not a credential). It is restored only for the same login, and a change of Twitch's auth cookie stops the providers at once but forgets what the lane learned only if the login changed: Twitch re-sets that cookie on ordinary page loads. A restore never brings back what the host has already cleared (an account change, a disable, an ordinary invalidation), and reset clears the key with the rest of local storage. Disable, revocation, logout, channel changes and manual pause invalidate authority and cancel resources, including late results. Every report and every piece of driver activity (a pack opened, a giveaway joined, a sprite captured, a takeover started) is published through the provider's runtime session, which drops it once the session is no longer the provider's current one or was aborted. Each of those transitions stops or replaces the session first, so the lane meets #585's rule that stale work publishes nothing, without going through the controller's commits (#594). The lane follows the controller's accepted commits through an after-commit hook, not storage events or alarms. A change to its authority (Twitch enabled, a provider's settings, auth, the session's status or channel, a manual pause or watch) stops the providers synchronously, then a reconcile brings them back in line. The hook never waits on that reconcile, so a Twitch tick or auth refresh that settles its commit hooks never waits on provider session reads. Reconciles run one at a time. A tabless-only session commits a heartbeat result every minute, which keeps the driver refresh and session renewal cadence the every-alarm reconcile used to give.
 
 NoPixelV uses its normal REST watchtime/giveaway protocol. Fortnite uses its normal socket handshake, versioned state reads and sprite capture commands; authoritative participant increments confirm captures, and actual server reward state determines completion. Optional takeovers require separate opt-in, server eligibility and ownership confirmation. See [provider details and live acceptance](twitch-extensions/foundation.md).

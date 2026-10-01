@@ -525,7 +525,7 @@
     "message": "Kampagnenpriorität"
   },
   "campaignPriorityDescription": {
-    "message": "Legt fest, wie Kampagnen zum Farmen gewählt werden. Die Prioritätsliste farmt nur manuell sortierte Kampagnen; die anderen Optionen wählen aus allen Kampagnen. Kategorien pro Plattform in den Plattformeinstellungen begrenzen."
+    "message": "Sortiert die Kampagnen in der Warteschlange, die weder angeheftet sind noch zu einem Lieblingsspiel gehören. Du kannst sie auch am Trenner „Danach nach“ in der Warteschlange ändern."
   },
   "endingSoonest": {
     "message": "Endet am frühesten"

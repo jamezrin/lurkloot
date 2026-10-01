@@ -83,12 +83,13 @@ export const TWITCH_CHANNEL_POINTS_JOBS: Readonly<Record<string, BackgroundJob>>
 export function createChannelPoints<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
   transaction: Pick<StateTransaction<S>, "onCommit">,
-  { tickSlice, lifecycleSlice }: Pick<ControllerSlices<S>, "tickSlice" | "lifecycleSlice">,
+  { lifecycleSlice }: Pick<ControllerSlices<S>, "lifecycleSlice">,
   calls: Pick<ControllerCalls<S>,
     | "createAdapter"
     | "diagnosticEvent"
     | "reportBestEffort"
     | "withEventCollector"
+    | "trackBackgroundWork"
   >,
 ): Pick<ControllerCalls<S>,
   | "abortTwitchChannelPointsClaims"
@@ -104,7 +105,7 @@ export function createChannelPoints<S extends EngineSettings>(
   | "registerTwitchChannelPointsEffects"
   | "runTwitchChannelPointsClaim"
 > {
-  const { createAdapter, diagnosticEvent, reportBestEffort, withEventCollector } = lateBound(calls);
+  const { createAdapter, diagnosticEvent, reportBestEffort, withEventCollector, trackBackgroundWork } = lateBound(calls);
   // The push observer. A failed start stops and clears it, so the next
   // reconcile creates a fresh one.
   const push = new ObserverSlot<TwitchChannelPointsPushController>("twitch", "Twitch channel-points observer", "discard");
@@ -220,7 +221,7 @@ export function createChannelPoints<S extends EngineSettings>(
         "twitch",
       );
     });
-    tickSlice.backgroundWork = tickSlice.backgroundWork.then(() => run, () => run);
+    trackBackgroundWork(run);
   }
 
   function reconcileTwitchChannelPointsPushFromSettingsInBackground(settings: S): void {
@@ -231,7 +232,7 @@ export function createChannelPoints<S extends EngineSettings>(
         "twitch",
       );
     });
-    tickSlice.backgroundWork = tickSlice.backgroundWork.then(() => run, () => run);
+    trackBackgroundWork(run);
   }
 
   function pushSettingsAllow(settings: EngineSettings): boolean {
@@ -343,7 +344,7 @@ export function createChannelPoints<S extends EngineSettings>(
       }
     }));
     pushClaimQueue = run.catch(() => undefined);
-    tickSlice.backgroundWork = tickSlice.backgroundWork.then(() => run, () => run);
+    trackBackgroundWork(run);
   }
 
   function emitClaimResult(emit: EventEmitter, channel: ChannelCandidate, claimed: boolean): void {
