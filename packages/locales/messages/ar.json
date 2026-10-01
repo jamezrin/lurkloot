@@ -98,6 +98,12 @@
   "queueSkipped": {
     "message": "متجاوَزة"
   },
+  "queueActionRequired": {
+    "message": "يلزم إجراء"
+  },
+  "queueActionRequiredHint": {
+    "message": "يحتاج إلى اشتراك أو خطوة أخرى خارج Lurkloot. التثبيت والتفضيل يغيّران الترتيب فقط."
+  },
   "queueUpcoming": {
     "message": "قادمة"
   },
@@ -754,6 +760,9 @@
   },
   "campaignRejectionActionRequired": {
     "message": "تتطلب $1 إجراءً غير المشاهدة."
+  },
+  "campaignRejectionThen": {
+    "message": "بعد ذلك: $1"
   },
   "campaignRejectionNoFarmableReward": {
     "message": "لا يمكن جمع أي مكافأة من هذه الحملة حاليًا."

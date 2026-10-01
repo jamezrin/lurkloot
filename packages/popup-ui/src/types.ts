@@ -137,6 +137,16 @@ export type CampaignView = {
   hasWatchRewards: boolean;
   hasSubscriptionRewards: boolean;
   farmingRejection?: Extract<CampaignFarmingEvaluation, { farmable: false }>;
+  // What will still block the campaign once the rejection above is fixed in
+  // Lurkloot, in the order the user would meet it (#677). Empty when fixing it
+  // is enough, or there is nothing to fix.
+  laterBlockers?: Array<Extract<CampaignFarmingEvaluation, { farmable: false }>>;
+  // Nothing in the user's settings holds it back any more: what does is a
+  // blocker only they can clear outside Lurkloot (a subscription, an account
+  // link, another action), so the Queue lists it under "Action required", not
+  // "Skipped". A campaign their own settings skip stays in Skipped, with
+  // `laterBlockers` saying what would still be needed.
+  needsOutsideAction?: boolean;
 };
 
 export type TFunction = (key: string, substitutions?: string | string[]) => string;

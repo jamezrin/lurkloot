@@ -98,6 +98,12 @@
   "queueSkipped": {
     "message": "Пропущенные"
   },
+  "queueActionRequired": {
+    "message": "Требуется действие"
+  },
+  "queueActionRequiredHint": {
+    "message": "Нужна подписка или другое действие вне Lurkloot. Закрепление и избранное меняют только порядок."
+  },
   "queueUpcoming": {
     "message": "Скоро"
   },
@@ -754,6 +760,9 @@
   },
   "campaignRejectionActionRequired": {
     "message": "$1 требует действие помимо просмотра."
+  },
+  "campaignRejectionThen": {
+    "message": "Затем: $1"
   },
   "campaignRejectionNoFarmableReward": {
     "message": "Сейчас ни одну награду этой кампании нельзя фармить."

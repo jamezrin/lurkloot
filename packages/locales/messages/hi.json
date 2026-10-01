@@ -98,6 +98,12 @@
   "queueSkipped": {
     "message": "छोड़े गए"
   },
+  "queueActionRequired": {
+    "message": "कार्रवाई आवश्यक"
+  },
+  "queueActionRequiredHint": {
+    "message": "सदस्यता या Lurkloot के बाहर कोई और कदम चाहिए। पिन और पसंदीदा केवल क्रम बदलते हैं।"
+  },
   "queueUpcoming": {
     "message": "आगामी"
   },
@@ -754,6 +760,9 @@
   },
   "campaignRejectionActionRequired": {
     "message": "$1 के लिए देखने के अलावा दूसरी कार्रवाई चाहिए।"
+  },
+  "campaignRejectionThen": {
+    "message": "उसके बाद: $1"
   },
   "campaignRejectionNoFarmableReward": {
     "message": "इस कैंपेन का कोई रिवॉर्ड अभी फ़ार्म नहीं किया जा सकता।"
