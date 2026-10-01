@@ -34,6 +34,7 @@ import { createFortniteDriver } from "../src/extensions/fortnite/driver";
 import { createNoPixelDriver } from "../src/extensions/nopixel/driver";
 import { createCredentialHealthObserver } from "../src/core/credentialObserver";
 import { buildCliCredentialBlob, KASADA_COOKIE_ORIGIN } from "../src/core/cliCredentialExport";
+import { REQUEST_FAILED_RESPONSE } from "../src/core/runtimeRequests";
 
 const localeCatalogs = new Map<string, MessageCatalog | undefined>();
 const getMessage = browser.i18n.getMessage as (key: string, substitutions?: string | string[]) => string;
@@ -413,7 +414,7 @@ export default defineBackground(() => {
   );
 
   browser.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendResponse) => {
-    void dispatchRuntimeMessage(message, sender).then(sendResponse, () => sendResponse({ error: "request-failed" }));
+    void dispatchRuntimeMessage(message, sender).then(sendResponse, () => sendResponse(REQUEST_FAILED_RESPONSE));
     return true;
   });
 

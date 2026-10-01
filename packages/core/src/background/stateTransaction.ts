@@ -112,8 +112,14 @@ export type CommittedChange<S> =
   | {
       readonly kind: "settings";
       readonly previous: S;
+      // The patch as saved, computed from `previous`. A hook keys on what the
+      // save asked for (say, a platform switched off) rather than re-deriving it.
+      readonly patch: SettingsPatch;
       readonly settings: S;
       readonly effects: SettingsEffects;
+      // Written by the host's startup reconcile (lifecycle.ts), which brings
+      // every service up itself. Services do not react to it.
+      readonly startup: boolean;
     };
 
 // Called once per accepted commit, in registration order, after the locks
@@ -420,13 +426,18 @@ export function createStateTransaction<S extends EngineSettings>(ports: StateTra
     return { previous, patch, settings: apply(previous, patch), effects };
   }
 
-  async function saveSettingsCommit(prepared: PreparedSettingsCommit<S>): Promise<void> {
+  async function saveSettingsCommit(
+    prepared: PreparedSettingsCommit<S>,
+    { startup = false }: { startup?: boolean } = {},
+  ): Promise<void> {
     await ports.saveSettings(prepared.settings);
     notify({
       kind: "settings",
       previous: prepared.previous,
+      patch: prepared.patch,
       settings: prepared.settings,
       effects: prepared.effects,
+      startup,
     }, ["settings"]);
   }
 

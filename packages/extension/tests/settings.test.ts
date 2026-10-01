@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applySettingsPatch, DEFAULT_ENGINE_SETTINGS, DEFAULT_SETTINGS, mergeEngineSettings, mergeSettings } from "@lurkloot/shared/settings";
+import { applySettingsPatch, DEFAULT_ENGINE_SETTINGS, DEFAULT_SETTINGS, mergeEngineSettings, mergeSettings, revertSettingsPatch, type SettingsPatch } from "@lurkloot/shared/settings";
 import { migrateSettings } from "@lurkloot/shared/settingsSchema";
 
 describe("engine settings", () => {
@@ -428,5 +428,32 @@ describe("in-page panel default", () => {
 
   it("respects an explicit opt-out", () => {
     expect(mergeSettings({ showInPagePanel: false }).showInPagePanel).toBe(false);
+  });
+});
+
+describe("revertSettingsPatch", () => {
+  const before = mergeSettings({ autoClaim: true, pollIntervalMinutes: 1 });
+
+  function optimistic(patch: SettingsPatch) {
+    return { patch, applied: applySettingsPatch(before, patch) };
+  }
+
+  it("puts back every field a failed patch set, including nested platform fields", () => {
+    const { patch, applied } = optimistic({ autoClaim: false, platform: { twitch: { enabled: !before.platform.twitch.enabled } } });
+    expect(revertSettingsPatch(applied, before, applied, patch)).toEqual(before);
+  });
+
+  it("keeps a newer edit to another field", () => {
+    const { patch, applied } = optimistic({ autoClaim: false });
+    const later = applySettingsPatch(applied, { platform: { kick: { enabled: !before.platform.kick.enabled } } });
+    const reverted = revertSettingsPatch(later, before, applied, patch);
+    expect(reverted.autoClaim).toBe(true);
+    expect(reverted.platform.kick.enabled).toBe(!before.platform.kick.enabled);
+  });
+
+  it("keeps a newer edit to the same field", () => {
+    const { patch, applied } = optimistic({ pollIntervalMinutes: 5 });
+    const later = applySettingsPatch(applied, { pollIntervalMinutes: 10 });
+    expect(revertSettingsPatch(later, before, applied, patch).pollIntervalMinutes).toBe(10);
   });
 });

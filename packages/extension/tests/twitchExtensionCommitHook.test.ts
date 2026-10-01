@@ -41,7 +41,7 @@ function settingsChange(
   const previous = structuredClone(DEFAULT_SETTINGS);
   const settings = structuredClone(previous);
   mutate(settings);
-  return { kind: "settings", previous, settings, effects: { twitch: twitchEffect } };
+  return { kind: "settings", previous, patch: {}, settings, effects: { twitch: twitchEffect }, startup: false };
 }
 
 describe("Twitch Extensions commit effects", () => {
