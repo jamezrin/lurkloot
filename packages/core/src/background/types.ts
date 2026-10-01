@@ -323,7 +323,6 @@ export interface ControllerCalls<S extends EngineSettings> {
   // reporting.ts
   settleRouteReports(): Promise<boolean>;
   // discoverySignals.ts
-  setDiscoverySignalPlatformBlocked(platform: Platform, blocked: boolean): void;
   takeAllowedDiscoverySignalRefresh(platform: Platform): DiscoverySignalRefreshRequest | undefined;
   // settingsTransitions.ts
   beginTwitchSettingsTransition(): () => boolean;
@@ -365,7 +364,6 @@ export interface ControllerCalls<S extends EngineSettings> {
 
   // channelPoints.ts
   abortTwitchChannelPointsClaims(reason: string): void;
-  abortIneligibleTwitchChannelPointsClaims(settings: EngineSettings, reason: string): void;
   clearTwitchChannelPointsAlarmBestEffort(): Promise<void>;
   reconcileTwitchChannelPointsAlarm(settings: S): Promise<void>;
   stopTwitchChannelPointsPush(emit: EventEmitter): Promise<void>;
@@ -385,7 +383,6 @@ export interface ControllerCalls<S extends EngineSettings> {
 
   // kickRuntime.ts
   abortKickChallengeClaims(reason: string): void;
-  abortIneligibleKickChallengeClaims(settings: EngineSettings, reason: string): void;
   clearKickChallengeJobBestEffort(): Promise<void>;
   reconcileKickChallengeJob(settings: EngineSettings): Promise<void>;
   rescheduleKickChallengeJob(): Promise<void>;
@@ -439,7 +436,6 @@ export interface ControllerCalls<S extends EngineSettings> {
   waitingClaimRewardIds(): Record<Platform, Set<string>>;
   recordWaitingClaimRewardIds(platform: Platform, rewardIds: ReadonlySet<string>): void;
   releaseRewardClaims(platform: Platform, rewardIds: Iterable<string>): void;
-  abortIneligibleClaimOnlyOperations(settings: EngineSettings, reason: string): void;
   abortClaimOnlyOperations(reason: string): void;
   abortClaimHandoffs(platform?: Platform): void;
   runClaimHandoff(

@@ -14,9 +14,6 @@ export function createSettingsTransitions<S extends EngineSettings>(
   transaction: StateTransaction<S>,
   { settingsSlice, lifecycleSlice }: Pick<ControllerSlices<S>, "settingsSlice" | "lifecycleSlice">,
   calls: Pick<ControllerCalls<S>,
-    | "abortIneligibleClaimOnlyOperations"
-    | "abortIneligibleKickChallengeClaims"
-    | "abortIneligibleTwitchChannelPointsClaims"
     | "holdTwitchIntegrityForDisable"
     | "reconcileTwitchIntegrityAfterCommit"
     | "cancelPendingTick"
@@ -27,13 +24,10 @@ export function createSettingsTransitions<S extends EngineSettings>(
     | "rescheduleTickJobs"
     | "rescheduleTwitchChannelPointsJob"
     | "withSettingsLock"
-    | "abortClaimHandoffs"
     | "diagnosticEvent"
     | "markPlatformsStarting"
     | "platformTickRunning"
-    | "setDiscoverySignalPlatformBlocked"
     | "snapshot"
-    | "stopDiscoverySignalControllersAndReport"
     | "tickInBackground"
   >,
 ): Pick<ControllerCalls<S>,
@@ -47,9 +41,6 @@ export function createSettingsTransitions<S extends EngineSettings>(
   | "updateIdleWatchlist"
 > {
   const {
-    abortIneligibleClaimOnlyOperations,
-    abortIneligibleKickChallengeClaims,
-    abortIneligibleTwitchChannelPointsClaims,
     holdTwitchIntegrityForDisable,
     reconcileTwitchIntegrityAfterCommit,
     cancelPendingTick,
@@ -60,13 +51,10 @@ export function createSettingsTransitions<S extends EngineSettings>(
     rescheduleTickJobs,
     rescheduleTwitchChannelPointsJob,
     withSettingsLock,
-    abortClaimHandoffs,
     diagnosticEvent,
     markPlatformsStarting,
     platformTickRunning,
-    setDiscoverySignalPlatformBlocked,
     snapshot,
-    stopDiscoverySignalControllersAndReport,
     tickInBackground,
   } = lateBound(calls);
 
@@ -111,7 +99,8 @@ export function createSettingsTransitions<S extends EngineSettings>(
           : settings);
         if (!farming) return commit.previous;
         const nextSettings = commit.settings;
-        await transaction.saveSettingsCommit(commit);
+        // Startup is the lifecycle's: no service reacts to this save.
+        await transaction.saveSettingsCommit(commit, { startup: true });
         saved = true;
         return nextSettings;
       });
@@ -124,6 +113,13 @@ export function createSettingsTransitions<S extends EngineSettings>(
   // settings, read once inside the lock, so it applies to the latest value
   // rather than a caller's copy. The result carries each platform's effect, and
   // callers pick their tick trigger from it.
+  //
+  // The services that depend on settings react to the save through their own
+  // commit hooks (docs/architecture.md, "Engine ownership at a glance"): claim
+  // aborts and the platform switch's handoff and observer stops. What stays
+  // here runs in the lock, before the save is visible, and is documented there
+  // as an exception: discovery and selection invalidation, pending-tick
+  // cancellation, and (until #696) the Twitch integrity hold and reconcile.
   async function commitSettings(
     update: (current: S) => SettingsPatch,
     { intent }: SettingsCommitOptions = {},
@@ -149,15 +145,14 @@ export function createSettingsTransitions<S extends EngineSettings>(
           invalidateSelection(platform);
         }
         const { settings } = commit;
-        abortIneligibleClaimOnlyOperations(settings, "Claim automation disabled");
-        abortIneligibleKickChallengeClaims(settings, "Claim automation disabled");
-        abortIneligibleTwitchChannelPointsClaims(settings, "Channel points claiming disabled");
         twitchEnabledChanged = commit.previous.platform.twitch.enabled !== settings.platform.twitch.enabled;
         if (twitchEnabledChanged && !settings.platform.twitch.enabled) {
           endTwitchIntegrityHold ??= holdTwitchIntegrityForDisable();
         }
         await transaction.saveSettingsCommit(commit);
         saved = true;
+        // Before the lock is released, so it never discards a trigger requested
+        // after the save, such as the platform switch's own follow-up tick.
         for (const platform of invalidatedPlatforms) {
           if (!settings.platform[platform].enabled) cancelPendingTick(platform);
         }
@@ -222,20 +217,19 @@ export function createSettingsTransitions<S extends EngineSettings>(
         message.platform,
       );
     }
-    // Stopping must cancel any loop still refreshing in the background.
-    if (!message.enabled) abortClaimHandoffs(message.platform);
     const twitchTransition = message.platform === "twitch" ? beginTwitchSettingsTransition() : undefined;
     const twitchTransitionIsCurrent = (): boolean =>
       !lifecycleSlice.controllerShutdown && twitchTransition?.() === true;
     // Twitch integrity follows the committed setting on its own (#589): the
     // commit cancels a mint in flight when it disables Twitch, and the
     // integrity service reconciles its lifecycle and schedule after it.
+    // Stopping also ends the platform's post-claim handoff and blocks and
+    // stops its discovery-signal observer, through those services' own hooks.
+    // Not awaited: a hook waits for every save queued behind this one, and a
+    // caller may be one of them. They run as soon as the settings lock is
+    // released, ahead of the follow-up tick's work.
     const patch: SettingsPatch = { platform: { [message.platform]: { enabled: message.enabled } } };
     await commitSettings(() => patch, { intent: patch });
-    setDiscoverySignalPlatformBlocked(message.platform, !message.enabled);
-    if (!message.enabled) {
-      await stopDiscoverySignalControllersAndReport([message.platform]);
-    }
     if (message.platform === "twitch" && !twitchTransitionIsCurrent()) return snapshot();
     if (message.enabled) {
       await markPlatformsStarting(

@@ -131,7 +131,6 @@ export function createClaimService<S extends EngineSettings>(
   | "waitingClaimRewardIds"
   | "recordWaitingClaimRewardIds"
   | "releaseRewardClaims"
-  | "abortIneligibleClaimOnlyOperations"
   | "abortClaimOnlyOperations"
   | "abortClaimHandoffs"
   | "runClaimHandoff"
@@ -181,6 +180,17 @@ export function createClaimService<S extends EngineSettings>(
       if (change.state.authHealth[platform].status === "healthy") continue;
       for (const operation of dropClaimOperations[platform]) operation.abort(new Error("Authentication lost"));
       abortClaimHandoffs(platform);
+    }
+  });
+
+  // A settings save ends the claim work it made ineligible, once it is saved.
+  // Switching a platform off also stops its post-claim handoff, which would
+  // otherwise keep refreshing in the background.
+  transaction.onCommit((change) => {
+    if (change.kind !== "settings" || change.startup) return;
+    abortIneligibleClaimOnlyOperations(change.settings, "Claim automation disabled");
+    for (const platform of PLATFORMS) {
+      if (change.patch.platform?.[platform]?.enabled === false) abortClaimHandoffs(platform);
     }
   });
 
@@ -637,7 +647,6 @@ export function createClaimService<S extends EngineSettings>(
     waitingClaimRewardIds,
     recordWaitingClaimRewardIds,
     releaseRewardClaims,
-    abortIneligibleClaimOnlyOperations,
     abortClaimOnlyOperations,
     abortClaimHandoffs,
     runClaimHandoff,

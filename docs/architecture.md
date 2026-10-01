@@ -299,6 +299,40 @@ and never take the commit lock or call `saveState` themselves.
   (a manual tab close pausing it). Ad focus on telemetry follows the committed session after the
   lock is released, and is skipped once a host reset or shutdown has closed the observers. The tab
   events and playback telemetry resolve once the platform's hooks have run.
+- **Settings reactions (#695)** are hooks too. A settings commit's `CommittedChange` carries the
+  saved `patch`, each platform's effect and a `startup` flag. Each service reacts to the save from its
+  own hook, after the save:
+  - claims abort the claim-only work the settings made ineligible, and a patch that switches a
+    platform off ends its post-claim handoff;
+  - the Kick runtime and channel points abort their ineligible challenge and channel-points claims;
+  - discovery signals follow a patch that switches a platform off or on: blocked and stopped, or
+    unblocked.
+
+  Hooks run in registration order, which `createBackgroundController` fixes: heartbeat, channel
+  points, the Kick runtime, claims, discovery signals, tick admission, then the host's own hooks
+  (the extension's Twitch Extensions hook). The startup reconcile's save (`normalizeStartupSettings`)
+  is marked `startup`, and services ignore it: startup is a host event that `lifecycle.ts` brings up
+  itself. Shutdown and reset are host events too, so `lifecycle.ts` still calls every service
+  directly, as the facade's host-facing wiring.
+
+  `commitSettings` does not wait for these hooks. A commit's hooks wait for every operation queued
+  on the settings lock when it committed, so a save that waited for its own hooks would deadlock
+  with a caller's next save. The hooks run once the settings lock is released, ahead of the
+  follow-up tick's work.
+
+  These calls stay in the settings lock, before the save is visible, on purpose:
+  - **Discovery and selection invalidation** (`invalidateDiscoveryLane`, `invalidateSelection`): a
+    tick that reads the new settings must never select from discovery or a selection made under the
+    old ones. The same synchronous invalidation runs where auth is invalidated, where a heartbeat
+    outcome changes selection (in its commit's `afterSave`) and where playback telemetry changes
+    health.
+  - **Pending-tick cancellation** (`cancelPendingTick`) for a platform the save left switched off: as
+    a hook it could also discard a trigger requested after the save, such as the platform switch's
+    own follow-up tick.
+  - **The Twitch integrity hold and reconcile** around a save that disables Twitch stay in
+    `commitSettings` until #696 gives the integrity service its own transition.
+  - `markPlatformsStarting` stays with the platform switch for the same reason: it carries the
+    Twitch transition guard #696 moves.
 
 The test suite enforces the model. The characterization and contract harnesses give the controller
 a lock tracker (`tests/helpers/lockTracker.ts`, backed by `AsyncLocalStorage`) and guard every

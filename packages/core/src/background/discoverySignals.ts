@@ -36,7 +36,6 @@ export function createDiscoverySignals<S extends EngineSettings>(
   | "discoverySignalRefreshAllowed"
   | "reserveDiscoverySignalAuthRefresh"
   | "startPendingDiscoverySignalRefresh"
-  | "setDiscoverySignalPlatformBlocked"
   | "takeAllowedDiscoverySignalRefresh"
 > {
   const {
@@ -64,6 +63,20 @@ export function createDiscoverySignals<S extends EngineSettings>(
       state.authHealth[platform].status !== "healthy"
       || (previous.sessions[platform].status === "watching" && state.sessions[platform].status !== "watching"));
     if (platforms.length > 0) await stopDiscoverySignalControllersAndReport(platforms);
+  });
+
+  // The platform switch: a save that switches a platform off blocks its
+  // observer and stops it; switching it back on lifts the block.
+  transaction.onCommit(async (change) => {
+    if (change.kind !== "settings" || change.startup) return;
+    const stopped: Platform[] = [];
+    for (const platform of PLATFORMS) {
+      const enabled = change.patch.platform?.[platform]?.enabled;
+      if (enabled === undefined) continue;
+      setDiscoverySignalPlatformBlocked(platform, !enabled);
+      if (!enabled) stopped.push(platform);
+    }
+    if (stopped.length > 0) await stopDiscoverySignalControllersAndReport(stopped);
   });
 
   function discoverySignalObserver(platform: Platform): DiscoverySignalController | undefined {
@@ -301,7 +314,6 @@ export function createDiscoverySignals<S extends EngineSettings>(
     discoverySignalRefreshAllowed,
     reserveDiscoverySignalAuthRefresh,
     startPendingDiscoverySignalRefresh,
-    setDiscoverySignalPlatformBlocked,
     takeAllowedDiscoverySignalRefresh,
   };
 }
