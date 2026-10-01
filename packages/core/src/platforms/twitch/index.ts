@@ -109,12 +109,24 @@ export interface TwitchAdapterOptions {
   liveDiscoveryGames?: readonly { id: string; name: string }[];
 }
 
+export const TWITCH_DASHBOARD_QUERY = {
+  operationName: "ViewerDropsDashboard",
+  sha256Hash: "c16bb890cc8ce7647a96ee69cd313d423a378a3dedadf630a1017cde18975feb",
+  variables: { fetchRewardCampaigns: false },
+  inlineQuery: `query ViewerDropsDashboard($fetchRewardCampaigns: Boolean!) {
+    currentUser {
+      id
+      login
+      inventory {
+        dropCampaigns @include(if: $fetchRewardCampaigns) { id status self { isAccountConnected } }
+      }
+      dropCampaigns { id status self { isAccountConnected } }
+    }
+  }`,
+} as const;
+
 const TWITCH_QUERIES = {
-  dashboard: {
-    operationName: "ViewerDropsDashboard",
-    sha256Hash: "c16bb890cc8ce7647a96ee69cd313d423a378a3dedadf630a1017cde18975feb",
-    variables: { fetchRewardCampaigns: false },
-  },
+  dashboard: TWITCH_DASHBOARD_QUERY,
   campaignDetailsHash: "039277bf98f3130929262cc7c6efd9c141ca3749cb6dca442fc8ead9a53f77c1",
   gameDirectoryHash: "86bcceb4e8b1a51256ff8eed8bd8aae4acacf80d737efe904f84f3aeadf8cafd",
   streamInfoHash: "198492e0857f6aedead9665c81c5a06d67b25b58034649687124083ff288597d",
@@ -208,16 +220,7 @@ const TWITCH_AVAILABLE_CAMPAIGN_FIELDS = `{
 }`;
 
 const TWITCH_INLINE_QUERIES: Partial<Record<string, string>> = {
-  ViewerDropsDashboard: `query ViewerDropsDashboard($fetchRewardCampaigns: Boolean!) {
-    currentUser {
-      id
-      login
-      inventory {
-        dropCampaigns @include(if: $fetchRewardCampaigns) { id status self { isAccountConnected } }
-      }
-      dropCampaigns { id status self { isAccountConnected } }
-    }
-  }`,
+  ViewerDropsDashboard: TWITCH_DASHBOARD_QUERY.inlineQuery,
   DropCampaignDetails: `query DropCampaignDetails($channelLogin: String!, $dropID: ID!) {
     currentUser { id login }
     user(login: $channelLogin) {

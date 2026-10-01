@@ -7,6 +7,7 @@ export interface TwitchCredentials {
   authToken?: string;
   deviceId?: string;
   clientId?: string;
+  kasadaSessionCookie?: string;
 }
 
 export interface KickCredentials {
@@ -31,6 +32,9 @@ export function loadCredentials(authDir: string, env: NodeJS.ProcessEnv = proces
       authToken: env.SA_TWITCH_AUTH_TOKEN ?? stored.twitch?.authToken,
       deviceId: env.SA_TWITCH_DEVICE_ID ?? stored.twitch?.deviceId,
       clientId: env.SA_TWITCH_CLIENT_ID ?? stored.twitch?.clientId,
+      // The server rotates this cookie. An environment override would shadow
+      // the updated value on every restart.
+      kasadaSessionCookie: stored.twitch?.kasadaSessionCookie,
     },
     kick: {
       sessionToken: env.SA_KICK_SESSION_TOKEN ?? stored.kick?.sessionToken,

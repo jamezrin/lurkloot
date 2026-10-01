@@ -607,7 +607,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     return result.categories;
   }
 
-  // Exports the session tokens the headless CLI's `login --import` consumes.
+  // Exports the session credentials the headless CLI's `auth import` consumes.
   // Gated behind inline confirmation in the settings view; available only when
   // the host adapter supports credential export (the live extension, not demo).
   const exportCredentials = adapter.exportCredentials
@@ -615,6 +615,12 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
         const blob = await adapter.send<CliCredentialBlob>({ type: "exportCliCredentials" });
         adapter.exportCredentials?.(blob);
       }
+    : undefined;
+  // The optional Kasada cookie host is requested when the export is armed, not
+  // on confirm: Chrome's permission prompt can destroy the popup, and the
+  // download runs here. A declined grant still exports the login cookies.
+  const armExportCredentials = exportCredentials && adapter.requestCredentialExportPermission
+    ? () => { void adapter.requestCredentialExportPermission?.().catch(() => false); }
     : undefined;
 
   const resetExtension = adapter.resetExtension
@@ -909,7 +915,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                   ) : null}
                 </AnimatePresence>
                 {view === "settings" ? (
-                  <SettingsView suggestions={dropCategorySuggestions} onSearchCategories={searchCategories} settings={settings} onSettingsChange={updateSettings} onExtensionEnabledChange={adapter.requestTwitchExtensionPermission ? setExtensionEnabled : undefined} onExportCredentials={exportCredentials} onExportSettings={exportSettings} onImportSettings={importSettings} onReset={resetExtension} exportConfirmationResetKey={settingsOpenGeneration} compatibilityRegistry={adapter.compatibilityRegistry} compatibilityResolution={compatibilityResolution} onOpenGames={(gamesPlatform) => { if (gamesPlatform !== platform) selectPlatform(gamesPlatform); changeView("games"); }} version={adapter.version} focusGroupId={preview && variantShowsPopup(initialVariant) && initialVariant.view === "settings" ? "general.drops" : settingsFocus} />
+                  <SettingsView suggestions={dropCategorySuggestions} onSearchCategories={searchCategories} settings={settings} onSettingsChange={updateSettings} onExtensionEnabledChange={adapter.requestTwitchExtensionPermission ? setExtensionEnabled : undefined} onExportCredentials={exportCredentials} onArmExportCredentials={armExportCredentials} onExportSettings={exportSettings} onImportSettings={importSettings} onReset={resetExtension} exportConfirmationResetKey={settingsOpenGeneration} compatibilityRegistry={adapter.compatibilityRegistry} compatibilityResolution={compatibilityResolution} onOpenGames={(gamesPlatform) => { if (gamesPlatform !== platform) selectPlatform(gamesPlatform); changeView("games"); }} version={adapter.version} focusGroupId={preview && variantShowsPopup(initialVariant) && initialVariant.view === "settings" ? "general.drops" : settingsFocus} />
                 ) : view === "activity" ? (
                   <ActivityLog
                     activityEvents={activityStream.events}

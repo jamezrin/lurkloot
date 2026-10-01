@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { importCredentials, readCredentialBlob } from "../src/auth/importCredentials";
-import { loadCredentials } from "../src/authStore";
+import { loadCredentials, saveCredentials } from "../src/authStore";
 import { pollForToken, requestDeviceCode } from "../src/auth/twitchDeviceFlow";
 import { pollForToken as pollForKickToken, requestTvLink } from "../src/auth/kickDeviceFlow";
 
@@ -12,6 +12,26 @@ beforeEach(async () => { dir = await mkdtemp(join(tmpdir(), "lurkloot-login-"));
 afterEach(async () => { await rm(dir, { recursive: true, force: true }); vi.restoreAllMocks(); });
 
 describe("importCredentials", () => {
+  it("loads a rotated Kasada cookie even when an old environment seed is present", () => {
+    saveCredentials(dir, { twitch: { kasadaSessionCookie: "rotated-seed" } });
+    expect(loadCredentials(dir, { SA_TWITCH_KASADA_SESSION_COOKIE: "stale-seed" }).twitch?.kasadaSessionCookie)
+      .toBe("rotated-seed");
+  });
+
+  it("imports a Twitch web session when the export includes Kasada clearance state", async () => {
+    const blob = join(dir, "export.json");
+    await writeFile(blob, JSON.stringify({ version: 1, credentials: {
+      twitch: { authToken: "web-token", deviceId: "device-id", kasadaSessionCookie: "kasada-seed" },
+    } }));
+    const result = importCredentials(dir, blob);
+    const creds = loadCredentials(dir, {});
+    expect(result.ignoredTwitch).toBe(false);
+    expect(creds.twitch).toEqual({
+      authToken: "web-token", deviceId: "device-id", clientId: "kimne78kx3ncx6brgo4mv6wki5h1ko",
+      kasadaSessionCookie: "kasada-seed",
+    });
+  });
+
   it("imports Kick but rejects a browser Twitch token without its client identity", async () => {
     const blob = join(dir, "export.json");
     await writeFile(blob, JSON.stringify({ version: 1, credentials: { twitch: { authToken: "tw" }, kick: { sessionToken: "kk" } } }));

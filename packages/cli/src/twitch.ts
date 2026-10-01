@@ -4,6 +4,7 @@ import type { PlatformCredentials } from "./authStore";
 // no longer accepts new device-code requests for it.
 export const TWITCH_ANDROID_CLIENT_ID = "kd1unb4b3q4t58fwlpcbzcbnm76a8fp";
 export const TWITCH_SMARTBOX_CLIENT_ID = "ue6666qo983tsx6so1t0vnawi233wa";
+export const TWITCH_WEB_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko";
 
 export const TWITCH_ANDROID_USER_AGENT =
   "Dalvik/2.1.0 (Linux; U; Android 16; SM-S911B Build/TP1A.220624.014) tv.twitch.android.app/25.3.0/2503006";

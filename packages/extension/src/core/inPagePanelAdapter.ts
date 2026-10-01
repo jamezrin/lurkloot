@@ -10,8 +10,8 @@ import { openHttpsLink, type PopupAdapter } from "@lurkloot/popup-ui";
 // merits: this surface is opened from a streaming page, so the destructive and
 // credential-bearing actions belong in the toolbar popup regardless.
 //
-//   exportCredentials  Writes the Twitch auth-token and Kick session_token to a
-//                      file. It must not exist on a surface rendered inside a
+//   exportCredentials  Writes Twitch/Kick session credentials, including the
+//                      Kasada cookie, to a file. It must not exist inside a
 //                      streaming page; see CLAUDE.md on credential export.
 //   exportSettings     File pickers and downloads belong in the toolbar popup.
 //   importSettings

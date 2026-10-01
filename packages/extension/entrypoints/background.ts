@@ -1,7 +1,7 @@
 import { createTwitchExtensionGrantCompletion } from "../src/extensions/grantCompletion";
 import { browser } from "wxt/browser";
 import { loadSettings, loadState, loadTwitchIntegrity, resetStorage, saveSettings, saveState, saveTwitchIntegrity } from "../src/core/storage";
-import type { CliCredentialBlob, RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
+import type { RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import { createBrowserTabs, liveBrowserTabApi } from "../src/core/tabs";
 import { createExtensionTabPorts } from "../src/core/tabPorts";
 import { createTabRegistry } from "@lurkloot/core/tabRegistry";
@@ -33,6 +33,7 @@ import { createTwitchExtensionSessionSource } from "../src/extensions/transport"
 import { createFortniteDriver } from "../src/extensions/fortnite/driver";
 import { createNoPixelDriver } from "../src/extensions/nopixel/driver";
 import { createCredentialHealthObserver } from "../src/core/credentialObserver";
+import { buildCliCredentialBlob, KASADA_COOKIE_ORIGIN } from "../src/core/cliCredentialExport";
 
 const localeCatalogs = new Map<string, MessageCatalog | undefined>();
 const getMessage = browser.i18n.getMessage as (key: string, substitutions?: string | string[]) => string;
@@ -266,26 +267,6 @@ function withExtensionSnapshot(value: unknown): unknown {
   return value;
 }
 
-// Builds the CLI credential blob from the user's live session cookies: Twitch
-// auth-token / unique_id and Kick session_token — exactly what the headless
-// transports replay. Reads only these; nothing else leaves the browser.
-async function buildCliCredentialBlob(): Promise<CliCredentialBlob> {
-  const cookie = async (url: string, name: string): Promise<string | undefined> =>
-    (await browser.cookies.get({ url, name }))?.value;
-  return {
-    version: 1,
-    credentials: {
-      twitch: {
-        authToken: await cookie("https://www.twitch.tv", "auth-token"),
-        deviceId: await cookie("https://www.twitch.tv", "unique_id"),
-      },
-      kick: {
-        sessionToken: await cookie("https://kick.com", "session_token"),
-      },
-    },
-  };
-}
-
 let resetMutation: Promise<RuntimeSnapshot<ExtensionSettings>> | undefined;
 
 function resetExtension(): Promise<RuntimeSnapshot<ExtensionSettings>> {
@@ -310,7 +291,18 @@ function resetExtension(): Promise<RuntimeSnapshot<ExtensionSettings>> {
 // Credential export reads the user's live session cookies, which only the
 // extension can do. Keep it ahead of activity routing and core delegation.
 const dispatchRuntimeMessage = createRuntimeMessageDispatcher({
-  exportCliCredentials: buildCliCredentialBlob,
+  exportCliCredentials: () => buildCliCredentialBlob(
+    async (url, name, partitionedUnder) => {
+      try {
+        const details = partitionedUnder ? { url, name, partitionKey: { topLevelSite: partitionedUnder } } : { url, name };
+        return (await browser.cookies.get(details))?.value ?? undefined;
+      } catch {
+        // Browsers without partitioned-cookie support reject `partitionKey`.
+        return undefined;
+      }
+    },
+    () => browser.permissions.contains({ origins: [KASADA_COOKIE_ORIGIN] }),
+  ),
   resetExtension,
   handleActivityMessage,
   handleTwitchExtensionMessage: async (message) => {
