@@ -1,4 +1,5 @@
 import type { ChannelCandidate, DropCampaign, DropReward } from "@lurkloot/shared/models";
+import { twitchCategoryDropsUrl } from "@lurkloot/shared/categories";
 import { isWaitingSubscriptionReward, isWatchReward } from "@lurkloot/shared/rewards";
 
 interface TwitchInventory {
@@ -258,7 +259,7 @@ function parseTwitchCampaignSource(source: TwitchCampaignSource): DropCampaign[]
       connectionUrls: allowedChannels.length > 0
         ? allowedChannels.map((login) => `https://www.twitch.tv/${login}`)
         : slug
-          ? [`https://www.twitch.tv/directory/category/${slug}?filter=drops&sort=VIEWER_COUNT`]
+          ? [twitchCategoryDropsUrl(slug)]
           : [],
       isGeneralDrop: allowedChannels.length === 0,
       rewards,

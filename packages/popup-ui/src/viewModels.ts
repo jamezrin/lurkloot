@@ -1,5 +1,5 @@
 import type { CategorySelection, DropCampaign, ExtensionSettings, Platform, WatchSession } from "@lurkloot/shared/models";
-import { NO_CATEGORY_ID, categoryListIndex, favouriteCategoryIndex, isCampaignCategoryBlocked, isUncategorizedCampaign } from "@lurkloot/shared/categories";
+import { NO_CATEGORY_ID, categoryListIndex, favouriteCategoryIndex, isCampaignCategoryBlocked, isUncategorizedCampaign, twitchCategoryDropsUrl } from "@lurkloot/shared/categories";
 import {
   campaignHasSubscriptionRewards,
   campaignHasWatchRewards,
@@ -187,6 +187,7 @@ export function campaignViewFromCampaign(
     linked: campaign.accountLinked !== false,
     linkUrl: campaign.accountLinkUrl || undefined,
     pageUrl: campaign.url || undefined,
+    categoryDropsUrl: campaign.platform === "twitch" && campaign.slug ? twitchCategoryDropsUrl(campaign.slug) : undefined,
     excluded,
     starts: campaign.startsAt ?? campaign.rewards.find((reward) => reward.availableFrom)?.availableFrom ?? "",
     ends: campaign.endsAt ?? campaign.rewards.find((reward) => reward.availableUntil)?.availableUntil ?? "",

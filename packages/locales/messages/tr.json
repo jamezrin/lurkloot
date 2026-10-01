@@ -392,6 +392,12 @@
   "viewDropPage": {
     "message": "Drop sayfasına git"
   },
+  "campaignDropDetails": {
+    "message": "Drop ayrıntıları"
+  },
+  "campaignCategoryDrops": {
+    "message": "Kategori dropları"
+  },
   "upcoming": {
     "message": "Gelecek"
   },
@@ -1714,6 +1720,9 @@
   },
   "campaignMoreChannels": {
     "message": "+$1 daha"
+  },
+  "campaignFewerChannels": {
+    "message": "Daha az göster"
   },
   "campaignExclude": {
     "message": "Hariç tut"
