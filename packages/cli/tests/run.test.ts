@@ -269,16 +269,20 @@ describe("CLI scheduler tick baseline", () => {
     const result = await runCliBaselineCell(dir, platform, "idle");
     reportBaseline(result);
 
+    // The stacked controller performs five shared-engine loads in both hosts.
+    // Since #591 a one-shot run fires both tick jobs, like every poll: the
+    // disabled platform's tick adds four loads and saves its disabled state
+    // once, and the run reads the state once more to report stored
+    // subscription waits. The two ticks run concurrently, and a tick reuses
+    // its own read when nothing was saved since (`loadLatest` in tickRun.ts),
+    // so whether the other tick's save lands in between decides one load.
+    const stateLoads = "stateLoads" in result ? result.stateLoads : undefined;
+    expect([9, 10]).toContain(stateLoads);
     expect(result).toEqual({
       host: "cli",
       platform,
       scenario: "idle",
-      // The stacked controller performs five shared-engine loads in both hosts.
-      // Since #591 a one-shot run fires both tick jobs, like every poll: the
-      // disabled platform's tick adds four loads and saves its disabled state
-      // once, and the run reads the state once more to report stored
-      // subscription waits.
-      stateLoads: 10,
+      stateLoads,
       stateSaves: 3,
       counts: {
         adapterOperations: 2,
