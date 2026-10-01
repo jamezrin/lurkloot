@@ -612,6 +612,9 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   // the host adapter supports credential export (the live extension, not demo).
   const exportCredentials = adapter.exportCredentials
     ? async () => {
+        // Nothing may be awaited before this request, or the browser drops the
+        // click's user gesture. A declined grant still exports the login cookies.
+        await adapter.requestCredentialExportPermission?.().catch(() => false);
         const blob = await adapter.send<CliCredentialBlob>({ type: "exportCliCredentials" });
         adapter.exportCredentials?.(blob);
       }

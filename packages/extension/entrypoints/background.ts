@@ -33,7 +33,7 @@ import { createTwitchExtensionSessionSource } from "../src/extensions/transport"
 import { createFortniteDriver } from "../src/extensions/fortnite/driver";
 import { createNoPixelDriver } from "../src/extensions/nopixel/driver";
 import { createCredentialHealthObserver } from "../src/core/credentialObserver";
-import { buildCliCredentialBlob } from "../src/core/cliCredentialExport";
+import { buildCliCredentialBlob, KASADA_COOKIE_ORIGIN } from "../src/core/cliCredentialExport";
 
 const localeCatalogs = new Map<string, MessageCatalog | undefined>();
 const getMessage = browser.i18n.getMessage as (key: string, substitutions?: string | string[]) => string;
@@ -291,8 +291,10 @@ function resetExtension(): Promise<RuntimeSnapshot<ExtensionSettings>> {
 // Credential export reads the user's live session cookies, which only the
 // extension can do. Keep it ahead of activity routing and core delegation.
 const dispatchRuntimeMessage = createRuntimeMessageDispatcher({
-  exportCliCredentials: () => buildCliCredentialBlob(async (url, name) =>
-    (await browser.cookies.get({ url, name }))?.value),
+  exportCliCredentials: () => buildCliCredentialBlob(
+    async (url, name) => (await browser.cookies.get({ url, name }))?.value ?? undefined,
+    () => browser.permissions.contains({ origins: [KASADA_COOKIE_ORIGIN] }),
+  ),
   resetExtension,
   handleActivityMessage,
   handleTwitchExtensionMessage: async (message) => {

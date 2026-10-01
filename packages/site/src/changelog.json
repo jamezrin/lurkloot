@@ -11,6 +11,10 @@
         "text": "Fixed headless watching in the CLI: Twitch now reads its heartbeat settings correctly, and Kick connects its viewer socket."
       },
       {
+        "kind": "new",
+        "text": "The headless CLI can now import your Twitch browser sign-in from Export credentials and see the full Twitch campaign list without opening a browser. The export asks for one extra site permission, k.twitchcdn.net, so it can include the Twitch security cookie the CLI needs. Decline it and the export still includes your sign-in cookies."
+      },
+      {
         "kind": "improved",
         "text": "Claiming a reward or opening and closing a watch tab no longer holds up everything else Lurkloot is tracking, so playback, heartbeats and tab changes are recorded as they happen instead of queueing behind them. A reward claimed just before Lurkloot switched to another target is now still recorded and shown in Activity."
       },

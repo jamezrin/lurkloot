@@ -11,7 +11,7 @@ describe("CLI credential export", () => {
     ]);
     const getCookie = vi.fn(async (url: string, name: string) => cookies.get(`${url}|${name}`));
 
-    await expect(buildCliCredentialBlob(getCookie)).resolves.toEqual({
+    await expect(buildCliCredentialBlob(getCookie, async () => true)).resolves.toEqual({
       version: 1,
       credentials: {
         twitch: { authToken: "twitch-token", deviceId: "device-id", kasadaSessionCookie: "kasada-seed" },
@@ -19,5 +19,15 @@ describe("CLI credential export", () => {
       },
     });
     expect(getCookie).toHaveBeenCalledWith("https://k.twitchcdn.net", "KP_UIDz-ssn");
+  });
+
+  it("leaves the Kasada cookie out unless its optional host was granted", async () => {
+    const getCookie = vi.fn(async (url: string) => url === "https://k.twitchcdn.net" ? "kasada-seed" : "value");
+
+    const blob = await buildCliCredentialBlob(getCookie, async () => false);
+
+    expect(blob.credentials.twitch).toEqual({ authToken: "value", deviceId: "value", kasadaSessionCookie: undefined });
+    expect(blob.credentials.kick).toEqual({ sessionToken: "value" });
+    expect(getCookie).not.toHaveBeenCalledWith("https://k.twitchcdn.net", "KP_UIDz-ssn");
   });
 });

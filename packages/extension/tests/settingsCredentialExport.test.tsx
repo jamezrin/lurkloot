@@ -38,7 +38,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-async function mount() {
+async function mount(requestCredentialExportPermission = vi.fn(async () => true)) {
   const { document, window } = parseHTML("<div id=app></div>");
   const confirm = vi.fn();
   const exportCredentials = vi.fn();
@@ -55,13 +55,14 @@ async function mount() {
     ...demoAdapter,
     getMessage: (key) => labels[key] ?? demoAdapter.getMessage(key),
     exportCredentials,
+    requestCredentialExportPermission,
   };
   await act(async () => {
     root = createRoot(container);
     root.render(<Popup adapter={adapter} initialState={{ preview: true, variant: screenshotVariant("settings") }} />);
   });
   await waitForCatalog();
-  return { confirm, container, exportCredentials };
+  return { confirm, container, exportCredentials, requestCredentialExportPermission };
 }
 
 function byText(container: Element, text: string): HTMLButtonElement {
@@ -105,6 +106,20 @@ describe("settings credential export", () => {
     expect(container.textContent).toContain("Export credentials");
     expect(container.textContent).not.toContain("Confirm export");
     expect(confirm).not.toHaveBeenCalled();
+  });
+
+  it("asks for the Kasada host inside the confirm click and still exports when declined", async () => {
+    const requestPermission = vi.fn(async () => false);
+    const { container, exportCredentials } = await mount(requestPermission);
+
+    act(() => byText(container, "Export credentials").click());
+    // A synchronous act: the request must start before anything is awaited,
+    // or the browser no longer treats it as part of the click.
+    act(() => byText(container, "Confirm export").click());
+    expect(requestPermission).toHaveBeenCalledTimes(1);
+
+    await act(async () => undefined);
+    expect(exportCredentials).toHaveBeenCalledTimes(1);
   });
 
   it("cancels an armed export after Back followed by immediate reopen", async () => {

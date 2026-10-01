@@ -40,7 +40,7 @@ export function importCredentials(authDir: string, source: string): { credential
   const importableWeb = Boolean(browserTwitch && creds.twitch?.deviceId && creds.twitch?.kasadaSessionCookie);
   const ignoredTwitch = browserTwitch && !importableWeb;
   if (ignoredTwitch && !creds.kick?.sessionToken) {
-    throw new Error("This Twitch export lacks a device ID or Kasada session cookie; export again from the updated extension, or run auth twitch device-login");
+    throw new Error("This Twitch export lacks a device ID or Kasada session cookie; export again from the updated extension and allow access to k.twitchcdn.net when asked, or run auth twitch device-login");
   }
   const credentials = {
     ...creds,
