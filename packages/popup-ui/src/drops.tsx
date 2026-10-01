@@ -375,17 +375,7 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
                   </Fact>
                 ) : !finished ? (
                   <Fact label={t("campaignFactChannels")}>
-                    {campaign.channels.length === 0 ? t("allChannels") : (
-                      <>
-                        {campaign.channels.slice(0, 3).map((channel, channelIndex) => (
-                          <React.Fragment key={channel.name}>
-                            {channelIndex > 0 ? ", " : null}
-                            <a href={channel.url} target="_blank" rel="noreferrer" className="hover:text-zinc-900 hover:underline dark:hover:text-zinc-50">{channel.name}</a>
-                          </React.Fragment>
-                        ))}
-                        {campaign.channels.length > 3 ? <span className="text-zinc-500 dark:text-zinc-400"> {t("campaignMoreChannels", String(campaign.channels.length - 3))}</span> : null}
-                      </>
-                    )}
+                    <CampaignChannels campaign={campaign} />
                   </Fact>
                 ) : null}
                 {!finished && !stats.complete && stats.nextReward && stats.nextRewardRemaining != null ? (
@@ -562,6 +552,48 @@ function CampaignProgress({ timeline, reachable, rewardsLabel, onClick }: { time
   );
 }
 
+const COLLAPSED_CHANNEL_COUNT = 3;
+
+// The channels a campaign can be farmed on. A long list starts collapsed and
+// expands in place. A Twitch campaign open to every channel links to the
+// game's Drops directory, where those channels are.
+function CampaignChannels({ campaign }: { campaign: CampaignView }): React.ReactElement {
+  const t = useT();
+  const [expanded, setExpanded] = useState(false);
+  const linkClass = "hover:text-zinc-900 hover:underline dark:hover:text-zinc-50";
+  if (campaign.channels.length === 0) {
+    return campaign.categoryDropsUrl
+      ? <a href={campaign.categoryDropsUrl} target="_blank" rel="noreferrer" data-campaign-all-channels className={linkClass}>{t("allChannels")}</a>
+      : <>{t("allChannels")}</>;
+  }
+  const hidden = campaign.channels.length - COLLAPSED_CHANNEL_COUNT;
+  const shown = expanded ? campaign.channels : campaign.channels.slice(0, COLLAPSED_CHANNEL_COUNT);
+  return (
+    <>
+      {shown.map((channel, channelIndex) => (
+        <React.Fragment key={channel.name}>
+          {channelIndex > 0 ? ", " : null}
+          <a href={channel.url} target="_blank" rel="noreferrer" className={linkClass}>{channel.name}</a>
+        </React.Fragment>
+      ))}
+      {hidden > 0 ? (
+        <>
+          {" "}
+          <button
+            type="button"
+            data-campaign-more-channels
+            aria-expanded={expanded}
+            onClick={() => setExpanded((current) => !current)}
+            className="text-zinc-500 underline decoration-zinc-300 decoration-1 underline-offset-2 hover:text-zinc-900 hover:decoration-current dark:text-zinc-400 dark:decoration-zinc-600 dark:hover:text-zinc-50"
+          >
+            {expanded ? t("campaignFewerChannels") : t("campaignMoreChannels", String(hidden))}
+          </button>
+        </>
+      ) : null}
+    </>
+  );
+}
+
 function Fact({ label, value, children }: { label: string; value?: string; children?: React.ReactNode }): React.ReactElement {
   return (
     <div className="flex min-w-0 flex-col gap-0.5">
@@ -596,7 +628,7 @@ function CampaignActions({ campaign, gameName, finished, refreshing, pinned, onP
     ? t("campaignCategoryBlocked", gameName)
     : campaign.excluded ? t("excluded") : t("campaignExclude");
 
-  if (!onPin && !onFavourite && !onExclude && !onBlock && !onRefresh && !campaign.pageUrl) return null;
+  if (!onPin && !onFavourite && !onExclude && !onBlock && !onRefresh && !campaign.pageUrl && !campaign.categoryDropsUrl) return null;
   return (
     <div className="space-y-1.5">
       <div className="flex flex-wrap items-center gap-1.5">
@@ -666,21 +698,30 @@ function CampaignActions({ campaign, gameName, finished, refreshing, pinned, onP
             {t("subscribedRefresh")}
           </ActionChip>
         ) : null}
-        {campaign.pageUrl ? (
-          <a
-            href={campaign.pageUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="ms-auto inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--ink-text)] hover:underline"
-          >
-            {t("viewDropPage")}
-            <ExternalLink size={11} aria-hidden="true" />
-          </a>
+        {campaign.pageUrl || campaign.categoryDropsUrl ? (
+          // The campaign's own page and, on Twitch, the game's Drops directory:
+          // two destinations, labelled apart (#678).
+          <span className="ms-auto inline-flex items-center gap-3">
+            {campaign.pageUrl ? (
+              <a href={campaign.pageUrl} target="_blank" rel="noreferrer" data-campaign-details-link className={CAMPAIGN_LINK_CLASS}>
+                {t("campaignDropDetails")}
+                <ExternalLink size={11} aria-hidden="true" />
+              </a>
+            ) : null}
+            {campaign.categoryDropsUrl ? (
+              <a href={campaign.categoryDropsUrl} target="_blank" rel="noreferrer" data-campaign-category-drops-link className={CAMPAIGN_LINK_CLASS}>
+                {t("campaignCategoryDrops")}
+                <ExternalLink size={11} aria-hidden="true" />
+              </a>
+            ) : null}
+          </span>
         ) : null}
       </div>
     </div>
   );
 }
+
+const CAMPAIGN_LINK_CLASS = "inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--ink-text)] hover:underline";
 
 function excludeClass(active: boolean): string {
   return cn(

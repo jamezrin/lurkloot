@@ -3,6 +3,10 @@
     "version": "1.15.0",
     "changes": [
       {
+        "kind": "improved",
+        "text": "Twitch campaign cards now link to both the campaign's drop details and the game's Drops directory on Twitch, labelled apart. A campaign open to every channel links its \"All channels\" to that directory, and a long channel list now expands in place instead of ending in a \"+N more\" you could not open."
+      },
+      {
         "kind": "fixed",
         "text": "If Lurkloot keeps failing to load a platform's drop campaigns, it now counts toward the prompt that offers to report a persistent problem, as it did before campaign loading moved out of the regular check. Until now only failures later in the check counted, so a platform that could never load its campaigns never showed the prompt."
       },

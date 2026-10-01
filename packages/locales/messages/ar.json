@@ -392,6 +392,12 @@
   "viewDropPage": {
     "message": "عرض صفحة الدروب"
   },
+  "campaignDropDetails": {
+    "message": "تفاصيل الدروب"
+  },
+  "campaignCategoryDrops": {
+    "message": "دروب الفئة"
+  },
   "upcoming": {
     "message": "قادمة"
   },
@@ -1714,6 +1720,9 @@
   },
   "campaignMoreChannels": {
     "message": "+$1 أخرى"
+  },
+  "campaignFewerChannels": {
+    "message": "عرض أقل"
   },
   "campaignExclude": {
     "message": "استبعاد"
