@@ -9,7 +9,7 @@ import {
 import type { ActivityPage, CategorySearchResult, CliCredentialBlob, DiagnosticsExport, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { ActivityHistoryRecord } from "@lurkloot/shared/events";
 import type { CategorySelection, ExtensionSettings, Platform, TwitchExtensionProviderId, WatchSourceId } from "@lurkloot/shared/models";
-import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings, type SettingsPatch } from "@lurkloot/shared/settings";
+import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings, revertSettingsPatch, type SettingsPatch } from "@lurkloot/shared/settings";
 import { buildSettingsExportPayload, parseSettingsImportPayload } from "@lurkloot/shared/settingsExport";
 import { effectiveLocale, isRtlLocale, type MessageCatalog } from "@lurkloot/shared/i18n";
 import { loadCatalog } from "@lurkloot/locales";
@@ -430,7 +430,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
           }
           return snapshotPreservingLocalSettings(nextSnapshot);
         });
-      });
+      }, () => undefined); // a failed poll keeps the last good snapshot; the next one retries
     }, 5000);
     return () => clearInterval(interval);
   }, [adapter, preview]);
@@ -547,16 +547,27 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   async function updateSettings(patch: SettingsPatch, options?: { tickAfterSave?: boolean; tickAfterSavePlatforms?: Platform[] }): Promise<void> {
     if (!snapshot) return;
     const settingsPatch = patch;
-    const nextSettings = applySettingsPatch(settingsRef.current ?? snapshot.settings, settingsPatch);
+    const previousSettings = settingsRef.current ?? snapshot.settings;
+    const nextSettings = applySettingsPatch(previousSettings, settingsPatch);
     settingsRef.current = nextSettings;
     setSnapshot((current) => current ? { ...current, settings: nextSettings } : current);
     const save = settingsSaveQueue.current.catch(() => undefined).then(async () => {
-      const nextSnapshot = await adapter.send<RuntimeSnapshot>({
-        type: "saveSettings",
-        settingsPatch,
-        tickAfterSave: options?.tickAfterSave,
-        tickAfterSavePlatforms: options?.tickAfterSavePlatforms,
-      });
+      let nextSnapshot: RuntimeSnapshot;
+      try {
+        nextSnapshot = await adapter.send<RuntimeSnapshot>({
+          type: "saveSettings",
+          settingsPatch,
+          tickAfterSave: options?.tickAfterSave,
+          tickAfterSavePlatforms: options?.tickAfterSavePlatforms,
+        });
+      } catch (error) {
+        // Nothing was saved: take back the optimistic change, keeping any
+        // newer edit that is still queued behind this one.
+        const restored = revertSettingsPatch(settingsRef.current ?? nextSettings, previousSettings, nextSettings, settingsPatch);
+        settingsRef.current = restored;
+        setSnapshot((current) => current ? { ...current, settings: restored } : current);
+        throw error;
+      }
       setSnapshot({ ...nextSnapshot, settings: settingsRef.current ?? mergeSettings(nextSnapshot.settings) });
     });
     settingsSaveQueue.current = save;
@@ -597,6 +608,8 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     setRefreshing(true);
     try {
       setSnapshot(snapshotWithMergedSettings(await adapter.send<RuntimeSnapshot>({ type: "tickNow" })));
+    } catch (error) {
+      console.error("Failed to refresh the schedule", error);
     } finally {
       setRefreshing(false);
     }
