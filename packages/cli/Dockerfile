@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 #
-# Headless Lurkloot CLI image. Both transports (http, impersonate) are pure
-# Node + cycletls, so no browser is needed — this is a slim Node image.
+# Headless Lurkloot CLI image. Both transports (http, impersonate) use
+# Node + cycletls; Kick's viewer connection uses ws. No browser is needed.
 
 # --- Build stage: install the cli + core + shared subtree and bundle the CLI ---
 FROM node:24-slim AS build
@@ -28,7 +28,7 @@ COPY packages/cli/ packages/cli/
 RUN pnpm --filter @lurkloot/cli build
 
 # Produce a self-contained /app: the bundle plus the production node_modules for
-# the externalized dep (cycletls).
+# the externalized runtime deps (cycletls and ws).
 RUN pnpm --filter @lurkloot/cli deploy --legacy --prod /app
 
 # --- Runtime stage ---

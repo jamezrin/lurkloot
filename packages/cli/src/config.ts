@@ -121,7 +121,9 @@ export function defaultConfigJsonc(): string {
         // "all" farms every category, "include" farms only the categories
         // listed below. Neither mode ranks.
         "categoryMode": ${json(twitch.categoryMode)},
-        // Used by "include". Order has no scheduling effect.
+        // Used by "include" for eligibility; also seeds partial Twitch live-
+        // channel discovery when the campaign dashboard is unavailable, even
+        // in "all" mode. Add game IDs and names you want the CLI to scan.
         "categories": ${json(twitch.categories)},
         // Campaigns of these categories rank above the strategy, in this order,
         // and below pinned campaigns.

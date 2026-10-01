@@ -85,6 +85,10 @@ export function createCliAdapters(
           discoveryState: twitchDiscoveryState,
           strictCampaignAvailability: settings.platform.twitch.strictCampaignAvailability,
           heartbeatIdentity: twitchIdentity,
+          liveDiscoveryGames: [
+            ...settings.platform.twitch.categories,
+            ...settings.platform.twitch.favouriteCategories,
+          ].filter((game) => !settings.platform.twitch.blockedCategories.some((blocked) => blocked.id === game.id)),
           ...deps.twitchHeartbeat(identity),
         },
         emit,

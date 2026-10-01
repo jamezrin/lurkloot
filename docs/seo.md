@@ -41,7 +41,7 @@ differ:
 
 - **Twitch**: inventory-aware discovery, minute-watched heartbeats with a muted
   tab fallback, tier-by-tier claiming, channel points, and the Android-client
-  headless path that sidesteps Client-Integrity.
+  headless Smart TV login with partial live-channel discovery.
 - **Kick**: realtime campaign-start signals over Kick's socket, a viewer session
   instead of watch heartbeats (with the honest caveat that Kick may refuse the
   extension-origin handshake), gamification challenge cards, and the Cloudflare

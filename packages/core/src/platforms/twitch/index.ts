@@ -104,6 +104,9 @@ export interface TwitchAdapterOptions {
   // Reads the Twitch auth-token cookie. Injected so core stays browser-free
   // and never logs the value.
   getAuthToken?: () => Promise<string | undefined>;
+  // CLI-only seed games for partial discovery when Twitch hides the campaign
+  // dashboard. The extension's normal dashboard path leaves this undefined.
+  liveDiscoveryGames?: readonly { id: string; name: string }[];
 }
 
 const TWITCH_QUERIES = {
@@ -390,7 +393,7 @@ interface TwitchCurrentDropData {
 interface TwitchAvailableDropsData {
   channel?: {
     id?: string;
-    viewerDropCampaigns?: Array<{ id?: string }> | null;
+    viewerDropCampaigns?: Array<Parameters<typeof parseTwitchCampaigns>[0][number]> | null;
   } | null;
 }
 
@@ -1154,8 +1157,9 @@ export class TwitchAdapter implements PlatformAdapter {
         new Set(discoverableCampaignIds),
         dashboardResponded,
       );
-      reportAccountLinking(campaigns);
-      return campaigns;
+      const discovered = await this.discoverLiveChannelCampaigns(campaigns, signal);
+      reportAccountLinking([...campaigns, ...discovered]);
+      return [...campaigns, ...discovered];
     }
 
     // Campaigns whose details we already hold and that nothing can have changed
@@ -1277,6 +1281,94 @@ export class TwitchAdapter implements PlatformAdapter {
       cachedDetailsByDropId.has(campaignId) ? "cache"
         : fetchedByDropId.get(campaignId)?.status === "fulfilled" ? "fresh" : "retained");
     return campaigns;
+  }
+
+  private async discoverLiveChannelCampaigns(
+    inventoryCampaigns: readonly DropCampaign[],
+    signal?: AbortSignal,
+  ): Promise<DropCampaign[]> {
+    if (!this.options.liveDiscoveryGames) return [];
+    const games = new Map<string, string>();
+    for (const game of this.options.liveDiscoveryGames) {
+      if (game.name.trim()) games.set(game.id || game.name.toLowerCase(), game.name.trim());
+    }
+    for (const campaign of inventoryCampaigns) {
+      const name = campaign.slug ?? campaign.gameName;
+      if (name) games.set(campaign.categoryId ?? name.toLowerCase(), name);
+    }
+    if (games.size === 0) {
+      diagnostic(this.emit, "warn", "Twitch campaign dashboard is empty; configure Twitch categories to scan live channels for campaigns", "twitch");
+      return [];
+    }
+
+    const knownIds = new Set(inventoryCampaigns.map((campaign) => campaign.id));
+    const discovered = new Map<string, Parameters<typeof parseTwitchCampaigns>[0][number]>();
+    let successfulDirectories = 0;
+    let lastDirectoryError: unknown;
+    for (const gameName of [...games.values()].slice(0, 4)) {
+      signal?.throwIfAborted();
+      let directory: TwitchGqlResponse<TwitchDirectoryData>;
+      try {
+        directory = await this.gqlWithIntegrityRetry<TwitchDirectoryData>("DirectoryPage_Game", TWITCH_QUERIES.gameDirectoryHash, {
+          slug: gameName,
+          imageWidth: 50,
+          includeCostreaming: false,
+          options: {
+            sort: "VIEWER_COUNT", broadcasterLanguages: [], includeRestricted: ["SUB_ONLY_LIVE"],
+            recommendationsContext: { platform: "web" }, requestID: crypto.randomUUID(),
+            freeformTags: null, systemFilters: ["DROPS_ENABLED"], tags: [],
+          },
+          sortTypeIsRecency: false, limit: 8,
+        }, undefined, undefined, this.emit, signal);
+        successfulDirectories += 1;
+      } catch (error) {
+        signal?.throwIfAborted();
+        if (authHealthFromError(error)) throw error;
+        lastDirectoryError = error;
+        const message = error instanceof Error ? error.message : String(error);
+        diagnostic(this.emit, "warn", `Twitch live-channel directory for ${gameName} failed: ${message}`, "twitch");
+        continue;
+      }
+      const broadcasters = (directory.data?.game?.streams?.edges ?? [])
+        .map((edge) => edge.node?.broadcaster)
+        .filter((broadcaster): broadcaster is NonNullable<typeof broadcaster> => Boolean(broadcaster?.id && broadcaster.login))
+        .slice(0, 8);
+      for (const broadcaster of broadcasters) {
+        signal?.throwIfAborted();
+        let response: TwitchGqlResponse<TwitchAvailableDropsData>;
+        try {
+          response = await this.gqlWithIntegrityRetry<TwitchAvailableDropsData>(
+            "DropsHighlightService_AvailableDrops", TWITCH_QUERIES.availableDropsHash,
+            { channelID: broadcaster.id }, undefined, undefined, this.emit, signal,
+          );
+        } catch (error) {
+          signal?.throwIfAborted();
+          if (authHealthFromError(error)) throw error;
+          const message = error instanceof Error ? error.message : String(error);
+          diagnostic(this.emit, "warn", `Twitch live-channel campaigns for ${broadcaster.login} failed: ${message}`, "twitch");
+          continue;
+        }
+        for (const campaign of response.data?.channel?.viewerDropCampaigns ?? []) {
+          if (!campaign.id || !campaign.game || !campaign.timeBasedDrops?.length || knownIds.has(campaign.id)) continue;
+          const existing = discovered.get(campaign.id);
+          const channels = new Map<string, { name: string }>();
+          for (const channel of existing?.allow?.channels ?? []) {
+            if (channel.name) channels.set(channel.name.toLowerCase(), { name: channel.name });
+          }
+          channels.set(broadcaster.login!.toLowerCase(), { name: broadcaster.login! });
+          discovered.set(campaign.id, {
+            ...campaign,
+            status: "ACTIVE",
+            allow: { channels: [...channels.values()] },
+          });
+        }
+      }
+    }
+    // A total lookup outage is a failed refresh, not an authoritative empty
+    // campaign list. Let the controller retain its last committed snapshot.
+    if (successfulDirectories === 0 && lastDirectoryError) throw lastDirectoryError;
+    diagnostic(this.emit, "info", `Twitch live-channel discovery found ${discovered.size} campaigns across ${Math.min(games.size, 4)} configured games`, "twitch");
+    return parseTwitchCampaigns([...discovered.values()]);
   }
 
   async refreshCampaigns(

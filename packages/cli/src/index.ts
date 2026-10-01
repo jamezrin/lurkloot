@@ -222,8 +222,9 @@ const authCommand: CommandModule = {
         const { authDir } = configOf(argv, logger);
         // yargs-parser renders a bare "-" positional as "" — restore the stdin sentinel.
         const file = argv.file === "" ? "-" : String(argv.file);
-        const creds = importCredentials(authDir, file);
+        const { credentials: creds, ignoredTwitch } = importCredentials(authDir, file);
         logger.info(`Imported credentials${creds.twitch?.authToken ? " (twitch)" : ""}${creds.kick?.sessionToken ? " (kick)" : ""} into ${authDir}`, "auth");
+        if (ignoredTwitch) logger.warn("Skipped the extension's Twitch web token; run auth twitch device-login for a Smart TV token", "auth");
       },
     })
     .command(platformAuthCommand("twitch"))
