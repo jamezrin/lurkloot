@@ -75,6 +75,28 @@ export function importCycles(
 }
 
 export const PLATFORM_BRANCH = /["'](?:twitch|kick)["']/;
+// A decision on a platform: a comparison with, a lookup of, or a case for a
+// platform literal. Platform-keyed data (PLATFORMS loops, lock and lane
+// tables) is not one, so the platform-neutral modules may keep it (#696).
+const PLATFORM_LITERAL = String.raw`["'](?:twitch|kick)["']`;
+export const PLATFORM_DECISION = new RegExp([
+  String.raw`(?:===|!==|==|!=)\s*${PLATFORM_LITERAL}`,
+  String.raw`${PLATFORM_LITERAL}\s*(?:===|!==|==|!=)`,
+  String.raw`\.(?:includes|has|indexOf)\(\s*${PLATFORM_LITERAL}`,
+  String.raw`\bcase\s+${PLATFORM_LITERAL}`,
+].join("|"));
+// The platform-neutral services #583 names: their platform policy belongs to
+// the platform's own service, reached through registered per-platform hooks.
+const PLATFORM_NEUTRAL_MODULES = [
+  "authHealth.ts",
+  "stateTransaction.ts",
+  "stateCommit.ts",
+  "tickAdmission.ts",
+  "tickRun.ts",
+  "tickCommit.ts",
+  "tickEffects.ts",
+  "settingsTransitions.ts",
+];
 export const BROWSER_TAB_CODE = /\b(?:browser|chrome)\.tabs\b|\bBrowserTabApi\b|\bexecuteScript\b|["'][^"']*extension\/src\/core\/(?:tabs|tabPorts|browserTabs)["']/;
 
 describe("engine boundaries (#591)", () => {
@@ -87,6 +109,12 @@ describe("engine boundaries (#591)", () => {
   it("keeps Twitch and Kick branches out of the controller facade", () => {
     const facade = withoutComments(readFileSync(join(coreSrc, "background/controller.ts"), "utf8"));
     expect(PLATFORM_BRANCH.test(facade), "controller.ts wires services; platform policy belongs to them").toBe(false);
+  });
+
+  it("keeps Twitch and Kick decisions out of the platform-neutral services (#696)", () => {
+    const offenders = PLATFORM_NEUTRAL_MODULES.filter((module) =>
+      PLATFORM_DECISION.test(withoutComments(readFileSync(join(coreSrc, "background", module), "utf8"))));
+    expect(offenders, "Platform policy belongs to the platform's own service").toEqual([]);
   });
 
   it("keeps browser-tab code in packages/extension", () => {
@@ -117,6 +145,17 @@ describe("engine boundaries (#591)", () => {
     it("flags a platform literal and browser-tab code", () => {
       expect(PLATFORM_BRANCH.test('if (platform === "twitch") start();')).toBe(true);
       expect(PLATFORM_BRANCH.test("const platforms = PLATFORMS;")).toBe(false);
+      for (const decision of [
+        'if (message.platform === "twitch") begin();',
+        'const label = "kick" !== platform ? a : b;',
+        'if (requestedPlatforms.includes("twitch")) prepare();',
+        'case "kick":',
+      ]) expect(PLATFORM_DECISION.test(decision), decision).toBe(true);
+      for (const data of [
+        'export const TRANSACTION_LOCKS = ["settings", "twitch", "kick", "heartbeat", "commit"] as const;',
+        "const generation = { twitch: 0, kick: 0 };",
+        "for (const platform of PLATFORMS) cancelPendingTick(platform);",
+      ]) expect(PLATFORM_DECISION.test(data), data).toBe(false);
       expect(BROWSER_TAB_CODE.test("await browser.tabs.create({ url });")).toBe(true);
       expect(BROWSER_TAB_CODE.test('import { createBrowserTabs } from "../../extension/src/core/browserTabs";')).toBe(true);
       expect(BROWSER_TAB_CODE.test("registerManagedPageContextTabs(tabRegistry, {});")).toBe(false);
