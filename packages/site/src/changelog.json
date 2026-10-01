@@ -24,6 +24,10 @@
       },
       {
         "kind": "fixed",
+        "text": "The CLI now warns at startup when a platform's idle watchlist in its config lists more than 20 channels, and names the channels it ignores. It already watched only the first 20, but dropped the rest without saying so."
+      },
+      {
+        "kind": "fixed",
         "text": "The headless Twitch CLI now starts new device logins with Twitch's Smart TV client. When Twitch hides the campaign dashboard, the CLI scans live channels in configured games for drops. This is partial discovery: campaigns on offline or unscanned channels may be missed. Browser Twitch tokens from extension exports are skipped rather than used with the wrong client identity. Kick TV device login no longer requires a CSRF cookie that Kick stopped issuing."
       },
       {

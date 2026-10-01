@@ -3,8 +3,8 @@ import { dirname, relative, resolve } from "node:path";
 import { parse as parseJsonc, printParseErrorCode, type ParseError } from "jsonc-parser";
 import { resolveCompatibility } from "@lurkloot/core";
 import type { CompatibilityWarning } from "@lurkloot/shared/compatibility";
-import { CURRENT_SETTINGS_SCHEMA_VERSION, type SettingsMigrationDiagnostic } from "@lurkloot/shared/settingsSchema";
-import { DEFAULT_CLI_SETTINGS, parseCliSettingsWithDiagnostics, type CliSettings } from "./settings";
+import { CURRENT_SETTINGS_SCHEMA_VERSION } from "@lurkloot/shared/settingsSchema";
+import { DEFAULT_CLI_SETTINGS, parseCliSettingsWithDiagnostics, type CliSettings, type CliSettingsDiagnostic } from "./settings";
 
 export const TRANSPORTS = ["http", "impersonate"] as const;
 export type Transport = (typeof TRANSPORTS)[number];
@@ -215,7 +215,8 @@ export function parseConfig(raw: unknown, configPath: string): CliConfig {
 // rewritten, so these repeat on every startup until the file is edited. A future
 // migration that removes a property outright carries no replacement, so fall
 // back to a bare deprecation notice rather than printing "settings.undefined".
-function formatMigrationWarning(diagnostic: SettingsMigrationDiagnostic): string {
+function formatMigrationWarning(diagnostic: CliSettingsDiagnostic): string {
+  if (diagnostic.code === "limit_exceeded") return `settings.${diagnostic.path}: ${diagnostic.message}`;
   if (!diagnostic.replacement) {
     return `settings.${diagnostic.path} is deprecated and ignored`;
   }
