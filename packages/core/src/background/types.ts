@@ -371,13 +371,6 @@ export interface ControllerCalls<S extends EngineSettings> {
   rescheduleTwitchChannelPointsJob(): Promise<void>;
   stopTwitchChannelPointsPushInBackground(): void;
   twitchChannelPointsPushEpoch(): number;
-  reconcileTwitchChannelPointsPushAfterCommit(
-    committed: SchedulerState,
-    since: number,
-    settings: EngineSettings,
-    adapter: PlatformAdapter,
-    emit: EventEmitter,
-  ): Promise<void>;
   registerTwitchChannelPointsEffects(executor: TickEffectExecutor): TickEffectExecutor;
   runTwitchChannelPointsClaim(): Promise<void>;
 
@@ -470,14 +463,6 @@ export interface ControllerCalls<S extends EngineSettings> {
     since?: Partial<Record<Platform, number>>,
   ): Promise<void>;
   discoverySignalEpochs(platforms: readonly Platform[]): Partial<Record<Platform, number>>;
-  reconcileDiscoverySignalsAfterCommit(
-    committed: SchedulerState,
-    since: Partial<Record<Platform, number>>,
-    settings: EngineSettings,
-    adapters: Record<Platform, PlatformAdapter>,
-    emit: EventEmitter,
-    platforms: readonly Platform[],
-  ): Promise<void>;
   invalidateDiscoverySignalAdmission(platform: Platform): void;
   discoverySignalRefreshAllowed(platform: Platform, request: DiscoverySignalRefreshRequest): boolean;
   reserveDiscoverySignalAuthRefresh(platform: Platform): () => void;
