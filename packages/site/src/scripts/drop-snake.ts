@@ -232,7 +232,14 @@ function run(panel: HTMLElement) {
     if (reshaped) {
       fading = undefined;
       startTour(performance.now());
-      if (playing) match = createMatch(board);
+      if (playing) {
+        // A game can't carry over to a board of a different size: start over.
+        match = createMatch(board);
+        clock = 0;
+        bittenAt = 0;
+        panel.classList.remove("is-bitten");
+        showScore();
+      }
     } else {
       if (tour) {
         tour.board = board;
