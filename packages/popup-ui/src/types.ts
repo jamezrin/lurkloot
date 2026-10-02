@@ -4,6 +4,7 @@ import type { SettingsExportPayload } from "@lurkloot/shared/settingsExport";
 import type { CampaignFarmingEvaluation } from "@lurkloot/shared/campaignFarming";
 import type { CampaignSection } from "@lurkloot/shared/campaignFilters";
 import type { CampaignRankTier } from "@lurkloot/shared/ranking";
+import type { PopupView } from "./shell";
 
 export type CompatibilityLifecycle = "recommended" | "legacy" | "experimental";
 export interface CompatibilityOptionMetadata {
@@ -221,4 +222,7 @@ export interface PopupInitialState {
   preview?: boolean;
   locale?: SupportedLocale | null;
   variant?: ScreenshotVariant;
+  // Preview only: open on this view instead of the variant's. The landing page
+  // uses it to show real panels (games, watchlist…) beside its copy.
+  view?: PopupView;
 }

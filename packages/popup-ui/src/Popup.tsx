@@ -108,6 +108,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   // One destination at a time. Platform is the other axis and is independent of
   // it, so every view keeps working on either platform.
   const [view, setView] = useState<PopupView>(() => {
+    if (preview && initialState?.view) return initialState.view;
     if (!preview || !variantShowsPopup(initialVariant)) return "queue";
     if (initialVariant.view === "settings") return "settings";
     return initialVariant.view === "watchlist" ? "watchlist" : "queue";
