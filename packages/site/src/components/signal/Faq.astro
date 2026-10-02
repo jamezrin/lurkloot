@@ -1,0 +1,26 @@
+---
+// Renders exactly the items index.astro passes to Base's FAQPage schema.
+import { LINKS } from "../../consts";
+import { homeFaqItems } from "../../homeFaq";
+---
+<section class="sg-section sg-faq" id="faq" aria-labelledby="faq-title">
+  <div class="sg-wrap sg-faq__grid">
+    <div data-reveal>
+      <p class="sg-eyebrow">FAQ</p>
+      <h2 id="faq-title">A few things<br /><span class="sg-dim">worth knowing.</span></h2>
+      <p>Your session stays yours. The extension runs in your browser, without a separate Lurkloot account or a password to hand over.</p>
+      <div class="sg-faq__links">
+        <a href={LINKS.privacy}>Read the privacy policy <span aria-hidden="true">→</span></a>
+        <a href={LINKS.github} target="_blank" rel="noopener">Source code <span aria-hidden="true">↗</span></a>
+      </div>
+    </div>
+    <div class="sg-faq__list">
+      {homeFaqItems.map((item) => (
+        <details data-reveal>
+          <summary>{item.q}<span aria-hidden="true"></span></summary>
+          <p>{item.a}</p>
+        </details>
+      ))}
+    </div>
+  </div>
+</section>

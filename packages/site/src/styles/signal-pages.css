@@ -1,0 +1,160 @@
+/* ============================================================
+   Reading pages in the signal theme: the platform landing pages,
+   the privacy policy and the changelog. They share signal.css's
+   nav, footer, palette and type, and add a calmer reading layout.
+   The landing pages keep the shared `.lp-*` shell from global.css
+   (see docs/seo.md); this file only restyles it.
+   ============================================================ */
+
+.sg-page main { overflow-x: clip; }
+.sg-page .wrap { width: min(100% - 48px, 1280px); max-width: none; margin-inline: auto; padding-inline: 0; }
+
+/* "On this page" row under the nav. */
+.sg-subnav { display: flex; flex-wrap: wrap; gap: 6px; padding-block: 4px 0; }
+.sg-subnav a { padding: 6px 12px; border-radius: 999px; box-shadow: inset 0 0 0 1px var(--sg-line-strong); font-size: 13px; color: var(--sg-muted); transition: color .15s, background .15s; }
+.sg-subnav a:hover { color: #ededed; background: #111; }
+
+/* Platform marker: a small dot, Twitch purple by default, Kick green. */
+.sg-page { --accent: var(--sg-twitch); --other: var(--sg-kick); }
+.sg-page .lp--kick { --accent: var(--sg-kick); --other: var(--sg-twitch); }
+
+.sg-page .eyebrow, .sg-page .document-label { display: inline-flex; align-items: center; gap: 10px; margin: 0; font: 400 14px/1.4 var(--font-body); letter-spacing: 0; text-transform: none; color: var(--sg-muted); }
+.sg-page .eyebrow::before { display: none; }
+.sg-page .lp-hero .eyebrow::before { content: ""; display: block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+
+/* ---------- heroes ---------- */
+.sg-page .lp-hero, .document-hero { position: relative; isolation: isolate; padding-block: clamp(56px, 7vw, 104px); overflow: visible; }
+.sg-page .lp-hero::before, .document-hero::before { content: ""; position: absolute; z-index: -1; inset: -40% -20% 0 auto; width: 70%; height: auto; opacity: 1; pointer-events: none; border-radius: 50%; background: radial-gradient(closest-side, rgb(255 255 255 / 10%), transparent 75%); }
+.sg-page .lp-hero::after, .document-hero::after { content: ""; position: absolute; z-index: -1; inset: 0 -10%; pointer-events: none; background-image: linear-gradient(rgb(255 255 255 / 6%) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255 / 6%) 1px, transparent 1px); background-size: 56px 56px; mask-image: radial-gradient(50% 70% at 75% 30%, #000, transparent); -webkit-mask-image: radial-gradient(50% 70% at 75% 30%, #000, transparent); }
+.sg-page .lp-hero > .wrap { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, .75fr); gap: 72px; align-items: center; }
+.sg-page main h1 { max-width: 15ch; margin-top: 20px; font-size: clamp(44px, 5.4vw, 76px); line-height: 1; letter-spacing: -.06em; font-weight: 450; white-space: normal; }
+.document-hero h1 span { color: var(--sg-muted); }
+.sg-page .lp-hero__lede { max-width: 58ch; margin-top: 24px; font-size: clamp(17px, 1.4vw, 19px); line-height: 1.6; color: var(--sg-muted); }
+.document-hero > p:last-child { margin-top: 20px; font-size: 18px; color: var(--sg-muted); }
+.sg-page .lp-hero__cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
+.sg-page .lp-hero__meta { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 28px; padding: 0; border: 0; }
+.sg-page .lp-hero__meta span { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: #ededed; }
+.sg-page .lp-hero__meta span::before { content: "✓"; color: var(--sg-muted); }
+
+.guide-overview { padding: 28px; border-radius: 16px; background: var(--sg-surface); box-shadow: inset 0 0 0 1px var(--sg-line-strong), 0 40px 90px -40px rgb(0 0 0 / 90%); }
+.guide-overview h2 { font-size: 22px; line-height: 1.2; letter-spacing: -.03em; font-weight: 500; }
+.guide-overview ol { display: grid; gap: 2px; margin: 18px 0 0; padding: 0; list-style: none; counter-reset: overview; }
+.guide-overview li { display: grid; grid-template-columns: 32px 1fr; column-gap: 12px; padding-block: 14px; border-top: 1px solid var(--sg-line); counter-increment: overview; }
+.guide-overview li::before { content: counter(overview, decimal-leading-zero); grid-row: 1 / 3; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; box-shadow: inset 0 0 0 1px var(--sg-line-strong); font: 12px/1 var(--font-mono); color: var(--sg-muted); }
+.guide-overview strong { font-size: 15px; font-weight: 500; }
+.guide-overview p { grid-column: 2; margin-top: 2px; font-size: 14px; }
+
+/* ---------- landing-page sections ---------- */
+.sg-page .lp-sec { padding-block: clamp(64px, 8vw, 112px); border-top: 1px solid var(--sg-line); scroll-margin-top: 80px; }
+.sg-page .lp-sec > .wrap { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.4fr); gap: 80px; align-items: start; }
+.sg-page .guide-section-heading { position: sticky; top: 96px; }
+.sg-page .lp-sec h2 { max-width: 18ch; margin: 14px 0 0; font-size: clamp(28px, 2.8vw, 40px); line-height: 1.08; letter-spacing: -.05em; }
+.sg-page .lp-sec h3 { margin-bottom: 6px; font-size: 18px; }
+.guide-section-body { min-width: 0; }
+.sg-page .lp-sec p:not(.eyebrow) { max-width: 64ch; font-size: 16px; line-height: 1.75; color: var(--sg-muted); }
+.sg-page .lp-sec p:not(.eyebrow) + p { margin-top: 18px; }
+.sg-page .lp-sec a:not(.sg-pill) { color: #ededed; text-decoration: underline; text-decoration-color: rgb(255 255 255 / 30%); text-underline-offset: 4px; transition: text-decoration-color .15s; }
+.sg-page .lp-sec a:not(.sg-pill):hover { text-decoration-color: currentColor; }
+
+.sg-page .lp-list { display: grid; gap: 8px; max-width: none; margin: 24px 0 0; padding: 0; list-style: none; }
+.sg-page .lp-list li { position: relative; padding: 14px 16px 14px 42px; border-radius: 10px; background: var(--sg-surface); box-shadow: inset 0 0 0 1px var(--sg-line); font-size: 15px; color: #ededed; }
+.sg-page .lp-list li::before { content: "✓"; position: absolute; left: 16px; top: 14px; width: auto; height: auto; border-radius: 0; background: none; color: var(--sg-muted); }
+
+.sg-page .lp-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 0; }
+.sg-page .lp-card { padding: 24px; border: 0; border-radius: 12px; background: var(--sg-surface); box-shadow: inset 0 0 0 1px var(--sg-line); transition: background .2s, box-shadow .2s; }
+.sg-page .lp-card:hover { background: var(--sg-surface-2); box-shadow: inset 0 0 0 1px var(--sg-line-strong); }
+.sg-page .lp-card p { font-size: 15px; line-height: 1.65; }
+
+.sg-page .lp-steps { display: grid; grid-template-columns: 1fr; gap: 8px; margin: 24px 0 0; padding: 0; list-style: none; counter-reset: lp-step; }
+.sg-page .lp-steps li { display: grid; grid-template-columns: 36px 1fr; column-gap: 16px; padding: 22px; border: 0; border-radius: 12px; background: var(--sg-surface); box-shadow: inset 0 0 0 1px var(--sg-line); counter-increment: lp-step; }
+.sg-page .lp-steps li::before { content: counter(lp-step, decimal-leading-zero); grid-row: 1 / 3; display: grid; place-items: center; width: 36px; height: 36px; margin: 0; border-radius: 50%; background: #ededed; font: 500 13px/1 var(--font-mono); color: #000; }
+.sg-page .lp-steps h3 { margin: 6px 0 4px; }
+.sg-page .lp-steps p { max-width: none; font-size: 15px; }
+
+.sg-page .lp-code { padding: .25em .6em; border: 0; border-radius: 6px; background: #111; box-shadow: inset 0 0 0 1px var(--sg-line-strong); font: 13px/1.5 var(--font-mono); color: #ededed; overflow-wrap: anywhere; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.sg-page .lp-games { margin-block: 20px; padding: 20px 22px; border-radius: 12px; background: var(--sg-surface); box-shadow: inset 0 0 0 1px var(--sg-line-strong); font: 450 clamp(16px, 1.5vw, 19px)/1.7 var(--font-display); letter-spacing: -.01em; color: #ededed !important; }
+
+/* Cross-link to the other platform, marked with that platform's dot. */
+.sg-page .lp-cross { padding-block: 16px clamp(80px, 10vw, 128px); border: 0; }
+.sg-page .lp-cross__inner { position: relative; overflow: hidden; isolation: isolate; display: grid; grid-template-columns: 1fr auto; gap: 48px; align-items: center; padding: clamp(32px, 5vw, 56px); border: 0; border-radius: 20px; background: #000; box-shadow: inset 0 0 0 1px var(--sg-line-strong); }
+.sg-page .lp-cross__inner::before { content: ""; position: absolute; z-index: -1; inset: -60% -10% -60% 45%; border-radius: 50%; background: radial-gradient(closest-side, rgb(255 255 255 / 11%), transparent); }
+.sg-page .lp-cross h2 { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; font-size: clamp(30px, 3.6vw, 48px); line-height: 1; letter-spacing: -.055em; }
+.sg-page .lp-cross h2::before { content: ""; flex-shrink: 0; width: 12px; height: 12px; border-radius: 50%; background: var(--other); }
+.sg-page .lp-cross p { max-width: 60ch; font-size: 16px; }
+.sg-page .lp-cross p a { color: #ededed; text-decoration: underline; text-underline-offset: 4px; }
+
+/* ---------- privacy policy + changelog ---------- */
+.document-section { padding-block: 8px clamp(96px, 11vw, 140px); }
+.document-layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 80px; align-items: start; }
+.document-toc { position: sticky; top: 96px; display: grid; max-height: calc(100vh - 120px); overflow-y: auto; padding: 16px; border-radius: 12px; background: var(--sg-surface); box-shadow: inset 0 0 0 1px var(--sg-line); }
+.document-toc > p { margin: 4px 8px 8px; font-size: 13px; color: var(--sg-faint) !important; }
+.document-toc a { display: flex; flex-direction: column; padding: 8px; border-radius: 6px; font-size: 14px; line-height: 1.4; color: var(--sg-muted); transition: background .15s, color .15s; }
+.document-toc a:hover { background: #1a1a1a; color: #ededed; }
+.document-toc a span { margin-top: 2px; font: 12px/1.4 var(--font-mono); color: var(--sg-faint); }
+
+.document-prose { max-width: 74ch; font-size: 16px; line-height: 1.8; color: var(--sg-muted); overflow-wrap: anywhere; }
+.document-prose p { color: var(--sg-muted); }
+.document-prose h2 { margin: 48px 0 14px; font-size: clamp(24px, 2.2vw, 30px); line-height: 1.15; letter-spacing: -.045em; color: #ededed; scroll-margin-top: 96px; }
+.document-prose h2:first-child { margin-top: 0; }
+.document-prose h3 { margin: 30px 0 10px; font-size: 20px; color: #ededed; }
+.document-prose p, .document-prose ul, .document-prose ol { margin-bottom: 16px; }
+.document-prose ul, .document-prose ol { padding-left: 22px; }
+.document-prose li { margin-block: 6px; }
+.document-prose li::marker { color: var(--sg-faint); }
+.document-prose a { color: #ededed; text-decoration: underline; text-decoration-color: rgb(255 255 255 / 35%); text-underline-offset: 3px; }
+.document-prose strong { font-weight: 500; color: #ededed; }
+.document-prose code { padding: 2px 6px; border-radius: 5px; background: #111; box-shadow: inset 0 0 0 1px var(--sg-line); font: .86em var(--font-mono); color: #ededed; }
+.document-prose table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.document-prose td, .document-prose th { padding: 10px 12px; border: 1px solid var(--sg-line-strong); text-align: left; }
+
+.release-list { display: grid; gap: 12px; min-width: 0; }
+.release { padding: 28px 32px 30px; border-radius: 12px; background: var(--sg-surface); box-shadow: inset 0 0 0 1px var(--sg-line); scroll-margin-top: 96px; }
+.release:first-child { box-shadow: inset 0 0 0 1px rgb(255 255 255 / 28%); }
+.release header { display: flex; align-items: baseline; justify-content: space-between; gap: 24px; }
+.release header h2 { font-size: clamp(26px, 2.6vw, 34px); letter-spacing: -.05em; }
+.release header time, .release header > span { font: 12.5px/1.4 var(--font-mono); color: var(--sg-faint); }
+.release ul { display: grid; margin: 20px 0 0; padding: 0; list-style: none; }
+.release li { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 20px; padding-block: 12px; border-top: 1px solid var(--sg-line); }
+.release-kind { justify-self: start; align-self: start; margin-top: 3px; padding: 3px 9px; border-radius: 999px; font: 500 11px/1.4 var(--font-body); }
+.release-kind--new { background: rgb(83 252 24 / 10%); color: #8ee26a; }
+.release-kind--improved { background: rgb(82 168 255 / 12%); color: #8ec5ff; }
+.release-kind--fixed { background: rgb(255 178 36 / 11%); color: #ffc96b; }
+.release p { font-size: 15px; line-height: 1.7; color: var(--sg-muted); }
+
+/* ---------- responsive ---------- */
+@media (max-width: 1100px) {
+  /* The homepage drops its section links here; these pages keep theirs on a second row. */
+  .sg-page .sg-nav__inner { flex-wrap: wrap; row-gap: 0; }
+  .sg-page .sg-nav nav { display: flex; order: 3; width: 100%; margin: 0 0 8px -10px; overflow-x: auto; scrollbar-width: none; }
+  .sg-page .lp-hero > .wrap { gap: 48px; grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr); }
+  .sg-page .lp-sec > .wrap { gap: 48px; grid-template-columns: minmax(0, .85fr) minmax(0, 1.3fr); }
+  .document-layout { gap: 48px; grid-template-columns: 210px minmax(0, 1fr); }
+}
+@media (max-width: 900px) {
+  .sg-page .lp-hero > .wrap, .sg-page .lp-sec > .wrap { grid-template-columns: 1fr; gap: 32px; }
+  .sg-page .guide-section-heading { position: static; }
+  .sg-page .lp-sec h2 { max-width: 24ch; }
+  .sg-page .lp-cross__inner { grid-template-columns: 1fr; gap: 24px; }
+  .sg-page .lp-cross .sg-pill { justify-self: start; }
+  .document-layout { grid-template-columns: 1fr; gap: 28px; }
+  .document-toc { position: static; max-height: none; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 8px; }
+  .document-toc > p { grid-column: 1 / -1; }
+}
+@media (max-width: 640px) {
+  .sg-page .wrap { width: calc(100% - 32px); }
+  .sg-subnav a { padding: 5px 11px; font-size: 12.5px; }
+  .sg-page main h1 { font-size: clamp(40px, 12vw, 54px); }
+  .sg-page .lp-hero__cta .sg-pill { width: 100%; }
+  .guide-overview { padding: 22px; }
+  .sg-page .lp-sec p:not(.eyebrow) { font-size: 15px; }
+  .sg-page .lp-grid { grid-template-columns: 1fr; }
+  .sg-page .lp-card, .sg-page .lp-steps li { padding: 20px; }
+  .sg-page .lp-steps li { grid-template-columns: 32px 1fr; column-gap: 14px; }
+  .sg-page .lp-steps li::before { width: 32px; height: 32px; font-size: 12px; }
+  .sg-page .lp-cross__inner { border-radius: 16px; }
+  .document-toc { grid-template-columns: 1fr; }
+  .document-prose { font-size: 15px; }
+  .release { padding: 22px 20px 24px; }
+  .release header { flex-direction: column; gap: 6px; }
+  .release li { grid-template-columns: 1fr; gap: 8px; }
+}

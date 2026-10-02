@@ -14,9 +14,9 @@ const html = String(marked.parse(body, { gfm: true, breaks: false })).replace(/<
 ---
 <Base title="Privacy Policy — Lurkloot" description="Lurkloot keeps settings and logs on your device, sends no analytics, and contacts platforms and opt-in reward providers directly. Read the privacy policy.">
   <main id="content">
-    <header class="document-hero home-wrap"><p class="document-label">PRIVACY</p><h1>Your session.<br /><span>Your business.</span></h1><p>Privacy Policy</p></header>
-    <section class="home-light document-section">
-      <div class="home-wrap document-layout">
+    <header class="document-hero sg-wrap"><p class="document-label">PRIVACY</p><h1>Your session.<br /><span>Your business.</span></h1><p>Privacy Policy</p></header>
+    <section class="document-section">
+      <div class="sg-wrap document-layout">
         <nav class="document-toc" aria-label="Policy sections"><p>IN THIS POLICY</p>{contents.map(item => <a href={`#${item.id}`}>{item.title}</a>)}</nav>
         <article class="document-prose" aria-label="Privacy Policy" set:html={html}></article>
       </div>

@@ -1,0 +1,61 @@
+---
+// The meme face-off from the earlier homepage, then the smaller things the
+// extension does, described rather than drawn.
+import { Image } from "astro:assets";
+import pepega from "../../assets/memes/pepega.webp";
+import gigachad from "../../assets/memes/gigachad.webp";
+
+const languages = Object.keys(import.meta.glob("../../../../locales/messages/*.json")).length;
+
+const more = [
+  { t: "Activity log", d: "Every channel switch, claim and skip is recorded, with diagnostics when you need a closer look.", icon: "M12 8v4l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" },
+  { t: "Reward notifications", d: "Optional desktop notifications when a reward lands.", icon: "M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4" },
+  { t: `${languages} languages`, d: "A fully localised popup, from English and Español to Türkçe and 中文.", icon: "M3 5h12M9 3v2m1.05 9.5A18 18 0 0 1 6.4 9M12.5 18H20M11 21l5-10 5 10M4 15s3.5-1.5 6-6" },
+  { t: "Settings backup", d: "Export your settings to a file and bring them to another browser.", icon: "M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" },
+];
+---
+<section class="sg-section sg-features" id="features" aria-labelledby="features-title">
+  <div class="sg-wrap">
+    <header class="sg-head" data-reveal>
+      <p class="sg-eyebrow">Under the hood</p>
+      <h2 id="features-title">Quiet by default.<br /><span class="sg-dim">Thorough when it counts.</span></h2>
+    </header>
+
+    <article class="sg-card sg-card--wide" data-reveal>
+      <div class="sg-card__art">
+        <div class="sg-meme" data-tilt>
+          <figure class="sg-meme__side sg-meme__side--bad">
+            <div class="sg-meme__pic"><Image src={pepega} alt="Pepega" widths={[128, 256]} sizes="160px" /></div>
+            <figcaption>
+              <span class="sg-meme__who">Without Lurkloot</span>
+              <span class="sg-meme__tag">manual and annoying grind</span>
+            </figcaption>
+          </figure>
+          <span class="sg-meme__vs" aria-hidden="true">vs</span>
+          <figure class="sg-meme__side sg-meme__side--good">
+            <div class="sg-meme__pic"><Image src={gigachad} alt="Gigachad" widths={[320, 660]} sizes="240px" /></div>
+            <figcaption>
+              <span class="sg-meme__who">With Lurkloot</span>
+              <span class="sg-meme__tag">fully automatic and efficient</span>
+            </figcaption>
+          </figure>
+        </div>
+      </div>
+      <div class="sg-card__body">
+        <p class="sg-eyebrow">Default · low-resource</p>
+        <h3>Sips, doesn't chug.</h3>
+        <p>Instead of pinning a video tab and burning bandwidth, Lurkloot keeps your watch time counting quietly in the background. If progress ever stalls, it falls back to a muted tab, so you don't lose the drop.</p>
+      </div>
+    </article>
+
+    <ul class="sg-more">
+      {more.map((item) => (
+        <li data-reveal>
+          <span class="sg-more__icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d={item.icon} /></svg></span>
+          <strong>{item.t}</strong>
+          <span>{item.d}</span>
+        </li>
+      ))}
+    </ul>
+  </div>
+</section>

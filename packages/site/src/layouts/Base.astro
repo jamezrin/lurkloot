@@ -4,7 +4,7 @@ import { EXTERNAL_URLS, SITE } from "../consts";
 import type { FaqItem } from "../faq";
 
 interface Props {
-  theme?: "mono";
+  theme?: "signal";
   title?: string;
   description?: string;
   // FAQPage schema is emitted only for pages that actually render these
@@ -83,7 +83,7 @@ const breadcrumbLd = breadcrumbs?.length
     <title>{title}</title>
     <meta name="description" content={description} />
     <meta name="author" content="jamezrin" />
-    <meta name="theme-color" content={theme === "mono" ? "#101010" : "#060609"} />
+    <meta name="theme-color" content={theme === "signal" ? "#000000" : "#060609"} />
     <meta name="color-scheme" content="dark" />
     <link rel="canonical" href={canonical} />
 
@@ -112,7 +112,7 @@ const breadcrumbLd = breadcrumbs?.length
     {breadcrumbLd && <script type="application/ld+json" set:html={JSON.stringify(breadcrumbLd)} is:inline />}
     {faqLd && <script type="application/ld+json" set:html={JSON.stringify(faqLd)} is:inline />}
   </head>
-  <body class:list={[{ "home-theme": theme === "mono" }]}>
+  <body class:list={[{ "signal-theme": theme === "signal" }]}>
     <slot />
     <script>
       import "../scripts/smooth-scroll.ts";

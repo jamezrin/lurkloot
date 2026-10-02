@@ -1,0 +1,16 @@
+---
+import { LINKS } from "../../consts";
+import BrowserPills from "../BrowserPills.astro";
+---
+<section class="sg-cta" aria-labelledby="cta-title">
+  <div class="sg-wrap">
+    <div class="sg-cta__panel" data-reveal>
+      <div class="sg-cta__field" aria-hidden="true"></div>
+      <h2 id="cta-title">Less watching.<br /><span class="sg-dim">More rewards.</span></h2>
+      <p class="sg-cta__lede">Set your priorities. Get back to what you were doing.</p>
+      <a class="sg-pill sg-pill--lg" href={LINKS.chrome} target="_blank" rel="noopener">Get Lurkloot — free</a>
+      <div class="sg-cta__pills"><BrowserPills /></div>
+      <p class="sg-cta__fine">No Lurkloot account · No subscription · Just install</p>
+    </div>
+  </div>
+</section>
