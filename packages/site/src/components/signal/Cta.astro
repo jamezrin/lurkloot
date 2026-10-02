@@ -1,35 +1,35 @@
 ---
-// The closing call to action. Its background grid doubles as the board for the
-// drop chase (scripts/drop-chase.ts): the chaser plays on its own until someone
-// clicks the panel or presses Play. Without JavaScript the panel is unchanged
-// and the game controls stay hidden.
+// The closing call to action. Its background grid doubles as the board for a
+// snake game (scripts/drop-snake.ts): the snake tours random mazes on its own
+// until someone clicks the panel or presses Play. Without JavaScript the panel
+// is unchanged and the game controls stay hidden.
 import { LINKS } from "../../consts";
 import BrowserPills from "../BrowserPills.astro";
 ---
 <section class="sg-cta" aria-labelledby="cta-title">
   <div class="sg-wrap">
-    <div class="sg-cta__panel" data-reveal data-chase>
+    <div class="sg-cta__panel" data-reveal data-snake>
       <div class="sg-cta__field" aria-hidden="true">
-        <canvas class="sg-chase__board" data-chase-canvas></canvas>
+        <canvas class="sg-snake__board" data-snake-canvas></canvas>
       </div>
-      <div class="sg-chase__hud" data-chase-ui hidden>
-        <svg class="sg-chase__drop" width="11" height="13" viewBox="0 0 12 14" fill="currentColor" aria-hidden="true"><path d="M6 1c3.5 4 4 6.5 4 8a4 4 0 0 1-8 0c0-1.5.5-4 4-8Z" /></svg>
-        <span><strong data-chase-score>0</strong> <span data-chase-unit>drops</span></span>
-        <span class="sg-chase__best">Best <span data-chase-best>0</span></span>
+      <div class="sg-snake__hud" data-snake-ui hidden>
+        <svg class="sg-snake__gift" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="6" width="11" height="8" rx="1" /><rect x="1.5" y="4" width="13" height="2.5" rx=".8" /><path d="M8 4v10M8 4C6.5 1.5 4 2 4.5 3.4 5 4.5 8 4 8 4Zm0 0c1.5-2.5 4-2 3.5-.6C11 4.5 8 4 8 4Z" /></svg>
+        <span><strong data-snake-score>0</strong> <span data-snake-unit>drops</span></span>
+        <span class="sg-snake__best">Best <span data-snake-best>0</span></span>
       </div>
-      <div class="sg-chase__controls" data-chase-ui hidden>
-        <div class="sg-chase__hint"><span class="sg-chase__keys">Arrow keys or WASD · Esc to exit</span><span class="sg-chase__taps">Tap where to go</span></div>
-        <button type="button" class="sg-chase__toggle" data-chase-toggle aria-label="Play the drop chase">
-          <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+      <div class="sg-snake__controls" data-snake-ui hidden>
+        <div class="sg-snake__hint"><span class="sg-snake__keys">Arrow keys or WASD · Esc to exit</span><span class="sg-snake__taps">Tap where to turn</span></div>
+        <button type="button" class="sg-snake__toggle" data-snake-toggle aria-label="Play the snake game">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <defs>
-              <linearGradient id="sg-chase-icon" x1="0" y1="0" x2="1" y2="1">
+              <linearGradient id="sg-snake-icon" x1="0" y1="0" x2="1" y2="1">
                 <stop offset="0" style="stop-color: var(--sg-twitch)" />
                 <stop offset="1" style="stop-color: var(--sg-kick)" />
               </linearGradient>
             </defs>
-            <path fill="url(#sg-chase-icon)" d="M8 8 14.58 5.61A7 7 0 1 0 14.58 10.39Z" />
+            <path d="M13.5 3.5h-6v4.5h-4v4.5h6" stroke="url(#sg-snake-icon)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
-          <span data-chase-label>Play</span>
+          <span data-snake-label>Play</span>
         </button>
       </div>
       <h2 id="cta-title">Less watching.<br /><span class="sg-dim">More rewards.</span></h2>
@@ -42,5 +42,5 @@ import BrowserPills from "../BrowserPills.astro";
 </section>
 
 <script>
-  import "../../scripts/drop-chase.ts";
+  import "../../scripts/drop-snake.ts";
 </script>
