@@ -1,11 +1,37 @@
 ---
+// The closing call to action. Its background grid doubles as the board for the
+// drop chase (scripts/drop-chase.ts): the chaser plays on its own until someone
+// clicks the panel or presses Play. Without JavaScript the panel is unchanged
+// and the game controls stay hidden.
 import { LINKS } from "../../consts";
 import BrowserPills from "../BrowserPills.astro";
 ---
 <section class="sg-cta" aria-labelledby="cta-title">
   <div class="sg-wrap">
-    <div class="sg-cta__panel" data-reveal>
-      <div class="sg-cta__field" aria-hidden="true"></div>
+    <div class="sg-cta__panel" data-reveal data-chase>
+      <div class="sg-cta__field" aria-hidden="true">
+        <canvas class="sg-chase__board" data-chase-canvas></canvas>
+      </div>
+      <div class="sg-chase__hud" data-chase-ui hidden>
+        <svg class="sg-chase__drop" width="11" height="13" viewBox="0 0 12 14" fill="currentColor" aria-hidden="true"><path d="M6 1c3.5 4 4 6.5 4 8a4 4 0 0 1-8 0c0-1.5.5-4 4-8Z" /></svg>
+        <span><strong data-chase-score>0</strong> <span data-chase-unit>drops</span></span>
+        <span class="sg-chase__best">Best <span data-chase-best>0</span></span>
+      </div>
+      <div class="sg-chase__controls" data-chase-ui hidden>
+        <div class="sg-chase__hint"><span class="sg-chase__keys">Arrow keys or WASD · Esc to exit</span><span class="sg-chase__taps">Tap where to go</span></div>
+        <button type="button" class="sg-chase__toggle" data-chase-toggle aria-label="Play the drop chase">
+          <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+            <defs>
+              <linearGradient id="sg-chase-icon" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" style="stop-color: var(--sg-twitch)" />
+                <stop offset="1" style="stop-color: var(--sg-kick)" />
+              </linearGradient>
+            </defs>
+            <path fill="url(#sg-chase-icon)" d="M8 8 14.58 5.61A7 7 0 1 0 14.58 10.39Z" />
+          </svg>
+          <span data-chase-label>Play</span>
+        </button>
+      </div>
       <h2 id="cta-title">Less watching.<br /><span class="sg-dim">More rewards.</span></h2>
       <p class="sg-cta__lede">Set your priorities. Get back to what you were doing.</p>
       <a class="sg-pill sg-pill--lg" href={LINKS.chrome} target="_blank" rel="noopener">Get Lurkloot — free</a>
@@ -14,3 +40,7 @@ import BrowserPills from "../BrowserPills.astro";
     </div>
   </div>
 </section>
+
+<script>
+  import "../../scripts/drop-chase.ts";
+</script>

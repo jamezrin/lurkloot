@@ -299,14 +299,44 @@ html.sg-pinned .sg-scene.is-current { opacity: 1; translate: 0 0; transition-del
 
 /* ---------- CTA ---------- */
 .sg-cta { padding-bottom: clamp(80px, 10vw, 140px); }
-.sg-cta__panel { position: relative; overflow: hidden; isolation: isolate; display: flex; flex-direction: column; align-items: center; padding: clamp(64px, 9vw, 120px) clamp(24px, 5vw, 64px); border-radius: 20px; text-align: center; background: #000; box-shadow: inset 0 0 0 1px var(--sg-line-strong); }
+.sg-cta__panel { --sg-cta-cell: 48px; position: relative; overflow: hidden; isolation: isolate; display: flex; flex-direction: column; align-items: center; padding: clamp(64px, 9vw, 120px) clamp(24px, 5vw, 64px) max(calc(var(--sg-cta-cell) * 2 + 8px), min(9vw, 120px)); border-radius: 20px; text-align: center; background: #000; box-shadow: inset 0 0 0 1px var(--sg-line-strong); }
 .sg-cta__field { position: absolute; inset: 0; z-index: -1; background: radial-gradient(55% 70% at 50% 0%, rgb(255 255 255 / 14%), transparent 70%); }
-.sg-cta__field::after { content: ""; position: absolute; inset: 0; background-image: linear-gradient(rgb(255 255 255 / 7%) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255 / 7%) 1px, transparent 1px); background-size: 48px 48px; mask-image: radial-gradient(60% 80% at 50% 0%, #000, transparent); -webkit-mask-image: radial-gradient(60% 80% at 50% 0%, #000, transparent); }
+.sg-cta__field::after { content: ""; position: absolute; inset: 0; background-image: linear-gradient(rgb(255 255 255 / 7%) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255 / 7%) 1px, transparent 1px); background-size: var(--sg-cta-cell) var(--sg-cta-cell); mask-image: radial-gradient(60% 80% at 50% 0%, #000, transparent); -webkit-mask-image: radial-gradient(60% 80% at 50% 0%, #000, transparent); }
 .sg-cta h2 { font-size: clamp(44px, 6vw, 80px); line-height: 1; letter-spacing: -.06em; }
 .sg-cta__lede { max-width: 50ch; margin-block: 20px 32px; font-size: 18px; }
 .sg-cta__pills { margin-top: 28px; }
 .sg-cta__pills .bpills__label { color: var(--sg-muted); }
 .sg-cta__fine { margin-top: 20px; font-size: 13px; color: var(--sg-faint) !important; }
+
+/* The drop chase: the CTA grid is its board (scripts/drop-chase.ts). The
+   panel's bottom padding of two cells or more always leaves a clear lane under
+   the copy for its opening line of drops. Playing lights up the whole grid and
+   steps the copy back so the board reads first. */
+.sg-chase__board { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; }
+.sg-cta__field::before { content: ""; position: absolute; inset: 0; background-image: linear-gradient(rgb(255 255 255 / 5%) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255 / 5%) 1px, transparent 1px); background-size: var(--sg-cta-cell) var(--sg-cta-cell); opacity: 0; transition: opacity .4s var(--sg-ease); }
+.sg-cta__panel[data-chase-ready] { cursor: pointer; }
+.sg-cta__panel:focus { outline: none; }
+.sg-cta__panel > :is(h2, .sg-cta__lede, .sg-cta__pills, .sg-cta__fine) { transition: opacity .3s var(--sg-ease); }
+.sg-cta__panel.is-playing { cursor: crosshair; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 24%); }
+.sg-cta__panel.is-playing .sg-cta__field::before { opacity: 1; }
+.sg-cta__panel.is-playing > :is(h2, .sg-cta__lede, .sg-cta__pills, .sg-cta__fine) { opacity: .3; }
+.sg-chase__hud, .sg-chase__controls { position: absolute; top: 16px; display: flex; align-items: center; gap: 12px; font: 500 13px/1 var(--font-mono); letter-spacing: 0; }
+.sg-chase__hud[hidden], .sg-chase__controls[hidden] { display: none; }
+.sg-chase__hud { left: 16px; height: 30px; padding: 0 12px; border-radius: 999px; background: rgb(10 10 10 / 85%); box-shadow: inset 0 0 0 1px var(--sg-line-strong); color: var(--sg-muted); }
+.sg-chase__hud strong { font-weight: 500; color: #ededed; font-variant-numeric: tabular-nums; }
+.sg-chase__drop { color: #ededed; }
+.sg-chase__best { padding-left: 12px; border-left: 1px solid var(--sg-line-strong); color: var(--sg-faint); font-variant-numeric: tabular-nums; }
+.sg-chase__controls { right: 16px; }
+.sg-chase__hint { color: var(--sg-faint); }
+.sg-chase__taps { display: none; }
+.sg-chase__hud, .sg-chase__hint { visibility: hidden; opacity: 0; transition: opacity .3s var(--sg-ease), visibility .3s; }
+.sg-cta__panel.is-playing :is(.sg-chase__hud, .sg-chase__hint) { visibility: visible; opacity: 1; }
+.sg-chase__toggle { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 12px; border: 0; border-radius: 999px; background: #0a0a0a; box-shadow: inset 0 0 0 1px var(--sg-line-strong); color: #ededed; font: 500 13px/1 var(--font-body); letter-spacing: 0; cursor: pointer; transition: background .2s; }
+.sg-chase__toggle:hover { background: #1a1a1a; }
+@media (pointer: coarse) {
+  .sg-chase__keys { display: none; }
+  .sg-chase__taps { display: inline; }
+}
 
 /* ---------- footer ---------- */
 .sg-footer { padding-block: 40px; border-top: 1px solid var(--sg-line); font-size: 14px; }
@@ -415,6 +445,9 @@ html.sg-motion .signal [data-reveal].is-in { opacity: 1; transform: none; }
   .sg-faq__list summary { padding: 16px 18px; font-size: 15px; }
   .sg-faq__list details > p { padding: 0 18px 18px; font-size: 14.5px; }
   .sg-cta__panel { border-radius: 16px; }
+  .sg-chase__hint { display: none; }
+  .sg-chase__hud { top: 12px; left: 12px; }
+  .sg-chase__controls { top: 12px; right: 12px; }
   .sg-footer__top, .sg-footer__bottom { flex-direction: column; align-items: flex-start; }
   .sg-footer nav { margin-left: -10px; }
 }
