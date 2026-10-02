@@ -126,6 +126,40 @@ describe("extras screenshot popup", () => {
     expect(container.textContent).toContain("6.2K");
     expect(container.textContent).toContain("2.5K");
   });
+
+  it("shows the same live rows when a preview opens on the watchlist view", async () => {
+    const { document, window } = parseHTML("<div id=app></div>");
+    vi.stubGlobal("window", window);
+    vi.stubGlobal("document", document);
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      callback(Date.now());
+      return 1;
+    });
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+    vi.stubGlobal("getComputedStyle", () => ({ direction: "ltr", columnGap: "0" }));
+    // linkedom shares its prototypes between documents, so an earlier test may
+    // have defined this already.
+    if (!("scrollIntoView" in window.HTMLElement.prototype)) {
+      Object.defineProperty(window.HTMLElement.prototype, "scrollIntoView", { value: vi.fn(), configurable: true });
+    }
+    const container = document.getElementById("app")!;
+    await act(async () => {
+      root = createRoot(container);
+      // How the site's watchlist excerpt mounts it: a drops shot opened on the
+      // watchlist view.
+      root.render(
+        <Popup
+          adapter={createDemoPopupAdapter()}
+          initialState={{ preview: true, locale: "en", variant: screenshotVariant("twitch-drops"), view: "watchlist" }}
+        />,
+      );
+    });
+    await waitForCatalog();
+    expect(container.querySelector("main")?.getAttribute("data-view")).toBe("watchlist");
+    expect(container.textContent).toContain("LootForge");
+    expect(container.textContent).toContain("6.2K");
+  });
 });
 
 describe("store screenshot cameras", () => {
