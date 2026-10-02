@@ -1,7 +1,8 @@
 // Model for the snake in the closing call to action, whose background grid is
 // the board. On its own the snake tours a random maze: it comes in at one
-// corner, follows the shortest route (A*) out of the opposite one, and a new
-// maze takes its place. The copy is a solid island in the maze, so the route
+// corner, collects every drop scattered through the maze, leaves by the
+// opposite corner, and a new maze takes its place. It visits the drops in the
+// order that makes the shortest trip and follows A* between them. The copy is a solid island in the maze, so the route
 // goes round it; only when the copy cuts the board in two (on narrow screens)
 // does a maze run underneath it. A visitor who takes over plays snake on the open grid:
 // every drop eaten adds a segment, the edges wrap around, and biting its own
@@ -66,7 +67,7 @@ export interface Snake {
   growth: number;
 }
 
-/** One crossing of one maze, with the snake steering itself. */
+/** One crossing of one maze, with the snake steering itself past every drop. */
 export interface Tour {
   board: Board;
   maze: Maze;
@@ -101,8 +102,7 @@ const REVERSE: Record<Direction, Direction> = { up: "down", down: "up", left: "r
 const START_LENGTH = 4;
 const MAX_TURNS = 3;
 const MATCH_ITEMS = 3;
-const ROUTE_ITEMS = 3;
-const SPARE_ITEMS = 3;
+const TOUR_ITEMS = 6;
 // Share of the remaining walls knocked through after carving, so the maze has
 // a few loops and more than one way through.
 const LOOPS = 0.08;
@@ -261,6 +261,64 @@ function moveSnake(snake: Snake, head: Cell, items: Item[]): Item[] {
 
 // ---------- tour ----------
 
+/** Steps from one cell to every cell it can reach, by index; -1 where it can't. */
+function reach(maze: Maze, from: number): number[] {
+  const steps = new Array<number>(maze.cols * maze.rows).fill(-1);
+  steps[from] = 0;
+  const queue = [from];
+  for (let i = 0; i < queue.length; i++) {
+    for (const next of passages(maze, queue[i])) {
+      if (steps[next] >= 0) continue;
+      steps[next] = steps[queue[i]] + 1;
+      queue.push(next);
+    }
+  }
+  return steps;
+}
+
+/** The maze with one cell walled off. */
+function seal(maze: Maze, index: number): Maze {
+  const right = maze.right.slice();
+  const down = maze.down.slice();
+  right[index] = false;
+  down[index] = false;
+  if (index % maze.cols > 0) right[index - 1] = false;
+  if (index >= maze.cols) down[index - maze.cols] = false;
+  return { ...maze, right, down };
+}
+
+// The order to collect the drops in: every order is tried (there are only a
+// handful of drops) and the one with the shortest trip from the entry,
+// through all of them, to the exit wins.
+function shortestOrder(steps: number[][], count: number): number[] {
+  // steps[0] is from the entry, steps[i] from drop i; `exit` indexes the exit.
+  const exit = count + 1;
+  let best: number[] = [];
+  let bestLength = Number.POSITIVE_INFINITY;
+  const order: number[] = [];
+  const used = new Array<boolean>(count + 1).fill(false);
+  const visit = (from: number, length: number) => {
+    if (length >= bestLength) return;
+    if (order.length === count) {
+      if (length + steps[from][exit] < bestLength) {
+        bestLength = length + steps[from][exit];
+        best = order.slice();
+      }
+      return;
+    }
+    for (let drop = 1; drop <= count; drop++) {
+      if (used[drop]) continue;
+      used[drop] = true;
+      order.push(drop);
+      visit(drop, length + steps[from][drop]);
+      order.pop();
+      used[drop] = false;
+    }
+  };
+  visit(0, 0);
+  return best;
+}
+
 /**
  * A new crossing. `side` picks the edge the snake comes in from, so the next
  * tour can start on the side the last one left; the corner on it is random.
@@ -271,42 +329,65 @@ export function createTour(board: Board, random: () => number = Math.random, sid
   const entry = { col: fromLeft ? 0 : cols - 1, row: random() < 0.5 ? 0 : rows - 1 };
   const exit = { col: cols - 1 - entry.col, row: rows - 1 - entry.row };
   const inward = fromLeft ? 1 : -1;
+  const indexOf = (cell: Cell) => cell.row * cols + cell.col;
   let maze = createMaze(cols, rows, random, { solid: board.covered });
-  let path = findPath(maze, entry, exit);
-  if (!path.length) {
+  if (reach(maze, indexOf(entry))[indexOf(exit)] < 0) {
     // The copy leaves no way round it: run the maze underneath instead.
     maze = createMaze(cols, rows, random);
-    path = findPath(maze, entry, exit);
   }
+  // While collecting, the exit is walled off, so the snake only reaches it
+  // once every drop is eaten and never passes through it on the way.
+  const collecting = seal(maze, indexOf(exit));
+  const fromEntry = reach(collecting, indexOf(entry));
+
+  // Drops go on open cells the snake can reach, spread out where there is
+  // room: each new one keeps a few steps from the others when it can.
+  const candidates = board.open.filter((cell) => fromEntry[indexOf(cell)] > 0);
+  const drops: Cell[] = [];
+  for (const spread of [4, 0]) {
+    const pool = candidates.filter((cell) => !drops.some((drop) => Math.abs(drop.col - cell.col) + Math.abs(drop.row - cell.row) < Math.max(1, spread)));
+    while (drops.length < TOUR_ITEMS && pool.length) {
+      const [cell] = pool.splice(Math.floor(random() * pool.length), 1);
+      if (drops.some((drop) => Math.abs(drop.col - cell.col) + Math.abs(drop.row - cell.row) < Math.max(1, spread))) continue;
+      drops.push(cell);
+    }
+  }
+
+  const stops = [entry, ...drops];
+  const steps = stops.map((stop) => {
+    const within = reach(collecting, indexOf(stop));
+    return [...stops.map((to) => within[indexOf(to)]), reach(maze, indexOf(stop))[indexOf(exit)]];
+  });
+  const route: Cell[] = [];
+  const passed = new Set<string>();
+  let from = entry;
+  const travel = (to: Cell, through: Maze) => {
+    const leg = findPath(through, from, to);
+    for (const cell of route.length ? leg.slice(1) : leg) {
+      route.push(cell);
+      passed.add(`${cell.col}:${cell.row}`);
+    }
+    from = to;
+  };
+  for (const drop of shortestOrder(steps, drops.length)) {
+    // A drop picked up on the way to another needs no trip of its own.
+    if (!passed.has(`${drops[drop - 1].col}:${drops[drop - 1].row}`)) travel(drops[drop - 1], collecting);
+  }
+  travel(exit, maze);
+
   // Past the exit the head keeps going until the whole body is off the board.
-  const runout = Array.from({ length: START_LENGTH + ROUTE_ITEMS + 2 }, (_, i) => ({ col: exit.col + inward * (i + 1), row: exit.row }));
+  const runout = Array.from({ length: START_LENGTH + drops.length + 2 }, (_, i) => ({ col: exit.col + inward * (i + 1), row: exit.row }));
   const body = Array.from({ length: START_LENGTH }, (_, i) => ({ col: entry.col - inward * (i + 1), row: entry.row }));
-  const tour: Tour = {
+  return {
     board,
     maze,
     entry,
     exit,
-    route: [...path, ...runout],
+    route: [...route, ...runout],
     next: 0,
     snake: { body, trail: body.map((cell) => ({ ...cell })), heading: fromLeft ? "right" : "left", growth: 0 },
-    items: [],
+    items: drops.map((cell) => ({ ...cell, kind: itemKind(random), age: Number.POSITIVE_INFINITY })),
   };
-
-  // A few drops along the way, so the snake grows as it goes, and a few more
-  // around the maze. Neither lands under the copy or at the very ends.
-  const isOpen = new Set(board.open.map((cell) => `${cell.col}:${cell.row}`));
-  const onRoute = new Set(path.map((cell) => `${cell.col}:${cell.row}`));
-  const stops = path.slice(2, -2).filter((cell) => isOpen.has(`${cell.col}:${cell.row}`));
-  for (let i = 0; i < ROUTE_ITEMS && stops.length; i++) {
-    const stretch = stops.slice(Math.floor((i * stops.length) / ROUTE_ITEMS), Math.floor(((i + 1) * stops.length) / ROUTE_ITEMS));
-    if (stretch.length) tour.items.push({ ...pick(stretch, random), kind: itemKind(random), age: Number.POSITIVE_INFINITY });
-  }
-  const spare = board.open.filter((cell) => !onRoute.has(`${cell.col}:${cell.row}`));
-  for (let i = 0; i < SPARE_ITEMS && spare.length; i++) {
-    const [cell] = spare.splice(Math.floor(random() * spare.length), 1);
-    tour.items.push({ ...cell, kind: itemKind(random), age: Number.POSITIVE_INFINITY });
-  }
-  return tour;
 }
 
 /** Moves the touring snake one cell. `done` once it has left the board. */

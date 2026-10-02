@@ -111,35 +111,73 @@ test("routes a tour round the copy when it can, and under it when it can't", () 
   }
 });
 
-test("tours from one corner out of the opposite one, growing on the way", () => {
+test("tours from one corner, through every drop, out of the opposite one", () => {
   for (let seed = 1; seed <= 20; seed++) {
     const board = createBoard(1280, 632, CELL, [copy]);
     const tour = createTour(board, seeded(seed));
-    const { entry, exit } = tour;
+    const { entry, exit, maze } = tour;
     const isOpen = new Set(board.open.map(key));
+    const drops = tour.items.length;
 
     assert.ok([0, 25].includes(entry.col) && [0, 12].includes(entry.row), "starts in a corner");
     assert.equal(exit.col, 25 - entry.col);
     assert.equal(exit.row, 12 - entry.row);
+    assert.equal(drops, 6);
     assert.ok(tour.snake.body.every((cell) => !onBoard(board, cell)), "starts off the board");
     for (const item of tour.items) assert.ok(isOpen.has(key(item)), "no drop under the copy");
 
     const visited = [];
     let done = false;
     let steps = 0;
-    while (!done && steps < 1000) {
+    while (!done && steps < 2000) {
       ({ done } = tourStep(tour));
       steps++;
       const head = tour.snake.body[0];
-      if (onBoard(board, head)) visited.push(head);
-      const body = tour.snake.body.map(key);
-      assert.equal(new Set(body).size, body.length, "never crosses itself");
+      if (!onBoard(board, head)) continue;
+      const previous = visited.at(-1);
+      if (previous) {
+        const from = previous.row * board.cols + previous.col;
+        assert.ok(passages(maze, from).includes(head.row * board.cols + head.col), "never goes through a wall");
+      }
+      if (head.col === exit.col && head.row === exit.row) {
+        assert.equal(tour.items.length, 0, "only reaches the exit once every drop is eaten");
+      }
+      visited.push(head);
     }
 
     assert.ok(done);
     assert.deepEqual(visited[0], entry);
     assert.deepEqual(visited.at(-1), exit);
-    assert.ok(tour.snake.body.length > 4, "ate the drops on its route");
+    assert.equal(tour.snake.body.length, 4 + drops, "grew by one for each drop");
+  }
+});
+
+test("collects the drops in the order with the shortest trip", () => {
+  const permutations = (items) =>
+    items.length <= 1 ? [items] : items.flatMap((item, i) => permutations([...items.slice(0, i), ...items.slice(i + 1)]).map((rest) => [item, ...rest]));
+  for (let seed = 1; seed <= 5; seed++) {
+    const board = createBoard(1280, 632, CELL, [copy]);
+    const tour = createTour(board, seeded(seed));
+    const index = (cell) => cell.row * board.cols + cell.col;
+    // While collecting, the exit is walled off.
+    const exitIndex = index(tour.exit);
+    const collecting = { ...tour.maze, right: tour.maze.right.slice(), down: tour.maze.down.slice() };
+    collecting.right[exitIndex] = collecting.down[exitIndex] = false;
+    if (exitIndex % board.cols > 0) collecting.right[exitIndex - 1] = false;
+    if (exitIndex >= board.cols) collecting.down[exitIndex - board.cols] = false;
+    const stepsBetween = (a, b) => distances(b === tour.exit ? tour.maze : collecting, index(a)).get(index(b));
+    let shortest = Number.POSITIVE_INFINITY;
+    for (const order of permutations(tour.items)) {
+      let length = 0;
+      let from = tour.entry;
+      for (const drop of order) {
+        length += stepsBetween(from, drop);
+        from = drop;
+      }
+      shortest = Math.min(shortest, length + stepsBetween(from, tour.exit));
+    }
+    const onBoardRoute = tour.route.filter((cell) => onBoard(board, cell));
+    assert.equal(onBoardRoute.length - 1, shortest);
   }
 });
 
