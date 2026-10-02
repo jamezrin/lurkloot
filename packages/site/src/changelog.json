@@ -3,8 +3,40 @@
     "version": "1.15.0",
     "changes": [
       {
+        "kind": "new",
+        "text": "The headless CLI can now import your Twitch browser sign-in from Export credentials and see the full Twitch campaign list without opening a browser. The export asks for one extra site permission, k.twitchcdn.net, so it can include the Twitch security cookie the CLI needs. An export without that cookie, made before this version or after declining the permission, still works for Kick, but the CLI skips its Twitch sign-in and asks you to export again."
+      },
+      {
         "kind": "improved",
         "text": "Twitch campaign cards now link to both the campaign's drop details and the game's Drops directory on Twitch, labelled apart. A campaign open to every channel links its \"All channels\" to that directory, and a long channel list now expands in place instead of ending in a \"+N more\" you could not open."
+      },
+      {
+        "kind": "improved",
+        "text": "Claiming a reward or opening and closing a watch tab no longer holds up everything else Lurkloot is tracking, so playback, heartbeats and tab changes are recorded as they happen instead of queueing behind them. A reward claimed just before Lurkloot switched to another target is now still recorded and shown in Activity."
+      },
+      {
+        "kind": "improved",
+        "text": "When the CLI starts, it now cleans up after the previous run the same way the extension does after a browser restart. A watch that was still running is paused and picked up again by the first check, instead of resuming the old process’s heartbeat schedule."
+      },
+      {
+        "kind": "improved",
+        "text": "The CLI no longer refuses to start when its config sets tablessMode, for example in settings copied from the extension. The CLI has no browser tabs and always watches without one, so the setting is ignored with a warning."
+      },
+      {
+        "kind": "improved",
+        "text": "The CLI now checks for a Twitch channel points bonus every minute, like the extension, instead of only once per poll interval. It never sends a second claim while one is still running."
+      },
+      {
+        "kind": "improved",
+        "text": "NoPixelV and Fortnite rewards now stop as soon as a change that affects them is saved, such as pausing, signing out of Twitch or switching channel, and a stopped reward no longer adds entries to Activity. They no longer re-check their providers on every background timer, only when something relevant changes and once a minute while they are earning."
+      },
+      {
+        "kind": "improved",
+        "text": "When NoPixelV or Fortnite keeps failing to count watch time on a channel, Lurkloot now moves on to another channel or reward source for a few minutes instead of staying on it."
+      },
+      {
+        "kind": "improved",
+        "text": "The CLI now runs its checks the same way the extension does, including for a platform that is switched off, which only clears what that platform left behind. A switched-off platform is now reported once when it is switched off, instead of on every check, in the CLI and in the extension's diagnostics."
       },
       {
         "kind": "fixed",
@@ -28,31 +60,11 @@
       },
       {
         "kind": "fixed",
-        "text": "The headless Twitch CLI now starts new device logins with Twitch's Smart TV client. When Twitch hides the campaign dashboard, the CLI scans live channels in configured games for drops. This is partial discovery: campaigns on offline or unscanned channels may be missed. Browser Twitch tokens from extension exports are skipped rather than used with the wrong client identity. Kick TV device login no longer requires a CSRF cookie that Kick stopped issuing."
+        "text": "The headless Twitch CLI now starts new device logins with Twitch's Smart TV client. When Twitch hides the campaign dashboard, the CLI scans live channels in configured games for drops. This is partial discovery: campaigns on offline or unscanned channels may be missed. Importing your browser sign-in gives the full campaign list instead. Kick TV device login no longer requires a CSRF cookie that Kick stopped issuing."
       },
       {
         "kind": "fixed",
         "text": "Fixed headless watching in the CLI: Twitch now reads its heartbeat settings correctly, and Kick connects its viewer socket."
-      },
-      {
-        "kind": "new",
-        "text": "The headless CLI can now import your Twitch browser sign-in from Export credentials and see the full Twitch campaign list without opening a browser. The export asks for one extra site permission, k.twitchcdn.net, so it can include the Twitch security cookie the CLI needs. Decline it and the export still includes your sign-in cookies."
-      },
-      {
-        "kind": "improved",
-        "text": "Claiming a reward or opening and closing a watch tab no longer holds up everything else Lurkloot is tracking, so playback, heartbeats and tab changes are recorded as they happen instead of queueing behind them. A reward claimed just before Lurkloot switched to another target is now still recorded and shown in Activity."
-      },
-      {
-        "kind": "improved",
-        "text": "When the CLI starts, it now cleans up after the previous run the same way the extension does after a browser restart. A watch that was still running is paused and picked up again by the first check, instead of resuming the old process’s heartbeat schedule."
-      },
-      {
-        "kind": "improved",
-        "text": "The CLI no longer refuses to start when its config sets tablessMode, for example in settings copied from the extension. The CLI has no browser tabs and always watches without one, so the setting is ignored with a warning."
-      },
-      {
-        "kind": "improved",
-        "text": "The CLI now checks for a Twitch channel points bonus every minute, like the extension, instead of only once per poll interval. It never sends a second claim while one is still running."
       },
       {
         "kind": "fixed",
@@ -95,20 +107,8 @@
         "text": "Losing your sign-in now also stops a drop claim check running while you watch by hand, and the quick switch to the next drop after a claim, instead of letting them run on with requests that could only fail. A drop that was already claimed before that is still recorded and shown in Activity."
       },
       {
-        "kind": "improved",
-        "text": "NoPixelV and Fortnite rewards now stop as soon as a change that affects them is saved, such as pausing, signing out of Twitch or switching channel. They no longer re-check their providers on every background timer, only when something relevant changes and once a minute while they are earning."
-      },
-      {
         "kind": "fixed",
         "text": "NoPixelV and Fortnite now remember which rewards are finished, and which channels to avoid for a while, when the browser stops and restarts Lurkloot in the background. A finished provider is no longer checked again on every restart, where it could keep taking turns from the other one."
-      },
-      {
-        "kind": "improved",
-        "text": "When NoPixelV or Fortnite keeps failing to count watch time on a channel, Lurkloot now moves on to another channel or reward source for a few minutes instead of staying on it."
-      },
-      {
-        "kind": "improved",
-        "text": "The CLI now runs its checks the same way the extension does, including for a platform that is switched off, which only clears what that platform left behind. A switched-off platform is now reported once when it is switched off, instead of on every check, in the CLI and in the extension's diagnostics."
       }
     ]
   },
