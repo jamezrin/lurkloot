@@ -3,6 +3,23 @@
 // packages/cli/README.md: Kick links with its smart-TV code; Twitch's full
 // campaign list needs the web session exported from the extension.
 import { LINKS, DOCKER_IMAGE } from "../../consts";
+
+const languages = Object.keys(import.meta.glob("../../../../locales/messages/*.json")).length;
+// What the extension does, as the popup and its settings expose it.
+const extensionFeatures = [
+  "Visual campaign queue and game controls",
+  "Pin campaigns, star favourite games, pick a strategy for the rest",
+  "Background farming with muted-tab fallback",
+  "Drops claimed automatically, tier by tier",
+  "Channel points on Twitch, daily challenge cards on Kick",
+  "Idle watchlist of up to 20 channels per platform",
+  "Excluded channels and blocked games",
+  "Optional rewards from Twitch extensions like NoPixel and Fortnite",
+  "Optional reward notifications",
+  "Completed campaigns and a full activity log",
+  "Settings export and import",
+  `${languages} languages, on Chromium browsers and Firefox`,
+];
 ---
 <section class="sg-section sg-run" id="cli" aria-labelledby="run-title">
   <div class="sg-wrap">
@@ -15,10 +32,8 @@ import { LINKS, DOCKER_IMAGE } from "../../consts";
         <span class="sg-runtime__label">For your everyday browser</span>
         <h3>The extension.</h3>
         <p>The easiest place to start. Use your logged-in sessions, manage everything in the popup, and let farming run while your browser stays open.</p>
-        <ul>
-          <li>Visual campaign queue and game controls</li>
-          <li>Background farming with muted-tab fallback</li>
-          <li>Optional reward notifications</li>
+        <ul class="sg-runtime__features">
+          {extensionFeatures.map((feature) => <li>{feature}</li>)}
         </ul>
         <div class="sg-runtime__actions">
           <a class="sg-pill" href={LINKS.chrome} target="_blank" rel="noopener">Get Lurkloot — free</a>
