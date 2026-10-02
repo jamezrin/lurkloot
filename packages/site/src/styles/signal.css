@@ -83,6 +83,9 @@ body.signal-theme::before, body.signal-theme::after { display: none; }
 .sg-nav nav a:hover, .sg-nav nav a[aria-current="page"] { color: #ededed; }
 .sg-nav__end { display: flex; gap: 8px; margin-left: auto; }
 .sg-nav__end .sg-pill { height: 32px; padding: 0 12px; border-radius: 6px; font-size: 14px; }
+.sg-nav__stars { display: inline-flex; align-items: center; gap: 4px; margin-left: 2px; padding-left: 10px; border-left: 1px solid var(--sg-line-strong); color: var(--sg-muted); font-variant-numeric: tabular-nums; }
+.sg-nav__stars[hidden] { display: none; }
+.sg-nav__gh:hover .sg-nav__stars { color: #ededed; }
 
 /* ---------- hero ---------- */
 .sg-hero { position: relative; overflow-x: clip; }
@@ -371,7 +374,8 @@ html.sg-motion .signal [data-reveal].is-in { opacity: 1; transform: none; }
   .sg-wrap, .signal .home-wrap { width: calc(100% - 32px); }
   .sg-nav__inner { min-height: 56px; gap: 12px; }
   .sg-brand { font-size: 17px; }
-  .sg-nav__gh span { display: none; }
+  .sg-nav__gh-label { display: none; }
+  .sg-nav__stars { margin-left: 0; padding-left: 8px; }
   .sg-announce { gap: 12px; font-size: 13px; }
   .sg-hero h1 { font-size: clamp(44px, 13vw, 60px); }
   .sg-hero__actions .sg-pill { width: 100%; }
