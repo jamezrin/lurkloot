@@ -11,50 +11,10 @@ export const multipleAccountsFaq: FaqItem = {
   a: "Yes, one account per browser profile. The extension farms whichever account is signed in to the browser it runs in, so create a separate profile for each account (in Chrome, click your profile icon in the top-right corner), sign in to a different Twitch or Kick account in each one, and install Lurkloot in every profile. Each profile farms on its own with its own settings; there is no single dashboard across them. For many accounts, the headless CLI works the same way: give each account its own config directory, or its own Docker container and data volume.",
 };
 
-export const faqItems: FaqItem[] = [
-  {
-    q: "Is Lurkloot free?",
-    a: "Yes. Lurkloot is completely free and open source. There are no accounts, no subscriptions, and no paywalled features — install it from the Chrome Web Store and it works immediately. The headless CLI and its Docker image are free too.",
-  },
-  {
-    q: "Does it need my Twitch or Kick password?",
-    a: "Never. The browser extension reuses the session you are already logged into, and the headless CLI authorizes through each platform's device-login — a short code you approve on any device. Either way it does not ask for your password, and it does not export or upload your cookies or tokens. Your credentials stay where they are.",
-  },
-  {
-    q: "Does it farm drops while I'm AFK or the tab is in the background?",
-    a: "Yes — that is the whole point. By default it uses a lightweight background mode that keeps your watch time counting without a video tab open at all. If progress ever stalls, it automatically falls back to a pinned, muted tab to keep your drops moving while you do other things.",
-  },
-  {
-    q: "Can I run it without a browser, on a server?",
-    a: "Yes. Alongside the browser extension, Lurkloot ships a headless command-line version that runs the exact same farming engine with no browser at all — both Twitch and Kick farm over plain HTTP. There is a prebuilt, multi-arch Docker image, so you can leave it running 24/7 on a server, a NAS, or a Raspberry Pi. You authorize each platform once with a device-login code, then it just collects.",
-  },
-  multipleAccountsFaq,
-  {
-    q: "Is Lurkloot open source?",
-    a: "Yes. The whole codebase is open source on GitHub — the extension, the headless CLI, and the shared farming engine. You can read every line, build it yourself, and confirm exactly what it does. Since nothing is hidden and nothing phones home, you do not have to take our word for the privacy claims.",
-  },
-  {
-    q: "Which games and drops does it support?",
-    a: "It works with any Twitch or Kick drops campaign the platform offers — including popular titles like Rust and Valorant, plus everything else with active drops. It discovers live campaigns automatically, tracks the right channel for each drop, and switches channels as campaigns finish.",
-  },
-  {
-    q: "Is it safe to use? Will I get banned?",
-    a: "Lurkloot operates entirely within your own normal, logged-in browser session and does not touch your password or export any data. That said, it is an unofficial tool and is not affiliated with, endorsed by, or sponsored by Twitch or Kick. Automating viewing may be against a platform's terms of service, so use it at your own discretion.",
-  },
-  {
-    q: "How does the auto-claim work?",
-    a: "When a drop becomes claimable, Lurkloot claims it for you automatically. The same goes for Twitch channel points and Kick's daily challenge cards, which are opened as soon as their watch-time goal is met — both are on by default, with a separate toggle per platform. You can also turn on notifications so you know the moment a reward lands, and it tells you when all campaigns are exhausted.",
-  },
-  {
-    q: "Can I control which campaigns it prioritizes?",
-    a: "Fully. Drag campaigns to set an explicit farming order, or pick a strategy: ending soonest first, lowest availability first, or priority-list only. You can exclude specific campaigns and channels, choose which games to farm, and keep a per-platform Idle Watchlist as a fallback for when no eligible drops are available.",
-  },
-];
-
 // Twitch landing page (/twitch-drops-farmer). Deliberately different questions
 // from the homepage set and from the Kick page: these are the things people ask
 // about *Twitch* drops specifically — integrity, tiers, channel points, the
-// Android-client headless path.
+// headless CLI.
 export const twitchFaqItems: FaqItem[] = [
   {
     q: "How does Lurkloot farm Twitch Drops automatically?",
@@ -111,4 +71,16 @@ export const kickFaqItems: FaqItem[] = [
     q: "Do I need a Kick password or a cookie export?",
     a: "Neither. In the browser the extension reuses the Kick session you are already logged into. Headless, the smart-TV link approval hands back a session token directly, so the CLI requires no export. An optional, user-initiated session-token transfer from the extension is also available if you want to move an existing session.",
   },
+];
+
+// The homepage FAQ, rendered in its accordion and its FAQPage structured data.
+export const homeFaqItems: FaqItem[] = [
+  { q: "Is Lurkloot really free?", a: "Yes. The browser extension, headless CLI, and Docker image are free and open source. There are no subscriptions or paywalled features, and you do not need a separate Lurkloot account." },
+  { q: "What do I need to get started?", a: "Install the extension from the Chrome Web Store in a compatible Chromium browser, then sign in to Twitch or Kick as usual. Choose your games and enable farming. Some campaigns also require linking your game account; Lurkloot cannot complete that step for you." },
+  { q: "Does my browser need to stay open?", a: "Yes, when you use the extension. Your computer must stay awake and your browser must remain running. Background farming can work without a video tab; if it stalls, Lurkloot can fall back to a muted tab. For a machine without a desktop browser, use the headless CLI or Docker image." },
+  { q: "Can I watch streams myself while Lurkloot is farming?", a: "Yes. When Lurkloot detects that you are watching a stream yourself, it pauses farming, and it resumes automatically once you pause, close, or switch away from that stream. You can turn this off in Settings under Appearance & behavior (Pause when watching manually), but watching several channels at the same time is not recommended: Twitch and Kick may not count your watch time correctly when more than one stream is playing, and the result is undefined." },
+  multipleAccountsFaq,
+  { q: "Can I choose what gets farmed first?", a: "Yes. Use the game controls and campaign queue to adjust your priorities, exclude campaigns you do not want, and choose a farming strategy. A watchlist can keep your preferred channels playing when no eligible drop campaigns remain." },
+  { q: "Does it support Twitch extensions?", a: "Yes. The browser extension includes optional support for selected Twitch extensions. Enable the support you want and grant any required permissions. Availability and reward requirements depend on the supported extension; this is separate from ordinary Twitch Drops." },
+  { q: "Will it work with every campaign?", a: "Lurkloot discovers campaigns from Twitch and Kick, but earning a reward still depends on campaign availability, eligible channels, and your account meeting the requirements. It is an independent, unofficial tool. Platform changes can affect farming, and rewards are not guaranteed." },
 ];

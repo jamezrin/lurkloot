@@ -1,11 +1,24 @@
 ---
-import { faqItems, type FaqItem } from "../faq";
-interface Props { items?: FaqItem[]; eyebrow?: string; heading?: string; deck?: string; }
-const { items = faqItems, heading = "Good to know.", deck = "Everything people want to know before installing." } = Astro.props;
+// FAQ block for the platform landing pages. It renders exactly the items the
+// page passes to Base's FAQPage schema.
+import type { FaqItem } from "../faq";
+interface Props { items: FaqItem[]; eyebrow: string; heading: string; deck: string; }
+const { items, eyebrow, heading, deck } = Astro.props;
 ---
-<section id="faq" class="home-light home-section" aria-labelledby="faq-title">
-  <div class="home-wrap home-questions">
-    <div><h2 id="faq-title">{heading}</h2><p>{deck}</p></div>
-    <div class="home-faq-list">{items.map(item => <details><summary>{item.q}<span aria-hidden="true">+</span></summary><p>{item.a}</p></details>)}</div>
+<section id="faq" class="sg-section sg-faq" aria-labelledby="faq-title">
+  <div class="sg-wrap sg-faq__grid">
+    <div>
+      <p class="sg-eyebrow">{eyebrow}</p>
+      <h2 id="faq-title">{heading}</h2>
+      <p>{deck}</p>
+    </div>
+    <div class="sg-faq__list">
+      {items.map((item) => (
+        <details>
+          <summary>{item.q}<span aria-hidden="true"></span></summary>
+          <p>{item.a}</p>
+        </details>
+      ))}
+    </div>
   </div>
 </section>

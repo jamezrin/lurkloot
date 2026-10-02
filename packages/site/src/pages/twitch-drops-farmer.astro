@@ -1,8 +1,8 @@
 ---
-// Twitch-intent landing page. Built on the shared `.lp-*` shell in global.css,
+// Twitch-intent landing page. Built on the shared `.lp-*` shell in signal-pages.css,
 // but the copy is written against what the Twitch adapter actually does
 // (inventory + directory discovery, minute-watched heartbeats, tier-by-tier
-// claiming, the Android-client headless path) — not the Kick page with the
+// claiming, the headless CLI) — not the Kick page with the
 // nouns swapped. Keep it that way when editing: near-identical body copy across
 // the two pages is what makes them cannibalize each other in search.
 import Base from "../layouts/SitePage.astro";
@@ -73,10 +73,10 @@ const games = [
           claims each reward the moment it unlocks — while you do something else.
         </p>
         <div class="lp-hero__cta">
-          <a class="home-button" href={LINKS.chrome} target="_blank" rel="noopener">
+          <a class="sg-pill sg-pill--lg" href={LINKS.chrome} target="_blank" rel="noopener">
             Get Lurkloot — free
           </a>
-          <a class="home-text-link" href="#headless">Run it headless</a>
+          <a class="sg-pill sg-pill--lg sg-pill--ghost" href="#headless">Run it headless</a>
         </div>
         <div class="lp-hero__meta">
           <span> No password, no account</span>
@@ -199,7 +199,7 @@ const games = [
 
     <section id="headless" class="lp-sec">
       <div class="wrap"><div class="guide-section-heading">
-        <p class="eyebrow">Headless</p>
+        <p class="eyebrow">Headless · Beta</p>
         <h2>Headless Twitch Drops farming in Docker</h2></div><div class="guide-section-body">
         <p>
           The same farming engine ships as a command-line runtime with no browser at all.
@@ -277,7 +277,7 @@ const games = [
               <a href={LINKS.kickFarmer}> Kick Drops farmer</a> page covers what changes.
             </p>
           </div>
-          <a class="home-button home-button--outline" href={LINKS.kickFarmer}>Kick Drops farmer →</a>
+          <a class="sg-pill sg-pill--ghost" href={LINKS.kickFarmer}>Kick Drops farmer →</a>
         </div>
       </div>
     </section>

@@ -126,7 +126,7 @@ function demoSnapshot(): RuntimeSnapshot {
         autoClaimChallenges: true,
       },
     },
-    campaignPins: ["tw-marathon", "tw-starfall"],
+    campaignPins: ["tw-marathon"],
   });
 
   const twitchCampaigns: DropCampaign[] = [

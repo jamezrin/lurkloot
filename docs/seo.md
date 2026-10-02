@@ -34,14 +34,15 @@ asserts that, so two pages cannot silently converge on the same snippet.
 
 ## Avoiding cannibalization
 
-The Twitch and Kick pages share a *shell* — `SubNav.astro`, `Faq.astro`, and the
-`.lp-*` styles in `global.css` — and nothing else. Their body copy is written
+The Twitch and Kick pages share a *shell* — the `SitePage.astro` layout (nav,
+section links and footer), `Faq.astro`, and the `.lp-*` styles in
+`signal-pages.css` — and nothing else. Their body copy is written
 against what each adapter genuinely does, and it differs because the platforms
 differ:
 
 - **Twitch**: inventory-aware discovery, minute-watched heartbeats with a muted
-  tab fallback, tier-by-tier claiming, channel points, and the Android-client
-  headless Smart TV login with partial live-channel discovery.
+  tab fallback, tier-by-tier claiming, channel points, and the headless Smart TV
+  login with partial live-channel discovery.
 - **Kick**: realtime campaign-start signals over Kick's socket, a viewer session
   instead of watch heartbeats (with the honest caveat that Kick may refuse the
   extension-origin handshake), gamification challenge cards, and the Cloudflare
@@ -62,8 +63,9 @@ Reserved shape, not yet built:
 ```
 
 Everything needed to add one already exists: create
-`src/pages/twitch-drops/<game>.astro`, compose `Base` (passing `faq` and
-`breadcrumbs`), `SubNav`, `Faq` and `Footer`, and use the `.lp-*` classes. The
+`src/pages/twitch-drops/<game>.astro`, wrap it in the `SitePage` layout (passing
+`faq`, `breadcrumbs` and its `sections` links), add `Faq`, and use the `.lp-*`
+classes. The
 sitemap picks it up automatically, and `LINKS` in `src/consts.ts` is where its
 path belongs so other pages can link to it.
 

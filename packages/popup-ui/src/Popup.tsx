@@ -98,7 +98,10 @@ function isPlatform(value: unknown): value is Platform {
 export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initialState?: PopupInitialState }): React.ReactElement {
   const preview = initialState?.preview ?? false;
   const initialVariant = initialState?.variant ?? screenshotVariant("drops");
-  const watchlistShot = preview && variantShowsPopup(initialVariant) && initialVariant.view === "watchlist";
+  // Live demo channels for any preview that opens on the watchlist, whether the
+  // shot or a `view` override puts it there.
+  const watchlistShot =
+    preview && (initialState?.view ? initialState.view === "watchlist" : variantShowsPopup(initialVariant) && initialVariant.view === "watchlist");
   const [snapshot, setSnapshot] = useState<RuntimeSnapshot | null>(null);
   const [overrideCatalog, setOverrideCatalog] = useState<MessageCatalog | undefined>();
   const [fallbackCatalog, setFallbackCatalog] = useState<MessageCatalog | undefined>();
@@ -108,6 +111,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   // One destination at a time. Platform is the other axis and is independent of
   // it, so every view keeps working on either platform.
   const [view, setView] = useState<PopupView>(() => {
+    if (preview && initialState?.view) return initialState.view;
     if (!preview || !variantShowsPopup(initialVariant)) return "queue";
     if (initialVariant.view === "settings") return "settings";
     return initialVariant.view === "watchlist" ? "watchlist" : "queue";

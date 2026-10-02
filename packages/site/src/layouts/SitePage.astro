@@ -1,19 +1,35 @@
 ---
+// Shell for every page besides the homepage: the same nav, footer, palette and
+// type as the signal homepage, without its scroll scenes. `sections` adds an
+// "on this page" row under the nav.
 import Base from "./Base.astro";
-import SubNav from "../components/SubNav.astro";
-import Footer from "../components/home/Footer.astro";
-import "../styles/home.css";
-import "../styles/editorial.css";
+import Nav from "../components/signal/Nav.astro";
+import Footer from "../components/signal/Footer.astro";
+import { LINKS } from "../consts";
+import "../styles/signal.css";
+import "../styles/signal-pages.css";
+
 const { sections = [], ...metadata } = Astro.props;
+const links = [
+  { href: "/", label: "Home" },
+  { href: LINKS.twitchFarmer, label: "Twitch" },
+  { href: LINKS.kickFarmer, label: "Kick" },
+  { href: LINKS.changelog, label: "Changelog" },
+];
 ---
-<Base {...metadata} theme="mono">
-  <a class="home-skip" href="#content">Skip to content</a>
-  <div class="home site-page">
-    <SubNav links={sections} />
+<Base {...metadata}>
+  <a class="sg-skip" href="#content">Skip to content</a>
+  <div class="signal sg-page">
+    <Nav links={links} />
+    {sections.length > 0 && (
+      <nav class="sg-wrap sg-subnav" aria-label="On this page">
+        {sections.map((link: { href: string; label: string }) => <a href={link.href}>{link.label}</a>)}
+      </nav>
+    )}
     <slot />
     <Footer />
   </div>
 </Base>
 <script>
-  import "../scripts/home-motion.ts";
+  import "../scripts/signal-motion.ts";
 </script>

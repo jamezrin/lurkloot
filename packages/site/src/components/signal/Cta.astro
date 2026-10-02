@@ -1,0 +1,46 @@
+---
+// The closing call to action. Its background grid doubles as the board for a
+// snake game (scripts/drop-snake.ts): the snake tours random mazes on its own
+// until someone clicks the panel or presses Play. Without JavaScript the panel
+// is unchanged and the game controls stay hidden.
+import { LINKS } from "../../consts";
+import BrowserPills from "../BrowserPills.astro";
+---
+<section class="sg-cta" aria-labelledby="cta-title">
+  <div class="sg-wrap">
+    <div class="sg-cta__panel" data-reveal data-snake>
+      <div class="sg-cta__field" aria-hidden="true">
+        <canvas class="sg-snake__board" data-snake-canvas></canvas>
+      </div>
+      <div class="sg-snake__hud" data-snake-ui hidden>
+        <svg class="sg-snake__gift" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="6" width="11" height="8" rx="1" /><rect x="1.5" y="4" width="13" height="2.5" rx=".8" /><path d="M8 4v10M8 4C6.5 1.5 4 2 4.5 3.4 5 4.5 8 4 8 4Zm0 0c1.5-2.5 4-2 3.5-.6C11 4.5 8 4 8 4Z" /></svg>
+        <span><strong data-snake-score>0</strong> <span data-snake-unit>drops</span></span>
+        <span class="sg-snake__best">Best <span data-snake-best>0</span></span>
+      </div>
+      <div class="sg-snake__controls" data-snake-ui hidden>
+        <div class="sg-snake__hint"><span class="sg-snake__keys">Arrow keys or WASD · Esc to exit</span><span class="sg-snake__taps">Tap where to turn</span></div>
+        <button type="button" class="sg-snake__toggle" data-snake-toggle aria-label="Play the snake game">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <defs>
+              <linearGradient id="sg-snake-icon" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" style="stop-color: var(--sg-twitch)" />
+                <stop offset="1" style="stop-color: var(--sg-kick)" />
+              </linearGradient>
+            </defs>
+            <path d="M13.5 3.5h-6v4.5h-4v4.5h6" stroke="url(#sg-snake-icon)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          <span data-snake-label>Play</span>
+        </button>
+      </div>
+      <h2 id="cta-title">Less watching.<br /><span class="sg-dim">More rewards.</span></h2>
+      <p class="sg-cta__lede">Set your priorities. Get back to what you were doing.</p>
+      <a class="sg-pill sg-pill--lg" href={LINKS.chrome} target="_blank" rel="noopener">Get Lurkloot — free</a>
+      <div class="sg-cta__pills"><BrowserPills /></div>
+      <p class="sg-cta__fine">No Lurkloot account · No subscription · Just install</p>
+    </div>
+  </div>
+</section>
+
+<script>
+  import "../../scripts/drop-snake.ts";
+</script>
