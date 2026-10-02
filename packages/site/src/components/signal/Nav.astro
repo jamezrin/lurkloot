@@ -4,14 +4,14 @@ import { formatStars } from "../../githubStars";
 import { buildTimeStars } from "../../githubStarsBuild";
 import logo from "../../assets/logo-ring.svg";
 
-interface Props { links?: { href: string; label: string }[]; }
+interface Props { links?: { href: string; label: string; badge?: string }[]; }
 // The homepage links to its own sections; other pages pass their own links.
 const {
   links = [
     { href: "#how-it-works", label: "How it works" },
     { href: "#priorities", label: "Priorities" },
     { href: "#platforms", label: "Platforms" },
-    { href: "#cli", label: "Headless" },
+    { href: "#cli", label: "Headless", badge: "Beta" },
     { href: "#faq", label: "FAQ" },
   ],
 } = Astro.props;
@@ -26,7 +26,11 @@ const stars = await buildTimeStars();
       <span>Lurkloot</span>
     </a>
     <nav aria-label="Main navigation">
-      {links.map((link) => <a href={link.href} aria-current={link.href === path ? "page" : undefined}>{link.label}</a>)}
+      {links.map((link) => (
+        <a href={link.href} aria-current={link.href === path ? "page" : undefined}>
+          {link.label}{link.badge && <span class="sg-badge sg-badge--sm">{link.badge}</span>}
+        </a>
+      ))}
     </nav>
     <div class="sg-nav__end">
       <a class="sg-pill sg-pill--ghost sg-nav__gh" href={LINKS.github} target="_blank" rel="noopener">

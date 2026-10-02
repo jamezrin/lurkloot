@@ -63,6 +63,9 @@
 .sg-pill--lg { height: 48px; padding: 0 22px; font-size: 16px; }
 .sg-pill--ghost { background: #0a0a0a; color: #ededed; box-shadow: inset 0 0 0 1px var(--sg-line-strong); }
 .sg-pill--ghost:hover { background: #1a1a1a; }
+/* Status badge, e.g. "Beta". */
+.sg-badge { display: inline-flex; align-items: center; height: 24px; padding: 0 9px; border-radius: 999px; background: rgb(82 168 255 / 14%); box-shadow: inset 0 0 0 1px rgb(82 168 255 / 30%); font: 500 13px/1 var(--font-body); letter-spacing: 0; color: #8ec5ff; vertical-align: middle; }
+.sg-badge--sm { height: 18px; margin-left: 6px; padding: 0 6px; font-size: 11px; }
 .sg-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 .sg-dot--twitch { background: var(--sg-twitch); }
 .sg-dot--white { background: #ededed; }
@@ -100,7 +103,11 @@
 .sg-hero__lede span { color: var(--sg-muted); }
 .sg-hero__list { display: grid; gap: 8px; margin: 28px 0 0; padding: 0; list-style: none; font-size: 16px; color: #ededed; }
 .sg-hero__list li { display: flex; align-items: center; gap: 10px; }
-.sg-hero__note { margin-top: 28px; font-size: 13px; color: var(--sg-faint) !important; }
+.sg-hero__video { display: inline-flex; align-items: center; gap: 10px; margin-top: 24px; font-size: 15px; font-weight: 500; color: #ededed; }
+.sg-hero__video > span { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: #ededed; color: #000; transition: transform .2s var(--sg-ease); }
+.sg-hero__video:hover > span { transform: scale(1.1); }
+.sg-hero__video:hover { text-decoration: underline; text-underline-offset: 4px; }
+.sg-hero__note { margin-top: 20px; font-size: 13px; color: var(--sg-faint) !important; }
 
 .sg-demo { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; scroll-margin-top: 88px; }
 .sg-demo::before { content: ""; position: absolute; z-index: -1; left: 50%; top: 10%; width: min(1100px, 120%); height: 70%; translate: -50% 0; border-radius: 50%; background: radial-gradient(closest-side, rgb(255 255 255 / 9%), transparent); filter: blur(10px); }
@@ -234,12 +241,27 @@ html.sg-pinned .sg-scene.is-current { opacity: 1; translate: 0 0; transition-del
 .sg-more strong { font-size: 16px; font-weight: 500; }
 .sg-more li > span:last-child { font-size: 14px; color: var(--sg-muted); }
 
+/* ---------- video tutorial ---------- */
+.sg-video__frame { position: relative; overflow: hidden; max-width: 1040px; margin-inline: auto; aspect-ratio: 16 / 9; border-radius: 16px; background: #0a0a0a; box-shadow: inset 0 0 0 1px var(--sg-line-strong), 0 40px 120px -50px rgb(0 0 0 / 90%); }
+.sg-video__frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.sg-video__poster { position: absolute; inset: 0; display: block; }
+.sg-video__poster img { width: 100%; height: 100%; object-fit: cover; transition: transform .6s var(--sg-ease), filter .3s; }
+.sg-video__poster::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 55%, rgb(0 0 0 / 55%)); }
+.sg-video__poster:hover img { transform: scale(1.02); filter: brightness(1.05); }
+.sg-video__play { position: absolute; z-index: 1; left: 50%; top: 50%; display: grid; place-items: center; width: 76px; height: 76px; translate: -50% -50%; border-radius: 50%; background: #ededed; color: #000; box-shadow: 0 0 0 10px rgb(255 255 255 / 14%), 0 20px 50px -10px rgb(0 0 0 / 80%); transition: transform .25s var(--sg-ease), box-shadow .25s; }
+.sg-video__play svg { margin-left: 4px; }
+.sg-video__poster:hover .sg-video__play { transform: scale(1.06); box-shadow: 0 0 0 14px rgb(255 255 255 / 18%), 0 20px 50px -10px rgb(0 0 0 / 80%); }
+.sg-video__meta { position: absolute; z-index: 1; right: 16px; bottom: 14px; padding: 5px 10px; border-radius: 6px; background: rgb(0 0 0 / 70%); font: 500 13px/1 var(--font-mono); color: #ededed; }
+
 /* ---------- run anywhere ---------- */
 .sg-run__grid { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); gap: 16px; }
 .sg-runtime { display: flex; flex-direction: column; min-width: 0; padding: 36px; border-radius: 16px; background: var(--sg-surface); box-shadow: inset 0 0 0 1px var(--sg-line); }
 .sg-runtime__label { font-size: 14px; color: var(--sg-muted); }
 .sg-runtime h3 { margin-top: 16px; font-size: clamp(32px, 3.2vw, 44px); line-height: 1; letter-spacing: -.05em; font-weight: 450; }
 .sg-runtime > p { max-width: 46ch; margin-top: 16px; }
+.sg-runtime h3 .sg-badge { margin-left: 6px; vertical-align: 6px; }
+.sg-runtime > p.sg-runtime__beta { max-width: none; padding: 12px 14px; border-radius: 10px; background: rgb(82 168 255 / 8%); box-shadow: inset 0 0 0 1px rgb(82 168 255 / 22%); font-size: 14px; color: #a9cff5; }
+.sg-runtime__beta strong { font-weight: 600; color: #cfe5ff; }
 .sg-runtime ul { display: grid; gap: 10px; margin: 24px 0 0; padding: 0; list-style: none; }
 .sg-runtime li { display: flex; align-items: baseline; gap: 10px; font-size: 15px; color: #ededed; }
 .sg-runtime li::before { content: "✓"; flex-shrink: 0; color: var(--sg-muted); }
@@ -313,6 +335,7 @@ html.sg-motion .signal [data-reveal].is-in { opacity: 1; transform: none; }
   .sg-hero__aside > :nth-child(1) { animation-delay: .3s; }
   .sg-hero__aside > :nth-child(2) { animation-delay: .4s; }
   .sg-hero__aside > :nth-child(3) { animation-delay: .5s; }
+  .sg-hero__aside > :nth-child(4) { animation-delay: .6s; }
   .sg-hero__glyph { animation: sg-glyph-in 1.4s var(--sg-ease) .15s both; }
   .sg-hero__halo { animation: sg-halo-in 2s var(--sg-ease) .3s both; }
   .sg-demo__card { animation: sg-card-in 1.2s var(--sg-ease) .6s both; }
@@ -384,6 +407,8 @@ html.sg-motion .signal [data-reveal].is-in { opacity: 1; transform: none; }
   .sg-more { grid-template-columns: 1fr; }
   .sg-marquee li, .sg-marquee img { width: 116px; }
   .sg-marquee img { height: 155px; }
+  .sg-video__frame { border-radius: 12px; }
+  .sg-video__play { width: 60px; height: 60px; }
   .sg-runtime__actions { flex-direction: column; }
   .sg-runtime__actions .sg-pill { width: 100%; }
   .sg-term pre { font-size: 11.5px; padding: 16px; }

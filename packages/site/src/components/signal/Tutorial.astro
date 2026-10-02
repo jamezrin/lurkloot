@@ -1,0 +1,52 @@
+---
+// The video walkthrough. The page shows a self-hosted poster and only loads
+// YouTube's player (from its privacy-enhanced domain) once someone presses
+// play, so visitors who never watch download nothing from YouTube. Without
+// JavaScript the poster is a plain link to the video.
+import { Image } from "astro:assets";
+import poster from "../../assets/video/tutorial.jpg";
+
+const VIDEO_ID = "JXSEnVak8KQ";
+const TITLE = "Farm Twitch and Kick drops automatically with Lurkloot";
+const LENGTH = "10:30";
+---
+<section class="sg-section sg-video" id="tutorial" aria-labelledby="tutorial-title">
+  <div class="sg-wrap">
+    <header class="sg-head sg-head--split" data-reveal>
+      <div>
+        <p class="sg-eyebrow">Video tutorial</p>
+        <h2 id="tutorial-title">Prefer to watch?<br /><span class="sg-dim">Here's the full walkthrough.</span></h2>
+      </div>
+      <p>A {LENGTH.split(":")[0]}-minute tutorial on setting up Lurkloot and farming Twitch and Kick drops.</p>
+    </header>
+    <div class="sg-video__frame" data-reveal data-video-id={VIDEO_ID} data-video-title={TITLE}>
+      <a class="sg-video__poster" href={`https://www.youtube.com/watch?v=${VIDEO_ID}`} target="_blank" rel="noopener" aria-label={`Play video: ${TITLE} (${LENGTH})`}>
+        <Image src={poster} alt="" widths={[640, 960, 1280]} sizes="(min-width: 1100px) 1000px, 100vw" loading="lazy" />
+        <span class="sg-video__play" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.4-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z" /></svg>
+        </span>
+        <span class="sg-video__meta" aria-hidden="true">{LENGTH} · YouTube</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<script>
+  // Swap the poster for the real player on the first press. Modified clicks
+  // (new tab, new window) keep their normal link behaviour.
+  for (const frame of document.querySelectorAll<HTMLElement>(".sg-video__frame")) {
+    const poster = frame.querySelector<HTMLAnchorElement>(".sg-video__poster");
+    poster?.addEventListener("click", (event) => {
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      const player = document.createElement("iframe");
+      player.src = `https://www.youtube-nocookie.com/embed/${frame.dataset.videoId}?autoplay=1&rel=0`;
+      player.title = frame.dataset.videoTitle ?? "Video";
+      player.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
+      player.referrerPolicy = "strict-origin-when-cross-origin";
+      player.allowFullscreen = true;
+      frame.replaceChildren(player);
+      player.focus();
+    });
+  }
+</script>

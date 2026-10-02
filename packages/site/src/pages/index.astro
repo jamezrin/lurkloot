@@ -1,12 +1,13 @@
 ---
-// Follows the production homepage's story (opening demo, the three steps, the
-// farming order, the platforms, two ways to run it, questions, closing call)
+// Follows the production homepage's story (opening demo, the three steps, a
+// video walkthrough, the farming order, the platforms, two ways to run it, questions, closing call)
 // with the signal theme's colour fields and scroll scenes, plus the feature
 // card in between.
 import Base from "../layouts/Base.astro";
 import Nav from "../components/signal/Nav.astro";
 import Hero from "../components/signal/Hero.astro";
 import Workflow from "../components/signal/Workflow.astro";
+import Tutorial from "../components/signal/Tutorial.astro";
 import Priorities from "../components/signal/Priorities.astro";
 import Platforms from "../components/signal/Platforms.astro";
 import Features from "../components/signal/Features.astro";
@@ -24,6 +25,7 @@ import "../styles/signal.css";
     <main id="content">
       <Hero />
       <Workflow />
+      <Tutorial />
       <Priorities />
       <Platforms />
       <Features />
