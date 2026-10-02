@@ -2,8 +2,8 @@
    Reading pages in the signal theme: the platform landing pages,
    the privacy policy and the changelog. They share signal.css's
    nav, footer, palette and type, and add a calmer reading layout.
-   The landing pages keep the shared `.lp-*` shell from global.css
-   (see docs/seo.md); this file only restyles it.
+   The `.lp-*` classes are the landing pages' shared shell (see
+   docs/seo.md): chrome only, never copy.
    ============================================================ */
 
 .sg-page main { overflow-x: clip; }

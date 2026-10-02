@@ -1,0 +1,23 @@
+---
+import { LINKS } from "../../consts";
+import logo from "../../assets/logo-ring.svg";
+---
+<footer class="sg-wrap sg-footer">
+  <div class="sg-footer__top">
+    <a class="sg-brand" href="/#top" aria-label="Lurkloot home">
+      <img src={logo.src} width="34" height="34" alt="" />
+      <span>Lurkloot</span>
+    </a>
+    <nav aria-label="Footer navigation">
+      <a href={LINKS.twitchFarmer}>Twitch</a>
+      <a href={LINKS.kickFarmer}>Kick</a>
+      <a href={LINKS.privacy}>Privacy</a>
+      <a href={LINKS.changelog}>Changelog</a>
+      <a href={LINKS.github} target="_blank" rel="noopener">Source code</a>
+    </nav>
+  </div>
+  <div class="sg-footer__bottom">
+    <span>Free. Open source. Made by <a href={LINKS.x} target="_blank" rel="noopener">jamezrin</a>.</span>
+    <span>Independent project. Not affiliated with Twitch or Kick.</span>
+  </div>
+</footer>

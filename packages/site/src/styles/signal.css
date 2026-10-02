@@ -11,12 +11,8 @@
    them every section renders as a plain, readable stack.
    ============================================================ */
 
-body.signal-theme { background: #000; color: #ededed; }
-body.signal-theme::before, body.signal-theme::after { display: none; }
-
 .signal {
   --font-display: "Geist Variable", system-ui, sans-serif;
-  --sg-bg: #000;
   --sg-surface: #0a0a0a;
   --sg-surface-2: #111;
   --sg-line: rgb(255 255 255 / 9%);
@@ -36,7 +32,7 @@ body.signal-theme::before, body.signal-theme::after { display: none; }
   color: var(--sg-text);
 }
 .signal ::selection { background: #ededed; color: #000; }
-.signal h1, .signal h2, .signal h3 { font-family: var(--font-display); text-wrap: balance; }
+.signal h1, .signal h2, .signal h3 { font-family: var(--font-display); line-height: 1.04; text-wrap: balance; }
 .signal h1, .signal h2 { font-weight: 450; letter-spacing: -.055em; }
 .signal h3 { font-weight: 500; letter-spacing: -.03em; }
 .signal h2 { font-size: clamp(36px, 4.4vw, 56px); line-height: 1.02; }
@@ -69,7 +65,6 @@ body.signal-theme::before, body.signal-theme::after { display: none; }
 .sg-pill--ghost:hover { background: #1a1a1a; }
 .sg-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 .sg-dot--twitch { background: var(--sg-twitch); }
-.sg-dot--kick { background: var(--sg-kick); }
 .sg-dot--white { background: #ededed; }
 
 /* ---------- nav ---------- */
@@ -122,7 +117,7 @@ body.signal-theme::before, body.signal-theme::after { display: none; }
 /* Never wider than the popup itself, or its own background shows round the edges. */
 .sg-demo__viewport { position: relative; width: 100%; max-width: 720px; margin-inline: auto; aspect-ratio: 720 / 600; border-radius: 8px; overflow: hidden; background: var(--sg-popup-bg); }
 .sg-demo__scaler { position: absolute; inset: 0 auto auto 0; width: 720px; height: 600px; transform: scale(var(--popup-scale, 1)); transform-origin: top left; }
-.sg-demo .sa-popup-host { display: block; width: 720px; height: 600px; overflow: hidden; color-scheme: light; }
+.sg-demo .sg-demo__host { display: block; width: 720px; height: 600px; overflow: hidden; color-scheme: light; }
 .sg-demo__note { margin-top: 16px; font-size: 13px; color: var(--sg-faint) !important; }
 
 /* ---------- workflow: three steps ---------- */
@@ -291,17 +286,14 @@ html.sg-pinned .sg-scene.is-current { opacity: 1; translate: 0 0; transition-del
 .sg-cta__pills .bpills__label { color: var(--sg-muted); }
 .sg-cta__fine { margin-top: 20px; font-size: 13px; color: var(--sg-faint) !important; }
 
-/* ---------- shared footer, restyled for this theme ---------- */
-.signal .home-wrap { width: min(100% - 48px, 1280px); margin-inline: auto; }
-.signal .home-footer { padding-block: 40px; border-top: 1px solid var(--sg-line); font-size: 14px; }
-.signal .home-footer-top, .signal .home-footer-bottom { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
-.signal .home-brand { display: inline-flex; align-items: center; gap: 9px; font: 600 18px/1 var(--font-display); letter-spacing: -.035em; }
-.signal .home-brand img { width: 26px; height: 26px; }
-.signal .home-footer nav { display: flex; flex-wrap: wrap; gap: 4px; }
-.signal .home-footer nav a { padding: 6px 10px; border-radius: 6px; color: var(--sg-muted); transition: color .15s; }
-.signal .home-footer nav a:hover { color: #ededed; }
-.signal .home-footer-bottom { margin-top: 28px; font-size: 13px; color: var(--sg-faint); }
-.signal .home-footer-bottom a { text-decoration: underline; text-underline-offset: 3px; }
+/* ---------- footer ---------- */
+.sg-footer { padding-block: 40px; border-top: 1px solid var(--sg-line); font-size: 14px; }
+.sg-footer__top, .sg-footer__bottom { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.sg-footer nav { display: flex; flex-wrap: wrap; gap: 4px; }
+.sg-footer nav a { padding: 6px 10px; border-radius: 6px; color: var(--sg-muted); transition: color .15s; }
+.sg-footer nav a:hover { color: #ededed; }
+.sg-footer__bottom { margin-top: 28px; font-size: 13px; color: var(--sg-faint); }
+.sg-footer__bottom a { text-decoration: underline; text-underline-offset: 3px; }
 
 /* ---------- entrance reveals (only with JS + motion) ---------- */
 html.sg-motion .signal [data-reveal] { opacity: 0; transform: translateY(24px); transition: opacity .8s var(--sg-ease), transform .8s var(--sg-ease); transition-delay: var(--d, 0ms); }
@@ -371,7 +363,7 @@ html.sg-motion .signal [data-reveal].is-in { opacity: 1; transform: none; }
 }
 @media (max-width: 640px) {
   .signal { font-size: 15px; }
-  .sg-wrap, .signal .home-wrap { width: calc(100% - 32px); }
+  .sg-wrap { width: calc(100% - 32px); }
   .sg-nav__inner { min-height: 56px; gap: 12px; }
   .sg-brand { font-size: 17px; }
   .sg-nav__gh-label { display: none; }
@@ -398,8 +390,8 @@ html.sg-motion .signal [data-reveal].is-in { opacity: 1; transform: none; }
   .sg-faq__list summary { padding: 16px 18px; font-size: 15px; }
   .sg-faq__list details > p { padding: 0 18px 18px; font-size: 14.5px; }
   .sg-cta__panel { border-radius: 16px; }
-  .signal .home-footer-top, .signal .home-footer-bottom { flex-direction: column; align-items: flex-start; }
-  .signal .home-footer nav { margin-left: -10px; }
+  .sg-footer__top, .sg-footer__bottom { flex-direction: column; align-items: flex-start; }
+  .sg-footer nav { margin-left: -10px; }
 }
 @media (max-width: 380px) {
   .sg-nav__gh { display: none; }

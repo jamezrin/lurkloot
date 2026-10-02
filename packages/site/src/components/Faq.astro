@@ -1,9 +1,9 @@
 ---
 // FAQ block for the platform landing pages. It renders exactly the items the
 // page passes to Base's FAQPage schema.
-import { faqItems, type FaqItem } from "../faq";
-interface Props { items?: FaqItem[]; eyebrow?: string; heading?: string; deck?: string; }
-const { items = faqItems, eyebrow = "FAQ", heading = "Good to know.", deck = "Everything people want to know before installing." } = Astro.props;
+import type { FaqItem } from "../faq";
+interface Props { items: FaqItem[]; eyebrow: string; heading: string; deck: string; }
+const { items, eyebrow, heading, deck } = Astro.props;
 ---
 <section id="faq" class="sg-section sg-faq" aria-labelledby="faq-title">
   <div class="sg-wrap sg-faq__grid">

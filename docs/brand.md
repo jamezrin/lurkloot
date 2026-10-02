@@ -24,9 +24,10 @@ colour, a fill or a gradient.
 | `--accent-*`, `--brand-*` | Aliases of ink, so components don't need to know. |
 | `--platform-twitch` / `--platform-kick` | Naming a platform. |
 
-Both files that define tokens follow this: `packages/popup-ui/src/styles.css`
-for the popup and the site's live demo, `packages/site/src/styles/global.css`
-for the marketing site.
+`packages/popup-ui/src/styles.css` defines these tokens for the popup and the
+site's live demo. The marketing site itself is monochrome and keeps its own
+`--sg-*` tokens in `packages/site/src/styles/signal.css`; it borrows only the
+platform colours, for small Twitch and Kick markers.
 
 ## What #566 is actually about
 
@@ -73,9 +74,6 @@ Group labels are sentence case, not mono capitals.
 
 Still to do under #566:
 
-- apply it to `packages/site/src/styles/global.css`, replacing the `--signal`
-  gradient and the `--glow-*` shadows;
-- audit hard-coded colours in `packages/site/src/components/*` and `pages/*`;
 - regenerate the Chrome Web Store screenshots and promo tiles — which must not
   depict store rating or standing, per the 1.13.0 rejection;
 - check AA contrast for text and interactive states in both themes.

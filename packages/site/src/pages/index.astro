@@ -13,11 +13,11 @@ import Features from "../components/signal/Features.astro";
 import RunAnywhere from "../components/signal/RunAnywhere.astro";
 import Faq from "../components/signal/Faq.astro";
 import Cta from "../components/signal/Cta.astro";
-import Footer from "../components/home/Footer.astro";
-import { homeFaqItems } from "../homeFaq";
+import Footer from "../components/signal/Footer.astro";
+import { homeFaqItems } from "../faq";
 import "../styles/signal.css";
 ---
-<Base faq={homeFaqItems} theme="signal">
+<Base faq={homeFaqItems}>
   <a class="sg-skip" href="#content">Skip to content</a>
   <div class="signal">
     <Nav />

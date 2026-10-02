@@ -20,7 +20,7 @@ export default function PopupDemo({ frameless = false }: { frameless?: boolean }
   return (
     <div
       ref={hostRef}
-      className="sa-popup-host"
+      className="sg-demo__host"
       data-lenis-prevent
       aria-label="Lurkloot popup — interactive demo"
     />
