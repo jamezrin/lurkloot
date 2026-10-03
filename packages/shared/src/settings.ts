@@ -289,54 +289,6 @@ export function applySettingsPatch(current: ExtensionSettings, patch: SettingsPa
   });
 }
 
-// How many object levels applySettingsPatch merges under each top-level key;
-// everything below that is replaced whole. Kept in step with applySettingsPatch.
-const SETTINGS_PATCH_NESTING: Record<string, number> = {
-  twitchExtensions: 2,
-  platform: 2,
-  compatibility: 2,
-  farmingEligibility: 1,
-};
-
-// Undoes a patch the popup applied optimistically (`applied` is
-// `applySettingsPatch(before, patch)`) after its save failed. Each field the
-// patch set goes back to its value in `before`, unless a newer change has moved
-// it since, so reverting one failed save never undoes a later edit.
-export function revertSettingsPatch(
-  current: ExtensionSettings,
-  before: ExtensionSettings,
-  applied: ExtensionSettings,
-  patch: SettingsPatch,
-): ExtensionSettings {
-  const undo = revertedFields(patch, current, before, applied, (key) => SETTINGS_PATCH_NESTING[key] ?? 0);
-  return applySettingsPatch(current, undo as SettingsPatch);
-}
-
-type Fields = Record<string, unknown>;
-
-function revertedFields(patch: object, current: unknown, before: unknown, applied: unknown, nesting: (key: string) => number): Fields {
-  const undo: Fields = {};
-  for (const [key, value] of Object.entries(patch)) {
-    if (value === undefined) continue;
-    const levels = nesting(key);
-    if (levels > 0 && isPlainObject(value)) {
-      const nested = revertedFields(value, fieldOf(current, key), fieldOf(before, key), fieldOf(applied, key), () => levels - 1);
-      if (Object.keys(nested).length > 0) undo[key] = nested;
-    } else if (JSON.stringify(fieldOf(current, key)) === JSON.stringify(fieldOf(applied, key))) {
-      undo[key] = fieldOf(before, key);
-    }
-  }
-  return undo;
-}
-
-function fieldOf(value: unknown, key: string): unknown {
-  return isPlainObject(value) ? value[key] : undefined;
-}
-
-function isPlainObject(value: unknown): value is Fields {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 function compatibilitySelectionOrAuto(value: unknown): string {
   return typeof value === "string" && value.trim() ? value.trim() : "auto";
 }
