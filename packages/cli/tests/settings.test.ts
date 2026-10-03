@@ -399,3 +399,17 @@ describe("category modes", () => {
       .toThrow(/farmAllCategories/);
   });
 });
+
+describe("subscription marks in the CLI config", () => {
+  it("accepts and normalizes subscribedRewardMarks on both platforms", () => {
+    const settings = parseCliSettings({
+      platform: {
+        twitch: { subscribedRewardMarks: ["campaign:sub", "campaign:sub", "broken"] },
+        kick: { subscribedRewardMarks: [] },
+      },
+    });
+
+    expect(settings.platform.twitch.subscribedRewardMarks).toEqual(["campaign:sub"]);
+    expect(settings.platform.kick.subscribedRewardMarks).toEqual([]);
+  });
+});

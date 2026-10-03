@@ -400,3 +400,12 @@ describe("config export/import", () => {
 it("rejects browser-only Twitch provider integration settings", () => {
   expect(() => parseConfig({ settings: { twitchExtensions: { nopixel: { enabled: true } } } }, CONFIG_PATH)).toThrow(/extension-only/);
 });
+
+describe("subscription marks in the generated config", () => {
+  it("lists subscribedRewardMarks for both platforms", () => {
+    const config = parseJsonc(defaultConfigJsonc());
+
+    expect(config.settings.platform.twitch.subscribedRewardMarks).toEqual([]);
+    expect(config.settings.platform.kick.subscribedRewardMarks).toEqual([]);
+  });
+});

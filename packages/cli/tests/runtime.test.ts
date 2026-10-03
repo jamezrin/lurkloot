@@ -225,6 +225,23 @@ describe("CLI engine event reporting", () => {
 });
 
 describe("CLI campaign status reporting", () => {
+  it("shows a marked subscription reward and stops calling its campaign waiting", () => {
+    const campaign = dropCampaign({
+      eligibility: "waiting_for_subscription",
+      rewards: [
+        dropReward({ id: "duffel", name: "Purple Duffel Bag", requirement: "subscription", requiredSubs: 1, subscriptionMarked: true }),
+        dropReward({ id: "combo", name: "Combo Crate", requirement: "subscription", requiredSubs: 1, requiredMinutes: 60, watchedMinutes: 15, status: "in_progress", subscriptionMarked: true }),
+      ],
+    });
+
+    expect(formatDiscoveredCampaign(campaign)).toEqual([
+      "• ARC Raiders Summer Drops",
+      "  ◦ Purple Duffel Bag — subscription marked",
+      "  ◦ Combo Crate — requires 60 minutes watched (subscription marked); progress 15/60 minutes",
+    ]);
+    expect([...subscriptionWaitKeys([campaign])]).toEqual([]);
+  });
+
   it("formats subscription requirements without inventing partial progress", () => {
     const campaign = dropCampaign({
       eligibility: "waiting_for_subscription",
