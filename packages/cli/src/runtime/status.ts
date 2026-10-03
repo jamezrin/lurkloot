@@ -1,5 +1,5 @@
 import type { DropCampaign, DropReward } from "@lurkloot/shared/models";
-import { campaignHasWatchRewards, isRewardObtained, isWaitingSubscriptionReward, rewardRequirementType } from "@lurkloot/shared/rewards";
+import { applySubscriptionMarks, campaignHasWatchRewards, isRewardObtained, isWaitingSubscriptionReward, rewardRequirementType } from "@lurkloot/shared/rewards";
 
 function subscriptionRequirement(required: number): string {
   return `${required} qualifying ${required === 1 ? "subscription" : "subscriptions"}`;
@@ -23,7 +23,10 @@ function formatReward(reward: DropReward): string {
   }
 }
 
-export function formatDiscoveredCampaign(campaign: DropCampaign): string[] {
+// `discover` prints adapter output, which carries no marks, so the config's
+// marks are applied here as the engine applies them where campaigns enter it.
+export function formatDiscoveredCampaign(source: DropCampaign, marks: readonly string[] = []): string[] {
+  const campaign = applySubscriptionMarks(source, marks);
   // From the rewards, not eligibility alone: a campaign whose subscriptions the
   // user marked is no longer waiting.
   const waiting = campaign.eligibility === "waiting_for_subscription"
