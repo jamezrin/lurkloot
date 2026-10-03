@@ -44,6 +44,10 @@
       },
       {
         "kind": "fixed",
+        "text": "A Twitch subscription reward that Twitch has credited now stays marked as earned. It could lose its earned mark on a later check, once Twitch stopped listing the campaign as in progress. When a reward can be earned either by watching or with a subscription, a reward earned by watching is no longer shown as the subscription reward too."
+      },
+      {
+        "kind": "fixed",
         "text": "If Lurkloot keeps failing to load a platform's drop campaigns, it now counts toward the prompt that offers to report a persistent problem, as it did before campaign loading moved out of the regular check. Until now only failures later in the check counted, so a platform that could never load its campaigns never showed the prompt."
       },
       {
