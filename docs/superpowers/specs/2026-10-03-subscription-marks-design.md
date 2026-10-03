@@ -12,7 +12,7 @@ A reviewer bought and gifted subscriptions, including anonymous gifts. Twitch cr
 
 ## Goal
 
-Give the user a control on each subscription reward, "I've subscribed", after which Lurkloot behaves as if it had detected that reward's qualifying subscription. It is a user assertion, never presented as Twitch's confirmation.
+Give the user a control on each subscription reward, "Mark as subscribed", after which Lurkloot behaves as if it had detected that reward's qualifying subscription. It is a user assertion, never presented as Twitch's confirmation.
 
 ## Semantics
 
@@ -45,20 +45,24 @@ Adapters and parsers never see settings or marks, and keep reporting what the pl
 
 ### Engine (`@lurkloot/core`)
 
-- **Intake.** Marks are applied where adapter output enters the engine:
-  - the discovery snapshot (`discoverySnapshot.ts`), right after `refreshCampaigns` and before its farmability filter, so a newly unblocked campaign gets channel checks. The tick commit's `preserveClaimedRewards` copies the flag along, and its reconciliation runs through `isRewardObtained`;
-  - the claim service's post-claim refresh (`claimService.ts`), before `preserveClaimedRewards`.
+- **Intake.** One helper, `reconcileRefreshedCampaigns(campaigns, previousCampaigns, marks)` in `scheduler.ts` next to `preserveClaimedRewards`, keeps the claims an earlier check recorded and then applies the marks. It runs everywhere adapter output enters the engine:
+  - the discovery snapshot's `reconcileCampaigns` hook (`discovery.ts`), before the snapshot's farmability filter, so a newly unblocked campaign gets channel checks;
+  - the tick commit (`scheduler.ts`, where the committed discovery replaces the platform's campaigns), with the tick's own settings;
+  - the claim service's post-claim refresh (`claimService.ts`).
 - **Settings changes.** A change to `subscribedRewardMarks` is not ranking-only, so `prepareSettingsCommit` already classifies it as a `"discovery"` effect. That invalidates the platform's discovery and selection and triggers a tick that re-applies the marks. No new commit hook.
 - **Status-only checks, unchanged.** The "Reward earned" notification (`reporting.ts`, `newlyEarnedRewards`), claim preservation (`preserveClaimedRewards`), the post-claim handoff (`scheduler.ts`) and the claim-guidance helper (`helpers.ts`) keep comparing `status`, so a mark never notifies, is never kept as a Twitch claim, and never starts a handoff.
+- **Waiting for a subscription.** `isWaitingSubscriptionReward` returns false for a marked reward, so the CLI's waiting messages and the parser-independent checks stop treating it as waiting. The scheduler's "Waiting for a qualifying subscription" status (`onlyWaitingSubscriptionCampaigns`) also requires a campaign to have a reward that is neither obtained nor marked.
 - **Accrual.** `scheduler.ts` reads `reward.isWatchBased` directly to decide whether to record watched minutes (around line 1978). It switches to `isWatchReward`, so a marked subscription plus watch reward is accrual-tracked and the existing no-progress channel switching applies to it.
 
 ### Popup (`@lurkloot/popup-ui`)
 
-- **Control.** The subscription reward panel (`drops.tsx`, the `subscription` requirement branch) shows "I've subscribed" when `canMarkSubscription` accepts the reward. Once marked it shows "Subscribed · marked by you" with an Undo control. A marked subscription plus watch reward also shows its watch progress. The control writes `subscribedRewardMarks` through the existing settings update path, as Exclude does.
+- **Labels.** The control reads "Mark as subscribed"; once marked the reward reads "Marked as subscribed" with an "Undo" control. They avoid "I've subscribed", which the campaign's existing "I've subscribed — refresh status" button already uses for a different action.
+- **Control.** The subscription reward tile (`RewardTile` in `drops.tsx`) shows "Mark as subscribed" when `canMarkSubscription` accepts the reward. A marked subscription plus watch reward renders as a watch reward (its view model `requirement` is `"watch"`) and adds the "Marked as subscribed" line under its progress, so the mark stays visible.
+- **Wiring.** The toggle is a React context (`SubscriptionMarkContext` in `context.tsx`) provided once by `Popup.tsx` and read by `CampaignCard`, which knows the campaign id and passes a per-reward callback down to `RewardTile`. `QueuePanel` and `CompletedPanel` props do not change, and a render without the provider (the site demo, tests) shows no control. The toggle writes `platform[platform].subscribedRewardMarks` through `updateSettings` with a tick after save, as Exclude does.
 - **Undo.** Undo removes the reward's key, which restores the platform's view exactly (see Semantics). It stays available on the Completed section's read-only (`terminal`) cards, where a fully marked campaign moves, so a mistaken mark never strands a campaign out of the Queue. Once the platform reports the reward `claimable` or `claimed`, the mark has no effect and neither control is shown; the stale key in settings is inert. A settings reset or an import without the key also removes it, and in the CLI it is removed from the config file.
-- **Immediate feedback.** The view model applies `applySubscriptionMarks` with the snapshot's settings before building views, so a toggle shows at once instead of after the tick. It is the same pure function the engine runs, so the two cannot disagree.
-- **Direct reads.** `viewModels.ts` (next-reward remaining time), `drops.tsx` (the panel's requirement branches) and `statusStrip.tsx` (reward progress) read `reward.requirement` directly. They move to `rewardRequirementType`, keeping the panel's subscription branch for marked rewards so the mark stays visible.
-- **Locales.** New keys `subscriptionMarkSubscribed` ("I've subscribed"), `subscriptionMarkedByYou` ("Subscribed · marked by you") and `subscriptionMarkUndo` ("Undo"), translated in all 11 catalogs.
+- **Immediate feedback.** `campaignViewFromCampaign` applies `applySubscriptionMarks` with the view settings before building the view, so a toggle shows at once instead of after the tick. It is the same pure function the engine runs, so the two cannot disagree.
+- **View model.** The view model already derives `RewardView.requirement` through `rewardRequirementType`, so the popup's `requirement` reads (`viewModels.ts`, `drops.tsx`, `statusStrip.tsx`) follow the mark without change. `RewardView` gains `subscriptionMarked` and `canMarkSubscription`, and `obtained` and the obtained-progress fallback use `isRewardObtained`.
+- **Locales.** New keys `subscriptionMarkSubscribed` ("Mark as subscribed"), `subscriptionMarkedSubscribed` ("Marked as subscribed") and `subscriptionMarkUndo` ("Undo"), translated in all 11 catalogs.
 
 ### CLI (`@lurkloot/cli`)
 
