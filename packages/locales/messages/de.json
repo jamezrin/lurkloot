@@ -377,6 +377,15 @@
   "subscribedRefresh": {
     "message": "Ich habe abonniert — Status aktualisieren"
   },
+  "subscriptionMarkSubscribed": {
+    "message": "Als abonniert markieren"
+  },
+  "subscriptionMarkedSubscribed": {
+    "message": "Als abonniert markiert"
+  },
+  "subscriptionMarkUndo": {
+    "message": "Rückgängig"
+  },
   "waitingForSubscription": {
     "message": "Auf ein qualifizierendes Abonnement warten"
   },

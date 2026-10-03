@@ -377,6 +377,15 @@
   "subscribedRefresh": {
     "message": "Подписка оформлена — обновить статус"
   },
+  "subscriptionMarkSubscribed": {
+    "message": "Отметить подписку"
+  },
+  "subscriptionMarkedSubscribed": {
+    "message": "Подписка отмечена"
+  },
+  "subscriptionMarkUndo": {
+    "message": "Отменить"
+  },
   "waitingForSubscription": {
     "message": "Ожидание подходящей подписки"
   },

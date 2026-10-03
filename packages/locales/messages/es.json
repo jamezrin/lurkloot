@@ -377,6 +377,15 @@
   "subscribedRefresh": {
     "message": "Ya me he suscrito — actualizar el estado"
   },
+  "subscriptionMarkSubscribed": {
+    "message": "Marcar como suscrito"
+  },
+  "subscriptionMarkedSubscribed": {
+    "message": "Marcado como suscrito"
+  },
+  "subscriptionMarkUndo": {
+    "message": "Deshacer"
+  },
   "waitingForSubscription": {
     "message": "Esperando una suscripción válida"
   },

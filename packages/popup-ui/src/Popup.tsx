@@ -14,7 +14,8 @@ import { buildSettingsExportPayload, parseSettingsImportPayload } from "@lurkloo
 import { effectiveLocale, isRtlLocale, type MessageCatalog } from "@lurkloot/shared/i18n";
 import { loadCatalog } from "@lurkloot/locales";
 import { buildFailureReport } from "@lurkloot/shared/failureReport";
-import { I18nContext, PopupRuntimeContext } from "./context";
+import { subscriptionMarkKey } from "@lurkloot/shared/rewards";
+import { I18nContext, PopupRuntimeContext, SubscriptionMarkContext } from "./context";
 import { createTranslator } from "./translator";
 import { WorkspaceRail, viewForPlatform, type PopupView } from "./shell";
 import { GamesPanel } from "./games";
@@ -685,6 +686,15 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     gameMap?: Record<string, GameItem>;
   }>({});
 
+  // The mark toggle every campaign card reads from context. Its identity never
+  // changes, so marking one reward does not re-render every memoised card; it
+  // calls the latest render's handler through the ref.
+  const subscriptionMarkHandler = useRef<(campaignId: string, rewardId: string) => void>(() => undefined);
+  const toggleSubscriptionMark = useMemo(
+    () => (campaignId: string, rewardId: string) => subscriptionMarkHandler.current(campaignId, rewardId),
+    [],
+  );
+
   if (!snapshot) {
     return (
       <PopupRuntimeContext.Provider value={runtimeValue}>
@@ -698,6 +708,16 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   }
 
   const settings = mergeSettings(snapshot.settings);
+  subscriptionMarkHandler.current = (campaignId, rewardId) => {
+    const key = subscriptionMarkKey(campaignId, rewardId);
+    const next = new Set(settings.platform[platform].subscribedRewardMarks ?? []);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    void updateSettings(
+      { platform: { [platform]: { subscribedRewardMarks: [...next] } } },
+      { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
+    );
+  };
 
   // Downloads the current settings as a portable JSON file. Available only
   // when the host adapter supports it (the live extension, not the demo).
@@ -849,6 +869,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   return (
       <PopupRuntimeContext.Provider value={runtimeValue}>
       <I18nContext.Provider value={i18nValue}>
+      <SubscriptionMarkContext.Provider value={toggleSubscriptionMark}>
     <main
       dir={dir}
       data-platform={platform}
@@ -1123,6 +1144,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
       </div>
       </TooltipScope>
     </main>
+      </SubscriptionMarkContext.Provider>
     </I18nContext.Provider>
     </PopupRuntimeContext.Provider>
   );

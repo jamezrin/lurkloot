@@ -377,6 +377,15 @@
   "subscribedRefresh": {
     "message": "Assinei — atualizar status"
   },
+  "subscriptionMarkSubscribed": {
+    "message": "Marcar como assinado"
+  },
+  "subscriptionMarkedSubscribed": {
+    "message": "Marcado como assinado"
+  },
+  "subscriptionMarkUndo": {
+    "message": "Desfazer"
+  },
   "waitingForSubscription": {
     "message": "Aguardando uma assinatura qualificada"
   },

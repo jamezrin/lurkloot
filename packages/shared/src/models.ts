@@ -62,7 +62,7 @@ export interface DropReward {
   // Set by applySubscriptionMarks when the user marked this subscription
   // reward as subscribed, never by a platform parser. The reward's status stays
   // the platform's report.
-  subscriptionMarked?: true;
+  subscriptionMarked?: boolean;
   isCurrentReward?: boolean;
   claimGuidance?: ClaimGuidance;
 }
