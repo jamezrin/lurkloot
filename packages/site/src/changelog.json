@@ -7,6 +7,10 @@
         "text": "The headless CLI can now import your Twitch browser sign-in from Export credentials and see the full Twitch campaign list without opening a browser. The export asks for one extra site permission, k.twitchcdn.net, so it can include the Twitch security cookie the CLI needs. An export without that cookie, made before this version or after declining the permission, still works for Kick, but the CLI skips its Twitch sign-in and asks you to export again."
       },
       {
+        "kind": "new",
+        "text": "Each Twitch reward that needs a subscription now has Mark as subscribed. If you subscribed or gifted a sub and Lurkloot did not notice, mark it and Lurkloot treats the subscription as made: the reward counts as earned, drops that need it first are farmed, and a reward that needs a subscription plus watch time is farmed for its watch time. Lurkloot still only claims what Twitch releases, and Undo removes the mark."
+      },
+      {
         "kind": "improved",
         "text": "Twitch campaign cards now link to both the campaign's drop details and the game's Drops directory on Twitch, labelled apart. A campaign open to every channel links its \"All channels\" to that directory, and a long channel list now expands in place instead of ending in a \"+N more\" you could not open."
       },
