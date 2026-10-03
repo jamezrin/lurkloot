@@ -55,6 +55,11 @@ export type RewardView = {
   requiredSubs?: number;
   requirement: RewardRequirementType;
   obtained: boolean;
+  // The user marked this subscription reward as subscribed.
+  subscriptionMarked?: boolean;
+  // The reward can be marked (or unmarked): a subscription reward the platform
+  // has not released.
+  canMarkSubscription?: boolean;
   art: string;
   tint: string;
   imageUrl?: string;

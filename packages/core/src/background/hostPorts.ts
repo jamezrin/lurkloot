@@ -168,7 +168,8 @@ export interface PageContextRecoveryOptions {
 // `twitchIntegrityCapture`).
 export interface TwitchIntegrityPort {
   ensure(emit: EventEmitter, request?: TwitchIntegrityRequest): Promise<boolean>;
-  // Aborts an acquisition in flight. Synchronous: it waits on nothing.
+  // Aborts an acquisition in flight. Synchronous: it waits on nothing. It is
+  // the only way to stop one: a request's signal only stops that caller waiting.
   cancelAcquisition(reason?: unknown): void;
   load(): Promise<TwitchIntegrity | undefined>;
   save(value: TwitchIntegrity): Promise<void>;

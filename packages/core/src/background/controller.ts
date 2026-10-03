@@ -164,6 +164,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     shutdown: calls.shutdown,
     prepareForHostReset: calls.prepareForHostReset,
     settleBackgroundWork: calls.settleBackgroundWork,
+    // Reports events as this controller run, for host work that outlives the
+    // operation that started it (the shared Twitch integrity mint).
+    reportEvents: calls.reportBestEffort,
     // Registers a hook called after each accepted settings or scheduler-state
     // commit (stateTransaction.ts). Returns the unregister function.
     onCommit: transaction.onCommit,

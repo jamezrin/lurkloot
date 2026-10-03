@@ -1,8 +1,11 @@
 import type { CategorySelection, DropCampaign, ExtensionSettings, Platform, WatchSession } from "@lurkloot/shared/models";
 import { NO_CATEGORY_ID, categoryListIndex, favouriteCategoryIndex, isCampaignCategoryBlocked, isUncategorizedCampaign, twitchCategoryDropsUrl } from "@lurkloot/shared/categories";
 import {
+  applySubscriptionMarks,
   campaignHasSubscriptionRewards,
   campaignHasWatchRewards,
+  canMarkSubscription,
+  isRewardObtained,
   isWatchReward,
   rewardRequirementType,
   rewardFeasibility,
@@ -177,16 +180,21 @@ function offPlatformHost(campaign: DropCampaign): string | undefined {
 }
 
 export function campaignViewFromCampaign(
-  campaign: DropCampaign,
+  source: DropCampaign,
   index: number,
   session: WatchSession,
   excluded: boolean,
   feasibility?: { skipUnfinishableRewards: boolean; deadlineSafetyMarginMinutes: number; now?: number; settings?: ExtensionSettings },
 ): CampaignView {
+  const settings = feasibility?.settings;
+  // The engine applies the same marks on its next check; applying them here too
+  // shows a toggle at once.
+  const campaign = settings
+    ? applySubscriptionMarks(source, settings.platform[source.platform].subscribedRewardMarks ?? [])
+    : source;
   const farmingBlockers = feasibility?.settings
     ? campaignFarmingBlockers(campaign, feasibility.settings, { includePinnedOnly: true, now: feasibility.now })
     : [];
-  const settings = feasibility?.settings;
   return {
     id: campaign.id,
     gameId: gameId(campaign),
@@ -219,7 +227,7 @@ export function campaignViewFromCampaign(
       const requirement = rewardRequirementType(reward);
       const progress = isWatchReward(reward) && reward.requiredMinutes > 0
         ? Math.min(100, (Math.min(reward.watchedMinutes, reward.requiredMinutes) / reward.requiredMinutes) * 100)
-        : reward.status === "claimed" ? 100 : undefined;
+        : isRewardObtained(reward) ? 100 : undefined;
       const claimGuidance = safeClaimGuidance(reward.claimGuidance ?? campaign.claimGuidance);
       const deadlineFeasibility = feasibility
         ? rewardFeasibility(
@@ -237,7 +245,9 @@ export function campaignViewFromCampaign(
         requiredMinutes: reward.requiredMinutes,
         requiredSubs: reward.requiredSubs,
         requirement,
-        obtained: reward.status === "claimed",
+        obtained: isRewardObtained(reward),
+        subscriptionMarked: reward.subscriptionMarked === true,
+        canMarkSubscription: canMarkSubscription(reward),
         art: initials(reward.name).slice(0, 8),
         tint: REWARD_TINTS[rewardIndex % REWARD_TINTS.length],
         imageUrl: campaign.platform === "kick" ? kickRewardImageUrl(reward.imageUrl) : reward.imageUrl,

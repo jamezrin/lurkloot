@@ -10,6 +10,7 @@ import {
   normalizeFarmingEligibility,
   normalizeChannelList,
   normalizeIdList,
+  normalizeSubscriptionMarks,
   POLL_INTERVAL_MAX_MINUTES,
   POLL_INTERVAL_MIN_MINUTES,
   IDLE_WATCHLIST_LIMIT,
@@ -134,8 +135,8 @@ const CLI_SETTING_KEYS = new Set<string>([
 ]);
 
 const CLI_PLATFORM_KEYS: Record<Platform, Set<string>> = {
-  twitch: new Set(["enabled", "watchSourcePriority", "idleWatchlistChannels", "excludedChannels", "categoryMode", "categories", "favouriteCategories", "blockedCategories", "autoClaimChannelPoints", "strictCampaignAvailability", "channelPointsPushClaim"]),
-  kick: new Set(["enabled", "watchSourcePriority", "idleWatchlistChannels", "excludedChannels", "categoryMode", "categories", "favouriteCategories", "blockedCategories", "autoClaimChallenges"]),
+  twitch: new Set(["enabled", "watchSourcePriority", "idleWatchlistChannels", "excludedChannels", "categoryMode", "categories", "favouriteCategories", "blockedCategories", "subscribedRewardMarks", "autoClaimChannelPoints", "strictCampaignAvailability", "channelPointsPushClaim"]),
+  kick: new Set(["enabled", "watchSourcePriority", "idleWatchlistChannels", "excludedChannels", "categoryMode", "categories", "favouriteCategories", "blockedCategories", "subscribedRewardMarks", "autoClaimChallenges"]),
 };
 const CLI_COMPATIBILITY_KEYS: Record<Platform, Set<string>> = {
   twitch: new Set(["profile", "heartbeatTransport", "inventoryQueryVersion"]),
@@ -415,6 +416,7 @@ function normalizePlatform(
         categories: normalizeCategorySelections(ps.categories),
         favouriteCategories: normalizeCategorySelections(ps.favouriteCategories),
         blockedCategories: normalizeCategorySelections(ps.blockedCategories),
+        subscribedRewardMarks: normalizeSubscriptionMarks(ps.subscribedRewardMarks),
       },
     };
   };

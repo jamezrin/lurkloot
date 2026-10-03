@@ -26,7 +26,7 @@ import {
   createRuntimeMessageDispatcher,
 } from "../src/core/activityMessages";
 import { twitchHeartbeatFetchText, twitchHeartbeatPost } from "../src/core/twitchHeartbeatTransport";
-import { createCredentialAvailabilityProvider } from "../src/core/credentialAvailability";
+import { createCredentialAvailabilityProvider, createCredentialReader } from "../src/core/credentialAvailability";
 import { createTwitchExtensionCommitHook } from "../src/extensions/commitHook";
 import { createTwitchExtensionHost } from "../src/extensions/host";
 import { createTwitchExtensionSessionSource } from "../src/extensions/transport";
@@ -50,6 +50,12 @@ const reportEvents = createActivityEventReporter({
 // One tab registry for this controller, shared by the browser tab mechanics
 // and the controller that reads its page-context snapshot (#598).
 const tabRegistry = createTabRegistry();
+// The shared Twitch integrity mint can outlive the caller that started it, so
+// it reports each event through the controller as it happens rather than into
+// that caller's collector, which drops whatever arrives after it closes.
+const reportIntegrityAcquisition: EventEmitter = withActivityDiagnostics((event) => {
+  void controller.reportEvents([event]);
+});
 const {
   cancelTwitchIntegrityAcquisition,
   currentValidTwitchIntegrity,
@@ -58,7 +64,7 @@ const {
   fetchKickInBackground,
   fetchTwitchInBackground,
   recordManagedPageContextFallback,
-} = createBrowserTabs(tabRegistry);
+} = createBrowserTabs(tabRegistry, reportIntegrityAcquisition);
 const kickClaimState = new KickClaimState();
 const kickDiscoveryState = new KickDiscoveryState();
 const kickPageContextRecovery = new KickPageContextRecoveryTracker();
@@ -66,9 +72,8 @@ const twitchDiscoveryState = new TwitchDiscoveryState();
 const KICK_PAGE_CONTEXT_URL = "https://kick.com/drops/inventory";
 const TWITCH_EXTENSION_LANE_KEY = "twitchExtensionLane";
 const createBrowserWebSocket: WebSocketFactory = (url) => new WebSocket(url) as unknown as WebSocketLike;
-const checkCredentialAvailability = createCredentialAvailabilityProvider({
-  get: (details) => browser.cookies.get(details),
-});
+const credentialCookies = { get: (details: { url: string; name: string }) => browser.cookies.get(details) };
+const checkCredentialAvailability = createCredentialAvailabilityProvider(credentialCookies);
 
 async function catalog(locale: string): Promise<MessageCatalog | undefined> {
   if (localeCatalogs.has(locale)) return localeCatalogs.get(locale);
@@ -331,6 +336,7 @@ export default defineBackground(() => {
         if (platform === "twitch") await reconcileExtensions();
       },
     },
+    createCredentialReader(credentialCookies),
   );
 
   browser.permissions.onAdded.addListener((details) => {
@@ -401,7 +407,9 @@ export default defineBackground(() => {
 
   // Capture the Client-Integrity token the live twitch.tv page sends on its own
   // GQL requests so the background can replay it on authenticated mutations
-  // (drop claims). Registered at top level so it re-binds on each SW wake.
+  // (drop claims). Registered at top level so it re-binds on each SW wake. The
+  // background's own replays are seen here too, with tab id -1; the controller
+  // ignores those.
   // requestHeaders exposes the custom Client-Integrity header; if a future
   // Chrome build hides it, add "extraHeaders" to this spec.
   browser.webRequest.onBeforeSendHeaders.addListener(

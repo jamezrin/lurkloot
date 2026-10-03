@@ -266,7 +266,9 @@ export function setTwitchIntegrity(
   }
   if (value && options?.isNew) {
     const ttlSeconds = Math.max(0, Math.round((value.expiresAt - Date.now()) / 1000));
-    diagnostic(emit, "info", `Captured a fresh Twitch integrity token (expires ${new Date(value.expiresAt).toISOString()}, in ${ttlSeconds}s)`, "twitch");
+    diagnostic(emit, "info", value.expiryUnknown
+      ? `Captured a fresh Twitch integrity token (its expiry cannot be read; keeping it until Twitch rejects it, at most until ${new Date(value.expiresAt).toISOString()})`
+      : `Captured a fresh Twitch integrity token (expires ${new Date(value.expiresAt).toISOString()}, in ${ttlSeconds}s)`, "twitch");
   }
   if (value != null && registry.integrityWaiters.length > 0) {
     const waiters = registry.integrityWaiters;
@@ -296,9 +298,9 @@ export interface TwitchIntegrityAcquisitionResult {
 }
 
 // Minting boots a twitch.tv context and may wait ~22s for Kasada's proof-of-work,
-// so every caller shares one owned acquisition. The owned abort cancels the
-// underlying page context; only the creator's signal owns that lifecycle, while
-// later joiners race their own signal without disturbing everyone else.
+// so every caller shares one acquisition. No caller owns it: each races its own
+// signal and only stops waiting. The abort cancels the underlying page context,
+// and only the integrity lifecycle fires it (cancelTwitchIntegrityAcquisition).
 export interface TwitchIntegrityAcquisition {
   promise: Promise<TwitchIntegrityAcquisitionResult | undefined>;
   abort: AbortController;

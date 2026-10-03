@@ -377,6 +377,15 @@
   "subscribedRefresh": {
     "message": "لقد اشتركت — تحديث الحالة"
   },
+  "subscriptionMarkSubscribed": {
+    "message": "تحديد كمشترك"
+  },
+  "subscriptionMarkedSubscribed": {
+    "message": "تم التحديد كمشترك"
+  },
+  "subscriptionMarkUndo": {
+    "message": "تراجع"
+  },
   "waitingForSubscription": {
     "message": "في انتظار اشتراك مؤهل"
   },

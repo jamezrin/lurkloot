@@ -377,6 +377,15 @@
   "subscribedRefresh": {
     "message": "I've subscribed — refresh status"
   },
+  "subscriptionMarkSubscribed": {
+    "message": "Mark as subscribed"
+  },
+  "subscriptionMarkedSubscribed": {
+    "message": "Marked as subscribed"
+  },
+  "subscriptionMarkUndo": {
+    "message": "Undo"
+  },
   "waitingForSubscription": {
     "message": "Waiting for a qualifying subscription"
   },

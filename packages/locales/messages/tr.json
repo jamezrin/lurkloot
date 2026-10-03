@@ -377,6 +377,15 @@
   "subscribedRefresh": {
     "message": "Abone oldum (+ Yenile)"
   },
+  "subscriptionMarkSubscribed": {
+    "message": "Abone oldum olarak işaretle"
+  },
+  "subscriptionMarkedSubscribed": {
+    "message": "Abone olarak işaretlendi"
+  },
+  "subscriptionMarkUndo": {
+    "message": "Geri al"
+  },
   "waitingForSubscription": {
     "message": "Abonelik bekleniyor"
   },

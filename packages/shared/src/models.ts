@@ -54,11 +54,20 @@ export interface DropReward {
   watchedMinutes: number;
   status: RewardStatus;
   claimId?: string;
+  // Identifies this reward for the signed-in account; never sent to the
+  // platform. A claim stays recorded under it when a later response stops
+  // reporting it. claimId cannot do that for a Twitch subscription reward, which
+  // has one only while Twitch reports its drop instance.
+  claimKey?: string;
   availableFrom?: string;
   availableUntil?: string;
   claimUntil?: string;
   preconditionRewardIds?: string[];
   preconditionsMet?: boolean;
+  // Set by applySubscriptionMarks when the user marked this subscription
+  // reward as subscribed, never by a platform parser. The reward's status stays
+  // the platform's report.
+  subscriptionMarked?: boolean;
   isCurrentReward?: boolean;
   claimGuidance?: ClaimGuidance;
 }
@@ -339,6 +348,10 @@ export interface PlatformSettings {
   // Never farmed, in either categoryMode. A blocked category keeps any star and
   // list membership it had, so unblocking restores the previous state.
   blockedCategories: CategorySelection[];
+  // "<campaignId>:<rewardId>" of subscription rewards the user marked as
+  // subscribed. Lurkloot then treats that reward's subscription as detected
+  // (docs/superpowers/specs/2026-10-03-subscription-marks-design.md).
+  subscribedRewardMarks?: string[];
 }
 
 // Per-platform settings carry the claim toggles that only make sense on that

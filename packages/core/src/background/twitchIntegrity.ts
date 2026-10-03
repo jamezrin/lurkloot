@@ -497,9 +497,8 @@ export function createTwitchIntegrity<S extends EngineSettings>(
   }
 
   // Fed by the background's webRequest listener with the outgoing headers of
-  // gql.twitch.tv requests. Only genuine page-minted requests carry a
-  // Client-Integrity header, so integrityFromHeaders returns undefined (and we
-  // ignore) our own background fetch and anonymous queries.
+  // gql.twitch.tv requests. Anonymous queries carry no Client-Integrity header,
+  // so integrityFromHeaders ignores them.
   // `tabId` is optional so hosts that cannot attribute a request to a tab still
   // capture tokens; when present it also lets a managed refresh distinguish its
   // own replacement from a concurrent user-tab replay.
@@ -507,6 +506,11 @@ export function createTwitchIntegrity<S extends EngineSettings>(
     // Noted before the integrity filter: an anonymous GQL request carries no
     // Client-Integrity header but still proves the SPA has booted.
     noteTwitchGqlRequest(tabRegistry, tabId);
+    // A request no tab sent (tab id -1) is the extension's own: the background
+    // replaying the token it already holds. Re-capturing it refreshed a
+    // fallback expiry on every replay, so a token Twitch had stopped honouring
+    // never aged out and the proactive refresh never ran (#720).
+    if (tabId != null && tabId < 0) return;
     const integrity = integrityFromHeaders(headers);
     if (!integrity) return;
     // Installed outside every lock, and synchronously before the first await.
@@ -526,8 +530,7 @@ export function createTwitchIntegrity<S extends EngineSettings>(
     let isNew = false;
     await withEventCollector(async (emit, events) => {
       isNew = integrity.integrity !== tabRegistry.twitchIntegrity?.integrity;
-      const sourceTabId = tabId != null && tabId >= 0 ? tabId : undefined;
-      installTwitchIntegrity(integrity, isNew, emit, sourceTabId);
+      installTwitchIntegrity(integrity, isNew, emit, tabId);
       await reportBestEffort(events);
     });
     // Persisted on the bookkeeping lane, where reconcileStoredTwitchIntegrity

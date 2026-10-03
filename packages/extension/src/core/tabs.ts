@@ -27,11 +27,15 @@ export const liveBrowserTabApi = browser as BrowserTabApi;
 // browser and to one tab registry, which the host also hands to the controller
 // (#598). browserTabs.ts takes the browser API as an argument so tests can drive
 // it with a fake; only the `browser` binding lives here.
-export function createBrowserTabs(registry: TabRegistry) {
+//
+// `reportIntegrityAcquisition` receives the shared integrity mint's events. The
+// mint can outlive the caller that started it, so it cannot report through
+// that caller's emitter.
+export function createBrowserTabs(registry: TabRegistry, reportIntegrityAcquisition?: EventEmitter) {
   const browserApi = liveBrowserTabApi;
   return {
     ensureTwitchIntegrity(emit?: EventEmitter, request?: TwitchIntegrityRequest): Promise<boolean> {
-      return ensureTwitchIntegrityWithBrowser(registry, browserApi, TWITCH_PAGE_CONTEXT_URL, undefined, emit, request);
+      return ensureTwitchIntegrityWithBrowser(registry, browserApi, TWITCH_PAGE_CONTEXT_URL, undefined, emit, request, reportIntegrityAcquisition);
     },
 
     cancelTwitchIntegrityAcquisition(reason?: unknown): void {

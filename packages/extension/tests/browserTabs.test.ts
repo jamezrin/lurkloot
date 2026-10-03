@@ -61,7 +61,7 @@ function browserMock() {
     tabs: {
       get: vi.fn(),
       update: vi.fn(async () => undefined),
-      remove: vi.fn(async () => undefined),
+      remove: vi.fn<(tabId: number) => Promise<void>>(async () => undefined),
       query: vi.fn<() => Promise<Array<{ id?: number; url?: string; status?: string }>>>(async () => []),
       create: vi.fn(async () => ({ id: 9 })),
     },
@@ -1019,6 +1019,40 @@ describe("tab manager", () => {
     expect(currentManagedPageContextTabs(registry).kick).toBeUndefined();
   });
 
+  it("keeps a retained context it reused when the caller aborts as reuse completes", async () => {
+    const usable = deferred<Array<{ result?: unknown }>>();
+    const executeScript = vi.fn().mockReturnValueOnce(usable.promise);
+    const browser = {
+      ...browserMock(),
+      scripting: { executeScript },
+    };
+    browser.tabs.get.mockResolvedValue({ id: 14, url: "https://kick.com/drops/inventory", status: "complete" });
+    registerManagedPageContextTabs(registry, {
+      kick: { platform: "kick", tabId: 14, originUrl: "https://kick.com/drops/inventory", origin: "https://kick.com", ownedByExtension: true },
+    });
+    const abort = new AbortController();
+    const reason = new Error("discovery invalidated");
+
+    const request = fetchJsonInPageWithBrowser(registry,
+      browser,
+      "https://kick.com/drops/inventory",
+      "https://kick.com/api/v1/user",
+      { signal: abort.signal },
+      { retainPageContext: { platform: "kick" } },
+    );
+    await vi.waitFor(() => expect(executeScript).toHaveBeenCalledOnce());
+
+    // The reuse check passes and the caller gives up before it hears back.
+    usable.resolve([{ result: { usable: true } }]);
+    abort.abort(reason);
+
+    await expect(request).rejects.toBe(reason);
+    await vi.waitFor(() => expect(registry.pageContextTabs.size).toBe(0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(browser.tabs.remove).not.toHaveBeenCalled();
+    expect(currentManagedPageContextTabs(registry).kick).toMatchObject({ tabId: 14 });
+  });
+
   it("does not create a page-context tab when abort lands during tab discovery", async () => {
     const query = deferred<Array<{ id?: number; url?: string; status?: string }>>();
     const browser = {
@@ -1514,6 +1548,29 @@ describe("twitch integrity refresh", () => {
       expect(currentManagedPageContextTabs(registry)).not.toHaveProperty("twitch");
     });
 
+    it("reports why a temporary integrity tab could not be closed", async () => {
+      const browser = browserMock();
+      browser.tabs.create.mockResolvedValue({ id: 64 });
+      browser.tabs.remove.mockRejectedValue(new Error("Tabs cannot be edited right now"));
+      const events: EngineEvent[] = [];
+      const pending = ensureTwitchIntegrityWithBrowser(registry,
+        browser,
+        "https://www.twitch.tv/drops/inventory",
+        5_000,
+        (event) => events.push(event),
+      );
+      await vi.waitFor(() => expect(currentTwitchIntegrityWaiterCount(registry)).toBe(1));
+      setTwitchIntegrity(registry, fresh(), { isNew: true });
+
+      await expect(pending).resolves.toBe(true);
+      expect(events).toContainEqual(expect.objectContaining({
+        category: "diagnostic",
+        platform: "twitch",
+        level: "warn",
+        message: expect.stringContaining("Tabs cannot be edited right now"),
+      }));
+    });
+
     it("opens page context immediately on the first missing-token check", async () => {
       const browser = browserMock();
       browser.tabs.query.mockResolvedValue([]);
@@ -1802,6 +1859,164 @@ describe("twitch integrity refresh", () => {
       expect(browser.tabs.remove).not.toHaveBeenCalled();
       setTwitchIntegrity(registry, fresh(), { isNew: true });
       await expect(owner).resolves.toBe(true);
+    });
+
+    it.each(["pending", "settling"])("closes an integrity tab when cancelled during %s managed-tab accounting", async (phase) => {
+      const browser = browserMock();
+      browser.tabs.create.mockResolvedValue({ id: 63 });
+      const accountingStarted = deferred<void>();
+      const accountingGate = deferred<void>();
+      const reason = new DOMException("Twitch disabled", "AbortError");
+      const pending = ensureTwitchIntegrityWithBrowser(registry,
+        browser,
+        "https://www.twitch.tv/drops/inventory",
+        5_000,
+        undefined,
+        {
+          onManagedPageContextOpen: async () => {
+            accountingStarted.resolve();
+            await accountingGate.promise;
+          },
+        },
+      );
+      await accountingStarted.promise;
+
+      if (phase === "settling") {
+        accountingGate.resolve();
+        await Promise.resolve();
+      }
+      cancelTwitchIntegrityAcquisition(registry, reason);
+      await expect(pending).rejects.toBe(reason);
+      try {
+        await vi.waitFor(() => expect(browser.tabs.remove).toHaveBeenCalledWith(63));
+        expect(browser.tabs.remove).toHaveBeenCalledOnce();
+        expect(registry.pageContextTabs.size).toBe(0);
+      } finally {
+        accountingGate.resolve();
+      }
+    });
+
+    it.each(["pending", "settling"])("keeps minting when its caller stops waiting during %s managed-tab accounting", async (phase) => {
+      const browser = browserMock();
+      browser.tabs.create.mockResolvedValue({ id: 68 });
+      const accountingStarted = deferred<void>();
+      const accountingGate = deferred<void>();
+      const abort = new AbortController();
+      const reason = new DOMException("Discovery invalidated", "AbortError");
+      const pending = ensureTwitchIntegrityWithBrowser(registry,
+        browser,
+        "https://www.twitch.tv/drops/inventory",
+        5_000,
+        undefined,
+        {
+          signal: abort.signal,
+          onManagedPageContextOpen: async () => {
+            accountingStarted.resolve();
+            await accountingGate.promise;
+          },
+        },
+      );
+      await accountingStarted.promise;
+
+      if (phase === "settling") {
+        accountingGate.resolve();
+        await Promise.resolve();
+      }
+      abort.abort(reason);
+      await expect(pending).rejects.toBe(reason);
+      accountingGate.resolve();
+      await vi.waitFor(() => expect(currentTwitchIntegrityWaiterCount(registry)).toBe(1));
+      expect(browser.tabs.remove).not.toHaveBeenCalled();
+
+      setTwitchIntegrity(registry, fresh(), { isNew: true });
+      await vi.waitFor(() => expect(browser.tabs.remove).toHaveBeenCalledExactlyOnceWith(68));
+      expect(registry.pageContextTabs.size).toBe(0);
+      expect(registry.inFlightIntegrityAcquisition).toBeUndefined();
+    });
+
+    it("preserves a page context still being acquired by another caller", async () => {
+      const browser = {
+        ...browserMock(),
+        scripting: { executeScript: vi.fn(async () => [{ result: { ok: true } }]) },
+      };
+      browser.tabs.create.mockResolvedValue({ id: 65 });
+      const accountingStarted = deferred<void>();
+      const accountingGate = deferred<void>();
+      const abort = new AbortController();
+      const reason = new DOMException("Caller stopped", "AbortError");
+      const owner = fetchJsonInPageWithBrowser(registry,
+        browser,
+        "https://www.twitch.tv/drops/inventory",
+        "https://gql.twitch.tv/gql",
+        { signal: abort.signal },
+        {
+          onManagedPageContextOpen: async () => {
+            accountingStarted.resolve();
+            await accountingGate.promise;
+          },
+        },
+      );
+      await accountingStarted.promise;
+      const shared = fetchJsonInPageWithBrowser(registry,
+        browser,
+        "https://www.twitch.tv/drops/inventory",
+        "https://gql.twitch.tv/gql",
+      );
+
+      abort.abort(reason);
+      await expect(owner).rejects.toBe(reason);
+      expect(browser.tabs.remove).not.toHaveBeenCalled();
+      accountingGate.resolve();
+
+      await expect(shared).resolves.toEqual({ ok: true });
+      expect(browser.tabs.create).toHaveBeenCalledOnce();
+      expect(browser.tabs.remove).toHaveBeenCalledExactlyOnceWith(65);
+    });
+
+    it("does not discard a replacement acquisition while closing a cancelled context", async () => {
+      const browser = browserMock();
+      browser.tabs.create.mockResolvedValueOnce({ id: 66 }).mockResolvedValueOnce({ id: 67 });
+      const accountingStarted = deferred<void>();
+      const accountingGate = deferred<void>();
+      const closingGate = deferred<void>();
+      browser.tabs.remove.mockImplementation(async (tabId: number) => {
+        if (tabId === 66) await closingGate.promise;
+      });
+      const reason = new DOMException("Host reset", "AbortError");
+      const owner = ensureTwitchIntegrityWithBrowser(registry,
+        browser,
+        "https://www.twitch.tv/drops/inventory",
+        5_000,
+        undefined,
+        {
+          onManagedPageContextOpen: async () => {
+            accountingStarted.resolve();
+            await accountingGate.promise;
+          },
+        },
+      );
+      await accountingStarted.promise;
+      accountingGate.resolve();
+      await Promise.resolve();
+      cancelTwitchIntegrityAcquisition(registry, reason);
+      await expect(owner).rejects.toBe(reason);
+
+      try {
+        const replacement = ensureTwitchIntegrityWithBrowser(registry,
+          browser,
+          "https://www.twitch.tv/drops/inventory",
+          5_000,
+        );
+        await vi.waitFor(() => expect(currentTwitchIntegrityWaiterCount(registry)).toBe(1));
+        expect(registry.pageContextTabs.size).toBe(1);
+        setTwitchIntegrity(registry, fresh(), { isNew: true });
+
+        await expect(replacement).resolves.toBe(true);
+        expect(browser.tabs.remove).toHaveBeenCalledWith(66);
+        expect(browser.tabs.remove).toHaveBeenCalledWith(67);
+      } finally {
+        closingGate.resolve();
+      }
     });
 
     it.each([
@@ -2180,24 +2395,59 @@ describe("twitch integrity refresh", () => {
         expect(browser.tabs.create).toHaveBeenCalledTimes(1);
       });
 
-      it("aborts an integrity wait and removes the page context it opened", async () => {
+      // The caller is usually the discovery that hit the rejection, and anything
+      // that invalidates discovery aborts it. The mint has already opened its
+      // tab; cancelling it would waste the boot and make the next tick open
+      // another (#720).
+      it("keeps minting after the caller that started it stops waiting", async () => {
         const browser = browserMock();
         browser.tabs.create.mockResolvedValue({ id: 43 });
+        setTwitchIntegrity(registry, rejected());
         const abort = new AbortController();
+        const callerEvents: EngineEvent[] = [];
+        const acquisitionEvents: EngineEvent[] = [];
 
-        const pending = ensureTwitchIntegrityWithBrowser(registry, 
+        const pending = ensureTwitchIntegrityWithBrowser(registry,
+          browser,
+          "https://www.twitch.tv/drops/inventory",
+          5_000,
+          (event) => callerEvents.push(event),
+          { forceRefresh: true, rejectedToken: "rejected-token", signal: abort.signal },
+          (event) => acquisitionEvents.push(event),
+        );
+        await vi.waitFor(() => expect(currentTwitchIntegrityWaiterCount(registry)).toBe(1));
+
+        abort.abort(new DOMException("Discovery invalidated", "AbortError"));
+
+        await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+        expect(browser.tabs.remove).not.toHaveBeenCalled();
+        expect(registry.inFlightIntegrityAcquisition).toBeDefined();
+
+        setTwitchIntegrity(registry, replacement(), { isNew: true, sourceTabId: 43 });
+        await vi.waitFor(() => expect(browser.tabs.remove).toHaveBeenCalledExactlyOnceWith(43));
+        await vi.waitFor(() => expect(registry.inFlightIntegrityAcquisition).toBeUndefined());
+
+        // Its progress lands in the acquisition's reporter, not in the collector
+        // of the caller that left.
+        const messages = acquisitionEvents.map((event) => event.category === "diagnostic" ? event.message : event.code);
+        expect(messages).toEqual(expect.arrayContaining([
+          expect.stringContaining("Twitch rejected the current integrity token"),
+          expect.stringContaining("Waiting up to 5000ms"),
+          expect.stringMatching(/^Waited \d+ms/),
+          "Closed temporary page context tab 43 on www.twitch.tv",
+        ]));
+        expect(callerEvents).toEqual([]);
+
+        // The next operation rejected on the same token takes the replacement
+        // instead of booting another context.
+        await expect(ensureTwitchIntegrityWithBrowser(registry,
           browser,
           "https://www.twitch.tv/drops/inventory",
           5_000,
           undefined,
-          { signal: abort.signal },
-        );
-        await vi.waitFor(() => expect(browser.tabs.create).toHaveBeenCalledOnce());
-
-        abort.abort(new DOMException("Host reset", "AbortError"));
-
-        await expect(pending).rejects.toMatchObject({ name: "AbortError" });
-        expect(browser.tabs.remove).toHaveBeenCalledWith(43);
+          { forceRefresh: true, rejectedToken: "rejected-token" },
+        )).resolves.toBe(true);
+        expect(browser.tabs.create).toHaveBeenCalledOnce();
       });
 
       it("starts a new forced refresh once the previous one has settled", async () => {

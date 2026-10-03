@@ -1373,6 +1373,98 @@ describe("TwitchAdapter", () => {
     expect(campaigns[0]?.rewards[0]?.watchedMinutes).toBe(42);
   });
 
+  // Only Twitch's released drop instance makes a subscription reward claimable
+  // (see parseTwitchReward). The session's minutes must not synthesize a claim
+  // for one, or a reward the user marked as subscribed would read as earned and
+  // fire "Reward earned" with nothing released.
+  it("keeps a subscription drop at full session minutes out of claimable", async () => {
+    const adapter = twitchAdapter(jsonFetcher((_url, init) => {
+      const body = JSON.parse(String(init?.body)) as
+        | Record<string, unknown>
+        | Array<Record<string, unknown>>;
+      if (Array.isArray(body)) {
+        return body.map(() => ({
+          data: {
+            dropCampaign: {
+              id: "campaign",
+              name: "Campaign campaign",
+              game: { id: "game", slug: "game-slug", displayName: "Game" },
+              timeBasedDrops: [
+                { id: "watch-drop", requiredMinutesWatched: 60, benefitEdges: [{ benefit: { id: "watch-benefit", name: "Watch" } }] },
+                { id: "sub-drop", requiredMinutesWatched: 60, requiredSubs: 1, benefitEdges: [{ benefit: { id: "sub-benefit", name: "Sub" } }] },
+              ],
+            },
+          },
+        }));
+      }
+      if (body.operationName === "Inventory") return twitchInventory(["campaign"]);
+      if (body.operationName === "ViewerDropsDashboard") return twitchDashboard(["campaign"]);
+      if (body.operationName === "VideoPlayerStreamInfoOverlayChannel") {
+        return { data: { user: { id: "channel-id" } } };
+      }
+      if (body.operationName === "DropCurrentSessionContext") {
+        return { data: { currentUser: { dropCurrentSession: { dropID: "sub-drop", currentMinutesWatched: 60 } } } };
+      }
+      throw new Error(`Unexpected operation ${String(body.operationName)}`);
+    }));
+    const session = {
+      platform: "twitch",
+      status: "watching",
+      offlineChecks: 0,
+      channel: { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
+    } as never;
+
+    const campaigns = await adapter.refreshCampaigns(session);
+
+    const subscription = campaigns[0]?.rewards.find((reward) => reward.id === "sub-drop");
+    expect(subscription).toMatchObject({ watchedMinutes: 60, status: "in_progress" });
+  });
+
+  it("keeps a released subscription drop claimable through the session merge", async () => {
+    const adapter = twitchAdapter(jsonFetcher((_url, init) => {
+      const body = JSON.parse(String(init?.body)) as
+        | Record<string, unknown>
+        | Array<Record<string, unknown>>;
+      if (Array.isArray(body)) {
+        return body.map(() => ({
+          data: {
+            dropCampaign: {
+              id: "campaign",
+              name: "Campaign campaign",
+              game: { id: "game", slug: "game-slug", displayName: "Game" },
+              timeBasedDrops: [{
+                id: "sub-drop",
+                requiredMinutesWatched: 60,
+                requiredSubs: 1,
+                benefitEdges: [{ benefit: { id: "sub-benefit", name: "Sub" } }],
+                self: { currentMinutesWatched: 60, dropInstanceID: "viewer#campaign#sub-drop", isClaimed: false },
+              }],
+            },
+          },
+        }));
+      }
+      if (body.operationName === "Inventory") return twitchInventory(["campaign"]);
+      if (body.operationName === "ViewerDropsDashboard") return twitchDashboard(["campaign"]);
+      if (body.operationName === "VideoPlayerStreamInfoOverlayChannel") {
+        return { data: { user: { id: "channel-id" } } };
+      }
+      if (body.operationName === "DropCurrentSessionContext") {
+        return { data: { currentUser: { dropCurrentSession: { dropID: "sub-drop", currentMinutesWatched: 60 } } } };
+      }
+      throw new Error(`Unexpected operation ${String(body.operationName)}`);
+    }));
+    const session = {
+      platform: "twitch",
+      status: "watching",
+      offlineChecks: 0,
+      channel: { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
+    } as never;
+
+    const campaigns = await adapter.refreshCampaigns(session);
+
+    expect(campaigns[0]?.rewards[0]).toMatchObject({ status: "claimable", claimId: "viewer#campaign#sub-drop" });
+  });
+
   it("lists followed live channels and caches them across calls", async () => {
     let calls = 0;
     const adapter = twitchAdapter(jsonFetcher((_url, init) => {

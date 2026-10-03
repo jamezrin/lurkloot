@@ -1,6 +1,6 @@
 import type { ChannelCandidate, DropCampaign, DropReward } from "@lurkloot/shared/models";
 import { twitchCategoryDropsUrl } from "@lurkloot/shared/categories";
-import { isWaitingSubscriptionReward, isWatchReward } from "@lurkloot/shared/rewards";
+import { isSubscriptionReward, isWaitingSubscriptionReward, isWatchReward } from "@lurkloot/shared/rewards";
 
 interface TwitchInventory {
   data?: {
@@ -99,24 +99,32 @@ export function earnedRewardCounts(
 // claimed N times covers the N cheapest tiers that award it: Twitch releases a
 // tier's claim only once its watch requirement is met, so claims accrue in
 // ascending requiredMinutesWatched order.
+//
+// That order says nothing about a subscription or other action tier awarding
+// the same benefit as a watch tier: its zero minutes would sort it first, so a
+// claim earned by watching would mark the subscription tier earned. A count
+// that cannot cover every such tier is ambiguous, and those tiers defer to
+// their own self edge.
 function rewardIdsClaimedByEarnedCounts(
-  rewards: ReadonlyArray<{ id: string; requiredMinutes: number; benefitIds?: readonly (string | undefined)[] }>,
+  rewards: ReadonlyArray<Pick<DropReward, "id" | "requirement" | "requiredMinutes" | "requiredSubs"> & { benefitIds?: readonly (string | undefined)[] }>,
   countsForCampaign: ReadonlyMap<string, number> | undefined,
 ): ReadonlySet<string> {
   const claimed = new Set<string>();
   if (!countsForCampaign || countsForCampaign.size === 0) return claimed;
-  const byBenefit = new Map<string, Array<{ id: string; requiredMinutes: number }>>();
+  const byBenefit = new Map<string, Array<{ id: string; requiredMinutes: number; isWatch: boolean }>>();
   for (const reward of rewards) {
     for (const benefitId of new Set(reward.benefitIds ?? [])) {
       if (!benefitId) continue;
       const tiers = byBenefit.get(benefitId) ?? [];
-      tiers.push({ id: reward.id, requiredMinutes: reward.requiredMinutes });
+      tiers.push({ id: reward.id, requiredMinutes: reward.requiredMinutes, isWatch: isWatchReward(reward) });
       byBenefit.set(benefitId, tiers);
     }
   }
   for (const [benefitId, tiers] of byBenefit) {
     const count = countsForCampaign.get(benefitId) ?? 0;
     if (count === 0) continue;
+    const mixesRequirements = tiers.some((tier) => tier.isWatch) && tiers.some((tier) => !tier.isWatch);
+    if (mixesRequirements && count < tiers.length) continue;
     tiers
       .sort((left, right) => left.requiredMinutes - right.requiredMinutes)
       .slice(0, count)
@@ -223,6 +231,7 @@ function parseTwitchCampaignSource(source: TwitchCampaignSource): DropCampaign[]
       (campaign.timeBasedDrops ?? []).map((drop) => ({
         id: drop.id,
         requiredMinutes: drop.requiredMinutesWatched ?? 0,
+        requiredSubs: drop.requiredSubs,
         benefitIds: (drop.benefitEdges ?? []).map((edge) => edge.benefit?.id),
       })),
       earnedCounts?.get(campaign.id),
@@ -277,6 +286,12 @@ function normalizeTwitchAccountLinkUrl(value: string | null | undefined): string
     // Preserve non-URL values for compatibility; Twitch normally returns an absolute URL.
   }
   return trimmed;
+}
+
+// The shape of Twitch's own dropInstanceID, so a watch reward's key and its
+// reconstructed claim id are the same value.
+function twitchRewardClaimKey(userId: string, campaignId: string, rewardId: string): string {
+  return `${userId}#${campaignId}#${rewardId}`;
 }
 
 function parseTwitchReward(
@@ -338,8 +353,8 @@ function parseTwitchReward(
   // strips user ids out of these). Prefer the value Twitch returns on the self
   // edge once the claim is released, and reconstruct it deterministically when
   // the edge is absent so a watched-complete drop is still claimable.
-  const claimId = reward.self?.dropInstanceID
-    ?? (isWatchBased && userId ? `${userId}#${campaignId}#${reward.id}` : undefined);
+  const claimKey = userId ? twitchRewardClaimKey(userId, campaignId, reward.id) : undefined;
+  const claimId = reward.self?.dropInstanceID ?? (isWatchBased ? claimKey : undefined);
   const preconditionRewardIds = reward.preconditionDrops?.map((drop) => drop.id) ?? [];
 
   return {
@@ -354,6 +369,7 @@ function parseTwitchReward(
     isWatchBased,
     watchedMinutes: isClaimed ? requiredMinutes : watchedMinutes,
     claimId,
+    claimKey,
     availableFrom: reward.startAt,
     availableUntil: reward.endAt,
     claimUntil: campaignEndsAt ? addHours(campaignEndsAt, 24) : undefined,
@@ -393,7 +409,7 @@ export function mergeTwitchCampaignProgress(
   campaigns: DropCampaign[],
   inventory: TwitchInventory,
 ): DropCampaign[] {
-  const { campaigns: rawInventoryCampaigns, gameEventDrops, earnedCounts } = inventorySource(inventory);
+  const { campaigns: rawInventoryCampaigns, gameEventDrops, earnedCounts, userId } = inventorySource(inventory);
   const progressCampaigns = parseTwitchInventory(inventory);
   return campaigns.map((campaign) => {
     const progress = progressCampaigns.find((item) => item.id === campaign.id);
@@ -408,18 +424,19 @@ export function mergeTwitchCampaignProgress(
     // Per-claim truth for this campaign, when the response carries it (v2). It
     // answers the shared-benefit question outright, so it applies whether or not
     // the campaign is still in the progress payload.
-    const claimedByEarned = rewardIdsClaimedByEarnedCounts(
-      campaign.rewards.map((reward) => ({
-        id: reward.id,
-        requiredMinutes: reward.requiredMinutes,
-        benefitIds: reward.benefitIds,
-      })),
-      earnedCounts?.get(campaign.id),
-    );
+    const claimedByEarned = rewardIdsClaimedByEarnedCounts(campaign.rewards, earnedCounts?.get(campaign.id));
     const earnedBenefitIds = new Set(earnedCounts?.get(campaign.id)?.keys() ?? []);
     const rewards = campaign.rewards.map((reward) => {
       const progressReward = progress?.rewards.find((item) => item.id === reward.id);
-      const merged = progressReward ? { ...reward, ...progressReward } : reward;
+      // A claim never reverts, and the details only report one from this user's
+      // own self edge. A progress entry without that edge, as a subscription
+      // reward can arrive, must not overwrite it. Details carry no user, so a
+      // reward absent from progress takes its claim key from the inventory's.
+      const merged = !progressReward
+        ? { ...reward, claimKey: userId ? twitchRewardClaimKey(userId, campaign.id, reward.id) : undefined }
+        : reward.status === "claimed" && progressReward.status !== "claimed"
+          ? { ...reward, ...progressReward, status: reward.status, watchedMinutes: reward.watchedMinutes }
+          : { ...reward, ...progressReward };
       if (merged.status !== "claimed" && claimedByEarned.has(merged.id)) {
         return { ...merged, status: "claimed" as const, watchedMinutes: merged.requiredMinutes };
       }
@@ -466,6 +483,39 @@ export function mergeTwitchCampaignProgress(
       ? !campaign.accountLinkUrl || inventoryConnected
       : campaign.accountLinked;
     return withCampaignStatus({ ...campaign, accountLinked, rewards }, status);
+  });
+}
+
+type TwitchSelfEvidence = { isClaimed: boolean; hasDropInstance: boolean } | "absent";
+
+function selfEvidence(self: TwitchReward["self"]): TwitchSelfEvidence {
+  return self ? { isClaimed: self.isClaimed === true, hasDropInstance: Boolean(self.dropInstanceID) } : "absent";
+}
+
+// What every Twitch source this check read said about each of a campaign's
+// subscription rewards, for diagnosing a reward Twitch credited that Lurkloot
+// does not show as earned (#679). Booleans and counts only: never the
+// drop-instance id, which embeds the viewer's user id.
+export function twitchSubscriptionRewardEvidence(
+  campaign: DropCampaign,
+  inventory: TwitchInventory,
+  detail?: TwitchCampaign,
+) {
+  const { campaigns: inventoryCampaigns, gameEventDrops, earnedCounts } = inventorySource(inventory);
+  const progress = inventoryCampaigns.find((item) => item.id === campaign.id);
+  return campaign.rewards.filter(isSubscriptionReward).map((reward) => {
+    const benefitIds = reward.benefitIds ?? [];
+    return {
+      rewardId: reward.id,
+      status: reward.status,
+      details: detail ? selfEvidence(detail.timeBasedDrops?.find((drop) => drop.id === reward.id)?.self) : "not_fetched",
+      inventory: progress ? selfEvidence(progress.timeBasedDrops?.find((drop) => drop.id === reward.id)?.self) : "not_in_progress",
+      // null on twitch-inventory-v1, which has no earned rewards to count.
+      earnedClaims: earnedCounts
+        ? benefitIds.reduce((total, id) => total + (earnedCounts.get(campaign.id)?.get(id) ?? 0), 0)
+        : null,
+      ownsBenefit: benefitIds.some((id) => gameEventDrops.some((drop) => drop.id === id || drop.benefit?.id === id)),
+    };
   });
 }
 
