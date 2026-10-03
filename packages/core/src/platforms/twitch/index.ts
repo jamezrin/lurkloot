@@ -9,7 +9,7 @@ import { StaleWhileRevalidateCache } from "../../core/staleCache";
 import type { WebSocketFactory } from "../../core/webSocket";
 import { diagnostic, ignoreEvent, type AdapterOperationOptions, type CandidateChannelSelection, type ChannelPointsClaimOptions, type PageFetcher, type PlatformAdapter } from "../adapter";
 import { TwitchChannelPointsPushController } from "./channelPointsPush";
-import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchCampaigns, twitchCandidatesFromCampaign, withCampaignStatus } from "./parser";
+import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchCampaigns, twitchCandidatesFromCampaign, twitchSubscriptionRewardEvidence, withCampaignStatus } from "./parser";
 import type { ResolvedCompatibility, TwitchIdentity } from "../../compatibility/types";
 import { createTwitchHeartbeat } from "./heartbeat/factory";
 import type { TwitchHeartbeatFetchText, TwitchHeartbeatPost, TwitchHeartbeatStrategy } from "./heartbeat/types";
@@ -532,6 +532,7 @@ function campaignDetailsFreshnessSpread(dropID: string): number {
 export class TwitchDiscoveryState {
   private readonly campaignDetailsByDropId = new Map<string, CachedCampaignDetails>();
   private readonly accountLinkingDiagnosticFingerprints = new Map<string, string>();
+  private readonly subscriptionEvidenceFingerprints = new Map<string, string>();
   private readonly availableCampaignsByChannel = new Map<string, CachedAvailableCampaigns>();
   private readonly progressConfirmedAvailabilityByPair = new Map<string, ProgressConfirmedAvailability>();
   private authenticatedUserId?: string;
@@ -577,6 +578,7 @@ export class TwitchDiscoveryState {
       this.availableCampaignsByChannel.clear();
       this.progressConfirmedAvailabilityByPair.clear();
       this.accountLinkingDiagnosticFingerprints.clear();
+      this.subscriptionEvidenceFingerprints.clear();
     }
     this.authenticatedUserId = userId;
     return identityChanged;
@@ -597,9 +599,25 @@ export class TwitchDiscoveryState {
     // Inventory-only campaigns can also produce linking diagnostics. Keep their
     // fingerprints while they remain present, even if the dashboard omits them.
     const activeIds = new Set([...campaignIds, ...inventoryCampaignIds]);
-    for (const campaignId of this.accountLinkingDiagnosticFingerprints.keys()) {
-      if (!activeIds.has(campaignId)) this.accountLinkingDiagnosticFingerprints.delete(campaignId);
+    for (const fingerprints of [this.accountLinkingDiagnosticFingerprints, this.subscriptionEvidenceFingerprints]) {
+      for (const campaignId of fingerprints.keys()) {
+        if (!activeIds.has(campaignId)) fingerprints.delete(campaignId);
+      }
     }
+  }
+
+  // Subscription reward evidence is logged when a campaign's first changes, so
+  // a credited subscription shows up in diagnostics without repeating every tick.
+  shouldReportSubscriptionEvidence(
+    campaignId: string,
+    fingerprint: string,
+    requestIdentity: TwitchAvailabilityRequestIdentity,
+  ): boolean {
+    if (requestIdentity.userId !== this.authenticatedUserId
+      || requestIdentity.generation !== this.availabilityGeneration) return false;
+    if (this.subscriptionEvidenceFingerprints.get(campaignId) === fingerprint) return false;
+    this.subscriptionEvidenceFingerprints.set(campaignId, fingerprint);
+    return true;
   }
 
   shouldReportAccountLinking(
@@ -1155,6 +1173,27 @@ export class TwitchAdapter implements PlatformAdapter {
         })}`, "twitch");
       }
     };
+    const reportSubscriptionEvidence = (
+      campaigns: readonly DropCampaign[],
+      rawDetails: Parameters<typeof parseTwitchCampaigns>[0] = [],
+    ): void => {
+      for (const campaign of campaigns) {
+        const rewards = twitchSubscriptionRewardEvidence(
+          campaign,
+          rawInventory,
+          rawDetails.find((item) => item.id === campaign.id),
+        );
+        if (rewards.length === 0) continue;
+        if (!this.discoveryState.shouldReportSubscriptionEvidence(
+          campaign.id, JSON.stringify(rewards), detailsRequestIdentity,
+        )) continue;
+        diagnostic(this.emit, "debug", `Twitch subscription reward evidence: ${JSON.stringify({
+          campaignId: campaign.id,
+          name: campaign.name,
+          rewards,
+        })}`, "twitch");
+      }
+    };
     const freshCampaignIds = dashboardCampaigns
       .filter((campaign) =>
         campaign.id
@@ -1202,6 +1241,7 @@ export class TwitchAdapter implements PlatformAdapter {
         inventory as Parameters<typeof mergeTwitchCampaignProgress>[1],
       );
       reportAccountLinking([...campaigns, ...discovered]);
+      reportSubscriptionEvidence([...campaigns, ...discovered]);
       return [...campaigns, ...discovered];
     }
 
@@ -1301,6 +1341,7 @@ export class TwitchAdapter implements PlatformAdapter {
     });
     if (detailedCampaigns.length === 0) {
       reportAccountLinking(inventoryCampaigns);
+      reportSubscriptionEvidence(inventoryCampaigns);
       return inventoryCampaigns;
     }
     const parsedDetails = parseTwitchCampaigns(detailedCampaigns as Parameters<typeof parseTwitchCampaigns>[0]);
@@ -1323,6 +1364,7 @@ export class TwitchAdapter implements PlatformAdapter {
     reportAccountLinking(campaigns, rawDetails, (campaignId) =>
       cachedDetailsByDropId.has(campaignId) ? "cache"
         : fetchedByDropId.get(campaignId)?.status === "fulfilled" ? "fresh" : "retained");
+    reportSubscriptionEvidence(campaigns, rawDetails);
     return campaigns;
   }
 

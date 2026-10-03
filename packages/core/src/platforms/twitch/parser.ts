@@ -1,6 +1,6 @@
 import type { ChannelCandidate, DropCampaign, DropReward } from "@lurkloot/shared/models";
 import { twitchCategoryDropsUrl } from "@lurkloot/shared/categories";
-import { isWaitingSubscriptionReward, isWatchReward } from "@lurkloot/shared/rewards";
+import { isSubscriptionReward, isWaitingSubscriptionReward, isWatchReward } from "@lurkloot/shared/rewards";
 
 interface TwitchInventory {
   data?: {
@@ -483,6 +483,39 @@ export function mergeTwitchCampaignProgress(
       ? !campaign.accountLinkUrl || inventoryConnected
       : campaign.accountLinked;
     return withCampaignStatus({ ...campaign, accountLinked, rewards }, status);
+  });
+}
+
+type TwitchSelfEvidence = { isClaimed: boolean; hasDropInstance: boolean } | "absent";
+
+function selfEvidence(self: TwitchReward["self"]): TwitchSelfEvidence {
+  return self ? { isClaimed: self.isClaimed === true, hasDropInstance: Boolean(self.dropInstanceID) } : "absent";
+}
+
+// What every Twitch source this check read said about each of a campaign's
+// subscription rewards, for diagnosing a reward Twitch credited that Lurkloot
+// does not show as earned (#679). Booleans and counts only: never the
+// drop-instance id, which embeds the viewer's user id.
+export function twitchSubscriptionRewardEvidence(
+  campaign: DropCampaign,
+  inventory: TwitchInventory,
+  detail?: TwitchCampaign,
+) {
+  const { campaigns: inventoryCampaigns, gameEventDrops, earnedCounts } = inventorySource(inventory);
+  const progress = inventoryCampaigns.find((item) => item.id === campaign.id);
+  return campaign.rewards.filter(isSubscriptionReward).map((reward) => {
+    const benefitIds = reward.benefitIds ?? [];
+    return {
+      rewardId: reward.id,
+      status: reward.status,
+      details: detail ? selfEvidence(detail.timeBasedDrops?.find((drop) => drop.id === reward.id)?.self) : "not_fetched",
+      inventory: progress ? selfEvidence(progress.timeBasedDrops?.find((drop) => drop.id === reward.id)?.self) : "not_in_progress",
+      // null on twitch-inventory-v1, which has no earned rewards to count.
+      earnedClaims: earnedCounts
+        ? benefitIds.reduce((total, id) => total + (earnedCounts.get(campaign.id)?.get(id) ?? 0), 0)
+        : null,
+      ownsBenefit: benefitIds.some((id) => gameEventDrops.some((drop) => drop.id === id || drop.benefit?.id === id)),
+    };
   });
 }
 
