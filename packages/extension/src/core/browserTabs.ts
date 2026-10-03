@@ -849,6 +849,20 @@ async function acquirePageContextTab(
     if (entry.refs === 0 && registry.pageContextTabs.get(origin) === entry) {
       registry.pageContextTabs.delete(origin);
       entry.abort.abort(signal?.aborted ? signal.reason : error);
+      const abandoned = entry;
+      // Aborting the creation signal handles work still in progress. If the
+      // creation promise already fulfilled, the caller can lose the abort
+      // race without ever receiving the tab to release, so reclaim it here.
+      // As for an aborted page fetch, only a context opened for this request
+      // gives up its retention; one that was already retained stays.
+      void (async () => {
+        try {
+          const tab = await abandoned.promise;
+          await disposePageContextTab(registry, browserApi, origin, tab, options?.emit ?? ignoreEvent, tab.openedForRequest === true);
+        } catch {
+          // A failed creation cleans up its own newly opened tab.
+        }
+      })();
     }
     throw error;
   }
@@ -863,12 +877,33 @@ async function releasePageContextTab(
   discardRetainedContext = false,
 ): Promise<void> {
   const entry = registry.pageContextTabs.get(origin);
-  if (!entry) return;
+  if (!entry) {
+    if (pageContext.createdByExtension) {
+      diagnostic(emit, "debug", `Left page context tab ${pageContext.tabId} on ${new URL(origin).host} open because nothing tracks it any more`, platformForOrigin(origin));
+    }
+    return;
+  }
 
   entry.refs -= 1;
-  if (entry.refs > 0) return;
+  if (entry.refs > 0) {
+    if (pageContext.createdByExtension) {
+      diagnostic(emit, "debug", `Kept page context tab ${pageContext.tabId} on ${new URL(origin).host} open for ${entry.refs} other ${entry.refs === 1 ? "caller" : "callers"}`, platformForOrigin(origin));
+    }
+    return;
+  }
 
   registry.pageContextTabs.delete(origin);
+  await disposePageContextTab(registry, browserApi, origin, pageContext, emit, discardRetainedContext);
+}
+
+async function disposePageContextTab(
+  registry: TabRegistry,
+  browserApi: BrowserTabApi,
+  origin: string,
+  pageContext: PageContextTab,
+  emit: EventEmitter,
+  discardRetainedContext: boolean,
+): Promise<void> {
   if (!pageContext.createdByExtension) return;
   if (pageContext.retainedContext && !discardRetainedContext) {
     registry.retainedPageContextTabs.set(pageContext.retainedContext.platform, pageContext.retainedContext);
@@ -887,8 +922,11 @@ async function releasePageContextTab(
 
   try {
     await closeTab(registry, browserApi, pageContext.tabId, "extension-cleanup");
-  } catch {
+    diagnostic(emit, "debug", `Closed temporary page context tab ${pageContext.tabId} on ${new URL(origin).host}`, platformForOrigin(origin));
+  } catch (error) {
     // The temporary context tab may have been closed manually before cleanup.
+    const message = error instanceof Error ? error.message : String(error);
+    diagnostic(emit, "warn", `Could not close temporary page context tab ${pageContext.tabId} on ${new URL(origin).host}: ${message}`, platformForOrigin(origin));
   }
 }
 
@@ -1027,6 +1065,17 @@ async function findOrCreatePageContextTab(
         reason: "Kick page context is blocked or unusable",
       });
     }
+    // Accounting can wait on controller state locks. Keep it within the new
+    // tab's cleanup scope and abort its wait too, or cancellation can discard
+    // the acquiring entry while leaving this already-created tab unowned.
+    try {
+      await withAbortSignal(Promise.resolve(options?.onManagedPageContextOpen?.()), signal);
+    } catch {
+      signal?.throwIfAborted();
+      if (contextPlatform) {
+        diagnostic(options?.emit ?? ignoreEvent, "warn", `Could not account for a managed page context opened on ${new URL(origin).host}`, contextPlatform);
+      }
+    }
     signal?.throwIfAborted();
   } catch (error) {
     try {
@@ -1035,13 +1084,6 @@ async function findOrCreatePageContextTab(
       // The unusable page may already have been closed.
     }
     throw error;
-  }
-  try {
-    await options?.onManagedPageContextOpen?.();
-  } catch {
-    if (contextPlatform) {
-      diagnostic(options?.emit ?? ignoreEvent, "warn", `Could not account for a managed page context opened on ${new URL(origin).host}`, contextPlatform);
-    }
   }
   if (retain && retain.retainCreatedPageContext !== false) {
     const retainedContext: ManagedPageContextTab = {
