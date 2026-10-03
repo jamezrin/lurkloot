@@ -161,6 +161,24 @@ function rewardComplete(reward: RewardView): boolean {
   return reward.obtained || (reward.progress ?? 0) >= 100;
 }
 
+const PLATFORM_HOSTS: Record<Platform, string> = { twitch: "twitch.tv", kick: "kick.com" };
+
+// The site a campaign's page is on, when that is not the campaign's own
+// platform. Twitch campaigns can point at a publisher's site, and the card
+// says so instead of sending the user there unannounced.
+function offPlatformHost(campaign: DropCampaign): string | undefined {
+  if (!campaign.url) return undefined;
+  let hostname: string;
+  try {
+    hostname = new URL(campaign.url).hostname.toLowerCase();
+  } catch {
+    return undefined;
+  }
+  const platformHost = PLATFORM_HOSTS[campaign.platform];
+  if (hostname === platformHost || hostname.endsWith(`.${platformHost}`)) return undefined;
+  return hostname.replace(/^www\./, "");
+}
+
 export function campaignViewFromCampaign(
   source: DropCampaign,
   index: number,
@@ -195,6 +213,7 @@ export function campaignViewFromCampaign(
     linked: campaign.accountLinked !== false,
     linkUrl: campaign.accountLinkUrl || undefined,
     pageUrl: campaign.url || undefined,
+    pageHost: offPlatformHost(campaign),
     categoryDropsUrl: campaign.platform === "twitch" && campaign.slug ? twitchCategoryDropsUrl(campaign.slug) : undefined,
     excluded,
     starts: campaign.startsAt ?? campaign.rewards.find((reward) => reward.availableFrom)?.availableFrom ?? "",
