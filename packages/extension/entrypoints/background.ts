@@ -407,7 +407,9 @@ export default defineBackground(() => {
 
   // Capture the Client-Integrity token the live twitch.tv page sends on its own
   // GQL requests so the background can replay it on authenticated mutations
-  // (drop claims). Registered at top level so it re-binds on each SW wake.
+  // (drop claims). Registered at top level so it re-binds on each SW wake. The
+  // background's own replays are seen here too, with tab id -1; the controller
+  // ignores those.
   // requestHeaders exposes the custom Client-Integrity header; if a future
   // Chrome build hides it, add "extraHeaders" to this spec.
   browser.webRequest.onBeforeSendHeaders.addListener(

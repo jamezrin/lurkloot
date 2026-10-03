@@ -587,7 +587,10 @@ describe("background controller", () => {
       await expect(pending).resolves.toBe(false);
     });
 
-    it("treats negative tab ids as unattributed integrity captures", async () => {
+    // The background replays the token it holds on its own GQL, and webRequest
+    // reports those requests with tab id -1. Re-capturing them gave the token
+    // a fresh fallback expiry on every replay, so it never aged out (#720).
+    it("ignores the background's own requests, which replay the token it holds", async () => {
       const browser = {
         tabs: {
           get: vi.fn(),
@@ -598,10 +601,19 @@ describe("background controller", () => {
         },
       } satisfies BrowserTabApi;
       const rejected = integrityBundle({ integrity: "controller-rejected-token" });
-      const replacement = integrityBundle({ integrity: "controller-unattributed-token" });
-      const env = harness(undefined, { loadTwitchIntegrity: async () => undefined });
+      const saved: string[] = [];
+      const env = harness(undefined, {
+        loadTwitchIntegrity: async () => undefined,
+        saveTwitchIntegrity: async (value) => {
+          saved.push(value.integrity);
+        },
+      });
       await env.controller.settleBackgroundWork();
-      setTwitchIntegrity(env.tabRegistry, rejected, { sourceTabId: 7 });
+      await env.controller.captureTwitchIntegrity(integrityHeaders(rejected), 7);
+      const installed = env.tabRegistry.twitchIntegrity;
+
+      await env.controller.captureTwitchIntegrity(integrityHeaders(rejected), -1);
+      expect(env.tabRegistry.twitchIntegrity).toBe(installed);
 
       const pending = ensureTwitchIntegrityWithBrowser(
         env.tabRegistry,
@@ -613,9 +625,21 @@ describe("background controller", () => {
       );
       await vi.waitFor(() => expect(browser.tabs.create).toHaveBeenCalledOnce());
 
-      await env.controller.captureTwitchIntegrity(integrityHeaders(replacement), -1);
+      await env.controller.captureTwitchIntegrity(integrityHeaders(integrityBundle({ integrity: "controller-background-token" })), -1);
 
-      await expect(pending).resolves.toBe(true);
+      await expect(pending).resolves.toBe(false);
+      expect(env.tabRegistry.twitchIntegrity).toBe(installed);
+      expect(saved).toEqual([rejected.integrity]);
+    });
+
+    it("captures a request from a host that cannot attribute it to a tab", async () => {
+      const env = harness(undefined, { loadTwitchIntegrity: async () => undefined });
+      await env.controller.settleBackgroundWork();
+      const captured = integrityBundle({ integrity: "controller-unattributed-token" });
+
+      await env.controller.captureTwitchIntegrity(integrityHeaders(captured));
+
+      expect(env.tabRegistry.twitchIntegrity?.integrity).toBe(captured.integrity);
     });
 
     it("acquires integrity before Twitch auth and scheduler work", async () => {

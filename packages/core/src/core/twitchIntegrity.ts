@@ -33,8 +33,9 @@ export interface IntegrityHeader {
 }
 
 // Build an integrity bundle from a webRequest `requestHeaders` array, or return
-// undefined when the request carries no Client-Integrity header — that filters
-// out our own background fetch and anonymous public queries, which never do.
+// undefined when the request carries no Client-Integrity header, as anonymous
+// public queries never do. The background's own requests replay the captured
+// token, so the caller filters those out by their source.
 export function integrityFromHeaders(headers: IntegrityHeader[] | undefined): TwitchIntegrity | undefined {
   if (!headers) return undefined;
   const get = (name: string): string | undefined =>
