@@ -1027,6 +1027,10 @@ describe("runLoop heartbeat driver", () => {
     expect(twitch.refreshCampaigns).toHaveBeenCalledOnce();
     expect(watcher.tick).not.toHaveBeenCalled();
     expect(transport.dispose).toHaveBeenCalledOnce();
+    // The tick started a tabless watcher (a Kick one holds its own WebSocket
+    // and handshake timer), so the run stops it before releasing the transport.
+    expect(watcher.stop).toHaveBeenCalledOnce();
+    expect(watcher.stop.mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(transport.dispose).mock.invocationCallOrder[0]!);
     expect(vi.getTimerCount()).toBe(0);
   });
 });
