@@ -1352,6 +1352,8 @@ export class TwitchAdapter implements PlatformAdapter {
     const discovered = new Map<string, Parameters<typeof parseTwitchCampaigns>[0][number]>();
     let successfulDirectories = 0;
     let lastDirectoryError: unknown;
+    let successfulLookups = 0;
+    let lastLookupError: unknown;
     const scanned = [...games.values()].slice(0, 4);
     const slugs = await this.resolveGameSlugs(scanned, signal);
     for (const game of scanned) {
@@ -1391,9 +1393,11 @@ export class TwitchAdapter implements PlatformAdapter {
             "DropsHighlightService_AvailableDrops", TWITCH_QUERIES.availableDropsHash,
             { channelID: broadcaster.id }, undefined, undefined, this.emit, signal,
           );
+          successfulLookups += 1;
         } catch (error) {
           signal?.throwIfAborted();
           if (authHealthFromError(error)) throw error;
+          lastLookupError = error;
           const message = error instanceof Error ? error.message : String(error);
           diagnostic(this.emit, "warn", `Twitch live-channel campaigns for ${broadcaster.login} failed: ${message}`, "twitch");
           continue;
@@ -1416,7 +1420,10 @@ export class TwitchAdapter implements PlatformAdapter {
     }
     // A total lookup outage is a failed refresh, not an authoritative empty
     // campaign list. Let the controller retain its last committed snapshot.
+    // That holds for the campaign lookups too: directories that listed
+    // channels whose every lookup failed found nothing either.
     if (successfulDirectories === 0 && lastDirectoryError) throw lastDirectoryError;
+    if (successfulLookups === 0 && lastLookupError) throw lastLookupError;
     diagnostic(this.emit, "info", `Twitch live-channel discovery found ${discovered.size} campaigns across ${Math.min(games.size, 4)} configured games`, "twitch");
     return parseTwitchCampaigns([...discovered.values()]);
   }

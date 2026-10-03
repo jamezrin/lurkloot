@@ -9,7 +9,7 @@ import {
 import type { ActivityPage, CategorySearchResult, CliCredentialBlob, DiagnosticsExport, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { ActivityHistoryRecord } from "@lurkloot/shared/events";
 import type { CategorySelection, ExtensionSettings, Platform, TwitchExtensionProviderId, WatchSourceId } from "@lurkloot/shared/models";
-import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings, revertSettingsPatch, type SettingsPatch } from "@lurkloot/shared/settings";
+import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings, type SettingsPatch } from "@lurkloot/shared/settings";
 import { buildSettingsExportPayload, parseSettingsImportPayload } from "@lurkloot/shared/settingsExport";
 import { effectiveLocale, isRtlLocale, type MessageCatalog } from "@lurkloot/shared/i18n";
 import { loadCatalog } from "@lurkloot/locales";
@@ -141,6 +141,11 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   const [settingsFocus, setSettingsFocus] = useState<string | undefined>(undefined);
   const [toolbarSlot, setToolbarSlot] = useState<HTMLElement | null>(null);
   const settingsRef = useRef<ExtensionSettings | null>(null);
+  // The settings storage last confirmed, and the edits still on their way to
+  // it. The popup shows the first with the second replayed on top, so a save
+  // that fails takes back only what it did not store.
+  const committedSettingsRef = useRef<ExtensionSettings | null>(null);
+  const pendingSettingsEditsRef = useRef<{ patch: SettingsPatch }[]>([]);
   const settingsSaveQueue = useRef<Promise<void>>(Promise.resolve());
   const snapshotRequestGenerationRef = useRef(0);
   const activityRequestScopeRef = useRef(createActivityRequestScope(platform));
@@ -202,16 +207,22 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     };
   }, [adapter, languageOverride]);
 
-  function snapshotWithMergedSettings(nextSnapshot: RuntimeSnapshot): RuntimeSnapshot {
-    const settings = mergeSettings(nextSnapshot.settings);
+  // Takes `committed` as what storage holds and returns what the popup shows:
+  // it with every edit still saving replayed on top.
+  function adoptCommittedSettings(committed: ExtensionSettings): ExtensionSettings {
+    committedSettingsRef.current = committed;
+    const settings = pendingSettingsEditsRef.current.reduce((current, edit) => applySettingsPatch(current, edit.patch), committed);
     settingsRef.current = settings;
-    return { ...nextSnapshot, settings };
+    return settings;
+  }
+
+  function snapshotWithMergedSettings(nextSnapshot: RuntimeSnapshot): RuntimeSnapshot {
+    return { ...nextSnapshot, settings: adoptCommittedSettings(mergeSettings(nextSnapshot.settings)) };
   }
 
   function snapshotPreservingLocalSettings(nextSnapshot: RuntimeSnapshot): RuntimeSnapshot {
-    const settings = settingsRef.current ?? mergeSettings(nextSnapshot.settings);
-    settingsRef.current = settings;
-    return { ...nextSnapshot, settings };
+    if (!settingsRef.current) return snapshotWithMergedSettings(nextSnapshot);
+    return { ...nextSnapshot, settings: settingsRef.current };
   }
 
   const previewPlatform = variantShowsPopup(initialVariant) ? initialVariant.platform : "twitch";
@@ -537,8 +548,10 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     // The background has committed the setting; show it now. The follow-up
     // tick can take tens of seconds, and the poll never refreshes settings, so
     // waiting on it would leave the switch greyed out on its old position.
-    const nextSettings = applySettingsPatch(settingsRef.current ?? snapshot!.settings, { twitchExtensions: { [provider]: { enabled: result } } } as SettingsPatch);
-    settingsRef.current = nextSettings;
+    const nextSettings = adoptCommittedSettings(applySettingsPatch(
+      committedSettingsRef.current ?? snapshot!.settings,
+      { twitchExtensions: { [provider]: { enabled: result } } } as SettingsPatch,
+    ));
     setSnapshot((current) => current ? { ...current, settings: nextSettings } : current);
     const generation = snapshotRequestGenerationRef.current;
     void adapter.send<RuntimeSnapshot>({ type: "tickNow" }).then((next) => {
@@ -551,28 +564,34 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   async function updateSettings(patch: SettingsPatch, options?: { tickAfterSave?: boolean; tickAfterSavePlatforms?: Platform[] }): Promise<void> {
     if (!snapshot) return;
     const settingsPatch = patch;
-    const previousSettings = settingsRef.current ?? snapshot.settings;
-    const nextSettings = applySettingsPatch(previousSettings, settingsPatch);
+    const edit = { patch: settingsPatch };
+    committedSettingsRef.current ??= settingsRef.current ?? snapshot.settings;
+    pendingSettingsEditsRef.current = [...pendingSettingsEditsRef.current, edit];
+    const nextSettings = applySettingsPatch(settingsRef.current ?? snapshot.settings, settingsPatch);
     settingsRef.current = nextSettings;
     setSnapshot((current) => current ? { ...current, settings: nextSettings } : current);
     const save = settingsSaveQueue.current.catch(() => undefined).then(async () => {
-      let nextSnapshot: RuntimeSnapshot;
+      let saved: RuntimeSnapshot | undefined;
+      let failure: { error: unknown } | undefined;
       try {
-        nextSnapshot = await adapter.send<RuntimeSnapshot>({
+        saved = await adapter.send<RuntimeSnapshot>({
           type: "saveSettings",
           settingsPatch,
           tickAfterSave: options?.tickAfterSave,
           tickAfterSavePlatforms: options?.tickAfterSavePlatforms,
         });
       } catch (error) {
-        // Nothing was saved: take back the optimistic change, keeping any
-        // newer edit that is still queued behind this one.
-        const restored = revertSettingsPatch(settingsRef.current ?? nextSettings, previousSettings, nextSettings, settingsPatch);
-        settingsRef.current = restored;
-        setSnapshot((current) => current ? { ...current, settings: restored } : current);
-        throw error;
+        failure = { error };
+        // A failed save may still have stored the edit: the background saves
+        // before it reschedules its jobs, and that can throw. Read back what
+        // storage holds instead of guessing; if that fails too, the edit is
+        // taken as not stored.
+        saved = await adapter.send<RuntimeSnapshot>({ type: "getSnapshot" }).catch(() => undefined);
       }
-      setSnapshot({ ...nextSnapshot, settings: settingsRef.current ?? mergeSettings(nextSnapshot.settings) });
+      pendingSettingsEditsRef.current = pendingSettingsEditsRef.current.filter((pending) => pending !== edit);
+      const settings = adoptCommittedSettings(saved ? mergeSettings(saved.settings) : committedSettingsRef.current!);
+      setSnapshot((current) => saved ? { ...saved, settings } : current ? { ...current, settings } : current);
+      if (failure) throw failure.error;
     });
     settingsSaveQueue.current = save;
     await save;

@@ -420,6 +420,52 @@ describe("createTransport", () => {
     await handle.dispose();
   });
 
+  it.each([
+    ["a network error", () => { throw new Error("lookup unavailable"); }],
+    ["a GQL errors envelope", () => twitchResponse({ errors: [{ message: "lookup unavailable" }] })],
+  ])("reports a failed discovery when every live-channel campaign lookup fails with %s", async (_label, availableDrops) => {
+    liveDiscoveryFetch({ availableDrops });
+    const handle = await createTransport("http", {}, "/tmp/auth", ENABLED);
+
+    // The directories answered, but no lookup did: that is an outage, not an
+    // authoritative empty campaign list that would clear the last snapshot.
+    await expect(handle.createAdapters(() => {}, tarkovSettings()).adapters.twitch.refreshCampaigns())
+      .rejects.toThrow(/lookup unavailable/);
+    await handle.dispose();
+  });
+
+  it("keeps the campaigns one lookup found when another lookup fails", async () => {
+    const campaign = {
+      id: "new-campaign", name: "New campaign",
+      game: { id: "491931", name: "Escape from Tarkov", displayName: "Escape from Tarkov", slug: "escape-from-tarkov" },
+      endAt: "2099-01-01T00:00:00Z",
+      timeBasedDrops: [{ id: "reward-id", name: "Reward", requiredMinutesWatched: 60,
+        startAt: "2026-01-01T00:00:00Z", benefitEdges: [{ benefit: { id: "benefit-id", name: "Benefit" } }] }],
+    };
+    vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: RequestInit) => {
+      const request = JSON.parse(String(init?.body));
+      switch (request.operationName) {
+        case "Inventory": return twitchResponse(emptyTwitchInventory());
+        case "ViewerDropsDashboard": return twitchResponse({ data: { currentUser: { id: "viewer-id", dropCampaigns: null } } });
+        case "GameSlugs": return twitchResponse({ data: { g0: { id: "491931", slug: "escape-from-tarkov" } } });
+        case "DirectoryPage_Game": return twitchResponse({ data: { game: { streams: { edges: [
+          { node: { broadcaster: { id: "broken-id", login: "broken" } } },
+          { node: { broadcaster: { id: "channel-id", login: "creator" } } },
+        ] } } } });
+        case "DropsHighlightService_AvailableDrops":
+          if (request.variables.channelID === "broken-id") throw new Error("lookup unavailable");
+          return twitchResponse({ data: { channel: { id: "channel-id", viewerDropCampaigns: [campaign] } } });
+        default: throw new Error(`Unexpected operation ${request.operationName}`);
+      }
+    }));
+    const handle = await createTransport("http", {}, "/tmp/auth", ENABLED);
+
+    const campaigns = await handle.createAdapters(() => {}, tarkovSettings()).adapters.twitch.refreshCampaigns();
+
+    expect(campaigns.map((item) => item.id)).toEqual(["new-campaign"]);
+    await handle.dispose();
+  });
+
   it("sends Trowel through the HTTP transport request path", async () => {
     const fetchMock = vi.fn(async (url: string) => new Response(url.includes("trowel.twitch.tv") ? null : JSON.stringify({
       data: { user: { id: "channel-id", stream: { id: "broadcast-id" } } },

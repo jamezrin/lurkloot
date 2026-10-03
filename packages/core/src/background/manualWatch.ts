@@ -8,7 +8,15 @@ import { kickChannelFromUrl } from "../platforms/kick/channelUrl";
 import { twitchChannelFromUrl } from "../platforms/twitch/channelUrl";
 import { PLATFORMS } from "./constants";
 import { lateBound, type ControllerSlices } from "./context";
-import { forgetRemovedPageContextTab, isReleasedTab, syncManagedTabBreakers, tabClosureOrigin } from "../core/tabRegistry";
+import {
+  forgetOpeningWatchTab,
+  forgetRemovedPageContextTab,
+  isOpeningWatchTab,
+  isReleasedTab,
+  openingWatchTabIds,
+  syncManagedTabBreakers,
+  tabClosureOrigin,
+} from "../core/tabRegistry";
 import { dismissCriticalFailure as dismissedCriticalFailure } from "../core/criticalHealth";
 import { emitHostCallbackError } from "./helpers";
 import type { BackgroundHostPorts, WatchTabPort } from "./hostPorts";
@@ -65,6 +73,7 @@ export function createManualWatch<S extends EngineSettings>(
   | "applyAdFocusForState"
   | "getPlaybackControl"
   | "registerWatchTabEffectHandlers"
+  | "releaseUncommittedWatchTabs"
   | "resumeFarmingAfterManualClose"
   | "dismissCriticalFailure"
 > {
@@ -103,6 +112,7 @@ export function createManualWatch<S extends EngineSettings>(
 
   async function handleTabRemoved(tabId: number): Promise<void> {
     noteRemovedTab(tabId);
+    forgetOpeningWatchTab(tabRegistry, tabId);
     // Taken before the lock: the engine records why it closes a tab before it
     // asks the browser to, so this is already known when the event arrives.
     const origin = tabClosureOrigin(tabRegistry, tabId);
@@ -216,6 +226,10 @@ export function createManualWatch<S extends EngineSettings>(
         && session.tabId === senderTabId;
 
       if (!isManagedWatchTab) {
+        // A watch tab a tick is still opening is the engine's even though no
+        // session holds it yet. Its playback is not the user watching, and
+        // there is no session to record it on until the tick commits.
+        if (senderTabId != null && isOpeningWatchTab(tabRegistry, senderTabId)) return;
         if (senderTabId != null) {
           manualWatchReported = true;
           await persistPlatformAndReport(
@@ -336,6 +350,38 @@ export function createManualWatch<S extends EngineSettings>(
     return { ...state, manualWatch, manualWatchTabs };
   }
 
+  // Run once a platform's tick has ended, however it ended. A watch tab it
+  // opened and committed is owned through the state from now on; one it did
+  // not commit (a host reset or shutdown aborted the tick, or its decision
+  // failed) is tracked by nothing, so it is closed whatever auto-close says:
+  // it never was the user's farming tab. A superseded tick has already closed
+  // or released its tab by now.
+  async function releaseUncommittedWatchTabs(platform: Platform): Promise<void> {
+    const opening = openingWatchTabIds(tabRegistry, platform);
+    if (opening.length === 0) return;
+    const state = await ports.storage.loadState();
+    const session = state.sessions[platform];
+    await withEventCollector(async (emit, events) => {
+      for (const tabId of opening) {
+        forgetOpeningWatchTab(tabRegistry, tabId);
+        const committed = state.managedWatchTabs?.[platform]?.tabId === tabId
+          || (session.status === "watching" && session.tabId === tabId);
+        if (committed || !tabs) continue;
+        emit({ category: "diagnostic", platform, level: "debug", message: `Closing watch tab ${tabId}: the tick that opened it ended without committing it` });
+        try {
+          await tabs.watch.stop(
+            { ...session, status: "watching", tabId, tabManagedByExtension: true },
+            { closeManagedTabs: true },
+            emit,
+          );
+        } catch (error) {
+          emitHostCallbackError(emit, platform, error, "Could not close an uncommitted watch tab");
+        }
+      }
+      await reportBestEffort(events);
+    });
+  }
+
   async function handleTabUpdated(tabId: number, url: string): Promise<void> {
     let committed = false;
     await withStateLock(() => withEventCollector(async (_emit, events) => {
@@ -425,6 +471,7 @@ export function createManualWatch<S extends EngineSettings>(
     resumeFarmingAfterManualClose,
     dismissCriticalFailure,
     registerWatchTabEffectHandlers: (executor) => registerWatchTabEffects(executor, tabs?.watch),
+    releaseUncommittedWatchTabs,
     handleTabRemoved,
     resumeAfterManualClose,
     recordPlaybackTelemetry,

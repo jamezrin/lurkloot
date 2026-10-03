@@ -8,12 +8,14 @@ import { fetchTwitchInBackgroundWith as fetchTwitchInBackgroundWithIdentity, typ
 import {
   describeContextBoot,
   forgetManagedPageContextTabs,
+  forgetOpeningWatchTab,
   forgetTabClosure,
   hasReplacementTwitchIntegrity,
   hasValidTwitchIntegrity,
   INTEGRITY_REFRESH_TIMEOUT_MS,
   isValidTwitchIntegrity,
   managedTabBreakerOpen,
+  noteOpeningWatchTab,
   noteTabClosure,
   observePageContextRecovery,
   resetPlaybackPriming,
@@ -59,6 +61,7 @@ async function closeTab(
     forgetTabClosure(registry, tabId);
     throw error;
   }
+  forgetOpeningWatchTab(registry, tabId);
 }
 
 // Closes the managed watch tabs a state held, if each still shows its channel.
@@ -215,7 +218,22 @@ export async function openPinnedMutedTabWithBrowser(
     diagnostic(emit, "error", `Could not create ${channel.platform} watch tab for ${channel.username}`, channel.platform);
     throw new Error(`Could not create ${channel.platform} watch tab`);
   }
-  if (tabOptions.signal?.aborted) {
+  // Before any other await: priming brings the tab to the front, so it can
+  // report playback before the tick that opened it commits.
+  noteOpeningWatchTab(registry, tab.id, channel.platform);
+  try {
+    tabOptions.signal?.throwIfAborted();
+    await browserApi.tabs.update(tab.id, { pinned: true, muted: tabOptions.muted, active: false });
+    if (tabOptions.keepVideosUnmuted) {
+      // Deliberately no reset here: a replacement tab for the same failing channel
+      // keeps spending the same budget, or the cap never engages under tab churn.
+      await maybePrimeTabPlayback(registry, browserApi, tab.id, channel, emit);
+    }
+    tabOptions.signal?.throwIfAborted();
+  } catch (error) {
+    // Nothing will commit a tab whose preparation failed or was cancelled (a
+    // host reset aborts the tick), so it is closed here rather than left open
+    // with no record of it.
     if (browserApi.tabs.remove) {
       try {
         await closeTab(registry, browserApi, tab.id, "extension-cleanup");
@@ -223,13 +241,7 @@ export async function openPinnedMutedTabWithBrowser(
         // The new managed tab may already have been closed independently.
       }
     }
-    tabOptions.signal.throwIfAborted();
-  }
-  await browserApi.tabs.update(tab.id, { pinned: true, muted: tabOptions.muted, active: false });
-  if (tabOptions.keepVideosUnmuted) {
-    // Deliberately no reset here: a replacement tab for the same failing channel
-    // keeps spending the same budget, or the cap never engages under tab churn.
-    await maybePrimeTabPlayback(registry, browserApi, tab.id, channel, emit);
+    throw error;
   }
   diagnostic(emit, "info", `Opened watch tab ${tab.id} for ${channel.username}`, channel.platform);
   return { tabId: tab.id, managedByExtension: true, managedTab: managedTab(channel, tab.id) };
@@ -353,6 +365,8 @@ export async function stopWatchTabWithBrowser(
       tabOptions.signal?.throwIfAborted();
       return;
     }
+    // Handed to the user, so it is no longer the engine's to close.
+    forgetOpeningWatchTab(registry, session.tabId);
     await browserApi.tabs.update(session.tabId, {
       muted: false,
       pinned: false,

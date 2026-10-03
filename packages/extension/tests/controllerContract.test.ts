@@ -700,6 +700,93 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
       host.controller.shutdown();
     });
 
+    // Holds the first browser call that configures a newly created tab, so the
+    // tick is still opening it, and resolves with that tab's id.
+    function holdNewTabConfiguration(host: ContractHost) {
+      const browser = host.browser!;
+      const create = browser.tabs.create;
+      const update = browser.tabs.update;
+      const opened = deferred<number>();
+      const release = deferred<void>();
+      let newTabId: number | undefined;
+      let held = false;
+      browser.tabs.create = async (properties) => {
+        const tab = await create(properties);
+        newTabId ??= tab.id;
+        return tab;
+      };
+      browser.tabs.update = async (tabId, properties) => {
+        if (tabId === newTabId && !held) {
+          held = true;
+          opened.resolve(tabId);
+          await release.promise;
+        }
+        return await update(tabId, properties);
+      };
+      return { opened: opened.promise, release: () => release.resolve() };
+    }
+
+    it("does not read its new watch tab's playback as the user watching while the tab opens", async () => {
+      const host = contractHost(capabilities, { settings: twitchOnly({ tablessMode: false, pauseOnManualWatch: true }) });
+      const held = holdNewTabConfiguration(host);
+      const ticking = host.controller.tickAndHandOff(["twitch"], "alarm");
+      const tabId = await held.opened;
+
+      // Priming brings the tab to the front, so it can report visible playback
+      // before the tick that opened it commits.
+      await host.controller.handleMessage(
+        { type: "playbackTelemetry", platform: "twitch", telemetry: playing },
+        { tab: { id: tabId, url: contractChannel("twitch").url } },
+      );
+      held.release();
+      await ticking;
+      await host.controller.tickAndHandOff(["twitch"], "alarm");
+      await host.settleTabEvents();
+
+      expect(host.storage.state.manualWatch?.twitch?.active).not.toBe(true);
+      expect(host.storage.state.sessions.twitch).toMatchObject({ status: "watching", tabId });
+      expect(host.browser!.has(tabId)).toBe(true);
+      host.controller.shutdown();
+    });
+
+    it("closes a watch tab it was still preparing when the host resets", async () => {
+      const host = contractHost(capabilities, { settings: twitchOnly({ tablessMode: false }) });
+      const held = holdNewTabConfiguration(host);
+      const ticking = host.controller.tickAndHandOff(["twitch"], "alarm");
+      const tabId = await held.opened;
+
+      const resetting = host.controller.prepareForHostReset();
+      held.release();
+      await Promise.all([ticking, resetting]);
+      await host.settleTabEvents();
+
+      expect(host.browser!.has(tabId)).toBe(false);
+      host.controller.shutdown();
+    });
+
+    it("closes a watch tab it opened when the host resets before the tick commits it", async () => {
+      const host = contractHost(capabilities, { settings: twitchOnly({ tablessMode: false }) });
+      const open = vi.mocked(host.deps.openWatchTab!).getMockImplementation()!;
+      const opened = deferred<number>();
+      const release = deferred<void>();
+      vi.mocked(host.deps.openWatchTab!).mockImplementationOnce(async (...args) => {
+        const prepared = await open(...args);
+        opened.resolve(prepared.tabId);
+        await release.promise;
+        return prepared;
+      });
+      const ticking = host.controller.tickAndHandOff(["twitch"], "alarm");
+      const tabId = await opened.promise;
+
+      const resetting = host.controller.prepareForHostReset();
+      release.resolve();
+      await Promise.all([ticking, resetting]);
+      await host.settleTabEvents();
+
+      expect(host.browser!.has(tabId)).toBe(false);
+      host.controller.shutdown();
+    });
+
     it("closes the watch tabs it left open when it restarts, without pausing", async () => {
       const host = contractHost(capabilities, { settings: twitchOnly({ tablessMode: false }) });
       const tabId = await watchInTab(host);

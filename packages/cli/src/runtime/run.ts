@@ -126,6 +126,12 @@ export async function runLoop(options: RunOptions): Promise<void> {
     } catch (error) {
       logger.error(error instanceof Error ? error.message : String(error), "run");
     }
+    // The tick may have started tabless watchers, and a Kick one holds its own
+    // WebSocket and handshake timer outside the transport. Shutdown stops them
+    // in the background; drain that before the transport goes, or the process
+    // keeps watching after the single tick.
+    controller.shutdown();
+    await controller.settleBackgroundWork();
     await transport.dispose();
     return;
   }

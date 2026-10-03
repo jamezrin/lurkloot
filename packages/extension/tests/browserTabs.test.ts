@@ -12,6 +12,7 @@ import {
   currentTwitchIntegrityWaiterCount,
   currentValidTwitchIntegrity,
   hasValidTwitchIntegrity,
+  isOpeningWatchTab,
   isValidTwitchIntegrity,
   tabClosureOrigin,
   noteTwitchGqlRequest,
@@ -806,6 +807,42 @@ describe("tab manager", () => {
 
     expect(browser.tabs.remove).toHaveBeenCalledWith(9);
     expect(browser.tabs.update).not.toHaveBeenCalledWith(9, expect.anything());
+  });
+
+  it("closes a newly created managed tab when the tick is cancelled while it is being primed", async () => {
+    const browser = browserMock();
+    const abort = new AbortController();
+    vi.mocked(browser.tabs.query).mockImplementation(async () => {
+      // Priming looks up the user's active tab first; a host reset lands here.
+      abort.abort(new Error("reset"));
+      return [];
+    });
+
+    await expect(openPinnedMutedTabWithBrowser(registry, browser, channel, undefined, { signal: abort.signal }))
+      .rejects.toThrow("reset");
+
+    expect(browser.tabs.remove).toHaveBeenCalledWith(9);
+    expect(isOpeningWatchTab(registry, 9)).toBe(false);
+  });
+
+  it("closes a newly created managed tab whose configuration fails", async () => {
+    const browser = browserMock();
+    vi.mocked(browser.tabs.update).mockRejectedValueOnce(new Error("update failed"));
+
+    await expect(openPinnedMutedTabWithBrowser(registry, browser, channel)).rejects.toThrow("update failed");
+
+    expect(browser.tabs.remove).toHaveBeenCalledWith(9);
+  });
+
+  it("holds a new watch tab as opening until its tick settles it", async () => {
+    const browser = browserMock();
+
+    await openPinnedMutedTabWithBrowser(registry, browser, channel);
+    expect(isOpeningWatchTab(registry, 9)).toBe(true);
+
+    // Released to the user rather than closed: no longer the engine's.
+    await stopWatchTabWithBrowser(registry, browser, { platform: "twitch", status: "watching", offlineChecks: 0, tabId: 9, tabManagedByExtension: true }, { closeManagedTabs: false });
+    expect(isOpeningWatchTab(registry, 9)).toBe(false);
   });
 
   it("does not foreground-prime new tabs when page video control is disabled", async () => {
