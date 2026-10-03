@@ -408,6 +408,7 @@ export interface ControllerCalls<S extends EngineSettings> {
   handleTabUpdated(tabId: number, url: string): Promise<void>;
   applyAdFocusForState(state: SchedulerState, emit: EventEmitter, platforms?: readonly Platform[]): Promise<void>;
   registerWatchTabEffectHandlers(executor: TickEffectExecutor): TickEffectExecutor;
+  releaseUncommittedWatchTabs(platform: Platform): Promise<void>;
 
   // supplementalSources.ts
   registerSupplementalTargetEffects(executor: TickEffectExecutor): TickEffectExecutor;

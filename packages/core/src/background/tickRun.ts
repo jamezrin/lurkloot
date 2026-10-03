@@ -52,6 +52,7 @@ export function createTickRun<S extends EngineSettings>(
     | "registerSupplementalTargetEffects"
     | "registerWatchTabEffectHandlers"
     | "registerTwitchChannelPointsEffects"
+    | "releaseUncommittedWatchTabs"
     | "refreshAuthHealth"
     | "refreshDiscovery"
     | "reportAuthSetupFailures"
@@ -97,6 +98,7 @@ export function createTickRun<S extends EngineSettings>(
     registerSupplementalTargetEffects,
     registerWatchTabEffectHandlers,
     registerTwitchChannelPointsEffects,
+    releaseUncommittedWatchTabs,
     refreshAuthHealth,
     refreshDiscovery,
     reportAuthSetupFailures,
@@ -163,6 +165,14 @@ export function createTickRun<S extends EngineSettings>(
     } finally {
       endTickCycle(platform);
       for (const heldPlatform of PLATFORMS) releaseRewardClaims(heldPlatform, heldRewardClaims[heldPlatform]);
+      // Not gated on the abort: a host reset aborting the tick between opening
+      // a watch tab and committing it is exactly when the tab would be left
+      // open. The platform's next tick waits for this.
+      try {
+        await releaseUncommittedWatchTabs(platform);
+      } catch (error) {
+        diagnosticEvent("warn", `Could not release uncommitted watch tabs: ${error instanceof Error ? error.message : String(error)}`, platform, tickContext);
+      }
       for (const adapter of Object.values(tickAdapters)) adapter.close();
       tickSlice.activeTicks.delete(abort);
       tickSlice.activePlatformTicks[platform] -= 1;

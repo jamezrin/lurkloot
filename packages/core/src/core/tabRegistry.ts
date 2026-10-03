@@ -51,6 +51,11 @@ export interface TabRegistry {
   // Kept after that event: a result the closed tab sent before it went away
   // can still arrive, and must be recognized as coming from a released tab.
   tabClosures: Map<number, Exclude<TabClosureOrigin, "user">>;
+  // Watch tabs the engine has created whose tick has neither committed them
+  // nor closed them yet, by platform. Ownership is provisional until then:
+  // the tab's playback is the engine's, not the user watching, and a tick
+  // that ends without committing one closes it.
+  openingWatchTabs: Map<number, Platform>;
   retainedPageContextRevision: number;
   // Mirrors SchedulerState.criticalHealth[platform].breakerOpen. The page-context
   // call sites are several layers deep and have no access to scheduler state, so
@@ -90,6 +95,7 @@ export function createTabRegistry(): TabRegistry {
     pageContextTabs: new Map(),
     retainedPageContextTabs: new Map(),
     tabClosures: new Map(),
+    openingWatchTabs: new Map(),
     retainedPageContextRevision: 0,
     openManagedTabBreakers: new Set(),
     playbackPrimeStates: new Map(),
@@ -484,6 +490,25 @@ export function isReleasedTab(registry: TabRegistry, tabId: number): boolean {
 // Why a removed tab was closed: the engine's recorded reason, or the user.
 export function tabClosureOrigin(registry: TabRegistry, tabId: number): TabClosureOrigin {
   return registry.tabClosures.get(tabId) ?? "user";
+}
+
+// Records a watch tab the engine just created. Call it as soon as the tab has
+// an id: the tab can report playback while it is still being prepared.
+export function noteOpeningWatchTab(registry: TabRegistry, tabId: number, platform: Platform): void {
+  registry.openingWatchTabs.set(tabId, platform);
+}
+
+// The tab was committed, closed, or handed to the user.
+export function forgetOpeningWatchTab(registry: TabRegistry, tabId: number): void {
+  registry.openingWatchTabs.delete(tabId);
+}
+
+export function isOpeningWatchTab(registry: TabRegistry, tabId: number): boolean {
+  return registry.openingWatchTabs.has(tabId);
+}
+
+export function openingWatchTabIds(registry: TabRegistry, platform: Platform): number[] {
+  return [...registry.openingWatchTabs].filter(([, opening]) => opening === platform).map(([tabId]) => tabId);
 }
 
 // What one scheduler cycle's page-context evidence means for the retained
