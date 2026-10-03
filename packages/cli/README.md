@@ -26,9 +26,10 @@ The CLI has its **own** settings schema — it is *not* the extension's
 `ExtensionSettings` verbatim. Only settings that do something in the headless,
 tabless watch path are accepted; the schema is validated strictly, so an unknown
 key (or an extension-only one copy-pasted from the browser config) is a **hard
-error** that names the offender. `running` and `tablessMode` are gone — the CLI
-always runs and is always tabless. **Credentials never go in the config** — they
-live in the auth store.
+error** that names the offender. `running` is gone — the CLI always runs. The CLI
+has no browser tabs, so it always watches tabless: `tablessMode` is derived, not
+configured. A config that still sets it loads, with a warning that the key is
+ignored. **Credentials never go in the config** — they live in the auth store.
 
 Legacy `settings.enabledLogLevels` is accepted but ignored, with one actionable
 warning per command; use the global `--log debug|info|warn|error` option instead.
@@ -76,6 +77,14 @@ becomes `"include"`, anything else becomes `"all"` — and a config using the
 removed `"exclude"` mode becomes `"all"` plus `blockedCategories`, both with a
 startup warning.
 
+Twitch's campaign dashboard may return no campaigns to headless clients. In
+that case the CLI scans up to four games from `categories` and
+`favouriteCategories` (plus games already present in Inventory), with up to
+eight live Drops-enabled channels per game. Add games you care about to
+`categories` even when `categoryMode` is `"all"`. This discovers only campaigns
+visible on those live channels; offline and unscanned campaigns remain unknown.
+Inventory is still authoritative for started campaigns and reward progress.
+
 `farmingEligibility` gates what the engine may farm. Its two keys both default
 `true`: set `farmUnlinkedCampaigns` to `false` to skip campaigns that need an
 account link, and `farmSubscriptionCampaigns` to `false` to skip campaigns that
@@ -85,8 +94,7 @@ the run logs a warning saying so. A config still using the old name
 `farmingEligibility`), with one deprecation warning per command, rather than
 rejected.
 
-Rejected (extension-only, no effect headlessly): `running`, `tablessMode`,
-`muteFarmingTabs`, `keepFarmingVideosUnmuted`, `pauseOnManualWatch`,
+Rejected (extension-only, no effect headlessly): `running`, `muteFarmingTabs`, `keepFarmingVideosUnmuted`, `pauseOnManualWatch`,
 `adFocusMode`, `autoCloseFinishedDrops`, `autoStartDropFarming`,
 `languageOverride`, `rateNudgeStatus`, `githubStarNudgeStatus`, `diagnosticLogging`.
 The retired `dropsListFilter` is no longer rejected: it is migrated away for
@@ -113,16 +121,19 @@ every host, with a deprecation warning.
 | `http` | ✅ plain Node fetch | ❌ Cloudflare WAF (403) | Lightest; Twitch-only in practice. |
 | `impersonate` | ✅ | ✅ **cycletls Chrome JA3/HTTP-2** | Recommended default. Reaches both with no browser. |
 
-Both transports talk to Twitch as the **Android app client**
-(`kd1unb4b3q4t58fwlpcbzcbnm76a8fp`) — the same identity TwitchDropsMiner uses.
-Twitch only enforces Client-Integrity (Kasada) for the *web* client id, so under
-the Android client discovery, watch progress, **and drop claims** all work with
-plain OAuth — no integrity token, no browser.
+New Twitch device logins use the **SMARTBOX (Smart TV) client**. Previously
+issued Android tokens retain their recorded client ID. Twitch may hide its
+campaign dashboard from those clients, so CLI discovery can be partial as
+described above. An imported web session from the updated extension uses the
+web client identity and mints its own integrity token in Node; its protected
+dashboard request was verified live. Twitch drop claiming with the CLI alone
+still needs an account-level live test.
 
 Kick's Cloudflare WAF inspects the TLS/JA3 + HTTP-2 fingerprint, so a plain Node
 request is rejected (HTTP 403). The `impersonate` transport sends a real Chrome
 fingerprint via [cycletls](https://github.com/Danny-Dasilva/CycleTLS) and reaches
-Kick's API and viewer socket without a browser.
+Kick's API without a browser. The viewer socket uses Node's WebSocket client
+with the same Kick session bearer.
 
 ## Auth
 
@@ -138,20 +149,27 @@ pnpm cli auth status
 ```
 
 - **`auth twitch device-login`** runs Twitch's device-code OAuth against the
-  Android client (no scopes, like TDM): it prints an activation URL + code, you
-  approve it on any device, and the token is saved. The token's client matches
-  the Client-ID the transports send, so no integrity is ever required.
+  Smart TV client: it prints an activation URL + code, you approve it on any
+  device, and the token and its client ID are saved together.
 - **`auth kick device-login`** runs Kick's smart-TV link flow (the same one the
   Kick TV app uses): it prints a `kick.com/tv/login` URL + a 6-digit code; open
   it on any device where you're signed in to Kick and confirm the code, and the
   session token is saved — no cookie export needed.
-- **`auth import`** ingests a credential blob exported by the extension
-  (Settings → **Export credentials**) — another way to supply a **Kick** session
-  token headlessly.
+- **`auth import`** ingests a credential blob exported by the updated extension
+  (Settings → **Export credentials**) for Twitch and/or Kick. A Twitch web
+  import needs the exported device ID and Kasada session cookie as well as the
+  OAuth token. The extension reads that cookie from `k.twitchcdn.net`, so
+  clicking **Export credentials** asks for that one extra site permission. If
+  the popup closes when the browser asks, open it and export again. Decline
+  the permission and the export carries only the login cookies. The CLI validates the web client identity, mints integrity
+  without launching a browser, and persists cookie rotation in its private
+  auth store. Older exports lacking these fields cannot import Twitch; export
+  again from the updated extension or use `auth twitch device-login`.
 
 Env-var overrides (useful for Docker secrets) take precedence over the store:
 `SA_TWITCH_AUTH_TOKEN`, `SA_TWITCH_DEVICE_ID`, `SA_TWITCH_CLIENT_ID`,
-`SA_KICK_SESSION_TOKEN`.
+`SA_KICK_SESSION_TOKEN`. The rotating Kasada cookie is loaded only from the
+private auth store, so a stale environment value cannot override a refresh.
 
 ## Commands
 
@@ -222,5 +240,5 @@ docker run --rm -v "$PWD/data:/data" lurkloot-cli discover --config /data/config
 
 Authenticate first — `auth twitch device-login` / `auth kick device-login` work
 headlessly inside the container, or run them on any host and mount the resulting
-`auth/` dir in. A Kick token can also come from an extension export
-(`auth import`) or `SA_KICK_SESSION_TOKEN`.
+`auth/` dir in. An updated extension export can also supply Twitch and Kick
+credentials through `auth import`; Kick alone can use `SA_KICK_SESSION_TOKEN`.

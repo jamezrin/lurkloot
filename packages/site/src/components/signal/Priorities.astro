@@ -1,0 +1,70 @@
+---
+// The farming order, one layer at a time: the step list sticks on the left
+// while the stacked card on the right shows that layer in the real popup.
+// signal-motion.ts marks the current step and scene; without it (small
+// screens, reduced motion) each step sits beside its own view instead.
+import PopupExcerpt from "../../popup-ui/PopupExcerpt";
+import type { PopupView } from "@lurkloot/popup-ui";
+
+const layers: Array<{ title: string; body: string; view: PopupView; scroll?: "end" }> = [
+  {
+    title: "Pinned campaigns",
+    body: "Pin a campaign and it goes to the front of the queue. Drag pins into any order, or tell Lurkloot to farm pinned campaigns only.",
+    view: "queue",
+  },
+  {
+    title: "Favourite games",
+    body: "Star a game and its campaigns rank above everything you haven't pinned. Block one and it's never farmed at all.",
+    view: "games",
+  },
+  {
+    title: "Everything else, by strategy",
+    body: "The rest follows the strategy you choose: campaigns that end soonest first, or the ones with the fewest channels to watch.",
+    view: "queue",
+    scroll: "end",
+  },
+  {
+    title: "Your idle watchlist",
+    body: "When there are no eligible drops, your watchlist can keep Lurkloot watching the channels you choose. The first one that's live gets the view.",
+    view: "watchlist",
+  },
+];
+---
+<section class="sg-section sg-steps" id="priorities" aria-labelledby="priorities-title">
+  <div class="sg-wrap">
+    <header class="sg-head sg-head--split" data-reveal>
+      <div>
+        <p class="sg-eyebrow">Farming order</p>
+        <h2 id="priorities-title">Make room for<br /><span class="sg-dim">your favourites.</span></h2>
+      </div>
+      <p>Give the games you care about a place at the front. Every campaign has a place in one queue, and this is the order Lurkloot works through it.</p>
+    </header>
+  </div>
+  <div class="sg-steps__stage">
+    <div class="sg-wrap sg-steps__grid">
+      <ol class="sg-steps__list">
+        {layers.map((layer, index) => (
+          <li class="sg-step" data-step-item style={`order:${index * 2}`}>
+            <span class="sg-step__rail" aria-hidden="true"><i></i></span>
+            <h3><span class="sg-step__n">0{index + 1}</span>{layer.title}</h3>
+            <p>{layer.body}</p>
+          </li>
+        ))}
+      </ol>
+      <div class="sg-steps__visual">
+        <div class="sg-stack">
+          <span class="sg-stack__back sg-stack__back--2" aria-hidden="true"></span>
+          <span class="sg-stack__back sg-stack__back--1" aria-hidden="true"></span>
+          <div class="sg-stack__card">
+            {layers.map((layer, index) => (
+              <div class="sg-scene" data-scene={index} style={`order:${index * 2 + 1}`}>
+                <PopupExcerpt client:visible view={layer.view} scroll={layer.scroll} />
+              </div>
+            ))}
+          </div>
+        </div>
+        <p class="sg-steps__note">Views from the extension · sample data</p>
+      </div>
+    </div>
+  </div>
+</section>

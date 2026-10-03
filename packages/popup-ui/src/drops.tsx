@@ -20,7 +20,7 @@ import {
   Users,
 } from "lucide-react";
 import type { CategorySelection } from "@lurkloot/shared/models";
-import { I18nContext, PopupRuntimeContext, useT } from "./context";
+import { I18nContext, PopupRuntimeContext, SubscriptionMarkContext, useT } from "./context";
 import { formatCountdown, formatDateTime, formatMinutes, formatViewers } from "./format";
 import { campaignStats, campaignTimeline } from "./viewModels";
 import type { CampaignTimeline, CampaignView, GameItem, RewardView, TFunction } from "./types";
@@ -97,6 +97,7 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
   const t = useT();
   const { locale } = React.useContext(I18nContext);
   const runtime = React.useContext(PopupRuntimeContext);
+  const toggleSubscriptionMark = React.useContext(SubscriptionMarkContext);
   const stats = campaignStats(campaign);
   const timeline = campaignTimeline(campaign);
   // `terminal` is "this campaign is over": the Completed view renders expired
@@ -112,6 +113,12 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
   const farmingRejection = isFarming || finished ? undefined : campaign.farmingRejection;
   const farmingRejectionMessage = farmingRejection
     ? t(campaignRejectionMessageKey(farmingRejection.code), farmingRejection.rewardName)
+    : undefined;
+  // Fixing the first reason is not always enough (#677): say what comes next,
+  // so a fix that leaves the campaign skipped does not look like it failed.
+  const nextBlocker = farmingRejection ? campaign.laterBlockers?.[0] : undefined;
+  const nextBlockerMessage = nextBlocker
+    ? t("campaignRejectionThen", t(campaignRejectionMessageKey(nextBlocker.code), nextBlocker.rewardName))
     : undefined;
   const emphasized = !finished && (isFarming || (!anyFarming && index === 0 && !farmingRejection));
   const showsWatchProgress = stats.kind === "watch" || stats.kind === "mixed";
@@ -308,7 +315,10 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
               {farmingRejectionMessage ? (
                 <div className="flex items-center gap-2 rounded-lg border border-amber-300/70 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
                   <AlertTriangle size={12} className="shrink-0" />
-                  <span className="min-w-0 flex-1">{farmingRejectionMessage}</span>
+                  <span className="min-w-0 flex-1">
+                    {farmingRejectionMessage}
+                    {nextBlockerMessage ? <span data-campaign-next-blocker className="block opacity-80">{nextBlockerMessage}</span> : null}
+                  </span>
                   {fix ? (
                     <button type="button" onClick={fix.onClick} className="shrink-0 rounded-md border border-current px-2 py-0.5 text-[10px] font-semibold hover:bg-amber-100 dark:hover:bg-amber-500/20">
                       {fix.label}
@@ -356,7 +366,11 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
                   <span className="flex items-center gap-1 text-[11px] font-semibold text-zinc-700 dark:text-zinc-200"><Gift size={12} className="text-zinc-400 dark:text-zinc-500" /> {t("rewards")}</span>
                   <span className="font-mono text-[11px] font-semibold text-zinc-500 tabular dark:text-zinc-400">{stats.completed}/{stats.totalRewards}</span>
                 </div>
-                <RewardCarousel rewards={campaign.rewards} missed={expired} />
+                <RewardCarousel
+                  rewards={campaign.rewards}
+                  missed={expired}
+                  onToggleSubscriptionMark={toggleSubscriptionMark ? (rewardId) => toggleSubscriptionMark(campaign.id, rewardId) : undefined}
+                />
               </div>
               <div className="flex flex-wrap gap-x-4 gap-y-1.5">
                 {upcoming ? <Fact label={t("campaignFactStarts")} value={formatDateTime(campaign.starts, locale)} /> : null}
@@ -375,17 +389,7 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
                   </Fact>
                 ) : !finished ? (
                   <Fact label={t("campaignFactChannels")}>
-                    {campaign.channels.length === 0 ? t("allChannels") : (
-                      <>
-                        {campaign.channels.slice(0, 3).map((channel, channelIndex) => (
-                          <React.Fragment key={channel.name}>
-                            {channelIndex > 0 ? ", " : null}
-                            <a href={channel.url} target="_blank" rel="noreferrer" className="hover:text-zinc-900 hover:underline dark:hover:text-zinc-50">{channel.name}</a>
-                          </React.Fragment>
-                        ))}
-                        {campaign.channels.length > 3 ? <span className="text-zinc-500 dark:text-zinc-400"> {t("campaignMoreChannels", String(campaign.channels.length - 3))}</span> : null}
-                      </>
-                    )}
+                    <CampaignChannels campaign={campaign} />
                   </Fact>
                 ) : null}
                 {!finished && !stats.complete && stats.nextReward && stats.nextRewardRemaining != null ? (
@@ -562,6 +566,48 @@ function CampaignProgress({ timeline, reachable, rewardsLabel, onClick }: { time
   );
 }
 
+const COLLAPSED_CHANNEL_COUNT = 3;
+
+// The channels a campaign can be farmed on. A long list starts collapsed and
+// expands in place. A Twitch campaign open to every channel links to the
+// game's Drops directory, where those channels are.
+function CampaignChannels({ campaign }: { campaign: CampaignView }): React.ReactElement {
+  const t = useT();
+  const [expanded, setExpanded] = useState(false);
+  const linkClass = "hover:text-zinc-900 hover:underline dark:hover:text-zinc-50";
+  if (campaign.channels.length === 0) {
+    return campaign.categoryDropsUrl
+      ? <a href={campaign.categoryDropsUrl} target="_blank" rel="noreferrer" data-campaign-all-channels className={linkClass}>{t("allChannels")}</a>
+      : <>{t("allChannels")}</>;
+  }
+  const hidden = campaign.channels.length - COLLAPSED_CHANNEL_COUNT;
+  const shown = expanded ? campaign.channels : campaign.channels.slice(0, COLLAPSED_CHANNEL_COUNT);
+  return (
+    <>
+      {shown.map((channel, channelIndex) => (
+        <React.Fragment key={channel.name}>
+          {channelIndex > 0 ? ", " : null}
+          <a href={channel.url} target="_blank" rel="noreferrer" className={linkClass}>{channel.name}</a>
+        </React.Fragment>
+      ))}
+      {hidden > 0 ? (
+        <>
+          {" "}
+          <button
+            type="button"
+            data-campaign-more-channels
+            aria-expanded={expanded}
+            onClick={() => setExpanded((current) => !current)}
+            className="text-zinc-500 underline decoration-zinc-300 decoration-1 underline-offset-2 hover:text-zinc-900 hover:decoration-current dark:text-zinc-400 dark:decoration-zinc-600 dark:hover:text-zinc-50"
+          >
+            {expanded ? t("campaignFewerChannels") : t("campaignMoreChannels", String(hidden))}
+          </button>
+        </>
+      ) : null}
+    </>
+  );
+}
+
 function Fact({ label, value, children }: { label: string; value?: string; children?: React.ReactNode }): React.ReactElement {
   return (
     <div className="flex min-w-0 flex-col gap-0.5">
@@ -596,7 +642,7 @@ function CampaignActions({ campaign, gameName, finished, refreshing, pinned, onP
     ? t("campaignCategoryBlocked", gameName)
     : campaign.excluded ? t("excluded") : t("campaignExclude");
 
-  if (!onPin && !onFavourite && !onExclude && !onBlock && !onRefresh && !campaign.pageUrl) return null;
+  if (!onPin && !onFavourite && !onExclude && !onBlock && !onRefresh && !campaign.pageUrl && !campaign.categoryDropsUrl) return null;
   return (
     <div className="space-y-1.5">
       <div className="flex flex-wrap items-center gap-1.5">
@@ -666,21 +712,33 @@ function CampaignActions({ campaign, gameName, finished, refreshing, pinned, onP
             {t("subscribedRefresh")}
           </ActionChip>
         ) : null}
-        {campaign.pageUrl ? (
-          <a
-            href={campaign.pageUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="ms-auto inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--ink-text)] hover:underline"
-          >
-            {t("viewDropPage")}
-            <ExternalLink size={11} aria-hidden="true" />
-          </a>
+        {campaign.pageUrl || campaign.categoryDropsUrl ? (
+          // The campaign's own page and, on Twitch, the game's Drops directory:
+          // two destinations, labelled apart (#678).
+          <span className="ms-auto inline-flex items-center gap-3">
+            {campaign.pageUrl ? (
+              <a href={campaign.pageUrl} target="_blank" rel="noreferrer" data-campaign-details-link className={CAMPAIGN_LINK_CLASS}>
+                {t("campaignDropDetails")}
+                {campaign.pageHost ? (
+                  <span data-campaign-details-host className="font-normal text-zinc-500 dark:text-zinc-400">{campaign.pageHost}</span>
+                ) : null}
+                <ExternalLink size={11} aria-hidden="true" />
+              </a>
+            ) : null}
+            {campaign.categoryDropsUrl ? (
+              <a href={campaign.categoryDropsUrl} target="_blank" rel="noreferrer" data-campaign-category-drops-link className={CAMPAIGN_LINK_CLASS}>
+                {t("campaignCategoryDrops")}
+                <ExternalLink size={11} aria-hidden="true" />
+              </a>
+            ) : null}
+          </span>
         ) : null}
       </div>
     </div>
   );
 }
+
+const CAMPAIGN_LINK_CLASS = "inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--ink-text)] hover:underline";
 
 function excludeClass(active: boolean): string {
   return cn(
@@ -728,7 +786,7 @@ function ActionChip({ pressed, disabled, onClick, icon, children }: { pressed?: 
   );
 }
 
-function RewardCarousel({ rewards, missed = false }: { rewards: RewardView[]; missed?: boolean }) {
+function RewardCarousel({ rewards, missed = false, onToggleSubscriptionMark }: { rewards: RewardView[]; missed?: boolean; onToggleSubscriptionMark?: (rewardId: string) => void }) {
   const t = useT();
   const rowRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -774,7 +832,7 @@ function RewardCarousel({ rewards, missed = false }: { rewards: RewardView[]; mi
   return (
     <div className="relative -mx-0.5">
       <div ref={rowRef} className="no-scrollbar flex gap-2 overflow-x-auto px-0.5 pb-1">
-        {rewards.map((reward) => <RewardTile key={reward.id} reward={reward} missed={missed} />)}
+        {rewards.map((reward) => <RewardTile key={reward.id} reward={reward} missed={missed} onToggleSubscriptionMark={onToggleSubscriptionMark} />)}
       </div>
       {canScrollLeft && (
         <Tip label={t("scrollRewardsLeft")}>
@@ -829,11 +887,31 @@ export function campaignRejectionMessageKey(code: NonNullable<CampaignView["farm
   return keys[code];
 }
 
-function RewardTile({ reward, missed = false }: { reward: RewardView; missed?: boolean }) {
+function SubscriptionMarkControl({ marked, onToggle }: { marked: boolean; onToggle(): void }) {
+  const t = useT();
+  return marked ? (
+    <div data-subscription-marked className="flex items-center justify-between gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+      <span>{t("subscriptionMarkedSubscribed")}</span>
+      <button type="button" data-subscription-mark-undo onClick={onToggle} className="shrink-0 font-semibold text-zinc-600 underline decoration-zinc-300 underline-offset-2 hover:decoration-current dark:text-zinc-300 dark:decoration-zinc-600">
+        {t("subscriptionMarkUndo")}
+      </button>
+    </div>
+  ) : (
+    <button type="button" data-subscription-mark onClick={onToggle} className="w-full rounded-md border border-zinc-200 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800">
+      {t("subscriptionMarkSubscribed")}
+    </button>
+  );
+}
+
+function RewardTile({ reward, missed = false, onToggleSubscriptionMark }: { reward: RewardView; missed?: boolean; onToggleSubscriptionMark?: (rewardId: string) => void }) {
   const t = useT();
   const done = reward.obtained || (reward.progress ?? 0) >= 100;
   // An expired campaign's unearned rewards are gone, not pending.
   const lost = missed && !reward.obtained;
+  // Never on an expired campaign: marking cannot bring a reward back.
+  const markControl = onToggleSubscriptionMark && reward.canMarkSubscription && !missed
+    ? <SubscriptionMarkControl marked={reward.subscriptionMarked === true} onToggle={() => onToggleSubscriptionMark(reward.id)} />
+    : null;
   return (
     <div data-reward-missed={lost || undefined} className={cn("w-[128px] shrink-0 rounded-xl border bg-white p-2 dark:bg-zinc-900", lost ? "border-dashed border-zinc-300 dark:border-zinc-700" : "border-zinc-200 dark:border-zinc-800")}>
       <div className={cn("relative mb-2 flex h-[68px] items-center justify-center overflow-hidden rounded-lg bg-zinc-50 dark:bg-zinc-800/40", lost && "opacity-50 grayscale")}>
@@ -863,12 +941,16 @@ function RewardTile({ reward, missed = false }: { reward: RewardView; missed?: b
               {t("insufficientTimeRemaining")}
             </div>
           ) : null}
+          {reward.subscriptionMarked ? markControl : null}
         </>
       ) : reward.requirement === "subscription" ? (
         <div className="space-y-1 text-[10px] leading-tight text-zinc-500 dark:text-zinc-400">
           <div className="font-semibold text-zinc-700 dark:text-zinc-200">{t("subscriptionRequired")}</div>
           <div>{t("qualifyingSubscriptionsRequired", String(reward.requiredSubs ?? 1))}</div>
-          <div className={cn("font-medium", reward.obtained && "text-emerald-600 dark:text-emerald-400")}>{reward.obtained ? t("earned") : t("subscriptionProgressUnknown")}</div>
+          {reward.subscriptionMarked ? null : (
+            <div className={cn("font-medium", reward.obtained && "text-emerald-600 dark:text-emerald-400")}>{reward.obtained ? t("earned") : t("subscriptionProgressUnknown")}</div>
+          )}
+          {markControl}
         </div>
       ) : (
         <div className="text-[10px] font-semibold text-zinc-600 dark:text-zinc-300">{t("actionRequired")}</div>

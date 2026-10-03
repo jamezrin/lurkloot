@@ -4,8 +4,8 @@
 
 This is a TypeScript pnpm monorepo (`packages/*`, see `pnpm-workspace.yaml`) centered on a WXT WebExtension for Twitch and Kick drop farming. Seven workspace packages:
 
-- **`packages/extension`** — the WXT extension shell. Entrypoints are in `entrypoints/`: `background.ts` wires browser lifecycle/runtime APIs to the controller, content scripts are split by platform (`kick.content.ts`, `twitch.content.ts`, `twitchKeepAlive.content.ts`), and `popup/` mounts the React popup. Extension-specific browser adapters and helpers live in `src/core/` (`storage.ts`, `tabs.ts`, `playbackContent.ts`, `keepAliveContent.ts`, `version.ts`, `links.ts`). Tests are in `tests/**/*.test.ts`. Static assets are in `public/`. `wxt.config.ts` declares the manifest, permissions, content scripts, and localized-message copy step.
-- **`packages/core`** — the browser-free farming engine imported as `@lurkloot/core`. It owns the scheduler/controller (`packages/core/src/core/scheduler.ts`, `packages/core/src/background/controller.ts`), shared tab/watch abstractions, tabless watch logic, Twitch integrity handling, and platform adapters/parsers under `packages/core/src/platforms/` (`adapter.ts`, `twitch/`, `kick/`). It must not import WXT or browser globals; `packages/extension/tests/coreBoundary.test.ts` guards this so the extension and CLI can both reuse it.
+- **`packages/extension`** — the WXT extension shell. Entrypoints are in `entrypoints/`: `background.ts` wires browser lifecycle/runtime APIs to the controller, content scripts are split by platform (`kick.content.ts`, `twitch.content.ts`, `twitchKeepAlive.content.ts`), and `popup/` mounts the React popup. Extension-specific browser adapters and helpers live in `src/core/` (`storage.ts`, `tabs.ts`, `tabPorts.ts`, `browserTabs.ts`, `playbackContent.ts`, `keepAliveContent.ts`, `version.ts`, `links.ts`). Tests are in `tests/**/*.test.ts`. Static assets are in `public/`. `wxt.config.ts` declares the manifest, permissions, content scripts, and localized-message copy step.
+- **`packages/core`** — the browser-free farming engine imported as `@lurkloot/core`. It owns the scheduler/controller (`packages/core/src/core/scheduler.ts`, and `packages/core/src/background/controller.ts` with its owner modules in the same directory), the tab registry and its rules (browser tab mechanics are extension-only), tabless watch logic, Twitch integrity handling, and platform adapters/parsers under `packages/core/src/platforms/` (`adapter.ts`, `twitch/`, `kick/`). It must not import WXT or browser globals; `packages/extension/tests/coreBoundary.test.ts` guards this so the extension and CLI can both reuse it.
 - **`packages/cli`** — the headless/Docker runtime imported as `@lurkloot/cli`. It reuses `@lurkloot/core` and `@lurkloot/shared`, provides Node transports/auth/config/storage, and builds to `dist/index.mjs`.
 - **`packages/locales`** — the localized message catalog package imported as `@lurkloot/locales`. JSON catalogs live in `messages/`, and `src/index.ts` exposes the async catalog loader used by the extension and popup UI.
 - **`packages/popup-ui`** — the shared React popup UI imported as `@lurkloot/popup-ui` (`Popup.tsx`, `primitives.tsx`, view components like `idleWatchlist.tsx`/`drops.tsx`/`settings.tsx`, and the rate-nudge logic), consumed by both the extension popup and the site demo.
@@ -102,13 +102,21 @@ The repository is licensed under Apache License 2.0; see `LICENSE`. New source f
 
 Do not add features that store credentials, export cookies, or bypass platform detection. The extension relies on normal logged-in browser sessions and visible muted tabs. Keep `permissions` and `host_permissions` scoped to the services declared in `packages/extension/wxt.config.ts`, and document any new permission in the PR.
 
+The headless CLI is the one deliberate exception, kept as narrow as possible (#653). Since September 2026 Twitch accepts device login only from clients that cannot see the campaign list, so full CLI discovery needs the web client and a Kasada integrity token:
+
+- The CLI may keep its own device-login and imported credentials in its private auth store.
+- The extension's Settings → Export credentials, a user-confirmed action, may export the Twitch and Kick login cookies plus Twitch's Kasada session cookie (`KP_UIDz-ssn`). It reads that cookie through the optional `https://k.twitchcdn.net/*` permission, requested only by the export, never as a required permission.
+- The CLI may mint Twitch web Client-Integrity from that cookie without a browser.
+
+Nothing else may export cookies or evade detection, and the extension itself never uses the Kasada cookie while farming.
+
 ## Manually Reproducing Platform GQL Requests
 
 When a user needs to hand-run a Twitch GQL query (e.g. DevTools console) to inspect live data
 outside the extension, base it on the actual transport, not assumptions:
 
 - Twitch auth is an explicit `Authorization: OAuth <auth-token>` header built from the `auth-token`
-  cookie value (see the `authorization` header line in `packages/core/src/core/tabs.ts` and the
+  cookie value (see the `authorization` header line in `packages/core/src/core/transport.ts` and the
   integrity comments in `packages/core/src/platforms/twitch/index.ts`) — it is **not** cookie-based
   `fetch` credentials. A repro using `credentials: "include"` instead of the header will fail
   cross-origin CORS in ways that look unrelated to auth (e.g. a wildcard-`Access-Control-Allow-

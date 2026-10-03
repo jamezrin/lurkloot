@@ -15,13 +15,13 @@ describe("kickHeaders", () => {
 
   // This transport is the one copy that reaches Kick over wss, not just https —
   // the viewer WebSocket goes through this same header builder (see
-  // createCycleKickWebSocketFactory in ../src/transport/cycle.ts).
+  // createNodeKickWebSocketFactory in ../src/transport/cycle.ts).
   it("attaches the session token to websockets.kick.com over wss", () => {
     expect(kickHeaders("wss://websockets.kick.com/viewer", undefined, creds).authorization)
       .toBe("Bearer sess 789");
   });
 
-  // Every case here is shared with tabs.test.ts (needsKickSessionBearer) and
+  // Every case here is shared with browserTabs.test.ts (needsKickSessionBearer) and
   // pageFetchJson's own test, so all three copies of the predicate are pinned to
   // the same expectations. See packages/core/src/core/kickBearerCases.ts.
   it.each(KICK_BEARER_NEAR_MISS_CASES)("never attaches the session token to a %s", (_case, url) => {

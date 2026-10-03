@@ -98,6 +98,12 @@
   "queueSkipped": {
     "message": "已跳过"
   },
+  "queueActionRequired": {
+    "message": "需要操作"
+  },
+  "queueActionRequiredHint": {
+    "message": "需要订阅或在 Lurkloot 之外完成其他步骤。置顶和收藏只会改变顺序。"
+  },
   "queueUpcoming": {
     "message": "即将开始"
   },
@@ -371,6 +377,15 @@
   "subscribedRefresh": {
     "message": "我已订阅——刷新状态"
   },
+  "subscriptionMarkSubscribed": {
+    "message": "标记为已订阅"
+  },
+  "subscriptionMarkedSubscribed": {
+    "message": "已标记为已订阅"
+  },
+  "subscriptionMarkUndo": {
+    "message": "撤销"
+  },
   "waitingForSubscription": {
     "message": "正在等待符合条件的订阅"
   },
@@ -391,6 +406,12 @@
   },
   "viewDropPage": {
     "message": "查看掉宝页面"
+  },
+  "campaignDropDetails": {
+    "message": "掉宝详情"
+  },
+  "campaignCategoryDrops": {
+    "message": "分类掉宝"
   },
   "upcoming": {
     "message": "即将开始"
@@ -748,6 +769,9 @@
   },
   "campaignRejectionActionRequired": {
     "message": "$1 需要执行观看以外的操作。"
+  },
+  "campaignRejectionThen": {
+    "message": "之后：$1"
   },
   "campaignRejectionNoFarmableReward": {
     "message": "此掉宝活动目前没有可挂机获取的奖励。"
@@ -1714,6 +1738,9 @@
   },
   "campaignMoreChannels": {
     "message": "另有 $1 个"
+  },
+  "campaignFewerChannels": {
+    "message": "收起"
   },
   "campaignExclude": {
     "message": "排除"

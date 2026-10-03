@@ -819,3 +819,91 @@ describe("claim-time account link guidance", () => {
     },
   );
 });
+
+describe("campaign card links (#678)", () => {
+  const watchReward = {
+    id: "watch",
+    name: "Watch reward",
+    requiredMinutes: 60,
+    watchedMinutes: 0,
+    status: "locked" as const,
+    requirement: "watch" as const,
+    isWatchBased: true,
+  };
+
+  function twitchCampaign(allowedChannels: string[]): DropCampaign {
+    return {
+      id: "twitch-campaign",
+      platform: "twitch",
+      name: "Twitch campaign",
+      status: "active",
+      slug: "rust",
+      url: "https://www.twitch.tv/drops/campaigns?dropID=abc",
+      allowedChannels,
+      isGeneralDrop: allowedChannels.length === 0,
+      rewards: [watchReward],
+    };
+  }
+
+  it("links the campaign's details and the game's Drops directory separately", () => {
+    const { container } = mount(undefined, twitchCampaign(["alpha"]));
+
+    const details = container.querySelector<HTMLAnchorElement>("[data-campaign-details-link]");
+    const category = container.querySelector<HTMLAnchorElement>("[data-campaign-category-drops-link]");
+    expect(details?.getAttribute("href")).toBe("https://www.twitch.tv/drops/campaigns?dropID=abc");
+    expect(details?.textContent).toContain("campaignDropDetails");
+    expect(category?.getAttribute("href")).toBe("https://www.twitch.tv/directory/category/rust?filter=drops&sort=VIEWER_COUNT");
+    expect(category?.textContent).toContain("campaignCategoryDrops");
+  });
+
+  it("names the site a details link leaves Twitch for", () => {
+    const { container } = mount(undefined, { ...twitchCampaign(["alpha"]), url: "https://www.example-game.com/twitch-drops" });
+
+    const details = container.querySelector<HTMLAnchorElement>("[data-campaign-details-link]");
+    expect(details?.getAttribute("href")).toBe("https://www.example-game.com/twitch-drops");
+    expect(details?.textContent).toContain("campaignDropDetails");
+    expect(details?.querySelector("[data-campaign-details-host]")?.textContent).toBe("example-game.com");
+  });
+
+  it("names no site for a details link on the campaign's own platform", () => {
+    const twitch = mount(undefined, twitchCampaign(["alpha"])).container;
+    expect(twitch.querySelector("[data-campaign-details-host]")).toBeNull();
+
+    const kick = mount(undefined, { ...sourceCampaign(), url: "https://kick.com/drops/abc", rewards: [watchReward] }).container;
+    expect(kick.querySelector("[data-campaign-details-link]")).not.toBeNull();
+    expect(kick.querySelector("[data-campaign-details-host]")).toBeNull();
+  });
+
+  it("links a campaign open to every channel to the game's Drops directory", () => {
+    const { container } = mount(undefined, twitchCampaign([]));
+
+    expect(container.querySelector("[data-campaign-all-channels]")?.getAttribute("href"))
+      .toBe("https://www.twitch.tv/directory/category/rust?filter=drops&sort=VIEWER_COUNT");
+  });
+
+  it("expands and collapses a long channel list in place", () => {
+    const { container } = mount(undefined, twitchCampaign(["a1", "a2", "a3", "a4", "a5"]));
+    const channelLinks = () => [...container.querySelectorAll<HTMLAnchorElement>("a[href^='https://www.twitch.tv/a']")]
+      .map((link) => link.textContent);
+    const more = () => container.querySelector<HTMLButtonElement>("[data-campaign-more-channels]")!;
+
+    expect(channelLinks()).toEqual(["a1", "a2", "a3"]);
+    expect(more().getAttribute("aria-expanded")).toBe("false");
+
+    act(() => more().click());
+    expect(channelLinks()).toEqual(["a1", "a2", "a3", "a4", "a5"]);
+    expect(more().textContent).toBe("campaignFewerChannels");
+
+    act(() => more().click());
+    expect(channelLinks()).toEqual(["a1", "a2", "a3"]);
+  });
+
+  it("gives a Kick campaign no category Drops link", () => {
+    const source: DropCampaign = { ...sourceCampaign(), slug: "rust", url: "https://kick.com/drops/abc", rewards: [watchReward] };
+    const { container } = mount(undefined, source);
+
+    expect(container.querySelector("[data-campaign-details-link]")).not.toBeNull();
+    expect(container.querySelector("[data-campaign-category-drops-link]")).toBeNull();
+    expect(container.querySelector("[data-campaign-all-channels]")).toBeNull();
+  });
+});

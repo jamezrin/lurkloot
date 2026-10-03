@@ -155,7 +155,6 @@ describe("kick viewer watcher", () => {
     });
     const adapter = kickAdapter(
       createKickFetcher({ background, pageFetch: async () => { throw new Error("page fallback not expected"); } }),
-      undefined,
       () => socket,
       (event) => creationEvents.push(event as DiagnosticEvent),
     );
@@ -284,7 +283,6 @@ describe("kick viewer watcher", () => {
           throw new Error(`unexpected url ${url}`);
         }),
       },
-      undefined,
       () => socket,
     );
     const watcher = adapter.createTablessWatcher?.();
@@ -313,7 +311,6 @@ describe("kick viewer watcher", () => {
     });
     const adapter = kickAdapter(
       { fetchJson },
-      undefined,
       () => sockets.shift()!,
     );
     const watcher = adapter.createTablessWatcher?.();
@@ -527,7 +524,6 @@ describe("adapter-created twitch watcher diagnostics", () => {
     const adapter = twitchAdapter(
       { fetchJson: fetchJson as never },
       undefined,
-      undefined,
       { compatibility: { ...TWITCH_COMPAT, heartbeat: "twitch-heartbeat-gql-v1" } },
       (event) => creationEvents.push(event as DiagnosticEvent),
     );
@@ -572,7 +568,6 @@ describe("adapter-created twitch watcher diagnostics", () => {
     const adapter = twitchAdapter(
       { fetchJson: fetchJson as never },
       ensureIntegrity,
-      undefined,
       { compatibility: { ...TWITCH_COMPAT, heartbeat: "twitch-heartbeat-gql-v1" } },
     );
     const watcher = adapter.createTablessWatcher?.();

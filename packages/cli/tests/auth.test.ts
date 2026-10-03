@@ -3,8 +3,8 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { importCredentials, readCredentialBlob } from "../src/auth/importCredentials";
-import { loadCredentials } from "../src/authStore";
-import { pollForToken } from "../src/auth/twitchDeviceFlow";
+import { loadCredentials, saveCredentials } from "../src/authStore";
+import { pollForToken, requestDeviceCode } from "../src/auth/twitchDeviceFlow";
 import { pollForToken as pollForKickToken, requestTvLink } from "../src/auth/kickDeviceFlow";
 
 let dir: string;
@@ -12,13 +12,40 @@ beforeEach(async () => { dir = await mkdtemp(join(tmpdir(), "lurkloot-login-"));
 afterEach(async () => { await rm(dir, { recursive: true, force: true }); vi.restoreAllMocks(); });
 
 describe("importCredentials", () => {
-  it("round-trips an extension export through the auth store", async () => {
+  it("loads a rotated Kasada cookie even when an old environment seed is present", () => {
+    saveCredentials(dir, { twitch: { kasadaSessionCookie: "rotated-seed" } });
+    expect(loadCredentials(dir, { SA_TWITCH_KASADA_SESSION_COOKIE: "stale-seed" }).twitch?.kasadaSessionCookie)
+      .toBe("rotated-seed");
+  });
+
+  it("imports a Twitch web session when the export includes Kasada clearance state", async () => {
+    const blob = join(dir, "export.json");
+    await writeFile(blob, JSON.stringify({ version: 1, credentials: {
+      twitch: { authToken: "web-token", deviceId: "device-id", kasadaSessionCookie: "kasada-seed" },
+    } }));
+    const result = importCredentials(dir, blob);
+    const creds = loadCredentials(dir, {});
+    expect(result.ignoredTwitch).toBe(false);
+    expect(creds.twitch).toEqual({
+      authToken: "web-token", deviceId: "device-id", clientId: "kimne78kx3ncx6brgo4mv6wki5h1ko",
+      kasadaSessionCookie: "kasada-seed",
+    });
+  });
+
+  it("imports Kick but rejects a browser Twitch token without its client identity", async () => {
     const blob = join(dir, "export.json");
     await writeFile(blob, JSON.stringify({ version: 1, credentials: { twitch: { authToken: "tw" }, kick: { sessionToken: "kk" } } }));
-    importCredentials(dir, blob);
+    const result = importCredentials(dir, blob);
     const creds = loadCredentials(dir, {});
-    expect(creds.twitch?.authToken).toBe("tw");
+    expect(creds.twitch?.authToken).toBeUndefined();
     expect(creds.kick?.sessionToken).toBe("kk");
+    expect(result.ignoredTwitch).toBe(true);
+  });
+
+  it("directs Twitch-only browser exports to Smart TV device login", async () => {
+    const blob = join(dir, "export.json");
+    await writeFile(blob, JSON.stringify({ version: 1, credentials: { twitch: { authToken: "tw" } } }));
+    expect(() => importCredentials(dir, blob)).toThrow(/auth twitch device-login/);
   });
 
   it("rejects a bare { twitch, kick } blob (must be wrapped in credentials)", async () => {
@@ -59,6 +86,19 @@ describe("kick device-flow", () => {
 });
 
 describe("twitch device-flow polling", () => {
+  it("requests a code with the Smart TV client accepted by Twitch", async () => {
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => new Response(JSON.stringify({
+      device_code: "device", user_code: "user", verification_uri: "https://www.twitch.tv/activate",
+      interval: 5, expires_in: 300,
+    }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await requestDeviceCode();
+
+    const body = fetchMock.mock.calls[0]?.[1]?.body as URLSearchParams;
+    expect(body.get("client_id")).toBe("ue6666qo983tsx6so1t0vnawi233wa");
+  });
+
   it("returns the access token once the user authorizes", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce({ json: async () => ({ message: "authorization_pending" }) })

@@ -1,7 +1,7 @@
 import type { EngineSettings, Platform } from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import { DEFAULT_ENGINE_SETTINGS } from "@lurkloot/shared/settings";
-import type { PageFetcher, PlatformAdapter, WatchTabPort } from "@lurkloot/core/adapter";
+import type { PageFetcher, PlatformAdapter } from "@lurkloot/core/adapter";
 import type { WebSocketFactory } from "@lurkloot/core/webSocket";
 import { createKickFetcher, KickAdapter, KickClaimState, KickDiscoveryState } from "@lurkloot/core/kick";
 import { TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
@@ -9,6 +9,12 @@ import type { TwitchHeartbeatFetchText, TwitchHeartbeatPost } from "@lurkloot/co
 import { resolveCompatibility, type CompatibilityResolution } from "@lurkloot/core";
 import type { PlatformCredentials } from "../authStore";
 import { twitchClientIdentity } from "../twitch";
+import type { TwitchIntegrity, TwitchIntegrityRequest } from "@lurkloot/core/twitchIntegrity";
+
+export interface CliTwitchIntegrity {
+  current(): TwitchIntegrity | undefined;
+  ensure(request?: TwitchIntegrityRequest): Promise<boolean>;
+}
 
 // A built set of platform adapters plus a teardown hook (e.g. to stop the
 // cycletls subprocess the impersonate transport owns). Every transport returns
@@ -52,6 +58,7 @@ export function createLazyAdapters(
 // tabless watch wiring) is identical between the http and impersonate
 // transports and lives here once.
 export interface CliTransportDeps {
+  twitchIntegrity?: CliTwitchIntegrity;
   twitchFetcher(): PageFetcher;
   twitchHeartbeat(identity: ReturnType<typeof twitchClientIdentity>): {
     heartbeatFetchText: TwitchHeartbeatFetchText;
@@ -78,14 +85,18 @@ export function createCliAdapters(
     const adapter = platform === "twitch"
       ? new TwitchAdapter(
         deps.twitchFetcher(),
-        async () => false,
-        tablessWatchPort,
+        (request) => deps.twitchIntegrity?.ensure(request) ?? Promise.resolve(false),
         {
           ...identity,
+          ...(deps.twitchIntegrity ? { currentIntegrity: () => deps.twitchIntegrity?.current() } : {}),
           compatibility: resolution.compatibility.twitch,
           discoveryState: twitchDiscoveryState,
           strictCampaignAvailability: settings.platform.twitch.strictCampaignAvailability,
           heartbeatIdentity: twitchIdentity,
+          liveDiscoveryGames: [
+            ...settings.platform.twitch.categories,
+            ...settings.platform.twitch.favouriteCategories,
+          ].filter((game) => !settings.platform.twitch.blockedCategories.some((blocked) => blocked.id === game.id)),
           ...deps.twitchHeartbeat(identity),
         },
         emit,
@@ -95,7 +106,6 @@ export function createCliAdapters(
           background: (url, init) => kickFetcher!.fetchJson(url, init, emit),
           routeState: kickDiscoveryState.routeDiagnostics,
         }),
-        tablessWatchPort,
         deps.kickWebSocketFactory?.(),
         { compatibility: resolution.compatibility.kick, claimState: kickClaimState, discoveryState: kickDiscoveryState },
         emit,
@@ -130,19 +140,6 @@ export {
   isHeartbeatTimeoutError,
   withHeartbeatTimeout,
 } from "@lurkloot/core/twitch/heartbeat";
-
-// Watch port for the headless transports, which never open a tab: opening fails
-// clearly (the CLI farms tabless only — keep tablessMode on), while stopping is
-// a harmless no-op (nothing to stop without a tab, but the scheduler still calls
-// it to clean up idle/disabled platforms).
-export const tablessWatchPort: WatchTabPort = {
-  openPinnedMutedTab() {
-    throw new Error('Tab-based watch is unavailable headlessly; keep "tablessMode" enabled in the config');
-  },
-  async stopWatchTab() {
-    // nothing to stop without a tab
-  },
-};
 
 // Chrome 124 fingerprint for TLS/JA3 + HTTP/2 impersonation (what Cloudflare
 // inspects in front of Kick). Mirrors curl_cffi's impersonate="chrome124" used

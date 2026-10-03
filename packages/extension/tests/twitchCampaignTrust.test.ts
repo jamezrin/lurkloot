@@ -79,7 +79,6 @@ describe("twitch campaign availability trust (#400)", () => {
     const selection = await twitchAdapter(
       recordingFetcher(operations, respondWithOmittedCampaign),
       undefined,
-      undefined,
       { strictCampaignAvailability: false },
     ).selectCandidateChannel?.([directoryCandidate("directory-one")], CAMPAIGN);
 
@@ -91,7 +90,6 @@ describe("twitch campaign availability trust (#400)", () => {
     const operations: string[] = [];
     const selection = await twitchAdapter(
       recordingFetcher(operations, respondWithOmittedCampaign),
-      undefined,
       undefined,
       { strictCampaignAvailability: false },
     ).selectCandidateChannel?.([aclCandidate("acl-one")], CAMPAIGN);
@@ -112,7 +110,6 @@ describe("twitch campaign availability trust (#400)", () => {
         }
         return { data: {} };
       }),
-      undefined,
       undefined,
       { strictCampaignAvailability: false },
     ).selectCandidateChannel?.([aclCandidate("offline-acl")], CAMPAIGN);
@@ -139,7 +136,6 @@ describe("twitch campaign availability trust (#400)", () => {
         return { data: {} };
       }),
       undefined,
-      undefined,
       { strictCampaignAvailability: false },
     ).selectCandidateChannel?.([aclCandidate("wrong-category")], CAMPAIGN);
 
@@ -154,7 +150,6 @@ describe("twitch campaign availability trust (#400)", () => {
     const operations: string[] = [];
     const selection = await twitchAdapter(
       recordingFetcher(operations, respondWithOmittedCampaign),
-      undefined,
       undefined,
       { strictCampaignAvailability: false },
     ).selectCandidateChannel?.([{
@@ -176,7 +171,6 @@ describe("twitch campaign availability trust (#400)", () => {
     const operations: string[] = [];
     const check = await twitchAdapter(
       recordingFetcher(operations, respondWithOmittedCampaign),
-      undefined,
       undefined,
       { strictCampaignAvailability: false },
     ).checkChannel({
@@ -200,7 +194,6 @@ describe("twitch campaign availability trust (#400)", () => {
     const selection = await twitchAdapter(
       recordingFetcher(operations, respondWithOmittedCampaign),
       undefined,
-      undefined,
       { strictCampaignAvailability: true },
     ).selectCandidateChannel?.([directoryCandidate("directory-one")], CAMPAIGN);
 
@@ -219,7 +212,6 @@ describe("twitch campaign availability trust (#400)", () => {
         return respondWithOmittedCampaign(operationName, entry);
       }),
       undefined,
-      undefined,
       { strictCampaignAvailability: true },
     ).selectCandidateChannel?.([directoryCandidate("directory-one")], CAMPAIGN);
 
@@ -231,7 +223,6 @@ describe("twitch campaign availability trust (#400)", () => {
     const operations: string[] = [];
     const selection = await twitchAdapter(
       recordingFetcher(operations, respondWithOmittedCampaign),
-      undefined,
       undefined,
       // Deliberately overrides the test helper's strict default back to the
       // production default so the shipped behaviour is what gets asserted.
@@ -254,7 +245,6 @@ describe("strict availability comparison evidence", () => {
     const events: EngineEvent[] = [];
     await twitchAdapter(
       recordingFetcher([], respond),
-      undefined,
       undefined,
       { strictCampaignAvailability: true },
       (event) => events.push(event),

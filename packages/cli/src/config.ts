@@ -3,8 +3,8 @@ import { dirname, relative, resolve } from "node:path";
 import { parse as parseJsonc, printParseErrorCode, type ParseError } from "jsonc-parser";
 import { resolveCompatibility } from "@lurkloot/core";
 import type { CompatibilityWarning } from "@lurkloot/shared/compatibility";
-import { CURRENT_SETTINGS_SCHEMA_VERSION, type SettingsMigrationDiagnostic } from "@lurkloot/shared/settingsSchema";
-import { DEFAULT_CLI_SETTINGS, parseCliSettingsWithDiagnostics, type CliSettings } from "./settings";
+import { CURRENT_SETTINGS_SCHEMA_VERSION } from "@lurkloot/shared/settingsSchema";
+import { DEFAULT_CLI_SETTINGS, parseCliSettingsWithDiagnostics, type CliSettings, type CliSettingsDiagnostic } from "./settings";
 
 export const TRANSPORTS = ["http", "impersonate"] as const;
 export type Transport = (typeof TRANSPORTS)[number];
@@ -121,13 +121,19 @@ export function defaultConfigJsonc(): string {
         // "all" farms every category, "include" farms only the categories
         // listed below. Neither mode ranks.
         "categoryMode": ${json(twitch.categoryMode)},
-        // Used by "include". Order has no scheduling effect.
+        // Used by "include" for eligibility; also seeds partial Twitch live-
+        // channel discovery when the campaign dashboard is unavailable, even
+        // in "all" mode. Add game IDs and names you want the CLI to scan.
         "categories": ${json(twitch.categories)},
         // Campaigns of these categories rank above the strategy, in this order,
         // and below pinned campaigns.
         "favouriteCategories": ${json(twitch.favouriteCategories)},
         // Never farmed, in either mode.
         "blockedCategories": ${json(twitch.blockedCategories)},
+        // Subscription rewards you have subscribed for, as "<campaignId>:<rewardId>".
+        // Lurkloot treats their subscription as made, like the popup's
+        // "Mark as subscribed".
+        "subscribedRewardMarks": ${json(twitch.subscribedRewardMarks ?? [])},
         // Claim channel-point bonuses while farming this platform.
         "autoClaimChannelPoints": ${json(twitch.autoClaimChannelPoints)},
         // Advanced: claim channel-point bonuses from Twitch's live Hermes
@@ -153,6 +159,10 @@ export function defaultConfigJsonc(): string {
         "favouriteCategories": ${json(kick.favouriteCategories)},
         // Never farmed, in either mode.
         "blockedCategories": ${json(kick.blockedCategories)},
+        // Subscription rewards you have subscribed for, as "<campaignId>:<rewardId>".
+        // Lurkloot treats their subscription as made, like the popup's
+        // "Mark as subscribed".
+        "subscribedRewardMarks": ${json(kick.subscribedRewardMarks ?? [])},
         // Claim Kick's daily gamification challenges automatically.
         "autoClaimChallenges": ${json(kick.autoClaimChallenges)}
       }
@@ -213,7 +223,8 @@ export function parseConfig(raw: unknown, configPath: string): CliConfig {
 // rewritten, so these repeat on every startup until the file is edited. A future
 // migration that removes a property outright carries no replacement, so fall
 // back to a bare deprecation notice rather than printing "settings.undefined".
-function formatMigrationWarning(diagnostic: SettingsMigrationDiagnostic): string {
+function formatMigrationWarning(diagnostic: CliSettingsDiagnostic): string {
+  if (diagnostic.code === "limit_exceeded") return `settings.${diagnostic.path}: ${diagnostic.message}`;
   if (!diagnostic.replacement) {
     return `settings.${diagnostic.path} is deprecated and ignored`;
   }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { applySettingsPatch, DEFAULT_ENGINE_SETTINGS, DEFAULT_SETTINGS, mergeEngineSettings, mergeSettings } from "@lurkloot/shared/settings";
+import { applySettingsPatch, DEFAULT_ENGINE_SETTINGS, DEFAULT_SETTINGS, mergeEngineSettings, mergeSettings, type SettingsPatch } from "@lurkloot/shared/settings";
 import { migrateSettings } from "@lurkloot/shared/settingsSchema";
+import { buildSettingsExportPayload, parseSettingsImportPayload } from "@lurkloot/shared/settingsExport";
 
 describe("engine settings", () => {
   // The tab-policy fields (mute / keep-unmuted / auto-close / ad focus) and the
@@ -428,5 +429,38 @@ describe("in-page panel default", () => {
 
   it("respects an explicit opt-out", () => {
     expect(mergeSettings({ showInPagePanel: false }).showInPagePanel).toBe(false);
+  });
+});
+
+describe("subscription marks setting", () => {
+  it("defaults to no marks on either platform", () => {
+    const settings = mergeSettings(undefined);
+
+    expect(settings.platform.twitch.subscribedRewardMarks).toEqual([]);
+    expect(settings.platform.kick.subscribedRewardMarks).toEqual([]);
+  });
+
+  it("keeps campaign:reward keys verbatim and drops malformed entries", () => {
+    const settings = mergeSettings({
+      ...DEFAULT_SETTINGS,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        twitch: {
+          ...DEFAULT_SETTINGS.platform.twitch,
+          subscribedRewardMarks: [" Camp-1:Reward-A ", "Camp-1:Reward-A", "no-separator", ":reward", "campaign:", 7 as unknown as string],
+        },
+      },
+    });
+
+    expect(settings.platform.twitch.subscribedRewardMarks).toEqual(["Camp-1:Reward-A"]);
+  });
+
+  it("applies a platform patch and survives a settings export and import", () => {
+    const patched = applySettingsPatch(DEFAULT_SETTINGS, { platform: { twitch: { subscribedRewardMarks: ["campaign:reward"] } } });
+
+    expect(patched.platform.twitch.subscribedRewardMarks).toEqual(["campaign:reward"]);
+    expect(patched.platform.kick.subscribedRewardMarks).toEqual([]);
+    const file = JSON.parse(JSON.stringify(buildSettingsExportPayload(patched)));
+    expect(parseSettingsImportPayload(file).settings.platform.twitch.subscribedRewardMarks).toEqual(["campaign:reward"]);
   });
 });

@@ -1,5 +1,6 @@
 import { browser } from "wxt/browser";
 import { openHttpsLink, type PopupAdapter } from "@lurkloot/popup-ui";
+import { createRuntimeRequestSender } from "./runtimeRequests";
 
 // Popup adapter for the in-page panel document (entrypoints/inpagePanel).
 //
@@ -10,8 +11,8 @@ import { openHttpsLink, type PopupAdapter } from "@lurkloot/popup-ui";
 // merits: this surface is opened from a streaming page, so the destructive and
 // credential-bearing actions belong in the toolbar popup regardless.
 //
-//   exportCredentials  Writes the Twitch auth-token and Kick session_token to a
-//                      file. It must not exist on a surface rendered inside a
+//   exportCredentials  Writes Twitch/Kick session credentials, including the
+//                      Kasada cookie, to a file. It must not exist inside a
 //                      streaming page; see CLAUDE.md on credential export.
 //   exportSettings     File pickers and downloads belong in the toolbar popup.
 //   importSettings
@@ -27,7 +28,7 @@ import { openHttpsLink, type PopupAdapter } from "@lurkloot/popup-ui";
 export function createInPagePanelAdapter(): PopupAdapter {
   return {
     version: browser.runtime.getManifest().version,
-    send: (message) => browser.runtime.sendMessage(message),
+    send: createRuntimeRequestSender((message) => browser.runtime.sendMessage(message)),
     getStorage: (keys) => browser.storage.local.get(keys),
     setStorage: (values) => browser.storage.local.set(values),
     getMessage: (key, substitutions) => browser.i18n.getMessage(key as never, substitutions),

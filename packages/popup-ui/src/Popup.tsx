@@ -14,7 +14,8 @@ import { buildSettingsExportPayload, parseSettingsImportPayload } from "@lurkloo
 import { effectiveLocale, isRtlLocale, type MessageCatalog } from "@lurkloot/shared/i18n";
 import { loadCatalog } from "@lurkloot/locales";
 import { buildFailureReport } from "@lurkloot/shared/failureReport";
-import { I18nContext, PopupRuntimeContext } from "./context";
+import { subscriptionMarkKey } from "@lurkloot/shared/rewards";
+import { I18nContext, PopupRuntimeContext, SubscriptionMarkContext } from "./context";
 import { createTranslator } from "./translator";
 import { WorkspaceRail, viewForPlatform, type PopupView } from "./shell";
 import { GamesPanel } from "./games";
@@ -98,7 +99,10 @@ function isPlatform(value: unknown): value is Platform {
 export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initialState?: PopupInitialState }): React.ReactElement {
   const preview = initialState?.preview ?? false;
   const initialVariant = initialState?.variant ?? screenshotVariant("drops");
-  const watchlistShot = preview && variantShowsPopup(initialVariant) && initialVariant.view === "watchlist";
+  // Live demo channels for any preview that opens on the watchlist, whether the
+  // shot or a `view` override puts it there.
+  const watchlistShot =
+    preview && (initialState?.view ? initialState.view === "watchlist" : variantShowsPopup(initialVariant) && initialVariant.view === "watchlist");
   const [snapshot, setSnapshot] = useState<RuntimeSnapshot | null>(null);
   const [overrideCatalog, setOverrideCatalog] = useState<MessageCatalog | undefined>();
   const [fallbackCatalog, setFallbackCatalog] = useState<MessageCatalog | undefined>();
@@ -108,6 +112,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   // One destination at a time. Platform is the other axis and is independent of
   // it, so every view keeps working on either platform.
   const [view, setView] = useState<PopupView>(() => {
+    if (preview && initialState?.view) return initialState.view;
     if (!preview || !variantShowsPopup(initialVariant)) return "queue";
     if (initialVariant.view === "settings") return "settings";
     return initialVariant.view === "watchlist" ? "watchlist" : "queue";
@@ -137,6 +142,11 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   const [settingsFocus, setSettingsFocus] = useState<string | undefined>(undefined);
   const [toolbarSlot, setToolbarSlot] = useState<HTMLElement | null>(null);
   const settingsRef = useRef<ExtensionSettings | null>(null);
+  // The settings storage last confirmed, and the edits still on their way to
+  // it. The popup shows the first with the second replayed on top, so a save
+  // that fails takes back only what it did not store.
+  const committedSettingsRef = useRef<ExtensionSettings | null>(null);
+  const pendingSettingsEditsRef = useRef<{ patch: SettingsPatch }[]>([]);
   const settingsSaveQueue = useRef<Promise<void>>(Promise.resolve());
   const snapshotRequestGenerationRef = useRef(0);
   const activityRequestScopeRef = useRef(createActivityRequestScope(platform));
@@ -198,16 +208,22 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     };
   }, [adapter, languageOverride]);
 
-  function snapshotWithMergedSettings(nextSnapshot: RuntimeSnapshot): RuntimeSnapshot {
-    const settings = mergeSettings(nextSnapshot.settings);
+  // Takes `committed` as what storage holds and returns what the popup shows:
+  // it with every edit still saving replayed on top.
+  function adoptCommittedSettings(committed: ExtensionSettings): ExtensionSettings {
+    committedSettingsRef.current = committed;
+    const settings = pendingSettingsEditsRef.current.reduce((current, edit) => applySettingsPatch(current, edit.patch), committed);
     settingsRef.current = settings;
-    return { ...nextSnapshot, settings };
+    return settings;
+  }
+
+  function snapshotWithMergedSettings(nextSnapshot: RuntimeSnapshot): RuntimeSnapshot {
+    return { ...nextSnapshot, settings: adoptCommittedSettings(mergeSettings(nextSnapshot.settings)) };
   }
 
   function snapshotPreservingLocalSettings(nextSnapshot: RuntimeSnapshot): RuntimeSnapshot {
-    const settings = settingsRef.current ?? mergeSettings(nextSnapshot.settings);
-    settingsRef.current = settings;
-    return { ...nextSnapshot, settings };
+    if (!settingsRef.current) return snapshotWithMergedSettings(nextSnapshot);
+    return { ...nextSnapshot, settings: settingsRef.current };
   }
 
   const previewPlatform = variantShowsPopup(initialVariant) ? initialVariant.platform : "twitch";
@@ -430,7 +446,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
           }
           return snapshotPreservingLocalSettings(nextSnapshot);
         });
-      });
+      }, () => undefined); // a failed poll keeps the last good snapshot; the next one retries
     }, 5000);
     return () => clearInterval(interval);
   }, [adapter, preview]);
@@ -533,8 +549,10 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     // The background has committed the setting; show it now. The follow-up
     // tick can take tens of seconds, and the poll never refreshes settings, so
     // waiting on it would leave the switch greyed out on its old position.
-    const nextSettings = applySettingsPatch(settingsRef.current ?? snapshot!.settings, { twitchExtensions: { [provider]: { enabled: result } } } as SettingsPatch);
-    settingsRef.current = nextSettings;
+    const nextSettings = adoptCommittedSettings(applySettingsPatch(
+      committedSettingsRef.current ?? snapshot!.settings,
+      { twitchExtensions: { [provider]: { enabled: result } } } as SettingsPatch,
+    ));
     setSnapshot((current) => current ? { ...current, settings: nextSettings } : current);
     const generation = snapshotRequestGenerationRef.current;
     void adapter.send<RuntimeSnapshot>({ type: "tickNow" }).then((next) => {
@@ -547,17 +565,34 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   async function updateSettings(patch: SettingsPatch, options?: { tickAfterSave?: boolean; tickAfterSavePlatforms?: Platform[] }): Promise<void> {
     if (!snapshot) return;
     const settingsPatch = patch;
+    const edit = { patch: settingsPatch };
+    committedSettingsRef.current ??= settingsRef.current ?? snapshot.settings;
+    pendingSettingsEditsRef.current = [...pendingSettingsEditsRef.current, edit];
     const nextSettings = applySettingsPatch(settingsRef.current ?? snapshot.settings, settingsPatch);
     settingsRef.current = nextSettings;
     setSnapshot((current) => current ? { ...current, settings: nextSettings } : current);
     const save = settingsSaveQueue.current.catch(() => undefined).then(async () => {
-      const nextSnapshot = await adapter.send<RuntimeSnapshot>({
-        type: "saveSettings",
-        settingsPatch,
-        tickAfterSave: options?.tickAfterSave,
-        tickAfterSavePlatforms: options?.tickAfterSavePlatforms,
-      });
-      setSnapshot({ ...nextSnapshot, settings: settingsRef.current ?? mergeSettings(nextSnapshot.settings) });
+      let saved: RuntimeSnapshot | undefined;
+      let failure: { error: unknown } | undefined;
+      try {
+        saved = await adapter.send<RuntimeSnapshot>({
+          type: "saveSettings",
+          settingsPatch,
+          tickAfterSave: options?.tickAfterSave,
+          tickAfterSavePlatforms: options?.tickAfterSavePlatforms,
+        });
+      } catch (error) {
+        failure = { error };
+        // A failed save may still have stored the edit: the background saves
+        // before it reschedules its jobs, and that can throw. Read back what
+        // storage holds instead of guessing; if that fails too, the edit is
+        // taken as not stored.
+        saved = await adapter.send<RuntimeSnapshot>({ type: "getSnapshot" }).catch(() => undefined);
+      }
+      pendingSettingsEditsRef.current = pendingSettingsEditsRef.current.filter((pending) => pending !== edit);
+      const settings = adoptCommittedSettings(saved ? mergeSettings(saved.settings) : committedSettingsRef.current!);
+      setSnapshot((current) => saved ? { ...saved, settings } : current ? { ...current, settings } : current);
+      if (failure) throw failure.error;
     });
     settingsSaveQueue.current = save;
     await save;
@@ -597,6 +632,8 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     setRefreshing(true);
     try {
       setSnapshot(snapshotWithMergedSettings(await adapter.send<RuntimeSnapshot>({ type: "tickNow" })));
+    } catch (error) {
+      console.error("Failed to refresh the schedule", error);
     } finally {
       setRefreshing(false);
     }
@@ -607,7 +644,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     return result.categories;
   }
 
-  // Exports the session tokens the headless CLI's `login --import` consumes.
+  // Exports the session credentials the headless CLI's `auth import` consumes.
   // Gated behind inline confirmation in the settings view; available only when
   // the host adapter supports credential export (the live extension, not demo).
   const exportCredentials = adapter.exportCredentials
@@ -615,6 +652,12 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
         const blob = await adapter.send<CliCredentialBlob>({ type: "exportCliCredentials" });
         adapter.exportCredentials?.(blob);
       }
+    : undefined;
+  // The optional Kasada cookie host is requested when the export is armed, not
+  // on confirm: Chrome's permission prompt can destroy the popup, and the
+  // download runs here. A declined grant still exports the login cookies.
+  const armExportCredentials = exportCredentials && adapter.requestCredentialExportPermission
+    ? () => { void adapter.requestCredentialExportPermission?.().catch(() => false); }
     : undefined;
 
   const resetExtension = adapter.resetExtension
@@ -643,6 +686,15 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     gameMap?: Record<string, GameItem>;
   }>({});
 
+  // The mark toggle every campaign card reads from context. Its identity never
+  // changes, so marking one reward does not re-render every memoised card; it
+  // calls the latest render's handler through the ref.
+  const subscriptionMarkHandler = useRef<(campaignId: string, rewardId: string) => void>(() => undefined);
+  const toggleSubscriptionMark = useMemo(
+    () => (campaignId: string, rewardId: string) => subscriptionMarkHandler.current(campaignId, rewardId),
+    [],
+  );
+
   if (!snapshot) {
     return (
       <PopupRuntimeContext.Provider value={runtimeValue}>
@@ -656,6 +708,16 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   }
 
   const settings = mergeSettings(snapshot.settings);
+  subscriptionMarkHandler.current = (campaignId, rewardId) => {
+    const key = subscriptionMarkKey(campaignId, rewardId);
+    const next = new Set(settings.platform[platform].subscribedRewardMarks ?? []);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    void updateSettings(
+      { platform: { [platform]: { subscribedRewardMarks: [...next] } } },
+      { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
+    );
+  };
 
   // Downloads the current settings as a portable JSON file. Available only
   // when the host adapter supports it (the live extension, not the demo).
@@ -807,6 +869,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   return (
       <PopupRuntimeContext.Provider value={runtimeValue}>
       <I18nContext.Provider value={i18nValue}>
+      <SubscriptionMarkContext.Provider value={toggleSubscriptionMark}>
     <main
       dir={dir}
       data-platform={platform}
@@ -909,7 +972,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                   ) : null}
                 </AnimatePresence>
                 {view === "settings" ? (
-                  <SettingsView suggestions={dropCategorySuggestions} onSearchCategories={searchCategories} settings={settings} onSettingsChange={updateSettings} onExtensionEnabledChange={adapter.requestTwitchExtensionPermission ? setExtensionEnabled : undefined} onExportCredentials={exportCredentials} onExportSettings={exportSettings} onImportSettings={importSettings} onReset={resetExtension} exportConfirmationResetKey={settingsOpenGeneration} compatibilityRegistry={adapter.compatibilityRegistry} compatibilityResolution={compatibilityResolution} onOpenGames={(gamesPlatform) => { if (gamesPlatform !== platform) selectPlatform(gamesPlatform); changeView("games"); }} version={adapter.version} focusGroupId={preview && variantShowsPopup(initialVariant) && initialVariant.view === "settings" ? "general.drops" : settingsFocus} />
+                  <SettingsView suggestions={dropCategorySuggestions} onSearchCategories={searchCategories} settings={settings} onSettingsChange={updateSettings} onExtensionEnabledChange={adapter.requestTwitchExtensionPermission ? setExtensionEnabled : undefined} onExportCredentials={exportCredentials} onArmExportCredentials={armExportCredentials} onExportSettings={exportSettings} onImportSettings={importSettings} onReset={resetExtension} exportConfirmationResetKey={settingsOpenGeneration} compatibilityRegistry={adapter.compatibilityRegistry} compatibilityResolution={compatibilityResolution} onOpenGames={(gamesPlatform) => { if (gamesPlatform !== platform) selectPlatform(gamesPlatform); changeView("games"); }} version={adapter.version} focusGroupId={preview && variantShowsPopup(initialVariant) && initialVariant.view === "settings" ? "general.drops" : settingsFocus} />
                 ) : view === "activity" ? (
                   <ActivityLog
                     activityEvents={activityStream.events}
@@ -1081,6 +1144,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
       </div>
       </TooltipScope>
     </main>
+      </SubscriptionMarkContext.Provider>
     </I18nContext.Provider>
     </PopupRuntimeContext.Provider>
   );

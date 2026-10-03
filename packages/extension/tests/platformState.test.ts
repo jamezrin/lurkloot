@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Platform, SchedulerState } from "@lurkloot/shared/models";
-import { mergePlatformState, schedulerStateEquivalent } from "@lurkloot/core/background/platformState";
+import { mergePlatformState, SCHEDULER_STATE_MERGE, schedulerStateEquivalent } from "@lurkloot/core/background/platformState";
 
 function state(label: string, lastTickAt: string): SchedulerState {
   const session = (platform: Platform) => ({
@@ -49,7 +49,54 @@ function state(label: string, lastTickAt: string): SchedulerState {
   };
 }
 
+// A state where every per-platform entry is a distinct marker, so a merge that
+// touches the wrong platform (or skips a key) shows up as a wrong marker.
+function markedState(label: string): SchedulerState {
+  const entries: Record<string, unknown> = {};
+  for (const [key, kind] of Object.entries(SCHEDULER_STATE_MERGE)) {
+    if (kind === "platform" || kind === "optionalPlatform") {
+      entries[key] = { twitch: `${label}-${key}-twitch`, kick: `${label}-${key}-kick` };
+    } else if (kind === "global") {
+      entries[key] = `${label}-${key}`;
+    }
+  }
+  return entries as unknown as SchedulerState;
+}
+
 describe("mergePlatformState", () => {
+  it.each(Object.entries(SCHEDULER_STATE_MERGE).filter(([, kind]) => kind === "platform" || kind === "optionalPlatform"))(
+    "merges %s for the committing platform only",
+    (key) => {
+      const destination = markedState("destination");
+      const source = markedState("source");
+      for (const [platform, other] of [["twitch", "kick"], ["kick", "twitch"]] as const) {
+        const merged = mergePlatformState(destination, source, platform) as unknown as Record<string, Record<Platform, unknown>>;
+        expect(merged[key]?.[platform]).toBe(`source-${key}-${platform}`);
+        expect(merged[key]?.[other]).toBe(`destination-${key}-${other}`);
+      }
+    },
+  );
+
+  it("keeps global keys and deletes a committing platform's missing optional entries", () => {
+    const destination = markedState("destination");
+    const source = markedState("source");
+    const optionalKeys = Object.entries(SCHEDULER_STATE_MERGE)
+      .filter(([, kind]) => kind === "optionalPlatform")
+      .map(([key]) => key);
+    const sourceRecord = source as unknown as Record<string, Partial<Record<Platform, unknown>>>;
+    for (const key of optionalKeys) delete sourceRecord[key]?.twitch;
+
+    const merged = mergePlatformState(destination, source, "twitch") as unknown as Record<string, unknown>;
+
+    for (const [key, kind] of Object.entries(SCHEDULER_STATE_MERGE)) {
+      if (kind === "global") expect(merged[key]).toBe(`destination-${key}`);
+    }
+    for (const key of optionalKeys) {
+      expect(merged[key]).toEqual({ kick: `destination-${key}-kick` });
+    }
+  });
+
+
   it("replaces only the owned platform slice and preserves the newest tick time", () => {
     const destination = state("destination", "2026-07-29T12:00:00.000Z");
     const source = state("source", "2026-07-29T11:00:00.000Z");

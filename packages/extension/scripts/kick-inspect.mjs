@@ -76,7 +76,7 @@ async function save(name, value) {
 
 // Runs fetch() inside the kick.com page so requests carry the logged-in session
 // + Cloudflare context — exactly how the extension's pageFetchJson works
-// (src/core/tabs.ts:715-739).
+// (pageFetchJson in src/core/browserTabs.ts).
 async function pageFetch(page, url, init) {
   return page.evaluate(
     async ({ url, init }) => {

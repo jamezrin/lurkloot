@@ -98,6 +98,12 @@
   "queueSkipped": {
     "message": "Пропущенные"
   },
+  "queueActionRequired": {
+    "message": "Требуется действие"
+  },
+  "queueActionRequiredHint": {
+    "message": "Нужна подписка или другое действие вне Lurkloot. Закрепление и избранное меняют только порядок."
+  },
   "queueUpcoming": {
     "message": "Скоро"
   },
@@ -371,6 +377,15 @@
   "subscribedRefresh": {
     "message": "Подписка оформлена — обновить статус"
   },
+  "subscriptionMarkSubscribed": {
+    "message": "Отметить подписку"
+  },
+  "subscriptionMarkedSubscribed": {
+    "message": "Подписка отмечена"
+  },
+  "subscriptionMarkUndo": {
+    "message": "Отменить"
+  },
   "waitingForSubscription": {
     "message": "Ожидание подходящей подписки"
   },
@@ -391,6 +406,12 @@
   },
   "viewDropPage": {
     "message": "Открыть страницу дропа"
+  },
+  "campaignDropDetails": {
+    "message": "Подробности дропа"
+  },
+  "campaignCategoryDrops": {
+    "message": "Дропы категории"
   },
   "upcoming": {
     "message": "Предстоящие"
@@ -748,6 +769,9 @@
   },
   "campaignRejectionActionRequired": {
     "message": "$1 требует действие помимо просмотра."
+  },
+  "campaignRejectionThen": {
+    "message": "Затем: $1"
   },
   "campaignRejectionNoFarmableReward": {
     "message": "Сейчас ни одну награду этой кампании нельзя фармить."
@@ -1714,6 +1738,9 @@
   },
   "campaignMoreChannels": {
     "message": "ещё $1"
+  },
+  "campaignFewerChannels": {
+    "message": "Свернуть"
   },
   "campaignExclude": {
     "message": "Исключить"

@@ -1,0 +1,25 @@
+---
+// The three steps from the production homepage, as a row of bordered cards.
+const steps = [
+  { title: "Sign in as usual.", text: "Install the extension and sign in to Twitch or Kick in your browser. Lurkloot uses your existing session." },
+  { title: "Set your priorities.", text: "Choose your games, review available campaigns, and decide what should be farmed first." },
+  { title: "Let it run.", text: "Lurkloot finds eligible channels, follows progress, switches when needed, and claims available rewards." },
+];
+---
+<section class="sg-section sg-workflow" id="how-it-works" aria-labelledby="workflow-title">
+  <div class="sg-wrap">
+    <header class="sg-head sg-head--split" data-reveal>
+      <h2 id="workflow-title">You pick the rewards.<br /><span class="sg-dim">Lurkloot takes it from there.</span></h2>
+      <p>Less checking tabs.<br />More getting on with your day.</p>
+    </header>
+    <ol class="sg-flow">
+      {steps.map((step, index) => (
+        <li class="sg-flow__step" data-reveal>
+          <span class="sg-flow__n">0{index + 1}</span>
+          <h3>{step.title}</h3>
+          <p>{step.text}</p>
+        </li>
+      ))}
+    </ol>
+  </div>
+</section>

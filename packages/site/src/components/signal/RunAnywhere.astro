@@ -1,0 +1,73 @@
+---
+// Two ways to run it, as on the production homepage. The terminal follows
+// packages/cli/README.md: Kick links with its smart-TV code; Twitch's full
+// campaign list needs the web session exported from the extension.
+import { LINKS, DOCKER_IMAGE } from "../../consts";
+
+const languages = Object.keys(import.meta.glob("../../../../locales/messages/*.json")).length;
+// What the extension does, as the popup and its settings expose it.
+const extensionFeatures = [
+  "Visual campaign queue and game controls",
+  "Pin campaigns, star favourite games, pick a strategy for the rest",
+  "Background farming with muted-tab fallback",
+  "Drops claimed automatically, tier by tier",
+  "Channel points on Twitch, daily challenge cards on Kick",
+  "Idle watchlist of up to 20 channels per platform",
+  "Excluded channels and blocked games",
+  "Optional rewards from Twitch extensions like NoPixel and Fortnite",
+  "Optional reward notifications",
+  "Completed campaigns and a full activity log",
+  "Settings export and import",
+  `${languages} languages, on Chromium browsers and Firefox`,
+];
+---
+<section class="sg-section sg-run" id="cli" aria-labelledby="run-title">
+  <div class="sg-wrap">
+    <header class="sg-head sg-head--split" data-reveal>
+      <h2 id="run-title">At your desk.<br /><span class="sg-dim">Or on your server.</span></h2>
+      <p>Two ways to run Lurkloot.<br />One shared farming engine.</p>
+    </header>
+    <div class="sg-run__grid">
+      <article class="sg-runtime sg-runtime--ext" data-reveal>
+        <span class="sg-runtime__label">For your everyday browser</span>
+        <h3>The extension.</h3>
+        <p>The easiest place to start. Use your logged-in sessions, manage everything in the popup, and let farming run while your browser stays open.</p>
+        <ul class="sg-runtime__features">
+          {extensionFeatures.map((feature) => <li>{feature}</li>)}
+        </ul>
+        <div class="sg-runtime__actions">
+          <a class="sg-pill" href={LINKS.chrome} target="_blank" rel="noopener">Get Lurkloot — free</a>
+        </div>
+      </article>
+      <article class="sg-runtime sg-runtime--cli" data-reveal>
+        <span class="sg-runtime__label">For the machine you leave on</span>
+        <h3>Headless + Docker. <span class="sg-badge">Beta</span></h3>
+        <p>Run the same farming engine on a server, NAS, or Raspberry Pi, and manage your setup from the command line.</p>
+        <p class="sg-runtime__beta"><strong>The headless CLI is in beta.</strong> Expect rough edges, and check the setup guide when you update, since commands and configuration can still change between releases.</p>
+        <ul>
+          <li>No desktop browser required</li>
+          <li>Prebuilt images for amd64 and arm64</li>
+          <li>Link Kick with a code; bring Twitch over from the extension</li>
+        </ul>
+        <div class="sg-term" data-tilt data-tilt-max="4" aria-label="Example setup commands" role="group">
+          <div class="sg-term__bar"><i></i><i></i><i></i><span>~/lurkloot</span></div>
+          <pre><code><span class="c"># link Kick with a code from any device</span>
+<span class="p">docker</span> run --rm -it -v <span class="s">"$PWD/data:/data"</span> \
+  <span class="i">{DOCKER_IMAGE}</span> auth kick device-login
+
+<span class="c"># bring Twitch over from the extension's export</span>
+<span class="p">docker</span> run --rm -i -v <span class="s">"$PWD/data:/data"</span> \
+  <span class="i">{DOCKER_IMAGE}</span> auth import - &lt; creds.json
+
+<span class="c"># then leave the farming loop running</span>
+<span class="p">docker</span> run -d --name lurkloot --restart unless-stopped \
+  -v <span class="s">"$PWD/data:/data"</span> <span class="i">{DOCKER_IMAGE}</span><span class="sg-term__cursor" aria-hidden="true"></span></code></pre>
+        </div>
+        <div class="sg-runtime__actions">
+          <a class="sg-pill sg-pill--ghost" href={LINKS.cli} target="_blank" rel="noopener">Read the setup guide</a>
+          <a class="sg-pill sg-pill--ghost" href={LINKS.ghcr} target="_blank" rel="noopener">View on GHCR</a>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>

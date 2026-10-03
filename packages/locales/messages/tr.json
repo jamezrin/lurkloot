@@ -98,6 +98,12 @@
   "queueSkipped": {
     "message": "Atlanan"
   },
+  "queueActionRequired": {
+    "message": "İşlem gerekli"
+  },
+  "queueActionRequiredHint": {
+    "message": "Abonelik veya Lurkloot dışında başka bir adım gerekir. Sabitleme ve favoriler yalnızca sırayı değiştirir."
+  },
   "queueUpcoming": {
     "message": "Yaklaşan"
   },
@@ -371,6 +377,15 @@
   "subscribedRefresh": {
     "message": "Abone oldum (+ Yenile)"
   },
+  "subscriptionMarkSubscribed": {
+    "message": "Abone oldum olarak işaretle"
+  },
+  "subscriptionMarkedSubscribed": {
+    "message": "Abone olarak işaretlendi"
+  },
+  "subscriptionMarkUndo": {
+    "message": "Geri al"
+  },
   "waitingForSubscription": {
     "message": "Abonelik bekleniyor"
   },
@@ -391,6 +406,12 @@
   },
   "viewDropPage": {
     "message": "Drop sayfasına git"
+  },
+  "campaignDropDetails": {
+    "message": "Drop ayrıntıları"
+  },
+  "campaignCategoryDrops": {
+    "message": "Kategori dropları"
   },
   "upcoming": {
     "message": "Gelecek"
@@ -748,6 +769,9 @@
   },
   "campaignRejectionActionRequired": {
     "message": "$1 izlemek dışında bir işlem gerektiriyor."
+  },
+  "campaignRejectionThen": {
+    "message": "Ardından: $1"
   },
   "campaignRejectionNoFarmableReward": {
     "message": "Bu kampanyada şu anda farmlanabilecek ödül yok."
@@ -1714,6 +1738,9 @@
   },
   "campaignMoreChannels": {
     "message": "+$1 daha"
+  },
+  "campaignFewerChannels": {
+    "message": "Daha az göster"
   },
   "campaignExclude": {
     "message": "Hariç tut"

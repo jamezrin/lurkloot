@@ -1,8 +1,8 @@
-import { fetchTwitchInBackgroundWith } from "@lurkloot/core/tabs";
+import { fetchTwitchInBackgroundWith } from "@lurkloot/core/transport";
 import type { PlatformCredentials } from "../authStore";
 import { twitchCookieApi } from "./cookieApi";
-import { createCycleKickFetcher, createCycleKickWebSocketFactory, initCycle, type CycleTLSClient } from "./cycle";
-import { CHROME_HTTP2, CHROME_JA3, createCliAdapters, headersToObject, withHeartbeatTimeout, type EnabledPlatforms, type TransportHandle } from "./common";
+import { createCycleKickFetcher, createNodeKickWebSocketFactory, initCycle, type CycleTLSClient } from "./cycle";
+import { CHROME_HTTP2, CHROME_JA3, createCliAdapters, headersToObject, withHeartbeatTimeout, type CliTwitchIntegrity, type EnabledPlatforms, type TransportHandle } from "./common";
 
 export interface ImpersonateDeps {
   // Injectable for tests; defaults to spawning the real cycletls subprocess.
@@ -12,15 +12,17 @@ export interface ImpersonateDeps {
 // Impersonate transport: routes Kick over cycletls with a real Chrome JA3 /
 // HTTP-2 fingerprint so Cloudflare's WAF — which fingerprints the TLS/HTTP-2
 // stack, not headers — lets the request through (pure Node fetch gets 403). The
-// viewer WebSocket rides the same impersonated session. Twitch has no such WAF,
-// so it uses the plain-fetch path (cookie-backed engine fetcher).
+// viewer WebSocket uses Node's ws client with the Kick session bearer; Kick's
+// handshake accepts it. Twitch has no such WAF, so its GQL uses plain fetch.
 export async function createImpersonateTransport(
   creds: PlatformCredentials,
   _enabled: EnabledPlatforms,
   deps: ImpersonateDeps = {},
+  twitchIntegrity?: CliTwitchIntegrity,
 ): Promise<TransportHandle> {
   const cycleTLS = await (deps.initClient ?? initCycle)();
   const { adapters, createAdapter, createAdapters } = createCliAdapters(creds, {
+    twitchIntegrity,
     twitchFetcher: () => ({ fetchJson: (url, init) => fetchTwitchInBackgroundWith(twitchCookieApi(creds), url, init) }),
     twitchHeartbeat: (identity) => ({
       heartbeatFetchText: async (url, init) => {
@@ -32,7 +34,9 @@ export async function createImpersonateTransport(
           body: typeof init?.body === "string" ? init.body : undefined,
           disableRedirect: init?.redirect === "error" || init?.redirect === "manual",
         }, (init?.method ?? "GET").toLowerCase() as "get" | "post"), init?.signal);
-        return typeof response.data === "string" ? response.data : JSON.stringify(response.data ?? "");
+        return Buffer.isBuffer(response.data)
+          ? response.data.toString("utf8")
+          : typeof response.data === "string" ? response.data : JSON.stringify(response.data ?? "");
       },
       heartbeatPost: async (url, init) => {
         const response = await withHeartbeatTimeout(() => cycleTLS(url, {
@@ -47,7 +51,7 @@ export async function createImpersonateTransport(
       },
     }),
     kickFetcher: () => createCycleKickFetcher(cycleTLS, creds),
-    kickWebSocketFactory: () => createCycleKickWebSocketFactory(cycleTLS, creds),
+    kickWebSocketFactory: () => createNodeKickWebSocketFactory(creds),
   });
 
   return {

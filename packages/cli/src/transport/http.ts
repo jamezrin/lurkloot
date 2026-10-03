@@ -1,16 +1,17 @@
-import { fetchKickInBackgroundWith, fetchTwitchInBackgroundWith } from "@lurkloot/core/tabs";
+import { fetchKickInBackgroundWith, fetchTwitchInBackgroundWith } from "@lurkloot/core/transport";
 import type { PlatformCredentials } from "../authStore";
 import { kickCookieApi, twitchCookieApi } from "./cookieApi";
-import { createCliAdapters, withHeartbeatTimeout, type EnabledPlatforms, type TransportHandle } from "./common";
+import { createCliAdapters, withHeartbeatTimeout, type CliTwitchIntegrity, type EnabledPlatforms, type TransportHandle } from "./common";
 
 // Plain Node fetch transport. Twitch GQL works (no WAF). Kick's Cloudflare WAF
 // fingerprints the TLS/HTTP-2 stack, so pure-Node requests get HTTP 403 — that
 // surfaces as the engine's KickWafBlockedError, which `discover`/`run` report
 // cleanly (reach Kick without a browser via the impersonate transport instead).
-export function createHttpTransport(creds: PlatformCredentials, _enabled: EnabledPlatforms): TransportHandle {
+export function createHttpTransport(creds: PlatformCredentials, _enabled: EnabledPlatforms, twitchIntegrity?: CliTwitchIntegrity): TransportHandle {
   const twitchApi = twitchCookieApi(creds);
   const kickApi = kickCookieApi(creds);
   const { adapters, createAdapter, createAdapters } = createCliAdapters(creds, {
+    twitchIntegrity,
     twitchFetcher: () => ({ fetchJson: (url, init) => fetchTwitchInBackgroundWith(twitchApi, url, init) }),
     twitchHeartbeat: () => ({
       heartbeatFetchText: async (url, init) => {

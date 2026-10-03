@@ -2,11 +2,11 @@ import type { CategorySelection, ChannelCandidate, ChannelCheck, DropCampaign, D
 import type { EventEmitter } from "@lurkloot/shared/events";
 import type { TablessWatchController } from "../../core/tablessWatch";
 import type { DiscoverySignalController } from "../../core/discoverySignals";
-import { KickWafBlockedError } from "../../core/tabs";
+import { KickWafBlockedError } from "../../core/transport";
 import { authHealthFromError } from "../../core/fetchError";
 import { StaleWhileRevalidateCache } from "../../core/staleCache";
 import type { WebSocketFactory } from "../../core/webSocket";
-import { diagnostic, ignoreEvent, type AdapterOperationOptions, type ChannelCheckBatch, type ChannelCheckRequest, type ClaimedChallenge, type KickPageContextCycleObservation, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
+import { diagnostic, ignoreEvent, type AdapterOperationOptions, type ChannelCheckBatch, type ChannelCheckRequest, type ClaimedChallenge, type KickPageContextCycleObservation, type PageFetcher, type PlatformAdapter } from "../adapter";
 import { kickCandidatesFromCampaign, mergeKickProgress, parseKickCampaigns } from "./parser";
 import { KICK_CLIENT_TOKEN, KickWatcher } from "./watch";
 import { KickDiscoverySignalController } from "./discoverySignals";
@@ -303,7 +303,7 @@ export class KickAdapter implements PlatformAdapter {
     try {
       // Kick serves this endpoint anonymously as `200 {}` instead of rejecting it, so the
       // identity check below is what separates a real session from a credential-free one.
-      // It only works because kick.com is in KICK_AUTH_HOSTS (core/tabs.ts) and therefore
+      // It only works because this path is in KICK_BEARER_PATHS (core/transport.ts) and therefore
       // gets session_token replayed as a Bearer; without that header Kick returns the
       // empty object and a signed-in account looks signed out.
       const response = await this.fetcher.fetchJson<KickIdentityResponse>(
@@ -363,12 +363,10 @@ export class KickAdapter implements PlatformAdapter {
 
   constructor(
     private readonly fetcher: PageFetcher,
-    // Tab-based watch is browser-bound, so it is injected (see WatchTabPort). No
-    // default: a required options.compatibility below would follow an optional
-    // parameter, which TypeScript rejects (a required parameter cannot follow an
-    // optional one), so this and webSocketFactory lost their defaults too. emit
-    // moved after options (instead of before) so it could keep its default.
-    private readonly watchTabPort: WatchTabPort,
+    // No default: a required options.compatibility below would follow an
+    // optional parameter, which TypeScript rejects, so webSocketFactory has
+    // none. emit comes after options so it could keep its default. Watch tabs
+    // are not the adapter's concern: the host's WatchTabPort opens them (#598).
     // Factory for the tabless viewer WebSocket. The extension passes undefined
     // (the watcher uses the platform WebSocket from the service worker); a
     // headless runtime injects one that rides its impersonated session so the
@@ -792,14 +790,6 @@ export class KickAdapter implements PlatformAdapter {
     const url = responseUrl ?? safeHttpsUrl(campaign.accountLinkUrl);
     const where = url ? " using the account-link action" : campaign.name ? ` for ${campaign.name}` : "";
     diagnostic(this.emit, "warn", `Cannot claim "${reward.name}" yet — link your Kick account${where} to claim this campaign's drops.`, "kick");
-  }
-
-  prepareWatchTab(channel: ChannelCandidate, session?: WatchSession, options?: Partial<WatchTabOptions>) {
-    return this.watchTabPort.openPinnedMutedTab(channel, session, options);
-  }
-
-  stopWatchTab(session: WatchSession, options?: Partial<WatchTabOptions>): Promise<void> {
-    return this.watchTabPort.stopWatchTab(session, options);
   }
 
   // Tabless farming via Kick's viewer WebSocket (see KickWatcher). Reuses this

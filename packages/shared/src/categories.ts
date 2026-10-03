@@ -7,6 +7,11 @@ import type { CategorySelection, DropCampaign, PlatformSettings } from "./models
 // never collide with a real platform category id or name.
 export const NO_CATEGORY_ID = "__none__";
 
+// Twitch's directory page for a game, filtered to Drops-enabled streams.
+export function twitchCategoryDropsUrl(slug: string): string {
+  return `https://www.twitch.tv/directory/category/${encodeURIComponent(slug)}?filter=drops&sort=VIEWER_COUNT`;
+}
+
 // A campaign has no category when it carries neither a category id nor a game
 // name. Such a campaign only ever matches the "No category" selection.
 export function isUncategorizedCampaign(campaign: Pick<DropCampaign, "categoryId" | "gameName">): boolean {

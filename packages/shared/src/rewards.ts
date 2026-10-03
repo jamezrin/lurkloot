@@ -1,8 +1,10 @@
 import type { DropCampaign, DropReward, RewardRequirementType } from "./models";
 
-type RequirementFields = Pick<DropReward, "requirement" | "requiredMinutes" | "requiredSubs" | "isWatchBased">;
+type RequirementFields = Pick<DropReward, "requirement" | "requiredMinutes" | "requiredSubs" | "isWatchBased" | "subscriptionMarked">;
 
 export function rewardRequirementType(reward: RequirementFields): RewardRequirementType {
+  // A subscription the user marked as made leaves only the watch time to earn.
+  if (reward.subscriptionMarked && reward.requiredMinutes > 0) return "watch";
   if (reward.requirement) return reward.requirement;
   if ((reward.requiredSubs ?? 0) > 0) return "subscription";
   if (reward.requiredMinutes > 0 && reward.isWatchBased !== false) return "watch";
@@ -92,6 +94,9 @@ export function isRewardAvailableToEarn(reward: DropReward, now = Date.now()): b
   const endsAt = reward.availableUntil ? Date.parse(reward.availableUntil) : undefined;
   if (startsAt != null && !Number.isNaN(startsAt) && now < startsAt) return false;
   if (endsAt != null && !Number.isNaN(endsAt) && now >= endsAt) return false;
+  // A marked reward whose watch time is done but which the platform has not
+  // released can only be moved on by the platform, not by more watching.
+  if (reward.subscriptionMarked && reward.watchedMinutes >= reward.requiredMinutes) return false;
   return reward.status !== "claimed" && reward.status !== "claimable";
 }
 
@@ -116,6 +121,7 @@ export function isRewardDeadlineFeasible(
 }
 
 export function isWaitingSubscriptionReward(reward: DropReward, now = Date.now()): boolean {
+  if (reward.subscriptionMarked) return false;
   if (!isSubscriptionReward(reward)) return false;
   if (reward.status !== "locked" && reward.status !== "in_progress") return false;
   if (reward.preconditionsMet === false) return false;
@@ -129,14 +135,54 @@ export function isWaitingSubscriptionReward(reward: DropReward, now = Date.now()
 export const campaignHasWatchRewards = (campaign: Pick<DropCampaign, "rewards">): boolean => campaign.rewards.some(isWatchReward);
 export const campaignHasSubscriptionRewards = (campaign: Pick<DropCampaign, "rewards">): boolean => campaign.rewards.some(isSubscriptionReward);
 
-export function reconcileCampaignAfterClaims(campaign: DropCampaign, rewards: DropReward[]): DropCampaign {
-  const claimedIds = new Set(
-    rewards.filter((reward) => reward.status === "claimed").map((reward) => reward.id),
-  );
-  const reconciledRewards = rewards.map((reward) => ({
+// Subscription marks (docs/superpowers/specs/2026-10-03-subscription-marks-design.md).
+// A mark is the user's word that a subscription reward's subscription was made.
+// It lives on rewards only and never changes a reward's or campaign's status,
+// so removing it restores the platform's view exactly.
+export function subscriptionMarkKey(campaignId: string, rewardId: string): string {
+  return `${campaignId}:${rewardId}`;
+}
+
+// Only a subscription reward the platform has not released or confirmed: once
+// it is claimable it is claimed for real, and a mark would only hide that.
+export function canMarkSubscription(reward: Pick<DropReward, "requiredSubs" | "status">): boolean {
+  return (reward.requiredSubs ?? 0) > 0 && (reward.status === "locked" || reward.status === "in_progress");
+}
+
+// Done, as far as Lurkloot's decisions go: claimed on the platform, or a pure
+// subscription reward the user marked. A marked reward that also needs watch
+// time is a watch reward instead (rewardRequirementType).
+export function isRewardObtained(reward: Pick<DropReward, "status" | "subscriptionMarked" | "requiredMinutes">): boolean {
+  return reward.status === "claimed" || (reward.subscriptionMarked === true && reward.requiredMinutes === 0);
+}
+
+function reconcilePreconditions(rewards: DropReward[]): DropReward[] {
+  const obtainedIds = new Set(rewards.filter(isRewardObtained).map((reward) => reward.id));
+  return rewards.map((reward) => ({
     ...reward,
-    preconditionsMet: (reward.preconditionRewardIds ?? []).every((id) => claimedIds.has(id)),
+    preconditionsMet: (reward.preconditionRewardIds ?? []).every((id) => obtainedIds.has(id)),
   }));
+}
+
+export function applySubscriptionMarks(campaign: DropCampaign, marks: readonly string[]): DropCampaign {
+  const prefix = subscriptionMarkKey(campaign.id, "");
+  // No mark names this campaign and none is left to clear: the platform's view,
+  // as the same object, so stored state does not change.
+  if (!marks.some((mark) => mark.startsWith(prefix)) && !campaign.rewards.some((reward) => reward.subscriptionMarked)) {
+    return campaign;
+  }
+  const marked = new Set(marks);
+  const rewards = campaign.rewards.map(({ subscriptionMarked: _previous, ...reward }): DropReward =>
+    canMarkSubscription(reward) && marked.has(subscriptionMarkKey(campaign.id, reward.id))
+      ? { ...reward, subscriptionMarked: true }
+      : reward);
+  return { ...campaign, rewards: reconcilePreconditions(rewards) };
+}
+
+export function reconcileCampaignAfterClaims(campaign: DropCampaign, rewards: DropReward[]): DropCampaign {
+  const reconciledRewards = reconcilePreconditions(rewards);
+  // Completion stays on the platform's claims: it writes the campaign's status
+  // one way, which a mark must never do.
   const completed = reconciledRewards.length > 0
     && reconciledRewards.every((reward) => reward.status === "claimed");
 

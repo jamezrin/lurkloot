@@ -54,11 +54,20 @@ export interface DropReward {
   watchedMinutes: number;
   status: RewardStatus;
   claimId?: string;
+  // Identifies this reward for the signed-in account; never sent to the
+  // platform. A claim stays recorded under it when a later response stops
+  // reporting it. claimId cannot do that for a Twitch subscription reward, which
+  // has one only while Twitch reports its drop instance.
+  claimKey?: string;
   availableFrom?: string;
   availableUntil?: string;
   claimUntil?: string;
   preconditionRewardIds?: string[];
   preconditionsMet?: boolean;
+  // Set by applySubscriptionMarks when the user marked this subscription
+  // reward as subscribed, never by a platform parser. The reward's status stays
+  // the platform's report.
+  subscriptionMarked?: boolean;
   isCurrentReward?: boolean;
   claimGuidance?: ClaimGuidance;
 }
@@ -210,6 +219,30 @@ export interface ManagedWatchTab {
   ownedByExtension: true;
 }
 
+// The watch tab a host opened for the engine (#598: watch tabs are the host's
+// WatchTabPort, not the platform adapter's).
+export interface PreparedWatchTab {
+  tabId: number;
+  managedByExtension: boolean;
+  managedTab?: ManagedWatchTab;
+}
+
+// Why a tab the engine held was closed (#598). Only a `user` close is the
+// user's gesture; the others are the engine's own cleanup and must never be
+// read as the user closing a farming tab.
+export type TabClosureOrigin = "user" | "extension-cleanup" | "extension-recovery" | "host-restart";
+
+export interface WatchTabOptions {
+  muted: boolean;
+  closeManagedTabs: boolean;
+  keepVideosUnmuted: boolean;
+  managedTab?: ManagedWatchTab;
+  signal?: AbortSignal;
+  // Recorded against the tab if stopping it closes it. Defaults to
+  // "extension-cleanup".
+  closureOrigin?: Exclude<TabClosureOrigin, "user">;
+}
+
 export interface ManagedPageContextTab {
   platform: Platform;
   tabId: number;
@@ -220,6 +253,10 @@ export interface ManagedPageContextTab {
   fallbackHost?: string;
   backgroundSuccesses?: number;
 }
+
+// The page-context tabs the engine holds, one per platform, as persisted in
+// SchedulerState.managedPageContextTabs.
+export type SchedulerManagedPageContexts = Partial<Record<Platform, ManagedPageContextTab>>;
 
 // Recorded when the user closes an extension-owned watch tab. Closing the
 // window LurkLoot opened is the most direct "stop" gesture available, so the
@@ -311,6 +348,10 @@ export interface PlatformSettings {
   // Never farmed, in either categoryMode. A blocked category keeps any star and
   // list membership it had, so unblocking restores the previous state.
   blockedCategories: CategorySelection[];
+  // "<campaignId>:<rewardId>" of subscription rewards the user marked as
+  // subscribed. Lurkloot then treats that reward's subscription as detected
+  // (docs/superpowers/specs/2026-10-03-subscription-marks-design.md).
+  subscribedRewardMarks?: string[];
 }
 
 // Per-platform settings carry the claim toggles that only make sense on that

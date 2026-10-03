@@ -1,12 +1,11 @@
 import { saveCredentials } from "../authStore";
-import { TWITCH_ANDROID_CLIENT_ID } from "../twitch";
+import { TWITCH_SMARTBOX_CLIENT_ID } from "../twitch";
 import type { Logger } from "../logger";
 
 // Twitch's device-code OAuth, so a headless host can get a Twitch token with no
 // browser: request a code, show the user the activation URL, then poll until they
-// authorize. Uses the Android app client id — the same one the transports send
-// as Client-ID, so the token and the GQL identity match and Twitch never gates
-// it behind integrity (this is exactly how TwitchDropsMiner authenticates).
+// authorize. Uses the Smart TV client, which Twitch currently accepts for the
+// device flow. The transport sends the same Client-ID as the issued token.
 const DEVICE_ENDPOINT = "https://id.twitch.tv/oauth2/device";
 const TOKEN_ENDPOINT = "https://id.twitch.tv/oauth2/token";
 // No scopes are needed for the drops GQL (matches TDM's empty-scopes request).
@@ -20,7 +19,7 @@ export interface DeviceCode {
   expires_in: number;
 }
 
-export async function requestDeviceCode(clientId = TWITCH_ANDROID_CLIENT_ID): Promise<DeviceCode> {
+export async function requestDeviceCode(clientId = TWITCH_SMARTBOX_CLIENT_ID): Promise<DeviceCode> {
   const response = await fetch(DEVICE_ENDPOINT, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
@@ -44,7 +43,7 @@ export async function pollForToken(
   deviceCode: string,
   intervalSeconds: number,
   expiresInSeconds: number,
-  clientId = TWITCH_ANDROID_CLIENT_ID,
+  clientId = TWITCH_SMARTBOX_CLIENT_ID,
   sleep: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)),
 ): Promise<string> {
   const deadline = Date.now() + expiresInSeconds * 1000;
@@ -69,7 +68,7 @@ export async function pollForToken(
   throw new Error("Device code expired before authorization");
 }
 
-export async function twitchDeviceLogin(authDir: string, logger: Logger, clientId = TWITCH_ANDROID_CLIENT_ID): Promise<void> {
+export async function twitchDeviceLogin(authDir: string, logger: Logger, clientId = TWITCH_SMARTBOX_CLIENT_ID): Promise<void> {
   const code = await requestDeviceCode(clientId);
   logger.info(`Open ${code.verification_uri} and enter code: ${code.user_code}`, "login");
   logger.info(`Waiting for authorization (expires in ${Math.round(code.expires_in / 60)} min)…`, "login");

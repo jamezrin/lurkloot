@@ -98,6 +98,12 @@
   "queueSkipped": {
     "message": "छोड़े गए"
   },
+  "queueActionRequired": {
+    "message": "कार्रवाई आवश्यक"
+  },
+  "queueActionRequiredHint": {
+    "message": "सदस्यता या Lurkloot के बाहर कोई और कदम चाहिए। पिन और पसंदीदा केवल क्रम बदलते हैं।"
+  },
   "queueUpcoming": {
     "message": "आगामी"
   },
@@ -371,6 +377,15 @@
   "subscribedRefresh": {
     "message": "मैंने सदस्यता ले ली है — स्थिति रीफ़्रेश करें"
   },
+  "subscriptionMarkSubscribed": {
+    "message": "सदस्यता ली गई के रूप में चिह्नित करें"
+  },
+  "subscriptionMarkedSubscribed": {
+    "message": "सदस्यता ली गई के रूप में चिह्नित"
+  },
+  "subscriptionMarkUndo": {
+    "message": "पूर्ववत करें"
+  },
   "waitingForSubscription": {
     "message": "योग्य सदस्यता की प्रतीक्षा है"
   },
@@ -391,6 +406,12 @@
   },
   "viewDropPage": {
     "message": "ड्रॉप पेज देखें"
+  },
+  "campaignDropDetails": {
+    "message": "ड्रॉप विवरण"
+  },
+  "campaignCategoryDrops": {
+    "message": "श्रेणी ड्रॉप"
   },
   "upcoming": {
     "message": "आगामी"
@@ -748,6 +769,9 @@
   },
   "campaignRejectionActionRequired": {
     "message": "$1 के लिए देखने के अलावा दूसरी कार्रवाई चाहिए।"
+  },
+  "campaignRejectionThen": {
+    "message": "उसके बाद: $1"
   },
   "campaignRejectionNoFarmableReward": {
     "message": "इस कैंपेन का कोई रिवॉर्ड अभी फ़ार्म नहीं किया जा सकता।"
@@ -1714,6 +1738,9 @@
   },
   "campaignMoreChannels": {
     "message": "+$1 और"
+  },
+  "campaignFewerChannels": {
+    "message": "कम दिखाएँ"
   },
   "campaignExclude": {
     "message": "बाहर रखें"

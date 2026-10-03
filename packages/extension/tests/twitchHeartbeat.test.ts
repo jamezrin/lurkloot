@@ -97,7 +97,6 @@ describe("Twitch heartbeat strategies", () => {
     const adapter = twitchAdapter(
       { fetchJson: fetchJson as never },
       undefined,
-      undefined,
       { heartbeatStrategy: strategy },
     );
     const watcher = adapter.createTablessWatcher();

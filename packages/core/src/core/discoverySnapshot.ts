@@ -44,6 +44,10 @@ export interface DiscoveryAttempt {
   finishedAt: number;
   complete: boolean;
   failure?: string;
+  // What the refresh threw, kept so the tick can feed it to the critical-failure
+  // detector with its SafeFetchError breadcrumb. Absent for a discarded refresh
+  // and for an incomplete result that did not throw (platform disabled).
+  error?: unknown;
   discarded?: "stale_generation" | "stopped";
   coalesced: number;
   metrics?: DiscoveryRefreshMetrics;
@@ -288,20 +292,22 @@ export function adapterFromDiscoverySnapshot(
   });
 }
 
+// Without a snapshot it knows no channel: only the current watch's own channel
+// still reads as live for its campaign.
 export function selectionAdapterFromDiscoverySnapshot(
-  snapshot: DiscoverySnapshot,
+  snapshot: DiscoverySnapshot | undefined,
   session?: WatchSession,
 ): Pick<PlatformAdapter, "listCandidateChannels" | "selectCandidateChannel" | "checkChannel" | "listFollowedChannels"> {
-  const campaigns = new Map(snapshot.campaigns.map((observation) => [observation.campaign.id, observation]));
+  const campaigns = new Map((snapshot?.campaigns ?? []).map((observation) => [observation.campaign.id, observation]));
   return {
     listCandidateChannels: async (campaign) =>
       campaigns.get(campaign.id)?.candidates.map(({ candidate }) => candidate) ?? [],
     selectCandidateChannel: undefined,
-    listFollowedChannels: async () => [...snapshot.followedChannels],
+    listFollowedChannels: async () => [...(snapshot?.followedChannels ?? [])],
     checkChannel: async (candidate, options) => {
       const observations = options?.campaign
         ? campaigns.get(options.campaign.id)?.candidates ?? []
-        : snapshot.idleCandidates;
+        : snapshot?.idleCandidates ?? [];
       const observation = observations.find(({ candidate: observed }) =>
         observed.username.toLowerCase() === candidate.username.toLowerCase());
       if (!observation) {
@@ -453,7 +459,7 @@ export class DiscoverySnapshotLane<TRequest = undefined> {
           failure: error instanceof Error ? error.message : String(error),
           ...(this.stopped || generation !== this.generation
             ? { discarded: this.stopped ? "stopped" as const : "stale_generation" as const }
-            : {}),
+            : { error }),
           coalesced,
         },
       };

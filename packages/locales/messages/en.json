@@ -98,6 +98,12 @@
   "queueSkipped": {
     "message": "Skipped"
   },
+  "queueActionRequired": {
+    "message": "Action required"
+  },
+  "queueActionRequiredHint": {
+    "message": "Needs a subscription or another step outside Lurkloot. Pins and favourites only change the order."
+  },
   "queueUpcoming": {
     "message": "Upcoming"
   },
@@ -371,6 +377,15 @@
   "subscribedRefresh": {
     "message": "I've subscribed — refresh status"
   },
+  "subscriptionMarkSubscribed": {
+    "message": "Mark as subscribed"
+  },
+  "subscriptionMarkedSubscribed": {
+    "message": "Marked as subscribed"
+  },
+  "subscriptionMarkUndo": {
+    "message": "Undo"
+  },
   "waitingForSubscription": {
     "message": "Waiting for a qualifying subscription"
   },
@@ -391,6 +406,12 @@
   },
   "viewDropPage": {
     "message": "View drop page"
+  },
+  "campaignDropDetails": {
+    "message": "Drop details"
+  },
+  "campaignCategoryDrops": {
+    "message": "Category drops"
   },
   "upcoming": {
     "message": "Upcoming"
@@ -748,6 +769,9 @@
   },
   "campaignRejectionActionRequired": {
     "message": "$1 requires an action other than watching."
+  },
+  "campaignRejectionThen": {
+    "message": "After that: $1"
   },
   "campaignRejectionNoFarmableReward": {
     "message": "No reward in this campaign can currently be farmed."
@@ -1714,6 +1738,9 @@
   },
   "campaignMoreChannels": {
     "message": "+$1 more"
+  },
+  "campaignFewerChannels": {
+    "message": "Show fewer"
   },
   "campaignExclude": {
     "message": "Exclude"

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createKickFetcher, KickDiscoveryState } from "@lurkloot/core/kick";
-import { KickWafBlockedError } from "@lurkloot/core/tabs";
+import { KickWafBlockedError } from "@lurkloot/core/transport";
 import type { DiagnosticEvent, EngineEvent } from "@lurkloot/shared/events";
 
 function diagnostics(events: EngineEvent[]): DiagnosticEvent[] {

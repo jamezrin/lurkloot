@@ -1,7 +1,7 @@
 // Shared test fixture: URLs asserted against every copy of the Kick
-// session_token Bearer predicate (packages/core/src/core/tabs.ts's
+// session_token Bearer predicate (packages/core/src/core/transport.ts's
 // needsKickSessionBearer, packages/cli/src/transport/cycle.ts's kickHeaders,
-// and tabs.ts's inlined pageFetchJson). Kept here rather than duplicated in
+// and packages/extension/src/core/browserTabs.ts's inlined pageFetchJson). Kept here rather than duplicated in
 // each package's test suite so the three copies stay pinned to the same
 // expectations. Not imported by any runtime code path.
 

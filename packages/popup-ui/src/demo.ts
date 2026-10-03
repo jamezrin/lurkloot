@@ -126,7 +126,7 @@ function demoSnapshot(): RuntimeSnapshot {
         autoClaimChallenges: true,
       },
     },
-    campaignPins: ["tw-marathon", "tw-starfall"],
+    campaignPins: ["tw-marathon"],
   });
 
   const twitchCampaigns: DropCampaign[] = [
@@ -135,6 +135,7 @@ function demoSnapshot(): RuntimeSnapshot {
       platform: "twitch",
       name: "Marathon Legends Launch Drops",
       gameName: "Marathon Legends",
+      slug: "marathon-legends",
       categoryId: "marathon legends",
       startsAt: inHours(-18),
       endsAt: inHours(31),
@@ -156,6 +157,7 @@ function demoSnapshot(): RuntimeSnapshot {
       platform: "twitch",
       name: "Starfall Arena Weekend",
       gameName: "Starfall Arena",
+      slug: "starfall-arena",
       categoryId: "starfall arena",
       startsAt: inHours(-6),
       endsAt: inHours(54),
@@ -174,6 +176,7 @@ function demoSnapshot(): RuntimeSnapshot {
       platform: "twitch",
       name: "Spellforge Creator Drops",
       gameName: "Spellforge",
+      slug: "spellforge",
       categoryId: "spellforge",
       startsAt: inHours(-3),
       endsAt: inHours(78),
@@ -193,6 +196,7 @@ function demoSnapshot(): RuntimeSnapshot {
       platform: "twitch",
       name: "Marathon Legends Season 1",
       gameName: "Marathon Legends",
+      slug: "marathon-legends",
       categoryId: "marathon legends",
       startsAt: inHours(-320),
       endsAt: inHours(-96),
@@ -208,6 +212,7 @@ function demoSnapshot(): RuntimeSnapshot {
       platform: "twitch",
       name: "Starfall Arena Preseason",
       gameName: "Starfall Arena",
+      slug: "starfall-arena",
       categoryId: "starfall arena",
       startsAt: inHours(-260),
       endsAt: inHours(-48),

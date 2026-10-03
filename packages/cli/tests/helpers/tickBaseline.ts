@@ -111,12 +111,34 @@ function countingAdapter(
       };
     },
     claimReward: async () => false,
-    prepareWatchTab: async () => {
+    // The CLI has no watch tabs (#598): like its real adapters, the measured
+    // ones watch tabless, and starting the watcher is the reconciliation.
+    supportsTabless: true,
+    createTablessWatcher: () => countingWatcher(platform, counts, advance),
+  };
+}
+
+function countingWatcher(
+  platform: Platform,
+  counts: Counts,
+  advance: (phase: "discovery" | "selection" | "watcher", milliseconds: number) => void,
+): TablessWatchController {
+  let channelUrl: string | undefined;
+  return {
+    platform,
+    get channelUrl() {
+      return channelUrl;
+    },
+    start: async (channel) => {
+      channelUrl = channel.url;
       counts.watcherReconciliations += 1;
       advance("watcher", 5);
-      return { tabId: platform === "twitch" ? 10 : 20, managedByExtension: false };
     },
-    stopWatchTab: async () => undefined,
+    tick: async (): Promise<HeartbeatResult> => ({ ok: true, live: true }),
+    drainEvents: () => [],
+    stop: async () => {
+      channelUrl = undefined;
+    },
   };
 }
 
@@ -485,8 +507,11 @@ async function runCliHeartbeatOverlapCell(directory: string, platform: Platform)
   try {
     await milestones.wait("initialDiscoveryCompleted");
     await vi.waitFor(() => {
-      if (vi.getTimerCount() !== 2) {
-        throw new Error(`Expected both CLI host timers, observed ${vi.getTimerCount()}`);
+      // The two tick jobs and the heartbeat job, plus (since #590) the
+      // one-minute channel-points job while Twitch is enabled.
+      const expectedTimers = platform === "twitch" ? 4 : 3;
+      if (vi.getTimerCount() !== expectedTimers) {
+        throw new Error(`Expected ${expectedTimers} CLI job timers, observed ${vi.getTimerCount()}`);
       }
     });
 

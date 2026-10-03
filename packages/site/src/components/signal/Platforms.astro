@@ -1,0 +1,108 @@
+---
+// What each platform gets, split the way the production homepage does it, then
+// a two-way marquee of box art from games that commonly run campaigns.
+import { Image } from "astro:assets";
+import { LINKS } from "../../consts";
+
+const platforms = [
+  {
+    id: "twitch",
+    label: "Twitch",
+    title: "Drops, handled.",
+    text: "Track campaign rewards and automatically claim eligible drops and channel point bonuses.",
+    link: { href: LINKS.twitchFarmer, text: "Explore Twitch support" },
+  },
+  {
+    id: "kick",
+    label: "Kick",
+    title: "Another platform. Same flow.",
+    text: "Follow Kick campaigns, collect drops, and open daily challenge cards from the same workspace.",
+    link: { href: LINKS.kickFarmer, text: "Explore Kick support" },
+  },
+  {
+    id: "extensions",
+    label: "Twitch extensions",
+    title: "Go beyond drops.",
+    text: "Enable optional support for selected Twitch extensions. Manage supported rewards alongside your regular farming.",
+    note: "Optional permissions are requested when you enable support.",
+  },
+];
+
+// Games that regularly run Twitch or Kick drop campaigns, most-watched first.
+// Box art is Twitch's own category art (285 × 380). Each game appears once:
+// alternating entries fill the two rows, and each row is longer than any
+// screen, so the loop never shows the same cover twice at the same time.
+const GAMES: Array<[slug: string, name: string]> = [
+  ["rust", "Rust"], ["valorant", "VALORANT"], ["escape-from-tarkov", "Escape from Tarkov"],
+  ["marvel-rivals", "Marvel Rivals"], ["apex-legends", "Apex Legends"], ["arc-raiders", "ARC Raiders"],
+  ["warframe", "Warframe"], ["call-of-duty-warzone", "Call of Duty: Warzone"], ["rainbow-six-siege", "Rainbow Six Siege"],
+  ["overwatch", "Overwatch"], ["dead-by-daylight", "Dead by Daylight"], ["genshin-impact", "Genshin Impact"],
+  ["destiny-2", "Destiny 2"], ["world-of-warcraft", "World of Warcraft"], ["sea-of-thieves", "Sea of Thieves"],
+  ["battlefield-6", "Battlefield 6"], ["pubg-battlegrounds", "PUBG: Battlegrounds"], ["call-of-duty-black-ops-7", "Black Ops 7"],
+  ["diablo-iv", "Diablo IV"], ["the-finals", "THE FINALS"], ["delta-force", "Delta Force"],
+  ["honkai-star-rail", "Honkai: Star Rail"], ["war-thunder", "War Thunder"], ["hearthstone", "Hearthstone"],
+  ["path-of-exile-2", "Path of Exile 2"], ["zenless-zone-zero", "Zenless Zone Zero"], ["new-world-aeternum", "New World: Aeternum"],
+  ["fortnite", "Fortnite"], ["lost-ark", "Lost Ark"], ["wuthering-waves", "Wuthering Waves"],
+  ["hunt-showdown-1896", "Hunt: Showdown 1896"], ["grand-theft-auto-v", "Grand Theft Auto V"], ["world-of-tanks", "World of Tanks"],
+  ["rocket-league", "Rocket League"], ["arena-breakout-infinite", "Arena Breakout"], ["dune-awakening", "Dune: Awakening"],
+  ["black-desert", "Black Desert"], ["ea-sports-fc-26", "EA Sports FC 26"], ["world-of-warships", "World of Warships"],
+  ["throne-and-liberty", "Throne and Liberty"], ["the-elder-scrolls-online", "Elder Scrolls Online"], ["once-human", "Once Human"],
+  ["albion-online", "Albion Online"], ["monster-hunter-wilds", "Monster Hunter Wilds"], ["smite-2", "SMITE 2"],
+  ["dayz", "DayZ"],
+];
+const covers = import.meta.glob<{ default: ImageMetadata }>("../../assets/games/*.jpg", { eager: true });
+const games = GAMES.map(([slug, name]) => {
+  const cover = covers[`../../assets/games/${slug}.jpg`];
+  if (!cover) throw new Error(`Missing box art for ${slug}`);
+  return { name, img: cover.default };
+});
+// Each row is doubled so the CSS marquee loops seamlessly.
+const rows = [games.filter((_, i) => i % 2 === 0), games.filter((_, i) => i % 2 === 1)];
+---
+<section class="sg-section sg-platforms" id="platforms" aria-labelledby="platforms-title">
+  <div class="sg-wrap">
+    <header class="sg-head sg-head--split" data-reveal>
+      <div>
+        <p class="sg-eyebrow">Supported rewards</p>
+        <h2 id="platforms-title">Twitch and Kick.<br /><span class="sg-dim">One workspace.</span></h2>
+      </div>
+      <p>Switch between them in one click. Each platform keeps its own games, order and settings.</p>
+    </header>
+
+    <div class="sg-platforms__grid">
+      {platforms.map((platform) => (
+        <article class={`sg-platform sg-platform--${platform.id}`} data-reveal>
+          <span class="sg-platform__label">{platform.label}</span>
+          <h3>{platform.title}</h3>
+          <p>{platform.text}</p>
+          {platform.note && <p class="sg-platform__note">{platform.note}</p>}
+          {platform.link && (
+            <a class="sg-platform__link" href={platform.link.href}>
+              {platform.link.text}
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+            </a>
+          )}
+        </article>
+      ))}
+    </div>
+  </div>
+
+  <div class="sg-marquee" aria-label="Games with drop campaigns, for example">
+    {rows.map((row, index) => (
+      <div class:list={["sg-marquee__row", { "sg-marquee__row--reverse": index === 1 }]} style={`--count:${row.length}`}>
+        <ul class="sg-marquee__track">
+          {[...row, ...row].map((game, i) => (
+            <li aria-hidden={i >= row.length ? "true" : undefined}>
+              <Image src={game.img} alt={i >= row.length ? "" : game.name} widths={[150, 300]} sizes="150px" loading="lazy" />
+              <span>{game.name}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    ))}
+  </div>
+
+  <div class="sg-wrap">
+    <p class="sg-platforms__caption" data-reveal>Your games. Your order. <span>Campaign availability varies.</span></p>
+  </div>
+</section>

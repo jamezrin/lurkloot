@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { saveCredentials, type PlatformCredentials } from "../authStore";
+import { TWITCH_WEB_CLIENT_ID } from "../twitch";
 
 interface CredentialBlob {
   // The canonical extension export: { version, credentials: { twitch, kick } }.
@@ -31,8 +32,20 @@ export function readCredentialBlob(source: string): PlatformCredentials {
   };
 }
 
-export function importCredentials(authDir: string, source: string): PlatformCredentials {
+export function importCredentials(authDir: string, source: string): { credentials: PlatformCredentials; ignoredTwitch: boolean } {
   const creds = readCredentialBlob(source);
-  saveCredentials(authDir, creds);
-  return creds;
+  // Extension exports use Twitch's web identity. They are importable once the
+  // Kasada session cookie is present, because the CLI can now mint integrity.
+  const browserTwitch = Boolean(creds.twitch?.authToken && !creds.twitch.clientId);
+  const importableWeb = Boolean(browserTwitch && creds.twitch?.deviceId && creds.twitch?.kasadaSessionCookie);
+  const ignoredTwitch = browserTwitch && !importableWeb;
+  if (ignoredTwitch && !creds.kick?.sessionToken) {
+    throw new Error("This Twitch export lacks a device ID or Kasada session cookie; export again from the updated extension and allow access to k.twitchcdn.net when asked, or run auth twitch device-login");
+  }
+  const credentials = {
+    ...creds,
+    twitch: ignoredTwitch ? undefined : importableWeb ? { ...creds.twitch, clientId: TWITCH_WEB_CLIENT_ID } : creds.twitch,
+  };
+  saveCredentials(authDir, credentials);
+  return { credentials, ignoredTwitch };
 }

@@ -98,6 +98,12 @@
   "queueSkipped": {
     "message": "Übersprungen"
   },
+  "queueActionRequired": {
+    "message": "Aktion erforderlich"
+  },
+  "queueActionRequiredHint": {
+    "message": "Erfordert ein Abo oder einen anderen Schritt außerhalb von Lurkloot. Anheften und Favoriten ändern nur die Reihenfolge."
+  },
   "queueUpcoming": {
     "message": "Demnächst"
   },
@@ -371,6 +377,15 @@
   "subscribedRefresh": {
     "message": "Ich habe abonniert — Status aktualisieren"
   },
+  "subscriptionMarkSubscribed": {
+    "message": "Als abonniert markieren"
+  },
+  "subscriptionMarkedSubscribed": {
+    "message": "Als abonniert markiert"
+  },
+  "subscriptionMarkUndo": {
+    "message": "Rückgängig"
+  },
   "waitingForSubscription": {
     "message": "Auf ein qualifizierendes Abonnement warten"
   },
@@ -391,6 +406,12 @@
   },
   "viewDropPage": {
     "message": "Drop-Seite ansehen"
+  },
+  "campaignDropDetails": {
+    "message": "Drop-Details"
+  },
+  "campaignCategoryDrops": {
+    "message": "Drops der Kategorie"
   },
   "upcoming": {
     "message": "Bevorstehend"
@@ -748,6 +769,9 @@
   },
   "campaignRejectionActionRequired": {
     "message": "$1 erfordert eine andere Aktion als Zuschauen."
+  },
+  "campaignRejectionThen": {
+    "message": "Danach: $1"
   },
   "campaignRejectionNoFarmableReward": {
     "message": "Derzeit kann keine Belohnung dieser Kampagne gefarmt werden."
@@ -1714,6 +1738,9 @@
   },
   "campaignMoreChannels": {
     "message": "+$1 weitere"
+  },
+  "campaignFewerChannels": {
+    "message": "Weniger anzeigen"
   },
   "campaignExclude": {
     "message": "Ausschließen"

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { runSchedulerTick, selectWatchTargetFromSnapshot } from "@lurkloot/core/scheduler";
+import { selectWatchTargetFromSnapshot } from "@lurkloot/core/scheduler";
+import { runSchedulerTick, type SchedulerTestAdapter } from "./helpers/schedulerTick";
 import { DEFAULT_STATE } from "@lurkloot/core/defaults";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
@@ -13,7 +14,7 @@ function setup(platform: Platform = "twitch") {
   state.authHealth[platform] = { status: "healthy" };
   const channel = (username: string) => ({ platform, username, url: `${platform === "twitch" ? "https://www.twitch.tv" : "https://kick.com"}/${username}`, channelId: username, live: true, isAclMatch: true });
   const campaign: DropCampaign = { id: "drop", platform, name: "Drop", categoryId: "game", gameName: "Game", status: "active", startsAt: new Date(Date.now() - 3_600_000).toISOString(), endsAt: new Date(Date.now() + 86_400_000).toISOString(), accountLinked: true, eligibility: "eligible", priority: 1, rewards: [{ id: "reward", name: "Reward", requiredMinutes: 60, watchedMinutes: 10, status: "in_progress" }] };
-  const adapter: PlatformAdapter = { platform, supportsTabless: true, checkAuthHealth: async () => ({ status: "healthy" }), refreshCampaigns: async () => [campaign], listCandidateChannels: async () => [channel("dropper")], checkChannel: async candidate => ({ live: true, categoryMatches: true, candidate }), claimReward: async () => true, prepareWatchTab: vi.fn(async () => ({ tabId: 1, managedByExtension: true })), stopWatchTab: vi.fn(async () => {}) };
+  const adapter: SchedulerTestAdapter = { platform, supportsTabless: true, checkAuthHealth: async () => ({ status: "healthy" }), refreshCampaigns: async () => [campaign], listCandidateChannels: async () => [channel("dropper")], checkChannel: async candidate => ({ live: true, categoryMatches: true, candidate }), claimReward: async () => true, prepareWatchTab: vi.fn(async () => ({ tabId: 1, managedByExtension: true })), stopWatchTab: vi.fn(async () => {}) };
   const adapters = { twitch: { ...adapter, platform: "twitch" as const }, kick: { ...adapter, platform: "kick" as const }, [platform]: adapter };
   const target = (id: string): SupplementalWatchTarget => ({ id, tablessOnly: true, channel: channel(id) });
   const tick = (current = state, selector?: (platform: Platform, selectedState: SchedulerState, signal?: AbortSignal, source?: string) => Promise<SupplementalWatchTarget | undefined>) => runSchedulerTick(current, settings, adapters, { platforms: [platform], selectSupplementalWatchTarget: selector });

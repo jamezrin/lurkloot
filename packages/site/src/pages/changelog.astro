@@ -7,9 +7,9 @@ const kindLabel: Record<ChangeKind, string> = { new: "New", improved: "Improved"
 ---
 <Base title="Changelog — Lurkloot" description="What's new in Lurkloot — release notes for every version of the Twitch and Kick drops farming extension.">
   <main id="content">
-    <header class="document-hero home-wrap"><p class="document-label">CHANGELOG</p><h1>A little better.<br /><span>Every release.</span></h1><p>New features, thoughtful improvements, and the fixes in between.</p></header>
-    <section class="home-light document-section">
-      <div class="home-wrap document-layout">
+    <header class="document-hero sg-wrap"><p class="document-label">CHANGELOG</p><h1>A little better.<br /><span>Every release.</span></h1><p>New features, thoughtful improvements, and the fixes in between.</p></header>
+    <section class="document-section">
+      <div class="sg-wrap document-layout">
         <nav class="document-toc" aria-label="Recent releases"><p>RECENT RELEASES</p>{changelog.slice(0, 10).map(entry => <a href={`#v${entry.version}`}>v{entry.version}<span>{entry.date ?? "Unreleased"}</span></a>)}</nav>
         <div class="release-list">
           {changelog.map(entry => <section class="release" id={`v${entry.version}`} aria-labelledby={`title-v${entry.version}`}>

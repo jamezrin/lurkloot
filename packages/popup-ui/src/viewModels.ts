@@ -1,14 +1,17 @@
 import type { CategorySelection, DropCampaign, ExtensionSettings, Platform, WatchSession } from "@lurkloot/shared/models";
-import { NO_CATEGORY_ID, categoryListIndex, favouriteCategoryIndex, isCampaignCategoryBlocked, isUncategorizedCampaign } from "@lurkloot/shared/categories";
+import { NO_CATEGORY_ID, categoryListIndex, favouriteCategoryIndex, isCampaignCategoryBlocked, isUncategorizedCampaign, twitchCategoryDropsUrl } from "@lurkloot/shared/categories";
 import {
+  applySubscriptionMarks,
   campaignHasSubscriptionRewards,
   campaignHasWatchRewards,
+  canMarkSubscription,
+  isRewardObtained,
   isWatchReward,
   rewardRequirementType,
   rewardFeasibility,
 } from "@lurkloot/shared/rewards";
 import { isCampaignExpired, isCampaignFinished } from "@lurkloot/shared/campaignFilters";
-import { evaluateCampaignFarming } from "@lurkloot/shared/campaignFarming";
+import { campaignFarmingBlockers, OUTSIDE_ACTION_REJECTION_CODES } from "@lurkloot/shared/campaignFarming";
 export {
   campaignFilterCategories,
   campaignSection,
@@ -158,17 +161,40 @@ function rewardComplete(reward: RewardView): boolean {
   return reward.obtained || (reward.progress ?? 0) >= 100;
 }
 
+const PLATFORM_HOSTS: Record<Platform, string> = { twitch: "twitch.tv", kick: "kick.com" };
+
+// The site a campaign's page is on, when that is not the campaign's own
+// platform. Twitch campaigns can point at a publisher's site, and the card
+// says so instead of sending the user there unannounced.
+function offPlatformHost(campaign: DropCampaign): string | undefined {
+  if (!campaign.url) return undefined;
+  let hostname: string;
+  try {
+    hostname = new URL(campaign.url).hostname.toLowerCase();
+  } catch {
+    return undefined;
+  }
+  const platformHost = PLATFORM_HOSTS[campaign.platform];
+  if (hostname === platformHost || hostname.endsWith(`.${platformHost}`)) return undefined;
+  return hostname.replace(/^www\./, "");
+}
+
 export function campaignViewFromCampaign(
-  campaign: DropCampaign,
+  source: DropCampaign,
   index: number,
   session: WatchSession,
   excluded: boolean,
   feasibility?: { skipUnfinishableRewards: boolean; deadlineSafetyMarginMinutes: number; now?: number; settings?: ExtensionSettings },
 ): CampaignView {
-  const farmingEvaluation = feasibility?.settings
-    ? evaluateCampaignFarming(campaign, feasibility.settings, { includePinnedOnly: true, now: feasibility.now })
-    : undefined;
   const settings = feasibility?.settings;
+  // The engine applies the same marks on its next check; applying them here too
+  // shows a toggle at once.
+  const campaign = settings
+    ? applySubscriptionMarks(source, settings.platform[source.platform].subscribedRewardMarks ?? [])
+    : source;
+  const farmingBlockers = feasibility?.settings
+    ? campaignFarmingBlockers(campaign, feasibility.settings, { includePinnedOnly: true, now: feasibility.now })
+    : [];
   return {
     id: campaign.id,
     gameId: gameId(campaign),
@@ -187,6 +213,8 @@ export function campaignViewFromCampaign(
     linked: campaign.accountLinked !== false,
     linkUrl: campaign.accountLinkUrl || undefined,
     pageUrl: campaign.url || undefined,
+    pageHost: offPlatformHost(campaign),
+    categoryDropsUrl: campaign.platform === "twitch" && campaign.slug ? twitchCategoryDropsUrl(campaign.slug) : undefined,
     excluded,
     starts: campaign.startsAt ?? campaign.rewards.find((reward) => reward.availableFrom)?.availableFrom ?? "",
     ends: campaign.endsAt ?? campaign.rewards.find((reward) => reward.availableUntil)?.availableUntil ?? "",
@@ -199,7 +227,7 @@ export function campaignViewFromCampaign(
       const requirement = rewardRequirementType(reward);
       const progress = isWatchReward(reward) && reward.requiredMinutes > 0
         ? Math.min(100, (Math.min(reward.watchedMinutes, reward.requiredMinutes) / reward.requiredMinutes) * 100)
-        : reward.status === "claimed" ? 100 : undefined;
+        : isRewardObtained(reward) ? 100 : undefined;
       const claimGuidance = safeClaimGuidance(reward.claimGuidance ?? campaign.claimGuidance);
       const deadlineFeasibility = feasibility
         ? rewardFeasibility(
@@ -217,7 +245,9 @@ export function campaignViewFromCampaign(
         requiredMinutes: reward.requiredMinutes,
         requiredSubs: reward.requiredSubs,
         requirement,
-        obtained: reward.status === "claimed",
+        obtained: isRewardObtained(reward),
+        subscriptionMarked: reward.subscriptionMarked === true,
+        canMarkSubscription: canMarkSubscription(reward),
         art: initials(reward.name).slice(0, 8),
         tint: REWARD_TINTS[rewardIndex % REWARD_TINTS.length],
         imageUrl: campaign.platform === "kick" ? kickRewardImageUrl(reward.imageUrl) : reward.imageUrl,
@@ -228,7 +258,9 @@ export function campaignViewFromCampaign(
     }),
     hasWatchRewards: campaignHasWatchRewards(campaign),
     hasSubscriptionRewards: campaignHasSubscriptionRewards(campaign),
-    farmingRejection: farmingEvaluation && !farmingEvaluation.farmable ? farmingEvaluation : undefined,
+    farmingRejection: farmingBlockers[0],
+    laterBlockers: farmingBlockers.slice(1),
+    needsOutsideAction: farmingBlockers[0] !== undefined && OUTSIDE_ACTION_REJECTION_CODES.has(farmingBlockers[0].code),
   };
 }
 

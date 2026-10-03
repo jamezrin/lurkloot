@@ -98,6 +98,12 @@
   "queueSkipped": {
     "message": "متجاوَزة"
   },
+  "queueActionRequired": {
+    "message": "يلزم إجراء"
+  },
+  "queueActionRequiredHint": {
+    "message": "يحتاج إلى اشتراك أو خطوة أخرى خارج Lurkloot. التثبيت والتفضيل يغيّران الترتيب فقط."
+  },
   "queueUpcoming": {
     "message": "قادمة"
   },
@@ -371,6 +377,15 @@
   "subscribedRefresh": {
     "message": "لقد اشتركت — تحديث الحالة"
   },
+  "subscriptionMarkSubscribed": {
+    "message": "تحديد كمشترك"
+  },
+  "subscriptionMarkedSubscribed": {
+    "message": "تم التحديد كمشترك"
+  },
+  "subscriptionMarkUndo": {
+    "message": "تراجع"
+  },
   "waitingForSubscription": {
     "message": "في انتظار اشتراك مؤهل"
   },
@@ -391,6 +406,12 @@
   },
   "viewDropPage": {
     "message": "عرض صفحة الدروب"
+  },
+  "campaignDropDetails": {
+    "message": "تفاصيل الدروب"
+  },
+  "campaignCategoryDrops": {
+    "message": "دروب الفئة"
   },
   "upcoming": {
     "message": "قادمة"
@@ -748,6 +769,9 @@
   },
   "campaignRejectionActionRequired": {
     "message": "تتطلب $1 إجراءً غير المشاهدة."
+  },
+  "campaignRejectionThen": {
+    "message": "بعد ذلك: $1"
   },
   "campaignRejectionNoFarmableReward": {
     "message": "لا يمكن جمع أي مكافأة من هذه الحملة حاليًا."
@@ -1714,6 +1738,9 @@
   },
   "campaignMoreChannels": {
     "message": "+$1 أخرى"
+  },
+  "campaignFewerChannels": {
+    "message": "عرض أقل"
   },
   "campaignExclude": {
     "message": "استبعاد"

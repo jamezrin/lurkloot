@@ -5,7 +5,7 @@ import yargs, { type Argv, type ArgumentsCamelCase, type CommandModule } from "y
 import { hideBin } from "yargs/helpers";
 import type { DropCampaign, Platform } from "@lurkloot/shared/models";
 import type { EngineEvent } from "@lurkloot/shared/events";
-import { KickWafBlockedError } from "@lurkloot/core/tabs";
+import { KickWafBlockedError } from "@lurkloot/core/transport";
 import { assertExportOutputPath, loadConfig, saveConfigSettings, TRANSPORTS, type CliConfig, type Transport } from "./config";
 import { buildCliSettingsExportPayload, parseCliSettingsImportPayload } from "./settings";
 import { credentialAvailabilityOf, describeCredentialHealth, forgetCredentials, hasKickAuth, hasTwitchAuth, loadCredentials } from "./authStore";
@@ -133,7 +133,7 @@ const discoverCommand: CommandModule = {
         const emit = (event: EngineEvent) => events.push(event);
         const { adapter } = handle.createAdapter(platform, emit, toEngineSettings(config.settings));
         try {
-          await discoverPlatform(platform, adapter, logger);
+          await discoverPlatform(platform, adapter, logger, config.settings.platform[platform].subscribedRewardMarks ?? []);
         } finally {
           adapter.flushRouteDiagnostics?.(emit);
           await reportCliEvents(events, logger);
@@ -222,8 +222,9 @@ const authCommand: CommandModule = {
         const { authDir } = configOf(argv, logger);
         // yargs-parser renders a bare "-" positional as "" — restore the stdin sentinel.
         const file = argv.file === "" ? "-" : String(argv.file);
-        const creds = importCredentials(authDir, file);
+        const { credentials: creds, ignoredTwitch } = importCredentials(authDir, file);
         logger.info(`Imported credentials${creds.twitch?.authToken ? " (twitch)" : ""}${creds.kick?.sessionToken ? " (kick)" : ""} into ${authDir}`, "auth");
+        if (ignoredTwitch) logger.warn("Skipped the Twitch web token because the export lacked a device ID or Kasada cookie; export again from the updated extension", "auth");
       },
     })
     .command(platformAuthCommand("twitch"))
@@ -244,6 +245,7 @@ const authCommand: CommandModule = {
           twitch: {
             authToken: hasTwitchAuth(creds),
             deviceId: Boolean(creds.twitch?.deviceId),
+            kasadaSessionCookie: Boolean(creds.twitch?.kasadaSessionCookie),
             source: health.twitch.source,
             status: health.twitch.status,
             ...(health.twitch.reasonCode ? { reasonCode: health.twitch.reasonCode } : {}),
@@ -262,12 +264,17 @@ const authCommand: CommandModule = {
   handler: () => { /* a subcommand always runs; see demandCommand above */ },
 };
 
-async function discoverPlatform(platform: Platform, adapter: { refreshCampaigns(): Promise<DropCampaign[]> }, logger: ReturnType<typeof createLogger>): Promise<void> {
+async function discoverPlatform(
+  platform: Platform,
+  adapter: { refreshCampaigns(): Promise<DropCampaign[]> },
+  logger: ReturnType<typeof createLogger>,
+  subscriptionMarks: readonly string[],
+): Promise<void> {
   try {
     const campaigns = await adapter.refreshCampaigns();
     logger.info(`discovered ${campaigns.length} campaign(s)`, platform);
     for (const campaign of campaigns.slice(0, 20)) {
-      for (const line of formatDiscoveredCampaign(campaign)) logger.info(line, platform);
+      for (const line of formatDiscoveredCampaign(campaign, subscriptionMarks)) logger.info(line, platform);
     }
   } catch (error) {
     if (error instanceof KickWafBlockedError) {

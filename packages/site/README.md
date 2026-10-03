@@ -7,20 +7,20 @@ with [Astro](https://astro.build) (static, mostly zero-JS), deployed to
 ## Develop
 
 ```bash
-cd site
-pnpm install
-pnpm dev        # http://localhost:4321
-pnpm build      # outputs to site/dist
-pnpm preview    # serve the production build
+pnpm install          # from the repo root
+pnpm dev:site         # http://localhost:4321
+pnpm build:site       # outputs to packages/site/dist
+pnpm --filter @lurkloot/site preview   # serve the production build
 ```
 
-## Interactive popup demo (shared with the extension)
+## The real popup on the homepage (shared with the extension)
 
-The "Try it yourself" section imports the shared popup React package
-(`@lurkloot/popup-ui`) and renders it as an Astro React island
-(`src/popup-ui/PopupDemo.tsx`) inside a **Shadow DOM**. The demo is backed by the
-package's deterministic demo adapter, so the site has no WXT or extension
-runtime dependency.
+The homepage imports the shared popup React package (`@lurkloot/popup-ui`) and
+renders it inside a **Shadow DOM** (`src/popup-ui/mountPopup.tsx`): once as the
+interactive demo under the hero (`PopupDemo.tsx`), and as read-only views of the
+queue, games and idle watchlist in the farming-order section
+(`PopupExcerpt.tsx`). Both are backed by the package's deterministic demo
+adapter, so the site has no WXT or extension runtime dependency.
 
 Style isolation comes from the Shadow DOM plus the popup package stylesheet
 (`@lurkloot/popup-ui/styles.css?inline`), compiled by Astro's Vite
@@ -29,7 +29,7 @@ Tailwind plugin. No generated popup CSS sync step is required.
 ## Regenerating the social card
 
 ```bash
-node site/scripts/make-og.mjs         # -> site/public/og.png  (uses repo-root playwright)
+pnpm --filter @lurkloot/site exec node scripts/make-og.mjs   # -> public/og.png (uses the extension's playwright)
 ```
 
 ## Deployment — Cloudflare Pages (Direct Upload)
@@ -38,7 +38,7 @@ Deployed with `wrangler pages deploy` — we build locally and upload `dist/`
 straight to Cloudflare, so Cloudflare never needs access to this (private) repo.
 
 ```bash
-cd site
+cd packages/site
 wrangler login            # one-time browser OAuth
 pnpm cf:create            # one-time: create the "lurkloot" project
 pnpm cf:deploy            # build + upload dist/ to production (branch main)

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { mkdtemp, rm, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, rm, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadState, saveState } from "../src/storage";
@@ -46,5 +46,40 @@ describe("file-backed state", () => {
     await saveState(path, await loadState(path));
 
     expect(JSON.parse(await readFile(path, "utf8"))).not.toHaveProperty("events");
+  });
+
+  it("saves atomically: a failed write leaves the previous state and no temporary file", async () => {
+    const path = join(dir, "state.json");
+    const previous = await loadState(path);
+    previous.sessions.twitch.status = "watching";
+    await saveState(path, previous);
+
+    const circular = await loadState(path) as unknown as Record<string, unknown>;
+    circular.self = circular;
+    await expect(saveState(path, circular as never)).rejects.toThrow();
+
+    expect((await loadState(path)).sessions.twitch.status).toBe("watching");
+    expect(await readdir(dir)).toEqual(["state.json"]);
+  });
+
+  it("replaces state.json by rename, leaving no temporary files after concurrent saves", async () => {
+    const path = join(dir, "state.json");
+    const states = await Promise.all(["idle", "watching", "paused"].map(async (status) => {
+      const state = await loadState(path);
+      state.sessions.twitch.status = status as never;
+      return state;
+    }));
+    await Promise.all(states.map((state) => saveState(path, state)));
+
+    expect(await readdir(dir)).toEqual(["state.json"]);
+    expect(["idle", "watching", "paused"]).toContain((await loadState(path)).sessions.twitch.status);
+  });
+
+  it("does not write through to state.json in place when the rename fails", async () => {
+    // A directory at the target path makes the rename fail after the write.
+    const path = join(dir, "state.json");
+    await mkdir(path);
+    await expect(saveState(path, await loadState(join(dir, "missing.json")))).rejects.toThrow();
+    expect(await readdir(dir)).toEqual(["state.json"]);
   });
 });

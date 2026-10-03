@@ -2,14 +2,14 @@ import type { CategorySelection, ChannelCandidate, ChannelCheck, DropCampaign, D
 import type { EventEmitter } from "@lurkloot/shared/events";
 import type { LogLevel } from "@lurkloot/shared/logging";
 import { authHealthFromError, SafeFetchError } from "../../core/fetchError";
-import type { TwitchIntegrityRequest } from "../../core/tabs";
+import type { TwitchIntegrityRequest } from "../../core/tabRegistry";
 import type { TwitchIntegrity } from "../../core/twitchIntegrity";
 import { PendingWatcherDiagnostics, type HeartbeatResult, type TablessWatchController, type WatchContext } from "../../core/tablessWatch";
 import { StaleWhileRevalidateCache } from "../../core/staleCache";
 import type { WebSocketFactory } from "../../core/webSocket";
-import { diagnostic, ignoreEvent, type AdapterOperationOptions, type CandidateChannelSelection, type ChannelPointsClaimOptions, type PageFetcher, type PlatformAdapter, type WatchTabOptions, type WatchTabPort } from "../adapter";
+import { diagnostic, ignoreEvent, type AdapterOperationOptions, type CandidateChannelSelection, type ChannelPointsClaimOptions, type PageFetcher, type PlatformAdapter } from "../adapter";
 import { TwitchChannelPointsPushController } from "./channelPointsPush";
-import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchCampaigns, twitchCandidatesFromCampaign, withCampaignStatus } from "./parser";
+import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchCampaigns, twitchCandidatesFromCampaign, twitchSubscriptionRewardEvidence, withCampaignStatus } from "./parser";
 import type { ResolvedCompatibility, TwitchIdentity } from "../../compatibility/types";
 import { createTwitchHeartbeat } from "./heartbeat/factory";
 import type { TwitchHeartbeatFetchText, TwitchHeartbeatPost, TwitchHeartbeatStrategy } from "./heartbeat/types";
@@ -104,14 +104,29 @@ export interface TwitchAdapterOptions {
   // Reads the Twitch auth-token cookie. Injected so core stays browser-free
   // and never logs the value.
   getAuthToken?: () => Promise<string | undefined>;
+  // CLI-only seed games for partial discovery when Twitch hides the campaign
+  // dashboard. The extension's normal dashboard path leaves this undefined.
+  liveDiscoveryGames?: readonly { id: string; name: string }[];
 }
 
+export const TWITCH_DASHBOARD_QUERY = {
+  operationName: "ViewerDropsDashboard",
+  sha256Hash: "c16bb890cc8ce7647a96ee69cd313d423a378a3dedadf630a1017cde18975feb",
+  variables: { fetchRewardCampaigns: false },
+  inlineQuery: `query ViewerDropsDashboard($fetchRewardCampaigns: Boolean!) {
+    currentUser {
+      id
+      login
+      inventory {
+        dropCampaigns @include(if: $fetchRewardCampaigns) { id status self { isAccountConnected } }
+      }
+      dropCampaigns { id status self { isAccountConnected } }
+    }
+  }`,
+} as const;
+
 const TWITCH_QUERIES = {
-  dashboard: {
-    operationName: "ViewerDropsDashboard",
-    sha256Hash: "c16bb890cc8ce7647a96ee69cd313d423a378a3dedadf630a1017cde18975feb",
-    variables: { fetchRewardCampaigns: false },
-  },
+  dashboard: TWITCH_DASHBOARD_QUERY,
   campaignDetailsHash: "039277bf98f3130929262cc7c6efd9c141ca3749cb6dca442fc8ead9a53f77c1",
   gameDirectoryHash: "86bcceb4e8b1a51256ff8eed8bd8aae4acacf80d737efe904f84f3aeadf8cafd",
   streamInfoHash: "198492e0857f6aedead9665c81c5a06d67b25b58034649687124083ff288597d",
@@ -167,7 +182,7 @@ const TWITCH_CAMPAIGN_FIELDS = `{
   detailsURL
   self { isAccountConnected }
   game { id name displayName slug boxArtURL }
-  allow { channels { name login } }
+  allow { channels { id name } }
   timeBasedDrops {
     id
     name
@@ -181,17 +196,31 @@ const TWITCH_CAMPAIGN_FIELDS = `{
   }
 }`;
 
+const TWITCH_AVAILABLE_CAMPAIGN_FIELDS = `{
+  id
+  name
+  imageURL
+  startAt
+  endAt
+  status
+  accountLinkURL
+  detailsURL
+  game { id name displayName slug boxArtURL }
+  allow { channels { id name } }
+  timeBasedDrops {
+    id
+    name
+    startAt
+    endAt
+    requiredMinutesWatched
+    requiredSubs
+    preconditionDrops { id }
+    benefitEdges { benefit { id name imageAssetURL distributionType } }
+  }
+}`;
+
 const TWITCH_INLINE_QUERIES: Partial<Record<string, string>> = {
-  ViewerDropsDashboard: `query ViewerDropsDashboard($fetchRewardCampaigns: Boolean!) {
-    currentUser {
-      id
-      login
-      inventory {
-        dropCampaigns @include(if: $fetchRewardCampaigns) { id status self { isAccountConnected } }
-      }
-      dropCampaigns { id status self { isAccountConnected } }
-    }
-  }`,
+  ViewerDropsDashboard: TWITCH_DASHBOARD_QUERY.inlineQuery,
   DropCampaignDetails: `query DropCampaignDetails($channelLogin: String!, $dropID: ID!) {
     currentUser { id login }
     user(login: $channelLogin) {
@@ -220,10 +249,13 @@ const TWITCH_INLINE_QUERIES: Partial<Record<string, string>> = {
       }
     }
   }`,
+  // Live-channel discovery parses whole campaigns from this response, so the
+  // inline fallback must carry them too. No per-user `self`: inventory
+  // reconciliation supplies claim state, and the query also runs anonymously.
   DropsHighlightService_AvailableDrops: `query DropsHighlightService_AvailableDrops($channelID: ID!) {
     channel(id: $channelID) {
       id
-      viewerDropCampaigns { id }
+      viewerDropCampaigns ${TWITCH_AVAILABLE_CAMPAIGN_FIELDS}
     }
   }`,
   ChannelPointsContext: `query ChannelPointsContext($channelLogin: String!) {
@@ -390,7 +422,7 @@ interface TwitchCurrentDropData {
 interface TwitchAvailableDropsData {
   channel?: {
     id?: string;
-    viewerDropCampaigns?: Array<{ id?: string }> | null;
+    viewerDropCampaigns?: Array<Parameters<typeof parseTwitchCampaigns>[0][number] | null> | null;
   } | null;
 }
 
@@ -439,6 +471,13 @@ interface CachedCampaignDetails {
 interface CachedDashboardCampaigns {
   campaignIds: string[];
   expiresAt: number;
+}
+
+// Twitch's own slug shape, for when a configured game's slug cannot be looked
+// up: "Tom Clancy's Rainbow Six Siege" -> "tom-clancys-rainbow-six-siege".
+export function twitchSlugFromName(name: string): string {
+  return name.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+    .replace(/['’]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
 function reconcileInventoryCampaignStatuses(
@@ -493,6 +532,7 @@ function campaignDetailsFreshnessSpread(dropID: string): number {
 export class TwitchDiscoveryState {
   private readonly campaignDetailsByDropId = new Map<string, CachedCampaignDetails>();
   private readonly accountLinkingDiagnosticFingerprints = new Map<string, string>();
+  private readonly subscriptionEvidenceFingerprints = new Map<string, string>();
   private readonly availableCampaignsByChannel = new Map<string, CachedAvailableCampaigns>();
   private readonly progressConfirmedAvailabilityByPair = new Map<string, ProgressConfirmedAvailability>();
   private authenticatedUserId?: string;
@@ -538,6 +578,7 @@ export class TwitchDiscoveryState {
       this.availableCampaignsByChannel.clear();
       this.progressConfirmedAvailabilityByPair.clear();
       this.accountLinkingDiagnosticFingerprints.clear();
+      this.subscriptionEvidenceFingerprints.clear();
     }
     this.authenticatedUserId = userId;
     return identityChanged;
@@ -558,9 +599,25 @@ export class TwitchDiscoveryState {
     // Inventory-only campaigns can also produce linking diagnostics. Keep their
     // fingerprints while they remain present, even if the dashboard omits them.
     const activeIds = new Set([...campaignIds, ...inventoryCampaignIds]);
-    for (const campaignId of this.accountLinkingDiagnosticFingerprints.keys()) {
-      if (!activeIds.has(campaignId)) this.accountLinkingDiagnosticFingerprints.delete(campaignId);
+    for (const fingerprints of [this.accountLinkingDiagnosticFingerprints, this.subscriptionEvidenceFingerprints]) {
+      for (const campaignId of fingerprints.keys()) {
+        if (!activeIds.has(campaignId)) fingerprints.delete(campaignId);
+      }
     }
+  }
+
+  // Subscription reward evidence is logged when a campaign's first changes, so
+  // a credited subscription shows up in diagnostics without repeating every tick.
+  shouldReportSubscriptionEvidence(
+    campaignId: string,
+    fingerprint: string,
+    requestIdentity: TwitchAvailabilityRequestIdentity,
+  ): boolean {
+    if (requestIdentity.userId !== this.authenticatedUserId
+      || requestIdentity.generation !== this.availabilityGeneration) return false;
+    if (this.subscriptionEvidenceFingerprints.get(campaignId) === fingerprint) return false;
+    this.subscriptionEvidenceFingerprints.set(campaignId, fingerprint);
+    return true;
   }
 
   shouldReportAccountLinking(
@@ -968,6 +1025,7 @@ export class TwitchAdapter implements PlatformAdapter {
   private readonly gqlTransport: TwitchGqlTransport;
   private readonly inventoryCapability: TwitchInventoryCapability;
   private readonly discoveryState: TwitchDiscoveryState;
+  private readonly gameSlugs = new Map<string, string>();
 
   constructor(
     // Twitch GQL is unreachable from the twitch.tv page context (CORS / anti-
@@ -981,10 +1039,9 @@ export class TwitchAdapter implements PlatformAdapter {
     // pass `async () => false` for "no integrity available". No default: a
     // required options.compatibility below would follow an optional parameter,
     // which TypeScript rejects (a required parameter cannot follow an optional
-    // one), so this and watchTabPort lost their defaults too.
+    // one), so this lost its default too. Watch tabs are not the adapter's
+    // concern: the host's WatchTabPort opens them (#598).
     private readonly ensureIntegrity: (request?: TwitchIntegrityRequest) => Promise<boolean>,
-    // Tab-based watch is browser-bound, so it is injected (see WatchTabPort).
-    private readonly watchTabPort: WatchTabPort,
     // Identity the GQL requests present. Defaults to the WEB client (what the
     // extension uses). A headless runtime can pass a non-web client id + matching
     // user agent (e.g. the Android app) so Twitch never gates it behind integrity
@@ -1116,6 +1173,27 @@ export class TwitchAdapter implements PlatformAdapter {
         })}`, "twitch");
       }
     };
+    const reportSubscriptionEvidence = (
+      campaigns: readonly DropCampaign[],
+      rawDetails: Parameters<typeof parseTwitchCampaigns>[0] = [],
+    ): void => {
+      for (const campaign of campaigns) {
+        const rewards = twitchSubscriptionRewardEvidence(
+          campaign,
+          rawInventory,
+          rawDetails.find((item) => item.id === campaign.id),
+        );
+        if (rewards.length === 0) continue;
+        if (!this.discoveryState.shouldReportSubscriptionEvidence(
+          campaign.id, JSON.stringify(rewards), detailsRequestIdentity,
+        )) continue;
+        diagnostic(this.emit, "debug", `Twitch subscription reward evidence: ${JSON.stringify({
+          campaignId: campaign.id,
+          name: campaign.name,
+          rewards,
+        })}`, "twitch");
+      }
+    };
     const freshCampaignIds = dashboardCampaigns
       .filter((campaign) =>
         campaign.id
@@ -1155,8 +1233,16 @@ export class TwitchAdapter implements PlatformAdapter {
         new Set(discoverableCampaignIds),
         dashboardResponded,
       );
-      reportAccountLinking(campaigns);
-      return campaigns;
+      // A bare AvailableDrops campaign carries no claim state. A campaign the
+      // user already finished is absent from the in-progress inventory, so only
+      // the inventory's earned rewards stop it from being farmed again.
+      const discovered = mergeTwitchCampaignProgress(
+        await this.discoverLiveChannelCampaigns(campaigns, signal),
+        inventory as Parameters<typeof mergeTwitchCampaignProgress>[1],
+      );
+      reportAccountLinking([...campaigns, ...discovered]);
+      reportSubscriptionEvidence([...campaigns, ...discovered]);
+      return [...campaigns, ...discovered];
     }
 
     // Campaigns whose details we already hold and that nothing can have changed
@@ -1255,6 +1341,7 @@ export class TwitchAdapter implements PlatformAdapter {
     });
     if (detailedCampaigns.length === 0) {
       reportAccountLinking(inventoryCampaigns);
+      reportSubscriptionEvidence(inventoryCampaigns);
       return inventoryCampaigns;
     }
     const parsedDetails = parseTwitchCampaigns(detailedCampaigns as Parameters<typeof parseTwitchCampaigns>[0]);
@@ -1277,7 +1364,147 @@ export class TwitchAdapter implements PlatformAdapter {
     reportAccountLinking(campaigns, rawDetails, (campaignId) =>
       cachedDetailsByDropId.has(campaignId) ? "cache"
         : fetchedByDropId.get(campaignId)?.status === "fulfilled" ? "fresh" : "retained");
+    reportSubscriptionEvidence(campaigns, rawDetails);
     return campaigns;
+  }
+
+  private async discoverLiveChannelCampaigns(
+    inventoryCampaigns: readonly DropCampaign[],
+    signal?: AbortSignal,
+  ): Promise<DropCampaign[]> {
+    if (!this.options.liveDiscoveryGames) return [];
+    // The persisted directory query takes a game's URL slug ("escape-from-tarkov"),
+    // not the display name settings hold ("Escape from Tarkov"). Inventory
+    // campaigns carry their slug; configured games resolve theirs by id.
+    const games = new Map<string, { id?: string; name: string; slug?: string }>();
+    for (const game of this.options.liveDiscoveryGames) {
+      const name = game.name.trim();
+      if (name) games.set(game.id || name.toLowerCase(), { id: game.id || undefined, name });
+    }
+    for (const campaign of inventoryCampaigns) {
+      const name = campaign.gameName ?? campaign.slug;
+      if (name) games.set(campaign.categoryId ?? name.toLowerCase(), { id: campaign.categoryId, name, slug: campaign.slug });
+    }
+    if (games.size === 0) {
+      diagnostic(this.emit, "warn", "Twitch campaign dashboard is empty; configure Twitch categories to scan live channels for campaigns", "twitch");
+      return [];
+    }
+
+    const knownIds = new Set(inventoryCampaigns.map((campaign) => campaign.id));
+    const discovered = new Map<string, Parameters<typeof parseTwitchCampaigns>[0][number]>();
+    let successfulDirectories = 0;
+    let lastDirectoryError: unknown;
+    let successfulLookups = 0;
+    let lastLookupError: unknown;
+    const scanned = [...games.values()].slice(0, 4);
+    const slugs = await this.resolveGameSlugs(scanned, signal);
+    for (const game of scanned) {
+      signal?.throwIfAborted();
+      const gameName = game.name;
+      let directory: TwitchGqlResponse<TwitchDirectoryData>;
+      try {
+        directory = await this.gqlWithIntegrityRetry<TwitchDirectoryData>("DirectoryPage_Game", TWITCH_QUERIES.gameDirectoryHash, {
+          slug: slugs.get(game) ?? twitchSlugFromName(gameName),
+          imageWidth: 50,
+          includeCostreaming: false,
+          options: {
+            sort: "VIEWER_COUNT", broadcasterLanguages: [], includeRestricted: ["SUB_ONLY_LIVE"],
+            recommendationsContext: { platform: "web" }, requestID: crypto.randomUUID(),
+            freeformTags: null, systemFilters: ["DROPS_ENABLED"], tags: [],
+          },
+          sortTypeIsRecency: false, limit: 8,
+        }, undefined, undefined, this.emit, signal);
+        successfulDirectories += 1;
+      } catch (error) {
+        signal?.throwIfAborted();
+        if (authHealthFromError(error)) throw error;
+        lastDirectoryError = error;
+        const message = error instanceof Error ? error.message : String(error);
+        diagnostic(this.emit, "warn", `Twitch live-channel directory for ${gameName} failed: ${message}`, "twitch");
+        continue;
+      }
+      const broadcasters = (directory.data?.game?.streams?.edges ?? [])
+        .map((edge) => edge.node?.broadcaster)
+        .filter((broadcaster): broadcaster is NonNullable<typeof broadcaster> => Boolean(broadcaster?.id && broadcaster.login))
+        .slice(0, 8);
+      for (const broadcaster of broadcasters) {
+        signal?.throwIfAborted();
+        let response: TwitchGqlResponse<TwitchAvailableDropsData>;
+        try {
+          response = await this.gqlWithIntegrityRetry<TwitchAvailableDropsData>(
+            "DropsHighlightService_AvailableDrops", TWITCH_QUERIES.availableDropsHash,
+            { channelID: broadcaster.id }, undefined, undefined, this.emit, signal,
+          );
+          successfulLookups += 1;
+        } catch (error) {
+          signal?.throwIfAborted();
+          if (authHealthFromError(error)) throw error;
+          lastLookupError = error;
+          const message = error instanceof Error ? error.message : String(error);
+          diagnostic(this.emit, "warn", `Twitch live-channel campaigns for ${broadcaster.login} failed: ${message}`, "twitch");
+          continue;
+        }
+        for (const campaign of response.data?.channel?.viewerDropCampaigns ?? []) {
+          if (!campaign?.id || !campaign.game || !campaign.timeBasedDrops?.length || knownIds.has(campaign.id)) continue;
+          const existing = discovered.get(campaign.id);
+          const channels = new Map<string, { name: string }>();
+          for (const channel of existing?.allow?.channels ?? []) {
+            if (channel.name) channels.set(channel.name.toLowerCase(), { name: channel.name });
+          }
+          channels.set(broadcaster.login!.toLowerCase(), { name: broadcaster.login! });
+          discovered.set(campaign.id, {
+            ...campaign,
+            status: "ACTIVE",
+            allow: { channels: [...channels.values()] },
+          });
+        }
+      }
+    }
+    // A total lookup outage is a failed refresh, not an authoritative empty
+    // campaign list. Let the controller retain its last committed snapshot.
+    // That holds for the campaign lookups too: directories that listed
+    // channels whose every lookup failed found nothing either.
+    if (successfulDirectories === 0 && lastDirectoryError) throw lastDirectoryError;
+    if (successfulLookups === 0 && lastLookupError) throw lastLookupError;
+    diagnostic(this.emit, "info", `Twitch live-channel discovery found ${discovered.size} campaigns across ${Math.min(games.size, 4)} configured games`, "twitch");
+    return parseTwitchCampaigns([...discovered.values()]);
+  }
+
+  // Looks up configured games' slugs by id in one anonymous request (public
+  // data, so no integrity token), caching them for this adapter. A failed
+  // lookup falls back to deriving the slug from the name.
+  private async resolveGameSlugs(
+    games: readonly { id?: string; name: string; slug?: string }[],
+    signal?: AbortSignal,
+  ): Promise<Map<{ id?: string; name: string; slug?: string }, string>> {
+    const slugs = new Map<{ id?: string; name: string; slug?: string }, string>();
+    const unresolved = new Set<string>();
+    for (const game of games) {
+      const known = game.slug ?? (game.id ? this.gameSlugs.get(game.id) : undefined);
+      if (known) slugs.set(game, known);
+      else if (game.id && /^\d+$/.test(game.id)) unresolved.add(game.id);
+    }
+    if (unresolved.size > 0) {
+      const ids = [...unresolved];
+      const query = `query GameSlugs(${ids.map((_, index) => `$g${index}: ID!`).join(", ")}) {\n${ids.map((_, index) => `  g${index}: game(id: $g${index}) { id slug }`).join("\n")}\n}`;
+      try {
+        const response = await this.gql<Record<string, { id?: string; slug?: string } | null>>(
+          "GameSlugs", "", Object.fromEntries(ids.map((id, index) => [`g${index}`, id])), query, "omit", this.emit, signal,
+        );
+        for (const game of Object.values(response.data ?? {})) {
+          if (game?.id && game.slug) this.gameSlugs.set(game.id, game.slug);
+        }
+      } catch (error) {
+        signal?.throwIfAborted();
+        const message = error instanceof Error ? error.message : String(error);
+        diagnostic(this.emit, "warn", `Twitch game slug lookup failed; deriving slugs from names: ${message}`, "twitch");
+      }
+      for (const game of games) {
+        const resolved = game.id ? this.gameSlugs.get(game.id) : undefined;
+        if (resolved && !slugs.has(game)) slugs.set(game, resolved);
+      }
+    }
+    return slugs;
   }
 
   async refreshCampaigns(
@@ -2320,14 +2547,6 @@ export class TwitchAdapter implements PlatformAdapter {
     return result.data?.claimCommunityPoints?.status !== "CLAIM_NOT_AVAILABLE";
   }
 
-  prepareWatchTab(channel: ChannelCandidate, session?: WatchSession, options?: Partial<WatchTabOptions>) {
-    return this.watchTabPort.openPinnedMutedTab(channel, session, options);
-  }
-
-  stopWatchTab(session: WatchSession, options?: Partial<WatchTabOptions>): Promise<void> {
-    return this.watchTabPort.stopWatchTab(session, options);
-  }
-
   // Tabless farming: send Twitch's minute-watched telemetry instead of opening a
   // video tab. The watcher reuses this adapter's authenticated GQL transport, so
   // it keeps working even though the controller recreates adapters each tick.
@@ -2439,10 +2658,14 @@ export class TwitchAdapter implements PlatformAdapter {
           ? {
               ...reward,
               watchedMinutes: Math.max(reward.watchedMinutes, currentMinutesWatched),
-              status: currentMinutesWatched >= reward.requiredMinutes
+              // Only a watch reward is claimable on minutes alone. Anything else,
+              // such as a reward that needs a subscription and watch time, waits
+              // for Twitch's released drop instance (see parseTwitchReward).
+              status: currentMinutesWatched >= reward.requiredMinutes && reward.isWatchBased !== false
                 ? "claimable"
                 : currentMinutesWatched > 0
-                  ? "in_progress"
+                  // A reward Twitch already released stays claimable.
+                  ? reward.status === "claimable" ? "claimable" : "in_progress"
                   : reward.status,
               isCurrentReward: true,
             }

@@ -1,4 +1,6 @@
 import { requestTwitchExtensionGrant } from "../../src/extensions/grantCompletion";
+import { KASADA_COOKIE_ORIGIN } from "../../src/core/cliCredentialExport";
+import { createRuntimeRequestSender } from "../../src/core/runtimeRequests";
 import { browser } from "wxt/browser";
 import type React from "react";
 import {
@@ -33,6 +35,7 @@ export const PROMO_FORMAT: "small" | "marquee" =
 export const POPUP_LOCALE = localeFromUrl();
 
 export function createExtensionPopupAdapter(): PopupAdapter {
+  const send = createRuntimeRequestSender((message) => browser.runtime.sendMessage(message));
   return {
     version: browser.runtime.getManifest().version,
     requestTwitchExtensionPermission: (provider) => requestTwitchExtensionGrant({
@@ -40,7 +43,7 @@ export function createExtensionPopupAdapter(): PopupAdapter {
       request: (details) => browser.permissions.request(details),
       now: Date.now,
     }, provider),
-    send: (message) => browser.runtime.sendMessage(message),
+    send,
     getStorage: (keys) => browser.storage.local.get(keys),
     setStorage: (values) => browser.storage.local.set(values),
     getMessage: (key, substitutions) => browser.i18n.getMessage(key as never, substitutions),
@@ -49,6 +52,7 @@ export function createExtensionPopupAdapter(): PopupAdapter {
     getPendingChangelogVersion: loadPendingChangelogVersion,
     dismissPendingChangelogVersion,
     changelogUrl,
+    requestCredentialExportPermission: () => browser.permissions.request({ origins: [KASADA_COOKIE_ORIGIN] }),
     exportCredentials: (blob) => {
       // Download the credential blob the CLI's `login --import` consumes. The
       // popup is a normal extension page, so a Blob URL + anchor works without
@@ -110,7 +114,7 @@ export function createExtensionPopupAdapter(): PopupAdapter {
         return false;
       }
     },
-    resetExtension: () => browser.runtime.sendMessage({ type: "resetExtension" }),
+    resetExtension: () => send({ type: "resetExtension" }),
     compatibilityRegistry: COMPATIBILITY_REGISTRY,
     resolveCompatibility: (settings) => resolveCompatibility(settings, { host: "extension", twitchIdentity: "web" }),
   };

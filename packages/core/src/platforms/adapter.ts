@@ -4,7 +4,6 @@ import type {
   ChannelCheck,
   DropCampaign,
   DropReward,
-  ManagedWatchTab,
   Platform,
   PlatformAuthHealth,
   WatchSession,
@@ -20,20 +19,6 @@ export const ignoreEvent: EventEmitter = () => {};
 
 export function diagnostic(emit: EventEmitter, level: LogLevel, message: string, platform: Platform): void {
   emit({ category: "diagnostic", level, message, platform });
-}
-
-export interface PreparedWatchTab {
-  tabId: number;
-  managedByExtension: boolean;
-  managedTab?: ManagedWatchTab;
-}
-
-export interface WatchTabOptions {
-  muted: boolean;
-  closeManagedTabs: boolean;
-  keepVideosUnmuted: boolean;
-  managedTab?: ManagedWatchTab;
-  signal?: AbortSignal;
 }
 
 export interface AdapterOperationOptions {
@@ -121,8 +106,6 @@ export interface PlatformAdapter {
   // Live search of the platform's categories/games, powering the "Farm only these
   // categories" picker in Settings. Returns id + name (+ box art) matches.
   searchCategories?(query: string): Promise<CategorySelection[]>;
-  prepareWatchTab(channel: ChannelCandidate, session?: WatchSession, options?: Partial<WatchTabOptions>): Promise<PreparedWatchTab>;
-  stopWatchTab?(session: WatchSession, options?: Partial<WatchTabOptions>): Promise<void>;
   // Tabless (low-resource) farming. When supported, the controller drives a
   // TablessWatchController instead of opening a watch tab; the tab path stays as
   // the automatic fallback when heartbeats stop earning.
@@ -142,26 +125,3 @@ export interface PageFetcher {
   flushRouteDiagnostics?(emit: EventEmitter): void;
   fetchJson<T>(url: string, init?: RequestInit, emit?: EventEmitter): Promise<T>;
 }
-
-// Opens/closes the watch tab an adapter drives in tab-based (non-tabless) mode.
-// Browser-bound, so it is injected rather than imported: the extension backs it
-// with wxt/browser tabs (see the extension's core/tabs wrappers over
-// open/stopWatchTabWithBrowser); a headless runtime backs it with a real page or
-// leaves it unconfigured when running tabless-only.
-export interface WatchTabPort {
-  openPinnedMutedTab(channel: ChannelCandidate, session?: WatchSession, options?: Partial<WatchTabOptions>): Promise<PreparedWatchTab>;
-  stopWatchTab(session: WatchSession, options?: Partial<WatchTabOptions>): Promise<void>;
-}
-
-// Default watch-tab port for runtimes that never open a tab (headless tabless
-// mode, unit tests): opening fails loudly, while stopping is a harmless no-op
-// (nothing to stop without a tab, but the scheduler still calls it to clean up
-// idle/disabled platforms). Runtimes that watch via a tab inject a real port.
-export const unavailableWatchTabPort: WatchTabPort = {
-  openPinnedMutedTab() {
-    throw new Error("No watch-tab port configured; this runtime cannot open a watch tab (enable tabless mode or inject a WatchTabPort)");
-  },
-  async stopWatchTab() {
-    // nothing to stop without a tab
-  },
-};

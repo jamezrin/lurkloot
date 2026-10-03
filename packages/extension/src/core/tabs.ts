@@ -1,85 +1,66 @@
 import { browser } from "wxt/browser";
-import type { AdFocusMode, ChannelCandidate, Platform, WatchSession } from "@lurkloot/shared/models";
-import type { EventEmitter, PageContextCloseReason } from "@lurkloot/shared/events";
+import type { EventEmitter } from "@lurkloot/shared/events";
 import {
-  applyAdFocusWithBrowser,
+  cancelTwitchIntegrityAcquisition,
   currentValidTwitchIntegrity,
+  recordManagedPageContextFallback,
+  type TabRegistry,
+  type TwitchIntegrityRequest,
+} from "@lurkloot/core/tabRegistry";
+import { fetchKickInBackgroundWith, type CookieApi } from "@lurkloot/core/transport";
+import {
   ensureTwitchIntegrityWithBrowser,
   fetchJsonInPageWithBrowser,
-  fetchKickInBackgroundWith,
   fetchTwitchInBackgroundWith,
-  openPinnedMutedTabWithBrowser,
-  recordManagedPageContextFallback as recordManagedPageContextFallbackInRegistry,
-  reconcileManagedPageContextRecoveryWithBrowser,
-  stopManagedPageContextTabsWithBrowser,
-  stopWatchTabWithBrowser,
   TWITCH_PAGE_CONTEXT_URL,
   type BrowserTabApi,
-  type CookieApi,
   type PageFetchOptions,
-  type SchedulerManagedPageContexts,
-  type TwitchIntegrityRequest,
-} from "@lurkloot/core/tabs";
-import type { KickPageContextCycleObservation, PreparedWatchTab, WatchTabOptions } from "@lurkloot/core/adapter";
+} from "./browserTabs";
 
-// Browser-backed wrappers binding the pure `*WithBrowser` engine functions in
-// @lurkloot/core/tabs to the extension's live wxt/browser tabs/cookies APIs.
-// This is the seam that keeps the engine browser-free: the headless CLI injects
-// its own port implementations instead of these wrappers. New tab-bound logic
-// belongs in core's `*WithBrowser` function; only the `browser` binding lives here.
+// The live wxt/browser tab API. background.ts hands it to createExtensionTabPorts
+// (./tabPorts) for the controller's tab ports; everything else here is bound to
+// it directly.
+export const liveBrowserTabApi = browser as BrowserTabApi;
 
-export function openPinnedMutedTab(channel: ChannelCandidate, session?: WatchSession, options?: Partial<WatchTabOptions>, emit?: EventEmitter): Promise<PreparedWatchTab> {
-  return openPinnedMutedTabWithBrowser(browser as BrowserTabApi, channel, session, options, emit);
-}
+// Binds the remaining tab mechanics in ./browserTabs (integrity capture and page
+// fetches) and the cookie fetchers to the live
+// browser and to one tab registry, which the host also hands to the controller
+// (#598). browserTabs.ts takes the browser API as an argument so tests can drive
+// it with a fake; only the `browser` binding lives here.
+//
+// `reportIntegrityAcquisition` receives the shared integrity mint's events. The
+// mint can outlive the caller that started it, so it cannot report through
+// that caller's emitter.
+export function createBrowserTabs(registry: TabRegistry, reportIntegrityAcquisition?: EventEmitter) {
+  const browserApi = liveBrowserTabApi;
+  return {
+    ensureTwitchIntegrity(emit?: EventEmitter, request?: TwitchIntegrityRequest): Promise<boolean> {
+      return ensureTwitchIntegrityWithBrowser(registry, browserApi, TWITCH_PAGE_CONTEXT_URL, undefined, emit, request, reportIntegrityAcquisition);
+    },
 
-export function stopWatchTab(session: WatchSession, options?: Partial<WatchTabOptions>, emit?: EventEmitter): Promise<void> {
-  return stopWatchTabWithBrowser(browser as BrowserTabApi, session, options, emit);
-}
+    cancelTwitchIntegrityAcquisition(reason?: unknown): void {
+      cancelTwitchIntegrityAcquisition(registry, reason);
+    },
 
-export function applyAdFocus(platform: Platform, tabId: number | undefined, adActive: boolean, mode: AdFocusMode, emit?: EventEmitter): Promise<void> {
-  return applyAdFocusWithBrowser(browser as BrowserTabApi, platform, tabId, adActive, mode, emit);
-}
+    currentValidTwitchIntegrity() {
+      return currentValidTwitchIntegrity(registry);
+    },
 
-export function ensureTwitchIntegrity(emit?: EventEmitter, request?: TwitchIntegrityRequest): Promise<boolean> {
-  return ensureTwitchIntegrityWithBrowser(browser as BrowserTabApi, TWITCH_PAGE_CONTEXT_URL, undefined, emit, request);
-}
+    fetchTwitchInBackground<T>(url: string, init?: RequestInit): Promise<T> {
+      return fetchTwitchInBackgroundWith<T>(registry, browser as CookieApi, url, init);
+    },
 
-export { cancelTwitchIntegrityAcquisition, currentValidTwitchIntegrity } from "@lurkloot/core/tabs";
+    fetchKickInBackground<T>(url: string, init?: RequestInit): Promise<T> {
+      return fetchKickInBackgroundWith<T>(browser as CookieApi, url, init);
+    },
 
-export function fetchTwitchInBackground<T>(url: string, init?: RequestInit): Promise<T> {
-  return fetchTwitchInBackgroundWith<T>(browser as CookieApi, url, init);
-}
+    fetchJsonInPage<T>(originUrl: string, url: string, init?: RequestInit, options?: PageFetchOptions): Promise<T> {
+      return fetchJsonInPageWithBrowser<T>(registry, browserApi, originUrl, url, init, options);
+    },
 
-export function fetchKickInBackground<T>(url: string, init?: RequestInit): Promise<T> {
-  return fetchKickInBackgroundWith<T>(browser as CookieApi, url, init);
-}
+    recordManagedPageContextFallback(host: string, emit?: EventEmitter): void {
+      recordManagedPageContextFallback(registry, "kick", host, emit);
+    },
 
-export function fetchJsonInPage<T>(originUrl: string, url: string, init?: RequestInit, options?: PageFetchOptions): Promise<T> {
-  return fetchJsonInPageWithBrowser<T>(browser as BrowserTabApi, originUrl, url, init, options);
-}
-
-export function recordManagedPageContextFallback(host: string, emit?: EventEmitter): void {
-  recordManagedPageContextFallbackInRegistry("kick", host, emit);
-}
-
-export function reconcileManagedPageContextRecovery(
-  platform: Platform,
-  observation: KickPageContextCycleObservation,
-  requiredSuccesses: number,
-  emit?: EventEmitter,
-): Promise<boolean> {
-  return reconcileManagedPageContextRecoveryWithBrowser(
-    browser as BrowserTabApi,
-    platform,
-    observation,
-    requiredSuccesses,
-    emit,
-  );
-}
-
-export function stopManagedPageContextTabs(
-  contexts: SchedulerManagedPageContexts,
-  options: { platforms?: Platform[]; reason?: PageContextCloseReason; emit?: EventEmitter } = {},
-): Promise<SchedulerManagedPageContexts> {
-  return stopManagedPageContextTabsWithBrowser(browser as BrowserTabApi, contexts, options);
+  };
 }

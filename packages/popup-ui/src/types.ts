@@ -4,6 +4,7 @@ import type { SettingsExportPayload } from "@lurkloot/shared/settingsExport";
 import type { CampaignFarmingEvaluation } from "@lurkloot/shared/campaignFarming";
 import type { CampaignSection } from "@lurkloot/shared/campaignFilters";
 import type { CampaignRankTier } from "@lurkloot/shared/ranking";
+import type { PopupView } from "./shell";
 
 export type CompatibilityLifecycle = "recommended" | "legacy" | "experimental";
 export interface CompatibilityOptionMetadata {
@@ -54,6 +55,11 @@ export type RewardView = {
   requiredSubs?: number;
   requirement: RewardRequirementType;
   obtained: boolean;
+  // The user marked this subscription reward as subscribed.
+  subscriptionMarked?: boolean;
+  // The reward can be marked (or unmarked): a subscription reward the platform
+  // has not released.
+  canMarkSubscription?: boolean;
   art: string;
   tint: string;
   imageUrl?: string;
@@ -105,6 +111,12 @@ export type CampaignView = {
   linkUrl?: string;
   // The campaign's info/landing page, when one is provided.
   pageUrl?: string;
+  // pageUrl's host when it is off the campaign's platform, such as a
+  // publisher's own site.
+  pageHost?: string;
+  // Twitch's Drops-filtered directory page for the campaign's game. Twitch
+  // only: Kick has no equivalent page.
+  categoryDropsUrl?: string;
   excluded: boolean;
   // Which tier of the shared ranking placed this campaign, and whether the user
   // pinned it by hand. The list labels its group dividers from these.
@@ -134,6 +146,16 @@ export type CampaignView = {
   hasWatchRewards: boolean;
   hasSubscriptionRewards: boolean;
   farmingRejection?: Extract<CampaignFarmingEvaluation, { farmable: false }>;
+  // What will still block the campaign once the rejection above is fixed in
+  // Lurkloot, in the order the user would meet it (#677). Empty when fixing it
+  // is enough, or there is nothing to fix.
+  laterBlockers?: Array<Extract<CampaignFarmingEvaluation, { farmable: false }>>;
+  // Nothing in the user's settings holds it back any more: what does is a
+  // blocker only they can clear outside Lurkloot (a subscription, an account
+  // link, another action), so the Queue lists it under "Action required", not
+  // "Skipped". A campaign their own settings skip stays in Skipped, with
+  // `laterBlockers` saying what would still be needed.
+  needsOutsideAction?: boolean;
 };
 
 export type TFunction = (key: string, substitutions?: string | string[]) => string;
@@ -180,6 +202,10 @@ export interface PopupAdapter {
   // Optional: download/persist an exported credential blob for the headless CLI.
   // Only the live extension implements it (the demo omits it, hiding the action).
   exportCredentials?(blob: CliCredentialBlob): void;
+  // Optional: ask for the extra host the credential export reads Twitch's Kasada
+  // cookie from. Called synchronously in the click that arms the export, a
+  // separate click from the download. Resolves false when the user declines.
+  requestCredentialExportPermission?(): Promise<boolean>;
   // Optional: download the current settings as a portable JSON file. Only the
   // live extension implements it (the demo omits it, hiding the action).
   exportSettings?(payload: SettingsExportPayload): void;
@@ -204,4 +230,7 @@ export interface PopupInitialState {
   preview?: boolean;
   locale?: SupportedLocale | null;
   variant?: ScreenshotVariant;
+  // Preview only: open on this view instead of the variant's. The landing page
+  // uses it to show real panels (games, watchlist…) beside its copy.
+  view?: PopupView;
 }

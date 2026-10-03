@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { runSchedulerTick } from "@lurkloot/core/scheduler";
+import { runSchedulerTick, type SchedulerTestAdapter } from "./helpers/schedulerTick";
 import { DEFAULT_STATE } from "@lurkloot/core/defaults";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
@@ -8,7 +8,7 @@ function fixture() {
   const state = structuredClone(DEFAULT_STATE), settings = structuredClone(DEFAULT_SETTINGS);
   state.authHealth.twitch = { status: "healthy" }; settings.platform.twitch.enabled = true;
   settings.tablessMode = false;
-  const adapter: PlatformAdapter = { platform: "twitch", supportsTabless: true, checkAuthHealth: async () => ({ status: "healthy" }), refreshCampaigns: async () => [], listCandidateChannels: async () => [], checkChannel: async candidate => ({ live: true, categoryMatches: true, candidate }), claimReward: async () => true, prepareWatchTab: vi.fn(async () => ({ tabId: 1, managedByExtension: true })), stopWatchTab: vi.fn(async () => {}) };
+  const adapter: SchedulerTestAdapter = { platform: "twitch", supportsTabless: true, checkAuthHealth: async () => ({ status: "healthy" }), refreshCampaigns: async () => [], listCandidateChannels: async () => [], checkChannel: async candidate => ({ live: true, categoryMatches: true, candidate }), claimReward: async () => true, prepareWatchTab: vi.fn(async () => ({ tabId: 1, managedByExtension: true })), stopWatchTab: vi.fn(async () => {}) };
   const target = { id: "nopixel", tablessOnly: true as const, channel: { platform: "twitch" as const, username: "buddha", url: "https://www.twitch.tv/buddha", channelId: "123", live: true } };
   return { state, settings, adapter, target, adapters: { twitch: adapter, kick: { ...adapter, platform: "kick" as const } } };
 }
