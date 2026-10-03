@@ -377,6 +377,15 @@
   "subscribedRefresh": {
     "message": "Abonnement effectué — actualiser le statut"
   },
+  "subscriptionMarkSubscribed": {
+    "message": "Marquer comme abonné"
+  },
+  "subscriptionMarkedSubscribed": {
+    "message": "Marqué comme abonné"
+  },
+  "subscriptionMarkUndo": {
+    "message": "Annuler"
+  },
   "waitingForSubscription": {
     "message": "En attente d’un abonnement admissible"
   },

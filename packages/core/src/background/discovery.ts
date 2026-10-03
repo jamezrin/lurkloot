@@ -5,7 +5,7 @@ import type { PlatformAdapter } from "../platforms/adapter";
 import {
   campaignSearchBackoffApplies,
   isPlaybackTelemetryHealthy,
-  preserveClaimedRewards,
+  reconcileRefreshedCampaigns,
   selectWatchTargetFromSnapshot,
   type SnapshotSelectionResult,
 } from "../core/scheduler";
@@ -139,7 +139,11 @@ export function createDiscovery<S extends EngineSettings>(
                   ?.candidates ?? [];
               },
               settings,
-              (campaigns) => preserveClaimedRewards(campaigns, state.campaigns[platform]),
+              (campaigns) => reconcileRefreshedCampaigns(
+                campaigns,
+                state.campaigns[platform],
+                settings.platform[platform].subscribedRewardMarks ?? [],
+              ),
             );
           } finally {
             tickAdapter?.drain(emit);

@@ -377,6 +377,15 @@
   "subscribedRefresh": {
     "message": "Abbonamento effettuato — aggiorna lo stato"
   },
+  "subscriptionMarkSubscribed": {
+    "message": "Segna come abbonato"
+  },
+  "subscriptionMarkedSubscribed": {
+    "message": "Segnato come abbonato"
+  },
+  "subscriptionMarkUndo": {
+    "message": "Annulla"
+  },
   "waitingForSubscription": {
     "message": "In attesa di un abbonamento valido"
   },

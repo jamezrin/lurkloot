@@ -59,6 +59,10 @@ export interface DropReward {
   claimUntil?: string;
   preconditionRewardIds?: string[];
   preconditionsMet?: boolean;
+  // Set by applySubscriptionMarks when the user marked this subscription
+  // reward as subscribed, never by a platform parser. The reward's status stays
+  // the platform's report.
+  subscriptionMarked?: boolean;
   isCurrentReward?: boolean;
   claimGuidance?: ClaimGuidance;
 }
@@ -339,6 +343,10 @@ export interface PlatformSettings {
   // Never farmed, in either categoryMode. A blocked category keeps any star and
   // list membership it had, so unblocking restores the previous state.
   blockedCategories: CategorySelection[];
+  // "<campaignId>:<rewardId>" of subscription rewards the user marked as
+  // subscribed. Lurkloot then treats that reward's subscription as detected
+  // (docs/superpowers/specs/2026-10-03-subscription-marks-design.md).
+  subscribedRewardMarks?: string[];
 }
 
 // Per-platform settings carry the claim toggles that only make sense on that
