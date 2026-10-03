@@ -106,6 +106,9 @@ export type CampaignView = {
   linkUrl?: string;
   // The campaign's info/landing page, when one is provided.
   pageUrl?: string;
+  // pageUrl's host when it is off the campaign's platform, such as a
+  // publisher's own site.
+  pageHost?: string;
   // Twitch's Drops-filtered directory page for the campaign's game. Twitch
   // only: Kick has no equivalent page.
   categoryDropsUrl?: string;

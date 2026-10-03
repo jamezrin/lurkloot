@@ -856,6 +856,24 @@ describe("campaign card links (#678)", () => {
     expect(category?.textContent).toContain("campaignCategoryDrops");
   });
 
+  it("names the site a details link leaves Twitch for", () => {
+    const { container } = mount(undefined, { ...twitchCampaign(["alpha"]), url: "https://www.example-game.com/twitch-drops" });
+
+    const details = container.querySelector<HTMLAnchorElement>("[data-campaign-details-link]");
+    expect(details?.getAttribute("href")).toBe("https://www.example-game.com/twitch-drops");
+    expect(details?.textContent).toContain("campaignDropDetails");
+    expect(details?.querySelector("[data-campaign-details-host]")?.textContent).toBe("example-game.com");
+  });
+
+  it("names no site for a details link on the campaign's own platform", () => {
+    const twitch = mount(undefined, twitchCampaign(["alpha"])).container;
+    expect(twitch.querySelector("[data-campaign-details-host]")).toBeNull();
+
+    const kick = mount(undefined, { ...sourceCampaign(), url: "https://kick.com/drops/abc", rewards: [watchReward] }).container;
+    expect(kick.querySelector("[data-campaign-details-link]")).not.toBeNull();
+    expect(kick.querySelector("[data-campaign-details-host]")).toBeNull();
+  });
+
   it("links a campaign open to every channel to the game's Drops directory", () => {
     const { container } = mount(undefined, twitchCampaign([]));
 

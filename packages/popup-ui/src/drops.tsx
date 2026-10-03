@@ -714,6 +714,9 @@ function CampaignActions({ campaign, gameName, finished, refreshing, pinned, onP
             {campaign.pageUrl ? (
               <a href={campaign.pageUrl} target="_blank" rel="noreferrer" data-campaign-details-link className={CAMPAIGN_LINK_CLASS}>
                 {t("campaignDropDetails")}
+                {campaign.pageHost ? (
+                  <span data-campaign-details-host className="font-normal text-zinc-500 dark:text-zinc-400">{campaign.pageHost}</span>
+                ) : null}
                 <ExternalLink size={11} aria-hidden="true" />
               </a>
             ) : null}
