@@ -3409,6 +3409,45 @@ describe("scheduler tick", () => {
     });
   });
 
+  // A subscription the user marked is done, so a campaign whose only reward is
+  // marked no longer holds the Idle Watchlist back.
+  it("starts the Idle Watchlist fallback once every subscription reward is marked", async () => {
+    const marked = campaign("subscription-drops", {
+      eligibility: "waiting_for_subscription",
+      rewards: [{
+        ...reward("locked"),
+        id: "sub",
+        requiredMinutes: 0,
+        watchedMinutes: 0,
+        requirement: "subscription",
+        requiredSubs: 1,
+        isWatchBased: false,
+      }],
+    });
+    const twitch = adapter("twitch", [marked], []);
+
+    const result = await runSchedulerTick(
+      {
+        authHealth: HEALTHY_AUTH,
+        sessions: {
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+          kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+        },
+        campaigns: { twitch: [], kick: [] },
+      },
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: ["fallback"], subscribedRewardMarks: ["subscription-drops:sub"] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
+      { twitch, kick: adapter("kick", [], []) },
+    );
+
+    expect(result.state.sessions.twitch.reasonCode).not.toBe("campaign_ineligible");
+    expect(twitch.checkChannel).toHaveBeenCalled();
+  });
+
   it.each(["claimed", "claimable"] as const)(
     "does not start Idle Watchlist when a historical watch reward is %s and only a subscription reward remains",
     async (watchStatus) => {

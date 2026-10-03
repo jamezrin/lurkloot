@@ -423,8 +423,9 @@ function onlyWaitingSubscriptionCampaigns(campaigns: DropCampaign[], settings: E
 function onlySubscriptionCampaigns(campaigns: DropCampaign[], settings: EngineSettings): boolean {
   const notExcluded = campaigns.filter((campaign) => !settings.excludedCampaignIds.includes(campaign.id));
   return notExcluded.length > 0 && notExcluded.every((campaign) => {
+    // A subscription the user marked counts as done here too.
     const remainingRewards = campaign.rewards.filter((reward) =>
-      reward.status !== "claimed" && reward.status !== "claimable");
+      !isRewardObtained(reward) && reward.status !== "claimable");
     return remainingRewards.length > 0 && remainingRewards.every(isSubscriptionReward);
   });
 }
