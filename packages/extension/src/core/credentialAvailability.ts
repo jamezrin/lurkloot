@@ -10,11 +10,17 @@ const REQUIRED_COOKIE: Record<Platform, { url: string; name: string }> = {
   kick: { url: "https://kick.com", name: "session_token" },
 };
 
+// The platform's current session credential, or undefined when signed out.
+export function createCredentialReader(api: CredentialCookieApi) {
+  return async (platform: Platform): Promise<string | undefined> =>
+    (await api.get(REQUIRED_COOKIE[platform]))?.value || undefined;
+}
+
 export function createCredentialAvailabilityProvider(api: CredentialCookieApi) {
+  const read = createCredentialReader(api);
   return async (platform: Platform): Promise<CredentialAvailability> => {
     try {
-      const cookie = await api.get(REQUIRED_COOKIE[platform]);
-      return cookie?.value ? { status: "available" } : { status: "missing" };
+      return await read(platform) ? { status: "available" } : { status: "missing" };
     } catch {
       return { status: "unavailable" };
     }
