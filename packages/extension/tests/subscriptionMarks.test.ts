@@ -11,6 +11,9 @@ import {
   rewardRequirementType,
   subscriptionMarkKey,
 } from "@lurkloot/shared/rewards";
+import { evaluateCampaignFarming } from "@lurkloot/shared/campaignFarming";
+import { campaignSection, isCampaignFinished } from "@lurkloot/shared/campaignFilters";
+import { mergeEngineSettings } from "@lurkloot/shared/settings";
 
 // Rewards as the Twitch parser reports them: a subscription reward, a watch
 // reward that needs it first, and a reward that needs a subscription plus
@@ -101,5 +104,43 @@ describe("subscription marks", () => {
     expect(reconciled.rewards[1].preconditionsMet).toBe(true);
     expect(reconciled.status).toBe("active");
     expect(reconciled.eligibility).toBe("waiting_for_subscription");
+  });
+});
+
+describe("subscription marks in farmability", () => {
+  const settings = mergeEngineSettings(undefined);
+
+  it("farms a watch reward whose subscription prerequisite is marked", () => {
+    const source = twitchCampaign([subscriptionReward(), gatedWatchReward()]);
+
+    expect(evaluateCampaignFarming(source, settings).farmable).toBe(false);
+    expect(evaluateCampaignFarming(applySubscriptionMarks(source, [mark("sub")]), settings)).toMatchObject({ farmable: true });
+  });
+
+  it("farms a marked subscription plus watch reward", () => {
+    const source = twitchCampaign([subscriptionPlusWatchReward()]);
+
+    expect(evaluateCampaignFarming(source, settings).farmable).toBe(false);
+    expect(evaluateCampaignFarming(applySubscriptionMarks(source, [mark("combined")]), settings)).toMatchObject({ farmable: true });
+  });
+
+  it("finishes a fully marked subscription-only campaign without changing its status", () => {
+    const campaign = applySubscriptionMarks(twitchCampaign([subscriptionReward()]), [mark("sub")]);
+
+    expect(evaluateCampaignFarming(campaign, settings)).toMatchObject({ farmable: false, code: "no_unclaimed_rewards" });
+    expect(isCampaignFinished(campaign)).toBe(true);
+    expect(campaignSection(campaign, settings)).toBe("completed");
+    expect(campaign.status).toBe("active");
+    expect(campaign.eligibility).toBe("waiting_for_subscription");
+  });
+
+  it("keeps a campaign open while one of its subscription tiers is unmarked", () => {
+    const campaign = applySubscriptionMarks(
+      twitchCampaign([subscriptionReward(), subscriptionReward({ id: "five-gifts", requiredSubs: 5 })]),
+      [mark("sub")],
+    );
+
+    expect(isCampaignFinished(campaign)).toBe(false);
+    expect(campaignSection(campaign, settings)).toBe("skipped");
   });
 });
