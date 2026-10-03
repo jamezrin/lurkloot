@@ -296,9 +296,9 @@ export interface TwitchIntegrityAcquisitionResult {
 }
 
 // Minting boots a twitch.tv context and may wait ~22s for Kasada's proof-of-work,
-// so every caller shares one owned acquisition. The owned abort cancels the
-// underlying page context; only the creator's signal owns that lifecycle, while
-// later joiners race their own signal without disturbing everyone else.
+// so every caller shares one acquisition. No caller owns it: each races its own
+// signal and only stops waiting. The abort cancels the underlying page context,
+// and only the integrity lifecycle fires it (cancelTwitchIntegrityAcquisition).
 export interface TwitchIntegrityAcquisition {
   promise: Promise<TwitchIntegrityAcquisitionResult | undefined>;
   abort: AbortController;

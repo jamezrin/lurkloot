@@ -50,6 +50,12 @@ const reportEvents = createActivityEventReporter({
 // One tab registry for this controller, shared by the browser tab mechanics
 // and the controller that reads its page-context snapshot (#598).
 const tabRegistry = createTabRegistry();
+// The shared Twitch integrity mint can outlive the caller that started it, so
+// it reports each event through the controller as it happens rather than into
+// that caller's collector, which drops whatever arrives after it closes.
+const reportIntegrityAcquisition: EventEmitter = withActivityDiagnostics((event) => {
+  void controller.reportEvents([event]);
+});
 const {
   cancelTwitchIntegrityAcquisition,
   currentValidTwitchIntegrity,
@@ -58,7 +64,7 @@ const {
   fetchKickInBackground,
   fetchTwitchInBackground,
   recordManagedPageContextFallback,
-} = createBrowserTabs(tabRegistry);
+} = createBrowserTabs(tabRegistry, reportIntegrityAcquisition);
 const kickClaimState = new KickClaimState();
 const kickDiscoveryState = new KickDiscoveryState();
 const kickPageContextRecovery = new KickPageContextRecoveryTracker();

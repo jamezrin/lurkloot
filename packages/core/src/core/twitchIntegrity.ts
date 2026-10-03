@@ -18,6 +18,8 @@ export interface TwitchIntegrity {
 // page context; the CLI satisfies it through Node's web-integrity minter.
 export interface TwitchIntegrityRequest {
   forceRefresh?: boolean;
+  // Stops this caller waiting. An acquisition it started is shared and keeps
+  // running; only cancelAcquisition stops that.
   signal?: AbortSignal;
   reason?: "readiness" | "proactive_refresh" | "rejection_recovery";
   onManagedPageContextOpen?: () => void | Promise<void>;
