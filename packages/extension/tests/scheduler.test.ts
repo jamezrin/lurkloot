@@ -2842,6 +2842,42 @@ describe("scheduler tick", () => {
       expect(result.state.sessions.twitch.channel?.username).toBe("fresh");
     });
 
+    it("rotates away from a marked subscription plus watch reward that stops accruing", async () => {
+      const combined: DropReward = {
+        id: "combined",
+        name: "Watch and Subscribe",
+        requiredMinutes: 60,
+        requiredSubs: 1,
+        requirement: "subscription",
+        isWatchBased: false,
+        watchedMinutes: 20,
+        status: "in_progress",
+      };
+      const twitch = adapter("twitch", [campaign("drops", { rewards: [combined] })], [channel("old"), channel("fresh")]);
+
+      const result = await runSchedulerTick(
+        {
+          authHealth: HEALTHY_AUTH,
+          sessions: {
+            twitch: watching({ rewardId: "combined", noProgressChecks: 2, lastWatchedMinutes: 20 }),
+            kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+          },
+          campaigns: { twitch: [], kick: [] },
+        },
+        settings({
+          offlineRetryLimit: 3,
+          platform: {
+            twitch: { enabled: true, idleWatchlistChannels: [], subscribedRewardMarks: ["drops:combined"] },
+            kick: { enabled: false, idleWatchlistChannels: [] },
+          },
+        }),
+        { twitch, kick: adapter("kick", [], []) },
+      );
+
+      expect(result.state.campaigns.twitch[0].rewards[0].subscriptionMarked).toBe(true);
+      expect(result.state.sessions.twitch.reasonCode).toBe("no_progress");
+    });
+
     // Skipping is a demotion, not an exclusion. If every other candidate fails
     // validation the stalled channel has to be reachable, or rotating costs the
     // campaign the whole tick.

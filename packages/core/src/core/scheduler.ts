@@ -22,10 +22,13 @@ import { pinIndex, rankCampaigns } from "@lurkloot/shared/ranking";
 import { evaluateCampaignFarming, type CampaignFarmingEvaluation, type CampaignFarmingRejectionCode } from "@lurkloot/shared/campaignFarming";
 import { campaignFarmable, campaignPassesFarmingEligibility, hasCampaignEnded } from "@lurkloot/shared/campaignFilters";
 import {
+  applySubscriptionMarks,
   canClaimReward,
   isRewardAvailableToEarn,
   isRewardDeadlineFeasible,
+  isRewardObtained,
   isSubscriptionReward,
+  isWatchReward,
   reconcileCampaignAfterClaims,
   rewardFeasibility,
 } from "@lurkloot/shared/rewards";
@@ -412,7 +415,9 @@ function onlyWaitingSubscriptionCampaigns(campaigns: DropCampaign[], settings: E
   return notExcluded.length > 0 && notExcluded.every((campaign) =>
     campaign.eligibility === "waiting_for_subscription"
     && campaign.rewards.length > 0
-    && campaign.rewards.every(isSubscriptionReward));
+    && campaign.rewards.every(isSubscriptionReward)
+    // A subscription the user marked is not waited for.
+    && campaign.rewards.some((reward) => !isRewardObtained(reward) && !reward.subscriptionMarked));
 }
 
 function onlySubscriptionCampaigns(campaigns: DropCampaign[], settings: EngineSettings): boolean {
@@ -1344,7 +1349,11 @@ export async function* decidePlatformTick(
 
     const committedDiscovery = input.discovery[platform]!;
     const discoveryDiscarded = committedDiscovery.discarded === true && !committedDiscovery.complete;
-    let campaigns = preserveClaimedRewards(committedDiscovery.campaigns, state.campaigns[platform]);
+    let campaigns = reconcileRefreshedCampaigns(
+      committedDiscovery.campaigns,
+      state.campaigns[platform],
+      settings.platform[platform].subscribedRewardMarks ?? [],
+    );
     const discoveryFailed = !committedDiscovery.complete;
     if (!discoveryFailed) {
       tick.state.campaigns[platform] = campaigns;
@@ -1786,6 +1795,19 @@ export function preserveClaimedRewards(
   });
 }
 
+// Where refreshed campaigns enter the engine: the claims an earlier check
+// recorded are kept, then the user's subscription marks are applied, so every
+// reader of the stored campaigns agrees on them
+// (docs/superpowers/specs/2026-10-03-subscription-marks-design.md).
+export function reconcileRefreshedCampaigns(
+  campaigns: DropCampaign[],
+  previousCampaigns: readonly DropCampaign[],
+  marks: readonly string[],
+): DropCampaign[] {
+  return preserveClaimedRewards(campaigns, previousCampaigns)
+    .map((campaign) => applySubscriptionMarks(campaign, marks));
+}
+
 function campaignDiagnosticFingerprint(campaigns: readonly DropCampaign[]): string {
   return campaigns
     .map((campaign) => `${campaign.id}:${campaign.status}:${campaign.rewards.map((reward) => `${reward.id}:${reward.status}`).sort().join(",")}`)
@@ -1971,7 +1993,9 @@ function watchProgress(
   previous: WatchSession,
 ): { observable: boolean; advanced: boolean; watchedMinutes?: number } {
   const reward = activeRewardFor(campaigns, previous);
-  const watchedMinutes = reward?.isWatchBased === false ? undefined : reward?.watchedMinutes;
+  // Through isWatchReward, so a marked subscription plus watch reward is
+  // tracked like any watch reward and a stall still rotates it away.
+  const watchedMinutes = reward && isWatchReward(reward) ? reward.watchedMinutes : undefined;
   if (watchedMinutes === undefined) return { observable: false, advanced: false };
   const previousMinutes = previous.lastWatchedMinutes;
   if (previousMinutes === undefined) return { observable: false, advanced: false, watchedMinutes };
