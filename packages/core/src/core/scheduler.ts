@@ -1771,19 +1771,23 @@ export function preserveClaimedRewards(
   campaigns: DropCampaign[],
   previousCampaigns: readonly DropCampaign[],
 ): DropCampaign[] {
+  // A claim id lasts only while the platform keeps reporting it, and Twitch can
+  // stop reporting a subscription reward's, so the claim key is matched first.
+  // State saved before claim keys existed still matches by claim id.
+  const keysOf = (reward: DropReward): string[] =>
+    [reward.claimKey, reward.claimId].filter((key): key is string => Boolean(key));
   const previouslyClaimed = new Map<string, DropReward>();
   for (const campaign of previousCampaigns) {
     for (const reward of campaign.rewards) {
-      if (reward.status === "claimed" && reward.claimId) {
-        previouslyClaimed.set(reward.claimId, reward);
-      }
+      if (reward.status !== "claimed") continue;
+      for (const key of keysOf(reward)) previouslyClaimed.set(key, reward);
     }
   }
 
   return campaigns.map((campaign) => {
     let changed = false;
     const rewards = campaign.rewards.map<DropReward>((reward) => {
-      const previous = reward.claimId ? previouslyClaimed.get(reward.claimId) : undefined;
+      const previous = keysOf(reward).map((key) => previouslyClaimed.get(key)).find(Boolean);
       if (!previous || previous.id !== reward.id) return reward;
       changed = true;
       return {

@@ -54,6 +54,11 @@ export interface DropReward {
   watchedMinutes: number;
   status: RewardStatus;
   claimId?: string;
+  // Identifies this reward for the signed-in account; never sent to the
+  // platform. A claim stays recorded under it when a later response stops
+  // reporting it. claimId cannot do that for a Twitch subscription reward, which
+  // has one only while Twitch reports its drop instance.
+  claimKey?: string;
   availableFrom?: string;
   availableUntil?: string;
   claimUntil?: string;
