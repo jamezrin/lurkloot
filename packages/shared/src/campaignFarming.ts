@@ -4,6 +4,7 @@ import {
   campaignHasSubscriptionRewards,
   canClaimReward,
   isRewardAvailableToEarn,
+  isRewardObtained,
   isSubscriptionReward,
   isWatchReward,
   rewardFeasibility,
@@ -95,7 +96,7 @@ export function evaluateCampaignFarming(
     return rejected("not_pinned");
   }
   if (campaign.rewards.length === 0 || campaign.eligibility === "no_rewards") return rejected("no_rewards");
-  const unclaimed = campaign.rewards.filter((reward) => reward.status !== "claimed");
+  const unclaimed = campaign.rewards.filter((reward) => !isRewardObtained(reward));
   if (unclaimed.length === 0) return rejected("no_unclaimed_rewards");
 
   const blockers: Rejection[] = [];

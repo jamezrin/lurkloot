@@ -2658,10 +2658,14 @@ export class TwitchAdapter implements PlatformAdapter {
           ? {
               ...reward,
               watchedMinutes: Math.max(reward.watchedMinutes, currentMinutesWatched),
-              status: currentMinutesWatched >= reward.requiredMinutes
+              // Only a watch reward is claimable on minutes alone. Anything else,
+              // such as a reward that needs a subscription and watch time, waits
+              // for Twitch's released drop instance (see parseTwitchReward).
+              status: currentMinutesWatched >= reward.requiredMinutes && reward.isWatchBased !== false
                 ? "claimable"
                 : currentMinutesWatched > 0
-                  ? "in_progress"
+                  // A reward Twitch already released stays claimable.
+                  ? reward.status === "claimable" ? "claimable" : "in_progress"
                   : reward.status,
               isCurrentReward: true,
             }

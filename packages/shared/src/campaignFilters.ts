@@ -1,7 +1,7 @@
 import { campaignPassesCategoryFilter } from "./categories";
 import { evaluateCampaignFarming } from "./campaignFarming";
 import type { CampaignFilterKey, DropCampaign, DropReward, EngineSettings } from "./models";
-import { campaignHasSubscriptionRewards, canClaimReward, isRewardDeadlineFeasible, isRewardRelevantNow } from "./rewards";
+import { campaignHasSubscriptionRewards, canClaimReward, isRewardDeadlineFeasible, isRewardObtained, isRewardRelevantNow } from "./rewards";
 
 export function isCampaignExpired(campaign: DropCampaign): boolean {
   if (campaign.status === "expired") return true;
@@ -27,7 +27,7 @@ export function isCampaignFinished(campaign: DropCampaign): boolean {
   // eligibility is a finished campaign even when status is still "active". Also
   // non-farmable, so this cannot hide a farmable campaign.
   if (campaign.eligibility === "completed") return true;
-  return campaign.rewards.length > 0 && campaign.rewards.every((reward) => reward.status === "claimed");
+  return campaign.rewards.length > 0 && campaign.rewards.every(isRewardObtained);
 }
 
 // Whether the campaign is upcoming — not yet started, nothing earnable now. The

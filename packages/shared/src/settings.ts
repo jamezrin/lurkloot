@@ -51,6 +51,7 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
       categories: [],
       favouriteCategories: [],
       blockedCategories: [],
+      subscribedRewardMarks: [],
       autoClaimChannelPoints: true,
       strictCampaignAvailability: false,
       channelPointsPushClaim: true,
@@ -64,6 +65,7 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
       categories: [],
       favouriteCategories: [],
       blockedCategories: [],
+      subscribedRewardMarks: [],
       autoClaimChallenges: true,
     },
   },
@@ -154,6 +156,7 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
         categories: normalizeCategorySelections(platform?.twitch?.categories),
         favouriteCategories: normalizeCategorySelections(platform?.twitch?.favouriteCategories),
         blockedCategories: normalizeCategorySelections(platform?.twitch?.blockedCategories),
+        subscribedRewardMarks: normalizeSubscriptionMarks(platform?.twitch?.subscribedRewardMarks),
         autoClaimChannelPoints: booleanOr(platform?.twitch?.autoClaimChannelPoints, DEFAULT_ENGINE_SETTINGS.platform.twitch.autoClaimChannelPoints),
         strictCampaignAvailability: booleanOr(platform?.twitch?.strictCampaignAvailability, DEFAULT_ENGINE_SETTINGS.platform.twitch.strictCampaignAvailability),
         channelPointsPushClaim: booleanOr(platform?.twitch?.channelPointsPushClaim, DEFAULT_ENGINE_SETTINGS.platform.twitch.channelPointsPushClaim),
@@ -167,6 +170,7 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
         categories: normalizeCategorySelections(platform?.kick?.categories),
         favouriteCategories: normalizeCategorySelections(platform?.kick?.favouriteCategories),
         blockedCategories: normalizeCategorySelections(platform?.kick?.blockedCategories),
+        subscribedRewardMarks: normalizeSubscriptionMarks(platform?.kick?.subscribedRewardMarks),
         autoClaimChallenges: booleanOr(platform?.kick?.autoClaimChallenges, DEFAULT_ENGINE_SETTINGS.platform.kick.autoClaimChallenges),
       },
     },
@@ -361,6 +365,15 @@ export function normalizeIdList(value: string[] | undefined): string[] {
     .filter((item): item is string => typeof item === "string")
     .map((item) => item.trim())
     .filter(Boolean))];
+}
+
+// Subscription marks are "<campaignId>:<rewardId>". Ids are matched verbatim,
+// as in normalizeIdList, and an entry missing either half is dropped.
+export function normalizeSubscriptionMarks(value: string[] | undefined): string[] {
+  return normalizeIdList(value).filter((item) => {
+    const separator = item.indexOf(":");
+    return separator > 0 && separator < item.length - 1;
+  });
 }
 
 // Exported for non-extension hosts (the CLI) that honour farmingEligibility on

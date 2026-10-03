@@ -130,6 +130,10 @@ export function defaultConfigJsonc(): string {
         "favouriteCategories": ${json(twitch.favouriteCategories)},
         // Never farmed, in either mode.
         "blockedCategories": ${json(twitch.blockedCategories)},
+        // Subscription rewards you have subscribed for, as "<campaignId>:<rewardId>".
+        // Lurkloot treats their subscription as made, like the popup's
+        // "Mark as subscribed".
+        "subscribedRewardMarks": ${json(twitch.subscribedRewardMarks ?? [])},
         // Claim channel-point bonuses while farming this platform.
         "autoClaimChannelPoints": ${json(twitch.autoClaimChannelPoints)},
         // Advanced: claim channel-point bonuses from Twitch's live Hermes
@@ -155,6 +159,10 @@ export function defaultConfigJsonc(): string {
         "favouriteCategories": ${json(kick.favouriteCategories)},
         // Never farmed, in either mode.
         "blockedCategories": ${json(kick.blockedCategories)},
+        // Subscription rewards you have subscribed for, as "<campaignId>:<rewardId>".
+        // Lurkloot treats their subscription as made, like the popup's
+        // "Mark as subscribed".
+        "subscribedRewardMarks": ${json(kick.subscribedRewardMarks ?? [])},
         // Claim Kick's daily gamification challenges automatically.
         "autoClaimChallenges": ${json(kick.autoClaimChallenges)}
       }

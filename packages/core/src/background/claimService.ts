@@ -2,7 +2,7 @@ import type { CoreRuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messa
 import type { DropCampaign, DropReward, EngineSettings, Platform, SchedulerState, WatchReasonCode, WatchSession } from "@lurkloot/shared/models";
 import type { EngineEvent, EventEmitter } from "@lurkloot/shared/events";
 import { reconcileCampaignAfterClaims } from "@lurkloot/shared/rewards";
-import { claimReadyRewards, preserveClaimedRewards } from "../core/scheduler";
+import { claimReadyRewards, preserveClaimedRewards, reconcileRefreshedCampaigns } from "../core/scheduler";
 import { createRewardClaimGuard, type RewardClaimGuard } from "../core/rewardClaims";
 import type { PlatformAdapter } from "../platforms/adapter";
 import {
@@ -563,7 +563,11 @@ export function createClaimService<S extends EngineSettings>(
             requireComplete: true,
           });
           operation.signal.throwIfAborted();
-          const campaigns = claimCampaigns = preserveClaimedRewards(refreshed, state.campaigns[platform]);
+          const campaigns = claimCampaigns = reconcileRefreshedCampaigns(
+            refreshed,
+            state.campaigns[platform],
+            settings.platform[platform].subscribedRewardMarks ?? [],
+          );
           const claimResult = await claimReadyRewards(
             adapter,
             campaigns,

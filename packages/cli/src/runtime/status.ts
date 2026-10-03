@@ -1,5 +1,5 @@
 import type { DropCampaign, DropReward } from "@lurkloot/shared/models";
-import { campaignHasWatchRewards, isWaitingSubscriptionReward, rewardRequirementType } from "@lurkloot/shared/rewards";
+import { applySubscriptionMarks, campaignHasWatchRewards, isRewardObtained, isWaitingSubscriptionReward, rewardRequirementType } from "@lurkloot/shared/rewards";
 
 function subscriptionRequirement(required: number): string {
   return `${required} qualifying ${required === 1 ? "subscription" : "subscriptions"}`;
@@ -7,21 +7,32 @@ function subscriptionRequirement(required: number): string {
 
 function formatReward(reward: DropReward): string {
   if (reward.status === "claimed") return `  ◦ ${reward.name} — earned`;
+  if (isRewardObtained(reward)) return `  ◦ ${reward.name} — subscription marked`;
 
   switch (rewardRequirementType(reward)) {
     case "subscription": {
       const required = reward.requiredSubs ?? 1;
       return `  ◦ ${reward.name} — requires ${subscriptionRequirement(required)}; progress unavailable`;
     }
-    case "watch":
-      return `  ◦ ${reward.name} — requires ${reward.requiredMinutes} minutes watched; progress ${reward.watchedMinutes}/${reward.requiredMinutes} minutes`;
+    case "watch": {
+      const marked = reward.subscriptionMarked ? " (subscription marked)" : "";
+      return `  ◦ ${reward.name} — requires ${reward.requiredMinutes} minutes watched${marked}; progress ${reward.watchedMinutes}/${reward.requiredMinutes} minutes`;
+    }
     case "action":
       return `  ◦ ${reward.name} — action required; progress unavailable`;
   }
 }
 
-export function formatDiscoveredCampaign(campaign: DropCampaign): string[] {
-  const waiting = campaign.eligibility === "waiting_for_subscription" ? " — waiting for subscription" : "";
+// `discover` prints adapter output, which carries no marks, so the config's
+// marks are applied here as the engine applies them where campaigns enter it.
+export function formatDiscoveredCampaign(source: DropCampaign, marks: readonly string[] = []): string[] {
+  const campaign = applySubscriptionMarks(source, marks);
+  // From the rewards, not eligibility alone: a campaign whose subscriptions the
+  // user marked is no longer waiting.
+  const waiting = campaign.eligibility === "waiting_for_subscription"
+    && campaign.rewards.some((reward) => isWaitingSubscriptionReward(reward))
+    ? " — waiting for subscription"
+    : "";
   return [`• ${campaign.name}${waiting}`, ...campaign.rewards.map(formatReward)];
 }
 

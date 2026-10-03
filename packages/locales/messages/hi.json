@@ -377,6 +377,15 @@
   "subscribedRefresh": {
     "message": "मैंने सदस्यता ले ली है — स्थिति रीफ़्रेश करें"
   },
+  "subscriptionMarkSubscribed": {
+    "message": "सदस्यता ली गई के रूप में चिह्नित करें"
+  },
+  "subscriptionMarkedSubscribed": {
+    "message": "सदस्यता ली गई के रूप में चिह्नित"
+  },
+  "subscriptionMarkUndo": {
+    "message": "पूर्ववत करें"
+  },
   "waitingForSubscription": {
     "message": "योग्य सदस्यता की प्रतीक्षा है"
   },

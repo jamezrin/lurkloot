@@ -377,6 +377,15 @@
   "subscribedRefresh": {
     "message": "我已订阅——刷新状态"
   },
+  "subscriptionMarkSubscribed": {
+    "message": "标记为已订阅"
+  },
+  "subscriptionMarkedSubscribed": {
+    "message": "已标记为已订阅"
+  },
+  "subscriptionMarkUndo": {
+    "message": "撤销"
+  },
   "waitingForSubscription": {
     "message": "正在等待符合条件的订阅"
   },

@@ -133,7 +133,7 @@ const discoverCommand: CommandModule = {
         const emit = (event: EngineEvent) => events.push(event);
         const { adapter } = handle.createAdapter(platform, emit, toEngineSettings(config.settings));
         try {
-          await discoverPlatform(platform, adapter, logger);
+          await discoverPlatform(platform, adapter, logger, config.settings.platform[platform].subscribedRewardMarks ?? []);
         } finally {
           adapter.flushRouteDiagnostics?.(emit);
           await reportCliEvents(events, logger);
@@ -264,12 +264,17 @@ const authCommand: CommandModule = {
   handler: () => { /* a subcommand always runs; see demandCommand above */ },
 };
 
-async function discoverPlatform(platform: Platform, adapter: { refreshCampaigns(): Promise<DropCampaign[]> }, logger: ReturnType<typeof createLogger>): Promise<void> {
+async function discoverPlatform(
+  platform: Platform,
+  adapter: { refreshCampaigns(): Promise<DropCampaign[]> },
+  logger: ReturnType<typeof createLogger>,
+  subscriptionMarks: readonly string[],
+): Promise<void> {
   try {
     const campaigns = await adapter.refreshCampaigns();
     logger.info(`discovered ${campaigns.length} campaign(s)`, platform);
     for (const campaign of campaigns.slice(0, 20)) {
-      for (const line of formatDiscoveredCampaign(campaign)) logger.info(line, platform);
+      for (const line of formatDiscoveredCampaign(campaign, subscriptionMarks)) logger.info(line, platform);
     }
   } catch (error) {
     if (error instanceof KickWafBlockedError) {

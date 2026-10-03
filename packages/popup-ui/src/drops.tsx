@@ -20,7 +20,7 @@ import {
   Users,
 } from "lucide-react";
 import type { CategorySelection } from "@lurkloot/shared/models";
-import { I18nContext, PopupRuntimeContext, useT } from "./context";
+import { I18nContext, PopupRuntimeContext, SubscriptionMarkContext, useT } from "./context";
 import { formatCountdown, formatDateTime, formatMinutes, formatViewers } from "./format";
 import { campaignStats, campaignTimeline } from "./viewModels";
 import type { CampaignTimeline, CampaignView, GameItem, RewardView, TFunction } from "./types";
@@ -97,6 +97,7 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
   const t = useT();
   const { locale } = React.useContext(I18nContext);
   const runtime = React.useContext(PopupRuntimeContext);
+  const toggleSubscriptionMark = React.useContext(SubscriptionMarkContext);
   const stats = campaignStats(campaign);
   const timeline = campaignTimeline(campaign);
   // `terminal` is "this campaign is over": the Completed view renders expired
@@ -365,7 +366,11 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
                   <span className="flex items-center gap-1 text-[11px] font-semibold text-zinc-700 dark:text-zinc-200"><Gift size={12} className="text-zinc-400 dark:text-zinc-500" /> {t("rewards")}</span>
                   <span className="font-mono text-[11px] font-semibold text-zinc-500 tabular dark:text-zinc-400">{stats.completed}/{stats.totalRewards}</span>
                 </div>
-                <RewardCarousel rewards={campaign.rewards} missed={expired} />
+                <RewardCarousel
+                  rewards={campaign.rewards}
+                  missed={expired}
+                  onToggleSubscriptionMark={toggleSubscriptionMark ? (rewardId) => toggleSubscriptionMark(campaign.id, rewardId) : undefined}
+                />
               </div>
               <div className="flex flex-wrap gap-x-4 gap-y-1.5">
                 {upcoming ? <Fact label={t("campaignFactStarts")} value={formatDateTime(campaign.starts, locale)} /> : null}
@@ -778,7 +783,7 @@ function ActionChip({ pressed, disabled, onClick, icon, children }: { pressed?: 
   );
 }
 
-function RewardCarousel({ rewards, missed = false }: { rewards: RewardView[]; missed?: boolean }) {
+function RewardCarousel({ rewards, missed = false, onToggleSubscriptionMark }: { rewards: RewardView[]; missed?: boolean; onToggleSubscriptionMark?: (rewardId: string) => void }) {
   const t = useT();
   const rowRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -824,7 +829,7 @@ function RewardCarousel({ rewards, missed = false }: { rewards: RewardView[]; mi
   return (
     <div className="relative -mx-0.5">
       <div ref={rowRef} className="no-scrollbar flex gap-2 overflow-x-auto px-0.5 pb-1">
-        {rewards.map((reward) => <RewardTile key={reward.id} reward={reward} missed={missed} />)}
+        {rewards.map((reward) => <RewardTile key={reward.id} reward={reward} missed={missed} onToggleSubscriptionMark={onToggleSubscriptionMark} />)}
       </div>
       {canScrollLeft && (
         <Tip label={t("scrollRewardsLeft")}>
@@ -879,11 +884,31 @@ export function campaignRejectionMessageKey(code: NonNullable<CampaignView["farm
   return keys[code];
 }
 
-function RewardTile({ reward, missed = false }: { reward: RewardView; missed?: boolean }) {
+function SubscriptionMarkControl({ marked, onToggle }: { marked: boolean; onToggle(): void }) {
+  const t = useT();
+  return marked ? (
+    <div data-subscription-marked className="flex items-center justify-between gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+      <span>{t("subscriptionMarkedSubscribed")}</span>
+      <button type="button" data-subscription-mark-undo onClick={onToggle} className="shrink-0 font-semibold text-zinc-600 underline decoration-zinc-300 underline-offset-2 hover:decoration-current dark:text-zinc-300 dark:decoration-zinc-600">
+        {t("subscriptionMarkUndo")}
+      </button>
+    </div>
+  ) : (
+    <button type="button" data-subscription-mark onClick={onToggle} className="w-full rounded-md border border-zinc-200 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800">
+      {t("subscriptionMarkSubscribed")}
+    </button>
+  );
+}
+
+function RewardTile({ reward, missed = false, onToggleSubscriptionMark }: { reward: RewardView; missed?: boolean; onToggleSubscriptionMark?: (rewardId: string) => void }) {
   const t = useT();
   const done = reward.obtained || (reward.progress ?? 0) >= 100;
   // An expired campaign's unearned rewards are gone, not pending.
   const lost = missed && !reward.obtained;
+  // Never on an expired campaign: marking cannot bring a reward back.
+  const markControl = onToggleSubscriptionMark && reward.canMarkSubscription && !missed
+    ? <SubscriptionMarkControl marked={reward.subscriptionMarked === true} onToggle={() => onToggleSubscriptionMark(reward.id)} />
+    : null;
   return (
     <div data-reward-missed={lost || undefined} className={cn("w-[128px] shrink-0 rounded-xl border bg-white p-2 dark:bg-zinc-900", lost ? "border-dashed border-zinc-300 dark:border-zinc-700" : "border-zinc-200 dark:border-zinc-800")}>
       <div className={cn("relative mb-2 flex h-[68px] items-center justify-center overflow-hidden rounded-lg bg-zinc-50 dark:bg-zinc-800/40", lost && "opacity-50 grayscale")}>
@@ -913,12 +938,16 @@ function RewardTile({ reward, missed = false }: { reward: RewardView; missed?: b
               {t("insufficientTimeRemaining")}
             </div>
           ) : null}
+          {reward.subscriptionMarked ? markControl : null}
         </>
       ) : reward.requirement === "subscription" ? (
         <div className="space-y-1 text-[10px] leading-tight text-zinc-500 dark:text-zinc-400">
           <div className="font-semibold text-zinc-700 dark:text-zinc-200">{t("subscriptionRequired")}</div>
           <div>{t("qualifyingSubscriptionsRequired", String(reward.requiredSubs ?? 1))}</div>
-          <div className={cn("font-medium", reward.obtained && "text-emerald-600 dark:text-emerald-400")}>{reward.obtained ? t("earned") : t("subscriptionProgressUnknown")}</div>
+          {reward.subscriptionMarked ? null : (
+            <div className={cn("font-medium", reward.obtained && "text-emerald-600 dark:text-emerald-400")}>{reward.obtained ? t("earned") : t("subscriptionProgressUnknown")}</div>
+          )}
+          {markControl}
         </div>
       ) : (
         <div className="text-[10px] font-semibold text-zinc-600 dark:text-zinc-300">{t("actionRequired")}</div>

@@ -26,7 +26,7 @@ import {
   createRuntimeMessageDispatcher,
 } from "../src/core/activityMessages";
 import { twitchHeartbeatFetchText, twitchHeartbeatPost } from "../src/core/twitchHeartbeatTransport";
-import { createCredentialAvailabilityProvider } from "../src/core/credentialAvailability";
+import { createCredentialAvailabilityProvider, createCredentialReader } from "../src/core/credentialAvailability";
 import { createTwitchExtensionCommitHook } from "../src/extensions/commitHook";
 import { createTwitchExtensionHost } from "../src/extensions/host";
 import { createTwitchExtensionSessionSource } from "../src/extensions/transport";
@@ -66,9 +66,8 @@ const twitchDiscoveryState = new TwitchDiscoveryState();
 const KICK_PAGE_CONTEXT_URL = "https://kick.com/drops/inventory";
 const TWITCH_EXTENSION_LANE_KEY = "twitchExtensionLane";
 const createBrowserWebSocket: WebSocketFactory = (url) => new WebSocket(url) as unknown as WebSocketLike;
-const checkCredentialAvailability = createCredentialAvailabilityProvider({
-  get: (details) => browser.cookies.get(details),
-});
+const credentialCookies = { get: (details: { url: string; name: string }) => browser.cookies.get(details) };
+const checkCredentialAvailability = createCredentialAvailabilityProvider(credentialCookies);
 
 async function catalog(locale: string): Promise<MessageCatalog | undefined> {
   if (localeCatalogs.has(locale)) return localeCatalogs.get(locale);
@@ -331,6 +330,7 @@ export default defineBackground(() => {
         if (platform === "twitch") await reconcileExtensions();
       },
     },
+    createCredentialReader(credentialCookies),
   );
 
   browser.permissions.onAdded.addListener((details) => {

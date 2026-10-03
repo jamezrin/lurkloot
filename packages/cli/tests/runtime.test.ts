@@ -8,6 +8,7 @@ import { formatCliEvent, reportCliEvents } from "../src/events";
 import { DEFAULT_CLI_SETTINGS, toEngineSettings } from "../src/settings";
 import { createLogger } from "../src/logger";
 import { formatDiscoveredCampaign, subscriptionWaitKeys } from "../src/runtime/status";
+import { applySubscriptionMarks } from "@lurkloot/shared/rewards";
 
 function dropReward(overrides: Partial<DropReward>): DropReward {
   return {
@@ -225,6 +226,36 @@ describe("CLI engine event reporting", () => {
 });
 
 describe("CLI campaign status reporting", () => {
+  it("applies the config's subscription marks to raw adapter output", () => {
+    const campaign = dropCampaign({
+      eligibility: "waiting_for_subscription",
+      rewards: [dropReward({ id: "duffel", name: "Purple Duffel Bag", requirement: "subscription", requiredSubs: 1 })],
+    });
+
+    expect(formatDiscoveredCampaign(campaign, ["arc-raiders-summer:duffel"])).toEqual([
+      "• ARC Raiders Summer Drops",
+      "  ◦ Purple Duffel Bag — subscription marked",
+    ]);
+  });
+
+  it("shows a marked subscription reward and stops calling its campaign waiting", () => {
+    const campaign = dropCampaign({
+      eligibility: "waiting_for_subscription",
+      rewards: [
+        dropReward({ id: "duffel", name: "Purple Duffel Bag", requirement: "subscription", requiredSubs: 1 }),
+        dropReward({ id: "combo", name: "Combo Crate", requirement: "subscription", requiredSubs: 1, requiredMinutes: 60, watchedMinutes: 15, status: "in_progress" }),
+      ],
+    });
+    const marks = ["arc-raiders-summer:duffel", "arc-raiders-summer:combo"];
+
+    expect(formatDiscoveredCampaign(campaign, marks)).toEqual([
+      "• ARC Raiders Summer Drops",
+      "  ◦ Purple Duffel Bag — subscription marked",
+      "  ◦ Combo Crate — requires 60 minutes watched (subscription marked); progress 15/60 minutes",
+    ]);
+    expect([...subscriptionWaitKeys([applySubscriptionMarks(campaign, marks)])]).toEqual([]);
+  });
+
   it("formats subscription requirements without inventing partial progress", () => {
     const campaign = dropCampaign({
       eligibility: "waiting_for_subscription",
