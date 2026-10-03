@@ -59,6 +59,10 @@ export interface DropReward {
   claimUntil?: string;
   preconditionRewardIds?: string[];
   preconditionsMet?: boolean;
+  // Set by applySubscriptionMarks when the user marked this subscription
+  // reward as subscribed, never by a platform parser. The reward's status stays
+  // the platform's report.
+  subscriptionMarked?: true;
   isCurrentReward?: boolean;
   claimGuidance?: ClaimGuidance;
 }
