@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { integrityExpiry, integrityFromHeaders } from "@lurkloot/core/twitchIntegrity";
+import { integrityExpiry, integrityFromHeaders, OPAQUE_INTEGRITY_CEILING_MS } from "@lurkloot/core/twitchIntegrity";
 
 function jwt(payload: Record<string, unknown>): string {
   const segment = (value: unknown) =>
@@ -38,8 +38,12 @@ describe("integrityExpiry", () => {
     expect(integrityExpiry(jwt({ exp }))).toBe(exp * 1000);
   });
 
-  it("falls back to a conservative window for opaque tokens", () => {
+  it("keeps an opaque token up to the ceiling and marks its expiry as unknown", () => {
     const now = 1_000_000;
-    expect(integrityExpiry("not-a-jwt", now)).toBe(now + 30 * 60 * 1000);
+    expect(integrityExpiry("v4.local.opaque", now)).toBe(now + OPAQUE_INTEGRITY_CEILING_MS);
+    expect(integrityFromHeaders([{ name: "Client-Integrity", value: "v4.local.opaque" }])).toMatchObject({
+      expiryUnknown: true,
+    });
+    expect(OPAQUE_INTEGRITY_CEILING_MS).toBeGreaterThanOrEqual(6 * 60 * 60 * 1000);
   });
 });

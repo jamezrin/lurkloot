@@ -50,6 +50,12 @@ const reportEvents = createActivityEventReporter({
 // One tab registry for this controller, shared by the browser tab mechanics
 // and the controller that reads its page-context snapshot (#598).
 const tabRegistry = createTabRegistry();
+// The shared Twitch integrity mint can outlive the caller that started it, so
+// it reports each event through the controller as it happens rather than into
+// that caller's collector, which drops whatever arrives after it closes.
+const reportIntegrityAcquisition: EventEmitter = withActivityDiagnostics((event) => {
+  void controller.reportEvents([event]);
+});
 const {
   cancelTwitchIntegrityAcquisition,
   currentValidTwitchIntegrity,
@@ -58,7 +64,7 @@ const {
   fetchKickInBackground,
   fetchTwitchInBackground,
   recordManagedPageContextFallback,
-} = createBrowserTabs(tabRegistry);
+} = createBrowserTabs(tabRegistry, reportIntegrityAcquisition);
 const kickClaimState = new KickClaimState();
 const kickDiscoveryState = new KickDiscoveryState();
 const kickPageContextRecovery = new KickPageContextRecoveryTracker();
@@ -401,7 +407,9 @@ export default defineBackground(() => {
 
   // Capture the Client-Integrity token the live twitch.tv page sends on its own
   // GQL requests so the background can replay it on authenticated mutations
-  // (drop claims). Registered at top level so it re-binds on each SW wake.
+  // (drop claims). Registered at top level so it re-binds on each SW wake. The
+  // background's own replays are seen here too, with tab id -1; the controller
+  // ignores those.
   // requestHeaders exposes the custom Client-Integrity header; if a future
   // Chrome build hides it, add "extraHeaders" to this spec.
   browser.webRequest.onBeforeSendHeaders.addListener(

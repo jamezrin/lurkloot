@@ -176,6 +176,11 @@ export function createReporting<S extends EngineSettings>(
 
   function createTickAdapterHandle(platform: Platform, tickContext: TickDiagnosticContext): TickAdapterHandle<S> {
     let pendingEvents: EngineEvent[] | undefined = [];
+    // Stamped as they are buffered: a drain can come at the end of a whole
+    // discovery, and stamping there gave every line in it the same time.
+    const buffer: EventEmitter = (event) => {
+      pendingEvents?.push({ ...event, emittedAt: event.emittedAt ?? new Date().toISOString() });
+    };
     const routeReports = new Set<Promise<void>>();
     let adapter: PlatformAdapter | undefined;
     let construction: ReturnType<BackgroundHostPorts<S>["adapters"]["createAdapter"]> | undefined;
@@ -187,13 +192,13 @@ export function createReporting<S extends EngineSettings>(
         const nextFingerprint = JSON.stringify(settings);
         if (!adapter || settingsFingerprint !== nextFingerprint) {
           this.drain(emit);
-          construction = ports.adapters.createAdapter(platform, routeDiagnosticEmitter((event) => pendingEvents?.push(event), routeReports, tickContext), settings);
+          construction = ports.adapters.createAdapter(platform, routeDiagnosticEmitter(buffer, routeReports, tickContext), settings);
           adapter = construction.adapter;
           settingsFingerprint = nextFingerprint;
           compatibilityReported = false;
         }
         if (reportCompatibility && !compatibilityReported && construction) {
-          reportAdapterCompatibility(construction, settings, (event) => pendingEvents?.push(event), [platform]);
+          reportAdapterCompatibility(construction, settings, buffer, [platform]);
           compatibilityReported = true;
         }
         this.drain(emit);

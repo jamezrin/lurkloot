@@ -308,6 +308,36 @@ describe("background controller", () => {
     expect(batches[schedulerBatchIndex]).not.toContainEqual(expect.objectContaining({ message: "adapter-created" }));
   });
 
+  // A discovery drains its adapter's lines when it ends. Stamped there, every
+  // line of a long discovery carried its end time, which once made an integrity
+  // rejection look as if it came after the cookie write that caused it (#720).
+  it("stamps an adapter line when it is emitted, not when its discovery drains it", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const startedAt = new Date("2026-10-03T12:00:00.000Z");
+    vi.setSystemTime(startedAt);
+    const env = harness();
+    vi.mocked(env.deps.createAdapter).mockImplementation((platform, emit, settings) => {
+      if (platform === "twitch") {
+        vi.mocked(env.twitch.refreshCampaigns).mockImplementationOnce(async () => {
+          emit({ category: "diagnostic", level: "debug", platform: "twitch", message: "during-discovery" });
+          vi.setSystemTime(startedAt.getTime() + 60_000);
+          return [campaign("twitch")];
+        });
+      }
+      return {
+        adapter: platform === "twitch" ? env.twitch : env.kick,
+        ...resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" }),
+      };
+    });
+
+    await env.controller.tick(["twitch"]);
+
+    expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
+      message: "during-discovery",
+      emittedAt: startedAt.toISOString(),
+    }));
+  });
+
   it("flushes standalone Kick search and manual claim successes into their own reports", async () => {
     const env = harness(DEFAULT_SETTINGS, { initialState: {
       ...DEFAULT_STATE,

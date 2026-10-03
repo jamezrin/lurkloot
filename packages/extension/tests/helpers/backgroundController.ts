@@ -26,7 +26,7 @@ import { hostPortsFromMocks, type HostMocks } from "./hostPorts";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
 import type { StopPageContextTabs } from "@lurkloot/core/scheduler";
 import { createTabRegistry, forgetManagedPageContextTabs, noteTabClosure, type TabRegistry, type TwitchIntegrityRequest } from "@lurkloot/core/tabRegistry";
-import type { IntegrityHeader, TwitchIntegrity } from "@lurkloot/core/twitchIntegrity";
+import { OPAQUE_INTEGRITY_CEILING_MS, type IntegrityHeader, type TwitchIntegrity } from "@lurkloot/core/twitchIntegrity";
 import type { DiscoverySignalController, DiscoverySignalTarget } from "@lurkloot/core/discoverySignals";
 import type { TwitchChannelPointsClaimNotice } from "@lurkloot/core/twitch/channelPointsPush";
 
@@ -158,7 +158,9 @@ export function integrityBundle(overrides: Partial<TwitchIntegrity> = {}): Twitc
     integrity: "test-integrity-token",
     clientSessionId: "test-session",
     deviceId: "test-device",
-    expiresAt: Date.now() + 30 * 60_000,
+    // What capturing this opaque token produces (see integrityFromHeaders).
+    expiresAt: Date.now() + OPAQUE_INTEGRITY_CEILING_MS,
+    expiryUnknown: true,
     ...overrides,
   };
 }

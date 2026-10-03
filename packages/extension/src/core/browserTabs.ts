@@ -514,6 +514,10 @@ export async function ensureTwitchIntegrityWithBrowser(
   timeoutMs: number = INTEGRITY_REFRESH_TIMEOUT_MS,
   emit: EventEmitter = ignoreEvent,
   request?: TwitchIntegrityRequest,
+  // Where a mint this call starts reports. The mint is shared and can outlive
+  // its caller, whose collector drops whatever arrives after it closes, so the
+  // host passes a reporter that outlives every caller.
+  acquisitionEmit: EventEmitter = emit,
 ): Promise<boolean> {
   request?.signal?.throwIfAborted();
   const forceRefresh = request?.forceRefresh === true;
@@ -526,6 +530,7 @@ export async function ensureTwitchIntegrityWithBrowser(
       originUrl,
       timeoutMs,
       emit,
+      acquisitionEmit,
       undefined,
       false,
       reason,
@@ -551,6 +556,7 @@ export async function ensureTwitchIntegrityWithBrowser(
     originUrl,
     timeoutMs,
     emit,
+    acquisitionEmit,
     rejectedToken,
     true,
     reason,
@@ -561,62 +567,67 @@ export async function ensureTwitchIntegrityWithBrowser(
   return captured != null;
 }
 
+// Callers share one mint, and none of them owns it: a caller whose signal
+// aborts only stops waiting. Whatever stopped that caller (a discovery
+// invalidated by a settings save or a credential change, an aborted tick) has
+// nothing to do with whether Twitch still needs a token, and cancelling a mint
+// that has already opened its tab wastes the boot and makes the next tick open
+// another. Only the integrity lifecycle cancels it, through
+// cancelTwitchIntegrityAcquisition: Twitch disabled, a host reset, shutdown.
 function startTwitchIntegrityAcquisition(
   registry: TabRegistry,
   browserApi: BrowserTabApi,
   originUrl: string,
   timeoutMs: number,
   emit: EventEmitter,
+  acquisitionEmit: EventEmitter,
   rejectedToken: string | undefined,
   forceRefresh: boolean,
   reason: NonNullable<TwitchIntegrityRequest["reason"]>,
   onManagedPageContextOpen?: () => void | Promise<void>,
-  ownerSignal?: AbortSignal,
+  callerSignal?: AbortSignal,
 ): Promise<TwitchIntegrityAcquisitionResult | undefined> {
   if (registry.inFlightIntegrityAcquisition) {
     diagnostic(emit, "debug", "Joining the Twitch integrity acquisition already in flight", "twitch");
-    const joined = withAbortSignal(registry.inFlightIntegrityAcquisition.promise, ownerSignal);
+    const joined = withAbortSignal(registry.inFlightIntegrityAcquisition.promise, callerSignal);
     if (!forceRefresh) return joined;
     return joined.then((captured) => {
-      ownerSignal?.throwIfAborted();
+      callerSignal?.throwIfAborted();
       if (captured && captured.managedContext && captured.value.integrity !== rejectedToken && isValidTwitchIntegrity(captured.value)) return captured;
       return startTwitchIntegrityAcquisition(registry, 
         browserApi,
         originUrl,
         timeoutMs,
         emit,
+        acquisitionEmit,
         rejectedToken,
         true,
         reason,
         onManagedPageContextOpen,
-        ownerSignal,
+        callerSignal,
       );
     });
   }
 
   const abort = new AbortController();
-  const abortFromOwner = () => abort.abort(ownerSignal?.reason);
-  ownerSignal?.addEventListener("abort", abortFromOwner, { once: true });
-
   const promise = mintTwitchIntegrity(registry, 
     browserApi,
     originUrl,
     timeoutMs,
-    emit,
+    acquisitionEmit,
     rejectedToken,
     forceRefresh,
     reason,
     onManagedPageContextOpen,
     abort.signal,
   ).finally(() => {
-    ownerSignal?.removeEventListener("abort", abortFromOwner);
     registry.twitchIntegrityCapturesBySourceTab.clear();
     if (registry.inFlightIntegrityAcquisition?.promise === promise) {
       registry.inFlightIntegrityAcquisition = undefined;
     }
   });
   registry.inFlightIntegrityAcquisition = { promise, abort };
-  return promise;
+  return withAbortSignal(promise, callerSignal);
 }
 
 // The page-context boot itself, with no bounding logic: callers reach it through
