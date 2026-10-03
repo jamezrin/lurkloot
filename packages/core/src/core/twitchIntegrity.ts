@@ -12,6 +12,9 @@ export interface TwitchIntegrity {
   clientSessionId?: string;
   deviceId?: string;
   expiresAt: number; // epoch ms
+  // Set when expiresAt is OPAQUE_INTEGRITY_CEILING_MS after capture rather
+  // than an expiry the token declared.
+  expiryUnknown?: true;
 }
 
 // A host refresh request. The extension may satisfy this through a managed
@@ -46,18 +49,31 @@ export function integrityFromHeaders(headers: IntegrityHeader[] | undefined): Tw
     integrity,
     clientSessionId: get("client-session-id"),
     deviceId: get("x-device-id"),
-    expiresAt: integrityExpiry(integrity),
+    ...integrityExpiryFields(integrity),
   };
 }
 
-const FALLBACK_TTL_MS = 30 * 60 * 1000;
+// Twitch's web Client-Integrity token is PASETO v4.local: its claims are
+// encrypted with a key only Twitch holds, so the token cannot tell us when it
+// expires. Twitch's /integrity response says, and the CLI's mint reads it, but
+// webRequest cannot read response bodies. So a token whose expiry cannot be
+// read is kept until Twitch rejects it, when rejection recovery mints a
+// replacement, or at most for this long, so one nothing rejects still ages
+// out (#720). It is a ceiling, not an estimate. Readiness mints whenever the
+// local token has lapsed, so a value near the 2–3 hours after which Twitch has
+// been seen to reject tokens would open a twitch.tv tab on a timer.
+export const OPAQUE_INTEGRITY_CEILING_MS = 12 * 60 * 60 * 1000;
 
-// The Client-Integrity token is a JWT whose payload carries an `exp` (epoch
-// seconds). Decode it for a precise expiry; fall back to a conservative window
-// when the token is opaque or unparseable so a malformed token still ages out.
+// A token that is a JWT carries an `exp` (epoch seconds) to decode.
 export function integrityExpiry(token: string, now: number = Date.now()): number {
+  return integrityExpiryFields(token, now).expiresAt;
+}
+
+function integrityExpiryFields(token: string, now: number = Date.now()): Pick<TwitchIntegrity, "expiresAt" | "expiryUnknown"> {
   const exp = decodeJwtExp(token);
-  return exp != null ? exp * 1000 : now + FALLBACK_TTL_MS;
+  return exp != null
+    ? { expiresAt: exp * 1000 }
+    : { expiresAt: now + OPAQUE_INTEGRITY_CEILING_MS, expiryUnknown: true };
 }
 
 function decodeJwtExp(token: string): number | undefined {

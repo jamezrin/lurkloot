@@ -6,6 +6,7 @@ import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import {
   cancelTwitchIntegrityAcquisition,
   createTabRegistry,
+  currentTwitchIntegrityWaiterCount,
   currentValidTwitchIntegrity,
   setTwitchIntegrity,
 } from "@lurkloot/core/tabRegistry";
@@ -14,7 +15,7 @@ import {
   ensureTwitchIntegrityWithBrowser,
 } from "../../src/core/browserTabs";
 import { TAB_CHURN_LIMIT } from "@lurkloot/core/criticalHealth";
-import type { TwitchIntegrity } from "@lurkloot/core/twitchIntegrity";
+import { OPAQUE_INTEGRITY_CEILING_MS, type TwitchIntegrity } from "@lurkloot/core/twitchIntegrity";
 import {
   allDiagnostics,
   asSnapshot,
@@ -64,6 +65,60 @@ describe("background controller", () => {
       expect(when).toBeGreaterThanOrEqual(integrity.expiresAt - 150_000);
     });
 
+    // Twitch's web token is encrypted (PASETO v4.local), so its expiry cannot
+    // be read. Captures used to get a 30-minute window that the background's
+    // own replays kept sliding. Without that sliding, a window that short would
+    // make readiness open a twitch.tv tab every half hour (#720).
+    it("keeps a token whose expiry it cannot read until Twitch rejects it", async () => {
+      const browser = {
+        tabs: {
+          get: vi.fn(),
+          update: vi.fn(async () => undefined),
+          remove: vi.fn(async () => undefined),
+          query: vi.fn(async () => []),
+          create: vi.fn(async () => ({ id: 42 })),
+        },
+      } satisfies BrowserTabApi;
+      const opaque = integrityBundle({ integrity: "v4.local.opaque-token" });
+      const env = harness(undefined, { loadTwitchIntegrity: async () => undefined });
+      await env.controller.settleBackgroundWork();
+
+      await env.controller.captureTwitchIntegrity(integrityHeaders(opaque), 7);
+
+      const calls = env.deps.createAlarm.mock.calls.filter(
+        ([name]) => name === TWITCH_INTEGRITY_ALARM_NAME,
+      );
+      expect(calls).toHaveLength(1);
+      expect((calls[0][1] as { when: number }).when).toBeGreaterThan(Date.now() + 11 * 60 * 60_000);
+      expect(env.reportEvents.mock.calls.flatMap(([batch]) => batch)).toContainEqual(expect.objectContaining({
+        message: expect.stringContaining("its expiry cannot be read"),
+      }));
+
+      vi.setSystemTime(Date.now() + 3 * 60 * 60_000);
+      await expect(ensureTwitchIntegrityWithBrowser(
+        env.tabRegistry,
+        browser,
+        "https://www.twitch.tv/drops/inventory",
+        50,
+      )).resolves.toBe(true);
+      expect(browser.tabs.create).not.toHaveBeenCalled();
+
+      // Rejection recovery is what replaces it.
+      const recovering = ensureTwitchIntegrityWithBrowser(
+        env.tabRegistry,
+        browser,
+        "https://www.twitch.tv/drops/inventory",
+        5_000,
+        undefined,
+        { forceRefresh: true, rejectedToken: opaque.integrity },
+      );
+      await vi.waitFor(() => expect(currentTwitchIntegrityWaiterCount(env.tabRegistry)).toBe(1));
+      await env.controller.captureTwitchIntegrity(integrityHeaders(integrityBundle({ integrity: "v4.local.replacement" })), 42);
+      await expect(recovering).resolves.toBe(true);
+      expect(browser.tabs.create).toHaveBeenCalledOnce();
+      expect(env.tabRegistry.twitchIntegrity?.integrity).toBe("v4.local.replacement");
+    });
+
     it("ignores an expired stored token and reports why", async () => {
       const integrity = integrityBundle({
         integrity: "expired-test-token",
@@ -94,7 +149,6 @@ describe("background controller", () => {
       });
       const replacement = integrityBundle({
         integrity: "replacement-test-token",
-        expiresAt: Date.now() + 30 * 60_000,
       });
       const saveTwitchIntegrity = vi.fn(async () => undefined);
       const env = harness(undefined, {
@@ -1519,7 +1573,7 @@ describe("background controller", () => {
       });
       const capturedReplacement = {
         ...replacement,
-        expiresAt: Date.now() + 30 * 60_000,
+        expiresAt: Date.now() + OPAQUE_INTEGRITY_CEILING_MS,
       };
       let stored = oldIntegrity;
       const saveGate = deferred<void>();
