@@ -588,6 +588,16 @@ describe("TwitchChatPresenceClient", () => {
     ]);
   });
 
+  it("also accepts end-of-NAMES as the room confirmation", async () => {
+    const env = setup();
+    await env.client.follow({ username: "prod" });
+    const socket = env.sockets[0]!;
+    socket.open();
+    socket.receive(":tmi.twitch.tv 001 viewer :Welcome, GLHF!");
+    socket.receive(":viewer!viewer@viewer.tmi.twitch.tv JOIN #prod", ":viewer.tmi.twitch.tv 366 viewer #prod :End of /NAMES list");
+    expect(env.client.status()).toEqual({ state: "joined", channel: "prod" });
+  });
+
   it("does nothing when following the channel it already follows", async () => {
     const env = setup();
     const socket = await joined(env, "prod");
@@ -908,8 +918,13 @@ export class TwitchChatPresenceClient implements ChatPresenceClient {
         case "JOIN":
           if (line.prefixNick?.toLowerCase() === this.login) this.confirm(this.joinEchoes, line.params[0]);
           break;
+        // Either confirms the room: USERSTATE follows a logged-in JOIN, and
+        // 366 (end of NAMES) is what the 2026-10-04 capture observed.
         case "USERSTATE":
           this.confirm(this.userStates, line.params[0]);
+          break;
+        case "366":
+          this.confirm(this.userStates, line.params[1]);
           break;
         default:
           break;
@@ -1071,7 +1086,7 @@ export class TwitchChatPresenceClient implements ChatPresenceClient {
 - [ ] **Step 4: Run the tests until they pass**
 
 Run: `pnpm --filter @lurkloot/extension exec vitest run tests/twitchChatPresence.test.ts`
-Expected: PASS, all 13 tests.
+Expected: PASS, all 14 tests.
 
 - [ ] **Step 5: Commit**
 
@@ -1465,6 +1480,56 @@ describe("chat presence service", () => {
     expect(env.state).not.toHaveProperty("chatPresence");
   });
 
+  it("starts presence from a commit without a tick, as after a worker restart", async () => {
+    const env = harness(chatSettings(true), {
+      initialState: {
+        ...DEFAULT_STATE,
+        authHealth: { ...DEFAULT_STATE.authHealth, twitch: { status: "checking" } },
+        sessions: {
+          ...DEFAULT_STATE.sessions,
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            watchMode: "tabless",
+            offlineChecks: 0,
+            channel: { platform: "twitch", username: "prod", url: "https://www.twitch.tv/prod" },
+          },
+        },
+      },
+    });
+    // The auth probe commits "healthy" with no scheduler tick involved.
+    await env.controller.checkAuthHealth("twitch");
+    await env.controller.settleBackgroundWork();
+    expect(env.chatPresenceFactory).toHaveBeenCalledOnce();
+    expect(env.chatPresenceClient.follows).toEqual([{ username: "prod" }]);
+  });
+
+  it("keeps one client across a target change", async () => {
+    const watching = (username: string) => ({
+      ...DEFAULT_STATE,
+      authHealth: { ...DEFAULT_STATE.authHealth, twitch: { status: "healthy" as const } },
+      sessions: {
+        ...DEFAULT_STATE.sessions,
+        twitch: {
+          platform: "twitch" as const,
+          status: "watching" as const,
+          watchMode: "tabless" as const,
+          offlineChecks: 0,
+          channel: { platform: "twitch" as const, username, url: `https://www.twitch.tv/${username}` },
+        },
+      },
+    });
+    const env = harness(chatSettings(true), { initialState: watching("prod") });
+    await env.controller.handleMessage({ type: "saveSettings", settingsPatch: { platform: { twitch: { alwaysEnterChat: true } } } });
+    // A tick that switches channels commits watching → watching (only a
+    // platform that was not watching is ever committed as "starting").
+    await env.deps.saveState(watching("diables"));
+    await env.controller.handleMessage({ type: "saveSettings", settingsPatch: { platform: { twitch: { alwaysEnterChat: true } } } });
+    expect(env.chatPresenceFactory).toHaveBeenCalledOnce();
+    expect(env.chatPresenceClient.follows).toEqual([{ username: "prod" }, { username: "diables" }]);
+    expect(env.chatPresenceClient.stops).toBe(0);
+  });
+
   it("joins for a committed NoPixelV watch and announces it once", async () => {
     const providerChannel = { platform: "twitch" as const, username: "prod", url: "https://www.twitch.tv/prod", channelId: "174754672" };
     const env = harness(chatSettings(false), {
@@ -1618,15 +1683,53 @@ export function createChatPresence<S extends EngineSettings>(
   // A commit that leaves auth unhealthy (logout, rejected probe, an account
   // change being checked, #595) or ends the watch stops presence before any
   // await, so the old identity never stays in chat.
+  //
+  // A commit that shows a healthy tabless watch with no client starts one in
+  // the background. After an MV3 worker restart, heartbeat recovery resumes
+  // the watch without a tick, and presence must not wait for the next one.
   transaction.onCommit(async (change) => {
     if (change.kind !== "state") return;
     const { previous, state } = change;
-    const platforms = change.platforms.filter((platform) =>
+    const stopping = change.platforms.filter((platform) =>
       slots[platform].current !== undefined
       && (state.authHealth[platform].status !== "healthy"
         || (previous.sessions[platform].status === "watching" && state.sessions[platform].status !== "watching")));
-    if (platforms.length > 0) await stopChatPresenceAndReport(platforms);
+    const missing = change.platforms.filter((platform) =>
+      !stopping.includes(platform)
+      && slots[platform].current === undefined
+      && state.authHealth[platform].status === "healthy"
+      && state.sessions[platform].status === "watching"
+      && state.sessions[platform].watchMode === "tabless");
+    if (missing.length > 0) {
+      // Read under the commit: a stop after this point makes `state` stale.
+      const since = chatPresenceEpochs(missing);
+      const run = reconcileFromCommit(missing, state, since).catch((error) => {
+        diagnosticEvent("warn", `Chat presence reconcile failed: ${error instanceof Error ? error.message : String(error)}`);
+      });
+      trackBackgroundWork(run);
+    }
+    if (stopping.length > 0) await stopChatPresenceAndReport(stopping);
   });
+
+  async function reconcileFromCommit(
+    platforms: readonly Platform[],
+    state: SchedulerState,
+    since: Partial<Record<Platform, number>>,
+  ): Promise<void> {
+    await withEventCollector(async (emit, events) => {
+      try {
+        const settings = await ports.storage.loadSettings();
+        for (const platform of platforms) {
+          if (!observersOpen()) return;
+          if (!chatPresenceDecision(platform, settings, state, { capability: ports.capabilities.chatPresence })) continue;
+          const adapter = createAdapter(platform, settings, emit);
+          await reconcile(platform, settings, state, adapter, emit, since[platform] ?? slots[platform].epoch);
+        }
+      } finally {
+        await reportBestEffort(events);
+      }
+    });
+  }
 
   // A settings save can switch a trigger on or off; follow it at once.
   transaction.onCommit((change) => {
