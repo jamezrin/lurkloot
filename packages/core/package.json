@@ -30,6 +30,7 @@
     "./adapter": "./src/platforms/adapter.ts",
     "./twitch": "./src/platforms/twitch/index.ts",
     "./twitch/channelPointsPush": "./src/platforms/twitch/channelPointsPush.ts",
+    "./twitch/chatPresence": "./src/platforms/twitch/chatPresence.ts",
     "./twitch/channelUrl": "./src/platforms/twitch/channelUrl.ts",
     "./twitch/parser": "./src/platforms/twitch/parser.ts",
     "./twitch/watch": "./src/platforms/twitch/watch.ts",
