@@ -50,6 +50,7 @@ export const SCHEDULER_STATE_MERGE = {
   deadlineInfeasibleRewardIds: "optionalPlatform",
   lastTickAt: "newestTimestamp",
   twitchExtensions: "global",
+  chatPresence: "global",
   installedAt: "global",
 } as const satisfies Record<keyof SchedulerState, "platform" | "optionalPlatform" | "newestTimestamp" | "global">;
 

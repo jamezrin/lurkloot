@@ -37,6 +37,19 @@ describe("engine settings", () => {
 });
 
 describe("settings", () => {
+  it("defaults alwaysEnterChat to off on both platforms and keeps explicit values", () => {
+    expect(DEFAULT_ENGINE_SETTINGS.platform.twitch.alwaysEnterChat).toBe(false);
+    expect(DEFAULT_ENGINE_SETTINGS.platform.kick.alwaysEnterChat).toBe(false);
+    const merged = mergeEngineSettings({
+      platform: {
+        twitch: { alwaysEnterChat: true },
+        kick: { alwaysEnterChat: "yes" },
+      },
+    } as never);
+    expect(merged.platform.twitch.alwaysEnterChat).toBe(true);
+    expect(merged.platform.kick.alwaysEnterChat).toBe(false);
+  });
+
   it("ignores legacy property names, which the migration registry handles first", () => {
     const merged = mergeSettings({
       watchQueueFallbackOnly: false,

@@ -134,6 +134,9 @@ export function defaultConfigJsonc(): string {
         // Lurkloot treats their subscription as made, like the popup's
         // "Mark as subscribed".
         "subscribedRewardMarks": ${json(twitch.subscribedRewardMarks ?? [])},
+        // Join each watched channel's chat. Not supported by the CLI yet: it
+        // logs a warning once and ignores this.
+        "alwaysEnterChat": ${json(twitch.alwaysEnterChat ?? false)},
         // Claim channel-point bonuses while farming this platform.
         "autoClaimChannelPoints": ${json(twitch.autoClaimChannelPoints)},
         // Advanced: claim channel-point bonuses from Twitch's live Hermes
@@ -163,6 +166,9 @@ export function defaultConfigJsonc(): string {
         // Lurkloot treats their subscription as made, like the popup's
         // "Mark as subscribed".
         "subscribedRewardMarks": ${json(kick.subscribedRewardMarks ?? [])},
+        // Join each watched channel's chat. Not supported by the CLI yet: it
+        // logs a warning once and ignores this.
+        "alwaysEnterChat": ${json(kick.alwaysEnterChat ?? false)},
         // Claim Kick's daily gamification challenges automatically.
         "autoClaimChallenges": ${json(kick.autoClaimChallenges)}
       }
