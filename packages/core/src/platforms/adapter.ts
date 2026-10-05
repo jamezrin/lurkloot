@@ -1,3 +1,4 @@
+import type { ChatPresenceClient } from "../core/chatPresence";
 import type {
   CategorySelection,
   ChannelCandidate,
@@ -113,6 +114,8 @@ export interface PlatformAdapter {
   createTablessWatcher?(): TablessWatchController;
   createDiscoverySignalController?(): DiscoverySignalController;
   createChannelPointsPushController?(): TwitchChannelPointsPushController;
+  // Joins the watched channel's chat while presence is wanted (chatPresence.ts).
+  createChatPresenceClient?(): ChatPresenceClient;
   // Whether a bounded post-claim refresh is worthwhile on this platform. Twitch
   // only reveals the next reward in a campaign chain on a subsequent inventory
   // read, so re-polling recovers watch time the fixed alarm would otherwise

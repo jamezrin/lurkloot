@@ -7,4 +7,7 @@ export interface TwitchExtensionProviderDescriptor {
   readonly backendOrigin: `https://${string}/*`;
   readonly discoveryCategoryIds: readonly string[];
   readonly minRefreshIntervalMs: number;
+  // The provider credits rewards only while the viewer is in the channel's
+  // chat (NoPixelV reads the chatter list, #683), so chat presence follows it.
+  readonly needsChatPresence: boolean;
 }

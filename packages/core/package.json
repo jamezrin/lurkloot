@@ -13,6 +13,7 @@
     "./tablessWatch": "./src/core/tablessWatch.ts",
     "./webSocket": "./src/core/webSocket.ts",
     "./discoverySignals": "./src/core/discoverySignals.ts",
+    "./chatPresence": "./src/core/chatPresence.ts",
     "./twitchIntegrity": "./src/core/twitchIntegrity.ts",
     "./tabRegistry": "./src/core/tabRegistry.ts",
     "./transport": "./src/core/transport.ts",
