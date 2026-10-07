@@ -1564,6 +1564,49 @@ describe("background controller", () => {
     expect(env.state.sessions.twitch.heartbeatChecks).toBe(0);
   });
 
+  it("heartbeats a Kick idle watchlist session from the minute alarm", async () => {
+    const watcher = fakeTablessWatcher(async () => ({ ok: true, live: true }), "kick");
+    const env = harness(farming({
+      ...DEFAULT_SETTINGS,
+      tablessMode: true,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false },
+        kick: {
+          ...DEFAULT_SETTINGS.platform.kick,
+          enabled: true,
+          idleWatchlistChannels: ["rewardstation"],
+        },
+      },
+    }));
+    env.kick.supportsTabless = true;
+    env.kick.refreshCampaigns = vi.fn(async () => []);
+    env.kick.createTablessWatcher = vi.fn(() => watcher as unknown as TablessWatchController);
+
+    await env.controller.tick(["kick"]);
+
+    expect(env.state.sessions.kick).toMatchObject({
+      status: "watching",
+      watchMode: "tabless",
+      campaignId: undefined,
+      rewardId: undefined,
+      channel: { username: "rewardstation" },
+    });
+    expect(env.state.sessions.kick.supplementalWatch).toBeUndefined();
+    expect(env.state.sessions.kick.tablessHeartbeat?.contextKey).toContain("idle_watchlist");
+    expect(watcher.tick).not.toHaveBeenCalled();
+
+    advanceToNextHeartbeatDue();
+    await env.controller.runWatchHeartbeat();
+
+    expect(watcher.tick).toHaveBeenCalledOnce();
+    expect(env.state.sessions.kick.lastHeartbeatOk).toBe(true);
+
+    await env.controller.tick(["kick"]);
+
+    expect(env.kick.createTablessWatcher).toHaveBeenCalledOnce();
+  });
+
   it("lets Kick heartbeat and persist while Twitch heartbeat is still pending", async () => {
     const twitchHeartbeat = deferred<{ ok: boolean; live?: boolean; message?: string }>();
     const twitchWatcher = fakeTablessWatcher(() => twitchHeartbeat.promise, "twitch");

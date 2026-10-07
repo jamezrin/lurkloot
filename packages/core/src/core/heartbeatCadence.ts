@@ -10,7 +10,9 @@ export function nextHeartbeatDueAt(previousDueAt: number, attemptAt: number): nu
 
 export function heartbeatContextKey(session: WatchSession): string | undefined {
   const channel = session.channel;
-  if (session.watchMode !== "tabless" || !channel || (!session.campaignId || !session.rewardId) && !session.supplementalWatch) return undefined;
+  if (session.watchMode !== "tabless" || !channel) return undefined;
+  const authority = heartbeatAuthority(session);
+  if (!authority) return undefined;
   return JSON.stringify([
     session.platform,
     channel.url,
@@ -18,8 +20,17 @@ export function heartbeatContextKey(session: WatchSession): string | undefined {
     channel.broadcastId ?? "",
     channel.channelId ?? "",
     channel.categoryId ?? "",
-    ...(session.supplementalWatch ? ["supplemental", session.supplementalWatch.id] : [session.campaignId, session.rewardId]),
+    ...authority,
   ]);
+}
+
+// Drop and supplemental keys stay exactly as they are so a persisted cadence
+// still matches. Idle is the watch that has a channel and no drop identity.
+function heartbeatAuthority(session: WatchSession): string[] | undefined {
+  if (session.supplementalWatch) return ["supplemental", session.supplementalWatch.id];
+  if (session.campaignId && session.rewardId) return [session.campaignId, session.rewardId];
+  if (!session.campaignId && !session.rewardId) return ["idle_watchlist"];
+  return undefined;
 }
 
 export function validHeartbeatGeneration(value: unknown): value is number {

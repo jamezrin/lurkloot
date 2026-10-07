@@ -287,6 +287,37 @@ describe("kick viewer watcher", () => {
     await watcher.stop();
   });
 
+  it("sends one overdue handshake from tick and does not repeat it a second later", async () => {
+    let now = 1_000;
+    const socket = new FakeSocket();
+    const fetchJson = vi.fn(async (url: string) => {
+      if (url.includes("/api/v2/channels/")) return { id: 123, livestream: { id: 456, is_live: true } } as unknown;
+      if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as unknown;
+      throw new Error(`unexpected url ${url}`);
+    });
+    const watcher = new KickWatcher({
+      fetcher: { fetchJson: fetchJson as never },
+      createWebSocket: () => socket,
+      now: () => now,
+    });
+
+    await watcher.start(kickChannel, {});
+    socket.emit("open");
+    const opened = socket.parsed().length;
+    now += 61_000;
+
+    await expect(watcher.tick({})).resolves.toMatchObject({ ok: true, live: true });
+    const afterDueTick = socket.parsed();
+    const sentByDueTick = afterDueTick.slice(opened);
+    expect(sentByDueTick.filter((message) => message.type === "user_event")).toHaveLength(1);
+    expect(sentByDueTick.filter((message) => message.type === "channel_handshake" || message.type === "ping")).toHaveLength(1);
+
+    now += 1_000;
+    await watcher.tick({});
+    expect(socket.parsed()).toHaveLength(afterDueTick.length);
+    await watcher.stop();
+  });
+
   it("does not open another socket after a hard websocket error", async () => {
     const sockets: FakeSocket[] = [];
     const fetchJson = vi.fn(async (url: string) => {
