@@ -207,6 +207,115 @@ describe("kick viewer watcher", () => {
     await watcher.stop();
   });
 
+  it("does not record a watch event when the socket is not open", async () => {
+    const socket = new FakeSocket();
+    const fetchJson = vi.fn(async (url: string) => {
+      if (url.includes("/api/v2/channels/")) return { id: 123, livestream: { id: 456, is_live: true } } as unknown;
+      if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as unknown;
+      throw new Error(`unexpected url ${url}`);
+    });
+    const watcher = new KickWatcher({
+      fetcher: { fetchJson: fetchJson as never },
+      createWebSocket: () => socket,
+      now: () => 1_000,
+    });
+
+    await watcher.start(kickChannel, {});
+    socket.readyState = 3;
+    socket.emit("open");
+
+    const events = watcher.drainEvents();
+    expect(events.some((event) => event.message.startsWith("Sent Kick watch event"))).toBe(false);
+    expect(events.some((event) => event.message.includes("tabless farming active"))).toBe(false);
+    expect(socket.parsed().some((message) => message.type === "user_event")).toBe(false);
+    await watcher.stop();
+  });
+
+  it("reconnects from tick when the socket is closed without a close event", async () => {
+    const sockets: FakeSocket[] = [];
+    const fetchJson = vi.fn(async (url: string) => {
+      if (url.includes("/api/v2/channels/")) return { id: 123, livestream: { id: 456, is_live: true } } as unknown;
+      if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as unknown;
+      throw new Error(`unexpected url ${url}`);
+    });
+    const watcher = new KickWatcher({
+      fetcher: { fetchJson: fetchJson as never },
+      createWebSocket: () => {
+        const socket = new FakeSocket();
+        // FakeSocket starts OPEN. A replacement socket has not opened yet.
+        if (sockets.length > 0) socket.readyState = 0;
+        sockets.push(socket);
+        return socket;
+      },
+      now: () => 1_000,
+    });
+
+    await watcher.start(kickChannel, {});
+    sockets[0]?.emit("open");
+    watcher.drainEvents();
+    sockets[0]!.readyState = 3;
+
+    const result = await watcher.tick({});
+
+    expect(result).toMatchObject({ ok: false, live: true, message: "Kick viewer connection idle" });
+    expect(sockets).toHaveLength(2);
+    expect(sockets[0]?.readyState).toBe(3);
+    expect(watcher.drainEvents().some((event) => event.message.startsWith("Sent Kick watch event"))).toBe(false);
+    await watcher.stop();
+  });
+
+  it("writes a due watch event from tick while the socket stays open", async () => {
+    let now = 1_000;
+    const socket = new FakeSocket();
+    const fetchJson = vi.fn(async (url: string) => {
+      if (url.includes("/api/v2/channels/")) return { id: 123, livestream: { id: 456, is_live: true } } as unknown;
+      if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as unknown;
+      throw new Error(`unexpected url ${url}`);
+    });
+    const watcher = new KickWatcher({
+      fetcher: { fetchJson: fetchJson as never },
+      createWebSocket: () => socket,
+      now: () => now,
+    });
+
+    await watcher.start(kickChannel, {});
+    socket.emit("open");
+    now += 61_000;
+
+    await expect(watcher.tick({})).resolves.toMatchObject({ ok: true, live: true });
+    expect(socket.parsed().filter((message) => message.type === "user_event")).toHaveLength(2);
+    await watcher.stop();
+  });
+
+  it("does not open another socket after a hard websocket error", async () => {
+    const sockets: FakeSocket[] = [];
+    const fetchJson = vi.fn(async (url: string) => {
+      if (url.includes("/api/v2/channels/")) return { id: 123, livestream: { id: 456, is_live: true } } as unknown;
+      if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as unknown;
+      throw new Error(`unexpected url ${url}`);
+    });
+    const watcher = new KickWatcher({
+      fetcher: { fetchJson: fetchJson as never },
+      createWebSocket: () => {
+        const socket = new FakeSocket();
+        sockets.push(socket);
+        return socket;
+      },
+      now: () => 1_000,
+    });
+
+    await watcher.start(kickChannel, {});
+    sockets[0]?.emit("open");
+    sockets[0]?.emit("error");
+
+    await expect(watcher.tick({})).resolves.toMatchObject({
+      ok: false,
+      message: "Kick viewer WebSocket error; falling back to a watch tab",
+    });
+    expect(sockets).toHaveLength(1);
+    await watcher.stop();
+  });
+
   it("surfaces a one-shot info line when tabless farming becomes active", async () => {
     const socket = new FakeSocket();
     const fetchJson = vi.fn(async (url: string) => {
