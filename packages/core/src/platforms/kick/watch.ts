@@ -220,11 +220,9 @@ export class KickWatcher implements TablessWatchController {
     if (this.handshakeTimer) clearInterval(this.handshakeTimer);
     this.handshakeTimer = setInterval(() => {
       if (!this.connected) return;
-      if (this.now() - this.lastProtocolSentAt >= HANDSHAKE_INTERVAL_MS) {
-        this.counter += 1;
-        if (this.counter % 2 === 0) this.sendPing();
-        else this.sendHandshake();
-      }
+      this.counter += 1;
+      if (this.counter % 2 === 0) this.sendPing();
+      else this.sendHandshake();
       if (this.now() - this.lastWatchSentAt >= WATCH_EVENT_INTERVAL_MS) this.sendWatchEvent();
     }, HANDSHAKE_INTERVAL_MS);
   }
