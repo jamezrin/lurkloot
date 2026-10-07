@@ -207,6 +207,30 @@ describe("kick viewer watcher", () => {
     await watcher.stop();
   });
 
+  it("does not record a watch event when the socket is not open", async () => {
+    const socket = new FakeSocket();
+    const fetchJson = vi.fn(async (url: string) => {
+      if (url.includes("/api/v2/channels/")) return { id: 123, livestream: { id: 456, is_live: true } } as unknown;
+      if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as unknown;
+      throw new Error(`unexpected url ${url}`);
+    });
+    const watcher = new KickWatcher({
+      fetcher: { fetchJson: fetchJson as never },
+      createWebSocket: () => socket,
+      now: () => 1_000,
+    });
+
+    await watcher.start(kickChannel, {});
+    socket.readyState = 3;
+    socket.emit("open");
+
+    const events = watcher.drainEvents();
+    expect(events.some((event) => event.message.startsWith("Sent Kick watch event"))).toBe(false);
+    expect(events.some((event) => event.message.includes("tabless farming active"))).toBe(false);
+    expect(socket.parsed().some((message) => message.type === "user_event")).toBe(false);
+    await watcher.stop();
+  });
+
   it("surfaces a one-shot info line when tabless farming becomes active", async () => {
     const socket = new FakeSocket();
     const fetchJson = vi.fn(async (url: string) => {

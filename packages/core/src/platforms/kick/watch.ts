@@ -16,6 +16,7 @@ const STREAM_TARGET_REFRESH_MS = 60_000;
 // A heartbeat counts as healthy if a watch event was accepted recently; gives a
 // little slack over the 60s send cadence before the scheduler reacts.
 const HEALTH_WINDOW_MS = 2 * 60_000 + 30_000;
+const WEBSOCKET_CONNECTING = 0;
 const WEBSOCKET_OPEN = 1;
 
 interface KickChannelTargets {
@@ -211,18 +212,28 @@ export class KickWatcher implements TablessWatchController {
     });
   }
 
-  private sendWatchEvent(): void {
-    if (!this.targets?.liveStreamId) return;
-    this.safeSend({
-      type: "user_event",
-      data: {
-        message: {
-          name: "tracking.user.watch.livestream",
-          channel_id: numericOrString(this.targets.channelId),
-          livestream_id: numericOrString(this.targets.liveStreamId),
+  private sendWatchEvent(): boolean {
+    if (!this.targets?.liveStreamId) return false;
+    if (!this.ws || this.ws.readyState !== WEBSOCKET_OPEN) {
+      this.connected = false;
+      return false;
+    }
+    try {
+      this.ws.send(JSON.stringify({
+        type: "user_event",
+        data: {
+          message: {
+            name: "tracking.user.watch.livestream",
+            channel_id: numericOrString(this.targets.channelId),
+            livestream_id: numericOrString(this.targets.liveStreamId),
+          },
         },
-      },
-    });
+      }));
+    } catch (error) {
+      this.connected = false;
+      this.log("debug", `Kick viewer send failed; will reconnect: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
     this.lastWatchSentAt = this.now();
     // Announce once per connection at info level so "tab-less farming is alive"
     // is visible without the verbose/debug filter; later sends stay debug.
@@ -232,6 +243,7 @@ export class KickWatcher implements TablessWatchController {
     } else {
       this.log("debug", `Sent Kick watch event for ${this.channel?.username ?? "channel"} (livestream ${this.targets.liveStreamId})`);
     }
+    return true;
   }
 
   private async refreshTargetsIfDue(): Promise<void> {
