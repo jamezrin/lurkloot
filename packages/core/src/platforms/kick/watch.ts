@@ -49,6 +49,7 @@ export class KickWatcher implements TablessWatchController {
   private failureMessage?: string;
   private counter = 0;
   private lastWatchSentAt = 0;
+  private lastProtocolSentAt = 0;
   private lastTargetRefreshAt = 0;
   // Whether we have surfaced the one-shot "tabless farming active" info line for
   // the current connection. Reset on connect/stop so each session announces once.
@@ -116,6 +117,11 @@ export class KickWatcher implements TablessWatchController {
     if (!this.targets.liveStreamId) {
       return { ok: false, live: true, message: "Kick channel is missing a livestream id" };
     }
+    if (this.ws?.readyState === WEBSOCKET_OPEN && this.now() - this.lastProtocolSentAt >= HANDSHAKE_INTERVAL_MS) {
+      this.counter += 1;
+      if (this.counter % 2 === 0) this.sendPing();
+      else this.sendHandshake();
+    }
     if (this.ws?.readyState === WEBSOCKET_OPEN && this.now() - this.lastWatchSentAt >= WATCH_EVENT_INTERVAL_MS) {
       this.sendWatchEvent();
     }
@@ -141,6 +147,7 @@ export class KickWatcher implements TablessWatchController {
     this.connected = false;
     this.counter = 0;
     this.lastWatchSentAt = 0;
+    this.lastProtocolSentAt = 0;
     this.lastTargetRefreshAt = 0;
     this.watchAnnounced = false;
     this.targets = undefined;
@@ -213,23 +220,28 @@ export class KickWatcher implements TablessWatchController {
     if (this.handshakeTimer) clearInterval(this.handshakeTimer);
     this.handshakeTimer = setInterval(() => {
       if (!this.connected) return;
-      this.counter += 1;
-      if (this.counter % 2 === 0) this.sendPing();
-      else this.sendHandshake();
+      if (this.now() - this.lastProtocolSentAt >= HANDSHAKE_INTERVAL_MS) {
+        this.counter += 1;
+        if (this.counter % 2 === 0) this.sendPing();
+        else this.sendHandshake();
+      }
       if (this.now() - this.lastWatchSentAt >= WATCH_EVENT_INTERVAL_MS) this.sendWatchEvent();
     }, HANDSHAKE_INTERVAL_MS);
   }
 
   private sendPing(): void {
+    if (!this.ws || this.ws.readyState !== WEBSOCKET_OPEN) return;
     this.safeSend({ type: "ping" });
+    if (this.connected) this.lastProtocolSentAt = this.now();
   }
 
   private sendHandshake(): void {
-    if (!this.targets) return;
+    if (!this.targets || !this.ws || this.ws.readyState !== WEBSOCKET_OPEN) return;
     this.safeSend({
       type: "channel_handshake",
       data: { message: { channelId: numericOrString(this.targets.channelId) } },
     });
+    if (this.connected) this.lastProtocolSentAt = this.now();
   }
 
   private sendWatchEvent(): boolean {
