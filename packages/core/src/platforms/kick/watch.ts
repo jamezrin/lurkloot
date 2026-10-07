@@ -93,9 +93,12 @@ export class KickWatcher implements TablessWatchController {
 
   async tick(_context: WatchContext): Promise<HeartbeatResult> {
     if (!this.channel) return { ok: false, message: "Kick tabless watcher has no channel" };
-    // Reconnect if the socket dropped (e.g. the service worker slept between
-    // ticks). A hard failure is left for the scheduler to fall back on.
-    if (!this.connected && !this.failed) await this.connect();
+    // A socket that is no longer open is down even if its close event has not
+    // run. Reconnect unless this is a hard failure, which falls back to a tab.
+    if (this.ws && this.ws.readyState !== WEBSOCKET_OPEN && this.ws.readyState !== WEBSOCKET_CONNECTING) {
+      this.connected = false;
+    }
+    if (!this.connected && !this.failed && this.ws?.readyState !== WEBSOCKET_CONNECTING) await this.connect();
     if (this.failed) {
       return { ok: false, live: this.targets?.isLive ?? true, message: this.failureMessage ?? "Kick viewer connection failed" };
     }
@@ -113,7 +116,10 @@ export class KickWatcher implements TablessWatchController {
     if (!this.targets.liveStreamId) {
       return { ok: false, live: true, message: "Kick channel is missing a livestream id" };
     }
-    const healthy = this.connected && this.now() - this.lastWatchSentAt < HEALTH_WINDOW_MS;
+    if (this.ws?.readyState === WEBSOCKET_OPEN && this.now() - this.lastWatchSentAt >= WATCH_EVENT_INTERVAL_MS) {
+      this.sendWatchEvent();
+    }
+    const healthy = this.ws?.readyState === WEBSOCKET_OPEN && this.now() - this.lastWatchSentAt < HEALTH_WINDOW_MS;
     return { ok: healthy, live: true, message: healthy ? undefined : "Kick viewer connection idle" };
   }
 
@@ -140,12 +146,26 @@ export class KickWatcher implements TablessWatchController {
     this.targets = undefined;
   }
 
+  private releaseSocket(): void {
+    const ws = this.ws;
+    if (!ws) return;
+    this.intentionallyClosedSockets.add(ws);
+    this.ws = undefined;
+    this.connected = false;
+    try {
+      ws.close();
+    } catch {
+      // The socket may already be closing.
+    }
+  }
+
   private async connect(): Promise<void> {
     const channel = this.channel;
     if (!channel) return;
     this.log("debug", `Opening Kick viewer connection for ${channel.username}`);
     this.watchAnnounced = false;
     try {
+      this.releaseSocket();
       this.targets = await this.fetchTargets(channel);
       this.lastTargetRefreshAt = this.now();
       if (!this.targets.isLive) {

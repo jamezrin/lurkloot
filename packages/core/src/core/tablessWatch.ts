@@ -38,9 +38,11 @@ export interface WatchContext {
 }
 
 // A per-platform driver that earns drop progress for the currently-selected
-// channel without a video tab. Twitch implementations are stateless per tick
-// (each tick sends one spade event); Kick keeps a persistent viewer WebSocket
-// and self-paces its sends, so its tick() mainly reports connection health.
+// channel without a video tab. Twitch sends one minute-watched event per tick.
+// Kick keeps a viewer WebSocket. Its tick writes a watch event when one is due,
+// reports healthy only when that write landed on an open socket, and reconnects
+// when the socket is down. A hard socket error stays failed so the heartbeat
+// coordinator can fall back to a tab.
 export interface TablessWatchController {
   readonly platform: Platform;
   // URL of the channel currently being watched, if any. Used to detect when the
