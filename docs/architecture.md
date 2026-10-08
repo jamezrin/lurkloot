@@ -1,6 +1,6 @@
 # Architecture
 
-Lurkloot is a WXT browser extension that farms Twitch and Kick drops through normal logged-in browser sessions. Visible muted tabs are the default watch path; optional tabless low-resource mode sends platform watch heartbeats and falls back to tabs when unhealthy. The extension avoids asking for credentials, exporting cookies, or bypassing platform page detection.
+Lurkloot is a WXT browser extension that farms Twitch and Kick drops through normal logged-in browser sessions. Tabless watching is the default (`tablessMode: true`): Twitch sends minute-watched heartbeats and Kick uses a viewer connection, with no stream video. After repeated unhealthy heartbeats, a browser host falls back to a visible muted tab, and that tab plays the stream, so platform ads can run there. The CLI cannot open tabs, so it always watches tabless and retries failed heartbeats in place. The extension does not ask for a password or bypass platform page detection. Session cookies leave the browser only through Settings → Export credentials, a user-confirmed action that writes a local file for the CLI.
 
 ## Repository Layout
 
@@ -840,7 +840,7 @@ Stopping behavior depends on ownership and settings:
 
 ## Tabless Watch
 
-When `tablessMode` is enabled, or the host has no browser tabs, supported adapters create a `TablessWatchController` instead of opening a watch tab. Twitch sends minute-watched GraphQL events. Kick maintains a viewer WebSocket and sends watch livestream events. The one-minute watch alarm records heartbeat health in the platform session. A browser host can fall back to a visible muted tab after repeated failures; the headless CLI keeps retrying tabless heartbeats because it cannot open a tab.
+Tabless watching is the default (`tablessMode: true`). When it is on, or the host has no browser tabs, supported adapters create a `TablessWatchController` instead of opening a watch tab. Twitch sends minute-watched GraphQL events. Kick maintains a viewer WebSocket and sends watch livestream events. The one-minute watch alarm records heartbeat health in the platform session. A browser host falls back to a visible muted tab after repeated failures, and that tab plays stream video. The headless CLI keeps retrying tabless heartbeats because it cannot open a tab.
 
 ## Playback Telemetry and Control
 
