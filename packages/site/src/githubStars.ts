@@ -1,11 +1,7 @@
-// GitHub star count for the nav. The build renders the count it can fetch at
-// that moment, and the page refreshes it from the public API in the browser,
-// so it stays current between deploys. Either step may fail (offline builds,
-// rate limits); the count is then simply left out until one succeeds.
-import { EXTERNAL_URLS } from "./consts";
-
-const repo = new URL(EXTERNAL_URLS.github).pathname.replace(/^\/|\/$/g, "");
-export const GITHUB_REPO_API = `https://api.github.com/repos/${repo}`;
+// Star count for the nav. The build does not fetch it. The page script
+// (scripts/github-stars.ts) asks GitHub from the visitor's browser.
+export const GITHUB_REPO = "jamezrin/lurkloot";
+export const GITHUB_REPO_API = `https://api.github.com/repos/${GITHUB_REPO}`;
 
 /** 1234 -> "1.2k", the way GitHub abbreviates its own counters. */
 export function formatStars(count: number): string {
