@@ -120,6 +120,8 @@ const labels: Record<string, string> = {
   lowAvailabilityFirst: "Low availability first",
   autoClaimChannelPointsTitle: "Auto-claim channel points",
   autoClaimChannelPointsDescription: "Claim channel-point bonuses while farming this platform.",
+  alwaysEnterChatTitle: "Always enter channel chat",
+  alwaysEnterChatDescription: "Join the chat of each channel being watched. Streamers and moderators can see you in the chat's viewer list. Messages are never sent.",
   channelPointsPushClaimTitle: "Claim channel points from live events",
   channelPointsPushClaimDescription: "Claim the bonus as soon as Twitch makes it available. Turn off to only check once a minute.",
   autoClaimChallengesTitle: "Auto-claim daily challenges",

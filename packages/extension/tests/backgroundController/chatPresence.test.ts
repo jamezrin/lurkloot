@@ -1,9 +1,17 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ChannelCandidate, ExtensionSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
 import { DEFAULT_STATE } from "@lurkloot/core/defaults";
 import { DEFAULT_SETTINGS, type SettingsPatch } from "@lurkloot/shared/settings";
-import { allDiagnostics, deferred, farming, harness } from "../helpers/backgroundController";
+import {
+  advanceToNextHeartbeatDue,
+  allDiagnostics,
+  deferred,
+  FakeChatPresenceClient,
+  fakeTablessWatcher,
+  farming,
+  harness,
+} from "../helpers/backgroundController";
 
 function chatSettings(alwaysEnterChat: boolean): ExtensionSettings {
   const settings = farming({ ...DEFAULT_SETTINGS, tablessMode: true });
@@ -69,7 +77,52 @@ function tablessTwitch(env: ReturnType<typeof harness>): void {
   env.twitch.createTablessWatcher = () => watcher;
 }
 
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 describe("chat presence service", () => {
+  it("stops presence when a failing tabless watch falls back to a tab", async () => {
+    const env = harness({ ...chatSettings(true), tablessFallbackFailureLimit: 1 });
+    const watcher = fakeTablessWatcher(async () => ({ ok: false, live: true }));
+    env.twitch.supportsTabless = true;
+    env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
+    await env.controller.tick(["twitch"], "manual_tick");
+    expect(env.chatPresenceClient.current.state).toBe("joined");
+
+    advanceToNextHeartbeatDue();
+    await env.controller.runWatchHeartbeat();
+    // The fallback runs as a background tick, whose conclusion stops presence.
+    await env.controller.settleBackgroundWork();
+    expect(env.state.sessions.twitch).toMatchObject({ status: "watching", watchMode: "tab", tablessFallback: true });
+    expect(env.chatPresenceClient.stops).toBe(1);
+    const snapshot = await env.controller.handleMessage({ type: "getSnapshot" }) as { state: { chatPresence?: unknown } };
+    expect(snapshot.state.chatPresence).toBeUndefined();
+  });
+
+  it("rejoins with a new client, never the old identity's, after an account change", async () => {
+    const env = harness(chatSettings(true));
+    tablessTwitch(env);
+    const clients: FakeChatPresenceClient[] = [];
+    env.twitch.createChatPresenceClient = () => {
+      const client = new FakeChatPresenceClient();
+      clients.push(client);
+      return client;
+    };
+    await env.controller.tick(["twitch"], "manual_tick");
+    // An account change: the credential observer invalidates, then rechecks.
+    await env.controller.invalidateAuthHealth("twitch");
+    await env.controller.checkAuthHealth("twitch");
+    await env.controller.settleBackgroundWork();
+    expect(clients).toHaveLength(2);
+    expect(clients[0]!.stops).toBe(1);
+    expect(clients[0]!.follows).toEqual([{ username: "twitch-creator" }]);
+    expect(clients[1]!.follows).toEqual([{ username: "twitch-creator" }]);
+    clients[1]!.current = { state: "joining", channel: "twitch-creator" };
+    const snapshot = await env.controller.handleMessage({ type: "getSnapshot" }) as { state: { chatPresence?: unknown } };
+    expect(snapshot.state.chatPresence).toEqual({ twitch: { state: "joining", channel: "twitch-creator" } });
+  });
+
   it("joins the watched channel's chat for a tabless watch when alwaysEnterChat is on", async () => {
     const env = harness(chatSettings(true));
     tablessTwitch(env);
