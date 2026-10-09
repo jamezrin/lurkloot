@@ -137,6 +137,12 @@ export class KickRealtimeConnection {
     return this.endpoint ? { ...this.endpoint } : undefined;
   }
 
+  // The client id the negotiation and token name. A channel's
+  // chat/connection call names the same client, as the web client does.
+  clientIdentity(): string {
+    return this.clientId ??= this.randomId();
+  }
+
   drainEvents(): DiagnosticEvent[] {
     return this.diagnostics.drain();
   }
@@ -191,7 +197,7 @@ export class KickRealtimeConnection {
     this.setStatus({ state: "connecting", ...(this.endpoint ? { provider: this.endpoint.provider } : {}) });
     try {
       if (!this.endpoint) {
-        this.clientId = this.randomId();
+        this.clientId ??= this.randomId();
         const endpoint = parseKickRealtimeEndpoint(await this.deps.postJson(KICK_REALTIME_CONNECTION_URL, kickRealtimeNegotiation(this.clientId)));
         if (generation !== this.generation) return;
         if (!endpoint) {
