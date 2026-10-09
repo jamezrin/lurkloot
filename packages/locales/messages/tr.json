@@ -1421,11 +1421,17 @@
   "compatibilityOptionTwitchProfile202607": {
     "message": "Twitch Temmuz 2026"
   },
+  "compatibilityOptionTwitchProfile202610": {
+    "message": "Twitch Ekim 2026"
+  },
   "compatibilityOptionTwitchHeartbeatGqlV1": {
     "message": "GraphQL sinyali v1"
   },
   "compatibilityOptionTwitchHeartbeatSpadeV1": {
     "message": "Spade sinyali v1"
+  },
+  "compatibilityOptionTwitchHeartbeatHlsV1": {
+    "message": "HLS sinyali v1"
   },
   "compatibilityOptionTwitchHeartbeatTrowelV1": {
     "message": "Trowel sinyali v1"
@@ -1495,6 +1501,9 @@
   },
   "activityReasonManualTabClose": {
     "message": "farm sekmesi kapatıldı"
+  },
+  "activityReasonPermissionMissing": {
+    "message": "gerekli bir tarayıcı izni eksik; izni vermek için platformu yeniden açın"
   },
   "automationPausedManualWatch": {
     "message": "Manuel izleme"

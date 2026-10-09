@@ -27,8 +27,8 @@ describe("background controller", () => {
     expect(published).toContainEqual(expect.objectContaining({
       category: "diagnostic",
       platform: "twitch",
-      compatibilityProfile: "twitch-2026-07",
-      compatibilityCapability: "twitch-heartbeat-spade-v1",
+      compatibilityProfile: "twitch-2026-10",
+      compatibilityCapability: "twitch-heartbeat-hls-v1",
     }));
     expect(published).toContainEqual(expect.objectContaining({
       category: "diagnostic",
@@ -58,8 +58,8 @@ describe("background controller", () => {
     expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(expect.objectContaining({
       category: "diagnostic",
       platform: "twitch",
-      compatibilityProfile: "twitch-2026-07",
-      compatibilityCapability: "twitch-heartbeat-spade-v1",
+      compatibilityProfile: "twitch-2026-10",
+      compatibilityCapability: "twitch-heartbeat-hls-v1",
     }));
   });
 
@@ -102,8 +102,8 @@ describe("background controller", () => {
       category: "diagnostic",
       platform: "twitch",
       level: "warn",
-      message: "Unknown Twitch heartbeat compatibility selection; using twitch-heartbeat-spade-v1",
-      compatibilityCapability: "twitch-heartbeat-spade-v1",
+      message: "Unknown Twitch heartbeat compatibility selection; using twitch-heartbeat-hls-v1",
+      compatibilityCapability: "twitch-heartbeat-hls-v1",
     }));
   });
 
@@ -124,7 +124,7 @@ describe("background controller", () => {
       category: "diagnostic",
       platform: "twitch",
       level: "warn",
-      compatibilityProfile: "twitch-2026-07",
+      compatibilityProfile: "twitch-2026-10",
     }));
     expect(warning).not.toHaveProperty("compatibilityCapability");
     expect(warning).not.toHaveProperty("compatibilityVersion");
@@ -139,7 +139,7 @@ describe("background controller", () => {
     expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(expect.objectContaining({
       category: "diagnostic",
       platform: "twitch",
-      compatibilityProfile: "twitch-2026-07",
+      compatibilityProfile: "twitch-2026-10",
     }));
   });
 
@@ -185,7 +185,7 @@ describe("background controller", () => {
       event.category === "diagnostic"
       && event.platform === "twitch"
       && event.level === "warn"
-      && event.message === "Unknown Twitch heartbeat compatibility selection; using twitch-heartbeat-spade-v1"
+      && event.message === "Unknown Twitch heartbeat compatibility selection; using twitch-heartbeat-hls-v1"
     )).toHaveLength(2);
     expect(JSON.stringify(published)).not.toContain("first-secret");
     expect(JSON.stringify(published)).not.toContain("second-secret");
@@ -209,7 +209,7 @@ describe("background controller", () => {
       category: "diagnostic",
       platform: "twitch",
       level: "warn",
-      message: "Host-incompatible Twitch heartbeat compatibility selection; using twitch-heartbeat-spade-v1",
+      message: "Host-incompatible Twitch heartbeat compatibility selection; using twitch-heartbeat-hls-v1",
     }));
   });
 

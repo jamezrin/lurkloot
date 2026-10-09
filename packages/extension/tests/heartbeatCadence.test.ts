@@ -46,8 +46,26 @@ describe("tabless heartbeat cadence", () => {
     const session = tablessSession({ campaignId: undefined, rewardId: undefined, supplementalWatch: { id: "nopixel", tablessOnly: true } });
     expect(heartbeatContextKey(session)).toContain("nopixel");
     expect(heartbeatContextKey(session)).not.toBe(heartbeatContextKey({ ...session, supplementalWatch: { id: "fortnite", tablessOnly: true } }));
-    expect(heartbeatContextKey({ ...session, supplementalWatch: undefined })).toBeUndefined();
+    const idle = heartbeatContextKey({ ...session, supplementalWatch: undefined });
+    expect(idle).toContain("idle_watchlist");
+    expect(idle).not.toBe(heartbeatContextKey(session));
   });
+
+  it("keys an idle watchlist target and leaves a half-identified drop without a key", () => {
+    const idle = tablessSession({ campaignId: undefined, rewardId: undefined });
+    const drop = tablessSession({ campaignId: "campaign", rewardId: "reward" });
+
+    expect(heartbeatContextKey(idle)).toContain("idle_watchlist");
+    expect(heartbeatContextKey(idle)).not.toBe(heartbeatContextKey(drop));
+    expect(heartbeatContextKey({
+      ...idle,
+      channel: { ...idle.channel!, url: "https://www.twitch.tv/other", username: "other" },
+    })).not.toBe(heartbeatContextKey(idle));
+    expect(heartbeatContextKey({ ...idle, campaignId: "campaign" })).toBeUndefined();
+    expect(heartbeatContextKey({ ...idle, rewardId: "reward" })).toBeUndefined();
+    expect(heartbeatContextKey({ ...idle, watchMode: "tab" })).toBeUndefined();
+  });
+
   it("changes the normalized context key when the channel category changes", () => {
     const first = tablessSession({
       platform: "kick",
@@ -234,5 +252,54 @@ describe("scheduler tabless heartbeat cadence state", () => {
 
     expect(changed.state.sessions.twitch.channel?.broadcastId).toBe("next-broadcast");
     expect(changed.state.sessions.twitch.tablessHeartbeat).toBeUndefined();
+  });
+
+  it("retains cadence metadata for an unchanged idle watchlist target", async () => {
+    const channel: ChannelCandidate = {
+      platform: "kick",
+      username: "rewardstation",
+      displayName: "rewardstation",
+      url: "https://kick.com/rewardstation",
+    };
+    const session = tablessSession({
+      platform: "kick",
+      channel,
+      campaignId: undefined,
+      rewardId: undefined,
+    });
+    session.tablessHeartbeat = {
+      generation: 3,
+      contextKey: heartbeatContextKey(session) ?? "missing",
+      nextDueAt: "2026-09-02T20:10:00.000Z",
+    };
+    const settings = heartbeatSettings(true);
+    settings.platform.kick = {
+      ...settings.platform.kick,
+      enabled: true,
+      idleWatchlistChannels: ["rewardstation"],
+    };
+    settings.platform.twitch = { ...settings.platform.twitch, enabled: false };
+
+    const result = await runSchedulerTick(
+      {
+        authHealth: { twitch: { status: "healthy" }, kick: { status: "healthy" } },
+        sessions: {
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0 },
+          kick: session,
+        },
+        campaigns: { twitch: [], kick: [] },
+      },
+      settings,
+      {
+        twitch: heartbeatAdapter([], [], false),
+        kick: heartbeatAdapter([], [channel]),
+      },
+      { platforms: ["kick"] },
+    );
+
+    expect(result.state.sessions.kick.campaignId).toBeUndefined();
+    expect(result.state.sessions.kick.rewardId).toBeUndefined();
+    expect(result.state.sessions.kick.watchMode).toBe("tabless");
+    expect(result.state.sessions.kick.tablessHeartbeat).toEqual(session.tablessHeartbeat);
   });
 });

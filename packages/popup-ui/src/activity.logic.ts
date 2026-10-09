@@ -174,6 +174,7 @@ function formatStopReason(reason: FarmingStopReason, t: TFunction): string {
     case "critical_failure": return t("activityReasonCriticalFailure");
     case "manual_watch": return t("activityReasonManualWatch");
     case "manual_tab_close": return t("activityReasonManualTabClose");
+    case "permission_missing": return t("activityReasonPermissionMissing");
     case "authentication_unhealthy": return t("activityReasonAuthenticationUnhealthy");
     default: {
       const exhaustive: never = reason;

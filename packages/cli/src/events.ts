@@ -23,6 +23,7 @@ function formatStopReason(reason: FarmingStopReason): string {
     case "manual_watch": return "manual watch";
     case "manual_tab_close": return "farming tab closed by the user";
     case "critical_failure": return "a critical failure was detected";
+    case "permission_missing": return "a required browser permission is missing";
     default: {
       const exhaustive: never = reason;
       return exhaustive;

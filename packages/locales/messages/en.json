@@ -1421,11 +1421,17 @@
   "compatibilityOptionTwitchProfile202607": {
     "message": "Twitch July 2026"
   },
+  "compatibilityOptionTwitchProfile202610": {
+    "message": "Twitch October 2026"
+  },
   "compatibilityOptionTwitchHeartbeatGqlV1": {
     "message": "GraphQL heartbeat v1"
   },
   "compatibilityOptionTwitchHeartbeatSpadeV1": {
     "message": "Spade heartbeat v1"
+  },
+  "compatibilityOptionTwitchHeartbeatHlsV1": {
+    "message": "HLS heartbeat v1"
   },
   "compatibilityOptionTwitchHeartbeatTrowelV1": {
     "message": "Trowel heartbeat v1"
@@ -1495,6 +1501,9 @@
   },
   "activityReasonManualTabClose": {
     "message": "farming tab closed"
+  },
+  "activityReasonPermissionMissing": {
+    "message": "a required browser permission is missing; turn the platform back on to grant it"
   },
   "automationPausedManualWatch": {
     "message": "Manual watching"

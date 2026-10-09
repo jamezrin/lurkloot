@@ -25,9 +25,19 @@ export type CoreRuntimeMessage =
       telemetry: Omit<PlaybackTelemetry, "platform" | "checkedAt">;
     };
 
+// A change that would start Twitch HLS watching. The popup records it before
+// the video CDN prompt, which can close the popup, and the background applies
+// it once the host is granted. The popup never applies it itself.
+export type TwitchHlsGrantIntent =
+  | { type: "setAutomation"; platform: "twitch"; enabled: true }
+  | { type: "saveSettings"; settingsPatch: SettingsPatch; tickAfterSave?: boolean; tickAfterSavePlatforms?: Platform[] };
+
 export type RuntimeMessage =
   | CoreRuntimeMessage
   | { type: "setTwitchExtensionEnabled"; provider: TwitchExtensionProviderId; enabled: boolean }
+  // Applies the recorded TwitchHlsGrantIntent if the video CDN is granted and
+  // answers with the resulting snapshot.
+  | { type: "completeTwitchHlsGrant" }
   | ({ type: "getActivity" } & ActivityQuery)
   | { type: "exportDiagnostics"; platform: Platform }
   | { type: "clearActivity" }

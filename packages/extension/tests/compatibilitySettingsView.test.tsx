@@ -37,8 +37,10 @@ const labels: Record<string, string> = {
   compatibilityOverrideWarning: "Manual compatibility overrides are active.",
   compatibilityRestoreAutomatic: "Restore automatic compatibility",
   compatibilityOptionTwitchProfile202607: "Twitch July 2026",
+  compatibilityOptionTwitchProfile202610: "Twitch October 2026",
   compatibilityOptionTwitchHeartbeatGqlV1: "GraphQL heartbeat v1",
   compatibilityOptionTwitchHeartbeatSpadeV1: "Spade heartbeat v1",
+  compatibilityOptionTwitchHeartbeatHlsV1: "HLS heartbeat v1",
   compatibilityOptionTwitchHeartbeatTrowelV1: "Trowel heartbeat v1",
   compatibilityOptionTwitchInventoryV1: "Inventory query v1",
   compatibilityOptionTwitchInventoryV2: "Inventory query v2",
@@ -138,7 +140,7 @@ describe("extension compatibility settings", () => {
     expect(container.textContent).not.toContain("Claim handling");
     // The resolved id sits on the row itself rather than in a separate summary
     // block, so "Automatic" always states what it actually picked.
-    for (const id of ["twitch-2026-07", "twitch-heartbeat-spade-v1", "twitch-inventory-v2"]) {
+    for (const id of ["twitch-2026-10", "twitch-heartbeat-hls-v1", "twitch-inventory-v2"]) {
       expect(container.textContent).toContain(id);
     }
     // Full capability names stay as accessible names for the controls.
@@ -169,7 +171,8 @@ describe("extension compatibility settings", () => {
     const { container } = mount(undefined, "twitch");
     const optionLabels = (await options(container, "Twitch heartbeat transport")).map((option) => option.textContent);
     expect(optionLabels).toContain("Automatic");
-    expect(optionLabels).toContain("Spade heartbeat v1 · Recommended");
+    expect(optionLabels).toContain("HLS heartbeat v1 · Recommended");
+    expect(optionLabels).toContain("Spade heartbeat v1 · Legacy");
     expect(optionLabels).toContain("GraphQL heartbeat v1 · Legacy");
   });
 

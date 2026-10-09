@@ -1972,7 +1972,7 @@ async function shouldKeepWatching(
       playbackChecks,
       noProgressChecks,
       lastWatchedMinutes: progress.watchedMinutes,
-      reason: `Channel accrued no drop progress across ${noProgressChecks} checks`,
+      reason: `Channel accrued no drop progress across ${noProgressChecks} checks (still ${progress.watchedMinutes} watched minutes)`,
       reasonCode: "no_progress",
     };
   }

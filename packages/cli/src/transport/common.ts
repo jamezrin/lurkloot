@@ -5,7 +5,7 @@ import type { PageFetcher, PlatformAdapter } from "@lurkloot/core/adapter";
 import type { WebSocketFactory } from "@lurkloot/core/webSocket";
 import { createKickFetcher, KickAdapter, KickClaimState, KickDiscoveryState } from "@lurkloot/core/kick";
 import { TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
-import type { TwitchHeartbeatFetchText, TwitchHeartbeatPost } from "@lurkloot/core/twitch/heartbeat";
+import { isHeartbeatTimeoutError, type TwitchHeartbeatExchange, type TwitchHeartbeatFetchText, type TwitchHeartbeatPost } from "@lurkloot/core/twitch/heartbeat";
 import { resolveCompatibility, type CompatibilityResolution } from "@lurkloot/core";
 import type { PlatformCredentials } from "../authStore";
 import { twitchClientIdentity } from "../twitch";
@@ -63,6 +63,7 @@ export interface CliTransportDeps {
   twitchHeartbeat(identity: ReturnType<typeof twitchClientIdentity>): {
     heartbeatFetchText: TwitchHeartbeatFetchText;
     heartbeatPost: TwitchHeartbeatPost;
+    heartbeatExchange: TwitchHeartbeatExchange;
   };
   kickFetcher(): PageFetcher;
   // Absent for the http transport: it never opens the viewer WebSocket itself
@@ -169,4 +170,21 @@ export function headersToObject(headers: HeadersInit | undefined): Record<string
 
 export function hasHeader(headers: Record<string, string>, name: string): boolean {
   return Object.keys(headers).some((key) => key.toLowerCase() === name.toLowerCase());
+}
+
+// Playlist and segment failures name the host only. Signed query strings and
+// response bodies stay out of the message a diagnostic might keep.
+export function twitchHeartbeatFailure(url: string, error: unknown): Error {
+  let hostname = "unknown Twitch host";
+  try {
+    hostname = new URL(url).hostname || hostname;
+  } catch {
+    // The request URL was not a URL. Keep the hostname generic.
+  }
+  const cause = isHeartbeatTimeoutError(error)
+    ? error.message
+    : error instanceof Error && (error.message === "Failed to fetch" || /^HTTP \d{3}$/.test(error.message))
+      ? error.message
+      : "network request failed";
+  return new Error(`Twitch heartbeat request failed for ${hostname}: ${cause}`);
 }

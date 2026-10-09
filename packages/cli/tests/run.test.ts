@@ -245,7 +245,9 @@ describe("CLI scheduler tick baseline", () => {
         // channel-points observer, as the extension's startup does. Since #590
         // the one-minute channel-points job fires in this window too. Since
         // #591 the CLI runs both tick jobs, like the extension, so the disabled
-        // platform's ticks construct its adapter as well.
+        // platform's ticks construct its adapter as well. This watcher has no
+        // poll between health commits, so the watch job keeps its one-minute
+        // period and adds no wake of its own.
         adapterConstructions: platform === "twitch" ? 10 : 8,
         watcherReconciliations: 1,
       });
