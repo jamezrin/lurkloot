@@ -1,11 +1,11 @@
 import type { EventEmitter } from "@lurkloot/shared/events";
 import type { ChatPresenceStatus, EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
-import { chatPresenceDecision, type ChatPresenceClient } from "../core/chatPresence";
+import { chatPresenceDecision, type ChatPresenceClient, type ChatPresenceDecision } from "../core/chatPresence";
 import { hasRecentManualWatch } from "../core/manualWatch";
 import type { PlatformAdapter } from "../platforms/adapter";
 import { PLATFORMS } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
-import { emitHostCallbackError } from "./helpers";
+import { emitHostCallbackError, platformLabel } from "./helpers";
 import type { BackgroundHostPorts } from "./hostPorts";
 import { ObserverSlot } from "./observerSlot";
 import type { StateTransaction } from "./stateTransaction";
@@ -39,6 +39,8 @@ export function createChatPresence<S extends EngineSettings>(
   // "<provider>:<channel>" last announced per platform, so the provider
   // announcement is made once per presence session.
   const announced: Partial<Record<Platform, string>> = {};
+  // Platforms already told that alwaysEnterChat has no effect on them.
+  const reportedUnavailable = new Set<Platform>();
   // Platforms this controller has reconciled at least once. Until then a
   // running watch may predate it (an MV3 worker restart), so a commit may
   // start presence; afterwards ticks and settings saves keep it current, and
@@ -64,33 +66,56 @@ export function createChatPresence<S extends EngineSettings>(
     reconciled[platform] = true;
     pauseOnManualWatch = settings.pauseOnManualWatch;
     const decision = chatPresenceDecision(platform, settings, state, { capability: ports.capabilities.chatPresence });
-    if (decision?.trigger.kind === "provider") {
-      const key = `${decision.trigger.providerId}:${decision.target.username}`;
-      if (announced[platform] !== key) {
-        announced[platform] = key;
-        emit({
-          category: "diagnostic",
-          platform,
-          level: "info",
-          message: `Joined ${decision.target.username}'s chat because ${decision.trigger.providerId} needs chat presence to earn watch time`,
-        });
-      }
-    } else {
-      announced[platform] = undefined;
+    const factory = adapter.createChatPresenceClient;
+    // Only the setting promises chat. A provider that needs presence the
+    // platform cannot give says so on its own card.
+    if (decision?.trigger.kind === "setting" && !factory && !reportedUnavailable.has(platform)) {
+      reportedUnavailable.add(platform);
+      emit({
+        category: "diagnostic",
+        platform,
+        level: "warn",
+        message: `Chat presence is not available for ${platformLabel(platform)}, so platform.${platform}.alwaysEnterChat has no effect`,
+      });
     }
     await slots[platform].reconcile({
       wanted: decision !== undefined,
-      factory: adapter.createChatPresenceClient,
+      factory,
       open: observersOpen,
       since,
       emit,
       start: (client) => client.follow(decision?.target),
     });
+    announce(platform, decision, emit);
+  }
+
+  // Once per presence session, and only for a client the slot kept: a start
+  // that backed off or failed announces nothing.
+  function announce(platform: Platform, decision: ChatPresenceDecision | undefined, emit: EventEmitter): void {
+    if (decision?.trigger.kind !== "provider" || !slots[platform].current) {
+      announced[platform] = undefined;
+      return;
+    }
+    const key = `${decision.trigger.providerId}:${decision.target.username}`;
+    if (announced[platform] === key) return;
+    announced[platform] = key;
+    emit({
+      category: "diagnostic",
+      platform,
+      level: "info",
+      message: `Joining ${decision.target.username}'s chat because ${decision.trigger.providerId} needs chat presence to earn watch time`,
+    });
+  }
+
+  // Every stop ends the presence session, so the next one is announced. Not
+  // async: the slot's epoch has moved by the time this returns.
+  function stopSlot(platform: Platform, emit: EventEmitter): Promise<void> {
+    announced[platform] = undefined;
+    return slots[platform].stop(emit);
   }
 
   async function stopChatPresence(platforms: readonly Platform[], emit: EventEmitter): Promise<void> {
-    for (const platform of platforms) announced[platform] = undefined;
-    await Promise.all(platforms.map((platform) => slots[platform].stop(emit)));
+    await Promise.all(platforms.map((platform) => stopSlot(platform, emit)));
   }
 
   async function stopChatPresenceAndReport(platforms: readonly Platform[]): Promise<void> {
@@ -131,7 +156,8 @@ export function createChatPresence<S extends EngineSettings>(
   // reconciles it in the background. A watch that starts in a tick is
   // reconciled by the tick's conclusion instead.
   transaction.onCommit(async (change) => {
-    if (change.kind !== "state") return;
+    // A host that cannot join chat never has a client to stop or start.
+    if (change.kind !== "state" || !ports.capabilities.chatPresence) return;
     const { previous, state, committedAt } = change;
     const manuallyPaused = (value: SchedulerState, platform: Platform): boolean =>
       Boolean(value.manualClosePause?.[platform])
@@ -178,7 +204,11 @@ export function createChatPresence<S extends EngineSettings>(
           reconciled[platform] = true;
           if (!chatPresenceDecision(platform, settings, state, { capability: ports.capabilities.chatPresence })) continue;
           const adapter = createAdapter(platform, settings, emit);
-          await reconcile(platform, settings, state, adapter, emit, since[platform] ?? slots[platform].epoch);
+          try {
+            await reconcile(platform, settings, state, adapter, emit, since[platform] ?? slots[platform].epoch);
+          } finally {
+            adapter.flushRouteDiagnostics?.(emit);
+          }
         }
       } finally {
         await reportBestEffort(events);
@@ -188,7 +218,7 @@ export function createChatPresence<S extends EngineSettings>(
 
   // A settings save can switch a trigger on or off; follow it at once.
   transaction.onCommit((change) => {
-    if (change.kind !== "settings" || change.startup) return;
+    if (change.kind !== "settings" || change.startup || !ports.capabilities.chatPresence) return;
     pauseOnManualWatch = change.settings.pauseOnManualWatch;
     const run = reconcileFromSettings(change.settings).catch((error) => {
       diagnosticEvent("warn", `Chat presence reconcile failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -199,33 +229,41 @@ export function createChatPresence<S extends EngineSettings>(
   async function reconcileFromSettings(settings: S): Promise<void> {
     await withEventCollector(async (emit, events) => {
       try {
+        if (!observersOpen()) {
+          await stopChatPresence(PLATFORMS, emit);
+          return;
+        }
+        // Read before the state: a stop after this point makes it stale.
+        const epochs = chatPresenceEpochs(PLATFORMS);
+        const state = await ports.storage.loadState();
         for (const platform of PLATFORMS) {
+          let adapter: PlatformAdapter | undefined;
           try {
             if (!observersOpen()) {
-              await slots[platform].stop(emit);
+              await stopSlot(platform, emit);
               continue;
             }
-            // Read before the state: a stop after this point makes it stale.
-            let since = slots[platform].epoch;
-            const state = await ports.storage.loadState();
+            let since = epochs[platform] ?? slots[platform].epoch;
             if (!chatPresenceDecision(platform, settings, state, { capability: ports.capabilities.chatPresence })) {
-              if (slots[platform].current) await slots[platform].stop(emit);
+              if (slots[platform].current) await stopSlot(platform, emit);
               continue;
             }
             // A blocked client never retries a rejected login by itself; a
             // save is the user acting, so it gets a fresh client. Ticks keep
             // it (a credential change or a restart also replaces it).
             if (slots[platform].current?.status().state === "blocked" && slots[platform].epoch === since) {
-              const stopped = slots[platform].stop(emit);
-              // stop() bumps the epoch before its first await: this is our
-              // own stop, and any later one still makes the reconcile back off.
+              const stopped = stopSlot(platform, emit);
+              // The epoch has moved for our own stop; any later one still
+              // makes the reconcile back off.
               since = slots[platform].epoch;
               await stopped;
             }
-            const adapter = createAdapter(platform, settings, emit);
+            adapter = createAdapter(platform, settings, emit);
             await reconcile(platform, settings, state, adapter, emit, since);
           } catch (error) {
             emitHostCallbackError(emit, platform, error, "Could not reconcile chat presence");
+          } finally {
+            adapter?.flushRouteDiagnostics?.(emit);
           }
         }
       } finally {
@@ -237,7 +275,7 @@ export function createChatPresence<S extends EngineSettings>(
   // After a tick commits, with no lock held: presence follows the committed
   // watch. A stop since the commit bumps the epoch, so it backs off.
   transaction.onTickConcluded((tick) => {
-    if (tick.signal.aborted) return;
+    if (tick.signal.aborted || !ports.capabilities.chatPresence) return;
     tick.follow(withEventCollector(async (emit, events) => {
       for (const platform of tick.platforms) {
         try {

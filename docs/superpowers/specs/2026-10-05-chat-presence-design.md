@@ -208,7 +208,8 @@ All diagnostics are English literals from the platform clients and the service, 
 
 - `debug`: `Twitch chat presence joined <channel>`, `Twitch chat presence switched <a> → <b>`, `Twitch chat presence left <channel>`, and the same for Kick.
 - `warn` on entering `error` or `blocked`, with the reason. Each distinct warning is logged once until the client joins or leaves, so a retry loop does not repeat it.
-- `info`, once per presence session started for a provider: `Joined <channel>'s chat because <provider> needs chat presence to earn watch time`.
+- `info`, once per presence session started for a provider, logged once the service keeps a client for it: `Joining <channel>'s chat because <provider> needs chat presence to earn watch time`. Any stop ends the session, so the next one is announced again.
+- `warn`, once per platform per controller, when `alwaysEnterChat` asks for presence on a platform with no client yet: `Chat presence is not available for <Platform>, so platform.<p>.alwaysEnterChat has no effect`.
 
 ## Security and privacy
 

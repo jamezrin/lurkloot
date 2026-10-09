@@ -2,6 +2,7 @@ import { vi } from "vitest";
 import {
   createBackgroundController,
   type CredentialAvailability,
+  type HostCapabilities,
 } from "@lurkloot/core/controller";
 import { resolveCompatibility } from "@lurkloot/core";
 import { heartbeatContextKey } from "@lurkloot/core/heartbeatCadence";
@@ -22,7 +23,7 @@ import { applySettingsPatch, DEFAULT_SETTINGS } from "@lurkloot/shared/settings"
 import { DEFAULT_STATE } from "../../src/core/storage";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import { withLockTracker } from "./lockTracker";
-import { hostPortsFromMocks, type HostMocks } from "./hostPorts";
+import { hostPortsFromMocks, mockedCapabilities, type HostMocks } from "./hostPorts";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
 import type { StopPageContextTabs } from "@lurkloot/core/scheduler";
 import { createTabRegistry, forgetManagedPageContextTabs, noteTabClosure, type TabRegistry, type TwitchIntegrityRequest } from "@lurkloot/core/tabRegistry";
@@ -321,6 +322,8 @@ export function harness(
     initialState?: SchedulerState;
     // Passed when the test drives the tab functions on the same registry.
     tabRegistry?: TabRegistry;
+    // Overrides what the mocks imply, e.g. a CLI-like host without chat presence.
+    capabilities?: Partial<HostCapabilities>;
   } = {},
 ) {
   let currentSettings = settings;
@@ -413,7 +416,10 @@ export function harness(
   };
 
   const { deps: trackedDeps, tracker: lockTracker } = withLockTracker(deps);
-  const controller = createBackgroundController(hostPortsFromMocks(trackedDeps));
+  const controller = createBackgroundController(hostPortsFromMocks(trackedDeps, {
+    ...mockedCapabilities(trackedDeps),
+    ...overrides.capabilities,
+  }));
   // User-action messages dispatch their scheduler tick in the background and
   // return the snapshot immediately, so the popup is never held open for a
   // network-bound tick. Tests here assert on what the tick produced, so the

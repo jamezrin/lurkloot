@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ChannelCandidate, ExtensionSettings } from "@lurkloot/shared/models";
+import type { ChannelCandidate, ExtensionSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
 import { DEFAULT_STATE } from "@lurkloot/core/defaults";
-import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
+import { DEFAULT_SETTINGS, type SettingsPatch } from "@lurkloot/shared/settings";
 import { allDiagnostics, deferred, farming, harness } from "../helpers/backgroundController";
 
 function chatSettings(alwaysEnterChat: boolean): ExtensionSettings {
@@ -15,6 +15,45 @@ function chatSettings(alwaysEnterChat: boolean): ExtensionSettings {
       twitch: { ...settings.platform.twitch, alwaysEnterChat },
     },
   };
+}
+
+// A tabless watch already running, as a fresh controller finds it.
+function runningWatch(
+  platform: Platform,
+  auth: "healthy" | "checking" = "healthy",
+  extra: Partial<SchedulerState["sessions"][Platform]> = {},
+): SchedulerState {
+  return {
+    ...DEFAULT_STATE,
+    authHealth: { ...DEFAULT_STATE.authHealth, [platform]: { status: auth } },
+    sessions: {
+      ...DEFAULT_STATE.sessions,
+      [platform]: {
+        platform,
+        status: "watching",
+        watchMode: "tabless",
+        offlineChecks: 0,
+        channel: { platform, username: "prod", url: `https://www.${platform === "twitch" ? "twitch.tv" : "kick.com"}/prod` },
+        ...extra,
+      },
+    },
+  };
+}
+
+const NOPIXEL_WATCH = runningWatch("twitch", "healthy", {
+  channel: { platform: "twitch", username: "prod", url: "https://www.twitch.tv/prod", channelId: "174754672" },
+  supplementalWatch: { id: "nopixel", tablessOnly: true },
+});
+const NOPIXEL_ANNOUNCEMENT = "Joining prod's chat because nopixel needs chat presence to earn watch time";
+
+// Any wording: the timing tests must not pass on a rename.
+function announcements(env: ReturnType<typeof harness>): string[] {
+  return allDiagnostics(env).map((event) => event.message).filter((message) => message.endsWith("needs chat presence to earn watch time"));
+}
+
+async function save(env: ReturnType<typeof harness>, patch: SettingsPatch): Promise<void> {
+  await env.controller.handleMessage({ type: "saveSettings", settingsPatch: patch });
+  await env.controller.settleBackgroundWork();
 }
 
 function tablessTwitch(env: ReturnType<typeof harness>): void {
@@ -249,7 +288,75 @@ describe("chat presence service", () => {
     await env.controller.handleMessage({ type: "saveSettings", settingsPatch: { platform: { twitch: { alwaysEnterChat: false } } } });
     await env.controller.handleMessage({ type: "saveSettings", settingsPatch: { platform: { twitch: { alwaysEnterChat: false } } } });
     expect(env.chatPresenceClient.follows).toEqual([{ username: "prod", channelId: "174754672" }, { username: "prod", channelId: "174754672" }]);
-    const announcements = allDiagnostics(env).filter((event) => event.message === "Joined prod's chat because nopixel needs chat presence to earn watch time");
-    expect(announcements).toHaveLength(1);
+    expect(announcements(env)).toEqual([NOPIXEL_ANNOUNCEMENT]);
+  });
+
+  it("announces a provider's presence only once the slot keeps a client", async () => {
+    const env = harness(chatSettings(false), { initialState: NOPIXEL_WATCH });
+    env.twitch.createChatPresenceClient = () => { throw new Error("no socket"); };
+    await save(env, { platform: { twitch: { alwaysEnterChat: false } } });
+    expect(announcements(env)).toHaveLength(0);
+    env.twitch.createChatPresenceClient = env.chatPresenceFactory;
+    await save(env, { platform: { twitch: { alwaysEnterChat: false } } });
+    expect(announcements(env)).toHaveLength(1);
+  });
+
+  it("announces again for the client that replaces a blocked one", async () => {
+    const env = harness(chatSettings(false), { initialState: NOPIXEL_WATCH });
+    await save(env, { platform: { twitch: { alwaysEnterChat: false } } });
+    env.chatPresenceClient.current = { state: "blocked", channel: "prod", reason: "auth" };
+    await save(env, { platform: { twitch: { alwaysEnterChat: false } } });
+    expect(env.chatPresenceClient.stops).toBe(1);
+    expect(announcements(env)).toHaveLength(2);
+  });
+
+  // Measured against the same run on a host without chat presence, so other
+  // services' reads cancel out.
+  it("reads the state once per settings save", async () => {
+    async function stateLoads(chatPresence: boolean): Promise<number> {
+      const env = harness(chatSettings(true), { initialState: runningWatch("twitch"), capabilities: { chatPresence } });
+      const before = env.deps.loadState.mock.calls.length;
+      await save(env, { platform: { kick: { alwaysEnterChat: false } } });
+      return env.deps.loadState.mock.calls.length - before;
+    }
+    expect(await stateLoads(true) - await stateLoads(false)).toBe(1);
+  });
+
+  it("does no chat presence work on a host without the capability", async () => {
+    async function settingsLoads(chatPresence: boolean): Promise<number> {
+      const env = harness(chatSettings(true), { initialState: runningWatch("twitch", "checking"), capabilities: { chatPresence } });
+      const before = env.deps.loadSettings.mock.calls.length;
+      // Restart recovery: the auth probe's commit finds the running watch.
+      await env.controller.checkAuthHealth("twitch");
+      await env.controller.settleBackgroundWork();
+      expect(env.chatPresenceFactory).toHaveBeenCalledTimes(chatPresence ? 1 : 0);
+      return env.deps.loadSettings.mock.calls.length - before;
+    }
+    expect(await settingsLoads(true) - await settingsLoads(false)).toBe(1);
+  });
+
+  it("warns once when a platform has no chat client for alwaysEnterChat", async () => {
+    const settings = farming({ ...DEFAULT_SETTINGS, tablessMode: true });
+    const env = harness({
+      ...settings,
+      platform: {
+        ...settings.platform,
+        twitch: { ...settings.platform.twitch, enabled: false },
+        kick: { ...settings.platform.kick, enabled: true, alwaysEnterChat: true },
+      },
+    }, { initialState: runningWatch("kick") });
+    await save(env, { platform: { twitch: { alwaysEnterChat: false } } });
+    await save(env, { platform: { twitch: { alwaysEnterChat: false } } });
+    const warnings = allDiagnostics(env).filter((event) => event.message === "Chat presence is not available for Kick, so platform.kick.alwaysEnterChat has no effect");
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toMatchObject({ level: "warn", platform: "kick" });
+  });
+
+  it("says nothing about alwaysEnterChat when a provider wants presence a platform cannot give", async () => {
+    const env = harness(chatSettings(false), { initialState: NOPIXEL_WATCH });
+    env.twitch.createChatPresenceClient = undefined;
+    await save(env, { platform: { twitch: { alwaysEnterChat: false } } });
+    expect(allDiagnostics(env).some((event) => event.message.includes("has no effect"))).toBe(false);
+    expect(announcements(env)).toHaveLength(0);
   });
 });
