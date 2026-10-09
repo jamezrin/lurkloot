@@ -471,6 +471,34 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
       }
       host.controller.shutdown();
     });
+
+    it(capabilities.declared.chatPresence
+      ? "reports nothing about alwaysEnterChat, which this host supports"
+      : "reports alwaysEnterChat once per platform as unsupported", async () => {
+      const base = farmingSettings();
+      const settings = {
+        ...base,
+        platform: {
+          ...base.platform,
+          twitch: { ...base.platform.twitch, alwaysEnterChat: true },
+          kick: { ...base.platform.kick, alwaysEnterChat: true },
+        },
+      };
+      const host = contractHost(capabilities, { settings });
+      await host.controller.tickAndHandOff(["twitch"], "alarm");
+      await host.controller.tickAndHandOff(undefined, "alarm");
+      const unsupported = host.reported.filter((event) =>
+        event.category === "diagnostic" && event.message.startsWith("This host cannot join channel chat"));
+      if (capabilities.declared.chatPresence) {
+        expect(unsupported).toEqual([]);
+      } else {
+        expect(unsupported.map((event) => event.message)).toEqual([
+          "This host cannot join channel chat, so platform.twitch.alwaysEnterChat has no effect",
+          "This host cannot join channel chat, so platform.kick.alwaysEnterChat has no effect",
+        ]);
+      }
+      host.controller.shutdown();
+    });
   });
 
   // Tabless watching is derived from the missing browserTabs capability, not

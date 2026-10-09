@@ -37,18 +37,23 @@ export interface HostCapabilities {
   readonly twitchIntegrityCapture: boolean;
   // Supplemental watch sources such as Twitch Extensions (`twitch.supplementalSources`).
   readonly supplementalSources: boolean;
+  // Joining the watched channel's chat (chatPresence.ts). It has no port: the
+  // adapters create the clients. Off on the CLI until it is enabled there.
+  readonly chatPresence: boolean;
 }
 
 export const EXTENSION_CAPABILITIES: HostCapabilities = {
   browserTabs: true,
   twitchIntegrityCapture: true,
   supplementalSources: true,
+  chatPresence: true,
 };
 
 export const CLI_CAPABILITIES: HostCapabilities = {
   browserTabs: false,
   twitchIntegrityCapture: false,
   supplementalSources: false,
+  chatPresence: false,
 };
 
 // Generic over the host's settings type `S`, which must satisfy the engine

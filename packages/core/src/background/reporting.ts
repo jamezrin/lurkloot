@@ -362,13 +362,21 @@ export function createReporting<S extends EngineSettings>(
   // reported once per controller, with no platform, and changes nothing else.
   const reportedUnsupportedSettings = new Set<string>();
   async function reportUnsupportedSettings(settings: EngineSettings, tickContext?: TickDiagnosticContext): Promise<void> {
-    if (ports.capabilities.browserTabs) return;
     const unsupported: Array<readonly [string, string]> = [];
-    if (!settings.tablessMode) {
-      unsupported.push(["tablessMode", "This host has no browser tabs, so tablessMode=false has no effect: every watch is tabless"]);
+    if (!ports.capabilities.browserTabs) {
+      if (!settings.tablessMode) {
+        unsupported.push(["tablessMode", "This host has no browser tabs, so tablessMode=false has no effect: every watch is tabless"]);
+      }
+      if (settings.pauseOnManualWatch) {
+        unsupported.push(["pauseOnManualWatch", "This host has no browser tabs, so pauseOnManualWatch has no effect"]);
+      }
     }
-    if (settings.pauseOnManualWatch) {
-      unsupported.push(["pauseOnManualWatch", "This host has no browser tabs, so pauseOnManualWatch has no effect"]);
+    if (!ports.capabilities.chatPresence) {
+      for (const platform of PLATFORMS) {
+        if (settings.platform[platform].alwaysEnterChat !== true) continue;
+        const key = `platform.${platform}.alwaysEnterChat`;
+        unsupported.push([key, `This host cannot join channel chat, so ${key} has no effect`]);
+      }
     }
     const events = unsupported
       .filter(([key]) => !reportedUnsupportedSettings.has(key))
