@@ -25,7 +25,7 @@ import {
   createActivityMessageHandler,
   createRuntimeMessageDispatcher,
 } from "../src/core/activityMessages";
-import { twitchHeartbeatFetchText, twitchHeartbeatPost } from "../src/core/twitchHeartbeatTransport";
+import { twitchHeartbeatExchange, twitchHeartbeatFetchText, twitchHeartbeatPost } from "../src/core/twitchHeartbeatTransport";
 import { createCredentialAvailabilityProvider, createCredentialReader } from "../src/core/credentialAvailability";
 import { createTwitchExtensionCommitHook } from "../src/extensions/commitHook";
 import { createTwitchExtensionHost } from "../src/extensions/host";
@@ -34,6 +34,7 @@ import { createFortniteDriver } from "../src/extensions/fortnite/driver";
 import { createNoPixelDriver } from "../src/extensions/nopixel/driver";
 import { createCredentialHealthObserver } from "../src/core/credentialObserver";
 import { buildCliCredentialBlob, KASADA_COOKIE_ORIGIN } from "../src/core/cliCredentialExport";
+import { createTwitchHlsGrantCompletion, enforceTwitchHlsGrant, gateTwitchHlsMessages, TWITCH_HLS_HOST_ORIGIN } from "../src/core/twitchHlsPermission";
 import { REQUEST_FAILED_RESPONSE } from "../src/core/runtimeRequests";
 
 const localeCatalogs = new Map<string, MessageCatalog | undefined>();
@@ -109,6 +110,7 @@ function createExtensionAdapter(platform: Platform, emit: EventEmitter, settings
         heartbeatIdentity: "web",
         heartbeatFetchText: twitchHeartbeatFetchText,
         heartbeatPost: twitchHeartbeatPost,
+        heartbeatExchange: twitchHeartbeatExchange,
         webSocketFactory: createBrowserWebSocket,
         getAuthToken: async () => (
           await browser.cookies.get({ url: "https://www.twitch.tv", name: "auth-token" })
@@ -255,6 +257,45 @@ const extensionGrantCompletion = createTwitchExtensionGrantCompletion({
   contains: (details) => browser.permissions.contains(details),
   enable: async (provider) => { await extensionHost.setEnabled(provider, true); await controller.tickAndHandOff(["twitch"], "manual_tick"); },
 });
+// The video CDN prompt closes the popup. The recorded intent is applied here
+// once the host is actually granted, and a grant with no intent changes nothing.
+// This is the only place an HLS-gated change is applied, popup open or not.
+const twitchHlsGrantCompletion = createTwitchHlsGrantCompletion({
+  storage: browser.storage.local,
+  now: Date.now,
+  contains: (details) => browser.permissions.contains(details),
+  complete: async (intent) => { await controller.handleMessage(intent); },
+});
+
+// Twitch never watches with HLS without the video CDN grant: turned off after
+// an update, a revoke, or a change that could not show the prompt (an import).
+// Resolves the snapshot when it turned Twitch off.
+function enforceTwitchHlsGrantNow(): Promise<RuntimeSnapshot<ExtensionSettings> | undefined> {
+  return enforceTwitchHlsGrant({
+    loadSettings,
+    hasVideoCdnAccess: () => browser.permissions.contains({ origins: [TWITCH_HLS_HOST_ORIGIN] }),
+    disableTwitch: () => controller.setPlatformEnabled(
+      { type: "setAutomation", platform: "twitch", enabled: false },
+      "missing-permission",
+    ),
+  });
+}
+
+function reportHlsEnforcementFailure(): void {
+  void controller.reportEvents([{
+    category: "diagnostic",
+    platform: "twitch",
+    level: "warn",
+    message: "Could not turn Twitch off while the video CDN permission is missing.",
+  }]).catch(() => undefined);
+}
+
+const handleGatedCoreMessage = gateTwitchHlsMessages({
+  handle: (message, sender?: Parameters<typeof controller.handleMessage>[1]) => controller.handleMessage(message, sender),
+  cancelIntent: () => twitchHlsGrantCompletion.cancel(),
+  enforce: enforceTwitchHlsGrantNow,
+  reportEnforcementFailure: reportHlsEnforcementFailure,
+});
 
 // The lane follows the controller's accepted commits (#594), not storage events
 // or alarms. A worker wake, startup and an auth check reconcile it too.
@@ -279,6 +320,7 @@ function resetExtension(): Promise<RuntimeSnapshot<ExtensionSettings>> {
   if (resetMutation) return resetMutation;
   resetMutation = (async () => {
     await extensionGrantCompletion.cancelAll();
+    await twitchHlsGrantCompletion.cancel();
     // Disable invalidates permission generations and drains in-flight enables
     // before reset can finish; a delayed grant cannot commit afterward.
     await Promise.all([extensionHost.setEnabled("nopixel", false), extensionHost.setEnabled("fortnite", false)]);
@@ -315,7 +357,11 @@ const dispatchRuntimeMessage = createRuntimeMessageDispatcher({
     await extensionGrantCompletion.cancel(message.provider);
     return extensionHost.setEnabled(message.provider, message.enabled);
   },
-  handleCoreMessage: async (message, sender) => withExtensionSnapshot(await controller.handleMessage(message, sender)),
+  completeTwitchHlsGrant: async () => {
+    await twitchHlsGrantCompletion.flush();
+    return withExtensionSnapshot(await controller.handleMessage({ type: "getSnapshot" }));
+  },
+  handleCoreMessage: async (message, sender) => withExtensionSnapshot(await handleGatedCoreMessage(message, sender)),
 });
 
 export default defineBackground(() => {
@@ -341,21 +387,44 @@ export default defineBackground(() => {
 
   browser.permissions.onAdded.addListener((details) => {
     void extensionGrantCompletion.added(details).catch(() => undefined);
+    void twitchHlsGrantCompletion.added(details).catch(() => undefined);
   });
   browser.permissions.onRemoved.addListener((details) => {
     void extensionGrantCompletion.removed(details).catch(() => undefined);
     void extensionHost.removed(details).catch(() => undefined);
+    // A revoked video CDN grant turns Twitch off when it was watching with HLS,
+    // like a revoked provider grant stops that provider.
+    if (details.origins?.includes(TWITCH_HLS_HOST_ORIGIN)) {
+      void (async () => {
+        await twitchHlsGrantCompletion.removed(details);
+        await enforceTwitchHlsGrantNow();
+      })().catch(reportHlsEnforcementFailure);
+    }
   });
   // The grant flow's own intent keys; the lane itself follows commits.
   browser.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
     void extensionGrantCompletion.changed(changes).catch(() => undefined);
+    void twitchHlsGrantCompletion.changed(changes).catch(() => undefined);
   });
   // Runs on every MV3 wake/MV2 background start. Stored grants are verified;
   // provider credentials/resources are reacquired rather than restored.
   void reconcileExtensions();
 
   browser.runtime.onInstalled.addListener(async (details) => {
+    // An update restarts the extension with the previous Twitch switch still on.
+    // HLS is the default heartbeat and needs the video CDN, which 1.15 never
+    // granted. Turn Twitch off before ensureAlarm resumes farming; the activity
+    // log says why, and the popup asks for the host when the user turns Twitch
+    // back on. A grant can only go missing otherwise through a revoke, handled
+    // above, so a worker wake does not check.
+    if (details.reason === "update") {
+      try {
+        await enforceTwitchHlsGrantNow();
+      } catch {
+        reportHlsEnforcementFailure();
+      }
+    }
     await controller.ensureAlarm();
     // Stamp the install date once so the popup can time the rate/review nudge.
     // Set-if-missing (rather than gating on reason === "install") also backfills

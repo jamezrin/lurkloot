@@ -1421,11 +1421,17 @@
   "compatibilityOptionTwitchProfile202607": {
     "message": "Twitch luglio 2026"
   },
+  "compatibilityOptionTwitchProfile202610": {
+    "message": "Twitch ottobre 2026"
+  },
   "compatibilityOptionTwitchHeartbeatGqlV1": {
     "message": "Heartbeat GraphQL v1"
   },
   "compatibilityOptionTwitchHeartbeatSpadeV1": {
     "message": "Heartbeat Spade v1"
+  },
+  "compatibilityOptionTwitchHeartbeatHlsV1": {
+    "message": "Heartbeat HLS v1"
   },
   "compatibilityOptionTwitchHeartbeatTrowelV1": {
     "message": "Heartbeat Trowel v1"
@@ -1495,6 +1501,9 @@
   },
   "activityReasonManualTabClose": {
     "message": "scheda di farming chiusa"
+  },
+  "activityReasonPermissionMissing": {
+    "message": "manca un'autorizzazione del browser necessaria; riattiva la piattaforma per concederla"
   },
   "automationPausedManualWatch": {
     "message": "Visione manuale"

@@ -210,7 +210,8 @@ export type WatchReasonCode =
   | "watch_requirement_completed"
   | "runtime_restart"
   | "target_changed"
-  | "critical_failure";
+  | "critical_failure"
+  | "permission_missing";
 
 export interface ManagedWatchTab {
   platform: Platform;

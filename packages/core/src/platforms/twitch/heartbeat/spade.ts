@@ -1,5 +1,5 @@
 import type { HeartbeatResult } from "../../../core/tablessWatch";
-import { buildMinuteWatchedEvent } from "./gql-v1";
+import { minuteWatchedFormBody } from "./gql-v1";
 import { isAllowedTwitchUrl } from "./hosts";
 import type {
   TwitchHeartbeatContext,
@@ -37,11 +37,22 @@ function extractSettingsBundle(source: string): string | undefined {
   return undefined;
 }
 
-function standardBase64(input: string): string {
-  const bytes = new TextEncoder().encode(input);
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary);
+export async function resolveSpadeDestination(
+  fetchText: TwitchHeartbeatFetchText,
+  channelUrl: string,
+  signal?: AbortSignal,
+): Promise<string | undefined> {
+  if (!isAllowedTwitchUrl(channelUrl)) return undefined;
+  const init: RequestInit = signal ? { ...AUTHENTICATED_GET, signal } : AUTHENTICATED_GET;
+  const page = await fetchText(channelUrl, init);
+  const inline = extractStringValue(page, ["spade_url", "beacon_url"]);
+  if (inline !== undefined && isAllowedTwitchUrl(inline)) return inline;
+
+  const bundleUrl = extractSettingsBundle(page);
+  if (!bundleUrl || !isAllowedTwitchUrl(bundleUrl)) return undefined;
+  const bundle = await fetchText(bundleUrl, init);
+  const bundled = extractStringValue(bundle, ["spade_url", "beacon_url"]);
+  return bundled && isAllowedTwitchUrl(bundled) ? bundled : undefined;
 }
 
 function failed(message: string): HeartbeatResult {
@@ -53,37 +64,25 @@ type SpadeSendResult = { ok: true } | { ok: false; message: string };
 export function createSpadeHeartbeat(options: SpadeHeartbeatOptions): TwitchHeartbeatStrategy {
   const destinations = new Map<string, string>();
 
-  const resolveDestination = async (context: TwitchHeartbeatContext): Promise<string | undefined> => {
-    if (!isAllowedTwitchUrl(context.channel.url)) return undefined;
-    const page = await options.fetchText(context.channel.url, AUTHENTICATED_GET);
-    const inline = extractStringValue(page, ["spade_url", "beacon_url"]);
-    if (inline !== undefined && isAllowedTwitchUrl(inline)) return inline;
-
-    const bundleUrl = extractSettingsBundle(page);
-    if (!bundleUrl || !isAllowedTwitchUrl(bundleUrl)) return undefined;
-    const bundle = await options.fetchText(bundleUrl, AUTHENTICATED_GET);
-    const bundled = extractStringValue(bundle, ["spade_url", "beacon_url"]);
-    return bundled && isAllowedTwitchUrl(bundled) ? bundled : undefined;
-  };
+  const resolveDestination = (context: TwitchHeartbeatContext): Promise<string | undefined> =>
+    resolveSpadeDestination(options.fetchText, context.channel.url);
 
   const send = async (destination: string, context: TwitchHeartbeatContext): Promise<SpadeSendResult> => {
     if (!isAllowedTwitchUrl(destination)) return { ok: false, message: "Unsafe Twitch Spade destination" };
-    const event = buildMinuteWatchedEvent({
-      broadcastId: context.broadcastId,
-      channelId: context.channelId,
-      channelLogin: context.channel.username,
-      userId: context.userId,
-      gameId: context.gameId,
-      gameName: context.gameName,
-    });
-    const encoded = standardBase64(JSON.stringify(event));
     try {
       const response = await options.post(destination, {
         method: "POST",
         credentials: "include",
         redirect: "error",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: `data=${encodeURIComponent(encoded)}`,
+        body: minuteWatchedFormBody({
+          broadcastId: context.broadcastId,
+          channelId: context.channelId,
+          channelLogin: context.channel.username,
+          userId: context.userId,
+          gameId: context.gameId,
+          gameName: context.gameName,
+        }),
       });
       return response.status === 204
         ? { ok: true }

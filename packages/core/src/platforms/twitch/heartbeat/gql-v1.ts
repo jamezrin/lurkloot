@@ -17,6 +17,17 @@ export interface MinuteWatchedContext {
 export const SEND_SPADE_EVENTS_MUTATION =
   "mutation SendEvents($input: SendSpadeEventsInput!) { sendSpadeEvents(input: $input) { statusCode } }";
 
+function standardBase64(input: string): string {
+  const bytes = new TextEncoder().encode(input);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
+export function minuteWatchedFormBody(ctx: MinuteWatchedContext): string {
+  return `data=${encodeURIComponent(standardBase64(JSON.stringify(buildMinuteWatchedEvent(ctx))))}`;
+}
+
 export function buildMinuteWatchedEvent(ctx: MinuteWatchedContext): Array<Record<string, unknown>> {
   return [
     {
