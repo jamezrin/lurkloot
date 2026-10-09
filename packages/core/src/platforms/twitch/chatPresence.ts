@@ -12,6 +12,12 @@ export const TWITCH_IRC_URL = "wss://irc-ws.chat.twitch.tv/";
 // channels would drop presence, so an idle socket pings (a documented
 // deviation: pages are never suspended, workers are).
 export const TWITCH_IRC_IDLE_PING_MS = 25_000;
+// A socket that has not confirmed the room this long after opening or sending
+// JOIN (a hung handshake, a suspended channel, a JOIN Twitch ignores) is
+// dropped and retried, rather than showing "joining" forever.
+export const TWITCH_IRC_JOIN_TIMEOUT_MS = 30_000;
+// An idle PING unanswered this long means a half-open socket.
+export const TWITCH_IRC_PONG_TIMEOUT_MS = 10_000;
 const RECONNECT_BASE_MS = 1_000;
 const RECONNECT_MAX_MS = 60_000;
 const STABLE_CONNECTION_MS = 60_000;
@@ -77,13 +83,20 @@ export class TwitchChatPresenceClient implements ChatPresenceClient {
   private joinedChannel?: string;
   private state: ChatPresenceState = "left";
   private blockReason?: ChatPresenceBlockReason;
-  private lastWarnKey?: string;
+  // Warnings already logged since the client last joined or left, so a retry
+  // loop logs each distinct failure once.
+  private readonly warned = new Set<string>();
+  // The last NOTICE Twitch sent for the channel being joined, quoted if the
+  // join times out.
+  private joinNotice?: string;
   private reconnectAttempt = 0;
   // When the room was last confirmed, until its connection ends. Only a
   // connection that held a room this long resets the reconnect backoff.
   private stableSince?: number;
   private reconnectTimer?: Timer;
   private idleTimer?: Timer;
+  private joinTimer?: Timer;
+  private pongTimer?: Timer;
   private readonly diagnostics = new PendingDiscoverySignalDiagnostics();
   private readonly intentionallyClosed = new WeakSet<WebSocketLike>();
   private readonly setTimer: NonNullable<TwitchChatPresenceDeps["setTimer"]>;
@@ -138,16 +151,20 @@ export class TwitchChatPresenceClient implements ChatPresenceClient {
     if (this.stopped || this.ws || this.connecting || !this.desired) return;
     this.connecting = true;
     try {
-      let token: string | undefined;
       // A client lives for one identity (an auth change stops it), so the
       // login is resolved once rather than on every reconnect.
-      let login = this.login;
-      try {
-        [token, login] = await Promise.all([this.deps.getAuthToken(), login ?? this.deps.resolveLogin()]);
-      } catch {
-        token = undefined;
-      }
+      const [tokenResult, loginResult] = await Promise.allSettled([
+        this.deps.getAuthToken(),
+        this.login ?? this.deps.resolveLogin(),
+      ]);
       if (this.stopped || !this.desired || this.ws) return;
+      if (loginResult.status === "rejected") {
+        this.fail(`Could not look up the Twitch viewer login for chat presence: ${errorMessage(loginResult.reason)}`);
+        return;
+      }
+      // The token lookup's error is never logged: it may quote the credential.
+      const token = tokenResult.status === "fulfilled" ? tokenResult.value : undefined;
+      const login = loginResult.value;
       if (!token || !login) {
         this.fail("Twitch chat presence has no signed-in Twitch identity");
         return;
@@ -158,12 +175,13 @@ export class TwitchChatPresenceClient implements ChatPresenceClient {
       try {
         ws = this.deps.createWebSocket(TWITCH_IRC_URL);
       } catch (error) {
-        this.fail(`Could not open the Twitch chat connection: ${error instanceof Error ? error.message : String(error)}`);
+        this.fail(`Could not open the Twitch chat connection: ${errorMessage(error)}`);
         return;
       }
       this.ws = ws;
       this.registered = false;
       this.channelOnServer = undefined;
+      this.armJoinTimeout(ws);
       this.log("debug", "Opening Twitch chat presence connection");
       ws.addEventListener("open", () => {
         if (this.ws !== ws) return;
@@ -183,6 +201,7 @@ export class TwitchChatPresenceClient implements ChatPresenceClient {
   private onMessage(ws: WebSocketLike, event: WebSocketMessageEventLike): void {
     if (this.ws !== ws) return;
     this.resetIdle();
+    this.clearPong();
     if (typeof event.data !== "string") return;
     for (const raw of event.data.split("\r\n")) {
       if (!raw) continue;
@@ -197,17 +216,20 @@ export class TwitchChatPresenceClient implements ChatPresenceClient {
           this.joinDesired();
           break;
         case "NOTICE":
-          if (line.trailing && AUTH_FAILURE_NOTICES.some((notice) => line.trailing!.includes(notice))) this.block("auth");
+          if (line.trailing && AUTH_FAILURE_NOTICES.some((notice) => line.trailing!.includes(notice))) {
+            this.block("auth");
+            return;
+          }
+          // Twitch's reason for refusing the room (a suspended channel, say),
+          // kept for the join timeout's warning.
+          if (line.trailing && this.channelOnServer && line.params[0]?.toLowerCase() === `#${this.channelOnServer}`
+            && this.joinedChannel !== this.channelOnServer) this.joinNotice = line.trailing.slice(0, 200);
           break;
         case "RECONNECT":
           // Twitch's maintenance notice: reconnect and rejoin, backing off
           // like any other drop so a server that repeats it is not hammered.
-          this.connectionEnded();
-          this.closeSocket();
-          this.joinedChannel = undefined;
-          this.setState("joining");
-          this.scheduleReconnect();
-          break;
+          this.dropConnection("joining");
+          return;
         case "JOIN":
           if (line.prefixNick?.toLowerCase() === this.login) this.confirm(this.joinEchoes, line.params[0]);
           break;
@@ -234,6 +256,8 @@ export class TwitchChatPresenceClient implements ChatPresenceClient {
     const previous = this.joinedChannel;
     this.joinedChannel = channel;
     this.stableSince ??= this.now();
+    this.clearJoinTimeout();
+    this.joinNotice = undefined;
     this.setState("joined");
     this.log("debug", previous && previous !== channel
       ? `Twitch chat presence switched ${previous} → ${channel}`
@@ -249,6 +273,8 @@ export class TwitchChatPresenceClient implements ChatPresenceClient {
     this.userStates.delete(next);
     this.sendRaw(ws, `JOIN #${next}`);
     this.channelOnServer = next;
+    this.joinNotice = undefined;
+    this.armJoinTimeout(ws);
     if (previous) {
       this.sendRaw(ws, `PART #${previous}`);
       this.joinEchoes.delete(previous);
@@ -267,21 +293,27 @@ export class TwitchChatPresenceClient implements ChatPresenceClient {
     this.userStates.clear();
     this.blockReason = undefined;
     this.state = "left";
-    this.lastWarnKey = undefined;
+    this.warned.clear();
+    this.joinNotice = undefined;
     this.reconnectAttempt = 0;
     this.stableSince = undefined;
   }
 
   private onClose(ws: WebSocketLike): void {
     if (this.intentionallyClosed.has(ws) || this.ws !== ws) return;
+    this.dropConnection("error");
+  }
+
+  // Every unplanned end of a connection: a server close or error, RECONNECT,
+  // and the join and PONG timeouts. It backs off; only a connection that held
+  // its room long enough (connectionEnded) earns a fresh backoff.
+  private dropConnection(state: "error" | "joining", warning?: string): void {
     this.connectionEnded();
-    this.ws = undefined;
-    this.registered = false;
-    this.channelOnServer = undefined;
+    this.closeSocket();
     this.joinedChannel = undefined;
-    this.clearIdle();
+    this.joinNotice = undefined;
     if (this.stopped || this.state === "blocked" || !this.desired) return;
-    this.setState("error");
+    this.setState(state, warning);
     this.scheduleReconnect();
   }
 
@@ -300,13 +332,14 @@ export class TwitchChatPresenceClient implements ChatPresenceClient {
   private setState(state: ChatPresenceState, warning?: string): void {
     this.state = state;
     if (state === "joined" || state === "joining") {
-      if (state === "joined") this.lastWarnKey = undefined;
+      if (state === "joined") this.warned.clear();
       return;
     }
-    const key = `${state}:${this.blockReason ?? ""}:${this.desired ?? ""}`;
-    if (key === this.lastWarnKey) return;
-    this.lastWarnKey = key;
-    this.log("warn", warning ?? `Twitch chat presence lost the connection to ${this.desired ?? "chat"}; reconnecting`);
+    const message = warning ?? `Twitch chat presence lost the connection to ${this.desired ?? "chat"}; reconnecting`;
+    const key = `${state}:${this.blockReason ?? ""}:${this.desired ?? ""}:${message}`;
+    if (this.warned.has(key)) return;
+    this.warned.add(key);
+    this.log("warn", message);
   }
 
   // A connection that held its room for STABLE_CONNECTION_MS earns a fresh
@@ -341,7 +374,10 @@ export class TwitchChatPresenceClient implements ChatPresenceClient {
     const timer = this.setTimer(() => {
       if (this.idleTimer !== timer) return;
       this.idleTimer = undefined;
-      if (this.ws === ws && this.registered) this.sendRaw(ws, "PING :tmi.twitch.tv");
+      if (this.ws !== ws || !this.registered) return;
+      this.sendRaw(ws, "PING :tmi.twitch.tv");
+      // Only a received line clears it: sending resets the idle timer, not this.
+      this.armPong(ws);
     }, TWITCH_IRC_IDLE_PING_MS);
     this.idleTimer = timer;
   }
@@ -352,8 +388,46 @@ export class TwitchChatPresenceClient implements ChatPresenceClient {
     this.idleTimer = undefined;
   }
 
+  private armPong(ws: WebSocketLike): void {
+    if (this.pongTimer !== undefined) return;
+    const timer = this.setTimer(() => {
+      if (this.pongTimer !== timer) return;
+      this.pongTimer = undefined;
+      if (this.ws === ws) this.dropConnection("error", "Twitch chat stopped answering; reconnecting");
+    }, TWITCH_IRC_PONG_TIMEOUT_MS);
+    this.pongTimer = timer;
+  }
+
+  private clearPong(): void {
+    if (this.pongTimer === undefined) return;
+    this.clearTimer(this.pongTimer);
+    this.pongTimer = undefined;
+  }
+
+  // Armed when a socket opens and on every JOIN, so a switch is covered too;
+  // cleared once the room is confirmed.
+  private armJoinTimeout(ws: WebSocketLike): void {
+    this.clearJoinTimeout();
+    const timer = this.setTimer(() => {
+      if (this.joinTimer !== timer) return;
+      this.joinTimer = undefined;
+      if (this.ws !== ws || !this.desired) return;
+      const notice = this.joinNotice ? ` (${this.joinNotice})` : "";
+      this.dropConnection("error", `Twitch chat presence could not join ${this.desired}${notice}; retrying`);
+    }, TWITCH_IRC_JOIN_TIMEOUT_MS);
+    this.joinTimer = timer;
+  }
+
+  private clearJoinTimeout(): void {
+    if (this.joinTimer === undefined) return;
+    this.clearTimer(this.joinTimer);
+    this.joinTimer = undefined;
+  }
+
   private closeSocket(): void {
     this.clearIdle();
+    this.clearPong();
+    this.clearJoinTimeout();
     const ws = this.ws;
     this.ws = undefined;
     this.registered = false;
@@ -373,7 +447,7 @@ export class TwitchChatPresenceClient implements ChatPresenceClient {
     try {
       ws.send(line);
     } catch (error) {
-      this.log("warn", `Could not send to Twitch chat: ${error instanceof Error ? error.message : String(error)}`);
+      this.log("warn", `Could not send to Twitch chat: ${errorMessage(error)}`);
     }
     if (this.ws === ws) this.resetIdle();
   }
@@ -381,4 +455,8 @@ export class TwitchChatPresenceClient implements ChatPresenceClient {
   private log(level: "debug" | "warn", message: string): void {
     this.diagnostics.push({ category: "diagnostic", platform: "twitch", level, message });
   }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

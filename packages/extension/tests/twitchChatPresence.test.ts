@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { parseIrcLine, TwitchChatPresenceClient, TWITCH_IRC_IDLE_PING_MS, TWITCH_IRC_URL } from "@lurkloot/core/twitch/chatPresence";
+import {
+  parseIrcLine,
+  TwitchChatPresenceClient,
+  TWITCH_IRC_IDLE_PING_MS,
+  TWITCH_IRC_JOIN_TIMEOUT_MS,
+  TWITCH_IRC_PONG_TIMEOUT_MS,
+  TWITCH_IRC_URL,
+} from "@lurkloot/core/twitch/chatPresence";
 import type { WebSocketLike, WebSocketMessageEventLike } from "@lurkloot/core/webSocket";
 import { twitchAdapter } from "./helpers/adapters";
 
@@ -54,13 +61,18 @@ class FakeClock {
 const clients: TwitchChatPresenceClient[] = [];
 afterEach(async () => { await Promise.all(clients.splice(0).map((client) => client.stop())); });
 
-function setup(options: { token?: string; login?: string } = {}) {
+function setup(options: {
+  token?: string;
+  login?: string;
+  getAuthToken?: () => Promise<string | undefined>;
+  resolveLogin?: () => Promise<string | undefined>;
+} = {}) {
   const sockets: FakeSocket[] = [];
   const clock = new FakeClock();
   const client = new TwitchChatPresenceClient({
     createWebSocket: (url) => { const socket = new FakeSocket(url); sockets.push(socket); return socket; },
-    getAuthToken: async () => ("token" in options ? options.token : "secret-token"),
-    resolveLogin: async () => ("login" in options ? options.login : "Viewer"),
+    getAuthToken: options.getAuthToken ?? (async () => ("token" in options ? options.token : "secret-token")),
+    resolveLogin: options.resolveLogin ?? (async () => ("login" in options ? options.login : "Viewer")),
     setTimer: clock.setTimer,
     clearTimer: clock.clearTimer,
     now: clock.now,
@@ -79,6 +91,18 @@ async function joined(env: ReturnType<typeof setup>, channel = "prod"): Promise<
 }
 
 const ALLOWED = /^(CAP REQ|PASS|NICK|USER|JOIN|PART|PING|PONG)( |$)/;
+
+function warnings(env: ReturnType<typeof setup>): string[] {
+  return env.client.drainEvents().filter((event) => event.level === "warn").map((event) => event.message);
+}
+
+// Opens the latest socket and registers it, so the client sends its JOIN.
+function register(env: ReturnType<typeof setup>): FakeSocket {
+  const socket = env.sockets.at(-1)!;
+  socket.open();
+  socket.receive(":tmi.twitch.tv 001 viewer :Welcome, GLHF!");
+  return socket;
+}
 
 describe("parseIrcLine", () => {
   it("reads tags, prefix nick, command and params, and trailing text only for NOTICE and PING", () => {
@@ -233,7 +257,12 @@ describe("TwitchChatPresenceClient", () => {
     });
     clients.push(client);
     await joined({ client, sockets, clock }, "prod");
-    await clock.advance(10 * 60_000);
+    // Ten minutes of a live room: server traffic keeps the PONG timeout away.
+    for (let step = 0; step < 30; step += 1) {
+      await clock.advance(20_000);
+      sockets.at(-1)!.receive("PING :tmi.twitch.tv");
+    }
+    expect(sockets).toHaveLength(1);
     token = undefined;
     sockets.at(-1)!.serverClose();
     const delays: number[] = [];
@@ -243,6 +272,113 @@ describe("TwitchChatPresenceClient", () => {
     }
     expect(delays).toEqual([1_000, 2_000, 4_000, 8_000]);
     expect(logins).toBe(1);
+  });
+
+  it("drops a join Twitch never confirms and retries, quoting its notice", async () => {
+    const env = setup();
+    await env.client.follow({ username: "prod" });
+    const socket = register(env);
+    socket.receive("@msg-id=msg_channel_suspended :tmi.twitch.tv NOTICE #prod :This channel does not exist or has been suspended.");
+    await env.clock.advance(TWITCH_IRC_JOIN_TIMEOUT_MS - 1);
+    expect(env.client.status()).toEqual({ state: "joining", channel: "prod" });
+    await env.clock.advance(1);
+    expect(env.client.status()).toEqual({ state: "error", channel: "prod" });
+    expect(socket.closed).toBe(true);
+    expect(warnings(env)).toEqual(["Twitch chat presence could not join prod (This channel does not exist or has been suspended.); retrying"]);
+    await env.clock.advance(1_000);
+    expect(env.sockets).toHaveLength(2);
+  });
+
+  it("drops a handshake that never registers", async () => {
+    const env = setup();
+    await env.client.follow({ username: "prod" });
+    env.sockets[0]!.open();
+    await env.clock.advance(TWITCH_IRC_JOIN_TIMEOUT_MS);
+    expect(env.client.status()).toEqual({ state: "error", channel: "prod" });
+    expect(env.sockets[0]!.closed).toBe(true);
+  });
+
+  it("times out a switch that is never confirmed and rejoins the new channel", async () => {
+    const env = setup();
+    await joined(env, "prod");
+    await env.client.follow({ username: "diables" });
+    await env.clock.advance(TWITCH_IRC_JOIN_TIMEOUT_MS);
+    expect(env.client.status()).toEqual({ state: "error", channel: "diables" });
+    await env.clock.advance(1_000);
+    expect(register(env).sent.at(-1)).toBe("JOIN #diables");
+  });
+
+  it("backs off repeated join timeouts up to the cap and warns once", async () => {
+    const env = setup();
+    await env.client.follow({ username: "prod" });
+    const delays: number[] = [];
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      register(env);
+      await env.clock.advance(TWITCH_IRC_JOIN_TIMEOUT_MS);
+      delays.push(Math.min(...env.clock.pendingDelays()));
+      await env.clock.advance(delays.at(-1)!);
+    }
+    expect(delays).toEqual([1_000, 2_000, 4_000, 8_000, 16_000, 32_000, 60_000, 60_000]);
+    expect(warnings(env)).toEqual(["Twitch chat presence could not join prod; retrying"]);
+  });
+
+  it("drops a socket whose idle PING goes unanswered", async () => {
+    const env = setup();
+    const socket = await joined(env);
+    env.client.drainEvents();
+    await env.clock.advance(TWITCH_IRC_IDLE_PING_MS);
+    expect(socket.sent.at(-1)).toBe("PING :tmi.twitch.tv");
+    await env.clock.advance(TWITCH_IRC_PONG_TIMEOUT_MS);
+    expect(env.client.status()).toEqual({ state: "error", channel: "prod" });
+    expect(socket.closed).toBe(true);
+    expect(warnings(env)).toEqual(["Twitch chat stopped answering; reconnecting"]);
+    await env.clock.advance(1_000);
+    expect(env.sockets).toHaveLength(2);
+  });
+
+  it("keeps a socket whose idle PING is answered", async () => {
+    const env = setup();
+    const socket = await joined(env);
+    await env.clock.advance(TWITCH_IRC_IDLE_PING_MS);
+    socket.receive(":tmi.twitch.tv PONG tmi.twitch.tv :tmi.twitch.tv");
+    await env.clock.advance(TWITCH_IRC_PONG_TIMEOUT_MS * 2);
+    expect(env.client.status()).toEqual({ state: "joined", channel: "prod" });
+    expect(env.sockets).toHaveLength(1);
+  });
+
+  it("reports a failed login lookup as such, not as a missing identity", async () => {
+    const env = setup({ resolveLogin: async () => { throw new Error("GQL request failed: 503"); } });
+    await env.client.follow({ username: "prod" });
+    expect(env.sockets).toHaveLength(0);
+    expect(env.client.status()).toEqual({ state: "error", channel: "prod" });
+    expect(warnings(env)).toEqual(["Could not look up the Twitch viewer login for chat presence: GQL request failed: 503"]);
+  });
+
+  it("logs each distinct failure once while retrying", async () => {
+    let lookups = 0;
+    const env = setup({
+      resolveLogin: async () => {
+        lookups += 1;
+        if (lookups === 1) throw new Error("GQL request failed: 503");
+        return "Viewer";
+      },
+    });
+    await env.client.follow({ username: "prod" });
+    await env.clock.advance(1_000);
+    env.sockets[0]!.serverClose();
+    await env.clock.advance(2_000);
+    env.sockets[1]!.serverClose();
+    expect(warnings(env)).toEqual([
+      "Could not look up the Twitch viewer login for chat presence: GQL request failed: 503",
+      "Twitch chat presence lost the connection to prod; reconnecting",
+    ]);
+  });
+
+  it("never logs the token lookup's error", async () => {
+    const env = setup({ getAuthToken: async () => { throw new Error("cookie secret-token unreadable"); } });
+    await env.client.follow({ username: "prod" });
+    expect(env.client.status()).toEqual({ state: "error", channel: "prod" });
+    expect(JSON.stringify(env.client.drainEvents())).not.toContain("secret-token");
   });
 
   it("leaves with PART and closes when following nothing", async () => {
@@ -295,5 +431,21 @@ describe("Twitch chat presence adapter factory", () => {
     sockets[0]!.open();
     expect(sockets[0]!.sent).toContain("NICK viewer");
     await client!.stop();
+  });
+
+  it("lets a failed login lookup reach the client's own diagnostics", async () => {
+    const fetcher = {
+      fetchJson: async <T,>(): Promise<T> => { throw new Error("GQL request failed: 503"); },
+    };
+    const client = twitchAdapter(fetcher, undefined, {
+      webSocketFactory: (url) => new FakeSocket(url),
+      getAuthToken: async () => "secret-token",
+    }).createChatPresenceClient!();
+    await client.follow({ username: "prod" });
+    expect(client.status()).toEqual({ state: "error", channel: "prod" });
+    const messages = client.drainEvents().map((event) => event.message);
+    expect(messages.some((message) => message?.startsWith("Could not look up the Twitch viewer login for chat presence: "))).toBe(true);
+    expect(JSON.stringify(messages)).not.toContain("secret-token");
+    await client.stop();
   });
 });

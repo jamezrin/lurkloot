@@ -2589,20 +2589,16 @@ export class TwitchAdapter implements PlatformAdapter {
     }
   }
 
+  // A failure propagates: the chat presence client reports it through its own
+  // diagnostics, which outlive the reconcile that created this adapter.
   private async resolveViewerLogin(): Promise<string | undefined> {
-    try {
-      const response = await this.gqlWithIntegrityRetry<{ currentUser?: { login?: string } }>(
-        "CurrentUserLogin",
-        "",
-        {},
-        CURRENT_USER_LOGIN_QUERY,
-      );
-      return response.data?.currentUser?.login;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      diagnostic(this.emit, "warn", `Could not resolve the Twitch viewer login for chat presence: ${message}`, "twitch");
-      return undefined;
-    }
+    const response = await this.gqlWithIntegrityRetry<{ currentUser?: { login?: string } }>(
+      "CurrentUserLogin",
+      "",
+      {},
+      CURRENT_USER_LOGIN_QUERY,
+    );
+    return response.data?.currentUser?.login;
   }
 
   private async mergeCurrentSessionProgress(

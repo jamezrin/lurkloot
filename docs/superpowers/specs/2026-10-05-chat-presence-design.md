@@ -96,15 +96,16 @@ export interface ChatPresenceClient extends SlotObserver {   // stop() + drainEv
 
 ### Twitch client (`packages/core/src/platforms/twitch/chatPresence.ts`)
 
-- **Connect** through the core WebSocket port to `wss://irc-ws.chat.twitch.tv/` and send the sequence above in order. The token is the in-memory `auth-token` the GQL transport already uses, and the login comes from Twitch auth health.
+- **Connect** through the core WebSocket port to `wss://irc-ws.chat.twitch.tv/` and send the sequence above in order. The token is the in-memory `auth-token` the GQL transport already uses, and the login comes from a `CurrentUserLogin` GQL query, resolved once per client.
 - **Joined:** presence counts as joined once both our own `JOIN` echo and `USERSTATE` for the channel arrive.
 - **Switching:** `follow(next)` sends `JOIN #next`, then `PART #prev`. `follow(undefined)` sends `PART` and closes the socket.
 - **Server messages:**
   - `PING :tmi.twitch.tv` gets `PONG :tmi.twitch.tv`.
   - `RECONNECT` or a close means reconnect with backoff: 1 s, doubling to 60 s, reset after 60 s of stable connection. Then rejoin the current target.
   - `NOTICE * :Login authentication failed` (or the improperly-formatted-auth variant) moves to `blocked: auth`. There is no retry until credentials change.
+  - A room not confirmed 30 s after the socket opens or a `JOIN` is sent (a hung handshake, a suspended channel, a `JOIN` Twitch ignores) drops the connection and retries with backoff. A `NOTICE` for that channel received meanwhile is quoted in the warning.
   - Every other line is dropped after a prefix check. Chat content is never parsed into objects, stored, emitted or logged.
-- **Idle keepalive:** after 25 s with no frame in either direction, send `PING :tmi.twitch.tv`. The server's `PONG` counts as traffic. This is a documented deviation from the web client, for MV3 worker lifetime: pages are never suspended, service workers are.
+- **Idle keepalive:** after 25 s with no frame in either direction, send `PING :tmi.twitch.tv`. The server's `PONG` counts as traffic; an idle `PING` unanswered for 10 s means a half-open socket, which is dropped and retried with backoff. This is a documented deviation from the web client, for MV3 worker lifetime: pages are never suspended, service workers are.
 - **Allowlist:** the client sends only `CAP REQ`, `PASS`, `NICK`, `USER`, `JOIN`, `PART`, `PING` and `PONG`.
 
 ### Kick realtime (`packages/core/src/platforms/kick/realtime.ts`)
@@ -206,7 +207,7 @@ target(p) = { username: session.channel.username, channelId: session.channel.cha
 All diagnostics are English literals from the platform clients and the service, and never include tokens, JWTs, socket ids, client ids or chat content.
 
 - `debug`: `Twitch chat presence joined <channel>`, `Twitch chat presence switched <a> → <b>`, `Twitch chat presence left <channel>`, and the same for Kick.
-- `warn` on entering `error` or `blocked`, with the reason. Repeats are suppressed while state, reason and channel are unchanged.
+- `warn` on entering `error` or `blocked`, with the reason. Each distinct warning is logged once until the client joins or leaves, so a retry loop does not repeat it.
 - `info`, once per presence session started for a provider: `Joined <channel>'s chat because <provider> needs chat presence to earn watch time`.
 
 ## Security and privacy
