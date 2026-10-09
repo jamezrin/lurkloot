@@ -24,8 +24,6 @@
   </picture>
 </p>
 
-<p align="center"><sub>Popup preview. The campaigns are sample data.</sub></p>
-
 It is free, fully open source, and runs as a browser extension or, in beta, as a headless CLI with Docker.
 
 ## What it farms
