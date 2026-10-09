@@ -11,6 +11,7 @@ describe("Twitch Extensions lane memory", () => {
       knownComplete: { nopixel: now + 60_000 },
       completedUntil: { fortnite: now + 60_000 },
       unavailableUntil: { "nopixel:buddha": now + 60_000 },
+      identityRequiredUntil: { fortnite: now + 60_000 },
       lastCompletedNoPixelChannel: "buddha",
       owner: "viewer",
     }, now)).toEqual({
@@ -18,6 +19,7 @@ describe("Twitch Extensions lane memory", () => {
       knownComplete: { nopixel: now + 60_000 },
       completedUntil: { fortnite: now + 60_000 },
       unavailableUntil: { "nopixel:buddha": now + 60_000 },
+      identityRequiredUntil: { fortnite: now + 60_000 },
       lastCompletedNoPixelChannel: "buddha",
       owner: "viewer",
     });
@@ -29,10 +31,11 @@ describe("Twitch Extensions lane memory", () => {
       knownComplete: { nopixel: now - 1, fortnite: now + 30 * 60 * 60_000, drops: now + 60_000 },
       completedUntil: { nopixel: "soon" },
       unavailableUntil: { "nopixel:Buddha!": now + 60_000, "unknown:buddha": now + 60_000, "nopixel:buddha:extra": now + 60_000, "fortnite:ninja": Number.NaN },
+      identityRequiredUntil: { nopixel: now - 1, drops: now + 60_000 },
       lastCompletedNoPixelChannel: "not a login",
       owner: "Not A Login!",
       token: "private",
-    }, now)).toEqual({ version: 1, knownComplete: {}, completedUntil: {}, unavailableUntil: {} });
+    }, now)).toEqual({ version: 1, knownComplete: {}, completedUntil: {}, unavailableUntil: {}, identityRequiredUntil: {} });
   });
 
   it.each([undefined, null, "memory", { version: 2 }])("treats %s as no memory", (value) => {
