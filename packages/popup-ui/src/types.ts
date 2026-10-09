@@ -1,6 +1,5 @@
-import type { CliCredentialBlob, RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
+import type { CliCredentialBlob, RuntimeMessage, RuntimeSnapshot, TwitchHlsGrantIntent } from "@lurkloot/shared/messages";
 import type { CategorySelection, ClaimGuidance, CompatibilitySettings, DropCampaign, Platform, RewardRequirementType, SupportedLocale, TwitchExtensionProviderId } from "@lurkloot/shared/models";
-import type { SettingsPatch } from "@lurkloot/shared/settings";
 import type { SettingsExportPayload } from "@lurkloot/shared/settingsExport";
 import type { CampaignFarmingEvaluation } from "@lurkloot/shared/campaignFarming";
 import type { CampaignSection } from "@lurkloot/shared/campaignFilters";
@@ -186,12 +185,6 @@ export function variantShowsPopup(variant: ScreenshotVariant): variant is Screen
   return variant.layout !== "updated";
 }
 
-// The change that starts Twitch HLS watching. Recorded before the permission
-// prompt so a closed popup can still apply it after the user allows the host.
-export type TwitchHlsGrantIntent =
-  | { type: "setAutomation"; platform: "twitch"; enabled: true }
-  | { type: "saveSettings"; settingsPatch: SettingsPatch; tickAfterSave?: boolean; tickAfterSavePlatforms?: Platform[] };
-
 export interface PopupAdapter {
   requestTwitchExtensionPermission?(provider: TwitchExtensionProviderId): Promise<boolean>;
   version: string;
@@ -215,10 +208,11 @@ export interface PopupAdapter {
   requestCredentialExportPermission?(): Promise<boolean>;
   // Optional: ask for Twitch's video CDN. Called synchronously in the gesture
   // that would start watching Twitch with the HLS heartbeat. The argument is
-  // the change to apply once the grant exists, including when the permission
-  // dialog closes this popup. Resolves false when the user declines; that
-  // decline leaves Twitch off, or leaves a non-HLS heartbeat in place.
-  requestTwitchHlsPermission?(intent: TwitchHlsGrantIntent): Promise<boolean>;
+  // the change to apply once the grant exists. The background applies it,
+  // including when the permission dialog closes this popup, and this resolves
+  // the snapshot that results. Resolves undefined when the user declines;
+  // that leaves Twitch off, or leaves a non-HLS heartbeat in place.
+  requestTwitchHlsGrant?(intent: TwitchHlsGrantIntent): Promise<RuntimeSnapshot | undefined>;
   // Optional: download the current settings as a portable JSON file. Only the
   // live extension implements it (the demo omits it, hiding the action).
   exportSettings?(payload: SettingsExportPayload): void;

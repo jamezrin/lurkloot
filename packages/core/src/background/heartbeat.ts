@@ -16,7 +16,7 @@ import {
   validHeartbeatGeneration,
   validTablessHeartbeatCadence,
 } from "../core/heartbeatCadence";
-import { PLATFORMS, WATCH_ALARM_NAME, WATCH_ALARM_PERIOD_MINUTES } from "./constants";
+import { PLATFORMS, WATCH_ALARM_NAME, WATCH_ALARM_PERIOD_MINUTES, WATCH_ALARM_SUSTAIN_PERIOD_MINUTES } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
 import { emitHostCallbackError } from "./helpers";
 import type { BackgroundHostPorts } from "./hostPorts";
@@ -112,10 +112,39 @@ export function createHeartbeatCoordinator<S extends EngineSettings>(
     kick: newHeartbeatLane(),
   };
 
-  // Health commits stay one minute apart (#336). The watch alarm is shorter so
-  // a suspended runtime can still request new HLS segments between them.
+  // Health commits stay one minute apart (#336). The watch job only runs more
+  // often while a published watcher polls between them, so a suspended runtime
+  // still requests new HLS segments. Every other setup keeps the minute.
+  let heartbeatJobPeriod: number | undefined;
+
+  function wantedHeartbeatJobPeriod(): number {
+    return [...tablessWatchers.values()].some((watcher) => watcher.sustain !== undefined)
+      ? WATCH_ALARM_SUSTAIN_PERIOD_MINUTES
+      : WATCH_ALARM_PERIOD_MINUTES;
+  }
+
   async function ensureHeartbeatJob(): Promise<void> {
-    await ports.jobs.ensure(WATCH_ALARM_NAME, { periodInMinutes: WATCH_ALARM_PERIOD_MINUTES });
+    const periodInMinutes = wantedHeartbeatJobPeriod();
+    await ports.jobs.ensure(WATCH_ALARM_NAME, { periodInMinutes });
+    heartbeatJobPeriod = periodInMinutes;
+  }
+
+  // Ensuring restarts the period, so the job is only re-ensured when the wanted
+  // period changes. A new worker does not know the period the job was left
+  // with: the job's own run re-ensures it once, as it fires, which keeps its
+  // phase. Anywhere else the job is taken to have the minute it starts with.
+  async function syncHeartbeatJobPeriod(fromWatchJob = false): Promise<void> {
+    if (lifecycleSlice.controllerShutdown) return;
+    const known = heartbeatJobPeriod ?? (fromWatchJob ? undefined : WATCH_ALARM_PERIOD_MINUTES);
+    if (wantedHeartbeatJobPeriod() === known) return;
+    try {
+      await ensureHeartbeatJob();
+    } catch (error) {
+      diagnosticEvent(
+        "warn",
+        `Could not reschedule the watch heartbeat job: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   function withHeartbeatLane<T>(
@@ -338,14 +367,18 @@ export function createHeartbeatCoordinator<S extends EngineSettings>(
       publish: async (emit) => {
         if (settled) return;
         settled = true;
-        for (const plan of plans) {
-          try {
-            await publishWatcherPlan(plan, state.sessions[plan.platform], emit);
-          } finally {
-            if (plan.kind === "start" || plan.kind === "stop") {
-              await withHeartbeatLane(plan.platform, async (lane) => dropPublicationLease(lane, plan.lease));
+        try {
+          for (const plan of plans) {
+            try {
+              await publishWatcherPlan(plan, state.sessions[plan.platform], emit);
+            } finally {
+              if (plan.kind === "start" || plan.kind === "stop") {
+                await withHeartbeatLane(plan.platform, async (lane) => dropPublicationLease(lane, plan.lease));
+              }
             }
           }
+        } finally {
+          await syncHeartbeatJobPeriod();
         }
       },
       // A watcher constructed for the reservation never started, so there is
@@ -446,6 +479,7 @@ export function createHeartbeatCoordinator<S extends EngineSettings>(
       }
       await reportBestEffort(events);
     });
+    await syncHeartbeatJobPeriod();
   }
 
   function clearHeartbeatOwnershipInBackground(platforms: readonly Platform[]): void {
@@ -460,20 +494,25 @@ export function createHeartbeatCoordinator<S extends EngineSettings>(
     trackBackgroundWork(run);
   }
 
-  // Fired by the 1-minute watch job. Runs one heartbeat per active tabless
-  // watcher and records its health on the session. A result that crosses the
-  // fallback limit asks for a tab through the commit hook above.
+  // Fired by the watch job. Runs one heartbeat per active tabless watcher and
+  // records its health on the session. A result that crosses the fallback
+  // limit asks for a tab through the commit hook above. The job's period then
+  // follows the watchers this run left published.
   async function runWatchHeartbeat(): Promise<void> {
-    const settings = await ports.storage.loadSettings();
-    if (!isFarmingActive(settings)) return;
+    try {
+      const settings = await ports.storage.loadSettings();
+      if (!isFarmingActive(settings)) return;
 
-    const heartbeatResults = await Promise.allSettled(PLATFORMS.map((platform) =>
-      runPlatformWatchHeartbeat(platform, settings)));
-    const failures = heartbeatResults.flatMap((result) =>
-      result.status === "rejected" ? [result.reason] : []);
-    if (failures.length === 1) throw failures[0];
-    if (failures.length > 1) {
-      throw new AggregateError(failures, "Platform watch heartbeats failed");
+      const heartbeatResults = await Promise.allSettled(PLATFORMS.map((platform) =>
+        runPlatformWatchHeartbeat(platform, settings)));
+      const failures = heartbeatResults.flatMap((result) =>
+        result.status === "rejected" ? [result.reason] : []);
+      if (failures.length === 1) throw failures[0];
+      if (failures.length > 1) {
+        throw new AggregateError(failures, "Platform watch heartbeats failed");
+      }
+    } finally {
+      await syncHeartbeatJobPeriod(true);
     }
   }
 

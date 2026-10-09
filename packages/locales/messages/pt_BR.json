@@ -1502,6 +1502,9 @@
   "activityReasonManualTabClose": {
     "message": "aba de farm fechada"
   },
+  "activityReasonPermissionMissing": {
+    "message": "falta uma permissão necessária do navegador; ative a plataforma de novo para concedê-la"
+  },
   "automationPausedManualWatch": {
     "message": "Visualização manual"
   },

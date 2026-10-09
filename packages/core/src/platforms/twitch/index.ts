@@ -12,8 +12,8 @@ import { TwitchChannelPointsPushController } from "./channelPointsPush";
 import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchCampaigns, twitchCandidatesFromCampaign, twitchSubscriptionRewardEvidence, withCampaignStatus } from "./parser";
 import type { ResolvedCompatibility, TwitchIdentity } from "../../compatibility/types";
 import { createTwitchHeartbeat } from "./heartbeat/factory";
-import { HLS_POLL_INTERVAL_MS, TWITCH_HLS_HEARTBEAT_ID } from "./heartbeat/hls";
-import type { TwitchHeartbeatExchange, TwitchHeartbeatFetchText, TwitchHeartbeatPost, TwitchHeartbeatStrategy } from "./heartbeat/types";
+import { HLS_POLL_INTERVAL_MS, safeHlsFailure } from "./heartbeat/hls";
+import type { TwitchHeartbeatContext, TwitchHeartbeatExchange, TwitchHeartbeatFetchText, TwitchHeartbeatPost, TwitchHeartbeatStrategy } from "./heartbeat/types";
 import { createTwitchInventory } from "./inventory/factory";
 import type { TwitchInventoryCapability } from "./inventory/types";
 
@@ -334,6 +334,33 @@ async function refreshIntegrityForRetry(
     signal,
   });
   return { refreshed, integrity };
+}
+
+// Runs a safe authenticated read and, when Twitch rejects it for integrity,
+// forces one token refresh and replays it once with the token that refresh
+// captured. Mutations never come through here: a replay after a partial send
+// would repeat them, so claims recover explicitly.
+async function readWithIntegrityRetry<T>(
+  send: (integrity?: TwitchIntegrity) => Promise<T>,
+  options: {
+    ensureIntegrity: (request?: TwitchIntegrityRequest) => Promise<boolean>;
+    credentials?: RequestCredentials;
+    signal?: AbortSignal;
+    onRetry(): void;
+  },
+): Promise<T> {
+  try {
+    return await send();
+  } catch (error) {
+    if (!isIntegrityRejection(error, options.credentials)) throw error;
+    options.onRetry();
+    // Taken from the failure, which carries the token the request actually
+    // sent. Re-reading it here would race a concurrent capture and could
+    // report a token this request never used.
+    const retry = await refreshIntegrityForRetry(options.ensureIntegrity, sentIntegrityToken(error), options.signal);
+    if (!retry.refreshed) throw error;
+    return send(retry.integrity);
+  }
 }
 
 function isCredentialRejection(message: string | undefined): boolean {
@@ -2717,19 +2744,15 @@ export class TwitchAdapter implements PlatformAdapter {
     emit: EventEmitter = this.emit,
     signal?: AbortSignal,
   ): Promise<TwitchGqlResponse<T>> {
-    try {
-      return await this.gql<T>(operationName, sha256Hash, variables, query, credentials, emit, signal);
-    } catch (error) {
-      if (!isIntegrityRejection(error, credentials)) throw error;
-      diagnostic(emit, "debug", `GQL ${operationName} was rejected for integrity; refreshing the token and retrying once`, "twitch");
-      // Taken from the failure, which carries the token the request actually
-      // sent. Re-reading it here would race a concurrent capture and could
-      // report a token this request never used.
-      const rejectedToken = sentIntegrityToken(error);
-      const retry = await refreshIntegrityForRetry(this.ensureIntegrity, rejectedToken, signal);
-      if (!retry.refreshed) throw error;
-      return this.gql<T>(operationName, sha256Hash, variables, query, credentials, emit, signal, retry.integrity);
-    }
+    return readWithIntegrityRetry(
+      (integrity) => this.gql<T>(operationName, sha256Hash, variables, query, credentials, emit, signal, integrity),
+      {
+        ensureIntegrity: this.ensureIntegrity,
+        credentials,
+        signal,
+        onRetry: () => diagnostic(emit, "debug", `GQL ${operationName} was rejected for integrity; refreshing the token and retrying once`, "twitch"),
+      },
+    );
   }
 
   private async checkChannelFromPage(
@@ -2770,15 +2793,28 @@ export class TwitchAdapter implements PlatformAdapter {
   }
 }
 
-// Sends one minute-watched spade event per tick (~once a minute), the tabless
-// equivalent of keeping a muted video tab playing. Stateless across ticks except
-// for the cached viewer id, so the controller can keep a single instance alive.
+// Earns tabless progress for one channel through the selected heartbeat
+// strategy. The minute health tick resolves the live broadcast and viewer and
+// hands them to the strategy. A strategy that also works between ticks (HLS)
+// gets a 10-second poll with the context the last tick resolved, so the poll
+// adds no channel lookups. Stateless across channels except for the cached
+// viewer id, so the controller can keep a single instance alive.
 class TwitchWatcher implements TablessWatchController {
   readonly platform = "twitch" as const;
+  // Present only when the strategy polls between health ticks. The heartbeat
+  // coordinator reads its presence to pick the watch job's period.
+  readonly sustain?: () => Promise<void>;
   private channel?: ChannelCandidate;
   private viewerUserId?: string;
+  // What the last health tick resolved for the current channel and broadcast.
+  // The poll between ticks reuses it; cleared when the channel goes offline,
+  // changes or stops.
+  private sustainContext?: TwitchHeartbeatContext;
   private pollTimer?: ReturnType<typeof setInterval>;
-  private flight?: Promise<HeartbeatResult>;
+  // One strategy call at a time: they share the playlist and segment cache.
+  // A health tick waits for a poll in progress; a poll skips while either runs.
+  private healthFlight?: Promise<HeartbeatResult>;
+  private sustainFlight?: Promise<void>;
   private generation = 0;
   private readonly pollIntervalMs: number;
   private readonly diagnostics = new PendingWatcherDiagnostics();
@@ -2805,10 +2841,12 @@ class TwitchWatcher implements TablessWatchController {
       },
     );
     this.pollIntervalMs = options.heartbeatPollIntervalMs ?? HLS_POLL_INTERVAL_MS;
+    if (this.heartbeatStrategy.sustain) this.sustain = () => this.runSustain();
   }
 
-  // PlaybackAccessToken is an authenticated read. One forced refresh matches
-  // the watcher's CurrentUser lookup; a rejection still fails the poll.
+  // PlaybackAccessToken is an authenticated read, recovered like the watcher's
+  // CurrentUser lookup. The strategy's own backoff bounds how often a failing
+  // token request, and so a forced refresh, can run.
   private heartbeatGql(): TwitchGqlTransport {
     return async <T>(
       operationName: string,
@@ -2830,17 +2868,15 @@ class TwitchWatcher implements TablessWatchController {
         signal,
         override ?? integrityOverride,
       );
-      try {
-        return await send();
-      } catch (error) {
-        // PlaybackAccessToken is a read. Watch mutations such as SendEvents
-        // must not be replayed after a partial send.
-        if (operationName !== "PlaybackAccessToken" || !isIntegrityRejection(error, credentials)) throw error;
-        this.log("debug", `Twitch ${operationName} was rejected for integrity; refreshing the token and retrying once`);
-        const retry = await refreshIntegrityForRetry(this.ensureIntegrity, sentIntegrityToken(error), signal);
-        if (!retry.refreshed) throw error;
-        return send(retry.integrity);
-      }
+      // Watch mutations such as SendEvents must not be replayed after a
+      // partial send, so only the token read recovers.
+      if (operationName !== "PlaybackAccessToken") return send();
+      return readWithIntegrityRetry(send, {
+        ensureIntegrity: this.ensureIntegrity,
+        credentials,
+        signal,
+        onRetry: () => this.log("debug", `Twitch ${operationName} was rejected for integrity; refreshing the token and retrying once`),
+      });
     };
   }
 
@@ -2860,56 +2896,74 @@ class TwitchWatcher implements TablessWatchController {
     const switched = this.channel !== undefined && this.channel.url !== channel.url;
     this.channel = channel;
     if (context.userId) this.viewerUserId = context.userId;
-    if (switched) {
-      this.generation += 1;
-      this.flight = undefined;
-      this.heartbeatStrategy.reset?.();
-    }
+    if (switched) this.abandonInFlight();
     this.armSegmentPoll();
   }
 
   async stop(): Promise<void> {
-    this.generation += 1;
-    this.flight = undefined;
+    this.abandonInFlight();
     this.clearSegmentPoll();
-    this.heartbeatStrategy.reset?.();
     this.channel = undefined;
   }
 
-  // One playlist poll outside the minute health commit. The in-process timer
-  // calls this every 10 seconds while the runtime stays alive, and the watch
-  // alarm calls it when that timer was frozen with a suspended service worker.
-  async sustain(): Promise<void> {
-    if (!this.channel || this.heartbeatStrategy.id !== TWITCH_HLS_HEARTBEAT_ID) return;
-    try {
-      const result = await this.tick({});
-      if (!result.ok && result.message && !result.message.endsWith("watch stopped")) {
-        this.log("debug", result.message);
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Twitch HLS watch failed";
-      this.log("debug", message.length <= 240 && !/[?#]/.test(message) && !/https?:\/\//i.test(message)
-        ? message
-        : "Twitch HLS watch failed");
-    }
+  // The work in flight belongs to a channel that is no longer watched. The
+  // strategy reset aborts its requests; the flights are not awaited.
+  private abandonInFlight(): void {
+    this.generation += 1;
+    this.healthFlight = undefined;
+    this.sustainFlight = undefined;
+    this.sustainContext = undefined;
+    this.heartbeatStrategy.reset?.();
   }
 
   async tick(context: WatchContext): Promise<HeartbeatResult> {
-    if (this.flight) return this.flight;
-    const flight = this.runTick(context);
-    this.flight = flight;
+    if (this.healthFlight) return this.healthFlight;
+    const generation = this.generation;
+    const flight = (async () => {
+      // A poll already running finishes first; this tick then does its own.
+      await this.sustainFlight;
+      if (generation !== this.generation) return { ok: false, live: true, message: "Twitch watch stopped" };
+      return this.runTick(context);
+    })();
+    this.healthFlight = flight;
     try {
       return await flight;
     } finally {
-      if (this.flight === flight) this.flight = undefined;
+      if (this.healthFlight === flight) this.healthFlight = undefined;
+    }
+  }
+
+  // One strategy poll outside the minute health commit. The in-process timer
+  // calls this every 10 seconds while the runtime stays alive, and the watch
+  // job calls it when that timer was frozen with a suspended service worker.
+  private async runSustain(): Promise<void> {
+    const strategy = this.heartbeatStrategy;
+    const context = this.sustainContext;
+    if (!strategy.sustain || !context || this.healthFlight || this.sustainFlight) return;
+    if (this.channel?.url !== context.channel.url) return;
+    const flight = (async () => {
+      try {
+        const result = await strategy.sustain?.(context);
+        if (result && !result.ok && result.message && !result.message.endsWith("watch stopped")) {
+          this.log("debug", result.message);
+        }
+      } catch (error) {
+        this.log("debug", safeHlsFailure(error));
+      }
+    })();
+    this.sustainFlight = flight;
+    try {
+      await flight;
+    } finally {
+      if (this.sustainFlight === flight) this.sustainFlight = undefined;
     }
   }
 
   private armSegmentPoll(): void {
-    if (this.pollTimer || this.pollIntervalMs <= 0) return;
-    if (this.heartbeatStrategy.id !== TWITCH_HLS_HEARTBEAT_ID) return;
+    if (this.pollTimer || this.pollIntervalMs <= 0 || !this.sustain) return;
+    const sustain = this.sustain;
     const timer = setInterval(() => {
-      void this.sustain();
+      void sustain();
     }, this.pollIntervalMs);
     if (typeof timer === "object" && timer !== null && "unref" in timer && typeof timer.unref === "function") {
       timer.unref();
@@ -2945,6 +2999,7 @@ class TwitchWatcher implements TablessWatchController {
     const channelId = info.data?.user?.id ?? channel.channelId;
     const broadcastId = stream?.id ?? channel.broadcastId;
     if (!stream || !channelId || !broadcastId) {
+      this.sustainContext = undefined;
       this.log("debug", `Heartbeat skipped for ${channel.username}: channel offline or missing a broadcast id`);
       return { ok: false, live: false, message: "Twitch channel is offline or missing a broadcast id" };
     }
@@ -2954,41 +3009,39 @@ class TwitchWatcher implements TablessWatchController {
     if (!userId) return { ok: false, live: true, message: "Twitch did not return a logged-in user id" };
     this.log("debug", `Heartbeat for ${channel.username} (broadcast ${broadcastId}, channel ${channelId})`);
 
-    return await this.heartbeatStrategy.tick({
+    const heartbeatContext: TwitchHeartbeatContext = {
       channel,
       broadcastId,
       channelId,
       userId,
       gameId: stream.game?.id,
       gameName: stream.game?.name,
-    });
+    };
+    if (this.sustain) this.sustainContext = heartbeatContext;
+    return await this.heartbeatStrategy.tick(heartbeatContext);
   }
 
   private async resolveUserId(): Promise<string | undefined> {
     if (this.viewerUserId) return this.viewerUserId;
-    const currentUser = (integrityOverride?: TwitchIntegrity) => this.gql<{ currentUser?: { id?: string } }>(
-      "CurrentUser",
-      "",
-      {},
-      CURRENT_USER_QUERY,
-      undefined,
-      this.diagnostics.emit,
-      undefined,
-      integrityOverride,
-    );
     try {
-      let response;
-      try {
-        response = await currentUser();
-      } catch (error) {
-        // Bounded to one forced refresh and one identical replay, like the
-        // adapter's safe authenticated reads.
-        if (!isIntegrityRejection(error)) throw error;
-        this.log("debug", "Twitch viewer id lookup was rejected for integrity; refreshing the token and retrying once");
-        const retry = await refreshIntegrityForRetry(this.ensureIntegrity, sentIntegrityToken(error));
-        if (!retry.refreshed) throw error;
-        response = await currentUser(retry.integrity);
-      }
+      // Bounded to one forced refresh and one identical replay, like the
+      // adapter's safe authenticated reads.
+      const response = await readWithIntegrityRetry(
+        (integrityOverride) => this.gql<{ currentUser?: { id?: string } }>(
+          "CurrentUser",
+          "",
+          {},
+          CURRENT_USER_QUERY,
+          undefined,
+          this.diagnostics.emit,
+          undefined,
+          integrityOverride,
+        ),
+        {
+          ensureIntegrity: this.ensureIntegrity,
+          onRetry: () => this.log("debug", "Twitch viewer id lookup was rejected for integrity; refreshing the token and retrying once"),
+        },
+      );
       this.viewerUserId = response.data?.currentUser?.id;
     } catch (error) {
       // Leave unresolved; tick() reports the missing-user case to the scheduler.

@@ -3,6 +3,8 @@ import type { TwitchHeartbeatContext, TwitchHeartbeatExchange } from "@lurkloot/
 import {
   HLS_POLL_BUDGET_MS,
   HLS_POLL_INTERVAL_MS,
+  HLS_TOKEN_RETRY_MAX_MS,
+  HLS_TOKEN_RETRY_MS,
   TWITCH_HLS_HEARTBEAT_ID,
   createHlsHeartbeat,
   createTwitchHeartbeat,
@@ -188,22 +190,43 @@ describe("Twitch HLS heartbeat", () => {
     expect(calls).toEqual(["GET /api/channel/hls/creator.m3u8"]);
   });
 
-  it("reacquires a playlist after HTTP 401 and resets the cache for a new broadcast", async () => {
+  it("reacquires an expired playlist after HTTP 401 and resets the cache for a new broadcast", async () => {
+    let mediaGets = 0;
     const { strategy, gql } = strategyFor({
       exchange: async (url, init) => {
         if (init.method === "GET" && url.startsWith(MASTER_URL)) return { status: 200, body: MASTER, url };
         if (init.method === "GET") {
-          return { status: gql.mock.calls.length === 1 ? 401 : 200, body: media(SEGMENT_ONE), url };
+          mediaGets += 1;
+          return { status: mediaGets === 2 ? 401 : 200, body: media(SEGMENT_ONE), url };
         }
         return { status: 200, body: "", url };
       },
+      fetchText: async () => '{"spade_url":"https://spade.twitch.tv/track"}',
+      post: async () => ({ status: 204 }),
     });
 
+    await expect(strategy.tick(context("broadcast-1"))).resolves.toEqual({ ok: true, live: true });
     await expect(strategy.tick(context("broadcast-1"))).resolves.toMatchObject({ ok: false, message: "Twitch HLS playlist returned HTTP 401" });
     await expect(strategy.tick(context("broadcast-1"))).resolves.toEqual({ ok: true, live: true });
     await expect(strategy.tick(context("broadcast-2"))).resolves.toEqual({ ok: true, live: true });
 
     expect(gql).toHaveBeenCalledTimes(3);
+  });
+
+  it("treats a fresh playlist that is refused straight away as a failed token request", async () => {
+    let clock = 0;
+    const { strategy, gql } = strategyFor({
+      now: () => clock,
+      exchange: async (url, init) => {
+        if (init.method === "GET" && url.startsWith(MASTER_URL)) return { status: 200, body: MASTER, url };
+        return { status: 403, body: "", url };
+      },
+    });
+
+    await expect(strategy.tick(context())).resolves.toMatchObject({ ok: false, message: "Twitch HLS playlist returned HTTP 403" });
+    clock += 10_000;
+    await expect(strategy.tick(context())).resolves.toMatchObject({ message: "Twitch HLS watch is waiting to request a new playback token" });
+    expect(gql).toHaveBeenCalledTimes(1);
   });
 
   it("sends auxiliary telemetry on the first poll and again after 59 seconds", async () => {
@@ -412,6 +435,160 @@ describe("Twitch HLS heartbeat", () => {
     await expect(pending).resolves.toEqual({ ok: true, live: true });
   });
 
+  describe("playback token retries", () => {
+    function failingTokenStrategy(clock: { now: number }) {
+      let tokenWorks = false;
+      const gql = vi.fn(async (operationName: string) => {
+        if (operationName !== "PlaybackAccessToken") throw new Error(`unexpected ${operationName}`);
+        if (!tokenWorks) throw new Error("failed integrity check");
+        return playbackToken();
+      });
+      const strategy = createHlsHeartbeat({
+        gql: gql as never,
+        exchange: exchangeFrom({ media: media(SEGMENT_ONE) }, () => ({ status: 200 })),
+        fetchText: async () => '{"spade_url":"https://spade.twitch.tv/track"}',
+        post: async () => ({ status: 204 }),
+        log: () => {},
+        now: () => clock.now,
+      });
+      return { strategy, gql, fixToken: () => { tokenWorks = true; } };
+    }
+
+    it("waits before requesting a token again, doubling the wait while it keeps failing", async () => {
+      const clock = { now: 0 };
+      const { strategy, gql } = failingTokenStrategy(clock);
+
+      await expect(strategy.tick(context())).resolves.toMatchObject({ ok: false, message: "failed integrity check" });
+      clock.now += 10_000;
+      await expect(strategy.tick(context())).resolves.toMatchObject({
+        ok: false,
+        live: true,
+        message: "Twitch HLS watch is waiting to request a new playback token",
+      });
+      expect(gql).toHaveBeenCalledTimes(1);
+
+      clock.now = HLS_TOKEN_RETRY_MS;
+      await expect(strategy.tick(context())).resolves.toMatchObject({ ok: false, message: "failed integrity check" });
+      expect(gql).toHaveBeenCalledTimes(2);
+      clock.now += HLS_TOKEN_RETRY_MS;
+      await strategy.tick(context());
+      expect(gql).toHaveBeenCalledTimes(2);
+      clock.now += HLS_TOKEN_RETRY_MS;
+      await strategy.tick(context());
+      expect(gql).toHaveBeenCalledTimes(3);
+    });
+
+    it("caps the wait and clears it once a watch succeeds", async () => {
+      const clock = { now: 0 };
+      const { strategy, gql, fixToken } = failingTokenStrategy(clock);
+      for (let attempt = 0; attempt < 8; attempt += 1) {
+        await strategy.tick(context());
+        clock.now += HLS_TOKEN_RETRY_MAX_MS;
+      }
+      expect(gql).toHaveBeenCalledTimes(8);
+
+      fixToken();
+      await expect(strategy.tick(context())).resolves.toEqual({ ok: true, live: true });
+      expect(gql).toHaveBeenCalledTimes(9);
+    });
+
+    it("lets the poll between health ticks skip quietly while waiting", async () => {
+      const clock = { now: 0 };
+      const { strategy, gql } = failingTokenStrategy(clock);
+      await strategy.tick(context());
+      clock.now += 10_000;
+      await expect(strategy.sustain?.(context())).resolves.toBeUndefined();
+      expect(gql).toHaveBeenCalledTimes(1);
+    });
+
+    it("tries again straight away for a new broadcast", async () => {
+      const clock = { now: 0 };
+      const { strategy, gql } = failingTokenStrategy(clock);
+      await strategy.tick(context("broadcast-1"));
+      await strategy.tick(context("broadcast-2"));
+      expect(gql).toHaveBeenCalledTimes(2);
+    });
+
+    it("refreshes an expired playlist without waiting when the last token request succeeded", async () => {
+      let mediaStatus = 200;
+      const { strategy, gql } = strategyFor({
+        now: () => 0,
+        exchange: async (url, init) => {
+          if (init.method === "GET" && url.startsWith(MASTER_URL)) return { status: 200, body: MASTER, url };
+          if (init.method === "GET") return { status: mediaStatus, body: media(SEGMENT_ONE), url };
+          return { status: 200, body: "", url };
+        },
+        fetchText: async () => '{"spade_url":"https://spade.twitch.tv/track"}',
+        post: async () => ({ status: 204 }),
+      });
+      await expect(strategy.tick(context())).resolves.toEqual({ ok: true, live: true });
+      mediaStatus = 403;
+      await expect(strategy.sustain?.(context())).resolves.toMatchObject({ ok: false, message: "Twitch HLS playlist returned HTTP 403" });
+      mediaStatus = 200;
+      await expect(strategy.sustain?.(context())).resolves.toEqual({ ok: true, live: true });
+      expect(gql).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it("reports a stop that lands while telemetry is in flight", async () => {
+    let reached: () => void = () => {};
+    const posting = new Promise<void>((resolve) => { reached = resolve; });
+    let finish: () => void = () => {};
+    const { strategy } = strategyFor({
+      exchange: exchangeFrom({ media: media(SEGMENT_ONE) }, () => ({ status: 200 })),
+      fetchText: async () => '{"spade_url":"https://spade.twitch.tv/track"}',
+      post: async () => {
+        reached();
+        await new Promise<void>((resolve) => { finish = resolve; });
+        return { status: 204 };
+      },
+    });
+
+    const pending = strategy.tick(context());
+    await posting;
+    strategy.reset?.();
+    finish();
+    await expect(pending).resolves.toEqual({ ok: false, live: true, message: "Twitch HLS watch stopped" });
+  });
+
+  it("notes a beacon that is refused or fails without failing the watch", async () => {
+    const logs: string[] = [];
+    let clock = 0;
+    let fail = false;
+    const { strategy } = strategyFor({
+      now: () => clock,
+      exchange: exchangeFrom({ media: media(SEGMENT_ONE) }, () => ({ status: 200 })),
+      fetchText: async () => '{"spade_url":"https://spade.twitch.tv/track"}',
+      post: async () => {
+        if (fail) throw new Error("connect failed https://spade.twitch.tv/track?secret=1");
+        return { status: 400 };
+      },
+      log: (_level, message) => logs.push(message),
+    });
+
+    await expect(strategy.tick(context())).resolves.toEqual({ ok: true, live: true });
+    fail = true;
+    clock += 60_000;
+    await expect(strategy.tick(context())).resolves.toEqual({ ok: true, live: true });
+
+    expect(logs).toContain("Twitch minute-watched beacon returned HTTP 400");
+    expect(logs).toContain("Twitch minute-watched beacon failed: network request failed");
+    expect(logs.join("\n")).not.toContain("secret");
+  });
+
+  it("reports a poll that runs out of budget as a timeout, not a stop", async () => {
+    vi.useFakeTimers();
+    const { strategy } = strategyFor({
+      exchange: async (_url, init) => new Promise((_resolve, reject) => {
+        init.signal?.addEventListener("abort", () => reject(new DOMException("The operation was aborted", "AbortError")), { once: true });
+      }),
+    });
+
+    const pending = strategy.tick(context());
+    await vi.advanceTimersByTimeAsync(HLS_POLL_BUDGET_MS);
+    await expect(pending).resolves.toEqual({ ok: false, live: true, message: "Twitch HLS watch timed out" });
+  });
+
   it("requires the playlist transport at the factory boundary", () => {
     expect(() => createTwitchHeartbeat("twitch-heartbeat-hls-v1", {
       gql: vi.fn() as never,
@@ -445,29 +622,98 @@ describe("Twitch HLS watcher cadence", () => {
     });
   }
 
-  it("polls on the HLS interval and clears it on stop", async () => {
-    vi.useFakeTimers();
-    const strategy = {
+  function hlsStrategy() {
+    return {
       id: TWITCH_HLS_HEARTBEAT_ID,
-      tick: vi.fn(async () => ({ ok: true, live: true })),
+      tick: vi.fn(async (_context: TwitchHeartbeatContext) => ({ ok: true, live: true })),
+      sustain: vi.fn(async (_context: TwitchHeartbeatContext): Promise<{ ok: boolean; live?: boolean; message?: string } | undefined> => ({ ok: true, live: true })),
       reset: vi.fn(),
     };
-    const watcher = twitchAdapter({ fetchJson: streamInfo() as never }, undefined, {
+  }
+
+  function operations(fetchJson: ReturnType<typeof streamInfo>): string[] {
+    return fetchJson.mock.calls.map(([, init]) => JSON.parse(String(init?.body)).operationName);
+  }
+
+  it("polls between health ticks with the last tick's context and clears the poll on stop", async () => {
+    vi.useFakeTimers();
+    const strategy = hlsStrategy();
+    const fetchJson = streamInfo();
+    const watcher = twitchAdapter({ fetchJson: fetchJson as never }, undefined, {
       heartbeatStrategy: strategy,
       heartbeatPollIntervalMs: HLS_POLL_INTERVAL_MS,
     }).createTablessWatcher();
 
     await watcher.start(channel, { userId: "viewer-id" });
+    // Nothing to poll before a health tick has resolved the broadcast.
     await vi.advanceTimersByTimeAsync(HLS_POLL_INTERVAL_MS);
+    expect(strategy.sustain).not.toHaveBeenCalled();
+
+    await watcher.tick({ userId: "viewer-id" });
     expect(strategy.tick).toHaveBeenCalledOnce();
+    await vi.advanceTimersByTimeAsync(HLS_POLL_INTERVAL_MS * 3);
+    expect(strategy.sustain).toHaveBeenCalledTimes(3);
+    expect(strategy.sustain).toHaveBeenLastCalledWith(strategy.tick.mock.calls[0][0]);
+    // The polls look nothing up: the one stream lookup is the health tick's.
+    expect(operations(fetchJson)).toEqual(["StreamInfo"]);
 
     await watcher.stop();
     await vi.advanceTimersByTimeAsync(HLS_POLL_INTERVAL_MS * 3);
-    expect(strategy.tick).toHaveBeenCalledOnce();
+    expect(strategy.sustain).toHaveBeenCalledTimes(3);
     expect(strategy.reset).toHaveBeenCalled();
   });
 
-  it("does not arm the interval for a Spade strategy", async () => {
+  it("stops polling when the health tick finds the channel offline", async () => {
+    const strategy = hlsStrategy();
+    let live = true;
+    const fetchJson = vi.fn(async () => ({
+      data: { user: { id: "channel-id", stream: live ? { id: "broadcast-id" } : null } },
+    }));
+    const watcher = twitchAdapter({ fetchJson: fetchJson as never }, undefined, {
+      heartbeatStrategy: strategy,
+      heartbeatPollIntervalMs: 0,
+    }).createTablessWatcher();
+
+    await watcher.start(channel, { userId: "viewer-id" });
+    await watcher.tick({});
+    await watcher.sustain?.();
+    expect(strategy.sustain).toHaveBeenCalledOnce();
+
+    live = false;
+    await expect(watcher.tick({})).resolves.toMatchObject({ ok: false, live: false });
+    await watcher.sustain?.();
+    expect(strategy.sustain).toHaveBeenCalledOnce();
+    await watcher.stop();
+  });
+
+  it("runs its own health tick after a poll in progress instead of reusing its result", async () => {
+    const strategy = hlsStrategy();
+    let finishPoll: () => void = () => {};
+    strategy.sustain.mockImplementationOnce(() => new Promise((resolve) => {
+      finishPoll = () => resolve({ ok: false, live: true, message: "Twitch HLS segment returned HTTP 503" });
+    }));
+    const watcher = twitchAdapter({ fetchJson: streamInfo() as never }, undefined, {
+      heartbeatStrategy: strategy,
+      heartbeatPollIntervalMs: 0,
+    }).createTablessWatcher();
+
+    await watcher.start(channel, { userId: "viewer-id" });
+    await watcher.tick({});
+    const poll = watcher.sustain?.();
+    const health = watcher.tick({});
+    // A second poll while one runs does nothing.
+    await watcher.sustain?.();
+    expect(strategy.sustain).toHaveBeenCalledOnce();
+    expect(strategy.tick).toHaveBeenCalledOnce();
+
+    finishPoll();
+    await poll;
+    await expect(health).resolves.toEqual({ ok: true, live: true });
+    expect(strategy.tick).toHaveBeenCalledTimes(2);
+    await watcher.stop();
+  });
+
+  it("has no between-tick poll for a strategy without one", async () => {
     vi.useFakeTimers();
     const strategy = {
       id: "twitch-heartbeat-spade-v1",
@@ -478,6 +724,7 @@ describe("Twitch HLS watcher cadence", () => {
       heartbeatPollIntervalMs: HLS_POLL_INTERVAL_MS,
     }).createTablessWatcher();
 
+    expect(watcher.sustain).toBeUndefined();
     await watcher.start(channel, { userId: "viewer-id" });
     await vi.advanceTimersByTimeAsync(HLS_POLL_INTERVAL_MS * 2);
     expect(strategy.tick).not.toHaveBeenCalled();

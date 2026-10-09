@@ -1,5 +1,6 @@
 import { resolveCompatibility } from "@lurkloot/core";
-import { TWITCH_HLS_HEARTBEAT_ID } from "@lurkloot/core/twitch/heartbeat";
+import { TWITCH_HLS_HEARTBEAT_ID } from "@lurkloot/shared/compatibility";
+import type { CoreRuntimeMessage, RuntimeSnapshot, TwitchHlsGrantIntent } from "@lurkloot/shared/messages";
 import type { ExtensionSettings, Platform } from "@lurkloot/shared/models";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 
@@ -8,34 +9,81 @@ import type { SettingsPatch } from "@lurkloot/shared/settings";
 // turned on and the resolved watch heartbeat is the HLS variant.
 export const TWITCH_HLS_HOST_ORIGIN = "https://*.ttvnw.net/*";
 
-/** Twitch is on, the resolved watch heartbeat is HLS, and the video CDN grant is absent. */
-export function shouldSuspendTwitchForMissingHlsHost(settings: ExtensionSettings, hasVideoCdnAccess: boolean): boolean {
-  if (hasVideoCdnAccess || !settings.platform.twitch.enabled) return false;
-  return resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" }).compatibility.twitch.heartbeat === TWITCH_HLS_HEARTBEAT_ID;
+/** Twitch is on and its resolved watch heartbeat is HLS, which needs the video CDN. */
+export function twitchWatchesWithHls(settings: ExtensionSettings): boolean {
+  return settings.platform.twitch.enabled
+    && resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" }).compatibility.twitch.heartbeat === TWITCH_HLS_HEARTBEAT_ID;
 }
 
-/** Turn Twitch off when an extension restart would farm HLS without the video CDN grant.
- * The next manual enable is the gesture that asks for the permission. */
-export async function suspendTwitchUntilHlsHostGranted(deps: {
+/** Twitch is on, the resolved watch heartbeat is HLS, and the video CDN grant is absent. */
+export function shouldSuspendTwitchForMissingHlsHost(settings: ExtensionSettings, hasVideoCdnAccess: boolean): boolean {
+  return !hasVideoCdnAccess && twitchWatchesWithHls(settings);
+}
+
+/** The one place that keeps Twitch from watching with HLS without the video
+ * CDN grant. The background runs it after an update, when the grant is
+ * revoked, and after a settings change that could not show the prompt (an
+ * import). Turns Twitch off and resolves what that returned; the next manual
+ * enable is the gesture that asks for the host. */
+export async function enforceTwitchHlsGrant<T>(deps: {
   loadSettings(): Promise<ExtensionSettings>;
   hasVideoCdnAccess(): Promise<boolean>;
-  disableTwitch(): Promise<void>;
-}): Promise<void> {
+  disableTwitch(): Promise<T>;
+}): Promise<T | undefined> {
   const settings = await deps.loadSettings();
-  if (!shouldSuspendTwitchForMissingHlsHost(settings, false)) return;
-  if (await deps.hasVideoCdnAccess()) return;
-  await deps.disableTwitch();
+  if (!twitchWatchesWithHls(settings)) return undefined;
+  if (await deps.hasVideoCdnAccess()) return undefined;
+  return deps.disableTwitch();
+}
+
+/** A core message that changes what the HLS gate decides: the Twitch switch,
+ * or a settings save that touches it or Twitch's compatibility selection. Such
+ * a message is newer than a pending grant intent, and can itself start HLS. */
+export function touchesTwitchHlsGate(message: CoreRuntimeMessage): boolean {
+  switch (message.type) {
+    case "setAutomation":
+    case "setPlatformEnabled":
+      return message.platform === "twitch";
+    case "saveSettings":
+      return message.settingsPatch.platform?.twitch?.enabled !== undefined
+        || message.settingsPatch.compatibility?.twitch !== undefined;
+    default:
+      return false;
+  }
+}
+
+/** Wraps the core message handler for the HLS gate. A message that touches it
+ * first supersedes a grant intent still waiting, so that intent cannot land
+ * after it. Afterwards Twitch is turned back off if it would now watch with
+ * HLS without the grant, which a change that could not prompt (an import)
+ * can cause; the answer is then the snapshot after that. */
+export function gateTwitchHlsMessages<Sender>(deps: {
+  handle(message: CoreRuntimeMessage, sender?: Sender): Promise<unknown>;
+  cancelIntent(): Promise<void>;
+  enforce(): Promise<unknown>;
+  reportEnforcementFailure(): void;
+}): (message: CoreRuntimeMessage, sender?: Sender) => Promise<unknown> {
+  return async (message, sender) => {
+    if (!touchesTwitchHlsGate(message)) return deps.handle(message, sender);
+    await deps.cancelIntent();
+    const result = await deps.handle(message, sender);
+    try {
+      return (await deps.enforce()) ?? result;
+    } catch {
+      deps.reportEnforcementFailure();
+      return result;
+    }
+  };
 }
 
 // The Chrome permission prompt closes the action popup before the click's
-// continuation can enable Twitch. The popup records this intent without
-// awaiting, then asks. Background completion applies it after the allow.
+// continuation can apply the change. The popup records this intent without
+// awaiting, then asks. Background completion is the only writer: it applies
+// the intent after the allow, whether the popup is gone or asks it to.
 export const TWITCH_HLS_GRANT_INTENT_KEY = "twitchHlsGrantIntent";
 const GRANT_INTENT_TTL_MS = 2 * 60_000;
 
-export type TwitchHlsGrantIntent =
-  | { type: "setAutomation"; platform: "twitch"; enabled: true }
-  | { type: "saveSettings"; settingsPatch: SettingsPatch; tickAfterSave?: boolean; tickAfterSavePlatforms?: Platform[] };
+export type { TwitchHlsGrantIntent };
 
 interface GrantIntentStorage {
   get(key: string): Promise<Record<string, unknown>>;
@@ -71,7 +119,10 @@ export function twitchHlsGrantIntent(value: unknown): TwitchHlsGrantIntent | und
   }
 }
 
-export async function requestTwitchHlsGrant(options: {
+/** Records the intent and shows the video CDN prompt. Resolves whether the
+ * host was granted; a decline drops the intent. Must be called before any
+ * await in the click handler: the click is the user gesture. */
+export async function promptTwitchHlsGrant(options: {
   storage: GrantIntentStorage;
   request(details: { origins: string[] }): Promise<boolean>;
   now(): number;
@@ -96,6 +147,19 @@ export async function requestTwitchHlsGrant(options: {
     await options.storage.remove(TWITCH_HLS_GRANT_INTENT_KEY);
     throw error;
   }
+}
+
+/** The popup's side of the grant: prompt, then have the background apply the
+ * intent and answer with the snapshot that results. Resolves undefined on a
+ * decline. The popup never applies the change itself, so it lands once. */
+export async function requestTwitchHlsGrant(options: {
+  storage: GrantIntentStorage;
+  request(details: { origins: string[] }): Promise<boolean>;
+  now(): number;
+  complete(): Promise<RuntimeSnapshot>;
+}, intent: TwitchHlsGrantIntent): Promise<RuntimeSnapshot | undefined> {
+  const granted = await promptTwitchHlsGrant(options, intent);
+  return granted ? options.complete() : undefined;
 }
 
 export function createTwitchHlsGrantCompletion(options: {
@@ -148,7 +212,12 @@ export function createTwitchHlsGrantCompletion(options: {
   }
 
   return {
+    // A newer user change to the Twitch switch or its compatibility selection
+    // supersedes an intent still waiting for the grant.
     cancel,
+    // The popup survived the prompt and asks for the result now. Joins a run
+    // the grant event already started, so the intent is applied once.
+    flush: schedule,
     async added(details: { origins?: string[] }) {
       if (!details.origins?.includes(TWITCH_HLS_HOST_ORIGIN)) return;
       await schedule();

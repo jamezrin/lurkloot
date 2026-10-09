@@ -40,6 +40,7 @@ export const FARMING_STOP_REASON_CODES: Record<FarmingStopReason, true> = {
   manual_watch: true,
   manual_tab_close: true,
   critical_failure: true,
+  permission_missing: true,
 };
 
 export function emitHostCallbackError(

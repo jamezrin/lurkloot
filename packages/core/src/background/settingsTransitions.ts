@@ -24,6 +24,7 @@ export function createSettingsTransitions<S extends EngineSettings>(
     | "rescheduleTwitchChannelPointsJob"
     | "withSettingsLock"
     | "diagnosticEvent"
+    | "reportBestEffort"
     | "markPlatformsStarting"
     | "platformTickRunning"
     | "settleCommitHooks"
@@ -47,6 +48,7 @@ export function createSettingsTransitions<S extends EngineSettings>(
     rescheduleTwitchChannelPointsJob,
     withSettingsLock,
     diagnosticEvent,
+    reportBestEffort,
     markPlatformsStarting,
     platformTickRunning,
     settleCommitHooks,
@@ -168,12 +170,28 @@ export function createSettingsTransitions<S extends EngineSettings>(
     }
   }
 
-  function platformEnableDiagnostic(platformLabel: string, action: "enable" | "disable", cause: PlatformEnableCause): string {
+  // Says why the switch moved. A user toggle is a diagnostic. A host turning
+  // the platform off is user-facing: the switch flipped without a click, and
+  // the activity entry says how to turn it back on.
+  function reportPlatformEnableCause(
+    platform: Platform,
+    platformLabel: string,
+    action: "enable" | "disable",
+    cause: PlatformEnableCause,
+  ): void {
     switch (cause) {
       case "user":
-        return `User requested ${platformLabel} automation ${action}`;
-      case "missing-hls-host":
-        return `${platformLabel} automation disabled until the video CDN permission is granted`;
+        diagnosticEvent("info", `User requested ${platformLabel} automation ${action}`, platform);
+        return;
+      case "missing-permission":
+        void reportBestEffort([{
+          category: "activity",
+          code: "interruption",
+          level: "warn",
+          platform,
+          data: { reason: "permission_missing" },
+        }]);
+        return;
       default: {
         const unreachable: never = cause;
         return unreachable;
@@ -191,7 +209,7 @@ export function createSettingsTransitions<S extends EngineSettings>(
   ): Promise<RuntimeSnapshot<S>> {
     const platformLabel = PLATFORM_NAMES[message.platform];
     const action = message.enabled ? "enable" : "disable";
-    diagnosticEvent("info", platformEnableDiagnostic(platformLabel, action, cause), message.platform);
+    reportPlatformEnableCause(message.platform, platformLabel, action, cause);
     if (platformTickRunning(message.platform)) {
       diagnosticEvent(
         "info",

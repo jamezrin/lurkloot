@@ -23,7 +23,10 @@ export type FarmingStopReason =
   | "manual_tab_close"
   // A managed-tab reopen loop was detected; the platform is parked until the
   // breaker releases or the user dismisses the prompt.
-  | "critical_failure";
+  | "critical_failure"
+  // Turned off because a browser permission its watching needs is missing,
+  // e.g. after an update or a revoke. Turning the platform on asks again.
+  | "permission_missing";
 
 type CampaignRewardData = {
   campaignId: string;

@@ -12,9 +12,9 @@ import { AuthProbeSetupError } from "./errors";
 import type { CommitGuard, CommitOptions, CommitResult, PreparedSettingsCommit } from "./stateTransaction";
 import type { TickEffectExecutor } from "./tickEffects";
 
-// "user" is the popup switch. "missing-hls-host" is an extension update that
-// found Twitch enabled on the HLS heartbeat without the video CDN grant.
-export type PlatformEnableCause = "user" | "missing-hls-host";
+// "user" is the popup switch. "missing-permission" is the host turning a
+// platform off because a browser permission its watching needs is absent.
+export type PlatformEnableCause = "user" | "missing-permission";
 
 // Reward ids claimed during one tick, per platform. The post-claim handoff needs
 // the ids (not just the platforms) so it can tell a genuine successor from the

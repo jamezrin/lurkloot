@@ -1502,6 +1502,9 @@
   "activityReasonManualTabClose": {
     "message": "pestaña de farmeo cerrada"
   },
+  "activityReasonPermissionMissing": {
+    "message": "falta un permiso del navegador necesario; vuelve a activar la plataforma para concederlo"
+  },
   "automationPausedManualWatch": {
     "message": "Visualización manual"
   },

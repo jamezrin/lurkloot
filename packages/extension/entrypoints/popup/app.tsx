@@ -14,6 +14,7 @@ import {
   type PopupAdapter,
 } from "@lurkloot/popup-ui";
 import { SUPPORTED_LOCALES } from "@lurkloot/shared/settings";
+import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
 import type { SupportedLocale } from "@lurkloot/shared/models";
 import { COMPATIBILITY_REGISTRY, resolveCompatibility } from "@lurkloot/core";
 import {
@@ -54,10 +55,11 @@ export function createExtensionPopupAdapter(): PopupAdapter {
     dismissPendingChangelogVersion,
     changelogUrl,
     requestCredentialExportPermission: () => browser.permissions.request({ origins: [KASADA_COOKIE_ORIGIN] }),
-    requestTwitchHlsPermission: (intent) => requestTwitchHlsGrant({
+    requestTwitchHlsGrant: (intent) => requestTwitchHlsGrant({
       storage: browser.storage.local,
       request: (details) => browser.permissions.request(details),
       now: Date.now,
+      complete: () => send<RuntimeSnapshot>({ type: "completeTwitchHlsGrant" }),
     }, intent),
     exportCredentials: (blob) => {
       // Download the credential blob the CLI's `login --import` consumes. The

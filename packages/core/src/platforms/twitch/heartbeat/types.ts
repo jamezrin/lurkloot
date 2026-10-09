@@ -13,6 +13,11 @@ export interface TwitchHeartbeatContext {
 export interface TwitchHeartbeatStrategy {
   readonly id: string;
   tick(context: TwitchHeartbeatContext): Promise<HeartbeatResult>;
+  // A poll between health commits, with the context of the last tick. Present
+  // only on a strategy that has work to do between them (HLS). Resolves
+  // undefined when there is nothing to do yet, e.g. while a failed playback
+  // token request is waiting to be retried.
+  sustain?(context: TwitchHeartbeatContext): Promise<HeartbeatResult | undefined>;
   // Drop in-flight playlist work and cached segment URLs. The watcher calls
   // this on stop and when the channel changes.
   reset?(): void;

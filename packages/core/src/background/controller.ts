@@ -35,6 +35,7 @@ export {
   KICK_ALARM_NAME,
   WATCH_ALARM_NAME,
   WATCH_ALARM_PERIOD_MINUTES,
+  WATCH_ALARM_SUSTAIN_PERIOD_MINUTES,
   TWITCH_CHANNEL_POINTS_ALARM_NAME,
   TWITCH_DROP_CLAIMS_ALARM_NAME,
   KICK_DROP_CLAIMS_ALARM_NAME,
@@ -142,12 +143,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     ensureInstalledAt: calls.ensureInstalledAt,
     reconcileStartup: calls.reconcileStartup,
     handleStartup: calls.handleStartup,
-    // An extension update found Twitch on the HLS heartbeat without the video
-    // CDN grant. The popup asks for that grant the next time Twitch is turned on.
-    disableTwitchUntilHlsHostGranted: () => calls.setPlatformEnabled(
-      { type: "setAutomation", platform: "twitch", enabled: false },
-      "missing-hls-host",
-    ),
+    // The popup switch, with the cause a host gives when it turns a platform
+    // off itself (a browser permission went missing).
+    setPlatformEnabled: calls.setPlatformEnabled,
     ...({
       handleTabRemoved: calls.handleTabRemoved,
       handleTabUpdated: calls.handleTabUpdated,

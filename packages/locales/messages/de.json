@@ -1502,6 +1502,9 @@
   "activityReasonManualTabClose": {
     "message": "Farming-Tab geschlossen"
   },
+  "activityReasonPermissionMissing": {
+    "message": "eine benötigte Browser-Berechtigung fehlt; aktiviere die Plattform erneut, um sie zu erteilen"
+  },
   "automationPausedManualWatch": {
     "message": "Manuelles Schauen"
   },

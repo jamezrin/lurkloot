@@ -1502,6 +1502,9 @@
   "activityReasonManualTabClose": {
     "message": "farm sekmesi kapatıldı"
   },
+  "activityReasonPermissionMissing": {
+    "message": "gerekli bir tarayıcı izni eksik; izni vermek için platformu yeniden açın"
+  },
   "automationPausedManualWatch": {
     "message": "Manuel izleme"
   },

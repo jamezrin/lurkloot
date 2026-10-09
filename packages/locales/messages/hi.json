@@ -1502,6 +1502,9 @@
   "activityReasonManualTabClose": {
     "message": "फ़ार्मिंग टैब बंद"
   },
+  "activityReasonPermissionMissing": {
+    "message": "ज़रूरी ब्राउज़र अनुमति नहीं है; अनुमति देने के लिए प्लेटफ़ॉर्म फिर से चालू करें"
+  },
   "automationPausedManualWatch": {
     "message": "मैन्युअल देखना"
   },

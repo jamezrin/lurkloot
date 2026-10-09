@@ -1502,6 +1502,9 @@
   "activityReasonManualTabClose": {
     "message": "scheda di farming chiusa"
   },
+  "activityReasonPermissionMissing": {
+    "message": "manca un'autorizzazione del browser necessaria; riattiva la piattaforma per concederla"
+  },
   "automationPausedManualWatch": {
     "message": "Visione manuale"
   },

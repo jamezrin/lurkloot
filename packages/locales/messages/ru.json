@@ -1502,6 +1502,9 @@
   "activityReasonManualTabClose": {
     "message": "вкладка фарма закрыта"
   },
+  "activityReasonPermissionMissing": {
+    "message": "не хватает нужного разрешения браузера; снова включите платформу, чтобы выдать его"
+  },
   "automationPausedManualWatch": {
     "message": "Ручной просмотр"
   },

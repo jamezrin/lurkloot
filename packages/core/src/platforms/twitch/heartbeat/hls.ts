@@ -1,3 +1,4 @@
+import { TWITCH_HLS_HEARTBEAT_ID } from "@lurkloot/shared/compatibility";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import type { LogLevel } from "@lurkloot/shared/logging";
 import type { HeartbeatResult } from "../../../core/tablessWatch";
@@ -13,7 +14,7 @@ import type {
   TwitchHeartbeatStrategy,
 } from "./types";
 
-export const TWITCH_HLS_HEARTBEAT_ID = "twitch-heartbeat-hls-v1";
+export { TWITCH_HLS_HEARTBEAT_ID };
 // Inside Twitch's rolling media playlist. The watch alarm is coarser because
 // Chrome clamps short alarms; this interval is what requests each new segment.
 export const HLS_POLL_INTERVAL_MS = 10_000;
@@ -27,6 +28,11 @@ export const HLS_SEGMENTS_PER_POLL = 6;
 // Auxiliary minute-watched telemetry. A 204 does not credit progress, and a
 // failure must not be retried on the playlist cadence.
 export const HLS_TELEMETRY_INTERVAL_MS = 59_000;
+// A failed playback-token request waits this long before the next one, and
+// twice as long after each further failure. Without it every 10-second poll
+// would ask again, and an integrity rejection would mint a token each time.
+export const HLS_TOKEN_RETRY_MS = 60_000;
+export const HLS_TOKEN_RETRY_MAX_MS = 10 * 60_000;
 
 const PLAYBACK_ACCESS_TOKEN_QUERY = `query PlaybackAccessToken($login: String!, $playerType: String!) {
   streamPlaybackAccessToken(
@@ -76,12 +82,12 @@ function failed(message: string): HeartbeatResult {
 
 // Keep a short English cause. Signed URLs, tokens, and response bodies stay
 // out of the diagnostic log.
-function safeFailure(error: unknown): string {
+export function safeHlsFailure(error: unknown, fallback = "Twitch HLS watch failed"): string {
   const message = error instanceof Error ? error.message : "";
   if (message && message.length <= 240 && !/[?#]/.test(message) && !/https?:\/\//i.test(message)) {
     return message;
   }
-  return "Twitch HLS watch failed";
+  return fallback;
 }
 
 function combineSignals(left: AbortSignal, right: AbortSignal): AbortSignal {
@@ -96,6 +102,10 @@ export function createHlsHeartbeat(options: HlsHeartbeatOptions): TwitchHeartbea
   let spadeUrl: string | undefined;
   let spadeChannel: string | undefined;
   let lastTelemetryAt: number | undefined;
+  // Consecutive failed attempts to obtain a playable playlist, and when the
+  // next attempt may run. Reset by a successful watch or a new broadcast.
+  let tokenFailures = 0;
+  let tokenRetryAt: number | undefined;
   const seen: string[] = [];
 
   const remember = (url: string): void => {
@@ -194,8 +204,12 @@ export function createHlsHeartbeat(options: HlsHeartbeatOptions): TwitchHeartbea
         if (signal.aborted) return;
         spadeUrl = resolved;
       }
-      if (!spadeUrl || signal.aborted) return;
-      await options.post(spadeUrl, {
+      if (signal.aborted) return;
+      if (!spadeUrl) {
+        options.log("debug", "Twitch minute-watched beacon has no destination");
+        return;
+      }
+      const response = await options.post(spadeUrl, {
         method: "POST",
         credentials: "include",
         redirect: "error",
@@ -210,10 +224,17 @@ export function createHlsHeartbeat(options: HlsHeartbeatOptions): TwitchHeartbea
           gameName: context.gameName,
         }),
       });
-    } catch {
-      // Playlist success is the watch result. The beacon is auxiliary.
+      if (response.status !== 204) options.log("debug", `Twitch minute-watched beacon returned HTTP ${response.status}`);
+    } catch (error) {
+      // Playlist success is the watch result. The beacon is auxiliary, so a
+      // failure is only noted.
+      if (!signal.aborted) {
+        options.log("debug", `Twitch minute-watched beacon failed: ${safeHlsFailure(error, "network request failed")}`);
+      }
     }
   };
+
+  const tokenRetryPending = (): boolean => tokenRetryAt !== undefined && now() < tokenRetryAt;
 
   const poll = async (context: TwitchHeartbeatContext): Promise<HeartbeatResult> => {
     const login = context.channel.username.trim().toLowerCase();
@@ -223,16 +244,39 @@ export function createHlsHeartbeat(options: HlsHeartbeatOptions): TwitchHeartbea
       playlistUrl = undefined;
       seen.length = 0;
       lastTelemetryAt = undefined;
+      tokenFailures = 0;
+      tokenRetryAt = undefined;
     }
+    if (!playlistUrl && tokenRetryPending()) {
+      return failed("Twitch HLS watch is waiting to request a new playback token");
+    }
+    // Read once: reset() replaces the controller, and a poll it stopped must
+    // keep seeing its own aborted signal.
+    const stop = abort.signal;
+    const acquiring = !playlistUrl;
+    const result = await watch(context, login, stop);
+    if (result.ok) {
+      tokenFailures = 0;
+      tokenRetryAt = undefined;
+    } else if (acquiring && !playlistUrl && !stop.aborted) {
+      tokenFailures += 1;
+      tokenRetryAt = now() + Math.min(HLS_TOKEN_RETRY_MS * 2 ** (tokenFailures - 1), HLS_TOKEN_RETRY_MAX_MS);
+    }
+    return result;
+  };
 
+  const watch = async (context: TwitchHeartbeatContext, login: string, stop: AbortSignal): Promise<HeartbeatResult> => {
     const budget = new AbortController();
     const budgetTimer = setTimeout(() => budget.abort(), HLS_POLL_BUDGET_MS);
-    const signal = combineSignals(abort.signal, budget.signal);
+    const signal = combineSignals(stop, budget.signal);
+    // Stopping and running out of budget both abort the requests, but only a
+    // stop means the watch is over; a timeout is a failed poll.
+    const interrupted = (): HeartbeatResult => failed(stop.aborted ? "Twitch HLS watch stopped" : "Twitch HLS watch timed out");
     let watched = false;
     try {
       if (!playlistUrl) {
         const acquired = await acquirePlaylist(login, signal);
-        if (signal.aborted) return failed("Twitch HLS watch stopped");
+        if (signal.aborted) return interrupted();
         if (!acquired || !isAllowedHlsUrl(acquired)) {
           playlistUrl = undefined;
           return failed("Twitch did not return a playback playlist");
@@ -241,7 +285,7 @@ export function createHlsHeartbeat(options: HlsHeartbeatOptions): TwitchHeartbea
       }
 
       const media = await exchange(playlistUrl, "GET", signal);
-      if (signal.aborted) return failed("Twitch HLS watch stopped");
+      if (signal.aborted) return interrupted();
       const mediaBase = media.url;
       if (!mediaBase) return failed("Twitch HLS response came from an unexpected host");
       if (media.status !== 200) {
@@ -259,10 +303,10 @@ export function createHlsHeartbeat(options: HlsHeartbeatOptions): TwitchHeartbea
       const pending = segments.filter((segment) => !seen.includes(segment));
       const batch = pending.slice(-HLS_SEGMENTS_PER_POLL);
       for (const segment of batch) {
-        if (signal.aborted) return failed("Twitch HLS watch stopped");
+        if (signal.aborted) return interrupted();
         try {
           const response = await exchange(segment, "HEAD", signal);
-          if (signal.aborted) return failed("Twitch HLS watch stopped");
+          if (signal.aborted) return interrupted();
           if (response.status !== 200) {
             if (response.status === 401 || response.status === 403 || response.status === 404) playlistUrl = undefined;
             failure ??= `Twitch HLS segment returned HTTP ${response.status}`;
@@ -271,8 +315,8 @@ export function createHlsHeartbeat(options: HlsHeartbeatOptions): TwitchHeartbea
           remember(segment);
           headed += 1;
         } catch (error) {
-          if (signal.aborted) return failed("Twitch HLS watch stopped");
-          failure ??= safeFailure(error);
+          if (signal.aborted) return interrupted();
+          failure ??= safeHlsFailure(error);
         }
       }
       // One live-edge segment is enough to credit the minute. A sibling that
@@ -283,22 +327,28 @@ export function createHlsHeartbeat(options: HlsHeartbeatOptions): TwitchHeartbea
       }
       watched = true;
     } catch (error) {
-      if (signal.aborted) return failed("Twitch HLS watch stopped");
-      return failed(safeFailure(error));
+      if (signal.aborted) return interrupted();
+      return failed(safeHlsFailure(error));
     } finally {
       clearTimeout(budgetTimer);
     }
     if (!watched) return failed("Twitch HLS watch failed");
     // The playlist budget is already cleared. A slow beacon cannot fail this
     // minute. Stopping still can: the watch is no longer in progress.
-    await sendTelemetry(context, abort.signal);
-    if (abort.signal.aborted) return failed("Twitch HLS watch stopped");
+    await sendTelemetry(context, stop);
+    if (stop.aborted) return failed("Twitch HLS watch stopped");
     return { ok: true, live: true };
   };
 
   return {
     id: TWITCH_HLS_HEARTBEAT_ID,
     tick: poll,
+    // The same poll between health commits. It waits out a failed token
+    // request instead of reporting it again every 10 seconds.
+    async sustain(context) {
+      if (!playlistUrl && tokenRetryPending()) return undefined;
+      return poll(context);
+    },
     reset() {
       abort.abort();
       abort = new AbortController();
@@ -307,6 +357,8 @@ export function createHlsHeartbeat(options: HlsHeartbeatOptions): TwitchHeartbea
       spadeUrl = undefined;
       spadeChannel = undefined;
       lastTelemetryAt = undefined;
+      tokenFailures = 0;
+      tokenRetryAt = undefined;
       seen.length = 0;
     },
   };

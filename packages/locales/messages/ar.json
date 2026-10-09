@@ -1502,6 +1502,9 @@
   "activityReasonManualTabClose": {
     "message": "أُغلقت علامة تبويب الزراعة"
   },
+  "activityReasonPermissionMissing": {
+    "message": "إذن مطلوب من المتصفح غير متوفر؛ أعد تفعيل المنصة لمنحه"
+  },
   "automationPausedManualWatch": {
     "message": "المشاهدة اليدوية"
   },

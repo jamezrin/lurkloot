@@ -770,5 +770,27 @@ describe("adapter-created twitch watcher diagnostics", () => {
     expect(tokenCalls).toBe(2);
     expect(ensureIntegrity).toHaveBeenCalledOnce();
     expect(exchange).toHaveBeenCalled();
+    await watcher?.stop();
+  });
+});
+
+describe("pending watcher diagnostics", () => {
+  it("stamps each event when it is pushed, not when it is drained", async () => {
+    const { PendingWatcherDiagnostics } = await import("@lurkloot/core/tablessWatch");
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-10-09T12:00:00.000Z"));
+      const pending = new PendingWatcherDiagnostics();
+      pending.push({ category: "diagnostic", level: "debug", message: "first" });
+      vi.setSystemTime(new Date("2026-10-09T12:00:10.000Z"));
+      pending.push({ category: "diagnostic", level: "debug", message: "second" });
+      vi.setSystemTime(new Date("2026-10-09T12:00:30.000Z"));
+      expect(pending.drain().map((event) => (event as { emittedAt?: string }).emittedAt)).toEqual([
+        "2026-10-09T12:00:00.000Z",
+        "2026-10-09T12:00:10.000Z",
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

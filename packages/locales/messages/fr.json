@@ -1502,6 +1502,9 @@
   "activityReasonManualTabClose": {
     "message": "onglet de farming fermé"
   },
+  "activityReasonPermissionMissing": {
+    "message": "une autorisation requise du navigateur manque ; réactivez la plateforme pour l'accorder"
+  },
   "automationPausedManualWatch": {
     "message": "Visionnage manuel"
   },

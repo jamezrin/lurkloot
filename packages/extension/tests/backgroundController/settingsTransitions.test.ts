@@ -199,17 +199,23 @@ describe("background controller", () => {
     }
   });
 
-  it("disables Twitch on an update that is missing the video CDN grant", async () => {
+  it("turns a platform off for a missing permission and says why in the activity log", async () => {
     const env = harness(farming(DEFAULT_SETTINGS));
 
-    await env.controller.disableTwitchUntilHlsHostGranted();
+    await env.controller.setPlatformEnabled({ type: "setAutomation", platform: "twitch", enabled: false }, "missing-permission");
     await env.controller.settleBackgroundWork();
 
     expect(env.settings.platform.twitch.enabled).toBe(false);
     expect(env.settings.platform.kick.enabled).toBe(true);
-    const messages = env.reportEvents.mock.calls.flatMap(([events]) => events).map((event) => event.message);
-    expect(messages).toContain("Twitch automation disabled until the video CDN permission is granted");
-    expect(messages).not.toContain("User requested Twitch automation disable");
+    const events = env.reportEvents.mock.calls.flatMap(([reported]) => reported);
+    expect(events).toContainEqual(expect.objectContaining({
+      category: "activity",
+      code: "interruption",
+      level: "warn",
+      platform: "twitch",
+      data: { reason: "permission_missing" },
+    }));
+    expect(events.map((event) => event.message)).not.toContain("User requested Twitch automation disable");
   });
 
   it("toggles one platform and immediately applies the scheduler when running", async () => {

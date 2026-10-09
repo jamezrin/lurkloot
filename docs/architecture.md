@@ -481,8 +481,13 @@ the request reached the provider.
 ### Tabless heartbeat coordinator (#586)
 
 `heartbeat.ts` owns each platform's tabless watcher, heartbeat lane, generation high-water mark and
-publication lease, and the one-minute watch job both hosts fire. No lock is held while a watcher
-starts, stops or sends a heartbeat.
+publication lease, and the watch job both hosts fire. No lock is held while a watcher starts, stops
+or sends a heartbeat.
+
+- **The watch job's period follows the watchers.** It runs every minute, the health commit cadence.
+  While a published watcher has a `sustain` poll (Twitch HLS) it runs every 30 seconds, so a
+  suspended service worker still polls between commits; a wake that is not due for a commit runs
+  only that poll. The period is re-ensured only when it changes, because ensuring restarts it.
 
 - **Ticks reserve, then publish.** Inside its platform lock, a tick calls `reserveTablessWatchers`.
   That only does in-memory work: it allocates a new context's generation, stamps the cadence on the
@@ -804,7 +809,8 @@ Kick may retain an extension-owned page-context tab when its service-worker fetc
 - Channel validation calls `StreamInfo` with an inline public query and anonymous credentials to avoid logged-in integrity-token failures. For live category matches, it briefly caches `DropsHighlightService_AvailableDrops` results to confirm the selected campaign; unavailable or malformed confirmation data falls back to the live/category result. If `StreamInfo` fails, validation falls back to parsing channel page HTML.
 - Reward claiming calls `DropsPage_ClaimDropRewards`.
 - Channel points claiming uses live Hermes `claim-available` when the advanced setting is on; `ChannelPointsContext` remains the alarm fallback.
-- Tabless watching requests Twitch HLS playlist and media-segment headers while the selected stream is live. The watch alarm records health once a minute; segment requests also run between those checks. The July 2026 profile and the Spade or GraphQL heartbeat remain selectable and send only their own minute-watched beacon.
+- Tabless watching requests Twitch HLS playlist and media-segment headers while the selected stream is live. The watch alarm records health once a minute. Between those checks the watcher polls every 10 seconds with the broadcast and viewer the last check resolved, so the polls add no `StreamInfo` lookups. A failed `PlaybackAccessToken` request is retried after a minute, doubling up to ten minutes while it keeps failing, so neither the polls nor an integrity rejection can loop. The July 2026 profile and the Spade or GraphQL heartbeat remain selectable and send only their own minute-watched beacon.
+- The video CDN (`https://*.ttvnw.net/*`) is an optional grant. The extension background is the one authority for it: it turns Twitch off, with a `permission_missing` activity entry, when Twitch would watch with HLS without the grant, after an update, a revoke, or a change that could not prompt (a settings import). The popup records a change that needs the grant before prompting, and only the background applies it once the host is granted, whether or not the prompt closed the popup.
 
 ## Kick Integration
 

@@ -10,6 +10,9 @@ export type TwitchHeartbeatId =
   | "twitch-heartbeat-spade-v1"
   | "twitch-heartbeat-hls-v1"
   | "twitch-heartbeat-trowel-v1";
+// Tabless web watching that requests media-segment headers from Twitch's video
+// CDN. Shared because the extension and popup gate the CDN permission on it.
+export const TWITCH_HLS_HEARTBEAT_ID = "twitch-heartbeat-hls-v1" satisfies TwitchHeartbeatId;
 export type TwitchInventoryId = "twitch-inventory-v1" | "twitch-inventory-v2";
 export type KickProfileId = "kick-2026-07";
 export type KickClaimId = "kick-claim-v1" | "kick-claim-v2";

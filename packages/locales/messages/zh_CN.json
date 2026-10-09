@@ -1502,6 +1502,9 @@
   "activityReasonManualTabClose": {
     "message": "挂机标签页已关闭"
   },
+  "activityReasonPermissionMissing": {
+    "message": "缺少所需的浏览器权限；重新开启该平台以授予权限"
+  },
   "automationPausedManualWatch": {
     "message": "手动观看"
   },

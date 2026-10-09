@@ -12,9 +12,11 @@ export class PendingWatcherDiagnostics {
     if (event.category === "diagnostic") this.push(event);
   };
 
-  push(event: DiagnosticEvent): void {
+  // Stamped now, not when drained: polls between controller operations (the
+  // HLS timer) would otherwise all carry the time of the next drain.
+  push(event: DiagnosticEvent & { emittedAt?: string }): void {
     if (this.events.length >= MAX_PENDING_WATCHER_DIAGNOSTICS) this.events.shift();
-    this.events.push(event);
+    this.events.push({ ...event, emittedAt: event.emittedAt ?? new Date().toISOString() } as DiagnosticEvent);
   }
 
   drain(): DiagnosticEvent[] {
@@ -56,8 +58,10 @@ export interface TablessWatchController {
   tick(context: WatchContext): Promise<HeartbeatResult>;
   // One watch poll that does not commit minute health. The watch alarm calls
   // this when it wakes before the heartbeat is due, so a suspended runtime
-  // still requests new segments. Strategies that have nothing to do between
-  // health commits omit it.
+  // still requests new segments. It reuses what the last heartbeat resolved
+  // and does no channel lookup of its own. Watchers with nothing to do between
+  // health commits omit it; while a published watcher has it, the watch job
+  // runs every 30 seconds instead of every minute.
   sustain?(): Promise<void>;
   // Transfer diagnostics emitted by persistent callbacks/timers since the last
   // controller operation. Draining is destructive and preserves causal order.
