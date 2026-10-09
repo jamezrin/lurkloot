@@ -842,6 +842,12 @@ Stopping behavior depends on ownership and settings:
 
 When `tablessMode` is enabled, or the host has no browser tabs, supported adapters create a `TablessWatchController` instead of opening a watch tab. Twitch sends minute-watched GraphQL events. Kick maintains a viewer WebSocket and sends watch livestream events. The one-minute watch alarm records heartbeat health in the platform session. A browser host can fall back to a visible muted tab after repeated failures; the headless CLI keeps retrying tabless heartbeats because it cannot open a tab.
 
+## Chat Presence
+
+Some rewards need the account in the watched channel's chat: NoPixelV credits daily watch time from the channel's chatter list (#683). `background/chatPresence.ts` keeps one `ChatPresenceClient` per platform in an `ObserverSlot` and reconciles it after each tick commit and settings save, against the committed session only (`chatPresenceDecision` in `core/chatPresence.ts`). Presence is wanted while a platform watches **tablessly** with healthy auth and no manual pause, and either `platform.<p>.alwaysEnterChat` is on or the watching Twitch Extension provider declares `needsChatPresence`. Tab watches never use it: the page joins chat itself. A commit that leaves auth unhealthy or ends the watch stops it before any await. Presence never affects heartbeat health, rotation or tab fallback; its status is attached to snapshots as `state.chatPresence` and never persisted.
+
+The Twitch client (`platforms/twitch/chatPresence.ts`) speaks IRC exactly as the web client does: `CAP REQ :twitch.tv/tags twitch.tv/commands`, `PASS`, `NICK`, `USER`, `JOIN`, switching with `JOIN` then `PART` on one socket. It answers `PING`, follows `RECONNECT`, blocks on an auth `NOTICE`, and sends an idle `PING` after 25 s so Chromium keeps the MV3 worker alive on quiet channels. It never sends a chat message. Only the extension declares the `chatPresence` capability; the CLI reports `alwaysEnterChat` as unsupported. See docs/superpowers/specs/2026-10-05-chat-presence-design.md.
+
 ## Playback Telemetry and Control
 
 Content scripts run on all Twitch/Kick pages, but only the current watch tab is authorized to mutate video state or update farming playback health. Non-managed tabs send passive telemetry only so the background can detect manual watching when `pauseOnManualWatch` is enabled.

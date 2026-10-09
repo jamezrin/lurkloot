@@ -127,6 +127,8 @@ Public source base:
 Relevant bundled assets: `Alert-D-LPMaDd.js`, `TwatterView-C2JjPIqz.js`,
 `useGiveaway--y3iy8yN.js`. Tests use synthetic schemas, never live responses.
 
+Daily watch time accrues only while the viewer is in the channel's chat. A 2026-10-04 live A/B test showed this: during tabless farming the counter started climbing as soon as the channel's popout chat was opened. The vendor client has no presence heartbeat, and the streamer must connect their Twitch account so the backend can read the chatter list. NoPixelV therefore declares `needsChatPresence`, and the chat presence service joins the watched channel's chat (#683).
+
 ## Fortnite live schema evidence
 
 A disposable Chromium extension-origin page on 2026-09-13, with no Twitch tab,
