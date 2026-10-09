@@ -38,6 +38,8 @@ export type TickTrigger =
   | "manual_tick"
   | "critical_failure_dismissed"
   | "tabless_fallback"
+  // The watched Twitch channel's playback topic said its stream ended (#759).
+  | "stream_offline"
   | "claim_handoff"
   | "discovery_signal"
   // Another writer committed while the tick ran its effects, so the tick's

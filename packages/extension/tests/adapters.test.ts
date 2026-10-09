@@ -3618,6 +3618,40 @@ describe("TwitchAdapter", () => {
     }
   });
 
+  // #759: a stream-down push vouches for an offline check, until a stream-up
+  // cancels it or it grows old.
+  describe("stream-down confirmation", () => {
+    const candidate = { platform: "twitch" as const, username: "channel-a", url: "https://www.twitch.tv/channel-a" };
+    const check = (discoveryState: TwitchDiscoveryState, live: boolean) => twitchAdapter(jsonFetcher(() => (
+      { data: { user: { id: "123", stream: live ? { id: "broadcast-a", game: { id: "game" } } : null } } }
+    )), undefined, { discoveryState }).checkChannel(candidate);
+
+    it("confirms an offline check after a stream-down push", async () => {
+      const discoveryState = new TwitchDiscoveryState();
+      discoveryState.recordPlaybackNotice({ type: "stream-down", channelId: "123" });
+      await expect(check(discoveryState, false)).resolves.toMatchObject({ live: false, offlineConfirmed: true });
+    });
+
+    it("does not confirm without a push, after a stream-up, or on a live check", async () => {
+      const none = new TwitchDiscoveryState();
+      expect((await check(none, false)).offlineConfirmed).toBeUndefined();
+      const restarted = new TwitchDiscoveryState();
+      restarted.recordPlaybackNotice({ type: "stream-down", channelId: "123" });
+      restarted.recordPlaybackNotice({ type: "stream-up", channelId: "123" });
+      expect((await check(restarted, false)).offlineConfirmed).toBeUndefined();
+      const live = new TwitchDiscoveryState();
+      live.recordPlaybackNotice({ type: "stream-down", channelId: "123" });
+      expect((await check(live, true)).offlineConfirmed).toBeUndefined();
+    });
+
+    it("forgets a stream-down push after ten minutes", () => {
+      const discoveryState = new TwitchDiscoveryState();
+      discoveryState.recordPlaybackNotice({ type: "stream-down", channelId: "123" }, 0);
+      expect(discoveryState.streamDownReported("123", 10 * 60_000)).toBe(true);
+      expect(discoveryState.streamDownReported("123", 10 * 60_000 + 1)).toBe(false);
+    });
+  });
+
   it("uses a progress-confirmed override for single-channel availability", async () => {
     const discoveryState = new TwitchDiscoveryState();
     discoveryState.rememberProgressConfirmedAvailability(

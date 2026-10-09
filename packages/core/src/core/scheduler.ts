@@ -1928,7 +1928,7 @@ async function shouldKeepWatching(
 
   const check = await adapter.checkChannel(previous.channel, { campaign: previousCampaign, signal });
   const offlineChecks = check.live ? 0 : previous.offlineChecks + 1;
-  if (offlineChecks >= settings.offlineRetryLimit) {
+  if (offlineChecks >= settings.offlineRetryLimit || (!check.live && check.offlineConfirmed)) {
     return { keep: false, offlineChecks, playbackChecks: 0, reason: check.reason ?? "Channel offline retry limit reached", reasonCode: "channel_offline" };
   }
 

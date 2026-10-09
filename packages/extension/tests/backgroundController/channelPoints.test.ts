@@ -740,6 +740,85 @@ describe("background controller", () => {
       expect(env.twitch.claimChannelPoints).toHaveBeenCalledWith(eligible, { signal: expect.any(AbortSignal) });
     });
 
+    // #759: the same observer follows the watched channel's playback topic.
+    describe("playback topic", () => {
+      afterEach(() => { vi.useRealTimers(); });
+
+      async function watchingPlayback(settings = pushSettings({ channelPointsPushClaim: false })) {
+        const env = harness(settings);
+        configureEligibleChannel(env, { channelId: "123" });
+        await env.controller.ensureAlarm();
+        await env.rawController.settleBackgroundWork();
+        return env;
+      }
+
+      it("follows the watched channel even with live-event claiming off", async () => {
+        const env = await watchingPlayback();
+        expect(env.channelPointsPushController.starts).toBe(1);
+        expect(env.channelPointsPushController.claimsFollowed).toBe(false);
+        expect(env.channelPointsPushController.playback?.channelId).toBe("123");
+      });
+
+      it("follows both topics when live-event claiming is on", async () => {
+        const env = await watchingPlayback(pushSettings());
+        expect(env.channelPointsPushController.claimsFollowed).toBe(true);
+        expect(env.channelPointsPushController.playback?.channelId).toBe("123");
+      });
+
+      it("checks the channel a minute after a stream-down push", async () => {
+        const env = await watchingPlayback();
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+        const ticks = vi.mocked(env.twitch.refreshCampaigns).mock.calls.length;
+        env.channelPointsPushController.emitPlayback("stream-down");
+        await vi.advanceTimersByTimeAsync(59_000);
+        expect(env.twitch.refreshCampaigns).toHaveBeenCalledTimes(ticks);
+        await vi.advanceTimersByTimeAsync(1_000);
+        vi.useRealTimers();
+        await vi.waitFor(() => expect(vi.mocked(env.twitch.refreshCampaigns).mock.calls.length).toBeGreaterThan(ticks));
+        await vi.waitFor(() => expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({ message: "Twitch reported the watched stream ended; checking it in 60 s" })));
+      });
+
+      it("drops the check when a stream-up follows", async () => {
+        const env = await watchingPlayback();
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+        const ticks = vi.mocked(env.twitch.refreshCampaigns).mock.calls.length;
+        env.channelPointsPushController.emitPlayback("stream-down");
+        env.channelPointsPushController.emitPlayback("stream-up");
+        await vi.advanceTimersByTimeAsync(120_000);
+        vi.useRealTimers();
+        await env.rawController.settleBackgroundWork();
+        expect(env.twitch.refreshCampaigns).toHaveBeenCalledTimes(ticks);
+      });
+
+      it("drops the check when the observer stops", async () => {
+        const env = await watchingPlayback();
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+        const ticks = vi.mocked(env.twitch.refreshCampaigns).mock.calls.length;
+        env.channelPointsPushController.emitPlayback("stream-down");
+        await env.controller.handleMessage({ type: "saveSettings", settingsPatch: { platform: { twitch: { enabled: false } } } });
+        await env.rawController.settleBackgroundWork();
+        expect(env.channelPointsPushController.stops).toBe(1);
+        // Re-enabled, so a tick that still fired would reach the adapter.
+        await env.controller.handleMessage({ type: "saveSettings", settingsPatch: { platform: { twitch: { enabled: true } } } });
+        await env.rawController.settleBackgroundWork();
+        const afterToggle = vi.mocked(env.twitch.refreshCampaigns).mock.calls.length;
+        await vi.advanceTimersByTimeAsync(120_000);
+        vi.useRealTimers();
+        await env.rawController.settleBackgroundWork();
+        expect(env.twitch.refreshCampaigns).toHaveBeenCalledTimes(afterToggle);
+        void ticks;
+      });
+
+      it("does not follow playback while nothing is watched", async () => {
+        const env = harness(pushSettings({ channelPointsPushClaim: false }));
+        configureEligibleChannel(env, { channelId: "123" });
+        env.state.sessions.twitch = { platform: "twitch", status: "idle", offlineChecks: 0 };
+        await env.controller.ensureAlarm();
+        await env.rawController.settleBackgroundWork();
+        expect(env.channelPointsPushController.starts).toBe(0);
+      });
+    });
+
     it("claims from a live-event notice for the eligible channel", async () => {
       const env = harness(pushSettings());
       await startObserver(env);
