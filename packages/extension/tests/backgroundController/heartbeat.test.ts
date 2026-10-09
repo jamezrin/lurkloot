@@ -2264,4 +2264,33 @@ describe("background controller", () => {
       expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
     },
   );
+
+  it("polls segments on a scheduled wake that is not yet due for a health commit", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-02T12:00:30.000Z"));
+    const sustain = vi.fn(async () => {});
+    const watcher = Object.assign(fakeTablessWatcher(async () => ({ ok: true, live: true })), { sustain });
+    const env = tablessEnv();
+    env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
+    env.state.authHealth.twitch = { status: "healthy" };
+    env.state.sessions.twitch = {
+      platform: "twitch",
+      status: "watching",
+      offlineChecks: 0,
+      watchMode: "tabless",
+      channel: channel("twitch"),
+      campaignId: "twitch-campaign",
+      rewardId: "reward",
+    };
+    env.state.sessions.twitch.tablessHeartbeat = dueHeartbeatCadence(
+      env.state.sessions.twitch,
+      Date.parse("2026-09-02T12:01:00.000Z"),
+    );
+
+    await env.controller.runWatchHeartbeat();
+
+    expect(watcher.tick).not.toHaveBeenCalled();
+    expect(sustain).toHaveBeenCalledOnce();
+    expect(env.state.sessions.twitch.tablessHeartbeat?.nextDueAt).toBe("2026-09-02T12:01:00.000Z");
+  });
 });

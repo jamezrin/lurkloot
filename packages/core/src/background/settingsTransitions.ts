@@ -6,7 +6,7 @@ import { PLATFORM_NAMES } from "./constants";
 import { settingsTickTrigger } from "./helpers";
 import { type ControllerSlices, lateBound } from "./context";
 import type { PreparedSettingsCommit, StateTransaction } from "./stateTransaction";
-import type { ControllerCalls, SettingsCommitOptions } from "./types";
+import type { ControllerCalls, PlatformEnableCause, SettingsCommitOptions } from "./types";
 
 export { isRankingOnlyPatch } from "./stateTransaction";
 
@@ -168,16 +168,30 @@ export function createSettingsTransitions<S extends EngineSettings>(
     }
   }
 
+  function platformEnableDiagnostic(platformLabel: string, action: "enable" | "disable", cause: PlatformEnableCause): string {
+    switch (cause) {
+      case "user":
+        return `User requested ${platformLabel} automation ${action}`;
+      case "missing-hls-host":
+        return `${platformLabel} automation disabled until the video CDN permission is granted`;
+      default: {
+        const unreachable: never = cause;
+        return unreachable;
+      }
+    }
+  }
+
   // The popup's platform switch (#591: moved here from messages.ts). The
   // setPlatformEnabled and setAutomation messages are the same operation now
   // that there is no master switch to flip alongside the platform flag. Both are
   // kept: they are separate wire messages with existing callers.
   async function setPlatformEnabled(
     message: Extract<CoreRuntimeMessage, { type: "setPlatformEnabled" | "setAutomation" }>,
+    cause: PlatformEnableCause = "user",
   ): Promise<RuntimeSnapshot<S>> {
     const platformLabel = PLATFORM_NAMES[message.platform];
     const action = message.enabled ? "enable" : "disable";
-    diagnosticEvent("info", `User requested ${platformLabel} automation ${action}`, message.platform);
+    diagnosticEvent("info", platformEnableDiagnostic(platformLabel, action, cause), message.platform);
     if (platformTickRunning(message.platform)) {
       diagnosticEvent(
         "info",

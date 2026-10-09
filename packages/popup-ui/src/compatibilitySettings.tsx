@@ -34,8 +34,10 @@ const LIFECYCLE_KEYS: Record<CompatibilityLifecycle, string> = {
 
 const OPTION_TITLE_KEYS: Readonly<Record<string, string>> = Object.freeze({
   "twitch-2026-07": "compatibilityOptionTwitchProfile202607",
+  "twitch-2026-10": "compatibilityOptionTwitchProfile202610",
   "twitch-heartbeat-gql-v1": "compatibilityOptionTwitchHeartbeatGqlV1",
   "twitch-heartbeat-spade-v1": "compatibilityOptionTwitchHeartbeatSpadeV1",
+  "twitch-heartbeat-hls-v1": "compatibilityOptionTwitchHeartbeatHlsV1",
   "twitch-heartbeat-trowel-v1": "compatibilityOptionTwitchHeartbeatTrowelV1",
   "twitch-inventory-v1": "compatibilityOptionTwitchInventoryV1",
   "twitch-inventory-v2": "compatibilityOptionTwitchInventoryV2",

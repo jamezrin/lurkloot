@@ -38,12 +38,13 @@ export interface WatchContext {
 }
 
 // A per-platform driver that earns drop progress for the currently-selected
-// channel without a video tab. Twitch sends one minute-watched event per tick.
-// Kick keeps a viewer WebSocket. Its tick writes one overdue handshake or ping
-// and a watch event when one is due, reports healthy only when that watch
-// write landed on an open socket, and reconnects when the socket is down. A
-// hard socket error stays failed so the heartbeat coordinator can fall back
-// to a tab.
+// channel without a video tab. Twitch's HLS watcher requests new media-segment
+// headers about every 10 seconds and keeps the Spade beacon as auxiliary
+// telemetry; older Twitch strategies still send one watch event per tick. Kick
+// keeps a viewer WebSocket. Its tick writes one overdue handshake or ping and
+// a watch event when one is due, reports healthy only when that watch write
+// landed on an open socket, and reconnects when the socket is down. A hard
+// socket error stays failed so the heartbeat coordinator can fall back to a tab.
 export interface TablessWatchController {
   readonly platform: Platform;
   // URL of the channel currently being watched, if any. Used to detect when the
@@ -53,6 +54,11 @@ export interface TablessWatchController {
   start(channel: ChannelCandidate, context: WatchContext): Promise<void>;
   // Run one heartbeat cycle and report health.
   tick(context: WatchContext): Promise<HeartbeatResult>;
+  // One watch poll that does not commit minute health. The watch alarm calls
+  // this when it wakes before the heartbeat is due, so a suspended runtime
+  // still requests new segments. Strategies that have nothing to do between
+  // health commits omit it.
+  sustain?(): Promise<void>;
   // Transfer diagnostics emitted by persistent callbacks/timers since the last
   // controller operation. Draining is destructive and preserves causal order.
   drainEvents(): DiagnosticEvent[];

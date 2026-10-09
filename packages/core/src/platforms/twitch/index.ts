@@ -12,7 +12,8 @@ import { TwitchChannelPointsPushController } from "./channelPointsPush";
 import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchCampaigns, twitchCandidatesFromCampaign, twitchSubscriptionRewardEvidence, withCampaignStatus } from "./parser";
 import type { ResolvedCompatibility, TwitchIdentity } from "../../compatibility/types";
 import { createTwitchHeartbeat } from "./heartbeat/factory";
-import type { TwitchHeartbeatFetchText, TwitchHeartbeatPost, TwitchHeartbeatStrategy } from "./heartbeat/types";
+import { HLS_POLL_INTERVAL_MS, TWITCH_HLS_HEARTBEAT_ID } from "./heartbeat/hls";
+import type { TwitchHeartbeatExchange, TwitchHeartbeatFetchText, TwitchHeartbeatPost, TwitchHeartbeatStrategy } from "./heartbeat/types";
 import { createTwitchInventory } from "./inventory/factory";
 import type { TwitchInventoryCapability } from "./inventory/types";
 
@@ -81,6 +82,11 @@ export interface TwitchAdapterOptions {
   heartbeatIdentity?: TwitchIdentity;
   heartbeatFetchText?: TwitchHeartbeatFetchText;
   heartbeatPost?: TwitchHeartbeatPost;
+  heartbeatExchange?: TwitchHeartbeatExchange;
+  // How often the HLS watcher requests new segments while this process stays
+  // alive. 0 disables the in-process loop; the watch alarm still calls sustain.
+  // Tests pass 0. Production leaves it unset and gets the 10-second default.
+  heartbeatPollIntervalMs?: number;
   discoveryState?: TwitchDiscoveryState;
   // Opt-in exact validation of a campaign against DropsHighlightService_
   // AvailableDrops before a channel may be watched. Off by default: Twitch's
@@ -2771,6 +2777,10 @@ class TwitchWatcher implements TablessWatchController {
   readonly platform = "twitch" as const;
   private channel?: ChannelCandidate;
   private viewerUserId?: string;
+  private pollTimer?: ReturnType<typeof setInterval>;
+  private flight?: Promise<HeartbeatResult>;
+  private generation = 0;
+  private readonly pollIntervalMs: number;
   private readonly diagnostics = new PendingWatcherDiagnostics();
 
   private readonly heartbeatStrategy: TwitchHeartbeatStrategy;
@@ -2778,21 +2788,60 @@ class TwitchWatcher implements TablessWatchController {
   constructor(
     private readonly gql: TwitchGqlTransport,
     private readonly options: TwitchAdapterOptions,
-    // Only the authenticated CurrentUser fallback below uses this. The anonymous
-    // stream lookup and the heartbeat telemetry are deliberately excluded.
+    // CurrentUser and the HLS playback token retry integrity once. The anonymous
+    // stream lookup stays on the raw transport and must not open a page context.
     private readonly ensureIntegrity: (request?: TwitchIntegrityRequest) => Promise<boolean> = async () => false,
   ) {
     this.heartbeatStrategy = options.heartbeatStrategy ?? createTwitchHeartbeat(
       options.compatibility.heartbeat,
       {
-        gql,
+        gql: this.heartbeatGql(),
         emit: this.diagnostics.emit,
         log: (level, message) => this.log(level, message),
         identity: options.heartbeatIdentity ?? "web",
         fetchText: options.heartbeatFetchText,
         post: options.heartbeatPost,
+        exchange: options.heartbeatExchange,
       },
     );
+    this.pollIntervalMs = options.heartbeatPollIntervalMs ?? HLS_POLL_INTERVAL_MS;
+  }
+
+  // PlaybackAccessToken is an authenticated read. One forced refresh matches
+  // the watcher's CurrentUser lookup; a rejection still fails the poll.
+  private heartbeatGql(): TwitchGqlTransport {
+    return async <T>(
+      operationName: string,
+      sha256Hash: string,
+      variables: Record<string, unknown>,
+      query?: string,
+      credentials?: RequestCredentials,
+      emit?: EventEmitter,
+      signal?: AbortSignal,
+      integrityOverride?: TwitchIntegrity,
+    ): Promise<TwitchGqlResponse<T>> => {
+      const send = (override?: TwitchIntegrity) => this.gql<T>(
+        operationName,
+        sha256Hash,
+        variables,
+        query,
+        credentials,
+        emit ?? this.diagnostics.emit,
+        signal,
+        override ?? integrityOverride,
+      );
+      try {
+        return await send();
+      } catch (error) {
+        // PlaybackAccessToken is a read. Watch mutations such as SendEvents
+        // must not be replayed after a partial send.
+        if (operationName !== "PlaybackAccessToken" || !isIntegrityRejection(error, credentials)) throw error;
+        this.log("debug", `Twitch ${operationName} was rejected for integrity; refreshing the token and retrying once`);
+        const retry = await refreshIntegrityForRetry(this.ensureIntegrity, sentIntegrityToken(error), signal);
+        if (!retry.refreshed) throw error;
+        return send(retry.integrity);
+      }
+    };
   }
 
   get channelUrl(): string | undefined {
@@ -2808,18 +2857,78 @@ class TwitchWatcher implements TablessWatchController {
   }
 
   async start(channel: ChannelCandidate, context: WatchContext): Promise<void> {
+    const switched = this.channel !== undefined && this.channel.url !== channel.url;
     this.channel = channel;
     if (context.userId) this.viewerUserId = context.userId;
+    if (switched) {
+      this.generation += 1;
+      this.flight = undefined;
+      this.heartbeatStrategy.reset?.();
+    }
+    this.armSegmentPoll();
   }
 
   async stop(): Promise<void> {
+    this.generation += 1;
+    this.flight = undefined;
+    this.clearSegmentPoll();
+    this.heartbeatStrategy.reset?.();
     this.channel = undefined;
   }
 
+  // One playlist poll outside the minute health commit. The in-process timer
+  // calls this every 10 seconds while the runtime stays alive, and the watch
+  // alarm calls it when that timer was frozen with a suspended service worker.
+  async sustain(): Promise<void> {
+    if (!this.channel || this.heartbeatStrategy.id !== TWITCH_HLS_HEARTBEAT_ID) return;
+    try {
+      const result = await this.tick({});
+      if (!result.ok && result.message && !result.message.endsWith("watch stopped")) {
+        this.log("debug", result.message);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Twitch HLS watch failed";
+      this.log("debug", message.length <= 240 && !/[?#]/.test(message) && !/https?:\/\//i.test(message)
+        ? message
+        : "Twitch HLS watch failed");
+    }
+  }
+
   async tick(context: WatchContext): Promise<HeartbeatResult> {
+    if (this.flight) return this.flight;
+    const flight = this.runTick(context);
+    this.flight = flight;
+    try {
+      return await flight;
+    } finally {
+      if (this.flight === flight) this.flight = undefined;
+    }
+  }
+
+  private armSegmentPoll(): void {
+    if (this.pollTimer || this.pollIntervalMs <= 0) return;
+    if (this.heartbeatStrategy.id !== TWITCH_HLS_HEARTBEAT_ID) return;
+    const timer = setInterval(() => {
+      void this.sustain();
+    }, this.pollIntervalMs);
+    if (typeof timer === "object" && timer !== null && "unref" in timer && typeof timer.unref === "function") {
+      timer.unref();
+    }
+    this.pollTimer = timer;
+  }
+
+  private clearSegmentPoll(): void {
+    if (!this.pollTimer) return;
+    clearInterval(this.pollTimer);
+    this.pollTimer = undefined;
+  }
+
+  private async runTick(context: WatchContext): Promise<HeartbeatResult> {
+    const generation = this.generation;
     const channel = this.channel;
     if (!channel) return { ok: false, message: "Twitch tabless watcher has no channel" };
     if (context.userId) this.viewerUserId = context.userId;
+    const current = () => this.generation === generation && this.channel?.url === channel.url;
 
     // Public stream info (anonymous, like checkChannel) for a fresh broadcast id
     // and liveness; logged-in GQL without an integrity token would be rejected.
@@ -2831,6 +2940,7 @@ class TwitchWatcher implements TablessWatchController {
       "omit",
       this.diagnostics.emit,
     );
+    if (!current()) return { ok: false, live: true, message: "Twitch watch stopped" };
     const stream = info.data?.user?.stream;
     const channelId = info.data?.user?.id ?? channel.channelId;
     const broadcastId = stream?.id ?? channel.broadcastId;
@@ -2840,6 +2950,7 @@ class TwitchWatcher implements TablessWatchController {
     }
 
     const userId = await this.resolveUserId();
+    if (!current()) return { ok: false, live: true, message: "Twitch watch stopped" };
     if (!userId) return { ok: false, live: true, message: "Twitch did not return a logged-in user id" };
     this.log("debug", `Heartbeat for ${channel.username} (broadcast ${broadcastId}, channel ${channelId})`);
 

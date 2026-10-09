@@ -726,4 +726,49 @@ describe("adapter-created twitch watcher diagnostics", () => {
     // The heartbeat itself is never replayed by integrity recovery.
     expect(sendEventsCalls).toBe(1);
   });
+
+  it("recovers the HLS playback token from one integrity rejection", async () => {
+    let tokenCalls = 0;
+    const fetchJson = vi.fn(async (_url: string, init?: RequestInit) => {
+      const operationName = JSON.parse(String(init?.body)).operationName;
+      if (operationName === "StreamInfo") {
+        return { data: { user: { id: "channel-id", stream: { id: "broadcast-id", game: { id: "game", name: "Game" } } } } };
+      }
+      if (operationName === "PlaybackAccessToken") {
+        tokenCalls += 1;
+        if (tokenCalls === 1) return { error: "failed integrity check" };
+        return { data: { streamPlaybackAccessToken: { value: "token-value", signature: "token-sig" } } };
+      }
+      throw new Error(`unexpected operation ${operationName}`);
+    });
+    const ensureIntegrity = vi.fn(async (request?: { forceRefresh?: boolean }) => request?.forceRefresh === true);
+    const exchange = vi.fn(async (url: string, init: RequestInit) => {
+      if (init.method === "GET" && url.includes("/api/channel/hls/")) {
+        return { status: 200, body: "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nhttps://video-weaver.fra05.hls.ttvnw.net/v1/playlist.m3u8\n", url };
+      }
+      if (init.method === "GET") {
+        return { status: 200, body: "#EXTM3U\n#EXTINF:2.0,\nhttps://video-edge.fra05.hls.ttvnw.net/v1/seg-1.ts\n", url };
+      }
+      return { status: 200, body: "", url };
+    });
+    const adapter = twitchAdapter(
+      { fetchJson: fetchJson as never },
+      ensureIntegrity,
+      {
+        compatibility: TWITCH_COMPAT,
+        heartbeatExchange: exchange,
+        heartbeatFetchText: async () => '{"spade_url":"https://spade.twitch.tv/track"}',
+        heartbeatPost: async () => ({ status: 204 }),
+      },
+    );
+    const watcher = adapter.createTablessWatcher?.();
+
+    await watcher?.start({ platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" }, { userId: "viewer-id" });
+    const result = await watcher?.tick({ userId: "viewer-id" });
+
+    expect(result).toMatchObject({ ok: true, live: true });
+    expect(tokenCalls).toBe(2);
+    expect(ensureIntegrity).toHaveBeenCalledOnce();
+    expect(exchange).toHaveBeenCalled();
+  });
 });

@@ -16,7 +16,7 @@ import {
   validHeartbeatGeneration,
   validTablessHeartbeatCadence,
 } from "../core/heartbeatCadence";
-import { PLATFORMS, WATCH_ALARM_NAME } from "./constants";
+import { PLATFORMS, WATCH_ALARM_NAME, WATCH_ALARM_PERIOD_MINUTES } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
 import { emitHostCallbackError } from "./helpers";
 import type { BackgroundHostPorts } from "./hostPorts";
@@ -112,10 +112,10 @@ export function createHeartbeatCoordinator<S extends EngineSettings>(
     kick: newHeartbeatLane(),
   };
 
-  // The heartbeat cadence is fixed at one minute (#336); each run admits only
-  // the heartbeats that are due.
+  // Health commits stay one minute apart (#336). The watch alarm is shorter so
+  // a suspended runtime can still request new HLS segments between them.
   async function ensureHeartbeatJob(): Promise<void> {
-    await ports.jobs.ensure(WATCH_ALARM_NAME, { periodInMinutes: 1 });
+    await ports.jobs.ensure(WATCH_ALARM_NAME, { periodInMinutes: WATCH_ALARM_PERIOD_MINUTES });
   }
 
   function withHeartbeatLane<T>(
@@ -748,6 +748,26 @@ export function createHeartbeatCoordinator<S extends EngineSettings>(
     return result.status !== "stale" && recovered;
   }
 
+  // One segment poll outside the heartbeat lane. A failure here does not change
+  // the minute health commit; the next due heartbeat still reports watch health.
+  async function sustainTablessWatcher(watcher: TablessWatchController, platform: Platform): Promise<void> {
+    if (!watcher.sustain) return;
+    try {
+      await watcher.sustain();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Tabless watch sustain failed";
+      await reportBestEffort([{
+        category: "diagnostic",
+        platform,
+        level: "debug",
+        message: `Tabless watch sustain failed: ${message}`,
+      }]);
+      return;
+    }
+    const pending = watcher.drainEvents();
+    if (pending.length > 0) await reportBestEffort(pending);
+  }
+
   async function requestPlatformHeartbeat(
     platform: Platform,
     settings: S,
@@ -768,6 +788,7 @@ export function createHeartbeatCoordinator<S extends EngineSettings>(
         standaloneCoalescedCalls: number;
         attempt?: HeartbeatAttempt;
         committed?: CommittedHeartbeatContext;
+        sustain?: TablessWatchController;
       };
       while (true) {
         const decision = await withHeartbeatLane(platform, async (lane) => {
@@ -806,7 +827,7 @@ export function createHeartbeatCoordinator<S extends EngineSettings>(
           if (kind === "scheduled") {
             dueAt = Date.parse(committed.session.tablessHeartbeat?.nextDueAt ?? "");
             if (!Number.isFinite(dueAt) || attemptAt < dueAt) {
-              return { start: false, standaloneCoalescedCalls: 0 };
+              return { start: false, standaloneCoalescedCalls: 0, sustain: committed.watcher };
             }
           } else if (
             lane.lastCompletedGeneration === committed.generation
@@ -850,6 +871,8 @@ export function createHeartbeatCoordinator<S extends EngineSettings>(
           });
         }
         await reportBestEffort(events);
+        const watcher = "sustain" in reservation ? reservation.sustain : undefined;
+        if (watcher) await sustainTablessWatcher(watcher, platform);
         return;
       }
 

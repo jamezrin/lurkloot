@@ -16,7 +16,7 @@ describe("Twitch heartbeat strategies", () => {
     const emit = vi.fn();
     const log = vi.fn();
 
-    it("selects Spade for the extension automatic resolution", () => {
+    it("selects HLS for the extension automatic resolution", () => {
       const resolution = resolveCompatibility(DEFAULT_SETTINGS.compatibility, { host: "extension", twitchIdentity: "web" });
       const strategy = createTwitchHeartbeat(resolution.compatibility.twitch.heartbeat, {
         gql: gql as never,
@@ -25,9 +25,23 @@ describe("Twitch heartbeat strategies", () => {
         identity: "web",
         fetchText: vi.fn(),
         post: vi.fn(),
+        exchange: vi.fn(),
       });
 
-      expect(strategy.id).toBe("twitch-heartbeat-spade-v1");
+      expect(strategy.id).toBe("twitch-heartbeat-hls-v1");
+    });
+
+    it("keeps an explicit Spade override selectable", () => {
+      const resolution = resolveCompatibility({
+        ...DEFAULT_SETTINGS.compatibility,
+        twitch: {
+          ...DEFAULT_SETTINGS.compatibility.twitch,
+          heartbeatTransport: "twitch-heartbeat-spade-v1",
+        },
+      }, { host: "extension", twitchIdentity: "web" });
+
+      expect(resolution.compatibility.twitch.heartbeat).toBe("twitch-heartbeat-spade-v1");
+      expect(resolution.warnings).toEqual([]);
     });
 
     it("selects Trowel for the CLI Android automatic resolution", () => {
@@ -70,7 +84,7 @@ describe("Twitch heartbeat strategies", () => {
         },
       }, { host: "extension", twitchIdentity: "web" });
 
-      expect(resolution.compatibility.twitch.heartbeat).toBe("twitch-heartbeat-spade-v1");
+      expect(resolution.compatibility.twitch.heartbeat).toBe("twitch-heartbeat-hls-v1");
       expect(resolution.warnings).toEqual([expect.objectContaining({ code: "unknown_selection" })]);
     });
   });

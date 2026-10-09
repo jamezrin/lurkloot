@@ -107,7 +107,7 @@ describe("parseConfig", () => {
     }, CONFIG_PATH);
 
     expect(config.warnings).toEqual([
-      "Unknown Twitch profile compatibility selection; using twitch-2026-07",
+      "Unknown Twitch profile compatibility selection; using twitch-2026-10",
     ]);
     expect(config.warnings.join(" ")).not.toContain("secret-unknown-profile");
   });

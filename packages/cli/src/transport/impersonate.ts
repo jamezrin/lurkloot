@@ -2,7 +2,17 @@ import { fetchTwitchInBackgroundWith } from "@lurkloot/core/transport";
 import type { PlatformCredentials } from "../authStore";
 import { twitchCookieApi } from "./cookieApi";
 import { createCycleKickFetcher, createNodeKickWebSocketFactory, initCycle, type CycleTLSClient } from "./cycle";
-import { CHROME_HTTP2, CHROME_JA3, createCliAdapters, headersToObject, withHeartbeatTimeout, type CliTwitchIntegrity, type EnabledPlatforms, type TransportHandle } from "./common";
+import { CHROME_HTTP2, CHROME_JA3, createCliAdapters, headersToObject, twitchHeartbeatFailure, withHeartbeatTimeout, type CliTwitchIntegrity, type EnabledPlatforms, type TransportHandle } from "./common";
+
+function responseLocation(headers: Record<string, unknown> | undefined): string | undefined {
+  if (!headers) return undefined;
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() !== "location") continue;
+    if (typeof value === "string" && value.trim()) return value.trim();
+    if (Array.isArray(value) && typeof value[0] === "string" && value[0].trim()) return value[0].trim();
+  }
+  return undefined;
+}
 
 export interface ImpersonateDeps {
   // Injectable for tests; defaults to spawning the real cycletls subprocess.
@@ -48,6 +58,34 @@ export async function createImpersonateTransport(
           disableRedirect: init.redirect === "error" || init.redirect === "manual",
         }, "post"), init.signal);
         return { status: response.status };
+      },
+      heartbeatExchange: async (url, init) => {
+        const method = (init.method ?? "GET").toLowerCase() === "head" ? "head" : "get";
+        try {
+          const response = await withHeartbeatTimeout(() => cycleTLS(url, {
+            ja3: CHROME_JA3,
+            http2Fingerprint: CHROME_HTTP2,
+            userAgent: identity.userAgent,
+            headers: headersToObject(init.headers),
+            disableRedirect: init.redirect === "error" || init.redirect === "manual",
+          }, method), init.signal);
+          const redirecting = response.status >= 300 && response.status < 400;
+          const body = method === "head" || redirecting || response.status === 0
+            ? ""
+            : Buffer.isBuffer(response.data)
+              ? response.data.toString("utf8")
+              : typeof response.data === "string" ? response.data : JSON.stringify(response.data ?? "");
+          const reportedUrl = typeof response.finalUrl === "string" ? response.finalUrl.trim() : "";
+          const location = responseLocation(response.headers);
+          return {
+            status: response.status,
+            body,
+            ...(reportedUrl ? { url: reportedUrl } : {}),
+            ...(location ? { location } : {}),
+          };
+        } catch (error) {
+          throw twitchHeartbeatFailure(url, error);
+        }
       },
     }),
     kickFetcher: () => createCycleKickFetcher(cycleTLS, creds),

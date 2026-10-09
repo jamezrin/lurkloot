@@ -12,6 +12,10 @@ import { AuthProbeSetupError } from "./errors";
 import type { CommitGuard, CommitOptions, CommitResult, PreparedSettingsCommit } from "./stateTransaction";
 import type { TickEffectExecutor } from "./tickEffects";
 
+// "user" is the popup switch. "missing-hls-host" is an extension update that
+// found Twitch enabled on the HLS heartbeat without the video CDN grant.
+export type PlatformEnableCause = "user" | "missing-hls-host";
+
 // Reward ids claimed during one tick, per platform. The post-claim handoff needs
 // the ids (not just the platforms) so it can tell a genuine successor from the
 // reward that was just claimed.
@@ -436,7 +440,10 @@ export interface ControllerCalls<S extends EngineSettings> {
 
   // Runtime message handlers, each in the module that owns what it changes
   // (#591). messages.ts only routes to them.
-  setPlatformEnabled(message: Extract<CoreRuntimeMessage, { type: "setPlatformEnabled" | "setAutomation" }>): Promise<RuntimeSnapshot<S>>;
+  setPlatformEnabled(
+    message: Extract<CoreRuntimeMessage, { type: "setPlatformEnabled" | "setAutomation" }>,
+    cause?: PlatformEnableCause,
+  ): Promise<RuntimeSnapshot<S>>;
   saveSettingsFromMessage(message: Extract<CoreRuntimeMessage, { type: "saveSettings" }>): Promise<RuntimeSnapshot<S>>;
   updateIdleWatchlist(message: Extract<CoreRuntimeMessage, { type: "updateIdleWatchlist" }>): Promise<RuntimeSnapshot<S>>;
   resumeFarmingAfterManualClose(platform: Platform): Promise<RuntimeSnapshot<S>>;

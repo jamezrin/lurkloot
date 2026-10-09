@@ -85,7 +85,11 @@ describe("createTransport", () => {
           ? { data: { currentUser: { id: "viewer" } } }
           : { errors: [{ message: "failed integrity check" }] }) as T;
       } }),
-      twitchHeartbeat: () => ({ heartbeatFetchText: async () => "", heartbeatPost: async () => ({ status: 200 }) }),
+      twitchHeartbeat: () => ({
+        heartbeatFetchText: async () => "",
+        heartbeatPost: async () => ({ status: 200 }),
+        heartbeatExchange: async () => ({ status: 200, body: "" }),
+      }),
       kickFetcher: () => ({ fetchJson: async <T>() => ({}) as T }),
       twitchIntegrity: { current: () => current, ensure },
     });
@@ -131,12 +135,12 @@ describe("createTransport", () => {
     await expect(handle.dispose()).resolves.toBeUndefined();
   });
 
-  it("resolves the Smart TV client to Spade rather than Android Trowel", async () => {
+  it("resolves the Smart TV client to HLS rather than Android Trowel", async () => {
     const handle = await createTransport("http", {}, "/tmp/auth", ENABLED);
 
     const construction = handle.createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS);
 
-    expect(construction.compatibility.twitch.heartbeat).toBe("twitch-heartbeat-spade-v1");
+    expect(construction.compatibility.twitch.heartbeat).toBe("twitch-heartbeat-hls-v1");
     expect(construction.adapters.twitch.compatibility).toEqual(construction.compatibility.twitch);
     expect(construction.adapters.kick.compatibility).toEqual(construction.compatibility.kick);
     await handle.dispose();
@@ -498,7 +502,16 @@ describe("createTransport", () => {
     const handle = await createTransport("http", {
       twitch: { authToken: "token", clientId: "custom-web-client" },
     }, "/tmp/auth", ENABLED);
-    const watcher = handle.adapters.twitch.createTablessWatcher!();
+    const watcher = handle.createAdapter("twitch", () => {}, {
+      ...DEFAULT_ENGINE_SETTINGS,
+      compatibility: {
+        ...DEFAULT_ENGINE_SETTINGS.compatibility,
+        twitch: {
+          ...DEFAULT_ENGINE_SETTINGS.compatibility.twitch,
+          heartbeatTransport: "twitch-heartbeat-spade-v1",
+        },
+      },
+    }).adapter.createTablessWatcher!();
     await watcher.start({ platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" }, { userId: "viewer-id" });
 
     await expect(watcher.tick({})).resolves.toEqual({ ok: true, live: true });

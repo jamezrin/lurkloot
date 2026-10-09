@@ -4,10 +4,11 @@ export type CompatibilityPlatform = "twitch" | "kick";
 export type CompatibilityHost = "extension" | "cli";
 export type TwitchIdentity = "web" | "android";
 
-export type TwitchProfileId = "twitch-2026-07";
+export type TwitchProfileId = "twitch-2026-07" | "twitch-2026-10";
 export type TwitchHeartbeatId =
   | "twitch-heartbeat-gql-v1"
   | "twitch-heartbeat-spade-v1"
+  | "twitch-heartbeat-hls-v1"
   | "twitch-heartbeat-trowel-v1";
 export type TwitchInventoryId = "twitch-inventory-v1" | "twitch-inventory-v2";
 export type KickProfileId = "kick-2026-07";

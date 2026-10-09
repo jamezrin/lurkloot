@@ -25,7 +25,7 @@ import {
   createActivityMessageHandler,
   createRuntimeMessageDispatcher,
 } from "../src/core/activityMessages";
-import { twitchHeartbeatFetchText, twitchHeartbeatPost } from "../src/core/twitchHeartbeatTransport";
+import { twitchHeartbeatExchange, twitchHeartbeatFetchText, twitchHeartbeatPost } from "../src/core/twitchHeartbeatTransport";
 import { createCredentialAvailabilityProvider, createCredentialReader } from "../src/core/credentialAvailability";
 import { createTwitchExtensionCommitHook } from "../src/extensions/commitHook";
 import { createTwitchExtensionHost } from "../src/extensions/host";
@@ -34,6 +34,7 @@ import { createFortniteDriver } from "../src/extensions/fortnite/driver";
 import { createNoPixelDriver } from "../src/extensions/nopixel/driver";
 import { createCredentialHealthObserver } from "../src/core/credentialObserver";
 import { buildCliCredentialBlob, KASADA_COOKIE_ORIGIN } from "../src/core/cliCredentialExport";
+import { suspendTwitchUntilHlsHostGranted, TWITCH_HLS_HOST_ORIGIN } from "../src/core/twitchHlsPermission";
 import { REQUEST_FAILED_RESPONSE } from "../src/core/runtimeRequests";
 
 const localeCatalogs = new Map<string, MessageCatalog | undefined>();
@@ -109,6 +110,7 @@ function createExtensionAdapter(platform: Platform, emit: EventEmitter, settings
         heartbeatIdentity: "web",
         heartbeatFetchText: twitchHeartbeatFetchText,
         heartbeatPost: twitchHeartbeatPost,
+        heartbeatExchange: twitchHeartbeatExchange,
         webSocketFactory: createBrowserWebSocket,
         getAuthToken: async () => (
           await browser.cookies.get({ url: "https://www.twitch.tv", name: "auth-token" })
@@ -356,6 +358,27 @@ export default defineBackground(() => {
   void reconcileExtensions();
 
   browser.runtime.onInstalled.addListener(async (details) => {
+    // An update restarts the extension with the previous Twitch switch still on.
+    // HLS is the default heartbeat and needs the video CDN, which 1.15 never
+    // granted. Turn Twitch off before ensureAlarm resumes farming; the popup
+    // asks for the host when the user turns Twitch back on. A worker wake is
+    // not this restart, so a declined grant is left as the user set it.
+    if (details.reason === "update") {
+      try {
+        await suspendTwitchUntilHlsHostGranted({
+          loadSettings,
+          hasVideoCdnAccess: () => browser.permissions.contains({ origins: [TWITCH_HLS_HOST_ORIGIN] }),
+          disableTwitch: () => controller.disableTwitchUntilHlsHostGranted().then(() => undefined),
+        });
+      } catch {
+        void controller.reportEvents([{
+          category: "diagnostic",
+          platform: "twitch",
+          level: "warn",
+          message: "Could not disable Twitch while the video CDN permission is missing.",
+        }]).catch(() => undefined);
+      }
+    }
     await controller.ensureAlarm();
     // Stamp the install date once so the popup can time the rate/review nudge.
     // Set-if-missing (rather than gating on reason === "install") also backfills

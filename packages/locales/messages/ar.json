@@ -1421,11 +1421,17 @@
   "compatibilityOptionTwitchProfile202607": {
     "message": "Twitch يوليو 2026"
   },
+  "compatibilityOptionTwitchProfile202610": {
+    "message": "Twitch أكتوبر 2026"
+  },
   "compatibilityOptionTwitchHeartbeatGqlV1": {
     "message": "نبض GraphQL الإصدار 1"
   },
   "compatibilityOptionTwitchHeartbeatSpadeV1": {
     "message": "نبض Spade الإصدار 1"
+  },
+  "compatibilityOptionTwitchHeartbeatHlsV1": {
+    "message": "نبض HLS الإصدار 1"
   },
   "compatibilityOptionTwitchHeartbeatTrowelV1": {
     "message": "نبض Trowel الإصدار 1"

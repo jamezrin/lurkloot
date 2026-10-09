@@ -1421,11 +1421,17 @@
   "compatibilityOptionTwitchProfile202607": {
     "message": "Twitch Juli 2026"
   },
+  "compatibilityOptionTwitchProfile202610": {
+    "message": "Twitch Oktober 2026"
+  },
   "compatibilityOptionTwitchHeartbeatGqlV1": {
     "message": "GraphQL-Heartbeat v1"
   },
   "compatibilityOptionTwitchHeartbeatSpadeV1": {
     "message": "Spade-Heartbeat v1"
+  },
+  "compatibilityOptionTwitchHeartbeatHlsV1": {
+    "message": "HLS-Heartbeat v1"
   },
   "compatibilityOptionTwitchHeartbeatTrowelV1": {
     "message": "Trowel-Heartbeat v1"

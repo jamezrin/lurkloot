@@ -8,7 +8,7 @@ Lurkloot is designed as a normal-session WebExtension:
 - It reads Kick's `session_token` cookie only inside Kick's own page context to authorize same-session requests to `web.kick.com`; the token is never persisted, logged, exported, or sent anywhere except Kick's API.
 - It captures and stores Twitch's short-lived `Client-Integrity` bundle locally so claim mutations can replay the same page-issued headers; the bundle expires and is not exported.
 - It does not run Selenium, hidden browser profiles, CAPTCHA handling, or anti-detection bypasses.
-- It limits required host permissions to Twitch and Kick first-party domains. Platform features can move between first-party service subdomains, so domain wildcards prevent farming from breaking whenever either platform changes that internal layout.
+- It limits required host permissions to Twitch and Kick. Twitch's video CDN (`ttvnw.net`) is optional and requested when Twitch is turned on with the HLS watch heartbeat, which is the default. Platform features can move between first-party service subdomains, so domain wildcards prevent farming from breaking whenever either platform changes that internal layout.
 - It stores local extension settings, scheduler state, campaign metadata, a compact local event log, and the transient Twitch integrity bundle described above.
 - The popup is the only public extension surface. It does not expose diagnostics, acceptance reports, settings import/export, cookies, tokens, or credentials.
 - Platform failures use per-platform retry backoff so a broken Twitch or Kick API path is not hammered every scheduler tick.
@@ -28,7 +28,7 @@ Lurkloot is designed as a normal-session WebExtension:
 
 Paste-ready justifications for the Chrome Web Store privacy tab. Each maps to actual usage in the codebase.
 
-- **`alarms`** — Schedules the periodic scheduler tick and the one-minute watch heartbeat that drive drops farming; without it there is no farming loop. (`entrypoints/background.ts`)
+- **`alarms`** — Schedules the periodic scheduler tick and the watch heartbeat that drive drops farming. The watch alarm wakes every 30 seconds so tabless Twitch can request new video segments between its one-minute health check. (`entrypoints/background.ts`)
 - **`storage`** — Persists user settings, scheduler/campaign state, the diagnostic event log, and the short-lived Twitch integrity bundle locally. (`packages/extension/src/core/storage.ts`)
 - **`tabs`** — Opens, pins, mutes, retargets, queries, and closes the extension's own watch tabs and temporary same-origin API tabs; managed tab ids are tracked so only extension-created tabs are touched. (`packages/extension/src/core/tabs.ts`, `packages/core/src/core/tabs.ts`)
 - **`scripting`** — Runs a self-contained `fetch` in the page's MAIN world (same-origin to Twitch/Kick) so platform API calls happen inside the user's logged-in session instead of a cross-origin background request. (`packages/extension/src/core/tabs.ts`)
@@ -41,7 +41,7 @@ Paste-ready justifications for the Chrome Web Store privacy tab. Each maps to ac
 - **`https://*.twitch.tv/*`** — Supports Twitch watch pages, campaign and reward APIs, session authentication, and tabless farming signals. Twitch selects some of these services dynamically and may move them between its own subdomains; domain-wide first-party access keeps farming functional across those changes.
 - **`https://*.kick.com/*`** — Supports Kick watch pages, campaign and reward APIs, session authentication, and tabless watch events. Kick uses multiple first-party service subdomains and may add or replace them as the platform evolves.
 
-These required wildcards replace the previous exact-host list. Existing Chrome users may need to approve the expanded site access after updating before the extension is re-enabled. The access remains restricted to Twitch and Kick domains and is used only for the extension's drop-farming purpose.
+These required wildcards replace the previous exact-host list. Existing Chrome users may need to approve the expanded site access after updating before the extension is re-enabled. The required access remains restricted to Twitch and Kick, and is used only for the extension's drop-farming purpose.
 
 ## Release verification
 
@@ -52,6 +52,10 @@ pnpm zip:firefox
 ```
 
 Manual acceptance remains required with real logged-in Twitch and Kick sessions before publishing because both platforms can change private API and page behavior without notice. Use the popup to enable each platform, verify that visible tab mode opens pinned watch tabs through the user's normal browser session, verify tabless mode falls back when unhealthy, and confirm rewards progress on the platform inventory pages.
+
+## Optional host permission justifications
+
+- **`https://*.ttvnw.net/*`** — Requested when the user turns Twitch on and the selected watch heartbeat is the HLS variant (the default automatic profile). Tabless watching requests playlist and media-segment headers from Twitch's video CDN so drop progress advances without downloading or playing the video. Segment hosts sit on nested `ttvnw.net` subdomains and are not covered by `*.twitch.tv`. Spade, GraphQL, and other non-HLS heartbeats do not ask for this host. An extension update turns Twitch off when this host is missing and the HLS heartbeat is selected, so the next manual enable can show the prompt. Declining that prompt leaves Twitch off. Profiles that resolve to another heartbeat do not ask and can be enabled without this host. (`packages/extension/entrypoints/background.ts`, `packages/extension/entrypoints/popup/app.tsx`, `packages/popup-ui/src/twitchHlsPermission.ts`)
 
 ## Optional reward-provider host justifications
 

@@ -83,6 +83,7 @@ import { StatusStrip } from "./statusStrip";
 import { ViewToolbarSlotContext } from "./viewToolbar";
 import { automationPresentation, type AutomationPresentation } from "./automationStatus";
 import { changeTwitchExtensionEnabled, TwitchExtensionView } from "./twitchExtensions";
+import { requestTwitchHlsAccess } from "./twitchHlsPermission";
 import { SettingsView } from "./settings";
 import { TipsBanner } from "./tips";
 import { TooltipScope } from "./tooltip";
@@ -565,6 +566,11 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   async function updateSettings(patch: SettingsPatch, options?: { tickAfterSave?: boolean; tickAfterSavePlatforms?: Platform[] }): Promise<void> {
     if (!snapshot) return;
     const settingsPatch = patch;
+    const currentSettings = mergeSettings(settingsRef.current ?? snapshot.settings);
+    // permissions.request has to run in this gesture, before any await. A
+    // declined HLS grant drops the change, so Twitch is not left on that heartbeat.
+    const hlsGrant = requestTwitchHlsAccess(adapter, currentSettings, applySettingsPatch(currentSettings, settingsPatch));
+    if (hlsGrant && !await hlsGrant) return;
     const edit = { patch: settingsPatch };
     committedSettingsRef.current ??= settingsRef.current ?? snapshot.settings;
     pendingSettingsEditsRef.current = [...pendingSettingsEditsRef.current, edit];
@@ -602,8 +608,17 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   // carries its own switch, so either can be toggled without selecting it first.
   async function setAutomation(pendingPlatform: Platform, enabled: boolean): Promise<void> {
     if (!snapshot || pendingAutomation[pendingPlatform] != null) return;
+    const currentSettings = mergeSettings(settingsRef.current ?? snapshot.settings);
+    // permissions.request has to run in this click, before any await. Twitch
+    // stays off when the resolved heartbeat is HLS and the video CDN grant is declined.
+    const hlsGrant = requestTwitchHlsAccess(
+      adapter,
+      currentSettings,
+      applySettingsPatch(currentSettings, { platform: { [pendingPlatform]: { enabled } } }),
+    );
     setPendingAutomation((current) => ({ ...current, [pendingPlatform]: enabled }));
     try {
+      if (hlsGrant && !await hlsGrant) return;
       setSnapshot(snapshotWithMergedSettings(await adapter.send<RuntimeSnapshot>({ type: "setAutomation", platform: pendingPlatform, enabled })));
     } catch (error) {
       console.error("Failed to update automation", error);
