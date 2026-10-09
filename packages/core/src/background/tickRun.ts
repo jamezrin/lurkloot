@@ -43,6 +43,7 @@ export function createTickRun<S extends EngineSettings>(
     | "prepareSelection"
     | "reselectUnderLock"
     | "discoverySignalEpochs"
+    | "chatPresenceEpochs"
     | "observeTickCycle"
     | "reserveTablessWatchers"
     | "recordWaitingClaimRewardIds"
@@ -89,6 +90,7 @@ export function createTickRun<S extends EngineSettings>(
     prepareSelection,
     reselectUnderLock,
     discoverySignalEpochs,
+    chatPresenceEpochs,
     observeTickCycle,
     reserveTablessWatchers,
     recordWaitingClaimRewardIds,
@@ -612,6 +614,7 @@ export function createTickRun<S extends EngineSettings>(
               observerEpochs: {
                 discoverySignals: discoverySignalEpochs(schedulerPlatforms),
                 channelPointsPush: twitchChannelPointsPushEpoch(),
+                chatPresence: chatPresenceEpochs(schedulerPlatforms),
               },
               correlate: (hookEvents) => correlateTickDiagnostics(hookEvents, tickContext),
               follow: (work) => {

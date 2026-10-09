@@ -1,0 +1,230 @@
+import type { EventEmitter } from "@lurkloot/shared/events";
+import type { ChatPresenceStatus, EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
+import { chatPresenceDecision, type ChatPresenceClient } from "../core/chatPresence";
+import type { PlatformAdapter } from "../platforms/adapter";
+import { PLATFORMS } from "./constants";
+import { type ControllerSlices, lateBound } from "./context";
+import { emitHostCallbackError } from "./helpers";
+import type { BackgroundHostPorts } from "./hostPorts";
+import { ObserverSlot } from "./observerSlot";
+import type { StateTransaction } from "./stateTransaction";
+import type { ControllerCalls } from "./types";
+
+// Chat presence (docs/superpowers/specs/2026-10-05-chat-presence-design.md):
+// one client per platform following the committed watch, reconciled like the
+// discovery-signal observers. Presence never affects heartbeats.
+export function createChatPresence<S extends EngineSettings>(
+  ports: BackgroundHostPorts<S>,
+  transaction: Pick<StateTransaction<S>, "onCommit" | "onTickConcluded">,
+  { lifecycleSlice }: Pick<ControllerSlices<S>, "lifecycleSlice">,
+  calls: Pick<ControllerCalls<S>,
+    | "createAdapter"
+    | "diagnosticEvent"
+    | "reportBestEffort"
+    | "withEventCollector"
+    | "trackBackgroundWork"
+  >,
+): Pick<ControllerCalls<S>,
+  | "chatPresenceEpochs"
+  | "chatPresenceStatuses"
+  | "stopChatPresenceAndReport"
+  | "stopChatPresenceInBackground"
+> {
+  const { createAdapter, diagnosticEvent, reportBestEffort, withEventCollector, trackBackgroundWork } = lateBound(calls);
+  const slots: Record<Platform, ObserverSlot<ChatPresenceClient>> = {
+    twitch: new ObserverSlot<ChatPresenceClient>("twitch", "chat presence", "discard"),
+    kick: new ObserverSlot<ChatPresenceClient>("kick", "chat presence", "discard"),
+  };
+  // "<provider>:<channel>" last announced per platform, so the provider
+  // announcement is made once per presence session.
+  const announced: Partial<Record<Platform, string>> = {};
+  // Platforms this controller has reconciled at least once. Until then a
+  // running watch may predate it (an MV3 worker restart), so a commit may
+  // start presence; afterwards ticks and settings saves keep it current, and
+  // heartbeat commits cost nothing.
+  const reconciled: Record<Platform, boolean> = { twitch: false, kick: false };
+
+  function observersOpen(): boolean {
+    return lifecycleSlice.observersOpen && !lifecycleSlice.controllerShutdown;
+  }
+
+  async function reconcile(
+    platform: Platform,
+    settings: EngineSettings,
+    state: SchedulerState,
+    adapter: PlatformAdapter,
+    emit: EventEmitter,
+    since: number,
+  ): Promise<void> {
+    reconciled[platform] = true;
+    const decision = chatPresenceDecision(platform, settings, state, { capability: ports.capabilities.chatPresence });
+    if (decision?.trigger.kind === "provider") {
+      const key = `${decision.trigger.providerId}:${decision.target.username}`;
+      if (announced[platform] !== key) {
+        announced[platform] = key;
+        emit({
+          category: "diagnostic",
+          platform,
+          level: "info",
+          message: `Joined ${decision.target.username}'s chat because ${decision.trigger.providerId} needs chat presence to earn watch time`,
+        });
+      }
+    } else {
+      announced[platform] = undefined;
+    }
+    await slots[platform].reconcile({
+      wanted: decision !== undefined,
+      factory: adapter.createChatPresenceClient,
+      open: observersOpen,
+      since,
+      emit,
+      start: (client) => client.follow(decision?.target),
+    });
+  }
+
+  async function stopChatPresence(platforms: readonly Platform[], emit: EventEmitter): Promise<void> {
+    for (const platform of platforms) announced[platform] = undefined;
+    await Promise.all(platforms.map((platform) => slots[platform].stop(emit)));
+  }
+
+  async function stopChatPresenceAndReport(platforms: readonly Platform[]): Promise<void> {
+    await withEventCollector(async (emit, events) => {
+      await stopChatPresence(platforms, emit);
+      await reportBestEffort(events);
+    });
+  }
+
+  function stopChatPresenceInBackground(platforms: readonly Platform[]): void {
+    const run = stopChatPresenceAndReport(platforms).catch((error) => {
+      diagnosticEvent("warn", `Chat presence cleanup failed: ${error instanceof Error ? error.message : String(error)}`,
+        platforms.length === 1 ? platforms[0] : undefined);
+    });
+    trackBackgroundWork(run);
+  }
+
+  function chatPresenceEpochs(platforms: readonly Platform[]): Partial<Record<Platform, number>> {
+    return Object.fromEntries(platforms.map((platform) => [platform, slots[platform].epoch]));
+  }
+
+  function chatPresenceStatuses(): Partial<Record<Platform, ChatPresenceStatus>> {
+    const statuses: Partial<Record<Platform, ChatPresenceStatus>> = {};
+    for (const platform of PLATFORMS) {
+      const client = slots[platform].current;
+      if (client) statuses[platform] = client.status();
+    }
+    return statuses;
+  }
+
+  // A commit that leaves auth unhealthy (logout, rejected probe, an account
+  // change being checked, #595) or ends the watch stops presence before any
+  // await, so the old identity never stays in chat.
+  //
+  // After an MV3 worker restart, heartbeat recovery resumes a tabless watch
+  // without a tick, and presence must not wait for the next one: the first
+  // commit this controller sees for an already-running healthy tabless watch
+  // reconciles it in the background. A watch that starts in a tick is
+  // reconciled by the tick's conclusion instead.
+  transaction.onCommit(async (change) => {
+    if (change.kind !== "state") return;
+    const { previous, state } = change;
+    const stopping = change.platforms.filter((platform) =>
+      slots[platform].current !== undefined
+      && (state.authHealth[platform].status !== "healthy"
+        || (previous.sessions[platform].status === "watching" && state.sessions[platform].status !== "watching")));
+    const missing = change.platforms.filter((platform) =>
+      !stopping.includes(platform)
+      && !reconciled[platform]
+      && slots[platform].current === undefined
+      && state.authHealth[platform].status === "healthy"
+      && previous.sessions[platform].status === "watching"
+      && previous.sessions[platform].watchMode === "tabless"
+      && state.sessions[platform].status === "watching"
+      && state.sessions[platform].watchMode === "tabless");
+    if (missing.length > 0) {
+      // Read under the commit: a stop after this point makes `state` stale.
+      const since = chatPresenceEpochs(missing);
+      const run = reconcileFromCommit(missing, state, since).catch((error) => {
+        diagnosticEvent("warn", `Chat presence reconcile failed: ${error instanceof Error ? error.message : String(error)}`);
+      });
+      trackBackgroundWork(run);
+    }
+    if (stopping.length > 0) await stopChatPresenceAndReport(stopping);
+  });
+
+  async function reconcileFromCommit(
+    platforms: readonly Platform[],
+    state: SchedulerState,
+    since: Partial<Record<Platform, number>>,
+  ): Promise<void> {
+    await withEventCollector(async (emit, events) => {
+      try {
+        const settings = await ports.storage.loadSettings();
+        for (const platform of platforms) {
+          if (!observersOpen()) return;
+          reconciled[platform] = true;
+          if (!chatPresenceDecision(platform, settings, state, { capability: ports.capabilities.chatPresence })) continue;
+          const adapter = createAdapter(platform, settings, emit);
+          await reconcile(platform, settings, state, adapter, emit, since[platform] ?? slots[platform].epoch);
+        }
+      } finally {
+        await reportBestEffort(events);
+      }
+    });
+  }
+
+  // A settings save can switch a trigger on or off; follow it at once.
+  transaction.onCommit((change) => {
+    if (change.kind !== "settings" || change.startup) return;
+    const run = reconcileFromSettings(change.settings).catch((error) => {
+      diagnosticEvent("warn", `Chat presence reconcile failed: ${error instanceof Error ? error.message : String(error)}`);
+    });
+    trackBackgroundWork(run);
+  });
+
+  async function reconcileFromSettings(settings: S): Promise<void> {
+    await withEventCollector(async (emit, events) => {
+      try {
+        for (const platform of PLATFORMS) {
+          try {
+            if (!observersOpen()) {
+              await slots[platform].stop(emit);
+              continue;
+            }
+            // Read before the state: a stop after this point makes it stale.
+            const since = slots[platform].epoch;
+            const state = await ports.storage.loadState();
+            if (!chatPresenceDecision(platform, settings, state, { capability: ports.capabilities.chatPresence })) {
+              if (slots[platform].current) await slots[platform].stop(emit);
+              continue;
+            }
+            const adapter = createAdapter(platform, settings, emit);
+            await reconcile(platform, settings, state, adapter, emit, since);
+          } catch (error) {
+            emitHostCallbackError(emit, platform, error, "Could not reconcile chat presence");
+          }
+        }
+      } finally {
+        await reportBestEffort(events);
+      }
+    });
+  }
+
+  // After a tick commits, with no lock held: presence follows the committed
+  // watch. A stop since the commit bumps the epoch, so it backs off.
+  transaction.onTickConcluded((tick) => {
+    if (tick.signal.aborted) return;
+    tick.follow(withEventCollector(async (emit, events) => {
+      for (const platform of tick.platforms) {
+        try {
+          await reconcile(platform, tick.settings, tick.state, tick.adapters[platform], emit,
+            tick.observerEpochs.chatPresence[platform] ?? slots[platform].epoch);
+        } catch (error) {
+          diagnosticEvent("warn", `Chat presence reconcile failed: ${error instanceof Error ? error.message : String(error)}`, platform);
+        }
+      }
+      await reportBestEffort(tick.correlate(events));
+    }));
+  });
+
+  return { chatPresenceEpochs, chatPresenceStatuses, stopChatPresenceAndReport, stopChatPresenceInBackground };
+}

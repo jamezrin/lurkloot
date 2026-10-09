@@ -29,6 +29,8 @@ import { createTabRegistry, forgetManagedPageContextTabs, noteTabClosure, type T
 import { OPAQUE_INTEGRITY_CEILING_MS, type IntegrityHeader, type TwitchIntegrity } from "@lurkloot/core/twitchIntegrity";
 import type { DiscoverySignalController, DiscoverySignalTarget } from "@lurkloot/core/discoverySignals";
 import type { TwitchChannelPointsClaimNotice } from "@lurkloot/core/twitch/channelPointsPush";
+import type { ChatPresenceClient, ChatPresenceTarget } from "@lurkloot/core/chatPresence";
+import type { ChatPresenceStatus } from "@lurkloot/shared/models";
 
 // Fixtures and fakes shared by the background controller tests in
 // tests/backgroundController/, which are split by the owner module each one
@@ -136,6 +138,33 @@ export class FakeChannelPointsPushController {
     this.stops += 1;
     this.onClaimAvailable = undefined;
     this.subscribed = false;
+  }
+}
+
+export class FakeChatPresenceClient implements ChatPresenceClient {
+  follows: Array<ChatPresenceTarget | undefined> = [];
+  stops = 0;
+  followBarrier?: Promise<void>;
+  current: ChatPresenceStatus = { state: "left" };
+  private readonly events: DiagnosticEvent[] = [];
+
+  async follow(target: ChatPresenceTarget | undefined): Promise<void> {
+    this.follows.push(target);
+    if (this.followBarrier) await this.followBarrier;
+    this.current = target ? { state: "joined", channel: target.username } : { state: "left" };
+  }
+
+  status(): ChatPresenceStatus {
+    return this.current;
+  }
+
+  drainEvents(): DiagnosticEvent[] {
+    return this.events.splice(0);
+  }
+
+  async stop(): Promise<void> {
+    this.stops += 1;
+    this.current = { state: "left" };
   }
 }
 
@@ -309,6 +338,9 @@ export function harness(
   const channelPointsPushController = new FakeChannelPointsPushController();
   const channelPointsPushFactory = vi.fn(() => channelPointsPushController);
   twitch.createChannelPointsPushController = channelPointsPushFactory as unknown as PlatformAdapter["createChannelPointsPushController"];
+  const chatPresenceClient = new FakeChatPresenceClient();
+  const chatPresenceFactory = vi.fn(() => chatPresenceClient);
+  twitch.createChatPresenceClient = chatPresenceFactory;
   const reportEvents = vi.fn<(events: readonly EngineEvent[]) => Promise<void>>(async () => undefined);
   const tabRegistry = overrides.tabRegistry ?? createTabRegistry();
   const deps = {
@@ -412,6 +444,8 @@ export function harness(
     discoverySignalFactory,
     channelPointsPushController,
     channelPointsPushFactory,
+    chatPresenceClient,
+    chatPresenceFactory,
     reportEvents: deps.reportEvents,
   };
 }

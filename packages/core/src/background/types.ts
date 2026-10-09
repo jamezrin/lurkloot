@@ -1,5 +1,5 @@
 import type { CategorySearchResult, CoreRuntimeMessage, PlaybackControl, RuntimeSnapshot } from "@lurkloot/shared/messages";
-import type { EngineSettings, Platform, PlaybackTelemetry, SchedulerState, TablessHeartbeatCadence, WatchSession } from "@lurkloot/shared/models";
+import type { ChatPresenceStatus, EngineSettings, Platform, PlaybackTelemetry, SchedulerState, TablessHeartbeatCadence, WatchSession } from "@lurkloot/shared/models";
 import type { DiagnosticEvent, EngineEvent, EventEmitter } from "@lurkloot/shared/events";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 import type { SnapshotSelectionResult } from "../core/scheduler";
@@ -368,6 +368,12 @@ export interface ControllerCalls<S extends EngineSettings> {
   twitchChannelPointsPushEpoch(): number;
   registerTwitchChannelPointsEffects(executor: TickEffectExecutor): TickEffectExecutor;
   runTwitchChannelPointsClaim(): Promise<void>;
+
+  // chatPresence.ts
+  chatPresenceEpochs(platforms: readonly Platform[]): Partial<Record<Platform, number>>;
+  chatPresenceStatuses(): Partial<Record<Platform, ChatPresenceStatus>>;
+  stopChatPresenceAndReport(platforms: readonly Platform[]): Promise<void>;
+  stopChatPresenceInBackground(platforms: readonly Platform[]): void;
 
   // kickRuntime.ts
   abortKickChallengeClaims(reason: string): void;

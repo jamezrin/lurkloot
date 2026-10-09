@@ -93,6 +93,9 @@ export function createLifecycle<S extends EngineSettings>(
     | "stopDiscoverySignalControllersInBackground"
     | "stopTwitchChannelPointsPushAndReport"
     | "stopTwitchChannelPointsPushInBackground"
+    | "chatPresenceStatuses"
+    | "stopChatPresenceAndReport"
+    | "stopChatPresenceInBackground"
     | "tick"
     | "withEventCollector"
     | "withSettingsLock"
@@ -144,6 +147,9 @@ export function createLifecycle<S extends EngineSettings>(
     stopDiscoverySignalControllersInBackground,
     stopTwitchChannelPointsPushAndReport,
     stopTwitchChannelPointsPushInBackground,
+    chatPresenceStatuses,
+    stopChatPresenceAndReport,
+    stopChatPresenceInBackground,
     tick,
     withEventCollector,
     withSettingsLock,
@@ -268,9 +274,11 @@ export function createLifecycle<S extends EngineSettings>(
   }
 
   async function snapshot(): Promise<RuntimeSnapshot<S>> {
+    const state = await ports.storage.loadState();
+    const chatPresence = chatPresenceStatuses();
     return {
       settings: await ports.storage.loadSettings(),
-      state: await ports.storage.loadState(),
+      state: Object.keys(chatPresence).length > 0 ? { ...state, chatPresence } : state,
     };
   }
 
@@ -297,6 +305,7 @@ export function createLifecycle<S extends EngineSettings>(
     clearHeartbeatOwnershipInBackground(PLATFORMS);
     stopDiscoverySignalControllersInBackground(PLATFORMS);
     stopTwitchChannelPointsPushInBackground();
+    stopChatPresenceInBackground(PLATFORMS);
   }
 
   async function prepareForHostReset(resetHostStorage?: () => Promise<void>): Promise<void> {
@@ -316,6 +325,7 @@ export function createLifecycle<S extends EngineSettings>(
       abortTwitchChannelPointsClaims("Host reset");
       await stopDiscoverySignalControllersAndReport(PLATFORMS);
       await stopTwitchChannelPointsPushAndReport();
+      await stopChatPresenceAndReport(PLATFORMS);
       await clearTwitchIntegrityAlarmBestEffort();
       await clearTwitchChannelPointsAlarmBestEffort();
       await clearDropClaimJobsBestEffort();

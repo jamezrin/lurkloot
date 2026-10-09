@@ -141,6 +141,7 @@ export interface TickConclusion<S> {
   readonly observerEpochs: {
     readonly discoverySignals: Partial<Record<Platform, number>>;
     readonly channelPointsPush: number;
+    readonly chatPresence: Partial<Record<Platform, number>>;
   };
   // Tags a hook's own diagnostics with the tick, as the tick tags its own.
   correlate(events: readonly EngineEvent[]): EngineEvent[];
