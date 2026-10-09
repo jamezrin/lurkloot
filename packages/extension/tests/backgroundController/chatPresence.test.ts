@@ -126,6 +126,33 @@ describe("chat presence service", () => {
     expect(env.chatPresenceClient.stops).toBe(1);
   });
 
+  it("replaces a blocked client on a settings save, never on a tick", async () => {
+    const env = harness(chatSettings(true));
+    tablessTwitch(env);
+    await env.controller.tick(["twitch"], "manual_tick");
+    env.chatPresenceClient.current = { state: "blocked", channel: "twitch-creator", reason: "auth" };
+    await env.controller.tick(["twitch"], "manual_tick");
+    expect(env.chatPresenceClient.stops).toBe(0);
+    expect(env.chatPresenceFactory).toHaveBeenCalledOnce();
+
+    // Unrelated to Twitch's trigger: any save is the user acting, and retries.
+    await env.controller.handleMessage({ type: "saveSettings", settingsPatch: { platform: { kick: { alwaysEnterChat: true } } } });
+    await env.controller.settleBackgroundWork();
+    expect(env.chatPresenceClient.stops).toBe(1);
+    expect(env.chatPresenceFactory).toHaveBeenCalledTimes(2);
+    expect(env.chatPresenceClient.follows.at(-1)).toEqual({ username: "twitch-creator" });
+  });
+
+  it("keeps a joined client across a settings save", async () => {
+    const env = harness(chatSettings(true));
+    tablessTwitch(env);
+    await env.controller.tick(["twitch"], "manual_tick");
+    await env.controller.handleMessage({ type: "saveSettings", settingsPatch: { platform: { kick: { alwaysEnterChat: true } } } });
+    await env.controller.settleBackgroundWork();
+    expect(env.chatPresenceClient.stops).toBe(0);
+    expect(env.chatPresenceFactory).toHaveBeenCalledOnce();
+  });
+
   it("does not keep a client whose start finished after auth was invalidated", async () => {
     const env = harness(chatSettings(true));
     tablessTwitch(env);

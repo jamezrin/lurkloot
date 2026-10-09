@@ -206,11 +206,21 @@ export function createChatPresence<S extends EngineSettings>(
               continue;
             }
             // Read before the state: a stop after this point makes it stale.
-            const since = slots[platform].epoch;
+            let since = slots[platform].epoch;
             const state = await ports.storage.loadState();
             if (!chatPresenceDecision(platform, settings, state, { capability: ports.capabilities.chatPresence })) {
               if (slots[platform].current) await slots[platform].stop(emit);
               continue;
+            }
+            // A blocked client never retries a rejected login by itself; a
+            // save is the user acting, so it gets a fresh client. Ticks keep
+            // it (a credential change or a restart also replaces it).
+            if (slots[platform].current?.status().state === "blocked" && slots[platform].epoch === since) {
+              const stopped = slots[platform].stop(emit);
+              // stop() bumps the epoch before its first await: this is our
+              // own stop, and any later one still makes the reconcile back off.
+              since = slots[platform].epoch;
+              await stopped;
             }
             const adapter = createAdapter(platform, settings, emit);
             await reconcile(platform, settings, state, adapter, emit, since);

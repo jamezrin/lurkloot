@@ -151,6 +151,8 @@ export class FakeChatPresenceClient implements ChatPresenceClient {
   async follow(target: ChatPresenceTarget | undefined): Promise<void> {
     this.follows.push(target);
     if (this.followBarrier) await this.followBarrier;
+    // Like the real client, blocked holds until stop().
+    if (this.current.state === "blocked") return;
     this.current = target ? { state: "joined", channel: target.username } : { state: "left" };
   }
 
