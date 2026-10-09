@@ -277,10 +277,12 @@ Vitest, in `packages/extension/tests/`, with a fake WebSocket factory, fake fetc
 
 ## Follow-ups (separate issues)
 
-- Kick viewer-socket conformance. The web client sends the tracking event every 120 s with `vod_id`, the handshake every 15 s and the ping every 30 s. LurkLoot sends the tracking event every 60 s without `vod_id`, and alternates handshake and ping every 13 s.
-- Move Kick discovery signals onto `kick/realtime.ts` as a subscription owner, and off the legacy Pusher endpoint.
-- NoPixelV giveaway start and end over the extension's Hermes broadcast topic, replacing per-minute `/channel/giveaway` polling.
-- Kick drop progress from `drops_category_<cat>` pushes.
-- Twitch live and offline from the `video-playback-by-id` Hermes topic.
-- Enable chat presence on the CLI host, including a check of the chat scope on device-login tokens.
-- Re-test Fortnite with a chat-presence A/B, and flip `needsChatPresence` if its rewards depend on chat.
+Kick chat presence itself, plan 2 above, is #754.
+
+- Kick viewer-socket conformance. The web client sends the tracking event every 120 s with `vod_id`, the handshake every 15 s and the ping every 30 s. LurkLoot sends the tracking event every 60 s without `vod_id`, and alternates handshake and ping every 13 s (#756).
+- Move Kick discovery signals onto `kick/realtime.ts` as a subscription owner, and off the legacy Pusher endpoint (#755).
+- NoPixelV giveaway start and end over the extension's Hermes broadcast topic, replacing per-minute `/channel/giveaway` polling (#757).
+- Kick drop progress from `drops_category_<cat>` pushes (#758; a public category channel can't carry one viewer's progress, so it starts as an investigation).
+- Twitch live and offline from the `video-playback-by-id` Hermes topic (#759).
+- Enable chat presence on the CLI host, including a check of the chat scope on device-login tokens (#760).
+- Re-test Fortnite with a chat-presence A/B, and flip `needsChatPresence` if its rewards depend on chat (#761).
