@@ -10,7 +10,8 @@
         "kind": "fixed",
         "text": "A tabless Idle Watchlist watch now keeps going when no drop campaign is being farmed, on Kick and on Twitch, including after the browser has put the extension to sleep. On Kick the popup could stay on that channel while Kick was not receiving the watch, so your channel level did not move. The watch is sent again, a closed connection is opened on the next check, and a watch counts only after that send has left the browser. A connection that fails outright opens a watch tab."
       }
-    ]
+    ],
+    "date": "2026-10-09"
   },
   {
     "version": "1.15.0",
