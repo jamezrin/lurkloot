@@ -1,8 +1,30 @@
-# Lurkloot
+<p align="center">
+  <img src="docs/assets/readme/logo.png" width="96" height="96" alt="">
+</p>
 
-Lurkloot farms Twitch and Kick rewards automatically. It finds a live target, stays on it, switches when that target stops counting, and claims what you earn. It is free, fully open source, and runs as a browser extension or, in beta, as a headless CLI with Docker.
+<h1 align="center">Lurkloot</h1>
 
-[Website](https://lurkloot.jamezrin.com) · [Chrome Web Store](https://chromewebstore.google.com/detail/lurkloot/aobaackpofkghaejdnnmpmeaiaoibhdn) · [Changelog](https://lurkloot.jamezrin.com/changelog)
+<p align="center">
+  Farm Twitch and Kick rewards automatically.<br>
+  It finds a live target, stays on it, switches when that target stops counting, and claims what you earn.
+</p>
+
+<p align="center">
+  <a href="https://lurkloot.jamezrin.com">Website</a>
+  ·
+  <a href="https://chromewebstore.google.com/detail/lurkloot/aobaackpofkghaejdnnmpmeaiaoibhdn">Chrome Web Store</a>
+  ·
+  <a href="https://lurkloot.jamezrin.com/changelog">Changelog</a>
+</p>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme/popup-dark.png">
+    <img src="docs/assets/readme/popup-light.png" width="720" alt="Lurkloot popup showing the queue while a drop is in progress, with reward cards and a watch timer">
+  </picture>
+</p>
+
+It is free, fully open source, and runs as a browser extension or, in beta, as a headless CLI with Docker.
 
 ## What it farms
 

@@ -118,7 +118,8 @@
         "kind": "fixed",
         "text": "NoPixelV and Fortnite now remember which rewards are finished, and which channels to avoid for a while, when the browser stops and restarts Lurkloot in the background. A finished provider is no longer checked again on every restart, where it could keep taking turns from the other one."
       }
-    ]
+    ],
+    "date": "2026-10-03"
   },
   {
     "version": "1.14.2",
