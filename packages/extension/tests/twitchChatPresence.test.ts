@@ -374,6 +374,13 @@ describe("TwitchChatPresenceClient", () => {
     ]);
   });
 
+  it("retries when a lookup throws instead of rejecting", async () => {
+    const env = setup({ getAuthToken: () => { throw new Error("storage unavailable"); } });
+    await env.client.follow({ username: "prod" });
+    expect(env.client.status()).toEqual({ state: "error", channel: "prod" });
+    expect(env.clock.pendingDelays()).toEqual([1_000]);
+  });
+
   it("never logs the token lookup's error", async () => {
     const env = setup({ getAuthToken: async () => { throw new Error("cookie secret-token unreadable"); } });
     await env.client.follow({ username: "prod" });

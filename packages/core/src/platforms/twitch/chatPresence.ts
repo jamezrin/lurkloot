@@ -153,9 +153,11 @@ export class TwitchChatPresenceClient implements ChatPresenceClient {
     try {
       // A client lives for one identity (an auth change stops it), so the
       // login is resolved once rather than on every reconnect.
+      // Called inside then() so a lookup that throws, rather than rejects,
+      // still settles here and the retry below is scheduled.
       const [tokenResult, loginResult] = await Promise.allSettled([
-        this.deps.getAuthToken(),
-        this.login ?? this.deps.resolveLogin(),
+        Promise.resolve().then(() => this.deps.getAuthToken()),
+        this.login ?? Promise.resolve().then(() => this.deps.resolveLogin()),
       ]);
       if (this.stopped || !this.desired || this.ws) return;
       if (loginResult.status === "rejected") {
