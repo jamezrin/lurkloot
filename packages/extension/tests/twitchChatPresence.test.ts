@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { parseIrcLine, TwitchChatPresenceClient, TWITCH_IRC_IDLE_PING_MS, TWITCH_IRC_URL } from "@lurkloot/core/twitch/chatPresence";
 import type { WebSocketLike, WebSocketMessageEventLike } from "@lurkloot/core/webSocket";
+import { twitchAdapter } from "./helpers/adapters";
 
 class FakeSocket implements WebSocketLike {
   readyState = 0;
@@ -227,5 +228,30 @@ describe("TwitchChatPresenceClient", () => {
     await env.client.stop();
     for (const line of socket.sent) expect(line).toMatch(ALLOWED);
     expect(JSON.stringify(env.client.drainEvents())).not.toContain("secret-token");
+  });
+});
+
+
+describe("Twitch chat presence adapter factory", () => {
+  it("exposes a chat presence client only when websocket and auth token deps exist", async () => {
+    const fetcher = {
+      fetchJson: async <T,>(_url: string, init?: RequestInit): Promise<T> => {
+        const body = JSON.parse(String(init?.body ?? "{}"));
+        return (body.operationName === "CurrentUserLogin"
+          ? { data: { currentUser: { id: "1", login: "Viewer" } } }
+          : {}) as T;
+      },
+    };
+    expect(twitchAdapter(fetcher).createChatPresenceClient).toBeUndefined();
+    const sockets: FakeSocket[] = [];
+    const client = twitchAdapter(fetcher, undefined, {
+      webSocketFactory: (url) => { const socket = new FakeSocket(url); sockets.push(socket); return socket; },
+      getAuthToken: async () => "token",
+    }).createChatPresenceClient?.();
+    expect(client).toBeInstanceOf(TwitchChatPresenceClient);
+    await client!.follow({ username: "prod" });
+    sockets[0]!.open();
+    expect(sockets[0]!.sent).toContain("NICK viewer");
+    await client!.stop();
   });
 });
