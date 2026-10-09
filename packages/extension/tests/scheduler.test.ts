@@ -2829,6 +2829,34 @@ describe("scheduler tick", () => {
       );
     };
 
+    // #759: a check the platform's stream-down push agrees with ends the watch
+    // at once; a plain offline check still waits for the retry limit.
+    it.each([
+      { confirmed: true, offlineChecks: 1, leaves: true },
+      { confirmed: false, offlineChecks: 1, leaves: false },
+    ])("leaves an offline channel on its first check only when confirmed ($confirmed)", async ({ confirmed, offlineChecks, leaves }) => {
+      const twitch = adapter("twitch", [campaign("drops")], [channel("old"), channel("fresh")]);
+      vi.mocked(twitch.checkChannel).mockImplementation(async (candidate) => candidate.username === "old"
+        ? { live: false, categoryMatches: true, candidate, reason: "Twitch channel is offline", ...(confirmed ? { offlineConfirmed: true } : {}) }
+        : { live: true, categoryMatches: true, candidate });
+      const result = await runSchedulerTick(
+        {
+          authHealth: HEALTHY_AUTH,
+          sessions: { twitch: watching({}), kick: { platform: "kick", status: "idle", offlineChecks: 0 } },
+          campaigns: { twitch: [], kick: [] },
+        },
+        settings({ offlineRetryLimit: 3, platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+        { twitch, kick: adapter("kick", [], []) },
+      );
+      if (leaves) {
+        expect(result.state.sessions.twitch.reasonCode).toBe("channel_offline");
+        expect(result.state.sessions.twitch.channel?.username).toBe("fresh");
+      } else {
+        expect(result.state.sessions.twitch.channel?.username).toBe("old");
+        expect(result.state.sessions.twitch.offlineChecks).toBe(offlineChecks);
+      }
+    });
+
     it("rotates away once a healthy channel stalls for the retry limit", async () => {
       const result = await tick(
         { noProgressChecks: 2, lastWatchedMinutes: 20 },

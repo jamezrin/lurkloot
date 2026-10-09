@@ -123,6 +123,10 @@ export interface ChannelCheck {
   // definitive false rejects the candidate; soft failures keep the existing
   // live/category validation path usable.
   campaignMatches?: boolean;
+  // An offline check that a second, independent signal agrees with, such as
+  // the platform pushing that the stream ended. One such check ends the watch
+  // instead of waiting for offlineRetryLimit consecutive ones.
+  offlineConfirmed?: boolean;
   reason?: string;
   candidate: ChannelCandidate;
 }

@@ -8,7 +8,7 @@ import { PendingWatcherDiagnostics, type HeartbeatResult, type TablessWatchContr
 import { StaleWhileRevalidateCache } from "../../core/staleCache";
 import type { WebSocketFactory } from "../../core/webSocket";
 import { diagnostic, ignoreEvent, type AdapterOperationOptions, type CandidateChannelSelection, type ChannelPointsClaimOptions, type PageFetcher, type PlatformAdapter } from "../adapter";
-import { TwitchChannelPointsPushController } from "./channelPointsPush";
+import { TwitchChannelPointsPushController, type TwitchPlaybackNotice } from "./channelPointsPush";
 import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchCampaigns, twitchCandidatesFromCampaign, twitchSubscriptionRewardEvidence, withCampaignStatus } from "./parser";
 import type { ResolvedCompatibility, TwitchIdentity } from "../../compatibility/types";
 import { createTwitchHeartbeat } from "./heartbeat/factory";
@@ -43,6 +43,9 @@ const CHANNEL_CAMPAIGN_CACHE_MAX_ENTRIES = 128;
 // The follow list only breaks ties between eligible channels, so a stale minute
 // costs nothing while a fresh read on every tick would be a wasted request.
 const FOLLOWED_CHANNELS_CACHE_TTL_MS = 5 * 60_000;
+// How long a stream-down push vouches for an offline check (#759). A tick
+// follows the push within a minute; anything older is from another session.
+const STREAM_DOWN_HINT_TTL_MS = 10 * 60_000;
 // Followed channels that are live right now. Bounded generously: the preference
 // only matters for channels that also show up in a campaign's directory page.
 const FOLLOWED_CHANNELS_LIMIT = 100;
@@ -580,6 +583,24 @@ export class TwitchDiscoveryState {
   // self-contained value object. Not readonly only so setAuthenticatedUser can
   // swap it wholesale — see there for why replacing beats clearing in place.
   followedChannels = new StaleWhileRevalidateCache<string[]>(FOLLOWED_CHANNELS_CACHE_TTL_MS);
+  // When the Hermes playback topic last said each channel's stream ended
+  // (#759). Lives here because the push outlives the per-tick adapter.
+  private readonly streamDownAt = new Map<string, number>();
+
+  recordPlaybackNotice(notice: TwitchPlaybackNotice, now = Date.now()): void {
+    if (notice.type === "stream-down") this.streamDownAt.set(notice.channelId, now);
+    else this.streamDownAt.delete(notice.channelId);
+  }
+
+  // Whether a recent stream-down push, not cancelled by a stream-up, says
+  // this channel's stream ended.
+  streamDownReported(channelId: string, now = Date.now()): boolean {
+    const at = this.streamDownAt.get(channelId);
+    if (at === undefined) return false;
+    if (now - at <= STREAM_DOWN_HINT_TTL_MS) return true;
+    this.streamDownAt.delete(channelId);
+    return false;
+  }
 
   // Returns whether this call cleared caches for an identity switch, so the
   // caller can log it. A boolean rather than an invalidated-entry count: a
@@ -1091,11 +1112,13 @@ export class TwitchAdapter implements PlatformAdapter {
     const createWebSocket = options.webSocketFactory;
     const getAuthToken = options.getAuthToken;
     if (createWebSocket && getAuthToken) {
+      const discoveryState = this.discoveryState;
       this.createChannelPointsPushController = () => new TwitchChannelPointsPushController({
         createWebSocket,
         getAuthToken,
         resolveUserId: () => this.resolveViewerUserId(),
         clientId: this.options.clientId,
+        observePlayback: (notice) => discoveryState.recordPlaybackNotice(notice),
       });
     }
   }
@@ -1831,7 +1854,10 @@ export class TwitchAdapter implements PlatformAdapter {
     let trustedDirectoryCandidates = 0;
     for (let index = 0; index < candidates.length; index += 1) {
       const candidate = candidates[index];
-      if (candidate.live === true && candidate.isAclMatch === false && candidate.broadcastId) {
+      // A listing that says live is trusted, unless a stream-down push says the
+      // stream since ended (#759): then the stream is checked.
+      if (candidate.live === true && candidate.isAclMatch === false && candidate.broadcastId
+        && !this.streamEndReported(candidate.channelId)) {
         trustedDirectoryCandidates += 1;
         checks[index] = {
           live: true,
@@ -2261,6 +2287,7 @@ export class TwitchAdapter implements PlatformAdapter {
       const categoryId = stream?.game?.id;
       checks.push({
         live: Boolean(stream),
+        ...(!stream && this.streamEndReported(response.data.user.id ?? candidate.channelId) ? { offlineConfirmed: true } : {}),
         categoryMatches: !campaign?.categoryId || categoryId === campaign.categoryId,
         candidate: {
           ...candidate,
@@ -2275,6 +2302,12 @@ export class TwitchAdapter implements PlatformAdapter {
       });
     }
     return { checks, singleFallbacks };
+  }
+
+  // Whether the Hermes playback topic said this channel's stream ended (#759).
+  // An offline check it agrees with ends the watch at once (offlineConfirmed).
+  private streamEndReported(channelId: string | undefined): boolean {
+    return channelId !== undefined && this.discoveryState.streamDownReported(channelId);
   }
 
   async checkChannel(
@@ -2308,6 +2341,7 @@ export class TwitchAdapter implements PlatformAdapter {
         : undefined;
       return {
         live: Boolean(stream),
+        ...(!stream && this.streamEndReported(channelId ?? channel.channelId) ? { offlineConfirmed: true } : {}),
         categoryMatches,
         campaignMatches,
         reason: !stream

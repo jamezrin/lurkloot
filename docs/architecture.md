@@ -809,6 +809,7 @@ Kick may retain an extension-owned page-context tab when its service-worker fetc
 - Channel validation calls `StreamInfo` with an inline public query and anonymous credentials to avoid logged-in integrity-token failures. For live category matches, it briefly caches `DropsHighlightService_AvailableDrops` results to confirm the selected campaign; unavailable or malformed confirmation data falls back to the live/category result. If `StreamInfo` fails, validation falls back to parsing channel page HTML.
 - Reward claiming calls `DropsPage_ClaimDropRewards`.
 - Channel points claiming uses live Hermes `claim-available` when the advanced setting is on; `ChannelPointsContext` remains the alarm fallback.
+- The same Hermes connection follows the watched channel's `video-playback-by-id.<channelId>` topic while LurkLoot watches a Twitch channel, whether or not live-event claiming is on (#759). Only `stream-down` and `stream-up` are read. A `stream-down` schedules a Twitch tick 60 s later, because Twitch's stream query still reports a just-ended stream as live for several seconds. Its offline check then carries `offlineConfirmed`, and the watch ends without waiting for `offlineRetryLimit`. A `stream-up` cancels both the scheduled tick and the confirmation.
 - Tabless watching requests Twitch HLS playlist and media-segment headers while the selected stream is live. The watch alarm records health once a minute. Between those checks the watcher polls every 10 seconds with the broadcast and viewer the last check resolved, so the polls add no `StreamInfo` lookups. A failed `PlaybackAccessToken` request is retried after a minute, doubling up to ten minutes while it keeps failing, so neither the polls nor an integrity rejection can loop. The July 2026 profile and the Spade or GraphQL heartbeat remain selectable and send only their own minute-watched beacon.
 - The video CDN (`https://*.ttvnw.net/*`) is an optional grant. The extension background is the one authority for it: it turns Twitch off, with a `permission_missing` activity entry, when Twitch would watch with HLS without the grant, after an update, a revoke, or a change that could not prompt (a settings import). The popup records a change that needs the grant before prompting, and only the background applies it once the host is granted, whether or not the prompt closed the popup.
 
@@ -861,7 +862,7 @@ Every five seconds, and after visibility/focus/player mutations, the content scr
 
 The scheduler treats playback as healthy when recent telemetry shows at least one video and at least one playing video — muted or not, since the browser may keep a background video muted. The browser tab can still be muted; the platform-visible page video state is intentionally separate from browser tab audio output.
 
-Repeated offline, category mismatch, unhealthy playback checks, or unhealthy tabless heartbeats cause the scheduler to switch channels or fall back according to `offlineRetryLimit`.
+Repeated offline, category mismatch, unhealthy playback checks, or unhealthy tabless heartbeats cause the scheduler to switch channels or fall back according to `offlineRetryLimit`. An offline check that a Twitch `stream-down` push agrees with (`ChannelCheck.offlineConfirmed`) switches at once.
 
 ## Popup and Manual Actions
 
