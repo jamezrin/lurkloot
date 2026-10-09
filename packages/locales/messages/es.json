@@ -800,6 +800,24 @@
   "channelPointsPushClaimDescription": {
     "message": "Reclama el bono en cuanto Twitch lo pone disponible. Desactívalo para comprobar solo una vez por minuto."
   },
+  "alwaysEnterChatTitle": {
+    "message": "Entrar siempre al chat del canal"
+  },
+  "alwaysEnterChatDescription": {
+    "message": "Únete al chat de cada canal que se esté viendo. Los streamers y moderadores pueden verte en la lista de espectadores del chat. Nunca se envían mensajes."
+  },
+  "chatPresenceJoined": {
+    "message": "En el chat"
+  },
+  "chatPresenceJoining": {
+    "message": "Entrando al chat…"
+  },
+  "chatPresenceUnavailable": {
+    "message": "Chat no disponible"
+  },
+  "chatPresenceBlockedAuth": {
+    "message": "Chat no disponible: vuelve a iniciar sesión en Twitch"
+  },
   "strictCampaignAvailabilityTitle": {
     "message": "Disponibilidad estricta de campañas"
   },
@@ -1536,7 +1554,10 @@
     "message": "Obtén recompensas sin pestañas de Twitch. Se respetan la automatización, las exclusiones y la pausa manual."
   },
   "extensionNoPixelHint": {
-    "message": "Obtén paquetes diarios y participa en sorteos."
+    "message": "Obtén paquetes diarios y participa en sorteos. Para acumular tiempo de visualización se entra al chat del canal que se está viendo, así que aparecerás en su lista de espectadores."
+  },
+  "extensionChatPresenceBlocked": {
+    "message": "Fuera del chat: el tiempo de visualización de NoPixel no cuenta hasta que se recupere la presencia en el chat"
   },
   "extensionFortniteHint": {
     "message": "Recoge sprites y obtén recompensas de fase."

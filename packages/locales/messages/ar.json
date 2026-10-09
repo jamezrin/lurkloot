@@ -800,6 +800,24 @@
   "channelPointsPushClaimDescription": {
     "message": "استلم المكافأة فور إتاحتها من Twitch. عطّل الخيار للتحقق مرة واحدة فقط كل دقيقة."
   },
+  "alwaysEnterChatTitle": {
+    "message": "الدخول دائمًا إلى دردشة القناة"
+  },
+  "alwaysEnterChatDescription": {
+    "message": "انضم إلى دردشة كل قناة تتم مشاهدتها. يمكن لصانعي المحتوى والمشرفين رؤيتك في قائمة مشاهدي الدردشة. لا تُرسل أي رسائل أبدًا."
+  },
+  "chatPresenceJoined": {
+    "message": "في الدردشة"
+  },
+  "chatPresenceJoining": {
+    "message": "جارٍ الانضمام إلى الدردشة…"
+  },
+  "chatPresenceUnavailable": {
+    "message": "الدردشة غير متاحة"
+  },
+  "chatPresenceBlockedAuth": {
+    "message": "الدردشة غير متاحة: سجّل الدخول إلى Twitch مجددًا"
+  },
   "strictCampaignAvailabilityTitle": {
     "message": "توفر الحملات الصارم"
   },
@@ -1536,7 +1554,10 @@
     "message": "احصل على المكافآت دون تبويبات Twitch. تسري إعدادات الأتمتة والاستثناءات والإيقاف اليدوي."
   },
   "extensionNoPixelHint": {
-    "message": "احصل على الحزم اليومية وشارك في السحوبات."
+    "message": "احصل على الحزم اليومية وشارك في السحوبات. يتطلب احتساب وقت المشاهدة الانضمام إلى دردشة القناة التي تتم مشاهدتها، لذا ستظهر في قائمة مشاهديها."
+  },
+  "extensionChatPresenceBlocked": {
+    "message": "لست في الدردشة: لا يُحتسب وقت مشاهدة NoPixel حتى يعود الحضور في الدردشة"
   },
   "extensionFortniteHint": {
     "message": "اجمع الشخصيات واحصل على مكافآت المراحل."

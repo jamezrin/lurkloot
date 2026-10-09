@@ -906,6 +906,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
           campaign={activeCampaign}
           farmingChannel={farmingChannel}
           supplementalName={session.supplementalWatch ? t(session.supplementalWatch.id === "nopixel" ? "navNoPixel" : "navFortnite") : undefined}
+          chatPresence={snapshot.state.chatPresence?.[platform]}
           onCampaignClick={session.supplementalWatch ? undefined : onFarmingTitleClick}
           onResume={resumeAfterManualClose}
           enabled={automation[platform]}
@@ -1049,6 +1050,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
                     providerId={view}
                     settings={settings}
                     summary={snapshot.state.twitchExtensions?.[view]}
+                    chatPresence={snapshot.state.chatPresence?.twitch}
                     active={snapshot.state.sessions.twitch.status === "watching"
                       && snapshot.state.sessions.twitch.watchMode === "tabless"
                       && snapshot.state.sessions.twitch.supplementalWatch?.id === view}

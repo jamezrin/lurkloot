@@ -800,6 +800,24 @@
   "channelPointsPushClaimDescription": {
     "message": "जैसे ही Twitch बोनस उपलब्ध कराए, उसे क्लेम करें। बंद करने पर जाँच केवल एक बार प्रति मिनट होगी।"
   },
+  "alwaysEnterChatTitle": {
+    "message": "हमेशा चैनल चैट में शामिल हों"
+  },
+  "alwaysEnterChatDescription": {
+    "message": "देखे जा रहे हर चैनल की चैट में शामिल हों। स्ट्रीमर और मॉडरेटर आपको चैट की दर्शक सूची में देख सकते हैं। कोई संदेश कभी नहीं भेजा जाता।"
+  },
+  "chatPresenceJoined": {
+    "message": "चैट में"
+  },
+  "chatPresenceJoining": {
+    "message": "चैट में शामिल हो रहे हैं…"
+  },
+  "chatPresenceUnavailable": {
+    "message": "चैट उपलब्ध नहीं"
+  },
+  "chatPresenceBlockedAuth": {
+    "message": "चैट उपलब्ध नहीं: Twitch में फिर से साइन इन करें"
+  },
   "strictCampaignAvailabilityTitle": {
     "message": "सख्त अभियान उपलब्धता"
   },
@@ -1536,7 +1554,10 @@
     "message": "Twitch टैब के बिना पुरस्कार पाएँ। Twitch स्वचालन, बहिष्करण और मैन्युअल विराम लागू होते हैं।"
   },
   "extensionNoPixelHint": {
-    "message": "दैनिक पैक पाएँ और उपहार प्रतियोगिताओं में शामिल हों।"
+    "message": "दैनिक पैक पाएँ और उपहार प्रतियोगिताओं में शामिल हों। वॉच टाइम कमाने के लिए देखे जा रहे चैनल की चैट में शामिल होना पड़ता है, इसलिए आप उसकी दर्शक सूची में दिखेंगे।"
+  },
+  "extensionChatPresenceBlocked": {
+    "message": "चैट में नहीं: चैट उपस्थिति लौटने तक NoPixel का वॉच टाइम नहीं गिना जाता"
   },
   "extensionFortniteHint": {
     "message": "स्प्राइट इकट्ठा करें और चरण पुरस्कार पाएँ।"

@@ -800,6 +800,24 @@
   "channelPointsPushClaimDescription": {
     "message": "Claim the bonus as soon as Twitch makes it available. Turn off to only check once a minute."
   },
+  "alwaysEnterChatTitle": {
+    "message": "Always enter channel chat"
+  },
+  "alwaysEnterChatDescription": {
+    "message": "Join the chat of each channel being watched. Streamers and moderators can see you in the chat's viewer list. Messages are never sent."
+  },
+  "chatPresenceJoined": {
+    "message": "In chat"
+  },
+  "chatPresenceJoining": {
+    "message": "Joining chat…"
+  },
+  "chatPresenceUnavailable": {
+    "message": "Chat unavailable"
+  },
+  "chatPresenceBlockedAuth": {
+    "message": "Chat unavailable: sign in to Twitch again"
+  },
   "strictCampaignAvailabilityTitle": {
     "message": "Strict campaign availability"
   },
@@ -1536,7 +1554,10 @@
     "message": "Farm extension rewards without Twitch tabs. Twitch automation, exclusions and manual pause apply."
   },
   "extensionNoPixelHint": {
-    "message": "Earn daily packs and join giveaways."
+    "message": "Earn daily packs and join giveaways. Earning watch time joins the watched channel's chat, so you appear in its viewer list."
+  },
+  "extensionChatPresenceBlocked": {
+    "message": "Not in chat: NoPixel watch time isn't earned until chat presence recovers"
   },
   "extensionFortniteHint": {
     "message": "Collect sprites and earn phase rewards."
