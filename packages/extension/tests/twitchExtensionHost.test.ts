@@ -554,6 +554,113 @@ describe("background tabless provider host", () => {
       expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toMatchObject({ id: "nopixel" });
     });
 
+    // #727: Twitch grants identity per extension, so identity-required is the
+    // same answer on every channel. It blocks the provider, not the channel.
+    describe("identity required", () => {
+      const installs = { nopixel: noPixelInstall, fortnite: fortniteInstall } as const;
+      // Two channels per provider, so walking to the next channel is possible.
+      const channels = {
+        nopixel: [{ id: "123", login: "buddha", game: "32982" }, { id: "456", login: "ssaab", game: "32982" }],
+        fortnite: [{ id: "789", login: "happyhappygal", game: "33214" }, { id: "790", login: "ninja", game: "33214" }],
+      } as const;
+      type Id = keyof typeof channels;
+      function blocked(id: Id, memory?: TwitchExtensionLaneMemoryPort) {
+        const s = setup(memory); s.enableTwitch();
+        const now = Date.UTC(2026, 8, 14, 12); s.source.now.mockReturnValue(now);
+        const all = [...channels.nopixel, ...channels.fortnite];
+        s.query.mockImplementation((async (_query: string, variables: Record<string, unknown>) => {
+          if (typeof variables.channelID === "string") {
+            const jwt = `e30.${btoa(JSON.stringify({ channel_id: variables.channelID, exp: Math.floor(now / 1000) + 3600, role: "viewer", opaque_user_id: "Utest" }))}.signature`;
+            return { data: { user: { channel: { selfInstalledExtensions: Object.values(installs).map((install) => ({ ...install, token: { jwt } })) } } } };
+          }
+          if (typeof variables.gameID === "string") {
+            return { data: { game: { streams: { edges: all.filter((channel) => channel.game === variables.gameID).map((channel) => ({ node: { broadcaster: { id: channel.id, login: channel.login } } })) } } } };
+          }
+          const logins = variables.logins as string[];
+          return { data: { users: all.filter((channel) => logins.includes(channel.login)).map((channel) => ({ id: channel.id, login: channel.login, channel: { selfInstalledExtensions: [installs[channel.game === "32982" ? "nopixel" : "fortnite"]] } })) } };
+        }) as never);
+        const drivers = s.drivers as Record<string, TwitchExtensionDriverFactory>;
+        const started = vi.fn();
+        for (const provider of ["nopixel", "fortnite"] as const) {
+          drivers[provider] = async (_session, emit) => {
+            started(provider);
+            if (provider === id) emit({ status: "unavailable", reasonCode: "identity-required", progress: [], pending: [{ key: "account-link", state: "blocked" }] });
+            return { stop: s.stop };
+          };
+        }
+        const [first] = channels[id];
+        s.state.sessions.twitch = { platform: "twitch", status: "watching", offlineChecks: 0, watchMode: "tabless", supplementalWatch: { id, tablessOnly: true }, channel: { platform: "twitch", username: first.login, url: `https://www.twitch.tv/${first.login}`, channelId: first.id, live: true } };
+        const sessionQueries = () => s.query.mock.calls.filter(([, variables]) => typeof variables.channelID === "string").length;
+        return { s, now, started, sessionQueries, other: (id === "nopixel" ? "fortnite" : "nopixel") as Id };
+      }
+
+      it.each(["nopixel", "fortnite"] as const)("releases the lane from %s instead of walking its channels", async (id) => {
+        const { s, now, started, sessionQueries, other } = blocked(id);
+        s.settings().twitchExtensions[other].enabled = true;
+        await s.host.setEnabled(id, true);
+        expect(s.host.snapshot()[id]).toMatchObject({ status: "unavailable", reasonCode: "identity-required" });
+        expect(s.requestTick).toHaveBeenCalled();
+        expect(s.diagnostic).toHaveBeenCalledWith(`Twitch extension ${id} unavailable on ${channels[id][0].login}: identity-required`);
+        const queries = sessionQueries();
+
+        expect(await s.host.chooseWatchTarget(s.settings(), s.state)).toMatchObject({ id: other });
+        expect(await s.host.chooseWatchTarget(s.settings(), s.state, undefined, id)).toBeUndefined();
+        await s.host.reconcile();
+        expect(started.mock.calls.filter(([provider]) => provider === id)).toHaveLength(1);
+        expect(sessionQueries()).toBe(queries);
+        // The popup keeps asking the user to link the account.
+        expect(s.host.snapshot()[id]).toMatchObject({ status: "unavailable", reasonCode: "identity-required" });
+
+        s.source.now.mockReturnValue(now + 15 * 60_000 + 1);
+        expect(await s.host.chooseWatchTarget(s.settings(), s.state, undefined, id)).toMatchObject({ id });
+      });
+
+      it("shows the block again after an ordinary invalidation", async () => {
+        const { s } = blocked("nopixel");
+        await s.host.setEnabled("nopixel", true);
+        s.host.invalidate();
+        await s.host.reconcile();
+        expect(s.host.snapshot().nopixel).toMatchObject({ status: "unavailable", reasonCode: "identity-required" });
+        expect(await s.host.chooseWatchTarget(s.settings(), s.state, undefined, "nopixel")).toBeUndefined();
+      });
+
+      it.each(["disable", "account"] as const)("probes again at once after a %s change", async (change) => {
+        const { s, started } = blocked("nopixel");
+        await s.host.setEnabled("nopixel", true);
+        if (change === "account") s.host.invalidate({ forgetCompletion: true });
+        else await s.host.setEnabled("nopixel", false);
+        if (change === "account") expect(await s.host.chooseWatchTarget(s.settings(), s.state, undefined, "nopixel")).toMatchObject({ id: "nopixel" });
+        if (change === "disable") await s.host.setEnabled("nopixel", true);
+        else await s.host.reconcile();
+        expect(started).toHaveBeenCalledTimes(2);
+      });
+
+      it("keeps the block across a restart over the same lane memory", async () => {
+        const stored: { value?: unknown } = {};
+        const memory: TwitchExtensionLaneMemoryPort = { load: async () => stored.value, save: async (value) => { stored.value = structuredClone(value); } };
+        const { s } = blocked("nopixel", memory);
+        await s.host.setEnabled("nopixel", true);
+        // The provider is blocked, not the channel it was told on.
+        await vi.waitFor(() => expect(stored.value).toMatchObject({ identityRequiredUntil: { nopixel: expect.any(Number) }, unavailableUntil: {} }));
+
+        const restarted = createTwitchExtensionHost({
+          source: s.source,
+          permissions: { contains: s.contains, request: async () => { throw new Error("UI must request grants"); } },
+          drivers: s.drivers,
+          loadSettings: async () => s.settings(),
+          loadState: async () => s.state,
+          savePatch: async () => undefined,
+          diagnostic: s.diagnostic,
+          publish: vi.fn(),
+          memory,
+          viewerLogin: async () => "viewer",
+        });
+        expect(await restarted.chooseWatchTarget(s.settings(), s.state, undefined, "nopixel")).toBeUndefined();
+        await restarted.reconcile();
+        expect(restarted.snapshot().nopixel).toMatchObject({ status: "unavailable", reasonCode: "identity-required" });
+      });
+    });
+
     it("retries an unavailable provider after its channel cooldown expires", async () => {
       const s = setup(); s.enableTwitch();
       const now = Date.UTC(2026, 8, 14, 12); s.source.now.mockReturnValue(now);
