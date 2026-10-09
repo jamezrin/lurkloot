@@ -203,6 +203,48 @@ describe("TwitchChatPresenceClient", () => {
     expect(env.client.status().state).toBe("error");
   });
 
+  it("keeps backing off across a RECONNECT storm", async () => {
+    const env = setup();
+    await env.client.follow({ username: "prod" });
+    const delays: number[] = [];
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const socket = env.sockets.at(-1)!;
+      socket.open();
+      socket.receive(":tmi.twitch.tv 001 viewer :Welcome, GLHF!");
+      socket.receive(":tmi.twitch.tv RECONNECT");
+      delays.push(Math.min(...env.clock.pendingDelays()));
+      await env.clock.advance(delays.at(-1)!);
+    }
+    expect(delays).toEqual([1_000, 2_000, 4_000, 8_000]);
+  });
+
+  it("backs off failing reconnects after a long stable session and resolves the login once", async () => {
+    const sockets: FakeSocket[] = [];
+    const clock = new FakeClock();
+    let token: string | undefined = "secret-token";
+    let logins = 0;
+    const client = new TwitchChatPresenceClient({
+      createWebSocket: (url) => { const socket = new FakeSocket(url); sockets.push(socket); return socket; },
+      getAuthToken: async () => token,
+      resolveLogin: async () => { logins += 1; return "Viewer"; },
+      setTimer: clock.setTimer,
+      clearTimer: clock.clearTimer,
+      now: clock.now,
+    });
+    clients.push(client);
+    await joined({ client, sockets, clock }, "prod");
+    await clock.advance(10 * 60_000);
+    token = undefined;
+    sockets.at(-1)!.serverClose();
+    const delays: number[] = [];
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      delays.push(Math.min(...clock.pendingDelays()));
+      await clock.advance(delays.at(-1)!);
+    }
+    expect(delays).toEqual([1_000, 2_000, 4_000, 8_000]);
+    expect(logins).toBe(1);
+  });
+
   it("leaves with PART and closes when following nothing", async () => {
     const env = setup();
     const socket = await joined(env);

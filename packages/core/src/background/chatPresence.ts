@@ -1,6 +1,7 @@
 import type { EventEmitter } from "@lurkloot/shared/events";
 import type { ChatPresenceStatus, EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
 import { chatPresenceDecision, type ChatPresenceClient } from "../core/chatPresence";
+import { hasRecentManualWatch } from "../core/manualWatch";
 import type { PlatformAdapter } from "../platforms/adapter";
 import { PLATFORMS } from "./constants";
 import { type ControllerSlices, lateBound } from "./context";
@@ -43,6 +44,10 @@ export function createChatPresence<S extends EngineSettings>(
   // start presence; afterwards ticks and settings saves keep it current, and
   // heartbeat commits cost nothing.
   const reconciled: Record<Platform, boolean> = { twitch: false, kick: false };
+  // The last pauseOnManualWatch this service saw (ticks, settings saves), so
+  // the commit hook can tell a manual watch that pauses farming without a
+  // storage read. Unknown counts as the default, on.
+  let pauseOnManualWatch: boolean | undefined;
 
   function observersOpen(): boolean {
     return lifecycleSlice.observersOpen && !lifecycleSlice.controllerShutdown;
@@ -57,6 +62,7 @@ export function createChatPresence<S extends EngineSettings>(
     since: number,
   ): Promise<void> {
     reconciled[platform] = true;
+    pauseOnManualWatch = settings.pauseOnManualWatch;
     const decision = chatPresenceDecision(platform, settings, state, { capability: ports.capabilities.chatPresence });
     if (decision?.trigger.kind === "provider") {
       const key = `${decision.trigger.providerId}:${decision.target.username}`;
@@ -126,14 +132,22 @@ export function createChatPresence<S extends EngineSettings>(
   // reconciled by the tick's conclusion instead.
   transaction.onCommit(async (change) => {
     if (change.kind !== "state") return;
-    const { previous, state } = change;
+    const { previous, state, committedAt } = change;
+    const manuallyPaused = (value: SchedulerState, platform: Platform): boolean =>
+      Boolean(value.manualClosePause?.[platform])
+      || (pauseOnManualWatch !== false && hasRecentManualWatch(value, platform, committedAt));
+    // Stopped whether or not a client exists yet: the stop bumps the slot's
+    // epoch, so a reconcile that read the older state backs off (#595), as
+    // the discovery-signal observers do.
     const stopping = change.platforms.filter((platform) =>
-      slots[platform].current !== undefined
-      && (state.authHealth[platform].status !== "healthy"
-        || (previous.sessions[platform].status === "watching" && state.sessions[platform].status !== "watching")));
+      state.authHealth[platform].status !== "healthy"
+      || (previous.sessions[platform].status === "watching" && state.sessions[platform].status !== "watching")
+      || (manuallyPaused(state, platform) && !manuallyPaused(previous, platform)));
+    // Auth recovering on a running watch (an account check, a cookie change)
+    // rejoins at once instead of waiting for the next tick.
     const missing = change.platforms.filter((platform) =>
       !stopping.includes(platform)
-      && !reconciled[platform]
+      && (!reconciled[platform] || previous.authHealth[platform].status !== "healthy")
       && slots[platform].current === undefined
       && state.authHealth[platform].status === "healthy"
       && previous.sessions[platform].status === "watching"
@@ -175,6 +189,7 @@ export function createChatPresence<S extends EngineSettings>(
   // A settings save can switch a trigger on or off; follow it at once.
   transaction.onCommit((change) => {
     if (change.kind !== "settings" || change.startup) return;
+    pauseOnManualWatch = change.settings.pauseOnManualWatch;
     const run = reconcileFromSettings(change.settings).catch((error) => {
       diagnosticEvent("warn", `Chat presence reconcile failed: ${error instanceof Error ? error.message : String(error)}`);
     });

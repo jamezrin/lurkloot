@@ -68,11 +68,15 @@ describe("chat presence in the popup", () => {
   it("warns on the active NoPixelV view while it is not in chat", () => {
     const settings = { ...DEFAULT_SETTINGS, twitchExtensions: { ...DEFAULT_SETTINGS.twitchExtensions, nopixel: { ...DEFAULT_SETTINGS.twitchExtensions.nopixel, enabled: true } } };
     const summary = { status: "farming", reasonCode: "watchtime", progress: [{ key: "daily-pack", earned: 3, required: 60 }], pending: [], updatedAt: new Date(0).toISOString() } as never;
-    const view = (chatPresence: ChatPresenceStatus) => render(
+    const view = (chatPresence: ChatPresenceStatus | undefined) => render(
       <TwitchExtensionView providerId="nopixel" settings={settings} summary={summary} active pending={false}
         chatPresence={chatPresence} onEnabledChange={async () => true} onOptionChange={() => undefined} />,
     );
     expect(view({ state: "error", channel: "prod" }).querySelector(`[aria-label="${messages.extensionChatPresenceBlocked}"]`)).not.toBeNull();
     expect(view({ state: "joined", channel: "prod" }).querySelector(`[aria-label="${messages.extensionChatPresenceBlocked}"]`)).toBeNull();
+    // No presence status at all while NoPixelV is active is not being in chat.
+    expect(view(undefined).querySelector(`[aria-label="${messages.extensionChatPresenceBlocked}"]`)).not.toBeNull();
+    // A normal join (every lane rotation) is not a failure.
+    expect(view({ state: "joining", channel: "prod" }).querySelector(`[aria-label="${messages.extensionChatPresenceBlocked}"]`)).toBeNull();
   });
 });

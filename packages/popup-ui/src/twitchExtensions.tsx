@@ -219,7 +219,10 @@ export function TwitchExtensionView({ providerId, settings, summary, active, pen
   const option = providerId === "nopixel"
     ? settings.twitchExtensions.nopixel.autoOpenPacks
     : settings.twitchExtensions.fortnite.allowTakeovers;
-  const chatPresenceBlocked = providerId === "nopixel" && active && chatPresence !== undefined && chatPresence.state !== "joined";
+  // While NoPixelV holds the watch, no presence status at all is not being in
+  // chat either; a join in progress (every lane rotation) is not a failure.
+  const chatPresenceBlocked = providerId === "nopixel" && active
+    && chatPresence?.state !== "joined" && chatPresence?.state !== "joining";
   const { progress, badges } = providerDetails(providerId, summary, t, chatPresenceBlocked);
   const [failure, setFailure] = useState<string>();
 

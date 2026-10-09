@@ -79,7 +79,9 @@ export class TwitchChatPresenceClient implements ChatPresenceClient {
   private blockReason?: ChatPresenceBlockReason;
   private lastWarnKey?: string;
   private reconnectAttempt = 0;
-  private connectedAt = 0;
+  // When the room was last confirmed, until its connection ends. Only a
+  // connection that held a room this long resets the reconnect backoff.
+  private stableSince?: number;
   private reconnectTimer?: Timer;
   private idleTimer?: Timer;
   private readonly diagnostics = new PendingDiscoverySignalDiagnostics();
@@ -137,9 +139,11 @@ export class TwitchChatPresenceClient implements ChatPresenceClient {
     this.connecting = true;
     try {
       let token: string | undefined;
-      let login: string | undefined;
+      // A client lives for one identity (an auth change stops it), so the
+      // login is resolved once rather than on every reconnect.
+      let login = this.login;
       try {
-        [token, login] = await Promise.all([this.deps.getAuthToken(), this.deps.resolveLogin()]);
+        [token, login] = await Promise.all([this.deps.getAuthToken(), login ?? this.deps.resolveLogin()]);
       } catch {
         token = undefined;
       }
@@ -160,7 +164,6 @@ export class TwitchChatPresenceClient implements ChatPresenceClient {
       this.ws = ws;
       this.registered = false;
       this.channelOnServer = undefined;
-      this.connectedAt = this.now();
       this.log("debug", "Opening Twitch chat presence connection");
       ws.addEventListener("open", () => {
         if (this.ws !== ws) return;
@@ -197,8 +200,9 @@ export class TwitchChatPresenceClient implements ChatPresenceClient {
           if (line.trailing && AUTH_FAILURE_NOTICES.some((notice) => line.trailing!.includes(notice))) this.block("auth");
           break;
         case "RECONNECT":
-          // Twitch's maintenance notice: reconnect promptly and rejoin.
-          this.reconnectAttempt = 0;
+          // Twitch's maintenance notice: reconnect and rejoin, backing off
+          // like any other drop so a server that repeats it is not hammered.
+          this.connectionEnded();
           this.closeSocket();
           this.joinedChannel = undefined;
           this.setState("joining");
@@ -229,6 +233,7 @@ export class TwitchChatPresenceClient implements ChatPresenceClient {
     if (this.state === "joined" && this.joinedChannel === channel) return;
     const previous = this.joinedChannel;
     this.joinedChannel = channel;
+    this.stableSince ??= this.now();
     this.setState("joined");
     this.log("debug", previous && previous !== channel
       ? `Twitch chat presence switched ${previous} → ${channel}`
@@ -263,10 +268,13 @@ export class TwitchChatPresenceClient implements ChatPresenceClient {
     this.blockReason = undefined;
     this.state = "left";
     this.lastWarnKey = undefined;
+    this.reconnectAttempt = 0;
+    this.stableSince = undefined;
   }
 
   private onClose(ws: WebSocketLike): void {
     if (this.intentionallyClosed.has(ws) || this.ws !== ws) return;
+    this.connectionEnded();
     this.ws = undefined;
     this.registered = false;
     this.channelOnServer = undefined;
@@ -301,9 +309,15 @@ export class TwitchChatPresenceClient implements ChatPresenceClient {
     this.log("warn", warning ?? `Twitch chat presence lost the connection to ${this.desired ?? "chat"}; reconnecting`);
   }
 
+  // A connection that held its room for STABLE_CONNECTION_MS earns a fresh
+  // backoff; anything shorter keeps doubling it.
+  private connectionEnded(): void {
+    if (this.stableSince !== undefined && this.now() - this.stableSince >= STABLE_CONNECTION_MS) this.reconnectAttempt = 0;
+    this.stableSince = undefined;
+  }
+
   private scheduleReconnect(): void {
     if (this.stopped || this.reconnectTimer !== undefined || !this.desired) return;
-    if (this.connectedAt && this.now() - this.connectedAt >= STABLE_CONNECTION_MS) this.reconnectAttempt = 0;
     const delayMs = Math.min(RECONNECT_BASE_MS * (2 ** this.reconnectAttempt), RECONNECT_MAX_MS);
     this.reconnectAttempt += 1;
     const timer = this.setTimer(() => {

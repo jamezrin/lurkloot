@@ -62,6 +62,62 @@ describe("chat presence service", () => {
     expect(env.chatPresenceClient.stops).toBe(1);
   });
 
+  it("rejoins without waiting for a tick when auth becomes healthy again", async () => {
+    const env = harness(chatSettings(true));
+    tablessTwitch(env);
+    await env.controller.tick(["twitch"], "manual_tick");
+    await env.controller.invalidateAuthHealth("twitch");
+    expect(env.chatPresenceClient.stops).toBe(1);
+    await env.controller.checkAuthHealth("twitch");
+    await env.controller.settleBackgroundWork();
+    expect(env.chatPresenceFactory).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not create a client when auth was invalidated between the commit and the reconcile", async () => {
+    const env = harness(chatSettings(true));
+    const starting = deferred<void>();
+    const watcher = {
+      platform: "twitch" as const,
+      channelUrl: undefined as string | undefined,
+      // The tick publishes its watcher after the commit and before its
+      // conclusion reconciles presence; hold it there.
+      async start(_candidate: ChannelCandidate) { await starting.promise; },
+      async tick() { return { ok: true, live: true }; },
+      drainEvents() { return []; },
+      async stop() {},
+    } satisfies TablessWatchController;
+    env.twitch.supportsTabless = true;
+    env.twitch.createTablessWatcher = () => watcher;
+    const tick = env.controller.tick(["twitch"], "manual_tick");
+    await vi.waitFor(() => expect(env.state.sessions.twitch.status).toBe("watching"));
+    await env.controller.invalidateAuthHealth("twitch");
+    starting.resolve();
+    await tick;
+    await env.controller.settleBackgroundWork();
+    expect(env.chatPresenceFactory).not.toHaveBeenCalled();
+  });
+
+  it("stops presence as soon as a manual watch pauses farming", async () => {
+    const env = harness(chatSettings(true));
+    tablessTwitch(env);
+    await env.controller.tick(["twitch"], "manual_tick");
+    expect(env.chatPresenceClient.current.state).toBe("joined");
+    // Hold the manual-watch tick at its auth probe: only the telemetry commit
+    // itself may stop presence.
+    const probing = deferred<void>();
+    vi.mocked(env.twitch.checkAuthHealth).mockImplementation(async () => {
+      await probing.promise;
+      return { status: "healthy" as const };
+    });
+    void env.rawController.handleMessage(
+      { type: "playbackTelemetry", platform: "twitch", telemetry: { videoCount: 1, mutedVideoCount: 0, unmutedVideoCount: 1, playingVideoCount: 1, blockedPlaybackCount: 0, documentHidden: false } },
+      { tab: { id: 999, url: "https://www.twitch.tv/othercreator" } },
+    );
+    await vi.waitFor(() => expect(env.chatPresenceClient.stops).toBe(1));
+    probing.resolve();
+    await env.controller.settleBackgroundWork();
+  });
+
   it("stops the client when the setting is switched off", async () => {
     const env = harness(chatSettings(true));
     tablessTwitch(env);
