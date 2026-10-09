@@ -74,7 +74,7 @@ describe("popup Twitch enable permission", () => {
     const toggle = await switchLabelled(container, "Twitch automation");
 
     await act(async () => { toggle.click(); });
-    expect(requestTwitchHlsPermission).toHaveBeenCalledTimes(1);
+    expect(requestTwitchHlsPermission).toHaveBeenCalledWith({ type: "setAutomation", platform: "twitch", enabled: true });
     expect(send).not.toHaveBeenCalledWith({ type: "setAutomation", platform: "twitch", enabled: true });
 
     await act(async () => { decide(false); });
@@ -113,7 +113,10 @@ describe("popup Twitch enable permission", () => {
       heartbeat: "twitch-heartbeat-spade-v1",
     });
     await chooseHeartbeat(container, "twitch-heartbeat-hls-v1");
-    expect(requestTwitchHlsPermission).toHaveBeenCalledTimes(1);
+    expect(requestTwitchHlsPermission).toHaveBeenCalledWith({
+      type: "saveSettings",
+      settingsPatch: { compatibility: { twitch: { heartbeatTransport: "twitch-heartbeat-hls-v1" } } },
+    });
     expect(send).toHaveBeenCalledWith(expect.objectContaining({
       type: "saveSettings",
       settingsPatch: { compatibility: { twitch: { heartbeatTransport: "twitch-heartbeat-hls-v1" } } },

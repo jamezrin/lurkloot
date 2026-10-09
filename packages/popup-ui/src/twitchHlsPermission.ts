@@ -1,5 +1,5 @@
 import type { ExtensionSettings } from "@lurkloot/shared/models";
-import type { PopupAdapter } from "./types";
+import type { PopupAdapter, TwitchHlsGrantIntent } from "./types";
 
 const TWITCH_HLS_HEARTBEAT_ID = "twitch-heartbeat-hls-v1";
 
@@ -14,18 +14,20 @@ function twitchUsesHlsHeartbeat(
  * Returns undefined when the next settings would not watch with HLS, so the
  * caller applies the change with no prompt. When they would, returns the grant:
  * a decline must leave Twitch off, or leave a non-HLS heartbeat in place.
+ * `intent` is what to apply after an allow, including if this popup is closed.
  * The caller must invoke this before any await. */
 export function requestTwitchHlsAccess(
   adapter: Pick<PopupAdapter, "resolveCompatibility" | "requestTwitchHlsPermission">,
   current: ExtensionSettings,
   next: ExtensionSettings,
+  intent: TwitchHlsGrantIntent,
 ): Promise<boolean> | undefined {
   const request = adapter.requestTwitchHlsPermission;
   if (!request) return undefined;
   if (!next.platform.twitch.enabled || !twitchUsesHlsHeartbeat(adapter, next)) return undefined;
   if (current.platform.twitch.enabled && twitchUsesHlsHeartbeat(adapter, current)) return undefined;
   try {
-    return request().catch(() => false);
+    return request(intent).catch(() => false);
   } catch {
     return Promise.resolve(false);
   }

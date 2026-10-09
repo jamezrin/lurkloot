@@ -569,7 +569,17 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     const currentSettings = mergeSettings(settingsRef.current ?? snapshot.settings);
     // permissions.request has to run in this gesture, before any await. A
     // declined HLS grant drops the change, so Twitch is not left on that heartbeat.
-    const hlsGrant = requestTwitchHlsAccess(adapter, currentSettings, applySettingsPatch(currentSettings, settingsPatch));
+    const hlsGrant = requestTwitchHlsAccess(
+      adapter,
+      currentSettings,
+      applySettingsPatch(currentSettings, settingsPatch),
+      {
+        type: "saveSettings",
+        settingsPatch,
+        ...(options?.tickAfterSave ? { tickAfterSave: true } : {}),
+        ...(options?.tickAfterSavePlatforms ? { tickAfterSavePlatforms: options.tickAfterSavePlatforms } : {}),
+      },
+    );
     if (hlsGrant && !await hlsGrant) return;
     const edit = { patch: settingsPatch };
     committedSettingsRef.current ??= settingsRef.current ?? snapshot.settings;
@@ -615,6 +625,7 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
       adapter,
       currentSettings,
       applySettingsPatch(currentSettings, { platform: { [pendingPlatform]: { enabled } } }),
+      { type: "setAutomation", platform: "twitch", enabled: true },
     );
     setPendingAutomation((current) => ({ ...current, [pendingPlatform]: enabled }));
     try {

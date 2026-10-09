@@ -1,6 +1,6 @@
 # Architecture
 
-Lurkloot is a WXT browser extension that farms Twitch and Kick drops through normal logged-in browser sessions. Tabless watching is the default (`tablessMode: true`): Twitch sends minute-watched heartbeats and Kick uses a viewer connection, with no stream video. After repeated unhealthy heartbeats, a browser host falls back to a visible muted tab, and that tab plays the stream, so platform ads can run there. The CLI cannot open tabs, so it always watches tabless and retries failed heartbeats in place. The extension does not ask for a password or bypass platform page detection. Session cookies leave the browser only through Settings → Export credentials, a user-confirmed action that writes a local file for the CLI.
+Lurkloot is a WXT browser extension that farms Twitch and Kick drops through normal logged-in browser sessions. Tabless watching is the default (`tablessMode: true`): Twitch requests HLS media-segment headers, with the older minute-watched beacons still selectable, and Kick uses a viewer connection, with no stream video. After repeated unhealthy heartbeats, a browser host falls back to a visible muted tab, and that tab plays the stream, so platform ads can run there. The CLI cannot open tabs, so it always watches tabless and retries failed heartbeats in place. The extension does not ask for a password or bypass platform page detection. Session cookies leave the browser only through Settings → Export credentials, a user-confirmed action that writes a local file for the CLI.
 
 ## Repository Layout
 
@@ -804,7 +804,7 @@ Kick may retain an extension-owned page-context tab when its service-worker fetc
 - Channel validation calls `StreamInfo` with an inline public query and anonymous credentials to avoid logged-in integrity-token failures. For live category matches, it briefly caches `DropsHighlightService_AvailableDrops` results to confirm the selected campaign; unavailable or malformed confirmation data falls back to the live/category result. If `StreamInfo` fails, validation falls back to parsing channel page HTML.
 - Reward claiming calls `DropsPage_ClaimDropRewards`.
 - Channel points claiming uses live Hermes `claim-available` when the advanced setting is on; `ChannelPointsContext` remains the alarm fallback.
-- Tabless watching sends Twitch's `sendSpadeEvents` minute-watched mutation once per watch alarm while the selected stream is live.
+- Tabless watching requests Twitch HLS playlist and media-segment headers while the selected stream is live. The watch alarm records health once a minute; segment requests also run between those checks. The July 2026 profile and the Spade or GraphQL heartbeat remain selectable and send only their own minute-watched beacon.
 
 ## Kick Integration
 
@@ -840,7 +840,7 @@ Stopping behavior depends on ownership and settings:
 
 ## Tabless Watch
 
-Tabless watching is the default (`tablessMode: true`). When it is on, or the host has no browser tabs, supported adapters create a `TablessWatchController` instead of opening a watch tab. Twitch sends minute-watched GraphQL events. Kick maintains a viewer WebSocket and sends watch livestream events. The one-minute watch alarm records heartbeat health in the platform session. A browser host falls back to a visible muted tab after repeated failures, and that tab plays stream video. The headless CLI keeps retrying tabless heartbeats because it cannot open a tab.
+Tabless watching is the default (`tablessMode: true`). When it is on, or the host has no browser tabs, supported adapters create a `TablessWatchController` instead of opening a watch tab. Twitch's default web heartbeat requests HLS segment headers. Older minute-watched heartbeats stay selectable. Kick maintains a viewer WebSocket and sends watch livestream events. The one-minute watch alarm records heartbeat health in the platform session. A browser host falls back to a visible muted tab after repeated failures, and that tab plays stream video. The headless CLI keeps retrying tabless heartbeats because it cannot open a tab.
 
 ## Playback Telemetry and Control
 

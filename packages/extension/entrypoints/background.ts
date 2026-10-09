@@ -34,7 +34,7 @@ import { createFortniteDriver } from "../src/extensions/fortnite/driver";
 import { createNoPixelDriver } from "../src/extensions/nopixel/driver";
 import { createCredentialHealthObserver } from "../src/core/credentialObserver";
 import { buildCliCredentialBlob, KASADA_COOKIE_ORIGIN } from "../src/core/cliCredentialExport";
-import { suspendTwitchUntilHlsHostGranted, TWITCH_HLS_HOST_ORIGIN } from "../src/core/twitchHlsPermission";
+import { createTwitchHlsGrantCompletion, suspendTwitchUntilHlsHostGranted, TWITCH_HLS_HOST_ORIGIN } from "../src/core/twitchHlsPermission";
 import { REQUEST_FAILED_RESPONSE } from "../src/core/runtimeRequests";
 
 const localeCatalogs = new Map<string, MessageCatalog | undefined>();
@@ -257,6 +257,14 @@ const extensionGrantCompletion = createTwitchExtensionGrantCompletion({
   contains: (details) => browser.permissions.contains(details),
   enable: async (provider) => { await extensionHost.setEnabled(provider, true); await controller.tickAndHandOff(["twitch"], "manual_tick"); },
 });
+// The video CDN prompt closes the popup. The recorded intent is applied here
+// once the host is actually granted, and a grant with no intent changes nothing.
+const twitchHlsGrantCompletion = createTwitchHlsGrantCompletion({
+  storage: browser.storage.local,
+  now: Date.now,
+  contains: (details) => browser.permissions.contains(details),
+  complete: async (intent) => { await controller.handleMessage(intent); },
+});
 
 // The lane follows the controller's accepted commits (#594), not storage events
 // or alarms. A worker wake, startup and an auth check reconcile it too.
@@ -343,15 +351,18 @@ export default defineBackground(() => {
 
   browser.permissions.onAdded.addListener((details) => {
     void extensionGrantCompletion.added(details).catch(() => undefined);
+    void twitchHlsGrantCompletion.added(details).catch(() => undefined);
   });
   browser.permissions.onRemoved.addListener((details) => {
     void extensionGrantCompletion.removed(details).catch(() => undefined);
+    void twitchHlsGrantCompletion.removed(details).catch(() => undefined);
     void extensionHost.removed(details).catch(() => undefined);
   });
   // The grant flow's own intent keys; the lane itself follows commits.
   browser.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
     void extensionGrantCompletion.changed(changes).catch(() => undefined);
+    void twitchHlsGrantCompletion.changed(changes).catch(() => undefined);
   });
   // Runs on every MV3 wake/MV2 background start. Stored grants are verified;
   // provider credentials/resources are reacquired rather than restored.
