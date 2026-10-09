@@ -826,6 +826,20 @@ describe("Twitch playback push", () => {
     expect(topics(socket).filter((topic) => topic === "video-playback-by-id.123")).toHaveLength(1);
   });
 
+  it("follows playback when the viewer id lookup fails", async () => {
+    const socket = new FakeSocket();
+    const controller = createPushController({
+      createWebSocket: () => socket,
+      getAuthToken: async () => "auth-token-value",
+      resolveUserId: async () => { throw new Error("lookup failed"); },
+      scheduleKeepAlive: keepAliveScheduler().scheduleKeepAlive,
+    });
+    await controller.start({ playback: { channelId: "123", onNotice: () => undefined } });
+    socket.message(WELCOME);
+    socket.message({ type: "authenticateResponse", authenticateResponse: { result: "ok" }, parentId: JSON.parse(socket.sent[0]!).id });
+    expect(topics(socket)).toEqual(["video-playback-by-id.123"]);
+  });
+
   it("subscribes the playback topic again after a reconnect", async () => {
     const sockets = [new FakeSocket(), new FakeSocket()];
     const reconnect = reconnectScheduler();

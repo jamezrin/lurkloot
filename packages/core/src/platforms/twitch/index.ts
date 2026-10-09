@@ -1854,7 +1854,10 @@ export class TwitchAdapter implements PlatformAdapter {
     let trustedDirectoryCandidates = 0;
     for (let index = 0; index < candidates.length; index += 1) {
       const candidate = candidates[index];
-      if (candidate.live === true && candidate.isAclMatch === false && candidate.broadcastId) {
+      // A listing that says live is trusted, unless a stream-down push says the
+      // stream since ended (#759): then the stream is checked.
+      if (candidate.live === true && candidate.isAclMatch === false && candidate.broadcastId
+        && !this.streamEndReported(candidate.channelId)) {
         trustedDirectoryCandidates += 1;
         checks[index] = {
           live: true,
@@ -2284,6 +2287,7 @@ export class TwitchAdapter implements PlatformAdapter {
       const categoryId = stream?.game?.id;
       checks.push({
         live: Boolean(stream),
+        ...(!stream && this.streamEndReported(response.data.user.id ?? candidate.channelId) ? { offlineConfirmed: true } : {}),
         categoryMatches: !campaign?.categoryId || categoryId === campaign.categoryId,
         candidate: {
           ...candidate,
@@ -2298,6 +2302,12 @@ export class TwitchAdapter implements PlatformAdapter {
       });
     }
     return { checks, singleFallbacks };
+  }
+
+  // Whether the Hermes playback topic said this channel's stream ended (#759).
+  // An offline check it agrees with ends the watch at once (offlineConfirmed).
+  private streamEndReported(channelId: string | undefined): boolean {
+    return channelId !== undefined && this.discoveryState.streamDownReported(channelId);
   }
 
   async checkChannel(
@@ -2329,11 +2339,9 @@ export class TwitchAdapter implements PlatformAdapter {
         && this.options.strictCampaignAvailability
         ? await this.checkCampaignAvailability(channelId, broadcastId, campaign.id, channel.username, signal)
         : undefined;
-      const resolvedChannelId = channelId ?? channel.channelId;
       return {
         live: Boolean(stream),
-        // A stream-down push agrees, so one offline check is enough (#759).
-        ...(!stream && resolvedChannelId && this.discoveryState.streamDownReported(resolvedChannelId) ? { offlineConfirmed: true } : {}),
+        ...(!stream && this.streamEndReported(channelId ?? channel.channelId) ? { offlineConfirmed: true } : {}),
         categoryMatches,
         campaignMatches,
         reason: !stream

@@ -8,6 +8,7 @@ import { TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
 import type { EngineEvent } from "@lurkloot/shared/events";
 import type { DropCampaign, DropReward, ExtensionSettings } from "@lurkloot/shared/models";
 import { chooseCampaignDecision } from "@lurkloot/core/scheduler";
+import { collectDiscoverySnapshot, selectionAdapterFromDiscoverySnapshot, type DiscoverySnapshot } from "@lurkloot/core/discoverySnapshot";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { resolveCompatibility } from "@lurkloot/core";
 import { SafeFetchError, type SafeFetchFailureKind } from "@lurkloot/core/fetchError";
@@ -3642,6 +3643,38 @@ describe("TwitchAdapter", () => {
       const live = new TwitchDiscoveryState();
       live.recordPlaybackNotice({ type: "stream-down", channelId: "123" });
       expect((await check(live, true)).offlineConfirmed).toBeUndefined();
+    });
+
+    // The tick reads retention from the discovery snapshot, which Twitch fills
+    // through selectCandidateChannel, not checkChannel.
+    it("carries the confirmation through discovery to the snapshot's retention check", async () => {
+      const discoveryState = new TwitchDiscoveryState();
+      discoveryState.recordPlaybackNotice({ type: "stream-down", channelId: "123" });
+      const streamQueries: string[] = [];
+      const fetcher = jsonFetcher((_url, init) => {
+        const body = JSON.parse(String(init?.body)) as Record<string, unknown> | Array<Record<string, unknown>>;
+        const requests = Array.isArray(body) ? body : [body];
+        const response = (request: Record<string, unknown>) => {
+          const channel = String((request.variables as { channel?: string }).channel);
+          streamQueries.push(channel);
+          return { data: { user: { id: "123", login: channel, stream: null } } };
+        };
+        return Array.isArray(body) ? requests.map(response) : response(body);
+      });
+      const twitch = twitchAdapter(fetcher, undefined, { discoveryState });
+      // Listed live by the directory, which is trusted unless the stream ended.
+      const watched = { ...candidate, channelId: "123", broadcastId: "broadcast-a", live: true, isAclMatch: false };
+      const result = await collectDiscoverySnapshot({
+        platform: "twitch",
+        refreshCampaigns: async () => [],
+        listCandidateChannels: async () => [],
+        checkChannel: (channel, options) => twitch.checkChannel(channel, options),
+        selectCandidateChannel: (channels, campaign, options) => twitch.selectCandidateChannel(channels, campaign, options),
+        listFollowedChannels: async () => [],
+      }, undefined, new AbortController().signal, Date.now, false, [watched]);
+      expect(streamQueries).toEqual(["channel-a"]);
+      const view = selectionAdapterFromDiscoverySnapshot({ ...result, platform: "twitch" } as DiscoverySnapshot);
+      await expect(view.checkChannel(watched)).resolves.toMatchObject({ live: false, offlineConfirmed: true });
     });
 
     it("forgets a stream-down push after ten minutes", () => {

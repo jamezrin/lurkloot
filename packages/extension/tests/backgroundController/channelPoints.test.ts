@@ -570,7 +570,7 @@ describe("background controller", () => {
 
     it.each([
       {
-        name: "the live-event setting is off",
+        name: "the live-event setting is off, with no playback topic to follow",
         apply: async (env: ReturnType<typeof harness>) => {
           await env.controller.handleMessage({
             type: "saveSettings",
@@ -579,7 +579,7 @@ describe("background controller", () => {
         },
       },
       {
-        name: "auto-claim is off",
+        name: "auto-claim is off, with no playback topic to follow",
         apply: async (env: ReturnType<typeof harness>) => {
           await env.controller.handleMessage({
             type: "saveSettings",
@@ -665,7 +665,7 @@ describe("background controller", () => {
       expect(env.channelPointsPushController.stops).toBe(1);
     });
 
-    it("starts or stops from a live-event setting toggle without waiting for the alarm", async () => {
+    it("starts or stops from a live-event setting toggle without waiting for the alarm, with no playback topic to follow", async () => {
       const env = harness(pushSettings({ channelPointsPushClaim: false }));
       configureEligibleChannel(env);
       env.twitch.claimChannelPoints = vi.fn(async () => true);
@@ -757,6 +757,30 @@ describe("background controller", () => {
         expect(env.channelPointsPushController.starts).toBe(1);
         expect(env.channelPointsPushController.claimsFollowed).toBe(false);
         expect(env.channelPointsPushController.playback?.channelId).toBe("123");
+      });
+
+      it("keeps following playback when live-event claiming is turned off", async () => {
+        const env = await watchingPlayback(pushSettings());
+        await env.controller.handleMessage({ type: "saveSettings", settingsPatch: { platform: { twitch: { channelPointsPushClaim: false } } } });
+        await env.rawController.settleBackgroundWork();
+        expect(env.channelPointsPushController.stops).toBe(0);
+        expect(env.channelPointsPushController.claimsFollowed).toBe(false);
+        expect(env.channelPointsPushController.playback?.channelId).toBe("123");
+      });
+
+      it("drops the check when the watched channel changes", async () => {
+        const env = await watchingPlayback();
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+        env.channelPointsPushController.emitPlayback("stream-down");
+        configureEligibleChannel(env, { channelId: "456" });
+        await env.controller.ensureAlarm();
+        await env.rawController.settleBackgroundWork();
+        expect(env.channelPointsPushController.playback?.channelId).toBe("456");
+        const ticks = vi.mocked(env.twitch.refreshCampaigns).mock.calls.length;
+        await vi.advanceTimersByTimeAsync(120_000);
+        vi.useRealTimers();
+        await env.rawController.settleBackgroundWork();
+        expect(env.twitch.refreshCampaigns).toHaveBeenCalledTimes(ticks);
       });
 
       it("follows both topics when live-event claiming is on", async () => {

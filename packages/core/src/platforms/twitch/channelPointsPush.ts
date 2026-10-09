@@ -158,8 +158,13 @@ export class TwitchChannelPointsPushController {
       this.userId = userId || undefined;
     } catch (error) {
       this.log("warn", `Failed to resolve the Twitch channel-points user id: ${errorMessage(error)}`);
-      this.scheduleNextReconnect();
-      return;
+      // Only the channel-points topic needs the id; playback goes on without it.
+      if (this.owners.onClaimAvailable || !this.owners.playback) {
+        this.scheduleNextReconnect();
+        return;
+      }
+      if (this.stopped) return;
+      this.userId = undefined;
     }
 
     const url = `wss://hermes.twitch.tv/v1?clientId=${this.clientId}`;

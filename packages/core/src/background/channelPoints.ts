@@ -127,9 +127,9 @@ export function createChannelPoints<S extends EngineSettings>(
   // reconcile creates a fresh one.
   const push = new ObserverSlot<TwitchChannelPointsPushController>("twitch", "Twitch channel-points observer", "discard");
   // The check a stream-down push scheduled; a stream-up or a stop cancels it.
-  let streamDownCheck: ReturnType<typeof setTimeout> | undefined;
+  let streamDownCheck: { timer: ReturnType<typeof setTimeout>; channelId: string } | undefined;
   function cancelStreamDownCheck(): void {
-    if (streamDownCheck !== undefined) clearTimeout(streamDownCheck);
+    if (streamDownCheck !== undefined) clearTimeout(streamDownCheck.timer);
     streamDownCheck = undefined;
   }
   const claims = new ChannelPointsClaimGate();
@@ -290,11 +290,12 @@ export function createChannelPoints<S extends EngineSettings>(
     cancelStreamDownCheck();
     if (notice.type !== "stream-down") return;
     diagnosticEvent("debug", `Twitch reported the watched stream ended; checking it in ${TWITCH_STREAM_DOWN_CHECK_DELAY_MS / 1000} s`, "twitch");
-    streamDownCheck = setTimeout(() => {
+    const timer = setTimeout(() => {
       streamDownCheck = undefined;
       if (push.current !== controller || lifecycleSlice.controllerShutdown) return;
       tickInBackground(["twitch"], "stream_offline");
     }, TWITCH_STREAM_DOWN_CHECK_DELAY_MS);
+    streamDownCheck = { timer, channelId: notice.channelId };
   }
 
   // Starts or stops the push for `state`. `since` is the slot's epoch read
@@ -309,7 +310,7 @@ export function createChannelPoints<S extends EngineSettings>(
     const claims = claimsWanted(settings, state);
     const channelId = watchedTwitchChannelId(settings, state);
     // A playback check pending for a channel no longer watched is moot.
-    if (channelId === undefined) cancelStreamDownCheck();
+    if (streamDownCheck && streamDownCheck.channelId !== channelId) cancelStreamDownCheck();
     await push.reconcile({
       wanted: claims || channelId !== undefined,
       factory: adapter.createChannelPointsPushController,
