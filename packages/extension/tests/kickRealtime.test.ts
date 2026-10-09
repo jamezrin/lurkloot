@@ -126,6 +126,17 @@ describe("Kick realtime over Centrifugo", () => {
     expect(s.connection.status()).toEqual({ state: "connecting", provider: "centrifugo" });
   });
 
+  it("negotiates as the client a caller already named", async () => {
+    let ids = 0;
+    const s = setup();
+    const connection = new KickRealtimeConnection({ createWebSocket: () => new FakeSocket("x"), postJson: s.postJson, randomId: () => `client-${++ids}`, setTimer: s.timers.setTimer, clearTimer: s.timers.clearTimer });
+    const named = connection.clientIdentity();
+    connection.start();
+    await settle();
+    expect(s.postJson.mock.calls[0]).toEqual([KICK_REALTIME_CONNECTION_URL, kickRealtimeNegotiation(named)]);
+    expect(s.postJson.mock.calls[1]).toEqual([KICK_REALTIME_AUTH_URL, { client_id: named }]);
+  });
+
   it("subscribes owned channels once connected, and confirms them", async () => {
     const s = setup();
     s.connection.subscribe("chatrooms.668.v2");
