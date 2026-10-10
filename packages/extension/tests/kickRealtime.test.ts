@@ -352,3 +352,66 @@ describe("Kick realtime over Pusher", () => {
     expect(s.connection.status().state).toBe("error");
   });
 });
+
+// #755: owners listen for named events on their channels; nothing else is read.
+describe("Kick realtime listeners", () => {
+  async function centrifugoWith(channel: string) {
+    const s = setup();
+    const onEvent = vi.fn();
+    s.connection.subscribe(channel, { events: ["drops_campaign_started"], onEvent });
+    s.connection.start();
+    await settle();
+    s.socket().open();
+    s.socket().message({ id: 1, connect: {} });
+    return { ...s, onEvent };
+  }
+  const push = (channel: string, event: string, data: unknown) =>
+    JSON.stringify({ push: { channel, pub: { data: { event, data } } } });
+
+  it("delivers a listened event from a confirmed Centrifugo channel, with its payload", async () => {
+    const s = await centrifugoWith("drops_category_15");
+    s.socket().message(push("drops_category_15", "drops_campaign_started", "too-early"));
+    expect(s.onEvent).not.toHaveBeenCalled();
+    s.socket().message({ id: 2, subscribe: {} });
+    s.socket().message(push("drops_category_15", "drops_campaign_started", "campaign-7"));
+    s.socket().message(push("drops_category_15", "other_event", "x"));
+    expect(s.onEvent.mock.calls).toEqual([["drops_campaign_started", "campaign-7"]]);
+  });
+
+  it("never parses a publication on a channel nobody listens to", async () => {
+    const s = await centrifugoWith("drops_category_15");
+    s.connection.subscribe("chatrooms.1.v2");
+    const parse = vi.spyOn(JSON, "parse");
+    s.socket().message(push("chatrooms.1.v2", "App\\Events\\ChatMessageEvent", { content: "secret" }));
+    expect(parse).not.toHaveBeenCalled();
+    parse.mockRestore();
+  });
+
+  it("stops delivering once the channel is unsubscribed", async () => {
+    const s = await centrifugoWith("drops_category_15");
+    s.socket().message({ id: 2, subscribe: {} });
+    s.connection.unsubscribe("drops_category_15");
+    s.socket().message(push("drops_category_15", "drops_campaign_started", "campaign-7"));
+    expect(s.onEvent).not.toHaveBeenCalled();
+  });
+
+  it("keeps the connection alive when a listener throws", async () => {
+    const s = await centrifugoWith("drops_category_15");
+    s.onEvent.mockImplementation(() => { throw new Error("boom"); });
+    s.socket().message({ id: 2, subscribe: {} });
+    s.socket().message(push("drops_category_15", "drops_campaign_started", "campaign-7"));
+    expect(s.socket().closed).toBe(false);
+    expect(s.connection.drainEvents()).toContainEqual(expect.objectContaining({ level: "warn", message: "Kick realtime drops_campaign_started listener failed: boom" }));
+  });
+
+  it("negotiates only the providers the host accepts", async () => {
+    const s = setup(PUSHER);
+    const connection = new KickRealtimeConnection({ createWebSocket: () => new FakeSocket("x"), postJson: s.postJson, acceptedProviders: ["pusher"], randomId: () => "client-1", setTimer: s.timers.setTimer, clearTimer: s.timers.clearTimer });
+    connection.start();
+    await settle();
+    expect(s.postJson.mock.calls[0]).toEqual([KICK_REALTIME_CONNECTION_URL, kickRealtimeNegotiation("client-1", ["pusher"])]);
+    expect(kickRealtimeNegotiation("client-1", ["pusher"])).toMatchObject({ capabilities: { accepted_providers: [{ provider: "pusher" }] } });
+    expect(s.postJson.mock.calls.map(([url]) => url)).not.toContain(KICK_REALTIME_AUTH_URL);
+  });
+});
+

@@ -48,7 +48,10 @@ describe("extension compatibility construction", () => {
     expect(backgroundSource).toContain("discoveryState: twitchDiscoveryState,");
     expect(backgroundSource).toContain("heartbeatIdentity: \"web\",");
     expect(backgroundSource).toContain("heartbeatExchange: twitchHeartbeatExchange,");
-    expect(backgroundSource).toContain("{ compatibility: resolution.compatibility.kick, claimState: kickClaimState, discoveryState: kickDiscoveryState }");
+    expect(backgroundSource).toContain("compatibility: resolution.compatibility.kick,");
+    expect(backgroundSource).toContain("claimState: kickClaimState,");
+    expect(backgroundSource).toContain("discoveryState: kickDiscoveryState,");
+    expect(backgroundSource).toContain("realtimeFetcher: kickRealtimeFetcher,");
   });
 });
 

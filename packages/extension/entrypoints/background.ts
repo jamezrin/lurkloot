@@ -70,6 +70,11 @@ const kickClaimState = new KickClaimState();
 const kickDiscoveryState = new KickDiscoveryState();
 const kickPageContextRecovery = new KickPageContextRecoveryTracker();
 const twitchDiscoveryState = new TwitchDiscoveryState();
+// Kick realtime negotiation from the worker only: no page-context tab
+// fallback, since discovery signals negotiate on every Kick farm (#755).
+const kickRealtimeFetcher = createKickFetcher({
+  background: (url, init) => fetchKickInBackground<unknown>(url, init),
+});
 const KICK_PAGE_CONTEXT_URL = "https://kick.com/drops/inventory";
 const TWITCH_EXTENSION_LANE_KEY = "twitchExtensionLane";
 const createBrowserWebSocket: WebSocketFactory = (url) => new WebSocket(url) as unknown as WebSocketLike;
@@ -134,7 +139,12 @@ function createExtensionAdapter(platform: Platform, emit: EventEmitter, settings
         },
       }),
       createBrowserWebSocket,
-      { compatibility: resolution.compatibility.kick, claimState: kickClaimState, discoveryState: kickDiscoveryState },
+      {
+        compatibility: resolution.compatibility.kick,
+        claimState: kickClaimState,
+        discoveryState: kickDiscoveryState,
+        realtimeFetcher: kickRealtimeFetcher,
+      },
       emit,
     );
   return { adapter, ...resolution };

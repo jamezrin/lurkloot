@@ -46,6 +46,11 @@ export interface KickAdapterOptions {
   compatibility: ResolvedCompatibility["kick"];
   claimState?: KickClaimState;
   discoveryState?: KickDiscoveryState;
+  // Kick realtime negotiation goes through this when given. It must never
+  // fall back to a page-context tab: discovery signals negotiate on every
+  // Kick farm (#755). Without it, the adapter's own fetcher is used, which is
+  // right for a host whose fetcher has no tab fallback (the CLI).
+  realtimeFetcher?: PageFetcher;
 }
 
 interface KickLivestreamsResponse {
@@ -381,7 +386,13 @@ export class KickAdapter implements PlatformAdapter {
     this.discoveryState = options.discoveryState ?? new KickDiscoveryState();
     if (this.webSocketFactory) {
       const createWebSocket = this.webSocketFactory;
-      this.createDiscoverySignalController = () => new KickDiscoverySignalController({ createWebSocket });
+      const realtimeFetcher = options.realtimeFetcher ?? this.fetcher;
+      const postJson = (url: string, body: unknown) => realtimeFetcher.fetchJson<unknown>(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      }, this.emit);
+      this.createDiscoverySignalController = () => new KickDiscoverySignalController({ createWebSocket, postJson });
     }
     this.claimCapability = createKickClaimCapability(
       options.compatibility.claim,

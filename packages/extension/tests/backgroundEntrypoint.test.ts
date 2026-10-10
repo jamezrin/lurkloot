@@ -180,12 +180,19 @@ describe("background integrity alarm wiring", () => {
     const sockets: FakeSocket[] = [];
     vi.stubGlobal("WebSocket", class {
       constructor(url: string) {
-        expect(url).toBe("wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679?protocol=7&client=js&version=8.4.0&flash=false");
+        // The app the negotiation names, not a hard-coded one (#755).
+        expect(url).toBe("wss://ws-us2.pusher.com/app/negotiatedkey?protocol=7&client=js&version=8.4.0&flash=false");
         const socket = new FakeSocket();
         sockets.push(socket);
         return socket;
       }
     });
+    // The worker negotiates by itself; a WAF block would retry, never open a tab.
+    const negotiations: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      negotiations.push(url);
+      return new Response(JSON.stringify({ data: { connections: [{ provider: "pusher", credentials: { app_key: "negotiatedkey", cluster: "us2" } }] } }), { status: 200, headers: { "content-type": "application/json" } });
+    }));
     vi.stubGlobal("defineBackground", vi.fn());
 
     await import("../entrypoints/background");
@@ -195,6 +202,9 @@ describe("background integrity alarm wiring", () => {
       platform: "kick",
       channel: { platform: "kick", username: "creator", url: "https://kick.com/creator", categoryId: "42" },
     }, () => undefined);
+    await vi.waitFor(() => expect(sockets).toHaveLength(1));
+    expect(negotiations).toEqual(["https://web.kick.com/api/v1/realtime/connection"]);
+    sockets[0]!.readyState = 1;
     sockets[0]?.message({ event: "pusher:connection_established", data: {} });
 
     expect(observer).toBeDefined();
