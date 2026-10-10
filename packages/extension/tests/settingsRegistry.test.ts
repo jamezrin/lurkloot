@@ -161,6 +161,7 @@ describe("settings registry", () => {
         "twitch.advanced.strictCampaignAvailability",
         "twitch.compatibility.rows",
         "kick.autoClaimChallenges",
+        "kick.alwaysEnterChat",
         "kick.watchSourcePriority.order",
         "kick.categories.games",
         "kick.channels.excluded",

@@ -33,11 +33,13 @@ export default defineConfig({
     },
     plugins: [tailwindcss()],
   }),
-  manifest: {
+  manifest: ({ browser }) => ({
     default_locale: "en",
     name: "__MSG_extensionStoreName__",
     description: "__MSG_extensionDescription__",
-    permissions: ["alarms", "storage", "tabs", "scripting", "notifications", "cookies", "webRequest"],
+    // offscreen (Chrome only, no install warning): the hidden kick.com frame
+    // that opens Kick's realtime chat sockets (#754, kickRealtimeRelay.ts).
+    permissions: ["alarms", "storage", "tabs", "scripting", "notifications", "cookies", "webRequest", ...(browser === "firefox" ? [] : ["offscreen"])],
     // Requested only by the CLI credential export; see cliCredentialExport.ts.
     optional_host_permissions: [KASADA_COOKIE_ORIGIN],
     host_permissions: [
@@ -78,7 +80,7 @@ export default defineConfig({
         }
       }
     }
-  },
+  }),
   zip: {
     sourcesRoot: ".",
     artifactTemplate: "{{name}}-{{version}}-{{browser}}.zip",

@@ -10,6 +10,9 @@ import { diagnostic, ignoreEvent, type AdapterOperationOptions, type ChannelChec
 import { kickCandidatesFromCampaign, mergeKickProgress, parseKickCampaigns } from "./parser";
 import { KICK_CLIENT_TOKEN, KickWatcher } from "./watch";
 import { KickDiscoverySignalController } from "./discoverySignals";
+import { KickChatPresenceClient } from "./chatPresence";
+import { KickRealtimeConnection } from "./realtime";
+import type { ChatPresenceClient } from "../../core/chatPresence";
 import type { ResolvedCompatibility } from "../../compatibility/types";
 import { createKickClaimCapability } from "./claim/factory";
 import type { KickClaimCapability } from "./claim/types";
@@ -46,6 +49,10 @@ export interface KickAdapterOptions {
   compatibility: ResolvedCompatibility["kick"];
   claimState?: KickClaimState;
   discoveryState?: KickDiscoveryState;
+  // Opens Kick realtime sockets from a kick.com origin. Kick's realtime
+  // server refuses an extension origin, so only a host that has this gets
+  // Kick chat presence (#754).
+  realtimeWebSocketFactory?: WebSocketFactory;
 }
 
 interface KickLivestreamsResponse {
@@ -293,6 +300,7 @@ export class KickAdapter implements PlatformAdapter {
   private readonly claimCapability: KickClaimCapability;
   private readonly discoveryState: KickDiscoveryState;
   readonly createDiscoverySignalController?: () => DiscoverySignalController;
+  readonly createChatPresenceClient?: () => ChatPresenceClient;
 
   flushRouteDiagnostics(emit: EventEmitter): void {
     this.fetcher.flushRouteDiagnostics?.(emit);
@@ -382,6 +390,20 @@ export class KickAdapter implements PlatformAdapter {
     if (this.webSocketFactory) {
       const createWebSocket = this.webSocketFactory;
       this.createDiscoverySignalController = () => new KickDiscoverySignalController({ createWebSocket });
+    }
+    const realtimeWebSocket = options.realtimeWebSocketFactory;
+    if (realtimeWebSocket) {
+      const postJson = (url: string, body: unknown) => this.fetcher.fetchJson<unknown>(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      }, this.emit);
+      const getJson = (url: string) => this.fetcher.fetchJson<unknown>(url, undefined, this.emit);
+      this.createChatPresenceClient = () => new KickChatPresenceClient({
+        connection: new KickRealtimeConnection({ createWebSocket: realtimeWebSocket, postJson }),
+        postJson,
+        getJson,
+      });
     }
     this.claimCapability = createKickClaimCapability(
       options.compatibility.claim,
