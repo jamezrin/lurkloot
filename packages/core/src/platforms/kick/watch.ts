@@ -16,6 +16,7 @@ const STREAM_TARGET_REFRESH_MS = 60_000;
 // A heartbeat counts as healthy if a watch event was accepted recently; gives a
 // little slack over the 60s send cadence before the scheduler reacts.
 const HEALTH_WINDOW_MS = 2 * 60_000 + 30_000;
+const WEBSOCKET_CONNECTING = 0;
 const WEBSOCKET_OPEN = 1;
 
 interface KickChannelTargets {
@@ -48,6 +49,7 @@ export class KickWatcher implements TablessWatchController {
   private failureMessage?: string;
   private counter = 0;
   private lastWatchSentAt = 0;
+  private lastProtocolSentAt = 0;
   private lastTargetRefreshAt = 0;
   // Whether we have surfaced the one-shot "tabless farming active" info line for
   // the current connection. Reset on connect/stop so each session announces once.
@@ -92,9 +94,12 @@ export class KickWatcher implements TablessWatchController {
 
   async tick(_context: WatchContext): Promise<HeartbeatResult> {
     if (!this.channel) return { ok: false, message: "Kick tabless watcher has no channel" };
-    // Reconnect if the socket dropped (e.g. the service worker slept between
-    // ticks). A hard failure is left for the scheduler to fall back on.
-    if (!this.connected && !this.failed) await this.connect();
+    // A socket that is no longer open is down even if its close event has not
+    // run. Reconnect unless this is a hard failure, which falls back to a tab.
+    if (this.ws && this.ws.readyState !== WEBSOCKET_OPEN && this.ws.readyState !== WEBSOCKET_CONNECTING) {
+      this.connected = false;
+    }
+    if (!this.connected && !this.failed && this.ws?.readyState !== WEBSOCKET_CONNECTING) await this.connect();
     if (this.failed) {
       return { ok: false, live: this.targets?.isLive ?? true, message: this.failureMessage ?? "Kick viewer connection failed" };
     }
@@ -112,7 +117,15 @@ export class KickWatcher implements TablessWatchController {
     if (!this.targets.liveStreamId) {
       return { ok: false, live: true, message: "Kick channel is missing a livestream id" };
     }
-    const healthy = this.connected && this.now() - this.lastWatchSentAt < HEALTH_WINDOW_MS;
+    if (this.ws?.readyState === WEBSOCKET_OPEN && this.now() - this.lastProtocolSentAt >= HANDSHAKE_INTERVAL_MS) {
+      this.counter += 1;
+      if (this.counter % 2 === 0) this.sendPing();
+      else this.sendHandshake();
+    }
+    if (this.ws?.readyState === WEBSOCKET_OPEN && this.now() - this.lastWatchSentAt >= WATCH_EVENT_INTERVAL_MS) {
+      this.sendWatchEvent();
+    }
+    const healthy = this.ws?.readyState === WEBSOCKET_OPEN && this.now() - this.lastWatchSentAt < HEALTH_WINDOW_MS;
     return { ok: healthy, live: true, message: healthy ? undefined : "Kick viewer connection idle" };
   }
 
@@ -134,9 +147,23 @@ export class KickWatcher implements TablessWatchController {
     this.connected = false;
     this.counter = 0;
     this.lastWatchSentAt = 0;
+    this.lastProtocolSentAt = 0;
     this.lastTargetRefreshAt = 0;
     this.watchAnnounced = false;
     this.targets = undefined;
+  }
+
+  private releaseSocket(): void {
+    const ws = this.ws;
+    if (!ws) return;
+    this.intentionallyClosedSockets.add(ws);
+    this.ws = undefined;
+    this.connected = false;
+    try {
+      ws.close();
+    } catch {
+      // The socket may already be closing.
+    }
   }
 
   private async connect(): Promise<void> {
@@ -145,6 +172,7 @@ export class KickWatcher implements TablessWatchController {
     this.log("debug", `Opening Kick viewer connection for ${channel.username}`);
     this.watchAnnounced = false;
     try {
+      this.releaseSocket();
       this.targets = await this.fetchTargets(channel);
       this.lastTargetRefreshAt = this.now();
       if (!this.targets.isLive) {
@@ -200,29 +228,42 @@ export class KickWatcher implements TablessWatchController {
   }
 
   private sendPing(): void {
+    if (!this.ws || this.ws.readyState !== WEBSOCKET_OPEN) return;
     this.safeSend({ type: "ping" });
+    if (this.connected) this.lastProtocolSentAt = this.now();
   }
 
   private sendHandshake(): void {
-    if (!this.targets) return;
+    if (!this.targets || !this.ws || this.ws.readyState !== WEBSOCKET_OPEN) return;
     this.safeSend({
       type: "channel_handshake",
       data: { message: { channelId: numericOrString(this.targets.channelId) } },
     });
+    if (this.connected) this.lastProtocolSentAt = this.now();
   }
 
-  private sendWatchEvent(): void {
-    if (!this.targets?.liveStreamId) return;
-    this.safeSend({
-      type: "user_event",
-      data: {
-        message: {
-          name: "tracking.user.watch.livestream",
-          channel_id: numericOrString(this.targets.channelId),
-          livestream_id: numericOrString(this.targets.liveStreamId),
+  private sendWatchEvent(): boolean {
+    if (!this.targets?.liveStreamId) return false;
+    if (!this.ws || this.ws.readyState !== WEBSOCKET_OPEN) {
+      this.connected = false;
+      return false;
+    }
+    try {
+      this.ws.send(JSON.stringify({
+        type: "user_event",
+        data: {
+          message: {
+            name: "tracking.user.watch.livestream",
+            channel_id: numericOrString(this.targets.channelId),
+            livestream_id: numericOrString(this.targets.liveStreamId),
+          },
         },
-      },
-    });
+      }));
+    } catch (error) {
+      this.connected = false;
+      this.log("debug", `Kick viewer send failed; will reconnect: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
     this.lastWatchSentAt = this.now();
     // Announce once per connection at info level so "tab-less farming is alive"
     // is visible without the verbose/debug filter; later sends stay debug.
@@ -232,6 +273,7 @@ export class KickWatcher implements TablessWatchController {
     } else {
       this.log("debug", `Sent Kick watch event for ${this.channel?.username ?? "channel"} (livestream ${this.targets.liveStreamId})`);
     }
+    return true;
   }
 
   private async refreshTargetsIfDue(): Promise<void> {

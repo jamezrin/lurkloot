@@ -1,7 +1,7 @@
 import { fetchKickInBackgroundWith, fetchTwitchInBackgroundWith } from "@lurkloot/core/transport";
 import type { PlatformCredentials } from "../authStore";
 import { kickCookieApi, twitchCookieApi } from "./cookieApi";
-import { createCliAdapters, withHeartbeatTimeout, type CliTwitchIntegrity, type EnabledPlatforms, type TransportHandle } from "./common";
+import { createCliAdapters, twitchHeartbeatFailure, withHeartbeatTimeout, type CliTwitchIntegrity, type EnabledPlatforms, type TransportHandle } from "./common";
 
 // Plain Node fetch transport. Twitch GQL works (no WAF). Kick's Cloudflare WAF
 // fingerprints the TLS/HTTP-2 stack, so pure-Node requests get HTTP 403 — that
@@ -27,6 +27,26 @@ export function createHttpTransport(creds: PlatformCredentials, _enabled: Enable
           init.signal,
         );
         return { status: response.status };
+      },
+      heartbeatExchange: async (url, init) => {
+        try {
+          return await withHeartbeatTimeout(async (signal) => {
+            const response = await fetch(url, { ...init, signal });
+            const redirecting = response.status >= 300 && response.status < 400;
+            const body = init.method === "HEAD" || redirecting || response.status === 0
+              ? ""
+              : await response.text();
+            const location = response.headers.get("location")?.trim() || undefined;
+            return {
+              status: response.status,
+              body,
+              ...(response.url ? { url: response.url } : {}),
+              ...(location ? { location } : {}),
+            };
+          }, init.signal);
+        } catch (error) {
+          throw twitchHeartbeatFailure(url, error);
+        }
       },
     }),
     kickFetcher: () => ({ fetchJson: (url, init) => fetchKickInBackgroundWith(kickApi, url, init) }),

@@ -4,6 +4,7 @@ import { basename, dirname, join } from "node:path";
 import { defineConfig } from "wxt";
 import tailwindcss from "@tailwindcss/vite";
 import { KASADA_COOKIE_ORIGIN } from "./src/core/cliCredentialExport";
+import { TWITCH_HLS_HOST_ORIGIN } from "./src/core/twitchHlsPermission";
 import { applyProviderOptionalPermissions } from "./src/extensions/manifest";
 
 // Native `_locales` are required by the manifest's localized store listing
@@ -38,8 +39,9 @@ export default defineConfig({
     name: "__MSG_extensionStoreName__",
     description: "__MSG_extensionDescription__",
     permissions: ["alarms", "storage", "tabs", "scripting", "notifications", "cookies", "webRequest"],
-    // Requested only by the CLI credential export; see cliCredentialExport.ts.
-    optional_host_permissions: [KASADA_COOKIE_ORIGIN],
+    // Kasada is requested by the CLI credential export. The video CDN is
+    // requested when Twitch is turned on and the HLS watch heartbeat is selected.
+    optional_host_permissions: [KASADA_COOKIE_ORIGIN, TWITCH_HLS_HOST_ORIGIN],
     host_permissions: [
       "https://*.twitch.tv/*",
       "https://*.kick.com/*"

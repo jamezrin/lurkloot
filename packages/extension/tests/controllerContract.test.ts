@@ -9,6 +9,7 @@ import {
   TWITCH_DROP_CLAIMS_ALARM_NAME,
   TWITCH_INTEGRITY_ALARM_NAME,
   WATCH_ALARM_NAME,
+  WATCH_ALARM_PERIOD_MINUTES,
 } from "@lurkloot/core/controller";
 import { integrityBundle, integrityHeaders } from "./helpers/backgroundController";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
@@ -329,7 +330,7 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
       const pollIntervalMinutes = host.storage.settings.pollIntervalMinutes;
       expect(host.jobs.scheduled.get(TWITCH_ALARM_NAME)).toEqual({ periodInMinutes: pollIntervalMinutes });
       expect(host.jobs.scheduled.get(KICK_ALARM_NAME)).toEqual({ periodInMinutes: pollIntervalMinutes });
-      expect(host.jobs.scheduled.get(WATCH_ALARM_NAME)).toEqual({ periodInMinutes: 1 });
+      expect(host.jobs.scheduled.get(WATCH_ALARM_NAME)).toEqual({ periodInMinutes: WATCH_ALARM_PERIOD_MINUTES });
       expect(host.jobs.scheduled.get(TWITCH_CHANNEL_POINTS_ALARM_NAME)).toEqual({ periodInMinutes: 1 });
       if (capabilities.declared.browserTabs) {
         expect([...host.jobs.scheduled.keys()]).toEqual(expect.arrayContaining([

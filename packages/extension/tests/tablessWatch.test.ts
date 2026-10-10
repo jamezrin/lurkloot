@@ -207,6 +207,146 @@ describe("kick viewer watcher", () => {
     await watcher.stop();
   });
 
+  it("does not record a watch event when the socket is not open", async () => {
+    const socket = new FakeSocket();
+    const fetchJson = vi.fn(async (url: string) => {
+      if (url.includes("/api/v2/channels/")) return { id: 123, livestream: { id: 456, is_live: true } } as unknown;
+      if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as unknown;
+      throw new Error(`unexpected url ${url}`);
+    });
+    const watcher = new KickWatcher({
+      fetcher: { fetchJson: fetchJson as never },
+      createWebSocket: () => socket,
+      now: () => 1_000,
+    });
+
+    await watcher.start(kickChannel, {});
+    socket.readyState = 3;
+    socket.emit("open");
+
+    const events = watcher.drainEvents();
+    expect(events.some((event) => event.message.startsWith("Sent Kick watch event"))).toBe(false);
+    expect(events.some((event) => event.message.includes("tabless farming active"))).toBe(false);
+    expect(socket.parsed().some((message) => message.type === "user_event")).toBe(false);
+    await watcher.stop();
+  });
+
+  it("reconnects from tick when the socket is closed without a close event", async () => {
+    const sockets: FakeSocket[] = [];
+    const fetchJson = vi.fn(async (url: string) => {
+      if (url.includes("/api/v2/channels/")) return { id: 123, livestream: { id: 456, is_live: true } } as unknown;
+      if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as unknown;
+      throw new Error(`unexpected url ${url}`);
+    });
+    const watcher = new KickWatcher({
+      fetcher: { fetchJson: fetchJson as never },
+      createWebSocket: () => {
+        const socket = new FakeSocket();
+        // FakeSocket starts OPEN. A replacement socket has not opened yet.
+        if (sockets.length > 0) socket.readyState = 0;
+        sockets.push(socket);
+        return socket;
+      },
+      now: () => 1_000,
+    });
+
+    await watcher.start(kickChannel, {});
+    sockets[0]?.emit("open");
+    watcher.drainEvents();
+    sockets[0]!.readyState = 3;
+
+    const result = await watcher.tick({});
+
+    expect(result).toMatchObject({ ok: false, live: true, message: "Kick viewer connection idle" });
+    expect(sockets).toHaveLength(2);
+    expect(sockets[0]?.readyState).toBe(3);
+    expect(watcher.drainEvents().some((event) => event.message.startsWith("Sent Kick watch event"))).toBe(false);
+    await watcher.stop();
+  });
+
+  it("writes a due watch event from tick while the socket stays open", async () => {
+    let now = 1_000;
+    const socket = new FakeSocket();
+    const fetchJson = vi.fn(async (url: string) => {
+      if (url.includes("/api/v2/channels/")) return { id: 123, livestream: { id: 456, is_live: true } } as unknown;
+      if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as unknown;
+      throw new Error(`unexpected url ${url}`);
+    });
+    const watcher = new KickWatcher({
+      fetcher: { fetchJson: fetchJson as never },
+      createWebSocket: () => socket,
+      now: () => now,
+    });
+
+    await watcher.start(kickChannel, {});
+    socket.emit("open");
+    now += 61_000;
+
+    await expect(watcher.tick({})).resolves.toMatchObject({ ok: true, live: true });
+    expect(socket.parsed().filter((message) => message.type === "user_event")).toHaveLength(2);
+    await watcher.stop();
+  });
+
+  it("sends one overdue handshake from tick and does not repeat it a second later", async () => {
+    let now = 1_000;
+    const socket = new FakeSocket();
+    const fetchJson = vi.fn(async (url: string) => {
+      if (url.includes("/api/v2/channels/")) return { id: 123, livestream: { id: 456, is_live: true } } as unknown;
+      if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as unknown;
+      throw new Error(`unexpected url ${url}`);
+    });
+    const watcher = new KickWatcher({
+      fetcher: { fetchJson: fetchJson as never },
+      createWebSocket: () => socket,
+      now: () => now,
+    });
+
+    await watcher.start(kickChannel, {});
+    socket.emit("open");
+    const opened = socket.parsed().length;
+    now += 61_000;
+
+    await expect(watcher.tick({})).resolves.toMatchObject({ ok: true, live: true });
+    const afterDueTick = socket.parsed();
+    const sentByDueTick = afterDueTick.slice(opened);
+    expect(sentByDueTick.filter((message) => message.type === "user_event")).toHaveLength(1);
+    expect(sentByDueTick.filter((message) => message.type === "channel_handshake" || message.type === "ping")).toHaveLength(1);
+
+    now += 1_000;
+    await watcher.tick({});
+    expect(socket.parsed()).toHaveLength(afterDueTick.length);
+    await watcher.stop();
+  });
+
+  it("does not open another socket after a hard websocket error", async () => {
+    const sockets: FakeSocket[] = [];
+    const fetchJson = vi.fn(async (url: string) => {
+      if (url.includes("/api/v2/channels/")) return { id: 123, livestream: { id: 456, is_live: true } } as unknown;
+      if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as unknown;
+      throw new Error(`unexpected url ${url}`);
+    });
+    const watcher = new KickWatcher({
+      fetcher: { fetchJson: fetchJson as never },
+      createWebSocket: () => {
+        const socket = new FakeSocket();
+        sockets.push(socket);
+        return socket;
+      },
+      now: () => 1_000,
+    });
+
+    await watcher.start(kickChannel, {});
+    sockets[0]?.emit("open");
+    sockets[0]?.emit("error");
+
+    await expect(watcher.tick({})).resolves.toMatchObject({
+      ok: false,
+      message: "Kick viewer WebSocket error; falling back to a watch tab",
+    });
+    expect(sockets).toHaveLength(1);
+    await watcher.stop();
+  });
+
   it("surfaces a one-shot info line when tabless farming becomes active", async () => {
     const socket = new FakeSocket();
     const fetchJson = vi.fn(async (url: string) => {
@@ -585,5 +725,72 @@ describe("adapter-created twitch watcher diagnostics", () => {
     }));
     // The heartbeat itself is never replayed by integrity recovery.
     expect(sendEventsCalls).toBe(1);
+  });
+
+  it("recovers the HLS playback token from one integrity rejection", async () => {
+    let tokenCalls = 0;
+    const fetchJson = vi.fn(async (_url: string, init?: RequestInit) => {
+      const operationName = JSON.parse(String(init?.body)).operationName;
+      if (operationName === "StreamInfo") {
+        return { data: { user: { id: "channel-id", stream: { id: "broadcast-id", game: { id: "game", name: "Game" } } } } };
+      }
+      if (operationName === "PlaybackAccessToken") {
+        tokenCalls += 1;
+        if (tokenCalls === 1) return { error: "failed integrity check" };
+        return { data: { streamPlaybackAccessToken: { value: "token-value", signature: "token-sig" } } };
+      }
+      throw new Error(`unexpected operation ${operationName}`);
+    });
+    const ensureIntegrity = vi.fn(async (request?: { forceRefresh?: boolean }) => request?.forceRefresh === true);
+    const exchange = vi.fn(async (url: string, init: RequestInit) => {
+      if (init.method === "GET" && url.includes("/api/channel/hls/")) {
+        return { status: 200, body: "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nhttps://video-weaver.fra05.hls.ttvnw.net/v1/playlist.m3u8\n", url };
+      }
+      if (init.method === "GET") {
+        return { status: 200, body: "#EXTM3U\n#EXTINF:2.0,\nhttps://video-edge.fra05.hls.ttvnw.net/v1/seg-1.ts\n", url };
+      }
+      return { status: 200, body: "", url };
+    });
+    const adapter = twitchAdapter(
+      { fetchJson: fetchJson as never },
+      ensureIntegrity,
+      {
+        compatibility: TWITCH_COMPAT,
+        heartbeatExchange: exchange,
+        heartbeatFetchText: async () => '{"spade_url":"https://spade.twitch.tv/track"}',
+        heartbeatPost: async () => ({ status: 204 }),
+      },
+    );
+    const watcher = adapter.createTablessWatcher?.();
+
+    await watcher?.start({ platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" }, { userId: "viewer-id" });
+    const result = await watcher?.tick({ userId: "viewer-id" });
+
+    expect(result).toMatchObject({ ok: true, live: true });
+    expect(tokenCalls).toBe(2);
+    expect(ensureIntegrity).toHaveBeenCalledOnce();
+    expect(exchange).toHaveBeenCalled();
+    await watcher?.stop();
+  });
+});
+
+describe("pending watcher diagnostics", () => {
+  it("stamps each event when it is pushed, not when it is drained", async () => {
+    const { PendingWatcherDiagnostics } = await import("@lurkloot/core/tablessWatch");
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-10-09T12:00:00.000Z"));
+      const pending = new PendingWatcherDiagnostics();
+      pending.push({ category: "diagnostic", level: "debug", message: "first" });
+      vi.setSystemTime(new Date("2026-10-09T12:00:10.000Z"));
+      pending.push({ category: "diagnostic", level: "debug", message: "second" });
+      vi.setSystemTime(new Date("2026-10-09T12:00:30.000Z"));
+      expect(pending.drain().map((event) => (event as { emittedAt?: string }).emittedAt)).toEqual([
+        "2026-10-09T12:00:00.000Z",
+        "2026-10-09T12:00:10.000Z",
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

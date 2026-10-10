@@ -142,8 +142,8 @@ describe("impersonate transport", () => {
 
     const construction = handle.createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS);
 
-    expect(construction.compatibility.twitch.heartbeat).toBe("twitch-heartbeat-spade-v1");
-    expect(construction.compatibility.twitch.profile).toBe("twitch-2026-07");
+    expect(construction.compatibility.twitch.heartbeat).toBe("twitch-heartbeat-hls-v1");
+    expect(construction.compatibility.twitch.profile).toBe("twitch-2026-10");
     expect(construction.adapters.twitch.compatibility).toEqual(construction.compatibility.twitch);
     expect(construction.adapters.kick.compatibility).toEqual(construction.compatibility.kick);
     await handle.dispose();
@@ -271,7 +271,16 @@ describe("impersonate transport", () => {
     const handle = await createImpersonateTransport({
       twitch: { authToken: "token", clientId: "custom-web-client" },
     }, ENABLED, { initClient: async () => client });
-    const watcher = handle.adapters.twitch.createTablessWatcher!();
+    const watcher = handle.createAdapter("twitch", () => {}, {
+      ...DEFAULT_ENGINE_SETTINGS,
+      compatibility: {
+        ...DEFAULT_ENGINE_SETTINGS.compatibility,
+        twitch: {
+          ...DEFAULT_ENGINE_SETTINGS.compatibility.twitch,
+          heartbeatTransport: "twitch-heartbeat-spade-v1",
+        },
+      },
+    }).adapter.createTablessWatcher!();
     await watcher.start({ platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" }, { userId: "viewer-id" });
 
     await expect(watcher.tick({})).resolves.toEqual({ ok: true, live: true });

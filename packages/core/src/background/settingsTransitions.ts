@@ -6,7 +6,7 @@ import { PLATFORM_NAMES } from "./constants";
 import { settingsTickTrigger } from "./helpers";
 import { type ControllerSlices, lateBound } from "./context";
 import type { PreparedSettingsCommit, StateTransaction } from "./stateTransaction";
-import type { ControllerCalls, SettingsCommitOptions } from "./types";
+import type { ControllerCalls, PlatformEnableCause, SettingsCommitOptions } from "./types";
 
 export { isRankingOnlyPatch } from "./stateTransaction";
 
@@ -24,6 +24,7 @@ export function createSettingsTransitions<S extends EngineSettings>(
     | "rescheduleTwitchChannelPointsJob"
     | "withSettingsLock"
     | "diagnosticEvent"
+    | "reportBestEffort"
     | "markPlatformsStarting"
     | "platformTickRunning"
     | "settleCommitHooks"
@@ -47,6 +48,7 @@ export function createSettingsTransitions<S extends EngineSettings>(
     rescheduleTwitchChannelPointsJob,
     withSettingsLock,
     diagnosticEvent,
+    reportBestEffort,
     markPlatformsStarting,
     platformTickRunning,
     settleCommitHooks,
@@ -168,16 +170,46 @@ export function createSettingsTransitions<S extends EngineSettings>(
     }
   }
 
+  // Says why the switch moved. A user toggle is a diagnostic. A host turning
+  // the platform off is user-facing: the switch flipped without a click, and
+  // the activity entry says how to turn it back on.
+  function reportPlatformEnableCause(
+    platform: Platform,
+    platformLabel: string,
+    action: "enable" | "disable",
+    cause: PlatformEnableCause,
+  ): void {
+    switch (cause) {
+      case "user":
+        diagnosticEvent("info", `User requested ${platformLabel} automation ${action}`, platform);
+        return;
+      case "missing-permission":
+        void reportBestEffort([{
+          category: "activity",
+          code: "interruption",
+          level: "warn",
+          platform,
+          data: { reason: "permission_missing" },
+        }]);
+        return;
+      default: {
+        const unreachable: never = cause;
+        return unreachable;
+      }
+    }
+  }
+
   // The popup's platform switch (#591: moved here from messages.ts). The
   // setPlatformEnabled and setAutomation messages are the same operation now
   // that there is no master switch to flip alongside the platform flag. Both are
   // kept: they are separate wire messages with existing callers.
   async function setPlatformEnabled(
     message: Extract<CoreRuntimeMessage, { type: "setPlatformEnabled" | "setAutomation" }>,
+    cause: PlatformEnableCause = "user",
   ): Promise<RuntimeSnapshot<S>> {
     const platformLabel = PLATFORM_NAMES[message.platform];
     const action = message.enabled ? "enable" : "disable";
-    diagnosticEvent("info", `User requested ${platformLabel} automation ${action}`, message.platform);
+    reportPlatformEnableCause(message.platform, platformLabel, action, cause);
     if (platformTickRunning(message.platform)) {
       diagnosticEvent(
         "info",

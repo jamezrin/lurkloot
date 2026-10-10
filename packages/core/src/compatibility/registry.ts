@@ -8,11 +8,25 @@ function frozen<const T extends object>(value: T): Readonly<T> {
 }
 
 const twitchProfiles = frozen({
+  "twitch-2026-10": frozen({
+    id: "twitch-2026-10",
+    title: "Twitch October 2026",
+    description: "Recommended Twitch profile. Web watching requests HLS segment headers; Android keeps Trowel.",
+    lifecycle: "recommended",
+    hosts: ALL_HOSTS,
+    identities: ALL_IDENTITIES,
+    heartbeatByIdentity: frozen({
+      web: "twitch-heartbeat-hls-v1",
+      android: "twitch-heartbeat-trowel-v1",
+    }),
+    inventory: "twitch-inventory-v2",
+  }),
   "twitch-2026-07": frozen({
     id: "twitch-2026-07",
     title: "Twitch July 2026",
-    description: "Recommended Twitch profile with host-aware watch heartbeats.",
-    lifecycle: "recommended",
+    description: "Previous Twitch profile. Web watching sends only the Spade minute-watched beacon.",
+    lifecycle: "legacy",
+    replacement: "twitch-2026-10",
     hosts: ALL_HOSTS,
     identities: ALL_IDENTITIES,
     heartbeatByIdentity: frozen({
@@ -36,7 +50,16 @@ const twitchHeartbeat = frozen({
   "twitch-heartbeat-spade-v1": frozen({
     id: "twitch-heartbeat-spade-v1",
     title: "Spade heartbeat v1",
-    description: "Twitch web-identity Spade beacon heartbeat.",
+    description: "Twitch web-identity Spade beacon heartbeat. Accepted telemetry does not by itself credit drop progress.",
+    lifecycle: "legacy",
+    replacement: "twitch-heartbeat-hls-v1",
+    hosts: ALL_HOSTS,
+    identities: Object.freeze(["web"] as const),
+  }),
+  "twitch-heartbeat-hls-v1": frozen({
+    id: "twitch-heartbeat-hls-v1",
+    title: "HLS heartbeat v1",
+    description: "Requests each new Twitch media segment with HEAD and keeps the Spade beacon as auxiliary telemetry.",
     lifecycle: "recommended",
     hosts: ALL_HOSTS,
     identities: Object.freeze(["web"] as const),

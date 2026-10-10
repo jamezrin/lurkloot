@@ -1,6 +1,6 @@
 # Lurkloot Privacy Policy
 
-Last updated: September 13, 2026
+Last updated: October 9, 2026
 
 Lurkloot does not send user data to the developer or analytics services, and does not sell user data. It contacts platforms and opt-in reward providers only to perform the requested farming actions.
 
@@ -12,7 +12,7 @@ The diagnostic event log records the extension's own activity — campaign and r
 
 ## Platform Access
 
-Lurkloot accesses Twitch and Kick only to provide its core drops-farming functionality: detecting campaigns, checking progress, sending tabless watch heartbeats or managing visible muted watch tabs, and claiming eligible rewards. It acts entirely within the user's existing logged-in browser session.
+Lurkloot accesses Twitch and Kick only to provide its core drops-farming functionality: detecting campaigns, checking progress, sending tabless watch heartbeats or managing visible muted watch tabs, and claiming eligible rewards. When Twitch is turned on and the HLS watch heartbeat is selected, the extension asks for optional access to Twitch's video CDN (`ttvnw.net`). Tabless watching then requests playlist and media-segment headers from that CDN so progress can advance; it does not download or play the video. The extension acts entirely within the user's existing logged-in browser session.
 
 To authorize requests inside that session, the extension reads certain session values on the user's own device:
 

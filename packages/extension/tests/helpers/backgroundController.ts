@@ -29,7 +29,7 @@ import type { StopPageContextTabs } from "@lurkloot/core/scheduler";
 import { createTabRegistry, forgetManagedPageContextTabs, noteTabClosure, type TabRegistry, type TwitchIntegrityRequest } from "@lurkloot/core/tabRegistry";
 import { OPAQUE_INTEGRITY_CEILING_MS, type IntegrityHeader, type TwitchIntegrity } from "@lurkloot/core/twitchIntegrity";
 import type { DiscoverySignalController, DiscoverySignalTarget } from "@lurkloot/core/discoverySignals";
-import type { TwitchChannelPointsClaimNotice } from "@lurkloot/core/twitch/channelPointsPush";
+import type { TwitchChannelPointsClaimNotice, TwitchHermesOwners, TwitchPlaybackNotice } from "@lurkloot/core/twitch/channelPointsPush";
 import type { ChatPresenceClient, ChatPresenceTarget } from "@lurkloot/core/chatPresence";
 import type { ChatPresenceStatus } from "@lurkloot/shared/models";
 
@@ -110,9 +110,11 @@ export class FakeChannelPointsPushController {
   startBarrier?: Promise<void>;
   startError?: Error;
   private onClaimAvailable?: (notice: TwitchChannelPointsClaimNotice) => void;
+  // The watched channel's playback owner from the latest start (#759).
+  playback?: TwitchHermesOwners["playback"];
   private readonly events: DiagnosticEvent[] = [];
 
-  async start(onClaimAvailable: (notice: TwitchChannelPointsClaimNotice) => void): Promise<void> {
+  async start(owners: TwitchHermesOwners | ((notice: TwitchChannelPointsClaimNotice) => void)): Promise<void> {
     this.starts += 1;
     if (this.startError) {
       const error = this.startError;
@@ -120,11 +122,21 @@ export class FakeChannelPointsPushController {
       throw error;
     }
     if (this.startBarrier) await this.startBarrier;
-    this.onClaimAvailable = onClaimAvailable;
+    const next = typeof owners === "function" ? { onClaimAvailable: owners } : owners;
+    this.onClaimAvailable = next.onClaimAvailable;
+    this.playback = next.playback;
   }
 
   emitClaim(notice: TwitchChannelPointsClaimNotice): void {
     this.onClaimAvailable?.(notice);
+  }
+
+  get claimsFollowed(): boolean {
+    return this.onClaimAvailable !== undefined;
+  }
+
+  emitPlayback(type: TwitchPlaybackNotice["type"]): void {
+    if (this.playback) this.playback.onNotice({ type, channelId: this.playback.channelId });
   }
 
   pushDiagnostic(message: string): void {
@@ -138,6 +150,7 @@ export class FakeChannelPointsPushController {
   async stop(): Promise<void> {
     this.stops += 1;
     this.onClaimAvailable = undefined;
+    this.playback = undefined;
     this.subscribed = false;
   }
 }

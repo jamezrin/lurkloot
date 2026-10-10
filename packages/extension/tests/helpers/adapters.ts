@@ -27,7 +27,18 @@ export function twitchAdapter(
     // Strict availability is off in production (#400) but on here: these
     // fixtures were written against exact AvailableDrops validation and still
     // cover it. Tests for the default path pass `false` explicitly.
-    { compatibility: TWITCH_COMPAT, strictCampaignAvailability: true, ...options },
+    {
+      compatibility: TWITCH_COMPAT,
+      strictCampaignAvailability: true,
+      // The automatic web profile requests HLS segments. Tests that tick a
+      // watcher pass their own exchange; this stub only keeps construction
+      // from throwing, and 0 keeps the suite from starting a 10-second poll.
+      heartbeatExchange: async () => {
+        throw new Error("Twitch HLS exchange was not stubbed");
+      },
+      heartbeatPollIntervalMs: 0,
+      ...options,
+    },
     emit ?? ignoreEvent,
   );
 }

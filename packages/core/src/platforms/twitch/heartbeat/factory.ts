@@ -3,9 +3,11 @@ import type { LogLevel } from "@lurkloot/shared/logging";
 import type { TwitchHeartbeatId, TwitchIdentity } from "../../../compatibility/types";
 import type { TwitchGqlTransport } from "../index";
 import { createTwitchGqlV1HeartbeatStrategy } from "./gql-v1";
+import { createHlsHeartbeat } from "./hls";
 import { createSpadeHeartbeat } from "./spade";
 import { createTrowelHeartbeat } from "./trowel";
 import type {
+  TwitchHeartbeatExchange,
   TwitchHeartbeatFetchText,
   TwitchHeartbeatPost,
   TwitchHeartbeatStrategy,
@@ -18,6 +20,7 @@ export interface TwitchHeartbeatFactoryOptions {
   identity: TwitchIdentity;
   fetchText?: TwitchHeartbeatFetchText;
   post?: TwitchHeartbeatPost;
+  exchange?: TwitchHeartbeatExchange;
 }
 
 function requireOption<T>(value: T | undefined, capabilityId: TwitchHeartbeatId, name: string): T {
@@ -36,6 +39,14 @@ export function createTwitchHeartbeat(
       return createSpadeHeartbeat({
         fetchText: requireOption(options.fetchText, capabilityId, "page fetch"),
         post: requireOption(options.post, capabilityId, "beacon request"),
+      });
+    case "twitch-heartbeat-hls-v1":
+      return createHlsHeartbeat({
+        gql: options.gql,
+        exchange: requireOption(options.exchange, capabilityId, "playlist request"),
+        fetchText: requireOption(options.fetchText, capabilityId, "page fetch"),
+        post: requireOption(options.post, capabilityId, "beacon request"),
+        log: options.log,
       });
     case "twitch-heartbeat-trowel-v1":
       return createTrowelHeartbeat({

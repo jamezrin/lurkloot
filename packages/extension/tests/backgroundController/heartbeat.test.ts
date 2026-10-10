@@ -10,6 +10,7 @@ import { kickAdapter } from "../helpers/adapters";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
 import { selectWatchTargetFromSnapshot } from "@lurkloot/core/scheduler";
 import { recordManagedPageContextFallback, registerManagedPageContextTabs } from "@lurkloot/core/tabRegistry";
+import { WATCH_ALARM_NAME, WATCH_ALARM_PERIOD_MINUTES, WATCH_ALARM_SUSTAIN_PERIOD_MINUTES } from "@lurkloot/core/controller";
 import {
   adapter,
   advanceToNextHeartbeatDue,
@@ -1564,6 +1565,49 @@ describe("background controller", () => {
     expect(env.state.sessions.twitch.heartbeatChecks).toBe(0);
   });
 
+  it("heartbeats a Kick idle watchlist session from the minute alarm", async () => {
+    const watcher = fakeTablessWatcher(async () => ({ ok: true, live: true }), "kick");
+    const env = harness(farming({
+      ...DEFAULT_SETTINGS,
+      tablessMode: true,
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false },
+        kick: {
+          ...DEFAULT_SETTINGS.platform.kick,
+          enabled: true,
+          idleWatchlistChannels: ["rewardstation"],
+        },
+      },
+    }));
+    env.kick.supportsTabless = true;
+    env.kick.refreshCampaigns = vi.fn(async () => []);
+    env.kick.createTablessWatcher = vi.fn(() => watcher as unknown as TablessWatchController);
+
+    await env.controller.tick(["kick"]);
+
+    expect(env.state.sessions.kick).toMatchObject({
+      status: "watching",
+      watchMode: "tabless",
+      campaignId: undefined,
+      rewardId: undefined,
+      channel: { username: "rewardstation" },
+    });
+    expect(env.state.sessions.kick.supplementalWatch).toBeUndefined();
+    expect(env.state.sessions.kick.tablessHeartbeat?.contextKey).toContain("idle_watchlist");
+    expect(watcher.tick).not.toHaveBeenCalled();
+
+    advanceToNextHeartbeatDue();
+    await env.controller.runWatchHeartbeat();
+
+    expect(watcher.tick).toHaveBeenCalledOnce();
+    expect(env.state.sessions.kick.lastHeartbeatOk).toBe(true);
+
+    await env.controller.tick(["kick"]);
+
+    expect(env.kick.createTablessWatcher).toHaveBeenCalledOnce();
+  });
+
   it("lets Kick heartbeat and persist while Twitch heartbeat is still pending", async () => {
     const twitchHeartbeat = deferred<{ ok: boolean; live?: boolean; message?: string }>();
     const twitchWatcher = fakeTablessWatcher(() => twitchHeartbeat.promise, "twitch");
@@ -2221,4 +2265,60 @@ describe("background controller", () => {
       expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
     },
   );
+
+  it("polls segments on a scheduled wake that is not yet due for a health commit", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-02T12:00:30.000Z"));
+    const sustain = vi.fn(async () => {});
+    const watcher = Object.assign(fakeTablessWatcher(async () => ({ ok: true, live: true })), { sustain });
+    const env = tablessEnv();
+    env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
+    env.state.authHealth.twitch = { status: "healthy" };
+    env.state.sessions.twitch = {
+      platform: "twitch",
+      status: "watching",
+      offlineChecks: 0,
+      watchMode: "tabless",
+      channel: channel("twitch"),
+      campaignId: "twitch-campaign",
+      rewardId: "reward",
+    };
+    env.state.sessions.twitch.tablessHeartbeat = dueHeartbeatCadence(
+      env.state.sessions.twitch,
+      Date.parse("2026-09-02T12:01:00.000Z"),
+    );
+
+    await env.controller.runWatchHeartbeat();
+
+    expect(watcher.tick).not.toHaveBeenCalled();
+    expect(sustain).toHaveBeenCalledOnce();
+    expect(env.state.sessions.twitch.tablessHeartbeat?.nextDueAt).toBe("2026-09-02T12:01:00.000Z");
+  });
+
+  describe("watch job period", () => {
+    function watchJobPeriods(env: ReturnType<typeof tablessEnv>): number[] {
+      return env.deps.createAlarm.mock.calls
+        .filter(([name]) => name === WATCH_ALARM_NAME)
+        .map(([, options]) => ("periodInMinutes" in options ? options.periodInMinutes : Number.NaN));
+    }
+
+    it("wakes every 30 seconds only while a published watcher polls between health commits", async () => {
+      const watcher = Object.assign(fakeTablessWatcher(async () => ({ ok: true, live: true })), { sustain: vi.fn(async () => {}) });
+      const env = tablessEnv();
+      env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
+
+      await env.controller.tick(["twitch"]);
+      expect(watchJobPeriods(env).at(-1)).toBe(WATCH_ALARM_SUSTAIN_PERIOD_MINUTES);
+
+      await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: false });
+      await env.controller.settleBackgroundWork();
+      expect(watchJobPeriods(env).at(-1)).toBe(WATCH_ALARM_PERIOD_MINUTES);
+    });
+
+    it("keeps the one-minute period for watchers with nothing to do between health commits", async () => {
+      const { env } = await establishedTablessEnv("twitch");
+      await env.controller.runWatchHeartbeat();
+      expect(watchJobPeriods(env)).not.toContain(WATCH_ALARM_SUSTAIN_PERIOD_MINUTES);
+    });
+  });
 });
