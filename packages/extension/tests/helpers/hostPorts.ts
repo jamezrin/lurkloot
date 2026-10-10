@@ -100,6 +100,8 @@ export function mockedCapabilities<S extends EngineSettings>(mocks: HostMocks<S>
     browserTabs,
     twitchIntegrityCapture: mocks.ensureTwitchIntegrity !== undefined,
     supplementalSources: mocks.selectSupplementalWatchTarget !== undefined,
+    // Extension-shaped mocks (with tabs) join chat like the extension does.
+    chatPresence: browserTabs,
   };
 }
 

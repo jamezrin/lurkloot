@@ -800,6 +800,24 @@
   "channelPointsPushClaimDescription": {
     "message": "Resgata o bônus assim que a Twitch o disponibilizar. Desative para verificar apenas uma vez por minuto."
   },
+  "alwaysEnterChatTitle": {
+    "message": "Sempre entrar no chat do canal"
+  },
+  "alwaysEnterChatDescription": {
+    "message": "Entre no chat de cada canal assistido. Streamers e moderadores podem ver você na lista de espectadores do chat. Nenhuma mensagem é enviada."
+  },
+  "chatPresenceJoined": {
+    "message": "No chat"
+  },
+  "chatPresenceJoining": {
+    "message": "Entrando no chat…"
+  },
+  "chatPresenceUnavailable": {
+    "message": "Chat indisponível"
+  },
+  "chatPresenceBlockedAuth": {
+    "message": "Chat indisponível: entre na Twitch novamente"
+  },
   "strictCampaignAvailabilityTitle": {
     "message": "Disponibilidade estrita de campanhas"
   },
@@ -1545,7 +1563,10 @@
     "message": "Ganhe recompensas sem abas da Twitch. Automação, exclusões e pausa manual se aplicam."
   },
   "extensionNoPixelHint": {
-    "message": "Ganhe pacotes diários e participe de sorteios."
+    "message": "Ganhe pacotes diários e participe de sorteios. Para acumular tempo assistido, o Lurkloot entra no chat do canal assistido, então você aparece na lista de espectadores dele."
+  },
+  "extensionChatPresenceBlocked": {
+    "message": "Fora do chat: o tempo assistido do NoPixel não conta até a presença no chat voltar"
   },
   "extensionFortniteHint": {
     "message": "Colete sprites e ganhe recompensas das fases."

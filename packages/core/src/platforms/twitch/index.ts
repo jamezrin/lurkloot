@@ -7,6 +7,8 @@ import type { TwitchIntegrity } from "../../core/twitchIntegrity";
 import { PendingWatcherDiagnostics, type HeartbeatResult, type TablessWatchController, type WatchContext } from "../../core/tablessWatch";
 import { StaleWhileRevalidateCache } from "../../core/staleCache";
 import type { WebSocketFactory } from "../../core/webSocket";
+import type { ChatPresenceClient } from "../../core/chatPresence";
+import { TwitchChatPresenceClient } from "./chatPresence";
 import { diagnostic, ignoreEvent, type AdapterOperationOptions, type CandidateChannelSelection, type ChannelPointsClaimOptions, type PageFetcher, type PlatformAdapter } from "../adapter";
 import { TwitchChannelPointsPushController, type TwitchPlaybackNotice } from "./channelPointsPush";
 import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchCampaigns, twitchCandidatesFromCampaign, twitchSubscriptionRewardEvidence, withCampaignStatus } from "./parser";
@@ -22,6 +24,7 @@ export type { TwitchInventoryCapability } from "./inventory/types";
 
 // Inline query: the viewer's own user id, needed for the minute-watched event.
 const CURRENT_USER_QUERY = "query CurrentUser { currentUser { id } }";
+const CURRENT_USER_LOGIN_QUERY = "query CurrentUserLogin { currentUser { id login } }";
 
 // Twitch's web Client-ID — the default identity. It is the one Twitch gates
 // behind Client-Integrity (Kasada); non-web client ids (Android/TV) are not.
@@ -1035,6 +1038,7 @@ export class TwitchAdapter implements PlatformAdapter {
   platform = "twitch" as const;
   readonly compatibility?: ResolvedCompatibility["twitch"];
   readonly createChannelPointsPushController?: () => TwitchChannelPointsPushController;
+  readonly createChatPresenceClient?: () => ChatPresenceClient;
 
   async checkAuthHealth(signal?: AbortSignal): Promise<PlatformAuthHealth> {
     const checkedAt = new Date().toISOString();
@@ -1119,6 +1123,11 @@ export class TwitchAdapter implements PlatformAdapter {
         resolveUserId: () => this.resolveViewerUserId(),
         clientId: this.options.clientId,
         observePlayback: (notice) => discoveryState.recordPlaybackNotice(notice),
+      });
+      this.createChatPresenceClient = () => new TwitchChatPresenceClient({
+        createWebSocket,
+        getAuthToken,
+        resolveLogin: () => this.resolveViewerLogin(),
       });
     }
   }
@@ -2645,6 +2654,18 @@ export class TwitchAdapter implements PlatformAdapter {
       diagnostic(this.emit, "warn", `Could not resolve the Twitch viewer id for channel-points push: ${message}`, "twitch");
       return undefined;
     }
+  }
+
+  // A failure propagates: the chat presence client reports it through its own
+  // diagnostics, which outlive the reconcile that created this adapter.
+  private async resolveViewerLogin(): Promise<string | undefined> {
+    const response = await this.gqlWithIntegrityRetry<{ currentUser?: { login?: string } }>(
+      "CurrentUserLogin",
+      "",
+      {},
+      CURRENT_USER_LOGIN_QUERY,
+    );
+    return response.data?.currentUser?.login;
   }
 
   private async mergeCurrentSessionProgress(

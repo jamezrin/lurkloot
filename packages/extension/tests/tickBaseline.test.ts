@@ -102,7 +102,9 @@ describe("extension scheduler tick baseline", () => {
       candidatesEvaluated: 1,
       watcherReconciliations: 1,
       adapterConstructions: 3,
-      settingsLoads: 6,
+      // 6 + 1: a fresh controller that finds a running tabless watch reads the
+      // settings once to decide chat presence (restart recovery, chatPresence.ts).
+      settingsLoads: 7,
       stateLoads: 8,
       stateSaves: 3,
       eventPublications: 6,

@@ -100,11 +100,13 @@ describe("host capabilities", () => {
       browserTabs: true,
       twitchIntegrityCapture: true,
       supplementalSources: true,
+      chatPresence: true,
     });
     expect(CLI_CAPABILITIES).toEqual({
       browserTabs: false,
       twitchIntegrityCapture: false,
       supplementalSources: false,
+      chatPresence: false,
     });
   });
 

@@ -216,7 +216,7 @@ describe("state transaction", () => {
         settings: DEFAULT_SETTINGS,
         adapters: {} as never,
         signal: new AbortController().signal,
-        observerEpochs: { discoverySignals: {}, channelPointsPush: 0 },
+        observerEpochs: { discoverySignals: {}, channelPointsPush: 0, chatPresence: {} },
         correlate: (events: never[]) => events,
         follow: () => undefined,
       });

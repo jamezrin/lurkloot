@@ -800,6 +800,24 @@
   "channelPointsPushClaimDescription": {
     "message": "一旦 Twitch 提供奖励即领取。关闭后每分钟只检查一次。"
   },
+  "alwaysEnterChatTitle": {
+    "message": "始终进入频道聊天室"
+  },
+  "alwaysEnterChatDescription": {
+    "message": "加入每个正在观看的频道的聊天室。主播和管理员可以在聊天室观众列表中看到你。不会发送任何消息。"
+  },
+  "chatPresenceJoined": {
+    "message": "在聊天室中"
+  },
+  "chatPresenceJoining": {
+    "message": "正在加入聊天室…"
+  },
+  "chatPresenceUnavailable": {
+    "message": "聊天室不可用"
+  },
+  "chatPresenceBlockedAuth": {
+    "message": "聊天室不可用：请重新登录 Twitch"
+  },
   "strictCampaignAvailabilityTitle": {
     "message": "严格限制掉宝活动频道"
   },
@@ -1545,7 +1563,10 @@
     "message": "无需 Twitch 标签页即可获取扩展奖励。遵循 Twitch 自动化、排除频道和手动暂停设置。"
   },
   "extensionNoPixelHint": {
-    "message": "获取每日卡包并参加抽奖。"
+    "message": "获取每日卡包并参加抽奖。累计观看时长需要加入正在观看的频道的聊天室，因此你会出现在其观众列表中。"
+  },
+  "extensionChatPresenceBlocked": {
+    "message": "不在聊天室中：恢复聊天室在线前，NoPixel 观看时长不会累计"
   },
   "extensionFortniteHint": {
     "message": "收集精灵并获取阶段奖励。"

@@ -800,6 +800,24 @@
   "channelPointsPushClaimDescription": {
     "message": "Riscatta il bonus non appena Twitch lo rende disponibile. Disattiva per controllare solo una volta al minuto."
   },
+  "alwaysEnterChatTitle": {
+    "message": "Entra sempre nella chat del canale"
+  },
+  "alwaysEnterChatDescription": {
+    "message": "Entra nella chat di ogni canale guardato. Streamer e moderatori possono vederti nell'elenco spettatori della chat. Non viene mai inviato alcun messaggio."
+  },
+  "chatPresenceJoined": {
+    "message": "Nella chat"
+  },
+  "chatPresenceJoining": {
+    "message": "Ingresso in chat…"
+  },
+  "chatPresenceUnavailable": {
+    "message": "Chat non disponibile"
+  },
+  "chatPresenceBlockedAuth": {
+    "message": "Chat non disponibile: accedi di nuovo a Twitch"
+  },
   "strictCampaignAvailabilityTitle": {
     "message": "Disponibilità rigorosa delle campagne"
   },
@@ -1545,7 +1563,10 @@
     "message": "Ottieni ricompense senza schede Twitch. Si applicano automazione Twitch, esclusioni e pausa manuale."
   },
   "extensionNoPixelHint": {
-    "message": "Ottieni pacchetti giornalieri e partecipa alle estrazioni."
+    "message": "Ottieni pacchetti giornalieri e partecipa alle estrazioni. Per accumulare tempo di visione si entra nella chat del canale guardato, quindi comparirai nel suo elenco spettatori."
+  },
+  "extensionChatPresenceBlocked": {
+    "message": "Non sei in chat: il tempo di visione di NoPixel non viene conteggiato finché la presenza in chat non torna"
   },
   "extensionFortniteHint": {
     "message": "Raccogli sprite e ottieni ricompense delle fasi."

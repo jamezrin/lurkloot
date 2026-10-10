@@ -153,6 +153,7 @@ describe("settings registry", () => {
         "general.advanced.deadlineSafetyMargin",
         "general.advanced.diagnosticLogging",
         "twitch.autoClaimChannelPoints",
+        "twitch.alwaysEnterChat",
         "twitch.watchSourcePriority.order",
         "twitch.categories.games",
         "twitch.channels.excluded",

@@ -1,6 +1,6 @@
 import React from "react";
-import { Clock3, Eye, Gift, Pause, Power, Sparkles } from "lucide-react";
-import type { Platform } from "@lurkloot/shared/models";
+import { Clock3, Eye, Gift, MessageSquare, Pause, Power, Sparkles } from "lucide-react";
+import type { ChatPresenceStatus, Platform } from "@lurkloot/shared/models";
 import { AutomationStatusLine, LINK_CLASS } from "./automation";
 import type { AutomationPresentation } from "./automationStatus";
 import { PLATFORMS } from "./constants";
@@ -20,13 +20,15 @@ import { Tip } from "./tooltip";
  * to action. The strip has one fixed height in every steady state, so the
  * five-second poll can never resize it and shove the view under the pointer;
  * only a call to action may make it grow. */
-export function StatusStrip({ platform, presentation, campaign, farmingChannel, supplementalName, onCampaignClick, onResume, sourceChip, enabled, pending, onToggle }: {
+export function StatusStrip({ platform, presentation, campaign, farmingChannel, supplementalName, chatPresence, onCampaignClick, onResume, sourceChip, enabled, pending, onToggle }: {
   platform: Platform;
   presentation: AutomationPresentation;
   campaign?: CampaignView;
   farmingChannel?: FarmingChannelView;
   // Set while a Twitch extension is the source being watched.
   supplementalName?: string;
+  // Set while chat presence is wanted for this platform's watch.
+  chatPresence?: ChatPresenceStatus;
   onCampaignClick?(): void;
   onResume?(): void;
   sourceChip?: React.ReactNode;
@@ -43,7 +45,7 @@ export function StatusStrip({ platform, presentation, campaign, farmingChannel, 
       <StripLead campaign={watching ? campaign : undefined} presentation={presentation} enabled={enabled} watching={Boolean(watching)} supplemental={Boolean(supplementalName)} />
       <div className="min-w-0 flex-1">
         {watching ? (
-          <WatchingLines campaign={campaign} channel={watching} supplementalName={supplementalName} onCampaignClick={onCampaignClick} />
+          <WatchingLines campaign={campaign} channel={watching} supplementalName={supplementalName} chatPresence={chatPresence} onCampaignClick={onCampaignClick} />
         ) : (
           <div className="[&>div]:mt-0">
             <AutomationStatusLine platform={platform} presentation={presentation} onResume={onResume} />
@@ -84,10 +86,11 @@ function StripLead({ campaign, presentation, enabled, watching, supplemental }: 
   );
 }
 
-function WatchingLines({ campaign, channel, supplementalName, onCampaignClick }: {
+function WatchingLines({ campaign, channel, supplementalName, chatPresence, onCampaignClick }: {
   campaign?: CampaignView;
   channel: FarmingChannelView;
   supplementalName?: string;
+  chatPresence?: ChatPresenceStatus;
   onCampaignClick?(): void;
 }): React.ReactElement {
   const t = useT();
@@ -121,6 +124,7 @@ function WatchingLines({ campaign, channel, supplementalName, onCampaignClick }:
             <span role="img" aria-label={t("viewerCount", formatViewers(channel.viewers))} className="shrink-0">· {formatViewers(channel.viewers)}</span>
           </Tip>
         ) : null}
+        {chatPresence && chatPresence.state !== "left" ? <ChatPresenceBadge status={chatPresence} /> : null}
         {reward ? (
           <span className="flex min-w-0 items-center gap-1">
             <span aria-hidden>·</span>
@@ -138,5 +142,29 @@ function WatchingLines({ campaign, channel, supplementalName, onCampaignClick }:
         </div>
       ) : null}
     </div>
+  );
+}
+
+function chatPresenceLabelKey(status: ChatPresenceStatus): string {
+  if (status.state === "joined") return "chatPresenceJoined";
+  if (status.state === "joining") return "chatPresenceJoining";
+  if (status.state === "blocked" && status.reason === "auth") return "chatPresenceBlockedAuth";
+  return "chatPresenceUnavailable";
+}
+
+// Icon-only so the strip keeps its fixed height; the label is the tooltip and
+// the accessible name.
+function ChatPresenceBadge({ status }: { status: ChatPresenceStatus }): React.ReactElement {
+  const t = useT();
+  const label = t(chatPresenceLabelKey(status));
+  const tone = status.state === "joined"
+    ? "text-[var(--accent-text)]"
+    : status.state === "joining" ? "text-zinc-400 dark:text-zinc-500" : "text-amber-600 dark:text-amber-400";
+  return (
+    <Tip label={label}>
+      <span role="img" aria-label={label} data-chat-presence={status.state} className={cn("inline-flex shrink-0", tone)}>
+        <MessageSquare size={10} aria-hidden />
+      </span>
+    </Tip>
   );
 }

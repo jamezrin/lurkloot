@@ -800,6 +800,24 @@
   "channelPointsPushClaimDescription": {
     "message": "Получает бонус, как только Twitch делает его доступным. Отключите, чтобы проверять только раз в минуту."
   },
+  "alwaysEnterChatTitle": {
+    "message": "Всегда заходить в чат канала"
+  },
+  "alwaysEnterChatDescription": {
+    "message": "Заходить в чат каждого просматриваемого канала. Стримеры и модераторы видят вас в списке зрителей чата. Сообщения никогда не отправляются."
+  },
+  "chatPresenceJoined": {
+    "message": "В чате"
+  },
+  "chatPresenceJoining": {
+    "message": "Вход в чат…"
+  },
+  "chatPresenceUnavailable": {
+    "message": "Чат недоступен"
+  },
+  "chatPresenceBlockedAuth": {
+    "message": "Чат недоступен: войдите в Twitch снова"
+  },
   "strictCampaignAvailabilityTitle": {
     "message": "Строгая проверка доступности кампаний"
   },
@@ -1545,7 +1563,10 @@
     "message": "Получайте награды без вкладок Twitch. Учитываются автоматизация Twitch, исключения и ручная пауза."
   },
   "extensionNoPixelHint": {
-    "message": "Получайте ежедневные наборы и участвуйте в розыгрышах."
+    "message": "Получайте ежедневные наборы и участвуйте в розыгрышах. Чтобы засчитывалось время просмотра, Lurkloot заходит в чат просматриваемого канала, поэтому вы появляетесь в списке его зрителей."
+  },
+  "extensionChatPresenceBlocked": {
+    "message": "Не в чате: время просмотра NoPixel не засчитывается, пока присутствие в чате не восстановится"
   },
   "extensionFortniteHint": {
     "message": "Собирайте спрайты и получайте награды этапов."

@@ -800,6 +800,24 @@
   "channelPointsPushClaimDescription": {
     "message": "Beansprucht den Bonus, sobald Twitch ihn verfügbar macht. Deaktivieren, um nur einmal pro Minute zu prüfen."
   },
+  "alwaysEnterChatTitle": {
+    "message": "Immer dem Kanal-Chat beitreten"
+  },
+  "alwaysEnterChatDescription": {
+    "message": "Tritt dem Chat jedes angesehenen Kanals bei. Streamer und Moderatoren sehen dich in der Zuschauerliste des Chats. Es werden nie Nachrichten gesendet."
+  },
+  "chatPresenceJoined": {
+    "message": "Im Chat"
+  },
+  "chatPresenceJoining": {
+    "message": "Chat wird betreten…"
+  },
+  "chatPresenceUnavailable": {
+    "message": "Chat nicht verfügbar"
+  },
+  "chatPresenceBlockedAuth": {
+    "message": "Chat nicht verfügbar: Melde dich erneut bei Twitch an"
+  },
   "strictCampaignAvailabilityTitle": {
     "message": "Strikte Kampagnenverfügbarkeit"
   },
@@ -1545,7 +1563,10 @@
     "message": "Erhalte Erweiterungsbelohnungen ohne Twitch-Tabs. Twitch-Automatisierung, Ausschlüsse und manuelle Pausen gelten."
   },
   "extensionNoPixelHint": {
-    "message": "Erhalte tägliche Pakete und nimm an Verlosungen teil."
+    "message": "Erhalte tägliche Pakete und nimm an Verlosungen teil. Um Wiedergabezeit zu sammeln, tritt Lurkloot dem Chat des angesehenen Kanals bei, daher erscheinst du in dessen Zuschauerliste."
+  },
+  "extensionChatPresenceBlocked": {
+    "message": "Nicht im Chat: NoPixel-Wiedergabezeit wird erst wieder gezählt, wenn die Chat-Präsenz zurück ist"
   },
   "extensionFortniteHint": {
     "message": "Sammle Sprites und erhalte Phasenbelohnungen."

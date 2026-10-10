@@ -7,6 +7,7 @@ export const twitchExtensionProviders: readonly TwitchExtensionProviderDescripto
     backendOrigin: "https://nopixel.streamingtoolsmith.com/*" as const,
     discoveryCategoryIds: Object.freeze(["32982"]),
     minRefreshIntervalMs: 60_000,
+    needsChatPresence: true,
   }),
   Object.freeze({
     id: "fortnite" as const,
@@ -14,6 +15,7 @@ export const twitchExtensionProviders: readonly TwitchExtensionProviderDescripto
     backendOrigin: "https://backend.p-n6412w7dsu.exmggames.com/*" as const,
     discoveryCategoryIds: Object.freeze(["33214"]),
     minRefreshIntervalMs: 10_000,
+    needsChatPresence: false,
   }),
 ]);
 

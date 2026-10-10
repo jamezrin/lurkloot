@@ -55,6 +55,7 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
       autoClaimChannelPoints: true,
       strictCampaignAvailability: false,
       channelPointsPushClaim: true,
+      alwaysEnterChat: false,
     },
     kick: {
       enabled: false,
@@ -67,6 +68,7 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
       blockedCategories: [],
       subscribedRewardMarks: [],
       autoClaimChallenges: true,
+      alwaysEnterChat: false,
     },
   },
   compatibility: {
@@ -157,6 +159,7 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
         favouriteCategories: normalizeCategorySelections(platform?.twitch?.favouriteCategories),
         blockedCategories: normalizeCategorySelections(platform?.twitch?.blockedCategories),
         subscribedRewardMarks: normalizeSubscriptionMarks(platform?.twitch?.subscribedRewardMarks),
+        alwaysEnterChat: booleanOr(platform?.twitch?.alwaysEnterChat, false),
         autoClaimChannelPoints: booleanOr(platform?.twitch?.autoClaimChannelPoints, DEFAULT_ENGINE_SETTINGS.platform.twitch.autoClaimChannelPoints),
         strictCampaignAvailability: booleanOr(platform?.twitch?.strictCampaignAvailability, DEFAULT_ENGINE_SETTINGS.platform.twitch.strictCampaignAvailability),
         channelPointsPushClaim: booleanOr(platform?.twitch?.channelPointsPushClaim, DEFAULT_ENGINE_SETTINGS.platform.twitch.channelPointsPushClaim),
@@ -171,6 +174,7 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
         favouriteCategories: normalizeCategorySelections(platform?.kick?.favouriteCategories),
         blockedCategories: normalizeCategorySelections(platform?.kick?.blockedCategories),
         subscribedRewardMarks: normalizeSubscriptionMarks(platform?.kick?.subscribedRewardMarks),
+        alwaysEnterChat: booleanOr(platform?.kick?.alwaysEnterChat, false),
         autoClaimChallenges: booleanOr(platform?.kick?.autoClaimChallenges, DEFAULT_ENGINE_SETTINGS.platform.kick.autoClaimChallenges),
       },
     },

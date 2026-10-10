@@ -800,6 +800,24 @@
   "channelPointsPushClaimDescription": {
     "message": "Twitch bonus kullanılabilir olur olmaz al. Kapatırsanız yalnızca dakikada bir kontrol edilir."
   },
+  "alwaysEnterChatTitle": {
+    "message": "Kanal sohbetine her zaman katıl"
+  },
+  "alwaysEnterChatDescription": {
+    "message": "İzlenen her kanalın sohbetine katıl. Yayıncılar ve moderatörler seni sohbetin izleyici listesinde görebilir. Asla mesaj gönderilmez."
+  },
+  "chatPresenceJoined": {
+    "message": "Sohbette"
+  },
+  "chatPresenceJoining": {
+    "message": "Sohbete katılınıyor…"
+  },
+  "chatPresenceUnavailable": {
+    "message": "Sohbet kullanılamıyor"
+  },
+  "chatPresenceBlockedAuth": {
+    "message": "Sohbet kullanılamıyor: Twitch'e yeniden giriş yap"
+  },
   "strictCampaignAvailabilityTitle": {
     "message": "Katı kampanya uygunluğu"
   },
@@ -1545,7 +1563,10 @@
     "message": "Twitch sekmeleri olmadan ödül kazanın. Twitch otomasyonu, hariç tutmalar ve manuel duraklatma geçerlidir."
   },
   "extensionNoPixelHint": {
-    "message": "Günlük paketler kazanın ve çekilişlere katılın."
+    "message": "Günlük paketler kazanın ve çekilişlere katılın. İzleme süresi kazanmak için izlenen kanalın sohbetine katılınır, bu yüzden izleyici listesinde görünürsünüz."
+  },
+  "extensionChatPresenceBlocked": {
+    "message": "Sohbette değil: sohbet varlığı geri gelene kadar NoPixel izleme süresi sayılmaz"
   },
   "extensionFortniteHint": {
     "message": "Sprite toplayın ve aşama ödülleri kazanın."

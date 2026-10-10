@@ -2,6 +2,7 @@ import { vi } from "vitest";
 import {
   createBackgroundController,
   type CredentialAvailability,
+  type HostCapabilities,
 } from "@lurkloot/core/controller";
 import { resolveCompatibility } from "@lurkloot/core";
 import { heartbeatContextKey } from "@lurkloot/core/heartbeatCadence";
@@ -22,13 +23,15 @@ import { applySettingsPatch, DEFAULT_SETTINGS } from "@lurkloot/shared/settings"
 import { DEFAULT_STATE } from "../../src/core/storage";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import { withLockTracker } from "./lockTracker";
-import { hostPortsFromMocks, type HostMocks } from "./hostPorts";
+import { hostPortsFromMocks, mockedCapabilities, type HostMocks } from "./hostPorts";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
 import type { StopPageContextTabs } from "@lurkloot/core/scheduler";
 import { createTabRegistry, forgetManagedPageContextTabs, noteTabClosure, type TabRegistry, type TwitchIntegrityRequest } from "@lurkloot/core/tabRegistry";
 import { OPAQUE_INTEGRITY_CEILING_MS, type IntegrityHeader, type TwitchIntegrity } from "@lurkloot/core/twitchIntegrity";
 import type { DiscoverySignalController, DiscoverySignalTarget } from "@lurkloot/core/discoverySignals";
 import type { TwitchChannelPointsClaimNotice, TwitchHermesOwners, TwitchPlaybackNotice } from "@lurkloot/core/twitch/channelPointsPush";
+import type { ChatPresenceClient, ChatPresenceTarget } from "@lurkloot/core/chatPresence";
+import type { ChatPresenceStatus } from "@lurkloot/shared/models";
 
 // Fixtures and fakes shared by the background controller tests in
 // tests/backgroundController/, which are split by the owner module each one
@@ -149,6 +152,35 @@ export class FakeChannelPointsPushController {
     this.onClaimAvailable = undefined;
     this.playback = undefined;
     this.subscribed = false;
+  }
+}
+
+export class FakeChatPresenceClient implements ChatPresenceClient {
+  follows: Array<ChatPresenceTarget | undefined> = [];
+  stops = 0;
+  followBarrier?: Promise<void>;
+  current: ChatPresenceStatus = { state: "left" };
+  private readonly events: DiagnosticEvent[] = [];
+
+  async follow(target: ChatPresenceTarget | undefined): Promise<void> {
+    this.follows.push(target);
+    if (this.followBarrier) await this.followBarrier;
+    // Like the real client, blocked holds until stop().
+    if (this.current.state === "blocked") return;
+    this.current = target ? { state: "joined", channel: target.username } : { state: "left" };
+  }
+
+  status(): ChatPresenceStatus {
+    return this.current;
+  }
+
+  drainEvents(): DiagnosticEvent[] {
+    return this.events.splice(0);
+  }
+
+  async stop(): Promise<void> {
+    this.stops += 1;
+    this.current = { state: "left" };
   }
 }
 
@@ -303,6 +335,8 @@ export function harness(
     initialState?: SchedulerState;
     // Passed when the test drives the tab functions on the same registry.
     tabRegistry?: TabRegistry;
+    // Overrides what the mocks imply, e.g. a CLI-like host without chat presence.
+    capabilities?: Partial<HostCapabilities>;
   } = {},
 ) {
   let currentSettings = settings;
@@ -322,6 +356,9 @@ export function harness(
   const channelPointsPushController = new FakeChannelPointsPushController();
   const channelPointsPushFactory = vi.fn(() => channelPointsPushController);
   twitch.createChannelPointsPushController = channelPointsPushFactory as unknown as PlatformAdapter["createChannelPointsPushController"];
+  const chatPresenceClient = new FakeChatPresenceClient();
+  const chatPresenceFactory = vi.fn(() => chatPresenceClient);
+  twitch.createChatPresenceClient = chatPresenceFactory;
   const reportEvents = vi.fn<(events: readonly EngineEvent[]) => Promise<void>>(async () => undefined);
   const tabRegistry = overrides.tabRegistry ?? createTabRegistry();
   const deps = {
@@ -392,7 +429,10 @@ export function harness(
   };
 
   const { deps: trackedDeps, tracker: lockTracker } = withLockTracker(deps);
-  const controller = createBackgroundController(hostPortsFromMocks(trackedDeps));
+  const controller = createBackgroundController(hostPortsFromMocks(trackedDeps, {
+    ...mockedCapabilities(trackedDeps),
+    ...overrides.capabilities,
+  }));
   // User-action messages dispatch their scheduler tick in the background and
   // return the snapshot immediately, so the popup is never held open for a
   // network-bound tick. Tests here assert on what the tick produced, so the
@@ -425,6 +465,8 @@ export function harness(
     discoverySignalFactory,
     channelPointsPushController,
     channelPointsPushFactory,
+    chatPresenceClient,
+    chatPresenceFactory,
     reportEvents: deps.reportEvents,
   };
 }

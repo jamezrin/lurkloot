@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { AnimatePresence } from "motion/react";
-import { AlertTriangle, Check, Gift, Package, Puzzle, Sparkles, type LucideIcon } from "lucide-react";
+import { AlertTriangle, Check, Gift, MessageSquareOff, Package, Puzzle, Sparkles, type LucideIcon } from "lucide-react";
 import { Pill, ProgressBar, SectionHeader, Toggle, cn } from "./primitives";
-import type { ExtensionSettings, TwitchExtensionProviderId, TwitchExtensionSummary } from "@lurkloot/shared/models";
+import type { ChatPresenceStatus, ExtensionSettings, TwitchExtensionProviderId, TwitchExtensionSummary } from "@lurkloot/shared/models";
 import type { PopupAdapter } from "./types";
 import { useT } from "./context";
 import { WatchSourcePlace } from "./watchSourcePriority";
@@ -70,7 +70,7 @@ function StatusBadge({ badge }: { badge: Badge }) {
   );
 }
 
-function providerDetails(provider: TwitchExtensionProviderId, summary: TwitchExtensionSummary | undefined, t: ReturnType<typeof useT>): { progress?: { label: string; percent: number; earned: number; required: number }; badges: Badge[] } {
+function providerDetails(provider: TwitchExtensionProviderId, summary: TwitchExtensionSummary | undefined, t: ReturnType<typeof useT>, chatPresenceBlocked = false): { progress?: { label: string; percent: number; earned: number; required: number }; badges: Badge[] } {
   const badges: Badge[] = [];
   if (!summary) return { badges };
   let progress: { label: string; percent: number; earned: number; required: number } | undefined;
@@ -78,6 +78,7 @@ function providerDetails(provider: TwitchExtensionProviderId, summary: TwitchExt
   if (provider === "nopixel") {
     const daily = summary.progress.find((item) => item.key === "daily-pack");
     if (daily) progress = { label: t("extensionDailyPackProgress", [String(daily.earned), String(daily.required)]), percent: percentOf(daily.earned, daily.required), earned: daily.earned, required: daily.required };
+    if (chatPresenceBlocked) badges.push({ key: "chat-presence", icon: MessageSquareOff, tone: "warning", label: t("extensionChatPresenceBlocked") });
     const giveaway = summary.pending.find((item) => item.key === "giveaway");
     if (giveaway?.state === "done") badges.push({ key: "giveaway", icon: Check, tone: "live", label: t("extensionGiveawayEntered") });
     if (giveaway?.state === "open") badges.push({ key: "giveaway", icon: Gift, tone: "accent", label: t("extensionGiveawayOpen") });
@@ -197,12 +198,14 @@ export const TWITCH_EXTENSION_PROVIDERS = PROVIDERS;
  * The grouped list could only afford a name, a count and a couple of badges per
  * provider; here everything the summary carries is visible at once — status,
  * progress, every badge, the provider's own option, and the way to turn it off. */
-export function TwitchExtensionView({ providerId, settings, summary, active, pending, onEnabledChange, onOptionChange, onSetup, onChangeOrder }: {
+export function TwitchExtensionView({ providerId, settings, summary, active, pending, chatPresence, onEnabledChange, onOptionChange, onSetup, onChangeOrder }: {
   providerId: TwitchExtensionProviderId;
   settings: ExtensionSettings;
   summary?: TwitchExtensionSummary;
   active: boolean;
   pending: boolean;
+  // The Twitch chat presence status; NoPixelV earns watch time only while joined.
+  chatPresence?: ChatPresenceStatus;
   // Resolves false when the browser denied the permission the provider needs.
   onEnabledChange(enabled: boolean): Promise<boolean | void>;
   onOptionChange(enabled: boolean): void | Promise<void>;
@@ -216,7 +219,11 @@ export function TwitchExtensionView({ providerId, settings, summary, active, pen
   const option = providerId === "nopixel"
     ? settings.twitchExtensions.nopixel.autoOpenPacks
     : settings.twitchExtensions.fortnite.allowTakeovers;
-  const { progress, badges } = providerDetails(providerId, summary, t);
+  // While NoPixelV holds the watch, no presence status at all is not being in
+  // chat either; a join in progress (every lane rotation) is not a failure.
+  const chatPresenceBlocked = providerId === "nopixel" && active
+    && chatPresence?.state !== "joined" && chatPresence?.state !== "joining";
+  const { progress, badges } = providerDetails(providerId, summary, t, chatPresenceBlocked);
   const [failure, setFailure] = useState<string>();
 
   // Same outcomes the settings section reports: a denied permission leaves

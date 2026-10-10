@@ -135,8 +135,8 @@ const CLI_SETTING_KEYS = new Set<string>([
 ]);
 
 const CLI_PLATFORM_KEYS: Record<Platform, Set<string>> = {
-  twitch: new Set(["enabled", "watchSourcePriority", "idleWatchlistChannels", "excludedChannels", "categoryMode", "categories", "favouriteCategories", "blockedCategories", "subscribedRewardMarks", "autoClaimChannelPoints", "strictCampaignAvailability", "channelPointsPushClaim"]),
-  kick: new Set(["enabled", "watchSourcePriority", "idleWatchlistChannels", "excludedChannels", "categoryMode", "categories", "favouriteCategories", "blockedCategories", "subscribedRewardMarks", "autoClaimChallenges"]),
+  twitch: new Set(["enabled", "watchSourcePriority", "idleWatchlistChannels", "excludedChannels", "categoryMode", "categories", "favouriteCategories", "blockedCategories", "subscribedRewardMarks", "autoClaimChannelPoints", "strictCampaignAvailability", "channelPointsPushClaim", "alwaysEnterChat"]),
+  kick: new Set(["enabled", "watchSourcePriority", "idleWatchlistChannels", "excludedChannels", "categoryMode", "categories", "favouriteCategories", "blockedCategories", "subscribedRewardMarks", "autoClaimChallenges", "alwaysEnterChat"]),
 };
 const CLI_COMPATIBILITY_KEYS: Record<Platform, Set<string>> = {
   twitch: new Set(["profile", "heartbeatTransport", "inventoryQueryVersion"]),
@@ -417,6 +417,7 @@ function normalizePlatform(
         favouriteCategories: normalizeCategorySelections(ps.favouriteCategories),
         blockedCategories: normalizeCategorySelections(ps.blockedCategories),
         subscribedRewardMarks: normalizeSubscriptionMarks(ps.subscribedRewardMarks),
+        alwaysEnterChat: booleanOr(ps.alwaysEnterChat, false),
       },
     };
   };

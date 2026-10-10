@@ -112,6 +112,8 @@ const labels: Record<string, string> = {
   lowAvailabilityFirst: "Low availability first",
   autoClaimChannelPointsTitle: "Auto-claim channel points",
   autoClaimChannelPointsDescription: "Claim channel-point bonuses while farming this platform.",
+  alwaysEnterChatTitle: "Always enter channel chat",
+  alwaysEnterChatDescription: "Join the chat of each channel being watched. Streamers and moderators can see you in the chat's viewer list. Messages are never sent.",
   autoClaimChallengesTitle: "Auto-claim daily challenges",
   autoClaimChallengesDescription: "Claim Kick's daily challenge reward once its watch-time goal is met.",
   settingsGroupPlatformAdvanced: "Advanced & compatibility",
@@ -302,6 +304,18 @@ describe("deadline feasibility setting", () => {
 
 
 
+
+  it("saves Always enter channel chat for Twitch and reconciles Twitch", () => {
+    const { container, onSettingsChange } = mountSettings();
+    const toggle = container.querySelector('[role="switch"][aria-label="Always enter channel chat"]') as HTMLButtonElement;
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
+
+    act(() => toggle.click());
+    expect(onSettingsChange).toHaveBeenCalledWith(
+      { platform: { twitch: { alwaysEnterChat: true } } },
+      { tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] },
+    );
+  });
 
   it("reconciles the chosen platform after changing watch-source priority", () => {
     const { container, onSettingsChange } = mountSettings();

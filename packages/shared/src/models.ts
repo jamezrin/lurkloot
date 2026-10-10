@@ -339,6 +339,17 @@ export interface CategorySelection {
 // goes in blockedCategories, which applies in both modes.
 export type CategoryMode = "all" | "include";
 
+// Chat presence (docs/superpowers/specs/2026-10-05-chat-presence-design.md):
+// whether LurkLoot is in the watched channel's chat. Runtime only; attached to
+// snapshots, never persisted.
+export type ChatPresenceState = "left" | "joining" | "joined" | "error" | "blocked";
+export type ChatPresenceBlockReason = "auth" | "origin-rejected" | "unsupported-provider" | "capability-absent";
+export interface ChatPresenceStatus {
+  state: ChatPresenceState;
+  channel?: string;
+  reason?: ChatPresenceBlockReason;
+}
+
 export interface PlatformSettings {
   enabled: boolean;
   watchSourcePriority: WatchSourceId[];
@@ -357,6 +368,10 @@ export interface PlatformSettings {
   // subscribed. Lurkloot then treats that reward's subscription as detected
   // (docs/superpowers/specs/2026-10-03-subscription-marks-design.md).
   subscribedRewardMarks?: string[];
+  // Join the chat of every channel watched tablessly on this platform, so the
+  // account appears in its chatter list. Off by default. Providers that need
+  // chat presence (NoPixelV) join it regardless.
+  alwaysEnterChat?: boolean;
 }
 
 // Per-platform settings carry the claim toggles that only make sense on that
@@ -520,6 +535,9 @@ export interface SchedulerState {
   // Host transient summaries are attached to snapshots, not restored as an
   // active provider session. Provider credentials never belong in this state.
   twitchExtensions?: Partial<Record<TwitchExtensionProviderId, TwitchExtensionSummary>>;
+  // Live chat presence per platform, attached to snapshots like the
+  // twitchExtensions summaries. Never persisted or restored.
+  chatPresence?: Partial<Record<Platform, ChatPresenceStatus>>;
   sessions: Record<Platform, WatchSession>;
   authHealth: Record<Platform, PlatformAuthHealth>;
   // Per-platform critical-failure detection. Persisted so the flag survives an

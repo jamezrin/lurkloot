@@ -12,6 +12,12 @@ import {
 } from "../src/settings";
 
 describe("parseCliSettings", () => {
+  it("accepts alwaysEnterChat on both platforms", () => {
+    const settings = parseCliSettings({ platform: { twitch: { alwaysEnterChat: true }, kick: {} } });
+    expect(settings.platform.twitch.alwaysEnterChat).toBe(true);
+    expect(settings.platform.kick.alwaysEnterChat).toBe(false);
+  });
+
   it("migrates legacy Watch Queue settings and reports them", () => {
     const { settings, diagnostics } = parseCliSettingsWithDiagnostics({
       watchQueueFallbackOnly: false,
