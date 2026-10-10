@@ -85,7 +85,9 @@ const chromeOffscreen = (globalThis as { chrome?: { offscreen?: ChromeOffscreen;
 const kickRealtimeWebSocket: WebSocketFactory | undefined = chromeOffscreen?.offscreen
   ? createKickRealtimeRelay({
     onConnect: browser.runtime.onConnect as never,
-    hasDocument: async () => (await chromeOffscreen.runtime?.getContexts?.({ contextTypes: ["OFFSCREEN_DOCUMENT"] }))?.length !== 0,
+    // Without getContexts (Chrome before 116) a stale document cannot be
+    // seen; creating one then fails and the socket retries.
+    hasDocument: async () => ((await chromeOffscreen.runtime?.getContexts?.({ contextTypes: ["OFFSCREEN_DOCUMENT"] }))?.length ?? 0) > 0,
     createDocument: () => chromeOffscreen.offscreen!.createDocument({
       url: KICK_REALTIME_OFFSCREEN_PATH,
       reasons: ["IFRAME_SCRIPTING"],

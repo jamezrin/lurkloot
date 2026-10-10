@@ -148,7 +148,11 @@ export function createKickRealtimeRelay(host: KickRealtimeRelayHost): WebSocketF
     connecting ??= (async () => {
       try {
         // A document from an earlier worker has no live port; start afresh.
-        if (await host.hasDocument()) await host.closeDocument();
+        try {
+          if (await host.hasDocument()) await host.closeDocument();
+        } catch {
+          // Already gone; createDocument below decides.
+        }
         const connected = new Promise<RelayPort>((resolve, reject) => {
           waiting = resolve;
           setTimer(() => reject(new Error("The Kick realtime relay did not connect")), RELAY_CONNECT_TIMEOUT_MS);
