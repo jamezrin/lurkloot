@@ -28,6 +28,9 @@ const WEBSOCKET_OPEN = 1;
 // Centrifugo disconnect codes in this range are final; reconnecting repeats them.
 const CENTRIFUGO_TERMINAL_CLOSE = { min: 3_500, max: 3_999 };
 const PUSHER_TERMINAL_CLOSE = { min: 4_000, max: 4_099 };
+// Read off a frame's start without parsing it, to decide whether to parse.
+const CENTRIFUGO_PUSH_CHANNEL = /^\{"push":\{"channel":"([^"\\]+)"/;
+const PUSHER_EVENT_NAME = /^\{"event":"([A-Za-z0-9_.:-]+)"/;
 
 export type KickRealtimeProvider = "centrifugo" | "pusher";
 export type KickRealtimeState = "idle" | "connecting" | "connected" | "error" | "blocked";
@@ -45,8 +48,19 @@ export interface KickRealtimeEndpoint {
   url: string;
 }
 
+// An owner's interest in a channel's events, by name. Only frames whose event
+// name is listed are parsed; the rest (chat) are dropped unread.
+export interface KickRealtimeListener {
+  readonly events: readonly string[];
+  // The event's payload, decoded once: Pusher sends it as a JSON string.
+  onEvent(event: string, data: unknown): void;
+}
+
 export interface KickRealtimeDeps {
   createWebSocket: WebSocketFactory;
+  // The providers this host can speak. A host whose sockets carry an
+  // extension origin accepts only Pusher, which Kick's Centrifugo refuses.
+  acceptedProviders?: readonly KickRealtimeProvider[];
   // POSTs JSON through the Kick fetcher (session bearer, page-context rules)
   // and returns the parsed body. Throws SafeFetchError on HTTP failures.
   postJson: (url: string, body: unknown) => Promise<unknown>;
@@ -60,10 +74,13 @@ export interface KickRealtimeDeps {
 
 // The negotiation body Kick's web client sends, for this connection and for
 // a channel's chat/connection call.
-export function kickRealtimeNegotiation(clientId: string): Record<string, unknown> {
+export function kickRealtimeNegotiation(
+  clientId: string,
+  providers: readonly KickRealtimeProvider[] = ["pusher", "centrifugo"],
+): Record<string, unknown> {
   return {
     client: { id: clientId, type: "web" },
-    capabilities: { accepted_providers: [{ provider: "pusher" }, { provider: "centrifugo" }] },
+    capabilities: { accepted_providers: providers.map((provider) => ({ provider })) },
   };
 }
 
@@ -87,6 +104,7 @@ export function parseKickRealtimeEndpoint(body: unknown): KickRealtimeEndpoint |
 
 export class KickRealtimeConnection {
   private readonly subscriptions = new Set<string>();
+  private readonly listeners = new Map<string, KickRealtimeListener>();
   // Channels the current socket has confirmed.
   private readonly confirmed = new Set<string>();
   private ws?: WebSocketLike;
@@ -160,13 +178,16 @@ export class KickRealtimeConnection {
     this.restart();
   }
 
-  subscribe(channel: string): void {
+  subscribe(channel: string, listener?: KickRealtimeListener): void {
+    if (listener) this.listeners.set(channel, listener);
+    else this.listeners.delete(channel);
     if (this.subscriptions.has(channel)) return;
     this.subscriptions.add(channel);
     if (this.socketReady) this.sendSubscribe(channel);
   }
 
   unsubscribe(channel: string): void {
+    this.listeners.delete(channel);
     if (!this.subscriptions.delete(channel)) return;
     this.confirmed.delete(channel);
     if (!this.socketReady) return;
@@ -180,6 +201,7 @@ export class KickRealtimeConnection {
     this.closeSocket();
     this.clearTimers();
     this.subscriptions.clear();
+    this.listeners.clear();
     this.token = undefined;
     this.clientId = undefined;
     this.endpoint = undefined;
@@ -198,7 +220,10 @@ export class KickRealtimeConnection {
     try {
       if (!this.endpoint) {
         this.clientId ??= this.randomId();
-        const endpoint = parseKickRealtimeEndpoint(await this.deps.postJson(KICK_REALTIME_CONNECTION_URL, kickRealtimeNegotiation(this.clientId)));
+        const endpoint = parseKickRealtimeEndpoint(await this.deps.postJson(
+          KICK_REALTIME_CONNECTION_URL,
+          kickRealtimeNegotiation(this.clientId, this.deps.acceptedProviders),
+        ));
         if (generation !== this.generation) return;
         if (!endpoint) {
           this.block("unsupported-provider", "Kick realtime negotiation named no supported provider");
@@ -281,8 +306,12 @@ export class KickRealtimeConnection {
     this.armSilence(this.centrifugoPingMs + CENTRIFUGO_PING_GRACE_MS);
     for (const line of data.split("\n")) {
       if (line.length === 0) continue;
-      // Publications carry chat; they are never parsed.
-      if (line.startsWith("{\"push\"")) continue;
+      // Publications carry chat: only those on a channel an owner listens
+      // to are parsed.
+      if (line.startsWith("{\"push\"")) {
+        this.deliverCentrifugoPush(line);
+        continue;
+      }
       if (line === "{}") {
         this.sendRaw("{}");
         continue;
@@ -304,6 +333,26 @@ export class KickRealtimeConnection {
         this.confirmed.add(request.channel);
         this.setStatus({ state: "connected", provider: "centrifugo" });
       }
+    }
+  }
+
+  private deliverCentrifugoPush(line: string): void {
+    const channel = CENTRIFUGO_PUSH_CHANNEL.exec(line)?.[1];
+    // Only a channel this socket confirmed delivers events.
+    const listener = channel === undefined || !this.confirmed.has(channel) ? undefined : this.listeners.get(channel);
+    if (!listener) return;
+    const pub = record(record(parseJson(line)?.push)?.pub);
+    const envelope = record(pub?.data);
+    const event = envelope?.event;
+    if (typeof event !== "string" || !listener.events.includes(event)) return;
+    this.notify(listener, event, envelope?.data);
+  }
+
+  private notify(listener: KickRealtimeListener, event: string, data: unknown): void {
+    try {
+      listener.onEvent(event, data);
+    } catch (error) {
+      this.log("warn", `Kick realtime ${event} listener failed: ${errorMessage(error)}`);
     }
   }
 
@@ -361,9 +410,12 @@ export class KickRealtimeConnection {
 
   private handlePusher(data: string): void {
     this.armPusherPing();
-    // Channel events carry chat; only Pusher's own frames (pusher: and
-    // pusher_internal:) are parsed.
-    if (!data.startsWith("{\"event\":\"pusher")) return;
+    // Channel events carry chat; besides Pusher's own frames (pusher: and
+    // pusher_internal:), only events an owner listens for are parsed.
+    if (!data.startsWith("{\"event\":\"pusher")) {
+      this.deliverPusherEvent(data);
+      return;
+    }
     const frame = parseJson(data);
     if (!frame || typeof frame.event !== "string") return;
     switch (frame.event) {
@@ -387,6 +439,28 @@ export class KickRealtimeConnection {
         this.log("warn", "Kick realtime received a Pusher error");
         return;
     }
+  }
+
+  private deliverPusherEvent(data: string): void {
+    const event = PUSHER_EVENT_NAME.exec(data)?.[1];
+    if (event === undefined) return;
+    const wanted = [...this.listeners.values()].some((listener) => listener.events.includes(event));
+    if (!wanted) return;
+    const frame = parseJson(data);
+    const listener = typeof frame?.channel === "string" && this.confirmed.has(frame.channel)
+      ? this.listeners.get(frame.channel)
+      : undefined;
+    if (!listener || frame?.event !== event || !listener.events.includes(event)) return;
+    // Pusher sends the payload as a JSON string.
+    let payload: unknown = frame.data;
+    if (typeof payload === "string") {
+      try {
+        payload = JSON.parse(payload);
+      } catch {
+        return;
+      }
+    }
+    this.notify(listener, event, payload);
   }
 
   private ready(provider: KickRealtimeProvider): void {

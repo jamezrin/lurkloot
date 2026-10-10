@@ -53,6 +53,11 @@ export interface KickAdapterOptions {
   // server refuses an extension origin, so only a host that has this gets
   // Kick chat presence (#754).
   realtimeWebSocketFactory?: WebSocketFactory;
+  // Kick realtime negotiation goes through this when given. It must never
+  // fall back to a page-context tab: discovery signals negotiate on every
+  // Kick farm (#755). Without it, the adapter's own fetcher is used, which is
+  // right for a host whose fetcher has no tab fallback (the CLI).
+  realtimeFetcher?: PageFetcher;
 }
 
 interface KickLivestreamsResponse {
@@ -387,18 +392,21 @@ export class KickAdapter implements PlatformAdapter {
   ) {
     this.compatibility = options.compatibility;
     this.discoveryState = options.discoveryState ?? new KickDiscoveryState();
+    // Realtime and presence calls never fall back to a page-context tab:
+    // discovery negotiates on every Kick farm, and presence is tabless.
+    const realtimeFetcher = options.realtimeFetcher ?? this.fetcher;
+    const postJson = (url: string, body: unknown) => realtimeFetcher.fetchJson<unknown>(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    }, this.emit);
     if (this.webSocketFactory) {
       const createWebSocket = this.webSocketFactory;
-      this.createDiscoverySignalController = () => new KickDiscoverySignalController({ createWebSocket });
+      this.createDiscoverySignalController = () => new KickDiscoverySignalController({ createWebSocket, postJson });
     }
     const realtimeWebSocket = options.realtimeWebSocketFactory;
     if (realtimeWebSocket) {
-      const postJson = (url: string, body: unknown) => this.fetcher.fetchJson<unknown>(url, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(body),
-      }, this.emit);
-      const getJson = (url: string) => this.fetcher.fetchJson<unknown>(url, undefined, this.emit);
+      const getJson = (url: string) => realtimeFetcher.fetchJson<unknown>(url, undefined, this.emit);
       this.createChatPresenceClient = () => new KickChatPresenceClient({
         connection: new KickRealtimeConnection({ createWebSocket: realtimeWebSocket, postJson }),
         postJson,

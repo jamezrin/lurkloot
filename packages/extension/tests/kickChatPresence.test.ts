@@ -154,6 +154,27 @@ describe("Kick chat presence adapter factory", () => {
     expect(client).toBeInstanceOf(KickChatPresenceClient);
   });
 
+  // Presence is tabless: its Kick calls must never open a page-context tab.
+  it("makes its Kick calls through the realtime fetcher when the host gives one", async () => {
+    const pageCapable = { fetchJson: vi.fn(async (): Promise<never> => { throw new Error("would open a tab"); }) };
+    const background = {
+      fetchJson: vi.fn(async (url: string): Promise<unknown> => url.includes("/api/v2/channels/") ? ROOMS.xqc : CHAT_ENDPOINT),
+    };
+    const client = kickAdapter(pageCapable as never, undefined, undefined, {
+      realtimeFetcher: background as never,
+      realtimeWebSocketFactory: () => ({ readyState: 0, send() {}, close() {}, addEventListener() {} }),
+    }).createChatPresenceClient!();
+    await client.follow({ username: "xqc" });
+    expect(pageCapable.fetchJson).not.toHaveBeenCalled();
+    expect(background.fetchJson.mock.calls.map(([url]) => url)).toEqual([
+      "https://kick.com/api/v2/channels/xqc",
+      "https://web.kick.com/api/v1/realtime/channels/676/chat/connection",
+      // The realtime connection mints its token through it too.
+      "https://web.kick.com/api/v1/realtime/auth/connection",
+    ]);
+    await client.stop();
+  });
+
   it("negotiates and joins through the Kick fetcher", async () => {
     const calls: Array<{ url: string; method?: string; body?: unknown }> = [];
     const routed = {

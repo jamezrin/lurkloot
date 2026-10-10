@@ -52,6 +52,7 @@ describe("extension compatibility construction", () => {
     expect(backgroundSource).toContain("claimState: kickClaimState,");
     expect(backgroundSource).toContain("discoveryState: kickDiscoveryState,");
     expect(backgroundSource).toContain("realtimeWebSocketFactory: kickRealtimeWebSocket");
+    expect(backgroundSource).toContain("realtimeFetcher: kickRealtimeFetcher,");
   });
 });
 
