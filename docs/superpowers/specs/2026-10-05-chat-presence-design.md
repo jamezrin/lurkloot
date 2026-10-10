@@ -129,6 +129,17 @@ A shared, provider-neutral connection owned by subscription owners.
   - Its frame handling moves from `discoverySignals.ts` into this transport. Discovery signals keep their current socket until the follow-up that moves them onto this connection.
 - **Owners** request channel names through `subscribe(name)` and `unsubscribe(name)` and never see provider frames. The connection keeps the union of owned subscriptions and replays it after a reconnect. Reconnection uses the same backoff as the Twitch client.
 
+### Kick origin relay (`packages/extension/src/core/kickRealtimeRelay.ts`)
+
+The step 1 spike (2026-10-09, recorded on #754) found that Kick's realtime server accepts only a kick.com origin or none. It refuses `chrome-extension://`, `moz-extension://` and `null` with 403. On Chromium 153, declarativeNetRequest never sees the extension's own WebSocket, so no header rule can change the origin. The maintainer chose to keep extension origins off Kick's sockets and accepted the `offscreen` permission for it.
+
+- The extension creates an offscreen document (`kickRealtime.html`, reason `IFRAME_SCRIPTING`) that frames `https://kick.com/robots.txt`. This is plain text, so no Kick script runs there.
+- The `kickRealtimeRelay` content script runs only in that frame, checked with `location.ancestorOrigins`. It opens sockets to Kick's realtime hosts only, and forwards their frames over one runtime Port. The handshake carries `Origin: https://kick.com`.
+- The relay drops chat publications by prefix, unparsed: Centrifugo `push` lines, and non-`pusher` Pusher events. Busy chats therefore never wake the worker.
+- The worker accepts the Port only from that frame, never from a tab. It mints every token itself, through the Kick fetcher.
+- When the worker's Port disconnects, the frame closes its sockets. A new worker replaces a document an earlier one left behind. The document closes after 10 s with no socket.
+- Hosts without the relay (Firefox, which has no offscreen API, and the CLI) get no Kick chat presence. `alwaysEnterChat` on Kick warns once there.
+
 ### Kick chat presence (`packages/core/src/platforms/kick/chatPresence.ts`)
 
 For each target:

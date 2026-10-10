@@ -10,6 +10,9 @@ import { diagnostic, ignoreEvent, type AdapterOperationOptions, type ChannelChec
 import { kickCandidatesFromCampaign, mergeKickProgress, parseKickCampaigns } from "./parser";
 import { KICK_CLIENT_TOKEN, KickWatcher } from "./watch";
 import { KickDiscoverySignalController } from "./discoverySignals";
+import { KickChatPresenceClient } from "./chatPresence";
+import { KickRealtimeConnection } from "./realtime";
+import type { ChatPresenceClient } from "../../core/chatPresence";
 import type { ResolvedCompatibility } from "../../compatibility/types";
 import { createKickClaimCapability } from "./claim/factory";
 import type { KickClaimCapability } from "./claim/types";
@@ -46,6 +49,10 @@ export interface KickAdapterOptions {
   compatibility: ResolvedCompatibility["kick"];
   claimState?: KickClaimState;
   discoveryState?: KickDiscoveryState;
+  // Opens Kick realtime sockets from a kick.com origin. Kick's realtime
+  // server refuses an extension origin, so only a host that has this gets
+  // Kick chat presence (#754).
+  realtimeWebSocketFactory?: WebSocketFactory;
   // Kick realtime negotiation goes through this when given. It must never
   // fall back to a page-context tab: discovery signals negotiate on every
   // Kick farm (#755). Without it, the adapter's own fetcher is used, which is
@@ -298,6 +305,7 @@ export class KickAdapter implements PlatformAdapter {
   private readonly claimCapability: KickClaimCapability;
   private readonly discoveryState: KickDiscoveryState;
   readonly createDiscoverySignalController?: () => DiscoverySignalController;
+  readonly createChatPresenceClient?: () => ChatPresenceClient;
 
   flushRouteDiagnostics(emit: EventEmitter): void {
     this.fetcher.flushRouteDiagnostics?.(emit);
@@ -384,15 +392,26 @@ export class KickAdapter implements PlatformAdapter {
   ) {
     this.compatibility = options.compatibility;
     this.discoveryState = options.discoveryState ?? new KickDiscoveryState();
+    // Realtime and presence calls never fall back to a page-context tab:
+    // discovery negotiates on every Kick farm, and presence is tabless.
+    const realtimeFetcher = options.realtimeFetcher ?? this.fetcher;
+    const postJson = (url: string, body: unknown) => realtimeFetcher.fetchJson<unknown>(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    }, this.emit);
     if (this.webSocketFactory) {
       const createWebSocket = this.webSocketFactory;
-      const realtimeFetcher = options.realtimeFetcher ?? this.fetcher;
-      const postJson = (url: string, body: unknown) => realtimeFetcher.fetchJson<unknown>(url, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(body),
-      }, this.emit);
       this.createDiscoverySignalController = () => new KickDiscoverySignalController({ createWebSocket, postJson });
+    }
+    const realtimeWebSocket = options.realtimeWebSocketFactory;
+    if (realtimeWebSocket) {
+      const getJson = (url: string) => realtimeFetcher.fetchJson<unknown>(url, undefined, this.emit);
+      this.createChatPresenceClient = () => new KickChatPresenceClient({
+        connection: new KickRealtimeConnection({ createWebSocket: realtimeWebSocket, postJson }),
+        postJson,
+        getJson,
+      });
     }
     this.claimCapability = createKickClaimCapability(
       options.compatibility.claim,

@@ -34,11 +34,13 @@ export default defineConfig({
     },
     plugins: [tailwindcss()],
   }),
-  manifest: {
+  manifest: ({ browser }) => ({
     default_locale: "en",
     name: "__MSG_extensionStoreName__",
     description: "__MSG_extensionDescription__",
-    permissions: ["alarms", "storage", "tabs", "scripting", "notifications", "cookies", "webRequest"],
+    // offscreen (Chrome only, no install warning): the hidden kick.com frame
+    // that opens Kick's realtime chat sockets (#754, kickRealtimeRelay.ts).
+    permissions: ["alarms", "storage", "tabs", "scripting", "notifications", "cookies", "webRequest", ...(browser === "firefox" ? [] : ["offscreen"])],
     // Kasada is requested by the CLI credential export. The video CDN is
     // requested when Twitch is turned on and the HLS watch heartbeat is selected.
     optional_host_permissions: [KASADA_COOKIE_ORIGIN, TWITCH_HLS_HOST_ORIGIN],
@@ -80,7 +82,7 @@ export default defineConfig({
         }
       }
     }
-  },
+  }),
   zip: {
     sourcesRoot: ".",
     artifactTemplate: "{{name}}-{{version}}-{{browser}}.zip",

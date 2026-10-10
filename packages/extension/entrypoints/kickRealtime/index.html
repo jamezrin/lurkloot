@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Chrome's offscreen API only; Firefox has no offscreen document. -->
+    <meta name="manifest.exclude" content="['firefox']" />
+    <title>Lurkloot Kick realtime relay</title>
+  </head>
+  <body>
+    <!-- Kick's realtime server accepts only a kick.com origin (#754). The
+         relay content script in this plain-text frame opens its sockets. -->
+    <iframe src="https://kick.com/robots.txt"></iframe>
+  </body>
+</html>

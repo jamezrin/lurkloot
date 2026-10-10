@@ -1,4 +1,5 @@
 import { createTwitchExtensionGrantCompletion } from "../src/extensions/grantCompletion";
+import { createKickRealtimeRelay, KICK_REALTIME_OFFSCREEN_PATH } from "../src/core/kickRealtimeRelay";
 import { browser } from "wxt/browser";
 import { loadSettings, loadState, loadTwitchIntegrity, resetStorage, saveSettings, saveState, saveTwitchIntegrity } from "../src/core/storage";
 import type { RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
@@ -36,6 +37,12 @@ import { createCredentialHealthObserver } from "../src/core/credentialObserver";
 import { buildCliCredentialBlob, KASADA_COOKIE_ORIGIN } from "../src/core/cliCredentialExport";
 import { createTwitchHlsGrantCompletion, enforceTwitchHlsGrant, gateTwitchHlsMessages, TWITCH_HLS_HOST_ORIGIN } from "../src/core/twitchHlsPermission";
 import { REQUEST_FAILED_RESPONSE } from "../src/core/runtimeRequests";
+
+interface ChromeOffscreen {
+  createDocument(parameters: { url: string; reasons: string[]; justification: string }): Promise<void>;
+  closeDocument(): Promise<void>;
+}
+type ChromeGetContexts = (filter: { contextTypes: string[] }) => Promise<unknown[]>;
 
 const localeCatalogs = new Map<string, MessageCatalog | undefined>();
 const getMessage = browser.i18n.getMessage as (key: string, substitutions?: string | string[]) => string;
@@ -78,6 +85,23 @@ const kickRealtimeFetcher = createKickFetcher({
 const KICK_PAGE_CONTEXT_URL = "https://kick.com/drops/inventory";
 const TWITCH_EXTENSION_LANE_KEY = "twitchExtensionLane";
 const createBrowserWebSocket: WebSocketFactory = (url) => new WebSocket(url) as unknown as WebSocketLike;
+// Kick realtime sockets opened from a kick.com frame in an offscreen document
+// (#754). Chrome only: without the offscreen API there is no Kick presence.
+const chromeOffscreen = (globalThis as { chrome?: { offscreen?: ChromeOffscreen; runtime?: { getContexts?: ChromeGetContexts } } }).chrome;
+const kickRealtimeWebSocket: WebSocketFactory | undefined = chromeOffscreen?.offscreen
+  ? createKickRealtimeRelay({
+    onConnect: browser.runtime.onConnect as never,
+    // Without getContexts (Chrome before 116) a stale document cannot be
+    // seen; creating one then fails and the socket retries.
+    hasDocument: async () => ((await chromeOffscreen.runtime?.getContexts?.({ contextTypes: ["OFFSCREEN_DOCUMENT"] }))?.length ?? 0) > 0,
+    createDocument: () => chromeOffscreen.offscreen!.createDocument({
+      url: KICK_REALTIME_OFFSCREEN_PATH,
+      reasons: ["IFRAME_SCRIPTING"],
+      justification: "Opens Kick's realtime chat connection from a kick.com frame, which Kick requires.",
+    }),
+    closeDocument: () => chromeOffscreen.offscreen!.closeDocument(),
+  })
+  : undefined;
 const credentialCookies = { get: (details: { url: string; name: string }) => browser.cookies.get(details) };
 const checkCredentialAvailability = createCredentialAvailabilityProvider(credentialCookies);
 
@@ -143,6 +167,7 @@ function createExtensionAdapter(platform: Platform, emit: EventEmitter, settings
         compatibility: resolution.compatibility.kick,
         claimState: kickClaimState,
         discoveryState: kickDiscoveryState,
+        ...(kickRealtimeWebSocket ? { realtimeWebSocketFactory: kickRealtimeWebSocket } : {}),
         realtimeFetcher: kickRealtimeFetcher,
       },
       emit,

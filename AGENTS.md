@@ -110,6 +110,12 @@ The headless CLI is the one deliberate exception, kept as narrow as possible (#6
 
 Nothing else may export cookies or evade detection, and the extension itself never uses the Kasada cookie while farming.
 
+Kick's realtime chat server refuses a `chrome-extension://` origin, and the maintainer chose to keep extension origins off Kick's sockets (#754). This is the one origin exception, and it is narrow:
+
+- Kick chat presence opens its realtime socket from a hidden `https://kick.com/robots.txt` frame inside an offscreen document (the `offscreen` permission, Chrome only), so the handshake carries kick.com's origin.
+- The relay frame only forwards socket frames. It reads no cookies or credentials, never sends chat, and drops chat publications unparsed. The worker mints every token through Kick's own API.
+- Nothing else uses the frame. Do not rewrite `Origin` or other identity headers with declarativeNetRequest or webRequest.
+
 ## Manually Reproducing Platform GQL Requests
 
 When a user needs to hand-run a Twitch GQL query (e.g. DevTools console) to inspect live data
