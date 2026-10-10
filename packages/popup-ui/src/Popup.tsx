@@ -83,6 +83,7 @@ import { StatusStrip } from "./statusStrip";
 import { ViewToolbarSlotContext } from "./viewToolbar";
 import { automationPresentation, type AutomationPresentation } from "./automationStatus";
 import { changeTwitchExtensionEnabled, TwitchExtensionView } from "./twitchExtensions";
+import { requestTwitchHlsAccess } from "./twitchHlsPermission";
 import { SettingsView } from "./settings";
 import { TipsBanner } from "./tips";
 import { TooltipScope } from "./tooltip";
@@ -562,9 +563,38 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
     return result;
   }
 
-  async function updateSettings(patch: SettingsPatch, options?: { tickAfterSave?: boolean; tickAfterSavePlatforms?: Platform[] }): Promise<void> {
+  // `promptForHlsGrant: false` is for a change that is not a click, such as an
+  // import after the file picker: the permission prompt cannot open there. The
+  // background turns Twitch back off if it would then watch with HLS and
+  // lacks the video CDN grant, and logs why.
+  async function updateSettings(
+    patch: SettingsPatch,
+    options?: { tickAfterSave?: boolean; tickAfterSavePlatforms?: Platform[]; promptForHlsGrant?: boolean },
+  ): Promise<void> {
     if (!snapshot) return;
     const settingsPatch = patch;
+    const currentSettings = mergeSettings(settingsRef.current ?? snapshot.settings);
+    // permissions.request has to run in this gesture, before any await. The
+    // background applies an allowed change; a declined one is dropped, so
+    // Twitch is not left on that heartbeat.
+    const hlsGrant = options?.promptForHlsGrant === false ? undefined : requestTwitchHlsAccess(
+      adapter,
+      currentSettings,
+      applySettingsPatch(currentSettings, settingsPatch),
+      {
+        type: "saveSettings",
+        settingsPatch,
+        ...(options?.tickAfterSave ? { tickAfterSave: true } : {}),
+        ...(options?.tickAfterSavePlatforms ? { tickAfterSavePlatforms: options.tickAfterSavePlatforms } : {}),
+      },
+    );
+    if (hlsGrant) {
+      const applied = await hlsGrant;
+      if (!applied) return;
+      const settings = adoptCommittedSettings(mergeSettings(applied.settings));
+      setSnapshot({ ...applied, settings });
+      return;
+    }
     const edit = { patch: settingsPatch };
     committedSettingsRef.current ??= settingsRef.current ?? snapshot.settings;
     pendingSettingsEditsRef.current = [...pendingSettingsEditsRef.current, edit];
@@ -602,8 +632,23 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   // carries its own switch, so either can be toggled without selecting it first.
   async function setAutomation(pendingPlatform: Platform, enabled: boolean): Promise<void> {
     if (!snapshot || pendingAutomation[pendingPlatform] != null) return;
+    const currentSettings = mergeSettings(settingsRef.current ?? snapshot.settings);
+    // permissions.request has to run in this click, before any await. Twitch
+    // stays off when the resolved heartbeat is HLS and the video CDN grant is declined.
+    const hlsGrant = requestTwitchHlsAccess(
+      adapter,
+      currentSettings,
+      applySettingsPatch(currentSettings, { platform: { [pendingPlatform]: { enabled } } }),
+      { type: "setAutomation", platform: "twitch", enabled: true },
+    );
     setPendingAutomation((current) => ({ ...current, [pendingPlatform]: enabled }));
     try {
+      if (hlsGrant) {
+        // The background turned Twitch on once the host was granted.
+        const applied = await hlsGrant;
+        if (applied) setSnapshot(snapshotWithMergedSettings(applied));
+        return;
+      }
       setSnapshot(snapshotWithMergedSettings(await adapter.send<RuntimeSnapshot>({ type: "setAutomation", platform: pendingPlatform, enabled })));
     } catch (error) {
       console.error("Failed to update automation", error);
@@ -734,7 +779,8 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
         const raw = await adapter.importSettings!();
         if (raw == null) return false;
         const { settings: imported } = parseSettingsImportPayload(raw);
-        await updateSettings(imported as SettingsPatch, { tickAfterSave: true });
+        // The file picker has used up the click, so no permission prompt.
+        await updateSettings(imported as SettingsPatch, { tickAfterSave: true, promptForHlsGrant: false });
         return true;
       }
     : undefined;

@@ -1,5 +1,18 @@
 [
   {
+    "version": "1.16.0",
+    "changes": [
+      {
+        "kind": "fixed",
+        "text": "Tabless Twitch watching now earns drop progress. The watch signal Lurkloot was sending was accepted, but it did not count toward a drop, so a watch with no tab looked active and never moved. Lurkloot now requests the stream the way the Twitch website does. That needs access to Twitch's video servers, *.ttvnw.net, and the browser asks for it when Twitch is turned on with this watch signal. Allowing it turns Twitch on even if the prompt closes the popup. Declining leaves Twitch off, or leaves the previous watch signal selected if you were switching to this one. After this update, Twitch that was already on without that access is turned off, and Activity says a required permission is missing; turn Twitch back on to be asked again. An older watch signal you already selected in compatibility settings stays on, and only the new signal asks for this access. The headless CLI uses the same watch signal on its own."
+      },
+      {
+        "kind": "fixed",
+        "text": "A tabless Idle Watchlist watch now keeps going when no drop campaign is being farmed, on Kick and on Twitch, including after the browser has put the extension to sleep. On Kick the popup could stay on that channel while Kick was not receiving the watch, so your channel level did not move. The watch is sent again, a closed connection is opened on the next check, and a watch counts only after that send has left the browser. A connection that fails outright opens a watch tab."
+      }
+    ]
+  },
+  {
     "version": "1.15.0",
     "changes": [
       {
@@ -118,7 +131,8 @@
         "kind": "fixed",
         "text": "NoPixelV and Fortnite now remember which rewards are finished, and which channels to avoid for a while, when the browser stops and restarts Lurkloot in the background. A finished provider is no longer checked again on every restart, where it could keep taking turns from the other one."
       }
-    ]
+    ],
+    "date": "2026-10-03"
   },
   {
     "version": "1.14.2",

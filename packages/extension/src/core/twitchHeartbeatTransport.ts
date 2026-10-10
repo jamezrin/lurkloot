@@ -1,4 +1,4 @@
-import { isHeartbeatTimeoutError, withHeartbeatTimeout } from "@lurkloot/core/twitch/heartbeat";
+import { isHeartbeatTimeoutError, withHeartbeatTimeout, type TwitchHeartbeatExchangeResult } from "@lurkloot/core/twitch/heartbeat";
 
 function safeHostname(url: string): string {
   try {
@@ -6,6 +6,20 @@ function safeHostname(url: string): string {
   } catch {
     return "unknown Twitch host";
   }
+}
+
+async function heartbeatExchangeResult(response: Response, method: string | undefined): Promise<TwitchHeartbeatExchangeResult> {
+  const redirecting = response.status >= 300 && response.status < 400;
+  // A redirect body is unused. Status 0 is an opaque redirect with no body.
+  // HEAD must not download the segment.
+  const skipBody = method === "HEAD" || redirecting || response.status === 0;
+  const location = response.headers.get("location")?.trim() || undefined;
+  return {
+    status: response.status,
+    body: skipBody ? "" : await response.text(),
+    ...(response.url ? { url: response.url } : {}),
+    ...(location ? { location } : {}),
+  };
 }
 
 function safeErrorCause(error: unknown): string {
@@ -36,6 +50,18 @@ export async function twitchHeartbeatFetchText(url: string, init?: RequestInit):
     );
   } catch (error) {
     throw new Error(`Twitch Spade destination fetch failed for ${hostname}: ${safeErrorCause(error)}`);
+  }
+}
+
+export async function twitchHeartbeatExchange(url: string, init: RequestInit): Promise<TwitchHeartbeatExchangeResult> {
+  const hostname = safeHostname(url);
+  try {
+    return await withHeartbeatTimeout(async (signal) => {
+      const response = await fetch(url, { ...init, signal });
+      return heartbeatExchangeResult(response, init.method);
+    }, init.signal);
+  } catch (error) {
+    throw new Error(`Twitch heartbeat request failed for ${hostname}: ${safeErrorCause(error)}`);
   }
 }
 

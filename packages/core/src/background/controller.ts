@@ -35,6 +35,8 @@ export {
   TWITCH_ALARM_NAME,
   KICK_ALARM_NAME,
   WATCH_ALARM_NAME,
+  WATCH_ALARM_PERIOD_MINUTES,
+  WATCH_ALARM_SUSTAIN_PERIOD_MINUTES,
   TWITCH_CHANNEL_POINTS_ALARM_NAME,
   TWITCH_DROP_CLAIMS_ALARM_NAME,
   KICK_DROP_CLAIMS_ALARM_NAME,
@@ -143,6 +145,9 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     ensureInstalledAt: calls.ensureInstalledAt,
     reconcileStartup: calls.reconcileStartup,
     handleStartup: calls.handleStartup,
+    // The popup switch, with the cause a host gives when it turns a platform
+    // off itself (a browser permission went missing).
+    setPlatformEnabled: calls.setPlatformEnabled,
     ...({
       handleTabRemoved: calls.handleTabRemoved,
       handleTabUpdated: calls.handleTabUpdated,

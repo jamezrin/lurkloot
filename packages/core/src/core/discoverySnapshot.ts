@@ -8,6 +8,8 @@ export interface DiscoveryCandidateObservation {
   candidate: ChannelCandidate;
   live: boolean;
   categoryMatches: boolean;
+  // ChannelCheck.offlineConfirmed, kept so retention reads it from the snapshot.
+  offlineConfirmed?: true;
   eligible: ChannelEligibility;
   observedAt: number;
 }
@@ -148,6 +150,7 @@ export async function collectDiscoverySnapshot(
         candidate: check.candidate,
         live: check.live,
         categoryMatches: check.categoryMatches,
+        ...(check.offlineConfirmed ? { offlineConfirmed: true as const } : {}),
         eligible: check.campaignMatches ?? "unknown" as const,
         observedAt: now(),
       })));
@@ -160,6 +163,7 @@ export async function collectDiscoverySnapshot(
           candidate: check.candidate,
           live: check.live,
           categoryMatches: check.categoryMatches,
+          ...(check.offlineConfirmed ? { offlineConfirmed: true as const } : {}),
           eligible: check.campaignMatches ?? "unknown",
           observedAt: now(),
         });
@@ -195,6 +199,7 @@ export async function collectDiscoverySnapshot(
         candidate: check.candidate,
         live: check.live,
         categoryMatches: check.categoryMatches,
+        ...(check.offlineConfirmed ? { offlineConfirmed: true as const } : {}),
         eligible: request.campaign ? check.campaignMatches ?? "unknown" : "unknown",
         observedAt: now(),
       });
@@ -212,6 +217,7 @@ export async function collectDiscoverySnapshot(
       candidate: check.candidate,
       live: check.live,
       categoryMatches: check.categoryMatches,
+      ...(check.offlineConfirmed ? { offlineConfirmed: true as const } : {}),
       eligible: "unknown" as const,
       observedAt: now(),
     })));
@@ -224,6 +230,7 @@ export async function collectDiscoverySnapshot(
         candidate: check.candidate,
         live: check.live,
         categoryMatches: check.categoryMatches,
+        ...(check.offlineConfirmed ? { offlineConfirmed: true as const } : {}),
         eligible: "unknown",
         observedAt: now(),
       });
@@ -320,6 +327,7 @@ export function selectionAdapterFromDiscoverySnapshot(
       }
       return {
         live: observation.live,
+        ...(observation.offlineConfirmed ? { offlineConfirmed: true } : {}),
         categoryMatches: observation.categoryMatches,
         campaignMatches: observation.eligible === "unknown" ? undefined : observation.eligible,
         candidate: observation.candidate,

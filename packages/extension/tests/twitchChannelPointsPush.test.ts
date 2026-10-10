@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TwitchChannelPointsPushController } from "@lurkloot/core/twitch/channelPointsPush";
 import type { WebSocketLike, WebSocketMessageEventLike } from "@lurkloot/core/webSocket";
+import { TwitchDiscoveryState } from "@lurkloot/core/twitch";
 import { twitchAdapter } from "./helpers/adapters";
 
 const liveControllers: TwitchChannelPointsPushController[] = [];
@@ -734,6 +735,135 @@ describe("keepalive, reconnect, and stop", () => {
   });
 });
 
+// #759: the same connection follows the watched channel's playback topic.
+describe("Twitch playback push", () => {
+  const subscribes = (socket: FakeSocket) => parsedSent(socket).filter((frame) => frame.type === "subscribe") as Array<{ id: string; subscribe: { id: string; pubsub: { topic: string } } }>;
+  const topics = (socket: FakeSocket) => subscribes(socket).map((frame) => frame.subscribe.pubsub.topic);
+  const confirm = (socket: FakeSocket, topic: string, result: unknown = "ok") => {
+    const frame = subscribes(socket).filter((candidate) => candidate.subscribe.pubsub.topic === topic).at(-1)!;
+    socket.message({ type: "subscribeResponse", subscribeResponse: { subscription: { id: frame.subscribe.id }, result }, parentId: frame.id });
+    return frame.subscribe.id;
+  };
+  async function connected(owners: Parameters<TwitchChannelPointsPushController["start"]>[0]) {
+    const socket = new FakeSocket();
+    const reconnect = reconnectScheduler();
+    const controller = createPushController({
+      createWebSocket: () => socket,
+      getAuthToken: async () => "auth-token-value",
+      resolveUserId: async () => "78020132",
+      scheduleReconnect: reconnect.scheduleReconnect,
+      cancelReconnect: reconnect.cancelReconnect,
+      scheduleKeepAlive: keepAliveScheduler().scheduleKeepAlive,
+    });
+    await controller.start(owners);
+    socket.message(WELCOME);
+    const authenticate = JSON.parse(socket.sent[0]!);
+    socket.message({ type: "authenticateResponse", authenticateResponse: { result: "ok" }, parentId: authenticate.id });
+    return { socket, controller, reconnect };
+  }
+
+  it("subscribes the watched channel's playback topic alongside the claims topic", async () => {
+    const { socket, controller } = await connected({ onClaimAvailable: () => undefined, playback: { channelId: "123", onNotice: () => undefined } });
+    expect(topics(socket)).toEqual(["community-points-user-v1.78020132", "video-playback-by-id.123"]);
+    confirm(socket, "community-points-user-v1.78020132");
+    expect(controller.subscribed).toBe(true);
+  });
+
+  it("follows playback alone without the claims topic", async () => {
+    const { socket, controller } = await connected({ playback: { channelId: "123", onNotice: () => undefined } });
+    expect(topics(socket)).toEqual(["video-playback-by-id.123"]);
+    confirm(socket, "video-playback-by-id.123");
+    expect(controller.subscribed).toBe(false);
+  });
+
+  it("reports stream-up and stream-down for the watched channel and drops the rest", async () => {
+    const onNotice = vi.fn();
+    const { socket, controller } = await connected({ playback: { channelId: "123", onNotice } });
+    const id = confirm(socket, "video-playback-by-id.123");
+    socket.message(pubsubNotification(id, { type: "viewcount", server_time: 1, viewers: 10 }));
+    socket.message(pubsubNotification(id, { type: "commercial", server_time: 1, length: 30 }));
+    socket.message(pubsubNotification(id, "{not json"));
+    socket.message(pubsubNotification(id, { type: "stream-down", server_time: 2 }));
+    socket.message(pubsubNotification(id, { type: "stream-up", server_time: 3, play_delay: 0 }));
+    expect(onNotice.mock.calls).toEqual([[{ type: "stream-down", channelId: "123" }], [{ type: "stream-up", channelId: "123" }]]);
+    // Viewer counts arrive every few seconds; they leave no diagnostic.
+    expect(controller.drainEvents().filter((event) => "message" in event && /Ignored/.test(String(event.message)))).toEqual([]);
+  });
+
+  it("switches channels by subscribing the new topic before leaving the old one", async () => {
+    const onNotice = vi.fn();
+    const { socket, controller } = await connected({ playback: { channelId: "123", onNotice } });
+    const old = confirm(socket, "video-playback-by-id.123");
+    await controller.start({ playback: { channelId: "456", onNotice } });
+    const sent = parsedSent(socket).slice(-2);
+    expect(sent.map((frame) => frame.type)).toEqual(["subscribe", "unsubscribe"]);
+    expect(sent[1]).toMatchObject({ unsubscribe: { id: old } });
+    const next = confirm(socket, "video-playback-by-id.456");
+    socket.message(pubsubNotification(old, { type: "stream-down" }));
+    socket.message(pubsubNotification(next, { type: "stream-down" }));
+    expect(onNotice.mock.calls).toEqual([[{ type: "stream-down", channelId: "456" }]]);
+  });
+
+  it("leaves the playback topic when the watch ends, keeping the claims topic", async () => {
+    const onClaimAvailable = vi.fn();
+    const { socket, controller } = await connected({ onClaimAvailable, playback: { channelId: "123", onNotice: () => undefined } });
+    confirm(socket, "community-points-user-v1.78020132");
+    const playback = confirm(socket, "video-playback-by-id.123");
+    await controller.start({ onClaimAvailable });
+    expect(parsedSent(socket).at(-1)).toMatchObject({ type: "unsubscribe", unsubscribe: { id: playback } });
+    expect(controller.subscribed).toBe(true);
+    expect(socket.closed).toBe(false);
+  });
+
+  it("keeps the connection when Hermes refuses the playback topic, and does not retry it", async () => {
+    const { socket, controller, reconnect } = await connected({ onClaimAvailable: () => undefined, playback: { channelId: "123", onNotice: () => undefined } });
+    confirm(socket, "community-points-user-v1.78020132");
+    confirm(socket, "video-playback-by-id.123", "error");
+    expect(socket.closed).toBe(false);
+    expect(reconnect.scheduled).toHaveLength(0);
+    expect(controller.subscribed).toBe(true);
+    await controller.start({ onClaimAvailable: () => undefined, playback: { channelId: "123", onNotice: () => undefined } });
+    expect(topics(socket).filter((topic) => topic === "video-playback-by-id.123")).toHaveLength(1);
+  });
+
+  it("follows playback when the viewer id lookup fails", async () => {
+    const socket = new FakeSocket();
+    const controller = createPushController({
+      createWebSocket: () => socket,
+      getAuthToken: async () => "auth-token-value",
+      resolveUserId: async () => { throw new Error("lookup failed"); },
+      scheduleKeepAlive: keepAliveScheduler().scheduleKeepAlive,
+    });
+    await controller.start({ playback: { channelId: "123", onNotice: () => undefined } });
+    socket.message(WELCOME);
+    socket.message({ type: "authenticateResponse", authenticateResponse: { result: "ok" }, parentId: JSON.parse(socket.sent[0]!).id });
+    expect(topics(socket)).toEqual(["video-playback-by-id.123"]);
+  });
+
+  it("subscribes the playback topic again after a reconnect", async () => {
+    const sockets = [new FakeSocket(), new FakeSocket()];
+    const reconnect = reconnectScheduler();
+    const controller = createPushController({
+      createWebSocket: () => sockets.shift()!,
+      getAuthToken: async () => "auth-token-value",
+      resolveUserId: async () => "78020132",
+      scheduleReconnect: reconnect.scheduleReconnect,
+      scheduleKeepAlive: keepAliveScheduler().scheduleKeepAlive,
+    });
+    const [first, second] = sockets;
+    await controller.start({ playback: { channelId: "123", onNotice: () => undefined } });
+    first!.message(WELCOME);
+    first!.message({ type: "authenticateResponse", authenticateResponse: { result: "ok" }, parentId: JSON.parse(first!.sent[0]!).id });
+    confirm(first!, "video-playback-by-id.123");
+    first!.emit("close");
+    reconnect.scheduled[0]!.callback();
+    await afterReconnect();
+    second!.message(WELCOME);
+    second!.message({ type: "authenticateResponse", authenticateResponse: { result: "ok" }, parentId: JSON.parse(second!.sent[0]!).id });
+    expect(topics(second!)).toEqual(["video-playback-by-id.123"]);
+  });
+});
+
 describe("Twitch channel-points push adapter factory", () => {
   it("exposes a Hermes observer only when websocket and auth token deps exist", () => {
     const fetcher = { fetchJson: async <T,>(): Promise<T> => ({}) as T };
@@ -746,5 +876,21 @@ describe("Twitch channel-points push adapter factory", () => {
     ).createChannelPointsPushController?.();
 
     expect(observer).toBeInstanceOf(TwitchChannelPointsPushController);
+  });
+
+  it("records playback notices in the discovery state the next adapter reads", async () => {
+    const fetcher = { fetchJson: async <T,>(): Promise<T> => ({ data: { currentUser: { id: "78020132" } } }) as T };
+    const discoveryState = new TwitchDiscoveryState();
+    const socket = new FakeSocket();
+    const observer = twitchAdapter(fetcher, undefined, { webSocketFactory: () => socket, getAuthToken: async () => "token", discoveryState })
+      .createChannelPointsPushController!();
+    liveControllers.push(observer);
+    await observer.start({ playback: { channelId: "123", onNotice: () => undefined } });
+    socket.message(WELCOME);
+    socket.message({ type: "authenticateResponse", authenticateResponse: { result: "ok" }, parentId: JSON.parse(socket.sent[0]!).id });
+    const subscribe = JSON.parse(socket.sent[1]!);
+    socket.message({ type: "subscribeResponse", subscribeResponse: { subscription: { id: subscribe.subscribe.id }, result: "ok" }, parentId: subscribe.id });
+    socket.message(pubsubNotification(subscribe.subscribe.id, { type: "stream-down" }));
+    expect(discoveryState.streamDownReported("123")).toBe(true);
   });
 });

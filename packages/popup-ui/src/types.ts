@@ -1,4 +1,4 @@
-import type { CliCredentialBlob, RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
+import type { CliCredentialBlob, RuntimeMessage, RuntimeSnapshot, TwitchHlsGrantIntent } from "@lurkloot/shared/messages";
 import type { CategorySelection, ClaimGuidance, CompatibilitySettings, DropCampaign, Platform, RewardRequirementType, SupportedLocale, TwitchExtensionProviderId } from "@lurkloot/shared/models";
 import type { SettingsExportPayload } from "@lurkloot/shared/settingsExport";
 import type { CampaignFarmingEvaluation } from "@lurkloot/shared/campaignFarming";
@@ -206,6 +206,13 @@ export interface PopupAdapter {
   // cookie from. Called synchronously in the click that arms the export, a
   // separate click from the download. Resolves false when the user declines.
   requestCredentialExportPermission?(): Promise<boolean>;
+  // Optional: ask for Twitch's video CDN. Called synchronously in the gesture
+  // that would start watching Twitch with the HLS heartbeat. The argument is
+  // the change to apply once the grant exists. The background applies it,
+  // including when the permission dialog closes this popup, and this resolves
+  // the snapshot that results. Resolves undefined when the user declines;
+  // that leaves Twitch off, or leaves a non-HLS heartbeat in place.
+  requestTwitchHlsGrant?(intent: TwitchHlsGrantIntent): Promise<RuntimeSnapshot | undefined>;
   // Optional: download the current settings as a portable JSON file. Only the
   // live extension implements it (the demo omits it, hiding the action).
   exportSettings?(payload: SettingsExportPayload): void;

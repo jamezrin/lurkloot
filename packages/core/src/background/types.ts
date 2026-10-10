@@ -12,6 +12,10 @@ import { AuthProbeSetupError } from "./errors";
 import type { CommitGuard, CommitOptions, CommitResult, PreparedSettingsCommit } from "./stateTransaction";
 import type { TickEffectExecutor } from "./tickEffects";
 
+// "user" is the popup switch. "missing-permission" is the host turning a
+// platform off because a browser permission its watching needs is absent.
+export type PlatformEnableCause = "user" | "missing-permission";
+
 // Reward ids claimed during one tick, per platform. The post-claim handoff needs
 // the ids (not just the platforms) so it can tell a genuine successor from the
 // reward that was just claimed.
@@ -34,6 +38,8 @@ export type TickTrigger =
   | "manual_tick"
   | "critical_failure_dismissed"
   | "tabless_fallback"
+  // The watched Twitch channel's playback topic said its stream ended (#759).
+  | "stream_offline"
   | "claim_handoff"
   | "discovery_signal"
   // Another writer committed while the tick ran its effects, so the tick's
@@ -442,7 +448,10 @@ export interface ControllerCalls<S extends EngineSettings> {
 
   // Runtime message handlers, each in the module that owns what it changes
   // (#591). messages.ts only routes to them.
-  setPlatformEnabled(message: Extract<CoreRuntimeMessage, { type: "setPlatformEnabled" | "setAutomation" }>): Promise<RuntimeSnapshot<S>>;
+  setPlatformEnabled(
+    message: Extract<CoreRuntimeMessage, { type: "setPlatformEnabled" | "setAutomation" }>,
+    cause?: PlatformEnableCause,
+  ): Promise<RuntimeSnapshot<S>>;
   saveSettingsFromMessage(message: Extract<CoreRuntimeMessage, { type: "saveSettings" }>): Promise<RuntimeSnapshot<S>>;
   updateIdleWatchlist(message: Extract<CoreRuntimeMessage, { type: "updateIdleWatchlist" }>): Promise<RuntimeSnapshot<S>>;
   resumeFarmingAfterManualClose(platform: Platform): Promise<RuntimeSnapshot<S>>;
