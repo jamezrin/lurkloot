@@ -34,7 +34,7 @@ LurkLoot never connects to Twitch or Kick chat, so a tabless viewer never shows 
 | Hosts | The engine lives in core. Only the extension enables it; the CLI declares the capability absent. |
 | Providers | Each provider declares `needsChatPresence`: NoPixelV `true`, Fortnite `false` until a live A/B test shows otherwise. |
 | Architecture | A per-platform observer in core, reconciled after tick commits like the channel-points push (approach A). |
-| Quiet Twitch channels | After 25 s without IRC traffic, send an IRC `PING` so Chromium keeps the MV3 worker alive. |
+| Quiet Twitch channels | After 20 s without IRC traffic, send an IRC `PING` so Chromium keeps the MV3 worker alive. |
 | Kick providers | Advertise `pusher` and `centrifugo` as the web client does, and implement both. |
 
 ## What the official clients do
@@ -105,7 +105,7 @@ export interface ChatPresenceClient extends SlotObserver {   // stop() + drainEv
   - `NOTICE * :Login authentication failed` (or the improperly-formatted-auth variant) moves to `blocked: auth`. There is no retry until credentials change.
   - A room not confirmed 30 s after the socket opens or a `JOIN` is sent (a hung handshake, a suspended channel, a `JOIN` Twitch ignores) drops the connection and retries with backoff. A `NOTICE` for that channel received meanwhile is quoted in the warning.
   - Every other line is dropped after a prefix check. Chat content is never parsed into objects, stored, emitted or logged.
-- **Idle keepalive:** after 25 s with no frame in either direction, send `PING :tmi.twitch.tv`. The server's `PONG` counts as traffic; an idle `PING` unanswered for 10 s means a half-open socket, which is dropped and retried with backoff. This is a documented deviation from the web client, for MV3 worker lifetime: pages are never suspended, service workers are.
+- **Idle keepalive:** after 20 s with no frame in either direction, send `PING :tmi.twitch.tv`. The server's `PONG` counts as traffic; an idle `PING` unanswered for 10 s means a half-open socket, which is dropped and retried with backoff. This is a documented deviation from the web client, for MV3 worker lifetime: pages are never suspended, service workers are.
 - **Allowlist:** the client sends only `CAP REQ`, `PASS`, `NICK`, `USER`, `JOIN`, `PART`, `PING` and `PONG`.
 
 ### Kick realtime (`packages/core/src/platforms/kick/realtime.ts`)
@@ -241,7 +241,7 @@ Vitest, in `packages/extension/tests/`, with a fake WebSocket factory, fake fetc
   - `PONG` replies
   - `RECONNECT` followed by a rejoin
   - auth NOTICE → `blocked: auth`, with no reconnect loop
-  - idle `PING` after 25 s of silence, and none while frames flow
+  - idle `PING` after 20 s of silence, and none while frames flow
   - the send allowlist
   - the `PASS` line never appears in drained events
 - **Kick realtime (`kickRealtime.test.ts`):**
