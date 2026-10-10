@@ -106,7 +106,8 @@ export class KickChatPresenceClient implements ChatPresenceClient {
     this.clearRetry();
     this.desired = undefined;
     this.leave();
-    await this.deps.connection.stop();
+    // The connection may be shared with discovery signals: release, not stop.
+    await this.deps.connection.releaseIfIdle();
   }
 
   private async join(slug: string, knownChannelId: string | undefined, generation: number): Promise<void> {

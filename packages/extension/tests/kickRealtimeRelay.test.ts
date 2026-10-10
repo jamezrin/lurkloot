@@ -110,6 +110,16 @@ describe("Kick realtime relay frame", () => {
     ]);
   });
 
+  // #755: discovery's drop channels cross; chat never does.
+  it("forwards drop-channel events", () => {
+    const drop = "{\"push\":{\"channel\":\"drops_category_15\",\"pub\":{\"data\":{\"event\":\"drops_campaign_started\",\"data\":\"7\"}}}}";
+    expect(relayForwardedData(CENTRIFUGO_URL, drop)).toBe(drop);
+    expect(relayForwardedData(CENTRIFUGO_URL, `{"push":{"channel":"chatrooms.1.v2"}}\n${drop}`)).toBe(drop);
+    const pusherDrop = "{\"event\":\"drops_campaign_started\",\"data\":\"\\\"7\\\"\",\"channel\":\"drops_category_15\"}";
+    expect(relayForwardedData(PUSHER_URL, pusherDrop)).toBe(pusherDrop);
+    expect(relayForwardedData(PUSHER_URL, "{\"event\":\"pusher_internal:subscription_succeeded\",\"channel\":\"x\"}")).toBeDefined();
+  });
+
   it("drops chat publications before they cross to the worker", () => {
     expect(relayForwardedData(CENTRIFUGO_URL, "{\"push\":{\"channel\":\"chatrooms.1.v2\"}}")).toBeUndefined();
     expect(relayForwardedData(CENTRIFUGO_URL, "{\"push\":{}}\n{}\n{\"id\":2,\"subscribe\":{}}")).toBe("{}\n{\"id\":2,\"subscribe\":{}}");

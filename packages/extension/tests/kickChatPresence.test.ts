@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { KickChatPresenceClient, kickChatChannels } from "@lurkloot/core/kick/chatPresence";
-import { kickRealtimeNegotiation, type KickRealtimeConnection, type KickRealtimeEndpoint, type KickRealtimeStatus } from "@lurkloot/core/kick/realtime";
+import { KickRealtimeConnection, kickRealtimeNegotiation, kickRealtimePost, type KickRealtimeEndpoint, type KickRealtimeStatus } from "@lurkloot/core/kick/realtime";
 import { SafeFetchError } from "@lurkloot/core/fetchError";
 import { kickAdapter } from "./helpers/adapters";
 
@@ -18,6 +18,7 @@ class FakeConnection {
   isSubscribed(channel: string) { return this.confirmed.has(channel); }
   status() { return this.realtime; }
   async stop() { this.stopped += 1; }
+  async releaseIfIdle() { if (this.subscriptions.length === 0) this.stopped += 1; }
   drainEvents() { return []; }
 }
 
@@ -80,12 +81,22 @@ describe("Kick chat presence", () => {
     expect(s.client.status()).toEqual({ state: "left" });
   });
 
-  it("closes the realtime connection on stop", async () => {
+  it("closes the realtime connection on stop when nothing else uses it", async () => {
     const s = setup();
     await s.client.follow({ username: "xqc" });
     await s.client.stop();
     expect(s.connection.stopped).toBe(1);
     expect(s.connection.subscriptions).toEqual([]);
+  });
+
+  // #755: discovery signals share the connection; presence leaves only its own.
+  it("keeps a shared connection open for its other owners on stop", async () => {
+    const s = setup();
+    s.connection.subscribe("drops_category_15");
+    await s.client.follow({ username: "xqc" });
+    await s.client.stop();
+    expect(s.connection.stopped).toBe(0);
+    expect(s.connection.subscriptions).toEqual(["drops_category_15"]);
   });
 
   it("retries a failed join with backoff, and warns once", async () => {
@@ -146,11 +157,18 @@ describe("Kick chat presence", () => {
 
 describe("Kick chat presence adapter factory", () => {
   const fetcher = { fetchJson: async <T,>(): Promise<T> => ({}) as T };
+  // The host's shared connection, its POSTs through `fetchJson`.
+  const sharedConnection = (fetchJson: (url: string, init: RequestInit) => Promise<unknown>) => new KickRealtimeConnection({
+    createWebSocket: () => ({ readyState: 0, send() {}, close() {}, addEventListener() {} }),
+    postJson: kickRealtimePost(fetchJson),
+  });
 
-  it("offers presence only on a host that opens kick.com-origin sockets", () => {
-    // The plain worker socket is refused by Kick's realtime server.
+  it("offers presence only on a host whose shared sockets carry kick.com's origin", () => {
+    // A plain worker socket is refused by Kick's realtime server.
     expect(kickAdapter(fetcher, () => { throw new Error("unused"); }).createChatPresenceClient).toBeUndefined();
-    const client = kickAdapter(fetcher, undefined, undefined, { realtimeWebSocketFactory: () => { throw new Error("unused"); } }).createChatPresenceClient?.();
+    const connection = sharedConnection(async () => ({}));
+    expect(kickAdapter(fetcher, undefined, undefined, { realtime: { connection, kickOrigin: false } }).createChatPresenceClient).toBeUndefined();
+    const client = kickAdapter(fetcher, undefined, undefined, { realtime: { connection, kickOrigin: true } }).createChatPresenceClient?.();
     expect(client).toBeInstanceOf(KickChatPresenceClient);
   });
 
@@ -162,7 +180,7 @@ describe("Kick chat presence adapter factory", () => {
     };
     const client = kickAdapter(pageCapable as never, undefined, undefined, {
       realtimeFetcher: background as never,
-      realtimeWebSocketFactory: () => ({ readyState: 0, send() {}, close() {}, addEventListener() {} }),
+      realtime: { connection: sharedConnection((url) => background.fetchJson(url)), kickOrigin: true },
     }).createChatPresenceClient!();
     await client.follow({ username: "xqc" });
     expect(pageCapable.fetchJson).not.toHaveBeenCalled();
@@ -184,7 +202,7 @@ describe("Kick chat presence adapter factory", () => {
         return CHAT_ENDPOINT as T;
       },
     };
-    const client = kickAdapter(routed, undefined, undefined, { realtimeWebSocketFactory: () => ({ readyState: 0, send() {}, close() {}, addEventListener() {} }) }).createChatPresenceClient!();
+    const client = kickAdapter(routed, undefined, undefined, { realtime: { connection: sharedConnection((url, init) => routed.fetchJson(url, init)), kickOrigin: true } }).createChatPresenceClient!();
     await client.follow({ username: "xqc" });
     expect(calls[0]).toEqual({ url: "https://kick.com/api/v2/channels/xqc" });
     expect(calls[1]).toMatchObject({ url: "https://web.kick.com/api/v1/realtime/channels/676/chat/connection", method: "POST" });

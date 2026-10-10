@@ -1,4 +1,5 @@
 import { createTwitchExtensionGrantCompletion } from "../src/extensions/grantCompletion";
+import { KickRealtimeConnection, kickRealtimePost } from "@lurkloot/core/kick/realtime";
 import { createKickRealtimeRelay, KICK_REALTIME_OFFSCREEN_PATH } from "../src/core/kickRealtimeRelay";
 import { browser } from "wxt/browser";
 import { loadSettings, loadState, loadTwitchIntegrity, resetStorage, saveSettings, saveState, saveTwitchIntegrity } from "../src/core/storage";
@@ -102,6 +103,15 @@ const kickRealtimeWebSocket: WebSocketFactory | undefined = chromeOffscreen?.off
     closeDocument: () => chromeOffscreen.offscreen!.closeDocument(),
   })
   : undefined;
+// The one Kick realtime connection, shared by discovery signals and chat
+// presence (#755). Through the relay it speaks Centrifugo or Pusher with
+// kick.com's origin; without it (Firefox) plain sockets accept Pusher only,
+// which is all Kick's Centrifugo leaves an extension origin.
+const kickRealtime = new KickRealtimeConnection({
+  createWebSocket: kickRealtimeWebSocket ?? createBrowserWebSocket,
+  postJson: kickRealtimePost((url, init) => kickRealtimeFetcher.fetchJson<unknown>(url, init)),
+  acceptedProviders: kickRealtimeWebSocket ? ["pusher", "centrifugo"] : ["pusher"],
+});
 const credentialCookies = { get: (details: { url: string; name: string }) => browser.cookies.get(details) };
 const checkCredentialAvailability = createCredentialAvailabilityProvider(credentialCookies);
 
@@ -167,7 +177,7 @@ function createExtensionAdapter(platform: Platform, emit: EventEmitter, settings
         compatibility: resolution.compatibility.kick,
         claimState: kickClaimState,
         discoveryState: kickDiscoveryState,
-        ...(kickRealtimeWebSocket ? { realtimeWebSocketFactory: kickRealtimeWebSocket } : {}),
+        realtime: { connection: kickRealtime, kickOrigin: kickRealtimeWebSocket !== undefined },
         realtimeFetcher: kickRealtimeFetcher,
       },
       emit,

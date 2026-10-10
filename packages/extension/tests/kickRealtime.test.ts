@@ -271,13 +271,40 @@ describe("Kick realtime over Centrifugo", () => {
     expect(s.sockets).toEqual([]);
   });
 
-  it("moves to another endpoint when a caller names one", async () => {
+  // #755: a shared socket stays put for another region of the same provider;
+  // moving would drop every other owner's channels until they replay.
+  it("keeps the socket when a caller names another region of the same provider", async () => {
     const s = await connectedCentrifugo();
     const first = s.socket();
     s.connection.start({ provider: "centrifugo", url: "wss://realtime.us-east-1.platform.kick.com/connection/websocket" });
     await settle();
+    expect(first.closed).toBe(false);
+    expect(s.sockets).toHaveLength(1);
+  });
+
+  it("moves to another provider when a caller names one", async () => {
+    const s = await connectedCentrifugo();
+    const first = s.socket();
+    s.connection.start({ provider: "pusher", url: "wss://ws-us2.pusher.com/app/abc123?protocol=7&client=js&version=8.4.0&flash=false" });
+    await settle();
     expect(first.closed).toBe(true);
-    expect(s.socket().url).toBe("wss://realtime.us-east-1.platform.kick.com/connection/websocket");
+    expect(s.socket().url).toBe("wss://ws-us2.pusher.com/app/abc123?protocol=7&client=js&version=8.4.0&flash=false");
+  });
+
+  it("warns once when the connection keeps failing, and again only after it recovered", async () => {
+    const s = setup();
+    s.postJson.mockRejectedValue(new Error("network down"));
+    s.connection.start();
+    const fail = async (times: number) => {
+      for (let i = 0; i < times; i += 1) {
+        await settle();
+        const timer = s.timers.live().at(-1)!;
+        s.timers.fire(timer.delayMs);
+      }
+    };
+    await fail(6);
+    const warnings = () => s.connection.drainEvents().filter((event) => "level" in event && event.level === "warn" && /keeps failing/.test(String(event.message)));
+    expect(warnings()).toHaveLength(1);
   });
 
   it("closes the socket and forgets everything on stop", async () => {
@@ -412,6 +439,62 @@ describe("Kick realtime listeners", () => {
     expect(s.postJson.mock.calls[0]).toEqual([KICK_REALTIME_CONNECTION_URL, kickRealtimeNegotiation("client-1", ["pusher"])]);
     expect(kickRealtimeNegotiation("client-1", ["pusher"])).toMatchObject({ capabilities: { accepted_providers: [{ provider: "pusher" }] } });
     expect(s.postJson.mock.calls.map(([url]) => url)).not.toContain(KICK_REALTIME_AUTH_URL);
+  });
+});
+
+// #755: owners share one connection; one owner leaving never closes it for another.
+describe("Kick realtime release", () => {
+  it("closes only once no owner's subscription is left", async () => {
+    const s = await connectedCentrifugo();
+    s.connection.subscribe("drops_category_15");
+    s.connection.subscribe("chatrooms.668.v2");
+    s.connection.unsubscribe("chatrooms.668.v2");
+    await s.connection.releaseIfIdle();
+    expect(s.socket().closed).toBe(false);
+    s.connection.unsubscribe("drops_category_15");
+    await s.connection.releaseIfIdle();
+    expect(s.socket().closed).toBe(true);
+    expect(s.connection.status()).toEqual({ state: "idle" });
+  });
+
+  it("starts again after an idle release", async () => {
+    const s = await connectedCentrifugo();
+    await s.connection.releaseIfIdle();
+    s.connection.subscribe("drops_category_15");
+    s.connection.start();
+    await settle();
+    expect(s.sockets).toHaveLength(2);
+  });
+});
+
+describe("Kick realtime Centrifugo payloads", () => {
+  // Kick's web client decodes a string payload inside the envelope.
+  it("decodes a JSON string payload, as Kick's web client does", async () => {
+    const s = setup();
+    const onEvent = vi.fn();
+    s.connection.subscribe("drops_category_15", { events: ["drops_campaign_started"], onEvent });
+    s.connection.start();
+    await settle();
+    s.socket().open();
+    s.socket().message({ id: 1, connect: {} });
+    s.socket().message({ id: 2, subscribe: {} });
+    s.socket().message(JSON.stringify({ push: { channel: "drops_category_15", pub: { data: { event: "drops_campaign_started", data: "\"campaign-7\"" } } } }));
+    s.socket().message(JSON.stringify({ push: { channel: "drops_category_15", pub: { data: { event: "drops_campaign_started", data: "plain" } } } }));
+    expect(onEvent.mock.calls).toEqual([["drops_campaign_started", "campaign-7"], ["drops_campaign_started", "plain"]]);
+  });
+
+  it("names, at debug, an unexpected event on a listened channel", async () => {
+    const s = setup();
+    s.connection.subscribe("drops_category_15", { events: ["drops_campaign_started"], onEvent: () => undefined });
+    s.connection.start();
+    await settle();
+    s.socket().open();
+    s.socket().message({ id: 1, connect: {} });
+    s.socket().message({ id: 2, subscribe: {} });
+    s.socket().message(JSON.stringify({ push: { channel: "drops_category_15", pub: { data: { event: "DropsCampaignStarted", data: { secret: "x" } } } } }));
+    const events = s.connection.drainEvents();
+    expect(events).toContainEqual(expect.objectContaining({ level: "debug", message: "Kick realtime ignored DropsCampaignStarted on drops_category_15" }));
+    expect(JSON.stringify(events)).not.toContain("secret");
   });
 });
 

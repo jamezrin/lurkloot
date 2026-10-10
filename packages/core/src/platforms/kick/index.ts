@@ -11,7 +11,7 @@ import { kickCandidatesFromCampaign, mergeKickProgress, parseKickCampaigns } fro
 import { KICK_CLIENT_TOKEN, KickWatcher } from "./watch";
 import { KickDiscoverySignalController } from "./discoverySignals";
 import { KickChatPresenceClient } from "./chatPresence";
-import { KickRealtimeConnection } from "./realtime";
+import { type KickRealtimeConnection, kickRealtimePost } from "./realtime";
 import type { ChatPresenceClient } from "../../core/chatPresence";
 import type { ResolvedCompatibility } from "../../compatibility/types";
 import { createKickClaimCapability } from "./claim/factory";
@@ -49,10 +49,11 @@ export interface KickAdapterOptions {
   compatibility: ResolvedCompatibility["kick"];
   claimState?: KickClaimState;
   discoveryState?: KickDiscoveryState;
-  // Opens Kick realtime sockets from a kick.com origin. Kick's realtime
-  // server refuses an extension origin, so only a host that has this gets
-  // Kick chat presence (#754).
-  realtimeWebSocketFactory?: WebSocketFactory;
+  // The host's one Kick realtime connection, shared by discovery signals and
+  // chat presence (#755). `kickOrigin` says its sockets carry kick.com's
+  // origin (the Chrome relay); only then is chat presence offered, since
+  // Kick's realtime server refuses an extension origin (#754).
+  realtime?: { connection: KickRealtimeConnection; kickOrigin: boolean };
   // Kick realtime negotiation goes through this when given. It must never
   // fall back to a page-context tab: discovery signals negotiate on every
   // Kick farm (#755). Without it, the adapter's own fetcher is used, which is
@@ -395,23 +396,19 @@ export class KickAdapter implements PlatformAdapter {
     // Realtime and presence calls never fall back to a page-context tab:
     // discovery negotiates on every Kick farm, and presence is tabless.
     const realtimeFetcher = options.realtimeFetcher ?? this.fetcher;
-    const postJson = (url: string, body: unknown) => realtimeFetcher.fetchJson<unknown>(url, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-    }, this.emit);
+    const postJson = kickRealtimePost((url, init) => realtimeFetcher.fetchJson<unknown>(url, init, this.emit));
+    const shared = options.realtime;
     if (this.webSocketFactory) {
       const createWebSocket = this.webSocketFactory;
-      this.createDiscoverySignalController = () => new KickDiscoverySignalController({ createWebSocket, postJson });
-    }
-    const realtimeWebSocket = options.realtimeWebSocketFactory;
-    if (realtimeWebSocket) {
-      const getJson = (url: string) => realtimeFetcher.fetchJson<unknown>(url, undefined, this.emit);
-      this.createChatPresenceClient = () => new KickChatPresenceClient({
-        connection: new KickRealtimeConnection({ createWebSocket: realtimeWebSocket, postJson }),
+      this.createDiscoverySignalController = () => new KickDiscoverySignalController({
+        createWebSocket,
         postJson,
-        getJson,
+        ...(shared ? { connection: shared.connection } : {}),
       });
+    }
+    if (shared?.kickOrigin) {
+      const getJson = (url: string) => realtimeFetcher.fetchJson<unknown>(url, undefined, this.emit);
+      this.createChatPresenceClient = () => new KickChatPresenceClient({ connection: shared.connection, postJson, getJson });
     }
     this.claimCapability = createKickClaimCapability(
       options.compatibility.claim,

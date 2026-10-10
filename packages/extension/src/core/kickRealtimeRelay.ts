@@ -31,15 +31,20 @@ export function isRelaySocketUrl(url: string): boolean {
   return RELAY_SOCKET_URL.test(url);
 }
 
-// What the relay forwards of a socket frame. Chat publications are dropped
-// here, by prefix and unparsed, so busy chats do not wake the worker: for
-// Pusher every frame but its own protocol frames, for Centrifugo every
-// "push" line.
+// What the relay forwards of a socket frame, decided by prefix and unparsed.
+// Chat is dropped here, so busy chats never wake the worker. Drop channels
+// are forwarded for discovery signals (#755).
+// - Centrifugo: every line but a "push" on a channel other than drops_*.
+// - Pusher: its own protocol frames and Kick's plain snake_case events
+//   (drops_campaign_started); chat events are named App\Events\…
 export function relayForwardedData(url: string, data: string): string | undefined {
-  if (/\.pusher\.com\//i.test(url)) return data.startsWith("{\"event\":\"pusher") ? data : undefined;
-  const kept = data.split("\n").filter((line) => line.length > 0 && !line.startsWith("{\"push\""));
+  if (/\.pusher\.com\//i.test(url)) return PUSHER_FORWARDED_EVENT.test(data) ? data : undefined;
+  const kept = data.split("\n").filter((line) => line.length > 0
+    && (!line.startsWith("{\"push\"") || line.startsWith(CENTRIFUGO_FORWARDED_PUSH)));
   return kept.length > 0 ? kept.join("\n") : undefined;
 }
+const PUSHER_FORWARDED_EVENT = /^\{"event":"(?:pusher[a-z_]*:[a-z_]+|[a-z0-9_]+)"/;
+const CENTRIFUGO_FORWARDED_PUSH = "{\"push\":{\"channel\":\"drops_";
 
 interface RelayPort {
   readonly name: string;
