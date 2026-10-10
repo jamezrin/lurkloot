@@ -11,7 +11,9 @@ export const TWITCH_IRC_URL = "wss://irc-ws.chat.twitch.tv/";
 // Chromium suspends an MV3 worker after ~30 s without socket traffic; quiet
 // channels would drop presence, so an idle socket pings (a documented
 // deviation: pages are never suspended, workers are).
-export const TWITCH_IRC_IDLE_PING_MS = 25_000;
+// 20 s, as Chrome's own keepalive guidance uses: 25 s left too little margin
+// for a delayed timer on a busy worker.
+export const TWITCH_IRC_IDLE_PING_MS = 20_000;
 // A socket that has not confirmed the room this long after opening or sending
 // JOIN (a hung handshake, a suspended channel, a JOIN Twitch ignores) is
 // dropped and retried, rather than showing "joining" forever.
