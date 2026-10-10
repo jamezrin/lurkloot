@@ -15,6 +15,8 @@ const RECONNECT_BASE_MS = 1_000;
 const RECONNECT_MAX_MS = 60_000;
 // A connection that stays up this long resets the backoff.
 const STABLE_CONNECTION_MS = 60_000;
+// Consecutive failed attempts before the connection warns that it is down.
+const FAILURES_BEFORE_WARNING = 4;
 // Centrifugo pings every `ping` seconds; its own clients allow 10 s of delay.
 const CENTRIFUGO_DEFAULT_PING_SEC = 25;
 const CENTRIFUGO_PING_GRACE_MS = 10_000;
@@ -74,6 +76,17 @@ export interface KickRealtimeDeps {
 
 // The negotiation body Kick's web client sends, for this connection and for
 // a channel's chat/connection call.
+// The realtime POST every owner makes: JSON through a Kick fetcher.
+export function kickRealtimePost(
+  fetchJson: (url: string, init: RequestInit) => Promise<unknown>,
+): (url: string, body: unknown) => Promise<unknown> {
+  return (url, body) => fetchJson(url, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
 export function kickRealtimeNegotiation(
   clientId: string,
   providers: readonly KickRealtimeProvider[] = ["pusher", "centrifugo"],
@@ -118,6 +131,7 @@ export class KickRealtimeConnection {
   private currentStatus: KickRealtimeStatus = { state: "idle" };
   private started = false;
   private attempt = 0;
+  private failureWarned = false;
   // Bumped by every connect and stop, so late async work knows it is stale.
   private generation = 0;
   private reconnectTimer?: ReturnType<typeof setTimeout>;
@@ -168,8 +182,10 @@ export class KickRealtimeConnection {
   // Opens the connection if it is not open. `endpoint` skips negotiation, or
   // moves an open connection to it when it differs.
   start(endpoint?: KickRealtimeEndpoint): void {
-    const moving = endpoint && this.started
-      && (endpoint.provider !== this.endpoint?.provider || endpoint.url !== this.endpoint?.url);
+    // Only another provider moves an open connection: a region URL of the
+    // same provider takes the same subscriptions, and moving would drop
+    // every other owner's channels until they replay.
+    const moving = endpoint && this.started && endpoint.provider !== this.endpoint?.provider;
     if (this.started && !moving) return;
     if (this.currentStatus.state === "blocked" && !endpoint) return;
     this.started = true;
@@ -193,6 +209,12 @@ export class KickRealtimeConnection {
     if (!this.socketReady) return;
     if (this.endpoint?.provider === "centrifugo") this.sendFrame({ unsubscribe: { channel }, id: this.nextId++ });
     else this.sendFrame({ event: "pusher:unsubscribe", data: { channel } });
+  }
+
+  // An owner leaving: closes the connection once no owner's subscription is
+  // left, so one owner stopping never cuts off another (#755).
+  async releaseIfIdle(): Promise<void> {
+    if (this.subscriptions.size === 0) await this.stop();
   }
 
   async stop(): Promise<void> {
@@ -344,8 +366,23 @@ export class KickRealtimeConnection {
     const pub = record(record(parseJson(line)?.push)?.pub);
     const envelope = record(pub?.data);
     const event = envelope?.event;
-    if (typeof event !== "string" || !listener.events.includes(event)) return;
-    this.notify(listener, event, envelope?.data);
+    if (typeof event !== "string") return;
+    if (!listener.events.includes(event)) {
+      // An event name on a channel an owner listens to is not chat; naming
+      // it shows a provider renaming the event an owner waits for.
+      this.log("debug", `Kick realtime ignored ${event.slice(0, 80)} on ${channel}`);
+      return;
+    }
+    // Kick's web client decodes a string payload, as Pusher sends it.
+    let payload = envelope?.data;
+    if (typeof payload === "string") {
+      try {
+        payload = JSON.parse(payload);
+      } catch {
+        // Not JSON: the string is the payload.
+      }
+    }
+    this.notify(listener, event, payload);
   }
 
   private notify(listener: KickRealtimeListener, event: string, data: unknown): void {
@@ -465,6 +502,7 @@ export class KickRealtimeConnection {
 
   private ready(provider: KickRealtimeProvider): void {
     this.socketReady = true;
+    this.failureWarned = false;
     this.setStatus({ state: "connected", provider });
     this.log("debug", `Kick realtime connected (${provider})`);
     for (const channel of this.subscriptions) this.sendSubscribe(channel);
@@ -521,6 +559,12 @@ export class KickRealtimeConnection {
     if (!this.started) return;
     const delay = Math.min(RECONNECT_BASE_MS * 2 ** this.attempt, RECONNECT_MAX_MS);
     this.attempt += 1;
+    if (this.attempt === FAILURES_BEFORE_WARNING && !this.failureWarned) {
+      // Once, until it connects: on a host relaying through a kick.com frame,
+      // this is the only sign that discovery signals stopped arriving.
+      this.failureWarned = true;
+      this.log("warn", `Kick realtime connection keeps failing (${this.attempt} attempts); retrying with backoff`);
+    }
     this.setStatus({ state: "error", ...(this.endpoint ? { provider: this.endpoint.provider } : {}) });
     if (this.reconnectTimer !== undefined) this.clearTimer(this.reconnectTimer);
     const generation = ++this.generation;

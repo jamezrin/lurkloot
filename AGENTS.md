@@ -112,8 +112,8 @@ Nothing else may export cookies or evade detection, and the extension itself nev
 
 Kick's realtime chat server refuses a `chrome-extension://` origin, and the maintainer chose to keep extension origins off Kick's sockets (#754). This is the one origin exception, and it is narrow:
 
-- Kick chat presence opens its realtime socket from a hidden `https://kick.com/robots.txt` frame inside an offscreen document (the `offscreen` permission, Chrome only), so the handshake carries kick.com's origin.
-- The relay frame only forwards socket frames. It reads no cookies or credentials, never sends chat, and drops chat publications unparsed. The worker mints every token through Kick's own API.
+- Kick's one realtime connection, shared by chat presence and discovery signals (#755), opens its socket from a hidden `https://kick.com/robots.txt` frame inside an offscreen document (the `offscreen` permission, Chrome only), so the handshake carries kick.com's origin.
+- The relay frame only forwards socket frames. It reads no cookies or credentials and never sends chat. By prefix and unparsed, it drops chat publications and forwards only drop channels (`drops_*`). The worker mints every token through Kick's own API.
 - Nothing else uses the frame. Do not rewrite `Origin` or other identity headers with declarativeNetRequest or webRequest.
 
 ## Manually Reproducing Platform GQL Requests

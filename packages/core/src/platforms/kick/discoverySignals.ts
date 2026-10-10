@@ -18,12 +18,17 @@ export interface KickDiscoverySignalDeps {
   setTimer?: (callback: () => void, delayMs: number) => ReturnType<typeof setTimeout>;
   clearTimer?: (timer: ReturnType<typeof setTimeout>) => void;
   randomId?: () => string;
+  // A connection shared with other owners (Kick chat presence), which the
+  // host built for its own sockets and providers. Without it, discovery opens
+  // its own, Pusher only.
+  connection?: KickRealtimeConnection;
 }
 
 // Kick discovery signals (#384) as an owner on Kick's negotiated realtime
 // connection (#755): drops_category_<category> for drops_campaign_started.
-// Sockets from this host carry its own origin, which Kick's Centrifugo
-// refuses, so the negotiation accepts Pusher only.
+// A host may share its connection (Centrifugo through the kick.com relay on
+// Chrome). Otherwise discovery opens its own, accepting Pusher only, since
+// Kick's Centrifugo refuses this host's origin.
 export class KickDiscoverySignalController implements DiscoverySignalController {
   readonly platform = "kick" as const;
 
@@ -57,7 +62,7 @@ export class KickDiscoverySignalController implements DiscoverySignalController 
 
     const previous = this.categoryId;
     this.categoryId = categoryId;
-    const connection = this.connection ??= new KickRealtimeConnection({
+    const connection = this.connection ??= this.deps.connection ?? new KickRealtimeConnection({
       createWebSocket: this.deps.createWebSocket,
       postJson: this.deps.postJson,
       acceptedProviders: ["pusher"],
@@ -85,12 +90,15 @@ export class KickDiscoverySignalController implements DiscoverySignalController 
   }
 
   async stop(): Promise<void> {
+    const categoryId = this.categoryId;
     this.categoryId = undefined;
     this.onSignal = undefined;
     this.loggedSubscription = undefined;
     const connection = this.connection;
     this.connection = undefined;
-    await connection?.stop();
+    // Leave only our own channel; the connection closes once nobody needs it.
+    if (categoryId) connection?.unsubscribe(channelName(categoryId));
+    await connection?.releaseIfIdle();
   }
 
   private accept(categoryId: string, data: unknown): void {

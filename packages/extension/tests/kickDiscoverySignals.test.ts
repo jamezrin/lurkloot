@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ChannelCandidate } from "@lurkloot/shared/models";
 import { KickDiscoverySignalController } from "@lurkloot/core/kick/discoverySignals";
-import { KICK_REALTIME_CONNECTION_URL, kickRealtimeNegotiation } from "@lurkloot/core/kick/realtime";
+import { KICK_REALTIME_CONNECTION_URL, KickRealtimeConnection, kickRealtimeNegotiation } from "@lurkloot/core/kick/realtime";
 import type { WebSocketLike, WebSocketMessageEventLike } from "@lurkloot/core/webSocket";
 import type { PageFetcher } from "@lurkloot/core/adapter";
 import { kickAdapter } from "./helpers/adapters";
@@ -279,5 +279,58 @@ describe("Kick discovery signals", () => {
     expect(warnings).toHaveLength(125);
     expect(warnings[0]?.message).toBe("Kick discovery signal callback failed: callback-135");
     expect(warnings.at(-1)?.message).toBe("Kick discovery signal callback failed: callback-259");
+  });
+
+  // #755: on a host that shares its connection, discovery is one owner of it.
+  describe("on a shared connection", () => {
+    function shared() {
+      const sockets: FakeSocket[] = [];
+      const postJson = vi.fn(async (): Promise<unknown> => NEGOTIATED);
+      const connection = new KickRealtimeConnection({
+        createWebSocket: (url) => { const socket = new FakeSocket(url); sockets.push(socket); return socket; },
+        postJson,
+        randomId: () => "host-client",
+      });
+      const ownCreate = vi.fn();
+      const controller = new KickDiscoverySignalController({ createWebSocket: ownCreate, postJson: vi.fn(), connection });
+      return { connection, controller, sockets, postJson, ownCreate };
+    }
+
+    it("subscribes on the host's connection instead of opening its own", async () => {
+      const s = shared();
+      await s.controller.start({ platform: "kick", channel: kickChannel("42") }, () => undefined);
+      await settle();
+      expect(s.ownCreate).not.toHaveBeenCalled();
+      // The host's providers, not discovery's Pusher-only default.
+      expect(s.postJson).toHaveBeenCalledWith(KICK_REALTIME_CONNECTION_URL, kickRealtimeNegotiation("host-client"));
+      s.sockets[0]!.open();
+      s.sockets[0]!.message({ event: "pusher:connection_established", data: "{}" });
+      expect(s.sockets[0]!.frames()).toEqual([{ event: "pusher:subscribe", data: { auth: "", channel: "drops_category_42" } }]);
+      await s.controller.stop();
+    });
+
+    it("leaves only its own channel on stop, keeping another owner's socket open", async () => {
+      const s = shared();
+      s.connection.subscribe("chatrooms.668.v2");
+      await s.controller.start({ platform: "kick", channel: kickChannel("42") }, () => undefined);
+      await settle();
+      s.sockets[0]!.open();
+      s.sockets[0]!.message({ event: "pusher:connection_established", data: "{}" });
+      await s.controller.stop();
+      expect(s.sockets[0]!.closed).toBe(false);
+      expect(s.sockets[0]!.frames().at(-1)).toEqual({ event: "pusher:unsubscribe", data: { channel: "drops_category_42" } });
+      expect(s.connection.status().state).toBe("connected");
+      await s.connection.stop();
+    });
+
+    it("closes the connection when it was the last owner", async () => {
+      const s = shared();
+      await s.controller.start({ platform: "kick", channel: kickChannel("42") }, () => undefined);
+      await settle();
+      s.sockets[0]!.open();
+      await s.controller.stop();
+      expect(s.sockets[0]!.closed).toBe(true);
+      expect(s.connection.status()).toEqual({ state: "idle" });
+    });
   });
 });

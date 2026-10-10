@@ -135,7 +135,8 @@ The step 1 spike (2026-10-09, recorded on #754) found that Kick's realtime serve
 
 - The extension creates an offscreen document (`kickRealtime.html`, reason `IFRAME_SCRIPTING`) that frames `https://kick.com/robots.txt`. This is plain text, so no Kick script runs there.
 - The `kickRealtimeRelay` content script runs only in that frame, checked with `location.ancestorOrigins`. It opens sockets to Kick's realtime hosts only, and forwards their frames over one runtime Port. The handshake carries `Origin: https://kick.com`.
-- The relay drops chat publications by prefix, unparsed: Centrifugo `push` lines, and non-`pusher` Pusher events. Busy chats therefore never wake the worker.
+- The relay drops chat publications by prefix, unparsed: Centrifugo `push` lines, and non-`pusher` Pusher events. Busy chats therefore never wake the worker. Since #755 it forwards drop channels: Centrifugo pushes on `drops_*` channels, and Pusher's plain snake_case events such as `drops_campaign_started`.
+- Since #755 the extension keeps one Kick realtime connection, shared by chat presence and discovery signals. On Chrome it goes through the relay and accepts Centrifugo and Pusher; on Firefox it uses plain sockets and accepts Pusher only. Each owner leaves only its own channels, and the connection closes once no owner is left.
 - The worker accepts the Port only from that frame, never from a tab. It mints every token itself, through the Kick fetcher.
 - When the worker's Port disconnects, the frame closes its sockets. A new worker replaces a document an earlier one left behind. The document closes after 10 s with no socket.
 - Hosts without the relay (Firefox, which has no offscreen API, and the CLI) get no Kick chat presence. `alwaysEnterChat` on Kick warns once there.
