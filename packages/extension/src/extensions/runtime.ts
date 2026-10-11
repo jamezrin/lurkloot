@@ -35,6 +35,9 @@ export function createTwitchExtensionRuntime(options: {
     abort: AbortController;
     driver?: TwitchExtensionDriver;
     expiresAt: number;
+    // The session's extension JWT, which Hermes needs for the provider's
+    // broadcast topic (#757). Memory only.
+    jwt?: string;
     nextRefreshAt: number;
     pending?: Promise<void>;
     // A pushed refresh that arrived while another was running; it runs once
@@ -48,6 +51,7 @@ export function createTwitchExtensionRuntime(options: {
     if (entry.expiryTimer !== undefined) clearTimeout(entry.expiryTimer);
     entry.expiryTimer = undefined;
     entry.abort.abort();
+    entry.jwt = undefined;
     const driver = entry.driver;
     entry.driver = undefined;
     try { driver?.stop(); } catch { /* Vendor exceptions never leave this runtime. */ }
@@ -114,6 +118,12 @@ export function createTwitchExtensionRuntime(options: {
     }
     void refresh(id, entry, provider.minRefreshIntervalMs);
   }
+  // The live session's JWT for `channelId`, while it has more than a minute left.
+  function broadcastToken(id: TwitchExtensionProviderId, channelId: string): string | undefined {
+    const entry = entries.get(id);
+    if (!entry || entry.channelId !== channelId || !live(id, entry) || !entry.driver) return undefined;
+    return entry.expiresAt > options.source.now() + 60_000 ? entry.jwt : undefined;
+  }
   async function update(selected: Partial<Record<TwitchExtensionProviderId, string | TwitchExtensionTarget>>): Promise<void> {
     const work: Promise<void>[] = [];
     for (const provider of twitchExtensionProviders) {
@@ -155,6 +165,7 @@ export function createTwitchExtensionRuntime(options: {
           }
           const outcome = await withTwitchExtensionSession(options.source, provider, channelId, async (session) => {
             next.expiresAt = session.expiresAt;
+            next.jwt = session.jwt;
             next.expiryTimer = setTimeout(() => {
               if (entries.get(id) !== next) return;
               emit(id, next, { status: "unavailable", reasonCode: "auth-required", progress: [], pending: [] });
@@ -180,5 +191,5 @@ export function createTwitchExtensionRuntime(options: {
     }
     await Promise.all(work);
   }
-  return { update, stop, refreshNow };
+  return { update, stop, refreshNow, broadcastToken };
 }

@@ -321,7 +321,10 @@ export function createChannelPoints<S extends EngineSettings>(
   ): Promise<void> {
     const claims = claimsWanted(settings, state);
     const channelId = watchedTwitchChannelId(settings, state);
-    const broadcast = ports.twitch.supplementalSources?.refreshNow ? watchedExtensionBroadcast(settings, state) : undefined;
+    const sources = ports.twitch.supplementalSources;
+    const watched = sources?.refreshNow ? watchedExtensionBroadcast(settings, state) : undefined;
+    const token = watched ? sources?.broadcastToken?.(watched.provider.id, watched.channelId) : undefined;
+    const broadcast = watched && token ? { ...watched, token } : undefined;
     // A playback check pending for a channel no longer watched is moot.
     if (streamDownCheck && streamDownCheck.channelId !== channelId) cancelStreamDownCheck();
     await push.reconcile({
@@ -344,6 +347,7 @@ export function createChannelPoints<S extends EngineSettings>(
           extensionBroadcast: {
             channelId: broadcast.channelId,
             extensionId: broadcast.provider.extensionId,
+            token: broadcast.token,
             onEvent: (event: string) => {
               if (push.current !== controller || lifecycleSlice.controllerShutdown) return;
               if (!broadcast.provider.broadcastRefreshEvents?.includes(event)) return;

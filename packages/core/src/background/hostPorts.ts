@@ -193,6 +193,9 @@ export interface SupplementalSourcesPort<S extends EngineSettings> {
   // A refresh-worthy message arrived on the watching provider's Hermes
   // broadcast topic for `channelId` (#757). Fire and forget.
   refreshNow?(provider: string, channelId: string): void;
+  // The provider's current extension JWT for `channelId`, which Hermes requires
+  // to subscribe its broadcast topic. In memory only; never logged.
+  broadcastToken?(provider: string, channelId: string): string | undefined;
 }
 
 export interface TwitchHostPorts<S extends EngineSettings> {

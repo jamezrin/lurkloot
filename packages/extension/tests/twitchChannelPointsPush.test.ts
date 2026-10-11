@@ -737,10 +737,12 @@ describe("keepalive, reconnect, and stop", () => {
 
 // #759: the same connection follows the watched channel's playback topic.
 describe("Twitch playback push", () => {
-  const subscribes = (socket: FakeSocket) => parsedSent(socket).filter((frame) => frame.type === "subscribe") as Array<{ id: string; subscribe: { id: string; pubsub: { topic: string } } }>;
-  const topics = (socket: FakeSocket) => subscribes(socket).map((frame) => frame.subscribe.pubsub.topic);
+  type SubscribeFrame = { id: string; subscribe: { id: string; pubsub?: { topic: string }; extension?: { topic: string } } };
+  const subscribes = (socket: FakeSocket) => parsedSent(socket).filter((frame) => frame.type === "subscribe") as SubscribeFrame[];
+  const topicOf = (frame: SubscribeFrame) => frame.subscribe.pubsub?.topic ?? frame.subscribe.extension?.topic;
+  const topics = (socket: FakeSocket) => subscribes(socket).map(topicOf);
   const confirm = (socket: FakeSocket, topic: string, result: unknown = "ok") => {
-    const frame = subscribes(socket).filter((candidate) => candidate.subscribe.pubsub.topic === topic).at(-1)!;
+    const frame = subscribes(socket).filter((candidate) => topicOf(candidate) === topic).at(-1)!;
     socket.message({ type: "subscribeResponse", subscribeResponse: { subscription: { id: frame.subscribe.id }, result }, parentId: frame.id });
     return frame.subscribe.id;
   };
@@ -828,7 +830,7 @@ describe("Twitch playback push", () => {
 
   const NOPIXEL_TOPIC = "channel-ext-v1.123-nstuq90nghenyqwqme61jgvmtp253a-broadcast";
   const broadcastOwner = (onEvent: (event: string) => void, channelId = "123") =>
-    ({ channelId, extensionId: "nstuq90nghenyqwqme61jgvmtp253a", onEvent });
+    ({ channelId, extensionId: "nstuq90nghenyqwqme61jgvmtp253a", token: "extension-jwt", onEvent });
 
   it("follows an extension's broadcast topic and passes on only event names", async () => {
     const onEvent = vi.fn();
@@ -838,7 +840,12 @@ describe("Twitch playback push", () => {
       extensionBroadcast: broadcastOwner(onEvent),
     });
     expect(topics(socket)).toEqual(["community-points-user-v1.78020132", "video-playback-by-id.123", NOPIXEL_TOPIC]);
-    const id = confirm(socket, NOPIXEL_TOPIC);
+    // Hermes takes an extension topic only as an `extension` subscription with the extension's JWT.
+    const frame = parsedSent(socket).find((sent) => (sent.subscribe as { type?: string } | undefined)?.type === "extension") as
+      { id: string; subscribe: { id: string; extension: { topic: string; token: string } } };
+    expect(frame.subscribe.extension).toEqual({ topic: NOPIXEL_TOPIC, token: "extension-jwt" });
+    socket.message({ type: "subscribeResponse", subscribeResponse: { subscription: { id: frame.subscribe.id }, result: "ok" }, parentId: frame.id });
+    const id = frame.subscribe.id;
     // Twitch wraps extension messages in a content list; the overlay sends {event, payload}.
     socket.message(pubsubNotification(id, { content: [JSON.stringify({ event: "cards.giveaway.started", payload: { secret: "payload-value" } })], content_type: "application/json" }));
     socket.message(pubsubNotification(id, { event: "cards.giveaway.ended", payload: { winners: ["1"] } }));
@@ -862,6 +869,15 @@ describe("Twitch playback push", () => {
     // A different channel is a different topic, so it is tried.
     await controller.start({ onClaimAvailable: () => undefined, extensionBroadcast: broadcastOwner(() => undefined, "456") });
     expect(topics(socket)).toContain("channel-ext-v1.456-nstuq90nghenyqwqme61jgvmtp253a-broadcast");
+  });
+
+  it("does not follow the broadcast topic without an extension JWT, and retries a refused one with a renewed JWT", async () => {
+    const { socket, controller } = await connected({ onClaimAvailable: () => undefined, extensionBroadcast: { ...broadcastOwner(() => undefined), token: "" } });
+    expect(topics(socket)).not.toContain(NOPIXEL_TOPIC);
+    await controller.start({ onClaimAvailable: () => undefined, extensionBroadcast: broadcastOwner(() => undefined) });
+    confirm(socket, NOPIXEL_TOPIC, "error");
+    await controller.start({ onClaimAvailable: () => undefined, extensionBroadcast: { ...broadcastOwner(() => undefined), token: "renewed-jwt" } });
+    expect(topics(socket).filter((topic) => topic === NOPIXEL_TOPIC)).toHaveLength(2);
   });
 
   it("leaves the broadcast topic when the owner goes, and ignores its late messages", async () => {

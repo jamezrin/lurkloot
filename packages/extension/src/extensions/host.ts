@@ -468,5 +468,9 @@ export function createTwitchExtensionHost(options: {
     if (!id || !allowed.has(id)) return;
     runtime.refreshNow(id, channelId);
   }
-  return { reconcile, chooseWatchTarget, setEnabled, removed, invalidate, snapshot, recordHeartbeatFailure, credentialsChanged, refreshNow };
+  function broadcastToken(provider: string, channelId: string): string | undefined {
+    const id = twitchExtensionProviders.find((candidate) => candidate.id === provider)?.id;
+    return id && allowed.has(id) ? runtime.broadcastToken(id, channelId) : undefined;
+  }
+  return { reconcile, chooseWatchTarget, setEnabled, removed, invalidate, snapshot, recordHeartbeatFailure, credentialsChanged, refreshNow, broadcastToken };
 }

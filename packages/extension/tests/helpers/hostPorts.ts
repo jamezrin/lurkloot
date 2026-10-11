@@ -77,6 +77,7 @@ export interface HostMocks<S extends EngineSettings> {
     source?: WatchSourceId,
   ): Promise<SupplementalWatchTarget | undefined>;
   refreshSupplementalSource?(provider: string, channelId: string): void;
+  supplementalBroadcastToken?(provider: string, channelId: string): string | undefined;
   reconcilePageContextRecovery?(
     platform: Platform,
     options: PageContextRecoveryOptions,
@@ -190,6 +191,9 @@ export function hostPortsFromMocks<S extends EngineSettings>(
               m.selectSupplementalWatchTarget!("twitch", state, settings, signal, source),
             ...(m.refreshSupplementalSource
               ? { refreshNow: (provider: string, channelId: string) => m.refreshSupplementalSource!(provider, channelId) }
+              : {}),
+            ...(m.supplementalBroadcastToken
+              ? { broadcastToken: (provider: string, channelId: string) => m.supplementalBroadcastToken!(provider, channelId) }
               : {}),
           },
         }

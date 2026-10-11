@@ -336,6 +336,7 @@ export function harness(
     // A supplemental sources port, with the push refresh hook (#757).
     selectSupplementalWatchTarget?: HostMocks<ExtensionSettings>["selectSupplementalWatchTarget"];
     refreshSupplementalSource?: HostMocks<ExtensionSettings>["refreshSupplementalSource"];
+    supplementalBroadcastToken?: HostMocks<ExtensionSettings>["supplementalBroadcastToken"];
     reconcilePageContextRecovery?: HostMocks<ExtensionSettings>["reconcilePageContextRecovery"];
     discardPageContextRecoveryEvidence?: HostMocks<ExtensionSettings>["discardPageContextRecoveryEvidence"];
     initialState?: SchedulerState;
@@ -421,6 +422,7 @@ export function harness(
     ...(overrides.selectWatchTarget ? { selectWatchTarget: vi.fn(overrides.selectWatchTarget) } : {}),
     ...(overrides.selectSupplementalWatchTarget ? { selectSupplementalWatchTarget: vi.fn(overrides.selectSupplementalWatchTarget) } : {}),
     ...(overrides.refreshSupplementalSource ? { refreshSupplementalSource: vi.fn(overrides.refreshSupplementalSource) } : {}),
+    ...(overrides.supplementalBroadcastToken ? { supplementalBroadcastToken: vi.fn(overrides.supplementalBroadcastToken) } : {}),
     wait: overrides.wait,
     ...(overrides.checkCredentialAvailability
       ? { checkCredentialAvailability: vi.fn(overrides.checkCredentialAvailability) }

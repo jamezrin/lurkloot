@@ -218,3 +218,17 @@ describe("pushed refresh", () => {
     expect(s.refresh).not.toHaveBeenCalled();
   });
 });
+
+describe("broadcast token", () => {
+  it("hands out the live session's JWT for its channel only, and none once stopped", async () => {
+    const s = setup(); await s.runtime.update(selected);
+    const token = s.runtime.broadcastToken("nopixel", "123");
+    expect(token).toMatch(/^eyJheader\./);
+    expect(s.runtime.broadcastToken("nopixel", "999")).toBeUndefined();
+    s.advance(61_000);
+    // Under a minute left: the session is about to be renewed.
+    expect(s.runtime.broadcastToken("nopixel", "123")).toBeUndefined();
+    s.runtime.stop("nopixel");
+    expect(s.runtime.broadcastToken("nopixel", "123")).toBeUndefined();
+  });
+});

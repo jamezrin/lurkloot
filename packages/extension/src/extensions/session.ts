@@ -47,7 +47,9 @@ function claimsFor(jwt: string): Record<string, unknown> | undefined {
   } catch { return; }
 }
 
-// Credentials stay within the privileged transport/driver call. Only the
+// Credentials stay within the privileged transport/driver call, except that
+// the runtime keeps the session JWT in memory to subscribe the provider's
+// Hermes broadcast topic, as Twitch's web client does (#757). Only the
 // outcome class is returned to the host; no raw GQL result, token, JWT claims,
 // driver result or vendor exception may enter snapshots, reports or history.
 // Claims are a consistency check, not signature verification: Twitch issues
