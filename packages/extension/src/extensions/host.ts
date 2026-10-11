@@ -1,7 +1,7 @@
 import { discoverTwitchExtensionChannels } from "@lurkloot/core/extensions/discovery";
 import { pausedForManualWatch } from "@lurkloot/core/manualWatch";
 import { twitchExtensionProviders } from "@lurkloot/core/extensions/registry";
-import type { ChannelCandidate, ExtensionSettings, SchedulerState, SupplementalWatchTarget, TwitchExtensionProviderId, TwitchExtensionSummary, WatchSourceId } from "@lurkloot/shared/models";
+import type { ChannelCandidate, ExtensionSettings, SchedulerState, SupplementalWatchTarget, TwitchExtensionProviderId, TwitchExtensionReport, TwitchExtensionSummary, WatchSourceId } from "@lurkloot/shared/models";
 import type { EngineEvent } from "@lurkloot/shared/events";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 import { normalizeWatchSourcePriority } from "@lurkloot/shared/watchSources";
@@ -80,6 +80,16 @@ function normalizedLogin(value: string | undefined): string | undefined {
   return login && CHANNEL_LOGIN.test(login) ? login : undefined;
 }
 
+// `Twitch extension nopixel farming on prod: watchtime, daily-pack 12/60, giveaway open`
+function reportLine(id: string, report: TwitchExtensionReport, channel: { username: string } | undefined): string {
+  const details = [
+    report.reasonCode,
+    ...report.progress.map((counter) => `${counter.key} ${counter.earned}/${counter.required}`),
+    ...report.pending.map((item) => `${item.key} ${item.state}`),
+  ];
+  return `Twitch extension ${id} ${report.status}${channel ? ` on ${channel.username}` : ""}: ${details.join(", ")}`;
+}
+
 export function createTwitchExtensionHost(options: {
   source: SessionSource;
   permissions: ProviderPermissionPort;
@@ -87,7 +97,8 @@ export function createTwitchExtensionHost(options: {
   loadSettings(): Promise<ExtensionSettings>;
   loadState(): Promise<SchedulerState>;
   savePatch(patch: SettingsPatch): Promise<void>;
-  diagnostic(message: string): void;
+  // Warn level unless `level` says otherwise.
+  diagnostic(message: string, level?: "warn" | "debug"): void;
   // Publishes driver activity; the runtime drops it once the session ended.
   publish(events: readonly EngineEvent[]): void;
   // Where completion and cooldowns outlive the service worker. Without it
@@ -221,6 +232,12 @@ export function createTwitchExtensionHost(options: {
         // Preserve an actionable outcome after discovery moves to another channel,
         // without retaining vendor bodies, credentials or exception text.
         options.diagnostic(`Twitch extension ${id} ${report.status}${channel ? ` on ${channel.username}` : ""}: ${report.reasonCode}`);
+      }
+      // Every other change of status, reason or counters, at debug (#729), so an
+      // export shows whether a provider's progress moved. Keys and counters
+      // only; the report has already passed the allowlist validator.
+      if (report.status !== "error" && report.status !== "unavailable" && reportLine(id, report, channel) !== (previous && reportLine(id, previous, previous.channel))) {
+        options.diagnostic(reportLine(id, report, channel), "debug");
       }
       if (["complete", "farming", "error", "unavailable"].includes(report.status)) persist();
       // Release the lane now rather than at the next poll, which can be an

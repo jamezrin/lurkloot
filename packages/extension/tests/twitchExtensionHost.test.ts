@@ -90,6 +90,25 @@ describe("background tabless provider host", () => {
     await s.host.reconcile();
     expect(s.diagnostic).toHaveBeenLastCalledWith("Twitch extension nopixel unavailable on ssaab: channel-ineligible");
   });
+  it("logs provider status, reason and counters at debug whenever they change (#729)", async () => {
+    const s = setup(); s.enableTwitch();
+    const now = Date.now(); s.source.now.mockReturnValue(now);
+    const jwt = `e30.${btoa(JSON.stringify({ channel_id: "123", exp: Math.floor(now / 1000) + 3600, role: "viewer", opaque_user_id: "Utest", user_id: "42" }))}.signature`;
+    s.query.mockResolvedValue({ data: { user: { channel: { selfInstalledExtensions: [{ installation: { extension: { id: "nstuq90nghenyqwqme61jgvmtp253a", version: "1.1.4" }, activationConfig: { state: "ACTIVE" } }, token: { jwt } }] } } } } as never);
+    let emit!: (value: unknown) => void;
+    s.drivers.nopixel = async (_session, report) => { emit = report; report({ status: "farming", reasonCode: "watchtime", progress: [{ key: "daily-pack", earned: 12, required: 60 }], pending: [] }); return { stop: s.stop }; };
+    await s.host.setEnabled("nopixel", true);
+    await s.host.reconcile();
+    emit({ status: "farming", reasonCode: "watchtime", progress: [{ key: "daily-pack", earned: 12, required: 60 }], pending: [] });
+    emit({ status: "farming", reasonCode: "giveaway", progress: [{ key: "daily-pack", earned: 13, required: 60 }], pending: [{ key: "giveaway", state: "open" }] });
+    emit({ status: "complete", reasonCode: "rewards-complete", progress: [{ key: "daily-pack", earned: 60, required: 60 }], pending: [{ key: "giveaway", state: "done" }] });
+    expect(s.diagnostic.mock.calls).toEqual([
+      ["Twitch extension nopixel farming on buddha: watchtime, daily-pack 12/60", "debug"],
+      ["Twitch extension nopixel farming on buddha: giveaway, daily-pack 13/60, giveaway open", "debug"],
+      ["Twitch extension nopixel complete on buddha: rewards-complete, daily-pack 60/60, giveaway done", "debug"],
+    ]);
+  });
+
   it("preserves completion while ordinary drops resume and allows a bounded reprobe", async () => {
     const s = setup(); s.enableTwitch();
     const now = Date.now(); s.source.now.mockReturnValue(now);

@@ -284,7 +284,7 @@ const extensionHost = createTwitchExtensionHost({
   loadSettings,
   loadState,
   savePatch: async (settingsPatch) => { await controller.handleMessage({ type: "saveSettings", settingsPatch }); },
-  diagnostic: (message) => { void reportEvents([{ category: "diagnostic", platform: "twitch", level: "warn", message }]).catch(() => undefined); },
+  diagnostic: (message, level = "warn") => { void reportEvents([{ category: "diagnostic", platform: "twitch", level, message }]).catch(() => undefined); },
   publish: (events) => { void reportEvents(events).catch(() => undefined); },
   // Completion and cooldowns outlive the service worker (#594). Reset clears
   // the key with the rest of local storage.
