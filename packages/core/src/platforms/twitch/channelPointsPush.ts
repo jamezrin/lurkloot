@@ -242,6 +242,9 @@ export class TwitchChannelPointsPushController {
       case "notification":
         this.handleNotification(frame);
         return;
+      case "subscriptionRevocation":
+        this.handleRevocation(ws, frame);
+        return;
       default:
         this.log("debug", "Ignored Twitch channel-points push frame");
         return;
@@ -376,6 +379,18 @@ export class TwitchChannelPointsPushController {
     } else {
       this.log("debug", `Twitch channel-points push subscribed to ${subscription.topic}`);
     }
+  }
+
+  // Hermes revokes a subscription it no longer honours, such as an extension
+  // topic whose JWT expired. Subscribe it again with the owners' current state.
+  private handleRevocation(ws: WebSocketLike, frame: HermesFrame): void {
+    const revocation = frame.subscriptionRevocation;
+    const id = isRecord(revocation) && isRecord(revocation.subscription) ? revocation.subscription.id : undefined;
+    const subscription = [...this.subscriptions.values()].find((candidate) => candidate.id === id);
+    if (!subscription) return;
+    this.subscriptions.delete(subscription.topic);
+    this.log("debug", `Hermes revoked the subscription to ${subscription.topic}`);
+    if (this.authenticated) this.syncTopics(ws);
   }
 
   private handleNotification(frame: HermesFrame): void {
@@ -540,6 +555,7 @@ interface HermesFrame {
   authenticateResponse?: unknown;
   subscribeResponse?: unknown;
   notification?: unknown;
+  subscriptionRevocation?: unknown;
 }
 
 function parseFrame(value: unknown): HermesFrame | undefined {
@@ -554,6 +570,7 @@ function parseFrame(value: unknown): HermesFrame | undefined {
       authenticateResponse: parsed.authenticateResponse,
       subscribeResponse: parsed.subscribeResponse,
       notification: parsed.notification,
+      subscriptionRevocation: parsed.subscriptionRevocation,
     };
   } catch {
     return undefined;

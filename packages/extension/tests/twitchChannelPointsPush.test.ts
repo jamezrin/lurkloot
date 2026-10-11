@@ -880,6 +880,17 @@ describe("Twitch playback push", () => {
     expect(topics(socket).filter((topic) => topic === NOPIXEL_TOPIC)).toHaveLength(2);
   });
 
+  it("subscribes a revoked broadcast topic again with the current JWT", async () => {
+    const { socket, controller } = await connected({ playback: { channelId: "123", onNotice: () => undefined }, extensionBroadcast: broadcastOwner(() => undefined) });
+    const id = confirm(socket, NOPIXEL_TOPIC);
+    await controller.start({ playback: { channelId: "123", onNotice: () => undefined }, extensionBroadcast: { ...broadcastOwner(() => undefined), token: "renewed-jwt" } });
+    socket.message({ type: "subscriptionRevocation", subscriptionRevocation: { subscription: { id }, reason: "token expired" } });
+    const again = subscribes(socket).filter((frame) => topicOf(frame) === NOPIXEL_TOPIC);
+    expect(again).toHaveLength(2);
+    expect(again[1]!.subscribe).toMatchObject({ type: "extension", extension: { token: "renewed-jwt" } });
+    expect(socket.closed).toBe(false);
+  });
+
   it("leaves the broadcast topic when the owner goes, and ignores its late messages", async () => {
     const onEvent = vi.fn();
     const { socket, controller } = await connected({ playback: { channelId: "123", onNotice: () => undefined }, extensionBroadcast: broadcastOwner(onEvent) });
