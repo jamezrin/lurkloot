@@ -71,6 +71,10 @@ export class KickWatcher implements TablessWatchController {
   private watchTimer?: ReturnType<typeof setTimeout>;
   private watchEventIntervalMs = KICK_DEFAULT_WATCH_EVENT_INTERVAL_MS;
   private watchEventIntervalReadAt?: number;
+  // Bumped by stop(), so a connect still awaiting its reads opens no socket.
+  private generation = 0;
+  // The connect in progress; a tick during its reads waits for it.
+  private connecting?: Promise<void>;
 
   private readonly fetcher: PageFetcher;
   private readonly createWebSocket: WebSocketFactory;
@@ -115,7 +119,8 @@ export class KickWatcher implements TablessWatchController {
     if (this.ws && this.ws.readyState !== WEBSOCKET_OPEN && this.ws.readyState !== WEBSOCKET_CONNECTING) {
       this.connected = false;
     }
-    if (!this.connected && !this.failed && this.ws?.readyState !== WEBSOCKET_CONNECTING) await this.connect();
+    if (this.connecting) await this.connecting;
+    else if (!this.connected && !this.failed && this.ws?.readyState !== WEBSOCKET_CONNECTING) await this.connect();
     if (this.failed) {
       return { ok: false, live: this.targets?.isLive ?? true, message: this.failureMessage ?? "Kick viewer connection failed" };
     }
@@ -144,6 +149,8 @@ export class KickWatcher implements TablessWatchController {
   }
 
   async stop(): Promise<void> {
+    this.generation += 1;
+    this.connecting = undefined;
     this.clearTimers();
     if (this.ws) {
       const ws = this.ws;
@@ -178,14 +185,26 @@ export class KickWatcher implements TablessWatchController {
     }
   }
 
-  private async connect(): Promise<void> {
+  private connect(): Promise<void> {
+    const connecting = this.openConnection().finally(() => {
+      if (this.connecting === connecting) this.connecting = undefined;
+    });
+    this.connecting = connecting;
+    return connecting;
+  }
+
+  private async openConnection(): Promise<void> {
     const channel = this.channel;
     if (!channel) return;
+    const generation = this.generation;
+    const current = () => generation === this.generation;
     this.log("debug", `Opening Kick viewer connection for ${channel.username}`);
     this.watchAnnounced = false;
     try {
       this.releaseSocket();
-      this.targets = await this.fetchTargets(channel);
+      const targets = await this.fetchTargets(channel);
+      if (!current()) return;
+      this.targets = targets;
       this.lastTargetRefreshAt = this.now();
       if (!this.targets.isLive) {
         // Offline: let the scheduler re-evaluate via live:false; not a failure.
@@ -194,7 +213,9 @@ export class KickWatcher implements TablessWatchController {
         return;
       }
       await this.refreshWatchEventInterval();
+      if (!current()) return;
       const token = await this.fetchViewerToken();
+      if (!current()) return;
       const ws = this.createWebSocket(`wss://websockets.kick.com/viewer/v1/connect?token=${encodeURIComponent(token)}`);
       this.ws = ws;
       ws.addEventListener("open", () => {
@@ -224,6 +245,7 @@ export class KickWatcher implements TablessWatchController {
         this.log("warn", `${this.failureMessage} (${channel.username})`);
       });
     } catch (error) {
+      if (!current()) return;
       this.failed = true;
       this.failureMessage = error instanceof Error ? error.message : "Kick viewer connection failed";
       this.log("warn", this.failureMessage);

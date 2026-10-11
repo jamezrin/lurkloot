@@ -270,6 +270,32 @@ describe("kick viewer watcher", () => {
     }
   });
 
+  it("opens no socket for a connect that stop() overtook, and lets a tick wait for one in progress", async () => {
+    let releaseToken!: () => void;
+    const tokenGate = new Promise<void>((resolve) => { releaseToken = resolve; });
+    const sockets: FakeSocket[] = [];
+    const fetchJson = vi.fn(async (url: string) => {
+      if (url.includes("/api/v2/channels/")) return { id: 123, livestream: { id: 456, is_live: true } } as unknown;
+      if (url.includes("/viewer/v1/token")) { await tokenGate; return { data: { token: "tok" } } as unknown; }
+      throw new Error(`unexpected url ${url}`);
+    });
+    const watcher = new KickWatcher({
+      fetcher: { fetchJson: fetchJson as never },
+      createWebSocket: () => { const socket = new FakeSocket(); sockets.push(socket); return socket; },
+      now: () => 1_000,
+    });
+
+    const starting = watcher.start(kickChannel, {});
+    const ticking = watcher.tick({});
+    await vi.waitFor(() => expect(fetchJson.mock.calls.some(([url]) => String(url).includes("/viewer/v1/token"))).toBe(true));
+    await watcher.stop();
+    releaseToken();
+    await starting;
+    await ticking;
+    expect(sockets).toHaveLength(0);
+    expect(fetchJson.mock.calls.filter(([url]) => String(url).includes("/viewer/v1/token"))).toHaveLength(1);
+  });
+
   it("connects with the candidate's ids when the channel info read fails", async () => {
     const socket = new FakeSocket();
     const fetchJson = vi.fn(async (url: string) => {
