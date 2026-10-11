@@ -7,7 +7,7 @@ import type { WebSocketLike, WebSocketMessageEventLike } from "@lurkloot/core/we
 import { buildMinuteWatchedEvent, buildSpadeInput, gzipBase64 } from "@lurkloot/core/twitch/watch";
 import { createTwitchGqlTransport } from "@lurkloot/core/twitch";
 import { createKickFetcher } from "@lurkloot/core/kick";
-import { KickWatcher } from "@lurkloot/core/kick/watch";
+import { KICK_GLOBAL_SETTINGS_URL, KickWatcher } from "@lurkloot/core/kick/watch";
 import { PendingWatcherDiagnostics } from "@lurkloot/core/tablessWatch";
 import { kickAdapter, twitchAdapter } from "./helpers/adapters";
 import { testCompatibility } from "./helpers/compatibility";
@@ -207,6 +207,88 @@ describe("kick viewer watcher", () => {
     await watcher.stop();
   });
 
+  it("tracks on Kick's interval with the VOD id, and keeps handshake and ping on their own timers", async () => {
+    vi.useFakeTimers();
+    try {
+      const socket = new FakeSocket();
+      const urls: string[] = [];
+      const fetchJson = vi.fn(async (url: string) => {
+        urls.push(url);
+        if (url === KICK_GLOBAL_SETTINGS_URL) return { events: { "tracking.user.watch.livestream": { interval: 90 } } } as unknown;
+        if (url.includes("/api/v2/channels/")) return { id: 123, livestream: { id: 456, is_live: true, vod_id: "vod-uuid" } } as unknown;
+        if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as unknown;
+        throw new Error(`unexpected url ${url}`);
+      });
+      const watcher = new KickWatcher({ fetcher: { fetchJson: fetchJson as never }, createWebSocket: () => socket, now: () => Date.now() });
+
+      await watcher.start(kickChannel, {});
+      socket.emit("open");
+      const count = (type: string) => socket.parsed().filter((message) => message.type === type).length;
+      expect(urls).toContain("https://kick.com/api/v2/channels/creator/info");
+      expect((socket.parsed().find((message) => message.type === "user_event")?.data as { message?: unknown })?.message).toEqual({
+        name: "tracking.user.watch.livestream",
+        channel_id: 123,
+        livestream_id: 456,
+        vod_id: "vod-uuid",
+      });
+      expect([count("user_event"), count("channel_handshake"), count("ping")]).toEqual([1, 1, 1]);
+
+      await vi.advanceTimersByTimeAsync(89_000);
+      expect([count("user_event"), count("channel_handshake"), count("ping")]).toEqual([1, 6, 3]);
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect([count("user_event"), count("channel_handshake"), count("ping")]).toEqual([2, 7, 4]);
+      await vi.advanceTimersByTimeAsync(90_000);
+      expect(count("user_event")).toBe(3);
+      await watcher.stop();
+      await vi.advanceTimersByTimeAsync(300_000);
+      expect(count("user_event")).toBe(3);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("clamps Kick's interval and falls back to 120 s when it cannot be read", async () => {
+    const intervals = new Map<string, unknown>([["short", 1], ["missing", undefined], ["fails", "throw"]]);
+    for (const [label, interval] of intervals) {
+      const socket = new FakeSocket();
+      const fetchJson = vi.fn(async (url: string) => {
+        if (url === KICK_GLOBAL_SETTINGS_URL) {
+          if (interval === "throw") throw new Error("blocked");
+          return { events: { "tracking.user.watch.livestream": { interval } } } as unknown;
+        }
+        if (url.includes("/api/v2/channels/")) return { id: 123, livestream: { id: 456, is_live: true } } as unknown;
+        if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as unknown;
+        throw new Error(`unexpected url ${url}`);
+      });
+      const watcher = new KickWatcher({ fetcher: { fetchJson: fetchJson as never }, createWebSocket: () => socket, now: () => 1_000 });
+      await watcher.start(kickChannel, {});
+      socket.emit("open");
+      const expected = label === "short" ? 30 : 120;
+      expect(watcher.drainEvents().map((event) => event.message), label)
+        .toContain(`Kick tabless farming active for creator — sending watch events every ${expected} s`);
+      await watcher.stop();
+    }
+  });
+
+  it("connects with the candidate's ids when the channel info read fails", async () => {
+    const socket = new FakeSocket();
+    const fetchJson = vi.fn(async (url: string) => {
+      if (url.includes("/api/v2/channels/")) throw new Error("HTTP 503");
+      if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as unknown;
+      throw new Error(`unexpected url ${url}`);
+    });
+    const watcher = new KickWatcher({ fetcher: { fetchJson: fetchJson as never }, createWebSocket: () => socket, now: () => 1_000 });
+
+    await watcher.start({ ...kickChannel, channelId: "123", broadcastId: "456" }, {});
+    socket.emit("open");
+    expect((socket.parsed().find((message) => message.type === "user_event")?.data as { message?: unknown })?.message).toEqual({
+      name: "tracking.user.watch.livestream",
+      channel_id: 123,
+      livestream_id: 456,
+    });
+    await watcher.stop();
+  });
+
   it("does not record a watch event when the socket is not open", async () => {
     const socket = new FakeSocket();
     const fetchJson = vi.fn(async (url: string) => {
@@ -280,14 +362,18 @@ describe("kick viewer watcher", () => {
 
     await watcher.start(kickChannel, {});
     socket.emit("open");
-    now += 61_000;
+    now += 120_000;
+    // Within the grace the timer owns the send.
+    await watcher.tick({});
+    expect(socket.parsed().filter((message) => message.type === "user_event")).toHaveLength(1);
+    now += 6_000;
 
     await expect(watcher.tick({})).resolves.toMatchObject({ ok: true, live: true });
     expect(socket.parsed().filter((message) => message.type === "user_event")).toHaveLength(2);
     await watcher.stop();
   });
 
-  it("sends one overdue handshake from tick and does not repeat it a second later", async () => {
+  it("sends one overdue handshake and ping from tick and does not repeat them a second later", async () => {
     let now = 1_000;
     const socket = new FakeSocket();
     const fetchJson = vi.fn(async (url: string) => {
@@ -304,13 +390,14 @@ describe("kick viewer watcher", () => {
     await watcher.start(kickChannel, {});
     socket.emit("open");
     const opened = socket.parsed().length;
-    now += 61_000;
+    now += 126_000;
 
     await expect(watcher.tick({})).resolves.toMatchObject({ ok: true, live: true });
     const afterDueTick = socket.parsed();
     const sentByDueTick = afterDueTick.slice(opened);
     expect(sentByDueTick.filter((message) => message.type === "user_event")).toHaveLength(1);
-    expect(sentByDueTick.filter((message) => message.type === "channel_handshake" || message.type === "ping")).toHaveLength(1);
+    expect(sentByDueTick.filter((message) => message.type === "channel_handshake")).toHaveLength(1);
+    expect(sentByDueTick.filter((message) => message.type === "ping")).toHaveLength(1);
 
     now += 1_000;
     await watcher.tick({});
@@ -392,7 +479,7 @@ describe("kick viewer watcher", () => {
     const callbackEvents = watcher.drainEvents();
 
     expect(callbackEvents.map((event) => event.message)).toEqual([
-      "Kick tabless farming active for creator — sending watch events every 60s",
+      "Kick tabless farming active for creator — sending watch events every 120 s",
       "Kick tabless viewer connected for creator",
     ]);
     expect(watcher.drainEvents()).toEqual([]);
