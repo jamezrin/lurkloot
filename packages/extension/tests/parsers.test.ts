@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { mergeKickProgress, parseKickCampaigns } from "@lurkloot/core/kick/parser";
-import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchCampaigns, parseTwitchInventory, twitchCampaignIgnoresStreamCategory, withCampaignStatus } from "@lurkloot/core/twitch/parser";
+import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchCampaigns, parseTwitchInventory, twitchStreamCategoryMatches, withCampaignStatus } from "@lurkloot/core/twitch/parser";
 import { createTwitchInventory } from "@lurkloot/core/twitch";
 
 describe("Kick parsers", () => {
@@ -765,35 +765,34 @@ describe("Twitch parsers", () => {
     expect(campaigns[0].rewards[0].claimId).toBe("instance");
   });
 
-  it("drops a participating-channel list Twitch reports as disabled", () => {
-    const campaigns = parseTwitchCampaigns([{
+  it.each([
+    { isEnabled: false, allowedChannels: [], isGeneralDrop: true },
+    { isEnabled: true, allowedChannels: ["eventchannel"], isGeneralDrop: false },
+    { isEnabled: undefined, allowedChannels: ["eventchannel"], isGeneralDrop: false },
+  ])("reads an allow list with isEnabled $isEnabled as $allowedChannels", ({ isEnabled, allowedChannels, isGeneralDrop }) => {
+    const [campaign] = parseTwitchCampaigns([{
       id: "event",
-      game: { id: "509663", slug: "special-events", displayName: "Special Events" },
-      allow: { isEnabled: false, channels: [{ name: "EventChannel" }] },
+      game: { id: "509663", slug: "special-events" },
+      allow: { isEnabled, channels: [{ name: "EventChannel" }] },
     }]);
 
-    expect(campaigns[0].allowedChannels).toEqual([]);
-    expect(campaigns[0].isGeneralDrop).toBe(true);
-    expect(campaigns[0].connectionUrls).toEqual(["https://www.twitch.tv/directory/category/special-events?filter=drops&sort=VIEWER_COUNT"]);
+    expect(campaign).toMatchObject({ allowedChannels, isGeneralDrop });
   });
 
-  it("keeps a participating-channel list when Twitch omits the enabled flag", () => {
-    const campaigns = parseTwitchCampaigns([{
-      id: "event",
-      allow: { channels: [{ name: "EventChannel" }] },
-    }]);
-
-    expect(campaigns[0].allowedChannels).toEqual(["eventchannel"]);
-    expect(campaigns[0].isGeneralDrop).toBe(false);
+  it.each([
+    { label: "the campaign's category", streamed: "509663", campaign: { categoryId: "509663" }, matches: true },
+    { label: "a regular campaign's other category", streamed: "509658", campaign: { categoryId: "33214", allowedChannels: ["eventchannel"] }, matches: false },
+    { label: "a Special Events allow list", streamed: "509658", campaign: { categoryId: "509663", allowedChannels: ["eventchannel"] }, matches: true },
+    { label: "an IRL allow list", streamed: "509658", campaign: { categoryId: "509672", allowedChannels: ["eventchannel"] }, matches: true },
+    { label: "Special Events without an allow list", streamed: "509658", campaign: { categoryId: "509663", allowedChannels: [] }, matches: false },
+    { label: "no campaign and no fallback", streamed: "509658", campaign: undefined, matches: true },
+  ])("matches the streamed category against $label: $matches", ({ streamed, campaign, matches }) => {
+    expect(twitchStreamCategoryMatches(streamed, campaign)).toBe(matches);
   });
 
-  it("ignores the streamed category only for Special Events and IRL allow-lists", () => {
-    expect(twitchCampaignIgnoresStreamCategory({ categoryId: "509663", allowedChannels: ["eventchannel"] })).toBe(true);
-    expect(twitchCampaignIgnoresStreamCategory({ categoryId: "509672", allowedChannels: ["eventchannel"] })).toBe(true);
-    expect(twitchCampaignIgnoresStreamCategory({ categoryId: "509663", allowedChannels: [] })).toBe(false);
-    expect(twitchCampaignIgnoresStreamCategory({ categoryId: "509663" })).toBe(false);
-    expect(twitchCampaignIgnoresStreamCategory({ categoryId: "33214", allowedChannels: ["eventchannel"] })).toBe(false);
-    expect(twitchCampaignIgnoresStreamCategory(undefined)).toBe(false);
+  it("compares with the fallback category when there is no campaign", () => {
+    expect(twitchStreamCategoryMatches("509658", undefined, "509658")).toBe(true);
+    expect(twitchStreamCategoryMatches("33214", undefined, "509658")).toBe(false);
   });
 
   it("reconstructs the claim id as userID#campaignID#dropID when Twitch omits the self edge id", () => {

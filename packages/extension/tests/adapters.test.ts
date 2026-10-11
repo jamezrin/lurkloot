@@ -2938,37 +2938,45 @@ describe("TwitchAdapter", () => {
     });
   });
 
-  it("accepts a Special Events participating channel streaming another category", async () => {
-    const fetcher = jsonFetcher((_url, init) => {
-      expect(operation(init)).toBe("StreamInfo");
-      return { data: { user: { id: "channel-id", displayName: "EventChannel", stream: { id: "broadcast-id", viewersCount: 10, game: { id: "509658", name: "Just Chatting" } } } } };
-    });
-    const adapter = twitchAdapter(fetcher, undefined, { strictCampaignAvailability: false });
-    const campaign = { id: "event", categoryId: "509663", allowedChannels: ["eventchannel"] } as DropCampaign;
-
-    await expect(adapter.checkChannel(
-      { platform: "twitch", username: "eventchannel", url: "https://www.twitch.tv/eventchannel", isAclMatch: true },
-      { campaign },
-    )).resolves.toMatchObject({
-      live: true,
-      categoryMatches: true,
-      candidate: { categoryId: "509658", categoryName: "Just Chatting" },
-    });
-  });
-
-  it("still rejects a normal allow-listed channel streaming another category", async () => {
-    const fetcher = jsonFetcher(() => ({
+  describe("Special Events and IRL participating channels", () => {
+    const channel = { platform: "twitch" as const, username: "eventchannel", url: "https://www.twitch.tv/eventchannel", isAclMatch: true };
+    const streamInfo = {
       data: { user: { id: "channel-id", stream: { id: "broadcast-id", game: { id: "509658", name: "Just Chatting" } } } },
-    }));
-    const adapter = twitchAdapter(fetcher, undefined, { strictCampaignAvailability: false });
+    };
+    const campaign = (categoryId: string, allowedChannels?: string[]) =>
+      ({ id: "event", categoryId, allowedChannels }) as DropCampaign;
+    const adapter = (handler: Parameters<typeof jsonFetcher>[0]) =>
+      twitchAdapter(jsonFetcher(handler), undefined, { strictCampaignAvailability: false });
 
-    await expect(adapter.checkChannel(
-      { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator", isAclMatch: true },
-      { campaign: { id: "campaign", categoryId: "33214", allowedChannels: ["creator"] } as DropCampaign },
-    )).resolves.toMatchObject({
-      live: true,
-      categoryMatches: false,
-      candidate: { categoryId: "509658" },
+    it.each([
+      { label: "a Special Events allow list", event: campaign("509663", ["eventchannel"]), categoryMatches: true },
+      { label: "an IRL allow list", event: campaign("509672", ["eventchannel"]), categoryMatches: true },
+      { label: "a regular allow list", event: campaign("33214", ["eventchannel"]), categoryMatches: false },
+      { label: "Special Events without an allow list", event: campaign("509663"), categoryMatches: false },
+    ])("checks a channel streaming another category against $label: $categoryMatches", async ({ event, categoryMatches }) => {
+      await expect(adapter(() => streamInfo).checkChannel(channel, { campaign: event })).resolves.toMatchObject({
+        live: true,
+        categoryMatches,
+        candidate: { categoryId: "509658", categoryName: "Just Chatting" },
+      });
+    });
+
+    it("selects the channel through the batched stream check and keeps its live category", async () => {
+      const selection = await adapter(() => [streamInfo]).selectCandidateChannel?.([channel], campaign("509672", ["eventchannel"]));
+
+      expect(selection?.channel).toMatchObject({ username: "eventchannel", live: true, categoryId: "509658", categoryName: "Just Chatting" });
+    });
+
+    it("accepts the channel from the channel-page fallback", async () => {
+      const fallback = adapter((url) => url === channel.url
+        ? { html: '{"isLiveBroadcast":true,"game":{"id":"509658","name":"Just Chatting"}}' }
+        : { errors: [{ message: "PersistedQueryNotFound" }] });
+
+      await expect(fallback.checkChannel(channel, { campaign: campaign("509663", ["eventchannel"]) })).resolves.toMatchObject({
+        live: true,
+        categoryMatches: true,
+        candidate: { categoryId: "509658" },
+      });
     });
   });
 
@@ -4701,34 +4709,6 @@ describe("TwitchAdapter", () => {
     expect(availabilityChannels).toEqual(["first-id", "second-id"]);
   });
 
-  it("selects an IRL participating channel streaming another category", async () => {
-    const fetcher = jsonFetcher((_url, init) => {
-      const body = JSON.parse(String(init?.body)) as Array<Record<string, unknown>>;
-      expect(body[0]?.operationName).toBe("StreamInfo");
-      return [{
-        data: {
-          user: {
-            id: "channel-id",
-            displayName: "EventChannel",
-            stream: { id: "broadcast-id", viewersCount: 12, game: { id: "33214", name: "Fortnite" } },
-          },
-        },
-      }];
-    });
-
-    const selection = await twitchAdapter(fetcher, undefined, { strictCampaignAvailability: false }).selectCandidateChannel?.(
-      [{ platform: "twitch", username: "eventchannel", url: "https://www.twitch.tv/eventchannel", isAclMatch: true }],
-      { id: "irl", categoryId: "509672", allowedChannels: ["eventchannel"] } as DropCampaign,
-    );
-
-    expect(selection?.channel).toMatchObject({
-      username: "eventchannel",
-      live: true,
-      categoryId: "33214",
-      categoryName: "Fortnite",
-    });
-  });
-
   it("falls back to Twitch channel page data when stream info GQL fails", async () => {
     const abort = new AbortController();
     const fetcher = jsonFetcher((url, init) => {
@@ -4751,44 +4731,6 @@ describe("TwitchAdapter", () => {
       categoryMatches: true,
       reason: "Twitch GQL check failed; used channel page fallback",
       candidate: { categoryId: "game" },
-    });
-  });
-
-  it("accepts a Special Events participating channel from the page fallback when it streams another category", async () => {
-    const fetcher = jsonFetcher((url, init) => {
-      if (url === "https://gql.twitch.tv/gql" && operation(init) === "StreamInfo") {
-        return { errors: [{ message: "PersistedQueryNotFound" }] };
-      }
-      if (url === "https://www.twitch.tv/eventchannel") {
-        return { html: '{"isLiveBroadcast":true,"game":{"id":"509658","name":"Just Chatting"}}' };
-      }
-      throw new Error(`Unexpected URL ${url}`);
-    });
-    const adapter = twitchAdapter(fetcher, undefined, { strictCampaignAvailability: false });
-
-    await expect(adapter.checkChannel(
-      { platform: "twitch", username: "eventchannel", url: "https://www.twitch.tv/eventchannel" },
-      { campaign: { id: "event", categoryId: "509663", allowedChannels: ["eventchannel"] } as DropCampaign },
-    )).resolves.toMatchObject({
-      live: true,
-      categoryMatches: true,
-      candidate: { categoryId: "509658" },
-    });
-  });
-
-  it("still requires a category match for a Special Events campaign with no participating channels", async () => {
-    const fetcher = jsonFetcher(() => ({
-      data: { user: { stream: { game: { id: "509658", name: "Just Chatting" } } } },
-    }));
-    const adapter = twitchAdapter(fetcher, undefined, { strictCampaignAvailability: false });
-
-    await expect(adapter.checkChannel(
-      { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
-      { campaign: { id: "event", categoryId: "509663" } as DropCampaign },
-    )).resolves.toMatchObject({
-      live: true,
-      categoryMatches: false,
-      candidate: { categoryId: "509658" },
     });
   });
 

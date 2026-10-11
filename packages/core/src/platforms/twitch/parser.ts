@@ -174,9 +174,16 @@ function inventorySource(inventory: TwitchInventory): TwitchCampaignSource {
 // category. Without a participating-channel list the category match still holds.
 const TWITCH_CROSS_CATEGORY_IDS = new Set(["509663", "509672"]);
 
-export function twitchCampaignIgnoresStreamCategory(
+// Whether a channel streaming `streamedCategoryId` passes the category check.
+// It is compared with the campaign's category, or with `fallbackCategoryId`
+// when there is no campaign to compare with.
+export function twitchStreamCategoryMatches(
+  streamedCategoryId: string | undefined,
   campaign: Pick<DropCampaign, "categoryId" | "allowedChannels"> | undefined,
+  fallbackCategoryId?: string,
 ): boolean {
+  const expectedCategoryId = campaign?.categoryId ?? fallbackCategoryId;
+  if (!expectedCategoryId || streamedCategoryId === expectedCategoryId) return true;
   return Boolean(
     campaign?.categoryId
     && TWITCH_CROSS_CATEGORY_IDS.has(campaign.categoryId)

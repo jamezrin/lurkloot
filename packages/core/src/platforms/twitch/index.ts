@@ -11,7 +11,7 @@ import type { ChatPresenceClient } from "../../core/chatPresence";
 import { TwitchChatPresenceClient } from "./chatPresence";
 import { diagnostic, ignoreEvent, type AdapterOperationOptions, type CandidateChannelSelection, type ChannelPointsClaimOptions, type PageFetcher, type PlatformAdapter } from "../adapter";
 import { TwitchChannelPointsPushController, type TwitchPlaybackNotice } from "./channelPointsPush";
-import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchCampaigns, twitchCampaignIgnoresStreamCategory, twitchCandidatesFromCampaign, twitchSubscriptionRewardEvidence, withCampaignStatus } from "./parser";
+import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchCampaigns, twitchCandidatesFromCampaign, twitchStreamCategoryMatches, twitchSubscriptionRewardEvidence, withCampaignStatus } from "./parser";
 import type { ResolvedCompatibility, TwitchIdentity } from "../../compatibility/types";
 import { createTwitchHeartbeat } from "./heartbeat/factory";
 import { HLS_POLL_INTERVAL_MS, safeHlsFailure } from "./heartbeat/hls";
@@ -1877,7 +1877,7 @@ export class TwitchAdapter implements PlatformAdapter {
         trustedDirectoryCandidates += 1;
         checks[index] = {
           live: true,
-          categoryMatches: !campaign?.categoryId || candidate.categoryId === campaign.categoryId,
+          categoryMatches: twitchStreamCategoryMatches(candidate.categoryId, campaign),
           candidate,
         };
       } else {
@@ -2304,9 +2304,7 @@ export class TwitchAdapter implements PlatformAdapter {
       checks.push({
         live: Boolean(stream),
         ...(!stream && this.streamEndReported(response.data.user.id ?? candidate.channelId) ? { offlineConfirmed: true } : {}),
-        categoryMatches: twitchCampaignIgnoresStreamCategory(campaign)
-          || !campaign?.categoryId
-          || categoryId === campaign.categoryId,
+        categoryMatches: twitchStreamCategoryMatches(categoryId, campaign),
         candidate: {
           ...candidate,
           displayName: response.data.user.displayName ?? candidate.displayName,
@@ -2347,10 +2345,7 @@ export class TwitchAdapter implements PlatformAdapter {
       const stream = response.data?.user?.stream;
       const channelId = response.data?.user?.id;
       const actualCategoryId = stream?.game?.id;
-      const expectedCategoryId = campaign?.categoryId ?? channel.categoryId;
-      const categoryMatches = twitchCampaignIgnoresStreamCategory(campaign)
-        || !expectedCategoryId
-        || actualCategoryId === expectedCategoryId;
+      const categoryMatches = twitchStreamCategoryMatches(actualCategoryId, campaign, channel.categoryId);
       const broadcastId = stream?.id;
       // Gated on strict validation for the same reason as selectCandidateChannel:
       // this path also re-verifies the channel already being watched, so an
@@ -2837,13 +2832,10 @@ export class TwitchAdapter implements PlatformAdapter {
         diagnostic(this.emit, "debug", `Channel page for ${channel.username} showed no live signal; treating as offline`, "twitch");
       }
       const actualCategoryId = parseGameId(html);
-      const expectedCategoryId = campaign?.categoryId ?? channel.categoryId;
       return {
         live,
-        categoryMatches: twitchCampaignIgnoresStreamCategory(campaign)
-          || !expectedCategoryId
-          || actualCategoryId == null
-          || actualCategoryId === expectedCategoryId,
+        categoryMatches: actualCategoryId == null
+          || twitchStreamCategoryMatches(actualCategoryId, campaign, channel.categoryId),
         reason: "Twitch GQL check failed; used channel page fallback",
         candidate: {
           ...channel,
