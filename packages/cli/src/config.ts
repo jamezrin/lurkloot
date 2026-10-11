@@ -134,8 +134,8 @@ export function defaultConfigJsonc(): string {
         // Lurkloot treats their subscription as made, like the popup's
         // "Mark as subscribed".
         "subscribedRewardMarks": ${json(twitch.subscribedRewardMarks ?? [])},
-        // Join each watched channel's chat. Not supported by the CLI yet: it
-        // logs a warning once and ignores this.
+        // Join each watched channel's chat while farming. It never sends a
+        // message. If Twitch rejects the chat login, it logs once and stops.
         "alwaysEnterChat": ${json(twitch.alwaysEnterChat ?? false)},
         // Claim channel-point bonuses while farming this platform.
         "autoClaimChannelPoints": ${json(twitch.autoClaimChannelPoints)},

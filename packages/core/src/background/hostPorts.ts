@@ -38,7 +38,8 @@ export interface HostCapabilities {
   // Supplemental watch sources such as Twitch Extensions (`twitch.supplementalSources`).
   readonly supplementalSources: boolean;
   // Joining the watched channel's chat (chatPresence.ts). It has no port: the
-  // adapters create the clients. Off on the CLI until it is enabled there.
+  // adapters create the clients, so a platform whose adapter offers none (Kick
+  // on the CLI) still reports alwaysEnterChat as having no effect.
   readonly chatPresence: boolean;
 }
 
@@ -53,7 +54,7 @@ export const CLI_CAPABILITIES: HostCapabilities = {
   browserTabs: false,
   twitchIntegrityCapture: false,
   supplementalSources: false,
-  chatPresence: false,
+  chatPresence: true,
 };
 
 // Generic over the host's settings type `S`, which must satisfy the engine

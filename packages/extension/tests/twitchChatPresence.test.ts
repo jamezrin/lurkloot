@@ -440,6 +440,23 @@ describe("Twitch chat presence adapter factory", () => {
     await client!.stop();
   });
 
+  it("joins chat over a chat-only socket factory without starting Hermes", async () => {
+    const fetcher = {
+      fetchJson: async <T,>(): Promise<T> => ({ data: { currentUser: { id: "1", login: "viewer" } } }) as T,
+    };
+    const sockets: FakeSocket[] = [];
+    const adapter = twitchAdapter(fetcher, undefined, {
+      chatWebSocketFactory: (url) => { const socket = new FakeSocket(url); sockets.push(socket); return socket; },
+      getAuthToken: async () => "token",
+    });
+    expect(adapter.createChannelPointsPushController).toBeUndefined();
+    const client = adapter.createChatPresenceClient?.();
+    expect(client).toBeInstanceOf(TwitchChatPresenceClient);
+    await client!.follow({ username: "prod" });
+    expect(sockets).toHaveLength(1);
+    await client!.stop();
+  });
+
   it("lets a failed login lookup reach the client's own diagnostics", async () => {
     const fetcher = {
       fetchJson: async <T,>(): Promise<T> => { throw new Error("GQL request failed: 503"); },

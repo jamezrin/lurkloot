@@ -113,7 +113,11 @@ export interface TwitchAdapterOptions {
   // the browser WebSocket; headless runtimes omit it so live-event claiming
   // stays off without a socket.
   webSocketFactory?: WebSocketFactory;
-  // Reads the Twitch auth-token cookie. Injected so core stays browser-free
+  // Factory for the IRC chat presence socket alone, for a host that joins chat
+  // without Hermes (the CLI). Defaults to webSocketFactory.
+  chatWebSocketFactory?: WebSocketFactory;
+  // Reads the Twitch OAuth token: the auth-token cookie in the extension, the
+  // stored credential on the CLI. Injected so core stays browser-free
   // and never logs the value.
   getAuthToken?: () => Promise<string | undefined>;
   // CLI-only seed games for partial discovery when Twitch hides the campaign
@@ -1114,6 +1118,7 @@ export class TwitchAdapter implements PlatformAdapter {
     this.gqlTransport = createTwitchGqlTransport(fetcher, options);
     this.inventoryCapability = createTwitchInventory(options.compatibility.inventory);
     const createWebSocket = options.webSocketFactory;
+    const createChatWebSocket = options.chatWebSocketFactory ?? createWebSocket;
     const getAuthToken = options.getAuthToken;
     if (createWebSocket && getAuthToken) {
       const discoveryState = this.discoveryState;
@@ -1124,8 +1129,10 @@ export class TwitchAdapter implements PlatformAdapter {
         clientId: this.options.clientId,
         observePlayback: (notice) => discoveryState.recordPlaybackNotice(notice),
       });
+    }
+    if (createChatWebSocket && getAuthToken) {
       this.createChatPresenceClient = () => new TwitchChatPresenceClient({
-        createWebSocket,
+        createWebSocket: createChatWebSocket,
         getAuthToken,
         resolveLogin: () => this.resolveViewerLogin(),
       });

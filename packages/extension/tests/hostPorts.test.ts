@@ -106,7 +106,7 @@ describe("host capabilities", () => {
       browserTabs: false,
       twitchIntegrityCapture: false,
       supplementalSources: false,
-      chatPresence: false,
+      chatPresence: true,
     });
   });
 

@@ -22,7 +22,7 @@ LurkLoot never connects to Twitch or Kick chat, so a tabless viewer never shows 
 
 - **Making automation harder to detect.** Video segments, extra Hermes topics, chat history and current-viewer requests, and any timing or behavior chosen only to look like a person are out of scope. They are ruled out by the "Functional only" decision and by the CLAUDE.md rule against bypassing platform detection.
 - **Sending anything to chat:** messages, whispers, commands or reactions.
-- **CLI support.** The engine code is browser-free, but only the extension host enables it in this version.
+- **CLI support at first.** The engine code is browser-free, but only the extension host enabled it in this version. The CLI gained Twitch chat presence in #760.
 
 ## Decisions
 
@@ -31,7 +31,7 @@ LurkLoot never connects to Twitch or Kick chat, so a tabless viewer never shows 
 | Scope of "organic" | Functional only: presence exists to make crediting work. Where LurkLoot acts, it matches the official client's protocol. |
 | Platforms | Twitch and Kick, both in this version. |
 | Consent | Provider-triggered presence is implied by enabling the provider, and the provider's setting description says so. "Always enter channel chat" is a separate per-platform setting, off by default. |
-| Hosts | The engine lives in core. Only the extension enables it; the CLI declares the capability absent. |
+| Hosts | The engine lives in core. The extension enables it; since #760 the CLI does too, for Twitch only. |
 | Providers | Each provider declares `needsChatPresence`: NoPixelV `true`, Fortnite `false` until a live A/B test shows otherwise. |
 | Architecture | A per-platform observer in core, reconciled after tick commits like the channel-points push (approach A). |
 | Quiet Twitch channels | After 20 s without IRC traffic, send an IRC `PING` so Chromium keeps the MV3 worker alive. |
@@ -178,7 +178,8 @@ target(p) = { username: session.channel.username, channelId: session.channel.cha
 
 ### Host capability
 
-- `HostCapabilities.chatPresence` is `true` in `EXTENSION_CAPABILITIES` and `false` in `CLI_CAPABILITIES`. No new port is needed: the clients use the adapters' existing WebSocket factory and fetchers.
+- `HostCapabilities.chatPresence` is `true` in `EXTENSION_CAPABILITIES` and, since #760, in `CLI_CAPABILITIES`. No new port is needed: the clients use the adapters' WebSocket factories and fetchers.
+- The CLI passes the Twitch adapter a `chatWebSocketFactory` (a plain Node `ws` socket) and its stored token, but no `webSocketFactory`, so it joins chat without starting Hermes. Device-login tokens are requested with no scopes, and nobody has yet confirmed that Twitch IRC accepts them. If IRC rejects the login, the client blocks with `reason: "auth"` and does not retry. Its Kick adapter has no realtime connection, so a Kick `alwaysEnterChat` warns once.
 - On a host without the capability, `alwaysEnterChat: true` produces the existing one-time "unsupported on this host" English diagnostic, and the service never starts.
 - A NoPixelV watch on such a host cannot occur, because supplemental sources are extension-only.
 
@@ -186,7 +187,7 @@ target(p) = { username: session.channel.username, channelId: session.channel.cha
 
 - `platform.twitch.alwaysEnterChat` and `platform.kick.alwaysEnterChat` are booleans, default `false`, normalized with `booleanOr`.
 - No migration is needed, because missing means `false`.
-- The CLI config accepts the key and warns as above.
+- The CLI config accepts both keys. Twitch joins chat there; Kick warns as above.
 
 ### Provider declaration (`packages/core/src/extensions/types.ts`, `registry.ts`)
 
@@ -261,7 +262,7 @@ Vitest, in `packages/extension/tests/`, with a fake WebSocket factory, fake fetc
   - the committed target is followed
   - the epoch race: a stop between reading state and starting
   - credential change and manual pause stop the client before any await
-  - CLI capability absence plus `alwaysEnterChat` produces the one-time diagnostic
+  - an adapter without a presence client plus `alwaysEnterChat` produces the one-time diagnostic
 - **Settings:** normalization defaults.
 - **Popup:** the toggle, the watch-card status line, and the NoPixelV `chat-presence` item.
 - **Regression:** the existing `discoverySignals` and `coreBoundary` tests pass unchanged.

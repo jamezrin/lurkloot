@@ -2,7 +2,8 @@ import type { EngineSettings, Platform } from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import { DEFAULT_ENGINE_SETTINGS } from "@lurkloot/shared/settings";
 import type { PageFetcher, PlatformAdapter } from "@lurkloot/core/adapter";
-import type { WebSocketFactory } from "@lurkloot/core/webSocket";
+import WebSocket from "ws";
+import type { WebSocketFactory, WebSocketLike } from "@lurkloot/core/webSocket";
 import { createKickFetcher, KickAdapter, KickClaimState, KickDiscoveryState } from "@lurkloot/core/kick";
 import { TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
 import { isHeartbeatTimeoutError, type TwitchHeartbeatExchange, type TwitchHeartbeatFetchText, type TwitchHeartbeatPost } from "@lurkloot/core/twitch/heartbeat";
@@ -69,7 +70,13 @@ export interface CliTransportDeps {
   // Absent for the http transport: it never opens the viewer WebSocket itself
   // (Kick's WAF blocks it from a pure-Node origin anyway).
   kickWebSocketFactory?(): WebSocketFactory;
+  // The Twitch chat presence socket. Defaults to a plain Node WebSocket: Twitch's
+  // IRC endpoint needs no browser headers, so both transports share it.
+  twitchChatWebSocketFactory?(): WebSocketFactory;
 }
+
+const nodeWebSocketFactory: WebSocketFactory = (url) =>
+  new WebSocket(url, { handshakeTimeout: 10_000 }) as unknown as WebSocketLike;
 
 export function createCliAdapters(
   creds: PlatformCredentials,
@@ -94,6 +101,9 @@ export function createCliAdapters(
           discoveryState: twitchDiscoveryState,
           strictCampaignAvailability: settings.platform.twitch.strictCampaignAvailability,
           heartbeatIdentity: twitchIdentity,
+          // Chat presence only: Hermes stays off, so channel points keep polling.
+          chatWebSocketFactory: deps.twitchChatWebSocketFactory?.() ?? nodeWebSocketFactory,
+          getAuthToken: async () => creds.twitch?.authToken,
           liveDiscoveryGames: [
             ...settings.platform.twitch.categories,
             ...settings.platform.twitch.favouriteCategories,

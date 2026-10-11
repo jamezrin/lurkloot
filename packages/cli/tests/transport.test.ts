@@ -128,6 +128,41 @@ describe("createTransport", () => {
     }
   });
 
+  it("joins Twitch chat with the stored token and leaves Hermes and Kick chat off", async () => {
+    const sent: string[] = [];
+    const urls: string[] = [];
+    const listeners: Record<string, (event: { data?: unknown }) => void> = {};
+    const built = createCliAdapters({ twitch: { authToken: "stored-token", clientId: "ue6666qo983tsx6so1t0vnawi233wa" } }, {
+      twitchFetcher: () => ({ fetchJson: async <T>() => ({ data: { currentUser: { id: "1", login: "viewer" } } }) as T }),
+      twitchHeartbeat: () => ({
+        heartbeatFetchText: async () => "",
+        heartbeatPost: async () => ({ status: 200 }),
+        heartbeatExchange: async () => ({ status: 200, body: "" }),
+      }),
+      kickFetcher: () => ({ fetchJson: async <T>() => ({}) as T }),
+      twitchChatWebSocketFactory: () => (url) => {
+        urls.push(url);
+        return {
+          readyState: 1,
+          send: (data: string) => { sent.push(data); },
+          close: () => {},
+          addEventListener: (type, listener) => { listeners[type] = listener; },
+        };
+      },
+    });
+
+    expect(built.adapters.twitch.createChannelPointsPushController).toBeUndefined();
+    expect(built.adapters.kick.createChatPresenceClient).toBeUndefined();
+    const client = built.adapters.twitch.createChatPresenceClient!();
+    await client.follow({ username: "prod" });
+    await vi.waitFor(() => expect(listeners.open).toBeDefined());
+    listeners.open!({});
+    await vi.waitFor(() => expect(sent).toContain("PASS oauth:stored-token"));
+    expect(urls).toEqual(["wss://irc-ws.chat.twitch.tv/"]);
+    expect(sent).toContain("NICK viewer");
+    await client.stop();
+  });
+
   it("builds a disposable http transport with both adapters", async () => {
     const handle = await createTransport("http", {}, "/tmp/auth", ENABLED);
     expect(handle.adapters.twitch.platform).toBe("twitch");
