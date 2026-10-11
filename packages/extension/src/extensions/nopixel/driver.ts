@@ -80,8 +80,11 @@ export function createNoPixelDriver(fetcher: Fetch, onJoined: () => void = () =>
           if (giveaway && !giveaway.entered && giveaway.audience !== "any") {
             // A failed read admits neither audience, as in the vendor client.
             let eligibility = parseNoPixelGiveawayEligibility(undefined);
-            try { eligibility = parseNoPixelGiveawayEligibility(await request("/channel/giveaway/eligibility")); }
-            catch { /* Treated as eligible for neither. */ }
+            // An unknown audience is never joined, whatever the answer.
+            if (giveaway.audience !== "unknown") {
+              try { eligibility = parseNoPixelGiveawayEligibility(await request("/channel/giveaway/eligibility")); }
+              catch { /* Treated as eligible for neither. */ }
+            }
             if (!active()) return;
             giveaway.joinable = noPixelGiveawayJoinable(giveaway.audience, eligibility);
             if (!giveaway.joinable && blockedAudience !== giveaway.audience) {
