@@ -601,8 +601,11 @@ describe("background controller", () => {
     const watcher = new KickWatcher({
       fetcher: createKickFetcher({
         background: async (url) => {
-          if (url === "https://kick.com/api/v2/channels/kick-creator") {
+          if (url === "https://kick.com/api/v2/channels/kick-creator/info") {
             return { id: 42, livestream: { id: 84, is_live: true } };
+          }
+          if (url === "https://kick.com/api/internal/settings/global") {
+            return { events: { "tracking.user.watch.livestream": { interval: 120 } } };
           }
           if (url === "https://websockets.kick.com/viewer/v1/token") return { data: { token: "viewer-token" } };
           throw new Error("Unexpected watcher request");
@@ -620,7 +623,7 @@ describe("background controller", () => {
       const routes = allDiagnostics(env).filter((event) => event.code === "kick_fetch_route");
       const summaries = allDiagnostics(env).filter((event) => event.code === "kick_fetch_summary");
       expect(routes).toHaveLength(2);
-      expect(summaries.map((event) => event.data)).toEqual([{ "kick.com.background": 1, "websockets.kick.com.background": 1 }]);
+      expect(summaries.map((event) => event.data)).toEqual([{ "kick.com.background": 2, "websockets.kick.com.background": 1 }]);
       for (const event of [...routes, ...summaries]) {
         expect(event).toMatchObject({ platformTickId: 1, globalTickId: 2 });
       }

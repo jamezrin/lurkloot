@@ -6,22 +6,34 @@ import type { PageFetcher } from "../adapter";
 // Tabless Kick farming: a viewer WebSocket that advances drop timers with no
 // video. Mirrors kickautodrops (references/kickautodrops/core/kick.py:255-436):
 // exchange the session token for a viewer token, open the viewer socket, send a
-// handshake/ping cadence, and emit a `tracking.user.watch.livestream` event
-// every 60s. The constant client token is from kick.py:281.
+// handshake/ping cadence, and emit a `tracking.user.watch.livestream` event on
+// Kick's own interval. The constant client token is from kick.py:281.
 export const KICK_CLIENT_TOKEN = "e1393935a959b4020a4491574f6490129f678acdaa92760471263db43487f823";
 
-const HANDSHAKE_INTERVAL_MS = 13_000;
-const WATCH_EVENT_INTERVAL_MS = 60_000;
+// Kick's web client sends `channel_handshake` every 15 s and `ping` every 30 s,
+// each on its own timer (#756).
+export const KICK_HANDSHAKE_INTERVAL_MS = 15_000;
+export const KICK_PING_INTERVAL_MS = 30_000;
+// The web client reads its tracking interval, in seconds, from this endpoint
+// (`events["tracking.user.watch.livestream"].interval`, 120 in October 2026)
+// and caches it for 10 minutes. A missing or failed read uses the default.
+export const KICK_GLOBAL_SETTINGS_URL = "https://kick.com/api/internal/settings/global";
+export const KICK_DEFAULT_WATCH_EVENT_INTERVAL_MS = 120_000;
+const WATCH_EVENT_INTERVAL_MIN_MS = 30_000;
+const WATCH_EVENT_INTERVAL_MAX_MS = 300_000;
+const GLOBAL_SETTINGS_TTL_MS = 10 * 60_000;
+// A tick sends an overdue watch event itself only past this grace, so it never
+// races the timer that is about to send it.
+const WATCH_EVENT_TICK_GRACE_MS = 5_000;
 const STREAM_TARGET_REFRESH_MS = 60_000;
-// A heartbeat counts as healthy if a watch event was accepted recently; gives a
-// little slack over the 60s send cadence before the scheduler reacts.
-const HEALTH_WINDOW_MS = 2 * 60_000 + 30_000;
 const WEBSOCKET_CONNECTING = 0;
 const WEBSOCKET_OPEN = 1;
 
 interface KickChannelTargets {
   channelId: string;
   liveStreamId?: string;
+  // Sent with each tracking event when Kick reports one, as the web client does.
+  vodId?: string;
   isLive: boolean;
   categoryId?: string;
 }
@@ -47,14 +59,22 @@ export class KickWatcher implements TablessWatchController {
   private connected = false;
   private failed = false;
   private failureMessage?: string;
-  private counter = 0;
   private lastWatchSentAt = 0;
-  private lastProtocolSentAt = 0;
+  private lastHandshakeSentAt = 0;
+  private lastPingSentAt = 0;
   private lastTargetRefreshAt = 0;
   // Whether we have surfaced the one-shot "tabless farming active" info line for
   // the current connection. Reset on connect/stop so each session announces once.
   private watchAnnounced = false;
   private handshakeTimer?: ReturnType<typeof setInterval>;
+  private pingTimer?: ReturnType<typeof setInterval>;
+  private watchTimer?: ReturnType<typeof setTimeout>;
+  private watchEventIntervalMs = KICK_DEFAULT_WATCH_EVENT_INTERVAL_MS;
+  private watchEventIntervalReadAt?: number;
+  // Bumped by stop(), so a connect still awaiting its reads opens no socket.
+  private generation = 0;
+  // The connect in progress; a tick during its reads waits for it.
+  private connecting?: Promise<void>;
 
   private readonly fetcher: PageFetcher;
   private readonly createWebSocket: WebSocketFactory;
@@ -99,7 +119,8 @@ export class KickWatcher implements TablessWatchController {
     if (this.ws && this.ws.readyState !== WEBSOCKET_OPEN && this.ws.readyState !== WEBSOCKET_CONNECTING) {
       this.connected = false;
     }
-    if (!this.connected && !this.failed && this.ws?.readyState !== WEBSOCKET_CONNECTING) await this.connect();
+    if (this.connecting) await this.connecting;
+    else if (!this.connected && !this.failed && this.ws?.readyState !== WEBSOCKET_CONNECTING) await this.connect();
     if (this.failed) {
       return { ok: false, live: this.targets?.isLive ?? true, message: this.failureMessage ?? "Kick viewer connection failed" };
     }
@@ -117,23 +138,20 @@ export class KickWatcher implements TablessWatchController {
     if (!this.targets.liveStreamId) {
       return { ok: false, live: true, message: "Kick channel is missing a livestream id" };
     }
-    if (this.ws?.readyState === WEBSOCKET_OPEN && this.now() - this.lastProtocolSentAt >= HANDSHAKE_INTERVAL_MS) {
-      this.counter += 1;
-      if (this.counter % 2 === 0) this.sendPing();
-      else this.sendHandshake();
+    // The timers may not have run (a suspended worker); catch up on what is overdue.
+    if (this.ws?.readyState === WEBSOCKET_OPEN && this.now() - this.lastHandshakeSentAt >= KICK_HANDSHAKE_INTERVAL_MS) this.sendHandshake();
+    if (this.ws?.readyState === WEBSOCKET_OPEN && this.now() - this.lastPingSentAt >= KICK_PING_INTERVAL_MS) this.sendPing();
+    if (this.ws?.readyState === WEBSOCKET_OPEN && this.now() - this.lastWatchSentAt >= this.watchEventIntervalMs + WATCH_EVENT_TICK_GRACE_MS) {
+      this.sendWatchEventAndReschedule();
     }
-    if (this.ws?.readyState === WEBSOCKET_OPEN && this.now() - this.lastWatchSentAt >= WATCH_EVENT_INTERVAL_MS) {
-      this.sendWatchEvent();
-    }
-    const healthy = this.ws?.readyState === WEBSOCKET_OPEN && this.now() - this.lastWatchSentAt < HEALTH_WINDOW_MS;
+    const healthy = this.ws?.readyState === WEBSOCKET_OPEN && this.now() - this.lastWatchSentAt < this.healthWindowMs();
     return { ok: healthy, live: true, message: healthy ? undefined : "Kick viewer connection idle" };
   }
 
   async stop(): Promise<void> {
-    if (this.handshakeTimer) {
-      clearInterval(this.handshakeTimer);
-      this.handshakeTimer = undefined;
-    }
+    this.generation += 1;
+    this.connecting = undefined;
+    this.clearTimers();
     if (this.ws) {
       const ws = this.ws;
       this.intentionallyClosedSockets.add(ws);
@@ -145,15 +163,16 @@ export class KickWatcher implements TablessWatchController {
       this.ws = undefined;
     }
     this.connected = false;
-    this.counter = 0;
     this.lastWatchSentAt = 0;
-    this.lastProtocolSentAt = 0;
+    this.lastHandshakeSentAt = 0;
+    this.lastPingSentAt = 0;
     this.lastTargetRefreshAt = 0;
     this.watchAnnounced = false;
     this.targets = undefined;
   }
 
   private releaseSocket(): void {
+    this.clearTimers();
     const ws = this.ws;
     if (!ws) return;
     this.intentionallyClosedSockets.add(ws);
@@ -166,14 +185,26 @@ export class KickWatcher implements TablessWatchController {
     }
   }
 
-  private async connect(): Promise<void> {
+  private connect(): Promise<void> {
+    const connecting = this.openConnection().finally(() => {
+      if (this.connecting === connecting) this.connecting = undefined;
+    });
+    this.connecting = connecting;
+    return connecting;
+  }
+
+  private async openConnection(): Promise<void> {
     const channel = this.channel;
     if (!channel) return;
+    const generation = this.generation;
+    const current = () => generation === this.generation;
     this.log("debug", `Opening Kick viewer connection for ${channel.username}`);
     this.watchAnnounced = false;
     try {
       this.releaseSocket();
-      this.targets = await this.fetchTargets(channel);
+      const targets = await this.fetchTargets(channel);
+      if (!current()) return;
+      this.targets = targets;
       this.lastTargetRefreshAt = this.now();
       if (!this.targets.isLive) {
         // Offline: let the scheduler re-evaluate via live:false; not a failure.
@@ -181,16 +212,20 @@ export class KickWatcher implements TablessWatchController {
         this.log("debug", `Kick channel ${channel.username} is offline; skipping the viewer connection`);
         return;
       }
+      await this.refreshWatchEventInterval();
+      if (!current()) return;
       const token = await this.fetchViewerToken();
+      if (!current()) return;
       const ws = this.createWebSocket(`wss://websockets.kick.com/viewer/v1/connect?token=${encodeURIComponent(token)}`);
       this.ws = ws;
       ws.addEventListener("open", () => {
         if (ws !== this.ws) return;
         this.connected = true;
         this.sendHandshake();
-        // Prime an immediate watch event so progress starts without a 60s wait.
-        this.sendWatchEvent();
-        this.startHandshakeTimer();
+        this.sendPing();
+        // The web client tracks at once, then once per interval.
+        this.sendWatchEventAndReschedule();
+        this.startProtocolTimers();
         this.log("info", `Kick tabless viewer connected for ${channel.username}`);
       });
       ws.addEventListener("close", () => {
@@ -210,27 +245,71 @@ export class KickWatcher implements TablessWatchController {
         this.log("warn", `${this.failureMessage} (${channel.username})`);
       });
     } catch (error) {
+      if (!current()) return;
       this.failed = true;
       this.failureMessage = error instanceof Error ? error.message : "Kick viewer connection failed";
       this.log("warn", this.failureMessage);
     }
   }
 
-  private startHandshakeTimer(): void {
+  // A healthy watch has sent a tracking event within two intervals, plus slack.
+  private healthWindowMs(): number {
+    return 2 * this.watchEventIntervalMs + 30_000;
+  }
+
+  private clearTimers(): void {
     if (this.handshakeTimer) clearInterval(this.handshakeTimer);
+    if (this.pingTimer) clearInterval(this.pingTimer);
+    if (this.watchTimer) clearTimeout(this.watchTimer);
+    this.handshakeTimer = undefined;
+    this.pingTimer = undefined;
+    this.watchTimer = undefined;
+  }
+
+  private startProtocolTimers(): void {
+    if (this.handshakeTimer) clearInterval(this.handshakeTimer);
+    if (this.pingTimer) clearInterval(this.pingTimer);
     this.handshakeTimer = setInterval(() => {
-      if (!this.connected) return;
-      this.counter += 1;
-      if (this.counter % 2 === 0) this.sendPing();
-      else this.sendHandshake();
-      if (this.now() - this.lastWatchSentAt >= WATCH_EVENT_INTERVAL_MS) this.sendWatchEvent();
-    }, HANDSHAKE_INTERVAL_MS);
+      if (this.connected) this.sendHandshake();
+    }, KICK_HANDSHAKE_INTERVAL_MS);
+    this.pingTimer = setInterval(() => {
+      if (this.connected) this.sendPing();
+    }, KICK_PING_INTERVAL_MS);
+  }
+
+  // Each tracking event is timed from the previous one, so the cadence holds at
+  // the interval instead of drifting to the next check after it.
+  private sendWatchEventAndReschedule(): void {
+    if (this.watchTimer) clearTimeout(this.watchTimer);
+    this.watchTimer = undefined;
+    this.sendWatchEvent();
+    if (!this.ws || this.ws.readyState !== WEBSOCKET_OPEN) return;
+    this.watchTimer = setTimeout(() => {
+      this.watchTimer = undefined;
+      if (this.connected) this.sendWatchEventAndReschedule();
+    }, this.watchEventIntervalMs);
+  }
+
+  private async refreshWatchEventInterval(): Promise<void> {
+    if (this.watchEventIntervalReadAt !== undefined && this.now() - this.watchEventIntervalReadAt < GLOBAL_SETTINGS_TTL_MS) return;
+    this.watchEventIntervalReadAt = this.now();
+    try {
+      const settings = await this.fetcher.fetchJson<{
+        events?: Record<string, { interval?: unknown } | undefined>;
+      }>(KICK_GLOBAL_SETTINGS_URL, undefined, this.diagnostics.emit);
+      const seconds = settings?.events?.["tracking.user.watch.livestream"]?.interval;
+      if (typeof seconds !== "number" || !Number.isFinite(seconds)) throw new Error("no tracking interval");
+      this.watchEventIntervalMs = Math.min(WATCH_EVENT_INTERVAL_MAX_MS, Math.max(WATCH_EVENT_INTERVAL_MIN_MS, Math.round(seconds * 1000)));
+    } catch (error) {
+      this.watchEventIntervalMs = KICK_DEFAULT_WATCH_EVENT_INTERVAL_MS;
+      this.log("debug", `Using Kick's default ${KICK_DEFAULT_WATCH_EVENT_INTERVAL_MS / 1000} s watch interval: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   private sendPing(): void {
     if (!this.ws || this.ws.readyState !== WEBSOCKET_OPEN) return;
     this.safeSend({ type: "ping" });
-    if (this.connected) this.lastProtocolSentAt = this.now();
+    if (this.connected) this.lastPingSentAt = this.now();
   }
 
   private sendHandshake(): void {
@@ -239,7 +318,7 @@ export class KickWatcher implements TablessWatchController {
       type: "channel_handshake",
       data: { message: { channelId: numericOrString(this.targets.channelId) } },
     });
-    if (this.connected) this.lastProtocolSentAt = this.now();
+    if (this.connected) this.lastHandshakeSentAt = this.now();
   }
 
   private sendWatchEvent(): boolean {
@@ -256,6 +335,8 @@ export class KickWatcher implements TablessWatchController {
             name: "tracking.user.watch.livestream",
             channel_id: numericOrString(this.targets.channelId),
             livestream_id: numericOrString(this.targets.liveStreamId),
+            // Sent as Kick returns it, a string.
+            ...(this.targets.vodId ? { vod_id: this.targets.vodId } : {}),
           },
         },
       }));
@@ -269,7 +350,7 @@ export class KickWatcher implements TablessWatchController {
     // is visible without the verbose/debug filter; later sends stay debug.
     if (!this.watchAnnounced) {
       this.watchAnnounced = true;
-      this.log("info", `Kick tabless farming active for ${this.channel?.username ?? "channel"} — sending watch events every 60s`);
+      this.log("info", `Kick tabless farming active for ${this.channel?.username ?? "channel"} — sending watch events every ${Math.round(this.watchEventIntervalMs / 1000)} s`);
     } else {
       this.log("debug", `Sent Kick watch event for ${this.channel?.username ?? "channel"} (livestream ${this.targets.liveStreamId})`);
     }
@@ -289,7 +370,7 @@ export class KickWatcher implements TablessWatchController {
       && this.targets.liveStreamId !== previousLiveStreamId
       && this.connected
     ) {
-      this.sendWatchEvent();
+      this.sendWatchEventAndReschedule();
     }
   }
 
@@ -315,30 +396,41 @@ export class KickWatcher implements TablessWatchController {
     return token;
   }
 
+  // Reads the web client's channel info route, the one that carries `vod_id`.
+  // Without `force`, a candidate that already names its ids still connects when
+  // the read fails; it just tracks without a VOD id until the next refresh.
   private async fetchTargets(channel: ChannelCandidate, options: { force?: boolean } = {}): Promise<KickChannelTargets> {
     if (!options.force && channel.channelId && channel.broadcastId) {
-      return {
+      const known: KickChannelTargets = {
         channelId: channel.channelId,
         liveStreamId: channel.broadcastId,
         isLive: true,
         categoryId: channel.categoryId,
       };
+      try {
+        return await this.fetchTargets(channel, { force: true });
+      } catch (error) {
+        this.log("debug", `Kick channel info for ${channel.username} failed; connecting with the known ids: ${error instanceof Error ? error.message : String(error)}`);
+        return known;
+      }
     }
     const data = await this.fetcher.fetchJson<{
       id?: string | number;
       livestream?: {
         id?: string | number;
         is_live?: boolean;
+        vod_id?: unknown;
         category?: { id?: string | number };
         categories?: Array<{ id?: string | number }>;
       } | null;
-    }>(`https://kick.com/api/v2/channels/${encodeURIComponent(channel.username)}`, undefined, this.diagnostics.emit);
+    }>(`https://kick.com/api/v2/channels/${encodeURIComponent(channel.username)}/info`, undefined, this.diagnostics.emit);
     const channelId = data.id == null ? channel.channelId : String(data.id);
     if (!channelId) throw new Error(`Could not resolve the Kick channel id for ${channel.username}`);
     const category = data.livestream?.categories?.[0] ?? data.livestream?.category;
     return {
       channelId,
       liveStreamId: data.livestream?.id == null ? channel.broadcastId : String(data.livestream.id),
+      ...(typeof data.livestream?.vod_id === "string" && data.livestream.vod_id ? { vodId: data.livestream.vod_id } : {}),
       categoryId: category?.id == null ? channel.categoryId : String(category.id),
       isLive: Boolean(data.livestream?.is_live ?? data.livestream),
     };
