@@ -1,16 +1,18 @@
-import { noPixelReport, parseNoPixelGiveaway, parseNoPixelPackIds, parseNoPixelProgress, parseNoPixelSetup } from "@lurkloot/core/extensions/nopixel/state";
+import { noPixelGiveawayJoinable, noPixelReport, parseNoPixelGiveaway, parseNoPixelGiveawayEligibility, parseNoPixelPackIds, parseNoPixelProgress, parseNoPixelSetup } from "@lurkloot/core/extensions/nopixel/state";
 import type { TwitchExtensionReasonCode } from "@lurkloot/shared/models";
 import type { TwitchExtensionDriverFactory } from "../runtime";
 
 const backend = "https://nopixel.streamingtoolsmith.com";
-type NoPixelPath = `/cards/packs/${string}/open` | "/cards/packs" | "/ping" | "/channel/setup" | "/cards/rewards/daily-watchtime/progress" | "/channel/giveaway" | "/channel/giveaway/join";
+type NoPixelPath = `/cards/packs/${string}/open` | "/cards/packs" | "/ping" | "/channel/setup" | "/cards/rewards/daily-watchtime/progress" | "/channel/giveaway" | "/channel/giveaway/eligibility" | "/channel/giveaway/join";
 type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
 class ProviderFailure extends Error {
   constructor(readonly reason: TwitchExtensionReasonCode, readonly rejected = false) { super(reason); }
 }
 
 // Matches the published 1.1.2 client: Bearer auth, one initialization ping,
-// channel setup, daily watchtime read and ordinary giveaway join/refetch.
+// channel setup, daily watchtime read and ordinary giveaway join/refetch. Since
+// 1.1.3 a giveaway names who may join, and the client offers a join only to a
+// viewer `/channel/giveaway/eligibility` admits (#730).
 // Pack opening is a separate explicit opt-in, confirmed by inventory rereads.
 export function createNoPixelDriver(fetcher: Fetch, onJoined: () => void = () => {}, now: () => number = Date.now, diagnostic: (message: string) => void = () => {}, options: { autoOpenPacks?: boolean; onOpened?(): void } = {}): TwitchExtensionDriverFactory {
   return async (session, emit) => {
@@ -24,6 +26,8 @@ export function createNoPixelDriver(fetcher: Fetch, onJoined: () => void = () =>
     const rejectedStatuses = new Map<string, number>();
     const packAttempts = new Map<string, boolean>();
     let joining = false;
+    // The restricted audience last reported as not joinable, so it logs once.
+    let blockedAudience: string | undefined;
     let packFailureReason: TwitchExtensionReasonCode | undefined;
     let pending: Promise<void> | undefined;
     const active = () => !lifetime.signal.aborted;
@@ -73,7 +77,23 @@ export function createNoPixelDriver(fetcher: Fetch, onJoined: () => void = () =>
           if (!active()) return;
           if (giveaway === undefined) throw new ProviderFailure("compatibility-error");
           if (!giveaway || giveaway.entered) joining = false;
-          if (giveaway && !giveaway.entered && !joining) {
+          if (giveaway && !giveaway.entered && giveaway.audience !== "any") {
+            // A failed read admits neither audience, as in the vendor client.
+            let eligibility = parseNoPixelGiveawayEligibility(undefined);
+            // An unknown audience is never joined, whatever the answer.
+            if (giveaway.audience !== "unknown") {
+              try { eligibility = parseNoPixelGiveawayEligibility(await request("/channel/giveaway/eligibility")); }
+              catch { /* Treated as eligible for neither. */ }
+            }
+            if (!active()) return;
+            giveaway.joinable = noPixelGiveawayJoinable(giveaway.audience, eligibility);
+            if (!giveaway.joinable && blockedAudience !== giveaway.audience) {
+              blockedAudience = giveaway.audience;
+              diagnostic(`NoPixelV giveaway is for ${giveaway.audience === "unknown" ? "an unknown audience" : `${giveaway.audience} only`}; not joining`);
+            }
+          }
+          if (!giveaway || giveaway.joinable !== false) blockedAudience = undefined;
+          if (giveaway && !giveaway.entered && giveaway.joinable !== false && !joining) {
             // The published response need not contain a giveaway ID. Confirm
             // server-held membership rather than inventing a client dedup key.
             joining = true;

@@ -37,6 +37,8 @@ function statusKey(provider: TwitchExtensionProviderId, summary: TwitchExtension
     case "watchtime": case "collecting": case "giveaway": return "extensionFarming";
     case "phase-closed": return "extensionPhaseClosed";
     case "connecting": return "extensionConnecting";
+    // The channel doesn't run this extension; the provider waits for one that does.
+    case "not-installed": return "extensionIdle";
     default: return summary.status === "error" ? "extensionUnavailable" : "extensionIdle";
   }
 }
@@ -45,7 +47,7 @@ function statusTone(summary: TwitchExtensionSummary | undefined): PillTone {
   switch (summary?.reasonCode) {
     // Every enabled provider is probed on the watched channel, so "not on this
     // channel" is the normal state while a drop or another provider holds it.
-    case "channel-required": case "channel-ineligible": case "channel-not-connected": case "phase-closed": return "muted";
+    case "channel-required": case "not-installed": case "channel-ineligible": case "channel-not-connected": case "phase-closed": return "muted";
   }
   switch (summary?.status) {
     case "complete": return "live";

@@ -226,7 +226,9 @@ export function createTwitchExtensionHost(options: {
         unavailableUntil.set(`${id}:${channel.username.toLowerCase()}`, options.source.now() + 5 * 60_000);
       }
       summaries[id] = { ...report, ...(channel ? { channel: { ...channel } } : {}), updatedAt: new Date(options.source.now()).toISOString() };
-      if ((report.status === "error" || report.status === "unavailable")
+      // Every enabled provider runs on whatever channel the lane watches, so a
+      // channel without its extension is routine, not worth a warning (#728).
+      if ((report.status === "error" || report.status === "unavailable") && report.reasonCode !== "not-installed"
         && (previous?.status !== report.status || previous.reasonCode !== report.reasonCode || previous.channel?.username !== channel?.username)) {
         // Runtime reports have already passed the bounded allowlist validator.
         // Preserve an actionable outcome after discovery moves to another channel,

@@ -86,7 +86,7 @@ export function createTwitchExtensionRuntime(options: {
   }
   function outcomeReport(outcome: TwitchExtensionSessionOutcome): TwitchExtensionReport | undefined {
     if (outcome === "ready" || outcome === "cancelled") return;
-    const reasonCode = outcome === "expired" ? "auth-required" : outcome === "unavailable" ? "channel-ineligible" : outcome;
+    const reasonCode = outcome === "expired" ? "auth-required" : outcome === "unavailable" ? "not-installed" : outcome;
     return { status: outcome === "auth-required" || outcome === "expired" || outcome === "unavailable" ? "unavailable" : "error", reasonCode, progress: [], pending: [] };
   }
   function refresh(id: TwitchExtensionProviderId, active: Entry, minRefreshIntervalMs: number): Promise<void> {

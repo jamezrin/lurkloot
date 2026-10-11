@@ -1,7 +1,7 @@
 import type { TwitchExtensionReport, TwitchExtensionReasonCode, TwitchExtensionStatus } from "@lurkloot/shared/models";
 
 const statuses: readonly TwitchExtensionStatus[] = ["idle", "discovering", "connecting", "farming", "complete", "unavailable", "error"];
-const reasons: readonly TwitchExtensionReasonCode[] = ["disabled", "permission-required", "auth-required", "identity-required", "channel-required", "channel-ineligible", "channel-not-connected", "watchtime", "giveaway", "collecting", "phase-closed", "rewards-complete", "transport-error", "compatibility-error", "provider-error", "connecting"];
+const reasons: readonly TwitchExtensionReasonCode[] = ["disabled", "permission-required", "auth-required", "identity-required", "channel-required", "not-installed", "channel-ineligible", "channel-not-connected", "watchtime", "giveaway", "collecting", "phase-closed", "rewards-complete", "transport-error", "compatibility-error", "provider-error", "connecting"];
 const progressKeys = ["daily-pack", "phase-captures", "phase-score", "rewards"];
 const pendingKeys = ["giveaway", "participation", "completion", "takeover", "account-link"];
 const credentialKey = /jwt|token|auth|secret|session|epicDeviceId/i;

@@ -81,14 +81,26 @@ describe("background tabless provider host", () => {
     expect(s.state.sessions.twitch.tabId).toBeUndefined();
     expect(s.host.snapshot().nopixel?.channel).toEqual({ username: "buddha" });
   });
-  it("records bounded unavailable outcomes once per channel without raw responses", async () => {
+  it("reports a channel without the extension as not-installed, quietly, on every channel it watches (#728)", async () => {
     const s = setup(); s.enableTwitch();
     await s.host.setEnabled("nopixel", true);
     await s.host.reconcile();
-    expect(s.diagnostic).toHaveBeenCalledExactlyOnceWith("Twitch extension nopixel unavailable on buddha: channel-ineligible");
+    expect(s.host.snapshot().nopixel).toMatchObject({ status: "unavailable", reasonCode: "not-installed", channel: { username: "buddha" } });
     s.state.sessions.twitch.channel = { ...s.state.sessions.twitch.channel!, username: "ssaab", channelId: "456", url: "https://www.twitch.tv/ssaab" };
     await s.host.reconcile();
-    expect(s.diagnostic).toHaveBeenLastCalledWith("Twitch extension nopixel unavailable on ssaab: channel-ineligible");
+    expect(s.host.snapshot().nopixel).toMatchObject({ reasonCode: "not-installed", channel: { username: "ssaab" } });
+    expect(s.diagnostic).not.toHaveBeenCalled();
+  });
+
+  it("still records the vendor's own channel-ineligible answer once per channel", async () => {
+    const s = setup(); s.enableTwitch();
+    const now = Date.now(); s.source.now.mockReturnValue(now);
+    const jwt = `e30.${btoa(JSON.stringify({ channel_id: "123", exp: Math.floor(now / 1000) + 3600, role: "viewer", opaque_user_id: "Utest", user_id: "42" }))}.signature`;
+    s.query.mockResolvedValue({ data: { user: { channel: { selfInstalledExtensions: [{ installation: { extension: { id: "nstuq90nghenyqwqme61jgvmtp253a", version: "1.1.4" }, activationConfig: { state: "ACTIVE" } }, token: { jwt } }] } } } } as never);
+    s.drivers.nopixel = async (_session, emit) => { emit({ status: "unavailable", reasonCode: "channel-ineligible", progress: [], pending: [] }); return { stop: s.stop }; };
+    await s.host.setEnabled("nopixel", true);
+    await s.host.reconcile();
+    expect(s.diagnostic).toHaveBeenCalledExactlyOnceWith("Twitch extension nopixel unavailable on buddha: channel-ineligible");
   });
   it("logs provider status, reason and counters at debug whenever they change (#729)", async () => {
     const s = setup(); s.enableTwitch();
