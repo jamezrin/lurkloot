@@ -488,7 +488,9 @@ export interface EngineSettings {
 export type TwitchExtensionProviderId = "nopixel" | "fortnite";
 export type TwitchExtensionStatus = "idle" | "discovering" | "connecting" | "farming" | "complete" | "unavailable" | "error";
 export type TwitchExtensionReasonCode = "disabled" | "permission-required" | "auth-required" | "identity-required"
-  | "channel-required" | "channel-ineligible" | "channel-not-connected" | "watchtime" | "giveaway" | "collecting"
+  // `not-installed`: the watched channel doesn't have the provider's extension
+  // at all; `channel-ineligible` is the vendor's own answer (#728).
+  | "channel-required" | "not-installed" | "channel-ineligible" | "channel-not-connected" | "watchtime" | "giveaway" | "collecting"
   | "phase-closed" | "rewards-complete" | "transport-error" | "compatibility-error" | "provider-error" | "connecting";
 export interface TwitchExtensionReport {
   status: TwitchExtensionStatus;
