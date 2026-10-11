@@ -96,7 +96,7 @@ describe("background tabless provider host", () => {
     const s = setup(); s.enableTwitch();
     const now = Date.now(); s.source.now.mockReturnValue(now);
     const jwt = `e30.${btoa(JSON.stringify({ channel_id: "123", exp: Math.floor(now / 1000) + 3600, role: "viewer", opaque_user_id: "Utest", user_id: "42" }))}.signature`;
-    s.query.mockResolvedValue({ data: { user: { channel: { selfInstalledExtensions: [{ installation: { extension: { id: "nstuq90nghenyqwqme61jgvmtp253a", version: "1.1.4" }, activationConfig: { state: "ACTIVE" } }, token: { jwt } }] } } } });
+    s.query.mockResolvedValue({ data: { user: { channel: { selfInstalledExtensions: [{ installation: { extension: { id: "nstuq90nghenyqwqme61jgvmtp253a", version: "1.1.4" }, activationConfig: { state: "ACTIVE" } }, token: { jwt } }] } } } } as never);
     s.drivers.nopixel = async (_session, emit) => { emit({ status: "unavailable", reasonCode: "channel-ineligible", progress: [], pending: [] }); return { stop: s.stop }; };
     await s.host.setEnabled("nopixel", true);
     await s.host.reconcile();
