@@ -76,6 +76,7 @@ export interface HostMocks<S extends EngineSettings> {
     signal?: AbortSignal,
     source?: WatchSourceId,
   ): Promise<SupplementalWatchTarget | undefined>;
+  refreshSupplementalSource?(provider: string, channelId: string): void;
   reconcilePageContextRecovery?(
     platform: Platform,
     options: PageContextRecoveryOptions,
@@ -187,6 +188,9 @@ export function hostPortsFromMocks<S extends EngineSettings>(
           supplementalSources: {
             select: (state: SchedulerState, settings: S, signal?: AbortSignal, source?: WatchSourceId) =>
               m.selectSupplementalWatchTarget!("twitch", state, settings, signal, source),
+            ...(m.refreshSupplementalSource
+              ? { refreshNow: (provider: string, channelId: string) => m.refreshSupplementalSource!(provider, channelId) }
+              : {}),
           },
         }
         : {}),

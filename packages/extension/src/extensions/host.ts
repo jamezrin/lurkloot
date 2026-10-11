@@ -461,5 +461,12 @@ export function createTwitchExtensionHost(options: {
   function snapshot() {
     return structuredClone(summaries);
   }
-  return { reconcile, chooseWatchTarget, setEnabled, removed, invalidate, snapshot, recordHeartbeatFailure, credentialsChanged };
+  // A push said the watching provider's state changed (#757). Only an enabled,
+  // permitted provider's live session on that channel refreshes.
+  function refreshNow(provider: string, channelId: string): void {
+    const id = twitchExtensionProviders.find((candidate) => candidate.id === provider)?.id;
+    if (!id || !allowed.has(id)) return;
+    runtime.refreshNow(id, channelId);
+  }
+  return { reconcile, chooseWatchTarget, setEnabled, removed, invalidate, snapshot, recordHeartbeatFailure, credentialsChanged, refreshNow };
 }

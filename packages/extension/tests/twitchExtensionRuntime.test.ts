@@ -184,3 +184,37 @@ describe("refresh cadence", () => {
     s.runtime.stop();
   });
 });
+
+describe("pushed refresh", () => {
+  it("refreshes the current session at once, only on its own channel", async () => {
+    const s = setup(); await s.runtime.update(selected);
+    s.runtime.refreshNow("nopixel", "999");
+    expect(s.refresh).not.toHaveBeenCalled();
+    s.runtime.refreshNow("nopixel", "123");
+    await vi.waitFor(() => expect(s.refresh).toHaveBeenCalledOnce());
+    // The push reset the floor, so the next heartbeat does not poll again at once.
+    s.advance(1_000); await s.runtime.update(selected);
+    expect(s.refresh).toHaveBeenCalledOnce();
+  });
+
+  it("never overlaps a running refresh and queues at most one more", async () => {
+    const s = setup(); await s.runtime.update(selected);
+    let finish!: () => void;
+    s.refresh.mockImplementationOnce(() => new Promise<void>((done) => { finish = done; }));
+    s.runtime.refreshNow("nopixel", "123");
+    s.runtime.refreshNow("nopixel", "123");
+    s.runtime.refreshNow("nopixel", "123");
+    expect(s.refresh).toHaveBeenCalledOnce();
+    finish();
+    await vi.waitFor(() => expect(s.refresh).toHaveBeenCalledTimes(2));
+    await new Promise((done) => setTimeout(done, 0));
+    expect(s.refresh).toHaveBeenCalledTimes(2);
+  });
+
+  it("does nothing once the session is stopped", async () => {
+    const s = setup(); await s.runtime.update(selected);
+    s.runtime.stop("nopixel");
+    s.runtime.refreshNow("nopixel", "123");
+    expect(s.refresh).not.toHaveBeenCalled();
+  });
+});

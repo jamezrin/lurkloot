@@ -843,6 +843,39 @@ describe("background controller", () => {
       });
     });
 
+    // #757: while NoPixelV is the tabless watch source, the same observer
+    // follows its broadcast topic and refreshes it on a giveaway message.
+    describe("extension broadcast topic", () => {
+      async function watchingNoPixel(watchMode: "tabless" | "tab" = "tabless", hook = true) {
+        const refreshSupplementalSource = vi.fn();
+        const env = harness(pushSettings({ channelPointsPushClaim: false }), {
+          selectSupplementalWatchTarget: async () => undefined,
+          ...(hook ? { refreshSupplementalSource } : {}),
+        });
+        configureEligibleChannel(env, { channelId: "123" });
+        env.state.sessions.twitch = { ...env.state.sessions.twitch, watchMode, supplementalWatch: { id: "nopixel", tablessOnly: true } };
+        await env.controller.ensureAlarm();
+        await env.rawController.settleBackgroundWork();
+        return { env, refreshSupplementalSource };
+      }
+
+      it("follows NoPixelV's topic and refreshes it on a giveaway message only", async () => {
+        const { env, refreshSupplementalSource } = await watchingNoPixel();
+        const owner = env.channelPointsPushController.extensionBroadcast;
+        expect(owner).toMatchObject({ channelId: "123", extensionId: "nstuq90nghenyqwqme61jgvmtp253a" });
+        owner!.onEvent("news.posts.created");
+        expect(refreshSupplementalSource).not.toHaveBeenCalled();
+        owner!.onEvent("cards.giveaway.started");
+        owner!.onEvent("cards.giveaway.ended");
+        expect(refreshSupplementalSource.mock.calls).toEqual([["nopixel", "123"], ["nopixel", "123"]]);
+      });
+
+      it("does not follow it for a tab watch or a host without the refresh hook", async () => {
+        expect((await watchingNoPixel("tab")).env.channelPointsPushController.extensionBroadcast).toBeUndefined();
+        expect((await watchingNoPixel("tabless", false)).env.channelPointsPushController.extensionBroadcast).toBeUndefined();
+      });
+    });
+
     it("claims from a live-event notice for the eligible channel", async () => {
       const env = harness(pushSettings());
       await startObserver(env);

@@ -826,6 +826,54 @@ describe("Twitch playback push", () => {
     expect(topics(socket).filter((topic) => topic === "video-playback-by-id.123")).toHaveLength(1);
   });
 
+  const NOPIXEL_TOPIC = "channel-ext-v1.123-nstuq90nghenyqwqme61jgvmtp253a-broadcast";
+  const broadcastOwner = (onEvent: (event: string) => void, channelId = "123") =>
+    ({ channelId, extensionId: "nstuq90nghenyqwqme61jgvmtp253a", onEvent });
+
+  it("follows an extension's broadcast topic and passes on only event names", async () => {
+    const onEvent = vi.fn();
+    const { socket, controller } = await connected({
+      onClaimAvailable: () => undefined,
+      playback: { channelId: "123", onNotice: () => undefined },
+      extensionBroadcast: broadcastOwner(onEvent),
+    });
+    expect(topics(socket)).toEqual(["community-points-user-v1.78020132", "video-playback-by-id.123", NOPIXEL_TOPIC]);
+    const id = confirm(socket, NOPIXEL_TOPIC);
+    // Twitch wraps extension messages in a content list; the overlay sends {event, payload}.
+    socket.message(pubsubNotification(id, { content: [JSON.stringify({ event: "cards.giveaway.started", payload: { secret: "payload-value" } })], content_type: "application/json" }));
+    socket.message(pubsubNotification(id, { event: "cards.giveaway.ended", payload: { winners: ["1"] } }));
+    socket.message(pubsubNotification(id, { content: ["not json", JSON.stringify({ event: "Bad Event!" })] }));
+    socket.message(pubsubNotification(id, "{not json"));
+    expect(onEvent.mock.calls).toEqual([["cards.giveaway.started"], ["cards.giveaway.ended"]]);
+    const messages = controller.drainEvents().map((event) => String("message" in event ? event.message : ""));
+    expect(messages.filter((message) => message === "Ignored an unrecognised Twitch Extension broadcast message")).toHaveLength(2);
+    expect(JSON.stringify(messages)).not.toContain("payload-value");
+  });
+
+  it("keeps the connection when Hermes refuses an extension broadcast topic, and does not retry it", async () => {
+    const { socket, controller, reconnect } = await connected({ onClaimAvailable: () => undefined, extensionBroadcast: broadcastOwner(() => undefined) });
+    confirm(socket, "community-points-user-v1.78020132");
+    confirm(socket, NOPIXEL_TOPIC, "error");
+    expect(socket.closed).toBe(false);
+    expect(reconnect.scheduled).toHaveLength(0);
+    expect(controller.subscribed).toBe(true);
+    await controller.start({ onClaimAvailable: () => undefined, extensionBroadcast: broadcastOwner(() => undefined) });
+    expect(topics(socket).filter((topic) => topic === NOPIXEL_TOPIC)).toHaveLength(1);
+    // A different channel is a different topic, so it is tried.
+    await controller.start({ onClaimAvailable: () => undefined, extensionBroadcast: broadcastOwner(() => undefined, "456") });
+    expect(topics(socket)).toContain("channel-ext-v1.456-nstuq90nghenyqwqme61jgvmtp253a-broadcast");
+  });
+
+  it("leaves the broadcast topic when the owner goes, and ignores its late messages", async () => {
+    const onEvent = vi.fn();
+    const { socket, controller } = await connected({ playback: { channelId: "123", onNotice: () => undefined }, extensionBroadcast: broadcastOwner(onEvent) });
+    const id = confirm(socket, NOPIXEL_TOPIC);
+    await controller.start({ playback: { channelId: "123", onNotice: () => undefined } });
+    expect(parsedSent(socket).at(-1)).toMatchObject({ type: "unsubscribe", unsubscribe: { id } });
+    socket.message(pubsubNotification(id, { event: "cards.giveaway.started" }));
+    expect(onEvent).not.toHaveBeenCalled();
+  });
+
   it("follows playback when the viewer id lookup fails", async () => {
     const socket = new FakeSocket();
     const controller = createPushController({

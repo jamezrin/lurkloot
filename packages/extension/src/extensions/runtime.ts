@@ -37,6 +37,9 @@ export function createTwitchExtensionRuntime(options: {
     expiresAt: number;
     nextRefreshAt: number;
     pending?: Promise<void>;
+    // A pushed refresh that arrived while another was running; it runs once
+    // that one ends, so polls never overlap.
+    refreshQueued?: boolean;
     expiryTimer?: ReturnType<typeof setTimeout>;
   }
   const entries = new Map<TwitchExtensionProviderId, Entry>();
@@ -80,6 +83,37 @@ export function createTwitchExtensionRuntime(options: {
     const reasonCode = outcome === "expired" ? "auth-required" : outcome === "unavailable" ? "channel-ineligible" : outcome;
     return { status: outcome === "auth-required" || outcome === "expired" || outcome === "unavailable" ? "unavailable" : "error", reasonCode, progress: [], pending: [] };
   }
+  function refresh(id: TwitchExtensionProviderId, active: Entry, minRefreshIntervalMs: number): Promise<void> {
+    active.nextRefreshAt = options.source.now() + minRefreshIntervalMs;
+    const pending = (async () => {
+      try { await active.driver?.refresh?.(); }
+      catch {
+        emit(id, active, { status: "error", reasonCode: "provider-error", progress: [], pending: [] });
+        dispose(active);
+      } finally { active.pending = undefined; }
+    })();
+    active.pending = pending;
+    return pending;
+  }
+  // Refreshes the provider's current session now, on a push that says its
+  // state changed (#757). Only for the session on `channelId`, and never
+  // alongside a refresh already running: that one is followed by one more.
+  function refreshNow(id: TwitchExtensionProviderId, channelId: string): void {
+    const provider = twitchExtensionProviders.find((candidate) => candidate.id === id);
+    const entry = entries.get(id);
+    if (!provider || !entry || entry.channelId !== channelId || !live(id, entry) || !entry.driver?.refresh) return;
+    if (entry.expiresAt <= options.source.now() + 60_000) return;
+    if (entry.pending) {
+      if (entry.refreshQueued) return;
+      entry.refreshQueued = true;
+      void entry.pending.then(() => {
+        entry.refreshQueued = false;
+        if (!entry.pending) refreshNow(id, channelId);
+      });
+      return;
+    }
+    void refresh(id, entry, provider.minRefreshIntervalMs);
+  }
   async function update(selected: Partial<Record<TwitchExtensionProviderId, string | TwitchExtensionTarget>>): Promise<void> {
     const work: Promise<void>[] = [];
     for (const provider of twitchExtensionProviders) {
@@ -105,17 +139,7 @@ export function createTwitchExtensionRuntime(options: {
       // refresh due within a tenth of its floor (at most 5 s) runs now.
       if (entry && now + refreshSlackMs(provider.minRefreshIntervalMs) < entry.nextRefreshAt) continue;
       if (entry?.driver && entry.expiresAt > now + 60_000) {
-        const active = entry;
-        active.nextRefreshAt = now + provider.minRefreshIntervalMs;
-        active.pending = (async () => {
-          try { await active.driver?.refresh?.(); }
-          catch {
-            emit(id, active, { status: "error", reasonCode: "provider-error", progress: [], pending: [] });
-            dispose(active);
-
-          } finally { active.pending = undefined; }
-        })();
-        work.push(active.pending);
+        work.push(refresh(id, entry, provider.minRefreshIntervalMs));
         continue;
       }
       stop(id);
@@ -156,5 +180,5 @@ export function createTwitchExtensionRuntime(options: {
     }
     await Promise.all(work);
   }
-  return { update, stop };
+  return { update, stop, refreshNow };
 }

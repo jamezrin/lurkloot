@@ -112,6 +112,8 @@ export class FakeChannelPointsPushController {
   private onClaimAvailable?: (notice: TwitchChannelPointsClaimNotice) => void;
   // The watched channel's playback owner from the latest start (#759).
   playback?: TwitchHermesOwners["playback"];
+  // The watching provider's broadcast owner from the latest start (#757).
+  extensionBroadcast?: TwitchHermesOwners["extensionBroadcast"];
   private readonly events: DiagnosticEvent[] = [];
 
   async start(owners: TwitchHermesOwners | ((notice: TwitchChannelPointsClaimNotice) => void)): Promise<void> {
@@ -125,6 +127,7 @@ export class FakeChannelPointsPushController {
     const next = typeof owners === "function" ? { onClaimAvailable: owners } : owners;
     this.onClaimAvailable = next.onClaimAvailable;
     this.playback = next.playback;
+    this.extensionBroadcast = next.extensionBroadcast;
   }
 
   emitClaim(notice: TwitchChannelPointsClaimNotice): void {
@@ -330,6 +333,9 @@ export function harness(
     ) => Promise<boolean>;
     cancelTwitchIntegrityAcquisition?: (reason?: unknown) => void;
     selectWatchTarget?: HostMocks<ExtensionSettings>["selectWatchTarget"];
+    // A supplemental sources port, with the push refresh hook (#757).
+    selectSupplementalWatchTarget?: HostMocks<ExtensionSettings>["selectSupplementalWatchTarget"];
+    refreshSupplementalSource?: HostMocks<ExtensionSettings>["refreshSupplementalSource"];
     reconcilePageContextRecovery?: HostMocks<ExtensionSettings>["reconcilePageContextRecovery"];
     discardPageContextRecoveryEvidence?: HostMocks<ExtensionSettings>["discardPageContextRecoveryEvidence"];
     initialState?: SchedulerState;
@@ -413,6 +419,8 @@ export function harness(
       ? { discardPageContextRecoveryEvidence: vi.fn(overrides.discardPageContextRecoveryEvidence) }
       : {}),
     ...(overrides.selectWatchTarget ? { selectWatchTarget: vi.fn(overrides.selectWatchTarget) } : {}),
+    ...(overrides.selectSupplementalWatchTarget ? { selectSupplementalWatchTarget: vi.fn(overrides.selectSupplementalWatchTarget) } : {}),
+    ...(overrides.refreshSupplementalSource ? { refreshSupplementalSource: vi.fn(overrides.refreshSupplementalSource) } : {}),
     wait: overrides.wait,
     ...(overrides.checkCredentialAvailability
       ? { checkCredentialAvailability: vi.fn(overrides.checkCredentialAvailability) }

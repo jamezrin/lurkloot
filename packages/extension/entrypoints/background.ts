@@ -228,6 +228,7 @@ const controller = createBackgroundController<ExtensionSettings>({
     },
     supplementalSources: {
       select: (state, settings, signal, source) => extensionHost.chooseWatchTarget(settings, state, signal, source),
+      refreshNow: (provider, channelId) => extensionHost.refreshNow(provider, channelId),
     },
   },
 });

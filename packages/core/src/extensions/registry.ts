@@ -8,6 +8,8 @@ export const twitchExtensionProviders: readonly TwitchExtensionProviderDescripto
     discoveryCategoryIds: Object.freeze(["32982"]),
     minRefreshIntervalMs: 60_000,
     needsChatPresence: true,
+    // Its overlay sets and clears the open giveaway from these (1.1.4).
+    broadcastRefreshEvents: Object.freeze(["cards.giveaway.started", "cards.giveaway.ended"]),
   }),
   Object.freeze({
     id: "fortnite" as const,

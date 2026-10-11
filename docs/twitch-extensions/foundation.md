@@ -127,6 +127,10 @@ Public source base:
 Relevant bundled assets: `Alert-D-LPMaDd.js`, `TwatterView-C2JjPIqz.js`,
 `useGiveaway--y3iy8yN.js`. Tests use synthetic schemas, never live responses.
 
+The overlay also listens on the extension's `broadcast` and `global` topics through `Twitch.ext.listen`. It parses each message as `{event, payload}` and dispatches it as `twitch.pubsub.<event>`. In 1.1.2 and 1.1.4 (`/1.1.4/6f4877431f43b6ee80531236f85b557b/`, `useGiveaway-Bn0L1YWx.js`), the giveaway hook sets the open giveaway from the `cards.giveaway.started` payload and clears it on `cards.giveaway.ended`, whose payload lists the `winners`. Its other events are `system.messages.update`, `map.event.*`, `social.posts.*` and `news.posts.*`.
+
+LurkLoot follows the broadcast topic, `channel-ext-v1.<channelId>-nstuq90nghenyqwqme61jgvmtp253a-broadcast`, on its one Hermes connection while NoPixelV is the tabless watch source (#757). On either giveaway event it refreshes the driver at once, which reads and joins the giveaway as a scheduled refresh would. It reads only the event name, never the payload. Because the refresh also reads daily watch time, and is the only path when a push is missed or Hermes refuses the topic, the once-a-minute refresh stays. A pushed refresh never runs alongside another; one arriving mid-refresh runs once that one ends. The `global` topic is not followed, and nobody has yet seen a giveaway arrive on `broadcast` live.
+
 Daily watch time accrues only while the viewer is in the channel's chat. A 2026-10-04 live A/B test showed this: during tabless farming the counter started climbing as soon as the channel's popout chat was opened. The vendor client has no presence heartbeat, and the streamer must connect their Twitch account so the backend can read the chatter list. NoPixelV therefore declares `needsChatPresence`, and the chat presence service joins the watched channel's chat (#683).
 
 ## Fortnite live schema evidence

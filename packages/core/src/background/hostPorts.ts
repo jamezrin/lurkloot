@@ -190,6 +190,9 @@ export interface SupplementalSourcesPort<S extends EngineSettings> {
     signal?: AbortSignal,
     source?: WatchSourceId,
   ): Promise<SupplementalWatchTarget | undefined>;
+  // A refresh-worthy message arrived on the watching provider's Hermes
+  // broadcast topic for `channelId` (#757). Fire and forget.
+  refreshNow?(provider: string, channelId: string): void;
 }
 
 export interface TwitchHostPorts<S extends EngineSettings> {

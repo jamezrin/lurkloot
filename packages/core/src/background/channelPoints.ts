@@ -1,6 +1,7 @@
 import type { ChannelCandidate, EngineSettings, SchedulerState } from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import { autoClaimChannelPointsFor } from "@lurkloot/shared/settings";
+import { twitchExtensionProvider } from "../extensions/registry";
 import { pausedForManualWatch, recentManualWatch } from "../core/manualWatch";
 import type { PlatformAdapter } from "../platforms/adapter";
 import type { TwitchChannelPointsClaimNotice, TwitchChannelPointsPushController, TwitchPlaybackNotice } from "../platforms/twitch/channelPointsPush";
@@ -41,6 +42,17 @@ function watchedTwitchChannelId(settings: EngineSettings, state: SchedulerState,
   const channelId = session.status === "watching" ? session.channel?.channelId : undefined;
   // Only a real Twitch id names a playback topic.
   return channelId && /^\d{1,20}$/.test(channelId) ? channelId : undefined;
+}
+
+// The watching Twitch Extension provider whose Hermes broadcast topic says
+// when to refresh it (#757), on the channel LurkLoot itself watches.
+function watchedExtensionBroadcast(settings: EngineSettings, state: SchedulerState, now = Date.now()) {
+  const channelId = watchedTwitchChannelId(settings, state, now);
+  const session = state.sessions.twitch;
+  const provider = session.watchMode === "tabless" && session.supplementalWatch
+    ? twitchExtensionProvider(session.supplementalWatch.id) : undefined;
+  if (!channelId || !provider?.broadcastRefreshEvents?.length) return undefined;
+  return { channelId, provider };
 }
 
 // One channel-points claim request at a time, whether the tick, the one-minute
@@ -309,6 +321,7 @@ export function createChannelPoints<S extends EngineSettings>(
   ): Promise<void> {
     const claims = claimsWanted(settings, state);
     const channelId = watchedTwitchChannelId(settings, state);
+    const broadcast = ports.twitch.supplementalSources?.refreshNow ? watchedExtensionBroadcast(settings, state) : undefined;
     // A playback check pending for a channel no longer watched is moot.
     if (streamDownCheck && streamDownCheck.channelId !== channelId) cancelStreamDownCheck();
     await push.reconcile({
@@ -326,6 +339,18 @@ export function createChannelPoints<S extends EngineSettings>(
         } : {}),
         ...(channelId !== undefined ? {
           playback: { channelId, onNotice: (notice: TwitchPlaybackNotice) => handlePlaybackNotice(controller, notice) },
+        } : {}),
+        ...(broadcast ? {
+          extensionBroadcast: {
+            channelId: broadcast.channelId,
+            extensionId: broadcast.provider.extensionId,
+            onEvent: (event: string) => {
+              if (push.current !== controller || lifecycleSlice.controllerShutdown) return;
+              if (!broadcast.provider.broadcastRefreshEvents?.includes(event)) return;
+              diagnosticEvent("debug", `${broadcast.provider.id} announced ${event} on its Twitch broadcast; refreshing it now`, "twitch");
+              ports.twitch.supplementalSources?.refreshNow?.(broadcast.provider.id, broadcast.channelId);
+            },
+          },
         } : {}),
       }),
     });

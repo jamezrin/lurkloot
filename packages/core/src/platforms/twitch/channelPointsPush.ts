@@ -7,6 +7,11 @@ export const TWITCH_CHANNEL_POINTS_TOPIC_PREFIX = "community-points-user-v1.";
 // The playback topic Twitch's web client follows for the channel it plays.
 // Anonymous; it carries stream-up, stream-down, viewcount and commercial (#759).
 export const TWITCH_PLAYBACK_TOPIC_PREFIX = "video-playback-by-id.";
+// An installed Twitch Extension's broadcast topic, which Twitch's web client
+// follows for each extension on the channel it plays (#757). Named
+// `channel-ext-v1.<channelId>-<extensionId>-broadcast`.
+export const TWITCH_EXTENSION_BROADCAST_TOPIC_PREFIX = "channel-ext-v1.";
+const EXTENSION_BROADCAST_EVENT = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 
 const DEFAULT_TWITCH_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko";
 const RECONNECT_BASE_MS = 1_000;
@@ -32,6 +37,9 @@ export interface TwitchHermesOwners {
   onClaimAvailable?: (notice: TwitchChannelPointsClaimNotice) => void;
   // The watched channel's playback topic (#759).
   playback?: { channelId: string; onNotice: (notice: TwitchPlaybackNotice) => void };
+  // A Twitch Extension's broadcast topic on the watched channel (#757). Only
+  // the message's event name is passed on, never its payload.
+  extensionBroadcast?: { channelId: string; extensionId: string; onEvent: (event: string) => void };
 }
 
 export interface TwitchChannelPointsPushDeps {
@@ -108,7 +116,8 @@ export class TwitchChannelPointsPushController {
   // alone follows only the channel-points topic.
   async start(owners: TwitchHermesOwners | ((notice: TwitchChannelPointsClaimNotice) => void)): Promise<void> {
     const next = typeof owners === "function" ? { onClaimAvailable: owners } : owners;
-    if (next.playback?.channelId !== this.owners.playback?.channelId) this.refusedTopics.clear();
+    if (next.playback?.channelId !== this.owners.playback?.channelId
+      || extensionBroadcastTopic(next) !== extensionBroadcastTopic(this.owners)) this.refusedTopics.clear();
     this.owners = next;
     if (!this.stopped) {
       if (this.ws && this.authenticated) this.syncTopics(this.ws);
@@ -158,8 +167,8 @@ export class TwitchChannelPointsPushController {
       this.userId = userId || undefined;
     } catch (error) {
       this.log("warn", `Failed to resolve the Twitch channel-points user id: ${errorMessage(error)}`);
-      // Only the channel-points topic needs the id; playback goes on without it.
-      if (this.owners.onClaimAvailable || !this.owners.playback) {
+      // Only the channel-points topic needs the id; the channel topics go on without it.
+      if (this.owners.onClaimAvailable || (!this.owners.playback && !this.owners.extensionBroadcast)) {
         this.scheduleNextReconnect();
         return;
       }
@@ -291,6 +300,8 @@ export class TwitchChannelPointsPushController {
       const topic = `${TWITCH_PLAYBACK_TOPIC_PREFIX}${playback.channelId}`;
       if (!this.refusedTopics.has(topic)) topics.push(topic);
     }
+    const broadcast = extensionBroadcastTopic(this.owners);
+    if (broadcast && !this.refusedTopics.has(broadcast)) topics.push(broadcast);
     return topics;
   }
 
@@ -332,12 +343,14 @@ export class TwitchChannelPointsPushController {
       || !isRecord(confirmed)
       || confirmed.id !== subscription.id
     ) {
-      if (subscription.topic.startsWith(TWITCH_PLAYBACK_TOPIC_PREFIX)) {
-        // The watched channel's topic is a bonus: a refusal leaves offline
-        // detection to the periodic check and keeps the claims topic up.
+      if (subscription.topic.startsWith(TWITCH_PLAYBACK_TOPIC_PREFIX) || subscription.topic.startsWith(TWITCH_EXTENSION_BROADCAST_TOPIC_PREFIX)) {
+        // The watched channel's topics are a bonus: a refusal leaves their
+        // work to the periodic checks and keeps the claims topic up.
         this.subscriptions.delete(subscription.topic);
         this.refusedTopics.add(subscription.topic);
-        this.log("debug", "Twitch playback push subscribe was not ok");
+        this.log("debug", subscription.topic.startsWith(TWITCH_PLAYBACK_TOPIC_PREFIX)
+          ? "Twitch playback push subscribe was not ok"
+          : "Twitch Extension broadcast subscribe was not ok");
         return;
       }
       this.log("debug", "Twitch channel-points push subscribe was not ok");
@@ -349,6 +362,8 @@ export class TwitchChannelPointsPushController {
     this.reconnectAttempt = 0;
     if (subscription.topic.startsWith(TWITCH_PLAYBACK_TOPIC_PREFIX)) {
       this.log("debug", `Twitch playback push subscribed to ${subscription.topic}`);
+    } else if (subscription.topic.startsWith(TWITCH_EXTENSION_BROADCAST_TOPIC_PREFIX)) {
+      this.log("debug", `Twitch Extension broadcast subscribed to ${subscription.topic}`);
     } else {
       this.log("debug", `Twitch channel-points push subscribed to ${subscription.topic}`);
     }
@@ -368,6 +383,10 @@ export class TwitchChannelPointsPushController {
     }
     if (subscription.topic.startsWith(TWITCH_PLAYBACK_TOPIC_PREFIX)) {
       this.handlePlaybackNotification(subscription.topic.slice(TWITCH_PLAYBACK_TOPIC_PREFIX.length), notification.pubsub);
+      return;
+    }
+    if (subscription.topic.startsWith(TWITCH_EXTENSION_BROADCAST_TOPIC_PREFIX)) {
+      this.handleExtensionBroadcast(subscription.topic, notification.pubsub);
       return;
     }
     const inner = parsePubsub(notification.pubsub);
@@ -407,6 +426,26 @@ export class TwitchChannelPointsPushController {
       playback.onNotice({ type, channelId });
     } catch (error) {
       this.log("warn", `Twitch playback push callback failed: ${errorMessage(error)}`);
+    }
+  }
+
+  // Reads only event names, from either `{event, payload}` or Twitch's
+  // `{content: ["<message>", ...]}` wrapper around it. Payloads are never read
+  // or logged.
+  private handleExtensionBroadcast(topic: string, pubsub: unknown): void {
+    const owner = this.owners.extensionBroadcast;
+    if (!owner || extensionBroadcastTopic(this.owners) !== topic) return;
+    const events = extensionBroadcastEvents(pubsub);
+    if (events.length === 0) {
+      this.log("debug", "Ignored an unrecognised Twitch Extension broadcast message");
+      return;
+    }
+    for (const event of events) {
+      try {
+        owner.onEvent(event);
+      } catch (error) {
+        this.log("warn", `Twitch Extension broadcast callback failed: ${errorMessage(error)}`);
+      }
     }
   }
 
@@ -518,6 +557,22 @@ function readKeepaliveSec(welcome: unknown): number {
   return typeof value === "number" && Number.isFinite(value) && value > 0
     ? value
     : TWITCH_HERMES_KEEPALIVE_DEFAULT_SEC;
+}
+
+function extensionBroadcastTopic(owners: TwitchHermesOwners): string | undefined {
+  const broadcast = owners.extensionBroadcast;
+  if (!broadcast || !/^\d{1,20}$/.test(broadcast.channelId) || !/^[a-z0-9]{1,64}$/.test(broadcast.extensionId)) return undefined;
+  return `${TWITCH_EXTENSION_BROADCAST_TOPIC_PREFIX}${broadcast.channelId}-${broadcast.extensionId}-broadcast`;
+}
+
+function extensionBroadcastEvents(pubsub: unknown): string[] {
+  const outer = parsePubsub(pubsub);
+  if (!outer) return [];
+  const messages = Array.isArray(outer.content)
+    ? outer.content.slice(0, 10).map((item) => typeof item === "string" ? parsePubsub(item) : isRecord(item) ? item : undefined)
+    : [outer];
+  return messages.flatMap((message) =>
+    typeof message?.event === "string" && EXTENSION_BROADCAST_EVENT.test(message.event) ? [message.event] : []);
 }
 
 function parsePubsub(value: unknown): Record<string, unknown> | undefined {
