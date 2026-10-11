@@ -10,7 +10,7 @@ function setup() {
     if (url.endsWith("/channel/setup")) return Response.json({ is_channel_eligible_for_pack_giveaways: true, is_channel_eligible_for_watchtime_tracking: true, is_channel_connected_for_watchtime_tracking: true });
     if (url.endsWith("/progress")) return Response.json({ watch_time_earned: 10, watch_time_required: 60 });
     if (url.endsWith("/join")) { joined = true; return new Response(null, { status: 204 }); }
-    return Response.json({ participants: [], has_user_entered_giveaway: joined });
+    return Response.json({ participants: [], has_user_entered_giveaway: joined, eligible_user_type: "any" });
   });
   return { fetcher, emit: vi.fn(), joined: vi.fn() };
 }
@@ -30,7 +30,7 @@ describe("NoPixel tabless driver", () => {
   });
   it("does not claim a join when the server still reports unentered", async () => {
     const s = setup(); const base = s.fetcher.getMockImplementation()!;
-    s.fetcher.mockImplementation(async (url, init) => url.endsWith("/giveaway") ? Response.json({ participants: [], has_user_entered_giveaway: false }) : base(url, init));
+    s.fetcher.mockImplementation(async (url, init) => url.endsWith("/giveaway") ? Response.json({ participants: [], has_user_entered_giveaway: false, eligible_user_type: "any" }) : base(url, init));
     const driver = await createNoPixelDriver(s.fetcher, s.joined)(session, s.emit);
     await driver.refresh!();
     expect(s.joined).not.toHaveBeenCalled();
@@ -196,4 +196,57 @@ it("keeps auto-opening work pending when inventory fails after watchtime complet
   const driver = await createNoPixelDriver(s.fetcher, s.joined, Date.now, () => {}, { autoOpenPacks: true })(session, s.emit);
   expect(s.emit).toHaveBeenLastCalledWith(expect.objectContaining({ status: "farming", reasonCode: "collecting", pending: expect.arrayContaining([{ key: "completion", state: "blocked" }]) }));
   driver.stop();
+});
+
+describe("giveaway eligibility (1.1.3+, #730)", () => {
+  function restricted(audience: string, eligibility: (() => Response) | Record<string, boolean>) {
+    const s = setup(); const base = s.fetcher.getMockImplementation()!;
+    let joined = false;
+    s.fetcher.mockImplementation(async (url, init) => {
+      if (url.endsWith("/eligibility")) return typeof eligibility === "function" ? eligibility() : Response.json(eligibility);
+      if (url.endsWith("/join")) { joined = true; return new Response(null, { status: 204 }); }
+      if (url.endsWith("/giveaway")) return Response.json({ participants: [], has_user_entered_giveaway: joined, eligible_user_type: audience });
+      return base(url, init);
+    });
+    return s;
+  }
+  const joins = (s: ReturnType<typeof setup>) => s.fetcher.mock.calls.filter(([url]) => url.endsWith("/join")).length;
+
+  it.each([
+    ["followers", { can_join_follower_giveaways: true, can_join_subscriber_giveaways: false }],
+    ["followers", { can_join_follower_giveaways: false, can_join_subscriber_giveaways: true }],
+    ["subscribers", { can_join_follower_giveaways: false, can_join_subscriber_giveaways: true }],
+  ])("joins a %s giveaway the viewer qualifies for", async (audience, eligibility) => {
+    const s = restricted(audience, eligibility);
+    await createNoPixelDriver(s.fetcher, s.joined)(session, s.emit);
+    expect(joins(s)).toBe(1);
+    expect(s.joined).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ["followers", { can_join_follower_giveaways: false, can_join_subscriber_giveaways: false }, "followers only"],
+    ["subscribers", { can_join_follower_giveaways: true, can_join_subscriber_giveaways: false }, "subscribers only"],
+    ["vips", { can_join_follower_giveaways: true, can_join_subscriber_giveaways: true }, "an unknown audience"],
+  ])("does not join a %s giveaway the viewer can't enter, reports it blocked and logs once", async (audience, eligibility, label) => {
+    const s = restricted(audience, eligibility); const diagnostic = vi.fn();
+    const driver = await createNoPixelDriver(s.fetcher, s.joined, Date.now, diagnostic)(session, s.emit);
+    await driver.refresh!();
+    expect(joins(s)).toBe(0);
+    expect(s.emit).toHaveBeenLastCalledWith(expect.objectContaining({ status: "farming", pending: [{ key: "giveaway", state: "blocked" }] }));
+    expect(diagnostic).toHaveBeenCalledExactlyOnceWith(`NoPixelV giveaway is for ${label}; not joining`);
+  });
+
+  it("treats a failed eligibility read as eligible for neither, without ending the session", async () => {
+    const s = restricted("followers", () => new Response("private", { status: 403 }));
+    await createNoPixelDriver(s.fetcher, s.joined)(session, s.emit);
+    expect(joins(s)).toBe(0);
+    expect(s.emit).toHaveBeenLastCalledWith(expect.objectContaining({ status: "farming", reasonCode: "watchtime", pending: [{ key: "giveaway", state: "blocked" }] }));
+  });
+
+  it("does not read eligibility for an open-to-all giveaway", async () => {
+    const s = restricted("any", {});
+    await createNoPixelDriver(s.fetcher, s.joined)(session, s.emit);
+    expect(s.fetcher.mock.calls.some(([url]) => url.endsWith("/eligibility"))).toBe(false);
+    expect(joins(s)).toBe(1);
+  });
 });
