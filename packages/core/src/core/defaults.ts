@@ -1,5 +1,6 @@
 import type { Platform, PlatformAuthHealth, PlatformAuthMessageKey, PlatformAuthReasonCode, PlatformAuthStatus, SchedulerState } from "@lurkloot/shared/models";
 import { normalizeCriticalHealth } from "@lurkloot/shared/criticalHealth";
+import { isRecord } from "@lurkloot/shared/records";
 
 const AUTH_STATUSES = new Set<PlatformAuthStatus>([
   "checking",
@@ -33,10 +34,6 @@ const AUTH_MESSAGE_KEYS: Record<PlatformAuthStatus | PlatformAuthReasonCode, Pla
   platform_unavailable: "authPlatformUnavailable",
   network_unavailable: "authNetworkUnavailable",
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function normalizedIsoTimestamp(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;

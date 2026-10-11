@@ -37,6 +37,7 @@ import type {
   HeartbeatWatcherRemovalDecision,
   WatcherPlan,
 } from "./types";
+import { errorMessage } from "@lurkloot/shared/errors";
 
 // How recently a heartbeat must have landed for the post-claim handoff to treat
 // the channel as already covered. Half the fixed one-minute alarm period: long
@@ -142,7 +143,7 @@ export function createHeartbeatCoordinator<S extends EngineSettings>(
     } catch (error) {
       diagnosticEvent(
         "warn",
-        `Could not reschedule the watch heartbeat job: ${error instanceof Error ? error.message : String(error)}`,
+        `Could not reschedule the watch heartbeat job: ${errorMessage(error)}`,
       );
     }
   }
@@ -487,7 +488,7 @@ export function createHeartbeatCoordinator<S extends EngineSettings>(
       const platform = platforms.length === 1 ? platforms[0] : undefined;
       diagnosticEvent(
         "warn",
-        `Tabless watcher cleanup failed: ${error instanceof Error ? error.message : String(error)}`,
+        `Tabless watcher cleanup failed: ${errorMessage(error)}`,
         platform,
       );
     });

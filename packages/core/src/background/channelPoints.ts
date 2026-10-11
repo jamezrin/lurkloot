@@ -14,6 +14,7 @@ import type { BackgroundJob } from "./jobs";
 import { ObserverSlot } from "./observerSlot";
 import type { TickEffectExecutor } from "./tickEffects";
 import type { ControllerCalls } from "./types";
+import { errorMessage } from "@lurkloot/shared/errors";
 
 function eligibleTwitchChannelPointsChannel(
   settings: EngineSettings,
@@ -260,7 +261,7 @@ export function createChannelPoints<S extends EngineSettings>(
     const run = stopTwitchChannelPointsPushAndReport().catch((error) => {
       diagnosticEvent(
         "warn",
-        `Twitch channel-points observer cleanup failed: ${error instanceof Error ? error.message : String(error)}`,
+        `Twitch channel-points observer cleanup failed: ${errorMessage(error)}`,
         "twitch",
       );
     });
@@ -271,7 +272,7 @@ export function createChannelPoints<S extends EngineSettings>(
     const run = reconcileTwitchChannelPointsPushFromSettings(settings).catch((error) => {
       diagnosticEvent(
         "warn",
-        `Twitch channel-points observer reconcile failed: ${error instanceof Error ? error.message : String(error)}`,
+        `Twitch channel-points observer reconcile failed: ${errorMessage(error)}`,
         "twitch",
       );
     });
@@ -394,7 +395,7 @@ export function createChannelPoints<S extends EngineSettings>(
     } catch (error) {
       diagnosticEvent(
         "warn",
-        `Twitch channel-points observer reconcile failed: ${error instanceof Error ? error.message : String(error)}`,
+        `Twitch channel-points observer reconcile failed: ${errorMessage(error)}`,
         "twitch",
       );
     }

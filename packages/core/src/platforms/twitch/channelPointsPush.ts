@@ -1,6 +1,8 @@
 import type { DiagnosticEvent } from "@lurkloot/shared/events";
 import { PendingDiscoverySignalDiagnostics } from "../../core/discoverySignals";
 import type { WebSocketFactory, WebSocketLike } from "../../core/webSocket";
+import { errorMessage } from "@lurkloot/shared/errors";
+import { isRecord } from "@lurkloot/shared/records";
 
 export const TWITCH_HERMES_KEEPALIVE_DEFAULT_SEC = 15;
 export const TWITCH_CHANNEL_POINTS_TOPIC_PREFIX = "community-points-user-v1.";
@@ -609,12 +611,4 @@ function parsePubsub(value: unknown): Record<string, unknown> | undefined {
   } catch {
     return undefined;
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

@@ -1,4 +1,5 @@
 import type { DropCampaign, DropReward } from "@lurkloot/shared/models";
+import { isRecord } from "@lurkloot/shared/records";
 
 export type KickClaimOutcome =
   | { kind: "claimed" }
@@ -27,8 +28,4 @@ export function safeHttpsUrl(value: unknown): string | undefined {
   } catch {
     return undefined;
   }
-}
-
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return value != null && typeof value === "object" && !Array.isArray(value);
 }

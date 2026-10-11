@@ -3,6 +3,7 @@ import type { ChatPresenceBlockReason, ChatPresenceState, ChatPresenceStatus } f
 import type { ChatPresenceClient, ChatPresenceTarget } from "../../core/chatPresence";
 import { PendingDiscoverySignalDiagnostics } from "../../core/discoverySignals";
 import type { WebSocketFactory, WebSocketLike, WebSocketMessageEventLike } from "../../core/webSocket";
+import { errorMessage } from "@lurkloot/shared/errors";
 
 // Twitch chat presence over IRC, as the web client connects it
 // (docs/superpowers/specs/2026-10-05-chat-presence-design.md). It only joins
@@ -459,8 +460,4 @@ export class TwitchChatPresenceClient implements ChatPresenceClient {
   private log(level: "debug" | "warn", message: string): void {
     this.diagnostics.push({ category: "diagnostic", platform: "twitch", level, message });
   }
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

@@ -2,6 +2,7 @@ import type { ChannelCandidate } from "@lurkloot/shared/models";
 import { PendingWatcherDiagnostics, type HeartbeatResult, type TablessWatchController, type WatchContext } from "../../core/tablessWatch";
 import type { WebSocketFactory, WebSocketLike } from "../../core/webSocket";
 import type { PageFetcher } from "../adapter";
+import { errorMessage } from "@lurkloot/shared/errors";
 
 // Tabless Kick farming: a viewer WebSocket that advances drop timers with no
 // video. Mirrors kickautodrops (references/kickautodrops/core/kick.py:255-436):
@@ -302,7 +303,7 @@ export class KickWatcher implements TablessWatchController {
       this.watchEventIntervalMs = Math.min(WATCH_EVENT_INTERVAL_MAX_MS, Math.max(WATCH_EVENT_INTERVAL_MIN_MS, Math.round(seconds * 1000)));
     } catch (error) {
       this.watchEventIntervalMs = KICK_DEFAULT_WATCH_EVENT_INTERVAL_MS;
-      this.log("debug", `Using Kick's default ${KICK_DEFAULT_WATCH_EVENT_INTERVAL_MS / 1000} s watch interval: ${error instanceof Error ? error.message : String(error)}`);
+      this.log("debug", `Using Kick's default ${KICK_DEFAULT_WATCH_EVENT_INTERVAL_MS / 1000} s watch interval: ${errorMessage(error)}`);
     }
   }
 
@@ -342,7 +343,7 @@ export class KickWatcher implements TablessWatchController {
       }));
     } catch (error) {
       this.connected = false;
-      this.log("debug", `Kick viewer send failed; will reconnect: ${error instanceof Error ? error.message : String(error)}`);
+      this.log("debug", `Kick viewer send failed; will reconnect: ${errorMessage(error)}`);
       return false;
     }
     this.lastWatchSentAt = this.now();
@@ -380,7 +381,7 @@ export class KickWatcher implements TablessWatchController {
       this.ws.send(JSON.stringify(payload));
     } catch (error) {
       this.connected = false;
-      this.log("debug", `Kick viewer send failed; will reconnect: ${error instanceof Error ? error.message : String(error)}`);
+      this.log("debug", `Kick viewer send failed; will reconnect: ${errorMessage(error)}`);
     }
   }
 
@@ -410,7 +411,7 @@ export class KickWatcher implements TablessWatchController {
       try {
         return await this.fetchTargets(channel, { force: true });
       } catch (error) {
-        this.log("debug", `Kick channel info for ${channel.username} failed; connecting with the known ids: ${error instanceof Error ? error.message : String(error)}`);
+        this.log("debug", `Kick channel info for ${channel.username} failed; connecting with the known ids: ${errorMessage(error)}`);
         return known;
       }
     }

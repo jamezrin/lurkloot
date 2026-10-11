@@ -19,6 +19,7 @@ import { createLogger } from "./logger";
 import { reportCliEvents } from "./events";
 import { toEngineSettings } from "./settings";
 import type { LogLevel } from "@lurkloot/shared/logging";
+import { errorMessage } from "@lurkloot/shared/errors";
 
 // Global options carried by every command (yargs makes them inheritable), so the
 // handlers below read them straight off argv.
@@ -281,7 +282,7 @@ async function discoverPlatform(
       logger.warn(`Cloudflare WAF blocked the request (HTTP 403). Use the "impersonate" transport to reach Kick without a browser. (${error.message})`, platform);
       return;
     }
-    logger.error(error instanceof Error ? error.message : String(error), platform);
+    logger.error(errorMessage(error), platform);
   }
 }
 
@@ -307,6 +308,6 @@ function buildCli(argv: string[]): Argv {
 buildCli(hideBin(process.argv))
   .parseAsync()
   .catch((error) => {
-    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    process.stderr.write(`${errorMessage(error)}\n`);
     process.exitCode = 1;
   });

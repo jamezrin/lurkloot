@@ -26,6 +26,7 @@ import {
   type TwitchIntegrityAcquisitionResult,
   type TwitchIntegrityRequest,
 } from "@lurkloot/core/tabRegistry";
+import { errorMessage } from "@lurkloot/shared/errors";
 
 // The browser tab mechanics (#598): watch tabs, playback priming, ad focus,
 // page-context tabs and in-page fetches, and booting a twitch.tv page to mint an
@@ -719,7 +720,7 @@ async function mintTwitchIntegrity(
       : undefined;
   } catch (error) {
     signal?.throwIfAborted();
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorMessage(error);
     diagnostic(emit, reason === "proactive_refresh" ? "debug" : "warn", `Could not open a twitch.tv tab to capture an integrity token: ${message}`, "twitch");
     return undefined;
   } finally {
@@ -936,7 +937,7 @@ async function disposePageContextTab(
     diagnostic(emit, "debug", `Closed temporary page context tab ${pageContext.tabId} on ${new URL(origin).host}`, platformForOrigin(origin));
   } catch (error) {
     // The temporary context tab may have been closed manually before cleanup.
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorMessage(error);
     diagnostic(emit, "warn", `Could not close temporary page context tab ${pageContext.tabId} on ${new URL(origin).host}: ${message}`, platformForOrigin(origin));
   }
 }

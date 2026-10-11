@@ -1,6 +1,7 @@
 import type { DropCampaign, DropReward } from "@lurkloot/shared/models";
 import type { KickClaimCapability, KickClaimOutcome } from "./types";
-import { isKickClaimSuccess, isRecord, safeHttpsUrl } from "./types";
+import { isRecord } from "@lurkloot/shared/records";
+import { isKickClaimSuccess, safeHttpsUrl } from "./types";
 import { kickClaimV1 } from "./v1";
 
 export class KickClaimState {

@@ -14,6 +14,7 @@ import { correlateTickDiagnostics } from "./helpers";
 import type { BackgroundHostPorts } from "./hostPorts";
 import type { BackgroundJob } from "./jobs";
 import type { ControllerCalls, TickDiagnosticContext } from "./types";
+import { errorMessage } from "@lurkloot/shared/errors";
 
 // The proactive refresh job. A host that cannot capture integrity leaves it inert.
 export const TWITCH_INTEGRITY_JOBS: Readonly<Record<string, BackgroundJob>> = {
@@ -321,7 +322,7 @@ export function createTwitchIntegrity<S extends EngineSettings>(
         category: "diagnostic",
         platform: "twitch",
         level: "warn",
-        message: `Could not schedule Twitch integrity refresh (${error instanceof Error ? error.message : String(error)})`,
+        message: `Could not schedule Twitch integrity refresh (${errorMessage(error)})`,
       };
       if (emit) {
         emit(event);
@@ -353,7 +354,7 @@ export function createTwitchIntegrity<S extends EngineSettings>(
           category: "diagnostic",
           level: "debug",
           platform: "twitch",
-          message: `Could not read Twitch settings while priming integrity (${settingsReadError instanceof Error ? settingsReadError.message : String(settingsReadError)})`,
+          message: `Could not read Twitch settings while priming integrity (${errorMessage(settingsReadError)})`,
         });
       }
       try {
@@ -365,7 +366,7 @@ export function createTwitchIntegrity<S extends EngineSettings>(
           category: "diagnostic",
           level: "debug",
           platform: "twitch",
-          message: `No stored Twitch integrity token to prime (${error instanceof Error ? error.message : String(error)})`,
+          message: `No stored Twitch integrity token to prime (${errorMessage(error)})`,
         });
       }
       if (!ownsStartupLoad()) return;
@@ -576,7 +577,7 @@ export function createTwitchIntegrity<S extends EngineSettings>(
           category: "diagnostic",
           platform: "twitch",
           level: "warn",
-          message: `Could not check Twitch settings before scheduling integrity refresh (${error instanceof Error ? error.message : String(error)})`,
+          message: `Could not check Twitch settings before scheduling integrity refresh (${errorMessage(error)})`,
         });
       }
       await reportBestEffort(events);

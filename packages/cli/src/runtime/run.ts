@@ -14,6 +14,7 @@ import type { Logger } from "../logger";
 import { reportCliEvents } from "../events";
 import { subscriptionWaitKeys } from "./status";
 import { createNodeJobScheduler } from "./jobs";
+import { errorMessage } from "@lurkloot/shared/errors";
 
 export interface RunOptions {
   settings: CliSettings;
@@ -106,7 +107,7 @@ export async function runLoop(options: RunOptions): Promise<void> {
       const scope = name === WATCH_ALARM_NAME
         ? "heartbeat"
         : name === TWITCH_ALARM_NAME || name === KICK_ALARM_NAME ? "tick" : "job";
-      logger.error(error instanceof Error ? error.message : String(error), scope);
+      logger.error(errorMessage(error), scope);
     }
   };
   // The engine's jobs, fired by the Node scheduler: the same jobs the
@@ -124,7 +125,7 @@ export async function runLoop(options: RunOptions): Promise<void> {
     try {
       reportSubscriptionWaits(await loadRuntimeState());
     } catch (error) {
-      logger.error(error instanceof Error ? error.message : String(error), "run");
+      logger.error(errorMessage(error), "run");
     }
     // The tick may have started tabless watchers, and a Kick one holds its own
     // WebSocket and handshake timer outside the transport. Shutdown stops them
@@ -168,7 +169,7 @@ export async function runLoop(options: RunOptions): Promise<void> {
       try {
         await controller.reconcileStartup();
       } catch (error) {
-        logger.error(error instanceof Error ? error.message : String(error), "run");
+        logger.error(errorMessage(error), "run");
       }
       if (stopped) return;
       // Recovery and shutdown must not wait for initial discovery. A persisted
@@ -178,7 +179,7 @@ export async function runLoop(options: RunOptions): Promise<void> {
       try {
         reportSubscriptionWaits(await loadRuntimeState());
       } catch (error) {
-        logger.error(error instanceof Error ? error.message : String(error), "run");
+        logger.error(errorMessage(error), "run");
       }
       void runJob(WATCH_ALARM_NAME);
       void runJob(TWITCH_ALARM_NAME);

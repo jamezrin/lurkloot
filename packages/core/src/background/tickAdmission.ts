@@ -14,6 +14,7 @@ import type {
   TickRequest,
   TickTrigger,
 } from "./types";
+import { errorMessage } from "@lurkloot/shared/errors";
 
 // Tick admission: one active tick and one shared follow-up per platform, batches and hand-offs.
 export function createTickAdmission<S extends EngineSettings>(
@@ -245,7 +246,7 @@ export function createTickAdmission<S extends EngineSettings>(
       .then(() => onCompleted?.())
       .catch((error) => {
         const platform = platforms?.length === 1 ? platforms[0] : undefined;
-        diagnosticEvent("warn", `Background tick (trigger=${trigger}) failed: ${error instanceof Error ? error.message : String(error)}`, platform);
+        diagnosticEvent("warn", `Background tick (trigger=${trigger}) failed: ${errorMessage(error)}`, platform);
       });
     trackBackgroundWork(run);
   }
@@ -369,7 +370,7 @@ export function createTickAdmission<S extends EngineSettings>(
     }).catch((error) => {
       diagnosticEvent(
         "warn",
-        `Post-claim handoff failed: ${error instanceof Error ? error.message : String(error)}`,
+        `Post-claim handoff failed: ${errorMessage(error)}`,
         platform,
       );
     }).then(() => committedState);

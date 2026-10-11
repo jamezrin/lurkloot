@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { saveCredentials, type PlatformCredentials } from "../authStore";
 import { TWITCH_WEB_CLIENT_ID } from "../twitch";
+import { errorMessage } from "@lurkloot/shared/errors";
 
 interface CredentialBlob {
   // The canonical extension export: { version, credentials: { twitch, kick } }.
@@ -17,7 +18,7 @@ export function readCredentialBlob(source: string): PlatformCredentials {
   try {
     parsed = JSON.parse(text) as CredentialBlob;
   } catch (error) {
-    throw new Error(`Credential blob is not valid JSON: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(`Credential blob is not valid JSON: ${errorMessage(error)}`);
   }
   const creds = parsed.credentials;
   if (!creds || typeof creds !== "object") {

@@ -1,5 +1,6 @@
 import { mergeTwitchCampaignProgress, parseTwitchInventory } from "../parser";
 import type { TwitchInventoryCapability } from "./types";
+import { isRecord } from "@lurkloot/shared/records";
 
 const TWITCH_CAMPAIGN_FIELDS = `{
   id
@@ -36,10 +37,6 @@ const INLINE_QUERY = `query Inventory($fetchRewardCampaigns: Boolean!) {
     }
   }
 }`;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function isV1Reward(value: unknown): boolean {
   return isRecord(value) && typeof value.id === "string";

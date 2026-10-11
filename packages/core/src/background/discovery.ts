@@ -25,6 +25,7 @@ import type {
   TickAdapterHandle,
   TickTrigger,
 } from "./types";
+import { errorMessage } from "@lurkloot/shared/errors";
 
 // Discovery lanes and snapshot selection.
 export function createDiscovery<S extends EngineSettings>(
@@ -473,7 +474,7 @@ export function createDiscovery<S extends EngineSettings>(
         emit({
           category: "diagnostic",
           level: "warn",
-          message: `Category search failed: ${error instanceof Error ? error.message : String(error)}`,
+          message: `Category search failed: ${errorMessage(error)}`,
           platform: message.platform,
         });
       } finally {

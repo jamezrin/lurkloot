@@ -12,6 +12,7 @@ import type { BackgroundJob } from "./jobs";
 import type { StateTransaction } from "./stateTransaction";
 import type { TickEffectExecutor } from "./tickEffects";
 import type { ControllerCalls, TickCycleOutcome, TickDiagnosticContext } from "./types";
+import { errorMessage } from "@lurkloot/shared/errors";
 
 // One Kick challenge claim request at a time, whether the tick or the job asks
 // for it. The tick no longer holds a lock while it claims (#599), so the two
@@ -292,7 +293,7 @@ export function createKickRuntime<S extends EngineSettings>(
           category: "diagnostic",
           level: "debug",
           platform: "kick",
-          message: `Page-context recovery reconciliation failed: ${error instanceof Error ? error.message : String(error)}`,
+          message: `Page-context recovery reconciliation failed: ${errorMessage(error)}`,
         });
       }
       await reportBestEffort(correlateTickDiagnostics(recoveryEvents, tickContext));

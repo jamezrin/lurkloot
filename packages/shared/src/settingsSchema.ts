@@ -1,4 +1,5 @@
 import { normalizePlatformWatchSourcePriority } from "./watchSources";
+import { isRecord } from "./records";
 
 // The single authority for versioned settings-shape migrations. Both hosts run
 // `migrateSettings` on their raw persisted payload *before* normalization: the
@@ -156,7 +157,7 @@ function migrateToV2(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
 
   // Present but not a plain object: drop it without writing garbage into the new
   // field; normalization then defaults it.
-  if (!isPlainObject(legacy)) return raw;
+  if (!isRecord(legacy)) return raw;
 
   diagnose({
     code: "moved_property",
@@ -272,7 +273,7 @@ function migrateToV7(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
       replacement: "campaignPins",
       message: "campaignPriorities is now the ordered campaignPins list",
     });
-    if (!Object.hasOwn(raw, "campaignPins") && isPlainObject(legacy)) {
+    if (!Object.hasOwn(raw, "campaignPins") && isRecord(legacy)) {
       raw.campaignPins = Object.entries(legacy)
         .filter((entry): entry is [string, number] => typeof entry[1] === "number" && Number.isFinite(entry[1]))
         .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
@@ -323,7 +324,7 @@ function migrateToV7(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
 function ensureBlock(raw: Record<string, unknown>, key: string): Record<string, unknown> | undefined {
   if (!Object.hasOwn(raw, key)) raw[key] = {};
   const block = raw[key];
-  return isPlainObject(block) ? block : undefined;
+  return isRecord(block) ? block : undefined;
 }
 
 // Drops the legacy key and reports it. The current key wins whenever it is
@@ -354,9 +355,9 @@ function renameProperty(
 
 function platformBlock(raw: Record<string, unknown>, platform: string): Record<string, unknown> | undefined {
   const platforms = raw.platform;
-  if (!isPlainObject(platforms)) return undefined;
+  if (!isRecord(platforms)) return undefined;
   const block = platforms[platform];
-  return isPlainObject(block) ? block : undefined;
+  return isRecord(block) ? block : undefined;
 }
 
 // Creates `platform.<name>` only when it is safe to do so; a malformed block is
@@ -364,10 +365,10 @@ function platformBlock(raw: Record<string, unknown>, platform: string): Record<s
 function ensurePlatformBlock(raw: Record<string, unknown>, platform: string): Record<string, unknown> | undefined {
   if (!Object.hasOwn(raw, "platform")) raw.platform = {};
   const platforms = raw.platform;
-  if (!isPlainObject(platforms)) return undefined;
+  if (!isRecord(platforms)) return undefined;
   if (!Object.hasOwn(platforms, platform)) platforms[platform] = {};
   const block = platforms[platform];
-  return isPlainObject(block) ? block : undefined;
+  return isRecord(block) ? block : undefined;
 }
 
 if (MIGRATIONS.length !== CURRENT_SETTINGS_SCHEMA_VERSION
@@ -384,7 +385,7 @@ export function withSchemaVersion<T extends object>(
 }
 
 export function migrateSettings(raw: unknown): SettingsMigrationResult {
-  const source = isPlainObject(raw) ? raw : {};
+  const source = isRecord(raw) ? raw : {};
   const fromVersion = readVersion(source);
   const { [SETTINGS_SCHEMA_VERSION_KEY]: _version, ...rest } = source;
 
@@ -421,8 +422,4 @@ function readVersion(source: Record<string, unknown>): number {
     throw new UnsupportedSettingsVersionError(version, "future");
   }
   return version;
-}
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

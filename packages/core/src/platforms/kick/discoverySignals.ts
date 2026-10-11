@@ -6,6 +6,7 @@ import {
 } from "../../core/discoverySignals";
 import type { WebSocketFactory } from "../../core/webSocket";
 import { KickRealtimeConnection } from "./realtime";
+import { errorMessage } from "@lurkloot/shared/errors";
 
 const CHANNEL_PREFIX = "drops_category_";
 const CAMPAIGN_STARTED_EVENT = "drops_campaign_started";
@@ -127,8 +128,4 @@ function channelName(categoryId: string): string {
 function isCampaignId(value: unknown): value is string | number {
   return (typeof value === "string" && value.trim().length > 0)
     || (typeof value === "number" && Number.isFinite(value));
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

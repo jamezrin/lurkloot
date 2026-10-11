@@ -7,6 +7,7 @@ import { type ControllerSlices, lateBound } from "./context";
 import type { BackgroundHostPorts } from "./hostPorts";
 import type { StateTransaction } from "./stateTransaction";
 import type { ControllerCalls, DiscoverySignalRefreshRequest } from "./types";
+import { errorMessage } from "@lurkloot/shared/errors";
 
 // Discovery-signal controllers and the refreshes they request.
 export function createDiscoverySignals<S extends EngineSettings>(
@@ -116,7 +117,7 @@ export function createDiscoverySignals<S extends EngineSettings>(
       const platform = platforms.length === 1 ? platforms[0] : undefined;
       diagnosticEvent(
         "warn",
-        `Discovery signal observer cleanup failed: ${error instanceof Error ? error.message : String(error)}`,
+        `Discovery signal observer cleanup failed: ${errorMessage(error)}`,
         platform,
       );
     });
@@ -200,7 +201,7 @@ export function createDiscoverySignals<S extends EngineSettings>(
     } catch (error) {
       diagnosticEvent(
         "warn",
-        `Discovery signal observer reconcile failed: ${error instanceof Error ? error.message : String(error)}`,
+        `Discovery signal observer reconcile failed: ${errorMessage(error)}`,
         platforms.length === 1 ? platforms[0] : undefined,
       );
     }
@@ -309,7 +310,7 @@ export function createDiscoverySignals<S extends EngineSettings>(
     })().catch((error) => {
       diagnosticEvent(
         "warn",
-        `Discovery signal refresh failed: ${error instanceof Error ? error.message : String(error)}`,
+        `Discovery signal refresh failed: ${errorMessage(error)}`,
         platform,
       );
     });

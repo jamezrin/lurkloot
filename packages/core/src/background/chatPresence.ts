@@ -10,6 +10,7 @@ import type { BackgroundHostPorts } from "./hostPorts";
 import { ObserverSlot } from "./observerSlot";
 import type { StateTransaction } from "./stateTransaction";
 import type { ControllerCalls } from "./types";
+import { errorMessage } from "@lurkloot/shared/errors";
 
 // Chat presence (docs/superpowers/specs/2026-10-05-chat-presence-design.md):
 // one client per platform following the committed watch, reconciled like the
@@ -127,7 +128,7 @@ export function createChatPresence<S extends EngineSettings>(
 
   function stopChatPresenceInBackground(platforms: readonly Platform[]): void {
     const run = stopChatPresenceAndReport(platforms).catch((error) => {
-      diagnosticEvent("warn", `Chat presence cleanup failed: ${error instanceof Error ? error.message : String(error)}`,
+      diagnosticEvent("warn", `Chat presence cleanup failed: ${errorMessage(error)}`,
         platforms.length === 1 ? platforms[0] : undefined);
     });
     trackBackgroundWork(run);
@@ -184,7 +185,7 @@ export function createChatPresence<S extends EngineSettings>(
       // Read under the commit: a stop after this point makes `state` stale.
       const since = chatPresenceEpochs(missing);
       const run = reconcileFromCommit(missing, state, since).catch((error) => {
-        diagnosticEvent("warn", `Chat presence reconcile failed: ${error instanceof Error ? error.message : String(error)}`);
+        diagnosticEvent("warn", `Chat presence reconcile failed: ${errorMessage(error)}`);
       });
       trackBackgroundWork(run);
     }
@@ -221,7 +222,7 @@ export function createChatPresence<S extends EngineSettings>(
     if (change.kind !== "settings" || change.startup || !ports.capabilities.chatPresence) return;
     pauseOnManualWatch = change.settings.pauseOnManualWatch;
     const run = reconcileFromSettings(change.settings).catch((error) => {
-      diagnosticEvent("warn", `Chat presence reconcile failed: ${error instanceof Error ? error.message : String(error)}`);
+      diagnosticEvent("warn", `Chat presence reconcile failed: ${errorMessage(error)}`);
     });
     trackBackgroundWork(run);
   });
@@ -282,7 +283,7 @@ export function createChatPresence<S extends EngineSettings>(
           await reconcile(platform, tick.settings, tick.state, tick.adapters[platform], emit,
             tick.observerEpochs.chatPresence[platform] ?? slots[platform].epoch);
         } catch (error) {
-          diagnosticEvent("warn", `Chat presence reconcile failed: ${error instanceof Error ? error.message : String(error)}`, platform);
+          diagnosticEvent("warn", `Chat presence reconcile failed: ${errorMessage(error)}`, platform);
         }
       }
       await reportBestEffort(tick.correlate(events));

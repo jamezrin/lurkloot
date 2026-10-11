@@ -18,6 +18,7 @@ import { HLS_POLL_INTERVAL_MS, safeHlsFailure } from "./heartbeat/hls";
 import type { TwitchHeartbeatContext, TwitchHeartbeatExchange, TwitchHeartbeatFetchText, TwitchHeartbeatPost, TwitchHeartbeatStrategy } from "./heartbeat/types";
 import { createTwitchInventory } from "./inventory/factory";
 import type { TwitchInventoryCapability } from "./inventory/types";
+import { errorMessage } from "@lurkloot/shared/errors";
 
 export { createTwitchInventory } from "./inventory/factory";
 export type { TwitchInventoryCapability } from "./inventory/types";
@@ -1171,7 +1172,7 @@ export class TwitchAdapter implements PlatformAdapter {
       } catch (error) {
         signal?.throwIfAborted();
         if (authHealthFromError(error)) throw error;
-        const message = error instanceof Error ? error.message : String(error);
+        const message = errorMessage(error);
         diagnostic(
           this.emit,
           "warn",
@@ -1402,7 +1403,7 @@ export class TwitchAdapter implements PlatformAdapter {
       const retained = authenticatedUserId
         ? this.discoveryState.retainedCampaignDetails(dropID)
         : undefined;
-      const message = result.reason instanceof Error ? result.reason.message : String(result.reason);
+      const message = errorMessage(result.reason);
       diagnostic(
         this.emit,
         "warn",
@@ -1491,7 +1492,7 @@ export class TwitchAdapter implements PlatformAdapter {
         signal?.throwIfAborted();
         if (authHealthFromError(error)) throw error;
         lastDirectoryError = error;
-        const message = error instanceof Error ? error.message : String(error);
+        const message = errorMessage(error);
         diagnostic(this.emit, "warn", `Twitch live-channel directory for ${gameName} failed: ${message}`, "twitch");
         continue;
       }
@@ -1512,7 +1513,7 @@ export class TwitchAdapter implements PlatformAdapter {
           signal?.throwIfAborted();
           if (authHealthFromError(error)) throw error;
           lastLookupError = error;
-          const message = error instanceof Error ? error.message : String(error);
+          const message = errorMessage(error);
           diagnostic(this.emit, "warn", `Twitch live-channel campaigns for ${broadcaster.login} failed: ${message}`, "twitch");
           continue;
         }
@@ -1568,7 +1569,7 @@ export class TwitchAdapter implements PlatformAdapter {
         }
       } catch (error) {
         signal?.throwIfAborted();
-        const message = error instanceof Error ? error.message : String(error);
+        const message = errorMessage(error);
         diagnostic(this.emit, "warn", `Twitch game slug lookup failed; deriving slugs from names: ${message}`, "twitch");
       }
       for (const game of games) {
@@ -1845,7 +1846,7 @@ export class TwitchAdapter implements PlatformAdapter {
       diagnostic(
         this.emit,
         "debug",
-        `Twitch followed-channel lookup failed (${error instanceof Error ? error.message : String(error)}); channel preference falls back to viewer count`,
+        `Twitch followed-channel lookup failed (${errorMessage(error)}); channel preference falls back to viewer count`,
         "twitch",
       );
       return [];
@@ -2168,7 +2169,7 @@ export class TwitchAdapter implements PlatformAdapter {
     } catch (error) {
       signal?.throwIfAborted();
       if (authHealthFromError(error)) throw error;
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       for (const [index, candidate] of candidates.entries()) {
         diagnostic(
           this.emit,
@@ -2433,7 +2434,7 @@ export class TwitchAdapter implements PlatformAdapter {
     } catch (error) {
       signal?.throwIfAborted();
       if (authHealthFromError(error)) throw error;
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       diagnostic(
         this.emit,
         "debug",
@@ -2502,7 +2503,7 @@ export class TwitchAdapter implements PlatformAdapter {
     } catch (error) {
       signal?.throwIfAborted();
       if (authHealthFromError(error)) throw error;
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       diagnostic(this.emit, "warn", `Twitch drops dashboard request failed; reusing the last campaign list it returned: ${message}`, "twitch");
       return { response: {}, ok: false };
     }
@@ -2540,7 +2541,7 @@ export class TwitchAdapter implements PlatformAdapter {
     try {
       return invalidateOnClaim(await this.runClaim(reward, signal));
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       // Only integrity rejections are worth a refresh + retry; everything else
       // (e.g. an unexpected status or a stale id) propagates unchanged.
       if (!isIntegrityRejection(error)) throw error;
@@ -2657,7 +2658,7 @@ export class TwitchAdapter implements PlatformAdapter {
       );
       return response.data?.currentUser?.id;
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       diagnostic(this.emit, "warn", `Could not resolve the Twitch viewer id for channel-points push: ${message}`, "twitch");
       return undefined;
     }
@@ -2768,7 +2769,7 @@ export class TwitchAdapter implements PlatformAdapter {
       }));
     } catch (error) {
       signal?.throwIfAborted();
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       diagnostic(this.emit, "warn", `Could not merge current session progress for ${channel.username}: ${message}`, "twitch");
       return campaigns;
     }
@@ -2823,7 +2824,7 @@ export class TwitchAdapter implements PlatformAdapter {
     originalError: unknown,
     signal?: AbortSignal,
   ): Promise<ChannelCheck> {
-    const originalMessage = originalError instanceof Error ? originalError.message : String(originalError);
+    const originalMessage = errorMessage(originalError);
     diagnostic(this.emit, "debug", `Channel GQL check failed for ${channel.username}, falling back to the channel page: ${originalMessage}`, "twitch");
     try {
       const page = await this.fetcher.fetchJson<{ html?: string }>(channel.url, { signal }, this.emit);
@@ -3107,7 +3108,7 @@ class TwitchWatcher implements TablessWatchController {
       this.viewerUserId = response.data?.currentUser?.id;
     } catch (error) {
       // Leave unresolved; tick() reports the missing-user case to the scheduler.
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       this.log("warn", `Could not resolve the Twitch viewer id for tabless watching: ${message}`);
     }
     return this.viewerUserId;

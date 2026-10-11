@@ -1,6 +1,7 @@
 import type { ChannelCandidate, DropCampaign, EngineSettings, Platform, WatchSession } from "@lurkloot/shared/models";
 import { evaluateCampaignFarming } from "@lurkloot/shared/campaignFarming";
 import type { ChannelCheckRequest, PlatformAdapter } from "../platforms/adapter";
+import { errorMessage } from "@lurkloot/shared/errors";
 
 export type ChannelEligibility = true | false | "unknown";
 
@@ -464,7 +465,7 @@ export class DiscoverySnapshotLane<TRequest = undefined> {
           startedAt,
           finishedAt,
           complete: false,
-          failure: error instanceof Error ? error.message : String(error),
+          failure: errorMessage(error),
           ...(this.stopped || generation !== this.generation
             ? { discarded: this.stopped ? "stopped" as const : "stale_generation" as const }
             : { error }),

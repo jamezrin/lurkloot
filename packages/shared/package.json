@@ -21,7 +21,9 @@
     "./events": "./src/events.ts",
     "./criticalHealth": "./src/criticalHealth.ts",
     "./failureReport": "./src/failureReport.ts",
-    "./compatibility": "./src/compatibility.ts"
+    "./compatibility": "./src/compatibility.ts",
+    "./errors": "./src/errors.ts",
+    "./records": "./src/records.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

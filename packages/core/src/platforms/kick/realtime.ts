@@ -2,6 +2,8 @@ import type { DiagnosticEvent } from "@lurkloot/shared/events";
 import { PendingDiscoverySignalDiagnostics } from "../../core/discoverySignals";
 import { SafeFetchError } from "../../core/fetchError";
 import type { WebSocketFactory, WebSocketLike } from "../../core/webSocket";
+import { errorMessage } from "@lurkloot/shared/errors";
+import { asRecord } from "@lurkloot/shared/records";
 
 // Kick's negotiated realtime connection (#754), as its web client opens it:
 // negotiate a provider, mint a token for Centrifugo, then keep the channel
@@ -99,11 +101,11 @@ export function kickRealtimeNegotiation(
 
 // The first endpoint in a negotiation response whose provider is implemented.
 export function parseKickRealtimeEndpoint(body: unknown): KickRealtimeEndpoint | undefined {
-  const connections = record(record(body)?.data)?.connections;
+  const connections = asRecord(asRecord(body)?.data)?.connections;
   if (!Array.isArray(connections)) return undefined;
   for (const connection of connections) {
-    const entry = record(connection);
-    const credentials = record(entry?.credentials);
+    const entry = asRecord(connection);
+    const credentials = asRecord(entry?.credentials);
     if (entry?.provider === "centrifugo" && typeof credentials?.url === "string" && credentials.url.startsWith("wss://")) {
       return { provider: "centrifugo", url: credentials.url };
     }
@@ -273,8 +275,8 @@ export class KickRealtimeConnection {
 
   private async mintToken(): Promise<string> {
     this.clientId ??= this.randomId();
-    const body = record(await this.deps.postJson(KICK_REALTIME_AUTH_URL, { client_id: this.clientId }));
-    const token = record(body?.data)?.token ?? body?.token;
+    const body = asRecord(await this.deps.postJson(KICK_REALTIME_AUTH_URL, { client_id: this.clientId }));
+    const token = asRecord(body?.data)?.token ?? body?.token;
     if (typeof token !== "string" || token.length === 0) throw new Error("Kick realtime token missing from the response");
     return token;
   }
@@ -344,13 +346,13 @@ export class KickRealtimeConnection {
       const request = id === undefined ? undefined : this.pending.get(id);
       if (!request) continue;
       this.pending.delete(id!);
-      const error = record(frame.error);
+      const error = asRecord(frame.error);
       if (error) {
         this.handleCentrifugoError(request, error);
         continue;
       }
-      if (request.kind === "connect") this.onCentrifugoConnected(record(frame.connect));
-      else if (request.kind === "refresh") this.scheduleRefresh(record(frame.refresh));
+      if (request.kind === "connect") this.onCentrifugoConnected(asRecord(frame.connect));
+      else if (request.kind === "refresh") this.scheduleRefresh(asRecord(frame.refresh));
       else if (request.kind === "subscribe" && request.channel && this.subscriptions.has(request.channel)) {
         this.confirmed.add(request.channel);
         this.setStatus({ state: "connected", provider: "centrifugo" });
@@ -363,8 +365,8 @@ export class KickRealtimeConnection {
     // Only a channel this socket confirmed delivers events.
     const listener = channel === undefined || !this.confirmed.has(channel) ? undefined : this.listeners.get(channel);
     if (!listener) return;
-    const pub = record(record(parseJson(line)?.push)?.pub);
-    const envelope = record(pub?.data);
+    const pub = asRecord(asRecord(parseJson(line)?.push)?.pub);
+    const envelope = asRecord(pub?.data);
     const event = envelope?.event;
     if (typeof event !== "string") return;
     if (!listener.events.includes(event)) {
@@ -645,18 +647,10 @@ function isAuthRejection(error: unknown): boolean {
   return error instanceof SafeFetchError && error.failure.kind === "authentication_rejected";
 }
 
-function record(value: unknown): Record<string, unknown> | undefined {
-  return typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
-}
-
 function parseJson(text: string): Record<string, unknown> | undefined {
   try {
-    return record(JSON.parse(text));
+    return asRecord(JSON.parse(text));
   } catch {
     return undefined;
   }
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

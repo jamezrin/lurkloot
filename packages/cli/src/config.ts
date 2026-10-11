@@ -5,6 +5,7 @@ import { resolveCompatibility } from "@lurkloot/core";
 import type { CompatibilityWarning } from "@lurkloot/shared/compatibility";
 import { CURRENT_SETTINGS_SCHEMA_VERSION } from "@lurkloot/shared/settingsSchema";
 import { DEFAULT_CLI_SETTINGS, parseCliSettingsWithDiagnostics, type CliSettings, type CliSettingsDiagnostic } from "./settings";
+import { errorMessage } from "@lurkloot/shared/errors";
 
 export const TRANSPORTS = ["http", "impersonate"] as const;
 export type Transport = (typeof TRANSPORTS)[number];
@@ -258,7 +259,7 @@ export function loadConfig(configPath: string): CliConfig {
     text = readFileSync(absolute, "utf8");
   } catch (error) {
     if (!isErrno(error, "ENOENT")) {
-      throw new Error(`Could not read config at ${absolute}: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`Could not read config at ${absolute}: ${errorMessage(error)}`);
     }
     try {
       mkdirSync(dirname(absolute), { recursive: true });
@@ -268,13 +269,13 @@ export function loadConfig(configPath: string): CliConfig {
       // Another process may have initialized the same mounted data directory
       // between our read and write. In that case, keep its file and read it.
       if (!isErrno(writeError, "EEXIST")) {
-        throw new Error(`Could not create default config at ${absolute}: ${writeError instanceof Error ? writeError.message : String(writeError)}`);
+        throw new Error(`Could not create default config at ${absolute}: ${errorMessage(writeError)}`);
       }
     }
     try {
       text = readFileSync(absolute, "utf8");
     } catch (readError) {
-      throw new Error(`Could not read config at ${absolute}: ${readError instanceof Error ? readError.message : String(readError)}`);
+      throw new Error(`Could not read config at ${absolute}: ${errorMessage(readError)}`);
     }
   }
   const errors: ParseError[] = [];

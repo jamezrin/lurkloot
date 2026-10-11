@@ -20,6 +20,7 @@ import { safeHttpsUrl } from "./claim/types";
 import { KickClaimState } from "./claim/v2";
 import { isSafeFetchError } from "../../core/fetchError";
 import { KickRouteCounts, KickRouteState, safeKickRouteHost } from "./routeDiagnostics";
+import { errorMessage } from "@lurkloot/shared/errors";
 
 export { createKickClaimCapability } from "./claim/factory";
 export type { KickClaimCapability, KickClaimOutcome } from "./claim/types";
@@ -481,7 +482,7 @@ export class KickAdapter implements PlatformAdapter {
   }
 
   private reportProgressFallback(error: unknown): void {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorMessage(error);
     diagnostic(this.emit, "warn", `Could not read Kick drop progress; using last-known progress: ${message}`, "kick");
   }
 
@@ -552,7 +553,7 @@ export class KickAdapter implements PlatformAdapter {
       diagnostic(
         this.emit,
         "debug",
-        `Kick followed-channel lookup failed (${error instanceof Error ? error.message : String(error)}); channel preference falls back to viewer count`,
+        `Kick followed-channel lookup failed (${errorMessage(error)}); channel preference falls back to viewer count`,
         "kick",
       );
       return [];
@@ -807,7 +808,7 @@ export class KickAdapter implements PlatformAdapter {
       } catch (error) {
         signal?.throwIfAborted();
         if (authHealthFromError(error)) throw error;
-        diagnostic(this.emit, "warn", `Kick challenge ${id} claim failed: ${error instanceof Error ? error.message : String(error)}`, "kick");
+        diagnostic(this.emit, "warn", `Kick challenge ${id} claim failed: ${errorMessage(error)}`, "kick");
       }
     }
     return claimed;
@@ -841,7 +842,7 @@ export class KickAdapter implements PlatformAdapter {
     const originalMessage = requireComplete && isSafeFetchError(originalError)
       ? `${originalError.failure.kind}${originalError.failure.status == null ? "" : ` status=${originalError.failure.status}`}`
       : requireComplete ? "provider evidence unavailable"
-      : originalError instanceof Error ? originalError.message : String(originalError);
+      : errorMessage(originalError);
     diagnostic(this.emit, "debug", `Kick API channel check failed for ${channel.username}, falling back to the channel page: ${originalMessage}`, "kick");
     try {
       const page = await fetcher.fetchJson<{ html?: string }>(channel.url, { signal }, this.emit);

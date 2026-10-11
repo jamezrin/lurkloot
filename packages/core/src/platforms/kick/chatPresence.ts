@@ -4,6 +4,8 @@ import type { ChatPresenceClient, ChatPresenceTarget } from "../../core/chatPres
 import { PendingDiscoverySignalDiagnostics } from "../../core/discoverySignals";
 import { SafeFetchError } from "../../core/fetchError";
 import { KickRealtimeConnection, kickRealtimeNegotiation, parseKickRealtimeEndpoint } from "./realtime";
+import { errorMessage } from "@lurkloot/shared/errors";
+import { asRecord } from "@lurkloot/shared/records";
 
 // Kick chat presence (#754), as Kick's web client joins a channel's chat:
 // resolve the channel and chatroom, call the channel's chat/connection as the
@@ -149,9 +151,9 @@ export class KickChatPresenceClient implements ChatPresenceClient {
 
   private async lookupRoom(slug: string, knownChannelId: string | undefined): Promise<KickChatRoom> {
     if (this.room?.slug === slug) return this.room;
-    const body = record(await this.deps.getJson(`https://kick.com/api/v2/channels/${encodeURIComponent(slug)}`));
+    const body = asRecord(await this.deps.getJson(`https://kick.com/api/v2/channels/${encodeURIComponent(slug)}`));
     const channelId = idString(body?.id) ?? knownChannelId;
-    const chatroomId = idString(record(body?.chatroom)?.id);
+    const chatroomId = idString(asRecord(body?.chatroom)?.id);
     if (!channelId || !chatroomId) throw new Error("Kick did not name the channel's chatroom");
     return { channelId, chatroomId };
   }
@@ -193,16 +195,8 @@ export class KickChatPresenceClient implements ChatPresenceClient {
   }
 }
 
-function record(value: unknown): Record<string, unknown> | undefined {
-  return typeof value === "object" && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
-}
-
 function idString(value: unknown): string | undefined {
   if (typeof value === "number" && Number.isSafeInteger(value) && value > 0) return String(value);
   if (typeof value === "string" && /^\d{1,20}$/.test(value)) return value;
   return undefined;
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

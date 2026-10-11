@@ -46,6 +46,7 @@ import { isTimestampStale, PLAYBACK_TELEMETRY_MAX_AGE_MS } from "./timestamps";
 import { pausedForManualWatch } from "./manualWatch";
 import { heartbeatContextKey, validTablessHeartbeatCadence } from "./heartbeatCadence";
 import { selectionAdapterFromDiscoverySnapshot, type DiscoverySnapshot } from "./discoverySnapshot";
+import { errorMessage } from "@lurkloot/shared/errors";
 
 const PLATFORMS: Platform[] = ["twitch", "kick"];
 const MAX_PLATFORM_BACKOFF_MINUTES = 30;
@@ -146,7 +147,7 @@ function apiErrorObservation(error: unknown): CriticalHealthObservation {
       kind: "api_error",
       code: failure?.kind ?? "unknown_error",
       ...(failure?.status === undefined ? {} : { status: failure.status }),
-      detail: error instanceof Error ? error.message : String(error),
+      detail: errorMessage(error),
     },
   };
 }
