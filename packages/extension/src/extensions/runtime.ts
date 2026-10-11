@@ -29,6 +29,8 @@ export function createTwitchExtensionRuntime(options: {
   report(provider: TwitchExtensionProviderId, report: TwitchExtensionReport): void;
   onViolation(provider: TwitchExtensionProviderId, diagnostic: string): void;
   publish(events: readonly EngineEvent[]): void;
+  // A provider session is ready, so its broadcast token now exists (#757).
+  onSessionReady?(provider: TwitchExtensionProviderId, channelId: string): void;
 }) {
   interface Entry {
     channelId: string;
@@ -179,6 +181,7 @@ export function createTwitchExtensionRuntime(options: {
             );
             next.driver = driver;
             if (next.abort.signal.aborted || entries.get(id) !== next) dispose(next);
+            else options.onSessionReady?.(id, channelId);
           }, next.abort.signal);
           const report = outcomeReport(outcome);
           if (report) { emit(id, next, report); dispose(next); }

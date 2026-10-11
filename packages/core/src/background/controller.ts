@@ -164,6 +164,10 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     discoverySnapshot: calls.discoverySnapshot,
     runWatchHeartbeat: calls.runWatchHeartbeat,
     runTwitchChannelPointsClaim: calls.runTwitchChannelPointsClaim,
+    // Re-reconciles the Twitch channel-points job and Hermes observer against
+    // the stored settings and state, for host state they read that changed
+    // between ticks (a Twitch Extension session became ready, #757).
+    reconcileTwitchObservers: () => calls.rescheduleTwitchChannelPointsJob(),
     runDropClaims: calls.runDropClaims,
     runKickChallengeClaims: calls.runKickChallengeClaims,
     runClaimHandoff: calls.runClaimHandoff,

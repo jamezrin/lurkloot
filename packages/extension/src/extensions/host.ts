@@ -97,6 +97,9 @@ export function createTwitchExtensionHost(options: {
   viewerLogin?(): Promise<string | undefined>;
   // Asks the scheduler to choose again now, rather than at its next poll.
   requestTick?(): void;
+  // A provider session became ready; the Hermes connection can now follow its
+  // broadcast topic without waiting for the next tick (#757).
+  onSessionReady?(): void;
 }) {
   let generation = 0;
   const allowed = new Set<TwitchExtensionProviderId>();
@@ -189,6 +192,7 @@ export function createTwitchExtensionHost(options: {
     source: options.source,
     contains: (origin) => options.permissions.contains({ origins: [origin] }),
     drivers: options.drivers,
+    onSessionReady: () => options.onSessionReady?.(),
     report: (id, report) => {
       const previous = summaries[id];
       if (id === "nopixel" && report.status === "complete" && channel) lastCompletedNoPixelChannel = channel.username;

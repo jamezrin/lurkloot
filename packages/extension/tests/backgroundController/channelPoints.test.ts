@@ -871,6 +871,26 @@ describe("background controller", () => {
         expect(refreshSupplementalSource.mock.calls).toEqual([["nopixel", "123"], ["nopixel", "123"]]);
       });
 
+      it("follows the topic as soon as the provider session's token appears, without waiting for a tick", async () => {
+        let token: string | undefined;
+        const env = harness(pushSettings({ channelPointsPushClaim: false }), {
+          selectSupplementalWatchTarget: async () => undefined,
+          supplementalBroadcastToken: () => token,
+          refreshSupplementalSource: () => undefined,
+        });
+        configureEligibleChannel(env, { channelId: "123" });
+        env.state.sessions.twitch = { ...env.state.sessions.twitch, watchMode: "tabless", supplementalWatch: { id: "nopixel", tablessOnly: true } };
+        await env.controller.ensureAlarm();
+        await env.rawController.settleBackgroundWork();
+        expect(env.channelPointsPushController.extensionBroadcast).toBeUndefined();
+        token = "extension-jwt";
+        const ticks = vi.mocked(env.twitch.refreshCampaigns).mock.calls.length;
+        await env.controller.reconcileTwitchObservers();
+        await env.rawController.settleBackgroundWork();
+        expect(env.channelPointsPushController.extensionBroadcast).toMatchObject({ channelId: "123", token: "extension-jwt" });
+        expect(env.twitch.refreshCampaigns).toHaveBeenCalledTimes(ticks);
+      });
+
       it("does not follow it for a tab watch or a host without the refresh hook", async () => {
         expect((await watchingNoPixel("tab")).env.channelPointsPushController.extensionBroadcast).toBeUndefined();
         expect((await watchingNoPixel("tabless", false)).env.channelPointsPushController.extensionBroadcast).toBeUndefined();

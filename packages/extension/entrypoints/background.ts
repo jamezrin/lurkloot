@@ -296,6 +296,7 @@ const extensionHost = createTwitchExtensionHost({
   viewerLogin: async () => (await browser.cookies.get({ url: "https://www.twitch.tv", name: "login" }))?.value,
   // Never awaited: it runs from the lane's commit hook.
   requestTick: () => { void controller.tick(["twitch"], "tabless_fallback").catch(() => undefined); },
+  onSessionReady: () => { void controller.reconcileTwitchObservers().catch(() => undefined); },
 });
 
 const extensionGrantCompletion = createTwitchExtensionGrantCompletion({

@@ -26,8 +26,9 @@ function setup() {
   const report = vi.fn();
   const violation = vi.fn();
   const publish = vi.fn();
-  const runtime = createTwitchExtensionRuntime({ source: { query, hasSession: async () => true, now: () => now }, contains, drivers: { nopixel: driver }, report, onViolation: violation, publish });
-  return { runtime, driver, query, stop, refresh, contains, report, violation, publish, advance(ms: number) { now += ms; } };
+  const onSessionReady = vi.fn();
+  const runtime = createTwitchExtensionRuntime({ source: { query, hasSession: async () => true, now: () => now }, contains, drivers: { nopixel: driver }, report, onViolation: violation, publish, onSessionReady });
+  return { runtime, driver, query, stop, refresh, contains, report, violation, publish, onSessionReady, advance(ms: number) { now += ms; } };
 }
 const selected = { nopixel: "123" };
 describe("privileged tabless provider runtime", () => {
@@ -230,5 +231,25 @@ describe("broadcast token", () => {
     expect(s.runtime.broadcastToken("nopixel", "123")).toBeUndefined();
     s.runtime.stop("nopixel");
     expect(s.runtime.broadcastToken("nopixel", "123")).toBeUndefined();
+  });
+});
+
+describe("session ready", () => {
+  it("says so once the driver runs, so the broadcast token can be used at once", async () => {
+    const s = setup(); await s.runtime.update(selected);
+    expect(s.onSessionReady).toHaveBeenCalledExactlyOnceWith("nopixel", "123");
+    expect(s.runtime.broadcastToken("nopixel", "123")).toBeDefined();
+    await s.runtime.update(selected);
+    expect(s.onSessionReady).toHaveBeenCalledOnce();
+  });
+
+  it("stays quiet for a session stopped before its driver was ready", async () => {
+    const s = setup(); let resolve!: (value: { stop: () => void }) => void;
+    s.driver.mockImplementation(async () => new Promise((done) => { resolve = done; }) as never);
+    const pending = s.runtime.update(selected);
+    await vi.waitFor(() => expect(s.driver).toHaveBeenCalledOnce());
+    s.runtime.stop("nopixel");
+    resolve({ stop: s.stop }); await pending;
+    expect(s.onSessionReady).not.toHaveBeenCalled();
   });
 });
