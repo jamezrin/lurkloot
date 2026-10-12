@@ -47,7 +47,14 @@ export default defineConfig({
     description: "__MSG_extensionDescription__",
     // offscreen (Chrome only, no install warning): the hidden kick.com frame
     // that opens Kick's realtime chat sockets (#754, kickRealtimeRelay.ts).
-    permissions: ["alarms", "storage", "tabs", "scripting", "notifications", "cookies", "webRequest", ...(browser === "firefox" ? [] : ["offscreen"])],
+    // declarativeNetRequestWithHostAccess (no install warning; acts only on
+    // granted hosts): presents the platform's site Origin on the extension's
+    // own platform requests (platformRequestOrigin.ts).
+    permissions: [
+      "alarms", "storage", "tabs", "scripting", "notifications", "cookies", "webRequest",
+      "declarativeNetRequestWithHostAccess",
+      ...(browser === "firefox" ? [] : ["offscreen"]),
+    ],
     // Optional hosts come only from opted-in Twitch Extension providers
     // (applyProviderOptionalPermissions). Twitch CDN / Kasada is required.
     // Twitch's video CDN carries the HLS watch heartbeat, the default.

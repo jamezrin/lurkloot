@@ -110,11 +110,13 @@ The headless CLI is the one deliberate exception, kept as narrow as possible (#6
 
 Nothing else may export cookies or evade detection, and the extension itself never uses the Kasada cookie while farming.
 
-Kick's realtime chat server refuses a `chrome-extension://` origin, and the maintainer chose to keep extension origins off Kick's sockets (#754). This is the one origin exception, and it is narrow:
+Kick's realtime chat server refuses a `chrome-extension://` origin, and the maintainer chose to keep extension origins off Kick's sockets (#754). This is the one socket exception, and it is narrow:
 
 - Kick's one realtime connection, shared by chat presence and discovery signals (#755), opens its socket from a hidden `https://kick.com/robots.txt` frame inside an offscreen document (the `offscreen` permission, Chrome only), so the handshake carries kick.com's origin.
 - The relay frame only forwards socket frames. It reads no cookies or credentials and never sends chat. By prefix and unparsed, it drops chat publications and forwards only drop channels (`drops_*`). The worker mints every token through Kick's own API.
-- Nothing else uses the frame. Do not rewrite `Origin` or other identity headers with declarativeNetRequest or webRequest.
+- Nothing else uses the frame.
+
+The extension's own HTTP requests to Twitch and Kick present the platform's site `Origin` (`https://www.twitch.tv`, `https://kick.com`) instead of `chrome-extension://`. Chrome attaches the extension origin to every non-GET request from the worker, whatever the fetch mode or referrer policy, so two dynamic declarativeNetRequest rules (`packages/extension/src/core/platformRequestOrigin.ts`, `declarativeNetRequestWithHostAccess`) set it. They change only `Origin`, only on non-GET/HEAD requests the extension itself initiates, and only on the platforms' domains. Chrome never applies DNR to a WebSocket the service worker opens, which is why Kick's socket still needs the relay above (#792). Do not rewrite other identity headers, and do not use webRequest for it.
 
 ## Manually Reproducing Platform GQL Requests
 

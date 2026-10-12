@@ -32,6 +32,12 @@ describe("extension host permissions", () => {
     expect(source).not.toContain("optional_permissions:");
   });
 
+  it("rewrites request headers only through host-scoped declarativeNetRequest", () => {
+    expect(source).toContain('"declarativeNetRequestWithHostAccess"');
+    expect(source).not.toMatch(/"declarativeNetRequest"/);
+    expect(source).not.toContain("webRequestBlocking");
+  });
+
   it("scopes the in-page panel to the Twitch and Kick host wildcards", () => {
     expect(source).toContain("matches: [TWITCH_HOST_ORIGIN, KICK_HOST_ORIGIN]");
   });

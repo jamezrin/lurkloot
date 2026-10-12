@@ -37,6 +37,7 @@ import { createNoPixelDriver } from "../src/extensions/nopixel/driver";
 import { createCredentialHealthObserver } from "../src/core/credentialObserver";
 import { buildCliCredentialBlob } from "../src/core/cliCredentialExport";
 import { REQUEST_FAILED_RESPONSE } from "../src/core/runtimeRequests";
+import { installPlatformOriginRules, type DynamicRulesApi } from "../src/core/platformRequestOrigin";
 
 interface ChromeOffscreen {
   createDocument(parameters: { url: string; reasons: string[]; justification: string }): Promise<void>;
@@ -366,6 +367,11 @@ const dispatchRuntimeMessage = createRuntimeMessageDispatcher({
 });
 
 export default defineBackground(() => {
+  void installPlatformOriginRules(
+    browser.declarativeNetRequest as DynamicRulesApi | undefined,
+    new URL(browser.runtime.getURL("/")).hostname,
+  ).catch(() => undefined);
+
   createCredentialHealthObserver(
     {
       addListener: (listener) => browser.cookies.onChanged.addListener(listener),
