@@ -1839,7 +1839,7 @@ async function evaluatePreferredCurrentWatch(
   signal?: AbortSignal,
 ): Promise<{
   decision: WatchDecision;
-  keep: Awaited<ReturnType<typeof shouldKeepWatching>>;
+  keep: KeepWatchingResult;
 } | undefined> {
   if (previous.status !== "watching" || !previous.channel || !previous.campaignId || !previous.rewardId) {
     return undefined;
@@ -1869,6 +1869,25 @@ async function evaluatePreferredCurrentWatch(
   return { decision, keep };
 }
 
+type KeepWatchingResult = {
+  keep: boolean;
+  offlineChecks: number;
+  playbackChecks: number;
+  noProgressChecks?: number;
+  lastWatchedMinutes?: number;
+  reason: string;
+  reasonCode: WatchReasonCode;
+  channel?: ChannelCandidate;
+};
+
+function stopWatching(
+  reason: string,
+  reasonCode: WatchReasonCode,
+  counters: Partial<Pick<KeepWatchingResult, "offlineChecks" | "playbackChecks" | "noProgressChecks" | "lastWatchedMinutes">> = {},
+): KeepWatchingResult {
+  return { keep: false, offlineChecks: 0, playbackChecks: 0, ...counters, reason, reasonCode };
+}
+
 async function shouldKeepWatching(
   previous: WatchSession,
   nextDecision: WatchDecision,
@@ -1876,33 +1895,24 @@ async function shouldKeepWatching(
   settings: EngineSettings,
   adapter: Pick<PlatformAdapter, "checkChannel">,
   signal?: AbortSignal,
-): Promise<{ keep: boolean; offlineChecks: number; playbackChecks: number; noProgressChecks?: number; lastWatchedMinutes?: number; reason: string; reasonCode: WatchReasonCode; channel?: ChannelCandidate }> {
+): Promise<KeepWatchingResult> {
   if (!previous.channel || previous.status !== "watching") {
-    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "No existing watch session", reasonCode: "no_existing_session" };
+    return stopWatching("No existing watch session", "no_existing_session");
   }
   const previousCampaign = campaigns.find((campaign) => campaign.id === previous.campaignId);
   const previousReward = previousCampaign?.rewards.find((reward) => reward.id === previous.rewardId);
   if (previousReward?.status === "claimable" || previousReward?.status === "claimed") {
-    return {
-      keep: false,
-      offlineChecks: 0,
-      playbackChecks: 0,
-      reason: "Current reward completed; switching farming target",
-      reasonCode: "watch_requirement_completed",
-    };
+    return stopWatching("Current reward completed; switching farming target", "watch_requirement_completed");
   }
-  if (nextDecision.action === "idle") {
-    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: nextDecision.reason, reasonCode: nextDecision.reasonCode };
-  }
-  if (previous.campaignId && nextDecision.action !== "watch") {
-    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: nextDecision.reason, reasonCode: nextDecision.reasonCode };
+  if (nextDecision.action === "idle" || (previous.campaignId && nextDecision.action !== "watch")) {
+    return stopWatching(nextDecision.reason, nextDecision.reasonCode);
   }
   if (previous.campaignId && settings.platform[previous.platform].excludedChannels?.includes(previous.channel.username.toLowerCase())) {
-    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "Current channel is excluded from drops", reasonCode: "channel_excluded" };
+    return stopWatching("Current channel is excluded from drops", "channel_excluded");
   }
   if (previous.rewardId && nextDecision.reward?.id !== previous.rewardId) {
-    const replacement = classifyRewardSwitch(nextDecision);
-    return { keep: false, offlineChecks: 0, playbackChecks: 0, ...replacement };
+    const { reason, reasonCode } = classifyRewardSwitch(nextDecision);
+    return stopWatching(reason, reasonCode);
   }
   // Tabless sessions have no playback telemetry; their health is the heartbeat,
   // which the controller tracks and falls back to a tab on. Here we only keep or
@@ -1914,7 +1924,7 @@ async function shouldKeepWatching(
     && nextDecision.action === "watch"
     && nextDecision.campaign?.id !== previous.campaignId;
   if (differentCampaignAvailable) {
-    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "Higher priority eligible campaign available", reasonCode: "higher_priority_reward" };
+    return stopWatching("Higher priority eligible campaign available", "higher_priority_reward");
   }
 
   // When watching an Idle Watchlist fallback, a different selection means a
@@ -1924,31 +1934,25 @@ async function shouldKeepWatching(
     && nextDecision.action === "fallback"
     && !previous.campaignId;
   if (differentFallbackAvailable) {
-    return { keep: false, offlineChecks: 0, playbackChecks: 0, reason: "Higher priority Idle Watchlist channel available", reasonCode: "higher_priority_idle_watchlist" };
+    return stopWatching("Higher priority Idle Watchlist channel available", "higher_priority_idle_watchlist");
   }
 
   const check = await adapter.checkChannel(previous.channel, { campaign: previousCampaign, signal });
   const offlineChecks = check.live ? 0 : previous.offlineChecks + 1;
   if (offlineChecks >= settings.offlineRetryLimit || (!check.live && check.offlineConfirmed)) {
-    return { keep: false, offlineChecks, playbackChecks: 0, reason: check.reason ?? "Channel offline retry limit reached", reasonCode: "channel_offline" };
+    return stopWatching(check.reason ?? "Channel offline retry limit reached", "channel_offline", { offlineChecks });
   }
 
   if (!check.categoryMatches) {
-    return { keep: false, offlineChecks, playbackChecks: 0, reason: check.reason ?? "Channel category no longer matches", reasonCode: "channel_mismatch" };
+    return stopWatching(check.reason ?? "Channel category no longer matches", "channel_mismatch", { offlineChecks });
   }
   if (check.campaignMatches === false) {
-    return { keep: false, offlineChecks, playbackChecks: 0, reason: check.reason ?? "Channel no longer offers the current campaign", reasonCode: "campaign_ineligible" };
+    return stopWatching(check.reason ?? "Channel no longer offers the current campaign", "campaign_ineligible", { offlineChecks });
   }
 
   const playbackChecks = nextPlaybackChecks(previous, isTabless);
   if (playbackChecks >= settings.offlineRetryLimit) {
-    return {
-      keep: false,
-      offlineChecks,
-      playbackChecks,
-      reason: "Watch tab playback did not become active",
-      reasonCode: "watch_unhealthy",
-    };
+    return stopWatching("Watch tab playback did not become active", "watch_unhealthy", { offlineChecks, playbackChecks });
   }
 
   // Checked after playback health so an unhealthy tab reports watch_unhealthy
@@ -1967,15 +1971,11 @@ async function shouldKeepWatching(
     // never rotate on this path, so the counter is carried forward untouched.
     : previous.noProgressChecks ?? 0;
   if (progress.observable && noProgressChecks >= settings.offlineRetryLimit) {
-    return {
-      keep: false,
-      offlineChecks,
-      playbackChecks,
-      noProgressChecks,
-      lastWatchedMinutes: progress.watchedMinutes,
-      reason: `Channel accrued no drop progress across ${noProgressChecks} checks (still ${progress.watchedMinutes} watched minutes)`,
-      reasonCode: "no_progress",
-    };
+    return stopWatching(
+      `Channel accrued no drop progress across ${noProgressChecks} checks (still ${progress.watchedMinutes} watched minutes)`,
+      "no_progress",
+      { offlineChecks, playbackChecks, noProgressChecks, lastWatchedMinutes: progress.watchedMinutes },
+    );
   }
 
   return {
