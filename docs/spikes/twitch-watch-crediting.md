@@ -4,11 +4,17 @@ Tracking issues: [#744](https://github.com/jamezrin/lurkloot/issues/744) (tables
 crediting; later, no channel points in tabless mode), [#792](https://github.com/jamezrin/lurkloot/issues/792)
 (the extension's origin).
 
-**Outcome so far:** drop progress is credited by HLS segment requests (#752, shipped in 1.16.0).
-Passive channel points are credited by one event: the `minute-watched` the real page sends through
-the GQL `sendSpadeEvents` mutation. No other event and none of the player's telemetry is needed.
-The same event built outside the real page has not yet earned. Kept so that the dead ends are not
-walked again.
+**Outcome: solved.** Two separate things are credited:
+
+- **Drop progress:** HLS segment requests (#752, shipped in 1.16.0).
+- **Passive channel points:** one GQL `sendSpadeEvents` mutation per minute carrying a `minute-watched`
+  event. The input must be `{data, repository: "twilight", encoding: "GZIP_B64"}`, and the event
+  must include `player: "site"`.
+
+That is all points need: no player, no segment requests, no `video-play`, no `Client-Integrity`, no
+rufio beacon, and no presence status. A self-built event from a bare page earns +10 every 5
+minutes. LurkLoot's `gql-v1` heartbeat already sends the right input but omits `player`, and that
+single field is why it never earned points.
 
 ## How it was measured
 
@@ -85,27 +91,22 @@ walked again.
 So rufio, the presence status and both sockets are not needed. The page's GQL `SendEvents` is.
 Without playback the page presumably stops sending `minute-watched`.
 
-## Reproductions that earned nothing
+## Reproductions that earned nothing, and why
 
-All of these ran from a bare `https://www.twitch.tv/robots.txt` page. It had the viewer's cookies
-and Origin, and no Twitch page code. Each ran 7–8 minutes, and every request was accepted
-(`204`, or GQL `statusCode: 204`):
+All of these ran from a bare `https://www.twitch.tv/robots.txt` page, with the viewer's cookies and
+Origin and no Twitch page code. Each ran 7–8 minutes, and every request was accepted (`204`, or GQL
+`statusCode: 204`):
 
-- usher v2 with `play_session_id`, and segment `HEAD`s every 10 s. This is the extension's HLS
-  heartbeat, plus the v2 session parameters.
-- The above with segment `GET`s (full downloads), and with `probe?dna=` before each segment.
-- Rufio `video-play` (with `user_id`), `n_second_play`, and `minute-watched` sharing the usher
-  play session, with `device_id` from the playback token.
-- `ChannelPage_SetSessionStatus` with `activity: WATCHING` every minute.
-- GQL `SendEvents` with a minimal gzipped `minute-watched` that includes `user_id`/`login`/`game`.
-- The same with the real page's `Client-Integrity`, `Client-Session-Id` and `Client-Version`
-  headers.
-- The page's own captured `video-play` and `minute-watched` (about 150 properties) replayed with
-  channel, broadcast, play session and timestamps swapped, with `Client-Integrity`, alongside
-  segment downloads and probes.
+- Segment `HEAD`s, `GET`s, and `probe?dna=` requests.
+- Rufio `video-play`, `n_second_play` and `minute-watched`, with `device_id` and `play_session_id`.
+- `ChannelPage_SetSessionStatus` with `activity: WATCHING`.
+- GQL `minute-watched`: minimal, with copied `Client-Integrity`, and as the page's own captured
+  event replayed.
 
-The extension build with HLS v2 and the rufio beacon (`video-play`, `device_id`, `play_session_id`,
-`Origin` rewritten to `www.twitch.tv`) also earned nothing in four live runs of 8–18 minutes.
+The rufio and segment variants can never earn: points do not come from them. Every GQL variant
+failed for one reason. Its `input` carried only `data`, without `repository: "twilight"` and
+`encoding: "GZIP_B64"`, so Twitch accepted the gzipped payload with `204` and discarded it. The
+extension build with HLS v2 and the rufio beacon earned nothing for the same first reason.
 
 ## Event-level bisection on the real page
 
@@ -123,39 +124,71 @@ The 36 fields: `broadcast_id`, `channel_id`, `device_id`, `domain`, `hidden`, `h
 `client_time`, `content_mode`, `time`, `channel`, `game`, `game_id`, `location`, `logged_in`,
 `login`, `minutes_logged`, `player`, `player_state`, `playback_rate`, `user_id`, `is_live`.
 
-So no other event is needed, and the content of `minute-watched` is not why the reproductions
-failed. The difference is how the event arrives: either the request (the sending page, its
-headers, its own `Client-Integrity`), or the play session it refers to. The reproductions
-referred to their own usher session; the real page's refers to the session of a playing player.
+So no other event is needed, and 36 fields of `minute-watched` are enough. (The reproductions'
+36-field events failed for a different reason, the missing input fields described above.)
+
+## Forwarding and replay tests
+
+These keep a real page playing, intercept its `minute-watched` and send it from the bare page.
+
+| Test | Points |
+|---|---|
+| The page's own event, sent from the bare page with its headers | **Earned** |
+| …with `play_session_id`/`video_session_id`/`serving_id` replaced by random values | **Earned** (sessions are not checked) |
+| …retargeted to a different live channel B that nothing plays | **Earned on B** (playback of the channel is not checked) |
+| …with only `Authorization`, `Client-Id`, `X-Device-Id` | **Earned** (`Client-Integrity` and `Content-Type` not needed) |
+| …with every player statistic frozen at the first minute's values | **Earned** |
+| A captured event replayed by a self-built request with `input: {data}` only, in any combination of counter, `batch_time` and a player running elsewhere | None |
+
+The page's request object turned out to be
+`{query: "mutation SendEvents…", variables: {input: {data, repository: "twilight", encoding: "GZIP_B64"}}}`.
+Adding the two missing fields fixed the self-built request.
+
+## Self-built requests with the right input
+
+From the bare page, with no player, no `Client-Integrity`, and one GQL request per minute:
+
+| Event sent | Points |
+|---|---|
+| 36 fields (the list above), plus `video-play` at the start and segment `HEAD`s | **Earned** (+10, then +10 five minutes later) |
+| The same, with no segment requests | **Earned** |
+| The same, with `minutes_logged` fixed at 1 | **Earned** |
+| The same, with no `video-play` (only `minute-watched`) | **Earned** |
+| LurkLoot `gql-v1`'s 13-field event, unchanged | None (on two channels, 7 minutes each) |
+| `gql-v1` event + `player`, `location`, `login`, `device_id`, `time`, `platform`, `client_app` | **Earned** |
+| `gql-v1` event + `player`, `location`, `login` | **Earned** |
+| `gql-v1` event + `player: "site"` | **Earned** |
+| `gql-v1` event, unchanged, on the same channel straight after | None |
+
+`gql-v1`'s fields: `broadcast_id`, `channel_id`, `channel`, `client_time`, `game`, `game_id`,
+`hidden`, `is_live`, `live`, `logged_in`, `minutes_logged`, `muted`, `user_id`.
 
 ## Conclusions
 
-- **Drops:** HLS segment requests credit progress (#752). This holds for a `HEAD`, from the
-  extension, on the v1 usher path.
-- **Points:** they need what the page sends through GQL `sendSpadeEvents`. The rufio beacon,
-  `SetSessionStatus` and the Hermes and IRC sockets are irrelevant to them.
-- **Content is not the issue:** the page's `minute-watched` alone, trimmed to 36 fields, earns.
-  The same event built outside the page, even with copied `Client-Integrity` and the page's own
-  values, does not. What still has to be found is the request context or the play session.
-- **Rufio is not a Spade replacement for watch time.** The logged-in page sends Spade only through
-  GQL. The rufio events are player telemetry.
-
-## Open leads
-
-1. **The request.** Forward the real page's own `minute-watched` body from another page, with
-   the same and then with reduced headers. If that still earns, the sending page and its headers
-   do not matter.
-2. **The play session.** Swap the page's `play_session_id`/`video_session_id` for a session opened
-   by a reproduction. If points stop, Twitch checks that the referenced session belongs to a
-   player that is actually playing, and the next question is what marks a session as playing
-   (usher parameters such as `acmb` and `player_version`, MSE playback, or the `probe` requests).
-3. **`Client-Integrity` from the sending page.** Every replay used a token taken from a different
-   page.
+- **Drops:** HLS segment requests credit progress (#752). A `minute-watched` alone does not.
+- **Points:** a GQL `sendSpadeEvents` `minute-watched` once a minute. It needs
+  `input.repository: "twilight"`, `input.encoding: "GZIP_B64"` with gzipped base64 `data`, and
+  `player: "site"` in the event, besides `user_id`, `channel_id`, `broadcast_id`, `channel`,
+  `game`/`game_id` and `logged_in`. Not needed: segments, rufio, `video-play`, `Client-Integrity`,
+  session IDs, `SetSessionStatus`, and Hermes or IRC.
+- **Rufio is player telemetry, not a Spade replacement.** The logged-in page sends Spade only
+  through GQL. HLS heartbeat v2 (the rufio branch) earns nothing extra.
+- **For tabless farming of both drops and points,** keep the HLS heartbeat and send this
+  `minute-watched` once a minute through GQL. `gql-v1`'s `buildMinuteWatchedEvent` plus
+  `player: "site"` is enough.
+- **Not yet verified:** the same request sent from the extension's service worker. The run that
+  earned came from a twitch.tv page. The extension's existing GQL transport adds `Origin`
+  (rewritten by DNR on the Origin branch, otherwise `chrome-extension://`) and its own headers.
 
 ## Working notes
 
 - Do not trust a `204` from rufio, Spade or `sendSpadeEvents`. All three accept events that credit
-  nothing.
+  nothing. GQL `sendSpadeEvents` returns `statusCode: 204` even when it cannot decode `data`.
+- Check that a test channel is live and has `communityPointsSettings.isEnabled` before reading a
+  zero as a result. Several runs had to be thrown out because their channel went offline.
+- Points accrue in 5-minute steps per channel, so a channel with recent valid minutes can earn
+  sooner. A failing run never earns, so "earned within about 7 minutes" versus "nothing" is the
+  signal.
 - The scripts used for this spike were throwaway and are not committed. Each new run is a fresh
   capture: the gzipped event batches hold the viewer's IDs and should not be stored in the
   repository.
