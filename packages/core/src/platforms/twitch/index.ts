@@ -1476,17 +1476,7 @@ export class TwitchAdapter implements PlatformAdapter {
       const gameName = game.name;
       let directory: TwitchGqlResponse<TwitchDirectoryData>;
       try {
-        directory = await this.gqlWithIntegrityRetry<TwitchDirectoryData>("DirectoryPage_Game", TWITCH_QUERIES.gameDirectoryHash, {
-          slug: slugs.get(game) ?? twitchSlugFromName(gameName),
-          imageWidth: 50,
-          includeCostreaming: false,
-          options: {
-            sort: "VIEWER_COUNT", broadcasterLanguages: [], includeRestricted: ["SUB_ONLY_LIVE"],
-            recommendationsContext: { platform: "web" }, requestID: crypto.randomUUID(),
-            freeformTags: null, systemFilters: ["DROPS_ENABLED"], tags: [],
-          },
-          sortTypeIsRecency: false, limit: 8,
-        }, undefined, undefined, this.emit, signal);
+        directory = await this.fetchGameDirectory(slugs.get(game) ?? twitchSlugFromName(gameName), 8, signal);
         successfulDirectories += 1;
       } catch (error) {
         signal?.throwIfAborted();
@@ -1546,6 +1536,26 @@ export class TwitchAdapter implements PlatformAdapter {
   // Looks up configured games' slugs by id in one anonymous request (public
   // data, so no integrity token), caching them for this adapter. A failed
   // lookup falls back to deriving the slug from the name.
+  private fetchGameDirectory(slug: string | undefined, limit: number, signal?: AbortSignal): Promise<TwitchGqlResponse<TwitchDirectoryData>> {
+    return this.gqlWithIntegrityRetry<TwitchDirectoryData>("DirectoryPage_Game", TWITCH_QUERIES.gameDirectoryHash, {
+      slug,
+      imageWidth: 50,
+      includeCostreaming: false,
+      options: {
+        sort: "VIEWER_COUNT",
+        broadcasterLanguages: [],
+        includeRestricted: ["SUB_ONLY_LIVE"],
+        recommendationsContext: { platform: "web" },
+        requestID: crypto.randomUUID(),
+        freeformTags: null,
+        systemFilters: ["DROPS_ENABLED"],
+        tags: [],
+      },
+      sortTypeIsRecency: false,
+      limit,
+    }, undefined, undefined, this.emit, signal);
+  }
+
   private async resolveGameSlugs(
     games: readonly { id?: string; name: string; slug?: string }[],
     signal?: AbortSignal,
@@ -1745,23 +1755,7 @@ export class TwitchAdapter implements PlatformAdapter {
     if (aclCandidates.length > 0) return aclCandidates;
     if (!campaign.slug && !campaign.categoryId) return [];
 
-    const response = await this.gqlWithIntegrityRetry<TwitchDirectoryData>("DirectoryPage_Game", TWITCH_QUERIES.gameDirectoryHash, {
-      slug: campaign.slug ?? campaign.gameName,
-      imageWidth: 50,
-      includeCostreaming: false,
-      options: {
-        sort: "VIEWER_COUNT",
-        broadcasterLanguages: [],
-        includeRestricted: ["SUB_ONLY_LIVE"],
-        recommendationsContext: { platform: "web" },
-        requestID: typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}`,
-        freeformTags: null,
-        systemFilters: ["DROPS_ENABLED"],
-        tags: [],
-      },
-      sortTypeIsRecency: false,
-      limit: 25,
-    }, undefined, undefined, this.emit, signal);
+    const response = await this.fetchGameDirectory(campaign.slug ?? campaign.gameName, 25, signal);
 
     return (response.data?.game?.streams?.edges ?? [])
       .map((edge): ChannelCandidate | undefined => {
