@@ -1,9 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { collectDiscoverySnapshot, DiscoverySnapshotLane } from "@lurkloot/core/discoverySnapshot";
-import type { PageFetcher } from "@lurkloot/core/adapter";
 import { SafeFetchError } from "@lurkloot/core/fetchError";
 import { createKickFetcher, KickDiscoveryState } from "@lurkloot/core/kick";
-import { kickAdapter } from "./helpers/adapters";
+import { jsonFetcher, kickAdapter } from "./helpers/adapters";
 import { selectWatchTargetFromSnapshot } from "@lurkloot/core/scheduler";
 import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, WatchSession } from "@lurkloot/shared/models";
 import { mergeSettings } from "@lurkloot/shared/settings";
@@ -18,9 +17,6 @@ function candidate(username = "streamer", overrides: Partial<ChannelCandidate> =
 }
 afterEach(() => vi.useRealTimers());
 
-function fetcher(handler: (url: string, init?: RequestInit) => unknown): PageFetcher {
-  return { fetchJson: vi.fn(async (url, init) => handler(url, init)) as PageFetcher["fetchJson"] };
-}
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((nextResolve) => {
@@ -78,7 +74,7 @@ describe("Kick discovery batch", () => {
 
   it.each([{}, { data: {} }, { data: [{}] }])("retains the previous snapshot after malformed general directory evidence: %j", async (directory) => {
     let malformed = false;
-    const adapter = kickAdapter(fetcher((url) => url.includes("/api/v1/livestreams")
+    const adapter = kickAdapter(jsonFetcher((url) => url.includes("/api/v1/livestreams")
       ? malformed ? directory : { data: [{ channel: { slug: "streamer" }, category: { id: 13 } }] }
       : liveResponse));
     vi.spyOn(adapter, "refreshCampaigns").mockResolvedValue([campaign()]);
@@ -93,7 +89,7 @@ describe("Kick discovery batch", () => {
   });
 
   it.each([{ data: [] }, { data: { livestreams: [] } }])("accepts a genuinely empty general directory: %j", async (directory) => {
-    const adapter = kickAdapter(fetcher(() => directory));
+    const adapter = kickAdapter(jsonFetcher(() => directory));
     vi.spyOn(adapter, "refreshCampaigns").mockResolvedValue([campaign()]);
     const result = await collectDiscoverySnapshot(adapter, undefined, new AbortController().signal, () => NOW, false);
     expect(result.complete).toBe(true);
@@ -102,7 +98,7 @@ describe("Kick discovery batch", () => {
 
   it.each(["page", "api"])("retains the previous snapshot when live %s evidence lacks the required category", async (source) => {
     let missingCategory = false;
-    const adapter = kickAdapter(fetcher((url) => {
+    const adapter = kickAdapter(jsonFetcher((url) => {
       if (!missingCategory) return liveResponse;
       if (url.includes("/api/")) {
         if (source === "api") return { livestream: { is_live: true } };
@@ -126,7 +122,7 @@ describe("Kick discovery batch", () => {
     [false, campaign(), false],
     [true, undefined, true],
   ] as const)("accepts page live=%s without category when it is not needed", async (live, source, expectedLive) => {
-    const adapter = kickAdapter(fetcher((url) => {
+    const adapter = kickAdapter(jsonFetcher((url) => {
       if (url.includes("/api/")) throw new Error("unavailable");
       return { html: JSON.stringify({ is_live: live }) };
     }));
@@ -135,7 +131,7 @@ describe("Kick discovery batch", () => {
   });
 
   it("shares raw evidence across campaigns without sharing category decisions or candidate metadata", async () => {
-    const transport = fetcher(() => liveResponse);
+    const transport = jsonFetcher(() => liveResponse);
     const adapter = kickAdapter(transport);
     const requests = [
       { channel: candidate("Streamer", { campaignId: "first", isAclMatch: true }), campaign: campaign({ id: "first" }) },
@@ -156,7 +152,7 @@ describe("Kick discovery batch", () => {
     vi.useFakeTimers();
     let active = 0;
     let maximum = 0;
-    const transport = fetcher(async (url) => {
+    const transport = jsonFetcher(async (url) => {
       active += 1;
       maximum = Math.max(maximum, active);
       const index = Number(url.split("/").at(-1));
@@ -175,7 +171,7 @@ describe("Kick discovery batch", () => {
 
   it("stops admission on rate limiting, drains active checks and never retries through the page", async () => {
     vi.useFakeTimers();
-    const transport = fetcher(async (url) => {
+    const transport = jsonFetcher(async (url) => {
       await new Promise((resolve) => setTimeout(resolve, url.endsWith("/0") ? 10 : 100));
       if (url.endsWith("/0")) throw new SafeFetchError({ kind: "http_error", status: 429 });
       return liveResponse;
@@ -193,7 +189,7 @@ describe("Kick discovery batch", () => {
 
   it("retains the coherent snapshot when both channel API and page evidence fail", async () => {
     let failed = false;
-    const transport = fetcher(() => { if (failed) throw new Error("unavailable"); return liveResponse; });
+    const transport = jsonFetcher(() => { if (failed) throw new Error("unavailable"); return liveResponse; });
     const adapter = kickAdapter(transport);
     vi.spyOn(adapter, "refreshCampaigns").mockResolvedValue([campaign()]);
     vi.spyOn(adapter, "listCandidateChannels").mockResolvedValue([candidate()]);
@@ -208,7 +204,7 @@ describe("Kick discovery batch", () => {
   });
 
   it("rejects incomplete progress during snapshot collection", async () => {
-    const adapter = kickAdapter(fetcher((url) => {
+    const adapter = kickAdapter(jsonFetcher((url) => {
       if (url.endsWith("/progress")) throw new Error("unavailable");
       return { data: [] };
     }));
@@ -216,12 +212,12 @@ describe("Kick discovery batch", () => {
   });
 
   it.each(["campaigns", "progress"])("rejects unrecognized %s inventory instead of publishing an empty snapshot", async (endpoint) => {
-    const adapter = kickAdapter(fetcher((url) => url.endsWith(`/${endpoint}`) ? {} : { data: [] }));
+    const adapter = kickAdapter(jsonFetcher((url) => url.endsWith(`/${endpoint}`) ? {} : { data: [] }));
     await expect(collectDiscoverySnapshot(adapter, undefined, new AbortController().signal, () => NOW, false)).rejects.toThrow("incomplete");
   });
 
   it.each(["campaigns", "progress"])("rejects malformed records in recognized %s inventory", async (endpoint) => {
-    const adapter = kickAdapter(fetcher((url) => url.endsWith(`/${endpoint}`) ? { data: [{}] } : { data: [] }));
+    const adapter = kickAdapter(jsonFetcher((url) => url.endsWith(`/${endpoint}`) ? { data: [{}] } : { data: [] }));
 
     await expect(collectDiscoverySnapshot(adapter, undefined, new AbortController().signal, () => NOW, false))
       .rejects.toThrow("incomplete");
@@ -230,7 +226,7 @@ describe("Kick discovery batch", () => {
   it.each([{ livestream: {} }, { livestream: "offline" }, { livestream: false }, { livestream: 0 }])(
     "rejects ambiguous channel live evidence: %j",
     async (response) => {
-      const adapter = kickAdapter(fetcher(() => response));
+      const adapter = kickAdapter(jsonFetcher(() => response));
 
       await expect(adapter.checkChannels([{ channel: candidate() }])).rejects.toThrow("incomplete");
     },
@@ -239,7 +235,7 @@ describe("Kick discovery batch", () => {
   it("does not commit an aborted followed-channel lookup as a fresh empty cache entry", async () => {
     const pending = deferred<unknown>();
     const discoveryState = new KickDiscoveryState();
-    const adapter = kickAdapter(fetcher(() => pending.promise), undefined, undefined, { discoveryState });
+    const adapter = kickAdapter(jsonFetcher(() => pending.promise), undefined, undefined, { discoveryState });
     const abort = new AbortController();
 
     const strictLookup = adapter.listFollowedChannels({ signal: abort.signal, requireComplete: true });
@@ -254,7 +250,7 @@ describe("Kick discovery batch", () => {
     vi.useFakeTimers();
     let progressFinished = false;
     let settled = false;
-    const adapter = kickAdapter(fetcher(async (url) => {
+    const adapter = kickAdapter(jsonFetcher(async (url) => {
       if (url.endsWith("/campaigns")) throw new Error("unavailable");
       await new Promise((resolve) => setTimeout(resolve, 100));
       progressFinished = true;
@@ -280,14 +276,14 @@ describe("Kick discovery batch", () => {
 
   it("rejects missing API and ambiguous page evidence without logging error details", async () => {
     const events: unknown[] = [];
-    const adapter = kickAdapter(fetcher((url) => url.includes("/api/") ? {} : { html: "<html>login</html>" }), undefined, (event) => { events.push(event); });
+    const adapter = kickAdapter(jsonFetcher((url) => url.includes("/api/") ? {} : { html: "<html>login</html>" }), undefined, (event) => { events.push(event); });
     await expect(adapter.checkChannels([{ channel: candidate() }])).rejects.toThrow("incomplete");
     expect(JSON.stringify(events)).not.toContain("<html>");
   });
 
   it("retains safe transport failure context in strict fallback diagnostics", async () => {
     const events: unknown[] = [];
-    const adapter = kickAdapter(fetcher((url) => {
+    const adapter = kickAdapter(jsonFetcher((url) => {
       if (url.includes("/api/")) throw new SafeFetchError({ kind: "http_error", status: 503 });
       return { html: "<html>unavailable</html>" };
     }), undefined, (event) => { events.push(event); });
@@ -298,7 +294,7 @@ describe("Kick discovery batch", () => {
   });
 
   it("uses affirmative page evidence after API failure, sharing the fallback within the revision", async () => {
-    const transport = fetcher((url) => {
+    const transport = jsonFetcher((url) => {
       if (url.includes("/api/")) throw new Error("private transport detail");
       return { html: '{"is_live":true,"category_id":13}' };
     });
@@ -314,7 +310,7 @@ describe("Kick discovery batch", () => {
   });
 
   it("checks only the first valid channel per campaign, without speculative later requests", async () => {
-    const transport = fetcher(() => liveResponse);
+    const transport = jsonFetcher(() => liveResponse);
     const adapter = kickAdapter(transport);
     vi.spyOn(adapter, "refreshCampaigns").mockResolvedValue([campaign(), campaign({ id: "second" })]);
     vi.spyOn(adapter, "listCandidateChannels").mockResolvedValue([candidate("first"), candidate("second"), candidate("third")]);
@@ -326,7 +322,7 @@ describe("Kick discovery batch", () => {
   });
 
   it("rejects a batch that omits required evidence", async () => {
-    const adapter = kickAdapter(fetcher(() => liveResponse));
+    const adapter = kickAdapter(jsonFetcher(() => liveResponse));
     vi.spyOn(adapter, "refreshCampaigns").mockResolvedValue([campaign()]);
     vi.spyOn(adapter, "listCandidateChannels").mockResolvedValue([candidate()]);
     vi.spyOn(adapter, "checkChannels").mockResolvedValue({ checks: [undefined], uniqueChannelChecks: 0 });
@@ -336,7 +332,7 @@ describe("Kick discovery batch", () => {
   it("drains started work and admits no next campaign after cancellation", async () => {
     vi.useFakeTimers();
     const abort = new AbortController();
-    const transport = fetcher(async () => {
+    const transport = jsonFetcher(async () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
       return liveResponse;
     });
@@ -360,7 +356,7 @@ describe("Kick discovery request budgets and selection", () => {
     settings.preferKnownChannels = false;
     const previous: WatchSession = { platform: "kick", status: "watching", offlineChecks: 0, campaignId: "current", rewardId: "current-reward",
       channel: candidate("retained"), watchMode: "tabless", lastHeartbeatOk: true, lastHeartbeatAt: new Date(NOW).toISOString() };
-    const transport = fetcher(async (url) => {
+    const transport = jsonFetcher(async (url) => {
       await new Promise((resolve) => setTimeout(resolve, 100));
       if (url.endsWith("/campaigns")) return { data: [
         { id: "current", name: "Current", status: scenario === "retained" ? "active" : "completed", category_id: 13,

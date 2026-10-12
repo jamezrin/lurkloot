@@ -1,17 +1,11 @@
-import { describe, expect, it, vi } from "vitest";
-import type { PageFetcher } from "@lurkloot/core/adapter";
+import { describe, expect, it } from "vitest";
 import { TwitchDiscoveryState } from "@lurkloot/core/twitch";
-import { twitchAdapter } from "./helpers/adapters";
+import { jsonFetcher, twitchAdapter } from "./helpers/adapters";
 
 // Campaign visibility coverage for #400. The reporter saw an active, unlinked
 // campaign that only appeared after reinstalling the extension. These tests pin
 // the discovery state machine's actual behaviour: fresh dashboard results are
 // authoritative and are never suppressed by retained state.
-
-function jsonFetcher(handler: (url: string, init?: RequestInit) => unknown): PageFetcher {
-  const fetchJson = vi.fn(async (url: string, init?: RequestInit): Promise<unknown> => handler(url, init));
-  return { fetchJson: fetchJson as PageFetcher["fetchJson"] };
-}
 
 interface DashboardEntry {
   id: string;

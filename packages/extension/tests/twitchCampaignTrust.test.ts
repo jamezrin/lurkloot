@@ -1,19 +1,14 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { PageFetcher } from "@lurkloot/core/adapter";
 import type { DropCampaign, EngineSettings } from "@lurkloot/shared/models";
 import type { EngineEvent } from "@lurkloot/shared/events";
 import { applySettingsPatch, DEFAULT_ENGINE_SETTINGS, DEFAULT_SETTINGS, mergeEngineSettings } from "@lurkloot/shared/settings";
-import { twitchAdapter } from "./helpers/adapters";
+import { jsonFetcher, twitchAdapter } from "./helpers/adapters";
 
 // Regression coverage for #400: Twitch's own discovery sources (the
 // GameDirectory DROPS_ENABLED filter and a campaign's channel ACL) are trusted
 // by default, because DropsHighlightService_AvailableDrops routinely omits a
 // campaign that is in fact farmable and rejected every candidate.
-
-function jsonFetcher(handler: (url: string, init?: RequestInit) => unknown): PageFetcher {
-  const fetchJson = vi.fn(async (url: string, init?: RequestInit): Promise<unknown> => handler(url, init));
-  return { fetchJson: fetchJson as PageFetcher["fetchJson"] };
-}
 
 // Records every GQL operation the adapter sends, batched or single.
 function recordingFetcher(operations: string[], respond: (operationName: string, entry: Record<string, unknown>) => unknown): PageFetcher {

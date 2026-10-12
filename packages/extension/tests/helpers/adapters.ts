@@ -1,3 +1,4 @@
+import { vi } from "vitest";
 import { ignoreEvent, type PageFetcher } from "@lurkloot/core/adapter";
 import { KickAdapter, type KickAdapterOptions } from "@lurkloot/core/kick";
 import type { WebSocketFactory } from "@lurkloot/core/webSocket";
@@ -8,6 +9,11 @@ import { testCompatibility } from "./compatibility";
 
 export const TWITCH_COMPAT = testCompatibility().twitch;
 export const KICK_COMPAT = testCompatibility().kick;
+
+export function jsonFetcher(handler: (url: string, init?: RequestInit) => unknown): PageFetcher {
+  const fetchJson = vi.fn(async (url: string, init?: RequestInit): Promise<unknown> => handler(url, init));
+  return { fetchJson: fetchJson as PageFetcher["fetchJson"] };
+}
 
 // TwitchAdapterOptions/KickAdapterOptions require a resolved compatibility (see
 // #360), so every construction site must supply one. These wrappers keep

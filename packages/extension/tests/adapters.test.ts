@@ -12,14 +12,7 @@ import { collectDiscoverySnapshot, selectionAdapterFromDiscoverySnapshot, type D
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { resolveCompatibility } from "@lurkloot/core";
 import { SafeFetchError, type SafeFetchFailureKind } from "@lurkloot/core/fetchError";
-import { kickAdapter, twitchAdapter, TWITCH_COMPAT } from "./helpers/adapters";
-
-function jsonFetcher(handler: (url: string, init?: RequestInit) => unknown): PageFetcher {
-  const fetchJson = vi.fn(async (url: string, init?: RequestInit): Promise<unknown> => handler(url, init));
-  return {
-    fetchJson: fetchJson as PageFetcher["fetchJson"],
-  };
-}
+import { jsonFetcher, kickAdapter, twitchAdapter, TWITCH_COMPAT } from "./helpers/adapters";
 
 function operation(init?: RequestInit): string {
   return JSON.parse(String(init?.body)).operationName;
