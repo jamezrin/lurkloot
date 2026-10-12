@@ -12,7 +12,7 @@ const TWITCH_CAMPAIGN_FIELDS = `{
   detailsURL
   self { isAccountConnected }
   game { id name displayName slug boxArtURL }
-  allow { channels { name login } }
+  allow { isEnabled channels { name login } }
   timeBasedDrops {
     id
     name

@@ -41,12 +41,13 @@ export default defineConfig({
     // offscreen (Chrome only, no install warning): the hidden kick.com frame
     // that opens Kick's realtime chat sockets (#754, kickRealtimeRelay.ts).
     permissions: ["alarms", "storage", "tabs", "scripting", "notifications", "cookies", "webRequest", ...(browser === "firefox" ? [] : ["offscreen"])],
-    // Kasada is requested by the CLI credential export. The video CDN is
-    // requested when Twitch is turned on and the HLS watch heartbeat is selected.
-    optional_host_permissions: [KASADA_COOKIE_ORIGIN, TWITCH_HLS_HOST_ORIGIN],
+    // Kasada is requested by the CLI credential export.
+    optional_host_permissions: [KASADA_COOKIE_ORIGIN],
+    // Twitch's video CDN carries the HLS watch heartbeat, the default.
     host_permissions: [
       "https://*.twitch.tv/*",
-      "https://*.kick.com/*"
+      "https://*.kick.com/*",
+      TWITCH_HLS_HOST_ORIGIN
     ],
     // The in-page panel is an extension page the twitch/kick content scripts
     // embed in an iframe, so its document must be web-accessible. Scoped to the

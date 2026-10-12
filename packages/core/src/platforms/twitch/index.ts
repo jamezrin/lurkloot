@@ -11,7 +11,7 @@ import type { ChatPresenceClient } from "../../core/chatPresence";
 import { TwitchChatPresenceClient } from "./chatPresence";
 import { diagnostic, ignoreEvent, type AdapterOperationOptions, type CandidateChannelSelection, type ChannelPointsClaimOptions, type PageFetcher, type PlatformAdapter } from "../adapter";
 import { TwitchChannelPointsPushController, type TwitchPlaybackNotice } from "./channelPointsPush";
-import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchCampaigns, twitchCandidatesFromCampaign, twitchSubscriptionRewardEvidence, withCampaignStatus } from "./parser";
+import { campaignHasClaimableReward, mergeTwitchCampaignProgress, parseTwitchCampaigns, twitchCandidatesFromCampaign, twitchStreamCategoryMatches, twitchSubscriptionRewardEvidence, withCampaignStatus } from "./parser";
 import type { ResolvedCompatibility, TwitchIdentity } from "../../compatibility/types";
 import { createTwitchHeartbeat } from "./heartbeat/factory";
 import { HLS_POLL_INTERVAL_MS, safeHlsFailure } from "./heartbeat/hls";
@@ -199,7 +199,7 @@ const TWITCH_CAMPAIGN_FIELDS = `{
   detailsURL
   self { isAccountConnected }
   game { id name displayName slug boxArtURL }
-  allow { channels { id name } }
+  allow { isEnabled channels { id name } }
   timeBasedDrops {
     id
     name
@@ -223,7 +223,7 @@ const TWITCH_AVAILABLE_CAMPAIGN_FIELDS = `{
   accountLinkURL
   detailsURL
   game { id name displayName slug boxArtURL }
-  allow { channels { id name } }
+  allow { isEnabled channels { id name } }
   timeBasedDrops {
     id
     name
@@ -1872,7 +1872,7 @@ export class TwitchAdapter implements PlatformAdapter {
         trustedDirectoryCandidates += 1;
         checks[index] = {
           live: true,
-          categoryMatches: !campaign?.categoryId || candidate.categoryId === campaign.categoryId,
+          categoryMatches: twitchStreamCategoryMatches(candidate.categoryId, campaign),
           candidate,
         };
       } else {
@@ -2280,7 +2280,7 @@ export class TwitchAdapter implements PlatformAdapter {
       signal?.throwIfAborted();
       const checks: ChannelCheck[] = [];
       for (const candidate of candidates) {
-        checks.push(await this.checkChannel(candidate, { signal }));
+        checks.push(await this.checkChannel(candidate, { campaign, signal }));
       }
       return { checks, singleFallbacks: candidates.length };
     }
@@ -2291,7 +2291,7 @@ export class TwitchAdapter implements PlatformAdapter {
       const response = normalizeTwitchGqlResponse<TwitchStreamInfoData>(responses[index]);
       if (!response?.data?.user || response.errors?.length || response.error) {
         singleFallbacks += 1;
-        checks.push(await this.checkChannel(candidate, { signal }));
+        checks.push(await this.checkChannel(candidate, { campaign, signal }));
         continue;
       }
       const stream = response.data.user.stream;
@@ -2299,7 +2299,7 @@ export class TwitchAdapter implements PlatformAdapter {
       checks.push({
         live: Boolean(stream),
         ...(!stream && this.streamEndReported(response.data.user.id ?? candidate.channelId) ? { offlineConfirmed: true } : {}),
-        categoryMatches: !campaign?.categoryId || categoryId === campaign.categoryId,
+        categoryMatches: twitchStreamCategoryMatches(categoryId, campaign),
         candidate: {
           ...candidate,
           displayName: response.data.user.displayName ?? candidate.displayName,
@@ -2340,8 +2340,7 @@ export class TwitchAdapter implements PlatformAdapter {
       const stream = response.data?.user?.stream;
       const channelId = response.data?.user?.id;
       const actualCategoryId = stream?.game?.id;
-      const expectedCategoryId = campaign?.categoryId ?? channel.categoryId;
-      const categoryMatches = !expectedCategoryId || actualCategoryId === expectedCategoryId;
+      const categoryMatches = twitchStreamCategoryMatches(actualCategoryId, campaign, channel.categoryId);
       const broadcastId = stream?.id;
       // Gated on strict validation for the same reason as selectCandidateChannel:
       // this path also re-verifies the channel already being watched, so an
@@ -2828,10 +2827,10 @@ export class TwitchAdapter implements PlatformAdapter {
         diagnostic(this.emit, "debug", `Channel page for ${channel.username} showed no live signal; treating as offline`, "twitch");
       }
       const actualCategoryId = parseGameId(html);
-      const expectedCategoryId = campaign?.categoryId ?? channel.categoryId;
       return {
         live,
-        categoryMatches: !expectedCategoryId || actualCategoryId == null || actualCategoryId === expectedCategoryId,
+        categoryMatches: actualCategoryId == null
+          || twitchStreamCategoryMatches(actualCategoryId, campaign, channel.categoryId),
         reason: "Twitch GQL check failed; used channel page fallback",
         candidate: {
           ...channel,

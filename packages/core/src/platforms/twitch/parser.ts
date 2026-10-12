@@ -29,7 +29,7 @@ interface TwitchCampaign {
   self?: { isAccountConnected?: boolean };
   accountLinkURL?: string | null;
   detailsURL?: string | null;
-  allow?: { channels?: Array<{ name?: string; login?: string }> };
+  allow?: { isEnabled?: boolean; channels?: Array<{ name?: string; login?: string }> };
   allowedChannels?: Array<{ name?: string; login?: string } | string>;
   timeBasedDrops?: TwitchReward[];
 }
@@ -169,6 +169,41 @@ function inventorySource(inventory: TwitchInventory): TwitchCampaignSource {
   };
 }
 
+// Special Events (509663) and IRL (509672) are pseudo-categories: their
+// campaigns are earned on participating channels that keep streaming their own
+// category. Without a participating-channel list the category match still holds.
+const TWITCH_CROSS_CATEGORY_IDS = new Set(["509663", "509672"]);
+
+// Whether a channel streaming `streamedCategoryId` passes the category check.
+// It is compared with the campaign's category, or with `fallbackCategoryId`
+// when there is no campaign to compare with.
+export function twitchStreamCategoryMatches(
+  streamedCategoryId: string | undefined,
+  campaign: Pick<DropCampaign, "categoryId" | "allowedChannels"> | undefined,
+  fallbackCategoryId?: string,
+): boolean {
+  const expectedCategoryId = campaign?.categoryId ?? fallbackCategoryId;
+  if (!expectedCategoryId || streamedCategoryId === expectedCategoryId) return true;
+  return Boolean(
+    campaign?.categoryId
+    && TWITCH_CROSS_CATEGORY_IDS.has(campaign.categoryId)
+    && campaign.allowedChannels?.length,
+  );
+}
+
+// Persisted queries may not select isEnabled, so only an explicit false
+// disables the list.
+function twitchParticipatingChannels(campaign: TwitchCampaign): string[] {
+  const allowList = campaign.allow?.isEnabled === false ? [] : campaign.allow?.channels ?? [];
+  return [
+    ...allowList,
+    ...(campaign.allowedChannels ?? []),
+  ]
+    .map((channel) => (typeof channel === "string" ? channel : channel.login ?? channel.name))
+    .filter((value): value is string => Boolean(value))
+    .map((value) => value.toLowerCase());
+}
+
 function campaignListSource(campaigns: readonly TwitchCampaign[]): TwitchCampaignSource {
   return { campaigns, hasPerTierProgress: false, gameEventDrops: [] };
 }
@@ -190,13 +225,7 @@ function parseTwitchCampaignSource(source: TwitchCampaignSource): DropCampaign[]
   const now = Date.now();
 
   return campaigns.map((campaign) => {
-    const allowedChannels = [
-      ...(campaign.allow?.channels ?? []),
-      ...(campaign.allowedChannels ?? []),
-    ]
-      .map((channel) => (typeof channel === "string" ? channel : channel.login ?? channel.name))
-      .filter((value): value is string => Boolean(value))
-      .map((value) => value.toLowerCase());
+    const allowedChannels = twitchParticipatingChannels(campaign);
     const slug = campaign.game?.slug;
     const startsAt = campaign.startAt;
     const endsAt = campaign.endAt;
