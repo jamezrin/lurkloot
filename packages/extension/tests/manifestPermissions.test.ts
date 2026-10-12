@@ -9,12 +9,12 @@ const here = dirname(fileURLToPath(import.meta.url));
 const source = readFileSync(resolve(here, "../wxt.config.ts"), "utf8");
 
 describe("extension host permissions", () => {
-  it("requires Twitch and Kick, keeping the video CDN and Kasada cookie host optional", () => {
+  it("requires Twitch, Kick and the video CDN, keeping the Kasada cookie host optional", () => {
     const required = source.match(/(?<!optional_)host_permissions:\s*\[([\s\S]*?)\]/)?.[1] ?? "";
 
     expect(required).toContain('"https://*.twitch.tv/*"');
     expect(required).toContain('"https://*.kick.com/*"');
-    expect(required).not.toContain("ttvnw");
+    expect(required).toContain("TWITCH_HLS_HOST_ORIGIN");
     expect(required).not.toContain("twitchcdn");
     for (const origin of [
       "https://www.twitch.tv/*",
@@ -30,7 +30,7 @@ describe("extension host permissions", () => {
     }
     const optional = source.match(/optional_host_permissions:\s*\[([\s\S]*?)\]/)?.[1] ?? "";
     expect(optional).toContain("KASADA_COOKIE_ORIGIN");
-    expect(optional).toContain("TWITCH_HLS_HOST_ORIGIN");
+    expect(optional).not.toContain("TWITCH_HLS_HOST_ORIGIN");
     expect(source).not.toContain("optional_permissions:");
   });
 
@@ -38,7 +38,7 @@ describe("extension host permissions", () => {
     expect(KASADA_COOKIE_ORIGIN).toBe("https://k.twitchcdn.net/*");
   });
 
-  it("names the Twitch video CDN as one optional host pattern", () => {
+  it("names the Twitch video CDN as one host pattern", () => {
     expect(TWITCH_HLS_HOST_ORIGIN).toBe("https://*.ttvnw.net/*");
   });
 });
