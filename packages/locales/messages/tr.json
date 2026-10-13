@@ -1449,7 +1449,7 @@
     "message": "Spade sinyali v1"
   },
   "compatibilityOptionTwitchHeartbeatHlsV1": {
-    "message": "HLS sinyali v1"
+    "message": "HLS + Spade sinyali v1"
   },
   "compatibilityOptionTwitchHeartbeatTrowelV1": {
     "message": "Trowel sinyali v1"

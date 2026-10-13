@@ -40,7 +40,7 @@ const labels: Record<string, string> = {
   compatibilityOptionTwitchProfile202610: "Twitch October 2026",
   compatibilityOptionTwitchHeartbeatGqlV1: "GraphQL heartbeat v1",
   compatibilityOptionTwitchHeartbeatSpadeV1: "Spade heartbeat v1",
-  compatibilityOptionTwitchHeartbeatHlsV1: "HLS heartbeat v1",
+  compatibilityOptionTwitchHeartbeatHlsV1: "HLS + Spade heartbeat v1",
   compatibilityOptionTwitchHeartbeatTrowelV1: "Trowel heartbeat v1",
   compatibilityOptionTwitchInventoryV1: "Inventory query v1",
   compatibilityOptionTwitchInventoryV2: "Inventory query v2",
@@ -171,7 +171,7 @@ describe("extension compatibility settings", () => {
     const { container } = mount(undefined, "twitch");
     const optionLabels = (await options(container, "Twitch heartbeat transport")).map((option) => option.textContent);
     expect(optionLabels).toContain("Automatic");
-    expect(optionLabels).toContain("HLS heartbeat v1 · Recommended");
+    expect(optionLabels).toContain("HLS + Spade heartbeat v1 · Recommended");
     expect(optionLabels).toContain("Spade heartbeat v1 · Legacy");
     expect(optionLabels).toContain("GraphQL heartbeat v1 · Legacy");
   });

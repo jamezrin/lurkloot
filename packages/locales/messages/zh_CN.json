@@ -1449,7 +1449,7 @@
     "message": "Spade 心跳 v1"
   },
   "compatibilityOptionTwitchHeartbeatHlsV1": {
-    "message": "HLS 心跳 v1"
+    "message": "HLS + Spade 心跳 v1"
   },
   "compatibilityOptionTwitchHeartbeatTrowelV1": {
     "message": "Trowel 心跳 v1"

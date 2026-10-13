@@ -1449,7 +1449,7 @@
     "message": "نبض Spade الإصدار 1"
   },
   "compatibilityOptionTwitchHeartbeatHlsV1": {
-    "message": "نبض HLS الإصدار 1"
+    "message": "نبض HLS + Spade الإصدار 1"
   },
   "compatibilityOptionTwitchHeartbeatTrowelV1": {
     "message": "نبض Trowel الإصدار 1"

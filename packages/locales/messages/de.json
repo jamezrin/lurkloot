@@ -1449,7 +1449,7 @@
     "message": "Spade-Heartbeat v1"
   },
   "compatibilityOptionTwitchHeartbeatHlsV1": {
-    "message": "HLS-Heartbeat v1"
+    "message": "HLS + Spade-Heartbeat v1"
   },
   "compatibilityOptionTwitchHeartbeatTrowelV1": {
     "message": "Trowel-Heartbeat v1"
