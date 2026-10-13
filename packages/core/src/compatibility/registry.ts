@@ -59,7 +59,7 @@ const twitchHeartbeat = frozen({
   "twitch-heartbeat-hls-v1": frozen({
     id: "twitch-heartbeat-hls-v1",
     title: "HLS heartbeat v1",
-    description: "Requests each new Twitch media segment with HEAD and keeps the Spade beacon as auxiliary telemetry.",
+    description: "Requests each new Twitch media segment with HEAD, and sends minute-watched through GraphQL as twitch.tv does, which earns channel points.",
     lifecycle: "recommended",
     hosts: ALL_HOSTS,
     identities: Object.freeze(["web"] as const),

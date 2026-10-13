@@ -2,15 +2,12 @@ import { TWITCH_HLS_HEARTBEAT_ID } from "@lurkloot/shared/compatibility";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import type { LogLevel } from "@lurkloot/shared/logging";
 import type { HeartbeatResult } from "../../../core/tablessWatch";
-import { minuteWatchedFormBody } from "./gql-v1";
+import { buildSpadeInput, SEND_SPADE_EVENTS_MUTATION } from "./gql-v1";
 import { isAllowedHlsUrl } from "./hosts";
 import { playlistUrls } from "./playlist";
-import { resolveSpadeDestination } from "./spade";
 import type {
   TwitchHeartbeatContext,
   TwitchHeartbeatExchange,
-  TwitchHeartbeatFetchText,
-  TwitchHeartbeatPost,
   TwitchHeartbeatStrategy,
 } from "./types";
 
@@ -25,8 +22,8 @@ export const HLS_SEGMENT_CACHE_LIMIT = 256;
 // ones prove the client is at the live edge, and the poll budget cannot cover
 // a long window of slow requests.
 export const HLS_SEGMENTS_PER_POLL = 6;
-// Auxiliary minute-watched telemetry. A 204 does not credit progress, and a
-// failure must not be retried on the playlist cadence.
+// Auxiliary minute-watched telemetry. It credits channel points, not drop
+// progress, and a failure must not be retried on the playlist cadence.
 export const HLS_TELEMETRY_INTERVAL_MS = 59_000;
 // A failed playback-token request waits this long before the next one, and
 // twice as long after each further failure. Without it every 10-second poll
@@ -65,8 +62,6 @@ export interface HlsHeartbeatGql {
 export interface HlsHeartbeatOptions {
   gql: HlsHeartbeatGql;
   exchange: TwitchHeartbeatExchange;
-  fetchText: TwitchHeartbeatFetchText;
-  post: TwitchHeartbeatPost;
   log: (level: LogLevel, message: string) => void;
   now?: () => number;
 }
@@ -99,8 +94,6 @@ export function createHlsHeartbeat(options: HlsHeartbeatOptions): TwitchHeartbea
   let abort = new AbortController();
   let broadcastId: string | undefined;
   let playlistUrl: string | undefined;
-  let spadeUrl: string | undefined;
-  let spadeChannel: string | undefined;
   let lastTelemetryAt: number | undefined;
   // Consecutive failed attempts to obtain a playable playlist, and when the
   // next attempt may run. Reset by a successful watch or a new broadcast.
@@ -191,45 +184,39 @@ export function createHlsHeartbeat(options: HlsHeartbeatOptions): TwitchHeartbea
     const sentAt = lastTelemetryAt;
     if (sentAt !== undefined && now() - sentAt < HLS_TELEMETRY_INTERVAL_MS) return;
     if (signal.aborted) return;
-    // Claim the slot before the request so a blocked beacon is not retried
+    // Claim the slot before the request so a blocked event is not retried
     // on the next 10-second poll.
     lastTelemetryAt = now();
     try {
-      if (spadeChannel !== channel) {
-        spadeUrl = undefined;
-        spadeChannel = channel;
-      }
-      if (!spadeUrl) {
-        const resolved = await resolveSpadeDestination(options.fetchText, context.channel.url, signal);
-        if (signal.aborted) return;
-        spadeUrl = resolved;
-      }
-      if (signal.aborted) return;
-      if (!spadeUrl) {
-        options.log("debug", "Twitch minute-watched beacon has no destination");
-        return;
-      }
-      const response = await options.post(spadeUrl, {
-        method: "POST",
-        credentials: "include",
-        redirect: "error",
-        signal: combineSignals(signal, AbortSignal.timeout(REQUEST_BUDGET_MS)),
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: minuteWatchedFormBody({
-          broadcastId: context.broadcastId,
-          channelId: context.channelId,
-          channelLogin: context.channel.username,
-          userId: context.userId,
-          gameId: context.gameId,
-          gameName: context.gameName,
-        }),
+      // As twitch.tv sends it. Twitch credits channel points for it only with
+      // player "site" and the input's repository and encoding; it answers 204
+      // and discards the event otherwise (docs/spikes/twitch-watch-crediting.md).
+      const input = await buildSpadeInput({
+        broadcastId: context.broadcastId,
+        channelId: context.channelId,
+        channelLogin: context.channel.username,
+        userId: context.userId,
+        gameId: context.gameId,
+        gameName: context.gameName,
+        player: "site",
       });
-      if (response.status !== 204) options.log("debug", `Twitch minute-watched beacon returned HTTP ${response.status}`);
+      if (signal.aborted) return;
+      const result = await options.gql<{ sendSpadeEvents?: { statusCode?: number } }>(
+        "SendEvents",
+        "",
+        { input },
+        SEND_SPADE_EVENTS_MUTATION,
+        undefined,
+        undefined,
+        combineSignals(signal, AbortSignal.timeout(REQUEST_BUDGET_MS)),
+      );
+      const status = result.data?.sendSpadeEvents?.statusCode;
+      if (status !== 204) options.log("debug", `Twitch minute-watched event returned status ${status ?? "unknown"}`);
     } catch (error) {
-      // Playlist success is the watch result. The beacon is auxiliary, so a
+      // Playlist success is the watch result. The event is auxiliary, so a
       // failure is only noted.
       if (!signal.aborted) {
-        options.log("debug", `Twitch minute-watched beacon failed: ${safeHlsFailure(error, "network request failed")}`);
+        options.log("debug", `Twitch minute-watched event failed: ${safeHlsFailure(error, "network request failed")}`);
       }
     }
   };
@@ -354,8 +341,6 @@ export function createHlsHeartbeat(options: HlsHeartbeatOptions): TwitchHeartbea
       abort = new AbortController();
       broadcastId = undefined;
       playlistUrl = undefined;
-      spadeUrl = undefined;
-      spadeChannel = undefined;
       lastTelemetryAt = undefined;
       tokenFailures = 0;
       tokenRetryAt = undefined;

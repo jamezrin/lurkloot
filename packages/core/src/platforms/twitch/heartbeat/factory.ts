@@ -44,8 +44,6 @@ export function createTwitchHeartbeat(
       return createHlsHeartbeat({
         gql: options.gql,
         exchange: requireOption(options.exchange, capabilityId, "playlist request"),
-        fetchText: requireOption(options.fetchText, capabilityId, "page fetch"),
-        post: requireOption(options.post, capabilityId, "beacon request"),
         log: options.log,
       });
     case "twitch-heartbeat-trowel-v1":

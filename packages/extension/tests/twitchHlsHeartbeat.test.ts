@@ -1,3 +1,4 @@
+import { gunzipSync } from "node:zlib";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { TwitchHeartbeatContext, TwitchHeartbeatExchange } from "@lurkloot/core/twitch/heartbeat";
 import {
@@ -45,6 +46,16 @@ function context(broadcastId = "broadcast-1"): TwitchHeartbeatContext {
 
 function playbackToken() {
   return { data: { streamPlaybackAccessToken: { value: "token-value", signature: "sig-value" } } };
+}
+
+// SendEvents calls are telemetry; only token requests count here.
+function tokenRequests(gql: { mock: { calls: unknown[][] } }): number {
+  return gql.mock.calls.filter(([operationName]) => operationName === "PlaybackAccessToken").length;
+}
+
+function decodeSentEvents(variables: Record<string, unknown>): Array<{ event: string; properties: Record<string, unknown> }> {
+  const input = variables.input as { data: string };
+  return JSON.parse(gunzipSync(Buffer.from(input.data, "base64")).toString("utf8"));
 }
 
 function expectDirectPlaylistFetch(init: RequestInit): void {
@@ -109,19 +120,20 @@ describe("Twitch HLS heartbeat", () => {
   function strategyFor(options: {
     exchange: TwitchHeartbeatExchange;
     now?: () => number;
-    fetchText?: (url: string) => Promise<string>;
-    post?: (url: string, init: RequestInit) => Promise<{ status: number }>;
+    sendEvents?: (variables: Record<string, unknown>, signal?: AbortSignal) => unknown;
     log?: (level: string, message: string) => void;
   }) {
-    const gql = vi.fn(async (operationName: string) => {
+    const gql = vi.fn(async (operationName: string, _hash: string, variables: Record<string, unknown>, ..._rest: unknown[]) => {
       if (operationName === "PlaybackAccessToken") return playbackToken();
+      if (operationName === "SendEvents") {
+        const signal = _rest[3] as AbortSignal | undefined;
+        return options.sendEvents ? await options.sendEvents(variables, signal) : { data: { sendSpadeEvents: { statusCode: 204 } } };
+      }
       throw new Error(`unexpected ${operationName}`);
     });
     const strategy = createHlsHeartbeat({
       gql: gql as never,
       exchange: options.exchange,
-      fetchText: options.fetchText ?? (async () => { throw new Error("spade page was not expected"); }),
-      post: options.post ?? (async () => { throw new Error("spade beacon was not expected"); }),
       log: options.log ?? (() => {}),
       now: options.now,
     });
@@ -151,8 +163,6 @@ describe("Twitch HLS heartbeat", () => {
         heads.push(url);
         return { status: 200, body: "", url };
       },
-      fetchText: async () => '{"spade_url":"https://spade.twitch.tv/track"}',
-      post: async () => ({ status: 204 }),
     });
 
     await expect(strategy.tick(context())).resolves.toEqual({ ok: true, live: true });
@@ -201,8 +211,6 @@ describe("Twitch HLS heartbeat", () => {
         }
         return { status: 200, body: "", url };
       },
-      fetchText: async () => '{"spade_url":"https://spade.twitch.tv/track"}',
-      post: async () => ({ status: 204 }),
     });
 
     await expect(strategy.tick(context("broadcast-1"))).resolves.toEqual({ ok: true, live: true });
@@ -210,7 +218,7 @@ describe("Twitch HLS heartbeat", () => {
     await expect(strategy.tick(context("broadcast-1"))).resolves.toEqual({ ok: true, live: true });
     await expect(strategy.tick(context("broadcast-2"))).resolves.toEqual({ ok: true, live: true });
 
-    expect(gql).toHaveBeenCalledTimes(3);
+    expect(tokenRequests(gql)).toBe(3);
   });
 
   it("treats a fresh playlist that is refused straight away as a failed token request", async () => {
@@ -226,23 +234,20 @@ describe("Twitch HLS heartbeat", () => {
     await expect(strategy.tick(context())).resolves.toMatchObject({ ok: false, message: "Twitch HLS playlist returned HTTP 403" });
     clock += 10_000;
     await expect(strategy.tick(context())).resolves.toMatchObject({ message: "Twitch HLS watch is waiting to request a new playback token" });
-    expect(gql).toHaveBeenCalledTimes(1);
+    expect(tokenRequests(gql)).toBe(1);
   });
 
-  it("sends auxiliary telemetry on the first poll and again after 59 seconds", async () => {
+  it("sends minute-watched through GraphQL on the first poll and again after 59 seconds", async () => {
     let clock = 1_000;
-    const posts: number[] = [];
+    const sent: number[] = [];
+    const sentVariables: Array<Record<string, unknown>> = [];
     const { strategy } = strategyFor({
       now: () => clock,
       exchange: exchangeFrom({ media: media(SEGMENT_ONE) }, () => ({ status: 200 })),
-      fetchText: async (url) => {
-        if (url === "https://www.twitch.tv/creator") return '<script src="https://static.twitch.tv/config/settings.js"></script>';
-        if (url === "https://static.twitch.tv/config/settings.js") return '{"spade_url":"https://spade.twitch.tv/track"}';
-        throw new Error(url);
-      },
-      post: async () => {
-        posts.push(clock);
-        return { status: 500 };
+      sendEvents: (variables) => {
+        sent.push(clock);
+        sentVariables.push(variables);
+        return { data: { sendSpadeEvents: { statusCode: 500 } } };
       },
     });
 
@@ -252,18 +257,34 @@ describe("Twitch HLS heartbeat", () => {
     clock += 49_000;
     await expect(strategy.tick(context())).resolves.toEqual({ ok: true, live: true });
 
-    expect(posts).toEqual([1_000, 60_000]);
+    expect(sent).toEqual([1_000, 60_000]);
+    // The input fields twitch.tv sends. Without them Twitch answers 204 and
+    // discards the event.
+    expect(sentVariables[0].input).toMatchObject({ repository: "twilight", encoding: "GZIP_B64" });
+    expect(decodeSentEvents(sentVariables[0])).toEqual([{
+      event: "minute-watched",
+      properties: expect.objectContaining({
+        broadcast_id: "broadcast-1",
+        channel_id: "channel-id",
+        channel: "Creator",
+        user_id: "viewer-id",
+        game_id: "game-id",
+        logged_in: true,
+        // Twitch credits channel points only when the event names the web player.
+        player: "site",
+      }),
+    }]);
   });
 
   it("does not send telemetry when the playlist fails", async () => {
-    const post = vi.fn(async () => ({ status: 204 }));
+    const sendEvents = vi.fn(() => ({ data: { sendSpadeEvents: { statusCode: 204 } } }));
     const { strategy } = strategyFor({
       exchange: async (url) => ({ status: 500, body: "", url }),
-      post,
+      sendEvents,
     });
 
     await expect(strategy.tick(context())).resolves.toMatchObject({ ok: false });
-    expect(post).not.toHaveBeenCalled();
+    expect(sendEvents).not.toHaveBeenCalled();
   });
 
   it("rejects a response that lands outside the video CDN", async () => {
@@ -360,8 +381,6 @@ describe("Twitch HLS heartbeat", () => {
         if (init.method === "GET") return { status: 200, body: media(SEGMENT_ONE), url };
         return { status: 200, body: "", url };
       },
-      fetchText: async () => '{"spade_url":"https://spade.twitch.tv/track"}',
-      post: async () => ({ status: 204 }),
     });
 
     await expect(strategy.tick(context())).resolves.toEqual({ ok: true, live: true });
@@ -421,16 +440,20 @@ describe("Twitch HLS heartbeat", () => {
 
   it("keeps a successful segment watch when telemetry outlasts the playlist budget", async () => {
     vi.useFakeTimers();
+    let entered: () => void = () => {};
+    const sending = new Promise<void>((resolve) => { entered = resolve; });
     const { strategy } = strategyFor({
       exchange: exchangeFrom({ media: media(SEGMENT_ONE) }, () => ({ status: 200 })),
-      fetchText: async () => {
+      sendEvents: async () => {
+        entered();
         await new Promise((resolve) => setTimeout(resolve, HLS_POLL_BUDGET_MS + 1_000));
-        return '{"spade_url":"https://spade.twitch.tv/track"}';
+        return { data: { sendSpadeEvents: { statusCode: 204 } } };
       },
-      post: async () => ({ status: 204 }),
     });
 
     const pending = strategy.tick(context());
+    // Gzipping the event is real async work, so wait until the request starts.
+    await sending;
     await vi.advanceTimersByTimeAsync(HLS_POLL_BUDGET_MS + 1_000);
     await expect(pending).resolves.toEqual({ ok: true, live: true });
   });
@@ -439,6 +462,7 @@ describe("Twitch HLS heartbeat", () => {
     function failingTokenStrategy(clock: { now: number }) {
       let tokenWorks = false;
       const gql = vi.fn(async (operationName: string) => {
+        if (operationName === "SendEvents") return { data: { sendSpadeEvents: { statusCode: 204 } } };
         if (operationName !== "PlaybackAccessToken") throw new Error(`unexpected ${operationName}`);
         if (!tokenWorks) throw new Error("failed integrity check");
         return playbackToken();
@@ -446,8 +470,6 @@ describe("Twitch HLS heartbeat", () => {
       const strategy = createHlsHeartbeat({
         gql: gql as never,
         exchange: exchangeFrom({ media: media(SEGMENT_ONE) }, () => ({ status: 200 })),
-        fetchText: async () => '{"spade_url":"https://spade.twitch.tv/track"}',
-        post: async () => ({ status: 204 }),
         log: () => {},
         now: () => clock.now,
       });
@@ -465,17 +487,17 @@ describe("Twitch HLS heartbeat", () => {
         live: true,
         message: "Twitch HLS watch is waiting to request a new playback token",
       });
-      expect(gql).toHaveBeenCalledTimes(1);
+      expect(tokenRequests(gql)).toBe(1);
 
       clock.now = HLS_TOKEN_RETRY_MS;
       await expect(strategy.tick(context())).resolves.toMatchObject({ ok: false, message: "failed integrity check" });
-      expect(gql).toHaveBeenCalledTimes(2);
+      expect(tokenRequests(gql)).toBe(2);
       clock.now += HLS_TOKEN_RETRY_MS;
       await strategy.tick(context());
-      expect(gql).toHaveBeenCalledTimes(2);
+      expect(tokenRequests(gql)).toBe(2);
       clock.now += HLS_TOKEN_RETRY_MS;
       await strategy.tick(context());
-      expect(gql).toHaveBeenCalledTimes(3);
+      expect(tokenRequests(gql)).toBe(3);
     });
 
     it("caps the wait and clears it once a watch succeeds", async () => {
@@ -485,11 +507,11 @@ describe("Twitch HLS heartbeat", () => {
         await strategy.tick(context());
         clock.now += HLS_TOKEN_RETRY_MAX_MS;
       }
-      expect(gql).toHaveBeenCalledTimes(8);
+      expect(tokenRequests(gql)).toBe(8);
 
       fixToken();
       await expect(strategy.tick(context())).resolves.toEqual({ ok: true, live: true });
-      expect(gql).toHaveBeenCalledTimes(9);
+      expect(tokenRequests(gql)).toBe(9);
     });
 
     it("lets the poll between health ticks skip quietly while waiting", async () => {
@@ -498,7 +520,7 @@ describe("Twitch HLS heartbeat", () => {
       await strategy.tick(context());
       clock.now += 10_000;
       await expect(strategy.sustain?.(context())).resolves.toBeUndefined();
-      expect(gql).toHaveBeenCalledTimes(1);
+      expect(tokenRequests(gql)).toBe(1);
     });
 
     it("tries again straight away for a new broadcast", async () => {
@@ -506,7 +528,7 @@ describe("Twitch HLS heartbeat", () => {
       const { strategy, gql } = failingTokenStrategy(clock);
       await strategy.tick(context("broadcast-1"));
       await strategy.tick(context("broadcast-2"));
-      expect(gql).toHaveBeenCalledTimes(2);
+      expect(tokenRequests(gql)).toBe(2);
     });
 
     it("refreshes an expired playlist without waiting when the last token request succeeded", async () => {
@@ -518,15 +540,13 @@ describe("Twitch HLS heartbeat", () => {
           if (init.method === "GET") return { status: mediaStatus, body: media(SEGMENT_ONE), url };
           return { status: 200, body: "", url };
         },
-        fetchText: async () => '{"spade_url":"https://spade.twitch.tv/track"}',
-        post: async () => ({ status: 204 }),
       });
       await expect(strategy.tick(context())).resolves.toEqual({ ok: true, live: true });
       mediaStatus = 403;
       await expect(strategy.sustain?.(context())).resolves.toMatchObject({ ok: false, message: "Twitch HLS playlist returned HTTP 403" });
       mediaStatus = 200;
       await expect(strategy.sustain?.(context())).resolves.toEqual({ ok: true, live: true });
-      expect(gql).toHaveBeenCalledTimes(2);
+      expect(tokenRequests(gql)).toBe(2);
     });
   });
 
@@ -536,11 +556,10 @@ describe("Twitch HLS heartbeat", () => {
     let finish: () => void = () => {};
     const { strategy } = strategyFor({
       exchange: exchangeFrom({ media: media(SEGMENT_ONE) }, () => ({ status: 200 })),
-      fetchText: async () => '{"spade_url":"https://spade.twitch.tv/track"}',
-      post: async () => {
+      sendEvents: async () => {
         reached();
         await new Promise<void>((resolve) => { finish = resolve; });
-        return { status: 204 };
+        return { data: { sendSpadeEvents: { statusCode: 204 } } };
       },
     });
 
@@ -551,17 +570,16 @@ describe("Twitch HLS heartbeat", () => {
     await expect(pending).resolves.toEqual({ ok: false, live: true, message: "Twitch HLS watch stopped" });
   });
 
-  it("notes a beacon that is refused or fails without failing the watch", async () => {
+  it("notes an event that is refused or fails without failing the watch", async () => {
     const logs: string[] = [];
     let clock = 0;
     let fail = false;
     const { strategy } = strategyFor({
       now: () => clock,
       exchange: exchangeFrom({ media: media(SEGMENT_ONE) }, () => ({ status: 200 })),
-      fetchText: async () => '{"spade_url":"https://spade.twitch.tv/track"}',
-      post: async () => {
-        if (fail) throw new Error("connect failed https://spade.twitch.tv/track?secret=1");
-        return { status: 400 };
+      sendEvents: () => {
+        if (fail) throw new Error("connect failed https://gql.twitch.tv/gql?secret=1");
+        return { data: { sendSpadeEvents: { statusCode: 400 } } };
       },
       log: (_level, message) => logs.push(message),
     });
@@ -571,8 +589,8 @@ describe("Twitch HLS heartbeat", () => {
     clock += 60_000;
     await expect(strategy.tick(context())).resolves.toEqual({ ok: true, live: true });
 
-    expect(logs).toContain("Twitch minute-watched beacon returned HTTP 400");
-    expect(logs).toContain("Twitch minute-watched beacon failed: network request failed");
+    expect(logs).toContain("Twitch minute-watched event returned status 400");
+    expect(logs).toContain("Twitch minute-watched event failed: network request failed");
     expect(logs.join("\n")).not.toContain("secret");
   });
 
@@ -595,8 +613,6 @@ describe("Twitch HLS heartbeat", () => {
       emit: vi.fn(),
       log: vi.fn(),
       identity: "web",
-      fetchText: vi.fn(),
-      post: vi.fn(),
     })).toThrow(/playlist request/);
   });
 });

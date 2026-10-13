@@ -12,6 +12,9 @@ export interface MinuteWatchedContext {
   gameId?: string;
   gameName?: string;
   clientTime?: string;
+  // The web page's player. Twitch credits channel points for a GraphQL
+  // minute-watched only when the event names it (docs/spikes/twitch-watch-crediting.md).
+  player?: "site";
 }
 
 export const SEND_SPADE_EVENTS_MUTATION =
@@ -45,6 +48,7 @@ export function buildMinuteWatchedEvent(ctx: MinuteWatchedContext): Array<Record
         logged_in: true,
         minutes_logged: 1,
         muted: false,
+        ...(ctx.player ? { player: ctx.player } : {}),
         user_id: String(ctx.userId),
       },
     },
