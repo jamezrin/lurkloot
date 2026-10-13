@@ -252,6 +252,9 @@ SHAs; do not replace one with a floating tag.
 - Existing stable tag at another SHA: stop and prepare a new version. Never move it.
 - Sync failure, including a `develop` tree that no longer passes `pnpm verify`: the release itself
   is complete. Fix `develop`, then rerun the failed `sync` job alone; publication is not repeated.
+  A second `production` approval is required. If `sync` was skipped rather than failed, that is the
+  transitive-`needs` skip when `docker` was skipped — confirm `sync` has an `if` that continues when
+  `publish` succeeded, then re-dispatch **Release** (or open a one-off sync PR).
 - Sync conflict: merge `main` into `develop` locally, run `pnpm verify`, and push with the dedicated
   App credential; alternatively use a one-off reviewed synchronization PR. Do not disable branch
   protection.

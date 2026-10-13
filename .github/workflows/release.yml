@@ -310,8 +310,16 @@ jobs:
   # has already shipped: this leaves a completed release plus one retryable job, instead of a rerun
   # that repeats the entire publication before failing in the same place. Its own checkout is clean,
   # so nothing has to be restored before switching branches.
+  #
+  # GitHub skips a job when any ancestor in its needs chain was skipped, even if an intermediate job
+  # overrode that with its own `if` and succeeded. `docker` is skipped on the normal candidate path,
+  # `publish` continues via its `if`, and without a matching override here `sync` never runs.
   sync:
     needs: [resolve, publish]
+    if: >-
+      !cancelled() &&
+      needs.resolve.result == 'success' &&
+      needs.publish.result == 'success'
     runs-on: ubuntu-latest
     environment: production
     permissions:
