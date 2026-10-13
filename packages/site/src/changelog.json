@@ -1,14 +1,59 @@
 [
   {
+    "version": "1.17.0",
+    "changes": [
+      {
+        "kind": "new",
+        "text": "New Always enter channel chat setting for Twitch and Kick. Lurkloot joins the chat of the channel it is watching, without ever sending messages, which some rewards need to count your watch time. Streamers and moderators can see you in the chat's viewer list. The CLI supports it for Twitch."
+      },
+      {
+        "kind": "new",
+        "text": "NoPixel V rewards now earn daily watch time without a tab. NoPixel only counts viewers who are in the channel's chat, so Lurkloot joins it automatically while farming NoPixel V."
+      },
+      {
+        "kind": "improved",
+        "text": "Watching Twitch without a tab now earns channel points too, not just drop progress."
+      },
+      {
+        "kind": "improved",
+        "text": "NoPixel V giveaways are now joined within seconds of opening instead of on the next check, and only when you can enter them. Giveaways limited to followers or subscribers are skipped if you don't qualify."
+      },
+      {
+        "kind": "improved",
+        "text": "When a Twitch stream ends, Lurkloot now moves to another channel within about a minute instead of waiting through several checks."
+      },
+      {
+        "kind": "improved",
+        "text": "Lurkloot now asks for all the Twitch and Kick site access it needs when it is installed or updated, so Twitch no longer asks separately when you turn it on, and Export credentials no longer asks for an extra permission. After this update, Chrome may pause Lurkloot until you approve the new site access."
+      },
+      {
+        "kind": "improved",
+        "text": "Fortnite rewards now need one more site permission, for Fortnite's live connection. If you farm Fortnite, it is switched off after updating; turn it back on and allow the prompt."
+      },
+      {
+        "kind": "fixed",
+        "text": "Twitch Special Events and IRL campaigns are now farmed. Their participating channels stream other categories, so Lurkloot used to reject every one of them."
+      },
+      {
+        "kind": "fixed",
+        "text": "Watching Kick without a tab now reports watch time on the same schedule and with the same details as the Kick website, so it is counted reliably."
+      },
+      {
+        "kind": "fixed",
+        "text": "When a Twitch extension reward such as NoPixel V needs you to link your account, Lurkloot now pauses that reward and checks again later, instead of hopping between channels every minute. Channels that don't have the extension installed now show as Waiting instead of looking like an error."
+      }
+    ]
+  },
+  {
     "version": "1.16.0",
     "changes": [
       {
         "kind": "fixed",
-        "text": "Tabless Twitch watching now earns drop progress. The watch signal Lurkloot was sending was accepted, but it did not count toward a drop, so a watch with no tab looked active and never moved. Lurkloot now requests the stream the way the Twitch website does. That needs access to Twitch's video servers, *.ttvnw.net, and the browser asks for it when Twitch is turned on with this watch signal. Allowing it turns Twitch on even if the prompt closes the popup. Declining leaves Twitch off, or leaves the previous watch signal selected if you were switching to this one. After this update, Twitch that was already on without that access is turned off, and Activity says a required permission is missing; turn Twitch back on to be asked again. An older watch signal you already selected in compatibility settings stays on, and only the new signal asks for this access. The headless CLI uses the same watch signal on its own."
+        "text": "Twitch drops progress again. A recent change on Twitch's side stopped counting the watch time Lurkloot reported, so Twitch campaigns looked active but never moved. Lurkloot now watches the way the Twitch website does, by loading the stream itself, and progress counts again. This needs access to Twitch's video servers, so after updating, Twitch is switched off until you turn it back on and allow that access."
       },
       {
         "kind": "fixed",
-        "text": "A tabless Idle Watchlist watch now keeps going when no drop campaign is being farmed, on Kick and on Twitch, including after the browser has put the extension to sleep. On Kick the popup could stay on that channel while Kick was not receiving the watch, so your channel level did not move. The watch is sent again, a closed connection is opened on the next check, and a watch counts only after that send has left the browser. A connection that fails outright opens a watch tab."
+        "text": "Idle Watchlist channels now keep being watched without a tab on Kick and Twitch when no drop campaign is running, including after the browser puts Lurkloot to sleep. On Kick, a channel could show as watched while Kick wasn't counting it, so your channel level didn't go up."
       }
     ]
   },
