@@ -1,4 +1,5 @@
 import { platformSocketOrigin } from "./platformRequestOrigin";
+import { twitchExtensionProviders } from "@lurkloot/core/extensions/registry";
 import { KICK_SOCKET_ORIGIN, PUSHER_SOCKET_ORIGIN, TWITCH_SOCKET_ORIGIN } from "./platformHosts";
 
 // Firefox has no offscreen document, and its declarativeNetRequest leaves the
@@ -24,7 +25,13 @@ export interface BlockingWebRequestApi {
   };
 }
 
-export const PLATFORM_SOCKET_ORIGINS = [TWITCH_SOCKET_ORIGIN, KICK_SOCKET_ORIGIN, PUSHER_SOCKET_ORIGIN];
+export const PLATFORM_SOCKET_ORIGINS: string[] = [
+  TWITCH_SOCKET_ORIGIN,
+  KICK_SOCKET_ORIGIN,
+  PUSHER_SOCKET_ORIGIN,
+  // Optional provider backends (#798): listened to, rewritten once granted.
+  ...twitchExtensionProviders.flatMap((provider) => provider.backendSocketOrigin ? [provider.backendSocketOrigin] : []),
+];
 
 // The handshake headers with the platform's Origin, for the extension's own
 // platform sockets only. A Twitch or Kick tab's sockets have the site as

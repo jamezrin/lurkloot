@@ -22,6 +22,7 @@ const SOCKET_LABELS: Record<SocketProfileName, string> = {
   "kick-realtime": "Kick realtime",
   "kick-pusher": "Kick realtime (Pusher)",
   "kick-viewer": "Kick viewer",
+  fortnite: "Fortnite extension",
 };
 
 export function createSocketAdmission(deps: SocketAdmissionDeps): SocketAdmission {

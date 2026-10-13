@@ -299,7 +299,8 @@ const extensionHost = createTwitchExtensionHost({
     fortnite: async (session, emit, channel, publish) => createFortniteDriver({
       allowTakeovers: (await loadSettings()).twitchExtensions.fortnite.allowTakeovers,
       onTakeoverStarted: () => publishDriverAction(publish, channel, "fortnite", "takeover_started"),
-      createSocket: (url) => new WebSocket(url),
+      // Through the socket host, so it presents the extension frame's origin (#798).
+      createSocket: (url) => platformWebSocket(url),
       onCaptured: () => publishDriverAction(publish, channel, "fortnite", "sprite_captured"),
     })(session, emit, channel, publish),
     nopixel: async (session, emit, channel, publish) => createNoPixelDriver(

@@ -5,6 +5,9 @@ export interface TwitchExtensionProviderDescriptor {
   readonly id: TwitchExtensionProviderId;
   readonly extensionId: string;
   readonly backendOrigin: `https://${string}/*`;
+  // The provider's own WebSocket backend, granted with backendOrigin. Its
+  // handshake presents the extension frame's origin (#798).
+  readonly backendSocketOrigin?: `wss://${string}/*`;
   readonly discoveryCategoryIds: readonly string[];
   readonly minRefreshIntervalMs: number;
   // The provider credits rewards only while the viewer is in the channel's

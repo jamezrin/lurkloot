@@ -1,4 +1,4 @@
-import { twitchExtensionProviders, twitchExtensionProvider } from "@lurkloot/core/extensions/registry";
+import { twitchExtensionProviderOrigins, twitchExtensionProviders, twitchExtensionProvider } from "@lurkloot/core/extensions/registry";
 import type { TwitchExtensionProviderId } from "@lurkloot/shared/models";
 
 interface IntentStorage {
@@ -20,7 +20,7 @@ export async function requestTwitchExtensionGrant(options: {
   const key = intentKey(id);
   const saved = options.storage.set({ [key]: options.now() });
   // Call synchronously within the original gesture, without awaiting storage.
-  const grant = options.request({ origins: [twitchExtensionProvider(id)!.backendOrigin] });
+  const grant = options.request({ origins: twitchExtensionProviderOrigins(twitchExtensionProvider(id)!) });
   try {
     const [, granted] = await Promise.all([saved, grant]);
     if (!granted) await options.storage.remove(key);
@@ -48,7 +48,7 @@ export function createTwitchExtensionGrantCompletion(options: {
   }
   async function consume(id: TwitchExtensionProviderId) {
     const generation = generations.get(id) ?? 0;
-    if (!await options.contains({ origins: [twitchExtensionProvider(id)!.backendOrigin] })) return;
+    if (!await options.contains({ origins: twitchExtensionProviderOrigins(twitchExtensionProvider(id)!) })) return;
     if ((generations.get(id) ?? 0) !== generation) return;
     const key = intentKey(id);
     const stored = await options.storage.get(key);
@@ -73,10 +73,10 @@ export function createTwitchExtensionGrantCompletion(options: {
     cancel,
     cancelAll: () => Promise.all(twitchExtensionProviders.map(provider => cancel(provider.id))),
     async removed(details: { origins?: string[] }) {
-      await Promise.all(twitchExtensionProviders.filter(provider => details.origins?.includes(provider.backendOrigin)).map(provider => cancel(provider.id)));
+      await Promise.all(twitchExtensionProviders.filter(provider => twitchExtensionProviderOrigins(provider).some((origin) => details.origins?.includes(origin))).map(provider => cancel(provider.id)));
     },
     async added(details: { origins?: string[] }) {
-      await Promise.all(twitchExtensionProviders.filter(provider => details.origins?.includes(provider.backendOrigin)).map(provider => schedule(provider.id)));
+      await Promise.all(twitchExtensionProviders.filter(provider => twitchExtensionProviderOrigins(provider).some((origin) => details.origins?.includes(origin))).map(provider => schedule(provider.id)));
     },
     async changed(changes: Record<string, { newValue?: unknown }>) {
       // The native prompt may close the popup before its queued write completes.

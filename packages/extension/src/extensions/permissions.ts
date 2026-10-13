@@ -1,4 +1,4 @@
-import { twitchExtensionProviders } from "@lurkloot/core/extensions/registry";
+import { twitchExtensionProviderOrigins, twitchExtensionProviders } from "@lurkloot/core/extensions/registry";
 import type { TwitchExtensionProviderId } from "@lurkloot/core/extensions/types";
 import type { TwitchExtensionProviderDescriptor } from "@lurkloot/core/extensions/types";
 
@@ -51,7 +51,7 @@ export function createProviderPermissions(options: {
     const generation = generations.get(id) ?? 0;
     // Invoke directly from the UI gesture, BEFORE any asynchronous storage
     // reads or serialization; permissions.request needs the gesture intact.
-    const grant = granted ?? options.permissions.request({ origins: [provider.backendOrigin] });
+    const grant = granted ?? options.permissions.request({ origins: twitchExtensionProviderOrigins(provider) });
     // Handle rejection immediately even if another queued operation is slow.
     const outcome = grant.then((granted) => ({ granted }), (error: unknown) => ({ error }));
     return serialize(async () => {
@@ -59,7 +59,7 @@ export function createProviderPermissions(options: {
       if ((generations.get(id) ?? 0) !== generation) return false;
       if ("error" in result) throw result.error;
       if (!result.granted) { await disable(id); return false; }
-      if (!await options.permissions.contains({ origins: [provider.backendOrigin] })) {
+      if (!await options.permissions.contains({ origins: twitchExtensionProviderOrigins(provider) })) {
         await disable(id);
         return false;
       }
@@ -87,11 +87,11 @@ export function createProviderPermissions(options: {
     },
     removed(details: { origins?: string[] }): Promise<void> {
       for (const provider of twitchExtensionProviders) {
-        if (details.origins?.includes(provider.backendOrigin)) invalidate(provider.id);
+        if (twitchExtensionProviderOrigins(provider).some((origin) => details.origins?.includes(origin))) invalidate(provider.id);
       }
       return serialize(async () => {
         const results = await Promise.allSettled(twitchExtensionProviders
-          .filter((provider) => details.origins?.includes(provider.backendOrigin))
+          .filter((provider) => twitchExtensionProviderOrigins(provider).some((origin) => details.origins?.includes(origin)))
           .map(async (provider) => {
             if (await options.enabled(provider.id)) await disable(provider.id);
             else options.runtime.stop(provider);
@@ -110,7 +110,7 @@ export function createProviderPermissions(options: {
             return;
           }
           if ((generations.get(provider.id) ?? 0) !== generation) return;
-          if (!await options.permissions.contains({ origins: [provider.backendOrigin] })) {
+          if (!await options.permissions.contains({ origins: twitchExtensionProviderOrigins(provider) })) {
             await disable(provider.id);
             return;
           }

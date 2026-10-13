@@ -110,3 +110,24 @@ it.each(["enable", "reconcile"] as const)("%s cannot restart after revocation du
   expect(s.start).not.toHaveBeenCalled();
   expect(s.enabled.has(provider.id)).toBe(false);
 });
+
+// #798: Fortnite's socket backend is granted with its backend, in one prompt,
+// and the provider needs both.
+describe("Fortnite socket backend permission", () => {
+  const fortnite = twitchExtensionProviders.find((candidate) => candidate.id === "fortnite")!;
+  const both = ["https://backend.p-n6412w7dsu.exmggames.com/*", "wss://backend.p-n6412w7dsu.exmggames.com/*"];
+
+  it("requests the backend and its socket backend together and verifies both", async () => {
+    const s = setup();
+    expect(await s.permissions.enable(fortnite.id)).toBe(true);
+    expect(s.request).toHaveBeenCalledExactlyOnceWith({ origins: both });
+    expect(s.contains).toHaveBeenCalledWith({ origins: both });
+  });
+
+  it("turns the provider off when only the socket backend is revoked", async () => {
+    const s = setup();
+    expect(await s.permissions.enable(fortnite.id)).toBe(true);
+    await s.permissions.removed({ origins: ["wss://backend.p-n6412w7dsu.exmggames.com/*"] });
+    expect(s.enabled.has(fortnite.id)).toBe(false);
+  });
+});

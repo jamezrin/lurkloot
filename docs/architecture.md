@@ -810,6 +810,8 @@ The extension never presents its own `chrome-extension://` or `moz-extension://`
 - **Sockets on Firefox.** Firefox has no offscreen document, and its declarativeNetRequest skips the background page's sockets, so a blocking `webRequest.onBeforeSendHeaders` listener (`src/core/platformSocketOrigin.ts`, `webRequestBlocking`) sets the same Origins. It touches only sockets whose `originUrl` is the extension itself.
 - **Fail closed.** `src/core/socketAdmission.ts` admits a socket only once its Origin can be set — the rules are installed (Chrome) or the listener is registered (Firefox) — and its `wss://` host permission is granted. Otherwise the socket closes with 1006, one English diagnostic says why, and the client's backoff retries.
 
+- **Twitch Extension providers (#798).** A provider with its own socket backend declares `backendSocketOrigin` in `packages/core/src/extensions/registry.ts` (Fortnite today). It is optional, requested in the same prompt as `backendOrigin` and required with it (`twitchExtensionProviderOrigins`). Its socket opens in the socket host like the platforms' sockets, under a websocket-only rule (ids from 9105) that presents the provider's extension frame origin, `https://<extension-id>.ext-twitch.tv`. On Firefox the same `webRequest` listener covers it. The Fortnite profile forwards every frame, because its driver reads them all.
+
 Core is unchanged by any of this: it asks a `WebSocketFactory` for a URL. The CLI passes plain Node sockets.
 
 ## Twitch Integration

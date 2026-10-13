@@ -117,16 +117,38 @@ describe("Firefox socket origin listener", () => {
   it("leaves a platform tab's sockets and other hosts alone", () => {
     expect(rewriteSocketOrigin({ url: IRC_URL, originUrl: "https://www.twitch.tv/somechannel", requestHeaders: headers }, EXTENSION)).toBeUndefined();
     expect(rewriteSocketOrigin({ url: IRC_URL, originUrl: "moz-extension://another-extension/page.html", requestHeaders: headers }, EXTENSION)).toBeUndefined();
-    expect(rewriteSocketOrigin({ url: "wss://backend.p-n6412w7dsu.exmggames.com/handler", originUrl: `${EXTENSION}/x.html`, requestHeaders: headers }, EXTENSION)).toBeUndefined();
+    expect(rewriteSocketOrigin({ url: "wss://unknown-provider.example/socket", originUrl: `${EXTENSION}/x.html`, requestHeaders: headers }, EXTENSION)).toBeUndefined();
   });
 
   it("registers a blocking listener on the platform socket hosts", () => {
     const addListener = vi.fn();
     expect(installSocketOriginListener({ onBeforeSendHeaders: { addListener } }, EXTENSION)).toBe(true);
     expect(addListener).toHaveBeenCalledWith(expect.any(Function), {
-      urls: ["wss://*.twitch.tv/*", "wss://*.kick.com/*", "wss://*.pusher.com/*"],
+      urls: ["wss://*.twitch.tv/*", "wss://*.kick.com/*", "wss://*.pusher.com/*", "wss://backend.p-n6412w7dsu.exmggames.com/*"],
       types: ["websocket"],
     }, ["blocking", "requestHeaders"]);
     expect(installSocketOriginListener(undefined, EXTENSION)).toBe(false);
+  });
+});
+
+describe("Fortnite extension socket (#798)", () => {
+  const EXTENSION = "moz-extension://1b2c3d4e-0000-4000-8000-000000000000";
+  const FORTNITE_URL = "wss://backend.p-n6412w7dsu.exmggames.com/handler";
+
+  it("presents the extension frame's origin on Firefox", () => {
+    const headers = [{ name: "Origin", value: EXTENSION }];
+    expect(rewriteSocketOrigin({ url: FORTNITE_URL, originUrl: `${EXTENSION}/background.html`, requestHeaders: headers }, EXTENSION)).toEqual({
+      requestHeaders: [{ name: "Origin", value: "https://x2nfeda4neuzvsp2zdqfln9nwxc7tp.ext-twitch.tv" }],
+    });
+  });
+
+  it("stays closed until the provider's socket backend is granted", async () => {
+    const report = vi.fn();
+    const granted = new Set<string>();
+    const admit = createSocketAdmission({ originReady: async () => true, hasPermission: async (origin) => granted.has(origin), report });
+    await expect(admit(FORTNITE_URL)).resolves.toBe(false);
+    expect(report).toHaveBeenCalledWith({ platform: "twitch", message: "Fortnite extension socket stays closed until the wss://backend.p-n6412w7dsu.exmggames.com/* host permission is granted." });
+    granted.add("wss://backend.p-n6412w7dsu.exmggames.com/*");
+    await expect(admit(FORTNITE_URL)).resolves.toBe(true);
   });
 });

@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { applyProviderOptionalPermissions } from "../src/extensions/manifest";
-import { twitchExtensionProviders } from "@lurkloot/core/extensions/registry";
 
-const origins = twitchExtensionProviders.map((provider) => provider.backendOrigin);
+// Each provider's backend, plus its socket backend where it has one (#798).
+const origins = [
+  "https://nopixel.streamingtoolsmith.com/*",
+  "https://backend.p-n6412w7dsu.exmggames.com/*",
+  "wss://backend.p-n6412w7dsu.exmggames.com/*",
+];
 describe("Twitch Extension manifest permissions", () => {
   it.each([2, 3])("adds only optional backend grants for MV%i", (version) => {
     const manifest = {

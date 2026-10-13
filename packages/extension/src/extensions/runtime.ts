@@ -1,4 +1,4 @@
-import { twitchExtensionProviders } from "@lurkloot/core/extensions/registry";
+import { twitchExtensionProviderOrigins, twitchExtensionProviders } from "@lurkloot/core/extensions/registry";
 import { validateTwitchExtensionReport } from "@lurkloot/core/extensions/reports";
 import type { EngineEvent } from "@lurkloot/shared/events";
 import type { TwitchExtensionProviderId, TwitchExtensionReport } from "@lurkloot/shared/models";
@@ -159,7 +159,7 @@ export function createTwitchExtensionRuntime(options: {
       entries.set(id, next);
       next.pending = (async () => {
         try {
-          const granted = await options.contains(provider.backendOrigin);
+          const granted = (await Promise.all(twitchExtensionProviderOrigins(provider).map((origin) => options.contains(origin)))).every(Boolean);
           if (next.abort.signal.aborted || entries.get(id) !== next) return;
           if (!granted) {
             emit(id, next, { status: "unavailable", reasonCode: "permission-required", progress: [], pending: [] });

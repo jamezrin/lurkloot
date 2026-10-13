@@ -1,11 +1,12 @@
 import { TWITCH_IRC_CLIENT_COMMANDS } from "@lurkloot/core/twitch/chatPresence";
+import { twitchExtensionProvider } from "@lurkloot/core/extensions/registry";
 import type { Platform } from "@lurkloot/shared/models";
 import { KICK_SOCKET_ORIGIN, PUSHER_SOCKET_ORIGIN, TWITCH_SOCKET_ORIGIN } from "./platformHosts";
 
 // The platform sockets the extension may open, each with the host permission
 // its Origin rewrite needs and the frames it forwards (#792). The socket host
 // opens these URLs and nothing else.
-export type SocketProfileName = "twitch-hermes" | "twitch-irc" | "kick-realtime" | "kick-pusher" | "kick-viewer";
+export type SocketProfileName = "twitch-hermes" | "twitch-irc" | "kick-realtime" | "kick-pusher" | "kick-viewer" | "fortnite";
 
 export interface SocketProfile {
   name: SocketProfileName;
@@ -20,6 +21,9 @@ const PROFILES: Array<SocketProfile & { url: RegExp }> = [
   { name: "kick-realtime", platform: "kick", permission: KICK_SOCKET_ORIGIN, url: /^wss:\/\/realtime\.[a-z0-9-]+\.platform\.kick\.com\/connection\/websocket$/i },
   { name: "kick-pusher", platform: "kick", permission: PUSHER_SOCKET_ORIGIN, url: /^wss:\/\/ws-[a-z0-9-]+\.pusher\.com\/app\/[a-z0-9]+\?[^#\s]*$/i },
   { name: "kick-viewer", platform: "kick", permission: KICK_SOCKET_ORIGIN, url: /^wss:\/\/websockets\.kick\.com\/viewer\/v1\/connect\?token=[^#\s&]+$/i },
+  // The Fortnite Twitch Extension's backend (#798). Its driver reads every
+  // frame (replies to its own commands, state pushes), so nothing is dropped.
+  { name: "fortnite", platform: "twitch", permission: twitchExtensionProvider("fortnite")!.backendSocketOrigin!, url: /^wss:\/\/backend\.p-n6412w7dsu\.exmggames\.com\/handler$/i },
 ];
 
 export function socketProfileFor(url: string): SocketProfile | undefined {

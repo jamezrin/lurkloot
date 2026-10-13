@@ -15,11 +15,23 @@ export const twitchExtensionProviders: readonly TwitchExtensionProviderDescripto
     id: "fortnite" as const,
     extensionId: "x2nfeda4neuzvsp2zdqfln9nwxc7tp",
     backendOrigin: "https://backend.p-n6412w7dsu.exmggames.com/*" as const,
+    backendSocketOrigin: "wss://backend.p-n6412w7dsu.exmggames.com/*" as const,
     discoveryCategoryIds: Object.freeze(["33214"]),
     minRefreshIntervalMs: 10_000,
     needsChatPresence: false,
   }),
 ]);
+
+// Every host the provider needs granted: its backend and, where it has one,
+// its socket backend. Requested together and required together.
+export function twitchExtensionProviderOrigins(provider: TwitchExtensionProviderDescriptor): string[] {
+  return provider.backendSocketOrigin ? [provider.backendOrigin, provider.backendSocketOrigin] : [provider.backendOrigin];
+}
+
+// The origin the provider's extension frame has on Twitch.
+export function twitchExtensionFrameOrigin(provider: TwitchExtensionProviderDescriptor): string {
+  return `https://${provider.extensionId}.ext-twitch.tv`;
+}
 
 export function twitchExtensionProvider(id: string): TwitchExtensionProviderDescriptor | undefined {
   return twitchExtensionProviders.find((provider) => provider.id === id);

@@ -15,11 +15,16 @@ describe("socket profiles", () => {
     expect(socketProfileFor(CENTRIFUGO_URL)).toEqual({ name: "kick-realtime", platform: "kick", permission: "wss://*.kick.com/*" });
     expect(socketProfileFor(PUSHER_URL)).toEqual({ name: "kick-pusher", platform: "kick", permission: "wss://*.pusher.com/*" });
     expect(socketProfileFor("wss://websockets.kick.com/viewer/v1/connect?token=abc.def%2B")).toEqual({ name: "kick-viewer", platform: "kick", permission: "wss://*.kick.com/*" });
+    // #798: the Fortnite extension's backend, behind its optional grant.
+    expect(socketProfileFor("wss://backend.p-n6412w7dsu.exmggames.com/handler")).toEqual({ name: "fortnite", platform: "twitch", permission: "wss://backend.p-n6412w7dsu.exmggames.com/*" });
+    expect(forwardedFrame("fortnite", "{\"type\":\"states.change\"}")).toBe("{\"type\":\"states.change\"}");
   });
 
   it("refuses anything else", () => {
     for (const url of [
       "wss://evil.example/socket",
+      "wss://backend.p-n6412w7dsu.exmggames.com/other",
+      "wss://backend.p-n6412w7dsu.exmggames.com.evil.example/handler",
       "ws://irc-ws.chat.twitch.tv/",
       "wss://irc-ws.chat.twitch.tv.evil.example/",
       "wss://irc-ws.chat.twitch.tv/extra",
@@ -27,7 +32,6 @@ describe("socket profiles", () => {
       "wss://realtime.us-west-2.platform.kick.com.evil.example/connection/websocket",
       "wss://websockets.kick.com/viewer/v1/connect?token=a&other=b",
       `${PUSHER_URL}#fragment`,
-      "wss://backend.p-n6412w7dsu.exmggames.com/handler",
     ]) {
       expect(socketProfileFor(url), url).toBeUndefined();
     }

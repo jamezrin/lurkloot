@@ -10,13 +10,34 @@
 // where the socket rules apply. Firefox applies neither to its background
 // page's sockets; platformSocketOrigin.ts rewrites them there (#792).
 
+import {
+  twitchExtensionFrameOrigin,
+  twitchExtensionProviders,
+} from "@lurkloot/core/extensions/registry";
+
 // Granted GET and HEAD requests carry no Origin, so the HTTP rules leave them
 // alone. That keeps the HLS playlist and segment requests exactly as they
 // were (#752). A WebSocket handshake is a GET too, so sockets have their own
 // rules.
 const UNCHANGED_METHODS = ["get", "head"] as const;
 
-export const PLATFORM_ORIGIN_RULE_IDS = [9101, 9102, 9103, 9104] as const;
+// Twitch Extension providers' own socket backends present the provider's
+// extension frame origin, as on Twitch (#798). One rule each, from 9105.
+interface ProviderSocketOrigin {
+  id: number;
+  origin: string;
+  domain: string;
+}
+
+const PROVIDER_SOCKET_ORIGINS: ProviderSocketOrigin[] = twitchExtensionProviders
+  .filter((provider) => provider.backendSocketOrigin)
+  .map((provider, index) => ({
+    id: 9105 + index,
+    origin: twitchExtensionFrameOrigin(provider),
+    domain: new URL(provider.backendSocketOrigin!.replace("/*", "/")).hostname,
+  }));
+
+export const PLATFORM_ORIGIN_RULE_IDS = [9101, 9102, 9103, 9104, ...PROVIDER_SOCKET_ORIGINS.map(({ id }) => id)] as const;
 
 interface PlatformOrigin {
   origin: string;
@@ -76,7 +97,12 @@ function originRule(id: number, origin: string, condition: PlatformOriginRule["c
 // The extension's own requests have its origin's host as initiator: the id on
 // Chrome, the per-install UUID on Firefox.
 export function platformOriginRules(extensionHost: string): PlatformOriginRule[] {
-  return PLATFORM_ORIGINS.flatMap(({ origin, request, socket }) => [
+  const providers = PROVIDER_SOCKET_ORIGINS.map(({ id, origin, domain }) => originRule(id, origin, {
+    initiatorDomains: [extensionHost],
+    requestDomains: [domain],
+    resourceTypes: ["websocket"],
+  }));
+  return [...PLATFORM_ORIGINS.flatMap(({ origin, request, socket }) => [
     originRule(request.id, origin, {
       initiatorDomains: [extensionHost],
       requestDomains: request.domains,
@@ -87,7 +113,7 @@ export function platformOriginRules(extensionHost: string): PlatformOriginRule[]
       requestDomains: socket.domains,
       resourceTypes: ["websocket"],
     }),
-  ]);
+  ]), ...providers];
 }
 
 // The site origin a platform socket presents, or undefined for any other
@@ -103,7 +129,7 @@ export function platformSocketOrigin(url: string): string | undefined {
   const host = parsed.hostname.toLowerCase();
   return PLATFORM_ORIGINS.find(({ socket }) => socket.domains.some(
     (domain) => host === domain || host.endsWith(`.${domain}`),
-  ))?.origin;
+  ))?.origin ?? PROVIDER_SOCKET_ORIGINS.find(({ domain }) => host === domain)?.origin;
 }
 
 // Dynamic rules survive browser restarts, so the first request after a cold

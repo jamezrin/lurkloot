@@ -1,6 +1,6 @@
 import { discoverTwitchExtensionChannels } from "@lurkloot/core/extensions/discovery";
 import { pausedForManualWatch } from "@lurkloot/core/manualWatch";
-import { twitchExtensionProviders } from "@lurkloot/core/extensions/registry";
+import { twitchExtensionProviderOrigins, twitchExtensionProviders } from "@lurkloot/core/extensions/registry";
 import type { ChannelCandidate, ExtensionSettings, SchedulerState, SupplementalWatchTarget, TwitchExtensionProviderId, TwitchExtensionReport, TwitchExtensionSummary, WatchSourceId } from "@lurkloot/shared/models";
 import type { EngineEvent } from "@lurkloot/shared/events";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
@@ -319,7 +319,7 @@ export function createTwitchExtensionHost(options: {
       .sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
     for (const provider of providers) {
       if (!settings.twitchExtensions[provider.id].enabled || !options.drivers[provider.id]) continue;
-      if (!await options.permissions.contains({ origins: [provider.backendOrigin] })) continue;
+      if (!await options.permissions.contains({ origins: twitchExtensionProviderOrigins(provider) })) continue;
       signal?.throwIfAborted();
       if (selectedGeneration !== generation) return;
       const now = options.source.now();

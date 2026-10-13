@@ -47,12 +47,26 @@ describe("platform request origin rules", () => {
     }
   });
 
+  // #798: one websocket-only rule per provider socket backend.
+  it("sets the Fortnite extension frame's origin on its backend socket", () => {
+    const fortnite = rule(9105);
+    expect(fortnite.action.requestHeaders).toEqual([{ header: "origin", operation: "set", value: "https://x2nfeda4neuzvsp2zdqfln9nwxc7tp.ext-twitch.tv" }]);
+    expect(fortnite.condition).toEqual({
+      initiatorDomains: ["abcdefghijklmnop"],
+      requestDomains: ["backend.p-n6412w7dsu.exmggames.com"],
+      resourceTypes: ["websocket"],
+    });
+  });
+
   it("names the origin a platform socket presents", () => {
     expect(platformSocketOrigin("wss://hermes.twitch.tv/v1?clientId=abc")).toBe("https://www.twitch.tv");
     expect(platformSocketOrigin("wss://irc-ws.chat.twitch.tv/")).toBe("https://www.twitch.tv");
     expect(platformSocketOrigin("wss://websockets.kick.com/viewer/v1/connect?token=t")).toBe("https://kick.com");
     expect(platformSocketOrigin("wss://ws-us2.pusher.com/app/key?protocol=7")).toBe("https://kick.com");
-    expect(platformSocketOrigin("wss://backend.p-n6412w7dsu.exmggames.com/handler")).toBeUndefined();
+    // #798: the Fortnite extension's backend presents its Twitch frame origin.
+    expect(platformSocketOrigin("wss://backend.p-n6412w7dsu.exmggames.com/handler")).toBe("https://x2nfeda4neuzvsp2zdqfln9nwxc7tp.ext-twitch.tv");
+    expect(platformSocketOrigin("wss://other.exmggames.com/handler")).toBeUndefined();
+    expect(platformSocketOrigin("wss://unknown-provider.example/socket")).toBeUndefined();
     expect(platformSocketOrigin("wss://twitch.tv.evil.example/")).toBeUndefined();
     expect(platformSocketOrigin("wss://eviltwitch.tv/")).toBeUndefined();
     expect(platformSocketOrigin("https://gql.twitch.tv/gql")).toBeUndefined();
