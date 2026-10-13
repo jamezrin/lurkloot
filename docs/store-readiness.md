@@ -40,17 +40,19 @@ Paste-ready justifications for the Chrome Web Store privacy tab. Each maps to ac
 
 ## Host permission justifications
 
-- **`https://*.twitch.tv/*`** — Supports Twitch watch pages, campaign and reward APIs, session authentication, and tabless farming signals. Twitch selects some of these services dynamically and may move them between its own subdomains; domain-wide first-party access keeps farming functional across those changes.
-- **`https://*.kick.com/*`** — Supports Kick watch pages, campaign and reward APIs, session authentication, and tabless watch events. Kick uses multiple first-party service subdomains and may add or replace them as the platform evolves.
-- **`https://*.ttvnw.net/*`** — Twitch's video CDN. With the HLS watch heartbeat (the default automatic profile), tabless watching requests playlist and media-segment headers from it so drop progress advances without downloading or playing the video. Segment hosts sit on nested `ttvnw.net` subdomains and are not covered by `*.twitch.tv`. Spade, GraphQL, and other non-HLS heartbeats do not contact this host. (`packages/core/src/platforms/twitch/heartbeat/hls.ts`)
-- **`wss://*.twitch.tv/*`, `wss://*.kick.com/*`** — The same Twitch and Kick services over their realtime connections (Twitch push and chat presence, Kick realtime and viewer). Chrome sets a connection's origin only for hosts granted with the `wss://` scheme.
-- **`wss://*.pusher.com/*`** — Kick's fallback realtime provider. Kick names it in its own connection negotiation, and kick.com connects to it with its own origin.
-- **`https://*.jtvnw.net/*`** — Twitch's static CDN. Campaign artwork, emotes, box art, and thumbnails are served from nested `jtvnw.net` hosts outside `*.twitch.tv`. Granting it keeps popup and discovery surfaces able to fetch those assets without a later privilege escalation.
-- **`https://*.twitchcdn.net/*`** — Twitch CDN. Hosts Kasada (`k.twitchcdn.net`) and related first-party services outside `*.twitch.tv`. The Settings → Export credentials action reads Twitch's Kasada session cookie (`KP_UIDz-ssn`) from that host for the headless CLI; the extension itself never uses the cookie while farming.
-- **`https://*.live-video.net/*`** — Amazon IVS. Kick livestream playlists live on nested `*.playback.live-video.net` hosts outside `*.kick.com`; Twitch's web player also contacts `*.live-video.net` for IVS device configuration. Granting it covers Kick video-adjacent farming paths and Twitch IVS config without a later privilege escalation.
-- **`https://*.ext-twitch.tv/*`** — Twitch Extensions CDN and supervisor hosts. Supplemental Twitch Extension reward providers and extension-adjacent surfaces sit on nested `ext-twitch.tv` names outside `*.twitch.tv`. Provider backends remain separately opted-in optional grants.
+Paste-ready for the Chrome Web Store host-permission field (under 1000 characters when joined). Each line is one host.
 
-These required wildcards replace the previous exact-host list. Existing Chrome users may need to approve the expanded site access after updating before the extension is re-enabled. The required access remains restricted to Twitch, Kick, and the platform CDN/IVS/extension hosts above, and is used only for the extension's drop-farming purpose.
+- **`https://*.twitch.tv/*`** — Twitch watch pages, campaign/reward APIs, session auth, and farming signals on first-party subdomains.
+- **`https://*.kick.com/*`** — Kick watch pages, campaign/reward APIs, session auth, and farming signals on first-party subdomains.
+- **`https://*.ttvnw.net/*`** — Twitch video CDN for tabless HLS playlist/segment checks (outside `*.twitch.tv`).
+- **`wss://*.twitch.tv/*`, `wss://*.kick.com/*`** — Platform realtime sockets; Chrome needs the `wss://` grant to set Origin.
+- **`wss://*.pusher.com/*`** — Kick fallback realtime provider, used with Kick's own origin.
+- **`https://*.jtvnw.net/*`** — Twitch static CDN for campaign art, emotes, and thumbnails.
+- **`https://*.twitchcdn.net/*`** — Twitch CDN (incl. Kasada); CLI credential-export cookie read only, never while farming.
+- **`https://*.live-video.net/*`** — Amazon IVS for Kick playback and Twitch player device config.
+- **`https://*.ext-twitch.tv/*`** — Twitch Extensions CDN/supervisor; provider backends stay separate optional grants.
+
+Existing Chrome users may need to approve the expanded site access after updating. Required access stays limited to Twitch, Kick, and the CDN/IVS/extension hosts above, for drop farming only.
 
 ## Release verification
 
