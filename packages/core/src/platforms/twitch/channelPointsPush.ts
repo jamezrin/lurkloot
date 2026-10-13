@@ -430,7 +430,7 @@ export class TwitchChannelPointsPushController {
       || typeof claim.channel_id !== "string"
       || claim.channel_id.length === 0
     ) {
-      this.log("debug", "Ignored Twitch channel-points push notification");
+      this.log("debug", `Ignored Twitch channel-points push notification${describePointsEvent(inner.type, data)}`);
       return;
     }
     try {
@@ -601,6 +601,21 @@ function extensionBroadcastEvents(pubsub: unknown): string[] {
     : [outer];
   return messages.flatMap((message) =>
     typeof message?.event === "string" && EXTENSION_BROADCAST_EVENT.test(message.event) ? [message.event] : []);
+}
+
+// What a points event was, for the diagnostic log: points-earned names the
+// channel and why (WATCH, CLAIM, WATCH_STREAK, ...), which shows whether a
+// watch is earning. Only the type, reason, channel id and point count.
+function describePointsEvent(type: unknown, data: unknown): string {
+  const safe = (value: unknown) => typeof value === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(value) ? value : undefined;
+  const kind = safe(type);
+  if (!kind) return "";
+  if (kind !== "points-earned" || !isRecord(data)) return ` (${kind})`;
+  const gain = isRecord(data.point_gain) ? data.point_gain : undefined;
+  const reason = safe(gain?.reason_code) ?? "unknown reason";
+  const channel = safe(data.channel_id) ?? safe(gain?.channel_id);
+  const points = typeof gain?.total_points === "number" ? ` +${gain.total_points}` : "";
+  return ` (points-earned: ${reason}${points}${channel ? ` on channel ${channel}` : ""})`;
 }
 
 function parsePubsub(value: unknown): Record<string, unknown> | undefined {

@@ -386,6 +386,34 @@ describe("Twitch channel-points push", () => {
     });
   });
 
+  it("logs what a points event was, so a watch's earnings show in diagnostics", async () => {
+    const socket = new FakeSocket();
+    const controller = createPushController({
+      createWebSocket: () => socket,
+      getAuthToken: async () => "token",
+      resolveUserId: async () => "78020132",
+    });
+    await handshake(socket, controller, vi.fn());
+    const subscriptionId = currentSubscriptionId(socket);
+
+    socket.message(pubsubNotification(subscriptionId, {
+      type: "points-earned",
+      data: {
+        channel_id: "119415848",
+        point_gain: { reason_code: "WATCH", total_points: 10 },
+        balance: { balance: 4200 },
+      },
+    }));
+    socket.message(pubsubNotification(subscriptionId, { type: "claim-claimed", data: {} }));
+    socket.message(pubsubNotification(subscriptionId, { type: "<script>", data: {} }));
+
+    const logged = JSON.stringify(controller.drainEvents());
+    expect(logged).toContain("Ignored Twitch channel-points push notification (points-earned: WATCH +10 on channel 119415848)");
+    expect(logged).toContain("Ignored Twitch channel-points push notification (claim-claimed)");
+    expect(logged).not.toContain("4200");
+    expect(logged).not.toContain("<script>");
+  });
+
   it("ignores malformed, incomplete, claimed, and foreign notifications", async () => {
     const socket = new FakeSocket();
     const onClaim = vi.fn();
