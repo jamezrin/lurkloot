@@ -63,6 +63,7 @@ export function createSocketHostFactory(host: SocketHostDocument): WebSocketFact
   async function hostPort(): Promise<SocketHostPort> {
     if (port) return port;
     connecting ??= (async () => {
+      let timeout: ReturnType<typeof setTimeout> | undefined;
       try {
         // A document from an earlier worker has no live port; start afresh.
         try {
@@ -72,11 +73,16 @@ export function createSocketHostFactory(host: SocketHostDocument): WebSocketFact
         }
         const connected = new Promise<SocketHostPort>((resolve, reject) => {
           waiting = resolve;
-          setTimer(() => reject(new Error("The socket host did not connect")), HOST_CONNECT_TIMEOUT_MS);
+          timeout = setTimer(() => reject(new Error("The socket host did not connect")), HOST_CONNECT_TIMEOUT_MS);
         });
+        // A failed createDocument skips the await below; the timeout must not
+        // then reject an unobserved promise.
+        connected.catch(() => undefined);
         await host.createDocument();
         return await connected;
       } finally {
+        if (timeout !== undefined) clearTimer(timeout);
+        timeout = undefined;
         connecting = undefined;
         waiting = undefined;
       }

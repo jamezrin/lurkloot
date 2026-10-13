@@ -45,19 +45,22 @@ function portPair(sender: { tab?: unknown; url?: string } = { url: DOCUMENT_URL 
 }
 
 describe("socket host factory", () => {
-  function host(admit: (url: string) => Promise<boolean> = async () => true) {
+  function host(admit: (url: string) => Promise<boolean> = async () => true, createFails = false) {
     let onConnect!: (port: unknown) => void;
     const documents = { open: false, created: 0, closed: 0 };
-    const timers: Array<{ callback: () => void; delayMs: number }> = [];
+    const timers: Array<{ callback: () => void; delayMs: number; cleared?: boolean }> = [];
     const factory = createSocketHostFactory({
       onConnect: { addListener: (listener) => { onConnect = listener as never; } },
       documentUrl: DOCUMENT_URL,
       hasDocument: async () => documents.open,
-      createDocument: async () => { documents.open = true; documents.created += 1; },
+      createDocument: async () => {
+        if (createFails) throw new Error("Only a single offscreen document may be created.");
+        documents.open = true; documents.created += 1;
+      },
       closeDocument: async () => { documents.open = false; documents.closed += 1; },
       admit,
       setTimer: (callback, delayMs) => { timers.push({ callback, delayMs }); return timers.length as never; },
-      clearTimer: () => undefined,
+      clearTimer: (timer) => { timers[(timer as unknown as number) - 1]!.cleared = true; },
     });
     // Connects a host document, returning the requests it receives.
     const connectDocument = (sender?: { tab?: unknown; url?: string }, name?: string) => {
@@ -159,6 +162,35 @@ describe("socket host factory", () => {
     h.timers.find((timer) => timer.delayMs === 10_000)!.callback();
     await settle();
     expect(h.documents.closed).toBe(1);
+  });
+
+  it("clears the connect timeout once the document connects", async () => {
+    const h = host();
+    h.factory(CENTRIFUGO_URL);
+    await settle();
+    h.connectDocument();
+    await settle();
+    expect(h.timers.find((timer) => timer.delayMs === 15_000)!.cleared).toBe(true);
+  });
+
+  it("fails the socket, with no stray rejection, when the document cannot be created", async () => {
+    const unhandled = vi.fn();
+    process.on("unhandledRejection", unhandled);
+    try {
+      const h = host(async () => true, true);
+      const socket = h.factory(CENTRIFUGO_URL);
+      const closed = vi.fn();
+      socket.addEventListener("close", closed);
+      await settle();
+      expect(closed).toHaveBeenCalledWith({ code: 1006 });
+      const timeout = h.timers.find((timer) => timer.delayMs === 15_000)!;
+      expect(timeout.cleared).toBe(true);
+      timeout.callback();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(unhandled).not.toHaveBeenCalled();
+    } finally {
+      process.off("unhandledRejection", unhandled);
+    }
   });
 
   it("fails the socket when the document never connects", async () => {
