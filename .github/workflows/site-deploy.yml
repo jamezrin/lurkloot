@@ -35,6 +35,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      artifact_name: ${{ steps.artifact.outputs.name }}
     steps:
       # workflow_call cannot constrain inputs to the dispatch choice list, so an unknown channel
       # would otherwise fall through the deploy ternaries and silently ship to prerelease.
@@ -53,9 +55,11 @@ jobs:
       - uses: ./.github/actions/build-site
         with:
           channel: ${{ inputs.channel }}
+      - id: artifact
+        run: echo "name=site-${{ inputs.channel }}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v7
         with:
-          name: site-${{ inputs.channel }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: ${{ steps.artifact.outputs.name }}
           path: packages/site/dist
           if-no-files-found: error
           retention-days: 1
@@ -78,9 +82,10 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
+      # Prefer the build job's recorded name so a re-run of deploy alone still finds a reused build.
       - uses: actions/download-artifact@v8
         with:
-          name: site-${{ inputs.channel }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: ${{ needs.build.outputs.artifact_name }}
           path: site-artifact
       - uses: ./.github/actions/deploy-site
         with:

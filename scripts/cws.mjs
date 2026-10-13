@@ -129,6 +129,29 @@ export async function serviceAccountToken(credentials, fetchImpl = fetch) {
   return body.access_token;
 }
 
+export function formatApiError(status, body) {
+  const error = body?.error;
+  const message = error?.message ?? "unknown error";
+  const parts = [`Chrome Web Store API failed (${status}): ${message}`];
+  const details = error?.details;
+  if (Array.isArray(details) && details.length > 0) {
+    const detailText = details.map((detail) => {
+      if (typeof detail === "string") return detail;
+      if (detail && typeof detail === "object") {
+        return detail.description ?? detail.message ?? JSON.stringify(detail);
+      }
+      return String(detail);
+    }).join("; ");
+    parts.push(detailText);
+  } else if (details && typeof details === "object") {
+    parts.push(JSON.stringify(details));
+  }
+  if (/does not meet the requirements to be published/i.test(message)) {
+    parts.push("Check the Developer Dashboard Privacy tab against docs/store-readiness.md (permission and host justifications must match the uploaded package)");
+  }
+  return parts.join(" — ");
+}
+
 export class ChromeWebStoreClient {
   constructor({ publisherId, extensionId, accessToken, fetchImpl = fetch }) {
     this.item = `publishers/${publisherId}/items/${extensionId}`;
@@ -153,7 +176,7 @@ export class ChromeWebStoreClient {
         body = { error: { message: text } };
       }
     }
-    if (!response.ok) throw new Error(`Chrome Web Store API failed (${response.status}): ${body?.error?.message ?? "unknown error"}`);
+    if (!response.ok) throw new Error(formatApiError(response.status, body));
     return body;
   }
 

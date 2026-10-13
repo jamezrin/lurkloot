@@ -239,7 +239,11 @@ SHAs; do not replace one with a floating tag.
 - Preparation failure: fix the cause and remove/reapply the release label.
 - Candidate failure: re-run the failed workflow or push the corrected release branch.
 - Stable failure after merge: fix the external/configuration problem and manually dispatch
-  **Release** on `main`. Matching completed steps are no-ops.
+  **Release**. Matching completed steps are no-ops. When the workflow YAML itself needs a fix,
+  dispatch from the branch that carries it; publication still resolves the merged release commit.
+  A Chrome Web Store `does not meet the requirements` rejection after new permissions usually means
+  the Developer Dashboard Privacy tab is stale — paste the current justifications from
+  `docs/store-readiness.md`, save, then re-dispatch.
 - Release merged but never approved, then re-cut: dispatch **Release**, do not re-apply a release
   label. `main` already carries the bump, so preparation has an empty commit and no pull request to
   open; it detects that and comments with this instruction. The tag is fine — a still-prerelease tag

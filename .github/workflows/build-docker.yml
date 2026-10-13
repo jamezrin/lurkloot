@@ -29,6 +29,9 @@ on:
         value: ${{ jobs.publish.outputs.image_tag }}
       image_digest:
         value: ${{ jobs.publish.outputs.image_digest }}
+      # Echo the caller's prefix so consumers can download the attempt that actually uploaded.
+      artifact_prefix:
+        value: ${{ inputs.artifact_prefix }}
 
 env:
   IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/lurkloot-cli

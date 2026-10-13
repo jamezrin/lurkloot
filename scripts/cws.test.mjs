@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { cancelAction, ChromeWebStoreClient, normalizeStatus, prereleaseAction, publishAction, revisionVersion, stableAction, submitAction, submittedAction, waitForCancellation } from "./cws.mjs";
+import { cancelAction, ChromeWebStoreClient, formatApiError, normalizeStatus, prereleaseAction, publishAction, revisionVersion, stableAction, submitAction, submittedAction, waitForCancellation } from "./cws.mjs";
 
 const revision = (state, version) => ({ state, distributionChannels: [{ deployPercentage: 100, crxVersion: version }] });
 const status = ({ published = "1.3.0", submitted, warned = false, takenDown = false } = {}) => ({
@@ -103,6 +103,18 @@ test("reports plaintext API failures with their HTTP status", async () => {
     fetchImpl: async () => ({ ok: false, status: 502, text: async () => "upstream unavailable" }),
   });
   await assert.rejects(client.status(), /502.*upstream unavailable/);
+});
+
+test("surfaces publish validation details and store-readiness guidance", () => {
+  assert.match(
+    formatApiError(400, {
+      error: {
+        message: "Your submission does not meet the requirements to be published in the store. Check the Developer Dashboard for steps to resolve.",
+        details: [{ description: "Missing host permission justification for https://*.pusher.com/*" }],
+      },
+    }),
+    /Missing host permission justification.*store-readiness\.md/s,
+  );
 });
 
 test("accepts the empty cancellation response required by CWS v2", async () => {

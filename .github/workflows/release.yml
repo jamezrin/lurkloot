@@ -129,6 +129,9 @@ jobs:
     with:
       ref: ${{ needs.resolve.outputs.ref }}
       image_tag: ${{ needs.resolve.outputs.version }}
+      # Keep run_attempt in the uploaded name so a full re-run can upload again, but consume the
+      # producer job's output below. Reusing a successful prior attempt must download that attempt's
+      # artifact, not one named for the current attempt (which was never uploaded).
       artifact_prefix: stable-docker-${{ github.run_id }}-${{ github.run_attempt }}
       export_oci: true
 
@@ -137,6 +140,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      artifact_name: ${{ steps.artifact.outputs.name }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -145,9 +150,12 @@ jobs:
       - uses: ./.github/actions/build-site
         with:
           channel: production
+      # Emit the name from this job so a reused prior attempt still exposes the name it uploaded.
+      - id: artifact
+        run: echo "name=stable-site-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v7
         with:
-          name: stable-site-${{ github.run_id }}-${{ github.run_attempt }}
+          name: ${{ steps.artifact.outputs.name }}
           path: packages/site/dist
           if-no-files-found: error
           retention-days: 1
@@ -188,15 +196,17 @@ jobs:
           RELEASE_SYNC_APP_PRIVATE_KEY: ${{ secrets.RELEASE_SYNC_APP_PRIVATE_KEY }}
         run: node scripts/release/cli.mjs app-token
       # Only the rebuild fallback produces these; digest promotion needs no local image.
+      # Prefer the producer job's recorded name/prefix so a re-run of publish alone still finds
+      # artifacts uploaded by a reused site-build or docker job from an earlier attempt.
       - if: needs.docker.result == 'success'
         uses: actions/download-artifact@v8
         with:
-          pattern: stable-docker-${{ github.run_id }}-${{ github.run_attempt }}-oci-*
+          pattern: ${{ needs.docker.outputs.artifact_prefix }}-oci-*
           path: docker-images
           merge-multiple: true
       - uses: actions/download-artifact@v8
         with:
-          name: stable-site-${{ github.run_id }}-${{ github.run_attempt }}
+          name: ${{ needs.site-build.outputs.artifact_name }}
           path: site-artifact
       # The candidate published these already signed. Downloading them back, rather than rebuilding,
       # is what makes the shipped bits the reviewed bits. SHA256SUMS covers every shipped file.
