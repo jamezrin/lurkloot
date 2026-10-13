@@ -1,6 +1,9 @@
 import { createTwitchExtensionGrantCompletion } from "../src/extensions/grantCompletion";
 import { KickRealtimeConnection, kickRealtimePost } from "@lurkloot/core/kick/realtime";
-import { createKickRealtimeRelay, KICK_REALTIME_OFFSCREEN_PATH } from "../src/core/kickRealtimeRelay";
+import { createSocketHostFactory } from "../src/core/socketHostFactory";
+import { SOCKET_HOST_PATH } from "../src/core/socketHost";
+import { createAdmittedWebSocketFactory, createSocketAdmission } from "../src/core/socketAdmission";
+import { installSocketOriginListener, type BlockingWebRequestApi } from "../src/core/platformSocketOrigin";
 import { browser } from "wxt/browser";
 import { loadSettings, loadState, loadTwitchIntegrity, resetStorage, saveSettings, saveState, saveTwitchIntegrity } from "../src/core/storage";
 import type { RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
@@ -86,31 +89,60 @@ const kickRealtimeFetcher = createKickFetcher({
 const KICK_PAGE_CONTEXT_URL = "https://kick.com/drops/inventory";
 const TWITCH_EXTENSION_LANE_KEY = "twitchExtensionLane";
 const createBrowserWebSocket: WebSocketFactory = (url) => new WebSocket(url) as unknown as WebSocketLike;
-// Kick realtime sockets opened from a kick.com frame in an offscreen document
-// (#754). Chrome only: without the offscreen API there is no Kick presence.
+const extensionOrigin = new URL(browser.runtime.getURL("/")).origin;
+let originRules: Promise<boolean> | undefined;
+// The Origin rules, installed once per worker start. Platform sockets wait
+// for them (#792).
+const platformOriginRulesReady = () => originRules ??= installPlatformOriginRules(
+  browser.declarativeNetRequest as DynamicRulesApi | undefined,
+  new URL(extensionOrigin).hostname,
+).catch(() => false);
+// Firefox rewrites its sockets' Origin with blocking webRequest. The listener
+// is registered first thing in the background's main, and in any case before
+// a socket is admitted. (Not at module level: WXT evaluates this module at
+// build time against a fake browser without webRequest.)
+let socketOriginListener = false;
+const ensureSocketOriginListener = () => socketOriginListener ||= installSocketOriginListener(
+  browser.webRequest as unknown as BlockingWebRequestApi,
+  extensionOrigin,
+);
 const chromeOffscreen = (globalThis as { chrome?: { offscreen?: ChromeOffscreen; runtime?: { getContexts?: ChromeGetContexts } } }).chrome;
-const kickRealtimeWebSocket: WebSocketFactory | undefined = chromeOffscreen?.offscreen
-  ? createKickRealtimeRelay({
+const admitSocket = createSocketAdmission({
+  originReady: async () => import.meta.env.FIREFOX
+    ? ensureSocketOriginListener()
+    : chromeOffscreen?.offscreen !== undefined && await platformOriginRulesReady(),
+  hasPermission: (origin) => browser.permissions.contains({ origins: [origin] }),
+  report: ({ platform, message }) => {
+    void reportEvents([{ category: "diagnostic", ...(platform ? { platform } : {}), level: "warn", message }]).catch(() => undefined);
+  },
+});
+// Every platform socket presents the platform's Origin, never the
+// extension's (#792). On Chrome the sockets live in the offscreen socket host,
+// where the DNR rules reach them; on Firefox they open here and the webRequest
+// listener rewrites them. Either way a socket whose Origin cannot be set stays
+// closed.
+const platformWebSocket: WebSocketFactory = chromeOffscreen?.offscreen
+  ? createSocketHostFactory({
     onConnect: browser.runtime.onConnect as never,
+    documentUrl: `${extensionOrigin}/${SOCKET_HOST_PATH}`,
     // Without getContexts (Chrome before 116) a stale document cannot be
     // seen; creating one then fails and the socket retries.
     hasDocument: async () => ((await chromeOffscreen.runtime?.getContexts?.({ contextTypes: ["OFFSCREEN_DOCUMENT"] }))?.length ?? 0) > 0,
     createDocument: () => chromeOffscreen.offscreen!.createDocument({
-      url: KICK_REALTIME_OFFSCREEN_PATH,
-      reasons: ["IFRAME_SCRIPTING"],
-      justification: "Opens Kick's realtime chat connection from a kick.com frame, which Kick requires.",
+      url: SOCKET_HOST_PATH,
+      reasons: ["WORKERS"],
+      justification: "Runs the extension's Twitch and Kick connections in a worker.",
     }),
     closeDocument: () => chromeOffscreen.offscreen!.closeDocument(),
+    admit: admitSocket,
   })
-  : undefined;
+  : createAdmittedWebSocketFactory(admitSocket, createBrowserWebSocket);
 // The one Kick realtime connection, shared by discovery signals and chat
-// presence (#755). Through the relay it speaks Centrifugo or Pusher with
-// kick.com's origin; without it (Firefox) plain sockets accept Pusher only,
-// which is all Kick's Centrifugo leaves an extension origin.
+// presence (#755). Its socket carries kick.com's origin, so Kick's Centrifugo
+// accepts it as well as Pusher.
 const kickRealtime = new KickRealtimeConnection({
-  createWebSocket: kickRealtimeWebSocket ?? createBrowserWebSocket,
+  createWebSocket: platformWebSocket,
   postJson: kickRealtimePost((url, init) => kickRealtimeFetcher.fetchJson<unknown>(url, init)),
-  acceptedProviders: kickRealtimeWebSocket ? ["pusher", "centrifugo"] : ["pusher"],
 });
 const credentialCookies = { get: (details: { url: string; name: string }) => browser.cookies.get(details) };
 const checkCredentialAvailability = createCredentialAvailabilityProvider(credentialCookies);
@@ -150,7 +182,7 @@ function createExtensionAdapter(platform: Platform, emit: EventEmitter, settings
         heartbeatFetchText: twitchHeartbeatFetchText,
         heartbeatPost: twitchHeartbeatPost,
         heartbeatExchange: twitchHeartbeatExchange,
-        webSocketFactory: createBrowserWebSocket,
+        webSocketFactory: platformWebSocket,
         getAuthToken: async () => (
           await browser.cookies.get({ url: "https://www.twitch.tv", name: "auth-token" })
         )?.value,
@@ -172,12 +204,12 @@ function createExtensionAdapter(platform: Platform, emit: EventEmitter, settings
           recordManagedPageContextFallback(host, operationEmit);
         },
       }),
-      createBrowserWebSocket,
+      platformWebSocket,
       {
         compatibility: resolution.compatibility.kick,
         claimState: kickClaimState,
         discoveryState: kickDiscoveryState,
-        realtime: { connection: kickRealtime, kickOrigin: kickRealtimeWebSocket !== undefined },
+        realtime: { connection: kickRealtime, kickOrigin: true },
         realtimeFetcher: kickRealtimeFetcher,
       },
       emit,
@@ -367,10 +399,8 @@ const dispatchRuntimeMessage = createRuntimeMessageDispatcher({
 });
 
 export default defineBackground(() => {
-  void installPlatformOriginRules(
-    browser.declarativeNetRequest as DynamicRulesApi | undefined,
-    new URL(browser.runtime.getURL("/")).hostname,
-  ).catch(() => undefined);
+  if (import.meta.env.FIREFOX) ensureSocketOriginListener();
+  void platformOriginRulesReady();
 
   createCredentialHealthObserver(
     {

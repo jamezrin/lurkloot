@@ -52,8 +52,8 @@ export interface KickAdapterOptions {
   discoveryState?: KickDiscoveryState;
   // The host's one Kick realtime connection, shared by discovery signals and
   // chat presence (#755). `kickOrigin` says its sockets carry kick.com's
-  // origin (the Chrome relay); only then is chat presence offered, since
-  // Kick's realtime server refuses an extension origin (#754).
+  // origin (the extension's socket host, #792); only then is chat presence
+  // offered, since Kick's realtime server refuses an extension origin (#754).
   realtime?: { connection: KickRealtimeConnection; kickOrigin: boolean };
   // Kick realtime negotiation goes through this when given. It must never
   // fall back to a page-context tab: discovery signals negotiate on every

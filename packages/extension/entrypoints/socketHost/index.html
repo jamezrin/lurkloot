@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Chrome's offscreen API only; Firefox has no offscreen document. -->
+    <meta name="manifest.exclude" content="['firefox']" />
+    <title>Lurkloot socket host</title>
+  </head>
+  <body>
+    <!-- The extension's platform sockets run in a Worker this document
+         spawns, where Chrome rewrites their Origin (#792). -->
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

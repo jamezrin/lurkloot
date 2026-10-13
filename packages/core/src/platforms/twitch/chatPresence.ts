@@ -28,6 +28,11 @@ const WEBSOCKET_OPEN = 1;
 const AUTH_FAILURE_NOTICES = ["Login authentication failed", "Improperly formatted auth"];
 // Trailing text is read for these commands only, so chat content never is.
 const TRAILING_COMMANDS = new Set(["NOTICE", "PING"]);
+// Every command the client reads. A host that relays the socket may drop the
+// rest (chat, above all) before it reaches the client (#792).
+export const TWITCH_IRC_CLIENT_COMMANDS: ReadonlySet<string> = new Set([
+  "PING", "PONG", "001", "NOTICE", "RECONNECT", "JOIN", "USERSTATE", "366",
+]);
 
 type Timer = ReturnType<typeof setTimeout>;
 

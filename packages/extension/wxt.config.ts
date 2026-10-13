@@ -5,10 +5,13 @@ import { defineConfig } from "wxt";
 import tailwindcss from "@tailwindcss/vite";
 import {
   KICK_HOST_ORIGIN,
+  KICK_SOCKET_ORIGIN,
   PLATFORM_IVS_ORIGIN,
+  PUSHER_SOCKET_ORIGIN,
   TWITCH_CDN_ORIGIN,
   TWITCH_EXTENSION_HOST_ORIGIN,
   TWITCH_HOST_ORIGIN,
+  TWITCH_SOCKET_ORIGIN,
   TWITCH_STATIC_CDN_ORIGIN,
 } from "./src/core/platformHosts";
 import { TWITCH_HLS_HOST_ORIGIN } from "./src/core/twitchHlsPermission";
@@ -45,15 +48,17 @@ export default defineConfig({
     default_locale: "en",
     name: "__MSG_extensionStoreName__",
     description: "__MSG_extensionDescription__",
-    // offscreen (Chrome only, no install warning): the hidden kick.com frame
-    // that opens Kick's realtime chat sockets (#754, kickRealtimeRelay.ts).
     // declarativeNetRequestWithHostAccess (no install warning; acts only on
     // granted hosts): presents the platform's site Origin on the extension's
-    // own platform requests (platformRequestOrigin.ts).
+    // own platform requests and sockets (platformRequestOrigin.ts).
+    // offscreen (Chrome only, no install warning): the socket host, whose
+    // worker opens the platform sockets where those rules reach them (#792).
+    // webRequestBlocking (Firefox only): Firefox's rules skip the background
+    // page's sockets, so a listener sets their Origin (platformSocketOrigin.ts).
     permissions: [
       "alarms", "storage", "tabs", "scripting", "notifications", "cookies", "webRequest",
       "declarativeNetRequestWithHostAccess",
-      ...(browser === "firefox" ? [] : ["offscreen"]),
+      ...(browser === "firefox" ? ["webRequestBlocking"] : ["offscreen"]),
     ],
     // Optional hosts come only from opted-in Twitch Extension providers
     // (applyProviderOptionalPermissions). Twitch CDN / Kasada is required.
@@ -69,6 +74,10 @@ export default defineConfig({
       TWITCH_CDN_ORIGIN,
       PLATFORM_IVS_ORIGIN,
       TWITCH_EXTENSION_HOST_ORIGIN,
+      // A socket's Origin can be set only with its wss:// host (#792).
+      TWITCH_SOCKET_ORIGIN,
+      KICK_SOCKET_ORIGIN,
+      PUSHER_SOCKET_ORIGIN,
     ],
     // The in-page panel is an extension page the twitch/kick content scripts
     // embed in an iframe, so its document must be web-accessible. Scoped to the

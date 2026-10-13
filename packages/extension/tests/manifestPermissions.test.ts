@@ -5,10 +5,13 @@ import { fileURLToPath } from "node:url";
 import { KASADA_COOKIE_URL } from "../src/core/cliCredentialExport";
 import {
   KICK_HOST_ORIGIN,
+  KICK_SOCKET_ORIGIN,
   PLATFORM_IVS_ORIGIN,
+  PUSHER_SOCKET_ORIGIN,
   TWITCH_CDN_ORIGIN,
   TWITCH_EXTENSION_HOST_ORIGIN,
   TWITCH_HOST_ORIGIN,
+  TWITCH_SOCKET_ORIGIN,
   TWITCH_STATIC_CDN_ORIGIN,
 } from "../src/core/platformHosts";
 import { TWITCH_HLS_HOST_ORIGIN } from "../src/core/twitchHlsPermission";
@@ -27,6 +30,9 @@ describe("extension host permissions", () => {
     expect(required).toContain("TWITCH_CDN_ORIGIN");
     expect(required).toContain("PLATFORM_IVS_ORIGIN");
     expect(required).toContain("TWITCH_EXTENSION_HOST_ORIGIN");
+    expect(required).toContain("TWITCH_SOCKET_ORIGIN");
+    expect(required).toContain("KICK_SOCKET_ORIGIN");
+    expect(required).toContain("PUSHER_SOCKET_ORIGIN");
     expect(required).not.toContain('"https://');
     expect(source).not.toMatch(/optional_host_permissions:\s*\[[^\]]*KASADA/);
     expect(source).not.toContain("optional_permissions:");
@@ -35,7 +41,8 @@ describe("extension host permissions", () => {
   it("rewrites request headers only through host-scoped declarativeNetRequest", () => {
     expect(source).toContain('"declarativeNetRequestWithHostAccess"');
     expect(source).not.toMatch(/"declarativeNetRequest"/);
-    expect(source).not.toContain("webRequestBlocking");
+    // Firefox only: its rules skip the background page's sockets (#792).
+    expect(source).toContain('...(browser === "firefox" ? ["webRequestBlocking"] : ["offscreen"])');
   });
 
   it("scopes the in-page panel to the Twitch and Kick host wildcards", () => {
@@ -55,5 +62,8 @@ describe("extension host permissions", () => {
     expect(TWITCH_CDN_ORIGIN).toBe("https://*.twitchcdn.net/*");
     expect(PLATFORM_IVS_ORIGIN).toBe("https://*.live-video.net/*");
     expect(TWITCH_EXTENSION_HOST_ORIGIN).toBe("https://*.ext-twitch.tv/*");
+    expect(TWITCH_SOCKET_ORIGIN).toBe("wss://*.twitch.tv/*");
+    expect(KICK_SOCKET_ORIGIN).toBe("wss://*.kick.com/*");
+    expect(PUSHER_SOCKET_ORIGIN).toBe("wss://*.pusher.com/*");
   });
 });

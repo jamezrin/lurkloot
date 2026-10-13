@@ -21,6 +21,9 @@ vi.mock("wxt/browser", () => ({
     storage: { local: { get: vi.fn(async () => ({})), set: vi.fn(async () => {}), remove: vi.fn(async () => {}) } },
     i18n: { getMessage: vi.fn() },
     cookies: { get: vi.fn(async () => ({ value: "token" })) },
+    runtime: { getURL: (path: string) => `moz-extension://test-extension${path}` },
+    permissions: { contains: vi.fn(async () => true) },
+    webRequest: { onBeforeSendHeaders: { addListener: vi.fn() } },
   },
 }));
 
@@ -44,6 +47,11 @@ class FakeSocket implements WebSocketLike {
     (this.listeners[type] ??= []).push(listener);
   }
 
+  open(): void {
+    this.readyState = 1;
+    for (const listener of this.listeners.open ?? []) listener({});
+  }
+
   message(value: unknown): void {
     for (const listener of this.listeners.message ?? []) {
       listener({ data: typeof value === "string" ? value : JSON.stringify(value) });
@@ -60,6 +68,7 @@ interface BackgroundAdapterDependencies {
 afterEach(() => {
   createBackgroundController.mockReset();
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
   vi.resetModules();
 });
 
@@ -170,7 +179,10 @@ describe("background integrity alarm wiring", () => {
     expect(operations).toEqual(expected);
   });
 
+  // These take Firefox's path: plain sockets whose Origin the webRequest
+  // listener sets (#792). Chrome's socket host has its own tests.
   it("injects the extension WebSocket into the Kick discovery observer", async () => {
+    vi.stubEnv("FIREFOX", "true");
     let deps: BackgroundAdapterDependencies | undefined;
     createBackgroundController.mockImplementation((nextDeps) => {
       deps = nextDeps;
@@ -204,7 +216,7 @@ describe("background integrity alarm wiring", () => {
     }, () => undefined);
     await vi.waitFor(() => expect(sockets).toHaveLength(1));
     expect(negotiations).toEqual(["https://web.kick.com/api/v1/realtime/connection"]);
-    sockets[0]!.readyState = 1;
+    sockets[0]!.open();
     sockets[0]?.message({ event: "pusher:connection_established", data: {} });
 
     expect(observer).toBeDefined();
@@ -214,6 +226,7 @@ describe("background integrity alarm wiring", () => {
   });
 
   it("injects the extension WebSocket into the Twitch channel-points observer", async () => {
+    vi.stubEnv("FIREFOX", "true");
     let deps: BackgroundAdapterDependencies | undefined;
     createBackgroundController.mockImplementation((nextDeps) => {
       deps = nextDeps;
@@ -238,7 +251,14 @@ describe("background integrity alarm wiring", () => {
     await observer?.start(() => undefined);
 
     expect(observer).toBeDefined();
-    expect(sockets).toHaveLength(1);
+    await vi.waitFor(() => expect(sockets).toHaveLength(1));
+    expect(browser.permissions.contains).toHaveBeenCalledWith({ origins: ["wss://*.twitch.tv/*"] });
+    // The socket opened only after the Origin listener was in place.
+    expect(browser.webRequest.onBeforeSendHeaders.addListener).toHaveBeenCalledWith(
+      expect.any(Function),
+      expect.objectContaining({ types: ["websocket"] }),
+      ["blocking", "requestHeaders"],
+    );
     expect(browser.cookies.get).toHaveBeenCalledWith({ url: "https://www.twitch.tv", name: "auth-token" });
   });
 });

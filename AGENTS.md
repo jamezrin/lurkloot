@@ -110,13 +110,13 @@ The headless CLI is the one deliberate exception, kept as narrow as possible (#6
 
 Nothing else may export cookies or evade detection, and the extension itself never uses the Kasada cookie while farming.
 
-Kick's realtime chat server refuses a `chrome-extension://` origin, and the maintainer chose to keep extension origins off Kick's sockets (#754). This is the one socket exception, and it is narrow:
+The extension never presents its own `chrome-extension://` or `moz-extension://` origin to Twitch or Kick (#754, #792). This is the one header exception, and it is narrow (docs/architecture.md, "Platform Origins and the Socket Host"):
 
-- Kick's one realtime connection, shared by chat presence and discovery signals (#755), opens its socket from a hidden `https://kick.com/robots.txt` frame inside an offscreen document (the `offscreen` permission, Chrome only), so the handshake carries kick.com's origin.
-- The relay frame only forwards socket frames. It reads no cookies or credentials and never sends chat. By prefix and unparsed, it drops chat publications and forwards only drop channels (`drops_*`). The worker mints every token through Kick's own API.
-- Nothing else uses the frame.
-
-The extension's own HTTP requests to Twitch and Kick present the platform's site `Origin` (`https://www.twitch.tv`, `https://kick.com`) instead of `chrome-extension://`. Chrome attaches the extension origin to every non-GET request from the worker, whatever the fetch mode or referrer policy, so two dynamic declarativeNetRequest rules (`packages/extension/src/core/platformRequestOrigin.ts`, `declarativeNetRequestWithHostAccess`) set it. They change only `Origin`, only on non-GET/HEAD requests the extension itself initiates, and only on the platforms' domains. Chrome never applies DNR to a WebSocket the service worker opens, which is why Kick's socket still needs the relay above (#792). Do not rewrite other identity headers, and do not use webRequest for it.
+- Only `Origin` is ever rewritten, to the platform's own site (`https://www.twitch.tv`, `https://kick.com`), and only on requests and sockets the extension itself initiates to the platforms' domains. Never rewrite other identity headers (`User-Agent`, `Referer`, cookies, client hints).
+- HTTP: dynamic declarativeNetRequest rules (`packages/extension/src/core/platformRequestOrigin.ts`, `declarativeNetRequestWithHostAccess`) on non-GET/HEAD requests.
+- Sockets on Chrome: every platform socket opens in the offscreen socket host's Worker (`entrypoints/socketHost/`, the `offscreen` permission), where websocket-only DNR rules reach them; Chrome never applies DNR to a service-worker socket. The host opens only the URLs in `src/core/socketProfiles.ts`, reads no cookies or credentials, never sends anything the worker did not, and drops chat before it crosses to the worker. The worker mints every token through the platforms' own APIs.
+- Sockets on Firefox: a blocking `webRequest` listener (`src/core/platformSocketOrigin.ts`, `webRequestBlocking`) on the background page's own sockets only.
+- A socket whose Origin cannot be set stays closed (`src/core/socketAdmission.ts`). A new platform socket needs a profile, its `wss://` host permission, and a domain in the socket rules.
 
 ## Manually Reproducing Platform GQL Requests
 

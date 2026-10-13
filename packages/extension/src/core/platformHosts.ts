@@ -26,3 +26,13 @@ export const PLATFORM_IVS_ORIGIN = "https://*.live-video.net/*";
 
 /** Twitch Extensions CDN and supervisor (`*.ext-twitch.tv`). */
 export const TWITCH_EXTENSION_HOST_ORIGIN = "https://*.ext-twitch.tv/*";
+
+/**
+ * WebSocket hosts. A socket's Origin can be rewritten only where the
+ * extension holds its `wss://` host, on Chrome and Firefox alike (#792).
+ */
+export const TWITCH_SOCKET_ORIGIN = "wss://*.twitch.tv/*";
+export const KICK_SOCKET_ORIGIN = "wss://*.kick.com/*";
+
+/** Kick's realtime fallback provider, which kick.com opens with its own origin. */
+export const PUSHER_SOCKET_ORIGIN = "wss://*.pusher.com/*";
