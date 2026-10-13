@@ -35,12 +35,12 @@ Measured with probe extensions against a local ws/wss server that logs the hands
 - `packages/core` stays browser-free. The CLI is untouched.
 - Diagnostics are English literals.
 
-## Decisions (recommended defaults; confirm with the maintainer)
+## Decisions (maintainer, 2026-10-13)
 
-1. **Pusher.** Kick's fallback provider lives on `ws-*.pusher.com`, a host we don't hold. Adding it would be a privilege increase. **Recommended:** stop accepting Pusher; Centrifugo becomes reachable on both browsers. Alternative: keep Pusher and add `wss://*.pusher.com/*`, which re-prompts every user.
-2. **Firefox in the same PR.** **Recommended:** yes. It's one top-level listener, and Firefox gains Kick realtime presence for the first time. It needs `webRequestBlocking`.
-3. **Fortnite socket** (`exmggames.com`, optional third-party host, real-site `Origin` is the extension frame's `*.ext-twitch.tv`). **Recommended:** phase 2. The host's profile table is built so it can be added later.
-4. **Offscreen reason.** **Recommended:** `WORKERS`, with the sockets running in a dedicated Worker spawned by the document. That makes the reason literally true; Chrome Web Store review has rejected us before. The document itself only relays.
+1. **Pusher stays.** Add `wss://*.pusher.com/*` and route Pusher through the host with `Origin: https://kick.com`. This release adds host permissions anyway, so users see a permission prompt regardless.
+2. **Firefox is in this PR.** Blocking `webRequest` on the background page's sockets; needs `webRequestBlocking`.
+3. **Fortnite socket is a later phase:** #798, a sub-issue of #792, milestone v1.17.0.
+4. **Offscreen reason:** `WORKERS`. Sockets run in a dedicated Worker spawned by the document, which only relays.
 
 ## Architecture
 
@@ -62,6 +62,7 @@ Each profile has a URL pattern, an `Origin` (documentation only; DNR sets it), a
 | `twitch-hermes` | `wss://hermes.twitch.tv/v1?clientId=…` | `https://www.twitch.tv` | none |
 | `twitch-irc` | `wss://irc-ws.chat.twitch.tv/` | `https://www.twitch.tv` | Split on `\r\n` and keep only `PING`, `PONG`, `001`, `JOIN`, `USERSTATE`, `366`, `NOTICE`, `RECONNECT`. Drops `PRIVMSG`, `USERNOTICE`, `CLEARCHAT` and the rest, so a busy chat never wakes the worker. |
 | `kick-realtime` | `wss://realtime.<region>.platform.kick.com/connection/websocket` | `https://kick.com` | existing `relayForwardedData` Centrifugo rule (drops chat pushes, keeps `drops_*`) |
+| `kick-pusher` | `wss://ws-<cluster>.pusher.com/app/<key>?…` | `https://kick.com` | existing Pusher rule (protocol frames and snake_case Kick events only) |
 | `kick-viewer` | `wss://websockets.kick.com/viewer/v1/connect?token=…` | `https://kick.com` | none |
 
 Unknown URL → immediate `close` with code 1006 and a diagnostic.
@@ -86,18 +87,18 @@ Unknown URL → immediate `close` with code 1006 and a diagnostic.
 - Add rule ids `9103` (Twitch) and `9104` (Kick):
   - `resourceTypes: ["websocket"]`
   - `initiatorDomains: [extension host]`
-  - `requestDomains`: `twitch.tv` or `kick.com`
+  - `requestDomains`: `twitch.tv` for 9103, `kick.com` and `pusher.com` for 9104
   - no method exclusion
 - `installPlatformOriginRules` becomes the readiness gate. The socket host factory awaits it before creating the document. If it rejects, sockets fail closed.
 - Firefox (`platformSocketOrigin.firefox.ts`):
-  - Register `webRequest.onBeforeSendHeaders` **synchronously at the top level** of the background, with `["blocking", "requestHeaders"]` and URL patterns `wss://*.twitch.tv/*` and `wss://*.kick.com/*`.
+  - Register `webRequest.onBeforeSendHeaders` **synchronously at the top level** of the background, with `["blocking", "requestHeaders"]` and URL patterns `wss://*.twitch.tv/*`, `wss://*.kick.com/*` and `wss://*.pusher.com/*`.
   - Rewrite `Origin` only when `details.originUrl` starts with the extension's own `moz-extension://<uuid>/`, so a real Twitch or Kick tab's sockets are never touched.
   - Firefox also needs `webRequestBlocking`.
 
 ### Permissions (`wxt.config.ts`, `platformHosts.ts`)
 
-- Add `wss://*.twitch.tv/*` and `wss://*.kick.com/*` to `host_permissions`.
-- Chrome host warnings are per host, not per scheme, so these should not re-prompt. That is still unproven: **the release gate is a real update test** (Task 7), not `getPermissionWarningsByManifest`.
+- Add `wss://*.twitch.tv/*`, `wss://*.kick.com/*` and `wss://*.pusher.com/*` to `host_permissions`.
+- `pusher.com` is a new host, so Chrome asks existing users to re-approve on update, and the maintainer has accepted that. The update test (Task 7) only confirms that the prompt lists the expected hosts and that the extension works once approved.
 - Firefox MV3 may not grant new host permissions on update. Check with `permissions.contains` at socket-open time. If missing, fail closed with a diagnostic, and surface it through the existing missing-permission prompt if there is one (find it during Task 5; otherwise add a minimal popup notice).
 - Chrome permissions: `offscreen` stays. The offscreen reason becomes `WORKERS`.
 
@@ -106,8 +107,7 @@ Unknown URL → immediate `close` with code 1006 and a diagnostic.
 - `entrypoints/kickRealtime/index.html`
 - `entrypoints/kickRealtimeRelay.content.ts`
 - `src/core/kickRealtimeRelay.ts`; its filter moves into `socketProfiles.ts`
-- In `background.ts`: the `kickOrigin` flag and the `acceptedProviders` branching (always `["centrifugo"]` if decision 1 is accepted)
-- In core: the Pusher endpoint parsing, if decision 1 is accepted, with tests updated
+- In `background.ts`: the `kickOrigin` flag and the `acceptedProviders` branching. Both providers are always accepted where the socket Origin can be set.
 
 ---
 
@@ -162,15 +162,14 @@ Unknown URL → immediate `close` with code 1006 and a diagnostic.
 - Modify: `packages/extension/entrypoints/background.ts`, `packages/extension/wxt.config.ts`, `packages/extension/src/core/platformHosts.ts`, `packages/extension/tests/manifestPermissions.test.ts`
 - Create: `packages/extension/src/core/platformSocketOrigin.ts` (Firefox listener), with tests
 
-- [ ] On Chrome, give the socket host factory to the Twitch adapter (`webSocketFactory`, `chatWebSocketFactory`), to `KickRealtimeConnection` and to the Kick adapter's viewer socket. Fortnite stays on `new WebSocket` (phase 2).
+- [ ] On Chrome, give the socket host factory to the Twitch adapter (`webSocketFactory`, `chatWebSocketFactory`), to `KickRealtimeConnection` and to the Kick adapter's viewer socket. Fortnite stays on `new WebSocket` (#798).
 - [ ] On Firefox, register the listener at the top level synchronously and keep plain sockets.
 - [ ] Before opening a socket on Firefox, check `permissions.contains` for the `wss://` grant. If it's missing, fail closed with a diagnostic and surface the missing grant.
-- [ ] Add the two `wss://` host permissions, and `webRequestBlocking` on Firefox. Update the manifest permission tests.
+- [ ] Add the three `wss://` host permissions, and `webRequestBlocking` on Firefox. Update the manifest permission tests.
 
-### Task 6: Remove the kick.com relay; Pusher (per decision 1)
+### Task 6: Remove the kick.com relay
 
 - [ ] Delete the relay entrypoints and module listed under Removals. Remove the `kickOrigin` and `acceptedProviders` branching.
-- [ ] If Pusher is dropped: remove the Pusher endpoint parsing and the Pusher filter from core and update their tests. Otherwise keep it and add the host.
 
 ### Task 7: Verification (not CI; record results in the PR)
 
@@ -191,7 +190,7 @@ Unknown URL → immediate `close` with code 1006 and a diagnostic.
 - [ ] Update test, Chrome:
   - Pack v(N) without the `wss://` hosts and install it from the .crx with a fixed key.
   - Bump the version, add the hosts, repack with the same key, and let Chrome update.
-  - The extension must stay enabled with no re-approval. **If it's disabled, stop and re-plan.**
+  - Expect the re-approval prompt for the new `pusher.com` host (accepted). After approval, every socket presents the platform `Origin`.
 - [ ] Update test, Firefox: check whether `wss://` hosts are granted after an update. If not, confirm the fail-closed notice appears.
 
 ### Task 8: Docs
@@ -205,7 +204,7 @@ Unknown URL → immediate `close` with code 1006 and a diagnostic.
 
 ## Risks
 
-- **Chrome re-prompting for `wss://`:** gated by the update test in Task 7.
+- **Chrome re-prompting for the new hosts:** expected and accepted (decision 1).
 - **Firefox not granting the new hosts on update:** fail-closed notice. Firefox sockets would be off until the user grants them.
 - **Offscreen review wording:** decision 4; the reason is honest because sockets do run in a Worker.
 - **Worker keepalive:** worker uptime matches today's while sockets are open. It doesn't increase it, because the document stops sending keepalives when no sockets remain.
