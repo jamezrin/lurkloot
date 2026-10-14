@@ -1271,7 +1271,7 @@ async function waitForTabReady(
       const tab = await withAbortSignal(browserApi.tabs.get(tabId), signal);
       const url = tab?.url;
       if (tab && url?.startsWith(origin) && (tab.status == null || tab.status === "complete")) return;
-    } catch (error) {
+    } catch {
       signal?.throwIfAborted();
       // Keep polling until the page either becomes ready or times out.
     }

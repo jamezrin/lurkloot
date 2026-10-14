@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import type React from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   ArrowLeft,
@@ -119,7 +120,6 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
   });
   const [settingsOpenGeneration, setSettingsOpenGeneration] = useState(0);
   const [extensionPending, setExtensionPending] = useState(false);
-  const settingsOpen = view === "settings";
   const activityOpen = view === "activity";
   const [activityStream, setActivityStream] = useState<ActivityStream>(createActivityStream);
   const [diagnosticStream, setDiagnosticStream] = useState<ActivityStream>(createActivityStream);
@@ -822,7 +822,6 @@ export function Popup({ adapter, initialState }: { adapter: PopupAdapter; initia
       changeView("queue");
     }
     : undefined;
-  const mainViewOpen = !settingsOpen && !activityOpen;
   // How many campaigns each game has in play right now, keyed the way a
   // CategorySelection id compares (lowercased), for the Games view's counts.
   const gameCampaignCounts = campaigns.reduce<Record<string, number>>((counts, campaign) => {

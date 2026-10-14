@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import type React from "react";
+import { useState } from "react";
 import { AnimatePresence } from "motion/react";
 import { AlertTriangle, Check, Gift, MessageSquareOff, Package, Puzzle, Sparkles, type LucideIcon } from "lucide-react";
 import { Pill, ProgressBar, SectionHeader, Toggle, cn } from "./primitives";

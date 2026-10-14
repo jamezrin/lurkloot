@@ -1,4 +1,4 @@
-import React from "react";
+import type React from "react";
 import { Select } from "@base-ui/react/select";
 import { Check, ChevronDown } from "lucide-react";
 import { usePortalContainer } from "./portal";

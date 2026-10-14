@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
+import type React from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useT } from "./context";
 import { ViewToolbar } from "./viewToolbar";
 import { CampaignCard } from "./drops";

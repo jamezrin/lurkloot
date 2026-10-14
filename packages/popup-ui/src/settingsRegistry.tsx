@@ -1,4 +1,4 @@
-import React from "react";
+import type React from "react";
 import type { CategorySelection, ExtensionSettings, LanguageOverride, Platform, PriorityMode } from "@lurkloot/shared/models";
 import { POLL_INTERVAL_MAX_MINUTES, POLL_INTERVAL_MIN_MINUTES, type SettingsPatch } from "@lurkloot/shared/settings";
 import { LOCALE_OPTIONS } from "@lurkloot/shared/i18n";

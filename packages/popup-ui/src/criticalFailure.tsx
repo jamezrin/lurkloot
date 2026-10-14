@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import type React from "react";
+import { useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import type { CriticalFailureReason } from "@lurkloot/shared/criticalHealth";
 import type { Platform } from "@lurkloot/shared/models";

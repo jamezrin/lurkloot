@@ -171,9 +171,6 @@ function lockedCalls(): FoundCall[] {
   return found;
 }
 
-// The name a found call is reported under, e.g. "adapter.claimChallenges".
-const callName = (call: string): string => call.replace(/\s*!?\s*(?:\?\.)?\($/, "");
-
 describe("locked I/O (#583)", () => {
   it("makes no provider, tab or timer call while a lock is held", () => {
     const locked = [...new Set(lockedCalls().map((found) => `${found.call} in ${found.site} (core/src/${found.file})`))];

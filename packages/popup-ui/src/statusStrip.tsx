@@ -1,4 +1,4 @@
-import React from "react";
+import type React from "react";
 import { Clock3, Eye, Gift, MessageSquare, Pause, Power, Sparkles } from "lucide-react";
 import type { ChatPresenceStatus, Platform } from "@lurkloot/shared/models";
 import { AutomationStatusLine, LINK_CLASS } from "./automation";

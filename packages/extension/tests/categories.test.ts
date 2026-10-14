@@ -92,7 +92,6 @@ describe("favouriteCategoryIndex", () => {
   const rust: CategorySelection = { id: "13", name: "Rust" };
   const otherGame: CategorySelection = { id: "21", name: "Other" };
   const rustCampaign = campaign({ categoryId: "13", gameName: "Rust" });
-  const other = campaign({ categoryId: "21", gameName: "Other" });
 
   it("returns the position a category was starred in", () => {
     expect(favouriteCategoryIndex(rustCampaign, { favouriteCategories: [otherGame, rust] })).toBe(1);
@@ -111,7 +110,6 @@ describe("favouriteCategoryIndex", () => {
 
 describe("isCampaignCategoryBlocked", () => {
   const rust: CategorySelection = { id: "13", name: "Rust" };
-  const otherGame: CategorySelection = { id: "21", name: "Other" };
   const rustCampaign = campaign({ categoryId: "13", gameName: "Rust" });
   const other = campaign({ categoryId: "21", gameName: "Other" });
 

@@ -4,7 +4,7 @@ import type { EngineEvent } from "@lurkloot/shared/events";
 import type { TwitchIntegrity } from "../core/twitchIntegrity";
 import { createTabRegistry, type TabRegistry } from "../core/tabRegistry";
 import type { DiscoverySignalController } from "../core/discoverySignals";
-import { DiscoverySnapshotLane } from "../core/discoverySnapshot";
+import type { DiscoverySnapshotLane } from "../core/discoverySnapshot";
 import type {
   CommittedSelection,
   DiscoverySignalRefreshRequest,

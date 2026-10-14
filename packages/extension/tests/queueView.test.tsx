@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 // The card's Exclude menu is a Base UI menu, which needs real mouse and
 // keyboard events; linkedom has none.
-import React from "react";
+import type React from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";

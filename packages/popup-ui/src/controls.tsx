@@ -1,4 +1,4 @@
-import React from "react";
+import type React from "react";
 import { Checkbox as BaseCheckbox } from "@base-ui/react/checkbox";
 import { Toggle as BaseToggle } from "@base-ui/react/toggle";
 import { ToggleGroup } from "@base-ui/react/toggle-group";

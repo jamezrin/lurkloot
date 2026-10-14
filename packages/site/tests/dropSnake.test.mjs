@@ -42,10 +42,6 @@ function distances(maze, from) {
   return result;
 }
 
-function adjacent(a, b) {
-  return Math.abs(a.col - b.col) + Math.abs(a.row - b.row) === 1;
-}
-
 test("centres whole cells in the panel and keeps drops clear of the copy", () => {
   const board = createBoard(1280, 632, CELL, [copy], [{ left: 0, top: 0, right: 200, bottom: 60 }]);
 
