@@ -155,6 +155,47 @@ describe("KickAdapter", () => {
     expect(fetcher.fetchJson).toHaveBeenCalledTimes(2);
   });
 
+  it("logs once at debug when Kick's progress units disagree with its own fractions", async () => {
+    const events: EngineEvent[] = [];
+    const adapter = kickAdapter(
+      jsonFetcher((url) => {
+        if (url.endsWith("/drops/campaigns")) {
+          return {
+            data: [
+              {
+                id: 1,
+                name: "Kick Campaign",
+                status: "active",
+                rewards: [{ id: 10, required_units: 600 }],
+              },
+            ],
+          };
+        }
+        return {
+          data: [
+            {
+              id: 1,
+              status: "in progress",
+              progress_units: 880,
+              rewards: [{ id: 10, progress: 0.73333335, required_units: 600 }],
+            },
+          ],
+        };
+      }),
+      undefined,
+      (event) => events.push(event),
+    );
+
+    await adapter.refreshCampaigns();
+    await adapter.refreshCampaigns();
+
+    const unitLines = events.filter(
+      (event) => event.category === "diagnostic" && event.message.includes("unit"),
+    );
+    expect(unitLines).toHaveLength(1);
+    expect(unitLines[0]).toMatchObject({ level: "debug", platform: "kick" });
+  });
+
   it("keeps Kick campaigns when concurrent progress refresh fails", async () => {
     const events: EngineEvent[] = [];
     const adapter = kickAdapter(
@@ -894,7 +935,7 @@ describe("KickAdapter", () => {
     await expect(adapter.claimReward(ambiguous[0], ambiguous[0].rewards[0])).resolves.toBe(false);
     expect(claimPosts).toBe(1);
 
-    progress = { data: [{ campaign_id: "campaign", user_app_connected: true, progress_units: 2 }] };
+    progress = { data: [{ campaign_id: "campaign", user_app_connected: true, progress_units: 1 }] };
     const linked = await adapter.refreshCampaigns();
     expect(linked[0].accountLinked).toBe(true);
     expect(linked[0].claimGuidance).toBeUndefined();
@@ -942,7 +983,7 @@ describe("KickAdapter", () => {
     } as DropCampaign;
 
     await adapter.claimReward(campaign, campaign.rewards[0]);
-    progress = [{ campaign_id: "campaign", user_app_connected: true, progress_units: 2 }];
+    progress = [{ campaign_id: "campaign", user_app_connected: true, progress_units: 1 }];
     const refreshed = await adapter.refreshCampaigns();
     await adapter.claimReward(refreshed[0], refreshed[0].rewards[0]);
 

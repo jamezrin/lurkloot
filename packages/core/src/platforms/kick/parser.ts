@@ -185,7 +185,7 @@ export function parseKickCampaigns(input: KickCampaignResponse | KickCampaign[])
       allowedChannels,
       connectionUrls: allowedChannels?.map((username) => `https://kick.com/${username}`) ?? [],
       isGeneralDrop: !allowedChannels?.length,
-      rewards: rewards.map(parseKickReward),
+      rewards: rewards.map((reward) => parseKickReward(reward, startsAt, endsAt)),
     };
   });
 }
@@ -196,25 +196,39 @@ export function parseKickCampaigns(input: KickCampaignResponse | KickCampaign[])
 // popup's <img> doesn't 404 against the extension origin and fall back to the
 // gradient+initials placeholder.
 const KICK_ASSET_BASE = "https://ext.kick.com";
-// Kick's drops API measures `*_units` in 30-second intervals. The shared
-// contracts measure watch progress in minutes, so normalize at the adapter
-// boundary and leave explicitly named minute fields untouched.
-const KICK_MINUTES_PER_UNIT = 0.5;
-
-function kickUnitsToMinutes(units: number): number {
-  return units * KICK_MINUTES_PER_UNIT;
-}
-
 export function kickRewardImageUrl(value: string | undefined): string | undefined {
   if (!value) return undefined;
   if (/^https?:\/\//i.test(value)) return value;
   return `${KICK_ASSET_BASE}/${value.replace(/^\/+/, "")}`;
 }
 
-function parseKickReward(reward: KickReward): DropReward {
+// Kick's drops API measures `*_units` in minutes: a reward named "5 Hours" ships
+// as `required_units: 300`. Kick's own web client agrees: `RewardCardDuration`
+// renders `durationMinutes * 60_000` ms, and it is fed `getDisplayedRewardUnits`,
+// which also caps the requirement at the campaign window. That is how a
+// two-minute flash drop with a larger raw requirement reads as 2 minutes. The
+// unit is a server/client contract, so `findKickUnitMismatches` below checks it
+// against Kick's own per-reward fraction at runtime.
+function kickRequiredMinutes(
+  units: number,
+  startsAt: string | undefined,
+  endsAt: string | undefined,
+): number {
+  const start = parseTimestamp(startsAt);
+  const end = parseTimestamp(endsAt);
+  if (start == null || end == null) return units;
+  const windowMinutes = Math.floor((end - start) / 60_000);
+  return windowMinutes > 0 ? Math.min(units, windowMinutes) : units;
+}
+
+function parseKickReward(
+  reward: KickReward,
+  startsAt: string | undefined,
+  endsAt: string | undefined,
+): DropReward {
   const requiredMinutes =
     reward.required_units != null
-      ? kickUnitsToMinutes(reward.required_units)
+      ? kickRequiredMinutes(reward.required_units, startsAt, endsAt)
       : (reward.required_minutes ?? reward.minutes_required ?? reward.watch_time_required ?? 0);
   const requirement = requiredMinutes > 0 ? ("watch" as const) : ("action" as const);
   return {
@@ -240,13 +254,13 @@ export function mergeKickProgress(
       (item) => String(item.id ?? item.campaign_id ?? item.drop_campaign_id) === campaign.id,
     );
     // Kick's live drops API returns a single cumulative watch counter per
-    // campaign (`progress_units`, in 30-second units); tiered rewards share it,
+    // campaign (`progress_units`, in minutes); tiered rewards share it,
     // so each reward's watched minutes is the cumulative capped at its requirement. This
     // is the reliable signal — the per-reward `progress` is only a 0..1 fraction.
     // (Confirmed against the live /api/v1/drops/progress response.)
     const campaignMinutes =
       typeof campaignProgress?.progress_units === "number"
-        ? kickUnitsToMinutes(campaignProgress.progress_units)
+        ? campaignProgress.progress_units
         : undefined;
     const rewards = campaign.rewards.map((reward) => {
       const flatProgress = progressItems.find((item) => {
@@ -314,6 +328,48 @@ export function mergeKickProgress(
   });
 }
 
+export interface KickUnitMismatch {
+  campaignId: string;
+  rewardId: string;
+  // Kick's per-reward `progress` fraction, as sent.
+  reported: number;
+  // What `progress_units / required_units` predicts if both share a unit.
+  expected: number;
+}
+
+// Kick derives each reward's `progress` fraction server-side as
+// `progress_units / required_units`. A reward where that no longer holds means
+// the two counters stopped sharing a unit, so the minutes we show would drift
+// from kick.com (the #416 / #815 failure). Finished rewards are skipped because
+// their fraction is capped at 1 while the cumulative counter keeps climbing.
+const KICK_UNIT_FRACTION_TOLERANCE = 0.01;
+
+export function findKickUnitMismatches(
+  input: KickProgressResponse | KickProgress[],
+): KickUnitMismatch[] {
+  const mismatches: KickUnitMismatch[] = [];
+  for (const campaign of collectKickProgress(input)) {
+    const units = campaign.progress_units;
+    if (typeof units !== "number") continue;
+    const campaignId = String(campaign.id ?? campaign.campaign_id ?? campaign.drop_campaign_id);
+    for (const reward of campaign.rewards ?? []) {
+      const required = reward.required_units;
+      const reported = reward.progress;
+      if (!required || required <= 0 || typeof reported !== "number") continue;
+      if (reported >= 1 || reward.claimed || reward.is_claimed) continue;
+      const expected = Math.min(1, units / required);
+      if (Math.abs(expected - reported) <= KICK_UNIT_FRACTION_TOLERANCE) continue;
+      mismatches.push({
+        campaignId,
+        rewardId: String(reward.id ?? reward.reward_id ?? reward.drop_id),
+        reported,
+        expected,
+      });
+    }
+  }
+  return mismatches;
+}
+
 export function kickCandidatesFromCampaign(campaign: DropCampaign): ChannelCandidate[] {
   return (campaign.allowedChannels ?? []).map((username) => ({
     platform: "kick",
@@ -340,7 +396,7 @@ function progressMinutes(progress: KickProgress | KickProgressReward, reward: Dr
       ?? reward.watchedMinutes
     );
   }
-  if (progress.progress_units != null) return kickUnitsToMinutes(progress.progress_units);
+  if (progress.progress_units != null) return progress.progress_units;
   if ("percentage" in progress && progress.percentage != null) {
     return (progress.percentage / 100) * reward.requiredMinutes;
   }
