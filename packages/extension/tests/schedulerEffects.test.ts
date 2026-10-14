@@ -18,6 +18,7 @@ import { createTickEffectExecutor } from "@lurkloot/core/background/tickEffects"
 import { registerWatchTabEffects } from "@lurkloot/core/background/manualWatch";
 import { registerSupplementalTargetEffect } from "@lurkloot/core/background/supplementalSources";
 import { createTabRegistry } from "@lurkloot/core/tabRegistry";
+import { KickWafBlockedError } from "@lurkloot/core/transport";
 import { DEFAULT_STATE } from "../src/core/storage";
 
 // The scheduler tick decides from plain inputs and names its side effects
@@ -319,5 +320,71 @@ describe("scheduler tick decisions from plain inputs", () => {
     });
 
     expect(tick.state.sessions.twitch).toMatchObject({ status: "error", reasonCode: "platform_error", errorChecks: 1, message: "tab refused" });
+  });
+
+  it("marks Kick auth blocked when opening a watch tab hits Kick's security policy (#794)", async () => {
+    const kickReward = reward("first");
+    const kickCampaign: DropCampaign = {
+      ...campaign("drops", [kickReward]),
+      platform: "kick",
+    };
+    const kickChannel: ChannelCandidate = {
+      platform: "kick",
+      username: "floridaboy",
+      displayName: "floridaboy",
+      url: "https://kick.com/floridaboy",
+      live: true,
+    };
+    const discovered = {
+      platform: "kick" as const,
+      revision: 1,
+      observedAt: Date.now(),
+      complete: true as const,
+      idleCandidates: [],
+      followedChannels: [],
+      metrics: { campaigns: 1, candidates: 1, cacheHits: 0, cacheMisses: 1, batchRequests: 1, singleFallbacks: 0 },
+      campaigns: [{
+        campaign: kickCampaign,
+        candidates: [{ candidate: kickChannel, live: true, categoryMatches: true, eligible: true as const, observedAt: Date.now() }],
+      }],
+    };
+    const tickInput: SchedulerTickInput = {
+      state,
+      settings: {
+        ...DEFAULT_SETTINGS,
+        tablessMode: false,
+        platform: {
+          twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false },
+          kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true },
+        },
+      },
+      platforms: ["kick"],
+      discovery: { kick: { campaigns: [kickCampaign], complete: true } },
+      selectionViews: { kick: selectionAdapterFromDiscoverySnapshot(discovered, state.sessions.kick) },
+      capabilities: { kick: { supportsTabless: true, watchTabs: true, claimChallenges: true, claimChannelPoints: false } },
+    };
+    const tick = startSchedulerTick(tickInput);
+    await driveEffects(decidePlatformTick(tick, "kick", tickInput), async (effect) => {
+      if (effect.type === "claimRewards") return { campaigns: effect.campaigns, events: [] };
+      if (effect.type === "openWatchTab") {
+        throw new KickWafBlockedError({
+          kind: "security_policy_blocked",
+          reason: "Request blocked by security policy.",
+          reference: "c0e117f5",
+        });
+      }
+      if (effect.type === "stopWatchTab") return undefined;
+      if (effect.type === "releasePageContexts") return effect.contexts;
+      return undefined;
+    });
+
+    expect(tick.state.authHealth.kick).toMatchObject({
+      status: "blocked",
+      reasonCode: "security_policy_blocked",
+    });
+    expect(tick.state.sessions.kick).toMatchObject({
+      status: "paused",
+      reasonCode: "authentication_unhealthy",
+    });
   });
 });

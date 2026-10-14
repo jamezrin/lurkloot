@@ -790,6 +790,84 @@ describe("tab manager", () => {
     expect(browser.tabs.update).toHaveBeenCalledWith(9, { pinned: true, muted: true, active: false });
   });
 
+  it("rejects a Kick watch tab that shows a security-policy document (#794)", async () => {
+    const kickChannel: ChannelCandidate = {
+      platform: "kick",
+      username: "floridaboy",
+      url: "https://kick.com/floridaboy",
+    };
+    const browser = {
+      ...browserMock(),
+      scripting: {
+        executeScript: vi.fn(async () => [{
+          result: {
+            usable: false,
+            failure: {
+              kind: "security_policy_blocked",
+              reason: "Request blocked by security policy.",
+              reference: "c0e117f5",
+            },
+          },
+        }]),
+      },
+    };
+    browser.tabs.create.mockResolvedValue({ id: 9 });
+
+    const error = await openPinnedMutedTabWithBrowser(registry, browser, kickChannel).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(KickWafBlockedError);
+    if (!(error instanceof KickWafBlockedError)) throw new Error("Expected KickWafBlockedError");
+    expect(error.failure).toEqual({
+      kind: "security_policy_blocked",
+      reason: "Request blocked by security policy.",
+      reference: "c0e117f5",
+    });
+    expect(browser.tabs.remove).toHaveBeenCalledWith(9);
+  });
+
+  it("closes a reused Kick watch tab when Kick serves a security-policy document (#794)", async () => {
+    const kickChannel: ChannelCandidate = {
+      platform: "kick",
+      username: "floridaboy",
+      url: "https://kick.com/floridaboy",
+    };
+    const browser = {
+      ...browserMock(),
+      scripting: {
+        executeScript: vi.fn(async () => [{
+          result: {
+            usable: false,
+            failure: {
+              kind: "security_policy_blocked",
+              reason: "Request blocked by security policy.",
+              reference: "c0e117f5",
+            },
+          },
+        }]),
+      },
+    };
+    browser.tabs.get.mockResolvedValue({
+      id: 4,
+      url: "https://kick.com/floridaboy",
+      pinned: true,
+      mutedInfo: { muted: true },
+      active: false,
+      status: "complete",
+    });
+
+    const error = await openPinnedMutedTabWithBrowser(registry, browser, kickChannel, {
+      platform: "kick",
+      status: "watching",
+      offlineChecks: 0,
+      tabId: 4,
+      tabManagedByExtension: true,
+    }).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(KickWafBlockedError);
+    expect(browser.tabs.create).not.toHaveBeenCalled();
+    expect(browser.tabs.remove).toHaveBeenCalledWith(4);
+  });
+
   it("closes a newly created managed tab when creation finishes after cancellation", async () => {
     const browser = browserMock();
     const abort = new AbortController();
@@ -1341,6 +1419,46 @@ describe("tab manager", () => {
     const opened = events.find((event) => event.category === "activity" && event.code === "page_context_opened");
     expect(activityDiagnostic(opened as Extract<EngineEvent, { category: "activity" }>).message)
       .toBe("Opened managed page context on kick.com: reason=managed_context_unusable");
+  });
+
+  it("does not open a replacement page context when the unusable tab cannot be closed (#794)", async () => {
+    const browser = {
+      ...browserMock(),
+      scripting: {
+        executeScript: vi.fn(async () => [{
+          result: {
+            usable: false,
+            failure: {
+              kind: "security_policy_blocked",
+              reason: "Request blocked by security policy.",
+              reference: "c0e117f5",
+            },
+          },
+        }]),
+      },
+    };
+    browser.tabs.get.mockResolvedValue({ id: 14, url: "https://kick.com/drops/inventory", status: "complete" });
+    browser.tabs.remove.mockRejectedValue(new Error("Tabs cannot be edited right now"));
+    registerManagedPageContextTabs(registry, {
+      kick: { platform: "kick", tabId: 14, originUrl: "https://kick.com/drops/inventory", origin: "https://kick.com", ownedByExtension: true },
+    });
+
+    const error = await fetchJsonInPageWithBrowser(registry,
+      browser,
+      "https://kick.com/drops/inventory",
+      "https://web.kick.com/api/v1/drops/progress",
+      undefined,
+      { retainPageContext: { platform: "kick" }, openReason: "background_rejected" },
+    ).catch((caught: unknown) => caught);
+
+    expect(isSafeFetchError(error)).toBe(true);
+    if (!isSafeFetchError(error)) throw new Error("Expected SafeFetchError");
+    expect(error.failure).toEqual({
+      kind: "security_policy_blocked",
+      reason: "Could not close unusable managed page context before replacement",
+    });
+    expect(browser.tabs.create).not.toHaveBeenCalled();
+    expect(currentManagedPageContextTabs(registry).kick?.tabId).toBe(14);
   });
 
   it("does not close an existing user tab reused for a page-context fetch", async () => {

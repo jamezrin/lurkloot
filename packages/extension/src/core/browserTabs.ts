@@ -2,9 +2,13 @@ import type { AdFocusMode, ChannelCandidate, ManagedPageContextTab, ManagedWatch
 import type { EventEmitter, PageContextCloseReason, PageContextOpenReason } from "@lurkloot/shared/events";
 import type { LogLevel } from "@lurkloot/shared/logging";
 import type { KickPageContextCycleObservation } from "@lurkloot/core/adapter";
-import { SafeFetchError, safeFetchFailure, type SafeFetchFailure } from "@lurkloot/core/fetchError";
+import { isSafeFetchError, SafeFetchError, safeFetchFailure, type SafeFetchFailure } from "@lurkloot/core/fetchError";
 import { isTimestampStale, PLAYBACK_TELEMETRY_MAX_AGE_MS } from "@lurkloot/core/timestamps";
-import { fetchTwitchInBackgroundWith as fetchTwitchInBackgroundWithIdentity, type CookieApi } from "@lurkloot/core/transport";
+import {
+  fetchTwitchInBackgroundWith as fetchTwitchInBackgroundWithIdentity,
+  KickWafBlockedError,
+  type CookieApi,
+} from "@lurkloot/core/transport";
 import {
   describeContextBoot,
   forgetManagedPageContextTabs,
@@ -155,6 +159,12 @@ export async function openPinnedMutedTabWithBrowser(
         if (Object.keys(updateProperties).length > 0) {
           await browserApi.tabs.update(tab.id, updateProperties);
         }
+        // Kick may answer a channel navigation with a security-policy JSON
+        // document. Detect that before priming so we suspend farming instead of
+        // looping on "no video element" and opening more tabs (#794).
+        await assertKickWatchTabUsable(registry, browserApi, tab.id, channel, emit, tabOptions.signal, {
+          closeOnFailure: true,
+        });
         if (!shouldPrimePlayback(tab, channel.url, session)) {
           // Playback is healthy, so the budget has served its purpose.
           resetPlaybackPriming(registry, channel.platform);
@@ -169,7 +179,10 @@ export async function openPinnedMutedTabWithBrowser(
           managedTab: managedTab(channel, tab.id),
         };
       }
-    } catch {
+    } catch (error) {
+      tabOptions.signal?.throwIfAborted();
+      // WAF / SafeFetch failures must not be mistaken for a missing tab.
+      if (isSafeFetchError(error)) throw error;
       // The registered managed tab can go stale after browser restarts or manual tab closure.
       diagnostic(emit, "debug", `Managed watch tab ${registered.tabId} is gone; opening a new one`, channel.platform);
     }
@@ -181,6 +194,10 @@ export async function openPinnedMutedTabWithBrowser(
         if (Object.keys(updateProperties).length > 0) {
           await browserApi.tabs.update(tab.id, updateProperties);
         }
+        // Do not close a tab the user owns; still refuse to farm on a WAF page.
+        await assertKickWatchTabUsable(registry, browserApi, tab.id, channel, emit, tabOptions.signal, {
+          closeOnFailure: false,
+        });
         if (!shouldPrimePlayback(tab, channel.url, session)) {
           // Playback is healthy, so the budget has served its purpose.
           resetPlaybackPriming(registry, channel.platform);
@@ -191,7 +208,9 @@ export async function openPinnedMutedTabWithBrowser(
         tabOptions.signal?.throwIfAborted();
         return { tabId: tab.id, managedByExtension: false };
       }
-    } catch {
+    } catch (error) {
+      tabOptions.signal?.throwIfAborted();
+      if (isSafeFetchError(error)) throw error;
       // Reused user tabs are best-effort only; if missing, create a managed tab.
       diagnostic(emit, "debug", `Reused tab ${session.tabId} is gone; opening a managed one`, channel.platform);
     }
@@ -225,6 +244,9 @@ export async function openPinnedMutedTabWithBrowser(
   try {
     tabOptions.signal?.throwIfAborted();
     await browserApi.tabs.update(tab.id, { pinned: true, muted: tabOptions.muted, active: false });
+    await assertKickWatchTabUsable(registry, browserApi, tab.id, channel, emit, tabOptions.signal, {
+      closeOnFailure: false,
+    });
     if (tabOptions.keepVideosUnmuted) {
       // Deliberately no reset here: a replacement tab for the same failing channel
       // keeps spending the same budget, or the cap never engages under tab churn.
@@ -346,6 +368,54 @@ function managedTab(channel: ChannelCandidate, tabId: number): ManagedWatchTab {
     tabId,
     channelUrl: channel.url,
     ownedByExtension: true,
+  };
+}
+
+// Kick sometimes serves a security-policy JSON body instead of the channel SPA.
+// Same check as page-context usability: refuse to farm on that document and
+// surface it as KickWafBlockedError so the scheduler marks auth blocked (#794).
+async function assertKickWatchTabUsable(
+  registry: TabRegistry,
+  browserApi: BrowserTabApi,
+  tabId: number,
+  channel: ChannelCandidate,
+  emit: EventEmitter,
+  signal: AbortSignal | undefined,
+  options: { closeOnFailure: boolean },
+): Promise<void> {
+  if (channel.platform !== "kick") return;
+  signal?.throwIfAborted();
+  await waitForPageContextReady(browserApi, tabId, "https://kick.com", signal);
+  const inspection = await inspectKickDocument(browserApi, tabId, signal);
+  if (inspection.usable) return;
+
+  const failure = kickWatchTabBlockFailure(inspection.failure);
+  diagnostic(
+    emit,
+    "warn",
+    failure.reason
+      ? `Kick watch tab ${tabId} is unusable: ${failure.reason}`
+      : `Kick watch tab ${tabId} is blocked or unusable`,
+    "kick",
+  );
+  if (options.closeOnFailure && browserApi.tabs.remove) {
+    try {
+      await closeTab(registry, browserApi, tabId, "extension-cleanup");
+      diagnostic(emit, "debug", `Closed blocked Kick watch tab ${tabId}`, "kick");
+    } catch {
+      // The tab may already have been closed independently.
+    }
+  }
+  throw new KickWafBlockedError(failure);
+}
+
+function kickWatchTabBlockFailure(failure: SafeFetchFailure | undefined): SafeFetchFailure {
+  if (failure?.kind === "security_policy_blocked") return failure;
+  return {
+    kind: "security_policy_blocked",
+    reason: failure?.reason ?? "Kick watch tab returned a non-HTML document",
+    ...(failure?.reference !== undefined ? { reference: failure.reference } : {}),
+    ...(failure?.status !== undefined ? { status: failure.status } : {}),
   };
 }
 
@@ -1021,25 +1091,58 @@ async function findOrCreatePageContextTab(
       registry.retainedPageContextRevision += 1;
       openReason = "managed_context_unusable";
       if (tab?.id) {
+        // Never open a replacement while the previous managed tab is still open.
+        // A failed tabs.remove (e.g. "Tabs cannot be edited right now") used to
+        // forget ownership and create another tab, which is how Kick WAF nights
+        // accumulated dozens of inventory tabs (#794).
         if (!browserApi.tabs.remove) {
-          diagnostic(options?.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(origin).host} because tab removal is unavailable`, retained.platform);
-        } else {
+          registry.retainedPageContextTabs.set(retained.platform, retained);
+          registry.retainedPageContextRevision += 1;
+          diagnostic(options?.emit ?? ignoreEvent, "debug", `Retained unusable managed page context on ${new URL(origin).host} because tab removal is unavailable`, retained.platform);
+          throw new SafeFetchError({
+            kind: "security_policy_blocked",
+            reason: "Could not close unusable managed page context before replacement",
+          });
+        }
+        try {
+          await withAbortSignal(closeTab(registry, browserApi, retained.tabId, "extension-cleanup"), signal);
+          options?.emit?.({
+            category: "activity",
+            code: "page_context_closed",
+            level: "info",
+            platform: retained.platform,
+            data: { host: new URL(origin).host, reason: "managed_context_unusable" },
+          });
+        } catch (closeError) {
+          signal?.throwIfAborted();
+          let stillOpen = false;
           try {
-            await withAbortSignal(closeTab(registry, browserApi, retained.tabId, "extension-cleanup"), signal);
-            options?.emit?.({
-              category: "activity",
-              code: "page_context_closed",
-              level: "info",
-              platform: retained.platform,
-              data: { host: new URL(origin).host, reason: "managed_context_unusable" },
-            });
+            const remaining = await withAbortSignal(browserApi.tabs.get(retained.tabId), signal);
+            stillOpen = remaining?.id === retained.tabId;
           } catch {
-            diagnostic(options?.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(origin).host} because it was already gone`, retained.platform);
+            stillOpen = false;
           }
+          if (stillOpen) {
+            registry.retainedPageContextTabs.set(retained.platform, retained);
+            registry.retainedPageContextRevision += 1;
+            diagnostic(
+              options?.emit ?? ignoreEvent,
+              "warn",
+              `Retained unusable managed page context on ${new URL(origin).host} because it could not be closed: ${errorMessage(closeError)}`,
+              retained.platform,
+            );
+            throw new SafeFetchError({
+              kind: "security_policy_blocked",
+              reason: "Could not close unusable managed page context before replacement",
+            });
+          }
+          diagnostic(options?.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(origin).host} because the tab was already gone`, retained.platform);
         }
       }
     } catch (error) {
       signal?.throwIfAborted();
+      // Replacement was refused because the previous tab could not be closed.
+      if (isSafeFetchError(error)) throw error;
       registry.retainedPageContextTabs.delete(retained.platform);
       registry.retainedPageContextRevision += 1;
       openReason = "managed_context_unusable";
@@ -1138,8 +1241,16 @@ async function isUsablePageContext(
   origin: string,
   signal?: AbortSignal,
 ): Promise<boolean> {
-  signal?.throwIfAborted();
   if (origin !== "https://kick.com") return true;
+  return (await inspectKickDocument(browserApi, tabId, signal)).usable;
+}
+
+async function inspectKickDocument(
+  browserApi: BrowserTabApi,
+  tabId: number,
+  signal?: AbortSignal,
+): Promise<{ usable: true } | { usable: false; failure?: SafeFetchFailure }> {
+  signal?.throwIfAborted();
   try {
     if (browserApi.scripting?.executeScript) {
       const [result] = await withAbortSignal(browserApi.scripting.executeScript({
@@ -1147,22 +1258,35 @@ async function isUsablePageContext(
         world: "MAIN",
         func: validateKickPageContext,
       }), signal);
-      const value = result?.result as { usable?: unknown } | undefined;
-      return value?.usable === true || (value as { ok?: unknown } | undefined)?.ok === true;
+      return normalizeKickDocumentInspection(result?.result);
     }
     if (browserApi.tabs.executeScript) {
       const results = await withAbortSignal(
         browserApi.tabs.executeScript(tabId, { code: `(${validateKickPageContext.toString()})()` }),
         signal,
       );
-      const value = results?.[0] as { usable?: unknown; ok?: unknown } | undefined;
-      return value?.usable === true || value?.ok === true;
+      return normalizeKickDocumentInspection(results?.[0]);
     }
   } catch (error) {
     signal?.throwIfAborted();
-    return false;
+    return { usable: false, failure: { kind: "invalid_response" } };
   }
-  return false;
+  return { usable: false, failure: { kind: "invalid_response" } };
+}
+
+function normalizeKickDocumentInspection(
+  value: unknown,
+): { usable: true } | { usable: false; failure?: SafeFetchFailure } {
+  const record = value && typeof value === "object" ? value as {
+    usable?: unknown;
+    ok?: unknown;
+    failure?: SafeFetchFailure;
+  } : undefined;
+  if (record?.usable === true || record?.ok === true) return { usable: true };
+  return {
+    usable: false,
+    ...(record?.failure ? { failure: record.failure } : {}),
+  };
 }
 
 function validateKickPageContext(): { usable: boolean; failure?: SafeFetchFailure } {
