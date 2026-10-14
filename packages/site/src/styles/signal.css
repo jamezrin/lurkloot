@@ -76,6 +76,12 @@
 .sg-nav__inner { display: flex; align-items: center; gap: 24px; min-height: 64px; }
 .sg-brand { display: inline-flex; align-items: center; gap: 9px; font: 600 18px/1 var(--font-display); letter-spacing: -.035em; }
 .sg-brand img { width: 26px; height: 26px; }
+.sg-nav__menu { display: flex; align-items: center; }
+.sg-nav__toggle { display: none; }
+/* Closed <details> hides its contents. On a wide screen the links stay in the bar. */
+@media (min-width: 1101px) {
+  .sg-nav__menu::details-content { content-visibility: visible; }
+}
 .sg-nav nav { display: flex; gap: 2px; margin-left: 8px; }
 .sg-nav nav a { padding: 6px 10px; border-radius: 6px; font-size: 14px; color: var(--sg-muted); transition: color .15s; }
 .sg-nav nav a:hover, .sg-nav nav a[aria-current="page"] { color: #ededed; }
@@ -378,7 +384,36 @@ html.sg-motion .signal [data-reveal].is-in { opacity: 1; transform: none; }
 
 /* ---------- responsive ---------- */
 @media (max-width: 1100px) {
-  .sg-nav nav { display: none; }
+  /* One row: logo, then the menu with the other controls. The links drop into a panel. */
+  .sg-nav__inner { gap: 8px; }
+  .sg-nav__menu { flex: none; margin-left: auto; }
+  .sg-nav__end { margin-left: 0; }
+  .sg-nav__toggle {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; border-radius: 6px; color: #ededed; cursor: pointer;
+    background: #0a0a0a; box-shadow: inset 0 0 0 1px var(--sg-line-strong); list-style: none;
+  }
+  .sg-nav__toggle::-webkit-details-marker { display: none; }
+  .sg-nav__menu[open] > .sg-nav__toggle { background: #1a1a1a; }
+  .sg-nav__bars, .sg-nav__bars::before, .sg-nav__bars::after {
+    display: block; width: 14px; height: 1.5px; border-radius: 1px; background: currentColor;
+  }
+  .sg-nav__bars { position: relative; }
+  .sg-nav__bars::before, .sg-nav__bars::after { content: ""; position: absolute; left: 0; transition: top .15s, rotate .15s; }
+  .sg-nav__bars::before { top: -5px; }
+  .sg-nav__bars::after { top: 5px; }
+  .sg-nav__menu[open] .sg-nav__bars { background: transparent; }
+  .sg-nav__menu[open] .sg-nav__bars::before { top: 0; rotate: 45deg; }
+  .sg-nav__menu[open] .sg-nav__bars::after { top: 0; rotate: -45deg; }
+  .sg-nav__menu > nav { display: none; }
+  .sg-nav__menu[open] > nav {
+    display: flex; flex-direction: column; gap: 2px;
+    position: absolute; z-index: 1; inset-inline: 0; top: 100%; margin: 0;
+    padding: 8px 14px 14px; background: #000;
+    box-shadow: inset 0 1px 0 var(--sg-line), inset 0 -1px 0 var(--sg-line);
+  }
+  .sg-nav__menu[open] > nav a { padding: 12px 10px; border-radius: 8px; font-size: 16px; }
+  .sg-nav__menu[open] > nav a[aria-current="page"] { background: #111; }
   .sg-hero__grid { grid-template-columns: minmax(0, 1fr) minmax(0, .8fr); }
   .sg-hero__mark { grid-row: span 2; grid-column: 2; }
   .sg-hero__aside { grid-column: 1; }
@@ -418,7 +453,8 @@ html.sg-motion .signal [data-reveal].is-in { opacity: 1; transform: none; }
 @media (max-width: 640px) {
   .signal { font-size: 15px; }
   .sg-wrap { width: calc(100% - 32px); }
-  .sg-nav__inner { min-height: 56px; gap: 12px; }
+  .sg-nav__inner { min-height: 56px; }
+  .sg-nav__menu[open] > nav { padding-inline: 6px; }
   .sg-brand { font-size: 17px; }
   .sg-nav__gh-label { display: none; }
   .sg-nav__stars { margin-left: 0; padding-left: 8px; }

@@ -123,17 +123,6 @@
 
 /* ---------- responsive ---------- */
 @media (max-width: 1100px) {
-  /* The homepage drops its section links here; these pages keep theirs on a second row.
-     That row grows the bar past its min-height, so restore the single-row top inset. */
-  .sg-page .sg-nav__inner { flex-wrap: wrap; row-gap: 0; padding-block-start: 16px; }
-  .sg-page .sg-nav nav { display: flex; order: 3; width: 100%; margin: 0 0 8px -10px; overflow-x: auto; scrollbar-width: none; }
-  /* The wrapped bar is about 90px tall, so anchors and sticky asides clear it
-     with the same air they have under the 64px single-row bar. */
-  .sg-page .lp-sec { scroll-margin-top: 104px; }
-  .document-prose h2, .release { scroll-margin-top: 120px; }
-  .sg-page .sg-faq { scroll-margin-top: 32px; }
-  .sg-page .guide-section-heading, .document-toc { top: 120px; }
-  .document-toc { max-height: calc(100vh - 144px); }
   .sg-page .lp-hero > .wrap { gap: 48px; grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr); }
   .sg-page .lp-sec > .wrap { gap: 48px; grid-template-columns: minmax(0, .85fr) minmax(0, 1.3fr); }
   .document-layout { gap: 48px; grid-template-columns: 210px minmax(0, 1fr); }
@@ -149,8 +138,6 @@
   .document-toc > p { grid-column: 1 / -1; }
 }
 @media (max-width: 640px) {
-  /* The single-row bar is 56px tall here, so the inset shrinks with it. */
-  .sg-page .sg-nav__inner { padding-block-start: 12px; }
   .sg-page .wrap { width: calc(100% - 32px); }
   .sg-subnav a { padding: 5px 11px; font-size: 12.5px; }
   .sg-page main h1 { font-size: clamp(40px, 12vw, 54px); }
