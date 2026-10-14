@@ -31,10 +31,12 @@
     "cws:test": "node --test scripts/cws.test.mjs",
     "locales:check": "node scripts/check-locales.mjs",
     "locales:test": "node --test scripts/check-locales.test.mjs",
+    "format": "biome format --write .",
     "check": "pnpm cws:test && pnpm release:test && pnpm locales:test && pnpm locales:check && pnpm -r typecheck && pnpm test && pnpm build:site",
     "verify": "pnpm check && pnpm build && pnpm build:firefox"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.5.15",
     "crx3": "2.0.0",
     "typescript": "^7.0.0"
   }
