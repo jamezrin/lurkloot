@@ -185,7 +185,7 @@ export function parseKickCampaigns(input: KickCampaignResponse | KickCampaign[])
       allowedChannels,
       connectionUrls: allowedChannels?.map((username) => `https://kick.com/${username}`) ?? [],
       isGeneralDrop: !allowedChannels?.length,
-      rewards: rewards.map(parseKickReward),
+      rewards: rewards.map((reward) => parseKickReward(reward, startsAt, endsAt)),
     };
   });
 }
@@ -196,25 +196,36 @@ export function parseKickCampaigns(input: KickCampaignResponse | KickCampaign[])
 // popup's <img> doesn't 404 against the extension origin and fall back to the
 // gradient+initials placeholder.
 const KICK_ASSET_BASE = "https://ext.kick.com";
-// Kick's drops API measures `*_units` in 30-second intervals. The shared
-// contracts measure watch progress in minutes, so normalize at the adapter
-// boundary and leave explicitly named minute fields untouched.
-const KICK_MINUTES_PER_UNIT = 0.5;
-
-function kickUnitsToMinutes(units: number): number {
-  return units * KICK_MINUTES_PER_UNIT;
-}
-
 export function kickRewardImageUrl(value: string | undefined): string | undefined {
   if (!value) return undefined;
   if (/^https?:\/\//i.test(value)) return value;
   return `${KICK_ASSET_BASE}/${value.replace(/^\/+/, "")}`;
 }
 
-function parseKickReward(reward: KickReward): DropReward {
+// Kick's drops API measures `*_units` in minutes: a reward named "5 Hours" ships
+// as `required_units: 300`. Kick's own client also caps the displayed
+// requirement at the campaign window (`getDisplayedRewardUnits`), which is how a
+// two-minute flash drop with a larger raw requirement reads as 2 minutes.
+function kickRequiredMinutes(
+  units: number,
+  startsAt: string | undefined,
+  endsAt: string | undefined,
+): number {
+  const start = parseTimestamp(startsAt);
+  const end = parseTimestamp(endsAt);
+  if (start == null || end == null) return units;
+  const windowMinutes = Math.floor((end - start) / 60_000);
+  return windowMinutes > 0 ? Math.min(units, windowMinutes) : units;
+}
+
+function parseKickReward(
+  reward: KickReward,
+  startsAt: string | undefined,
+  endsAt: string | undefined,
+): DropReward {
   const requiredMinutes =
     reward.required_units != null
-      ? kickUnitsToMinutes(reward.required_units)
+      ? kickRequiredMinutes(reward.required_units, startsAt, endsAt)
       : (reward.required_minutes ?? reward.minutes_required ?? reward.watch_time_required ?? 0);
   const requirement = requiredMinutes > 0 ? ("watch" as const) : ("action" as const);
   return {
@@ -240,13 +251,13 @@ export function mergeKickProgress(
       (item) => String(item.id ?? item.campaign_id ?? item.drop_campaign_id) === campaign.id,
     );
     // Kick's live drops API returns a single cumulative watch counter per
-    // campaign (`progress_units`, in 30-second units); tiered rewards share it,
+    // campaign (`progress_units`, in minutes); tiered rewards share it,
     // so each reward's watched minutes is the cumulative capped at its requirement. This
     // is the reliable signal — the per-reward `progress` is only a 0..1 fraction.
     // (Confirmed against the live /api/v1/drops/progress response.)
     const campaignMinutes =
       typeof campaignProgress?.progress_units === "number"
-        ? kickUnitsToMinutes(campaignProgress.progress_units)
+        ? campaignProgress.progress_units
         : undefined;
     const rewards = campaign.rewards.map((reward) => {
       const flatProgress = progressItems.find((item) => {
@@ -340,7 +351,7 @@ function progressMinutes(progress: KickProgress | KickProgressReward, reward: Dr
       ?? reward.watchedMinutes
     );
   }
-  if (progress.progress_units != null) return kickUnitsToMinutes(progress.progress_units);
+  if (progress.progress_units != null) return progress.progress_units;
   if ("percentage" in progress && progress.percentage != null) {
     return (progress.percentage / 100) * reward.requiredMinutes;
   }

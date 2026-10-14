@@ -110,7 +110,7 @@ describe("Kick parsers", () => {
     expect(merged[0].rewards[0].status).toBe("in_progress");
   });
 
-  it("converts campaign-level Kick progress units into minutes for tiered rewards", () => {
+  it("reads campaign-level Kick progress units as minutes for tiered rewards", () => {
     // Mirrors the live /api/v1/drops/progress shape: one cumulative counter,
     // tiered rewards sharing it, no per-reward minutes or claim_id.
     const campaigns = parseKickCampaigns({
@@ -144,14 +144,54 @@ describe("Kick parsers", () => {
     });
 
     expect(merged[0].accountLinked).toBe(true);
-    // Kick units are 30-second intervals: 150 units is 75 minutes. The first
-    // 60-minute tier is complete and claimed; the 120-minute tier is partway.
-    expect(merged[0].rewards[0].requiredMinutes).toBe(60);
-    expect(merged[0].rewards[0].watchedMinutes).toBe(60);
+    // Kick's units are minutes: 150 units is 150 minutes. The first 120-minute
+    // tier is complete and claimed; the 240-minute tier is partway.
+    expect(merged[0].rewards[0].requiredMinutes).toBe(120);
+    expect(merged[0].rewards[0].watchedMinutes).toBe(120);
     expect(merged[0].rewards[0].status).toBe("claimed");
-    expect(merged[0].rewards[1].requiredMinutes).toBe(120);
-    expect(merged[0].rewards[1].watchedMinutes).toBe(75);
+    expect(merged[0].rewards[1].requiredMinutes).toBe(240);
+    expect(merged[0].rewards[1].watchedMinutes).toBe(150);
     expect(merged[0].rewards[1].status).toBe("in_progress");
+  });
+
+  it("agrees with Kick's own per-reward fraction on a live Stake Pulse response", () => {
+    // Trimmed from the real /drops/progress payload attached to issue #815:
+    // progress_units 440 against 300..2100 minute tiers. Kick reports
+    // `progress` as progress_units / required_units, so both are minutes.
+    const tiers = [
+      { id: "t5", required_units: 300, progress: 1 },
+      { id: "t10", required_units: 600, progress: 0.73333335 },
+      { id: "t15", required_units: 900, progress: 0.4888889 },
+      { id: "t35", required_units: 2100, progress: 0.20952381 },
+    ];
+    const campaigns = parseKickCampaigns({
+      data: [
+        {
+          id: "stake",
+          status: "active",
+          starts_at: "2026-10-14T03:30:00Z",
+          ends_at: "2026-10-17T14:00:00Z",
+          rewards: tiers.map(({ id, required_units }) => ({ id, required_units })),
+        },
+      ],
+    });
+
+    const merged = mergeKickProgress(campaigns, {
+      data: [{ id: "stake", status: "in progress", progress_units: 440, rewards: tiers }],
+    });
+
+    expect(merged[0].rewards.map((reward) => reward.requiredMinutes)).toEqual([
+      300, 600, 900, 2100,
+    ]);
+    expect(merged[0].rewards.map((reward) => reward.status)).toEqual([
+      "claimable",
+      "in_progress",
+      "in_progress",
+      "in_progress",
+    ]);
+    for (const [index, reward] of merged[0].rewards.entries()) {
+      expect(reward.watchedMinutes / reward.requiredMinutes).toBeCloseTo(tiers[index].progress, 5);
+    }
   });
 
   it("gates a Kick campaign when the account app is not connected and surfaces the link URL", () => {
@@ -336,7 +376,7 @@ describe("Kick parsers", () => {
     expect(merged[0].rewards[0].status).toBe("in_progress");
   });
 
-  it("converts Kick reward duration units into minutes", () => {
+  it("reads Kick reward duration units as minutes", () => {
     const campaigns = parseKickCampaigns({
       data: [
         {
@@ -347,10 +387,64 @@ describe("Kick parsers", () => {
       ],
     });
 
-    expect(campaigns[0].rewards[0].requiredMinutes).toBe(45);
+    expect(campaigns[0].rewards[0].requiredMinutes).toBe(90);
   });
 
-  it("derives fractional Kick progress from the normalized requirement", () => {
+  it("keeps a multi-hour Kick reward at its full duration", () => {
+    // Stake Pulse "5 Hours" ships as required_units 300 (issue #815).
+    const campaigns = parseKickCampaigns({
+      data: [
+        {
+          id: "campaign",
+          status: "active",
+          starts_at: "2026-10-14T03:30:00Z",
+          ends_at: "2026-10-17T14:00:00Z",
+          rewards: [
+            { id: "reward", name: "Stake Pulse - 5 Tickets (5 Hours)", required_units: 300 },
+          ],
+        },
+      ],
+    });
+
+    expect(campaigns[0].rewards[0].requiredMinutes).toBe(300);
+  });
+
+  it("caps a Kick reward at the campaign window, as Kick's own client does", () => {
+    // A flash drop whose requirement outlasts its window is shown (and earned)
+    // as the window length; this is the 2-minute drop behind issue #413.
+    const campaigns = parseKickCampaigns({
+      data: [
+        {
+          id: "campaign",
+          status: "active",
+          starts_at: "2026-10-14T10:00:00Z",
+          ends_at: "2026-10-14T10:02:00Z",
+          rewards: [{ id: "reward", required_units: 10 }],
+        },
+      ],
+    });
+
+    expect(campaigns[0].rewards[0].requiredMinutes).toBe(2);
+  });
+
+  it("ignores a missing or inverted Kick campaign window when reading durations", () => {
+    const campaigns = parseKickCampaigns({
+      data: [
+        { id: "no-window", status: "active", rewards: [{ id: "reward", required_units: 4 }] },
+        {
+          id: "inverted",
+          status: "active",
+          starts_at: "2026-10-14T10:02:00Z",
+          ends_at: "2026-10-14T10:00:00Z",
+          rewards: [{ id: "reward", required_units: 4 }],
+        },
+      ],
+    });
+
+    expect(campaigns.map((campaign) => campaign.rewards[0].requiredMinutes)).toEqual([4, 4]);
+  });
+
+  it("derives fractional Kick progress from the reward requirement", () => {
     const campaigns = parseKickCampaigns({
       data: [
         {
@@ -371,8 +465,8 @@ describe("Kick parsers", () => {
     });
 
     expect(merged[0].rewards[0]).toMatchObject({
-      requiredMinutes: 2,
-      watchedMinutes: 0.5,
+      requiredMinutes: 4,
+      watchedMinutes: 1,
       status: "in_progress",
     });
   });
