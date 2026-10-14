@@ -381,5 +381,44 @@ describe("scheduler tick decisions from plain inputs", () => {
       expect(next.effects.map((effect) => effect.type)).not.toContain("openWatchTab");
       expect(next.tick.state.sessions.twitch).toMatchObject({ status: "error", reasonCode: "platform_backoff" });
     });
+
+    // Minute ticks for six hours against a block that never lifts. The backoff
+    // keeps the opens below the churn limit, so only the flag can end the loop.
+    async function runPersistentBlock(patch: Partial<ExtensionSettings> = {}) {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      try {
+        const start = Date.parse("2026-10-14T00:00:00.000Z");
+        let current = state;
+        const opens: number[] = [];
+        for (let minute = 0; minute <= 6 * 60; minute += 1) {
+          vi.setSystemTime(start + minute * 60 * 1000);
+          const { tick } = await decide(input(drops(), channel("creator"), { state: current, settings: settings(patch) }), {
+            openWatchTab: () => {
+              opens.push(minute);
+              throw new UnusableWatchTabError(9, blocked, { openedManagedTab: true });
+            },
+          });
+          current = tick.state;
+        }
+        return { opens, state: current };
+      } finally {
+        vi.useRealTimers();
+      }
+    }
+
+    it("stops reopening a tab that is still rejected once the platform is flagged", async () => {
+      const { opens, state: final } = await runPersistentBlock();
+
+      expect(final.criticalHealth?.twitch).toMatchObject({ status: "flagged", breakerOpen: true });
+      expect(final.sessions.twitch).toMatchObject({ status: "idle", reasonCode: "critical_failure" });
+      expect(opens.at(-1)).toBeLessThan(2 * 60);
+    });
+
+    it("keeps retrying at the backoff cap when the critical-failure prompt is off", async () => {
+      const { opens, state: final } = await runPersistentBlock({ criticalFailurePromptEnabled: false });
+
+      expect(final.sessions.twitch.status).toBe("error");
+      expect(opens.at(-1)).toBeGreaterThan(5 * 60);
+    });
   });
 });

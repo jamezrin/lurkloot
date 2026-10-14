@@ -6,6 +6,7 @@ import {
   MAX_TICK_DELTA_MS,
   MIN_FAILING_TICKS,
   dismissCriticalFailure,
+  holdManagedTabBreaker,
   observeCriticalHealth,
   TAB_CHURN_LIMIT,
   TAB_CHURN_WINDOW_MS,
@@ -451,6 +452,26 @@ describe("critical health detection", () => {
 
     const dismissed = dismissCriticalFailure(state, "kick", START + 3 * TAB_CHURN_WINDOW_MS).state;
     expect(dismissed.criticalHealth?.kick?.breakerOpen).toBe(false);
+  });
+
+  it("holds the breaker only on a flagged platform, until dismissal (#794)", () => {
+    const unflagged = baseState();
+    expect(holdManagedTabBreaker(unflagged, "twitch")).toBe(unflagged);
+
+    const ticks = Math.ceil(FAILING_WINDOW_MS / (5 * 60 * 1000)) + 2;
+    let state = holdManagedTabBreaker(runFailingTicks(baseState(), ticks), "twitch");
+    expect(state.criticalHealth?.twitch).toMatchObject({ status: "flagged", reason: "no_progress", breakerOpen: true });
+
+    state = observeCriticalHealth(state, "twitch", {
+      at: START + ticks * 5 * 60 * 1000 + 2 * TAB_CHURN_WINDOW_MS,
+      failing: false,
+      progressed: false,
+      preconditionBroke: false,
+    }).state;
+    expect(isManagedTabBreakerOpen(state, "twitch")).toBe(true);
+
+    const dismissed = dismissCriticalFailure(state, "twitch", START + ticks * 5 * 60 * 1000 + 3 * TAB_CHURN_WINDOW_MS).state;
+    expect(isManagedTabBreakerOpen(dismissed, "twitch")).toBe(false);
   });
 
   it("keeps the failure ring buffer bounded and newest-last", () => {

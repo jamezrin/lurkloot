@@ -42,7 +42,7 @@ import { authHealthFromError, isSafeFetchError } from "./fetchError";
 import { UnusableWatchTabError } from "./watchTabError";
 import { applyPlatformAuthHealth } from "./authHealth";
 import type { CriticalHealthObservation } from "./criticalHealth";
-import { isManagedTabBreakerOpen, observeCriticalHealth, recordManagedTabOpen } from "./criticalHealth";
+import { holdManagedTabBreaker, isManagedTabBreakerOpen, observeCriticalHealth, recordManagedTabOpen } from "./criticalHealth";
 import { isTimestampStale, PLAYBACK_TELEMETRY_MAX_AGE_MS } from "./timestamps";
 import { pausedForManualWatch } from "./manualWatch";
 import { heartbeatContextKey, validTablessHeartbeatCadence } from "./heartbeatCadence";
@@ -1753,7 +1753,9 @@ export async function* decidePlatformTick(
 // A watch tab that showed something other than the channel page (#794). Reusing
 // it would re-read the same document, so it is stopped under the host's close
 // policy and the retry after the backoff opens a fresh one. A tab opened only to
-// be rejected is churn: without counting it the breaker never sees the loop.
+// be rejected is churn: without counting it the breaker never sees the loop. The
+// backoff keeps a persistent rejection below the churn limit, so a flagged
+// platform holds the breaker instead, or it would reopen the tab forever.
 async function* dropUnusableWatchTab(
   tick: SchedulerTickDraft,
   platform: Platform,
@@ -1765,6 +1767,12 @@ async function* dropUnusableWatchTab(
     const opened = recordManagedTabOpen(tick.state, platform, Date.now(), { source: "watch_tab" });
     tick.state = opened.state;
     if (opened.event) tick.emit(opened.event);
+    if (!isManagedTabBreakerOpen(tick.state, platform)) {
+      tick.state = holdManagedTabBreaker(tick.state, platform);
+      if (isManagedTabBreakerOpen(tick.state, platform)) {
+        emitDiagnostic(tick.emit, platform, "warn", "The watch tab is still rejected after the critical-failure prompt; pausing until it is dismissed");
+      }
+    }
   }
   try {
     yield* yieldEffect({ type: "stopWatchTab", platform, session: previous });

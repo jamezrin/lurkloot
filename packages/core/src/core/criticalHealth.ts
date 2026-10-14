@@ -113,7 +113,8 @@ function pruneOpens(opens: readonly string[], at: number): string[] {
 // While flagged the breaker stays open until the user dismisses. While unflagged it is
 // held open only by live churn evidence, so the window drains on its own — an open
 // breaker suppresses new opens — and the platform recovers without a prompt. This never
-// opens the breaker; only crossing the threshold in recordManagedTabOpen does that.
+// opens the breaker; only crossing the threshold in recordManagedTabOpen, or
+// holdManagedTabBreaker on a flagged platform, does that.
 function releaseBreaker(health: CriticalHealthState, opens: readonly string[]): boolean {
   if (health.status === "flagged") return health.breakerOpen;
   return health.breakerOpen && opens.length > 0;
@@ -238,6 +239,16 @@ export function recordManagedTabOpen(
 
   const flagged = flag(next, platform, at, "page_context_churn");
   return { state: withHealth(state, platform, flagged.health), event: flagged.event };
+}
+
+// A managed tab the platform keeps rejecting (#794) is reopened after every
+// backoff, and backoff spaces those opens too far apart for the churn window to
+// trip. Once the platform is flagged the user has been told, so the next
+// rejected open holds the breaker until they dismiss, as a churn flag would.
+export function holdManagedTabBreaker(state: SchedulerState, platform: Platform): SchedulerState {
+  const health = current(state, platform);
+  if (health.status !== "flagged" || health.breakerOpen) return state;
+  return withHealth(state, platform, { ...health, breakerOpen: true });
 }
 
 export function dismissCriticalFailure(
