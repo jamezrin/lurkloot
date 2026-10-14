@@ -750,6 +750,7 @@ async function mintTwitchIntegrity(
   onManagedPageContextOpen?: () => void | Promise<void>,
   signal?: AbortSignal,
 ): Promise<TwitchIntegrityAcquisitionResult | undefined> {
+  const failureLevel = reason === "proactive_refresh" ? "debug" : "warn";
   diagnostic(
     emit,
     "info",
@@ -784,12 +785,18 @@ async function mintTwitchIntegrity(
         "twitch",
       );
     }
+
     // Which context we got decides whether waiting can work at all: only a
     // freshly created tab is guaranteed to boot the SPA and issue authenticated
     // GQL for the listener to read a token from. An inherited or already-idle tab
     // may issue nothing, and the wait can only ever time out.
     const source = pageContext.source ?? "unknown";
-    diagnostic(emit, "debug", `Waiting up to ${timeoutMs}ms for a Twitch integrity token from a ${source} page context (tab ${pageContext.tabId})`, "twitch");
+    diagnostic(
+      emit,
+      "debug",
+      `Waiting up to ${timeoutMs}ms for a Twitch integrity token from a ${source} page context (tab ${pageContext.tabId})`,
+      "twitch",
+    );
     // On success the capture itself is logged once by setTwitchIntegrity (info);
     // here we only surface the failure case so the log isn't doubled up.
     const startedAt = Date.now();
@@ -807,9 +814,19 @@ async function mintTwitchIntegrity(
     const boot = registry.twitchContextBoot?.tabId === pageContext.tabId ? registry.twitchContextBoot : undefined;
     const phases = boot ? ` (${describeContextBoot(boot, settledAt)})` : "";
     if (!captured) {
-      diagnostic(emit, reason === "proactive_refresh" ? "debug" : "warn", `Timed out waiting for a Twitch integrity token after ${settledAt - startedAt}ms from a ${source} page context${phases} (is twitch.tv logged in?)`, "twitch");
+      diagnostic(
+        emit,
+        failureLevel,
+        `Timed out waiting for a Twitch integrity token after ${settledAt - startedAt}ms from a ${source} page context${phases} (is twitch.tv logged in?)`,
+        "twitch",
+      );
     } else {
-      diagnostic(emit, "debug", `Waited ${settledAt - startedAt}ms for a Twitch integrity token from a ${source} page context${phases}`, "twitch");
+      diagnostic(
+        emit,
+        "debug",
+        `Waited ${settledAt - startedAt}ms for a Twitch integrity token from a ${source} page context${phases}`,
+        "twitch",
+      );
     }
     return captured
       ? {
@@ -820,7 +837,12 @@ async function mintTwitchIntegrity(
   } catch (error) {
     signal?.throwIfAborted();
     const message = errorMessage(error);
-    diagnostic(emit, reason === "proactive_refresh" ? "debug" : "warn", `Could not open a twitch.tv tab to capture an integrity token: ${message}`, "twitch");
+    diagnostic(
+      emit,
+      failureLevel,
+      `Could not open a twitch.tv tab to capture an integrity token: ${message}`,
+      "twitch",
+    );
     return undefined;
   } finally {
     if (pageContext) {
