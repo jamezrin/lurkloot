@@ -9,7 +9,10 @@ import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import type { StopPageContextTabs } from "@lurkloot/core/scheduler";
 import type { TabRegistry, TwitchIntegrityRequest } from "@lurkloot/core/tabRegistry";
 import type { TwitchIntegrity } from "@lurkloot/core/twitchIntegrity";
-import type { CompatibilityResolution, ResolvedCompatibility } from "@lurkloot/shared/compatibility";
+import type {
+  CompatibilityResolution,
+  ResolvedCompatibility,
+} from "@lurkloot/shared/compatibility";
 import type { EngineEvent, EventEmitter } from "@lurkloot/shared/events";
 import type {
   ChannelCandidate,
@@ -44,12 +47,19 @@ export interface HostMocks<S extends EngineSettings> {
   getAlarm?(name: string): Promise<{ scheduledTime: number } | undefined>;
   clearAlarm?(name: string): Promise<boolean>;
   checkCredentialAvailability?(platform: Platform): Promise<CredentialAvailability>;
-  createAdapters(emit: EventEmitter, settings: S): {
+  createAdapters(
+    emit: EventEmitter,
+    settings: S,
+  ): {
     adapters: Record<Platform, PlatformAdapter>;
     compatibility: ResolvedCompatibility;
     warnings: CompatibilityResolution["warnings"];
   };
-  createAdapter(platform: Platform, emit: EventEmitter, settings: S): {
+  createAdapter(
+    platform: Platform,
+    emit: EventEmitter,
+    settings: S,
+  ): {
     adapter: PlatformAdapter;
     compatibility: ResolvedCompatibility;
     warnings: CompatibilityResolution["warnings"];
@@ -60,10 +70,22 @@ export interface HostMocks<S extends EngineSettings> {
     options: Partial<WatchTabOptions>,
     emit: EventEmitter,
   ): Promise<PreparedWatchTab>;
-  stopWatchTab?(session: WatchSession, options: Partial<WatchTabOptions>, emit: EventEmitter): Promise<void>;
-  closeManagedTabs?(tabs: ManagedWatchTab[], origin?: Exclude<TabClosureOrigin, "user">): Promise<void>;
+  stopWatchTab?(
+    session: WatchSession,
+    options: Partial<WatchTabOptions>,
+    emit: EventEmitter,
+  ): Promise<void>;
+  closeManagedTabs?(
+    tabs: ManagedWatchTab[],
+    origin?: Exclude<TabClosureOrigin, "user">,
+  ): Promise<void>;
   stopPageContextTabs?: StopPageContextTabs;
-  applyAdFocus?(platform: Platform, tabId: number | undefined, adActive: boolean, emit: EventEmitter): Promise<void>;
+  applyAdFocus?(
+    platform: Platform,
+    tabId: number | undefined,
+    adActive: boolean,
+    emit: EventEmitter,
+  ): Promise<void>;
   loadTabPlaybackPolicy?(): Promise<{ keepVideosUnmuted: boolean }>;
   ensureTwitchIntegrity?(emit: EventEmitter, request?: TwitchIntegrityRequest): Promise<boolean>;
   cancelTwitchIntegrityAcquisition?(reason?: unknown): void;
@@ -96,7 +118,9 @@ export interface HostMocks<S extends EngineSettings> {
 // integrity capture when ensureTwitchIntegrity is, supplemental sources when
 // selectSupplementalWatchTarget is. The minute channel-points job runs with tabs
 // (the extension set), as the hosts declare it until #590.
-export function mockedCapabilities<S extends EngineSettings>(mocks: HostMocks<S>): HostCapabilities {
+export function mockedCapabilities<S extends EngineSettings>(
+  mocks: HostMocks<S>,
+): HostCapabilities {
   const browserTabs = mocks.closeManagedTabs !== undefined;
   return {
     browserTabs,
@@ -119,7 +143,12 @@ export function hostPortsFromMocks<S extends EngineSettings>(
       saveSettings: (settings) => m.saveSettings(settings),
       loadState: () => m.loadState(),
       saveState: (state) => m.saveState(state),
-      ...(m.applySettingsPatch ? { applySettingsPatch: (current: S, patch: SettingsPatch) => m.applySettingsPatch!(current, patch) } : {}),
+      ...(m.applySettingsPatch
+        ? {
+            applySettingsPatch: (current: S, patch: SettingsPatch) =>
+              m.applySettingsPatch!(current, patch),
+          }
+        : {}),
     },
     events: {
       report: async (events) => {
@@ -128,7 +157,12 @@ export function hostPortsFromMocks<S extends EngineSettings>(
       notify: async (notification) => {
         await m.createNotification?.(notification);
       },
-      ...(m.translate ? { translate: (key: string, substitutions?: string | string[]) => m.translate!(key, substitutions) } : {}),
+      ...(m.translate
+        ? {
+            translate: (key: string, substitutions?: string | string[]) =>
+              m.translate!(key, substitutions),
+          }
+        : {}),
     },
     jobs: {
       ensure: (name, schedule) => m.createAlarm(name, schedule),
@@ -140,63 +174,101 @@ export function hostPortsFromMocks<S extends EngineSettings>(
       createAdapter: (platform, emit, settings) => m.createAdapter(platform, emit, settings),
     },
     ...(m.checkCredentialAvailability
-      ? { credentials: { checkAvailability: (platform: Platform) => m.checkCredentialAvailability!(platform) } }
+      ? {
+          credentials: {
+            checkAvailability: (platform: Platform) => m.checkCredentialAvailability!(platform),
+          },
+        }
       : {}),
     ...(m.tabRegistry ? { tabRegistry: m.tabRegistry } : {}),
     ...(capabilities.browserTabs
       ? {
-        tabs: {
-          watch: {
-            open: async (channel: ChannelCandidate, session: WatchSession | undefined, options: Partial<WatchTabOptions>, emit: EventEmitter) => {
-              if (!m.openWatchTab) throw new Error("No openWatchTab mock");
-              return await m.openWatchTab(channel, session, options, emit);
+          tabs: {
+            watch: {
+              open: async (
+                channel: ChannelCandidate,
+                session: WatchSession | undefined,
+                options: Partial<WatchTabOptions>,
+                emit: EventEmitter,
+              ) => {
+                if (!m.openWatchTab) throw new Error("No openWatchTab mock");
+                return await m.openWatchTab(channel, session, options, emit);
+              },
+              stop: async (
+                session: WatchSession,
+                options: Partial<WatchTabOptions>,
+                emit: EventEmitter,
+              ) => {
+                await m.stopWatchTab?.(session, options, emit);
+              },
+              closeManaged: async (
+                tabs: ManagedWatchTab[],
+                origin: Exclude<TabClosureOrigin, "user">,
+              ) => {
+                await m.closeManagedTabs?.(tabs, origin);
+              },
+              applyAdFocus: async (
+                platform: Platform,
+                tabId: number | undefined,
+                adActive: boolean,
+                emit: EventEmitter,
+              ) => {
+                await m.applyAdFocus?.(platform, tabId, adActive, emit);
+              },
+              loadPlaybackPolicy: async () =>
+                (await m.loadTabPlaybackPolicy?.()) ?? { keepVideosUnmuted: true },
             },
-            stop: async (session: WatchSession, options: Partial<WatchTabOptions>, emit: EventEmitter) => {
-              await m.stopWatchTab?.(session, options, emit);
+            pageContexts: {
+              release: ((contexts, options) =>
+                m.stopPageContextTabs!(contexts, options)) as StopPageContextTabs,
+              recover: async (
+                platform: Platform,
+                options: PageContextRecoveryOptions,
+                emit: EventEmitter,
+              ) => (await m.reconcilePageContextRecovery?.(platform, options, emit)) ?? false,
+              discardRecoveryEvidence: (platform: Platform) =>
+                m.discardPageContextRecoveryEvidence?.(platform),
             },
-            closeManaged: async (tabs: ManagedWatchTab[], origin: Exclude<TabClosureOrigin, "user">) => {
-              await m.closeManagedTabs?.(tabs, origin);
-            },
-            applyAdFocus: async (platform: Platform, tabId: number | undefined, adActive: boolean, emit: EventEmitter) => {
-              await m.applyAdFocus?.(platform, tabId, adActive, emit);
-            },
-            loadPlaybackPolicy: async () => (await m.loadTabPlaybackPolicy?.()) ?? { keepVideosUnmuted: true },
           },
-          pageContexts: {
-            release: ((contexts, options) => m.stopPageContextTabs!(contexts, options)) as StopPageContextTabs,
-            recover: async (platform: Platform, options: PageContextRecoveryOptions, emit: EventEmitter) =>
-              (await m.reconcilePageContextRecovery?.(platform, options, emit)) ?? false,
-            discardRecoveryEvidence: (platform: Platform) => m.discardPageContextRecoveryEvidence?.(platform),
-          },
-        },
-      }
+        }
       : {}),
     twitch: {
       ...(capabilities.twitchIntegrityCapture
         ? {
-          integrity: {
-            ensure: (emit: EventEmitter, request?: TwitchIntegrityRequest) => m.ensureTwitchIntegrity!(emit, request),
-            cancelAcquisition: (reason?: unknown) => m.cancelTwitchIntegrityAcquisition?.(reason),
-            load: async () => m.loadTwitchIntegrity?.(),
-            save: async (value: TwitchIntegrity) => {
-              await m.saveTwitchIntegrity?.(value);
+            integrity: {
+              ensure: (emit: EventEmitter, request?: TwitchIntegrityRequest) =>
+                m.ensureTwitchIntegrity!(emit, request),
+              cancelAcquisition: (reason?: unknown) => m.cancelTwitchIntegrityAcquisition?.(reason),
+              load: async () => m.loadTwitchIntegrity?.(),
+              save: async (value: TwitchIntegrity) => {
+                await m.saveTwitchIntegrity?.(value);
+              },
             },
-          },
-        }
+          }
         : {}),
       ...(capabilities.supplementalSources
         ? {
-          supplementalSources: {
-            select: (state: SchedulerState, settings: S, signal?: AbortSignal, source?: WatchSourceId) =>
-              m.selectSupplementalWatchTarget!("twitch", state, settings, signal, source),
-            ...(m.refreshSupplementalSource
-              ? { refreshNow: (provider: string, channelId: string) => m.refreshSupplementalSource!(provider, channelId) }
-              : {}),
-            ...(m.supplementalBroadcastToken
-              ? { broadcastToken: (provider: string, channelId: string) => m.supplementalBroadcastToken!(provider, channelId) }
-              : {}),
-          },
-        }
+            supplementalSources: {
+              select: (
+                state: SchedulerState,
+                settings: S,
+                signal?: AbortSignal,
+                source?: WatchSourceId,
+              ) => m.selectSupplementalWatchTarget!("twitch", state, settings, signal, source),
+              ...(m.refreshSupplementalSource
+                ? {
+                    refreshNow: (provider: string, channelId: string) =>
+                      m.refreshSupplementalSource!(provider, channelId),
+                  }
+                : {}),
+              ...(m.supplementalBroadcastToken
+                ? {
+                    broadcastToken: (provider: string, channelId: string) =>
+                      m.supplementalBroadcastToken!(provider, channelId),
+                  }
+                : {}),
+            },
+          }
         : {}),
     },
     testing: {

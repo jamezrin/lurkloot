@@ -21,7 +21,9 @@ function fetcherWith(inventory: () => unknown): PageFetcher {
           currentUser: {
             id: "viewer-user-id",
             login: "viewer",
-            dropCampaigns: [{ id: "sub-campaign", status: "ACTIVE", self: { isAccountConnected: true } }],
+            dropCampaigns: [
+              { id: "sub-campaign", status: "ACTIVE", self: { isAccountConnected: true } },
+            ],
           },
         },
       };
@@ -33,12 +35,14 @@ function fetcherWith(inventory: () => unknown): PageFetcher {
             id: "sub-campaign",
             name: "Subscriber Skin",
             game: { id: "game", slug: "game-slug", displayName: "Game" },
-            timeBasedDrops: [{
-              id: "sub-drop",
-              requiredSubs: 1,
-              benefitEdges: [{ benefit: { id: "skin", name: "Skin" } }],
-              self: { isClaimed: false },
-            }],
+            timeBasedDrops: [
+              {
+                id: "sub-drop",
+                requiredSubs: 1,
+                benefitEdges: [{ benefit: { id: "skin", name: "Skin" } }],
+                self: { isClaimed: false },
+              },
+            ],
           },
         },
       };
@@ -47,7 +51,9 @@ function fetcherWith(inventory: () => unknown): PageFetcher {
   };
   return {
     fetchJson: vi.fn(async (_url: string, init?: RequestInit) => {
-      const body = JSON.parse(String(init?.body)) as Record<string, unknown> | Record<string, unknown>[];
+      const body = JSON.parse(String(init?.body)) as
+        | Record<string, unknown>
+        | Record<string, unknown>[];
       return Array.isArray(body) ? body.map(handle) : handle(body);
     }) as PageFetcher["fetchJson"],
   };
@@ -62,7 +68,12 @@ function inventory(subscriptionSelf?: Record<string, unknown>): unknown {
           gameEventDrops: [],
           earnedDropRewards: { edges: [] },
           dropCampaignsInProgress: subscriptionSelf
-            ? [{ id: "sub-campaign", timeBasedDrops: [{ id: "sub-drop", requiredSubs: 1, self: subscriptionSelf }] }]
+            ? [
+                {
+                  id: "sub-campaign",
+                  timeBasedDrops: [{ id: "sub-drop", requiredSubs: 1, self: subscriptionSelf }],
+                },
+              ]
             : [],
         },
       },
@@ -82,7 +93,10 @@ describe("Twitch subscription reward evidence (#679)", () => {
     const fetcher = fetcherWith(() => current);
     const discoveryState = new TwitchDiscoveryState();
     const events: EngineEvent[] = [];
-    const refresh = () => twitchAdapter(fetcher, undefined, { discoveryState }, (event) => events.push(event)).refreshCampaigns();
+    const refresh = () =>
+      twitchAdapter(fetcher, undefined, { discoveryState }, (event) =>
+        events.push(event),
+      ).refreshCampaigns();
 
     await refresh();
     await refresh();
@@ -94,14 +108,16 @@ describe("Twitch subscription reward evidence (#679)", () => {
     expect(JSON.parse(messages[0].slice(PREFIX.length))).toEqual({
       campaignId: "sub-campaign",
       name: "Subscriber Skin",
-      rewards: [{
-        rewardId: "sub-drop",
-        status: "locked",
-        details: { isClaimed: false, hasDropInstance: false },
-        inventory: "not_in_progress",
-        earnedClaims: 0,
-        ownsBenefit: false,
-      }],
+      rewards: [
+        {
+          rewardId: "sub-drop",
+          status: "locked",
+          details: { isClaimed: false, hasDropInstance: false },
+          inventory: "not_in_progress",
+          earnedClaims: 0,
+          ownsBenefit: false,
+        },
+      ],
     });
     expect(JSON.parse(messages[1].slice(PREFIX.length)).rewards[0]).toMatchObject({
       status: "claimable",

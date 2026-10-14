@@ -1,4 +1,8 @@
-import { isHeartbeatTimeoutError, withHeartbeatTimeout, type TwitchHeartbeatExchangeResult } from "@lurkloot/core/twitch/heartbeat";
+import {
+  isHeartbeatTimeoutError,
+  withHeartbeatTimeout,
+  type TwitchHeartbeatExchangeResult,
+} from "@lurkloot/core/twitch/heartbeat";
 
 function safeHostname(url: string): string {
   try {
@@ -8,7 +12,10 @@ function safeHostname(url: string): string {
   }
 }
 
-async function heartbeatExchangeResult(response: Response, method: string | undefined): Promise<TwitchHeartbeatExchangeResult> {
+async function heartbeatExchangeResult(
+  response: Response,
+  method: string | undefined,
+): Promise<TwitchHeartbeatExchangeResult> {
   const redirecting = response.status >= 300 && response.status < 400;
   // A redirect body is unused. Status 0 is an opaque redirect with no body.
   // HEAD must not download the segment.
@@ -40,20 +47,22 @@ export async function twitchHeartbeatFetchText(url: string, init?: RequestInit):
     // Body read included: the timer is cleared as soon as withHeartbeatTimeout
     // returns, so reading outside it leaves a host that sends headers and then
     // stalls the body unbounded — the same lock-holding hang, one step later.
-    return await withHeartbeatTimeout(
-      async (signal) => {
-        const response = await fetch(url, { ...init, signal });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        return response.text();
-      },
-      init?.signal,
-    );
+    return await withHeartbeatTimeout(async (signal) => {
+      const response = await fetch(url, { ...init, signal });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.text();
+    }, init?.signal);
   } catch (error) {
-    throw new Error(`Twitch Spade destination fetch failed for ${hostname}: ${safeErrorCause(error)}`);
+    throw new Error(
+      `Twitch Spade destination fetch failed for ${hostname}: ${safeErrorCause(error)}`,
+    );
   }
 }
 
-export async function twitchHeartbeatExchange(url: string, init: RequestInit): Promise<TwitchHeartbeatExchangeResult> {
+export async function twitchHeartbeatExchange(
+  url: string,
+  init: RequestInit,
+): Promise<TwitchHeartbeatExchangeResult> {
   const hostname = safeHostname(url);
   try {
     return await withHeartbeatTimeout(async (signal) => {
@@ -65,7 +74,10 @@ export async function twitchHeartbeatExchange(url: string, init: RequestInit): P
   }
 }
 
-export async function twitchHeartbeatPost(url: string, init: RequestInit): Promise<{ status: number }> {
+export async function twitchHeartbeatPost(
+  url: string,
+  init: RequestInit,
+): Promise<{ status: number }> {
   const hostname = safeHostname(url);
   try {
     const response = await withHeartbeatTimeout(

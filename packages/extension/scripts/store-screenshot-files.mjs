@@ -1,11 +1,19 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { STORE_SCREENSHOT_VARIANTS, screenshotFilename, validateLocaleCodes } from "./store-screenshot-config.mjs";
+import {
+  STORE_SCREENSHOT_VARIANTS,
+  screenshotFilename,
+  validateLocaleCodes,
+} from "./store-screenshot-config.mjs";
 
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 function validatePng(bytes, path) {
-  if (bytes.length < 24 || !bytes.subarray(0, 8).equals(PNG_SIGNATURE) || bytes.toString("ascii", 12, 16) !== "IHDR") {
+  if (
+    bytes.length < 24
+    || !bytes.subarray(0, 8).equals(PNG_SIGNATURE)
+    || bytes.toString("ascii", 12, 16) !== "IHDR"
+  ) {
     throw new Error(`${path} is not a PNG with an IHDR header`);
   }
   const width = bytes.readUInt32BE(16);
@@ -29,7 +37,12 @@ export async function validateStoreScreenshotFiles({ root, locales }) {
       throw new Error(`Could not read screenshot directory for ${locale}: ${error.message}`);
     }
     const unexpected = entries
-      .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".png") && !expectedNames.has(entry.name))
+      .filter(
+        (entry) =>
+          entry.isFile()
+          && entry.name.toLowerCase().endsWith(".png")
+          && !expectedNames.has(entry.name),
+      )
       .map((entry) => entry.name);
     if (unexpected.length > 0) {
       throw new Error(`Unexpected PNG files for ${locale}: ${unexpected.join(", ")}`);

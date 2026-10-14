@@ -58,18 +58,23 @@ function hasValidEarnedDropRewards(value: unknown): boolean {
     if (!isRecord(node)) return false;
     const item = node.item;
     const campaign = node.campaign;
-    return (typeof node.id === "string" || (isRecord(item) && typeof item.id === "string"))
-      && (campaign == null || isRecord(campaign));
+    return (
+      (typeof node.id === "string" || (isRecord(item) && typeof item.id === "string"))
+      && (campaign == null || isRecord(campaign))
+    );
   });
 }
 
-export const twitchInventoryV2 = twitchInventoryCapability({
-  id: "twitch-inventory-v2",
-  // The hash Twitch's own web client uses for Inventory; its stored query already
-  // returns earnedDropRewards alongside the fields v1 relies on. The inline query
-  // above is the fallback when the persisted query is not found, and additionally
-  // requests dropCampaigns, which the stored query omits.
-  hash: "8337eb8541b314040b0edde0c09c5c7a2783ba1960aa9edfbf3bac16d0fec404",
-  variables: Object.freeze({ fetchRewardCampaigns: false }),
-  inlineQuery: INLINE_QUERY,
-}, { ...twitchInventoryFieldChecks, earnedDropRewards: hasValidEarnedDropRewards });
+export const twitchInventoryV2 = twitchInventoryCapability(
+  {
+    id: "twitch-inventory-v2",
+    // The hash Twitch's own web client uses for Inventory; its stored query already
+    // returns earnedDropRewards alongside the fields v1 relies on. The inline query
+    // above is the fallback when the persisted query is not found, and additionally
+    // requests dropCampaigns, which the stored query omits.
+    hash: "8337eb8541b314040b0edde0c09c5c7a2783ba1960aa9edfbf3bac16d0fec404",
+    variables: Object.freeze({ fetchRewardCampaigns: false }),
+    inlineQuery: INLINE_QUERY,
+  },
+  { ...twitchInventoryFieldChecks, earnedDropRewards: hasValidEarnedDropRewards },
+);

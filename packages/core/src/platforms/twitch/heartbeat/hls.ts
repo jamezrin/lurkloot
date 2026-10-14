@@ -103,7 +103,8 @@ export function createHlsHeartbeat(options: HlsHeartbeatOptions): TwitchHeartbea
 
   const remember = (url: string): void => {
     seen.push(url);
-    if (seen.length > HLS_SEGMENT_CACHE_LIMIT) seen.splice(0, seen.length - HLS_SEGMENT_CACHE_LIMIT);
+    if (seen.length > HLS_SEGMENT_CACHE_LIMIT)
+      seen.splice(0, seen.length - HLS_SEGMENT_CACHE_LIMIT);
   };
 
   const rejectHost = (): never => {
@@ -126,8 +127,13 @@ export function createHlsHeartbeat(options: HlsHeartbeatOptions): TwitchHeartbea
         referrerPolicy: "no-referrer",
         signal: combineSignals(signal, AbortSignal.timeout(REQUEST_BUDGET_MS)),
       });
-      if (response.status === 301 || response.status === 302 || response.status === 303
-        || response.status === 307 || response.status === 308) {
+      if (
+        response.status === 301
+        || response.status === 302
+        || response.status === 303
+        || response.status === 307
+        || response.status === 308
+      ) {
         if (hop === HLS_REDIRECT_LIMIT) throw new Error("Twitch HLS redirect was not followed");
         const location = response.location?.trim();
         let next: string;
@@ -153,7 +159,10 @@ export function createHlsHeartbeat(options: HlsHeartbeatOptions): TwitchHeartbea
     throw new Error("Twitch HLS redirect was not followed");
   };
 
-  const acquirePlaylist = async (login: string, signal: AbortSignal): Promise<string | undefined> => {
+  const acquirePlaylist = async (
+    login: string,
+    signal: AbortSignal,
+  ): Promise<string | undefined> => {
     const token = await options.gql<{ streamPlaybackAccessToken?: PlaybackToken }>(
       "PlaybackAccessToken",
       "",
@@ -179,7 +188,10 @@ export function createHlsHeartbeat(options: HlsHeartbeatOptions): TwitchHeartbea
     return variants.at(-1);
   };
 
-  const sendTelemetry = async (context: TwitchHeartbeatContext, signal: AbortSignal): Promise<void> => {
+  const sendTelemetry = async (
+    context: TwitchHeartbeatContext,
+    signal: AbortSignal,
+  ): Promise<void> => {
     const sentAt = lastTelemetryAt;
     if (sentAt !== undefined && now() - sentAt < HLS_TELEMETRY_INTERVAL_MS) return;
     if (signal.aborted) return;
@@ -210,12 +222,16 @@ export function createHlsHeartbeat(options: HlsHeartbeatOptions): TwitchHeartbea
         combineSignals(signal, AbortSignal.timeout(REQUEST_BUDGET_MS)),
       );
       const status = result.data?.sendSpadeEvents?.statusCode;
-      if (status !== 204) options.log("debug", `Twitch minute-watched event returned status ${status ?? "unknown"}`);
+      if (status !== 204)
+        options.log("debug", `Twitch minute-watched event returned status ${status ?? "unknown"}`);
     } catch (error) {
       // Playlist success is the watch result. The event is auxiliary, so a
       // failure is only noted.
       if (!signal.aborted) {
-        options.log("debug", `Twitch minute-watched event failed: ${safeHlsFailure(error, "network request failed")}`);
+        options.log(
+          "debug",
+          `Twitch minute-watched event failed: ${safeHlsFailure(error, "network request failed")}`,
+        );
       }
     }
   };
@@ -246,18 +262,24 @@ export function createHlsHeartbeat(options: HlsHeartbeatOptions): TwitchHeartbea
       tokenRetryAt = undefined;
     } else if (acquiring && !playlistUrl && !stop.aborted) {
       tokenFailures += 1;
-      tokenRetryAt = now() + Math.min(HLS_TOKEN_RETRY_MS * 2 ** (tokenFailures - 1), HLS_TOKEN_RETRY_MAX_MS);
+      tokenRetryAt =
+        now() + Math.min(HLS_TOKEN_RETRY_MS * 2 ** (tokenFailures - 1), HLS_TOKEN_RETRY_MAX_MS);
     }
     return result;
   };
 
-  const watch = async (context: TwitchHeartbeatContext, login: string, stop: AbortSignal): Promise<HeartbeatResult> => {
+  const watch = async (
+    context: TwitchHeartbeatContext,
+    login: string,
+    stop: AbortSignal,
+  ): Promise<HeartbeatResult> => {
     const budget = new AbortController();
     const budgetTimer = setTimeout(() => budget.abort(), HLS_POLL_BUDGET_MS);
     const signal = combineSignals(stop, budget.signal);
     // Stopping and running out of budget both abort the requests, but only a
     // stop means the watch is over; a timeout is a failed poll.
-    const interrupted = (): HeartbeatResult => failed(stop.aborted ? "Twitch HLS watch stopped" : "Twitch HLS watch timed out");
+    const interrupted = (): HeartbeatResult =>
+      failed(stop.aborted ? "Twitch HLS watch stopped" : "Twitch HLS watch timed out");
     let watched = false;
     try {
       if (!playlistUrl) {
@@ -275,7 +297,8 @@ export function createHlsHeartbeat(options: HlsHeartbeatOptions): TwitchHeartbea
       const mediaBase = media.url;
       if (!mediaBase) return failed("Twitch HLS response came from an unexpected host");
       if (media.status !== 200) {
-        if (media.status === 401 || media.status === 403 || media.status === 404) playlistUrl = undefined;
+        if (media.status === 401 || media.status === 403 || media.status === 404)
+          playlistUrl = undefined;
         return failed(`Twitch HLS playlist returned HTTP ${media.status}`);
       }
       const segments = playlistUrls(media.body, mediaBase, "media");
@@ -294,7 +317,8 @@ export function createHlsHeartbeat(options: HlsHeartbeatOptions): TwitchHeartbea
           const response = await exchange(segment, "HEAD", signal);
           if (signal.aborted) return interrupted();
           if (response.status !== 200) {
-            if (response.status === 401 || response.status === 403 || response.status === 404) playlistUrl = undefined;
+            if (response.status === 401 || response.status === 403 || response.status === 404)
+              playlistUrl = undefined;
             failure ??= `Twitch HLS segment returned HTTP ${response.status}`;
             continue;
           }

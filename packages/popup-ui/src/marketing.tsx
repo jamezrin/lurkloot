@@ -1,7 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { AppWindow, Box, SquareTerminal, type LucideIcon } from "lucide-react";
 import type { SupportedLocale } from "@lurkloot/shared/models";
-import { DEFAULT_LOCALE, isRtlLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
+import {
+  DEFAULT_LOCALE,
+  isRtlLocale,
+  translateFromCatalogs,
+  type MessageCatalog,
+} from "@lurkloot/shared/i18n";
 import { loadCatalog } from "@lurkloot/locales";
 import { PROMO_GRADIENT } from "./constants";
 import type { ScreenshotVariant } from "./types";
@@ -55,7 +60,13 @@ function CopyBlock({
   );
 }
 
-function PopupFrame({ children, className }: { children: React.ReactNode; className?: string }): React.ReactElement {
+function PopupFrame({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}): React.ReactElement {
   return (
     <div className={`h-[600px] w-[400px] shrink-0 overflow-hidden ${className ?? ""}`}>
       {children}
@@ -97,7 +108,9 @@ function StepItem({
 }): React.ReactElement {
   return (
     <div className="relative min-w-0 ps-5">
-      <div className="font-display text-[32px] font-bold leading-none text-[#c4a7ff]/80">{number}</div>
+      <div className="font-display text-[32px] font-bold leading-none text-[#c4a7ff]/80">
+        {number}
+      </div>
       <div className="mt-3 text-[18px] font-semibold text-[#ecedf5]">{title}</div>
       <div className="mt-1.5 text-[14px] leading-snug text-[#9c9db4]">{sub}</div>
     </div>
@@ -116,7 +129,10 @@ function RuntimeIcon({
   return (
     <span
       className={`relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-[#101014] ${className ?? ""}`}
-      style={{ color: accent, boxShadow: `inset 0 1px 0 rgba(255,255,255,0.06), 0 0 8px -6px ${accent}` }}
+      style={{
+        color: accent,
+        boxShadow: `inset 0 1px 0 rgba(255,255,255,0.06), 0 0 8px -6px ${accent}`,
+      }}
       aria-hidden
     >
       {children}
@@ -124,7 +140,13 @@ function RuntimeIcon({
   );
 }
 
-function LucideMark({ icon: Icon, size = 26 }: { icon: LucideIcon; size?: number }): React.ReactElement {
+function LucideMark({
+  icon: Icon,
+  size = 26,
+}: {
+  icon: LucideIcon;
+  size?: number;
+}): React.ReactElement {
   return <Icon size={size} strokeWidth={1.6} />;
 }
 
@@ -188,7 +210,9 @@ export function StoreScreenshot({
             translate={translate}
           />
           {popup ? (
-            <div className={`absolute end-[7%] top-[9%] z-20 origin-center ${rtl ? "rotate-[2deg]" : "rotate-[-2deg]"}`}>
+            <div
+              className={`absolute end-[7%] top-[9%] z-20 origin-center ${rtl ? "rotate-[2deg]" : "rotate-[-2deg]"}`}
+            >
               <PopupFrame>{popup}</PopupFrame>
             </div>
           ) : null}
@@ -228,7 +252,9 @@ export function StoreScreenshot({
             </div>
           </div>
           {popup ? (
-            <div className={`absolute end-[7%] top-[9%] z-20 origin-center ${rtl ? "rotate-[2deg]" : "rotate-[-2deg]"}`}>
+            <div
+              className={`absolute end-[7%] top-[9%] z-20 origin-center ${rtl ? "rotate-[2deg]" : "rotate-[-2deg]"}`}
+            >
               <PopupFrame>{popup}</PopupFrame>
             </div>
           ) : null}
@@ -245,7 +271,10 @@ export function StoreScreenshot({
             translate={translate}
             showSubcopy={false}
           />
-          <div data-steps className="absolute start-[7%] top-[34%] bottom-[10%] z-10 flex w-[34%] flex-col justify-between">
+          <div
+            data-steps
+            className="absolute start-[7%] top-[34%] bottom-[10%] z-10 flex w-[34%] flex-col justify-between"
+          >
             <div className="pointer-events-none absolute start-0 top-2 bottom-6 w-0.5 bg-linear-to-b from-[#9147ff] to-[#53fc18]" />
             <StepItem
               number="01"
@@ -269,7 +298,9 @@ export function StoreScreenshot({
             />
           </div>
           {popup ? (
-            <div className={`absolute end-[7%] top-[9%] z-20 origin-center ${rtl ? "rotate-[-2deg]" : "rotate-[2deg]"}`}>
+            <div
+              className={`absolute end-[7%] top-[9%] z-20 origin-center ${rtl ? "rotate-[-2deg]" : "rotate-[2deg]"}`}
+            >
               <PopupFrame>{popup}</PopupFrame>
             </div>
           ) : null}
@@ -312,38 +343,38 @@ export function StoreScreenshot({
               <RuntimeRow
                 title={translate("screenshotUpdatedBrowsersTitle")}
                 sub={translate("screenshotUpdatedBrowsersSub")}
-                marks={(
+                marks={
                   <RuntimeIcon accent="#c4a7ff">
                     <LucideMark icon={AppWindow} />
                   </RuntimeIcon>
-                )}
+                }
               />
               <RuntimeRow
                 title={translate("screenshotUpdatedHeadlessTitle")}
                 sub={translate("screenshotUpdatedHeadlessSub")}
-                marks={(
+                marks={
                   <RuntimeIcon accent="#b7ff6a">
                     <LucideMark icon={SquareTerminal} />
                   </RuntimeIcon>
-                )}
+                }
               />
               <RuntimeRow
                 title={translate("screenshotUpdatedDockerTitle")}
                 sub={translate("screenshotUpdatedDockerSub")}
-                marks={(
+                marks={
                   <RuntimeIcon accent="#9c9db4">
                     <LucideMark icon={Box} />
                   </RuntimeIcon>
-                )}
+                }
               />
               <RuntimeRow
                 title={translate("githubAttributionShort")}
                 sub={`${translate("screenshotUpdatedEyebrow")} · ${translate("screenshotUpdatedLicense")}`}
-                marks={(
+                marks={
                   <RuntimeIcon accent="#ecedf5">
                     <GithubMark />
                   </RuntimeIcon>
-                )}
+                }
               />
             </div>
           </div>
@@ -361,7 +392,13 @@ const PLATFORMS = [
   { name: "Kick", color: "#53fc18" },
 ];
 
-function PromoPills({ translate, scale = 1 }: { translate: (key: string) => string; scale?: number }): React.ReactElement {
+function PromoPills({
+  translate,
+  scale = 1,
+}: {
+  translate: (key: string) => string;
+  scale?: number;
+}): React.ReactElement {
   const px = (value: number) => `${value * scale}px`;
   const pad = `${px(9)} ${px(15)}`;
   return (
@@ -376,14 +413,22 @@ function PromoPills({ translate, scale = 1 }: { translate: (key: string) => stri
             <span className="inline-flex items-center" style={{ gap: px(7) }}>
               <span
                 className="rounded-full"
-                style={{ width: px(7), height: px(7), background: platform.color, boxShadow: `0 0 ${px(9)} ${platform.color}` }}
+                style={{
+                  width: px(7),
+                  height: px(7),
+                  background: platform.color,
+                  boxShadow: `0 0 ${px(9)} ${platform.color}`,
+                }}
               />
               {platform.name}
             </span>
           </React.Fragment>
         ))}
       </span>
-      <span className="rounded-full border border-white/12 bg-white/5 font-medium text-zinc-300" style={{ padding: pad }}>
+      <span
+        className="rounded-full border border-white/12 bg-white/5 font-medium text-zinc-300"
+        style={{ padding: pad }}
+      >
         {translate("autoClaimReady")}
       </span>
     </div>
@@ -406,7 +451,10 @@ export function PromoTile({
         dir={dir}
         className="relative flex h-[280px] w-[440px] flex-col justify-center overflow-hidden bg-zinc-950 px-9 text-white"
       >
-        <div className="pointer-events-none absolute inset-0" style={{ background: PROMO_GRADIENT }} />
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{ background: PROMO_GRADIENT }}
+        />
         <div className="relative">
           <div className="mb-5 flex items-center gap-3">
             <img src="/logo-ring.svg" alt="" width={52} height={52} className="h-[52px] w-[52px]" />
@@ -428,7 +476,10 @@ export function PromoTile({
       dir={dir}
       className="relative grid h-[560px] w-[1400px] grid-cols-[1fr_520px] items-center overflow-hidden bg-zinc-950 text-white"
     >
-      <div className="pointer-events-none absolute inset-0" style={{ background: PROMO_GRADIENT }} />
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{ background: PROMO_GRADIENT }}
+      />
       <section className="relative z-10 flex min-w-0 flex-col justify-center px-24">
         <div className="mb-8 flex items-center gap-4">
           <img src="/logo-ring.svg" alt="" width={68} height={68} className="h-[68px] w-[68px]" />
@@ -449,9 +500,18 @@ export function PromoTile({
       <section className="relative flex h-full items-center justify-center">
         <div
           className="pointer-events-none absolute h-[520px] w-[520px] rounded-full opacity-70 blur-2xl"
-          style={{ background: "radial-gradient(circle, rgba(145,71,255,0.45), rgba(83,252,24,0.18) 55%, transparent 72%)" }}
+          style={{
+            background:
+              "radial-gradient(circle, rgba(145,71,255,0.45), rgba(83,252,24,0.18) 55%, transparent 72%)",
+          }}
         />
-        <img src="/logo-ring.svg" alt="" width={300} height={300} className="relative h-[300px] w-[300px] drop-shadow-2xl" />
+        <img
+          src="/logo-ring.svg"
+          alt=""
+          width={300}
+          height={300}
+          className="relative h-[300px] w-[300px] drop-shadow-2xl"
+        />
       </section>
     </div>
   );

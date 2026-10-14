@@ -5,9 +5,13 @@ import { createRequire } from "node:module";
 import { resolve } from "node:path";
 
 // Reuse the browser tooling already maintained by the extension's capture scripts.
-const { chromium } = createRequire(new URL("../../extension/package.json", import.meta.url))("playwright");
+const { chromium } = createRequire(new URL("../../extension/package.json", import.meta.url))(
+  "playwright",
+);
 const require = createRequire(import.meta.url);
-const fontFile = require.resolve("@fontsource-variable/archivo/files/archivo-latin-wght-normal.woff2");
+const fontFile = require.resolve(
+  "@fontsource-variable/archivo/files/archivo-latin-wght-normal.woff2",
+);
 const font = (await readFile(fontFile)).toString("base64");
 const logo = await readFile(new URL("../src/assets/logo-mono.svg", import.meta.url), "utf8");
 const out = resolve(import.meta.dirname, "../public/og.png");
@@ -29,7 +33,10 @@ footer span:last-child { color: #aaa; }
 </body></html>`;
 const browser = await chromium.launch();
 try {
-  const page = await browser.newPage({ viewport: { width: 1200, height: 630 }, deviceScaleFactor: 1 });
+  const page = await browser.newPage({
+    viewport: { width: 1200, height: 630 },
+    deviceScaleFactor: 1,
+  });
   await page.setContent(html);
   await page.evaluate(() => document.fonts.ready);
   await page.screenshot({ path: out });

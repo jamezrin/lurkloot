@@ -40,7 +40,12 @@ const KEYS: Record<string, Direction> = {
   ArrowRight: "right",
   KeyD: "right",
 };
-const VECTORS: Record<Direction, [number, number]> = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+const VECTORS: Record<Direction, [number, number]> = {
+  up: [0, -1],
+  down: [0, 1],
+  left: [-1, 0],
+  right: [1, 0],
+};
 // Text is measured line by line so drops can sit beside a short line; the
 // other pieces are measured as boxes.
 const COPY_TEXT = "h2, .sg-cta__lede, .sg-cta__fine";
@@ -51,7 +56,9 @@ type Point = { x: number; y: number };
 
 function hexToRgb(hex: string, fallback: [number, number, number]): [number, number, number] {
   const match = /^#([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(hex.trim());
-  return match ? [parseInt(match[1], 16), parseInt(match[2], 16), parseInt(match[3], 16)] : fallback;
+  return match
+    ? [parseInt(match[1], 16), parseInt(match[2], 16), parseInt(match[3], 16)]
+    : fallback;
 }
 
 function toHsl([r, g, b]: [number, number, number]): [number, number, number] {
@@ -62,7 +69,12 @@ function toHsl([r, g, b]: [number, number, number]): [number, number, number] {
   if (max === min) return [0, 0, light * 100];
   const delta = max - min;
   const saturation = delta / (1 - Math.abs(2 * light - 1));
-  const hue = max === rn ? ((gn - bn) / delta) % 6 : max === gn ? (bn - rn) / delta + 2 : (rn - gn) / delta + 4;
+  const hue =
+    max === rn
+      ? ((gn - bn) / delta) % 6
+      : max === gn
+        ? (bn - rn) / delta + 2
+        : (rn - gn) / delta + 4;
   return [(hue * 60 + 360) % 360, saturation * 100, light * 100];
 }
 
@@ -90,7 +102,8 @@ function run(panel: HTMLElement) {
   const scoreValue = panel.querySelector<HTMLElement>("[data-snake-score]");
   const scoreUnit = panel.querySelector<HTMLElement>("[data-snake-unit]");
   const bestValue = panel.querySelector<HTMLElement>("[data-snake-best]");
-  if (!canvas || !context || !toggle || !toggleLabel || !scoreValue || !scoreUnit || !bestValue) return;
+  if (!canvas || !context || !toggle || !toggleLabel || !scoreValue || !scoreUnit || !bestValue)
+    return;
   const c = context;
 
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -131,7 +144,8 @@ function run(panel: HTMLElement) {
   const bursts: { x: number; y: number; at: number }[] = [];
 
   const centre = (spot: Cell | Point): Point => {
-    const { col, row } = "col" in spot ? { col: spot.col, row: spot.row } : { col: spot.x, row: spot.y };
+    const { col, row } =
+      "col" in spot ? { col: spot.col, row: spot.row } : { col: spot.x, row: spot.y };
     return { x: board!.x + (col + 0.5) * cell, y: board!.y + (row + 0.5) * cell };
   };
 
@@ -153,8 +167,12 @@ function run(panel: HTMLElement) {
       range.selectNodeContents(element);
       text.push(...range.getClientRects());
     }
-    const boxes = [...panel.querySelectorAll(COPY_BOXES)].map((element) => element.getBoundingClientRect());
-    const chrome = [...panel.querySelectorAll(CHROME)].map((element) => element.getBoundingClientRect());
+    const boxes = [...panel.querySelectorAll(COPY_BOXES)].map((element) =>
+      element.getBoundingClientRect(),
+    );
+    const chrome = [...panel.querySelectorAll(CHROME)].map((element) =>
+      element.getBoundingClientRect(),
+    );
     return { copy: relative([...text, ...boxes]), chrome: relative(chrome) };
   }
 
@@ -162,7 +180,10 @@ function run(panel: HTMLElement) {
   // out of the maze under the copy have none between them, which leaves the
   // copy on an island.
   function buildWalls(next: Tour): Path2D {
-    const { maze, board: { x, y, cols, rows } } = next;
+    const {
+      maze,
+      board: { x, y, cols, rows },
+    } = next;
     const { solid } = maze;
     const path = new Path2D();
     const add = (x1: number, y1: number, x2: number, y2: number) => {
@@ -174,8 +195,10 @@ function run(panel: HTMLElement) {
         const index = row * cols + col;
         const left = x + col * cell;
         const top = y + row * cell;
-        if (col < cols - 1 && !maze.right[index] && !(solid[index] && solid[index + 1])) add(left + cell, top, left + cell, top + cell);
-        if (row < rows - 1 && !maze.down[index] && !(solid[index] && solid[index + cols])) add(left, top + cell, left + cell, top + cell);
+        if (col < cols - 1 && !maze.right[index] && !(solid[index] && solid[index + 1]))
+          add(left + cell, top, left + cell, top + cell);
+        if (row < rows - 1 && !maze.down[index] && !(solid[index] && solid[index + cols]))
+          add(left, top + cell, left + cell, top + cell);
       }
     }
     return path;
@@ -195,7 +218,12 @@ function run(panel: HTMLElement) {
     m.shadowBlur = 16 * ratio;
     m.shadowOffsetX = away;
     for (const rect of copy) {
-      m.fillRect(rect.left * ratio - away, rect.top * ratio, (rect.right - rect.left) * ratio, (rect.bottom - rect.top) * ratio);
+      m.fillRect(
+        rect.left * ratio - away,
+        rect.top * ratio,
+        (rect.right - rect.left) * ratio,
+        (rect.bottom - rect.top) * ratio,
+      );
     }
     return mask;
   }
@@ -333,23 +361,30 @@ function run(panel: HTMLElement) {
     const { body, trail } = snake;
     const cols = board!.cols;
     const rows = board!.rows;
-    const near = (value: number, to: number, size: number) => (wrapped ? value + Math.round((to - value) / size) * size : value);
+    const near = (value: number, to: number, size: number) =>
+      wrapped ? value + Math.round((to - value) / size) * size : value;
     const toward = (from: Cell, to: Cell): Point => ({
       x: from.col + (near(to.col, from.col, cols) - from.col) * t,
       y: from.row + (near(to.row, from.row, rows) - from.row) * t,
     });
-    const moving = t < 1 && trail.length > 0 && (trail[0].col !== body[0].col || trail[0].row !== body[0].row);
+    const moving =
+      t < 1 && trail.length > 0 && (trail[0].col !== body[0].col || trail[0].row !== body[0].row);
     let points: Point[];
     if (!moving) {
       points = body.map((spot) => ({ x: spot.col, y: spot.row }));
     } else {
       const grew = body.length > trail.length;
       points = [toward(trail[0], body[0])];
-      for (let i = 0; i < trail.length - (grew ? 0 : 1); i++) points.push({ x: trail[i].col, y: trail[i].row });
-      if (!grew && trail.length > 1) points.push(toward(trail[trail.length - 1], trail[trail.length - 2]));
+      for (let i = 0; i < trail.length - (grew ? 0 : 1); i++)
+        points.push({ x: trail[i].col, y: trail[i].row });
+      if (!grew && trail.length > 1)
+        points.push(toward(trail[trail.length - 1], trail[trail.length - 2]));
     }
     for (let i = 1; i < points.length; i++) {
-      points[i] = { x: near(points[i].x, points[i - 1].x, cols), y: near(points[i].y, points[i - 1].y, rows) };
+      points[i] = {
+        x: near(points[i].x, points[i - 1].x, cols),
+        y: near(points[i].y, points[i - 1].y, rows),
+      };
     }
     return points;
   }
@@ -359,11 +394,15 @@ function run(panel: HTMLElement) {
     const points = snakePoints(snake, t, wrapped).map(centre);
     const along = [0];
     for (let i = 1; i < points.length; i++) {
-      along.push(along[i - 1] + Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y));
+      along.push(
+        along[i - 1] + Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y),
+      );
     }
     const total = along[along.length - 1] || 1;
     const span = { x: board!.cols * cell, y: board!.rows * cell };
-    const shifts = wrapped ? [-1, 0, 1].flatMap((sx) => [-1, 0, 1].map((sy) => [sx, sy])) : [[0, 0]];
+    const shifts = wrapped
+      ? [-1, 0, 1].flatMap((sx) => [-1, 0, 1].map((sy) => [sx, sy]))
+      : [[0, 0]];
     c.save();
     if (wrapped) {
       c.beginPath();
@@ -425,7 +464,13 @@ function run(panel: HTMLElement) {
       c.fillStyle = "#0a0a0a";
       for (const side of [-1, 1]) {
         c.beginPath();
-        c.arc(eyeX - fy * side * cell * 0.11, eyeY + fx * side * cell * 0.11, cell * 0.055, 0, Math.PI * 2);
+        c.arc(
+          eyeX - fy * side * cell * 0.11,
+          eyeY + fx * side * cell * 0.11,
+          cell * 0.055,
+          0,
+          Math.PI * 2,
+        );
         c.fill();
       }
     }
@@ -451,7 +496,13 @@ function run(panel: HTMLElement) {
     if (playing && match) {
       for (const item of match.items) drawItem(item, now);
       const interval = Math.max(FASTEST_STEP, MATCH_STEP - match.score * 0.0015);
-      drawSnake(match.snake, bittenAt ? 1 : Math.min(1, clock / interval), true, Boolean(bittenAt), now);
+      drawSnake(
+        match.snake,
+        bittenAt ? 1 : Math.min(1, clock / interval),
+        true,
+        Boolean(bittenAt),
+        now,
+      );
     } else if (tour && walls) {
       strokeWalls(walls, still ? 1 : Math.min(1, (now - mazeAt) / FADE_MS));
       for (const item of tour.items) drawItem(item, now);

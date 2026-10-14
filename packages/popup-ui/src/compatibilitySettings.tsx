@@ -15,11 +15,19 @@ import type {
 } from "./types";
 
 const AUTOMATIC_TWITCH: SettingsPatch = Object.freeze({
-  compatibility: Object.freeze({ twitch: Object.freeze({ profile: "auto", heartbeatTransport: "auto", inventoryQueryVersion: "auto" }) }),
+  compatibility: Object.freeze({
+    twitch: Object.freeze({
+      profile: "auto",
+      heartbeatTransport: "auto",
+      inventoryQueryVersion: "auto",
+    }),
+  }),
 });
 
 const AUTOMATIC_KICK: SettingsPatch = Object.freeze({
-  compatibility: Object.freeze({ kick: Object.freeze({ profile: "auto", claimLinkHandling: "auto" }) }),
+  compatibility: Object.freeze({
+    kick: Object.freeze({ profile: "auto", claimLinkHandling: "auto" }),
+  }),
 });
 
 export function automaticPatchFor(platform: Platform): SettingsPatch {
@@ -59,11 +67,19 @@ function optionTitle(translate: TFunction, id: string): string {
 // Lifecycle rides along in the option label: a native <option> cannot carry a
 // badge, and the tradeoff between choices is exactly what you need at the
 // moment you open the dropdown.
-function options(records: OptionRecords, automatic: string, translate: TFunction, webIdentity = false) {
+function options(
+  records: OptionRecords,
+  automatic: string,
+  translate: TFunction,
+  webIdentity = false,
+) {
   return [
     { value: "auto", label: automatic },
     ...Object.values(records)
-      .filter((item) => item.hosts.includes("extension") && (!webIdentity || item.identities?.includes("web")))
+      .filter(
+        (item) =>
+          item.hosts.includes("extension") && (!webIdentity || item.identities?.includes("web")),
+      )
       .map((item) => ({
         value: item.id,
         label: `${optionTitle(translate, item.id)} · ${translate(LIFECYCLE_KEYS[item.lifecycle])}`,
@@ -73,12 +89,35 @@ function options(records: OptionRecords, automatic: string, translate: TFunction
 
 function LifecycleBadge({ lifecycle }: { lifecycle: CompatibilityLifecycle }) {
   const t = useT();
-  return <span className={cn("inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none whitespace-nowrap", lifecycle === "recommended" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : lifecycle === "legacy" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : "bg-violet-500/10 text-violet-600 dark:text-violet-400")}>{t(LIFECYCLE_KEYS[lifecycle])}</span>;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none whitespace-nowrap",
+        lifecycle === "recommended"
+          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+          : lifecycle === "legacy"
+            ? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+            : "bg-violet-500/10 text-violet-600 dark:text-violet-400",
+      )}
+    >
+      {t(LIFECYCLE_KEYS[lifecycle])}
+    </span>
+  );
 }
 
 // One resolved capability. The control and the value it produced sit together, so
 // "Automatic" always says what it actually resolved to.
-function CompatibilityRow({ title, ariaLabel, description, selection, resolvedId, metadata, options: rowOptions, onChange, component }: {
+function CompatibilityRow({
+  title,
+  ariaLabel,
+  description,
+  selection,
+  resolvedId,
+  metadata,
+  options: rowOptions,
+  onChange,
+  component,
+}: {
   title: string;
   ariaLabel: string;
   description: string;
@@ -100,24 +139,53 @@ function CompatibilityRow({ title, ariaLabel, description, selection, resolvedId
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
           <div className="text-[12px] font-medium text-zinc-800 dark:text-zinc-100">{title}</div>
-          <div className="mt-0.5 text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
+          <div className="mt-0.5 text-[10px] leading-snug text-zinc-500 dark:text-zinc-400">
+            {description}
+          </div>
         </div>
-        <SelectControl label={ariaLabel} value={selection} options={rowOptions} onChange={onChange} />
+        <SelectControl
+          label={ariaLabel}
+          value={selection}
+          options={rowOptions}
+          onChange={onChange}
+        />
       </div>
       <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1">
-        <span className="text-[11px] font-medium text-zinc-700 dark:text-zinc-200">{optionTitle(t, resolvedId)}</span>
+        <span className="text-[11px] font-medium text-zinc-700 dark:text-zinc-200">
+          {optionTitle(t, resolvedId)}
+        </span>
         <LifecycleBadge lifecycle={lifecycle} />
-        {automatic
-          ? (component ? <span className="text-[10px] text-zinc-400 dark:text-zinc-500">{t("compatibilityFromProfile")}</span> : null)
-          : <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">{t("compatibilityOverridden")}</span>}
-        <code className="w-full truncate text-[10px] text-zinc-400 dark:text-zinc-500">{resolvedId}</code>
-        {replacement ? <span className="w-full text-[10px] text-amber-600 dark:text-amber-400">{t("compatibilityReplacedBy", optionTitle(t, replacement))}</span> : null}
+        {automatic ? (
+          component ? (
+            <span className="text-[10px] text-zinc-400 dark:text-zinc-500">
+              {t("compatibilityFromProfile")}
+            </span>
+          ) : null
+        ) : (
+          <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">
+            {t("compatibilityOverridden")}
+          </span>
+        )}
+        <code className="w-full truncate text-[10px] text-zinc-400 dark:text-zinc-500">
+          {resolvedId}
+        </code>
+        {replacement ? (
+          <span className="w-full text-[10px] text-amber-600 dark:text-amber-400">
+            {t("compatibilityReplacedBy", optionTitle(t, replacement))}
+          </span>
+        ) : null}
       </div>
     </div>
   );
 }
 
-export function PlatformCompatibilitySettings({ platform, settings, registry, resolution, onChange }: {
+export function PlatformCompatibilitySettings({
+  platform,
+  settings,
+  registry,
+  resolution,
+  onChange,
+}: {
   platform: Platform;
   settings: CompatibilitySelections;
   registry: PopupCompatibilityRegistry;
@@ -155,7 +223,9 @@ export function PlatformCompatibilitySettings({ platform, settings, registry, re
             resolvedId={effective.twitch.heartbeat}
             metadata={metadata(registry.twitch.heartbeat, effective.twitch.heartbeat)}
             options={options(registry.twitch.heartbeat, automatic, t, true)}
-            onChange={(heartbeatTransport) => onChange({ compatibility: { twitch: { heartbeatTransport } } })}
+            onChange={(heartbeatTransport) =>
+              onChange({ compatibility: { twitch: { heartbeatTransport } } })
+            }
             component
           />
           <CompatibilityRow
@@ -166,7 +236,9 @@ export function PlatformCompatibilitySettings({ platform, settings, registry, re
             resolvedId={effective.twitch.inventory}
             metadata={metadata(registry.twitch.inventory, effective.twitch.inventory)}
             options={options(registry.twitch.inventory, automatic, t, true)}
-            onChange={(inventoryQueryVersion) => onChange({ compatibility: { twitch: { inventoryQueryVersion } } })}
+            onChange={(inventoryQueryVersion) =>
+              onChange({ compatibility: { twitch: { inventoryQueryVersion } } })
+            }
             component
           />
         </>
@@ -191,14 +263,29 @@ export function PlatformCompatibilitySettings({ platform, settings, registry, re
             resolvedId={effective.kick.claim}
             metadata={metadata(registry.kick.claim, effective.kick.claim)}
             options={options(registry.kick.claim, automatic, t)}
-            onChange={(claimLinkHandling) => onChange({ compatibility: { kick: { claimLinkHandling } } })}
+            onChange={(claimLinkHandling) =>
+              onChange({ compatibility: { kick: { claimLinkHandling } } })
+            }
             component
           />
         </>
       )}
       <div className="py-2">
-        {overridden ? <div className="mb-2 flex items-start gap-1.5 rounded-lg bg-amber-500/10 p-2 text-[10px] text-amber-700 dark:text-amber-300"><TriangleAlert size={12} className="mt-0.5 shrink-0" /><span>{t("compatibilityOverrideWarning")}</span></div> : null}
-        <button type="button" disabled={!overridden} onClick={() => void onChange(automaticPatchFor(platform))} className="flex items-center gap-1.5 rounded-lg border border-zinc-200 px-2 py-1 text-[11px] font-semibold text-zinc-500 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:opacity-40 dark:border-zinc-700"><RotateCcw size={12} />{t("compatibilityRestoreAutomatic")}</button>
+        {overridden ? (
+          <div className="mb-2 flex items-start gap-1.5 rounded-lg bg-amber-500/10 p-2 text-[10px] text-amber-700 dark:text-amber-300">
+            <TriangleAlert size={12} className="mt-0.5 shrink-0" />
+            <span>{t("compatibilityOverrideWarning")}</span>
+          </div>
+        ) : null}
+        <button
+          type="button"
+          disabled={!overridden}
+          onClick={() => void onChange(automaticPatchFor(platform))}
+          className="flex items-center gap-1.5 rounded-lg border border-zinc-200 px-2 py-1 text-[11px] font-semibold text-zinc-500 outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] disabled:opacity-40 dark:border-zinc-700"
+        >
+          <RotateCcw size={12} />
+          {t("compatibilityRestoreAutomatic")}
+        </button>
       </div>
     </div>
   );

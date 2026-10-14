@@ -31,14 +31,16 @@ import { errorMessage } from "@lurkloot/shared/errors";
 export function createDiscovery<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
   { lifecycleSlice }: Pick<ControllerSlices<S>, "lifecycleSlice">,
-  calls: Pick<ControllerCalls<S>,
+  calls: Pick<
+    ControllerCalls<S>,
     | "createAdapter"
     | "withEventCollector"
     | "readSettingsAndState"
     | "createAdapters"
     | "reportBestEffort"
   >,
-): Pick<ControllerCalls<S>,
+): Pick<
+  ControllerCalls<S>,
   | "selectionFingerprint"
   | "refreshDiscovery"
   | "discoverySnapshot"
@@ -89,7 +91,9 @@ export function createDiscovery<S extends EngineSettings>(
     return (hash >>> 0).toString(16).padStart(8, "0");
   };
 
-  function createDiscoveryLane(platform: Platform): DiscoverySnapshotLane<TickAdapterHandle<S> | undefined> {
+  function createDiscoveryLane(
+    platform: Platform,
+  ): DiscoverySnapshotLane<TickAdapterHandle<S> | undefined> {
     return new DiscoverySnapshotLane<TickAdapterHandle<S> | undefined>(
       platform,
       async ({ signal, request: tickAdapter }) => {
@@ -101,11 +105,19 @@ export function createDiscovery<S extends EngineSettings>(
             followedChannels: [],
             complete: false,
             failure: "Platform disabled",
-            metrics: { campaigns: 0, candidates: 0, cacheHits: 0, cacheMisses: 0, batchRequests: 0, singleFallbacks: 0 },
+            metrics: {
+              campaigns: 0,
+              candidates: 0,
+              cacheHits: 0,
+              cacheMisses: 0,
+              batchRequests: 0,
+              singleFallbacks: 0,
+            },
           };
         }
         return withEventCollector(async (emit, events) => {
-          const adapter = tickAdapter?.adapter(settings, emit, true)
+          const adapter =
+            tickAdapter?.adapter(settings, emit, true)
             ?? createAdapter(platform, settings, emit, true);
           try {
             return await collectDiscoverySnapshot(
@@ -121,30 +133,41 @@ export function createDiscovery<S extends EngineSettings>(
                   platform,
                   username,
                   displayName: username,
-                  url: platform === "twitch"
-                    ? `https://www.twitch.tv/${username}`
-                    : `https://kick.com/${username}`,
+                  url:
+                    platform === "twitch"
+                      ? `https://www.twitch.tv/${username}`
+                      : `https://kick.com/${username}`,
                 })),
               (campaign, campaigns) => {
                 const backoff = state.campaignSearchBackoffs?.[platform];
-                if (!campaignSearchBackoffApplies(
-                  campaign,
-                  settings,
-                  state.sessions[platform],
-                  backoff,
-                  discoverySlice.discoveryBackoffBypasses[platform] > 0,
-                  campaigns.find((candidate) => candidate.id === state.sessions[platform].campaignId),
-                )) return undefined;
-                return discoverySlice.discoveryLanes[platform].current().snapshot?.campaigns
-                  .find(({ campaign: previous }) => previous.id === campaign.id)
-                  ?.candidates ?? [];
+                if (
+                  !campaignSearchBackoffApplies(
+                    campaign,
+                    settings,
+                    state.sessions[platform],
+                    backoff,
+                    discoverySlice.discoveryBackoffBypasses[platform] > 0,
+                    campaigns.find(
+                      (candidate) => candidate.id === state.sessions[platform].campaignId,
+                    ),
+                  )
+                )
+                  return undefined;
+                return (
+                  discoverySlice.discoveryLanes[platform]
+                    .current()
+                    .snapshot?.campaigns.find(
+                      ({ campaign: previous }) => previous.id === campaign.id,
+                    )?.candidates ?? []
+                );
               },
               settings,
-              (campaigns) => reconcileRefreshedCampaigns(
-                campaigns,
-                state.campaigns[platform],
-                settings.platform[platform].subscribedRewardMarks ?? [],
-              ),
+              (campaigns) =>
+                reconcileRefreshedCampaigns(
+                  campaigns,
+                  state.campaigns[platform],
+                  settings.platform[platform].subscribedRewardMarks ?? [],
+                ),
             );
           } finally {
             tickAdapter?.drain(emit);
@@ -198,26 +221,33 @@ export function createDiscovery<S extends EngineSettings>(
   ): Promise<void> {
     if (lifecycleSlice.controllerShutdown) return;
     const settings = await ports.storage.loadSettings();
-    await Promise.all(platforms.map(async (platform) => {
-      if (bypassBackoff) discoverySlice.discoveryBackoffBypasses[platform] += 1;
-      try {
-        if (!settings.platform[platform].enabled) {
-          discoverySlice.discoveryLanes[platform].invalidate();
-          invalidateSelection(platform);
-          return;
+    await Promise.all(
+      platforms.map(async (platform) => {
+        if (bypassBackoff) discoverySlice.discoveryBackoffBypasses[platform] += 1;
+        try {
+          if (!settings.platform[platform].enabled) {
+            discoverySlice.discoveryLanes[platform].invalidate();
+            invalidateSelection(platform);
+            return;
+          }
+          await discoverySlice.discoveryLanes[platform].requestAndWait(tickAdapters?.[platform]);
+        } finally {
+          if (bypassBackoff) discoverySlice.discoveryBackoffBypasses[platform] -= 1;
         }
-        await discoverySlice.discoveryLanes[platform].requestAndWait(tickAdapters?.[platform]);
-      } finally {
-        if (bypassBackoff) discoverySlice.discoveryBackoffBypasses[platform] -= 1;
-      }
-    }));
+      }),
+    );
   }
 
   function discoverySnapshot(platform: Platform): Readonly<DiscoverySnapshotState> {
     return discoverySlice.discoveryLanes[platform].current();
   }
 
-  function selectionKey(platform: Platform, snapshot: DiscoverySnapshot, settings: S, state: SchedulerState): string {
+  function selectionKey(
+    platform: Platform,
+    snapshot: DiscoverySnapshot,
+    settings: S,
+    state: SchedulerState,
+  ): string {
     const session = state.sessions[platform];
     return JSON.stringify({
       discovery: {
@@ -225,7 +255,9 @@ export function createDiscovery<S extends EngineSettings>(
           campaign,
           candidates: candidates.map(({ observedAt: _observedAt, ...candidate }) => candidate),
         })),
-        idleCandidates: snapshot.idleCandidates.map(({ observedAt: _observedAt, ...candidate }) => candidate),
+        idleCandidates: snapshot.idleCandidates.map(
+          ({ observedAt: _observedAt, ...candidate }) => candidate,
+        ),
         followedChannels: snapshot.followedChannels,
       },
       persistedCampaigns: state.campaigns[platform],
@@ -238,7 +270,9 @@ export function createDiscovery<S extends EngineSettings>(
         rewardId: session.rewardId,
         watchMode: session.watchMode,
         offlineChecks: session.offlineChecks,
-        playbackHealthy: session.playback ? isPlaybackTelemetryHealthy(session.playback) : undefined,
+        playbackHealthy: session.playback
+          ? isPlaybackTelemetryHealthy(session.playback)
+          : undefined,
         playbackChecks: session.playbackChecks,
         heartbeatChecks: session.heartbeatChecks,
         lastHeartbeatOk: session.lastHeartbeatOk,
@@ -249,7 +283,12 @@ export function createDiscovery<S extends EngineSettings>(
   }
 
   function selectionIsForced(trigger: TickTrigger): boolean {
-    return trigger === "manual_tick" || trigger === "manual_resume" || trigger === "claim_handoff" || trigger === "startup";
+    return (
+      trigger === "manual_tick"
+      || trigger === "manual_resume"
+      || trigger === "claim_handoff"
+      || trigger === "startup"
+    );
   }
 
   function selectionBypassesBackoff(trigger: TickTrigger): boolean {
@@ -293,7 +332,8 @@ export function createDiscovery<S extends EngineSettings>(
 
   async function evaluateSelection(
     input: SelectionInput<S>,
-    select: typeof selectWatchTargetFromSnapshot = ports.testing?.selectWatchTarget ?? selectWatchTargetFromSnapshot,
+    select: typeof selectWatchTargetFromSnapshot = ports.testing?.selectWatchTarget
+      ?? selectWatchTargetFromSnapshot,
   ): Promise<CommittedSelection> {
     const startedAt = Date.now();
     const result = await select({
@@ -318,7 +358,11 @@ export function createDiscovery<S extends EngineSettings>(
         level: "debug",
         message: `Skipped authoritative negative campaign search for ${result.backoff.campaignId} (${result.backoffSkippedMs}ms remaining)`,
       });
-    } else if (result.backoff && input.state.campaignSearchBackoffs?.[input.platform]?.fingerprint !== result.backoff.fingerprint) {
+    } else if (
+      result.backoff
+      && input.state.campaignSearchBackoffs?.[input.platform]?.fingerprint
+        !== result.backoff.fingerprint
+    ) {
       discoverySlice.discoveryEvents[input.platform].push({
         category: "diagnostic",
         platform: input.platform,
@@ -326,7 +370,12 @@ export function createDiscovery<S extends EngineSettings>(
         message: `Authoritative negative campaign search for ${result.backoff.campaignId}; retry at ${result.backoff.retryAt}`,
       });
     }
-    return { key: input.key, snapshotRevision: input.snapshot.revision, generation: input.generation, result };
+    return {
+      key: input.key,
+      snapshotRevision: input.snapshot.revision,
+      generation: input.generation,
+      result,
+    };
   }
 
   // The cached selection for this exact key and generation, unless the input
@@ -340,7 +389,9 @@ export function createDiscovery<S extends EngineSettings>(
         level: "debug",
         message: `Snapshot selection skipped (trigger=${input.trigger}, revision=${input.snapshot.revision}, age=${Math.max(0, Date.now() - input.snapshot.observedAt)}ms, material=false)`,
       });
-      const retryAt = cached.result.backoff ? Date.parse(cached.result.backoff.retryAt) : Number.NaN;
+      const retryAt = cached.result.backoff
+        ? Date.parse(cached.result.backoff.retryAt)
+        : Number.NaN;
       if (cached.result.backoff && Number.isFinite(retryAt) && retryAt > Date.now()) {
         discoverySlice.discoveryEvents[input.platform].push({
           category: "diagnostic",
@@ -400,7 +451,8 @@ export function createDiscovery<S extends EngineSettings>(
     try {
       return await run;
     } finally {
-      if (discoverySlice.selectionRuns[input.platform] === run) delete discoverySlice.selectionRuns[input.platform];
+      if (discoverySlice.selectionRuns[input.platform] === run)
+        delete discoverySlice.selectionRuns[input.platform];
     }
   }
 
@@ -429,13 +481,15 @@ export function createDiscovery<S extends EngineSettings>(
     if (prepared.generation !== discoverySlice.selectionGeneration[platform]) return undefined;
     const session = state.sessions[platform];
     const decision = prepared.result.decision;
-    const action = session.status === "watching"
-      ? session.campaignId ? "watch" : "fallback"
-      : "idle";
-    if (action !== decision.action
+    const action =
+      session.status === "watching" ? (session.campaignId ? "watch" : "fallback") : "idle";
+    if (
+      action !== decision.action
       || session.campaignId !== decision.campaign?.id
       || session.rewardId !== decision.reward?.id
-      || session.channel?.url !== decision.channel?.url) return undefined;
+      || session.channel?.url !== decision.channel?.url
+    )
+      return undefined;
     return {
       ...prepared.result,
       decision: {
@@ -469,7 +523,7 @@ export function createDiscovery<S extends EngineSettings>(
       let adapter: PlatformAdapter | undefined;
       try {
         adapter = createAdapters(settings, emit)[message.platform];
-        categories = await adapter.searchCategories?.(message.query) ?? [];
+        categories = (await adapter.searchCategories?.(message.query)) ?? [];
       } catch (error) {
         emit({
           category: "diagnostic",

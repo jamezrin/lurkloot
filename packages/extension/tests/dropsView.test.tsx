@@ -33,18 +33,24 @@ function sourceCampaign(url?: string): DropCampaign {
     platform: "kick",
     name: "Kick campaign",
     status: "active",
-    rewards: [{
-      id: "claimable-reward",
-      name: "Claimable reward",
-      requiredMinutes: 60,
-      watchedMinutes: 60,
-      status: "claimable",
-      claimGuidance: url ? { kind: "link_required", url } : undefined,
-    }],
+    rewards: [
+      {
+        id: "claimable-reward",
+        name: "Claimable reward",
+        requiredMinutes: 60,
+        watchedMinutes: 60,
+        status: "claimable",
+        claimGuidance: url ? { kind: "link_required", url } : undefined,
+      },
+    ],
   };
 }
 
-function mount(url?: string, source = sourceCampaign(url), viewOptions?: Parameters<typeof campaignViewFromCampaign>[4]) {
+function mount(
+  url?: string,
+  source = sourceCampaign(url),
+  viewOptions?: Parameters<typeof campaignViewFromCampaign>[4],
+) {
   const { document, window } = parseHTML("<div id=app></div>");
   vi.stubGlobal("window", window);
   vi.stubGlobal("document", document);
@@ -63,15 +69,18 @@ function mount(url?: string, source = sourceCampaign(url), viewOptions?: Paramet
   act(() => {
     root = createRoot(container);
     root.render(
-      <I18nContext.Provider value={{
-        t: (key) => ({
-          externalGameAccountRequired: "External game account required",
-          linkExternalGameAccount: "Link external game account",
-          search: "Search",
-        })[key] ?? key,
-        dir: "ltr",
-        locale: "en",
-      }}>
+      <I18nContext.Provider
+        value={{
+          t: (key) =>
+            ({
+              externalGameAccountRequired: "External game account required",
+              linkExternalGameAccount: "Link external game account",
+              search: "Search",
+            })[key] ?? key,
+          dir: "ltr",
+          locale: "en",
+        }}
+      >
         <PopupRuntimeContext.Provider value={{ adapter, preview: false }}>
           <QueuePanel
             campaigns={[campaign]}
@@ -120,15 +129,17 @@ describe("campaign farming rejection presentation", () => {
       ...sourceCampaign(),
       platform: "twitch",
       accountLinked: false,
-      rewards: [{
-        id: "watch",
-        name: "Watch reward",
-        requiredMinutes: 60,
-        watchedMinutes: 0,
-        status: "locked",
-        requirement: "watch",
-        isWatchBased: true,
-      }],
+      rewards: [
+        {
+          id: "watch",
+          name: "Watch reward",
+          requiredMinutes: 60,
+          watchedMinutes: 0,
+          status: "locked",
+          requirement: "watch",
+          isWatchBased: true,
+        },
+      ],
     };
     const currentSettings = mergeSettings(undefined);
     currentSettings.farmingEligibility.farmUnlinkedCampaigns = false;
@@ -140,7 +151,9 @@ describe("campaign farming rejection presentation", () => {
 
     // A campaign the engine refuses is in the Queue's Skipped group, which
     // opens to show the reason rather than hiding the campaign.
-    act(() => container.querySelector<HTMLButtonElement>('[data-queue-disclosure="skipped"]')?.click());
+    act(() =>
+      container.querySelector<HTMLButtonElement>('[data-queue-disclosure="skipped"]')?.click(),
+    );
     expect(container.querySelector("[data-farming-rejection-indicator]")).not.toBeNull();
     expect(container.textContent).toContain("campaignRejectionUnlinkedDisabled");
   });
@@ -156,10 +169,16 @@ function farmingSession(campaignId: string): WatchSession {
   };
 }
 
-function renderDropsPanel(campaigns: ReturnType<typeof campaignViewFromCampaign>[], focus?: { id: string; seq: number }, pinnedCount = 0) {
+function renderDropsPanel(
+  campaigns: ReturnType<typeof campaignViewFromCampaign>[],
+  focus?: { id: string; seq: number },
+  pinnedCount = 0,
+) {
   const adapter = { openLink: vi.fn() } as unknown as PopupAdapter;
   root!.render(
-    <I18nContext.Provider value={{ t: (key) => ({ search: "Search" })[key] ?? key, dir: "ltr", locale: "en" }}>
+    <I18nContext.Provider
+      value={{ t: (key) => ({ search: "Search" })[key] ?? key, dir: "ltr", locale: "en" }}
+    >
       <PopupRuntimeContext.Provider value={{ adapter, preview: false }}>
         <QueuePanel
           campaigns={campaigns}
@@ -183,22 +202,62 @@ function renderDropsPanel(campaigns: ReturnType<typeof campaignViewFromCampaign>
   );
 }
 
-function mountCampaignList(initialCampaigns: ReturnType<typeof campaignViewFromCampaign>[], onPinChange = vi.fn()) {
+function mountCampaignList(
+  initialCampaigns: ReturnType<typeof campaignViewFromCampaign>[],
+  onPinChange = vi.fn(),
+) {
   const { document, window } = parseHTML("<div id=app></div>");
   vi.stubGlobal("window", window);
   vi.stubGlobal("document", document);
   vi.stubGlobal("getComputedStyle", () => ({ direction: "ltr", columnGap: "0" }));
-  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => { callback(0); return 1; });
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+    callback(0);
+    return 1;
+  });
   vi.stubGlobal("cancelAnimationFrame", () => undefined);
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  Object.defineProperty(window.HTMLInputElement.prototype, "select", { configurable: true, value: () => undefined });
+  Object.defineProperty(window.HTMLInputElement.prototype, "select", {
+    configurable: true,
+    value: () => undefined,
+  });
   const container = document.getElementById("app")!;
   const adapter = { openLink: vi.fn() } as unknown as PopupAdapter;
-  function render(campaigns: ReturnType<typeof campaignViewFromCampaign>[], focus?: { id: string; seq: number }) {
+  function render(
+    campaigns: ReturnType<typeof campaignViewFromCampaign>[],
+    focus?: { id: string; seq: number },
+  ) {
     root!.render(
-      <I18nContext.Provider value={{ t: (key) => ({ completedCampaigns: "Completed", finished: "Finished", later: "later", search: "Search" })[key] ?? key, dir: "ltr", locale: "en" }}>
+      <I18nContext.Provider
+        value={{
+          t: (key) =>
+            ({
+              completedCampaigns: "Completed",
+              finished: "Finished",
+              later: "later",
+              search: "Search",
+            })[key] ?? key,
+          dir: "ltr",
+          locale: "en",
+        }}
+      >
         <PopupRuntimeContext.Provider value={{ adapter, preview: false }}>
-          <QueuePanel campaigns={campaigns} gameMap={{}} focus={focus} refreshing={false} strategy="ending_soonest" pinnedCount={0} farmPinnedOnly={false} onStrategyChange={() => undefined} onUnpinAll={() => undefined} onFarmPinnedOnlyChange={() => undefined} onRefreshCampaign={() => undefined} onPinChange={onPinChange} onToggleExclude={() => undefined} onOpenGames={() => undefined} onOpenSettings={() => undefined} />
+          <QueuePanel
+            campaigns={campaigns}
+            gameMap={{}}
+            focus={focus}
+            refreshing={false}
+            strategy="ending_soonest"
+            pinnedCount={0}
+            farmPinnedOnly={false}
+            onStrategyChange={() => undefined}
+            onUnpinAll={() => undefined}
+            onFarmPinnedOnlyChange={() => undefined}
+            onRefreshCampaign={() => undefined}
+            onPinChange={onPinChange}
+            onToggleExclude={() => undefined}
+            onOpenGames={() => undefined}
+            onOpenSettings={() => undefined}
+          />
         </PopupRuntimeContext.Provider>
       </I18nContext.Provider>,
     );
@@ -211,16 +270,38 @@ function mountCampaignList(initialCampaigns: ReturnType<typeof campaignViewFromC
     container,
     window,
     onPinChange,
-    rerender: (focus: { id: string; seq: number }, campaigns = initialCampaigns) => act(() => render(campaigns, focus)),
+    rerender: (focus: { id: string; seq: number }, campaigns = initialCampaigns) =>
+      act(() => render(campaigns, focus)),
   };
 }
 
-function renderCompletedPanel(campaigns: ReturnType<typeof campaignViewFromCampaign>[], focus?: { id: string; seq: number }) {
+function renderCompletedPanel(
+  campaigns: ReturnType<typeof campaignViewFromCampaign>[],
+  focus?: { id: string; seq: number },
+) {
   const adapter = { openLink: vi.fn() } as unknown as PopupAdapter;
   root!.render(
-    <I18nContext.Provider value={{ t: (key) => ({ completedTabFinished: "Finished", completedTabExpired: "Expired", finished: "Finished", later: "later" })[key] ?? key, dir: "ltr", locale: "en" }}>
+    <I18nContext.Provider
+      value={{
+        t: (key) =>
+          ({
+            completedTabFinished: "Finished",
+            completedTabExpired: "Expired",
+            finished: "Finished",
+            later: "later",
+          })[key] ?? key,
+        dir: "ltr",
+        locale: "en",
+      }}
+    >
       <PopupRuntimeContext.Provider value={{ adapter, preview: false }}>
-        <CompletedPanel campaigns={campaigns} gameMap={{}} focus={focus} refreshing={false} onRefreshCampaign={() => undefined} />
+        <CompletedPanel
+          campaigns={campaigns}
+          gameMap={{}}
+          focus={focus}
+          refreshing={false}
+          onRefreshCampaign={() => undefined}
+        />
       </PopupRuntimeContext.Provider>
     </I18nContext.Provider>,
   );
@@ -231,7 +312,10 @@ function mountCompleted(campaigns: ReturnType<typeof campaignViewFromCampaign>[]
   vi.stubGlobal("window", window);
   vi.stubGlobal("document", document);
   vi.stubGlobal("getComputedStyle", () => ({ direction: "ltr", columnGap: "0" }));
-  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => { callback(0); return 1; });
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+    callback(0);
+    return 1;
+  });
   vi.stubGlobal("cancelAnimationFrame", () => undefined);
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const container = document.getElementById("app")!;
@@ -242,7 +326,8 @@ function mountCompleted(campaigns: ReturnType<typeof campaignViewFromCampaign>[]
   return {
     container,
     window,
-    rerender: (focus: { id: string; seq: number }, next = campaigns) => act(() => renderCompletedPanel(next, focus)),
+    rerender: (focus: { id: string; seq: number }, next = campaigns) =>
+      act(() => renderCompletedPanel(next, focus)),
   };
 }
 
@@ -255,7 +340,11 @@ describe("completed campaign section", () => {
     expect(row).not.toBeNull();
     expect(row?.querySelector("[data-campaign-progress]")?.textContent).toBe("100%");
     expect(row?.textContent).not.toContain("Finished");
-    expect([...container.querySelectorAll("button")].some((button) => button.textContent?.includes("Completed"))).toBe(false);
+    expect(
+      [...container.querySelectorAll("button")].some((button) =>
+        button.textContent?.includes("Completed"),
+      ),
+    ).toBe(false);
   });
 
   it("shows one terminal status per finished row, and keeps it out of the queue", () => {
@@ -265,11 +354,26 @@ describe("completed campaign section", () => {
       deadlineSafetyMarginMinutes: settings.deadlineSafetyMarginMinutes,
       settings,
     };
-    const finished = campaignViewFromCampaign({
-      ...sourceCampaign(), id: "finished", name: "Finished campaign", status: "completed",
-      rewards: [{ ...sourceCampaign().rewards[0]!, status: "claimed" }],
-    }, 0, farmingSession("active"), false, feasibility);
-    const active = campaignViewFromCampaign({ ...sourceCampaign(), id: "active", name: "Active campaign" }, 1, farmingSession("active"), false, feasibility);
+    const finished = campaignViewFromCampaign(
+      {
+        ...sourceCampaign(),
+        id: "finished",
+        name: "Finished campaign",
+        status: "completed",
+        rewards: [{ ...sourceCampaign().rewards[0]!, status: "claimed" }],
+      },
+      0,
+      farmingSession("active"),
+      false,
+      feasibility,
+    );
+    const active = campaignViewFromCampaign(
+      { ...sourceCampaign(), id: "active", name: "Active campaign" },
+      1,
+      farmingSession("active"),
+      false,
+      feasibility,
+    );
     const { container } = mountCampaignList([finished, active]);
 
     expect(container.querySelector('[data-campaign-id="active"]')).not.toBeNull();
@@ -277,7 +381,9 @@ describe("completed campaign section", () => {
 
     const completed = mountCompleted([finished, active]);
     expect(completed.container.querySelector('[data-campaign-id="active"]')).toBeNull();
-    const finishedRow = completed.container.querySelector<HTMLElement>('[data-campaign-id="finished"]');
+    const finishedRow = completed.container.querySelector<HTMLElement>(
+      '[data-campaign-id="finished"]',
+    );
     expect(finishedRow).not.toBeNull();
     expect(finishedRow?.textContent).toContain("Finished");
     expect(finishedRow?.querySelector("[data-campaign-progress]")).toBeNull();
@@ -294,8 +400,20 @@ describe("completed campaign section", () => {
       settings,
     };
     const campaigns = [
-      campaignViewFromCampaign({ ...sourceCampaign(), id: "first", name: "First active" }, 0, idleSession, false, feasibility),
-      campaignViewFromCampaign({ ...sourceCampaign(), id: "second", name: "Second active" }, 1, idleSession, false, feasibility),
+      campaignViewFromCampaign(
+        { ...sourceCampaign(), id: "first", name: "First active" },
+        0,
+        idleSession,
+        false,
+        feasibility,
+      ),
+      campaignViewFromCampaign(
+        { ...sourceCampaign(), id: "second", name: "Second active" },
+        1,
+        idleSession,
+        false,
+        feasibility,
+      ),
     ];
     const { container } = mountCampaignList(campaigns);
 
@@ -309,14 +427,23 @@ describe("completed campaign section", () => {
 
   it("opens a finished campaign in Completed when the popup focuses it", () => {
     const settings = mergeSettings(undefined);
-    const finished = campaignViewFromCampaign({
-      ...sourceCampaign(), id: "finished", name: "Finished campaign", status: "completed",
-      rewards: [{ ...sourceCampaign().rewards[0]!, status: "claimed" }],
-    }, 0, idleSession, false, {
-      skipUnfinishableRewards: settings.skipUnfinishableRewards,
-      deadlineSafetyMarginMinutes: settings.deadlineSafetyMarginMinutes,
-      settings,
-    });
+    const finished = campaignViewFromCampaign(
+      {
+        ...sourceCampaign(),
+        id: "finished",
+        name: "Finished campaign",
+        status: "completed",
+        rewards: [{ ...sourceCampaign().rewards[0]!, status: "claimed" }],
+      },
+      0,
+      idleSession,
+      false,
+      {
+        skipUnfinishableRewards: settings.skipUnfinishableRewards,
+        deadlineSafetyMarginMinutes: settings.deadlineSafetyMarginMinutes,
+        settings,
+      },
+    );
     const { container, rerender } = mountCompleted([finished]);
 
     rerender({ id: "finished", seq: 1 });
@@ -328,11 +455,17 @@ describe("completed campaign section", () => {
 
   it("follows a focused campaign to the Expired tab", () => {
     const settings = mergeSettings(undefined);
-    const expired = campaignViewFromCampaign({ ...sourceCampaign(), id: "gone", name: "Expired campaign", status: "expired" }, 0, idleSession, false, {
-      skipUnfinishableRewards: settings.skipUnfinishableRewards,
-      deadlineSafetyMarginMinutes: settings.deadlineSafetyMarginMinutes,
-      settings,
-    });
+    const expired = campaignViewFromCampaign(
+      { ...sourceCampaign(), id: "gone", name: "Expired campaign", status: "expired" },
+      0,
+      idleSession,
+      false,
+      {
+        skipUnfinishableRewards: settings.skipUnfinishableRewards,
+        deadlineSafetyMarginMinutes: settings.deadlineSafetyMarginMinutes,
+        settings,
+      },
+    );
     const { container, rerender } = mountCompleted([expired]);
 
     expect(container.querySelector('[data-campaign-id="gone"]')).toBeNull();
@@ -342,7 +475,12 @@ describe("completed campaign section", () => {
   });
 
   it("finds a finished campaign while the section is collapsed", () => {
-    const finished = campaignViewFromCampaign({ ...sourceCampaign(), id: "finished", name: "Finished campaign", status: "completed" }, 0, idleSession, false);
+    const finished = campaignViewFromCampaign(
+      { ...sourceCampaign(), id: "finished", name: "Finished campaign", status: "completed" },
+      0,
+      idleSession,
+      false,
+    );
     const { container } = mountCampaignList([finished]);
     const input = container.querySelector<HTMLInputElement>("input[type='search']")!;
     act(() => setSearchQuery(input, "Finished campaign"));
@@ -356,7 +494,12 @@ function setSearchQuery(input: HTMLInputElement, value: string): void {
   input.value = value;
   const propsKey = Object.keys(input).find((key) => key.startsWith("__reactProps$"));
   const props = propsKey
-    ? (input as unknown as Record<string, { onChange?(event: { target: HTMLInputElement; currentTarget: HTMLInputElement }): void }>)[propsKey]
+    ? (
+        input as unknown as Record<
+          string,
+          { onChange?(event: { target: HTMLInputElement; currentTarget: HTMLInputElement }): void }
+        >
+      )[propsKey]
     : undefined;
   props?.onChange?.({ target: input, currentTarget: input });
 }
@@ -365,15 +508,24 @@ function setInputValue(input: HTMLInputElement, value: string): void {
   input.value = value;
   const propsKey = Object.keys(input).find((key) => key.startsWith("__reactProps$"));
   const props = propsKey
-    ? (input as unknown as Record<string, { onChange?(event: { target: HTMLInputElement; currentTarget: HTMLInputElement }): void; onBlur?(): void }>)[propsKey]
+    ? (
+        input as unknown as Record<
+          string,
+          {
+            onChange?(event: { target: HTMLInputElement; currentTarget: HTMLInputElement }): void;
+            onBlur?(): void;
+          }
+        >
+      )[propsKey]
     : undefined;
   props?.onChange?.({ target: input, currentTarget: input });
 }
 
 function findNumericRankInput(container: Element): HTMLInputElement | undefined {
   // linkedom keeps React's camelCase inputMode attribute rather than lowercasing it.
-  return [...container.querySelectorAll<HTMLInputElement>("input")].find((el) =>
-    el.getAttribute("inputmode") === "numeric" || el.getAttribute("inputMode") === "numeric"
+  return [...container.querySelectorAll<HTMLInputElement>("input")].find(
+    (el) =>
+      el.getAttribute("inputmode") === "numeric" || el.getAttribute("inputMode") === "numeric",
   );
 }
 
@@ -390,9 +542,18 @@ function blurRankInput(input: HTMLInputElement): void {
 function keyDownRankInput(input: HTMLInputElement, key: string): void {
   const propsKey = Object.keys(input).find((keyName) => keyName.startsWith("__reactProps$"));
   const props = propsKey
-    ? (input as unknown as Record<string, {
-      onKeyDown?(event: { key: string; preventDefault(): void; stopPropagation(): void }): void;
-    }>)[propsKey]
+    ? (
+        input as unknown as Record<
+          string,
+          {
+            onKeyDown?(event: {
+              key: string;
+              preventDefault(): void;
+              stopPropagation(): void;
+            }): void;
+          }
+        >
+      )[propsKey]
     : undefined;
   props?.onKeyDown?.({ key, preventDefault() {}, stopPropagation() {} });
 }
@@ -401,7 +562,11 @@ function keyDownRankInput(input: HTMLInputElement, key: string): void {
 // popup builds them from settings.campaignPins.
 function pinnedFeasibility(pins: string[]) {
   const settings = mergeSettings({ campaignPins: pins } as never);
-  return { skipUnfinishableRewards: settings.skipUnfinishableRewards, deadlineSafetyMarginMinutes: settings.deadlineSafetyMarginMinutes, settings };
+  return {
+    skipUnfinishableRewards: settings.skipUnfinishableRewards,
+    deadlineSafetyMarginMinutes: settings.deadlineSafetyMarginMinutes,
+    settings,
+  };
 }
 
 describe("campaign rank input", () => {
@@ -417,19 +582,36 @@ describe("campaign rank input", () => {
     vi.stubGlobal("cancelAnimationFrame", () => undefined);
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     // linkedom's HTMLInputElement has no select(); RankInput calls it on edit.
-    Object.defineProperty(window.HTMLInputElement.prototype, "select", { configurable: true, value: () => undefined });
+    Object.defineProperty(window.HTMLInputElement.prototype, "select", {
+      configurable: true,
+      value: () => undefined,
+    });
     const onPinChange = vi.fn();
     const adapter = { openLink: vi.fn() } as unknown as PopupAdapter;
     const campaigns = [
-      campaignViewFromCampaign({ ...sourceCampaign(), id: "first", name: "First campaign" }, 0, idleSession, false, pinnedFeasibility(["first", "second"])),
-      campaignViewFromCampaign({ ...sourceCampaign(), id: "second", name: "Second campaign" }, 1, idleSession, false, pinnedFeasibility(["first", "second"])),
+      campaignViewFromCampaign(
+        { ...sourceCampaign(), id: "first", name: "First campaign" },
+        0,
+        idleSession,
+        false,
+        pinnedFeasibility(["first", "second"]),
+      ),
+      campaignViewFromCampaign(
+        { ...sourceCampaign(), id: "second", name: "Second campaign" },
+        1,
+        idleSession,
+        false,
+        pinnedFeasibility(["first", "second"]),
+      ),
     ];
     const container = document.getElementById("app")!;
 
     act(() => {
       root = createRoot(container);
       root.render(
-        <I18nContext.Provider value={{ t: (key) => ({ search: "Search" })[key] ?? key, dir: "ltr", locale: "en" }}>
+        <I18nContext.Provider
+          value={{ t: (key) => ({ search: "Search" })[key] ?? key, dir: "ltr", locale: "en" }}
+        >
           <PopupRuntimeContext.Provider value={{ adapter, preview: false }}>
             <QueuePanel
               campaigns={campaigns}
@@ -452,7 +634,9 @@ describe("campaign rank input", () => {
       );
     });
 
-    const rank = [...container.querySelectorAll("button")].find((button) => button.getAttribute("aria-label") === "Set rank of Second campaign");
+    const rank = [...container.querySelectorAll("button")].find(
+      (button) => button.getAttribute("aria-label") === "Set rank of Second campaign",
+    );
     expect(rank).toBeDefined();
     expect(rank?.className).toContain("w-4");
     expect(rank?.className).not.toContain("w-full");
@@ -481,19 +665,36 @@ describe("campaign rank input", () => {
     });
     vi.stubGlobal("cancelAnimationFrame", () => undefined);
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-    Object.defineProperty(window.HTMLInputElement.prototype, "select", { configurable: true, value: () => undefined });
+    Object.defineProperty(window.HTMLInputElement.prototype, "select", {
+      configurable: true,
+      value: () => undefined,
+    });
     const onPinChange = vi.fn();
     const adapter = { openLink: vi.fn() } as unknown as PopupAdapter;
     const campaigns = [
-      campaignViewFromCampaign({ ...sourceCampaign(), id: "first", name: "First campaign" }, 0, idleSession, false, pinnedFeasibility(["first", "second"])),
-      campaignViewFromCampaign({ ...sourceCampaign(), id: "second", name: "Second campaign" }, 1, idleSession, false, pinnedFeasibility(["first", "second"])),
+      campaignViewFromCampaign(
+        { ...sourceCampaign(), id: "first", name: "First campaign" },
+        0,
+        idleSession,
+        false,
+        pinnedFeasibility(["first", "second"]),
+      ),
+      campaignViewFromCampaign(
+        { ...sourceCampaign(), id: "second", name: "Second campaign" },
+        1,
+        idleSession,
+        false,
+        pinnedFeasibility(["first", "second"]),
+      ),
     ];
     const container = document.getElementById("app")!;
 
     act(() => {
       root = createRoot(container);
       root.render(
-        <I18nContext.Provider value={{ t: (key) => ({ search: "Search" })[key] ?? key, dir: "ltr", locale: "en" }}>
+        <I18nContext.Provider
+          value={{ t: (key) => ({ search: "Search" })[key] ?? key, dir: "ltr", locale: "en" }}
+        >
           <PopupRuntimeContext.Provider value={{ adapter, preview: false }}>
             <QueuePanel
               campaigns={campaigns}
@@ -517,7 +718,9 @@ describe("campaign rank input", () => {
     });
 
     const openRank = () => {
-      const rank = [...container.querySelectorAll("button")].find((button) => button.getAttribute("aria-label") === "Set rank of Second campaign");
+      const rank = [...container.querySelectorAll("button")].find(
+        (button) => button.getAttribute("aria-label") === "Set rank of Second campaign",
+      );
       expect(rank).toBeDefined();
       act(() => rank?.click());
       return findNumericRankInput(container);
@@ -556,8 +759,20 @@ describe("campaign rank input", () => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     const container = document.getElementById("app")!;
     const campaigns = [
-      campaignViewFromCampaign({ ...sourceCampaign(), id: "first", name: "First campaign" }, 0, idleSession, false, pinnedFeasibility(["first", "second"])),
-      campaignViewFromCampaign({ ...sourceCampaign(), id: "second", name: "Second campaign" }, 1, idleSession, false, pinnedFeasibility(["first", "second"])),
+      campaignViewFromCampaign(
+        { ...sourceCampaign(), id: "first", name: "First campaign" },
+        0,
+        idleSession,
+        false,
+        pinnedFeasibility(["first", "second"]),
+      ),
+      campaignViewFromCampaign(
+        { ...sourceCampaign(), id: "second", name: "Second campaign" },
+        1,
+        idleSession,
+        false,
+        pinnedFeasibility(["first", "second"]),
+      ),
     ];
 
     act(() => {
@@ -570,8 +785,9 @@ describe("campaign rank input", () => {
 
     // #564: the rank a search result shows is its position in the full queue,
     // and typing there moves it among the pins without closing the search.
-    const rank = [...container.querySelectorAll("button")]
-      .find((button) => button.getAttribute("aria-label") === "Set rank of Second campaign");
+    const rank = [...container.querySelectorAll("button")].find(
+      (button) => button.getAttribute("aria-label") === "Set rank of Second campaign",
+    );
     expect(rank).toBeDefined();
     expect(rank?.textContent).toBe("2");
     act(() => rank?.click());
@@ -646,7 +862,10 @@ describe("initial drops expansion", () => {
       render(idleSession);
     });
 
-    const expandedStates = () => Array.from(container.querySelectorAll("article button[aria-expanded]")).map((toggle) => toggle.getAttribute("aria-expanded"));
+    const expandedStates = () =>
+      Array.from(container.querySelectorAll("article button[aria-expanded]")).map((toggle) =>
+        toggle.getAttribute("aria-expanded"),
+      );
 
     expect(expandedStates()).toEqual(["false"]);
 
@@ -711,7 +930,9 @@ describe("initial drops expansion", () => {
   });
 
   it("scrolls a focused campaign after clearing a filtered search, moving only the panel", () => {
-    const { document, window } = parseHTML("<div data-scroll-panel id=panel><div id=app></div></div>");
+    const { document, window } = parseHTML(
+      "<div data-scroll-panel id=panel><div id=app></div></div>",
+    );
     vi.stubGlobal("window", window);
     vi.stubGlobal("document", document);
     vi.stubGlobal("getComputedStyle", () => ({ direction: "ltr", columnGap: "0" }));
@@ -722,15 +943,30 @@ describe("initial drops expansion", () => {
     vi.stubGlobal("cancelAnimationFrame", () => undefined);
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     const scrollIntoView = vi.fn();
-    Object.defineProperty(window.HTMLElement.prototype, "scrollIntoView", { value: scrollIntoView });
-    Object.defineProperty(window.HTMLElement.prototype, "getBoundingClientRect", { configurable: true, value: () => ({ top: 0 }) });
+    Object.defineProperty(window.HTMLElement.prototype, "scrollIntoView", {
+      value: scrollIntoView,
+    });
+    Object.defineProperty(window.HTMLElement.prototype, "getBoundingClientRect", {
+      configurable: true,
+      value: () => ({ top: 0 }),
+    });
     const panel = document.getElementById("panel")!;
     const scrollTo = vi.fn();
     Object.defineProperty(panel, "scrollTo", { value: scrollTo });
     const container = document.getElementById("app")!;
     const campaigns = [
-      campaignViewFromCampaign({ ...sourceCampaign(), id: "first", name: "First campaign" }, 0, idleSession, false),
-      campaignViewFromCampaign({ ...sourceCampaign(), id: "second", name: "Second campaign" }, 1, idleSession, false),
+      campaignViewFromCampaign(
+        { ...sourceCampaign(), id: "first", name: "First campaign" },
+        0,
+        idleSession,
+        false,
+      ),
+      campaignViewFromCampaign(
+        { ...sourceCampaign(), id: "second", name: "Second campaign" },
+        1,
+        idleSession,
+        false,
+      ),
     ];
 
     act(() => {
@@ -762,8 +998,18 @@ describe("initial drops expansion", () => {
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     const container = document.getElementById("app")!;
     const campaigns = [
-      campaignViewFromCampaign({ ...sourceCampaign(), id: "first", name: "First campaign" }, 0, idleSession, false),
-      campaignViewFromCampaign({ ...sourceCampaign(), id: "second", name: "Second campaign" }, 1, idleSession, false),
+      campaignViewFromCampaign(
+        { ...sourceCampaign(), id: "first", name: "First campaign" },
+        0,
+        idleSession,
+        false,
+      ),
+      campaignViewFromCampaign(
+        { ...sourceCampaign(), id: "second", name: "Second campaign" },
+        1,
+        idleSession,
+        false,
+      ),
     ];
 
     act(() => {
@@ -792,7 +1038,11 @@ describe("claim-time account link guidance", () => {
     adapter.openLink("https://accounts.example/link");
 
     expect(open).toHaveBeenCalledOnce();
-    expect(open).toHaveBeenCalledWith("https://accounts.example/link", "_blank", "noopener,noreferrer");
+    expect(open).toHaveBeenCalledWith(
+      "https://accounts.example/link",
+      "_blank",
+      "noopener,noreferrer",
+    );
   });
 
   it("shows localized guidance and opens its safe link only after a user click", () => {
@@ -809,7 +1059,7 @@ describe("claim-time account link guidance", () => {
     expect(openLink).toHaveBeenCalledWith("https://accounts.example/link");
   });
 
-  it.each([undefined, "javascript:alert(1)", "http://accounts.example/link"]) (
+  it.each([undefined, "javascript:alert(1)", "http://accounts.example/link"])(
     "renders no link for missing or unsafe guidance: %s",
     (url) => {
       const { container, openLink } = mount(url);
@@ -849,27 +1099,40 @@ describe("campaign card links (#678)", () => {
     const { container } = mount(undefined, twitchCampaign(["alpha"]));
 
     const details = container.querySelector<HTMLAnchorElement>("[data-campaign-details-link]");
-    const category = container.querySelector<HTMLAnchorElement>("[data-campaign-category-drops-link]");
+    const category = container.querySelector<HTMLAnchorElement>(
+      "[data-campaign-category-drops-link]",
+    );
     expect(details?.getAttribute("href")).toBe("https://www.twitch.tv/drops/campaigns?dropID=abc");
     expect(details?.textContent).toContain("campaignDropDetails");
-    expect(category?.getAttribute("href")).toBe("https://www.twitch.tv/directory/category/rust?filter=drops&sort=VIEWER_COUNT");
+    expect(category?.getAttribute("href")).toBe(
+      "https://www.twitch.tv/directory/category/rust?filter=drops&sort=VIEWER_COUNT",
+    );
     expect(category?.textContent).toContain("campaignCategoryDrops");
   });
 
   it("names the site a details link leaves Twitch for", () => {
-    const { container } = mount(undefined, { ...twitchCampaign(["alpha"]), url: "https://www.example-game.com/twitch-drops" });
+    const { container } = mount(undefined, {
+      ...twitchCampaign(["alpha"]),
+      url: "https://www.example-game.com/twitch-drops",
+    });
 
     const details = container.querySelector<HTMLAnchorElement>("[data-campaign-details-link]");
     expect(details?.getAttribute("href")).toBe("https://www.example-game.com/twitch-drops");
     expect(details?.textContent).toContain("campaignDropDetails");
-    expect(details?.querySelector("[data-campaign-details-host]")?.textContent).toBe("example-game.com");
+    expect(details?.querySelector("[data-campaign-details-host]")?.textContent).toBe(
+      "example-game.com",
+    );
   });
 
   it("names no site for a details link on the campaign's own platform", () => {
     const twitch = mount(undefined, twitchCampaign(["alpha"])).container;
     expect(twitch.querySelector("[data-campaign-details-host]")).toBeNull();
 
-    const kick = mount(undefined, { ...sourceCampaign(), url: "https://kick.com/drops/abc", rewards: [watchReward] }).container;
+    const kick = mount(undefined, {
+      ...sourceCampaign(),
+      url: "https://kick.com/drops/abc",
+      rewards: [watchReward],
+    }).container;
     expect(kick.querySelector("[data-campaign-details-link]")).not.toBeNull();
     expect(kick.querySelector("[data-campaign-details-host]")).toBeNull();
   });
@@ -877,14 +1140,17 @@ describe("campaign card links (#678)", () => {
   it("links a campaign open to every channel to the game's Drops directory", () => {
     const { container } = mount(undefined, twitchCampaign([]));
 
-    expect(container.querySelector("[data-campaign-all-channels]")?.getAttribute("href"))
-      .toBe("https://www.twitch.tv/directory/category/rust?filter=drops&sort=VIEWER_COUNT");
+    expect(container.querySelector("[data-campaign-all-channels]")?.getAttribute("href")).toBe(
+      "https://www.twitch.tv/directory/category/rust?filter=drops&sort=VIEWER_COUNT",
+    );
   });
 
   it("expands and collapses a long channel list in place", () => {
     const { container } = mount(undefined, twitchCampaign(["a1", "a2", "a3", "a4", "a5"]));
-    const channelLinks = () => [...container.querySelectorAll<HTMLAnchorElement>("a[href^='https://www.twitch.tv/a']")]
-      .map((link) => link.textContent);
+    const channelLinks = () =>
+      [...container.querySelectorAll<HTMLAnchorElement>("a[href^='https://www.twitch.tv/a']")].map(
+        (link) => link.textContent,
+      );
     const more = () => container.querySelector<HTMLButtonElement>("[data-campaign-more-channels]")!;
 
     expect(channelLinks()).toEqual(["a1", "a2", "a3"]);
@@ -899,7 +1165,12 @@ describe("campaign card links (#678)", () => {
   });
 
   it("gives a Kick campaign no category Drops link", () => {
-    const source: DropCampaign = { ...sourceCampaign(), slug: "rust", url: "https://kick.com/drops/abc", rewards: [watchReward] };
+    const source: DropCampaign = {
+      ...sourceCampaign(),
+      slug: "rust",
+      url: "https://kick.com/drops/abc",
+      rewards: [watchReward],
+    };
     const { container } = mount(undefined, source);
 
     expect(container.querySelector("[data-campaign-details-link]")).not.toBeNull();

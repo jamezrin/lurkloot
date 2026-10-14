@@ -47,8 +47,10 @@ function isDomainOrSubdomain(domain: string, root: string): boolean {
 
 export function credentialPlatform(change: CredentialCookieChange): Platform | undefined {
   const domain = normalizedDomain(change.cookie.domain);
-  if (change.cookie.name === "auth-token" && isDomainOrSubdomain(domain, "twitch.tv")) return "twitch";
-  if (change.cookie.name === "session_token" && isDomainOrSubdomain(domain, "kick.com")) return "kick";
+  if (change.cookie.name === "auth-token" && isDomainOrSubdomain(domain, "twitch.tv"))
+    return "twitch";
+  if (change.cookie.name === "session_token" && isDomainOrSubdomain(domain, "kick.com"))
+    return "kick";
   return undefined;
 }
 
@@ -75,10 +77,13 @@ export function createCredentialObserver(deps: CredentialObserverDeps): () => vo
     void deps.invalidate(platform).catch(() => undefined);
     const current = timers.get(platform);
     if (current !== undefined) clearTimer(current);
-    timers.set(platform, setTimer(() => {
-      timers.delete(platform);
-      void deps.recheck(platform).catch(() => undefined);
-    }, deps.debounceMs ?? 250));
+    timers.set(
+      platform,
+      setTimer(() => {
+        timers.delete(platform);
+        void deps.recheck(platform).catch(() => undefined);
+      }, deps.debounceMs ?? 250),
+    );
   }
 
   // The baseline read only records the value. A change that woke the worker

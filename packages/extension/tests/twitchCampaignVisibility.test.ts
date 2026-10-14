@@ -37,11 +37,21 @@ const HOUR_MS = 3_600_000;
 // campaign actually has an accountLinkURL.
 function details(dropID: string, entry: DashboardEntry): unknown {
   const now = Date.now();
-  const window = entry.status === "UPCOMING"
-    ? { startAt: new Date(now + HOUR_MS).toISOString(), endAt: new Date(now + 2 * HOUR_MS).toISOString() }
-    : entry.status === "EXPIRED"
-      ? { startAt: new Date(now - 2 * HOUR_MS).toISOString(), endAt: new Date(now - HOUR_MS).toISOString() }
-      : { startAt: new Date(now - HOUR_MS).toISOString(), endAt: new Date(now + HOUR_MS).toISOString() };
+  const window =
+    entry.status === "UPCOMING"
+      ? {
+          startAt: new Date(now + HOUR_MS).toISOString(),
+          endAt: new Date(now + 2 * HOUR_MS).toISOString(),
+        }
+      : entry.status === "EXPIRED"
+        ? {
+            startAt: new Date(now - 2 * HOUR_MS).toISOString(),
+            endAt: new Date(now - HOUR_MS).toISOString(),
+          }
+        : {
+            startAt: new Date(now - HOUR_MS).toISOString(),
+            endAt: new Date(now + HOUR_MS).toISOString(),
+          };
   return {
     data: {
       dropCampaign: {
@@ -52,11 +62,13 @@ function details(dropID: string, entry: DashboardEntry): unknown {
         accountLinkURL: "https://www.example.com/link",
         self: { isAccountConnected: entry.isAccountConnected ?? true },
         game: { id: "game", slug: "game-slug", displayName: "Game" },
-        timeBasedDrops: [{
-          id: `${dropID}-drop`,
-          requiredMinutesWatched: 60,
-          benefitEdges: [{ benefit: { id: "benefit", name: "Reward" } }],
-        }],
+        timeBasedDrops: [
+          {
+            id: `${dropID}-drop`,
+            requiredMinutesWatched: 60,
+            benefitEdges: [{ benefit: { id: "benefit", name: "Reward" } }],
+          },
+        ],
       },
     },
   };
@@ -76,7 +88,9 @@ function discoverer(refreshes: Array<DashboardEntry[] | Error>) {
   const discoveryState = new TwitchDiscoveryState();
   const current = () => refreshes[Math.min(refresh, refreshes.length - 1)];
   const fetcher = jsonFetcher((_url, init) => {
-    const body = JSON.parse(String(init?.body)) as Record<string, unknown> | Array<Record<string, unknown>>;
+    const body = JSON.parse(String(init?.body)) as
+      | Record<string, unknown>
+      | Array<Record<string, unknown>>;
     const operations = Array.isArray(body) ? body : [body];
     const responses = operations.map((operation) => {
       const operationName = String(operation.operationName);
@@ -89,8 +103,11 @@ function discoverer(refreshes: Array<DashboardEntry[] | Error>) {
         const dropID = String((operation.variables as { dropID?: string } | undefined)?.dropID);
         // A retained id can outlive the refresh that produced it, so fall back
         // to the last scripted state that described this campaign.
-        const entry = (scripted instanceof Error ? undefined : scripted.find((item) => item.id === dropID))
-          ?? refreshes.flatMap((state) => (state instanceof Error ? [] : state)).find((item) => item.id === dropID);
+        const entry =
+          (scripted instanceof Error ? undefined : scripted.find((item) => item.id === dropID))
+          ?? refreshes
+            .flatMap((state) => (state instanceof Error ? [] : state))
+            .find((item) => item.id === dropID);
         if (!entry) return { data: { dropCampaign: null } };
         return details(dropID, entry);
       }
@@ -167,18 +184,25 @@ describe("twitch campaign visibility (#400)", () => {
   it("does not need a fresh discovery state to surface a new campaign", async () => {
     const shared = discoverer([
       [{ id: "existing", status: "ACTIVE" }],
-      [{ id: "existing", status: "ACTIVE" }, { id: "late", status: "ACTIVE" }],
+      [
+        { id: "existing", status: "ACTIVE" },
+        { id: "late", status: "ACTIVE" },
+      ],
     ]);
     await shared.next();
     const withSharedState = await shared.next();
 
     const restarted = discoverer([
-      [{ id: "existing", status: "ACTIVE" }, { id: "late", status: "ACTIVE" }],
+      [
+        { id: "existing", status: "ACTIVE" },
+        { id: "late", status: "ACTIVE" },
+      ],
     ]);
     const afterRestart = await restarted.next();
 
-    expect(withSharedState.map((campaign) => campaign.id).sort())
-      .toEqual(afterRestart.map((campaign) => campaign.id).sort());
+    expect(withSharedState.map((campaign) => campaign.id).sort()).toEqual(
+      afterRestart.map((campaign) => campaign.id).sort(),
+    );
     expect(withSharedState.map((campaign) => campaign.id)).toContain("late");
   });
 });

@@ -36,14 +36,16 @@ const REWARD_ACTIVITY: Extract<ActivityHistoryRecord, { code: "reward_claimed" }
 
 const ACTIVITY = [REWARD_ACTIVITY];
 
-const DIAGNOSTICS: ActivityHistoryRecord[] = [{
-  id: "diagnostic-1",
-  at: "2026-07-25T12:00:01.000Z",
-  category: "diagnostic",
-  level: "error",
-  platform: "kick",
-  message: "Kick fetch kick.com failed with HTTP 503",
-}];
+const DIAGNOSTICS: ActivityHistoryRecord[] = [
+  {
+    id: "diagnostic-1",
+    at: "2026-07-25T12:00:01.000Z",
+    category: "diagnostic",
+    level: "error",
+    platform: "kick",
+    message: "Kick fetch kick.com failed with HTTP 503",
+  },
+];
 
 function mount(options: {
   showDiagnostics: boolean;
@@ -69,28 +71,31 @@ function mount(options: {
   act(() => {
     root = createRoot(container);
     root.render(
-      <I18nContext.Provider value={{
-        t: (key, substitutions) => ({
-          activityFarmingStarted: "Started farming a reward",
-          activityRewardClaimed: "Claimed Golden Hat from Summer Campaign",
-          activityPageContextOpened: "Opened managed page context for kick.com",
-          platformActivity: "Kick activity",
-          platformDiagnostics: "Kick diagnostics",
-          activityViewTab: "Activity",
-          diagnosticsViewTab: "Diagnostics",
-          noActivity: "No activity recorded yet.",
-          noDiagnostics: "No diagnostics recorded yet.",
-          copyActivityLog: "Copy log",
-          copyLoadedActivityLog: "Copy loaded",
-          copyActivityLogCopied: `Copied ${String(substitutions)} events`,
-          copyActivityLogFailed: "Could not copy the log. Try again.",
-          exportAllDiagnostics: "Export all",
-          exportAllDiagnosticsDone: `Exported ${String(substitutions)} events`,
-          exportAllDiagnosticsFailed: "Could not export the log. Try again.",
-        })[key] ?? `${key}${substitutions ? "" : ""}`,
-        dir: "ltr",
-        locale: "en",
-      }}>
+      <I18nContext.Provider
+        value={{
+          t: (key, substitutions) =>
+            ({
+              activityFarmingStarted: "Started farming a reward",
+              activityRewardClaimed: "Claimed Golden Hat from Summer Campaign",
+              activityPageContextOpened: "Opened managed page context for kick.com",
+              platformActivity: "Kick activity",
+              platformDiagnostics: "Kick diagnostics",
+              activityViewTab: "Activity",
+              diagnosticsViewTab: "Diagnostics",
+              noActivity: "No activity recorded yet.",
+              noDiagnostics: "No diagnostics recorded yet.",
+              copyActivityLog: "Copy log",
+              copyLoadedActivityLog: "Copy loaded",
+              copyActivityLogCopied: `Copied ${String(substitutions)} events`,
+              copyActivityLogFailed: "Could not copy the log. Try again.",
+              exportAllDiagnostics: "Export all",
+              exportAllDiagnosticsDone: `Exported ${String(substitutions)} events`,
+              exportAllDiagnosticsFailed: "Could not export the log. Try again.",
+            })[key] ?? `${key}${substitutions ? "" : ""}`,
+          dir: "ltr",
+          locale: "en",
+        }}
+      >
         <PopupRuntimeContext.Provider value={{ adapter, preview: false }}>
           <ActivityLog
             activityEvents={options.activityEvents ?? ACTIVITY}
@@ -122,12 +127,18 @@ function mount(options: {
 }
 
 const copyButton = (container: Element) =>
-  [...container.querySelectorAll<HTMLButtonElement>("button")]
-    .find((button) => button.textContent?.includes("Copy log") || button.textContent?.includes("Copy loaded") || button.textContent?.includes("Copied"));
+  [...container.querySelectorAll<HTMLButtonElement>("button")].find(
+    (button) =>
+      button.textContent?.includes("Copy log")
+      || button.textContent?.includes("Copy loaded")
+      || button.textContent?.includes("Copied"),
+  );
 
 const exportButton = (container: Element) =>
-  [...container.querySelectorAll<HTMLButtonElement>("button")]
-    .find((button) => button.textContent?.includes("Export all") || button.textContent?.includes("Exported"));
+  [...container.querySelectorAll<HTMLButtonElement>("button")].find(
+    (button) =>
+      button.textContent?.includes("Export all") || button.textContent?.includes("Exported"),
+  );
 
 describe("activity log view", () => {
   it("shows only activity entries while the activity view is selected", () => {
@@ -150,15 +161,18 @@ describe("activity log view", () => {
   });
 
   it("keeps authentication transitions out of the user-facing activity stream", () => {
-    const events: ActivityHistoryRecord[] = [{
-      id: "auth-1",
-      at: "2026-07-25T12:00:01.000Z",
-      category: "activity",
-      code: "auth_health_changed",
-      level: "info",
-      platform: "kick",
-      data: { from: "checking", to: "healthy" },
-    }, ...ACTIVITY];
+    const events: ActivityHistoryRecord[] = [
+      {
+        id: "auth-1",
+        at: "2026-07-25T12:00:01.000Z",
+        category: "activity",
+        code: "auth_health_changed",
+        level: "info",
+        platform: "kick",
+        data: { from: "checking", to: "healthy" },
+      },
+      ...ACTIVITY,
+    ];
     const { container } = mount({ showDiagnostics: false, activityEvents: events });
 
     expect(container.querySelector('[data-activity-card="auth_health_changed"]')).toBeNull();
@@ -204,11 +218,13 @@ describe("activity log view", () => {
     act(() => {
       root = createRoot(container);
       root.render(
-        <I18nContext.Provider value={{
-          t: (key) => ({ noDiagnostics: "No diagnostics recorded yet." })[key] ?? key,
-          dir: "ltr",
-          locale: "en",
-        }}>
+        <I18nContext.Provider
+          value={{
+            t: (key) => ({ noDiagnostics: "No diagnostics recorded yet." })[key] ?? key,
+            dir: "ltr",
+            locale: "en",
+          }}
+        >
           <ActivityLog
             activityEvents={ACTIVITY}
             diagnosticEvents={[]}
@@ -236,13 +252,17 @@ describe("activity log view", () => {
   it("copies the visible view as plain text and confirms the count", async () => {
     const { container, writeClipboard } = mount({ showDiagnostics: true });
 
-    await act(async () => { copyButton(container)?.click(); });
+    await act(async () => {
+      copyButton(container)?.click();
+    });
 
     expect(writeClipboard).toHaveBeenCalledTimes(1);
     const text = (writeClipboard as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
     expect(text).toContain("Lurkloot diagnostics log");
     expect(text).toContain("version: 1.9.0");
-    expect(text).toContain("2026-07-25T12:00:01.000Z [error] Kick fetch kick.com failed with HTTP 503");
+    expect(text).toContain(
+      "2026-07-25T12:00:01.000Z [error] Kick fetch kick.com failed with HTTP 503",
+    );
     expect(text).not.toContain("<");
     expect(copyButton(container)?.textContent).toContain("Copied 1 events");
   });
@@ -250,7 +270,9 @@ describe("activity log view", () => {
   it("copies the activity view with localized event text when that view is shown", async () => {
     const { container, writeClipboard } = mount({ showDiagnostics: false });
 
-    await act(async () => { copyButton(container)?.click(); });
+    await act(async () => {
+      copyButton(container)?.click();
+    });
 
     const text = (writeClipboard as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
     expect(text).toContain("Lurkloot activity log");
@@ -259,11 +281,18 @@ describe("activity log view", () => {
   });
 
   it("reports a failed clipboard write instead of confirming", async () => {
-    const { container } = mount({ showDiagnostics: false, writeClipboard: vi.fn(async () => false) });
+    const { container } = mount({
+      showDiagnostics: false,
+      writeClipboard: vi.fn(async () => false),
+    });
 
-    await act(async () => { copyButton(container)?.click(); });
+    await act(async () => {
+      copyButton(container)?.click();
+    });
 
-    expect(container.querySelector('[role="alert"]')?.textContent).toBe("Could not copy the log. Try again.");
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe(
+      "Could not copy the log. Try again.",
+    );
     expect(copyButton(container)?.textContent).toContain("Copy log");
   });
 
@@ -304,7 +333,9 @@ describe("activity log view", () => {
     const onExportAll = vi.fn(async () => 12);
     const { container } = mount({ showDiagnostics: true, onExportAll });
 
-    await act(async () => { exportButton(container)?.click(); });
+    await act(async () => {
+      exportButton(container)?.click();
+    });
 
     expect(onExportAll).toHaveBeenCalledOnce();
     expect(exportButton(container)?.textContent).toContain("Exported 12 events");
@@ -313,12 +344,18 @@ describe("activity log view", () => {
   it("reports a failed export instead of confirming", async () => {
     const { container } = mount({
       showDiagnostics: true,
-      onExportAll: vi.fn(async () => { throw new Error("nope"); }),
+      onExportAll: vi.fn(async () => {
+        throw new Error("nope");
+      }),
     });
 
-    await act(async () => { exportButton(container)?.click(); });
+    await act(async () => {
+      exportButton(container)?.click();
+    });
 
-    expect(container.querySelector('[role="alert"]')?.textContent).toBe("Could not export the log. Try again.");
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe(
+      "Could not export the log. Try again.",
+    );
     expect(exportButton(container)?.textContent).toContain("Export all");
   });
 
@@ -328,7 +365,9 @@ describe("activity log view", () => {
       onExportAll: vi.fn(async () => undefined),
     });
 
-    await act(async () => { exportButton(container)?.click(); });
+    await act(async () => {
+      exportButton(container)?.click();
+    });
 
     expect(exportButton(container)?.textContent).toContain("Export all");
     expect(container.querySelector('[role="alert"]')).toBeNull();
@@ -338,25 +377,35 @@ describe("activity log view", () => {
     const { container, openLink } = mount({ showDiagnostics: false });
 
     expect(container.querySelector("ul")?.className).not.toContain("divide-y");
-    expect(container.querySelector('img[alt="Golden Hat"]')?.getAttribute("src"))
-      .toBe("https://cdn.example.test/reward.png");
+    expect(container.querySelector('img[alt="Golden Hat"]')?.getAttribute("src")).toBe(
+      "https://cdn.example.test/reward.png",
+    );
     expect(container.querySelector('[data-activity-card="reward_claimed"]')).not.toBeNull();
     expect(container.querySelector('[data-activity-chip="automatic"]')).not.toBeNull();
 
-    const action = container.querySelector<HTMLButtonElement>('button[aria-label*="Summer Campaign"]');
+    const action = container.querySelector<HTMLButtonElement>(
+      'button[aria-label*="Summer Campaign"]',
+    );
     expect(action).not.toBeNull();
     act(() => action?.click());
     expect(openLink).toHaveBeenCalledWith("https://www.example.test/campaigns/summer");
   });
 
   it("does not open a campaign action with a non-HTTPS URL", () => {
-    const unsafeActivity: ActivityHistoryRecord[] = [{
-      ...ACTIVITY[0],
-      data: { ...ACTIVITY[0].data, campaignUrl: "http://www.example.test/campaigns/summer" },
-    }];
-    const { container, openLink } = mount({ showDiagnostics: false, activityEvents: unsafeActivity });
+    const unsafeActivity: ActivityHistoryRecord[] = [
+      {
+        ...ACTIVITY[0],
+        data: { ...ACTIVITY[0].data, campaignUrl: "http://www.example.test/campaigns/summer" },
+      },
+    ];
+    const { container, openLink } = mount({
+      showDiagnostics: false,
+      activityEvents: unsafeActivity,
+    });
 
-    const action = container.querySelector<HTMLButtonElement>('button[aria-label*="Summer Campaign"]');
+    const action = container.querySelector<HTMLButtonElement>(
+      'button[aria-label*="Summer Campaign"]',
+    );
     expect(action).not.toBeNull();
     act(() => action?.click());
 
@@ -364,26 +413,30 @@ describe("activity log view", () => {
   });
 
   it("renders a generated reward fallback tile when no reward image is available", () => {
-    const withoutImage: ActivityHistoryRecord[] = [{
-      ...ACTIVITY[0],
-      data: { ...ACTIVITY[0].data, rewardImageUrl: undefined },
-    }];
+    const withoutImage: ActivityHistoryRecord[] = [
+      {
+        ...ACTIVITY[0],
+        data: { ...ACTIVITY[0].data, rewardImageUrl: undefined },
+      },
+    ];
     const { container } = mount({ showDiagnostics: false, activityEvents: withoutImage });
 
     expect(container.querySelector('img[alt="Golden Hat"]')).toBeNull();
-    expect(container.querySelector('[data-activity-reward-fallback]')?.textContent).toBe("G");
+    expect(container.querySelector("[data-activity-reward-fallback]")?.textContent).toBe("G");
   });
 
   it("renders operational events as marked cards with their localized summary", () => {
-    const operationalActivity: ActivityHistoryRecord[] = [{
-      id: "page-context-1",
-      at: "2026-07-25T12:00:00.000Z",
-      category: "activity",
-      code: "page_context_opened",
-      level: "info",
-      platform: "kick",
-      data: { host: "kick.com", reason: "background_rejected" },
-    }];
+    const operationalActivity: ActivityHistoryRecord[] = [
+      {
+        id: "page-context-1",
+        at: "2026-07-25T12:00:00.000Z",
+        category: "activity",
+        code: "page_context_opened",
+        level: "info",
+        platform: "kick",
+        data: { host: "kick.com", reason: "background_rejected" },
+      },
+    ];
     const { container } = mount({ showDiagnostics: false, activityEvents: operationalActivity });
 
     expect(container.querySelector('[data-activity-card="page_context_opened"]')).not.toBeNull();

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_STATE, mergeSchedulerState, normalizePlatformAuthHealth } from "@lurkloot/core/defaults";
+import {
+  DEFAULT_STATE,
+  mergeSchedulerState,
+  normalizePlatformAuthHealth,
+} from "@lurkloot/core/defaults";
 import { ignoreEvent, type PlatformAdapter } from "@lurkloot/core/adapter";
 import { KickAdapter } from "@lurkloot/core/kick";
 import { applyPlatformAuthHealth } from "@lurkloot/core/authHealth";
@@ -13,42 +17,52 @@ describe("authentication health normalization", () => {
     expect(await probe()).toEqual({ status: "checking" });
   });
 
-  it.each([
-    { id: 42 },
-    { username: "viewer" },
-    { user: { slug: "viewer" } },
-  ])("requires authenticated Kick identity for healthy status", async (identity) => {
-    const calls: string[] = [];
-    const fetcher = {
-      fetchJson: async <T,>(url: string): Promise<T> => {
-        calls.push(url);
-        return identity as T;
-      },
-    };
+  it.each([{ id: 42 }, { username: "viewer" }, { user: { slug: "viewer" } }])(
+    "requires authenticated Kick identity for healthy status",
+    async (identity) => {
+      const calls: string[] = [];
+      const fetcher = {
+        fetchJson: async <T>(url: string): Promise<T> => {
+          calls.push(url);
+          return identity as T;
+        },
+      };
 
-    const health = await new KickAdapter(fetcher, undefined, { compatibility: KICK_COMPAT }, ignoreEvent).checkAuthHealth();
+      const health = await new KickAdapter(
+        fetcher,
+        undefined,
+        { compatibility: KICK_COMPAT },
+        ignoreEvent,
+      ).checkAuthHealth();
 
-    expect(health.status).toBe("healthy");
-    expect(Date.parse(health.checkedAt ?? "")).not.toBeNaN();
-    expect(calls).toEqual(["https://kick.com/api/v1/user"]);
-  });
+      expect(health.status).toBe("healthy");
+      expect(Date.parse(health.checkedAt ?? "")).not.toBeNaN();
+      expect(calls).toEqual(["https://kick.com/api/v1/user"]);
+    },
+  );
 
-  it.each([
-    {},
-    { data: [] },
-    { data: [{ id: "public-campaign" }] },
-  ])("treats an identity-free Kick body as unavailable, not signed out", async (response) => {
-    // Kick answers this endpoint `200 {}` when the Bearer is missing, so an empty body
-    // means the request lost its credentials in transport. Reporting invalid_credentials
-    // here is what suspended farming for signed-in users (regression from #213/#214).
-    const fetcher = { fetchJson: async <T,>(): Promise<T> => response as T };
+  it.each([{}, { data: [] }, { data: [{ id: "public-campaign" }] }])(
+    "treats an identity-free Kick body as unavailable, not signed out",
+    async (response) => {
+      // Kick answers this endpoint `200 {}` when the Bearer is missing, so an empty body
+      // means the request lost its credentials in transport. Reporting invalid_credentials
+      // here is what suspended farming for signed-in users (regression from #213/#214).
+      const fetcher = { fetchJson: async <T>(): Promise<T> => response as T };
 
-    await expect(new KickAdapter(fetcher, undefined, { compatibility: KICK_COMPAT }, ignoreEvent).checkAuthHealth()).resolves.toMatchObject({
-      status: "unavailable",
-      reasonCode: "platform_unavailable",
-      message: { key: "authPlatformUnavailable" },
-    });
-  });
+      await expect(
+        new KickAdapter(
+          fetcher,
+          undefined,
+          { compatibility: KICK_COMPAT },
+          ignoreEvent,
+        ).checkAuthHealth(),
+      ).resolves.toMatchObject({
+        status: "unavailable",
+        reasonCode: "platform_unavailable",
+        message: { key: "authPlatformUnavailable" },
+      });
+    },
+  );
   it("defaults both platforms to unchecked checking state", () => {
     expect(DEFAULT_STATE.authHealth).toEqual({
       twitch: { status: "checking" },
@@ -68,10 +82,12 @@ describe("authentication health normalization", () => {
   });
 
   it("drops timestamps from in-progress checking results", () => {
-    expect(normalizePlatformAuthHealth({
-      status: "checking",
-      checkedAt: "2026-07-22T12:00:00.000Z",
-    })).toEqual({ status: "checking" });
+    expect(
+      normalizePlatformAuthHealth({
+        status: "checking",
+        checkedAt: "2026-07-22T12:00:00.000Z",
+      }),
+    ).toEqual({ status: "checking" });
   });
 
   it.each([
@@ -82,12 +98,14 @@ describe("authentication health normalization", () => {
     ["unavailable", "platform_unavailable", "authPlatformUnavailable"],
     ["unavailable", "network_unavailable", "authNetworkUnavailable"],
   ] as const)("round-trips %s with its safe reason", (status, reasonCode, key) => {
-    expect(normalizePlatformAuthHealth({
-      status,
-      checkedAt: "2026-07-22T12:00:00.000Z",
-      reasonCode,
-      message: { key },
-    })).toEqual({
+    expect(
+      normalizePlatformAuthHealth({
+        status,
+        checkedAt: "2026-07-22T12:00:00.000Z",
+        reasonCode,
+        message: { key },
+      }),
+    ).toEqual({
       status,
       checkedAt: "2026-07-22T12:00:00.000Z",
       reasonCode,
@@ -121,28 +139,30 @@ describe("authentication health normalization", () => {
     expect(JSON.stringify(normalized)).not.toContain("secret");
   });
 
-  it.each([
-    undefined,
-    null,
-    "healthy",
-    { status: "unknown", token: "secret" },
-  ])("falls back malformed records to checking", (value) => {
-    expect(normalizePlatformAuthHealth(value)).toEqual({ status: "checking" });
-  });
+  it.each([undefined, null, "healthy", { status: "unknown", token: "secret" }])(
+    "falls back malformed records to checking",
+    (value) => {
+      expect(normalizePlatformAuthHealth(value)).toEqual({ status: "checking" });
+    },
+  );
 
   it("omits invalid optional metadata while retaining a valid status", () => {
-    expect(normalizePlatformAuthHealth({
-      status: "healthy",
-      checkedAt: "not-a-date",
-      reasonCode: "credentials_rejected",
-      message: { key: "authInvalidCredentials", values: { reference: { nested: true } } },
-    })).toEqual({ status: "healthy" });
+    expect(
+      normalizePlatformAuthHealth({
+        status: "healthy",
+        checkedAt: "not-a-date",
+        reasonCode: "credentials_rejected",
+        message: { key: "authInvalidCredentials", values: { reference: { nested: true } } },
+      }),
+    ).toEqual({ status: "healthy" });
 
-    expect(normalizePlatformAuthHealth({
-      status: "blocked",
-      reasonCode: "security_policy_blocked",
-      message: { key: "unknown", values: { reference: "x" } },
-    })).toEqual({ status: "blocked", reasonCode: "security_policy_blocked" });
+    expect(
+      normalizePlatformAuthHealth({
+        status: "blocked",
+        reasonCode: "security_policy_blocked",
+        message: { key: "unknown", values: { reference: "x" } },
+      }),
+    ).toEqual({ status: "blocked", reasonCode: "security_policy_blocked" });
   });
 
   it("bounds safe troubleshooting references", () => {
@@ -152,10 +172,18 @@ describe("authentication health normalization", () => {
       message: { key: "authSecurityPolicyBlocked" },
     } as const;
 
-    expect(normalizePlatformAuthHealth({ ...base, message: { ...base.message, values: { reference: Number.NaN } } }))
-      .toEqual({ ...base, message: base.message });
-    expect(normalizePlatformAuthHealth({ ...base, message: { ...base.message, values: { reference: "x".repeat(129) } } }))
-      .toEqual({ ...base, message: base.message });
+    expect(
+      normalizePlatformAuthHealth({
+        ...base,
+        message: { ...base.message, values: { reference: Number.NaN } },
+      }),
+    ).toEqual({ ...base, message: base.message });
+    expect(
+      normalizePlatformAuthHealth({
+        ...base,
+        message: { ...base.message, values: { reference: "x".repeat(129) } },
+      }),
+    ).toEqual({ ...base, message: base.message });
   });
 
   it("updates health and emits a reference-free durable transition", () => {
@@ -190,10 +218,17 @@ describe("authentication health normalization", () => {
     ["unavailable", "warn"],
     ["blocked", "error"],
   ] as const)("uses the safe activity level for %s", (status, level) => {
-    const changed = applyPlatformAuthHealth({
-      ...DEFAULT_STATE,
-      authHealth: { ...DEFAULT_STATE.authHealth, twitch: { status: status === "healthy" ? "checking" : "healthy" } },
-    }, "twitch", { status });
+    const changed = applyPlatformAuthHealth(
+      {
+        ...DEFAULT_STATE,
+        authHealth: {
+          ...DEFAULT_STATE.authHealth,
+          twitch: { status: status === "healthy" ? "checking" : "healthy" },
+        },
+      },
+      "twitch",
+      { status },
+    );
     expect(changed.event?.level).toBe(level);
   });
 

@@ -7,7 +7,11 @@ export const DEFAULT_LOCALE: SupportedLocale = "en";
 
 export const RTL_LOCALES: SupportedLocale[] = ["ar"];
 
-export const LOCALE_OPTIONS: Array<{ value: LanguageOverride; labelKey: string; nativeName: string }> = [
+export const LOCALE_OPTIONS: Array<{
+  value: LanguageOverride;
+  labelKey: string;
+  nativeName: string;
+}> = [
   { value: "browser", labelKey: "languageBrowser", nativeName: "Use browser language" },
   { value: "en", labelKey: "languageEnglish", nativeName: "English" },
   { value: "es", labelKey: "languageSpanish", nativeName: "Español" },
@@ -25,7 +29,8 @@ export const LOCALE_OPTIONS: Array<{ value: LanguageOverride; labelKey: string; 
 export function normalizeBrowserLocale(value: string | undefined): SupportedLocale {
   if (!value) return DEFAULT_LOCALE;
   const normalized = value.replace("-", "_");
-  if (SUPPORTED_LOCALES.includes(normalized as SupportedLocale)) return normalized as SupportedLocale;
+  if (SUPPORTED_LOCALES.includes(normalized as SupportedLocale))
+    return normalized as SupportedLocale;
   const base = normalized.split("_")[0];
   if (base === "zh") return "zh_CN";
   if (base === "pt") return "pt_BR";
@@ -33,7 +38,10 @@ export function normalizeBrowserLocale(value: string | undefined): SupportedLoca
   return DEFAULT_LOCALE;
 }
 
-export function effectiveLocale(languageOverride: LanguageOverride, browserLocale: string | undefined): SupportedLocale {
+export function effectiveLocale(
+  languageOverride: LanguageOverride,
+  browserLocale: string | undefined,
+): SupportedLocale {
   return languageOverride === "browser" ? normalizeBrowserLocale(browserLocale) : languageOverride;
 }
 
@@ -53,5 +61,8 @@ export function translateFromCatalogs(
     : substitutions == null
       ? []
       : [substitutions];
-  return values.reduce((text, value, index) => text.replaceAll(`$${index + 1}`, () => value), template);
+  return values.reduce(
+    (text, value, index) => text.replaceAll(`$${index + 1}`, () => value),
+    template,
+  );
 }

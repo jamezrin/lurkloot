@@ -17,8 +17,15 @@ query CoordinatorExtensionsForChannel($channelID: ID!) {
   }
 }`;
 
-export type TwitchExtensionSessionOutcome = "ready" | "unavailable" | "auth-required"
-  | "expired" | "compatibility-error" | "transport-error" | "provider-error" | "cancelled";
+export type TwitchExtensionSessionOutcome =
+  | "ready"
+  | "unavailable"
+  | "auth-required"
+  | "expired"
+  | "compatibility-error"
+  | "transport-error"
+  | "provider-error"
+  | "cancelled";
 
 export interface SessionSource {
   query(query: string, variables: Record<string, string>, signal?: AbortSignal): Promise<unknown>;
@@ -35,7 +42,8 @@ export interface DriverSession {
 }
 function object(value: unknown): Record<string, unknown> | undefined {
   return value !== null && typeof value === "object" && !Array.isArray(value)
-    ? value as Record<string, unknown> : undefined;
+    ? (value as Record<string, unknown>)
+    : undefined;
 }
 function claimsFor(jwt: string): Record<string, unknown> | undefined {
   if (jwt.length > 16_384) return;
@@ -44,7 +52,9 @@ function claimsFor(jwt: string): Record<string, unknown> | undefined {
   try {
     const payload = segments[1].replace(/-/g, "+").replace(/_/g, "/");
     return object(JSON.parse(atob(payload)));
-  } catch { return; }
+  } catch {
+    return;
+  }
 }
 
 // Credentials stay within the privileged transport/driver call, except that
@@ -64,10 +74,12 @@ export async function withTwitchExtensionSession(
   if (signal?.aborted) return "cancelled";
   let response: unknown;
   try {
-    if (!await source.hasSession()) return "auth-required";
+    if (!(await source.hasSession())) return "auth-required";
     if (signal?.aborted) return "cancelled";
     response = await source.query(TWITCH_EXTENSION_SESSION_QUERY, { channelID: channelId }, signal);
-  } catch { return signal?.aborted ? "cancelled" : "transport-error"; }
+  } catch {
+    return signal?.aborted ? "cancelled" : "transport-error";
+  }
   if (signal?.aborted) return "cancelled";
   const envelope = object(response);
   if (!envelope || envelope.errors !== undefined) return "transport-error";
@@ -79,20 +91,42 @@ export async function withTwitchExtensionSession(
     const row = object(value);
     const installation = object(row?.installation);
     const extension = object(installation?.extension);
-    if (typeof extension?.id !== "string" || extension.id.split(":")[0] !== provider.extensionId
-      || object(installation?.activationConfig)?.state !== "ACTIVE") continue;
+    if (
+      typeof extension?.id !== "string"
+      || extension.id.split(":")[0] !== provider.extensionId
+      || object(installation?.activationConfig)?.state !== "ACTIVE"
+    )
+      continue;
     const jwt = object(row?.token)?.jwt;
     if (typeof jwt !== "string") return "compatibility-error";
     const claims = claimsFor(jwt);
-    if (!claims || claims.channel_id !== channelId || typeof claims.exp !== "number"
-      || !Number.isFinite(claims.exp) || typeof claims.role !== "string" || !["viewer", "moderator", "broadcaster"].includes(claims.role)
-      || typeof extension.version !== "string" || !extension.version) return "compatibility-error";
+    if (
+      !claims
+      || claims.channel_id !== channelId
+      || typeof claims.exp !== "number"
+      || !Number.isFinite(claims.exp)
+      || typeof claims.role !== "string"
+      || !["viewer", "moderator", "broadcaster"].includes(claims.role)
+      || typeof extension.version !== "string"
+      || !extension.version
+    )
+      return "compatibility-error";
     if (claims.exp * 1000 <= source.now() + 30_000) return "expired";
-    if (typeof claims.opaque_user_id !== "string" || !claims.opaque_user_id.startsWith("U")) return "auth-required";
+    if (typeof claims.opaque_user_id !== "string" || !claims.opaque_user_id.startsWith("U"))
+      return "auth-required";
     try {
-      await run({ jwt, expiresAt: claims.exp * 1000, signal, channelId, version: extension.version, identityLinked: typeof claims.user_id === "string" && Boolean(claims.user_id) });
+      await run({
+        jwt,
+        expiresAt: claims.exp * 1000,
+        signal,
+        channelId,
+        version: extension.version,
+        identityLinked: typeof claims.user_id === "string" && Boolean(claims.user_id),
+      });
       return signal?.aborted ? "cancelled" : "ready";
-    } catch { return signal?.aborted ? "cancelled" : "provider-error"; }
+    } catch {
+      return signal?.aborted ? "cancelled" : "provider-error";
+    }
   }
   return "unavailable";
 }

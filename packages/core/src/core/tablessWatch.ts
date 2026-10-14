@@ -16,7 +16,10 @@ export class PendingWatcherDiagnostics {
   // HLS timer) would otherwise all carry the time of the next drain.
   push(event: DiagnosticEvent & { emittedAt?: string }): void {
     if (this.events.length >= MAX_PENDING_WATCHER_DIAGNOSTICS) this.events.shift();
-    this.events.push({ ...event, emittedAt: event.emittedAt ?? new Date().toISOString() } as DiagnosticEvent);
+    this.events.push({
+      ...event,
+      emittedAt: event.emittedAt ?? new Date().toISOString(),
+    } as DiagnosticEvent);
   }
 
   drain(): DiagnosticEvent[] {

@@ -80,44 +80,44 @@ describe("scheduler tick baseline recorder", () => {
 });
 
 describe("extension scheduler tick baseline", () => {
-  it.each(["twitch", "kick"] as const)("measures isolated %s heartbeat/discovery overlap", async (platform) => {
-    vi.useFakeTimers();
-    vi.setSystemTime("2026-09-01T20:00:00.000Z");
+  it.each(["twitch", "kick"] as const)(
+    "measures isolated %s heartbeat/discovery overlap",
+    async (platform) => {
+      vi.useFakeTimers();
+      vi.setSystemTime("2026-09-01T20:00:00.000Z");
 
-    const result = await runExtensionBaselineCell(
-      platform,
-      "heartbeatOverlap",
-    );
-    reportBaseline(result);
+      const result = await runExtensionBaselineCell(platform, "heartbeatOverlap");
+      reportBaseline(result);
 
-    expect(result.counts).toEqual({
-      adapterOperations: 4,
-      campaignDiscovery: 1,
-      candidateListings: 1,
-      channelChecks: 1,
-      heartbeatAttempts: 1,
-      heartbeatBlockedByDiscovery: 0,
-      discoveryBlockedByHeartbeat: 0,
-      campaignsEvaluated: 0,
-      candidatesEvaluated: 1,
-      watcherReconciliations: 1,
-      adapterConstructions: 3,
-      // 6 + 1: a fresh controller that finds a running tabless watch reads the
-      // settings once to decide chat presence (restart recovery, chatPresence.ts).
-      settingsLoads: 7,
-      stateLoads: 8,
-      stateSaves: 3,
-      eventPublications: 6,
-    });
-    expect(result.durationsMs).toEqual({
-      discovery: 30,
-      selection: 20,
-      watcher: 5,
-      persistence: 15,
-      total: 70,
-    });
-    expect(JSON.stringify(result)).not.toMatch(/credential|cookie|token|authorization|payload/i);
-  });
+      expect(result.counts).toEqual({
+        adapterOperations: 4,
+        campaignDiscovery: 1,
+        candidateListings: 1,
+        channelChecks: 1,
+        heartbeatAttempts: 1,
+        heartbeatBlockedByDiscovery: 0,
+        discoveryBlockedByHeartbeat: 0,
+        campaignsEvaluated: 0,
+        candidatesEvaluated: 1,
+        watcherReconciliations: 1,
+        adapterConstructions: 3,
+        // 6 + 1: a fresh controller that finds a running tabless watch reads the
+        // settings once to decide chat presence (restart recovery, chatPresence.ts).
+        settingsLoads: 7,
+        stateLoads: 8,
+        stateSaves: 3,
+        eventPublications: 6,
+      });
+      expect(result.durationsMs).toEqual({
+        discovery: 30,
+        selection: 20,
+        watcher: 5,
+        persistence: 15,
+        total: 70,
+      });
+      expect(JSON.stringify(result)).not.toMatch(/credential|cookie|token|authorization|payload/i);
+    },
+  );
 
   it.each(["twitch", "kick"] as const)("measures an idle %s alarm tick", async (platform) => {
     vi.useFakeTimers();
@@ -223,49 +223,55 @@ describe("extension scheduler tick baseline", () => {
     });
   });
 
-  it.each(["twitch", "kick"] as const)("measures a failed %s provider response", async (platform) => {
-    vi.useFakeTimers();
-    vi.setSystemTime("2026-09-01T20:00:00.000Z");
+  it.each(["twitch", "kick"] as const)(
+    "measures a failed %s provider response",
+    async (platform) => {
+      vi.useFakeTimers();
+      vi.setSystemTime("2026-09-01T20:00:00.000Z");
 
-    const result = await runExtensionBaselineCell(platform, "failed");
-    reportBaseline(result);
+      const result = await runExtensionBaselineCell(platform, "failed");
+      reportBaseline(result);
 
-    expect(result.counts).toMatchObject({
-      adapterOperations: 2,
-      campaignDiscovery: 1,
-      candidateListings: 0,
-      channelChecks: 0,
-      campaignsEvaluated: 0,
-      candidatesEvaluated: 0,
-      stateSaves: 2,
-    });
-    expect(result.durationsMs).toEqual({
-      discovery: 30,
-      selection: 0,
-      watcher: 0,
-      persistence: 10,
-      total: 40,
-    });
-  });
+      expect(result.counts).toMatchObject({
+        adapterOperations: 2,
+        campaignDiscovery: 1,
+        candidateListings: 0,
+        channelChecks: 0,
+        campaignsEvaluated: 0,
+        candidatesEvaluated: 0,
+        stateSaves: 2,
+      });
+      expect(result.durationsMs).toEqual({
+        discovery: 30,
+        selection: 0,
+        watcher: 0,
+        persistence: 10,
+        total: 40,
+      });
+    },
+  );
 
-  it.each(["twitch", "kick"] as const)("attributes controlled slow %s work to its phases", async (platform) => {
-    vi.useFakeTimers();
-    vi.setSystemTime("2026-09-01T20:00:00.000Z");
+  it.each(["twitch", "kick"] as const)(
+    "attributes controlled slow %s work to its phases",
+    async (platform) => {
+      vi.useFakeTimers();
+      vi.setSystemTime("2026-09-01T20:00:00.000Z");
 
-    const result = await runExtensionBaselineCell(platform, "slow");
-    reportBaseline(result);
+      const result = await runExtensionBaselineCell(platform, "slow");
+      reportBaseline(result);
 
-    expect(result.durationsMs).toEqual({
-      discovery: 300,
-      selection: 200,
-      watcher: 5,
-      persistence: 10,
-      total: 515,
-    });
-    expect(result.observedControllerMs).toEqual({
-      discovery: 500,
-      selection: 0,
-      total: 515,
-    });
-  });
+      expect(result.durationsMs).toEqual({
+        discovery: 300,
+        selection: 200,
+        watcher: 5,
+        persistence: 10,
+        total: 515,
+      });
+      expect(result.observedControllerMs).toEqual({
+        discovery: 500,
+        selection: 0,
+        total: 515,
+      });
+    },
+  );
 });

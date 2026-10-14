@@ -63,14 +63,16 @@ export class KickDiscoverySignalController implements DiscoverySignalController 
 
     const previous = this.categoryId;
     this.categoryId = categoryId;
-    const connection = this.connection ??= this.deps.connection ?? new KickRealtimeConnection({
-      createWebSocket: this.deps.createWebSocket,
-      postJson: this.deps.postJson,
-      acceptedProviders: ["pusher"],
-      ...(this.deps.setTimer ? { setTimer: this.deps.setTimer } : {}),
-      ...(this.deps.clearTimer ? { clearTimer: this.deps.clearTimer } : {}),
-      ...(this.deps.randomId ? { randomId: this.deps.randomId } : {}),
-    });
+    const connection = (this.connection ??=
+      this.deps.connection
+      ?? new KickRealtimeConnection({
+        createWebSocket: this.deps.createWebSocket,
+        postJson: this.deps.postJson,
+        acceptedProviders: ["pusher"],
+        ...(this.deps.setTimer ? { setTimer: this.deps.setTimer } : {}),
+        ...(this.deps.clearTimer ? { clearTimer: this.deps.clearTimer } : {}),
+        ...(this.deps.randomId ? { randomId: this.deps.randomId } : {}),
+      }));
     // The new category first, then the old one leaves: one socket throughout.
     connection.subscribe(channelName(categoryId), {
       events: [CAMPAIGN_STARTED_EVENT],
@@ -83,7 +85,11 @@ export class KickDiscoverySignalController implements DiscoverySignalController 
 
   drainEvents(): DiagnosticEvent[] {
     const categoryId = this.categoryId;
-    if (categoryId && this.loggedSubscription !== categoryId && this.connection?.isSubscribed(channelName(categoryId))) {
+    if (
+      categoryId
+      && this.loggedSubscription !== categoryId
+      && this.connection?.isSubscribed(channelName(categoryId))
+    ) {
       this.loggedSubscription = categoryId;
       this.log("debug", `Kick discovery subscribed to category ${categoryId}`);
     }
@@ -126,6 +132,8 @@ function channelName(categoryId: string): string {
 }
 
 function isCampaignId(value: unknown): value is string | number {
-  return (typeof value === "string" && value.trim().length > 0)
-    || (typeof value === "number" && Number.isFinite(value));
+  return (
+    (typeof value === "string" && value.trim().length > 0)
+    || (typeof value === "number" && Number.isFinite(value))
+  );
 }

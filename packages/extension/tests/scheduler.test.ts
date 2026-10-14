@@ -1,12 +1,31 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, KickPlatformSettings, Platform, SchedulerState, TwitchPlatformSettings } from "@lurkloot/shared/models";
+import type {
+  ChannelCandidate,
+  DropCampaign,
+  DropReward,
+  ExtensionSettings,
+  KickPlatformSettings,
+  Platform,
+  SchedulerState,
+  TwitchPlatformSettings,
+} from "@lurkloot/shared/models";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { NO_CATEGORY_ID } from "@lurkloot/shared/categories";
-import { chooseCampaignDecision, selectWatchTargetFromSnapshot, type StopPageContextTabs } from "@lurkloot/core/scheduler";
+import {
+  chooseCampaignDecision,
+  selectWatchTargetFromSnapshot,
+  type StopPageContextTabs,
+} from "@lurkloot/core/scheduler";
 import { rankCampaigns } from "@lurkloot/shared/ranking";
 import { runSchedulerTick, type SchedulerMockAdapter } from "./helpers/schedulerTick";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
-import { createTabRegistry, forgetManagedPageContextTabs, managedTabBreakerOpen, syncManagedTabBreakers, type TabRegistry } from "@lurkloot/core/tabRegistry";
+import {
+  createTabRegistry,
+  forgetManagedPageContextTabs,
+  managedTabBreakerOpen,
+  syncManagedTabBreakers,
+  type TabRegistry,
+} from "@lurkloot/core/tabRegistry";
 import { SafeFetchError } from "@lurkloot/core/fetchError";
 import { DEFAULT_CRITICAL_HEALTH } from "@lurkloot/shared/criticalHealth";
 import { TAB_CHURN_LIMIT, TAB_CHURN_WINDOW_MS } from "@lurkloot/core/criticalHealth";
@@ -52,7 +71,11 @@ function settings(patch: SettingsPatch = {}): ExtensionSettings {
   };
 }
 
-function adapter(platform: Platform, campaigns: DropCampaign[], candidates: ChannelCandidate[]): SchedulerMockAdapter {
+function adapter(
+  platform: Platform,
+  campaigns: DropCampaign[],
+  candidates: ChannelCandidate[],
+): SchedulerMockAdapter {
   return {
     platform,
     checkAuthHealth: vi.fn(async () => ({ status: "checking" as const })),
@@ -82,10 +105,39 @@ describe("scheduler campaign selection", () => {
       complete: true as const,
       idleCandidates: [],
       followedChannels: [],
-      metrics: { campaigns: 2, candidates: 2, cacheHits: 0, cacheMisses: 2, batchRequests: 1, singleFallbacks: 0 },
+      metrics: {
+        campaigns: 2,
+        candidates: 2,
+        cacheHits: 0,
+        cacheMisses: 2,
+        batchRequests: 1,
+        singleFallbacks: 0,
+      },
       campaigns: [
-        { campaign: higher, candidates: [{ candidate: channel("higher-channel"), live: true, categoryMatches: true, eligible, observedAt: Date.now() }] },
-        { campaign: current, candidates: [{ candidate: currentChannel, live: true, categoryMatches: true, eligible: true as const, observedAt: Date.now() }] },
+        {
+          campaign: higher,
+          candidates: [
+            {
+              candidate: channel("higher-channel"),
+              live: true,
+              categoryMatches: true,
+              eligible,
+              observedAt: Date.now(),
+            },
+          ],
+        },
+        {
+          campaign: current,
+          candidates: [
+            {
+              candidate: currentChannel,
+              live: true,
+              categoryMatches: true,
+              eligible: true as const,
+              observedAt: Date.now(),
+            },
+          ],
+        },
       ],
     };
     const previous = {
@@ -114,7 +166,9 @@ describe("scheduler campaign selection", () => {
       settings: settings({ campaignPins: ["higher"] }),
     } as Parameters<typeof selectWatchTargetFromSnapshot>[0]);
 
-    expect((first as unknown as { backoff?: { campaignId: string; retryAt: string } }).backoff).toMatchObject({
+    expect(
+      (first as unknown as { backoff?: { campaignId: string; retryAt: string } }).backoff,
+    ).toMatchObject({
       campaignId: "higher",
       retryAt: "2026-09-08T04:05:00.000Z",
     });
@@ -141,11 +195,17 @@ describe("scheduler campaign selection", () => {
       previous: fixture.previous,
       previousCampaigns: [fixture.higher, fixture.current],
       settings: settings({ campaignPins: ["higher"] }),
-      previousBackoff: { campaignId: "higher", retryAt: "2026-09-08T04:05:00.000Z", fingerprint: "ignored-until-implemented" },
+      previousBackoff: {
+        campaignId: "higher",
+        retryAt: "2026-09-08T04:05:00.000Z",
+        fingerprint: "ignored-until-implemented",
+      },
     } as Parameters<typeof selectWatchTargetFromSnapshot>[0]);
 
     expect(result.candidatesChecked).toBe(2);
-    expect((result as unknown as { backoff?: { retryAt: string } }).backoff?.retryAt).toBe("2026-09-08T04:11:00.000Z");
+    expect((result as unknown as { backoff?: { retryAt: string } }).backoff?.retryAt).toBe(
+      "2026-09-08T04:11:00.000Z",
+    );
   });
 
   it("invalidates a Twitch miss when settings, inventory, or current health changes", async () => {
@@ -159,15 +219,24 @@ describe("scheduler campaign selection", () => {
       previousCampaigns: [fixture.higher, fixture.current],
       settings: originalSettings,
     });
-    const previousBackoff = (first as unknown as { backoff: { campaignId: string; retryAt: string; fingerprint: string } }).backoff;
+    const previousBackoff = (
+      first as unknown as { backoff: { campaignId: string; retryAt: string; fingerprint: string } }
+    ).backoff;
     const cases = [
-      { snapshot: fixture.snapshot, previous: fixture.previous, settings: settings({ campaignPins: ["higher", "other"] }), expectedCandidates: 2 },
+      {
+        snapshot: fixture.snapshot,
+        previous: fixture.previous,
+        settings: settings({ campaignPins: ["higher", "other"] }),
+        expectedCandidates: 2,
+      },
       {
         snapshot: {
           ...fixture.snapshot,
-          campaigns: fixture.snapshot.campaigns.map((entry) => entry.campaign.id === "higher"
-            ? { ...entry, campaign: { ...entry.campaign, name: "Changed inventory" } }
-            : entry),
+          campaigns: fixture.snapshot.campaigns.map((entry) =>
+            entry.campaign.id === "higher"
+              ? { ...entry, campaign: { ...entry.campaign, name: "Changed inventory" } }
+              : entry,
+          ),
         },
         previous: fixture.previous,
         settings: originalSettings,
@@ -182,9 +251,20 @@ describe("scheduler campaign selection", () => {
       {
         snapshot: {
           ...fixture.snapshot,
-          campaigns: fixture.snapshot.campaigns.map((entry) => entry.campaign.id === "current"
-            ? { ...entry, campaign: { ...entry.campaign, rewards: entry.campaign.rewards.map((item) => ({ ...item, status: "claimed" as const })) } }
-            : entry),
+          campaigns: fixture.snapshot.campaigns.map((entry) =>
+            entry.campaign.id === "current"
+              ? {
+                  ...entry,
+                  campaign: {
+                    ...entry.campaign,
+                    rewards: entry.campaign.rewards.map((item) => ({
+                      ...item,
+                      status: "claimed" as const,
+                    })),
+                  },
+                }
+              : entry,
+          ),
         },
         previous: fixture.previous,
         settings: originalSettings,
@@ -212,9 +292,19 @@ describe("scheduler campaign selection", () => {
       settings: settings({ campaignPins: ["higher"] }),
     });
     const kick = await selectWatchTargetFromSnapshot({
-      snapshot: { ...ambiguous.snapshot, platform: "kick", campaigns: ambiguous.snapshot.campaigns.map(({ campaign: item, ...rest }) => ({ ...rest, campaign: { ...item, platform: "kick" as const } })) },
+      snapshot: {
+        ...ambiguous.snapshot,
+        platform: "kick",
+        campaigns: ambiguous.snapshot.campaigns.map(({ campaign: item, ...rest }) => ({
+          ...rest,
+          campaign: { ...item, platform: "kick" as const },
+        })),
+      },
       previous: { ...ambiguous.previous, platform: "kick" },
-      previousCampaigns: [ambiguous.higher, ambiguous.current].map((item) => ({ ...item, platform: "kick" })),
+      previousCampaigns: [ambiguous.higher, ambiguous.current].map((item) => ({
+        ...item,
+        platform: "kick",
+      })),
       settings: settings({ campaignPins: ["higher"] }),
     });
 
@@ -233,18 +323,45 @@ describe("scheduler campaign selection", () => {
         complete: true,
         idleCandidates: [],
         followedChannels: ["snapshot-channel"],
-        metrics: { campaigns: 1, candidates: 1, cacheHits: 0, cacheMisses: 0, batchRequests: 0, singleFallbacks: 0 },
-        campaigns: [{
-          campaign: selectedCampaign,
-          candidates: [{ candidate: selectedChannel, live: true, categoryMatches: true, eligible: true, observedAt: Date.now() }],
-        }],
+        metrics: {
+          campaigns: 1,
+          candidates: 1,
+          cacheHits: 0,
+          cacheMisses: 0,
+          batchRequests: 0,
+          singleFallbacks: 0,
+        },
+        campaigns: [
+          {
+            campaign: selectedCampaign,
+            candidates: [
+              {
+                candidate: selectedChannel,
+                live: true,
+                categoryMatches: true,
+                eligible: true,
+                observedAt: Date.now(),
+              },
+            ],
+          },
+        ],
       },
-      previous: { platform: "twitch", status: "idle", offlineChecks: 0, playbackChecks: 0, errorChecks: 0 },
+      previous: {
+        platform: "twitch",
+        status: "idle",
+        offlineChecks: 0,
+        playbackChecks: 0,
+        errorChecks: 0,
+      },
       previousCampaigns: [],
       settings: settings(),
     });
 
-    expect(result.decision).toMatchObject({ action: "watch", campaign: { id: "snapshot-campaign" }, channel: { username: "snapshot-channel" } });
+    expect(result.decision).toMatchObject({
+      action: "watch",
+      campaign: { id: "snapshot-campaign" },
+      channel: { username: "snapshot-channel" },
+    });
   });
 
   it("selects an idle-watchlist fallback only from committed snapshot observations", async () => {
@@ -256,11 +373,32 @@ describe("scheduler campaign selection", () => {
         observedAt: Date.now(),
         complete: true,
         campaigns: [],
-        idleCandidates: [{ candidate: idleChannel, live: true, categoryMatches: true, eligible: true, observedAt: Date.now() }],
+        idleCandidates: [
+          {
+            candidate: idleChannel,
+            live: true,
+            categoryMatches: true,
+            eligible: true,
+            observedAt: Date.now(),
+          },
+        ],
         followedChannels: [],
-        metrics: { campaigns: 0, candidates: 1, cacheHits: 0, cacheMisses: 1, batchRequests: 1, singleFallbacks: 0 },
+        metrics: {
+          campaigns: 0,
+          candidates: 1,
+          cacheHits: 0,
+          cacheMisses: 1,
+          batchRequests: 1,
+          singleFallbacks: 0,
+        },
       },
-      previous: { platform: "twitch", status: "idle", offlineChecks: 0, playbackChecks: 0, errorChecks: 0 },
+      previous: {
+        platform: "twitch",
+        status: "idle",
+        offlineChecks: 0,
+        playbackChecks: 0,
+        errorChecks: 0,
+      },
       previousCampaigns: [],
       settings: {
         ...settings(),
@@ -271,7 +409,10 @@ describe("scheduler campaign selection", () => {
       },
     });
 
-    expect(result.decision).toMatchObject({ action: "fallback", channel: { username: "snapshot-idle" } });
+    expect(result.decision).toMatchObject({
+      action: "fallback",
+      channel: { username: "snapshot-idle" },
+    });
   });
 
   it("rejects a current candidate with fresh explicit provider-negative evidence", async () => {
@@ -285,11 +426,28 @@ describe("scheduler campaign selection", () => {
         complete: true,
         idleCandidates: [],
         followedChannels: [],
-        metrics: { campaigns: 1, candidates: 1, cacheHits: 0, cacheMisses: 1, batchRequests: 1, singleFallbacks: 0 },
-        campaigns: [{
-          campaign: selectedCampaign,
-          candidates: [{ candidate: selectedChannel, live: true, categoryMatches: true, eligible: false, observedAt: Date.now() }],
-        }],
+        metrics: {
+          campaigns: 1,
+          candidates: 1,
+          cacheHits: 0,
+          cacheMisses: 1,
+          batchRequests: 1,
+          singleFallbacks: 0,
+        },
+        campaigns: [
+          {
+            campaign: selectedCampaign,
+            candidates: [
+              {
+                candidate: selectedChannel,
+                live: true,
+                categoryMatches: true,
+                eligible: false,
+                observedAt: Date.now(),
+              },
+            ],
+          },
+        ],
       },
       previous: {
         platform: "twitch",
@@ -312,7 +470,12 @@ describe("scheduler campaign selection", () => {
     vi.useFakeTimers();
     vi.setSystemTime("2026-07-19T12:00:00.000Z");
     try {
-      const inProgress = { ...reward("in_progress"), id: "long", requiredMinutes: 60, watchedMinutes: 10 };
+      const inProgress = {
+        ...reward("in_progress"),
+        id: "long",
+        requiredMinutes: 60,
+        watchedMinutes: 10,
+      };
       const locked = { ...reward("locked"), id: "short", requiredMinutes: 20, watchedMinutes: 0 };
       const decision = await chooseCampaignDecision(
         "twitch",
@@ -320,7 +483,11 @@ describe("scheduler campaign selection", () => {
         settings({ deadlineSafetyMarginMinutes: 5 }),
         {
           listCandidateChannels: vi.fn(async () => [channel("creator")]),
-          checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+          checkChannel: vi.fn(async (candidate) => ({
+            live: true,
+            categoryMatches: true,
+            candidate,
+          })),
         },
       );
       expect(decision.action).toBe("watch");
@@ -341,7 +508,11 @@ describe("scheduler campaign selection", () => {
         settings({ deadlineSafetyMarginMinutes: 5 }),
         {
           listCandidateChannels,
-          checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+          checkChannel: vi.fn(async (candidate) => ({
+            live: true,
+            categoryMatches: true,
+            candidate,
+          })),
         },
       );
       expect(decision.action).toBe("idle");
@@ -362,7 +533,11 @@ describe("scheduler campaign selection", () => {
         settings({ skipUnfinishableRewards: false, deadlineSafetyMarginMinutes: 5 }),
         {
           listCandidateChannels: vi.fn(async () => [channel("creator")]),
-          checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+          checkChannel: vi.fn(async (candidate) => ({
+            live: true,
+            categoryMatches: true,
+            candidate,
+          })),
         },
       );
       expect(decision.action).toBe("watch");
@@ -382,20 +557,34 @@ describe("scheduler campaign selection", () => {
 
   it("uses favourite-game order after pins", () => {
     const first = campaign("first", { gameName: "First Game", endsAt: "2026-06-01T00:00:00.000Z" });
-    const second = campaign("second", { gameName: "Second Game", endsAt: "2026-07-01T00:00:00.000Z" });
+    const second = campaign("second", {
+      gameName: "Second Game",
+      endsAt: "2026-07-01T00:00:00.000Z",
+    });
 
-    const sorted = rankCampaigns([first, second], settings({
-      platform: {
-        twitch: { favouriteCategories: [{ id: "second game", name: "Second Game" }, { id: "first game", name: "First Game" }] },
-      },
-    }));
+    const sorted = rankCampaigns(
+      [first, second],
+      settings({
+        platform: {
+          twitch: {
+            favouriteCategories: [
+              { id: "second game", name: "Second Game" },
+              { id: "first game", name: "First Game" },
+            ],
+          },
+        },
+      }),
+    );
 
     expect(sorted.map((item) => item.id)).toEqual(["second", "first"]);
   });
 
   it("does not use category-list order in all mode", () => {
     const first = campaign("first", { gameName: "First Game", endsAt: "2026-06-01T00:00:00.000Z" });
-    const second = campaign("second", { gameName: "Second Game", endsAt: "2026-07-01T00:00:00.000Z" });
+    const second = campaign("second", {
+      gameName: "Second Game",
+      endsAt: "2026-07-01T00:00:00.000Z",
+    });
 
     // categoryMode stays "all" (default), so the list is inert: ends-soonest wins.
     const sorted = rankCampaigns([second, first], settings({}));
@@ -405,18 +594,27 @@ describe("scheduler campaign selection", () => {
 
   it("does not use the allowlist's order in include mode", () => {
     const first = campaign("first", { gameName: "First Game", endsAt: "2026-06-01T00:00:00.000Z" });
-    const second = campaign("second", { gameName: "Second Game", endsAt: "2026-07-01T00:00:00.000Z" });
+    const second = campaign("second", {
+      gameName: "Second Game",
+      endsAt: "2026-07-01T00:00:00.000Z",
+    });
 
     // The allowlist decides WHETHER a campaign is farmed, never where it sits:
     // only a pin or a favourite ranks, so ends-soonest wins here (#352).
-    const sorted = rankCampaigns([second, first], settings({
-      platform: {
-        twitch: {
-          categoryMode: "include",
-          categories: [{ id: "second game", name: "Second Game" }, { id: "first game", name: "First Game" }],
+    const sorted = rankCampaigns(
+      [second, first],
+      settings({
+        platform: {
+          twitch: {
+            categoryMode: "include",
+            categories: [
+              { id: "second game", name: "Second Game" },
+              { id: "first game", name: "First Game" },
+            ],
+          },
         },
-      },
-    }));
+      }),
+    );
 
     expect(sorted.map((item) => item.id)).toEqual(["first", "second"]);
   });
@@ -430,12 +628,19 @@ describe("scheduler campaign selection", () => {
       [unlisted, listed],
       settings({
         platform: {
-          twitch: { categoryMode: "include", categories: [{ id: "listed game", name: "Listed Game" }] },
+          twitch: {
+            categoryMode: "include",
+            categories: [{ id: "listed game", name: "Listed Game" }],
+          },
         },
       }),
       {
         listCandidateChannels: vi.fn(async () => [channel("creator")]),
-        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+        checkChannel: vi.fn(async (candidate) => ({
+          live: true,
+          categoryMatches: true,
+          candidate,
+        })),
       },
     );
 
@@ -452,12 +657,19 @@ describe("scheduler campaign selection", () => {
       [categorized, uncategorized],
       settings({
         platform: {
-          twitch: { categoryMode: "include", categories: [{ id: NO_CATEGORY_ID, name: "No category" }] },
+          twitch: {
+            categoryMode: "include",
+            categories: [{ id: NO_CATEGORY_ID, name: "No category" }],
+          },
         },
       }),
       {
         listCandidateChannels: vi.fn(async () => [channel("creator")]),
-        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+        checkChannel: vi.fn(async (candidate) => ({
+          live: true,
+          categoryMatches: true,
+          candidate,
+        })),
       },
     );
 
@@ -479,7 +691,11 @@ describe("scheduler campaign selection", () => {
       }),
       {
         listCandidateChannels: vi.fn(async () => [channel("creator")]),
-        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+        checkChannel: vi.fn(async (candidate) => ({
+          live: true,
+          categoryMatches: true,
+          candidate,
+        })),
       },
     );
 
@@ -494,7 +710,11 @@ describe("scheduler campaign selection", () => {
       settings({ platform: { twitch: { blockedCategories: [] } } }),
       {
         listCandidateChannels: vi.fn(async () => [channel("creator")]),
-        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+        checkChannel: vi.fn(async (candidate) => ({
+          live: true,
+          categoryMatches: true,
+          candidate,
+        })),
       },
     );
 
@@ -515,7 +735,11 @@ describe("scheduler campaign selection", () => {
       }),
       {
         listCandidateChannels,
-        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+        checkChannel: vi.fn(async (candidate) => ({
+          live: true,
+          categoryMatches: true,
+          candidate,
+        })),
       },
     );
 
@@ -533,7 +757,11 @@ describe("scheduler campaign selection", () => {
       settings({ platform: { twitch: { categoryMode: "include", categories: [] } } }),
       {
         listCandidateChannels,
-        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+        checkChannel: vi.fn(async (candidate) => ({
+          live: true,
+          categoryMatches: true,
+          candidate,
+        })),
       },
     );
 
@@ -551,7 +779,11 @@ describe("scheduler campaign selection", () => {
       settings({ farmPinnedOnly: true }),
       {
         listCandidateChannels,
-        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+        checkChannel: vi.fn(async (candidate) => ({
+          live: true,
+          categoryMatches: true,
+          candidate,
+        })),
       },
     );
 
@@ -571,12 +803,19 @@ describe("scheduler campaign selection", () => {
       settings({
         farmPinnedOnly: true,
         platform: {
-          twitch: { categoryMode: "include", categories: [{ id: "listed game", name: "Listed Game" }] },
+          twitch: {
+            categoryMode: "include",
+            categories: [{ id: "listed game", name: "Listed Game" }],
+          },
         },
       }),
       {
         listCandidateChannels,
-        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+        checkChannel: vi.fn(async (candidate) => ({
+          live: true,
+          categoryMatches: true,
+          candidate,
+        })),
       },
     );
 
@@ -591,7 +830,11 @@ describe("scheduler campaign selection", () => {
       settings({ farmPinnedOnly: true, campaignPins: ["pinned"] }),
       {
         listCandidateChannels: vi.fn(async () => [channel("creator")]),
-        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+        checkChannel: vi.fn(async (candidate) => ({
+          live: true,
+          categoryMatches: true,
+          candidate,
+        })),
       },
     );
 
@@ -609,7 +852,11 @@ describe("scheduler campaign selection", () => {
           channel("popular", { viewerCount: 90_000 }),
           channel("watched", { viewerCount: 12 }),
         ]),
-        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+        checkChannel: vi.fn(async (candidate) => ({
+          live: true,
+          categoryMatches: true,
+          candidate,
+        })),
       },
     );
 
@@ -618,19 +865,14 @@ describe("scheduler campaign selection", () => {
   });
 
   it("prefers a followed channel over a bigger directory channel", async () => {
-    const decision = await chooseCampaignDecision(
-      "twitch",
-      [campaign("any")],
-      settings(),
-      {
-        listCandidateChannels: vi.fn(async () => [
-          channel("popular", { viewerCount: 90_000 }),
-          channel("friend", { viewerCount: 12 }),
-        ]),
-        listFollowedChannels: vi.fn(async () => ["Friend"]),
-        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
-      },
-    );
+    const decision = await chooseCampaignDecision("twitch", [campaign("any")], settings(), {
+      listCandidateChannels: vi.fn(async () => [
+        channel("popular", { viewerCount: 90_000 }),
+        channel("friend", { viewerCount: 12 }),
+      ]),
+      listFollowedChannels: vi.fn(async () => ["Friend"]),
+      checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+    });
 
     expect(decision.action).toBe("watch");
     expect(decision.channel?.username).toBe("friend");
@@ -647,7 +889,11 @@ describe("scheduler campaign selection", () => {
           channel("watched", { viewerCount: 12 }),
         ]),
         listFollowedChannels: vi.fn(async () => ["friend"]),
-        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+        checkChannel: vi.fn(async (candidate) => ({
+          live: true,
+          categoryMatches: true,
+          candidate,
+        })),
       },
     );
 
@@ -655,19 +901,14 @@ describe("scheduler campaign selection", () => {
   });
 
   it("keeps allow-listed channels ahead of a followed channel outside the allow list", async () => {
-    const decision = await chooseCampaignDecision(
-      "twitch",
-      [campaign("acl")],
-      settings(),
-      {
-        listCandidateChannels: vi.fn(async () => [
-          channel("friend", { viewerCount: 5_000, isAclMatch: false }),
-          channel("allowed", { viewerCount: 12, isAclMatch: true }),
-        ]),
-        listFollowedChannels: vi.fn(async () => ["friend"]),
-        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
-      },
-    );
+    const decision = await chooseCampaignDecision("twitch", [campaign("acl")], settings(), {
+      listCandidateChannels: vi.fn(async () => [
+        channel("friend", { viewerCount: 5_000, isAclMatch: false }),
+        channel("allowed", { viewerCount: 12, isAclMatch: true }),
+      ]),
+      listFollowedChannels: vi.fn(async () => ["friend"]),
+      checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+    });
 
     expect(decision.channel?.username).toBe("allowed");
   });
@@ -676,19 +917,14 @@ describe("scheduler campaign selection", () => {
     // Campaign allow lists come from `allow { channels }`, which has no viewer
     // count, so every candidate ties there and the preference is the only thing
     // that can reorder them.
-    const decision = await chooseCampaignDecision(
-      "twitch",
-      [campaign("acl")],
-      settings(),
-      {
-        listCandidateChannels: vi.fn(async () => [
-          channel("stranger", { isAclMatch: true }),
-          channel("friend", { isAclMatch: true }),
-        ]),
-        listFollowedChannels: vi.fn(async () => ["friend"]),
-        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
-      },
-    );
+    const decision = await chooseCampaignDecision("twitch", [campaign("acl")], settings(), {
+      listCandidateChannels: vi.fn(async () => [
+        channel("stranger", { isAclMatch: true }),
+        channel("friend", { isAclMatch: true }),
+      ]),
+      listFollowedChannels: vi.fn(async () => ["friend"]),
+      checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+    });
 
     expect(decision.channel?.username).toBe("friend");
   });
@@ -704,7 +940,11 @@ describe("scheduler campaign selection", () => {
           channel("friend", { viewerCount: 12 }),
         ]),
         listFollowedChannels: vi.fn(async () => ["friend"]),
-        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+        checkChannel: vi.fn(async (candidate) => ({
+          live: true,
+          categoryMatches: true,
+          candidate,
+        })),
       },
     );
 
@@ -723,23 +963,22 @@ describe("scheduler campaign selection", () => {
         // the decision falls through to idle.
         listCandidateChannels: vi.fn(async () => [channel("popular"), channel("friend")]),
         listFollowedChannels,
-        checkChannel: vi.fn(async (candidate) => ({ live: false, categoryMatches: true, candidate })),
+        checkChannel: vi.fn(async (candidate) => ({
+          live: false,
+          categoryMatches: true,
+          candidate,
+        })),
       },
     );
     expect(many.action).toBe("idle");
     expect(listFollowedChannels).toHaveBeenCalledTimes(1);
 
     listFollowedChannels.mockClear();
-    await chooseCampaignDecision(
-      "twitch",
-      [campaign("solo")],
-      settings(),
-      {
-        listCandidateChannels: vi.fn(async () => [channel("only")]),
-        listFollowedChannels,
-        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
-      },
-    );
+    await chooseCampaignDecision("twitch", [campaign("solo")], settings(), {
+      listCandidateChannels: vi.fn(async () => [channel("only")]),
+      listFollowedChannels,
+      checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+    });
     expect(listFollowedChannels).not.toHaveBeenCalled();
   });
 
@@ -752,40 +991,33 @@ describe("scheduler campaign selection", () => {
       channel: candidates[0],
     }));
 
-    const decision = await chooseCampaignDecision(
-      "twitch",
-      [campaign("any")],
-      settings(),
-      {
-        listCandidateChannels: vi.fn(async () => [
-          channel("popular", { viewerCount: 90_000, live: true, isAclMatch: false }),
-          channel("friend", { viewerCount: 12, live: true, isAclMatch: false }),
-        ]),
-        listFollowedChannels: vi.fn(async () => ["friend"]),
-        selectCandidateChannel,
-        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
-      },
-    );
+    const decision = await chooseCampaignDecision("twitch", [campaign("any")], settings(), {
+      listCandidateChannels: vi.fn(async () => [
+        channel("popular", { viewerCount: 90_000, live: true, isAclMatch: false }),
+        channel("friend", { viewerCount: 12, live: true, isAclMatch: false }),
+      ]),
+      listFollowedChannels: vi.fn(async () => ["friend"]),
+      selectCandidateChannel,
+      checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+    });
 
     expect(decision.channel?.username).toBe("friend");
-    expect(selectCandidateChannel.mock.calls[0]?.[0].map((candidate) => candidate.username))
-      .toEqual(["friend", "popular"]);
+    expect(
+      selectCandidateChannel.mock.calls[0]?.[0].map((candidate) => candidate.username),
+    ).toEqual(["friend", "popular"]);
   });
 
   it("falls back to viewer count when the followed lookup fails", async () => {
-    const decision = await chooseCampaignDecision(
-      "twitch",
-      [campaign("any")],
-      settings(),
-      {
-        listCandidateChannels: vi.fn(async () => [
-          channel("small", { viewerCount: 12 }),
-          channel("popular", { viewerCount: 90_000 }),
-        ]),
-        listFollowedChannels: vi.fn(async () => { throw new Error("gql unavailable"); }),
-        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
-      },
-    );
+    const decision = await chooseCampaignDecision("twitch", [campaign("any")], settings(), {
+      listCandidateChannels: vi.fn(async () => [
+        channel("small", { viewerCount: 12 }),
+        channel("popular", { viewerCount: 90_000 }),
+      ]),
+      listFollowedChannels: vi.fn(async () => {
+        throw new Error("gql unavailable");
+      }),
+      checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+    });
 
     expect(decision.action).toBe("watch");
     expect(decision.channel?.username).toBe("popular");
@@ -797,7 +1029,10 @@ describe("scheduler campaign selection", () => {
     const decision = await chooseCampaignDecision(
       "twitch",
       [campaign("any")],
-      settings({ preferKnownChannels: false, platform: { twitch: { idleWatchlistChannels: ["watched"] } } }),
+      settings({
+        preferKnownChannels: false,
+        platform: { twitch: { idleWatchlistChannels: ["watched"] } },
+      }),
       {
         listCandidateChannels: vi.fn(async () => [
           channel("popular", { viewerCount: 90_000 }),
@@ -805,7 +1040,11 @@ describe("scheduler campaign selection", () => {
           channel("watched", { viewerCount: 5 }),
         ]),
         listFollowedChannels,
-        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+        checkChannel: vi.fn(async (candidate) => ({
+          live: true,
+          categoryMatches: true,
+          candidate,
+        })),
       },
     );
 
@@ -818,17 +1057,25 @@ describe("scheduler campaign selection", () => {
   it("does not select campaigns whose only unclaimed reward is outside its earn and claim windows", async () => {
     const decision = await chooseCampaignDecision(
       "twitch",
-      [campaign("expired-reward", {
-        rewards: [{
-          ...reward("claimable"),
-          claimUntil: "2020-01-01T00:00:00.000Z",
-          availableUntil: "2020-01-01T00:00:00.000Z",
-        }],
-      })],
+      [
+        campaign("expired-reward", {
+          rewards: [
+            {
+              ...reward("claimable"),
+              claimUntil: "2020-01-01T00:00:00.000Z",
+              availableUntil: "2020-01-01T00:00:00.000Z",
+            },
+          ],
+        }),
+      ],
       settings(),
       {
         listCandidateChannels: vi.fn(async () => [channel("creator")]),
-        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+        checkChannel: vi.fn(async (candidate) => ({
+          live: true,
+          categoryMatches: true,
+          candidate,
+        })),
       },
     );
 
@@ -844,7 +1091,11 @@ describe("scheduler campaign selection", () => {
       settings(),
       {
         listCandidateChannels,
-        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+        checkChannel: vi.fn(async (candidate) => ({
+          live: true,
+          categoryMatches: true,
+          candidate,
+        })),
       },
     );
 
@@ -861,7 +1112,11 @@ describe("scheduler campaign selection", () => {
       settings(),
       {
         listCandidateChannels,
-        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+        checkChannel: vi.fn(async (candidate) => ({
+          live: true,
+          categoryMatches: true,
+          candidate,
+        })),
       },
     );
 
@@ -870,7 +1125,11 @@ describe("scheduler campaign selection", () => {
   });
 
   it("farms unlinked watch campaigns on both platforms when enabled", async () => {
-    const checkChannel = vi.fn(async (candidate: ChannelCandidate) => ({ live: true, categoryMatches: true, candidate }));
+    const checkChannel = vi.fn(async (candidate: ChannelCandidate) => ({
+      live: true,
+      categoryMatches: true,
+      candidate,
+    }));
 
     // Account linking controls delivery, not watch progress.
     const twitch = await chooseCampaignDecision(
@@ -887,7 +1146,9 @@ describe("scheduler campaign selection", () => {
       [campaign("kk", { platform: "kick", accountLinked: false })],
       settings(),
       {
-        listCandidateChannels: vi.fn(async () => [channel("creator", { platform: "kick", url: "https://kick.com/creator" })]),
+        listCandidateChannels: vi.fn(async () => [
+          channel("creator", { platform: "kick", url: "https://kick.com/creator" }),
+        ]),
         checkChannel,
       },
     );
@@ -897,18 +1158,32 @@ describe("scheduler campaign selection", () => {
   // The Kick parser keeps ended campaigns so the popup visibility filters can
   // show them; farming must still ignore them.
   it("never selects an expired or completed Kick campaign for farming", async () => {
-    const listCandidateChannels = vi.fn(async () => [channel("creator", { platform: "kick", url: "https://kick.com/creator" })]);
+    const listCandidateChannels = vi.fn(async () => [
+      channel("creator", { platform: "kick", url: "https://kick.com/creator" }),
+    ]);
 
     const decision = await chooseCampaignDecision(
       "kick",
       [
-        campaign("expired", { platform: "kick", status: "expired", endsAt: "2000-01-01T00:00:00.000Z" }),
-        campaign("completed", { platform: "kick", status: "completed", rewards: [reward("claimed")] }),
+        campaign("expired", {
+          platform: "kick",
+          status: "expired",
+          endsAt: "2000-01-01T00:00:00.000Z",
+        }),
+        campaign("completed", {
+          platform: "kick",
+          status: "completed",
+          rewards: [reward("claimed")],
+        }),
       ],
       settings(),
       {
         listCandidateChannels,
-        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+        checkChannel: vi.fn(async (candidate) => ({
+          live: true,
+          categoryMatches: true,
+          candidate,
+        })),
       },
     );
 
@@ -921,20 +1196,28 @@ describe("scheduler campaign selection", () => {
 
     const decision = await chooseCampaignDecision(
       "twitch",
-      [campaign("future", {
-        status: "upcoming",
-        eligibility: "upcoming",
-        startsAt: "2999-01-01T00:00:00.000Z",
-        rewards: [{
-          ...reward("locked"),
-          availableFrom: "2999-01-01T00:00:00.000Z",
-          availableUntil: "2999-01-02T00:00:00.000Z",
-        }],
-      })],
+      [
+        campaign("future", {
+          status: "upcoming",
+          eligibility: "upcoming",
+          startsAt: "2999-01-01T00:00:00.000Z",
+          rewards: [
+            {
+              ...reward("locked"),
+              availableFrom: "2999-01-01T00:00:00.000Z",
+              availableUntil: "2999-01-02T00:00:00.000Z",
+            },
+          ],
+        }),
+      ],
       settings(),
       {
         listCandidateChannels,
-        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+        checkChannel: vi.fn(async (candidate) => ({
+          live: true,
+          categoryMatches: true,
+          candidate,
+        })),
       },
     );
 
@@ -948,7 +1231,11 @@ describe("scheduler campaign selection", () => {
 
   it("passes cancellation to Idle Watchlist channel checks", async () => {
     const abort = new AbortController();
-    const checkChannel = vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate }));
+    const checkChannel = vi.fn(async (candidate) => ({
+      live: true,
+      categoryMatches: true,
+      candidate,
+    }));
 
     await chooseCampaignDecision(
       "twitch",
@@ -966,25 +1253,20 @@ describe("scheduler campaign selection", () => {
       abort.signal,
     );
 
-    expect(checkChannel).toHaveBeenCalledWith(
-      expect.objectContaining({ username: "fallback" }),
-      { campaign: undefined, signal: abort.signal },
-    );
+    expect(checkChannel).toHaveBeenCalledWith(expect.objectContaining({ username: "fallback" }), {
+      campaign: undefined,
+      signal: abort.signal,
+    });
   });
 
   it("prefers ACL candidates over general category streams", async () => {
-    const decision = await chooseCampaignDecision(
-      "twitch",
-      [campaign("drops")],
-      settings(),
-      {
-        listCandidateChannels: vi.fn(async () => [
-          channel("general", { isAclMatch: false, viewerCount: 5000 }),
-          channel("allowed", { isAclMatch: true, viewerCount: 1 }),
-        ]),
-        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
-      },
-    );
+    const decision = await chooseCampaignDecision("twitch", [campaign("drops")], settings(), {
+      listCandidateChannels: vi.fn(async () => [
+        channel("general", { isAclMatch: false, viewerCount: 5000 }),
+        channel("allowed", { isAclMatch: true, viewerCount: 1 }),
+      ]),
+      checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+    });
 
     expect(decision.channel?.username).toBe("allowed");
   });
@@ -999,15 +1281,10 @@ describe("scheduler campaign selection", () => {
       candidate,
     }));
 
-    const decision = await chooseCampaignDecision(
-      "twitch",
-      [campaign("drops")],
-      settings(),
-      {
-        listCandidateChannels: vi.fn(async () => [offline, wrongGame, valid]),
-        checkChannel,
-      },
-    );
+    const decision = await chooseCampaignDecision("twitch", [campaign("drops")], settings(), {
+      listCandidateChannels: vi.fn(async () => [offline, wrongGame, valid]),
+      checkChannel,
+    });
 
     expect(decision.action).toBe("watch");
     expect(decision.channel?.username).toBe("valid");
@@ -1024,15 +1301,10 @@ describe("scheduler campaign selection", () => {
       candidate,
     }));
 
-    const decision = await chooseCampaignDecision(
-      "twitch",
-      [campaign("drops")],
-      settings(),
-      {
-        listCandidateChannels: vi.fn(async () => [unavailable, valid]),
-        checkChannel,
-      },
-    );
+    const decision = await chooseCampaignDecision("twitch", [campaign("drops")], settings(), {
+      listCandidateChannels: vi.fn(async () => [unavailable, valid]),
+      checkChannel,
+    });
 
     expect(decision.action).toBe("watch");
     expect(decision.channel?.username).toBe("valid");
@@ -1049,15 +1321,10 @@ describe("scheduler campaign selection", () => {
       candidate,
     }));
 
-    const decision = await chooseCampaignDecision(
-      "twitch",
-      [campaign("drops")],
-      settings(),
-      {
-        listCandidateChannels: vi.fn(async () => [unverifiable, valid]),
-        checkChannel,
-      },
-    );
+    const decision = await chooseCampaignDecision("twitch", [campaign("drops")], settings(), {
+      listCandidateChannels: vi.fn(async () => [unverifiable, valid]),
+      checkChannel,
+    });
 
     expect(decision.action).toBe("watch");
     expect(decision.channel?.username).toBe("valid");
@@ -1077,7 +1344,11 @@ describe("scheduler campaign selection", () => {
       }),
       {
         listCandidateChannels: vi.fn(async () => [channel("blocked"), channel("allowed")]),
-        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+        checkChannel: vi.fn(async (candidate) => ({
+          live: true,
+          categoryMatches: true,
+          candidate,
+        })),
       },
     );
 
@@ -1095,7 +1366,11 @@ describe("scheduler campaign selection", () => {
         listCandidateChannels: vi.fn(async () => [
           channel("blocked", { platform: "kick", url: "https://kick.com/blocked" }),
         ]),
-        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+        checkChannel: vi.fn(async (candidate) => ({
+          live: true,
+          categoryMatches: true,
+          candidate,
+        })),
       },
     );
 
@@ -1111,18 +1386,13 @@ describe("scheduler campaign selection", () => {
       candidate,
     }));
 
-    const decision = await chooseCampaignDecision(
-      "twitch",
-      [campaign("drops")],
-      settings(),
-      {
-        listCandidateChannels: vi.fn(async () => [
-          duplicate,
-          { ...duplicate, displayName: "CREATOR" },
-        ]),
-        checkChannel,
-      },
-    );
+    const decision = await chooseCampaignDecision("twitch", [campaign("drops")], settings(), {
+      listCandidateChannels: vi.fn(async () => [
+        duplicate,
+        { ...duplicate, displayName: "CREATOR" },
+      ]),
+      checkChannel,
+    });
 
     expect(decision.action).toBe("watch");
     expect(checkChannel).toHaveBeenCalledOnce();
@@ -1130,15 +1400,14 @@ describe("scheduler campaign selection", () => {
 
   it("reuses general directory candidates only within one selection pass", async () => {
     const listCandidateChannels = vi.fn(async () => [channel("creator")]);
-    const checkChannel = vi.fn(async (
-      candidate: ChannelCandidate,
-      options?: { campaign?: DropCampaign },
-    ) => ({
-      live: true,
-      categoryMatches: true,
-      campaignMatches: options?.campaign?.id === "second",
-      candidate,
-    }));
+    const checkChannel = vi.fn(
+      async (candidate: ChannelCandidate, options?: { campaign?: DropCampaign }) => ({
+        live: true,
+        categoryMatches: true,
+        campaignMatches: options?.campaign?.id === "second",
+        candidate,
+      }),
+    );
 
     const decision = await chooseCampaignDecision(
       "twitch",
@@ -1166,10 +1435,14 @@ describe("scheduler campaign selection", () => {
         },
       }),
       {
-        listCandidateChannels: vi.fn(async (dropCampaign) => (
-          dropCampaign.id === "first" ? [channel("blocked")] : [channel("allowed")]
-        )),
-        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+        listCandidateChannels: vi.fn(async (dropCampaign) =>
+          dropCampaign.id === "first" ? [channel("blocked")] : [channel("allowed")],
+        ),
+        checkChannel: vi.fn(async (candidate) => ({
+          live: true,
+          categoryMatches: true,
+          candidate,
+        })),
       },
     );
 
@@ -1181,10 +1454,18 @@ describe("scheduler campaign selection", () => {
     const decision = await chooseCampaignDecision(
       "kick",
       [],
-      settings({ platform: { kick: { enabled: true, idleWatchlistChannels: ["fallback"] } } as ExtensionSettings["platform"] }),
+      settings({
+        platform: {
+          kick: { enabled: true, idleWatchlistChannels: ["fallback"] },
+        } as ExtensionSettings["platform"],
+      }),
       {
         listCandidateChannels: vi.fn(),
-        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+        checkChannel: vi.fn(async (candidate) => ({
+          live: true,
+          categoryMatches: true,
+          candidate,
+        })),
       },
     );
 
@@ -1199,12 +1480,20 @@ describe("scheduler campaign selection", () => {
       settings({
         platform: {
           ...DEFAULT_SETTINGS.platform,
-          kick: { ...DEFAULT_SETTINGS.platform.kick, idleWatchlistChannels: ["fallback"], excludedChannels: ["fallback"] },
+          kick: {
+            ...DEFAULT_SETTINGS.platform.kick,
+            idleWatchlistChannels: ["fallback"],
+            excludedChannels: ["fallback"],
+          },
         },
       }),
       {
         listCandidateChannels: vi.fn(),
-        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+        checkChannel: vi.fn(async (candidate) => ({
+          live: true,
+          categoryMatches: true,
+          candidate,
+        })),
       },
     );
 
@@ -1216,7 +1505,11 @@ describe("scheduler campaign selection", () => {
     const decision = await chooseCampaignDecision(
       "kick",
       [],
-      settings({ platform: { kick: { enabled: true, idleWatchlistChannels: ["fallback"] } } as ExtensionSettings["platform"] }),
+      settings({
+        platform: {
+          kick: { enabled: true, idleWatchlistChannels: ["fallback"] },
+        } as ExtensionSettings["platform"],
+      }),
       {
         listCandidateChannels: vi.fn(),
         checkChannel: vi.fn(async (candidate) => ({
@@ -1247,7 +1540,11 @@ describe("scheduler campaign selection", () => {
     const decision = await chooseCampaignDecision(
       "kick",
       [],
-      settings({ platform: { kick: { enabled: true, idleWatchlistChannels: ["offline", "live"] } } as ExtensionSettings["platform"] }),
+      settings({
+        platform: {
+          kick: { enabled: true, idleWatchlistChannels: ["offline", "live"] },
+        } as ExtensionSettings["platform"],
+      }),
       {
         listCandidateChannels: vi.fn(),
         checkChannel: vi.fn(async (candidate) => ({
@@ -1261,18 +1558,23 @@ describe("scheduler campaign selection", () => {
     expect(decision.action).toBe("fallback");
     expect(decision.channel?.username).toBe("live");
   });
-
 });
 
 describe("campaign filters gate farming", () => {
   const eligibility = (
     patch: Partial<ExtensionSettings["farmingEligibility"]>,
-  ): ExtensionSettings["farmingEligibility"] =>
-    ({ ...DEFAULT_SETTINGS.farmingEligibility, ...patch });
+  ): ExtensionSettings["farmingEligibility"] => ({
+    ...DEFAULT_SETTINGS.farmingEligibility,
+    ...patch,
+  });
 
   const kickAdapter = () => ({
     listCandidateChannels: vi.fn(async () => [channel("creator", { platform: "kick" as const })]),
-    checkChannel: vi.fn(async (candidate: ChannelCandidate) => ({ live: true, categoryMatches: true, candidate })),
+    checkChannel: vi.fn(async (candidate: ChannelCandidate) => ({
+      live: true,
+      categoryMatches: true,
+      candidate,
+    })),
   });
 
   const unlinkedKick = () => campaign("unlinked", { platform: "kick", accountLinked: false });
@@ -1290,18 +1592,31 @@ describe("campaign filters gate farming", () => {
   });
 
   it("still farms an unlinked Kick campaign when farmUnlinkedCampaigns is on", async () => {
-    const decision = await chooseCampaignDecision("kick", [unlinkedKick()], settings(), kickAdapter());
+    const decision = await chooseCampaignDecision(
+      "kick",
+      [unlinkedKick()],
+      settings(),
+      kickAdapter(),
+    );
 
     expect(decision.action).toBe("watch");
     expect(decision.campaign?.id).toBe("unlinked");
   });
 
-  const subscriptionCampaign = () => campaign("mixed", {
-    rewards: [
-      reward("in_progress"),
-      { id: "sub", name: "Sub reward", requiredMinutes: 0, watchedMinutes: 0, requiredSubs: 1, status: "locked" },
-    ],
-  });
+  const subscriptionCampaign = () =>
+    campaign("mixed", {
+      rewards: [
+        reward("in_progress"),
+        {
+          id: "sub",
+          name: "Sub reward",
+          requiredMinutes: 0,
+          watchedMinutes: 0,
+          requiredSubs: 1,
+          status: "locked",
+        },
+      ],
+    });
 
   it("skips a subscription campaign when farmSubscriptionCampaigns is off", async () => {
     const decision = await chooseCampaignDecision(
@@ -1310,7 +1625,11 @@ describe("campaign filters gate farming", () => {
       settings({ farmingEligibility: eligibility({ farmSubscriptionCampaigns: false }) }),
       {
         listCandidateChannels: vi.fn(async () => [channel("creator")]),
-        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+        checkChannel: vi.fn(async (candidate) => ({
+          live: true,
+          categoryMatches: true,
+          candidate,
+        })),
       },
     );
 
@@ -1319,15 +1638,10 @@ describe("campaign filters gate farming", () => {
   });
 
   it("still farms a subscription campaign's watch rewards when farmSubscriptionCampaigns is on", async () => {
-    const decision = await chooseCampaignDecision(
-      "twitch",
-      [subscriptionCampaign()],
-      settings(),
-      {
-        listCandidateChannels: vi.fn(async () => [channel("creator")]),
-        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
-      },
-    );
+    const decision = await chooseCampaignDecision("twitch", [subscriptionCampaign()], settings(), {
+      listCandidateChannels: vi.fn(async () => [channel("creator")]),
+      checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+    });
 
     expect(decision.action).toBe("watch");
     expect(decision.campaign?.id).toBe("mixed");
@@ -1336,15 +1650,10 @@ describe("campaign filters gate farming", () => {
   it("farms an ordinary active campaign under the default eligibility settings", async () => {
     // Nothing is turned off, so the default farmingEligibility flags must be
     // behaviour-neutral for a linked, non-subscription campaign.
-    const decision = await chooseCampaignDecision(
-      "twitch",
-      [campaign("active")],
-      settings(),
-      {
-        listCandidateChannels: vi.fn(async () => [channel("creator")]),
-        checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
-      },
-    );
+    const decision = await chooseCampaignDecision("twitch", [campaign("active")], settings(), {
+      listCandidateChannels: vi.fn(async () => [channel("creator")]),
+      checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
+    });
 
     expect(decision.action).toBe("watch");
     expect(decision.campaign?.id).toBe("active");
@@ -1365,7 +1674,9 @@ describe("scheduler tick", () => {
     const activeCampaign = campaign("current");
     const activeChannel = channel("current");
     const twitch = adapter("twitch", [], []);
-    twitch.checkChannel = vi.fn(async () => { throw new Error("selection must not validate through the provider"); });
+    twitch.checkChannel = vi.fn(async () => {
+      throw new Error("selection must not validate through the provider");
+    });
     const current: SchedulerState = {
       ...baseState,
       campaigns: { ...baseState.campaigns, twitch: [activeCampaign] },
@@ -1395,13 +1706,18 @@ describe("scheduler tick", () => {
       },
     };
 
-    const result = await runSchedulerTick(current, settings({ autoClaim: false }), {
-      twitch,
-      kick: adapter("kick", [], []),
-    }, {
-      platforms: ["twitch"],
-      discovery: { twitch: { campaigns: [activeCampaign], complete: false } },
-    });
+    const result = await runSchedulerTick(
+      current,
+      settings({ autoClaim: false }),
+      {
+        twitch,
+        kick: adapter("kick", [], []),
+      },
+      {
+        platforms: ["twitch"],
+        discovery: { twitch: { campaigns: [activeCampaign], complete: false } },
+      },
+    );
 
     expect(result.state.sessions.twitch).toMatchObject({
       status: "watching",
@@ -1415,21 +1731,25 @@ describe("scheduler tick", () => {
   function realtimeCampaigns(): [DropCampaign, DropCampaign] {
     const ordinary = campaign("ordinary", {
       endsAt: "2026-08-12T13:00:00.000Z",
-      rewards: [{
-        ...reward("in_progress"),
-        id: "ordinary-reward",
-        requiredMinutes: 60,
-        watchedMinutes: 20,
-      }],
+      rewards: [
+        {
+          ...reward("in_progress"),
+          id: "ordinary-reward",
+          requiredMinutes: 60,
+          watchedMinutes: 20,
+        },
+      ],
     });
     const flash = campaign("flash", {
       endsAt: "2026-08-12T12:02:00.000Z",
-      rewards: [{
-        ...reward("in_progress"),
-        id: "flash-reward",
-        requiredMinutes: 1,
-        watchedMinutes: 0,
-      }],
+      rewards: [
+        {
+          ...reward("in_progress"),
+          id: "flash-reward",
+          requiredMinutes: 1,
+          watchedMinutes: 0,
+        },
+      ],
     });
     return [ordinary, flash];
   }
@@ -1520,13 +1840,18 @@ describe("scheduler tick", () => {
     ["unavailable", "platform_unavailable"],
   ] as const)("suspends account work while authentication is %s", async (status, reasonCode) => {
     const kick = {
-      ...adapter("kick", [campaign("public", { platform: "kick" })], [channel("creator", { platform: "kick" })]),
+      ...adapter(
+        "kick",
+        [campaign("public", { platform: "kick" })],
+        [channel("creator", { platform: "kick" })],
+      ),
       claimChallenges: vi.fn(async () => []),
       claimChannelPoints: vi.fn(async () => true),
     };
     const tabRegistry = createTabRegistry();
     const stopPageContextTabs = vi.fn<StopPageContextTabs>((contexts, options) =>
-      forgetManagedPageContextTabs(tabRegistry, contexts, options));
+      forgetManagedPageContextTabs(tabRegistry, contexts, options),
+    );
     const previous = {
       platform: "kick" as const,
       status: "watching" as const,
@@ -1550,7 +1875,12 @@ describe("scheduler tick", () => {
         sessions: { ...baseState.sessions, kick: previous },
         campaigns: { ...baseState.campaigns, kick: [campaign("stale", { platform: "kick" })] },
         managedWatchTabs: {
-          kick: { platform: "kick", tabId: 42, channelUrl: previous.channel.url, ownedByExtension: true },
+          kick: {
+            platform: "kick",
+            tabId: 42,
+            channelUrl: previous.channel.url,
+            ownedByExtension: true,
+          },
         },
       },
       settings({ platform: { twitch: { enabled: false }, kick: { enabled: true } } }),
@@ -1587,69 +1917,116 @@ describe("scheduler tick", () => {
     const ready = campaign("drops", { rewards: [reward("claimable")] });
     const result = await runSchedulerTick(
       baseState,
-      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch: adapter("twitch", [ready], []), kick: adapter("kick", [], []) },
     );
 
     expect(result.state).not.toHaveProperty("events");
-    expect(result.events).toContainEqual(expect.objectContaining({
-      category: "activity",
-      code: "reward_claimed",
-      data: expect.objectContaining({ method: "automatic" }),
-    }));
+    expect(result.events).toContainEqual(
+      expect.objectContaining({
+        category: "activity",
+        code: "reward_claimed",
+        data: expect.objectContaining({ method: "automatic" }),
+      }),
+    );
   });
 
   it("does not repeat diagnostics for an unchanged healthy target", async () => {
     const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
-    const tickSettings = settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } });
+    const tickSettings = settings({
+      platform: {
+        twitch: { enabled: true, idleWatchlistChannels: [] },
+        kick: { enabled: false, idleWatchlistChannels: [] },
+      },
+    });
     const tickAdapters = { twitch, kick: adapter("kick", [], []) };
     const first = await runSchedulerTick(baseState, tickSettings, tickAdapters);
     const second = await runSchedulerTick(first.state, tickSettings, tickAdapters);
 
-    expect(second.events.filter((event) => event.category === "diagnostic" && event.message.startsWith("Campaign decision:"))).toEqual([]);
-    expect(second.events.filter((event) => event.category === "diagnostic" && event.message.includes("campaigns eligible"))).toEqual([]);
+    expect(
+      second.events.filter(
+        (event) =>
+          event.category === "diagnostic" && event.message.startsWith("Campaign decision:"),
+      ),
+    ).toEqual([]);
+    expect(
+      second.events.filter(
+        (event) => event.category === "diagnostic" && event.message.includes("campaigns eligible"),
+      ),
+    ).toEqual([]);
   });
 
   it("reports aggregate and active campaign rejection reasons only when the snapshot changes", async () => {
     const rejected = [
       campaign("linked-required", { accountLinked: false }),
-      campaign("finished", { status: "completed", rewards: [{ ...reward("claimed"), id: "done" }] }),
+      campaign("finished", {
+        status: "completed",
+        rewards: [{ ...reward("claimed"), id: "done" }],
+      }),
       campaign("farmable"),
     ];
     const twitch = adapter("twitch", rejected, [channel("creator")]);
-    const tickSettings = settings({ farmingEligibility: { farmUnlinkedCampaigns: false, farmSubscriptionCampaigns: true }, platform: { twitch: { enabled: true }, kick: { enabled: false } } });
+    const tickSettings = settings({
+      farmingEligibility: { farmUnlinkedCampaigns: false, farmSubscriptionCampaigns: true },
+      platform: { twitch: { enabled: true }, kick: { enabled: false } },
+    });
     const tickAdapters = { twitch, kick: adapter("kick", [], []) };
     const campaignEvaluationFingerprints = {};
 
-    const first = await runSchedulerTick(baseState, tickSettings, tickAdapters, { campaignEvaluationFingerprints });
-    const aggregate = first.events.find((event) => event.category === "diagnostic" && event.message.startsWith("Campaign farming evaluation:"));
-    const details = first.events.filter((event) => event.category === "diagnostic" && event.message.startsWith("Campaign rejected:"));
+    const first = await runSchedulerTick(baseState, tickSettings, tickAdapters, {
+      campaignEvaluationFingerprints,
+    });
+    const aggregate = first.events.find(
+      (event) =>
+        event.category === "diagnostic" && event.message.startsWith("Campaign farming evaluation:"),
+    );
+    const details = first.events.filter(
+      (event) => event.category === "diagnostic" && event.message.startsWith("Campaign rejected:"),
+    );
 
     expect(aggregate).toMatchObject({
       platform: "twitch",
-      message: "Campaign farming evaluation: 3 discovered, 1 farmable, 1 completed, 1 unlinked campaigns disabled",
+      message:
+        "Campaign farming evaluation: 3 discovered, 1 farmable, 1 completed, 1 unlinked campaigns disabled",
     });
     expect(details).toEqual([
       expect.objectContaining({
         platform: "twitch",
-        message: "Campaign rejected: linked-required (linked-required), reason=unlinked_campaigns_disabled",
+        message:
+          "Campaign rejected: linked-required (linked-required), reason=unlinked_campaigns_disabled",
       }),
     ]);
 
-    const second = await runSchedulerTick(first.state, tickSettings, tickAdapters, { campaignEvaluationFingerprints });
-    expect(second.events.filter((event) => event.category === "diagnostic" && (
-      event.message.startsWith("Campaign farming evaluation:")
-      || event.message.startsWith("Campaign rejected:")
-    ))).toEqual([]);
+    const second = await runSchedulerTick(first.state, tickSettings, tickAdapters, {
+      campaignEvaluationFingerprints,
+    });
+    expect(
+      second.events.filter(
+        (event) =>
+          event.category === "diagnostic"
+          && (event.message.startsWith("Campaign farming evaluation:")
+            || event.message.startsWith("Campaign rejected:")),
+      ),
+    ).toEqual([]);
 
     vi.mocked(twitch.refreshCampaigns).mockResolvedValueOnce([
       ...rejected.slice(0, 2),
       campaign("farmable", { accountLinked: false }),
     ]);
-    const third = await runSchedulerTick(second.state, tickSettings, tickAdapters, { campaignEvaluationFingerprints });
-    expect(third.events).toContainEqual(expect.objectContaining({
-      message: "Campaign farming evaluation: 3 discovered, 0 farmable, 1 completed, 2 unlinked campaigns disabled",
-    }));
+    const third = await runSchedulerTick(second.state, tickSettings, tickAdapters, {
+      campaignEvaluationFingerprints,
+    });
+    expect(third.events).toContainEqual(
+      expect.objectContaining({
+        message:
+          "Campaign farming evaluation: 3 discovered, 0 farmable, 1 completed, 2 unlinked campaigns disabled",
+      }),
+    );
   });
 
   it("does not repeat insufficient-time diagnostics as available time decreases", async () => {
@@ -1665,17 +2042,27 @@ describe("scheduler tick", () => {
       const tickAdapters = { twitch, kick: adapter("kick", [], []) };
       const campaignEvaluationFingerprints = {};
 
-      const first = await runSchedulerTick(baseState, tickSettings, tickAdapters, { campaignEvaluationFingerprints });
-      expect(first.events).toContainEqual(expect.objectContaining({
-        message: expect.stringContaining("reason=insufficient_time"),
-      }));
+      const first = await runSchedulerTick(baseState, tickSettings, tickAdapters, {
+        campaignEvaluationFingerprints,
+      });
+      expect(first.events).toContainEqual(
+        expect.objectContaining({
+          message: expect.stringContaining("reason=insufficient_time"),
+        }),
+      );
 
       vi.setSystemTime("2026-08-15T12:01:00.000Z");
-      const second = await runSchedulerTick(first.state, tickSettings, tickAdapters, { campaignEvaluationFingerprints });
-      expect(second.events.filter((event) => event.category === "diagnostic" && (
-        event.message.startsWith("Campaign farming evaluation:")
-        || event.message.startsWith("Campaign rejected:")
-      ))).toEqual([]);
+      const second = await runSchedulerTick(first.state, tickSettings, tickAdapters, {
+        campaignEvaluationFingerprints,
+      });
+      expect(
+        second.events.filter(
+          (event) =>
+            event.category === "diagnostic"
+            && (event.message.startsWith("Campaign farming evaluation:")
+              || event.message.startsWith("Campaign rejected:")),
+        ),
+      ).toEqual([]);
     } finally {
       vi.useRealTimers();
     }
@@ -1701,17 +2088,26 @@ describe("scheduler tick", () => {
       { ...first[0], rewards: [...first[0].rewards].reverse() },
     ];
     const twitch = adapter("twitch", first, []);
-    const tickSettings = settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } });
+    const tickSettings = settings({
+      platform: {
+        twitch: { enabled: true, idleWatchlistChannels: [] },
+        kick: { enabled: false, idleWatchlistChannels: [] },
+      },
+    });
     const tickAdapters = { twitch, kick: adapter("kick", [], []) };
 
     const initial = await runSchedulerTick(baseState, tickSettings, tickAdapters);
     vi.mocked(twitch.refreshCampaigns).mockResolvedValueOnce(reordered);
     const second = await runSchedulerTick(initial.state, tickSettings, tickAdapters);
 
-    expect(second.events.filter((event) => event.category === "diagnostic" && (
-      event.message.startsWith("Campaign inventory changed")
-      || event.message.includes("campaigns eligible")
-    ))).toEqual([]);
+    expect(
+      second.events.filter(
+        (event) =>
+          event.category === "diagnostic"
+          && (event.message.startsWith("Campaign inventory changed")
+            || event.message.includes("campaigns eligible")),
+      ),
+    ).toEqual([]);
   });
 
   const inventoryChanges: Array<[string, DropCampaign[], DropCampaign[]]> = [
@@ -1725,40 +2121,65 @@ describe("scheduler tick", () => {
     ],
   ];
 
-  it.each(inventoryChanges)("emits both inventory diagnostics when %s", async (_change, previous, next) => {
-    const twitch = adapter("twitch", previous, []);
-    const tickSettings = settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } });
-    const tickAdapters = { twitch, kick: adapter("kick", [], []) };
+  it.each(inventoryChanges)(
+    "emits both inventory diagnostics when %s",
+    async (_change, previous, next) => {
+      const twitch = adapter("twitch", previous, []);
+      const tickSettings = settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      });
+      const tickAdapters = { twitch, kick: adapter("kick", [], []) };
 
-    const initial = await runSchedulerTick(baseState, tickSettings, tickAdapters);
-    vi.mocked(twitch.refreshCampaigns).mockResolvedValueOnce(next);
-    const second = await runSchedulerTick(initial.state, tickSettings, tickAdapters);
-    const inventoryDiagnostics = second.events.filter((event) => event.category === "diagnostic" && (
-      event.message.startsWith("Campaign inventory changed")
-      || event.message.includes("campaigns eligible")
-    ));
+      const initial = await runSchedulerTick(baseState, tickSettings, tickAdapters);
+      vi.mocked(twitch.refreshCampaigns).mockResolvedValueOnce(next);
+      const second = await runSchedulerTick(initial.state, tickSettings, tickAdapters);
+      const inventoryDiagnostics = second.events.filter(
+        (event) =>
+          event.category === "diagnostic"
+          && (event.message.startsWith("Campaign inventory changed")
+            || event.message.includes("campaigns eligible")),
+      );
 
-    expect(inventoryDiagnostics).toHaveLength(2);
-    expect(inventoryDiagnostics).toEqual(expect.arrayContaining([
-      expect.objectContaining({ message: expect.stringContaining("Campaign inventory changed") }),
-      expect.objectContaining({ message: expect.stringContaining("campaigns eligible") }),
-    ]));
-  });
+      expect(inventoryDiagnostics).toHaveLength(2);
+      expect(inventoryDiagnostics).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            message: expect.stringContaining("Campaign inventory changed"),
+          }),
+          expect.objectContaining({ message: expect.stringContaining("campaigns eligible") }),
+        ]),
+      );
+    },
+  );
 
   it("does not rerun the eligibility predicate or emit inventory diagnostics for an identical discovery", async () => {
     const drops = campaign("drops");
     const twitch = adapter("twitch", [drops], []);
-    const tickSettings = settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } });
+    const tickSettings = settings({
+      platform: {
+        twitch: { enabled: true, idleWatchlistChannels: [] },
+        kick: { enabled: false, idleWatchlistChannels: [] },
+      },
+    });
     const tickAdapters = { twitch, kick: adapter("kick", [], []) };
 
     const initial = await runSchedulerTick(baseState, tickSettings, tickAdapters);
-    vi.mocked(twitch.refreshCampaigns).mockResolvedValueOnce([{ ...drops, rewards: [...drops.rewards] }]);
+    vi.mocked(twitch.refreshCampaigns).mockResolvedValueOnce([
+      { ...drops, rewards: [...drops.rewards] },
+    ]);
     const second = await runSchedulerTick(initial.state, tickSettings, tickAdapters);
 
-    expect(second.events.filter((event) => event.category === "diagnostic" && (
-      event.message.startsWith("Campaign inventory changed")
-      || event.message.includes("campaigns eligible")
-    ))).toEqual([]);
+    expect(
+      second.events.filter(
+        (event) =>
+          event.category === "diagnostic"
+          && (event.message.startsWith("Campaign inventory changed")
+            || event.message.includes("campaigns eligible")),
+      ),
+    ).toEqual([]);
   });
 
   it("emits structured diagnostics for rewards excluded by deadline feasibility", async () => {
@@ -1770,22 +2191,27 @@ describe("scheduler tick", () => {
         baseState,
         settings({
           deadlineSafetyMarginMinutes: 5,
-          platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } },
+          platform: {
+            twitch: { enabled: true, idleWatchlistChannels: [] },
+            kick: { enabled: false, idleWatchlistChannels: [] },
+          },
         }),
         { twitch: adapter("twitch", [timed], []), kick: adapter("kick", [], []) },
       );
 
-      expect(result.events).toContainEqual(expect.objectContaining({
-        category: "diagnostic",
-        code: "reward_insufficient_time",
-        data: expect.objectContaining({
-          campaignId: "drops",
-          rewardId: "reward-in_progress",
-          remainingMinutes: 40,
-          marginMinutes: 5,
-          deadline: "2026-07-19T12:44:59.999Z",
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          category: "diagnostic",
+          code: "reward_insufficient_time",
+          data: expect.objectContaining({
+            campaignId: "drops",
+            rewardId: "reward-in_progress",
+            remainingMinutes: 40,
+            marginMinutes: 5,
+            deadline: "2026-07-19T12:44:59.999Z",
+          }),
         }),
-      }));
+      );
     } finally {
       vi.useRealTimers();
     }
@@ -1799,7 +2225,10 @@ describe("scheduler tick", () => {
       const twitch = adapter("twitch", [timed], []);
       const tickSettings = settings({
         deadlineSafetyMarginMinutes: 5,
-        platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } },
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
       });
       const tickAdapters = { twitch, kick: adapter("kick", [], []) };
 
@@ -1808,7 +2237,9 @@ describe("scheduler tick", () => {
 
       vi.setSystemTime("2026-07-19T12:06:00.000Z");
       const second = await runSchedulerTick(first.state, tickSettings, tickAdapters);
-      expect(second.events.filter((event) => event.code === "reward_insufficient_time")).toHaveLength(1);
+      expect(
+        second.events.filter((event) => event.code === "reward_insufficient_time"),
+      ).toHaveLength(1);
 
       const third = await runSchedulerTick(second.state, tickSettings, tickAdapters);
       expect(third.events.filter((event) => event.code === "reward_insufficient_time")).toEqual([]);
@@ -1846,7 +2277,12 @@ describe("scheduler tick", () => {
           },
         },
       },
-      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -1875,7 +2311,10 @@ describe("scheduler tick", () => {
       },
       settings({
         autoClaim: false,
-        platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } },
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
       }),
       { twitch, kick: adapter("kick", [], []) },
     );
@@ -1906,7 +2345,10 @@ describe("scheduler tick", () => {
       },
       settings({
         autoClaim: false,
-        platform: { twitch: { enabled: true, idleWatchlistChannels: ["fallback"] }, kick: { enabled: false, idleWatchlistChannels: [] } },
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: ["fallback"] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
       }),
       { twitch, kick: adapter("kick", [], []) },
     );
@@ -1929,12 +2371,24 @@ describe("scheduler tick", () => {
       {
         authHealth: HEALTHY_AUTH,
         sessions: {
-          twitch: { platform: "twitch", status: "watching", channel: first, offlineChecks: 2, tabId: 7 },
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: first,
+            offlineChecks: 2,
+            tabId: 7,
+          },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
       },
-      settings({ offlineRetryLimit: 3, platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      settings({
+        offlineRetryLimit: 3,
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -1953,23 +2407,42 @@ describe("scheduler tick", () => {
 
   it("pauses only the platform with recent manual watch activity", async () => {
     const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
-    const kick = adapter("kick", [campaign("kick-drops", { platform: "kick" })], [
-      channel("kick-creator", { platform: "kick", url: "https://kick.com/kick-creator" }),
-    ]);
+    const kick = adapter(
+      "kick",
+      [campaign("kick-drops", { platform: "kick" })],
+      [channel("kick-creator", { platform: "kick", url: "https://kick.com/kick-creator" })],
+    );
 
     const result = await runSchedulerTick(
       {
         authHealth: HEALTHY_AUTH,
         sessions: {
-          twitch: { platform: "twitch", status: "watching", channel: channel("old"), offlineChecks: 0, tabId: 7, tabManagedByExtension: true },
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: channel("old"),
+            offlineChecks: 0,
+            tabId: 7,
+            tabManagedByExtension: true,
+          },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         manualWatch: {
-          twitch: { platform: "twitch", tabId: 99, active: true, checkedAt: new Date().toISOString() },
+          twitch: {
+            platform: "twitch",
+            tabId: 99,
+            active: true,
+            checkedAt: new Date().toISOString(),
+          },
         },
         campaigns: { twitch: [], kick: [] },
       },
-      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: true, idleWatchlistChannels: [] } } }),
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: true, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick },
     );
 
@@ -1996,11 +2469,21 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         manualWatch: {
-          twitch: { platform: "twitch", tabId: 99, active: true, checkedAt: new Date(Date.now() - 60_000).toISOString() },
+          twitch: {
+            platform: "twitch",
+            tabId: 99,
+            active: true,
+            checkedAt: new Date(Date.now() - 60_000).toISOString(),
+          },
         },
         campaigns: { twitch: [], kick: [] },
       },
-      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -2022,11 +2505,21 @@ describe("scheduler tick", () => {
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         manualWatch: {
-          twitch: { platform: "twitch", tabId: 99, active: true, checkedAt: new Date(Date.now() + 60 * 60_000).toISOString() },
+          twitch: {
+            platform: "twitch",
+            tabId: 99,
+            active: true,
+            checkedAt: new Date(Date.now() + 60 * 60_000).toISOString(),
+          },
         },
         campaigns: { twitch: [], kick: [] },
       },
-      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -2039,9 +2532,20 @@ describe("scheduler tick", () => {
     const adapters = () => ({ twitch, kick: adapter("kick", [], []) });
 
     const quiet = await runSchedulerTick(baseState, settings(), adapters());
-    expect(quiet.events.some((event) => event.category === "diagnostic" && event.level === "debug")).toBe(true);
-    expect(quiet.events.some((event) => event.category === "diagnostic" && event.message.startsWith("Campaign inventory changed"))).toBe(true);
-    expect(quiet.events.some((event) => event.category === "diagnostic" && event.message.startsWith("Tick start"))).toBe(false);
+    expect(
+      quiet.events.some((event) => event.category === "diagnostic" && event.level === "debug"),
+    ).toBe(true);
+    expect(
+      quiet.events.some(
+        (event) =>
+          event.category === "diagnostic" && event.message.startsWith("Campaign inventory changed"),
+      ),
+    ).toBe(true);
+    expect(
+      quiet.events.some(
+        (event) => event.category === "diagnostic" && event.message.startsWith("Tick start"),
+      ),
+    ).toBe(false);
   });
 
   it("reports platform-scoped timings and candidate counts for scheduler phases", async () => {
@@ -2067,16 +2571,24 @@ describe("scheduler tick", () => {
         event.category === "diagnostic",
     );
 
-    expect(diagnostics).not.toContainEqual(expect.objectContaining({
-      message: expect.stringContaining("Campaign discovery finished"),
-    }));
-    expect(diagnostics).not.toContainEqual(expect.objectContaining({
-      message: expect.stringContaining("Campaign progress refresh finished"),
-    }));
-    expect(diagnostics).toContainEqual(expect.objectContaining({
-      platform: "twitch",
-      message: expect.stringMatching(/^Campaign selection finished in \d+ms \(1 campaign checked, 2 candidates checked\)$/),
-    }));
+    expect(diagnostics).not.toContainEqual(
+      expect.objectContaining({
+        message: expect.stringContaining("Campaign discovery finished"),
+      }),
+    );
+    expect(diagnostics).not.toContainEqual(
+      expect.objectContaining({
+        message: expect.stringContaining("Campaign progress refresh finished"),
+      }),
+    );
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({
+        platform: "twitch",
+        message: expect.stringMatching(
+          /^Campaign selection finished in \d+ms \(1 campaign checked, 2 candidates checked\)$/,
+        ),
+      }),
+    );
     expect(twitch.refreshCampaigns).toHaveBeenCalledOnce();
     expect(twitch.refreshCampaigns).toHaveBeenCalledWith(
       baseState.sessions.twitch,
@@ -2132,11 +2644,15 @@ describe("scheduler tick", () => {
       signal: undefined,
     });
     expect(result.state.sessions.twitch.reasonCode).toBe("keeping_current_watch");
-    expect(result.events).toContainEqual(expect.objectContaining({
-      category: "diagnostic",
-      platform: "twitch",
-      message: expect.stringMatching(/^Campaign selection fast path retained current watch in \d+ms \(1 candidate checked\)$/),
-    }));
+    expect(result.events).toContainEqual(
+      expect.objectContaining({
+        category: "diagnostic",
+        platform: "twitch",
+        message: expect.stringMatching(
+          /^Campaign selection fast path retained current watch in \d+ms \(1 candidate checked\)$/,
+        ),
+      }),
+    );
   });
 
   it.each(["ending_soonest", "lowest_availability"] as const)(
@@ -2199,19 +2715,31 @@ describe("scheduler tick", () => {
         campaignId: "replacement",
         channel: { username: "replacement" },
       });
-      expect(result.events).toContainEqual(expect.objectContaining({
-        message: expect.stringMatching(/^Switching watch target \(Higher priority eligible reward available\)/),
-      }));
+      expect(result.events).toContainEqual(
+        expect.objectContaining({
+          message: expect.stringMatching(
+            /^Switching watch target \(Higher priority eligible reward available\)/,
+          ),
+        }),
+      );
 
       // And stays there: the next check on the same data does not switch back.
-      const next = await runSchedulerTick(result.state, settings({
-        priorityMode,
-        platform: {
-          twitch: { enabled: false, idleWatchlistChannels: [] },
-          kick: { enabled: true, idleWatchlistChannels: [] },
-        },
-      }), { twitch: adapter("twitch", [], []), kick }, { platforms: ["kick"] });
-      expect(next.state.sessions.kick).toMatchObject({ campaignId: "replacement", reasonCode: "keeping_current_watch" });
+      const next = await runSchedulerTick(
+        result.state,
+        settings({
+          priorityMode,
+          platform: {
+            twitch: { enabled: false, idleWatchlistChannels: [] },
+            kick: { enabled: true, idleWatchlistChannels: [] },
+          },
+        }),
+        { twitch: adapter("twitch", [], []), kick },
+        { platforms: ["kick"] },
+      );
+      expect(next.state.sessions.kick).toMatchObject({
+        campaignId: "replacement",
+        reasonCode: "keeping_current_watch",
+      });
     },
   );
 
@@ -2219,11 +2747,16 @@ describe("scheduler tick", () => {
     const current = channel("current");
     const twitch = adapter(
       "twitch",
-      [campaign("current", { endsAt: "2099-02-01T00:00:00.000Z" }), campaign("sooner", { endsAt: "2099-01-01T00:00:00.000Z" })],
+      [
+        campaign("current", { endsAt: "2099-02-01T00:00:00.000Z" }),
+        campaign("sooner", { endsAt: "2099-01-01T00:00:00.000Z" }),
+      ],
       [current],
     );
     // Only the current campaign has a channel to watch.
-    vi.mocked(twitch.listCandidateChannels).mockImplementation(async (target) => target.id === "current" ? [current] : []);
+    vi.mocked(twitch.listCandidateChannels).mockImplementation(async (target) =>
+      target.id === "current" ? [current] : [],
+    );
 
     const result = await runSchedulerTick(
       {
@@ -2242,23 +2775,28 @@ describe("scheduler tick", () => {
           },
         },
       },
-      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick: adapter("kick", [], []) },
       { platforms: ["twitch"] },
     );
 
-    expect(result.state.sessions.twitch).toMatchObject({ status: "watching", campaignId: "current", channel: { username: "current" } });
+    expect(result.state.sessions.twitch).toMatchObject({
+      status: "watching",
+      campaignId: "current",
+      channel: { username: "current" },
+    });
     expect(result.state.sessions.twitch.reasonCode).not.toBe("higher_priority_reward");
   });
 
   it("bypasses current-watch retention when a higher-priority campaign is available", async () => {
     const current = channel("current");
     const replacement = channel("replacement");
-    const twitch = adapter(
-      "twitch",
-      [campaign("current"), campaign("urgent")],
-      [replacement],
-    );
+    const twitch = adapter("twitch", [campaign("current"), campaign("urgent")], [replacement]);
 
     const result = await runSchedulerTick(
       {
@@ -2452,7 +2990,12 @@ describe("scheduler tick", () => {
         },
         campaigns: { twitch: [], kick: [] },
       },
-      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -2463,18 +3006,33 @@ describe("scheduler tick", () => {
     const toonyx = channel("toonyx", { url: "https://www.twitch.tv/toonyx" });
     const twitch = adapter("twitch", [], []);
     // No campaigns -> fallback mode. Both fallbacks are live; "xqc" is now first.
-    vi.mocked(twitch.checkChannel).mockImplementation(async (candidate) => ({ live: true, categoryMatches: true, candidate }));
+    vi.mocked(twitch.checkChannel).mockImplementation(async (candidate) => ({
+      live: true,
+      categoryMatches: true,
+      candidate,
+    }));
 
     const result = await runSchedulerTick(
       {
         authHealth: HEALTHY_AUTH,
         sessions: {
-          twitch: { platform: "twitch", status: "watching", channel: toonyx, offlineChecks: 0, tabId: 7 },
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: toonyx,
+            offlineChecks: 0,
+            tabId: 7,
+          },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
       },
-      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: ["xqc", "toonyx"] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: ["xqc", "toonyx"] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -2485,7 +3043,11 @@ describe("scheduler tick", () => {
     const old = channel("old");
     const next = channel("new");
     const twitch = adapter("twitch", [campaign("drops")], [next]);
-    vi.mocked(twitch.checkChannel).mockResolvedValue({ live: true, categoryMatches: true, candidate: old });
+    vi.mocked(twitch.checkChannel).mockResolvedValue({
+      live: true,
+      categoryMatches: true,
+      candidate: old,
+    });
 
     const result = await runSchedulerTick(
       {
@@ -2504,7 +3066,12 @@ describe("scheduler tick", () => {
         },
         campaigns: { twitch: [], kick: [] },
       },
-      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -2520,7 +3087,11 @@ describe("scheduler tick", () => {
     const old = channel("old");
     const next = channel("new");
     const twitch = adapter("twitch", [campaign("drops")], [next]);
-    vi.mocked(twitch.checkChannel).mockResolvedValue({ live: true, categoryMatches: true, candidate: old });
+    vi.mocked(twitch.checkChannel).mockResolvedValue({
+      live: true,
+      categoryMatches: true,
+      candidate: old,
+    });
 
     const result = await runSchedulerTick(
       {
@@ -2542,7 +3113,12 @@ describe("scheduler tick", () => {
       settings({
         platform: {
           ...DEFAULT_SETTINGS.platform,
-          twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true, idleWatchlistChannels: [], excludedChannels: ["old"] },
+          twitch: {
+            ...DEFAULT_SETTINGS.platform.twitch,
+            enabled: true,
+            idleWatchlistChannels: [],
+            excludedChannels: ["old"],
+          },
           kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, idleWatchlistChannels: [] },
         },
       }),
@@ -2561,7 +3137,11 @@ describe("scheduler tick", () => {
   it("keeps playback telemetry for healthy watch tabs", async () => {
     const old = channel("old");
     const twitch = adapter("twitch", [campaign("drops")], [channel("new")]);
-    vi.mocked(twitch.checkChannel).mockResolvedValue({ live: true, categoryMatches: true, candidate: old });
+    vi.mocked(twitch.checkChannel).mockResolvedValue({
+      live: true,
+      categoryMatches: true,
+      candidate: old,
+    });
 
     const result = await runSchedulerTick(
       {
@@ -2591,7 +3171,12 @@ describe("scheduler tick", () => {
         },
         campaigns: { twitch: [], kick: [] },
       },
-      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -2606,7 +3191,11 @@ describe("scheduler tick", () => {
   it("treats playback telemetry stamped in the future as stale", async () => {
     const old = channel("old");
     const twitch = adapter("twitch", [campaign("drops")], [old]);
-    vi.mocked(twitch.checkChannel).mockResolvedValue({ live: true, categoryMatches: true, candidate: old });
+    vi.mocked(twitch.checkChannel).mockResolvedValue({
+      live: true,
+      categoryMatches: true,
+      candidate: old,
+    });
     vi.mocked(twitch.prepareWatchTab).mockResolvedValue({ tabId: 7, managedByExtension: true });
 
     const result = await runSchedulerTick(
@@ -2639,7 +3228,12 @@ describe("scheduler tick", () => {
         },
         campaigns: { twitch: [], kick: [] },
       },
-      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -2654,7 +3248,11 @@ describe("scheduler tick", () => {
   it("treats unparseable playback telemetry timestamps as stale", async () => {
     const old = channel("old");
     const twitch = adapter("twitch", [campaign("drops")], [old]);
-    vi.mocked(twitch.checkChannel).mockResolvedValue({ live: true, categoryMatches: true, candidate: old });
+    vi.mocked(twitch.checkChannel).mockResolvedValue({
+      live: true,
+      categoryMatches: true,
+      candidate: old,
+    });
     vi.mocked(twitch.prepareWatchTab).mockResolvedValue({ tabId: 7, managedByExtension: true });
 
     const result = await runSchedulerTick(
@@ -2687,7 +3285,12 @@ describe("scheduler tick", () => {
         },
         campaigns: { twitch: [], kick: [] },
       },
-      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -2699,7 +3302,11 @@ describe("scheduler tick", () => {
   it("treats a muted but playing watch tab as healthy", async () => {
     const old = channel("old");
     const twitch = adapter("twitch", [campaign("drops")], [channel("new")]);
-    vi.mocked(twitch.checkChannel).mockResolvedValue({ live: true, categoryMatches: true, candidate: old });
+    vi.mocked(twitch.checkChannel).mockResolvedValue({
+      live: true,
+      categoryMatches: true,
+      candidate: old,
+    });
 
     const result = await runSchedulerTick(
       {
@@ -2729,7 +3336,12 @@ describe("scheduler tick", () => {
         },
         campaigns: { twitch: [], kick: [] },
       },
-      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -2778,7 +3390,12 @@ describe("scheduler tick", () => {
         },
         campaigns: { twitch: [], kick: [] },
       },
-      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -2805,7 +3422,10 @@ describe("scheduler tick", () => {
       ...patch,
     });
 
-    const tick = async (session: Partial<SchedulerState["sessions"]["twitch"]>, campaigns: DropCampaign[]) => {
+    const tick = async (
+      session: Partial<SchedulerState["sessions"]["twitch"]>,
+      campaigns: DropCampaign[],
+    ) => {
       const twitch = adapter("twitch", campaigns, [channel("old"), channel("fresh")]);
       vi.mocked(twitch.checkChannel).mockImplementation(async (candidate) => ({
         live: true,
@@ -2823,7 +3443,10 @@ describe("scheduler tick", () => {
         },
         settings({
           offlineRetryLimit: 3,
-          platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } },
+          platform: {
+            twitch: { enabled: true, idleWatchlistChannels: [] },
+            kick: { enabled: false, idleWatchlistChannels: [] },
+          },
         }),
         { twitch, kick: adapter("kick", [], []) },
       );
@@ -2834,34 +3457,53 @@ describe("scheduler tick", () => {
     it.each([
       { confirmed: true, offlineChecks: 1, leaves: true },
       { confirmed: false, offlineChecks: 1, leaves: false },
-    ])("leaves an offline channel on its first check only when confirmed ($confirmed)", async ({ confirmed, offlineChecks, leaves }) => {
-      const twitch = adapter("twitch", [campaign("drops")], [channel("old"), channel("fresh")]);
-      vi.mocked(twitch.checkChannel).mockImplementation(async (candidate) => candidate.username === "old"
-        ? { live: false, categoryMatches: true, candidate, reason: "Twitch channel is offline", ...(confirmed ? { offlineConfirmed: true } : {}) }
-        : { live: true, categoryMatches: true, candidate });
-      const result = await runSchedulerTick(
-        {
-          authHealth: HEALTHY_AUTH,
-          sessions: { twitch: watching({}), kick: { platform: "kick", status: "idle", offlineChecks: 0 } },
-          campaigns: { twitch: [], kick: [] },
-        },
-        settings({ offlineRetryLimit: 3, platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
-        { twitch, kick: adapter("kick", [], []) },
-      );
-      if (leaves) {
-        expect(result.state.sessions.twitch.reasonCode).toBe("channel_offline");
-        expect(result.state.sessions.twitch.channel?.username).toBe("fresh");
-      } else {
-        expect(result.state.sessions.twitch.channel?.username).toBe("old");
-        expect(result.state.sessions.twitch.offlineChecks).toBe(offlineChecks);
-      }
-    });
+    ])(
+      "leaves an offline channel on its first check only when confirmed ($confirmed)",
+      async ({ confirmed, offlineChecks, leaves }) => {
+        const twitch = adapter("twitch", [campaign("drops")], [channel("old"), channel("fresh")]);
+        vi.mocked(twitch.checkChannel).mockImplementation(async (candidate) =>
+          candidate.username === "old"
+            ? {
+                live: false,
+                categoryMatches: true,
+                candidate,
+                reason: "Twitch channel is offline",
+                ...(confirmed ? { offlineConfirmed: true } : {}),
+              }
+            : { live: true, categoryMatches: true, candidate },
+        );
+        const result = await runSchedulerTick(
+          {
+            authHealth: HEALTHY_AUTH,
+            sessions: {
+              twitch: watching({}),
+              kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+            },
+            campaigns: { twitch: [], kick: [] },
+          },
+          settings({
+            offlineRetryLimit: 3,
+            platform: {
+              twitch: { enabled: true, idleWatchlistChannels: [] },
+              kick: { enabled: false, idleWatchlistChannels: [] },
+            },
+          }),
+          { twitch, kick: adapter("kick", [], []) },
+        );
+        if (leaves) {
+          expect(result.state.sessions.twitch.reasonCode).toBe("channel_offline");
+          expect(result.state.sessions.twitch.channel?.username).toBe("fresh");
+        } else {
+          expect(result.state.sessions.twitch.channel?.username).toBe("old");
+          expect(result.state.sessions.twitch.offlineChecks).toBe(offlineChecks);
+        }
+      },
+    );
 
     it("rotates away once a healthy channel stalls for the retry limit", async () => {
-      const result = await tick(
-        { noProgressChecks: 2, lastWatchedMinutes: 20 },
-        [campaign("drops")],
-      );
+      const result = await tick({ noProgressChecks: 2, lastWatchedMinutes: 20 }, [
+        campaign("drops"),
+      ]);
 
       expect(result.state.sessions.twitch.reasonCode).toBe("no_progress");
       // Stopping the old session is not rotation: the tick has to land on a
@@ -2881,7 +3523,11 @@ describe("scheduler tick", () => {
         watchedMinutes: 20,
         status: "in_progress",
       };
-      const twitch = adapter("twitch", [campaign("drops", { rewards: [combined] })], [channel("old"), channel("fresh")]);
+      const twitch = adapter(
+        "twitch",
+        [campaign("drops", { rewards: [combined] })],
+        [channel("old"), channel("fresh")],
+      );
 
       const result = await runSchedulerTick(
         {
@@ -2895,7 +3541,11 @@ describe("scheduler tick", () => {
         settings({
           offlineRetryLimit: 3,
           platform: {
-            twitch: { enabled: true, idleWatchlistChannels: [], subscribedRewardMarks: ["drops:combined"] },
+            twitch: {
+              enabled: true,
+              idleWatchlistChannels: [],
+              subscribedRewardMarks: ["drops:combined"],
+            },
             kick: { enabled: false, idleWatchlistChannels: [] },
           },
         }),
@@ -2930,7 +3580,10 @@ describe("scheduler tick", () => {
         },
         settings({
           offlineRetryLimit: 3,
-          platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } },
+          platform: {
+            twitch: { enabled: true, idleWatchlistChannels: [] },
+            kick: { enabled: false, idleWatchlistChannels: [] },
+          },
         }),
         { twitch, kick: adapter("kick", [], []) },
       );
@@ -2960,7 +3613,10 @@ describe("scheduler tick", () => {
         },
         settings({
           offlineRetryLimit: 3,
-          platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } },
+          platform: {
+            twitch: { enabled: true, idleWatchlistChannels: [] },
+            kick: { enabled: false, idleWatchlistChannels: [] },
+          },
         }),
         { twitch, kick: adapter("kick", [], []) },
       );
@@ -2969,20 +3625,18 @@ describe("scheduler tick", () => {
     });
 
     it("keeps a stalling channel until the limit is reached", async () => {
-      const result = await tick(
-        { noProgressChecks: 1, lastWatchedMinutes: 20 },
-        [campaign("drops")],
-      );
+      const result = await tick({ noProgressChecks: 1, lastWatchedMinutes: 20 }, [
+        campaign("drops"),
+      ]);
 
       expect(result.state.sessions.twitch.reasonCode).not.toBe("no_progress");
       expect(result.state.sessions.twitch.noProgressChecks).toBe(2);
     });
 
     it("resets the counter when the channel accrues a minute", async () => {
-      const result = await tick(
-        { noProgressChecks: 2, lastWatchedMinutes: 19 },
-        [campaign("drops")],
-      );
+      const result = await tick({ noProgressChecks: 2, lastWatchedMinutes: 19 }, [
+        campaign("drops"),
+      ]);
 
       expect(result.state.sessions.twitch.reasonCode).not.toBe("no_progress");
       expect(result.state.sessions.twitch.noProgressChecks).toBe(0);
@@ -3002,20 +3656,21 @@ describe("scheduler tick", () => {
     // "no evidence" is not "no progress".
     it("never rotates a reward whose progress is unreadable", async () => {
       const subscriptionCampaign = campaign("drops", {
-        rewards: [{
-          id: "reward-in_progress",
-          name: "Reward",
-          requiredMinutes: 60,
-          watchedMinutes: 20,
-          status: "in_progress",
-          isWatchBased: false,
-        }],
+        rewards: [
+          {
+            id: "reward-in_progress",
+            name: "Reward",
+            requiredMinutes: 60,
+            watchedMinutes: 20,
+            status: "in_progress",
+            isWatchBased: false,
+          },
+        ],
       });
 
-      const result = await tick(
-        { noProgressChecks: 2, lastWatchedMinutes: 20 },
-        [subscriptionCampaign],
-      );
+      const result = await tick({ noProgressChecks: 2, lastWatchedMinutes: 20 }, [
+        subscriptionCampaign,
+      ]);
 
       expect(result.state.sessions.twitch.reasonCode).not.toBe("no_progress");
     });
@@ -3024,7 +3679,11 @@ describe("scheduler tick", () => {
   it("reloads the watch tab after repeated playback failures", async () => {
     const old = channel("old");
     const twitch = adapter("twitch", [campaign("drops")], [old]);
-    vi.mocked(twitch.checkChannel).mockResolvedValue({ live: true, categoryMatches: true, candidate: old });
+    vi.mocked(twitch.checkChannel).mockResolvedValue({
+      live: true,
+      categoryMatches: true,
+      candidate: old,
+    });
 
     const result = await runSchedulerTick(
       {
@@ -3056,7 +3715,10 @@ describe("scheduler tick", () => {
       },
       settings({
         offlineRetryLimit: 3,
-        platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } },
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
       }),
       { twitch, kick: adapter("kick", [], []) },
     );
@@ -3072,7 +3734,13 @@ describe("scheduler tick", () => {
       expect.objectContaining({ tabId: 7 }),
       { signal: undefined },
     );
-    expect(result.events.some((event) => event.category === "diagnostic" && event.message === "Watch tab playback did not become active")).toBe(true);
+    expect(
+      result.events.some(
+        (event) =>
+          event.category === "diagnostic"
+          && event.message === "Watch tab playback did not become active",
+      ),
+    ).toBe(true);
   });
 
   it("does not condemn a freshly opened watch tab whose player has not attached yet (#250)", async () => {
@@ -3081,7 +3749,11 @@ describe("scheduler tick", () => {
     try {
       const old = channel("old");
       const twitch = adapter("twitch", [campaign("drops")], [old]);
-      vi.mocked(twitch.checkChannel).mockResolvedValue({ live: true, categoryMatches: true, candidate: old });
+      vi.mocked(twitch.checkChannel).mockResolvedValue({
+        live: true,
+        categoryMatches: true,
+        candidate: old,
+      });
       vi.mocked(twitch.prepareWatchTab).mockResolvedValue({ tabId: 7, managedByExtension: true });
       // The user log: tab opens, reports "0/0 videos playing", and only reports
       // playback a couple of seconds later.
@@ -3109,7 +3781,10 @@ describe("scheduler tick", () => {
       };
       const engineSettings = settings({
         offlineRetryLimit: 3,
-        platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } },
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
       });
 
       let session = coldTab;
@@ -3119,7 +3794,10 @@ describe("scheduler tick", () => {
         const result = await runSchedulerTick(
           {
             authHealth: HEALTHY_AUTH,
-            sessions: { twitch: session, kick: { platform: "kick", status: "idle", offlineChecks: 0 } },
+            sessions: {
+              twitch: session,
+              kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+            },
             campaigns: { twitch: [], kick: [] },
           },
           engineSettings,
@@ -3148,7 +3826,10 @@ describe("scheduler tick", () => {
       const settled = await runSchedulerTick(
         {
           authHealth: HEALTHY_AUTH,
-          sessions: { twitch: session, kick: { platform: "kick", status: "idle", offlineChecks: 0 } },
+          sessions: {
+            twitch: session,
+            kick: { platform: "kick", status: "idle", offlineChecks: 0 },
+          },
           campaigns: { twitch: [], kick: [] },
         },
         engineSettings,
@@ -3169,7 +3850,11 @@ describe("scheduler tick", () => {
     try {
       const old = channel("old");
       const twitch = adapter("twitch", [campaign("drops")], [old]);
-      vi.mocked(twitch.checkChannel).mockResolvedValue({ live: true, categoryMatches: true, candidate: old });
+      vi.mocked(twitch.checkChannel).mockResolvedValue({
+        live: true,
+        categoryMatches: true,
+        candidate: old,
+      });
       const deadPlayback = {
         platform: "twitch" as const,
         checkedAt: new Date().toISOString(),
@@ -3204,7 +3889,10 @@ describe("scheduler tick", () => {
         },
         settings({
           offlineRetryLimit: 3,
-          platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } },
+          platform: {
+            twitch: { enabled: true, idleWatchlistChannels: [] },
+            kick: { enabled: false, idleWatchlistChannels: [] },
+          },
         }),
         { twitch, kick: adapter("kick", [], []) },
       );
@@ -3226,7 +3914,11 @@ describe("scheduler tick", () => {
     try {
       const old = channel("old");
       const twitch = adapter("twitch", [campaign("drops")], [old]);
-      vi.mocked(twitch.checkChannel).mockResolvedValue({ live: true, categoryMatches: true, candidate: old });
+      vi.mocked(twitch.checkChannel).mockResolvedValue({
+        live: true,
+        categoryMatches: true,
+        candidate: old,
+      });
       vi.mocked(twitch.prepareWatchTab).mockResolvedValue({ tabId: 7, managedByExtension: true });
 
       const opened = await runSchedulerTick(
@@ -3238,7 +3930,12 @@ describe("scheduler tick", () => {
           },
           campaigns: { twitch: [], kick: [] },
         },
-        settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+        settings({
+          platform: {
+            twitch: { enabled: true, idleWatchlistChannels: [] },
+            kick: { enabled: false, idleWatchlistChannels: [] },
+          },
+        }),
         { twitch, kick: adapter("kick", [], []) },
       );
 
@@ -3266,7 +3963,12 @@ describe("scheduler tick", () => {
           },
           campaigns: { twitch: [], kick: [] },
         },
-        settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+        settings({
+          platform: {
+            twitch: { enabled: true, idleWatchlistChannels: [] },
+            kick: { enabled: false, idleWatchlistChannels: [] },
+          },
+        }),
         { twitch, kick: adapter("kick", [], []) },
       );
 
@@ -3278,9 +3980,16 @@ describe("scheduler tick", () => {
 
   it("switches from a campaign watch tab to fallback when the campaign becomes ineligible", async () => {
     const old = channel("old");
-    const fallback = channel("fallback", { platform: "twitch", url: "https://www.twitch.tv/fallback" });
+    const fallback = channel("fallback", {
+      platform: "twitch",
+      url: "https://www.twitch.tv/fallback",
+    });
     const twitch = adapter("twitch", [campaign("done", { status: "completed" })], []);
-    vi.mocked(twitch.checkChannel).mockResolvedValue({ live: true, categoryMatches: true, candidate: fallback });
+    vi.mocked(twitch.checkChannel).mockResolvedValue({
+      live: true,
+      categoryMatches: true,
+      candidate: fallback,
+    });
 
     const result = await runSchedulerTick(
       {
@@ -3299,7 +4008,12 @@ describe("scheduler tick", () => {
         },
         campaigns: { twitch: [], kick: [] },
       },
-      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: ["fallback"] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: ["fallback"] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -3325,7 +4039,12 @@ describe("scheduler tick", () => {
         },
         campaigns: { twitch: [], kick: [] },
       },
-      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -3357,7 +4076,12 @@ describe("scheduler tick", () => {
         },
         campaigns: { twitch: [], kick: [] },
       },
-      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -3391,7 +4115,12 @@ describe("scheduler tick", () => {
         },
         campaigns: { twitch: [], kick: [] },
       },
-      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -3405,14 +4134,16 @@ describe("scheduler tick", () => {
   it("does not start a live Idle Watchlist fallback for subscription-only campaigns", async () => {
     const waiting = campaign("subscription-drops", {
       eligibility: "waiting_for_subscription",
-      rewards: [{
-        ...reward("locked"),
-        requiredMinutes: 0,
-        watchedMinutes: 0,
-        requirement: "subscription",
-        requiredSubs: 1,
-        isWatchBased: false,
-      }],
+      rewards: [
+        {
+          ...reward("locked"),
+          requiredMinutes: 0,
+          watchedMinutes: 0,
+          requirement: "subscription",
+          requiredSubs: 1,
+          isWatchBased: false,
+        },
+      ],
     });
     const twitch = adapter("twitch", [waiting], []);
 
@@ -3425,7 +4156,12 @@ describe("scheduler tick", () => {
         },
         campaigns: { twitch: [], kick: [] },
       },
-      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: ["fallback"] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: ["fallback"] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -3442,15 +4178,17 @@ describe("scheduler tick", () => {
   it("starts the Idle Watchlist fallback once every subscription reward is marked", async () => {
     const marked = campaign("subscription-drops", {
       eligibility: "waiting_for_subscription",
-      rewards: [{
-        ...reward("locked"),
-        id: "sub",
-        requiredMinutes: 0,
-        watchedMinutes: 0,
-        requirement: "subscription",
-        requiredSubs: 1,
-        isWatchBased: false,
-      }],
+      rewards: [
+        {
+          ...reward("locked"),
+          id: "sub",
+          requiredMinutes: 0,
+          watchedMinutes: 0,
+          requirement: "subscription",
+          requiredSubs: 1,
+          isWatchBased: false,
+        },
+      ],
     });
     const twitch = adapter("twitch", [marked], []);
 
@@ -3465,7 +4203,11 @@ describe("scheduler tick", () => {
       },
       settings({
         platform: {
-          twitch: { enabled: true, idleWatchlistChannels: ["fallback"], subscribedRewardMarks: ["subscription-drops:sub"] },
+          twitch: {
+            enabled: true,
+            idleWatchlistChannels: ["fallback"],
+            subscribedRewardMarks: ["subscription-drops:sub"],
+          },
           kick: { enabled: false, idleWatchlistChannels: [] },
         },
       }),
@@ -3521,14 +4263,16 @@ describe("scheduler tick", () => {
   it("stops an existing Idle Watchlist fallback when only subscription campaigns remain", async () => {
     const waiting = campaign("subscription-drops", {
       eligibility: "waiting_for_subscription",
-      rewards: [{
-        ...reward("locked"),
-        requiredMinutes: 0,
-        watchedMinutes: 0,
-        requirement: "subscription",
-        requiredSubs: 1,
-        isWatchBased: false,
-      }],
+      rewards: [
+        {
+          ...reward("locked"),
+          requiredMinutes: 0,
+          watchedMinutes: 0,
+          requirement: "subscription",
+          requiredSubs: 1,
+          isWatchBased: false,
+        },
+      ],
     });
     const twitch = adapter("twitch", [waiting], []);
     const fallback = channel("fallback");
@@ -3549,14 +4293,18 @@ describe("scheduler tick", () => {
         },
         campaigns: { twitch: [], kick: [] },
       },
-      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: ["fallback"] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: ["fallback"] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
-    expect(twitch.stopWatchTab).toHaveBeenCalledWith(
-      expect.objectContaining({ tabId: 7 }),
-      { signal: undefined },
-    );
+    expect(twitch.stopWatchTab).toHaveBeenCalledWith(expect.objectContaining({ tabId: 7 }), {
+      signal: undefined,
+    });
     expect(twitch.prepareWatchTab).not.toHaveBeenCalled();
     expect(result.state.sessions.twitch).toMatchObject({
       status: "idle",
@@ -3598,7 +4346,12 @@ describe("scheduler tick", () => {
         },
         campaigns: { twitch: [], kick: [] },
       },
-      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -3616,7 +4369,10 @@ describe("scheduler tick", () => {
 
   it("defers claiming a ready reward until the adapter reports it is claim-ready", async () => {
     const ready = campaign("drops", { rewards: [reward("claimable")] });
-    const twitch = { ...adapter("twitch", [ready], [channel("allowed")]), isClaimReady: vi.fn(() => false) };
+    const twitch = {
+      ...adapter("twitch", [ready], [channel("allowed")]),
+      isClaimReady: vi.fn(() => false),
+    };
 
     const result = await runSchedulerTick(
       {
@@ -3627,22 +4383,37 @@ describe("scheduler tick", () => {
         },
         campaigns: { twitch: [], kick: [] },
       },
-      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
     expect(twitch.claimReward).not.toHaveBeenCalled();
     expect(result.state.campaigns.twitch[0].rewards[0].status).toBe("claimable");
-    const claimEvents = result.events.filter((event) => event.category === "diagnostic" && event.message.includes("waiting for"));
+    const claimEvents = result.events.filter(
+      (event) => event.category === "diagnostic" && event.message.includes("waiting for"),
+    );
     expect(claimEvents).toHaveLength(1);
     expect(claimEvents[0].level).toBe("info");
     // No "Could not claim" warning or claim error is emitted while deferring.
-    expect(result.events.some((event) => event.category === "diagnostic" && /claim/i.test(event.message) && event.level !== "info")).toBe(false);
+    expect(
+      result.events.some(
+        (event) =>
+          event.category === "diagnostic" && /claim/i.test(event.message) && event.level !== "info",
+      ),
+    ).toBe(false);
   });
 
   it("reports an unreleased claim only when it first enters the waiting state", async () => {
     const ready = campaign("drops", { rewards: [reward("claimable")] });
-    const twitch = { ...adapter("twitch", [ready], [channel("allowed")]), isClaimReady: vi.fn(() => false) };
+    const twitch = {
+      ...adapter("twitch", [ready], [channel("allowed")]),
+      isClaimReady: vi.fn(() => false),
+    };
     const waitingClaimRewardIds = { twitch: new Set<string>(), kick: new Set<string>() };
     const options = { waitingClaimRewardIds };
     const initialState: SchedulerState = {
@@ -3660,18 +4431,37 @@ describe("scheduler tick", () => {
       },
     });
 
-    const first = await runSchedulerTick(initialState, enabledSettings, { twitch, kick: adapter("kick", [], []) }, options);
-    const second = await runSchedulerTick(first.state, enabledSettings, { twitch, kick: adapter("kick", [], []) }, options);
+    const first = await runSchedulerTick(
+      initialState,
+      enabledSettings,
+      { twitch, kick: adapter("kick", [], []) },
+      options,
+    );
+    const second = await runSchedulerTick(
+      first.state,
+      enabledSettings,
+      { twitch, kick: adapter("kick", [], []) },
+      options,
+    );
 
-    expect(first.events.filter((event) => event.category === "diagnostic" && event.message.includes("waiting for"))).toHaveLength(1);
-    expect(second.events.filter((event) => event.category === "diagnostic" && event.message.includes("waiting for"))).toHaveLength(0);
+    expect(
+      first.events.filter(
+        (event) => event.category === "diagnostic" && event.message.includes("waiting for"),
+      ),
+    ).toHaveLength(1);
+    expect(
+      second.events.filter(
+        (event) => event.category === "diagnostic" && event.message.includes("waiting for"),
+      ),
+    ).toHaveLength(0);
     expect(second.state.campaigns.twitch[0].rewards[0].status).toBe("claimable");
     expect(twitch.claimReward).not.toHaveBeenCalled();
   });
 
   it("reports a reward again when it re-enters the unreleased-claim state", async () => {
     const ready = campaign("drops", { rewards: [reward("claimable")] });
-    const isClaimReady = vi.fn()
+    const isClaimReady = vi
+      .fn()
       .mockReturnValueOnce(false)
       .mockReturnValueOnce(true)
       .mockReturnValueOnce(false);
@@ -3700,13 +4490,24 @@ describe("scheduler tick", () => {
     expect(waitingClaimRewardIds.twitch).not.toContain("reward-claimable");
     const reentered = await runSchedulerTick(released.state, enabledSettings, adapters, options);
 
-    expect(first.events.filter((event) => event.category === "diagnostic" && event.message.includes("waiting for"))).toHaveLength(1);
-    expect(reentered.events.filter((event) => event.category === "diagnostic" && event.message.includes("waiting for"))).toHaveLength(1);
+    expect(
+      first.events.filter(
+        (event) => event.category === "diagnostic" && event.message.includes("waiting for"),
+      ),
+    ).toHaveLength(1);
+    expect(
+      reentered.events.filter(
+        (event) => event.category === "diagnostic" && event.message.includes("waiting for"),
+      ),
+    ).toHaveLength(1);
   });
 
   it("claims a ready reward once the adapter reports it is claim-ready", async () => {
     const ready = campaign("drops", { rewards: [reward("claimable")] });
-    const twitch = { ...adapter("twitch", [ready], [channel("allowed")]), isClaimReady: vi.fn(() => true) };
+    const twitch = {
+      ...adapter("twitch", [ready], [channel("allowed")]),
+      isClaimReady: vi.fn(() => true),
+    };
 
     const result = await runSchedulerTick(
       {
@@ -3717,7 +4518,12 @@ describe("scheduler tick", () => {
         },
         campaigns: { twitch: [], kick: [] },
       },
-      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -3754,12 +4560,17 @@ describe("scheduler tick", () => {
 
     expect(twitch.claimReward).toHaveBeenCalledTimes(1);
     expect(second.state.campaigns.twitch[0].rewards[0].status).toBe("claimed");
-    expect(second.events.some((event) =>
-      event.category === "activity" && event.code === "reward_claimed")).toBe(false);
+    expect(
+      second.events.some(
+        (event) => event.category === "activity" && event.code === "reward_claimed",
+      ),
+    ).toBe(false);
   });
 
   it("does not claim rewards after their claim window has expired", async () => {
-    const ready = campaign("drops", { rewards: [{ ...reward("claimable"), claimUntil: "2020-01-01T00:00:00.000Z" }] });
+    const ready = campaign("drops", {
+      rewards: [{ ...reward("claimable"), claimUntil: "2020-01-01T00:00:00.000Z" }],
+    });
     const twitch = adapter("twitch", [ready], [channel("allowed")]);
 
     await runSchedulerTick(
@@ -3771,7 +4582,12 @@ describe("scheduler tick", () => {
         },
         campaigns: { twitch: [], kick: [] },
       },
-      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -3793,7 +4609,10 @@ describe("scheduler tick", () => {
       },
       settings({
         autoClaim: false,
-        platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } },
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
       }),
       { twitch, kick: adapter("kick", [], []) },
     );
@@ -3814,7 +4633,12 @@ describe("scheduler tick", () => {
         },
         campaigns: { twitch: [], kick: [] },
       },
-      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -3837,7 +4661,12 @@ describe("scheduler tick", () => {
         },
         campaigns: { twitch: [], kick: [] },
       },
-      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: true, idleWatchlistChannels: [] } } }),
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: true, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick },
     );
 
@@ -3848,7 +4677,11 @@ describe("scheduler tick", () => {
 
   it("opens one managed watch tab per platform when both platforms have eligible targets", async () => {
     const twitch = adapter("twitch", [campaign("twitch-drops")], [channel("twitch-allowed")]);
-    const kickCandidate = { ...channel("kick-allowed"), platform: "kick" as const, url: "https://kick.com/kick-allowed" };
+    const kickCandidate = {
+      ...channel("kick-allowed"),
+      platform: "kick" as const,
+      url: "https://kick.com/kick-allowed",
+    };
     const kick = adapter("kick", [campaign("kick-drops", { platform: "kick" })], [kickCandidate]);
     vi.mocked(kick.prepareWatchTab).mockResolvedValue({ tabId: 84, managedByExtension: true });
 
@@ -3861,7 +4694,12 @@ describe("scheduler tick", () => {
         },
         campaigns: { twitch: [], kick: [] },
       },
-      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: true, idleWatchlistChannels: [] } } }),
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: true, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick },
     );
 
@@ -3874,11 +4712,16 @@ describe("scheduler tick", () => {
   });
 
   it("retains a required Kick page context across ordinary watch preparation", async () => {
-    const kickCandidate = { ...channel("kick-allowed"), platform: "kick" as const, url: "https://kick.com/kick-allowed" };
+    const kickCandidate = {
+      ...channel("kick-allowed"),
+      platform: "kick" as const,
+      url: "https://kick.com/kick-allowed",
+    };
     const kick = adapter("kick", [campaign("kick-drops", { platform: "kick" })], [kickCandidate]);
     const tabRegistry = createTabRegistry();
     const stopPageContextTabs = vi.fn<StopPageContextTabs>((contexts, options) =>
-      forgetManagedPageContextTabs(tabRegistry, contexts, options));
+      forgetManagedPageContextTabs(tabRegistry, contexts, options),
+    );
     const managedContext = {
       platform: "kick" as const,
       tabId: 91,
@@ -3909,7 +4752,11 @@ describe("scheduler tick", () => {
 
   it("only evaluates requested platforms during a targeted tick", async () => {
     const twitch = adapter("twitch", [campaign("twitch-drops")], [channel("twitch-allowed")]);
-    const kickCandidate = { ...channel("kick-allowed"), platform: "kick" as const, url: "https://kick.com/kick-allowed" };
+    const kickCandidate = {
+      ...channel("kick-allowed"),
+      platform: "kick" as const,
+      url: "https://kick.com/kick-allowed",
+    };
     const kick = adapter("kick", [campaign("kick-drops", { platform: "kick" })], [kickCandidate]);
     vi.mocked(kick.prepareWatchTab).mockResolvedValue({ tabId: 84, managedByExtension: true });
 
@@ -3917,15 +4764,32 @@ describe("scheduler tick", () => {
       {
         authHealth: HEALTHY_AUTH,
         sessions: {
-          twitch: { platform: "twitch", status: "watching", channel: channel("current"), offlineChecks: 0, tabId: 42, tabManagedByExtension: true },
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: channel("current"),
+            offlineChecks: 0,
+            tabId: 42,
+            tabManagedByExtension: true,
+          },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [campaign("existing")], kick: [] },
         managedWatchTabs: {
-          twitch: { platform: "twitch", tabId: 42, channelUrl: "https://www.twitch.tv/current", ownedByExtension: true },
+          twitch: {
+            platform: "twitch",
+            tabId: 42,
+            channelUrl: "https://www.twitch.tv/current",
+            ownedByExtension: true,
+          },
         },
       },
-      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: true, idleWatchlistChannels: [] } } }),
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: true, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick },
       { platforms: ["kick"] },
     );
@@ -3948,9 +4812,17 @@ describe("scheduler tick", () => {
       },
       campaigns: { twitch: [], kick: [] },
     };
-    const tickSettings = settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } });
+    const tickSettings = settings({
+      platform: {
+        twitch: { enabled: true, idleWatchlistChannels: [] },
+        kick: { enabled: false, idleWatchlistChannels: [] },
+      },
+    });
 
-    const first = await runSchedulerTick(initialState, tickSettings, { twitch, kick: adapter("kick", [], []) });
+    const first = await runSchedulerTick(initialState, tickSettings, {
+      twitch,
+      kick: adapter("kick", [], []),
+    });
     await runSchedulerTick(first.state, tickSettings, { twitch, kick: adapter("kick", [], []) });
 
     expect(twitch.prepareWatchTab).toHaveBeenNthCalledWith(
@@ -3968,13 +4840,21 @@ describe("scheduler tick", () => {
     const twitch = adapter("twitch", [], []);
     const tabRegistry = createTabRegistry();
     const stopPageContextTabs = vi.fn<StopPageContextTabs>((contexts, options) =>
-      forgetManagedPageContextTabs(tabRegistry, contexts, options));
+      forgetManagedPageContextTabs(tabRegistry, contexts, options),
+    );
 
     const result = await runSchedulerTick(
       {
         authHealth: HEALTHY_AUTH,
         sessions: {
-          twitch: { platform: "twitch", status: "watching", channel: channel("old"), offlineChecks: 0, tabId: 7, tabManagedByExtension: true },
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: channel("old"),
+            offlineChecks: 0,
+            tabId: 7,
+            tabManagedByExtension: true,
+          },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         managedPageContextTabs: {
@@ -4002,7 +4882,11 @@ describe("scheduler tick", () => {
     expect(result.state.managedPageContextTabs?.twitch).toBeUndefined();
     expect(stopPageContextTabs).toHaveBeenCalledWith(
       expect.objectContaining({ twitch: expect.objectContaining({ tabId: 9 }) }),
-      expect.objectContaining({ platforms: ["twitch"], reason: "automation_disabled", emit: expect.any(Function) }),
+      expect.objectContaining({
+        platforms: ["twitch"],
+        reason: "automation_disabled",
+        emit: expect.any(Function),
+      }),
     );
   });
 
@@ -4013,19 +4897,30 @@ describe("scheduler tick", () => {
       {
         authHealth: HEALTHY_AUTH,
         sessions: {
-          twitch: { platform: "twitch", status: "watching", channel: channel("old"), offlineChecks: 0, tabId: 7, tabManagedByExtension: true },
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: channel("old"),
+            offlineChecks: 0,
+            tabId: 7,
+            tabManagedByExtension: true,
+          },
           kick: { platform: "kick", status: "idle", offlineChecks: 0 },
         },
         campaigns: { twitch: [], kick: [] },
       },
-      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
-    expect(twitch.stopWatchTab).toHaveBeenCalledWith(
-      expect.objectContaining({ tabId: 7 }),
-      { signal: undefined },
-    );
+    expect(twitch.stopWatchTab).toHaveBeenCalledWith(expect.objectContaining({ tabId: 7 }), {
+      signal: undefined,
+    });
     expect(result.state.sessions.twitch.status).toBe("idle");
     expect(result.state.sessions.twitch.tabId).toBeUndefined();
   });
@@ -4046,26 +4941,37 @@ describe("scheduler tick", () => {
         },
         campaigns: { twitch: [], kick: [] },
       },
-      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
     expect(result.state.campaigns.twitch[0].rewards[0].status).toBe("claimed");
-    expect(result.events).toContainEqual(expect.objectContaining({
-      category: "activity",
-      code: "reward_claimed",
-      data: expect.objectContaining({
-        method: "automatic",
-        rewardImageUrl: "https://cdn.example.test/reward.png",
-        campaignUrl: "https://example.test/campaign",
+    expect(result.events).toContainEqual(
+      expect.objectContaining({
+        category: "activity",
+        code: "reward_claimed",
+        data: expect.objectContaining({
+          method: "automatic",
+          rewardImageUrl: "https://cdn.example.test/reward.png",
+          campaignUrl: "https://example.test/campaign",
+        }),
       }),
-    }));
+    );
   });
 
   it("isolates adapter failures per platform", async () => {
     const twitch = adapter("twitch", [campaign("drops")], [channel("creator")]);
     vi.mocked(twitch.prepareWatchTab).mockRejectedValue(new Error("Twitch unavailable"));
-    const kickCandidate = { ...channel("kicklive"), platform: "kick" as const, url: "https://kick.com/kicklive" };
+    const kickCandidate = {
+      ...channel("kicklive"),
+      platform: "kick" as const,
+      url: "https://kick.com/kicklive",
+    };
     const kick = adapter("kick", [campaign("kick-drops", { platform: "kick" })], [kickCandidate]);
 
     const result = await runSchedulerTick(
@@ -4085,7 +4991,9 @@ describe("scheduler tick", () => {
     expect(result.state.sessions.twitch.errorChecks).toBe(1);
     expect(result.state.sessions.twitch.retryAfter).toBeDefined();
     expect(result.state.sessions.kick.status).toBe("watching");
-    expect(result.events.some((event) => event.platform === "twitch" && event.level === "error")).toBe(true);
+    expect(
+      result.events.some((event) => event.platform === "twitch" && event.level === "error"),
+    ).toBe(true);
   });
 
   it("uses Idle Watchlist fallback when drop discovery is incomplete and idle watchlist channels exist", async () => {
@@ -4105,7 +5013,12 @@ describe("scheduler tick", () => {
         },
         campaigns: { twitch: [], kick: [] },
       },
-      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: ["fallback"] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: ["fallback"] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick: adapter("kick", [], []) },
       { discovery: { twitch: { campaigns: [], complete: false } } },
     );
@@ -4141,7 +5054,12 @@ describe("scheduler tick", () => {
         },
         campaigns: { twitch: [known], kick: [] },
       },
-      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: ["fallback"] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: ["fallback"] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick: adapter("kick", [], []) },
       { discovery: { twitch: { campaigns: [], complete: false } } },
     );
@@ -4167,7 +5085,12 @@ describe("scheduler tick", () => {
         },
         campaigns: { twitch: [known], kick: [] },
       },
-      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick: adapter("kick", [], []) },
       { discovery: { twitch: { campaigns: [], complete: false } } },
     );
@@ -4195,13 +5118,22 @@ describe("scheduler tick", () => {
         },
         campaigns: { twitch: [], kick: [] },
       },
-      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
     expect(twitch.refreshCampaigns).not.toHaveBeenCalled();
     expect(result.state.sessions.twitch.retryAfter).toBe(retryAfter);
-    expect(result.events.some((event) => event.category === "diagnostic" && event.message.includes("Waiting until"))).toBe(true);
+    expect(
+      result.events.some(
+        (event) => event.category === "diagnostic" && event.message.includes("Waiting until"),
+      ),
+    ).toBe(true);
   });
 
   it("clears platform backoff after a successful retry", async () => {
@@ -4222,7 +5154,12 @@ describe("scheduler tick", () => {
         },
         campaigns: { twitch: [], kick: [] },
       },
-      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -4247,7 +5184,12 @@ describe("scheduler tick", () => {
         },
         campaigns: { twitch: [], kick: [] },
       },
-      settings({ platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      settings({
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -4255,7 +5197,12 @@ describe("scheduler tick", () => {
       expect.objectContaining({ username: "allowed" }),
       { signal: undefined },
     );
-    expect(result.events.some((event) => event.category === "diagnostic" && event.message.includes("Claimed channel points"))).toBe(true);
+    expect(
+      result.events.some(
+        (event) =>
+          event.category === "diagnostic" && event.message.includes("Claimed channel points"),
+      ),
+    ).toBe(true);
   });
 
   it("claims Kick challenges even when the platform never starts watching", async () => {
@@ -4280,7 +5227,11 @@ describe("scheduler tick", () => {
     expect(kick.claimChallenges).toHaveBeenCalled();
     expect(result.state.sessions.kick.status).toBe("idle");
     expect(result.state.gamification?.kick?.lastCheckedAt).toBeDefined();
-    expect(result.events.some((event) => event.category === "activity" && event.code === "challenge_claimed")).toBe(true);
+    expect(
+      result.events.some(
+        (event) => event.category === "activity" && event.code === "challenge_claimed",
+      ),
+    ).toBe(true);
   });
 
   it("skips the Kick challenge poll inside the throttle window", async () => {
@@ -4342,7 +5293,12 @@ describe("scheduler tick", () => {
         },
         campaigns: { twitch: [], kick: [] },
       },
-      settings({ platform: { twitch: { enabled: false }, kick: { enabled: true, autoClaimChallenges: false } } }),
+      settings({
+        platform: {
+          twitch: { enabled: false },
+          kick: { enabled: true, autoClaimChallenges: false },
+        },
+      }),
       { twitch: adapter("twitch", [], []), kick },
     );
 
@@ -4352,7 +5308,9 @@ describe("scheduler tick", () => {
   it("keeps the tick healthy when a Kick challenge poll throws", async () => {
     const kick = {
       ...adapter("kick", [], []),
-      claimChallenges: vi.fn(async () => { throw new Error("gamification down"); }),
+      claimChallenges: vi.fn(async () => {
+        throw new Error("gamification down");
+      }),
     };
 
     const result = await runSchedulerTick(
@@ -4370,14 +5328,25 @@ describe("scheduler tick", () => {
 
     expect(result.state.sessions.kick.status).not.toBe("error");
     expect(result.state.sessions.kick.errorChecks).toBe(0);
-    expect(result.events.some((event) => event.category === "diagnostic" && event.level === "warn" && event.message.includes("gamification down"))).toBe(true);
+    expect(
+      result.events.some(
+        (event) =>
+          event.category === "diagnostic"
+          && event.level === "warn"
+          && event.message.includes("gamification down"),
+      ),
+    ).toBe(true);
   });
 
   it("suspends without backoff when a challenge reports an authentication failure", async () => {
     const kick = {
       ...adapter("kick", [], []),
       claimChallenges: vi.fn(async () => {
-        throw new SafeFetchError({ kind: "security_policy_blocked", status: 403, reference: "safe-ref" });
+        throw new SafeFetchError({
+          kind: "security_policy_blocked",
+          status: 403,
+          reference: "safe-ref",
+        });
       }),
     };
 
@@ -4405,15 +5374,21 @@ describe("scheduler tick", () => {
       errorChecks: 2,
       retryAfter: undefined,
     });
-    expect(result.events).toContainEqual(expect.objectContaining({
-      category: "activity",
-      code: "auth_health_changed",
-      data: expect.objectContaining({ to: "blocked" }),
-    }));
+    expect(result.events).toContainEqual(
+      expect.objectContaining({
+        category: "activity",
+        code: "auth_health_changed",
+        data: expect.objectContaining({ to: "blocked" }),
+      }),
+    );
   });
 
   it("keeps transient platform failures on ordinary backoff", async () => {
-    const kick = adapter("kick", [campaign("kick-drops", { platform: "kick" })], [{ ...channel("kicklive"), platform: "kick", url: "https://kick.com/kicklive" }]);
+    const kick = adapter(
+      "kick",
+      [campaign("kick-drops", { platform: "kick" })],
+      [{ ...channel("kicklive"), platform: "kick", url: "https://kick.com/kicklive" }],
+    );
     vi.mocked(kick.prepareWatchTab).mockRejectedValueOnce(
       new SafeFetchError({ kind: "http_error", status: 503 }),
     );
@@ -4436,16 +5411,20 @@ describe("scheduler tick", () => {
 
   it("does not turn an authentication failure into an Idle Watchlist session", async () => {
     const kick = adapter("kick", [], []);
-    kick.claimChallenges = vi.fn().mockRejectedValueOnce(
-      new SafeFetchError({ kind: "authentication_rejected", status: 401 }),
-    );
+    kick.claimChallenges = vi
+      .fn()
+      .mockRejectedValueOnce(new SafeFetchError({ kind: "authentication_rejected", status: 401 }));
 
     const result = await runSchedulerTick(
       baseState,
       settings({
         platform: {
           twitch: { enabled: false },
-          kick: { enabled: true, idleWatchlistChannels: ["public-creator"], autoClaimChallenges: true },
+          kick: {
+            enabled: true,
+            idleWatchlistChannels: ["public-creator"],
+            autoClaimChallenges: true,
+          },
         },
       }),
       { twitch: adapter("twitch", [], []), kick },
@@ -4493,22 +5472,35 @@ describe("scheduler tick", () => {
     );
 
     expect(result.state.managedPageContextTabs?.kick).toBeUndefined();
-    expect(result.events).toContainEqual(expect.objectContaining({
-      category: "diagnostic",
-      level: "warn",
-      message: "tab close failed",
-    }));
+    expect(result.events).toContainEqual(
+      expect.objectContaining({
+        category: "diagnostic",
+        level: "warn",
+        message: "tab close failed",
+      }),
+    );
   });
 });
 
 describe("scheduler tabless mode", () => {
-  function tablessAdapter(campaigns: DropCampaign[], candidates: ChannelCandidate[]): SchedulerMockAdapter {
+  function tablessAdapter(
+    campaigns: DropCampaign[],
+    candidates: ChannelCandidate[],
+  ): SchedulerMockAdapter {
     return { ...adapter("twitch", campaigns, candidates), supportsTabless: true };
   }
 
-  async function runTablessFallbackCase(heartbeatChecks: number, overrides: SettingsPatch, browserTabs = true) {
+  async function runTablessFallbackCase(
+    heartbeatChecks: number,
+    overrides: SettingsPatch,
+    browserTabs = true,
+  ) {
     const twitch = tablessAdapter([campaign("drops")], [channel("creator")]);
-    vi.mocked(twitch.checkChannel).mockResolvedValue({ live: true, categoryMatches: true, candidate: channel("creator") });
+    vi.mocked(twitch.checkChannel).mockResolvedValue({
+      live: true,
+      categoryMatches: true,
+      candidate: channel("creator"),
+    });
 
     const result = await runSchedulerTick(
       {
@@ -4533,7 +5525,10 @@ describe("scheduler tabless mode", () => {
       settings({
         ...overrides,
         tablessMode: true,
-        platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } },
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
       }),
       { twitch, kick: adapter("kick", [], []) },
       { browserTabs },
@@ -4554,7 +5549,13 @@ describe("scheduler tabless mode", () => {
         },
         campaigns: { twitch: [], kick: [] },
       },
-      settings({ tablessMode: true, platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      settings({
+        tablessMode: true,
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -4589,10 +5590,14 @@ describe("scheduler tabless mode", () => {
   });
 
   it("keeps a headless host tabless after failed heartbeats", async () => {
-    const { result, twitch } = await runTablessFallbackCase(5, {
-      offlineRetryLimit: 10,
-      tablessFallbackFailureLimit: 5,
-    }, false);
+    const { result, twitch } = await runTablessFallbackCase(
+      5,
+      {
+        offlineRetryLimit: 10,
+        tablessFallbackFailureLimit: 5,
+      },
+      false,
+    );
 
     expect(twitch.prepareWatchTab).not.toHaveBeenCalled();
     expect(result.state.sessions.twitch.watchMode).toBe("tabless");
@@ -4609,7 +5614,11 @@ describe("scheduler tabless mode", () => {
 
   it("stays tabless while heartbeats remain healthy on the same channel", async () => {
     const twitch = tablessAdapter([campaign("drops")], [channel("creator")]);
-    vi.mocked(twitch.checkChannel).mockResolvedValue({ live: true, categoryMatches: true, candidate: channel("creator") });
+    vi.mocked(twitch.checkChannel).mockResolvedValue({
+      live: true,
+      categoryMatches: true,
+      candidate: channel("creator"),
+    });
 
     const result = await runSchedulerTick(
       {
@@ -4631,7 +5640,13 @@ describe("scheduler tabless mode", () => {
         },
         campaigns: { twitch: [campaign("drops")], kick: [] },
       },
-      settings({ tablessMode: true, platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      settings({
+        tablessMode: true,
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -4651,7 +5666,13 @@ describe("scheduler tabless mode", () => {
         },
         campaigns: { twitch: [], kick: [] },
       },
-      settings({ tablessMode: false, platform: { twitch: { enabled: true, idleWatchlistChannels: [] }, kick: { enabled: false, idleWatchlistChannels: [] } } }),
+      settings({
+        tablessMode: false,
+        platform: {
+          twitch: { enabled: true, idleWatchlistChannels: [] },
+          kick: { enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
       { twitch, kick: adapter("kick", [], []) },
     );
 
@@ -4670,17 +5691,20 @@ describe("scheduler critical health observations", () => {
     campaigns: { twitch: [], kick: [] },
   };
 
-  const healthSettings = (patch: SettingsPatch = {}): ExtensionSettings => settings({
-    ...patch,
-    platform: {
-      twitch: { enabled: true, idleWatchlistChannels: ["fallback"], ...patch.platform?.twitch },
-      kick: { enabled: false, idleWatchlistChannels: [], ...patch.platform?.kick },
-    },
-  });
+  const healthSettings = (patch: SettingsPatch = {}): ExtensionSettings =>
+    settings({
+      ...patch,
+      platform: {
+        twitch: { enabled: true, idleWatchlistChannels: ["fallback"], ...patch.platform?.twitch },
+        kick: { enabled: false, idleWatchlistChannels: [], ...patch.platform?.kick },
+      },
+    });
 
   function failingAdapter(): PlatformAdapter {
     const twitch = adapter("twitch", [], [channel("fallback")]);
-    vi.mocked(twitch.prepareWatchTab).mockRejectedValue(new SafeFetchError({ kind: "http_error", status: 503 }));
+    vi.mocked(twitch.prepareWatchTab).mockRejectedValue(
+      new SafeFetchError({ kind: "http_error", status: 503 }),
+    );
     return twitch;
   }
 
@@ -4727,9 +5751,18 @@ describe("scheduler critical health observations", () => {
 
     // The failure's retry backoff has elapsed.
     const second = await runSchedulerTick(
-      { ...first.state, sessions: { ...first.state.sessions, twitch: { ...first.state.sessions.twitch, retryAfter: undefined } } },
+      {
+        ...first.state,
+        sessions: {
+          ...first.state.sessions,
+          twitch: { ...first.state.sessions.twitch, retryAfter: undefined },
+        },
+      },
       tickSettings,
-      { twitch: adapter("twitch", [campaign("drops")], [channel("creator")]), kick: adapter("kick", [], []) },
+      {
+        twitch: adapter("twitch", [campaign("drops")], [channel("creator")]),
+        kick: adapter("kick", [], []),
+      },
       { platforms: ["twitch"] },
     );
 
@@ -4754,7 +5787,10 @@ describe("scheduler critical health observations", () => {
         },
       },
       healthSettings(),
-      { twitch: adapter("twitch", [campaign("drops")], [channel("creator")]), kick: adapter("kick", [], []) },
+      {
+        twitch: adapter("twitch", [campaign("drops")], [channel("creator")]),
+        kick: adapter("kick", [], []),
+      },
       { platforms: ["twitch"] },
     );
 
@@ -4800,7 +5836,9 @@ describe("scheduler critical health observations", () => {
     const result = await runSchedulerTick(
       {
         ...healthState,
-        criticalHealth: { twitch: { ...DEFAULT_CRITICAL_HEALTH, failingMs: 2_000_000, failingTicks: 5 } },
+        criticalHealth: {
+          twitch: { ...DEFAULT_CRITICAL_HEALTH, failingMs: 2_000_000, failingTicks: 5 },
+        },
       },
       healthSettings(),
       { twitch, kick: adapter("kick", [], []) },
@@ -4821,7 +5859,10 @@ describe("scheduler critical health observations", () => {
 
   it.each([
     ["platform disabled", () => healthSettings({ platform: { twitch: { enabled: false } } })],
-    ["automation stopped", () => healthSettings({ platform: { twitch: { enabled: false }, kick: { enabled: false } } })],
+    [
+      "automation stopped",
+      () => healthSettings({ platform: { twitch: { enabled: false }, kick: { enabled: false } } }),
+    ],
   ])("prunes the tab churn window on the %s early exit", async (_name, tickSettings) => {
     const stale = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     const result = await runSchedulerTick(
@@ -4857,7 +5898,10 @@ describe("scheduler critical health observations", () => {
     const result = await runSchedulerTick(
       {
         ...healthState,
-        authHealth: { ...HEALTHY_AUTH, twitch: { status: "invalid_credentials", reasonCode: "credentials_rejected" } },
+        authHealth: {
+          ...HEALTHY_AUTH,
+          twitch: { status: "invalid_credentials", reasonCode: "credentials_rejected" },
+        },
         criticalHealth: {
           twitch: {
             ...DEFAULT_CRITICAL_HEALTH,
@@ -4877,8 +5921,15 @@ describe("scheduler critical health observations", () => {
 
   it("records a failing tick with the breadcrumb when discovery fails", async () => {
     const twitch = adapter("twitch", [], [channel("fallback")]);
-    vi.mocked(twitch.refreshCampaigns).mockRejectedValue(new SafeFetchError({ kind: "http_error", status: 502 }));
-    const result = await runSchedulerTick(healthState, healthSettings(), { twitch, kick: adapter("kick", [], []) }, { platforms: ["twitch"] });
+    vi.mocked(twitch.refreshCampaigns).mockRejectedValue(
+      new SafeFetchError({ kind: "http_error", status: 502 }),
+    );
+    const result = await runSchedulerTick(
+      healthState,
+      healthSettings(),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
 
     expect(result.state.criticalHealth?.twitch?.failingTicks).toBe(1);
     expect(result.state.criticalHealth?.twitch?.records.at(-1)).toMatchObject({
@@ -4892,18 +5943,33 @@ describe("scheduler critical health observations", () => {
     const result = await runSchedulerTick(
       {
         ...healthState,
-        criticalHealth: { twitch: { ...DEFAULT_CRITICAL_HEALTH, failingMs: 2_000_000, failingTicks: 5 } },
+        criticalHealth: {
+          twitch: { ...DEFAULT_CRITICAL_HEALTH, failingMs: 2_000_000, failingTicks: 5 },
+        },
       },
       healthSettings(),
-      { twitch: adapter("twitch", [campaign("drops")], [channel("creator")]), kick: adapter("kick", [], []) },
+      {
+        twitch: adapter("twitch", [campaign("drops")], [channel("creator")]),
+        kick: adapter("kick", [], []),
+      },
       {
         platforms: ["twitch"],
-        discovery: { twitch: { campaigns: [campaign("drops")], complete: true, failure: new SafeFetchError({ kind: "http_error", status: 504 }) } },
+        discovery: {
+          twitch: {
+            campaigns: [campaign("drops")],
+            complete: true,
+            failure: new SafeFetchError({ kind: "http_error", status: 504 }),
+          },
+        },
       },
     );
 
     expect(result.state.criticalHealth?.twitch?.failingTicks).toBe(6);
-    expect(result.state.criticalHealth?.twitch?.records.at(-1)).toMatchObject({ kind: "api_error", code: "http_error", status: 504 });
+    expect(result.state.criticalHealth?.twitch?.records.at(-1)).toMatchObject({
+      kind: "api_error",
+      code: "http_error",
+      status: 504,
+    });
   });
 
   it("does not count a discarded discovery refresh as failing", async () => {
@@ -4911,7 +5977,10 @@ describe("scheduler critical health observations", () => {
       healthState,
       healthSettings(),
       { twitch: adapter("twitch", [], [channel("fallback")]), kick: adapter("kick", [], []) },
-      { platforms: ["twitch"], discovery: { twitch: { campaigns: [], complete: false, discarded: true } } },
+      {
+        platforms: ["twitch"],
+        discovery: { twitch: { campaigns: [], complete: false, discarded: true } },
+      },
     );
 
     expect(result.state.criticalHealth?.twitch?.failingTicks).toBe(0);
@@ -4925,7 +5994,13 @@ describe("scheduler critical health observations", () => {
       { twitch: adapter("twitch", [], [channel("fallback")]), kick: adapter("kick", [], []) },
       {
         platforms: ["twitch"],
-        discovery: { twitch: { campaigns: [], complete: false, failure: new SafeFetchError({ kind: "authentication_rejected", status: 401 }) } },
+        discovery: {
+          twitch: {
+            campaigns: [],
+            complete: false,
+            failure: new SafeFetchError({ kind: "authentication_rejected", status: 401 }),
+          },
+        },
       },
     );
 
@@ -4939,15 +6014,28 @@ describe("scheduler critical health observations", () => {
         ...healthState,
         sessions: {
           ...healthState.sessions,
-          twitch: { platform: "twitch", status: "watching", channel: channel("creator"), offlineChecks: 0 },
+          twitch: {
+            platform: "twitch",
+            status: "watching",
+            channel: channel("creator"),
+            offlineChecks: 0,
+          },
         },
-        criticalHealth: { twitch: { ...DEFAULT_CRITICAL_HEALTH, failingMs: 2_000_000, failingTicks: 5 } },
+        criticalHealth: {
+          twitch: { ...DEFAULT_CRITICAL_HEALTH, failingMs: 2_000_000, failingTicks: 5 },
+        },
       },
       healthSettings(),
       { twitch, kick: adapter("kick", [], []) },
       {
         platforms: ["twitch"],
-        discovery: { twitch: { campaigns: [], complete: false, failure: new SafeFetchError({ kind: "http_error", status: 503 }) } },
+        discovery: {
+          twitch: {
+            campaigns: [],
+            complete: false,
+            failure: new SafeFetchError({ kind: "http_error", status: 503 }),
+          },
+        },
       },
     );
 
@@ -4972,7 +6060,9 @@ describe("scheduler critical health observations", () => {
             offlineChecks: 0,
           },
         },
-        criticalHealth: { twitch: { ...DEFAULT_CRITICAL_HEALTH, failingMs: 2_000_000, failingTicks: 5 } },
+        criticalHealth: {
+          twitch: { ...DEFAULT_CRITICAL_HEALTH, failingMs: 2_000_000, failingTicks: 5 },
+        },
       },
       healthSettings(),
       { twitch, kick: adapter("kick", [], []) },
@@ -5031,16 +6121,18 @@ describe("scheduler managed tab circuit breaker", () => {
     ...DEFAULT_CRITICAL_HEALTH,
     breakerOpen: true,
     managedTabOpens: Array.from({ length: TAB_CHURN_LIMIT }, (_unused, index) =>
-      new Date(Date.now() - index * 1000).toISOString()),
+      new Date(Date.now() - index * 1000).toISOString(),
+    ),
   });
 
-  const breakerSettings = (patch: SettingsPatch = {}): ExtensionSettings => settings({
-    ...patch,
-    platform: {
-      twitch: { enabled: true, idleWatchlistChannels: [], ...patch.platform?.twitch },
-      kick: { enabled: false, idleWatchlistChannels: [], ...patch.platform?.kick },
-    },
-  });
+  const breakerSettings = (patch: SettingsPatch = {}): ExtensionSettings =>
+    settings({
+      ...patch,
+      platform: {
+        twitch: { enabled: true, idleWatchlistChannels: [], ...patch.platform?.twitch },
+        kick: { enabled: false, idleWatchlistChannels: [], ...patch.platform?.kick },
+      },
+    });
 
   const watchingState = (): SchedulerState => ({
     authHealth: HEALTHY_AUTH,
@@ -5059,7 +6151,12 @@ describe("scheduler managed tab circuit breaker", () => {
     },
     campaigns: { twitch: [campaign("drops")], kick: [] },
     managedWatchTabs: {
-      twitch: { platform: "twitch", tabId: 42, channelUrl: channel("creator").url, ownedByExtension: true },
+      twitch: {
+        platform: "twitch",
+        tabId: 42,
+        channelUrl: channel("creator").url,
+        ownedByExtension: true,
+      },
     },
   });
 
@@ -5109,7 +6206,11 @@ describe("scheduler managed tab circuit breaker", () => {
       {
         ...watchingState(),
         criticalHealth: {
-          twitch: { ...DEFAULT_CRITICAL_HEALTH, breakerOpen: true, managedTabOpens: [stale, stale] },
+          twitch: {
+            ...DEFAULT_CRITICAL_HEALTH,
+            breakerOpen: true,
+            managedTabOpens: [stale, stale],
+          },
         },
       },
       breakerSettings(),
@@ -5184,10 +6285,20 @@ describe("scheduler managed tab circuit breaker", () => {
       campaigns: { twitch: [], kick: [] },
     };
 
-    const first = await runSchedulerTick(initial, breakerSettings(), { twitch, kick: adapter("kick", [], []) }, { platforms: ["twitch"] });
+    const first = await runSchedulerTick(
+      initial,
+      breakerSettings(),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
     expect(first.state.criticalHealth?.twitch?.managedTabOpens).toHaveLength(1);
 
-    const second = await runSchedulerTick(first.state, breakerSettings(), { twitch, kick: adapter("kick", [], []) }, { platforms: ["twitch"] });
+    const second = await runSchedulerTick(
+      first.state,
+      breakerSettings(),
+      { twitch, kick: adapter("kick", [], []) },
+      { platforms: ["twitch"] },
+    );
 
     expect(second.state.criticalHealth?.twitch?.managedTabOpens).toHaveLength(1);
   });
@@ -5212,13 +6323,20 @@ describe("disabled platform diagnostics", () => {
     });
     const adapters = { twitch: adapter("twitch"), kick: adapter("kick") } as never;
     const disabledLogs = (events: readonly { category: string; message?: string }[]) =>
-      events.filter((event) => event.category === "diagnostic" && event.message === "Platform disabled");
+      events.filter(
+        (event) => event.category === "diagnostic" && event.message === "Platform disabled",
+      );
 
-    const first = await runSchedulerTick(structuredClone(DEFAULT_STATE), settings, adapters, { platforms: ["kick"] });
+    const first = await runSchedulerTick(structuredClone(DEFAULT_STATE), settings, adapters, {
+      platforms: ["kick"],
+    });
     const second = await runSchedulerTick(first.state, settings, adapters, { platforms: ["kick"] });
 
     expect(disabledLogs(first.events)).toHaveLength(1);
     expect(disabledLogs(second.events)).toHaveLength(0);
-    expect(second.state.sessions.kick).toMatchObject({ status: "paused", reasonCode: "platform_disabled" });
+    expect(second.state.sessions.kick).toMatchObject({
+      status: "paused",
+      reasonCode: "platform_disabled",
+    });
   });
 });

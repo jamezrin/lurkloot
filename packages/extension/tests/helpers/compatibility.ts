@@ -1,4 +1,8 @@
-import { resolveCompatibility, type CompatibilityHostFacts, type ResolvedCompatibility } from "@lurkloot/core";
+import {
+  resolveCompatibility,
+  type CompatibilityHostFacts,
+  type ResolvedCompatibility,
+} from "@lurkloot/core";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 
 // TwitchAdapterOptions/KickAdapterOptions require a resolved compatibility —
@@ -7,6 +11,8 @@ import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 // they exercise the same path production does rather than drifting from it.
 const EXTENSION_HOST_FACTS: CompatibilityHostFacts = { host: "extension", twitchIdentity: "web" };
 
-export function testCompatibility(hostFacts: CompatibilityHostFacts = EXTENSION_HOST_FACTS): ResolvedCompatibility {
+export function testCompatibility(
+  hostFacts: CompatibilityHostFacts = EXTENSION_HOST_FACTS,
+): ResolvedCompatibility {
   return resolveCompatibility(DEFAULT_SETTINGS.compatibility, hostFacts).compatibility;
 }

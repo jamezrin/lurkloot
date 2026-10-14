@@ -3,15 +3,30 @@ import { KickRealtimeConnection, kickRealtimePost } from "@lurkloot/core/kick/re
 import { createSocketHostFactory } from "../src/core/socketHostFactory";
 import { SOCKET_HOST_PATH } from "../src/core/socketHost";
 import { createAdmittedWebSocketFactory, createSocketAdmission } from "../src/core/socketAdmission";
-import { installSocketOriginListener, type BlockingWebRequestApi } from "../src/core/platformSocketOrigin";
+import {
+  installSocketOriginListener,
+  type BlockingWebRequestApi,
+} from "../src/core/platformSocketOrigin";
 import { browser } from "wxt/browser";
-import { loadSettings, loadState, loadTwitchIntegrity, resetStorage, saveSettings, saveState, saveTwitchIntegrity } from "../src/core/storage";
+import {
+  loadSettings,
+  loadState,
+  loadTwitchIntegrity,
+  resetStorage,
+  saveSettings,
+  saveState,
+  saveTwitchIntegrity,
+} from "../src/core/storage";
 import type { RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import { createBrowserTabs, liveBrowserTabApi } from "../src/core/tabs";
 import { createExtensionTabPorts } from "../src/core/tabPorts";
 import { inspectKickDocument } from "../src/core/kickPageDocument";
 import { createTabRegistry } from "@lurkloot/core/tabRegistry";
-import { createBackgroundAlarmListener, createBackgroundController, EXTENSION_CAPABILITIES } from "@lurkloot/core/controller";
+import {
+  createBackgroundAlarmListener,
+  createBackgroundController,
+  EXTENSION_CAPABILITIES,
+} from "@lurkloot/core/controller";
 import { createAlarmJobScheduler } from "../src/core/jobs";
 import { resolveCompatibility } from "@lurkloot/core";
 import { applySettingsPatch } from "@lurkloot/shared/settings";
@@ -21,18 +36,36 @@ import type { ExtensionSettings, Platform, SupportedLocale } from "@lurkloot/sha
 import { withActivityDiagnostics } from "@lurkloot/core/activityDiagnostics";
 import type { EventEmitter, EngineEvent } from "@lurkloot/shared/events";
 import type { WebSocketFactory, WebSocketLike } from "@lurkloot/core/webSocket";
-import { createKickFetcher, KickAdapter, KickClaimState, KickDiscoveryState, KickPageContextRecoveryTracker } from "@lurkloot/core/kick";
+import {
+  createKickFetcher,
+  KickAdapter,
+  KickClaimState,
+  KickDiscoveryState,
+  KickPageContextRecoveryTracker,
+} from "@lurkloot/core/kick";
 import { TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
 import { isMinorOrMajorBump } from "../src/core/version";
 import { savePendingChangelogVersion } from "../src/core/updateNotice";
-import { appendActivityEvents, clearActivityEvents, exportDiagnosticsEvents, loadActivityEvents } from "../src/core/activityStorage";
+import {
+  appendActivityEvents,
+  clearActivityEvents,
+  exportDiagnosticsEvents,
+  loadActivityEvents,
+} from "../src/core/activityStorage";
 import {
   createActivityEventReporter,
   createActivityMessageHandler,
   createRuntimeMessageDispatcher,
 } from "../src/core/activityMessages";
-import { twitchHeartbeatExchange, twitchHeartbeatFetchText, twitchHeartbeatPost } from "../src/core/twitchHeartbeatTransport";
-import { createCredentialAvailabilityProvider, createCredentialReader } from "../src/core/credentialAvailability";
+import {
+  twitchHeartbeatExchange,
+  twitchHeartbeatFetchText,
+  twitchHeartbeatPost,
+} from "../src/core/twitchHeartbeatTransport";
+import {
+  createCredentialAvailabilityProvider,
+  createCredentialReader,
+} from "../src/core/credentialAvailability";
 import { createTwitchExtensionCommitHook } from "../src/extensions/commitHook";
 import { createTwitchExtensionHost } from "../src/extensions/host";
 import { createTwitchExtensionSessionSource } from "../src/extensions/transport";
@@ -41,16 +74,26 @@ import { createNoPixelDriver } from "../src/extensions/nopixel/driver";
 import { createCredentialHealthObserver } from "../src/core/credentialObserver";
 import { buildCliCredentialBlob } from "../src/core/cliCredentialExport";
 import { REQUEST_FAILED_RESPONSE } from "../src/core/runtimeRequests";
-import { installPlatformOriginRules, type DynamicRulesApi } from "../src/core/platformRequestOrigin";
+import {
+  installPlatformOriginRules,
+  type DynamicRulesApi,
+} from "../src/core/platformRequestOrigin";
 
 interface ChromeOffscreen {
-  createDocument(parameters: { url: string; reasons: string[]; justification: string }): Promise<void>;
+  createDocument(parameters: {
+    url: string;
+    reasons: string[];
+    justification: string;
+  }): Promise<void>;
   closeDocument(): Promise<void>;
 }
 type ChromeGetContexts = (filter: { contextTypes: string[] }) => Promise<unknown[]>;
 
 const localeCatalogs = new Map<string, MessageCatalog | undefined>();
-const getMessage = browser.i18n.getMessage as (key: string, substitutions?: string | string[]) => string;
+const getMessage = browser.i18n.getMessage as (
+  key: string,
+  substitutions?: string | string[],
+) => string;
 const handleActivityMessage = createActivityMessageHandler({
   load: loadActivityEvents,
   exportDiagnostics: exportDiagnosticsEvents,
@@ -89,32 +132,42 @@ const kickRealtimeFetcher = createKickFetcher({
 });
 const KICK_PAGE_CONTEXT_URL = "https://kick.com/drops/inventory";
 const TWITCH_EXTENSION_LANE_KEY = "twitchExtensionLane";
-const createBrowserWebSocket: WebSocketFactory = (url) => new WebSocket(url) as unknown as WebSocketLike;
+const createBrowserWebSocket: WebSocketFactory = (url) =>
+  new WebSocket(url) as unknown as WebSocketLike;
 const extensionOrigin = new URL(browser.runtime.getURL("/")).origin;
 let originRules: Promise<boolean> | undefined;
 // The Origin rules, installed once per worker start. Platform sockets wait
 // for them (#792).
-const platformOriginRulesReady = () => originRules ??= installPlatformOriginRules(
-  browser.declarativeNetRequest as DynamicRulesApi | undefined,
-  new URL(extensionOrigin).hostname,
-).catch(() => false);
+const platformOriginRulesReady = () =>
+  (originRules ??= installPlatformOriginRules(
+    browser.declarativeNetRequest as DynamicRulesApi | undefined,
+    new URL(extensionOrigin).hostname,
+  ).catch(() => false));
 // Firefox rewrites its sockets' Origin with blocking webRequest. The listener
 // is registered first thing in the background's main, and in any case before
 // a socket is admitted. (Not at module level: WXT evaluates this module at
 // build time against a fake browser without webRequest.)
 let socketOriginListener = false;
-const ensureSocketOriginListener = () => socketOriginListener ||= installSocketOriginListener(
-  browser.webRequest as unknown as BlockingWebRequestApi,
-  extensionOrigin,
-);
-const chromeOffscreen = (globalThis as { chrome?: { offscreen?: ChromeOffscreen; runtime?: { getContexts?: ChromeGetContexts } } }).chrome;
+const ensureSocketOriginListener = () =>
+  (socketOriginListener ||= installSocketOriginListener(
+    browser.webRequest as unknown as BlockingWebRequestApi,
+    extensionOrigin,
+  ));
+const chromeOffscreen = (
+  globalThis as {
+    chrome?: { offscreen?: ChromeOffscreen; runtime?: { getContexts?: ChromeGetContexts } };
+  }
+).chrome;
 const admitSocket = createSocketAdmission({
-  originReady: async () => import.meta.env.FIREFOX
-    ? ensureSocketOriginListener()
-    : chromeOffscreen?.offscreen !== undefined && await platformOriginRulesReady(),
+  originReady: async () =>
+    import.meta.env.FIREFOX
+      ? ensureSocketOriginListener()
+      : chromeOffscreen?.offscreen !== undefined && (await platformOriginRulesReady()),
   hasPermission: (origin) => browser.permissions.contains({ origins: [origin] }),
   report: ({ platform, message }) => {
-    void reportEvents([{ category: "diagnostic", ...(platform ? { platform } : {}), level: "warn", message }]).catch(() => undefined);
+    void reportEvents([
+      { category: "diagnostic", ...(platform ? { platform } : {}), level: "warn", message },
+    ]).catch(() => undefined);
   },
 });
 // Every platform socket presents the platform's Origin, never the
@@ -124,19 +177,22 @@ const admitSocket = createSocketAdmission({
 // closed.
 const platformWebSocket: WebSocketFactory = chromeOffscreen?.offscreen
   ? createSocketHostFactory({
-    onConnect: browser.runtime.onConnect as never,
-    documentUrl: `${extensionOrigin}/${SOCKET_HOST_PATH}`,
-    // Without getContexts (Chrome before 116) a stale document cannot be
-    // seen; creating one then fails and the socket retries.
-    hasDocument: async () => ((await chromeOffscreen.runtime?.getContexts?.({ contextTypes: ["OFFSCREEN_DOCUMENT"] }))?.length ?? 0) > 0,
-    createDocument: () => chromeOffscreen.offscreen!.createDocument({
-      url: SOCKET_HOST_PATH,
-      reasons: ["WORKERS"],
-      justification: "Runs the extension's Twitch and Kick connections in a worker.",
-    }),
-    closeDocument: () => chromeOffscreen.offscreen!.closeDocument(),
-    admit: admitSocket,
-  })
+      onConnect: browser.runtime.onConnect as never,
+      documentUrl: `${extensionOrigin}/${SOCKET_HOST_PATH}`,
+      // Without getContexts (Chrome before 116) a stale document cannot be
+      // seen; creating one then fails and the socket retries.
+      hasDocument: async () =>
+        ((await chromeOffscreen.runtime?.getContexts?.({ contextTypes: ["OFFSCREEN_DOCUMENT"] }))
+          ?.length ?? 0) > 0,
+      createDocument: () =>
+        chromeOffscreen.offscreen!.createDocument({
+          url: SOCKET_HOST_PATH,
+          reasons: ["WORKERS"],
+          justification: "Runs the extension's Twitch and Kick connections in a worker.",
+        }),
+      closeDocument: () => chromeOffscreen.offscreen!.closeDocument(),
+      admit: admitSocket,
+    })
   : createAdmittedWebSocketFactory(admitSocket, createBrowserWebSocket);
 // The one Kick realtime connection, shared by discovery signals and chat
 // presence (#755). Its socket carries kick.com's origin, so Kick's Centrifugo
@@ -145,7 +201,9 @@ const kickRealtime = new KickRealtimeConnection({
   createWebSocket: platformWebSocket,
   postJson: kickRealtimePost((url, init) => kickRealtimeFetcher.fetchJson<unknown>(url, init)),
 });
-const credentialCookies = { get: (details: { url: string; name: string }) => browser.cookies.get(details) };
+const credentialCookies = {
+  get: (details: { url: string; name: string }) => browser.cookies.get(details),
+};
 const checkCredentialAvailability = createCredentialAvailabilityProvider(credentialCookies);
 
 async function catalog(locale: string): Promise<MessageCatalog | undefined> {
@@ -168,54 +226,63 @@ async function translate(key: string, substitutions?: string | string[]): Promis
   return translateFromCatalogs(key, substitutions, active, fallback ?? {});
 }
 
-function createExtensionAdapter(platform: Platform, emit: EventEmitter, settings: ExtensionSettings) {
-  const resolution = resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" });
-  const adapter = platform === "twitch"
-    ? new TwitchAdapter(
-      { fetchJson: (url, init) => fetchTwitchInBackground(url, init) },
-      (request) => ensureTwitchIntegrity(emit, request),
-      {
-        compatibility: resolution.compatibility.twitch,
-        discoveryState: twitchDiscoveryState,
-        strictCampaignAvailability: settings.platform.twitch.strictCampaignAvailability,
-        currentIntegrity: currentValidTwitchIntegrity,
-        heartbeatIdentity: "web",
-        heartbeatFetchText: twitchHeartbeatFetchText,
-        heartbeatPost: twitchHeartbeatPost,
-        heartbeatExchange: twitchHeartbeatExchange,
-        webSocketFactory: platformWebSocket,
-        getAuthToken: async () => (
-          await browser.cookies.get({ url: "https://www.twitch.tv", name: "auth-token" })
-        )?.value,
-      },
-      emit,
-    )
-    : new KickAdapter(
-      createKickFetcher({
-        routeState: kickDiscoveryState.routeDiagnostics,
-        background: (url, init) => fetchKickInBackground<unknown>(url, init),
-        pageFetch: (url, init) => fetchJsonInPage<unknown>(KICK_PAGE_CONTEXT_URL, url, init, {
-          retainPageContext: { platform: "kick" },
-          inspectDocument: inspectKickDocument,
+function createExtensionAdapter(
+  platform: Platform,
+  emit: EventEmitter,
+  settings: ExtensionSettings,
+) {
+  const resolution = resolveCompatibility(settings.compatibility, {
+    host: "extension",
+    twitchIdentity: "web",
+  });
+  const adapter =
+    platform === "twitch"
+      ? new TwitchAdapter(
+          { fetchJson: (url, init) => fetchTwitchInBackground(url, init) },
+          (request) => ensureTwitchIntegrity(emit, request),
+          {
+            compatibility: resolution.compatibility.twitch,
+            discoveryState: twitchDiscoveryState,
+            strictCampaignAvailability: settings.platform.twitch.strictCampaignAvailability,
+            currentIntegrity: currentValidTwitchIntegrity,
+            heartbeatIdentity: "web",
+            heartbeatFetchText: twitchHeartbeatFetchText,
+            heartbeatPost: twitchHeartbeatPost,
+            heartbeatExchange: twitchHeartbeatExchange,
+            webSocketFactory: platformWebSocket,
+            getAuthToken: async () =>
+              (await browser.cookies.get({ url: "https://www.twitch.tv", name: "auth-token" }))
+                ?.value,
+          },
           emit,
-          openReason: "background_rejected",
-        }),
-        onBackgroundSuccess: (host) => kickPageContextRecovery.recordBackgroundSuccess(host),
-        onPageFallback: (host, operationEmit) => {
-          kickPageContextRecovery.recordPageFallback(host);
-          recordManagedPageContextFallback(host, operationEmit);
-        },
-      }),
-      platformWebSocket,
-      {
-        compatibility: resolution.compatibility.kick,
-        claimState: kickClaimState,
-        discoveryState: kickDiscoveryState,
-        realtime: { connection: kickRealtime, kickOrigin: true },
-        realtimeFetcher: kickRealtimeFetcher,
-      },
-      emit,
-    );
+        )
+      : new KickAdapter(
+          createKickFetcher({
+            routeState: kickDiscoveryState.routeDiagnostics,
+            background: (url, init) => fetchKickInBackground<unknown>(url, init),
+            pageFetch: (url, init) =>
+              fetchJsonInPage<unknown>(KICK_PAGE_CONTEXT_URL, url, init, {
+                retainPageContext: { platform: "kick" },
+                inspectDocument: inspectKickDocument,
+                emit,
+                openReason: "background_rejected",
+              }),
+            onBackgroundSuccess: (host) => kickPageContextRecovery.recordBackgroundSuccess(host),
+            onPageFallback: (host, operationEmit) => {
+              kickPageContextRecovery.recordPageFallback(host);
+              recordManagedPageContextFallback(host, operationEmit);
+            },
+          }),
+          platformWebSocket,
+          {
+            compatibility: resolution.compatibility.kick,
+            claimState: kickClaimState,
+            discoveryState: kickDiscoveryState,
+            realtime: { connection: kickRealtime, kickOrigin: true },
+            realtimeFetcher: kickRealtimeFetcher,
+          },
+          emit,
+        );
   return { adapter, ...resolution };
 }
 
@@ -264,7 +331,8 @@ const controller = createBackgroundController<ExtensionSettings>({
       save: saveTwitchIntegrity,
     },
     supplementalSources: {
-      select: (state, settings, signal, source) => extensionHost.chooseWatchTarget(settings, state, signal, source),
+      select: (state, settings, signal, source) =>
+        extensionHost.chooseWatchTarget(settings, state, signal, source),
       refreshNow: (provider, channelId) => extensionHost.refreshNow(provider, channelId),
       broadcastToken: (provider, channelId) => extensionHost.broadcastToken(provider, channelId),
     },
@@ -301,53 +369,81 @@ const extensionHost = createTwitchExtensionHost({
     contains: (details) => browser.permissions.contains(details),
   },
   drivers: {
-    fortnite: async (session, emit, channel, publish) => createFortniteDriver({
-      allowTakeovers: (await loadSettings()).twitchExtensions.fortnite.allowTakeovers,
-      onTakeoverStarted: () => publishDriverAction(publish, channel, "fortnite", "takeover_started"),
-      // Through the socket host, so it presents the extension frame's origin (#798).
-      createSocket: (url) => platformWebSocket(url),
-      onCaptured: () => publishDriverAction(publish, channel, "fortnite", "sprite_captured"),
-    })(session, emit, channel, publish),
-    nopixel: async (session, emit, channel, publish) => createNoPixelDriver(
-      (url, init) => fetch(url, init),
-      () => publishDriverAction(publish, channel, "nopixel", "giveaway_joined"),
-      Date.now,
-      (message) => publish?.([{ category: "diagnostic", platform: "twitch", level: "warn", message }]),
-      {
-        autoOpenPacks: (await loadSettings()).twitchExtensions.nopixel.autoOpenPacks,
-        onOpened: () => publishDriverAction(publish, channel, "nopixel", "pack_opened"),
-      },
-    )(session, emit, channel, publish),
+    fortnite: async (session, emit, channel, publish) =>
+      createFortniteDriver({
+        allowTakeovers: (await loadSettings()).twitchExtensions.fortnite.allowTakeovers,
+        onTakeoverStarted: () =>
+          publishDriverAction(publish, channel, "fortnite", "takeover_started"),
+        // Through the socket host, so it presents the extension frame's origin (#798).
+        createSocket: (url) => platformWebSocket(url),
+        onCaptured: () => publishDriverAction(publish, channel, "fortnite", "sprite_captured"),
+      })(session, emit, channel, publish),
+    nopixel: async (session, emit, channel, publish) =>
+      createNoPixelDriver(
+        (url, init) => fetch(url, init),
+        () => publishDriverAction(publish, channel, "nopixel", "giveaway_joined"),
+        Date.now,
+        (message) =>
+          publish?.([{ category: "diagnostic", platform: "twitch", level: "warn", message }]),
+        {
+          autoOpenPacks: (await loadSettings()).twitchExtensions.nopixel.autoOpenPacks,
+          onOpened: () => publishDriverAction(publish, channel, "nopixel", "pack_opened"),
+        },
+      )(session, emit, channel, publish),
   },
   loadSettings,
   loadState,
-  savePatch: async (settingsPatch) => { await controller.handleMessage({ type: "saveSettings", settingsPatch }); },
-  diagnostic: (message, level = "warn") => { void reportEvents([{ category: "diagnostic", platform: "twitch", level, message }]).catch(() => undefined); },
-  publish: (events) => { void reportEvents(events).catch(() => undefined); },
+  savePatch: async (settingsPatch) => {
+    await controller.handleMessage({ type: "saveSettings", settingsPatch });
+  },
+  diagnostic: (message, level = "warn") => {
+    void reportEvents([{ category: "diagnostic", platform: "twitch", level, message }]).catch(
+      () => undefined,
+    );
+  },
+  publish: (events) => {
+    void reportEvents(events).catch(() => undefined);
+  },
   // Completion and cooldowns outlive the service worker (#594). Reset clears
   // the key with the rest of local storage.
   memory: {
-    load: async () => (await browser.storage.local.get(TWITCH_EXTENSION_LANE_KEY))[TWITCH_EXTENSION_LANE_KEY],
+    load: async () =>
+      (await browser.storage.local.get(TWITCH_EXTENSION_LANE_KEY))[TWITCH_EXTENSION_LANE_KEY],
     save: (memory) => browser.storage.local.set({ [TWITCH_EXTENSION_LANE_KEY]: memory }),
   },
   // Twitch's `login` cookie holds the username, not a credential.
-  viewerLogin: async () => (await browser.cookies.get({ url: "https://www.twitch.tv", name: "login" }))?.value,
+  viewerLogin: async () =>
+    (await browser.cookies.get({ url: "https://www.twitch.tv", name: "login" }))?.value,
   // Never awaited: it runs from the lane's commit hook.
-  requestTick: () => { void controller.tick(["twitch"], "tabless_fallback").catch(() => undefined); },
-  onSessionReady: () => { void controller.reconcileTwitchObservers().catch(() => undefined); },
+  requestTick: () => {
+    void controller.tick(["twitch"], "tabless_fallback").catch(() => undefined);
+  },
+  onSessionReady: () => {
+    void controller.reconcileTwitchObservers().catch(() => undefined);
+  },
 });
 
 const extensionGrantCompletion = createTwitchExtensionGrantCompletion({
   storage: browser.storage.local,
   now: Date.now,
   contains: (details) => browser.permissions.contains(details),
-  enable: async (provider) => { await extensionHost.setEnabled(provider, true); await controller.tickAndHandOff(["twitch"], "manual_tick"); },
+  enable: async (provider) => {
+    await extensionHost.setEnabled(provider, true);
+    await controller.tickAndHandOff(["twitch"], "manual_tick");
+  },
 });
 // The lane follows the controller's accepted commits (#594), not storage events
 // or alarms. A worker wake, startup and an auth check reconcile it too.
 const extensionCommits = createTwitchExtensionCommitHook(extensionHost, () => {
   // Never include transport/provider exceptions or payloads in diagnostics.
-  void reportEvents([{ category: "diagnostic", platform: "twitch", level: "warn", message: "Twitch Extension background reconciliation failed." }]).catch(() => undefined);
+  void reportEvents([
+    {
+      category: "diagnostic",
+      platform: "twitch",
+      level: "warn",
+      message: "Twitch Extension background reconciliation failed.",
+    },
+  ]).catch(() => undefined);
 });
 controller.onCommit(extensionCommits.onCommit);
 const reconcileExtensions = extensionCommits.reconcile;
@@ -355,7 +451,10 @@ const reconcileExtensions = extensionCommits.reconcile;
 function withExtensionSnapshot(value: unknown): unknown {
   if (value && typeof value === "object" && "state" in value && "settings" in value) {
     const snapshot = value as RuntimeSnapshot<ExtensionSettings>;
-    return { ...snapshot, state: { ...snapshot.state, twitchExtensions: extensionHost.snapshot() } };
+    return {
+      ...snapshot,
+      state: { ...snapshot.state, twitchExtensions: extensionHost.snapshot() },
+    };
   }
   return value;
 }
@@ -368,13 +467,18 @@ function resetExtension(): Promise<RuntimeSnapshot<ExtensionSettings>> {
     await extensionGrantCompletion.cancelAll();
     // Disable invalidates permission generations and drains in-flight enables
     // before reset can finish; a delayed grant cannot commit afterward.
-    await Promise.all([extensionHost.setEnabled("nopixel", false), extensionHost.setEnabled("fortnite", false)]);
+    await Promise.all([
+      extensionHost.setEnabled("nopixel", false),
+      extensionHost.setEnabled("fortnite", false),
+    ]);
     extensionHost.invalidate();
     await controller.prepareForHostReset(async () => {
       kickClaimState.clear();
       await resetStorage();
     });
-    return await controller.handleMessage({ type: "getSnapshot" }) as RuntimeSnapshot<ExtensionSettings>;
+    return (await controller.handleMessage({
+      type: "getSnapshot",
+    })) as RuntimeSnapshot<ExtensionSettings>;
   })().finally(() => {
     resetMutation = undefined;
   });
@@ -384,24 +488,26 @@ function resetExtension(): Promise<RuntimeSnapshot<ExtensionSettings>> {
 // Credential export reads the user's live session cookies, which only the
 // extension can do. Keep it ahead of activity routing and core delegation.
 const dispatchRuntimeMessage = createRuntimeMessageDispatcher({
-  exportCliCredentials: () => buildCliCredentialBlob(
-    async (url, name, partitionedUnder) => {
+  exportCliCredentials: () =>
+    buildCliCredentialBlob(async (url, name, partitionedUnder) => {
       try {
-        const details = partitionedUnder ? { url, name, partitionKey: { topLevelSite: partitionedUnder } } : { url, name };
+        const details = partitionedUnder
+          ? { url, name, partitionKey: { topLevelSite: partitionedUnder } }
+          : { url, name };
         return (await browser.cookies.get(details))?.value ?? undefined;
       } catch {
         // Browsers without partitioned-cookie support reject `partitionKey`.
         return undefined;
       }
-    },
-  ),
+    }),
   resetExtension,
   handleActivityMessage,
   handleTwitchExtensionMessage: async (message) => {
     await extensionGrantCompletion.cancel(message.provider);
     return extensionHost.setEnabled(message.provider, message.enabled);
   },
-  handleCoreMessage: async (message, sender) => withExtensionSnapshot(await controller.handleMessage(message, sender)),
+  handleCoreMessage: async (message, sender) =>
+    withExtensionSnapshot(await controller.handleMessage(message, sender)),
 });
 
 export default defineBackground(() => {
@@ -455,7 +561,10 @@ export default defineBackground(() => {
     // install), queue a popup notice so returning users can choose to see
     // what's new without an unsolicited browser tab interrupting them.
     const currentVersion = browser.runtime.getManifest().version;
-    if (details.reason === "update" && isMinorOrMajorBump(details.previousVersion, currentVersion)) {
+    if (
+      details.reason === "update"
+      && isMinorOrMajorBump(details.previousVersion, currentVersion)
+    ) {
       await savePendingChangelogVersion(currentVersion);
     }
   });
@@ -473,7 +582,8 @@ export default defineBackground(() => {
     // Ask for current playback rather than interpreting a platform URL as watching.
     try {
       const parsed = new URL(url);
-      if (!["twitch.tv", "www.twitch.tv", "kick.com", "www.kick.com"].includes(parsed.hostname)) return;
+      if (!["twitch.tv", "www.twitch.tv", "kick.com", "www.kick.com"].includes(parsed.hostname))
+        return;
       await browser.tabs.sendMessage(tabId, { type: "requestPlaybackTelemetry" });
     } catch {
       // A newly opened/navigating tab may not have its content script yet.
@@ -511,8 +621,9 @@ export default defineBackground(() => {
   );
 
   browser.runtime.onMessage.addListener((message: RuntimeMessage, sender, sendResponse) => {
-    void dispatchRuntimeMessage(message, sender).then(sendResponse, () => sendResponse(REQUEST_FAILED_RESPONSE));
+    void dispatchRuntimeMessage(message, sender).then(sendResponse, () =>
+      sendResponse(REQUEST_FAILED_RESPONSE),
+    );
     return true;
   });
-
 });

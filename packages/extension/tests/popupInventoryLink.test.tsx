@@ -7,7 +7,8 @@ import { createDemoPopupAdapter, Popup, type PopupAdapter } from "@lurkloot/popu
 import { resetCatalogTracking, waitForCatalog } from "./helpers/popupCatalog";
 
 vi.mock("@lurkloot/locales", async (importOriginal) =>
-  (await import("./helpers/popupCatalog")).delayedLocales(importOriginal));
+  (await import("./helpers/popupCatalog")).delayedLocales(importOriginal),
+);
 
 let root: Root | undefined;
 

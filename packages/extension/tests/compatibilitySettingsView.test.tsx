@@ -5,7 +5,11 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { COMPATIBILITY_REGISTRY, resolveCompatibility } from "@lurkloot/core";
-import { applySettingsPatch, DEFAULT_SETTINGS, type SettingsPatch } from "@lurkloot/shared/settings";
+import {
+  applySettingsPatch,
+  DEFAULT_SETTINGS,
+  type SettingsPatch,
+} from "@lurkloot/shared/settings";
 import { I18nContext } from "../../popup-ui/src/context";
 import { PlatformCompatibilitySettings } from "../../popup-ui/src/compatibilitySettings";
 import type { Platform } from "@lurkloot/shared/models";
@@ -71,18 +75,30 @@ function mount(onChange = vi.fn(), platform: Platform = "twitch") {
     // the real popup.
     const translate = (key: string, substitutions?: string | string[]) => {
       const template = labels[key] ?? key;
-      const values = Array.isArray(substitutions) ? substitutions : substitutions == null ? [] : [substitutions];
-      return values.reduce((text, value, index) => text.replaceAll(`$${index + 1}`, value), template);
+      const values = Array.isArray(substitutions)
+        ? substitutions
+        : substitutions == null
+          ? []
+          : [substitutions];
+      return values.reduce(
+        (text, value, index) => text.replaceAll(`$${index + 1}`, value),
+        template,
+      );
     };
-    return <I18nContext.Provider value={{ t: translate, dir: "ltr", locale: "en" }}>
-      <PlatformCompatibilitySettings
-        platform={platform}
-        settings={settings.compatibility}
-        registry={COMPATIBILITY_REGISTRY}
-        resolution={resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" })}
-        onChange={handleChange}
-      />
-    </I18nContext.Provider>;
+    return (
+      <I18nContext.Provider value={{ t: translate, dir: "ltr", locale: "en" }}>
+        <PlatformCompatibilitySettings
+          platform={platform}
+          settings={settings.compatibility}
+          registry={COMPATIBILITY_REGISTRY}
+          resolution={resolveCompatibility(settings.compatibility, {
+            host: "extension",
+            twitchIdentity: "web",
+          })}
+          onChange={handleChange}
+        />
+      </I18nContext.Provider>
+    );
   }
   act(() => {
     root = createRoot(container);
@@ -92,7 +108,9 @@ function mount(onChange = vi.fn(), platform: Platform = "twitch") {
 }
 
 function byText(container: Element, text: string): HTMLButtonElement {
-  const button = [...container.querySelectorAll("button")].find((item) => item.textContent?.includes(text));
+  const button = [...container.querySelectorAll("button")].find((item) =>
+    item.textContent?.includes(text),
+  );
   if (!button) throw new Error(`Missing button: ${text}`);
   return button as HTMLButtonElement;
 }
@@ -121,12 +139,16 @@ async function openOptions(container: Element, label: string): Promise<HTMLEleme
 
 async function options(container: Element, label: string): Promise<HTMLElement[]> {
   const found = await openOptions(container, label);
-  await settle(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+  await settle(() =>
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })),
+  );
   return found;
 }
 
 async function choose(container: Element, label: string, value: string): Promise<void> {
-  const option = (await openOptions(container, label)).find((candidate) => candidate.dataset.value === value);
+  const option = (await openOptions(container, label)).find(
+    (candidate) => candidate.dataset.value === value,
+  );
   if (!option) throw new Error(`Missing option: ${value}`);
   await settle(() => option.click());
 }
@@ -144,7 +166,11 @@ describe("extension compatibility settings", () => {
       expect(container.textContent).toContain(id);
     }
     // Full capability names stay as accessible names for the controls.
-    expect((await options(container, "Twitch compatibility profile")).map((option) => option.textContent).join(" ")).toContain("Twitch July 2026");
+    expect(
+      (await options(container, "Twitch compatibility profile"))
+        .map((option) => option.textContent)
+        .join(" "),
+    ).toContain("Twitch July 2026");
   });
 
   it("shows the kick capabilities and what each one resolved to", async () => {
@@ -157,7 +183,11 @@ describe("extension compatibility settings", () => {
     for (const id of ["kick-2026-07", "kick-claim-v2"]) {
       expect(container.textContent).toContain(id);
     }
-    expect((await options(container, "Kick compatibility profile")).map((option) => option.textContent).join(" ")).toContain("Kick July 2026");
+    expect(
+      (await options(container, "Kick compatibility profile"))
+        .map((option) => option.textContent)
+        .join(" "),
+    ).toContain("Kick July 2026");
   });
 
   it("renders only the requested platform's rows", async () => {
@@ -169,7 +199,9 @@ describe("extension compatibility settings", () => {
 
   it("carries lifecycle into the option labels so the tradeoff is visible when choosing", async () => {
     const { container } = mount(undefined, "twitch");
-    const optionLabels = (await options(container, "Twitch heartbeat transport")).map((option) => option.textContent);
+    const optionLabels = (await options(container, "Twitch heartbeat transport")).map(
+      (option) => option.textContent,
+    );
     expect(optionLabels).toContain("Automatic");
     expect(optionLabels).toContain("HLS + Spade heartbeat v1 · Recommended");
     expect(optionLabels).toContain("Spade heartbeat v1 · Legacy");
@@ -192,15 +224,25 @@ describe("extension compatibility settings", () => {
     const { container, onChange } = mount(undefined, "twitch");
     expect(container.querySelectorAll('input[type="text"]')).toHaveLength(0);
 
-    expect((await options(container, "Twitch inventory query")).map((option) => option.dataset.value)).toEqual(["auto", "twitch-inventory-v1", "twitch-inventory-v2"]);
+    expect(
+      (await options(container, "Twitch inventory query")).map((option) => option.dataset.value),
+    ).toEqual(["auto", "twitch-inventory-v1", "twitch-inventory-v2"]);
 
-    expect((await options(container, "Twitch heartbeat transport")).map((option) => option.textContent).join(" ")).not.toContain("Trowel");
+    expect(
+      (await options(container, "Twitch heartbeat transport"))
+        .map((option) => option.textContent)
+        .join(" "),
+    ).not.toContain("Trowel");
     await choose(container, "Twitch heartbeat transport", "twitch-heartbeat-gql-v1");
-    expect(onChange).toHaveBeenNthCalledWith(1, { compatibility: { twitch: { heartbeatTransport: "twitch-heartbeat-gql-v1" } } });
+    expect(onChange).toHaveBeenNthCalledWith(1, {
+      compatibility: { twitch: { heartbeatTransport: "twitch-heartbeat-gql-v1" } },
+    });
 
     await settle(() => byText(container, "Restore automatic compatibility").click());
     expect(onChange).toHaveBeenLastCalledWith({
-      compatibility: { twitch: { profile: "auto", heartbeatTransport: "auto", inventoryQueryVersion: "auto" } },
+      compatibility: {
+        twitch: { profile: "auto", heartbeatTransport: "auto", inventoryQueryVersion: "auto" },
+      },
     });
   });
 
@@ -208,7 +250,9 @@ describe("extension compatibility settings", () => {
     const { container, onChange } = mount(undefined, "kick");
 
     await choose(container, "Kick claim-link handling", "kick-claim-v2");
-    expect(onChange).toHaveBeenNthCalledWith(1, { compatibility: { kick: { claimLinkHandling: "kick-claim-v2" } } });
+    expect(onChange).toHaveBeenNthCalledWith(1, {
+      compatibility: { kick: { claimLinkHandling: "kick-claim-v2" } },
+    });
 
     await settle(() => byText(container, "Restore automatic compatibility").click());
     expect(onChange).toHaveBeenLastCalledWith({

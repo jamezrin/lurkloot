@@ -5,7 +5,16 @@ import { join } from "node:path";
 import type { CredentialAvailability } from "@lurkloot/core/controller";
 import { resolveCompatibility } from "@lurkloot/core";
 import { heartbeatContextKey } from "@lurkloot/core/heartbeatCadence";
-import type { ChannelCandidate, ChannelCheck, DropCampaign, EngineSettings, Platform, PlatformAuthHealth, SchedulerState, WatchSession } from "@lurkloot/shared/models";
+import type {
+  ChannelCandidate,
+  ChannelCheck,
+  DropCampaign,
+  EngineSettings,
+  Platform,
+  PlatformAuthHealth,
+  SchedulerState,
+  WatchSession,
+} from "@lurkloot/shared/models";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import type { HeartbeatResult, TablessWatchController } from "@lurkloot/core/tablessWatch";
 import type { EventEmitter } from "@lurkloot/shared/events";
@@ -34,7 +43,11 @@ function fakeAdapter(platform: Platform, health: PlatformAuthHealth): PlatformAd
     checkAuthHealth: async () => health,
     refreshCampaigns: async () => [],
     listCandidateChannels: async () => [],
-    checkChannel: async (candidate: ChannelCandidate): Promise<ChannelCheck> => ({ live: false, categoryMatches: false, candidate }),
+    checkChannel: async (candidate: ChannelCandidate): Promise<ChannelCheck> => ({
+      live: false,
+      categoryMatches: false,
+      candidate,
+    }),
     claimReward: async () => false,
   };
 }
@@ -42,8 +55,13 @@ function fakeAdapter(platform: Platform, health: PlatformAuthHealth): PlatformAd
 // Reuses a real HTTP transport purely for its resolved compatibility (a
 // synchronous construction, no network), then swaps in fake adapters so ticks
 // stay deterministic and offline.
-async function fakeTransport(health: Record<Platform, PlatformAuthHealth>): Promise<TransportHandle> {
-  const real = await createTransport("http", {}, "/tmp/lurkloot-run-compat", { twitch: true, kick: true });
+async function fakeTransport(
+  health: Record<Platform, PlatformAuthHealth>,
+): Promise<TransportHandle> {
+  const real = await createTransport("http", {}, "/tmp/lurkloot-run-compat", {
+    twitch: true,
+    kick: true,
+  });
   const build = (_emit: EventEmitter, settings: EngineSettings) => {
     const { compatibility, warnings } = real.createAdapters(() => {}, settings);
     return {
@@ -64,7 +82,9 @@ async function fakeTransport(health: Record<Platform, PlatformAuthHealth>): Prom
     adapters: initial.adapters,
     createAdapter: buildOne,
     createAdapters: build,
-    dispose: async () => { await real.dispose(); },
+    dispose: async () => {
+      await real.dispose();
+    },
   };
 }
 
@@ -72,7 +92,9 @@ const HEALTHY: PlatformAuthHealth = { status: "healthy", message: { key: "authHe
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((resolvePromise) => { resolve = resolvePromise; });
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
   return { promise, resolve };
 }
 
@@ -82,13 +104,18 @@ async function readAuthHealth(statePath: string): Promise<SchedulerState["authHe
 }
 
 let dir: string;
-beforeEach(async () => { dir = await mkdtemp(join(tmpdir(), "lurkloot-run-")); });
+beforeEach(async () => {
+  dir = await mkdtemp(join(tmpdir(), "lurkloot-run-"));
+});
 afterEach(async () => {
   vi.useRealTimers();
   await rm(dir, { recursive: true, force: true });
 });
 
-async function runOnce(health: Record<Platform, PlatformAuthHealth>, availability: (platform: Platform) => CredentialAvailability): Promise<string> {
+async function runOnce(
+  health: Record<Platform, PlatformAuthHealth>,
+  availability: (platform: Platform) => CredentialAvailability,
+): Promise<string> {
   const statePath = join(dir, "state.json");
   await runLoop({
     settings: DEFAULT_CLI_SETTINGS,
@@ -106,22 +133,26 @@ function stateWithSubscriptionWait(id: string): SchedulerState {
     ...structuredClone(DEFAULT_STATE),
     campaigns: {
       ...DEFAULT_STATE.campaigns,
-      twitch: [{
-        id: `campaign-${id}`,
-        platform: "twitch",
-        name: `Campaign ${id}`,
-        status: "active",
-        eligibility: "waiting_for_subscription",
-        rewards: [{
-          id: `reward-${id}`,
-          name: `Reward ${id}`,
-          requirement: "subscription",
-          requiredSubs: 1,
-          requiredMinutes: 0,
-          watchedMinutes: 0,
-          status: "in_progress",
-        }],
-      }],
+      twitch: [
+        {
+          id: `campaign-${id}`,
+          platform: "twitch",
+          name: `Campaign ${id}`,
+          status: "active",
+          eligibility: "waiting_for_subscription",
+          rewards: [
+            {
+              id: `reward-${id}`,
+              name: `Reward ${id}`,
+              requirement: "subscription",
+              requiredSubs: 1,
+              requiredMinutes: 0,
+              watchedMinutes: 0,
+              status: "in_progress",
+            },
+          ],
+        },
+      ],
     },
   };
 }
@@ -157,7 +188,9 @@ describe("CLI subscription wait reporting", () => {
       // runs; only the run's own report can log the stored wait.
       stateStore: {
         load: async () => stateWithSubscriptionWait("stored"),
-        save: async () => { throw new Error("read-only storage"); },
+        save: async () => {
+          throw new Error("read-only storage");
+        },
       },
     });
     expect(logger.info).toHaveBeenCalledWith(expect.stringContaining("Reward stored"), "twitch");
@@ -180,90 +213,113 @@ describe("runLoop authentication health reporting", () => {
   it("records missing credentials without invoking the live probe", async () => {
     // If the probe ran it would report the adapter's healthy status; the missing
     // gate must win, proving credential availability precedes the probe.
-    const statePath = await runOnce(
-      { twitch: HEALTHY, kick: HEALTHY },
-      (platform) => (platform === "twitch" ? { status: "missing" } : { status: "available" }),
+    const statePath = await runOnce({ twitch: HEALTHY, kick: HEALTHY }, (platform) =>
+      platform === "twitch" ? { status: "missing" } : { status: "available" },
     );
     const authHealth = await readAuthHealth(statePath);
-    expect(authHealth.twitch).toMatchObject({ status: "missing_credentials", reasonCode: "credentials_missing" });
+    expect(authHealth.twitch).toMatchObject({
+      status: "missing_credentials",
+      reasonCode: "credentials_missing",
+    });
     expect(authHealth.kick.status).toBe("healthy");
   });
 
   it("reports rejected credentials from the live probe when a credential is available", async () => {
-    const rejected: PlatformAuthHealth = { status: "invalid_credentials", reasonCode: "credentials_rejected", message: { key: "authInvalidCredentials" } };
-    const statePath = await runOnce({ twitch: rejected, kick: HEALTHY }, () => ({ status: "available" }));
+    const rejected: PlatformAuthHealth = {
+      status: "invalid_credentials",
+      reasonCode: "credentials_rejected",
+      message: { key: "authInvalidCredentials" },
+    };
+    const statePath = await runOnce({ twitch: rejected, kick: HEALTHY }, () => ({
+      status: "available",
+    }));
     const authHealth = await readAuthHealth(statePath);
-    expect(authHealth.twitch).toMatchObject({ status: "invalid_credentials", reasonCode: "credentials_rejected" });
+    expect(authHealth.twitch).toMatchObject({
+      status: "invalid_credentials",
+      reasonCode: "credentials_rejected",
+    });
   });
 
   it("reports a transient probe failure as unavailable", async () => {
-    const transient: PlatformAuthHealth = { status: "unavailable", reasonCode: "network_unavailable", message: { key: "authNetworkUnavailable" } };
-    const statePath = await runOnce({ twitch: HEALTHY, kick: transient }, () => ({ status: "available" }));
+    const transient: PlatformAuthHealth = {
+      status: "unavailable",
+      reasonCode: "network_unavailable",
+      message: { key: "authNetworkUnavailable" },
+    };
+    const statePath = await runOnce({ twitch: HEALTHY, kick: transient }, () => ({
+      status: "available",
+    }));
     const authHealth = await readAuthHealth(statePath);
-    expect(authHealth.kick).toMatchObject({ status: "unavailable", reasonCode: "network_unavailable" });
+    expect(authHealth.kick).toMatchObject({
+      status: "unavailable",
+      reasonCode: "network_unavailable",
+    });
   });
 
   it("surfaces an unavailable credential lookup ahead of the probe", async () => {
-    const statePath = await runOnce(
-      { twitch: HEALTHY, kick: HEALTHY },
-      (platform) => (platform === "kick" ? { status: "unavailable" } : { status: "available" }),
+    const statePath = await runOnce({ twitch: HEALTHY, kick: HEALTHY }, (platform) =>
+      platform === "kick" ? { status: "unavailable" } : { status: "available" },
     );
     const authHealth = await readAuthHealth(statePath);
-    expect(authHealth.kick).toMatchObject({ status: "unavailable", reasonCode: "credential_lookup_failed" });
+    expect(authHealth.kick).toMatchObject({
+      status: "unavailable",
+      reasonCode: "credential_lookup_failed",
+    });
   });
 });
 
 describe("CLI scheduler tick baseline", () => {
-  it.each(["twitch", "kick"] as const)("measures isolated %s heartbeat/discovery overlap", async (platform) => {
-    vi.useFakeTimers();
-    vi.setSystemTime("2026-09-01T20:00:00.000Z");
-    const existingListener = vi.fn();
-    process.on("SIGINT", existingListener);
-    const sigintListenersBefore = process.listeners("SIGINT");
+  it.each(["twitch", "kick"] as const)(
+    "measures isolated %s heartbeat/discovery overlap",
+    async (platform) => {
+      vi.useFakeTimers();
+      vi.setSystemTime("2026-09-01T20:00:00.000Z");
+      const existingListener = vi.fn();
+      process.on("SIGINT", existingListener);
+      const sigintListenersBefore = process.listeners("SIGINT");
 
-    try {
-      const result = await runCliBaselineCell(
-        dir,
-        platform,
-        "heartbeatOverlap",
-      );
-      reportBaseline(result);
+      try {
+        const result = await runCliBaselineCell(dir, platform, "heartbeatOverlap");
+        reportBaseline(result);
 
-      expect(result.counts).toEqual({
-        adapterOperations: 8,
-        campaignDiscovery: 2,
-        candidateListings: 2,
-        channelChecks: 2,
-        heartbeatAttempts: 1,
-        heartbeatBlockedByDiscovery: 0,
-        discoveryBlockedByHeartbeat: 0,
-        // The non-once loop now performs one recovery pass for both providers
-        // at startup before the first discovery completes.
-        // Tick-owned adapters survive auth, discovery, and commit. Startup
-        // recovery and the independent heartbeat path retain their own bundles.
-        // Since #593 the startup reconciliation also checks the Twitch
-        // channel-points observer, as the extension's startup does. Since #590
-        // the one-minute channel-points job fires in this window too. Since
-        // #591 the CLI runs both tick jobs, like the extension, so the disabled
-        // platform's ticks construct its adapter as well. This watcher has no
-        // poll between health commits, so the watch job keeps its one-minute
-        // period and adds no wake of its own.
-        adapterConstructions: platform === "twitch" ? 10 : 8,
-        watcherReconciliations: 1,
-      });
-      expect(result.durationsMs).toEqual({
-        discovery: 60,
-        selection: 40,
-        watcher: 5,
-        persistence: 0,
-        total: 105,
-      });
-      expect(JSON.stringify(result)).not.toMatch(/credential|cookie|token|authorization|payload/i);
-      expect(process.listeners("SIGINT")).toEqual(sigintListenersBefore);
-    } finally {
-      process.removeListener("SIGINT", existingListener);
-    }
-  });
+        expect(result.counts).toEqual({
+          adapterOperations: 8,
+          campaignDiscovery: 2,
+          candidateListings: 2,
+          channelChecks: 2,
+          heartbeatAttempts: 1,
+          heartbeatBlockedByDiscovery: 0,
+          discoveryBlockedByHeartbeat: 0,
+          // The non-once loop now performs one recovery pass for both providers
+          // at startup before the first discovery completes.
+          // Tick-owned adapters survive auth, discovery, and commit. Startup
+          // recovery and the independent heartbeat path retain their own bundles.
+          // Since #593 the startup reconciliation also checks the Twitch
+          // channel-points observer, as the extension's startup does. Since #590
+          // the one-minute channel-points job fires in this window too. Since
+          // #591 the CLI runs both tick jobs, like the extension, so the disabled
+          // platform's ticks construct its adapter as well. This watcher has no
+          // poll between health commits, so the watch job keeps its one-minute
+          // period and adds no wake of its own.
+          adapterConstructions: platform === "twitch" ? 10 : 8,
+          watcherReconciliations: 1,
+        });
+        expect(result.durationsMs).toEqual({
+          discovery: 60,
+          selection: 40,
+          watcher: 5,
+          persistence: 0,
+          total: 105,
+        });
+        expect(JSON.stringify(result)).not.toMatch(
+          /credential|cookie|token|authorization|payload/i,
+        );
+        expect(process.listeners("SIGINT")).toEqual(sigintListenersBefore);
+      } finally {
+        process.removeListener("SIGINT", existingListener);
+      }
+    },
+  );
 
   it.each(["twitch", "kick"] as const)("measures an idle %s one-shot tick", async (platform) => {
     vi.useFakeTimers();
@@ -309,49 +365,55 @@ describe("CLI scheduler tick baseline", () => {
     });
   });
 
-  it.each(["twitch", "kick"] as const)("uses the shared snapshot-driven %s selection lifecycle", async (platform) => {
-    vi.useFakeTimers();
-    vi.setSystemTime("2026-09-01T20:00:00.000Z");
+  it.each(["twitch", "kick"] as const)(
+    "uses the shared snapshot-driven %s selection lifecycle",
+    async (platform) => {
+      vi.useFakeTimers();
+      vi.setSystemTime("2026-09-01T20:00:00.000Z");
 
-    const result = await runCliBaselineCell(dir, platform, "stable");
-    reportBaseline(result);
+      const result = await runCliBaselineCell(dir, platform, "stable");
+      reportBaseline(result);
 
-    expect(result.counts).toMatchObject({
-      // Candidate listing and validation happen once while building the
-      // committed discovery snapshot. Core selection adds no provider calls.
-      adapterOperations: 4,
-      campaignDiscovery: 1,
-      candidateListings: 1,
-      channelChecks: 1,
-      // One per tick job: the disabled platform ticks too (#591).
-      adapterConstructions: 2,
-      watcherReconciliations: 1,
-    });
-    expect(result.outcomeCampaignId).toBe(`${platform}-campaign`);
-    expect(result.durationsMs).toEqual({
-      discovery: 30,
-      selection: 20,
-      watcher: 5,
-      persistence: 0,
-      total: 55,
-    });
-  });
+      expect(result.counts).toMatchObject({
+        // Candidate listing and validation happen once while building the
+        // committed discovery snapshot. Core selection adds no provider calls.
+        adapterOperations: 4,
+        campaignDiscovery: 1,
+        candidateListings: 1,
+        channelChecks: 1,
+        // One per tick job: the disabled platform ticks too (#591).
+        adapterConstructions: 2,
+        watcherReconciliations: 1,
+      });
+      expect(result.outcomeCampaignId).toBe(`${platform}-campaign`);
+      expect(result.durationsMs).toEqual({
+        discovery: 30,
+        selection: 20,
+        watcher: 5,
+        persistence: 0,
+        total: 55,
+      });
+    },
+  );
 
-  it.each(["twitch", "kick"] as const)("attributes slow %s work with the same controlled clock", async (platform) => {
-    vi.useFakeTimers();
-    vi.setSystemTime("2026-09-01T20:00:00.000Z");
+  it.each(["twitch", "kick"] as const)(
+    "attributes slow %s work with the same controlled clock",
+    async (platform) => {
+      vi.useFakeTimers();
+      vi.setSystemTime("2026-09-01T20:00:00.000Z");
 
-    const result = await runCliBaselineCell(dir, platform, "slow");
-    reportBaseline(result);
+      const result = await runCliBaselineCell(dir, platform, "slow");
+      reportBaseline(result);
 
-    expect(result.durationsMs).toEqual({
-      discovery: 300,
-      selection: 200,
-      watcher: 5,
-      persistence: 0,
-      total: 505,
-    });
-  });
+      expect(result.durationsMs).toEqual({
+        discovery: 300,
+        selection: 200,
+        watcher: 5,
+        persistence: 0,
+        total: 505,
+      });
+    },
+  );
 
   it.each([
     ["twitch", "switch"],
@@ -415,19 +477,23 @@ describe("runLoop disabled platform cleanup", () => {
       ...structuredClone(DEFAULT_STATE),
       campaigns: {
         ...DEFAULT_STATE.campaigns,
-        kick: [{
-          id: "stale-kick-campaign",
-          platform: "kick",
-          name: "Stale Kick campaign",
-          status: "active",
-          rewards: [{
-            id: "stale-kick-reward",
-            name: "Stale reward",
-            requiredMinutes: 60,
-            watchedMinutes: 10,
-            status: "in_progress",
-          }],
-        }],
+        kick: [
+          {
+            id: "stale-kick-campaign",
+            platform: "kick",
+            name: "Stale Kick campaign",
+            status: "active",
+            rewards: [
+              {
+                id: "stale-kick-reward",
+                name: "Stale reward",
+                requiredMinutes: 60,
+                watchedMinutes: 10,
+                status: "in_progress",
+              },
+            ],
+          },
+        ],
       },
       sessions: {
         ...DEFAULT_STATE.sessions,
@@ -472,15 +538,29 @@ describe("runLoop disabled platform cleanup", () => {
 describe("runLoop interval baseline", () => {
   it("cleans persisted sessions when both CLI platforms are disabled", async () => {
     let state = structuredClone(DEFAULT_STATE);
-    state.sessions.twitch = { ...state.sessions.twitch, status: "watching", channel: { platform: "twitch", username: "old", url: "https://twitch.tv/old" } };
+    state.sessions.twitch = {
+      ...state.sessions.twitch,
+      status: "watching",
+      channel: { platform: "twitch", username: "old", url: "https://twitch.tv/old" },
+    };
     const transport = await fakeTransport({ twitch: HEALTHY, kick: HEALTHY });
     const running = runLoop({
-      settings: { ...DEFAULT_CLI_SETTINGS, platform: {
-        twitch: { ...DEFAULT_CLI_SETTINGS.platform.twitch, enabled: false },
-        kick: { ...DEFAULT_CLI_SETTINGS.platform.kick, enabled: false },
-      } },
-      statePath: join(dir, "disabled-state.json"), transport, logger: createLogger("error"),
-      stateStore: { load: async () => state, save: async (next) => { state = next; } },
+      settings: {
+        ...DEFAULT_CLI_SETTINGS,
+        platform: {
+          twitch: { ...DEFAULT_CLI_SETTINGS.platform.twitch, enabled: false },
+          kick: { ...DEFAULT_CLI_SETTINGS.platform.kick, enabled: false },
+        },
+      },
+      statePath: join(dir, "disabled-state.json"),
+      transport,
+      logger: createLogger("error"),
+      stateStore: {
+        load: async () => state,
+        save: async (next) => {
+          state = next;
+        },
+      },
     });
     try {
       await vi.waitFor(() => expect(state.sessions.twitch.status).toBe("paused"));
@@ -509,11 +589,17 @@ describe("runLoop interval baseline", () => {
       adapters: { twitch, kick },
       createAdapter: (platform) => ({
         adapter: platform === "twitch" ? twitch : kick,
-        ...resolveCompatibility(DEFAULT_CLI_SETTINGS.compatibility, { host: "cli", twitchIdentity: "web" }),
+        ...resolveCompatibility(DEFAULT_CLI_SETTINGS.compatibility, {
+          host: "cli",
+          twitchIdentity: "web",
+        }),
       }),
       createAdapters: () => ({
         adapters: { twitch, kick },
-        ...resolveCompatibility(DEFAULT_CLI_SETTINGS.compatibility, { host: "cli", twitchIdentity: "web" }),
+        ...resolveCompatibility(DEFAULT_CLI_SETTINGS.compatibility, {
+          host: "cli",
+          twitchIdentity: "web",
+        }),
       }),
       dispose: vi.fn(async () => undefined),
     };
@@ -531,7 +617,9 @@ describe("runLoop interval baseline", () => {
       statePath: join(dir, "interval-state.json"),
       stateStore: {
         load: async () => state,
-        save: async (next) => { state = next; },
+        save: async (next) => {
+          state = next;
+        },
       },
       transport,
       logger,
@@ -547,8 +635,18 @@ describe("runLoop interval baseline", () => {
 
     pendingRefresh.resolve([]);
     await vi.waitFor(() => expect(refreshCalls).toBe(3));
-    await vi.waitFor(() => expect(logger.log).toHaveBeenCalledWith("debug", expect.stringMatching(/Tick #3 finished/), "twitch"));
-    const starts = vi.mocked(logger.log).mock.calls.filter(([, message, platform]) => platform === "twitch" && /Tick #\d+ started/.test(message));
+    await vi.waitFor(() =>
+      expect(logger.log).toHaveBeenCalledWith(
+        "debug",
+        expect.stringMatching(/Tick #3 finished/),
+        "twitch",
+      ),
+    );
+    const starts = vi
+      .mocked(logger.log)
+      .mock.calls.filter(
+        ([, message, platform]) => platform === "twitch" && /Tick #\d+ started/.test(message),
+      );
     expect(starts).toHaveLength(3);
     expect(starts.every(([, message]) => message.includes("trigger=alarm"))).toBe(true);
     process.emit("SIGTERM");
@@ -568,13 +666,15 @@ const HEARTBEAT_TEST_CAMPAIGN: DropCampaign = {
   platform: "twitch",
   name: "Heartbeat campaign",
   status: "active",
-  rewards: [{
-    id: "heartbeat-reward",
-    name: "Heartbeat reward",
-    requiredMinutes: 60,
-    watchedMinutes: 10,
-    status: "in_progress",
-  }],
+  rewards: [
+    {
+      id: "heartbeat-reward",
+      name: "Heartbeat reward",
+      requiredMinutes: 60,
+      watchedMinutes: 10,
+      status: "in_progress",
+    },
+  ],
 };
 
 function fakeHeartbeatWatcher(
@@ -654,17 +754,19 @@ async function startHeartbeatDriver(options: HeartbeatDriverHarnessOptions = {})
   // The restart reconciliation pauses the seeded watch (#593), so the first
   // tick selects it again from discovery.
   twitch.listCandidateChannels = vi.fn(async () => [HEARTBEAT_TEST_CHANNEL]);
-  twitch.checkChannel = vi.fn(async (candidate: ChannelCandidate): Promise<ChannelCheck> => ({
-    live: true,
-    categoryMatches: true,
-    campaignMatches: true,
-    candidate,
-  }));
-  const kick = fakeAdapter("kick", HEALTHY);
-  const compatibility = resolveCompatibility(
-    DEFAULT_CLI_SETTINGS.compatibility,
-    { host: "cli", twitchIdentity: "web" },
+  twitch.checkChannel = vi.fn(
+    async (candidate: ChannelCandidate): Promise<ChannelCheck> => ({
+      live: true,
+      categoryMatches: true,
+      campaignMatches: true,
+      candidate,
+    }),
   );
+  const kick = fakeAdapter("kick", HEALTHY);
+  const compatibility = resolveCompatibility(DEFAULT_CLI_SETTINGS.compatibility, {
+    host: "cli",
+    twitchIdentity: "web",
+  });
   const adapterFor = (platform: Platform): PlatformAdapter =>
     platform === "twitch" ? twitch : kick;
   const transport: TransportHandle = {
@@ -693,7 +795,8 @@ async function startHeartbeatDriver(options: HeartbeatDriverHarnessOptions = {})
     ...(options.once ? { once: true } : {}),
   });
   await vi.waitFor(() => expect(twitch.refreshCampaigns).toHaveBeenCalledOnce());
-  if (options.awaitWatch !== false) await vi.waitFor(() => expect(watcher.start).toHaveBeenCalledOnce());
+  if (options.awaitWatch !== false)
+    await vi.waitFor(() => expect(watcher.start).toHaveBeenCalledOnce());
   return { running, statePath, transport, twitch, watcher };
 }
 
@@ -737,7 +840,10 @@ describe("runLoop heartbeat driver", () => {
     });
 
     const state = JSON.parse(await readFile(statePath, "utf8")) as SchedulerState;
-    expect(state.sessions.twitch).toMatchObject({ status: "paused", reasonCode: "runtime_restart" });
+    expect(state.sessions.twitch).toMatchObject({
+      status: "paused",
+      reasonCode: "runtime_restart",
+    });
     expect(state.sessions.twitch.channel).toBeUndefined();
     await vi.advanceTimersByTimeAsync(60_000);
     expect(twitch.refreshCampaigns).toHaveBeenCalledOnce();
@@ -803,9 +909,8 @@ describe("runLoop heartbeat driver", () => {
   it("attempts a due heartbeat while discovery is blocked", async () => {
     const blockedDiscovery = deferred<DropCampaign[]>();
     const { running, statePath, twitch, watcher } = await startHeartbeatDriver({
-      refreshCampaigns: async (call) => call === 1
-        ? [HEARTBEAT_TEST_CAMPAIGN]
-        : blockedDiscovery.promise,
+      refreshCampaigns: async (call) =>
+        call === 1 ? [HEARTBEAT_TEST_CAMPAIGN] : blockedDiscovery.promise,
     });
     // The first tick anchors the cadence when it starts the watch.
     const firstDueAt = await vi.waitFor(async () => {
@@ -895,10 +1000,9 @@ describe("runLoop heartbeat driver", () => {
     try {
       failAdapterCreation = true;
       await vi.advanceTimersByTimeAsync(60_000);
-      await vi.waitFor(() => expect(logger.error).toHaveBeenCalledWith(
-        "heartbeat adapter failed",
-        "heartbeat",
-      ));
+      await vi.waitFor(() =>
+        expect(logger.error).toHaveBeenCalledWith("heartbeat adapter failed", "heartbeat"),
+      );
       expect(watcher.tick).not.toHaveBeenCalled();
 
       failAdapterCreation = false;
@@ -1004,10 +1108,9 @@ describe("runLoop heartbeat driver", () => {
       await Promise.resolve();
       await Promise.resolve();
 
-      expect(await Promise.race([
-        settlement,
-        Promise.resolve({ status: "pending" as const }),
-      ])).toEqual({
+      expect(
+        await Promise.race([settlement, Promise.resolve({ status: "pending" as const })]),
+      ).toEqual({
         status: "rejected",
         error: expect.objectContaining({ message: "transport disposal failed" }),
       });
@@ -1032,7 +1135,9 @@ describe("runLoop heartbeat driver", () => {
     // The tick started a tabless watcher (a Kick one holds its own WebSocket
     // and handshake timer), so the run stops it before releasing the transport.
     expect(watcher.stop).toHaveBeenCalledOnce();
-    expect(vi.mocked(watcher.stop).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(transport.dispose).mock.invocationCallOrder[0]!);
+    expect(vi.mocked(watcher.stop).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(transport.dispose).mock.invocationCallOrder[0]!,
+    );
     expect(vi.getTimerCount()).toBe(0);
   });
 });

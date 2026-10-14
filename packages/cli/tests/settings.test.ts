@@ -13,7 +13,9 @@ import {
 
 describe("parseCliSettings", () => {
   it("accepts alwaysEnterChat on both platforms", () => {
-    const settings = parseCliSettings({ platform: { twitch: { alwaysEnterChat: true }, kick: {} } });
+    const settings = parseCliSettings({
+      platform: { twitch: { alwaysEnterChat: true }, kick: {} },
+    });
     expect(settings.platform.twitch.alwaysEnterChat).toBe(true);
     expect(settings.platform.kick.alwaysEnterChat).toBe(false);
   });
@@ -26,7 +28,10 @@ describe("parseCliSettings", () => {
     expect(settings.idleWatchlistFallbackOnly).toBe(false);
     expect(settings.platform.twitch.idleWatchlistChannels).toEqual(["legacy"]);
     expect(settings).not.toHaveProperty("watchQueueFallbackOnly");
-    expect(diagnostics.map((d) => d.path)).toEqual(["watchQueueFallbackOnly", "platform.twitch.watchQueueChannels"]);
+    expect(diagnostics.map((d) => d.path)).toEqual([
+      "watchQueueFallbackOnly",
+      "platform.twitch.watchQueueChannels",
+    ]);
   });
 
   it("prefers current keys over legacy ones", () => {
@@ -47,11 +52,15 @@ describe("parseCliSettings", () => {
     expect(DEFAULT_CLI_SETTINGS.preferKnownChannels).toBe(true);
     expect(parseCliSettings({}).preferKnownChannels).toBe(true);
     expect(parseCliSettings({ preferKnownChannels: false }).preferKnownChannels).toBe(false);
-    expect(toEngineSettings(parseCliSettings({ preferKnownChannels: false })).preferKnownChannels).toBe(false);
+    expect(
+      toEngineSettings(parseCliSettings({ preferKnownChannels: false })).preferKnownChannels,
+    ).toBe(false);
   });
 
   it("accepts a deprecated top-level autoClaimChannelPoints instead of erroring", () => {
-    const { settings, diagnostics } = parseCliSettingsWithDiagnostics({ autoClaimChannelPoints: false });
+    const { settings, diagnostics } = parseCliSettingsWithDiagnostics({
+      autoClaimChannelPoints: false,
+    });
     expect(settings.platform.twitch.autoClaimChannelPoints).toBe(false);
     expect(diagnostics.map((d) => d.path)).toEqual(["autoClaimChannelPoints"]);
   });
@@ -61,16 +70,18 @@ describe("parseCliSettings", () => {
   });
 
   it("still rejects extension-only keys", () => {
-    expect(() => parseCliSettings({ muteFarmingTabs: true }))
-      .toThrow(/"muteFarmingTabs" is an extension-only setting/);
+    expect(() => parseCliSettings({ muteFarmingTabs: true })).toThrow(
+      /"muteFarmingTabs" is an extension-only setting/,
+    );
   });
 
   it("names the key the user actually wrote when a migration renamed it", () => {
     // verboseLogging migrates to diagnosticLogging, which the CLI rejects as
     // extension-only. The error has to name verboseLogging or the user cannot
     // find the offending line in their config.
-    expect(() => parseCliSettings({ verboseLogging: true }))
-      .toThrow(/"verboseLogging" \(renamed to "diagnosticLogging"\) is an extension-only setting/);
+    expect(() => parseCliSettings({ verboseLogging: true })).toThrow(
+      /"verboseLogging" \(renamed to "diagnosticLogging"\) is an extension-only setting/,
+    );
   });
 
   it("accepts schemaVersion at the root of settings without exposing it", () => {
@@ -80,7 +91,9 @@ describe("parseCliSettings", () => {
   });
 
   it("rejects a future schema version", () => {
-    expect(() => parseCliSettings({ schemaVersion: 999 })).toThrow(/newer than this build supports/);
+    expect(() => parseCliSettings({ schemaVersion: 999 })).toThrow(
+      /newer than this build supports/,
+    );
   });
 
   it("returns defaults for an empty/undefined settings block", () => {
@@ -111,9 +124,15 @@ describe("parseCliSettings", () => {
     expect(parseCliSettings({ pollIntervalMinutes: 999 }).pollIntervalMinutes).toBe(60);
     expect(parseCliSettings({ offlineRetryLimit: 0 }).offlineRetryLimit).toBe(1);
     expect(parseCliSettings({ offlineRetryLimit: 99 }).offlineRetryLimit).toBe(10);
-    expect(parseCliSettings({ deadlineSafetyMarginMinutes: -9 }).deadlineSafetyMarginMinutes).toBe(0);
-    expect(parseCliSettings({ deadlineSafetyMarginMinutes: 0 }).deadlineSafetyMarginMinutes).toBe(0);
-    expect(parseCliSettings({ deadlineSafetyMarginMinutes: 99 }).deadlineSafetyMarginMinutes).toBe(60);
+    expect(parseCliSettings({ deadlineSafetyMarginMinutes: -9 }).deadlineSafetyMarginMinutes).toBe(
+      0,
+    );
+    expect(parseCliSettings({ deadlineSafetyMarginMinutes: 0 }).deadlineSafetyMarginMinutes).toBe(
+      0,
+    );
+    expect(parseCliSettings({ deadlineSafetyMarginMinutes: 99 }).deadlineSafetyMarginMinutes).toBe(
+      60,
+    );
   });
 
   it("round-trips compatibility profile and expert selections", () => {
@@ -156,36 +175,54 @@ describe("parseCliSettings", () => {
   });
 
   it("hard-errors on unknown compatibility keys", () => {
-    expect(() => parseCliSettings({ compatibility: { twitch: { endpoint: "https://example.test" } } }))
-      .toThrow(/unknown setting "endpoint" under compatibility.twitch/);
-    expect(() => parseCliSettings({ compatibility: { youtube: {} } }))
-      .toThrow(/unknown compatibility platform "youtube"/);
+    expect(() =>
+      parseCliSettings({ compatibility: { twitch: { endpoint: "https://example.test" } } }),
+    ).toThrow(/unknown setting "endpoint" under compatibility.twitch/);
+    expect(() => parseCliSettings({ compatibility: { youtube: {} } })).toThrow(
+      /unknown compatibility platform "youtube"/,
+    );
   });
 
   it("hard-errors on extension-only keys, naming them", () => {
-    expect(() => parseCliSettings({ adFocusMode: "window" })).toThrow(/"adFocusMode" is an extension-only setting/);
-    expect(() => parseCliSettings({ diagnosticLogging: true })).toThrow(/"diagnosticLogging" is an extension-only setting/);
-    expect(() => parseCliSettings({ githubStarNudgeStatus: "pending" })).toThrow(/"githubStarNudgeStatus" is an extension-only setting/);
+    expect(() => parseCliSettings({ adFocusMode: "window" })).toThrow(
+      /"adFocusMode" is an extension-only setting/,
+    );
+    expect(() => parseCliSettings({ diagnosticLogging: true })).toThrow(
+      /"diagnosticLogging" is an extension-only setting/,
+    );
+    expect(() => parseCliSettings({ githubStarNudgeStatus: "pending" })).toThrow(
+      /"githubStarNudgeStatus" is an extension-only setting/,
+    );
   });
 
-  it.each([true, false])("accepts and ignores tablessMode: %s, which the CLI derives from having no tabs", (tablessMode) => {
-    const result = parseCliSettingsWithDiagnostics({ tablessMode, pollIntervalMinutes: 7 });
+  it.each([true, false])(
+    "accepts and ignores tablessMode: %s, which the CLI derives from having no tabs",
+    (tablessMode) => {
+      const result = parseCliSettingsWithDiagnostics({ tablessMode, pollIntervalMinutes: 7 });
 
-    expect(result.settings).not.toHaveProperty("tablessMode");
-    expect(result.settings.pollIntervalMinutes).toBe(7);
-    expect(result.diagnostics).toEqual([{
-      code: "deprecated_property",
-      path: "tablessMode",
-      message: '"tablessMode" is ignored: the CLI has no browser tabs, so it always watches tabless',
-    }]);
-  });
+      expect(result.settings).not.toHaveProperty("tablessMode");
+      expect(result.settings.pollIntervalMinutes).toBe(7);
+      expect(result.diagnostics).toEqual([
+        {
+          code: "deprecated_property",
+          path: "tablessMode",
+          message:
+            '"tablessMode" is ignored: the CLI has no browser tabs, so it always watches tabless',
+        },
+      ]);
+    },
+  );
 
   it("accepts farmingEligibility now that it gates farming", () => {
-    const result = parseCliSettingsWithDiagnostics({ farmingEligibility: { farmUnlinkedCampaigns: false } });
+    const result = parseCliSettingsWithDiagnostics({
+      farmingEligibility: { farmUnlinkedCampaigns: false },
+    });
 
     expect(result.settings.farmingEligibility.farmUnlinkedCampaigns).toBe(false);
     // Unnamed keys keep their shared defaults.
-    expect(result.settings.farmingEligibility.farmSubscriptionCampaigns).toBe(DEFAULT_CLI_SETTINGS.farmingEligibility.farmSubscriptionCampaigns);
+    expect(result.settings.farmingEligibility.farmSubscriptionCampaigns).toBe(
+      DEFAULT_CLI_SETTINGS.farmingEligibility.farmSubscriptionCampaigns,
+    );
     expect(result.diagnostics).toEqual([]);
     expect(toEngineSettings(result.settings).farmingEligibility.farmUnlinkedCampaigns).toBe(false);
   });
@@ -194,7 +231,9 @@ describe("parseCliSettings", () => {
     // The popup groups campaigns into Queue/Completed/Skipped/Upcoming now, so
     // the display block is retired for every host: a config still carrying it
     // loads, reports the deprecation, and keeps farming untouched.
-    const { settings, diagnostics } = parseCliSettingsWithDiagnostics({ dropsListFilter: { showUpcoming: false } });
+    const { settings, diagnostics } = parseCliSettingsWithDiagnostics({
+      dropsListFilter: { showUpcoming: false },
+    });
     expect(settings).not.toHaveProperty("dropsListFilter");
     expect(diagnostics.map((entry) => entry.path)).toContain("dropsListFilter");
   });
@@ -203,24 +242,34 @@ describe("parseCliSettings", () => {
     // campaignVisibility was display-only: v2 moved it into dropsListFilter and
     // v7 retired that block. Neither step may turn a hidden class into an
     // unfarmed one.
-    const { settings } = parseCliSettingsWithDiagnostics({ campaignVisibility: { notLinked: false, upcoming: false } });
+    const { settings } = parseCliSettingsWithDiagnostics({
+      campaignVisibility: { notLinked: false, upcoming: false },
+    });
     expect(settings).not.toHaveProperty("dropsListFilter");
-    expect(settings.farmingEligibility).toEqual({ farmUnlinkedCampaigns: true, farmSubscriptionCampaigns: true });
+    expect(settings.farmingEligibility).toEqual({
+      farmUnlinkedCampaigns: true,
+      farmSubscriptionCampaigns: true,
+    });
   });
 
   it("hard-errors on unknown farmingEligibility keys", () => {
-    expect(() => parseCliSettings({ farmingEligibility: { nonsense: true } }))
-      .toThrow(/unknown setting "nonsense" under farmingEligibility/);
+    expect(() => parseCliSettings({ farmingEligibility: { nonsense: true } })).toThrow(
+      /unknown setting "nonsense" under farmingEligibility/,
+    );
   });
 
   it("hard-errors on non-boolean farmingEligibility values", () => {
     // Without this the value is dropped and the default silently farms the
     // wrong set of campaigns.
-    expect(() => parseCliSettings({ farmingEligibility: { farmUnlinkedCampaigns: "yes" } }))
-      .toThrow(/"farmingEligibility.farmUnlinkedCampaigns" must be a boolean/);
-    expect(() => parseCliSettings({ farmingEligibility: { farmSubscriptionCampaigns: null } }))
-      .toThrow(/"farmingEligibility.farmSubscriptionCampaigns" must be a boolean/);
-    expect(() => parseCliSettings({ farmingEligibility: [] })).toThrow(/"farmingEligibility" must be a JSON object/);
+    expect(() =>
+      parseCliSettings({ farmingEligibility: { farmUnlinkedCampaigns: "yes" } }),
+    ).toThrow(/"farmingEligibility.farmUnlinkedCampaigns" must be a boolean/);
+    expect(() =>
+      parseCliSettings({ farmingEligibility: { farmSubscriptionCampaigns: null } }),
+    ).toThrow(/"farmingEligibility.farmSubscriptionCampaigns" must be a boolean/);
+    expect(() => parseCliSettings({ farmingEligibility: [] })).toThrow(
+      /"farmingEligibility" must be a JSON object/,
+    );
   });
 
   it("hard-errors on a truly unknown key", () => {
@@ -228,7 +277,10 @@ describe("parseCliSettings", () => {
   });
 
   it("accepts autoClaimChannelPoints under platform.twitch", () => {
-    expect(parseCliSettings({ platform: { twitch: { autoClaimChannelPoints: false } } }).platform.twitch.autoClaimChannelPoints).toBe(false);
+    expect(
+      parseCliSettings({ platform: { twitch: { autoClaimChannelPoints: false } } }).platform.twitch
+        .autoClaimChannelPoints,
+    ).toBe(false);
     expect(parseCliSettings({}).platform.twitch.autoClaimChannelPoints).toBe(true);
   });
 
@@ -242,8 +294,9 @@ describe("parseCliSettings", () => {
   });
 
   it("rejects autoClaimChallenges under platform.twitch", () => {
-    expect(() => parseCliSettings({ platform: { twitch: { autoClaimChallenges: true } } }))
-      .toThrow('unknown setting "autoClaimChallenges" under platform.twitch');
+    expect(() => parseCliSettings({ platform: { twitch: { autoClaimChallenges: true } } })).toThrow(
+      'unknown setting "autoClaimChallenges" under platform.twitch',
+    );
   });
 
   it("lists every offender in a single error", () => {
@@ -258,8 +311,12 @@ describe("parseCliSettings", () => {
   });
 
   it("hard-errors on unknown platforms and unknown per-platform keys", () => {
-    expect(() => parseCliSettings({ platform: { youtube: { enabled: true } } })).toThrow(/unknown platform "youtube"/);
-    expect(() => parseCliSettings({ platform: { twitch: { muteFarmingTabs: true } } })).toThrow(/unknown setting "muteFarmingTabs" under platform.twitch/);
+    expect(() => parseCliSettings({ platform: { youtube: { enabled: true } } })).toThrow(
+      /unknown platform "youtube"/,
+    );
+    expect(() => parseCliSettings({ platform: { twitch: { muteFarmingTabs: true } } })).toThrow(
+      /unknown setting "muteFarmingTabs" under platform.twitch/,
+    );
   });
 
   it("rejects a non-object settings block", () => {
@@ -315,9 +372,15 @@ describe("toEngineSettings", () => {
     const extension = mergeSettings(migrateSettings(legacy).settings as never);
     expect(cliEngine.idleWatchlistFallbackOnly).toBe(extension.idleWatchlistFallbackOnly);
     expect(cliEngine.idleWatchlistFallbackOnly).toBe(false);
-    expect(cliEngine.platform.twitch.idleWatchlistChannels).toEqual(extension.platform.twitch.idleWatchlistChannels);
-    expect(cliEngine.platform.kick.idleWatchlistChannels).toEqual(extension.platform.kick.idleWatchlistChannels);
-    expect(cliEngine.platform.twitch.autoClaimChannelPoints).toBe(extension.platform.twitch.autoClaimChannelPoints);
+    expect(cliEngine.platform.twitch.idleWatchlistChannels).toEqual(
+      extension.platform.twitch.idleWatchlistChannels,
+    );
+    expect(cliEngine.platform.kick.idleWatchlistChannels).toEqual(
+      extension.platform.kick.idleWatchlistChannels,
+    );
+    expect(cliEngine.platform.twitch.autoClaimChannelPoints).toBe(
+      extension.platform.twitch.autoClaimChannelPoints,
+    );
     expect(cliEngine.platform.twitch.autoClaimChannelPoints).toBe(false);
   });
 });
@@ -332,7 +395,9 @@ describe("CLI settings export/import", () => {
     const payload = buildCliSettingsExportPayload(settings);
     expect(payload.kind).toBe(SETTINGS_EXPORT_KIND);
 
-    const { settings: imported } = parseCliSettingsImportPayload(JSON.parse(JSON.stringify(payload)));
+    const { settings: imported } = parseCliSettingsImportPayload(
+      JSON.parse(JSON.stringify(payload)),
+    );
     expect(imported).toEqual(settings);
   });
 
@@ -344,7 +409,9 @@ describe("CLI settings export/import", () => {
   it("rejects a file that is not a lurkloot settings export", () => {
     expect(() => parseCliSettingsImportPayload({ foo: "bar" })).toThrow(/unrecognized "kind"/);
     expect(() => parseCliSettingsImportPayload(null)).toThrow(/expected a JSON object/);
-    expect(() => parseCliSettingsImportPayload({ kind: SETTINGS_EXPORT_KIND })).toThrow(/missing "settings"/);
+    expect(() => parseCliSettingsImportPayload({ kind: SETTINGS_EXPORT_KIND })).toThrow(
+      /missing "settings"/,
+    );
   });
 
   it("rejects an extension-exported file the same way it rejects a copy-pasted extension config", () => {
@@ -353,7 +420,9 @@ describe("CLI settings export/import", () => {
       schemaVersion: 4,
       settings: { autoClaim: true, muteFarmingTabs: true },
     };
-    expect(() => parseCliSettingsImportPayload(payload)).toThrow(/"muteFarmingTabs" is an extension-only setting/);
+    expect(() => parseCliSettingsImportPayload(payload)).toThrow(
+      /"muteFarmingTabs" is an extension-only setting/,
+    );
   });
 });
 
@@ -361,7 +430,15 @@ describe("category modes", () => {
   it("accepts every valid mode and normalizes the list", () => {
     for (const categoryMode of ["all", "include"] as const) {
       const settings = parseCliSettings({
-        platform: { twitch: { categoryMode, categories: [{ id: " 13 ", name: "Rust" }, { id: "13", name: "Dupe" }] } },
+        platform: {
+          twitch: {
+            categoryMode,
+            categories: [
+              { id: " 13 ", name: "Rust" },
+              { id: "13", name: "Dupe" },
+            ],
+          },
+        },
       });
       expect(settings.platform.twitch.categoryMode).toBe(categoryMode);
       expect(settings.platform.twitch.categories).toEqual([{ id: "13", name: "Rust" }]);
@@ -376,10 +453,12 @@ describe("category modes", () => {
   // A typo must be an error, not a silent fall back to "all" — that would farm
   // the whole directory instead of the subset the user configured.
   it("rejects an unknown mode instead of defaulting it", () => {
-    expect(() => parseCliSettings({ platform: { twitch: { categoryMode: "exclude_all" } } }))
-      .toThrow(/platform\.twitch\.categoryMode/);
-    expect(() => parseCliSettings({ platform: { kick: { categoryMode: false } } }))
-      .toThrow(/platform\.kick\.categoryMode/);
+    expect(() =>
+      parseCliSettings({ platform: { twitch: { categoryMode: "exclude_all" } } }),
+    ).toThrow(/platform\.twitch\.categoryMode/);
+    expect(() => parseCliSettings({ platform: { kick: { categoryMode: false } } })).toThrow(
+      /platform\.kick\.categoryMode/,
+    );
   });
 
   it("migrates the legacy farmAllCategories boolean through the shared migration path", () => {
@@ -394,15 +473,17 @@ describe("category modes", () => {
     expect(settings.platform.twitch.categories).toEqual([{ id: "13", name: "Rust" }]);
     expect(settings.platform.kick.categoryMode).toBe("all");
     expect(settings.platform.twitch).not.toHaveProperty("farmAllCategories");
-    expect(diagnostics.map((diagnostic) => diagnostic.path))
-      .toContain("platform.twitch.farmAllCategories");
+    expect(diagnostics.map((diagnostic) => diagnostic.path)).toContain(
+      "platform.twitch.farmAllCategories",
+    );
   });
 
   it("rejects the legacy key as unknown once it is not the migrated shape", () => {
     // Post-migration the key is gone, so a document that still declares it at
     // the current schema version is a genuine unknown-key error.
-    expect(() => parseCliSettings({ schemaVersion: 5, platform: { twitch: { farmAllCategories: false } } }))
-      .toThrow(/farmAllCategories/);
+    expect(() =>
+      parseCliSettings({ schemaVersion: 5, platform: { twitch: { farmAllCategories: false } } }),
+    ).toThrow(/farmAllCategories/);
   });
 });
 

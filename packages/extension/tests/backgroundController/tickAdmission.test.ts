@@ -3,7 +3,14 @@ import type { DropCampaign } from "@lurkloot/shared/models";
 import type { DiagnosticEvent } from "@lurkloot/shared/events";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { selectWatchTargetFromSnapshot } from "@lurkloot/core/scheduler";
-import { allDiagnostics, asSnapshot, campaign, deferred, farming, harness } from "../helpers/backgroundController";
+import {
+  allDiagnostics,
+  asSnapshot,
+  campaign,
+  deferred,
+  farming,
+  harness,
+} from "../helpers/backgroundController";
 
 // Tick admission, tick results and controller runs.
 
@@ -71,37 +78,51 @@ describe("background controller", () => {
     const diagnostics = env.reportEvents.mock.calls
       .flatMap(([events]) => events)
       .filter((event): event is DiagnosticEvent => event.category === "diagnostic");
-    expect(diagnostics).toContainEqual(expect.objectContaining({
-      platform: "twitch",
-      globalTickId: 1,
-      platformTickId: 1,
-      message: expect.stringMatching(/^Tick #\d+ started \(trigger=manual_tick, platforms=twitch\)$/),
-    }));
-    expect(diagnostics).toContainEqual(expect.objectContaining({
-      platform: "twitch",
-      globalTickId: 1,
-      platformTickId: 1,
-      code: "auth_health_changed",
-      mirroredActivity: true,
-    }));
-    expect(diagnostics).toContainEqual(expect.objectContaining({
-      platform: "twitch",
-      globalTickId: 1,
-      platformTickId: 1,
-      message: expect.stringMatching(/^Tick #\d+ refreshed auth health in \d+ms$/),
-    }));
-    expect(diagnostics).toContainEqual(expect.objectContaining({
-      platform: "twitch",
-      globalTickId: 1,
-      platformTickId: 1,
-      message: expect.stringMatching(/^Campaign refresh finished in \d+ms/),
-    }));
-    expect(diagnostics).toContainEqual(expect.objectContaining({
-      platform: "twitch",
-      globalTickId: 1,
-      platformTickId: 1,
-      message: expect.stringMatching(/^Tick #\d+ finished after \d+ms \(trigger=manual_tick, platforms=twitch\)$/),
-    }));
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({
+        platform: "twitch",
+        globalTickId: 1,
+        platformTickId: 1,
+        message: expect.stringMatching(
+          /^Tick #\d+ started \(trigger=manual_tick, platforms=twitch\)$/,
+        ),
+      }),
+    );
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({
+        platform: "twitch",
+        globalTickId: 1,
+        platformTickId: 1,
+        code: "auth_health_changed",
+        mirroredActivity: true,
+      }),
+    );
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({
+        platform: "twitch",
+        globalTickId: 1,
+        platformTickId: 1,
+        message: expect.stringMatching(/^Tick #\d+ refreshed auth health in \d+ms$/),
+      }),
+    );
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({
+        platform: "twitch",
+        globalTickId: 1,
+        platformTickId: 1,
+        message: expect.stringMatching(/^Campaign refresh finished in \d+ms/),
+      }),
+    );
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({
+        platform: "twitch",
+        globalTickId: 1,
+        platformTickId: 1,
+        message: expect.stringMatching(
+          /^Tick #\d+ finished after \d+ms \(trigger=manual_tick, platforms=twitch\)$/,
+        ),
+      }),
+    );
   });
 
   it("coalesces same-platform ticks before discovery or the scheduler lock", async () => {
@@ -130,14 +151,18 @@ describe("background controller", () => {
       twitchDiscovery.resolve([]);
       await Promise.all([firstTick, secondTick]);
 
-      expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
-        category: "diagnostic",
-        platform: "twitch",
-        message: "Coalesced scheduler triggers (count=1, reasons=manual_tick:1)",
-      }));
-      expect(allDiagnostics(env).some((event) =>
-        event.message.includes("waited") && event.message.includes("platform work"),
-      )).toBe(false);
+      expect(allDiagnostics(env)).toContainEqual(
+        expect.objectContaining({
+          category: "diagnostic",
+          platform: "twitch",
+          message: "Coalesced scheduler triggers (count=1, reasons=manual_tick:1)",
+        }),
+      );
+      expect(
+        allDiagnostics(env).some(
+          (event) => event.message.includes("waited") && event.message.includes("platform work"),
+        ),
+      ).toBe(false);
     } finally {
       twitchDiscovery.resolve([]);
       await Promise.allSettled(secondTick ? [firstTick, secondTick] : [firstTick]);
@@ -160,7 +185,10 @@ describe("background controller", () => {
     const sharedPending = pending.every((request) => request === pending[0]);
     await env.controller.tickAndHandOff(["kick"], "alarm");
     expect(env.state.sessions.kick.campaignId).toBe("kick-campaign");
-    const starts = () => allDiagnostics(env).filter((event) => event.platform === "twitch" && /Tick #\d+ started/.test(event.message));
+    const starts = () =>
+      allDiagnostics(env).filter(
+        (event) => event.platform === "twitch" && /Tick #\d+ started/.test(event.message),
+      );
     const activeStarts = starts().length;
     discovery.resolve([campaign("twitch")]);
     await Promise.all([first, ...pending]);
@@ -169,11 +197,17 @@ describe("background controller", () => {
     expect(starts()).toHaveLength(2);
     expect(env.twitch.checkAuthHealth).toHaveBeenCalledTimes(2);
     expect(env.twitch.refreshCampaigns).toHaveBeenCalledTimes(2);
-    expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
-      platform: "twitch",
-      message: expect.stringContaining("Coalesced scheduler triggers (count=5, reasons=alarm:5)"),
-    }));
-    expect(allDiagnostics(env).filter((event) => event.platform === "twitch" && /Tick #2 finished/.test(event.message))[0]?.message).toContain("after 0ms");
+    expect(allDiagnostics(env)).toContainEqual(
+      expect.objectContaining({
+        platform: "twitch",
+        message: expect.stringContaining("Coalesced scheduler triggers (count=5, reasons=alarm:5)"),
+      }),
+    );
+    expect(
+      allDiagnostics(env).filter(
+        (event) => event.platform === "twitch" && /Tick #2 finished/.test(event.message),
+      )[0]?.message,
+    ).toContain("after 0ms");
   });
 
   // #587: when the selection prepared before the lock no longer matches the
@@ -195,29 +229,46 @@ describe("background controller", () => {
     await env.controller.tick(["twitch"], "alarm");
 
     expect(env.deps.selectWatchTarget).toHaveBeenCalledOnce();
-    expect(allDiagnostics(env).some((event) => event.platform === "twitch"
-      && event.message.startsWith("Snapshot selection discarded before commit"))).toBe(true);
-    expect(env.state.sessions.twitch).toMatchObject({ status: "watching", campaignId: "twitch-campaign" });
+    expect(
+      allDiagnostics(env).some(
+        (event) =>
+          event.platform === "twitch"
+          && event.message.startsWith("Snapshot selection discarded before commit"),
+      ),
+    ).toBe(true);
+    expect(env.state.sessions.twitch).toMatchObject({
+      status: "watching",
+      campaignId: "twitch-campaign",
+    });
   });
 
-  it.each(["manual_tick", "manual_resume", "claim_handoff"] as const)("preserves %s backoff overrides behind a pending alarm", async (trigger) => {
-    const env = harness(farming(DEFAULT_SETTINGS), { selectWatchTarget: selectWatchTargetFromSnapshot });
-    const discovery = deferred<DropCampaign[]>();
-    vi.mocked(env.twitch.refreshCampaigns).mockReturnValueOnce(discovery.promise);
-    const first = env.controller.tick(["twitch"], "alarm");
-    await vi.waitFor(() => expect(env.twitch.refreshCampaigns).toHaveBeenCalledOnce());
-    const pending = env.controller.tick(["twitch"], "alarm");
-    const manual = env.controller.tick(["twitch"], trigger);
-    const laterAlarm = env.controller.tick(["twitch"], "alarm");
-    discovery.resolve([campaign("twitch")]);
-    await Promise.all([first, pending, manual, laterAlarm]);
-    expect(env.deps.selectWatchTarget).toHaveBeenCalledTimes(2);
-    expect(env.deps.selectWatchTarget).toHaveBeenLastCalledWith(expect.objectContaining({ bypassBackoff: true }));
-    expect(env.twitch.refreshCampaigns).toHaveBeenCalledTimes(2);
-  });
+  it.each(["manual_tick", "manual_resume", "claim_handoff"] as const)(
+    "preserves %s backoff overrides behind a pending alarm",
+    async (trigger) => {
+      const env = harness(farming(DEFAULT_SETTINGS), {
+        selectWatchTarget: selectWatchTargetFromSnapshot,
+      });
+      const discovery = deferred<DropCampaign[]>();
+      vi.mocked(env.twitch.refreshCampaigns).mockReturnValueOnce(discovery.promise);
+      const first = env.controller.tick(["twitch"], "alarm");
+      await vi.waitFor(() => expect(env.twitch.refreshCampaigns).toHaveBeenCalledOnce());
+      const pending = env.controller.tick(["twitch"], "alarm");
+      const manual = env.controller.tick(["twitch"], trigger);
+      const laterAlarm = env.controller.tick(["twitch"], "alarm");
+      discovery.resolve([campaign("twitch")]);
+      await Promise.all([first, pending, manual, laterAlarm]);
+      expect(env.deps.selectWatchTarget).toHaveBeenCalledTimes(2);
+      expect(env.deps.selectWatchTarget).toHaveBeenLastCalledWith(
+        expect.objectContaining({ bypassBackoff: true }),
+      );
+      expect(env.twitch.refreshCampaigns).toHaveBeenCalledTimes(2);
+    },
+  );
 
   it("reloads settings and state and selects from the newest discovery revision for the follow-up", async () => {
-    const env = harness(farming(DEFAULT_SETTINGS), { selectWatchTarget: selectWatchTargetFromSnapshot });
+    const env = harness(farming(DEFAULT_SETTINGS), {
+      selectWatchTarget: selectWatchTargetFromSnapshot,
+    });
     const discovery = deferred<DropCampaign[]>();
     vi.mocked(env.twitch.refreshCampaigns)
       .mockReturnValueOnce(discovery.promise)
@@ -226,17 +277,32 @@ describe("background controller", () => {
     await vi.waitFor(() => expect(env.twitch.refreshCampaigns).toHaveBeenCalledOnce());
     const pending = env.controller.tickAndHandOff(["twitch"], "alarm");
     await env.rawController.handleMessage({
-      type: "saveSettings", settingsPatch: { autoClaim: false }, tickAfterSave: true, tickAfterSavePlatforms: ["twitch"],
+      type: "saveSettings",
+      settingsPatch: { autoClaim: false },
+      tickAfterSave: true,
+      tickAfterSavePlatforms: ["twitch"],
     });
-    await env.deps.saveState({ ...env.state, sessions: { ...env.state.sessions, twitch: { ...env.state.sessions.twitch, offlineChecks: 7 } } });
+    await env.deps.saveState({
+      ...env.state,
+      sessions: {
+        ...env.state.sessions,
+        twitch: { ...env.state.sessions.twitch, offlineChecks: 7 },
+      },
+    });
     discovery.resolve([campaign("twitch")]);
     await Promise.all([first, pending]);
     await env.controller.settleBackgroundWork();
-    expect(env.deps.selectWatchTarget).toHaveBeenLastCalledWith(expect.objectContaining({
-      settings: expect.objectContaining({ autoClaim: false }),
-      previous: expect.objectContaining({ offlineChecks: 7 }),
-      snapshot: expect.objectContaining({ campaigns: [expect.objectContaining({ campaign: expect.objectContaining({ id: "new-campaign" }) })] }),
-    }));
+    expect(env.deps.selectWatchTarget).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        settings: expect.objectContaining({ autoClaim: false }),
+        previous: expect.objectContaining({ offlineChecks: 7 }),
+        snapshot: expect.objectContaining({
+          campaigns: [
+            expect.objectContaining({ campaign: expect.objectContaining({ id: "new-campaign" }) }),
+          ],
+        }),
+      }),
+    );
     expect(env.state.sessions.twitch.campaignId).toBe("new-campaign");
     expect(env.twitch.refreshCampaigns).toHaveBeenCalledTimes(2);
   });
@@ -265,34 +331,53 @@ describe("background controller", () => {
     expect(env.twitch.refreshCampaigns).toHaveBeenCalledTimes(2);
   });
 
-  it.each(["shutdown", "reset", "disable"] as const)("discards obsolete pending alarm work on %s", async (action) => {
-    const env = harness(farming(DEFAULT_SETTINGS));
-    const discovery = deferred<DropCampaign[]>();
-    vi.mocked(env.twitch.refreshCampaigns).mockReturnValueOnce(discovery.promise);
-    const first = env.controller.tickAndHandOff(["twitch"], "alarm");
-    await vi.waitFor(() => expect(env.twitch.refreshCampaigns).toHaveBeenCalledOnce());
-    const pending = env.controller.tickAndHandOff(["twitch"], "alarm");
-    if (action === "shutdown") env.controller.shutdown();
-    else if (action === "reset") await env.controller.prepareForHostReset();
-    else await env.rawController.handleMessage({ type: "setAutomation", platform: "twitch", enabled: false });
-    discovery.resolve([campaign("twitch")]);
-    await Promise.all([first, pending]);
-    await env.controller.settleBackgroundWork();
-    expect(allDiagnostics(env).filter((event) => event.platform === "twitch" && event.message.includes("started (trigger=alarm"))).toHaveLength(1);
-    expect(env.twitch.refreshCampaigns).toHaveBeenCalledOnce();
-    expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
-      message: expect.stringMatching(/Discarded pending scheduler triggers .*count=1, reasons=alarm:1/),
-    }));
-  });
+  it.each(["shutdown", "reset", "disable"] as const)(
+    "discards obsolete pending alarm work on %s",
+    async (action) => {
+      const env = harness(farming(DEFAULT_SETTINGS));
+      const discovery = deferred<DropCampaign[]>();
+      vi.mocked(env.twitch.refreshCampaigns).mockReturnValueOnce(discovery.promise);
+      const first = env.controller.tickAndHandOff(["twitch"], "alarm");
+      await vi.waitFor(() => expect(env.twitch.refreshCampaigns).toHaveBeenCalledOnce());
+      const pending = env.controller.tickAndHandOff(["twitch"], "alarm");
+      if (action === "shutdown") env.controller.shutdown();
+      else if (action === "reset") await env.controller.prepareForHostReset();
+      else
+        await env.rawController.handleMessage({
+          type: "setAutomation",
+          platform: "twitch",
+          enabled: false,
+        });
+      discovery.resolve([campaign("twitch")]);
+      await Promise.all([first, pending]);
+      await env.controller.settleBackgroundWork();
+      expect(
+        allDiagnostics(env).filter(
+          (event) =>
+            event.platform === "twitch" && event.message.includes("started (trigger=alarm"),
+        ),
+      ).toHaveLength(1);
+      expect(env.twitch.refreshCampaigns).toHaveBeenCalledOnce();
+      expect(allDiagnostics(env)).toContainEqual(
+        expect.objectContaining({
+          message: expect.stringMatching(
+            /Discarded pending scheduler triggers .*count=1, reasons=alarm:1/,
+          ),
+        }),
+      );
+    },
+  );
 
   it("does not report platform-lock waits for an uncontended tick", async () => {
     const env = harness(farming(DEFAULT_SETTINGS));
 
     await env.controller.tick(["twitch"], "manual_tick");
 
-    expect(allDiagnostics(env).some((event) =>
-      event.message.includes("waited") && event.message.includes("platform work"),
-    )).toBe(false);
+    expect(
+      allDiagnostics(env).some(
+        (event) => event.message.includes("waited") && event.message.includes("platform work"),
+      ),
+    ).toBe(false);
   });
 
   it("assigns global and platform-local identifiers to interleaved platform ticks", async () => {
@@ -304,15 +389,19 @@ describe("background controller", () => {
 
     const starts = env.reportEvents.mock.calls
       .flatMap(([events]) => events)
-      .filter((event): event is DiagnosticEvent =>
-        event.category === "diagnostic" && event.message.includes("started (trigger=manual_tick"));
+      .filter(
+        (event): event is DiagnosticEvent =>
+          event.category === "diagnostic" && event.message.includes("started (trigger=manual_tick"),
+      );
 
-    expect(starts.map((event) => ({
-      platform: event.platform,
-      globalTickId: event.globalTickId,
-      platformTickId: event.platformTickId,
-      message: event.message,
-    }))).toEqual([
+    expect(
+      starts.map((event) => ({
+        platform: event.platform,
+        globalTickId: event.globalTickId,
+        platformTickId: event.platformTickId,
+        message: event.message,
+      })),
+    ).toEqual([
       {
         platform: "twitch",
         globalTickId: 1,
@@ -348,16 +437,19 @@ describe("background controller", () => {
       .flatMap(([events]) => events)
       .filter((event): event is DiagnosticEvent => event.category === "diagnostic");
     const boundaries = diagnostics.filter((event) =>
-      event.message.startsWith("Background controller run "));
+      event.message.startsWith("Background controller run "),
+    );
     const runId = boundaries[0]?.controllerRunId;
 
     expect(boundaries).toHaveLength(1);
-    expect(diagnostics.findIndex((event) =>
-      event.message.startsWith("Background controller run "))).toBe(0);
+    expect(
+      diagnostics.findIndex((event) => event.message.startsWith("Background controller run ")),
+    ).toBe(0);
     expect(runId).toEqual(expect.any(String));
     expect(diagnostics.every((event) => event.controllerRunId === runId)).toBe(true);
-    const requested = diagnostics.find((event) =>
-      event.message === "User requested Twitch automation enable");
+    const requested = diagnostics.find(
+      (event) => event.message === "User requested Twitch automation enable",
+    );
     expect(requested).toBeDefined();
     expect(requested).not.toHaveProperty("globalTickId");
     expect(requested).not.toHaveProperty("platformTickId");
@@ -370,11 +462,14 @@ describe("background controller", () => {
     await first.controller.tick(["twitch"], "manual_tick");
     await second.controller.tick(["twitch"], "manual_tick");
 
-    const tickStart = (env: ReturnType<typeof harness>) => env.reportEvents.mock.calls
-      .flatMap(([events]) => events)
-      .find((event): event is DiagnosticEvent =>
-        event.category === "diagnostic"
-        && event.message === "Tick #1 started (trigger=manual_tick, platforms=twitch)");
+    const tickStart = (env: ReturnType<typeof harness>) =>
+      env.reportEvents.mock.calls
+        .flatMap(([events]) => events)
+        .find(
+          (event): event is DiagnosticEvent =>
+            event.category === "diagnostic"
+            && event.message === "Tick #1 started (trigger=manual_tick, platforms=twitch)",
+        );
     const firstTick = tickStart(first);
     const secondTick = tickStart(second);
 
@@ -397,7 +492,9 @@ describe("background controller", () => {
       .flatMap(([events]) => events)
       .filter((event) => event.category === "diagnostic")
       .map((event) => event.message);
-    expect(messages).toContainEqual(expect.stringMatching(/^Tick #\d+ finished after \d+ms \(trigger=alarm/));
+    expect(messages).toContainEqual(
+      expect.stringMatching(/^Tick #\d+ finished after \d+ms \(trigger=alarm/),
+    );
   });
 
   it("runs an immediate scheduler tick when requested from the popup", async () => {
@@ -409,8 +506,10 @@ describe("background controller", () => {
     expect(env.kick.refreshCampaigns).toHaveBeenCalledTimes(1);
     expect(snapshot.state.sessions.twitch.status).toBe("watching");
     expect(snapshot.state.sessions.kick.status).toBe("watching");
-    expect(env.reportEvents).toHaveBeenCalledWith(expect.arrayContaining([
-      expect.objectContaining({ category: "activity", code: "farming_started" }),
-    ]));
+    expect(env.reportEvents).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ category: "activity", code: "farming_started" }),
+      ]),
+    );
   });
 });

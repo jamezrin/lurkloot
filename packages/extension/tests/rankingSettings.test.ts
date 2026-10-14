@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS, mergeEngineSettings, mergeSettings } from "@lurkloot/shared/settings";
-import { CURRENT_SETTINGS_SCHEMA_VERSION, migrateSettings, withSchemaVersion } from "@lurkloot/shared/settingsSchema";
+import {
+  CURRENT_SETTINGS_SCHEMA_VERSION,
+  migrateSettings,
+  withSchemaVersion,
+} from "@lurkloot/shared/settingsSchema";
 
 describe("ranking settings", () => {
   it("defaults to an empty pin list, no favourites and no blocks", () => {
@@ -41,7 +45,9 @@ describe("settings migration to pins and favourites", () => {
 
   it("turns an exclude-mode category list into blocked games", () => {
     const result = migrate({
-      platform: { twitch: { categoryMode: "exclude", categories: [{ id: "cs2", name: "Counter-Strike 2" }] } },
+      platform: {
+        twitch: { categoryMode: "exclude", categories: [{ id: "cs2", name: "Counter-Strike 2" }] },
+      },
     });
     const twitch = (result.settings.platform as Record<string, Record<string, unknown>>).twitch;
     expect(twitch.categoryMode).toBe("all");

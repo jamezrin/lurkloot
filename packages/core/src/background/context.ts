@@ -34,9 +34,10 @@ export interface ReportingSlice {
 }
 
 export function createReportingSlice(): ReportingSlice {
-  const controllerRunId = typeof crypto !== "undefined" && "randomUUID" in crypto
-    ? crypto.randomUUID()
-    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  const controllerRunId =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
   return {
     controllerRunId,
     controllerRunLabel: controllerRunId.slice(0, 8),
@@ -51,7 +52,10 @@ export interface DiscoverySignalSlice {
   readonly discoverySignalSlots: Record<Platform, ObserverSlot<DiscoverySignalController>>;
   readonly discoverySignalPlatformBlocked: Record<Platform, boolean>;
   readonly discoverySignalRefreshRunning: Record<Platform, boolean>;
-  readonly discoverySignalRefreshPending: Record<Platform, DiscoverySignalRefreshRequest | undefined>;
+  readonly discoverySignalRefreshPending: Record<
+    Platform,
+    DiscoverySignalRefreshRequest | undefined
+  >;
   readonly discoverySignalAuthRefreshes: Record<Platform, number>;
   readonly discoverySignalAdmissionGeneration: Record<Platform, number>;
 }
@@ -61,8 +65,16 @@ export function createDiscoverySignalSlice(): DiscoverySignalSlice {
     // A failed start stops and clears the observer, and the next reconcile
     // creates a fresh one (#587), as the channel-points push always has.
     discoverySignalSlots: {
-      twitch: new ObserverSlot<DiscoverySignalController>("twitch", "discovery signal observer", "discard"),
-      kick: new ObserverSlot<DiscoverySignalController>("kick", "discovery signal observer", "discard"),
+      twitch: new ObserverSlot<DiscoverySignalController>(
+        "twitch",
+        "discovery signal observer",
+        "discard",
+      ),
+      kick: new ObserverSlot<DiscoverySignalController>(
+        "kick",
+        "discovery signal observer",
+        "discard",
+      ),
     },
     discoverySignalPlatformBlocked: {
       twitch: false,
@@ -89,7 +101,10 @@ export function createDiscoverySignalSlice(): DiscoverySignalSlice {
 
 export interface DiscoverySlice<S extends EngineSettings> {
   readonly discoveryEvents: Record<Platform, EngineEvent[]>;
-  readonly discoveryLanes: Record<Platform, DiscoverySnapshotLane<TickAdapterHandle<S> | undefined>>;
+  readonly discoveryLanes: Record<
+    Platform,
+    DiscoverySnapshotLane<TickAdapterHandle<S> | undefined>
+  >;
   readonly discoveryBackoffBypasses: Record<Platform, number>;
   readonly selectionCache: Partial<Record<Platform, CommittedSelection>>;
   readonly selectionRuns: Partial<Record<Platform, Promise<CommittedSelection>>>;
@@ -110,7 +125,10 @@ export interface TickAdmissionSlice {
   readonly activePlatformTicks: Record<Platform, number>;
   tickCommitSequence: number;
   readonly tickAdmission: Record<Platform, { active?: TickRequest; pending?: TickRequest }>;
-  readonly tickRequestHandoffs: WeakMap<Promise<PlatformTickResult>, Promise<SchedulerState | undefined>>;
+  readonly tickRequestHandoffs: WeakMap<
+    Promise<PlatformTickResult>,
+    Promise<SchedulerState | undefined>
+  >;
   tickAdmissionSuspended: boolean;
   readonly tickBatches: Set<TickBatch>;
 }
@@ -134,7 +152,10 @@ export function createTickAdmissionSlice(): TickAdmissionSlice {
       twitch: {},
       kick: {},
     },
-    tickRequestHandoffs: new WeakMap<Promise<PlatformTickResult>, Promise<SchedulerState | undefined>>(),
+    tickRequestHandoffs: new WeakMap<
+      Promise<PlatformTickResult>,
+      Promise<SchedulerState | undefined>
+    >(),
     tickAdmissionSuspended: false,
     tickBatches: new Set<TickBatch>(),
   };
@@ -157,7 +178,12 @@ export interface SettingsCommitTurn<S> {
 // nothing needs nothing.
 export interface PlatformPolicySlice<S extends EngineSettings> {
   // Asked before a tick farms the platform; false keeps it out of the tick.
-  tickReadiness: Partial<Record<Platform, (settings: S, signal: AbortSignal, tickContext: TickDiagnosticContext) => Promise<boolean>>>;
+  tickReadiness: Partial<
+    Record<
+      Platform,
+      (settings: S, signal: AbortSignal, tickContext: TickDiagnosticContext) => Promise<boolean>
+    >
+  >;
   // Starts the platform switch's transition, superseding earlier ones, and
   // returns whether this one is still the latest.
   switchTransitions: Partial<Record<Platform, () => () => boolean>>;
@@ -211,7 +237,9 @@ export interface ControllerSlices<S extends EngineSettings> {
 // module takes the functions it calls from here, and they resolve on first use.
 export function lateBound<T extends object>(calls: T): T {
   return new Proxy(calls, {
-    get: (target, name) => (...args: unknown[]) =>
-      (Reflect.get(target, name) as (...args: unknown[]) => unknown)(...args),
+    get:
+      (target, name) =>
+      (...args: unknown[]) =>
+        (Reflect.get(target, name) as (...args: unknown[]) => unknown)(...args),
   });
 }

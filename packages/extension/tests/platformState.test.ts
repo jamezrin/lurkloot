@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { Platform, SchedulerState } from "@lurkloot/shared/models";
-import { mergePlatformState, SCHEDULER_STATE_MERGE, schedulerStateEquivalent } from "@lurkloot/core/background/platformState";
+import {
+  mergePlatformState,
+  SCHEDULER_STATE_MERGE,
+  schedulerStateEquivalent,
+} from "@lurkloot/core/background/platformState";
 
 function state(label: string, lastTickAt: string): SchedulerState {
   const session = (platform: Platform) => ({
@@ -41,8 +45,16 @@ function state(label: string, lastTickAt: string): SchedulerState {
       kick: [`${label}-kick`],
     },
     campaignSearchBackoffs: {
-      twitch: { campaignId: `${label}-twitch`, retryAt: "2099-01-01T00:00:00.000Z", fingerprint: label },
-      kick: { campaignId: `${label}-kick`, retryAt: "2099-01-01T00:00:00.000Z", fingerprint: label },
+      twitch: {
+        campaignId: `${label}-twitch`,
+        retryAt: "2099-01-01T00:00:00.000Z",
+        fingerprint: label,
+      },
+      kick: {
+        campaignId: `${label}-kick`,
+        retryAt: "2099-01-01T00:00:00.000Z",
+        fingerprint: label,
+      },
     },
     installedAt: `${label}-installed`,
     lastTickAt,
@@ -64,18 +76,25 @@ function markedState(label: string): SchedulerState {
 }
 
 describe("mergePlatformState", () => {
-  it.each(Object.entries(SCHEDULER_STATE_MERGE).filter(([, kind]) => kind === "platform" || kind === "optionalPlatform"))(
-    "merges %s for the committing platform only",
-    (key) => {
-      const destination = markedState("destination");
-      const source = markedState("source");
-      for (const [platform, other] of [["twitch", "kick"], ["kick", "twitch"]] as const) {
-        const merged = mergePlatformState(destination, source, platform) as unknown as Record<string, Record<Platform, unknown>>;
-        expect(merged[key]?.[platform]).toBe(`source-${key}-${platform}`);
-        expect(merged[key]?.[other]).toBe(`destination-${key}-${other}`);
-      }
-    },
-  );
+  it.each(
+    Object.entries(SCHEDULER_STATE_MERGE).filter(
+      ([, kind]) => kind === "platform" || kind === "optionalPlatform",
+    ),
+  )("merges %s for the committing platform only", (key) => {
+    const destination = markedState("destination");
+    const source = markedState("source");
+    for (const [platform, other] of [
+      ["twitch", "kick"],
+      ["kick", "twitch"],
+    ] as const) {
+      const merged = mergePlatformState(destination, source, platform) as unknown as Record<
+        string,
+        Record<Platform, unknown>
+      >;
+      expect(merged[key]?.[platform]).toBe(`source-${key}-${platform}`);
+      expect(merged[key]?.[other]).toBe(`destination-${key}-${other}`);
+    }
+  });
 
   it("keeps global keys and deletes a committing platform's missing optional entries", () => {
     const destination = markedState("destination");
@@ -86,7 +105,10 @@ describe("mergePlatformState", () => {
     const sourceRecord = source as unknown as Record<string, Partial<Record<Platform, unknown>>>;
     for (const key of optionalKeys) delete sourceRecord[key]?.twitch;
 
-    const merged = mergePlatformState(destination, source, "twitch") as unknown as Record<string, unknown>;
+    const merged = mergePlatformState(destination, source, "twitch") as unknown as Record<
+      string,
+      unknown
+    >;
 
     for (const [key, kind] of Object.entries(SCHEDULER_STATE_MERGE)) {
       if (kind === "global") expect(merged[key]).toBe(`destination-${key}`);
@@ -95,7 +117,6 @@ describe("mergePlatformState", () => {
       expect(merged[key]).toEqual({ kick: `destination-${key}-kick` });
     }
   });
-
 
   it("replaces only the owned platform slice and preserves the newest tick time", () => {
     const destination = state("destination", "2026-07-29T12:00:00.000Z");
@@ -139,17 +160,21 @@ describe("mergePlatformState", () => {
 
 describe("schedulerStateEquivalent", () => {
   it("ignores lastTickAt, which every tick restamps regardless of what it decided", () => {
-    expect(schedulerStateEquivalent(
-      state("same", "2026-07-29T12:00:00.000Z"),
-      state("same", "2026-07-29T12:30:00.000Z"),
-    )).toBe(true);
+    expect(
+      schedulerStateEquivalent(
+        state("same", "2026-07-29T12:00:00.000Z"),
+        state("same", "2026-07-29T12:30:00.000Z"),
+      ),
+    ).toBe(true);
   });
 
   it("reports a difference in any field that is not lastTickAt", () => {
-    expect(schedulerStateEquivalent(
-      state("before", "2026-07-29T12:00:00.000Z"),
-      state("after", "2026-07-29T12:00:00.000Z"),
-    )).toBe(false);
+    expect(
+      schedulerStateEquivalent(
+        state("before", "2026-07-29T12:00:00.000Z"),
+        state("after", "2026-07-29T12:00:00.000Z"),
+      ),
+    ).toBe(false);
   });
 
   it("treats an explicit undefined as equal to an absent key", () => {

@@ -19,14 +19,16 @@ export async function createTransport(
   enabled: EnabledPlatforms,
 ): Promise<TransportHandle> {
   const twitch = credentials.twitch;
-  const webIntegrity = enabled.twitch && twitch?.clientId === TWITCH_WEB_CLIENT_ID && twitch.authToken
-    ? new TwitchWebIntegrityManager({
-      authToken: twitch.authToken,
-      deviceId: twitch.deviceId ?? "",
-      kasadaSessionCookie: twitch.kasadaSessionCookie,
-      onSessionCookie: (value) => saveCredentials(authDir, { twitch: { kasadaSessionCookie: value } }),
-    })
-    : undefined;
+  const webIntegrity =
+    enabled.twitch && twitch?.clientId === TWITCH_WEB_CLIENT_ID && twitch.authToken
+      ? new TwitchWebIntegrityManager({
+          authToken: twitch.authToken,
+          deviceId: twitch.deviceId ?? "",
+          kasadaSessionCookie: twitch.kasadaSessionCookie,
+          onSessionCookie: (value) =>
+            saveCredentials(authDir, { twitch: { kasadaSessionCookie: value } }),
+        })
+      : undefined;
   switch (transport) {
     case "http":
       return createHttpTransport(credentials, enabled, webIntegrity);

@@ -26,10 +26,27 @@ import { withLockTracker } from "./lockTracker";
 import { hostPortsFromMocks, mockedCapabilities, type HostMocks } from "./hostPorts";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
 import type { StopPageContextTabs } from "@lurkloot/core/scheduler";
-import { createTabRegistry, forgetManagedPageContextTabs, noteTabClosure, type TabRegistry, type TwitchIntegrityRequest } from "@lurkloot/core/tabRegistry";
-import { OPAQUE_INTEGRITY_CEILING_MS, type IntegrityHeader, type TwitchIntegrity } from "@lurkloot/core/twitchIntegrity";
-import type { DiscoverySignalController, DiscoverySignalTarget } from "@lurkloot/core/discoverySignals";
-import type { TwitchChannelPointsClaimNotice, TwitchHermesOwners, TwitchPlaybackNotice } from "@lurkloot/core/twitch/channelPointsPush";
+import {
+  createTabRegistry,
+  forgetManagedPageContextTabs,
+  noteTabClosure,
+  type TabRegistry,
+  type TwitchIntegrityRequest,
+} from "@lurkloot/core/tabRegistry";
+import {
+  OPAQUE_INTEGRITY_CEILING_MS,
+  type IntegrityHeader,
+  type TwitchIntegrity,
+} from "@lurkloot/core/twitchIntegrity";
+import type {
+  DiscoverySignalController,
+  DiscoverySignalTarget,
+} from "@lurkloot/core/discoverySignals";
+import type {
+  TwitchChannelPointsClaimNotice,
+  TwitchHermesOwners,
+  TwitchPlaybackNotice,
+} from "@lurkloot/core/twitch/channelPointsPush";
 import type { ChatPresenceClient, ChatPresenceTarget } from "@lurkloot/core/chatPresence";
 import type { ChatPresenceStatus } from "@lurkloot/shared/models";
 
@@ -45,7 +62,10 @@ export const reward = (status: DropReward["status"] = "in_progress"): DropReward
   status,
 });
 
-export const campaign = (platform: Platform, rewardStatus: DropReward["status"] = "in_progress"): DropCampaign => ({
+export const campaign = (
+  platform: Platform,
+  rewardStatus: DropReward["status"] = "in_progress",
+): DropCampaign => ({
   id: `${platform}-campaign`,
   platform,
   name: `${platform} campaign`,
@@ -53,10 +73,16 @@ export const campaign = (platform: Platform, rewardStatus: DropReward["status"] 
   rewards: [reward(rewardStatus)],
 });
 
-export const channel = (platform: Platform, patch: Partial<ChannelCandidate> = {}): ChannelCandidate => ({
+export const channel = (
+  platform: Platform,
+  patch: Partial<ChannelCandidate> = {},
+): ChannelCandidate => ({
   platform,
   username: `${platform}-creator`,
-  url: platform === "twitch" ? "https://www.twitch.tv/twitch-creator" : "https://kick.com/kick-creator",
+  url:
+    platform === "twitch"
+      ? "https://www.twitch.tv/twitch-creator"
+      : "https://kick.com/kick-creator",
   ...patch,
 });
 
@@ -116,7 +142,9 @@ export class FakeChannelPointsPushController {
   extensionBroadcast?: TwitchHermesOwners["extensionBroadcast"];
   private readonly events: DiagnosticEvent[] = [];
 
-  async start(owners: TwitchHermesOwners | ((notice: TwitchChannelPointsClaimNotice) => void)): Promise<void> {
+  async start(
+    owners: TwitchHermesOwners | ((notice: TwitchChannelPointsClaimNotice) => void),
+  ): Promise<void> {
     this.starts += 1;
     if (this.startError) {
       const error = this.startError;
@@ -233,7 +261,10 @@ export function notFarming<T extends ExtensionSettings>(settings: T): T {
   return withPlatformsEnabled(settings, false);
 }
 
-export function withPlatformsEnabled<T extends ExtensionSettings>(settings: T, enabled: boolean): T {
+export function withPlatformsEnabled<T extends ExtensionSettings>(
+  settings: T,
+  enabled: boolean,
+): T {
   return {
     ...settings,
     platform: {
@@ -259,8 +290,16 @@ export function adapter(platform: Platform): PlatformAdapter {
 // openWatchTab/stopWatchTab mocks the controller calls dispatch to these.
 export function watchTabMocks(platform: Platform) {
   return {
-    open: vi.fn(async (_channel: ChannelCandidate, _session?: WatchSession, _options?: Partial<WatchTabOptions>): Promise<PreparedWatchTab> =>
-      ({ tabId: platform === "twitch" ? 10 : 20, managedByExtension: true })),
+    open: vi.fn(
+      async (
+        _channel: ChannelCandidate,
+        _session?: WatchSession,
+        _options?: Partial<WatchTabOptions>,
+      ): Promise<PreparedWatchTab> => ({
+        tabId: platform === "twitch" ? 10 : 20,
+        managedByExtension: true,
+      }),
+    ),
     stop: vi.fn(async (_session: WatchSession, _options?: Partial<WatchTabOptions>) => undefined),
   };
 }
@@ -286,7 +325,11 @@ export function twitchDashboard(campaignIds: string[]): unknown {
       currentUser: {
         id: "user-id",
         login: "viewer",
-        dropCampaigns: campaignIds.map((id) => ({ id, status: "ACTIVE", self: { isAccountConnected: true } })),
+        dropCampaigns: campaignIds.map((id) => ({
+          id,
+          status: "ACTIVE",
+          self: { isAccountConnected: true },
+        })),
       },
     },
   };
@@ -299,11 +342,13 @@ export function twitchCampaignDetails(dropID: string): unknown {
         id: dropID,
         name: `Campaign ${dropID}`,
         game: { id: "game", slug: "game-slug", displayName: "Game" },
-        timeBasedDrops: [{
-          id: `${dropID}-drop`,
-          requiredMinutesWatched: 60,
-          benefitEdges: [{ benefit: { id: "benefit", name: "Reward" } }],
-        }],
+        timeBasedDrops: [
+          {
+            id: `${dropID}-drop`,
+            requiredMinutesWatched: 60,
+            benefitEdges: [{ benefit: { id: "benefit", name: "Reward" } }],
+          },
+        ],
       },
     },
   };
@@ -362,11 +407,14 @@ export function harness(
   kick.createDiscoverySignalController = discoverySignalFactory;
   const channelPointsPushController = new FakeChannelPointsPushController();
   const channelPointsPushFactory = vi.fn(() => channelPointsPushController);
-  twitch.createChannelPointsPushController = channelPointsPushFactory as unknown as PlatformAdapter["createChannelPointsPushController"];
+  twitch.createChannelPointsPushController =
+    channelPointsPushFactory as unknown as PlatformAdapter["createChannelPointsPushController"];
   const chatPresenceClient = new FakeChatPresenceClient();
   const chatPresenceFactory = vi.fn(() => chatPresenceClient);
   twitch.createChatPresenceClient = chatPresenceFactory;
-  const reportEvents = vi.fn<(events: readonly EngineEvent[]) => Promise<void>>(async () => undefined);
+  const reportEvents = vi.fn<(events: readonly EngineEvent[]) => Promise<void>>(
+    async () => undefined,
+  );
   const tabRegistry = overrides.tabRegistry ?? createTabRegistry();
   const deps = {
     loadSettings: vi.fn(async () => currentSettings),
@@ -375,43 +423,83 @@ export function harness(
       currentSettings = next;
     }),
     loadState: vi.fn(async () => currentState),
-    saveState: vi.fn(overrides.saveState ?? (async (next: SchedulerState) => {
-      currentState = next;
-    })),
-    createAlarm: vi.fn(overrides.createAlarm ?? (async (
-      _name: string,
-      _options: { periodInMinutes: number } | { when: number },
-    ) => undefined)),
+    saveState: vi.fn(
+      overrides.saveState
+        ?? (async (next: SchedulerState) => {
+          currentState = next;
+        }),
+    ),
+    createAlarm: vi.fn(
+      overrides.createAlarm
+        ?? (async (_name: string, _options: { periodInMinutes: number } | { when: number }) =>
+          undefined),
+    ),
     getAlarm: vi.fn(overrides.getAlarm ?? (async () => undefined)),
     clearAlarm: vi.fn(overrides.clearAlarm ?? (async () => true)),
     ensureTwitchIntegrity: vi.fn(overrides.ensureTwitchIntegrity ?? (async () => true)),
-    cancelTwitchIntegrityAcquisition: vi.fn(overrides.cancelTwitchIntegrityAcquisition ?? (() => undefined)),
+    cancelTwitchIntegrityAcquisition: vi.fn(
+      overrides.cancelTwitchIntegrityAcquisition ?? (() => undefined),
+    ),
     createNotification: vi.fn(async () => undefined),
-    openWatchTab: vi.fn((channel: ChannelCandidate, session: WatchSession | undefined, options: Partial<WatchTabOptions>, _emit: EventEmitter) =>
-      watchTabs[channel.platform].open(channel, session, options)),
+    openWatchTab: vi.fn(
+      (
+        channel: ChannelCandidate,
+        session: WatchSession | undefined,
+        options: Partial<WatchTabOptions>,
+        _emit: EventEmitter,
+      ) => watchTabs[channel.platform].open(channel, session, options),
+    ),
     // Like the extension, a close the host makes is recorded before it happens.
-    stopWatchTab: vi.fn((session: WatchSession, options: Partial<WatchTabOptions>, _emit: EventEmitter) => {
-      if (session.tabManagedByExtension && session.tabId != null && options.closeManagedTabs !== false) {
-        noteTabClosure(tabRegistry, session.tabId, options.closureOrigin ?? "extension-cleanup");
-      }
-      return watchTabs[session.platform].stop(session, options);
-    }),
+    stopWatchTab: vi.fn(
+      (session: WatchSession, options: Partial<WatchTabOptions>, _emit: EventEmitter) => {
+        if (
+          session.tabManagedByExtension
+          && session.tabId != null
+          && options.closeManagedTabs !== false
+        ) {
+          noteTabClosure(tabRegistry, session.tabId, options.closureOrigin ?? "extension-cleanup");
+        }
+        return watchTabs[session.platform].stop(session, options);
+      },
+    ),
     closeManagedTabs: vi.fn(async () => undefined),
-    applyAdFocus: vi.fn<(platform: Platform, tabId: number | undefined, adActive: boolean, emit: EventEmitter) => Promise<void>>(async () => undefined),
+    applyAdFocus: vi.fn<
+      (
+        platform: Platform,
+        tabId: number | undefined,
+        adActive: boolean,
+        emit: EventEmitter,
+      ) => Promise<void>
+    >(async () => undefined),
     // Host-owned tab policy + settings-patch application (see background.ts).
-    loadTabPlaybackPolicy: vi.fn(async () => ({ keepVideosUnmuted: currentSettings.keepFarmingVideosUnmuted !== false })),
-    applySettingsPatch: vi.fn((current: ExtensionSettings, patch) => applySettingsPatch(current, patch)),
+    loadTabPlaybackPolicy: vi.fn(async () => ({
+      keepVideosUnmuted: currentSettings.keepFarmingVideosUnmuted !== false,
+    })),
+    applySettingsPatch: vi.fn((current: ExtensionSettings, patch) =>
+      applySettingsPatch(current, patch),
+    ),
     createAdapters: vi.fn((_emit: EventEmitter, nextSettings: ExtensionSettings) => ({
       adapters: { twitch, kick },
-      ...resolveCompatibility(nextSettings.compatibility, { host: "extension", twitchIdentity: "web" }),
+      ...resolveCompatibility(nextSettings.compatibility, {
+        host: "extension",
+        twitchIdentity: "web",
+      }),
     })),
-    createAdapter: vi.fn((platform: Platform, _emit: EventEmitter, nextSettings: ExtensionSettings) => ({
-      adapter: platform === "twitch" ? twitch : kick,
-      ...resolveCompatibility(nextSettings.compatibility, { host: "extension", twitchIdentity: "web" }),
-    })),
+    createAdapter: vi.fn(
+      (platform: Platform, _emit: EventEmitter, nextSettings: ExtensionSettings) => ({
+        adapter: platform === "twitch" ? twitch : kick,
+        ...resolveCompatibility(nextSettings.compatibility, {
+          host: "extension",
+          twitchIdentity: "web",
+        }),
+      }),
+    ),
     reportEvents: vi.fn(overrides.reportEvents ?? reportEvents),
-    stopPageContextTabs: vi.fn(overrides.stopPageContextTabs ?? ((contexts, options) =>
-      forgetManagedPageContextTabs(tabRegistry, contexts, options)) as StopPageContextTabs),
+    stopPageContextTabs: vi.fn(
+      overrides.stopPageContextTabs
+        ?? (((contexts, options) =>
+          forgetManagedPageContextTabs(tabRegistry, contexts, options)) as StopPageContextTabs),
+    ),
     tabRegistry,
     ...(overrides.reconcilePageContextRecovery
       ? { reconcilePageContextRecovery: vi.fn(overrides.reconcilePageContextRecovery) }
@@ -419,10 +507,18 @@ export function harness(
     ...(overrides.discardPageContextRecoveryEvidence
       ? { discardPageContextRecoveryEvidence: vi.fn(overrides.discardPageContextRecoveryEvidence) }
       : {}),
-    ...(overrides.selectWatchTarget ? { selectWatchTarget: vi.fn(overrides.selectWatchTarget) } : {}),
-    ...(overrides.selectSupplementalWatchTarget ? { selectSupplementalWatchTarget: vi.fn(overrides.selectSupplementalWatchTarget) } : {}),
-    ...(overrides.refreshSupplementalSource ? { refreshSupplementalSource: vi.fn(overrides.refreshSupplementalSource) } : {}),
-    ...(overrides.supplementalBroadcastToken ? { supplementalBroadcastToken: vi.fn(overrides.supplementalBroadcastToken) } : {}),
+    ...(overrides.selectWatchTarget
+      ? { selectWatchTarget: vi.fn(overrides.selectWatchTarget) }
+      : {}),
+    ...(overrides.selectSupplementalWatchTarget
+      ? { selectSupplementalWatchTarget: vi.fn(overrides.selectSupplementalWatchTarget) }
+      : {}),
+    ...(overrides.refreshSupplementalSource
+      ? { refreshSupplementalSource: vi.fn(overrides.refreshSupplementalSource) }
+      : {}),
+    ...(overrides.supplementalBroadcastToken
+      ? { supplementalBroadcastToken: vi.fn(overrides.supplementalBroadcastToken) }
+      : {}),
     wait: overrides.wait,
     ...(overrides.checkCredentialAvailability
       ? { checkCredentialAvailability: vi.fn(overrides.checkCredentialAvailability) }
@@ -439,10 +535,12 @@ export function harness(
   };
 
   const { deps: trackedDeps, tracker: lockTracker } = withLockTracker(deps);
-  const controller = createBackgroundController(hostPortsFromMocks(trackedDeps, {
-    ...mockedCapabilities(trackedDeps),
-    ...overrides.capabilities,
-  }));
+  const controller = createBackgroundController(
+    hostPortsFromMocks(trackedDeps, {
+      ...mockedCapabilities(trackedDeps),
+      ...overrides.capabilities,
+    }),
+  );
   // User-action messages dispatch their scheduler tick in the background and
   // return the snapshot immediately, so the popup is never held open for a
   // network-bound tick. Tests here assert on what the tick produced, so the
@@ -492,9 +590,10 @@ export function aggregateHeartbeatDiagnostics(
   platform: Platform,
 ): string[] {
   return allDiagnostics(env)
-    .filter((event) =>
-      event.platform === platform
-      && event.message.startsWith("Tabless heartbeat timing "))
+    .filter(
+      (event) =>
+        event.platform === platform && event.message.startsWith("Tabless heartbeat timing "),
+    )
     .map((event) => event.message);
 }
 
@@ -567,7 +666,13 @@ export function manualWait() {
     for (const resolve of pending.splice(0)) resolve();
     await drainMicrotasks();
   };
-  return { wait, flush, get parked() { return pending.length; } };
+  return {
+    wait,
+    flush,
+    get parked() {
+      return pending.length;
+    },
+  };
 }
 
 export function tablessEnv(overrides: Partial<ExtensionSettings> = {}) {

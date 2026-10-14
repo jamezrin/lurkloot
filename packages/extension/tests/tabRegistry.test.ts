@@ -109,9 +109,16 @@ describe("tab registry isolation", () => {
     syncManagedTabBreakers(first, { criticalHealth: { kick: { breakerOpen: true } } });
     await openPinnedMutedTabWithBrowser(first, browser, channel, stalledSession);
     await applyAdFocusWithBrowser(first, browser, "twitch", 42, true, "tab");
-    const waiting = ensureTwitchIntegrityWithBrowser(first, browser, "https://www.twitch.tv/drops/inventory", 50, undefined, {
-      forceRefresh: true,
-    });
+    const waiting = ensureTwitchIntegrityWithBrowser(
+      first,
+      browser,
+      "https://www.twitch.tv/drops/inventory",
+      50,
+      undefined,
+      {
+        forceRefresh: true,
+      },
+    );
     await vi.waitFor(() => expect(currentTwitchIntegrityWaiterCount(first)).toBe(1));
     noteTwitchGqlRequest(first, 9);
 
@@ -131,7 +138,10 @@ describe("tab registry isolation", () => {
   it("gives two controllers in one process separate tab state", async () => {
     const first = harness({ ...DEFAULT_SETTINGS });
     const second = harness({ ...DEFAULT_SETTINGS });
-    await Promise.all([first.controller.settleBackgroundWork(), second.controller.settleBackgroundWork()]);
+    await Promise.all([
+      first.controller.settleBackgroundWork(),
+      second.controller.settleBackgroundWork(),
+    ]);
     const untouched = tabState(second.tabRegistry);
 
     const token = integrityBundle({ integrity: "first-controller-token" });
@@ -154,10 +164,22 @@ describe("tab registry isolation", () => {
 
   it("keeps no mutable state at module level in the tab modules", () => {
     const here = dirname(fileURLToPath(import.meta.url));
-    for (const file of ["../../core/src/core/tabRegistry.ts", "../src/core/browserTabs.ts", "../src/core/tabPorts.ts", "../src/core/tabs.ts"]) {
+    for (const file of [
+      "../../core/src/core/tabRegistry.ts",
+      "../src/core/browserTabs.ts",
+      "../src/core/tabPorts.ts",
+      "../src/core/tabs.ts",
+    ]) {
       const source = readFileSync(resolve(here, file), "utf8");
-      const moduleState = source.split("\n").filter((line) =>
-        /^let\s/.test(line) || /^const\s+\w+\s*(?::[^=]+)?=\s*new\s+(?:Map|Set|WeakMap|AbortController)\b/.test(line));
+      const moduleState = source
+        .split("\n")
+        .filter(
+          (line) =>
+            /^let\s/.test(line)
+            || /^const\s+\w+\s*(?::[^=]+)?=\s*new\s+(?:Map|Set|WeakMap|AbortController)\b/.test(
+              line,
+            ),
+        );
       expect(moduleState, file).toEqual([]);
     }
   });

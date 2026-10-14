@@ -23,23 +23,30 @@ describe("background controller", () => {
 
   it("records playback telemetry only for the managed watch tab", async () => {
     const env = harness(farming(DEFAULT_SETTINGS));
-    await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: true });
-
     await env.controller.handleMessage({
-      type: "playbackTelemetry",
+      type: "setAutomation",
       platform: "twitch",
-      telemetry: {
-        videoCount: 1,
-        mutedVideoCount: 0,
-        unmutedVideoCount: 1,
-        playingVideoCount: 1,
-        blockedPlaybackCount: 0,
-        documentHidden: true,
-        readyState: 4,
-        currentTime: 12,
-        duration: 1200,
+      enabled: true,
+    });
+
+    await env.controller.handleMessage(
+      {
+        type: "playbackTelemetry",
+        platform: "twitch",
+        telemetry: {
+          videoCount: 1,
+          mutedVideoCount: 0,
+          unmutedVideoCount: 1,
+          playingVideoCount: 1,
+          blockedPlaybackCount: 0,
+          documentHidden: true,
+          readyState: 4,
+          currentTime: 12,
+          duration: 1200,
+        },
       },
-    }, { tab: { id: 10 } });
+      { tab: { id: 10 } },
+    );
 
     expect(env.state.sessions.twitch.playback).toMatchObject({
       platform: "twitch",
@@ -49,65 +56,91 @@ describe("background controller", () => {
       playingVideoCount: 1,
     });
 
-    await env.controller.handleMessage({
-      type: "playbackTelemetry",
-      platform: "twitch",
-      telemetry: {
-        videoCount: 0,
-        mutedVideoCount: 0,
-        unmutedVideoCount: 0,
-        playingVideoCount: 0,
-        blockedPlaybackCount: 0,
-        documentHidden: true,
+    await env.controller.handleMessage(
+      {
+        type: "playbackTelemetry",
+        platform: "twitch",
+        telemetry: {
+          videoCount: 0,
+          mutedVideoCount: 0,
+          unmutedVideoCount: 0,
+          playingVideoCount: 0,
+          blockedPlaybackCount: 0,
+          documentHidden: true,
+        },
       },
-    }, { tab: { id: 999 } });
+      { tab: { id: 999 } },
+    );
 
     expect(env.state.sessions.twitch.playback?.videoCount).toBe(1);
   });
 
   it("clears accumulated playback checks as soon as the watch tab reports playback (#250)", async () => {
     const env = harness(farming(DEFAULT_SETTINGS));
-    await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: true });
+    await env.controller.handleMessage({
+      type: "setAutomation",
+      platform: "twitch",
+      enabled: true,
+    });
     env.state.sessions.twitch = { ...env.state.sessions.twitch, playbackChecks: 2 };
 
-    await env.controller.handleMessage({
-      type: "playbackTelemetry",
-      platform: "twitch",
-      telemetry: {
-        videoCount: 0,
-        mutedVideoCount: 0,
-        unmutedVideoCount: 0,
-        playingVideoCount: 0,
-        blockedPlaybackCount: 0,
-        documentHidden: true,
+    await env.controller.handleMessage(
+      {
+        type: "playbackTelemetry",
+        platform: "twitch",
+        telemetry: {
+          videoCount: 0,
+          mutedVideoCount: 0,
+          unmutedVideoCount: 0,
+          playingVideoCount: 0,
+          blockedPlaybackCount: 0,
+          documentHidden: true,
+        },
       },
-    }, { tab: { id: 10 } });
+      { tab: { id: 10 } },
+    );
 
     expect(env.state.sessions.twitch.playbackChecks).toBe(2);
 
-    await env.controller.handleMessage({
-      type: "playbackTelemetry",
-      platform: "twitch",
-      telemetry: {
-        videoCount: 1,
-        mutedVideoCount: 1,
-        unmutedVideoCount: 0,
-        playingVideoCount: 1,
-        blockedPlaybackCount: 0,
-        documentHidden: true,
+    await env.controller.handleMessage(
+      {
+        type: "playbackTelemetry",
+        platform: "twitch",
+        telemetry: {
+          videoCount: 1,
+          mutedVideoCount: 1,
+          unmutedVideoCount: 0,
+          playingVideoCount: 1,
+          blockedPlaybackCount: 0,
+          documentHidden: true,
+        },
       },
-    }, { tab: { id: 10 } });
+      { tab: { id: 10 } },
+    );
 
     expect(env.state.sessions.twitch.playbackChecks).toBe(0);
   });
 
   describe("manual-watch event transitions", () => {
-    const telemetry = { videoCount: 1, mutedVideoCount: 0, unmutedVideoCount: 1,
-      playingVideoCount: 1, blockedPlaybackCount: 0, documentHidden: false };
-    async function report(env: ReturnType<typeof harness>, platform: Platform, id: number, url: string,
-      patch: Partial<typeof telemetry> = {}) {
-      await env.controller.handleMessage({ type: "playbackTelemetry", platform,
-        telemetry: { ...telemetry, ...patch } }, { tab: { id, url } });
+    const telemetry = {
+      videoCount: 1,
+      mutedVideoCount: 0,
+      unmutedVideoCount: 1,
+      playingVideoCount: 1,
+      blockedPlaybackCount: 0,
+      documentHidden: false,
+    };
+    async function report(
+      env: ReturnType<typeof harness>,
+      platform: Platform,
+      id: number,
+      url: string,
+      patch: Partial<typeof telemetry> = {},
+    ) {
+      await env.controller.handleMessage(
+        { type: "playbackTelemetry", platform, telemetry: { ...telemetry, ...patch } },
+        { tab: { id, url } },
+      );
       await env.controller.settleBackgroundWork();
     }
 
@@ -120,7 +153,10 @@ describe("background controller", () => {
       expect(env.state.sessions.twitch).toMatchObject({ status: "watching", tabId: 10 });
       vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([]);
       await env.controller.tick(["twitch"]);
-      expect(env.watchTabs.twitch.stop).toHaveBeenCalledWith(expect.objectContaining({ tabId: 10 }), expect.anything());
+      expect(env.watchTabs.twitch.stop).toHaveBeenCalledWith(
+        expect.objectContaining({ tabId: 10 }),
+        expect.anything(),
+      );
       await env.controller.handleTabRemoved(10);
 
       await report(env, "twitch", 10, "https://www.twitch.tv/creator");
@@ -129,46 +165,68 @@ describe("background controller", () => {
       expect(env.state.sessions.twitch.reasonCode).not.toBe("manual_watch");
     });
 
-    it.each(["twitch", "kick"] as const)("resumes %s immediately after playback stops or becomes hidden", async (platform) => {
-      for (const patch of [{ playingVideoCount: 0 }, { documentHidden: true }]) {
+    it.each(["twitch", "kick"] as const)(
+      "resumes %s immediately after playback stops or becomes hidden",
+      async (platform) => {
+        for (const patch of [{ playingVideoCount: 0 }, { documentHidden: true }]) {
+          const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
+          const url =
+            platform === "twitch" ? "https://www.twitch.tv/creator" : "https://kick.com/creator";
+          await report(env, platform, 999, url);
+          expect(env.state.sessions[platform].reasonCode).toBe("manual_watch");
+          await report(env, platform, 999, url, patch);
+          expect(env.state.sessions[platform].status).toBe("watching");
+        }
+      },
+    );
+
+    it.each(["twitch", "kick"] as const)(
+      "ignores non-stream %s pages even with visible video",
+      async (platform) => {
         const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
-        const url = platform === "twitch" ? "https://www.twitch.tv/creator" : "https://kick.com/creator";
-        await report(env, platform, 999, url);
+        await env.controller.tick();
+        const host = platform === "twitch" ? "https://www.twitch.tv" : "https://kick.com";
+        for (const route of [
+          "settings",
+          "settings/profile",
+          "inventory",
+          "drops/inventory",
+          "directory",
+          ...(platform === "kick" ? ["categories"] : []),
+          "videos/123",
+          "creator/clips",
+          "creator/videos/123",
+        ]) {
+          await report(env, platform, 999, `${host}/${route}`);
+          expect(env.state.manualWatch?.[platform]?.active).not.toBe(true);
+          expect(env.state.sessions[platform].status).toBe("watching");
+        }
+      },
+    );
+
+    it.each(["twitch", "kick"] as const)(
+      "keeps %s paused until the last manual tab closes",
+      async (platform) => {
+        const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
+        const host = platform === "twitch" ? "https://www.twitch.tv" : "https://kick.com";
+        await report(env, platform, 999, `${host}/firstcreator`);
+        await report(env, platform, 1000, `${host}/secondcreator`);
+        await env.controller.handleTabRemoved(1000);
+        await env.controller.settleBackgroundWork();
         expect(env.state.sessions[platform].reasonCode).toBe("manual_watch");
-        await report(env, platform, 999, url, patch);
+        expect(env.state.manualWatch?.[platform]?.tabId).toBe(999);
+        await env.controller.handleTabRemoved(999);
+        await env.controller.settleBackgroundWork();
         expect(env.state.sessions[platform].status).toBe("watching");
-      }
-    });
-
-    it.each(["twitch", "kick"] as const)("ignores non-stream %s pages even with visible video", async (platform) => {
-      const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
-      await env.controller.tick();
-      const host = platform === "twitch" ? "https://www.twitch.tv" : "https://kick.com";
-      for (const route of ["settings", "settings/profile", "inventory", "drops/inventory", "directory", ...(platform === "kick" ? ["categories"] : []), "videos/123", "creator/clips", "creator/videos/123"]) {
-        await report(env, platform, 999, `${host}/${route}`);
-        expect(env.state.manualWatch?.[platform]?.active).not.toBe(true);
-        expect(env.state.sessions[platform].status).toBe("watching");
-      }
-    });
-
-    it.each(["twitch", "kick"] as const)("keeps %s paused until the last manual tab closes", async (platform) => {
-      const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
-      const host = platform === "twitch" ? "https://www.twitch.tv" : "https://kick.com";
-      await report(env, platform, 999, `${host}/firstcreator`);
-      await report(env, platform, 1000, `${host}/secondcreator`);
-      await env.controller.handleTabRemoved(1000);
-      await env.controller.settleBackgroundWork();
-      expect(env.state.sessions[platform].reasonCode).toBe("manual_watch");
-      expect(env.state.manualWatch?.[platform]?.tabId).toBe(999);
-      await env.controller.handleTabRemoved(999);
-      await env.controller.settleBackgroundWork();
-      expect(env.state.sessions[platform].status).toBe("watching");
-    });
+      },
+    );
 
     it("keeps another stream active when an unrelated tab reports inactive playback", async () => {
       const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
       await report(env, "twitch", 999, "https://www.twitch.tv/firstcreator");
-      await report(env, "twitch", 1000, "https://www.twitch.tv/secondcreator", { playingVideoCount: 0 });
+      await report(env, "twitch", 1000, "https://www.twitch.tv/secondcreator", {
+        playingVideoCount: 0,
+      });
       expect(env.state.manualWatch?.twitch?.tabId).toBe(999);
       expect(env.state.sessions.twitch.reasonCode).toBe("manual_watch");
     });
@@ -192,14 +250,20 @@ describe("background controller", () => {
       expect(env.state.sessions.kick.status).toBe("watching");
     });
 
-    it.each([undefined, "https://example.com/creator", "https://clips.twitch.tv/SomeClip"])("requires a supported stream URL (%s)", async (url) => {
-      const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
-      await env.controller.tick();
-      await env.controller.handleMessage({ type: "playbackTelemetry", platform: "twitch", telemetry }, { tab: { id: 999, url } });
-      await env.controller.settleBackgroundWork();
-      expect(env.state.manualWatch?.twitch?.active).not.toBe(true);
-      expect(env.state.sessions.twitch.status).toBe("watching");
-    });
+    it.each([undefined, "https://example.com/creator", "https://clips.twitch.tv/SomeClip"])(
+      "requires a supported stream URL (%s)",
+      async (url) => {
+        const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
+        await env.controller.tick();
+        await env.controller.handleMessage(
+          { type: "playbackTelemetry", platform: "twitch", telemetry },
+          { tab: { id: 999, url } },
+        );
+        await env.controller.settleBackgroundWork();
+        expect(env.state.manualWatch?.twitch?.active).not.toBe(true);
+        expect(env.state.sessions.twitch.status).toBe("watching");
+      },
+    );
 
     it("stays paused during navigation between stream channels", async () => {
       const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
@@ -225,18 +289,21 @@ describe("background controller", () => {
     await env.controller.tick();
     vi.mocked(env.kick.refreshCampaigns).mockClear();
 
-    await env.controller.handleMessage({
-      type: "playbackTelemetry",
-      platform: "twitch",
-      telemetry: {
-        videoCount: 1,
-        mutedVideoCount: 0,
-        unmutedVideoCount: 1,
-        playingVideoCount: 1,
-        blockedPlaybackCount: 0,
-        documentHidden: false,
+    await env.controller.handleMessage(
+      {
+        type: "playbackTelemetry",
+        platform: "twitch",
+        telemetry: {
+          videoCount: 1,
+          mutedVideoCount: 0,
+          unmutedVideoCount: 1,
+          playingVideoCount: 1,
+          blockedPlaybackCount: 0,
+          documentHidden: false,
+        },
       },
-    }, { tab: { id: 999, url: "https://www.twitch.tv/FirstCreator" } });
+      { tab: { id: 999, url: "https://www.twitch.tv/FirstCreator" } },
+    );
 
     expect(env.state.manualWatch?.twitch).toMatchObject({
       platform: "twitch",
@@ -286,9 +353,12 @@ describe("background controller", () => {
     });
     env.twitch.claimChannelPoints = vi.fn(async () => false);
     await env.controller.runTwitchChannelPointsClaim();
-    expect(env.twitch.claimChannelPoints).toHaveBeenCalledWith(expect.objectContaining({
-      username: "secondcreator",
-    }), { signal: expect.any(AbortSignal) });
+    expect(env.twitch.claimChannelPoints).toHaveBeenCalledWith(
+      expect.objectContaining({
+        username: "secondcreator",
+      }),
+      { signal: expect.any(AbortSignal) },
+    );
 
     await env.controller.handleMessage(
       { type: "playbackTelemetry", platform: "twitch", telemetry },
@@ -311,11 +381,18 @@ describe("background controller", () => {
       documentHidden: false,
     };
 
-    await env.controller.handleMessage({ type: "playbackTelemetry", platform: "twitch", telemetry }, { tab: { id: 999, url: "https://www.twitch.tv/creator" } });
-    await env.controller.handleMessage({ type: "playbackTelemetry", platform: "twitch", telemetry }, { tab: { id: 999, url: "https://www.twitch.tv/creator" } });
+    await env.controller.handleMessage(
+      { type: "playbackTelemetry", platform: "twitch", telemetry },
+      { tab: { id: 999, url: "https://www.twitch.tv/creator" } },
+    );
+    await env.controller.handleMessage(
+      { type: "playbackTelemetry", platform: "twitch", telemetry },
+      { tab: { id: 999, url: "https://www.twitch.tv/creator" } },
+    );
 
     const immediateTickStarts = allDiagnostics(env).filter((event) =>
-      event.message.includes("started (trigger=manual_watch"));
+      event.message.includes("started (trigger=manual_watch"),
+    );
     expect(immediateTickStarts).toHaveLength(1);
   });
 
@@ -354,13 +431,21 @@ describe("background controller", () => {
     }
     await env.controller.settleBackgroundWork();
 
-    expect(allDiagnostics(env).filter((event) =>
-      event.message.includes("started (trigger=manual_watch"))).toHaveLength(1);
+    expect(
+      allDiagnostics(env).filter((event) =>
+        event.message.includes("started (trigger=manual_watch"),
+      ),
+    ).toHaveLength(1);
   });
 
   it("does not start a manual-watch tick from a tick that pauses for manual watch", async () => {
     const env = harness(farming({ ...DEFAULT_SETTINGS, pauseOnManualWatch: true }));
-    const record = { platform: "twitch" as const, tabId: 999, active: true, checkedAt: new Date().toISOString() };
+    const record = {
+      platform: "twitch" as const,
+      tabId: 999,
+      active: true,
+      checkedAt: new Date().toISOString(),
+    };
     env.state.manualWatch = { twitch: record };
     env.state.manualWatchTabs = { twitch: { 999: record } };
 
@@ -368,8 +453,9 @@ describe("background controller", () => {
     await env.controller.settleBackgroundWork();
 
     expect(env.state.sessions.twitch.reasonCode).toBe("manual_watch");
-    expect(allDiagnostics(env).some((event) =>
-      event.message.includes("started (trigger=manual_watch"))).toBe(false);
+    expect(
+      allDiagnostics(env).some((event) => event.message.includes("started (trigger=manual_watch")),
+    ).toBe(false);
   });
 
   it("does not tick when non-managed Twitch playback is inactive", async () => {
@@ -377,22 +463,26 @@ describe("background controller", () => {
     await env.controller.tick(["twitch"]);
     env.reportEvents.mockClear();
 
-    await env.controller.handleMessage({
-      type: "playbackTelemetry",
-      platform: "twitch",
-      telemetry: {
-        videoCount: 1,
-        mutedVideoCount: 0,
-        unmutedVideoCount: 1,
-        playingVideoCount: 0,
-        blockedPlaybackCount: 0,
-        documentHidden: false,
+    await env.controller.handleMessage(
+      {
+        type: "playbackTelemetry",
+        platform: "twitch",
+        telemetry: {
+          videoCount: 1,
+          mutedVideoCount: 0,
+          unmutedVideoCount: 1,
+          playingVideoCount: 0,
+          blockedPlaybackCount: 0,
+          documentHidden: false,
+        },
       },
-    }, { tab: { id: 999 } });
+      { tab: { id: 999 } },
+    );
 
     expect(env.state.sessions.twitch.status).toBe("watching");
-    expect(allDiagnostics(env).some((event) =>
-      event.message.includes("started (trigger=manual_watch"))).toBe(false);
+    expect(
+      allDiagnostics(env).some((event) => event.message.includes("started (trigger=manual_watch")),
+    ).toBe(false);
   });
 
   it("clears manual watch activity when the source tab is closed", async () => {
@@ -425,7 +515,10 @@ describe("background controller", () => {
       blockedPlaybackCount: 0,
       documentHidden: false,
     };
-    await env.controller.handleMessage({ type: "playbackTelemetry", platform: "twitch", telemetry: playing }, { tab: { id: 999, url: "https://www.twitch.tv/creator" } });
+    await env.controller.handleMessage(
+      { type: "playbackTelemetry", platform: "twitch", telemetry: playing },
+      { tab: { id: 999, url: "https://www.twitch.tv/creator" } },
+    );
     expect(env.state.manualWatch?.twitch?.active).toBe(true);
 
     await env.controller.handleTabRemoved(999);
@@ -433,13 +526,17 @@ describe("background controller", () => {
     expect(env.state.manualWatch?.twitch).toBeUndefined();
     env.reportEvents.mockClear();
 
-    await env.controller.handleMessage({ type: "playbackTelemetry", platform: "twitch", telemetry: playing }, { tab: { id: 999, url: "https://www.twitch.tv/creator" } });
+    await env.controller.handleMessage(
+      { type: "playbackTelemetry", platform: "twitch", telemetry: playing },
+      { tab: { id: 999, url: "https://www.twitch.tv/creator" } },
+    );
     await env.controller.settleBackgroundWork();
 
     expect(env.state.manualWatch?.twitch).toBeUndefined();
     expect(env.state.manualWatchTabs?.twitch?.[999]).toBeUndefined();
-    expect(allDiagnostics(env).some((event) =>
-      event.message.includes("started (trigger=manual_watch"))).toBe(false);
+    expect(
+      allDiagnostics(env).some((event) => event.message.includes("started (trigger=manual_watch")),
+    ).toBe(false);
   });
 
   it("marks manual watch inactive when the same tab stops visible playback", async () => {
@@ -453,18 +550,21 @@ describe("background controller", () => {
       },
     };
 
-    await env.controller.handleMessage({
-      type: "playbackTelemetry",
-      platform: "twitch",
-      telemetry: {
-        videoCount: 1,
-        mutedVideoCount: 0,
-        unmutedVideoCount: 1,
-        playingVideoCount: 0,
-        blockedPlaybackCount: 0,
-        documentHidden: false,
+    await env.controller.handleMessage(
+      {
+        type: "playbackTelemetry",
+        platform: "twitch",
+        telemetry: {
+          videoCount: 1,
+          mutedVideoCount: 0,
+          unmutedVideoCount: 1,
+          playingVideoCount: 0,
+          blockedPlaybackCount: 0,
+          documentHidden: false,
+        },
       },
-    }, { tab: { id: 999 } });
+      { tab: { id: 999 } },
+    );
 
     expect(env.state.manualWatch?.twitch).toMatchObject({
       tabId: 999,
@@ -487,18 +587,21 @@ describe("background controller", () => {
       },
     };
 
-    await env.controller.handleMessage({
-      type: "playbackTelemetry",
-      platform: "twitch",
-      telemetry: {
-        videoCount: 1,
-        mutedVideoCount: 0,
-        unmutedVideoCount: 1,
-        playingVideoCount: 0,
-        blockedPlaybackCount: 0,
-        documentHidden: false,
+    await env.controller.handleMessage(
+      {
+        type: "playbackTelemetry",
+        platform: "twitch",
+        telemetry: {
+          videoCount: 1,
+          mutedVideoCount: 0,
+          unmutedVideoCount: 1,
+          playingVideoCount: 0,
+          blockedPlaybackCount: 0,
+          documentHidden: false,
+        },
       },
-    }, { tab: { id: 1000 } });
+      { tab: { id: 1000 } },
+    );
 
     expect(env.state.manualWatch?.twitch).toMatchObject({
       tabId: 1000,
@@ -508,52 +611,101 @@ describe("background controller", () => {
 
   it("logs playback transitions such as ad starts and blocked playback", async () => {
     const env = harness(farming(DEFAULT_SETTINGS));
-    await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: true });
+    await env.controller.handleMessage({
+      type: "setAutomation",
+      platform: "twitch",
+      enabled: true,
+    });
 
     // Baseline healthy telemetry — no ad, nothing blocked.
-    await env.controller.handleMessage({
-      type: "playbackTelemetry",
-      platform: "twitch",
-      telemetry: { videoCount: 1, mutedVideoCount: 0, unmutedVideoCount: 1, playingVideoCount: 1, blockedPlaybackCount: 0, documentHidden: false, adActive: false },
-    }, { tab: { id: 10 } });
+    await env.controller.handleMessage(
+      {
+        type: "playbackTelemetry",
+        platform: "twitch",
+        telemetry: {
+          videoCount: 1,
+          mutedVideoCount: 0,
+          unmutedVideoCount: 1,
+          playingVideoCount: 1,
+          blockedPlaybackCount: 0,
+          documentHidden: false,
+          adActive: false,
+        },
+      },
+      { tab: { id: 10 } },
+    );
 
     // Ad starts and the browser blocks playback (re-muted).
-    await env.controller.handleMessage({
-      type: "playbackTelemetry",
-      platform: "twitch",
-      telemetry: { videoCount: 1, mutedVideoCount: 1, unmutedVideoCount: 0, playingVideoCount: 1, blockedPlaybackCount: 1, documentHidden: false, adActive: true },
-    }, { tab: { id: 10 } });
+    await env.controller.handleMessage(
+      {
+        type: "playbackTelemetry",
+        platform: "twitch",
+        telemetry: {
+          videoCount: 1,
+          mutedVideoCount: 1,
+          unmutedVideoCount: 0,
+          playingVideoCount: 1,
+          blockedPlaybackCount: 1,
+          documentHidden: false,
+          adActive: true,
+        },
+      },
+      { tab: { id: 10 } },
+    );
 
     const published = env.reportEvents.mock.calls.flatMap(([events]) => events);
-    const messages = published.filter((event) => event.category === "diagnostic").map((event) => event.message);
+    const messages = published
+      .filter((event) => event.category === "diagnostic")
+      .map((event) => event.message);
     expect(messages).toContain("Ad started; keeping the watch tab counting down");
-    expect(published.some((event) => event.category === "diagnostic" && event.level === "warn" && event.message.startsWith("Playback was blocked"))).toBe(true);
+    expect(
+      published.some(
+        (event) =>
+          event.category === "diagnostic"
+          && event.level === "warn"
+          && event.message.startsWith("Playback was blocked"),
+      ),
+    ).toBe(true);
   });
 
   it("publishes focus diagnostics exactly once in the telemetry operation batch", async () => {
     const reported: EngineEvent[][] = [];
     const env = harness(farming(DEFAULT_SETTINGS), {
-      reportEvents: async (events) => { reported.push([...events]); },
+      reportEvents: async (events) => {
+        reported.push([...events]);
+      },
     });
-    await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: true });
+    await env.controller.handleMessage({
+      type: "setAutomation",
+      platform: "twitch",
+      enabled: true,
+    });
     reported.length = 0;
     env.deps.applyAdFocus.mockImplementation(async (_platform, _tabId, _adActive, emit) => {
-      emit({ category: "diagnostic", level: "info", message: "focus-adjusted", platform: "twitch" });
+      emit({
+        category: "diagnostic",
+        level: "info",
+        message: "focus-adjusted",
+        platform: "twitch",
+      });
     });
 
-    await env.controller.handleMessage({
-      type: "playbackTelemetry",
-      platform: "twitch",
-      telemetry: {
-        videoCount: 1,
-        mutedVideoCount: 0,
-        unmutedVideoCount: 1,
-        playingVideoCount: 1,
-        blockedPlaybackCount: 0,
-        documentHidden: false,
-        adActive: true,
+    await env.controller.handleMessage(
+      {
+        type: "playbackTelemetry",
+        platform: "twitch",
+        telemetry: {
+          videoCount: 1,
+          mutedVideoCount: 0,
+          unmutedVideoCount: 1,
+          playingVideoCount: 1,
+          blockedPlaybackCount: 0,
+          documentHidden: false,
+          adActive: true,
+        },
       },
-    }, { tab: { id: 10 } });
+      { tab: { id: 10 } },
+    );
 
     const focusDiagnostics = reported
       .flatMap((events) => events)
@@ -566,7 +718,11 @@ describe("background controller", () => {
   // again.
   it("does not focus for an ad reported just before a host reset", async () => {
     const env = harness(farming(DEFAULT_SETTINGS));
-    await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: true });
+    await env.controller.handleMessage({
+      type: "setAutomation",
+      platform: "twitch",
+      enabled: true,
+    });
     env.deps.applyAdFocus.mockClear();
     const saving = deferred<void>();
     const save = env.deps.saveState.getMockImplementation()!;
@@ -576,124 +732,168 @@ describe("background controller", () => {
     });
     const saves = env.deps.saveState.mock.calls.length;
 
-    const reporting = env.controller.handleMessage({
-      type: "playbackTelemetry",
-      platform: "twitch",
-      telemetry: {
-        videoCount: 1,
-        mutedVideoCount: 0,
-        unmutedVideoCount: 1,
-        playingVideoCount: 1,
-        blockedPlaybackCount: 0,
-        documentHidden: false,
-        adActive: true,
+    const reporting = env.controller.handleMessage(
+      {
+        type: "playbackTelemetry",
+        platform: "twitch",
+        telemetry: {
+          videoCount: 1,
+          mutedVideoCount: 0,
+          unmutedVideoCount: 1,
+          playingVideoCount: 1,
+          blockedPlaybackCount: 0,
+          documentHidden: false,
+          adActive: true,
+        },
       },
-    }, { tab: { id: 10 } });
+      { tab: { id: 10 } },
+    );
     await vi.waitFor(() => expect(env.deps.saveState.mock.calls.length).toBeGreaterThan(saves));
     const resetting = env.controller.prepareForHostReset();
     saving.resolve();
     await Promise.all([reporting, resetting]);
 
-    expect(env.deps.applyAdFocus).not.toHaveBeenCalledWith("twitch", 10, true, expect.any(Function));
+    expect(env.deps.applyAdFocus).not.toHaveBeenCalledWith(
+      "twitch",
+      10,
+      true,
+      expect.any(Function),
+    );
   });
 
   it("keeps persisted playback telemetry when applying ad focus fails", async () => {
     const env = harness(farming(DEFAULT_SETTINGS));
-    await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: true });
+    await env.controller.handleMessage({
+      type: "setAutomation",
+      platform: "twitch",
+      enabled: true,
+    });
     env.deps.applyAdFocus.mockRejectedValue(new Error("focus callback failed"));
 
-    await expect(env.controller.handleMessage({
-      type: "playbackTelemetry",
-      platform: "twitch",
-      telemetry: {
-        videoCount: 1,
-        mutedVideoCount: 0,
-        unmutedVideoCount: 1,
-        playingVideoCount: 1,
-        blockedPlaybackCount: 0,
-        documentHidden: false,
-        adActive: true,
-      },
-    }, { tab: { id: 10 } })).resolves.toBeUndefined();
+    await expect(
+      env.controller.handleMessage(
+        {
+          type: "playbackTelemetry",
+          platform: "twitch",
+          telemetry: {
+            videoCount: 1,
+            mutedVideoCount: 0,
+            unmutedVideoCount: 1,
+            playingVideoCount: 1,
+            blockedPlaybackCount: 0,
+            documentHidden: false,
+            adActive: true,
+          },
+        },
+        { tab: { id: 10 } },
+      ),
+    ).resolves.toBeUndefined();
 
     expect(env.state.sessions.twitch.playback?.adActive).toBe(true);
-    expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(expect.objectContaining({
-      category: "diagnostic",
-      platform: "twitch",
-      level: "warn",
-      message: "focus callback failed",
-    }));
+    expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(
+      expect.objectContaining({
+        category: "diagnostic",
+        platform: "twitch",
+        level: "warn",
+        message: "focus callback failed",
+      }),
+    );
   });
 
   it("focuses the watch tab when an ad is reported on the managed tab", async () => {
     const env = harness(farming({ ...DEFAULT_SETTINGS, adFocusMode: "window" }));
-    await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: true });
+    await env.controller.handleMessage({
+      type: "setAutomation",
+      platform: "twitch",
+      enabled: true,
+    });
     env.deps.applyAdFocus.mockClear();
 
-    await env.controller.handleMessage({
-      type: "playbackTelemetry",
-      platform: "twitch",
-      telemetry: {
-        videoCount: 1,
-        mutedVideoCount: 0,
-        unmutedVideoCount: 1,
-        playingVideoCount: 1,
-        blockedPlaybackCount: 0,
-        documentHidden: true,
-        adActive: true,
+    await env.controller.handleMessage(
+      {
+        type: "playbackTelemetry",
+        platform: "twitch",
+        telemetry: {
+          videoCount: 1,
+          mutedVideoCount: 0,
+          unmutedVideoCount: 1,
+          playingVideoCount: 1,
+          blockedPlaybackCount: 0,
+          documentHidden: true,
+          adActive: true,
+        },
       },
-    }, { tab: { id: 10 } });
+      { tab: { id: 10 } },
+    );
 
     expect(env.deps.applyAdFocus).toHaveBeenCalledWith("twitch", 10, true, expect.any(Function));
   });
 
   it("releases ad focus when telemetry reports no ad", async () => {
     const env = harness(farming({ ...DEFAULT_SETTINGS, adFocusMode: "tab" }));
-    await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: true });
+    await env.controller.handleMessage({
+      type: "setAutomation",
+      platform: "twitch",
+      enabled: true,
+    });
     env.deps.applyAdFocus.mockClear();
 
-    await env.controller.handleMessage({
-      type: "playbackTelemetry",
-      platform: "twitch",
-      telemetry: {
-        videoCount: 1,
-        mutedVideoCount: 0,
-        unmutedVideoCount: 1,
-        playingVideoCount: 1,
-        blockedPlaybackCount: 0,
-        documentHidden: true,
-        adActive: false,
+    await env.controller.handleMessage(
+      {
+        type: "playbackTelemetry",
+        platform: "twitch",
+        telemetry: {
+          videoCount: 1,
+          mutedVideoCount: 0,
+          unmutedVideoCount: 1,
+          playingVideoCount: 1,
+          blockedPlaybackCount: 0,
+          documentHidden: true,
+          adActive: false,
+        },
       },
-    }, { tab: { id: 10 } });
+      { tab: { id: 10 } },
+    );
 
     expect(env.deps.applyAdFocus).toHaveBeenCalledWith("twitch", 10, false, expect.any(Function));
   });
 
   it("does not focus for telemetry from a tab that is not the watch tab", async () => {
     const env = harness(farming(DEFAULT_SETTINGS));
-    await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: true });
+    await env.controller.handleMessage({
+      type: "setAutomation",
+      platform: "twitch",
+      enabled: true,
+    });
     env.deps.applyAdFocus.mockClear();
 
-    await env.controller.handleMessage({
-      type: "playbackTelemetry",
-      platform: "twitch",
-      telemetry: {
-        videoCount: 1,
-        mutedVideoCount: 0,
-        unmutedVideoCount: 1,
-        playingVideoCount: 1,
-        blockedPlaybackCount: 0,
-        documentHidden: true,
-        adActive: true,
+    await env.controller.handleMessage(
+      {
+        type: "playbackTelemetry",
+        platform: "twitch",
+        telemetry: {
+          videoCount: 1,
+          mutedVideoCount: 0,
+          unmutedVideoCount: 1,
+          playingVideoCount: 1,
+          blockedPlaybackCount: 0,
+          documentHidden: true,
+          adActive: true,
+        },
       },
-    }, { tab: { id: 999 } });
+      { tab: { id: 999 } },
+    );
 
     expect(env.deps.applyAdFocus).not.toHaveBeenCalled();
   });
 
   it("ignores playback telemetry without a sender tab", async () => {
     const env = harness(farming(DEFAULT_SETTINGS));
-    await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: true });
+    await env.controller.handleMessage({
+      type: "setAutomation",
+      platform: "twitch",
+      enabled: true,
+    });
     env.deps.applyAdFocus.mockClear();
 
     await env.controller.handleMessage({
@@ -714,7 +914,11 @@ describe("background controller", () => {
     expect(env.state.manualWatch?.twitch).toBeUndefined();
     expect(env.deps.applyAdFocus).not.toHaveBeenCalled();
     const published = env.reportEvents.mock.calls.flatMap(([events]) => events);
-    expect(published.some((event) => event.category === "diagnostic" && event.message.startsWith("Ad started"))).toBe(false);
+    expect(
+      published.some(
+        (event) => event.category === "diagnostic" && event.message.startsWith("Ad started"),
+      ),
+    ).toBe(false);
   });
 
   it("does not treat tabless sessions as managed playback telemetry targets", async () => {
@@ -727,19 +931,22 @@ describe("background controller", () => {
       watchMode: "tabless",
     };
 
-    await env.controller.handleMessage({
-      type: "playbackTelemetry",
-      platform: "twitch",
-      telemetry: {
-        videoCount: 1,
-        mutedVideoCount: 0,
-        unmutedVideoCount: 1,
-        playingVideoCount: 1,
-        blockedPlaybackCount: 0,
-        documentHidden: false,
-        adActive: true,
+    await env.controller.handleMessage(
+      {
+        type: "playbackTelemetry",
+        platform: "twitch",
+        telemetry: {
+          videoCount: 1,
+          mutedVideoCount: 0,
+          unmutedVideoCount: 1,
+          playingVideoCount: 1,
+          blockedPlaybackCount: 0,
+          documentHidden: false,
+          adActive: true,
+        },
       },
-    }, { tab: { id: 10, url: "https://www.twitch.tv/creator" } });
+      { tab: { id: 10, url: "https://www.twitch.tv/creator" } },
+    );
 
     expect(env.state.sessions.twitch.playback).toBeUndefined();
     expect(env.state.manualWatch?.twitch).toMatchObject({
@@ -773,12 +980,7 @@ describe("background controller", () => {
 
     try {
       await vi.waitFor(() => {
-        expect(env.deps.applyAdFocus).toHaveBeenCalledWith(
-          "kick",
-          20,
-          false,
-          expect.any(Function),
-        );
+        expect(env.deps.applyAdFocus).toHaveBeenCalledWith("kick", 20, false, expect.any(Function));
       });
       expect(env.deps.applyAdFocus.mock.calls.map(([platform]) => platform)).toEqual(["kick"]);
     } finally {
@@ -799,45 +1001,63 @@ describe("background controller", () => {
     await env.controller.tick();
 
     expect(env.state.sessions.twitch.status).toBe("watching");
-    expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(expect.objectContaining({
-      category: "diagnostic",
-      platform: "twitch",
-      level: "warn",
-      message: "focus refresh failed",
-    }));
+    expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(
+      expect.objectContaining({
+        category: "diagnostic",
+        platform: "twitch",
+        level: "warn",
+        message: "focus refresh failed",
+      }),
+    );
   });
 
   it("allows playback control only for the current watch tab", async () => {
     const env = harness(farming(DEFAULT_SETTINGS));
-    await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: true });
+    await env.controller.handleMessage({
+      type: "setAutomation",
+      platform: "twitch",
+      enabled: true,
+    });
 
-    await expect(env.controller.handleMessage(
-      { type: "getPlaybackControl", platform: "twitch" },
-      { tab: { id: 10 } },
-    )).resolves.toEqual({ managed: true, keepVideosUnmuted: true });
+    await expect(
+      env.controller.handleMessage(
+        { type: "getPlaybackControl", platform: "twitch" },
+        { tab: { id: 10 } },
+      ),
+    ).resolves.toEqual({ managed: true, keepVideosUnmuted: true });
 
-    await expect(env.controller.handleMessage(
-      { type: "getPlaybackControl", platform: "twitch" },
-      { tab: { id: 999 } },
-    )).resolves.toEqual({ managed: false, keepVideosUnmuted: true });
+    await expect(
+      env.controller.handleMessage(
+        { type: "getPlaybackControl", platform: "twitch" },
+        { tab: { id: 999 } },
+      ),
+    ).resolves.toEqual({ managed: false, keepVideosUnmuted: true });
   });
 
   it("passes the playback control setting to managed watch tabs", async () => {
     const env = harness(farming({ ...DEFAULT_SETTINGS, keepFarmingVideosUnmuted: false }));
-    await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: true });
+    await env.controller.handleMessage({
+      type: "setAutomation",
+      platform: "twitch",
+      enabled: true,
+    });
 
-    await expect(env.controller.handleMessage(
-      { type: "getPlaybackControl", platform: "twitch" },
-      { tab: { id: 10 } },
-    )).resolves.toEqual({ managed: true, keepVideosUnmuted: false });
+    await expect(
+      env.controller.handleMessage(
+        { type: "getPlaybackControl", platform: "twitch" },
+        { tab: { id: 10 } },
+      ),
+    ).resolves.toEqual({ managed: true, keepVideosUnmuted: false });
   });
 
   it("defaults playback control on when stored settings are missing the advanced flag", async () => {
     const env = harness(farming(DEFAULT_SETTINGS));
-    env.deps.loadSettings.mockResolvedValueOnce(farming({
-      ...DEFAULT_SETTINGS,
-      keepFarmingVideosUnmuted: undefined,
-    } as unknown as typeof DEFAULT_SETTINGS));
+    env.deps.loadSettings.mockResolvedValueOnce(
+      farming({
+        ...DEFAULT_SETTINGS,
+        keepFarmingVideosUnmuted: undefined,
+      } as unknown as typeof DEFAULT_SETTINGS),
+    );
     env.state.sessions.twitch = {
       platform: "twitch",
       status: "watching",
@@ -846,10 +1066,12 @@ describe("background controller", () => {
       tabId: 10,
     };
 
-    await expect(env.controller.handleMessage(
-      { type: "getPlaybackControl", platform: "twitch" },
-      { tab: { id: 10 } },
-    )).resolves.toEqual({ managed: true, keepVideosUnmuted: true });
+    await expect(
+      env.controller.handleMessage(
+        { type: "getPlaybackControl", platform: "twitch" },
+        { tab: { id: 10 } },
+      ),
+    ).resolves.toEqual({ managed: true, keepVideosUnmuted: true });
   });
 
   it("pauses the platform when the user closes the active managed farming tab", async () => {
@@ -910,7 +1132,9 @@ describe("background controller", () => {
     await env.controller.handleTabRemoved(10);
     expect(env.state.manualClosePause?.twitch).toBeDefined();
 
-    const snapshot = asSnapshot(await env.controller.handleMessage({ type: "resumeAfterManualClose", platform: "twitch" }));
+    const snapshot = asSnapshot(
+      await env.controller.handleMessage({ type: "resumeAfterManualClose", platform: "twitch" }),
+    );
 
     expect(snapshot.state.manualClosePause?.twitch).toBeUndefined();
     expect(env.state.manualClosePause?.twitch).toBeUndefined();

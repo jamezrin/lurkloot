@@ -3,7 +3,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createTransport } from "../src/transport";
 import { createCliAdapters } from "../src/transport/common";
 import { withHeartbeatTimeout } from "../src/transport/common";
-import { createTickEffectExecutor as createEmptyTickEffectExecutor, tickCapabilities } from "@lurkloot/core/background/tickEffects";
+import {
+  createTickEffectExecutor as createEmptyTickEffectExecutor,
+  tickCapabilities,
+} from "@lurkloot/core/background/tickEffects";
 import { registerWatchTabEffects } from "@lurkloot/core/background/manualWatch";
 import { createTabRegistry } from "@lurkloot/core/tabRegistry";
 import { DEFAULT_ENGINE_SETTINGS } from "@lurkloot/shared/settings";
@@ -57,11 +60,13 @@ function retainedTwitchCampaignDetails(): unknown {
         id: "retained",
         name: "Retained Campaign",
         game: { id: "game", slug: "game-slug", displayName: "Game" },
-        timeBasedDrops: [{
-          id: "retained-drop",
-          requiredMinutesWatched: 60,
-          benefitEdges: [{ benefit: { id: "benefit", name: "Reward" } }],
-        }],
+        timeBasedDrops: [
+          {
+            id: "retained-drop",
+            requiredMinutesWatched: 60,
+            benefitEdges: [{ benefit: { id: "benefit", name: "Reward" } }],
+          },
+        ],
       },
     },
   };
@@ -70,38 +75,65 @@ function retainedTwitchCampaignDetails(): unknown {
 describe("createTransport", () => {
   it("retries a web-client auth probe with the CLI-minted integrity bundle", async () => {
     const requests: Array<Record<string, string>> = [];
-    const bundle = { integrity: "minted", deviceId: "device-id", clientSessionId: "session-id", expiresAt: Date.now() + 60_000 };
+    const bundle = {
+      integrity: "minted",
+      deviceId: "device-id",
+      clientSessionId: "session-id",
+      expiresAt: Date.now() + 60_000,
+    };
     let current: typeof bundle | undefined;
-    const ensure = vi.fn(async (request?: { onIntegrityCaptured?: (value: typeof bundle) => void }) => {
-      current = bundle;
-      request?.onIntegrityCaptured?.(bundle);
-      return true;
-    });
-    const built = createCliAdapters({ twitch: { authToken: "web-token", clientId: "kimne78kx3ncx6brgo4mv6wki5h1ko" } }, {
-      twitchFetcher: () => ({ fetchJson: async <T>(_url: string, init?: RequestInit): Promise<T> => {
-        const headers = init?.headers as Record<string, string>;
-        requests.push(headers);
-        return (headers["Client-Integrity"]
-          ? { data: { currentUser: { id: "viewer" } } }
-          : { errors: [{ message: "failed integrity check" }] }) as T;
-      } }),
-      twitchHeartbeat: () => ({
-        heartbeatFetchText: async () => "",
-        heartbeatPost: async () => ({ status: 200 }),
-        heartbeatExchange: async () => ({ status: 200, body: "" }),
-      }),
-      kickFetcher: () => ({ fetchJson: async <T>() => ({}) as T }),
-      twitchIntegrity: { current: () => current, ensure },
-    });
+    const ensure = vi.fn(
+      async (request?: { onIntegrityCaptured?: (value: typeof bundle) => void }) => {
+        current = bundle;
+        request?.onIntegrityCaptured?.(bundle);
+        return true;
+      },
+    );
+    const built = createCliAdapters(
+      { twitch: { authToken: "web-token", clientId: "kimne78kx3ncx6brgo4mv6wki5h1ko" } },
+      {
+        twitchFetcher: () => ({
+          fetchJson: async <T>(_url: string, init?: RequestInit): Promise<T> => {
+            const headers = init?.headers as Record<string, string>;
+            requests.push(headers);
+            return (
+              headers["Client-Integrity"]
+                ? { data: { currentUser: { id: "viewer" } } }
+                : { errors: [{ message: "failed integrity check" }] }
+            ) as T;
+          },
+        }),
+        twitchHeartbeat: () => ({
+          heartbeatFetchText: async () => "",
+          heartbeatPost: async () => ({ status: 200 }),
+          heartbeatExchange: async () => ({ status: 200, body: "" }),
+        }),
+        kickFetcher: () => ({ fetchJson: async <T>() => ({}) as T }),
+        twitchIntegrity: { current: () => current, ensure },
+      },
+    );
 
     expect((await built.adapters.twitch.checkAuthHealth()).status).toBe("healthy");
     expect(ensure).toHaveBeenCalledOnce();
     expect(requests).toHaveLength(2);
-    expect(requests[1]).toMatchObject({ "Client-Integrity": "minted", "X-Device-Id": "device-id", "Client-Session-Id": "session-id" });
+    expect(requests[1]).toMatchObject({
+      "Client-Integrity": "minted",
+      "X-Device-Id": "device-id",
+      "Client-Session-Id": "session-id",
+    });
   });
 
   it("keeps route counts useful in CLI debug output across fresh adapters", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response('{"id":42}', { status: 200, headers: { "content-type": "application/json" } })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response('{"id":42}', {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          }),
+      ),
+    );
     const events: EngineEvent[] = [];
     const emit = (event: EngineEvent) => events.push(event);
     const handle = await createTransport("http", {}, "/tmp/auth", ENABLED);
@@ -111,17 +143,28 @@ describe("createTransport", () => {
         for (let request = 0; request < 10; request += 1) await adapter.checkAuthHealth();
         adapter.flushRouteDiagnostics?.(emit);
       }
-      const summaries = events.filter((event) => event.category === "diagnostic" && event.code === "kick_fetch_summary") as DiagnosticEvent[];
-      expect(summaries.map((event) => event.data)).toEqual(Array(3).fill({ "kick.com.background": 10 }));
+      const summaries = events.filter(
+        (event) => event.category === "diagnostic" && event.code === "kick_fetch_summary",
+      ) as DiagnosticEvent[];
+      expect(summaries.map((event) => event.data)).toEqual(
+        Array(3).fill({ "kick.com.background": 10 }),
+      );
       expect(events.filter((event) => event.level === "info")).toHaveLength(1);
       const output: string[] = [];
-      const write = vi.spyOn(process.stderr, "write").mockImplementation((line) => { output.push(String(line)); return true; });
+      const write = vi.spyOn(process.stderr, "write").mockImplementation((line) => {
+        output.push(String(line));
+        return true;
+      });
       try {
         await reportCliEvents(events, createLogger("debug"));
       } finally {
         write.mockRestore();
       }
-      expect(output.filter((line) => line.includes("DEBUG [kick]") && line.includes("kick.com.background=10"))).toHaveLength(3);
+      expect(
+        output.filter(
+          (line) => line.includes("DEBUG [kick]") && line.includes("kick.com.background=10"),
+        ),
+      ).toHaveLength(3);
       expect(output.join("\n")).not.toContain("service worker");
     } finally {
       await handle.dispose();
@@ -132,24 +175,33 @@ describe("createTransport", () => {
     const sent: string[] = [];
     const urls: string[] = [];
     const listeners: Record<string, (event: { data?: unknown }) => void> = {};
-    const built = createCliAdapters({ twitch: { authToken: "stored-token", clientId: "ue6666qo983tsx6so1t0vnawi233wa" } }, {
-      twitchFetcher: () => ({ fetchJson: async <T>() => ({ data: { currentUser: { id: "1", login: "viewer" } } }) as T }),
-      twitchHeartbeat: () => ({
-        heartbeatFetchText: async () => "",
-        heartbeatPost: async () => ({ status: 200 }),
-        heartbeatExchange: async () => ({ status: 200, body: "" }),
-      }),
-      kickFetcher: () => ({ fetchJson: async <T>() => ({}) as T }),
-      twitchChatWebSocketFactory: () => (url) => {
-        urls.push(url);
-        return {
-          readyState: 1,
-          send: (data: string) => { sent.push(data); },
-          close: () => {},
-          addEventListener: (type, listener) => { listeners[type] = listener; },
-        };
+    const built = createCliAdapters(
+      { twitch: { authToken: "stored-token", clientId: "ue6666qo983tsx6so1t0vnawi233wa" } },
+      {
+        twitchFetcher: () => ({
+          fetchJson: async <T>() => ({ data: { currentUser: { id: "1", login: "viewer" } } }) as T,
+        }),
+        twitchHeartbeat: () => ({
+          heartbeatFetchText: async () => "",
+          heartbeatPost: async () => ({ status: 200 }),
+          heartbeatExchange: async () => ({ status: 200, body: "" }),
+        }),
+        kickFetcher: () => ({ fetchJson: async <T>() => ({}) as T }),
+        twitchChatWebSocketFactory: () => (url) => {
+          urls.push(url);
+          return {
+            readyState: 1,
+            send: (data: string) => {
+              sent.push(data);
+            },
+            close: () => {},
+            addEventListener: (type, listener) => {
+              listeners[type] = listener;
+            },
+          };
+        },
       },
-    });
+    );
 
     expect(built.adapters.twitch.createChannelPointsPushController).toBeUndefined();
     expect(built.adapters.kick.createChatPresenceClient).toBeUndefined();
@@ -183,22 +235,29 @@ describe("createTransport", () => {
 
   it("shares Kick claim suppression across fresh HTTP adapter constructions", async () => {
     let claimPosts = 0;
-    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
-      if (url === "https://web.kick.com/api/v1/drops/claim") {
-        claimPosts += 1;
-        return new Response(JSON.stringify({ connect_url: "https://accounts.example/link" }), {
-          status: 200,
-          headers: { "content-type": "application/json" },
-        });
-      }
-      throw new Error(`Unexpected URL ${url}`);
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url === "https://web.kick.com/api/v1/drops/claim") {
+          claimPosts += 1;
+          return new Response(JSON.stringify({ connect_url: "https://accounts.example/link" }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
+        }
+        throw new Error(`Unexpected URL ${url}`);
+      }),
+    );
     const handle = await createTransport("http", {}, "/tmp/auth", ENABLED);
     const campaign = { id: "campaign" } as DropCampaign;
     const reward = { id: "reward", name: "Reward", status: "claimable" } as DropReward;
 
-    await handle.createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS).adapters.kick.claimReward(campaign, reward);
-    await handle.createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS).adapters.kick.claimReward(campaign, reward);
+    await handle
+      .createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS)
+      .adapters.kick.claimReward(campaign, reward);
+    await handle
+      .createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS)
+      .adapters.kick.claimReward(campaign, reward);
 
     expect(claimPosts).toBe(1);
     await handle.dispose();
@@ -207,30 +266,37 @@ describe("createTransport", () => {
   it("retains Twitch discovery across fresh HTTP adapter constructions", async () => {
     let dashboardAvailable = true;
     let detailsAvailable = true;
-    vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: RequestInit) => {
-      switch (twitchOperation(init)) {
-        case "Inventory":
-          return twitchResponse(emptyTwitchInventory());
-        case "ViewerDropsDashboard":
-          if (dashboardAvailable) {
-            dashboardAvailable = false;
-            return twitchResponse(retainedTwitchDashboard());
-          }
-          throw new Error("dashboard unavailable");
-        case "DropCampaignDetails":
-          if (detailsAvailable) {
-            detailsAvailable = false;
-            return twitchResponse(retainedTwitchCampaignDetails());
-          }
-          throw new Error("details unavailable");
-        default:
-          throw new Error(`Unexpected Twitch operation ${twitchOperation(init)}`);
-      }
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        switch (twitchOperation(init)) {
+          case "Inventory":
+            return twitchResponse(emptyTwitchInventory());
+          case "ViewerDropsDashboard":
+            if (dashboardAvailable) {
+              dashboardAvailable = false;
+              return twitchResponse(retainedTwitchDashboard());
+            }
+            throw new Error("dashboard unavailable");
+          case "DropCampaignDetails":
+            if (detailsAvailable) {
+              detailsAvailable = false;
+              return twitchResponse(retainedTwitchCampaignDetails());
+            }
+            throw new Error("details unavailable");
+          default:
+            throw new Error(`Unexpected Twitch operation ${twitchOperation(init)}`);
+        }
+      }),
+    );
     const handle = await createTransport("http", {}, "/tmp/auth", ENABLED);
 
-    const first = await handle.createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS).adapters.twitch.refreshCampaigns();
-    const second = await handle.createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS).adapters.twitch.refreshCampaigns();
+    const first = await handle
+      .createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS)
+      .adapters.twitch.refreshCampaigns();
+    const second = await handle
+      .createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS)
+      .adapters.twitch.refreshCampaigns();
 
     expect(first.map((campaign) => campaign.id)).toEqual(["retained"]);
     expect(second.map((campaign) => campaign.id)).toEqual(["retained"]);
@@ -239,24 +305,28 @@ describe("createTransport", () => {
 
   it("isolates retained Twitch discovery between HTTP transport handles", async () => {
     let seedFirstHandle = true;
-    vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: RequestInit) => {
-      switch (twitchOperation(init)) {
-        case "Inventory":
-          return twitchResponse(emptyTwitchInventory());
-        case "ViewerDropsDashboard":
-          if (seedFirstHandle) return twitchResponse(retainedTwitchDashboard());
-          throw new Error("dashboard unavailable");
-        case "DropCampaignDetails":
-          return twitchResponse(retainedTwitchCampaignDetails());
-        default:
-          throw new Error(`Unexpected Twitch operation ${twitchOperation(init)}`);
-      }
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        switch (twitchOperation(init)) {
+          case "Inventory":
+            return twitchResponse(emptyTwitchInventory());
+          case "ViewerDropsDashboard":
+            if (seedFirstHandle) return twitchResponse(retainedTwitchDashboard());
+            throw new Error("dashboard unavailable");
+          case "DropCampaignDetails":
+            return twitchResponse(retainedTwitchCampaignDetails());
+          default:
+            throw new Error(`Unexpected Twitch operation ${twitchOperation(init)}`);
+        }
+      }),
+    );
     const firstHandle = await createTransport("http", {}, "/tmp/auth", ENABLED);
     const secondHandle = await createTransport("http", {}, "/tmp/auth", ENABLED);
 
-    expect((await firstHandle.adapters.twitch.refreshCampaigns()).map((campaign) => campaign.id))
-      .toEqual(["retained"]);
+    expect(
+      (await firstHandle.adapters.twitch.refreshCampaigns()).map((campaign) => campaign.id),
+    ).toEqual(["retained"]);
     seedFirstHandle = false;
 
     await expect(secondHandle.adapters.twitch.refreshCampaigns()).resolves.toEqual([]);
@@ -265,69 +335,158 @@ describe("createTransport", () => {
   });
 
   it("discovers a live-channel campaign when Twitch returns a null dashboard", async () => {
-    vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: RequestInit) => {
-      switch (twitchOperation(init)) {
-        case "Inventory": return twitchResponse(emptyTwitchInventory());
-        case "ViewerDropsDashboard": return twitchResponse({ data: { currentUser: { id: "viewer-id", dropCampaigns: null } } });
-        case "DirectoryPage_Game": return twitchResponse({ data: { game: { streams: { edges: [{ node: {
-          id: "broadcast-id", broadcaster: { id: "channel-id", login: "creator" },
-        } }] } } } });
-        case "DropsHighlightService_AvailableDrops": return twitchResponse({ data: { channel: {
-          id: "channel-id", viewerDropCampaigns: [{
-            id: "new-campaign", name: "New campaign",
-            game: { id: "game-id", name: "Rust", displayName: "Rust" },
-            endAt: "2099-01-01T00:00:00Z",
-            timeBasedDrops: [{ id: "reward-id", name: "Reward", requiredMinutesWatched: 60,
-              startAt: "2026-01-01T00:00:00Z", benefitEdges: [{ benefit: { id: "benefit-id", name: "Benefit" } }] }],
-          }],
-        } } });
-        default: throw new Error(`Unexpected Twitch operation ${twitchOperation(init)}`);
-      }
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        switch (twitchOperation(init)) {
+          case "Inventory":
+            return twitchResponse(emptyTwitchInventory());
+          case "ViewerDropsDashboard":
+            return twitchResponse({
+              data: { currentUser: { id: "viewer-id", dropCampaigns: null } },
+            });
+          case "DirectoryPage_Game":
+            return twitchResponse({
+              data: {
+                game: {
+                  streams: {
+                    edges: [
+                      {
+                        node: {
+                          id: "broadcast-id",
+                          broadcaster: { id: "channel-id", login: "creator" },
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+            });
+          case "DropsHighlightService_AvailableDrops":
+            return twitchResponse({
+              data: {
+                channel: {
+                  id: "channel-id",
+                  viewerDropCampaigns: [
+                    {
+                      id: "new-campaign",
+                      name: "New campaign",
+                      game: { id: "game-id", name: "Rust", displayName: "Rust" },
+                      endAt: "2099-01-01T00:00:00Z",
+                      timeBasedDrops: [
+                        {
+                          id: "reward-id",
+                          name: "Reward",
+                          requiredMinutesWatched: 60,
+                          startAt: "2026-01-01T00:00:00Z",
+                          benefitEdges: [{ benefit: { id: "benefit-id", name: "Benefit" } }],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              },
+            });
+          default:
+            throw new Error(`Unexpected Twitch operation ${twitchOperation(init)}`);
+        }
+      }),
+    );
     const handle = await createTransport("http", {}, "/tmp/auth", ENABLED);
     const settings = structuredClone(DEFAULT_ENGINE_SETTINGS);
     settings.platform.twitch.categories = [{ id: "game-id", name: "Rust" }];
 
-    const campaigns = await handle.createAdapters(() => {}, settings).adapters.twitch.refreshCampaigns();
+    const campaigns = await handle
+      .createAdapters(() => {}, settings)
+      .adapters.twitch.refreshCampaigns();
 
     expect(campaigns.map((campaign) => campaign.id)).toEqual(["new-campaign"]);
     expect(campaigns[0]?.allowedChannels).toEqual(["creator"]);
     await handle.dispose();
   });
 
-  function liveDiscoveryFetch(overrides: {
-    inventory?: unknown;
-    gameSlugs?: (variables: Record<string, string>) => Response;
-    availableDrops?: (request: { query?: string; extensions?: unknown }) => Response;
-    // Answer the directory only for the real slug, as Twitch does.
-    requireSlug?: boolean;
-  } = {}) {
-    const requests: { operationName: string; variables: Record<string, unknown>; query?: string; extensions?: unknown }[] = [];
+  function liveDiscoveryFetch(
+    overrides: {
+      inventory?: unknown;
+      gameSlugs?: (variables: Record<string, string>) => Response;
+      availableDrops?: (request: { query?: string; extensions?: unknown }) => Response;
+      // Answer the directory only for the real slug, as Twitch does.
+      requireSlug?: boolean;
+    } = {},
+  ) {
+    const requests: {
+      operationName: string;
+      variables: Record<string, unknown>;
+      query?: string;
+      extensions?: unknown;
+    }[] = [];
     const campaign = {
-      id: "new-campaign", name: "New campaign",
-      game: { id: "491931", name: "Escape from Tarkov", displayName: "Escape from Tarkov", slug: "escape-from-tarkov" },
+      id: "new-campaign",
+      name: "New campaign",
+      game: {
+        id: "491931",
+        name: "Escape from Tarkov",
+        displayName: "Escape from Tarkov",
+        slug: "escape-from-tarkov",
+      },
       endAt: "2099-01-01T00:00:00Z",
-      timeBasedDrops: [{ id: "reward-id", name: "Reward", requiredMinutesWatched: 60,
-        startAt: "2026-01-01T00:00:00Z", benefitEdges: [{ benefit: { id: "benefit-id", name: "Benefit" } }] }],
+      timeBasedDrops: [
+        {
+          id: "reward-id",
+          name: "Reward",
+          requiredMinutesWatched: 60,
+          startAt: "2026-01-01T00:00:00Z",
+          benefitEdges: [{ benefit: { id: "benefit-id", name: "Benefit" } }],
+        },
+      ],
     };
-    vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: RequestInit) => {
-      const request = JSON.parse(String(init?.body));
-      requests.push(request);
-      switch (request.operationName) {
-        case "Inventory": return twitchResponse(overrides.inventory ?? emptyTwitchInventory());
-        case "ViewerDropsDashboard": return twitchResponse({ data: { currentUser: { id: "viewer-id", dropCampaigns: null } } });
-        case "GameSlugs": return overrides.gameSlugs?.(request.variables)
-          ?? twitchResponse({ data: { g0: { id: "491931", slug: "escape-from-tarkov" } } });
-        case "DirectoryPage_Game":
-          if (overrides.requireSlug && request.variables.slug !== "escape-from-tarkov") return twitchResponse({ errors: [{ message: "service error" }] });
-          return twitchResponse({ data: { game: { streams: { edges: [{ node: {
-            broadcaster: { id: "channel-id", login: "creator" },
-          } }] } } } });
-        case "DropsHighlightService_AvailableDrops": return overrides.availableDrops?.(request)
-          ?? twitchResponse({ data: { channel: { id: "channel-id", viewerDropCampaigns: [campaign] } } });
-        default: throw new Error(`Unexpected operation ${request.operationName}`);
-      }
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        const request = JSON.parse(String(init?.body));
+        requests.push(request);
+        switch (request.operationName) {
+          case "Inventory":
+            return twitchResponse(overrides.inventory ?? emptyTwitchInventory());
+          case "ViewerDropsDashboard":
+            return twitchResponse({
+              data: { currentUser: { id: "viewer-id", dropCampaigns: null } },
+            });
+          case "GameSlugs":
+            return (
+              overrides.gameSlugs?.(request.variables)
+              ?? twitchResponse({ data: { g0: { id: "491931", slug: "escape-from-tarkov" } } })
+            );
+          case "DirectoryPage_Game":
+            if (overrides.requireSlug && request.variables.slug !== "escape-from-tarkov")
+              return twitchResponse({ errors: [{ message: "service error" }] });
+            return twitchResponse({
+              data: {
+                game: {
+                  streams: {
+                    edges: [
+                      {
+                        node: {
+                          broadcaster: { id: "channel-id", login: "creator" },
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+            });
+          case "DropsHighlightService_AvailableDrops":
+            return (
+              overrides.availableDrops?.(request)
+              ?? twitchResponse({
+                data: { channel: { id: "channel-id", viewerDropCampaigns: [campaign] } },
+              })
+            );
+          default:
+            throw new Error(`Unexpected operation ${request.operationName}`);
+        }
+      }),
+    );
     return { requests, campaign };
   }
 
@@ -342,37 +501,64 @@ describe("createTransport", () => {
     const handle = await createTransport("http", {}, "/tmp/auth", ENABLED);
     const adapter = handle.createAdapters(() => {}, tarkovSettings()).adapters.twitch;
 
-    expect((await adapter.refreshCampaigns()).map((campaign) => campaign.id)).toEqual(["new-campaign"]);
+    expect((await adapter.refreshCampaigns()).map((campaign) => campaign.id)).toEqual([
+      "new-campaign",
+    ]);
     await adapter.refreshCampaigns();
 
-    expect(requests.filter((request) => request.operationName === "DirectoryPage_Game").map((request) => request.variables.slug))
-      .toEqual(["escape-from-tarkov", "escape-from-tarkov"]);
+    expect(
+      requests
+        .filter((request) => request.operationName === "DirectoryPage_Game")
+        .map((request) => request.variables.slug),
+    ).toEqual(["escape-from-tarkov", "escape-from-tarkov"]);
     // Cached for the adapter: the second refresh does not look the slug up again.
     expect(requests.filter((request) => request.operationName === "GameSlugs")).toHaveLength(1);
     await handle.dispose();
   });
 
   it("derives a slug from the name when the slug lookup fails", async () => {
-    const { requests } = liveDiscoveryFetch({ requireSlug: true, gameSlugs: () => new Response("unavailable", { status: 503 }) });
+    const { requests } = liveDiscoveryFetch({
+      requireSlug: true,
+      gameSlugs: () => new Response("unavailable", { status: 503 }),
+    });
     const handle = await createTransport("http", {}, "/tmp/auth", ENABLED);
 
-    const campaigns = await handle.createAdapters(() => {}, tarkovSettings()).adapters.twitch.refreshCampaigns();
+    const campaigns = await handle
+      .createAdapters(() => {}, tarkovSettings())
+      .adapters.twitch.refreshCampaigns();
 
     expect(campaigns.map((campaign) => campaign.id)).toEqual(["new-campaign"]);
-    expect(requests.find((request) => request.operationName === "DirectoryPage_Game")?.variables.slug).toBe("escape-from-tarkov");
+    expect(
+      requests.find((request) => request.operationName === "DirectoryPage_Game")?.variables.slug,
+    ).toBe("escape-from-tarkov");
     await handle.dispose();
   });
 
   it("does not offer a discovered campaign whose rewards the inventory says were earned", async () => {
     liveDiscoveryFetch({
-      inventory: { data: { currentUser: { id: "viewer-id", inventory: {
-        dropCampaignsInProgress: [],
-        gameEventDrops: [{ id: "benefit-id", benefit: { id: "benefit-id" }, lastAwardedAt: "2026-09-01T00:00:00Z" }],
-      } } } },
+      inventory: {
+        data: {
+          currentUser: {
+            id: "viewer-id",
+            inventory: {
+              dropCampaignsInProgress: [],
+              gameEventDrops: [
+                {
+                  id: "benefit-id",
+                  benefit: { id: "benefit-id" },
+                  lastAwardedAt: "2026-09-01T00:00:00Z",
+                },
+              ],
+            },
+          },
+        },
+      },
     });
     const handle = await createTransport("http", {}, "/tmp/auth", ENABLED);
 
-    const [campaign] = await handle.createAdapters(() => {}, tarkovSettings()).adapters.twitch.refreshCampaigns();
+    const [campaign] = await handle
+      .createAdapters(() => {}, tarkovSettings())
+      .adapters.twitch.refreshCampaigns();
 
     expect(campaign?.rewards.map((reward) => reward.status)).toEqual(["claimed"]);
     expect(campaign?.status).toBe("completed");
@@ -383,14 +569,19 @@ describe("createTransport", () => {
     let inlineQuery: string | undefined;
     const { campaign } = liveDiscoveryFetch({
       availableDrops: (request) => {
-        if (!request.query) return twitchResponse({ errors: [{ message: "PersistedQueryNotFound" }] });
+        if (!request.query)
+          return twitchResponse({ errors: [{ message: "PersistedQueryNotFound" }] });
         inlineQuery = request.query;
-        return twitchResponse({ data: { channel: { id: "channel-id", viewerDropCampaigns: [campaign] } } });
+        return twitchResponse({
+          data: { channel: { id: "channel-id", viewerDropCampaigns: [campaign] } },
+        });
       },
     });
     const handle = await createTransport("http", {}, "/tmp/auth", ENABLED);
 
-    const campaigns = await handle.createAdapters(() => {}, tarkovSettings()).adapters.twitch.refreshCampaigns();
+    const campaigns = await handle
+      .createAdapters(() => {}, tarkovSettings())
+      .adapters.twitch.refreshCampaigns();
 
     expect(campaigns.map((item) => item.id)).toEqual(["new-campaign"]);
     // Discovery needs the game and reward tiers, not only the campaign id.
@@ -401,130 +592,253 @@ describe("createTransport", () => {
 
   it("skips a null campaign entry instead of failing the whole refresh", async () => {
     const { campaign } = liveDiscoveryFetch({
-      availableDrops: () => twitchResponse({ data: { channel: { id: "channel-id", viewerDropCampaigns: [null, campaign] } } }),
+      availableDrops: () =>
+        twitchResponse({
+          data: { channel: { id: "channel-id", viewerDropCampaigns: [null, campaign] } },
+        }),
     });
     const handle = await createTransport("http", {}, "/tmp/auth", ENABLED);
 
-    const campaigns = await handle.createAdapters(() => {}, tarkovSettings()).adapters.twitch.refreshCampaigns();
+    const campaigns = await handle
+      .createAdapters(() => {}, tarkovSettings())
+      .adapters.twitch.refreshCampaigns();
 
     expect(campaigns.map((item) => item.id)).toEqual(["new-campaign"]);
     await handle.dispose();
   });
 
   it("continues scanning other games after one live-directory failure", async () => {
-    vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: RequestInit) => {
-      const request = JSON.parse(String(init?.body));
-      switch (request.operationName) {
-        case "Inventory": return twitchResponse(emptyTwitchInventory());
-        case "ViewerDropsDashboard": return twitchResponse({ data: { currentUser: { id: "viewer-id", dropCampaigns: null } } });
-        case "DirectoryPage_Game":
-          if (request.variables.slug === "broken") throw new Error("temporary directory failure");
-          return twitchResponse({ data: { game: { streams: { edges: [{ node: {
-            broadcaster: { id: "channel-id", login: "creator" },
-          } }] } } } });
-        case "DropsHighlightService_AvailableDrops": return twitchResponse({ data: { channel: {
-          id: "channel-id", viewerDropCampaigns: [{ id: "working", name: "Working",
-            game: { id: "working-game", name: "Working" },
-            timeBasedDrops: [{ id: "reward", requiredMinutesWatched: 30 }],
-          }],
-        } } });
-        default: throw new Error(`Unexpected operation ${request.operationName}`);
-      }
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        const request = JSON.parse(String(init?.body));
+        switch (request.operationName) {
+          case "Inventory":
+            return twitchResponse(emptyTwitchInventory());
+          case "ViewerDropsDashboard":
+            return twitchResponse({
+              data: { currentUser: { id: "viewer-id", dropCampaigns: null } },
+            });
+          case "DirectoryPage_Game":
+            if (request.variables.slug === "broken") throw new Error("temporary directory failure");
+            return twitchResponse({
+              data: {
+                game: {
+                  streams: {
+                    edges: [
+                      {
+                        node: {
+                          broadcaster: { id: "channel-id", login: "creator" },
+                        },
+                      },
+                    ],
+                  },
+                },
+              },
+            });
+          case "DropsHighlightService_AvailableDrops":
+            return twitchResponse({
+              data: {
+                channel: {
+                  id: "channel-id",
+                  viewerDropCampaigns: [
+                    {
+                      id: "working",
+                      name: "Working",
+                      game: { id: "working-game", name: "Working" },
+                      timeBasedDrops: [{ id: "reward", requiredMinutesWatched: 30 }],
+                    },
+                  ],
+                },
+              },
+            });
+          default:
+            throw new Error(`Unexpected operation ${request.operationName}`);
+        }
+      }),
+    );
     const handle = await createTransport("http", {}, "/tmp/auth", ENABLED);
     const settings = structuredClone(DEFAULT_ENGINE_SETTINGS);
-    settings.platform.twitch.categories = [{ id: "broken", name: "Broken" }, { id: "working", name: "Working" }];
+    settings.platform.twitch.categories = [
+      { id: "broken", name: "Broken" },
+      { id: "working", name: "Working" },
+    ];
 
-    const campaigns = await handle.createAdapters(() => {}, settings).adapters.twitch.refreshCampaigns();
+    const campaigns = await handle
+      .createAdapters(() => {}, settings)
+      .adapters.twitch.refreshCampaigns();
 
     expect(campaigns.map((campaign) => campaign.id)).toEqual(["working"]);
     await handle.dispose();
   });
 
   it("reports a failed discovery when every configured game lookup fails", async () => {
-    vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: RequestInit) => {
-      switch (twitchOperation(init)) {
-        case "Inventory": return twitchResponse(emptyTwitchInventory());
-        case "ViewerDropsDashboard": return twitchResponse({ data: { currentUser: { id: "viewer-id", dropCampaigns: null } } });
-        case "DirectoryPage_Game": throw new Error("directory unavailable");
-        default: throw new Error(`Unexpected Twitch operation ${twitchOperation(init)}`);
-      }
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        switch (twitchOperation(init)) {
+          case "Inventory":
+            return twitchResponse(emptyTwitchInventory());
+          case "ViewerDropsDashboard":
+            return twitchResponse({
+              data: { currentUser: { id: "viewer-id", dropCampaigns: null } },
+            });
+          case "DirectoryPage_Game":
+            throw new Error("directory unavailable");
+          default:
+            throw new Error(`Unexpected Twitch operation ${twitchOperation(init)}`);
+        }
+      }),
+    );
     const handle = await createTransport("http", {}, "/tmp/auth", ENABLED);
     const settings = structuredClone(DEFAULT_ENGINE_SETTINGS);
     settings.platform.twitch.categories = [{ id: "game", name: "Rust" }];
 
-    await expect(handle.createAdapters(() => {}, settings).adapters.twitch.refreshCampaigns())
-      .rejects.toThrow(/directory unavailable/);
+    await expect(
+      handle.createAdapters(() => {}, settings).adapters.twitch.refreshCampaigns(),
+    ).rejects.toThrow(/directory unavailable/);
     await handle.dispose();
   });
 
   it.each([
-    ["a network error", () => { throw new Error("lookup unavailable"); }],
-    ["a GQL errors envelope", () => twitchResponse({ errors: [{ message: "lookup unavailable" }] })],
-  ])("reports a failed discovery when every live-channel campaign lookup fails with %s", async (_label, availableDrops) => {
-    liveDiscoveryFetch({ availableDrops });
-    const handle = await createTransport("http", {}, "/tmp/auth", ENABLED);
+    [
+      "a network error",
+      () => {
+        throw new Error("lookup unavailable");
+      },
+    ],
+    [
+      "a GQL errors envelope",
+      () => twitchResponse({ errors: [{ message: "lookup unavailable" }] }),
+    ],
+  ])(
+    "reports a failed discovery when every live-channel campaign lookup fails with %s",
+    async (_label, availableDrops) => {
+      liveDiscoveryFetch({ availableDrops });
+      const handle = await createTransport("http", {}, "/tmp/auth", ENABLED);
 
-    // The directories answered, but no lookup did: that is an outage, not an
-    // authoritative empty campaign list that would clear the last snapshot.
-    await expect(handle.createAdapters(() => {}, tarkovSettings()).adapters.twitch.refreshCampaigns())
-      .rejects.toThrow(/lookup unavailable/);
-    await handle.dispose();
-  });
+      // The directories answered, but no lookup did: that is an outage, not an
+      // authoritative empty campaign list that would clear the last snapshot.
+      await expect(
+        handle.createAdapters(() => {}, tarkovSettings()).adapters.twitch.refreshCampaigns(),
+      ).rejects.toThrow(/lookup unavailable/);
+      await handle.dispose();
+    },
+  );
 
   it("keeps the campaigns one lookup found when another lookup fails", async () => {
     const campaign = {
-      id: "new-campaign", name: "New campaign",
-      game: { id: "491931", name: "Escape from Tarkov", displayName: "Escape from Tarkov", slug: "escape-from-tarkov" },
+      id: "new-campaign",
+      name: "New campaign",
+      game: {
+        id: "491931",
+        name: "Escape from Tarkov",
+        displayName: "Escape from Tarkov",
+        slug: "escape-from-tarkov",
+      },
       endAt: "2099-01-01T00:00:00Z",
-      timeBasedDrops: [{ id: "reward-id", name: "Reward", requiredMinutesWatched: 60,
-        startAt: "2026-01-01T00:00:00Z", benefitEdges: [{ benefit: { id: "benefit-id", name: "Benefit" } }] }],
+      timeBasedDrops: [
+        {
+          id: "reward-id",
+          name: "Reward",
+          requiredMinutesWatched: 60,
+          startAt: "2026-01-01T00:00:00Z",
+          benefitEdges: [{ benefit: { id: "benefit-id", name: "Benefit" } }],
+        },
+      ],
     };
-    vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: RequestInit) => {
-      const request = JSON.parse(String(init?.body));
-      switch (request.operationName) {
-        case "Inventory": return twitchResponse(emptyTwitchInventory());
-        case "ViewerDropsDashboard": return twitchResponse({ data: { currentUser: { id: "viewer-id", dropCampaigns: null } } });
-        case "GameSlugs": return twitchResponse({ data: { g0: { id: "491931", slug: "escape-from-tarkov" } } });
-        case "DirectoryPage_Game": return twitchResponse({ data: { game: { streams: { edges: [
-          { node: { broadcaster: { id: "broken-id", login: "broken" } } },
-          { node: { broadcaster: { id: "channel-id", login: "creator" } } },
-        ] } } } });
-        case "DropsHighlightService_AvailableDrops":
-          if (request.variables.channelID === "broken-id") throw new Error("lookup unavailable");
-          return twitchResponse({ data: { channel: { id: "channel-id", viewerDropCampaigns: [campaign] } } });
-        default: throw new Error(`Unexpected operation ${request.operationName}`);
-      }
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        const request = JSON.parse(String(init?.body));
+        switch (request.operationName) {
+          case "Inventory":
+            return twitchResponse(emptyTwitchInventory());
+          case "ViewerDropsDashboard":
+            return twitchResponse({
+              data: { currentUser: { id: "viewer-id", dropCampaigns: null } },
+            });
+          case "GameSlugs":
+            return twitchResponse({ data: { g0: { id: "491931", slug: "escape-from-tarkov" } } });
+          case "DirectoryPage_Game":
+            return twitchResponse({
+              data: {
+                game: {
+                  streams: {
+                    edges: [
+                      { node: { broadcaster: { id: "broken-id", login: "broken" } } },
+                      { node: { broadcaster: { id: "channel-id", login: "creator" } } },
+                    ],
+                  },
+                },
+              },
+            });
+          case "DropsHighlightService_AvailableDrops":
+            if (request.variables.channelID === "broken-id") throw new Error("lookup unavailable");
+            return twitchResponse({
+              data: { channel: { id: "channel-id", viewerDropCampaigns: [campaign] } },
+            });
+          default:
+            throw new Error(`Unexpected operation ${request.operationName}`);
+        }
+      }),
+    );
     const handle = await createTransport("http", {}, "/tmp/auth", ENABLED);
 
-    const campaigns = await handle.createAdapters(() => {}, tarkovSettings()).adapters.twitch.refreshCampaigns();
+    const campaigns = await handle
+      .createAdapters(() => {}, tarkovSettings())
+      .adapters.twitch.refreshCampaigns();
 
     expect(campaigns.map((item) => item.id)).toEqual(["new-campaign"]);
     await handle.dispose();
   });
 
   it("sends Trowel through the HTTP transport request path", async () => {
-    const fetchMock = vi.fn(async (url: string) => new Response(url.includes("trowel.twitch.tv") ? null : JSON.stringify({
-      data: { user: { id: "channel-id", stream: { id: "broadcast-id" } } },
-    }), { status: url.includes("trowel.twitch.tv") ? 204 : 200, headers: { "content-type": "application/json" } }));
+    const fetchMock = vi.fn(
+      async (url: string) =>
+        new Response(
+          url.includes("trowel.twitch.tv")
+            ? null
+            : JSON.stringify({
+                data: { user: { id: "channel-id", stream: { id: "broadcast-id" } } },
+              }),
+          {
+            status: url.includes("trowel.twitch.tv") ? 204 : 200,
+            headers: { "content-type": "application/json" },
+          },
+        ),
+    );
     vi.stubGlobal("fetch", fetchMock);
-    const handle = await createTransport("http", { twitch: { authToken: "token", clientId: "kd1unb4b3q4t58fwlpcbzcbnm76a8fp" } }, "/tmp/auth", ENABLED);
+    const handle = await createTransport(
+      "http",
+      { twitch: { authToken: "token", clientId: "kd1unb4b3q4t58fwlpcbzcbnm76a8fp" } },
+      "/tmp/auth",
+      ENABLED,
+    );
     const watcher = handle.adapters.twitch.createTablessWatcher!();
-    await watcher.start({ platform: "twitch", username: "creator", url: "https://twitch.tv/creator" }, { userId: "viewer-id" });
+    await watcher.start(
+      { platform: "twitch", username: "creator", url: "https://twitch.tv/creator" },
+      { userId: "viewer-id" },
+    );
 
     await expect(watcher.tick({})).resolves.toEqual({ ok: true, live: true });
 
-    expect(fetchMock).toHaveBeenCalledWith("https://trowel.twitch.tv/track", expect.objectContaining({ method: "POST" }));
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://trowel.twitch.tv/track",
+      expect.objectContaining({ method: "POST" }),
+    );
     await handle.dispose();
   });
 
   it("sends custom-client Spade page resolution and beacon through HTTP fetch", async () => {
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
-      if (url.includes("gql.twitch.tv")) return new Response(JSON.stringify({
-        data: { user: { id: "channel-id", stream: { id: "broadcast-id" } } },
-      }), { status: 200, headers: { "content-type": "application/json" } });
+      if (url.includes("gql.twitch.tv"))
+        return new Response(
+          JSON.stringify({
+            data: { user: { id: "channel-id", stream: { id: "broadcast-id" } } },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
       if (url === "https://www.twitch.tv/creator") {
         return new Response('<script src="https://static.twitch.tv/config/settings.js"></script>');
       }
@@ -534,9 +848,14 @@ describe("createTransport", () => {
       return new Response(null, { status: 204 });
     });
     vi.stubGlobal("fetch", fetchMock);
-    const handle = await createTransport("http", {
-      twitch: { authToken: "token", clientId: "custom-web-client" },
-    }, "/tmp/auth", ENABLED);
+    const handle = await createTransport(
+      "http",
+      {
+        twitch: { authToken: "token", clientId: "custom-web-client" },
+      },
+      "/tmp/auth",
+      ENABLED,
+    );
     const watcher = handle.createAdapter("twitch", () => {}, {
       ...DEFAULT_ENGINE_SETTINGS,
       compatibility: {
@@ -547,19 +866,31 @@ describe("createTransport", () => {
         },
       },
     }).adapter.createTablessWatcher!();
-    await watcher.start({ platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" }, { userId: "viewer-id" });
+    await watcher.start(
+      { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
+      { userId: "viewer-id" },
+    );
 
     await expect(watcher.tick({})).resolves.toEqual({ ok: true, live: true });
 
-    expect(fetchMock).toHaveBeenCalledWith("https://www.twitch.tv/creator", expect.objectContaining({
-      credentials: "include",
-      redirect: "error",
-    }));
-    expect(fetchMock).toHaveBeenCalledWith("https://static.twitch.tv/config/settings.js", expect.objectContaining({
-      credentials: "include",
-      redirect: "error",
-    }));
-    expect(fetchMock).toHaveBeenCalledWith("https://spade.twitch.tv/track", expect.objectContaining({ method: "POST" }));
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://www.twitch.tv/creator",
+      expect.objectContaining({
+        credentials: "include",
+        redirect: "error",
+      }),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://static.twitch.tv/config/settings.js",
+      expect.objectContaining({
+        credentials: "include",
+        redirect: "error",
+      }),
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://spade.twitch.tv/track",
+      expect.objectContaining({ method: "POST" }),
+    );
     await handle.dispose();
   });
 
@@ -571,47 +902,57 @@ describe("createTransport", () => {
   describe.each([
     { strictCampaignAvailability: false, expected: [] as string[] },
     { strictCampaignAvailability: true, expected: ["DropsHighlightService_AvailableDrops"] },
-  ])("forwards strictCampaignAvailability=$strictCampaignAvailability to the Twitch adapter", ({ strictCampaignAvailability, expected }) => {
-    it("matches the availability requests the setting implies", async () => {
-      const operations: string[] = [];
-      vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: RequestInit) => {
-        const operation = twitchOperation(init);
-        operations.push(operation);
-        if (operation === "DropsHighlightService_AvailableDrops") {
-          return twitchResponse({
-            data: { channel: { id: "channel-id", viewerDropCampaigns: [{ id: "campaign" }] } },
-          });
-        }
-        throw new Error(`Unexpected Twitch operation ${operation}`);
-      }));
-      const handle = await createTransport("http", {}, "/tmp/auth", ENABLED);
-      const settings = {
-        ...DEFAULT_ENGINE_SETTINGS,
-        platform: {
-          ...DEFAULT_ENGINE_SETTINGS.platform,
-          twitch: { ...DEFAULT_ENGINE_SETTINGS.platform.twitch, strictCampaignAvailability },
-        },
-      };
+  ])(
+    "forwards strictCampaignAvailability=$strictCampaignAvailability to the Twitch adapter",
+    ({ strictCampaignAvailability, expected }) => {
+      it("matches the availability requests the setting implies", async () => {
+        const operations: string[] = [];
+        vi.stubGlobal(
+          "fetch",
+          vi.fn(async (_url: string, init?: RequestInit) => {
+            const operation = twitchOperation(init);
+            operations.push(operation);
+            if (operation === "DropsHighlightService_AvailableDrops") {
+              return twitchResponse({
+                data: { channel: { id: "channel-id", viewerDropCampaigns: [{ id: "campaign" }] } },
+              });
+            }
+            throw new Error(`Unexpected Twitch operation ${operation}`);
+          }),
+        );
+        const handle = await createTransport("http", {}, "/tmp/auth", ENABLED);
+        const settings = {
+          ...DEFAULT_ENGINE_SETTINGS,
+          platform: {
+            ...DEFAULT_ENGINE_SETTINGS.platform,
+            twitch: { ...DEFAULT_ENGINE_SETTINGS.platform.twitch, strictCampaignAvailability },
+          },
+        };
 
-      const selection = await handle.createAdapters(() => {}, settings).adapters.twitch.selectCandidateChannel?.(
-        [{
-          platform: "twitch",
-          username: "directory-one",
-          url: "https://www.twitch.tv/directory-one",
-          channelId: "channel-id",
-          broadcastId: "broadcast-id",
-          categoryId: "game",
-          live: true,
-          isAclMatch: false,
-        }],
-        { id: "campaign", name: "Campaign", categoryId: "game" } as DropCampaign,
-      );
+        const selection = await handle
+          .createAdapters(() => {}, settings)
+          .adapters.twitch.selectCandidateChannel?.(
+            [
+              {
+                platform: "twitch",
+                username: "directory-one",
+                url: "https://www.twitch.tv/directory-one",
+                channelId: "channel-id",
+                broadcastId: "broadcast-id",
+                categoryId: "game",
+                live: true,
+                isAclMatch: false,
+              },
+            ],
+            { id: "campaign", name: "Campaign", categoryId: "game" } as DropCampaign,
+          );
 
-      expect(selection?.channel?.username).toBe("directory-one");
-      expect(operations).toEqual(expected);
-      await handle.dispose();
-    });
-  });
+        expect(selection?.channel?.username).toBe("directory-one");
+        expect(operations).toEqual(expected);
+        await handle.dispose();
+      });
+    },
+  );
 
   // impersonate and browser are exercised by impersonate.test.ts / browser.test.ts
   // (with cycletls/Playwright handled there, so no real subprocess spawns here).
@@ -621,29 +962,49 @@ describe("createTransport", () => {
 // (#598). The scheduler never asks for a tab there, so opening one is a broken
 // invariant that fails loudly, and stopping one is a harmless no-op.
 describe("watch tabs without the browserTabs capability", () => {
-  const context = { adapters: {}, settings: DEFAULT_SETTINGS, tabRegistry: createTabRegistry(), emit: () => undefined };
+  const context = {
+    adapters: {},
+    settings: DEFAULT_SETTINGS,
+    tabRegistry: createTabRegistry(),
+    emit: () => undefined,
+  };
   // Manual watch owns the watch-tab effects (#591); the CLI registers them with no port.
-  const createTickEffectExecutor = () => registerWatchTabEffects(createEmptyTickEffectExecutor(), undefined);
+  const createTickEffectExecutor = () =>
+    registerWatchTabEffects(createEmptyTickEffectExecutor(), undefined);
 
   it("declares that a headless host cannot fall back to a watch tab", () => {
-    expect(tickCapabilities({ platform: "twitch", supportsTabless: true } as never, false).watchTabs).toBe(false);
+    expect(
+      tickCapabilities({ platform: "twitch", supportsTabless: true } as never, false).watchTabs,
+    ).toBe(false);
   });
 
   it("fails loudly when asked to open a watch tab", async () => {
-    await expect(createTickEffectExecutor().run({
-      type: "openWatchTab",
-      platform: "twitch",
-      channel: { platform: "twitch", username: "x", url: "https://twitch.tv/x" },
-      session: { platform: "twitch", status: "idle", offlineChecks: 0 },
-    }, context)).rejects.toThrow("Watch tabs need the browserTabs capability, which this host does not declare");
+    await expect(
+      createTickEffectExecutor().run(
+        {
+          type: "openWatchTab",
+          platform: "twitch",
+          channel: { platform: "twitch", username: "x", url: "https://twitch.tv/x" },
+          session: { platform: "twitch", status: "idle", offlineChecks: 0 },
+        },
+        context,
+      ),
+    ).rejects.toThrow(
+      "Watch tabs need the browserTabs capability, which this host does not declare",
+    );
   });
 
   it("treats stopping as a harmless no-op", async () => {
-    await expect(createTickEffectExecutor().run({
-      type: "stopWatchTab",
-      platform: "twitch",
-      session: { platform: "twitch", status: "idle", offlineChecks: 0 },
-    }, context)).resolves.toBeUndefined();
+    await expect(
+      createTickEffectExecutor().run(
+        {
+          type: "stopWatchTab",
+          platform: "twitch",
+          session: { platform: "twitch", status: "idle", offlineChecks: 0 },
+        },
+        context,
+      ),
+    ).resolves.toBeUndefined();
   });
 });
 
@@ -651,7 +1012,9 @@ describe("heartbeat request bounds", () => {
   it("rejects a stalled request after the configured timeout", async () => {
     vi.useFakeTimers();
     const request = withHeartbeatTimeout(() => new Promise<never>(() => {}), undefined, 25);
-    const rejection = expect(request).rejects.toThrow("Twitch heartbeat request timed out after 25ms");
+    const rejection = expect(request).rejects.toThrow(
+      "Twitch heartbeat request timed out after 25ms",
+    );
 
     await vi.advanceTimersByTimeAsync(25);
 

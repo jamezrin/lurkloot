@@ -26,13 +26,8 @@ describe("discovery signal lifecycle", () => {
     };
   }
 
-  function configureKickDiscoverySession(
-    env: ReturnType<typeof harness>,
-    categoryId = "42",
-  ): void {
-    vi.mocked(env.kick.listCandidateChannels).mockResolvedValue([
-      channel("kick", { categoryId }),
-    ]);
+  function configureKickDiscoverySession(env: ReturnType<typeof harness>, categoryId = "42"): void {
+    vi.mocked(env.kick.listCandidateChannels).mockResolvedValue([channel("kick", { categoryId })]);
   }
 
   async function startKickDiscoverySession(env: ReturnType<typeof harness>): Promise<void> {
@@ -50,44 +45,47 @@ describe("discovery signal lifecycle", () => {
     ]);
   }
 
-  it.each(["tab", "tabless"] as const)("starts the Kick observer for an active %s watch session", async (watchMode) => {
-    const env = harness(kickOnlySettings(watchMode === "tabless"));
-    configureKickDiscoverySession(env);
-    if (watchMode === "tabless") {
-      const watcher = {
-        platform: "kick" as const,
-        channelUrl: undefined as string | undefined,
-        async start(candidate: ChannelCandidate) {
-          watcher.channelUrl = candidate.url;
-        },
-        async tick() {
-          return { ok: true, live: true };
-        },
-        drainEvents() {
-          return [];
-        },
-        async stop() {
-          watcher.channelUrl = undefined;
-        },
-      } satisfies TablessWatchController;
-      env.kick.supportsTabless = true;
-      env.kick.createTablessWatcher = () => watcher;
-    }
+  it.each(["tab", "tabless"] as const)(
+    "starts the Kick observer for an active %s watch session",
+    async (watchMode) => {
+      const env = harness(kickOnlySettings(watchMode === "tabless"));
+      configureKickDiscoverySession(env);
+      if (watchMode === "tabless") {
+        const watcher = {
+          platform: "kick" as const,
+          channelUrl: undefined as string | undefined,
+          async start(candidate: ChannelCandidate) {
+            watcher.channelUrl = candidate.url;
+          },
+          async tick() {
+            return { ok: true, live: true };
+          },
+          drainEvents() {
+            return [];
+          },
+          async stop() {
+            watcher.channelUrl = undefined;
+          },
+        } satisfies TablessWatchController;
+        env.kick.supportsTabless = true;
+        env.kick.createTablessWatcher = () => watcher;
+      }
 
-    await env.controller.tick(["kick"], "manual_tick");
+      await env.controller.tick(["kick"], "manual_tick");
 
-    expect(env.state.sessions.kick).toMatchObject({
-      status: "watching",
-      watchMode,
-      channel: { categoryId: "42" },
-    });
-    expect(env.discoverySignalController.starts).toEqual([
-      expect.objectContaining({
-        platform: "kick",
-        channel: expect.objectContaining({ categoryId: "42" }),
-      }),
-    ]);
-  });
+      expect(env.state.sessions.kick).toMatchObject({
+        status: "watching",
+        watchMode,
+        channel: { categoryId: "42" },
+      });
+      expect(env.discoverySignalController.starts).toEqual([
+        expect.objectContaining({
+          platform: "kick",
+          channel: expect.objectContaining({ categoryId: "42" }),
+        }),
+      ]);
+    },
+  );
 
   it("does not create an observer for an idle session", async () => {
     const env = harness(kickOnlySettings());
@@ -155,12 +153,14 @@ describe("discovery signal lifecycle", () => {
 
     env.discoverySignalController.emitSignal();
     await vi.waitFor(() => expect(env.kick.refreshCampaigns).toHaveBeenCalledOnce());
-    vi.mocked(env.kick.checkAuthHealth).mockClear().mockResolvedValue({
-      status: "invalid_credentials",
-      checkedAt: "2026-08-12T12:00:00.000Z",
-      reasonCode: "credentials_rejected",
-      message: { key: "authInvalidCredentials" },
-    });
+    vi.mocked(env.kick.checkAuthHealth)
+      .mockClear()
+      .mockResolvedValue({
+        status: "invalid_credentials",
+        checkedAt: "2026-08-12T12:00:00.000Z",
+        reasonCode: "credentials_rejected",
+        message: { key: "authInvalidCredentials" },
+      });
     env.discoverySignalController.emitSignal();
     const checking = env.controller.checkAuthHealth("kick");
 
@@ -187,7 +187,9 @@ describe("discovery signal lifecycle", () => {
   it("stops an observer whose start failed and creates a fresh one on the next tick", async () => {
     const env = harness(kickOnlySettings());
     configureKickDiscoverySession(env);
-    vi.spyOn(env.discoverySignalController, "start").mockRejectedValueOnce(new Error("observer start failed"));
+    vi.spyOn(env.discoverySignalController, "start").mockRejectedValueOnce(
+      new Error("observer start failed"),
+    );
 
     await env.controller.tick(["kick"], "manual_tick");
     expect(env.discoverySignalController.stops).toBe(1);
@@ -206,10 +208,12 @@ describe("discovery signal lifecycle", () => {
     configureKickDiscoverySession(env);
     const started = deferred<void>();
     const start = env.discoverySignalController.start.bind(env.discoverySignalController);
-    vi.spyOn(env.discoverySignalController, "start").mockImplementationOnce(async (target, onSignal) => {
-      await start(target, onSignal);
-      await started.promise;
-    });
+    vi.spyOn(env.discoverySignalController, "start").mockImplementationOnce(
+      async (target, onSignal) => {
+        await start(target, onSignal);
+        await started.promise;
+      },
+    );
 
     const tick = env.controller.tick(["kick"], "manual_tick");
     await vi.waitFor(() => expect(env.discoverySignalController.start).toHaveBeenCalledOnce());
@@ -272,15 +276,25 @@ describe("discovery signal lifecycle", () => {
     const env = harness(kickOnlySettings());
     configureKickDiscoverySession(env);
     Object.defineProperty(env.kick, "createDiscoverySignalController", {
-      get: () => { throw new Error("observer factory unavailable"); },
+      get: () => {
+        throw new Error("observer factory unavailable");
+      },
     });
 
     await env.controller.tick(["kick"], "manual_tick");
 
-    expect(env.state.sessions.kick).toMatchObject({ status: "watching", channel: { categoryId: "42" } });
-    expect(allDiagnostics(env)).toEqual(expect.arrayContaining([
-      expect.objectContaining({ level: "warn", message: "Discovery signal observer reconcile failed: observer factory unavailable" }),
-    ]));
+    expect(env.state.sessions.kick).toMatchObject({
+      status: "watching",
+      channel: { categoryId: "42" },
+    });
+    expect(allDiagnostics(env)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          level: "warn",
+          message: "Discovery signal observer reconcile failed: observer factory unavailable",
+        }),
+      ]),
+    );
   });
 
   it("invalidating auth stops the observer while health is checking", async () => {
@@ -306,7 +320,9 @@ describe("discovery signal lifecycle", () => {
     const env = harness(kickOnlySettings());
     await startKickDiscoverySession(env);
     const stopping = deferred<void>();
-    const stop = vi.spyOn(env.discoverySignalController, "stop").mockImplementationOnce(() => stopping.promise);
+    const stop = vi
+      .spyOn(env.discoverySignalController, "stop")
+      .mockImplementationOnce(() => stopping.promise);
     let resolved = false;
 
     const invalidating = env.controller.invalidateAuthHealth("kick").then(() => {
@@ -325,7 +341,9 @@ describe("discovery signal lifecycle", () => {
     const env = harness(kickOnlySettings());
     await startKickDiscoverySession(env);
     const stopping = deferred<void>();
-    const stop = vi.spyOn(env.discoverySignalController, "stop").mockImplementationOnce(() => stopping.promise);
+    const stop = vi
+      .spyOn(env.discoverySignalController, "stop")
+      .mockImplementationOnce(() => stopping.promise);
     vi.mocked(env.kick.checkAuthHealth).mockResolvedValue({
       status: "invalid_credentials",
       checkedAt: "2026-08-12T12:00:00.000Z",
@@ -612,10 +630,12 @@ describe("discovery signal lifecycle", () => {
     });
     expect(env.state.sessions.kick.heartbeatChecks).toBe(0);
     expect(env.state.sessions.kick.lastHeartbeatOk).toBeUndefined();
-    expect(allDiagnostics(env)).toEqual(expect.arrayContaining([
-      expect.objectContaining({ platform: "kick", message: "observer transport unavailable" }),
-      expect.objectContaining({ platform: "kick", message: "observer start failed" }),
-    ]));
+    expect(allDiagnostics(env)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ platform: "kick", message: "observer transport unavailable" }),
+        expect.objectContaining({ platform: "kick", message: "observer start failed" }),
+      ]),
+    );
   });
 });
 
@@ -652,10 +672,12 @@ describe("discovery signal refresh scheduling", () => {
     expect(env.kick.checkAuthHealth).toHaveBeenCalledOnce();
     expect(env.kick.refreshCampaigns).toHaveBeenCalledOnce();
     expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
-    expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
-      platform: "kick",
-      message: "observer warning between ticks",
-    }));
+    expect(allDiagnostics(env)).toContainEqual(
+      expect.objectContaining({
+        platform: "kick",
+        message: "observer warning between ticks",
+      }),
+    );
   });
 
   it("coalesces a burst into one pending Kick refresh", async () => {
@@ -716,9 +738,11 @@ describe("discovery signal refresh scheduling", () => {
     await env.controller.settleBackgroundWork();
 
     expect(env.kick.refreshCampaigns).toHaveBeenCalledTimes(2);
-    expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
-      message: "Coalesced scheduler triggers (count=1, reasons=discovery_signal:1)",
-    }));
+    expect(allDiagnostics(env)).toContainEqual(
+      expect.objectContaining({
+        message: "Coalesced scheduler triggers (count=1, reasons=discovery_signal:1)",
+      }),
+    );
   });
 
   it("merges discovery signals and pending alarms into the same follow-up", async () => {
@@ -736,43 +760,49 @@ describe("discovery signal refresh scheduling", () => {
     expect(env.kick.refreshCampaigns).toHaveBeenCalledTimes(2);
   });
 
-  it.each([undefined, "alarm", "manual_tick"] as const)("invalidates an admitted signal while retaining an independent %s trigger", async (independentTrigger) => {
-    const env = await startedEnv();
-    const settingsRead = deferred<ExtensionSettings>();
-    const settingsReadStarted = deferred<void>();
-    const discovery = deferred<DropCampaign[]>();
-    env.deps.loadSettings.mockImplementationOnce(() => {
-      settingsReadStarted.resolve();
-      return settingsRead.promise;
-    });
-    env.discoverySignalController.emitSignal();
-    await settingsReadStarted.promise;
-    vi.mocked(env.kick.refreshCampaigns).mockClear().mockReturnValueOnce(discovery.promise);
-    env.reportEvents.mockClear();
-    const first = env.controller.tick(["kick"], "alarm");
-    let independent: Promise<unknown> | undefined;
-    try {
-      await vi.waitFor(() => expect(env.kick.refreshCampaigns).toHaveBeenCalledOnce());
-      settingsRead.resolve(env.settings);
-      // Let the paused signal finish admission behind the blocked alarm.
-      await new Promise<void>((resolve) => setImmediate(resolve));
-      if (independentTrigger) independent = env.controller.tick(["kick"], independentTrigger);
-      await env.controller.invalidateAuthHealth("kick");
-      discovery.resolve([campaign("kick")]);
-      await Promise.all([first, independent]);
-      await env.controller.settleBackgroundWork();
+  it.each([undefined, "alarm", "manual_tick"] as const)(
+    "invalidates an admitted signal while retaining an independent %s trigger",
+    async (independentTrigger) => {
+      const env = await startedEnv();
+      const settingsRead = deferred<ExtensionSettings>();
+      const settingsReadStarted = deferred<void>();
+      const discovery = deferred<DropCampaign[]>();
+      env.deps.loadSettings.mockImplementationOnce(() => {
+        settingsReadStarted.resolve();
+        return settingsRead.promise;
+      });
+      env.discoverySignalController.emitSignal();
+      await settingsReadStarted.promise;
+      vi.mocked(env.kick.refreshCampaigns).mockClear().mockReturnValueOnce(discovery.promise);
+      env.reportEvents.mockClear();
+      const first = env.controller.tick(["kick"], "alarm");
+      let independent: Promise<unknown> | undefined;
+      try {
+        await vi.waitFor(() => expect(env.kick.refreshCampaigns).toHaveBeenCalledOnce());
+        settingsRead.resolve(env.settings);
+        // Let the paused signal finish admission behind the blocked alarm.
+        await new Promise<void>((resolve) => setImmediate(resolve));
+        if (independentTrigger) independent = env.controller.tick(["kick"], independentTrigger);
+        await env.controller.invalidateAuthHealth("kick");
+        discovery.resolve([campaign("kick")]);
+        await Promise.all([first, independent]);
+        await env.controller.settleBackgroundWork();
 
-      expect(env.kick.refreshCampaigns).toHaveBeenCalledTimes(independentTrigger ? 2 : 1);
-      const starts = allDiagnostics(env).filter((event) => /Tick #\d+ started/.test(event.message));
-      expect(starts).toHaveLength(independentTrigger ? 2 : 1);
-      if (independentTrigger) expect(starts.at(-1)?.message).toContain(`trigger=${independentTrigger}`);
-    } finally {
-      settingsRead.resolve(env.settings);
-      discovery.resolve([campaign("kick")]);
-      await Promise.allSettled([first, independent]);
-      await env.controller.settleBackgroundWork();
-    }
-  });
+        expect(env.kick.refreshCampaigns).toHaveBeenCalledTimes(independentTrigger ? 2 : 1);
+        const starts = allDiagnostics(env).filter((event) =>
+          /Tick #\d+ started/.test(event.message),
+        );
+        expect(starts).toHaveLength(independentTrigger ? 2 : 1);
+        if (independentTrigger)
+          expect(starts.at(-1)?.message).toContain(`trigger=${independentTrigger}`);
+      } finally {
+        settingsRead.resolve(env.settings);
+        discovery.resolve([campaign("kick")]);
+        await Promise.allSettled([first, independent]);
+        await env.controller.settleBackgroundWork();
+      }
+    },
+  );
 
   it("coalesces bursts before and after an ordinary Kick tick fetch into one non-overlapping follow-up", async () => {
     const env = await startedEnv();
@@ -846,32 +876,35 @@ describe("discovery signal refresh scheduling", () => {
     expect(env.kick.refreshCampaigns).toHaveBeenCalledTimes(2);
   });
 
-  it.each(["disablement", "shutdown"] as const)("drops pending signal work after %s", async (cleanup) => {
-    const env = await startedEnv();
-    const activeRefresh = deferred<DropCampaign[]>();
-    vi.mocked(env.kick.refreshCampaigns)
-      .mockClear()
-      .mockImplementationOnce(() => activeRefresh.promise);
+  it.each(["disablement", "shutdown"] as const)(
+    "drops pending signal work after %s",
+    async (cleanup) => {
+      const env = await startedEnv();
+      const activeRefresh = deferred<DropCampaign[]>();
+      vi.mocked(env.kick.refreshCampaigns)
+        .mockClear()
+        .mockImplementationOnce(() => activeRefresh.promise);
 
-    env.discoverySignalController.emitSignal();
-    await vi.waitFor(() => expect(env.kick.refreshCampaigns).toHaveBeenCalledOnce());
-    env.discoverySignalController.emitSignal();
+      env.discoverySignalController.emitSignal();
+      await vi.waitFor(() => expect(env.kick.refreshCampaigns).toHaveBeenCalledOnce());
+      env.discoverySignalController.emitSignal();
 
-    if (cleanup === "disablement") {
-      await env.rawController.handleMessage({
-        type: "setPlatformEnabled",
-        platform: "kick",
-        enabled: false,
-      });
-    } else {
-      env.controller.shutdown();
-    }
-    activeRefresh.resolve([campaign("kick")]);
-    await env.rawController.settleBackgroundWork();
+      if (cleanup === "disablement") {
+        await env.rawController.handleMessage({
+          type: "setPlatformEnabled",
+          platform: "kick",
+          enabled: false,
+        });
+      } else {
+        env.controller.shutdown();
+      }
+      activeRefresh.resolve([campaign("kick")]);
+      await env.rawController.settleBackgroundWork();
 
-    expect(env.kick.refreshCampaigns).toHaveBeenCalledOnce();
-    expect(env.discoverySignalController.stops).toBe(1);
-  });
+      expect(env.kick.refreshCampaigns).toHaveBeenCalledOnce();
+      expect(env.discoverySignalController.stops).toBe(1);
+    },
+  );
 
   it("records discovery_signal in tick lifecycle diagnostics", async () => {
     const env = await startedEnv();

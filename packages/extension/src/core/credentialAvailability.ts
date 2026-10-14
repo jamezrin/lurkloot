@@ -20,7 +20,7 @@ export function createCredentialAvailabilityProvider(api: CredentialCookieApi) {
   const read = createCredentialReader(api);
   return async (platform: Platform): Promise<CredentialAvailability> => {
     try {
-      return await read(platform) ? { status: "available" } : { status: "missing" };
+      return (await read(platform)) ? { status: "available" } : { status: "missing" };
     } catch {
       return { status: "unavailable" };
     }

@@ -21,7 +21,8 @@ function renderedAtDesktopWidth(element: Element | null | undefined): boolean {
 }
 
 function setDocument(html: string): void {
-  globalThis.document = parseHTML(`<html><body>${html}</body></html>`).document as unknown as Document;
+  globalThis.document = parseHTML(`<html><body>${html}</body></html>`)
+    .document as unknown as Document;
 }
 
 // Kick renders both bars at all times and hides one with a media query. The

@@ -39,7 +39,8 @@ export function twitchChannelFromUrl(url: string | undefined): ChannelCandidate 
   if (!url) return undefined;
   try {
     const parsed = new URL(url);
-    if (parsed.protocol !== "https:" || !TWITCH_HOSTS.has(parsed.hostname.toLowerCase())) return undefined;
+    if (parsed.protocol !== "https:" || !TWITCH_HOSTS.has(parsed.hostname.toLowerCase()))
+      return undefined;
     const segments = parsed.pathname.split("/").filter(Boolean);
     if (segments.length !== 1) return undefined;
     const username = segments[0].toLowerCase();

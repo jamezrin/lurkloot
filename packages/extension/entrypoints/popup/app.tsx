@@ -25,7 +25,9 @@ const URL_PARAMS = new URLSearchParams(typeof window !== "undefined" ? window.lo
 
 function localeFromUrl(): SupportedLocale | undefined {
   const value = URL_PARAMS.get("locale");
-  return value && SUPPORTED_LOCALES.includes(value as SupportedLocale) ? (value as SupportedLocale) : undefined;
+  return value && SUPPORTED_LOCALES.includes(value as SupportedLocale)
+    ? (value as SupportedLocale)
+    : undefined;
 }
 
 export const SCREENSHOT_MODE = URL_PARAMS.get("screenshot") === "store";
@@ -38,11 +40,15 @@ export function createExtensionPopupAdapter(): PopupAdapter {
   const send = createRuntimeRequestSender((message) => browser.runtime.sendMessage(message));
   return {
     version: browser.runtime.getManifest().version,
-    requestTwitchExtensionPermission: (provider) => requestTwitchExtensionGrant({
-      storage: browser.storage.local,
-      request: (details) => browser.permissions.request(details),
-      now: Date.now,
-    }, provider),
+    requestTwitchExtensionPermission: (provider) =>
+      requestTwitchExtensionGrant(
+        {
+          storage: browser.storage.local,
+          request: (details) => browser.permissions.request(details),
+          now: Date.now,
+        },
+        provider,
+      ),
     send,
     getStorage: (keys) => browser.storage.local.get(keys),
     setStorage: (values) => browser.storage.local.set(values),
@@ -56,7 +62,9 @@ export function createExtensionPopupAdapter(): PopupAdapter {
       // Download the credential blob the CLI's `login --import` consumes. The
       // popup is a normal extension page, so a Blob URL + anchor works without
       // the downloads permission.
-      const url = URL.createObjectURL(new Blob([JSON.stringify(blob, null, 2)], { type: "application/json" }));
+      const url = URL.createObjectURL(
+        new Blob([JSON.stringify(blob, null, 2)], { type: "application/json" }),
+      );
       const anchor = document.createElement("a");
       anchor.href = url;
       anchor.download = "lurkloot-credentials.json";
@@ -64,7 +72,9 @@ export function createExtensionPopupAdapter(): PopupAdapter {
       setTimeout(() => URL.revokeObjectURL(url), 0);
     },
     exportSettings: (payload) => {
-      const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }));
+      const url = URL.createObjectURL(
+        new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }),
+      );
       const anchor = document.createElement("a");
       anchor.href = url;
       anchor.download = "lurkloot-settings.json";
@@ -79,30 +89,36 @@ export function createExtensionPopupAdapter(): PopupAdapter {
       anchor.click();
       setTimeout(() => URL.revokeObjectURL(url), 0);
     },
-    importSettings: () => new Promise<unknown | null>((resolve, reject) => {
-      const input = document.createElement("input");
-      input.type = "file";
-      input.accept = "application/json";
-      let settled = false;
-      const settle = (result: Promise<unknown | null> | unknown | null) => {
-        if (settled) return;
-        settled = true;
-        Promise.resolve(result).then(resolve, reject);
-      };
-      input.onchange = () => {
-        const file = input.files?.[0];
-        settle(file ? file.text().then((text) => JSON.parse(text)) : null);
-      };
-      // Some browsers never fire onchange when the picker is dismissed without
-      // a selection. `focus` fires right after the dialog closes either way; by
-      // then `input.files` already reflects the user's choice, so this only
-      // resolves the no-selection case. If a file WAS chosen, do nothing here —
-      // onchange (already in flight or about to fire) owns settling the promise.
-      window.addEventListener("focus", () => setTimeout(() => {
-        if (!input.files?.length) settle(null);
-      }, 300), { once: true });
-      input.click();
-    }),
+    importSettings: () =>
+      new Promise<unknown | null>((resolve, reject) => {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "application/json";
+        let settled = false;
+        const settle = (result: Promise<unknown | null> | unknown | null) => {
+          if (settled) return;
+          settled = true;
+          Promise.resolve(result).then(resolve, reject);
+        };
+        input.onchange = () => {
+          const file = input.files?.[0];
+          settle(file ? file.text().then((text) => JSON.parse(text)) : null);
+        };
+        // Some browsers never fire onchange when the picker is dismissed without
+        // a selection. `focus` fires right after the dialog closes either way; by
+        // then `input.files` already reflects the user's choice, so this only
+        // resolves the no-selection case. If a file WAS chosen, do nothing here —
+        // onchange (already in flight or about to fire) owns settling the promise.
+        window.addEventListener(
+          "focus",
+          () =>
+            setTimeout(() => {
+              if (!input.files?.length) settle(null);
+            }, 300),
+          { once: true },
+        );
+        input.click();
+      }),
     writeClipboard: async (text) => {
       try {
         await navigator.clipboard.writeText(text);
@@ -115,16 +131,18 @@ export function createExtensionPopupAdapter(): PopupAdapter {
     },
     resetExtension: () => send({ type: "resetExtension" }),
     compatibilityRegistry: COMPATIBILITY_REGISTRY,
-    resolveCompatibility: (settings) => resolveCompatibility(settings, { host: "extension", twitchIdentity: "web" }),
+    resolveCompatibility: (settings) =>
+      resolveCompatibility(settings, { host: "extension", twitchIdentity: "web" }),
   };
 }
 
-export const POPUP_ADAPTER: PopupAdapter = SCREENSHOT_MODE || PROMO_MODE
-  ? createDemoPopupAdapter({
-      locale: POPUP_LOCALE,
-      version: browser.runtime.getManifest().version,
-    })
-  : createExtensionPopupAdapter();
+export const POPUP_ADAPTER: PopupAdapter =
+  SCREENSHOT_MODE || PROMO_MODE
+    ? createDemoPopupAdapter({
+        locale: POPUP_LOCALE,
+        version: browser.runtime.getManifest().version,
+      })
+    : createExtensionPopupAdapter();
 
 export function PopupApp(): React.ReactElement {
   if (PROMO_MODE) {
@@ -133,10 +151,25 @@ export function PopupApp(): React.ReactElement {
 
   if (SCREENSHOT_MODE) {
     const requested = URL_PARAMS.get("story");
-    const story = requested === "games" || requested === "kick" || requested === "watchlist" || requested === "extensions" ? requested : "queue";
+    const story =
+      requested === "games"
+      || requested === "kick"
+      || requested === "watchlist"
+      || requested === "extensions"
+        ? requested
+        : "queue";
     return (
       <StoreArtwork story={story} locale={POPUP_LOCALE}>
-        <Popup adapter={POPUP_ADAPTER} initialState={{ preview: true, locale: POPUP_LOCALE, variant: screenshotVariant(story === "kick" ? "easy" : story === "watchlist" ? "extras" : "drops") }} />
+        <Popup
+          adapter={POPUP_ADAPTER}
+          initialState={{
+            preview: true,
+            locale: POPUP_LOCALE,
+            variant: screenshotVariant(
+              story === "kick" ? "easy" : story === "watchlist" ? "extras" : "drops",
+            ),
+          }}
+        />
       </StoreArtwork>
     );
   }

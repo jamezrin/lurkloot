@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PreparedWatchTab } from "@lurkloot/shared/models";
 import { DEFAULT_STATE } from "../../src/core/storage";
-import { allDiagnostics, campaign, deferred, establishedTablessEnv, harness } from "../helpers/backgroundController";
+import {
+  allDiagnostics,
+  campaign,
+  deferred,
+  establishedTablessEnv,
+  harness,
+} from "../helpers/backgroundController";
 
 // The scheduler tick runs its effects with no lock held (#599). Other writers
 // commit while an effect is in flight; the tick's commit keeps their changes as
@@ -26,14 +32,21 @@ describe("scheduler tick effects outside the lock", () => {
   it("reports the watch-tab port's diagnostics with the tick", async () => {
     const env = harness();
     env.deps.openWatchTab.mockImplementationOnce(async (channel, _session, _options, emit) => {
-      emit({ category: "diagnostic", level: "debug", platform: channel.platform, message: "Opened a watch tab for the test" });
+      emit({
+        category: "diagnostic",
+        level: "debug",
+        platform: channel.platform,
+        message: "Opened a watch tab for the test",
+      });
       return { tabId: 10, managedByExtension: true };
     });
 
     await env.controller.tick(["twitch"]);
 
     expect(env.state.sessions.twitch).toMatchObject({ status: "watching", tabId: 10 });
-    expect(allDiagnostics(env).map((event) => event.message)).toContain("Opened a watch tab for the test");
+    expect(allDiagnostics(env).map((event) => event.message)).toContain(
+      "Opened a watch tab for the test",
+    );
   });
 
   // #598: ad focus follows the state the tick committed, and runs after the
@@ -85,7 +98,10 @@ describe("scheduler tick effects outside the lock", () => {
 
     // The platform lock is free while the tab opens, so telemetry commits now
     // instead of queueing behind the tick.
-    await env.rawController.handleMessage({ type: "playbackTelemetry", platform: "twitch", telemetry }, { tab: { id: 10 } });
+    await env.rawController.handleMessage(
+      { type: "playbackTelemetry", platform: "twitch", telemetry },
+      { tab: { id: 10 } },
+    );
     expect(env.state.sessions.twitch.playback).toMatchObject({ playingVideoCount: 1 });
 
     opening.resolve({ tabId: 10, managedByExtension: true });
@@ -118,7 +134,10 @@ describe("scheduler tick effects outside the lock", () => {
     await ticking;
     await env.controller.settleBackgroundWork();
 
-    expect(env.state.sessions.twitch).toMatchObject({ status: "paused", reasonCode: "manual_tab_close" });
+    expect(env.state.sessions.twitch).toMatchObject({
+      status: "paused",
+      reasonCode: "manual_tab_close",
+    });
     expect(env.state.managedWatchTabs?.twitch).toBeUndefined();
     expect(env.watchTabs.twitch.stop).toHaveBeenCalledWith(
       expect.objectContaining({ tabId: 11, tabManagedByExtension: true }),
@@ -158,7 +177,9 @@ describe("scheduler tick effects outside the lock", () => {
     await env.controller.settleBackgroundWork();
 
     expect(env.twitch.claimReward).toHaveBeenCalledOnce();
-    expect(allDiagnostics(env).map((event) => event.message)).toContain("Reward is already being claimed");
+    expect(allDiagnostics(env).map((event) => event.message)).toContain(
+      "Reward is already being claimed",
+    );
     expect(env.state.campaigns.twitch[0].rewards[0].status).toBe("claimed");
   });
 
@@ -180,7 +201,10 @@ describe("scheduler tick effects outside the lock", () => {
 
     // Not even the clean-up a stale selection would ask for: an aborted tick
     // starts nothing, as when it used to wait out the reset behind its lock.
-    expect(env.watchTabs.twitch.stop).not.toHaveBeenCalledWith(expect.objectContaining({ tabId: 11 }), expect.anything());
+    expect(env.watchTabs.twitch.stop).not.toHaveBeenCalledWith(
+      expect.objectContaining({ tabId: 11 }),
+      expect.anything(),
+    );
     expect(claimChannelPoints).not.toHaveBeenCalled();
     expect(env.deps.saveState.mock.calls.length).toBe(saves);
     expect(env.state.managedWatchTabs?.twitch?.tabId).not.toBe(11);
@@ -203,6 +227,8 @@ describe("scheduler tick effects outside the lock", () => {
       expect.stringContaining("Tick superseded"),
     );
     expect(env.state.sessions.twitch.lastHeartbeatOk).toBe(true);
-    expect(Date.parse(env.state.sessions.twitch.lastCheckedAt ?? "")).toBeGreaterThan(Date.parse(firstCheckedAt ?? ""));
+    expect(Date.parse(env.state.sessions.twitch.lastCheckedAt ?? "")).toBeGreaterThan(
+      Date.parse(firstCheckedAt ?? ""),
+    );
   });
 });

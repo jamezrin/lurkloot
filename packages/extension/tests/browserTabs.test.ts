@@ -22,10 +22,7 @@ import {
   type TabRegistry,
   type TwitchIntegrityRequest,
 } from "@lurkloot/core/tabRegistry";
-import {
-  fetchKickInBackgroundWith,
-  KickWafBlockedError,
-} from "@lurkloot/core/transport";
+import { fetchKickInBackgroundWith, KickWafBlockedError } from "@lurkloot/core/transport";
 import {
   AD_FOCUS_MAX_HOLD_MS,
   applyAdFocusWithBrowser,
@@ -45,7 +42,10 @@ import {
 import { inspectKickDocument } from "../src/core/kickPageDocument";
 import { isSafeFetchError } from "@lurkloot/core/fetchError";
 import { UnusableWatchTabError } from "@lurkloot/core/watchTabError";
-import { KICK_BEARER_NEAR_MISS_CASES, KICK_BEARER_POSITIVE_CASES } from "@lurkloot/core/kickBearerCases";
+import {
+  KICK_BEARER_NEAR_MISS_CASES,
+  KICK_BEARER_POSITIVE_CASES,
+} from "@lurkloot/core/kickBearerCases";
 
 // Every test gets its own registry, so no tab state carries over (#598).
 let registry: TabRegistry;
@@ -65,7 +65,9 @@ function browserMock() {
       get: vi.fn(),
       update: vi.fn(async () => undefined),
       remove: vi.fn<(tabId: number) => Promise<void>>(async () => undefined),
-      query: vi.fn<() => Promise<Array<{ id?: number; url?: string; status?: string }>>>(async () => []),
+      query: vi.fn<() => Promise<Array<{ id?: number; url?: string; status?: string }>>>(
+        async () => [],
+      ),
       create: vi.fn(async () => ({ id: 9 })),
     },
   };
@@ -89,8 +91,9 @@ function deferred<T>() {
 
 // Foreground activations issued by playback priming (`tabs.update(id, { active: true })`).
 function activationCalls(browser: ReturnType<typeof browserMock>): unknown[][] {
-  return (browser.tabs.update.mock.calls as unknown as unknown[][])
-    .filter((call) => (call[1] as { active?: boolean } | undefined)?.active === true);
+  return (browser.tabs.update.mock.calls as unknown as unknown[][]).filter(
+    (call) => (call[1] as { active?: boolean } | undefined)?.active === true,
+  );
 }
 
 function managedSession(playingVideoCount: number): WatchSession {
@@ -147,12 +150,35 @@ describe("tab manager", () => {
     const browser = browserMock();
     await openPinnedMutedTabWithBrowser(registry, browser, channel, undefined, undefined, emit);
 
-    expect(events.some((event) => event.category === "diagnostic" && event.level === "info" && event.message.includes("Opened watch tab 9"))).toBe(true);
+    expect(
+      events.some(
+        (event) =>
+          event.category === "diagnostic"
+          && event.level === "info"
+          && event.message.includes("Opened watch tab 9"),
+      ),
+    ).toBe(true);
     expect(events.every((event) => event.platform === "twitch")).toBe(true);
 
     events.length = 0;
-    await stopWatchTabWithBrowser(registry, browser, { platform: "twitch", status: "watching", offlineChecks: 0, tabId: 9, tabManagedByExtension: true }, undefined, emit);
-    expect(events.some((event) => event.level === "debug" && event.message.includes("Closed managed watch tab 9"))).toBe(true);
+    await stopWatchTabWithBrowser(
+      registry,
+      browser,
+      {
+        platform: "twitch",
+        status: "watching",
+        offlineChecks: 0,
+        tabId: 9,
+        tabManagedByExtension: true,
+      },
+      undefined,
+      emit,
+    );
+    expect(
+      events.some(
+        (event) => event.level === "debug" && event.message.includes("Closed managed watch tab 9"),
+      ),
+    ).toBe(true);
   });
 
   it("reports managed page-context creation and closure as activity", async () => {
@@ -164,12 +190,17 @@ describe("tab manager", () => {
     const events: EngineEvent[] = [];
     const emit = (event: EngineEvent) => events.push(event);
 
-    await fetchJsonInPageWithBrowser(registry, 
+    await fetchJsonInPageWithBrowser(
+      registry,
       browser,
       "https://kick.com/drops/inventory",
       "https://web.kick.com/api/v1/drops/progress?secret=value",
       undefined,
-      kickPageOptions({ retainPageContext: { platform: "kick" }, emit, openReason: "background_rejected" }),
+      kickPageOptions({
+        retainPageContext: { platform: "kick" },
+        emit,
+        openReason: "background_rejected",
+      }),
     );
     expect(browser.tabs.create).toHaveBeenCalledWith({
       url: "https://kick.com/drops/inventory",
@@ -181,17 +212,38 @@ describe("tab manager", () => {
       originUrl: "https://kick.com/drops/inventory",
       origin: "https://kick.com",
     });
-    await stopManagedPageContextTabsWithBrowser(registry, browser, currentManagedPageContextTabs(registry), {
-      platforms: ["kick"],
-      reason: "background_recovered",
-      emit,
-    });
+    await stopManagedPageContextTabsWithBrowser(
+      registry,
+      browser,
+      currentManagedPageContextTabs(registry),
+      {
+        platforms: ["kick"],
+        reason: "background_recovered",
+        emit,
+      },
+    );
 
     expect(events.filter((event) => event.category === "activity")).toEqual([
-      { category: "activity", code: "page_context_opened", level: "info", platform: "kick", data: { host: "kick.com", reason: "background_rejected" } },
-      { category: "activity", code: "page_context_closed", level: "info", platform: "kick", data: { host: "kick.com", reason: "background_recovered" } },
+      {
+        category: "activity",
+        code: "page_context_opened",
+        level: "info",
+        platform: "kick",
+        data: { host: "kick.com", reason: "background_rejected" },
+      },
+      {
+        category: "activity",
+        code: "page_context_closed",
+        level: "info",
+        platform: "kick",
+        data: { host: "kick.com", reason: "background_recovered" },
+      },
     ]);
-    expect(events.every((event) => event.category === "activity" || !event.message.includes("secret=value"))).toBe(true);
+    expect(
+      events.every(
+        (event) => event.category === "activity" || !event.message.includes("secret=value"),
+      ),
+    ).toBe(true);
   });
 
   it("does not report a close activity when managed page-context removal fails", async () => {
@@ -199,16 +251,29 @@ describe("tab manager", () => {
     browser.tabs.remove.mockRejectedValue(new Error("already gone"));
     const events: EngineEvent[] = [];
     registerManagedPageContextTabs(registry, {
-      kick: { platform: "kick", tabId: 14, originUrl: "https://kick.com", origin: "https://kick.com", ownedByExtension: true },
+      kick: {
+        platform: "kick",
+        tabId: 14,
+        originUrl: "https://kick.com",
+        origin: "https://kick.com",
+        ownedByExtension: true,
+      },
     });
 
-    await stopManagedPageContextTabsWithBrowser(registry, browser, currentManagedPageContextTabs(registry), {
-      platforms: ["kick"],
-      reason: "background_recovered",
-      emit: (event) => events.push(event),
-    });
+    await stopManagedPageContextTabsWithBrowser(
+      registry,
+      browser,
+      currentManagedPageContextTabs(registry),
+      {
+        platforms: ["kick"],
+        reason: "background_recovered",
+        emit: (event) => events.push(event),
+      },
+    );
 
-    expect(events.some((event) => event.category === "activity" && event.code === "page_context_closed")).toBe(false);
+    expect(
+      events.some((event) => event.category === "activity" && event.code === "page_context_closed"),
+    ).toBe(false);
   });
 
   it("does not report a close activity without a browser removal capability", async () => {
@@ -216,16 +281,29 @@ describe("tab manager", () => {
     browser.tabs.remove = undefined as unknown as typeof browser.tabs.remove;
     const events: EngineEvent[] = [];
     registerManagedPageContextTabs(registry, {
-      kick: { platform: "kick", tabId: 14, originUrl: "https://kick.com/drops/inventory", origin: "https://kick.com", ownedByExtension: true },
+      kick: {
+        platform: "kick",
+        tabId: 14,
+        originUrl: "https://kick.com/drops/inventory",
+        origin: "https://kick.com",
+        ownedByExtension: true,
+      },
     });
 
-    await stopManagedPageContextTabsWithBrowser(registry, browser, currentManagedPageContextTabs(registry), {
-      platforms: ["kick"],
-      reason: "background_recovered",
-      emit: (event) => events.push(event),
-    });
+    await stopManagedPageContextTabsWithBrowser(
+      registry,
+      browser,
+      currentManagedPageContextTabs(registry),
+      {
+        platforms: ["kick"],
+        reason: "background_recovered",
+        emit: (event) => events.push(event),
+      },
+    );
 
-    expect(events.some((event) => event.category === "activity" && event.code === "page_context_closed")).toBe(false);
+    expect(
+      events.some((event) => event.category === "activity" && event.code === "page_context_closed"),
+    ).toBe(false);
     expect(currentManagedPageContextTabs(registry).kick).toBeUndefined();
   });
 
@@ -236,15 +314,42 @@ describe("tab manager", () => {
     const emit = (event: EngineEvent) => events.push(event);
     const startedAt = Date.parse("2026-07-21T12:00:00.000Z");
     registerManagedPageContextTabs(registry, {
-      kick: { platform: "kick", tabId: 14, originUrl: "https://kick.com", origin: "https://kick.com", ownedByExtension: true },
+      kick: {
+        platform: "kick",
+        tabId: 14,
+        originUrl: "https://kick.com",
+        origin: "https://kick.com",
+        ownedByExtension: true,
+      },
     });
     recordManagedPageContextFallback(registry, "kick", "web.kick.com", emit, startedAt);
 
-    await reconcileManagedPageContextRecoveryWithBrowser(registry, browser, "kick", { backgroundHosts: ["web.kick.com"], fallbackHosts: [] }, 3, emit);
-    await reconcileManagedPageContextRecoveryWithBrowser(registry, browser, "kick", { backgroundHosts: ["web.kick.com"], fallbackHosts: [] }, 3, emit);
+    await reconcileManagedPageContextRecoveryWithBrowser(
+      registry,
+      browser,
+      "kick",
+      { backgroundHosts: ["web.kick.com"], fallbackHosts: [] },
+      3,
+      emit,
+    );
+    await reconcileManagedPageContextRecoveryWithBrowser(
+      registry,
+      browser,
+      "kick",
+      { backgroundHosts: ["web.kick.com"], fallbackHosts: [] },
+      3,
+      emit,
+    );
     expect(browser.tabs.remove).not.toHaveBeenCalled();
 
-    await reconcileManagedPageContextRecoveryWithBrowser(registry, browser, "kick", { backgroundHosts: ["web.kick.com"], fallbackHosts: [] }, 3, emit);
+    await reconcileManagedPageContextRecoveryWithBrowser(
+      registry,
+      browser,
+      "kick",
+      { backgroundHosts: ["web.kick.com"], fallbackHosts: [] },
+      3,
+      emit,
+    );
 
     expect(browser.tabs.remove).toHaveBeenCalledOnce();
     expect(currentManagedPageContextTabs(registry).kick).toBeUndefined();
@@ -261,13 +366,43 @@ describe("tab manager", () => {
     const browser = browserMock();
     const startedAt = Date.parse("2026-07-21T12:00:00.000Z");
     registerManagedPageContextTabs(registry, {
-      kick: { platform: "kick", tabId: 14, originUrl: "https://kick.com", origin: "https://kick.com", ownedByExtension: true },
+      kick: {
+        platform: "kick",
+        tabId: 14,
+        originUrl: "https://kick.com",
+        origin: "https://kick.com",
+        ownedByExtension: true,
+      },
     });
     recordManagedPageContextFallback(registry, "kick", "web.kick.com", undefined, startedAt);
-    await reconcileManagedPageContextRecoveryWithBrowser(registry, browser, "kick", { backgroundHosts: ["web.kick.com"], fallbackHosts: [] }, 3);
-    await reconcileManagedPageContextRecoveryWithBrowser(registry, browser, "kick", { backgroundHosts: ["web.kick.com"], fallbackHosts: [] }, 3);
-    await reconcileManagedPageContextRecoveryWithBrowser(registry, browser, "kick", { backgroundHosts: ["web.kick.com"], fallbackHosts: ["web.kick.com"] }, 3);
-    await reconcileManagedPageContextRecoveryWithBrowser(registry, browser, "kick", { backgroundHosts: ["web.kick.com"], fallbackHosts: [] }, 3);
+    await reconcileManagedPageContextRecoveryWithBrowser(
+      registry,
+      browser,
+      "kick",
+      { backgroundHosts: ["web.kick.com"], fallbackHosts: [] },
+      3,
+    );
+    await reconcileManagedPageContextRecoveryWithBrowser(
+      registry,
+      browser,
+      "kick",
+      { backgroundHosts: ["web.kick.com"], fallbackHosts: [] },
+      3,
+    );
+    await reconcileManagedPageContextRecoveryWithBrowser(
+      registry,
+      browser,
+      "kick",
+      { backgroundHosts: ["web.kick.com"], fallbackHosts: ["web.kick.com"] },
+      3,
+    );
+    await reconcileManagedPageContextRecoveryWithBrowser(
+      registry,
+      browser,
+      "kick",
+      { backgroundHosts: ["web.kick.com"], fallbackHosts: [] },
+      3,
+    );
 
     expect(browser.tabs.remove).not.toHaveBeenCalled();
     expect(currentManagedPageContextTabs(registry).kick).toMatchObject({ backgroundSuccesses: 1 });
@@ -288,7 +423,8 @@ describe("tab manager", () => {
       },
     });
 
-    await reconcileManagedPageContextRecoveryWithBrowser(registry, 
+    await reconcileManagedPageContextRecoveryWithBrowser(
+      registry,
       browser,
       "kick",
       { backgroundHosts: ["kick.com"], fallbackHosts: [] },
@@ -314,7 +450,8 @@ describe("tab manager", () => {
       },
     });
 
-    await reconcileManagedPageContextRecoveryWithBrowser(registry, 
+    await reconcileManagedPageContextRecoveryWithBrowser(
+      registry,
       browser,
       "kick",
       { backgroundHosts: ["kick.com"], fallbackHosts: [] },
@@ -344,7 +481,8 @@ describe("tab manager", () => {
       },
     });
 
-    const recovery = reconcileManagedPageContextRecoveryWithBrowser(registry, 
+    const recovery = reconcileManagedPageContextRecoveryWithBrowser(
+      registry,
       browser,
       "kick",
       { backgroundHosts: ["kick.com"], fallbackHosts: [] },
@@ -383,14 +521,16 @@ describe("tab manager", () => {
       },
     });
 
-    const recovery = reconcileManagedPageContextRecoveryWithBrowser(registry, 
+    const recovery = reconcileManagedPageContextRecoveryWithBrowser(
+      registry,
       browserWithScripting,
       "kick",
       { backgroundHosts: ["kick.com"], fallbackHosts: [] },
       1,
     );
     await vi.waitFor(() => expect(browser.tabs.remove).toHaveBeenCalledOnce());
-    await fetchJsonInPageWithBrowser(registry, 
+    await fetchJsonInPageWithBrowser(
+      registry,
       browserWithScripting,
       "https://kick.com/drops/inventory",
       "https://web.kick.com/api/v1/drops/progress",
@@ -413,16 +553,24 @@ describe("tab manager", () => {
     const browser = browserMock();
     browser.tabs.get.mockResolvedValue({ id: 14, url: "https://kick.com" });
     registerManagedPageContextTabs(registry, {
-      kick: { platform: "kick", tabId: 14, originUrl: "https://kick.com", origin: "https://kick.com", ownedByExtension: true },
+      kick: {
+        platform: "kick",
+        tabId: 14,
+        originUrl: "https://kick.com",
+        origin: "https://kick.com",
+        ownedByExtension: true,
+      },
     });
 
-    await reconcileManagedPageContextRecoveryWithBrowser(registry, 
+    await reconcileManagedPageContextRecoveryWithBrowser(
+      registry,
       browser,
       "kick",
       { backgroundHosts: [], fallbackHosts: ["api.kick.com", "web.kick.com"] },
       1,
     );
-    await reconcileManagedPageContextRecoveryWithBrowser(registry, 
+    await reconcileManagedPageContextRecoveryWithBrowser(
+      registry,
       browser,
       "kick",
       { backgroundHosts: ["web.kick.com"], fallbackHosts: [] },
@@ -436,8 +584,22 @@ describe("tab manager", () => {
   it("keeps tab diagnostics scoped to the supplied emitter", async () => {
     const first: EngineEvent[] = [];
     const second: EngineEvent[] = [];
-    await openPinnedMutedTabWithBrowser(registry, browserMock(), channel, undefined, { keepVideosUnmuted: false }, (event) => first.push(event));
-    await openPinnedMutedTabWithBrowser(registry, browserMock(), channel, undefined, { keepVideosUnmuted: false }, (event) => second.push(event));
+    await openPinnedMutedTabWithBrowser(
+      registry,
+      browserMock(),
+      channel,
+      undefined,
+      { keepVideosUnmuted: false },
+      (event) => first.push(event),
+    );
+    await openPinnedMutedTabWithBrowser(
+      registry,
+      browserMock(),
+      channel,
+      undefined,
+      { keepVideosUnmuted: false },
+      (event) => second.push(event),
+    );
 
     expect(first).toHaveLength(1);
     expect(second).toHaveLength(1);
@@ -448,7 +610,13 @@ describe("tab manager", () => {
     const browser = browserMock();
     browser.tabs.get.mockResolvedValue({ id: 4 });
 
-    const result = await openPinnedMutedTabWithBrowser(registry, browser, channel, { platform: "twitch", status: "watching", offlineChecks: 0, tabId: 4, tabManagedByExtension: true });
+    const result = await openPinnedMutedTabWithBrowser(registry, browser, channel, {
+      platform: "twitch",
+      status: "watching",
+      offlineChecks: 0,
+      tabId: 4,
+      tabManagedByExtension: true,
+    });
 
     expect(result).toEqual({
       tabId: 4,
@@ -479,7 +647,13 @@ describe("tab manager", () => {
       active: false,
     });
 
-    await openPinnedMutedTabWithBrowser(registry, browser, channel, { platform: "twitch", status: "watching", offlineChecks: 0, tabId: 4, tabManagedByExtension: true });
+    await openPinnedMutedTabWithBrowser(registry, browser, channel, {
+      platform: "twitch",
+      status: "watching",
+      offlineChecks: 0,
+      tabId: 4,
+      tabManagedByExtension: true,
+    });
 
     expect(browser.tabs.update).toHaveBeenCalledWith(4, { active: true });
   });
@@ -631,12 +805,26 @@ describe("tab manager", () => {
       const events: EngineEvent[] = [];
 
       for (let tick = 0; tick < PLAYBACK_PRIME_MAX_ATTEMPTS + 3; tick += 1) {
-        await openPinnedMutedTabWithBrowser(registry, browser, channel, stalledSession(), undefined, (event) => events.push(event));
+        await openPinnedMutedTabWithBrowser(
+          registry,
+          browser,
+          channel,
+          stalledSession(),
+          undefined,
+          (event) => events.push(event),
+        );
         vi.setSystemTime(Date.now() + PLAYBACK_PRIME_BACKOFF_MS);
       }
 
       expect(activationCalls(browser)).toHaveLength(PLAYBACK_PRIME_MAX_ATTEMPTS);
-      expect(events.some((event) => event.category === "diagnostic" && event.level === "warn" && event.message.includes("priming"))).toBe(true);
+      expect(
+        events.some(
+          (event) =>
+            event.category === "diagnostic"
+            && event.level === "warn"
+            && event.message.includes("priming"),
+        ),
+      ).toBe(true);
     } finally {
       vi.useRealTimers();
     }
@@ -710,10 +898,17 @@ describe("tab manager", () => {
       const events: EngineEvent[] = [];
 
       for (let cycle = 0; cycle < PLAYBACK_PRIME_MAX_ATTEMPTS + 3; cycle += 1) {
-        await openPinnedMutedTabWithBrowser(registry, 
+        await openPinnedMutedTabWithBrowser(
+          registry,
           browser,
           channel,
-          { platform: "twitch", status: "watching", offlineChecks: 0, tabId: nextTabId, tabManagedByExtension: true },
+          {
+            platform: "twitch",
+            status: "watching",
+            offlineChecks: 0,
+            tabId: nextTabId,
+            tabManagedByExtension: true,
+          },
           undefined,
           (event) => events.push(event),
         );
@@ -722,7 +917,9 @@ describe("tab manager", () => {
 
       expect(browser.tabs.create).toHaveBeenCalledTimes(PLAYBACK_PRIME_MAX_ATTEMPTS + 3);
       expect(activationCalls(browser)).toHaveLength(PLAYBACK_PRIME_MAX_ATTEMPTS);
-      expect(events.filter((event) => event.category === "diagnostic" && event.level === "warn")).toHaveLength(1);
+      expect(
+        events.filter((event) => event.category === "diagnostic" && event.level === "warn"),
+      ).toHaveLength(1);
     } finally {
       vi.useRealTimers();
     }
@@ -743,7 +940,11 @@ describe("tab manager", () => {
       }
       expect(activationCalls(browser)).toHaveLength(PLAYBACK_PRIME_MAX_ATTEMPTS);
 
-      await openPinnedMutedTabWithBrowser(registry, browser, { ...channel, username: "next", url: "https://www.twitch.tv/next" });
+      await openPinnedMutedTabWithBrowser(registry, browser, {
+        ...channel,
+        username: "next",
+        url: "https://www.twitch.tv/next",
+      });
 
       expect(activationCalls(browser)).toHaveLength(PLAYBACK_PRIME_MAX_ATTEMPTS + 1);
     } finally {
@@ -756,7 +957,13 @@ describe("tab manager", () => {
     browser.tabs.get.mockRejectedValue(new Error("missing"));
     browser.tabs.query.mockResolvedValue([{ id: 7 }]);
 
-    const result = await openPinnedMutedTabWithBrowser(registry, browser, channel, { platform: "twitch", status: "watching", offlineChecks: 0, tabId: 4, tabManagedByExtension: true });
+    const result = await openPinnedMutedTabWithBrowser(registry, browser, channel, {
+      platform: "twitch",
+      status: "watching",
+      offlineChecks: 0,
+      tabId: 4,
+      tabManagedByExtension: true,
+    });
 
     expect(result).toEqual({
       tabId: 9,
@@ -771,7 +978,11 @@ describe("tab manager", () => {
     expect(browser.tabs.query).toHaveBeenCalledWith({ active: true, currentWindow: true });
     expect(browser.tabs.remove).toHaveBeenCalledWith(4);
     expect(browser.tabs.create).toHaveBeenCalledTimes(1);
-    expect(browser.tabs.update).toHaveBeenCalledWith(9, { pinned: true, muted: true, active: false });
+    expect(browser.tabs.update).toHaveBeenCalledWith(9, {
+      pinned: true,
+      muted: true,
+      active: false,
+    });
     expect(browser.tabs.update).toHaveBeenCalledWith(9, { active: true });
     expect(browser.tabs.update).toHaveBeenCalledWith(7, { active: true });
   });
@@ -796,7 +1007,11 @@ describe("tab manager", () => {
       pinned: true,
       active: false,
     });
-    expect(browser.tabs.update).toHaveBeenCalledWith(9, { pinned: true, muted: true, active: false });
+    expect(browser.tabs.update).toHaveBeenCalledWith(9, {
+      pinned: true,
+      muted: true,
+      active: false,
+    });
   });
 
   describe("watch-tab document inspection (#794)", () => {
@@ -810,8 +1025,21 @@ describe("tab manager", () => {
       reason: "Request blocked by security policy.",
       reference: "c0e117f5",
     };
-    const reusedKickSession: WatchSession = { platform: "kick", status: "watching", offlineChecks: 0, tabId: 4, tabManagedByExtension: true };
-    const reusedKickTab = { id: 4, url: kickChannel.url, pinned: true, mutedInfo: { muted: true }, active: false, status: "complete" };
+    const reusedKickSession: WatchSession = {
+      platform: "kick",
+      status: "watching",
+      offlineChecks: 0,
+      tabId: 4,
+      tabManagedByExtension: true,
+    };
+    const reusedKickTab = {
+      id: 4,
+      url: kickChannel.url,
+      pinned: true,
+      mutedInfo: { muted: true },
+      active: false,
+      status: "complete",
+    };
 
     function inspectedBrowser(verdict: unknown) {
       const executeScript = vi.fn(async () => [{ result: verdict }]);
@@ -821,18 +1049,26 @@ describe("tab manager", () => {
     it("runs the inspector in a new tab and keeps it when it shows the page", async () => {
       const browser = inspectedBrowser({ usable: true });
 
-      await expect(openPinnedMutedTabWithBrowser(registry, browser, kickChannel, undefined, { inspectDocument: inspectKickDocument }))
-        .resolves.toMatchObject({ tabId: 9, managedByExtension: true });
+      await expect(
+        openPinnedMutedTabWithBrowser(registry, browser, kickChannel, undefined, {
+          inspectDocument: inspectKickDocument,
+        }),
+      ).resolves.toMatchObject({ tabId: 9, managedByExtension: true });
 
-      expect(browser.scripting.executeScript).toHaveBeenCalledWith({ target: { tabId: 9 }, world: "MAIN", func: inspectKickDocument });
+      expect(browser.scripting.executeScript).toHaveBeenCalledWith({
+        target: { tabId: 9 },
+        world: "MAIN",
+        func: inspectKickDocument,
+      });
       expect(browser.tabs.remove).not.toHaveBeenCalled();
     });
 
     it("closes a new tab that shows something else and reports it as an opened tab", async () => {
       const browser = inspectedBrowser({ usable: false, failure: blockedFailure });
 
-      const error = await openPinnedMutedTabWithBrowser(registry, browser, kickChannel, undefined, { inspectDocument: inspectKickDocument })
-        .catch((caught: unknown) => caught);
+      const error = await openPinnedMutedTabWithBrowser(registry, browser, kickChannel, undefined, {
+        inspectDocument: inspectKickDocument,
+      }).catch((caught: unknown) => caught);
 
       expect(error).toBeInstanceOf(UnusableWatchTabError);
       expect(error).toMatchObject({ tabId: 9, openedManagedTab: true, failure: blockedFailure });
@@ -843,8 +1079,13 @@ describe("tab manager", () => {
       const browser = inspectedBrowser({ usable: false, failure: blockedFailure });
       browser.tabs.get.mockResolvedValue(reusedKickTab);
 
-      const error = await openPinnedMutedTabWithBrowser(registry, browser, kickChannel, reusedKickSession, { inspectDocument: inspectKickDocument })
-        .catch((caught: unknown) => caught);
+      const error = await openPinnedMutedTabWithBrowser(
+        registry,
+        browser,
+        kickChannel,
+        reusedKickSession,
+        { inspectDocument: inspectKickDocument },
+      ).catch((caught: unknown) => caught);
 
       expect(error).toMatchObject({ tabId: 4, openedManagedTab: false, failure: blockedFailure });
       expect(browser.tabs.remove).not.toHaveBeenCalled();
@@ -852,10 +1093,20 @@ describe("tab manager", () => {
     });
 
     it("counts a document the inspector cannot run in as unusable", async () => {
-      const browser = { ...browserMock(), scripting: { executeScript: vi.fn(async () => { throw new Error("Frame was removed"); }) } };
+      const browser = {
+        ...browserMock(),
+        scripting: {
+          executeScript: vi.fn(async () => {
+            throw new Error("Frame was removed");
+          }),
+        },
+      };
 
-      await expect(openPinnedMutedTabWithBrowser(registry, browser, kickChannel, undefined, { inspectDocument: inspectKickDocument }))
-        .rejects.toMatchObject({ failure: { kind: "invalid_response" } });
+      await expect(
+        openPinnedMutedTabWithBrowser(registry, browser, kickChannel, undefined, {
+          inspectDocument: inspectKickDocument,
+        }),
+      ).rejects.toMatchObject({ failure: { kind: "invalid_response" } });
     });
 
     it("does not inspect a platform without an inspector", async () => {
@@ -873,8 +1124,15 @@ describe("tab manager", () => {
     browser.tabs.update.mockRejectedValue(new Error("Tabs cannot be edited right now"));
     browser.tabs.remove.mockRejectedValue(new Error("Tabs cannot be edited right now"));
 
-    await expect(openPinnedMutedTabWithBrowser(registry, browser, channel, { platform: "twitch", status: "watching", offlineChecks: 0, tabId: 4, tabManagedByExtension: true }))
-      .rejects.toThrow("Could not close watch tab 4 before opening a replacement");
+    await expect(
+      openPinnedMutedTabWithBrowser(registry, browser, channel, {
+        platform: "twitch",
+        status: "watching",
+        offlineChecks: 0,
+        tabId: 4,
+        tabManagedByExtension: true,
+      }),
+    ).rejects.toThrow("Could not close watch tab 4 before opening a replacement");
 
     expect(browser.tabs.create).not.toHaveBeenCalled();
   });
@@ -887,12 +1145,11 @@ describe("tab manager", () => {
       return { id: 9 };
     });
 
-    await expect(openPinnedMutedTabWithBrowser(registry, 
-      browser,
-      channel,
-      undefined,
-      { signal: abort.signal },
-    )).rejects.toThrow("reset");
+    await expect(
+      openPinnedMutedTabWithBrowser(registry, browser, channel, undefined, {
+        signal: abort.signal,
+      }),
+    ).rejects.toThrow("reset");
 
     expect(browser.tabs.remove).toHaveBeenCalledWith(9);
     expect(browser.tabs.update).not.toHaveBeenCalledWith(9, expect.anything());
@@ -907,8 +1164,11 @@ describe("tab manager", () => {
       return [];
     });
 
-    await expect(openPinnedMutedTabWithBrowser(registry, browser, channel, undefined, { signal: abort.signal }))
-      .rejects.toThrow("reset");
+    await expect(
+      openPinnedMutedTabWithBrowser(registry, browser, channel, undefined, {
+        signal: abort.signal,
+      }),
+    ).rejects.toThrow("reset");
 
     expect(browser.tabs.remove).toHaveBeenCalledWith(9);
     expect(isOpeningWatchTab(registry, 9)).toBe(false);
@@ -918,7 +1178,9 @@ describe("tab manager", () => {
     const browser = browserMock();
     vi.mocked(browser.tabs.update).mockRejectedValueOnce(new Error("update failed"));
 
-    await expect(openPinnedMutedTabWithBrowser(registry, browser, channel)).rejects.toThrow("update failed");
+    await expect(openPinnedMutedTabWithBrowser(registry, browser, channel)).rejects.toThrow(
+      "update failed",
+    );
 
     expect(browser.tabs.remove).toHaveBeenCalledWith(9);
   });
@@ -930,14 +1192,27 @@ describe("tab manager", () => {
     expect(isOpeningWatchTab(registry, 9)).toBe(true);
 
     // Released to the user rather than closed: no longer the engine's.
-    await stopWatchTabWithBrowser(registry, browser, { platform: "twitch", status: "watching", offlineChecks: 0, tabId: 9, tabManagedByExtension: true }, { closeManagedTabs: false });
+    await stopWatchTabWithBrowser(
+      registry,
+      browser,
+      {
+        platform: "twitch",
+        status: "watching",
+        offlineChecks: 0,
+        tabId: 9,
+        tabManagedByExtension: true,
+      },
+      { closeManagedTabs: false },
+    );
     expect(isOpeningWatchTab(registry, 9)).toBe(false);
   });
 
   it("does not foreground-prime new tabs when page video control is disabled", async () => {
     const browser = browserMock();
 
-    await openPinnedMutedTabWithBrowser(registry, browser, channel, undefined, { keepVideosUnmuted: false });
+    await openPinnedMutedTabWithBrowser(registry, browser, channel, undefined, {
+      keepVideosUnmuted: false,
+    });
 
     expect(browser.tabs.create).toHaveBeenCalledWith({
       url: channel.url,
@@ -945,7 +1220,11 @@ describe("tab manager", () => {
       active: false,
     });
     expect(browser.tabs.update).toHaveBeenCalledTimes(1);
-    expect(browser.tabs.update).toHaveBeenCalledWith(9, { pinned: true, muted: true, active: false });
+    expect(browser.tabs.update).toHaveBeenCalledWith(9, {
+      pinned: true,
+      muted: true,
+      active: false,
+    });
     expect(browser.tabs.query).not.toHaveBeenCalled();
   });
 
@@ -1024,7 +1303,11 @@ describe("tab manager", () => {
     });
 
     expect(browser.tabs.remove).not.toHaveBeenCalled();
-    expect(browser.tabs.update).toHaveBeenCalledWith(4, { muted: false, pinned: false, active: false });
+    expect(browser.tabs.update).toHaveBeenCalledWith(4, {
+      muted: false,
+      pinned: false,
+      active: false,
+    });
   });
 
   it("uses scripting execution for page-context fetches", async () => {
@@ -1036,20 +1319,23 @@ describe("tab manager", () => {
     };
     browser.tabs.query.mockResolvedValue([{ id: 3 }]);
 
-    const result = await fetchJsonInPageWithBrowser<{ ok: boolean }>(registry, 
+    const result = await fetchJsonInPageWithBrowser<{ ok: boolean }>(
+      registry,
       browser,
       "https://kick.com",
       "https://web.kick.com/api/v1/drops/progress",
     );
 
     expect(result).toEqual({ ok: true });
-    expect(browser.scripting.executeScript).toHaveBeenCalledWith(expect.objectContaining({
-      target: { tabId: 3 },
-      // MAIN world is required so Cloudflare-protected APIs (Kick) accept the fetch.
-      world: "MAIN",
-      // args must be JSON-serializable: null, never undefined ("unserializable").
-      args: ["https://web.kick.com/api/v1/drops/progress", null],
-    }));
+    expect(browser.scripting.executeScript).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: { tabId: 3 },
+        // MAIN world is required so Cloudflare-protected APIs (Kick) accept the fetch.
+        world: "MAIN",
+        // args must be JSON-serializable: null, never undefined ("unserializable").
+        args: ["https://web.kick.com/api/v1/drops/progress", null],
+      }),
+    );
     expect(browser.tabs.remove).not.toHaveBeenCalled();
   });
 
@@ -1063,24 +1349,28 @@ describe("tab manager", () => {
     browser.tabs.query.mockResolvedValue([{ id: 3 }]);
     const abort = new AbortController();
 
-    await fetchJsonInPageWithBrowser(registry, 
+    await fetchJsonInPageWithBrowser(
+      registry,
       browser,
       "https://kick.com",
       "https://web.kick.com/api/v1/drops/progress",
-      { method: "POST", body: "{\"campaign\":\"drop\"}", signal: abort.signal },
+      { method: "POST", body: '{"campaign":"drop"}', signal: abort.signal },
     );
 
-    expect(browser.scripting.executeScript).toHaveBeenCalledWith(expect.objectContaining({
-      args: [
-        "https://web.kick.com/api/v1/drops/progress",
-        JSON.stringify({ method: "POST", body: "{\"campaign\":\"drop\"}" }),
-      ],
-    }));
+    expect(browser.scripting.executeScript).toHaveBeenCalledWith(
+      expect.objectContaining({
+        args: [
+          "https://web.kick.com/api/v1/drops/progress",
+          JSON.stringify({ method: "POST", body: '{"campaign":"drop"}' }),
+        ],
+      }),
+    );
   });
 
   it("aborts an active page fallback without retaining its newly opened context", async () => {
     const pageExecution = deferred<Array<{ result?: unknown }>>();
-    const executeScript = vi.fn()
+    const executeScript = vi
+      .fn()
       .mockResolvedValueOnce([{ result: { usable: true } }])
       .mockReturnValueOnce(pageExecution.promise);
     const browser = {
@@ -1091,7 +1381,8 @@ describe("tab manager", () => {
     const abort = new AbortController();
     const reason = new Error("auth deadline elapsed");
 
-    const request = fetchJsonInPageWithBrowser(registry, 
+    const request = fetchJsonInPageWithBrowser(
+      registry,
       browser,
       "https://kick.com/drops/inventory",
       "https://kick.com/api/v1/user",
@@ -1115,14 +1406,25 @@ describe("tab manager", () => {
       ...browserMock(),
       scripting: { executeScript },
     };
-    browser.tabs.get.mockResolvedValue({ id: 14, url: "https://kick.com/drops/inventory", status: "complete" });
+    browser.tabs.get.mockResolvedValue({
+      id: 14,
+      url: "https://kick.com/drops/inventory",
+      status: "complete",
+    });
     registerManagedPageContextTabs(registry, {
-      kick: { platform: "kick", tabId: 14, originUrl: "https://kick.com/drops/inventory", origin: "https://kick.com", ownedByExtension: true },
+      kick: {
+        platform: "kick",
+        tabId: 14,
+        originUrl: "https://kick.com/drops/inventory",
+        origin: "https://kick.com",
+        ownedByExtension: true,
+      },
     });
     const abort = new AbortController();
     const reason = new Error("discovery invalidated");
 
-    const request = fetchJsonInPageWithBrowser(registry,
+    const request = fetchJsonInPageWithBrowser(
+      registry,
       browser,
       "https://kick.com/drops/inventory",
       "https://kick.com/api/v1/user",
@@ -1152,7 +1454,8 @@ describe("tab manager", () => {
     const abort = new AbortController();
     const reason = new Error("auth deadline elapsed during tab discovery");
 
-    const request = fetchJsonInPageWithBrowser(registry, 
+    const request = fetchJsonInPageWithBrowser(
+      registry,
       browser,
       "https://kick.com/drops/inventory",
       "https://kick.com/api/v1/user",
@@ -1176,7 +1479,8 @@ describe("tab manager", () => {
     const abort = new AbortController();
     const reason = new Error("auth deadline elapsed during page readiness");
 
-    const request = fetchJsonInPageWithBrowser(registry, 
+    const request = fetchJsonInPageWithBrowser(
+      registry,
       browser,
       "https://kick.com/drops/inventory",
       "https://kick.com/api/v1/user",
@@ -1203,26 +1507,32 @@ describe("tab manager", () => {
   });
 
   it("reconstructs sanitized page-context failures", async () => {
-    const executeScript = vi.fn()
+    const executeScript = vi
+      .fn()
       .mockResolvedValueOnce([{ result: { usable: true } }])
-      .mockResolvedValueOnce([{ result: {
-        __lurklootPageFetch: true,
-        ok: false,
-        error: {
-          kind: "security_policy_blocked",
-          status: 403,
-          reason: "Request blocked by security policy.",
-          reference: "9e4db7e3",
-          token: "must-not-survive",
+      .mockResolvedValueOnce([
+        {
+          result: {
+            __lurklootPageFetch: true,
+            ok: false,
+            error: {
+              kind: "security_policy_blocked",
+              status: 403,
+              reason: "Request blocked by security policy.",
+              reference: "9e4db7e3",
+              token: "must-not-survive",
+            },
+          },
         },
-      } }]);
+      ]);
     const browser = {
       ...browserMock(),
       scripting: { executeScript },
     };
     browser.tabs.query.mockResolvedValue([{ id: 3 }]);
 
-    const error = await fetchJsonInPageWithBrowser(registry, 
+    const error = await fetchJsonInPageWithBrowser(
+      registry,
       browser,
       "https://kick.com",
       "https://kick.com/api/v1/user",
@@ -1242,34 +1552,46 @@ describe("tab manager", () => {
   });
 
   it("rejects a completed security-policy document and recovers with a valid Kick context", async () => {
-    const executeScript = vi.fn()
-      .mockResolvedValueOnce([{ result: {
-        usable: false,
-        failure: {
-          kind: "security_policy_blocked",
-          status: 403,
-          reason: "Request blocked by security policy.",
-          reference: "9e4db7e3",
+    const executeScript = vi
+      .fn()
+      .mockResolvedValueOnce([
+        {
+          result: {
+            usable: false,
+            failure: {
+              kind: "security_policy_blocked",
+              status: 403,
+              reason: "Request blocked by security policy.",
+              reference: "9e4db7e3",
+            },
+          },
         },
-      } }])
+      ])
       .mockResolvedValueOnce([{ result: { usable: true } }])
-      .mockResolvedValueOnce([{ result: {
-        __lurklootPageFetch: true,
-        ok: true,
-        data: { id: 42, username: "viewer" },
-      } }]);
+      .mockResolvedValueOnce([
+        {
+          result: {
+            __lurklootPageFetch: true,
+            ok: true,
+            data: { id: 42, username: "viewer" },
+          },
+        },
+      ]);
     const browser = {
       ...browserMock(),
       scripting: { executeScript },
     };
-    browser.tabs.query.mockResolvedValue([{
-      id: 3,
-      url: "https://kick.com/",
-      status: "complete",
-    }]);
+    browser.tabs.query.mockResolvedValue([
+      {
+        id: 3,
+        url: "https://kick.com/",
+        status: "complete",
+      },
+    ]);
     browser.tabs.create.mockResolvedValue({ id: 14 });
 
-    const result = await fetchJsonInPageWithBrowser<{ id: number; username: string }>(registry, 
+    const result = await fetchJsonInPageWithBrowser<{ id: number; username: string }>(
+      registry,
       browser,
       "https://kick.com/drops/inventory",
       "https://kick.com/api/v1/user",
@@ -1292,7 +1614,8 @@ describe("tab manager", () => {
   });
 
   it("throws a clear error when page-context execution returns no result", async () => {
-    const executeScript = vi.fn()
+    const executeScript = vi
+      .fn()
       .mockResolvedValueOnce([{ result: { usable: true } }])
       .mockResolvedValueOnce([]);
     const browser = {
@@ -1302,7 +1625,14 @@ describe("tab manager", () => {
     browser.tabs.query.mockResolvedValue([{ id: 3 }]);
 
     await expect(
-      fetchJsonInPageWithBrowser(registry, browser, "https://kick.com", "https://web.kick.com/api/v1/drops/progress", undefined, kickPageOptions()),
+      fetchJsonInPageWithBrowser(
+        registry,
+        browser,
+        "https://kick.com",
+        "https://web.kick.com/api/v1/drops/progress",
+        undefined,
+        kickPageOptions(),
+      ),
     ).rejects.toThrow(/returned no script result/);
   });
 
@@ -1315,7 +1645,8 @@ describe("tab manager", () => {
     };
     browser.tabs.create.mockResolvedValue({ id: 14 });
 
-    const result = await fetchJsonInPageWithBrowser<{ ok: boolean }>(registry, 
+    const result = await fetchJsonInPageWithBrowser<{ ok: boolean }>(
+      registry,
       browser,
       "https://www.twitch.tv/drops/inventory",
       "https://gql.twitch.tv/gql",
@@ -1340,7 +1671,8 @@ describe("tab manager", () => {
     };
     browser.tabs.create.mockResolvedValue({ id: 14 });
 
-    const result = await fetchJsonInPageWithBrowser<{ ok: boolean }>(registry, 
+    const result = await fetchJsonInPageWithBrowser<{ ok: boolean }>(
+      registry,
       browser,
       "https://www.twitch.tv/drops/inventory",
       "https://gql.twitch.tv/gql",
@@ -1384,7 +1716,8 @@ describe("tab manager", () => {
       },
     });
 
-    await fetchJsonInPageWithBrowser(registry, 
+    await fetchJsonInPageWithBrowser(
+      registry,
       browser,
       "https://www.twitch.tv/drops/inventory",
       "https://gql.twitch.tv/gql",
@@ -1395,9 +1728,11 @@ describe("tab manager", () => {
     expect(browser.tabs.get).toHaveBeenCalledWith(14);
     expect(browser.tabs.create).not.toHaveBeenCalled();
     expect(browser.tabs.remove).not.toHaveBeenCalled();
-    expect(browser.scripting.executeScript).toHaveBeenCalledWith(expect.objectContaining({
-      target: { tabId: 14 },
-    }));
+    expect(browser.scripting.executeScript).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: { tabId: 14 },
+      }),
+    );
   });
 
   it("replaces a retained page context that navigated away from its origin", async () => {
@@ -1408,65 +1743,109 @@ describe("tab manager", () => {
     browser.tabs.get.mockResolvedValue({ id: 14, url: "https://example.com/elsewhere" });
     browser.tabs.create.mockResolvedValue({ id: 15 });
     registerManagedPageContextTabs(registry, {
-      kick: { platform: "kick", tabId: 14, originUrl: "https://kick.com", origin: "https://kick.com", ownedByExtension: true },
+      kick: {
+        platform: "kick",
+        tabId: 14,
+        originUrl: "https://kick.com",
+        origin: "https://kick.com",
+        ownedByExtension: true,
+      },
     });
     const events: EngineEvent[] = [];
 
-    await fetchJsonInPageWithBrowser(registry, 
+    await fetchJsonInPageWithBrowser(
+      registry,
       browser,
       "https://kick.com",
       "https://web.kick.com/api/v1/drops/progress",
       undefined,
-      kickPageOptions({ retainPageContext: { platform: "kick" }, emit: (event) => events.push(event), openReason: "background_rejected" }),
+      kickPageOptions({
+        retainPageContext: { platform: "kick" },
+        emit: (event) => events.push(event),
+        openReason: "background_rejected",
+      }),
     );
 
     expect(browser.tabs.remove).toHaveBeenCalledWith(14);
     expect(browser.tabs.create).toHaveBeenCalledOnce();
     expect(currentManagedPageContextTabs(registry).kick?.tabId).toBe(15);
     expect(events.filter((event) => event.category === "activity")).toEqual([
-      { category: "activity", code: "page_context_closed", level: "info", platform: "kick", data: { host: "kick.com", reason: "managed_context_unusable" } },
-      { category: "activity", code: "page_context_opened", level: "info", platform: "kick", data: { host: "kick.com", reason: "managed_context_unusable" } },
+      {
+        category: "activity",
+        code: "page_context_closed",
+        level: "info",
+        platform: "kick",
+        data: { host: "kick.com", reason: "managed_context_unusable" },
+      },
+      {
+        category: "activity",
+        code: "page_context_opened",
+        level: "info",
+        platform: "kick",
+        data: { host: "kick.com", reason: "managed_context_unusable" },
+      },
     ]);
     // The reason survives into the diagnostic log through the controller's
     // mirror rather than a hand-written diagnostic next to each emit site.
-    const opened = events.find((event) => event.category === "activity" && event.code === "page_context_opened");
-    expect(activityDiagnostic(opened as Extract<EngineEvent, { category: "activity" }>).message)
-      .toBe("Opened managed page context on kick.com: reason=managed_context_unusable");
+    const opened = events.find(
+      (event) => event.category === "activity" && event.code === "page_context_opened",
+    );
+    expect(
+      activityDiagnostic(opened as Extract<EngineEvent, { category: "activity" }>).message,
+    ).toBe("Opened managed page context on kick.com: reason=managed_context_unusable");
   });
 
   it("does not open a replacement page context when the unusable tab cannot be closed (#794)", async () => {
     const browser = {
       ...browserMock(),
       scripting: {
-        executeScript: vi.fn(async () => [{
-          result: {
-            usable: false,
-            failure: {
-              kind: "security_policy_blocked",
-              reason: "Request blocked by security policy.",
-              reference: "c0e117f5",
+        executeScript: vi.fn(async () => [
+          {
+            result: {
+              usable: false,
+              failure: {
+                kind: "security_policy_blocked",
+                reason: "Request blocked by security policy.",
+                reference: "c0e117f5",
+              },
             },
           },
-        }]),
+        ]),
       },
     };
-    browser.tabs.get.mockResolvedValue({ id: 14, url: "https://kick.com/drops/inventory", status: "complete" });
+    browser.tabs.get.mockResolvedValue({
+      id: 14,
+      url: "https://kick.com/drops/inventory",
+      status: "complete",
+    });
     browser.tabs.remove.mockRejectedValue(new Error("Tabs cannot be edited right now"));
     registerManagedPageContextTabs(registry, {
-      kick: { platform: "kick", tabId: 14, originUrl: "https://kick.com/drops/inventory", origin: "https://kick.com", ownedByExtension: true },
+      kick: {
+        platform: "kick",
+        tabId: 14,
+        originUrl: "https://kick.com/drops/inventory",
+        origin: "https://kick.com",
+        ownedByExtension: true,
+      },
     });
 
-    const error = await fetchJsonInPageWithBrowser(registry,
+    const error = await fetchJsonInPageWithBrowser(
+      registry,
       browser,
       "https://kick.com/drops/inventory",
       "https://web.kick.com/api/v1/drops/progress",
       undefined,
-      kickPageOptions({ retainPageContext: { platform: "kick" }, openReason: "background_rejected" }),
+      kickPageOptions({
+        retainPageContext: { platform: "kick" },
+        openReason: "background_rejected",
+      }),
     ).catch((caught: unknown) => caught);
 
     // A browser that will not close a tab is not Kick blocking the account.
     expect(isSafeFetchError(error)).toBe(false);
-    expect(error).toMatchObject({ message: "Did not replace the managed page context on kick.com while it is still open" });
+    expect(error).toMatchObject({
+      message: "Did not replace the managed page context on kick.com while it is still open",
+    });
     expect(browser.tabs.create).not.toHaveBeenCalled();
     expect(currentManagedPageContextTabs(registry).kick?.tabId).toBe(14);
   });
@@ -1475,13 +1854,24 @@ describe("tab manager", () => {
     const browser = browserMock();
     browser.tabs.get.mockResolvedValue({ id: 14, url: "https://kick.com/drops/inventory" });
     browser.tabs.remove.mockRejectedValue(new Error("Tabs cannot be edited right now"));
-    const kick = { platform: "kick" as const, tabId: 14, originUrl: "https://kick.com/drops/inventory", origin: "https://kick.com", ownedByExtension: true as const };
+    const kick = {
+      platform: "kick" as const,
+      tabId: 14,
+      originUrl: "https://kick.com/drops/inventory",
+      origin: "https://kick.com",
+      ownedByExtension: true as const,
+    };
     registerManagedPageContextTabs(registry, { kick });
 
-    const remaining = await stopManagedPageContextTabsWithBrowser(registry, browser, { kick }, {
-      platforms: ["kick"],
-      reason: "authentication_unhealthy",
-    });
+    const remaining = await stopManagedPageContextTabsWithBrowser(
+      registry,
+      browser,
+      { kick },
+      {
+        platforms: ["kick"],
+        reason: "authentication_unhealthy",
+      },
+    );
 
     expect(remaining).toEqual({ kick });
     expect(currentManagedPageContextTabs(registry).kick?.tabId).toBe(14);
@@ -1496,7 +1886,8 @@ describe("tab manager", () => {
     };
     browser.tabs.query.mockResolvedValue([{ id: 3 }]);
 
-    await fetchJsonInPageWithBrowser(registry, 
+    await fetchJsonInPageWithBrowser(
+      registry,
       browser,
       "https://kick.com",
       "https://web.kick.com/api/v1/drops/progress",
@@ -1524,7 +1915,8 @@ describe("tab manager", () => {
       },
     });
 
-    await fetchJsonInPageWithBrowser(registry, 
+    await fetchJsonInPageWithBrowser(
+      registry,
       browser,
       "https://kick.com",
       "https://web.kick.com/api/v1/drops/progress",
@@ -1535,9 +1927,11 @@ describe("tab manager", () => {
     expect(browser.tabs.get).not.toHaveBeenCalled();
     expect(browser.tabs.create).not.toHaveBeenCalled();
     expect(browser.tabs.remove).toHaveBeenCalledWith(14);
-    expect(browser.scripting.executeScript).toHaveBeenCalledWith(expect.objectContaining({
-      target: { tabId: 3 },
-    }));
+    expect(browser.scripting.executeScript).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: { tabId: 3 },
+      }),
+    );
   });
 
   it("shares one page-context tab creation across concurrent fetches for the same origin", async () => {
@@ -1553,8 +1947,18 @@ describe("tab manager", () => {
     });
 
     await Promise.all([
-      fetchJsonInPageWithBrowser(registry, browser, "https://www.twitch.tv/drops/inventory", "https://gql.twitch.tv/gql"),
-      fetchJsonInPageWithBrowser(registry, browser, "https://www.twitch.tv/drops/inventory", "https://gql.twitch.tv/gql"),
+      fetchJsonInPageWithBrowser(
+        registry,
+        browser,
+        "https://www.twitch.tv/drops/inventory",
+        "https://gql.twitch.tv/gql",
+      ),
+      fetchJsonInPageWithBrowser(
+        registry,
+        browser,
+        "https://www.twitch.tv/drops/inventory",
+        "https://gql.twitch.tv/gql",
+      ),
     ]);
 
     expect(browser.tabs.create).toHaveBeenCalledTimes(1);
@@ -1565,9 +1969,11 @@ describe("tab manager", () => {
     });
     expect(browser.tabs.update).toHaveBeenCalledWith(14, { muted: true, active: false });
     expect(browser.scripting.executeScript).toHaveBeenCalledTimes(2);
-    expect(browser.scripting.executeScript).toHaveBeenCalledWith(expect.objectContaining({
-      target: { tabId: 14 },
-    }));
+    expect(browser.scripting.executeScript).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: { tabId: 14 },
+      }),
+    );
     expect(browser.tabs.remove).toHaveBeenCalledTimes(1);
     expect(browser.tabs.remove).toHaveBeenCalledWith(14);
   });
@@ -1624,10 +2030,15 @@ describe("twitch integrity refresh", () => {
     const now = 1_000_000;
 
     it("accepts a token outside the 30-second expiry skew", () => {
-      expect(isValidTwitchIntegrity({
-        integrity: "valid-token",
-        expiresAt: now + 30_001,
-      }, now)).toBe(true);
+      expect(
+        isValidTwitchIntegrity(
+          {
+            integrity: "valid-token",
+            expiresAt: now + 30_001,
+          },
+          now,
+        ),
+      ).toBe(true);
     });
 
     it("rejects a missing token", () => {
@@ -1635,17 +2046,27 @@ describe("twitch integrity refresh", () => {
     });
 
     it("rejects an expired token", () => {
-      expect(isValidTwitchIntegrity({
-        integrity: "expired-token",
-        expiresAt: now,
-      }, now)).toBe(false);
+      expect(
+        isValidTwitchIntegrity(
+          {
+            integrity: "expired-token",
+            expiresAt: now,
+          },
+          now,
+        ),
+      ).toBe(false);
     });
 
     it("rejects a token at the 30-second expiry skew boundary", () => {
-      expect(isValidTwitchIntegrity({
-        integrity: "inside-skew-token",
-        expiresAt: now + 30_000,
-      }, now)).toBe(false);
+      expect(
+        isValidTwitchIntegrity(
+          {
+            integrity: "inside-skew-token",
+            expiresAt: now + 30_000,
+          },
+          now,
+        ),
+      ).toBe(false);
     });
   });
 
@@ -1654,7 +2075,11 @@ describe("twitch integrity refresh", () => {
       const browser = browserMock();
       setTwitchIntegrity(registry, fresh());
 
-      const ok = await ensureTwitchIntegrityWithBrowser(registry, browser, "https://www.twitch.tv/drops/inventory");
+      const ok = await ensureTwitchIntegrityWithBrowser(
+        registry,
+        browser,
+        "https://www.twitch.tv/drops/inventory",
+      );
 
       expect(ok).toBe(true);
       expect(browser.tabs.query).not.toHaveBeenCalled();
@@ -1667,7 +2092,12 @@ describe("twitch integrity refresh", () => {
 
       // The webRequest listener captures a token shortly after the page loads.
       setTimeout(() => setTwitchIntegrity(registry, fresh(), { isNew: true }), 20);
-      const ok = await ensureTwitchIntegrityWithBrowser(registry, browser, "https://www.twitch.tv/drops/inventory", 5_000);
+      const ok = await ensureTwitchIntegrityWithBrowser(
+        registry,
+        browser,
+        "https://www.twitch.tv/drops/inventory",
+        5_000,
+      );
 
       expect(ok).toBe(true);
       expect(browser.tabs.create).not.toHaveBeenCalled();
@@ -1680,7 +2110,12 @@ describe("twitch integrity refresh", () => {
       browser.tabs.create.mockResolvedValue({ id: 14 });
 
       setTimeout(() => setTwitchIntegrity(registry, fresh(), { isNew: true }), 20);
-      const ok = await ensureTwitchIntegrityWithBrowser(registry, browser, "https://www.twitch.tv/drops/inventory", 5_000);
+      const ok = await ensureTwitchIntegrityWithBrowser(
+        registry,
+        browser,
+        "https://www.twitch.tv/drops/inventory",
+        5_000,
+      );
 
       expect(ok).toBe(true);
       expect(browser.tabs.create).toHaveBeenCalledWith({
@@ -1697,7 +2132,8 @@ describe("twitch integrity refresh", () => {
       browser.tabs.create.mockResolvedValue({ id: 64 });
       browser.tabs.remove.mockRejectedValue(new Error("Tabs cannot be edited right now"));
       const events: EngineEvent[] = [];
-      const pending = ensureTwitchIntegrityWithBrowser(registry,
+      const pending = ensureTwitchIntegrityWithBrowser(
+        registry,
         browser,
         "https://www.twitch.tv/drops/inventory",
         5_000,
@@ -1707,12 +2143,14 @@ describe("twitch integrity refresh", () => {
       setTwitchIntegrity(registry, fresh(), { isNew: true });
 
       await expect(pending).resolves.toBe(true);
-      expect(events).toContainEqual(expect.objectContaining({
-        category: "diagnostic",
-        platform: "twitch",
-        level: "warn",
-        message: expect.stringContaining("Tabs cannot be edited right now"),
-      }));
+      expect(events).toContainEqual(
+        expect.objectContaining({
+          category: "diagnostic",
+          platform: "twitch",
+          level: "warn",
+          message: expect.stringContaining("Tabs cannot be edited right now"),
+        }),
+      );
     });
 
     it("opens page context immediately on the first missing-token check", async () => {
@@ -1720,7 +2158,8 @@ describe("twitch integrity refresh", () => {
       browser.tabs.query.mockResolvedValue([]);
       browser.tabs.create.mockResolvedValue({ id: 14 });
 
-      const pending = ensureTwitchIntegrityWithBrowser(registry, 
+      const pending = ensureTwitchIntegrityWithBrowser(
+        registry,
         browser,
         "https://www.twitch.tv/drops/inventory",
         50,
@@ -1741,12 +2180,14 @@ describe("twitch integrity refresh", () => {
       const browser = browserMock();
       browser.tabs.create.mockResolvedValue({ id: 51 });
 
-      const first = ensureTwitchIntegrityWithBrowser(registry, 
+      const first = ensureTwitchIntegrityWithBrowser(
+        registry,
         browser,
         "https://www.twitch.tv/drops/inventory",
         5_000,
       );
-      const second = ensureTwitchIntegrityWithBrowser(registry, 
+      const second = ensureTwitchIntegrityWithBrowser(
+        registry,
         browser,
         "https://www.twitch.tv/drops/inventory",
         5_000,
@@ -1774,14 +2215,16 @@ describe("twitch integrity refresh", () => {
         integrity: "replacement-token",
       };
 
-      const ordinary = ensureTwitchIntegrityWithBrowser(registry, 
+      const ordinary = ensureTwitchIntegrityWithBrowser(
+        registry,
         browser,
         "https://www.twitch.tv/drops/inventory",
         5_000,
       );
       await vi.waitFor(() => expect(browser.tabs.query).toHaveBeenCalledOnce());
       let forcedSettled = false;
-      const forced = ensureTwitchIntegrityWithBrowser(registry, 
+      const forced = ensureTwitchIntegrityWithBrowser(
+        registry,
         browser,
         "https://www.twitch.tv/drops/inventory",
         5_000,
@@ -1795,7 +2238,9 @@ describe("twitch integrity refresh", () => {
       setTwitchIntegrity(registry, rejected, { isNew: true });
       await expect(ordinary).resolves.toBe(true);
       await vi.waitFor(() => expect(browser.tabs.create).toHaveBeenCalledOnce());
-      await vi.waitFor(() => expect(currentTwitchIntegrityWaiterCount(registry)).toBeGreaterThan(0));
+      await vi.waitFor(() =>
+        expect(currentTwitchIntegrityWaiterCount(registry)).toBeGreaterThan(0),
+      );
       expect(forcedSettled).toBe(false);
       expect(browser.tabs.create).toHaveBeenCalledWith({
         url: "https://www.twitch.tv/drops/inventory",
@@ -1814,7 +2259,8 @@ describe("twitch integrity refresh", () => {
       browser.tabs.create.mockResolvedValue({ id: 57 });
       const events: EngineEvent[] = [];
       const managedOpen = vi.fn(async () => undefined);
-      const pending = ensureTwitchIntegrityWithBrowser(registry, 
+      const pending = ensureTwitchIntegrityWithBrowser(
+        registry,
         browser,
         "https://www.twitch.tv/drops/inventory",
         5_000,
@@ -1826,30 +2272,40 @@ describe("twitch integrity refresh", () => {
         } as TwitchIntegrityRequest,
       );
       await vi.waitFor(() => expect(browser.tabs.create).toHaveBeenCalledOnce());
-      setTwitchIntegrity(registry, {
-        integrity: "proactive-replacement",
-        clientSessionId: "page-session",
-        deviceId: "page-device",
-        expiresAt: Date.now() + 60_000,
-      }, { isNew: true });
+      setTwitchIntegrity(
+        registry,
+        {
+          integrity: "proactive-replacement",
+          clientSessionId: "page-session",
+          deviceId: "page-device",
+          expiresAt: Date.now() + 60_000,
+        },
+        { isNew: true },
+      );
 
       await expect(pending).resolves.toBe(true);
 
       expect(managedOpen).toHaveBeenCalledOnce();
-      expect(events).not.toContainEqual(expect.objectContaining({
-        category: "activity",
-        code: "page_context_opened",
-      }));
-      expect(events).toContainEqual(expect.objectContaining({
-        category: "diagnostic",
-        platform: "twitch",
-        level: "debug",
-        message: expect.stringContaining("proactive"),
-      }));
-      expect(events).not.toContainEqual(expect.objectContaining({
-        category: "diagnostic",
-        message: expect.stringContaining("rejected"),
-      }));
+      expect(events).not.toContainEqual(
+        expect.objectContaining({
+          category: "activity",
+          code: "page_context_opened",
+        }),
+      );
+      expect(events).toContainEqual(
+        expect.objectContaining({
+          category: "diagnostic",
+          platform: "twitch",
+          level: "debug",
+          message: expect.stringContaining("proactive"),
+        }),
+      );
+      expect(events).not.toContainEqual(
+        expect.objectContaining({
+          category: "diagnostic",
+          message: expect.stringContaining("rejected"),
+        }),
+      );
     });
 
     it("keeps initial readiness context creation diagnostic-only", async () => {
@@ -1857,7 +2313,8 @@ describe("twitch integrity refresh", () => {
       browser.tabs.create.mockResolvedValue({ id: 58 });
       const events: EngineEvent[] = [];
       const managedOpen = vi.fn(async () => undefined);
-      const pending = ensureTwitchIntegrityWithBrowser(registry, 
+      const pending = ensureTwitchIntegrityWithBrowser(
+        registry,
         browser,
         "https://www.twitch.tv/drops/inventory",
         5_000,
@@ -1868,26 +2325,34 @@ describe("twitch integrity refresh", () => {
         },
       );
       await vi.waitFor(() => expect(browser.tabs.create).toHaveBeenCalledOnce());
-      setTwitchIntegrity(registry, {
-        integrity: "readiness-token",
-        clientSessionId: "page-session",
-        deviceId: "page-device",
-        expiresAt: Date.now() + 60_000,
-      }, { isNew: true });
+      setTwitchIntegrity(
+        registry,
+        {
+          integrity: "readiness-token",
+          clientSessionId: "page-session",
+          deviceId: "page-device",
+          expiresAt: Date.now() + 60_000,
+        },
+        { isNew: true },
+      );
 
       await expect(pending).resolves.toBe(true);
 
       expect(managedOpen).toHaveBeenCalledOnce();
-      expect(events).not.toContainEqual(expect.objectContaining({
-        category: "activity",
-        code: "page_context_opened",
-      }));
-      expect(events).toContainEqual(expect.objectContaining({
-        category: "diagnostic",
-        platform: "twitch",
-        level: "debug",
-        message: expect.stringContaining("readiness"),
-      }));
+      expect(events).not.toContainEqual(
+        expect.objectContaining({
+          category: "activity",
+          code: "page_context_opened",
+        }),
+      );
+      expect(events).toContainEqual(
+        expect.objectContaining({
+          category: "diagnostic",
+          platform: "twitch",
+          level: "debug",
+          message: expect.stringContaining("readiness"),
+        }),
+      );
     });
 
     it("cancels the shared acquisition, removes its new context, and rejects every caller", async () => {
@@ -1895,12 +2360,14 @@ describe("twitch integrity refresh", () => {
       browser.tabs.create.mockResolvedValue({ id: 52 });
       const reason = new DOMException("Host reset", "AbortError");
 
-      const first = ensureTwitchIntegrityWithBrowser(registry, 
+      const first = ensureTwitchIntegrityWithBrowser(
+        registry,
         browser,
         "https://www.twitch.tv/drops/inventory",
         5_000,
       );
-      const second = ensureTwitchIntegrityWithBrowser(registry, 
+      const second = ensureTwitchIntegrityWithBrowser(
+        registry,
         browser,
         "https://www.twitch.tv/drops/inventory",
         5_000,
@@ -1921,7 +2388,8 @@ describe("twitch integrity refresh", () => {
 
       for (let attempt = 0; attempt < 3; attempt += 1) {
         const reason = new DOMException(`Host reset ${attempt}`, "AbortError");
-        const pending = ensureTwitchIntegrityWithBrowser(registry, 
+        const pending = ensureTwitchIntegrityWithBrowser(
+          registry,
           browser,
           "https://www.twitch.tv/drops/inventory",
           5_000,
@@ -1940,23 +2408,25 @@ describe("twitch integrity refresh", () => {
       browser.tabs.query.mockResolvedValue([{ id: 3 }]);
 
       for (let attempt = 0; attempt < 3; attempt += 1) {
-        await expect(ensureTwitchIntegrityWithBrowser(registry, 
-          browser,
-          "https://www.twitch.tv/drops/inventory",
-          5,
-        )).resolves.toBe(false);
+        await expect(
+          ensureTwitchIntegrityWithBrowser(
+            registry,
+            browser,
+            "https://www.twitch.tv/drops/inventory",
+            5,
+          ),
+        ).resolves.toBe(false);
         expect(currentTwitchIntegrityWaiterCount(registry)).toBe(0);
       }
     });
 
     it("starts a new acquisition after cancellation settles", async () => {
       const browser = browserMock();
-      browser.tabs.create
-        .mockResolvedValueOnce({ id: 53 })
-        .mockResolvedValueOnce({ id: 54 });
+      browser.tabs.create.mockResolvedValueOnce({ id: 53 }).mockResolvedValueOnce({ id: 54 });
       const reason = new DOMException("Host reset", "AbortError");
 
-      const cancelled = ensureTwitchIntegrityWithBrowser(registry, 
+      const cancelled = ensureTwitchIntegrityWithBrowser(
+        registry,
         browser,
         "https://www.twitch.tv/drops/inventory",
         5_000,
@@ -1965,7 +2435,8 @@ describe("twitch integrity refresh", () => {
       cancelTwitchIntegrityAcquisition(registry, reason);
       await expect(cancelled).rejects.toBe(reason);
 
-      const restarted = ensureTwitchIntegrityWithBrowser(registry, 
+      const restarted = ensureTwitchIntegrityWithBrowser(
+        registry,
         browser,
         "https://www.twitch.tv/drops/inventory",
         5_000,
@@ -1983,12 +2454,14 @@ describe("twitch integrity refresh", () => {
       const joinerAbort = new AbortController();
       const reason = new DOMException("Caller stopped", "AbortError");
 
-      const owner = ensureTwitchIntegrityWithBrowser(registry, 
+      const owner = ensureTwitchIntegrityWithBrowser(
+        registry,
         browser,
         "https://www.twitch.tv/drops/inventory",
         5_000,
       );
-      const joined = ensureTwitchIntegrityWithBrowser(registry, 
+      const joined = ensureTwitchIntegrityWithBrowser(
+        registry,
         browser,
         "https://www.twitch.tv/drops/inventory",
         5_000,
@@ -2005,78 +2478,86 @@ describe("twitch integrity refresh", () => {
       await expect(owner).resolves.toBe(true);
     });
 
-    it.each(["pending", "settling"])("closes an integrity tab when cancelled during %s managed-tab accounting", async (phase) => {
-      const browser = browserMock();
-      browser.tabs.create.mockResolvedValue({ id: 63 });
-      const accountingStarted = deferred<void>();
-      const accountingGate = deferred<void>();
-      const reason = new DOMException("Twitch disabled", "AbortError");
-      const pending = ensureTwitchIntegrityWithBrowser(registry,
-        browser,
-        "https://www.twitch.tv/drops/inventory",
-        5_000,
-        undefined,
-        {
-          onManagedPageContextOpen: async () => {
-            accountingStarted.resolve();
-            await accountingGate.promise;
+    it.each(["pending", "settling"])(
+      "closes an integrity tab when cancelled during %s managed-tab accounting",
+      async (phase) => {
+        const browser = browserMock();
+        browser.tabs.create.mockResolvedValue({ id: 63 });
+        const accountingStarted = deferred<void>();
+        const accountingGate = deferred<void>();
+        const reason = new DOMException("Twitch disabled", "AbortError");
+        const pending = ensureTwitchIntegrityWithBrowser(
+          registry,
+          browser,
+          "https://www.twitch.tv/drops/inventory",
+          5_000,
+          undefined,
+          {
+            onManagedPageContextOpen: async () => {
+              accountingStarted.resolve();
+              await accountingGate.promise;
+            },
           },
-        },
-      );
-      await accountingStarted.promise;
+        );
+        await accountingStarted.promise;
 
-      if (phase === "settling") {
+        if (phase === "settling") {
+          accountingGate.resolve();
+          await Promise.resolve();
+        }
+        cancelTwitchIntegrityAcquisition(registry, reason);
+        await expect(pending).rejects.toBe(reason);
+        try {
+          await vi.waitFor(() => expect(browser.tabs.remove).toHaveBeenCalledWith(63));
+          expect(browser.tabs.remove).toHaveBeenCalledOnce();
+          expect(registry.pageContextTabs.size).toBe(0);
+        } finally {
+          accountingGate.resolve();
+        }
+      },
+    );
+
+    it.each(["pending", "settling"])(
+      "keeps minting when its caller stops waiting during %s managed-tab accounting",
+      async (phase) => {
+        const browser = browserMock();
+        browser.tabs.create.mockResolvedValue({ id: 68 });
+        const accountingStarted = deferred<void>();
+        const accountingGate = deferred<void>();
+        const abort = new AbortController();
+        const reason = new DOMException("Discovery invalidated", "AbortError");
+        const pending = ensureTwitchIntegrityWithBrowser(
+          registry,
+          browser,
+          "https://www.twitch.tv/drops/inventory",
+          5_000,
+          undefined,
+          {
+            signal: abort.signal,
+            onManagedPageContextOpen: async () => {
+              accountingStarted.resolve();
+              await accountingGate.promise;
+            },
+          },
+        );
+        await accountingStarted.promise;
+
+        if (phase === "settling") {
+          accountingGate.resolve();
+          await Promise.resolve();
+        }
+        abort.abort(reason);
+        await expect(pending).rejects.toBe(reason);
         accountingGate.resolve();
-        await Promise.resolve();
-      }
-      cancelTwitchIntegrityAcquisition(registry, reason);
-      await expect(pending).rejects.toBe(reason);
-      try {
-        await vi.waitFor(() => expect(browser.tabs.remove).toHaveBeenCalledWith(63));
-        expect(browser.tabs.remove).toHaveBeenCalledOnce();
+        await vi.waitFor(() => expect(currentTwitchIntegrityWaiterCount(registry)).toBe(1));
+        expect(browser.tabs.remove).not.toHaveBeenCalled();
+
+        setTwitchIntegrity(registry, fresh(), { isNew: true });
+        await vi.waitFor(() => expect(browser.tabs.remove).toHaveBeenCalledExactlyOnceWith(68));
         expect(registry.pageContextTabs.size).toBe(0);
-      } finally {
-        accountingGate.resolve();
-      }
-    });
-
-    it.each(["pending", "settling"])("keeps minting when its caller stops waiting during %s managed-tab accounting", async (phase) => {
-      const browser = browserMock();
-      browser.tabs.create.mockResolvedValue({ id: 68 });
-      const accountingStarted = deferred<void>();
-      const accountingGate = deferred<void>();
-      const abort = new AbortController();
-      const reason = new DOMException("Discovery invalidated", "AbortError");
-      const pending = ensureTwitchIntegrityWithBrowser(registry,
-        browser,
-        "https://www.twitch.tv/drops/inventory",
-        5_000,
-        undefined,
-        {
-          signal: abort.signal,
-          onManagedPageContextOpen: async () => {
-            accountingStarted.resolve();
-            await accountingGate.promise;
-          },
-        },
-      );
-      await accountingStarted.promise;
-
-      if (phase === "settling") {
-        accountingGate.resolve();
-        await Promise.resolve();
-      }
-      abort.abort(reason);
-      await expect(pending).rejects.toBe(reason);
-      accountingGate.resolve();
-      await vi.waitFor(() => expect(currentTwitchIntegrityWaiterCount(registry)).toBe(1));
-      expect(browser.tabs.remove).not.toHaveBeenCalled();
-
-      setTwitchIntegrity(registry, fresh(), { isNew: true });
-      await vi.waitFor(() => expect(browser.tabs.remove).toHaveBeenCalledExactlyOnceWith(68));
-      expect(registry.pageContextTabs.size).toBe(0);
-      expect(registry.inFlightIntegrityAcquisition).toBeUndefined();
-    });
+        expect(registry.inFlightIntegrityAcquisition).toBeUndefined();
+      },
+    );
 
     it("preserves a page context still being acquired by another caller", async () => {
       const browser = {
@@ -2088,7 +2569,8 @@ describe("twitch integrity refresh", () => {
       const accountingGate = deferred<void>();
       const abort = new AbortController();
       const reason = new DOMException("Caller stopped", "AbortError");
-      const owner = fetchJsonInPageWithBrowser(registry,
+      const owner = fetchJsonInPageWithBrowser(
+        registry,
         browser,
         "https://www.twitch.tv/drops/inventory",
         "https://gql.twitch.tv/gql",
@@ -2101,7 +2583,8 @@ describe("twitch integrity refresh", () => {
         },
       );
       await accountingStarted.promise;
-      const shared = fetchJsonInPageWithBrowser(registry,
+      const shared = fetchJsonInPageWithBrowser(
+        registry,
         browser,
         "https://www.twitch.tv/drops/inventory",
         "https://gql.twitch.tv/gql",
@@ -2127,7 +2610,8 @@ describe("twitch integrity refresh", () => {
         if (tabId === 66) await closingGate.promise;
       });
       const reason = new DOMException("Host reset", "AbortError");
-      const owner = ensureTwitchIntegrityWithBrowser(registry,
+      const owner = ensureTwitchIntegrityWithBrowser(
+        registry,
         browser,
         "https://www.twitch.tv/drops/inventory",
         5_000,
@@ -2146,7 +2630,8 @@ describe("twitch integrity refresh", () => {
       await expect(owner).rejects.toBe(reason);
 
       try {
-        const replacement = ensureTwitchIntegrityWithBrowser(registry,
+        const replacement = ensureTwitchIntegrityWithBrowser(
+          registry,
           browser,
           "https://www.twitch.tv/drops/inventory",
           5_000,
@@ -2174,7 +2659,8 @@ describe("twitch integrity refresh", () => {
         browser.tabs.create.mockResolvedValue({ id: 59 });
         const events: EngineEvent[] = [];
 
-        const ok = await ensureTwitchIntegrityWithBrowser(registry, 
+        const ok = await ensureTwitchIntegrityWithBrowser(
+          registry,
           browser,
           "https://www.twitch.tv/drops/inventory",
           50,
@@ -2182,13 +2668,13 @@ describe("twitch integrity refresh", () => {
           { reason, forceRefresh },
         );
 
-        const timeouts = events.filter((event) =>
-          event.category === "diagnostic"
-          && event.message.includes("Timed out waiting for a Twitch integrity token"));
+        const timeouts = events.filter(
+          (event) =>
+            event.category === "diagnostic"
+            && event.message.includes("Timed out waiting for a Twitch integrity token"),
+        );
         expect(ok).toBe(false);
-        expect(timeouts).toEqual([
-          expect.objectContaining({ level }),
-        ]);
+        expect(timeouts).toEqual([expect.objectContaining({ level })]);
       },
     );
 
@@ -2203,7 +2689,8 @@ describe("twitch integrity refresh", () => {
         browser.tabs.create.mockRejectedValue(new Error("tab open denied"));
         const events: EngineEvent[] = [];
 
-        const ok = await ensureTwitchIntegrityWithBrowser(registry, 
+        const ok = await ensureTwitchIntegrityWithBrowser(
+          registry,
           browser,
           "https://www.twitch.tv/drops/inventory",
           50,
@@ -2211,13 +2698,13 @@ describe("twitch integrity refresh", () => {
           { reason, forceRefresh },
         );
 
-        const openFailures = events.filter((event) =>
-          event.category === "diagnostic"
-          && event.message.includes("Could not open a twitch.tv tab"));
+        const openFailures = events.filter(
+          (event) =>
+            event.category === "diagnostic"
+            && event.message.includes("Could not open a twitch.tv tab"),
+        );
         expect(ok).toBe(false);
-        expect(openFailures).toEqual([
-          expect.objectContaining({ level }),
-        ]);
+        expect(openFailures).toEqual([expect.objectContaining({ level })]);
       },
     );
 
@@ -2230,17 +2717,27 @@ describe("twitch integrity refresh", () => {
       browser.tabs.query.mockResolvedValue([{ id: 3 }]);
       const events: EngineEvent[] = [];
 
-      await ensureTwitchIntegrityWithBrowser(registry, browser, "https://www.twitch.tv/drops/inventory", 50, (event) => events.push(event));
+      await ensureTwitchIntegrityWithBrowser(
+        registry,
+        browser,
+        "https://www.twitch.tv/drops/inventory",
+        50,
+        (event) => events.push(event),
+      );
 
       expect(browser.tabs.create).not.toHaveBeenCalled();
-      expect(events).toContainEqual(expect.objectContaining({
-        level: "debug",
-        message: expect.stringContaining("from a user_tab page context (tab 3)"),
-      }));
-      expect(events).toContainEqual(expect.objectContaining({
-        level: "warn",
-        message: expect.stringContaining("from a user_tab page context"),
-      }));
+      expect(events).toContainEqual(
+        expect.objectContaining({
+          level: "debug",
+          message: expect.stringContaining("from a user_tab page context (tab 3)"),
+        }),
+      );
+      expect(events).toContainEqual(
+        expect.objectContaining({
+          level: "warn",
+          message: expect.stringContaining("from a user_tab page context"),
+        }),
+      );
     });
 
     it("names a freshly created tab as the page context it waited on", async () => {
@@ -2249,12 +2746,20 @@ describe("twitch integrity refresh", () => {
       browser.tabs.create.mockResolvedValue({ id: 21 });
       const events: EngineEvent[] = [];
 
-      await ensureTwitchIntegrityWithBrowser(registry, browser, "https://www.twitch.tv/drops/inventory", 50, (event) => events.push(event));
+      await ensureTwitchIntegrityWithBrowser(
+        registry,
+        browser,
+        "https://www.twitch.tv/drops/inventory",
+        50,
+        (event) => events.push(event),
+      );
 
-      expect(events).toContainEqual(expect.objectContaining({
-        level: "debug",
-        message: expect.stringContaining("from a created page context (tab 21)"),
-      }));
+      expect(events).toContainEqual(
+        expect.objectContaining({
+          level: "debug",
+          message: expect.stringContaining("from a created page context (tab 21)"),
+        }),
+      );
     });
 
     // A cold twitch.tv context reports `status === "complete"` as soon as the
@@ -2268,12 +2773,22 @@ describe("twitch integrity refresh", () => {
         browser.tabs.create.mockResolvedValue({ id: 21 });
         const events: EngineEvent[] = [];
 
-        await ensureTwitchIntegrityWithBrowser(registry, browser, "https://www.twitch.tv/drops/inventory", 50, (event) => events.push(event));
+        await ensureTwitchIntegrityWithBrowser(
+          registry,
+          browser,
+          "https://www.twitch.tv/drops/inventory",
+          50,
+          (event) => events.push(event),
+        );
 
-        expect(events).toContainEqual(expect.objectContaining({
-          level: "warn",
-          message: expect.stringMatching(/tab ready at \d+ms, first GQL at never, \d+ms since the tab was created/),
-        }));
+        expect(events).toContainEqual(
+          expect.objectContaining({
+            level: "warn",
+            message: expect.stringMatching(
+              /tab ready at \d+ms, first GQL at never, \d+ms since the tab was created/,
+            ),
+          }),
+        );
       });
 
       // An anonymous GQL request carries no Client-Integrity header, so the
@@ -2285,15 +2800,23 @@ describe("twitch integrity refresh", () => {
         browser.tabs.create.mockResolvedValue({ id: 21 });
         const events: EngineEvent[] = [];
 
-        const pending = ensureTwitchIntegrityWithBrowser(registry, browser, "https://www.twitch.tv/drops/inventory", 50, (event) => events.push(event));
+        const pending = ensureTwitchIntegrityWithBrowser(
+          registry,
+          browser,
+          "https://www.twitch.tv/drops/inventory",
+          50,
+          (event) => events.push(event),
+        );
         await vi.waitFor(() => expect(browser.tabs.create).toHaveBeenCalled());
         noteTwitchGqlRequest(registry, 21);
         await pending;
 
-        expect(events).toContainEqual(expect.objectContaining({
-          level: "warn",
-          message: expect.stringMatching(/first GQL at \d+ms/),
-        }));
+        expect(events).toContainEqual(
+          expect.objectContaining({
+            level: "warn",
+            message: expect.stringMatching(/first GQL at \d+ms/),
+          }),
+        );
       });
 
       it("ignores GQL requests from tabs other than the booting context", async () => {
@@ -2302,15 +2825,23 @@ describe("twitch integrity refresh", () => {
         browser.tabs.create.mockResolvedValue({ id: 21 });
         const events: EngineEvent[] = [];
 
-        const pending = ensureTwitchIntegrityWithBrowser(registry, browser, "https://www.twitch.tv/drops/inventory", 50, (event) => events.push(event));
+        const pending = ensureTwitchIntegrityWithBrowser(
+          registry,
+          browser,
+          "https://www.twitch.tv/drops/inventory",
+          50,
+          (event) => events.push(event),
+        );
         await vi.waitFor(() => expect(browser.tabs.create).toHaveBeenCalled());
         noteTwitchGqlRequest(registry, 999);
         await pending;
 
-        expect(events).toContainEqual(expect.objectContaining({
-          level: "warn",
-          message: expect.stringContaining("first GQL at never"),
-        }));
+        expect(events).toContainEqual(
+          expect.objectContaining({
+            level: "warn",
+            message: expect.stringContaining("first GQL at never"),
+          }),
+        );
       });
 
       // A 20s success is the same latency problem as a 12s timeout; only logging
@@ -2321,15 +2852,25 @@ describe("twitch integrity refresh", () => {
         browser.tabs.create.mockResolvedValue({ id: 21 });
         const events: EngineEvent[] = [];
 
-        const pending = ensureTwitchIntegrityWithBrowser(registry, browser, "https://www.twitch.tv/drops/inventory", 5_000, (event) => events.push(event));
+        const pending = ensureTwitchIntegrityWithBrowser(
+          registry,
+          browser,
+          "https://www.twitch.tv/drops/inventory",
+          5_000,
+          (event) => events.push(event),
+        );
         await vi.waitFor(() => expect(browser.tabs.create).toHaveBeenCalled());
         setTwitchIntegrity(registry, fresh(), { isNew: true });
 
         await expect(pending).resolves.toBe(true);
-        expect(events).toContainEqual(expect.objectContaining({
-          level: "debug",
-          message: expect.stringMatching(/Waited \d+ms for a Twitch integrity token from a created page context \(tab ready at/),
-        }));
+        expect(events).toContainEqual(
+          expect.objectContaining({
+            level: "debug",
+            message: expect.stringMatching(
+              /Waited \d+ms for a Twitch integrity token from a created page context \(tab ready at/,
+            ),
+          }),
+        );
       });
     });
 
@@ -2357,7 +2898,8 @@ describe("twitch integrity refresh", () => {
         setTwitchIntegrity(registry, rejected());
 
         setTimeout(() => setTwitchIntegrity(registry, replacement(), { isNew: true }), 20);
-        const ok = await ensureTwitchIntegrityWithBrowser(registry, 
+        const ok = await ensureTwitchIntegrityWithBrowser(
+          registry,
           browser,
           "https://www.twitch.tv/drops/inventory",
           5_000,
@@ -2376,7 +2918,8 @@ describe("twitch integrity refresh", () => {
 
         // Re-capturing the same token must not satisfy the wait.
         setTimeout(() => setTwitchIntegrity(registry, rejected(), { isNew: true }), 10);
-        const ok = await ensureTwitchIntegrityWithBrowser(registry, 
+        const ok = await ensureTwitchIntegrityWithBrowser(
+          registry,
           browser,
           "https://www.twitch.tv/drops/inventory",
           60,
@@ -2393,7 +2936,8 @@ describe("twitch integrity refresh", () => {
         setTwitchIntegrity(registry, rejected(), { sourceTabId: 7 });
         let capturedIntegrity: string | undefined;
 
-        const pending = ensureTwitchIntegrityWithBrowser(registry, 
+        const pending = ensureTwitchIntegrityWithBrowser(
+          registry,
           browser,
           "https://www.twitch.tv/drops/inventory",
           5_000,
@@ -2401,7 +2945,9 @@ describe("twitch integrity refresh", () => {
           {
             forceRefresh: true,
             rejectedToken: rejected().integrity,
-            onIntegrityCaptured: (value) => { capturedIntegrity = value.integrity; },
+            onIntegrityCaptured: (value) => {
+              capturedIntegrity = value.integrity;
+            },
           },
         );
         await vi.waitFor(() => expect(browser.tabs.create).toHaveBeenCalledOnce());
@@ -2427,7 +2973,8 @@ describe("twitch integrity refresh", () => {
         browser.tabs.create.mockResolvedValue({ id: 33 });
         setTwitchIntegrity(registry, rejected(), { sourceTabId: 7 });
 
-        const pending = ensureTwitchIntegrityWithBrowser(registry, 
+        const pending = ensureTwitchIntegrityWithBrowser(
+          registry,
           browser,
           "https://www.twitch.tv/drops/inventory",
           50,
@@ -2448,7 +2995,8 @@ describe("twitch integrity refresh", () => {
         setTwitchIntegrity(registry, replacement(), { sourceTabId: 34 });
         setTwitchIntegrity(registry, rejected(), { sourceTabId: 7 });
 
-        const pending = ensureTwitchIntegrityWithBrowser(registry, 
+        const pending = ensureTwitchIntegrityWithBrowser(
+          registry,
           browser,
           "https://www.twitch.tv/drops/inventory",
           50,
@@ -2468,7 +3016,8 @@ describe("twitch integrity refresh", () => {
         setTwitchIntegrity(registry, rejected());
 
         setTimeout(() => setTwitchIntegrity(registry, replacement(), { isNew: true }), 20);
-        const ok = await ensureTwitchIntegrityWithBrowser(registry, 
+        const ok = await ensureTwitchIntegrityWithBrowser(
+          registry,
           browser,
           "https://www.twitch.tv/drops/inventory",
           5_000,
@@ -2483,7 +3032,9 @@ describe("twitch integrity refresh", () => {
           active: false,
         });
         // The user's own twitch.tv tab must never be navigated, reloaded or closed.
-        const touchedTabIds = (browser.tabs.update.mock.calls as unknown as unknown[][]).map((call) => call[0]);
+        const touchedTabIds = (browser.tabs.update.mock.calls as unknown as unknown[][]).map(
+          (call) => call[0],
+        );
         expect(touchedTabIds).not.toContain(3);
         expect(browser.tabs.remove).not.toHaveBeenCalledWith(3);
       });
@@ -2499,11 +3050,15 @@ describe("twitch integrity refresh", () => {
             ownedByExtension: true,
           },
         });
-        browser.tabs.get.mockResolvedValue({ id: 44, url: "https://www.twitch.tv/drops/inventory" });
+        browser.tabs.get.mockResolvedValue({
+          id: 44,
+          url: "https://www.twitch.tv/drops/inventory",
+        });
         setTwitchIntegrity(registry, rejected());
 
         setTimeout(() => setTwitchIntegrity(registry, replacement(), { isNew: true }), 20);
-        const ok = await ensureTwitchIntegrityWithBrowser(registry, 
+        const ok = await ensureTwitchIntegrityWithBrowser(
+          registry,
           browser,
           "https://www.twitch.tv/drops/inventory",
           5_000,
@@ -2529,9 +3084,30 @@ describe("twitch integrity refresh", () => {
 
         setTimeout(() => setTwitchIntegrity(registry, replacement(), { isNew: true }), 20);
         const results = await Promise.all([
-          ensureTwitchIntegrityWithBrowser(registry, browser, "https://www.twitch.tv/drops/inventory", 5_000, undefined, { forceRefresh: true }),
-          ensureTwitchIntegrityWithBrowser(registry, browser, "https://www.twitch.tv/drops/inventory", 5_000, undefined, { forceRefresh: true }),
-          ensureTwitchIntegrityWithBrowser(registry, browser, "https://www.twitch.tv/drops/inventory", 5_000, undefined, { forceRefresh: true }),
+          ensureTwitchIntegrityWithBrowser(
+            registry,
+            browser,
+            "https://www.twitch.tv/drops/inventory",
+            5_000,
+            undefined,
+            { forceRefresh: true },
+          ),
+          ensureTwitchIntegrityWithBrowser(
+            registry,
+            browser,
+            "https://www.twitch.tv/drops/inventory",
+            5_000,
+            undefined,
+            { forceRefresh: true },
+          ),
+          ensureTwitchIntegrityWithBrowser(
+            registry,
+            browser,
+            "https://www.twitch.tv/drops/inventory",
+            5_000,
+            undefined,
+            { forceRefresh: true },
+          ),
         ]);
 
         expect(results).toEqual([true, true, true]);
@@ -2551,7 +3127,8 @@ describe("twitch integrity refresh", () => {
         const callerEvents: EngineEvent[] = [];
         const acquisitionEvents: EngineEvent[] = [];
 
-        const pending = ensureTwitchIntegrityWithBrowser(registry,
+        const pending = ensureTwitchIntegrityWithBrowser(
+          registry,
           browser,
           "https://www.twitch.tv/drops/inventory",
           5_000,
@@ -2573,24 +3150,31 @@ describe("twitch integrity refresh", () => {
 
         // Its progress lands in the acquisition's reporter, not in the collector
         // of the caller that left.
-        const messages = acquisitionEvents.map((event) => event.category === "diagnostic" ? event.message : event.code);
-        expect(messages).toEqual(expect.arrayContaining([
-          expect.stringContaining("Twitch rejected the current integrity token"),
-          expect.stringContaining("Waiting up to 5000ms"),
-          expect.stringMatching(/^Waited \d+ms/),
-          "Closed temporary page context tab 43 on www.twitch.tv",
-        ]));
+        const messages = acquisitionEvents.map((event) =>
+          event.category === "diagnostic" ? event.message : event.code,
+        );
+        expect(messages).toEqual(
+          expect.arrayContaining([
+            expect.stringContaining("Twitch rejected the current integrity token"),
+            expect.stringContaining("Waiting up to 5000ms"),
+            expect.stringMatching(/^Waited \d+ms/),
+            "Closed temporary page context tab 43 on www.twitch.tv",
+          ]),
+        );
         expect(callerEvents).toEqual([]);
 
         // The next operation rejected on the same token takes the replacement
         // instead of booting another context.
-        await expect(ensureTwitchIntegrityWithBrowser(registry,
-          browser,
-          "https://www.twitch.tv/drops/inventory",
-          5_000,
-          undefined,
-          { forceRefresh: true, rejectedToken: "rejected-token" },
-        )).resolves.toBe(true);
+        await expect(
+          ensureTwitchIntegrityWithBrowser(
+            registry,
+            browser,
+            "https://www.twitch.tv/drops/inventory",
+            5_000,
+            undefined,
+            { forceRefresh: true, rejectedToken: "rejected-token" },
+          ),
+        ).resolves.toBe(true);
         expect(browser.tabs.create).toHaveBeenCalledOnce();
       });
 
@@ -2600,9 +3184,16 @@ describe("twitch integrity refresh", () => {
         setTwitchIntegrity(registry, rejected());
 
         setTimeout(() => setTwitchIntegrity(registry, replacement(), { isNew: true }), 20);
-        await expect(ensureTwitchIntegrityWithBrowser(registry, 
-          browser, "https://www.twitch.tv/drops/inventory", 5_000, undefined, { forceRefresh: true },
-        )).resolves.toBe(true);
+        await expect(
+          ensureTwitchIntegrityWithBrowser(
+            registry,
+            browser,
+            "https://www.twitch.tv/drops/inventory",
+            5_000,
+            undefined,
+            { forceRefresh: true },
+          ),
+        ).resolves.toBe(true);
         const contextsAfterFirstRefresh = browser.tabs.create.mock.calls.length;
 
         // Twitch later rejects the replacement too. Even though replacement-token
@@ -2610,8 +3201,13 @@ describe("twitch integrity refresh", () => {
         // page context and stay pending until a genuinely different token lands —
         // never hand back the first refresh's settled result.
         let settled = false;
-        const second = ensureTwitchIntegrityWithBrowser(registry, 
-          browser, "https://www.twitch.tv/drops/inventory", 5_000, undefined, { forceRefresh: true },
+        const second = ensureTwitchIntegrityWithBrowser(
+          registry,
+          browser,
+          "https://www.twitch.tv/drops/inventory",
+          5_000,
+          undefined,
+          { forceRefresh: true },
         ).then((ok) => {
           settled = true;
           return ok;
@@ -2622,7 +3218,11 @@ describe("twitch integrity refresh", () => {
         });
         expect(settled).toBe(false);
 
-        setTwitchIntegrity(registry, { ...replacement(), integrity: "third-token" }, { isNew: true });
+        setTwitchIntegrity(
+          registry,
+          { ...replacement(), integrity: "third-token" },
+          { isNew: true },
+        );
         await expect(second).resolves.toBe(true);
       });
 
@@ -2637,19 +3237,31 @@ describe("twitch integrity refresh", () => {
 
         // The first operation's refresh lands a replacement.
         setTimeout(() => setTwitchIntegrity(registry, replacement(), { isNew: true }), 20);
-        await expect(ensureTwitchIntegrityWithBrowser(registry, 
-          browser, "https://www.twitch.tv/drops/inventory", 5_000, undefined,
-          { forceRefresh: true, rejectedToken: staleToken },
-        )).resolves.toBe(true);
+        await expect(
+          ensureTwitchIntegrityWithBrowser(
+            registry,
+            browser,
+            "https://www.twitch.tv/drops/inventory",
+            5_000,
+            undefined,
+            { forceRefresh: true, rejectedToken: staleToken },
+          ),
+        ).resolves.toBe(true);
         const contextsAfterFirst = browser.tabs.create.mock.calls.length;
 
         // The rest were refused on the same stale token before that landed. They
         // have never tried the replacement, so nothing needs minting for them.
         for (let index = 0; index < 5; index += 1) {
-          await expect(ensureTwitchIntegrityWithBrowser(registry, 
-            browser, "https://www.twitch.tv/drops/inventory", 5_000, undefined,
-            { forceRefresh: true, rejectedToken: staleToken },
-          )).resolves.toBe(true);
+          await expect(
+            ensureTwitchIntegrityWithBrowser(
+              registry,
+              browser,
+              "https://www.twitch.tv/drops/inventory",
+              5_000,
+              undefined,
+              { forceRefresh: true, rejectedToken: staleToken },
+            ),
+          ).resolves.toBe(true);
         }
 
         expect(browser.tabs.create.mock.calls.length).toBe(contextsAfterFirst);
@@ -2663,15 +3275,23 @@ describe("twitch integrity refresh", () => {
         setTwitchIntegrity(registry, replacement());
         const contextsBefore = browser.tabs.create.mock.calls.length;
 
-        const pending = ensureTwitchIntegrityWithBrowser(registry, 
-          browser, "https://www.twitch.tv/drops/inventory", 5_000, undefined,
+        const pending = ensureTwitchIntegrityWithBrowser(
+          registry,
+          browser,
+          "https://www.twitch.tv/drops/inventory",
+          5_000,
+          undefined,
           { forceRefresh: true, rejectedToken: replacement().integrity },
         );
         await vi.waitFor(() => {
           expect(browser.tabs.create.mock.calls.length).toBeGreaterThan(contextsBefore);
         });
 
-        setTwitchIntegrity(registry, { ...replacement(), integrity: "fourth-token" }, { isNew: true });
+        setTwitchIntegrity(
+          registry,
+          { ...replacement(), integrity: "fourth-token" },
+          { isNew: true },
+        );
         await expect(pending).resolves.toBe(true);
       });
 
@@ -2684,8 +3304,13 @@ describe("twitch integrity refresh", () => {
         browser.tabs.query.mockResolvedValue([{ id: 3 }]);
         browser.tabs.create.mockResolvedValue({ id: 43 });
 
-        const pending = ensureTwitchIntegrityWithBrowser(registry, 
-          browser, "https://www.twitch.tv/drops/inventory", 50, undefined, { forceRefresh: true },
+        const pending = ensureTwitchIntegrityWithBrowser(
+          registry,
+          browser,
+          "https://www.twitch.tv/drops/inventory",
+          50,
+          undefined,
+          { forceRefresh: true },
         );
         await pending;
 
@@ -2697,7 +3322,11 @@ describe("twitch integrity refresh", () => {
         const browser = browserMock();
         setTwitchIntegrity(registry, fresh());
 
-        const ok = await ensureTwitchIntegrityWithBrowser(registry, browser, "https://www.twitch.tv/drops/inventory");
+        const ok = await ensureTwitchIntegrityWithBrowser(
+          registry,
+          browser,
+          "https://www.twitch.tv/drops/inventory",
+        );
 
         expect(ok).toBe(true);
         expect(browser.tabs.query).not.toHaveBeenCalled();
@@ -2711,7 +3340,12 @@ describe("fetchTwitchInBackgroundWith", () => {
   const cookieApi = {
     cookies: {
       get: vi.fn(async ({ name }: { name: string }) =>
-        name === "auth-token" ? { value: "tok123" } : name === "unique_id" ? { value: "dev456" } : null),
+        name === "auth-token"
+          ? { value: "tok123" }
+          : name === "unique_id"
+            ? { value: "dev456" }
+            : null,
+      ),
     },
   };
 
@@ -2721,19 +3355,27 @@ describe("fetchTwitchInBackgroundWith", () => {
 
   it("attaches the OAuth token, device id and a session id for authenticated GQL", async () => {
     let captured: { url: string; init: RequestInit } | undefined;
-    vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit) => {
-      captured = { url, init };
-      return new Response(JSON.stringify({ data: { currentUser: { id: "u" } } }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      });
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init: RequestInit) => {
+        captured = { url, init };
+        return new Response(JSON.stringify({ data: { currentUser: { id: "u" } } }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }),
+    );
 
-    const result = await fetchTwitchInBackgroundWith(registry, cookieApi, "https://gql.twitch.tv/gql", {
-      method: "POST",
-      headers: { "Client-ID": "kimne78kx3ncx6brgo4mv6wki5h1ko" },
-      body: "{}",
-    });
+    const result = await fetchTwitchInBackgroundWith(
+      registry,
+      cookieApi,
+      "https://gql.twitch.tv/gql",
+      {
+        method: "POST",
+        headers: { "Client-ID": "kimne78kx3ncx6brgo4mv6wki5h1ko" },
+        body: "{}",
+      },
+    );
 
     const headers = new Headers(captured?.init.headers);
     expect(headers.get("authorization")).toBe("OAuth tok123");
@@ -2749,29 +3391,42 @@ describe("fetchTwitchInBackgroundWith", () => {
       { data: { dropCampaign: { id: "first" } } },
       { data: { dropCampaign: { id: "second" } } },
     ];
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(response), {
-      status: 200,
-      headers: { "content-type": "application/json" },
-    })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify(response), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          }),
+      ),
+    );
 
-    await expect(fetchTwitchInBackgroundWith(registry, 
-      cookieApi,
-      "https://gql.twitch.tv/gql",
-      { method: "POST", body: "[]" },
-    )).resolves.toEqual(response);
+    await expect(
+      fetchTwitchInBackgroundWith(registry, cookieApi, "https://gql.twitch.tv/gql", {
+        method: "POST",
+        body: "[]",
+      }),
+    ).resolves.toEqual(response);
 
     vi.unstubAllGlobals();
   });
 
   it("replays a captured integrity token with its matching device and session id", async () => {
     let captured: RequestInit | undefined;
-    vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
-      captured = init;
-      return new Response(JSON.stringify({ data: { claimDropRewards: { status: "ELIGIBLE_FOR_ALL" } } }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      });
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: RequestInit) => {
+        captured = init;
+        return new Response(
+          JSON.stringify({ data: { claimDropRewards: { status: "ELIGIBLE_FOR_ALL" } } }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        );
+      }),
+    );
 
     setTwitchIntegrity(registry, {
       integrity: "integrity-token",
@@ -2780,7 +3435,10 @@ describe("fetchTwitchInBackgroundWith", () => {
       expiresAt: Date.now() + 60_000,
     });
 
-    await fetchTwitchInBackgroundWith(registry, cookieApi, "https://gql.twitch.tv/gql", { method: "POST", body: "{}" });
+    await fetchTwitchInBackgroundWith(registry, cookieApi, "https://gql.twitch.tv/gql", {
+      method: "POST",
+      body: "{}",
+    });
 
     const headers = new Headers(captured?.headers);
     expect(headers.get("client-integrity")).toBe("integrity-token");
@@ -2794,13 +3452,16 @@ describe("fetchTwitchInBackgroundWith", () => {
 
   it("ignores an expired integrity token and falls back to the default headers", async () => {
     let captured: RequestInit | undefined;
-    vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
-      captured = init;
-      return new Response(JSON.stringify({ data: {} }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      });
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: RequestInit) => {
+        captured = init;
+        return new Response(JSON.stringify({ data: {} }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }),
+    );
 
     setTwitchIntegrity(registry, {
       integrity: "stale-token",
@@ -2809,7 +3470,10 @@ describe("fetchTwitchInBackgroundWith", () => {
       expiresAt: Date.now() - 1,
     });
 
-    await fetchTwitchInBackgroundWith(registry, cookieApi, "https://gql.twitch.tv/gql", { method: "POST", body: "{}" });
+    await fetchTwitchInBackgroundWith(registry, cookieApi, "https://gql.twitch.tv/gql", {
+      method: "POST",
+      body: "{}",
+    });
 
     const headers = new Headers(captured?.headers);
     expect(headers.has("client-integrity")).toBe(false);
@@ -2820,15 +3484,21 @@ describe("fetchTwitchInBackgroundWith", () => {
 
   it("omits credentials and auth for anonymous public queries", async () => {
     let captured: RequestInit | undefined;
-    vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
-      captured = init;
-      return new Response(JSON.stringify({ data: { user: null } }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      });
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: RequestInit) => {
+        captured = init;
+        return new Response(JSON.stringify({ data: { user: null } }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }),
+    );
 
-    await fetchTwitchInBackgroundWith(registry, cookieApi, "https://gql.twitch.tv/gql", { credentials: "omit", body: "{}" });
+    await fetchTwitchInBackgroundWith(registry, cookieApi, "https://gql.twitch.tv/gql", {
+      credentials: "omit",
+      body: "{}",
+    });
 
     expect(cookieApi.cookies.get).not.toHaveBeenCalled();
     expect(new Headers(captured?.headers).has("authorization")).toBe(false);
@@ -2837,9 +3507,15 @@ describe("fetchTwitchInBackgroundWith", () => {
   });
 
   it("returns a serializable diagnostic envelope when the GQL fetch is blocked", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("Failed to fetch"); }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("Failed to fetch");
+      }),
+    );
 
-    const result = await fetchTwitchInBackgroundWith<{ __twitchGqlError?: string }>(registry, 
+    const result = await fetchTwitchInBackgroundWith<{ __twitchGqlError?: string }>(
+      registry,
       cookieApi,
       "https://gql.twitch.tv/gql",
       { body: "{}" },
@@ -2851,12 +3527,22 @@ describe("fetchTwitchInBackgroundWith", () => {
   });
 
   it("returns channel page HTML for non-GQL Twitch URLs", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response("<html>live</html>", {
-      status: 200,
-      headers: { "content-type": "text/html" },
-    })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response("<html>live</html>", {
+            status: 200,
+            headers: { "content-type": "text/html" },
+          }),
+      ),
+    );
 
-    const result = await fetchTwitchInBackgroundWith<{ html: string }>(registry, cookieApi, "https://www.twitch.tv/creator");
+    const result = await fetchTwitchInBackgroundWith<{ html: string }>(
+      registry,
+      cookieApi,
+      "https://www.twitch.tv/creator",
+    );
 
     expect(result.html).toBe("<html>live</html>");
     vi.unstubAllGlobals();
@@ -2866,7 +3552,9 @@ describe("fetchTwitchInBackgroundWith", () => {
 describe("fetchKickInBackgroundWith", () => {
   const cookieApi = {
     cookies: {
-      get: vi.fn(async ({ name }: { name: string }) => (name === "session_token" ? { value: "sess%20789" } : null)),
+      get: vi.fn(async ({ name }: { name: string }) =>
+        name === "session_token" ? { value: "sess%20789" } : null,
+      ),
     },
   };
 
@@ -2876,10 +3564,16 @@ describe("fetchKickInBackgroundWith", () => {
 
   it("replays the session_token cookie as a Bearer for web.kick.com", async () => {
     let captured: { url: string; init: RequestInit } | undefined;
-    vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit) => {
-      captured = { url, init };
-      return new Response(JSON.stringify({ data: [] }), { status: 200, headers: { "content-type": "application/json" } });
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init: RequestInit) => {
+        captured = { url, init };
+        return new Response(JSON.stringify({ data: [] }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }),
+    );
 
     const result = await fetchKickInBackgroundWith<{ data: unknown[] }>(
       cookieApi,
@@ -2897,10 +3591,16 @@ describe("fetchKickInBackgroundWith", () => {
     // Kick serves this endpoint anonymously as `200 {}` rather than a 401, so without the
     // Bearer the auth probe cannot tell a signed-in account from a signed-out one.
     let captured: RequestInit | undefined;
-    vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
-      captured = init;
-      return new Response(JSON.stringify({ id: 42 }), { status: 200, headers: { "content-type": "application/json" } });
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: RequestInit) => {
+        captured = init;
+        return new Response(JSON.stringify({ id: 42 }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }),
+    );
 
     try {
       await fetchKickInBackgroundWith(cookieApi, "https://kick.com/api/v1/user");
@@ -2913,10 +3613,16 @@ describe("fetchKickInBackgroundWith", () => {
 
   it("replays the session_token cookie as a Bearer for the followed-live endpoint", async () => {
     let captured: RequestInit | undefined;
-    vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
-      captured = init;
-      return new Response(JSON.stringify([]), { status: 200, headers: { "content-type": "application/json" } });
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: RequestInit) => {
+        captured = init;
+        return new Response(JSON.stringify([]), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }),
+    );
 
     try {
       await fetchKickInBackgroundWith(cookieApi, "https://kick.com/api/v1/user/livestreams");
@@ -2930,35 +3636,52 @@ describe("fetchKickInBackgroundWith", () => {
   // Shared with cycleKickHeaders.test.ts (kickHeaders) and pageFetchJson's own
   // test, so all three copies of the predicate are pinned to the same
   // expectations. See packages/core/src/core/kickBearerCases.ts.
-  it.each(KICK_BEARER_NEAR_MISS_CASES)("never attaches the session token to a %s", async (_case, url) => {
-    let captured: RequestInit | undefined;
-    vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
-      captured = init;
-      return new Response(JSON.stringify({}), { status: 200, headers: { "content-type": "application/json" } });
-    }));
+  it.each(KICK_BEARER_NEAR_MISS_CASES)(
+    "never attaches the session token to a %s",
+    async (_case, url) => {
+      let captured: RequestInit | undefined;
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (_url: string, init: RequestInit) => {
+          captured = init;
+          return new Response(JSON.stringify({}), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
+        }),
+      );
 
-    try {
-      await fetchKickInBackgroundWith(cookieApi, url);
+      try {
+        await fetchKickInBackgroundWith(cookieApi, url);
 
-      expect(new Headers(captured?.headers).has("authorization")).toBe(false);
-      expect(cookieApi.cookies.get).not.toHaveBeenCalled();
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
+        expect(new Headers(captured?.headers).has("authorization")).toBe(false);
+        expect(cookieApi.cookies.get).not.toHaveBeenCalled();
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    },
+  );
 
   it("throws KickWafBlockedError on a 403 security-policy block", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(
-      JSON.stringify({
-        error: "Request blocked by security policy.",
-        reference: "9e4db7e3",
-        token: "must-not-survive",
-      }),
-      { status: 403, headers: { "content-type": "application/json" } },
-    )));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              error: "Request blocked by security policy.",
+              reference: "9e4db7e3",
+              token: "must-not-survive",
+            }),
+            { status: 403, headers: { "content-type": "application/json" } },
+          ),
+      ),
+    );
 
-    const error = await fetchKickInBackgroundWith(cookieApi, "https://web.kick.com/api/v1/drops/progress")
-      .catch((caught: unknown) => caught);
+    const error = await fetchKickInBackgroundWith(
+      cookieApi,
+      "https://web.kick.com/api/v1/drops/progress",
+    ).catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(KickWafBlockedError);
     if (!(error instanceof KickWafBlockedError)) throw new Error("Expected KickWafBlockedError");
@@ -2976,13 +3699,21 @@ describe("fetchKickInBackgroundWith", () => {
     [401, "Unauthenticated", "authentication_rejected"],
     [500, "Internal Server Error", "http_error"],
   ] as const)("classifies HTTP %s as %s", async (status, reason, kind) => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(
-      JSON.stringify({ error: reason, body: "must-not-survive" }),
-      { status, headers: { "content-type": "application/json" } },
-    )));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ error: reason, body: "must-not-survive" }), {
+            status,
+            headers: { "content-type": "application/json" },
+          }),
+      ),
+    );
 
-    const error = await fetchKickInBackgroundWith(cookieApi, "https://web.kick.com/api/v1/drops/progress")
-      .catch((caught: unknown) => caught);
+    const error = await fetchKickInBackgroundWith(
+      cookieApi,
+      "https://web.kick.com/api/v1/drops/progress",
+    ).catch((caught: unknown) => caught);
 
     expect(isSafeFetchError(error)).toBe(true);
     if (!isSafeFetchError(error)) throw new Error("Expected SafeFetchError");
@@ -2992,31 +3723,53 @@ describe("fetchKickInBackgroundWith", () => {
   });
 
   it("treats a network/CORS rejection as a WAF block", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("Failed to fetch"); }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("Failed to fetch");
+      }),
+    );
 
-    await expect(fetchKickInBackgroundWith(cookieApi, "https://websockets.kick.com/viewer/v1/token"))
-      .rejects.toBeInstanceOf(KickWafBlockedError);
+    await expect(
+      fetchKickInBackgroundWith(cookieApi, "https://websockets.kick.com/viewer/v1/token"),
+    ).rejects.toBeInstanceOf(KickWafBlockedError);
     vi.unstubAllGlobals();
   });
 
   it("treats a non-JSON 200 from an API endpoint as a challenge block", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response("<html>challenge</html>", {
-      status: 200,
-      headers: { "content-type": "text/html" },
-    })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response("<html>challenge</html>", {
+            status: 200,
+            headers: { "content-type": "text/html" },
+          }),
+      ),
+    );
 
-    await expect(fetchKickInBackgroundWith(cookieApi, "https://kick.com/api/v2/channels/someone"))
-      .rejects.toBeInstanceOf(KickWafBlockedError);
+    await expect(
+      fetchKickInBackgroundWith(cookieApi, "https://kick.com/api/v2/channels/someone"),
+    ).rejects.toBeInstanceOf(KickWafBlockedError);
     vi.unstubAllGlobals();
   });
 
   it("returns HTML for a non-API kick.com page (channel page fallback)", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response("<html>is_live</html>", {
-      status: 200,
-      headers: { "content-type": "text/html" },
-    })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response("<html>is_live</html>", {
+            status: 200,
+            headers: { "content-type": "text/html" },
+          }),
+      ),
+    );
 
-    const result = await fetchKickInBackgroundWith<{ html: string }>(cookieApi, "https://kick.com/streamer");
+    const result = await fetchKickInBackgroundWith<{ html: string }>(
+      cookieApi,
+      "https://kick.com/streamer",
+    );
 
     expect(result.html).toBe("<html>is_live</html>");
     vi.unstubAllGlobals();
@@ -3034,41 +3787,59 @@ describe("pageFetchJson", () => {
     vi.stubGlobal("document", { cookie: "session_token=sess%20789" });
   });
 
-  it.each(KICK_BEARER_POSITIVE_CASES)("replays the session_token cookie as a Bearer for %s", async (_case, url) => {
-    let captured: RequestInit | undefined;
-    vi.stubGlobal("fetch", vi.fn(async (_target: string, init: RequestInit) => {
-      captured = init;
-      return new Response(JSON.stringify({}), { status: 200, headers: { "content-type": "application/json" } });
-    }));
+  it.each(KICK_BEARER_POSITIVE_CASES)(
+    "replays the session_token cookie as a Bearer for %s",
+    async (_case, url) => {
+      let captured: RequestInit | undefined;
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (_target: string, init: RequestInit) => {
+          captured = init;
+          return new Response(JSON.stringify({}), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
+        }),
+      );
 
-    try {
-      await pageFetchJson(url);
+      try {
+        await pageFetchJson(url);
 
-      expect(new Headers(captured?.headers).get("authorization")).toBe("Bearer sess 789");
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
+        expect(new Headers(captured?.headers).get("authorization")).toBe("Bearer sess 789");
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    },
+  );
 
   // Shared with this file's fetchKickInBackgroundWith suite and
   // cycleKickHeaders.test.ts (kickHeaders), so all three copies of the
   // predicate are pinned to the same expectations. See
   // packages/core/src/core/kickBearerCases.ts.
-  it.each(KICK_BEARER_NEAR_MISS_CASES)("never attaches the session token to a %s", async (_case, url) => {
-    let captured: RequestInit | undefined;
-    vi.stubGlobal("fetch", vi.fn(async (_target: string, init: RequestInit) => {
-      captured = init;
-      return new Response(JSON.stringify({}), { status: 200, headers: { "content-type": "application/json" } });
-    }));
+  it.each(KICK_BEARER_NEAR_MISS_CASES)(
+    "never attaches the session token to a %s",
+    async (_case, url) => {
+      let captured: RequestInit | undefined;
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (_target: string, init: RequestInit) => {
+          captured = init;
+          return new Response(JSON.stringify({}), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
+        }),
+      );
 
-    try {
-      await pageFetchJson(url);
+      try {
+        await pageFetchJson(url);
 
-      expect(new Headers(captured?.headers).has("authorization")).toBe(false);
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
+        expect(new Headers(captured?.headers).has("authorization")).toBe(false);
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    },
+  );
 });
 
 interface AdFocusMockTab {
@@ -3256,7 +4027,13 @@ describe("ad focus manager", () => {
 // #598: a tab the engine closes carries the reason it was closed, so the
 // removal event that follows is never read as the user closing a farming tab.
 describe("tab closure origins", () => {
-  const managedSession: WatchSession = { platform: "twitch", status: "watching", offlineChecks: 0, tabId: 9, tabManagedByExtension: true };
+  const managedSession: WatchSession = {
+    platform: "twitch",
+    status: "watching",
+    offlineChecks: 0,
+    tabId: 9,
+    tabManagedByExtension: true,
+  };
 
   it("records the origin before the browser removes the tab", async () => {
     const browser = browserMock();
@@ -3266,7 +4043,9 @@ describe("tab closure origins", () => {
       return undefined;
     });
 
-    await stopWatchTabWithBrowser(registry, browser, managedSession, { closureOrigin: "extension-cleanup" });
+    await stopWatchTabWithBrowser(registry, browser, managedSession, {
+      closureOrigin: "extension-cleanup",
+    });
 
     expect(recordedAtRemoval).toBe("extension-cleanup");
     expect(tabClosureOrigin(registry, 9)).toBe("extension-cleanup");
@@ -3285,34 +4064,50 @@ describe("tab closure origins", () => {
     const browser = browserMock();
     browser.tabs.get.mockResolvedValue({ id: 9, url: channel.url });
 
-    await closeManagedWatchTabsWithBrowser(registry, browser, [
-      { platform: "twitch", tabId: 9, channelUrl: channel.url, ownedByExtension: true },
-    ], "host-restart");
+    await closeManagedWatchTabsWithBrowser(
+      registry,
+      browser,
+      [{ platform: "twitch", tabId: 9, channelUrl: channel.url, ownedByExtension: true }],
+      "host-restart",
+    );
 
     expect(browser.tabs.remove).toHaveBeenCalledWith(9);
     expect(tabClosureOrigin(registry, 9)).toBe("host-restart");
   });
 
   it("closes tabs only through closeTab", () => {
-    const source = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), "../src/core/browserTabs.ts"), "utf8")
-      .replace(/\/\/.*$/gm, "");
+    const source = readFileSync(
+      resolve(dirname(fileURLToPath(import.meta.url)), "../src/core/browserTabs.ts"),
+      "utf8",
+    ).replace(/\/\/.*$/gm, "");
     const helper = source.slice(source.indexOf("async function closeTab("));
     const helperEnd = helper.indexOf("\n}\n") + 3;
     const outside = source.replace(helper.slice(0, helperEnd), "");
     expect(outside).not.toMatch(/\bremove\s*(?:\?\.)?\s*\(/);
     // The modules that bind the mechanics to a browser close nothing themselves.
-    for (const file of ["../src/core/tabPorts.ts", "../src/core/tabs.ts", "../entrypoints/background.ts"]) {
-      const binding = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), file), "utf8").replace(/\/\/.*$/gm, "");
+    for (const file of [
+      "../src/core/tabPorts.ts",
+      "../src/core/tabs.ts",
+      "../entrypoints/background.ts",
+    ]) {
+      const binding = readFileSync(
+        resolve(dirname(fileURLToPath(import.meta.url)), file),
+        "utf8",
+      ).replace(/\/\/.*$/gm, "");
       expect(binding, file).not.toMatch(/\bremove\s*(?:\?\.)?\s*\(/);
     }
     // Nor does any platform module, such as a document inspector (#794).
     const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-    const sources = ["src", "entrypoints"].flatMap((dir) => readdirSync(resolve(root, dir), { recursive: true, encoding: "utf8" })
-      .filter((file) => /\.tsx?$/.test(file))
-      .map((file) => resolve(root, dir, file)));
+    const sources = ["src", "entrypoints"].flatMap((dir) =>
+      readdirSync(resolve(root, dir), { recursive: true, encoding: "utf8" })
+        .filter((file) => /\.tsx?$/.test(file))
+        .map((file) => resolve(root, dir, file)),
+    );
     for (const file of sources) {
       if (file.endsWith("/src/core/browserTabs.ts")) continue;
-      expect(readFileSync(file, "utf8").replace(/\/\/.*$/gm, ""), file).not.toMatch(/\btabs\s*(?:\?\.|\.)\s*remove\b/);
+      expect(readFileSync(file, "utf8").replace(/\/\/.*$/gm, ""), file).not.toMatch(
+        /\btabs\s*(?:\?\.|\.)\s*remove\b/,
+      );
     }
   });
 });

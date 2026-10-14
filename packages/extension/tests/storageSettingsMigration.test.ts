@@ -20,7 +20,11 @@ vi.mock("../src/core/activityStorage", () => ({
 }));
 
 import { loadSettings, resetStorage, saveSettings } from "../src/core/storage";
-import { CURRENT_SETTINGS_SCHEMA_VERSION, UnsupportedSettingsVersionError, withSchemaVersion } from "@lurkloot/shared/settingsSchema";
+import {
+  CURRENT_SETTINGS_SCHEMA_VERSION,
+  UnsupportedSettingsVersionError,
+  withSchemaVersion,
+} from "@lurkloot/shared/settingsSchema";
 import { DEFAULT_SETTINGS, mergeSettings } from "@lurkloot/shared/settings";
 
 describe("settings storage migration", () => {
@@ -59,7 +63,14 @@ describe("settings storage migration", () => {
     get.mockResolvedValue({
       settings: {
         schemaVersion: 1,
-        campaignVisibility: { notLinked: false, subscription: false, upcoming: false, expired: true, excluded: true, finished: false },
+        campaignVisibility: {
+          notLinked: false,
+          subscription: false,
+          upcoming: false,
+          expired: true,
+          excluded: true,
+          finished: false,
+        },
       },
     });
 
@@ -82,7 +93,10 @@ describe("settings storage migration", () => {
 
   it("stamps an unversioned document that already uses current keys", async () => {
     get.mockResolvedValue({
-      settings: { idleWatchlistFallbackOnly: true, platform: { twitch: { idleWatchlistChannels: ["current"] } } },
+      settings: {
+        idleWatchlistFallbackOnly: true,
+        platform: { twitch: { idleWatchlistChannels: ["current"] } },
+      },
     });
 
     await loadSettings();
@@ -101,7 +115,10 @@ describe("settings storage migration", () => {
 
   it("still returns usable settings when the write-back fails, and retries on the next load", async () => {
     get.mockResolvedValue({
-      settings: { watchQueueFallbackOnly: false, platform: { twitch: { watchQueueChannels: ["Legacy"] } } },
+      settings: {
+        watchQueueFallbackOnly: false,
+        platform: { twitch: { watchQueueChannels: ["Legacy"] } },
+      },
     });
     set.mockRejectedValueOnce(new Error("storage unavailable"));
 
@@ -117,7 +134,9 @@ describe("settings storage migration", () => {
   });
 
   it("rejects a future schema version without writing", async () => {
-    get.mockResolvedValue({ settings: { schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION + 1, autoClaim: false } });
+    get.mockResolvedValue({
+      settings: { schemaVersion: CURRENT_SETTINGS_SCHEMA_VERSION + 1, autoClaim: false },
+    });
 
     await expect(loadSettings()).rejects.toThrow(UnsupportedSettingsVersionError);
     expect(set).not.toHaveBeenCalled();
@@ -139,7 +158,10 @@ describe("settings storage migration", () => {
       finishMigration = resolve;
     });
     get.mockResolvedValue({
-      settings: { watchQueueFallbackOnly: false, platform: { twitch: { watchQueueChannels: ["Legacy"] } } },
+      settings: {
+        watchQueueFallbackOnly: false,
+        platform: { twitch: { watchQueueChannels: ["Legacy"] } },
+      },
     });
     set.mockImplementationOnce(() => migrationPending).mockResolvedValue(undefined);
 
@@ -164,7 +186,10 @@ describe("settings storage migration", () => {
         campaignPriorities: { "campaign-low": 1, "campaign-high": 9 },
         dropsListFilter: { showExpired: true },
         platform: {
-          twitch: { categoryMode: "exclude", categories: [{ id: "cs2", name: "Counter-Strike 2" }] },
+          twitch: {
+            categoryMode: "exclude",
+            categories: [{ id: "cs2", name: "Counter-Strike 2" }],
+          },
         },
       },
     });
@@ -175,7 +200,9 @@ describe("settings storage migration", () => {
     expect(settings.farmPinnedOnly).toBe(true);
     expect(settings.priorityMode).toBe("ending_soonest");
     expect(settings.platform.twitch.categoryMode).toBe("all");
-    expect(settings.platform.twitch.blockedCategories).toEqual([{ id: "cs2", name: "Counter-Strike 2" }]);
+    expect(settings.platform.twitch.blockedCategories).toEqual([
+      { id: "cs2", name: "Counter-Strike 2" },
+    ]);
     expect(settings.platform.twitch.categories).toEqual([]);
     expect(settings).not.toHaveProperty("dropsListFilter");
 

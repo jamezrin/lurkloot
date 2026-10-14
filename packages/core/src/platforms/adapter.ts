@@ -18,7 +18,12 @@ import type { TwitchChannelPointsPushController } from "./twitch/channelPointsPu
 
 export const ignoreEvent: EventEmitter = () => {};
 
-export function diagnostic(emit: EventEmitter, level: LogLevel, message: string, platform: Platform): void {
+export function diagnostic(
+  emit: EventEmitter,
+  level: LogLevel,
+  message: string,
+  platform: Platform,
+): void {
   emit({ category: "diagnostic", level, message, platform });
 }
 
@@ -78,8 +83,14 @@ export interface PlatformAdapter {
   flushRouteDiagnostics?(emit: EventEmitter): void;
   readonly compatibility?: ResolvedCompatibility[Platform];
   checkAuthHealth(signal?: AbortSignal): Promise<PlatformAuthHealth>;
-  refreshCampaigns(session?: WatchSession, options?: AdapterOperationOptions): Promise<DropCampaign[]>;
-  listCandidateChannels(campaign: DropCampaign, options?: AdapterOperationOptions): Promise<ChannelCandidate[]>;
+  refreshCampaigns(
+    session?: WatchSession,
+    options?: AdapterOperationOptions,
+  ): Promise<DropCampaign[]>;
+  listCandidateChannels(
+    campaign: DropCampaign,
+    options?: AdapterOperationOptions,
+  ): Promise<ChannelCandidate[]>;
   selectCandidateChannel?(
     candidates: ChannelCandidate[],
     campaign?: DropCampaign,
@@ -90,16 +101,29 @@ export interface PlatformAdapter {
   // a platform without a follow API (or a signed-out session) can return an
   // empty list and lose nothing but the preference.
   listFollowedChannels?(options?: AdapterOperationOptions): Promise<string[]>;
-  checkChannel(channel: ChannelCandidate, options?: AdapterOperationOptions & { campaign?: DropCampaign }): Promise<ChannelCheck>;
+  checkChannel(
+    channel: ChannelCandidate,
+    options?: AdapterOperationOptions & { campaign?: DropCampaign },
+  ): Promise<ChannelCheck>;
   // One revision only: implementations may share equivalent provider evidence,
   // but must preserve campaign-specific decisions and drain all work on failure.
-  checkChannels?(requests: ChannelCheckRequest[], options?: AdapterOperationOptions): Promise<ChannelCheckBatch>;
-  claimReward(campaign: DropCampaign, reward: DropReward, options?: AdapterOperationOptions): Promise<boolean>;
+  checkChannels?(
+    requests: ChannelCheckRequest[],
+    options?: AdapterOperationOptions,
+  ): Promise<ChannelCheckBatch>;
+  claimReward(
+    campaign: DropCampaign,
+    reward: DropReward,
+    options?: AdapterOperationOptions,
+  ): Promise<boolean>;
   // Whether a "claimable" reward can actually be claimed right now. Twitch only
   // exposes the real drop-instance id once it releases the claim, so auto-claim
   // must defer until then instead of POSTing a value Twitch will reject.
   isClaimReady?(reward: DropReward): boolean;
-  claimChannelPoints?(channel: ChannelCandidate, options?: ChannelPointsClaimOptions): Promise<boolean>;
+  claimChannelPoints?(
+    channel: ChannelCandidate,
+    options?: ChannelPointsClaimOptions,
+  ): Promise<boolean>;
   // Claims any completed, unclaimed gamification challenges for the logged-in
   // account and reports what was won. Account-level, so it takes no channel and
   // runs regardless of whether a watch session is active.

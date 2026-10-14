@@ -6,7 +6,8 @@ const statusMarker = "<!-- lurkloot-release-status -->";
 
 export class GitHubClient {
   constructor({ repository, token, fetchImpl = fetch }) {
-    if (!/^[^/]+\/[^/]+$/.test(repository ?? "")) throw new Error("GITHUB_REPOSITORY must be owner/name");
+    if (!/^[^/]+\/[^/]+$/.test(repository ?? ""))
+      throw new Error("GITHUB_REPOSITORY must be owner/name");
     if (!token) throw new Error("GITHUB_TOKEN is required");
     this.repository = repository;
     this.token = token;
@@ -30,10 +31,16 @@ export class GitHubClient {
     const text = await response.text();
     let value;
     if (text) {
-      try { value = JSON.parse(text); } catch { value = text; }
+      try {
+        value = JSON.parse(text);
+      } catch {
+        value = text;
+      }
     }
     if (!response.ok) {
-      throw new Error(`GitHub API failed (${response.status}): ${value?.message ?? value ?? "unknown error"}`);
+      throw new Error(
+        `GitHub API failed (${response.status}): ${value?.message ?? value ?? "unknown error"}`,
+      );
     }
     return value;
   }
@@ -43,7 +50,9 @@ export class GitHubClient {
   }
 
   ref(tag) {
-    return this.request(this.repoPath(`/git/ref/tags/${encodeURIComponent(tag)}`), { allowNotFound: true });
+    return this.request(this.repoPath(`/git/ref/tags/${encodeURIComponent(tag)}`), {
+      allowNotFound: true,
+    });
   }
 
   createRef(tag, sha) {
@@ -65,7 +74,9 @@ export class GitHubClient {
   }
 
   releaseByTag(tag) {
-    return this.request(this.repoPath(`/releases/tags/${encodeURIComponent(tag)}`), { allowNotFound: true });
+    return this.request(this.repoPath(`/releases/tags/${encodeURIComponent(tag)}`), {
+      allowNotFound: true,
+    });
   }
 
   createRelease(body) {
@@ -94,15 +105,24 @@ export class GitHubClient {
   }
 
   createComment(pr, body) {
-    return this.request(this.repoPath(`/issues/${pr}/comments`), { method: "POST", body: { body } });
+    return this.request(this.repoPath(`/issues/${pr}/comments`), {
+      method: "POST",
+      body: { body },
+    });
   }
 
   updateComment(id, body) {
-    return this.request(this.repoPath(`/issues/comments/${id}`), { method: "PATCH", body: { body } });
+    return this.request(this.repoPath(`/issues/comments/${id}`), {
+      method: "PATCH",
+      body: { body },
+    });
   }
 
   createStatus(sha, body) {
-    return this.request(this.repoPath(`/statuses/${encodeURIComponent(sha)}`), { method: "POST", body });
+    return this.request(this.repoPath(`/statuses/${encodeURIComponent(sha)}`), {
+      method: "POST",
+      body,
+    });
   }
 }
 
@@ -119,7 +139,9 @@ function assertOwnedPrerelease(release, { version }) {
     throw new Error(`refusing to modify v${version}: release is already promoted`);
   }
   if (ownership?.version !== version || ownership.head !== `release/${version}`) {
-    throw new Error(`refusing to modify v${version}: release does not belong to release/${version}`);
+    throw new Error(
+      `refusing to modify v${version}: release does not belong to release/${version}`,
+    );
   }
 }
 
@@ -152,7 +174,9 @@ export async function reconcilePrerelease({ client, pr, version, sha, notes, ass
   const release = existingRelease
     ? await client.updateRelease(existingRelease.id, body)
     : await client.createRelease({ ...body, target_commitish: sha });
-  const existingAssets = new Map((release.assets ?? existingRelease?.assets ?? []).map((asset) => [asset.name, asset]));
+  const existingAssets = new Map(
+    (release.assets ?? existingRelease?.assets ?? []).map((asset) => [asset.name, asset]),
+  );
   for (const asset of assets) {
     const existing = existingAssets.get(asset.name);
     if (existing) await client.deleteAsset(existing.id);
@@ -161,7 +185,13 @@ export async function reconcilePrerelease({ client, pr, version, sha, notes, ass
   return { release, tag };
 }
 
-export async function setCommitStatus({ client, sha, state, targetUrl = "", context = candidateStatusContext }) {
+export async function setCommitStatus({
+  client,
+  sha,
+  state,
+  targetUrl = "",
+  context = candidateStatusContext,
+}) {
   const descriptions = {
     pending: "Release candidate is building",
     success: "Release candidate is ready",
@@ -177,14 +207,18 @@ export async function setCommitStatus({ client, sha, state, targetUrl = "", cont
 }
 
 export async function setCandidateStatuses(options) {
-  return Promise.all(requiredMainStatusContexts.map((context) => setCommitStatus({ ...options, context })));
+  return Promise.all(
+    requiredMainStatusContexts.map((context) => setCommitStatus({ ...options, context })),
+  );
 }
 
 // The tags of every release still marked as a prerelease. These are candidates that have not been
 // promoted, so they must not count toward the next version derivation.
 export async function prereleaseTags({ client }) {
   const releases = await client.releases();
-  return (releases ?? []).filter((release) => release.prerelease).map((release) => release.tag_name);
+  return (releases ?? [])
+    .filter((release) => release.prerelease)
+    .map((release) => release.tag_name);
 }
 
 // Promotion is the terminal transition for a candidate: the same release object and the same tag

@@ -46,17 +46,32 @@ export function initialExpandedIds(campaigns: CampaignView[]): Record<string, bo
 }
 
 function farmingCampaignId(campaigns: CampaignView[]): string | undefined {
-  return campaigns.find((campaign) => campaign.lifecycle !== "finished" && Boolean(campaign.farmingChannel))?.id;
+  return campaigns.find(
+    (campaign) => campaign.lifecycle !== "finished" && Boolean(campaign.farmingChannel),
+  )?.id;
 }
 
-export function SortableCampaign(props: Omit<CampaignCardProps, "dragHandle" | "dimmed" | "isOverlay"> & { rank?: number }) {
+export function SortableCampaign(
+  props: Omit<CampaignCardProps, "dragHandle" | "dimmed" | "isOverlay"> & { rank?: number },
+) {
   // The new dnd-kit animates the real element, so there is no DragOverlay copy
   // and no transform/transition to apply by hand.
   const t = useT();
   const { ref, handleRef, isDragging } = useSortable({ id: props.campaign.id, index: props.index });
   return (
-    <div ref={ref} data-campaign-id={props.campaign.id} data-campaign-rank={String(props.rank ?? props.index + 1)} onDragStart={preventNativeDrag}>
-      <CampaignCard {...props} dimmed={isDragging} dragHandle={<DragHandle handleRef={handleRef} label={t("reorderItem", props.campaign.title)} />} />
+    <div
+      ref={ref}
+      data-campaign-id={props.campaign.id}
+      data-campaign-rank={String(props.rank ?? props.index + 1)}
+      onDragStart={preventNativeDrag}
+    >
+      <CampaignCard
+        {...props}
+        dimmed={isDragging}
+        dragHandle={
+          <DragHandle handleRef={handleRef} label={t("reorderItem", props.campaign.title)} />
+        }
+      />
     </div>
   );
 }
@@ -93,7 +108,30 @@ export type CampaignCardProps = {
  * action hides behind a menu: the rewards on a sliding row, the facts that
  * explain its place, and the actions — with Exclude asking whether it means
  * this campaign or its whole game. */
-export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, expanded, refreshing, onToggle, onRefreshCampaign, onToggleExclude, dragHandle, isOverlay = false, dimmed = false, rankCount, onRankMove, fix, terminal = false, pinned, onPin, rankReason, onToggleFavouriteCategory, onToggleBlockedCategory }: CampaignCardProps) {
+export function CampaignCard({
+  campaign,
+  index,
+  farmingIndex,
+  anyFarming,
+  game,
+  expanded,
+  refreshing,
+  onToggle,
+  onRefreshCampaign,
+  onToggleExclude,
+  dragHandle,
+  isOverlay = false,
+  dimmed = false,
+  rankCount,
+  onRankMove,
+  fix,
+  terminal = false,
+  pinned,
+  onPin,
+  rankReason,
+  onToggleFavouriteCategory,
+  onToggleBlockedCategory,
+}: CampaignCardProps) {
   const t = useT();
   const { locale } = React.useContext(I18nContext);
   const runtime = React.useContext(PopupRuntimeContext);
@@ -103,7 +141,8 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
   // `terminal` is "this campaign is over": the Completed view renders expired
   // rows exactly like finished ones — one state, no rank, no rail, no warning.
   // An expired campaign is over wherever it is shown, search results included.
-  const finished = terminal || campaign.lifecycle === "finished" || campaign.lifecycle === "expired";
+  const finished =
+    terminal || campaign.lifecycle === "finished" || campaign.lifecycle === "expired";
   const expired = campaign.lifecycle === "expired";
   const isFarming = !terminal && Boolean(campaign.farmingChannel);
   // Only watch rewards are farmed by watching: a subscription-only campaign the
@@ -118,59 +157,134 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
   // so a fix that leaves the campaign skipped does not look like it failed.
   const nextBlocker = farmingRejection ? campaign.laterBlockers?.[0] : undefined;
   const nextBlockerMessage = nextBlocker
-    ? t("campaignRejectionThen", t(campaignRejectionMessageKey(nextBlocker.code), nextBlocker.rewardName))
+    ? t(
+        "campaignRejectionThen",
+        t(campaignRejectionMessageKey(nextBlocker.code), nextBlocker.rewardName),
+      )
     : undefined;
   const emphasized = !finished && (isFarming || (!anyFarming && index === 0 && !farmingRejection));
   const showsWatchProgress = stats.kind === "watch" || stats.kind === "mixed";
   const endsAt = Date.parse(campaign.ends);
-  const endsSoon = !finished && !upcoming && !Number.isNaN(endsAt) && endsAt - Date.now() < 12 * 3_600_000;
+  const endsSoon =
+    !finished && !upcoming && !Number.isNaN(endsAt) && endsAt - Date.now() < 12 * 3_600_000;
   const claimGuidance = campaign.rewards.find((reward) => reward.claimGuidance)?.claimGuidance;
   const category = campaign.category;
   const canExclude = Boolean(onToggleExclude) && campaign.hasWatchRewards && !finished;
   const canBlock = Boolean(onToggleBlockedCategory && category) && !finished;
-  const rewardsLabel = t("campaignRewardsProgress", [String(stats.completed), String(stats.totalRewards)]);
+  const rewardsLabel = t("campaignRewardsProgress", [
+    String(stats.completed),
+    String(stats.totalRewards),
+  ]);
   const deadline: { tone: DeadlineTone; label: string; hint?: string } | undefined = finished
     ? { tone: expired ? "muted" : "done", label: t(expired ? "expiredPill" : "finished") }
     : upcoming
-      ? { tone: "muted", label: startsLabel(campaign.starts, t), hint: campaign.starts ? `${t("campaignFactStarts")} · ${formatDateTime(campaign.starts, locale)}` : undefined }
+      ? {
+          tone: "muted",
+          label: startsLabel(campaign.starts, t),
+          hint: campaign.starts
+            ? `${t("campaignFactStarts")} · ${formatDateTime(campaign.starts, locale)}`
+            : undefined,
+        }
       : (() => {
-        const label = timeLeftLabel(campaign.ends, t);
-        return label ? { tone: endsSoon ? "hot" : "muted", label, hint: `${t("campaignFactEnds")} · ${formatDateTime(campaign.ends, locale)}` } : undefined;
-      })();
+          const label = timeLeftLabel(campaign.ends, t);
+          return label
+            ? {
+                tone: endsSoon ? "hot" : "muted",
+                label,
+                hint: `${t("campaignFactEnds")} · ${formatDateTime(campaign.ends, locale)}`,
+              }
+            : undefined;
+        })();
   // Watching still needed for every reward, set against the time the campaign
   // has left to run. When it cannot all fit, the row says so and the bar marks
   // how far the viewing can get before the end.
-  const watchLeft = !finished && timeline && timeline.remainingMinutes > 0 ? timeline.remainingMinutes : undefined;
+  const watchLeft =
+    !finished && timeline && timeline.remainingMinutes > 0 ? timeline.remainingMinutes : undefined;
   const startsAt = Date.parse(campaign.starts);
-  const windowStart = upcoming && !Number.isNaN(startsAt) ? Math.max(Date.now(), startsAt) : Date.now();
-  const minutesToEnd = Number.isNaN(endsAt) ? undefined : Math.max(0, (endsAt - windowStart) / 60_000);
-  const outOfTime = watchLeft !== undefined && minutesToEnd !== undefined && watchLeft > minutesToEnd;
-  const reachable = outOfTime && timeline
-    ? (timeline.totalMinutes - timeline.remainingMinutes + minutesToEnd!) / timeline.totalMinutes
-    : undefined;
+  const windowStart =
+    upcoming && !Number.isNaN(startsAt) ? Math.max(Date.now(), startsAt) : Date.now();
+  const minutesToEnd = Number.isNaN(endsAt)
+    ? undefined
+    : Math.max(0, (endsAt - windowStart) / 60_000);
+  const outOfTime =
+    watchLeft !== undefined && minutesToEnd !== undefined && watchLeft > minutesToEnd;
+  const reachable =
+    outOfTime && timeline
+      ? (timeline.totalMinutes - timeline.remainingMinutes + minutesToEnd!) / timeline.totalMinutes
+      : undefined;
   // States that used to be pills, now icons after the title. The expanded card
   // lists the same states in words (a rejection has its own banner there).
-  const notices: CampaignFlag[] = finished ? [] : [
-    ...(!campaign.linked ? [{ key: "not-linked", tone: "danger", icon: <Link2 size={12} />, label: t("notLinked") } as const] : []),
-    ...(campaign.hasSubscriptionRewards ? [{ key: "subscription", tone: "muted", icon: <Users size={12} />, label: t("subscriptionRequired") } as const] : []),
-    ...(stats.kind === "action" ? [{ key: "action", tone: "muted", icon: <MousePointerClick size={12} />, label: t("actionRequired") } as const] : []),
-    ...(campaign.excluded && campaign.hasWatchRewards ? [{ key: "excluded", tone: "muted", icon: <Ban size={12} />, label: t("excluded") } as const] : []),
-  ];
+  const notices: CampaignFlag[] = finished
+    ? []
+    : [
+        ...(!campaign.linked
+          ? [
+              {
+                key: "not-linked",
+                tone: "danger",
+                icon: <Link2 size={12} />,
+                label: t("notLinked"),
+              } as const,
+            ]
+          : []),
+        ...(campaign.hasSubscriptionRewards
+          ? [
+              {
+                key: "subscription",
+                tone: "muted",
+                icon: <Users size={12} />,
+                label: t("subscriptionRequired"),
+              } as const,
+            ]
+          : []),
+        ...(stats.kind === "action"
+          ? [
+              {
+                key: "action",
+                tone: "muted",
+                icon: <MousePointerClick size={12} />,
+                label: t("actionRequired"),
+              } as const,
+            ]
+          : []),
+        ...(campaign.excluded && campaign.hasWatchRewards
+          ? [
+              {
+                key: "excluded",
+                tone: "muted",
+                icon: <Ban size={12} />,
+                label: t("excluded"),
+              } as const,
+            ]
+          : []),
+      ];
   // A subscription-only card already heads its panel with the same words.
-  const expandedNotices = stats.kind === "subscription" ? notices.filter((notice) => notice.key !== "subscription") : notices;
+  const expandedNotices =
+    stats.kind === "subscription"
+      ? notices.filter((notice) => notice.key !== "subscription")
+      : notices;
   const flags: CampaignFlag[] = farmingRejectionMessage
-    ? [...notices, { key: "rejected", tone: "warning", icon: <AlertTriangle size={12} />, label: farmingRejectionMessage }]
+    ? [
+        ...notices,
+        {
+          key: "rejected",
+          tone: "warning",
+          icon: <AlertTriangle size={12} />,
+          label: farmingRejectionMessage,
+        },
+      ]
     : notices;
 
   return (
-    <article className={cn(
-      "overflow-hidden rounded-[10px] border bg-white transition-shadow dark:bg-zinc-900",
-      emphasized ? "border-[var(--ink)]" : "border-zinc-200 dark:border-zinc-800",
-      finished && "bg-zinc-50/60 dark:bg-zinc-900/60",
-      farmingRejection && "border-dashed bg-transparent dark:bg-transparent",
-      isOverlay && "shadow-2xl shadow-black/25",
-      dimmed && "opacity-40",
-    )}
+    <article
+      className={cn(
+        "overflow-hidden rounded-[10px] border bg-white transition-shadow dark:bg-zinc-900",
+        emphasized ? "border-[var(--ink)]" : "border-zinc-200 dark:border-zinc-800",
+        finished && "bg-zinc-50/60 dark:bg-zinc-900/60",
+        farmingRejection && "border-dashed bg-transparent dark:bg-transparent",
+        isOverlay && "shadow-2xl shadow-black/25",
+        dimmed && "opacity-40",
+      )}
     >
       <div className="relative flex items-stretch">
         {/* Drag rail doubles as the priority column: grip and rank share a
@@ -182,20 +296,47 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
           <div className="flex w-7 shrink-0 items-center justify-center">
             <div className="flex w-4 flex-col items-center gap-0.5">
               {dragHandle}
-              <RankInput index={index} count={rankCount ?? 0} label={campaign.title} onMove={onRankMove} size="rail" />
+              <RankInput
+                index={index}
+                count={rankCount ?? 0}
+                label={campaign.title}
+                onMove={onRankMove}
+                size="rail"
+              />
             </div>
           </div>
         ) : null}
         {/* Full-area toggle behind the content, so the row's own buttons can
             sit on top of it without nesting a button inside a button. */}
-        <button type="button" onClick={onToggle} aria-expanded={expanded} aria-label={campaign.title} className={cn("absolute inset-y-0 end-0 z-0 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent-ring)]", finished ? "start-0" : "start-7")} />
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={expanded}
+          aria-label={campaign.title}
+          className={cn(
+            "absolute inset-y-0 end-0 z-0 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--accent-ring)]",
+            finished ? "start-0" : "start-7",
+          )}
+        />
         <div className="pointer-events-none relative z-10 flex min-w-0 flex-1 items-center gap-2.5 px-1.5 py-2">
           <div className="relative flex h-9 w-9 shrink-0 items-end overflow-hidden rounded-lg shadow-inner">
-            <ImageWithFallback src={campaign.imageUrl} alt={campaign.title} fit="cover" fallback={
-              <div className={cn("flex h-full w-full items-end bg-gradient-to-br p-1.5", campaign.tint)}>
-                <span className="text-[11px] font-black leading-none tracking-normal text-white drop-shadow">{campaign.thumbnail}</span>
-              </div>
-            } />
+            <ImageWithFallback
+              src={campaign.imageUrl}
+              alt={campaign.title}
+              fit="cover"
+              fallback={
+                <div
+                  className={cn(
+                    "flex h-full w-full items-end bg-gradient-to-br p-1.5",
+                    campaign.tint,
+                  )}
+                >
+                  <span className="text-[11px] font-black leading-none tracking-normal text-white drop-shadow">
+                    {campaign.thumbnail}
+                  </span>
+                </div>
+              }
+            />
           </div>
           <div className="min-w-0 flex-1">
             {/* The title keeps the line to itself but for small state icons
@@ -203,9 +344,15 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
                 expanded card spells it out. */}
             <div className="flex min-w-0 items-center gap-1">
               {campaign.favourited && !finished ? (
-                <Star size={11} aria-label={t("campaignFavouriteOn", game.name)} className="shrink-0 fill-current text-amber-500 dark:text-amber-400" />
+                <Star
+                  size={11}
+                  aria-label={t("campaignFavouriteOn", game.name)}
+                  className="shrink-0 fill-current text-amber-500 dark:text-amber-400"
+                />
               ) : null}
-              <span className="min-w-0 truncate text-[13px] font-semibold leading-tight text-zinc-900 dark:text-zinc-50">{campaign.title}</span>
+              <span className="min-w-0 truncate text-[13px] font-semibold leading-tight text-zinc-900 dark:text-zinc-50">
+                {campaign.title}
+              </span>
               {flags.map((flag) => (
                 <Tip key={flag.key} label={flag.label}>
                   <span
@@ -217,7 +364,10 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
                     // toggle; a flag takes the pointer for its tooltip, so it
                     // does the toggle's job itself.
                     onClick={onToggle}
-                    className={cn("pointer-events-auto inline-flex shrink-0 p-px", FLAG_TONE[flag.tone])}
+                    className={cn(
+                      "pointer-events-auto inline-flex shrink-0 p-px",
+                      FLAG_TONE[flag.tone],
+                    )}
                   >
                     {flag.icon}
                   </span>
@@ -228,34 +378,54 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
               <span className="min-w-0 truncate">{game.name}</span>
               {!timeline || finished ? (
                 <>
-                  <span aria-hidden className="text-zinc-300 dark:text-zinc-600">·</span>
+                  <span aria-hidden className="text-zinc-300 dark:text-zinc-600">
+                    ·
+                  </span>
                   <span className="shrink-0 tabular">{rewardsLabel}</span>
                 </>
               ) : null}
               {deadline ? (
                 <>
-                  <span aria-hidden className="text-zinc-300 dark:text-zinc-600">·</span>
-                  <Deadline tone={deadline.tone} label={deadline.label} hint={deadline.hint} onClick={onToggle} />
+                  <span aria-hidden className="text-zinc-300 dark:text-zinc-600">
+                    ·
+                  </span>
+                  <Deadline
+                    tone={deadline.tone}
+                    label={deadline.label}
+                    hint={deadline.hint}
+                    onClick={onToggle}
+                  />
                 </>
               ) : null}
               {watchLeft !== undefined ? (
                 <>
-                  <span aria-hidden className="text-zinc-300 dark:text-zinc-600">·</span>
+                  <span aria-hidden className="text-zinc-300 dark:text-zinc-600">
+                    ·
+                  </span>
                   <RowFact
                     attribute="data-campaign-watch-left"
                     icon={<Hourglass size={10} aria-hidden="true" />}
                     label={formatMinutes(watchLeft)}
-                    hint={outOfTime
-                      ? `${t("campaignLeft")} · ${formatMinutes(watchLeft)} · ${t("insufficientTimeRemaining")}`
-                      : `${t("campaignLeft")} · ${formatMinutes(watchLeft)}`}
-                    className={outOfTime ? "font-medium text-amber-600 dark:text-amber-400" : undefined}
+                    hint={
+                      outOfTime
+                        ? `${t("campaignLeft")} · ${formatMinutes(watchLeft)} · ${t("insufficientTimeRemaining")}`
+                        : `${t("campaignLeft")} · ${formatMinutes(watchLeft)}`
+                    }
+                    className={
+                      outOfTime ? "font-medium text-amber-600 dark:text-amber-400" : undefined
+                    }
                     onClick={onToggle}
                   />
                 </>
               ) : null}
             </div>
             {timeline && !finished ? (
-              <CampaignProgress timeline={timeline} reachable={reachable} rewardsLabel={rewardsLabel} onClick={onToggle} />
+              <CampaignProgress
+                timeline={timeline}
+                reachable={reachable}
+                rewardsLabel={rewardsLabel}
+                onClick={onToggle}
+              />
             ) : null}
           </div>
           <div className="pointer-events-auto flex shrink-0 items-center gap-1">
@@ -263,7 +433,10 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
               <button
                 type="button"
                 data-queue-fix
-                onClick={(event) => { event.stopPropagation(); fix.onClick(); }}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  fix.onClick();
+                }}
                 className="shrink-0 rounded-md border border-zinc-300 px-2 py-0.5 text-[10px] font-semibold text-zinc-800 hover:bg-[var(--ink-soft)] dark:border-zinc-700 dark:text-zinc-100"
               >
                 {fix.label}
@@ -276,10 +449,15 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
                   data-queue-pin
                   aria-pressed={Boolean(pinned)}
                   aria-label={t(pinned ? "queueUnpin" : "queueFixPin")}
-                  onClick={(event) => { event.stopPropagation(); onPin(); }}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onPin();
+                  }}
                   className={cn(
                     "grid h-6 w-6 place-items-center rounded-md transition-colors",
-                    pinned ? "text-[var(--ink-text)]" : "text-zinc-300 hover:bg-zinc-100 hover:text-zinc-600 dark:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300",
+                    pinned
+                      ? "text-[var(--ink-text)]"
+                      : "text-zinc-300 hover:bg-zinc-100 hover:text-zinc-600 dark:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300",
                   )}
                 >
                   <Pin size={13} fill={pinned ? "currentColor" : "none"} />
@@ -299,10 +477,19 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
                 data-campaign-chevron
                 tabIndex={-1}
                 aria-hidden
-                onClick={(event) => { event.stopPropagation(); onToggle(); }}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onToggle();
+                }}
                 className="grid h-6 w-6 place-items-center rounded-md text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 rtl:-scale-x-100 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
               >
-                <ChevronRight size={15} className={cn("transition-transform duration-200 motion-reduce:transition-none", expanded && "rotate-90")} />
+                <ChevronRight
+                  size={15}
+                  className={cn(
+                    "transition-transform duration-200 motion-reduce:transition-none",
+                    expanded && "rotate-90",
+                  )}
+                />
               </button>
             </Tip>
           </div>
@@ -317,10 +504,18 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
                   <AlertTriangle size={12} className="shrink-0" />
                   <span className="min-w-0 flex-1">
                     {farmingRejectionMessage}
-                    {nextBlockerMessage ? <span data-campaign-next-blocker className="block opacity-80">{nextBlockerMessage}</span> : null}
+                    {nextBlockerMessage ? (
+                      <span data-campaign-next-blocker className="block opacity-80">
+                        {nextBlockerMessage}
+                      </span>
+                    ) : null}
                   </span>
                   {fix ? (
-                    <button type="button" onClick={fix.onClick} className="shrink-0 rounded-md border border-current px-2 py-0.5 text-[10px] font-semibold hover:bg-amber-100 dark:hover:bg-amber-500/20">
+                    <button
+                      type="button"
+                      onClick={fix.onClick}
+                      className="shrink-0 rounded-md border border-current px-2 py-0.5 text-[10px] font-semibold hover:bg-amber-100 dark:hover:bg-amber-500/20"
+                    >
                       {fix.label}
                     </button>
                   ) : null}
@@ -329,7 +524,13 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
               {expandedNotices.length > 0 ? (
                 <ul data-campaign-notices className="space-y-1">
                   {expandedNotices.map((notice) => (
-                    <li key={notice.key} className={cn("flex min-h-5 items-center gap-1.5 text-[11px] font-medium", FLAG_TONE[notice.tone])}>
+                    <li
+                      key={notice.key}
+                      className={cn(
+                        "flex min-h-5 items-center gap-1.5 text-[11px] font-medium",
+                        FLAG_TONE[notice.tone],
+                      )}
+                    >
                       <span className="flex shrink-0">{notice.icon}</span>
                       <span className="min-w-0 flex-1">{notice.label}</span>
                       {notice.key === "not-linked" && campaign.linkUrl ? (
@@ -351,58 +552,110 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
               {stats.kind === "subscription" ? (
                 <div className="flex items-start justify-between gap-2 rounded-xl border border-zinc-100 bg-zinc-50/70 p-2.5 dark:border-zinc-800 dark:bg-zinc-800/40">
                   <div className="min-w-0">
-                    <div className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-200">{t("subscriptionRequired")}</div>
-                    <div className="mt-0.5 text-[10px] text-zinc-500 dark:text-zinc-400">{t("notEarnableByWatching")}</div>
+                    <div className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-200">
+                      {t("subscriptionRequired")}
+                    </div>
+                    <div className="mt-0.5 text-[10px] text-zinc-500 dark:text-zinc-400">
+                      {t("notEarnableByWatching")}
+                    </div>
                   </div>
                   <div className="shrink-0 text-end">
-                    <div className="text-xs font-semibold tabular" style={{ color: "var(--accent-text)" }}>{stats.completed}/{stats.totalRewards}</div>
-                    <div className="mt-0.5 text-[9px] font-medium uppercase text-zinc-400 dark:text-zinc-500">{t("subscriptionRewards")}</div>
-                    <div className="mt-1 text-[10px] text-zinc-500 dark:text-zinc-400">{stats.complete ? t("complete") : t("subscriptionProgressUnknown")}</div>
+                    <div
+                      className="text-xs font-semibold tabular"
+                      style={{ color: "var(--accent-text)" }}
+                    >
+                      {stats.completed}/{stats.totalRewards}
+                    </div>
+                    <div className="mt-0.5 text-[9px] font-medium uppercase text-zinc-400 dark:text-zinc-500">
+                      {t("subscriptionRewards")}
+                    </div>
+                    <div className="mt-1 text-[10px] text-zinc-500 dark:text-zinc-400">
+                      {stats.complete ? t("complete") : t("subscriptionProgressUnknown")}
+                    </div>
                   </div>
                 </div>
               ) : null}
               <div>
                 <div className="mb-1.5 flex items-center justify-between">
-                  <span className="flex items-center gap-1 text-[11px] font-semibold text-zinc-700 dark:text-zinc-200"><Gift size={12} className="text-zinc-400 dark:text-zinc-500" /> {t("rewards")}</span>
-                  <span className="font-mono text-[11px] font-semibold text-zinc-500 tabular dark:text-zinc-400">{stats.completed}/{stats.totalRewards}</span>
+                  <span className="flex items-center gap-1 text-[11px] font-semibold text-zinc-700 dark:text-zinc-200">
+                    <Gift size={12} className="text-zinc-400 dark:text-zinc-500" /> {t("rewards")}
+                  </span>
+                  <span className="font-mono text-[11px] font-semibold text-zinc-500 tabular dark:text-zinc-400">
+                    {stats.completed}/{stats.totalRewards}
+                  </span>
                 </div>
                 <RewardCarousel
                   rewards={campaign.rewards}
                   missed={expired}
-                  onToggleSubscriptionMark={toggleSubscriptionMark ? (rewardId) => toggleSubscriptionMark(campaign.id, rewardId) : undefined}
+                  onToggleSubscriptionMark={
+                    toggleSubscriptionMark
+                      ? (rewardId) => toggleSubscriptionMark(campaign.id, rewardId)
+                      : undefined
+                  }
                 />
               </div>
               <div className="flex flex-wrap gap-x-4 gap-y-1.5">
-                {upcoming ? <Fact label={t("campaignFactStarts")} value={formatDateTime(campaign.starts, locale)} /> : null}
+                {upcoming ? (
+                  <Fact
+                    label={t("campaignFactStarts")}
+                    value={formatDateTime(campaign.starts, locale)}
+                  />
+                ) : null}
                 {Number.isNaN(endsAt) ? null : (
                   <Fact
                     label={t(finished ? "campaignFactEnded" : "campaignFactEnds")}
-                    value={finished ? formatDateTime(campaign.ends, locale) : `${formatDateTime(campaign.ends, locale)} · ${formatCountdown(campaign.ends, t)}`}
+                    value={
+                      finished
+                        ? formatDateTime(campaign.ends, locale)
+                        : `${formatDateTime(campaign.ends, locale)} · ${formatCountdown(campaign.ends, t)}`
+                    }
                   />
                 )}
                 {!finished && farmingNow && campaign.farmingChannel ? (
                   <Fact label={t("campaignFactWatching")}>
                     {campaign.farmingChannel.url ? (
-                      <a href={campaign.farmingChannel.url} target="_blank" rel="noreferrer" className="font-semibold text-zinc-900 underline decoration-zinc-300 decoration-1 underline-offset-2 hover:decoration-current dark:text-zinc-50 dark:decoration-zinc-600">{campaign.farmingChannel.name}</a>
-                    ) : campaign.farmingChannel.name}
-                    {campaign.farmingChannel.viewers != null ? <span className="text-zinc-500 dark:text-zinc-400"> · {t("viewerCount", formatViewers(campaign.farmingChannel.viewers))}</span> : null}
+                      <a
+                        href={campaign.farmingChannel.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-semibold text-zinc-900 underline decoration-zinc-300 decoration-1 underline-offset-2 hover:decoration-current dark:text-zinc-50 dark:decoration-zinc-600"
+                      >
+                        {campaign.farmingChannel.name}
+                      </a>
+                    ) : (
+                      campaign.farmingChannel.name
+                    )}
+                    {campaign.farmingChannel.viewers != null ? (
+                      <span className="text-zinc-500 dark:text-zinc-400">
+                        {" "}
+                        · {t("viewerCount", formatViewers(campaign.farmingChannel.viewers))}
+                      </span>
+                    ) : null}
                   </Fact>
                 ) : !finished ? (
                   <Fact label={t("campaignFactChannels")}>
                     <CampaignChannels campaign={campaign} />
                   </Fact>
                 ) : null}
-                {!finished && !stats.complete && stats.nextReward && stats.nextRewardRemaining != null ? (
-                  <Fact label={t("campaignFactNextReward")} value={`${stats.nextReward.name} · ${formatMinutes(stats.nextRewardRemaining)} ${t("left").toLowerCase()}`} />
+                {!finished
+                && !stats.complete
+                && stats.nextReward
+                && stats.nextRewardRemaining != null ? (
+                  <Fact
+                    label={t("campaignFactNextReward")}
+                    value={`${stats.nextReward.name} · ${formatMinutes(stats.nextRewardRemaining)} ${t("left").toLowerCase()}`}
+                  />
                 ) : null}
                 {!finished && showsWatchProgress ? (
                   <Fact
                     label={t("campaignLeft")}
-                    value={stats.complete
-                      ? t("done")
-                      : timeline && timeline.remainingMinutes > 0
-                        ? formatMinutes(timeline.remainingMinutes)
-                        : t("subscriptionProgressUnknown")}
+                    value={
+                      stats.complete
+                        ? t("done")
+                        : timeline && timeline.remainingMinutes > 0
+                          ? formatMinutes(timeline.remainingMinutes)
+                          : t("subscriptionProgressUnknown")
+                    }
                   />
                 ) : null}
                 {rankReason ? <Fact label={t("campaignFactWhyRank")} value={rankReason} /> : null}
@@ -431,8 +684,16 @@ export function CampaignCard({ campaign, index, farmingIndex, anyFarming, game, 
                 refreshing={refreshing}
                 pinned={pinned}
                 onPin={onPin}
-                onRefresh={campaign.hasSubscriptionRewards ? () => void onRefreshCampaign(campaign.id) : undefined}
-                onFavourite={onToggleFavouriteCategory && category && !finished ? () => void onToggleFavouriteCategory(category) : undefined}
+                onRefresh={
+                  campaign.hasSubscriptionRewards
+                    ? () => void onRefreshCampaign(campaign.id)
+                    : undefined
+                }
+                onFavourite={
+                  onToggleFavouriteCategory && category && !finished
+                    ? () => void onToggleFavouriteCategory(category)
+                    : undefined
+                }
                 onExclude={canExclude ? () => void onToggleExclude!(campaign.id) : undefined}
                 onBlock={canBlock ? () => void onToggleBlockedCategory!(category!) : undefined}
               />
@@ -456,18 +717,36 @@ function timeLeftLabel(ends: string, t: TFunction): string | undefined {
 
 function startsLabel(starts: string, t: TFunction): string {
   const at = Date.parse(starts);
-  return Number.isNaN(at) || at <= Date.now() ? t("upcomingPill") : t("startsIn", formatCountdown(starts, t));
+  return Number.isNaN(at) || at <= Date.now()
+    ? t("upcomingPill")
+    : t("startsIn", formatCountdown(starts, t));
 }
 
 type DeadlineTone = "hot" | "done" | "muted";
 
 // The row's time line: how long is left, when it starts, or how it ended.
-function Deadline({ tone, label, hint, onClick }: { tone: DeadlineTone; label: string; hint?: string; onClick(): void }): React.ReactElement {
+function Deadline({
+  tone,
+  label,
+  hint,
+  onClick,
+}: {
+  tone: DeadlineTone;
+  label: string;
+  hint?: string;
+  onClick(): void;
+}): React.ReactElement {
   return (
     <RowFact
       attribute="data-campaign-status"
       value={tone}
-      icon={tone === "done" ? <Check size={10} aria-hidden="true" /> : <Clock size={10} aria-hidden="true" />}
+      icon={
+        tone === "done" ? (
+          <Check size={10} aria-hidden="true" />
+        ) : (
+          <Clock size={10} aria-hidden="true" />
+        )
+      }
       label={label}
       hint={hint}
       className={cn(
@@ -481,7 +760,15 @@ function Deadline({ tone, label, hint, onClick }: { tone: DeadlineTone; label: s
 
 // A short value on the row's second line, explained by its tooltip. With a
 // tooltip it takes the pointer, so it passes clicks on to the row toggle.
-function RowFact({ attribute, value = "", icon, label, hint, className, onClick }: {
+function RowFact({
+  attribute,
+  value = "",
+  icon,
+  label,
+  hint,
+  className,
+  onClick,
+}: {
   attribute: string;
   value?: string;
   icon: React.ReactElement;
@@ -495,7 +782,11 @@ function RowFact({ attribute, value = "", icon, label, hint, className, onClick 
       <span
         {...{ [attribute]: value }}
         onClick={hint ? onClick : undefined}
-        className={cn("inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap tabular", hint && "pointer-events-auto", className)}
+        className={cn(
+          "inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap tabular",
+          hint && "pointer-events-auto",
+          className,
+        )}
       >
         {icon}
         {label}
@@ -520,7 +811,17 @@ const FLAG_TONE = {
 /** The campaign's watch progress on one bar, with a small tick where each watch
  * reward becomes claimable. Ticks the viewing has passed turn solid. Positions
  * are logical, so the bar fills from the right in a right-to-left locale. */
-function CampaignProgress({ timeline, reachable, rewardsLabel, onClick }: { timeline: CampaignTimeline; reachable?: number; rewardsLabel: string; onClick(): void }): React.ReactElement {
+function CampaignProgress({
+  timeline,
+  reachable,
+  rewardsLabel,
+  onClick,
+}: {
+  timeline: CampaignTimeline;
+  reachable?: number;
+  rewardsLabel: string;
+  onClick(): void;
+}): React.ReactElement {
   // Rounded down, so the row never says 100% before the last reward is due.
   const percent = timeline.progress >= 1 ? 100 : Math.floor(timeline.progress * 100);
   return (
@@ -544,23 +845,39 @@ function CampaignProgress({ timeline, reachable, rewardsLabel, onClick }: { time
               style={{ insetInlineStart: `${reachable * 100}%` }}
             />
           ) : null}
-          <span className="absolute start-0 top-[3px] h-[5px] rounded-full bg-[var(--ink)]" style={{ width: `${timeline.progress * 100}%` }} />
+          <span
+            className="absolute start-0 top-[3px] h-[5px] rounded-full bg-[var(--ink)]"
+            style={{ width: `${timeline.progress * 100}%` }}
+          />
           {timeline.markers.map((marker) => (
             <span
               key={marker.id}
-              data-reward-marker={marker.reached ? "reached" : reachable !== undefined && marker.at > reachable ? "out-of-time" : "pending"}
+              data-reward-marker={
+                marker.reached
+                  ? "reached"
+                  : reachable !== undefined && marker.at > reachable
+                    ? "out-of-time"
+                    : "pending"
+              }
               className={cn(
                 "absolute top-0 h-[11px] w-0.5 rounded-full",
-                marker.reached ? "bg-[var(--ink)]"
-                  : reachable !== undefined && marker.at > reachable ? "bg-amber-500/70 dark:bg-amber-400/70"
-                  : "bg-zinc-300 dark:bg-zinc-600",
+                marker.reached
+                  ? "bg-[var(--ink)]"
+                  : reachable !== undefined && marker.at > reachable
+                    ? "bg-amber-500/70 dark:bg-amber-400/70"
+                    : "bg-zinc-300 dark:bg-zinc-600",
               )}
               // Kept inside the bar at both ends: a tick at 100% ends flush with it.
               style={{ insetInlineStart: `calc(${marker.at * 100}% - ${marker.at * 2}px)` }}
             />
           ))}
         </div>
-        <span aria-hidden className="w-8 shrink-0 text-end text-[10.5px] font-medium leading-none text-zinc-500 tabular dark:text-zinc-400">{percent}%</span>
+        <span
+          aria-hidden
+          className="w-8 shrink-0 text-end text-[10.5px] font-medium leading-none text-zinc-500 tabular dark:text-zinc-400"
+        >
+          {percent}%
+        </span>
       </div>
     </Tip>
   );
@@ -576,9 +893,19 @@ function CampaignChannels({ campaign }: { campaign: CampaignView }): React.React
   const [expanded, setExpanded] = useState(false);
   const linkClass = "hover:text-zinc-900 hover:underline dark:hover:text-zinc-50";
   if (campaign.channels.length === 0) {
-    return campaign.categoryDropsUrl
-      ? <a href={campaign.categoryDropsUrl} target="_blank" rel="noreferrer" data-campaign-all-channels className={linkClass}>{t("allChannels")}</a>
-      : <>{t("allChannels")}</>;
+    return campaign.categoryDropsUrl ? (
+      <a
+        href={campaign.categoryDropsUrl}
+        target="_blank"
+        rel="noreferrer"
+        data-campaign-all-channels
+        className={linkClass}
+      >
+        {t("allChannels")}
+      </a>
+    ) : (
+      <>{t("allChannels")}</>
+    );
   }
   const hidden = campaign.channels.length - COLLAPSED_CHANNEL_COUNT;
   const shown = expanded ? campaign.channels : campaign.channels.slice(0, COLLAPSED_CHANNEL_COUNT);
@@ -587,7 +914,9 @@ function CampaignChannels({ campaign }: { campaign: CampaignView }): React.React
       {shown.map((channel, channelIndex) => (
         <React.Fragment key={channel.name}>
           {channelIndex > 0 ? ", " : null}
-          <a href={channel.url} target="_blank" rel="noreferrer" className={linkClass}>{channel.name}</a>
+          <a href={channel.url} target="_blank" rel="noreferrer" className={linkClass}>
+            {channel.name}
+          </a>
         </React.Fragment>
       ))}
       {hidden > 0 ? (
@@ -608,11 +937,21 @@ function CampaignChannels({ campaign }: { campaign: CampaignView }): React.React
   );
 }
 
-function Fact({ label, value, children }: { label: string; value?: string; children?: React.ReactNode }): React.ReactElement {
+function Fact({
+  label,
+  value,
+  children,
+}: {
+  label: string;
+  value?: string;
+  children?: React.ReactNode;
+}): React.ReactElement {
   return (
     <div className="flex min-w-0 flex-col gap-0.5">
       <span className="text-[10.5px] text-zinc-500 dark:text-zinc-400">{label}</span>
-      <span className="text-[11px] font-medium text-zinc-800 tabular dark:text-zinc-100">{value ?? children}</span>
+      <span className="text-[11px] font-medium text-zinc-800 tabular dark:text-zinc-100">
+        {value ?? children}
+      </span>
     </div>
   );
 }
@@ -620,7 +959,18 @@ function Fact({ label, value, children }: { label: string; value?: string; child
 // Everything that can be done to one campaign, on the campaign. Exclude is one
 // button with two meanings, so it asks: this campaign, or its whole game, in a
 // Base UI menu portalled out of the card (which clips its overflow).
-function CampaignActions({ campaign, gameName, finished, refreshing, pinned, onPin, onRefresh, onFavourite, onExclude, onBlock }: {
+function CampaignActions({
+  campaign,
+  gameName,
+  finished,
+  refreshing,
+  pinned,
+  onPin,
+  onRefresh,
+  onFavourite,
+  onExclude,
+  onBlock,
+}: {
   campaign: CampaignView;
   gameName: string;
   finished: boolean;
@@ -640,42 +990,90 @@ function CampaignActions({ campaign, gameName, finished, refreshing, pinned, onP
 
   const excludeLabel = blocked
     ? t("campaignCategoryBlocked", gameName)
-    : campaign.excluded ? t("excluded") : t("campaignExclude");
+    : campaign.excluded
+      ? t("excluded")
+      : t("campaignExclude");
 
-  if (!onPin && !onFavourite && !onExclude && !onBlock && !onRefresh && !campaign.pageUrl && !campaign.categoryDropsUrl) return null;
+  if (
+    !onPin
+    && !onFavourite
+    && !onExclude
+    && !onBlock
+    && !onRefresh
+    && !campaign.pageUrl
+    && !campaign.categoryDropsUrl
+  )
+    return null;
   return (
     <div className="space-y-1.5">
       <div className="flex flex-wrap items-center gap-1.5">
         {onPin && !finished ? (
-          <ActionChip pressed={Boolean(pinned)} onClick={onPin} icon={<Pin size={12} fill={pinned ? "currentColor" : "none"} />}>
-            {pinned && campaign.pinIndex != null ? t("campaignPinnedAt", String(campaign.pinIndex + 1)) : t("campaignPinToTop")}
+          <ActionChip
+            pressed={Boolean(pinned)}
+            onClick={onPin}
+            icon={<Pin size={12} fill={pinned ? "currentColor" : "none"} />}
+          >
+            {pinned && campaign.pinIndex != null
+              ? t("campaignPinnedAt", String(campaign.pinIndex + 1))
+              : t("campaignPinToTop")}
           </ActionChip>
         ) : null}
         {onFavourite ? (
-          <ActionChip pressed={Boolean(campaign.favourited)} onClick={onFavourite} icon={<Star size={12} fill={campaign.favourited ? "currentColor" : "none"} />}>
-            {campaign.favourited ? t("campaignFavouriteOn", gameName) : t("campaignFavourite", gameName)}
+          <ActionChip
+            pressed={Boolean(campaign.favourited)}
+            onClick={onFavourite}
+            icon={<Star size={12} fill={campaign.favourited ? "currentColor" : "none"} />}
+          >
+            {campaign.favourited
+              ? t("campaignFavouriteOn", gameName)
+              : t("campaignFavourite", gameName)}
           </ActionChip>
         ) : null}
         {hasChoice ? (
           <Menu.Root modal={false}>
-            <Menu.Trigger ref={portalRef} data-campaign-exclude className={excludeClass(excludeActive)}>
+            <Menu.Trigger
+              ref={portalRef}
+              data-campaign-exclude
+              className={excludeClass(excludeActive)}
+            >
               <Ban size={12} aria-hidden="true" />
               {excludeLabel}
-              <ChevronDown size={11} aria-hidden="true" className="opacity-70 transition-transform [[data-popup-open]>&]:rotate-180" />
+              <ChevronDown
+                size={11}
+                aria-hidden="true"
+                className="opacity-70 transition-transform [[data-popup-open]>&]:rotate-180"
+              />
             </Menu.Trigger>
             <Menu.Portal container={portalContainer}>
-              <Menu.Positioner align="start" sideOffset={4} collisionPadding={8} className="z-50 outline-none">
-                <Menu.Popup aria-label={t("campaignExclude")} data-campaign-exclude-menu className={cn(FLOATING_POPUP_CLASS, "w-[17rem]")}>
+              <Menu.Positioner
+                align="start"
+                sideOffset={4}
+                collisionPadding={8}
+                className="z-50 outline-none"
+              >
+                <Menu.Popup
+                  aria-label={t("campaignExclude")}
+                  data-campaign-exclude-menu
+                  className={cn(FLOATING_POPUP_CLASS, "w-[17rem]")}
+                >
                   <ExcludeChoice
                     checked={campaign.excluded}
                     title={t("campaignExcludeThis")}
-                    hint={campaign.excluded ? t("campaignExcludeThisUndo") : t("campaignExcludeThisHint", gameName)}
+                    hint={
+                      campaign.excluded
+                        ? t("campaignExcludeThisUndo")
+                        : t("campaignExcludeThisHint", gameName)
+                    }
                     onClick={onExclude!}
                   />
                   <ExcludeChoice
                     checked={blocked}
                     title={t("campaignExcludeCategory", gameName)}
-                    hint={blocked ? t("campaignExcludeCategoryUndo") : t("campaignExcludeCategoryHint", gameName)}
+                    hint={
+                      blocked
+                        ? t("campaignExcludeCategoryUndo")
+                        : t("campaignExcludeCategoryHint", gameName)
+                    }
                     onClick={onBlock!}
                   />
                 </Menu.Popup>
@@ -708,7 +1106,11 @@ function CampaignActions({ campaign, gameName, finished, refreshing, pinned, onP
           </button>
         ) : null}
         {onRefresh ? (
-          <ActionChip onClick={onRefresh} disabled={refreshing} icon={<RotateCcw size={12} className={cn(refreshing && "animate-spin")} />}>
+          <ActionChip
+            onClick={onRefresh}
+            disabled={refreshing}
+            icon={<RotateCcw size={12} className={cn(refreshing && "animate-spin")} />}
+          >
             {t("subscribedRefresh")}
           </ActionChip>
         ) : null}
@@ -717,16 +1119,33 @@ function CampaignActions({ campaign, gameName, finished, refreshing, pinned, onP
           // two destinations, labelled apart (#678).
           <span className="ms-auto inline-flex items-center gap-3">
             {campaign.pageUrl ? (
-              <a href={campaign.pageUrl} target="_blank" rel="noreferrer" data-campaign-details-link className={CAMPAIGN_LINK_CLASS}>
+              <a
+                href={campaign.pageUrl}
+                target="_blank"
+                rel="noreferrer"
+                data-campaign-details-link
+                className={CAMPAIGN_LINK_CLASS}
+              >
                 {t("campaignDropDetails")}
                 {campaign.pageHost ? (
-                  <span data-campaign-details-host className="font-normal text-zinc-500 dark:text-zinc-400">{campaign.pageHost}</span>
+                  <span
+                    data-campaign-details-host
+                    className="font-normal text-zinc-500 dark:text-zinc-400"
+                  >
+                    {campaign.pageHost}
+                  </span>
                 ) : null}
                 <ExternalLink size={11} aria-hidden="true" />
               </a>
             ) : null}
             {campaign.categoryDropsUrl ? (
-              <a href={campaign.categoryDropsUrl} target="_blank" rel="noreferrer" data-campaign-category-drops-link className={CAMPAIGN_LINK_CLASS}>
+              <a
+                href={campaign.categoryDropsUrl}
+                target="_blank"
+                rel="noreferrer"
+                data-campaign-category-drops-link
+                className={CAMPAIGN_LINK_CLASS}
+              >
                 {t("campaignCategoryDrops")}
                 <ExternalLink size={11} aria-hidden="true" />
               </a>
@@ -738,7 +1157,8 @@ function CampaignActions({ campaign, gameName, finished, refreshing, pinned, onP
   );
 }
 
-const CAMPAIGN_LINK_CLASS = "inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--ink-text)] hover:underline";
+const CAMPAIGN_LINK_CLASS =
+  "inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--ink-text)] hover:underline";
 
 function excludeClass(active: boolean): string {
   return cn(
@@ -749,7 +1169,17 @@ function excludeClass(active: boolean): string {
   );
 }
 
-function ExcludeChoice({ checked, title, hint, onClick }: { checked: boolean; title: string; hint: string; onClick(): void }): React.ReactElement {
+function ExcludeChoice({
+  checked,
+  title,
+  hint,
+  onClick,
+}: {
+  checked: boolean;
+  title: string;
+  hint: string;
+  onClick(): void;
+}): React.ReactElement {
   return (
     <Menu.CheckboxItem
       checked={checked}
@@ -760,13 +1190,27 @@ function ExcludeChoice({ checked, title, hint, onClick }: { checked: boolean; ti
       <Menu.CheckboxItemIndicator className="mt-0.5 text-[var(--ink-text)]">
         <Check size={12} strokeWidth={3} />
       </Menu.CheckboxItemIndicator>
-      <span className="col-start-2 row-start-1 text-[11.5px] font-semibold text-zinc-800 dark:text-zinc-100">{title}</span>
+      <span className="col-start-2 row-start-1 text-[11.5px] font-semibold text-zinc-800 dark:text-zinc-100">
+        {title}
+      </span>
       <span className="col-start-2 text-[10.5px] text-zinc-500 dark:text-zinc-400">{hint}</span>
     </Menu.CheckboxItem>
   );
 }
 
-function ActionChip({ pressed, disabled, onClick, icon, children }: { pressed?: boolean; disabled?: boolean; onClick(): void; icon: React.ReactNode; children: React.ReactNode }): React.ReactElement {
+function ActionChip({
+  pressed,
+  disabled,
+  onClick,
+  icon,
+  children,
+}: {
+  pressed?: boolean;
+  disabled?: boolean;
+  onClick(): void;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}): React.ReactElement {
   return (
     <button
       type="button"
@@ -786,7 +1230,15 @@ function ActionChip({ pressed, disabled, onClick, icon, children }: { pressed?: 
   );
 }
 
-function RewardCarousel({ rewards, missed = false, onToggleSubscriptionMark }: { rewards: RewardView[]; missed?: boolean; onToggleSubscriptionMark?: (rewardId: string) => void }) {
+function RewardCarousel({
+  rewards,
+  missed = false,
+  onToggleSubscriptionMark,
+}: {
+  rewards: RewardView[];
+  missed?: boolean;
+  onToggleSubscriptionMark?: (rewardId: string) => void;
+}) {
   const t = useT();
   const rowRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -807,9 +1259,8 @@ function RewardCarousel({ rewards, missed = false, onToggleSubscriptionMark }: {
     }
 
     row.addEventListener("scroll", updateControls, { passive: true });
-    const resizeObserver = typeof ResizeObserver === "undefined"
-      ? undefined
-      : new ResizeObserver(updateControls);
+    const resizeObserver =
+      typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(updateControls);
     resizeObserver?.observe(row);
     Array.from(row.children).forEach((child) => resizeObserver?.observe(child));
     const frame = requestAnimationFrame(updateControls);
@@ -826,13 +1277,23 @@ function RewardCarousel({ rewards, missed = false, onToggleSubscriptionMark }: {
     if (!row) return;
     const firstReward = row.firstElementChild as HTMLElement | null;
     const gap = Number.parseFloat(getComputedStyle(row).columnGap) || 0;
-    row.scrollBy({ left: direction * ((firstReward?.offsetWidth ?? row.clientWidth) + gap), behavior: "smooth" });
+    row.scrollBy({
+      left: direction * ((firstReward?.offsetWidth ?? row.clientWidth) + gap),
+      behavior: "smooth",
+    });
   }
 
   return (
     <div className="relative -mx-0.5">
       <div ref={rowRef} className="no-scrollbar flex gap-2 overflow-x-auto px-0.5 pb-1">
-        {rewards.map((reward) => <RewardTile key={reward.id} reward={reward} missed={missed} onToggleSubscriptionMark={onToggleSubscriptionMark} />)}
+        {rewards.map((reward) => (
+          <RewardTile
+            key={reward.id}
+            reward={reward}
+            missed={missed}
+            onToggleSubscriptionMark={onToggleSubscriptionMark}
+          />
+        ))}
       </div>
       {canScrollLeft && (
         <Tip label={t("scrollRewardsLeft")}>
@@ -862,7 +1323,9 @@ function RewardCarousel({ rewards, missed = false, onToggleSubscriptionMark }: {
   );
 }
 
-export function campaignRejectionMessageKey(code: NonNullable<CampaignView["farmingRejection"]>["code"]): string {
+export function campaignRejectionMessageKey(
+  code: NonNullable<CampaignView["farmingRejection"]>["code"],
+): string {
   const keys: Record<NonNullable<CampaignView["farmingRejection"]>["code"], string> = {
     excluded: "campaignRejectionExcluded",
     upcoming: "campaignRejectionUpcoming",
@@ -890,52 +1353,114 @@ export function campaignRejectionMessageKey(code: NonNullable<CampaignView["farm
 function SubscriptionMarkControl({ marked, onToggle }: { marked: boolean; onToggle(): void }) {
   const t = useT();
   return marked ? (
-    <div data-subscription-marked className="flex items-center justify-between gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+    <div
+      data-subscription-marked
+      className="flex items-center justify-between gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400"
+    >
       <span>{t("subscriptionMarkedSubscribed")}</span>
-      <button type="button" data-subscription-mark-undo onClick={onToggle} className="shrink-0 font-semibold text-zinc-600 underline decoration-zinc-300 underline-offset-2 hover:decoration-current dark:text-zinc-300 dark:decoration-zinc-600">
+      <button
+        type="button"
+        data-subscription-mark-undo
+        onClick={onToggle}
+        className="shrink-0 font-semibold text-zinc-600 underline decoration-zinc-300 underline-offset-2 hover:decoration-current dark:text-zinc-300 dark:decoration-zinc-600"
+      >
         {t("subscriptionMarkUndo")}
       </button>
     </div>
   ) : (
-    <button type="button" data-subscription-mark onClick={onToggle} className="w-full rounded-md border border-zinc-200 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800">
+    <button
+      type="button"
+      data-subscription-mark
+      onClick={onToggle}
+      className="w-full rounded-md border border-zinc-200 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+    >
       {t("subscriptionMarkSubscribed")}
     </button>
   );
 }
 
-function RewardTile({ reward, missed = false, onToggleSubscriptionMark }: { reward: RewardView; missed?: boolean; onToggleSubscriptionMark?: (rewardId: string) => void }) {
+function RewardTile({
+  reward,
+  missed = false,
+  onToggleSubscriptionMark,
+}: {
+  reward: RewardView;
+  missed?: boolean;
+  onToggleSubscriptionMark?: (rewardId: string) => void;
+}) {
   const t = useT();
   const done = reward.obtained || (reward.progress ?? 0) >= 100;
   // An expired campaign's unearned rewards are gone, not pending.
   const lost = missed && !reward.obtained;
   // Never on an expired campaign: marking cannot bring a reward back.
-  const markControl = onToggleSubscriptionMark && reward.canMarkSubscription && !missed
-    ? <SubscriptionMarkControl marked={reward.subscriptionMarked === true} onToggle={() => onToggleSubscriptionMark(reward.id)} />
-    : null;
+  const markControl =
+    onToggleSubscriptionMark && reward.canMarkSubscription && !missed ? (
+      <SubscriptionMarkControl
+        marked={reward.subscriptionMarked === true}
+        onToggle={() => onToggleSubscriptionMark(reward.id)}
+      />
+    ) : null;
   return (
-    <div data-reward-missed={lost || undefined} className={cn("w-[128px] shrink-0 rounded-xl border bg-white p-2 dark:bg-zinc-900", lost ? "border-dashed border-zinc-300 dark:border-zinc-700" : "border-zinc-200 dark:border-zinc-800")}>
-      <div className={cn("relative mb-2 flex h-[68px] items-center justify-center overflow-hidden rounded-lg bg-zinc-50 dark:bg-zinc-800/40", lost && "opacity-50 grayscale")}>
-        <ImageWithFallback src={reward.imageUrl} alt={reward.name} fit="contain" className="p-1" fallback={
-          <div className={cn("flex h-full w-full items-center justify-center bg-gradient-to-br", reward.tint)}>
-            <span className="px-1 text-center text-[11px] font-black tracking-wide text-zinc-900/70 mix-blend-multiply">{reward.art}</span>
-          </div>
-        } />
-        {done && <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-white"><Check size={11} strokeWidth={3} /></span>}
+    <div
+      data-reward-missed={lost || undefined}
+      className={cn(
+        "w-[128px] shrink-0 rounded-xl border bg-white p-2 dark:bg-zinc-900",
+        lost
+          ? "border-dashed border-zinc-300 dark:border-zinc-700"
+          : "border-zinc-200 dark:border-zinc-800",
+      )}
+    >
+      <div
+        className={cn(
+          "relative mb-2 flex h-[68px] items-center justify-center overflow-hidden rounded-lg bg-zinc-50 dark:bg-zinc-800/40",
+          lost && "opacity-50 grayscale",
+        )}
+      >
+        <ImageWithFallback
+          src={reward.imageUrl}
+          alt={reward.name}
+          fit="contain"
+          className="p-1"
+          fallback={
+            <div
+              className={cn(
+                "flex h-full w-full items-center justify-center bg-gradient-to-br",
+                reward.tint,
+              )}
+            >
+              <span className="px-1 text-center text-[11px] font-black tracking-wide text-zinc-900/70 mix-blend-multiply">
+                {reward.art}
+              </span>
+            </div>
+          }
+        />
+        {done && (
+          <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-white">
+            <Check size={11} strokeWidth={3} />
+          </span>
+        )}
       </div>
       <Tip label={reward.name}>
-        <div className="mb-1.5 line-clamp-1 text-[11px] font-medium text-zinc-800 dark:text-zinc-200">{reward.name}</div>
+        <div className="mb-1.5 line-clamp-1 text-[11px] font-medium text-zinc-800 dark:text-zinc-200">
+          {reward.name}
+        </div>
       </Tip>
       {reward.requirement === "watch" ? (
         <>
           <ProgressBar value={reward.progress ?? 0} size="sm" />
           <div className="mt-1.5 flex items-center justify-between text-[10px] text-zinc-500 dark:text-zinc-400">
-            <span className="font-semibold tabular" style={(reward.progress ?? 0) > 0 ? { color: "var(--accent-text)" } : undefined}>
+            <span
+              className="font-semibold tabular"
+              style={(reward.progress ?? 0) > 0 ? { color: "var(--accent-text)" } : undefined}
+            >
               {reward.progress == null ? "—" : `${reward.progress.toFixed(0)}%`}
             </span>
             <span className="tabular">{formatMinutes(reward.requiredMinutes)}</span>
           </div>
           {lost ? (
-            <div className="mt-1 text-[10px] font-semibold leading-tight text-amber-600 dark:text-amber-400">{t("rewardMissed")}</div>
+            <div className="mt-1 text-[10px] font-semibold leading-tight text-amber-600 dark:text-amber-400">
+              {t("rewardMissed")}
+            </div>
           ) : reward.ineligibilityReason === "insufficient_time" ? (
             <div className="mt-1 text-[10px] font-semibold leading-tight text-amber-600 dark:text-amber-400">
               {t("insufficientTimeRemaining")}
@@ -945,15 +1470,26 @@ function RewardTile({ reward, missed = false, onToggleSubscriptionMark }: { rewa
         </>
       ) : reward.requirement === "subscription" ? (
         <div className="space-y-1 text-[10px] leading-tight text-zinc-500 dark:text-zinc-400">
-          <div className="font-semibold text-zinc-700 dark:text-zinc-200">{t("subscriptionRequired")}</div>
+          <div className="font-semibold text-zinc-700 dark:text-zinc-200">
+            {t("subscriptionRequired")}
+          </div>
           <div>{t("qualifyingSubscriptionsRequired", String(reward.requiredSubs ?? 1))}</div>
           {reward.subscriptionMarked ? null : (
-            <div className={cn("font-medium", reward.obtained && "text-emerald-600 dark:text-emerald-400")}>{reward.obtained ? t("earned") : t("subscriptionProgressUnknown")}</div>
+            <div
+              className={cn(
+                "font-medium",
+                reward.obtained && "text-emerald-600 dark:text-emerald-400",
+              )}
+            >
+              {reward.obtained ? t("earned") : t("subscriptionProgressUnknown")}
+            </div>
           )}
           {markControl}
         </div>
       ) : (
-        <div className="text-[10px] font-semibold text-zinc-600 dark:text-zinc-300">{t("actionRequired")}</div>
+        <div className="text-[10px] font-semibold text-zinc-600 dark:text-zinc-300">
+          {t("actionRequired")}
+        </div>
       )}
     </div>
   );

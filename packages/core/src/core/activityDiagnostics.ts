@@ -1,4 +1,9 @@
-import type { ActivityEvent, DiagnosticEvent, EngineEvent, EventEmitter } from "@lurkloot/shared/events";
+import type {
+  ActivityEvent,
+  DiagnosticEvent,
+  EngineEvent,
+  EventEmitter,
+} from "@lurkloot/shared/events";
 
 // Activity entries are structured (code + data) and localized by the host UI,
 // so on their own they are useless in a bug report: the reader gets a sentence
@@ -15,7 +20,12 @@ function quoted(value: string): string {
   return `"${value}"`;
 }
 
-function target(data: { campaignId: string; campaignName: string; rewardId: string; rewardName: string }): string {
+function target(data: {
+  campaignId: string;
+  campaignName: string;
+  rewardId: string;
+  rewardName: string;
+}): string {
   return `${quoted(data.rewardName)} from campaign ${quoted(data.campaignName)} (campaign ${data.campaignId}, reward ${data.rewardId})`;
 }
 

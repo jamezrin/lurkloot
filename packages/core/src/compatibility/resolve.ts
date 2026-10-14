@@ -16,17 +16,21 @@ function hasOwn<T extends object>(record: T, key: string): key is Extract<keyof 
 }
 
 function recommendedTwitchProfile(host: CompatibilityHostFacts): TwitchProfileId {
-  const profile = Object.values(COMPATIBILITY_REGISTRY.twitch.profiles).find((candidate) =>
-    candidate.lifecycle === "recommended"
-    && candidate.hosts.includes(host.host)
-    && candidate.identities.includes(host.twitchIdentity));
-  if (!profile) throw new Error(`No recommended Twitch profile for ${host.host}/${host.twitchIdentity}`);
+  const profile = Object.values(COMPATIBILITY_REGISTRY.twitch.profiles).find(
+    (candidate) =>
+      candidate.lifecycle === "recommended"
+      && candidate.hosts.includes(host.host)
+      && candidate.identities.includes(host.twitchIdentity),
+  );
+  if (!profile)
+    throw new Error(`No recommended Twitch profile for ${host.host}/${host.twitchIdentity}`);
   return profile.id;
 }
 
 function recommendedKickProfile(host: CompatibilityHostFacts): KickProfileId {
-  const profile = Object.values(COMPATIBILITY_REGISTRY.kick.profiles).find((candidate) =>
-    candidate.lifecycle === "recommended" && candidate.hosts.includes(host.host));
+  const profile = Object.values(COMPATIBILITY_REGISTRY.kick.profiles).find(
+    (candidate) => candidate.lifecycle === "recommended" && candidate.hosts.includes(host.host),
+  );
   if (!profile) throw new Error(`No recommended Kick profile for ${host.host}`);
   return profile.id;
 }
@@ -49,10 +53,13 @@ function resolveAutomaticHeartbeat(
     COMPATIBILITY_REGISTRY.twitch.heartbeat[preferred],
     ...Object.values(COMPATIBILITY_REGISTRY.twitch.heartbeat),
   ];
-  const compatible = candidates.find((candidate) =>
-    candidate.hosts.includes(host.host) && candidate.identities.includes(host.twitchIdentity));
+  const compatible = candidates.find(
+    (candidate) =>
+      candidate.hosts.includes(host.host) && candidate.identities.includes(host.twitchIdentity),
+  );
 
-  if (!compatible) throw new Error(`No compatible Twitch heartbeat for ${host.host}/${host.twitchIdentity}`);
+  if (!compatible)
+    throw new Error(`No compatible Twitch heartbeat for ${host.host}/${host.twitchIdentity}`);
   return compatible.id;
 }
 
@@ -66,39 +73,67 @@ export function resolveCompatibility(
   if (settings.twitch.profile !== "auto") {
     if (hasOwn(COMPATIBILITY_REGISTRY.twitch.profiles, settings.twitch.profile)) {
       const candidate = COMPATIBILITY_REGISTRY.twitch.profiles[settings.twitch.profile];
-      if (candidate.hosts.includes(host.host) && candidate.identities.includes(host.twitchIdentity)) {
+      if (
+        candidate.hosts.includes(host.host)
+        && candidate.identities.includes(host.twitchIdentity)
+      ) {
         twitchProfile = candidate.id;
       } else {
-        warnings.push(warning("incompatible_override", "twitch", "profile", settings.twitch.profile, twitchProfile));
+        warnings.push(
+          warning(
+            "incompatible_override",
+            "twitch",
+            "profile",
+            settings.twitch.profile,
+            twitchProfile,
+          ),
+        );
       }
     } else {
-      warnings.push(warning("unknown_selection", "twitch", "profile", settings.twitch.profile, twitchProfile));
+      warnings.push(
+        warning("unknown_selection", "twitch", "profile", settings.twitch.profile, twitchProfile),
+      );
     }
   }
 
   const twitchDefaults = COMPATIBILITY_REGISTRY.twitch.profiles[twitchProfile];
-  let heartbeat = resolveAutomaticHeartbeat(twitchDefaults.heartbeatByIdentity[host.twitchIdentity], host);
+  let heartbeat = resolveAutomaticHeartbeat(
+    twitchDefaults.heartbeatByIdentity[host.twitchIdentity],
+    host,
+  );
   let inventory: TwitchInventoryId = twitchDefaults.inventory;
 
   if (settings.twitch.heartbeatTransport !== "auto") {
     const requested = settings.twitch.heartbeatTransport;
     if (!hasOwn(COMPATIBILITY_REGISTRY.twitch.heartbeat, requested)) {
-      warnings.push(warning("unknown_selection", "twitch", "heartbeatTransport", requested, heartbeat));
+      warnings.push(
+        warning("unknown_selection", "twitch", "heartbeatTransport", requested, heartbeat),
+      );
     } else {
       const candidate = COMPATIBILITY_REGISTRY.twitch.heartbeat[requested];
-      if (candidate.hosts.includes(host.host) && candidate.identities.includes(host.twitchIdentity)) heartbeat = candidate.id;
-      else warnings.push(warning("incompatible_override", "twitch", "heartbeatTransport", requested, heartbeat));
+      if (candidate.hosts.includes(host.host) && candidate.identities.includes(host.twitchIdentity))
+        heartbeat = candidate.id;
+      else
+        warnings.push(
+          warning("incompatible_override", "twitch", "heartbeatTransport", requested, heartbeat),
+        );
     }
   }
 
   if (settings.twitch.inventoryQueryVersion !== "auto") {
     const requested = settings.twitch.inventoryQueryVersion;
     if (!hasOwn(COMPATIBILITY_REGISTRY.twitch.inventory, requested)) {
-      warnings.push(warning("unknown_selection", "twitch", "inventoryQueryVersion", requested, inventory));
+      warnings.push(
+        warning("unknown_selection", "twitch", "inventoryQueryVersion", requested, inventory),
+      );
     } else {
       const candidate = COMPATIBILITY_REGISTRY.twitch.inventory[requested];
-      if (candidate.hosts.includes(host.host) && candidate.identities.includes(host.twitchIdentity)) inventory = candidate.id;
-      else warnings.push(warning("incompatible_override", "twitch", "inventoryQueryVersion", requested, inventory));
+      if (candidate.hosts.includes(host.host) && candidate.identities.includes(host.twitchIdentity))
+        inventory = candidate.id;
+      else
+        warnings.push(
+          warning("incompatible_override", "twitch", "inventoryQueryVersion", requested, inventory),
+        );
     }
   }
 
@@ -107,9 +142,14 @@ export function resolveCompatibility(
     if (hasOwn(COMPATIBILITY_REGISTRY.kick.profiles, settings.kick.profile)) {
       const candidate = COMPATIBILITY_REGISTRY.kick.profiles[settings.kick.profile];
       if (candidate.hosts.includes(host.host)) kickProfile = candidate.id;
-      else warnings.push(warning("incompatible_override", "kick", "profile", settings.kick.profile, kickProfile));
+      else
+        warnings.push(
+          warning("incompatible_override", "kick", "profile", settings.kick.profile, kickProfile),
+        );
     } else {
-      warnings.push(warning("unknown_selection", "kick", "profile", settings.kick.profile, kickProfile));
+      warnings.push(
+        warning("unknown_selection", "kick", "profile", settings.kick.profile, kickProfile),
+      );
     }
   }
 
@@ -122,7 +162,10 @@ export function resolveCompatibility(
     } else {
       const candidate = COMPATIBILITY_REGISTRY.kick.claim[requested];
       if (candidate.hosts.includes(host.host)) claim = candidate.id;
-      else warnings.push(warning("incompatible_override", "kick", "claimLinkHandling", requested, claim));
+      else
+        warnings.push(
+          warning("incompatible_override", "kick", "claimLinkHandling", requested, claim),
+        );
     }
   }
 

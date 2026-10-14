@@ -58,11 +58,21 @@ export async function pollForToken(
 
 export async function kickDeviceLogin(authDir: string, logger: Logger): Promise<void> {
   const link = requestTvLink();
-  logger.info(`Open ${link.verificationUrl} (signed in to Kick) and confirm code: ${link.code}`, "login");
-  logger.info(`Waiting for approval (expires in ${Math.round(EXPIRES_IN_SECONDS / 60)} min)…`, "login");
+  logger.info(
+    `Open ${link.verificationUrl} (signed in to Kick) and confirm code: ${link.code}`,
+    "login",
+  );
+  logger.info(
+    `Waiting for approval (expires in ${Math.round(EXPIRES_IN_SECONDS / 60)} min)…`,
+    "login",
+  );
   const cycleTLS = await initCycle();
   try {
-    const sessionToken = await pollForToken(link.uuid, link.code, createTvLinkAuthenticator(cycleTLS));
+    const sessionToken = await pollForToken(
+      link.uuid,
+      link.code,
+      createTvLinkAuthenticator(cycleTLS),
+    );
     saveCredentials(authDir, { kick: { sessionToken } });
     logger.info("Kick device login complete; token saved", "login");
   } finally {

@@ -1,10 +1,25 @@
-import type { ActivityPage, CategorySearchResult, DiagnosticsExport, PlaybackControl, RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
+import type {
+  ActivityPage,
+  CategorySearchResult,
+  DiagnosticsExport,
+  PlaybackControl,
+  RuntimeMessage,
+  RuntimeSnapshot,
+} from "@lurkloot/shared/messages";
 import type { DropCampaign, SupportedLocale } from "@lurkloot/shared/models";
 import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings } from "@lurkloot/shared/settings";
 import type { PopupAdapter } from "./types";
 import { openHttpsLink } from "./links";
 
-function handleDemoMessage(message: RuntimeMessage): RuntimeSnapshot | PlaybackControl | CategorySearchResult | ActivityPage | DiagnosticsExport | undefined {
+function handleDemoMessage(
+  message: RuntimeMessage,
+):
+  | RuntimeSnapshot
+  | PlaybackControl
+  | CategorySearchResult
+  | ActivityPage
+  | DiagnosticsExport
+  | undefined {
   switch (message.type) {
     case "getSnapshot":
     case "tickNow":
@@ -18,7 +33,10 @@ function handleDemoMessage(message: RuntimeMessage): RuntimeSnapshot | PlaybackC
         ].filter((category) => category.name.toLowerCase().includes(message.query.toLowerCase())),
       };
     case "saveSettings":
-      return { ...demoSnapshot(), settings: applySettingsPatch(demoSnapshot().settings, message.settingsPatch) };
+      return {
+        ...demoSnapshot(),
+        settings: applySettingsPatch(demoSnapshot().settings, message.settingsPatch),
+      };
     case "setAutomation":
       return {
         ...demoSnapshot(),
@@ -70,7 +88,7 @@ export function createDemoPopupAdapter(options?: {
   const store: Record<string, unknown> = {};
   return {
     version: options?.version ?? "1.0.0",
-    send: async <T,>(message: RuntimeMessage) => handleDemoMessage(message) as T,
+    send: async <T>(message: RuntimeMessage) => handleDemoMessage(message) as T,
     getStorage: async (keys?: string | string[]) => {
       if (typeof keys === "string") return { [keys]: store[keys] };
       if (Array.isArray(keys)) return Object.fromEntries(keys.map((key) => [key, store[key]]));
@@ -81,7 +99,8 @@ export function createDemoPopupAdapter(options?: {
     },
     getMessage: () => "",
     getUiLanguage: () => options?.locale ?? "en",
-    openLink: (url) => openHttpsLink(url, (safeUrl) => window.open(safeUrl, "_blank", "noopener,noreferrer")),
+    openLink: (url) =>
+      openHttpsLink(url, (safeUrl) => window.open(safeUrl, "_blank", "noopener,noreferrer")),
   };
 }
 
@@ -116,9 +135,7 @@ function demoSnapshot(): RuntimeSnapshot {
         idleWatchlistChannels: ["greenroomgg", "pixelboost"],
         excludedChannels: [],
         categoryMode: "all",
-        categories: [
-          { id: "just chatting", name: "Just Chatting" },
-        ],
+        categories: [{ id: "just chatting", name: "Just Chatting" }],
         favouriteCategories: [],
         // Exercises the denylist alongside Twitch's allowlist: Kick farms every
         // category except this one.
@@ -145,11 +162,42 @@ function demoSnapshot(): RuntimeSnapshot {
       priority: 3,
       allowedChannels: ["RivalsPilot", "DropHunter", "LootForge", "NightRunLive", "ArenaDesk"],
       rewards: [
-        { id: "tw-marathon-badge", name: "Founder Badge", requiredMinutes: 30, watchedMinutes: 30, status: "claimed" },
-        { id: "tw-marathon-boost", name: "Signal Booster", requiredMinutes: 60, watchedMinutes: 44, status: "in_progress", isCurrentReward: true },
-        { id: "tw-marathon-skin", name: "Chrome Runner Skin", requiredMinutes: 120, watchedMinutes: 0, status: "locked" },
-        { id: "tw-marathon-charm", name: "Orbit Charm", requiredMinutes: 180, watchedMinutes: 0, status: "locked" },
-        { id: "tw-marathon-emote", name: "Runner Emote", requiredMinutes: 240, watchedMinutes: 0, status: "locked" },
+        {
+          id: "tw-marathon-badge",
+          name: "Founder Badge",
+          requiredMinutes: 30,
+          watchedMinutes: 30,
+          status: "claimed",
+        },
+        {
+          id: "tw-marathon-boost",
+          name: "Signal Booster",
+          requiredMinutes: 60,
+          watchedMinutes: 44,
+          status: "in_progress",
+          isCurrentReward: true,
+        },
+        {
+          id: "tw-marathon-skin",
+          name: "Chrome Runner Skin",
+          requiredMinutes: 120,
+          watchedMinutes: 0,
+          status: "locked",
+        },
+        {
+          id: "tw-marathon-charm",
+          name: "Orbit Charm",
+          requiredMinutes: 180,
+          watchedMinutes: 0,
+          status: "locked",
+        },
+        {
+          id: "tw-marathon-emote",
+          name: "Runner Emote",
+          requiredMinutes: 240,
+          watchedMinutes: 0,
+          status: "locked",
+        },
       ],
     },
     {
@@ -167,8 +215,20 @@ function demoSnapshot(): RuntimeSnapshot {
       priority: 2,
       isGeneralDrop: true,
       rewards: [
-        { id: "tw-starfall-crate", name: "Meteor Crate", requiredMinutes: 45, watchedMinutes: 18, status: "in_progress" },
-        { id: "tw-starfall-emote", name: "Victory Emote", requiredMinutes: 90, watchedMinutes: 0, status: "locked" },
+        {
+          id: "tw-starfall-crate",
+          name: "Meteor Crate",
+          requiredMinutes: 45,
+          watchedMinutes: 18,
+          status: "in_progress",
+        },
+        {
+          id: "tw-starfall-emote",
+          name: "Victory Emote",
+          requiredMinutes: 90,
+          watchedMinutes: 0,
+          status: "locked",
+        },
       ],
     },
     {
@@ -186,7 +246,13 @@ function demoSnapshot(): RuntimeSnapshot {
       priority: 1,
       allowedChannels: ["ManaCraft", "ArcaneHQ"],
       rewards: [
-        { id: "tw-spellforge-card", name: "Arcane Card Back", requiredMinutes: 60, watchedMinutes: 0, status: "locked" },
+        {
+          id: "tw-spellforge-card",
+          name: "Arcane Card Back",
+          requiredMinutes: 60,
+          watchedMinutes: 0,
+          status: "locked",
+        },
       ],
     },
     // One of each ended state, so Completed is a populated view in the demo and
@@ -203,8 +269,20 @@ function demoSnapshot(): RuntimeSnapshot {
       status: "completed",
       accountLinked: true,
       rewards: [
-        { id: "tw-marathon-season1-banner", name: "Season 1 Banner", requiredMinutes: 60, watchedMinutes: 60, status: "claimed" },
-        { id: "tw-marathon-season1-charm", name: "Relay Charm", requiredMinutes: 120, watchedMinutes: 120, status: "claimed" },
+        {
+          id: "tw-marathon-season1-banner",
+          name: "Season 1 Banner",
+          requiredMinutes: 60,
+          watchedMinutes: 60,
+          status: "claimed",
+        },
+        {
+          id: "tw-marathon-season1-charm",
+          name: "Relay Charm",
+          requiredMinutes: 120,
+          watchedMinutes: 120,
+          status: "claimed",
+        },
       ],
     },
     {
@@ -219,7 +297,13 @@ function demoSnapshot(): RuntimeSnapshot {
       status: "expired",
       accountLinked: true,
       rewards: [
-        { id: "tw-starfall-preseason-skin", name: "Comet Skin", requiredMinutes: 180, watchedMinutes: 45, status: "locked" },
+        {
+          id: "tw-starfall-preseason-skin",
+          name: "Comet Skin",
+          requiredMinutes: 180,
+          watchedMinutes: 45,
+          status: "locked",
+        },
       ],
     },
   ];
@@ -239,8 +323,20 @@ function demoSnapshot(): RuntimeSnapshot {
       priority: 2,
       allowedChannels: ["GreenRoomGG", "PixelBoost", "ClutchDesk"],
       rewards: [
-        { id: "kick-arena-spray", name: "Neon Spray", requiredMinutes: 30, watchedMinutes: 30, status: "claimed" },
-        { id: "kick-arena-token", name: "Drop Token", requiredMinutes: 90, watchedMinutes: 22, status: "in_progress" },
+        {
+          id: "kick-arena-spray",
+          name: "Neon Spray",
+          requiredMinutes: 30,
+          watchedMinutes: 30,
+          status: "claimed",
+        },
+        {
+          id: "kick-arena-token",
+          name: "Drop Token",
+          requiredMinutes: 90,
+          watchedMinutes: 22,
+          status: "in_progress",
+        },
       ],
     },
   ];

@@ -21,20 +21,28 @@ const FAILURE_KINDS = new Set<SafeFetchFailureKind>([
 ]);
 
 export function safeFetchFailure(candidate: unknown): SafeFetchFailure {
-  const value = candidate && typeof candidate === "object" ? candidate as Record<string, unknown> : {};
+  const value =
+    candidate && typeof candidate === "object" ? (candidate as Record<string, unknown>) : {};
   const kind = FAILURE_KINDS.has(value.kind as SafeFetchFailureKind)
-    ? value.kind as SafeFetchFailureKind
+    ? (value.kind as SafeFetchFailureKind)
     : "http_error";
   const failure: SafeFetchFailure = { kind };
-  if (typeof value.status === "number" && Number.isInteger(value.status) && value.status >= 100 && value.status <= 599) {
+  if (
+    typeof value.status === "number"
+    && Number.isInteger(value.status)
+    && value.status >= 100
+    && value.status <= 599
+  ) {
     failure.status = value.status;
   }
   if (typeof value.reason === "string" && value.reason.length > 0 && value.reason.length <= 256) {
     failure.reason = value.reason;
   }
   const reference = value.reference;
-  if ((typeof reference === "string" && reference.length > 0 && reference.length <= 128)
-    || (typeof reference === "number" && Number.isFinite(reference))) {
+  if (
+    (typeof reference === "string" && reference.length > 0 && reference.length <= 128)
+    || (typeof reference === "number" && Number.isFinite(reference))
+  ) {
     failure.reference = reference;
   }
   return failure;
@@ -45,10 +53,11 @@ export class SafeFetchError extends Error {
 
   constructor(candidate: SafeFetchFailure) {
     const failure = safeFetchFailure(candidate);
-    super([
-      failure.status == null ? undefined : `HTTP ${failure.status}`,
-      failure.reason,
-    ].filter(Boolean).join(" ") || failure.kind);
+    super(
+      [failure.status == null ? undefined : `HTTP ${failure.status}`, failure.reason]
+        .filter(Boolean)
+        .join(" ") || failure.kind,
+    );
     this.name = "SafeFetchError";
     this.failure = failure;
   }

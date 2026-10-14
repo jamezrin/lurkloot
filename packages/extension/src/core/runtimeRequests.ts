@@ -11,9 +11,11 @@ export class RuntimeRequestError extends Error {
 }
 
 function isRequestFailedResponse(value: unknown): boolean {
-  return typeof value === "object"
+  return (
+    typeof value === "object"
     && value !== null
-    && (value as { error?: unknown }).error === REQUEST_FAILED_RESPONSE.error;
+    && (value as { error?: unknown }).error === REQUEST_FAILED_RESPONSE.error
+  );
 }
 
 // Wraps `browser.runtime.sendMessage` so a failed handler rejects, the same

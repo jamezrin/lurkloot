@@ -1,4 +1,11 @@
-import type { Platform, PlatformAuthHealth, PlatformAuthMessageKey, PlatformAuthReasonCode, PlatformAuthStatus, SchedulerState } from "@lurkloot/shared/models";
+import type {
+  Platform,
+  PlatformAuthHealth,
+  PlatformAuthMessageKey,
+  PlatformAuthReasonCode,
+  PlatformAuthStatus,
+  SchedulerState,
+} from "@lurkloot/shared/models";
 import { normalizeCriticalHealth } from "@lurkloot/shared/criticalHealth";
 import { isRecord } from "@lurkloot/shared/records";
 
@@ -20,7 +27,10 @@ const AUTH_REASONS: Record<PlatformAuthStatus, readonly PlatformAuthReasonCode[]
   unavailable: ["credential_lookup_failed", "platform_unavailable", "network_unavailable"],
 };
 
-const AUTH_MESSAGE_KEYS: Record<PlatformAuthStatus | PlatformAuthReasonCode, PlatformAuthMessageKey> = {
+const AUTH_MESSAGE_KEYS: Record<
+  PlatformAuthStatus | PlatformAuthReasonCode,
+  PlatformAuthMessageKey
+> = {
   checking: "authChecking",
   healthy: "authHealthy",
   missing_credentials: "authMissingCredentials",
@@ -47,7 +57,8 @@ function normalizedIsoTimestamp(value: unknown): string | undefined {
 export function normalizePlatformAuthHealth(value: unknown): PlatformAuthHealth {
   if (!isRecord(value)) return { status: "checking" };
   const status = value.status;
-  if (typeof status !== "string" || !AUTH_STATUSES.has(status as PlatformAuthStatus)) return { status: "checking" };
+  if (typeof status !== "string" || !AUTH_STATUSES.has(status as PlatformAuthStatus))
+    return { status: "checking" };
 
   const normalizedStatus = status as PlatformAuthStatus;
   const health: PlatformAuthHealth = { status: normalizedStatus };
@@ -56,10 +67,11 @@ export function normalizePlatformAuthHealth(value: unknown): PlatformAuthHealth 
     if (checkedAt) health.checkedAt = checkedAt;
   }
 
-  const reasonCode = typeof value.reasonCode === "string"
+  const reasonCode =
+    typeof value.reasonCode === "string"
     && AUTH_REASONS[normalizedStatus].includes(value.reasonCode as PlatformAuthReasonCode)
-    ? value.reasonCode as PlatformAuthReasonCode
-    : undefined;
+      ? (value.reasonCode as PlatformAuthReasonCode)
+      : undefined;
   if (reasonCode) health.reasonCode = reasonCode;
 
   if (isRecord(value.message)) {
@@ -68,7 +80,8 @@ export function normalizePlatformAuthHealth(value: unknown): PlatformAuthHealth 
       health.message = { key: expectedKey };
       if (isRecord(value.message.values)) {
         const reference = value.message.values.reference;
-        const safeReference = (typeof reference === "string" && reference.length > 0 && reference.length <= 128)
+        const safeReference =
+          (typeof reference === "string" && reference.length > 0 && reference.length <= 128)
           || (typeof reference === "number" && Number.isFinite(reference));
         if (safeReference) health.message.values = { reference: reference as string | number };
       }
@@ -111,18 +124,22 @@ export const DEFAULT_STATE: SchedulerState = {
 // layer and any file-backed storage so a new top-level slice only has to be
 // added in one place.
 export function mergeSchedulerState(stored: Partial<SchedulerState> | undefined): SchedulerState {
-  const { events: _legacyEvents, criticalHealth: _rawCriticalHealth, ...operationalState } = stored as (Partial<SchedulerState> & { events?: unknown }) ?? {};
+  const {
+    events: _legacyEvents,
+    criticalHealth: _rawCriticalHealth,
+    ...operationalState
+  } = (stored as Partial<SchedulerState> & { events?: unknown }) ?? {};
   const normalizedCriticalHealth = stored?.criticalHealth
     ? (Object.fromEntries(
-        (Object.entries(stored.criticalHealth) as [Platform, unknown][]).map(([platform, value]) => [
-          platform,
-          normalizeCriticalHealth(value),
-        ]),
+        (Object.entries(stored.criticalHealth) as [Platform, unknown][]).map(
+          ([platform, value]) => [platform, normalizeCriticalHealth(value)],
+        ),
       ) as SchedulerState["criticalHealth"])
     : undefined;
-  const criticalHealth = normalizedCriticalHealth && Object.keys(normalizedCriticalHealth).length > 0
-    ? normalizedCriticalHealth
-    : undefined;
+  const criticalHealth =
+    normalizedCriticalHealth && Object.keys(normalizedCriticalHealth).length > 0
+      ? normalizedCriticalHealth
+      : undefined;
   return {
     ...DEFAULT_STATE,
     ...operationalState,
@@ -132,7 +149,10 @@ export function mergeSchedulerState(stored: Partial<SchedulerState> | undefined)
       kick: normalizePlatformAuthHealth(stored?.authHealth?.kick),
     },
     managedWatchTabs: { ...DEFAULT_STATE.managedWatchTabs, ...stored?.managedWatchTabs },
-    managedPageContextTabs: { ...DEFAULT_STATE.managedPageContextTabs, ...stored?.managedPageContextTabs },
+    managedPageContextTabs: {
+      ...DEFAULT_STATE.managedPageContextTabs,
+      ...stored?.managedPageContextTabs,
+    },
     manualWatch: { ...stored?.manualWatch },
     manualWatchTabs: { ...stored?.manualWatchTabs },
     campaigns: { ...DEFAULT_STATE.campaigns, ...stored?.campaigns },

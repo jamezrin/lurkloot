@@ -1,12 +1,33 @@
-import { noPixelGiveawayJoinable, noPixelReport, parseNoPixelGiveaway, parseNoPixelGiveawayEligibility, parseNoPixelPackIds, parseNoPixelProgress, parseNoPixelSetup } from "@lurkloot/core/extensions/nopixel/state";
+import {
+  noPixelGiveawayJoinable,
+  noPixelReport,
+  parseNoPixelGiveaway,
+  parseNoPixelGiveawayEligibility,
+  parseNoPixelPackIds,
+  parseNoPixelProgress,
+  parseNoPixelSetup,
+} from "@lurkloot/core/extensions/nopixel/state";
 import type { TwitchExtensionReasonCode } from "@lurkloot/shared/models";
 import type { TwitchExtensionDriverFactory } from "../runtime";
 
 const backend = "https://nopixel.streamingtoolsmith.com";
-type NoPixelPath = `/cards/packs/${string}/open` | "/cards/packs" | "/ping" | "/channel/setup" | "/cards/rewards/daily-watchtime/progress" | "/channel/giveaway" | "/channel/giveaway/eligibility" | "/channel/giveaway/join";
+type NoPixelPath =
+  | `/cards/packs/${string}/open`
+  | "/cards/packs"
+  | "/ping"
+  | "/channel/setup"
+  | "/cards/rewards/daily-watchtime/progress"
+  | "/channel/giveaway"
+  | "/channel/giveaway/eligibility"
+  | "/channel/giveaway/join";
 type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
 class ProviderFailure extends Error {
-  constructor(readonly reason: TwitchExtensionReasonCode, readonly rejected = false) { super(reason); }
+  constructor(
+    readonly reason: TwitchExtensionReasonCode,
+    readonly rejected = false,
+  ) {
+    super(reason);
+  }
 }
 
 // Matches the published 1.1.2 client: Bearer auth, one initialization ping,
@@ -14,13 +35,22 @@ class ProviderFailure extends Error {
 // 1.1.3 a giveaway names who may join, and the client offers a join only to a
 // viewer `/channel/giveaway/eligibility` admits (#730).
 // Pack opening is a separate explicit opt-in, confirmed by inventory rereads.
-export function createNoPixelDriver(fetcher: Fetch, onJoined: () => void = () => {}, now: () => number = Date.now, diagnostic: (message: string) => void = () => {}, options: { autoOpenPacks?: boolean; onOpened?(): void } = {}): TwitchExtensionDriverFactory {
+export function createNoPixelDriver(
+  fetcher: Fetch,
+  onJoined: () => void = () => {},
+  now: () => number = Date.now,
+  diagnostic: (message: string) => void = () => {},
+  options: { autoOpenPacks?: boolean; onOpened?(): void } = {},
+): TwitchExtensionDriverFactory {
   return async (session, emit) => {
     const lifetime = new AbortController();
     let jwt = session.jwt;
     const expiresAt = session.expiresAt;
     const parent = session.signal;
-    const abort = () => { jwt = ""; lifetime.abort(); };
+    const abort = () => {
+      jwt = "";
+      lifetime.abort();
+    };
     parent?.addEventListener("abort", abort, { once: true });
     if (parent?.aborted) abort();
     const rejectedStatuses = new Map<string, number>();
@@ -31,7 +61,12 @@ export function createNoPixelDriver(fetcher: Fetch, onJoined: () => void = () =>
     let packFailureReason: TwitchExtensionReasonCode | undefined;
     let pending: Promise<void> | undefined;
     const active = () => !lifetime.signal.aborted;
-    function stop() { parent?.removeEventListener("abort", abort); rejectedStatuses.clear(); packAttempts.clear(); abort(); }
+    function stop() {
+      parent?.removeEventListener("abort", abort);
+      rejectedStatuses.clear();
+      packAttempts.clear();
+      abort();
+    }
     async function request(path: NoPixelPath, method: "GET" | "POST" = "GET"): Promise<unknown> {
       if (!active()) throw new ProviderFailure("provider-error");
       if (now() >= expiresAt) throw new ProviderFailure("auth-required");
@@ -40,7 +75,12 @@ export function createNoPixelDriver(fetcher: Fetch, onJoined: () => void = () =>
       lifetime.signal.addEventListener("abort", cancel, { once: true });
       const timer = setTimeout(cancel, Math.min(20_000, expiresAt - now()));
       try {
-        const response = await fetcher(`${backend}${path}`, { method, headers: { Authorization: `Bearer ${jwt}` }, credentials: "omit", signal: abortRequest.signal });
+        const response = await fetcher(`${backend}${path}`, {
+          method,
+          headers: { Authorization: `Bearer ${jwt}` },
+          credentials: "omit",
+          signal: abortRequest.signal,
+        });
         if (!active()) throw new ProviderFailure("provider-error");
         if (!response.ok) {
           const key = `${method} ${path.endsWith("/open") ? "/cards/packs/:packId/open" : path}`;
@@ -49,14 +89,19 @@ export function createNoPixelDriver(fetcher: Fetch, onJoined: () => void = () =>
             diagnostic(`NoPixelV ${key} rejected: HTTP ${response.status}`);
           }
         }
-        if (response.status === 401 || response.status === 403) throw new ProviderFailure("auth-required");
+        if (response.status === 401 || response.status === 403)
+          throw new ProviderFailure("auth-required");
         if (!response.ok) throw new ProviderFailure("provider-error", true);
         if (response.status === 204) return null;
         const text = await response.text();
         if (!active()) throw new ProviderFailure("provider-error");
         if (now() >= expiresAt) throw new ProviderFailure("auth-required");
         if (text.length > 1_048_576) throw new ProviderFailure("compatibility-error");
-        try { return JSON.parse(text); } catch { throw new ProviderFailure("compatibility-error"); }
+        try {
+          return JSON.parse(text);
+        } catch {
+          throw new ProviderFailure("compatibility-error");
+        }
       } finally {
         clearTimeout(timer);
         lifetime.signal.removeEventListener("abort", cancel);
@@ -67,13 +112,19 @@ export function createNoPixelDriver(fetcher: Fetch, onJoined: () => void = () =>
         const setup = parseNoPixelSetup(await request("/channel/setup"));
         if (!active()) return;
         if (!setup) throw new ProviderFailure("compatibility-error");
-        const progress = setup.watchtime && setup.connected ? parseNoPixelProgress(await request("/cards/rewards/daily-watchtime/progress")) : undefined;
+        const progress =
+          setup.watchtime && setup.connected
+            ? parseNoPixelProgress(await request("/cards/rewards/daily-watchtime/progress"))
+            : undefined;
         if (!active()) return;
-        if (setup.watchtime && setup.connected && !progress) throw new ProviderFailure("compatibility-error");
+        if (setup.watchtime && setup.connected && !progress)
+          throw new ProviderFailure("compatibility-error");
         let giveaway: ReturnType<typeof parseNoPixelGiveaway> = null;
         let giveawayUnavailable = false;
         try {
-          giveaway = setup.giveaways ? parseNoPixelGiveaway(await request("/channel/giveaway")) : null;
+          giveaway = setup.giveaways
+            ? parseNoPixelGiveaway(await request("/channel/giveaway"))
+            : null;
           if (!active()) return;
           if (giveaway === undefined) throw new ProviderFailure("compatibility-error");
           if (!giveaway || giveaway.entered) joining = false;
@@ -82,14 +133,21 @@ export function createNoPixelDriver(fetcher: Fetch, onJoined: () => void = () =>
             let eligibility = parseNoPixelGiveawayEligibility(undefined);
             // An unknown audience is never joined, whatever the answer.
             if (giveaway.audience !== "unknown") {
-              try { eligibility = parseNoPixelGiveawayEligibility(await request("/channel/giveaway/eligibility")); }
-              catch { /* Treated as eligible for neither. */ }
+              try {
+                eligibility = parseNoPixelGiveawayEligibility(
+                  await request("/channel/giveaway/eligibility"),
+                );
+              } catch {
+                /* Treated as eligible for neither. */
+              }
             }
             if (!active()) return;
             giveaway.joinable = noPixelGiveawayJoinable(giveaway.audience, eligibility);
             if (!giveaway.joinable && blockedAudience !== giveaway.audience) {
               blockedAudience = giveaway.audience;
-              diagnostic(`NoPixelV giveaway is for ${giveaway.audience === "unknown" ? "an unknown audience" : `${giveaway.audience} only`}; not joining`);
+              diagnostic(
+                `NoPixelV giveaway is for ${giveaway.audience === "unknown" ? "an unknown audience" : `${giveaway.audience} only`}; not joining`,
+              );
             }
           }
           if (!giveaway || giveaway.joinable !== false) blockedAudience = undefined;
@@ -97,8 +155,9 @@ export function createNoPixelDriver(fetcher: Fetch, onJoined: () => void = () =>
             // The published response need not contain a giveaway ID. Confirm
             // server-held membership rather than inventing a client dedup key.
             joining = true;
-            try { await request("/channel/giveaway/join", "POST"); }
-            catch (error) {
+            try {
+              await request("/channel/giveaway/join", "POST");
+            } catch (error) {
               // A definite HTTP rejection did not enter the giveaway. A timeout
               // is ambiguous, so retain the guard until server membership or a
               // fresh session resolves it rather than blindly resubmitting.
@@ -109,7 +168,10 @@ export function createNoPixelDriver(fetcher: Fetch, onJoined: () => void = () =>
             giveaway = parseNoPixelGiveaway(await request("/channel/giveaway"));
             if (!active()) return;
             if (giveaway === undefined) throw new ProviderFailure("compatibility-error");
-            if (giveaway?.entered) { joining = false; onJoined(); }
+            if (giveaway?.entered) {
+              joining = false;
+              onJoined();
+            }
           }
         } catch (error) {
           if (error instanceof ProviderFailure && error.reason === "auth-required") throw error;
@@ -121,43 +183,68 @@ export function createNoPixelDriver(fetcher: Fetch, onJoined: () => void = () =>
         if (!active()) return;
         const report = noPixelReport(setup, progress, giveaway ?? null);
         if (giveawayUnavailable) report.pending = [{ key: "giveaway", state: "blocked" }];
-        if (options.autoOpenPacks || progress && progress.earned >= progress.required) {
+        if (options.autoOpenPacks || (progress && progress.earned >= progress.required)) {
           try {
             let packs = parseNoPixelPackIds(await request("/cards/packs"));
             if (!packs) throw new ProviderFailure("compatibility-error");
-            if (options.autoOpenPacks && packs.length) { report.status = "farming"; report.reasonCode = "collecting"; }
+            if (options.autoOpenPacks && packs.length) {
+              report.status = "farming";
+              report.reasonCode = "collecting";
+            }
             function confirmRemoved() {
               if (!active()) return;
-              for (const [id, accepted] of packAttempts) if (accepted && !packs!.includes(id)) {
-                packAttempts.set(id, false);
-                options.onOpened?.();
-              }
+              for (const [id, accepted] of packAttempts)
+                if (accepted && !packs!.includes(id)) {
+                  packAttempts.set(id, false);
+                  options.onOpened?.();
+                }
             }
             confirmRemoved();
-            if (options.autoOpenPacks) for (const id of packs.filter(id => !packAttempts.has(id)).slice(0, 5)) {
-              if (packAttempts.has(id)) continue;
-              if (packAttempts.size >= 1000) break;
-              packAttempts.set(id, false);
-              try {
-                const cards = await request(`/cards/packs/${id}/open`, "POST");
-                if (!Array.isArray(cards) || !cards.length || cards.length > 1000 || !cards.every(card => card && typeof card === "object" && !Array.isArray(card) && (typeof card.card_id === "string" || typeof card.card_id === "number") && ["normal", "legendary", "gold"].includes(card.edition))) throw new ProviderFailure("compatibility-error");
-                packAttempts.set(id, true);
-              } catch (error) {
-                if (error instanceof ProviderFailure && error.rejected) packAttempts.delete(id);
-                throw error;
+            if (options.autoOpenPacks)
+              for (const id of packs.filter((id) => !packAttempts.has(id)).slice(0, 5)) {
+                if (packAttempts.has(id)) continue;
+                if (packAttempts.size >= 1000) break;
+                packAttempts.set(id, false);
+                try {
+                  const cards = await request(`/cards/packs/${id}/open`, "POST");
+                  if (
+                    !Array.isArray(cards)
+                    || !cards.length
+                    || cards.length > 1000
+                    || !cards.every(
+                      (card) =>
+                        card
+                        && typeof card === "object"
+                        && !Array.isArray(card)
+                        && (typeof card.card_id === "string" || typeof card.card_id === "number")
+                        && ["normal", "legendary", "gold"].includes(card.edition),
+                    )
+                  )
+                    throw new ProviderFailure("compatibility-error");
+                  packAttempts.set(id, true);
+                } catch (error) {
+                  if (error instanceof ProviderFailure && error.rejected) packAttempts.delete(id);
+                  throw error;
+                }
               }
-            }
             if (options.autoOpenPacks) {
               packs = parseNoPixelPackIds(await request("/cards/packs"));
               if (!packs) throw new ProviderFailure("compatibility-error");
               confirmRemoved();
-              if (!packs.length) { report.status = progress && progress.earned >= progress.required ? "complete" : "farming"; report.reasonCode = report.status === "complete" ? "rewards-complete" : "watchtime"; }
+              if (!packs.length) {
+                report.status =
+                  progress && progress.earned >= progress.required ? "complete" : "farming";
+                report.reasonCode = report.status === "complete" ? "rewards-complete" : "watchtime";
+              }
             }
             packFailureReason = undefined;
             if (packs.length) {
               report.progress.push({ key: "rewards", earned: 0, required: packs.length });
               report.pending.push({ key: "completion", state: "open" });
-              if (options.autoOpenPacks) { report.status = "farming"; report.reasonCode = "collecting"; }
+              if (options.autoOpenPacks) {
+                report.status = "farming";
+                report.reasonCode = "collecting";
+              }
             }
           } catch (error) {
             if (!active()) return;
@@ -168,28 +255,51 @@ export function createNoPixelDriver(fetcher: Fetch, onJoined: () => void = () =>
               diagnostic(`NoPixelV pack delivery/opening unavailable: ${reason}`);
             }
             report.pending.push({ key: "completion", state: "blocked" });
-            if (options.autoOpenPacks) { report.status = "farming"; report.reasonCode = "collecting"; }
+            if (options.autoOpenPacks) {
+              report.status = "farming";
+              report.reasonCode = "collecting";
+            }
           }
         }
         if (active()) emit(report);
       } catch (error) {
-        if (active()) emit({ status: "error", reasonCode: error instanceof ProviderFailure ? error.reason : "transport-error", progress: [], pending: [] });
+        if (active())
+          emit({
+            status: "error",
+            reasonCode: error instanceof ProviderFailure ? error.reason : "transport-error",
+            progress: [],
+            pending: [],
+          });
       }
     }
     function refresh(): Promise<void> {
       if (!active() || !session.identityLinked) return Promise.resolve();
       if (pending) return pending;
-      pending = poll().finally(() => { pending = undefined; });
+      pending = poll().finally(() => {
+        pending = undefined;
+      });
       return pending;
     }
     if (!session.identityLinked) {
-      if (active()) emit({ status: "unavailable", reasonCode: "identity-required", progress: [], pending: [{ key: "account-link", state: "blocked" }] });
+      if (active())
+        emit({
+          status: "unavailable",
+          reasonCode: "identity-required",
+          progress: [],
+          pending: [{ key: "account-link", state: "blocked" }],
+        });
     } else {
       try {
         await request("/ping");
         await refresh();
       } catch (error) {
-        if (active()) emit({ status: "error", reasonCode: error instanceof ProviderFailure ? error.reason : "transport-error", progress: [], pending: [] });
+        if (active())
+          emit({
+            status: "error",
+            reasonCode: error instanceof ProviderFailure ? error.reason : "transport-error",
+            progress: [],
+            pending: [],
+          });
       }
     }
     return { stop, refresh };

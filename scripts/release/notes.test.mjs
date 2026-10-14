@@ -3,23 +3,30 @@ import assert from "node:assert/strict";
 import { releaseNotes } from "./notes.mjs";
 
 const changelog = [
-  { version: "1.6.0", date: "2026-08-01", changes: [
-    { kind: "new", text: "Added rotating tips." },
-    { kind: "fixed", text: "Fixed a crash." },
-    { kind: "new", text: "Added profiles." },
-  ] },
+  {
+    version: "1.6.0",
+    date: "2026-08-01",
+    changes: [
+      { kind: "new", text: "Added rotating tips." },
+      { kind: "fixed", text: "Fixed a crash." },
+      { kind: "new", text: "Added profiles." },
+    ],
+  },
   { version: "1.5.0", date: "2026-07-18", changes: [{ kind: "new", text: "Older." }] },
 ];
 
 test("renders the requested version grouped by kind", () => {
-  assert.equal(releaseNotes(changelog, "1.6.0"), [
-    "## New",
-    "- Added rotating tips.",
-    "- Added profiles.",
-    "",
-    "## Fixed",
-    "- Fixed a crash.",
-  ].join("\n"));
+  assert.equal(
+    releaseNotes(changelog, "1.6.0"),
+    [
+      "## New",
+      "- Added rotating tips.",
+      "- Added profiles.",
+      "",
+      "## Fixed",
+      "- Fixed a crash.",
+    ].join("\n"),
+  );
 });
 
 test("omits empty groups and rejects an unknown version", () => {
@@ -28,6 +35,12 @@ test("omits empty groups and rejects an unknown version", () => {
 });
 
 test("falls back to a placeholder for a version that has no entry yet", () => {
-  assert.equal(releaseNotes(changelog, "1.7.0", { pending: true }), "_No changelog entry for 1.7.0 yet._");
-  assert.equal(releaseNotes(changelog, "1.5.0", { pending: true }), ["## New", "- Older."].join("\n"));
+  assert.equal(
+    releaseNotes(changelog, "1.7.0", { pending: true }),
+    "_No changelog entry for 1.7.0 yet._",
+  );
+  assert.equal(
+    releaseNotes(changelog, "1.5.0", { pending: true }),
+    ["## New", "- Older."].join("\n"),
+  );
 });

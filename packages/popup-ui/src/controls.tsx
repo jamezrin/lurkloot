@@ -17,7 +17,13 @@ export interface SegmentedOption<T extends string> {
  * between the options. One option is always pressed: pressing the current one
  * again is ignored rather than leaving the group empty. `itemAttribute` names a
  * data- attribute each option carries with its value. */
-export function Segmented<T extends string>({ label, value, options, onChange, itemAttribute }: {
+export function Segmented<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+  itemAttribute,
+}: {
   label: string;
   value: T;
   options: Array<SegmentedOption<T>>;
@@ -42,7 +48,9 @@ export function Segmented<T extends string>({ label, value, options, onChange, i
           className="rounded-md px-2.5 py-0.5 text-[10px] font-semibold text-zinc-400 outline-none transition not-data-[pressed]:hover:text-zinc-600 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] data-[pressed]:bg-[var(--ink)] data-[pressed]:text-[var(--ink-contrast)] dark:not-data-[pressed]:hover:text-zinc-200"
         >
           {option.label}
-          {option.count !== undefined ? <span className="ms-1 font-mono text-[9.5px] tabular opacity-70">{option.count}</span> : null}
+          {option.count !== undefined ? (
+            <span className="ms-1 font-mono text-[9.5px] tabular opacity-70">{option.count}</span>
+          ) : null}
         </BaseToggle>
       ))}
     </ToggleGroup>
@@ -50,7 +58,12 @@ export function Segmented<T extends string>({ label, value, options, onChange, i
 }
 
 /** A small square checkbox on Base UI's Checkbox. */
-export function Checkbox({ checked, onChange, label, attributes }: {
+export function Checkbox({
+  checked,
+  onChange,
+  label,
+  attributes,
+}: {
   checked: boolean;
   onChange(value: boolean): void;
   label: string;

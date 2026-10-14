@@ -126,7 +126,8 @@ export function parseKickCampaigns(input: KickCampaignResponse | KickCampaign[])
   const campaigns = collectKickCampaigns(input);
 
   return campaigns.map((campaign): DropCampaign => {
-    const startsAt = campaign.starts_at ?? campaign.startsAt ?? campaign.startAt ?? campaign.start_date;
+    const startsAt =
+      campaign.starts_at ?? campaign.startsAt ?? campaign.startAt ?? campaign.start_date;
     const endsAt = campaign.ends_at ?? campaign.endsAt ?? campaign.endAt ?? campaign.end_date;
     const rewards = campaign.rewards ?? campaign.drops ?? [];
     const categoryId = campaign.category_id ?? campaign.game_id ?? campaign.category?.id;
@@ -137,7 +138,15 @@ export function parseKickCampaigns(input: KickCampaignResponse | KickCampaign[])
       rewards.length > 0 && rewards.every((reward) => reward.claimed || reward.is_claimed),
     );
     const allowedChannels = campaign.channels
-      ?.map((channel) => channel.slug ?? channel.username ?? channel.user_slug ?? channel.user?.slug ?? channel.user?.username ?? channel.name)
+      ?.map(
+        (channel) =>
+          channel.slug
+          ?? channel.username
+          ?? channel.user_slug
+          ?? channel.user?.slug
+          ?? channel.user?.username
+          ?? channel.name,
+      )
       .filter((value): value is string => Boolean(value))
       .map((value) => value.toLowerCase());
 
@@ -155,8 +164,24 @@ export function parseKickCampaigns(input: KickCampaignResponse | KickCampaign[])
       accountLinked: true,
       accountLinkUrl: campaign.connect_url,
       url: campaign.url,
-      eligibility: status === "active" && rewards.length > 0 ? "eligible" : status === "completed" ? "completed" : rewards.length === 0 ? "no_rewards" : status === "active" ? "eligible" : status,
-      eligibilityReason: status === "active" && rewards.length > 0 ? "Eligible" : status === "completed" ? "All rewards are claimed" : rewards.length === 0 ? "Campaign has no rewards" : `Campaign is ${status}`,
+      eligibility:
+        status === "active" && rewards.length > 0
+          ? "eligible"
+          : status === "completed"
+            ? "completed"
+            : rewards.length === 0
+              ? "no_rewards"
+              : status === "active"
+                ? "eligible"
+                : status,
+      eligibilityReason:
+        status === "active" && rewards.length > 0
+          ? "Eligible"
+          : status === "completed"
+            ? "All rewards are claimed"
+            : rewards.length === 0
+              ? "Campaign has no rewards"
+              : `Campaign is ${status}`,
       allowedChannels,
       connectionUrls: allowedChannels?.map((username) => `https://kick.com/${username}`) ?? [],
       isGeneralDrop: !allowedChannels?.length,
@@ -187,10 +212,11 @@ export function kickRewardImageUrl(value: string | undefined): string | undefine
 }
 
 function parseKickReward(reward: KickReward): DropReward {
-  const requiredMinutes = reward.required_units != null
-    ? kickUnitsToMinutes(reward.required_units)
-    : reward.required_minutes ?? reward.minutes_required ?? reward.watch_time_required ?? 0;
-  const requirement = requiredMinutes > 0 ? "watch" as const : "action" as const;
+  const requiredMinutes =
+    reward.required_units != null
+      ? kickUnitsToMinutes(reward.required_units)
+      : (reward.required_minutes ?? reward.minutes_required ?? reward.watch_time_required ?? 0);
+  const requirement = requiredMinutes > 0 ? ("watch" as const) : ("action" as const);
   return {
     id: String(reward.id),
     name: reward.name ?? reward.title ?? `Reward ${reward.id}`,
@@ -203,19 +229,25 @@ function parseKickReward(reward: KickReward): DropReward {
   };
 }
 
-export function mergeKickProgress(campaigns: DropCampaign[], input: KickProgressResponse | KickProgress[]): DropCampaign[] {
+export function mergeKickProgress(
+  campaigns: DropCampaign[],
+  input: KickProgressResponse | KickProgress[],
+): DropCampaign[] {
   const progressItems = collectKickProgress(input);
 
   return campaigns.map((campaign) => {
-    const campaignProgress = progressItems.find((item) => String(item.id ?? item.campaign_id ?? item.drop_campaign_id) === campaign.id);
+    const campaignProgress = progressItems.find(
+      (item) => String(item.id ?? item.campaign_id ?? item.drop_campaign_id) === campaign.id,
+    );
     // Kick's live drops API returns a single cumulative watch counter per
     // campaign (`progress_units`, in 30-second units); tiered rewards share it,
     // so each reward's watched minutes is the cumulative capped at its requirement. This
     // is the reliable signal — the per-reward `progress` is only a 0..1 fraction.
     // (Confirmed against the live /api/v1/drops/progress response.)
-    const campaignMinutes = typeof campaignProgress?.progress_units === "number"
-      ? kickUnitsToMinutes(campaignProgress.progress_units)
-      : undefined;
+    const campaignMinutes =
+      typeof campaignProgress?.progress_units === "number"
+        ? kickUnitsToMinutes(campaignProgress.progress_units)
+        : undefined;
     const rewards = campaign.rewards.map((reward) => {
       const flatProgress = progressItems.find((item) => {
         const campaignId = item.campaign_id ?? item.drop_campaign_id;
@@ -229,17 +261,19 @@ export function mergeKickProgress(campaigns: DropCampaign[], input: KickProgress
       const progress = nestedProgress ?? flatProgress;
       if (!progress && campaignMinutes == null) return reward;
 
-      const watchedMinutes = campaignMinutes != null
-        ? Math.min(campaignMinutes, reward.requiredMinutes)
-        : progressMinutes(progress!, reward);
+      const watchedMinutes =
+        campaignMinutes != null
+          ? Math.min(campaignMinutes, reward.requiredMinutes)
+          : progressMinutes(progress!, reward);
       const rawStatus = progress?.status?.toLowerCase();
-      const status = progress?.claimed || progress?.is_claimed
-        ? "claimed"
-        : rawStatus === "claimable" || watchedMinutes >= reward.requiredMinutes
-          ? "claimable"
-          : watchedMinutes > 0
-            ? "in_progress"
-            : reward.status;
+      const status =
+        progress?.claimed || progress?.is_claimed
+          ? "claimed"
+          : rawStatus === "claimable" || watchedMinutes >= reward.requiredMinutes
+            ? "claimable"
+            : watchedMinutes > 0
+              ? "in_progress"
+              : reward.status;
 
       return {
         ...reward,
@@ -262,15 +296,19 @@ export function mergeKickProgress(campaigns: DropCampaign[], input: KickProgress
     return {
       ...campaign,
       status,
-      accountLinked: campaignProgress?.user_app_connected === true
-        ? true
-        : campaignProgress?.user_app_connected === false && Boolean(linkUrl)
-          ? false
-          : campaign.accountLinked,
+      accountLinked:
+        campaignProgress?.user_app_connected === true
+          ? true
+          : campaignProgress?.user_app_connected === false && Boolean(linkUrl)
+            ? false
+            : campaign.accountLinked,
       accountLinkUrl: linkUrl,
       gameName: campaignProgress?.category?.name ?? campaign.gameName,
       gameImageUrl: campaignProgress?.category?.image_url ?? campaign.gameImageUrl,
-      categoryId: campaignProgress?.category?.id == null ? campaign.categoryId : String(campaignProgress.category.id),
+      categoryId:
+        campaignProgress?.category?.id == null
+          ? campaign.categoryId
+          : String(campaignProgress.category.id),
       rewards,
     };
   });
@@ -290,8 +328,17 @@ export function kickCandidatesFromCampaign(campaign: DropCampaign): ChannelCandi
 }
 
 function progressMinutes(progress: KickProgress | KickProgressReward, reward: DropReward): number {
-  if ("watched_minutes" in progress || "current_minutes" in progress || "progress_minutes" in progress) {
-    return progress.watched_minutes ?? progress.current_minutes ?? progress.progress_minutes ?? reward.watchedMinutes;
+  if (
+    "watched_minutes" in progress
+    || "current_minutes" in progress
+    || "progress_minutes" in progress
+  ) {
+    return (
+      progress.watched_minutes
+      ?? progress.current_minutes
+      ?? progress.progress_minutes
+      ?? reward.watchedMinutes
+    );
   }
   if (progress.progress_units != null) return kickUnitsToMinutes(progress.progress_units);
   if ("percentage" in progress && progress.percentage != null) {
@@ -345,18 +392,28 @@ function parseCampaignStatus(
   completed: boolean,
 ): DropCampaign["status"] {
   if (completed) return "completed";
-  const normalized = rawStatus?.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  const normalized = rawStatus
+    ?.trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
   const now = Date.now();
   const startsAtTime = parseTimestamp(startsAt);
   const endsAtTime = parseTimestamp(endsAt);
   if (startsAtTime != null && startsAtTime > now) return "upcoming";
   if (endsAtTime != null && endsAtTime < now) return "expired";
-  if (normalized === "active" || normalized === "in_progress" || normalized === "current") return "active";
+  if (normalized === "active" || normalized === "in_progress" || normalized === "current")
+    return "active";
   if (normalized === "upcoming" || normalized === "scheduled") return "upcoming";
-  if (normalized === "expired" || normalized === "ended" || normalized === "inactive" || normalized === "finished") {
+  if (
+    normalized === "expired"
+    || normalized === "ended"
+    || normalized === "inactive"
+    || normalized === "finished"
+  ) {
     return "expired";
   }
-  if (normalized === "completed" || normalized === "complete" || normalized === "claimed") return "completed";
+  if (normalized === "completed" || normalized === "complete" || normalized === "claimed")
+    return "completed";
   return "active";
 }
 

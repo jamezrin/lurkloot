@@ -2,7 +2,11 @@ import type { CliCredentialBlob } from "@lurkloot/shared/messages";
 
 // `partitionedUnder` names the top-level site whose partitioned cookie jar to
 // read. Omitted, browsers return only unpartitioned cookies.
-export type ReadSessionCookie = (url: string, name: string, partitionedUnder?: string) => Promise<string | undefined>;
+export type ReadSessionCookie = (
+  url: string,
+  name: string,
+  partitionedUnder?: string,
+) => Promise<string | undefined>;
 
 // Twitch's Kasada session cookie lives on k.twitchcdn.net. The required
 // `*.twitchcdn.net` host grant covers it, so the export can read the cookie
@@ -31,6 +35,8 @@ export async function buildCliCredentialBlob(
 // Firefox's Total Cookie Protection (and Chrome with third-party cookies
 // partitioned) keeps it in twitch.tv's partition, which a plain lookup skips.
 async function readKasadaCookie(cookie: ReadSessionCookie): Promise<string | undefined> {
-  return await cookie(KASADA_COOKIE_URL, "KP_UIDz-ssn")
-    ?? await cookie(KASADA_COOKIE_URL, "KP_UIDz-ssn", "https://twitch.tv");
+  return (
+    (await cookie(KASADA_COOKIE_URL, "KP_UIDz-ssn"))
+    ?? (await cookie(KASADA_COOKIE_URL, "KP_UIDz-ssn", "https://twitch.tv"))
+  );
 }

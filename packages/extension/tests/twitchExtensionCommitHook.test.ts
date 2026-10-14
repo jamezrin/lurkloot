@@ -4,7 +4,10 @@ import { twitchExtensionProviders } from "@lurkloot/core/extensions/registry";
 import { DEFAULT_STATE } from "@lurkloot/core/defaults";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import type { ExtensionSettings, SchedulerState } from "@lurkloot/shared/models";
-import { createTwitchExtensionCommitHook, twitchExtensionCommitEffect } from "../src/extensions/commitHook";
+import {
+  createTwitchExtensionCommitHook,
+  twitchExtensionCommitEffect,
+} from "../src/extensions/commitHook";
 import { createTwitchExtensionHost } from "../src/extensions/host";
 
 // #594: the lane follows the controller's accepted commits, not storage events
@@ -19,7 +22,12 @@ function watchingState(): SchedulerState {
     offlineChecks: 0,
     watchMode: "tabless",
     supplementalWatch: { id: "nopixel", tablessOnly: true },
-    channel: { platform: "twitch", username: "buddha", url: "https://www.twitch.tv/buddha", channelId: "123" },
+    channel: {
+      platform: "twitch",
+      username: "buddha",
+      url: "https://www.twitch.tv/buddha",
+      channelId: "123",
+    },
   };
   return state;
 }
@@ -41,88 +49,207 @@ function settingsChange(
   const previous = structuredClone(DEFAULT_SETTINGS);
   const settings = structuredClone(previous);
   mutate(settings);
-  return { kind: "settings", previous, patch: {}, settings, effects: { twitch: twitchEffect }, startup: false };
+  return {
+    kind: "settings",
+    previous,
+    patch: {},
+    settings,
+    effects: { twitch: twitchEffect },
+    startup: false,
+  };
 }
 
 describe("Twitch Extensions commit effects", () => {
   it("ignores a ranking-only settings save", () => {
-    expect(twitchExtensionCommitEffect(settingsChange((settings) => {
-      settings.farmPinnedOnly = !settings.farmPinnedOnly;
-    }, "selection"))).toEqual({ reconcile: false });
+    expect(
+      twitchExtensionCommitEffect(
+        settingsChange((settings) => {
+          settings.farmPinnedOnly = !settings.farmPinnedOnly;
+        }, "selection"),
+      ),
+    ).toEqual({ reconcile: false });
   });
 
   it("reconciles without invalidating after an unrelated settings save", () => {
-    expect(twitchExtensionCommitEffect(settingsChange((settings) => {
-      settings.diagnosticLogging = !settings.diagnosticLogging;
-    }))).toEqual({ reconcile: true });
+    expect(
+      twitchExtensionCommitEffect(
+        settingsChange((settings) => {
+          settings.diagnosticLogging = !settings.diagnosticLogging;
+        }),
+      ),
+    ).toEqual({ reconcile: true });
   });
 
   it.each([
-    ["pauseOnManualWatch", (settings: ExtensionSettings) => { settings.pauseOnManualWatch = !settings.pauseOnManualWatch; }],
-    ["Twitch enabled", (settings: ExtensionSettings) => { settings.platform.twitch.enabled = !settings.platform.twitch.enabled; }],
-    ["NoPixelV enabled", (settings: ExtensionSettings) => { settings.twitchExtensions.nopixel.enabled = !settings.twitchExtensions.nopixel.enabled; }],
-    ["Fortnite enabled", (settings: ExtensionSettings) => { settings.twitchExtensions.fortnite.enabled = !settings.twitchExtensions.fortnite.enabled; }],
-    ["auto-open packs", (settings: ExtensionSettings) => { settings.twitchExtensions.nopixel.autoOpenPacks = !settings.twitchExtensions.nopixel.autoOpenPacks; }],
-    ["takeovers", (settings: ExtensionSettings) => { settings.twitchExtensions.fortnite.allowTakeovers = !settings.twitchExtensions.fortnite.allowTakeovers; }],
+    [
+      "pauseOnManualWatch",
+      (settings: ExtensionSettings) => {
+        settings.pauseOnManualWatch = !settings.pauseOnManualWatch;
+      },
+    ],
+    [
+      "Twitch enabled",
+      (settings: ExtensionSettings) => {
+        settings.platform.twitch.enabled = !settings.platform.twitch.enabled;
+      },
+    ],
+    [
+      "NoPixelV enabled",
+      (settings: ExtensionSettings) => {
+        settings.twitchExtensions.nopixel.enabled = !settings.twitchExtensions.nopixel.enabled;
+      },
+    ],
+    [
+      "Fortnite enabled",
+      (settings: ExtensionSettings) => {
+        settings.twitchExtensions.fortnite.enabled = !settings.twitchExtensions.fortnite.enabled;
+      },
+    ],
+    [
+      "auto-open packs",
+      (settings: ExtensionSettings) => {
+        settings.twitchExtensions.nopixel.autoOpenPacks =
+          !settings.twitchExtensions.nopixel.autoOpenPacks;
+      },
+    ],
+    [
+      "takeovers",
+      (settings: ExtensionSettings) => {
+        settings.twitchExtensions.fortnite.allowTakeovers =
+          !settings.twitchExtensions.fortnite.allowTakeovers;
+      },
+    ],
   ])("invalidates, dropping completion, when %s changes", (_name, mutate) => {
-    expect(twitchExtensionCommitEffect(settingsChange(mutate)))
-      .toEqual({ invalidate: { preserveCompleted: false }, reconcile: true });
+    expect(twitchExtensionCommitEffect(settingsChange(mutate))).toEqual({
+      invalidate: { preserveCompleted: false },
+      reconcile: true,
+    });
   });
 
   it("ignores a state commit that does not touch Twitch", () => {
-    expect(twitchExtensionCommitEffect(stateChange((state) => {
-      state.sessions.kick = { ...state.sessions.kick, status: "watching" };
-    }, ["kick"]))).toEqual({ reconcile: false });
+    expect(
+      twitchExtensionCommitEffect(
+        stateChange(
+          (state) => {
+            state.sessions.kick = { ...state.sessions.kick, status: "watching" };
+          },
+          ["kick"],
+        ),
+      ),
+    ).toEqual({ reconcile: false });
   });
 
   it("reconciles without invalidating on a Twitch heartbeat result", () => {
-    expect(twitchExtensionCommitEffect(stateChange((state) => {
-      state.sessions.twitch.lastHeartbeatAt = new Date().toISOString();
-      state.sessions.twitch.lastHeartbeatOk = true;
-    }))).toEqual({ reconcile: true });
+    expect(
+      twitchExtensionCommitEffect(
+        stateChange((state) => {
+          state.sessions.twitch.lastHeartbeatAt = new Date().toISOString();
+          state.sessions.twitch.lastHeartbeatOk = true;
+        }),
+      ),
+    ).toEqual({ reconcile: true });
   });
 
   it.each([
-    ["the session status", (state: SchedulerState) => { state.sessions.twitch.status = "idle"; }],
-    ["the channel", (state: SchedulerState) => { state.sessions.twitch.channel = { ...state.sessions.twitch.channel!, channelId: "456" }; }],
-    ["a manual close pause", (state: SchedulerState) => { state.manualClosePause = { twitch: { platform: "twitch", closedAt: new Date().toISOString() } }; }],
-    ["a manual watch", (state: SchedulerState) => { state.manualWatch = { twitch: { active: true } } as SchedulerState["manualWatch"]; }],
-  ])("invalidates, keeping completion while auth stays healthy, when %s changes", (_name, mutate) => {
-    expect(twitchExtensionCommitEffect(stateChange(mutate)))
-      .toEqual({ invalidate: { preserveCompleted: true }, reconcile: true });
-  });
+    [
+      "the session status",
+      (state: SchedulerState) => {
+        state.sessions.twitch.status = "idle";
+      },
+    ],
+    [
+      "the channel",
+      (state: SchedulerState) => {
+        state.sessions.twitch.channel = { ...state.sessions.twitch.channel!, channelId: "456" };
+      },
+    ],
+    [
+      "a manual close pause",
+      (state: SchedulerState) => {
+        state.manualClosePause = {
+          twitch: { platform: "twitch", closedAt: new Date().toISOString() },
+        };
+      },
+    ],
+    [
+      "a manual watch",
+      (state: SchedulerState) => {
+        state.manualWatch = { twitch: { active: true } } as SchedulerState["manualWatch"];
+      },
+    ],
+  ])(
+    "invalidates, keeping completion while auth stays healthy, when %s changes",
+    (_name, mutate) => {
+      expect(twitchExtensionCommitEffect(stateChange(mutate))).toEqual({
+        invalidate: { preserveCompleted: true },
+        reconcile: true,
+      });
+    },
+  );
 
   it("hands a tabless-only session's failed heartbeat result to the host", () => {
-    expect(twitchExtensionCommitEffect(stateChange((state) => {
-      state.sessions.twitch.lastHeartbeatAt = new Date().toISOString();
-      state.sessions.twitch.lastHeartbeatOk = false;
-      state.sessions.twitch.heartbeatChecks = 2;
-    }))).toEqual({ reconcile: true, heartbeatFailure: { provider: "nopixel", username: "buddha", heartbeatChecks: 2 } });
+    expect(
+      twitchExtensionCommitEffect(
+        stateChange((state) => {
+          state.sessions.twitch.lastHeartbeatAt = new Date().toISOString();
+          state.sessions.twitch.lastHeartbeatOk = false;
+          state.sessions.twitch.heartbeatChecks = 2;
+        }),
+      ),
+    ).toEqual({
+      reconcile: true,
+      heartbeatFailure: { provider: "nopixel", username: "buddha", heartbeatChecks: 2 },
+    });
   });
 
   it.each([
-    ["a successful result", (state: SchedulerState) => { state.sessions.twitch.lastHeartbeatAt = new Date().toISOString(); state.sessions.twitch.lastHeartbeatOk = true; }],
-    ["a commit with no new result", (state: SchedulerState) => { state.sessions.twitch.lastHeartbeatOk = false; }],
-    ["an ordinary drop session", (state: SchedulerState) => {
-      state.sessions.twitch.supplementalWatch = undefined;
-      state.sessions.twitch.lastHeartbeatAt = new Date().toISOString();
-      state.sessions.twitch.lastHeartbeatOk = false;
-    }],
+    [
+      "a successful result",
+      (state: SchedulerState) => {
+        state.sessions.twitch.lastHeartbeatAt = new Date().toISOString();
+        state.sessions.twitch.lastHeartbeatOk = true;
+      },
+    ],
+    [
+      "a commit with no new result",
+      (state: SchedulerState) => {
+        state.sessions.twitch.lastHeartbeatOk = false;
+      },
+    ],
+    [
+      "an ordinary drop session",
+      (state: SchedulerState) => {
+        state.sessions.twitch.supplementalWatch = undefined;
+        state.sessions.twitch.lastHeartbeatAt = new Date().toISOString();
+        state.sessions.twitch.lastHeartbeatOk = false;
+      },
+    ],
   ])("hands nothing to the host for %s", (_name, mutate) => {
     expect(twitchExtensionCommitEffect(stateChange(mutate)).heartbeatFailure).toBeUndefined();
   });
 
   it("invalidates and drops completion when Twitch auth stops being healthy", () => {
-    expect(twitchExtensionCommitEffect(stateChange((state) => {
-      state.authHealth.twitch = { status: "invalid_credentials", checkedAt: new Date().toISOString(), reasonCode: "credentials_rejected", message: { key: "authInvalidCredentials" } };
-    }))).toEqual({ invalidate: { preserveCompleted: false }, reconcile: true });
+    expect(
+      twitchExtensionCommitEffect(
+        stateChange((state) => {
+          state.authHealth.twitch = {
+            status: "invalid_credentials",
+            checkedAt: new Date().toISOString(),
+            reasonCode: "credentials_rejected",
+            message: { key: "authInvalidCredentials" },
+          };
+        }),
+      ),
+    ).toEqual({ invalidate: { preserveCompleted: false }, reconcile: true });
   });
 });
 
 describe("Twitch Extensions commit hook", () => {
   function deferred() {
     let resolve!: () => void;
-    const promise = new Promise<void>((done) => { resolve = done; });
+    const promise = new Promise<void>((done) => {
+      resolve = done;
+    });
     return { promise, resolve };
   }
 
@@ -131,7 +258,11 @@ describe("Twitch Extensions commit hook", () => {
     const host = { invalidate: vi.fn(), reconcile: vi.fn(() => blocked.promise) };
     const hook = createTwitchExtensionCommitHook(host, vi.fn());
 
-    const result = hook.onCommit(stateChange((state) => { state.sessions.twitch.status = "idle"; }));
+    const result = hook.onCommit(
+      stateChange((state) => {
+        state.sessions.twitch.status = "idle";
+      }),
+    );
 
     expect(result).toBeUndefined();
     expect(host.invalidate).toHaveBeenCalledWith({ preserveCompleted: true });
@@ -142,9 +273,14 @@ describe("Twitch Extensions commit hook", () => {
 
   it("runs one reconcile at a time, with a single re-run for requests made meanwhile", async () => {
     const first = deferred();
-    const host = { invalidate: vi.fn(), reconcile: vi.fn().mockReturnValueOnce(first.promise).mockResolvedValue(undefined) };
+    const host = {
+      invalidate: vi.fn(),
+      reconcile: vi.fn().mockReturnValueOnce(first.promise).mockResolvedValue(undefined),
+    };
     const hook = createTwitchExtensionCommitHook(host, vi.fn());
-    const heartbeat = stateChange((state) => { state.sessions.twitch.lastHeartbeatAt = new Date().toISOString(); });
+    const heartbeat = stateChange((state) => {
+      state.sessions.twitch.lastHeartbeatAt = new Date().toISOString();
+    });
 
     hook.onCommit(heartbeat);
     hook.onCommit(heartbeat);
@@ -159,25 +295,40 @@ describe("Twitch Extensions commit hook", () => {
 
   // The last run can end a few microtasks after its reconcile returns; a
   // request made at any point in that window must still run.
-  it.each([1, 2, 3, 4, 5, 6, 7, 8])("does not drop a request made %i microtasks after the last run returns", async (depth) => {
-    let calls = 0;
-    let hook!: ReturnType<typeof createTwitchExtensionCommitHook>;
-    const later = (remaining: number, run: () => void) => queueMicrotask(remaining <= 1 ? run : () => later(remaining - 1, run));
-    const host = {
-      invalidate: vi.fn(),
-      reconcile: vi.fn(async () => {
-        calls += 1;
-        if (calls === 1) later(depth, () => { void hook.reconcile(); });
-      }),
-    };
-    hook = createTwitchExtensionCommitHook(host, vi.fn());
-    await hook.reconcile();
-    await vi.waitFor(() => expect(host.reconcile).toHaveBeenCalledTimes(2));
-  });
+  it.each([1, 2, 3, 4, 5, 6, 7, 8])(
+    "does not drop a request made %i microtasks after the last run returns",
+    async (depth) => {
+      let calls = 0;
+      let hook!: ReturnType<typeof createTwitchExtensionCommitHook>;
+      const later = (remaining: number, run: () => void) =>
+        queueMicrotask(remaining <= 1 ? run : () => later(remaining - 1, run));
+      const host = {
+        invalidate: vi.fn(),
+        reconcile: vi.fn(async () => {
+          calls += 1;
+          if (calls === 1)
+            later(depth, () => {
+              void hook.reconcile();
+            });
+        }),
+      };
+      hook = createTwitchExtensionCommitHook(host, vi.fn());
+      await hook.reconcile();
+      await vi.waitFor(() => expect(host.reconcile).toHaveBeenCalledTimes(2));
+    },
+  );
 
   it("reports a failed reconcile without its error", async () => {
     const failed = vi.fn();
-    const hook = createTwitchExtensionCommitHook({ invalidate: vi.fn(), reconcile: vi.fn(async () => { throw new Error("private provider body"); }) }, failed);
+    const hook = createTwitchExtensionCommitHook(
+      {
+        invalidate: vi.fn(),
+        reconcile: vi.fn(async () => {
+          throw new Error("private provider body");
+        }),
+      },
+      failed,
+    );
     await hook.reconcile();
     expect(failed).toHaveBeenCalledWith();
   });
@@ -199,11 +350,32 @@ describe("Twitch Extensions refresh cadence", () => {
     const driver = vi.fn(async () => ({ stop: vi.fn(), refresh }));
     const query = vi.fn(async () => {
       const jwt = `eyJheader.${btoa(JSON.stringify({ channel_id: "123", exp: now / 1000 + 3600, role: "viewer", opaque_user_id: "Uviewer", user_id: "viewer" })).replace(/=/g, "")}.signature`;
-      return { data: { user: { channel: { selfInstalledExtensions: [{ installation: { extension: { id: provider.extensionId, version: "1.0.0" }, activationConfig: { state: "ACTIVE" } }, token: { jwt } }] } } } };
+      return {
+        data: {
+          user: {
+            channel: {
+              selfInstalledExtensions: [
+                {
+                  installation: {
+                    extension: { id: provider.extensionId, version: "1.0.0" },
+                    activationConfig: { state: "ACTIVE" },
+                  },
+                  token: { jwt },
+                },
+              ],
+            },
+          },
+        },
+      };
     });
     const host = createTwitchExtensionHost({
       source: { query, hasSession: async () => true, now: () => now },
-      permissions: { contains: async () => true, request: async () => { throw new Error("UI must request grants"); } },
+      permissions: {
+        contains: async () => true,
+        request: async () => {
+          throw new Error("UI must request grants");
+        },
+      },
       drivers: { nopixel: driver },
       loadSettings: async () => settings,
       loadState: async () => state,
@@ -215,13 +387,29 @@ describe("Twitch Extensions refresh cadence", () => {
     await host.setEnabled("nopixel", true);
     await hook.reconcile();
     expect(driver).toHaveBeenCalledOnce();
-    return { hook, refresh, driver, state, advance: (ms: number) => { now += ms; } };
+    return {
+      hook,
+      refresh,
+      driver,
+      state,
+      advance: (ms: number) => {
+        now += ms;
+      },
+    };
   }
 
   it("refreshes a running driver when a Twitch heartbeat result commits after its interval", async () => {
     const s = await running();
     s.advance(provider.minRefreshIntervalMs);
-    s.hook.onCommit(stateChange((state) => { state.sessions.twitch.lastHeartbeatAt = new Date().toISOString(); }, ["twitch"], s.state));
+    s.hook.onCommit(
+      stateChange(
+        (state) => {
+          state.sessions.twitch.lastHeartbeatAt = new Date().toISOString();
+        },
+        ["twitch"],
+        s.state,
+      ),
+    );
     await vi.waitFor(() => expect(s.refresh).toHaveBeenCalledOnce());
     expect(s.driver).toHaveBeenCalledOnce();
   });
@@ -229,7 +417,15 @@ describe("Twitch Extensions refresh cadence", () => {
   it("does not refresh on a Kick commit", async () => {
     const s = await running();
     s.advance(provider.minRefreshIntervalMs);
-    s.hook.onCommit(stateChange((state) => { state.sessions.kick.lastCheckedAt = new Date().toISOString(); }, ["kick"], s.state));
+    s.hook.onCommit(
+      stateChange(
+        (state) => {
+          state.sessions.kick.lastCheckedAt = new Date().toISOString();
+        },
+        ["kick"],
+        s.state,
+      ),
+    );
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(s.refresh).not.toHaveBeenCalled();
   });

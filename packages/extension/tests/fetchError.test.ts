@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { authHealthFromError, isSafeFetchError, SafeFetchError, safeFetchFailure } from "@lurkloot/core/fetchError";
+import {
+  authHealthFromError,
+  isSafeFetchError,
+  SafeFetchError,
+  safeFetchFailure,
+} from "@lurkloot/core/fetchError";
 
 describe("sanitized fetch failures", () => {
   it("retains only bounded troubleshooting metadata", () => {
@@ -25,17 +30,21 @@ describe("sanitized fetch failures", () => {
   });
 
   it("drops invalid optional metadata", () => {
-    expect(safeFetchFailure({
-      kind: "http_error",
-      status: -1,
-      reason: "x".repeat(257),
-      reference: "x".repeat(129),
-    })).toEqual({ kind: "http_error" });
-    expect(safeFetchFailure({
-      kind: "network_error",
-      status: 1000,
-      reference: Number.NaN,
-    })).toEqual({ kind: "network_error" });
+    expect(
+      safeFetchFailure({
+        kind: "http_error",
+        status: -1,
+        reason: "x".repeat(257),
+        reference: "x".repeat(129),
+      }),
+    ).toEqual({ kind: "http_error" });
+    expect(
+      safeFetchFailure({
+        kind: "network_error",
+        status: 1000,
+        reference: Number.NaN,
+      }),
+    ).toEqual({ kind: "network_error" });
   });
 
   it("constructs recognizable errors without copying source secrets", () => {
@@ -53,15 +62,21 @@ describe("sanitized fetch failures", () => {
   });
 
   it("maps only authentication failures into sanitized health", () => {
-    expect(authHealthFromError(new SafeFetchError({ kind: "authentication_rejected", status: 401 })))
-      .toMatchObject({ status: "invalid_credentials", reasonCode: "credentials_rejected" });
-    expect(authHealthFromError(new SafeFetchError({ kind: "security_policy_blocked", reference: "safe-ref" })))
-      .toMatchObject({
-        status: "blocked",
-        reasonCode: "security_policy_blocked",
-        message: { key: "authSecurityPolicyBlocked", values: { reference: "safe-ref" } },
-      });
-    expect(authHealthFromError(new SafeFetchError({ kind: "http_error", status: 503 }))).toBeUndefined();
+    expect(
+      authHealthFromError(new SafeFetchError({ kind: "authentication_rejected", status: 401 })),
+    ).toMatchObject({ status: "invalid_credentials", reasonCode: "credentials_rejected" });
+    expect(
+      authHealthFromError(
+        new SafeFetchError({ kind: "security_policy_blocked", reference: "safe-ref" }),
+      ),
+    ).toMatchObject({
+      status: "blocked",
+      reasonCode: "security_policy_blocked",
+      message: { key: "authSecurityPolicyBlocked", values: { reference: "safe-ref" } },
+    });
+    expect(
+      authHealthFromError(new SafeFetchError({ kind: "http_error", status: 503 })),
+    ).toBeUndefined();
     expect(authHealthFromError(new Error("ordinary failure"))).toBeUndefined();
   });
 });

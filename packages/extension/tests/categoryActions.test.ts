@@ -13,16 +13,27 @@ describe("category actions", () => {
     const starred = lists({ favouriteCategories: [rust] });
 
     expect(blockTogglePatch(starred, rust)).toEqual({ blockedCategories: [rust] });
-    expect(blockTogglePatch({ ...starred, blockedCategories: [rust] }, { id: "263490", name: "rust" })).toEqual({ blockedCategories: [] });
+    expect(
+      blockTogglePatch({ ...starred, blockedCategories: [rust] }, { id: "263490", name: "rust" }),
+    ).toEqual({ blockedCategories: [] });
   });
 
   it("selects a starred game in allowlist mode, and only there", () => {
-    expect(favouriteTogglePatch(lists({ categoryMode: "include" }), rust)).toEqual({ favouriteCategories: [rust], categories: [rust] });
-    expect(favouriteTogglePatch(lists({ categoryMode: "all" }), rust)).toEqual({ favouriteCategories: [rust] });
+    expect(favouriteTogglePatch(lists({ categoryMode: "include" }), rust)).toEqual({
+      favouriteCategories: [rust],
+      categories: [rust],
+    });
+    expect(favouriteTogglePatch(lists({ categoryMode: "all" }), rust)).toEqual({
+      favouriteCategories: [rust],
+    });
   });
 
   it("unstars without touching the selection", () => {
-    const starred = lists({ categoryMode: "include", categories: [rust], favouriteCategories: [rust] });
+    const starred = lists({
+      categoryMode: "include",
+      categories: [rust],
+      favouriteCategories: [rust],
+    });
     expect(favouriteTogglePatch(starred, rust)).toEqual({ favouriteCategories: [] });
   });
 });

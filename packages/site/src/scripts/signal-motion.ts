@@ -37,7 +37,10 @@ function update() {
 
   if (demo) {
     const rect = demo.getBoundingClientRect();
-    demo.style.setProperty("--rp", clamp((innerHeight - rect.top) / (innerHeight * 0.55)).toFixed(4));
+    demo.style.setProperty(
+      "--rp",
+      clamp((innerHeight - rect.top) / (innerHeight * 0.55)).toFixed(4),
+    );
   }
 
   if (!root.classList.contains("sg-pinned")) return;
@@ -46,18 +49,25 @@ function update() {
     const index = Math.min(stepItems.length - 1, Math.floor(scaled));
     setCurrent(stepItems, index);
     setCurrent(scenes, index);
-    stepItems.forEach((item, i) => item.style.setProperty("--sp", String(i < index ? 1 : i > index ? 0 : clamp(scaled - index))));
+    stepItems.forEach((item, i) =>
+      item.style.setProperty("--sp", String(i < index ? 1 : i > index ? 0 : clamp(scaled - index))),
+    );
   }
 }
-const schedule = () => { if (!frame) frame = requestAnimationFrame(update); };
+const schedule = () => {
+  if (!frame) frame = requestAnimationFrame(update);
+};
 
-const revealObserver = new IntersectionObserver((entries) => {
-  for (const entry of entries) {
-    if (!entry.isIntersecting) continue;
-    entry.target.classList.add("is-in");
-    revealObserver.unobserve(entry.target);
-  }
-}, { rootMargin: "0px 0px -8% 0px" });
+const revealObserver = new IntersectionObserver(
+  (entries) => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      entry.target.classList.add("is-in");
+      revealObserver.unobserve(entry.target);
+    }
+  },
+  { rootMargin: "0px 0px -8% 0px" },
+);
 
 function configure() {
   const motion = !reduce.matches;
@@ -70,7 +80,9 @@ function configure() {
     reveals.forEach((element) => {
       if (element.classList.contains("is-in")) return;
       // Stagger siblings that reveal together, like a row of cards.
-      const siblings = Array.from(element.parentElement?.children ?? []).filter((child) => child.hasAttribute("data-reveal"));
+      const siblings = Array.from(element.parentElement?.children ?? []).filter((child) =>
+        child.hasAttribute("data-reveal"),
+      );
       element.style.setProperty("--d", `${Math.min(siblings.indexOf(element), 3) * 90}ms`);
       revealObserver.observe(element);
     });

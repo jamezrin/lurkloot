@@ -3,7 +3,12 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { parseHTML } from "linkedom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Popup, createDemoPopupAdapter, screenshotVariant, type PopupAdapter } from "@lurkloot/popup-ui";
+import {
+  Popup,
+  createDemoPopupAdapter,
+  screenshotVariant,
+  type PopupAdapter,
+} from "@lurkloot/popup-ui";
 import { resetCatalogTracking, waitForCatalog } from "./helpers/popupCatalog";
 
 // The rail is the popup's navigation: every destination is a button carrying
@@ -15,7 +20,8 @@ function byView(container: Element, view: string): HTMLButtonElement {
 }
 
 vi.mock("@lurkloot/locales", async (importOriginal) =>
-  (await import("./helpers/popupCatalog")).delayedLocales(importOriginal));
+  (await import("./helpers/popupCatalog")).delayedLocales(importOriginal),
+);
 
 const labels: Record<string, string> = {
   openSettings: "Open settings",
@@ -46,7 +52,9 @@ async function mount() {
   vi.stubGlobal("window", window);
   vi.stubGlobal("document", document);
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => window.setTimeout(() => callback(Date.now()), 0));
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) =>
+    window.setTimeout(() => callback(Date.now()), 0),
+  );
   vi.stubGlobal("cancelAnimationFrame", (handle: number) => window.clearTimeout(handle));
   vi.stubGlobal("getComputedStyle", () => ({ direction: "ltr" }));
   const container = document.getElementById("app")!;
@@ -58,14 +66,21 @@ async function mount() {
   };
   await act(async () => {
     root = createRoot(container);
-    root.render(<Popup adapter={adapter} initialState={{ preview: true, variant: screenshotVariant("settings") }} />);
+    root.render(
+      <Popup
+        adapter={adapter}
+        initialState={{ preview: true, variant: screenshotVariant("settings") }}
+      />,
+    );
   });
   await waitForCatalog();
   return { confirm, container, exportCredentials };
 }
 
 function byText(container: Element, text: string): HTMLButtonElement {
-  const button = [...container.querySelectorAll("button")].find((item) => item.textContent?.includes(text));
+  const button = [...container.querySelectorAll("button")].find((item) =>
+    item.textContent?.includes(text),
+  );
   if (!button) throw new Error(`Missing button: ${text}`);
   return button as HTMLButtonElement;
 }

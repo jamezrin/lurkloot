@@ -43,18 +43,32 @@ describe("background controller", () => {
 
     const tick = env.rawController.tick(["kick"]);
     await vi.waitFor(() => expect(calls).toBe(1));
-    await env.rawController.handleMessage({ type: "saveSettings", settingsPatch: { platform: { kick: { excludedChannels: ["someone"] } } }, tickAfterSave: true, tickAfterSavePlatforms: ["kick"] });
+    await env.rawController.handleMessage({
+      type: "saveSettings",
+      settingsPatch: { platform: { kick: { excludedChannels: ["someone"] } } },
+      tickAfterSave: true,
+      tickAfterSavePlatforms: ["kick"],
+    });
     gate.resolve();
     await tick;
 
-    const messages = allDiagnostics(env).filter((event) => event.platform === "kick").map((event) => event.message);
-    expect(messages.find((message) => message.startsWith("Discovery refresh finished"))).toContain("discarded=stale_generation");
-    expect(messages).toContain("Campaign decision: idle (Waiting for campaign discovery after a settings change)");
+    const messages = allDiagnostics(env)
+      .filter((event) => event.platform === "kick")
+      .map((event) => event.message);
+    expect(messages.find((message) => message.startsWith("Discovery refresh finished"))).toContain(
+      "discarded=stale_generation",
+    );
+    expect(messages).toContain(
+      "Campaign decision: idle (Waiting for campaign discovery after a settings change)",
+    );
     expect(messages.some((message) => message.includes("No campaigns discovered"))).toBe(false);
 
     // The save's own follow-up tick refreshes again and decides.
     await env.rawController.settleBackgroundWork();
-    expect(env.state.sessions.kick).toMatchObject({ status: "watching", campaignId: campaign("kick").id });
+    expect(env.state.sessions.kick).toMatchObject({
+      status: "watching",
+      campaignId: campaign("kick").id,
+    });
   });
 
   it("attributes Kick discovery duration, skipped inventory and unique channel checks", async () => {
@@ -64,11 +78,18 @@ describe("background controller", () => {
       { ...campaign("kick"), id: "expired", status: "expired" },
     ]);
     env.kick.checkChannels = async (requests) => ({
-      checks: requests.map(({ channel: candidate }) => ({ candidate, live: true, categoryMatches: true })),
+      checks: requests.map(({ channel: candidate }) => ({
+        candidate,
+        live: true,
+        categoryMatches: true,
+      })),
       uniqueChannelChecks: 1,
     });
     await env.controller.tick(["kick"]);
-    const diagnostic = allDiagnostics(env).find((event) => event.platform === "kick" && event.message.startsWith("Discovery refresh finished"));
+    const diagnostic = allDiagnostics(env).find(
+      (event) =>
+        event.platform === "kick" && event.message.startsWith("Discovery refresh finished"),
+    );
     expect(diagnostic?.message).toMatch(/finished in \d+ms/);
     expect(diagnostic?.message).toContain("campaigns=2");
     expect(diagnostic?.message).toContain("skipped before channel work=1");
@@ -80,7 +101,10 @@ describe("background controller", () => {
     const env = harness();
     vi.mocked(env.kick.checkChannel).mockRejectedValue(new Error("channel unavailable"));
     await env.controller.tick(["kick"]);
-    const diagnostic = allDiagnostics(env).find((event) => event.platform === "kick" && event.message.startsWith("Discovery refresh finished"));
+    const diagnostic = allDiagnostics(env).find(
+      (event) =>
+        event.platform === "kick" && event.message.startsWith("Discovery refresh finished"),
+    );
     expect(env.kick.listCandidateChannels).toHaveBeenCalled();
     expect(diagnostic?.message).toContain("work metrics=unavailable");
     expect(diagnostic?.message).not.toContain("campaigns=0");
@@ -112,7 +136,8 @@ describe("background controller", () => {
           if (detailsFail) throw new Error("service unavailable");
           return twitchCampaignDetails("retained");
         }
-        if (operation === "DirectoryPage_Game") return { data: { game: { streams: { edges: [] } } } };
+        if (operation === "DirectoryPage_Game")
+          return { data: { game: { streams: { edges: [] } } } };
         throw new Error(`Unexpected Twitch operation ${operation}`);
       }) as PageFetcher["fetchJson"],
     };
@@ -141,32 +166,42 @@ describe("background controller", () => {
 
     const ticking = env.controller.tick(["kick"]);
     await vi.waitFor(() => expect(env.kick.refreshCampaigns).toHaveBeenCalledOnce());
-    await env.deps.saveSettings({ ...env.settings, preferKnownChannels: !env.settings.preferKnownChannels });
+    await env.deps.saveSettings({
+      ...env.settings,
+      preferKnownChannels: !env.settings.preferKnownChannels,
+    });
     discovery.resolve([campaign("kick")]);
     await ticking;
 
     expect(env.deps.createAdapter).toHaveBeenCalledTimes(2);
-    expect(env.deps.createAdapter.mock.calls[0]![2].preferKnownChannels)
-      .not.toBe(env.deps.createAdapter.mock.calls[1]![2].preferKnownChannels);
+    expect(env.deps.createAdapter.mock.calls[0]![2].preferKnownChannels).not.toBe(
+      env.deps.createAdapter.mock.calls[1]![2].preferKnownChannels,
+    );
   });
 
   it("skips redundant target evaluation when a new discovery revision is materially unchanged", async () => {
     const env = harness(farming({ ...DEFAULT_SETTINGS, tablessMode: true }));
     env.twitch.supportsTabless = true;
-    vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([{
-      ...campaign("twitch"),
-      rewards: [{ ...reward("in_progress"), isWatchBased: false }],
-    }]);
+    vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([
+      {
+        ...campaign("twitch"),
+        rewards: [{ ...reward("in_progress"), isWatchBased: false }],
+      },
+    ]);
 
     await env.controller.tick(["twitch"]);
     await env.controller.tick(["twitch"]);
     await env.controller.tick(["twitch"]);
     await env.controller.tick(["twitch"]);
 
-    expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
-      platform: "twitch",
-      message: expect.stringMatching(/^Snapshot selection skipped \(trigger=unknown, revision=\d+, age=\d+ms, material=false\)$/),
-    }));
+    expect(allDiagnostics(env)).toContainEqual(
+      expect.objectContaining({
+        platform: "twitch",
+        message: expect.stringMatching(
+          /^Snapshot selection skipped \(trigger=unknown, revision=\d+, age=\d+ms, material=false\)$/,
+        ),
+      }),
+    );
   });
 
   it("coalesces concurrent snapshot selection requests to one pending evaluation", async () => {
@@ -196,10 +231,12 @@ describe("background controller", () => {
     await Promise.all([first, second, third]);
 
     expect(selectWatchTarget).toHaveBeenCalledTimes(2);
-    expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
-      platform: "twitch",
-      message: "Coalesced scheduler triggers (count=2, reasons=manual_tick:2)",
-    }));
+    expect(allDiagnostics(env)).toContainEqual(
+      expect.objectContaining({
+        platform: "twitch",
+        message: "Coalesced scheduler triggers (count=2, reasons=manual_tick:2)",
+      }),
+    );
   });
 
   it("passes persisted backoff state and bypasses it for explicit selection triggers", async () => {
@@ -210,12 +247,20 @@ describe("background controller", () => {
         const result = await selectWatchTargetFromSnapshot(input);
         return {
           ...result,
-          backoff: { campaignId: "higher", retryAt: "2099-01-01T00:00:00.000Z", fingerprint: "material" },
+          backoff: {
+            campaignId: "higher",
+            retryAt: "2099-01-01T00:00:00.000Z",
+            fingerprint: "material",
+          },
         };
       },
     });
     env.state.campaignSearchBackoffs = {
-      twitch: { campaignId: "higher", retryAt: "2099-01-01T00:00:00.000Z", fingerprint: "material" },
+      twitch: {
+        campaignId: "higher",
+        retryAt: "2099-01-01T00:00:00.000Z",
+        fingerprint: "material",
+      },
     };
 
     await env.controller.tick(["twitch"], "alarm");
@@ -265,7 +310,9 @@ describe("background controller", () => {
     const configure = (env: ReturnType<typeof harness>) => {
       env.twitch.refreshCampaigns = vi.fn(async () => [higher, current]);
       env.twitch.listCandidateChannels = vi.fn(async (selected) => [
-        selected.id === current.id ? currentChannel : { ...currentChannel, username: "higher", url: "https://www.twitch.tv/higher" },
+        selected.id === current.id
+          ? currentChannel
+          : { ...currentChannel, username: "higher", url: "https://www.twitch.tv/higher" },
       ]);
       env.twitch.checkChannel = vi.fn(async (candidate, options) => ({
         live: true,
@@ -284,20 +331,24 @@ describe("background controller", () => {
     configure(restarted);
     await restarted.controller.tick(["twitch"], "startup");
 
-    expect(vi.mocked(restarted.twitch.listCandidateChannels).mock.calls.map(([item]) => item.id)).toEqual(["current"]);
+    expect(
+      vi.mocked(restarted.twitch.listCandidateChannels).mock.calls.map(([item]) => item.id),
+    ).toEqual(["current"]);
     expect(restarted.twitch.listCandidateChannels).toHaveBeenCalledWith(
       expect.objectContaining({ id: "current" }),
       expect.anything(),
     );
-    expect(allDiagnostics(restarted)).toContainEqual(expect.objectContaining({
-      message: expect.stringMatching(/^Skipped authoritative negative campaign search for higher \(\d+ms remaining\)$/),
-    }));
+    expect(allDiagnostics(restarted)).toContainEqual(
+      expect.objectContaining({
+        message: expect.stringMatching(
+          /^Skipped authoritative negative campaign search for higher \(\d+ms remaining\)$/,
+        ),
+      }),
+    );
 
     await restarted.controller.tick(["twitch"], "manual_tick");
-    expect(vi.mocked(restarted.twitch.listCandidateChannels).mock.calls.map(([item]) => item.id)).toEqual([
-      "current",
-      "higher",
-      "current",
-    ]);
+    expect(
+      vi.mocked(restarted.twitch.listCandidateChannels).mock.calls.map(([item]) => item.id),
+    ).toEqual(["current", "higher", "current"]);
   });
 });

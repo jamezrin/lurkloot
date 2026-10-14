@@ -10,37 +10,60 @@ export interface TwitchExtensionCommitEffect {
   // Re-read settings and state and bring the providers in line with them.
   readonly reconcile: boolean;
   // A tabless-only session's failed heartbeat result just committed.
-  readonly heartbeatFailure?: { readonly provider: string; readonly username: string; readonly heartbeatChecks: number };
+  readonly heartbeatFailure?: {
+    readonly provider: string;
+    readonly username: string;
+    readonly heartbeatChecks: number;
+  };
 }
 
 const NONE: TwitchExtensionCommitEffect = { reconcile: false };
 
 function settingsChangeInvalidates(previous: ExtensionSettings, next: ExtensionSettings): boolean {
-  return previous.pauseOnManualWatch !== next.pauseOnManualWatch
+  return (
+    previous.pauseOnManualWatch !== next.pauseOnManualWatch
     || previous.platform.twitch.enabled !== next.platform.twitch.enabled
     || previous.twitchExtensions.nopixel.enabled !== next.twitchExtensions.nopixel.enabled
     || previous.twitchExtensions.fortnite.enabled !== next.twitchExtensions.fortnite.enabled
-    || previous.twitchExtensions.nopixel.autoOpenPacks !== next.twitchExtensions.nopixel.autoOpenPacks
-    || previous.twitchExtensions.fortnite.allowTakeovers !== next.twitchExtensions.fortnite.allowTakeovers;
+    || previous.twitchExtensions.nopixel.autoOpenPacks
+      !== next.twitchExtensions.nopixel.autoOpenPacks
+    || previous.twitchExtensions.fortnite.allowTakeovers
+      !== next.twitchExtensions.fortnite.allowTakeovers
+  );
 }
 
 function stateChangeInvalidates(previous: SchedulerState, next: SchedulerState): boolean {
-  return Boolean(previous.manualClosePause?.twitch) !== Boolean(next.manualClosePause?.twitch)
+  return (
+    Boolean(previous.manualClosePause?.twitch) !== Boolean(next.manualClosePause?.twitch)
     || previous.manualWatch?.twitch?.active !== next.manualWatch?.twitch?.active
     || previous.sessions.twitch.status !== next.sessions.twitch.status
     || previous.sessions.twitch.channel?.channelId !== next.sessions.twitch.channel?.channelId
-    || previous.authHealth.twitch.status !== next.authHealth.twitch.status;
+    || previous.authHealth.twitch.status !== next.authHealth.twitch.status
+  );
 }
 
-function failedSupplementalHeartbeat(previous: SchedulerState, next: SchedulerState): TwitchExtensionCommitEffect["heartbeatFailure"] {
+function failedSupplementalHeartbeat(
+  previous: SchedulerState,
+  next: SchedulerState,
+): TwitchExtensionCommitEffect["heartbeatFailure"] {
   const session = next.sessions.twitch;
   if (!session.supplementalWatch?.tablessOnly || !session.channel) return undefined;
-  if (session.lastHeartbeatOk !== false || session.lastHeartbeatAt === previous.sessions.twitch.lastHeartbeatAt) return undefined;
+  if (
+    session.lastHeartbeatOk !== false
+    || session.lastHeartbeatAt === previous.sessions.twitch.lastHeartbeatAt
+  )
+    return undefined;
   if (!/^[a-zA-Z0-9_]{1,25}$/.test(session.channel.username)) return undefined;
-  return { provider: session.supplementalWatch.id, username: session.channel.username, heartbeatChecks: session.heartbeatChecks ?? 0 };
+  return {
+    provider: session.supplementalWatch.id,
+    username: session.channel.username,
+    heartbeatChecks: session.heartbeatChecks ?? 0,
+  };
 }
 
-export function twitchExtensionCommitEffect(change: CommittedChange<ExtensionSettings>): TwitchExtensionCommitEffect {
+export function twitchExtensionCommitEffect(
+  change: CommittedChange<ExtensionSettings>,
+): TwitchExtensionCommitEffect {
   if (change.kind === "settings") {
     // A ranking-only save (#571) changes nothing the providers depend on.
     if (change.effects.twitch === "selection") return NONE;
@@ -54,7 +77,8 @@ export function twitchExtensionCommitEffect(change: CommittedChange<ExtensionSet
     return heartbeatFailure ? { reconcile: true, heartbeatFailure } : { reconcile: true };
   }
   // Completion belongs to the account: it survives only while auth stays healthy.
-  const preserveCompleted = change.previous.authHealth.twitch.status === "healthy"
+  const preserveCompleted =
+    change.previous.authHealth.twitch.status === "healthy"
     && change.state.authHealth.twitch.status === "healthy";
   return { invalidate: { preserveCompleted }, reconcile: true };
 }
@@ -62,7 +86,9 @@ export function twitchExtensionCommitEffect(change: CommittedChange<ExtensionSet
 export interface TwitchExtensionReconciler {
   invalidate(options?: { preserveCompleted?: boolean }): void;
   reconcile(): Promise<void>;
-  recordHeartbeatFailure?(failure: NonNullable<TwitchExtensionCommitEffect["heartbeatFailure"]>): Promise<void>;
+  recordHeartbeatFailure?(
+    failure: NonNullable<TwitchExtensionCommitEffect["heartbeatFailure"]>,
+  ): Promise<void>;
 }
 
 // The lane's commit hook, and a reconcile that other host events (startup, a
@@ -70,7 +96,10 @@ export interface TwitchExtensionReconciler {
 // and never waits on the reconcile: ticks and auth refreshes settle Twitch's
 // commit hooks, so they must not wait on provider session reads. Reconciles run
 // one at a time; a request while one runs queues a single re-run.
-export function createTwitchExtensionCommitHook(host: TwitchExtensionReconciler, onReconcileError: () => void) {
+export function createTwitchExtensionCommitHook(
+  host: TwitchExtensionReconciler,
+  onReconcileError: () => void,
+) {
   let running: Promise<void> | undefined;
   let again = false;
 
@@ -98,7 +127,8 @@ export function createTwitchExtensionCommitHook(host: TwitchExtensionReconciler,
   function onCommit(change: CommittedChange<ExtensionSettings>): void {
     const effect = twitchExtensionCommitEffect(change);
     if (effect.invalidate) host.invalidate(effect.invalidate);
-    if (effect.heartbeatFailure) void host.recordHeartbeatFailure?.(effect.heartbeatFailure).catch(() => undefined);
+    if (effect.heartbeatFailure)
+      void host.recordHeartbeatFailure?.(effect.heartbeatFailure).catch(() => undefined);
     if (effect.reconcile) void reconcile();
   }
 

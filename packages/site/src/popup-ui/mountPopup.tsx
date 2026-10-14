@@ -2,7 +2,12 @@
 // page's styles and backed by deterministic demo data. Used by the interactive
 // demo and by the read-only excerpts that illustrate a section.
 import { createRoot } from "react-dom/client";
-import { Popup, createDemoPopupAdapter, screenshotVariant, type PopupView } from "@lurkloot/popup-ui";
+import {
+  Popup,
+  createDemoPopupAdapter,
+  screenshotVariant,
+  type PopupView,
+} from "@lurkloot/popup-ui";
 import popupCss from "@lurkloot/popup-ui/styles.css?inline";
 import rootManifest from "../../../../package.json";
 
@@ -15,7 +20,13 @@ import rootManifest from "../../../../package.json";
 // reading the already-parsed rules off the shadow stylesheet. Registration is
 // global + idempotent, so re-runs and extra instances are harmless.
 function registerTailwindProperties(sheet: CSSStyleSheet | null) {
-  if (!sheet || typeof CSS === "undefined" || !CSS.registerProperty || !("CSSPropertyRule" in window)) return;
+  if (
+    !sheet
+    || typeof CSS === "undefined"
+    || !CSS.registerProperty
+    || !("CSSPropertyRule" in window)
+  )
+    return;
   for (const rule of sheet.cssRules) {
     if (!(rule instanceof CSSPropertyRule)) continue;
     try {
@@ -40,7 +51,10 @@ export interface MountOptions {
 
 /** Mounts the real popup into `host`'s shadow root and returns the shadow root
  * plus an unmount function. */
-export function mountPopup(host: HTMLElement, options: MountOptions = {}): { shadow: ShadowRoot; unmount(): void } {
+export function mountPopup(
+  host: HTMLElement,
+  options: MountOptions = {},
+): { shadow: ShadowRoot; unmount(): void } {
   const shadow = host.shadowRoot ?? host.attachShadow({ mode: "open" });
   const style = document.createElement("style");
   style.textContent = popupCss + (options.css ? `\n${options.css}` : "");
@@ -55,7 +69,12 @@ export function mountPopup(host: HTMLElement, options: MountOptions = {}): { sha
   root.render(
     <Popup
       adapter={adapter}
-      initialState={{ preview: true, locale: "en", variant: screenshotVariant("twitch-drops"), view: options.view }}
+      initialState={{
+        preview: true,
+        locale: "en",
+        variant: screenshotVariant("twitch-drops"),
+        view: options.view,
+      }}
     />,
   );
   return {
@@ -65,4 +84,5 @@ export function mountPopup(host: HTMLElement, options: MountOptions = {}): { sha
   };
 }
 
-export const FRAMELESS_CSS = "main[data-platform] { border: 0 !important; box-shadow: none !important; }";
+export const FRAMELESS_CSS =
+  "main[data-platform] { border: 0 !important; box-shadow: none !important; }";

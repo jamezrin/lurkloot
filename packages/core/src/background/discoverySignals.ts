@@ -14,7 +14,8 @@ export function createDiscoverySignals<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
   transaction: Pick<StateTransaction<S>, "onCommit" | "onTickConcluded">,
   { signalSlice, lifecycleSlice }: Pick<ControllerSlices<S>, "signalSlice" | "lifecycleSlice">,
-  calls: Pick<ControllerCalls<S>,
+  calls: Pick<
+    ControllerCalls<S>,
     | "completeTickAndHandOff"
     | "diagnosticEvent"
     | "reportBestEffort"
@@ -25,7 +26,8 @@ export function createDiscoverySignals<S extends EngineSettings>(
     | "withEventCollector"
     | "platformTickAdmitted"
   >,
-): Pick<ControllerCalls<S>,
+): Pick<
+  ControllerCalls<S>,
   | "stopDiscoverySignalController"
   | "stopDiscoverySignalControllers"
   | "stopDiscoverySignalControllersAndReport"
@@ -59,9 +61,12 @@ export function createDiscoverySignals<S extends EngineSettings>(
   transaction.onCommit(async (change) => {
     if (change.kind !== "state") return;
     const { previous, state } = change;
-    const platforms = change.platforms.filter((platform) =>
-      state.authHealth[platform].status !== "healthy"
-      || (previous.sessions[platform].status === "watching" && state.sessions[platform].status !== "watching"));
+    const platforms = change.platforms.filter(
+      (platform) =>
+        state.authHealth[platform].status !== "healthy"
+        || (previous.sessions[platform].status === "watching"
+          && state.sessions[platform].status !== "watching"),
+    );
     if (platforms.length > 0) await stopDiscoverySignalControllersAndReport(platforms);
   });
 
@@ -96,8 +101,7 @@ export function createDiscoverySignals<S extends EngineSettings>(
     platforms: readonly Platform[],
     emit: EventEmitter,
   ): Promise<void> {
-    await Promise.all(platforms.map((platform) =>
-      stopDiscoverySignalController(platform, emit)));
+    await Promise.all(platforms.map((platform) => stopDiscoverySignalController(platform, emit)));
   }
 
   async function stopDiscoverySignalControllersAndReport(
@@ -109,9 +113,7 @@ export function createDiscoverySignals<S extends EngineSettings>(
     });
   }
 
-  function stopDiscoverySignalControllersInBackground(
-    platforms: readonly Platform[],
-  ): void {
+  function stopDiscoverySignalControllersInBackground(platforms: readonly Platform[]): void {
     for (const platform of platforms) invalidateDiscoverySignalAdmission(platform);
     const run = stopDiscoverySignalControllersAndReport(platforms).catch((error) => {
       const platform = platforms.length === 1 ? platforms[0] : undefined;
@@ -141,7 +143,8 @@ export function createDiscoverySignals<S extends EngineSettings>(
       const session = state.sessions[platform];
       const channel = session.channel;
       await slot.reconcile({
-        wanted: !signalSlice.discoverySignalPlatformBlocked[platform]
+        wanted:
+          !signalSlice.discoverySignalPlatformBlocked[platform]
           && settings.platform[platform].enabled
           && state.authHealth[platform].status === "healthy"
           && session.status === "watching"
@@ -151,22 +154,23 @@ export function createDiscoverySignals<S extends EngineSettings>(
         since: since[platform] ?? slot.epoch,
         emit,
         onChange: () => invalidateDiscoverySignalAdmission(platform),
-        start: (controller) => controller.start(
-          { platform, channel: channel! },
-          () => {
+        start: (controller) =>
+          controller.start({ platform, channel: channel! }, () => {
             if (discoverySignalObserver(platform) !== controller) return;
             queueDiscoverySignalRefresh(platform, controller);
-          },
-        ),
+          }),
       });
     }
   }
 
   // Each platform's slot epoch, read where the state the observers follow is
   // committed, under its lock.
-  function discoverySignalEpochs(platforms: readonly Platform[]): Partial<Record<Platform, number>> {
-    return Object.fromEntries(platforms.map((platform) =>
-      [platform, signalSlice.discoverySignalSlots[platform].epoch]));
+  function discoverySignalEpochs(
+    platforms: readonly Platform[],
+  ): Partial<Record<Platform, number>> {
+    return Object.fromEntries(
+      platforms.map((platform) => [platform, signalSlice.discoverySignalSlots[platform].epoch]),
+    );
   }
 
   // After a tick commits (#587, #695), with no lock held: each observer follows
@@ -175,17 +179,19 @@ export function createDiscoverySignals<S extends EngineSettings>(
   // The commit's own stop hook above runs first, on the same lane.
   transaction.onTickConcluded((tick) => {
     if (tick.signal.aborted) return;
-    tick.follow(withEventCollector(async (emit, events) => {
-      await reconcileDiscoverySignalsAfterCommit(
-        tick.state,
-        tick.observerEpochs.discoverySignals,
-        tick.settings,
-        tick.adapters,
-        emit,
-        tick.platforms,
-      );
-      await reportBestEffort(tick.correlate(events));
-    }));
+    tick.follow(
+      withEventCollector(async (emit, events) => {
+        await reconcileDiscoverySignalsAfterCommit(
+          tick.state,
+          tick.observerEpochs.discoverySignals,
+          tick.settings,
+          tick.adapters,
+          emit,
+          tick.platforms,
+        );
+        await reportBestEffort(tick.correlate(events));
+      }),
+    );
   });
 
   async function reconcileDiscoverySignalsAfterCommit(
@@ -197,7 +203,14 @@ export function createDiscoverySignals<S extends EngineSettings>(
     platforms: readonly Platform[],
   ): Promise<void> {
     try {
-      await reconcileDiscoverySignalControllers(committed, settings, adapters, emit, platforms, since);
+      await reconcileDiscoverySignalControllers(
+        committed,
+        settings,
+        adapters,
+        emit,
+        platforms,
+        since,
+      );
     } catch (error) {
       diagnosticEvent(
         "warn",
@@ -220,7 +233,9 @@ export function createDiscoverySignals<S extends EngineSettings>(
 
   // The queued discovery-signal refresh, handed to a tick that is about to run
   // anyway, if it is still allowed. It is no longer queued afterwards.
-  function takeAllowedDiscoverySignalRefresh(platform: Platform): DiscoverySignalRefreshRequest | undefined {
+  function takeAllowedDiscoverySignalRefresh(
+    platform: Platform,
+  ): DiscoverySignalRefreshRequest | undefined {
     const request = signalSlice.discoverySignalRefreshPending[platform];
     if (!request || !discoverySignalRefreshAllowed(platform, request)) return undefined;
     signalSlice.discoverySignalRefreshPending[platform] = undefined;
@@ -231,12 +246,14 @@ export function createDiscoverySignals<S extends EngineSettings>(
     platform: Platform,
     request: DiscoverySignalRefreshRequest,
   ): boolean {
-    return !lifecycleSlice.controllerShutdown
+    return (
+      !lifecycleSlice.controllerShutdown
       && lifecycleSlice.observersOpen
       && !signalSlice.discoverySignalPlatformBlocked[platform]
       && signalSlice.discoverySignalAuthRefreshes[platform] === 0
       && signalSlice.discoverySignalAdmissionGeneration[platform] === request.generation
-      && discoverySignalObserver(platform) === request.controller;
+      && discoverySignalObserver(platform) === request.controller
+    );
   }
 
   function reserveDiscoverySignalAuthRefresh(platform: Platform): () => void {
@@ -268,7 +285,8 @@ export function createDiscoverySignals<S extends EngineSettings>(
   }
 
   function startPendingDiscoverySignalRefresh(platform: Platform): void {
-    if (signalSlice.discoverySignalRefreshRunning[platform] || platformTickAdmitted(platform)) return;
+    if (signalSlice.discoverySignalRefreshRunning[platform] || platformTickAdmitted(platform))
+      return;
     const queued = signalSlice.discoverySignalRefreshPending[platform];
     if (!queued) return;
     if (!discoverySignalRefreshAllowed(platform, queued)) {
@@ -297,7 +315,11 @@ export function createDiscoverySignals<S extends EngineSettings>(
             signalSlice.discoverySignalRefreshPending[platform] = undefined;
             break;
           }
-          diagnosticEvent("debug", `Coalesced scheduler triggers (${tickTriggerSummary({ discovery_signal: current.count })})`, platform);
+          diagnosticEvent(
+            "debug",
+            `Coalesced scheduler triggers (${tickTriggerSummary({ discovery_signal: current.count })})`,
+            platform,
+          );
           const batch = requestTickBatch([platform], "discovery_signal", current);
           await (batch.handoff ??= completeTickAndHandOff(batch));
         }
@@ -308,11 +330,7 @@ export function createDiscoverySignals<S extends EngineSettings>(
         startPendingDiscoverySignalRefresh(platform);
       }
     })().catch((error) => {
-      diagnosticEvent(
-        "warn",
-        `Discovery signal refresh failed: ${errorMessage(error)}`,
-        platform,
-      );
+      diagnosticEvent("warn", `Discovery signal refresh failed: ${errorMessage(error)}`, platform);
     });
 
     trackBackgroundWork(run);

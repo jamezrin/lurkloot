@@ -11,7 +11,9 @@ export const TWITCH_COMPAT = testCompatibility().twitch;
 export const KICK_COMPAT = testCompatibility().kick;
 
 export function jsonFetcher(handler: (url: string, init?: RequestInit) => unknown): PageFetcher {
-  const fetchJson = vi.fn(async (url: string, init?: RequestInit): Promise<unknown> => handler(url, init));
+  const fetchJson = vi.fn(
+    async (url: string, init?: RequestInit): Promise<unknown> => handler(url, init),
+  );
   return { fetchJson: fetchJson as PageFetcher["fetchJson"] };
 }
 

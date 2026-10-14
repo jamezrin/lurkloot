@@ -40,7 +40,9 @@ test("main permits only merge commits and retains required checks", () => {
   assert.deepEqual(ruleset.bypass_actors, []);
   assert.deepEqual(rule(ruleset, "pull_request").parameters.allowed_merge_methods, ["merge"]);
   assert.deepEqual(
-    rule(ruleset, "required_status_checks").parameters.required_status_checks.map(({ context }) => context),
+    rule(ruleset, "required_status_checks").parameters.required_status_checks.map(
+      ({ context }) => context,
+    ),
     checks,
   );
   assert.ok(rule(ruleset, "non_fast_forward"));
@@ -51,14 +53,18 @@ test("main permits only merge commits and retains required checks", () => {
 test("develop permits squash PRs and only the dedicated App bypasses", () => {
   const ruleset = developRuleset(98765);
   assert.deepEqual(ruleset.conditions.ref_name.include, ["refs/heads/develop"]);
-  assert.deepEqual(ruleset.bypass_actors, [{
-    actor_id: 98765,
-    actor_type: "Integration",
-    bypass_mode: "always",
-  }]);
+  assert.deepEqual(ruleset.bypass_actors, [
+    {
+      actor_id: 98765,
+      actor_type: "Integration",
+      bypass_mode: "always",
+    },
+  ]);
   assert.deepEqual(rule(ruleset, "pull_request").parameters.allowed_merge_methods, ["squash"]);
   assert.deepEqual(
-    rule(ruleset, "required_status_checks").parameters.required_status_checks.map(({ context }) => context),
+    rule(ruleset, "required_status_checks").parameters.required_status_checks.map(
+      ({ context }) => context,
+    ),
     checks.slice(0, -1),
   );
   assert.equal(JSON.stringify(ruleset.bypass_actors).includes("15368"), false);
@@ -75,9 +81,11 @@ test("removes classic protection only after both rulesets read back", async () =
   const desired = [mainRuleset(), developRuleset(98765)];
   const readBack = desired.map((ruleset) => ({
     ...ruleset,
-    rules: ruleset.rules.map((entry) => entry.type === "pull_request"
-      ? { ...entry, parameters: { ...entry.parameters, required_reviewers: [] } }
-      : entry),
+    rules: ruleset.rules.map((entry) =>
+      entry.type === "pull_request"
+        ? { ...entry, parameters: { ...entry.parameters, required_reviewers: [] } }
+        : entry,
+    ),
   }));
   const client = {
     repoPath: (path) => `/repos/jamezrin/lurkloot${path}`,
@@ -90,18 +98,25 @@ test("removes classic protection only after both rulesets read back", async () =
       }
       if (/\/rulesets\/1[01]$/.test(path)) return readBack[Number(path.at(-1)) - 0];
       if (path.endsWith("/deployment-branch-policies")) {
-        return { branch_policies: previewBranchPolicies().map((name) => ({ name, type: "branch" })) };
+        return {
+          branch_policies: previewBranchPolicies().map((name) => ({ name, type: "branch" })),
+        };
       }
       return {};
     },
   };
   await applyRepositoryConfig({ client, syncAppId: 98765 });
   const deletes = calls.filter(({ init }) => init.method === "DELETE");
-  assert.deepEqual(deletes.map(({ path }) => path), [
-    "/repos/jamezrin/lurkloot/branches/main/protection",
-    "/repos/jamezrin/lurkloot/branches/develop/protection",
-  ]);
-  const lastRulesetRead = calls.map(({ path }) => path).findLastIndex((path) => path.includes("/rulesets/"));
+  assert.deepEqual(
+    deletes.map(({ path }) => path),
+    [
+      "/repos/jamezrin/lurkloot/branches/main/protection",
+      "/repos/jamezrin/lurkloot/branches/develop/protection",
+    ],
+  );
+  const lastRulesetRead = calls
+    .map(({ path }) => path)
+    .findLastIndex((path) => path.includes("/rulesets/"));
   const firstDelete = calls.findIndex(({ init }) => init.method === "DELETE");
   assert.ok(lastRulesetRead < firstDelete);
 });
@@ -116,12 +131,17 @@ function previewClient(initial) {
     created,
     repoPath: (path) => `/repos/jamezrin/lurkloot${path}`,
     async request(path, init = {}) {
-      assert.equal(path, "/repos/jamezrin/lurkloot/environments/preview/deployment-branch-policies");
+      assert.equal(
+        path,
+        "/repos/jamezrin/lurkloot/environments/preview/deployment-branch-policies",
+      );
       if (init.method === "POST") {
         created.push(init.body.name);
         return { id: created.length, ...init.body };
       }
-      return { branch_policies: [...initial, ...created].map((name) => ({ name, type: "branch" })) };
+      return {
+        branch_policies: [...initial, ...created].map((name) => ({ name, type: "branch" })),
+      };
     },
   };
 }

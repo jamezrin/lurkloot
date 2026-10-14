@@ -24,8 +24,8 @@ if (fine && !reduceMotion) {
         cancelAnimationFrame(raf);
         raf = requestAnimationFrame(() => {
           el.style.transform =
-            `perspective(900px) rotateX(${(-ny * max).toFixed(2)}deg) ` +
-            `rotateY(${(nx * max).toFixed(2)}deg) translateZ(10px)`;
+            `perspective(900px) rotateX(${(-ny * max).toFixed(2)}deg) `
+            + `rotateY(${(nx * max).toFixed(2)}deg) translateZ(10px)`;
           el.style.setProperty("--mx", `${((nx + 0.5) * 100).toFixed(1)}%`);
           el.style.setProperty("--my", `${((ny + 0.5) * 100).toFixed(1)}%`);
         });

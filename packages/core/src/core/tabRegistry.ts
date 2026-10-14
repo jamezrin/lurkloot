@@ -1,4 +1,9 @@
-import type { ManagedPageContextTab, Platform, SchedulerManagedPageContexts, TabClosureOrigin } from "@lurkloot/shared/models";
+import type {
+  ManagedPageContextTab,
+  Platform,
+  SchedulerManagedPageContexts,
+  TabClosureOrigin,
+} from "@lurkloot/shared/models";
 import type { EventEmitter, PageContextCloseReason } from "@lurkloot/shared/events";
 import type { LogLevel } from "@lurkloot/shared/logging";
 import type { TwitchIntegrity, TwitchIntegrityRequest } from "./twitchIntegrity";
@@ -14,7 +19,12 @@ import { createTwitchRequestIdentity, type TwitchRequestIdentity } from "./trans
 
 const ignoreEvent: EventEmitter = () => {};
 
-function diagnostic(emit: EventEmitter, level: LogLevel, message: string, platform?: Platform): void {
+function diagnostic(
+  emit: EventEmitter,
+  level: LogLevel,
+  message: string,
+  platform?: Platform,
+): void {
   emit({ category: "diagnostic", level, message, platform });
 }
 
@@ -122,7 +132,8 @@ export function syncManagedTabBreakers(
   platforms: readonly Platform[] = ALL_PLATFORMS,
 ): void {
   for (const platform of platforms) {
-    if (state.criticalHealth?.[platform]?.breakerOpen) registry.openManagedTabBreakers.add(platform);
+    if (state.criticalHealth?.[platform]?.breakerOpen)
+      registry.openManagedTabBreakers.add(platform);
     else registry.openManagedTabBreakers.delete(platform);
   }
 }
@@ -208,13 +219,18 @@ export interface TwitchContextBootTiming {
 // distinguishes "the SPA has not booted yet" from "the SPA is running but is
 // still solving the proof-of-work", which is the split the aggregate timeout
 // hides.
-export function noteTwitchGqlRequest(registry: TabRegistry, tabId: number | undefined, now: number = Date.now()): void {
+export function noteTwitchGqlRequest(
+  registry: TabRegistry,
+  tabId: number | undefined,
+  now: number = Date.now(),
+): void {
   if (tabId == null || registry.twitchContextBoot?.tabId !== tabId) return;
   registry.twitchContextBoot.firstGqlAt ??= now;
 }
 
 export function describeContextBoot(boot: TwitchContextBootTiming, now: number): string {
-  const since = (at: number | undefined): string => (at == null ? "never" : `${at - boot.createdAt}ms`);
+  const since = (at: number | undefined): string =>
+    at == null ? "never" : `${at - boot.createdAt}ms`;
   return `tab ready at ${since(boot.readyAt)}, first GQL at ${since(boot.firstGqlAt)}, ${now - boot.createdAt}ms since the tab was created`;
 }
 
@@ -257,7 +273,9 @@ export function setTwitchIntegrity(
       // source entries must not grow without bound in a long-lived background.
       registry.twitchIntegrityCapturesBySourceTab.delete(capture.sourceTabId);
       registry.twitchIntegrityCapturesBySourceTab.set(capture.sourceTabId, capture);
-      while (registry.twitchIntegrityCapturesBySourceTab.size > MAX_TWITCH_INTEGRITY_SOURCE_CAPTURES) {
+      while (
+        registry.twitchIntegrityCapturesBySourceTab.size > MAX_TWITCH_INTEGRITY_SOURCE_CAPTURES
+      ) {
         const oldestSourceTabId = registry.twitchIntegrityCapturesBySourceTab.keys().next().value;
         if (oldestSourceTabId == null) break;
         registry.twitchIntegrityCapturesBySourceTab.delete(oldestSourceTabId);
@@ -266,9 +284,14 @@ export function setTwitchIntegrity(
   }
   if (value && options?.isNew) {
     const ttlSeconds = Math.max(0, Math.round((value.expiresAt - Date.now()) / 1000));
-    diagnostic(emit, "info", value.expiryUnknown
-      ? `Captured a fresh Twitch integrity token (its expiry cannot be read; keeping it until Twitch rejects it, at most until ${new Date(value.expiresAt).toISOString()})`
-      : `Captured a fresh Twitch integrity token (expires ${new Date(value.expiresAt).toISOString()}, in ${ttlSeconds}s)`, "twitch");
+    diagnostic(
+      emit,
+      "info",
+      value.expiryUnknown
+        ? `Captured a fresh Twitch integrity token (its expiry cannot be read; keeping it until Twitch rejects it, at most until ${new Date(value.expiresAt).toISOString()})`
+        : `Captured a fresh Twitch integrity token (expires ${new Date(value.expiresAt).toISOString()}, in ${ttlSeconds}s)`,
+      "twitch",
+    );
   }
   if (value != null && registry.integrityWaiters.length > 0) {
     const waiters = registry.integrityWaiters;
@@ -310,12 +333,18 @@ export function cancelTwitchIntegrityAcquisition(registry: TabRegistry, reason?:
   registry.inFlightIntegrityAcquisition?.abort.abort(reason);
 }
 
-export function hasReplacementTwitchIntegrity(registry: TabRegistry, rejectedToken?: string): boolean {
+export function hasReplacementTwitchIntegrity(
+  registry: TabRegistry,
+  rejectedToken?: string,
+): boolean {
   if (!hasValidTwitchIntegrity(registry)) return false;
   return rejectedToken == null || registry.twitchIntegrity?.integrity !== rejectedToken;
 }
 
-function isReplacementCapture(capture: TwitchIntegrityCapture | undefined, rejectedToken?: string): boolean {
+function isReplacementCapture(
+  capture: TwitchIntegrityCapture | undefined,
+  rejectedToken?: string,
+): boolean {
   if (!capture || !isValidTwitchIntegrity(capture.value)) return false;
   return rejectedToken == null || capture.value.integrity !== rejectedToken;
 }
@@ -329,15 +358,30 @@ function captureForIntegrityWait(
 ): TwitchIntegrityCapture | undefined {
   if (sourceTabId != null) {
     const sourceCapture = registry.twitchIntegrityCapturesBySourceTab.get(sourceTabId);
-    if (sourceCapture != null && sourceCapture.generation > minimumGeneration && isReplacementCapture(sourceCapture, rejectedToken)) return sourceCapture;
+    if (
+      sourceCapture != null
+      && sourceCapture.generation > minimumGeneration
+      && isReplacementCapture(sourceCapture, rejectedToken)
+    )
+      return sourceCapture;
     // Unattributed captures retain the historic global behavior. Once a
     // capture has an explicit source, however, a different tab cannot satisfy
     // this managed-context wait.
-    if (latestCapture != null && latestCapture.generation > minimumGeneration && isReplacementCapture(latestCapture, rejectedToken) && latestCapture.sourceTabId == null) return latestCapture;
+    if (
+      latestCapture != null
+      && latestCapture.generation > minimumGeneration
+      && isReplacementCapture(latestCapture, rejectedToken)
+      && latestCapture.sourceTabId == null
+    )
+      return latestCapture;
     return undefined;
   }
   const capture = latestCapture ?? registry.latestTwitchIntegrityCapture;
-  return capture != null && capture.generation > minimumGeneration && isReplacementCapture(capture, rejectedToken) ? capture : undefined;
+  return capture != null
+    && capture.generation > minimumGeneration
+    && isReplacementCapture(capture, rejectedToken)
+    ? capture
+    : undefined;
 }
 
 // Resolves with the exact usable capture, or undefined after timeoutMs. A
@@ -354,12 +398,20 @@ export function waitForIntegrityCapture(
   minimumGeneration = 0,
 ): Promise<TwitchIntegrityCapture | undefined> {
   signal?.throwIfAborted();
-  const alreadyCaptured = captureForIntegrityWait(registry, rejectedToken, sourceTabId, undefined, minimumGeneration);
+  const alreadyCaptured = captureForIntegrityWait(
+    registry,
+    rejectedToken,
+    sourceTabId,
+    undefined,
+    minimumGeneration,
+  );
   if (alreadyCaptured) return Promise.resolve(alreadyCaptured);
   return new Promise((resolve, reject) => {
     let settled = false;
     const removeWaiter = () => {
-      registry.integrityWaiters = registry.integrityWaiters.filter((waiter) => waiter !== onCapture);
+      registry.integrityWaiters = registry.integrityWaiters.filter(
+        (waiter) => waiter !== onCapture,
+      );
     };
     const cleanup = () => {
       clearTimeout(timer);
@@ -376,7 +428,13 @@ export function waitForIntegrityCapture(
       if (settled) return;
       // Not a replacement yet — keep waiting until the deadline instead of
       // reporting the rejected token back as a successful refresh.
-      const replacement = captureForIntegrityWait(registry, rejectedToken, sourceTabId, capture, minimumGeneration);
+      const replacement = captureForIntegrityWait(
+        registry,
+        rejectedToken,
+        sourceTabId,
+        capture,
+        minimumGeneration,
+      );
       if (!replacement) {
         registry.integrityWaiters.push(onCapture);
         return;
@@ -418,7 +476,8 @@ export function hydrateManagedPageContextTabs(
   platforms: readonly Platform[] = ALL_PLATFORMS,
   expectedRevision?: number,
 ): boolean {
-  if (expectedRevision !== undefined && expectedRevision !== registry.retainedPageContextRevision) return false;
+  if (expectedRevision !== undefined && expectedRevision !== registry.retainedPageContextRevision)
+    return false;
   for (const platform of platforms) {
     if (registry.retainedPageContextTabs.has(platform)) continue;
     const context = contexts[platform];
@@ -454,7 +513,12 @@ export function recordManagedPageContextFallback(
   };
   registry.retainedPageContextTabs.set(platform, updated);
   registry.retainedPageContextRevision += 1;
-  diagnostic(emit, "debug", `Retained managed page context on ${new URL(context.origin).host} because background access is still rejected`, platform);
+  diagnostic(
+    emit,
+    "debug",
+    `Retained managed page context on ${new URL(context.origin).host} because background access is still rejected`,
+    platform,
+  );
 }
 
 // Enough to remember recent closes while their late results drain. Browsers do
@@ -496,7 +560,11 @@ export function tabClosureOrigin(registry: TabRegistry, tabId: number): TabClosu
 
 // Records a watch tab the engine just created. Call it as soon as the tab has
 // an id: the tab can report playback while it is still being prepared.
-export function noteOpeningWatchTab(registry: TabRegistry, tabId: number, platform: Platform): void {
+export function noteOpeningWatchTab(
+  registry: TabRegistry,
+  tabId: number,
+  platform: Platform,
+): void {
   registry.openingWatchTabs.set(tabId, platform);
 }
 
@@ -510,7 +578,9 @@ export function isOpeningWatchTab(registry: TabRegistry, tabId: number): boolean
 }
 
 export function openingWatchTabIds(registry: TabRegistry, platform: Platform): number[] {
-  return [...registry.openingWatchTabs].filter(([, opening]) => opening === platform).map(([tabId]) => tabId);
+  return [...registry.openingWatchTabs]
+    .filter(([, opening]) => opening === platform)
+    .map(([tabId]) => tabId);
 }
 
 // What one scheduler cycle's page-context evidence means for the retained
@@ -524,7 +594,11 @@ export function openingWatchTabIds(registry: TabRegistry, platform: Platform): n
 export type PageContextRecoveryStep =
   | { readonly kind: "none" }
   | { readonly kind: "retained" }
-  | { readonly kind: "recovered"; readonly context: ManagedPageContextTab; readonly updated: ManagedPageContextTab };
+  | {
+      readonly kind: "recovered";
+      readonly context: ManagedPageContextTab;
+      readonly updated: ManagedPageContextTab;
+    };
 
 export function observePageContextRecovery(
   registry: TabRegistry,
@@ -545,11 +619,17 @@ export function observePageContextRecovery(
       backgroundSuccesses: 0,
     });
     registry.retainedPageContextRevision += 1;
-    diagnostic(emit, "debug", `Retained managed page context on ${new URL(context.origin).host} because this scheduler cycle still required page fallback`, platform);
+    diagnostic(
+      emit,
+      "debug",
+      `Retained managed page context on ${new URL(context.origin).host} because this scheduler cycle still required page fallback`,
+      platform,
+    );
     return { kind: "retained" };
   }
 
-  if (!context.fallbackHost || !observation.backgroundHosts.includes(context.fallbackHost)) return { kind: "none" };
+  if (!context.fallbackHost || !observation.backgroundHosts.includes(context.fallbackHost))
+    return { kind: "none" };
 
   const updated: ManagedPageContextTab = {
     ...context,
@@ -558,10 +638,15 @@ export function observePageContextRecovery(
   registry.retainedPageContextTabs.set(platform, updated);
   registry.retainedPageContextRevision += 1;
   const threshold = Math.min(10, Math.max(1, Math.round(requiredSuccesses)));
-  const recovered = updated.backgroundSuccesses! >= threshold
-    && !registry.pageContextTabs.has(context.origin);
+  const recovered =
+    updated.backgroundSuccesses! >= threshold && !registry.pageContextTabs.has(context.origin);
   if (!recovered) {
-    diagnostic(emit, "debug", `Retained managed page context on ${new URL(context.origin).host} while background recovery is being confirmed`, platform);
+    diagnostic(
+      emit,
+      "debug",
+      `Retained managed page context on ${new URL(context.origin).host} while background recovery is being confirmed`,
+      platform,
+    );
     return { kind: "retained" };
   }
   return { kind: "recovered", context, updated };

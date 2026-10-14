@@ -21,7 +21,11 @@ const TIPS: TipDescriptor[] = [
   { messageKey: "tipCli", actionKey: "tipCliAction", href: CLI_DOCS_URL },
   { messageKey: "tipFeedback", actionKey: "tipFeedbackAction", href: GITHUB_NEW_ISSUE_URL },
   { messageKey: "tipExcludedCampaigns" },
-  { messageKey: "tipTranslations", actionKey: "tipTranslationsAction", href: GITHUB_TRANSLATION_GUIDE_URL },
+  {
+    messageKey: "tipTranslations",
+    actionKey: "tipTranslationsAction",
+    href: GITHUB_TRANSLATION_GUIDE_URL,
+  },
 ];
 
 const PREVIEW_TIPS = TIPS.filter((tip) => tip.messageKey !== "tipTranslations");
@@ -37,8 +41,10 @@ export function nextTipIndex(current: number, count: number): number {
 export function createTipRotator({
   onAdvance,
   isVisible,
-  setInterval: schedule = (callback, milliseconds) => globalThis.setInterval(callback, milliseconds),
-  clearInterval: cancel = (handle) => globalThis.clearInterval(handle as ReturnType<typeof globalThis.setInterval>),
+  setInterval: schedule = (callback, milliseconds) =>
+    globalThis.setInterval(callback, milliseconds),
+  clearInterval: cancel = (handle) =>
+    globalThis.clearInterval(handle as ReturnType<typeof globalThis.setInterval>),
 }: {
   onAdvance(): void;
   isVisible(): boolean;
@@ -51,16 +57,26 @@ export function createTipRotator({
   return () => cancel(handle);
 }
 
-export function TipsBanner({ initialIndex, preview = false }: { initialIndex?: number; preview?: boolean }): React.ReactElement {
+export function TipsBanner({
+  initialIndex,
+  preview = false,
+}: {
+  initialIndex?: number;
+  preview?: boolean;
+}): React.ReactElement {
   const t = useT();
   const reduceMotion = useReducedMotion();
   const tips = preview ? PREVIEW_TIPS : TIPS;
   const [tipIndex, setTipIndex] = React.useState(() => initialIndex ?? randomTipIndex(tips.length));
 
-  React.useEffect(() => createTipRotator({
-    onAdvance: () => setTipIndex((current) => nextTipIndex(current, tips.length)),
-    isVisible: () => typeof document === "undefined" || document.visibilityState === "visible",
-  }), [tips.length]);
+  React.useEffect(
+    () =>
+      createTipRotator({
+        onAdvance: () => setTipIndex((current) => nextTipIndex(current, tips.length)),
+        isVisible: () => typeof document === "undefined" || document.visibilityState === "visible",
+      }),
+    [tips.length],
+  );
 
   const tip = tips[tipIndex] ?? tips[0];
   return (

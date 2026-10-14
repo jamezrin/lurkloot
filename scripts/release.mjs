@@ -53,7 +53,8 @@ export async function checkWorkspace() {
 
 export async function prepareWorkspace(version, date) {
   parseVersion(version);
-  if (date !== undefined && !validDate(date)) throw new Error("prepare requires a valid --date YYYY-MM-DD");
+  if (date !== undefined && !validDate(date))
+    throw new Error("prepare requires a valid --date YYYY-MM-DD");
   for (const path of packagePaths) {
     const manifest = JSON.parse(await readFile(path, "utf8"));
     manifest.version = version;
@@ -76,7 +77,8 @@ async function main() {
   const [command, version, dateFlag, date] = process.argv.slice(2);
   if (command === "check" && version === undefined) return checkWorkspace();
   if (command === "prepare" && version && dateFlag === undefined) return prepareWorkspace(version);
-  if (command === "prepare" && version && dateFlag === "--date" && date) return prepareWorkspace(version, date);
+  if (command === "prepare" && version && dateFlag === "--date" && date)
+    return prepareWorkspace(version, date);
   throw new Error("usage: release.mjs <check | prepare VERSION [--date YYYY-MM-DD]>");
 }
 

@@ -14,7 +14,8 @@ export { isRankingOnlyPatch } from "./stateTransaction";
 export function createSettingsTransitions<S extends EngineSettings>(
   transaction: StateTransaction<S>,
   { policySlice }: Pick<ControllerSlices<S>, "policySlice">,
-  calls: Pick<ControllerCalls<S>,
+  calls: Pick<
+    ControllerCalls<S>,
     | "cancelPendingTick"
     | "invalidateDiscoveryLane"
     | "invalidateSelection"
@@ -31,7 +32,8 @@ export function createSettingsTransitions<S extends EngineSettings>(
     | "snapshot"
     | "tickInBackground"
   >,
-): Pick<ControllerCalls<S>,
+): Pick<
+  ControllerCalls<S>,
   | "normalizeStartupSettings"
   | "commitSettings"
   | "setPlatformEnabled"
@@ -66,7 +68,9 @@ export function createSettingsTransitions<S extends EngineSettings>(
       rescheduleDropClaimJobs(),
       rescheduleKickChallengeJob(),
     ]);
-    const failure = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
+    const failure = results.find(
+      (result): result is PromiseRejectedResult => result.status === "rejected",
+    );
     if (failure) throw failure.reason;
   }
 
@@ -80,21 +84,25 @@ export function createSettingsTransitions<S extends EngineSettings>(
     try {
       return await withSettingsLock(async () => {
         let farming = false;
-        const commit = await transaction.prepareSettingsCommit((settings) => {
-          farming = !settings.autoStartDropFarming && isFarmingActive(settings);
-          return farming
-            ? { platform: { twitch: { enabled: false }, kick: { enabled: false } } }
-            : {};
-        }, (settings) => farming
-          ? {
-              ...settings,
-              platform: {
-                ...settings.platform,
-                twitch: { ...settings.platform.twitch, enabled: false },
-                kick: { ...settings.platform.kick, enabled: false },
-              },
-            }
-          : settings);
+        const commit = await transaction.prepareSettingsCommit(
+          (settings) => {
+            farming = !settings.autoStartDropFarming && isFarmingActive(settings);
+            return farming
+              ? { platform: { twitch: { enabled: false }, kick: { enabled: false } } }
+              : {};
+          },
+          (settings) =>
+            farming
+              ? {
+                  ...settings,
+                  platform: {
+                    ...settings.platform,
+                    twitch: { ...settings.platform.twitch, enabled: false },
+                    kick: { ...settings.platform.kick, enabled: false },
+                  },
+                }
+              : settings,
+        );
         if (!farming) return commit.previous;
         const nextSettings = commit.settings;
         // Startup is the lifecycle's: no service reacts to this save.
@@ -184,13 +192,15 @@ export function createSettingsTransitions<S extends EngineSettings>(
         diagnosticEvent("info", `User requested ${platformLabel} automation ${action}`, platform);
         return;
       case "missing-permission":
-        void reportBestEffort([{
-          category: "activity",
-          code: "interruption",
-          level: "warn",
-          platform,
-          data: { reason: "permission_missing" },
-        }]);
+        void reportBestEffort([
+          {
+            category: "activity",
+            code: "interruption",
+            level: "warn",
+            platform,
+            data: { reason: "permission_missing" },
+          },
+        ]);
         return;
       default: {
         const unreachable: never = cause;
@@ -246,7 +256,12 @@ export function createSettingsTransitions<S extends EngineSettings>(
     tickInBackground(
       [message.platform],
       message.type === "setAutomation" ? "automation_toggle" : "platform_toggle",
-      () => diagnosticEvent("info", `${platformLabel} automation ${action} completed`, message.platform),
+      () =>
+        diagnosticEvent(
+          "info",
+          `${platformLabel} automation ${action} completed`,
+          message.platform,
+        ),
     );
     return snapshot();
   }
@@ -267,14 +282,19 @@ export function createSettingsTransitions<S extends EngineSettings>(
     message: Extract<CoreRuntimeMessage, { type: "updateIdleWatchlist" }>,
   ): Promise<RuntimeSnapshot<S>> {
     const channel = message.channel.trim().replace(/^@/, "").toLowerCase();
-    const commit = channel ? await commitSettings((current) => {
-      const listed = current.platform[message.platform].idleWatchlistChannels;
-      const present = listed.some((entry) => entry.toLowerCase() === channel);
-      const next = message.action === "remove"
-        ? listed.filter((entry) => entry.toLowerCase() !== channel)
-        : present || listed.length >= IDLE_WATCHLIST_LIMIT ? listed : [...listed, channel];
-      return { platform: { [message.platform]: { idleWatchlistChannels: next } } };
-    }) : undefined;
+    const commit = channel
+      ? await commitSettings((current) => {
+          const listed = current.platform[message.platform].idleWatchlistChannels;
+          const present = listed.some((entry) => entry.toLowerCase() === channel);
+          const next =
+            message.action === "remove"
+              ? listed.filter((entry) => entry.toLowerCase() !== channel)
+              : present || listed.length >= IDLE_WATCHLIST_LIMIT
+                ? listed
+                : [...listed, channel];
+          return { platform: { [message.platform]: { idleWatchlistChannels: next } } };
+        })
+      : undefined;
     if (commit && isFarmingActive(commit.settings)) {
       tickInBackground([message.platform], settingsTickTrigger(commit.effects));
     }

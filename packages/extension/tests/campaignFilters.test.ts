@@ -7,7 +7,12 @@ import {
   campaignSection,
 } from "@lurkloot/shared/campaignFilters";
 import { mergeSettings } from "@lurkloot/shared/settings";
-import type { DropCampaign, EngineSettings, ExtensionSettings, PlatformSettings } from "@lurkloot/shared/models";
+import type {
+  DropCampaign,
+  EngineSettings,
+  ExtensionSettings,
+  PlatformSettings,
+} from "@lurkloot/shared/models";
 
 const ELIGIBLE_ALL: EngineSettings["farmingEligibility"] = {
   farmUnlinkedCampaigns: true,
@@ -19,17 +24,20 @@ const FARM_ALL_CATEGORIES: Pick<PlatformSettings, "categoryMode" | "categories">
   categories: [],
 };
 
-
 // Builds a full ExtensionSettings so campaignSection/campaignFarmable — which
 // both read one settings object — can be exercised with the same terse per-axis
 // overrides the old piecemeal-argument tests used.
-function settings(overrides: {
-  farmingEligibility?: EngineSettings["farmingEligibility"];
-  excludedCampaignIds?: string[];
-  categorySelection?: Partial<Pick<PlatformSettings, "categoryMode" | "categories" | "blockedCategories">>;
-  campaignPins?: string[];
-  farmPinnedOnly?: boolean;
-} = {}): ExtensionSettings {
+function settings(
+  overrides: {
+    farmingEligibility?: EngineSettings["farmingEligibility"];
+    excludedCampaignIds?: string[];
+    categorySelection?: Partial<
+      Pick<PlatformSettings, "categoryMode" | "categories" | "blockedCategories">
+    >;
+    campaignPins?: string[];
+    farmPinnedOnly?: boolean;
+  } = {},
+): ExtensionSettings {
   const base = mergeSettings(undefined);
   const categorySelection = overrides.categorySelection ?? FARM_ALL_CATEGORIES;
   return {
@@ -55,15 +63,17 @@ function campaign(overrides: Partial<DropCampaign> = {}): DropCampaign {
     platform: "kick",
     name: "Campaign",
     status: "active",
-    rewards: [{
-      id: "reward",
-      name: "Reward",
-      requiredMinutes: 30,
-      requirement: "watch",
-      isWatchBased: true,
-      watchedMinutes: 0,
-      status: "locked",
-    }],
+    rewards: [
+      {
+        id: "reward",
+        name: "Reward",
+        requiredMinutes: 30,
+        requirement: "watch",
+        isWatchBased: true,
+        watchedMinutes: 0,
+        status: "locked",
+      },
+    ],
     connectionUrls: [],
     ...overrides,
   } as DropCampaign;
@@ -72,15 +82,17 @@ function campaign(overrides: Partial<DropCampaign> = {}): DropCampaign {
 // A campaign that requires a subscription (mixed subscription/watch).
 function subscriptionCampaign(overrides: Partial<DropCampaign> = {}): DropCampaign {
   return campaign({
-    rewards: [{
-      id: "sub",
-      name: "Subscriber reward",
-      requiredMinutes: 0,
-      requirement: "subscription",
-      requiredSubs: 1,
-      watchedMinutes: 0,
-      status: "locked",
-    }],
+    rewards: [
+      {
+        id: "sub",
+        name: "Subscriber reward",
+        requiredMinutes: 0,
+        requirement: "subscription",
+        requiredSubs: 1,
+        watchedMinutes: 0,
+        status: "locked",
+      },
+    ],
     ...overrides,
   });
 }
@@ -89,10 +101,19 @@ describe("campaignPassesFarmingEligibility", () => {
   it("skips an unlinked campaign only when farmUnlinkedCampaigns is off", () => {
     const off = { ...ELIGIBLE_ALL, farmUnlinkedCampaigns: false };
     expect(campaignPassesFarmingEligibility(campaign({ accountLinked: false }), off)).toBe(false);
-    expect(campaignPassesFarmingEligibility(campaign({ eligibility: "account_not_linked" }), off)).toBe(false);
+    expect(
+      campaignPassesFarmingEligibility(campaign({ eligibility: "account_not_linked" }), off),
+    ).toBe(false);
     expect(campaignPassesFarmingEligibility(campaign({ accountLinked: true }), off)).toBe(true);
-    expect(campaignPassesFarmingEligibility(campaign({ accountLinked: false }), ELIGIBLE_ALL)).toBe(true);
-    expect(campaignPassesFarmingEligibility(campaign({ eligibility: "account_not_linked" }), ELIGIBLE_ALL)).toBe(true);
+    expect(campaignPassesFarmingEligibility(campaign({ accountLinked: false }), ELIGIBLE_ALL)).toBe(
+      true,
+    );
+    expect(
+      campaignPassesFarmingEligibility(
+        campaign({ eligibility: "account_not_linked" }),
+        ELIGIBLE_ALL,
+      ),
+    ).toBe(true);
   });
 
   it("skips a subscription campaign only when farmSubscriptionCampaigns is off", () => {
@@ -140,18 +161,37 @@ describe("campaignFarmable", () => {
   });
 
   it("is false when the class flag turns off unlinked or subscription farming", () => {
-    expect(campaignFarmable(campaign({ accountLinked: false }), settings({ farmingEligibility: { ...ELIGIBLE_ALL, farmUnlinkedCampaigns: false } }))).toBe(false);
-    expect(campaignFarmable(subscriptionCampaign(), settings({ farmingEligibility: { ...ELIGIBLE_ALL, farmSubscriptionCampaigns: false } }))).toBe(false);
+    expect(
+      campaignFarmable(
+        campaign({ accountLinked: false }),
+        settings({ farmingEligibility: { ...ELIGIBLE_ALL, farmUnlinkedCampaigns: false } }),
+      ),
+    ).toBe(false);
+    expect(
+      campaignFarmable(
+        subscriptionCampaign(),
+        settings({ farmingEligibility: { ...ELIGIBLE_ALL, farmSubscriptionCampaigns: false } }),
+      ),
+    ).toBe(false);
   });
 
   it("is false outside the selected categories in include mode", () => {
     const c = campaign({ gameName: "Other Game" });
-    const s = settings({ categorySelection: { categoryMode: "include", categories: [{ id: "selected-game", name: "Selected Game" }] } });
+    const s = settings({
+      categorySelection: {
+        categoryMode: "include",
+        categories: [{ id: "selected-game", name: "Selected Game" }],
+      },
+    });
     expect(campaignFarmable(c, s)).toBe(false);
   });
 
   it("is true for an unlinked Twitch campaign when farmUnlinkedCampaigns is on", () => {
-    const c = campaign({ platform: "twitch", accountLinked: false, eligibility: "account_not_linked" });
+    const c = campaign({
+      platform: "twitch",
+      accountLinked: false,
+      eligibility: "account_not_linked",
+    });
     expect(campaignFarmable(c, settings())).toBe(true);
     expect(campaignEligibleClass(c, settings())).toBe(true);
   });
@@ -193,13 +233,23 @@ describe("campaignSection sorts campaigns into the popup's lists", () => {
   });
 
   it("skips a campaign whose class is not farmed, rather than hiding it", () => {
-    expect(section(campaign({ accountLinked: false }), { farmingEligibility: NOT_FARMED_UNLINKED })).toBe("skipped");
-    expect(section(campaign({ eligibility: "account_not_linked" }), { farmingEligibility: NOT_FARMED_UNLINKED })).toBe("skipped");
-    expect(section(subscriptionCampaign(), { farmingEligibility: NOT_FARMED_SUBSCRIPTION })).toBe("skipped");
+    expect(
+      section(campaign({ accountLinked: false }), { farmingEligibility: NOT_FARMED_UNLINKED }),
+    ).toBe("skipped");
+    expect(
+      section(campaign({ eligibility: "account_not_linked" }), {
+        farmingEligibility: NOT_FARMED_UNLINKED,
+      }),
+    ).toBe("skipped");
+    expect(section(subscriptionCampaign(), { farmingEligibility: NOT_FARMED_SUBSCRIPTION })).toBe(
+      "skipped",
+    );
   });
 
   it("queues a not-linked campaign while that class is farmed", () => {
-    expect(section(campaign({ accountLinked: false }), { farmingEligibility: ELIGIBLE_ALL })).toBe("queue");
+    expect(section(campaign({ accountLinked: false }), { farmingEligibility: ELIGIBLE_ALL })).toBe(
+      "queue",
+    );
   });
 
   it("skips an excluded campaign", () => {
@@ -215,7 +265,17 @@ describe("campaignSection sorts campaigns into the popup's lists", () => {
     expect(section(campaign({ status: "upcoming" }))).toBe("upcoming");
     expect(section(campaign({ status: "expired" }))).toBe("expired");
     const finished = campaign({
-      rewards: [{ id: "reward", name: "Reward", requiredMinutes: 30, requirement: "watch", isWatchBased: true, watchedMinutes: 30, status: "claimed" }],
+      rewards: [
+        {
+          id: "reward",
+          name: "Reward",
+          requiredMinutes: 30,
+          requirement: "watch",
+          isWatchBased: true,
+          watchedMinutes: 30,
+          status: "claimed",
+        },
+      ],
     });
     expect(section(finished)).toBe("completed");
   });
@@ -224,7 +284,17 @@ describe("campaignSection sorts campaigns into the popup's lists", () => {
     const c = campaign({
       status: "expired",
       endsAt: new Date(Date.now() - 1000).toISOString(),
-      rewards: [{ id: "reward", name: "Reward", requiredMinutes: 30, requirement: "watch", isWatchBased: true, watchedMinutes: 30, status: "claimed" }],
+      rewards: [
+        {
+          id: "reward",
+          name: "Reward",
+          requiredMinutes: 30,
+          requirement: "watch",
+          isWatchBased: true,
+          watchedMinutes: 30,
+          status: "claimed",
+        },
+      ],
     });
     expect(section(c)).toBe("completed");
   });
@@ -232,10 +302,18 @@ describe("campaignSection sorts campaigns into the popup's lists", () => {
   it("skips a blocked game in either category mode", () => {
     const blocked = { blockedCategories: [{ id: "rust", name: "Rust" }] };
     const c = campaign({ categoryId: "rust", gameName: "Rust" });
-    expect(section(c, { categorySelection: { ...FARM_ALL_CATEGORIES, ...blocked } })).toBe("skipped");
-    expect(section(c, {
-      categorySelection: { categoryMode: "include", categories: [{ id: "rust", name: "Rust" }], ...blocked },
-    })).toBe("skipped");
+    expect(section(c, { categorySelection: { ...FARM_ALL_CATEGORIES, ...blocked } })).toBe(
+      "skipped",
+    );
+    expect(
+      section(c, {
+        categorySelection: {
+          categoryMode: "include",
+          categories: [{ id: "rust", name: "Rust" }],
+          ...blocked,
+        },
+      }),
+    ).toBe("skipped");
   });
 });
 
@@ -291,15 +369,17 @@ describe("section invariant: every farmable campaign is queued", () => {
     campaign(),
     campaign({ accountLinked: false }),
     subscriptionCampaign({
-      rewards: [{
-        id: "watch",
-        name: "Watch reward",
-        requiredMinutes: 30,
-        requirement: "watch",
-        isWatchBased: true,
-        watchedMinutes: 0,
-        status: "locked",
-      }],
+      rewards: [
+        {
+          id: "watch",
+          name: "Watch reward",
+          requiredMinutes: 30,
+          requirement: "watch",
+          isWatchBased: true,
+          watchedMinutes: 0,
+          status: "locked",
+        },
+      ],
     }),
   ];
 
@@ -323,20 +403,32 @@ describe("campaignSection category selection", () => {
   };
 
   it("skips a campaign outside the selected categories in include mode", () => {
-    expect(section(campaign({ gameName: "Other Game" }), { categorySelection: selectedOnly })).toBe("skipped");
+    expect(section(campaign({ gameName: "Other Game" }), { categorySelection: selectedOnly })).toBe(
+      "skipped",
+    );
   });
 
   it("queues a campaign in the selected categories", () => {
-    expect(section(campaign({ gameName: "Selected Game" }), { categorySelection: selectedOnly })).toBe("queue");
+    expect(
+      section(campaign({ gameName: "Selected Game" }), { categorySelection: selectedOnly }),
+    ).toBe("queue");
   });
 
   it("queues every campaign in all mode regardless of the list", () => {
-    expect(section(campaign({ gameName: "Other Game" }), { categorySelection: { categoryMode: "all", categories: [] } })).toBe("queue");
+    expect(
+      section(campaign({ gameName: "Other Game" }), {
+        categorySelection: { categoryMode: "all", categories: [] },
+      }),
+    ).toBe("queue");
   });
 
   it("skips exactly the blocked categories, and nothing else", () => {
-    expect(section(campaign({ gameName: "Selected Game" }), { categorySelection: blockSelected })).toBe("skipped");
-    expect(section(campaign({ gameName: "Other Game" }), { categorySelection: blockSelected })).toBe("queue");
+    expect(
+      section(campaign({ gameName: "Selected Game" }), { categorySelection: blockSelected }),
+    ).toBe("skipped");
+    expect(
+      section(campaign({ gameName: "Other Game" }), { categorySelection: blockSelected }),
+    ).toBe("queue");
   });
 
   it("matches the engine's farming rule: a category-filtered-out campaign is never farmable either", () => {

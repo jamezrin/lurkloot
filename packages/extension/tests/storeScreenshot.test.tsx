@@ -14,7 +14,8 @@ import {
 import { resetCatalogTracking, waitForCatalog } from "./helpers/popupCatalog";
 
 vi.mock("@lurkloot/locales", async (importOriginal) =>
-  (await import("./helpers/popupCatalog")).delayedLocales(importOriginal));
+  (await import("./helpers/popupCatalog")).delayedLocales(importOriginal),
+);
 
 let root: Root | undefined;
 
@@ -71,7 +72,12 @@ describe("store screenshot variants", () => {
     const easy = screenshotVariant("easy");
     const drops = screenshotVariant("drops");
     const settings = screenshotVariant("settings");
-    if (!variantShowsPopup(extras) || !variantShowsPopup(easy) || !variantShowsPopup(drops) || !variantShowsPopup(settings)) {
+    if (
+      !variantShowsPopup(extras)
+      || !variantShowsPopup(easy)
+      || !variantShowsPopup(drops)
+      || !variantShowsPopup(settings)
+    ) {
       throw new Error("expected popup shots");
     }
     expect(extras.platform).toBe("twitch");
@@ -84,10 +90,19 @@ describe("store screenshot variants", () => {
   });
 
   it("exports five canonical layouts", () => {
-    expect(Object.keys(SCREENSHOT_VARIANTS)).toEqual(expect.arrayContaining([
-      "drops", "extras", "easy", "settings", "updated",
-      "twitch-drops", "kick-drops", "idle-watchlist", "activity",
-    ]));
+    expect(Object.keys(SCREENSHOT_VARIANTS)).toEqual(
+      expect.arrayContaining([
+        "drops",
+        "extras",
+        "easy",
+        "settings",
+        "updated",
+        "twitch-drops",
+        "kick-drops",
+        "idle-watchlist",
+        "activity",
+      ]),
+    );
   });
 });
 
@@ -104,7 +119,9 @@ describe("extras screenshot popup", () => {
     vi.stubGlobal("cancelAnimationFrame", vi.fn());
     vi.stubGlobal("getComputedStyle", () => ({ direction: "ltr", columnGap: "0" }));
     const scrollIntoView = vi.fn();
-    Object.defineProperty(window.HTMLElement.prototype, "scrollIntoView", { value: scrollIntoView });
+    Object.defineProperty(window.HTMLElement.prototype, "scrollIntoView", {
+      value: scrollIntoView,
+    });
     const container = document.getElementById("app")!;
     await act(async () => {
       root = createRoot(container);
@@ -141,7 +158,10 @@ describe("extras screenshot popup", () => {
     // linkedom shares its prototypes between documents, so an earlier test may
     // have defined this already.
     if (!("scrollIntoView" in window.HTMLElement.prototype)) {
-      Object.defineProperty(window.HTMLElement.prototype, "scrollIntoView", { value: vi.fn(), configurable: true });
+      Object.defineProperty(window.HTMLElement.prototype, "scrollIntoView", {
+        value: vi.fn(),
+        configurable: true,
+      });
     }
     const container = document.getElementById("app")!;
     await act(async () => {
@@ -151,7 +171,12 @@ describe("extras screenshot popup", () => {
       root.render(
         <Popup
           adapter={createDemoPopupAdapter()}
-          initialState={{ preview: true, locale: "en", variant: screenshotVariant("twitch-drops"), view: "watchlist" }}
+          initialState={{
+            preview: true,
+            locale: "en",
+            variant: screenshotVariant("twitch-drops"),
+            view: "watchlist",
+          }}
         />,
       );
     });

@@ -10,12 +10,22 @@ describe("Twitch extension drops view", () => {
   it("asks to link the account while another source holds the lane", () => {
     const settings = structuredClone(DEFAULT_SETTINGS);
     settings.twitchExtensions.nopixel.enabled = true;
-    const html = renderToStaticMarkup(createElement(TwitchExtensionDrops, {
-      settings,
-      summaries: { nopixel: { status: "unavailable", reasonCode: "identity-required", progress: [], pending: [{ key: "account-link", state: "blocked" }], updatedAt: "2026-10-09T12:00:00.000Z" } },
-      activeProvider: "fortnite",
-      onSetup: () => undefined,
-    }));
+    const html = renderToStaticMarkup(
+      createElement(TwitchExtensionDrops, {
+        settings,
+        summaries: {
+          nopixel: {
+            status: "unavailable",
+            reasonCode: "identity-required",
+            progress: [],
+            pending: [{ key: "account-link", state: "blocked" }],
+            updatedAt: "2026-10-09T12:00:00.000Z",
+          },
+        },
+        activeProvider: "fortnite",
+        onSetup: () => undefined,
+      }),
+    );
     expect(html).toContain("extensionIdentityRequired");
     expect(html).not.toContain("extensionIdle");
   });

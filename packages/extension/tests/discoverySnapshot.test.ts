@@ -16,7 +16,13 @@ const metrics: DiscoveryRefreshMetrics = {
   singleFallbacks: 0,
 };
 
-const complete = (): DiscoveryRefreshResult => ({ campaigns: [], idleCandidates: [], followedChannels: [], complete: true, metrics });
+const complete = (): DiscoveryRefreshResult => ({
+  campaigns: [],
+  idleCandidates: [],
+  followedChannels: [],
+  complete: true,
+  metrics,
+});
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -81,9 +87,17 @@ describe("DiscoverySnapshotLane", () => {
   });
 
   it("retains the last coherent snapshot after failed and incomplete attempts", async () => {
-    const refresh = vi.fn()
+    const refresh = vi
+      .fn()
       .mockResolvedValueOnce(complete())
-      .mockResolvedValueOnce({ campaigns: [], idleCandidates: [], followedChannels: [], complete: false, failure: "partial", metrics })
+      .mockResolvedValueOnce({
+        campaigns: [],
+        idleCandidates: [],
+        followedChannels: [],
+        complete: false,
+        failure: "partial",
+        metrics,
+      })
       .mockRejectedValueOnce(new Error("offline"));
     const lane = new DiscoverySnapshotLane("kick", refresh);
 
@@ -102,8 +116,16 @@ describe("DiscoverySnapshotLane", () => {
 
   it("keeps what a failed refresh threw, and only that, for the critical-failure detector", async () => {
     const offline = new Error("offline");
-    const refresh = vi.fn()
-      .mockResolvedValueOnce({ campaigns: [], idleCandidates: [], followedChannels: [], complete: false, failure: "Platform disabled", metrics })
+    const refresh = vi
+      .fn()
+      .mockResolvedValueOnce({
+        campaigns: [],
+        idleCandidates: [],
+        followedChannels: [],
+        complete: false,
+        failure: "Platform disabled",
+        metrics,
+      })
       .mockRejectedValueOnce(offline)
       .mockResolvedValueOnce(complete());
     const lane = new DiscoverySnapshotLane("kick", refresh);
@@ -162,18 +184,37 @@ describe("DiscoverySnapshotLane", () => {
 
 describe("collectDiscoverySnapshot", () => {
   it("retains a backed-off campaign observation without candidate provider calls", async () => {
-    const campaign = { id: "backed-off", platform: "twitch" as const, name: "Backed off", status: "active" as const, rewards: [] };
-    const candidate = { platform: "twitch" as const, username: "offline", url: "https://www.twitch.tv/offline" };
-    const retained = [{ candidate, live: true, categoryMatches: true, eligible: false as const, observedAt: 41 }];
+    const campaign = {
+      id: "backed-off",
+      platform: "twitch" as const,
+      name: "Backed off",
+      status: "active" as const,
+      rewards: [],
+    };
+    const candidate = {
+      platform: "twitch" as const,
+      username: "offline",
+      url: "https://www.twitch.tv/offline",
+    };
+    const retained = [
+      { candidate, live: true, categoryMatches: true, eligible: false as const, observedAt: 41 },
+    ];
     const listCandidateChannels = vi.fn(async () => [candidate]);
-    const result = await collectDiscoverySnapshot({
-      platform: "twitch",
-      refreshCampaigns: vi.fn(async () => [campaign]),
-      listCandidateChannels,
-      checkChannel: vi.fn(),
-      selectCandidateChannel: undefined,
-    }, undefined, new AbortController().signal, () => 42, false, [], (item) =>
-      item.id === campaign.id ? retained : undefined);
+    const result = await collectDiscoverySnapshot(
+      {
+        platform: "twitch",
+        refreshCampaigns: vi.fn(async () => [campaign]),
+        listCandidateChannels,
+        checkChannel: vi.fn(),
+        selectCandidateChannel: undefined,
+      },
+      undefined,
+      new AbortController().signal,
+      () => 42,
+      false,
+      [],
+      (item) => (item.id === campaign.id ? retained : undefined),
+    );
 
     expect(result.campaigns).toEqual([{ campaign, candidates: retained }]);
     expect(listCandidateChannels).not.toHaveBeenCalled();
@@ -244,7 +285,12 @@ describe("collectDiscoverySnapshot", () => {
       selectCandidateChannel: undefined,
     };
 
-    const result = await collectDiscoverySnapshot(adapter, undefined, new AbortController().signal, () => 42);
+    const result = await collectDiscoverySnapshot(
+      adapter,
+      undefined,
+      new AbortController().signal,
+      () => 42,
+    );
 
     expect(result.complete).toBe(true);
     expect(result.campaigns[0]?.candidates[0]).toMatchObject({
@@ -288,10 +334,19 @@ describe("collectDiscoverySnapshot", () => {
       })),
     };
 
-    const result = await collectDiscoverySnapshot(adapter, undefined, new AbortController().signal, () => 42);
+    const result = await collectDiscoverySnapshot(
+      adapter,
+      undefined,
+      new AbortController().signal,
+      () => 42,
+    );
 
-    expect(result.campaigns[0]?.candidates.map(({ candidate, eligible }) =>
-      [candidate.username, eligible])).toEqual([
+    expect(
+      result.campaigns[0]?.candidates.map(({ candidate, eligible }) => [
+        candidate.username,
+        eligible,
+      ]),
+    ).toEqual([
       ["eligible", true],
       ["rejected", false],
       ["unknown", "unknown"],
@@ -318,11 +373,14 @@ describe("adapterFromDiscoverySnapshot", () => {
     };
     const checkChannel = vi.fn();
     const listCandidateChannels = vi.fn();
-    const adapter = adapterFromDiscoverySnapshot({
-      platform: "kick",
-      checkChannel,
-      listCandidateChannels,
-    } as never, undefined);
+    const adapter = adapterFromDiscoverySnapshot(
+      {
+        platform: "kick",
+        checkChannel,
+        listCandidateChannels,
+      } as never,
+      undefined,
+    );
 
     expect(await adapter.listCandidateChannels(campaign)).toEqual([]);
     expect(await adapter.checkChannel(candidate, { campaign })).toMatchObject({

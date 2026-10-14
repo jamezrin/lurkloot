@@ -14,7 +14,10 @@ export const TWITCH_ANDROID_USER_AGENT =
 // client it used; SA_TWITCH_CLIENT_ID can override). Defaults to Smart TV for
 // new logins. The Android user agent is sent only when the
 // client is actually Android, so a custom client id is not misrepresented.
-export function twitchClientIdentity(creds: PlatformCredentials): { clientId: string; userAgent?: string } {
+export function twitchClientIdentity(creds: PlatformCredentials): {
+  clientId: string;
+  userAgent?: string;
+} {
   const clientId = creds.twitch?.clientId ?? TWITCH_SMARTBOX_CLIENT_ID;
   return {
     clientId,

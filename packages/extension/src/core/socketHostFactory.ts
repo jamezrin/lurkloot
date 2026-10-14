@@ -1,4 +1,8 @@
-import type { WebSocketFactory, WebSocketLike, WebSocketMessageEventLike } from "@lurkloot/core/webSocket";
+import type {
+  WebSocketFactory,
+  WebSocketLike,
+  WebSocketMessageEventLike,
+} from "@lurkloot/core/webSocket";
 import type { SocketAdmission } from "./socketAdmission";
 import {
   CLOSE_ABNORMAL,
@@ -41,7 +45,12 @@ export function createSocketHostFactory(host: SocketHostDocument): WebSocketFact
 
   host.onConnect.addListener((candidate) => {
     // Only our own offscreen document: never a tab or a content script.
-    if (candidate.name !== SOCKET_HOST_PORT || candidate.sender?.tab || candidate.sender?.url !== host.documentUrl) return;
+    if (
+      candidate.name !== SOCKET_HOST_PORT
+      || candidate.sender?.tab
+      || candidate.sender?.url !== host.documentUrl
+    )
+      return;
     port?.disconnect();
     port = candidate;
     candidate.onMessage.addListener((message) => {
@@ -54,7 +63,8 @@ export function createSocketHostFactory(host: SocketHostDocument): WebSocketFact
     candidate.onDisconnect.addListener(() => {
       if (port !== candidate) return;
       port = undefined;
-      for (const socket of [...sockets.values()]) socket.receive({ type: "close", id: socket.id, code: CLOSE_ABNORMAL });
+      for (const socket of [...sockets.values()])
+        socket.receive({ type: "close", id: socket.id, code: CLOSE_ABNORMAL });
     });
     waiting?.(candidate);
     waiting = undefined;
@@ -73,7 +83,10 @@ export function createSocketHostFactory(host: SocketHostDocument): WebSocketFact
         }
         const connected = new Promise<SocketHostPort>((resolve, reject) => {
           waiting = resolve;
-          timeout = setTimer(() => reject(new Error("The socket host did not connect")), HOST_CONNECT_TIMEOUT_MS);
+          timeout = setTimer(
+            () => reject(new Error("The socket host did not connect")),
+            HOST_CONNECT_TIMEOUT_MS,
+          );
         });
         // A failed createDocument skips the await below; the timeout must not
         // then reject an unobserved promise.
@@ -98,23 +111,33 @@ export function createSocketHostFactory(host: SocketHostDocument): WebSocketFact
       if (sockets.size > 0) return;
       port?.disconnect();
       port = undefined;
-      void host.hasDocument().then((open) => open ? host.closeDocument() : undefined).catch(() => undefined);
+      void host
+        .hasDocument()
+        .then((open) => (open ? host.closeDocument() : undefined))
+        .catch(() => undefined);
     }, HOST_IDLE_CLOSE_MS);
   }
 
   class HostSocket implements WebSocketLike {
     readyState = 0;
-    private readonly listeners: Record<string, Array<(event: WebSocketMessageEventLike) => void>> = {};
+    private readonly listeners: Record<string, Array<(event: WebSocketMessageEventLike) => void>> =
+      {};
     private relay?: SocketHostPort;
 
-    constructor(readonly id: number, url: string) {
-      host.admit(url).then(async (admitted) => {
-        if (!admitted) throw new Error("Socket refused");
-        const connected = await hostPort();
-        if (this.readyState !== 0) return;
-        this.relay = connected;
-        connected.postMessage({ type: "open", id, url } satisfies SocketHostRequest);
-      }).catch(() => this.receive({ type: "close", id, code: CLOSE_ABNORMAL }));
+    constructor(
+      readonly id: number,
+      url: string,
+    ) {
+      host
+        .admit(url)
+        .then(async (admitted) => {
+          if (!admitted) throw new Error("Socket refused");
+          const connected = await hostPort();
+          if (this.readyState !== 0) return;
+          this.relay = connected;
+          connected.postMessage({ type: "open", id, url } satisfies SocketHostRequest);
+        })
+        .catch(() => this.receive({ type: "close", id, code: CLOSE_ABNORMAL }));
     }
 
     send(data: string): void {
@@ -134,7 +157,10 @@ export function createSocketHostFactory(host: SocketHostDocument): WebSocketFact
       queueMicrotask(() => this.emit("close", { code: 1000 }));
     }
 
-    addEventListener(type: "open" | "message" | "close" | "error", listener: (event: WebSocketMessageEventLike) => void): void {
+    addEventListener(
+      type: "open" | "message" | "close" | "error",
+      listener: (event: WebSocketMessageEventLike) => void,
+    ): void {
       (this.listeners[type] ??= []).push(listener);
     }
 

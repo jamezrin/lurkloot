@@ -12,7 +12,8 @@ import { CURRENT_SETTINGS_SCHEMA_VERSION } from "@lurkloot/shared/settingsSchema
 const CONFIG_PATH = "/tmp/lurkloot/config.json";
 const CLI_PACKAGE_DIR = fileURLToPath(new URL("..", import.meta.url));
 const CLI_PATH = join(CLI_PACKAGE_DIR, "dist/index.mjs");
-const LEGACY_WARNING = "settings.enabledLogLevels is deprecated and ignored; use --log debug|info|warn|error";
+const LEGACY_WARNING =
+  "settings.enabledLogLevels is deprecated and ignored; use --log debug|info|warn|error";
 
 beforeAll(() => {
   execFileSync("pnpm", ["build"], { cwd: CLI_PACKAGE_DIR, stdio: "pipe" });
@@ -33,16 +34,19 @@ function runCli(configPath: string, args: string[]) {
 
 function writeLegacyConfig(dir: string): string {
   const path = join(dir, "config.json");
-  writeFileSync(path, JSON.stringify({
-    transport: "http",
-    settings: {
-      enabledLogLevels: ["error"],
-      platform: {
-        twitch: { enabled: false },
-        kick: { enabled: false },
+  writeFileSync(
+    path,
+    JSON.stringify({
+      transport: "http",
+      settings: {
+        enabledLogLevels: ["error"],
+        platform: {
+          twitch: { enabled: false },
+          kick: { enabled: false },
+        },
       },
-    },
-  }));
+    }),
+  );
   return path;
 }
 
@@ -81,7 +85,10 @@ describe("parseConfig", () => {
 
   it("keeps the first 20 idle watchlist channels and names the ones it drops", () => {
     const channels = Array.from({ length: 23 }, (_, index) => `channel${index + 1}`);
-    const config = parseConfig({ settings: { platform: { kick: { idleWatchlistChannels: channels } } } }, CONFIG_PATH);
+    const config = parseConfig(
+      { settings: { platform: { kick: { idleWatchlistChannels: channels } } } },
+      CONFIG_PATH,
+    );
     expect(config.settings.platform.kick.idleWatchlistChannels).toEqual(channels.slice(0, 20));
     expect(config.warnings).toEqual([
       "settings.platform.kick.idleWatchlistChannels: The kick idle watchlist holds at most 20 channels; ignoring the other 3: channel21, channel22, channel23",
@@ -90,9 +97,14 @@ describe("parseConfig", () => {
 
   it("does not warn for an idle watchlist at the limit, counting duplicates once", () => {
     const channels = Array.from({ length: 20 }, (_, index) => `channel${index + 1}`);
-    const config = parseConfig({
-      settings: { platform: { twitch: { idleWatchlistChannels: [...channels, "Channel1", "@channel2"] } } },
-    }, CONFIG_PATH);
+    const config = parseConfig(
+      {
+        settings: {
+          platform: { twitch: { idleWatchlistChannels: [...channels, "Channel1", "@channel2"] } },
+        },
+      },
+      CONFIG_PATH,
+    );
     expect(config.settings.platform.twitch.idleWatchlistChannels).toEqual(channels);
     expect(config.warnings).toEqual([]);
   });
@@ -102,9 +114,12 @@ describe("parseConfig", () => {
   });
 
   it("surfaces credential-safe compatibility resolver warnings", () => {
-    const config = parseConfig({
-      settings: { compatibility: { twitch: { profile: "secret-unknown-profile" } } },
-    }, CONFIG_PATH);
+    const config = parseConfig(
+      {
+        settings: { compatibility: { twitch: { profile: "secret-unknown-profile" } } },
+      },
+      CONFIG_PATH,
+    );
 
     expect(config.warnings).toEqual([
       "Unknown Twitch profile compatibility selection; using twitch-2026-10",
@@ -113,19 +128,28 @@ describe("parseConfig", () => {
   });
 
   it("defers identity-specific Twitch compatibility warnings until credentials are loaded", () => {
-    const config = parseConfig({
-      settings: { compatibility: { twitch: { heartbeatTransport: "twitch-heartbeat-trowel-v1" } } },
-    }, CONFIG_PATH);
+    const config = parseConfig(
+      {
+        settings: {
+          compatibility: { twitch: { heartbeatTransport: "twitch-heartbeat-trowel-v1" } },
+        },
+      },
+      CONFIG_PATH,
+    );
 
     expect(config.warnings).toEqual([]);
   });
 
   it("rejects extension-only settings copied from the browser config", () => {
-    expect(() => parseConfig({ settings: { adFocusMode: "window" } }, CONFIG_PATH)).toThrow(/extension-only/);
+    expect(() => parseConfig({ settings: { adFocusMode: "window" } }, CONFIG_PATH)).toThrow(
+      /extension-only/,
+    );
   });
 
   it("rejects diagnosticLogging as extension-only", () => {
-    expect(() => parseConfig({ settings: { diagnosticLogging: true } }, CONFIG_PATH)).toThrow(/extension-only/);
+    expect(() => parseConfig({ settings: { diagnosticLogging: true } }, CONFIG_PATH)).toThrow(
+      /extension-only/,
+    );
   });
 
   it("rejects an unknown top-level config key", () => {
@@ -143,7 +167,9 @@ describe("parseConfig", () => {
   });
 
   it("rejects an unknown transport", () => {
-    expect(() => parseConfig({ transport: "carrier-pigeon" }, CONFIG_PATH)).toThrow(/Unknown transport/);
+    expect(() => parseConfig({ transport: "carrier-pigeon" }, CONFIG_PATH)).toThrow(
+      /Unknown transport/,
+    );
   });
 
   it("rejects a non-object config", () => {
@@ -152,16 +178,28 @@ describe("parseConfig", () => {
   });
 
   it("warns with the full deprecated and replacement paths", () => {
-    const config = parseConfig({
-      settings: { watchQueueFallbackOnly: false, platform: { kick: { watchQueueChannels: ["a"] } } },
-    }, CONFIG_PATH);
-    expect(config.warnings).toContain("settings.watchQueueFallbackOnly is deprecated; use settings.idleWatchlistFallbackOnly");
-    expect(config.warnings).toContain("settings.platform.kick.watchQueueChannels is deprecated; use settings.platform.kick.idleWatchlistChannels");
+    const config = parseConfig(
+      {
+        settings: {
+          watchQueueFallbackOnly: false,
+          platform: { kick: { watchQueueChannels: ["a"] } },
+        },
+      },
+      CONFIG_PATH,
+    );
+    expect(config.warnings).toContain(
+      "settings.watchQueueFallbackOnly is deprecated; use settings.idleWatchlistFallbackOnly",
+    );
+    expect(config.warnings).toContain(
+      "settings.platform.kick.watchQueueChannels is deprecated; use settings.platform.kick.idleWatchlistChannels",
+    );
   });
 
   it("warns about a moved property with its destination path", () => {
     const config = parseConfig({ settings: { autoClaimChannelPoints: false } }, CONFIG_PATH);
-    expect(config.warnings).toContain("settings.autoClaimChannelPoints moved to settings.platform.twitch.autoClaimChannelPoints");
+    expect(config.warnings).toContain(
+      "settings.autoClaimChannelPoints moved to settings.platform.twitch.autoClaimChannelPoints",
+    );
   });
 
   it("repeats the warnings on every independent load", () => {
@@ -170,7 +208,9 @@ describe("parseConfig", () => {
   });
 
   it("emits no migration warnings for a config with no deprecated keys", () => {
-    expect(parseConfig({ settings: { schemaVersion: 1, autoClaim: true } }, CONFIG_PATH).warnings).toEqual([]);
+    expect(
+      parseConfig({ settings: { schemaVersion: 1, autoClaim: true } }, CONFIG_PATH).warnings,
+    ).toEqual([]);
   });
 
   it("generates a template that carries the current schema version", () => {
@@ -221,13 +261,16 @@ describe("loadConfig", () => {
     const dir = mkdtempSync(join(tmpdir(), "lurkloot-config-"));
     try {
       const path = join(dir, "config.jsonc");
-      writeFileSync(path, `{
+      writeFileSync(
+        path,
+        `{
         // Kick-compatible transport
         "transport": "impersonate",
         "settings": {
           "pollIntervalMinutes": 7,
         },
-      }`);
+      }`,
+      );
 
       expect(loadConfig(path).settings.pollIntervalMinutes).toBe(7);
     } finally {
@@ -239,7 +282,7 @@ describe("loadConfig", () => {
     const dir = mkdtempSync(join(tmpdir(), "lurkloot-config-"));
     try {
       const path = join(dir, "config.json");
-      writeFileSync(path, "{\n  \"transport\":,\n}\n");
+      writeFileSync(path, '{\n  "transport":,\n}\n');
       expect(() => loadConfig(path)).toThrow(/not valid JSONC: .*line 2, column/);
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -252,7 +295,9 @@ describe("loadConfig", () => {
       const path = join(dir, "config.json");
       writeFileSync(path, defaultConfigJsonc());
       expect(defaultConfigJsonc()).toContain('"skipUnfinishableRewards": true');
-      expect(defaultConfigJsonc()).toContain("0 uses exact feasibility; 1-60 adds a safety buffer.");
+      expect(defaultConfigJsonc()).toContain(
+        "0 uses exact feasibility; 1-60 adds a safety buffer.",
+      );
       expect(defaultConfigJsonc()).toContain('"deadlineSafetyMarginMinutes": 5');
       expect(loadConfig(path).settings).toEqual(DEFAULT_CLI_SETTINGS);
     } finally {
@@ -267,7 +312,9 @@ describe("loadConfig", () => {
     for (const [key, value] of Object.entries(DEFAULT_CLI_SETTINGS.farmingEligibility)) {
       expect(template).toContain(`"${key}": ${value}`);
     }
-    expect(parseJsonc(defaultConfigJsonc()).settings.farmingEligibility).toEqual(DEFAULT_CLI_SETTINGS.farmingEligibility);
+    expect(parseJsonc(defaultConfigJsonc()).settings.farmingEligibility).toEqual(
+      DEFAULT_CLI_SETTINGS.farmingEligibility,
+    );
   });
 
   it("documents the category mode and both of its values in the template", () => {
@@ -275,7 +322,9 @@ describe("loadConfig", () => {
     // Assert the template renders the key and explains every mode, since the
     // template doubles as the CLI settings reference.
     const template = defaultConfigJsonc();
-    expect(template).toContain(`"categoryMode": "${DEFAULT_CLI_SETTINGS.platform.twitch.categoryMode}"`);
+    expect(template).toContain(
+      `"categoryMode": "${DEFAULT_CLI_SETTINGS.platform.twitch.categoryMode}"`,
+    );
     expect(template).not.toContain("farmAllCategories");
     for (const mode of ["all", "include"]) expect(template).toContain(`"${mode}"`);
     expect(template).not.toContain('"exclude"');
@@ -289,8 +338,12 @@ describe("loadConfig", () => {
     // there. Assert the template itself carries them, with the rendered values.
     const template = defaultConfigJsonc();
     expect(template).toContain(`"postClaimHandoff": ${DEFAULT_CLI_SETTINGS.postClaimHandoff}`);
-    expect(template).toContain(`"postClaimHandoffIntervalSeconds": ${DEFAULT_CLI_SETTINGS.postClaimHandoffIntervalSeconds}`);
-    expect(template).toContain(`"postClaimHandoffMaxSeconds": ${DEFAULT_CLI_SETTINGS.postClaimHandoffMaxSeconds}`);
+    expect(template).toContain(
+      `"postClaimHandoffIntervalSeconds": ${DEFAULT_CLI_SETTINGS.postClaimHandoffIntervalSeconds}`,
+    );
+    expect(template).toContain(
+      `"postClaimHandoffMaxSeconds": ${DEFAULT_CLI_SETTINGS.postClaimHandoffMaxSeconds}`,
+    );
   });
 });
 
@@ -299,19 +352,48 @@ describe("CLI config warning integration", () => {
     const dir = mkdtempSync(join(tmpdir(), "lurkloot-discover-routes-"));
     try {
       const configPath = join(dir, "config.json");
-      writeFileSync(configPath, JSON.stringify({ transport: "http", settings: {
-        platform: { twitch: { enabled: false }, kick: { enabled: true } },
-      } }));
-      const fakeNetwork = "globalThis.fetch = async (url) => { if (!['https://web.kick.com/api/v1/drops/campaigns', 'https://web.kick.com/api/v1/drops/progress'].includes(String(url))) throw new Error('Unexpected request'); return new Response(JSON.stringify({data: []}), {status: 200, headers: {'content-type': 'application/json'}}); };";
-      const result = spawnSync(process.execPath, ["--import", `data:text/javascript,${encodeURIComponent(fakeNetwork)}`, CLI_PATH, "discover", "--log", "debug", "--config", configPath], {
-        cwd: CLI_PACKAGE_DIR,
-        encoding: "utf8",
-        env: { ...process.env, SA_KICK_SESSION_TOKEN: undefined, SA_TWITCH_AUTH_TOKEN: undefined, SA_TWITCH_DEVICE_ID: undefined },
-      });
+      writeFileSync(
+        configPath,
+        JSON.stringify({
+          transport: "http",
+          settings: {
+            platform: { twitch: { enabled: false }, kick: { enabled: true } },
+          },
+        }),
+      );
+      const fakeNetwork =
+        "globalThis.fetch = async (url) => { if (!['https://web.kick.com/api/v1/drops/campaigns', 'https://web.kick.com/api/v1/drops/progress'].includes(String(url))) throw new Error('Unexpected request'); return new Response(JSON.stringify({data: []}), {status: 200, headers: {'content-type': 'application/json'}}); };";
+      const result = spawnSync(
+        process.execPath,
+        [
+          "--import",
+          `data:text/javascript,${encodeURIComponent(fakeNetwork)}`,
+          CLI_PATH,
+          "discover",
+          "--log",
+          "debug",
+          "--config",
+          configPath,
+        ],
+        {
+          cwd: CLI_PACKAGE_DIR,
+          encoding: "utf8",
+          env: {
+            ...process.env,
+            SA_KICK_SESSION_TOKEN: undefined,
+            SA_TWITCH_AUTH_TOKEN: undefined,
+            SA_TWITCH_DEVICE_ID: undefined,
+          },
+        },
+      );
       expect(result.status, result.stderr).toBe(0);
       expect(result.stderr).toContain("discovered 0 campaign(s)");
       expect(result.stderr.match(/INFO \[kick\] Kick fetch web\.kick\.com/g) ?? []).toHaveLength(1);
-      expect(result.stderr.match(/DEBUG \[kick\] Kick fetch success summary: web\.kick\.com\.background=2/g) ?? []).toHaveLength(1);
+      expect(
+        result.stderr.match(
+          /DEBUG \[kick\] Kick fetch success summary: web\.kick\.com\.background=2/g,
+        ) ?? [],
+      ).toHaveLength(1);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -396,9 +478,10 @@ describe("config export/import", () => {
   });
 });
 
-
 it("rejects browser-only Twitch provider integration settings", () => {
-  expect(() => parseConfig({ settings: { twitchExtensions: { nopixel: { enabled: true } } } }, CONFIG_PATH)).toThrow(/extension-only/);
+  expect(() =>
+    parseConfig({ settings: { twitchExtensions: { nopixel: { enabled: true } } } }, CONFIG_PATH),
+  ).toThrow(/extension-only/);
 });
 
 describe("subscription marks in the generated config", () => {

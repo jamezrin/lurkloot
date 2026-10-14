@@ -14,7 +14,9 @@ class FakeObserver implements SlotObserver {
 
 function deferred() {
   let resolve!: () => void;
-  const promise = new Promise<void>((done) => { resolve = done; });
+  const promise = new Promise<void>((done) => {
+    resolve = done;
+  });
   return { promise, resolve };
 }
 
@@ -27,11 +29,25 @@ describe("ObserverSlot", () => {
     const slot = new ObserverSlot<FakeObserver>("kick", "test observer", "retain");
     const observer = new FakeObserver();
     const start = vi.fn(async () => undefined);
-    await slot.reconcile({ wanted: true, factory: () => observer, start, open, since: slot.epoch, emit });
+    await slot.reconcile({
+      wanted: true,
+      factory: () => observer,
+      start,
+      open,
+      since: slot.epoch,
+      emit,
+    });
     expect(slot.current).toBe(observer);
     expect(start).toHaveBeenCalledWith(observer);
 
-    await slot.reconcile({ wanted: false, factory: () => observer, start, open, since: slot.epoch, emit });
+    await slot.reconcile({
+      wanted: false,
+      factory: () => observer,
+      start,
+      open,
+      since: slot.epoch,
+      emit,
+    });
     expect(slot.current).toBeUndefined();
     expect(observer.stops).toBe(1);
   });
@@ -43,7 +59,10 @@ describe("ObserverSlot", () => {
     const slot = new ObserverSlot<FakeObserver>("kick", "test observer", failedStart);
     const first = new FakeObserver();
     const factory = vi.fn().mockReturnValueOnce(first).mockReturnValue(new FakeObserver());
-    const start = vi.fn().mockRejectedValueOnce(new Error("socket refused")).mockResolvedValue(undefined);
+    const start = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("socket refused"))
+      .mockResolvedValue(undefined);
 
     await slot.reconcile({ wanted: true, factory, start, open, since: slot.epoch, emit });
     expect(first.stops).toBe(stops);
@@ -51,14 +70,23 @@ describe("ObserverSlot", () => {
 
     expect(factory).toHaveBeenCalledTimes(factoryCalls);
     expect(start).toHaveBeenCalledTimes(2);
-    expect(emit).toHaveBeenCalledWith(expect.objectContaining({ platform: "kick", message: "socket refused" }));
+    expect(emit).toHaveBeenCalledWith(
+      expect.objectContaining({ platform: "kick", message: "socket refused" }),
+    );
   });
 
   it("stops an observer whose start finishes after a stop", async () => {
     const slot = new ObserverSlot<FakeObserver>("kick", "test observer", "retain");
     const observer = new FakeObserver();
     const started = deferred();
-    const reconciling = slot.reconcile({ wanted: true, factory: () => observer, start: () => started.promise, open, since: slot.epoch, emit });
+    const reconciling = slot.reconcile({
+      wanted: true,
+      factory: () => observer,
+      start: () => started.promise,
+      open,
+      since: slot.epoch,
+      emit,
+    });
 
     await slot.stop(emit);
     started.resolve();
@@ -74,7 +102,14 @@ describe("ObserverSlot", () => {
     await slot.stop(emit);
     const factory = vi.fn(() => new FakeObserver());
 
-    await slot.reconcile({ wanted: true, factory, start: async () => undefined, open, since, emit });
+    await slot.reconcile({
+      wanted: true,
+      factory,
+      start: async () => undefined,
+      open,
+      since,
+      emit,
+    });
 
     expect(factory).not.toHaveBeenCalled();
     expect(slot.current).toBeUndefined();
@@ -83,7 +118,14 @@ describe("ObserverSlot", () => {
   it("creates nothing once the observers are closed", async () => {
     const slot = new ObserverSlot<FakeObserver>("kick", "test observer", "retain");
     const factory = vi.fn(() => new FakeObserver());
-    await slot.reconcile({ wanted: true, factory, start: async () => undefined, open: () => false, since: slot.epoch, emit });
+    await slot.reconcile({
+      wanted: true,
+      factory,
+      start: async () => undefined,
+      open: () => false,
+      since: slot.epoch,
+      emit,
+    });
     expect(factory).not.toHaveBeenCalled();
   });
 });

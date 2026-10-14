@@ -32,14 +32,18 @@ describe("tip rotation", () => {
     let advances = 0;
 
     const stop = createTipRotator({
-      onAdvance: () => { advances += 1; },
+      onAdvance: () => {
+        advances += 1;
+      },
       isVisible: () => visible,
       setInterval: (callback, milliseconds) => {
         tick = callback;
         intervalMs = milliseconds;
         return 42;
       },
-      clearInterval: (handle) => { cleared = handle; },
+      clearInterval: (handle) => {
+        cleared = handle;
+      },
     });
 
     expect(intervalMs).toBe(TIP_ROTATION_MS);
@@ -55,23 +59,27 @@ describe("tip rotation", () => {
 
 describe("TipsBanner", () => {
   it("renders external actions with safe link attributes", () => {
-    const html = renderToStaticMarkup(createElement(
-      I18nContext.Provider,
-      { value: { t: (key: string) => key, dir: "ltr", locale: "en" } },
-      createElement(TipsBanner, { initialIndex: 5 }),
-    ));
+    const html = renderToStaticMarkup(
+      createElement(
+        I18nContext.Provider,
+        { value: { t: (key: string) => key, dir: "ltr", locale: "en" } },
+        createElement(TipsBanner, { initialIndex: 5 }),
+      ),
+    );
 
     expect(html).toContain("tipCli");
-    expect(html).toContain("target=\"_blank\"");
-    expect(html).toContain("rel=\"noreferrer\"");
+    expect(html).toContain('target="_blank"');
+    expect(html).toContain('rel="noreferrer"');
   });
 
   it("links the localized translation tip to the contributor guide", () => {
-    const html = renderToStaticMarkup(createElement(
-      I18nContext.Provider,
-      { value: { t: (key: string) => key, dir: "ltr", locale: "en" } },
-      createElement(TipsBanner, { initialIndex: 8 }),
-    ));
+    const html = renderToStaticMarkup(
+      createElement(
+        I18nContext.Provider,
+        { value: { t: (key: string) => key, dir: "ltr", locale: "en" } },
+        createElement(TipsBanner, { initialIndex: 8 }),
+      ),
+    );
 
     expect(html).toContain("tipTranslations");
     expect(html).toContain("tipTranslationsAction");
@@ -81,11 +89,13 @@ describe("TipsBanner", () => {
   });
 
   it("excludes the translation tip from the preview variant", () => {
-    const html = renderToStaticMarkup(createElement(
-      I18nContext.Provider,
-      { value: { t: (key: string) => key, dir: "ltr", locale: "en" } },
-      createElement(TipsBanner, { initialIndex: 8, preview: true }),
-    ));
+    const html = renderToStaticMarkup(
+      createElement(
+        I18nContext.Provider,
+        { value: { t: (key: string) => key, dir: "ltr", locale: "en" } },
+        createElement(TipsBanner, { initialIndex: 8, preview: true }),
+      ),
+    );
 
     expect(html).toContain("tipCampaignPriority");
     expect(html).not.toContain("tipTranslations");
@@ -93,7 +103,10 @@ describe("TipsBanner", () => {
   });
 
   it("documents the translation contribution workflow", () => {
-    const guide = readFileSync(resolve(import.meta.dirname, "../../../docs/translations.md"), "utf8");
+    const guide = readFileSync(
+      resolve(import.meta.dirname, "../../../docs/translations.md"),
+      "utf8",
+    );
     expect(guide).toContain("# Improving translations");
     expect(guide).toContain("packages/locales/messages/");
     expect(guide).toContain("pnpm --filter @lurkloot/extension test -- tips.test.ts");
@@ -101,15 +114,25 @@ describe("TipsBanner", () => {
   });
 
   it("is gated by the popup preference and deterministic in previews", () => {
-    const popupSource = readFileSync(resolve(import.meta.dirname, "../../popup-ui/src/Popup.tsx"), "utf8");
-    expect(popupSource).toContain("settings.showTips ? <TipsBanner initialIndex={preview ? 0 : undefined} preview={preview} /> : null");
+    const popupSource = readFileSync(
+      resolve(import.meta.dirname, "../../popup-ui/src/Popup.tsx"),
+      "utf8",
+    );
+    expect(popupSource).toContain(
+      "settings.showTips ? <TipsBanner initialIndex={preview ? 0 : undefined} preview={preview} /> : null",
+    );
   });
 
   it("has a Hide tips control in General settings", () => {
-    const settingsSource = readFileSync(resolve(import.meta.dirname, "../../popup-ui/src/settingsRegistry.tsx"), "utf8");
+    const settingsSource = readFileSync(
+      resolve(import.meta.dirname, "../../popup-ui/src/settingsRegistry.tsx"),
+      "utf8",
+    );
     expect(settingsSource).toContain('title={t("hideTipsTitle")}');
-    expect(settingsSource).toContain('checked={!settings.showTips}');
-    expect(settingsSource).toContain('onChange={(hideTips) => void onSettingsChange({ showTips: !hideTips })}');
+    expect(settingsSource).toContain("checked={!settings.showTips}");
+    expect(settingsSource).toContain(
+      "onChange={(hideTips) => void onSettingsChange({ showTips: !hideTips })}",
+    );
   });
 
   it("localizes every tip and the Hide tips setting in every catalog", () => {
@@ -143,8 +166,11 @@ describe("TipsBanner", () => {
     const locales = ["en", "es", "fr", "it", "ru", "de", "zh_CN", "hi", "pt_BR", "ar", "tr"];
 
     for (const locale of locales) {
-      const catalog = JSON.parse(readFileSync(resolve(import.meta.dirname, `../../locales/messages/${locale}.json`), "utf8"));
-      for (const key of requiredKeys) expect(catalog[key]?.message, `${locale}.${key}`).toBeTruthy();
+      const catalog = JSON.parse(
+        readFileSync(resolve(import.meta.dirname, `../../locales/messages/${locale}.json`), "utf8"),
+      );
+      for (const key of requiredKeys)
+        expect(catalog[key]?.message, `${locale}.${key}`).toBeTruthy();
       expect(catalog.priorityHint, `${locale}.priorityHint`).toBeUndefined();
     }
   });

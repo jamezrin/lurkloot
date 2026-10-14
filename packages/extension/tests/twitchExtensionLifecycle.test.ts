@@ -16,7 +16,12 @@ describe("tabless provider lifecycle", () => {
   it("coalesces repeated selection and drops a cancelled initialization result", async () => {
     let resolve!: () => void;
     const cleanup = vi.fn();
-    const start = vi.fn(async () => { await new Promise<void>((done) => { resolve = done; }); return cleanup; });
+    const start = vi.fn(async () => {
+      await new Promise<void>((done) => {
+        resolve = done;
+      });
+      return cleanup;
+    });
     const lifecycle = createTwitchExtensionLifecycle(start);
     const first = lifecycle.select("one");
     const second = lifecycle.select("one");
@@ -27,7 +32,10 @@ describe("tabless provider lifecycle", () => {
     expect(cleanup).toHaveBeenCalledTimes(1);
   });
   it("scrubs initialization failures and permits a retry", async () => {
-    const start = vi.fn().mockRejectedValueOnce(new Error("private vendor data")).mockResolvedValue(undefined);
+    const start = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("private vendor data"))
+      .mockResolvedValue(undefined);
     const lifecycle = createTwitchExtensionLifecycle(start);
     expect(await lifecycle.select("one")).toBe("failed");
     expect(await lifecycle.select("one")).toBe("active");

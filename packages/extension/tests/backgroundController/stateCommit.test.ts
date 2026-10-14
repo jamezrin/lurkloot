@@ -26,14 +26,20 @@ describe("background controller", () => {
     });
     await vi.waitFor(() => expect(changes.some((change) => change.kind === "state")).toBe(true));
 
-    expect(changes[0]).toEqual(expect.objectContaining({
-      kind: "settings",
-      effects: { twitch: "selection", kick: "selection" },
-    }));
+    expect(changes[0]).toEqual(
+      expect.objectContaining({
+        kind: "settings",
+        effects: { twitch: "selection", kick: "selection" },
+      }),
+    );
     await env.controller.settleBackgroundWork();
     const last = changes.at(-1);
     expect(last).toEqual(expect.objectContaining({ kind: "state" }));
-    expect(changes.slice(1).every((change) => change.kind === "state" && change.platforms.includes("twitch"))).toBe(true);
+    expect(
+      changes
+        .slice(1)
+        .every((change) => change.kind === "state" && change.platforms.includes("twitch")),
+    ).toBe(true);
   });
 
   it("serializes concurrent state writers so neither update is lost", async () => {
@@ -83,8 +89,9 @@ describe("background controller", () => {
       env.controller.tick(),
     ]);
 
-    expect(trace.filter((entry) => entry === "load").length)
-      .toBeGreaterThanOrEqual(trace.filter((entry) => entry === "save").length);
+    expect(trace.filter((entry) => entry === "load").length).toBeGreaterThanOrEqual(
+      trace.filter((entry) => entry === "save").length,
+    );
     // Both writers' changes survive in the final persisted state.
     expect(env.state.sessions.twitch.playback).toBeDefined();
     expect(env.state.lastTickAt).toBeDefined();
@@ -142,24 +149,24 @@ describe("background controller", () => {
     env.deps.applyAdFocus.mockImplementation(async (platform) => {
       if (platform === "twitch") await focus.promise;
     });
-    const telemetry = env.rawController.handleMessage({
-      type: "playbackTelemetry",
-      platform: "twitch",
-      telemetry: {
-        videoCount: 1,
-        mutedVideoCount: 0,
-        unmutedVideoCount: 1,
-        playingVideoCount: 1,
-        blockedPlaybackCount: 0,
-        documentHidden: false,
+    const telemetry = env.rawController.handleMessage(
+      {
+        type: "playbackTelemetry",
+        platform: "twitch",
+        telemetry: {
+          videoCount: 1,
+          mutedVideoCount: 0,
+          unmutedVideoCount: 1,
+          playingVideoCount: 1,
+          blockedPlaybackCount: 0,
+          documentHidden: false,
+        },
       },
-    }, { tab: { id: 10 } });
-    await vi.waitFor(() => expect(env.deps.applyAdFocus).toHaveBeenCalledWith(
-      "twitch",
-      10,
-      false,
-      expect.any(Function),
-    ));
+      { tab: { id: 10 } },
+    );
+    await vi.waitFor(() =>
+      expect(env.deps.applyAdFocus).toHaveBeenCalledWith("twitch", 10, false, expect.any(Function)),
+    );
 
     const kickTick = env.rawController.tick(["kick"], "manual_tick");
     try {
@@ -232,13 +239,11 @@ describe("background controller", () => {
       await originalSave(next);
     });
 
-    await Promise.all([
-      env.controller.handleTabRemoved(50),
-      env.controller.tick(),
-    ]);
+    await Promise.all([env.controller.handleTabRemoved(50), env.controller.tick()]);
 
-    expect(trace.filter((entry) => entry === "load").length)
-      .toBeGreaterThanOrEqual(trace.filter((entry) => entry === "save").length);
+    expect(trace.filter((entry) => entry === "load").length).toBeGreaterThanOrEqual(
+      trace.filter((entry) => entry === "save").length,
+    );
     // Both writers' changes survive: the manual-watch entry is removed AND the
     // concurrent tick committed its progress.
     expect(env.state.manualWatch?.kick).toBeUndefined();

@@ -36,13 +36,16 @@ export function createTestLockTracker(): TestLockTracker {
   // once the operation that took it has finished.
   const storage = new AsyncLocalStorage<readonly HeldLock[]>();
   const violations: LockViolation[] = [];
-  const held = () => (storage.getStore() ?? []).filter((token) => !token.released).map((token) => token.lock);
+  const held = () =>
+    (storage.getStore() ?? []).filter((token) => !token.released).map((token) => token.lock);
   return {
     violations,
     held,
     run: (locks, operation) => {
       const inherited = (storage.getStore() ?? []).filter((token) => !token.released);
-      const added = locks.slice(inherited.length).map((lock): HeldLock => ({ lock, released: false }));
+      const added = locks
+        .slice(inherited.length)
+        .map((lock): HeldLock => ({ lock, released: false }));
       const tokens = locks.length === 0 ? [] : [...inherited.slice(0, locks.length), ...added];
       // Released from inside the operation's own promise chain, since a second
       // reaction on its result would cut the async stack traces guardPort reads.
@@ -90,13 +93,28 @@ export function createTestLockTracker(): TestLockTracker {
 // Port names that reach a provider, a tab or a timer (lockedIo.ts's
 // LOCKED_IO_CALLS, as the controller sees them).
 const ADAPTER_PORTS = new Set([
-  "claimReward", "claimChannelPoints", "claimChallenges", "refreshCampaigns", "checkAuthHealth",
+  "claimReward",
+  "claimChannelPoints",
+  "claimChallenges",
+  "refreshCampaigns",
+  "checkAuthHealth",
   "searchCategories",
 ]);
 const DEPS_PORTS = new Set([
-  "openWatchTab", "stopWatchTab", "closeManagedTabs", "stopPageContextTabs", "applyAdFocus", "reconcilePageContextRecovery",
-  "discardPageContextRecoveryEvidence", "createAlarm", "clearAlarm", "getAlarm", "ensureTwitchIntegrity",
-  "selectSupplementalWatchTarget", "checkCredentialAvailability", "wait",
+  "openWatchTab",
+  "stopWatchTab",
+  "closeManagedTabs",
+  "stopPageContextTabs",
+  "applyAdFocus",
+  "reconcilePageContextRecovery",
+  "discardPageContextRecoveryEvidence",
+  "createAlarm",
+  "clearAlarm",
+  "getAlarm",
+  "ensureTwitchIntegrity",
+  "selectSupplementalWatchTarget",
+  "checkCredentialAvailability",
+  "wait",
   // Not cancelTwitchIntegrityAcquisition: it aborts synchronously and waits on
   // nothing, so calling it under a lock holds the lock no longer.
 ]);
@@ -113,7 +131,9 @@ function guardPorts<T extends object>(
       const value = Reflect.get(object, name, receiver);
       if (typeof name !== "string" || typeof value !== "function") return value;
       const call = (...args: never[]) => {
-        const result = tracker.detach(() => (value as (...args: never[]) => unknown).apply(object, args));
+        const result = tracker.detach(() =>
+          (value as (...args: never[]) => unknown).apply(object, args),
+        );
         return wrapResult ? wrapResult(name, result) : result;
       };
       return ports.has(name) ? tracker.guardPort(`${label}.${name}`, call) : call;
@@ -127,15 +147,19 @@ const guardedAdapters = new WeakMap<object, WeakMap<TestLockTracker, object>>();
 export function guardAdapter<A extends object>(adapter: A, tracker: TestLockTracker): A {
   // One guard per adapter, so the controller still sees a stable identity.
   let byTracker = guardedAdapters.get(adapter);
-  if (!byTracker) guardedAdapters.set(adapter, byTracker = new WeakMap());
+  if (!byTracker) guardedAdapters.set(adapter, (byTracker = new WeakMap()));
   let guarded = byTracker.get(tracker);
-  if (!guarded) byTracker.set(tracker, guarded = guardPorts(adapter, ADAPTER_PORTS, "adapter", tracker));
+  if (!guarded)
+    byTracker.set(tracker, (guarded = guardPorts(adapter, ADAPTER_PORTS, "adapter", tracker)));
   return guarded as A;
 }
 
 // The controller's deps with the tracker installed and every provider, tab and
 // timer port guarded. Adapters the deps create are guarded too.
-export function guardDeps<D extends object>(deps: D, tracker: TestLockTracker): D & { lockTracker: LockTracker } {
+export function guardDeps<D extends object>(
+  deps: D,
+  tracker: TestLockTracker,
+): D & { lockTracker: LockTracker } {
   const guarded = guardPorts(deps, DEPS_PORTS, "deps", tracker, (name, result) => {
     if (name === "createAdapter" && result && typeof result === "object" && "adapter" in result) {
       return { ...result, adapter: guardAdapter(result.adapter as object, tracker) };
@@ -144,14 +168,19 @@ export function guardDeps<D extends object>(deps: D, tracker: TestLockTracker): 
       const adapters = result.adapters as Record<string, object>;
       return {
         ...result,
-        adapters: Object.fromEntries(Object.entries(adapters).map(([platform, adapter]) =>
-          [platform, guardAdapter(adapter, tracker)])),
+        adapters: Object.fromEntries(
+          Object.entries(adapters).map(([platform, adapter]) => [
+            platform,
+            guardAdapter(adapter, tracker),
+          ]),
+        ),
       };
     }
     return result;
   });
   return new Proxy(guarded, {
-    get: (object, name, receiver) => (name === "lockTracker" ? tracker : Reflect.get(object, name, receiver)),
+    get: (object, name, receiver) =>
+      name === "lockTracker" ? tracker : Reflect.get(object, name, receiver),
     has: (object, name) => name === "lockTracker" || Reflect.has(object, name),
   }) as D & { lockTracker: LockTracker };
 }
@@ -165,7 +194,10 @@ afterEach(() => {
   trackersInUse.clear();
   if (process.env.LOCK_DEBUG) {
     for (const violation of violations) {
-      const frames = (violation.stack ?? "").split("\n").filter((line) => line.includes("core/src")).slice(0, 12);
+      const frames = (violation.stack ?? "")
+        .split("\n")
+        .filter((line) => line.includes("core/src"))
+        .slice(0, 12);
       console.log(`VIOLATION ${violation.message}\n${frames.join("\n")}`);
     }
   }
@@ -173,7 +205,9 @@ afterEach(() => {
 });
 
 // The controller deps with a fresh lock tracker installed and the ports guarded.
-export function withLockTracker<D extends object>(deps: D): { deps: D & { lockTracker: LockTracker }; tracker: TestLockTracker } {
+export function withLockTracker<D extends object>(
+  deps: D,
+): { deps: D & { lockTracker: LockTracker }; tracker: TestLockTracker } {
   const tracker = createTestLockTracker();
   trackersInUse.add(tracker);
   return { deps: guardDeps(deps, tracker), tracker };

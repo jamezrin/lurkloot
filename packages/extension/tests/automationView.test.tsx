@@ -19,8 +19,10 @@ const messages: Record<string, string> = {
   automationUnavailable: "Unavailable",
   authSignInMissing: "Sign in to continue farming drops.",
   authSignInRejected: "Your session is no longer valid. Sign in again to continue.",
-  authBrowserProfileBlocked: "Kick rejected this browser profile. Signing in alone may not resolve it.",
-  authPlatformTemporarilyUnavailable: "The platform is temporarily unavailable. Lurkloot will retry automatically.",
+  authBrowserProfileBlocked:
+    "Kick rejected this browser profile. Signing in alone may not resolve it.",
+  authPlatformTemporarilyUnavailable:
+    "The platform is temporarily unavailable. Lurkloot will retry automatically.",
   signInToTwitch: "Sign in to Twitch",
   signInToKick: "Sign in to Kick",
   watchingLabel: "Watching",
@@ -30,7 +32,8 @@ const messages: Record<string, string> = {
   watchTabClosedPauseDetail: "You closed the farming tab, so Lurkloot stopped farming here.",
   resumeFarming: "Resume farming",
   automationPausedManualWatch: "Manual watching",
-  manualWatchPauseDetail: "Farming is paused while you're watching a stream yourself. Pause it, close it, or switch away from that tab to resume automatically on the next check.",
+  manualWatchPauseDetail:
+    "Farming is paused while you're watching a stream yourself. Pause it, close it, or switch away from that tab to resume automatically on the next check.",
   manualWatchPauseDetailNamedSuffix: "— pause it, close it, or switch away to resume.",
 };
 
@@ -63,11 +66,17 @@ function mount(element: React.ReactElement) {
   act(() => {
     root = createRoot(container);
     root.render(
-      <I18nContext.Provider value={{
-        t: (key, substitutions) => (messages[key] ?? key).replace("$1", typeof substitutions === "string" ? substitutions : ""),
-        dir: "ltr",
-        locale: "en",
-      }}>
+      <I18nContext.Provider
+        value={{
+          t: (key, substitutions) =>
+            (messages[key] ?? key).replace(
+              "$1",
+              typeof substitutions === "string" ? substitutions : "",
+            ),
+          dir: "ltr",
+          locale: "en",
+        }}
+      >
         <PopupRuntimeContext.Provider value={{ adapter, preview: false }}>
           {element}
         </PopupRuntimeContext.Provider>
@@ -139,7 +148,10 @@ describe("automation authentication status UI", () => {
   it("explains a Kick browser-profile block without offering sign-in", () => {
     const { container } = mountHeader({
       platform: "kick",
-      presentation: presentation("kick", { status: "blocked", reasonCode: "security_policy_blocked" }),
+      presentation: presentation("kick", {
+        status: "blocked",
+        reasonCode: "security_policy_blocked",
+      }),
     });
 
     expect(container.querySelector('[data-automation-state="blocked"]')).not.toBeNull();
@@ -167,7 +179,9 @@ describe("automation authentication status UI", () => {
     });
 
     const status = container.querySelector('[data-automation-state="running"]');
-    expect(status?.textContent).toContain("No eligible live stream is currently available for this campaign");
+    expect(status?.textContent).toContain(
+      "No eligible live stream is currently available for this campaign",
+    );
     expect(status?.textContent).not.toContain(internalMessage);
   });
 
@@ -183,7 +197,6 @@ describe("automation authentication status UI", () => {
     expect(container.textContent).not.toContain("Stale campaign");
     expect(container.textContent).not.toContain("stale-channel");
   });
-
 });
 
 describe("manual watch status line", () => {
@@ -192,7 +205,12 @@ describe("manual watch status line", () => {
     enabled: true,
     pending: false,
     authHealth: { status: "healthy" } as PlatformAuthHealth,
-    session: { platform: "twitch" as const, status: "paused" as const, offlineChecks: 0, reasonCode: "manual_watch" as const },
+    session: {
+      platform: "twitch" as const,
+      status: "paused" as const,
+      offlineChecks: 0,
+      reasonCode: "manual_watch" as const,
+    },
   };
 
   it("links the stream that paused farming", () => {
@@ -206,7 +224,12 @@ describe("manual watch status line", () => {
             tabId: 3,
             checkedAt: "2026-09-20T00:00:00.000Z",
             active: true,
-            channel: { platform: "twitch", username: "summit1g", displayName: "Summit1G", url: "https://www.twitch.tv/summit1g" },
+            channel: {
+              platform: "twitch",
+              username: "summit1g",
+              displayName: "Summit1G",
+              url: "https://www.twitch.tv/summit1g",
+            },
           },
         })}
       />,
@@ -224,6 +247,8 @@ describe("manual watch status line", () => {
     );
 
     expect(container.querySelector("[data-manual-watch-channel]")).toBeNull();
-    expect(container.textContent).toContain("Farming is paused while you're watching a stream yourself.");
+    expect(container.textContent).toContain(
+      "Farming is paused while you're watching a stream yourself.",
+    );
   });
 });

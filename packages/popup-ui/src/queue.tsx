@@ -5,12 +5,25 @@ import { ChevronRight, Clock3, Pin } from "lucide-react";
 import type { CategorySelection, PriorityMode } from "@lurkloot/shared/models";
 import { useT } from "./context";
 import { filterCampaigns } from "./campaignSearch";
-import { CampaignCard, SortableCampaign, campaignRejectionMessageKey, initialExpandedIds } from "./drops";
+import {
+  CampaignCard,
+  SortableCampaign,
+  campaignRejectionMessageKey,
+  initialExpandedIds,
+} from "./drops";
 import { fallbackGame } from "./viewModels";
 import type { CampaignRankTier } from "./viewModels";
 import type { CampaignView, GameItem } from "./types";
 import { ViewToolbar } from "./viewToolbar";
-import { EmptyPanel, SearchBox, Toggle, cn, reorderFromDragEnd, scrollIntoPanel, type SortableDragEndEvent } from "./primitives";
+import {
+  EmptyPanel,
+  SearchBox,
+  Toggle,
+  cn,
+  reorderFromDragEnd,
+  scrollIntoPanel,
+  type SortableDragEndEvent,
+} from "./primitives";
 import { Dropdown } from "./dropdown";
 import { Segmented } from "./controls";
 
@@ -34,7 +47,8 @@ function matchesFacet(campaign: CampaignView, facet: QueueFacet): boolean {
 // favourite games' order and then the strategy, so it is neither draggable nor
 // given a rank editor: moving one of those rows would mean pinning it, which
 // the pin button already says plainly.
-const pinnedOf = (queued: CampaignView[]): CampaignView[] => queued.filter((campaign) => campaign.rankTier === "pinned");
+const pinnedOf = (queued: CampaignView[]): CampaignView[] =>
+  queued.filter((campaign) => campaign.rankTier === "pinned");
 
 // Where a pin moved to slot `toIndex` of the visible pins goes in the full pin
 // list: it takes the place of the pin now in that slot. A facet can hide some
@@ -87,20 +101,45 @@ export function QueuePanel({
   const [showSkipped, setShowSkipped] = useState(false);
   const [showActionRequired, setShowActionRequired] = useState(false);
   const [showUpcoming, setShowUpcoming] = useState(false);
-  const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>(() => initialExpandedIds(campaigns));
+  const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>(() =>
+    initialExpandedIds(campaigns),
+  );
   const listRef = useRef<HTMLDivElement>(null);
   const searching = query.trim().length > 0;
 
-  const inFacet = useMemo(() => campaigns.filter((campaign) => matchesFacet(campaign, facet)), [campaigns, facet]);
-  const queued = useMemo(() => inFacet.filter((campaign) => campaign.section === "queue"), [inFacet]);
+  const inFacet = useMemo(
+    () => campaigns.filter((campaign) => matchesFacet(campaign, facet)),
+    [campaigns, facet],
+  );
+  const queued = useMemo(
+    () => inFacet.filter((campaign) => campaign.section === "queue"),
+    [inFacet],
+  );
   // Search reads across every facet, so its ranks come from the whole queue.
-  const allQueued = useMemo(() => campaigns.filter((campaign) => campaign.section === "queue"), [campaigns]);
+  const allQueued = useMemo(
+    () => campaigns.filter((campaign) => campaign.section === "queue"),
+    [campaigns],
+  );
   // Skipped splits by who can fix it (#677): a setting in Lurkloot, or only the
   // user, outside it.
-  const skipped = useMemo(() => inFacet.filter((campaign) => campaign.section === "skipped" && !campaign.needsOutsideAction), [inFacet]);
-  const actionRequired = useMemo(() => inFacet.filter((campaign) => campaign.section === "skipped" && campaign.needsOutsideAction), [inFacet]);
-  const upcoming = useMemo(() => inFacet.filter((campaign) => campaign.section === "upcoming"), [inFacet]);
-  const searchResults = useMemo(() => filterCampaigns(campaigns, gameMap, query), [campaigns, gameMap, query]);
+  const skipped = useMemo(
+    () =>
+      inFacet.filter((campaign) => campaign.section === "skipped" && !campaign.needsOutsideAction),
+    [inFacet],
+  );
+  const actionRequired = useMemo(
+    () =>
+      inFacet.filter((campaign) => campaign.section === "skipped" && campaign.needsOutsideAction),
+    [inFacet],
+  );
+  const upcoming = useMemo(
+    () => inFacet.filter((campaign) => campaign.section === "upcoming"),
+    [inFacet],
+  );
+  const searchResults = useMemo(
+    () => filterCampaigns(campaigns, gameMap, query),
+    [campaigns, gameMap, query],
+  );
   const farmingIndex = queued.findIndex((campaign) => Boolean(campaign.farmingChannel));
   const anyFarming = farmingIndex !== -1;
 
@@ -144,26 +183,57 @@ export function QueuePanel({
   // action reads the latest props through a ref. Rows are memoised, so a row
   // re-renders only when something it shows changed — not because the parent
   // re-rendered and minted a fresh arrow for every card.
-  const latest = useRef({ queued, pinnedCount, onPinChange, onToggleExclude, onRefreshCampaign, onToggleFavouriteCategory, onToggleBlockedCategory, onOpenGames, onOpenSettings });
-  latest.current = { queued, pinnedCount, onPinChange, onToggleExclude, onRefreshCampaign, onToggleFavouriteCategory, onToggleBlockedCategory, onOpenGames, onOpenSettings };
-  const actions = useMemo<RowActions>(() => ({
-    toggle: (id) => setExpandedIds((current) => ({ ...current, [id]: !current[id] })),
-    refresh: (id) => void latest.current.onRefreshCampaign(id),
-    toggleExclude: (id) => void latest.current.onToggleExclude(id),
-    togglePin: (campaign) => void latest.current.onPinChange(campaign.id, campaign.pinned ? null : latest.current.pinnedCount),
-    pinLast: (id) => void latest.current.onPinChange(id, latest.current.pinnedCount),
-    rankMove: (id, toIndex) => {
-      const pins = pinnedOf(latest.current.queued);
-      if (pins.some((campaign) => campaign.id === id)) void latest.current.onPinChange(id, pinPosition(pins, toIndex));
-    },
-    // A search result's rank is its place among all pins, whatever the facet.
-    pinAt: (id, position) => void latest.current.onPinChange(id, position),
-    favourite: (category) => void latest.current.onToggleFavouriteCategory?.(category),
-    block: (category) => void latest.current.onToggleBlockedCategory?.(category),
-    openGames: () => latest.current.onOpenGames(),
-    openSettings: () => latest.current.onOpenSettings(),
-  }), []);
-  const categoryActions = { canFavourite: Boolean(onToggleFavouriteCategory), canBlock: Boolean(onToggleBlockedCategory) };
+  const latest = useRef({
+    queued,
+    pinnedCount,
+    onPinChange,
+    onToggleExclude,
+    onRefreshCampaign,
+    onToggleFavouriteCategory,
+    onToggleBlockedCategory,
+    onOpenGames,
+    onOpenSettings,
+  });
+  latest.current = {
+    queued,
+    pinnedCount,
+    onPinChange,
+    onToggleExclude,
+    onRefreshCampaign,
+    onToggleFavouriteCategory,
+    onToggleBlockedCategory,
+    onOpenGames,
+    onOpenSettings,
+  };
+  const actions = useMemo<RowActions>(
+    () => ({
+      toggle: (id) => setExpandedIds((current) => ({ ...current, [id]: !current[id] })),
+      refresh: (id) => void latest.current.onRefreshCampaign(id),
+      toggleExclude: (id) => void latest.current.onToggleExclude(id),
+      togglePin: (campaign) =>
+        void latest.current.onPinChange(
+          campaign.id,
+          campaign.pinned ? null : latest.current.pinnedCount,
+        ),
+      pinLast: (id) => void latest.current.onPinChange(id, latest.current.pinnedCount),
+      rankMove: (id, toIndex) => {
+        const pins = pinnedOf(latest.current.queued);
+        if (pins.some((campaign) => campaign.id === id))
+          void latest.current.onPinChange(id, pinPosition(pins, toIndex));
+      },
+      // A search result's rank is its place among all pins, whatever the facet.
+      pinAt: (id, position) => void latest.current.onPinChange(id, position),
+      favourite: (category) => void latest.current.onToggleFavouriteCategory?.(category),
+      block: (category) => void latest.current.onToggleBlockedCategory?.(category),
+      openGames: () => latest.current.onOpenGames(),
+      openSettings: () => latest.current.onOpenSettings(),
+    }),
+    [],
+  );
+  const categoryActions = {
+    canFavourite: Boolean(onToggleFavouriteCategory),
+    canBlock: Boolean(onToggleBlockedCategory),
+  };
 
   // Stable for the same reason as the row actions: the drag provider hands its
   // handler to every sortable card, so a fresh one per render re-rendered them all.
@@ -186,20 +256,27 @@ export function QueuePanel({
   const tiers: CampaignRankTier[] = ["pinned", "favourite", "strategy"];
   const facetCounts: Record<QueueFacet, number> = {
     all: campaigns.filter((campaign) => campaign.section === "queue").length,
-    drops: campaigns.filter((campaign) => campaign.section === "queue" && matchesFacet(campaign, "drops")).length,
-    badges: campaigns.filter((campaign) => campaign.section === "queue" && matchesFacet(campaign, "badges")).length,
+    drops: campaigns.filter(
+      (campaign) => campaign.section === "queue" && matchesFacet(campaign, "drops"),
+    ).length,
+    badges: campaigns.filter(
+      (campaign) => campaign.section === "queue" && matchesFacet(campaign, "badges"),
+    ).length,
   };
 
   // The layer of the ranking that placed a queued campaign, in words: the
   // card shows it among its facts so the order never has to be guessed.
   function rankReason(campaign: CampaignView): string {
-    if (campaign.rankTier === "pinned" && campaign.pinIndex != null) return t("rankReasonPinned", String(campaign.pinIndex + 1));
+    if (campaign.rankTier === "pinned" && campaign.pinIndex != null)
+      return t("rankReasonPinned", String(campaign.pinIndex + 1));
     if (campaign.rankTier === "favourite" && campaign.favouriteIndex != null) {
-      return t("rankReasonFavourite", [campaign.category?.name ?? gameMap[campaign.gameId]?.name ?? campaign.title, String(campaign.favouriteIndex + 1)]);
+      return t("rankReasonFavourite", [
+        campaign.category?.name ?? gameMap[campaign.gameId]?.name ?? campaign.title,
+        String(campaign.favouriteIndex + 1),
+      ]);
     }
     return t(strategy === "lowest_availability" ? "rankReasonAvailability" : "rankReasonEnding");
   }
-
 
   return (
     <section className="space-y-1.5">
@@ -209,27 +286,54 @@ export function QueuePanel({
 
       <div className="flex items-center gap-2">
         <div className="min-w-0 flex-1">
-          <SearchBox compact value={query} onChange={setQuery} placeholder={t("campaignSearchPlaceholder")} />
+          <SearchBox
+            compact
+            value={query}
+            onChange={setQuery}
+            placeholder={t("campaignSearchPlaceholder")}
+          />
         </div>
-        <label data-queue-pinned-only className="flex shrink-0 items-center gap-1.5 text-[11px] font-medium text-zinc-600 dark:text-zinc-300">
-          <Toggle size="sm" checked={farmPinnedOnly} onChange={(value) => void onFarmPinnedOnlyChange(value)} label={t("queueFarmPinnedOnly")} />
+        <label
+          data-queue-pinned-only
+          className="flex shrink-0 items-center gap-1.5 text-[11px] font-medium text-zinc-600 dark:text-zinc-300"
+        >
+          <Toggle
+            size="sm"
+            checked={farmPinnedOnly}
+            onChange={(value) => void onFarmPinnedOnlyChange(value)}
+            label={t("queueFarmPinnedOnly")}
+          />
           <span aria-hidden>{t("queueFarmPinnedOnly")}</span>
         </label>
       </div>
 
-      {campaigns.length === 0 ? <EmptyPanel>{t("noCampaigns")}</EmptyPanel> : searching ? (
+      {campaigns.length === 0 ? (
+        <EmptyPanel>{t("noCampaigns")}</EmptyPanel>
+      ) : searching ? (
         searchResults.length === 0 ? (
-          <p className="px-1 py-6 text-center text-xs text-zinc-400 dark:text-zinc-500">{t("campaignSearchNoResults", query.trim())}</p>
+          <p className="px-1 py-6 text-center text-xs text-zinc-400 dark:text-zinc-500">
+            {t("campaignSearchNoResults", query.trim())}
+          </p>
         ) : (
           <div data-queue-group="search" className="space-y-1">
             {searchResults.map((campaign, index) => {
               const queueIndex = allQueued.findIndex((entry) => entry.id === campaign.id);
               return (
-                <div key={campaign.id} data-campaign-id={campaign.id} {...(queueIndex === -1 ? {} : { "data-campaign-rank": String(queueIndex + 1) })}>
+                <div
+                  key={campaign.id}
+                  data-campaign-id={campaign.id}
+                  {...(queueIndex === -1 ? {} : { "data-campaign-rank": String(queueIndex + 1) })}
+                >
                   <QueueRow
                     kind="search"
                     campaign={campaign}
-                    index={campaign.pinned && campaign.pinIndex != null ? campaign.pinIndex : queueIndex === -1 ? index : queueIndex}
+                    index={
+                      campaign.pinned && campaign.pinIndex != null
+                        ? campaign.pinIndex
+                        : queueIndex === -1
+                          ? index
+                          : queueIndex
+                    }
                     farmingIndex={farmingIndex}
                     anyFarming={anyFarming}
                     game={gameMap[campaign.gameId]}
@@ -248,150 +352,179 @@ export function QueuePanel({
           </div>
         )
       ) : (
-          <div ref={listRef} className="space-y-1">
-            {tiers.map((tier) => {
-              const rows = queued.filter((campaign) => campaign.rankTier === tier);
-              if (rows.length === 0) return null;
-              const pinned = tier === "pinned";
-              const group = (
-                <div key={tier} data-queue-group={tier} className="space-y-1">
-                  <GroupDivider
-                    label={t(TIER_LABEL_KEYS[tier])}
-                    hint={tier === "strategy"
+        <div ref={listRef} className="space-y-1">
+          {tiers.map((tier) => {
+            const rows = queued.filter((campaign) => campaign.rankTier === tier);
+            if (rows.length === 0) return null;
+            const pinned = tier === "pinned";
+            const group = (
+              <div key={tier} data-queue-group={tier} className="space-y-1">
+                <GroupDivider
+                  label={t(TIER_LABEL_KEYS[tier])}
+                  hint={
+                    tier === "strategy" ? (
                       // The strategy lives where it acts: it ranks exactly
                       // the rows under this divider, so the divider's hint is
                       // the picker and reads "Then by <mode>".
-                      ? (
-                        <Dropdown
-                          label={t("queueStrategyLabel")}
-                          value={strategy}
-                          options={strategyOptions}
-                          onChange={(value) => void onStrategyChange(value as PriorityMode)}
-                          attributes={{ "data-queue-strategy": "" }}
-                          className="rounded-md px-1 py-0.5 text-[10.5px] font-semibold text-zinc-700 hover:bg-[var(--ink-soft)] focus-visible:ring-1 focus-visible:ring-[var(--accent-ring)] aria-expanded:bg-[var(--ink-soft)] dark:text-zinc-200"
-                        />
-                      )
-                      : pinned ? t("queueGroupPinnedHint") : undefined}
-                    action={pinned && pinnedCount > 0
-                      ? { label: t("queueUnpinAll", String(pinnedCount)), onClick: () => void onUnpinAll(), attribute: "data-queue-unpin-all" }
-                      : tier === "favourite" ? { label: t("queueEditFavourites"), onClick: onOpenGames } : undefined}
+                      <Dropdown
+                        label={t("queueStrategyLabel")}
+                        value={strategy}
+                        options={strategyOptions}
+                        onChange={(value) => void onStrategyChange(value as PriorityMode)}
+                        attributes={{ "data-queue-strategy": "" }}
+                        className="rounded-md px-1 py-0.5 text-[10.5px] font-semibold text-zinc-700 hover:bg-[var(--ink-soft)] focus-visible:ring-1 focus-visible:ring-[var(--accent-ring)] aria-expanded:bg-[var(--ink-soft)] dark:text-zinc-200"
+                      />
+                    ) : pinned ? (
+                      t("queueGroupPinnedHint")
+                    ) : undefined
+                  }
+                  action={
+                    pinned && pinnedCount > 0
+                      ? {
+                          label: t("queueUnpinAll", String(pinnedCount)),
+                          onClick: () => void onUnpinAll(),
+                          attribute: "data-queue-unpin-all",
+                        }
+                      : tier === "favourite"
+                        ? { label: t("queueEditFavourites"), onClick: onOpenGames }
+                        : undefined
+                  }
+                />
+                {rows.map((campaign) => (
+                  <QueueRow
+                    key={campaign.id}
+                    kind={pinned ? "sortable" : "ranked"}
+                    campaign={campaign}
+                    index={queued.indexOf(campaign)}
+                    farmingIndex={farmingIndex}
+                    anyFarming={anyFarming}
+                    game={gameMap[campaign.gameId]}
+                    expanded={Boolean(expandedIds[campaign.id])}
+                    refreshing={refreshing}
+                    rankCount={rows.length}
+                    rankReason={rankReason(campaign)}
+                    actions={actions}
+                    {...categoryActions}
                   />
-                  {rows.map((campaign) => (
-                    <QueueRow
-                      key={campaign.id}
-                      kind={pinned ? "sortable" : "ranked"}
-                      campaign={campaign}
-                      index={queued.indexOf(campaign)}
-                      farmingIndex={farmingIndex}
-                      anyFarming={anyFarming}
-                      game={gameMap[campaign.gameId]}
-                      expanded={Boolean(expandedIds[campaign.id])}
-                      refreshing={refreshing}
-                      rankCount={rows.length}
-                      rankReason={rankReason(campaign)}
-                      actions={actions}
-                      {...categoryActions}
-                    />
-                  ))}
+                ))}
+              </div>
+            );
+            // The pins are the only sortable list, in a drag scope of their
+            // own: no drop target exists outside them, so a row can never be
+            // dragged into a group that orders itself.
+            return pinned ? (
+              <DragDropProvider key={tier} onDragEnd={endDrag}>
+                {group}
+              </DragDropProvider>
+            ) : (
+              group
+            );
+          })}
+
+          {queued.length === 0 ? (
+            <EmptyPanel>{t(facet === "badges" ? "queueEmptyBadges" : "queueEmpty")}</EmptyPanel>
+          ) : null}
+
+          {skipped.length > 0 || actionRequired.length > 0 || upcoming.length > 0 ? (
+            <GroupDivider label={t("queueNotInQueue")} />
+          ) : null}
+
+          {actionRequired.length > 0 ? (
+            <Disclosure
+              group="action-required"
+              label={t("queueActionRequired")}
+              count={actionRequired.length}
+              hint={t("queueActionRequiredHint")}
+              expanded={showActionRequired}
+              onToggle={() => setShowActionRequired((current) => !current)}
+            >
+              {actionRequired.map((campaign, index) => (
+                <div key={campaign.id} data-campaign-id={campaign.id}>
+                  <QueueRow
+                    kind="skipped"
+                    campaign={campaign}
+                    index={index}
+                    farmingIndex={-1}
+                    anyFarming={anyFarming}
+                    game={gameMap[campaign.gameId]}
+                    expanded={Boolean(expandedIds[campaign.id])}
+                    refreshing={refreshing}
+                    actions={actions}
+                    {...categoryActions}
+                  />
                 </div>
-              );
-              // The pins are the only sortable list, in a drag scope of their
-              // own: no drop target exists outside them, so a row can never be
-              // dragged into a group that orders itself.
-              return pinned ? <DragDropProvider key={tier} onDragEnd={endDrag}>{group}</DragDropProvider> : group;
-            })}
+              ))}
+            </Disclosure>
+          ) : null}
 
-            {queued.length === 0 ? <EmptyPanel>{t(facet === "badges" ? "queueEmptyBadges" : "queueEmpty")}</EmptyPanel> : null}
+          {skipped.length > 0 ? (
+            <Disclosure
+              group="skipped"
+              label={t("queueSkipped")}
+              count={skipped.length}
+              hint={[
+                ...new Set(
+                  skipped.map((campaign) => {
+                    const rejection = campaign.farmingRejection;
+                    return (
+                      rejection
+                      && t(campaignRejectionMessageKey(rejection.code), rejection.rewardName)
+                    );
+                  }),
+                ),
+              ]
+                .filter(Boolean)
+                .slice(0, 2)
+                .join(" · ")}
+              expanded={showSkipped}
+              onToggle={() => setShowSkipped((current) => !current)}
+            >
+              {skipped.map((campaign, index) => (
+                <div key={campaign.id} data-campaign-id={campaign.id}>
+                  <QueueRow
+                    kind="skipped"
+                    campaign={campaign}
+                    index={index}
+                    farmingIndex={-1}
+                    anyFarming={anyFarming}
+                    game={gameMap[campaign.gameId]}
+                    expanded={Boolean(expandedIds[campaign.id])}
+                    refreshing={refreshing}
+                    actions={actions}
+                    {...categoryActions}
+                  />
+                </div>
+              ))}
+            </Disclosure>
+          ) : null}
 
-            {skipped.length > 0 || actionRequired.length > 0 || upcoming.length > 0 ? <GroupDivider label={t("queueNotInQueue")} /> : null}
-
-            {actionRequired.length > 0 ? (
-              <Disclosure
-                group="action-required"
-                label={t("queueActionRequired")}
-                count={actionRequired.length}
-                hint={t("queueActionRequiredHint")}
-                expanded={showActionRequired}
-                onToggle={() => setShowActionRequired((current) => !current)}
-              >
-                {actionRequired.map((campaign, index) => (
-                  <div key={campaign.id} data-campaign-id={campaign.id}>
-                    <QueueRow
-                      kind="skipped"
-                      campaign={campaign}
-                      index={index}
-                      farmingIndex={-1}
-                      anyFarming={anyFarming}
-                      game={gameMap[campaign.gameId]}
-                      expanded={Boolean(expandedIds[campaign.id])}
-                      refreshing={refreshing}
-                      actions={actions}
-                      {...categoryActions}
-                    />
-                  </div>
-                ))}
-              </Disclosure>
-            ) : null}
-
-            {skipped.length > 0 ? (
-              <Disclosure
-                group="skipped"
-                label={t("queueSkipped")}
-                count={skipped.length}
-                hint={[...new Set(skipped.map((campaign) => {
-                  const rejection = campaign.farmingRejection;
-                  return rejection && t(campaignRejectionMessageKey(rejection.code), rejection.rewardName);
-                }))]
-                  .filter(Boolean).slice(0, 2).join(" · ")}
-                expanded={showSkipped}
-                onToggle={() => setShowSkipped((current) => !current)}
-              >
-                {skipped.map((campaign, index) => (
-                  <div key={campaign.id} data-campaign-id={campaign.id}>
-                    <QueueRow
-                      kind="skipped"
-                      campaign={campaign}
-                      index={index}
-                      farmingIndex={-1}
-                      anyFarming={anyFarming}
-                      game={gameMap[campaign.gameId]}
-                      expanded={Boolean(expandedIds[campaign.id])}
-                      refreshing={refreshing}
-                      actions={actions}
-                      {...categoryActions}
-                    />
-                  </div>
-                ))}
-              </Disclosure>
-            ) : null}
-
-            {upcoming.length > 0 ? (
-              <Disclosure
-                group="upcoming"
-                label={t("queueUpcoming")}
-                count={upcoming.length}
-                expanded={showUpcoming}
-                onToggle={() => setShowUpcoming((current) => !current)}
-              >
-                {upcoming.map((campaign, index) => (
-                  <div key={campaign.id} data-campaign-id={campaign.id}>
-                    <QueueRow
-                      kind="upcoming"
-                      campaign={campaign}
-                      index={index}
-                      farmingIndex={-1}
-                      anyFarming={anyFarming}
-                      game={gameMap[campaign.gameId]}
-                      expanded={Boolean(expandedIds[campaign.id])}
-                      refreshing={refreshing}
-                      actions={actions}
-                      {...categoryActions}
-                    />
-                  </div>
-                ))}
-              </Disclosure>
-            ) : null}
-          </div>
+          {upcoming.length > 0 ? (
+            <Disclosure
+              group="upcoming"
+              label={t("queueUpcoming")}
+              count={upcoming.length}
+              expanded={showUpcoming}
+              onToggle={() => setShowUpcoming((current) => !current)}
+            >
+              {upcoming.map((campaign, index) => (
+                <div key={campaign.id} data-campaign-id={campaign.id}>
+                  <QueueRow
+                    kind="upcoming"
+                    campaign={campaign}
+                    index={index}
+                    farmingIndex={-1}
+                    anyFarming={anyFarming}
+                    game={gameMap[campaign.gameId]}
+                    expanded={Boolean(expandedIds[campaign.id])}
+                    refreshing={refreshing}
+                    actions={actions}
+                    {...categoryActions}
+                  />
+                </div>
+              ))}
+            </Disclosure>
+          ) : null}
+        </div>
       )}
     </section>
   );
@@ -415,7 +548,21 @@ type RowActions = {
  * props are the campaign view (kept across polls when unchanged), plain
  * values and the panel's stable actions, so opening one card or a poll with
  * nothing new re-renders no other row. */
-const QueueRow = React.memo(function QueueRow({ kind, campaign, index, farmingIndex, anyFarming, game, expanded, refreshing, rankCount, rankReason, actions, canFavourite, canBlock }: {
+const QueueRow = React.memo(function QueueRow({
+  kind,
+  campaign,
+  index,
+  farmingIndex,
+  anyFarming,
+  game,
+  expanded,
+  refreshing,
+  rankCount,
+  rankReason,
+  actions,
+  canFavourite,
+  canBlock,
+}: {
   kind: "search" | "sortable" | "ranked" | "skipped" | "upcoming";
   campaign: CampaignView;
   index: number;
@@ -479,14 +626,26 @@ const QueueRow = React.memo(function QueueRow({ kind, campaign, index, farmingIn
         {...props}
         // A skipped result keeps the action that puts it back in the queue
         // (with "farm pinned only" on, that is pinning it).
-        fix={campaign.section === "skipped" ? skippedFix(campaign, {
-          onToggleExclude: actions.toggleExclude,
-          onOpenGames: actions.openGames,
-          onOpenSettings: actions.openSettings,
-          onPin: () => actions.pinLast(campaign.id),
-        }, t) : undefined}
+        fix={
+          campaign.section === "skipped"
+            ? skippedFix(
+                campaign,
+                {
+                  onToggleExclude: actions.toggleExclude,
+                  onOpenGames: actions.openGames,
+                  onOpenSettings: actions.openSettings,
+                  onPin: () => actions.pinLast(campaign.id),
+                },
+                t,
+              )
+            : undefined
+        }
         rankCount={rankCount}
-        onRankMove={campaign.pinned && campaign.pinIndex != null ? (toIndex) => actions.pinAt(campaign.id, toIndex) : undefined}
+        onRankMove={
+          campaign.pinned && campaign.pinIndex != null
+            ? (toIndex) => actions.pinAt(campaign.id, toIndex)
+            : undefined
+        }
         onPin={queued ? () => actions.togglePin(campaign) : undefined}
         pinned={campaign.pinned}
         rankReason={rankReason}
@@ -497,12 +656,16 @@ const QueueRow = React.memo(function QueueRow({ kind, campaign, index, farmingIn
     return (
       <CampaignCard
         {...props}
-        fix={skippedFix(campaign, {
-          onToggleExclude: actions.toggleExclude,
-          onOpenGames: actions.openGames,
-          onOpenSettings: actions.openSettings,
-          onPin: () => actions.pinLast(campaign.id),
-        }, t)}
+        fix={skippedFix(
+          campaign,
+          {
+            onToggleExclude: actions.toggleExclude,
+            onOpenGames: actions.openGames,
+            onOpenSettings: actions.openSettings,
+            onPin: () => actions.pinLast(campaign.id),
+          },
+          t,
+        )}
       />
     );
   }
@@ -514,29 +677,59 @@ const QueueRow = React.memo(function QueueRow({ kind, campaign, index, farmingIn
 // platform itself (an unlinked account), where the row explains and stops.
 function skippedFix(
   campaign: CampaignView,
-  handlers: { onToggleExclude(id: string): void | Promise<void>; onOpenGames(): void; onOpenSettings(): void; onPin(): void },
+  handlers: {
+    onToggleExclude(id: string): void | Promise<void>;
+    onOpenGames(): void;
+    onOpenSettings(): void;
+    onPin(): void;
+  },
   t: (key: string, substitutions?: string | string[]) => string,
 ): { label: string; onClick(): void } | undefined {
   const code = campaign.farmingRejection?.code;
   if (!code) return undefined;
-  if (code === "excluded") return { label: t("queueFixInclude"), onClick: () => void handlers.onToggleExclude(campaign.id) };
+  if (code === "excluded")
+    return {
+      label: t("queueFixInclude"),
+      onClick: () => void handlers.onToggleExclude(campaign.id),
+    };
   if (code === "not_pinned") return { label: t("queueFixPin"), onClick: handlers.onPin };
-  if (code === "category_blocked" || code === "category_filtered") return { label: t("queueFixGames"), onClick: handlers.onOpenGames };
-  if (code === "unlinked_campaigns_disabled" || code === "subscription_campaigns_disabled" || code === "insufficient_time") {
+  if (code === "category_blocked" || code === "category_filtered")
+    return { label: t("queueFixGames"), onClick: handlers.onOpenGames };
+  if (
+    code === "unlinked_campaigns_disabled"
+    || code === "subscription_campaigns_disabled"
+    || code === "insufficient_time"
+  ) {
     return { label: t("queueFixSettings"), onClick: handlers.onOpenSettings };
   }
   return undefined;
 }
 
-function FacetTabs({ facet, counts, onChange }: { facet: QueueFacet; counts: Record<QueueFacet, number>; onChange(facet: QueueFacet): void }): React.ReactElement {
+function FacetTabs({
+  facet,
+  counts,
+  onChange,
+}: {
+  facet: QueueFacet;
+  counts: Record<QueueFacet, number>;
+  onChange(facet: QueueFacet): void;
+}): React.ReactElement {
   const t = useT();
-  const options: Array<[QueueFacet, string]> = [["all", "queueFacetAll"], ["drops", "queueFacetDrops"], ["badges", "queueFacetBadges"]];
+  const options: Array<[QueueFacet, string]> = [
+    ["all", "queueFacetAll"],
+    ["drops", "queueFacetDrops"],
+    ["badges", "queueFacetBadges"],
+  ];
   return (
     <Segmented
       label={t("queueFacetLabel")}
       value={facet}
       itemAttribute="data-queue-facet"
-      options={options.map(([value, labelKey]) => ({ value, label: t(labelKey), count: counts[value] }))}
+      options={options.map(([value, labelKey]) => ({
+        value,
+        label: t(labelKey),
+        count: counts[value],
+      }))}
       onChange={onChange}
     />
   );
@@ -544,11 +737,23 @@ function FacetTabs({ facet, counts, onChange }: { facet: QueueFacet; counts: Rec
 
 // A group's label. Each divider names the layer that placed the rows under it,
 // so the order is explainable without help text.
-function GroupDivider({ label, hint, action }: { label: string; hint?: React.ReactNode; action?: { label: string; onClick(): void; attribute?: string } }): React.ReactElement {
+function GroupDivider({
+  label,
+  hint,
+  action,
+}: {
+  label: string;
+  hint?: React.ReactNode;
+  action?: { label: string; onClick(): void; attribute?: string };
+}): React.ReactElement {
   return (
     <div className="flex items-center gap-2 pt-2">
       <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">{label}</span>
-      {typeof hint === "string" ? <span className="truncate text-[10px] text-zinc-400 dark:text-zinc-500">{hint}</span> : hint ? <div className="-ms-1 min-w-0">{hint}</div> : null}
+      {typeof hint === "string" ? (
+        <span className="truncate text-[10px] text-zinc-400 dark:text-zinc-500">{hint}</span>
+      ) : hint ? (
+        <div className="-ms-1 min-w-0">{hint}</div>
+      ) : null}
       <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
       {/* The group's own action sits on its divider: Unpin all only exists
           while there are pins, which is exactly when this divider does. */}
@@ -566,7 +771,15 @@ function GroupDivider({ label, hint, action }: { label: string; hint?: React.Rea
   );
 }
 
-function Disclosure({ group, label, count, hint, expanded, onToggle, children }: {
+function Disclosure({
+  group,
+  label,
+  count,
+  hint,
+  expanded,
+  onToggle,
+  children,
+}: {
   group: string;
   label: string;
   count: number;
@@ -584,11 +797,18 @@ function Disclosure({ group, label, count, hint, expanded, onToggle, children }:
         onClick={onToggle}
         className="flex w-full items-center gap-2 rounded-xl border border-dashed border-zinc-200 px-2.5 py-1.5 text-start text-[11px] text-zinc-500 hover:border-zinc-400 dark:border-zinc-700 dark:text-zinc-400"
       >
-        {group === "upcoming" ? <Clock3 size={12} className="shrink-0" /> : <Pin size={12} className="shrink-0" />}
+        {group === "upcoming" ? (
+          <Clock3 size={12} className="shrink-0" />
+        ) : (
+          <Pin size={12} className="shrink-0" />
+        )}
         <span className="font-semibold text-zinc-700 dark:text-zinc-200">{label}</span>
         {hint ? <span className="truncate">{hint}</span> : null}
         <span className="ms-auto font-mono text-[10px] tabular">{count}</span>
-        <ChevronRight size={12} className={cn("shrink-0 transition-transform", expanded && "rotate-90")} />
+        <ChevronRight
+          size={12}
+          className={cn("shrink-0 transition-transform", expanded && "rotate-90")}
+        />
       </button>
       <AnimatePresence initial={false}>
         {expanded ? (

@@ -1,5 +1,11 @@
 import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
-import type { EngineSettings, ManagedWatchTab, Platform, SchedulerState, WatchSession } from "@lurkloot/shared/models";
+import type {
+  EngineSettings,
+  ManagedWatchTab,
+  Platform,
+  SchedulerState,
+  WatchSession,
+} from "@lurkloot/shared/models";
 import { isFarmingActive } from "@lurkloot/shared/settings";
 import { registerManagedPageContextTabs } from "../core/tabRegistry";
 import { ALARM_NAME, KICK_ALARM_NAME, PLATFORMS, TWITCH_ALARM_NAME } from "./constants";
@@ -8,7 +14,10 @@ import { emitHostCallbackError, farmingLifecycleEvents } from "./helpers";
 import type { BackgroundHostPorts } from "./hostPorts";
 import type { ControllerCalls } from "./types";
 
-function staleStartupCleanup(state: SchedulerState, preservePageContexts = false): {
+function staleStartupCleanup(
+  state: SchedulerState,
+  preservePageContexts = false,
+): {
   hasStaleSession: boolean;
   managedTabs: ManagedWatchTab[];
   state: SchedulerState;
@@ -23,7 +32,12 @@ function staleStartupCleanup(state: SchedulerState, preservePageContexts = false
     const managedPageContextTab = state.managedPageContextTabs?.[platform];
     if (managedTab?.ownedByExtension) managedTabs.set(managedTab.tabId, managedTab);
 
-    if (session.status === "watching" || session.tabId != null || managedTab || (!preservePageContexts && managedPageContextTab)) {
+    if (
+      session.status === "watching"
+      || session.tabId != null
+      || managedTab
+      || (!preservePageContexts && managedPageContextTab)
+    ) {
       hasStaleSession = true;
       sessions[platform] = pausedStartupSession(session);
     }
@@ -63,7 +77,8 @@ function pausedStartupSession(session: WatchSession): WatchSession {
 export function createLifecycle<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
   { lifecycleSlice, tabRegistry }: Pick<ControllerSlices<S>, "tabRegistry" | "lifecycleSlice">,
-  calls: Pick<ControllerCalls<S>,
+  calls: Pick<
+    ControllerCalls<S>,
     | "resetTwitchIntegrity"
     | "abortActiveTicks"
     | "abortClaimHandoffs"
@@ -106,7 +121,8 @@ export function createLifecycle<S extends EngineSettings>(
     | "stopDiscoveryLane"
     | "suspendTickAdmission"
   >,
-): Pick<ControllerCalls<S>,
+): Pick<
+  ControllerCalls<S>,
   | "ensureAlarm"
   | "ensureCadenceJobs"
   | "rescheduleTickJobs"
@@ -185,7 +201,7 @@ export function createLifecycle<S extends EngineSettings>(
   // The per-platform tick jobs at the poll interval and the 1-minute watch
   // heartbeat job: the cadence every host runs.
   async function ensureCadenceJobs(settings?: S): Promise<void> {
-    const { pollIntervalMinutes } = settings ?? await ports.storage.loadSettings();
+    const { pollIntervalMinutes } = settings ?? (await ports.storage.loadSettings());
     await ensureSchedulerAlarms(pollIntervalMinutes);
     await ensureHeartbeatJob();
   }
@@ -233,7 +249,10 @@ export function createLifecycle<S extends EngineSettings>(
     const preservePageContexts = isFarmingActive(settings) && settings.autoStartDropFarming;
     const { state, cleanup } = await withStateLock(async () => {
       const state = await ports.storage.loadState();
-      registerManagedPageContextTabs(tabRegistry, preservePageContexts ? state.managedPageContextTabs ?? {} : {});
+      registerManagedPageContextTabs(
+        tabRegistry,
+        preservePageContexts ? (state.managedPageContextTabs ?? {}) : {},
+      );
       const cleanup = staleStartupCleanup(state, preservePageContexts);
       if (cleanup.hasStaleSession) {
         const restartEvents = farmingLifecycleEvents(state, cleanup.state);
@@ -248,7 +267,11 @@ export function createLifecycle<S extends EngineSettings>(
       // Tabs left over from before the host restarted.
       await tabs.watch.closeManaged(cleanup.managedTabs, "host-restart");
     }
-    if (!preservePageContexts && tabs && Object.keys(state.managedPageContextTabs ?? {}).length > 0) {
+    if (
+      !preservePageContexts
+      && tabs
+      && Object.keys(state.managedPageContextTabs ?? {}).length > 0
+    ) {
       await withEventCollector(async (emit, events) => {
         await tabs.pageContexts.release(state.managedPageContextTabs ?? {}, {
           platforms: ["twitch", "kick"],
@@ -335,38 +358,57 @@ export function createLifecycle<S extends EngineSettings>(
       // The locks cover only the reset itself. The tabs the reset state no
       // longer holds are closed afterwards, with no lock held (#598): tick
       // admission stays suspended until then, so nothing can reopen them.
-      const state = await withSettingsLock(() => withStateLock(async () => {
-        const previous = await ports.storage.loadState();
-        registerManagedPageContextTabs(tabRegistry, {});
-        resetTwitchIntegrity();
-        await resetHostStorage?.();
-        return previous;
-      }));
+      const state = await withSettingsLock(() =>
+        withStateLock(async () => {
+          const previous = await ports.storage.loadState();
+          registerManagedPageContextTabs(tabRegistry, {});
+          resetTwitchIntegrity();
+          await resetHostStorage?.();
+          return previous;
+        }),
+      );
       const { tabs } = ports;
       if (tabs) {
         // The reset has already committed, so a tab the host cannot close is
         // reported and skipped rather than failing the reset.
         await withEventCollector(async (emit, events) => {
-          const attempt = async (platforms: readonly Platform[], message: string, operation: () => unknown) => {
+          const attempt = async (
+            platforms: readonly Platform[],
+            message: string,
+            operation: () => unknown,
+          ) => {
             try {
               await operation();
             } catch (error) {
-              for (const platform of platforms) emitHostCallbackError(emit, platform, error, message);
+              for (const platform of platforms)
+                emitHostCallbackError(emit, platform, error, message);
             }
           };
-          const managedTabs = Object.values(state.managedWatchTabs ?? {}).filter((tab): tab is ManagedWatchTab => tab?.ownedByExtension === true);
+          const managedTabs = Object.values(state.managedWatchTabs ?? {}).filter(
+            (tab): tab is ManagedWatchTab => tab?.ownedByExtension === true,
+          );
           if (managedTabs.length > 0) {
-            await attempt([...new Set(managedTabs.map((tab) => tab.platform))], "Could not close managed watch tabs", () => tabs.watch.closeManaged(managedTabs, "extension-cleanup"));
+            await attempt(
+              [...new Set(managedTabs.map((tab) => tab.platform))],
+              "Could not close managed watch tabs",
+              () => tabs.watch.closeManaged(managedTabs, "extension-cleanup"),
+            );
           }
           for (const platform of PLATFORMS) {
-            await attempt([platform], "Could not release ad focus", () => tabs.watch.applyAdFocus(platform, state.sessions[platform].tabId, false, emit));
-            await attempt([platform], "Could not stop watch tab", () => tabs.watch.stop(state.sessions[platform], { closeManagedTabs: true }, emit));
+            await attempt([platform], "Could not release ad focus", () =>
+              tabs.watch.applyAdFocus(platform, state.sessions[platform].tabId, false, emit),
+            );
+            await attempt([platform], "Could not stop watch tab", () =>
+              tabs.watch.stop(state.sessions[platform], { closeManagedTabs: true }, emit),
+            );
           }
-          await attempt(PLATFORMS, "Could not stop page contexts", () => tabs.pageContexts.release(state.managedPageContextTabs ?? {}, {
-            platforms: PLATFORMS,
-            reason: "automation_disabled",
-            emit,
-          }));
+          await attempt(PLATFORMS, "Could not stop page contexts", () =>
+            tabs.pageContexts.release(state.managedPageContextTabs ?? {}, {
+              platforms: PLATFORMS,
+              reason: "automation_disabled",
+              emit,
+            }),
+          );
           await reportBestEffort(events);
         });
       }

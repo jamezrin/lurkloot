@@ -8,7 +8,10 @@ export type CampaignRankTier = "pinned" | "favourite" | "strategy";
 
 const TIER_ORDER: Record<CampaignRankTier, number> = { pinned: 0, favourite: 1, strategy: 2 };
 
-export function campaignRankTier(campaign: DropCampaign, settings: EngineSettings): CampaignRankTier {
+export function campaignRankTier(
+  campaign: DropCampaign,
+  settings: EngineSettings,
+): CampaignRankTier {
   if (pinIndex(campaign, settings) !== -1) return "pinned";
   if (favouriteIndex(campaign, settings) !== -1) return "favourite";
   return "strategy";
@@ -26,7 +29,9 @@ function favouriteIndex(campaign: DropCampaign, settings: EngineSettings): numbe
 }
 
 function availabilityScore(campaign: DropCampaign): number {
-  return campaign.allowedChannels?.length ? campaign.allowedChannels.length : Number.MAX_SAFE_INTEGER;
+  return campaign.allowedChannels?.length
+    ? campaign.allowedChannels.length
+    : Number.MAX_SAFE_INTEGER;
 }
 
 function endScore(campaign: DropCampaign): number {

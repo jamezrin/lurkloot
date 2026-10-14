@@ -40,9 +40,15 @@ function type(value: string, container: Element): void {
   });
 }
 
-function mount(settings: ExtensionSettings, handlers: Partial<React.ComponentProps<typeof GamesPanel>> = {}) {
+function mount(
+  settings: ExtensionSettings,
+  handlers: Partial<React.ComponentProps<typeof GamesPanel>> = {},
+) {
   document.body.innerHTML = "<div id=app></div>";
-  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => { callback(0); return 1; });
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+    callback(0);
+    return 1;
+  });
   vi.stubGlobal("cancelAnimationFrame", () => undefined);
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const container = document.getElementById("app")!;
@@ -84,42 +90,72 @@ describe("games view", () => {
   });
 
   it("lists favourites first, in the order their stars rank, and numbers them", () => {
-    const { container } = mount(settingsWith({ categoryMode: "all", favouriteCategories: [other, rust] }));
+    const { container } = mount(
+      settingsWith({ categoryMode: "all", favouriteCategories: [other, rust] }),
+    );
 
-    const order = [...container.querySelectorAll<HTMLElement>("[data-game]")].map((node) => node.dataset.game);
+    const order = [...container.querySelectorAll<HTMLElement>("[data-game]")].map(
+      (node) => node.dataset.game,
+    );
     expect(order).toEqual(["other", "rust"]);
-    expect(row(container, "other")?.querySelector("[data-game-favourite-rank]")?.textContent).toBe("1");
-    expect(row(container, "rust")?.querySelector("[data-game-favourite-rank]")?.textContent).toBe("2");
+    expect(row(container, "other")?.querySelector("[data-game-favourite-rank]")?.textContent).toBe(
+      "1",
+    );
+    expect(row(container, "rust")?.querySelector("[data-game-favourite-rank]")?.textContent).toBe(
+      "2",
+    );
   });
 
   it("puts starred games above the rest", () => {
-    const { container } = mount(settingsWith({ categoryMode: "all", favouriteCategories: [other] }));
+    const { container } = mount(
+      settingsWith({ categoryMode: "all", favouriteCategories: [other] }),
+    );
 
-    const order = [...container.querySelectorAll<HTMLElement>("[data-game]")].map((node) => node.dataset.game);
+    const order = [...container.querySelectorAll<HTMLElement>("[data-game]")].map(
+      (node) => node.dataset.game,
+    );
     expect(order).toEqual(["other", "rust"]);
-    expect(row(container, "rust")?.querySelector("[data-game-favourite-rank]")?.textContent).toBe("");
+    expect(row(container, "rust")?.querySelector("[data-game-favourite-rank]")?.textContent).toBe(
+      "",
+    );
   });
 
   it("stars a game so its campaigns rank above the strategy", () => {
     const { container, props } = mount(settingsWith({ categoryMode: "all" }));
 
-    act(() => container.querySelector<HTMLButtonElement>('[data-game="rust"] [data-game-favourite]')?.click());
+    act(() =>
+      container
+        .querySelector<HTMLButtonElement>('[data-game="rust"] [data-game-favourite]')
+        ?.click(),
+    );
 
     expect(props.onFavouritesChange).toHaveBeenCalledWith([rust]);
   });
 
   it("removes a star without touching the rest of the list", () => {
-    const { container, props } = mount(settingsWith({ categoryMode: "all", favouriteCategories: [rust, other] }));
+    const { container, props } = mount(
+      settingsWith({ categoryMode: "all", favouriteCategories: [rust, other] }),
+    );
 
-    act(() => container.querySelector<HTMLButtonElement>('[data-game="rust"] [data-game-favourite]')?.click());
+    act(() =>
+      container
+        .querySelector<HTMLButtonElement>('[data-game="rust"] [data-game-favourite]')
+        ?.click(),
+    );
 
     expect(props.onFavouritesChange).toHaveBeenCalledWith([other]);
   });
 
   it("selects a game when it is starred while only selected games are farmed", () => {
-    const { container, props } = mount(settingsWith({ categoryMode: "include", categories: [other] }));
+    const { container, props } = mount(
+      settingsWith({ categoryMode: "include", categories: [other] }),
+    );
 
-    act(() => container.querySelector<HTMLButtonElement>('[data-game="rust"] [data-game-favourite]')?.click());
+    act(() =>
+      container
+        .querySelector<HTMLButtonElement>('[data-game="rust"] [data-game-favourite]')
+        ?.click(),
+    );
 
     expect(props.onFavouritesChange).toHaveBeenCalledWith([rust]);
     expect(props.onCategoriesChange).toHaveBeenCalledWith([other, rust]);
@@ -128,13 +164,20 @@ describe("games view", () => {
   it("moves a blocked game to its own list", () => {
     const { container, props } = mount(settingsWith({ categoryMode: "all" }));
 
-    act(() => container.querySelector<HTMLButtonElement>('[data-game="rust"] [data-game-block]')?.click());
+    act(() =>
+      container.querySelector<HTMLButtonElement>('[data-game="rust"] [data-game-block]')?.click(),
+    );
 
     expect(props.onBlockedChange).toHaveBeenCalledWith([rust]);
   });
 
   it("keeps a blocked game's star and selection so unblocking restores them", () => {
-    const blocked = settingsWith({ categoryMode: "include", categories: [rust], favouriteCategories: [rust], blockedCategories: [rust] });
+    const blocked = settingsWith({
+      categoryMode: "include",
+      categories: [rust],
+      favouriteCategories: [rust],
+      blockedCategories: [rust],
+    });
     const { container, props } = mount(blocked);
 
     // Blocked games wait behind a chip at the top that counts them.
@@ -157,12 +200,19 @@ describe("games view", () => {
   it("ticks a game into the allowlist only while the mode uses one", () => {
     const { container, props } = mount(settingsWith({ categoryMode: "include", categories: [] }));
 
-    act(() => container.querySelector<HTMLButtonElement>('[data-game="rust"] [data-game-select]')?.click());
+    act(() =>
+      container.querySelector<HTMLButtonElement>('[data-game="rust"] [data-game-select]')?.click(),
+    );
     expect(props.onCategoriesChange).toHaveBeenCalledWith([rust]);
   });
 
   it("filters the list from the search at the top, blocked games included", () => {
-    const { container } = mount(settingsWith({ categoryMode: "all", blockedCategories: [{ id: "rusty", name: "Rusty Lake" }] }));
+    const { container } = mount(
+      settingsWith({
+        categoryMode: "all",
+        blockedCategories: [{ id: "rusty", name: "Rusty Lake" }],
+      }),
+    );
 
     type("rus", container);
 
@@ -177,10 +227,14 @@ describe("games view", () => {
       ["include", "gamesAddActionFarm", "onCategoriesChange"],
       ["all", "gamesAddActionFavourite", "onFavouritesChange"],
     ] as const) {
-      const { container, props } = mount(settingsWith({ categoryMode }), { onSearchCategories: async () => [found, rust] });
+      const { container, props } = mount(settingsWith({ categoryMode }), {
+        onSearchCategories: async () => [found, rust],
+      });
 
       type("rust", container);
-      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 400)); });
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 400));
+      });
 
       const result = container.querySelector('[data-game-result="new"]');
       // A game already on screen is not offered again.

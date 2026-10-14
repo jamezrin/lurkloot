@@ -1,6 +1,15 @@
 import type { EventEmitter } from "@lurkloot/shared/events";
-import type { ChatPresenceStatus, EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
-import { chatPresenceDecision, type ChatPresenceClient, type ChatPresenceDecision } from "../core/chatPresence";
+import type {
+  ChatPresenceStatus,
+  EngineSettings,
+  Platform,
+  SchedulerState,
+} from "@lurkloot/shared/models";
+import {
+  chatPresenceDecision,
+  type ChatPresenceClient,
+  type ChatPresenceDecision,
+} from "../core/chatPresence";
 import { hasRecentManualWatch } from "../core/manualWatch";
 import type { PlatformAdapter } from "../platforms/adapter";
 import { PLATFORMS } from "./constants";
@@ -19,20 +28,28 @@ export function createChatPresence<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
   transaction: Pick<StateTransaction<S>, "onCommit" | "onTickConcluded">,
   { lifecycleSlice }: Pick<ControllerSlices<S>, "lifecycleSlice">,
-  calls: Pick<ControllerCalls<S>,
+  calls: Pick<
+    ControllerCalls<S>,
     | "createAdapter"
     | "diagnosticEvent"
     | "reportBestEffort"
     | "withEventCollector"
     | "trackBackgroundWork"
   >,
-): Pick<ControllerCalls<S>,
+): Pick<
+  ControllerCalls<S>,
   | "chatPresenceEpochs"
   | "chatPresenceStatuses"
   | "stopChatPresenceAndReport"
   | "stopChatPresenceInBackground"
 > {
-  const { createAdapter, diagnosticEvent, reportBestEffort, withEventCollector, trackBackgroundWork } = lateBound(calls);
+  const {
+    createAdapter,
+    diagnosticEvent,
+    reportBestEffort,
+    withEventCollector,
+    trackBackgroundWork,
+  } = lateBound(calls);
   const slots: Record<Platform, ObserverSlot<ChatPresenceClient>> = {
     twitch: new ObserverSlot<ChatPresenceClient>("twitch", "chat presence", "discard"),
     kick: new ObserverSlot<ChatPresenceClient>("kick", "chat presence", "discard"),
@@ -66,7 +83,9 @@ export function createChatPresence<S extends EngineSettings>(
   ): Promise<void> {
     reconciled[platform] = true;
     pauseOnManualWatch = settings.pauseOnManualWatch;
-    const decision = chatPresenceDecision(platform, settings, state, { capability: ports.capabilities.chatPresence });
+    const decision = chatPresenceDecision(platform, settings, state, {
+      capability: ports.capabilities.chatPresence,
+    });
     const factory = adapter.createChatPresenceClient;
     // Only the setting promises chat. A provider that needs presence the
     // platform cannot give says so on its own card.
@@ -92,7 +111,11 @@ export function createChatPresence<S extends EngineSettings>(
 
   // Once per presence session, and only for a client the slot kept: a start
   // that backed off or failed announces nothing.
-  function announce(platform: Platform, decision: ChatPresenceDecision | undefined, emit: EventEmitter): void {
+  function announce(
+    platform: Platform,
+    decision: ChatPresenceDecision | undefined,
+    emit: EventEmitter,
+  ): void {
     if (decision?.trigger.kind !== "provider" || !slots[platform].current) {
       announced[platform] = undefined;
       return;
@@ -115,7 +138,10 @@ export function createChatPresence<S extends EngineSettings>(
     return slots[platform].stop(emit);
   }
 
-  async function stopChatPresence(platforms: readonly Platform[], emit: EventEmitter): Promise<void> {
+  async function stopChatPresence(
+    platforms: readonly Platform[],
+    emit: EventEmitter,
+  ): Promise<void> {
     await Promise.all(platforms.map((platform) => stopSlot(platform, emit)));
   }
 
@@ -128,8 +154,11 @@ export function createChatPresence<S extends EngineSettings>(
 
   function stopChatPresenceInBackground(platforms: readonly Platform[]): void {
     const run = stopChatPresenceAndReport(platforms).catch((error) => {
-      diagnosticEvent("warn", `Chat presence cleanup failed: ${errorMessage(error)}`,
-        platforms.length === 1 ? platforms[0] : undefined);
+      diagnosticEvent(
+        "warn",
+        `Chat presence cleanup failed: ${errorMessage(error)}`,
+        platforms.length === 1 ? platforms[0] : undefined,
+      );
     });
     trackBackgroundWork(run);
   }
@@ -166,21 +195,26 @@ export function createChatPresence<S extends EngineSettings>(
     // Stopped whether or not a client exists yet: the stop bumps the slot's
     // epoch, so a reconcile that read the older state backs off (#595), as
     // the discovery-signal observers do.
-    const stopping = change.platforms.filter((platform) =>
-      state.authHealth[platform].status !== "healthy"
-      || (previous.sessions[platform].status === "watching" && state.sessions[platform].status !== "watching")
-      || (manuallyPaused(state, platform) && !manuallyPaused(previous, platform)));
+    const stopping = change.platforms.filter(
+      (platform) =>
+        state.authHealth[platform].status !== "healthy"
+        || (previous.sessions[platform].status === "watching"
+          && state.sessions[platform].status !== "watching")
+        || (manuallyPaused(state, platform) && !manuallyPaused(previous, platform)),
+    );
     // Auth recovering on a running watch (an account check, a cookie change)
     // rejoins at once instead of waiting for the next tick.
-    const missing = change.platforms.filter((platform) =>
-      !stopping.includes(platform)
-      && (!reconciled[platform] || previous.authHealth[platform].status !== "healthy")
-      && slots[platform].current === undefined
-      && state.authHealth[platform].status === "healthy"
-      && previous.sessions[platform].status === "watching"
-      && previous.sessions[platform].watchMode === "tabless"
-      && state.sessions[platform].status === "watching"
-      && state.sessions[platform].watchMode === "tabless");
+    const missing = change.platforms.filter(
+      (platform) =>
+        !stopping.includes(platform)
+        && (!reconciled[platform] || previous.authHealth[platform].status !== "healthy")
+        && slots[platform].current === undefined
+        && state.authHealth[platform].status === "healthy"
+        && previous.sessions[platform].status === "watching"
+        && previous.sessions[platform].watchMode === "tabless"
+        && state.sessions[platform].status === "watching"
+        && state.sessions[platform].watchMode === "tabless",
+    );
     if (missing.length > 0) {
       // Read under the commit: a stop after this point makes `state` stale.
       const since = chatPresenceEpochs(missing);
@@ -203,10 +237,22 @@ export function createChatPresence<S extends EngineSettings>(
         for (const platform of platforms) {
           if (!observersOpen()) return;
           reconciled[platform] = true;
-          if (!chatPresenceDecision(platform, settings, state, { capability: ports.capabilities.chatPresence })) continue;
+          if (
+            !chatPresenceDecision(platform, settings, state, {
+              capability: ports.capabilities.chatPresence,
+            })
+          )
+            continue;
           const adapter = createAdapter(platform, settings, emit);
           try {
-            await reconcile(platform, settings, state, adapter, emit, since[platform] ?? slots[platform].epoch);
+            await reconcile(
+              platform,
+              settings,
+              state,
+              adapter,
+              emit,
+              since[platform] ?? slots[platform].epoch,
+            );
           } finally {
             adapter.flushRouteDiagnostics?.(emit);
           }
@@ -245,14 +291,21 @@ export function createChatPresence<S extends EngineSettings>(
               continue;
             }
             let since = epochs[platform] ?? slots[platform].epoch;
-            if (!chatPresenceDecision(platform, settings, state, { capability: ports.capabilities.chatPresence })) {
+            if (
+              !chatPresenceDecision(platform, settings, state, {
+                capability: ports.capabilities.chatPresence,
+              })
+            ) {
               if (slots[platform].current) await stopSlot(platform, emit);
               continue;
             }
             // A blocked client never retries a rejected login by itself; a
             // save is the user acting, so it gets a fresh client. Ticks keep
             // it (a credential change or a restart also replaces it).
-            if (slots[platform].current?.status().state === "blocked" && slots[platform].epoch === since) {
+            if (
+              slots[platform].current?.status().state === "blocked"
+              && slots[platform].epoch === since
+            ) {
               const stopped = stopSlot(platform, emit);
               // The epoch has moved for our own stop; any later one still
               // makes the reconcile back off.
@@ -277,18 +330,35 @@ export function createChatPresence<S extends EngineSettings>(
   // watch. A stop since the commit bumps the epoch, so it backs off.
   transaction.onTickConcluded((tick) => {
     if (tick.signal.aborted || !ports.capabilities.chatPresence) return;
-    tick.follow(withEventCollector(async (emit, events) => {
-      for (const platform of tick.platforms) {
-        try {
-          await reconcile(platform, tick.settings, tick.state, tick.adapters[platform], emit,
-            tick.observerEpochs.chatPresence[platform] ?? slots[platform].epoch);
-        } catch (error) {
-          diagnosticEvent("warn", `Chat presence reconcile failed: ${errorMessage(error)}`, platform);
+    tick.follow(
+      withEventCollector(async (emit, events) => {
+        for (const platform of tick.platforms) {
+          try {
+            await reconcile(
+              platform,
+              tick.settings,
+              tick.state,
+              tick.adapters[platform],
+              emit,
+              tick.observerEpochs.chatPresence[platform] ?? slots[platform].epoch,
+            );
+          } catch (error) {
+            diagnosticEvent(
+              "warn",
+              `Chat presence reconcile failed: ${errorMessage(error)}`,
+              platform,
+            );
+          }
         }
-      }
-      await reportBestEffort(tick.correlate(events));
-    }));
+        await reportBestEffort(tick.correlate(events));
+      }),
+    );
   });
 
-  return { chatPresenceEpochs, chatPresenceStatuses, stopChatPresenceAndReport, stopChatPresenceInBackground };
+  return {
+    chatPresenceEpochs,
+    chatPresenceStatuses,
+    stopChatPresenceAndReport,
+    stopChatPresenceInBackground,
+  };
 }

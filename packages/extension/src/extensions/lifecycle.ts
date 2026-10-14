@@ -6,18 +6,24 @@ export function createTwitchExtensionLifecycle(
   start: (channelId: string, signal: AbortSignal) => Promise<void | (() => void)>,
 ) {
   type Outcome = "active" | "cancelled" | "failed";
-  let current: {
-    channelId: string;
-    abort: AbortController;
-    cleanup?: () => void;
-    pending?: Promise<Outcome>;
-  } | undefined;
+  let current:
+    | {
+        channelId: string;
+        abort: AbortController;
+        cleanup?: () => void;
+        pending?: Promise<Outcome>;
+      }
+    | undefined;
 
   function dispose(entry: NonNullable<typeof current>) {
     entry.abort.abort();
     const cleanup = entry.cleanup;
     entry.cleanup = undefined;
-    try { cleanup?.(); } catch { /* Never expose vendor exceptions. */ }
+    try {
+      cleanup?.();
+    } catch {
+      /* Never expose vendor exceptions. */
+    }
   }
   function stop() {
     const previous = current;

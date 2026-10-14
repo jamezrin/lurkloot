@@ -5,8 +5,12 @@ import { join } from "node:path";
 import { loadState, saveState } from "../src/storage";
 
 let dir: string;
-beforeEach(async () => { dir = await mkdtemp(join(tmpdir(), "lurkloot-state-")); });
-afterEach(async () => { await rm(dir, { recursive: true, force: true }); });
+beforeEach(async () => {
+  dir = await mkdtemp(join(tmpdir(), "lurkloot-state-"));
+});
+afterEach(async () => {
+  await rm(dir, { recursive: true, force: true });
+});
 
 describe("file-backed state", () => {
   it("returns a normalized default state when the file is missing", async () => {
@@ -31,7 +35,9 @@ describe("file-backed state", () => {
 
   it("normalizes a partial stored state via mergeSchedulerState", async () => {
     const path = join(dir, "state.json");
-    await saveState(path, { sessions: { twitch: { platform: "twitch", offlineChecks: 0, status: "idle" } } } as never);
+    await saveState(path, {
+      sessions: { twitch: { platform: "twitch", offlineChecks: 0, status: "idle" } },
+    } as never);
     const reloaded = await loadState(path);
     // Missing slices are filled in from the defaults.
     expect(reloaded.sessions.kick).toBeDefined();
@@ -54,7 +60,7 @@ describe("file-backed state", () => {
     previous.sessions.twitch.status = "watching";
     await saveState(path, previous);
 
-    const circular = await loadState(path) as unknown as Record<string, unknown>;
+    const circular = (await loadState(path)) as unknown as Record<string, unknown>;
     circular.self = circular;
     await expect(saveState(path, circular as never)).rejects.toThrow();
 
@@ -64,15 +70,19 @@ describe("file-backed state", () => {
 
   it("replaces state.json by rename, leaving no temporary files after concurrent saves", async () => {
     const path = join(dir, "state.json");
-    const states = await Promise.all(["idle", "watching", "paused"].map(async (status) => {
-      const state = await loadState(path);
-      state.sessions.twitch.status = status as never;
-      return state;
-    }));
+    const states = await Promise.all(
+      ["idle", "watching", "paused"].map(async (status) => {
+        const state = await loadState(path);
+        state.sessions.twitch.status = status as never;
+        return state;
+      }),
+    );
     await Promise.all(states.map((state) => saveState(path, state)));
 
     expect(await readdir(dir)).toEqual(["state.json"]);
-    expect(["idle", "watching", "paused"]).toContain((await loadState(path)).sessions.twitch.status);
+    expect(["idle", "watching", "paused"]).toContain(
+      (await loadState(path)).sessions.twitch.status,
+    );
   });
 
   it("does not write through to state.json in place when the rename fails", async () => {

@@ -2,7 +2,8 @@ import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const directory = process.argv[2] ?? fileURLToPath(new URL("../packages/locales/messages/", import.meta.url));
+const directory =
+  process.argv[2] ?? fileURLToPath(new URL("../packages/locales/messages/", import.meta.url));
 
 async function readCatalog(filename) {
   const catalog = JSON.parse(await readFile(join(directory, filename), "utf8"));

@@ -6,7 +6,13 @@ import { KICK_SOCKET_ORIGIN, PUSHER_SOCKET_ORIGIN, TWITCH_SOCKET_ORIGIN } from "
 // The platform sockets the extension may open, each with the host permission
 // its Origin rewrite needs and the frames it forwards (#792). The socket host
 // opens these URLs and nothing else.
-export type SocketProfileName = "twitch-hermes" | "twitch-irc" | "kick-realtime" | "kick-pusher" | "kick-viewer" | "fortnite";
+export type SocketProfileName =
+  | "twitch-hermes"
+  | "twitch-irc"
+  | "kick-realtime"
+  | "kick-pusher"
+  | "kick-viewer"
+  | "fortnite";
 
 export interface SocketProfile {
   name: SocketProfileName;
@@ -16,19 +22,51 @@ export interface SocketProfile {
 }
 
 const PROFILES: Array<SocketProfile & { url: RegExp }> = [
-  { name: "twitch-hermes", platform: "twitch", permission: TWITCH_SOCKET_ORIGIN, url: /^wss:\/\/hermes\.twitch\.tv\/v1\?clientId=[a-z0-9]+$/i },
-  { name: "twitch-irc", platform: "twitch", permission: TWITCH_SOCKET_ORIGIN, url: /^wss:\/\/irc-ws\.chat\.twitch\.tv\/$/i },
-  { name: "kick-realtime", platform: "kick", permission: KICK_SOCKET_ORIGIN, url: /^wss:\/\/realtime\.[a-z0-9-]+\.platform\.kick\.com\/connection\/websocket$/i },
-  { name: "kick-pusher", platform: "kick", permission: PUSHER_SOCKET_ORIGIN, url: /^wss:\/\/ws-[a-z0-9-]+\.pusher\.com\/app\/[a-z0-9]+\?[^#\s]*$/i },
-  { name: "kick-viewer", platform: "kick", permission: KICK_SOCKET_ORIGIN, url: /^wss:\/\/websockets\.kick\.com\/viewer\/v1\/connect\?token=[^#\s&]+$/i },
+  {
+    name: "twitch-hermes",
+    platform: "twitch",
+    permission: TWITCH_SOCKET_ORIGIN,
+    url: /^wss:\/\/hermes\.twitch\.tv\/v1\?clientId=[a-z0-9]+$/i,
+  },
+  {
+    name: "twitch-irc",
+    platform: "twitch",
+    permission: TWITCH_SOCKET_ORIGIN,
+    url: /^wss:\/\/irc-ws\.chat\.twitch\.tv\/$/i,
+  },
+  {
+    name: "kick-realtime",
+    platform: "kick",
+    permission: KICK_SOCKET_ORIGIN,
+    url: /^wss:\/\/realtime\.[a-z0-9-]+\.platform\.kick\.com\/connection\/websocket$/i,
+  },
+  {
+    name: "kick-pusher",
+    platform: "kick",
+    permission: PUSHER_SOCKET_ORIGIN,
+    url: /^wss:\/\/ws-[a-z0-9-]+\.pusher\.com\/app\/[a-z0-9]+\?[^#\s]*$/i,
+  },
+  {
+    name: "kick-viewer",
+    platform: "kick",
+    permission: KICK_SOCKET_ORIGIN,
+    url: /^wss:\/\/websockets\.kick\.com\/viewer\/v1\/connect\?token=[^#\s&]+$/i,
+  },
   // The Fortnite Twitch Extension's backend (#798). Its driver reads every
   // frame (replies to its own commands, state pushes), so nothing is dropped.
-  { name: "fortnite", platform: "twitch", permission: twitchExtensionProvider("fortnite")!.backendSocketOrigin!, url: /^wss:\/\/backend\.p-n6412w7dsu\.exmggames\.com\/handler$/i },
+  {
+    name: "fortnite",
+    platform: "twitch",
+    permission: twitchExtensionProvider("fortnite")!.backendSocketOrigin!,
+    url: /^wss:\/\/backend\.p-n6412w7dsu\.exmggames\.com\/handler$/i,
+  },
 ];
 
 export function socketProfileFor(url: string): SocketProfile | undefined {
   const match = PROFILES.find((profile) => profile.url.test(url));
-  return match ? { name: match.name, platform: match.platform, permission: match.permission } : undefined;
+  return match
+    ? { name: match.name, platform: match.platform, permission: match.permission }
+    : undefined;
 }
 
 // What the host forwards of a socket frame, decided by prefix and unparsed,
@@ -65,11 +103,16 @@ function ircCommand(line: string): string | undefined {
 // Centrifugo: every line but a "push" on a channel other than drops_*.
 // Drop channels are forwarded for discovery signals (#755).
 function forwardedCentrifugo(data: string): string | undefined {
-  const kept = data.split("\n").filter((line) => line.length > 0
-    && (!line.startsWith("{\"push\"") || line.startsWith(CENTRIFUGO_FORWARDED_PUSH)));
+  const kept = data
+    .split("\n")
+    .filter(
+      (line) =>
+        line.length > 0
+        && (!line.startsWith('{"push"') || line.startsWith(CENTRIFUGO_FORWARDED_PUSH)),
+    );
   return kept.length > 0 ? kept.join("\n") : undefined;
 }
-const CENTRIFUGO_FORWARDED_PUSH = "{\"push\":{\"channel\":\"drops_";
+const CENTRIFUGO_FORWARDED_PUSH = '{"push":{"channel":"drops_';
 // Pusher: its own protocol frames and Kick's plain snake_case events
 // (drops_campaign_started); chat events are named App\Events\…
 const PUSHER_FORWARDED_EVENT = /^\{"event":"(?:pusher[a-z_]*:[a-z_]+|[a-z0-9_]+)"/;

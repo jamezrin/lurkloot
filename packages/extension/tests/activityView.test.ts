@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ActivityEvent, ActivityHistoryRecord, FarmingStopReason } from "@lurkloot/shared/events";
+import type {
+  ActivityEvent,
+  ActivityHistoryRecord,
+  FarmingStopReason,
+} from "@lurkloot/shared/events";
 import {
   advanceActivityRequestScope,
   applyActivityMutationForRequest,
@@ -34,68 +38,147 @@ function event(id: string, eventAt = at): ActivityHistoryRecord {
 
 describe("activity view model", () => {
   it("builds an exhaustive rich card for each current activity code", () => {
-    const t = vi.fn((key: string, substitutions?: string | string[]) =>
-      `${key}:${Array.isArray(substitutions) ? substitutions.join("|") : substitutions ?? ""}`);
+    const t = vi.fn(
+      (key: string, substitutions?: string | string[]) =>
+        `${key}:${Array.isArray(substitutions) ? substitutions.join("|") : (substitutions ?? "")}`,
+    );
     const events = {
-      twitch_extension_action: { id: "extension-joined", at, category: "activity", code: "twitch_extension_action", level: "info", platform: "twitch", data: { provider: "nopixel", action: "giveaway_joined", channel: "buddha" } },
+      twitch_extension_action: {
+        id: "extension-joined",
+        at,
+        category: "activity",
+        code: "twitch_extension_action",
+        level: "info",
+        platform: "twitch",
+        data: { provider: "nopixel", action: "giveaway_joined", channel: "buddha" },
+      },
       farming_started: {
-        id: "farming-started", at, category: "activity", code: "farming_started", level: "info", platform: "twitch",
+        id: "farming-started",
+        at,
+        category: "activity",
+        code: "farming_started",
+        level: "info",
+        platform: "twitch",
         data: {
-          campaignId: "campaign", campaignName: "Campaign", campaignUrl: "https://example.test/campaign",
-          rewardId: "reward", rewardName: "Golden Hat", rewardImageUrl: "https://cdn.example.test/reward.png",
+          campaignId: "campaign",
+          campaignName: "Campaign",
+          campaignUrl: "https://example.test/campaign",
+          rewardId: "reward",
+          rewardName: "Golden Hat",
+          rewardImageUrl: "https://cdn.example.test/reward.png",
           channel: "streamer",
         },
       },
       farming_stopped: {
-        id: "farming-stopped", at, category: "activity", code: "farming_stopped", level: "error", platform: "twitch",
+        id: "farming-stopped",
+        at,
+        category: "activity",
+        code: "farming_stopped",
+        level: "error",
+        platform: "twitch",
         data: {
-          campaignId: "campaign", campaignName: "Campaign", campaignUrl: "https://example.test/campaign",
-          rewardId: "reward", rewardName: "Golden Hat", rewardImageUrl: "https://cdn.example.test/reward.png",
+          campaignId: "campaign",
+          campaignName: "Campaign",
+          campaignUrl: "https://example.test/campaign",
+          rewardId: "reward",
+          rewardName: "Golden Hat",
+          rewardImageUrl: "https://cdn.example.test/reward.png",
           reason: "runtime_restart",
         },
       },
       reward_claimed: {
-        id: "reward-claimed", at, category: "activity", code: "reward_claimed", level: "info", platform: "twitch",
+        id: "reward-claimed",
+        at,
+        category: "activity",
+        code: "reward_claimed",
+        level: "info",
+        platform: "twitch",
         data: {
-          campaignId: "campaign", campaignName: "Campaign", campaignUrl: "https://example.test/campaign",
-          rewardId: "reward", rewardName: "Golden Hat", rewardImageUrl: "https://cdn.example.test/reward.png",
+          campaignId: "campaign",
+          campaignName: "Campaign",
+          campaignUrl: "https://example.test/campaign",
+          rewardId: "reward",
+          rewardName: "Golden Hat",
+          rewardImageUrl: "https://cdn.example.test/reward.png",
           method: "automatic",
         },
       },
       interruption: {
-        id: "interruption", at, category: "activity", code: "interruption", level: "warn",
+        id: "interruption",
+        at,
+        category: "activity",
+        code: "interruption",
+        level: "warn",
         data: { reason: "runtime_restart", detail: "The browser restarted." },
       },
       challenge_claimed: {
-        id: "challenge-claimed", at, category: "activity", code: "challenge_claimed", level: "info", platform: "kick",
+        id: "challenge-claimed",
+        at,
+        category: "activity",
+        code: "challenge_claimed",
+        level: "info",
+        platform: "kick",
         data: { challengeId: "challenge", rarity: "rare", recurrence: "daily" },
       },
       page_context_opened: {
-        id: "page-context-opened", at, category: "activity", code: "page_context_opened", level: "info", platform: "kick",
+        id: "page-context-opened",
+        at,
+        category: "activity",
+        code: "page_context_opened",
+        level: "info",
+        platform: "kick",
         data: { host: "kick.com", reason: "background_rejected" },
       },
       page_context_closed: {
-        id: "page-context-closed", at, category: "activity", code: "page_context_closed", level: "info", platform: "kick",
+        id: "page-context-closed",
+        at,
+        category: "activity",
+        code: "page_context_closed",
+        level: "info",
+        platform: "kick",
         data: { host: "kick.com", reason: "background_recovered" },
       },
       auth_health_changed: {
-        id: "auth-health-changed", at, category: "activity", code: "auth_health_changed", level: "warn", platform: "twitch",
+        id: "auth-health-changed",
+        at,
+        category: "activity",
+        code: "auth_health_changed",
+        level: "warn",
+        platform: "twitch",
         data: { from: "checking", to: "healthy", reason: "credentials_rejected" },
       },
       critical_failure_detected: {
-        id: "critical-failure-detected", at, category: "activity", code: "critical_failure_detected", level: "error", platform: "twitch",
+        id: "critical-failure-detected",
+        at,
+        category: "activity",
+        code: "critical_failure_detected",
+        level: "error",
+        platform: "twitch",
         data: { reason: "page_context_churn" },
       },
       critical_failure_cleared: {
-        id: "critical-failure-cleared", at, category: "activity", code: "critical_failure_cleared", level: "info", platform: "twitch",
+        id: "critical-failure-cleared",
+        at,
+        category: "activity",
+        code: "critical_failure_cleared",
+        level: "info",
+        platform: "twitch",
         data: { reason: "no_progress" },
       },
     } satisfies Record<ActivityEvent["code"], ActivityHistoryRecord>;
     const diagnostic: ActivityHistoryRecord = {
-      id: "diagnostic", at, category: "diagnostic", level: "debug", message: "network detail",
+      id: "diagnostic",
+      at,
+      category: "diagnostic",
+      level: "debug",
+      message: "network detail",
     };
     const legacy: ActivityHistoryRecord = {
-      id: "legacy", at, level: "info", message: "old activity", legacy: true,
+      id: "legacy",
+      at,
+      level: "info",
+      message: "old activity",
+      legacy: true,
     };
 
     for (const event of Object.values(events)) {
@@ -108,15 +191,19 @@ describe("activity view model", () => {
       reward: { name: "Golden Hat", imageUrl: "https://cdn.example.test/reward.png" },
       campaignUrl: "https://example.test/campaign",
     });
-    expect(buildActivityCard(events.interruption, t)?.chips).toContain("activityReasonRuntimeRestart:");
+    expect(buildActivityCard(events.interruption, t)?.chips).toContain(
+      "activityReasonRuntimeRestart:",
+    );
     expect(buildActivityCard(events.auth_health_changed, t)?.detail).toContain("Healthy");
     expect(buildActivityCard(legacy, t)).toBeUndefined();
     expect(buildActivityCard(diagnostic, t)).toBeUndefined();
   });
 
   it("formats current activity wording from code and payload", () => {
-    const t = vi.fn((key: string, substitutions?: string | string[]) =>
-      `${key}:${Array.isArray(substitutions) ? substitutions.join("|") : substitutions ?? ""}`);
+    const t = vi.fn(
+      (key: string, substitutions?: string | string[]) =>
+        `${key}:${Array.isArray(substitutions) ? substitutions.join("|") : (substitutions ?? "")}`,
+    );
     const stopped: ActivityHistoryRecord = {
       id: "stopped",
       at,
@@ -140,53 +227,80 @@ describe("activity view model", () => {
   });
 
   it("formats managed page-context opens and closes with their reasons", () => {
-    const t = vi.fn((key: string, substitutions?: string | string[]) =>
-      `${key}:${Array.isArray(substitutions) ? substitutions.join("|") : substitutions ?? ""}`);
+    const t = vi.fn(
+      (key: string, substitutions?: string | string[]) =>
+        `${key}:${Array.isArray(substitutions) ? substitutions.join("|") : (substitutions ?? "")}`,
+    );
 
-    expect(formatActivityEvent({
-      id: "opened",
-      at,
-      category: "activity",
-      code: "page_context_opened",
-      level: "info",
-      platform: "kick",
-      data: { host: "kick.com", reason: "background_rejected" },
-    }, t)).toBe("activityPageContextOpened:kick.com|activityPageContextOpenReasonBackgroundRejected:");
+    expect(
+      formatActivityEvent(
+        {
+          id: "opened",
+          at,
+          category: "activity",
+          code: "page_context_opened",
+          level: "info",
+          platform: "kick",
+          data: { host: "kick.com", reason: "background_rejected" },
+        },
+        t,
+      ),
+    ).toBe("activityPageContextOpened:kick.com|activityPageContextOpenReasonBackgroundRejected:");
 
-    expect(formatActivityEvent({
-      id: "closed",
-      at,
-      category: "activity",
-      code: "page_context_closed",
-      level: "info",
-      platform: "kick",
-      data: { host: "kick.com", reason: "background_recovered" },
-    }, t)).toBe("activityPageContextClosed:kick.com|activityPageContextCloseReasonBackgroundRecovered:");
+    expect(
+      formatActivityEvent(
+        {
+          id: "closed",
+          at,
+          category: "activity",
+          code: "page_context_closed",
+          level: "info",
+          platform: "kick",
+          data: { host: "kick.com", reason: "background_recovered" },
+        },
+        t,
+      ),
+    ).toBe("activityPageContextClosed:kick.com|activityPageContextCloseReasonBackgroundRecovered:");
   });
 
   it("formats complete authentication health transitions", () => {
-    const t = vi.fn((key: string, substitutions?: string | string[]) =>
-      `${key}:${Array.isArray(substitutions) ? substitutions.join("|") : substitutions ?? ""}`);
+    const t = vi.fn(
+      (key: string, substitutions?: string | string[]) =>
+        `${key}:${Array.isArray(substitutions) ? substitutions.join("|") : (substitutions ?? "")}`,
+    );
 
-    expect(formatActivityEvent({
-      id: "auth-transition",
-      at,
-      category: "activity",
-      code: "auth_health_changed",
-      level: "warn",
-      platform: "kick",
-      data: { from: "checking", to: "missing_credentials", reason: "credentials_missing" },
-    }, t)).toBe("activityAuthHealthChanged:Kick|Checking|Missing Credentials");
-    expect(t).toHaveBeenCalledWith("activityAuthHealthChanged", ["Kick", "Checking", "Missing Credentials"]);
+    expect(
+      formatActivityEvent(
+        {
+          id: "auth-transition",
+          at,
+          category: "activity",
+          code: "auth_health_changed",
+          level: "warn",
+          platform: "kick",
+          data: { from: "checking", to: "missing_credentials", reason: "credentials_missing" },
+        },
+        t,
+      ),
+    ).toBe("activityAuthHealthChanged:Kick|Checking|Missing Credentials");
+    expect(t).toHaveBeenCalledWith("activityAuthHealthChanged", [
+      "Kick",
+      "Checking",
+      "Missing Credentials",
+    ]);
   });
 
   it("uses display labels instead of raw platform and authentication enum values", () => {
     const t = vi.fn((key: string, substitutions?: string | string[]) =>
-      key === "activityAuthHealthChanged"
-        ? `${(substitutions as string[]).join(" | ")}`
-        : key);
+      key === "activityAuthHealthChanged" ? `${(substitutions as string[]).join(" | ")}` : key,
+    );
     const event: ActivityHistoryRecord = {
-      id: "auth-display", at, category: "activity", code: "auth_health_changed", level: "info", platform: "twitch",
+      id: "auth-display",
+      at,
+      category: "activity",
+      code: "auth_health_changed",
+      level: "info",
+      platform: "twitch",
       data: { from: "checking", to: "healthy" },
     };
 
@@ -216,33 +330,52 @@ describe("activity view model", () => {
     ];
 
     for (const reason of reasons) {
-      formatActivityEvent({
-        id: reason,
-        at,
-        category: "activity",
-        code: "interruption",
-        level: "warn",
-        data: { reason },
-      }, t);
+      formatActivityEvent(
+        {
+          id: reason,
+          at,
+          category: "activity",
+          code: "interruption",
+          level: "warn",
+          data: { reason },
+        },
+        t,
+      );
     }
 
     expect(t.mock.calls.map(([key]) => key)).toEqual([
-      "activityReasonAutomationDisabled", "activityInterruption",
-      "activityReasonPlatformDisabled", "activityInterruption",
-      "activityReasonAuthenticationUnhealthy", "activityInterruption",
-      "activityReasonPlatformBackoff", "activityInterruption",
-      "activityReasonPlatformError", "activityInterruption",
-      "activityReasonCampaignIneligible", "activityInterruption",
-      "activityReasonChannelExcluded", "activityInterruption",
-      "activityReasonChannelOffline", "activityInterruption",
-      "activityReasonChannelMismatch", "activityInterruption",
-      "activityReasonWatchUnhealthy", "activityInterruption",
-      "activityReasonHigherPriorityReward", "activityInterruption",
-      "activityReasonHigherPriorityIdleWatchlist", "activityInterruption",
-      "activityReasonWatchRequirementCompleted", "activityInterruption",
-      "activityReasonRuntimeRestart", "activityInterruption",
-      "activityReasonTargetChanged", "activityInterruption",
-      "activityReasonManualWatch", "activityInterruption",
+      "activityReasonAutomationDisabled",
+      "activityInterruption",
+      "activityReasonPlatformDisabled",
+      "activityInterruption",
+      "activityReasonAuthenticationUnhealthy",
+      "activityInterruption",
+      "activityReasonPlatformBackoff",
+      "activityInterruption",
+      "activityReasonPlatformError",
+      "activityInterruption",
+      "activityReasonCampaignIneligible",
+      "activityInterruption",
+      "activityReasonChannelExcluded",
+      "activityInterruption",
+      "activityReasonChannelOffline",
+      "activityInterruption",
+      "activityReasonChannelMismatch",
+      "activityInterruption",
+      "activityReasonWatchUnhealthy",
+      "activityInterruption",
+      "activityReasonHigherPriorityReward",
+      "activityInterruption",
+      "activityReasonHigherPriorityIdleWatchlist",
+      "activityInterruption",
+      "activityReasonWatchRequirementCompleted",
+      "activityInterruption",
+      "activityReasonRuntimeRestart",
+      "activityInterruption",
+      "activityReasonTargetChanged",
+      "activityInterruption",
+      "activityReasonManualWatch",
+      "activityInterruption",
     ]);
   });
 
@@ -269,8 +402,11 @@ describe("activity view model", () => {
   });
 
   it("merges refreshed and paged results without duplicates", () => {
-    expect(mergeActivityPages([event("2"), event("1")], [event("3"), event("2")])
-      .map((entry) => entry.id)).toEqual(["3", "2", "1"]);
+    expect(
+      mergeActivityPages([event("2"), event("1")], [event("3"), event("2")]).map(
+        (entry) => entry.id,
+      ),
+    ).toEqual(["3", "2", "1"]);
   });
 
   it("reopens pagination when a refresh creates a gap after exhaustion", () => {
@@ -296,7 +432,11 @@ describe("activity view model", () => {
 
   it("keeps exhausted coverage when a refreshed page overlaps loaded history", () => {
     const exhausted = applyActivityPage(
-      applyActivityPage(createActivityStream(), { events: [event("3"), event("2")], nextCursor: "after-2" }, "refresh"),
+      applyActivityPage(
+        createActivityStream(),
+        { events: [event("3"), event("2")], nextCursor: "after-2" },
+        "refresh",
+      ),
       { events: [event("1")] },
       "page",
     );
@@ -310,7 +450,13 @@ describe("activity view model", () => {
   });
 
   it("replaces stale duplicate content with the incoming record", () => {
-    const stale: ActivityHistoryRecord = { id: "same", at, level: "info", message: "stale", legacy: true };
+    const stale: ActivityHistoryRecord = {
+      id: "same",
+      at,
+      level: "info",
+      message: "stale",
+      legacy: true,
+    };
     const fresh: ActivityHistoryRecord = { ...stale, message: "fresh" };
 
     expect(mergeActivityPages([stale], [fresh])).toEqual([fresh]);
@@ -327,25 +473,33 @@ describe("activity view model", () => {
   });
 
   it("rejects a late diagnostic page after its query changes", () => {
-    expect(isActivityRequestCurrent(
-      { generation: 2, platform: "kick", query: "timeout" },
-      { generation: 2, platform: "kick", query: "retry" },
-    )).toBe(false);
+    expect(
+      isActivityRequestCurrent(
+        { generation: 2, platform: "kick", query: "timeout" },
+        { generation: 2, platform: "kick", query: "retry" },
+      ),
+    ).toBe(false);
   });
 
   it("does not treat a previous platform's diagnostics export as current", () => {
-    expect(isDiagnosticsExportCurrent(
-      { generation: 1, platform: "kick" },
-      { generation: 1, platform: "twitch" },
-    )).toBe(false);
-    expect(isDiagnosticsExportCurrent(
-      { generation: 1, platform: "kick" },
-      { generation: 2, platform: "kick" },
-    )).toBe(false);
-    expect(isDiagnosticsExportCurrent(
-      { generation: 2, platform: "kick" },
-      { generation: 2, platform: "kick" },
-    )).toBe(true);
+    expect(
+      isDiagnosticsExportCurrent(
+        { generation: 1, platform: "kick" },
+        { generation: 1, platform: "twitch" },
+      ),
+    ).toBe(false);
+    expect(
+      isDiagnosticsExportCurrent(
+        { generation: 1, platform: "kick" },
+        { generation: 2, platform: "kick" },
+      ),
+    ).toBe(false);
+    expect(
+      isDiagnosticsExportCurrent(
+        { generation: 2, platform: "kick" },
+        { generation: 2, platform: "kick" },
+      ),
+    ).toBe(true);
   });
 
   it("rejects an older refresh response after a newer refresh was issued", () => {
@@ -365,15 +519,17 @@ describe("activity view model", () => {
 
     expect(isLatestActivityMutation(sequence, older)).toBe(false);
     expect(isLatestActivityMutation(sequence, newer)).toBe(true);
-    expect(applyActivityMutationForRequest(
-      current,
-      { events: [event("older")], nextCursor: "older-cursor" },
-      "refresh",
-      scope,
-      scope,
-      sequence,
-      older,
-    )).toBe(current);
+    expect(
+      applyActivityMutationForRequest(
+        current,
+        { events: [event("older")], nextCursor: "older-cursor" },
+        "refresh",
+        scope,
+        scope,
+        sequence,
+        older,
+      ),
+    ).toBe(current);
     expect(current.nextCursor).toBe("newer-cursor");
   });
 
@@ -397,22 +553,28 @@ describe("activity view model", () => {
       refreshRequest,
     );
 
-    expect(applyActivityMutationForRequest(
-      refreshed,
-      { events: [event("old-page")], nextCursor: "skipped-gap" },
-      "page",
-      scope,
-      scope,
-      sequence,
-      pageRequest,
-    )).toBe(refreshed);
+    expect(
+      applyActivityMutationForRequest(
+        refreshed,
+        { events: [event("old-page")], nextCursor: "skipped-gap" },
+        "page",
+        scope,
+        scope,
+        sequence,
+        pageRequest,
+      ),
+    ).toBe(refreshed);
     expect(refreshed.nextCursor).toBe("refresh-gap");
   });
 
   it("ignores stale platform pages and stale loading completions", () => {
     const twitchRequest = createActivityRequestScope("twitch");
     const currentScope = advanceActivityRequestScope(twitchRequest, "kick");
-    const current = applyActivityPage(createActivityStream(), { events: [event("kick-current")] }, "refresh");
+    const current = applyActivityPage(
+      createActivityStream(),
+      { events: [event("kick-current")] },
+      "refresh",
+    );
     const platformLessStale: ActivityHistoryRecord = {
       id: "platform-less-stale",
       at,
@@ -421,21 +583,24 @@ describe("activity view model", () => {
       message: "stale",
     };
 
-    expect(applyActivityPageForRequest(
-      current,
-      { events: [platformLessStale], nextCursor: "stale-cursor" },
-      "page",
-      twitchRequest,
-      currentScope,
-    )).toBe(current);
+    expect(
+      applyActivityPageForRequest(
+        current,
+        { events: [platformLessStale], nextCursor: "stale-cursor" },
+        "page",
+        twitchRequest,
+        currentScope,
+      ),
+    ).toBe(current);
     expect(isActivityRequestCurrent(twitchRequest, currentScope)).toBe(false);
   });
 
   it("orders merged streams newest first and uses id as a stable tie-breaker", () => {
-    expect(mergeActivityPages(
-      [event("a", "2026-07-14T11:00:00.000Z")],
-      [event("c"), event("b")],
-    ).map((entry) => entry.id)).toEqual(["c", "b", "a"]);
+    expect(
+      mergeActivityPages([event("a", "2026-07-14T11:00:00.000Z")], [event("c"), event("b")]).map(
+        (entry) => entry.id,
+      ),
+    ).toEqual(["c", "b", "a"]);
   });
 });
 
@@ -451,14 +616,29 @@ describe("activity export", () => {
   const t = (key: string) => key;
 
   it("writes a header and the events oldest first, one per line", () => {
-    const text = buildActivityExport({
-      ...exportInput,
-      // Held newest first, as the popup state does.
-      events: [
-        { id: "b", at: "2026-07-14T12:00:00.000Z", legacy: true, level: "warn", message: "second" },
-        { id: "a", at: "2026-07-14T11:00:00.000Z", legacy: true, level: "info", message: "first" },
-      ],
-    }, t);
+    const text = buildActivityExport(
+      {
+        ...exportInput,
+        // Held newest first, as the popup state does.
+        events: [
+          {
+            id: "b",
+            at: "2026-07-14T12:00:00.000Z",
+            legacy: true,
+            level: "warn",
+            message: "second",
+          },
+          {
+            id: "a",
+            at: "2026-07-14T11:00:00.000Z",
+            legacy: true,
+            level: "info",
+            message: "first",
+          },
+        ],
+      },
+      t,
+    );
 
     expect(text.split("\n\n")[0].split("\n")).toEqual([
       "Lurkloot activity log",
@@ -484,16 +664,24 @@ describe("activity export", () => {
   });
 
   it("adds coverage: full only when requested", () => {
-    const events = [{
-      id: "a",
-      at: "2026-07-14T11:00:00.000Z",
-      category: "diagnostic" as const,
-      level: "info" as const,
-      message: "first",
-    }];
+    const events = [
+      {
+        id: "a",
+        at: "2026-07-14T11:00:00.000Z",
+        category: "diagnostic" as const,
+        level: "info" as const,
+        message: "first",
+      },
+    ];
     const copied = buildActivityExport({ ...exportInput, diagnostics: true, events }, t);
-    const full = buildActivityExport({ ...exportInput, diagnostics: true, coverage: "full", events }, t);
-    const empty = buildActivityExport({ ...exportInput, diagnostics: true, coverage: "full", events: [] }, t);
+    const full = buildActivityExport(
+      { ...exportInput, diagnostics: true, coverage: "full", events },
+      t,
+    );
+    const empty = buildActivityExport(
+      { ...exportInput, diagnostics: true, coverage: "full", events: [] },
+      t,
+    );
 
     expect(copied).not.toContain("coverage:");
     expect(full.split("\n\n")[0].split("\n")).toContain("coverage: full");
@@ -504,7 +692,8 @@ describe("activity export", () => {
   });
 
   it("builds a windows-safe diagnostics log filename", () => {
-    expect(buildDiagnosticsExportFilename("twitch", new Date("2026-08-16T14:33:27.000Z")))
-      .toBe("lurkloot-diagnostics-twitch-20260816T143327Z.log");
+    expect(buildDiagnosticsExportFilename("twitch", new Date("2026-08-16T14:33:27.000Z"))).toBe(
+      "lurkloot-diagnostics-twitch-20260816T143327Z.log",
+    );
   });
 });

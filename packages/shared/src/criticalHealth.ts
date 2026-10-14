@@ -2,7 +2,12 @@ import type { Platform } from "./models";
 
 export type CriticalFailureReason = "no_progress" | "page_context_churn";
 
-export type FailureRecordKind = "api_error" | "auth" | "context_open" | "watch_tab_open" | "no_accrual";
+export type FailureRecordKind =
+  | "api_error"
+  | "auth"
+  | "context_open"
+  | "watch_tab_open"
+  | "no_accrual";
 
 // One bounded, always-on breadcrumb. Recorded regardless of the diagnosticLogging
 // setting (which defaults off), because the failure report is worthless without
@@ -47,7 +52,10 @@ const FAILURE_RECORD_KINDS = new Set<FailureRecordKind>([
   "watch_tab_open",
   "no_accrual",
 ]);
-const CRITICAL_FAILURE_REASONS = new Set<CriticalFailureReason>(["no_progress", "page_context_churn"]);
+const CRITICAL_FAILURE_REASONS = new Set<CriticalFailureReason>([
+  "no_progress",
+  "page_context_churn",
+]);
 const DETAIL_MAX_LENGTH = 200;
 
 // Deep-frozen: it is handed out by reference as the fallback for a platform that
@@ -69,20 +77,31 @@ function normalizeRecord(candidate: unknown): FailureRecord | undefined {
   if (!candidate || typeof candidate !== "object") return undefined;
   const value = candidate as Record<string, unknown>;
   const at = isoOrUndefined(value.at);
-  const platform = value.platform === "twitch" || value.platform === "kick" ? value.platform : undefined;
-  const kind = FAILURE_RECORD_KINDS.has(value.kind as FailureRecordKind) ? (value.kind as FailureRecordKind) : undefined;
+  const platform =
+    value.platform === "twitch" || value.platform === "kick" ? value.platform : undefined;
+  const kind = FAILURE_RECORD_KINDS.has(value.kind as FailureRecordKind)
+    ? (value.kind as FailureRecordKind)
+    : undefined;
   if (!at || !platform || !kind) return undefined;
   const record: FailureRecord = { at, platform, kind };
-  if (typeof value.code === "string" && value.code.length > 0 && value.code.length <= 64) record.code = value.code;
-  if (typeof value.status === "number" && Number.isInteger(value.status) && value.status >= 100 && value.status <= 599) {
+  if (typeof value.code === "string" && value.code.length > 0 && value.code.length <= 64)
+    record.code = value.code;
+  if (
+    typeof value.status === "number"
+    && Number.isInteger(value.status)
+    && value.status >= 100
+    && value.status <= 599
+  ) {
     record.status = value.status;
   }
-  if (typeof value.detail === "string" && value.detail.length > 0) record.detail = value.detail.slice(0, DETAIL_MAX_LENGTH);
+  if (typeof value.detail === "string" && value.detail.length > 0)
+    record.detail = value.detail.slice(0, DETAIL_MAX_LENGTH);
   return record;
 }
 
 export function normalizeCriticalHealth(candidate: unknown): CriticalHealthState {
-  const value = candidate && typeof candidate === "object" ? (candidate as Record<string, unknown>) : {};
+  const value =
+    candidate && typeof candidate === "object" ? (candidate as Record<string, unknown>) : {};
   const status = value.status === "flagged" ? "flagged" : "ok";
   const reason = CRITICAL_FAILURE_REASONS.has(value.reason as CriticalFailureReason)
     ? (value.reason as CriticalFailureReason)

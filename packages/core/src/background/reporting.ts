@@ -1,6 +1,16 @@
-import type { DropCampaign, DropReward, EngineSettings, Platform, PlaybackTelemetry, SchedulerState } from "@lurkloot/shared/models";
+import type {
+  DropCampaign,
+  DropReward,
+  EngineSettings,
+  Platform,
+  PlaybackTelemetry,
+  SchedulerState,
+} from "@lurkloot/shared/models";
 import type { DiagnosticEvent, EngineEvent, EventEmitter } from "@lurkloot/shared/events";
-import type { CompatibilityResolution, ResolvedCompatibility } from "@lurkloot/shared/compatibility";
+import type {
+  CompatibilityResolution,
+  ResolvedCompatibility,
+} from "@lurkloot/shared/compatibility";
 import { isWatchReward } from "@lurkloot/shared/rewards";
 import type { PlatformAdapter } from "../platforms/adapter";
 import { withActivityDiagnostics } from "../core/activityDiagnostics";
@@ -38,7 +48,8 @@ function newlyEarnedRewards(
     for (const campaign of next.campaigns[platform]) {
       for (const reward of campaign.rewards) {
         const before = previousStatuses.get(`${platform}:${campaign.id}:${reward.id}`);
-        const wasKnownAndUnearned = before !== undefined && before !== "claimable" && before !== "claimed";
+        const wasKnownAndUnearned =
+          before !== undefined && before !== "claimable" && before !== "claimed";
         if ((reward.status === "claimable" || reward.status === "claimed") && wasKnownAndUnearned) {
           earned.push({ campaign, reward });
         }
@@ -49,11 +60,19 @@ function newlyEarnedRewards(
 }
 
 function hasEarnableReward(campaign: DropCampaign): boolean {
-  return campaign.status === "active"
+  return (
+    campaign.status === "active"
     && !hasCampaignEnded(campaign)
     && campaign.accountLinked !== false
     && (!campaign.eligibility || campaign.eligibility === "eligible")
-    && campaign.rewards.some((reward) => isWatchReward(reward) && reward.status !== "claimed" && reward.status !== "claimable" && reward.preconditionsMet !== false);
+    && campaign.rewards.some(
+      (reward) =>
+        isWatchReward(reward)
+        && reward.status !== "claimed"
+        && reward.status !== "claimable"
+        && reward.preconditionsMet !== false,
+    )
+  );
 }
 
 function hasCampaignEnded(campaign: DropCampaign): boolean {
@@ -67,7 +86,8 @@ export function createReporting<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
   { reportingSlice }: Pick<ControllerSlices<S>, "reportingSlice">,
   calls: Pick<ControllerCalls<S>, "selectionFingerprint">,
-): Pick<ControllerCalls<S>,
+): Pick<
+  ControllerCalls<S>,
   | "createAdapters"
   | "createAdapter"
   | "createSelectedAdapters"
@@ -104,7 +124,8 @@ export function createReporting<S extends EngineSettings>(
     platforms: readonly Platform[],
   ): void {
     for (const warning of construction.warnings) {
-      if (!platforms.includes(warning.platform) || !settings.platform[warning.platform].enabled) continue;
+      if (!platforms.includes(warning.platform) || !settings.platform[warning.platform].enabled)
+        continue;
       const key = `${warning.code}:${warning.platform}:${warning.field}:${warning.resolved}:${selectionFingerprint(warning.requested)}`;
       if (reportingSlice.reportedCompatibilityWarnings.has(key)) continue;
       const reason = warning.code === "unknown_selection" ? "Unknown" : "Host-incompatible";
@@ -122,9 +143,13 @@ export function createReporting<S extends EngineSettings>(
     for (const platform of platforms) {
       if (!settings.platform[platform].enabled) continue;
       const profile = construction.compatibility[platform].profile;
-      const capabilities = platform === "twitch"
-        ? [construction.compatibility.twitch.heartbeat, construction.compatibility.twitch.inventory]
-        : [construction.compatibility.kick.claim];
+      const capabilities =
+        platform === "twitch"
+          ? [
+              construction.compatibility.twitch.heartbeat,
+              construction.compatibility.twitch.inventory,
+            ]
+          : [construction.compatibility.kick.claim];
       const capability = capabilities[0];
       const key = [profile, ...capabilities].join(":");
       if (reportingSlice.reportedCompatibility.get(platform) === key) continue;
@@ -174,7 +199,10 @@ export function createReporting<S extends EngineSettings>(
     return adapters as Record<Platform, PlatformAdapter>;
   }
 
-  function createTickAdapterHandle(platform: Platform, tickContext: TickDiagnosticContext): TickAdapterHandle<S> {
+  function createTickAdapterHandle(
+    platform: Platform,
+    tickContext: TickDiagnosticContext,
+  ): TickAdapterHandle<S> {
     let pendingEvents: EngineEvent[] | undefined = [];
     // Stamped as they are buffered: a drain can come at the end of a whole
     // discovery, and stamping there gave every line in it the same time.
@@ -192,7 +220,11 @@ export function createReporting<S extends EngineSettings>(
         const nextFingerprint = JSON.stringify(settings);
         if (!adapter || settingsFingerprint !== nextFingerprint) {
           this.drain(emit);
-          construction = ports.adapters.createAdapter(platform, routeDiagnosticEmitter(buffer, routeReports, tickContext), settings);
+          construction = ports.adapters.createAdapter(
+            platform,
+            routeDiagnosticEmitter(buffer, routeReports, tickContext),
+            settings,
+          );
           adapter = construction.adapter;
           settingsFingerprint = nextFingerprint;
           compatibilityReported = false;
@@ -224,7 +256,9 @@ export function createReporting<S extends EngineSettings>(
     const events: EngineEvent[] = [];
     const routeReports = new Set<Promise<void>>();
     let collect: EventEmitter | undefined = (event) => events.push(event);
-    const emit = withActivityDiagnostics(routeDiagnosticEmitter((event) => collect?.(event), routeReports, tickContext));
+    const emit = withActivityDiagnostics(
+      routeDiagnosticEmitter((event) => collect?.(event), routeReports, tickContext),
+    );
     try {
       return await operation(emit, events);
     } finally {
@@ -241,19 +275,25 @@ export function createReporting<S extends EngineSettings>(
     tickContext?: TickDiagnosticContext,
   ): EventEmitter {
     return (event) => {
-      if (event.category !== "diagnostic" || event.platform !== "kick"
-        || (event.code !== "kick_fetch_route" && event.code !== "kick_fetch_summary"
-          && event.code !== "kick_fetch_lifecycle_failed")) {
+      if (
+        event.category !== "diagnostic"
+        || event.platform !== "kick"
+        || (event.code !== "kick_fetch_route"
+          && event.code !== "kick_fetch_summary"
+          && event.code !== "kick_fetch_lifecycle_failed")
+      ) {
         emit(event);
         return;
       }
       // These describe transport work, not accepted auth/scheduler state. Report
       // them once even if their operation is aborted, superseded, or times out.
-      const report = reportBestEffort([{
-        ...event,
-        emittedAt: event.emittedAt ?? new Date().toISOString(),
-        ...tickContext,
-      }]);
+      const report = reportBestEffort([
+        {
+          ...event,
+          emittedAt: event.emittedAt ?? new Date().toISOString(),
+          ...tickContext,
+        },
+      ]);
       routeReports.add(report);
       reportingSlice.pendingRouteReports.add(report);
       const settled = () => {
@@ -267,9 +307,12 @@ export function createReporting<S extends EngineSettings>(
   function clearOperationalEvents(events: EngineEvent[]): void {
     // Route diagnostics bypass the operational collector in
     // routeDiagnosticEmitter, so only compatibility evidence can remain here.
-    const retainedEvents = events.filter((event) =>
-      event.category === "diagnostic"
-      && (event.compatibilityProfile !== undefined || event.compatibilityCapability !== undefined));
+    const retainedEvents = events.filter(
+      (event) =>
+        event.category === "diagnostic"
+        && (event.compatibilityProfile !== undefined
+          || event.compatibilityCapability !== undefined),
+    );
     events.splice(0, events.length, ...retainedEvents);
   }
 
@@ -283,14 +326,16 @@ export function createReporting<S extends EngineSettings>(
     tickContext?: TickDiagnosticContext,
     data?: DiagnosticEvent["data"],
   ): void {
-    void reportBestEffort([{
-      category: "diagnostic",
-      level,
-      message,
-      platform,
-      ...tickContext,
-      ...(data === undefined ? {} : { data }),
-    }]);
+    void reportBestEffort([
+      {
+        category: "diagnostic",
+        level,
+        message,
+        platform,
+        ...tickContext,
+        ...(data === undefined ? {} : { data }),
+      },
+    ]);
   }
 
   async function reportBestEffort(events: readonly EngineEvent[]): Promise<void> {
@@ -299,17 +344,20 @@ export function createReporting<S extends EngineSettings>(
       events.map((event) =>
         event.category === "diagnostic"
           ? { ...event, controllerRunId: reportingSlice.controllerRunId }
-          : event);
+          : event,
+      );
     const correlatedEvents = correlateControllerRun(events);
     if (correlatedEvents.some((event) => event.category === "diagnostic")) {
       reportingSlice.controllerRunAnnouncement ??= (async () => {
         try {
-          await ports.events.report([{
-            category: "diagnostic",
-            level: "debug",
-            message: `Background controller run ${reportingSlice.controllerRunLabel} started`,
-            controllerRunId: reportingSlice.controllerRunId,
-          }]);
+          await ports.events.report([
+            {
+              category: "diagnostic",
+              level: "debug",
+              message: `Background controller run ${reportingSlice.controllerRunLabel} started`,
+              controllerRunId: reportingSlice.controllerRunId,
+            },
+          ]);
         } catch {
           // Host event persistence/output is best-effort.
         }
@@ -339,13 +387,22 @@ export function createReporting<S extends EngineSettings>(
       log("debug", "Ad finished");
     }
     if (telemetry.blockedPlaybackCount > 0 && (previous?.blockedPlaybackCount ?? 0) === 0) {
-      log("warn", `Playback was blocked for ${telemetry.blockedPlaybackCount} video(s); re-muted to keep farming`);
+      log(
+        "warn",
+        `Playback was blocked for ${telemetry.blockedPlaybackCount} video(s); re-muted to keep farming`,
+      );
     }
     if (telemetry.videoCount === 0 && (previous?.videoCount ?? -1) !== 0) {
       log("warn", "No video element found in the watch tab");
     }
-    if (telemetry.playingVideoCount !== (previous?.playingVideoCount ?? -1) || telemetry.videoCount !== (previous?.videoCount ?? -1)) {
-      log("debug", `Playback telemetry: ${telemetry.playingVideoCount}/${telemetry.videoCount} videos playing${telemetry.documentHidden ? " (tab hidden)" : ""}`);
+    if (
+      telemetry.playingVideoCount !== (previous?.playingVideoCount ?? -1)
+      || telemetry.videoCount !== (previous?.videoCount ?? -1)
+    ) {
+      log(
+        "debug",
+        `Playback telemetry: ${telemetry.playingVideoCount}/${telemetry.videoCount} videos playing${telemetry.documentHidden ? " (tab hidden)" : ""}`,
+      );
     }
     return events;
   }
@@ -361,14 +418,23 @@ export function createReporting<S extends EngineSettings>(
   // Settings that need a capability this host does not declare (#593). Each is
   // reported once per controller, with no platform, and changes nothing else.
   const reportedUnsupportedSettings = new Set<string>();
-  async function reportUnsupportedSettings(settings: EngineSettings, tickContext?: TickDiagnosticContext): Promise<void> {
+  async function reportUnsupportedSettings(
+    settings: EngineSettings,
+    tickContext?: TickDiagnosticContext,
+  ): Promise<void> {
     const unsupported: Array<readonly [string, string]> = [];
     if (!ports.capabilities.browserTabs) {
       if (!settings.tablessMode) {
-        unsupported.push(["tablessMode", "This host has no browser tabs, so tablessMode=false has no effect: every watch is tabless"]);
+        unsupported.push([
+          "tablessMode",
+          "This host has no browser tabs, so tablessMode=false has no effect: every watch is tabless",
+        ]);
       }
       if (settings.pauseOnManualWatch) {
-        unsupported.push(["pauseOnManualWatch", "This host has no browser tabs, so pauseOnManualWatch has no effect"]);
+        unsupported.push([
+          "pauseOnManualWatch",
+          "This host has no browser tabs, so pauseOnManualWatch has no effect",
+        ]);
       }
     }
     if (!ports.capabilities.chatPresence) {

@@ -1,6 +1,10 @@
 import type { ChannelCandidate, DropCampaign, DropReward } from "@lurkloot/shared/models";
 import { twitchCategoryDropsUrl } from "@lurkloot/shared/categories";
-import { isSubscriptionReward, isWaitingSubscriptionReward, isWatchReward } from "@lurkloot/shared/rewards";
+import {
+  isSubscriptionReward,
+  isWaitingSubscriptionReward,
+  isWatchReward,
+} from "@lurkloot/shared/rewards";
 
 interface TwitchInventory {
   data?: {
@@ -106,24 +110,36 @@ export function earnedRewardCounts(
 // that cannot cover every such tier is ambiguous, and those tiers defer to
 // their own self edge.
 function rewardIdsClaimedByEarnedCounts(
-  rewards: ReadonlyArray<Pick<DropReward, "id" | "requirement" | "requiredMinutes" | "requiredSubs"> & { benefitIds?: readonly (string | undefined)[] }>,
+  rewards: ReadonlyArray<
+    Pick<DropReward, "id" | "requirement" | "requiredMinutes" | "requiredSubs"> & {
+      benefitIds?: readonly (string | undefined)[];
+    }
+  >,
   countsForCampaign: ReadonlyMap<string, number> | undefined,
 ): ReadonlySet<string> {
   const claimed = new Set<string>();
   if (!countsForCampaign || countsForCampaign.size === 0) return claimed;
-  const byBenefit = new Map<string, Array<{ id: string; requiredMinutes: number; isWatch: boolean }>>();
+  const byBenefit = new Map<
+    string,
+    Array<{ id: string; requiredMinutes: number; isWatch: boolean }>
+  >();
   for (const reward of rewards) {
     for (const benefitId of new Set(reward.benefitIds ?? [])) {
       if (!benefitId) continue;
       const tiers = byBenefit.get(benefitId) ?? [];
-      tiers.push({ id: reward.id, requiredMinutes: reward.requiredMinutes, isWatch: isWatchReward(reward) });
+      tiers.push({
+        id: reward.id,
+        requiredMinutes: reward.requiredMinutes,
+        isWatch: isWatchReward(reward),
+      });
       byBenefit.set(benefitId, tiers);
     }
   }
   for (const [benefitId, tiers] of byBenefit) {
     const count = countsForCampaign.get(benefitId) ?? 0;
     if (count === 0) continue;
-    const mixesRequirements = tiers.some((tier) => tier.isWatch) && tiers.some((tier) => !tier.isWatch);
+    const mixesRequirements =
+      tiers.some((tier) => tier.isWatch) && tiers.some((tier) => !tier.isWatch);
     if (mixesRequirements && count < tiers.length) continue;
     tiers
       .sort((left, right) => left.requiredMinutes - right.requiredMinutes)
@@ -156,7 +172,8 @@ interface TwitchCampaignSource {
 
 function inventorySource(inventory: TwitchInventory): TwitchCampaignSource {
   const inProgress = inventory.data?.currentUser?.inventory?.dropCampaignsInProgress;
-  const campaigns = inProgress
+  const campaigns =
+    inProgress
     ?? inventory.data?.currentUser?.inventory?.dropCampaigns
     ?? inventory.data?.currentUser?.dropCampaigns
     ?? [];
@@ -186,20 +203,17 @@ export function twitchStreamCategoryMatches(
   if (!expectedCategoryId || streamedCategoryId === expectedCategoryId) return true;
   return Boolean(
     campaign?.categoryId
-    && TWITCH_CROSS_CATEGORY_IDS.has(campaign.categoryId)
-    && campaign.allowedChannels?.length,
+      && TWITCH_CROSS_CATEGORY_IDS.has(campaign.categoryId)
+      && campaign.allowedChannels?.length,
   );
 }
 
 // Persisted queries may not select isEnabled, so only an explicit false
 // disables the list.
 function twitchParticipatingChannels(campaign: TwitchCampaign): string[] {
-  const allowList = campaign.allow?.isEnabled === false ? [] : campaign.allow?.channels ?? [];
-  return [
-    ...allowList,
-    ...(campaign.allowedChannels ?? []),
-  ]
-    .map((channel) => (typeof channel === "string" ? channel : channel.login ?? channel.name))
+  const allowList = campaign.allow?.isEnabled === false ? [] : (campaign.allow?.channels ?? []);
+  return [...allowList, ...(campaign.allowedChannels ?? [])]
+    .map((channel) => (typeof channel === "string" ? channel : (channel.login ?? channel.name)))
     .filter((value): value is string => Boolean(value))
     .map((value) => value.toLowerCase());
 }
@@ -233,20 +247,22 @@ function parseTwitchCampaignSource(source: TwitchCampaignSource): DropCampaign[]
     const hasAccountLink = Boolean(accountLinkUrl);
     const accountLinked = !hasAccountLink || campaign.self?.isAccountConnected !== false;
     const rawStatus = campaign.status?.toLowerCase();
-    const status = startsAt && Date.parse(startsAt) > now
-      ? "upcoming"
-      : endsAt && Date.parse(endsAt) < now
-        ? "expired"
-        : rawStatus === "upcoming"
-          ? "upcoming"
-          : rawStatus === "expired"
+    const status =
+      startsAt && Date.parse(startsAt) > now
+        ? "upcoming"
+        : endsAt && Date.parse(endsAt) < now
           ? "expired"
-          : "active";
+          : rawStatus === "upcoming"
+            ? "upcoming"
+            : rawStatus === "expired"
+              ? "expired"
+              : "active";
     // Twitch includes subscription, purchase, and other action-gated rewards in
     // timeBasedDrops. Retain them internally so an obtained reward can still be
     // claimed, but mark them as non-watch rewards so they never drive farming.
     const rewardBenefitIds = (campaign.timeBasedDrops ?? []).map((drop) =>
-      (drop.benefitEdges ?? []).map((edge) => edge.benefit?.id));
+      (drop.benefitEdges ?? []).map((edge) => edge.benefit?.id),
+    );
     // v2 has campaign-scoped earned rewards, so its current per-tier state can
     // reject a gameEventDrops match left behind by an earlier campaign that
     // awarded the same benefit. Legacy v1 lacks that evidence and retains the
@@ -266,8 +282,18 @@ function parseTwitchCampaignSource(source: TwitchCampaignSource): DropCampaign[]
       earnedCounts?.get(campaign.id),
     );
     const earnedBenefitIds = new Set(earnedCounts?.get(campaign.id)?.keys() ?? []);
-    const parsedRewards = (campaign.timeBasedDrops ?? [])
-      .map((drop) => parseTwitchReward(drop, campaign.id, userId, endsAt, gameEventDrops, benefitIdsExcludedFromOwnership, claimedByEarned, earnedBenefitIds));
+    const parsedRewards = (campaign.timeBasedDrops ?? []).map((drop) =>
+      parseTwitchReward(
+        drop,
+        campaign.id,
+        userId,
+        endsAt,
+        gameEventDrops,
+        benefitIdsExcludedFromOwnership,
+        claimedByEarned,
+        earnedBenefitIds,
+      ),
+    );
     const rewards = parsedRewards.map((reward) => ({
       ...reward,
       preconditionsMet: (reward.preconditionRewardIds ?? []).every((id) =>
@@ -275,7 +301,10 @@ function parseTwitchCampaignSource(source: TwitchCampaignSource): DropCampaign[]
       ),
     }));
 
-    const finalStatus = rewards.length > 0 && rewards.every((reward) => reward.status === "claimed") ? "completed" : status;
+    const finalStatus =
+      rewards.length > 0 && rewards.every((reward) => reward.status === "claimed")
+        ? "completed"
+        : status;
 
     return {
       id: campaign.id,
@@ -294,11 +323,12 @@ function parseTwitchCampaignSource(source: TwitchCampaignSource): DropCampaign[]
       eligibility: eligibility(finalStatus, accountLinked, rewards),
       eligibilityReason: eligibilityReason(finalStatus, accountLinked, rewards),
       allowedChannels,
-      connectionUrls: allowedChannels.length > 0
-        ? allowedChannels.map((login) => `https://www.twitch.tv/${login}`)
-        : slug
-          ? [twitchCategoryDropsUrl(slug)]
-          : [],
+      connectionUrls:
+        allowedChannels.length > 0
+          ? allowedChannels.map((login) => `https://www.twitch.tv/${login}`)
+          : slug
+            ? [twitchCategoryDropsUrl(slug)]
+            : [],
       isGeneralDrop: allowedChannels.length === 0,
       rewards,
     };
@@ -336,11 +366,12 @@ function parseTwitchReward(
   const watchedMinutes = reward.self?.currentMinutesWatched ?? 0;
   const requiredMinutes = reward.requiredMinutesWatched ?? 0;
   const requiredSubs = reward.requiredSubs ?? 0;
-  const requirement = requiredSubs > 0
-    ? "subscription" as const
-    : requiredMinutes > 0
-      ? "watch" as const
-      : "action" as const;
+  const requirement =
+    requiredSubs > 0
+      ? ("subscription" as const)
+      : requiredMinutes > 0
+        ? ("watch" as const)
+        : ("action" as const);
   const isWatchBased = requirement === "watch";
   const benefits = (reward.benefitEdges ?? [])
     .map((edge) => edge.benefit)
@@ -366,17 +397,20 @@ function parseTwitchReward(
   // override the current self edge.
   const benefitIdsForOwnership = benefits
     .map((benefit) => benefit.id)
-    .filter((id) => id != null && !benefitIdsExcludedFromOwnership.has(id) && !earnedBenefitIds.has(id));
-  const ownsBenefit = isWatchBased && ownsRewardBenefit(benefitIdsForOwnership, gameEventDrops, {
-    startsAt: reward.startAt,
-    endsAt: reward.endAt,
-  });
+    .filter(
+      (id) => id != null && !benefitIdsExcludedFromOwnership.has(id) && !earnedBenefitIds.has(id),
+    );
+  const ownsBenefit =
+    isWatchBased
+    && ownsRewardBenefit(benefitIdsForOwnership, gameEventDrops, {
+      startsAt: reward.startAt,
+      endsAt: reward.endAt,
+    });
   // An earned-reward count is per claim and campaign-scoped, so it outranks both
   // the self edge (absent once a campaign leaves the progress payload) and the
   // owned-benefit fallback (blind to how many tiers of a shared benefit paid out).
-  const isClaimed = claimedByEarnedRewardIds.has(reward.id)
-    || reward.self?.isClaimed === true
-    || ownsBenefit;
+  const isClaimed =
+    claimedByEarnedRewardIds.has(reward.id) || reward.self?.isClaimed === true || ownsBenefit;
   // Twitch's real dropInstanceID has the form `userID#campaignID#dropID` (see
   // TwitchDropsMiner inventory.py generate_claim and its inventory dump, which
   // strips user ids out of these). Prefer the value Twitch returns on the self
@@ -412,25 +446,27 @@ function parseTwitchReward(
           : watchedMinutes > 0
             ? "in_progress"
             : "locked"
-      : watchedMinutes >= requiredMinutes && requiredMinutes > 0
-        ? "claimable"
-        : watchedMinutes > 0
-          ? "in_progress"
-          : "locked",
+        : watchedMinutes >= requiredMinutes && requiredMinutes > 0
+          ? "claimable"
+          : watchedMinutes > 0
+            ? "in_progress"
+            : "locked",
   };
 }
 
 export function twitchCandidatesFromCampaign(campaign: DropCampaign): ChannelCandidate[] {
-  const aclCandidates = (campaign.allowedChannels ?? []).map((username): ChannelCandidate => ({
-    platform: "twitch",
-    username,
-    displayName: username,
-    url: `https://www.twitch.tv/${username}`,
-    campaignId: campaign.id,
-    categoryId: campaign.categoryId,
-    categoryName: campaign.gameName,
-    isAclMatch: true,
-  }));
+  const aclCandidates = (campaign.allowedChannels ?? []).map(
+    (username): ChannelCandidate => ({
+      platform: "twitch",
+      username,
+      displayName: username,
+      url: `https://www.twitch.tv/${username}`,
+      campaignId: campaign.id,
+      categoryId: campaign.categoryId,
+      categoryName: campaign.gameName,
+      isAclMatch: true,
+    }),
+  );
   return aclCandidates;
 }
 
@@ -438,7 +474,12 @@ export function mergeTwitchCampaignProgress(
   campaigns: DropCampaign[],
   inventory: TwitchInventory,
 ): DropCampaign[] {
-  const { campaigns: rawInventoryCampaigns, gameEventDrops, earnedCounts, userId } = inventorySource(inventory);
+  const {
+    campaigns: rawInventoryCampaigns,
+    gameEventDrops,
+    earnedCounts,
+    userId,
+  } = inventorySource(inventory);
   const progressCampaigns = parseTwitchInventory(inventory);
   return campaigns.map((campaign) => {
     const progress = progressCampaigns.find((item) => item.id === campaign.id);
@@ -453,7 +494,10 @@ export function mergeTwitchCampaignProgress(
     // Per-claim truth for this campaign, when the response carries it (v2). It
     // answers the shared-benefit question outright, so it applies whether or not
     // the campaign is still in the progress payload.
-    const claimedByEarned = rewardIdsClaimedByEarnedCounts(campaign.rewards, earnedCounts?.get(campaign.id));
+    const claimedByEarned = rewardIdsClaimedByEarnedCounts(
+      campaign.rewards,
+      earnedCounts?.get(campaign.id),
+    );
     const earnedBenefitIds = new Set(earnedCounts?.get(campaign.id)?.keys() ?? []);
     const rewards = campaign.rewards.map((reward) => {
       const progressReward = progress?.rewards.find((item) => item.id === reward.id);
@@ -462,9 +506,17 @@ export function mergeTwitchCampaignProgress(
       // reward can arrive, must not overwrite it. Details carry no user, so a
       // reward absent from progress takes its claim key from the inventory's.
       const merged = !progressReward
-        ? { ...reward, claimKey: userId ? twitchRewardClaimKey(userId, campaign.id, reward.id) : undefined }
+        ? {
+            ...reward,
+            claimKey: userId ? twitchRewardClaimKey(userId, campaign.id, reward.id) : undefined,
+          }
         : reward.status === "claimed" && progressReward.status !== "claimed"
-          ? { ...reward, ...progressReward, status: reward.status, watchedMinutes: reward.watchedMinutes }
+          ? {
+              ...reward,
+              ...progressReward,
+              status: reward.status,
+              watchedMinutes: reward.watchedMinutes,
+            }
           : { ...reward, ...progressReward };
       if (merged.status !== "claimed" && claimedByEarned.has(merged.id)) {
         return { ...merged, status: "claimed" as const, watchedMinutes: merged.requiredMinutes };
@@ -489,7 +541,9 @@ export function mergeTwitchCampaignProgress(
         && merged.status !== "claimed"
         && isWatchReward(merged)
         && ownsRewardBenefit(
-          (merged.benefitIds ?? []).filter((id) => !sharedBenefitIds.has(id) && !earnedBenefitIds.has(id)),
+          (merged.benefitIds ?? []).filter(
+            (id) => !sharedBenefitIds.has(id) && !earnedBenefitIds.has(id),
+          ),
           gameEventDrops,
           { startsAt: merged.availableFrom, endsAt: merged.availableUntil },
         )
@@ -503,14 +557,16 @@ export function mergeTwitchCampaignProgress(
       ? "completed"
       : progress?.status === "completed"
         ? campaign.status
-        : progress?.status ?? campaign.status;
-    const inventoryConnected = rawInventoryCampaigns.find((item) => item.id === campaign.id)?.self?.isAccountConnected;
+        : (progress?.status ?? campaign.status);
+    const inventoryConnected = rawInventoryCampaigns.find((item) => item.id === campaign.id)?.self
+      ?.isAccountConnected;
     // Inventory is fetched every refresh, whereas details may be cached. Only
     // an explicit connection field may override details: a URL-less inventory
     // record parses as linked even when its connection state is absent.
-    const accountLinked = typeof inventoryConnected === "boolean"
-      ? !campaign.accountLinkUrl || inventoryConnected
-      : campaign.accountLinked;
+    const accountLinked =
+      typeof inventoryConnected === "boolean"
+        ? !campaign.accountLinkUrl || inventoryConnected
+        : campaign.accountLinked;
     return withCampaignStatus({ ...campaign, accountLinked, rewards }, status);
   });
 }
@@ -518,7 +574,9 @@ export function mergeTwitchCampaignProgress(
 type TwitchSelfEvidence = { isClaimed: boolean; hasDropInstance: boolean } | "absent";
 
 function selfEvidence(self: TwitchReward["self"]): TwitchSelfEvidence {
-  return self ? { isClaimed: self.isClaimed === true, hasDropInstance: Boolean(self.dropInstanceID) } : "absent";
+  return self
+    ? { isClaimed: self.isClaimed === true, hasDropInstance: Boolean(self.dropInstanceID) }
+    : "absent";
 }
 
 // What every Twitch source this check read said about each of a campaign's
@@ -530,20 +588,30 @@ export function twitchSubscriptionRewardEvidence(
   inventory: TwitchInventory,
   detail?: TwitchCampaign,
 ) {
-  const { campaigns: inventoryCampaigns, gameEventDrops, earnedCounts } = inventorySource(inventory);
+  const {
+    campaigns: inventoryCampaigns,
+    gameEventDrops,
+    earnedCounts,
+  } = inventorySource(inventory);
   const progress = inventoryCampaigns.find((item) => item.id === campaign.id);
   return campaign.rewards.filter(isSubscriptionReward).map((reward) => {
     const benefitIds = reward.benefitIds ?? [];
     return {
       rewardId: reward.id,
       status: reward.status,
-      details: detail ? selfEvidence(detail.timeBasedDrops?.find((drop) => drop.id === reward.id)?.self) : "not_fetched",
-      inventory: progress ? selfEvidence(progress.timeBasedDrops?.find((drop) => drop.id === reward.id)?.self) : "not_in_progress",
+      details: detail
+        ? selfEvidence(detail.timeBasedDrops?.find((drop) => drop.id === reward.id)?.self)
+        : "not_fetched",
+      inventory: progress
+        ? selfEvidence(progress.timeBasedDrops?.find((drop) => drop.id === reward.id)?.self)
+        : "not_in_progress",
       // null on twitch-inventory-v1, which has no earned rewards to count.
       earnedClaims: earnedCounts
         ? benefitIds.reduce((total, id) => total + (earnedCounts.get(campaign.id)?.get(id) ?? 0), 0)
         : null,
-      ownsBenefit: benefitIds.some((id) => gameEventDrops.some((drop) => drop.id === id || drop.benefit?.id === id)),
+      ownsBenefit: benefitIds.some((id) =>
+        gameEventDrops.some((drop) => drop.id === id || drop.benefit?.id === id),
+      ),
     };
   });
 }
@@ -577,13 +645,15 @@ function ownsRewardBenefit(
 ): boolean {
   const start = activeWindow?.startsAt ? Date.parse(activeWindow.startsAt) : undefined;
   const end = activeWindow?.endsAt ? Date.parse(activeWindow.endsAt) : undefined;
-  return benefitIds.some((id) =>
-    id != null && gameEventDrops.some((drop) => {
-      if (drop.id !== id && drop.benefit?.id !== id) return false;
-      if (start === undefined || end === undefined || !drop.lastAwardedAt) return true;
-      const awardedAt = Date.parse(drop.lastAwardedAt);
-      return !Number.isNaN(awardedAt) && awardedAt >= start && awardedAt < end;
-    }),
+  return benefitIds.some(
+    (id) =>
+      id != null
+      && gameEventDrops.some((drop) => {
+        if (drop.id !== id && drop.benefit?.id !== id) return false;
+        if (start === undefined || end === undefined || !drop.lastAwardedAt) return true;
+        const awardedAt = Date.parse(drop.lastAwardedAt);
+        return !Number.isNaN(awardedAt) && awardedAt >= start && awardedAt < end;
+      }),
   );
 }
 
@@ -614,18 +684,24 @@ function eligibility(
   if (status === "upcoming") return "upcoming";
   if (status === "expired") return "expired";
   if (status === "completed") return "completed";
-  if (rewards.length > 0 && rewards.every((reward) => reward.status === "claimed")) return "completed";
+  if (rewards.length > 0 && rewards.every((reward) => reward.status === "claimed"))
+    return "completed";
   if (rewards.some(isWatchReward)) return "eligible";
   if (rewards.some(isWaitingSubscriptionReward)) return "waiting_for_subscription";
   return "no_rewards";
 }
 
-function eligibilityReason(status: DropCampaign["status"], accountLinked: boolean, rewards: DropReward[]): string {
+function eligibilityReason(
+  status: DropCampaign["status"],
+  accountLinked: boolean,
+  rewards: DropReward[],
+): string {
   if (!accountLinked) return "Account is not linked for this campaign";
   if (status === "upcoming") return "Campaign has not started";
   if (status === "expired") return "Campaign has ended";
   if (status === "completed") return "All rewards are claimed";
-  if (rewards.length > 0 && rewards.every((reward) => reward.status === "claimed")) return "All rewards are claimed";
+  if (rewards.length > 0 && rewards.every((reward) => reward.status === "claimed"))
+    return "All rewards are claimed";
   if (rewards.some(isWatchReward)) return "Eligible";
   if (rewards.some(isWaitingSubscriptionReward)) return "Waiting for a qualifying subscription";
   return "Campaign has no time-based rewards";
@@ -634,7 +710,10 @@ function eligibilityReason(status: DropCampaign["status"], accountLinked: boolea
 // Returns a copy of the campaign with a new status and consistent eligibility
 // fields. Used when discovery has out-of-band knowledge (e.g. the dashboard no
 // longer lists the campaign as active) that the inventory payload can't convey.
-export function withCampaignStatus(campaign: DropCampaign, status: DropCampaign["status"]): DropCampaign {
+export function withCampaignStatus(
+  campaign: DropCampaign,
+  status: DropCampaign["status"],
+): DropCampaign {
   const accountLinked = campaign.accountLinked !== false;
   return {
     ...campaign,

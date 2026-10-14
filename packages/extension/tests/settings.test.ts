@@ -1,7 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { applySettingsPatch, DEFAULT_ENGINE_SETTINGS, DEFAULT_SETTINGS, mergeEngineSettings, mergeSettings, type SettingsPatch } from "@lurkloot/shared/settings";
+import {
+  applySettingsPatch,
+  DEFAULT_ENGINE_SETTINGS,
+  DEFAULT_SETTINGS,
+  mergeEngineSettings,
+  mergeSettings,
+  type SettingsPatch,
+} from "@lurkloot/shared/settings";
 import { migrateSettings } from "@lurkloot/shared/settingsSchema";
-import { buildSettingsExportPayload, parseSettingsImportPayload } from "@lurkloot/shared/settingsExport";
+import {
+  buildSettingsExportPayload,
+  parseSettingsImportPayload,
+} from "@lurkloot/shared/settingsExport";
 
 describe("engine settings", () => {
   // The tab-policy fields (mute / keep-unmuted / auto-close / ad focus) and the
@@ -55,7 +65,10 @@ describe("settings", () => {
       watchQueueFallbackOnly: false,
       verboseLogging: true,
       autoClaimChannelPoints: false,
-      platform: { ...DEFAULT_SETTINGS.platform, twitch: { ...DEFAULT_SETTINGS.platform.twitch, watchQueueChannels: ["legacy"] } },
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, watchQueueChannels: ["legacy"] },
+      },
     } as never);
     expect(merged.idleWatchlistFallbackOnly).toBe(DEFAULT_SETTINGS.idleWatchlistFallbackOnly);
     // verboseLogging is not read here; the default applies.
@@ -73,35 +86,66 @@ describe("settings", () => {
   });
 
   it("preserves bundled compatibility identifiers and normalizes invalid selections", () => {
-    const settings = mergeSettings({ compatibility: {
-      twitch: { profile: "twitch-2026-07", heartbeatTransport: "twitch-heartbeat-gql-v1", inventoryQueryVersion: "auto" },
-      kick: { profile: "kick-2026-07", claimLinkHandling: "kick-claim-v1" },
-    } } as never);
+    const settings = mergeSettings({
+      compatibility: {
+        twitch: {
+          profile: "twitch-2026-07",
+          heartbeatTransport: "twitch-heartbeat-gql-v1",
+          inventoryQueryVersion: "auto",
+        },
+        kick: { profile: "kick-2026-07", claimLinkHandling: "kick-claim-v1" },
+      },
+    } as never);
     expect(settings.compatibility.twitch.profile).toBe("twitch-2026-07");
     expect(settings.compatibility.twitch.heartbeatTransport).toBe("twitch-heartbeat-gql-v1");
-    expect(settings.compatibility.kick).toEqual({ profile: "kick-2026-07", claimLinkHandling: "kick-claim-v1" });
+    expect(settings.compatibility.kick).toEqual({
+      profile: "kick-2026-07",
+      claimLinkHandling: "kick-claim-v1",
+    });
 
-    expect(mergeSettings({ compatibility: {
-      twitch: { profile: "  ", heartbeatTransport: 42, inventoryQueryVersion: " twitch-inventory-v1 " },
-      kick: { profile: null, claimLinkHandling: " kick-claim-v1 " },
-    } } as never).compatibility).toEqual({
-      twitch: { profile: "auto", heartbeatTransport: "auto", inventoryQueryVersion: "twitch-inventory-v1" },
+    expect(
+      mergeSettings({
+        compatibility: {
+          twitch: {
+            profile: "  ",
+            heartbeatTransport: 42,
+            inventoryQueryVersion: " twitch-inventory-v1 ",
+          },
+          kick: { profile: null, claimLinkHandling: " kick-claim-v1 " },
+        },
+      } as never).compatibility,
+    ).toEqual({
+      twitch: {
+        profile: "auto",
+        heartbeatTransport: "auto",
+        inventoryQueryVersion: "twitch-inventory-v1",
+      },
       kick: { profile: "auto", claimLinkHandling: "kick-claim-v1" },
     });
   });
 
   it("applies partial compatibility patches without erasing sibling selections", () => {
-    const current = mergeSettings({ compatibility: {
-      twitch: { profile: "twitch-2026-07", heartbeatTransport: "twitch-heartbeat-gql-v1", inventoryQueryVersion: "twitch-inventory-v1" },
-      kick: { profile: "kick-2026-07", claimLinkHandling: "kick-claim-v1" },
-    } } as never);
+    const current = mergeSettings({
+      compatibility: {
+        twitch: {
+          profile: "twitch-2026-07",
+          heartbeatTransport: "twitch-heartbeat-gql-v1",
+          inventoryQueryVersion: "twitch-inventory-v1",
+        },
+        kick: { profile: "kick-2026-07", claimLinkHandling: "kick-claim-v1" },
+      },
+    } as never);
 
     const settings = applySettingsPatch(current, {
       compatibility: { twitch: { heartbeatTransport: "auto" } },
     });
 
     expect(settings.compatibility).toEqual({
-      twitch: { profile: "twitch-2026-07", heartbeatTransport: "auto", inventoryQueryVersion: "twitch-inventory-v1" },
+      twitch: {
+        profile: "twitch-2026-07",
+        heartbeatTransport: "auto",
+        inventoryQueryVersion: "twitch-inventory-v1",
+      },
       kick: { profile: "kick-2026-07", claimLinkHandling: "kick-claim-v1" },
     });
   });
@@ -136,33 +180,64 @@ describe("settings", () => {
   it("keeps campaign pins as an ordered, deduplicated id list", () => {
     expect(DEFAULT_SETTINGS.campaignPins).toEqual([]);
     expect(DEFAULT_SETTINGS.farmPinnedOnly).toBe(false);
-    expect(mergeSettings({ campaignPins: [" first ", "second", "first"] } as never).campaignPins)
-      .toEqual(["first", "second"]);
+    expect(
+      mergeSettings({ campaignPins: [" first ", "second", "first"] } as never).campaignPins,
+    ).toEqual(["first", "second"]);
   });
 
   it("clamps persisted numeric settings to browser-safe ranges", () => {
-    expect(mergeSettings({ pollIntervalMinutes: 0, offlineRetryLimit: 0 }).pollIntervalMinutes).toBe(1);
+    expect(
+      mergeSettings({ pollIntervalMinutes: 0, offlineRetryLimit: 0 }).pollIntervalMinutes,
+    ).toBe(1);
     expect(mergeSettings({ pollIntervalMinutes: 0.75 }).pollIntervalMinutes).toBe(1);
-    expect(mergeSettings({ pollIntervalMinutes: 90, offlineRetryLimit: 99 }).pollIntervalMinutes).toBe(60);
-    expect(mergeSettings({ pollIntervalMinutes: Number.NaN, offlineRetryLimit: Number.NaN }).pollIntervalMinutes)
-      .toBe(DEFAULT_SETTINGS.pollIntervalMinutes);
-    expect(mergeSettings({ offlineRetryLimit: Number.NaN }).offlineRetryLimit).toBe(DEFAULT_SETTINGS.offlineRetryLimit);
+    expect(
+      mergeSettings({ pollIntervalMinutes: 90, offlineRetryLimit: 99 }).pollIntervalMinutes,
+    ).toBe(60);
+    expect(
+      mergeSettings({ pollIntervalMinutes: Number.NaN, offlineRetryLimit: Number.NaN })
+        .pollIntervalMinutes,
+    ).toBe(DEFAULT_SETTINGS.pollIntervalMinutes);
+    expect(mergeSettings({ offlineRetryLimit: Number.NaN }).offlineRetryLimit).toBe(
+      DEFAULT_SETTINGS.offlineRetryLimit,
+    );
     expect(mergeSettings({}).kickPageContextRecoverySuccesses).toBe(3);
-    expect(mergeSettings({ kickPageContextRecoverySuccesses: 0 } as never).kickPageContextRecoverySuccesses).toBe(1);
-    expect(mergeSettings({ kickPageContextRecoverySuccesses: 11 } as never).kickPageContextRecoverySuccesses).toBe(10);
-    expect(mergeSettings({ kickPageContextRecoverySuccesses: 4.6 } as never).kickPageContextRecoverySuccesses).toBe(5);
-    expect(mergeSettings({ kickPageContextRecoverySuccesses: Number.NaN } as never).kickPageContextRecoverySuccesses).toBe(3);
+    expect(
+      mergeSettings({ kickPageContextRecoverySuccesses: 0 } as never)
+        .kickPageContextRecoverySuccesses,
+    ).toBe(1);
+    expect(
+      mergeSettings({ kickPageContextRecoverySuccesses: 11 } as never)
+        .kickPageContextRecoverySuccesses,
+    ).toBe(10);
+    expect(
+      mergeSettings({ kickPageContextRecoverySuccesses: 4.6 } as never)
+        .kickPageContextRecoverySuccesses,
+    ).toBe(5);
+    expect(
+      mergeSettings({ kickPageContextRecoverySuccesses: Number.NaN } as never)
+        .kickPageContextRecoverySuccesses,
+    ).toBe(3);
 
     expect(DEFAULT_ENGINE_SETTINGS.tablessFallbackFailureLimit).toBe(5);
     expect(mergeEngineSettings({}).tablessFallbackFailureLimit).toBe(5);
-    expect(mergeEngineSettings({ tablessFallbackFailureLimit: 0 }).tablessFallbackFailureLimit).toBe(1);
-    expect(mergeEngineSettings({ tablessFallbackFailureLimit: 11 }).tablessFallbackFailureLimit).toBe(10);
-    expect(mergeEngineSettings({ tablessFallbackFailureLimit: 4.6 }).tablessFallbackFailureLimit).toBe(5);
-    expect(mergeEngineSettings({ tablessFallbackFailureLimit: Number.NaN }).tablessFallbackFailureLimit).toBe(5);
-    expect(mergeEngineSettings({
-      offlineRetryLimit: 9,
-      tablessFallbackFailureLimit: 2,
-    })).toMatchObject({
+    expect(
+      mergeEngineSettings({ tablessFallbackFailureLimit: 0 }).tablessFallbackFailureLimit,
+    ).toBe(1);
+    expect(
+      mergeEngineSettings({ tablessFallbackFailureLimit: 11 }).tablessFallbackFailureLimit,
+    ).toBe(10);
+    expect(
+      mergeEngineSettings({ tablessFallbackFailureLimit: 4.6 }).tablessFallbackFailureLimit,
+    ).toBe(5);
+    expect(
+      mergeEngineSettings({ tablessFallbackFailureLimit: Number.NaN }).tablessFallbackFailureLimit,
+    ).toBe(5);
+    expect(
+      mergeEngineSettings({
+        offlineRetryLimit: 9,
+        tablessFallbackFailureLimit: 2,
+      }),
+    ).toMatchObject({
       offlineRetryLimit: 9,
       tablessFallbackFailureLimit: 2,
     });
@@ -173,35 +248,61 @@ describe("settings", () => {
     expect(mergeSettings({}).postClaimHandoffIntervalSeconds).toBe(5);
     expect(mergeSettings({}).postClaimHandoffMaxSeconds).toBe(45);
 
-    expect(mergeSettings({ postClaimHandoffIntervalSeconds: 0 }).postClaimHandoffIntervalSeconds).toBe(1);
-    expect(mergeSettings({ postClaimHandoffIntervalSeconds: 99 }).postClaimHandoffIntervalSeconds).toBe(30);
+    expect(
+      mergeSettings({ postClaimHandoffIntervalSeconds: 0 }).postClaimHandoffIntervalSeconds,
+    ).toBe(1);
+    expect(
+      mergeSettings({ postClaimHandoffIntervalSeconds: 99 }).postClaimHandoffIntervalSeconds,
+    ).toBe(30);
     expect(mergeSettings({ postClaimHandoffMaxSeconds: 1 }).postClaimHandoffMaxSeconds).toBe(5);
     expect(mergeSettings({ postClaimHandoffMaxSeconds: 999 }).postClaimHandoffMaxSeconds).toBe(120);
 
-    expect(mergeSettings({ postClaimHandoffIntervalSeconds: Number.NaN }).postClaimHandoffIntervalSeconds)
-      .toBe(DEFAULT_SETTINGS.postClaimHandoffIntervalSeconds);
-    expect(mergeSettings({ postClaimHandoffMaxSeconds: Number.NaN }).postClaimHandoffMaxSeconds)
-      .toBe(DEFAULT_SETTINGS.postClaimHandoffMaxSeconds);
+    expect(
+      mergeSettings({ postClaimHandoffIntervalSeconds: Number.NaN })
+        .postClaimHandoffIntervalSeconds,
+    ).toBe(DEFAULT_SETTINGS.postClaimHandoffIntervalSeconds);
+    expect(
+      mergeSettings({ postClaimHandoffMaxSeconds: Number.NaN }).postClaimHandoffMaxSeconds,
+    ).toBe(DEFAULT_SETTINGS.postClaimHandoffMaxSeconds);
     expect(mergeSettings({ postClaimHandoff: false }).postClaimHandoff).toBe(false);
   });
 
   it("normalizes deadline filtering enablement and its safety margin independently", () => {
     expect(DEFAULT_ENGINE_SETTINGS.skipUnfinishableRewards).toBe(true);
     expect(DEFAULT_ENGINE_SETTINGS.deadlineSafetyMarginMinutes).toBe(5);
-    expect(mergeEngineSettings({ skipUnfinishableRewards: false }).skipUnfinishableRewards).toBe(false);
-    expect(mergeEngineSettings({ skipUnfinishableRewards: "no" } as never).skipUnfinishableRewards).toBe(true);
-    expect(mergeEngineSettings({ deadlineSafetyMarginMinutes: -9 }).deadlineSafetyMarginMinutes).toBe(0);
-    expect(mergeEngineSettings({ deadlineSafetyMarginMinutes: 0 }).deadlineSafetyMarginMinutes).toBe(0);
-    expect(mergeEngineSettings({ deadlineSafetyMarginMinutes: 4.6 }).deadlineSafetyMarginMinutes).toBe(5);
-    expect(mergeEngineSettings({ deadlineSafetyMarginMinutes: 99 }).deadlineSafetyMarginMinutes).toBe(60);
-    expect(mergeEngineSettings({ deadlineSafetyMarginMinutes: Number.NaN }).deadlineSafetyMarginMinutes).toBe(5);
+    expect(mergeEngineSettings({ skipUnfinishableRewards: false }).skipUnfinishableRewards).toBe(
+      false,
+    );
+    expect(
+      mergeEngineSettings({ skipUnfinishableRewards: "no" } as never).skipUnfinishableRewards,
+    ).toBe(true);
+    expect(
+      mergeEngineSettings({ deadlineSafetyMarginMinutes: -9 }).deadlineSafetyMarginMinutes,
+    ).toBe(0);
+    expect(
+      mergeEngineSettings({ deadlineSafetyMarginMinutes: 0 }).deadlineSafetyMarginMinutes,
+    ).toBe(0);
+    expect(
+      mergeEngineSettings({ deadlineSafetyMarginMinutes: 4.6 }).deadlineSafetyMarginMinutes,
+    ).toBe(5);
+    expect(
+      mergeEngineSettings({ deadlineSafetyMarginMinutes: 99 }).deadlineSafetyMarginMinutes,
+    ).toBe(60);
+    expect(
+      mergeEngineSettings({ deadlineSafetyMarginMinutes: Number.NaN }).deadlineSafetyMarginMinutes,
+    ).toBe(5);
   });
 
   it("keeps diagnostic logging independent from the removed engine log-level setting", () => {
     expect(mergeSettings(undefined).diagnosticLogging).toBe(true);
     expect(mergeSettings({ diagnosticLogging: true }).diagnosticLogging).toBe(true);
-    expect(mergeSettings({ diagnosticLogging: false, enabledLogLevels: ["debug"] } as never).diagnosticLogging).toBe(false);
-    expect("enabledLogLevels" in mergeSettings({ enabledLogLevels: ["debug"] } as never)).toBe(false);
+    expect(
+      mergeSettings({ diagnosticLogging: false, enabledLogLevels: ["debug"] } as never)
+        .diagnosticLogging,
+    ).toBe(false);
+    expect("enabledLogLevels" in mergeSettings({ enabledLogLevels: ["debug"] } as never)).toBe(
+      false,
+    );
   });
 
   it("normalizes imported list, priority, mode, and boolean settings", () => {
@@ -215,9 +316,18 @@ describe("settings", () => {
           enabled: "true",
           idleWatchlistChannels: [" Creator ", "", "creator"],
           excludedChannels: [" @SkipMe ", "skipme"],
-          categories: [{ id: " Game-A ", name: " Game A " }, { id: "game-a", name: "Dup" }, { id: "", name: "blank" }],
+          categories: [
+            { id: " Game-A ", name: " Game A " },
+            { id: "game-a", name: "Dup" },
+            { id: "", name: "blank" },
+          ],
         },
-        kick: { enabled: false, idleWatchlistChannels: ["KickOne"], excludedChannels: ["KickSkip"], categories: [{ id: "cat-1", name: "Category" }] },
+        kick: {
+          enabled: false,
+          idleWatchlistChannels: ["KickOne"],
+          excludedChannels: ["KickSkip"],
+          categories: [{ id: "cat-1", name: "Category" }],
+        },
       },
       campaignPins: [" campaign ", "campaign", ""],
       excludedCampaignIds: [" Abc ", "abc", "Abc"],
@@ -246,19 +356,27 @@ describe("settings", () => {
     expect(mergeSettings(undefined).adFocusMode).toBe("window");
     expect(mergeSettings({ adFocusMode: "tab" }).adFocusMode).toBe("tab");
     expect(mergeSettings({ adFocusMode: "none" }).adFocusMode).toBe("none");
-    expect(mergeSettings({ adFocusMode: "sideways" } as unknown as Parameters<typeof mergeSettings>[0]).adFocusMode)
-      .toBe("window");
+    expect(
+      mergeSettings({ adFocusMode: "sideways" } as unknown as Parameters<typeof mergeSettings>[0])
+        .adFocusMode,
+    ).toBe("window");
   });
 
   it("validates the priority mode", () => {
     expect(DEFAULT_SETTINGS.priorityMode).toBe("ending_soonest");
     expect(mergeSettings(undefined).priorityMode).toBe("ending_soonest");
-    expect(mergeSettings({ priorityMode: "lowest_availability" }).priorityMode).toBe("lowest_availability");
+    expect(mergeSettings({ priorityMode: "lowest_availability" }).priorityMode).toBe(
+      "lowest_availability",
+    );
     // "priority_list_only" is no longer a mode; migration turns it into the
     // farmPinnedOnly switch, and an unknown value falls back to the default.
-    expect(mergeSettings({ priorityMode: "priority_list_only" } as never).priorityMode).toBe("ending_soonest");
-    expect(mergeSettings({ priorityMode: "nonsense" } as unknown as Parameters<typeof mergeSettings>[0]).priorityMode)
-      .toBe("ending_soonest");
+    expect(mergeSettings({ priorityMode: "priority_list_only" } as never).priorityMode).toBe(
+      "ending_soonest",
+    );
+    expect(
+      mergeSettings({ priorityMode: "nonsense" } as unknown as Parameters<typeof mergeSettings>[0])
+        .priorityMode,
+    ).toBe("ending_soonest");
   });
 
   it("validates the rate nudge status", () => {
@@ -266,17 +384,26 @@ describe("settings", () => {
     expect(mergeSettings(undefined).rateNudgeStatus).toBe("pending");
     expect(mergeSettings({ rateNudgeStatus: "rated" }).rateNudgeStatus).toBe("rated");
     expect(mergeSettings({ rateNudgeStatus: "dismissed" }).rateNudgeStatus).toBe("dismissed");
-    expect(mergeSettings({ rateNudgeStatus: "bogus" } as unknown as Parameters<typeof mergeSettings>[0]).rateNudgeStatus)
-      .toBe("pending");
+    expect(
+      mergeSettings({ rateNudgeStatus: "bogus" } as unknown as Parameters<typeof mergeSettings>[0])
+        .rateNudgeStatus,
+    ).toBe("pending");
   });
 
   it("validates the github star nudge status", () => {
     expect(DEFAULT_SETTINGS.githubStarNudgeStatus).toBe("pending");
     expect(mergeSettings(undefined).githubStarNudgeStatus).toBe("pending");
-    expect(mergeSettings({ githubStarNudgeStatus: "starred" }).githubStarNudgeStatus).toBe("starred");
-    expect(mergeSettings({ githubStarNudgeStatus: "dismissed" }).githubStarNudgeStatus).toBe("dismissed");
-    expect(mergeSettings({ githubStarNudgeStatus: "bogus" } as unknown as Parameters<typeof mergeSettings>[0]).githubStarNudgeStatus)
-      .toBe("pending");
+    expect(mergeSettings({ githubStarNudgeStatus: "starred" }).githubStarNudgeStatus).toBe(
+      "starred",
+    );
+    expect(mergeSettings({ githubStarNudgeStatus: "dismissed" }).githubStarNudgeStatus).toBe(
+      "dismissed",
+    );
+    expect(
+      mergeSettings({ githubStarNudgeStatus: "bogus" } as unknown as Parameters<
+        typeof mergeSettings
+      >[0]).githubStarNudgeStatus,
+    ).toBe("pending");
   });
 
   it("validates the language override", () => {
@@ -286,14 +413,19 @@ describe("settings", () => {
     expect(mergeSettings({ languageOverride: "pt_BR" }).languageOverride).toBe("pt_BR");
     expect(mergeSettings({ languageOverride: "ar" }).languageOverride).toBe("ar");
     expect(mergeSettings({ languageOverride: "tr" }).languageOverride).toBe("tr");
-    expect(mergeSettings({ languageOverride: "pt" } as unknown as Parameters<typeof mergeSettings>[0]).languageOverride)
-      .toBe("browser");
+    expect(
+      mergeSettings({ languageOverride: "pt" } as unknown as Parameters<typeof mergeSettings>[0])
+        .languageOverride,
+    ).toBe("browser");
   });
 
   it("preserves idle watchlist channel priority order while removing duplicates", () => {
     const settings = mergeSettings({
       platform: {
-        twitch: { ...DEFAULT_SETTINGS.platform.twitch, idleWatchlistChannels: ["third", "first", "second", "first"] },
+        twitch: {
+          ...DEFAULT_SETTINGS.platform.twitch,
+          idleWatchlistChannels: ["third", "first", "second", "first"],
+        },
         kick: { ...DEFAULT_SETTINGS.platform.kick, idleWatchlistChannels: [] },
       },
     });
@@ -319,13 +451,19 @@ describe("settings", () => {
 
   it("keeps every valid category mode and falls back to all for an invalid one", () => {
     for (const categoryMode of ["all", "include"] as const) {
-      expect(mergeSettings({ platform: { twitch: { categoryMode } } } as never).platform.twitch.categoryMode)
-        .toBe(categoryMode);
+      expect(
+        mergeSettings({ platform: { twitch: { categoryMode } } } as never).platform.twitch
+          .categoryMode,
+      ).toBe(categoryMode);
     }
-    expect(mergeSettings({ platform: { kick: { categoryMode: "everything" } } } as never).platform.kick.categoryMode)
-      .toBe("all");
-    expect(mergeSettings({ platform: { kick: { categoryMode: false } } } as never).platform.kick.categoryMode)
-      .toBe("all");
+    expect(
+      mergeSettings({ platform: { kick: { categoryMode: "everything" } } } as never).platform.kick
+        .categoryMode,
+    ).toBe("all");
+    expect(
+      mergeSettings({ platform: { kick: { categoryMode: false } } } as never).platform.kick
+        .categoryMode,
+    ).toBe("all");
   });
 
   it("normalizes and dedupes the category list identically in every mode", () => {
@@ -354,8 +492,13 @@ describe("settings", () => {
   // The whole point of one shared list: a selection survives a round trip
   // through "all" untouched, so switching back restores it.
   it("preserves the stored list across mode switches", () => {
-    const categories = [{ id: "13", name: "Rust" }, { id: "21", name: "Other" }];
-    let settings = mergeSettings({ platform: { twitch: { categoryMode: "include", categories } } } as never);
+    const categories = [
+      { id: "13", name: "Rust" },
+      { id: "21", name: "Other" },
+    ];
+    let settings = mergeSettings({
+      platform: { twitch: { categoryMode: "include", categories } },
+    } as never);
     settings = applySettingsPatch(settings, { platform: { twitch: { categoryMode: "all" } } });
     expect(settings.platform.twitch.categories).toEqual(categories);
     settings = applySettingsPatch(settings, { platform: { twitch: { categoryMode: "include" } } });
@@ -367,9 +510,13 @@ describe("settings", () => {
   it("keeps favourites and selections while a game is blocked", () => {
     const rust = { id: "13", name: "Rust" };
     let settings = mergeSettings({
-      platform: { twitch: { categoryMode: "include", categories: [rust], favouriteCategories: [rust] } },
+      platform: {
+        twitch: { categoryMode: "include", categories: [rust], favouriteCategories: [rust] },
+      },
     } as never);
-    settings = applySettingsPatch(settings, { platform: { twitch: { blockedCategories: [rust] } } });
+    settings = applySettingsPatch(settings, {
+      platform: { twitch: { blockedCategories: [rust] } },
+    });
     expect(settings.platform.twitch.favouriteCategories).toEqual([rust]);
     expect(settings.platform.twitch.categories).toEqual([rust]);
     settings = applySettingsPatch(settings, { platform: { twitch: { blockedCategories: [] } } });
@@ -382,7 +529,10 @@ describe("settings", () => {
     const categories = [{ id: "13", name: "Rust" }];
     const migrated = migrateSettings({
       schemaVersion: 4,
-      platform: { twitch: { farmAllCategories: false, categories }, kick: { farmAllCategories: true } },
+      platform: {
+        twitch: { farmAllCategories: false, categories },
+        kick: { farmAllCategories: true },
+      },
     });
     const settings = mergeSettings(migrated.settings as never);
 
@@ -403,7 +553,10 @@ describe("per-platform claim settings", () => {
 
   it("honors an explicit autoClaimChallenges of false", () => {
     const merged = mergeSettings({
-      platform: { ...DEFAULT_SETTINGS.platform, kick: { ...DEFAULT_SETTINGS.platform.kick, autoClaimChallenges: false } },
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        kick: { ...DEFAULT_SETTINGS.platform.kick, autoClaimChallenges: false },
+      },
     });
     expect(merged.platform.kick.autoClaimChallenges).toBe(false);
   });
@@ -418,7 +571,9 @@ describe("farmingEligibility in the engine contract", () => {
   });
 
   it("normalizes a partial eligibility record through the engine merge", () => {
-    const merged = mergeEngineSettings({ farmingEligibility: { farmUnlinkedCampaigns: false } } as never);
+    const merged = mergeEngineSettings({
+      farmingEligibility: { farmUnlinkedCampaigns: false },
+    } as never);
     expect(merged.farmingEligibility.farmUnlinkedCampaigns).toBe(false);
     expect(merged.farmingEligibility.farmSubscriptionCampaigns).toBe(true);
   });
@@ -460,7 +615,14 @@ describe("subscription marks setting", () => {
         ...DEFAULT_SETTINGS.platform,
         twitch: {
           ...DEFAULT_SETTINGS.platform.twitch,
-          subscribedRewardMarks: [" Camp-1:Reward-A ", "Camp-1:Reward-A", "no-separator", ":reward", "campaign:", 7 as unknown as string],
+          subscribedRewardMarks: [
+            " Camp-1:Reward-A ",
+            "Camp-1:Reward-A",
+            "no-separator",
+            ":reward",
+            "campaign:",
+            7 as unknown as string,
+          ],
         },
       },
     });
@@ -469,11 +631,15 @@ describe("subscription marks setting", () => {
   });
 
   it("applies a platform patch and survives a settings export and import", () => {
-    const patched = applySettingsPatch(DEFAULT_SETTINGS, { platform: { twitch: { subscribedRewardMarks: ["campaign:reward"] } } });
+    const patched = applySettingsPatch(DEFAULT_SETTINGS, {
+      platform: { twitch: { subscribedRewardMarks: ["campaign:reward"] } },
+    });
 
     expect(patched.platform.twitch.subscribedRewardMarks).toEqual(["campaign:reward"]);
     expect(patched.platform.kick.subscribedRewardMarks).toEqual([]);
     const file = JSON.parse(JSON.stringify(buildSettingsExportPayload(patched)));
-    expect(parseSettingsImportPayload(file).settings.platform.twitch.subscribedRewardMarks).toEqual(["campaign:reward"]);
+    expect(parseSettingsImportPayload(file).settings.platform.twitch.subscribedRewardMarks).toEqual(
+      ["campaign:reward"],
+    );
   });
 });

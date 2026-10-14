@@ -6,7 +6,12 @@ import process from "node:process";
 import { changelogPath, checkWorkspace, prepareWorkspace } from "../release.mjs";
 import { latestVersion, nextVersion, parseManifestVersion } from "./version.mjs";
 import { releaseNotes } from "./notes.mjs";
-import { ChromeWebStoreClient, publishAction, serviceAccountToken, waitForUpload } from "../cws.mjs";
+import {
+  ChromeWebStoreClient,
+  publishAction,
+  serviceAccountToken,
+  waitForUpload,
+} from "../cws.mjs";
 import { assertReleaseAssets, releasePolicy } from "./pipeline.mjs";
 import {
   GitHubClient,
@@ -42,7 +47,10 @@ export function resolveVersion({ tags, bump, version }) {
 
 export function resolvePolicy({ labels = "", head = "", tags = "", exclude = "" }) {
   return releasePolicy({
-    labels: labels.split(",").map((label) => label.trim()).filter(Boolean),
+    labels: labels
+      .split(",")
+      .map((label) => label.trim())
+      .filter(Boolean),
     head,
     tags: tags.split(/\s+/).filter(Boolean),
     exclude: exclude.split(/\s+/).filter(Boolean),
@@ -50,11 +58,7 @@ export function resolvePolicy({ labels = "", head = "", tags = "", exclude = "" 
 }
 
 export function candidateStatus({ version, sha = "", state, url = "" }) {
-  const lines = [
-    `## Release candidate ${version}`,
-    "",
-    `- State: **${state}**`,
-  ];
+  const lines = [`## Release candidate ${version}`, "", `- State: **${state}**`];
   if (sha) lines.push(`- Source: \`${sha.slice(0, 7)}\``);
   if (url) lines.push(`- Candidate: ${url}`);
   lines.push("- Site: https://next.lurkloot.pages.dev");
@@ -85,7 +89,9 @@ function githubClient() {
 }
 
 async function emit(outputs) {
-  const text = Object.entries(outputs).map(([key, value]) => `${key}=${value}`).join("\n");
+  const text = Object.entries(outputs)
+    .map(([key, value]) => `${key}=${value}`)
+    .join("\n");
   if (process.env.GITHUB_OUTPUT) await appendFile(process.env.GITHUB_OUTPUT, `${text}\n`);
   else process.stdout.write(`${text}\n`);
 }
@@ -96,7 +102,9 @@ const commands = {
   },
   async "next-version"(values) {
     const tags = (values.tags ?? "").split(/\s+/).filter(Boolean);
-    await emit({ version: resolveVersion({ tags, bump: values.bump, version: values.version ?? "" }) });
+    await emit({
+      version: resolveVersion({ tags, bump: values.bump, version: values.version ?? "" }),
+    });
   },
   async "prepare-workspace"(values) {
     await prepareWorkspace(values.version, values.date);
@@ -110,11 +118,16 @@ const commands = {
   async "publish-candidate"(values) {
     const entries = await readdir(values.assets, { withFileTypes: true });
     const files = entries.filter((entry) => entry.isFile());
-    assertReleaseAssets({ names: files.map((entry) => basename(entry.name)), version: values.version });
-    const assets = await Promise.all(files.map(async (entry) => ({
-      name: basename(entry.name),
-      bytes: await readFile(join(values.assets, entry.name)),
-    })));
+    assertReleaseAssets({
+      names: files.map((entry) => basename(entry.name)),
+      version: values.version,
+    });
+    const assets = await Promise.all(
+      files.map(async (entry) => ({
+        name: basename(entry.name),
+        bytes: await readFile(join(values.assets, entry.name)),
+      })),
+    );
     await reconcilePrerelease({
       client: githubClient(),
       pr: Number(values.pr),
@@ -174,7 +187,8 @@ const commands = {
       repository: process.env.GITHUB_REPOSITORY,
     });
     process.stdout.write(`::add-mask::${result.token}\n`);
-    if (process.env.GITHUB_OUTPUT) await appendFile(process.env.GITHUB_OUTPUT, `token=${result.token}\n`);
+    if (process.env.GITHUB_OUTPUT)
+      await appendFile(process.env.GITHUB_OUTPUT, `token=${result.token}\n`);
     else process.stdout.write(`token=${result.token}\n`);
   },
   async "sync-branches"(values) {
@@ -205,7 +219,9 @@ const commands = {
     const bytes = await readFile(values.package);
     await waitForUpload(client, await client.upload(bytes, `lurkloot-${values.version}.zip`));
     await client.publish();
-    process.stdout.write(`chrome web store: submitted ${values.version} with immediate publication\n`);
+    process.stdout.write(
+      `chrome web store: submitted ${values.version} with immediate publication\n`,
+    );
   },
 };
 

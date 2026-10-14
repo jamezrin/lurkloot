@@ -61,7 +61,11 @@ export interface FilterOptions {
 }
 
 function entryText(entry: SettingsEntryNode, t: TranslateFn): string[] {
-  return [t(entry.titleKey, entry.titleSubstitution), t(entry.descriptionKey, entry.descriptionSubstitution), ...(entry.searchKeys ?? []).map((key) => t(key))];
+  return [
+    t(entry.titleKey, entry.titleSubstitution),
+    t(entry.descriptionKey, entry.descriptionSubstitution),
+    ...(entry.searchKeys ?? []).map((key) => t(key)),
+  ];
 }
 
 // An advanced entry is reachable in exactly two situations: the user asked for

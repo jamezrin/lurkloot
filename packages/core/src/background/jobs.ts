@@ -79,7 +79,10 @@ export function jobIsInert(name: string, capabilities: HostCapabilities): boolea
 // The host's scheduler as the engine uses it: inert jobs are never scheduled.
 // Cancelling still reaches the host, so a schedule left over from a build that
 // had the capability is cleared.
-export function capabilityScopedJobs(jobs: JobSchedulerPort, capabilities: HostCapabilities): JobSchedulerPort {
+export function capabilityScopedJobs(
+  jobs: JobSchedulerPort,
+  capabilities: HostCapabilities,
+): JobSchedulerPort {
   return {
     ensure: async (name, schedule) => {
       if (jobIsInert(name, capabilities)) return;

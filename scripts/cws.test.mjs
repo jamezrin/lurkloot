@@ -1,8 +1,23 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { cancelAction, ChromeWebStoreClient, formatApiError, normalizeStatus, prereleaseAction, publishAction, revisionVersion, stableAction, submitAction, submittedAction, waitForCancellation } from "./cws.mjs";
+import {
+  cancelAction,
+  ChromeWebStoreClient,
+  formatApiError,
+  normalizeStatus,
+  prereleaseAction,
+  publishAction,
+  revisionVersion,
+  stableAction,
+  submitAction,
+  submittedAction,
+  waitForCancellation,
+} from "./cws.mjs";
 
-const revision = (state, version) => ({ state, distributionChannels: [{ deployPercentage: 100, crxVersion: version }] });
+const revision = (state, version) => ({
+  state,
+  distributionChannels: [{ deployPercentage: 100, crxVersion: version }],
+});
 const status = ({ published = "1.3.0", submitted, warned = false, takenDown = false } = {}) => ({
   publishedItemRevisionStatus: published ? revision("PUBLISHED", published) : undefined,
   submittedItemRevisionStatus: submitted,
@@ -21,13 +36,18 @@ test("reports a completed submission separately from staged retry state", () => 
 });
 
 test("normalizes store status for workflow decisions", () => {
-  assert.deepEqual(normalizeStatus(status({ submitted: revision("PENDING_REVIEW", "1.5.0"), published: "1.4.0", warned: true })), {
-    publishedVersion: "1.4.0",
-    submittedVersion: "1.5.0",
-    submittedState: "PENDING_REVIEW",
-    warned: true,
-    takenDown: false,
-  });
+  assert.deepEqual(
+    normalizeStatus(
+      status({ submitted: revision("PENDING_REVIEW", "1.5.0"), published: "1.4.0", warned: true }),
+    ),
+    {
+      publishedVersion: "1.4.0",
+      submittedVersion: "1.5.0",
+      submittedState: "PENDING_REVIEW",
+      warned: true,
+      takenDown: false,
+    },
+  );
 });
 
 test("pre-release uploads replace an unsubmitted draft", () => {
@@ -35,26 +55,53 @@ test("pre-release uploads replace an unsubmitted draft", () => {
 });
 
 test("pre-release upload freezes during review and staging", () => {
-  assert.equal(prereleaseAction(status({ submitted: revision("PENDING_REVIEW", "1.4.0") }), "1.4.0"), "frozen");
-  assert.equal(prereleaseAction(status({ submitted: revision("STAGED", "1.4.0") }), "1.4.0"), "frozen");
+  assert.equal(
+    prereleaseAction(status({ submitted: revision("PENDING_REVIEW", "1.4.0") }), "1.4.0"),
+    "frozen",
+  );
+  assert.equal(
+    prereleaseAction(status({ submitted: revision("STAGED", "1.4.0") }), "1.4.0"),
+    "frozen",
+  );
 });
 
 test("pre-release upload resumes after cancellation", () => {
-  assert.equal(prereleaseAction(status({ submitted: revision("CANCELLED", "1.4.0") }), "1.4.0"), "upload");
-  assert.equal(prereleaseAction(status({ submitted: revision("CANCELLED", "1.4.0") }), "1.5.0"), "upload");
+  assert.equal(
+    prereleaseAction(status({ submitted: revision("CANCELLED", "1.4.0") }), "1.4.0"),
+    "upload",
+  );
+  assert.equal(
+    prereleaseAction(status({ submitted: revision("CANCELLED", "1.4.0") }), "1.5.0"),
+    "upload",
+  );
 });
 
 test("pre-release rejects conflicting or unhealthy store state", () => {
-  assert.throws(() => prereleaseAction(status({ submitted: revision("STAGED", "1.3.1") }), "1.4.0"), /expected 1.4.0/);
-  assert.throws(() => prereleaseAction(status({ submitted: revision("REJECTED", "1.4.0") }), "1.4.0"), /REJECTED/);
+  assert.throws(
+    () => prereleaseAction(status({ submitted: revision("STAGED", "1.3.1") }), "1.4.0"),
+    /expected 1.4.0/,
+  );
+  assert.throws(
+    () => prereleaseAction(status({ submitted: revision("REJECTED", "1.4.0") }), "1.4.0"),
+    /REJECTED/,
+  );
   assert.throws(() => prereleaseAction(status({ warned: true }), "1.4.0"), /policy warning/);
   assert.throws(() => prereleaseAction(status({ takenDown: true }), "1.4.0"), /taken down/);
 });
 
 test("stable promotion publishes only a matching staged revision", () => {
-  assert.equal(stableAction(status({ submitted: revision("STAGED", "1.4.0") }), "1.4.0"), "publish");
-  assert.throws(() => stableAction(status({ submitted: revision("PENDING_REVIEW", "1.4.0") }), "1.4.0"), /expected STAGED/);
-  assert.throws(() => stableAction(status({ submitted: revision("STAGED", "1.5.0") }), "1.4.0"), /expected 1.4.0/);
+  assert.equal(
+    stableAction(status({ submitted: revision("STAGED", "1.4.0") }), "1.4.0"),
+    "publish",
+  );
+  assert.throws(
+    () => stableAction(status({ submitted: revision("PENDING_REVIEW", "1.4.0") }), "1.4.0"),
+    /expected STAGED/,
+  );
+  assert.throws(
+    () => stableAction(status({ submitted: revision("STAGED", "1.5.0") }), "1.4.0"),
+    /expected 1.4.0/,
+  );
 });
 
 test("stable promotion is idempotent after CWS publication", () => {
@@ -63,15 +110,30 @@ test("stable promotion is idempotent after CWS publication", () => {
 
 test("submits only an unsubmitted matching draft", () => {
   assert.equal(submitAction(status(), "1.4.0"), "submit");
-  assert.equal(submitAction(status({ submitted: revision("PENDING_REVIEW", "1.4.0") }), "1.4.0"), "already-submitted");
-  assert.equal(submitAction(status({ submitted: revision("STAGED", "1.4.0") }), "1.4.0"), "already-staged");
-  assert.throws(() => submitAction(status({ submitted: revision("PENDING_REVIEW", "1.5.0") }), "1.4.0"), /expected 1.4.0/);
+  assert.equal(
+    submitAction(status({ submitted: revision("PENDING_REVIEW", "1.4.0") }), "1.4.0"),
+    "already-submitted",
+  );
+  assert.equal(
+    submitAction(status({ submitted: revision("STAGED", "1.4.0") }), "1.4.0"),
+    "already-staged",
+  );
+  assert.throws(
+    () => submitAction(status({ submitted: revision("PENDING_REVIEW", "1.5.0") }), "1.4.0"),
+    /expected 1.4.0/,
+  );
 });
 
 test("cancels only an active matching review", () => {
-  assert.equal(cancelAction(status({ submitted: revision("PENDING_REVIEW", "1.4.0") }), "1.4.0"), "cancel");
+  assert.equal(
+    cancelAction(status({ submitted: revision("PENDING_REVIEW", "1.4.0") }), "1.4.0"),
+    "cancel",
+  );
   assert.equal(cancelAction(status(), "1.4.0"), "already-cancelled");
-  assert.equal(cancelAction(status({ submitted: revision("CANCELLED", "1.4.0") }), "1.4.0"), "already-cancelled");
+  assert.equal(
+    cancelAction(status({ submitted: revision("CANCELLED", "1.4.0") }), "1.4.0"),
+    "already-cancelled",
+  );
   assert.equal(cancelAction(status({ submitted: revision("STAGED", "1.4.0") }), "1.4.0"), "cancel");
 });
 
@@ -88,7 +150,10 @@ test("publishes immediately so approval goes live unattended", async () => {
   });
   await client.publish();
   await client.cancelSubmission();
-  assert.deepEqual(JSON.parse(requests[0].init.body), { publishType: "DEFAULT_PUBLISH", blockOnWarnings: true });
+  assert.deepEqual(JSON.parse(requests[0].init.body), {
+    publishType: "DEFAULT_PUBLISH",
+    blockOnWarnings: true,
+  });
   assert.match(requests[0].url, /:publish$/);
   assert.match(requests[1].url, /:cancelSubmission$/);
   assert.equal(requests[1].init.body, undefined);
@@ -109,8 +174,11 @@ test("surfaces publish validation details and store-readiness guidance", () => {
   assert.match(
     formatApiError(400, {
       error: {
-        message: "Your submission does not meet the requirements to be published in the store. Check the Developer Dashboard for steps to resolve.",
-        details: [{ description: "Missing host permission justification for https://*.pusher.com/*" }],
+        message:
+          "Your submission does not meet the requirements to be published in the store. Check the Developer Dashboard for steps to resolve.",
+        details: [
+          { description: "Missing host permission justification for https://*.pusher.com/*" },
+        ],
       },
     }),
     /Missing host permission justification.*store-readiness\.md/s,
@@ -128,20 +196,41 @@ test("accepts the empty cancellation response required by CWS v2", async () => {
 });
 
 test("waits until CWS reports a cancelled submission", async () => {
-  const states = [status({ submitted: revision("PENDING_REVIEW", "1.4.0") }), status({ submitted: revision("CANCELLED", "1.4.0") })];
-  const result = await waitForCancellation({ status: async () => states.shift() }, "1.4.0", { attempts: 2, delay: async () => {} });
+  const states = [
+    status({ submitted: revision("PENDING_REVIEW", "1.4.0") }),
+    status({ submitted: revision("CANCELLED", "1.4.0") }),
+  ];
+  const result = await waitForCancellation({ status: async () => states.shift() }, "1.4.0", {
+    attempts: 2,
+    delay: async () => {},
+  });
   assert.equal(result, "cancelled");
 });
 
 test("rejects cancellation confirmation for another version", async () => {
   const client = { status: async () => status({ submitted: revision("CANCELLED", "1.5.0") }) };
-  await assert.rejects(waitForCancellation(client, "1.4.0", { attempts: 1, delay: async () => {} }), /switched to 1\.5\.0/);
+  await assert.rejects(
+    waitForCancellation(client, "1.4.0", { attempts: 1, delay: async () => {} }),
+    /switched to 1\.5\.0/,
+  );
 });
 
 test("publishAction uploads, publishes, or skips based on live store state", () => {
   assert.equal(publishAction(status({ published: "1.4.0" }), "1.5.0"), "upload");
   assert.equal(publishAction(status({ published: "1.5.0" }), "1.5.0"), "already-published");
-  assert.equal(publishAction(status({ published: "1.4.0", submitted: revision("PENDING_REVIEW", "1.5.0") }), "1.5.0"), "in-review");
-  assert.equal(publishAction(status({ published: "1.4.0", submitted: revision("IN_REVIEW", "1.5.0") }), "1.5.0"), "in-review");
+  assert.equal(
+    publishAction(
+      status({ published: "1.4.0", submitted: revision("PENDING_REVIEW", "1.5.0") }),
+      "1.5.0",
+    ),
+    "in-review",
+  );
+  assert.equal(
+    publishAction(
+      status({ published: "1.4.0", submitted: revision("IN_REVIEW", "1.5.0") }),
+      "1.5.0",
+    ),
+    "in-review",
+  );
   assert.throws(() => publishAction(status({ warned: true }), "1.5.0"), /policy warning/);
 });

@@ -5,7 +5,9 @@ import type { EngineSettings, SchedulerState, WatchSession } from "@lurkloot/sha
 import { DEFAULT_ENGINE_SETTINGS } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "../src/core/storage";
 
-function settingsWith(patch: { enabled?: boolean; alwaysEnterChat?: boolean; pauseOnManualWatch?: boolean } = {}): EngineSettings {
+function settingsWith(
+  patch: { enabled?: boolean; alwaysEnterChat?: boolean; pauseOnManualWatch?: boolean } = {},
+): EngineSettings {
   return {
     ...DEFAULT_ENGINE_SETTINGS,
     pauseOnManualWatch: patch.pauseOnManualWatch ?? DEFAULT_ENGINE_SETTINGS.pauseOnManualWatch,
@@ -20,7 +22,10 @@ function settingsWith(patch: { enabled?: boolean; alwaysEnterChat?: boolean; pau
   };
 }
 
-function stateWith(session: Partial<WatchSession> = {}, auth: "healthy" | "checking" = "healthy"): SchedulerState {
+function stateWith(
+  session: Partial<WatchSession> = {},
+  auth: "healthy" | "checking" = "healthy",
+): SchedulerState {
   return {
     ...DEFAULT_STATE,
     authHealth: { ...DEFAULT_STATE.authHealth, twitch: { status: auth } },
@@ -31,7 +36,12 @@ function stateWith(session: Partial<WatchSession> = {}, auth: "healthy" | "check
         status: "watching",
         watchMode: "tabless",
         offlineChecks: 0,
-        channel: { platform: "twitch", username: "Prod", url: "https://www.twitch.tv/prod", channelId: "174754672" },
+        channel: {
+          platform: "twitch",
+          username: "Prod",
+          url: "https://www.twitch.tv/prod",
+          channelId: "174754672",
+        },
         ...session,
       },
     },
@@ -48,15 +58,20 @@ describe("chat presence rule", () => {
   });
 
   it("wants presence for a NoPixelV watch, with the provider as trigger", () => {
-    expect(chatPresenceDecision("twitch", settingsWith(), stateWith(nopixel), { capability: true })).toEqual({
+    expect(
+      chatPresenceDecision("twitch", settingsWith(), stateWith(nopixel), { capability: true }),
+    ).toEqual({
       target: { username: "prod", channelId: "174754672" },
       trigger: { kind: "provider", providerId: "nopixel" },
     });
   });
 
   it("wants presence for any tabless watch when alwaysEnterChat is on", () => {
-    expect(chatPresenceDecision("twitch", settingsWith({ alwaysEnterChat: true }), stateWith(), { capability: true })?.trigger)
-      .toEqual({ kind: "setting" });
+    expect(
+      chatPresenceDecision("twitch", settingsWith({ alwaysEnterChat: true }), stateWith(), {
+        capability: true,
+      })?.trigger,
+    ).toEqual({ kind: "setting" });
   });
 
   it.each([
@@ -64,7 +79,11 @@ describe("chat presence rule", () => {
     ["Fortnite watch", settingsWith(), stateWith(fortnite)],
     ["platform disabled", settingsWith({ enabled: false, alwaysEnterChat: true }), stateWith()],
     ["auth not healthy", settingsWith({ alwaysEnterChat: true }), stateWith({}, "checking")],
-    ["tab watch never wants presence", settingsWith({ alwaysEnterChat: true }), stateWith({ ...nopixel, watchMode: "tab" })],
+    [
+      "tab watch never wants presence",
+      settingsWith({ alwaysEnterChat: true }),
+      stateWith({ ...nopixel, watchMode: "tab" }),
+    ],
     ["not watching", settingsWith({ alwaysEnterChat: true }), stateWith({ status: "paused" })],
     ["no channel", settingsWith({ alwaysEnterChat: true }), stateWith({ channel: undefined })],
   ])("does not want presence: %s", (_label, settings, state) => {
@@ -72,18 +91,44 @@ describe("chat presence rule", () => {
   });
 
   it("does not want presence without the host capability", () => {
-    expect(chatPresenceDecision("twitch", settingsWith({ alwaysEnterChat: true }), stateWith(nopixel), { capability: false })).toBeUndefined();
+    expect(
+      chatPresenceDecision("twitch", settingsWith({ alwaysEnterChat: true }), stateWith(nopixel), {
+        capability: false,
+      }),
+    ).toBeUndefined();
   });
 
   it("does not want presence during a manual-close pause or a recent manual watch", () => {
-    const paused: SchedulerState = { ...stateWith(nopixel), manualClosePause: { twitch: { platform: "twitch", closedAt: new Date(0).toISOString() } } };
-    expect(chatPresenceDecision("twitch", settingsWith(), paused, { capability: true })).toBeUndefined();
+    const paused: SchedulerState = {
+      ...stateWith(nopixel),
+      manualClosePause: { twitch: { platform: "twitch", closedAt: new Date(0).toISOString() } },
+    };
+    expect(
+      chatPresenceDecision("twitch", settingsWith(), paused, { capability: true }),
+    ).toBeUndefined();
     const now = Date.parse("2026-10-05T12:00:00Z");
     const watching: SchedulerState = {
       ...stateWith(nopixel),
-      manualWatch: { twitch: { platform: "twitch", tabId: 7, checkedAt: new Date(now).toISOString(), active: true } },
+      manualWatch: {
+        twitch: {
+          platform: "twitch",
+          tabId: 7,
+          checkedAt: new Date(now).toISOString(),
+          active: true,
+        },
+      },
     };
-    expect(chatPresenceDecision("twitch", settingsWith({ pauseOnManualWatch: true }), watching, { capability: true, now })).toBeUndefined();
-    expect(chatPresenceDecision("twitch", settingsWith({ pauseOnManualWatch: false }), watching, { capability: true, now })).toBeDefined();
+    expect(
+      chatPresenceDecision("twitch", settingsWith({ pauseOnManualWatch: true }), watching, {
+        capability: true,
+        now,
+      }),
+    ).toBeUndefined();
+    expect(
+      chatPresenceDecision("twitch", settingsWith({ pauseOnManualWatch: false }), watching, {
+        capability: true,
+        now,
+      }),
+    ).toBeDefined();
   });
 });

@@ -44,17 +44,31 @@ describe("popup Twitch extension toggle", () => {
       root.render(<Popup adapter={adapter} />);
       await Promise.resolve();
     });
-    act(() => (container.querySelector('button[data-view="nopixel"]') as HTMLButtonElement).click());
+    act(() =>
+      (container.querySelector('button[data-view="nopixel"]') as HTMLButtonElement).click(),
+    );
 
     const initial = providerSwitch(container).getAttribute("aria-checked") === "true";
-    await act(async () => { providerSwitch(container).click(); });
-    expect(send).toHaveBeenCalledWith({ type: "setTwitchExtensionEnabled", provider: "nopixel", enabled: !initial });
+    await act(async () => {
+      providerSwitch(container).click();
+    });
+    expect(send).toHaveBeenCalledWith({
+      type: "setTwitchExtensionEnabled",
+      provider: "nopixel",
+      enabled: !initial,
+    });
     expect(send).toHaveBeenCalledWith({ type: "tickNow" });
     expect(providerSwitch(container).getAttribute("aria-checked")).toBe(String(!initial));
     expect(providerSwitch(container).disabled).toBe(false);
 
-    await act(async () => { providerSwitch(container).click(); });
-    expect(send).toHaveBeenCalledWith({ type: "setTwitchExtensionEnabled", provider: "nopixel", enabled: initial });
+    await act(async () => {
+      providerSwitch(container).click();
+    });
+    expect(send).toHaveBeenCalledWith({
+      type: "setTwitchExtensionEnabled",
+      provider: "nopixel",
+      enabled: initial,
+    });
     expect(providerSwitch(container).getAttribute("aria-checked")).toBe(String(initial));
     expect(providerSwitch(container).disabled).toBe(false);
   });

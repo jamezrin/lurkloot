@@ -1,15 +1,29 @@
 import { describe, expect, it } from "vitest";
-// @ts-expect-error The production utility is an executable JavaScript module.
-import { abandonBrowserSession, endpointUrl, finishBrowserSession, probeEndpoint, resolveBrowserBinary, startBrowserSession } from "../scripts/store-screenshot-browser.mjs";
+import {
+  abandonBrowserSession,
+  endpointUrl,
+  finishBrowserSession,
+  probeEndpoint,
+  resolveBrowserBinary,
+  startBrowserSession,
+  // @ts-expect-error The production utility is an executable JavaScript module.
+} from "../scripts/store-screenshot-browser.mjs";
 
 function fakeChild() {
   const listeners: Record<string, (code?: number) => void> = {};
   return {
     killed: false,
-    once(event: string, handler: (code?: number) => void) { listeners[event] = handler; },
+    once(event: string, handler: (code?: number) => void) {
+      listeners[event] = handler;
+    },
     unref() {},
-    kill() { this.killed = true; listeners.exit?.(0); },
-    exit(code: number) { listeners.exit?.(code); },
+    kill() {
+      this.killed = true;
+      listeners.exit?.(0);
+    },
+    exit(code: number) {
+      listeners.exit?.(code);
+    },
   };
 }
 
@@ -44,17 +58,21 @@ describe("browser binary resolution", () => {
   });
 
   it("rejects an override that is not executable", async () => {
-    await expect(resolveBrowserBinary({
-      env: { CWS_CHROME_BINARY: "/opt/missing" },
-      exists: async () => false,
-    })).rejects.toThrow(/CWS_CHROME_BINARY/);
+    await expect(
+      resolveBrowserBinary({
+        env: { CWS_CHROME_BINARY: "/opt/missing" },
+        exists: async () => false,
+      }),
+    ).rejects.toThrow(/CWS_CHROME_BINARY/);
   });
 
   it("names every candidate when nothing is installed", async () => {
-    await expect(resolveBrowserBinary({
-      env: { PATH: "/usr/bin" },
-      exists: async () => false,
-    })).rejects.toThrow(/google-chrome-stable.*CWS_CHROME_BINARY/s);
+    await expect(
+      resolveBrowserBinary({
+        env: { PATH: "/usr/bin" },
+        exists: async () => false,
+      }),
+    ).rejects.toThrow(/google-chrome-stable.*CWS_CHROME_BINARY/s);
   });
 });
 
@@ -66,7 +84,9 @@ describe("debugging endpoint", () => {
 
   it("treats an unreachable endpoint as absent", async () => {
     const reachable = await probeEndpoint("http://127.0.0.1:9333", {
-      fetchImpl: async () => { throw new Error("ECONNREFUSED"); },
+      fetchImpl: async () => {
+        throw new Error("ECONNREFUSED");
+      },
     });
 
     expect(reachable).toBe(false);
@@ -81,7 +101,10 @@ describe("browser session lifecycle", () => {
       env: {},
       output: () => {},
       probe: async () => true,
-      spawnBrowser: () => { spawned += 1; return fakeChild(); },
+      spawnBrowser: () => {
+        spawned += 1;
+        return fakeChild();
+      },
       connect: async () => ({ contexts: () => [context] }),
     });
 
@@ -96,7 +119,11 @@ describe("browser session lifecycle", () => {
     const session = {
       ownsBrowser: false,
       child,
-      browser: { close: async () => { closed = true; } },
+      browser: {
+        close: async () => {
+          closed = true;
+        },
+      },
     };
 
     await finishBrowserSession(session, { output: () => {} });
@@ -149,9 +176,19 @@ describe("browser session lifecycle", () => {
       const session = await startBrowserSession({
         env: {},
         output: () => {},
-        probe: async () => { probes += 1; return probes > 1; },
-        resolveBinary: async () => ({ path: "/usr/bin/google-chrome-stable", name: "google-chrome-stable", isChromium: false }),
-        spawnBrowser: (_binary: string, args: string[]) => { spawnArgs.push(args); return fakeChild(); },
+        probe: async () => {
+          probes += 1;
+          return probes > 1;
+        },
+        resolveBinary: async () => ({
+          path: "/usr/bin/google-chrome-stable",
+          name: "google-chrome-stable",
+          isChromium: false,
+        }),
+        spawnBrowser: (_binary: string, args: string[]) => {
+          spawnArgs.push(args);
+          return fakeChild();
+        },
         makeProfileDir: async () => stateProfile,
         connect: async () => ({ contexts: () => [{}] }),
       });
@@ -170,7 +207,10 @@ describe("browser session lifecycle", () => {
       output: () => {},
       probe: async () => true,
       connect: async () => ({ contexts: () => [{}] }),
-      makeProfileDir: async () => { created.push("called"); return "/state/lurkloot/cws-chrome-profile"; },
+      makeProfileDir: async () => {
+        created.push("called");
+        return "/state/lurkloot/cws-chrome-profile";
+      },
     });
 
     // An already-live endpoint is attached to, so no profile is created at all.
@@ -185,7 +225,11 @@ describe("browser session lifecycle", () => {
     const session = {
       ownsBrowser: true,
       child,
-      browser: { close: async () => { closed = true; } },
+      browser: {
+        close: async () => {
+          closed = true;
+        },
+      },
     };
 
     await abandonBrowserSession(session, (message: string) => messages.push(message));
@@ -204,19 +248,23 @@ describe("browser session lifecycle", () => {
       browser: { close: async () => {} },
     };
 
-    await abandonBrowserSession(session, (message: string) => messages.push(message), { mutated: false });
+    await abandonBrowserSession(session, (message: string) => messages.push(message), {
+      mutated: false,
+    });
 
     expect(messages.join(" ")).toMatch(/listing was not changed/);
     expect(messages.join(" ")).not.toMatch(/partially changed/);
   });
 
   it("refuses to drive a browser with no open window", async () => {
-    await expect(startBrowserSession({
-      env: {},
-      output: () => {},
-      probe: async () => true,
-      connect: async () => ({ contexts: () => [] }),
-    })).rejects.toThrow(/no open window/);
+    await expect(
+      startBrowserSession({
+        env: {},
+        output: () => {},
+        probe: async () => true,
+        connect: async () => ({ contexts: () => [] }),
+      }),
+    ).rejects.toThrow(/no open window/);
   });
 
   it("spawns a browser with no automation switches when nothing is listening", async () => {
@@ -225,9 +273,19 @@ describe("browser session lifecycle", () => {
     const session = await startBrowserSession({
       env: { CWS_CDP_PORT: "9444" },
       output: () => {},
-      probe: async () => { probes += 1; return probes > 1; },
-      resolveBinary: async () => ({ path: "/usr/bin/google-chrome-stable", name: "google-chrome-stable", isChromium: false }),
-      spawnBrowser: (_binary: string, args: string[]) => { spawnArgs.push(args); return fakeChild(); },
+      probe: async () => {
+        probes += 1;
+        return probes > 1;
+      },
+      resolveBinary: async () => ({
+        path: "/usr/bin/google-chrome-stable",
+        name: "google-chrome-stable",
+        isChromium: false,
+      }),
+      spawnBrowser: (_binary: string, args: string[]) => {
+        spawnArgs.push(args);
+        return fakeChild();
+      },
       makeProfileDir: async () => "/tmp/cws-profile-test",
       connect: async () => ({ contexts: () => [{}] }),
     });
@@ -243,8 +301,15 @@ describe("browser session lifecycle", () => {
     const session = await startBrowserSession({
       env: { CWS_CHROME_PROFILE: "/home/operator/chrome-profile" },
       output: () => {},
-      probe: async () => { probes += 1; return probes > 1; },
-      resolveBinary: async () => ({ path: "/usr/bin/google-chrome-stable", name: "google-chrome-stable", isChromium: false }),
+      probe: async () => {
+        probes += 1;
+        return probes > 1;
+      },
+      resolveBinary: async () => ({
+        path: "/usr/bin/google-chrome-stable",
+        name: "google-chrome-stable",
+        isChromium: false,
+      }),
       spawnBrowser: () => fakeChild(),
       connect: async () => ({ contexts: () => [{}] }),
     });
@@ -253,20 +318,26 @@ describe("browser session lifecycle", () => {
   });
 
   it("reports the forwarding exit instead of waiting out the readiness timeout", async () => {
-    await expect(startBrowserSession({
-      env: {},
-      output: () => {},
-      probe: async () => false,
-      resolveBinary: async () => ({ path: "/usr/bin/google-chrome-stable", name: "google-chrome-stable", isChromium: false }),
-      spawnBrowser: () => {
-        const child = fakeChild();
-        // Chrome forwards to the instance already holding this profile and exits at once.
-        queueMicrotask(() => child.exit(0));
-        return child;
-      },
-      makeProfileDir: async () => "/tmp/cws-profile-test",
-      connect: async () => ({ contexts: () => [{}] }),
-      readyTimeoutMs: 30000,
-    })).rejects.toThrow(/already own this profile/);
+    await expect(
+      startBrowserSession({
+        env: {},
+        output: () => {},
+        probe: async () => false,
+        resolveBinary: async () => ({
+          path: "/usr/bin/google-chrome-stable",
+          name: "google-chrome-stable",
+          isChromium: false,
+        }),
+        spawnBrowser: () => {
+          const child = fakeChild();
+          // Chrome forwards to the instance already holding this profile and exits at once.
+          queueMicrotask(() => child.exit(0));
+          return child;
+        },
+        makeProfileDir: async () => "/tmp/cws-profile-test",
+        connect: async () => ({ contexts: () => [{}] }),
+        readyTimeoutMs: 30000,
+      }),
+    ).rejects.toThrow(/already own this profile/);
   });
 });

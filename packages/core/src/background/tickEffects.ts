@@ -44,7 +44,10 @@ export function createTickEffectExecutor(): TickEffectExecutor {
   return new EffectExecutor<SchedulerEffects, TickEffectContext>();
 }
 
-export function tickCapabilities(adapter: PlatformAdapter, watchTabs: boolean): PlatformTickCapabilities {
+export function tickCapabilities(
+  adapter: PlatformAdapter,
+  watchTabs: boolean,
+): PlatformTickCapabilities {
   return {
     supportsTabless: Boolean(adapter.supportsTabless),
     watchTabs,
@@ -67,12 +70,21 @@ export async function runSchedulerTickEffects(
   const tick = startSchedulerTick(input);
   const { tabRegistry } = context;
   const pageContextRevision = currentManagedPageContextTabsRevision(tabRegistry);
-  hydrateManagedPageContextTabs(tabRegistry, input.state.managedPageContextTabs ?? {}, platforms, pageContextRevision);
+  hydrateManagedPageContextTabs(
+    tabRegistry,
+    input.state.managedPageContextTabs ?? {},
+    platforms,
+    pageContextRevision,
+  );
   // When the kill switch is off the breaker registry is cleared instead of
   // mirrored. Otherwise a breaker latched before the switch was flipped would
   // keep blocking page-context creation forever: observations no longer run to
   // release it, and the popup no longer renders the panel that would dismiss it.
-  syncManagedTabBreakers(tabRegistry, input.settings.criticalFailurePromptEnabled ? tick.state : {}, platforms);
+  syncManagedTabBreakers(
+    tabRegistry,
+    input.settings.criticalFailurePromptEnabled ? tick.state : {},
+    platforms,
+  );
   const effectContext: TickEffectContext = { ...context, emit: tick.emit, signal: input.signal };
   for (const platform of platforms) {
     try {
@@ -84,7 +96,8 @@ export async function runSchedulerTickEffects(
     } finally {
       // An observation can release the breaker, and a provider call can open
       // or close a page context, so both are read back after every platform.
-      if (input.settings.criticalFailurePromptEnabled) syncManagedTabBreakers(tabRegistry, tick.state, [platform]);
+      if (input.settings.criticalFailurePromptEnabled)
+        syncManagedTabBreakers(tabRegistry, tick.state, [platform]);
       tick.state.managedPageContextTabs = currentManagedPageContextTabs(tabRegistry);
     }
   }

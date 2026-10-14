@@ -1,4 +1,9 @@
-import type { EngineSettings, ManualWatchState, Platform, SchedulerState } from "@lurkloot/shared/models";
+import type {
+  EngineSettings,
+  ManualWatchState,
+  Platform,
+  SchedulerState,
+} from "@lurkloot/shared/models";
 import { isTimestampStale } from "./timestamps";
 
 // How long a manual-watch report counts after it was checked.
@@ -14,7 +19,8 @@ export function recentManualWatch(
   now = Date.now(),
 ): ManualWatchState | undefined {
   const watch = state.manualWatch?.[platform];
-  if (!watch?.active || isTimestampStale(watch.checkedAt, MANUAL_WATCH_TTL_MS, now)) return undefined;
+  if (!watch?.active || isTimestampStale(watch.checkedAt, MANUAL_WATCH_TTL_MS, now))
+    return undefined;
   return watch;
 }
 

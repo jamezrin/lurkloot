@@ -38,8 +38,10 @@ const labels: Record<string, string> = {
   settingsGroupPlatformAdvanced: "Advanced & compatibility",
   strictCampaignAvailabilityTitle: "Strict campaign availability",
   strictCampaignAvailabilityDescription: "Only farm a campaign on channels Twitch lists it for.",
-  twitchSectionDescription: "Channel points, category filter, excluded channels, and Twitch compatibility.",
-  kickSectionDescription: "Daily challenges, category filter, excluded channels, and Kick compatibility.",
+  twitchSectionDescription:
+    "Channel points, category filter, excluded channels, and Twitch compatibility.",
+  kickSectionDescription:
+    "Daily challenges, category filter, excluded channels, and Kick compatibility.",
   twitchAdvancedDescription: "Campaign availability and the transports Lurkloot uses.",
   kickAdvancedDescription: "How Lurkloot opens Kick claim links.",
   settingsGroupCategories: "Categories",
@@ -63,7 +65,8 @@ const labels: Record<string, string> = {
   preferKnownChannelsTitle: "Prefer followed and Idle Watchlist channels",
   preferKnownChannelsDescription: "Picks a channel you know over an unfamiliar one.",
   watchSourcePriorityTitle: "Watch-source priority",
-  watchSourcePriorityDescription: "The first available source is watched. Disabled or unavailable sources are skipped.",
+  watchSourcePriorityDescription:
+    "The first available source is watched. Disabled or unavailable sources are skipped.",
   watchSourcePriorityMoveUp: "Move $1 up",
   watchSourcePriorityMoveDown: "Move $1 down",
   watchSourcePriorityReset: "Reset priority",
@@ -74,7 +77,8 @@ const labels: Record<string, string> = {
   farmUnlinkedTitle: "Farm campaigns without a linked account",
   farmUnlinkedDescription: "When off, campaigns that need you to link your account are skipped.",
   farmSubscriptionTitle: "Farm campaigns that require a subscription",
-  farmSubscriptionDescription: "When off, campaigns whose rewards need a channel subscription are skipped.",
+  farmSubscriptionDescription:
+    "When off, campaigns whose rewards need a channel subscription are skipped.",
   forgetExcludedTitle: "Forget excluded campaigns",
   forgetExcludedDescription: "Clear every campaign you excluded from farming.",
   tablessTitle: "Tabless low-resource mode",
@@ -90,11 +94,14 @@ const labels: Record<string, string> = {
   schedulerIntervalTitle: "Scheduler interval",
   schedulerIntervalDescription: "How often campaign and streamer status refreshes.",
   tablessFallbackFailureLimitTitle: "Tabless fallback threshold",
-  tablessFallbackFailureLimitDescription: "Open a video tab after this many consecutive failed tabless watch signals.",
-  tablessFallbackFailureLimitDisabledReason: "Enable tabless low-resource mode to change this setting.",
+  tablessFallbackFailureLimitDescription:
+    "Open a video tab after this many consecutive failed tabless watch signals.",
+  tablessFallbackFailureLimitDisabledReason:
+    "Enable tabless low-resource mode to change this setting.",
   failuresSuffix: "failures",
   kickPageContextRecoverySuccessesTitle: "Kick fallback-page recovery",
-  kickPageContextRecoverySuccessesDescription: "Close an extension-opened Kick fallback page after this many successful refresh cycles.",
+  kickPageContextRecoverySuccessesDescription:
+    "Close an extension-opened Kick fallback page after this many successful refresh cycles.",
   kickPageContextRecoverySuccessesDisabledReason: "Enable Kick to change this setting.",
   cyclesSuffix: "cycles",
   postClaimHandoffTitle: "Fast reward handoff",
@@ -121,16 +128,21 @@ const labels: Record<string, string> = {
   autoClaimChannelPointsTitle: "Auto-claim channel points",
   autoClaimChannelPointsDescription: "Claim channel-point bonuses while farming this platform.",
   alwaysEnterChatTitle: "Always enter channel chat",
-  alwaysEnterChatDescription: "Join the chat of each channel being watched. Streamers and moderators can see you in the chat's viewer list. Messages are never sent.",
+  alwaysEnterChatDescription:
+    "Join the chat of each channel being watched. Streamers and moderators can see you in the chat's viewer list. Messages are never sent.",
   channelPointsPushClaimTitle: "Claim channel points from live events",
-  channelPointsPushClaimDescription: "Claim the bonus as soon as Twitch makes it available. Turn off to only check once a minute.",
+  channelPointsPushClaimDescription:
+    "Claim the bonus as soon as Twitch makes it available. Turn off to only check once a minute.",
   autoClaimChallengesTitle: "Auto-claim daily challenges",
-  autoClaimChallengesDescription: "Claim Kick's daily challenge reward once its watch-time goal is met.",
+  autoClaimChallengesDescription:
+    "Claim Kick's daily challenge reward once its watch-time goal is met.",
   categoryModeTitle: "Category filter",
   settingsGamesPointerTitle: "Games and categories",
-  settingsGamesPointerDescription: "Choose which $1 games are farmed, star the ones that should rank first, or block them.",
+  settingsGamesPointerDescription:
+    "Choose which $1 games are farmed, star the ones that should rank first, or block them.",
   settingsGamesPointerAction: "Open Games",
-  categoryModeDescription: "Farm every $1 category, include only the categories you select, or exclude them.",
+  categoryModeDescription:
+    "Farm every $1 category, include only the categories you select, or exclude them.",
   categoryModeAll: "All categories",
   categoryModeInclude: "Only selected",
   excludedChannelsTitle: "Excluded drop channels",
@@ -170,7 +182,9 @@ function setInputValue(input: HTMLInputElement, value: string): void {
   const setter = Object.getOwnPropertyDescriptor(input.constructor.prototype, "value")?.set;
   setter?.call(input, value);
   const propsKey = Object.keys(input).find((key) => key.startsWith("__reactProps$"));
-  const props = propsKey ? (input as unknown as Record<string, { onChange?(event: unknown): void }>)[propsKey] : undefined;
+  const props = propsKey
+    ? (input as unknown as Record<string, { onChange?(event: unknown): void }>)[propsKey]
+    : undefined;
   props?.onChange?.({ target: input, currentTarget: input });
 }
 
@@ -182,7 +196,15 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function mountSettings(settings = DEFAULT_SETTINGS, actions: Partial<Pick<React.ComponentProps<typeof SettingsView>, "onExportSettings" | "onImportSettings" | "onReset" | "onExportCredentials">> = {}) {
+function mountSettings(
+  settings = DEFAULT_SETTINGS,
+  actions: Partial<
+    Pick<
+      React.ComponentProps<typeof SettingsView>,
+      "onExportSettings" | "onImportSettings" | "onReset" | "onExportCredentials"
+    >
+  > = {},
+) {
   const { document, window } = parseHTML("<div id=app></div>");
   vi.stubGlobal("window", window);
   vi.stubGlobal("document", document);
@@ -198,7 +220,17 @@ function mountSettings(settings = DEFAULT_SETTINGS, actions: Partial<Pick<React.
     root = createRoot(container);
     root.render(
       <PopupRuntimeContext.Provider value={{ adapter, preview: true }}>
-        <I18nContext.Provider value={{ t: (key: string, substitutions?: string | string[]) => (labels[key] ?? key).replace("$1", Array.isArray(substitutions) ? substitutions[0] ?? "" : substitutions ?? ""), dir: "ltr", locale: "en" }}>
+        <I18nContext.Provider
+          value={{
+            t: (key: string, substitutions?: string | string[]) =>
+              (labels[key] ?? key).replace(
+                "$1",
+                Array.isArray(substitutions) ? (substitutions[0] ?? "") : (substitutions ?? ""),
+              ),
+            dir: "ltr",
+            locale: "en",
+          }}
+        >
           <SettingsView
             suggestions={{ twitch: [], kick: [] }}
             onSearchCategories={async () => []}
@@ -230,8 +262,11 @@ describe("settings search view", () => {
     const { container } = mountSettings();
     // Target the title span by its marker rather than by ordinal or styling,
     // so a badge, an icon or a restyle cannot silently shift what this reads.
-    const sectionTitles = [...container.querySelectorAll<HTMLButtonElement>('section > header > button[aria-expanded]')]
-      .map((button) => button.querySelector<HTMLSpanElement>("[data-settings-section-title]")?.textContent?.trim());
+    const sectionTitles = [
+      ...container.querySelectorAll<HTMLButtonElement>("section > header > button[aria-expanded]"),
+    ].map((button) =>
+      button.querySelector<HTMLSpanElement>("[data-settings-section-title]")?.textContent?.trim(),
+    );
 
     expect(sectionTitles).toEqual([
       "Appearance & behavior",
@@ -244,7 +279,9 @@ describe("settings search view", () => {
     ]);
     expect(container.textContent).toContain("Language, startup, and popup behavior.");
     expect(container.textContent).toContain("Alerts when rewards are ready or campaigns finish.");
-    expect(container.textContent).toContain("Claiming, eligibility, priorities, and campaign visibility.");
+    expect(container.textContent).toContain(
+      "Claiming, eligibility, priorities, and campaign visibility.",
+    );
   });
 
   it("keeps reward-completion policy with the other drop controls", () => {
@@ -314,7 +351,9 @@ describe("settings search view", () => {
 
     act(() => setInputValue(search, "campaign"));
 
-    const drops = container.querySelector<HTMLButtonElement>("#settings-section-general\\.drops button[aria-expanded]");
+    const drops = container.querySelector<HTMLButtonElement>(
+      "#settings-section-general\\.drops button[aria-expanded]",
+    );
     expect(container.querySelector("#settings-section-general")).toBeNull();
     expect(drops?.textContent).toContain("Drops");
 

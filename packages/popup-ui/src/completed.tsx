@@ -16,7 +16,13 @@ type CompletedTab = "finished" | "expired";
  * drag handle, no "Later" pill and no farming-rejection warning — a finished
  * campaign is not waiting for anything, so nothing here may suggest it is.
  * Rewards still expand, which is the reason to come back to this view at all. */
-export function CompletedPanel({ campaigns, gameMap, focus, refreshing, onRefreshCampaign }: {
+export function CompletedPanel({
+  campaigns,
+  gameMap,
+  focus,
+  refreshing,
+  onRefreshCampaign,
+}: {
   campaigns: CampaignView[];
   gameMap: Record<string, GameItem>;
   focus?: { id: string; seq: number } | null;
@@ -27,8 +33,14 @@ export function CompletedPanel({ campaigns, gameMap, focus, refreshing, onRefres
   const [tab, setTab] = useState<CompletedTab>("finished");
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
 
-  const finished = useMemo(() => campaigns.filter((campaign) => campaign.section === "completed"), [campaigns]);
-  const expired = useMemo(() => campaigns.filter((campaign) => campaign.section === "expired"), [campaigns]);
+  const finished = useMemo(
+    () => campaigns.filter((campaign) => campaign.section === "completed"),
+    [campaigns],
+  );
+  const expired = useMemo(
+    () => campaigns.filter((campaign) => campaign.section === "expired"),
+    [campaigns],
+  );
   const rows = tab === "finished" ? finished : expired;
 
   // A focus request can name a campaign in either list (the status strip links
@@ -43,21 +55,28 @@ export function CompletedPanel({ campaigns, gameMap, focus, refreshing, onRefres
   return (
     <section className="space-y-1.5">
       <ViewToolbar>
-      <Segmented<CompletedTab>
-        label={t("navCompleted")}
-        value={tab}
-        itemAttribute="data-completed-tab"
-        options={([["finished", finished.length], ["expired", expired.length]] as const).map(([value, count]) => ({
-          value,
-          label: t(value === "finished" ? "completedTabFinished" : "completedTabExpired"),
-          count,
-        }))}
-        onChange={(value: CompletedTab) => setTab(value)}
-      />
+        <Segmented<CompletedTab>
+          label={t("navCompleted")}
+          value={tab}
+          itemAttribute="data-completed-tab"
+          options={(
+            [
+              ["finished", finished.length],
+              ["expired", expired.length],
+            ] as const
+          ).map(([value, count]) => ({
+            value,
+            label: t(value === "finished" ? "completedTabFinished" : "completedTabExpired"),
+            count,
+          }))}
+          onChange={(value: CompletedTab) => setTab(value)}
+        />
       </ViewToolbar>
 
       {rows.length === 0 ? (
-        <EmptyPanel>{t(tab === "finished" ? "completedEmptyFinished" : "completedEmptyExpired")}</EmptyPanel>
+        <EmptyPanel>
+          {t(tab === "finished" ? "completedEmptyFinished" : "completedEmptyExpired")}
+        </EmptyPanel>
       ) : (
         <div data-queue-group={tab} className="space-y-1">
           {rows.map((campaign, index) => (
@@ -70,7 +89,12 @@ export function CompletedPanel({ campaigns, gameMap, focus, refreshing, onRefres
                 game={gameMap[campaign.gameId] ?? fallbackGame(campaign, index, t)}
                 expanded={Boolean(expandedIds[campaign.id])}
                 refreshing={refreshing}
-                onToggle={() => setExpandedIds((current) => ({ ...current, [campaign.id]: !current[campaign.id] }))}
+                onToggle={() =>
+                  setExpandedIds((current) => ({
+                    ...current,
+                    [campaign.id]: !current[campaign.id],
+                  }))
+                }
                 onRefreshCampaign={onRefreshCampaign}
                 terminal
               />

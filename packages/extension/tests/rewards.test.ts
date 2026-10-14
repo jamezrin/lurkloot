@@ -17,7 +17,9 @@ const reward = (patch: Partial<DropReward>): DropReward => ({
 
 describe("reward requirements", () => {
   it("classifies explicit and legacy rewards", () => {
-    expect(rewardRequirementType(reward({ requirement: "subscription", requiredMinutes: 60 }))).toBe("subscription");
+    expect(
+      rewardRequirementType(reward({ requirement: "subscription", requiredMinutes: 60 })),
+    ).toBe("subscription");
     expect(rewardRequirementType(reward({ requiredSubs: 1 }))).toBe("subscription");
     expect(rewardRequirementType(reward({ requiredMinutes: 30 }))).toBe("watch");
     expect(rewardRequirementType(reward({ isWatchBased: false }))).toBe("action");
@@ -25,7 +27,10 @@ describe("reward requirements", () => {
 
   it("detects both requirement types in a mixed campaign", () => {
     const campaign = {
-      rewards: [reward({ requirement: "subscription", requiredSubs: 1 }), reward({ requirement: "watch", requiredMinutes: 30 })],
+      rewards: [
+        reward({ requirement: "subscription", requiredSubs: 1 }),
+        reward({ requirement: "watch", requiredMinutes: 30 }),
+      ],
     } as DropCampaign;
     expect(campaignHasSubscriptionRewards(campaign)).toBe(true);
     expect(campaignHasWatchRewards(campaign)).toBe(true);

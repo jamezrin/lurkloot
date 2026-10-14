@@ -64,7 +64,11 @@ export function CriticalFailurePanel({
             {t("criticalFailureTitle")}
           </p>
           <p className="mt-0.5 text-[11px] leading-snug text-red-800 dark:text-red-300">
-            {t(reason === "page_context_churn" ? "criticalFailureBodyTabChurn" : "criticalFailureBodyNoProgress")}
+            {t(
+              reason === "page_context_churn"
+                ? "criticalFailureBodyTabChurn"
+                : "criticalFailureBodyNoProgress",
+            )}
           </p>
         </div>
       </div>

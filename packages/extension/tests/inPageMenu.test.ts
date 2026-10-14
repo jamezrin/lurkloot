@@ -22,7 +22,8 @@ async function mount(platform: "twitch" | "kick"): Promise<void> {
 }
 
 // Twitch's nav, reduced to what resolveAnchorFor needs to place the button.
-const TWITCH_NAV = '<nav><div data-a-target="top-nav-container"><div class="top-nav__menu"><div data-a-target="user-menu-toggle"></div></div></div></nav>';
+const TWITCH_NAV =
+  '<nav><div data-a-target="top-nav-container"><div class="top-nav__menu"><div data-a-target="user-menu-toggle"></div></div></div></nav>';
 
 function setUpPage(href: string): void {
   const { document, window } = parseHTML(`<html><body>${TWITCH_NAV}</body></html>`);
@@ -37,10 +38,19 @@ function setUpPage(href: string): void {
     observe(): void {}
     disconnect(): void {}
   } as unknown as typeof MutationObserver;
-  Object.defineProperty(globalThis.document, "fullscreenElement", { configurable: true, value: null });
+  Object.defineProperty(globalThis.document, "fullscreenElement", {
+    configurable: true,
+    value: null,
+  });
   for (const element of [window.HTMLElement.prototype]) {
-    Object.defineProperty(element, "getClientRects", { configurable: true, value: () => [{ width: 10, height: 10 }] });
-    Object.defineProperty(element, "getBoundingClientRect", { configurable: true, value: () => ({ top: 0, bottom: 40, left: 0, right: 200, width: 200, height: 40 }) });
+    Object.defineProperty(element, "getClientRects", {
+      configurable: true,
+      value: () => [{ width: 10, height: 10 }],
+    });
+    Object.defineProperty(element, "getBoundingClientRect", {
+      configurable: true,
+      value: () => ({ top: 0, bottom: 40, left: 0, right: 200, width: 200, height: 40 }),
+    });
     Object.defineProperty(element, "focus", { configurable: true, value: () => undefined });
   }
 }
@@ -58,7 +68,9 @@ function caret(): HTMLElement {
 
 function menuItems(): string[] {
   const menu = globalThis.document.getElementById("lurkloot-nav-menu");
-  return menu ? [...menu.querySelectorAll("[role=menuitem]")].map((item) => item.textContent ?? "") : [];
+  return menu
+    ? [...menu.querySelectorAll("[role=menuitem]")].map((item) => item.textContent ?? "")
+    : [];
 }
 
 async function openMenu(): Promise<void> {
@@ -100,14 +112,22 @@ describe("in-page nav menu", () => {
 
     // The background applies it to the list it has stored, so a change the
     // popup made since the menu opened is not undone.
-    expect(sendMessage).toHaveBeenCalledWith({ type: "updateIdleWatchlist", platform: "twitch", channel: "summit1g", action: "add" });
+    expect(sendMessage).toHaveBeenCalledWith({
+      type: "updateIdleWatchlist",
+      platform: "twitch",
+      channel: "summit1g",
+      action: "add",
+    });
     // The menu closes behind the action rather than leaving a stale list open.
     expect(globalThis.document.getElementById("lurkloot-nav-menu")).toBeNull();
   });
 
   it("offers removal once the channel is already listed", async () => {
     storageGet.mockResolvedValue({
-      settings: { showInPagePanel: true, platform: { twitch: { idleWatchlistChannels: ["summit1g"] } } },
+      settings: {
+        showInPagePanel: true,
+        platform: { twitch: { idleWatchlistChannels: ["summit1g"] } },
+      },
       schedulerState: {},
     });
     setUpPage("https://www.twitch.tv/summit1g");
@@ -133,7 +153,9 @@ describe("in-page nav menu", () => {
     await openMenu();
 
     const menu = globalThis.document.getElementById("lurkloot-nav-menu")!;
-    const escape = new globalThis.window.Event("keydown", { bubbles: true }) as unknown as { key: string };
+    const escape = new globalThis.window.Event("keydown", { bubbles: true }) as unknown as {
+      key: string;
+    };
     escape.key = "Escape";
     menu.dispatchEvent(escape as unknown as Event);
     await settle();
@@ -176,13 +198,24 @@ describe("in-page nav menu", () => {
   // popup off; it now follows the window and the popup folds its rail to fit.
   it("fits the panel to a narrow window and follows it as it resizes", async () => {
     setUpPage("https://www.twitch.tv/summit1g");
-    Object.defineProperty(globalThis.window, "innerWidth", { configurable: true, writable: true, value: 600 });
-    Object.defineProperty(globalThis.window, "innerHeight", { configurable: true, writable: true, value: 900 });
+    Object.defineProperty(globalThis.window, "innerWidth", {
+      configurable: true,
+      writable: true,
+      value: 600,
+    });
+    Object.defineProperty(globalThis.window, "innerHeight", {
+      configurable: true,
+      writable: true,
+      value: 900,
+    });
     await mount("twitch");
     await openMenu();
-    globalThis.document.querySelectorAll("#lurkloot-nav-menu [role=menuitem]")[0]!.dispatchEvent(new globalThis.window.Event("click", { bubbles: true }));
+    globalThis.document
+      .querySelectorAll("#lurkloot-nav-menu [role=menuitem]")[0]!
+      .dispatchEvent(new globalThis.window.Event("click", { bubbles: true }));
     await settle();
-    const panel = () => globalThis.document.getElementById("lurkloot-panel") as unknown as HTMLElement;
+    const panel = () =>
+      globalThis.document.getElementById("lurkloot-panel") as unknown as HTMLElement;
     const frame = () => panel().querySelector("iframe") as unknown as HTMLElement;
 
     expect(panel().style.width).toBe("568px");

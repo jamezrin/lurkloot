@@ -13,7 +13,8 @@ vi.mock("motion/react", async (importOriginal) => ({
 }));
 
 vi.mock("@lurkloot/locales", async (importOriginal) =>
-  (await import("./helpers/popupCatalog")).delayedLocales(importOriginal));
+  (await import("./helpers/popupCatalog")).delayedLocales(importOriginal),
+);
 
 let root: Root | undefined;
 
@@ -52,7 +53,11 @@ async function waitForElement<T extends Element>(find: () => T | undefined): Pro
 async function mount(options?: {
   downloadFile?: (filename: string, contents: string, mimeType?: string) => void;
   pendingExport?: { finish?: (value: DiagnosticsExport) => void };
-}): Promise<{ container: HTMLElement; sent: RuntimeMessage[]; downloadFile: ReturnType<typeof vi.fn> }> {
+}): Promise<{
+  container: HTMLElement;
+  sent: RuntimeMessage[];
+  downloadFile: ReturnType<typeof vi.fn>;
+}> {
   const { document, window } = parseHTML("<div id=app></div>");
   vi.stubGlobal("window", window);
   vi.stubGlobal("document", document);
@@ -75,19 +80,21 @@ async function mount(options?: {
       sent.push(message);
       if (message.type === "exportDiagnostics") {
         if (options?.pendingExport) {
-          return await new Promise<DiagnosticsExport>((resolve) => {
+          return (await new Promise<DiagnosticsExport>((resolve) => {
             options.pendingExport!.finish = resolve;
-          }) as T;
+          })) as T;
         }
         return {
-          events: [{
-            id: "d1",
-            at: "2026-08-16T00:00:00.000Z",
-            category: "diagnostic",
-            level: "info",
-            platform: "twitch",
-            message: "full history line",
-          }],
+          events: [
+            {
+              id: "d1",
+              at: "2026-08-16T00:00:00.000Z",
+              category: "diagnostic",
+              level: "info",
+              platform: "twitch",
+              message: "full history line",
+            },
+          ],
         } as T;
       }
       return demo.send<T>(message);
@@ -102,8 +109,11 @@ async function mount(options?: {
   const openActivity = container.querySelector<HTMLButtonElement>('button[data-view="activity"]');
   if (!openActivity) throw new Error("Missing activity button");
   await act(async () => openActivity.click());
-  const diagnosticsTab = await waitForElement(() =>
-    container.querySelector<HTMLButtonElement>('[data-activity-view-tab="diagnostics"]') ?? undefined);
+  const diagnosticsTab = await waitForElement(
+    () =>
+      container.querySelector<HTMLButtonElement>('[data-activity-view-tab="diagnostics"]')
+      ?? undefined,
+  );
   await act(async () => diagnosticsTab.click());
   return { container, sent, downloadFile: downloadFile as ReturnType<typeof vi.fn> };
 }
@@ -112,8 +122,10 @@ describe("popup diagnostics export", () => {
   it("requests a full diagnostics export for the selected platform and downloads a .log", async () => {
     const { container, sent, downloadFile } = await mount();
     const exportAll = await waitForElement(() =>
-      [...container.querySelectorAll<HTMLButtonElement>("button")]
-        .find((button) => button.textContent === "Export all"));
+      [...container.querySelectorAll<HTMLButtonElement>("button")].find(
+        (button) => button.textContent === "Export all",
+      ),
+    );
     await act(async () => exportAll.click());
     const request = await waitForMessage(sent, (message) => message.type === "exportDiagnostics");
     expect(request).toEqual({ type: "exportDiagnostics", platform: "twitch" });
@@ -129,23 +141,29 @@ describe("popup diagnostics export", () => {
     const pendingExport: { finish?: (value: DiagnosticsExport) => void } = {};
     const { container, downloadFile } = await mount({ pendingExport });
     const exportAll = await waitForElement(() =>
-      [...container.querySelectorAll<HTMLButtonElement>("button")]
-        .find((button) => button.textContent === "Export all"));
+      [...container.querySelectorAll<HTMLButtonElement>("button")].find(
+        (button) => button.textContent === "Export all",
+      ),
+    );
     await act(async () => exportAll.click());
     // Leaving Activity is a rail destination now; the platform switch lives in
     // the same rail, so the switch below is reached without a Back button.
-    const kick = await waitForElement(() =>
-      container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Kick"]') ?? undefined);
+    const kick = await waitForElement(
+      () =>
+        container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Kick"]') ?? undefined,
+    );
     await act(async () => kick.click());
     await act(async () => {
       pendingExport.finish?.({
-        events: [{
-          id: "late",
-          at: "2026-08-16T00:00:00.000Z",
-          category: "diagnostic",
-          level: "info",
-          message: "late",
-        }],
+        events: [
+          {
+            id: "late",
+            at: "2026-08-16T00:00:00.000Z",
+            category: "diagnostic",
+            level: "info",
+            message: "late",
+          },
+        ],
       });
     });
     expect(downloadFile).not.toHaveBeenCalled();

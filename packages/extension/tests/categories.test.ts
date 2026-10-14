@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { CategorySelection, DropCampaign, PlatformSettings } from "@lurkloot/shared/models";
-import { NO_CATEGORY_ID, campaignPassesCategoryFilter, categoryListIndex, favouriteCategoryIndex, isCampaignCategoryBlocked, isUncategorizedCampaign } from "@lurkloot/shared/categories";
+import {
+  NO_CATEGORY_ID,
+  campaignPassesCategoryFilter,
+  categoryListIndex,
+  favouriteCategoryIndex,
+  isCampaignCategoryBlocked,
+  isUncategorizedCampaign,
+} from "@lurkloot/shared/categories";
 
 const campaign = (patch: Partial<DropCampaign> = {}): DropCampaign => ({
   id: "c",
@@ -21,7 +28,9 @@ describe("categoryListIndex", () => {
   });
 
   it("never matches a categorized campaign against the No category sentinel", () => {
-    expect(categoryListIndex(campaign({ categoryId: "13", gameName: "Rust" }), [noCategory])).toBe(-1);
+    expect(categoryListIndex(campaign({ categoryId: "13", gameName: "Rust" }), [noCategory])).toBe(
+      -1,
+    );
   });
 
   it("matches a category-less campaign only against the No category sentinel", () => {
@@ -55,12 +64,17 @@ describe("campaignPassesCategoryFilter", () => {
   it("passes everything in all mode, whatever the list holds", () => {
     for (const c of [rustCampaign, other, uncategorized]) {
       expect(campaignPassesCategoryFilter(c, { categoryMode: "all", categories: [] })).toBe(true);
-      expect(campaignPassesCategoryFilter(c, { categoryMode: "all", categories: [rust] })).toBe(true);
+      expect(campaignPassesCategoryFilter(c, { categoryMode: "all", categories: [rust] })).toBe(
+        true,
+      );
     }
   });
 
   it("passes only listed categories in include mode", () => {
-    const include: Pick<PlatformSettings, "categoryMode" | "categories"> = { categoryMode: "include", categories: [rust] };
+    const include: Pick<PlatformSettings, "categoryMode" | "categories"> = {
+      categoryMode: "include",
+      categories: [rust],
+    };
     expect(campaignPassesCategoryFilter(rustCampaign, include)).toBe(true);
     expect(campaignPassesCategoryFilter(other, include)).toBe(false);
   });
@@ -70,21 +84,63 @@ describe("campaignPassesCategoryFilter", () => {
     expect(campaignPassesCategoryFilter(rustCampaign, blocked)).toBe(false);
     expect(campaignPassesCategoryFilter(other, blocked)).toBe(true);
     // Blocking wins over an allowlist that admits the same category.
-    expect(campaignPassesCategoryFilter(rustCampaign, { categoryMode: "include", categories: [rust], blockedCategories: [rust] })).toBe(false);
+    expect(
+      campaignPassesCategoryFilter(rustCampaign, {
+        categoryMode: "include",
+        categories: [rust],
+        blockedCategories: [rust],
+      }),
+    ).toBe(false);
   });
 
   it("farms nothing on an empty include list and everything with an empty block list", () => {
-    expect(campaignPassesCategoryFilter(rustCampaign, { categoryMode: "include", categories: [] })).toBe(false);
-    expect(campaignPassesCategoryFilter(rustCampaign, { categoryMode: "all", categories: [], blockedCategories: [] })).toBe(true);
-    expect(campaignPassesCategoryFilter(uncategorized, { categoryMode: "all", categories: [], blockedCategories: [] })).toBe(true);
+    expect(
+      campaignPassesCategoryFilter(rustCampaign, { categoryMode: "include", categories: [] }),
+    ).toBe(false);
+    expect(
+      campaignPassesCategoryFilter(rustCampaign, {
+        categoryMode: "all",
+        categories: [],
+        blockedCategories: [],
+      }),
+    ).toBe(true);
+    expect(
+      campaignPassesCategoryFilter(uncategorized, {
+        categoryMode: "all",
+        categories: [],
+        blockedCategories: [],
+      }),
+    ).toBe(true);
   });
 
   it("applies both modes to the No category sentinel", () => {
-    expect(campaignPassesCategoryFilter(uncategorized, { categoryMode: "include", categories: [noCategory] })).toBe(true);
-    expect(campaignPassesCategoryFilter(uncategorized, { categoryMode: "all", categories: [], blockedCategories: [noCategory] })).toBe(false);
+    expect(
+      campaignPassesCategoryFilter(uncategorized, {
+        categoryMode: "include",
+        categories: [noCategory],
+      }),
+    ).toBe(true);
+    expect(
+      campaignPassesCategoryFilter(uncategorized, {
+        categoryMode: "all",
+        categories: [],
+        blockedCategories: [noCategory],
+      }),
+    ).toBe(false);
     // A categorized campaign never matches the sentinel, so blocking it keeps it.
-    expect(campaignPassesCategoryFilter(rustCampaign, { categoryMode: "all", categories: [], blockedCategories: [noCategory] })).toBe(true);
-    expect(campaignPassesCategoryFilter(rustCampaign, { categoryMode: "include", categories: [noCategory] })).toBe(false);
+    expect(
+      campaignPassesCategoryFilter(rustCampaign, {
+        categoryMode: "all",
+        categories: [],
+        blockedCategories: [noCategory],
+      }),
+    ).toBe(true);
+    expect(
+      campaignPassesCategoryFilter(rustCampaign, {
+        categoryMode: "include",
+        categories: [noCategory],
+      }),
+    ).toBe(false);
   });
 });
 
@@ -94,8 +150,12 @@ describe("favouriteCategoryIndex", () => {
   const rustCampaign = campaign({ categoryId: "13", gameName: "Rust" });
 
   it("returns the position a category was starred in", () => {
-    expect(favouriteCategoryIndex(rustCampaign, { favouriteCategories: [otherGame, rust] })).toBe(1);
-    expect(favouriteCategoryIndex(rustCampaign, { favouriteCategories: [rust, otherGame] })).toBe(0);
+    expect(favouriteCategoryIndex(rustCampaign, { favouriteCategories: [otherGame, rust] })).toBe(
+      1,
+    );
+    expect(favouriteCategoryIndex(rustCampaign, { favouriteCategories: [rust, otherGame] })).toBe(
+      0,
+    );
   });
 
   it("returns -1 without favourites, or for an unstarred category", () => {
@@ -104,7 +164,12 @@ describe("favouriteCategoryIndex", () => {
   });
 
   it("never ranks a blocked category, even when it is also starred", () => {
-    expect(favouriteCategoryIndex(rustCampaign, { favouriteCategories: [rust], blockedCategories: [rust] })).toBe(-1);
+    expect(
+      favouriteCategoryIndex(rustCampaign, {
+        favouriteCategories: [rust],
+        blockedCategories: [rust],
+      }),
+    ).toBe(-1);
   });
 });
 

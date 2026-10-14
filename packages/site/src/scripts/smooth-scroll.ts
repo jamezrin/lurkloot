@@ -21,7 +21,9 @@ if (!reduceMotion) {
 
   // Smoothly scroll to in-page anchors (nav, scroll cue, etc.).
   document.addEventListener("click", (event) => {
-    const link = (event.target as HTMLElement)?.closest?.('a[href^="#"]') as HTMLAnchorElement | null;
+    const link = (event.target as HTMLElement)?.closest?.(
+      'a[href^="#"]',
+    ) as HTMLAnchorElement | null;
     if (!link) return;
     const id = link.getAttribute("href");
     if (!id || id === "#") return;

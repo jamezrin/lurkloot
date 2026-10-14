@@ -11,13 +11,16 @@ import { formatActivityEvent } from "../../popup-ui/src/activity.logic";
 // catalog leak into a diagnostic entry impossible to miss.
 const shouting = (key: string) => `TRANSLATED(${key})`;
 
-const messagesDir = dirname(createRequire(import.meta.url).resolve("@lurkloot/locales/messages/en.json"));
-const catalogs = () => readdirSync(messagesDir)
-  .filter((entry) => entry.endsWith(".json"))
-  .map((entry) => ({
-    locale: entry.replace(/\.json$/, ""),
-    catalog: JSON.parse(readFileSync(join(messagesDir, entry), "utf8")) as MessageCatalog,
-  }));
+const messagesDir = dirname(
+  createRequire(import.meta.url).resolve("@lurkloot/locales/messages/en.json"),
+);
+const catalogs = () =>
+  readdirSync(messagesDir)
+    .filter((entry) => entry.endsWith(".json"))
+    .map((entry) => ({
+      locale: entry.replace(/\.json$/, ""),
+      catalog: JSON.parse(readFileSync(join(messagesDir, entry), "utf8")) as MessageCatalog,
+    }));
 
 const diagnostic: ActivityHistoryRecord = {
   id: "diagnostic-1",
@@ -50,15 +53,20 @@ describe("diagnostics stay English", () => {
   it("keeps translating structured activity entries", () => {
     // The counterpart guarantee: only diagnostics opt out of localization, so a
     // regression that made everything English would fail here.
-    expect(formatActivityEvent({
-      id: "activity-1",
-      at: "2026-07-25T12:00:00.000Z",
-      category: "activity",
-      code: "farming_started",
-      level: "info",
-      platform: "kick",
-      data: { campaignId: "c", campaignName: "C", rewardId: "r", rewardName: "R" },
-    }, shouting)).toContain("TRANSLATED");
+    expect(
+      formatActivityEvent(
+        {
+          id: "activity-1",
+          at: "2026-07-25T12:00:00.000Z",
+          category: "activity",
+          code: "farming_started",
+          level: "info",
+          platform: "kick",
+          data: { campaignId: "c", campaignName: "C", rewardId: "r", rewardName: "R" },
+        },
+        shouting,
+      ),
+    ).toContain("TRANSLATED");
   });
 
   it("ships no catalog keys for diagnostic message bodies", () => {
@@ -72,7 +80,9 @@ describe("diagnostics stay English", () => {
       "noDiagnostics",
     ]);
     for (const { locale, catalog } of catalogs()) {
-      const offenders = Object.keys(catalog).filter((key) => /^diagnostic/i.test(key) && !allowed.has(key));
+      const offenders = Object.keys(catalog).filter(
+        (key) => /^diagnostic/i.test(key) && !allowed.has(key),
+      );
       expect(offenders, locale).toEqual([]);
     }
   });

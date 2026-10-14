@@ -17,8 +17,14 @@ vi.mock("../../popup-ui/src/drops", async (importOriginal) => {
   const count = (id: string) => renders.set(id, (renders.get(id) ?? 0) + 1);
   return {
     ...original,
-    CampaignCard: (props: Parameters<typeof original.CampaignCard>[0]) => { count(props.campaign.id); return original.CampaignCard(props); },
-    SortableCampaign: (props: Parameters<typeof original.SortableCampaign>[0]) => { count(props.campaign.id); return original.SortableCampaign(props); },
+    CampaignCard: (props: Parameters<typeof original.CampaignCard>[0]) => {
+      count(props.campaign.id);
+      return original.CampaignCard(props);
+    },
+    SortableCampaign: (props: Parameters<typeof original.SortableCampaign>[0]) => {
+      count(props.campaign.id);
+      return original.SortableCampaign(props);
+    },
   };
 });
 const { QueuePanel } = await import("../../popup-ui/src/queue");
@@ -43,26 +49,44 @@ function source(id: string): DropCampaign {
     name: id,
     status: "active",
     gameName: id,
-    rewards: [{ id: `${id}-r`, name: "Reward", requiredMinutes: 30, requirement: "watch", isWatchBased: true, watchedMinutes: 5, status: "locked" }],
+    rewards: [
+      {
+        id: `${id}-r`,
+        name: "Reward",
+        requiredMinutes: 30,
+        requirement: "watch",
+        isWatchBased: true,
+        watchedMinutes: 5,
+        status: "locked",
+      },
+    ],
   } as DropCampaign;
 }
 
 const settings = mergeSettings(undefined);
 // A fresh set of view objects, as every snapshot poll produces.
 function freshViews(): CampaignView[] {
-  return rankCampaigns(["a", "b", "c"].map(source), settings).map((campaign, index) => campaignViewFromCampaign(campaign, index, idle, false, {
-    skipUnfinishableRewards: settings.skipUnfinishableRewards,
-    deadlineSafetyMarginMinutes: settings.deadlineSafetyMarginMinutes,
-    settings,
-  }));
+  return rankCampaigns(["a", "b", "c"].map(source), settings).map((campaign, index) =>
+    campaignViewFromCampaign(campaign, index, idle, false, {
+      skipUnfinishableRewards: settings.skipUnfinishableRewards,
+      deadlineSafetyMarginMinutes: settings.deadlineSafetyMarginMinutes,
+      settings,
+    }),
+  );
 }
 
-function mount(campaigns: CampaignView[]): { container: HTMLElement; render(next: CampaignView[]): void } {
+function mount(campaigns: CampaignView[]): {
+  container: HTMLElement;
+  render(next: CampaignView[]): void;
+} {
   const { document, window } = parseHTML("<div id=app></div>");
   vi.stubGlobal("window", window);
   vi.stubGlobal("document", document);
   vi.stubGlobal("getComputedStyle", () => ({ direction: "ltr", columnGap: "0" }));
-  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => { callback(0); return 1; });
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+    callback(0);
+    return 1;
+  });
   vi.stubGlobal("cancelAnimationFrame", () => undefined);
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const container = document.getElementById("app")!;
@@ -76,13 +100,25 @@ function mount(campaigns: CampaignView[]): { container: HTMLElement; render(next
     onOpenGames: () => undefined,
     onOpenSettings: () => undefined,
   };
-  const render = (next: CampaignView[]) => root!.render(
-    <I18nContext.Provider value={i18n}>
-      {/* A new handlers object on every render, as the popup passes inline arrows. */}
-      <QueuePanel campaigns={next} gameMap={{}} refreshing={false} strategy="ending_soonest" pinnedCount={0} farmPinnedOnly={false} {...{ ...handlers }} />
-    </I18nContext.Provider>,
-  );
-  act(() => { root = createRoot(container); render(campaigns); });
+  const render = (next: CampaignView[]) =>
+    root!.render(
+      <I18nContext.Provider value={i18n}>
+        {/* A new handlers object on every render, as the popup passes inline arrows. */}
+        <QueuePanel
+          campaigns={next}
+          gameMap={{}}
+          refreshing={false}
+          strategy="ending_soonest"
+          pinnedCount={0}
+          farmPinnedOnly={false}
+          {...{ ...handlers }}
+        />
+      </I18nContext.Provider>,
+    );
+  act(() => {
+    root = createRoot(container);
+    render(campaigns);
+  });
   return { container, render: (next) => act(() => render(next)) };
 }
 
@@ -114,7 +150,11 @@ describe("queue rendering", () => {
     const { container } = mount(freshViews());
     renders.clear();
 
-    act(() => container.querySelector<HTMLButtonElement>('[data-campaign-id="b"] button[aria-expanded]')!.click());
+    act(() =>
+      container
+        .querySelector<HTMLButtonElement>('[data-campaign-id="b"] button[aria-expanded]')!
+        .click(),
+    );
 
     expect([...renders.keys()]).toEqual(["b"]);
   });

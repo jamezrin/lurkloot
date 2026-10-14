@@ -1,6 +1,16 @@
 import type React from "react";
-import type { CategorySelection, ExtensionSettings, LanguageOverride, Platform, PriorityMode } from "@lurkloot/shared/models";
-import { POLL_INTERVAL_MAX_MINUTES, POLL_INTERVAL_MIN_MINUTES, type SettingsPatch } from "@lurkloot/shared/settings";
+import type {
+  CategorySelection,
+  ExtensionSettings,
+  LanguageOverride,
+  Platform,
+  PriorityMode,
+} from "@lurkloot/shared/models";
+import {
+  POLL_INTERVAL_MAX_MINUTES,
+  POLL_INTERVAL_MIN_MINUTES,
+  type SettingsPatch,
+} from "@lurkloot/shared/settings";
 import { LOCALE_OPTIONS } from "@lurkloot/shared/i18n";
 import { PLATFORMS } from "./constants";
 import { Pill } from "./primitives";
@@ -15,7 +25,12 @@ import { PlatformExcludedChannels } from "./settingsPlatform";
 import { PlatformCompatibilitySettings } from "./compatibilitySettings";
 import { WatchSourcePriority, WATCH_SOURCE_NAME_KEYS } from "./watchSourcePriority";
 import { DEFAULT_WATCH_SOURCE_PRIORITY } from "@lurkloot/shared/watchSources";
-import type { SettingsEntryNode, SettingsGroupNode, SettingsSectionNode, TranslateFn } from "./settingsSearch";
+import type {
+  SettingsEntryNode,
+  SettingsGroupNode,
+  SettingsSectionNode,
+  TranslateFn,
+} from "./settingsSearch";
 import type { GameItem, PopupCompatibilityRegistry, PopupCompatibilityResolution } from "./types";
 
 export interface SettingsChangeOptions {
@@ -71,12 +86,16 @@ type PlatformPatch = NonNullable<SettingsPatch["platform"]>;
 
 export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSectionDef[] {
   const { t, settings, onSettingsChange } = ctx;
-  const setFlag = (key: keyof ExtensionSettings) => (value: boolean) => void onSettingsChange({ [key]: value } as SettingsPatch);
+  const setFlag = (key: keyof ExtensionSettings) => (value: boolean) =>
+    void onSettingsChange({ [key]: value } as SettingsPatch);
   const tabPlaybackDisabled = settings.tablessMode;
   const tabPlaybackDisabledReason = t("tablessDisabledReason");
 
   const platformPatch = <P extends Platform>(platform: P, patch: NonNullable<PlatformPatch[P]>) =>
-    onSettingsChange({ platform: { [platform]: patch } } as SettingsPatch, { tickAfterSave: true, tickAfterSavePlatforms: [platform] });
+    onSettingsChange({ platform: { [platform]: patch } } as SettingsPatch, {
+      tickAfterSave: true,
+      tickAfterSavePlatforms: [platform],
+    });
 
   const general: SettingsSectionDef = {
     id: "general",
@@ -98,7 +117,10 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
                 value={settings.languageOverride}
                 options={LOCALE_OPTIONS.map((option) => ({
                   value: option.value,
-                  label: option.value === "browser" ? t(option.labelKey) : `${option.nativeName} (${t(option.labelKey)})`,
+                  label:
+                    option.value === "browser"
+                      ? t(option.labelKey)
+                      : `${option.nativeName} (${t(option.labelKey)})`,
                 }))}
                 onChange={(value) => void onSettingsChange({ languageOverride: value })}
               />
@@ -108,25 +130,53 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
             id: "general.appearance.autoStart",
             titleKey: "autoStartTitle",
             descriptionKey: "autoStartDescription",
-            render: () => <SettingRow title={t("autoStartTitle")} description={t("autoStartDescription")} checked={settings.autoStartDropFarming} onChange={setFlag("autoStartDropFarming")} />,
+            render: () => (
+              <SettingRow
+                title={t("autoStartTitle")}
+                description={t("autoStartDescription")}
+                checked={settings.autoStartDropFarming}
+                onChange={setFlag("autoStartDropFarming")}
+              />
+            ),
           },
           {
             id: "general.appearance.pauseOnManualWatch",
             titleKey: "pauseManualTitle",
             descriptionKey: "pauseManualDescription",
-            render: () => <SettingRow title={t("pauseManualTitle")} description={t("pauseManualDescription")} checked={settings.pauseOnManualWatch} onChange={setFlag("pauseOnManualWatch")} />,
+            render: () => (
+              <SettingRow
+                title={t("pauseManualTitle")}
+                description={t("pauseManualDescription")}
+                checked={settings.pauseOnManualWatch}
+                onChange={setFlag("pauseOnManualWatch")}
+              />
+            ),
           },
           {
             id: "general.appearance.hideTips",
             titleKey: "hideTipsTitle",
             descriptionKey: "hideTipsDescription",
-            render: () => <SettingRow title={t("hideTipsTitle")} description={t("hideTipsDescription")} checked={!settings.showTips} onChange={(hideTips) => void onSettingsChange({ showTips: !hideTips })} />,
+            render: () => (
+              <SettingRow
+                title={t("hideTipsTitle")}
+                description={t("hideTipsDescription")}
+                checked={!settings.showTips}
+                onChange={(hideTips) => void onSettingsChange({ showTips: !hideTips })}
+              />
+            ),
           },
           {
             id: "general.appearance.inPagePanel",
             titleKey: "inPagePanelTitle",
             descriptionKey: "inPagePanelDescription",
-            render: () => <SettingRow title={t("inPagePanelTitle")} description={t("inPagePanelDescription")} checked={settings.showInPagePanel} onChange={setFlag("showInPagePanel")} />,
+            render: () => (
+              <SettingRow
+                title={t("inPagePanelTitle")}
+                description={t("inPagePanelDescription")}
+                checked={settings.showInPagePanel}
+                onChange={setFlag("showInPagePanel")}
+              />
+            ),
           },
         ],
       },
@@ -139,13 +189,27 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
             id: "general.notifications.rewardEarned",
             titleKey: "rewardEarnedTitle",
             descriptionKey: "rewardEarnedDescription",
-            render: () => <SettingRow title={t("rewardEarnedTitle")} description={t("rewardEarnedDescription")} checked={settings.notifyRewardEarned} onChange={setFlag("notifyRewardEarned")} />,
+            render: () => (
+              <SettingRow
+                title={t("rewardEarnedTitle")}
+                description={t("rewardEarnedDescription")}
+                checked={settings.notifyRewardEarned}
+                onChange={setFlag("notifyRewardEarned")}
+              />
+            ),
           },
           {
             id: "general.notifications.noDropsLeft",
             titleKey: "noDropsLeftTitle",
             descriptionKey: "noDropsLeftDescription",
-            render: () => <SettingRow title={t("noDropsLeftTitle")} description={t("noDropsLeftDescription")} checked={settings.notifyNoDropsLeft} onChange={setFlag("notifyNoDropsLeft")} />,
+            render: () => (
+              <SettingRow
+                title={t("noDropsLeftTitle")}
+                description={t("noDropsLeftDescription")}
+                checked={settings.notifyNoDropsLeft}
+                onChange={setFlag("notifyNoDropsLeft")}
+              />
+            ),
           },
         ],
       },
@@ -170,7 +234,9 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
                   { value: "ending_soonest", label: t("endingSoonest") },
                   { value: "lowest_availability", label: t("lowAvailabilityFirst") },
                 ]}
-                onChange={(value) => void onSettingsChange({ priorityMode: value }, { tickAfterSave: true })}
+                onChange={(value) =>
+                  void onSettingsChange({ priorityMode: value }, { tickAfterSave: true })
+                }
               />
             ),
           },
@@ -178,7 +244,14 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
             id: "general.drops.autoClaim",
             titleKey: "autoClaimTitle",
             descriptionKey: "autoClaimDescription",
-            render: () => <SettingRow title={t("autoClaimTitle")} description={t("autoClaimDescription")} checked={settings.autoClaim} onChange={setFlag("autoClaim")} />,
+            render: () => (
+              <SettingRow
+                title={t("autoClaimTitle")}
+                description={t("autoClaimDescription")}
+                checked={settings.autoClaim}
+                onChange={setFlag("autoClaim")}
+              />
+            ),
           },
           // Farming-eligibility toggles: they change what gets farmed, so they
           // sit with the other behaviour rows and re-tick on save. Distinct from
@@ -187,31 +260,80 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
             id: "general.drops.farmUnlinked",
             titleKey: "farmUnlinkedTitle",
             descriptionKey: "farmUnlinkedDescription",
-            render: () => <SettingRow title={t("farmUnlinkedTitle")} description={t("farmUnlinkedDescription")} checked={settings.farmingEligibility.farmUnlinkedCampaigns} onChange={(value) => void onSettingsChange({ farmingEligibility: { farmUnlinkedCampaigns: value } }, { tickAfterSave: true })} />,
+            render: () => (
+              <SettingRow
+                title={t("farmUnlinkedTitle")}
+                description={t("farmUnlinkedDescription")}
+                checked={settings.farmingEligibility.farmUnlinkedCampaigns}
+                onChange={(value) =>
+                  void onSettingsChange(
+                    { farmingEligibility: { farmUnlinkedCampaigns: value } },
+                    { tickAfterSave: true },
+                  )
+                }
+              />
+            ),
           },
           {
             id: "general.drops.farmSubscription",
             titleKey: "farmSubscriptionTitle",
             descriptionKey: "farmSubscriptionDescription",
-            render: () => <SettingRow title={t("farmSubscriptionTitle")} description={t("farmSubscriptionDescription")} checked={settings.farmingEligibility.farmSubscriptionCampaigns} onChange={(value) => void onSettingsChange({ farmingEligibility: { farmSubscriptionCampaigns: value } }, { tickAfterSave: true })} />,
+            render: () => (
+              <SettingRow
+                title={t("farmSubscriptionTitle")}
+                description={t("farmSubscriptionDescription")}
+                checked={settings.farmingEligibility.farmSubscriptionCampaigns}
+                onChange={(value) =>
+                  void onSettingsChange(
+                    { farmingEligibility: { farmSubscriptionCampaigns: value } },
+                    { tickAfterSave: true },
+                  )
+                }
+              />
+            ),
           },
           {
             id: "general.drops.skipUnfinishable",
             titleKey: "skipUnfinishableRewardsTitle",
             descriptionKey: "skipUnfinishableRewardsDescription",
-            render: () => <SettingRow title={t("skipUnfinishableRewardsTitle")} description={t("skipUnfinishableRewardsDescription")} checked={settings.skipUnfinishableRewards} onChange={(value) => void onSettingsChange({ skipUnfinishableRewards: value }, { tickAfterSave: true })} />,
+            render: () => (
+              <SettingRow
+                title={t("skipUnfinishableRewardsTitle")}
+                description={t("skipUnfinishableRewardsDescription")}
+                checked={settings.skipUnfinishableRewards}
+                onChange={(value) =>
+                  void onSettingsChange({ skipUnfinishableRewards: value }, { tickAfterSave: true })
+                }
+              />
+            ),
           },
           {
             id: "general.drops.preferKnownChannels",
             titleKey: "preferKnownChannelsTitle",
             descriptionKey: "preferKnownChannelsDescription",
-            render: () => <SettingRow title={t("preferKnownChannelsTitle")} description={t("preferKnownChannelsDescription")} checked={settings.preferKnownChannels} onChange={(value) => void onSettingsChange({ preferKnownChannels: value }, { tickAfterSave: true })} />,
+            render: () => (
+              <SettingRow
+                title={t("preferKnownChannelsTitle")}
+                description={t("preferKnownChannelsDescription")}
+                checked={settings.preferKnownChannels}
+                onChange={(value) =>
+                  void onSettingsChange({ preferKnownChannels: value }, { tickAfterSave: true })
+                }
+              />
+            ),
           },
           {
             id: "general.drops.forgetExcluded",
             titleKey: "forgetExcludedTitle",
             descriptionKey: "forgetExcludedDescription",
-            render: () => <ForgetExcludedCampaignsRow count={settings.excludedCampaignIds.length} onForget={() => void onSettingsChange({ excludedCampaignIds: [] }, { tickAfterSave: true })} />,
+            render: () => (
+              <ForgetExcludedCampaignsRow
+                count={settings.excludedCampaignIds.length}
+                onForget={() =>
+                  void onSettingsChange({ excludedCampaignIds: [] }, { tickAfterSave: true })
+                }
+              />
+            ),
           },
         ],
       },
@@ -224,25 +346,59 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
             id: "general.farmingTabs.tabless",
             titleKey: "tablessTitle",
             descriptionKey: "tablessDescription",
-            render: () => <SettingRow title={t("tablessTitle")} description={t("tablessDescription")} checked={settings.tablessMode} onChange={(value) => void onSettingsChange({ tablessMode: value }, { tickAfterSave: true })} />,
+            render: () => (
+              <SettingRow
+                title={t("tablessTitle")}
+                description={t("tablessDescription")}
+                checked={settings.tablessMode}
+                onChange={(value) =>
+                  void onSettingsChange({ tablessMode: value }, { tickAfterSave: true })
+                }
+              />
+            ),
           },
           {
             id: "general.farmingTabs.autoClose",
             titleKey: "autoCloseTabsTitle",
             descriptionKey: "autoCloseTabsDescription",
-            render: () => <SettingRow title={t("autoCloseTabsTitle")} description={t("autoCloseTabsDescription")} checked={settings.autoCloseFinishedDrops} onChange={setFlag("autoCloseFinishedDrops")} />,
+            render: () => (
+              <SettingRow
+                title={t("autoCloseTabsTitle")}
+                description={t("autoCloseTabsDescription")}
+                checked={settings.autoCloseFinishedDrops}
+                onChange={setFlag("autoCloseFinishedDrops")}
+              />
+            ),
           },
           {
             id: "general.farmingTabs.mute",
             titleKey: "muteTabsTitle",
             descriptionKey: "muteTabsDescription",
-            render: () => <SettingRow title={t("muteTabsTitle")} description={t("muteTabsDescription")} checked={settings.muteFarmingTabs} onChange={setFlag("muteFarmingTabs")} disabled={tabPlaybackDisabled} disabledReason={tabPlaybackDisabledReason} />,
+            render: () => (
+              <SettingRow
+                title={t("muteTabsTitle")}
+                description={t("muteTabsDescription")}
+                checked={settings.muteFarmingTabs}
+                onChange={setFlag("muteFarmingTabs")}
+                disabled={tabPlaybackDisabled}
+                disabledReason={tabPlaybackDisabledReason}
+              />
+            ),
           },
           {
             id: "general.farmingTabs.keepUnmuted",
             titleKey: "keepVideosUnmutedTitle",
             descriptionKey: "keepVideosUnmutedDescription",
-            render: () => <SettingRow title={t("keepVideosUnmutedTitle")} description={t("keepVideosUnmutedDescription")} checked={settings.keepFarmingVideosUnmuted !== false} onChange={setFlag("keepFarmingVideosUnmuted")} disabled={tabPlaybackDisabled} disabledReason={tabPlaybackDisabledReason} />,
+            render: () => (
+              <SettingRow
+                title={t("keepVideosUnmutedTitle")}
+                description={t("keepVideosUnmutedDescription")}
+                checked={settings.keepFarmingVideosUnmuted !== false}
+                onChange={setFlag("keepFarmingVideosUnmuted")}
+                disabled={tabPlaybackDisabled}
+                disabledReason={tabPlaybackDisabledReason}
+              />
+            ),
           },
           {
             id: "general.farmingTabs.adFocus",
@@ -279,7 +435,17 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
             id: "general.advanced.pollInterval",
             titleKey: "schedulerIntervalTitle",
             descriptionKey: "schedulerIntervalDescription",
-            render: () => <NumberSettingRow title={t("schedulerIntervalTitle")} description={t("schedulerIntervalDescription")} value={Math.round(settings.pollIntervalMinutes * 60)} min={POLL_INTERVAL_MIN_MINUTES * 60} max={POLL_INTERVAL_MAX_MINUTES * 60} suffix={t("secondsSuffix")} onChange={(value) => void onSettingsChange({ pollIntervalMinutes: value / 60 })} />,
+            render: () => (
+              <NumberSettingRow
+                title={t("schedulerIntervalTitle")}
+                description={t("schedulerIntervalDescription")}
+                value={Math.round(settings.pollIntervalMinutes * 60)}
+                min={POLL_INTERVAL_MIN_MINUTES * 60}
+                max={POLL_INTERVAL_MAX_MINUTES * 60}
+                suffix={t("secondsSuffix")}
+                onChange={(value) => void onSettingsChange({ pollIntervalMinutes: value / 60 })}
+              />
+            ),
           },
           {
             id: "general.advanced.tablessFallbackFailureLimit",
@@ -295,10 +461,12 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
                 suffix={t("failuresSuffix")}
                 disabled={!settings.tablessMode}
                 disabledReason={t("tablessFallbackFailureLimitDisabledReason")}
-                onChange={(value) => void onSettingsChange(
-                  { tablessFallbackFailureLimit: value },
-                  { tickAfterSave: true },
-                )}
+                onChange={(value) =>
+                  void onSettingsChange(
+                    { tablessFallbackFailureLimit: value },
+                    { tickAfterSave: true },
+                  )
+                }
               />
             ),
           },
@@ -316,10 +484,12 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
                 suffix={t("cyclesSuffix")}
                 disabled={!settings.platform.kick.enabled}
                 disabledReason={t("kickPageContextRecoverySuccessesDisabledReason")}
-                onChange={(value) => void onSettingsChange(
-                  { kickPageContextRecoverySuccesses: value },
-                  { tickAfterSave: true },
-                )}
+                onChange={(value) =>
+                  void onSettingsChange(
+                    { kickPageContextRecoverySuccesses: value },
+                    { tickAfterSave: true },
+                  )
+                }
               />
             ),
           },
@@ -327,31 +497,88 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
             id: "general.advanced.postClaimHandoff",
             titleKey: "postClaimHandoffTitle",
             descriptionKey: "postClaimHandoffDescription",
-            render: () => <SettingRow title={t("postClaimHandoffTitle")} description={t("postClaimHandoffDescription")} checked={settings.postClaimHandoff} onChange={setFlag("postClaimHandoff")} />,
+            render: () => (
+              <SettingRow
+                title={t("postClaimHandoffTitle")}
+                description={t("postClaimHandoffDescription")}
+                checked={settings.postClaimHandoff}
+                onChange={setFlag("postClaimHandoff")}
+              />
+            ),
           },
           {
             id: "general.advanced.postClaimHandoffInterval",
             titleKey: "postClaimHandoffIntervalTitle",
             descriptionKey: "postClaimHandoffIntervalDescription",
-            render: () => <NumberSettingRow title={t("postClaimHandoffIntervalTitle")} description={t("postClaimHandoffIntervalDescription")} value={settings.postClaimHandoffIntervalSeconds} min={1} max={30} suffix={t("secondsSuffix")} disabled={!settings.postClaimHandoff} disabledReason={t("postClaimHandoffDescription")} onChange={(value) => void onSettingsChange({ postClaimHandoffIntervalSeconds: value })} />,
+            render: () => (
+              <NumberSettingRow
+                title={t("postClaimHandoffIntervalTitle")}
+                description={t("postClaimHandoffIntervalDescription")}
+                value={settings.postClaimHandoffIntervalSeconds}
+                min={1}
+                max={30}
+                suffix={t("secondsSuffix")}
+                disabled={!settings.postClaimHandoff}
+                disabledReason={t("postClaimHandoffDescription")}
+                onChange={(value) =>
+                  void onSettingsChange({ postClaimHandoffIntervalSeconds: value })
+                }
+              />
+            ),
           },
           {
             id: "general.advanced.postClaimHandoffMax",
             titleKey: "postClaimHandoffMaxTitle",
             descriptionKey: "postClaimHandoffMaxDescription",
-            render: () => <NumberSettingRow title={t("postClaimHandoffMaxTitle")} description={t("postClaimHandoffMaxDescription")} value={settings.postClaimHandoffMaxSeconds} min={5} max={120} suffix={t("secondsSuffix")} disabled={!settings.postClaimHandoff} disabledReason={t("postClaimHandoffDescription")} onChange={(value) => void onSettingsChange({ postClaimHandoffMaxSeconds: value })} />,
+            render: () => (
+              <NumberSettingRow
+                title={t("postClaimHandoffMaxTitle")}
+                description={t("postClaimHandoffMaxDescription")}
+                value={settings.postClaimHandoffMaxSeconds}
+                min={5}
+                max={120}
+                suffix={t("secondsSuffix")}
+                disabled={!settings.postClaimHandoff}
+                disabledReason={t("postClaimHandoffDescription")}
+                onChange={(value) => void onSettingsChange({ postClaimHandoffMaxSeconds: value })}
+              />
+            ),
           },
           {
             id: "general.advanced.deadlineSafetyMargin",
             titleKey: "deadlineSafetyMarginTitle",
             descriptionKey: "deadlineSafetyMarginDescription",
-            render: () => <NumberSettingRow title={t("deadlineSafetyMarginTitle")} description={t("deadlineSafetyMarginDescription")} value={settings.deadlineSafetyMarginMinutes} min={0} max={60} suffix={t("minutesSuffix")} onChange={(value) => void onSettingsChange({ deadlineSafetyMarginMinutes: value }, { tickAfterSave: true })} disabled={!settings.skipUnfinishableRewards} disabledReason={t("deadlineSafetyMarginDisabledReason")} />,
+            render: () => (
+              <NumberSettingRow
+                title={t("deadlineSafetyMarginTitle")}
+                description={t("deadlineSafetyMarginDescription")}
+                value={settings.deadlineSafetyMarginMinutes}
+                min={0}
+                max={60}
+                suffix={t("minutesSuffix")}
+                onChange={(value) =>
+                  void onSettingsChange(
+                    { deadlineSafetyMarginMinutes: value },
+                    { tickAfterSave: true },
+                  )
+                }
+                disabled={!settings.skipUnfinishableRewards}
+                disabledReason={t("deadlineSafetyMarginDisabledReason")}
+              />
+            ),
           },
           {
             id: "general.advanced.diagnosticLogging",
             titleKey: "diagnosticLoggingTitle",
             descriptionKey: "diagnosticLoggingDescription",
-            render: () => <SettingRow title={t("diagnosticLoggingTitle")} description={t("diagnosticLoggingDescription")} checked={settings.diagnosticLogging} onChange={setFlag("diagnosticLogging")} />,
+            render: () => (
+              <SettingRow
+                title={t("diagnosticLoggingTitle")}
+                description={t("diagnosticLoggingDescription")}
+                checked={settings.diagnosticLogging}
+                onChange={setFlag("diagnosticLogging")}
+              />
+            ),
           },
         ],
       },
@@ -361,19 +588,38 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
   const platformSection = (platform: Platform): SettingsSectionDef => {
     const details = PLATFORMS[platform];
 
-    const claimEntry: SettingsEntryDef = platform === "twitch"
-      ? {
-        id: "twitch.autoClaimChannelPoints",
-        titleKey: "autoClaimChannelPointsTitle",
-        descriptionKey: "autoClaimChannelPointsDescription",
-        render: () => <SettingRow title={t("autoClaimChannelPointsTitle")} description={t("autoClaimChannelPointsDescription")} checked={settings.platform.twitch.autoClaimChannelPoints} onChange={(value) => void onSettingsChange({ platform: { twitch: { autoClaimChannelPoints: value } } })} />,
-      }
-      : {
-        id: "kick.autoClaimChallenges",
-        titleKey: "autoClaimChallengesTitle",
-        descriptionKey: "autoClaimChallengesDescription",
-        render: () => <SettingRow title={t("autoClaimChallengesTitle")} description={t("autoClaimChallengesDescription")} checked={settings.platform.kick.autoClaimChallenges} onChange={(value) => void onSettingsChange({ platform: { kick: { autoClaimChallenges: value } } })} />,
-      };
+    const claimEntry: SettingsEntryDef =
+      platform === "twitch"
+        ? {
+            id: "twitch.autoClaimChannelPoints",
+            titleKey: "autoClaimChannelPointsTitle",
+            descriptionKey: "autoClaimChannelPointsDescription",
+            render: () => (
+              <SettingRow
+                title={t("autoClaimChannelPointsTitle")}
+                description={t("autoClaimChannelPointsDescription")}
+                checked={settings.platform.twitch.autoClaimChannelPoints}
+                onChange={(value) =>
+                  void onSettingsChange({ platform: { twitch: { autoClaimChannelPoints: value } } })
+                }
+              />
+            ),
+          }
+        : {
+            id: "kick.autoClaimChallenges",
+            titleKey: "autoClaimChallengesTitle",
+            descriptionKey: "autoClaimChallengesDescription",
+            render: () => (
+              <SettingRow
+                title={t("autoClaimChallengesTitle")}
+                description={t("autoClaimChallengesDescription")}
+                checked={settings.platform.kick.autoClaimChallenges}
+                onChange={(value) =>
+                  void onSettingsChange({ platform: { kick: { autoClaimChallenges: value } } })
+                }
+              />
+            ),
+          };
 
     // Kick presence needs the Chrome offscreen relay (#754); on a host
     // without it the background warns once that the setting has no effect.
@@ -381,20 +627,42 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
       id: `${platform}.alwaysEnterChat`,
       titleKey: "alwaysEnterChatTitle",
       descriptionKey: "alwaysEnterChatDescription",
-      render: () => <SettingRow title={t("alwaysEnterChatTitle")} description={t("alwaysEnterChatDescription")} checked={settings.platform[platform].alwaysEnterChat === true} onChange={(value) => void onSettingsChange({ platform: { [platform]: { alwaysEnterChat: value } } }, { tickAfterSave: true, tickAfterSavePlatforms: [platform] })} />,
+      render: () => (
+        <SettingRow
+          title={t("alwaysEnterChatTitle")}
+          description={t("alwaysEnterChatDescription")}
+          checked={settings.platform[platform].alwaysEnterChat === true}
+          onChange={(value) =>
+            void onSettingsChange(
+              { platform: { [platform]: { alwaysEnterChat: value } } },
+              { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
+            )
+          }
+        />
+      ),
     };
 
     const groups: SettingsGroupDef[] = [
       {
         id: `${platform}.watchSourcePriority`,
         titleKey: "watchSourcePriorityTitle",
-        entries: [{
-          id: `${platform}.watchSourcePriority.order`,
-          titleKey: "watchSourcePriorityTitle",
-          descriptionKey: "watchSourcePriorityDescription",
-          searchKeys: DEFAULT_WATCH_SOURCE_PRIORITY[platform].map((source) => WATCH_SOURCE_NAME_KEYS[source]),
-          render: () => <WatchSourcePriority platform={platform} value={settings.platform[platform].watchSourcePriority} onChange={(watchSourcePriority) => platformPatch(platform, { watchSourcePriority })} />,
-        }],
+        entries: [
+          {
+            id: `${platform}.watchSourcePriority.order`,
+            titleKey: "watchSourcePriorityTitle",
+            descriptionKey: "watchSourcePriorityDescription",
+            searchKeys: DEFAULT_WATCH_SOURCE_PRIORITY[platform].map(
+              (source) => WATCH_SOURCE_NAME_KEYS[source],
+            ),
+            render: () => (
+              <WatchSourcePriority
+                platform={platform}
+                value={settings.platform[platform].watchSourcePriority}
+                onChange={(watchSourcePriority) => platformPatch(platform, { watchSourcePriority })}
+              />
+            ),
+          },
+        ],
       },
       {
         id: `${platform}.categories`,
@@ -408,7 +676,15 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
             titleKey: "settingsGamesPointerTitle",
             descriptionKey: "settingsGamesPointerDescription",
             descriptionSubstitution: details.label,
-            searchKeys: ["categoryModeTitle", "categoryModeDescription", "categoryModeAll", "categoryModeInclude", "gamesBlocked", "gamesStarHint", "navGames"],
+            searchKeys: [
+              "categoryModeTitle",
+              "categoryModeDescription",
+              "categoryModeAll",
+              "categoryModeInclude",
+              "gamesBlocked",
+              "gamesStarHint",
+              "navGames",
+            ],
             render: () => (
               <SettingsLinkRow
                 title={t("settingsGamesPointerTitle")}
@@ -424,7 +700,9 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
         id: `${platform}.channels`,
         titleKey: "settingsGroupExcludedChannels",
         description: t("excludedChannelsDescription"),
-        badge: <Pill tone="outline">{(settings.platform[platform].excludedChannels ?? []).length}</Pill>,
+        badge: (
+          <Pill tone="outline">{(settings.platform[platform].excludedChannels ?? []).length}</Pill>
+        ),
         entries: [
           {
             id: `${platform}.channels.excluded`,
@@ -434,7 +712,9 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
               <PlatformExcludedChannels
                 platform={platform}
                 settings={settings}
-                onExcludedChannelsChange={(excludedChannels) => void platformPatch(platform, { excludedChannels })}
+                onExcludedChannelsChange={(excludedChannels) =>
+                  void platformPatch(platform, { excludedChannels })
+                }
               />
             ),
           },
@@ -451,35 +731,43 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
     // Kick's two — and three sections sharing one subtitle read as the same
     // section repeated. Twitch's group exists whether or not a compatibility
     // registry was supplied; Kick's holds the compatibility editor alone.
-    const advancedEntries: SettingsEntryDef[] = platform === "twitch"
-      ? [{
-        id: "twitch.advanced.channelPointsPushClaim",
-        titleKey: "channelPointsPushClaimTitle",
-        descriptionKey: "channelPointsPushClaimDescription",
-        render: () => (
-          <SettingRow
-            title={t("channelPointsPushClaimTitle")}
-            description={t("channelPointsPushClaimDescription")}
-            checked={settings.platform.twitch.channelPointsPushClaim}
-            onChange={(value) => void platformPatch("twitch", { channelPointsPushClaim: value })}
-            disabled={!settings.platform.twitch.autoClaimChannelPoints}
-            disabledReason={t("autoClaimChannelPointsDescription")}
-          />
-        ),
-      }, {
-        id: "twitch.advanced.strictCampaignAvailability",
-        titleKey: "strictCampaignAvailabilityTitle",
-        descriptionKey: "strictCampaignAvailabilityDescription",
-        render: () => (
-          <SettingRow
-            title={t("strictCampaignAvailabilityTitle")}
-            description={t("strictCampaignAvailabilityDescription")}
-            checked={settings.platform.twitch.strictCampaignAvailability}
-            onChange={(value) => void platformPatch("twitch", { strictCampaignAvailability: value })}
-          />
-        ),
-      }]
-      : [];
+    const advancedEntries: SettingsEntryDef[] =
+      platform === "twitch"
+        ? [
+            {
+              id: "twitch.advanced.channelPointsPushClaim",
+              titleKey: "channelPointsPushClaimTitle",
+              descriptionKey: "channelPointsPushClaimDescription",
+              render: () => (
+                <SettingRow
+                  title={t("channelPointsPushClaimTitle")}
+                  description={t("channelPointsPushClaimDescription")}
+                  checked={settings.platform.twitch.channelPointsPushClaim}
+                  onChange={(value) =>
+                    void platformPatch("twitch", { channelPointsPushClaim: value })
+                  }
+                  disabled={!settings.platform.twitch.autoClaimChannelPoints}
+                  disabledReason={t("autoClaimChannelPointsDescription")}
+                />
+              ),
+            },
+            {
+              id: "twitch.advanced.strictCampaignAvailability",
+              titleKey: "strictCampaignAvailabilityTitle",
+              descriptionKey: "strictCampaignAvailabilityDescription",
+              render: () => (
+                <SettingRow
+                  title={t("strictCampaignAvailabilityTitle")}
+                  description={t("strictCampaignAvailabilityDescription")}
+                  checked={settings.platform.twitch.strictCampaignAvailability}
+                  onChange={(value) =>
+                    void platformPatch("twitch", { strictCampaignAvailability: value })
+                  }
+                />
+              ),
+            },
+          ]
+        : [];
 
     if (ctx.compatibilityRegistry && ctx.compatibilityResolution) {
       const compatibilityRegistry = ctx.compatibilityRegistry;
@@ -504,7 +792,9 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
       groups.push({
         id: `${platform}.advanced`,
         titleKey: "settingsGroupPlatformAdvanced",
-        description: t(platform === "twitch" ? "twitchAdvancedDescription" : "kickAdvancedDescription"),
+        description: t(
+          platform === "twitch" ? "twitchAdvancedDescription" : "kickAdvancedDescription",
+        ),
         advanced: true,
         entries: advancedEntries,
       });
@@ -518,9 +808,5 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
     };
   };
 
-  return [
-    general,
-    platformSection("twitch"),
-    platformSection("kick"),
-  ];
+  return [general, platformSection("twitch"), platformSection("kick")];
 }

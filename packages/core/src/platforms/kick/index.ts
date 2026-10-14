@@ -1,4 +1,12 @@
-import type { CategorySelection, ChannelCandidate, ChannelCheck, DropCampaign, DropReward, PlatformAuthHealth, WatchSession } from "@lurkloot/shared/models";
+import type {
+  CategorySelection,
+  ChannelCandidate,
+  ChannelCheck,
+  DropCampaign,
+  DropReward,
+  PlatformAuthHealth,
+  WatchSession,
+} from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import type { TablessWatchController } from "../../core/tablessWatch";
 import type { DiscoverySignalController } from "../../core/discoverySignals";
@@ -6,7 +14,17 @@ import { KickWafBlockedError } from "../../core/transport";
 import { authHealthFromError } from "../../core/fetchError";
 import { StaleWhileRevalidateCache } from "../../core/staleCache";
 import type { WebSocketFactory } from "../../core/webSocket";
-import { diagnostic, ignoreEvent, type AdapterOperationOptions, type ChannelCheckBatch, type ChannelCheckRequest, type ClaimedChallenge, type KickPageContextCycleObservation, type PageFetcher, type PlatformAdapter } from "../adapter";
+import {
+  diagnostic,
+  ignoreEvent,
+  type AdapterOperationOptions,
+  type ChannelCheckBatch,
+  type ChannelCheckRequest,
+  type ClaimedChallenge,
+  type KickPageContextCycleObservation,
+  type PageFetcher,
+  type PlatformAdapter,
+} from "../adapter";
 import { kickCandidatesFromCampaign, mergeKickProgress, parseKickCampaigns } from "./parser";
 import { KICK_CLIENT_TOKEN, KickWatcher } from "./watch";
 import { KickDiscoverySignalController } from "./discoverySignals";
@@ -37,7 +55,9 @@ const FOLLOWED_CHANNELS_CACHE_TTL_MS = 5 * 60_000;
 // The route announcement state also shares this lifetime so unchanged routes
 // are not announced again when the next tick constructs an adapter.
 export class KickDiscoveryState {
-  readonly followedChannels = new StaleWhileRevalidateCache<string[]>(FOLLOWED_CHANNELS_CACHE_TTL_MS);
+  readonly followedChannels = new StaleWhileRevalidateCache<string[]>(
+    FOLLOWED_CHANNELS_CACHE_TTL_MS,
+  );
   readonly routeDiagnostics = new KickRouteState();
 }
 
@@ -67,14 +87,14 @@ interface KickLivestreamsResponse {
 }
 
 interface KickLivestream {
-    slug?: string;
-    channel?: { slug?: string; username?: string };
-    category?: { id?: string | number; name?: string };
-    viewer_count?: number;
-    // The livestreams endpoint names the stream title `title`; channel-v2 uses
-    // `session_title`. Accept both so candidate titles populate either way.
-    title?: string;
-    session_title?: string;
+  slug?: string;
+  channel?: { slug?: string; username?: string };
+  category?: { id?: string | number; name?: string };
+  viewer_count?: number;
+  // The livestreams endpoint names the stream title `title`; channel-v2 uses
+  // `session_title`. Accept both so candidate titles populate either way.
+  title?: string;
+  session_title?: string;
 }
 
 interface KickChannelResponse {
@@ -113,7 +133,9 @@ interface KickFollowedLiveStream {
 // above): accept a bare array or one wrapped in `data`, so an envelope change here
 // degrades to "no preference" rather than being silently indistinguishable from
 // "this account follows nobody live".
-type KickFollowedLiveStreamsResponse = KickFollowedLiveStream[] | { data?: KickFollowedLiveStream[] };
+type KickFollowedLiveStreamsResponse =
+  | KickFollowedLiveStream[]
+  | { data?: KickFollowedLiveStream[] };
 
 interface KickIdentityResponse {
   id?: string | number;
@@ -129,10 +151,12 @@ interface KickIdentityResponse {
 function hasKickIdentity(response: KickIdentityResponse): boolean {
   const identity = response.user ?? response;
   const id = identity.id;
-  return (typeof id === "string" && id.trim().length > 0)
+  return (
+    (typeof id === "string" && id.trim().length > 0)
     || (typeof id === "number" && Number.isFinite(id))
     || (typeof identity.username === "string" && identity.username.trim().length > 0)
-    || (typeof identity.slug === "string" && identity.slug.trim().length > 0);
+    || (typeof identity.slug === "string" && identity.slug.trim().length > 0)
+  );
 }
 
 interface KickChallenge {
@@ -227,7 +251,13 @@ export function createKickFetcher(deps: {
     try {
       await callback?.(host, emit);
     } catch {
-      emit({ category: "diagnostic", platform: "kick", level: "debug", code: "kick_fetch_lifecycle_failed", message: `Kick page-context lifecycle update failed for ${host}` });
+      emit({
+        category: "diagnostic",
+        platform: "kick",
+        level: "debug",
+        code: "kick_fetch_lifecycle_failed",
+        message: `Kick page-context lifecycle update failed for ${host}`,
+      });
     }
   };
   return {
@@ -235,7 +265,11 @@ export function createKickFetcher(deps: {
       if (activeRequests === 0) counts.flush(emit);
       else pendingFlush = emit;
     },
-    fetchJson: async <T,>(url: string, init?: RequestInit, emit: EventEmitter = ignoreEvent): Promise<T> => {
+    fetchJson: async <T>(
+      url: string,
+      init?: RequestInit,
+      emit: EventEmitter = ignoreEvent,
+    ): Promise<T> => {
       init?.signal?.throwIfAborted();
       const host = safeKickRouteHost(url);
       activeRequests += 1;
@@ -249,16 +283,26 @@ export function createKickFetcher(deps: {
           if (!pageFetch || isOriginIndependentKickFailure(error)) throw error;
           init?.signal?.throwIfAborted();
           result = await pageFetch(url, init);
-          routeState.report(emit, host, "page", error instanceof KickWafBlockedError
-            ? "→ WAF-blocked from service worker, using page tab"
-            : "→ service worker error, using page tab");
+          routeState.report(
+            emit,
+            host,
+            "page",
+            error instanceof KickWafBlockedError
+              ? "→ WAF-blocked from service worker, using page tab"
+              : "→ service worker error, using page tab",
+          );
           counts.record(host, "page");
           await notifyLifecycle(onPageFallback, host, emit);
           return result as T;
         }
-        routeState.report(emit, host, "background", pageFetch
-          ? "→ service worker OK (tabless-capable)"
-          : "→ background transport OK (tabless-capable)");
+        routeState.report(
+          emit,
+          host,
+          "background",
+          pageFetch
+            ? "→ service worker OK (tabless-capable)"
+            : "→ background transport OK (tabless-capable)",
+        );
         counts.record(host, "background");
         await notifyLifecycle(onBackgroundSuccess, host, emit);
         return result as T;
@@ -280,7 +324,9 @@ export function createKickFetcher(deps: {
 // an id or name are skipped.
 function parseKickCategories(data: unknown): CategorySelection[] {
   const root = (data ?? {}) as Record<string, unknown>;
-  const raw = (Array.isArray(root.categories) ? root.categories : []) as Array<Record<string, unknown>>;
+  const raw = (Array.isArray(root.categories) ? root.categories : []) as Array<
+    Record<string, unknown>
+  >;
   const seen = new Set<string>();
   const result: CategorySelection[] = [];
   for (const entry of raw) {
@@ -290,7 +336,9 @@ function parseKickCategories(data: unknown): CategorySelection[] {
     const key = id.toLowerCase();
     if (!id || !name || seen.has(key)) continue;
     seen.add(key);
-    const imageUrl = kickCategoryImage(entry.banner) ?? (typeof entry.image_url === "string" ? entry.image_url : undefined);
+    const imageUrl =
+      kickCategoryImage(entry.banner)
+      ?? (typeof entry.image_url === "string" ? entry.image_url : undefined);
     result.push(imageUrl ? { id, name, imageUrl } : { id, name });
   }
   return result;
@@ -397,19 +445,24 @@ export class KickAdapter implements PlatformAdapter {
     // Realtime and presence calls never fall back to a page-context tab:
     // discovery negotiates on every Kick farm, and presence is tabless.
     const realtimeFetcher = options.realtimeFetcher ?? this.fetcher;
-    const postJson = kickRealtimePost((url, init) => realtimeFetcher.fetchJson<unknown>(url, init, this.emit));
+    const postJson = kickRealtimePost((url, init) =>
+      realtimeFetcher.fetchJson<unknown>(url, init, this.emit),
+    );
     const shared = options.realtime;
     if (this.webSocketFactory) {
       const createWebSocket = this.webSocketFactory;
-      this.createDiscoverySignalController = () => new KickDiscoverySignalController({
-        createWebSocket,
-        postJson,
-        ...(shared ? { connection: shared.connection } : {}),
-      });
+      this.createDiscoverySignalController = () =>
+        new KickDiscoverySignalController({
+          createWebSocket,
+          postJson,
+          ...(shared ? { connection: shared.connection } : {}),
+        });
     }
     if (shared?.kickOrigin) {
-      const getJson = (url: string) => realtimeFetcher.fetchJson<unknown>(url, undefined, this.emit);
-      this.createChatPresenceClient = () => new KickChatPresenceClient({ connection: shared.connection, postJson, getJson });
+      const getJson = (url: string) =>
+        realtimeFetcher.fetchJson<unknown>(url, undefined, this.emit);
+      this.createChatPresenceClient = () =>
+        new KickChatPresenceClient({ connection: shared.connection, postJson, getJson });
     }
     this.claimCapability = createKickClaimCapability(
       options.compatibility.claim,
@@ -431,9 +484,7 @@ export class KickAdapter implements PlatformAdapter {
     if (requireComplete && !hasCompleteKickCampaignInventory(campaignData)) {
       throw new Error("Kick discovery campaign inventory was incomplete");
     }
-    const campaigns = parseKickCampaigns(
-      campaignData as Parameters<typeof parseKickCampaigns>[0],
-    );
+    const campaigns = parseKickCampaigns(campaignData as Parameters<typeof parseKickCampaigns>[0]);
     if (progressResult.status === "fulfilled") {
       if (requireComplete && !hasCompleteKickProgressInventory(progressResult.value)) {
         throw new Error("Kick discovery progress was incomplete");
@@ -471,19 +522,21 @@ export class KickAdapter implements PlatformAdapter {
   }
 
   private mergeProgress(campaigns: DropCampaign[], data: unknown): DropCampaign[] {
-    const progress = mergeKickProgress(
-      campaigns,
-      data as Parameters<typeof mergeKickProgress>[1],
+    const progress = mergeKickProgress(campaigns, data as Parameters<typeof mergeKickProgress>[1]);
+    return (
+      this.claimCapability.reconcileProgress?.(progress, affirmativelyLinkedCampaignIds(data))
+      ?? progress
     );
-    return this.claimCapability.reconcileProgress?.(
-      progress,
-      affirmativelyLinkedCampaignIds(data),
-    ) ?? progress;
   }
 
   private reportProgressFallback(error: unknown): void {
     const message = errorMessage(error);
-    diagnostic(this.emit, "warn", `Could not read Kick drop progress; using last-known progress: ${message}`, "kick");
+    diagnostic(
+      this.emit,
+      "warn",
+      `Could not read Kick drop progress; using last-known progress: ${message}`,
+      "kick",
+    );
   }
 
   async searchCategories(query: string): Promise<CategorySelection[]> {
@@ -514,7 +567,10 @@ export class KickAdapter implements PlatformAdapter {
   // is independent from a particular caller's abort signal because overlapping
   // callers share the promise. Strict snapshot discovery still awaits it before
   // observing its own cancellation, so route evidence cannot arrive late.
-  async listFollowedChannels({ signal, requireComplete }: AdapterOperationOptions = {}): Promise<string[]> {
+  async listFollowedChannels({
+    signal,
+    requireComplete,
+  }: AdapterOperationOptions = {}): Promise<string[]> {
     const cache = this.discoveryState.followedChannels;
     const cached = cache.get();
     if (cached) {
@@ -545,7 +601,7 @@ export class KickAdapter implements PlatformAdapter {
         { signal },
         this.emit,
       );
-      const streams = Array.isArray(response) ? response : response?.data ?? [];
+      const streams = Array.isArray(response) ? response : (response?.data ?? []);
       return streams
         .map((stream) => (stream.channel?.slug ?? stream.channel?.username)?.toLowerCase())
         .filter((username): username is string => Boolean(username));
@@ -572,29 +628,41 @@ export class KickAdapter implements PlatformAdapter {
     url.searchParams.set("sort", "viewer_count_desc");
     if (campaign.categoryId) url.searchParams.set("category_id", campaign.categoryId);
 
-    const response = await this.fetcher.fetchJson<KickLivestreamsResponse>(url.toString(), { signal }, this.emit);
+    const response = await this.fetcher.fetchJson<KickLivestreamsResponse>(
+      url.toString(),
+      { signal },
+      this.emit,
+    );
     const directory = Array.isArray(response?.data) ? response.data : response?.data?.livestreams;
-    if (requireComplete && (!Array.isArray(directory) || directory.some((stream) => {
-      const username = stream?.channel?.slug ?? stream?.channel?.username ?? stream?.slug;
-      return typeof username !== "string" || !username.trim();
-    }))) throw new Error("Kick discovery channel directory was incomplete");
+    if (
+      requireComplete
+      && (!Array.isArray(directory)
+        || directory.some((stream) => {
+          const username = stream?.channel?.slug ?? stream?.channel?.username ?? stream?.slug;
+          return typeof username !== "string" || !username.trim();
+        }))
+    )
+      throw new Error("Kick discovery channel directory was incomplete");
     const streams = directory ?? [];
-    return streams.map((stream): ChannelCandidate => {
-      const username = stream.channel?.slug ?? stream.channel?.username ?? stream.slug ?? "";
-      return {
-        platform: "kick",
-        username,
-        displayName: username,
-        url: `https://kick.com/${username}`,
-        campaignId: campaign.id,
-        categoryId: stream.category?.id == null ? campaign.categoryId : String(stream.category.id),
-        categoryName: stream.category?.name,
-        isAclMatch: false,
-        viewerCount: stream.viewer_count,
-        title: stream.title ?? stream.session_title,
-        live: true,
-      };
-    }).filter((candidate) => Boolean(candidate.username));
+    return streams
+      .map((stream): ChannelCandidate => {
+        const username = stream.channel?.slug ?? stream.channel?.username ?? stream.slug ?? "";
+        return {
+          platform: "kick",
+          username,
+          displayName: username,
+          url: `https://kick.com/${username}`,
+          campaignId: campaign.id,
+          categoryId:
+            stream.category?.id == null ? campaign.categoryId : String(stream.category.id),
+          categoryName: stream.category?.name,
+          isAclMatch: false,
+          viewerCount: stream.viewer_count,
+          title: stream.title ?? stream.session_title,
+          live: true,
+        };
+      })
+      .filter((candidate) => Boolean(candidate.username));
   }
 
   async checkChannel(
@@ -604,12 +672,15 @@ export class KickAdapter implements PlatformAdapter {
     return this.checkChannelWithFetcher(channel, options, this.fetcher);
   }
 
-  async checkChannels(requests: ChannelCheckRequest[], { signal }: AdapterOperationOptions = {}): Promise<ChannelCheckBatch> {
+  async checkChannels(
+    requests: ChannelCheckRequest[],
+    { signal }: AdapterOperationOptions = {},
+  ): Promise<ChannelCheckBatch> {
     // The cache belongs to this revision, never the adapter lifetime. Cache raw
     // responses so category expectations and ACL/campaign metadata stay local.
     const evidence = new Map<string, Promise<unknown>>();
     const fetcher: PageFetcher = {
-      fetchJson: <T,>(url: string, init?: RequestInit, emit?: EventEmitter): Promise<T> => {
+      fetchJson: <T>(url: string, init?: RequestInit, emit?: EventEmitter): Promise<T> => {
         let pending = evidence.get(url);
         if (!pending) {
           pending = this.fetcher.fetchJson(url, init, emit);
@@ -646,10 +717,19 @@ export class KickAdapter implements PlatformAdapter {
             signal?.throwIfAborted();
             const request = requests[index]!;
             checkedChannels.add(request.channel.username.toLowerCase());
-            const check = await this.checkChannelWithFetcher(request.channel,
-              { campaign: request.campaign, signal, requireComplete: true }, fetcher);
+            const check = await this.checkChannelWithFetcher(
+              request.channel,
+              { campaign: request.campaign, signal, requireComplete: true },
+              fetcher,
+            );
             checks[index] = check;
-            if (request.campaign && check.live && check.categoryMatches && check.campaignMatches !== false) break;
+            if (
+              request.campaign
+              && check.live
+              && check.categoryMatches
+              && check.campaignMatches !== false
+            )
+              break;
           }
         } catch (error) {
           if (!failed) failure = error;
@@ -680,12 +760,14 @@ export class KickAdapter implements PlatformAdapter {
         throw new Error("Kick discovery channel response was incomplete");
       }
       const livestream = data.livestream;
-      if (requireComplete && livestream !== null && (
-        !livestream
-        || typeof livestream !== "object"
-        || Array.isArray(livestream)
-        || (typeof livestream.is_live !== "boolean" && livestream.id == null)
-      )) {
+      if (
+        requireComplete
+        && livestream !== null
+        && (!livestream
+          || typeof livestream !== "object"
+          || Array.isArray(livestream)
+          || (typeof livestream.is_live !== "boolean" && livestream.id == null))
+      ) {
         throw new Error("Kick discovery channel response was incomplete");
       }
       // Kick now returns a `categories` array; keep `category` as a fallback.
@@ -791,7 +873,13 @@ export class KickAdapter implements PlatformAdapter {
       if (!id || challenge.claimed_at != null) continue;
       const progress = Number(challenge.condition?.progress ?? 0);
       const threshold = Number(challenge.condition?.threshold ?? 0);
-      if (!Number.isFinite(progress) || !Number.isFinite(threshold) || threshold <= 0 || progress < threshold) continue;
+      if (
+        !Number.isFinite(progress)
+        || !Number.isFinite(threshold)
+        || threshold <= 0
+        || progress < threshold
+      )
+        continue;
       // One failing box must not block the others, so each claim is isolated.
       try {
         const result = await this.fetcher.fetchJson<KickChallengeClaimResponse>(
@@ -803,21 +891,42 @@ export class KickAdapter implements PlatformAdapter {
         claimed.push({
           id,
           rarity: typeof rarity === "string" && rarity.trim() ? rarity.trim() : "unknown",
-          recurrence: typeof challenge.recurrence === "string" && challenge.recurrence.trim() ? challenge.recurrence.trim() : "unknown",
+          recurrence:
+            typeof challenge.recurrence === "string" && challenge.recurrence.trim()
+              ? challenge.recurrence.trim()
+              : "unknown",
         });
       } catch (error) {
         signal?.throwIfAborted();
         if (authHealthFromError(error)) throw error;
-        diagnostic(this.emit, "warn", `Kick challenge ${id} claim failed: ${errorMessage(error)}`, "kick");
+        diagnostic(
+          this.emit,
+          "warn",
+          `Kick challenge ${id} claim failed: ${errorMessage(error)}`,
+          "kick",
+        );
       }
     }
     return claimed;
   }
 
-  private warnAccountNotLinked(campaign: DropCampaign, reward: DropReward, responseUrl?: string): void {
+  private warnAccountNotLinked(
+    campaign: DropCampaign,
+    reward: DropReward,
+    responseUrl?: string,
+  ): void {
     const url = responseUrl ?? safeHttpsUrl(campaign.accountLinkUrl);
-    const where = url ? " using the account-link action" : campaign.name ? ` for ${campaign.name}` : "";
-    diagnostic(this.emit, "warn", `Cannot claim "${reward.name}" yet — link your Kick account${where} to claim this campaign's drops.`, "kick");
+    const where = url
+      ? " using the account-link action"
+      : campaign.name
+        ? ` for ${campaign.name}`
+        : "";
+    diagnostic(
+      this.emit,
+      "warn",
+      `Cannot claim "${reward.name}" yet — link your Kick account${where} to claim this campaign's drops.`,
+      "kick",
+    );
   }
 
   // Tabless farming via Kick's viewer WebSocket (see KickWatcher). Reuses this
@@ -839,16 +948,24 @@ export class KickAdapter implements PlatformAdapter {
     fetcher: PageFetcher = this.fetcher,
     requireComplete = false,
   ): Promise<ChannelCheck> {
-    const originalMessage = requireComplete && isSafeFetchError(originalError)
-      ? `${originalError.failure.kind}${originalError.failure.status == null ? "" : ` status=${originalError.failure.status}`}`
-      : requireComplete ? "provider evidence unavailable"
-      : errorMessage(originalError);
-    diagnostic(this.emit, "debug", `Kick API channel check failed for ${channel.username}, falling back to the channel page: ${originalMessage}`, "kick");
+    const originalMessage =
+      requireComplete && isSafeFetchError(originalError)
+        ? `${originalError.failure.kind}${originalError.failure.status == null ? "" : ` status=${originalError.failure.status}`}`
+        : requireComplete
+          ? "provider evidence unavailable"
+          : errorMessage(originalError);
+    diagnostic(
+      this.emit,
+      "debug",
+      `Kick API channel check failed for ${channel.username}, falling back to the channel page: ${originalMessage}`,
+      "kick",
+    );
     try {
       const page = await fetcher.fetchJson<{ html?: string }>(channel.url, { signal }, this.emit);
       const html = page.html ?? "";
       const explicitLive = parseBooleanField(html, ["is_live", "isLive", "live"]);
-      if (requireComplete && explicitLive === undefined) throw new Error("Kick discovery page evidence was incomplete");
+      if (requireComplete && explicitLive === undefined)
+        throw new Error("Kick discovery page evidence was incomplete");
       const live = explicitLive ?? html.includes("livestream");
       const actualCategoryId = parseCategoryId(html);
       const expectedCategoryId = campaign ? campaign.categoryId : channel.categoryId;
@@ -857,7 +974,10 @@ export class KickAdapter implements PlatformAdapter {
       }
       return {
         live,
-        categoryMatches: !expectedCategoryId || actualCategoryId == null || actualCategoryId === expectedCategoryId,
+        categoryMatches:
+          !expectedCategoryId
+          || actualCategoryId == null
+          || actualCategoryId === expectedCategoryId,
         reason: "Kick API check failed; used channel page fallback",
         candidate: {
           ...channel,
@@ -870,7 +990,8 @@ export class KickAdapter implements PlatformAdapter {
       return {
         live: false,
         categoryMatches: false,
-        reason: originalError instanceof Error ? originalError.message : "Kick channel check failed",
+        reason:
+          originalError instanceof Error ? originalError.message : "Kick channel check failed",
         candidate: channel,
       };
     }
@@ -882,48 +1003,88 @@ function kickInventoryRecords(input: unknown, keys: string[]): unknown[] | undef
   if (!input || typeof input !== "object") return undefined;
   const root = input as Record<string, unknown>;
   if (Array.isArray(root.data)) return root.data;
-  const data = root.data && typeof root.data === "object" ? root.data as Record<string, unknown> : {};
+  const data =
+    root.data && typeof root.data === "object" ? (root.data as Record<string, unknown>) : {};
   const buckets = keys.flatMap((key) => [root[key], data[key]]).filter(Array.isArray);
   return buckets.length > 0 ? buckets.flat() : undefined;
 }
 
 function hasCompleteKickCampaignInventory(input: unknown): boolean {
   const records = kickInventoryRecords(input, ["campaigns", "active", "current", "upcoming"]);
-  return records !== undefined && records.every((entry) => {
-    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return false;
-    const campaign = entry as Record<string, unknown>;
-    if (campaign.id == null) return false;
-    const rewards = campaign.rewards ?? campaign.drops;
-    return rewards === undefined || (Array.isArray(rewards) && rewards.every((reward) =>
-      Boolean(reward) && typeof reward === "object" && !Array.isArray(reward)
-      && (reward as Record<string, unknown>).id != null));
-  });
+  return (
+    records !== undefined
+    && records.every((entry) => {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) return false;
+      const campaign = entry as Record<string, unknown>;
+      if (campaign.id == null) return false;
+      const rewards = campaign.rewards ?? campaign.drops;
+      return (
+        rewards === undefined
+        || (Array.isArray(rewards)
+          && rewards.every(
+            (reward) =>
+              Boolean(reward)
+              && typeof reward === "object"
+              && !Array.isArray(reward)
+              && (reward as Record<string, unknown>).id != null,
+          ))
+      );
+    })
+  );
 }
 
 function hasCompleteKickProgressInventory(input: unknown): boolean {
-  const records = kickInventoryRecords(input, ["progress", "campaigns", "active", "current", "completed"]);
-  return records !== undefined && records.every((entry) => {
-    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return false;
-    const progress = entry as Record<string, unknown>;
-    const rewards = progress.rewards;
-    const identifiesProgress = progress.id != null
-      || progress.campaign_id != null
-      || progress.drop_campaign_id != null
-      || progress.reward_id != null
-      || progress.drop_id != null;
-    return identifiesProgress && (rewards === undefined || (Array.isArray(rewards) && rewards.every((reward) =>
-      Boolean(reward) && typeof reward === "object" && !Array.isArray(reward)
-      && ((reward as Record<string, unknown>).id != null
-        || (reward as Record<string, unknown>).reward_id != null
-        || (reward as Record<string, unknown>).drop_id != null))));
-  });
+  const records = kickInventoryRecords(input, [
+    "progress",
+    "campaigns",
+    "active",
+    "current",
+    "completed",
+  ]);
+  return (
+    records !== undefined
+    && records.every((entry) => {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) return false;
+      const progress = entry as Record<string, unknown>;
+      const rewards = progress.rewards;
+      const identifiesProgress =
+        progress.id != null
+        || progress.campaign_id != null
+        || progress.drop_campaign_id != null
+        || progress.reward_id != null
+        || progress.drop_id != null;
+      return (
+        identifiesProgress
+        && (rewards === undefined
+          || (Array.isArray(rewards)
+            && rewards.every(
+              (reward) =>
+                Boolean(reward)
+                && typeof reward === "object"
+                && !Array.isArray(reward)
+                && ((reward as Record<string, unknown>).id != null
+                  || (reward as Record<string, unknown>).reward_id != null
+                  || (reward as Record<string, unknown>).drop_id != null),
+            )))
+      );
+    })
+  );
 }
 
 function affirmativelyLinkedCampaignIds(input: unknown): Set<string> {
-  const root = input != null && typeof input === "object" && !Array.isArray(input)
-    ? input as Record<string, unknown>
-    : {};
-  const buckets = [Array.isArray(input) ? input : undefined, root.data, root.progress, root.campaigns, root.active, root.current, root.completed];
+  const root =
+    input != null && typeof input === "object" && !Array.isArray(input)
+      ? (input as Record<string, unknown>)
+      : {};
+  const buckets = [
+    Array.isArray(input) ? input : undefined,
+    root.data,
+    root.progress,
+    root.campaigns,
+    root.active,
+    root.current,
+    root.completed,
+  ];
   if (root.data != null && typeof root.data === "object" && !Array.isArray(root.data)) {
     const data = root.data as Record<string, unknown>;
     buckets.push(data.progress, data.campaigns, data.active, data.current, data.completed);
@@ -951,7 +1112,9 @@ function parseBooleanField(html: string, names: string[]): boolean | undefined {
 }
 
 function parseCategoryId(html: string): string | undefined {
-  const categoryObject = html.match(/["']category["']\s*:\s*\{[^{}]*["']id["']\s*:\s*["']?([^"',}]+)["']?/i);
+  const categoryObject = html.match(
+    /["']category["']\s*:\s*\{[^{}]*["']id["']\s*:\s*["']?([^"',}]+)["']?/i,
+  );
   if (categoryObject?.[1]) return categoryObject[1];
   const categoryId = html.match(/["']category_id["']\s*:\s*["']?([^"',}]+)["']?/i);
   return categoryId?.[1];

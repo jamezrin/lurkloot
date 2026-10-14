@@ -19,8 +19,16 @@ import type {
 } from "@lurkloot/shared/models";
 import { campaignPassesCategoryFilter } from "@lurkloot/shared/categories";
 import { pinIndex, rankCampaigns } from "@lurkloot/shared/ranking";
-import { evaluateCampaignFarming, type CampaignFarmingEvaluation, type CampaignFarmingRejectionCode } from "@lurkloot/shared/campaignFarming";
-import { campaignFarmable, campaignPassesFarmingEligibility, hasCampaignEnded } from "@lurkloot/shared/campaignFilters";
+import {
+  evaluateCampaignFarming,
+  type CampaignFarmingEvaluation,
+  type CampaignFarmingRejectionCode,
+} from "@lurkloot/shared/campaignFarming";
+import {
+  campaignFarmable,
+  campaignPassesFarmingEligibility,
+  hasCampaignEnded,
+} from "@lurkloot/shared/campaignFilters";
 import {
   applySubscriptionMarks,
   canClaimReward,
@@ -32,9 +40,18 @@ import {
   reconcileCampaignAfterClaims,
   rewardFeasibility,
 } from "@lurkloot/shared/rewards";
-import { autoClaimChallengesFor, autoClaimChannelPointsFor, isFarmingActive } from "@lurkloot/shared/settings";
+import {
+  autoClaimChallengesFor,
+  autoClaimChannelPointsFor,
+  isFarmingActive,
+} from "@lurkloot/shared/settings";
 import { normalizeWatchSourcePriority } from "@lurkloot/shared/watchSources";
-import type { EngineEvent, EventEmitter, FarmingStopReason, PageContextCloseReason } from "@lurkloot/shared/events";
+import type {
+  EngineEvent,
+  EventEmitter,
+  FarmingStopReason,
+  PageContextCloseReason,
+} from "@lurkloot/shared/events";
 import { perform } from "./effectExecutor";
 import type { ClaimReadyRewardEvent } from "./rewardClaims";
 import type { LogLevel } from "@lurkloot/shared/logging";
@@ -42,7 +59,12 @@ import { authHealthFromError, isSafeFetchError } from "./fetchError";
 import { UnusableWatchTabError } from "./watchTabError";
 import { applyPlatformAuthHealth } from "./authHealth";
 import type { CriticalHealthObservation } from "./criticalHealth";
-import { holdManagedTabBreaker, isManagedTabBreakerOpen, observeCriticalHealth, recordManagedTabOpen } from "./criticalHealth";
+import {
+  holdManagedTabBreaker,
+  isManagedTabBreakerOpen,
+  observeCriticalHealth,
+  recordManagedTabOpen,
+} from "./criticalHealth";
 import { isTimestampStale, PLAYBACK_TELEMETRY_MAX_AGE_MS } from "./timestamps";
 import { pausedForManualWatch } from "./manualWatch";
 import { heartbeatContextKey, validTablessHeartbeatCadence } from "./heartbeatCadence";
@@ -69,12 +91,21 @@ export function challengePollDue(state: SchedulerState, platform: Platform, now:
 }
 
 function activeReward(campaign: DropCampaign, settings: EngineSettings): DropReward | undefined {
-  const earnable = campaign.rewards.filter((reward) =>
-    reward.preconditionsMet !== false
-    && isRewardAvailableToEarn(reward)
-    && isRewardDeadlineFeasible(campaign, reward, settings.skipUnfinishableRewards, settings.deadlineSafetyMarginMinutes));
-  return earnable.find((reward) => reward.status === "in_progress")
-    ?? earnable.find((reward) => reward.status === "locked");
+  const earnable = campaign.rewards.filter(
+    (reward) =>
+      reward.preconditionsMet !== false
+      && isRewardAvailableToEarn(reward)
+      && isRewardDeadlineFeasible(
+        campaign,
+        reward,
+        settings.skipUnfinishableRewards,
+        settings.deadlineSafetyMarginMinutes,
+      ),
+  );
+  return (
+    earnable.find((reward) => reward.status === "in_progress")
+    ?? earnable.find((reward) => reward.status === "locked")
+  );
 }
 
 // Decides whether to farm this channel without a tab. Always on when the host
@@ -92,7 +123,12 @@ function chooseTablessWatch(
   if (!host.watchTabs) return true;
   if (!settings.tablessMode || !host.supportsTabless) return false;
   if (sameChannel && previous.watchMode === "tab" && previous.tablessFallback) return false;
-  if (sameChannel && previous.watchMode === "tabless" && (previous.heartbeatChecks ?? 0) >= settings.tablessFallbackFailureLimit) return false;
+  if (
+    sameChannel
+    && previous.watchMode === "tabless"
+    && (previous.heartbeatChecks ?? 0) >= settings.tablessFallbackFailureLimit
+  )
+    return false;
   return true;
 }
 
@@ -132,13 +168,20 @@ function preconditionBreakObservation(): CriticalHealthObservation {
 // tick that simply did not accrue — the other three booleans are identical — so
 // the reducer can decline to advance the failing-time clock from it.
 function neutralObservation(): CriticalHealthObservation {
-  return { at: Date.now(), failing: false, progressed: false, preconditionBroke: false, inconclusive: true };
+  return {
+    at: Date.now(),
+    failing: false,
+    progressed: false,
+    preconditionBroke: false,
+    inconclusive: true,
+  };
 }
 
 // A failing observation with a breadcrumb built from the error's SafeFetchFailure
 // when it carries one, and from the plain message otherwise.
 function apiErrorObservation(error: unknown): CriticalHealthObservation {
-  const failure = isSafeFetchError(error) || error instanceof UnusableWatchTabError ? error.failure : undefined;
+  const failure =
+    isSafeFetchError(error) || error instanceof UnusableWatchTabError ? error.failure : undefined;
   return {
     at: Date.now(),
     failing: true,
@@ -156,7 +199,10 @@ function apiErrorObservation(error: unknown): CriticalHealthObservation {
 // The reward the session claims to be watching, if it is still present in the
 // freshly-read campaign list. Returns undefined when nothing is being farmed,
 // which the detector reads as "no watch session sustained".
-function activeRewardFor(campaigns: readonly DropCampaign[], session: WatchSession): DropReward | undefined {
+function activeRewardFor(
+  campaigns: readonly DropCampaign[],
+  session: WatchSession,
+): DropReward | undefined {
   if (session.status !== "watching" || !session.campaignId || !session.rewardId) return undefined;
   const campaign = campaigns.find((candidate) => candidate.id === session.campaignId);
   return campaign?.rewards.find((reward) => reward.id === session.rewardId);
@@ -185,7 +231,10 @@ export async function chooseCampaignDecision(
   platform: Platform,
   campaigns: DropCampaign[],
   settings: EngineSettings,
-  adapter: Pick<PlatformAdapter, "listCandidateChannels" | "selectCandidateChannel" | "checkChannel" | "listFollowedChannels">,
+  adapter: Pick<
+    PlatformAdapter,
+    "listCandidateChannels" | "selectCandidateChannel" | "checkChannel" | "listFollowedChannels"
+  >,
   signal?: AbortSignal,
   reportMetrics?: (metrics: { campaignsChecked: number; candidatesChecked: number }) => void,
   // Lowercased usernames to pass over this tick because they just failed to earn
@@ -194,7 +243,10 @@ export async function chooseCampaignDecision(
   skipChannels?: ReadonlySet<string>,
   includeIdleWatchlist = true,
 ): Promise<WatchDecision> {
-  const sorted = rankCampaigns(campaigns.filter((campaign) => isEligible(campaign, settings)), settings);
+  const sorted = rankCampaigns(
+    campaigns.filter((campaign) => isEligible(campaign, settings)),
+    settings,
+  );
   const noCampaignReason = noEligibleCampaignReason(campaigns, settings);
   const waitingForSubscription = onlyWaitingSubscriptionCampaigns(campaigns, settings);
   const subscriptionOnly = onlySubscriptionCampaigns(campaigns, settings);
@@ -202,9 +254,11 @@ export async function chooseCampaignDecision(
   let candidatesChecked = 0;
   const generalCandidatesByCategory = new Map<string, ChannelCandidate[]>();
   const idleWatchlist = settings.preferKnownChannels
-    ? new Set(settings.platform[platform].idleWatchlistChannels
-      .map((username) => username.trim().toLowerCase())
-      .filter(Boolean))
+    ? new Set(
+        settings.platform[platform].idleWatchlistChannels
+          .map((username) => username.trim().toLowerCase())
+          .filter(Boolean),
+      )
     : new Set<string>();
   // Resolved at most once per decision (campaigns are looped, and the follow list
   // does not change between them) and only when a candidate list is long enough
@@ -230,10 +284,16 @@ export async function chooseCampaignDecision(
     return decision;
   };
 
-  const sourceOrder = normalizeWatchSourcePriority(platform, settings.platform[platform].watchSourcePriority);
-  const idleFirst = includeIdleWatchlist && sourceOrder.indexOf("idle_watchlist") < sourceOrder.indexOf("drops");
+  const sourceOrder = normalizeWatchSourcePriority(
+    platform,
+    settings.platform[platform].watchSourcePriority,
+  );
+  const idleFirst =
+    includeIdleWatchlist && sourceOrder.indexOf("idle_watchlist") < sourceOrder.indexOf("drops");
   if (idleFirst) {
-    const idle = await chooseIdleWatchlistDecision(platform, settings, adapter, signal, () => { candidatesChecked += 1; });
+    const idle = await chooseIdleWatchlistDecision(platform, settings, adapter, signal, () => {
+      candidatesChecked += 1;
+    });
     if (idle) return finish(idle);
   }
 
@@ -246,7 +306,7 @@ export async function chooseCampaignDecision(
     signal?.throwIfAborted();
     const reusableDirectoryKey = campaign.allowedChannels?.length
       ? undefined
-      : campaign.categoryId ?? campaign.slug;
+      : (campaign.categoryId ?? campaign.slug);
     let listedCandidates = reusableDirectoryKey
       ? generalCandidatesByCategory.get(reusableDirectoryKey)
       : undefined;
@@ -256,17 +316,19 @@ export async function chooseCampaignDecision(
         generalCandidatesByCategory.set(reusableDirectoryKey, listedCandidates);
       }
     }
-    const deduplicated = [...new Map(
-      listedCandidates
-        .filter((candidate) => !excludedChannels.includes(candidate.username.toLowerCase()))
-        .map((candidate) => ({
-          ...candidate,
-          campaignId: campaign.id,
-          categoryId: campaign.categoryId ?? candidate.categoryId,
-          categoryName: campaign.gameName ?? candidate.categoryName,
-        }))
-        .map((candidate) => [candidate.username.toLowerCase(), candidate] as const),
-    ).values()];
+    const deduplicated = [
+      ...new Map(
+        listedCandidates
+          .filter((candidate) => !excludedChannels.includes(candidate.username.toLowerCase()))
+          .map((candidate) => ({
+            ...candidate,
+            campaignId: campaign.id,
+            categoryId: campaign.categoryId ?? candidate.categoryId,
+            categoryName: campaign.gameName ?? candidate.categoryName,
+          }))
+          .map((candidate) => [candidate.username.toLowerCase(), candidate] as const),
+      ).values(),
+    ];
     // Channels that just stalled go last rather than being dropped. Validation
     // below can reject every other candidate — all offline, wrong category — and
     // a stalled channel still beats no channel, so they stay reachable as a last
@@ -274,20 +336,23 @@ export async function chooseCampaignDecision(
     const skipped = skipChannels?.size
       ? deduplicated.filter((candidate) => skipChannels.has(candidate.username.toLowerCase()))
       : [];
-    const preferred = skipped.length > 0
-      ? deduplicated.filter((candidate) => !skipChannels?.has(candidate.username.toLowerCase()))
-      : deduplicated;
+    const preferred =
+      skipped.length > 0
+        ? deduplicated.filter((candidate) => !skipChannels?.has(candidate.username.toLowerCase()))
+        : deduplicated;
     // Only worth asking the platform who the user follows when more than one
     // candidate could win the campaign.
-    const followed = deduplicated.length > 1
-      ? await resolveFollowedChannels()
-      : followedChannels ?? new Set<string>();
-    const rank = (list: ChannelCandidate[]) => list
-      .sort((left, right) => {
+    const followed =
+      deduplicated.length > 1
+        ? await resolveFollowedChannels()
+        : (followedChannels ?? new Set<string>());
+    const rank = (list: ChannelCandidate[]) =>
+      list.sort((left, right) => {
         // ACL stays the strongest key: for an ACL-restricted campaign a followed
         // channel outside the allow list cannot earn the drop at all.
         if (left.isAclMatch !== right.isAclMatch) return left.isAclMatch ? -1 : 1;
-        const preference = channelPreferenceScore(left, idleWatchlist, followed)
+        const preference =
+          channelPreferenceScore(left, idleWatchlist, followed)
           - channelPreferenceScore(right, idleWatchlist, followed);
         if (preference !== 0) return preference;
         return (right.viewerCount ?? 0) - (left.viewerCount ?? 0);
@@ -298,7 +363,8 @@ export async function chooseCampaignDecision(
     };
     // Stalled channels are only validated once everything else has failed, so
     // the common case still costs exactly one selection pass.
-    const channel = await firstValidCandidate(rank(preferred), campaign, adapter, signal, countCheck)
+    const channel =
+      (await firstValidCandidate(rank(preferred), campaign, adapter, signal, countCheck))
       ?? (skipped.length > 0
         ? await firstValidCandidate(rank(skipped), campaign, adapter, signal, countCheck)
         : undefined);
@@ -324,9 +390,12 @@ export async function chooseCampaignDecision(
     });
   }
 
-  const fallback = !includeIdleWatchlist || idleFirst ? undefined : await chooseIdleWatchlistDecision(platform, settings, adapter, signal, () => {
-    candidatesChecked += 1;
-  });
+  const fallback =
+    !includeIdleWatchlist || idleFirst
+      ? undefined
+      : await chooseIdleWatchlistDecision(platform, settings, adapter, signal, () => {
+          candidatesChecked += 1;
+        });
 
   if (fallback) return finish(fallback);
 
@@ -349,7 +418,13 @@ async function chooseIdleWatchlistDecision(
     .map((username) => username.trim().toLowerCase())
     .filter(Boolean)
     .map((username) => fallbackChannel(platform, username));
-  const fallback = await firstValidCandidate(fallbackCandidates, undefined, adapter, signal, onCheck);
+  const fallback = await firstValidCandidate(
+    fallbackCandidates,
+    undefined,
+    adapter,
+    signal,
+    onCheck,
+  );
 
   if (fallback) {
     return {
@@ -364,72 +439,141 @@ async function chooseIdleWatchlistDecision(
 
 function noEligibleCampaignReason(campaigns: DropCampaign[], settings: EngineSettings): string {
   if (campaigns.length === 0) return "No campaigns discovered";
-  const notExcluded = campaigns.filter((campaign) => !settings.excludedCampaignIds.includes(campaign.id));
+  const notExcluded = campaigns.filter(
+    (campaign) => !settings.excludedCampaignIds.includes(campaign.id),
+  );
   if (notExcluded.length === 0) return "All campaigns are excluded";
-  if (notExcluded.every((campaign) => campaign.status === "upcoming" || campaign.eligibility === "upcoming")) {
+  if (
+    notExcluded.every(
+      (campaign) => campaign.status === "upcoming" || campaign.eligibility === "upcoming",
+    )
+  ) {
     return "Only upcoming campaigns are available";
   }
-  if (notExcluded.every((campaign) => campaign.status === "expired" || campaign.eligibility === "expired")) {
+  if (
+    notExcluded.every(
+      (campaign) => campaign.status === "expired" || campaign.eligibility === "expired",
+    )
+  ) {
     return "Only expired campaigns are available";
   }
-  if (notExcluded.every((campaign) => campaign.status === "completed" || campaign.eligibility === "completed")) {
+  if (
+    notExcluded.every(
+      (campaign) => campaign.status === "completed" || campaign.eligibility === "completed",
+    )
+  ) {
     return "All campaigns are completed";
   }
   if (onlyWaitingSubscriptionCampaigns(campaigns, settings)) {
     return "Waiting for a qualifying subscription";
   }
-  if (notExcluded.every((campaign) => campaign.eligibility === "no_rewards" || campaign.rewards.length === 0)) {
+  if (
+    notExcluded.every(
+      (campaign) => campaign.eligibility === "no_rewards" || campaign.rewards.length === 0,
+    )
+  ) {
     return "Campaigns have no time-based rewards";
   }
   // Placed before the account-linked reason so a user who turned
   // farmUnlinkedCampaigns off is told about their eligibility setting rather
   // than about the link state that setting keys off. With the flag on, unlinked
   // campaigns pass this predicate and the more specific reason below still wins.
-  if (notExcluded.every((campaign) => !campaignPassesFarmingEligibility(campaign, settings.farmingEligibility))) {
+  if (
+    notExcluded.every(
+      (campaign) => !campaignPassesFarmingEligibility(campaign, settings.farmingEligibility),
+    )
+  ) {
     return "All campaigns are skipped by your farming eligibility settings";
   }
-  if (notExcluded.every((campaign) => campaign.accountLinked === false || campaign.eligibility === "account_not_linked")) {
+  if (
+    notExcluded.every(
+      (campaign) =>
+        campaign.accountLinked === false || campaign.eligibility === "account_not_linked",
+    )
+  ) {
     return "Campaign accounts are not linked";
   }
-  if (notExcluded.every((campaign) => !campaignPassesCategoryFilter(campaign, settings.platform[campaign.platform]))) {
+  if (
+    notExcluded.every(
+      (campaign) => !campaignPassesCategoryFilter(campaign, settings.platform[campaign.platform]),
+    )
+  ) {
     return "No campaigns match the categories filter";
   }
   // Eligible, not merely pinned: with pins that have all expired, "no pinned
   // campaigns are eligible" is the accurate and more actionable reason.
-  if (settings.farmPinnedOnly
-    && !notExcluded.some((campaign) => isPinned(campaign, settings) && campaignFarmable(campaign, settings))) {
+  if (
+    settings.farmPinnedOnly
+    && !notExcluded.some(
+      (campaign) => isPinned(campaign, settings) && campaignFarmable(campaign, settings),
+    )
+  ) {
     return "No pinned campaigns are eligible";
   }
-  const relevantCampaigns = notExcluded.filter((campaign) => campaign.status === "active" && !hasCampaignEnded(campaign));
-  if (relevantCampaigns.length > 0 && relevantCampaigns.every((campaign) =>
-    campaign.rewards.some((reward) => reward.preconditionsMet !== false && isRewardAvailableToEarn(reward))
-    && !campaign.rewards.some((reward) =>
-      reward.preconditionsMet !== false
-      && isRewardAvailableToEarn(reward)
-      && isRewardDeadlineFeasible(campaign, reward, settings.skipUnfinishableRewards, settings.deadlineSafetyMarginMinutes)))) {
+  const relevantCampaigns = notExcluded.filter(
+    (campaign) => campaign.status === "active" && !hasCampaignEnded(campaign),
+  );
+  if (
+    relevantCampaigns.length > 0
+    && relevantCampaigns.every(
+      (campaign) =>
+        campaign.rewards.some(
+          (reward) => reward.preconditionsMet !== false && isRewardAvailableToEarn(reward),
+        )
+        && !campaign.rewards.some(
+          (reward) =>
+            reward.preconditionsMet !== false
+            && isRewardAvailableToEarn(reward)
+            && isRewardDeadlineFeasible(
+              campaign,
+              reward,
+              settings.skipUnfinishableRewards,
+              settings.deadlineSafetyMarginMinutes,
+            ),
+        ),
+    )
+  ) {
     return "Available rewards cannot be completed before their deadline";
   }
   return "No eligible campaigns";
 }
 
-function onlyWaitingSubscriptionCampaigns(campaigns: DropCampaign[], settings: EngineSettings): boolean {
-  const notExcluded = campaigns.filter((campaign) => !settings.excludedCampaignIds.includes(campaign.id));
-  return notExcluded.length > 0 && notExcluded.every((campaign) =>
-    campaign.eligibility === "waiting_for_subscription"
-    && campaign.rewards.length > 0
-    && campaign.rewards.every(isSubscriptionReward)
-    // A subscription the user marked is not waited for.
-    && campaign.rewards.some((reward) => !isRewardObtained(reward) && !reward.subscriptionMarked));
+function onlyWaitingSubscriptionCampaigns(
+  campaigns: DropCampaign[],
+  settings: EngineSettings,
+): boolean {
+  const notExcluded = campaigns.filter(
+    (campaign) => !settings.excludedCampaignIds.includes(campaign.id),
+  );
+  return (
+    notExcluded.length > 0
+    && notExcluded.every(
+      (campaign) =>
+        campaign.eligibility === "waiting_for_subscription"
+        && campaign.rewards.length > 0
+        && campaign.rewards.every(isSubscriptionReward)
+        // A subscription the user marked is not waited for.
+        && campaign.rewards.some(
+          (reward) => !isRewardObtained(reward) && !reward.subscriptionMarked,
+        ),
+    )
+  );
 }
 
 function onlySubscriptionCampaigns(campaigns: DropCampaign[], settings: EngineSettings): boolean {
-  const notExcluded = campaigns.filter((campaign) => !settings.excludedCampaignIds.includes(campaign.id));
-  return notExcluded.length > 0 && notExcluded.every((campaign) => {
-    // A subscription the user marked counts as done here too.
-    const remainingRewards = campaign.rewards.filter((reward) =>
-      !isRewardObtained(reward) && reward.status !== "claimable");
-    return remainingRewards.length > 0 && remainingRewards.every(isSubscriptionReward);
-  });
+  const notExcluded = campaigns.filter(
+    (campaign) => !settings.excludedCampaignIds.includes(campaign.id),
+  );
+  return (
+    notExcluded.length > 0
+    && notExcluded.every((campaign) => {
+      // A subscription the user marked counts as done here too.
+      const remainingRewards = campaign.rewards.filter(
+        (reward) => !isRewardObtained(reward) && reward.status !== "claimable",
+      );
+      return remainingRewards.length > 0 && remainingRewards.every(isSubscriptionReward);
+    })
+  );
 }
 
 async function firstValidCandidate(
@@ -455,7 +599,10 @@ async function firstValidCandidate(
   return undefined;
 }
 
-function channelFromCheck(candidate: ChannelCandidate, check: { live: boolean; candidate: ChannelCandidate }): ChannelCandidate {
+function channelFromCheck(
+  candidate: ChannelCandidate,
+  check: { live: boolean; candidate: ChannelCandidate },
+): ChannelCandidate {
   return {
     ...candidate,
     live: check.live,
@@ -486,9 +633,8 @@ function fallbackChannel(platform: Platform, username: string): ChannelCandidate
 // clears watchTabOpenedAt, and the fields cleared below stay cleared.
 function clearedWatchSession(
   previous: WatchSession,
-  patch: Pick<WatchSession, "status" | "message" | "reasonCode"> & Partial<
-    Pick<WatchSession, "errorChecks" | "retryAfter" | "watchTabOpenedAt">
-  >,
+  patch: Pick<WatchSession, "status" | "message" | "reasonCode"> &
+    Partial<Pick<WatchSession, "errorChecks" | "retryAfter" | "watchTabOpenedAt">>,
 ): WatchSession {
   return {
     ...previous,
@@ -523,7 +669,8 @@ function sessionForDecision(
     });
   }
 
-  const sameChannel = previous.channel?.url === decision.channel?.url && previous.status === "watching";
+  const sameChannel =
+    previous.channel?.url === decision.channel?.url && previous.status === "watching";
   const keepPlayback = sameChannel && keepStatus?.keep === true;
   const next: WatchSession = {
     ...previous,
@@ -584,20 +731,38 @@ async function selectWatchTarget(
   previous: WatchSession,
   campaigns: DropCampaign[],
   settings: EngineSettings,
-  adapter: Pick<PlatformAdapter, "listCandidateChannels" | "selectCandidateChannel" | "checkChannel" | "listFollowedChannels">,
+  adapter: Pick<
+    PlatformAdapter,
+    "listCandidateChannels" | "selectCandidateChannel" | "checkChannel" | "listFollowedChannels"
+  >,
   signal?: AbortSignal,
   includeIdleWatchlist = true,
 ): Promise<SnapshotSelectionResult> {
-  if (previous.supplementalWatch || !includeIdleWatchlist && !previous.campaignId) previous = { ...previous, status: "idle", channel: undefined, campaignId: undefined, rewardId: undefined };
-  const sourceOrder = normalizeWatchSourcePriority(platform, settings.platform[platform].watchSourcePriority);
+  if (previous.supplementalWatch || (!includeIdleWatchlist && !previous.campaignId))
+    previous = {
+      ...previous,
+      status: "idle",
+      channel: undefined,
+      campaignId: undefined,
+      rewardId: undefined,
+    };
+  const sourceOrder = normalizeWatchSourcePriority(
+    platform,
+    settings.platform[platform].watchSourcePriority,
+  );
   // A retained drop is an optimization within its source. An Idle-first policy
   // must check the watchlist before taking that optimization.
-  const idleAheadOfDrops = includeIdleWatchlist && sourceOrder.indexOf("idle_watchlist") < sourceOrder.indexOf("drops");
+  const idleAheadOfDrops =
+    includeIdleWatchlist && sourceOrder.indexOf("idle_watchlist") < sourceOrder.indexOf("drops");
   let candidatesChecked = 0;
   const preferredIdle = idleAheadOfDrops
-    ? await chooseIdleWatchlistDecision(platform, settings, adapter, signal, () => { candidatesChecked += 1; })
+    ? await chooseIdleWatchlistDecision(platform, settings, adapter, signal, () => {
+        candidatesChecked += 1;
+      })
     : undefined;
-  const currentWatch = preferredIdle ? undefined : await evaluatePreferredCurrentWatch(previous, campaigns, settings, adapter, signal);
+  const currentWatch = preferredIdle
+    ? undefined
+    : await evaluatePreferredCurrentWatch(previous, campaigns, settings, adapter, signal);
   let decision: WatchDecision;
   let retention: WatchRetention;
   let campaignsChecked = 0;
@@ -609,9 +774,10 @@ async function selectWatchTarget(
     retention = currentWatch.keep;
     candidatesChecked += 1;
   } else {
-    const stalled = currentWatch?.keep.reasonCode === "no_progress" && previous.channel
-      ? new Set([previous.channel.username.toLowerCase()])
-      : undefined;
+    const stalled =
+      currentWatch?.keep.reasonCode === "no_progress" && previous.channel
+        ? new Set([previous.channel.username.toLowerCase()])
+        : undefined;
     decision = await chooseCampaignDecision(
       platform,
       campaigns,
@@ -625,8 +791,9 @@ async function selectWatchTarget(
       stalled,
       includeIdleWatchlist && !idleAheadOfDrops,
     );
-    retention = currentWatch?.keep
-      ?? await shouldKeepWatching(previous, decision, campaigns, settings, adapter, signal);
+    retention =
+      currentWatch?.keep
+      ?? (await shouldKeepWatching(previous, decision, campaigns, settings, adapter, signal));
   }
   if (retention.keep && previous.channel) {
     decision = {
@@ -640,10 +807,20 @@ async function selectWatchTarget(
       reason: retention.reason,
       reasonCode: retention.reasonCode,
     };
-  } else if (previous.status === "watching" && previous.channel && retention.reason !== "No existing watch session") {
+  } else if (
+    previous.status === "watching"
+    && previous.channel
+    && retention.reason !== "No existing watch session"
+  ) {
     decision = { ...decision, reason: retention.reason, reasonCode: retention.reasonCode };
   }
-  return { decision, retention, campaignsChecked, candidatesChecked, fastPath: currentWatch?.keep.keep === true };
+  return {
+    decision,
+    retention,
+    campaignsChecked,
+    candidatesChecked,
+    fastPath: currentWatch?.keep.keep === true,
+  };
 }
 
 // Resolve sources lazily in user order. A failing source yields independently,
@@ -661,24 +838,37 @@ async function* selectWatchSources(
   emit: EventEmitter,
   signal?: AbortSignal,
   dropsUndecided = false,
-): AsyncGenerator<SchedulerEffect, { selection: SnapshotSelectionResult; supplemental?: SupplementalWatchTarget }, unknown> {
+): AsyncGenerator<
+  SchedulerEffect,
+  { selection: SnapshotSelectionResult; supplemental?: SupplementalWatchTarget },
+  unknown
+> {
   let ordinary: SnapshotSelectionResult | undefined;
   let ordinaryFailed = false;
   let ordinaryError: unknown;
   // With Drops undecided, a source below it may only keep what it is already
   // watching: starting it would be undone as soon as discovery completes.
-  const currentSource: string | undefined = previous.status !== "watching"
-    ? undefined
-    : previous.supplementalWatch?.id ?? (previous.campaignId ? "drops" : "idle_watchlist");
+  const currentSource: string | undefined =
+    previous.status !== "watching"
+      ? undefined
+      : (previous.supplementalWatch?.id ?? (previous.campaignId ? "drops" : "idle_watchlist"));
   let pastDrops = false;
-  for (const source of normalizeWatchSourcePriority(platform, settings.platform[platform].watchSourcePriority)) {
+  for (const source of normalizeWatchSourcePriority(
+    platform,
+    settings.platform[platform].watchSourcePriority,
+  )) {
     signal?.throwIfAborted();
     if (pastDrops && dropsUndecided && source !== currentSource) continue;
     if (source === "drops") pastDrops = true;
     if (source === "drops" || source === "idle_watchlist") {
       try {
         ordinary = await resolveOrdinary(source);
-        const ordinarySource = ordinary.decision.action === "watch" ? "drops" : ordinary.decision.action === "fallback" ? "idle_watchlist" : undefined;
+        const ordinarySource =
+          ordinary.decision.action === "watch"
+            ? "drops"
+            : ordinary.decision.action === "fallback"
+              ? "idle_watchlist"
+              : undefined;
         if (ordinarySource === source) return { selection: ordinary };
       } catch (error) {
         signal?.throwIfAborted();
@@ -690,17 +880,45 @@ async function* selectWatchSources(
     }
     if (!supplementalState || !supportsTabless) continue;
     try {
-      const target = yield* perform<SchedulerEffects, "selectSupplementalTarget">({ type: "selectSupplementalTarget", platform, state: supplementalState, source });
+      const target = yield* perform<SchedulerEffects, "selectSupplementalTarget">({
+        type: "selectSupplementalTarget",
+        platform,
+        state: supplementalState,
+        source,
+      });
       signal?.throwIfAborted();
-      if (!target || target.id !== source || target.tablessOnly !== true
-        || target.channel.platform !== platform || target.channel.live !== true
-        || (settings.platform[platform].excludedChannels ?? []).some(username => username.toLowerCase() === target.channel.username.toLowerCase())) continue;
-      const decision: WatchDecision = { platform, action: "fallback", channel: target.channel, reason: "Supplemental rewards selected by watch-source priority", reasonCode: "supplemental_watch" };
+      if (
+        !target
+        || target.id !== source
+        || target.tablessOnly !== true
+        || target.channel.platform !== platform
+        || target.channel.live !== true
+        || (settings.platform[platform].excludedChannels ?? []).some(
+          (username) => username.toLowerCase() === target.channel.username.toLowerCase(),
+        )
+      )
+        continue;
+      const decision: WatchDecision = {
+        platform,
+        action: "fallback",
+        channel: target.channel,
+        reason: "Supplemental rewards selected by watch-source priority",
+        reasonCode: "supplemental_watch",
+      };
       return {
         supplemental: target,
         selection: {
           decision,
-          retention: { keep: previous.status === "watching" && previous.supplementalWatch?.id === target.id && previous.channel?.url === target.channel.url, offlineChecks: 0, playbackChecks: 0, reason: decision.reason, reasonCode: decision.reasonCode },
+          retention: {
+            keep:
+              previous.status === "watching"
+              && previous.supplementalWatch?.id === target.id
+              && previous.channel?.url === target.channel.url,
+            offlineChecks: 0,
+            playbackChecks: 0,
+            reason: decision.reason,
+            reasonCode: decision.reasonCode,
+          },
           campaignsChecked: 0,
           candidatesChecked: 0,
           fastPath: false,
@@ -708,7 +926,12 @@ async function* selectWatchSources(
       };
     } catch {
       signal?.throwIfAborted();
-      emitDiagnostic(emit, platform, "warn", "Supplemental rewards selection unavailable; checking the next watch source");
+      emitDiagnostic(
+        emit,
+        platform,
+        "warn",
+        "Supplemental rewards selection unavailable; checking the next watch source",
+      );
     }
   }
   if (ordinaryFailed) throw ordinaryError;
@@ -762,7 +985,8 @@ export function campaignSearchBackoffApplies(
   bypass = false,
   currentCampaign?: DropCampaign,
 ): boolean {
-  return campaign.platform === "twitch"
+  return (
+    campaign.platform === "twitch"
     && !bypass
     && session.status === "watching"
     && isSessionHealthy(session)
@@ -772,7 +996,8 @@ export function campaignSearchBackoffApplies(
     && activeReward(currentCampaign, settings)?.id === session.rewardId
     && backoff?.campaignId === campaign.id
     && backoff.fingerprint === campaignSearchFingerprint(campaign, settings)
-    && Date.parse(backoff.retryAt) > Date.now();
+    && Date.parse(backoff.retryAt) > Date.now()
+  );
 }
 
 function authoritativeUnavailableCampaign(
@@ -781,15 +1006,30 @@ function authoritativeUnavailableCampaign(
   previous: WatchSession,
   settings: EngineSettings,
 ): DropCampaign | undefined {
-  if (snapshot.platform !== "twitch" || previous.status !== "watching" || !isSessionHealthy(previous)) return undefined;
-  const eligible = rankCampaigns(campaigns.filter((campaign) => isEligible(campaign, settings)), settings);
+  if (
+    snapshot.platform !== "twitch"
+    || previous.status !== "watching"
+    || !isSessionHealthy(previous)
+  )
+    return undefined;
+  const eligible = rankCampaigns(
+    campaigns.filter((campaign) => isEligible(campaign, settings)),
+    settings,
+  );
   const currentIndex = eligible.findIndex((campaign) => campaign.id === previous.campaignId);
   if (currentIndex <= 0) return undefined;
   return eligible.slice(0, currentIndex).find((campaign) => {
-    const observation = snapshot.campaigns.find(({ campaign: candidate }) => candidate.id === campaign.id);
-    return observation !== undefined
+    const observation = snapshot.campaigns.find(
+      ({ campaign: candidate }) => candidate.id === campaign.id,
+    );
+    return (
+      observation !== undefined
       && observation.candidates.length > 0
-      && observation.candidates.every((candidate) => !candidate.live || !candidate.categoryMatches || candidate.eligible === false);
+      && observation.candidates.every(
+        (candidate) =>
+          !candidate.live || !candidate.categoryMatches || candidate.eligible === false,
+      )
+    );
   });
 }
 
@@ -807,14 +1047,25 @@ export async function selectWatchTargetFromSnapshot({
     previousCampaigns,
   );
   const backedOffCampaign = previousBackoff
-    ? snapshot.campaigns.find(({ campaign }) => campaign.id === previousBackoff.campaignId)?.campaign
+    ? snapshot.campaigns.find(({ campaign }) => campaign.id === previousBackoff.campaignId)
+        ?.campaign
     : undefined;
-  const currentCampaign = snapshot.campaigns.find(({ campaign }) => campaign.id === previous.campaignId)?.campaign;
+  const currentCampaign = snapshot.campaigns.find(
+    ({ campaign }) => campaign.id === previous.campaignId,
+  )?.campaign;
   const retryAt = previousBackoff ? Date.parse(previousBackoff.retryAt) : Number.NaN;
-  const mayReuseBackoff = snapshot.platform === "twitch"
+  const mayReuseBackoff =
+    snapshot.platform === "twitch"
     && !bypassBackoff
     && backedOffCampaign !== undefined
-    && campaignSearchBackoffApplies(backedOffCampaign, settings, previous, previousBackoff, bypassBackoff, currentCampaign);
+    && campaignSearchBackoffApplies(
+      backedOffCampaign,
+      settings,
+      previous,
+      previousBackoff,
+      bypassBackoff,
+      currentCampaign,
+    );
   const selectionCampaigns = mayReuseBackoff
     ? campaigns.filter((campaign) => campaign.id !== previousBackoff?.campaignId)
     : campaigns;
@@ -837,7 +1088,8 @@ export async function selectWatchTargetFromSnapshot({
       campaignId: unavailable.id,
       retryAt: new Date(Date.now() + TWITCH_NEGATIVE_SEARCH_BACKOFF_MS).toISOString(),
       fingerprint: campaignSearchFingerprint(
-        snapshot.campaigns.find(({ campaign }) => campaign.id === unavailable.id)?.campaign ?? unavailable,
+        snapshot.campaigns.find(({ campaign }) => campaign.id === unavailable.id)?.campaign
+          ?? unavailable,
         settings,
       ),
     },
@@ -850,7 +1102,13 @@ function retainHealthyWatchOnAmbiguousDiscovery(
   settings: EngineSettings,
   onDecline?: (reason: string) => void,
 ): SnapshotSelectionResult | undefined {
-  if (previous.supplementalWatch || !previous.campaignId || previous.status !== "watching" || !previous.channel) return undefined;
+  if (
+    previous.supplementalWatch
+    || !previous.campaignId
+    || previous.status !== "watching"
+    || !previous.channel
+  )
+    return undefined;
   const decline = (reason: string): undefined => {
     onDecline?.(`Not keeping current watch while discovery is incomplete: ${reason}`);
     return undefined;
@@ -862,9 +1120,16 @@ function retainHealthyWatchOnAmbiguousDiscovery(
   const campaign = campaigns.find((candidate) => candidate.id === previous.campaignId);
   const reward = campaign?.rewards.find((candidate) => candidate.id === previous.rewardId);
   if (!campaign) return decline("its campaign is no longer known");
-  if (!isEligible(campaign, settings)) return decline("its campaign is no longer eligible under the current settings");
-  if (activeReward(campaign, settings)?.id !== previous.rewardId) return decline("its reward is no longer the campaign's active reward");
-  if (settings.platform[previous.platform].excludedChannels?.includes(previous.channel.username.toLowerCase())) return decline("its channel is excluded");
+  if (!isEligible(campaign, settings))
+    return decline("its campaign is no longer eligible under the current settings");
+  if (activeReward(campaign, settings)?.id !== previous.rewardId)
+    return decline("its reward is no longer the campaign's active reward");
+  if (
+    settings.platform[previous.platform].excludedChannels?.includes(
+      previous.channel.username.toLowerCase(),
+    )
+  )
+    return decline("its channel is excluded");
   const decision: WatchDecision = {
     platform: previous.platform,
     action: "watch",
@@ -935,16 +1200,32 @@ export type SchedulerEffects = {
   // Claims every ready reward in `campaigns`. `waitingRewardIds` is the tick's
   // own copy of the rewards already waiting for their claim to be released.
   claimRewards: {
-    effect: { type: "claimRewards"; platform: Platform; campaigns: DropCampaign[]; waitingRewardIds: Set<string> };
+    effect: {
+      type: "claimRewards";
+      platform: Platform;
+      campaigns: DropCampaign[];
+      waitingRewardIds: Set<string>;
+    };
     result: { campaigns: DropCampaign[]; events: ClaimReadyRewardEvent[] };
   };
   selectSupplementalTarget: {
-    effect: { type: "selectSupplementalTarget"; platform: Platform; state: SchedulerState; source: WatchSourceId };
+    effect: {
+      type: "selectSupplementalTarget";
+      platform: Platform;
+      state: SchedulerState;
+      source: WatchSourceId;
+    };
     result: SupplementalWatchTarget | undefined;
   };
   // Opens or reuses the watch tab for `channel`.
   openWatchTab: {
-    effect: { type: "openWatchTab"; platform: Platform; channel: ChannelCandidate; session: WatchSession; managedTab?: ManagedWatchTab };
+    effect: {
+      type: "openWatchTab";
+      platform: Platform;
+      channel: ChannelCandidate;
+      session: WatchSession;
+      managedTab?: ManagedWatchTab;
+    };
     result: PreparedWatchTab;
   };
   claimChannelPoints: {
@@ -958,7 +1239,10 @@ export type SchedulerEffect = SchedulerEffects[SchedulerEffectType]["effect"];
 
 // What the tick selects channels from: the committed discovery snapshot, read
 // in memory (selectionAdapterFromDiscoverySnapshot). Never a provider.
-export type SelectionView = Pick<PlatformAdapter, "listCandidateChannels" | "selectCandidateChannel" | "checkChannel" | "listFollowedChannels">;
+export type SelectionView = Pick<
+  PlatformAdapter,
+  "listCandidateChannels" | "selectCandidateChannel" | "checkChannel" | "listFollowedChannels"
+>;
 
 // What the platform's host can do, declared rather than probed from an adapter.
 export interface PlatformTickCapabilities {
@@ -1038,9 +1322,18 @@ function campaignEvaluationFingerprint(
   evaluations: ReadonlyArray<{ campaign: DropCampaign; evaluation: CampaignFarmingEvaluation }>,
 ): string {
   return evaluations
-    .map(({ campaign, evaluation }) => evaluation.farmable
-      ? `${campaign.id}:farmable`
-      : [campaign.id, evaluation.code, evaluation.rewardId, evaluation.deadline, evaluation.remainingMinutes, evaluation.marginMinutes].join(":"))
+    .map(({ campaign, evaluation }) =>
+      evaluation.farmable
+        ? `${campaign.id}:farmable`
+        : [
+            campaign.id,
+            evaluation.code,
+            evaluation.rewardId,
+            evaluation.deadline,
+            evaluation.remainingMinutes,
+            evaluation.marginMinutes,
+          ].join(":"),
+    )
     .sort()
     .join("|");
 }
@@ -1068,14 +1361,17 @@ function emitCampaignEvaluationDiagnostics(
   const parts = [`${campaigns.length} discovered`];
   const farmable = counts.get("farmable") ?? 0;
   parts.push(`${farmable} farmable`);
-  for (const [code, label] of Object.entries(CAMPAIGN_REJECTION_LABELS) as Array<[CampaignFarmingRejectionCode, string]>) {
+  for (const [code, label] of Object.entries(CAMPAIGN_REJECTION_LABELS) as Array<
+    [CampaignFarmingRejectionCode, string]
+  >) {
     const count = counts.get(code) ?? 0;
     if (count > 0) parts.push(`${count} ${label}`);
   }
   emitDiagnostic(emit, platform, "debug", `Campaign farming evaluation: ${parts.join(", ")}`);
 
   for (const { campaign, evaluation } of evaluations) {
-    if (evaluation.farmable || ["upcoming", "expired", "completed"].includes(evaluation.code)) continue;
+    if (evaluation.farmable || ["upcoming", "expired", "completed"].includes(evaluation.code))
+      continue;
     const reward = evaluation.rewardId
       ? `, reward=${evaluation.rewardName ?? evaluation.rewardId} (${evaluation.rewardId})`
       : "";
@@ -1094,8 +1390,14 @@ function emitCampaignEvaluationDiagnostics(
 export function startSchedulerTick(input: SchedulerTickInput): SchedulerTickDraft {
   input.signal?.throwIfAborted();
   for (const platform of input.platforms ?? PLATFORMS) {
-    if (!input.discovery[platform] || !input.selectionViews[platform] || !input.capabilities[platform]) {
-      throw new Error(`Scheduler tick for ${platform} is missing its discovery, selection or capability input`);
+    if (
+      !input.discovery[platform]
+      || !input.selectionViews[platform]
+      || !input.capabilities[platform]
+    ) {
+      throw new Error(
+        `Scheduler tick for ${platform} is missing its discovery, selection or capability input`,
+      );
     }
   }
   const { state } = input;
@@ -1119,7 +1421,9 @@ export function startSchedulerTick(input: SchedulerTickInput): SchedulerTickDraf
   };
 }
 
-function yieldEffect<K extends SchedulerEffectType>(effect: SchedulerEffects[K]["effect"] & { type: K }) {
+function yieldEffect<K extends SchedulerEffectType>(
+  effect: SchedulerEffects[K]["effect"] & { type: K },
+) {
   return perform<SchedulerEffects, K>(effect);
 }
 
@@ -1131,7 +1435,12 @@ async function* suspendPlatformForAuthentication(
   try {
     yield* yieldEffect({ type: "stopWatchTab", platform, session: previous });
   } catch (error) {
-    emitDiagnostic(tick.emit, platform, "warn", error instanceof Error ? error.message : "Could not stop watch tab");
+    emitDiagnostic(
+      tick.emit,
+      platform,
+      "warn",
+      error instanceof Error ? error.message : "Could not stop watch tab",
+    );
   }
   tick.state.sessions[platform] = clearedWatchSession(previous, {
     status: "paused",
@@ -1213,7 +1522,12 @@ export async function* decidePlatformTick(
         contexts: tick.state.managedPageContextTabs ?? {},
         reason: "manual_tab_close",
       });
-      emitDiagnostic(emit, platform, "info", "Farming tab was closed manually; staying paused until the user resumes");
+      emitDiagnostic(
+        emit,
+        platform,
+        "info",
+        "Farming tab was closed manually; staying paused until the user resumes",
+      );
       return;
     }
 
@@ -1234,7 +1548,12 @@ export async function* decidePlatformTick(
         reason: "manual_watch",
       });
       observation = preconditionBreakObservation();
-      emitDiagnostic(emit, platform, "info", "Manual watch detected; pausing farming for this platform");
+      emitDiagnostic(
+        emit,
+        platform,
+        "info",
+        "Manual watch detected; pausing farming for this platform",
+      );
       return;
     }
 
@@ -1263,7 +1582,12 @@ export async function* decidePlatformTick(
       // firing on every host, and a disabled platform has nothing new to say.
       const reasonCode = automationOff ? "automation_disabled" : "platform_disabled";
       if (previous.status !== "paused" || previous.reasonCode !== reasonCode) {
-        emitDiagnostic(emit, platform, "info", automationOff ? "Automation disabled" : "Platform disabled");
+        emitDiagnostic(
+          emit,
+          platform,
+          "info",
+          automationOff ? "Automation disabled" : "Platform disabled",
+        );
       }
       return;
     }
@@ -1277,7 +1601,8 @@ export async function* decidePlatformTick(
     // the watch-time threshold is usually met by a session that has already
     // stopped. Failures are swallowed — gamification is strictly additive to
     // farming and must never fail the tick or trip the error backoff.
-    const challengesDue = autoClaimChallengesFor(settings, platform)
+    const challengesDue =
+      autoClaimChallengesFor(settings, platform)
       && capabilities.claimChallenges
       && challengePollDue(tick.state, platform, Date.now());
     if (challengesDue) {
@@ -1294,13 +1619,22 @@ export async function* decidePlatformTick(
             code: "challenge_claimed",
             level: "info",
             platform,
-            data: { challengeId: challenge.id, rarity: challenge.rarity, recurrence: challenge.recurrence },
+            data: {
+              challengeId: challenge.id,
+              rarity: challenge.rarity,
+              recurrence: challenge.recurrence,
+            },
           });
         }
       } catch (error) {
         signal?.throwIfAborted();
         if (authHealthFromError(error)) throw error;
-        emitDiagnostic(emit, platform, "warn", error instanceof Error ? error.message : "Challenge claim failed");
+        emitDiagnostic(
+          emit,
+          platform,
+          "warn",
+          error instanceof Error ? error.message : "Challenge claim failed",
+        );
       }
     }
 
@@ -1320,12 +1654,18 @@ export async function* decidePlatformTick(
         preconditionBroke: false,
         record: { kind: "api_error", code: "platform_backoff" },
       };
-      emitDiagnostic(emit, platform, "warn", tick.state.sessions[platform].message ?? "Platform retry deferred");
+      emitDiagnostic(
+        emit,
+        platform,
+        "warn",
+        tick.state.sessions[platform].message ?? "Platform retry deferred",
+      );
       return;
     }
 
     const committedDiscovery = input.discovery[platform]!;
-    const discoveryDiscarded = committedDiscovery.discarded === true && !committedDiscovery.complete;
+    const discoveryDiscarded =
+      committedDiscovery.discarded === true && !committedDiscovery.complete;
     let campaigns = reconcileRefreshedCampaigns(
       committedDiscovery.campaigns,
       state.campaigns[platform],
@@ -1360,23 +1700,40 @@ export async function* decidePlatformTick(
       observation = {
         at: Date.now(),
         failing: false,
-        progressed: watchedMinutes !== undefined
+        progressed:
+          watchedMinutes !== undefined
           && previousWatchedMinutes !== undefined
           && watchedMinutes > previousWatchedMinutes,
         preconditionBroke: false,
         watchedMinutes,
       };
-      if (campaignDiagnosticFingerprint(campaigns) !== campaignDiagnosticFingerprint(state.campaigns[platform])) {
-        emitDiagnostic(emit, platform, "debug", `Campaign inventory changed (${campaigns.length} discovered)`);
+      if (
+        campaignDiagnosticFingerprint(campaigns)
+        !== campaignDiagnosticFingerprint(state.campaigns[platform])
+      ) {
+        emitDiagnostic(
+          emit,
+          platform,
+          "debug",
+          `Campaign inventory changed (${campaigns.length} discovered)`,
+        );
         const eligibleCount = campaigns.filter((campaign) => isEligible(campaign, settings)).length;
-        emitDiagnostic(emit, platform, "debug", `${eligibleCount} of ${campaigns.length} campaigns eligible after filtering`);
+        emitDiagnostic(
+          emit,
+          platform,
+          "debug",
+          `${eligibleCount} of ${campaigns.length} campaigns eligible after filtering`,
+        );
       }
     }
     // A refresh that threw is a failing tick, even while an older snapshot keeps
     // the tick farming: its progress numbers are stale, so the accrual arm above
     // proves nothing. Auth failures belong to auth health, not this detector. An
     // accrual precondition break later in the tick still overrides this.
-    if (committedDiscovery.failure !== undefined && !authHealthFromError(committedDiscovery.failure)) {
+    if (
+      committedDiscovery.failure !== undefined
+      && !authHealthFromError(committedDiscovery.failure)
+    ) {
       observation = apiErrorObservation(committedDiscovery.failure);
     }
 
@@ -1400,7 +1757,8 @@ export async function* decidePlatformTick(
           platform,
           level: "info",
           code: "reward_insufficient_time",
-          message: `${campaign.name} / ${reward.name} has insufficient time: `
+          message:
+            `${campaign.name} / ${reward.name} has insufficient time: `
             + `${feasibility.remainingMinutes} watch minutes remain, `
             + `${availableMinutes.toFixed(2)} minutes are available before ${feasibility.deadline}, `
             + `margin ${feasibility.marginMinutes} minutes`,
@@ -1458,19 +1816,24 @@ export async function* decidePlatformTick(
 
     const selectionStartedAt = Date.now();
     const retentionCampaigns = discoveryFailed
-      ? [...new Map(
-          [...tick.state.campaigns[platform], ...campaigns].map((campaign) => [campaign.id, campaign]),
-        ).values()]
+      ? [
+          ...new Map(
+            [...tick.state.campaigns[platform], ...campaigns].map((campaign) => [
+              campaign.id,
+              campaign,
+            ]),
+          ).values(),
+        ]
       : campaigns;
     const ambiguousRetention = discoveryFailed
-      ? retainHealthyWatchOnAmbiguousDiscovery(
-          previous,
-          retentionCampaigns,
-          settings,
-          (message) => emitDiagnostic(emit, platform, "debug", message),
+      ? retainHealthyWatchOnAmbiguousDiscovery(previous, retentionCampaigns, settings, (message) =>
+          emitDiagnostic(emit, platform, "debug", message),
         )
       : undefined;
-    const sourceOrder = normalizeWatchSourcePriority(platform, platformSettings.watchSourcePriority);
+    const sourceOrder = normalizeWatchSourcePriority(
+      platform,
+      platformSettings.watchSourcePriority,
+    );
     const { selection, supplemental } = yield* selectWatchSources(
       platform,
       previous,
@@ -1480,40 +1843,41 @@ export async function* decidePlatformTick(
         const prepared = input.selections?.[platform];
         if (source === "drops") {
           if (prepared && prepared.decision.action !== "fallback") return prepared;
-          return ambiguousRetention ?? await selectWatchTarget(
-            platform,
-            previous,
-            campaigns,
-            settings,
-            selectionView,
-            signal,
-            false,
+          return (
+            ambiguousRetention
+            ?? (await selectWatchTarget(
+              platform,
+              previous,
+              campaigns,
+              settings,
+              selectionView,
+              signal,
+              false,
+            ))
           );
         }
 
         // Keep the established subscription-only fallback suppression when
         // Drops precedes Idle. An explicit Idle-first order remains eligible.
-        const idleSuppressed = sourceOrder.indexOf("drops") < sourceOrder.indexOf("idle_watchlist")
+        const idleSuppressed =
+          sourceOrder.indexOf("drops") < sourceOrder.indexOf("idle_watchlist")
           && onlySubscriptionCampaigns(campaigns, settings);
         let candidatesChecked = 0;
         const idle = idleSuppressed
           ? undefined
-          : await chooseIdleWatchlistDecision(
-              platform,
-              settings,
-              selectionView,
-              signal,
-              () => { candidatesChecked += 1; },
-            );
+          : await chooseIdleWatchlistDecision(platform, settings, selectionView, signal, () => {
+              candidatesChecked += 1;
+            });
         let decision: WatchDecision = idle ?? {
           platform,
           action: "idle",
           reason: idleSuppressed
             ? noEligibleCampaignReason(campaigns, settings)
             : `${noEligibleCampaignReason(campaigns, settings)} and no Idle Watchlist channels`,
-          reasonCode: idleSuppressed || onlyWaitingSubscriptionCampaigns(campaigns, settings)
-            ? "campaign_ineligible"
-            : "no_eligible_channel",
+          reasonCode:
+            idleSuppressed || onlyWaitingSubscriptionCampaigns(campaigns, settings)
+              ? "campaign_ineligible"
+              : "no_eligible_channel",
         };
         const retention = await shouldKeepWatching(
           previous,
@@ -1539,7 +1903,12 @@ export async function* decidePlatformTick(
     }
     const shouldKeep = selection.retention;
     if (input.selectionIsCurrent?.[platform]?.() === false) {
-      emitDiagnostic(emit, platform, "debug", "Snapshot selection discarded after target health changed");
+      emitDiagnostic(
+        emit,
+        platform,
+        "debug",
+        "Snapshot selection discarded after target health changed",
+      );
       return;
     }
     const campaignSearchBackoffs = { ...tick.state.campaignSearchBackoffs };
@@ -1563,14 +1932,21 @@ export async function* decidePlatformTick(
     }
     // The single site where a stop reason is decided for an existing watch, so
     // the precondition-break arm is set here rather than at every consumer.
-    if (!shouldKeep.keep && previous.status === "watching" && ACCRUAL_PRECONDITION_BREAK_REASONS.has(shouldKeep.reasonCode)) {
+    if (
+      !shouldKeep.keep
+      && previous.status === "watching"
+      && ACCRUAL_PRECONDITION_BREAK_REASONS.has(shouldKeep.reasonCode)
+    ) {
       observation = preconditionBreakObservation();
     }
     if (!shouldKeep.keep && previous.status === "watching") {
       const signalName = previous.watchMode === "tabless" ? "heartbeat" : "playback";
-      const signalState = previous.watchMode === "tabless" && !previous.lastHeartbeatAt
-        ? "not yet observed"
-        : isSessionHealthy(previous) ? "healthy" : "unhealthy";
+      const signalState =
+        previous.watchMode === "tabless" && !previous.lastHeartbeatAt
+          ? "not yet observed"
+          : isSessionHealthy(previous)
+            ? "healthy"
+            : "unhealthy";
       emitDiagnostic(
         emit,
         platform,
@@ -1578,7 +1954,8 @@ export async function* decidePlatformTick(
         `Switching watch target (${shouldKeep.reason}); ${signalName} ${signalState}`,
       );
     }
-    const decisionChanged = previous.campaignId !== decision.campaign?.id
+    const decisionChanged =
+      previous.campaignId !== decision.campaign?.id
       || previous.rewardId !== decision.reward?.id
       || previous.channel?.url !== decision.channel?.url
       || actionForSession(previous) !== decision.action
@@ -1586,9 +1963,11 @@ export async function* decidePlatformTick(
 
     tick.decisions.push(decision);
     if (decisionChanged) {
-      const decisionLevel = decision.action === "idle" || ["channel_offline", "watch_unhealthy", "platform_error"].includes(decision.reasonCode)
-        ? "warn"
-        : "debug";
+      const decisionLevel =
+        decision.action === "idle"
+        || ["channel_offline", "watch_unhealthy", "platform_error"].includes(decision.reasonCode)
+          ? "warn"
+          : "debug";
       emitDiagnostic(
         emit,
         platform,
@@ -1602,7 +1981,9 @@ export async function* decidePlatformTick(
       tick.state.managedWatchTabs = withoutManagedWatchTab(tick.state.managedWatchTabs, platform);
     }
     const session = sessionForDecision(decision, previous, shouldKeep);
-    session.supplementalWatch = supplemental ? { id: supplemental.id, tablessOnly: true } : undefined;
+    session.supplementalWatch = supplemental
+      ? { id: supplemental.id, tablessOnly: true }
+      : undefined;
     if (decision.channel && decision.action !== "idle") {
       // The breaker is open: a managed tab kept reopening for this platform.
       // Opening another is exactly the user-hostile loop we detected, so the
@@ -1628,13 +2009,17 @@ export async function* decidePlatformTick(
         return;
       }
       const sameChannel = previous.channel?.url === decision.channel.url;
-      const useTabless = supplemental !== undefined || chooseTablessWatch(previous, settings, capabilities, sameChannel);
+      const useTabless =
+        supplemental !== undefined
+        || chooseTablessWatch(previous, settings, capabilities, sameChannel);
       session.offlineChecks = shouldKeep.keep ? shouldKeep.offlineChecks : 0;
       session.playbackChecks = useTabless ? 0 : shouldKeep.playbackChecks;
       // Both reset when the watch moves, so a fresh channel never inherits the
       // previous one's stall count or its minutes baseline.
-      session.noProgressChecks = shouldKeep.keep && sameChannel ? shouldKeep.noProgressChecks ?? 0 : 0;
-      session.lastWatchedMinutes = shouldKeep.keep && sameChannel ? shouldKeep.lastWatchedMinutes : undefined;
+      session.noProgressChecks =
+        shouldKeep.keep && sameChannel ? (shouldKeep.noProgressChecks ?? 0) : 0;
+      session.lastWatchedMinutes =
+        shouldKeep.keep && sameChannel ? shouldKeep.lastWatchedMinutes : undefined;
 
       if (useTabless) {
         // Tabless: no video tab. Close any tab we previously opened for this
@@ -1647,11 +2032,16 @@ export async function* decidePlatformTick(
         session.watchTabOpenedAt = undefined;
         session.tabManagedByExtension = undefined;
         // Carry heartbeat health across the same channel; reset on a switch.
-        session.heartbeatChecks = sameChannel ? previous.heartbeatChecks ?? 0 : 0;
+        session.heartbeatChecks = sameChannel ? (previous.heartbeatChecks ?? 0) : 0;
         session.lastHeartbeatAt = sameChannel ? previous.lastHeartbeatAt : undefined;
         session.lastHeartbeatOk = sameChannel ? previous.lastHeartbeatOk : undefined;
         if (!sameChannel || previous.watchMode !== "tabless") {
-          emitDiagnostic(emit, platform, "debug", `Tabless watch armed for ${decision.channel.displayName ?? decision.channel.username}`);
+          emitDiagnostic(
+            emit,
+            platform,
+            "debug",
+            `Tabless watch armed for ${decision.channel.displayName ?? decision.channel.username}`,
+          );
         }
       } else {
         // Tab policy (mute / keep-unmuted / auto-close) is owned by the host's
@@ -1680,14 +2070,25 @@ export async function* decidePlatformTick(
               },
             });
           }
-          emitDiagnostic(emit, platform, "debug", "Snapshot selection discarded after target health changed");
+          emitDiagnostic(
+            emit,
+            platform,
+            "debug",
+            "Snapshot selection discarded after target health changed",
+          );
           return;
         }
         // Only a genuinely NEW extension-managed tab counts as churn evidence.
         // Reusing the tab we already track happens on every ordinary tick, and
         // counting it would trip the breaker during completely normal farming.
-        if (settings.criticalFailurePromptEnabled && prepared.managedByExtension && prepared.tabId !== previousManagedTabId) {
-          const opened = recordManagedTabOpen(tick.state, platform, Date.now(), { source: "watch_tab" });
+        if (
+          settings.criticalFailurePromptEnabled
+          && prepared.managedByExtension
+          && prepared.tabId !== previousManagedTabId
+        ) {
+          const opened = recordManagedTabOpen(tick.state, platform, Date.now(), {
+            source: "watch_tab",
+          });
           tick.state = opened.state;
           if (opened.event) emit(opened.event);
         }
@@ -1700,7 +2101,8 @@ export async function* decidePlatformTick(
         session.tablessHeartbeat = undefined;
         // A new tab id, a different channel, or a switch out of tabless all mean
         // the page starts from scratch: restart the playback grace window (#250).
-        const freshTab = !sameChannel || previous.watchMode !== "tab" || previous.tabId !== prepared.tabId;
+        const freshTab =
+          !sameChannel || previous.watchMode !== "tab" || previous.tabId !== prepared.tabId;
         session.watchTabOpenedAt = freshTab ? new Date().toISOString() : previous.watchTabOpenedAt;
         // The counter describes the tab we just replaced, not this one.
         if (freshTab) session.playbackChecks = 0;
@@ -1725,14 +2127,26 @@ export async function* decidePlatformTick(
             },
           };
         } else {
-          tick.state.managedWatchTabs = withoutManagedWatchTab(tick.state.managedWatchTabs, platform);
+          tick.state.managedWatchTabs = withoutManagedWatchTab(
+            tick.state.managedWatchTabs,
+            platform,
+          );
         }
       }
       if (autoClaimChannelPointsFor(settings, platform) && capabilities.claimChannelPoints) {
         try {
-          const claimed = yield* yieldEffect({ type: "claimChannelPoints", platform, channel: decision.channel });
+          const claimed = yield* yieldEffect({
+            type: "claimChannelPoints",
+            platform,
+            channel: decision.channel,
+          });
           if (claimed) {
-            emitDiagnostic(emit, platform, "info", `Claimed channel points for ${decision.channel.displayName ?? decision.channel.username}`);
+            emitDiagnostic(
+              emit,
+              platform,
+              "info",
+              `Claimed channel points for ${decision.channel.displayName ?? decision.channel.username}`,
+            );
           }
         } catch (error) {
           signal?.throwIfAborted();
@@ -1759,9 +2173,16 @@ export async function* decidePlatformTick(
       yield* suspendPlatformForAuthentication(tick, platform, previous);
       return;
     }
-    const failed = error instanceof UnusableWatchTabError
-      ? yield* dropUnusableWatchTab(tick, platform, previous, error, settings.criticalFailurePromptEnabled)
-      : previous;
+    const failed =
+      error instanceof UnusableWatchTabError
+        ? yield* dropUnusableWatchTab(
+            tick,
+            platform,
+            previous,
+            error,
+            settings.criticalFailurePromptEnabled,
+          )
+        : previous;
     // The tick died somewhere in the farming work. Without this the accrual
     // observation set earlier (failing: false) would be what `finally` applies,
     // so a platform failing every tick after a successful discovery would reset
@@ -1779,7 +2200,12 @@ export async function* decidePlatformTick(
       reasonCode: "platform_error",
       tablessHeartbeat: undefined,
     };
-    emitDiagnostic(emit, platform, "error", `${message}; retry after ${tick.state.sessions[platform].retryAfter}`);
+    emitDiagnostic(
+      emit,
+      platform,
+      "error",
+      `${message}; retry after ${tick.state.sessions[platform].retryAfter}`,
+    );
     const failureDetail = error instanceof Error && error.stack ? error.stack : message;
     emitDiagnostic(
       emit,
@@ -1812,14 +2238,24 @@ async function* dropUnusableWatchTab(
     if (!isManagedTabBreakerOpen(tick.state, platform)) {
       tick.state = holdManagedTabBreaker(tick.state, platform);
       if (isManagedTabBreakerOpen(tick.state, platform)) {
-        emitDiagnostic(tick.emit, platform, "warn", "The watch tab is still rejected after the critical-failure prompt; pausing until it is dismissed");
+        emitDiagnostic(
+          tick.emit,
+          platform,
+          "warn",
+          "The watch tab is still rejected after the critical-failure prompt; pausing until it is dismissed",
+        );
       }
     }
   }
   try {
     yield* yieldEffect({ type: "stopWatchTab", platform, session: previous });
   } catch (stopError) {
-    emitDiagnostic(tick.emit, platform, "warn", stopError instanceof Error ? stopError.message : "Could not stop watch tab");
+    emitDiagnostic(
+      tick.emit,
+      platform,
+      "warn",
+      stopError instanceof Error ? stopError.message : "Could not stop watch tab",
+    );
   }
   tick.state.managedWatchTabs = withoutManagedWatchTab(tick.state.managedWatchTabs, platform);
   return {
@@ -1874,7 +2310,9 @@ export function preserveClaimedRewards(
   return campaigns.map((campaign) => {
     let changed = false;
     const rewards = campaign.rewards.map<DropReward>((reward) => {
-      const previous = keysOf(reward).map((key) => previouslyClaimed.get(key)).find(Boolean);
+      const previous = keysOf(reward)
+        .map((key) => previouslyClaimed.get(key))
+        .find(Boolean);
       if (!previous || previous.id !== reward.id) return reward;
       changed = true;
       return {
@@ -1896,13 +2334,20 @@ export function reconcileRefreshedCampaigns(
   previousCampaigns: readonly DropCampaign[],
   marks: readonly string[],
 ): DropCampaign[] {
-  return preserveClaimedRewards(campaigns, previousCampaigns)
-    .map((campaign) => applySubscriptionMarks(campaign, marks));
+  return preserveClaimedRewards(campaigns, previousCampaigns).map((campaign) =>
+    applySubscriptionMarks(campaign, marks),
+  );
 }
 
 function campaignDiagnosticFingerprint(campaigns: readonly DropCampaign[]): string {
   return campaigns
-    .map((campaign) => `${campaign.id}:${campaign.status}:${campaign.rewards.map((reward) => `${reward.id}:${reward.status}`).sort().join(",")}`)
+    .map(
+      (campaign) =>
+        `${campaign.id}:${campaign.status}:${campaign.rewards
+          .map((reward) => `${reward.id}:${reward.status}`)
+          .sort()
+          .join(",")}`,
+    )
     .sort()
     .join("|");
 }
@@ -1923,11 +2368,19 @@ async function evaluatePreferredCurrentWatch(
   settings: EngineSettings,
   adapter: Pick<PlatformAdapter, "checkChannel">,
   signal?: AbortSignal,
-): Promise<{
-  decision: WatchDecision;
-  keep: KeepWatchingResult;
-} | undefined> {
-  if (previous.status !== "watching" || !previous.channel || !previous.campaignId || !previous.rewardId) {
+): Promise<
+  | {
+      decision: WatchDecision;
+      keep: KeepWatchingResult;
+    }
+  | undefined
+> {
+  if (
+    previous.status !== "watching"
+    || !previous.channel
+    || !previous.campaignId
+    || !previous.rewardId
+  ) {
     return undefined;
   }
   const preferredCampaign = rankCampaigns(
@@ -1941,7 +2394,8 @@ async function evaluatePreferredCurrentWatch(
   // keeps its watched minutes on the platform and resumes when it is on top
   // again.
   const preferredReward = preferredCampaign ? activeReward(preferredCampaign, settings) : undefined;
-  if (preferredCampaign?.id !== previous.campaignId || preferredReward?.id !== previous.rewardId) return undefined;
+  if (preferredCampaign?.id !== previous.campaignId || preferredReward?.id !== previous.rewardId)
+    return undefined;
   const decision: WatchDecision = {
     platform: previous.platform,
     action: "watch",
@@ -1969,7 +2423,12 @@ type KeepWatchingResult = {
 function stopWatching(
   reason: string,
   reasonCode: WatchReasonCode,
-  counters: Partial<Pick<KeepWatchingResult, "offlineChecks" | "playbackChecks" | "noProgressChecks" | "lastWatchedMinutes">> = {},
+  counters: Partial<
+    Pick<
+      KeepWatchingResult,
+      "offlineChecks" | "playbackChecks" | "noProgressChecks" | "lastWatchedMinutes"
+    >
+  > = {},
 ): KeepWatchingResult {
   return { keep: false, offlineChecks: 0, playbackChecks: 0, ...counters, reason, reasonCode };
 }
@@ -1986,14 +2445,24 @@ async function shouldKeepWatching(
     return stopWatching("No existing watch session", "no_existing_session");
   }
   const previousCampaign = campaigns.find((campaign) => campaign.id === previous.campaignId);
-  const previousReward = previousCampaign?.rewards.find((reward) => reward.id === previous.rewardId);
+  const previousReward = previousCampaign?.rewards.find(
+    (reward) => reward.id === previous.rewardId,
+  );
   if (previousReward?.status === "claimable" || previousReward?.status === "claimed") {
-    return stopWatching("Current reward completed; switching farming target", "watch_requirement_completed");
+    return stopWatching(
+      "Current reward completed; switching farming target",
+      "watch_requirement_completed",
+    );
   }
   if (nextDecision.action === "idle" || (previous.campaignId && nextDecision.action !== "watch")) {
     return stopWatching(nextDecision.reason, nextDecision.reasonCode);
   }
-  if (previous.campaignId && settings.platform[previous.platform].excludedChannels?.includes(previous.channel.username.toLowerCase())) {
+  if (
+    previous.campaignId
+    && settings.platform[previous.platform].excludedChannels?.includes(
+      previous.channel.username.toLowerCase(),
+    )
+  ) {
     return stopWatching("Current channel is excluded from drops", "channel_excluded");
   }
   if (previous.rewardId && nextDecision.reward?.id !== previous.rewardId) {
@@ -2006,7 +2475,8 @@ async function shouldKeepWatching(
   const isTabless = previous.watchMode === "tabless";
 
   const changedTarget = nextDecision.channel?.url !== previous.channel.url;
-  const differentCampaignAvailable = changedTarget
+  const differentCampaignAvailable =
+    changedTarget
     && nextDecision.action === "watch"
     && nextDecision.campaign?.id !== previous.campaignId;
   if (differentCampaignAvailable) {
@@ -2016,29 +2486,45 @@ async function shouldKeepWatching(
   // When watching an Idle Watchlist fallback, a different selection means a
   // higher-priority idle watchlist channel is now live (e.g. after reordering the
   // watchlist or one coming online), so switch to it instead of staying put.
-  const differentFallbackAvailable = changedTarget
-    && nextDecision.action === "fallback"
-    && !previous.campaignId;
+  const differentFallbackAvailable =
+    changedTarget && nextDecision.action === "fallback" && !previous.campaignId;
   if (differentFallbackAvailable) {
-    return stopWatching("Higher priority Idle Watchlist channel available", "higher_priority_idle_watchlist");
+    return stopWatching(
+      "Higher priority Idle Watchlist channel available",
+      "higher_priority_idle_watchlist",
+    );
   }
 
-  const check = await adapter.checkChannel(previous.channel, { campaign: previousCampaign, signal });
+  const check = await adapter.checkChannel(previous.channel, {
+    campaign: previousCampaign,
+    signal,
+  });
   const offlineChecks = check.live ? 0 : previous.offlineChecks + 1;
   if (offlineChecks >= settings.offlineRetryLimit || (!check.live && check.offlineConfirmed)) {
-    return stopWatching(check.reason ?? "Channel offline retry limit reached", "channel_offline", { offlineChecks });
+    return stopWatching(check.reason ?? "Channel offline retry limit reached", "channel_offline", {
+      offlineChecks,
+    });
   }
 
   if (!check.categoryMatches) {
-    return stopWatching(check.reason ?? "Channel category no longer matches", "channel_mismatch", { offlineChecks });
+    return stopWatching(check.reason ?? "Channel category no longer matches", "channel_mismatch", {
+      offlineChecks,
+    });
   }
   if (check.campaignMatches === false) {
-    return stopWatching(check.reason ?? "Channel no longer offers the current campaign", "campaign_ineligible", { offlineChecks });
+    return stopWatching(
+      check.reason ?? "Channel no longer offers the current campaign",
+      "campaign_ineligible",
+      { offlineChecks },
+    );
   }
 
   const playbackChecks = nextPlaybackChecks(previous, isTabless);
   if (playbackChecks >= settings.offlineRetryLimit) {
-    return stopWatching("Watch tab playback did not become active", "watch_unhealthy", { offlineChecks, playbackChecks });
+    return stopWatching("Watch tab playback did not become active", "watch_unhealthy", {
+      offlineChecks,
+      playbackChecks,
+    });
   }
 
   // Checked after playback health so an unhealthy tab reports watch_unhealthy
@@ -2052,15 +2538,22 @@ async function shouldKeepWatching(
   // artefacts.
   const progress = watchProgress(campaigns, previous);
   const noProgressChecks = progress.observable
-    ? progress.advanced ? 0 : (previous.noProgressChecks ?? 0) + 1
-    // Subscription-only rewards and adapters that cannot read progress must
-    // never rotate on this path, so the counter is carried forward untouched.
-    : previous.noProgressChecks ?? 0;
+    ? progress.advanced
+      ? 0
+      : (previous.noProgressChecks ?? 0) + 1
+    : // Subscription-only rewards and adapters that cannot read progress must
+      // never rotate on this path, so the counter is carried forward untouched.
+      (previous.noProgressChecks ?? 0);
   if (progress.observable && noProgressChecks >= settings.offlineRetryLimit) {
     return stopWatching(
       `Channel accrued no drop progress across ${noProgressChecks} checks (still ${progress.watchedMinutes} watched minutes)`,
       "no_progress",
-      { offlineChecks, playbackChecks, noProgressChecks, lastWatchedMinutes: progress.watchedMinutes },
+      {
+        offlineChecks,
+        playbackChecks,
+        noProgressChecks,
+        lastWatchedMinutes: progress.watchedMinutes,
+      },
     );
   }
 
@@ -2097,7 +2590,9 @@ function watchProgress(
 // Playing — muted or not — is what indicates farming is working. The browser
 // can block element-level unmuting in a background tab, so the content script
 // may keep the video muted; that is still healthy as long as it plays.
-export function isPlaybackTelemetryHealthy(telemetry: Pick<PlaybackTelemetry, "videoCount" | "playingVideoCount">): boolean {
+export function isPlaybackTelemetryHealthy(
+  telemetry: Pick<PlaybackTelemetry, "videoCount" | "playingVideoCount">,
+): boolean {
   return telemetry.videoCount > 0 && telemetry.playingVideoCount > 0;
 }
 
@@ -2151,9 +2646,10 @@ function isHeartbeatHealthy(session: WatchSession): boolean {
   return Date.now() - at < 3 * 60 * 1000;
 }
 
-function classifyRewardSwitch(
-  nextDecision: WatchDecision,
-): { reason: string; reasonCode: FarmingStopReason } {
+function classifyRewardSwitch(nextDecision: WatchDecision): {
+  reason: string;
+  reasonCode: FarmingStopReason;
+} {
   if (nextDecision.action !== "watch") {
     return {
       reason: "Current campaign is no longer eligible",
@@ -2171,11 +2667,20 @@ function actionForSession(session: WatchSession): WatchDecision["action"] {
   return session.campaignId ? "watch" : "fallback";
 }
 
-function normalizedPreviousReasonCode(previous: WatchSession, decision: WatchDecision): WatchReasonCode | undefined {
-  if (decision.reasonCode === "keeping_current_watch" && previous.reasonCode === "eligible_campaign") {
+function normalizedPreviousReasonCode(
+  previous: WatchSession,
+  decision: WatchDecision,
+): WatchReasonCode | undefined {
+  if (
+    decision.reasonCode === "keeping_current_watch"
+    && previous.reasonCode === "eligible_campaign"
+  ) {
     return "keeping_current_watch";
   }
-  if (decision.reasonCode === "keeping_idle_watchlist" && previous.reasonCode === "idle_watchlist_selected") {
+  if (
+    decision.reasonCode === "keeping_idle_watchlist"
+    && previous.reasonCode === "idle_watchlist_selected"
+  ) {
     return "keeping_idle_watchlist";
   }
   return previous.reasonCode;

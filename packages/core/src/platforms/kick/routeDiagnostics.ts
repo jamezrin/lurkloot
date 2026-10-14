@@ -6,7 +6,8 @@ type KickRoute = "background" | "page";
 export function safeKickRouteHost(url: string): KickRouteHost {
   try {
     const host = new URL(url).host;
-    if (host === "kick.com" || host === "web.kick.com" || host === "websockets.kick.com") return host;
+    if (host === "kick.com" || host === "web.kick.com" || host === "websockets.kick.com")
+      return host;
   } catch {
     // Invalid URLs and unexpected hosts share one bounded, non-sensitive bucket.
   }
@@ -23,7 +24,10 @@ export class KickRouteState {
     if (previous === route) return;
     this.routes.set(host, route);
     emit({
-      category: "diagnostic", platform: "kick", level: "info", code: "kick_fetch_route",
+      category: "diagnostic",
+      platform: "kick",
+      level: "info",
+      code: "kick_fetch_route",
       message: `Kick fetch ${host} ${detail}${previous === "page" && route === "background" ? " (background route recovered)" : ""}`,
     });
   }
@@ -44,7 +48,10 @@ export class KickRouteCounts {
     const entries = [...this.counts].sort(([left], [right]) => left.localeCompare(right));
     this.counts = new Map();
     emit({
-      category: "diagnostic", platform: "kick", level: "debug", code: "kick_fetch_summary",
+      category: "diagnostic",
+      platform: "kick",
+      level: "debug",
+      code: "kick_fetch_summary",
       message: `Kick fetch success summary: ${entries.map(([key, count]) => `${key}=${count}`).join(", ")}`,
       data: Object.fromEntries(entries),
     });

@@ -3,7 +3,12 @@ import type { SchedulerState } from "@lurkloot/shared/models";
 import type { ClaimedChallenge } from "@lurkloot/core/adapter";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "../../src/core/storage";
-import { createTabRegistry, currentManagedPageContextTabs, noteTabClosure, registerManagedPageContextTabs } from "@lurkloot/core/tabRegistry";
+import {
+  createTabRegistry,
+  currentManagedPageContextTabs,
+  noteTabClosure,
+  registerManagedPageContextTabs,
+} from "@lurkloot/core/tabRegistry";
 import { channel, deferred, farming, harness, tablessEnv } from "../helpers/backgroundController";
 
 // The Kick runtime (#588): page-context recovery and the challenge job.
@@ -17,7 +22,9 @@ describe("background controller", () => {
     const order: string[] = [];
     let countBackgroundSuccess: boolean | undefined;
     const env = harness(farming(DEFAULT_SETTINGS), {
-      saveState: async () => { order.push("persist"); },
+      saveState: async () => {
+        order.push("persist");
+      },
       initialState: {
         ...structuredClone(DEFAULT_STATE),
         authHealth: { ...DEFAULT_STATE.authHealth, kick: { status: "healthy" } },
@@ -44,7 +51,9 @@ describe("background controller", () => {
       return false;
     });
     const env = harness(farming(DEFAULT_SETTINGS), { reconcilePageContextRecovery: reconcile });
-    env.kick.refreshCampaigns = vi.fn(async () => { throw new Error("discovery failed"); });
+    env.kick.refreshCampaigns = vi.fn(async () => {
+      throw new Error("discovery failed");
+    });
 
     await env.controller.tick(["kick"]);
 
@@ -88,7 +97,9 @@ describe("background controller", () => {
     env.kick.refreshCampaigns = vi.fn(async (_session, options) => {
       refreshStarted.resolve();
       await new Promise<never>((_resolve, reject) => {
-        options?.signal?.addEventListener("abort", () => reject(options.signal?.reason), { once: true });
+        options?.signal?.addEventListener("abort", () => reject(options.signal?.reason), {
+          once: true,
+        });
       });
       return [];
     });
@@ -187,9 +198,7 @@ describe("background controller", () => {
     };
     const staleState = structuredClone(env.state);
     staleState.managedPageContextTabs = { twitch: oldContext };
-    env.deps.loadState
-      .mockImplementationOnce(() => staleRead.promise)
-      .mockResolvedValue(env.state);
+    env.deps.loadState.mockImplementationOnce(() => staleRead.promise).mockResolvedValue(env.state);
 
     const heartbeat = env.controller.runWatchHeartbeat();
     await vi.waitFor(() => expect(env.deps.loadState).toHaveBeenCalled());
@@ -206,7 +215,12 @@ describe("background controller", () => {
         ...env.state.authHealth,
         kick: { status: "healthy", checkedAt: new Date().toISOString() },
       };
-      env.state.sessions.kick = { platform: "kick", status: "paused", offlineChecks: 0, reasonCode: "manual_watch" };
+      env.state.sessions.kick = {
+        platform: "kick",
+        status: "paused",
+        offlineChecks: 0,
+        reasonCode: "manual_watch",
+      };
       env.state.manualWatch = {
         kick: { platform: "kick", tabId: 92, checkedAt: new Date().toISOString(), active: true },
       };
@@ -232,11 +246,13 @@ describe("background controller", () => {
 
       expect(env.state.manualWatch).toEqual(afterClose);
       expect(env.state.gamification?.kick?.lastCheckedAt).toBeDefined();
-      expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(expect.objectContaining({
-        category: "activity",
-        code: "challenge_claimed",
-        platform: "kick",
-      }));
+      expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(
+        expect.objectContaining({
+          category: "activity",
+          code: "challenge_claimed",
+          platform: "kick",
+        }),
+      );
     });
 
     it("sends one claim request when the job fires again while its claim is in flight", async () => {
@@ -252,9 +268,11 @@ describe("background controller", () => {
       await first;
 
       expect(env.kick.claimChallenges).toHaveBeenCalledOnce();
-      expect(env.reportEvents.mock.calls.flatMap(([events]) => events).filter(
-        (event) => event.category === "activity" && event.code === "challenge_claimed",
-      )).toHaveLength(1);
+      expect(
+        env.reportEvents.mock.calls
+          .flatMap(([events]) => events)
+          .filter((event) => event.category === "activity" && event.code === "challenge_claimed"),
+      ).toHaveLength(1);
     });
 
     it("skips its claim while the tick's claim is in flight", async () => {

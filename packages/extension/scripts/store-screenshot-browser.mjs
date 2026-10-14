@@ -13,8 +13,11 @@ const DEFAULT_PORT = 9333;
 // once rather than on every sync. It holds a live Google session, so it lives
 // with the user's other browser state rather than anywhere inside the
 // repository, and is never distributed.
-const stateHome = process.env.XDG_STATE_HOME
-  || (process.platform === "darwin" ? join(homedir(), "Library", "Application Support") : join(homedir(), ".local", "state"));
+const stateHome =
+  process.env.XDG_STATE_HOME
+  || (process.platform === "darwin"
+    ? join(homedir(), "Library", "Application Support")
+    : join(homedir(), ".local", "state"));
 const DEFAULT_PROFILE_DIR = join(stateHome, "lurkloot", "cws-chrome-profile");
 
 // Chrome channels first: Chromium builds are the ones Google turns away at
@@ -66,7 +69,9 @@ export function endpointUrl(env = process.env) {
 
 export async function probeEndpoint(url, { fetchImpl = fetch, timeoutMs = 1000 } = {}) {
   try {
-    const response = await fetchImpl(`${url}/json/version`, { signal: AbortSignal.timeout(timeoutMs) });
+    const response = await fetchImpl(`${url}/json/version`, {
+      signal: AbortSignal.timeout(timeoutMs),
+    });
     return response.ok;
   } catch {
     return false;
@@ -115,12 +120,19 @@ export async function startBrowserSession({
 
   const binary = await resolveBinary({ env });
   if (binary.isChromium) {
-    output(`Warning: only ${binary.name} was found. Google often refuses sign-in on Chromium builds; set CWS_CHROME_BINARY to Google Chrome if sign-in fails.`);
+    output(
+      `Warning: only ${binary.name} was found. Google often refuses sign-in on Chromium builds; set CWS_CHROME_BINARY to Google Chrome if sign-in fails.`,
+    );
   }
   const profileDir = env.CWS_CHROME_PROFILE ?? (await makeProfileDir());
   const child = spawnBrowser(
     binary.path,
-    [`--user-data-dir=${profileDir}`, `--remote-debugging-port=${new URL(url).port}`, "--no-first-run", "--no-default-browser-check"],
+    [
+      `--user-data-dir=${profileDir}`,
+      `--remote-debugging-port=${new URL(url).port}`,
+      "--no-first-run",
+      "--no-default-browser-check",
+    ],
     { detached: true, stdio: "ignore" },
   );
   // Attached at spawn time: Chrome forwarding to an existing instance can exit
@@ -150,12 +162,17 @@ export async function startBrowserSession({
 function requireContext(browser, url) {
   const [context] = browser.contexts();
   if (!context) {
-    throw new Error(`The Chrome at ${url} has no open window to drive. Open a tab in it and run the command again.`);
+    throw new Error(
+      `The Chrome at ${url} has no open window to drive. Open a tab in it and run the command again.`,
+    );
   }
   return context;
 }
 
-export async function finishBrowserSession(session, { output = console.log, exitTimeoutMs = 10000 } = {}) {
+export async function finishBrowserSession(
+  session,
+  { output = console.log, exitTimeoutMs = 10000 } = {},
+) {
   // close() on a CDP-attached browser drops the connection and leaves Chrome
   // running, so a browser we started has to be ended through its own process.
   await session.browser.close();
@@ -171,7 +188,11 @@ export async function finishBrowserSession(session, { output = console.log, exit
   // The profile deliberately survives so the next run is already signed in.
 }
 
-export async function abandonBrowserSession(session, output = console.log, { mutated = true } = {}) {
+export async function abandonBrowserSession(
+  session,
+  output = console.log,
+  { mutated = true } = {},
+) {
   // Deliberately leaves Chrome running and the profile on disk. After a
   // mutation the operator needs the half-changed draft on screen; before one
   // the signed-in session itself is worth keeping, because rebuilding it costs

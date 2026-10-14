@@ -1,5 +1,18 @@
-import type { CategorySearchResult, CoreRuntimeMessage, PlaybackControl, RuntimeSnapshot } from "@lurkloot/shared/messages";
-import type { ChatPresenceStatus, EngineSettings, Platform, PlaybackTelemetry, SchedulerState, TablessHeartbeatCadence, WatchSession } from "@lurkloot/shared/models";
+import type {
+  CategorySearchResult,
+  CoreRuntimeMessage,
+  PlaybackControl,
+  RuntimeSnapshot,
+} from "@lurkloot/shared/messages";
+import type {
+  ChatPresenceStatus,
+  EngineSettings,
+  Platform,
+  PlaybackTelemetry,
+  SchedulerState,
+  TablessHeartbeatCadence,
+  WatchSession,
+} from "@lurkloot/shared/models";
 import type { DiagnosticEvent, EngineEvent, EventEmitter } from "@lurkloot/shared/events";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 import type { SnapshotSelectionResult } from "../core/scheduler";
@@ -9,7 +22,12 @@ import type { TablessWatchController } from "../core/tablessWatch";
 import type { DiscoverySignalController } from "../core/discoverySignals";
 import type { DiscoverySnapshot, DiscoverySnapshotState } from "../core/discoverySnapshot";
 import type { AuthProbeSetupError } from "./errors";
-import type { CommitGuard, CommitOptions, CommitResult, PreparedSettingsCommit } from "./stateTransaction";
+import type {
+  CommitGuard,
+  CommitOptions,
+  CommitResult,
+  PreparedSettingsCommit,
+} from "./stateTransaction";
 import type { TickEffectExecutor } from "./tickEffects";
 
 // "user" is the popup switch. "missing-permission" is the host turning a
@@ -47,10 +65,9 @@ export type TickTrigger =
   | "tick_superseded"
   | "unknown";
 
-export type TickDiagnosticContext = Required<Pick<
-  DiagnosticEvent,
-  "globalTickId" | "platformTickId"
->>;
+export type TickDiagnosticContext = Required<
+  Pick<DiagnosticEvent, "globalTickId" | "platformTickId">
+>;
 export type { CredentialAvailability } from "./hostPorts";
 
 // What a tick cycle's commit left, for the services that follow tick cycles
@@ -119,7 +136,11 @@ export type WatcherPlan =
       readonly watcher: TablessWatchController;
       readonly cadence: TablessHeartbeatCadence | undefined;
     }
-  | { readonly kind: "stop"; readonly platform: Platform; readonly lease: HeartbeatPublicationLease }
+  | {
+      readonly kind: "stop";
+      readonly platform: Platform;
+      readonly lease: HeartbeatPublicationLease;
+    }
   | {
       readonly kind: "start";
       readonly platform: Platform;
@@ -152,9 +173,11 @@ export interface HeartbeatWatcherRemoval {
   watcher?: TablessWatchController;
 }
 
-export type HeartbeatWatcherRemovalDecision = HeartbeatWatcherRemoval | {
-  waitFor: Promise<void>;
-};
+export type HeartbeatWatcherRemovalDecision =
+  | HeartbeatWatcherRemoval
+  | {
+      waitFor: Promise<void>;
+    };
 
 export interface HeartbeatLane {
   mutation: Promise<unknown>;
@@ -219,7 +242,11 @@ export type DiscoverySignalRefreshRequest = {
   count: number;
 };
 
-export type PlatformTickResult = readonly [Platform, string[], { state: SchedulerState; sequence: number }?];
+export type PlatformTickResult = readonly [
+  Platform,
+  string[],
+  { state: SchedulerState; sequence: number }?,
+];
 
 export interface TickRequest {
   trigger: TickTrigger;
@@ -243,13 +270,21 @@ export interface TickBatch {
 export interface ControllerCalls<S extends EngineSettings> {
   // reporting.ts
   createAdapters(settings: S, emit: EventEmitter): Record<Platform, PlatformAdapter>;
-  createAdapter(platform: Platform, settings: S, emit: EventEmitter, reportCompatibility?: boolean): PlatformAdapter;
+  createAdapter(
+    platform: Platform,
+    settings: S,
+    emit: EventEmitter,
+    reportCompatibility?: boolean,
+  ): PlatformAdapter;
   createSelectedAdapters(
     settings: S,
     emit: EventEmitter,
     platforms: readonly Platform[],
   ): Record<Platform, PlatformAdapter>;
-  createTickAdapterHandle(platform: Platform, tickContext: TickDiagnosticContext): TickAdapterHandle<S>;
+  createTickAdapterHandle(
+    platform: Platform,
+    tickContext: TickDiagnosticContext,
+  ): TickAdapterHandle<S>;
   withEventCollector<T>(
     operation: (emit: EventEmitter, events: EngineEvent[]) => Promise<T>,
     tickContext?: TickDiagnosticContext,
@@ -270,7 +305,10 @@ export interface ControllerCalls<S extends EngineSettings> {
   ): DiagnosticEvent[];
   safeNotify(title: string, message: string): Promise<void>;
   tr(key: string, substitutions?: string | string[]): Promise<string>;
-  reportUnsupportedSettings(settings: EngineSettings, tickContext?: TickDiagnosticContext): Promise<void>;
+  reportUnsupportedSettings(
+    settings: EngineSettings,
+    tickContext?: TickDiagnosticContext,
+  ): Promise<void>;
   emitNotifications(
     settings: EngineSettings,
     previous: SchedulerState,
@@ -352,7 +390,10 @@ export interface ControllerCalls<S extends EngineSettings> {
 
   // twitchIntegrity.ts
   clearTwitchIntegrityAlarmBestEffort(emit?: EventEmitter): Promise<void>;
-  loadStoredTwitchIntegrity(lifecycleGeneration: number, settingsTransitionGeneration: number): Promise<void>;
+  loadStoredTwitchIntegrity(
+    lifecycleGeneration: number,
+    settingsTransitionGeneration: number,
+  ): Promise<void>;
   runTwitchIntegrityRefresh(): Promise<void>;
   captureTwitchIntegrity(headers: IntegrityHeader[] | undefined, tabId?: number): Promise<void>;
   restoreTwitchIntegritySchedule(transitionIsCurrent: () => boolean): Promise<void>;
@@ -405,7 +446,10 @@ export interface ControllerCalls<S extends EngineSettings> {
     tickContext?: TickDiagnosticContext,
     tickAdapters?: Partial<Record<Platform, TickAdapterHandle<S>>>,
   ): Promise<void>;
-  reportAuthSetupFailures(failures: readonly AuthProbeSetupError[], tickContext?: TickDiagnosticContext): Promise<void>;
+  reportAuthSetupFailures(
+    failures: readonly AuthProbeSetupError[],
+    tickContext?: TickDiagnosticContext,
+  ): Promise<void>;
   checkAuthHealth(platform: Platform): Promise<void>;
   invalidateAuthHealth(platform: Platform): Promise<void>;
 
@@ -418,7 +462,11 @@ export interface ControllerCalls<S extends EngineSettings> {
     senderTabUrl?: string,
   ): Promise<void>;
   handleTabUpdated(tabId: number, url: string): Promise<void>;
-  applyAdFocusForState(state: SchedulerState, emit: EventEmitter, platforms?: readonly Platform[]): Promise<void>;
+  applyAdFocusForState(
+    state: SchedulerState,
+    emit: EventEmitter,
+    platforms?: readonly Platform[],
+  ): Promise<void>;
   registerWatchTabEffectHandlers(executor: TickEffectExecutor): TickEffectExecutor;
   releaseUncommittedWatchTabs(platform: Platform): Promise<void>;
 
@@ -444,7 +492,9 @@ export interface ControllerCalls<S extends EngineSettings> {
     justClaimedRewardIds?: readonly string[],
     onPersisted?: (state: SchedulerState) => void,
   ): Promise<void>;
-  claimRewardNow(message: Extract<CoreRuntimeMessage, { type: "claimReward" }>): Promise<RuntimeSnapshot<S>>;
+  claimRewardNow(
+    message: Extract<CoreRuntimeMessage, { type: "claimReward" }>,
+  ): Promise<RuntimeSnapshot<S>>;
 
   // Runtime message handlers, each in the module that owns what it changes
   // (#591). messages.ts only routes to them.
@@ -452,11 +502,17 @@ export interface ControllerCalls<S extends EngineSettings> {
     message: Extract<CoreRuntimeMessage, { type: "setPlatformEnabled" | "setAutomation" }>,
     cause?: PlatformEnableCause,
   ): Promise<RuntimeSnapshot<S>>;
-  saveSettingsFromMessage(message: Extract<CoreRuntimeMessage, { type: "saveSettings" }>): Promise<RuntimeSnapshot<S>>;
-  updateIdleWatchlist(message: Extract<CoreRuntimeMessage, { type: "updateIdleWatchlist" }>): Promise<RuntimeSnapshot<S>>;
+  saveSettingsFromMessage(
+    message: Extract<CoreRuntimeMessage, { type: "saveSettings" }>,
+  ): Promise<RuntimeSnapshot<S>>;
+  updateIdleWatchlist(
+    message: Extract<CoreRuntimeMessage, { type: "updateIdleWatchlist" }>,
+  ): Promise<RuntimeSnapshot<S>>;
   resumeFarmingAfterManualClose(platform: Platform): Promise<RuntimeSnapshot<S>>;
   dismissCriticalFailure(platform: Platform): Promise<RuntimeSnapshot<S>>;
-  searchCategories(message: Extract<CoreRuntimeMessage, { type: "searchCategories" }>): Promise<CategorySearchResult>;
+  searchCategories(
+    message: Extract<CoreRuntimeMessage, { type: "searchCategories" }>,
+  ): Promise<CategorySearchResult>;
   tickNow(): Promise<RuntimeSnapshot<S>>;
   runDropClaims(platform: Platform): Promise<void>;
 
@@ -475,7 +531,10 @@ export interface ControllerCalls<S extends EngineSettings> {
   ): Promise<void>;
   discoverySignalEpochs(platforms: readonly Platform[]): Partial<Record<Platform, number>>;
   invalidateDiscoverySignalAdmission(platform: Platform): void;
-  discoverySignalRefreshAllowed(platform: Platform, request: DiscoverySignalRefreshRequest): boolean;
+  discoverySignalRefreshAllowed(
+    platform: Platform,
+    request: DiscoverySignalRefreshRequest,
+  ): boolean;
   reserveDiscoverySignalAuthRefresh(platform: Platform): () => void;
   startPendingDiscoverySignalRefresh(platform: Platform): void;
 
@@ -487,7 +546,12 @@ export interface ControllerCalls<S extends EngineSettings> {
     tickAdapters?: Partial<Record<Platform, TickAdapterHandle<S>>>,
   ): Promise<void>;
   discoverySnapshot(platform: Platform): Readonly<DiscoverySnapshotState>;
-  selectionKey(platform: Platform, snapshot: DiscoverySnapshot, settings: S, state: SchedulerState): string;
+  selectionKey(
+    platform: Platform,
+    snapshot: DiscoverySnapshot,
+    settings: S,
+    state: SchedulerState,
+  ): string;
   selectionIsForced(trigger: TickTrigger): boolean;
   selectionBypassesBackoff(trigger: TickTrigger): boolean;
   selectionBackoffDue(platform: Platform, state: SchedulerState): boolean;
@@ -516,10 +580,20 @@ export interface ControllerCalls<S extends EngineSettings> {
     onPersisted?: (state: SchedulerState) => void,
   ): Promise<ClaimedRewards>;
   abortActiveTicks(reason: string): void;
-  tickInBackground(platforms: Platform[] | undefined, trigger: TickTrigger, onCompleted?: () => void): void;
+  tickInBackground(
+    platforms: Platform[] | undefined,
+    trigger: TickTrigger,
+    onCompleted?: () => void,
+  ): void;
   settleBackgroundWork(): Promise<void>;
-  markPlatformsStarting(platforms: readonly Platform[], transitionIsCurrent?: () => boolean): Promise<void>;
-  tickAndHandOff(platforms?: Platform[], trigger?: TickTrigger): Promise<SchedulerState | undefined>;
+  markPlatformsStarting(
+    platforms: readonly Platform[],
+    transitionIsCurrent?: () => boolean,
+  ): Promise<void>;
+  tickAndHandOff(
+    platforms?: Platform[],
+    trigger?: TickTrigger,
+  ): Promise<SchedulerState | undefined>;
   completeTickAndHandOff(batch: TickBatch): Promise<SchedulerState | undefined>;
 
   // tickRun.ts

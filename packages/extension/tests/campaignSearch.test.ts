@@ -43,8 +43,18 @@ const gameMap: Record<string, GameItem> = {
 
 describe("filterCampaigns", () => {
   const campaigns = [
-    campaign({ id: "a", title: "Deadline safety margin", gameId: "game-a", rewards: [reward("Emote pack")] }),
-    campaign({ id: "b", title: "Frostbite drops", gameId: "game-b", rewards: [reward("Rare skin")] }),
+    campaign({
+      id: "a",
+      title: "Deadline safety margin",
+      gameId: "game-a",
+      rewards: [reward("Emote pack")],
+    }),
+    campaign({
+      id: "b",
+      title: "Frostbite drops",
+      gameId: "game-b",
+      rewards: [reward("Rare skin")],
+    }),
   ];
 
   it("returns every campaign for an empty or blank query", () => {

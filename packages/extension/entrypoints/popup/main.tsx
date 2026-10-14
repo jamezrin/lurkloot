@@ -7,6 +7,4 @@ import { PopupApp } from "./app";
 // imported and rendered standalone (with mock data) by the marketing landing
 // page. The URL-driven screenshot/promo modes here are used by the capture
 // scripts (scripts/capture-store-*.mjs).
-createRoot(document.getElementById("root")!).render(
-  <PopupApp />,
-);
+createRoot(document.getElementById("root")!).render(<PopupApp />);

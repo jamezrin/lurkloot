@@ -53,7 +53,8 @@ const labels: Record<string, string> = {
   preferKnownChannelsTitle: "Prefer followed and Idle Watchlist channels",
   preferKnownChannelsDescription: "Picks a channel you know over an unfamiliar one.",
   watchSourcePriorityTitle: "Watch-source priority",
-  watchSourcePriorityDescription: "The first available source is watched. Disabled or unavailable sources are skipped.",
+  watchSourcePriorityDescription:
+    "The first available source is watched. Disabled or unavailable sources are skipped.",
   watchSourcePriorityMoveUp: "Move $1 up",
   watchSourcePriorityMoveDown: "Move $1 down",
   watchSourcePriorityReset: "Reset priority",
@@ -64,7 +65,8 @@ const labels: Record<string, string> = {
   farmUnlinkedTitle: "Farm campaigns without a linked account",
   farmUnlinkedDescription: "When off, campaigns that need you to link your account are skipped.",
   farmSubscriptionTitle: "Farm campaigns that require a subscription",
-  farmSubscriptionDescription: "When off, campaigns whose rewards need a channel subscription are skipped.",
+  farmSubscriptionDescription:
+    "When off, campaigns whose rewards need a channel subscription are skipped.",
   notLinked: "Not linked",
   subscriptionCampaigns: "Subscription campaigns",
   forgetExcludedTitle: "Forget excluded campaigns",
@@ -82,11 +84,14 @@ const labels: Record<string, string> = {
   schedulerIntervalTitle: "Scheduler interval",
   schedulerIntervalDescription: "How often campaign and streamer status refreshes.",
   tablessFallbackFailureLimitTitle: "Tabless fallback threshold",
-  tablessFallbackFailureLimitDescription: "Open a video tab after this many consecutive failed tabless watch signals.",
-  tablessFallbackFailureLimitDisabledReason: "Enable tabless low-resource mode to change this setting.",
+  tablessFallbackFailureLimitDescription:
+    "Open a video tab after this many consecutive failed tabless watch signals.",
+  tablessFallbackFailureLimitDisabledReason:
+    "Enable tabless low-resource mode to change this setting.",
   failuresSuffix: "failures",
   kickPageContextRecoverySuccessesTitle: "Kick fallback-page recovery",
-  kickPageContextRecoverySuccessesDescription: "Close an extension-opened Kick fallback page after this many successful refresh cycles.",
+  kickPageContextRecoverySuccessesDescription:
+    "Close an extension-opened Kick fallback page after this many successful refresh cycles.",
   kickPageContextRecoverySuccessesDisabledReason: "Enable Kick to change this setting.",
   cyclesSuffix: "cycles",
   postClaimHandoffTitle: "Fast reward handoff",
@@ -113,19 +118,25 @@ const labels: Record<string, string> = {
   autoClaimChannelPointsTitle: "Auto-claim channel points",
   autoClaimChannelPointsDescription: "Claim channel-point bonuses while farming this platform.",
   alwaysEnterChatTitle: "Always enter channel chat",
-  alwaysEnterChatDescription: "Join the chat of each channel being watched. Streamers and moderators can see you in the chat's viewer list. Messages are never sent.",
+  alwaysEnterChatDescription:
+    "Join the chat of each channel being watched. Streamers and moderators can see you in the chat's viewer list. Messages are never sent.",
   autoClaimChallengesTitle: "Auto-claim daily challenges",
-  autoClaimChallengesDescription: "Claim Kick's daily challenge reward once its watch-time goal is met.",
+  autoClaimChallengesDescription:
+    "Claim Kick's daily challenge reward once its watch-time goal is met.",
   settingsGroupPlatformAdvanced: "Advanced & compatibility",
-  twitchSectionDescription: "Channel points, category filter, excluded channels, and Twitch compatibility.",
-  kickSectionDescription: "Daily challenges, category filter, excluded channels, and Kick compatibility.",
+  twitchSectionDescription:
+    "Channel points, category filter, excluded channels, and Twitch compatibility.",
+  kickSectionDescription:
+    "Daily challenges, category filter, excluded channels, and Kick compatibility.",
   twitchAdvancedDescription: "Campaign availability and the transports Lurkloot uses.",
   kickAdvancedDescription: "How Lurkloot opens Kick claim links.",
   categoryModeTitle: "Category filter",
   settingsGamesPointerTitle: "Games and categories",
-  settingsGamesPointerDescription: "Choose which $1 games are farmed, star the ones that should rank first, or block them.",
+  settingsGamesPointerDescription:
+    "Choose which $1 games are farmed, star the ones that should rank first, or block them.",
   settingsGamesPointerAction: "Open Games",
-  categoryModeDescription: "Farm every $1 category, include only the categories you select, or exclude them.",
+  categoryModeDescription:
+    "Farm every $1 category, include only the categories you select, or exclude them.",
   categoryModeAll: "All categories",
   categoryModeInclude: "Only selected",
   excludedChannelsTitle: "Excluded drop channels",
@@ -145,10 +156,23 @@ describe("deadline feasibility setting", () => {
       root = createRoot(container);
       root.render(
         <PopupRuntimeContext.Provider value={{ adapter, preview: true }}>
-          <I18nContext.Provider value={{ t: (key, substitution) => {
-            const values = Array.isArray(substitution) ? substitution : substitution === undefined ? [] : [substitution];
-            return values.reduce((text, value, index) => text.replaceAll(`$${index + 1}`, value), labels[key] ?? key);
-          }, dir: "ltr", locale: "en" }}>
+          <I18nContext.Provider
+            value={{
+              t: (key, substitution) => {
+                const values = Array.isArray(substitution)
+                  ? substitution
+                  : substitution === undefined
+                    ? []
+                    : [substitution];
+                return values.reduce(
+                  (text, value, index) => text.replaceAll(`$${index + 1}`, value),
+                  labels[key] ?? key,
+                );
+              },
+              dir: "ltr",
+              locale: "en",
+            }}
+          >
             <SettingsView
               suggestions={{ twitch: [], kick: [] }}
               onSearchCategories={async () => []}
@@ -164,7 +188,9 @@ describe("deadline feasibility setting", () => {
 
     // The deadline-feasibility controls live in the "Advanced" group inside
     // the General section, which is hidden until the advanced switch is on.
-    const advancedSwitch = [...container.querySelectorAll("button")].find((button) => button.getAttribute("aria-label") === "Show advanced settings");
+    const advancedSwitch = [...container.querySelectorAll("button")].find(
+      (button) => button.getAttribute("aria-label") === "Show advanced settings",
+    );
     act(() => advancedSwitch?.click());
     return { container, onSettingsChange };
   }
@@ -183,7 +209,9 @@ describe("deadline feasibility setting", () => {
 
   it("defaults the toggle on and saves changes immediately", () => {
     const { container, onSettingsChange } = mountSettings();
-    const toggle = container.querySelector('[role="switch"][aria-label="Skip rewards that cannot be completed"]') as HTMLButtonElement;
+    const toggle = container.querySelector(
+      '[role="switch"][aria-label="Skip rewards that cannot be completed"]',
+    ) as HTMLButtonElement;
     expect(toggle.getAttribute("aria-checked")).toBe("true");
 
     act(() => toggle.click());
@@ -194,8 +222,14 @@ describe("deadline feasibility setting", () => {
   });
 
   it("disables but preserves the margin input when filtering is off", () => {
-    const { container } = mountSettings({ ...DEFAULT_SETTINGS, skipUnfinishableRewards: false, deadlineSafetyMarginMinutes: 17 });
-    const input = container.querySelector('input[aria-label="Deadline safety margin"]') as HTMLInputElement;
+    const { container } = mountSettings({
+      ...DEFAULT_SETTINGS,
+      skipUnfinishableRewards: false,
+      deadlineSafetyMarginMinutes: 17,
+    });
+    const input = container.querySelector(
+      'input[aria-label="Deadline safety margin"]',
+    ) as HTMLInputElement;
     expect(input.value).toBe("17");
     expect(input.disabled).toBe(true);
   });
@@ -231,7 +265,9 @@ describe("deadline feasibility setting", () => {
 
   it("renders and saves the Kick fallback-page recovery threshold", async () => {
     // The field is only editable while Kick farming is on, which is off by default.
-    const { container, onSettingsChange } = mountSettings(mergeSettings({ platform: { kick: { enabled: true } } } as never));
+    const { container, onSettingsChange } = mountSettings(
+      mergeSettings({ platform: { kick: { enabled: true } } } as never),
+    );
     const input = container.querySelector(
       'input[aria-label="Kick fallback-page recovery"]',
     ) as HTMLInputElement;
@@ -259,7 +295,9 @@ describe("deadline feasibility setting", () => {
     const { container, onSettingsChange } = mountSettings();
     // The two farming rows are full SettingRow toggles keyed by their title, so
     // query by the switch's accessible name.
-    const toggle = container.querySelector('[role="switch"][aria-label="Farm campaigns without a linked account"]') as HTMLButtonElement;
+    const toggle = container.querySelector(
+      '[role="switch"][aria-label="Farm campaigns without a linked account"]',
+    ) as HTMLButtonElement;
     expect(toggle.getAttribute("aria-checked")).toBe("true");
 
     act(() => toggle.click());
@@ -273,21 +311,31 @@ describe("deadline feasibility setting", () => {
   // The Queue's Then by divider hides with its tier, so Settings keeps the
   // strategy reachable when every queued campaign is pinned or starred.
   it("saves the queue strategy from the Drops group and re-ticks", async () => {
-    const { container, onSettingsChange } = mountSettings({ ...DEFAULT_SETTINGS, priorityMode: "ending_soonest" });
-    const trigger = container.querySelector('button[aria-haspopup="listbox"][aria-label="Campaign priority"]') as HTMLButtonElement;
+    const { container, onSettingsChange } = mountSettings({
+      ...DEFAULT_SETTINGS,
+      priorityMode: "ending_soonest",
+    });
+    const trigger = container.querySelector(
+      'button[aria-haspopup="listbox"][aria-label="Campaign priority"]',
+    ) as HTMLButtonElement;
     expect(trigger.dataset.value).toBe("ending_soonest");
 
     await act(async () => {
       trigger.click();
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    const option = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find((candidate) => candidate.dataset.value === "lowest_availability");
+    const option = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
+      (candidate) => candidate.dataset.value === "lowest_availability",
+    );
     await act(async () => {
       option?.click();
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
 
-    expect(onSettingsChange).toHaveBeenCalledWith({ priorityMode: "lowest_availability" }, { tickAfterSave: true });
+    expect(onSettingsChange).toHaveBeenCalledWith(
+      { priorityMode: "lowest_availability" },
+      { tickAfterSave: true },
+    );
   });
 
   it("renders both farming-eligibility rows as full toggles", () => {
@@ -298,16 +346,23 @@ describe("deadline feasibility setting", () => {
     expect(text).toContain("Farm campaigns that require a subscription");
     // Both are switches, not chips: a switch role means the row carries its own
     // description, which the compact chip row does not.
-    expect(container.querySelector('[role="switch"][aria-label="Farm campaigns without a linked account"]')).not.toBeNull();
-    expect(container.querySelector('[role="switch"][aria-label="Farm campaigns that require a subscription"]')).not.toBeNull();
+    expect(
+      container.querySelector(
+        '[role="switch"][aria-label="Farm campaigns without a linked account"]',
+      ),
+    ).not.toBeNull();
+    expect(
+      container.querySelector(
+        '[role="switch"][aria-label="Farm campaigns that require a subscription"]',
+      ),
+    ).not.toBeNull();
   });
-
-
-
 
   it("saves Always enter channel chat for Twitch and reconciles Twitch", () => {
     const { container, onSettingsChange } = mountSettings();
-    const toggle = container.querySelector('[role="switch"][aria-label="Always enter channel chat"]') as HTMLButtonElement;
+    const toggle = container.querySelector(
+      '[role="switch"][aria-label="Always enter channel chat"]',
+    ) as HTMLButtonElement;
     expect(toggle.getAttribute("aria-checked")).toBe("false");
 
     act(() => toggle.click());
@@ -319,12 +374,18 @@ describe("deadline feasibility setting", () => {
 
   it("reconciles the chosen platform after changing watch-source priority", () => {
     const { container, onSettingsChange } = mountSettings();
-    const button = container.querySelector('button[aria-label="Move NoPixelV up"]') as HTMLButtonElement;
+    const button = container.querySelector(
+      'button[aria-label="Move NoPixelV up"]',
+    ) as HTMLButtonElement;
 
     act(() => button.click());
 
     expect(onSettingsChange).toHaveBeenCalledWith(
-      { platform: { twitch: { watchSourcePriority: ["nopixel", "drops", "fortnite", "idle_watchlist"] } } },
+      {
+        platform: {
+          twitch: { watchSourcePriority: ["nopixel", "drops", "fortnite", "idle_watchlist"] },
+        },
+      },
       { tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] },
     );
   });
@@ -345,7 +406,9 @@ describe("deadline feasibility setting", () => {
 
   it("saves notification preferences without a scheduler tick", () => {
     const { container, onSettingsChange } = mountSettings();
-    const toggle = container.querySelector('[role="switch"][aria-label="Reward earned"]') as HTMLButtonElement;
+    const toggle = container.querySelector(
+      '[role="switch"][aria-label="Reward earned"]',
+    ) as HTMLButtonElement;
 
     act(() => toggle.click());
 
@@ -362,7 +425,9 @@ describe("settings actions and about", () => {
       root = createRoot(container);
       root.render(
         <PopupRuntimeContext.Provider value={{ adapter: {} as PopupAdapter, preview: true }}>
-          <I18nContext.Provider value={{ t: (key) => labels[key] ?? key, dir: "ltr", locale: "en" }}>
+          <I18nContext.Provider
+            value={{ t: (key) => labels[key] ?? key, dir: "ltr", locale: "en" }}
+          >
             <SettingsView
               suggestions={{ twitch: [], kick: [] }}
               onSearchCategories={async () => []}
@@ -382,7 +447,9 @@ describe("settings actions and about", () => {
     const container = mount({ version: "9.9.9" });
     const about = container.querySelector("#settings-section-about");
     expect(about?.textContent).toContain("v9.9.9");
-    const links = [...(about?.querySelectorAll("a") ?? [])].map((link) => link.getAttribute("aria-label"));
+    const links = [...(about?.querySelectorAll("a") ?? [])].map((link) =>
+      link.getAttribute("aria-label"),
+    );
     expect(links).toEqual(["siteAttribution", "chromeWebStoreAttribution", "githubAttribution"]);
     expect(container.querySelector("footer")).toBeNull();
     // The footer is always open: no collapse toggle on its heading.
@@ -393,7 +460,8 @@ describe("settings actions and about", () => {
     const onReset = vi.fn(async () => undefined);
     const container = mount({ onReset });
     const actions = container.querySelector("#settings-section-actions")!;
-    const button = (label: string) => [...actions.querySelectorAll("button")].find((candidate) => candidate.textContent === label);
+    const button = (label: string) =>
+      [...actions.querySelectorAll("button")].find((candidate) => candidate.textContent === label);
 
     act(() => button("factoryResetButton")!.click());
     expect(actions.textContent).toContain("factoryResetConfirm");

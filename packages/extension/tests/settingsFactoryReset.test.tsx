@@ -3,11 +3,17 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { parseHTML } from "linkedom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Popup, createDemoPopupAdapter, screenshotVariant, type PopupAdapter } from "@lurkloot/popup-ui";
+import {
+  Popup,
+  createDemoPopupAdapter,
+  screenshotVariant,
+  type PopupAdapter,
+} from "@lurkloot/popup-ui";
 import { resetCatalogTracking, waitForCatalog } from "./helpers/popupCatalog";
 
 vi.mock("@lurkloot/locales", async (importOriginal) =>
-  (await import("./helpers/popupCatalog")).delayedLocales(importOriginal));
+  (await import("./helpers/popupCatalog")).delayedLocales(importOriginal),
+);
 import type { RuntimeSnapshot } from "@lurkloot/shared/messages";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 
@@ -41,7 +47,9 @@ async function mount(resetExtension?: () => Promise<RuntimeSnapshot>) {
   vi.stubGlobal("window", window);
   vi.stubGlobal("document", document);
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => window.setTimeout(() => callback(Date.now()), 0));
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) =>
+    window.setTimeout(() => callback(Date.now()), 0),
+  );
   vi.stubGlobal("cancelAnimationFrame", (handle: number) => window.clearTimeout(handle));
   vi.stubGlobal("getComputedStyle", () => ({ direction: "ltr" }));
   const container = document.getElementById("app")!;
@@ -53,14 +61,21 @@ async function mount(resetExtension?: () => Promise<RuntimeSnapshot>) {
   };
   await act(async () => {
     root = createRoot(container);
-    root.render(<Popup adapter={adapter} initialState={{ preview: true, variant: screenshotVariant("settings") }} />);
+    root.render(
+      <Popup
+        adapter={adapter}
+        initialState={{ preview: true, variant: screenshotVariant("settings") }}
+      />,
+    );
   });
   await waitForCatalog();
   return { container };
 }
 
 function byText(container: Element, text: string): HTMLButtonElement {
-  const button = [...container.querySelectorAll("button")].find((item) => item.textContent?.includes(text));
+  const button = [...container.querySelectorAll("button")].find((item) =>
+    item.textContent?.includes(text),
+  );
   if (!button) throw new Error(`Missing button: ${text}`);
   return button as HTMLButtonElement;
 }
@@ -74,7 +89,12 @@ describe("settings factory reset", () => {
 
   it("requires confirmation and blocks duplicate reset requests", async () => {
     let finish!: (snapshot: RuntimeSnapshot) => void;
-    const resetExtension = vi.fn(() => new Promise<RuntimeSnapshot>((resolve) => { finish = resolve; }));
+    const resetExtension = vi.fn(
+      () =>
+        new Promise<RuntimeSnapshot>((resolve) => {
+          finish = resolve;
+        }),
+    );
     const { container } = await mount(resetExtension);
 
     act(() => byText(container, "Reset Lurkloot").click());
@@ -93,8 +113,11 @@ describe("settings factory reset", () => {
   });
 
   it("shows a retryable alert when reset fails", async () => {
-    const freshSnapshot = await createDemoPopupAdapter().send<RuntimeSnapshot>({ type: "getSnapshot" });
-    const resetExtension = vi.fn()
+    const freshSnapshot = await createDemoPopupAdapter().send<RuntimeSnapshot>({
+      type: "getSnapshot",
+    });
+    const resetExtension = vi
+      .fn()
       .mockRejectedValueOnce(new Error("reset failed"))
       .mockResolvedValueOnce({ ...freshSnapshot, settings: DEFAULT_SETTINGS });
     const { container } = await mount(resetExtension);

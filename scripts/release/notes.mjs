@@ -1,4 +1,8 @@
-const headings = [["new", "New"], ["improved", "Improved"], ["fixed", "Fixed"]];
+const headings = [
+  ["new", "New"],
+  ["improved", "Improved"],
+  ["fixed", "Fixed"],
+];
 
 export function releaseNotes(changelog, version, { pending = false } = {}) {
   const entry = changelog.find((item) => item.version === version);

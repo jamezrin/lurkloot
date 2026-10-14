@@ -9,7 +9,8 @@ import { createDemoPopupAdapter, Popup, type PopupAdapter } from "@lurkloot/popu
 import { catalogDelay, resetCatalogTracking, waitForCatalog } from "./helpers/popupCatalog";
 
 vi.mock("@lurkloot/locales", async (importOriginal) =>
-  (await import("./helpers/popupCatalog")).delayedLocales(importOriginal));
+  (await import("./helpers/popupCatalog")).delayedLocales(importOriginal),
+);
 
 let root: Root | undefined;
 
@@ -114,8 +115,9 @@ describe("critical failure prompt in the popup", () => {
   it("asks the background to dismiss, then refreshes", async () => {
     const { container, sent } = await mountPopup({ flagged: "twitch" });
 
-    const dismiss = [...container.querySelectorAll("button")]
-      .find((button) => button.textContent?.includes("Dismiss and try again"));
+    const dismiss = [...container.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("Dismiss and try again"),
+    );
     expect(dismiss).toBeDefined();
 
     await act(async () => {

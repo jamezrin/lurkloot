@@ -14,7 +14,9 @@ export function twitchCategoryDropsUrl(slug: string): string {
 
 // A campaign has no category when it carries neither a category id nor a game
 // name. Such a campaign only ever matches the "No category" selection.
-export function isUncategorizedCampaign(campaign: Pick<DropCampaign, "categoryId" | "gameName">): boolean {
+export function isUncategorizedCampaign(
+  campaign: Pick<DropCampaign, "categoryId" | "gameName">,
+): boolean {
   return !campaign.categoryId && !campaign.gameName;
 }
 
@@ -27,8 +29,11 @@ export function categoryListIndex(campaign: DropCampaign, list: CategorySelectio
     .filter((value): value is string => Boolean(value))
     .map((value) => value.toLowerCase());
   if (candidates.length === 0) return list.findIndex((category) => category.id === NO_CATEGORY_ID);
-  return list.findIndex((category) =>
-    candidates.includes(category.id.toLowerCase()) || candidates.includes(category.name.toLowerCase()));
+  return list.findIndex(
+    (category) =>
+      candidates.includes(category.id.toLowerCase())
+      || candidates.includes(category.name.toLowerCase()),
+  );
 }
 
 // The single definition of "does this campaign's category pass the user's
@@ -42,7 +47,8 @@ export function categoryListIndex(campaign: DropCampaign, list: CategorySelectio
 // stays true if that short circuit ever changes.
 export function campaignPassesCategoryFilter(
   campaign: DropCampaign,
-  platformSettings: Pick<PlatformSettings, "categoryMode" | "categories"> & Partial<Pick<PlatformSettings, "blockedCategories">>,
+  platformSettings: Pick<PlatformSettings, "categoryMode" | "categories"> &
+    Partial<Pick<PlatformSettings, "blockedCategories">>,
 ): boolean {
   if (isCampaignCategoryBlocked(campaign, platformSettings)) return false;
   if (platformSettings.categoryMode === "all") return true;

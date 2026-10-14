@@ -44,7 +44,12 @@ export interface TwitchHermesOwners {
   // the topic only as an `extension` subscription carrying the extension's own
   // JWT for that channel, as Twitch's web client sends it; the user's token
   // alone is refused.
-  extensionBroadcast?: { channelId: string; extensionId: string; token: string; onEvent: (event: string) => void };
+  extensionBroadcast?: {
+    channelId: string;
+    extensionId: string;
+    token: string;
+    onEvent: (event: string) => void;
+  };
 }
 
 export interface TwitchChannelPointsPushDeps {
@@ -105,9 +110,11 @@ export class TwitchChannelPointsPushController {
     this.observePlayback = deps.observePlayback;
     this.resolveUserId = deps.resolveUserId;
     this.clientId = deps.clientId ?? DEFAULT_TWITCH_CLIENT_ID;
-    this.scheduleReconnect = deps.scheduleReconnect ?? ((callback, delayMs) => setTimeout(callback, delayMs));
+    this.scheduleReconnect =
+      deps.scheduleReconnect ?? ((callback, delayMs) => setTimeout(callback, delayMs));
     this.cancelReconnect = deps.cancelReconnect ?? ((timer) => clearTimeout(timer));
-    this.scheduleKeepAlive = deps.scheduleKeepAlive ?? ((callback, delayMs) => setTimeout(callback, delayMs));
+    this.scheduleKeepAlive =
+      deps.scheduleKeepAlive ?? ((callback, delayMs) => setTimeout(callback, delayMs));
     this.cancelKeepAlive = deps.cancelKeepAlive ?? ((timer) => clearTimeout(timer));
   }
 
@@ -119,12 +126,17 @@ export class TwitchChannelPointsPushController {
 
   // Starts the connection, or updates what a running one follows. A callback
   // alone follows only the channel-points topic.
-  async start(owners: TwitchHermesOwners | ((notice: TwitchChannelPointsClaimNotice) => void)): Promise<void> {
+  async start(
+    owners: TwitchHermesOwners | ((notice: TwitchChannelPointsClaimNotice) => void),
+  ): Promise<void> {
     const next = typeof owners === "function" ? { onClaimAvailable: owners } : owners;
-    if (next.playback?.channelId !== this.owners.playback?.channelId
+    if (
+      next.playback?.channelId !== this.owners.playback?.channelId
       || extensionBroadcastTopic(next) !== extensionBroadcastTopic(this.owners)
       // A renewed extension JWT may be accepted where an expired one was not.
-      || next.extensionBroadcast?.token !== this.owners.extensionBroadcast?.token) this.refusedTopics.clear();
+      || next.extensionBroadcast?.token !== this.owners.extensionBroadcast?.token
+    )
+      this.refusedTopics.clear();
     this.owners = next;
     if (!this.stopped) {
       if (this.ws && this.authenticated) this.syncTopics(this.ws);
@@ -156,7 +168,10 @@ export class TwitchChannelPointsPushController {
     try {
       token = await this.getAuthToken();
     } catch (error) {
-      this.log("warn", `Failed to read the Twitch channel-points auth token: ${errorMessage(error)}`);
+      this.log(
+        "warn",
+        `Failed to read the Twitch channel-points auth token: ${errorMessage(error)}`,
+      );
       this.scheduleNextReconnect();
       return;
     }
@@ -173,9 +188,15 @@ export class TwitchChannelPointsPushController {
       if (this.stopped) return;
       this.userId = userId || undefined;
     } catch (error) {
-      this.log("warn", `Failed to resolve the Twitch channel-points user id: ${errorMessage(error)}`);
+      this.log(
+        "warn",
+        `Failed to resolve the Twitch channel-points user id: ${errorMessage(error)}`,
+      );
       // Only the channel-points topic needs the id; the channel topics go on without it.
-      if (this.owners.onClaimAvailable || (!this.owners.playback && !this.owners.extensionBroadcast)) {
+      if (
+        this.owners.onClaimAvailable
+        || (!this.owners.playback && !this.owners.extensionBroadcast)
+      ) {
         this.scheduleNextReconnect();
         return;
       }
@@ -298,7 +319,9 @@ export class TwitchChannelPointsPushController {
   }
 
   private claimTopic(): string | undefined {
-    return this.owners.onClaimAvailable && this.userId ? `${TWITCH_CHANNEL_POINTS_TOPIC_PREFIX}${this.userId}` : undefined;
+    return this.owners.onClaimAvailable && this.userId
+      ? `${TWITCH_CHANNEL_POINTS_TOPIC_PREFIX}${this.userId}`
+      : undefined;
   }
 
   private wantedTopics(): string[] {
@@ -321,14 +344,25 @@ export class TwitchChannelPointsPushController {
     const wanted = this.wantedTopics();
     for (const topic of wanted) {
       if (this.subscriptions.has(topic)) continue;
-      const subscription: TopicSubscription = { topic, id: crypto.randomUUID(), frameId: crypto.randomUUID(), confirmed: false };
+      const subscription: TopicSubscription = {
+        topic,
+        id: crypto.randomUUID(),
+        frameId: crypto.randomUUID(),
+        confirmed: false,
+      };
       this.subscriptions.set(topic, subscription);
       this.safeSend(ws, {
         type: "subscribe",
         id: subscription.frameId,
-        subscribe: topic.startsWith(TWITCH_EXTENSION_BROADCAST_TOPIC_PREFIX) && this.owners.extensionBroadcast
-          ? { id: subscription.id, type: "extension", extension: { topic, token: this.owners.extensionBroadcast.token } }
-          : { id: subscription.id, type: "pubsub", pubsub: { topic } },
+        subscribe:
+          topic.startsWith(TWITCH_EXTENSION_BROADCAST_TOPIC_PREFIX)
+          && this.owners.extensionBroadcast
+            ? {
+                id: subscription.id,
+                type: "extension",
+                extension: { topic, token: this.owners.extensionBroadcast.token },
+              }
+            : { id: subscription.id, type: "pubsub", pubsub: { topic } },
         timestamp: new Date().toISOString(),
       });
     }
@@ -345,7 +379,9 @@ export class TwitchChannelPointsPushController {
   }
 
   private handleSubscribeResponse(frame: HermesFrame): void {
-    const subscription = [...this.subscriptions.values()].find((candidate) => candidate.frameId === frame.parentId);
+    const subscription = [...this.subscriptions.values()].find(
+      (candidate) => candidate.frameId === frame.parentId,
+    );
     if (!subscription) return;
     const response = frame.subscribeResponse;
     const confirmed = isRecord(response) ? response.subscription : undefined;
@@ -355,16 +391,26 @@ export class TwitchChannelPointsPushController {
       || !isRecord(confirmed)
       || confirmed.id !== subscription.id
     ) {
-      if (subscription.topic.startsWith(TWITCH_PLAYBACK_TOPIC_PREFIX) || subscription.topic.startsWith(TWITCH_EXTENSION_BROADCAST_TOPIC_PREFIX)) {
+      if (
+        subscription.topic.startsWith(TWITCH_PLAYBACK_TOPIC_PREFIX)
+        || subscription.topic.startsWith(TWITCH_EXTENSION_BROADCAST_TOPIC_PREFIX)
+      ) {
         // The watched channel's topics are a bonus: a refusal leaves their
         // work to the periodic checks and keeps the claims topic up.
         this.subscriptions.delete(subscription.topic);
         this.refusedTopics.add(subscription.topic);
-        const code = isRecord(response) && typeof response.errorCode === "string" && /^[A-Z0-9_]{1,16}$/.test(response.errorCode)
-          ? ` (${response.errorCode})` : "";
-        this.log("debug", subscription.topic.startsWith(TWITCH_PLAYBACK_TOPIC_PREFIX)
-          ? `Twitch playback push subscribe was not ok${code}`
-          : `Twitch Extension broadcast subscribe was not ok${code}`);
+        const code =
+          isRecord(response)
+          && typeof response.errorCode === "string"
+          && /^[A-Z0-9_]{1,16}$/.test(response.errorCode)
+            ? ` (${response.errorCode})`
+            : "";
+        this.log(
+          "debug",
+          subscription.topic.startsWith(TWITCH_PLAYBACK_TOPIC_PREFIX)
+            ? `Twitch playback push subscribe was not ok${code}`
+            : `Twitch Extension broadcast subscribe was not ok${code}`,
+        );
         return;
       }
       this.log("debug", "Twitch channel-points push subscribe was not ok");
@@ -387,7 +433,10 @@ export class TwitchChannelPointsPushController {
   // topic whose JWT expired. Subscribe it again with the owners' current state.
   private handleRevocation(ws: WebSocketLike, frame: HermesFrame): void {
     const revocation = frame.subscriptionRevocation;
-    const id = isRecord(revocation) && isRecord(revocation.subscription) ? revocation.subscription.id : undefined;
+    const id =
+      isRecord(revocation) && isRecord(revocation.subscription)
+        ? revocation.subscription.id
+        : undefined;
     const subscription = [...this.subscriptions.values()].find((candidate) => candidate.id === id);
     if (!subscription) return;
     this.subscriptions.delete(subscription.topic);
@@ -401,14 +450,21 @@ export class TwitchChannelPointsPushController {
       this.log("debug", "Ignored malformed Twitch channel-points push frame");
       return;
     }
-    const subscriptionId = isRecord(notification.subscription) ? notification.subscription.id : undefined;
-    const subscription = [...this.subscriptions.values()].find((candidate) => candidate.confirmed && candidate.id === subscriptionId);
+    const subscriptionId = isRecord(notification.subscription)
+      ? notification.subscription.id
+      : undefined;
+    const subscription = [...this.subscriptions.values()].find(
+      (candidate) => candidate.confirmed && candidate.id === subscriptionId,
+    );
     if (!subscription) {
       this.log("debug", "Ignored Twitch channel-points push notification");
       return;
     }
     if (subscription.topic.startsWith(TWITCH_PLAYBACK_TOPIC_PREFIX)) {
-      this.handlePlaybackNotification(subscription.topic.slice(TWITCH_PLAYBACK_TOPIC_PREFIX.length), notification.pubsub);
+      this.handlePlaybackNotification(
+        subscription.topic.slice(TWITCH_PLAYBACK_TOPIC_PREFIX.length),
+        notification.pubsub,
+      );
       return;
     }
     if (subscription.topic.startsWith(TWITCH_EXTENSION_BROADCAST_TOPIC_PREFIX)) {
@@ -430,7 +486,10 @@ export class TwitchChannelPointsPushController {
       || typeof claim.channel_id !== "string"
       || claim.channel_id.length === 0
     ) {
-      this.log("debug", `Ignored Twitch channel-points push notification${describePointsEvent(inner.type, data)}`);
+      this.log(
+        "debug",
+        `Ignored Twitch channel-points push notification${describePointsEvent(inner.type, data)}`,
+      );
       return;
     }
     try {
@@ -501,7 +560,7 @@ export class TwitchChannelPointsPushController {
 
   private scheduleNextReconnect(): void {
     if (this.stopped || this.reconnectTimer !== undefined) return;
-    const delayMs = Math.min(RECONNECT_BASE_MS * (2 ** this.reconnectAttempt), RECONNECT_MAX_MS);
+    const delayMs = Math.min(RECONNECT_BASE_MS * 2 ** this.reconnectAttempt, RECONNECT_MAX_MS);
     this.reconnectAttempt += 1;
     let timer: ReturnType<typeof setTimeout>;
     timer = this.scheduleReconnect(() => {
@@ -589,7 +648,12 @@ function readKeepaliveSec(welcome: unknown): number {
 
 function extensionBroadcastTopic(owners: TwitchHermesOwners): string | undefined {
   const broadcast = owners.extensionBroadcast;
-  if (!broadcast?.token || !/^\d{1,20}$/.test(broadcast.channelId) || !/^[a-z0-9]{1,64}$/.test(broadcast.extensionId)) return undefined;
+  if (
+    !broadcast?.token
+    || !/^\d{1,20}$/.test(broadcast.channelId)
+    || !/^[a-z0-9]{1,64}$/.test(broadcast.extensionId)
+  )
+    return undefined;
   return `${TWITCH_EXTENSION_BROADCAST_TOPIC_PREFIX}${broadcast.channelId}-${broadcast.extensionId}-broadcast`;
 }
 
@@ -597,17 +661,25 @@ function extensionBroadcastEvents(pubsub: unknown): string[] {
   const outer = parsePubsub(pubsub);
   if (!outer) return [];
   const messages = Array.isArray(outer.content)
-    ? outer.content.slice(0, 10).map((item) => typeof item === "string" ? parsePubsub(item) : isRecord(item) ? item : undefined)
+    ? outer.content
+        .slice(0, 10)
+        .map((item) =>
+          typeof item === "string" ? parsePubsub(item) : isRecord(item) ? item : undefined,
+        )
     : [outer];
   return messages.flatMap((message) =>
-    typeof message?.event === "string" && EXTENSION_BROADCAST_EVENT.test(message.event) ? [message.event] : []);
+    typeof message?.event === "string" && EXTENSION_BROADCAST_EVENT.test(message.event)
+      ? [message.event]
+      : [],
+  );
 }
 
 // What a points event was, for the diagnostic log: points-earned names the
 // channel and why (WATCH, CLAIM, WATCH_STREAK, ...), which shows whether a
 // watch is earning. Only the type, reason, channel id and point count.
 function describePointsEvent(type: unknown, data: unknown): string {
-  const safe = (value: unknown) => typeof value === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(value) ? value : undefined;
+  const safe = (value: unknown) =>
+    typeof value === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(value) ? value : undefined;
   const kind = safe(type);
   if (!kind) return "";
   if (kind !== "points-earned" || !isRecord(data)) return ` (${kind})`;

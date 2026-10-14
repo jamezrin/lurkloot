@@ -19,7 +19,11 @@ afterEach(() => {
 const presentation = (platform: Platform, authHealth: PlatformAuthHealth) =>
   automationPresentation({ platform, enabled: true, pending: false, authHealth });
 
-function mountRail(active: Platform, onPlatformChange = vi.fn(), kick: PlatformAuthHealth = { status: "healthy" }) {
+function mountRail(
+  active: Platform,
+  onPlatformChange = vi.fn(),
+  kick: PlatformAuthHealth = { status: "healthy" },
+) {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   document.body.innerHTML = "<div id=app></div>";
   const container = document.getElementById("app")!;
@@ -32,7 +36,10 @@ function mountRail(active: Platform, onPlatformChange = vi.fn(), kick: PlatformA
           platform={active}
           counts={{}}
           sourceOrder={["drops"]}
-          presentation={{ twitch: presentation("twitch", { status: "healthy" }), kick: presentation("kick", kick) }}
+          presentation={{
+            twitch: presentation("twitch", { status: "healthy" }),
+            kick: presentation("kick", kick),
+          }}
           version="1.0.0"
           onViewChange={() => undefined}
           onPlatformChange={onPlatformChange}
@@ -41,15 +48,23 @@ function mountRail(active: Platform, onPlatformChange = vi.fn(), kick: PlatformA
       </I18nContext.Provider>,
     );
   });
-  const tab = (label: string) => container.querySelector<HTMLButtonElement>(`[role="tab"][aria-label="${label}"]`)!;
+  const tab = (label: string) =>
+    container.querySelector<HTMLButtonElement>(`[role="tab"][aria-label="${label}"]`)!;
   return { container, tab, onPlatformChange };
 }
 
 describe("rail platform switch", () => {
   it("shows each platform's operational state on its own tab", () => {
-    const { container } = mountRail("twitch", vi.fn(), { status: "unavailable", reasonCode: "platform_unavailable" });
-    expect(container.querySelector('[data-platform-status="twitch"]')?.getAttribute("data-state")).toBe("running");
-    expect(container.querySelector('[data-platform-status="kick"]')?.getAttribute("data-state")).toBe("unavailable");
+    const { container } = mountRail("twitch", vi.fn(), {
+      status: "unavailable",
+      reasonCode: "platform_unavailable",
+    });
+    expect(
+      container.querySelector('[data-platform-status="twitch"]')?.getAttribute("data-state"),
+    ).toBe("running");
+    expect(
+      container.querySelector('[data-platform-status="kick"]')?.getAttribute("data-state"),
+    ).toBe("unavailable");
   });
 
   it("marks the selected platform and keeps only it in the tab order", () => {
@@ -69,7 +84,9 @@ describe("rail platform switch", () => {
     onPlatformChange.mockClear();
     await act(async () => {
       tab("Twitch").focus();
-      tab("Twitch").dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+      tab("Twitch").dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
+      );
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
     expect(onPlatformChange).toHaveBeenLastCalledWith("kick");

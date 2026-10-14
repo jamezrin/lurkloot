@@ -29,13 +29,15 @@ import { DEFAULT_STATE, loadState, resetStorage, saveState } from "../src/core/s
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { withSchemaVersion } from "@lurkloot/shared/settingsSchema";
 
-const legacyEvents: LegacyEventLogEntry[] = [{
-  id: "legacy-1",
-  at: "2026-07-01T12:00:00.000Z",
-  platform: "twitch",
-  level: "info",
-  message: "legacy event",
-}];
+const legacyEvents: LegacyEventLogEntry[] = [
+  {
+    id: "legacy-1",
+    at: "2026-07-01T12:00:00.000Z",
+    platform: "twitch",
+    level: "info",
+    message: "legacy event",
+  },
+];
 
 describe("legacy activity migration", () => {
   beforeEach(() => {
@@ -68,12 +70,14 @@ describe("legacy activity migration", () => {
 
     await loadState();
 
-    expect(mocks.importLegacyActivityEvents).toHaveBeenLastCalledWith([expect.objectContaining({
-      id: "legacy-1",
-      at: legacyEvents[0]?.at,
-      category: "diagnostic",
-      legacy: true,
-    })]);
+    expect(mocks.importLegacyActivityEvents).toHaveBeenLastCalledWith([
+      expect.objectContaining({
+        id: "legacy-1",
+        at: legacyEvents[0]?.at,
+        category: "diagnostic",
+        legacy: true,
+      }),
+    ]);
     expect(mocks.values.schedulerState).not.toHaveProperty("events");
   });
 

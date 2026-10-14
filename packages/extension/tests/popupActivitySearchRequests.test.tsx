@@ -13,7 +13,8 @@ vi.mock("motion/react", async (importOriginal) => ({
 }));
 
 vi.mock("@lurkloot/locales", async (importOriginal) =>
-  (await import("./helpers/popupCatalog")).delayedLocales(importOriginal));
+  (await import("./helpers/popupCatalog")).delayedLocales(importOriginal),
+);
 
 let root: Root | undefined;
 
@@ -28,7 +29,12 @@ function setSearchQuery(input: HTMLInputElement, value: string): void {
   input.value = value;
   const propsKey = Object.keys(input).find((key) => key.startsWith("__reactProps$"));
   const props = propsKey
-    ? (input as unknown as Record<string, { onChange?(event: { target: HTMLInputElement; currentTarget: HTMLInputElement }): void }>)[propsKey]
+    ? (
+        input as unknown as Record<
+          string,
+          { onChange?(event: { target: HTMLInputElement; currentTarget: HTMLInputElement }): void }
+        >
+      )[propsKey]
     : undefined;
   props?.onChange?.({ target: input, currentTarget: input });
 }
@@ -81,14 +87,16 @@ async function mount(): Promise<{ container: HTMLElement; sent: RuntimeMessage[]
         const page: ActivityPage = message.cursor
           ? { events: [] }
           : {
-              events: [{
-                id: "diagnostic-1",
-                at: "2026-08-01T12:00:00.000Z",
-                category: "diagnostic",
-                level: "warn",
-                platform: "twitch",
-                message: "timeout while fetching inventory",
-              }],
+              events: [
+                {
+                  id: "diagnostic-1",
+                  at: "2026-08-01T12:00:00.000Z",
+                  category: "diagnostic",
+                  level: "warn",
+                  platform: "twitch",
+                  message: "timeout while fetching inventory",
+                },
+              ],
               nextCursor: "diagnostic-next",
             };
         return page as T;
@@ -108,8 +116,11 @@ async function mount(): Promise<{ container: HTMLElement; sent: RuntimeMessage[]
   if (!openActivity) throw new Error("Missing activity button");
   await act(async () => openActivity.click());
 
-  const diagnosticsTab = await waitForElement(() =>
-    container.querySelector<HTMLButtonElement>('[data-activity-view-tab="diagnostics"]') ?? undefined);
+  const diagnosticsTab = await waitForElement(
+    () =>
+      container.querySelector<HTMLButtonElement>('[data-activity-view-tab="diagnostics"]')
+      ?? undefined,
+  );
   await act(async () => diagnosticsTab.click());
 
   return { container, sent };
@@ -124,8 +135,13 @@ describe("popup diagnostic search requests", () => {
 
     act(() => setSearchQuery(input, " timeout "));
 
-    const request = await waitForMessage(sent, (message) =>
-      message.type === "getActivity" && message.category === "diagnostic" && message.query != null);
+    const request = await waitForMessage(
+      sent,
+      (message) =>
+        message.type === "getActivity"
+        && message.category === "diagnostic"
+        && message.query != null,
+    );
     expect(request).toEqual({
       type: "getActivity",
       platform: "twitch",
@@ -140,22 +156,34 @@ describe("popup diagnostic search requests", () => {
     const input = container.querySelector<HTMLInputElement>('input[type="search"]');
     if (!input) throw new Error("Missing diagnostics search input");
     act(() => setSearchQuery(input, " timeout "));
-    await waitForMessage(sent, (message) =>
-      message.type === "getActivity"
-      && message.category === "diagnostic"
-      && message.query != null
-      && !message.cursor);
+    await waitForMessage(
+      sent,
+      (message) =>
+        message.type === "getActivity"
+        && message.category === "diagnostic"
+        && message.query != null
+        && !message.cursor,
+    );
     sent.splice(0);
 
-    const loadMore = await waitForElement(() =>
-      [...container.querySelectorAll<HTMLButtonElement>("button")]
-        .find((button) => button.textContent === "Load more")
-      ?? [...container.querySelectorAll<HTMLButtonElement>("button")]
-        .find((button) => button.textContent === "loadMoreActivity"));
+    const loadMore = await waitForElement(
+      () =>
+        [...container.querySelectorAll<HTMLButtonElement>("button")].find(
+          (button) => button.textContent === "Load more",
+        )
+        ?? [...container.querySelectorAll<HTMLButtonElement>("button")].find(
+          (button) => button.textContent === "loadMoreActivity",
+        ),
+    );
     await act(async () => loadMore.click());
 
-    const request = await waitForMessage(sent, (message) =>
-      message.type === "getActivity" && message.category === "diagnostic" && message.cursor != null);
+    const request = await waitForMessage(
+      sent,
+      (message) =>
+        message.type === "getActivity"
+        && message.category === "diagnostic"
+        && message.cursor != null,
+    );
     expect(request).toEqual({
       type: "getActivity",
       platform: "twitch",

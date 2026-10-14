@@ -86,9 +86,12 @@ export function ActivityLog({
 }): React.ReactElement {
   const t = useT();
   const forPlatform = useMemo(
-    () => activityEvents.filter((event) =>
-      (!event.platform || event.platform === platform)
-      && !(event.category === "activity" && event.code === "auth_health_changed")),
+    () =>
+      activityEvents.filter(
+        (event) =>
+          (!event.platform || event.platform === platform)
+          && !(event.category === "activity" && event.code === "auth_health_changed"),
+      ),
     [activityEvents, platform],
   );
   const diagnosticsForPlatform = useMemo(
@@ -132,15 +135,18 @@ export function ActivityLog({
     if (!writeClipboard) return;
     // Built and written inside the click gesture: navigator.clipboard in the
     // popup needs the user activation, and nothing here needs a permission.
-    const text = buildActivityExport({
-      events: visible,
-      platform,
-      diagnostics: showDiagnostics,
-      version,
-      userAgent: typeof navigator === "undefined" ? "unknown" : navigator.userAgent,
-      locale,
-      at: new Date().toISOString(),
-    }, t);
+    const text = buildActivityExport(
+      {
+        events: visible,
+        platform,
+        diagnostics: showDiagnostics,
+        version,
+        userAgent: typeof navigator === "undefined" ? "unknown" : navigator.userAgent,
+        locale,
+        at: new Date().toISOString(),
+      },
+      t,
+    );
     const ok = await writeClipboard(text);
     setCopyFailed(!ok);
     setCopied(ok ? visible.length : null);
@@ -167,9 +173,16 @@ export function ActivityLog({
       <div className="flex items-center justify-between px-0.5">
         <span className="flex items-center gap-1.5 text-[11px] font-semibold text-zinc-600 dark:text-zinc-300">
           <Clock3 size={13} className="text-zinc-400" />
-          {t(showDiagnostics ? "platformDiagnostics" : "platformActivity", PLATFORMS[platform].label)}
+          {t(
+            showDiagnostics ? "platformDiagnostics" : "platformActivity",
+            PLATFORMS[platform].label,
+          )}
           {errorCount > 0 ? (
-            <span role="status" className="rounded-full px-1.5 py-0.5 text-[9px] font-bold text-white" style={{ backgroundColor: EVENT_LEVEL_COLOR.error }}>
+            <span
+              role="status"
+              className="rounded-full px-1.5 py-0.5 text-[9px] font-bold text-white"
+              style={{ backgroundColor: EVENT_LEVEL_COLOR.error }}
+            >
               {errorCount}
             </span>
           ) : null}
@@ -180,8 +193,14 @@ export function ActivityLog({
       </div>
       <div className="flex flex-wrap items-center gap-1.5">
         {diagnosticLogging ? (
-          <Tabs.Root value={showDiagnostics ? "diagnostics" : "activity"} onValueChange={(value) => onShowDiagnosticsChange(value === "diagnostics")}>
-            <Tabs.List activateOnFocus className="flex items-center gap-0.5 rounded-lg border border-zinc-200 bg-zinc-100/70 p-0.5 dark:border-zinc-800 dark:bg-black/30">
+          <Tabs.Root
+            value={showDiagnostics ? "diagnostics" : "activity"}
+            onValueChange={(value) => onShowDiagnosticsChange(value === "diagnostics")}
+          >
+            <Tabs.List
+              activateOnFocus
+              className="flex items-center gap-0.5 rounded-lg border border-zinc-200 bg-zinc-100/70 p-0.5 dark:border-zinc-800 dark:bg-black/30"
+            >
               {(["activity", "diagnostics"] as const).map((value) => (
                 <Tabs.Tab
                   key={value}
@@ -203,7 +222,9 @@ export function ActivityLog({
             className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-semibold transition disabled:opacity-50 ${copied === null ? "border-zinc-200 text-zinc-400 dark:border-zinc-700" : "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"}`}
           >
             {copied === null ? <Clipboard size={10} /> : <Check size={10} />}
-            {copied === null ? t(showDiagnostics ? "copyLoadedActivityLog" : "copyActivityLog") : t("copyActivityLogCopied", String(copied))}
+            {copied === null
+              ? t(showDiagnostics ? "copyLoadedActivityLog" : "copyActivityLog")
+              : t("copyActivityLogCopied", String(copied))}
           </button>
         ) : null}
         {showDiagnostics && onExportAll ? (
@@ -214,7 +235,9 @@ export function ActivityLog({
             className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-semibold transition disabled:opacity-50 ${exported === null ? "border-zinc-200 text-zinc-400 dark:border-zinc-700" : "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"}`}
           >
             {exported === null ? <Download size={10} /> : <Check size={10} />}
-            {exported === null ? t("exportAllDiagnostics") : t("exportAllDiagnosticsDone", String(exported))}
+            {exported === null
+              ? t("exportAllDiagnostics")
+              : t("exportAllDiagnosticsDone", String(exported))}
           </button>
         ) : null}
         <button
@@ -227,27 +250,44 @@ export function ActivityLog({
         </button>
       </div>
       {clearFailed ? (
-        <p role="alert" className="px-0.5 text-[10px] font-medium text-red-500">{t("clearActivityFailed")}</p>
+        <p role="alert" className="px-0.5 text-[10px] font-medium text-red-500">
+          {t("clearActivityFailed")}
+        </p>
       ) : null}
       {copyFailed ? (
-        <p role="alert" className="px-0.5 text-[10px] font-medium text-red-500">{t("copyActivityLogFailed")}</p>
+        <p role="alert" className="px-0.5 text-[10px] font-medium text-red-500">
+          {t("copyActivityLogFailed")}
+        </p>
       ) : null}
       {exportFailed ? (
-        <p role="alert" className="px-0.5 text-[10px] font-medium text-red-500">{t("exportAllDiagnosticsFailed")}</p>
+        <p role="alert" className="px-0.5 text-[10px] font-medium text-red-500">
+          {t("exportAllDiagnosticsFailed")}
+        </p>
       ) : null}
       {showDiagnostics ? (
-        <SearchBox compact value={searchQuery} onChange={onSearchQueryChange} placeholder={t("searchDiagnostics")} />
+        <SearchBox
+          compact
+          value={searchQuery}
+          onChange={onSearchQueryChange}
+          placeholder={t("searchDiagnostics")}
+        />
       ) : null}
       <div className="overflow-hidden rounded-xl border border-zinc-200/70 bg-white/70 dark:border-zinc-800 dark:bg-zinc-900/50">
         {visible.length === 0 ? (
-          <p className="px-2.5 py-6 text-center text-[11px] text-zinc-400">{showDiagnostics && searchingDiagnostics && trimmedSearchQuery ? t("noDiagnosticsMatch", trimmedSearchQuery) : t(showDiagnostics ? "noDiagnostics" : "noActivity")}</p>
+          <p className="px-2.5 py-6 text-center text-[11px] text-zinc-400">
+            {showDiagnostics && searchingDiagnostics && trimmedSearchQuery
+              ? t("noDiagnosticsMatch", trimmedSearchQuery)
+              : t(showDiagnostics ? "noDiagnostics" : "noActivity")}
+          </p>
         ) : (
           <ul className="space-y-1 p-1">
-            {visible.map((event) => (
-              showDiagnostics
-                ? <CompactActivityRow key={event.id} event={event} />
-                : <ActivityTimelineCard key={event.id} event={event} />
-            ))}
+            {visible.map((event) =>
+              showDiagnostics ? (
+                <CompactActivityRow key={event.id} event={event} />
+              ) : (
+                <ActivityTimelineCard key={event.id} event={event} />
+              ),
+            )}
           </ul>
         )}
       </div>
@@ -270,9 +310,16 @@ function CompactActivityRow({ event }: { event: ActivityHistoryRecord }): React.
 
   return (
     <li className="flex items-start gap-2 px-2.5 py-1.5 text-[11px] leading-snug">
-      <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: EVENT_LEVEL_COLOR[event.level] }} />
-      <span className="shrink-0 font-mono text-[10px] text-zinc-400">{formatEventTime(event.at)}</span>
-      <span className="min-w-0 break-words text-zinc-600 dark:text-zinc-300">{formatActivityEvent(event, t)}</span>
+      <span
+        className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full"
+        style={{ backgroundColor: EVENT_LEVEL_COLOR[event.level] }}
+      />
+      <span className="shrink-0 font-mono text-[10px] text-zinc-400">
+        {formatEventTime(event.at)}
+      </span>
+      <span className="min-w-0 break-words text-zinc-600 dark:text-zinc-300">
+        {formatActivityEvent(event, t)}
+      </span>
     </li>
   );
 }
@@ -293,14 +340,24 @@ function ActivityTimelineCard({ event }: { event: ActivityHistoryRecord }): Reac
       className="flex items-start gap-2 rounded-lg bg-zinc-50/70 px-2.5 py-2 text-[11px] leading-snug dark:bg-zinc-900/60"
     >
       <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--accent-softer)] text-[var(--accent-text)]">
-        {card.reward ? <ActivityRewardImage name={card.reward.name} imageUrl={card.reward.imageUrl} /> : <EventIcon icon={card.icon} aria-hidden="true" />}
+        {card.reward ? (
+          <ActivityRewardImage name={card.reward.name} imageUrl={card.reward.imageUrl} />
+        ) : (
+          <EventIcon icon={card.icon} aria-hidden="true" />
+        )}
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
-          <p className="min-w-0 break-words font-medium text-zinc-700 dark:text-zinc-200">{card.summary}</p>
-          <time className="shrink-0 font-mono text-[10px] text-zinc-400">{formatEventTime(event.at)}</time>
+          <p className="min-w-0 break-words font-medium text-zinc-700 dark:text-zinc-200">
+            {card.summary}
+          </p>
+          <time className="shrink-0 font-mono text-[10px] text-zinc-400">
+            {formatEventTime(event.at)}
+          </time>
         </div>
-        {card.detail ? <p className="mt-0.5 break-words text-zinc-500 dark:text-zinc-400">{card.detail}</p> : null}
+        {card.detail ? (
+          <p className="mt-0.5 break-words text-zinc-500 dark:text-zinc-400">{card.detail}</p>
+        ) : null}
         {card.chips.length > 0 ? (
           <div className="mt-1 flex flex-wrap gap-1">
             {card.chips.map((chip) => (
@@ -330,7 +387,13 @@ function ActivityTimelineCard({ event }: { event: ActivityHistoryRecord }): Reac
   );
 }
 
-function ActivityRewardImage({ name, imageUrl }: { name: string; imageUrl?: string }): React.ReactElement {
+function ActivityRewardImage({
+  name,
+  imageUrl,
+}: {
+  name: string;
+  imageUrl?: string;
+}): React.ReactElement {
   const source = imageUrl?.trim() || undefined;
   const initial = name.trim().charAt(0).toLocaleUpperCase() || "?";
 
@@ -340,12 +403,24 @@ function ActivityRewardImage({ name, imageUrl }: { name: string; imageUrl?: stri
       alt={name}
       fit="contain"
       className="p-0.5"
-      fallback={<span data-activity-reward-fallback role="img" aria-label={name} className="text-sm font-bold">{initial}</span>}
+      fallback={
+        <span
+          data-activity-reward-fallback
+          role="img"
+          aria-label={name}
+          className="text-sm font-bold"
+        >
+          {initial}
+        </span>
+      }
     />
   );
 }
 
-function EventIcon({ icon, ...props }: { icon: ActivityCardIcon } & React.ComponentProps<LucideIcon>): React.ReactElement {
+function EventIcon({
+  icon,
+  ...props
+}: { icon: ActivityCardIcon } & React.ComponentProps<LucideIcon>): React.ReactElement {
   const icons = {
     gift: Gift,
     play: Play,
@@ -362,12 +437,19 @@ function EventIcon({ icon, ...props }: { icon: ActivityCardIcon } & React.Compon
   return <Icon size={17} {...props} />;
 }
 
-function activityCardPillTone(tone: ActivityCardTone): "muted" | "accent" | "live" | "warning" | "danger" {
+function activityCardPillTone(
+  tone: ActivityCardTone,
+): "muted" | "accent" | "live" | "warning" | "danger" {
   switch (tone) {
-    case "success": return "live";
-    case "accent": return "accent";
-    case "danger": return "danger";
-    case "warning": return "warning";
-    case "muted": return "muted";
+    case "success":
+      return "live";
+    case "accent":
+      return "accent";
+    case "danger":
+      return "danger";
+    case "warning":
+      return "warning";
+    case "muted":
+      return "muted";
   }
 }

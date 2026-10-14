@@ -1,5 +1,18 @@
-import type { DropCampaign, DropReward, EngineSettings, Platform, SchedulerState, WatchReasonCode, WatchSession } from "@lurkloot/shared/models";
-import type { ActivityEvent, EngineEvent, EventEmitter, FarmingStopReason } from "@lurkloot/shared/events";
+import type {
+  DropCampaign,
+  DropReward,
+  EngineSettings,
+  Platform,
+  SchedulerState,
+  WatchReasonCode,
+  WatchSession,
+} from "@lurkloot/shared/models";
+import type {
+  ActivityEvent,
+  EngineEvent,
+  EventEmitter,
+  FarmingStopReason,
+} from "@lurkloot/shared/events";
 import type { SettingsEffects } from "./stateTransaction";
 import type { TickDiagnosticContext, TickTrigger } from "./types";
 
@@ -8,7 +21,8 @@ export function correlateTickDiagnostics(
   tickContext: TickDiagnosticContext,
 ): EngineEvent[] {
   return events.map((event) =>
-    event.category === "diagnostic" ? { ...event, ...tickContext } : event);
+    event.category === "diagnostic" ? { ...event, ...tickContext } : event,
+  );
 }
 
 // The tick a settings commit asks for. A change that only reorders what is
@@ -57,16 +71,19 @@ export function emitHostCallbackError(
   });
 }
 
-export function farmingLifecycleEvents(previous: SchedulerState, next: SchedulerState): ActivityEvent[] {
+export function farmingLifecycleEvents(
+  previous: SchedulerState,
+  next: SchedulerState,
+): ActivityEvent[] {
   const events: ActivityEvent[] = [];
   for (const platform of ["twitch", "kick"] as Platform[]) {
     const before = farmingTarget(previous, platform);
     const after = farmingTarget(next, platform);
     const sameTarget = Boolean(
       before
-      && after
-      && before.campaign.id === after.campaign.id
-      && before.reward.id === after.reward.id,
+        && after
+        && before.campaign.id === after.campaign.id
+        && before.reward.id === after.reward.id,
     );
     if (sameTarget) continue;
 
@@ -74,9 +91,10 @@ export function farmingLifecycleEvents(previous: SchedulerState, next: Scheduler
       const updatedReward = next.campaigns[platform]
         .find((campaign) => campaign.id === before.campaign.id)
         ?.rewards.find((reward) => reward.id === before.reward.id);
-      const reason = updatedReward?.status === "claimed" || updatedReward?.status === "claimable"
-        ? "watch_requirement_completed"
-        : farmingStopReason(next.sessions[platform]);
+      const reason =
+        updatedReward?.status === "claimed" || updatedReward?.status === "claimable"
+          ? "watch_requirement_completed"
+          : farmingStopReason(next.sessions[platform]);
       events.push({
         category: "activity",
         platform,
@@ -106,7 +124,9 @@ export function farmingLifecycleEvents(previous: SchedulerState, next: Scheduler
           rewardName: after.reward.name,
           ...(after.reward.imageUrl ? { rewardImageUrl: after.reward.imageUrl } : {}),
           ...(after.campaign.url ? { campaignUrl: after.campaign.url } : {}),
-          ...(after.session.channel ? { channel: after.session.channel.displayName ?? after.session.channel.username } : {}),
+          ...(after.session.channel
+            ? { channel: after.session.channel.displayName ?? after.session.channel.username }
+            : {}),
         },
       });
     } else if (!before) {
@@ -129,14 +149,21 @@ export function farmingLifecycleEvents(previous: SchedulerState, next: Scheduler
   return events;
 }
 
-export function farmingTarget(state: SchedulerState, platform: Platform): {
-  session: WatchSession;
-  campaign: DropCampaign;
-  reward: DropReward;
-} | undefined {
+export function farmingTarget(
+  state: SchedulerState,
+  platform: Platform,
+):
+  | {
+      session: WatchSession;
+      campaign: DropCampaign;
+      reward: DropReward;
+    }
+  | undefined {
   const session = state.sessions[platform];
   if (session.status !== "watching" || !session.campaignId || !session.rewardId) return undefined;
-  const campaign = state.campaigns[platform].find((candidate) => candidate.id === session.campaignId);
+  const campaign = state.campaigns[platform].find(
+    (candidate) => candidate.id === session.campaignId,
+  );
   const reward = campaign?.rewards.find((candidate) => candidate.id === session.rewardId);
   return campaign && reward ? { session, campaign, reward } : undefined;
 }
@@ -145,7 +172,9 @@ export function farmingStopReason(session: WatchSession): FarmingStopReason {
   const code = session.reasonCode;
   return code && isFarmingStopReason(code)
     ? code
-    : session.status === "error" ? "platform_error" : "target_changed";
+    : session.status === "error"
+      ? "platform_error"
+      : "target_changed";
 }
 
 export function isFarmingStopReason(code: WatchReasonCode): code is FarmingStopReason {

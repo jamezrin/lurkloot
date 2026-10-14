@@ -61,18 +61,36 @@ export async function pollForToken(
     });
     const data = (await response.json()) as TokenResponse;
     if (data.access_token) return data.access_token;
-    if (data.message === "authorization_pending" || data.error === "authorization_pending") continue;
-    if (data.message === "slow_down" || data.error === "slow_down") { intervalMs += 5000; continue; }
-    throw new Error(`Device authorization failed: ${data.message ?? data.error ?? "unknown error"}`);
+    if (data.message === "authorization_pending" || data.error === "authorization_pending")
+      continue;
+    if (data.message === "slow_down" || data.error === "slow_down") {
+      intervalMs += 5000;
+      continue;
+    }
+    throw new Error(
+      `Device authorization failed: ${data.message ?? data.error ?? "unknown error"}`,
+    );
   }
   throw new Error("Device code expired before authorization");
 }
 
-export async function twitchDeviceLogin(authDir: string, logger: Logger, clientId = TWITCH_SMARTBOX_CLIENT_ID): Promise<void> {
+export async function twitchDeviceLogin(
+  authDir: string,
+  logger: Logger,
+  clientId = TWITCH_SMARTBOX_CLIENT_ID,
+): Promise<void> {
   const code = await requestDeviceCode(clientId);
   logger.info(`Open ${code.verification_uri} and enter code: ${code.user_code}`, "login");
-  logger.info(`Waiting for authorization (expires in ${Math.round(code.expires_in / 60)} min)…`, "login");
-  const accessToken = await pollForToken(code.device_code, code.interval, code.expires_in, clientId);
+  logger.info(
+    `Waiting for authorization (expires in ${Math.round(code.expires_in / 60)} min)…`,
+    "login",
+  );
+  const accessToken = await pollForToken(
+    code.device_code,
+    code.interval,
+    code.expires_in,
+    clientId,
+  );
   saveCredentials(authDir, { twitch: { authToken: accessToken, clientId } });
   logger.info("Twitch device login complete; token saved", "login");
 }

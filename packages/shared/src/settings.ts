@@ -1,5 +1,23 @@
-import type { AdFocusMode, CategoryMode, CategorySelection, CompatibilitySettings, EngineSettings, ExtensionSettings, GithubStarNudgeStatus, KickPlatformSettings, LanguageOverride, Platform, PriorityMode, RateNudgeStatus, SupportedLocale, TwitchPlatformSettings } from "./models";
-import { DEFAULT_WATCH_SOURCE_PRIORITY, normalizePlatformWatchSourcePriority } from "./watchSources";
+import type {
+  AdFocusMode,
+  CategoryMode,
+  CategorySelection,
+  CompatibilitySettings,
+  EngineSettings,
+  ExtensionSettings,
+  GithubStarNudgeStatus,
+  KickPlatformSettings,
+  LanguageOverride,
+  Platform,
+  PriorityMode,
+  RateNudgeStatus,
+  SupportedLocale,
+  TwitchPlatformSettings,
+} from "./models";
+import {
+  DEFAULT_WATCH_SOURCE_PRIORITY,
+  normalizePlatformWatchSourcePriority,
+} from "./watchSources";
 
 const FARMING_PLATFORMS: Platform[] = ["twitch", "kick"];
 const AD_FOCUS_MODES: AdFocusMode[] = ["none", "tab", "window"];
@@ -7,10 +25,24 @@ const PRIORITY_MODES: PriorityMode[] = ["ending_soonest", "lowest_availability"]
 const RATE_NUDGE_STATUSES: RateNudgeStatus[] = ["pending", "rated", "dismissed"];
 const GITHUB_STAR_NUDGE_STATUSES: GithubStarNudgeStatus[] = ["pending", "starred", "dismissed"];
 export const CATEGORY_MODES: CategoryMode[] = ["all", "include"];
-export const SUPPORTED_LOCALES: SupportedLocale[] = ["en", "es", "fr", "it", "ru", "de", "zh_CN", "hi", "pt_BR", "ar", "tr"];
+export const SUPPORTED_LOCALES: SupportedLocale[] = [
+  "en",
+  "es",
+  "fr",
+  "it",
+  "ru",
+  "de",
+  "zh_CN",
+  "hi",
+  "pt_BR",
+  "ar",
+  "tr",
+];
 const LANGUAGE_OVERRIDES: LanguageOverride[] = ["browser", ...SUPPORTED_LOCALES];
 
-export type SettingsPatch = Partial<Omit<ExtensionSettings, "platform" | "compatibility" | "farmingEligibility" | "twitchExtensions">> & {
+export type SettingsPatch = Partial<
+  Omit<ExtensionSettings, "platform" | "compatibility" | "farmingEligibility" | "twitchExtensions">
+> & {
   twitchExtensions?: {
     nopixel?: Partial<ExtensionSettings["twitchExtensions"]["nopixel"]>;
     fortnite?: Partial<ExtensionSettings["twitchExtensions"]["fortnite"]>;
@@ -107,7 +139,10 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
 // The extension's full defaults: the engine contract plus the host-only knobs.
 export const DEFAULT_SETTINGS: ExtensionSettings = {
   ...DEFAULT_ENGINE_SETTINGS,
-  twitchExtensions: { nopixel: { enabled: false, autoOpenPacks: false }, fortnite: { enabled: false, allowTakeovers: false } },
+  twitchExtensions: {
+    nopixel: { enabled: false, autoOpenPacks: false },
+    fortnite: { enabled: false, allowTakeovers: false },
+  },
   kickPageContextRecoverySuccesses: 3,
   muteFarmingTabs: true,
   keepFarmingVideosUnmuted: true,
@@ -139,20 +174,48 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
   return {
     autoClaim: booleanOr(value?.autoClaim, DEFAULT_ENGINE_SETTINGS.autoClaim),
     tablessMode: booleanOr(value?.tablessMode, DEFAULT_ENGINE_SETTINGS.tablessMode),
-    pauseOnManualWatch: booleanOr(value?.pauseOnManualWatch, DEFAULT_ENGINE_SETTINGS.pauseOnManualWatch),
-    notifyRewardEarned: booleanOr(value?.notifyRewardEarned, DEFAULT_ENGINE_SETTINGS.notifyRewardEarned),
-    notifyNoDropsLeft: booleanOr(value?.notifyNoDropsLeft, DEFAULT_ENGINE_SETTINGS.notifyNoDropsLeft),
-    autoStartDropFarming: booleanOr(value?.autoStartDropFarming, DEFAULT_ENGINE_SETTINGS.autoStartDropFarming),
-    idleWatchlistFallbackOnly: booleanOr(value?.idleWatchlistFallbackOnly, DEFAULT_ENGINE_SETTINGS.idleWatchlistFallbackOnly),
-    preferKnownChannels: booleanOr(value?.preferKnownChannels, DEFAULT_ENGINE_SETTINGS.preferKnownChannels),
+    pauseOnManualWatch: booleanOr(
+      value?.pauseOnManualWatch,
+      DEFAULT_ENGINE_SETTINGS.pauseOnManualWatch,
+    ),
+    notifyRewardEarned: booleanOr(
+      value?.notifyRewardEarned,
+      DEFAULT_ENGINE_SETTINGS.notifyRewardEarned,
+    ),
+    notifyNoDropsLeft: booleanOr(
+      value?.notifyNoDropsLeft,
+      DEFAULT_ENGINE_SETTINGS.notifyNoDropsLeft,
+    ),
+    autoStartDropFarming: booleanOr(
+      value?.autoStartDropFarming,
+      DEFAULT_ENGINE_SETTINGS.autoStartDropFarming,
+    ),
+    idleWatchlistFallbackOnly: booleanOr(
+      value?.idleWatchlistFallbackOnly,
+      DEFAULT_ENGINE_SETTINGS.idleWatchlistFallbackOnly,
+    ),
+    preferKnownChannels: booleanOr(
+      value?.preferKnownChannels,
+      DEFAULT_ENGINE_SETTINGS.preferKnownChannels,
+    ),
     priorityMode: PRIORITY_MODES.includes(value?.priorityMode as PriorityMode)
       ? (value!.priorityMode as PriorityMode)
       : DEFAULT_ENGINE_SETTINGS.priorityMode,
     platform: {
       twitch: {
-        enabled: booleanOr(platform?.twitch?.enabled, DEFAULT_ENGINE_SETTINGS.platform.twitch.enabled),
-        watchSourcePriority: normalizePlatformWatchSourcePriority("twitch", platform?.twitch, value?.idleWatchlistFallbackOnly),
-        idleWatchlistChannels: normalizeChannelList(platform?.twitch?.idleWatchlistChannels, IDLE_WATCHLIST_LIMIT),
+        enabled: booleanOr(
+          platform?.twitch?.enabled,
+          DEFAULT_ENGINE_SETTINGS.platform.twitch.enabled,
+        ),
+        watchSourcePriority: normalizePlatformWatchSourcePriority(
+          "twitch",
+          platform?.twitch,
+          value?.idleWatchlistFallbackOnly,
+        ),
+        idleWatchlistChannels: normalizeChannelList(
+          platform?.twitch?.idleWatchlistChannels,
+          IDLE_WATCHLIST_LIMIT,
+        ),
         excludedChannels: normalizeChannelList(platform?.twitch?.excludedChannels),
         categoryMode: normalizeCategoryMode(platform?.twitch?.categoryMode),
         categories: normalizeCategorySelections(platform?.twitch?.categories),
@@ -160,14 +223,30 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
         blockedCategories: normalizeCategorySelections(platform?.twitch?.blockedCategories),
         subscribedRewardMarks: normalizeSubscriptionMarks(platform?.twitch?.subscribedRewardMarks),
         alwaysEnterChat: booleanOr(platform?.twitch?.alwaysEnterChat, false),
-        autoClaimChannelPoints: booleanOr(platform?.twitch?.autoClaimChannelPoints, DEFAULT_ENGINE_SETTINGS.platform.twitch.autoClaimChannelPoints),
-        strictCampaignAvailability: booleanOr(platform?.twitch?.strictCampaignAvailability, DEFAULT_ENGINE_SETTINGS.platform.twitch.strictCampaignAvailability),
-        channelPointsPushClaim: booleanOr(platform?.twitch?.channelPointsPushClaim, DEFAULT_ENGINE_SETTINGS.platform.twitch.channelPointsPushClaim),
+        autoClaimChannelPoints: booleanOr(
+          platform?.twitch?.autoClaimChannelPoints,
+          DEFAULT_ENGINE_SETTINGS.platform.twitch.autoClaimChannelPoints,
+        ),
+        strictCampaignAvailability: booleanOr(
+          platform?.twitch?.strictCampaignAvailability,
+          DEFAULT_ENGINE_SETTINGS.platform.twitch.strictCampaignAvailability,
+        ),
+        channelPointsPushClaim: booleanOr(
+          platform?.twitch?.channelPointsPushClaim,
+          DEFAULT_ENGINE_SETTINGS.platform.twitch.channelPointsPushClaim,
+        ),
       },
       kick: {
         enabled: booleanOr(platform?.kick?.enabled, DEFAULT_ENGINE_SETTINGS.platform.kick.enabled),
-        watchSourcePriority: normalizePlatformWatchSourcePriority("kick", platform?.kick, value?.idleWatchlistFallbackOnly),
-        idleWatchlistChannels: normalizeChannelList(platform?.kick?.idleWatchlistChannels, IDLE_WATCHLIST_LIMIT),
+        watchSourcePriority: normalizePlatformWatchSourcePriority(
+          "kick",
+          platform?.kick,
+          value?.idleWatchlistFallbackOnly,
+        ),
+        idleWatchlistChannels: normalizeChannelList(
+          platform?.kick?.idleWatchlistChannels,
+          IDLE_WATCHLIST_LIMIT,
+        ),
         excludedChannels: normalizeChannelList(platform?.kick?.excludedChannels),
         categoryMode: normalizeCategoryMode(platform?.kick?.categoryMode),
         categories: normalizeCategorySelections(platform?.kick?.categories),
@@ -175,14 +254,19 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
         blockedCategories: normalizeCategorySelections(platform?.kick?.blockedCategories),
         subscribedRewardMarks: normalizeSubscriptionMarks(platform?.kick?.subscribedRewardMarks),
         alwaysEnterChat: booleanOr(platform?.kick?.alwaysEnterChat, false),
-        autoClaimChallenges: booleanOr(platform?.kick?.autoClaimChallenges, DEFAULT_ENGINE_SETTINGS.platform.kick.autoClaimChallenges),
+        autoClaimChallenges: booleanOr(
+          platform?.kick?.autoClaimChallenges,
+          DEFAULT_ENGINE_SETTINGS.platform.kick.autoClaimChallenges,
+        ),
       },
     },
     compatibility: {
       twitch: {
         profile: compatibilitySelectionOrAuto(compatibility?.twitch?.profile),
         heartbeatTransport: compatibilitySelectionOrAuto(compatibility?.twitch?.heartbeatTransport),
-        inventoryQueryVersion: compatibilitySelectionOrAuto(compatibility?.twitch?.inventoryQueryVersion),
+        inventoryQueryVersion: compatibilitySelectionOrAuto(
+          compatibility?.twitch?.inventoryQueryVersion,
+        ),
       },
       kick: {
         profile: compatibilitySelectionOrAuto(compatibility?.kick?.profile),
@@ -193,7 +277,12 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
     farmPinnedOnly: booleanOr(value?.farmPinnedOnly, DEFAULT_ENGINE_SETTINGS.farmPinnedOnly),
     excludedCampaignIds: normalizeIdList(value?.excludedCampaignIds),
     farmingEligibility: normalizeFarmingEligibility(value?.farmingEligibility),
-    offlineRetryLimit: clampInteger(value?.offlineRetryLimit, 1, 10, DEFAULT_ENGINE_SETTINGS.offlineRetryLimit),
+    offlineRetryLimit: clampInteger(
+      value?.offlineRetryLimit,
+      1,
+      10,
+      DEFAULT_ENGINE_SETTINGS.offlineRetryLimit,
+    ),
     tablessFallbackFailureLimit: clampInteger(
       value?.tablessFallbackFailureLimit,
       1,
@@ -207,16 +296,32 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
       DEFAULT_ENGINE_SETTINGS.pollIntervalMinutes,
     ),
     postClaimHandoff: booleanOr(value?.postClaimHandoff, DEFAULT_ENGINE_SETTINGS.postClaimHandoff),
-    postClaimHandoffIntervalSeconds: clampInteger(value?.postClaimHandoffIntervalSeconds, 1, 30, DEFAULT_ENGINE_SETTINGS.postClaimHandoffIntervalSeconds),
-    postClaimHandoffMaxSeconds: clampInteger(value?.postClaimHandoffMaxSeconds, 5, 120, DEFAULT_ENGINE_SETTINGS.postClaimHandoffMaxSeconds),
-    skipUnfinishableRewards: booleanOr(value?.skipUnfinishableRewards, DEFAULT_ENGINE_SETTINGS.skipUnfinishableRewards),
+    postClaimHandoffIntervalSeconds: clampInteger(
+      value?.postClaimHandoffIntervalSeconds,
+      1,
+      30,
+      DEFAULT_ENGINE_SETTINGS.postClaimHandoffIntervalSeconds,
+    ),
+    postClaimHandoffMaxSeconds: clampInteger(
+      value?.postClaimHandoffMaxSeconds,
+      5,
+      120,
+      DEFAULT_ENGINE_SETTINGS.postClaimHandoffMaxSeconds,
+    ),
+    skipUnfinishableRewards: booleanOr(
+      value?.skipUnfinishableRewards,
+      DEFAULT_ENGINE_SETTINGS.skipUnfinishableRewards,
+    ),
     deadlineSafetyMarginMinutes: clampInteger(
       value?.deadlineSafetyMarginMinutes,
       0,
       60,
       DEFAULT_ENGINE_SETTINGS.deadlineSafetyMarginMinutes,
     ),
-    criticalFailurePromptEnabled: booleanOr(value?.criticalFailurePromptEnabled, DEFAULT_ENGINE_SETTINGS.criticalFailurePromptEnabled),
+    criticalFailurePromptEnabled: booleanOr(
+      value?.criticalFailurePromptEnabled,
+      DEFAULT_ENGINE_SETTINGS.criticalFailurePromptEnabled,
+    ),
   };
 }
 
@@ -226,7 +331,10 @@ export function mergeSettings(value: Partial<ExtensionSettings> | undefined): Ex
   return {
     ...mergeEngineSettings(value),
     twitchExtensions: {
-      nopixel: { enabled: booleanOr(value?.twitchExtensions?.nopixel?.enabled, false), autoOpenPacks: booleanOr(value?.twitchExtensions?.nopixel?.autoOpenPacks, false) },
+      nopixel: {
+        enabled: booleanOr(value?.twitchExtensions?.nopixel?.enabled, false),
+        autoOpenPacks: booleanOr(value?.twitchExtensions?.nopixel?.autoOpenPacks, false),
+      },
       fortnite: {
         enabled: booleanOr(value?.twitchExtensions?.fortnite?.enabled, false),
         allowTakeovers: booleanOr(value?.twitchExtensions?.fortnite?.allowTakeovers, false),
@@ -239,8 +347,14 @@ export function mergeSettings(value: Partial<ExtensionSettings> | undefined): Ex
       DEFAULT_SETTINGS.kickPageContextRecoverySuccesses,
     ),
     muteFarmingTabs: booleanOr(value?.muteFarmingTabs, DEFAULT_SETTINGS.muteFarmingTabs),
-    keepFarmingVideosUnmuted: booleanOr(value?.keepFarmingVideosUnmuted, DEFAULT_SETTINGS.keepFarmingVideosUnmuted),
-    autoCloseFinishedDrops: booleanOr(value?.autoCloseFinishedDrops, DEFAULT_SETTINGS.autoCloseFinishedDrops),
+    keepFarmingVideosUnmuted: booleanOr(
+      value?.keepFarmingVideosUnmuted,
+      DEFAULT_SETTINGS.keepFarmingVideosUnmuted,
+    ),
+    autoCloseFinishedDrops: booleanOr(
+      value?.autoCloseFinishedDrops,
+      DEFAULT_SETTINGS.autoCloseFinishedDrops,
+    ),
     adFocusMode: AD_FOCUS_MODES.includes(value?.adFocusMode as AdFocusMode)
       ? (value!.adFocusMode as AdFocusMode)
       : DEFAULT_SETTINGS.adFocusMode,
@@ -248,7 +362,9 @@ export function mergeSettings(value: Partial<ExtensionSettings> | undefined): Ex
     rateNudgeStatus: RATE_NUDGE_STATUSES.includes(value?.rateNudgeStatus as RateNudgeStatus)
       ? (value!.rateNudgeStatus as RateNudgeStatus)
       : DEFAULT_SETTINGS.rateNudgeStatus,
-    githubStarNudgeStatus: GITHUB_STAR_NUDGE_STATUSES.includes(value?.githubStarNudgeStatus as GithubStarNudgeStatus)
+    githubStarNudgeStatus: GITHUB_STAR_NUDGE_STATUSES.includes(
+      value?.githubStarNudgeStatus as GithubStarNudgeStatus,
+    )
       ? (value!.githubStarNudgeStatus as GithubStarNudgeStatus)
       : DEFAULT_SETTINGS.githubStarNudgeStatus,
     showTips: booleanOr(value?.showTips, DEFAULT_SETTINGS.showTips),
@@ -258,10 +374,15 @@ export function mergeSettings(value: Partial<ExtensionSettings> | undefined): Ex
 }
 
 function normalizeLanguageOverride(value: LanguageOverride | undefined): LanguageOverride {
-  return LANGUAGE_OVERRIDES.includes(value as LanguageOverride) ? (value as LanguageOverride) : DEFAULT_SETTINGS.languageOverride;
+  return LANGUAGE_OVERRIDES.includes(value as LanguageOverride)
+    ? (value as LanguageOverride)
+    : DEFAULT_SETTINGS.languageOverride;
 }
 
-export function applySettingsPatch(current: ExtensionSettings, patch: SettingsPatch): ExtensionSettings {
+export function applySettingsPatch(
+  current: ExtensionSettings,
+  patch: SettingsPatch,
+): ExtensionSettings {
   return mergeSettings({
     ...current,
     ...patch,
@@ -305,12 +426,22 @@ export function booleanOr(value: boolean | undefined, fallback: boolean): boolea
   return typeof value === "boolean" ? value : fallback;
 }
 
-export function clampInteger(value: number | undefined, min: number, max: number, fallback: number): number {
+export function clampInteger(
+  value: number | undefined,
+  min: number,
+  max: number,
+  fallback: number,
+): number {
   if (value == null || !Number.isFinite(value)) return fallback;
   return Math.min(max, Math.max(min, Math.round(value)));
 }
 
-export function clampNumber(value: number | undefined, min: number, max: number, fallback: number): number {
+export function clampNumber(
+  value: number | undefined,
+  min: number,
+  max: number,
+  fallback: number,
+): number {
   if (value == null || !Number.isFinite(value)) return fallback;
   return Math.min(max, Math.max(min, value));
 }
@@ -343,7 +474,9 @@ export function normalizeCategoryMode(value: unknown): CategoryMode {
   return CATEGORY_MODES.includes(value as CategoryMode) ? (value as CategoryMode) : "all";
 }
 
-export function normalizeCategorySelections(value: CategorySelection[] | undefined): CategorySelection[] {
+export function normalizeCategorySelections(
+  value: CategorySelection[] | undefined,
+): CategorySelection[] {
   if (!Array.isArray(value)) return [];
   const seen = new Set<string>();
   const result: CategorySelection[] = [];
@@ -365,10 +498,14 @@ export function normalizeCategorySelections(value: CategorySelection[] | undefin
 // use this too: order is the data, so the list is kept as given.
 export function normalizeIdList(value: string[] | undefined): string[] {
   if (!Array.isArray(value)) return [];
-  return [...new Set(value
-    .filter((item): item is string => typeof item === "string")
-    .map((item) => item.trim())
-    .filter(Boolean))];
+  return [
+    ...new Set(
+      value
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => item.trim())
+        .filter(Boolean),
+    ),
+  ];
 }
 
 // Subscription marks are "<campaignId>:<rewardId>". Ids are matched verbatim,
@@ -386,8 +523,14 @@ export function normalizeFarmingEligibility(
   value: Partial<EngineSettings["farmingEligibility"]> | undefined,
 ): EngineSettings["farmingEligibility"] {
   return {
-    farmUnlinkedCampaigns: booleanOr(value?.farmUnlinkedCampaigns, DEFAULT_ENGINE_SETTINGS.farmingEligibility.farmUnlinkedCampaigns),
-    farmSubscriptionCampaigns: booleanOr(value?.farmSubscriptionCampaigns, DEFAULT_ENGINE_SETTINGS.farmingEligibility.farmSubscriptionCampaigns),
+    farmUnlinkedCampaigns: booleanOr(
+      value?.farmUnlinkedCampaigns,
+      DEFAULT_ENGINE_SETTINGS.farmingEligibility.farmUnlinkedCampaigns,
+    ),
+    farmSubscriptionCampaigns: booleanOr(
+      value?.farmSubscriptionCampaigns,
+      DEFAULT_ENGINE_SETTINGS.farmingEligibility.farmSubscriptionCampaigns,
+    ),
   };
 }
 
@@ -399,10 +542,14 @@ export const IDLE_WATCHLIST_LIMIT = 20;
 
 export function normalizeChannelList(value: string[] | undefined, limit?: number): string[] {
   if (!Array.isArray(value)) return [];
-  const channels = [...new Set(value
-    .filter((item): item is string => typeof item === "string")
-    .map((item) => item.trim().replace(/^@+/, "").toLowerCase())
-    .filter(Boolean))];
+  const channels = [
+    ...new Set(
+      value
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => item.trim().replace(/^@+/, "").toLowerCase())
+        .filter(Boolean),
+    ),
+  ];
   return limit === undefined ? channels : channels.slice(0, limit);
 }
 

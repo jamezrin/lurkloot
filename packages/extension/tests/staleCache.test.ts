@@ -71,7 +71,11 @@ describe("StaleWhileRevalidateCache", () => {
   it("clears the in-flight guard even if perform rejects, despite that being against contract", async () => {
     const cache = new StaleWhileRevalidateCache<string[]>(1000);
 
-    await expect(cache.refreshOnce(async () => { throw new Error("boom"); })).rejects.toThrow("boom");
+    await expect(
+      cache.refreshOnce(async () => {
+        throw new Error("boom");
+      }),
+    ).rejects.toThrow("boom");
     expect(cache.get()).toBeUndefined();
 
     await expect(cache.refreshOnce(async () => ["recovered"])).resolves.toBeUndefined();

@@ -1,4 +1,7 @@
-import { twitchExtensionProviderOrigins, twitchExtensionProviders } from "@lurkloot/core/extensions/registry";
+import {
+  twitchExtensionProviderOrigins,
+  twitchExtensionProviders,
+} from "@lurkloot/core/extensions/registry";
 
 interface ProviderManifest {
   manifest_version?: number;
@@ -13,12 +16,21 @@ export function applyProviderOptionalPermissions(manifest: ProviderManifest): vo
   const origins = twitchExtensionProviders.flatMap(twitchExtensionProviderOrigins);
   // Backend access is optional. Required grants are never modified here.
   if (manifest.manifest_version === 2) {
-    manifest.optional_permissions = [...new Set([...(manifest.optional_permissions ?? []), ...(manifest.optional_host_permissions ?? []), ...origins])];
+    manifest.optional_permissions = [
+      ...new Set([
+        ...(manifest.optional_permissions ?? []),
+        ...(manifest.optional_host_permissions ?? []),
+        ...origins,
+      ]),
+    ];
     delete manifest.optional_host_permissions;
   } else {
     // Chrome 116+ keeps MV3 workers alive through the vendor’s normal WebSocket
     // ping traffic. Older Chrome cannot reliably host a fully tabless socket.
-    if (!(Number.parseInt(manifest.minimum_chrome_version ?? "", 10) >= 116)) manifest.minimum_chrome_version = "116";
-    manifest.optional_host_permissions = [...new Set([...(manifest.optional_host_permissions ?? []), ...origins])];
+    if (!(Number.parseInt(manifest.minimum_chrome_version ?? "", 10) >= 116))
+      manifest.minimum_chrome_version = "116";
+    manifest.optional_host_permissions = [
+      ...new Set([...(manifest.optional_host_permissions ?? []), ...origins]),
+    ];
   }
 }

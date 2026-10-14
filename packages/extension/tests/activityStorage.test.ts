@@ -1,7 +1,10 @@
 import "fake-indexeddb/auto";
 import type { EngineEvent, StoredLegacyEvent } from "@lurkloot/shared/events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createActivityRepositoryForTest, type ActivityRepository } from "../src/core/activityStorage";
+import {
+  createActivityRepositoryForTest,
+  type ActivityRepository,
+} from "../src/core/activityStorage";
 
 const NOW = new Date("2026-07-14T12:00:00.000Z");
 const DAY_MS = 24 * 60 * 60 * 1_000;
@@ -72,14 +75,16 @@ describe("activity repository", () => {
   }, 30_000);
 
   it("round-trips diagnostic controller and tick correlation fields", async () => {
-    await repository.append([{
-      category: "diagnostic",
-      level: "debug",
-      message: "correlated diagnostic",
-      controllerRunId: "controller-run-id",
-      globalTickId: 42,
-      platformTickId: 7,
-    }]);
+    await repository.append([
+      {
+        category: "diagnostic",
+        level: "debug",
+        message: "correlated diagnostic",
+        controllerRunId: "controller-run-id",
+        globalTickId: 42,
+        platformTickId: 7,
+      },
+    ]);
 
     const [stored] = (await repository.load({ category: "diagnostic" })).events;
 
@@ -95,30 +100,39 @@ describe("activity repository", () => {
     await repository.append(Array.from({ length: 2_001 }, (_, index) => diagnosticEvent(index)));
     await repository.prune();
 
-    expect((await repository.load({ category: "activity" })).events.map((event) => event.data))
-      .toContainEqual(expect.objectContaining({ rewardId: "a" }));
+    expect(
+      (await repository.load({ category: "activity" })).events.map((event) => event.data),
+    ).toContainEqual(expect.objectContaining({ rewardId: "a" }));
     expect(await repository.count("diagnostic")).toBe(2_000);
-    expect((await repository.load({ category: "diagnostic", limit: 100 })).events).toHaveLength(100);
+    expect((await repository.load({ category: "diagnostic", limit: 100 })).events).toHaveLength(
+      100,
+    );
   }, 30_000);
 
   it("does not double-count expired rows while enforcing the cap", async () => {
     await repository.importLegacy([
-      ...Array.from({ length: 100 }, (_, index): StoredLegacyEvent => ({
-        id: `expired-${String(index).padStart(4, "0")}`,
-        at: new Date(NOW.getTime() - 31 * DAY_MS - index).toISOString(),
-        category: "activity",
-        level: "info",
-        message: "expired",
-        legacy: true,
-      })),
-      ...Array.from({ length: 2_000 }, (_, index): StoredLegacyEvent => ({
-        id: `current-${String(index).padStart(4, "0")}`,
-        at: new Date(NOW.getTime() - DAY_MS + index).toISOString(),
-        category: "activity",
-        level: "info",
-        message: "current",
-        legacy: true,
-      })),
+      ...Array.from(
+        { length: 100 },
+        (_, index): StoredLegacyEvent => ({
+          id: `expired-${String(index).padStart(4, "0")}`,
+          at: new Date(NOW.getTime() - 31 * DAY_MS - index).toISOString(),
+          category: "activity",
+          level: "info",
+          message: "expired",
+          legacy: true,
+        }),
+      ),
+      ...Array.from(
+        { length: 2_000 },
+        (_, index): StoredLegacyEvent => ({
+          id: `current-${String(index).padStart(4, "0")}`,
+          at: new Date(NOW.getTime() - DAY_MS + index).toISOString(),
+          category: "activity",
+          level: "info",
+          message: "current",
+          legacy: true,
+        }),
+      ),
     ]);
 
     await repository.prune();
@@ -130,7 +144,11 @@ describe("activity repository", () => {
     await repository.append([activityEvent("a"), activityEvent("b"), activityEvent("c")]);
 
     const first = await repository.load({ category: "activity", limit: 2 });
-    const second = await repository.load({ category: "activity", limit: 2, cursor: first.nextCursor });
+    const second = await repository.load({
+      category: "activity",
+      limit: 2,
+      cursor: first.nextCursor,
+    });
 
     expect(first.nextCursor).toBeDefined();
     expect(new Set([...first.events, ...second.events].map((event) => event.id)).size).toBe(3);
@@ -138,22 +156,54 @@ describe("activity repository", () => {
 
   it("excludes expired records even before scheduled pruning runs", async () => {
     await repository.importLegacy([
-      { id: "expired", at: new Date(NOW.getTime() - 31 * DAY_MS).toISOString(), category: "activity", level: "info", message: "expired", legacy: true },
-      { id: "current", at: new Date(NOW.getTime() - DAY_MS).toISOString(), category: "activity", level: "info", message: "current", legacy: true },
+      {
+        id: "expired",
+        at: new Date(NOW.getTime() - 31 * DAY_MS).toISOString(),
+        category: "activity",
+        level: "info",
+        message: "expired",
+        legacy: true,
+      },
+      {
+        id: "current",
+        at: new Date(NOW.getTime() - DAY_MS).toISOString(),
+        category: "activity",
+        level: "info",
+        message: "current",
+        legacy: true,
+      },
     ]);
 
-    expect((await repository.load({ category: "activity" })).events.map(({ id }) => id)).toEqual(["current"]);
+    expect((await repository.load({ category: "activity" })).events.map(({ id }) => id)).toEqual([
+      "current",
+    ]);
   });
 
   it("expires diagnostics after 7 days while retaining same-age activity", async () => {
     await repository.append([activityEvent("prune-marker")]);
     const eightDaysAgo = new Date(NOW.getTime() - 8 * DAY_MS).toISOString();
     await repository.importLegacy([
-      { id: "old-activity", at: eightDaysAgo, category: "activity", level: "info", message: "activity", legacy: true },
-      { id: "old-diagnostic", at: eightDaysAgo, category: "diagnostic", level: "info", message: "diagnostic", legacy: true },
+      {
+        id: "old-activity",
+        at: eightDaysAgo,
+        category: "activity",
+        level: "info",
+        message: "activity",
+        legacy: true,
+      },
+      {
+        id: "old-diagnostic",
+        at: eightDaysAgo,
+        category: "diagnostic",
+        level: "info",
+        message: "diagnostic",
+        legacy: true,
+      },
     ]);
 
-    expect((await repository.load({ category: "activity" })).events.map(({ id }) => id)).toContain("old-activity");
+    expect((await repository.load({ category: "activity" })).events.map(({ id }) => id)).toContain(
+      "old-activity",
+    );
     expect((await repository.load({ category: "diagnostic" })).events).toEqual([]);
     expect(await repository.count("diagnostic")).toBe(1);
 
@@ -207,11 +257,13 @@ describe("activity repository", () => {
 
     const page = await repository.load({ category: "diagnostic" });
 
-    expect(page.events).toEqual([expect.objectContaining({
-      id: "v1-diagnostic",
-      category: "diagnostic",
-      legacy: true,
-    })]);
+    expect(page.events).toEqual([
+      expect.objectContaining({
+        id: "v1-diagnostic",
+        category: "diagnostic",
+        legacy: true,
+      }),
+    ]);
     expect(await repository.count("diagnostic")).toBe(2);
     await repository.prune();
     expect(await repository.count("diagnostic")).toBe(1);
@@ -271,11 +323,28 @@ describe("activity repository", () => {
 
   it("orders newest records first and clears all records", async () => {
     await repository.importLegacy([
-      { id: "older", at: new Date(NOW.getTime() - 2_000).toISOString(), category: "activity", level: "info", message: "older", legacy: true },
-      { id: "newer", at: new Date(NOW.getTime() - 1_000).toISOString(), category: "activity", level: "info", message: "newer", legacy: true },
+      {
+        id: "older",
+        at: new Date(NOW.getTime() - 2_000).toISOString(),
+        category: "activity",
+        level: "info",
+        message: "older",
+        legacy: true,
+      },
+      {
+        id: "newer",
+        at: new Date(NOW.getTime() - 1_000).toISOString(),
+        category: "activity",
+        level: "info",
+        message: "newer",
+        legacy: true,
+      },
     ]);
 
-    expect((await repository.load({ category: "activity" })).events.map(({ id }) => id)).toEqual(["newer", "older"]);
+    expect((await repository.load({ category: "activity" })).events.map(({ id }) => id)).toEqual([
+      "newer",
+      "older",
+    ]);
     await repository.clear();
     expect((await repository.load({ category: "activity" })).events).toEqual([]);
   });
@@ -284,7 +353,12 @@ describe("activity repository", () => {
     await repository.append([
       activityEvent("twitch", "twitch"),
       activityEvent("kick", "kick"),
-      { category: "activity", code: "interruption", level: "warn", data: { reason: "runtime_restart" } },
+      {
+        category: "activity",
+        code: "interruption",
+        level: "warn",
+        data: { reason: "runtime_restart" },
+      },
     ]);
 
     const page = await repository.load({ category: "activity", platform: "twitch" });
@@ -296,14 +370,29 @@ describe("activity repository", () => {
 
   it("paginates case-insensitive diagnostic message matches within a platform", async () => {
     await repository.append([
-      { category: "diagnostic", level: "error", platform: "kick", message: "Kick transport failed" },
+      {
+        category: "diagnostic",
+        level: "error",
+        platform: "kick",
+        message: "Kick transport failed",
+      },
       { category: "diagnostic", level: "info", platform: "kick", message: "Twitch connected" },
       { category: "diagnostic", level: "info", platform: "kick", message: "kick retry scheduled" },
-      { category: "diagnostic", level: "info", platform: "twitch", message: "KICK connection from Twitch" },
+      {
+        category: "diagnostic",
+        level: "info",
+        platform: "twitch",
+        message: "KICK connection from Twitch",
+      },
       { category: "diagnostic", level: "error", message: "Kick global error" },
     ]);
 
-    const first = await repository.load({ category: "diagnostic", platform: "kick", query: "KICK", limit: 2 });
+    const first = await repository.load({
+      category: "diagnostic",
+      platform: "kick",
+      query: "KICK",
+      limit: 2,
+    });
     const second = await repository.load({
       category: "diagnostic",
       platform: "kick",
@@ -317,7 +406,11 @@ describe("activity repository", () => {
       "kick retry scheduled",
     ]);
     expect(second.events.map((event) => event.message)).toEqual(["Kick transport failed"]);
-    expect([...first.events, ...second.events].some((event) => event.message === "KICK connection from Twitch")).toBe(false);
+    expect(
+      [...first.events, ...second.events].some(
+        (event) => event.message === "KICK connection from Twitch",
+      ),
+    ).toBe(false);
   });
 
   it("exports every retained diagnostic for a platform without the page cap or search filter", async () => {
@@ -345,7 +438,11 @@ describe("activity repository", () => {
     ]);
 
     const page = await repository.load({ category: "diagnostic", platform: "kick", limit: 100 });
-    const searched = await repository.load({ category: "diagnostic", platform: "kick", query: "global" });
+    const searched = await repository.load({
+      category: "diagnostic",
+      platform: "kick",
+      query: "global",
+    });
     const exported = await repository.exportDiagnostics("kick");
 
     expect(page.events).toHaveLength(100);
@@ -361,11 +458,28 @@ describe("activity repository", () => {
   it("omits diagnostics past the seven-day cutoff from a full export", async () => {
     const eightDaysAgo = new Date(NOW.getTime() - 8 * DAY_MS).toISOString();
     await repository.importLegacy([
-      { id: "old", at: eightDaysAgo, category: "diagnostic", level: "info", message: "expired", legacy: true },
-      { id: "current", at: NOW.toISOString(), category: "diagnostic", level: "info", platform: "kick", message: "current", legacy: true },
+      {
+        id: "old",
+        at: eightDaysAgo,
+        category: "diagnostic",
+        level: "info",
+        message: "expired",
+        legacy: true,
+      },
+      {
+        id: "current",
+        at: NOW.toISOString(),
+        category: "diagnostic",
+        level: "info",
+        platform: "kick",
+        message: "current",
+        legacy: true,
+      },
     ]);
 
-    expect((await repository.exportDiagnostics("kick")).map((event) => event.message)).toEqual(["current"]);
+    expect((await repository.exportDiagnostics("kick")).map((event) => event.message)).toEqual([
+      "current",
+    ]);
   });
 
   it("matches English diagnostic text independently of the browser locale", async () => {
@@ -377,12 +491,14 @@ describe("activity repository", () => {
     ) {
       return originalToLocaleLowerCase.call(this, locales ?? "tr");
     });
-    await repository.append([{
-      category: "diagnostic",
-      level: "debug",
-      platform: "kick",
-      message: "lowercase kick diagnostic",
-    }]);
+    await repository.append([
+      {
+        category: "diagnostic",
+        level: "debug",
+        platform: "kick",
+        message: "lowercase kick diagnostic",
+      },
+    ]);
 
     const page = await repository.load({
       category: "diagnostic",
@@ -404,10 +520,19 @@ describe("activity repository", () => {
       data: { invalid: () => undefined },
     } as unknown as StoredLegacyEvent;
 
-    await expect(repository.importLegacy([
-      { id: "valid", at: NOW.toISOString(), category: "diagnostic", level: "info", message: "valid", legacy: true },
-      invalid,
-    ])).rejects.toBeInstanceOf(DOMException);
+    await expect(
+      repository.importLegacy([
+        {
+          id: "valid",
+          at: NOW.toISOString(),
+          category: "diagnostic",
+          level: "info",
+          message: "valid",
+          legacy: true,
+        },
+        invalid,
+      ]),
+    ).rejects.toBeInstanceOf(DOMException);
 
     expect(await repository.count("diagnostic")).toBe(0);
   });

@@ -23,14 +23,24 @@ function catalogDefines(key: string, ...catalogs: Array<MessageCatalog | undefin
 // follows the browser (so the popup matches the rest of the browser UI), then
 // the selected locale's catalog, then English, and only then the host again for
 // keys no catalog carries at all.
-export function createTranslator({ languageOverride, overrideCatalog, fallbackCatalog, getMessage }: TranslatorOptions): TFunction {
+export function createTranslator({
+  languageOverride,
+  overrideCatalog,
+  fallbackCatalog,
+  getMessage,
+}: TranslatorOptions): TFunction {
   return (key, substitutions) => {
     if (languageOverride === "browser") {
       const hostMessage = getMessage(key, substitutions);
       if (hostMessage) return hostMessage;
     }
     if (catalogDefines(key, overrideCatalog, fallbackCatalog)) {
-      return translateFromCatalogs(key, substitutions, overrideCatalog, fallbackCatalog ?? overrideCatalog ?? {});
+      return translateFromCatalogs(
+        key,
+        substitutions,
+        overrideCatalog,
+        fallbackCatalog ?? overrideCatalog ?? {},
+      );
     }
     return getMessage(key, substitutions) || key;
   };

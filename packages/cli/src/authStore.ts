@@ -25,7 +25,10 @@ export const CREDENTIALS_FILE = "credentials.json";
 // overrides on top so Docker secrets / CI win over the on-disk store. Every
 // field is optional — a transport simply runs anonymously where a credential is
 // missing. The login flows that populate the store land in a later phase.
-export function loadCredentials(authDir: string, env: NodeJS.ProcessEnv = process.env): PlatformCredentials {
+export function loadCredentials(
+  authDir: string,
+  env: NodeJS.ProcessEnv = process.env,
+): PlatformCredentials {
   const stored = readStore(join(authDir, CREDENTIALS_FILE));
   return {
     twitch: {
@@ -94,7 +97,8 @@ function readStoreDetailed(path: string): { store: PlatformCredentials; lookupFa
     raw = readFileSync(path, "utf8");
   } catch (error) {
     // A missing file is expected; anything else (permissions, I/O) is a failure.
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return { store: {}, lookupFailed: false };
+    if ((error as NodeJS.ErrnoException).code === "ENOENT")
+      return { store: {}, lookupFailed: false };
     return { store: {}, lookupFailed: true };
   }
   try {
@@ -143,7 +147,11 @@ function primaryStoredValue(platform: Platform, store: PlatformCredentials): str
 
 // Mirrors loadCredentials' nullish env-over-store merge so the reported source
 // matches the credential a transport would actually use.
-function credentialPresence(platform: Platform, store: PlatformCredentials, env: NodeJS.ProcessEnv): { present: boolean; source: CredentialSource } {
+function credentialPresence(
+  platform: Platform,
+  store: PlatformCredentials,
+  env: NodeJS.ProcessEnv,
+): { present: boolean; source: CredentialSource } {
   const envValue = env[PRIMARY_ENV_KEY[platform]];
   const effective = envValue ?? primaryStoredValue(platform, store);
   if (!effective) return { present: false, source: "none" };
@@ -154,13 +162,27 @@ function credentialPresence(platform: Platform, store: PlatformCredentials, env:
 // browser session: absent credentials map to missing_credentials, an unreadable
 // store maps to the transient credential_lookup_failed, and a present credential
 // stays "checking" until a live probe (adapter.checkAuthHealth) confirms it.
-export function describeCredentialHealth(authDir: string, env: NodeJS.ProcessEnv = process.env): Record<Platform, LocalCredentialHealth> {
+export function describeCredentialHealth(
+  authDir: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Record<Platform, LocalCredentialHealth> {
   const { store, lookupFailed } = readStoreDetailed(join(authDir, CREDENTIALS_FILE));
   const describe = (platform: Platform): LocalCredentialHealth => {
     const { present, source } = credentialPresence(platform, store, env);
     if (present) return { present: true, source, status: "checking" };
-    if (lookupFailed) return { present: false, source, status: "unavailable", reasonCode: "credential_lookup_failed" };
-    return { present: false, source, status: "missing_credentials", reasonCode: "credentials_missing" };
+    if (lookupFailed)
+      return {
+        present: false,
+        source,
+        status: "unavailable",
+        reasonCode: "credential_lookup_failed",
+      };
+    return {
+      present: false,
+      source,
+      status: "missing_credentials",
+      reasonCode: "credentials_missing",
+    };
   };
   return { twitch: describe("twitch"), kick: describe("kick") };
 }

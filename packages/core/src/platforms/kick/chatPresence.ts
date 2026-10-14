@@ -3,7 +3,11 @@ import type { ChatPresenceBlockReason, ChatPresenceStatus } from "@lurkloot/shar
 import type { ChatPresenceClient, ChatPresenceTarget } from "../../core/chatPresence";
 import { PendingDiscoverySignalDiagnostics } from "../../core/discoverySignals";
 import { SafeFetchError } from "../../core/fetchError";
-import { type KickRealtimeConnection, kickRealtimeNegotiation, parseKickRealtimeEndpoint } from "./realtime";
+import {
+  type KickRealtimeConnection,
+  kickRealtimeNegotiation,
+  parseKickRealtimeEndpoint,
+} from "./realtime";
 import { errorMessage } from "@lurkloot/shared/errors";
 import { asRecord } from "@lurkloot/shared/records";
 
@@ -88,9 +92,12 @@ export class KickChatPresenceClient implements ChatPresenceClient {
     const channel = { channel: this.desired };
     const realtime = this.deps.connection.status();
     if (this.blockReason) return { state: "blocked", ...channel, reason: this.blockReason };
-    if (realtime.state === "blocked") return { state: "blocked", ...channel, reason: realtime.reason ?? "unsupported-provider" };
+    if (realtime.state === "blocked")
+      return { state: "blocked", ...channel, reason: realtime.reason ?? "unsupported-provider" };
     if (this.failed || realtime.state === "error") return { state: "error", ...channel };
-    const joined = this.room?.slug === this.desired && this.deps.connection.isSubscribed(`chatrooms.${this.room.chatroomId}.v2`);
+    const joined =
+      this.room?.slug === this.desired
+      && this.deps.connection.isSubscribed(`chatrooms.${this.room.chatroomId}.v2`);
     if (joined && this.joinedAnnounced !== this.desired) {
       this.joinedAnnounced = this.desired;
       this.log("debug", `Kick chat presence joined ${this.desired}`);
@@ -112,16 +119,23 @@ export class KickChatPresenceClient implements ChatPresenceClient {
     await this.deps.connection.releaseIfIdle();
   }
 
-  private async join(slug: string, knownChannelId: string | undefined, generation: number): Promise<void> {
+  private async join(
+    slug: string,
+    knownChannelId: string | undefined,
+    generation: number,
+  ): Promise<void> {
     try {
-      if (!CHANNEL_SLUG.test(slug)) throw new Error(`Not a Kick channel name: ${slug.slice(0, 64)}`);
+      if (!CHANNEL_SLUG.test(slug))
+        throw new Error(`Not a Kick channel name: ${slug.slice(0, 64)}`);
       const room = await this.lookupRoom(slug, knownChannelId);
       if (generation !== this.generation) return;
       const clientId = this.deps.connection.clientIdentity();
-      const endpoint = parseKickRealtimeEndpoint(await this.deps.postJson(
-        `https://web.kick.com/api/v1/realtime/channels/${encodeURIComponent(room.channelId)}/chat/connection`,
-        kickRealtimeNegotiation(clientId),
-      ));
+      const endpoint = parseKickRealtimeEndpoint(
+        await this.deps.postJson(
+          `https://web.kick.com/api/v1/realtime/channels/${encodeURIComponent(room.channelId)}/chat/connection`,
+          kickRealtimeNegotiation(clientId),
+        ),
+      );
       if (generation !== this.generation) return;
       // The chat connection may name another endpoint; the shared connection
       // moves there before subscribing.
@@ -129,7 +143,8 @@ export class KickChatPresenceClient implements ChatPresenceClient {
       const previous = this.subscribed;
       const next = kickChatChannels(room);
       for (const channel of next) this.deps.connection.subscribe(channel);
-      for (const channel of previous) if (!next.includes(channel)) this.deps.connection.unsubscribe(channel);
+      for (const channel of previous)
+        if (!next.includes(channel)) this.deps.connection.unsubscribe(channel);
       const from = this.room?.slug;
       this.room = { ...room, slug };
       this.subscribed = next;
@@ -144,21 +159,33 @@ export class KickChatPresenceClient implements ChatPresenceClient {
         return;
       }
       this.failed = true;
-      this.warnOnce(`join:${errorMessage(error)}`, `Could not join ${slug}'s Kick chat: ${errorMessage(error)}`);
+      this.warnOnce(
+        `join:${errorMessage(error)}`,
+        `Could not join ${slug}'s Kick chat: ${errorMessage(error)}`,
+      );
       this.scheduleRetry(slug, knownChannelId, generation);
     }
   }
 
-  private async lookupRoom(slug: string, knownChannelId: string | undefined): Promise<KickChatRoom> {
+  private async lookupRoom(
+    slug: string,
+    knownChannelId: string | undefined,
+  ): Promise<KickChatRoom> {
     if (this.room?.slug === slug) return this.room;
-    const body = asRecord(await this.deps.getJson(`https://kick.com/api/v2/channels/${encodeURIComponent(slug)}`));
+    const body = asRecord(
+      await this.deps.getJson(`https://kick.com/api/v2/channels/${encodeURIComponent(slug)}`),
+    );
     const channelId = idString(body?.id) ?? knownChannelId;
     const chatroomId = idString(asRecord(body?.chatroom)?.id);
     if (!channelId || !chatroomId) throw new Error("Kick did not name the channel's chatroom");
     return { channelId, chatroomId };
   }
 
-  private scheduleRetry(slug: string, knownChannelId: string | undefined, generation: number): void {
+  private scheduleRetry(
+    slug: string,
+    knownChannelId: string | undefined,
+    generation: number,
+  ): void {
     const delay = Math.min(RETRY_BASE_MS * 2 ** this.attempt, RETRY_MAX_MS);
     this.attempt += 1;
     this.retryTimer = this.setTimer(() => {

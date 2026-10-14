@@ -65,7 +65,11 @@ test("derives the structured software version from the released workspace versio
 });
 
 test("scopes FAQ structured data to pages that render the questions", async () => {
-  for (const page of ["index.html", "twitch-drops-farmer/index.html", "kick-drops-farmer/index.html"]) {
+  for (const page of [
+    "index.html",
+    "twitch-drops-farmer/index.html",
+    "kick-drops-farmer/index.html",
+  ]) {
     assert.ok(ldOfType(await structuredData(page), "FAQPage"), `${page} should carry FAQPage`);
   }
   // The layout used to emit the homepage FAQ on every page, describing content

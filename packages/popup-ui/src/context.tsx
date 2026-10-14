@@ -1,17 +1,26 @@
 import React from "react";
 import type { PopupAdapter, TFunction } from "./types";
 
-export const I18nContext = React.createContext<{ t: TFunction; dir: "ltr" | "rtl"; locale: string }>({
+export const I18nContext = React.createContext<{
+  t: TFunction;
+  dir: "ltr" | "rtl";
+  locale: string;
+}>({
   t: (key) => key,
   dir: "ltr",
   locale: "en",
 });
 
-export const PopupRuntimeContext = React.createContext<{ adapter: PopupAdapter; preview: boolean } | null>(null);
+export const PopupRuntimeContext = React.createContext<{
+  adapter: PopupAdapter;
+  preview: boolean;
+} | null>(null);
 
 // Marks or unmarks a subscription reward as subscribed. Provided once by the
 // popup and read by each campaign card; without it no mark control is shown.
-export const SubscriptionMarkContext = React.createContext<((campaignId: string, rewardId: string) => void) | null>(null);
+export const SubscriptionMarkContext = React.createContext<
+  ((campaignId: string, rewardId: string) => void) | null
+>(null);
 
 export function useT(): TFunction {
   return React.useContext(I18nContext).t;

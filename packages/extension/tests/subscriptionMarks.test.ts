@@ -19,19 +19,60 @@ import { mergeEngineSettings } from "@lurkloot/shared/settings";
 // reward that needs it first, and a reward that needs a subscription plus
 // watch time. Their prerequisites are already reconciled, as parsed.
 function subscriptionReward(overrides: Partial<DropReward> = {}): DropReward {
-  return { id: "sub", name: "Sub reward", requiredMinutes: 0, requiredSubs: 1, requirement: "subscription", isWatchBased: false, watchedMinutes: 0, status: "locked", preconditionsMet: true, ...overrides };
+  return {
+    id: "sub",
+    name: "Sub reward",
+    requiredMinutes: 0,
+    requiredSubs: 1,
+    requirement: "subscription",
+    isWatchBased: false,
+    watchedMinutes: 0,
+    status: "locked",
+    preconditionsMet: true,
+    ...overrides,
+  };
 }
 
 function gatedWatchReward(overrides: Partial<DropReward> = {}): DropReward {
-  return { id: "watch", name: "Watch reward", requiredMinutes: 60, requirement: "watch", isWatchBased: true, watchedMinutes: 0, status: "locked", preconditionRewardIds: ["sub"], preconditionsMet: false, ...overrides };
+  return {
+    id: "watch",
+    name: "Watch reward",
+    requiredMinutes: 60,
+    requirement: "watch",
+    isWatchBased: true,
+    watchedMinutes: 0,
+    status: "locked",
+    preconditionRewardIds: ["sub"],
+    preconditionsMet: false,
+    ...overrides,
+  };
 }
 
 function subscriptionPlusWatchReward(overrides: Partial<DropReward> = {}): DropReward {
-  return { id: "combined", name: "Watch and Subscribe", requiredMinutes: 60, requiredSubs: 1, requirement: "subscription", isWatchBased: false, watchedMinutes: 0, status: "locked", preconditionsMet: true, ...overrides };
+  return {
+    id: "combined",
+    name: "Watch and Subscribe",
+    requiredMinutes: 60,
+    requiredSubs: 1,
+    requirement: "subscription",
+    isWatchBased: false,
+    watchedMinutes: 0,
+    status: "locked",
+    preconditionsMet: true,
+    ...overrides,
+  };
 }
 
 function twitchCampaign(rewards: DropReward[]): DropCampaign {
-  return { id: "campaign", platform: "twitch", name: "Campaign", status: "active", eligibility: "waiting_for_subscription", endsAt: "2999-01-01T00:00:00.000Z", rewards };
+  return {
+    id: "campaign",
+    platform: "twitch",
+    name: "Campaign",
+    status: "active",
+    eligibility: "waiting_for_subscription",
+    endsAt: "2999-01-01T00:00:00.000Z",
+    rewards,
+  };
 }
 
 const mark = (rewardId: string) => subscriptionMarkKey("campaign", rewardId);
@@ -50,7 +91,10 @@ describe("subscription marks", () => {
   });
 
   it("treats a marked subscription reward as obtained and unlocks the rewards that need it", () => {
-    const campaign = applySubscriptionMarks(twitchCampaign([subscriptionReward(), gatedWatchReward()]), [mark("sub")]);
+    const campaign = applySubscriptionMarks(
+      twitchCampaign([subscriptionReward(), gatedWatchReward()]),
+      [mark("sub")],
+    );
     const [sub, watch] = campaign.rewards;
 
     expect(sub).toMatchObject({ subscriptionMarked: true, status: "locked" });
@@ -77,7 +121,9 @@ describe("subscription marks", () => {
 
   it("ignores a mark once the platform releases or confirms the reward", () => {
     for (const status of ["claimable", "claimed"] as const) {
-      const [reward] = applySubscriptionMarks(twitchCampaign([subscriptionReward({ status })]), [mark("sub")]).rewards;
+      const [reward] = applySubscriptionMarks(twitchCampaign([subscriptionReward({ status })]), [
+        mark("sub"),
+      ]).rewards;
       expect(reward.subscriptionMarked).toBeUndefined();
     }
   });
@@ -98,7 +144,10 @@ describe("subscription marks", () => {
   });
 
   it("lets claim reconciliation honour a mark for prerequisites but not for completion", () => {
-    const campaign = applySubscriptionMarks(twitchCampaign([subscriptionReward(), gatedWatchReward()]), [mark("sub")]);
+    const campaign = applySubscriptionMarks(
+      twitchCampaign([subscriptionReward(), gatedWatchReward()]),
+      [mark("sub")],
+    );
     const reconciled = reconcileCampaignAfterClaims(campaign, campaign.rewards);
 
     expect(reconciled.rewards[1].preconditionsMet).toBe(true);
@@ -114,20 +163,27 @@ describe("subscription marks in farmability", () => {
     const source = twitchCampaign([subscriptionReward(), gatedWatchReward()]);
 
     expect(evaluateCampaignFarming(source, settings).farmable).toBe(false);
-    expect(evaluateCampaignFarming(applySubscriptionMarks(source, [mark("sub")]), settings)).toMatchObject({ farmable: true });
+    expect(
+      evaluateCampaignFarming(applySubscriptionMarks(source, [mark("sub")]), settings),
+    ).toMatchObject({ farmable: true });
   });
 
   it("farms a marked subscription plus watch reward", () => {
     const source = twitchCampaign([subscriptionPlusWatchReward()]);
 
     expect(evaluateCampaignFarming(source, settings).farmable).toBe(false);
-    expect(evaluateCampaignFarming(applySubscriptionMarks(source, [mark("combined")]), settings)).toMatchObject({ farmable: true });
+    expect(
+      evaluateCampaignFarming(applySubscriptionMarks(source, [mark("combined")]), settings),
+    ).toMatchObject({ farmable: true });
   });
 
   it("finishes a fully marked subscription-only campaign without changing its status", () => {
     const campaign = applySubscriptionMarks(twitchCampaign([subscriptionReward()]), [mark("sub")]);
 
-    expect(evaluateCampaignFarming(campaign, settings)).toMatchObject({ farmable: false, code: "no_unclaimed_rewards" });
+    expect(evaluateCampaignFarming(campaign, settings)).toMatchObject({
+      farmable: false,
+      code: "no_unclaimed_rewards",
+    });
     expect(isCampaignFinished(campaign)).toBe(true);
     expect(campaignSection(campaign, settings)).toBe("completed");
     expect(campaign.status).toBe("active");
@@ -136,7 +192,10 @@ describe("subscription marks in farmability", () => {
 
   it("keeps a campaign open while one of its subscription tiers is unmarked", () => {
     const campaign = applySubscriptionMarks(
-      twitchCampaign([subscriptionReward(), subscriptionReward({ id: "five-gifts", requiredSubs: 5 })]),
+      twitchCampaign([
+        subscriptionReward(),
+        subscriptionReward({ id: "five-gifts", requiredSubs: 5 }),
+      ]),
       [mark("sub")],
     );
 

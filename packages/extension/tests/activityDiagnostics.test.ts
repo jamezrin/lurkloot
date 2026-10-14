@@ -12,7 +12,13 @@ const TARGET = {
 };
 
 const EVENTS = {
-  twitch_extension_action: { category: "activity", code: "twitch_extension_action", level: "info", platform: "twitch", data: { provider: "nopixel", action: "giveaway_joined", channel: "buddha" } },
+  twitch_extension_action: {
+    category: "activity",
+    code: "twitch_extension_action",
+    level: "info",
+    platform: "twitch",
+    data: { provider: "nopixel", action: "giveaway_joined", channel: "buddha" },
+  },
   farming_started: {
     category: "activity",
     code: "farming_started",
@@ -100,7 +106,9 @@ describe("activity diagnostics", () => {
     expect(activityDiagnostic(EVENTS.interruption).message).toBe(
       "Farming interrupted: reason=platform_error (HTTP 503 from the drops endpoint)",
     );
-    expect(activityDiagnostic(EVENTS.challenge_claimed).message).toBe("Claimed rare daily challenge challenge-7");
+    expect(activityDiagnostic(EVENTS.challenge_claimed).message).toBe(
+      "Claimed rare daily challenge challenge-7",
+    );
     expect(activityDiagnostic(EVENTS.page_context_opened).message).toBe(
       "Opened managed page context on kick.com: reason=background_rejected",
     );
@@ -134,7 +142,8 @@ describe("activity diagnostics", () => {
       platform: "twitch",
       code: "farming_stopped",
       mirroredActivity: true,
-      message: 'Stopped farming "Golden Hat" from campaign "Summer Campaign" (campaign campaign-1, reward reward-1): reason=channel_offline',
+      message:
+        'Stopped farming "Golden Hat" from campaign "Summer Campaign" (campaign campaign-1, reward reward-1): reason=channel_offline',
       data: { ...TARGET, reason: "channel_offline" },
     });
   });
@@ -145,23 +154,29 @@ describe("activity diagnostics", () => {
   });
 
   it("keeps optional fields out of the message when absent", () => {
-    expect(activityDiagnostic({
-      ...EVENTS.farming_started,
-      data: { ...TARGET },
-    }).message).not.toContain("on channel");
-    expect(activityDiagnostic({
-      category: "activity",
-      code: "interruption",
-      level: "warn",
-      data: { reason: "runtime_restart" },
-    }).message).toBe("Farming interrupted: reason=runtime_restart");
-    expect(activityDiagnostic({
-      category: "activity",
-      code: "auth_health_changed",
-      level: "info",
-      platform: "kick",
-      data: { from: "checking", to: "healthy" },
-    }).message).toBe("kick authentication health changed from checking to healthy");
+    expect(
+      activityDiagnostic({
+        ...EVENTS.farming_started,
+        data: { ...TARGET },
+      }).message,
+    ).not.toContain("on channel");
+    expect(
+      activityDiagnostic({
+        category: "activity",
+        code: "interruption",
+        level: "warn",
+        data: { reason: "runtime_restart" },
+      }).message,
+    ).toBe("Farming interrupted: reason=runtime_restart");
+    expect(
+      activityDiagnostic({
+        category: "activity",
+        code: "auth_health_changed",
+        level: "info",
+        platform: "kick",
+        data: { from: "checking", to: "healthy" },
+      }).message,
+    ).toBe("kick authentication health changed from checking to healthy");
   });
 
   it("mirrors activity events through the wrapped emitter and leaves diagnostics alone", () => {
@@ -196,8 +211,10 @@ describe("activity diagnostics", () => {
 
     emit({ ...EVENTS.reward_claimed, emittedAt: "2020-01-01T00:00:00.000Z" });
 
-    expect(events.map((event) => event.emittedAt))
-      .toEqual(["2020-01-01T00:00:00.000Z", "2020-01-01T00:00:00.000Z"]);
+    expect(events.map((event) => event.emittedAt)).toEqual([
+      "2020-01-01T00:00:00.000Z",
+      "2020-01-01T00:00:00.000Z",
+    ]);
   });
 
   it("emits the mirror right after its activity event so the log stays ordered", () => {

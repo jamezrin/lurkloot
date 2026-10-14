@@ -34,7 +34,10 @@ interface HostedSocket {
   readyState: number;
   send(data: string): void;
   close(code?: number): void;
-  addEventListener(type: "open" | "message" | "close", listener: (event: { data?: unknown; code?: number }) => void): void;
+  addEventListener(
+    type: "open" | "message" | "close",
+    listener: (event: { data?: unknown; code?: number }) => void,
+  ): void;
 }
 
 export interface SocketWorkerDeps {
@@ -128,7 +131,10 @@ export interface SocketHostWorker {
 }
 
 // The document end: relays between the service worker's port and the Worker.
-export function bridgeSocketHost(deps: { connect: (name: string) => SocketHostPort; worker: SocketHostWorker }): void {
+export function bridgeSocketHost(deps: {
+  connect: (name: string) => SocketHostPort;
+  worker: SocketHostWorker;
+}): void {
   const port = deps.connect(SOCKET_HOST_PORT);
   let connected = true;
   port.onMessage.addListener((message) => deps.worker.postMessage(message as SocketHostRequest));

@@ -2,7 +2,11 @@ import type { EngineEvent } from "@lurkloot/shared/events";
 import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 import type { PlatformAdapter } from "../platforms/adapter";
-import { currentManagedPageContextTabs, currentManagedPageContextTabsRevision, type TabRegistry } from "../core/tabRegistry";
+import {
+  currentManagedPageContextTabs,
+  currentManagedPageContextTabsRevision,
+  type TabRegistry,
+} from "../core/tabRegistry";
 import { heartbeatContextKey, validTablessHeartbeatCadence } from "../core/heartbeatCadence";
 import { mergePlatformState, schedulerStateEquivalent } from "./platformState";
 import { PLATFORMS } from "./constants";
@@ -50,14 +54,20 @@ export type SettingsEffects = Partial<Record<Platform, SettingsEffect>>;
 const RANKING_SETTING_KEYS = new Set(["priorityMode", "campaignPins"]);
 const RANKING_PLATFORM_SETTING_KEYS = new Set(["favouriteCategories"]);
 
-export function isRankingOnlyPatch(patch: SettingsPatch, current: Pick<EngineSettings, "farmPinnedOnly">): boolean {
+export function isRankingOnlyPatch(
+  patch: SettingsPatch,
+  current: Pick<EngineSettings, "farmPinnedOnly">,
+): boolean {
   const keys = Object.keys(patch);
   if (keys.length === 0) return false;
   if ("campaignPins" in patch && current.farmPinnedOnly) return false;
   return keys.every((key) => {
     if (key !== "platform") return RANKING_SETTING_KEYS.has(key);
     return Object.values(patch.platform ?? {}).every((platformPatch) =>
-      Object.keys(platformPatch ?? {}).every((platformKey) => RANKING_PLATFORM_SETTING_KEYS.has(platformKey)));
+      Object.keys(platformPatch ?? {}).every((platformKey) =>
+        RANKING_PLATFORM_SETTING_KEYS.has(platformKey),
+      ),
+    );
   });
 }
 
@@ -66,9 +76,10 @@ export function settingsPatchEffects(
   current: Pick<EngineSettings, "farmPinnedOnly">,
 ): SettingsEffects {
   const keys = Object.keys(patch);
-  const platforms = keys.every((key) => key === "platform") && patch.platform
-    ? PLATFORMS.filter((platform) => patch.platform?.[platform] !== undefined)
-    : PLATFORMS;
+  const platforms =
+    keys.every((key) => key === "platform") && patch.platform
+      ? PLATFORMS.filter((platform) => patch.platform?.[platform] !== undefined)
+      : PLATFORMS;
   // Anything the ranking-only rules do not recognize counts as "discovery": the
   // safe default, since it only costs an extra refresh.
   const effect: SettingsEffect = isRankingOnlyPatch(patch, current) ? "selection" : "discovery";
@@ -82,7 +93,11 @@ export function settingsPatchEffects(
 export type CommitGuard = AbortSignal | (() => boolean);
 
 export type CommitResult =
-  | { readonly status: "accepted"; readonly previous: SchedulerState; readonly state: SchedulerState }
+  | {
+      readonly status: "accepted";
+      readonly previous: SchedulerState;
+      readonly state: SchedulerState;
+    }
   | { readonly status: "unchanged"; readonly state: SchedulerState }
   | { readonly status: "stale" };
 
@@ -196,16 +211,21 @@ export function createStateTransaction<S extends EngineSettings>(ports: StateTra
     const rank = TRANSACTION_LOCKS.indexOf(lock);
     const blocking = held.find((heldLock) => TRANSACTION_LOCKS.indexOf(heldLock) >= rank);
     if (blocking) {
-      const error = new LockOrderError(lock === "commit" && blocking === "commit"
-        ? "Nested state commit: a commit cannot start while its operation holds the commit lock"
-        : `Lock order violation: acquiring ${lock} while holding ${held.join(" → ")}`);
+      const error = new LockOrderError(
+        lock === "commit" && blocking === "commit"
+          ? "Nested state commit: a commit cannot start while its operation holds the commit lock"
+          : `Lock order violation: acquiring ${lock} while holding ${held.join(" → ")}`,
+      );
       tracker.violation(error);
       return () => Promise.reject(error);
     }
     return () => tracker.run([...held, lock], operation);
   }
 
-  function withLock<T>(lock: Exclude<TransactionLock, "heartbeat">, operation: () => Promise<T>): Promise<T> {
+  function withLock<T>(
+    lock: Exclude<TransactionLock, "heartbeat">,
+    operation: () => Promise<T>,
+  ): Promise<T> {
     // Awaited, and released through its own promise rather than a .then() on
     // the result: V8 follows an async stack trace only through a promise with a
     // single reaction, and the test lock tracker reads that trace to find the
@@ -262,7 +282,10 @@ export function createStateTransaction<S extends EngineSettings>(ports: StateTra
     return typeof guard === "function" ? !guard() : guard.aborted;
   }
 
-  function notify(change: CommittedChange<S>, locks: readonly Exclude<TransactionLock, "heartbeat" | "commit">[]): void {
+  function notify(
+    change: CommittedChange<S>,
+    locks: readonly Exclude<TransactionLock, "heartbeat" | "commit">[],
+  ): void {
     enqueueHooks(hooks, change, change.kind === "state" ? change.platforms : PLATFORMS, locks);
   }
 
@@ -322,7 +345,9 @@ export function createStateTransaction<S extends EngineSettings>(ports: StateTra
   let stateRevision = 0;
 
   async function saveStateDirect(state: SchedulerState): Promise<void> {
-    const { events: _legacyEvents, ...operationalState } = state as SchedulerState & { events?: unknown };
+    const { events: _legacyEvents, ...operationalState } = state as SchedulerState & {
+      events?: unknown;
+    };
     stateRevision += 1;
     await ports.saveState(operationalState);
   }
@@ -334,8 +359,9 @@ export function createStateTransaction<S extends EngineSettings>(ports: StateTra
 
   // Reads settings and scheduler state as one consistent pair.
   function readSettingsAndState(): Promise<[S, SchedulerState]> {
-    return withSettingsLock(() => withLock("commit", () =>
-      Promise.all([ports.loadSettings(), ports.loadState()])));
+    return withSettingsLock(() =>
+      withLock("commit", () => Promise.all([ports.loadSettings(), ports.loadState()])),
+    );
   }
 
   // The commit primitive: load the stored state, check the guard, apply
@@ -353,12 +379,18 @@ export function createStateTransaction<S extends EngineSettings>(ports: StateTra
       const latest = await ports.loadState();
       if (isStale(guard)) return { status: "stale" };
       const next = mutate(latest);
-      if (next === undefined || (!options.writeEquivalent && schedulerStateEquivalent(latest, next))) {
+      if (
+        next === undefined
+        || (!options.writeEquivalent && schedulerStateEquivalent(latest, next))
+      ) {
         return { status: "unchanged", state: latest };
       }
       await saveStateDirect(next);
       options.afterSave?.(next);
-      notify({ kind: "state", platforms, previous: latest, state: next, committedAt: Date.now() }, ["settings", ...platforms]);
+      notify({ kind: "state", platforms, previous: latest, state: next, committedAt: Date.now() }, [
+        "settings",
+        ...platforms,
+      ]);
       return { status: "accepted", previous: latest, state: next };
     });
   }
@@ -390,7 +422,8 @@ export function createStateTransaction<S extends EngineSettings>(ports: StateTra
         const nextSession = snapshot.sessions[platform];
         const currentCadence = validTablessHeartbeatCadence(currentSession);
         const nextCadence = validTablessHeartbeatCadence(nextSession);
-        const retainsHeartbeatAuthority = currentCadence !== undefined
+        const retainsHeartbeatAuthority =
+          currentCadence !== undefined
           && nextCadence !== undefined
           && currentCadence.generation === nextCadence.generation
           && currentCadence.contextKey === nextCadence.contextKey
@@ -425,7 +458,16 @@ export function createStateTransaction<S extends EngineSettings>(ports: StateTra
           // An earlier pass may already have written; its hooks still run, but
           // the superseded operation publishes nothing.
           if (result?.status === "accepted") {
-            notify({ kind: "state", platforms: [platform], previous: result.previous, state: result.state, committedAt: Date.now() }, ["settings", platform]);
+            notify(
+              {
+                kind: "state",
+                platforms: [platform],
+                previous: result.previous,
+                state: result.state,
+                committedAt: Date.now(),
+              },
+              ["settings", platform],
+            );
           }
           return { status: "stale" };
         }
@@ -439,9 +481,10 @@ export function createStateTransaction<S extends EngineSettings>(ports: StateTra
         // was — storage already holds this state, so callers must still treat
         // it as persisted, and `latest` (not `merged`) is what they observe.
         if (schedulerStateEquivalent(latest, merged)) {
-          result = result?.status === "accepted"
-            ? { ...result, state: latest }
-            : { status: "unchanged", state: latest };
+          result =
+            result?.status === "accepted"
+              ? { ...result, state: latest }
+              : { status: "unchanged", state: latest };
         } else {
           await saveStateDirect(merged);
           result = {
@@ -452,7 +495,16 @@ export function createStateTransaction<S extends EngineSettings>(ports: StateTra
         }
         if (currentManagedPageContextTabsRevision(ports.tabRegistry) === pageContextRevision) {
           if (result.status === "accepted") {
-            notify({ kind: "state", platforms: [platform], previous: result.previous, state: result.state, committedAt: Date.now() }, ["settings", platform]);
+            notify(
+              {
+                kind: "state",
+                platforms: [platform],
+                previous: result.previous,
+                state: result.state,
+                committedAt: Date.now(),
+              },
+              ["settings", platform],
+            );
           } else {
             result = { status: "unchanged", state: latest };
           }
@@ -489,14 +541,17 @@ export function createStateTransaction<S extends EngineSettings>(ports: StateTra
     { startup = false }: { startup?: boolean } = {},
   ): Promise<void> {
     await ports.saveSettings(prepared.settings);
-    notify({
-      kind: "settings",
-      previous: prepared.previous,
-      patch: prepared.patch,
-      settings: prepared.settings,
-      effects: prepared.effects,
-      startup,
-    }, ["settings"]);
+    notify(
+      {
+        kind: "settings",
+        previous: prepared.previous,
+        patch: prepared.patch,
+        settings: prepared.settings,
+        effects: prepared.effects,
+        startup,
+      },
+      ["settings"],
+    );
   }
 
   // Runs `operation` as holding no locks: the controller's public entry points
@@ -532,4 +587,6 @@ export function createStateTransaction<S extends EngineSettings>(ports: StateTra
   };
 }
 
-export type StateTransaction<S extends EngineSettings> = ReturnType<typeof createStateTransaction<S>>;
+export type StateTransaction<S extends EngineSettings> = ReturnType<
+  typeof createStateTransaction<S>
+>;

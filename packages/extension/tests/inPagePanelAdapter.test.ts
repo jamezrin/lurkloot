@@ -43,7 +43,14 @@ describe("in-page panel adapter", () => {
   it("implements what the read-mostly panel needs", () => {
     const adapter = createInPagePanelAdapter();
     expect(adapter.version).toBe("9.9.9");
-    for (const member of ["send", "getStorage", "setStorage", "getMessage", "getUiLanguage", "openLink"]) {
+    for (const member of [
+      "send",
+      "getStorage",
+      "setStorage",
+      "getMessage",
+      "getUiLanguage",
+      "openLink",
+    ]) {
       expect(typeof adapter[member as keyof typeof adapter]).toBe("function");
     }
   });

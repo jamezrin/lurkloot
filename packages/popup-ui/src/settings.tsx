@@ -1,6 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Download, RotateCcw, Terminal, Upload } from "lucide-react";
-import type { CategorySelection, ExtensionSettings, Platform, TwitchExtensionProviderId } from "@lurkloot/shared/models";
+import type {
+  CategorySelection,
+  ExtensionSettings,
+  Platform,
+  TwitchExtensionProviderId,
+} from "@lurkloot/shared/models";
 import type { SettingsPatch } from "@lurkloot/shared/settings";
 import { PLATFORMS } from "./constants";
 import { SettingsGroup, SettingsSearchBox, SettingsSection } from "./settingsControls";
@@ -13,11 +18,30 @@ import { AboutSection } from "./about";
 import { TwitchExtensionSettings, twitchExtensionSearchText } from "./twitchExtensions";
 import type { GameItem, PopupCompatibilityRegistry, PopupCompatibilityResolution } from "./types";
 
-export function SettingsView({ suggestions, onSearchCategories, settings, onSettingsChange, onExtensionEnabledChange, onExportCredentials, onExportSettings, onImportSettings, onReset, exportConfirmationResetKey, compatibilityRegistry, compatibilityResolution, focusGroupId, onOpenGames, version }: {
+export function SettingsView({
+  suggestions,
+  onSearchCategories,
+  settings,
+  onSettingsChange,
+  onExtensionEnabledChange,
+  onExportCredentials,
+  onExportSettings,
+  onImportSettings,
+  onReset,
+  exportConfirmationResetKey,
+  compatibilityRegistry,
+  compatibilityResolution,
+  focusGroupId,
+  onOpenGames,
+  version,
+}: {
   suggestions: Record<Platform, GameItem[]>;
   onSearchCategories(platform: Platform, query: string): Promise<CategorySelection[]>;
   settings: ExtensionSettings;
-  onExtensionEnabledChange?(provider: TwitchExtensionProviderId, enabled: boolean): Promise<boolean>;
+  onExtensionEnabledChange?(
+    provider: TwitchExtensionProviderId,
+    enabled: boolean,
+  ): Promise<boolean>;
   onSettingsChange(patch: SettingsPatch, options?: SettingsChangeOptions): Promise<void>;
   // Optional: when provided, the settings view shows an "Export credentials"
   // action for the headless CLI. The extension wires it; the demo omits it.
@@ -62,7 +86,11 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
     if (!focusGroupId) return;
     // General groups render as whole sections, platform groups as groups
     // inside their platform's section; either anchor finds the target.
-    scrollIntoPanel(rootRef.current?.querySelector(`[id="settings-group-${focusGroupId}"], [id="settings-section-${focusGroupId}"]`));
+    scrollIntoPanel(
+      rootRef.current?.querySelector(
+        `[id="settings-group-${focusGroupId}"], [id="settings-section-${focusGroupId}"]`,
+      ),
+    );
   }, [focusGroupId]);
 
   // Export needs no arm/confirm step (it only reads, never mutates), but it
@@ -113,15 +141,36 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
   }
 
   const sections = useMemo(
-    () => buildSettingsRegistry({ t, settings, onSettingsChange, suggestions, onSearchCategories, compatibilityRegistry, compatibilityResolution, onOpenGames }),
-    [t, settings, onSettingsChange, suggestions, onSearchCategories, compatibilityRegistry, compatibilityResolution, onOpenGames],
+    () =>
+      buildSettingsRegistry({
+        t,
+        settings,
+        onSettingsChange,
+        suggestions,
+        onSearchCategories,
+        compatibilityRegistry,
+        compatibilityResolution,
+        onOpenGames,
+      }),
+    [
+      t,
+      settings,
+      onSettingsChange,
+      suggestions,
+      onSearchCategories,
+      compatibilityRegistry,
+      compatibilityResolution,
+      onOpenGames,
+    ],
   );
   const visible = useMemo(
     () => filterSettingsTree(sections, { t, query, showAdvanced: true }),
     [sections, t, query],
   );
   const searching = query.trim().length > 0;
-  const hasActions = Boolean(onExportSettings || onImportSettings || onExportCredentials || onReset);
+  const hasActions = Boolean(
+    onExportSettings || onImportSettings || onExportCredentials || onReset,
+  );
   const actionSearchText = [
     t("settingsSectionAdvancedActions"),
     t("settingsSectionAdvancedActionsDescription"),
@@ -135,30 +184,55 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
     t("factoryResetTitle"),
     t("factoryResetHint"),
     t("factoryResetButton"),
-  ].join(" ").toLocaleLowerCase();
-  const showExtensions = Boolean(onExtensionEnabledChange) && (!searching || twitchExtensionSearchText(t).includes(query.trim().toLocaleLowerCase()));
-  const showActions = hasActions && (!searching || actionSearchText.includes(query.trim().toLocaleLowerCase()));
+  ]
+    .join(" ")
+    .toLocaleLowerCase();
+  const showExtensions =
+    Boolean(onExtensionEnabledChange)
+    && (!searching || twitchExtensionSearchText(t).includes(query.trim().toLocaleLowerCase()));
+  const showActions =
+    hasActions && (!searching || actionSearchText.includes(query.trim().toLocaleLowerCase()));
   const generalSection = visible.find((section) => section.id === "general");
   const platformSections = (Object.keys(PLATFORMS) as Platform[])
     .map((id) => visible.find((section) => section.id === id))
     .filter((section): section is NonNullable<typeof section> => Boolean(section));
 
-  const extensionSettings = showExtensions && onExtensionEnabledChange ? (
-    <TwitchExtensionSettings
-      query={query}
-      settings={settings}
-      onChange={onExtensionEnabledChange}
-      onAutoOpenPacksChange={(autoOpenPacks) => onSettingsChange({ twitchExtensions: { nopixel: { autoOpenPacks } } }, { tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] })}
-      onTakeoversChange={(allowTakeovers) => onSettingsChange({ twitchExtensions: { fortnite: { allowTakeovers } } }, { tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] })}
-    />
-  ) : null;
+  const extensionSettings =
+    showExtensions && onExtensionEnabledChange ? (
+      <TwitchExtensionSettings
+        query={query}
+        settings={settings}
+        onChange={onExtensionEnabledChange}
+        onAutoOpenPacksChange={(autoOpenPacks) =>
+          onSettingsChange(
+            { twitchExtensions: { nopixel: { autoOpenPacks } } },
+            { tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] },
+          )
+        }
+        onTakeoversChange={(allowTakeovers) =>
+          onSettingsChange(
+            { twitchExtensions: { fortnite: { allowTakeovers } } },
+            { tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] },
+          )
+        }
+      />
+    ) : null;
 
-  function renderGroupContent(group: typeof sections[number]["groups"][number], includeDescription = true): React.ReactNode {
+  function renderGroupContent(
+    group: (typeof sections)[number]["groups"][number],
+    includeDescription = true,
+  ): React.ReactNode {
     return (
       <>
-        {includeDescription && group.description ? <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{group.description}</p> : null}
+        {includeDescription && group.description ? (
+          <p className="text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
+            {group.description}
+          </p>
+        ) : null}
         <div className="divide-y divide-zinc-100 dark:divide-zinc-800/70">
-          {group.entries.map((entry) => <React.Fragment key={entry.id}>{entry.render()}</React.Fragment>)}
+          {group.entries.map((entry) => (
+            <React.Fragment key={entry.id}>{entry.render()}</React.Fragment>
+          ))}
         </div>
       </>
     );
@@ -173,7 +247,9 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
       </ViewToolbar>
 
       {visible.length === 0 && !showActions && !showExtensions ? (
-        <p className="px-1 py-6 text-center text-xs text-zinc-400 dark:text-zinc-500">{t("settingsSearchNoResults", query.trim())}</p>
+        <p className="px-1 py-6 text-center text-xs text-zinc-400 dark:text-zinc-500">
+          {t("settingsSearchNoResults", query.trim())}
+        </p>
       ) : searching ? (
         <div className="space-y-4">
           {visible.flatMap((section) => [
@@ -184,7 +260,9 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
                 title={PLATFORMS[section.id as Platform].label}
               >
                 <div className="divide-y divide-zinc-100 dark:divide-zinc-800/70">
-                  {section.rows.map((row) => <React.Fragment key={row.id}>{row.render()}</React.Fragment>)}
+                  {section.rows.map((row) => (
+                    <React.Fragment key={row.id}>{row.render()}</React.Fragment>
+                  ))}
                 </div>
               </SettingsSection>
             ) : null,
@@ -192,21 +270,34 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
               <SettingsSection
                 key={group.id}
                 id={group.id}
-                title={section.id === "general" ? t(group.titleKey) : `${PLATFORMS[section.id as Platform].label} · ${t(group.titleKey)}`}
+                title={
+                  section.id === "general"
+                    ? t(group.titleKey)
+                    : `${PLATFORMS[section.id as Platform].label} · ${t(group.titleKey)}`
+                }
               >
                 {renderGroupContent(group, false)}
               </SettingsSection>
             )),
-            section.id === "twitch" ? <React.Fragment key="twitch.extensions">{extensionSettings}</React.Fragment> : null,
+            section.id === "twitch" ? (
+              <React.Fragment key="twitch.extensions">{extensionSettings}</React.Fragment>
+            ) : null,
           ])}
         </div>
       ) : (
         <div className="space-y-4">
-          {generalSection?.groups.map((group) => group.id !== "general.advanced" ? (
-            <SettingsSection key={group.id} id={group.id} title={t(group.titleKey)} description={group.description}>
-              {renderGroupContent(group, false)}
-            </SettingsSection>
-          ) : null)}
+          {generalSection?.groups.map((group) =>
+            group.id !== "general.advanced" ? (
+              <SettingsSection
+                key={group.id}
+                id={group.id}
+                title={t(group.titleKey)}
+                description={group.description}
+              >
+                {renderGroupContent(group, false)}
+              </SettingsSection>
+            ) : null,
+          )}
 
           {platformSections.map((section) => (
             <React.Fragment key={section.id}>
@@ -217,12 +308,22 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
               >
                 {section.rows.length > 0 ? (
                   <div className="divide-y divide-zinc-100 dark:divide-zinc-800/70">
-                    {section.rows.map((row) => <React.Fragment key={row.id}>{row.render()}</React.Fragment>)}
+                    {section.rows.map((row) => (
+                      <React.Fragment key={row.id}>{row.render()}</React.Fragment>
+                    ))}
                   </div>
                 ) : null}
                 {section.groups.map((group) => (
-                  <SettingsGroup key={group.id} id={group.id} title={t(group.titleKey)} description={group.description} badge={group.badge}>
-                    {group.entries.map((entry) => <React.Fragment key={entry.id}>{entry.render()}</React.Fragment>)}
+                  <SettingsGroup
+                    key={group.id}
+                    id={group.id}
+                    title={t(group.titleKey)}
+                    description={group.description}
+                    badge={group.badge}
+                  >
+                    {group.entries.map((entry) => (
+                      <React.Fragment key={entry.id}>{entry.render()}</React.Fragment>
+                    ))}
                   </SettingsGroup>
                 ))}
               </SettingsSection>
@@ -231,17 +332,30 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
           ))}
 
           {generalSection?.groups.find((group) => group.id === "general.advanced") ? (
-            <SettingsSection id="general.advanced" title={t("settingsGroupAdvanced")} description={generalSection.groups.find((group) => group.id === "general.advanced")!.description}>
-              {renderGroupContent(generalSection.groups.find((group) => group.id === "general.advanced")!, false)}
+            <SettingsSection
+              id="general.advanced"
+              title={t("settingsGroupAdvanced")}
+              description={
+                generalSection.groups.find((group) => group.id === "general.advanced")!.description
+              }
+            >
+              {renderGroupContent(
+                generalSection.groups.find((group) => group.id === "general.advanced")!,
+                false,
+              )}
             </SettingsSection>
           ) : null}
         </div>
       )}
 
-      {searching && !visible.some(section => section.id === "twitch") ? extensionSettings : null}
+      {searching && !visible.some((section) => section.id === "twitch") ? extensionSettings : null}
 
       {showActions ? (
-        <SettingsSection id="actions" title={t("settingsSectionAdvancedActions")} description={t("settingsSectionAdvancedActionsDescription")}>
+        <SettingsSection
+          id="actions"
+          title={t("settingsSectionAdvancedActions")}
+          description={t("settingsSectionAdvancedActionsDescription")}
+        >
           <div className="divide-y divide-zinc-100 dark:divide-zinc-800/70">
             {onExportSettings || onImportSettings ? (
               importArmed ? (
@@ -272,7 +386,10 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
                   error={exportSettingsFailed ? t("settingsExportFailed") : undefined}
                 >
                   {onExportSettings ? (
-                    <ActionButton disabled={exportingSettings} onClick={() => void confirmExportSettings()}>
+                    <ActionButton
+                      disabled={exportingSettings}
+                      onClick={() => void confirmExportSettings()}
+                    >
                       <Download size={12} />
                       {t("settingsExportButton")}
                     </ActionButton>
@@ -290,7 +407,9 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
             {onExportCredentials ? (
               exportArmed ? (
                 <ActionRow title={t("cliExportTitle")} hint={t("cliExportConfirm")} tone="warning">
-                  <ActionButton onClick={() => setExportArmed(false)}>{t("cliExportCancel")}</ActionButton>
+                  <ActionButton onClick={() => setExportArmed(false)}>
+                    {t("cliExportCancel")}
+                  </ActionButton>
                   {/* The button stays secondary until here: the confirm step is
                       the one that actually writes session tokens to disk. */}
                   <ActionButton
@@ -330,8 +449,19 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
                   >
                     {t("factoryResetCancel")}
                   </ActionButton>
-                  <ActionButton danger primary disabled={resetting} onClick={() => void confirmReset()}>
-                    {t(resetting ? "factoryResetProgress" : resetFailed ? "factoryResetRetry" : "factoryResetConfirmButton")}
+                  <ActionButton
+                    danger
+                    primary
+                    disabled={resetting}
+                    onClick={() => void confirmReset()}
+                  >
+                    {t(
+                      resetting
+                        ? "factoryResetProgress"
+                        : resetFailed
+                          ? "factoryResetRetry"
+                          : "factoryResetConfirmButton",
+                    )}
                   </ActionButton>
                 </ActionRow>
               ) : (
@@ -361,7 +491,15 @@ export function SettingsView({ suggestions, onSearchCategories, settings, onSett
 // One action per row, laid out like a setting: what it does on the left, its
 // buttons on the right. Arming an action swaps the row's hint for the
 // confirmation and its buttons for cancel/confirm, in place.
-function ActionRow({ title, hint, tone, danger = false, stack = false, error, children }: {
+function ActionRow({
+  title,
+  hint,
+  tone,
+  danger = false,
+  stack = false,
+  error,
+  children,
+}: {
   title: string;
   hint: string;
   tone?: "warning";
@@ -374,16 +512,46 @@ function ActionRow({ title, hint, tone, danger = false, stack = false, error, ch
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 py-2.5">
       <div className="min-w-0">
-        <div className={cn("text-[12.5px] font-semibold", danger ? "text-red-600 dark:text-red-400" : "text-zinc-800 dark:text-zinc-100")}>{title}</div>
-        <div className={cn("mt-0.5 max-w-[46ch] text-[11px] leading-snug", tone === "warning" ? "text-amber-700 dark:text-amber-300" : "text-zinc-500 dark:text-zinc-400")}>{hint}</div>
-        {error ? <p role="alert" className="mt-1 text-[11px] font-medium text-red-600 dark:text-red-400">{error}</p> : null}
+        <div
+          className={cn(
+            "text-[12.5px] font-semibold",
+            danger ? "text-red-600 dark:text-red-400" : "text-zinc-800 dark:text-zinc-100",
+          )}
+        >
+          {title}
+        </div>
+        <div
+          className={cn(
+            "mt-0.5 max-w-[46ch] text-[11px] leading-snug",
+            tone === "warning"
+              ? "text-amber-700 dark:text-amber-300"
+              : "text-zinc-500 dark:text-zinc-400",
+          )}
+        >
+          {hint}
+        </div>
+        {error ? (
+          <p role="alert" className="mt-1 text-[11px] font-medium text-red-600 dark:text-red-400">
+            {error}
+          </p>
+        ) : null}
       </div>
-      <div className={cn("flex shrink-0 gap-1.5", stack ? "flex-col items-stretch" : "items-center")}>{children}</div>
+      <div
+        className={cn("flex shrink-0 gap-1.5", stack ? "flex-col items-stretch" : "items-center")}
+      >
+        {children}
+      </div>
     </div>
   );
 }
 
-function ActionButton({ primary = false, danger = false, disabled, onClick, children }: {
+function ActionButton({
+  primary = false,
+  danger = false,
+  disabled,
+  onClick,
+  children,
+}: {
   primary?: boolean;
   danger?: boolean;
   disabled?: boolean;
@@ -397,10 +565,18 @@ function ActionButton({ primary = false, danger = false, disabled, onClick, chil
       onClick={onClick}
       className={cn(
         "inline-flex items-center gap-1 whitespace-nowrap rounded-md px-2.5 py-1 text-[11px] font-semibold outline-none transition-colors focus-visible:ring-2 disabled:opacity-50",
-        primary && danger && "bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-400 dark:bg-red-700 dark:hover:bg-red-600",
-        primary && !danger && "bg-[var(--ink)] text-[var(--ink-contrast)] focus-visible:ring-[var(--accent-ring)]",
-        !primary && danger && "border border-red-200 text-red-600 hover:bg-red-50 focus-visible:ring-red-400 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40",
-        !primary && !danger && "border border-zinc-200 text-zinc-700 hover:bg-zinc-50 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800",
+        primary
+          && danger
+          && "bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-400 dark:bg-red-700 dark:hover:bg-red-600",
+        primary
+          && !danger
+          && "bg-[var(--ink)] text-[var(--ink-contrast)] focus-visible:ring-[var(--accent-ring)]",
+        !primary
+          && danger
+          && "border border-red-200 text-red-600 hover:bg-red-50 focus-visible:ring-red-400 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40",
+        !primary
+          && !danger
+          && "border border-zinc-200 text-zinc-700 hover:bg-zinc-50 focus-visible:ring-[var(--accent-ring)] dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800",
       )}
     >
       {children}
