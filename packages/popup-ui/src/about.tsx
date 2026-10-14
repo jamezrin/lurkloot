@@ -1,4 +1,4 @@
-import React from "react";
+import type React from "react";
 import { ArrowUpRight, Globe } from "lucide-react";
 import { useT } from "./context";
 import { CHROME_WEB_STORE_URL, GITHUB_REPO_URL, SITE_URL } from "./constants";

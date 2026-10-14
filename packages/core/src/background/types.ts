@@ -8,7 +8,7 @@ import type { PlatformAdapter } from "../platforms/adapter";
 import type { TablessWatchController } from "../core/tablessWatch";
 import type { DiscoverySignalController } from "../core/discoverySignals";
 import type { DiscoverySnapshot, DiscoverySnapshotState } from "../core/discoverySnapshot";
-import { AuthProbeSetupError } from "./errors";
+import type { AuthProbeSetupError } from "./errors";
 import type { CommitGuard, CommitOptions, CommitResult, PreparedSettingsCommit } from "./stateTransaction";
 import type { TickEffectExecutor } from "./tickEffects";
 

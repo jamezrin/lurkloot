@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 // Its switches, checkboxes and number fields are Base UI parts, which need
 // real mouse and keyboard events; linkedom has none.
-import React, { act } from "react";
+import type React from "react";
+import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CategorySelection, ExtensionSettings } from "@lurkloot/shared/models";

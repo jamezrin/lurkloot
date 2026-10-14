@@ -180,7 +180,6 @@ export function createHlsHeartbeat(options: HlsHeartbeatOptions): TwitchHeartbea
   };
 
   const sendTelemetry = async (context: TwitchHeartbeatContext, signal: AbortSignal): Promise<void> => {
-    const channel = context.channel.username.trim().toLowerCase();
     const sentAt = lastTelemetryAt;
     if (sentAt !== undefined && now() - sentAt < HLS_TELEMETRY_INTERVAL_MS) return;
     if (signal.aborted) return;

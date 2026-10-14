@@ -21,12 +21,6 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function byLabel(container: Element, label: string): HTMLButtonElement {
-  const button = container.querySelector(`button[aria-label="${label}"]`);
-  if (!button) throw new Error(`Missing button label: ${label}`);
-  return button as HTMLButtonElement;
-}
-
 describe("popup settings lifecycle", () => {
   it("opens and closes settings without a background lifecycle connection", async () => {
     const { document, window } = parseHTML("<div id=app></div>");

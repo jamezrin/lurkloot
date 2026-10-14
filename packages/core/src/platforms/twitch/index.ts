@@ -2301,7 +2301,7 @@ export class TwitchAdapter implements PlatformAdapter {
         },
         this.emit,
       );
-    } catch (error) {
+    } catch {
       signal?.throwIfAborted();
       const checks: ChannelCheck[] = [];
       for (const candidate of candidates) {

@@ -1,4 +1,4 @@
-import React from "react";
+import type React from "react";
 import { motion } from "motion/react";
 import { X } from "lucide-react";
 import { GITHUB_REPO_URL } from "./constants";

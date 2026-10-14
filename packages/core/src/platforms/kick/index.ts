@@ -17,7 +17,7 @@ import type { ResolvedCompatibility } from "../../compatibility/types";
 import { createKickClaimCapability } from "./claim/factory";
 import type { KickClaimCapability } from "./claim/types";
 import { safeHttpsUrl } from "./claim/types";
-import { KickClaimState } from "./claim/v2";
+import type { KickClaimState } from "./claim/v2";
 import { isSafeFetchError } from "../../core/fetchError";
 import { KickRouteCounts, KickRouteState, safeKickRouteHost } from "./routeDiagnostics";
 import { errorMessage } from "@lurkloot/shared/errors";

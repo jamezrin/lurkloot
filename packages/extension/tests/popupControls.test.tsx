@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 // Segmented and Checkbox are Base UI parts, which need real mouse events.
-import React, { act } from "react";
+import type React from "react";
+import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Checkbox, Segmented } from "../../popup-ui/src/controls";

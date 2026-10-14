@@ -4,7 +4,7 @@ import { createKickClaimCapability, createKickFetcher, KickAdapter, KickClaimSta
 import { fetchTwitchInBackgroundWith, KickWafBlockedError } from "@lurkloot/core/transport";
 import type { TwitchIntegrityRequest } from "@lurkloot/core/tabRegistry";
 import { readFileSync } from "node:fs";
-import { TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
+import { type TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
 import type { EngineEvent } from "@lurkloot/shared/events";
 import type { DropCampaign, DropReward, ExtensionSettings } from "@lurkloot/shared/models";
 import { chooseCampaignDecision } from "@lurkloot/core/scheduler";

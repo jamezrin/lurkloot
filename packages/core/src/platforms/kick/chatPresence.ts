@@ -3,7 +3,7 @@ import type { ChatPresenceBlockReason, ChatPresenceStatus } from "@lurkloot/shar
 import type { ChatPresenceClient, ChatPresenceTarget } from "../../core/chatPresence";
 import { PendingDiscoverySignalDiagnostics } from "../../core/discoverySignals";
 import { SafeFetchError } from "../../core/fetchError";
-import { KickRealtimeConnection, kickRealtimeNegotiation, parseKickRealtimeEndpoint } from "./realtime";
+import { type KickRealtimeConnection, kickRealtimeNegotiation, parseKickRealtimeEndpoint } from "./realtime";
 import { errorMessage } from "@lurkloot/shared/errors";
 import { asRecord } from "@lurkloot/shared/records";
 

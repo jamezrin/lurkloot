@@ -59,11 +59,6 @@ export function GamesPanel({
     return merged.filter((entry) => !contains(blockedCategories, entry));
   }, [categories, favouriteCategories, blockedCategories, suggestions]);
 
-  const selectedIds = useMemo(
-    () => new Set([...categories, ...blockedCategories].map((category) => category.id.toLowerCase())),
-    [categories, blockedCategories],
-  );
-
   // Favourites first, in the order they rank, then everything else as listed:
   // the order on screen is the order the stars apply in.
   const ordered = useMemo(() => {

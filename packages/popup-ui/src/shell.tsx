@@ -1,4 +1,4 @@
-import React from "react";
+import type React from "react";
 import { ArrowUpRight, Clock3, Gamepad2, Eye, Gift, ListChecks, Package, Settings as SettingsIcon, Sparkles, Trophy } from "lucide-react";
 import type { Platform, WatchSourceId } from "@lurkloot/shared/models";
 import type { AutomationPresentation } from "./automationStatus";

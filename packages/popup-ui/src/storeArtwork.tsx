@@ -1,4 +1,4 @@
-import React from "react";
+import type React from "react";
 import { LurklootMark } from "./mark";
 
 import { isRtlLocale } from "@lurkloot/shared/i18n";

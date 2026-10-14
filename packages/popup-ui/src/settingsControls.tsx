@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import type React from "react";
+import { useEffect, useState } from "react";
 import { Ban, ChevronDown, Lock, Minus, Plus } from "lucide-react";
 import { NumberField } from "@base-ui/react/number-field";
 import type { ExtensionSettings } from "@lurkloot/shared/models";
