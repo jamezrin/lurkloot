@@ -1338,10 +1338,15 @@ export class TwitchAdapter implements PlatformAdapter {
       : { results: [], batchRequests: 0, singleFallbacks: 0 };
     // Kept on an all-cache-hit tick too: a missing line would read as a dead
     // code path exactly in the steady state this cache exists to produce.
+    const detailSummary = [
+      `${discoverableCampaignIds.length} campaigns: ${dropIdsToFetch.length} fetched in ${detailFetch.batchRequests} batch requests`,
+      `${detailFetch.singleFallbacks} single fallbacks`,
+      `${cachedDetailsByDropId.size} served from cache`,
+    ].join(", ");
     diagnostic(
       this.emit,
       "debug",
-      `Twitch campaign details finished in ${Date.now() - detailsStartedAt}ms (${discoverableCampaignIds.length} campaigns: ${dropIdsToFetch.length} fetched in ${detailFetch.batchRequests} batch requests, ${detailFetch.singleFallbacks} single fallbacks, ${cachedDetailsByDropId.size} served from cache)`,
+      `Twitch campaign details finished in ${Date.now() - detailsStartedAt}ms (${detailSummary})`,
       "twitch",
     );
     signal?.throwIfAborted();
@@ -1918,10 +1923,30 @@ export class TwitchAdapter implements PlatformAdapter {
     let winnerFallbacks = 0;
     let strictRejections = 0;
     const reportSelectionFinished = () => {
+      const mode = this.options.strictCampaignAvailability
+        ? "strict campaign availability"
+        : "trusted discovery sources";
+      const streamInfoBatches = Math.ceil(streamCandidates.length / GQL_BATCH_OPERATION_LIMIT);
+      const summary = [
+        `${streamCandidates.length} candidates batch-checked`,
+        `${checked} candidates evaluated`,
+        `${streamInfoBatches} StreamInfo batch requests`,
+        `${streamCheckResult.singleFallbacks} StreamInfo single fallbacks`,
+        `${availabilityResult.batchRequests} AvailableDrops batch requests`,
+        `${availabilityResult.singleFallbacks} AvailableDrops single fallbacks`,
+        `${availabilityResult.cacheHits} availability cache hits`,
+        `${availabilityResult.cacheMisses} availability cache misses`,
+        `${availabilityResult.cacheExpirations} availability cache expirations`,
+        `${availabilityResult.broadcastInvalidations} availability broadcast invalidations`,
+        `${availabilityResult.progressOverrides} progress-confirmed availability overrides`,
+        `${trustedDirectoryCandidates} directory candidates trusted`,
+        `${winnerFallbacks} winner fallbacks`,
+        `${strictRejections} candidates rejected by strict availability`,
+      ].join(", ");
       diagnostic(
         this.emit,
         "debug",
-        `Twitch ${selectionDescription} finished in ${Date.now() - startedAt}ms (${this.options.strictCampaignAvailability ? "strict campaign availability" : "trusted discovery sources"}, ${streamCandidates.length} candidates batch-checked, ${checked} candidates evaluated, ${Math.ceil(streamCandidates.length / GQL_BATCH_OPERATION_LIMIT)} StreamInfo batch requests, ${streamCheckResult.singleFallbacks} StreamInfo single fallbacks, ${availabilityResult.batchRequests} AvailableDrops batch requests, ${availabilityResult.singleFallbacks} AvailableDrops single fallbacks, ${availabilityResult.cacheHits} availability cache hits, ${availabilityResult.cacheMisses} availability cache misses, ${availabilityResult.cacheExpirations} availability cache expirations, ${availabilityResult.broadcastInvalidations} availability broadcast invalidations, ${availabilityResult.progressOverrides} progress-confirmed availability overrides, ${trustedDirectoryCandidates} directory candidates trusted, ${winnerFallbacks} winner fallbacks, ${strictRejections} candidates rejected by strict availability)`,
+        `Twitch ${selectionDescription} finished in ${Date.now() - startedAt}ms (${mode}, ${summary})`,
         "twitch",
       );
     };
