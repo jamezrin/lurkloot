@@ -159,8 +159,17 @@ export function createTickRun<S extends EngineSettings>(
       platform,
       tickContext,
     );
+
     try {
-      const claimed = await runTick(tickContext, [platform], abort.signal, trigger, tickAdapters, heldRewardClaims, onPersisted);
+      const claimed = await runTick(
+        tickContext,
+        [platform],
+        abort.signal,
+        trigger,
+        tickAdapters,
+        heldRewardClaims,
+        onPersisted,
+      );
       return [platform, claimed[platform] ?? []];
     } catch (error) {
       if (abort.signal.aborted) return [platform, []];
@@ -168,14 +177,21 @@ export function createTickRun<S extends EngineSettings>(
     } finally {
       endTickCycle(platform);
       for (const heldPlatform of PLATFORMS) releaseRewardClaims(heldPlatform, heldRewardClaims[heldPlatform]);
+
       // Not gated on the abort: a host reset aborting the tick between opening
       // a watch tab and committing it is exactly when the tab would be left
       // open. The platform's next tick waits for this.
       try {
         await releaseUncommittedWatchTabs(platform);
       } catch (error) {
-        diagnosticEvent("warn", `Could not release uncommitted watch tabs: ${errorMessage(error)}`, platform, tickContext);
+        diagnosticEvent(
+          "warn",
+          `Could not release uncommitted watch tabs: ${errorMessage(error)}`,
+          platform,
+          tickContext,
+        );
       }
+
       for (const adapter of Object.values(tickAdapters)) adapter.close();
       tickSlice.activeTicks.delete(abort);
       tickSlice.activePlatformTicks[platform] -= 1;
@@ -259,6 +275,7 @@ export function createTickRun<S extends EngineSettings>(
         await settleCommitHooks(authPlatforms);
       }
     }
+
     const schedulerPlatforms = requestedPlatforms.filter((platform) =>
       !excludedPlatforms.has(platform));
     if (schedulerPlatforms.length === 0) return claimedRewards;
@@ -272,6 +289,7 @@ export function createTickRun<S extends EngineSettings>(
       : discoveryPlatforms;
     await refreshDiscovery(refreshPlatforms, selectionBypassesBackoff(trigger), tickAdapters);
     signal.throwIfAborted();
+
     const preparedSelections: Partial<Record<Platform, CommittedSelection>> = {};
     await Promise.all(discoveryPlatforms.map(async (selectionPlatform) => {
       const snapshot = discoverySnapshot(selectionPlatform).snapshot;
@@ -290,6 +308,7 @@ export function createTickRun<S extends EngineSettings>(
       preparedSelections[selectionPlatform] = await prepareSelection(input);
     }));
     signal.throwIfAborted();
+
     const platform = schedulerPlatforms[0];
     const staleSelection = new Error("Snapshot selection lifecycle changed before publication");
     // Three steps (#599). Under the platform lock, read the state and settings
@@ -341,6 +360,7 @@ export function createTickRun<S extends EngineSettings>(
               state.sessions[discoveryPlatform],
             );
           }
+
           const selections: Partial<Record<Platform, SnapshotSelectionResult>> = {};
           for (const selectionPlatform of schedulerPlatforms) {
             const snapshot = discoverySnapshot(selectionPlatform).snapshot;
@@ -360,7 +380,8 @@ export function createTickRun<S extends EngineSettings>(
                   category: "diagnostic",
                   platform: selectionPlatform,
                   level: "debug",
-                  message: `Snapshot selection discarded before commit (trigger=${trigger}, revision=${prepared.snapshotRevision})`,
+                  message: "Snapshot selection discarded before commit "
+                    + `(trigger=${trigger}, revision=${prepared.snapshotRevision})`,
                 });
               }
               prepared = await reselectUnderLock({
@@ -381,7 +402,8 @@ export function createTickRun<S extends EngineSettings>(
                 category: "diagnostic",
                 platform: selectionPlatform,
                 level: "debug",
-                message: `Snapshot selection discarded before commit after lifecycle change (trigger=${trigger}, revision=${prepared.snapshotRevision})`,
+                message: "Snapshot selection discarded before commit after lifecycle change "
+                  + `(trigger=${trigger}, revision=${prepared.snapshotRevision})`,
               });
               continue;
             }
