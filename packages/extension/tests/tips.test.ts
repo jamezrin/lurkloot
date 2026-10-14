@@ -102,7 +102,7 @@ describe("TipsBanner", () => {
 
   it("is gated by the popup preference and deterministic in previews", () => {
     const popupSource = readFileSync(resolve(import.meta.dirname, "../../popup-ui/src/Popup.tsx"), "utf8");
-    expect(popupSource).toContain("settings.showTips ? <TipsBanner initialIndex={preview ? 0 : undefined} preview={preview} /> : null");
+    expect(popupSource).toMatch(/settings\.showTips \? \(?\s*<TipsBanner\s+initialIndex=\{preview \? 0 : undefined\}\s+preview=\{preview\}\s*\/>\s*\)? : null/);
   });
 
   it("has a Hide tips control in General settings", () => {
