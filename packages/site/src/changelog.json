@@ -1,5 +1,18 @@
 [
   {
+    "version": "1.17.1",
+    "changes": [
+      {
+        "kind": "fixed",
+        "text": "Kick drops now show the right watch time. The time each drop needs and the time left showed about half of what Kick's own drops page says."
+      },
+      {
+        "kind": "fixed",
+        "text": "Lurkloot no longer piles up Kick tabs when Kick blocks a page with \"Request blocked by security policy\". It now waits before trying again, and if the block doesn't lift, it pauses Kick and lets you know instead of opening tab after tab. A tab that the browser refuses to close is no longer forgotten and replaced with a new one."
+      }
+    ]
+  },
+  {
     "version": "1.17.0",
     "changes": [
       {
