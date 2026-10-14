@@ -1,5 +1,10 @@
 import type { EngineEvent } from "@lurkloot/shared/events";
-import type { ChatPresenceStatus, EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
+import type {
+  ChatPresenceStatus,
+  EngineSettings,
+  Platform,
+  SchedulerState,
+} from "@lurkloot/shared/models";
 import { twitchExtensionProvider } from "../extensions/registry";
 import { pausedForManualWatch } from "./manualWatch";
 
@@ -39,13 +44,16 @@ export function chatPresenceDecision(
   const platformSettings = settings.platform[platform];
   const session = state.sessions[platform];
   const channel = session.channel;
-  if (!platformSettings.enabled
+  if (
+    !platformSettings.enabled
     || state.authHealth[platform].status !== "healthy"
     || state.manualClosePause?.[platform]
     || pausedForManualWatch(settings, state, platform, options.now ?? Date.now())
     || session.status !== "watching"
     || session.watchMode !== "tabless"
-    || !channel) return undefined;
+    || !channel
+  )
+    return undefined;
   const target: ChatPresenceTarget = {
     username: channel.username.toLowerCase(),
     ...(channel.channelId ? { channelId: channel.channelId } : {}),

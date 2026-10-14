@@ -36,9 +36,12 @@ const INLINE_QUERY = `query Inventory($fetchRewardCampaigns: Boolean!) {
   }
 }`;
 
-export const twitchInventoryV1 = twitchInventoryCapability({
-  id: "twitch-inventory-v1",
-  hash: "d86775d0ef16a63a33ad52e80eaff963b2d5b72fada7c991504a57496e1d8e4b",
-  variables: Object.freeze({ fetchRewardCampaigns: false }),
-  inlineQuery: INLINE_QUERY,
-}, twitchInventoryFieldChecks);
+export const twitchInventoryV1 = twitchInventoryCapability(
+  {
+    id: "twitch-inventory-v1",
+    hash: "d86775d0ef16a63a33ad52e80eaff963b2d5b72fada7c991504a57496e1d8e4b",
+    variables: Object.freeze({ fetchRewardCampaigns: false }),
+    inlineQuery: INLINE_QUERY,
+  },
+  twitchInventoryFieldChecks,
+);

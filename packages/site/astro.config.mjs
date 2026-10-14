@@ -18,10 +18,7 @@ const deploymentFiles = {
     "astro:build:done": async ({ dir }) => {
       if (deploymentChannel !== "prerelease") return;
 
-      await writeFile(
-        new URL("robots.txt", dir),
-        "User-agent: *\nDisallow: /\n",
-      );
+      await writeFile(new URL("robots.txt", dir), "User-agent: *\nDisallow: /\n");
       await appendFile(
         new URL("_headers", dir),
         "\n/*\n  X-Robots-Tag: noindex, nofollow, noarchive\n",

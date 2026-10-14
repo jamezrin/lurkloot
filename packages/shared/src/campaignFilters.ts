@@ -1,7 +1,13 @@
 import { campaignPassesCategoryFilter } from "./categories";
 import { evaluateCampaignFarming } from "./campaignFarming";
 import type { CampaignFilterKey, DropCampaign, DropReward, EngineSettings } from "./models";
-import { campaignHasSubscriptionRewards, canClaimReward, isRewardDeadlineFeasible, isRewardObtained, isRewardRelevantNow } from "./rewards";
+import {
+  campaignHasSubscriptionRewards,
+  canClaimReward,
+  isRewardDeadlineFeasible,
+  isRewardObtained,
+  isRewardRelevantNow,
+} from "./rewards";
 
 export function isCampaignExpired(campaign: DropCampaign): boolean {
   if (campaign.status === "expired") return true;
@@ -38,7 +44,10 @@ export function isCampaignUpcoming(campaign: DropCampaign): boolean {
   return campaign.status === "upcoming" || campaign.eligibility === "upcoming";
 }
 
-export function campaignFilterCategories(campaign: DropCampaign, excludedIds: ReadonlySet<string>): CampaignFilterKey[] {
+export function campaignFilterCategories(
+  campaign: DropCampaign,
+  excludedIds: ReadonlySet<string>,
+): CampaignFilterKey[] {
   const categories: CampaignFilterKey[] = [];
   if (excludedIds.has(campaign.id)) categories.push("excluded");
   if (campaign.accountLinked === false) categories.push("notLinked");
@@ -57,9 +66,13 @@ export function campaignPassesFarmingEligibility(
   campaign: DropCampaign,
   farmingEligibility: EngineSettings["farmingEligibility"],
 ): boolean {
-  if ((campaign.accountLinked === false || campaign.eligibility === "account_not_linked")
-    && !farmingEligibility.farmUnlinkedCampaigns) return false;
-  if (campaignHasSubscriptionRewards(campaign) && !farmingEligibility.farmSubscriptionCampaigns) return false;
+  if (
+    (campaign.accountLinked === false || campaign.eligibility === "account_not_linked")
+    && !farmingEligibility.farmUnlinkedCampaigns
+  )
+    return false;
+  if (campaignHasSubscriptionRewards(campaign) && !farmingEligibility.farmSubscriptionCampaigns)
+    return false;
   return true;
 }
 
@@ -77,8 +90,15 @@ export function isRewardFarmableNow(
   if (reward.status === "claimed") return false;
   if (reward.preconditionsMet === false) return false;
   if (!isRewardRelevantNow(reward)) return false;
-  return canClaimReward(reward)
-    || isRewardDeadlineFeasible(campaign, reward, settings.skipUnfinishableRewards, settings.deadlineSafetyMarginMinutes);
+  return (
+    canClaimReward(reward)
+    || isRewardDeadlineFeasible(
+      campaign,
+      reward,
+      settings.skipUnfinishableRewards,
+      settings.deadlineSafetyMarginMinutes,
+    )
+  );
 }
 
 // Whether a campaign's CLASS could ever be farmed, ignoring the moment-to-moment
@@ -94,7 +114,12 @@ export function isRewardFarmableNow(
 export function campaignEligibleClass(campaign: DropCampaign, settings: EngineSettings): boolean {
   if (campaign.status !== "active") return false;
   if (hasCampaignEnded(campaign)) return false;
-  if (campaign.eligibility && campaign.eligibility !== "eligible" && campaign.eligibility !== "account_not_linked") return false;
+  if (
+    campaign.eligibility
+    && campaign.eligibility !== "eligible"
+    && campaign.eligibility !== "account_not_linked"
+  )
+    return false;
   if (settings.excludedCampaignIds.includes(campaign.id)) return false;
   if (!campaignPassesFarmingEligibility(campaign, settings.farmingEligibility)) return false;
   if (!campaignPassesCategoryFilter(campaign, settings.platform[campaign.platform])) return false;
@@ -125,5 +150,7 @@ export function campaignSection(campaign: DropCampaign, settings: EngineSettings
   if (isCampaignFinished(campaign)) return "completed";
   if (isCampaignExpired(campaign)) return "expired";
   if (isCampaignUpcoming(campaign)) return "upcoming";
-  return evaluateCampaignFarming(campaign, settings, { includePinnedOnly: true }).farmable ? "queue" : "skipped";
+  return evaluateCampaignFarming(campaign, settings, { includePinnedOnly: true }).farmable
+    ? "queue"
+    : "skipped";
 }

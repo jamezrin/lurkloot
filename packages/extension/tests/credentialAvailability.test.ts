@@ -5,17 +5,20 @@ describe("credential availability", () => {
   it.each([
     ["twitch", "https://www.twitch.tv", "auth-token"],
     ["kick", "https://kick.com", "session_token"],
-  ] as const)("reports %s credentials without returning their value", async (platform, url, name) => {
-    const get = vi.fn(async () => ({ value: "credential-secret" }));
-    const check = createCredentialAvailabilityProvider({ get });
+  ] as const)(
+    "reports %s credentials without returning their value",
+    async (platform, url, name) => {
+      const get = vi.fn(async () => ({ value: "credential-secret" }));
+      const check = createCredentialAvailabilityProvider({ get });
 
-    const result = await check(platform);
+      const result = await check(platform);
 
-    expect(get).toHaveBeenCalledOnce();
-    expect(get).toHaveBeenCalledWith({ url, name });
-    expect(result).toEqual({ status: "available" });
-    expect(JSON.stringify(result)).not.toContain("credential-secret");
-  });
+      expect(get).toHaveBeenCalledOnce();
+      expect(get).toHaveBeenCalledWith({ url, name });
+      expect(result).toEqual({ status: "available" });
+      expect(JSON.stringify(result)).not.toContain("credential-secret");
+    },
+  );
 
   it.each([null, { value: "" }, {}])("reports a missing required cookie for %j", async (cookie) => {
     const check = createCredentialAvailabilityProvider({ get: vi.fn(async () => cookie) });

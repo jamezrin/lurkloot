@@ -50,14 +50,17 @@ const captureClaim = args.has("--capture-claim");
 // and passively record whatever request Kick's own search box fires, so the
 // extension's searchCategories can target the real endpoint + shape.
 const inspectCategories = args.has("--categories");
-const categoryQuery = [...args].find((a) => a.startsWith("--query="))?.slice("--query=".length) ?? "rust";
+const categoryQuery =
+  [...args].find((a) => a.startsWith("--query="))?.slice("--query=".length) ?? "rust";
 // Reuse the real Chrome login instead of logging in fresh. Copies the cookie DB
 // + Local State of the named profile (default "Default") into a throwaway
 // user-data-dir and launches the REAL google-chrome-stable against it. Real
 // Chrome is required so the GNOME-keyring "Chrome Safe Storage" key decrypts the
 // cookies; a non-default dir sidesteps Chrome 136+'s default-profile automation
 // block. The real profile is never opened, so Chrome can stay running.
-const fromChromeArg = [...args].find((a) => a === "--from-chrome" || a.startsWith("--from-chrome="));
+const fromChromeArg = [...args].find(
+  (a) => a === "--from-chrome" || a.startsWith("--from-chrome="),
+);
 const fromChrome = fromChromeArg !== undefined;
 const sourceProfile = fromChromeArg?.includes("=") ? fromChromeArg.split("=")[1] : "Default";
 
@@ -83,7 +86,10 @@ async function pageFetch(page, url, init) {
       const headers = new Headers(init?.headers ?? {});
       // The extension injects the bearer from the session_token cookie for
       // web.kick.com / websockets.kick.com; reproduce that here.
-      if ((url.includes("web.kick.com") || url.includes("websockets.kick.com")) && !headers.has("authorization")) {
+      if (
+        (url.includes("web.kick.com") || url.includes("websockets.kick.com"))
+        && !headers.has("authorization")
+      ) {
         const token = document.cookie
           .split(";")
           .map((p) => p.trim())
@@ -91,7 +97,11 @@ async function pageFetch(page, url, init) {
           ?.slice("session_token=".length);
         if (token) headers.set("authorization", `Bearer ${decodeURIComponent(token)}`);
       }
-      const res = await fetch(url, { ...init, headers, credentials: init?.credentials ?? "include" });
+      const res = await fetch(url, {
+        ...init,
+        headers,
+        credentials: init?.credentials ?? "include",
+      });
       const text = await res.text();
       let json;
       try {
@@ -99,7 +109,13 @@ async function pageFetch(page, url, init) {
       } catch {
         json = undefined;
       }
-      return { status: res.status, ok: res.ok, contentType: res.headers.get("content-type"), json, text: json ? undefined : text.slice(0, 2000) };
+      return {
+        status: res.status,
+        ok: res.ok,
+        contentType: res.headers.get("content-type"),
+        json,
+        text: json ? undefined : text.slice(0, 2000),
+      };
     },
     { url, init },
   );
@@ -115,8 +131,13 @@ async function captureViaPage(page, name, url, init) {
   try {
     const res = await pageFetch(page, url, init);
     await save(`${name}.json`, res.json ?? res.text ?? "");
-    const blocked = typeof res.json?.error === "string" && /security policy|blocked/i.test(res.json.error);
-    note(name, res.ok && Boolean(res.json) && !blocked, `HTTP ${res.status}${blocked ? " (WAF block)" : res.json ? " (json captured)" : " (non-json)"}`);
+    const blocked =
+      typeof res.json?.error === "string" && /security policy|blocked/i.test(res.json.error);
+    note(
+      name,
+      res.ok && Boolean(res.json) && !blocked,
+      `HTTP ${res.status}${blocked ? " (WAF block)" : res.json ? " (json captured)" : " (non-json)"}`,
+    );
     return res;
   } catch (error) {
     note(name, false, error instanceof Error ? error.message : String(error));
@@ -136,7 +157,9 @@ async function inspectViewerSocket(page, token, channelId, livestreamId) {
         let counter = 0;
         let watchSentAt = 0;
         let timer;
-        const ws = new WebSocket(`wss://websockets.kick.com/viewer/v1/connect?token=${encodeURIComponent(token)}`);
+        const ws = new WebSocket(
+          `wss://websockets.kick.com/viewer/v1/connect?token=${encodeURIComponent(token)}`,
+        );
         const send = (obj) => {
           try {
             ws.send(JSON.stringify(obj));
@@ -145,7 +168,16 @@ async function inspectViewerSocket(page, token, channelId, livestreamId) {
           }
         };
         const sendWatch = () => {
-          send({ type: "user_event", data: { message: { name: "tracking.user.watch.livestream", channel_id: channelId, livestream_id: livestreamId } } });
+          send({
+            type: "user_event",
+            data: {
+              message: {
+                name: "tracking.user.watch.livestream",
+                channel_id: channelId,
+                livestream_id: livestreamId,
+              },
+            },
+          });
           watchSentAt = Date.now();
           log.push({ dir: "send", type: "watch" });
         };
@@ -167,7 +199,9 @@ async function inspectViewerSocket(page, token, channelId, livestreamId) {
             if (Date.now() - watchSentAt >= 60000) sendWatch();
           }, 13000);
         });
-        ws.addEventListener("message", (ev) => log.push({ dir: "recv", data: String(ev.data).slice(0, 500) }));
+        ws.addEventListener("message", (ev) =>
+          log.push({ dir: "recv", data: String(ev.data).slice(0, 500) }),
+        );
         ws.addEventListener("error", () => {
           result.error = "WebSocket error event";
           finish();
@@ -192,7 +226,11 @@ async function seedFromChrome() {
   const srcCookies = join(CHROME_CONFIG, sourceProfile, "Cookies");
   const srcLocalState = join(CHROME_CONFIG, "Local State");
   if (!existsSync(srcCookies)) {
-    note(`Seed from Chrome "${sourceProfile}"`, false, `${srcCookies} not found — pass --from-chrome="Profile 1" etc.`);
+    note(
+      `Seed from Chrome "${sourceProfile}"`,
+      false,
+      `${srcCookies} not found — pass --from-chrome="Profile 1" etc.`,
+    );
     return false;
   }
   await mkdir(join(SEEDED_DIR, "Default"), { recursive: true });
@@ -221,7 +259,10 @@ async function main() {
     // --password-store: force GNOME libsecret or Chrome can't decrypt the copied
     //   cookies. The rest strip the automation signals (navigator.webdriver,
     //   --enable-automation) that Kick's bot-management WAF blocks on.
-    launchOptions.args = ["--password-store=gnome-libsecret", "--disable-blink-features=AutomationControlled"];
+    launchOptions.args = [
+      "--password-store=gnome-libsecret",
+      "--disable-blink-features=AutomationControlled",
+    ];
     launchOptions.ignoreDefaultArgs = ["--enable-automation"];
   }
   await mkdir(userDataDir, { recursive: true });
@@ -231,11 +272,16 @@ async function main() {
 
   try {
     await page.goto("https://kick.com/", { waitUntil: "domcontentloaded" });
-    note("Landed on kick.com", /kick\.com/.test(page.url()), `url=${page.url()} title=${await page.title().catch(() => "?")}`);
+    note(
+      "Landed on kick.com",
+      /kick\.com/.test(page.url()),
+      `url=${page.url()} title=${await page.title().catch(() => "?")}`,
+    );
 
     // A present-but-short value means the cookie was copied but the keyring
     // failed to decrypt it (would 401 every API call), so check the value too.
-    const sessionCookie = async () => (await context.cookies("https://kick.com")).find((c) => c.name === "session_token");
+    const sessionCookie = async () =>
+      (await context.cookies("https://kick.com")).find((c) => c.name === "session_token");
     const hasSession = async () => {
       const c = await sessionCookie();
       return Boolean(c && c.value && c.value.length > 20);
@@ -247,10 +293,16 @@ async function main() {
         note(
           "Kick login (seeded from Chrome)",
           false,
-          c ? "cookie present but did not decrypt — is the GNOME keyring unlocked? Try a fresh login (omit --from-chrome)" : `no session_token in profile "${sourceProfile}" — log into Kick there, or pass --from-chrome="<other profile>"`,
+          c
+            ? "cookie present but did not decrypt — is the GNOME keyring unlocked? Try a fresh login (omit --from-chrome)"
+            : `no session_token in profile "${sourceProfile}" — log into Kick there, or pass --from-chrome="<other profile>"`,
         );
       } else if (headless) {
-        note("Kick login", false, "No session_token cookie. Run once headed (omit --headless) and log in.");
+        note(
+          "Kick login",
+          false,
+          "No session_token cookie. Run once headed (omit --headless) and log in.",
+        );
       } else {
         const rl = createInterface({ input: stdin, output: stdout });
         console.log("\n>> Log into Kick in the opened window, then press Enter here...");
@@ -258,7 +310,11 @@ async function main() {
         rl.close();
       }
     }
-    note("Kick login", await hasSession(), (await hasSession()) ? "session_token present and decrypted" : "no usable session_token");
+    note(
+      "Kick login",
+      await hasSession(),
+      (await hasSession()) ? "session_token present and decrypted" : "no usable session_token",
+    );
 
     // Category-search discovery: probe candidate REST endpoints (in-page fetch),
     // then passively capture the request Kick's own search box fires.
@@ -283,18 +339,30 @@ async function main() {
       context.on("request", (req) => {
         if (/search|categor/i.test(req.url())) seen.push(`${req.method()} ${req.url()}`);
       });
-      await page.goto("https://kick.com/browse", { waitUntil: "domcontentloaded" }).catch(() => undefined);
+      await page
+        .goto("https://kick.com/browse", { waitUntil: "domcontentloaded" })
+        .catch(() => undefined);
       await page.waitForTimeout(2500);
       try {
         await page.goto("https://kick.com/", { waitUntil: "domcontentloaded" });
-        const box = page.locator('input[type="search"], input[placeholder*="Search" i], input[name*="search" i]').first();
+        const box = page
+          .locator('input[type="search"], input[placeholder*="Search" i], input[name*="search" i]')
+          .first();
         await box.fill(categoryQuery, { timeout: 5000 });
         await page.waitForTimeout(3500);
       } catch (error) {
-        note("Search box typing", undefined, error instanceof Error ? error.message : String(error));
+        note(
+          "Search box typing",
+          undefined,
+          error instanceof Error ? error.message : String(error),
+        );
       }
       await save("category-search-requests.json", seen);
-      note("Site search/category requests observed", seen.length > 0, `${seen.length} → category-search-requests.json`);
+      note(
+        "Site search/category requests observed",
+        seen.length > 0,
+        `${seen.length} → category-search-requests.json`,
+      );
       return;
     }
 
@@ -305,7 +373,12 @@ async function main() {
       const isClaim = (url, method) => method === "POST" && /\/drops\/.*claim|\/claim/i.test(url);
       context.on("request", async (req) => {
         if (!isClaim(req.url(), req.method())) return;
-        claims.push({ url: req.url(), method: req.method(), headers: req.headers(), body: req.postData() });
+        claims.push({
+          url: req.url(),
+          method: req.method(),
+          headers: req.headers(),
+          body: req.postData(),
+        });
       });
       context.on("response", async (res) => {
         const req = res.request();
@@ -316,11 +389,17 @@ async function main() {
         note("Captured claim", res.ok(), `HTTP ${res.status()} ${req.url()}`);
       });
       const rl = createInterface({ input: stdin, output: stdout });
-      console.log("\n>> Open the Drops page in the window, click 'Pedir' on a reward, then press Enter here...");
+      console.log(
+        "\n>> Open the Drops page in the window, click 'Pedir' on a reward, then press Enter here...",
+      );
       await rl.question("");
       rl.close();
       await save("claim-capture.json", claims);
-      note("Claim requests captured", claims.length > 0, `${claims.length} request(s) → claim-capture.json`);
+      note(
+        "Claim requests captured",
+        claims.length > 0,
+        `${claims.length} request(s) → claim-capture.json`,
+      );
       return;
     }
 
@@ -336,12 +415,18 @@ async function main() {
       headers: { "X-Client-Token": KICK_CLIENT_TOKEN },
     });
     // 3. Livestreams (candidate discovery). category_id omitted to just see the shape.
-    const live = await captureViaPage(page, "livestreams", "https://web.kick.com/api/v1/livestreams?limit=25&sort=viewer_count_desc");
+    const live = await captureViaPage(
+      page,
+      "livestreams",
+      "https://web.kick.com/api/v1/livestreams?limit=25&sort=viewer_count_desc",
+    );
 
     // Pick a channel to drive the viewer socket against.
     let channel = channelArg;
     if (!channel) {
-      const streams = Array.isArray(live?.json?.data) ? live.json.data : live?.json?.data?.livestreams ?? [];
+      const streams = Array.isArray(live?.json?.data)
+        ? live.json.data
+        : (live?.json?.data?.livestreams ?? []);
       channel = streams[0]?.channel?.slug ?? streams[0]?.channel?.username ?? streams[0]?.slug;
     }
     if (!channel) {
@@ -351,16 +436,29 @@ async function main() {
     note("Channel selection", true, channel);
 
     // 4. v2 channel endpoint — known Cloudflare/drift risk; confirm livestream{ id, is_live, categories[] }.
-    const ch = await captureViaPage(page, "channel-v2", `https://kick.com/api/v2/channels/${encodeURIComponent(channel)}`);
+    const ch = await captureViaPage(
+      page,
+      "channel-v2",
+      `https://kick.com/api/v2/channels/${encodeURIComponent(channel)}`,
+    );
     const channelId = ch?.json?.id;
     const livestreamId = ch?.json?.livestream?.id;
     const isLive = Boolean(ch?.json?.livestream?.is_live ?? ch?.json?.livestream);
-    note("Channel is live", isLive, `channelId=${channelId ?? "?"} livestreamId=${livestreamId ?? "?"}`);
+    note(
+      "Channel is live",
+      isLive,
+      `channelId=${channelId ?? "?"} livestreamId=${livestreamId ?? "?"}`,
+    );
 
     // 5. Viewer token exchange — confirms the hardcoded X-Client-Token still works.
-    const tokenRes = await captureViaPage(page, "viewer-token", "https://websockets.kick.com/viewer/v1/token", {
-      headers: { "X-Client-Token": KICK_CLIENT_TOKEN },
-    });
+    const tokenRes = await captureViaPage(
+      page,
+      "viewer-token",
+      "https://websockets.kick.com/viewer/v1/token",
+      {
+        headers: { "X-Client-Token": KICK_CLIENT_TOKEN },
+      },
+    );
     const token = tokenRes?.json?.data?.token;
 
     // 6. Viewer WebSocket from the PAGE origin (kick.com). NOTE: this proves the
@@ -370,13 +468,23 @@ async function main() {
     if (token && channelId && livestreamId && isLive) {
       // Return to a kick.com page (the captures navigated to API URLs); the WS
       // is opened from this page's origin.
-      await page.goto(`https://kick.com/${encodeURIComponent(channel)}`, { waitUntil: "domcontentloaded" }).catch(() => undefined);
+      await page
+        .goto(`https://kick.com/${encodeURIComponent(channel)}`, { waitUntil: "domcontentloaded" })
+        .catch(() => undefined);
       console.log("\n>> Driving the viewer WebSocket for ~75s (watch kick.com viewer count)...");
       const ws = await inspectViewerSocket(page, token, channelId, livestreamId);
       await save("viewer-socket.json", ws);
-      note("Viewer WebSocket (page origin)", ws.opened && !ws.error, ws.error ? ws.error : `frames=${ws.frames.length} close=${ws.closeCode ?? "n/a"}`);
+      note(
+        "Viewer WebSocket (page origin)",
+        ws.opened && !ws.error,
+        ws.error ? ws.error : `frames=${ws.frames.length} close=${ws.closeCode ?? "n/a"}`,
+      );
     } else {
-      note("Viewer WebSocket (page origin)", undefined, "Skipped: need token + live channelId + livestreamId");
+      note(
+        "Viewer WebSocket (page origin)",
+        undefined,
+        "Skipped: need token + live channelId + livestreamId",
+      );
     }
   } finally {
     console.log(`\nSamples written to ${SAMPLES_DIR}`);

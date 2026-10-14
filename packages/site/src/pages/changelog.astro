@@ -1,7 +1,12 @@
 ---
 import Base from "../layouts/SitePage.astro";
 import { changelog, type ChangeKind } from "../changelog";
-const dateFmt = new Intl.DateTimeFormat("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
+const dateFmt = new Intl.DateTimeFormat("en-US", {
+  year: "numeric",
+  month: "long",
+  day: "numeric",
+  timeZone: "UTC",
+});
 const formatDate = (iso: string) => dateFmt.format(new Date(`${iso}T00:00:00Z`));
 const kindLabel: Record<ChangeKind, string> = { new: "New", improved: "Improved", fixed: "Fixed" };
 ---

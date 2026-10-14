@@ -24,15 +24,19 @@ export const twitchInventoryFieldChecks: Readonly<Record<string, InventoryFieldC
   gameEventDrops: nullOrEvery(hasId),
 };
 
-function hasInventorySchema(response: unknown, fieldChecks: Readonly<Record<string, InventoryFieldCheck>>): boolean {
+function hasInventorySchema(
+  response: unknown,
+  fieldChecks: Readonly<Record<string, InventoryFieldCheck>>,
+): boolean {
   if (!isRecord(response) || !isRecord(response.data)) return false;
   const currentUser = response.data.currentUser;
   if (currentUser === null) return true;
   if (!isRecord(currentUser) || !isRecord(currentUser.inventory)) return false;
   const inventory = currentUser.inventory;
   const presentFields = Object.keys(fieldChecks).filter((field) => Object.hasOwn(inventory, field));
-  return presentFields.length > 0
-    && presentFields.every((field) => fieldChecks[field](inventory[field]));
+  return (
+    presentFields.length > 0 && presentFields.every((field) => fieldChecks[field](inventory[field]))
+  );
 }
 
 export function twitchInventoryCapability(
@@ -47,8 +51,12 @@ export function twitchInventoryCapability(
   };
   return {
     ...query,
-    parse: (response) => parseTwitchInventory(checked(response) as Parameters<typeof parseTwitchInventory>[0]),
+    parse: (response) =>
+      parseTwitchInventory(checked(response) as Parameters<typeof parseTwitchInventory>[0]),
     reconcileProgress: (campaigns, response) =>
-      mergeTwitchCampaignProgress(campaigns, checked(response) as Parameters<typeof mergeTwitchCampaignProgress>[1]),
+      mergeTwitchCampaignProgress(
+        campaigns,
+        checked(response) as Parameters<typeof mergeTwitchCampaignProgress>[1],
+      ),
   };
 }

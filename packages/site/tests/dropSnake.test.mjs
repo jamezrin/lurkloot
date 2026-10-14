@@ -54,7 +54,12 @@ test("centres whole cells in the panel and keeps drops clear of the copy", () =>
   for (const cell of board.open) {
     const left = board.x + cell.col * CELL;
     const top = board.y + cell.row * CELL;
-    assert.ok(left >= copy.right || left + CELL <= copy.left || top >= copy.bottom || top + CELL <= copy.top);
+    assert.ok(
+      left >= copy.right
+        || left + CELL <= copy.left
+        || top >= copy.bottom
+        || top + CELL <= copy.top,
+    );
   }
 });
 
@@ -77,14 +82,20 @@ test("finds the shortest way from corner to corner", () => {
     assert.deepEqual(path.at(-1), { col: 25, row: 12 });
     for (let i = 1; i < path.length; i++) {
       const from = path[i - 1].row * 26 + path[i - 1].col;
-      assert.ok(passages(maze, from).includes(path[i].row * 26 + path[i].col), "the path never goes through a wall");
+      assert.ok(
+        passages(maze, from).includes(path[i].row * 26 + path[i].col),
+        "the path never goes through a wall",
+      );
     }
     assert.equal(path.length - 1, distances(maze, 0).get(26 * 13 - 1));
   }
 });
 
 test("leaves solid cells out of the maze", () => {
-  const solid = Array.from({ length: 200 }, (_, index) => index % 20 >= 5 && index % 20 < 15 && index >= 60 && index < 140);
+  const solid = Array.from(
+    { length: 200 },
+    (_, index) => index % 20 >= 5 && index % 20 < 15 && index >= 60 && index < 140,
+  );
   const maze = createMaze(20, 10, seeded(4), { solid });
   const reached = distances(maze, 0);
 
@@ -103,7 +114,11 @@ test("routes a tour round the copy when it can, and under it when it can't", () 
 
     const under = createTour(band, seeded(seed));
     assert.deepEqual(under.route[0], under.entry);
-    assert.ok(under.route.some((spot) => onBoard(band, spot) && band.covered[spot.row * band.cols + spot.col]));
+    assert.ok(
+      under.route.some(
+        (spot) => onBoard(band, spot) && band.covered[spot.row * band.cols + spot.col],
+      ),
+    );
   }
 });
 
@@ -119,7 +134,10 @@ test("tours from one corner, through every drop, out of the opposite one", () =>
     assert.equal(exit.col, 25 - entry.col);
     assert.equal(exit.row, 12 - entry.row);
     assert.equal(drops, 6);
-    assert.ok(tour.snake.body.every((cell) => !onBoard(board, cell)), "starts off the board");
+    assert.ok(
+      tour.snake.body.every((cell) => !onBoard(board, cell)),
+      "starts off the board",
+    );
     for (const item of tour.items) assert.ok(isOpen.has(key(item)), "no drop under the copy");
 
     const visited = [];
@@ -133,7 +151,10 @@ test("tours from one corner, through every drop, out of the opposite one", () =>
       const previous = visited.at(-1);
       if (previous) {
         const from = previous.row * board.cols + previous.col;
-        assert.ok(passages(maze, from).includes(head.row * board.cols + head.col), "never goes through a wall");
+        assert.ok(
+          passages(maze, from).includes(head.row * board.cols + head.col),
+          "never goes through a wall",
+        );
       }
       if (head.col === exit.col && head.row === exit.row) {
         assert.equal(tour.items.length, 0, "only reaches the exit once every drop is eaten");
@@ -150,18 +171,30 @@ test("tours from one corner, through every drop, out of the opposite one", () =>
 
 test("collects the drops in the order with the shortest trip", () => {
   const permutations = (items) =>
-    items.length <= 1 ? [items] : items.flatMap((item, i) => permutations([...items.slice(0, i), ...items.slice(i + 1)]).map((rest) => [item, ...rest]));
+    items.length <= 1
+      ? [items]
+      : items.flatMap((item, i) =>
+          permutations([...items.slice(0, i), ...items.slice(i + 1)]).map((rest) => [
+            item,
+            ...rest,
+          ]),
+        );
   for (let seed = 1; seed <= 5; seed++) {
     const board = createBoard(1280, 632, CELL, [copy]);
     const tour = createTour(board, seeded(seed));
     const index = (cell) => cell.row * board.cols + cell.col;
     // While collecting, the exit is walled off.
     const exitIndex = index(tour.exit);
-    const collecting = { ...tour.maze, right: tour.maze.right.slice(), down: tour.maze.down.slice() };
+    const collecting = {
+      ...tour.maze,
+      right: tour.maze.right.slice(),
+      down: tour.maze.down.slice(),
+    };
     collecting.right[exitIndex] = collecting.down[exitIndex] = false;
     if (exitIndex % board.cols > 0) collecting.right[exitIndex - 1] = false;
     if (exitIndex >= board.cols) collecting.down[exitIndex - board.cols] = false;
-    const stepsBetween = (a, b) => distances(b === tour.exit ? tour.maze : collecting, index(a)).get(index(b));
+    const stepsBetween = (a, b) =>
+      distances(b === tour.exit ? tour.maze : collecting, index(a)).get(index(b));
     let shortest = Number.POSITIVE_INFINITY;
     for (const order of permutations(tour.items)) {
       let length = 0;
@@ -227,7 +260,11 @@ test("wraps around the edges", () => {
   const board = createBoard(1280, 632, CELL);
   const match = createMatch(board, seeded(1));
   match.items = [];
-  match.snake.body = [{ col: 25, row: 3 }, { col: 24, row: 3 }, { col: 23, row: 3 }];
+  match.snake.body = [
+    { col: 25, row: 3 },
+    { col: 24, row: 3 },
+    { col: 23, row: 3 },
+  ];
 
   matchStep(match);
   assert.deepEqual(match.snake.body[0], { col: 0, row: 3 });
@@ -244,18 +281,33 @@ test("grows and scores on a drop, and replaces it", () => {
   assert.equal(match.score, 1);
   assert.equal(match.snake.body.length, length + 1);
   assert.equal(match.items.length, 1);
-  assert.ok(!match.snake.body.some((cell) => cell.col === match.items[0].col && cell.row === match.items[0].row));
+  assert.ok(
+    !match.snake.body.some(
+      (cell) => cell.col === match.items[0].col && cell.row === match.items[0].row,
+    ),
+  );
 });
 
 test("ends the run on a bite, but may chase its own tail", () => {
   const match = createMatch(createBoard(1280, 632, CELL), seeded(1));
   match.items = [];
   // A tight loop: the head is about to move into the cell the tail leaves.
-  match.snake.body = [{ col: 5, row: 5 }, { col: 5, row: 6 }, { col: 6, row: 6 }, { col: 6, row: 5 }];
+  match.snake.body = [
+    { col: 5, row: 5 },
+    { col: 5, row: 6 },
+    { col: 6, row: 6 },
+    { col: 6, row: 5 },
+  ];
   match.snake.heading = "right";
   assert.equal(matchStep(match).bitten, false);
 
-  match.snake.body = [{ col: 5, row: 5 }, { col: 5, row: 6 }, { col: 6, row: 6 }, { col: 6, row: 5 }, { col: 7, row: 5 }];
+  match.snake.body = [
+    { col: 5, row: 5 },
+    { col: 5, row: 6 },
+    { col: 6, row: 6 },
+    { col: 6, row: 5 },
+    { col: 7, row: 5 },
+  ];
   match.snake.heading = "right";
   const before = match.snake.body.map(key);
   assert.equal(matchStep(match).bitten, true);

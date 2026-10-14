@@ -20,11 +20,9 @@ import { errorMessage } from "@lurkloot/shared/errors";
 export function createTickAdmission<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
   transaction: Pick<StateTransaction<S>, "onCommit">,
-  { tickSlice, lifecycleSlice }: Pick<ControllerSlices<S>,
-    | "tickSlice"
-    | "lifecycleSlice"
-  >,
-  calls: Pick<ControllerCalls<S>,
+  { tickSlice, lifecycleSlice }: Pick<ControllerSlices<S>, "tickSlice" | "lifecycleSlice">,
+  calls: Pick<
+    ControllerCalls<S>,
     | "awaitInitialTwitchIntegrityLoad"
     | "diagnosticEvent"
     | "discoverySignalRefreshAllowed"
@@ -39,7 +37,8 @@ export function createTickAdmission<S extends EngineSettings>(
     | "settleRouteReports"
     | "snapshot"
   >,
-): Pick<ControllerCalls<S>,
+): Pick<
+  ControllerCalls<S>,
   | "tickTriggerSummary"
   | "cancelPendingTick"
   | "retainCurrentTickReasons"
@@ -82,8 +81,11 @@ export function createTickAdmission<S extends EngineSettings>(
   transaction.onCommit((change) => {
     if (change.kind !== "state") return;
     const { previous, state, committedAt } = change;
-    const changed = change.platforms.filter((platform) =>
-      hasRecentManualWatch(previous, platform, committedAt) !== hasRecentManualWatch(state, platform, committedAt));
+    const changed = change.platforms.filter(
+      (platform) =>
+        hasRecentManualWatch(previous, platform, committedAt)
+        !== hasRecentManualWatch(state, platform, committedAt),
+    );
     if (changed.length > 0) tickInBackground(changed, "manual_watch");
   });
 
@@ -97,7 +99,11 @@ export function createTickAdmission<S extends EngineSettings>(
     const pending = tickSlice.tickAdmission[platform].pending;
     tickSlice.tickAdmission[platform].pending = undefined;
     if (pending) {
-      diagnosticEvent("debug", `Discarded pending scheduler triggers after lifecycle change (${tickTriggerSummary(pending.reasons)})`, platform);
+      diagnosticEvent(
+        "debug",
+        `Discarded pending scheduler triggers after lifecycle change (${tickTriggerSummary(pending.reasons)})`,
+        platform,
+      );
       pending.resolve([platform, []]);
     }
   }
@@ -109,22 +115,35 @@ export function createTickAdmission<S extends EngineSettings>(
       if (remaining > 0) request.reasons.discovery_signal = remaining;
       else delete request.reasons.discovery_signal;
       request.discoverySignal = undefined;
-      diagnosticEvent("debug", `Discarded stale scheduler discovery signals (${tickTriggerSummary({ discovery_signal: signal.count })})`, platform);
+      diagnosticEvent(
+        "debug",
+        `Discarded stale scheduler discovery signals (${tickTriggerSummary({ discovery_signal: signal.count })})`,
+        platform,
+      );
     }
     const reasons = Object.keys(request.reasons) as TickTrigger[];
     if (reasons.length === 0) return false;
     request.trigger = reasons.reduce((selected, trigger) =>
-      tickTriggerPriority(trigger) > tickTriggerPriority(selected) ? trigger : selected);
+      tickTriggerPriority(trigger) > tickTriggerPriority(selected) ? trigger : selected,
+    );
     return true;
   }
 
   function mergeDiscoverySignal(request: TickRequest, signal: DiscoverySignalRefreshRequest): void {
     request.reasons.discovery_signal = (request.reasons.discovery_signal ?? 0) + signal.count;
-    request.discoverySignal = { ...signal, count: (request.discoverySignal?.count ?? 0) + signal.count };
+    request.discoverySignal = {
+      ...signal,
+      count: (request.discoverySignal?.count ?? 0) + signal.count,
+    };
   }
 
-  function admitPlatformTick(platform: Platform, trigger: TickTrigger, discoverySignal?: DiscoverySignalRefreshRequest): Promise<PlatformTickResult> {
-    if (lifecycleSlice.controllerShutdown || tickSlice.tickAdmissionSuspended) return Promise.resolve([platform, []]);
+  function admitPlatformTick(
+    platform: Platform,
+    trigger: TickTrigger,
+    discoverySignal?: DiscoverySignalRefreshRequest,
+  ): Promise<PlatformTickResult> {
+    if (lifecycleSlice.controllerShutdown || tickSlice.tickAdmissionSuspended)
+      return Promise.resolve([platform, []]);
     const lane = tickSlice.tickAdmission[platform];
     if (lane.pending) {
       if (discoverySignal) mergeDiscoverySignal(lane.pending, discoverySignal);
@@ -158,7 +177,13 @@ export function createTickAdmission<S extends EngineSettings>(
     // A ranking change (or a superseded tick's retry) is lowest too: merged
     // with anything that needs fresh discovery, that trigger wins and the tick
     // refreshes.
-    return trigger === "alarm" || trigger === "discovery_signal" || trigger === "unknown" || trigger === "ranking_changed" || trigger === "tick_superseded" ? 0 : 1;
+    return trigger === "alarm"
+      || trigger === "discovery_signal"
+      || trigger === "unknown"
+      || trigger === "ranking_changed"
+      || trigger === "tick_superseded"
+      ? 0
+      : 1;
   }
 
   function executePlatformTick(platform: Platform, request: TickRequest): void {
@@ -172,8 +197,13 @@ export function createTickAdmission<S extends EngineSettings>(
     const lane = tickSlice.tickAdmission[platform];
     lane.active = request;
     let committed: PlatformTickResult[2];
-    void tickPlatform(platform, request.trigger, (state) => { committed = { state, sequence: ++tickSlice.tickCommitSequence }; })
-      .then(([platform, rewards]) => request.resolve([platform, rewards, committed]), request.reject)
+    void tickPlatform(platform, request.trigger, (state) => {
+      committed = { state, sequence: ++tickSlice.tickCommitSequence };
+    })
+      .then(
+        ([platform, rewards]) => request.resolve([platform, rewards, committed]),
+        request.reject,
+      )
       .finally(() => {
         lane.active = undefined;
         const pending = lane.pending;
@@ -181,16 +211,30 @@ export function createTickAdmission<S extends EngineSettings>(
         if (pending) {
           const signalRequest = takeAllowedDiscoverySignalRefresh(platform);
           if (signalRequest) mergeDiscoverySignal(pending, signalRequest);
-          diagnosticEvent("debug", `Coalesced scheduler triggers (${tickTriggerSummary(pending.reasons)})`, platform);
+          diagnosticEvent(
+            "debug",
+            `Coalesced scheduler triggers (${tickTriggerSummary(pending.reasons)})`,
+            platform,
+          );
           executePlatformTick(platform, pending);
         } else startPendingDiscoverySignalRefresh(platform);
       });
   }
 
-  function requestTickBatch(platforms: Platform[] | undefined, trigger: TickTrigger, discoverySignal?: DiscoverySignalRefreshRequest): TickBatch {
-    const requests = [...new Set(platforms ?? PLATFORMS)].sort().map((platform) => admitPlatformTick(platform, trigger, discoverySignal));
+  function requestTickBatch(
+    platforms: Platform[] | undefined,
+    trigger: TickTrigger,
+    discoverySignal?: DiscoverySignalRefreshRequest,
+  ): TickBatch {
+    const requests = [...new Set(platforms ?? PLATFORMS)]
+      .sort()
+      .map((platform) => admitPlatformTick(platform, trigger, discoverySignal));
     for (const batch of tickSlice.tickBatches) {
-      if (batch.requests.length === requests.length && batch.requests.every((request, index) => request === requests[index])) return batch;
+      if (
+        batch.requests.length === requests.length
+        && batch.requests.every((request, index) => request === requests[index])
+      )
+        return batch;
     }
     const batch: TickBatch = { requests, settled: Promise.allSettled(requests) };
     tickSlice.tickBatches.add(batch);
@@ -205,15 +249,22 @@ export function createTickAdmission<S extends EngineSettings>(
   ): Promise<ClaimedRewards> {
     const batch = requestTickBatch(platforms, trigger);
     if (onPersisted) return completeTickBatch(batch, onPersisted);
-    return batch.claimed ??= completeTickBatch(batch);
+    return (batch.claimed ??= completeTickBatch(batch));
   }
 
-  async function completeTickBatch(batch: TickBatch, onPersisted?: (state: SchedulerState) => void): Promise<ClaimedRewards> {
+  async function completeTickBatch(
+    batch: TickBatch,
+    onPersisted?: (state: SchedulerState) => void,
+  ): Promise<ClaimedRewards> {
     const settled = await batch.settled;
-    const commits = settled.flatMap((result) => result.status === "fulfilled" && result.value[2] ? [result.value[2]] : []);
-    for (const commit of commits.sort((left, right) => left.sequence - right.sequence)) onPersisted?.(commit.state);
+    const commits = settled.flatMap((result) =>
+      result.status === "fulfilled" && result.value[2] ? [result.value[2]] : [],
+    );
+    for (const commit of commits.sort((left, right) => left.sequence - right.sequence))
+      onPersisted?.(commit.state);
     const failures = settled.flatMap((result) =>
-      result.status === "rejected" ? [result.reason] : []);
+      result.status === "rejected" ? [result.reason] : [],
+    );
     if (failures.length === 1) throw failures[0];
     if (failures.length > 1) {
       throw new AggregateError(failures, "Platform scheduler ticks failed");
@@ -246,7 +297,11 @@ export function createTickAdmission<S extends EngineSettings>(
       .then(() => onCompleted?.())
       .catch((error) => {
         const platform = platforms?.length === 1 ? platforms[0] : undefined;
-        diagnosticEvent("warn", `Background tick (trigger=${trigger}) failed: ${errorMessage(error)}`, platform);
+        diagnosticEvent(
+          "warn",
+          `Background tick (trigger=${trigger}) failed: ${errorMessage(error)}`,
+          platform,
+        );
       });
     trackBackgroundWork(run);
   }
@@ -254,7 +309,10 @@ export function createTickAdmission<S extends EngineSettings>(
   // Work nobody awaits (a background tick, an observer stop, a push claim), so
   // settleBackgroundWork can wait for it.
   function trackBackgroundWork(run: Promise<unknown>): void {
-    tickSlice.backgroundWork = tickSlice.backgroundWork.then(() => run, () => run);
+    tickSlice.backgroundWork = tickSlice.backgroundWork.then(
+      () => run,
+      () => run,
+    );
   }
 
   // Host reset holds new ticks back until it has finished.
@@ -335,7 +393,7 @@ export function createTickAdmission<S extends EngineSettings>(
     trigger: TickTrigger = "unknown",
   ): Promise<SchedulerState | undefined> {
     const batch = requestTickBatch(platforms, trigger);
-    return batch.handoff ??= completeTickAndHandOff(batch);
+    return (batch.handoff ??= completeTickAndHandOff(batch));
   }
 
   async function completeTickAndHandOff(batch: TickBatch): Promise<SchedulerState | undefined> {
@@ -344,9 +402,11 @@ export function createTickAdmission<S extends EngineSettings>(
       committedState = state;
     };
     const claimed = await completeTickBatch(batch, captureCommittedState);
-    const results = await Promise.all((Object.keys(claimed) as Platform[]).map((platform) => {
-      return completePlatformHandoff(batch, platform, claimed[platform] ?? []);
-    }));
+    const results = await Promise.all(
+      (Object.keys(claimed) as Platform[]).map((platform) => {
+        return completePlatformHandoff(batch, platform, claimed[platform] ?? []);
+      }),
+    );
     for (const state of results) {
       if (state) committedState = state;
     }
@@ -359,21 +419,22 @@ export function createTickAdmission<S extends EngineSettings>(
     claimedRewardIds: readonly string[],
   ): Promise<SchedulerState | undefined> {
     const settled = await batch.settled;
-    const index = settled.findIndex((result) => result.status === "fulfilled" && result.value[0] === platform);
+    const index = settled.findIndex(
+      (result) => result.status === "fulfilled" && result.value[0] === platform,
+    );
     if (index < 0) return undefined;
     const request = batch.requests[index];
     const existing = tickSlice.tickRequestHandoffs.get(request);
     if (existing) return existing;
-    let committedState = settled[index].status === "fulfilled" ? settled[index].value[2]?.state : undefined;
+    let committedState =
+      settled[index].status === "fulfilled" ? settled[index].value[2]?.state : undefined;
     const handoff = runClaimHandoff(platform, claimedRewardIds, (state) => {
       committedState = state;
-    }).catch((error) => {
-      diagnosticEvent(
-        "warn",
-        `Post-claim handoff failed: ${errorMessage(error)}`,
-        platform,
-      );
-    }).then(() => committedState);
+    })
+      .catch((error) => {
+        diagnosticEvent("warn", `Post-claim handoff failed: ${errorMessage(error)}`, platform);
+      })
+      .then(() => committedState);
     tickSlice.tickRequestHandoffs.set(request, handoff);
     return handoff;
   }

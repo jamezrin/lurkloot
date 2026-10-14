@@ -23,12 +23,19 @@ async function fixture(t, { version = "1.4.0", date = "2026-07-15" } = {}) {
   for (const path of manifests) {
     const absolutePath = join(root, path);
     await mkdir(dirname(absolutePath), { recursive: true });
-    const manifest = { name: path === "package.json" ? "lurkloot" : `@lurkloot/${dirname(path).split("/").at(-1)}`, version, private: true };
+    const manifest = {
+      name: path === "package.json" ? "lurkloot" : `@lurkloot/${dirname(path).split("/").at(-1)}`,
+      version,
+      private: true,
+    };
     await writeFile(absolutePath, `${JSON.stringify(manifest, null, 2)}\n`);
   }
   const changelogPath = join(root, "packages/site/src/changelog.json");
   await mkdir(dirname(changelogPath), { recursive: true });
-  await writeFile(changelogPath, `${JSON.stringify([{ version, ...(date ? { date } : {}), changes: [] }], null, 2)}\n`);
+  await writeFile(
+    changelogPath,
+    `${JSON.stringify([{ version, ...(date ? { date } : {}), changes: [] }], null, 2)}\n`,
+  );
   return root;
 }
 
@@ -68,7 +75,9 @@ test("prepare synchronizes manifests and removes legacy channel state", async (t
   }
   const rootManifest = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
   assert.equal(rootManifest.release, undefined);
-  const changelog = JSON.parse(await readFile(join(root, "packages/site/src/changelog.json"), "utf8"));
+  const changelog = JSON.parse(
+    await readFile(join(root, "packages/site/src/changelog.json"), "utf8"),
+  );
   assert.equal(changelog[0].version, "1.5.0");
   assert.equal(changelog[0].date, undefined);
 });
@@ -77,7 +86,9 @@ test("prepare dates stable release metadata", async (t) => {
   const root = await fixture(t, { date: undefined });
   const result = run(root, "prepare", "1.4.0", "--date", "2026-07-16");
   assert.equal(result.status, 0, result.stderr);
-  const changelog = JSON.parse(await readFile(join(root, "packages/site/src/changelog.json"), "utf8"));
+  const changelog = JSON.parse(
+    await readFile(join(root, "packages/site/src/changelog.json"), "utf8"),
+  );
   assert.equal(changelog[0].date, "2026-07-16");
 });
 

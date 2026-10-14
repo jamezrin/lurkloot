@@ -11,7 +11,8 @@ const twitchProfiles = frozen({
   "twitch-2026-10": frozen({
     id: "twitch-2026-10",
     title: "Twitch October 2026",
-    description: "Recommended Twitch profile. Web watching requests HLS segment headers; Android keeps Trowel.",
+    description:
+      "Recommended Twitch profile. Web watching requests HLS segment headers; Android keeps Trowel.",
     lifecycle: "recommended",
     hosts: ALL_HOSTS,
     identities: ALL_IDENTITIES,
@@ -24,7 +25,8 @@ const twitchProfiles = frozen({
   "twitch-2026-07": frozen({
     id: "twitch-2026-07",
     title: "Twitch July 2026",
-    description: "Previous Twitch profile. Web watching sends only the Spade minute-watched beacon.",
+    description:
+      "Previous Twitch profile. Web watching sends only the Spade minute-watched beacon.",
     lifecycle: "legacy",
     replacement: "twitch-2026-10",
     hosts: ALL_HOSTS,
@@ -50,7 +52,8 @@ const twitchHeartbeat = frozen({
   "twitch-heartbeat-spade-v1": frozen({
     id: "twitch-heartbeat-spade-v1",
     title: "Spade heartbeat v1",
-    description: "Twitch web-identity Spade beacon heartbeat. Accepted telemetry does not by itself credit drop progress.",
+    description:
+      "Twitch web-identity Spade beacon heartbeat. Accepted telemetry does not by itself credit drop progress.",
     lifecycle: "legacy",
     replacement: "twitch-heartbeat-hls-v1",
     hosts: ALL_HOSTS,
@@ -59,7 +62,8 @@ const twitchHeartbeat = frozen({
   "twitch-heartbeat-hls-v1": frozen({
     id: "twitch-heartbeat-hls-v1",
     title: "HLS + Spade heartbeat v1",
-    description: "Requests each new Twitch media segment with HEAD, and sends minute-watched through GraphQL as twitch.tv does, which earns channel points.",
+    description:
+      "Requests each new Twitch media segment with HEAD, and sends minute-watched through GraphQL as twitch.tv does, which earns channel points.",
     lifecycle: "recommended",
     hosts: ALL_HOSTS,
     identities: Object.freeze(["web"] as const),
@@ -124,6 +128,10 @@ const kickClaim = frozen({
 });
 
 export const COMPATIBILITY_REGISTRY: CompatibilityRegistry = frozen({
-  twitch: frozen({ profiles: twitchProfiles, heartbeat: twitchHeartbeat, inventory: twitchInventory }),
+  twitch: frozen({
+    profiles: twitchProfiles,
+    heartbeat: twitchHeartbeat,
+    inventory: twitchInventory,
+  }),
   kick: frozen({ profiles: kickProfiles, claim: kickClaim }),
 });

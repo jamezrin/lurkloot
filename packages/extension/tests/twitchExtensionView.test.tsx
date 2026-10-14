@@ -17,7 +17,9 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-async function flip(onEnabledChange: (enabled: boolean) => Promise<boolean | void>): Promise<HTMLElement> {
+async function flip(
+  onEnabledChange: (enabled: boolean) => Promise<boolean | void>,
+): Promise<HTMLElement> {
   document.body.innerHTML = "<div id=app></div>";
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const container = document.getElementById("app")!;
@@ -25,23 +27,38 @@ async function flip(onEnabledChange: (enabled: boolean) => Promise<boolean | voi
     root = createRoot(container);
     root.render(
       <I18nContext.Provider value={{ t, dir: "ltr", locale: "en" }}>
-        <TwitchExtensionView providerId="nopixel" settings={mergeSettings(undefined)} active={false} pending={false} onEnabledChange={onEnabledChange} onOptionChange={() => undefined} />
+        <TwitchExtensionView
+          providerId="nopixel"
+          settings={mergeSettings(undefined)}
+          active={false}
+          pending={false}
+          onEnabledChange={onEnabledChange}
+          onOptionChange={() => undefined}
+        />
       </I18nContext.Provider>,
     );
   });
-  await act(async () => { container.querySelector<HTMLButtonElement>('[role="switch"]')!.click(); });
+  await act(async () => {
+    container.querySelector<HTMLButtonElement>('[role="switch"]')!.click();
+  });
   return container;
 }
 
 describe("Twitch extension view", () => {
   it("says the permission is missing when the browser denies it", async () => {
     const container = await flip(async () => false);
-    expect(container.querySelector("[data-extension-failure]")?.textContent).toBe("extensionPermissionRequired");
+    expect(container.querySelector("[data-extension-failure]")?.textContent).toBe(
+      "extensionPermissionRequired",
+    );
   });
 
   it("says the extension is unavailable when enabling fails", async () => {
-    const container = await flip(async () => { throw new Error("tick failed"); });
-    expect(container.querySelector("[data-extension-failure]")?.textContent).toBe("extensionUnavailable");
+    const container = await flip(async () => {
+      throw new Error("tick failed");
+    });
+    expect(container.querySelector("[data-extension-failure]")?.textContent).toBe(
+      "extensionUnavailable",
+    );
   });
 
   it("says nothing when enabling succeeds", async () => {

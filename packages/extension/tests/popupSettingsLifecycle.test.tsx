@@ -27,7 +27,9 @@ describe("popup settings lifecycle", () => {
     vi.stubGlobal("window", window);
     vi.stubGlobal("document", document);
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => window.setTimeout(() => callback(Date.now()), 0));
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) =>
+      window.setTimeout(() => callback(Date.now()), 0),
+    );
     vi.stubGlobal("cancelAnimationFrame", (handle: number) => window.clearTimeout(handle));
     vi.stubGlobal("getComputedStyle", () => ({ direction: "ltr" }));
 
@@ -36,10 +38,11 @@ describe("popup settings lifecycle", () => {
     const adapter: PopupAdapter & { connectSettingsSession: () => () => void } = {
       ...demo,
       connectSettingsSession,
-      getMessage: (key) => ({
-        openSettings: "Open settings",
-        back: "Back",
-      })[key] ?? demo.getMessage(key),
+      getMessage: (key) =>
+        ({
+          openSettings: "Open settings",
+          back: "Back",
+        })[key] ?? demo.getMessage(key),
     };
     const container = document.getElementById("app")!;
 

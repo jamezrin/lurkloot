@@ -15,20 +15,34 @@ describe("settings commit hooks", () => {
         if (holdSave) await save.promise;
       },
     });
-    env.state.authHealth = { ...env.state.authHealth, twitch: { status: "healthy", checkedAt: new Date().toISOString() } };
-    env.state.sessions.twitch = { platform: "twitch", status: "watching", channel: channel("twitch"), offlineChecks: 0, watchMode: "tab" };
+    env.state.authHealth = {
+      ...env.state.authHealth,
+      twitch: { status: "healthy", checkedAt: new Date().toISOString() },
+    };
+    env.state.sessions.twitch = {
+      platform: "twitch",
+      status: "watching",
+      channel: channel("twitch"),
+      offlineChecks: 0,
+      watchMode: "tab",
+    };
     let signal: AbortSignal | undefined;
     env.twitch.claimChannelPoints = vi.fn(async (_channel, options) => {
       signal = options?.signal;
       return await new Promise<boolean>((_resolve, reject) => {
-        options?.signal?.addEventListener("abort", () => reject(options.signal!.reason), { once: true });
+        options?.signal?.addEventListener("abort", () => reject(options.signal!.reason), {
+          once: true,
+        });
       });
     });
 
     const job = env.controller.runTwitchChannelPointsClaim();
     await vi.waitFor(() => expect(env.twitch.claimChannelPoints).toHaveBeenCalledOnce());
     holdSave = true;
-    const disabling = env.rawController.handleMessage({ type: "saveSettings", settingsPatch: { platform: { twitch: { autoClaimChannelPoints: false } } } });
+    const disabling = env.rawController.handleMessage({
+      type: "saveSettings",
+      settingsPatch: { platform: { twitch: { autoClaimChannelPoints: false } } },
+    });
     await vi.waitFor(() => expect(env.deps.saveSettings).toHaveBeenCalled());
 
     expect(signal?.aborted).toBe(false);
@@ -65,7 +79,11 @@ describe("settings commit hooks", () => {
       if (holding && change.kind === "settings") await held.promise;
     });
 
-    const enabling = env.rawController.handleMessage({ type: "setPlatformEnabled", platform: "kick", enabled: true });
+    const enabling = env.rawController.handleMessage({
+      type: "setPlatformEnabled",
+      platform: "kick",
+      enabled: true,
+    });
     await vi.waitFor(() => expect(env.deps.saveSettings).toHaveBeenCalled());
     await new Promise((resolve) => setTimeout(resolve, 20));
     // The tick's first step is the auth probe, so it has not started.

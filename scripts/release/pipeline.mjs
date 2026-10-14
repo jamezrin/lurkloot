@@ -6,7 +6,7 @@ const generatedHead = /^release\/(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]
 const markerPattern = /<!-- lurkloot-release-candidate:([^\n]+) -->\s*$/;
 
 function labelNames(labels) {
-  return (labels ?? []).map((label) => typeof label === "string" ? label : label.name);
+  return (labels ?? []).map((label) => (typeof label === "string" ? label : label.name));
 }
 
 export function selectReleaseLabel(labels) {
@@ -44,7 +44,8 @@ export function candidateTag(version) {
 }
 
 export function candidateMarker({ pr, version, head }) {
-  if (!Number.isInteger(Number(pr)) || Number(pr) < 1) throw new Error("candidate PR must be a positive integer");
+  if (!Number.isInteger(Number(pr)) || Number(pr) < 1)
+    throw new Error("candidate PR must be a positive integer");
   parseManifestVersion(version);
   if (!isGeneratedReleaseHead(head) || head !== `release/${version}`) {
     throw new Error(`candidate head must be release/${version}`);

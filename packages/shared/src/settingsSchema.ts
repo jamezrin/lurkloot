@@ -46,9 +46,11 @@ export class UnsupportedSettingsVersionError extends Error {
   readonly reason: "future" | "invalid";
 
   constructor(version: unknown, reason: "future" | "invalid") {
-    super(reason === "future"
-      ? `Settings schema version ${String(version)} is newer than this build supports (${CURRENT_SETTINGS_SCHEMA_VERSION})`
-      : `Settings schema version ${String(version)} is not a non-negative integer`);
+    super(
+      reason === "future"
+        ? `Settings schema version ${String(version)} is newer than this build supports (${CURRENT_SETTINGS_SCHEMA_VERSION})`
+        : `Settings schema version ${String(version)} is not a non-negative integer`,
+    );
     this.name = "UnsupportedSettingsVersionError";
     this.version = version;
     this.supported = CURRENT_SETTINGS_SCHEMA_VERSION;
@@ -113,7 +115,13 @@ function migrateToV1(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
   for (const platform of ["twitch", "kick"] as const) {
     const block = platformBlock(raw, platform);
     if (!block) continue;
-    renameProperty(block, "watchQueueChannels", "idleWatchlistChannels", `platform.${platform}.`, diagnose);
+    renameProperty(
+      block,
+      "watchQueueChannels",
+      "idleWatchlistChannels",
+      `platform.${platform}.`,
+      diagnose,
+    );
   }
 
   return raw;
@@ -163,7 +171,8 @@ function migrateToV2(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
     code: "moved_property",
     path: "campaignVisibility",
     replacement: "dropsListFilter",
-    message: "campaignVisibility display preferences moved to dropsListFilter; farming eligibility is controlled separately and defaults to on",
+    message:
+      "campaignVisibility display preferences moved to dropsListFilter; farming eligibility is controlled separately and defaults to on",
   });
 
   for (const { from, toKey } of CAMPAIGN_VISIBILITY_MAPPING) {
@@ -238,7 +247,8 @@ function migrateToV5(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
       message: `platform.${platform}.farmAllCategories is deprecated; use platform.${platform}.categoryMode`,
     });
     // A current key always wins, matching renameProperty's convention.
-    if (!Object.hasOwn(block, "categoryMode")) block.categoryMode = legacy === false ? "include" : "all";
+    if (!Object.hasOwn(block, "categoryMode"))
+      block.categoryMode = legacy === false ? "include" : "all";
   }
   return raw;
 }
@@ -249,7 +259,11 @@ function migrateToV6(raw: Record<string, unknown>, _diagnose: Diagnose): Record<
   for (const platform of ["twitch", "kick"] as const) {
     const block = ensurePlatformBlock(raw, platform);
     if (block && !Object.hasOwn(block, "watchSourcePriority")) {
-      block.watchSourcePriority = normalizePlatformWatchSourcePriority(platform, block, raw.idleWatchlistFallbackOnly);
+      block.watchSourcePriority = normalizePlatformWatchSourcePriority(
+        platform,
+        block,
+        raw.idleWatchlistFallbackOnly,
+      );
     }
   }
   // Keep the old serialized field for backward compatibility. Its old false
@@ -275,7 +289,10 @@ function migrateToV7(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
     });
     if (!Object.hasOwn(raw, "campaignPins") && isRecord(legacy)) {
       raw.campaignPins = Object.entries(legacy)
-        .filter((entry): entry is [string, number] => typeof entry[1] === "number" && Number.isFinite(entry[1]))
+        .filter(
+          (entry): entry is [string, number] =>
+            typeof entry[1] === "number" && Number.isFinite(entry[1]),
+        )
         .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
         .map(([campaignId]) => campaignId);
     }
@@ -287,7 +304,7 @@ function migrateToV7(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
       code: "moved_property",
       path: "priorityMode",
       replacement: "farmPinnedOnly",
-      message: "priorityMode \"priority_list_only\" is now the farmPinnedOnly switch",
+      message: 'priorityMode "priority_list_only" is now the farmPinnedOnly switch',
     });
     if (!Object.hasOwn(raw, "farmPinnedOnly")) raw.farmPinnedOnly = true;
   }
@@ -304,7 +321,8 @@ function migrateToV7(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
       replacement: `platform.${platform}.blockedCategories`,
       message: `platform.${platform} exclude-mode categories are now blockedCategories`,
     });
-    if (!Object.hasOwn(block, "blockedCategories")) block.blockedCategories = Array.isArray(listed) ? listed : [];
+    if (!Object.hasOwn(block, "blockedCategories"))
+      block.blockedCategories = Array.isArray(listed) ? listed : [];
   }
 
   if (Object.hasOwn(raw, "dropsListFilter")) {
@@ -312,7 +330,8 @@ function migrateToV7(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
     diagnose({
       code: "deprecated_property",
       path: "dropsListFilter",
-      message: "dropsListFilter is deprecated; the popup groups campaigns into Queue, Completed, Skipped and Upcoming",
+      message:
+        "dropsListFilter is deprecated; the popup groups campaigns into Queue, Completed, Skipped and Upcoming",
     });
   }
 
@@ -321,7 +340,10 @@ function migrateToV7(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
 
 // Creates a nested block only when it is safe to do so; a pre-existing malformed
 // block is left untouched so validation can report it verbatim.
-function ensureBlock(raw: Record<string, unknown>, key: string): Record<string, unknown> | undefined {
+function ensureBlock(
+  raw: Record<string, unknown>,
+  key: string,
+): Record<string, unknown> | undefined {
   if (!Object.hasOwn(raw, key)) raw[key] = {};
   const block = raw[key];
   return isRecord(block) ? block : undefined;
@@ -353,7 +375,10 @@ function renameProperty(
   if (!Object.hasOwn(owner, currentKey)) owner[currentKey] = legacy;
 }
 
-function platformBlock(raw: Record<string, unknown>, platform: string): Record<string, unknown> | undefined {
+function platformBlock(
+  raw: Record<string, unknown>,
+  platform: string,
+): Record<string, unknown> | undefined {
   const platforms = raw.platform;
   if (!isRecord(platforms)) return undefined;
   const block = platforms[platform];
@@ -362,7 +387,10 @@ function platformBlock(raw: Record<string, unknown>, platform: string): Record<s
 
 // Creates `platform.<name>` only when it is safe to do so; a malformed block is
 // left untouched so validation can report it verbatim.
-function ensurePlatformBlock(raw: Record<string, unknown>, platform: string): Record<string, unknown> | undefined {
+function ensurePlatformBlock(
+  raw: Record<string, unknown>,
+  platform: string,
+): Record<string, unknown> | undefined {
   if (!Object.hasOwn(raw, "platform")) raw.platform = {};
   const platforms = raw.platform;
   if (!isRecord(platforms)) return undefined;
@@ -371,9 +399,13 @@ function ensurePlatformBlock(raw: Record<string, unknown>, platform: string): Re
   return isRecord(block) ? block : undefined;
 }
 
-if (MIGRATIONS.length !== CURRENT_SETTINGS_SCHEMA_VERSION
-  || MIGRATIONS.some((migration, index) => migration.to !== index + 1)) {
-  throw new Error("Settings migration registry is not a contiguous 1..CURRENT_SETTINGS_SCHEMA_VERSION sequence");
+if (
+  MIGRATIONS.length !== CURRENT_SETTINGS_SCHEMA_VERSION
+  || MIGRATIONS.some((migration, index) => migration.to !== index + 1)
+) {
+  throw new Error(
+    "Settings migration registry is not a contiguous 1..CURRENT_SETTINGS_SCHEMA_VERSION sequence",
+  );
 }
 
 // `version` exists for tests that need a document stored by an older build.

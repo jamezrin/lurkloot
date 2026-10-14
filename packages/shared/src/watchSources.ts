@@ -23,10 +23,20 @@ export function normalizeWatchSourcePriority(platform: Platform, value: unknown)
 
 // A present priority wins even when malformed: it normalizes to the defaults,
 // rather than reviving an obsolete preference the user already replaced.
-export function normalizePlatformWatchSourcePriority(platform: Platform, settings: unknown, legacyFallbackOnly: unknown): WatchSourceId[] {
-  const block = settings !== null && typeof settings === "object" ? settings as Record<string, unknown> : undefined;
-  const priority = block && Object.hasOwn(block, "watchSourcePriority")
-    ? block.watchSourcePriority
-    : legacyFallbackOnly === false ? ["idle_watchlist"] : undefined;
+export function normalizePlatformWatchSourcePriority(
+  platform: Platform,
+  settings: unknown,
+  legacyFallbackOnly: unknown,
+): WatchSourceId[] {
+  const block =
+    settings !== null && typeof settings === "object"
+      ? (settings as Record<string, unknown>)
+      : undefined;
+  const priority =
+    block && Object.hasOwn(block, "watchSourcePriority")
+      ? block.watchSourcePriority
+      : legacyFallbackOnly === false
+        ? ["idle_watchlist"]
+        : undefined;
   return normalizeWatchSourcePriority(platform, priority);
 }

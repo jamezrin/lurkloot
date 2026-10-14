@@ -6,7 +6,8 @@ import { createDemoPopupAdapter, Popup, type PopupAdapter } from "@lurkloot/popu
 import { resetCatalogTracking, waitForCatalog } from "./helpers/popupCatalog";
 
 vi.mock("@lurkloot/locales", async (importOriginal) =>
-  (await import("./helpers/popupCatalog")).delayedLocales(importOriginal));
+  (await import("./helpers/popupCatalog")).delayedLocales(importOriginal),
+);
 
 let root: Root | undefined;
 
@@ -54,7 +55,9 @@ describe("native drag inside sortable rows", () => {
     expect(link).toBeTruthy();
 
     const event = new view.Event("dragstart", { bubbles: true, cancelable: true });
-    act(() => { link!.dispatchEvent(event); });
+    act(() => {
+      link!.dispatchEvent(event);
+    });
 
     expect(event.defaultPrevented).toBe(true);
   });

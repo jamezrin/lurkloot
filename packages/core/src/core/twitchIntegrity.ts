@@ -39,7 +39,9 @@ export interface IntegrityHeader {
 // undefined when the request carries no Client-Integrity header, as anonymous
 // public queries never do. The background's own requests replay the captured
 // token, so the caller filters those out by their source.
-export function integrityFromHeaders(headers: IntegrityHeader[] | undefined): TwitchIntegrity | undefined {
+export function integrityFromHeaders(
+  headers: IntegrityHeader[] | undefined,
+): TwitchIntegrity | undefined {
   if (!headers) return undefined;
   const get = (name: string): string | undefined =>
     headers.find((header) => header.name.toLowerCase() === name)?.value;
@@ -69,7 +71,10 @@ export function integrityExpiry(token: string, now: number = Date.now()): number
   return integrityExpiryFields(token, now).expiresAt;
 }
 
-function integrityExpiryFields(token: string, now: number = Date.now()): Pick<TwitchIntegrity, "expiresAt" | "expiryUnknown"> {
+function integrityExpiryFields(
+  token: string,
+  now: number = Date.now(),
+): Pick<TwitchIntegrity, "expiresAt" | "expiryUnknown"> {
   const exp = decodeJwtExp(token);
   return exp != null
     ? { expiresAt: exp * 1000 }

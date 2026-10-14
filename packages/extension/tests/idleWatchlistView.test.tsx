@@ -44,7 +44,11 @@ function submit(container: Element, value: string): void {
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value);
     input.dispatchEvent(new Event("input", { bubbles: true }));
   });
-  act(() => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+  act(() =>
+    container
+      .querySelector("form")!
+      .dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })),
+  );
 }
 
 describe("idle watchlist view", () => {
@@ -71,17 +75,25 @@ describe("idle watchlist view", () => {
     submit(container, "LootForge");
 
     expect(onChange).not.toHaveBeenCalled();
-    expect(container.querySelector("[data-watchlist-notice]")?.textContent).toBe("idleWatchlistDuplicate:lootforge");
-    expect(container.querySelector<HTMLInputElement>("[data-watchlist-input]")?.value).toBe("LootForge");
+    expect(container.querySelector("[data-watchlist-notice]")?.textContent).toBe(
+      "idleWatchlistDuplicate:lootforge",
+    );
+    expect(container.querySelector<HTMLInputElement>("[data-watchlist-input]")?.value).toBe(
+      "LootForge",
+    );
   });
 
   it("closes the field and says why once the list is full", () => {
-    const full = Array.from({ length: IDLE_WATCHLIST_LIMIT }, (_, index) => streamer(`channel${index}`));
+    const full = Array.from({ length: IDLE_WATCHLIST_LIMIT }, (_, index) =>
+      streamer(`channel${index}`),
+    );
     const { container } = mount(full);
 
     const input = container.querySelector<HTMLInputElement>("[data-watchlist-input]")!;
     expect(input.disabled).toBe(true);
     expect(input.placeholder).toBe(`idleWatchlistFull:${IDLE_WATCHLIST_LIMIT}`);
-    expect(container.querySelector("[data-watchlist-count]")?.textContent).toBe(`${IDLE_WATCHLIST_LIMIT}/${IDLE_WATCHLIST_LIMIT}`);
+    expect(container.querySelector("[data-watchlist-count]")?.textContent).toBe(
+      `${IDLE_WATCHLIST_LIMIT}/${IDLE_WATCHLIST_LIMIT}`,
+    );
   });
 });

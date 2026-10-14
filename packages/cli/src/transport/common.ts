@@ -4,9 +4,19 @@ import { DEFAULT_ENGINE_SETTINGS } from "@lurkloot/shared/settings";
 import type { PageFetcher, PlatformAdapter } from "@lurkloot/core/adapter";
 import WebSocket from "ws";
 import type { WebSocketFactory, WebSocketLike } from "@lurkloot/core/webSocket";
-import { createKickFetcher, KickAdapter, KickClaimState, KickDiscoveryState } from "@lurkloot/core/kick";
+import {
+  createKickFetcher,
+  KickAdapter,
+  KickClaimState,
+  KickDiscoveryState,
+} from "@lurkloot/core/kick";
 import { TwitchAdapter, TwitchDiscoveryState } from "@lurkloot/core/twitch";
-import { isHeartbeatTimeoutError, type TwitchHeartbeatExchange, type TwitchHeartbeatFetchText, type TwitchHeartbeatPost } from "@lurkloot/core/twitch/heartbeat";
+import {
+  isHeartbeatTimeoutError,
+  type TwitchHeartbeatExchange,
+  type TwitchHeartbeatFetchText,
+  type TwitchHeartbeatPost,
+} from "@lurkloot/core/twitch/heartbeat";
 import { resolveCompatibility, type CompatibilityResolution } from "@lurkloot/core";
 import type { PlatformCredentials } from "../authStore";
 import { twitchClientIdentity } from "../twitch";
@@ -22,10 +32,17 @@ export interface CliTwitchIntegrity {
 // this shape so the commands can dispose uniformly.
 export interface TransportHandle {
   adapters: Record<Platform, PlatformAdapter>;
-  createAdapter(platform: Platform, emit: EventEmitter, settings: EngineSettings): {
+  createAdapter(
+    platform: Platform,
+    emit: EventEmitter,
+    settings: EngineSettings,
+  ): {
     adapter: PlatformAdapter;
   } & CompatibilityResolution;
-  createAdapters(emit: EventEmitter, settings: EngineSettings): {
+  createAdapters(
+    emit: EventEmitter,
+    settings: EngineSettings,
+  ): {
     adapters: Record<Platform, PlatformAdapter>;
   } & CompatibilityResolution;
   dispose(): Promise<void>;
@@ -45,10 +62,10 @@ export function createLazyAdapters(
   let kick: PlatformAdapter | undefined;
   return {
     get twitch() {
-      return twitch ??= createAdapter("twitch");
+      return (twitch ??= createAdapter("twitch"));
     },
     get kick() {
-      return kick ??= createAdapter("kick");
+      return (kick ??= createAdapter("kick"));
     },
   };
 }
@@ -85,45 +102,67 @@ export function createCliAdapters(
   const kickClaimState = new KickClaimState();
   const kickDiscoveryState = new KickDiscoveryState();
   const twitchDiscoveryState = new TwitchDiscoveryState();
-  const createAdapter = (platform: Platform, emit: EventEmitter | undefined, settings: EngineSettings = DEFAULT_ENGINE_SETTINGS) => {
+  const createAdapter = (
+    platform: Platform,
+    emit: EventEmitter | undefined,
+    settings: EngineSettings = DEFAULT_ENGINE_SETTINGS,
+  ) => {
     const identity = twitchClientIdentity(creds);
     const twitchIdentity = identity.userAgent ? "android" : "web";
-    const resolution = resolveCompatibility(settings.compatibility, { host: "cli", twitchIdentity });
+    const resolution = resolveCompatibility(settings.compatibility, {
+      host: "cli",
+      twitchIdentity,
+    });
     const kickFetcher = platform === "kick" ? deps.kickFetcher() : undefined;
-    const adapter = platform === "twitch"
-      ? new TwitchAdapter(
-        deps.twitchFetcher(),
-        (request) => deps.twitchIntegrity?.ensure(request) ?? Promise.resolve(false),
-        {
-          ...identity,
-          ...(deps.twitchIntegrity ? { currentIntegrity: () => deps.twitchIntegrity?.current() } : {}),
-          compatibility: resolution.compatibility.twitch,
-          discoveryState: twitchDiscoveryState,
-          strictCampaignAvailability: settings.platform.twitch.strictCampaignAvailability,
-          heartbeatIdentity: twitchIdentity,
-          // Chat presence only: Hermes stays off, so channel points keep polling.
-          chatWebSocketFactory: deps.twitchChatWebSocketFactory?.() ?? nodeWebSocketFactory,
-          getAuthToken: async () => creds.twitch?.authToken,
-          liveDiscoveryGames: [
-            ...settings.platform.twitch.categories,
-            ...settings.platform.twitch.favouriteCategories,
-          ].filter((game) => !settings.platform.twitch.blockedCategories.some((blocked) => blocked.id === game.id)),
-          ...deps.twitchHeartbeat(identity),
-        },
-        emit,
-      )
-      : new KickAdapter(
-        createKickFetcher({
-          background: (url, init) => kickFetcher!.fetchJson(url, init, emit),
-          routeState: kickDiscoveryState.routeDiagnostics,
-        }),
-        deps.kickWebSocketFactory?.(),
-        { compatibility: resolution.compatibility.kick, claimState: kickClaimState, discoveryState: kickDiscoveryState },
-        emit,
-      );
+    const adapter =
+      platform === "twitch"
+        ? new TwitchAdapter(
+            deps.twitchFetcher(),
+            (request) => deps.twitchIntegrity?.ensure(request) ?? Promise.resolve(false),
+            {
+              ...identity,
+              ...(deps.twitchIntegrity
+                ? { currentIntegrity: () => deps.twitchIntegrity?.current() }
+                : {}),
+              compatibility: resolution.compatibility.twitch,
+              discoveryState: twitchDiscoveryState,
+              strictCampaignAvailability: settings.platform.twitch.strictCampaignAvailability,
+              heartbeatIdentity: twitchIdentity,
+              // Chat presence only: Hermes stays off, so channel points keep polling.
+              chatWebSocketFactory: deps.twitchChatWebSocketFactory?.() ?? nodeWebSocketFactory,
+              getAuthToken: async () => creds.twitch?.authToken,
+              liveDiscoveryGames: [
+                ...settings.platform.twitch.categories,
+                ...settings.platform.twitch.favouriteCategories,
+              ].filter(
+                (game) =>
+                  !settings.platform.twitch.blockedCategories.some(
+                    (blocked) => blocked.id === game.id,
+                  ),
+              ),
+              ...deps.twitchHeartbeat(identity),
+            },
+            emit,
+          )
+        : new KickAdapter(
+            createKickFetcher({
+              background: (url, init) => kickFetcher!.fetchJson(url, init, emit),
+              routeState: kickDiscoveryState.routeDiagnostics,
+            }),
+            deps.kickWebSocketFactory?.(),
+            {
+              compatibility: resolution.compatibility.kick,
+              claimState: kickClaimState,
+              discoveryState: kickDiscoveryState,
+            },
+            emit,
+          );
     return { adapter, ...resolution };
   };
-  const createAdapters = (emit: EventEmitter | undefined, settings: EngineSettings = DEFAULT_ENGINE_SETTINGS) => {
+  const createAdapters = (
+    emit: EventEmitter | undefined,
+    settings: EngineSettings = DEFAULT_ENGINE_SETTINGS,
+  ) => {
     const twitch = createAdapter("twitch", emit, settings);
     const kick = createAdapter("kick", emit, settings);
     return {
@@ -169,7 +208,9 @@ export function headersToObject(headers: HeadersInit | undefined): Record<string
   const out: Record<string, string> = {};
   if (!headers) return out;
   if (headers instanceof Headers) {
-    headers.forEach((value, key) => { out[key] = value; });
+    headers.forEach((value, key) => {
+      out[key] = value;
+    });
   } else if (Array.isArray(headers)) {
     for (const [key, value] of headers) out[key] = value;
   } else {
@@ -193,7 +234,8 @@ export function twitchHeartbeatFailure(url: string, error: unknown): Error {
   }
   const cause = isHeartbeatTimeoutError(error)
     ? error.message
-    : error instanceof Error && (error.message === "Failed to fetch" || /^HTTP \d{3}$/.test(error.message))
+    : error instanceof Error
+        && (error.message === "Failed to fetch" || /^HTTP \d{3}$/.test(error.message))
       ? error.message
       : "network request failed";
   return new Error(`Twitch heartbeat request failed for ${hostname}: ${cause}`);

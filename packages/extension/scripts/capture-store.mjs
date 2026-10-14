@@ -19,7 +19,9 @@ const mode = args[0];
 if (mode !== "screenshots" && mode !== "promos") {
   throw new Error("Usage: node scripts/capture-store.mjs <screenshots|promos> [locale...]");
 }
-const outputDir = resolve(mode === "screenshots" ? "artifacts/store-screenshots" : "artifacts/store-promo");
+const outputDir = resolve(
+  mode === "screenshots" ? "artifacts/store-screenshots" : "artifacts/store-promo",
+);
 const shots = [
   ["queue", "lurkloot-01-drops-1280x800.png"],
   ["games", "lurkloot-02-extras-1280x800.png"],
@@ -34,7 +36,8 @@ const promos = [
 
 const ALL_LOCALES = ["en", "es", "fr", "it", "ru", "de", "zh_CN", "hi", "pt_BR", "ar", "tr"];
 const requested = args.slice(1).filter((code) => code !== "--");
-const locales = requested.length > 0 ? requested.filter((code) => ALL_LOCALES.includes(code)) : ALL_LOCALES;
+const locales =
+  requested.length > 0 ? requested.filter((code) => ALL_LOCALES.includes(code)) : ALL_LOCALES;
 if (locales.length === 0) {
   throw new Error(`No known locales in: ${requested.join(", ")}. Known: ${ALL_LOCALES.join(", ")}`);
 }
@@ -139,38 +142,72 @@ try {
     if (mode === "screenshots") {
       await page.setViewportSize({ width: 1280, height: 800 });
       for (const [story, filename] of shots) {
-        await page.goto(`${origin}${popupPath}?screenshot=store&story=${story}&locale=${locale}`, { waitUntil: "networkidle" });
-        await page.waitForSelector(story === "extensions" ? "[data-extension-overview]" : story === "watchlist" ? "#idle-watchlist" : 'main[data-view="queue"] [data-campaign-id]');
+        await page.goto(`${origin}${popupPath}?screenshot=store&story=${story}&locale=${locale}`, {
+          waitUntil: "networkidle",
+        });
+        await page.waitForSelector(
+          story === "extensions"
+            ? "[data-extension-overview]"
+            : story === "watchlist"
+              ? "#idle-watchlist"
+              : 'main[data-view="queue"] [data-campaign-id]',
+        );
         if (story === "games") {
           await page.locator('button[data-view="games"]').click();
           await page.waitForSelector("[data-game]");
         }
         await page.evaluate(async () => {
           await document.fonts.ready;
-          await Promise.all([...document.images].map((image) => image.decode().catch(() => undefined)));
+          await Promise.all(
+            [...document.images].map((image) => image.decode().catch(() => undefined)),
+          );
         });
         await page.waitForTimeout(500);
         const bounds = await page.locator("[data-store-popup]").boundingBox();
-        if (!bounds || bounds.width !== 720 || bounds.height !== 600 || bounds.x + bounds.width > 1280 || bounds.y + bounds.height > 800) {
+        if (
+          !bounds
+          || bounds.width !== 720
+          || bounds.height !== 600
+          || bounds.x + bounds.width > 1280
+          || bounds.y + bounds.height > 800
+        ) {
           throw new Error(`Clipped popup: ${JSON.stringify(bounds)}`);
         }
-        await page.screenshot({ path: join(localeDir, filename), clip: { x: 0, y: 0, width: 1280, height: 800 } });
-        const visibleText = (await page.locator("body").innerText()).replaceAll("Chrome Runner Skin", "");
+        await page.screenshot({
+          path: join(localeDir, filename),
+          clip: { x: 0, y: 0, width: 1280, height: 800 },
+        });
+        const visibleText = (await page.locator("body").innerText()).replaceAll(
+          "Chrome Runner Skin",
+          "",
+        );
         if (/NoPixel|Fortnite|Firefox|Chrome/i.test(visibleText)) {
-          throw new Error(`Unexpected named provider or browser in ${story}: ${visibleText.match(/.{0,60}(?:NoPixel|Fortnite|Firefox|Chrome).{0,60}/gi)}`);
+          throw new Error(
+            `Unexpected named provider or browser in ${story}: ${visibleText.match(/.{0,60}(?:NoPixel|Fortnite|Firefox|Chrome).{0,60}/gi)}`,
+          );
         }
         console.log(`[${locale}] Captured ${filename}: ${JSON.stringify(bounds)}`);
       }
     } else {
       for (const format of promos) {
         await page.setViewportSize({ width: format.width, height: format.height });
-        await page.goto(`${origin}${popupPath}?screenshot=promo&format=${format.id}&locale=${locale}`, { waitUntil: "networkidle" });
+        await page.goto(
+          `${origin}${popupPath}?screenshot=promo&format=${format.id}&locale=${locale}`,
+          { waitUntil: "networkidle" },
+        );
         await page.waitForSelector("[data-store-promo]");
         await page.evaluate(() => document.fonts.ready);
         const promoFile = `lurkloot-promo-${format.id}-${format.width}x${format.height}.png`;
         const promoPath = join(localeDir, promoFile);
         await page.screenshot({ path: promoPath, omitBackground: false });
-        await execFileAsync("magick", [promoPath, "-alpha", "off", "-define", "png:color-type=2", promoPath]);
+        await execFileAsync("magick", [
+          promoPath,
+          "-alpha",
+          "off",
+          "-define",
+          "png:color-type=2",
+          promoPath,
+        ]);
         console.log(`[${locale}] Captured ${promoFile}`);
       }
     }

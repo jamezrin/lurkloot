@@ -16,12 +16,27 @@ class BrowserSocket extends EventTarget {
   readyState = 0;
   sent: string[] = [];
   closedWith?: number;
-  constructor(readonly url: string) { super(); }
-  send(data: string) { this.sent.push(data); }
-  close(code?: number) { this.closedWith = code; this.readyState = 3; }
-  open() { this.readyState = 1; this.dispatchEvent(new Event("open")); }
-  receive(data: string) { this.dispatchEvent(new MessageEvent("message", { data })); }
-  remoteClose(code: number) { this.readyState = 3; this.dispatchEvent(new CloseEvent("close", { code })); }
+  constructor(readonly url: string) {
+    super();
+  }
+  send(data: string) {
+    this.sent.push(data);
+  }
+  close(code?: number) {
+    this.closedWith = code;
+    this.readyState = 3;
+  }
+  open() {
+    this.readyState = 1;
+    this.dispatchEvent(new Event("open"));
+  }
+  receive(data: string) {
+    this.dispatchEvent(new MessageEvent("message", { data }));
+  }
+  remoteClose(code: number) {
+    this.readyState = 3;
+    this.dispatchEvent(new CloseEvent("close", { code }));
+  }
 }
 
 describe("socket host worker", () => {
@@ -31,9 +46,18 @@ describe("socket host worker", () => {
     const intervals: Array<{ callback: () => void; delayMs: number; cleared: boolean }> = [];
     const handle = startSocketWorker({
       post: (event) => events.push(event),
-      createWebSocket: (url) => { const socket = new BrowserSocket(url); sockets.push(socket); return socket as never; },
-      setInterval: (callback, delayMs) => { intervals.push({ callback, delayMs, cleared: false }); return intervals.length as never; },
-      clearInterval: (timer) => { intervals[(timer as unknown as number) - 1]!.cleared = true; },
+      createWebSocket: (url) => {
+        const socket = new BrowserSocket(url);
+        sockets.push(socket);
+        return socket as never;
+      },
+      setInterval: (callback, delayMs) => {
+        intervals.push({ callback, delayMs, cleared: false });
+        return intervals.length as never;
+      },
+      clearInterval: (timer) => {
+        intervals[(timer as unknown as number) - 1]!.cleared = true;
+      },
     });
     const send = (message: SocketWorkerControl) => handle(message);
     return { sockets, events, intervals, send };
@@ -52,14 +76,14 @@ describe("socket host worker", () => {
     const socket = w.sockets[0]!;
     w.send({ type: "send", id: 1, data: "early" });
     socket.open();
-    w.send({ type: "send", id: 1, data: "{\"connect\":{}}" });
-    socket.receive("{\"id\":1,\"connect\":{}}");
-    socket.receive("{\"push\":{\"channel\":\"chatrooms.1.v2\"}}");
+    w.send({ type: "send", id: 1, data: '{"connect":{}}' });
+    socket.receive('{"id":1,"connect":{}}');
+    socket.receive('{"push":{"channel":"chatrooms.1.v2"}}');
     socket.remoteClose(3501);
-    expect(socket.sent).toEqual(["{\"connect\":{}}"]);
+    expect(socket.sent).toEqual(['{"connect":{}}']);
     expect(w.events).toEqual([
       { type: "open", id: 1 },
-      { type: "message", id: 1, data: "{\"id\":1,\"connect\":{}}" },
+      { type: "message", id: 1, data: '{"id":1,"connect":{}}' },
       { type: "close", id: 1, code: 3501 },
     ]);
   });
@@ -118,13 +142,29 @@ describe("socket host document", () => {
       name: SOCKET_HOST_PORT,
       postMessage: (message) => posted.push(message),
       disconnect: () => undefined,
-      onMessage: { addListener: (listener) => { portMessages.push(listener); } },
-      onDisconnect: { addListener: (listener) => { portDisconnects.push(listener); } },
+      onMessage: {
+        addListener: (listener) => {
+          portMessages.push(listener);
+        },
+      },
+      onDisconnect: {
+        addListener: (listener) => {
+          portDisconnects.push(listener);
+        },
+      },
     };
     let workerListener!: (event: { data: unknown }) => void;
     const toWorker = vi.fn();
     const connect = vi.fn(() => port);
-    bridgeSocketHost({ connect, worker: { postMessage: toWorker, addEventListener: (_type, listener) => { workerListener = listener; } } });
+    bridgeSocketHost({
+      connect,
+      worker: {
+        postMessage: toWorker,
+        addEventListener: (_type, listener) => {
+          workerListener = listener;
+        },
+      },
+    });
 
     expect(connect).toHaveBeenCalledWith(SOCKET_HOST_PORT);
     portMessages[0]!({ type: "open", id: 1, url: CENTRIFUGO_URL });

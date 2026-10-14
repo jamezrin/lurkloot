@@ -6,11 +6,14 @@ import source from "../../../../privacy-policy.md?raw";
 // stable heading anchors to its rendered HTML for the table of contents.
 const body = source.replace(/^#\s.*\n/, "");
 const contents: { id: string; title: string }[] = [];
-const html = String(marked.parse(body, { gfm: true, breaks: false })).replace(/<h2>(.*?)<\/h2>/g, (_, title: string) => {
-  const id = `policy-${contents.length + 1}`;
-  contents.push({ id, title: title.replace(/<[^>]*>/g, "") });
-  return `<h2 id="${id}">${title}</h2>`;
-});
+const html = String(marked.parse(body, { gfm: true, breaks: false })).replace(
+  /<h2>(.*?)<\/h2>/g,
+  (_, title: string) => {
+    const id = `policy-${contents.length + 1}`;
+    contents.push({ id, title: title.replace(/<[^>]*>/g, "") });
+    return `<h2 id="${id}">${title}</h2>`;
+  },
+);
 ---
 <Base title="Privacy Policy — Lurkloot" description="Lurkloot keeps settings and logs on your device, sends no analytics, and contacts platforms and opt-in reward providers directly. Read the privacy policy.">
   <main id="content">

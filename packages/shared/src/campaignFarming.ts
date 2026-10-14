@@ -74,16 +74,23 @@ export function evaluateCampaignFarming(
 ): CampaignFarmingEvaluation {
   const now = options.now ?? Date.now();
   if (settings.excludedCampaignIds.includes(campaign.id)) return rejected("excluded");
-  if (campaign.status === "upcoming" || campaign.eligibility === "upcoming") return rejected("upcoming");
-  if (campaign.status === "expired" || campaign.eligibility === "expired") return rejected("expired");
+  if (campaign.status === "upcoming" || campaign.eligibility === "upcoming")
+    return rejected("upcoming");
+  if (campaign.status === "expired" || campaign.eligibility === "expired")
+    return rejected("expired");
   const campaignEndsAt = parsedTime(campaign.endsAt);
   if (campaignEndsAt !== undefined && campaignEndsAt < now) return rejected("expired");
-  if (campaign.status === "completed" || campaign.eligibility === "completed") return rejected("completed");
-  const accountUnlinked = campaign.accountLinked === false || campaign.eligibility === "account_not_linked";
+  if (campaign.status === "completed" || campaign.eligibility === "completed")
+    return rejected("completed");
+  const accountUnlinked =
+    campaign.accountLinked === false || campaign.eligibility === "account_not_linked";
   if (accountUnlinked && !settings.farmingEligibility.farmUnlinkedCampaigns) {
     return rejected("unlinked_campaigns_disabled");
   }
-  if (campaignHasSubscriptionRewards(campaign) && !settings.farmingEligibility.farmSubscriptionCampaigns) {
+  if (
+    campaignHasSubscriptionRewards(campaign)
+    && !settings.farmingEligibility.farmSubscriptionCampaigns
+  ) {
     return rejected("subscription_campaigns_disabled");
   }
   if (isCampaignCategoryBlocked(campaign, settings.platform[campaign.platform])) {
@@ -92,10 +99,15 @@ export function evaluateCampaignFarming(
   if (!campaignPassesCategoryFilter(campaign, settings.platform[campaign.platform])) {
     return rejected("category_filtered");
   }
-  if (options.includePinnedOnly && settings.farmPinnedOnly && !settings.campaignPins.includes(campaign.id)) {
+  if (
+    options.includePinnedOnly
+    && settings.farmPinnedOnly
+    && !settings.campaignPins.includes(campaign.id)
+  ) {
     return rejected("not_pinned");
   }
-  if (campaign.rewards.length === 0 || campaign.eligibility === "no_rewards") return rejected("no_rewards");
+  if (campaign.rewards.length === 0 || campaign.eligibility === "no_rewards")
+    return rejected("no_rewards");
   const unclaimed = campaign.rewards.filter((reward) => !isRewardObtained(reward));
   if (unclaimed.length === 0) return rejected("no_unclaimed_rewards");
 
@@ -134,10 +146,12 @@ export function evaluateCampaignFarming(
       });
       continue;
     }
-    blockers.push(rewardRejected(
-      isSubscriptionReward(reward) ? "subscription_required" : "action_required",
-      reward,
-    ));
+    blockers.push(
+      rewardRejected(
+        isSubscriptionReward(reward) ? "subscription_required" : "action_required",
+        reward,
+      ),
+    );
   }
 
   const precedence: CampaignFarmingRejectionCode[] = [
@@ -148,8 +162,10 @@ export function evaluateCampaignFarming(
     "subscription_required",
     "action_required",
   ];
-  return precedence.flatMap((code) => blockers.filter((blocker) => blocker.code === code))[0]
-    ?? rejected("no_farmable_reward");
+  return (
+    precedence.flatMap((code) => blockers.filter((blocker) => blocker.code === code))[0]
+    ?? rejected("no_farmable_reward")
+  );
 }
 
 export type CampaignFarmingRejection = Rejection;
@@ -192,19 +208,33 @@ function withBlockerLifted(
   settings: EngineSettings,
   code: CampaignFarmingRejectionCode,
 ): EngineSettings | undefined {
-  const withPlatform = (patch: Partial<EngineSettings["platform"][typeof campaign.platform]>): EngineSettings => ({
+  const withPlatform = (
+    patch: Partial<EngineSettings["platform"][typeof campaign.platform]>,
+  ): EngineSettings => ({
     ...settings,
-    platform: { ...settings.platform, [campaign.platform]: { ...settings.platform[campaign.platform], ...patch } },
+    platform: {
+      ...settings.platform,
+      [campaign.platform]: { ...settings.platform[campaign.platform], ...patch },
+    },
   });
   switch (code) {
     case "excluded":
-      return { ...settings, excludedCampaignIds: settings.excludedCampaignIds.filter((id) => id !== campaign.id) };
+      return {
+        ...settings,
+        excludedCampaignIds: settings.excludedCampaignIds.filter((id) => id !== campaign.id),
+      };
     case "not_pinned":
       return { ...settings, campaignPins: [...settings.campaignPins, campaign.id] };
     case "unlinked_campaigns_disabled":
-      return { ...settings, farmingEligibility: { ...settings.farmingEligibility, farmUnlinkedCampaigns: true } };
+      return {
+        ...settings,
+        farmingEligibility: { ...settings.farmingEligibility, farmUnlinkedCampaigns: true },
+      };
     case "subscription_campaigns_disabled":
-      return { ...settings, farmingEligibility: { ...settings.farmingEligibility, farmSubscriptionCampaigns: true } };
+      return {
+        ...settings,
+        farmingEligibility: { ...settings.farmingEligibility, farmSubscriptionCampaigns: true },
+      };
     case "category_blocked":
       return withPlatform({ blockedCategories: [] });
     case "category_filtered":

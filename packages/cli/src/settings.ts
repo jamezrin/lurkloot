@@ -15,10 +15,22 @@ import {
   POLL_INTERVAL_MIN_MINUTES,
   IDLE_WATCHLIST_LIMIT,
 } from "@lurkloot/shared/settings";
-import { CURRENT_SETTINGS_SCHEMA_VERSION, migrateSettings, type SettingsMigrationDiagnostic } from "@lurkloot/shared/settingsSchema";
+import {
+  CURRENT_SETTINGS_SCHEMA_VERSION,
+  migrateSettings,
+  type SettingsMigrationDiagnostic,
+} from "@lurkloot/shared/settingsSchema";
 import { SETTINGS_EXPORT_KIND, type SettingsExportEnvelope } from "@lurkloot/shared/settingsExport";
 import { normalizePlatformWatchSourcePriority } from "@lurkloot/shared/watchSources";
-import type { CompatibilitySettings, EngineSettings, KickPlatformSettings, Platform, PlatformSettingsByPlatform, PriorityMode, TwitchPlatformSettings } from "@lurkloot/shared/models";
+import type {
+  CompatibilitySettings,
+  EngineSettings,
+  KickPlatformSettings,
+  Platform,
+  PlatformSettingsByPlatform,
+  PriorityMode,
+  TwitchPlatformSettings,
+} from "@lurkloot/shared/models";
 
 // The CLI's own settings surface — intentionally decoupled from the extension's
 // ExtensionSettings. It only exposes settings that actually do something in the
@@ -135,8 +147,34 @@ const CLI_SETTING_KEYS = new Set<string>([
 ]);
 
 const CLI_PLATFORM_KEYS: Record<Platform, Set<string>> = {
-  twitch: new Set(["enabled", "watchSourcePriority", "idleWatchlistChannels", "excludedChannels", "categoryMode", "categories", "favouriteCategories", "blockedCategories", "subscribedRewardMarks", "autoClaimChannelPoints", "strictCampaignAvailability", "channelPointsPushClaim", "alwaysEnterChat"]),
-  kick: new Set(["enabled", "watchSourcePriority", "idleWatchlistChannels", "excludedChannels", "categoryMode", "categories", "favouriteCategories", "blockedCategories", "subscribedRewardMarks", "autoClaimChallenges", "alwaysEnterChat"]),
+  twitch: new Set([
+    "enabled",
+    "watchSourcePriority",
+    "idleWatchlistChannels",
+    "excludedChannels",
+    "categoryMode",
+    "categories",
+    "favouriteCategories",
+    "blockedCategories",
+    "subscribedRewardMarks",
+    "autoClaimChannelPoints",
+    "strictCampaignAvailability",
+    "channelPointsPushClaim",
+    "alwaysEnterChat",
+  ]),
+  kick: new Set([
+    "enabled",
+    "watchSourcePriority",
+    "idleWatchlistChannels",
+    "excludedChannels",
+    "categoryMode",
+    "categories",
+    "favouriteCategories",
+    "blockedCategories",
+    "subscribedRewardMarks",
+    "autoClaimChallenges",
+    "alwaysEnterChat",
+  ]),
 };
 const CLI_COMPATIBILITY_KEYS: Record<Platform, Set<string>> = {
   twitch: new Set(["profile", "heartbeatTransport", "inventoryQueryVersion"]),
@@ -173,7 +211,9 @@ const EXTENSION_ONLY_KEYS = new Set<string>([
 // that collision is pathological (an extension-only key in two forms in a CLI
 // config) and still names a real offending line, so it is left as-is.
 function describeOffender(key: string, diagnostics: CliSettingsDiagnostic[]): string {
-  const renamedFrom = diagnostics.find((diagnostic) => diagnostic.code !== "limit_exceeded" && diagnostic.replacement === key)?.path;
+  const renamedFrom = diagnostics.find(
+    (diagnostic) => diagnostic.code !== "limit_exceeded" && diagnostic.replacement === key,
+  )?.path;
   const subject = renamedFrom ? `"${renamedFrom}" (renamed to "${key}")` : `"${key}"`;
   return EXTENSION_ONLY_KEYS.has(key)
     ? `${subject} is an extension-only setting with no effect in the CLI; remove it`
@@ -204,7 +244,8 @@ export interface CliSettingsParseResult {
 // offender at once; recognized values are normalized through the shared
 // primitives (range clamps, channel/category/id dedupe, log-level canonicalize).
 export function parseCliSettingsWithDiagnostics(raw: unknown): CliSettingsParseResult {
-  if (raw === undefined) return { settings: structuredClone(DEFAULT_CLI_SETTINGS), diagnostics: [] };
+  if (raw === undefined)
+    return { settings: structuredClone(DEFAULT_CLI_SETTINGS), diagnostics: [] };
   if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
     throw new Error('Config "settings" must be a JSON object');
   }
@@ -218,7 +259,10 @@ export function parseCliSettingsWithDiagnostics(raw: unknown): CliSettingsParseR
 // missing capability (#598) and `tablessMode` has nothing left to decide. A
 // config that still sets it, to either value, keeps loading: the key is dropped
 // with a warning instead of failing the whole config.
-function withoutTablessMode(value: Record<string, unknown>, diagnostics: CliSettingsDiagnostic[]): Record<string, unknown> {
+function withoutTablessMode(
+  value: Record<string, unknown>,
+  diagnostics: CliSettingsDiagnostic[],
+): Record<string, unknown> {
   if (!Object.hasOwn(value, "tablessMode")) return value;
   const { tablessMode: _ignored, ...rest } = value;
   diagnostics.push({
@@ -259,17 +303,27 @@ export function parseCliSettingsImportPayload(raw: unknown): CliSettingsParseRes
   if (envelope.kind !== SETTINGS_EXPORT_KIND) {
     throw new Error('Not a lurkloot settings file: unrecognized "kind"');
   }
-  if (envelope.settings === null || typeof envelope.settings !== "object" || Array.isArray(envelope.settings)) {
+  if (
+    envelope.settings === null
+    || typeof envelope.settings !== "object"
+    || Array.isArray(envelope.settings)
+  ) {
     throw new Error('Not a lurkloot settings file: missing "settings"');
   }
-  return parseCliSettingsWithDiagnostics({ ...(envelope.settings as Record<string, unknown>), schemaVersion: envelope.schemaVersion });
+  return parseCliSettingsWithDiagnostics({
+    ...(envelope.settings as Record<string, unknown>),
+    schemaVersion: envelope.schemaVersion,
+  });
 }
 
 // Validates and normalizes an already-migrated settings payload. See
 // parseCliSettingsWithDiagnostics for the full contract; `diagnostics` is passed
 // through so a renamed-away key can be named by its original path in errors, and
 // so values cut down to an engine limit can be reported.
-function parseMigratedCliSettings(value: Record<string, unknown>, diagnostics: CliSettingsDiagnostic[]): CliSettings {
+function parseMigratedCliSettings(
+  value: Record<string, unknown>,
+  diagnostics: CliSettingsDiagnostic[],
+): CliSettings {
   const offenders: string[] = [];
 
   for (const key of Object.keys(value)) {
@@ -289,13 +343,19 @@ function parseMigratedCliSettings(value: Record<string, unknown>, diagnostics: C
         if (entry && typeof entry === "object" && !Array.isArray(entry)) {
           const block = entry as Record<string, unknown>;
           for (const key of Object.keys(block)) {
-            if (!CLI_PLATFORM_KEYS[name as Platform].has(key)) offenders.push(`unknown setting "${key}" under platform.${name}`);
+            if (!CLI_PLATFORM_KEYS[name as Platform].has(key))
+              offenders.push(`unknown setting "${key}" under platform.${name}`);
           }
           // Like the farmingEligibility values below: normalizeCategoryMode
           // would quietly fall back to "all" for a typo such as "exclude_all",
           // silently farming the whole directory instead of the chosen subset.
-          if (Object.hasOwn(block, "categoryMode") && !CATEGORY_MODES.includes(block.categoryMode as never)) {
-            offenders.push(`"platform.${name}.categoryMode" must be one of: ${CATEGORY_MODES.join(", ")}`);
+          if (
+            Object.hasOwn(block, "categoryMode")
+            && !CATEGORY_MODES.includes(block.categoryMode as never)
+          ) {
+            offenders.push(
+              `"platform.${name}.categoryMode" must be one of: ${CATEGORY_MODES.join(", ")}`,
+            );
           }
         }
       }
@@ -306,30 +366,43 @@ function parseMigratedCliSettings(value: Record<string, unknown>, diagnostics: C
   // otherwise silently fall back to the default and quietly farm the wrong set.
   const farmingEligibilityRaw = value.farmingEligibility;
   if (farmingEligibilityRaw !== undefined) {
-    if (farmingEligibilityRaw === null || typeof farmingEligibilityRaw !== "object" || Array.isArray(farmingEligibilityRaw)) {
+    if (
+      farmingEligibilityRaw === null
+      || typeof farmingEligibilityRaw !== "object"
+      || Array.isArray(farmingEligibilityRaw)
+    ) {
       offenders.push('"farmingEligibility" must be a JSON object');
     } else {
       for (const [key, entry] of Object.entries(farmingEligibilityRaw as Record<string, unknown>)) {
         if (!FARMING_ELIGIBILITY_KEYS.includes(key)) {
-          offenders.push(`unknown setting "${key}" under farmingEligibility (expected one of: ${FARMING_ELIGIBILITY_KEYS.join(", ")})`);
+          offenders.push(
+            `unknown setting "${key}" under farmingEligibility (expected one of: ${FARMING_ELIGIBILITY_KEYS.join(", ")})`,
+          );
           continue;
         }
         // Values are checked too, not just names: booleanOr would quietly
         // restore the default for `"farmUnlinkedCampaigns": "yes"`, which is the
         // same silent wrong-set farming the key check exists to prevent.
-        if (typeof entry !== "boolean") offenders.push(`"farmingEligibility.${key}" must be a boolean`);
+        if (typeof entry !== "boolean")
+          offenders.push(`"farmingEligibility.${key}" must be a boolean`);
       }
     }
   }
 
   const compatibilityRaw = value.compatibility;
   if (compatibilityRaw !== undefined) {
-    if (compatibilityRaw === null || typeof compatibilityRaw !== "object" || Array.isArray(compatibilityRaw)) {
+    if (
+      compatibilityRaw === null
+      || typeof compatibilityRaw !== "object"
+      || Array.isArray(compatibilityRaw)
+    ) {
       offenders.push('"compatibility" must be a JSON object');
     } else {
       for (const [name, entry] of Object.entries(compatibilityRaw as Record<string, unknown>)) {
         if (!PLATFORMS.includes(name as Platform)) {
-          offenders.push(`unknown compatibility platform "${name}" (expected one of: ${PLATFORMS.join(", ")})`);
+          offenders.push(
+            `unknown compatibility platform "${name}" (expected one of: ${PLATFORMS.join(", ")})`,
+          );
           continue;
         }
         if (entry === null || typeof entry !== "object" || Array.isArray(entry)) {
@@ -358,21 +431,50 @@ function parseMigratedCliSettings(value: Record<string, unknown>, diagnostics: C
     campaignPins: normalizeIdList(v.campaignPins),
     farmPinnedOnly: booleanOr(v.farmPinnedOnly, DEFAULT_CLI_SETTINGS.farmPinnedOnly),
     excludedCampaignIds: normalizeIdList(v.excludedCampaignIds),
-    idleWatchlistFallbackOnly: booleanOr(v.idleWatchlistFallbackOnly, DEFAULT_CLI_SETTINGS.idleWatchlistFallbackOnly),
+    idleWatchlistFallbackOnly: booleanOr(
+      v.idleWatchlistFallbackOnly,
+      DEFAULT_CLI_SETTINGS.idleWatchlistFallbackOnly,
+    ),
     preferKnownChannels: booleanOr(v.preferKnownChannels, DEFAULT_CLI_SETTINGS.preferKnownChannels),
-    offlineRetryLimit: clampInteger(v.offlineRetryLimit, 1, 10, DEFAULT_CLI_SETTINGS.offlineRetryLimit),
-    pollIntervalMinutes: clampNumber(v.pollIntervalMinutes, POLL_INTERVAL_MIN_MINUTES, POLL_INTERVAL_MAX_MINUTES, DEFAULT_CLI_SETTINGS.pollIntervalMinutes),
+    offlineRetryLimit: clampInteger(
+      v.offlineRetryLimit,
+      1,
+      10,
+      DEFAULT_CLI_SETTINGS.offlineRetryLimit,
+    ),
+    pollIntervalMinutes: clampNumber(
+      v.pollIntervalMinutes,
+      POLL_INTERVAL_MIN_MINUTES,
+      POLL_INTERVAL_MAX_MINUTES,
+      DEFAULT_CLI_SETTINGS.pollIntervalMinutes,
+    ),
     postClaimHandoff: booleanOr(v.postClaimHandoff, DEFAULT_CLI_SETTINGS.postClaimHandoff),
-    postClaimHandoffIntervalSeconds: clampInteger(v.postClaimHandoffIntervalSeconds, 1, 30, DEFAULT_CLI_SETTINGS.postClaimHandoffIntervalSeconds),
-    postClaimHandoffMaxSeconds: clampInteger(v.postClaimHandoffMaxSeconds, 5, 120, DEFAULT_CLI_SETTINGS.postClaimHandoffMaxSeconds),
-    skipUnfinishableRewards: booleanOr(v.skipUnfinishableRewards, DEFAULT_CLI_SETTINGS.skipUnfinishableRewards),
+    postClaimHandoffIntervalSeconds: clampInteger(
+      v.postClaimHandoffIntervalSeconds,
+      1,
+      30,
+      DEFAULT_CLI_SETTINGS.postClaimHandoffIntervalSeconds,
+    ),
+    postClaimHandoffMaxSeconds: clampInteger(
+      v.postClaimHandoffMaxSeconds,
+      5,
+      120,
+      DEFAULT_CLI_SETTINGS.postClaimHandoffMaxSeconds,
+    ),
+    skipUnfinishableRewards: booleanOr(
+      v.skipUnfinishableRewards,
+      DEFAULT_CLI_SETTINGS.skipUnfinishableRewards,
+    ),
     deadlineSafetyMarginMinutes: clampInteger(
       v.deadlineSafetyMarginMinutes,
       0,
       60,
       DEFAULT_CLI_SETTINGS.deadlineSafetyMarginMinutes,
     ),
-    criticalFailurePromptEnabled: booleanOr(v.criticalFailurePromptEnabled, DEFAULT_CLI_SETTINGS.criticalFailurePromptEnabled),
+    criticalFailurePromptEnabled: booleanOr(
+      v.criticalFailurePromptEnabled,
+      DEFAULT_CLI_SETTINGS.criticalFailurePromptEnabled,
+    ),
     farmingEligibility: normalizeFarmingEligibility(v.farmingEligibility),
     notifyRewardEarned: booleanOr(v.notifyRewardEarned, DEFAULT_CLI_SETTINGS.notifyRewardEarned),
     notifyNoDropsLeft: booleanOr(v.notifyNoDropsLeft, DEFAULT_CLI_SETTINGS.notifyNoDropsLeft),
@@ -381,7 +483,9 @@ function parseMigratedCliSettings(value: Record<string, unknown>, diagnostics: C
   };
 }
 
-function normalizeCompatibility(raw: EngineSettings["compatibility"] | undefined): CompatibilitySettings {
+function normalizeCompatibility(
+  raw: EngineSettings["compatibility"] | undefined,
+): CompatibilitySettings {
   const selectionOrAuto = (value: unknown): string =>
     typeof value === "string" && value.trim() !== "" ? value.trim() : "auto";
   return {
@@ -426,13 +530,25 @@ function normalizePlatform(
   return {
     twitch: {
       ...twitch.base,
-      autoClaimChannelPoints: booleanOr(twitch.ps.autoClaimChannelPoints, DEFAULT_CLI_SETTINGS.platform.twitch.autoClaimChannelPoints),
-      strictCampaignAvailability: booleanOr(twitch.ps.strictCampaignAvailability, DEFAULT_CLI_SETTINGS.platform.twitch.strictCampaignAvailability),
-      channelPointsPushClaim: booleanOr(twitch.ps.channelPointsPushClaim, DEFAULT_CLI_SETTINGS.platform.twitch.channelPointsPushClaim),
+      autoClaimChannelPoints: booleanOr(
+        twitch.ps.autoClaimChannelPoints,
+        DEFAULT_CLI_SETTINGS.platform.twitch.autoClaimChannelPoints,
+      ),
+      strictCampaignAvailability: booleanOr(
+        twitch.ps.strictCampaignAvailability,
+        DEFAULT_CLI_SETTINGS.platform.twitch.strictCampaignAvailability,
+      ),
+      channelPointsPushClaim: booleanOr(
+        twitch.ps.channelPointsPushClaim,
+        DEFAULT_CLI_SETTINGS.platform.twitch.channelPointsPushClaim,
+      ),
     },
     kick: {
       ...kick.base,
-      autoClaimChallenges: booleanOr(kick.ps.autoClaimChallenges, DEFAULT_CLI_SETTINGS.platform.kick.autoClaimChallenges),
+      autoClaimChallenges: booleanOr(
+        kick.ps.autoClaimChallenges,
+        DEFAULT_CLI_SETTINGS.platform.kick.autoClaimChallenges,
+      ),
     },
   };
 }
@@ -441,7 +557,11 @@ function normalizePlatform(
 // popup refuses to add more, but a config file can list any number. Keep the
 // first ones, as the engine would, and name the rest instead of dropping them
 // silently.
-function limitIdleWatchlist(platform: Platform, channels: string[] | undefined, diagnostics: CliSettingsDiagnostic[]): string[] {
+function limitIdleWatchlist(
+  platform: Platform,
+  channels: string[] | undefined,
+  diagnostics: CliSettingsDiagnostic[],
+): string[] {
   const normalized = normalizeChannelList(channels);
   const dropped = normalized.slice(IDLE_WATCHLIST_LIMIT);
   if (dropped.length > 0) {

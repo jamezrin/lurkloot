@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { basename } from "node:path";
-// @ts-expect-error The production utility is an executable JavaScript module.
-import { replaceLocaleScreenshots, uploadStoreScreenshots } from "../scripts/store-screenshot-upload.mjs";
+import {
+  replaceLocaleScreenshots,
+  uploadStoreScreenshots,
+  // @ts-expect-error The production utility is an executable JavaScript module.
+} from "../scripts/store-screenshot-upload.mjs";
 
 type UploadFile = { variant: { file: string }; path: string };
 
@@ -122,18 +125,24 @@ describe("store screenshot replacement", () => {
     const dashboard = new MemoryDashboard();
     dashboard.failUploadAt = 3;
 
-    await expect(replaceLocaleScreenshots({ locale: "ar", files: desiredFiles, dashboard }))
-      .rejects.toThrow(/ar.*03-new.*upload.*network upload failed.*retry.*--locales ar/i);
+    await expect(
+      replaceLocaleScreenshots({ locale: "ar", files: desiredFiles, dashboard }),
+    ).rejects.toThrow(/ar.*03-new.*upload.*network upload failed.*retry.*--locales ar/i);
     expect(dashboard.savedLocales).toEqual([]);
     expect(dashboard.images).toHaveLength(4);
   });
 
   it("preflights once and saves each locale only after its complete replacement", async () => {
-    const dashboard = new MemoryDashboard(new Map([
-      ["en", ["old-a", "old-b", "old-c", "old-d", "old-e"]],
-      ["ar", ["old-a", "old-b", "old-c", "old-d", "old-e"]],
-    ]));
-    const filesByLocale = new Map([["en", desiredFiles], ["ar", desiredFiles]]);
+    const dashboard = new MemoryDashboard(
+      new Map([
+        ["en", ["old-a", "old-b", "old-c", "old-d", "old-e"]],
+        ["ar", ["old-a", "old-b", "old-c", "old-d", "old-e"]],
+      ]),
+    );
+    const filesByLocale = new Map([
+      ["en", desiredFiles],
+      ["ar", desiredFiles],
+    ]);
 
     await uploadStoreScreenshots({ locales: ["en", "ar"], filesByLocale, dashboard });
 
@@ -146,7 +155,9 @@ describe("store screenshot replacement", () => {
   });
 
   it("leaves the shared set alone when English is not part of the run", async () => {
-    const dashboard = new MemoryDashboard(new Map([["ar", ["old-a", "old-b", "old-c", "old-d", "old-e"]]]));
+    const dashboard = new MemoryDashboard(
+      new Map([["ar", ["old-a", "old-b", "old-c", "old-d", "old-e"]]]),
+    );
     const filesByLocale = new Map([["ar", desiredFiles]]);
 
     await uploadStoreScreenshots({ locales: ["ar"], filesByLocale, dashboard });

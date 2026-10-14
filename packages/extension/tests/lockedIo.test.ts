@@ -29,7 +29,7 @@ function skipLiteral(text: string, index: number): number {
     const end = text.indexOf("*/", index + 2);
     return end === -1 ? text.length : end + 2;
   }
-  if (char === "\"" || char === "'") {
+  if (char === '"' || char === "'") {
     let cursor = index + 1;
     while (cursor < text.length && text[cursor] !== char) cursor += text[cursor] === "\\" ? 2 : 1;
     return cursor + 1;
@@ -104,7 +104,9 @@ function functionSpans(text: string): FunctionSpan[] {
   lines.forEach((line, start) => {
     const match = /^(\s*)(?:export\s+)?(?:async\s+)?function\s+(\w+)/.exec(line);
     if (!match) return;
-    const end = lines.findIndex((candidate, index) => index > start && candidate === `${match[1]}}`);
+    const end = lines.findIndex(
+      (candidate, index) => index > start && candidate === `${match[1]}}`,
+    );
     if (end !== -1) spans.push({ name: match[2], start: offsets[start], end: offsets[end + 1] });
   });
   return spans;
@@ -113,7 +115,7 @@ function functionSpans(text: string): FunctionSpan[] {
 // The innermost named function containing `offset`.
 function enclosingFunction(spans: readonly FunctionSpan[], offset: number): string {
   const containing = spans.filter((span) => span.start <= offset && offset < span.end);
-  containing.sort((left, right) => (left.end - left.start) - (right.end - right.start));
+  containing.sort((left, right) => left.end - left.start - (right.end - right.start));
   return containing[0]?.name ?? "<top level>";
 }
 
@@ -123,14 +125,20 @@ function lockBodies(code: string, lock: string): { offset: number; body: string 
   const pattern = new RegExp(`\\b${lock}\\(`, "g");
   for (const match of code.matchAll(pattern)) {
     const open = match.index + lock.length;
-    bodies.push({ offset: match.index, body: code.slice(open, skipBalanced(code, open, "(", ")")) });
+    bodies.push({
+      offset: match.index,
+      body: code.slice(open, skipBalanced(code, open, "(", ")")),
+    });
   }
   return bodies;
 }
 
 const escape = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const CALL_PATTERN = new RegExp(
-  `(?<![\\w.])(${[...LOCKED_IO_CALLS].sort((left, right) => right.length - left.length).map(escape).join("|")})\\s*!?\\s*(?:\\?\\.)?\\(`,
+  `(?<![\\w.])(${[...LOCKED_IO_CALLS]
+    .sort((left, right) => right.length - left.length)
+    .map(escape)
+    .join("|")})\\s*!?\\s*(?:\\?\\.)?\\(`,
   "g",
 );
 
@@ -173,23 +181,34 @@ function lockedCalls(): FoundCall[] {
 
 describe("locked I/O (#583)", () => {
   it("makes no provider, tab or timer call while a lock is held", () => {
-    const locked = [...new Set(lockedCalls().map((found) => `${found.call} in ${found.site} (core/src/${found.file})`))];
-    expect(locked, "I/O inside a lock. Move it out of the lock (#583): there is no allowlist.").toEqual([]);
+    const locked = [
+      ...new Set(
+        lockedCalls().map((found) => `${found.call} in ${found.site} (core/src/${found.file})`),
+      ),
+    ];
+    expect(
+      locked,
+      "I/O inside a lock. Move it out of the lock (#583): there is no allowlist.",
+    ).toEqual([]);
   });
 
   it("ignores parentheses and calls inside strings, templates and comments", () => {
-    const code = codeOnly([
-      "function sample() {",
-      "  withStateLock(async () => {",
-      "    emit(`skipped (trigger=${trigger}`);",
-      "    // adapter.claimReward( in a comment, and a stray )",
-      "    const note = \"unbalanced ( deps.createAlarm(\";",
-      "    await adapter.claimReward(reward);",
-      "  });",
-      "  adapter.refreshCampaigns();",
-      "}",
-    ].join("\n"));
+    const code = codeOnly(
+      [
+        "function sample() {",
+        "  withStateLock(async () => {",
+        "    emit(`skipped (trigger=${trigger}`);",
+        "    // adapter.claimReward( in a comment, and a stray )",
+        '    const note = "unbalanced ( deps.createAlarm(";',
+        "    await adapter.claimReward(reward);",
+        "  });",
+        "  adapter.refreshCampaigns();",
+        "}",
+      ].join("\n"),
+    );
     const [{ body }] = lockBodies(code, "withStateLock");
-    expect([...body.matchAll(CALL_PATTERN)].map((match) => match[1])).toEqual(["adapter.claimReward"]);
+    expect([...body.matchAll(CALL_PATTERN)].map((match) => match[1])).toEqual([
+      "adapter.claimReward",
+    ]);
   });
 });

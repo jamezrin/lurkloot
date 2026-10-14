@@ -5,13 +5,19 @@ import { describe, expect, it } from "vitest";
 import { compile } from "@tailwindcss/node";
 import { Scanner } from "@tailwindcss/oxide";
 
-const stylesPath = resolve(dirname(fileURLToPath(import.meta.url)), "../../popup-ui/src/styles.css");
+const stylesPath = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../popup-ui/src/styles.css",
+);
 
 // Compiles the popup's stylesheet exactly as the build does: Tailwind scans the
 // popup's sources for candidate classes and emits the utilities they name.
 async function buildPopupCss(): Promise<string> {
   const base = dirname(stylesPath);
-  const compiler = await compile(await readFile(stylesPath, "utf8"), { base, onDependency: () => undefined });
+  const compiler = await compile(await readFile(stylesPath, "utf8"), {
+    base,
+    onDependency: () => undefined,
+  });
   const scanner = new Scanner({ sources: compiler.sources });
   return compiler.build(scanner.scan());
 }

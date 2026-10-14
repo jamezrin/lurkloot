@@ -10,7 +10,10 @@ export interface KickClaimCapability {
   classify(response: unknown, campaign: DropCampaign): KickClaimOutcome;
   isSuppressed?(campaign: DropCampaign, reward: DropReward): boolean;
   suppress?(campaign: DropCampaign, reward: DropReward, url: string): void;
-  reconcileProgress?(campaigns: DropCampaign[], affirmativelyLinkedCampaignIds: ReadonlySet<string>): DropCampaign[];
+  reconcileProgress?(
+    campaigns: DropCampaign[],
+    affirmativelyLinkedCampaignIds: ReadonlySet<string>,
+  ): DropCampaign[];
 }
 
 export function isKickClaimSuccess(response: unknown): boolean {

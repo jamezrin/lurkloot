@@ -9,23 +9,30 @@ import { gameItemsFromCampaigns } from "../../popup-ui/src/viewModels";
 const t = (key: string): string => key;
 
 describe("popup category icons", () => {
-  function renderSelectedCategory(imageUrl?: string, categoryMode: "all" | "include" = "include"): string {
+  function renderSelectedCategory(
+    imageUrl?: string,
+    categoryMode: "all" | "include" = "include",
+  ): string {
     const settings = mergeSettings(undefined);
     settings.platform.twitch.categoryMode = categoryMode;
-    settings.platform.twitch.categories = [{
-      id: "33214",
-      name: "Fort Night",
-      ...(imageUrl ? { imageUrl } : {}),
-    }];
+    settings.platform.twitch.categories = [
+      {
+        id: "33214",
+        name: "Fort Night",
+        ...(imageUrl ? { imageUrl } : {}),
+      },
+    ];
 
-    return renderToStaticMarkup(createElement(PlatformCategorySettings, {
-      platform: "twitch",
-      suggestions: [],
-      settings,
-      onCategoryModeChange: () => {},
-      onCategoriesChange: () => {},
-      onSearchCategories: async () => [],
-    }));
+    return renderToStaticMarkup(
+      createElement(PlatformCategorySettings, {
+        platform: "twitch",
+        suggestions: [],
+        settings,
+        onCategoryModeChange: () => {},
+        onCategoriesChange: () => {},
+        onSearchCategories: async () => [],
+      }),
+    );
   }
 
   it("renders selected category artwork as a rounded-square image", () => {

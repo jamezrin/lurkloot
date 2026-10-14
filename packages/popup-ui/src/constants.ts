@@ -28,7 +28,8 @@ export const SITE_URL = "https://lurkloot.jamezrin.com";
 export const GITHUB_REPO_URL = "https://github.com/jamezrin/lurkloot";
 export const CLI_DOCS_URL = "https://github.com/jamezrin/lurkloot/tree/main/packages/cli#readme";
 export const GITHUB_NEW_ISSUE_URL = "https://github.com/jamezrin/lurkloot/issues/new/choose";
-export const GITHUB_TRANSLATION_GUIDE_URL = "https://github.com/jamezrin/lurkloot/blob/main/docs/translations.md";
+export const GITHUB_TRANSLATION_GUIDE_URL =
+  "https://github.com/jamezrin/lurkloot/blob/main/docs/translations.md";
 // The chooser URL cannot carry a prefilled title/body, so the critical-failure
 // prompt targets the raw new-issue form instead.
 export const GITHUB_NEW_ISSUE_URL_BASE = "https://github.com/jamezrin/lurkloot/issues/new";
@@ -78,8 +79,7 @@ const EXTRAS_GLOW =
   "radial-gradient(ellipse at 88% 18%, rgba(83,252,24,0.14), transparent 38%), radial-gradient(ellipse at 8% 90%, rgba(145,71,255,0.28), transparent 44%)";
 const EASY_GLOW =
   "radial-gradient(ellipse at 12% 90%, rgba(145,71,255,0.28), transparent 44%), radial-gradient(ellipse at 90% 10%, rgba(83,252,24,0.14), transparent 36%)";
-const SETTINGS_GLOW =
-  "radial-gradient(ellipse at 24% 90%, rgba(145,71,255,0.28), transparent 42%)";
+const SETTINGS_GLOW = "radial-gradient(ellipse at 24% 90%, rgba(145,71,255,0.28), transparent 42%)";
 const UPDATED_GLOW =
   "radial-gradient(ellipse at 18% 110%, rgba(145,71,255,0.36), transparent 46%), radial-gradient(ellipse at 92% 8%, rgba(83,252,24,0.16), transparent 38%)";
 
@@ -139,7 +139,10 @@ export const SCREENSHOT_VARIANTS: Record<string, ScreenshotVariant> = {
   activity: updated,
 };
 
-export const SCREENSHOT_WATCHLIST_LIVE: Record<string, { displayName: string; viewers: number; subtitle: string }> = {
+export const SCREENSHOT_WATCHLIST_LIVE: Record<
+  string,
+  { displayName: string; viewers: number; subtitle: string }
+> = {
   rivalspilot: { displayName: "RivalsPilot", viewers: 18420, subtitle: "Marathon Legends" },
   lootforge: { displayName: "LootForge", viewers: 6210, subtitle: "Starfall Arena" },
   nightrunlive: { displayName: "NightRunLive", viewers: 2480, subtitle: "Spellforge" },

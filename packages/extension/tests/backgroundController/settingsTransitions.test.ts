@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ALARM_NAME, isRankingOnlyPatch, KICK_ALARM_NAME, TWITCH_ALARM_NAME } from "@lurkloot/core/controller";
+import {
+  ALARM_NAME,
+  isRankingOnlyPatch,
+  KICK_ALARM_NAME,
+  TWITCH_ALARM_NAME,
+} from "@lurkloot/core/controller";
 import type { DropCampaign } from "@lurkloot/shared/models";
 import type { DiagnosticEvent } from "@lurkloot/shared/events";
 import { DEFAULT_SETTINGS, IDLE_WATCHLIST_LIMIT, isFarmingActive } from "@lurkloot/shared/settings";
@@ -25,12 +30,25 @@ describe("background controller", () => {
     // Pins, the strategy and favourite games only reorder what discovery found,
     // so a change to them re-selects at once instead of waiting a full refresh.
     function twoCampaigns(env: ReturnType<typeof harness>) {
-      const sooner = { ...campaign("twitch"), id: "sooner", name: "Sooner", endsAt: "2099-01-01T00:00:00.000Z" };
-      const later = { ...campaign("twitch"), id: "later", name: "Later", endsAt: "2099-02-01T00:00:00.000Z" };
+      const sooner = {
+        ...campaign("twitch"),
+        id: "sooner",
+        name: "Sooner",
+        endsAt: "2099-01-01T00:00:00.000Z",
+      };
+      const later = {
+        ...campaign("twitch"),
+        id: "later",
+        name: "Later",
+        endsAt: "2099-02-01T00:00:00.000Z",
+      };
       vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([sooner, later]);
-      vi.mocked(env.twitch.listCandidateChannels).mockImplementation(async (target) => [channel("twitch", {
-        username: `${target.id}-creator`, url: `https://www.twitch.tv/${target.id}-creator`,
-      })]);
+      vi.mocked(env.twitch.listCandidateChannels).mockImplementation(async (target) => [
+        channel("twitch", {
+          username: `${target.id}-creator`,
+          url: `https://www.twitch.tv/${target.id}-creator`,
+        }),
+      ]);
     }
 
     it("switches to a newly pinned campaign without rediscovering", async () => {
@@ -40,19 +58,31 @@ describe("background controller", () => {
       expect(env.state.sessions.twitch.campaignId).toBe("sooner");
       const refreshes = vi.mocked(env.twitch.refreshCampaigns).mock.calls.length;
 
-      await env.controller.handleMessage({ type: "saveSettings", settingsPatch: { campaignPins: ["later"] }, tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] });
+      await env.controller.handleMessage({
+        type: "saveSettings",
+        settingsPatch: { campaignPins: ["later"] },
+        tickAfterSave: true,
+        tickAfterSavePlatforms: ["twitch"],
+      });
 
       expect(env.state.sessions.twitch.campaignId).toBe("later");
       expect(vi.mocked(env.twitch.refreshCampaigns).mock.calls.length).toBe(refreshes);
     });
 
     it("still rediscovers a new pin while only pins are farmed", async () => {
-      const env = harness(farming({ ...DEFAULT_SETTINGS, farmPinnedOnly: true, campaignPins: ["sooner"] }));
+      const env = harness(
+        farming({ ...DEFAULT_SETTINGS, farmPinnedOnly: true, campaignPins: ["sooner"] }),
+      );
       twoCampaigns(env);
       await env.controller.tick(["twitch"]);
       const refreshes = vi.mocked(env.twitch.refreshCampaigns).mock.calls.length;
 
-      await env.controller.handleMessage({ type: "saveSettings", settingsPatch: { campaignPins: ["later", "sooner"] }, tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] });
+      await env.controller.handleMessage({
+        type: "saveSettings",
+        settingsPatch: { campaignPins: ["later", "sooner"] },
+        tickAfterSave: true,
+        tickAfterSavePlatforms: ["twitch"],
+      });
 
       // Discovery skipped "later" while it was unpinned, so it needs its channels found.
       expect(vi.mocked(env.twitch.refreshCampaigns).mock.calls.length).toBeGreaterThan(refreshes);
@@ -63,24 +93,40 @@ describe("background controller", () => {
       const off = { farmPinnedOnly: false };
       expect(isRankingOnlyPatch({ campaignPins: ["a"] }, off)).toBe(true);
       expect(isRankingOnlyPatch({ priorityMode: "lowest_availability" }, off)).toBe(true);
-      expect(isRankingOnlyPatch({ platform: { twitch: { favouriteCategories: [] } } }, off)).toBe(true);
+      expect(isRankingOnlyPatch({ platform: { twitch: { favouriteCategories: [] } } }, off)).toBe(
+        true,
+      );
       expect(isRankingOnlyPatch({ campaignPins: ["a"] }, { farmPinnedOnly: true })).toBe(false);
       expect(isRankingOnlyPatch({ farmPinnedOnly: true }, off)).toBe(false);
-      expect(isRankingOnlyPatch({ platform: { twitch: { favouriteCategories: [], categories: [] } } }, off)).toBe(false);
+      expect(
+        isRankingOnlyPatch(
+          { platform: { twitch: { favouriteCategories: [], categories: [] } } },
+          off,
+        ),
+      ).toBe(false);
       expect(isRankingOnlyPatch({}, off)).toBe(false);
     });
   });
 
   describe("Idle Watchlist changes from the page", () => {
-    const listed = (env: ReturnType<typeof harness>) => env.settings.platform.twitch.idleWatchlistChannels;
+    const listed = (env: ReturnType<typeof harness>) =>
+      env.settings.platform.twitch.idleWatchlistChannels;
     const change = (env: ReturnType<typeof harness>, action: "add" | "remove", channel: string) =>
-      env.controller.handleMessage({ type: "updateIdleWatchlist", platform: "twitch", channel, action });
+      env.controller.handleMessage({
+        type: "updateIdleWatchlist",
+        platform: "twitch",
+        channel,
+        action,
+      });
 
     // The page menu read the list when it opened; the popup saved a newer one
     // since. Applying the change to the stored list keeps both.
     it("adds to the list as stored now, not as the page last read it", async () => {
       const env = harness();
-      await env.controller.handleMessage({ type: "saveSettings", settingsPatch: { platform: { twitch: { idleWatchlistChannels: ["first", "second"] } } } });
+      await env.controller.handleMessage({
+        type: "saveSettings",
+        settingsPatch: { platform: { twitch: { idleWatchlistChannels: ["first", "second"] } } },
+      });
 
       await change(env, "add", "Third");
 
@@ -89,7 +135,12 @@ describe("background controller", () => {
 
     it("removes only that channel, and leaves a listed one where it is", async () => {
       const env = harness();
-      await env.controller.handleMessage({ type: "saveSettings", settingsPatch: { platform: { twitch: { idleWatchlistChannels: ["first", "second", "third"] } } } });
+      await env.controller.handleMessage({
+        type: "saveSettings",
+        settingsPatch: {
+          platform: { twitch: { idleWatchlistChannels: ["first", "second", "third"] } },
+        },
+      });
 
       await change(env, "add", "second");
       expect(listed(env)).toEqual(["first", "second", "third"]);
@@ -100,7 +151,10 @@ describe("background controller", () => {
     it("does not grow a full list", async () => {
       const env = harness();
       const full = Array.from({ length: IDLE_WATCHLIST_LIMIT }, (_, index) => `channel${index}`);
-      await env.controller.handleMessage({ type: "saveSettings", settingsPatch: { platform: { twitch: { idleWatchlistChannels: full } } } });
+      await env.controller.handleMessage({
+        type: "saveSettings",
+        settingsPatch: { platform: { twitch: { idleWatchlistChannels: full } } },
+      });
 
       await change(env, "add", "extra");
 
@@ -112,7 +166,9 @@ describe("background controller", () => {
     const env = harness(farming(DEFAULT_SETTINGS));
     let startDiscovery = (): void => {};
     const discoveryStarted = new Promise<void>((resolve) => {
-      const blocked = new Promise<void>((release) => { startDiscovery = () => release(); });
+      const blocked = new Promise<void>((release) => {
+        startDiscovery = () => release();
+      });
       vi.mocked(env.twitch.refreshCampaigns).mockImplementation(async () => {
         resolve();
         await blocked;
@@ -122,11 +178,13 @@ describe("background controller", () => {
 
     // The raw controller, so the harness does not settle the background tick for
     // us — that is exactly what this test is about.
-    const snapshot = asSnapshot(await env.rawController.handleMessage({
-      type: "setAutomation",
-      platform: "twitch",
-      enabled: true,
-    }));
+    const snapshot = asSnapshot(
+      await env.rawController.handleMessage({
+        type: "setAutomation",
+        platform: "twitch",
+        enabled: true,
+      }),
+    );
 
     // The reply landed while discovery is still blocked: a slow tick can no
     // longer hold the popup open (the 65s stall reported in the wild).
@@ -144,29 +202,36 @@ describe("background controller", () => {
   it.each([
     ["twitch", true, "Twitch automation enable"],
     ["kick", false, "Kick automation disable"],
-  ] as const)("logs the requested and completed %s automation transition", async (platform, enabled, transition) => {
-    const env = harness(farming(DEFAULT_SETTINGS));
+  ] as const)(
+    "logs the requested and completed %s automation transition",
+    async (platform, enabled, transition) => {
+      const env = harness(farming(DEFAULT_SETTINGS));
 
-    await env.controller.handleMessage({
-      type: "setAutomation",
-      platform,
-      enabled,
-    });
+      await env.controller.handleMessage({
+        type: "setAutomation",
+        platform,
+        enabled,
+      });
 
-    const diagnostics = env.reportEvents.mock.calls
-      .flatMap(([events]) => events)
-      .filter((event): event is DiagnosticEvent => event.category === "diagnostic");
-    expect(diagnostics).toContainEqual(expect.objectContaining({
-      platform,
-      level: "info",
-      message: `User requested ${transition}`,
-    }));
-    expect(diagnostics).toContainEqual(expect.objectContaining({
-      platform,
-      level: "info",
-      message: `${transition} completed`,
-    }));
-  });
+      const diagnostics = env.reportEvents.mock.calls
+        .flatMap(([events]) => events)
+        .filter((event): event is DiagnosticEvent => event.category === "diagnostic");
+      expect(diagnostics).toContainEqual(
+        expect.objectContaining({
+          platform,
+          level: "info",
+          message: `User requested ${transition}`,
+        }),
+      );
+      expect(diagnostics).toContainEqual(
+        expect.objectContaining({
+          platform,
+          level: "info",
+          message: `${transition} completed`,
+        }),
+      );
+    },
+  );
 
   it("logs when a Twitch enable tick queues behind existing Twitch work", async () => {
     const env = harness(farming(DEFAULT_SETTINGS));
@@ -202,31 +267,40 @@ describe("background controller", () => {
   it("turns a platform off for a missing permission and says why in the activity log", async () => {
     const env = harness(farming(DEFAULT_SETTINGS));
 
-    await env.controller.setPlatformEnabled({ type: "setAutomation", platform: "twitch", enabled: false }, "missing-permission");
+    await env.controller.setPlatformEnabled(
+      { type: "setAutomation", platform: "twitch", enabled: false },
+      "missing-permission",
+    );
     await env.controller.settleBackgroundWork();
 
     expect(env.settings.platform.twitch.enabled).toBe(false);
     expect(env.settings.platform.kick.enabled).toBe(true);
     const events = env.reportEvents.mock.calls.flatMap(([reported]) => reported);
-    expect(events).toContainEqual(expect.objectContaining({
-      category: "activity",
-      code: "interruption",
-      level: "warn",
-      platform: "twitch",
-      data: { reason: "permission_missing" },
-    }));
-    expect(events.map((event) => event.message)).not.toContain("User requested Twitch automation disable");
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        category: "activity",
+        code: "interruption",
+        level: "warn",
+        platform: "twitch",
+        data: { reason: "permission_missing" },
+      }),
+    );
+    expect(events.map((event) => event.message)).not.toContain(
+      "User requested Twitch automation disable",
+    );
   });
 
   it("toggles one platform and immediately applies the scheduler when running", async () => {
     const env = harness(farming(DEFAULT_SETTINGS));
     await env.controller.tick();
 
-    const snapshot = asSnapshot(await env.controller.handleMessage({
-      type: "setPlatformEnabled",
-      platform: "twitch",
-      enabled: false,
-    }));
+    const snapshot = asSnapshot(
+      await env.controller.handleMessage({
+        type: "setPlatformEnabled",
+        platform: "twitch",
+        enabled: false,
+      }),
+    );
 
     expect(snapshot.settings.platform.twitch.enabled).toBe(false);
     expect(snapshot.settings.platform.kick.enabled).toBe(true);
@@ -237,20 +311,28 @@ describe("background controller", () => {
   });
 
   it("enables popup automation with one settings save and one initial scheduler pass", async () => {
-    const env = harness(notFarming({
-      ...DEFAULT_SETTINGS,
-      platform: {
-        ...DEFAULT_SETTINGS.platform,
-        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false, idleWatchlistChannels: [] },
-        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, idleWatchlistChannels: [] },
-      },
-    }));
+    const env = harness(
+      notFarming({
+        ...DEFAULT_SETTINGS,
+        platform: {
+          ...DEFAULT_SETTINGS.platform,
+          twitch: {
+            ...DEFAULT_SETTINGS.platform.twitch,
+            enabled: false,
+            idleWatchlistChannels: [],
+          },
+          kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, idleWatchlistChannels: [] },
+        },
+      }),
+    );
 
-    const snapshot = asSnapshot(await env.controller.handleMessage({
-      type: "setAutomation",
-      platform: "twitch",
-      enabled: true,
-    }));
+    const snapshot = asSnapshot(
+      await env.controller.handleMessage({
+        type: "setAutomation",
+        platform: "twitch",
+        enabled: true,
+      }),
+    );
 
     expect(env.deps.saveSettings).toHaveBeenCalledTimes(1);
     expect(isFarmingActive(env.settings)).toBe(true);
@@ -282,8 +364,12 @@ describe("background controller", () => {
     expect(env.deps.saveSettings).toHaveBeenCalledWith(
       expect.objectContaining({ tablessFallbackFailureLimit: 10 }),
     );
-    expect(env.deps.createAlarm).toHaveBeenCalledWith(TWITCH_ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
-    expect(env.deps.createAlarm).toHaveBeenCalledWith(KICK_ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
+    expect(env.deps.createAlarm).toHaveBeenCalledWith(TWITCH_ALARM_NAME, {
+      periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes,
+    });
+    expect(env.deps.createAlarm).toHaveBeenCalledWith(KICK_ALARM_NAME, {
+      periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes,
+    });
     expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
   });
 
@@ -303,16 +389,18 @@ describe("background controller", () => {
   });
 
   it("merges overlapping settings patches without clobbering previous saves", async () => {
-    const env = harness(farming({
-      ...DEFAULT_SETTINGS,
-      notifyRewardEarned: true,
-      notifyNoDropsLeft: true,
-      platform: {
-        ...DEFAULT_SETTINGS.platform,
-        twitch: { ...DEFAULT_SETTINGS.platform.twitch, excludedChannels: [] },
-        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true },
-      },
-    }));
+    const env = harness(
+      farming({
+        ...DEFAULT_SETTINGS,
+        notifyRewardEarned: true,
+        notifyNoDropsLeft: true,
+        platform: {
+          ...DEFAULT_SETTINGS.platform,
+          twitch: { ...DEFAULT_SETTINGS.platform.twitch, excludedChannels: [] },
+          kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true },
+        },
+      }),
+    );
 
     await Promise.all([
       env.controller.handleMessage({
@@ -338,11 +426,13 @@ describe("background controller", () => {
   });
 
   it("preserves rapid scheduling patches without overlapping reconciliation", async () => {
-    const env = harness(farming({
-      ...DEFAULT_SETTINGS,
-      notifyRewardEarned: true,
-      notifyNoDropsLeft: true,
-    }));
+    const env = harness(
+      farming({
+        ...DEFAULT_SETTINGS,
+        notifyRewardEarned: true,
+        notifyNoDropsLeft: true,
+      }),
+    );
     let activeDiscoveries = 0;
     let maxActiveDiscoveries = 0;
     let discoveryCalls = 0;
@@ -399,11 +489,13 @@ describe("background controller", () => {
       },
     };
 
-    const snapshot = asSnapshot(await env.controller.handleMessage({
-      type: "saveSettings",
-      settingsPatch: nextSettings,
-      tickAfterSave: true,
-    }));
+    const snapshot = asSnapshot(
+      await env.controller.handleMessage({
+        type: "saveSettings",
+        settingsPatch: nextSettings,
+        tickAfterSave: true,
+      }),
+    );
 
     expect(env.twitch.refreshCampaigns).toHaveBeenCalled();
     expect(snapshot.settings.platform.twitch.idleWatchlistChannels).toEqual(["fallback"]);
@@ -419,12 +511,14 @@ describe("background controller", () => {
       },
     };
 
-    const snapshot = asSnapshot(await env.controller.handleMessage({
-      type: "saveSettings",
-      settingsPatch: nextSettings,
-      tickAfterSave: true,
-      tickAfterSavePlatforms: ["kick"],
-    }));
+    const snapshot = asSnapshot(
+      await env.controller.handleMessage({
+        type: "saveSettings",
+        settingsPatch: nextSettings,
+        tickAfterSave: true,
+        tickAfterSavePlatforms: ["kick"],
+      }),
+    );
 
     expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
     expect(env.watchTabs.twitch.open).not.toHaveBeenCalled();
@@ -442,11 +536,13 @@ describe("background controller", () => {
       },
     };
 
-    const snapshot = asSnapshot(await env.controller.handleMessage({
-      type: "saveSettings",
-      settingsPatch: nextSettings,
-      tickAfterSave: true,
-    }));
+    const snapshot = asSnapshot(
+      await env.controller.handleMessage({
+        type: "saveSettings",
+        settingsPatch: nextSettings,
+        tickAfterSave: true,
+      }),
+    );
 
     expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
     expect(isFarmingActive(snapshot.settings)).toBe(false);
@@ -464,10 +560,12 @@ describe("background controller", () => {
       offlineChecks: 0,
     };
 
-    const snapshot = asSnapshot(await env.controller.handleMessage({
-      type: "saveSettings",
-      settingsPatch: { notifyRewardEarned: false },
-    }));
+    const snapshot = asSnapshot(
+      await env.controller.handleMessage({
+        type: "saveSettings",
+        settingsPatch: { notifyRewardEarned: false },
+      }),
+    );
 
     expect(env.watchTabs.twitch.stop).not.toHaveBeenCalled();
     expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();

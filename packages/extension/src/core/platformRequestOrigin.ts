@@ -37,7 +37,13 @@ const PROVIDER_SOCKET_ORIGINS: ProviderSocketOrigin[] = twitchExtensionProviders
     domain: new URL(provider.backendSocketOrigin!.replace("/*", "/")).hostname,
   }));
 
-export const PLATFORM_ORIGIN_RULE_IDS = [9101, 9102, 9103, 9104, ...PROVIDER_SOCKET_ORIGINS.map(({ id }) => id)] as const;
+export const PLATFORM_ORIGIN_RULE_IDS = [
+  9101,
+  9102,
+  9103,
+  9104,
+  ...PROVIDER_SOCKET_ORIGINS.map(({ id }) => id),
+] as const;
 
 interface PlatformOrigin {
   origin: string;
@@ -79,10 +85,17 @@ export interface PlatformOriginRule {
 }
 
 export interface DynamicRulesApi {
-  updateDynamicRules(options: { removeRuleIds: number[]; addRules: PlatformOriginRule[] }): Promise<void>;
+  updateDynamicRules(options: {
+    removeRuleIds: number[];
+    addRules: PlatformOriginRule[];
+  }): Promise<void>;
 }
 
-function originRule(id: number, origin: string, condition: PlatformOriginRule["condition"]): PlatformOriginRule {
+function originRule(
+  id: number,
+  origin: string,
+  condition: PlatformOriginRule["condition"],
+): PlatformOriginRule {
   return {
     id,
     priority: 1,
@@ -97,23 +110,28 @@ function originRule(id: number, origin: string, condition: PlatformOriginRule["c
 // The extension's own requests have its origin's host as initiator: the id on
 // Chrome, the per-install UUID on Firefox.
 export function platformOriginRules(extensionHost: string): PlatformOriginRule[] {
-  const providers = PROVIDER_SOCKET_ORIGINS.map(({ id, origin, domain }) => originRule(id, origin, {
-    initiatorDomains: [extensionHost],
-    requestDomains: [domain],
-    resourceTypes: ["websocket"],
-  }));
-  return [...PLATFORM_ORIGINS.flatMap(({ origin, request, socket }) => [
-    originRule(request.id, origin, {
+  const providers = PROVIDER_SOCKET_ORIGINS.map(({ id, origin, domain }) =>
+    originRule(id, origin, {
       initiatorDomains: [extensionHost],
-      requestDomains: request.domains,
-      excludedRequestMethods: [...UNCHANGED_METHODS],
-    }),
-    originRule(socket.id, origin, {
-      initiatorDomains: [extensionHost],
-      requestDomains: socket.domains,
+      requestDomains: [domain],
       resourceTypes: ["websocket"],
     }),
-  ]), ...providers];
+  );
+  return [
+    ...PLATFORM_ORIGINS.flatMap(({ origin, request, socket }) => [
+      originRule(request.id, origin, {
+        initiatorDomains: [extensionHost],
+        requestDomains: request.domains,
+        excludedRequestMethods: [...UNCHANGED_METHODS],
+      }),
+      originRule(socket.id, origin, {
+        initiatorDomains: [extensionHost],
+        requestDomains: socket.domains,
+        resourceTypes: ["websocket"],
+      }),
+    ]),
+    ...providers,
+  ];
 }
 
 // The site origin a platform socket presents, or undefined for any other
@@ -127,16 +145,21 @@ export function platformSocketOrigin(url: string): string | undefined {
   }
   if (parsed.protocol !== "wss:") return undefined;
   const host = parsed.hostname.toLowerCase();
-  return PLATFORM_ORIGINS.find(({ socket }) => socket.domains.some(
-    (domain) => host === domain || host.endsWith(`.${domain}`),
-  ))?.origin ?? PROVIDER_SOCKET_ORIGINS.find(({ domain }) => host === domain)?.origin;
+  return (
+    PLATFORM_ORIGINS.find(({ socket }) =>
+      socket.domains.some((domain) => host === domain || host.endsWith(`.${domain}`)),
+    )?.origin ?? PROVIDER_SOCKET_ORIGINS.find(({ domain }) => host === domain)?.origin
+  );
 }
 
 // Dynamic rules survive browser restarts, so the first request after a cold
 // start is covered too. Replaced on every background start, which also drops
 // an older version's rules. Resolves false where the rules cannot be
 // installed, so sockets that depend on them stay closed.
-export async function installPlatformOriginRules(api: DynamicRulesApi | undefined, extensionHost: string): Promise<boolean> {
+export async function installPlatformOriginRules(
+  api: DynamicRulesApi | undefined,
+  extensionHost: string,
+): Promise<boolean> {
   if (!api || !extensionHost) return false;
   await api.updateDynamicRules({
     removeRuleIds: [...PLATFORM_ORIGIN_RULE_IDS],

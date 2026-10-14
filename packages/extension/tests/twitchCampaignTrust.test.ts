@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 import type { PageFetcher } from "@lurkloot/core/adapter";
 import type { DropCampaign, EngineSettings } from "@lurkloot/shared/models";
 import type { EngineEvent } from "@lurkloot/shared/events";
-import { applySettingsPatch, DEFAULT_ENGINE_SETTINGS, DEFAULT_SETTINGS, mergeEngineSettings } from "@lurkloot/shared/settings";
+import {
+  applySettingsPatch,
+  DEFAULT_ENGINE_SETTINGS,
+  DEFAULT_SETTINGS,
+  mergeEngineSettings,
+} from "@lurkloot/shared/settings";
 import { jsonFetcher, twitchAdapter } from "./helpers/adapters";
 
 // Regression coverage for #400: Twitch's own discovery sources (the
@@ -11,9 +16,14 @@ import { jsonFetcher, twitchAdapter } from "./helpers/adapters";
 // campaign that is in fact farmable and rejected every candidate.
 
 // Records every GQL operation the adapter sends, batched or single.
-function recordingFetcher(operations: string[], respond: (operationName: string, entry: Record<string, unknown>) => unknown): PageFetcher {
+function recordingFetcher(
+  operations: string[],
+  respond: (operationName: string, entry: Record<string, unknown>) => unknown,
+): PageFetcher {
   return jsonFetcher((_url, init) => {
-    const body = JSON.parse(String(init?.body)) as Record<string, unknown> | Array<Record<string, unknown>>;
+    const body = JSON.parse(String(init?.body)) as
+      | Record<string, unknown>
+      | Array<Record<string, unknown>>;
     const entries = Array.isArray(body) ? body : [body];
     for (const entry of entries) operations.push(String(entry.operationName));
     const responses = entries.map((entry) => respond(String(entry.operationName), entry));
@@ -25,7 +35,10 @@ const CAMPAIGN = { id: "campaign", name: "Campaign", categoryId: "game" } as Dro
 
 // A live stream in the campaign's category, with an AvailableDrops response
 // that omits the campaign entirely — the exact shape that stalled farming.
-function respondWithOmittedCampaign(operationName: string, entry: Record<string, unknown>): unknown {
+function respondWithOmittedCampaign(
+  operationName: string,
+  entry: Record<string, unknown>,
+): unknown {
   if (operationName === "StreamInfo") {
     const channel = String((entry.variables as { channel?: string }).channel);
     return {
@@ -33,14 +46,20 @@ function respondWithOmittedCampaign(operationName: string, entry: Record<string,
         user: {
           id: `${channel}-id`,
           displayName: channel,
-          stream: { id: `${channel}-broadcast`, game: { id: "game", name: "Game" }, viewersCount: 100 },
+          stream: {
+            id: `${channel}-broadcast`,
+            game: { id: "game", name: "Game" },
+            viewersCount: 100,
+          },
         },
       },
     };
   }
   if (operationName === "DropsHighlightService_AvailableDrops") {
     const channelID = String((entry.variables as { channelID?: string }).channelID);
-    return { data: { channel: { id: channelID, viewerDropCampaigns: [{ id: "some-other-campaign" }] } } };
+    return {
+      data: { channel: { id: channelID, viewerDropCampaigns: [{ id: "some-other-campaign" }] } },
+    };
   }
   return { data: {} };
 }
@@ -123,7 +142,11 @@ describe("twitch campaign availability trust (#400)", () => {
               user: {
                 id: `${channel}-id`,
                 displayName: channel,
-                stream: { id: `${channel}-broadcast`, game: { id: "other-game", name: "Other" }, viewersCount: 5 },
+                stream: {
+                  id: `${channel}-broadcast`,
+                  game: { id: "other-game", name: "Other" },
+                  viewersCount: 5,
+                },
               },
             },
           };
@@ -147,14 +170,19 @@ describe("twitch campaign availability trust (#400)", () => {
       recordingFetcher(operations, respondWithOmittedCampaign),
       undefined,
       { strictCampaignAvailability: false },
-    ).selectCandidateChannel?.([{
-      platform: "twitch" as const,
-      username: "no-channel-id",
-      url: "https://www.twitch.tv/no-channel-id",
-      categoryId: "game",
-      live: true,
-      isAclMatch: false,
-    }], CAMPAIGN);
+    ).selectCandidateChannel?.(
+      [
+        {
+          platform: "twitch" as const,
+          username: "no-channel-id",
+          url: "https://www.twitch.tv/no-channel-id",
+          categoryId: "game",
+          live: true,
+          isAclMatch: false,
+        },
+      ],
+      CAMPAIGN,
+    );
 
     expect(selection?.channel?.username).toBe("no-channel-id");
     expect(operations).not.toContain("DropsHighlightService_AvailableDrops");
@@ -168,15 +196,18 @@ describe("twitch campaign availability trust (#400)", () => {
       recordingFetcher(operations, respondWithOmittedCampaign),
       undefined,
       { strictCampaignAvailability: false },
-    ).checkChannel({
-      platform: "twitch",
-      username: "watching",
-      url: "https://www.twitch.tv/watching",
-      channelId: "watching-id",
-      broadcastId: "watching-broadcast",
-      categoryId: "game",
-      isAclMatch: false,
-    }, { campaign: CAMPAIGN });
+    ).checkChannel(
+      {
+        platform: "twitch",
+        username: "watching",
+        url: "https://www.twitch.tv/watching",
+        channelId: "watching-id",
+        broadcastId: "watching-broadcast",
+        categoryId: "game",
+        isAclMatch: false,
+      },
+      { campaign: CAMPAIGN },
+    );
 
     expect(check.live).toBe(true);
     expect(check.categoryMatches).toBe(true);
@@ -202,7 +233,9 @@ describe("twitch campaign availability trust (#400)", () => {
       recordingFetcher(operations, (operationName, entry) => {
         if (operationName === "DropsHighlightService_AvailableDrops") {
           const channelID = String((entry.variables as { channelID?: string }).channelID);
-          return { data: { channel: { id: channelID, viewerDropCampaigns: [{ id: "campaign" }] } } };
+          return {
+            data: { channel: { id: channelID, viewerDropCampaigns: [{ id: "campaign" }] } },
+          };
         }
         return respondWithOmittedCampaign(operationName, entry);
       }),
@@ -221,7 +254,10 @@ describe("twitch campaign availability trust (#400)", () => {
       undefined,
       // Deliberately overrides the test helper's strict default back to the
       // production default so the shipped behaviour is what gets asserted.
-      { strictCampaignAvailability: DEFAULT_ENGINE_SETTINGS.platform.twitch.strictCampaignAvailability },
+      {
+        strictCampaignAvailability:
+          DEFAULT_ENGINE_SETTINGS.platform.twitch.strictCampaignAvailability,
+      },
     ).selectCandidateChannel?.([directoryCandidate("directory-one")], CAMPAIGN);
 
     expect(selection?.channel?.username).toBe("directory-one");
@@ -236,7 +272,9 @@ describe("strict availability comparison evidence", () => {
   // Two candidates so the adapter actually batches: the batch index is only
   // meaningful, and only exercised, when more than one response comes back in
   // one request.
-  const evidence = async (respond: (operationName: string, entry: Record<string, unknown>) => unknown) => {
+  const evidence = async (
+    respond: (operationName: string, entry: Record<string, unknown>) => unknown,
+  ) => {
     const events: EngineEvent[] = [];
     await twitchAdapter(
       recordingFetcher([], respond),
@@ -274,7 +312,11 @@ describe("strict availability comparison evidence", () => {
       if (operationName === "DropsHighlightService_AvailableDrops") {
         const channelID = String((entry.variables as { channelID?: string }).channelID);
         if (channelID === "directory-two-id") return { errors: [{ message: "service error" }] };
-        return { data: { channel: { id: channelID, viewerDropCampaigns: [{ id: "some-other-campaign" }] } } };
+        return {
+          data: {
+            channel: { id: channelID, viewerDropCampaigns: [{ id: "some-other-campaign" }] },
+          },
+        };
       }
       return respondWithOmittedCampaign(operationName, entry);
     });
@@ -283,8 +325,9 @@ describe("strict availability comparison evidence", () => {
     expect(failed).toContain("returned viewerDropCampaigns=absent");
     expect(failed).toContain("errors=service error");
     // The healthy sibling in the same batch still reports its own list.
-    expect(messages.find((message) => message.includes("directory-one")))
-      .toContain("returned viewerDropCampaigns=some-other-campaign");
+    expect(messages.find((message) => message.includes("directory-one"))).toContain(
+      "returned viewerDropCampaigns=some-other-campaign",
+    );
   });
 
   // A thrown request produces no response at all, so without an explicit
@@ -317,7 +360,14 @@ describe("strict availability comparison evidence", () => {
 
     expect(messages.length).toBeGreaterThan(0);
     for (const message of messages) {
-      for (const secret of ["authorization", "oauth", "cookie", "client-integrity", "x-device-id", "client-session-id"]) {
+      for (const secret of [
+        "authorization",
+        "oauth",
+        "cookie",
+        "client-integrity",
+        "x-device-id",
+        "client-session-id",
+      ]) {
         expect(message.toLowerCase()).not.toContain(secret);
       }
     }
@@ -337,11 +387,16 @@ describe("strict campaign availability setting", () => {
     ({ platform: { twitch } }) as unknown as Partial<EngineSettings>;
 
   it("normalizes a missing persisted property to false", () => {
-    expect(mergeEngineSettings(persisted({ enabled: true })).platform.twitch.strictCampaignAvailability).toBe(false);
+    expect(
+      mergeEngineSettings(persisted({ enabled: true })).platform.twitch.strictCampaignAvailability,
+    ).toBe(false);
   });
 
   it("preserves an explicitly enabled persisted value", () => {
-    expect(mergeEngineSettings(persisted({ strictCampaignAvailability: true })).platform.twitch.strictCampaignAvailability).toBe(true);
+    expect(
+      mergeEngineSettings(persisted({ strictCampaignAvailability: true })).platform.twitch
+        .strictCampaignAvailability,
+    ).toBe(true);
   });
 
   it("round-trips through a settings patch", () => {
@@ -364,11 +419,16 @@ describe("channel points push setting", () => {
     ({ platform: { twitch } }) as unknown as Partial<EngineSettings>;
 
   it("normalizes a missing persisted property to true", () => {
-    expect(mergeEngineSettings(persisted({ enabled: true })).platform.twitch.channelPointsPushClaim).toBe(true);
+    expect(
+      mergeEngineSettings(persisted({ enabled: true })).platform.twitch.channelPointsPushClaim,
+    ).toBe(true);
   });
 
   it("preserves an explicitly disabled persisted value", () => {
-    expect(mergeEngineSettings(persisted({ channelPointsPushClaim: false })).platform.twitch.channelPointsPushClaim).toBe(false);
+    expect(
+      mergeEngineSettings(persisted({ channelPointsPushClaim: false })).platform.twitch
+        .channelPointsPushClaim,
+    ).toBe(false);
   });
 
   it("round-trips through a settings patch", () => {

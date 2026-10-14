@@ -12,20 +12,23 @@ export function cn(...classes: Array<string | false | null | undefined>): string
 
 /** The `onDragEnd` payload, derived from the provider so it tracks the library
  * rather than pinning a hand-written shape. */
-export type SortableDragEndEvent = Parameters<NonNullable<React.ComponentProps<typeof DragDropProvider>["onDragEnd"]>>[0];
+export type SortableDragEndEvent = Parameters<
+  NonNullable<React.ComponentProps<typeof DragDropProvider>["onDragEnd"]>
+>[0];
 
 /** @dnd-kit/react projects the dragged row into its new slot before drop, so
  * the pointer is often still over that same row (`source.id === target.id`).
  * Matching ids is a no-op if we only look at source/target ids; `move()` uses
  * the sortable's projected `source.index` instead. */
-export function reorderFromDragEnd<T extends { id: string }>(list: T[], event: SortableDragEndEvent): T[] {
+export function reorderFromDragEnd<T extends { id: string }>(
+  list: T[],
+  event: SortableDragEndEvent,
+): T[] {
   if (event.canceled) return list;
   return move(list, event);
 }
 
-export type CommitRankResult =
-  | { action: "cancel" }
-  | { action: "move"; toIndex: number };
+export type CommitRankResult = { action: "cancel" } | { action: "move"; toIndex: number };
 
 export function commitRank(raw: string, currentIndex: number, count: number): CommitRankResult {
   const trimmed = raw.trim();
@@ -39,10 +42,25 @@ export function commitRank(raw: string, currentIndex: number, count: number): Co
 
 // `compact` only trims the vertical padding — the icon offset and left padding
 // classes stay put because styles.css mirrors those exact class names for RTL.
-export function SearchBox({ value, onChange, placeholder, autoFocus = false, compact = false }: { value: string; onChange(value: string): void; placeholder: string; autoFocus?: boolean; compact?: boolean }) {
+export function SearchBox({
+  value,
+  onChange,
+  placeholder,
+  autoFocus = false,
+  compact = false,
+}: {
+  value: string;
+  onChange(value: string): void;
+  placeholder: string;
+  autoFocus?: boolean;
+  compact?: boolean;
+}) {
   return (
     <div className="relative">
-      <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+      <Search
+        size={13}
+        className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400"
+      />
       <input
         type="search"
         autoFocus={autoFocus}
@@ -50,7 +68,10 @@ export function SearchBox({ value, onChange, placeholder, autoFocus = false, com
         onChange={(event) => onChange(event.target.value)}
         aria-label={placeholder}
         placeholder={placeholder}
-        className={cn("w-full rounded-xl border border-zinc-200 bg-white pl-8 pr-3 text-xs font-medium text-zinc-900 outline-none focus:border-[var(--accent-ring)] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100", compact ? "py-1" : "py-2")}
+        className={cn(
+          "w-full rounded-xl border border-zinc-200 bg-white pl-8 pr-3 text-xs font-medium text-zinc-900 outline-none focus:border-[var(--accent-ring)] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100",
+          compact ? "py-1" : "py-2",
+        )}
       />
     </div>
   );
@@ -64,17 +85,55 @@ export function SearchBox({ value, onChange, placeholder, autoFocus = false, com
  * links and images added later. */
 export const preventNativeDrag = (event: React.DragEvent): void => event.preventDefault();
 
-export function ImageWithFallback({ src, alt, className, fit = "cover", fallback }: { src?: string; alt: string; className?: string; fit?: "cover" | "contain"; fallback: React.ReactNode }) {
+export function ImageWithFallback({
+  src,
+  alt,
+  className,
+  fit = "cover",
+  fallback,
+}: {
+  src?: string;
+  alt: string;
+  className?: string;
+  fit?: "cover" | "contain";
+  fallback: React.ReactNode;
+}) {
   const [failed, setFailed] = React.useState(false);
   if (!src || failed) return <>{fallback}</>;
-  return <img src={src} alt={alt} loading="lazy" className={cn("h-full w-full", fit === "cover" ? "object-cover" : "object-contain", className)} onError={() => setFailed(true)} />;
+  return (
+    <img
+      src={src}
+      alt={alt}
+      loading="lazy"
+      className={cn(
+        "h-full w-full",
+        fit === "cover" ? "object-cover" : "object-contain",
+        className,
+      )}
+      onError={() => setFailed(true)}
+    />
+  );
 }
 
 // A Base UI Switch drawn as the popup's switch. `sm` is sized to sit inside a
 // row without growing it. A switch is ink by default; `color` gives it a
 // platform's colour instead. It renders a real <button>, so `disabled` is the
 // native attribute and the switch takes part in keyboard focus like one.
-export function Toggle({ checked, onChange, label, disabled = false, size = "md", color }: { checked: boolean; onChange(value: boolean): void | Promise<void>; label: string; disabled?: boolean; size?: "sm" | "md"; color?: string }) {
+export function Toggle({
+  checked,
+  onChange,
+  label,
+  disabled = false,
+  size = "md",
+  color,
+}: {
+  checked: boolean;
+  onChange(value: boolean): void | Promise<void>;
+  label: string;
+  disabled?: boolean;
+  size?: "sm" | "md";
+  color?: string;
+}) {
   const small = size === "sm";
   return (
     <Switch.Root
@@ -96,14 +155,22 @@ export function Toggle({ checked, onChange, label, disabled = false, size = "md"
         className={cn(
           "rounded-full shadow-sm transition-transform duration-200 ease-out motion-reduce:transition-none",
           checked && !color ? "bg-[var(--ink-contrast)]" : "bg-white",
-          small ? "h-[14px] w-[14px] data-[checked]:translate-x-[13px]" : "h-[18px] w-[18px] data-[checked]:translate-x-[16px]",
+          small
+            ? "h-[14px] w-[14px] data-[checked]:translate-x-[13px]"
+            : "h-[18px] w-[18px] data-[checked]:translate-x-[16px]",
         )}
       />
     </Switch.Root>
   );
 }
 
-export function Pill({ children, tone = "muted" }: { children: React.ReactNode; tone?: "muted" | "accent" | "live" | "warning" | "danger" | "outline" }) {
+export function Pill({
+  children,
+  tone = "muted",
+}: {
+  children: React.ReactNode;
+  tone?: "muted" | "accent" | "live" | "warning" | "danger" | "outline";
+}) {
   const tones = {
     muted: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300",
     outline: "border border-zinc-200 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400",
@@ -112,11 +179,51 @@ export function Pill({ children, tone = "muted" }: { children: React.ReactNode; 
     warning: "bg-amber-500/12 text-amber-700 dark:text-amber-400",
     danger: "bg-red-500/12 text-red-600 dark:text-red-400",
   };
-  return <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none whitespace-nowrap", tones[tone])}>{children}</span>;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold leading-none whitespace-nowrap",
+        tones[tone],
+      )}
+    >
+      {children}
+    </span>
+  );
 }
 
-export function IconButton({ children, label, active, disabled, onClick }: { children: React.ReactNode; label: string; active?: boolean; disabled?: boolean; onClick(): void }) {
-  return <Tip label={label}><button type="button" aria-label={label} onClick={onClick} disabled={disabled} className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]", disabled ? "text-zinc-300 dark:text-zinc-700" : active ? "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100" : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-200")}>{children}</button></Tip>;
+export function IconButton({
+  children,
+  label,
+  active,
+  disabled,
+  onClick,
+}: {
+  children: React.ReactNode;
+  label: string;
+  active?: boolean;
+  disabled?: boolean;
+  onClick(): void;
+}) {
+  return (
+    <Tip label={label}>
+      <button
+        type="button"
+        aria-label={label}
+        onClick={onClick}
+        disabled={disabled}
+        className={cn(
+          "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]",
+          disabled
+            ? "text-zinc-300 dark:text-zinc-700"
+            : active
+              ? "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100"
+              : "text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-200",
+        )}
+      >
+        {children}
+      </button>
+    </Tip>
+  );
 }
 
 export function RemoveRowButton({ label, onClick }: { label: string; onClick(): void }) {
@@ -139,22 +246,48 @@ export function RemoveRowButton({ label, onClick }: { label: string; onClick(): 
 
 /** The grip. The new dnd-kit wires the activator through a single `handleRef`
  * — there are no `attributes`/`listeners` props to spread any more. */
-export function DragHandle({ handleRef, label }: { handleRef(element: Element | null): void; label: string }) {
+export function DragHandle({
+  handleRef,
+  label,
+}: {
+  handleRef(element: Element | null): void;
+  label: string;
+}) {
   return (
-    <button ref={handleRef} type="button" aria-label={label} onClick={(event) => event.stopPropagation()} className="flex cursor-grab touch-none items-center justify-center rounded-md text-zinc-300 transition-colors outline-none hover:text-zinc-500 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:cursor-grabbing dark:text-zinc-600 dark:hover:text-zinc-400" style={{ touchAction: "none", userSelect: "none" }}>
+    <button
+      ref={handleRef}
+      type="button"
+      aria-label={label}
+      onClick={(event) => event.stopPropagation()}
+      className="flex cursor-grab touch-none items-center justify-center rounded-md text-zinc-300 transition-colors outline-none hover:text-zinc-500 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] active:cursor-grabbing dark:text-zinc-600 dark:hover:text-zinc-400"
+      style={{ touchAction: "none", userSelect: "none" }}
+    >
       <GripVertical size={16} />
     </button>
   );
 }
 
-export function RankInput({ index, count, label, onMove, size }: { index: number; count: number; label: string; onMove?: (toIndex: number) => void; size: "row" | "rail" }) {
+export function RankInput({
+  index,
+  count,
+  label,
+  onMove,
+  size,
+}: {
+  index: number;
+  count: number;
+  label: string;
+  onMove?: (toIndex: number) => void;
+  size: "row" | "rail";
+}) {
   const [editing, setEditing] = React.useState(false);
   const [value, setValue] = React.useState(String(index + 1));
   const inputRef = React.useRef<HTMLInputElement>(null);
   const skipBlur = React.useRef(false);
-  const textClass = size === "rail"
-    ? "flex w-4 items-center justify-center text-center text-[10px] font-bold tabular leading-none"
-    : "w-4 text-center text-[11px] font-bold tabular";
+  const textClass =
+    size === "rail"
+      ? "flex w-4 items-center justify-center text-center text-[10px] font-bold tabular leading-none"
+      : "w-4 text-center text-[11px] font-bold tabular";
   const color: React.CSSProperties = { color: "var(--ink-text)" };
 
   React.useEffect(() => {
@@ -164,7 +297,11 @@ export function RankInput({ index, count, label, onMove, size }: { index: number
   }, [editing]);
 
   if (!onMove) {
-    return <span className={textClass} style={color}>{index + 1}</span>;
+    return (
+      <span className={textClass} style={color}>
+        {index + 1}
+      </span>
+    );
   }
 
   // Local binding so nested `close` keeps the narrowed non-optional type.
@@ -181,7 +318,10 @@ export function RankInput({ index, count, label, onMove, size }: { index: number
           setEditing(true);
         }}
         onPointerDown={(event) => event.stopPropagation()}
-        className={cn(textClass, "rounded-sm outline-none hover:text-zinc-700 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:hover:text-zinc-200")}
+        className={cn(
+          textClass,
+          "rounded-sm outline-none hover:text-zinc-700 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:hover:text-zinc-200",
+        )}
         style={color}
       >
         {index + 1}
@@ -224,7 +364,10 @@ export function RankInput({ index, count, label, onMove, size }: { index: number
       }}
       onClick={(event) => event.stopPropagation()}
       onPointerDown={(event) => event.stopPropagation()}
-      className={cn(textClass, "bg-transparent p-0 outline-none focus:ring-1 focus:ring-[var(--accent-ring)]")}
+      className={cn(
+        textClass,
+        "bg-transparent p-0 outline-none focus:ring-1 focus:ring-[var(--accent-ring)]",
+      )}
       style={color}
     />
   );
@@ -234,7 +377,23 @@ export function RankInput({ index, count, label, onMove, size }: { index: number
  * list instead of hiding it behind a tab. `action` is a sibling of the toggle,
  * not a child: the section's own actions belong on its heading, and a button
  * cannot nest inside a button. */
-export function SectionHeader({ label, count, expanded, icon: Icon, onToggle, action, collapsible = true }: { label: string; count: string; expanded: boolean; icon: LucideIcon; onToggle(): void; action?: React.ReactNode; collapsible?: boolean }) {
+export function SectionHeader({
+  label,
+  count,
+  expanded,
+  icon: Icon,
+  onToggle,
+  action,
+  collapsible = true,
+}: {
+  label: string;
+  count: string;
+  expanded: boolean;
+  icon: LucideIcon;
+  onToggle(): void;
+  action?: React.ReactNode;
+  collapsible?: boolean;
+}) {
   return (
     <div className="flex items-center gap-1">
       <button
@@ -247,7 +406,11 @@ export function SectionHeader({ label, count, expanded, icon: Icon, onToggle, ac
         className="flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-1 py-1 text-[11px] font-semibold text-zinc-500 outline-none transition-colors hover:text-zinc-800 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] dark:text-zinc-400 dark:hover:text-zinc-100"
       >
         {collapsible ? (
-          <motion.span animate={{ rotate: expanded ? 90 : 0 }} transition={{ duration: 0.18 }} className="flex shrink-0 items-center">
+          <motion.span
+            animate={{ rotate: expanded ? 90 : 0 }}
+            transition={{ duration: 0.18 }}
+            className="flex shrink-0 items-center"
+          >
             <ChevronRight size={13} />
           </motion.span>
         ) : null}
@@ -260,26 +423,65 @@ export function SectionHeader({ label, count, expanded, icon: Icon, onToggle, ac
   );
 }
 
-export function ProgressBar({ value, size = "md", glow = false }: { value: number; size?: "sm" | "md" | "edge"; glow?: boolean }) {
+export function ProgressBar({
+  value,
+  size = "md",
+  glow = false,
+}: {
+  value: number;
+  size?: "sm" | "md" | "edge";
+  glow?: boolean;
+}) {
   const edge = size === "edge";
   return (
-    <div className={cn("w-full overflow-hidden bg-zinc-200/70 dark:bg-zinc-700/60", edge ? "h-[2px]" : "rounded-full", size === "sm" ? "h-1" : size === "md" ? "h-1.5" : "")}>
-      <motion.div className={cn("h-full", !edge && "rounded-full")} initial={{ width: 0 }} animate={{ width: `${Math.max(value, value > 0 ? 4 : 0)}%` }} transition={{ duration: 0.5 }} style={{ backgroundColor: "var(--accent)", boxShadow: glow && value > 0 ? "0 0 10px -1px var(--accent-glow)" : undefined }} />
+    <div
+      className={cn(
+        "w-full overflow-hidden bg-zinc-200/70 dark:bg-zinc-700/60",
+        edge ? "h-[2px]" : "rounded-full",
+        size === "sm" ? "h-1" : size === "md" ? "h-1.5" : "",
+      )}
+    >
+      <motion.div
+        className={cn("h-full", !edge && "rounded-full")}
+        initial={{ width: 0 }}
+        animate={{ width: `${Math.max(value, value > 0 ? 4 : 0)}%` }}
+        transition={{ duration: 0.5 }}
+        style={{
+          backgroundColor: "var(--accent)",
+          boxShadow: glow && value > 0 ? "0 0 10px -1px var(--accent-glow)" : undefined,
+        }}
+      />
     </div>
   );
 }
 
-export function MetaStat({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string }) {
+export function MetaStat({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+}) {
   return (
     <div className="rounded-lg bg-zinc-50 px-2 py-1.5 dark:bg-zinc-800/60">
-      <div className="mb-0.5 flex items-center gap-1 text-[9px] font-semibold uppercase text-zinc-400 dark:text-zinc-500"><Icon size={11} /> {label}</div>
-      <div className="truncate text-xs font-semibold tabular text-zinc-800 dark:text-zinc-100">{value}</div>
+      <div className="mb-0.5 flex items-center gap-1 text-[9px] font-semibold uppercase text-zinc-400 dark:text-zinc-500">
+        <Icon size={11} /> {label}
+      </div>
+      <div className="truncate text-xs font-semibold tabular text-zinc-800 dark:text-zinc-100">
+        {value}
+      </div>
     </div>
   );
 }
 
 export function EmptyPanel({ children }: { children: React.ReactNode }) {
-  return <div className="grid min-h-24 place-items-center rounded-2xl border border-dashed border-zinc-300 bg-white p-4 text-center text-sm font-semibold text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900">{children}</div>;
+  return (
+    <div className="grid min-h-24 place-items-center rounded-2xl border border-dashed border-zinc-300 bg-white p-4 text-center text-sm font-semibold text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900">
+      {children}
+    </div>
+  );
 }
 
 export function CompactRow({
@@ -317,9 +519,25 @@ export function CompactRow({
   dimmed?: boolean;
 }) {
   return (
-    <div className={cn("flex items-center gap-2 rounded-xl border bg-white px-2 py-2 dark:bg-zinc-900", isOverlay ? "border-transparent shadow-2xl shadow-black/25" : "border-zinc-200 shadow-sm dark:border-zinc-800", dimmed && "opacity-40")}>
+    <div
+      className={cn(
+        "flex items-center gap-2 rounded-xl border bg-white px-2 py-2 dark:bg-zinc-900",
+        isOverlay
+          ? "border-transparent shadow-2xl shadow-black/25"
+          : "border-zinc-200 shadow-sm dark:border-zinc-800",
+        dimmed && "opacity-40",
+      )}
+    >
       {dragHandle}
-      {index === undefined ? null : <RankInput index={index} count={rankCount ?? 0} label={rankLabel ?? title} onMove={onRankMove} size="row" />}
+      {index === undefined ? null : (
+        <RankInput
+          index={index}
+          count={rankCount ?? 0}
+          label={rankLabel ?? title}
+          onMove={onRankMove}
+          size="row"
+        />
+      )}
       <span
         className={cn(
           "flex h-8 w-8 shrink-0 items-center justify-center text-[11px] font-bold",
@@ -327,20 +545,28 @@ export function CompactRow({
         )}
         style={avatarStyle}
       >
-        <ImageWithFallback
-          src={avatarImageUrl}
-          alt=""
-          fit="cover"
-          fallback={avatar}
-        />
+        <ImageWithFallback src={avatarImageUrl} alt="" fit="cover" fallback={avatar} />
       </span>
       <span className="flex min-w-0 flex-1 flex-col">
         {titleHref ? (
-          <a href={titleHref} target="_blank" rel="noreferrer" className="truncate text-[13px] font-medium leading-tight text-zinc-900 outline-none hover:text-[var(--accent-text)] hover:underline focus-visible:text-[var(--accent-text)] dark:text-zinc-100">{title}</a>
+          <a
+            href={titleHref}
+            target="_blank"
+            rel="noreferrer"
+            className="truncate text-[13px] font-medium leading-tight text-zinc-900 outline-none hover:text-[var(--accent-text)] hover:underline focus-visible:text-[var(--accent-text)] dark:text-zinc-100"
+          >
+            {title}
+          </a>
         ) : (
-          <span className="truncate text-[13px] font-medium leading-tight text-zinc-900 dark:text-zinc-100">{title}</span>
+          <span className="truncate text-[13px] font-medium leading-tight text-zinc-900 dark:text-zinc-100">
+            {title}
+          </span>
         )}
-        {subtitle ? <span className="truncate text-[11px] leading-tight text-zinc-500 dark:text-zinc-400">{subtitle}</span> : null}
+        {subtitle ? (
+          <span className="truncate text-[11px] leading-tight text-zinc-500 dark:text-zinc-400">
+            {subtitle}
+          </span>
+        ) : null}
       </span>
       {trailing}
     </div>
@@ -353,9 +579,15 @@ export function CompactRow({
  * may scroll though a user cannot — the popup frame and the extension page
  * itself — so jumping to a Settings group used to shift the whole popup out of
  * its window. This moves only the panel marked `data-scroll-panel`. */
-export function scrollIntoPanel(element: Element | null | undefined, behavior: ScrollBehavior = "auto"): void {
+export function scrollIntoPanel(
+  element: Element | null | undefined,
+  behavior: ScrollBehavior = "auto",
+): void {
   const panel = element?.closest<HTMLElement>("[data-scroll-panel]");
   if (!element || !panel) return;
-  const top = element.getBoundingClientRect().top - panel.getBoundingClientRect().top + (panel.scrollTop || 0);
+  const top =
+    element.getBoundingClientRect().top
+    - panel.getBoundingClientRect().top
+    + (panel.scrollTop || 0);
   panel.scrollTo?.({ top: Math.max(0, top), behavior });
 }

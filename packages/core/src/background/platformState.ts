@@ -52,7 +52,10 @@ export const SCHEDULER_STATE_MERGE = {
   twitchExtensions: "global",
   chatPresence: "global",
   installedAt: "global",
-} as const satisfies Record<keyof SchedulerState, "platform" | "optionalPlatform" | "newestTimestamp" | "global">;
+} as const satisfies Record<
+  keyof SchedulerState,
+  "platform" | "optionalPlatform" | "newestTimestamp" | "global"
+>;
 
 export type SchedulerStateMergeKind = (typeof SCHEDULER_STATE_MERGE)[keyof SchedulerState];
 
@@ -95,7 +98,8 @@ export function mergePlatformState(
 // equal to the stored state that simply lacks those keys.
 export function jsonEquivalent(left: unknown, right: unknown): boolean {
   if (left === right) return true;
-  if (typeof left !== "object" || typeof right !== "object" || left === null || right === null) return false;
+  if (typeof left !== "object" || typeof right !== "object" || left === null || right === null)
+    return false;
   if (Array.isArray(left) || Array.isArray(right)) {
     if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) return false;
     return left.every((value, index) => jsonEquivalent(value, right[index]));

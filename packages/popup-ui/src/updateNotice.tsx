@@ -5,7 +5,11 @@ import { useT } from "./context";
 import { cn } from "./primitives";
 import { Tip } from "./tooltip";
 
-export function UpdateNotice({ version, href, onDismiss }: {
+export function UpdateNotice({
+  version,
+  href,
+  onDismiss,
+}: {
   version: string;
   href: string;
   onDismiss(): void;
@@ -24,7 +28,10 @@ export function UpdateNotice({ version, href, onDismiss }: {
         <Sparkles size={16} />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-[13px] font-semibold leading-tight" style={{ color: "var(--brand-text)" }}>
+        <p
+          className="text-[13px] font-semibold leading-tight"
+          style={{ color: "var(--brand-text)" }}
+        >
           {t("updateNoticeTitle", version)}
         </p>
         <p className="mt-0.5 text-[11px] leading-snug text-zinc-600 dark:text-zinc-300">

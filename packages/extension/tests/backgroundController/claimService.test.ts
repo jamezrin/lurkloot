@@ -1,7 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import type { DropCampaign } from "@lurkloot/shared/models";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
-import { campaign, channel, deferred, farming, harness, reward } from "../helpers/backgroundController";
+import {
+  campaign,
+  channel,
+  deferred,
+  farming,
+  harness,
+  reward,
+} from "../helpers/backgroundController";
 import type { PreparedWatchTab, SchedulerState } from "@lurkloot/shared/models";
 
 // The claim service (#597): the drop-claim job and manual claims send their
@@ -14,7 +21,12 @@ function watchingTwitchByHand(env: ReturnType<typeof harness>): void {
     ...env.state.authHealth,
     twitch: { status: "healthy", checkedAt: new Date().toISOString() },
   };
-  env.state.sessions.twitch = { platform: "twitch", status: "paused", offlineChecks: 0, reasonCode: "manual_watch" };
+  env.state.sessions.twitch = {
+    platform: "twitch",
+    status: "paused",
+    offlineChecks: 0,
+    reasonCode: "manual_watch",
+  };
   env.state.manualWatch = {
     twitch: { platform: "twitch", tabId: 91, checkedAt: new Date().toISOString(), active: true },
   };
@@ -28,9 +40,9 @@ const withClaimId = (status: "claimable" | "claimed"): DropCampaign => {
 };
 
 const claimedEvents = (env: ReturnType<typeof harness>) =>
-  env.reportEvents.mock.calls.flatMap(([events]) => events).filter(
-    (event) => event.category === "activity" && event.code === "reward_claimed",
-  );
+  env.reportEvents.mock.calls
+    .flatMap(([events]) => events)
+    .filter((event) => event.category === "activity" && event.code === "reward_claimed");
 
 describe("claim service", () => {
   describe("drop-claim job", () => {
@@ -154,10 +166,12 @@ describe("claim service", () => {
     // for the next one, before it commits anything.
     function tickStalledAfterClaim() {
       const env = harness(farming({ ...DEFAULT_SETTINGS, autoClaim: true }));
-      vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([{
-        ...campaign("twitch", "claimable"),
-        rewards: [reward("claimable"), { ...reward("in_progress"), id: "next" }],
-      }]);
+      vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([
+        {
+          ...campaign("twitch", "claimable"),
+          rewards: [reward("claimable"), { ...reward("in_progress"), id: "next" }],
+        },
+      ]);
       vi.mocked(env.twitch.listCandidateChannels).mockResolvedValue([channel("twitch")]);
       const opening = deferred<void>();
       const open = env.watchTabs.twitch.open.getMockImplementation()!;
@@ -229,14 +243,21 @@ describe("claim service", () => {
 
     it("ends a running post-claim handoff", async () => {
       const parked: AbortSignal[] = [];
-      const env = harness(farming({ ...DEFAULT_SETTINGS, autoClaim: true, postClaimHandoff: true }), {
-        wait: (_ms, signal) => new Promise<void>((resolve) => {
-          parked.push(signal);
-          signal.addEventListener("abort", () => resolve(), { once: true });
-        }),
-      });
+      const env = harness(
+        farming({ ...DEFAULT_SETTINGS, autoClaim: true, postClaimHandoff: true }),
+        {
+          wait: (_ms, signal) =>
+            new Promise<void>((resolve) => {
+              parked.push(signal);
+              signal.addEventListener("abort", () => resolve(), { once: true });
+            }),
+        },
+      );
       env.twitch.supportsPostClaimHandoff = true;
-      env.state.authHealth = { ...env.state.authHealth, twitch: { status: "healthy", checkedAt: new Date().toISOString() } };
+      env.state.authHealth = {
+        ...env.state.authHealth,
+        twitch: { status: "healthy", checkedAt: new Date().toISOString() },
+      };
 
       const handoff = env.controller.runClaimHandoff("twitch", ["reward"]);
       await vi.waitFor(() => expect(parked).toHaveLength(1));
@@ -269,7 +290,12 @@ describe("claim service", () => {
         twitch: { status: "healthy", checkedAt: new Date().toISOString() },
         kick: { status: "healthy", checkedAt: new Date().toISOString() },
       };
-      env.state.sessions.kick = { platform: "kick", status: "paused", offlineChecks: 0, reasonCode: "manual_watch" };
+      env.state.sessions.kick = {
+        platform: "kick",
+        status: "paused",
+        offlineChecks: 0,
+        reasonCode: "manual_watch",
+      };
       env.state.manualWatch = {
         kick: { platform: "kick", tabId: 92, checkedAt: new Date().toISOString(), active: true },
       };

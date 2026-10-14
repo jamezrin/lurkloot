@@ -17,7 +17,10 @@ describe("Twitch heartbeat strategies", () => {
     const log = vi.fn();
 
     it("selects HLS for the extension automatic resolution", () => {
-      const resolution = resolveCompatibility(DEFAULT_SETTINGS.compatibility, { host: "extension", twitchIdentity: "web" });
+      const resolution = resolveCompatibility(DEFAULT_SETTINGS.compatibility, {
+        host: "extension",
+        twitchIdentity: "web",
+      });
       const strategy = createTwitchHeartbeat(resolution.compatibility.twitch.heartbeat, {
         gql: gql as never,
         emit,
@@ -32,20 +35,26 @@ describe("Twitch heartbeat strategies", () => {
     });
 
     it("keeps an explicit Spade override selectable", () => {
-      const resolution = resolveCompatibility({
-        ...DEFAULT_SETTINGS.compatibility,
-        twitch: {
-          ...DEFAULT_SETTINGS.compatibility.twitch,
-          heartbeatTransport: "twitch-heartbeat-spade-v1",
+      const resolution = resolveCompatibility(
+        {
+          ...DEFAULT_SETTINGS.compatibility,
+          twitch: {
+            ...DEFAULT_SETTINGS.compatibility.twitch,
+            heartbeatTransport: "twitch-heartbeat-spade-v1",
+          },
         },
-      }, { host: "extension", twitchIdentity: "web" });
+        { host: "extension", twitchIdentity: "web" },
+      );
 
       expect(resolution.compatibility.twitch.heartbeat).toBe("twitch-heartbeat-spade-v1");
       expect(resolution.warnings).toEqual([]);
     });
 
     it("selects Trowel for the CLI Android automatic resolution", () => {
-      const resolution = resolveCompatibility(DEFAULT_SETTINGS.compatibility, { host: "cli", twitchIdentity: "android" });
+      const resolution = resolveCompatibility(DEFAULT_SETTINGS.compatibility, {
+        host: "cli",
+        twitchIdentity: "android",
+      });
       const strategy = createTwitchHeartbeat(resolution.compatibility.twitch.heartbeat, {
         gql: gql as never,
         emit,
@@ -58,13 +67,16 @@ describe("Twitch heartbeat strategies", () => {
     });
 
     it("selects only legacy GQL for an explicit rollback", () => {
-      const resolution = resolveCompatibility({
-        ...DEFAULT_SETTINGS.compatibility,
-        twitch: {
-          ...DEFAULT_SETTINGS.compatibility.twitch,
-          heartbeatTransport: "twitch-heartbeat-gql-v1",
+      const resolution = resolveCompatibility(
+        {
+          ...DEFAULT_SETTINGS.compatibility,
+          twitch: {
+            ...DEFAULT_SETTINGS.compatibility.twitch,
+            heartbeatTransport: "twitch-heartbeat-gql-v1",
+          },
         },
-      }, { host: "extension", twitchIdentity: "web" });
+        { host: "extension", twitchIdentity: "web" },
+      );
       const strategy = createTwitchHeartbeat(resolution.compatibility.twitch.heartbeat, {
         gql: gql as never,
         emit,
@@ -76,13 +88,16 @@ describe("Twitch heartbeat strategies", () => {
     });
 
     it("resolves unsupported identifiers before the exhaustive factory boundary", () => {
-      const resolution = resolveCompatibility({
-        ...DEFAULT_SETTINGS.compatibility,
-        twitch: {
-          ...DEFAULT_SETTINGS.compatibility.twitch,
-          heartbeatTransport: "hostile-heartbeat" as never,
+      const resolution = resolveCompatibility(
+        {
+          ...DEFAULT_SETTINGS.compatibility,
+          twitch: {
+            ...DEFAULT_SETTINGS.compatibility.twitch,
+            heartbeatTransport: "hostile-heartbeat" as never,
+          },
         },
-      }, { host: "extension", twitchIdentity: "web" });
+        { host: "extension", twitchIdentity: "web" },
+      );
 
       expect(resolution.compatibility.twitch.heartbeat).toBe("twitch-heartbeat-hls-v1");
       expect(resolution.warnings).toEqual([expect.objectContaining({ code: "unknown_selection" })]);
@@ -108,11 +123,9 @@ describe("Twitch heartbeat strategies", () => {
       }
       throw new Error(`unexpected operation ${operationName}`);
     });
-    const adapter = twitchAdapter(
-      { fetchJson: fetchJson as never },
-      undefined,
-      { heartbeatStrategy: strategy },
-    );
+    const adapter = twitchAdapter({ fetchJson: fetchJson as never }, undefined, {
+      heartbeatStrategy: strategy,
+    });
     const watcher = adapter.createTablessWatcher();
     const channel = {
       platform: "twitch" as const,
@@ -167,13 +180,19 @@ describe("Twitch heartbeat strategies", () => {
     });
 
     it("posts an inline spade_url as form-urlencoded plain base64 and expects 204", async () => {
-      const fetchText = vi.fn(async () => '<script>window.__twilightSettings={"spade_url":"https://spade.twitch.tv/track"}</script>');
+      const fetchText = vi.fn(
+        async () =>
+          '<script>window.__twilightSettings={"spade_url":"https://spade.twitch.tv/track"}</script>',
+      );
       const post = vi.fn(async (_url: string, _init: RequestInit) => ({ status: 204 }));
       const strategy = createSpadeHeartbeat({ fetchText, post });
 
       await expect(strategy.tick(context())).resolves.toEqual({ ok: true, live: true });
 
-      expect(fetchText).toHaveBeenCalledWith("https://www.twitch.tv/Creator", expect.objectContaining({ credentials: "include" }));
+      expect(fetchText).toHaveBeenCalledWith(
+        "https://www.twitch.tv/Creator",
+        expect.objectContaining({ credentials: "include" }),
+      );
       expect(post).toHaveBeenCalledOnce();
       const [url, init] = post.mock.calls[0];
       expect(url).toBe("https://spade.twitch.tv/track");
@@ -184,32 +203,42 @@ describe("Twitch heartbeat strategies", () => {
       });
       const encoded = new URLSearchParams(String(init.body)).get("data");
       expect(encoded).not.toBeNull();
-      expect(JSON.parse(atob(encoded!))).toMatchObject([{
-        event: "minute-watched",
-        properties: { channel: "Creator", broadcast_id: "broadcast-id", user_id: "viewer-id" },
-      }]);
+      expect(JSON.parse(atob(encoded!))).toMatchObject([
+        {
+          event: "minute-watched",
+          properties: { channel: "Creator", broadcast_id: "broadcast-id", user_id: "viewer-id" },
+        },
+      ]);
     });
 
     it("falls back to a Twitch-owned settings bundle containing beacon_url", async () => {
-      const fetchText = vi.fn(async (url: string) => url.includes("/settings.")
-        ? 'window.settings={"beacon_url":"https://beacon.twitch.tv/collect"}'
-        : '<script src="https://assets.twitch.tv/config/settings.abcd.js"></script>');
+      const fetchText = vi.fn(async (url: string) =>
+        url.includes("/settings.")
+          ? 'window.settings={"beacon_url":"https://beacon.twitch.tv/collect"}'
+          : '<script src="https://assets.twitch.tv/config/settings.abcd.js"></script>',
+      );
       const post = vi.fn(async (_url: string, _init: RequestInit) => ({ status: 204 }));
       const strategy = createSpadeHeartbeat({ fetchText, post });
 
       await expect(strategy.tick(context())).resolves.toMatchObject({ ok: true });
 
-      expect(fetchText).toHaveBeenNthCalledWith(2, "https://assets.twitch.tv/config/settings.abcd.js", expect.objectContaining({ credentials: "include" }));
+      expect(fetchText).toHaveBeenNthCalledWith(
+        2,
+        "https://assets.twitch.tv/config/settings.abcd.js",
+        expect.objectContaining({ credentials: "include" }),
+      );
       expect(post).toHaveBeenCalledWith("https://beacon.twitch.tv/collect", expect.anything());
     });
 
     it("continues to a valid settings bundle when an inline destination is unsafe", async () => {
-      const fetchText = vi.fn(async (url: string) => url.includes("/settings.")
-        ? 'window.settings={"beacon_url":"https://beacon.twitch.tv/collect"}'
-        : [
-            '<script>window.__twilightSettings={"spade_url":"https://evil.example/collect"}</script>',
-            '<script src="https://assets.twitch.tv/config/settings.abcd.js"></script>',
-          ].join(""));
+      const fetchText = vi.fn(async (url: string) =>
+        url.includes("/settings.")
+          ? 'window.settings={"beacon_url":"https://beacon.twitch.tv/collect"}'
+          : [
+              '<script>window.__twilightSettings={"spade_url":"https://evil.example/collect"}</script>',
+              '<script src="https://assets.twitch.tv/config/settings.abcd.js"></script>',
+            ].join(""),
+      );
       const post = vi.fn(async (_url: string, _init: RequestInit) => ({ status: 204 }));
       const strategy = createSpadeHeartbeat({ fetchText, post });
 
@@ -220,31 +249,45 @@ describe("Twitch heartbeat strategies", () => {
     });
 
     it("forbids redirects on authenticated page, settings, and beacon requests", async () => {
-      const fetchText = vi.fn(async (url: string) => url.includes("/settings.")
-        ? 'window.settings={"beacon_url":"https://beacon.twitch.tv/collect"}'
-        : '<script src="https://assets.twitch.tv/config/settings.abcd.js"></script>');
+      const fetchText = vi.fn(async (url: string) =>
+        url.includes("/settings.")
+          ? 'window.settings={"beacon_url":"https://beacon.twitch.tv/collect"}'
+          : '<script src="https://assets.twitch.tv/config/settings.abcd.js"></script>',
+      );
       const post = vi.fn(async (_url: string, _init: RequestInit) => ({ status: 204 }));
       const strategy = createSpadeHeartbeat({ fetchText, post });
 
       await expect(strategy.tick(context())).resolves.toEqual({ ok: true, live: true });
 
-      expect(fetchText).toHaveBeenNthCalledWith(1, "https://www.twitch.tv/Creator", expect.objectContaining({
-        credentials: "include",
-        redirect: "error",
-      }));
-      expect(fetchText).toHaveBeenNthCalledWith(2, "https://assets.twitch.tv/config/settings.abcd.js", expect.objectContaining({
-        credentials: "include",
-        redirect: "error",
-      }));
-      expect(post).toHaveBeenCalledWith("https://beacon.twitch.tv/collect", expect.objectContaining({
-        credentials: "include",
-        redirect: "error",
-      }));
+      expect(fetchText).toHaveBeenNthCalledWith(
+        1,
+        "https://www.twitch.tv/Creator",
+        expect.objectContaining({
+          credentials: "include",
+          redirect: "error",
+        }),
+      );
+      expect(fetchText).toHaveBeenNthCalledWith(
+        2,
+        "https://assets.twitch.tv/config/settings.abcd.js",
+        expect.objectContaining({
+          credentials: "include",
+          redirect: "error",
+        }),
+      );
+      expect(post).toHaveBeenCalledWith(
+        "https://beacon.twitch.tv/collect",
+        expect.objectContaining({
+          credentials: "include",
+          redirect: "error",
+        }),
+      );
     });
 
     it("does not treat redirect errors as successful heartbeats", async () => {
       const fetchText = vi.fn(async () => '{"spade_url":"https://spade.twitch.tv/redirect"}');
-      const post = vi.fn<(url: string, init: RequestInit) => Promise<{ status: number }>>()
+      const post = vi
+        .fn<(url: string, init: RequestInit) => Promise<{ status: number }>>()
         .mockRejectedValue(new TypeError("redirect mode is set to error"));
       const strategy = createSpadeHeartbeat({ fetchText, post });
 
@@ -257,7 +300,9 @@ describe("Twitch heartbeat strategies", () => {
     it("preserves a contextual destination-fetch failure", async () => {
       const strategy = createSpadeHeartbeat({
         fetchText: vi.fn(async () => {
-          throw new Error("Twitch Spade destination fetch failed for assets.twitch.tv: Failed to fetch");
+          throw new Error(
+            "Twitch Spade destination fetch failed for assets.twitch.tv: Failed to fetch",
+          );
         }),
         post: vi.fn(),
       });
@@ -270,11 +315,14 @@ describe("Twitch heartbeat strategies", () => {
     });
 
     it("preserves the final contextual POST failure after one retry", async () => {
-      const fetchText = vi.fn()
+      const fetchText = vi
+        .fn()
         .mockResolvedValueOnce('{"spade_url":"https://spade.twitch.tv/stale"}')
         .mockResolvedValueOnce('{"spade_url":"https://beacon.twitch.tv/fresh"}');
       const post = vi.fn(async (url: string) => {
-        throw new Error(`Twitch Spade heartbeat POST failed for ${new URL(url).hostname}: Failed to fetch`);
+        throw new Error(
+          `Twitch Spade heartbeat POST failed for ${new URL(url).hostname}: Failed to fetch`,
+        );
       });
       const strategy = createSpadeHeartbeat({ fetchText, post });
 
@@ -287,7 +335,10 @@ describe("Twitch heartbeat strategies", () => {
     });
 
     it("caches destinations per normalized channel login", async () => {
-      const fetchText = vi.fn(async (url: string) => `{"spade_url":"https://spade.twitch.tv/${url.toLowerCase().includes("other") ? "other" : "creator"}"}`);
+      const fetchText = vi.fn(
+        async (url: string) =>
+          `{"spade_url":"https://spade.twitch.tv/${url.toLowerCase().includes("other") ? "other" : "creator"}"}`,
+      );
       const post = vi.fn(async (_url: string, _init: RequestInit) => ({ status: 204 }));
       const strategy = createSpadeHeartbeat({ fetchText, post });
 
@@ -304,10 +355,12 @@ describe("Twitch heartbeat strategies", () => {
     });
 
     it("evicts a failed destination, resolves fresh, and retries exactly once", async () => {
-      const fetchText = vi.fn()
+      const fetchText = vi
+        .fn()
         .mockResolvedValueOnce('{"spade_url":"https://spade.twitch.tv/stale"}')
         .mockResolvedValueOnce('{"spade_url":"https://spade.twitch.tv/fresh"}');
-      const post = vi.fn<(url: string, init: RequestInit) => Promise<{ status: number }>>()
+      const post = vi
+        .fn<(url: string, init: RequestInit) => Promise<{ status: number }>>()
         .mockResolvedValueOnce({ status: 500 })
         .mockResolvedValueOnce({ status: 204 });
       const strategy = createSpadeHeartbeat({ fetchText, post });
@@ -322,10 +375,12 @@ describe("Twitch heartbeat strategies", () => {
     });
 
     it("refreshes and retries exactly once when the first post rejects", async () => {
-      const fetchText = vi.fn()
+      const fetchText = vi
+        .fn()
         .mockResolvedValueOnce('{"spade_url":"https://spade.twitch.tv/stale"}')
         .mockResolvedValueOnce('{"spade_url":"https://spade.twitch.tv/fresh"}');
-      const post = vi.fn<(url: string, init: RequestInit) => Promise<{ status: number }>>()
+      const post = vi
+        .fn<(url: string, init: RequestInit) => Promise<{ status: number }>>()
         .mockRejectedValueOnce(new Error("network failure"))
         .mockResolvedValueOnce({ status: 204 });
       const strategy = createSpadeHeartbeat({ fetchText, post });
@@ -336,15 +391,22 @@ describe("Twitch heartbeat strategies", () => {
     });
 
     it("validates settings bundles and beacons before authenticated requests", async () => {
-      const settingsFetch = vi.fn(async () => '<script src="https://evil.example/settings.js"></script>');
+      const settingsFetch = vi.fn(
+        async () => '<script src="https://evil.example/settings.js"></script>',
+      );
       const settingsPost = vi.fn(async (_url: string, _init: RequestInit) => ({ status: 204 }));
-      const settingsStrategy = createSpadeHeartbeat({ fetchText: settingsFetch, post: settingsPost });
+      const settingsStrategy = createSpadeHeartbeat({
+        fetchText: settingsFetch,
+        post: settingsPost,
+      });
 
       await expect(settingsStrategy.tick(context())).resolves.toMatchObject({ ok: false });
       expect(settingsFetch).toHaveBeenCalledTimes(1);
       expect(settingsPost).not.toHaveBeenCalled();
 
-      const beaconFetch = vi.fn(async () => '{"spade_url":"https://twitch.tv@evil.example/beacon"}');
+      const beaconFetch = vi.fn(
+        async () => '{"spade_url":"https://twitch.tv@evil.example/beacon"}',
+      );
       const beaconPost = vi.fn(async (_url: string, _init: RequestInit) => ({ status: 204 }));
       const beaconStrategy = createSpadeHeartbeat({ fetchText: beaconFetch, post: beaconPost });
 
@@ -375,7 +437,11 @@ describe("Twitch heartbeat strategies", () => {
 
   describe("Trowel v1", () => {
     const context = {
-      channel: { platform: "twitch" as const, username: "Creator", url: "https://www.twitch.tv/Creator" },
+      channel: {
+        platform: "twitch" as const,
+        username: "Creator",
+        url: "https://www.twitch.tv/Creator",
+      },
       broadcastId: "broadcast-id",
       channelId: "channel-id",
       userId: "viewer-id",
@@ -394,33 +460,48 @@ describe("Twitch heartbeat strategies", () => {
       expect(url).toBe("https://trowel.twitch.tv/track");
       expect(init).toMatchObject({ method: "POST", headers: { "Content-Type": "text/plain" } });
       expect(String(init.body)).not.toMatch(/[\-_]/);
-      expect(JSON.parse(atob(String(init.body)))).toMatchObject([{
-        event: "minute-watched",
-        properties: { channel: "Creator", broadcast_id: "broadcast-id", user_id: "viewer-id" },
-      }]);
+      expect(JSON.parse(atob(String(init.body)))).toMatchObject([
+        {
+          event: "minute-watched",
+          properties: { channel: "Creator", broadcast_id: "broadcast-id", user_id: "viewer-id" },
+        },
+      ]);
     });
 
     it.each([200, 204, 299])("accepts HTTP %s", async (status) => {
-      const strategy = createTrowelHeartbeat({ identity: "android", post: async () => ({ status }) });
+      const strategy = createTrowelHeartbeat({
+        identity: "android",
+        post: async () => ({ status }),
+      });
       await expect(strategy.tick(context)).resolves.toEqual({ ok: true, live: true });
     });
 
     it.each([199, 300, 500])("reports HTTP %s as unhealthy", async (status) => {
-      const strategy = createTrowelHeartbeat({ identity: "android", post: async () => ({ status }) });
+      const strategy = createTrowelHeartbeat({
+        identity: "android",
+        post: async () => ({ status }),
+      });
       await expect(strategy.tick(context)).resolves.toMatchObject({ ok: false, live: true });
     });
 
     it("reports transport rejection as unhealthy", async () => {
       const strategy = createTrowelHeartbeat({
         identity: "android",
-        post: async () => { throw new Error("proxy unavailable"); },
+        post: async () => {
+          throw new Error("proxy unavailable");
+        },
       });
-      await expect(strategy.tick(context)).resolves.toMatchObject({ ok: false, live: true, message: "proxy unavailable" });
+      await expect(strategy.tick(context)).resolves.toMatchObject({
+        ok: false,
+        live: true,
+        message: "proxy unavailable",
+      });
     });
 
     it("rejects construction for a non-Android identity", () => {
-      expect(() => createTrowelHeartbeat({ identity: "web", post: async () => ({ status: 204 }) }))
-        .toThrow(/Android identity/);
+      expect(() =>
+        createTrowelHeartbeat({ identity: "web", post: async () => ({ status: 204 }) }),
+      ).toThrow(/Android identity/);
     });
   });
 });

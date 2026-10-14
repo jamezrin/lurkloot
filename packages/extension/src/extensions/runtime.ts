@@ -1,14 +1,25 @@
-import { twitchExtensionProviderOrigins, twitchExtensionProviders } from "@lurkloot/core/extensions/registry";
+import {
+  twitchExtensionProviderOrigins,
+  twitchExtensionProviders,
+} from "@lurkloot/core/extensions/registry";
 import { validateTwitchExtensionReport } from "@lurkloot/core/extensions/reports";
 import type { EngineEvent } from "@lurkloot/shared/events";
 import type { TwitchExtensionProviderId, TwitchExtensionReport } from "@lurkloot/shared/models";
-import { withTwitchExtensionSession, type DriverSession, type SessionSource, type TwitchExtensionSessionOutcome } from "./session";
+import {
+  withTwitchExtensionSession,
+  type DriverSession,
+  type SessionSource,
+  type TwitchExtensionSessionOutcome,
+} from "./session";
 
 export interface TwitchExtensionDriver {
   stop(): void;
   refresh?(): Promise<void>;
 }
-export interface TwitchExtensionTarget { channelId: string; username?: string }
+export interface TwitchExtensionTarget {
+  channelId: string;
+  username?: string;
+}
 // `publish` reports a driver's activity (a pack opened, a giveaway joined). Like
 // `emit`, it publishes nothing once the session is stopped or replaced (#594).
 export type TwitchExtensionDriverFactory = (
@@ -56,7 +67,11 @@ export function createTwitchExtensionRuntime(options: {
     entry.jwt = undefined;
     const driver = entry.driver;
     entry.driver = undefined;
-    try { driver?.stop(); } catch { /* Vendor exceptions never leave this runtime. */ }
+    try {
+      driver?.stop();
+    } catch {
+      /* Vendor exceptions never leave this runtime. */
+    }
   }
   function stop(id?: TwitchExtensionProviderId) {
     for (const [provider, entry] of entries) {
@@ -82,21 +97,49 @@ export function createTwitchExtensionRuntime(options: {
       return;
     }
     options.report(id, report);
-    if (report.reasonCode === "auth-required" || report.reasonCode === "identity-required") dispose(entry);
+    if (report.reasonCode === "auth-required" || report.reasonCode === "identity-required")
+      dispose(entry);
   }
-  function outcomeReport(outcome: TwitchExtensionSessionOutcome): TwitchExtensionReport | undefined {
+  function outcomeReport(
+    outcome: TwitchExtensionSessionOutcome,
+  ): TwitchExtensionReport | undefined {
     if (outcome === "ready" || outcome === "cancelled") return;
-    const reasonCode = outcome === "expired" ? "auth-required" : outcome === "unavailable" ? "not-installed" : outcome;
-    return { status: outcome === "auth-required" || outcome === "expired" || outcome === "unavailable" ? "unavailable" : "error", reasonCode, progress: [], pending: [] };
+    const reasonCode =
+      outcome === "expired"
+        ? "auth-required"
+        : outcome === "unavailable"
+          ? "not-installed"
+          : outcome;
+    return {
+      status:
+        outcome === "auth-required" || outcome === "expired" || outcome === "unavailable"
+          ? "unavailable"
+          : "error",
+      reasonCode,
+      progress: [],
+      pending: [],
+    };
   }
-  function refresh(id: TwitchExtensionProviderId, active: Entry, minRefreshIntervalMs: number): Promise<void> {
+  function refresh(
+    id: TwitchExtensionProviderId,
+    active: Entry,
+    minRefreshIntervalMs: number,
+  ): Promise<void> {
     active.nextRefreshAt = options.source.now() + minRefreshIntervalMs;
     const pending = (async () => {
-      try { await active.driver?.refresh?.(); }
-      catch {
-        emit(id, active, { status: "error", reasonCode: "provider-error", progress: [], pending: [] });
+      try {
+        await active.driver?.refresh?.();
+      } catch {
+        emit(id, active, {
+          status: "error",
+          reasonCode: "provider-error",
+          progress: [],
+          pending: [],
+        });
         dispose(active);
-      } finally { active.pending = undefined; }
+      } finally {
+        active.pending = undefined;
+      }
     })();
     active.pending = pending;
     return pending;
@@ -107,7 +150,14 @@ export function createTwitchExtensionRuntime(options: {
   function refreshNow(id: TwitchExtensionProviderId, channelId: string): void {
     const provider = twitchExtensionProviders.find((candidate) => candidate.id === id);
     const entry = entries.get(id);
-    if (!provider || !entry || entry.channelId !== channelId || !live(id, entry) || !entry.driver?.refresh) return;
+    if (
+      !provider
+      || !entry
+      || entry.channelId !== channelId
+      || !live(id, entry)
+      || !entry.driver?.refresh
+    )
+      return;
     if (entry.expiresAt <= options.source.now() + 60_000) return;
     if (entry.pending) {
       if (entry.refreshQueued) return;
@@ -123,16 +173,24 @@ export function createTwitchExtensionRuntime(options: {
   // The live session's JWT for `channelId`, while it has more than a minute left.
   function broadcastToken(id: TwitchExtensionProviderId, channelId: string): string | undefined {
     const entry = entries.get(id);
-    if (!entry || entry.channelId !== channelId || !live(id, entry) || !entry.driver) return undefined;
+    if (!entry || entry.channelId !== channelId || !live(id, entry) || !entry.driver)
+      return undefined;
     return entry.expiresAt > options.source.now() + 60_000 ? entry.jwt : undefined;
   }
-  async function update(selected: Partial<Record<TwitchExtensionProviderId, string | TwitchExtensionTarget>>): Promise<void> {
+  async function update(
+    selected: Partial<Record<TwitchExtensionProviderId, string | TwitchExtensionTarget>>,
+  ): Promise<void> {
     const work: Promise<void>[] = [];
     for (const provider of twitchExtensionProviders) {
       const id = provider.id;
       const target = selected[id];
       const channelId = typeof target === "string" ? target : target?.channelId;
-      const username = typeof target === "object" && typeof target.username === "string" && /^[a-zA-Z0-9_]{1,25}$/.test(target.username) ? target.username : undefined;
+      const username =
+        typeof target === "object"
+        && typeof target.username === "string"
+        && /^[a-zA-Z0-9_]{1,25}$/.test(target.username)
+          ? target.username
+          : undefined;
       if (!channelId || !/^\d{1,20}$/.test(channelId)) {
         stop(id);
         // A disabled/re-enabled provider may retry after a protocol fix, but
@@ -143,52 +201,99 @@ export function createTwitchExtensionRuntime(options: {
       const factory = options.drivers[id];
       if (!factory || quarantined.has(id)) continue;
       let entry = entries.get(id);
-      if (entry?.channelId !== channelId) { stop(id); entry = undefined; }
-      if (entry?.pending) { work.push(entry.pending); continue; }
+      if (entry?.channelId !== channelId) {
+        stop(id);
+        entry = undefined;
+      }
+      if (entry?.pending) {
+        work.push(entry.pending);
+        continue;
+      }
       const now = options.source.now();
       // The lane reconciles on each minute heartbeat commit (#594), so a floor
       // of one minute would miss every other heartbeat by milliseconds. A
       // refresh due within a tenth of its floor (at most 5 s) runs now.
-      if (entry && now + refreshSlackMs(provider.minRefreshIntervalMs) < entry.nextRefreshAt) continue;
+      if (entry && now + refreshSlackMs(provider.minRefreshIntervalMs) < entry.nextRefreshAt)
+        continue;
       if (entry?.driver && entry.expiresAt > now + 60_000) {
         work.push(refresh(id, entry, provider.minRefreshIntervalMs));
         continue;
       }
       stop(id);
-      const next: Entry = { channelId, abort: new AbortController(), expiresAt: 0, nextRefreshAt: now + provider.minRefreshIntervalMs };
+      const next: Entry = {
+        channelId,
+        abort: new AbortController(),
+        expiresAt: 0,
+        nextRefreshAt: now + provider.minRefreshIntervalMs,
+      };
       entries.set(id, next);
       next.pending = (async () => {
         try {
-          const granted = (await Promise.all(twitchExtensionProviderOrigins(provider).map((origin) => options.contains(origin)))).every(Boolean);
+          const granted = (
+            await Promise.all(
+              twitchExtensionProviderOrigins(provider).map((origin) => options.contains(origin)),
+            )
+          ).every(Boolean);
           if (next.abort.signal.aborted || entries.get(id) !== next) return;
           if (!granted) {
-            emit(id, next, { status: "unavailable", reasonCode: "permission-required", progress: [], pending: [] });
+            emit(id, next, {
+              status: "unavailable",
+              reasonCode: "permission-required",
+              progress: [],
+              pending: [],
+            });
             return;
           }
-          const outcome = await withTwitchExtensionSession(options.source, provider, channelId, async (session) => {
-            next.expiresAt = session.expiresAt;
-            next.jwt = session.jwt;
-            next.expiryTimer = setTimeout(() => {
-              if (entries.get(id) !== next) return;
-              emit(id, next, { status: "unavailable", reasonCode: "auth-required", progress: [], pending: [] });
-              stop(id);
-            }, Math.min(2_147_483_647, Math.max(0, session.expiresAt - options.source.now())));
-            const driver = await factory(
-              session,
-              (value) => emit(id, next, value),
-              username ? { username } : undefined,
-              (events) => { if (live(id, next)) options.publish(events); },
-            );
-            next.driver = driver;
-            if (next.abort.signal.aborted || entries.get(id) !== next) dispose(next);
-            else options.onSessionReady?.(id, channelId);
-          }, next.abort.signal);
+          const outcome = await withTwitchExtensionSession(
+            options.source,
+            provider,
+            channelId,
+            async (session) => {
+              next.expiresAt = session.expiresAt;
+              next.jwt = session.jwt;
+              next.expiryTimer = setTimeout(
+                () => {
+                  if (entries.get(id) !== next) return;
+                  emit(id, next, {
+                    status: "unavailable",
+                    reasonCode: "auth-required",
+                    progress: [],
+                    pending: [],
+                  });
+                  stop(id);
+                },
+                Math.min(2_147_483_647, Math.max(0, session.expiresAt - options.source.now())),
+              );
+              const driver = await factory(
+                session,
+                (value) => emit(id, next, value),
+                username ? { username } : undefined,
+                (events) => {
+                  if (live(id, next)) options.publish(events);
+                },
+              );
+              next.driver = driver;
+              if (next.abort.signal.aborted || entries.get(id) !== next) dispose(next);
+              else options.onSessionReady?.(id, channelId);
+            },
+            next.abort.signal,
+          );
           const report = outcomeReport(outcome);
-          if (report) { emit(id, next, report); dispose(next); }
+          if (report) {
+            emit(id, next, report);
+            dispose(next);
+          }
         } catch {
-          emit(id, next, { status: "error", reasonCode: "transport-error", progress: [], pending: [] });
+          emit(id, next, {
+            status: "error",
+            reasonCode: "transport-error",
+            progress: [],
+            pending: [],
+          });
           dispose(next);
-        } finally { next.pending = undefined; }
+        } finally {
+          next.pending = undefined;
+        }
       })();
       work.push(next.pending);
     }

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { KICK_BEARER_NEAR_MISS_CASES, KICK_BEARER_POSITIVE_CASES } from "@lurkloot/core/kickBearerCases";
+import {
+  KICK_BEARER_NEAR_MISS_CASES,
+  KICK_BEARER_POSITIVE_CASES,
+} from "@lurkloot/core/kickBearerCases";
 import { kickHeaders } from "../src/transport/cycle";
 import type { PlatformCredentials } from "../src/authStore";
 
@@ -17,8 +20,9 @@ describe("kickHeaders", () => {
   // the viewer WebSocket goes through this same header builder (see
   // createNodeKickWebSocketFactory in ../src/transport/cycle.ts).
   it("attaches the session token to websockets.kick.com over wss", () => {
-    expect(kickHeaders("wss://websockets.kick.com/viewer", undefined, creds).authorization)
-      .toBe("Bearer sess 789");
+    expect(kickHeaders("wss://websockets.kick.com/viewer", undefined, creds).authorization).toBe(
+      "Bearer sess 789",
+    );
   });
 
   // Every case here is shared with browserTabs.test.ts (needsKickSessionBearer) and
@@ -29,7 +33,9 @@ describe("kickHeaders", () => {
   });
 
   it("does not attach a token when none is stored", () => {
-    expect(kickHeaders("https://kick.com/api/v1/user", undefined, { twitch: {}, kick: {} }).authorization)
-      .toBeUndefined();
+    expect(
+      kickHeaders("https://kick.com/api/v1/user", undefined, { twitch: {}, kick: {} })
+        .authorization,
+    ).toBeUndefined();
   });
 });

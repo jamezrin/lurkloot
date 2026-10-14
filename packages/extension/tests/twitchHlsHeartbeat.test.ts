@@ -1,6 +1,9 @@
 import { gunzipSync } from "node:zlib";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { TwitchHeartbeatContext, TwitchHeartbeatExchange } from "@lurkloot/core/twitch/heartbeat";
+import type {
+  TwitchHeartbeatContext,
+  TwitchHeartbeatExchange,
+} from "@lurkloot/core/twitch/heartbeat";
 import {
   HLS_POLL_BUDGET_MS,
   HLS_POLL_INTERVAL_MS,
@@ -53,7 +56,9 @@ function tokenRequests(gql: { mock: { calls: unknown[][] } }): number {
   return gql.mock.calls.filter(([operationName]) => operationName === "PlaybackAccessToken").length;
 }
 
-function decodeSentEvents(variables: Record<string, unknown>): Array<{ event: string; properties: Record<string, unknown> }> {
+function decodeSentEvents(
+  variables: Record<string, unknown>,
+): Array<{ event: string; properties: Record<string, unknown> }> {
   const input = variables.input as { data: string };
   return JSON.parse(gunzipSync(Buffer.from(input.data, "base64")).toString("utf8"));
 }
@@ -67,32 +72,52 @@ function expectDirectPlaylistFetch(init: RequestInit): void {
 
 describe("Twitch HLS playlists", () => {
   it("resolves a relative quality URI and ignores trailing comments", () => {
-    const urls = playlistUrls(`#EXTM3U
+    const urls = playlistUrls(
+      `#EXTM3U
 #EXT-X-STREAM-INF:BANDWIDTH=1
 audio/index.m3u8
 # a trailing comment
-`, "https://usher.ttvnw.net/api/channel/hls/creator.m3u8", "master");
+`,
+      "https://usher.ttvnw.net/api/channel/hls/creator.m3u8",
+      "master",
+    );
 
     expect(urls).toEqual(["https://usher.ttvnw.net/api/channel/hls/audio/index.m3u8"]);
   });
 
   it("rejects a master whose URI is not a playlist, including a dangling tag", () => {
     const base = "https://usher.ttvnw.net/api/channel/hls/creator.m3u8";
-    expect(playlistUrls("#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nhttps://video-weaver.fra05.hls.ttvnw.net/seg.ts\n", base, "master")).toEqual([]);
+    expect(
+      playlistUrls(
+        "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nhttps://video-weaver.fra05.hls.ttvnw.net/seg.ts\n",
+        base,
+        "master",
+      ),
+    ).toEqual([]);
     expect(playlistUrls("#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\n", base, "master")).toEqual([]);
-    expect(playlistUrls("#EXTM3U\nhttps://video-weaver.fra05.hls.ttvnw.net/index.m3u8\n", base, "master")).toEqual([]);
+    expect(
+      playlistUrls(
+        "#EXTM3U\nhttps://video-weaver.fra05.hls.ttvnw.net/index.m3u8\n",
+        base,
+        "master",
+      ),
+    ).toEqual([]);
     expect(playlistUrls("not a playlist", base, "master")).toEqual([]);
   });
 
   it("resolves relative media URIs and does not request key or map URIs", () => {
-    const urls = playlistUrls(`#EXTM3U
+    const urls = playlistUrls(
+      `#EXTM3U
 #EXT-X-KEY:METHOD=AES-128,URI="https://evil.example/key"
 #EXT-X-MAP:URI="init.mp4"
 #EXTINF:2.0,
 seg-1.ts
 #EXTINF:2.0,
 https://video-weaver.fra05.hls.ttvnw.net/seg-2.ts
-`, VARIANT_URL, "media");
+`,
+      VARIANT_URL,
+      "media",
+    );
 
     expect(urls).toEqual([
       "https://video-weaver.fra05.hls.ttvnw.net/seg-1.ts",
@@ -101,14 +126,26 @@ https://video-weaver.fra05.hls.ttvnw.net/seg-2.ts
   });
 
   it("rejects a media URI on an unsafe host", () => {
-    expect(playlistUrls(`#EXTM3U
+    expect(
+      playlistUrls(
+        `#EXTM3U
 #EXTINF:2.0,
 https://evil.example/seg.ts
-`, VARIANT_URL, "media")).toEqual([]);
-    expect(playlistUrls(`#EXTM3U
+`,
+        VARIANT_URL,
+        "media",
+      ),
+    ).toEqual([]);
+    expect(
+      playlistUrls(
+        `#EXTM3U
 #EXTINF:2.0,
 https://user:pass@video-weaver.fra05.hls.ttvnw.net/seg.ts
-`, VARIANT_URL, "media")).toEqual([]);
+`,
+        VARIANT_URL,
+        "media",
+      ),
+    ).toEqual([]);
   });
 });
 
@@ -123,14 +160,23 @@ describe("Twitch HLS heartbeat", () => {
     sendEvents?: (variables: Record<string, unknown>, signal?: AbortSignal) => unknown;
     log?: (level: string, message: string) => void;
   }) {
-    const gql = vi.fn(async (operationName: string, _hash: string, variables: Record<string, unknown>, ..._rest: unknown[]) => {
-      if (operationName === "PlaybackAccessToken") return playbackToken();
-      if (operationName === "SendEvents") {
-        const signal = _rest[3] as AbortSignal | undefined;
-        return options.sendEvents ? await options.sendEvents(variables, signal) : { data: { sendSpadeEvents: { statusCode: 204 } } };
-      }
-      throw new Error(`unexpected ${operationName}`);
-    });
+    const gql = vi.fn(
+      async (
+        operationName: string,
+        _hash: string,
+        variables: Record<string, unknown>,
+        ..._rest: unknown[]
+      ) => {
+        if (operationName === "PlaybackAccessToken") return playbackToken();
+        if (operationName === "SendEvents") {
+          const signal = _rest[3] as AbortSignal | undefined;
+          return options.sendEvents
+            ? await options.sendEvents(variables, signal)
+            : { data: { sendSpadeEvents: { statusCode: 204 } } };
+        }
+        throw new Error(`unexpected ${operationName}`);
+      },
+    );
     const strategy = createHlsHeartbeat({
       gql: gql as never,
       exchange: options.exchange,
@@ -140,7 +186,10 @@ describe("Twitch HLS heartbeat", () => {
     return { strategy, gql };
   }
 
-  function exchangeFrom(playlists: { master?: string; media: string }, head: (url: string) => { status: number } | Promise<{ status: number }>): TwitchHeartbeatExchange {
+  function exchangeFrom(
+    playlists: { master?: string; media: string },
+    head: (url: string) => { status: number } | Promise<{ status: number }>,
+  ): TwitchHeartbeatExchange {
     return async (url, init) => {
       expectDirectPlaylistFetch(init);
       if (init.method === "GET" && url.startsWith(MASTER_URL)) {
@@ -158,7 +207,8 @@ describe("Twitch HLS heartbeat", () => {
     const { strategy } = strategyFor({
       exchange: async (url, init) => {
         expectDirectPlaylistFetch(init);
-        if (init.method === "GET" && url.startsWith(MASTER_URL)) return { status: 200, body: MASTER, url };
+        if (init.method === "GET" && url.startsWith(MASTER_URL))
+          return { status: 200, body: MASTER, url };
         if (init.method === "GET") return { status: 200, body: playlist, url };
         heads.push(url);
         return { status: 200, body: "", url };
@@ -177,7 +227,12 @@ describe("Twitch HLS heartbeat", () => {
     const { strategy } = strategyFor({
       exchange: exchangeFrom({ media: media(SEGMENT_ONE, SEGMENT_TWO) }, (url) => {
         heads.push(url);
-        return { status: url === SEGMENT_ONE && heads.filter((item) => item === SEGMENT_ONE).length === 1 ? 503 : 200 };
+        return {
+          status:
+            url === SEGMENT_ONE && heads.filter((item) => item === SEGMENT_ONE).length === 1
+              ? 503
+              : 200,
+        };
       }),
     });
 
@@ -192,11 +247,18 @@ describe("Twitch HLS heartbeat", () => {
     const { strategy } = strategyFor({
       exchange: async (url, init) => {
         calls.push(`${init.method} ${new URL(url).pathname}`);
-        return { status: 200, body: "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nhttps://video-weaver.fra05.hls.ttvnw.net/seg.ts\n", url };
+        return {
+          status: 200,
+          body: "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nhttps://video-weaver.fra05.hls.ttvnw.net/seg.ts\n",
+          url,
+        };
       },
     });
 
-    await expect(strategy.tick(context())).resolves.toMatchObject({ ok: false, message: "Twitch did not return a playback playlist" });
+    await expect(strategy.tick(context())).resolves.toMatchObject({
+      ok: false,
+      message: "Twitch did not return a playback playlist",
+    });
     expect(calls).toEqual(["GET /api/channel/hls/creator.m3u8"]);
   });
 
@@ -204,7 +266,8 @@ describe("Twitch HLS heartbeat", () => {
     let mediaGets = 0;
     const { strategy, gql } = strategyFor({
       exchange: async (url, init) => {
-        if (init.method === "GET" && url.startsWith(MASTER_URL)) return { status: 200, body: MASTER, url };
+        if (init.method === "GET" && url.startsWith(MASTER_URL))
+          return { status: 200, body: MASTER, url };
         if (init.method === "GET") {
           mediaGets += 1;
           return { status: mediaGets === 2 ? 401 : 200, body: media(SEGMENT_ONE), url };
@@ -214,7 +277,10 @@ describe("Twitch HLS heartbeat", () => {
     });
 
     await expect(strategy.tick(context("broadcast-1"))).resolves.toEqual({ ok: true, live: true });
-    await expect(strategy.tick(context("broadcast-1"))).resolves.toMatchObject({ ok: false, message: "Twitch HLS playlist returned HTTP 401" });
+    await expect(strategy.tick(context("broadcast-1"))).resolves.toMatchObject({
+      ok: false,
+      message: "Twitch HLS playlist returned HTTP 401",
+    });
     await expect(strategy.tick(context("broadcast-1"))).resolves.toEqual({ ok: true, live: true });
     await expect(strategy.tick(context("broadcast-2"))).resolves.toEqual({ ok: true, live: true });
 
@@ -226,14 +292,20 @@ describe("Twitch HLS heartbeat", () => {
     const { strategy, gql } = strategyFor({
       now: () => clock,
       exchange: async (url, init) => {
-        if (init.method === "GET" && url.startsWith(MASTER_URL)) return { status: 200, body: MASTER, url };
+        if (init.method === "GET" && url.startsWith(MASTER_URL))
+          return { status: 200, body: MASTER, url };
         return { status: 403, body: "", url };
       },
     });
 
-    await expect(strategy.tick(context())).resolves.toMatchObject({ ok: false, message: "Twitch HLS playlist returned HTTP 403" });
+    await expect(strategy.tick(context())).resolves.toMatchObject({
+      ok: false,
+      message: "Twitch HLS playlist returned HTTP 403",
+    });
     clock += 10_000;
-    await expect(strategy.tick(context())).resolves.toMatchObject({ message: "Twitch HLS watch is waiting to request a new playback token" });
+    await expect(strategy.tick(context())).resolves.toMatchObject({
+      message: "Twitch HLS watch is waiting to request a new playback token",
+    });
     expect(tokenRequests(gql)).toBe(1);
   });
 
@@ -261,19 +333,21 @@ describe("Twitch HLS heartbeat", () => {
     // The input fields twitch.tv sends. Without them Twitch answers 204 and
     // discards the event.
     expect(sentVariables[0].input).toMatchObject({ repository: "twilight", encoding: "GZIP_B64" });
-    expect(decodeSentEvents(sentVariables[0])).toEqual([{
-      event: "minute-watched",
-      properties: expect.objectContaining({
-        broadcast_id: "broadcast-1",
-        channel_id: "channel-id",
-        channel: "Creator",
-        user_id: "viewer-id",
-        game_id: "game-id",
-        logged_in: true,
-        // Twitch credits channel points only when the event names the web player.
-        player: "site",
-      }),
-    }]);
+    expect(decodeSentEvents(sentVariables[0])).toEqual([
+      {
+        event: "minute-watched",
+        properties: expect.objectContaining({
+          broadcast_id: "broadcast-1",
+          channel_id: "channel-id",
+          channel: "Creator",
+          user_id: "viewer-id",
+          game_id: "game-id",
+          logged_in: true,
+          // Twitch credits channel points only when the event names the web player.
+          player: "site",
+        }),
+      },
+    ]);
   });
 
   it("does not send telemetry when the playlist fails", async () => {
@@ -292,12 +366,19 @@ describe("Twitch HLS heartbeat", () => {
     const { strategy } = strategyFor({
       exchange: async (url, init) => {
         if (init.method === "HEAD") heads.push(url);
-        return { status: 200, body: MASTER, url: "https://evil.example/playlist.m3u8?token=secret" };
+        return {
+          status: 200,
+          body: MASTER,
+          url: "https://evil.example/playlist.m3u8?token=secret",
+        };
       },
     });
 
     const result = await strategy.tick(context());
-    expect(result).toMatchObject({ ok: false, message: "Twitch HLS response came from an unexpected host" });
+    expect(result).toMatchObject({
+      ok: false,
+      message: "Twitch HLS response came from an unexpected host",
+    });
     expect(result.message).not.toContain("secret");
     expect(heads).toEqual([]);
   });
@@ -305,7 +386,9 @@ describe("Twitch HLS heartbeat", () => {
   it("drops signed URLs from transport failures", async () => {
     const { strategy } = strategyFor({
       exchange: async () => {
-        throw new Error("connect failed https://video-weaver.fra05.hls.ttvnw.net/seg.ts?token=secret");
+        throw new Error(
+          "connect failed https://video-weaver.fra05.hls.ttvnw.net/seg.ts?token=secret",
+        );
       },
     });
 
@@ -322,7 +405,8 @@ describe("Twitch HLS heartbeat", () => {
     });
     const { strategy } = strategyFor({
       exchange: async (url, init) => {
-        if (init.method === "GET" && url.startsWith(MASTER_URL)) return { status: 200, body: MASTER, url };
+        if (init.method === "GET" && url.startsWith(MASTER_URL))
+          return { status: 200, body: MASTER, url };
         if (init.method === "GET") return { status: 200, body: media(SEGMENT_ONE), url };
         await reached;
         return new Promise((_resolve, reject) => {
@@ -336,7 +420,11 @@ describe("Twitch HLS heartbeat", () => {
     const pending = strategy.tick(context());
     await release(new Error("unused"));
     strategy.reset?.();
-    await expect(pending).resolves.toEqual({ ok: false, live: true, message: "Twitch HLS watch stopped" });
+    await expect(pending).resolves.toEqual({
+      ok: false,
+      live: true,
+      message: "Twitch HLS watch stopped",
+    });
   });
 
   it("fails the poll when every new segment request fails", async () => {
@@ -355,10 +443,15 @@ describe("Twitch HLS heartbeat", () => {
     const { strategy } = strategyFor({
       exchange: async (url, init) => {
         expectDirectPlaylistFetch(init);
-        if (init.method === "GET" && url.startsWith(MASTER_URL)) return { status: 200, body: MASTER, url };
-        if (init.method === "GET") return { status: 200, body: media(SEGMENT_ONE, SEGMENT_TWO), url };
+        if (init.method === "GET" && url.startsWith(MASTER_URL))
+          return { status: 200, body: MASTER, url };
+        if (init.method === "GET")
+          return { status: 200, body: media(SEGMENT_ONE, SEGMENT_TWO), url };
         heads.push(url);
-        if (url === SEGMENT_ONE) throw new Error("Twitch heartbeat request failed for video-weaver.fra05.hls.ttvnw.net: network request failed");
+        if (url === SEGMENT_ONE)
+          throw new Error(
+            "Twitch heartbeat request failed for video-weaver.fra05.hls.ttvnw.net: network request failed",
+          );
         return { status: 200, body: "", url };
       },
     });
@@ -376,7 +469,11 @@ describe("Twitch HLS heartbeat", () => {
         calls.push(url);
         if (url.startsWith(MASTER_URL)) return { status: 302, body: "", location: redirected };
         if (url === redirected) {
-          return { status: 200, body: "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=100\naudio/index.m3u8\n", url };
+          return {
+            status: 200,
+            body: "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=100\naudio/index.m3u8\n",
+            url,
+          };
         }
         if (init.method === "GET") return { status: 200, body: media(SEGMENT_ONE), url };
         return { status: 200, body: "", url };
@@ -400,12 +497,19 @@ describe("Twitch HLS heartbeat", () => {
       exchange: async (url, init) => {
         expectDirectPlaylistFetch(init);
         calls.push(url);
-        return { status: 302, body: "", location: "https://evil.example/playlist.m3u8?token=secret" };
+        return {
+          status: 302,
+          body: "",
+          location: "https://evil.example/playlist.m3u8?token=secret",
+        };
       },
     });
 
     const result = await strategy.tick(context());
-    expect(result).toMatchObject({ ok: false, message: "Twitch HLS response came from an unexpected host" });
+    expect(result).toMatchObject({
+      ok: false,
+      message: "Twitch HLS response came from an unexpected host",
+    });
     expect(result.message).not.toContain("secret");
     expect(calls).toHaveLength(1);
     expect(new URL(calls[0]).hostname).toBe("usher.ttvnw.net");
@@ -441,7 +545,9 @@ describe("Twitch HLS heartbeat", () => {
   it("keeps a successful segment watch when telemetry outlasts the playlist budget", async () => {
     vi.useFakeTimers();
     let entered: () => void = () => {};
-    const sending = new Promise<void>((resolve) => { entered = resolve; });
+    const sending = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
     const { strategy } = strategyFor({
       exchange: exchangeFrom({ media: media(SEGMENT_ONE) }, () => ({ status: 200 })),
       sendEvents: async () => {
@@ -462,7 +568,8 @@ describe("Twitch HLS heartbeat", () => {
     function failingTokenStrategy(clock: { now: number }) {
       let tokenWorks = false;
       const gql = vi.fn(async (operationName: string) => {
-        if (operationName === "SendEvents") return { data: { sendSpadeEvents: { statusCode: 204 } } };
+        if (operationName === "SendEvents")
+          return { data: { sendSpadeEvents: { statusCode: 204 } } };
         if (operationName !== "PlaybackAccessToken") throw new Error(`unexpected ${operationName}`);
         if (!tokenWorks) throw new Error("failed integrity check");
         return playbackToken();
@@ -473,14 +580,23 @@ describe("Twitch HLS heartbeat", () => {
         log: () => {},
         now: () => clock.now,
       });
-      return { strategy, gql, fixToken: () => { tokenWorks = true; } };
+      return {
+        strategy,
+        gql,
+        fixToken: () => {
+          tokenWorks = true;
+        },
+      };
     }
 
     it("waits before requesting a token again, doubling the wait while it keeps failing", async () => {
       const clock = { now: 0 };
       const { strategy, gql } = failingTokenStrategy(clock);
 
-      await expect(strategy.tick(context())).resolves.toMatchObject({ ok: false, message: "failed integrity check" });
+      await expect(strategy.tick(context())).resolves.toMatchObject({
+        ok: false,
+        message: "failed integrity check",
+      });
       clock.now += 10_000;
       await expect(strategy.tick(context())).resolves.toMatchObject({
         ok: false,
@@ -490,7 +606,10 @@ describe("Twitch HLS heartbeat", () => {
       expect(tokenRequests(gql)).toBe(1);
 
       clock.now = HLS_TOKEN_RETRY_MS;
-      await expect(strategy.tick(context())).resolves.toMatchObject({ ok: false, message: "failed integrity check" });
+      await expect(strategy.tick(context())).resolves.toMatchObject({
+        ok: false,
+        message: "failed integrity check",
+      });
       expect(tokenRequests(gql)).toBe(2);
       clock.now += HLS_TOKEN_RETRY_MS;
       await strategy.tick(context());
@@ -536,14 +655,18 @@ describe("Twitch HLS heartbeat", () => {
       const { strategy, gql } = strategyFor({
         now: () => 0,
         exchange: async (url, init) => {
-          if (init.method === "GET" && url.startsWith(MASTER_URL)) return { status: 200, body: MASTER, url };
+          if (init.method === "GET" && url.startsWith(MASTER_URL))
+            return { status: 200, body: MASTER, url };
           if (init.method === "GET") return { status: mediaStatus, body: media(SEGMENT_ONE), url };
           return { status: 200, body: "", url };
         },
       });
       await expect(strategy.tick(context())).resolves.toEqual({ ok: true, live: true });
       mediaStatus = 403;
-      await expect(strategy.sustain?.(context())).resolves.toMatchObject({ ok: false, message: "Twitch HLS playlist returned HTTP 403" });
+      await expect(strategy.sustain?.(context())).resolves.toMatchObject({
+        ok: false,
+        message: "Twitch HLS playlist returned HTTP 403",
+      });
       mediaStatus = 200;
       await expect(strategy.sustain?.(context())).resolves.toEqual({ ok: true, live: true });
       expect(tokenRequests(gql)).toBe(2);
@@ -552,13 +675,17 @@ describe("Twitch HLS heartbeat", () => {
 
   it("reports a stop that lands while telemetry is in flight", async () => {
     let reached: () => void = () => {};
-    const posting = new Promise<void>((resolve) => { reached = resolve; });
+    const posting = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
     let finish: () => void = () => {};
     const { strategy } = strategyFor({
       exchange: exchangeFrom({ media: media(SEGMENT_ONE) }, () => ({ status: 200 })),
       sendEvents: async () => {
         reached();
-        await new Promise<void>((resolve) => { finish = resolve; });
+        await new Promise<void>((resolve) => {
+          finish = resolve;
+        });
         return { data: { sendSpadeEvents: { statusCode: 204 } } };
       },
     });
@@ -567,7 +694,11 @@ describe("Twitch HLS heartbeat", () => {
     await posting;
     strategy.reset?.();
     finish();
-    await expect(pending).resolves.toEqual({ ok: false, live: true, message: "Twitch HLS watch stopped" });
+    await expect(pending).resolves.toEqual({
+      ok: false,
+      live: true,
+      message: "Twitch HLS watch stopped",
+    });
   });
 
   it("notes an event that is refused or fails without failing the watch", async () => {
@@ -597,23 +728,34 @@ describe("Twitch HLS heartbeat", () => {
   it("reports a poll that runs out of budget as a timeout, not a stop", async () => {
     vi.useFakeTimers();
     const { strategy } = strategyFor({
-      exchange: async (_url, init) => new Promise((_resolve, reject) => {
-        init.signal?.addEventListener("abort", () => reject(new DOMException("The operation was aborted", "AbortError")), { once: true });
-      }),
+      exchange: async (_url, init) =>
+        new Promise((_resolve, reject) => {
+          init.signal?.addEventListener(
+            "abort",
+            () => reject(new DOMException("The operation was aborted", "AbortError")),
+            { once: true },
+          );
+        }),
     });
 
     const pending = strategy.tick(context());
     await vi.advanceTimersByTimeAsync(HLS_POLL_BUDGET_MS);
-    await expect(pending).resolves.toEqual({ ok: false, live: true, message: "Twitch HLS watch timed out" });
+    await expect(pending).resolves.toEqual({
+      ok: false,
+      live: true,
+      message: "Twitch HLS watch timed out",
+    });
   });
 
   it("requires the playlist transport at the factory boundary", () => {
-    expect(() => createTwitchHeartbeat("twitch-heartbeat-hls-v1", {
-      gql: vi.fn() as never,
-      emit: vi.fn(),
-      log: vi.fn(),
-      identity: "web",
-    })).toThrow(/playlist request/);
+    expect(() =>
+      createTwitchHeartbeat("twitch-heartbeat-hls-v1", {
+        gql: vi.fn() as never,
+        emit: vi.fn(),
+        log: vi.fn(),
+        identity: "web",
+      }),
+    ).toThrow(/playlist request/);
   });
 });
 
@@ -632,7 +774,14 @@ describe("Twitch HLS watcher cadence", () => {
     return vi.fn(async (_url: string, init?: RequestInit) => {
       const operationName = JSON.parse(String(init?.body)).operationName;
       if (operationName === "StreamInfo") {
-        return { data: { user: { id: "channel-id", stream: { id: "broadcast-id", game: { id: "game", name: "Game" } } } } };
+        return {
+          data: {
+            user: {
+              id: "channel-id",
+              stream: { id: "broadcast-id", game: { id: "game", name: "Game" } },
+            },
+          },
+        };
       }
       throw new Error(operationName);
     });
@@ -642,7 +791,14 @@ describe("Twitch HLS watcher cadence", () => {
     return {
       id: TWITCH_HLS_HEARTBEAT_ID,
       tick: vi.fn(async (_context: TwitchHeartbeatContext) => ({ ok: true, live: true })),
-      sustain: vi.fn(async (_context: TwitchHeartbeatContext): Promise<{ ok: boolean; live?: boolean; message?: string } | undefined> => ({ ok: true, live: true })),
+      sustain: vi.fn(
+        async (
+          _context: TwitchHeartbeatContext,
+        ): Promise<{ ok: boolean; live?: boolean; message?: string } | undefined> => ({
+          ok: true,
+          live: true,
+        }),
+      ),
       reset: vi.fn(),
     };
   }
@@ -705,9 +861,13 @@ describe("Twitch HLS watcher cadence", () => {
   it("runs its own health tick after a poll in progress instead of reusing its result", async () => {
     const strategy = hlsStrategy();
     let finishPoll: () => void = () => {};
-    strategy.sustain.mockImplementationOnce(() => new Promise((resolve) => {
-      finishPoll = () => resolve({ ok: false, live: true, message: "Twitch HLS segment returned HTTP 503" });
-    }));
+    strategy.sustain.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishPoll = () =>
+            resolve({ ok: false, live: true, message: "Twitch HLS segment returned HTTP 503" });
+        }),
+    );
     const watcher = twitchAdapter({ fetchJson: streamInfo() as never }, undefined, {
       heartbeatStrategy: strategy,
       heartbeatPollIntervalMs: 0,
@@ -754,7 +914,8 @@ describe("Twitch HLS watcher cadence", () => {
       continueSecond = resolve;
     });
     const exchange: TwitchHeartbeatExchange = async (url, init) => {
-      if (init.method === "GET" && url.includes("usher.ttvnw.net")) return { status: 200, body: MASTER, url };
+      if (init.method === "GET" && url.includes("usher.ttvnw.net"))
+        return { status: 200, body: MASTER, url };
       if (init.method === "GET") return { status: 200, body: media(SEGMENT_ONE, SEGMENT_TWO), url };
       heads.push(url);
       if (heads.length === 1) return { status: 200, body: "", url };
@@ -775,7 +936,9 @@ describe("Twitch HLS watcher cadence", () => {
     });
     const watcher = twitchAdapter({ fetchJson: fetchJson as never }, undefined, {
       heartbeatExchange: exchange,
-      heartbeatFetchText: async () => { throw new Error("no page"); },
+      heartbeatFetchText: async () => {
+        throw new Error("no page");
+      },
       heartbeatPost: async () => ({ status: 204 }),
       heartbeatPollIntervalMs: 0,
     }).createTablessWatcher();
@@ -783,9 +946,16 @@ describe("Twitch HLS watcher cadence", () => {
     await watcher.start(channel, { userId: "viewer-id" });
     const first = watcher.tick({});
     await secondStarted;
-    await watcher.start({ ...channel, username: "other", url: "https://www.twitch.tv/other" }, { userId: "viewer-id" });
+    await watcher.start(
+      { ...channel, username: "other", url: "https://www.twitch.tv/other" },
+      { userId: "viewer-id" },
+    );
 
-    await expect(first).resolves.toEqual({ ok: false, live: true, message: "Twitch HLS watch stopped" });
+    await expect(first).resolves.toEqual({
+      ok: false,
+      live: true,
+      message: "Twitch HLS watch stopped",
+    });
     expect(heads).toEqual([SEGMENT_ONE, SEGMENT_TWO]);
     await watcher.stop();
   });

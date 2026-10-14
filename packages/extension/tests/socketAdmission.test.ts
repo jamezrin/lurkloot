@@ -10,8 +10,16 @@ const PUSHER_URL = "wss://ws-us2.pusher.com/app/abc123?protocol=7";
 describe("socket admission", () => {
   function admission(options: { ready?: boolean; granted?: string[] } = {}) {
     const report = vi.fn();
-    const hasPermission = vi.fn(async (origin: string) => (options.granted ?? ["wss://*.twitch.tv/*", "wss://*.kick.com/*", "wss://*.pusher.com/*"]).includes(origin));
-    const admit = createSocketAdmission({ originReady: async () => options.ready ?? true, hasPermission, report });
+    const hasPermission = vi.fn(async (origin: string) =>
+      (
+        options.granted ?? ["wss://*.twitch.tv/*", "wss://*.kick.com/*", "wss://*.pusher.com/*"]
+      ).includes(origin),
+    );
+    const admit = createSocketAdmission({
+      originReady: async () => options.ready ?? true,
+      hasPermission,
+      report,
+    });
     return { admit, report, hasPermission };
   }
 
@@ -26,13 +34,19 @@ describe("socket admission", () => {
   it("refuses an unlisted socket", async () => {
     const a = admission();
     await expect(a.admit("wss://evil.example/")).resolves.toBe(false);
-    expect(a.report).toHaveBeenCalledWith({ platform: undefined, message: "Refused to open an unlisted socket." });
+    expect(a.report).toHaveBeenCalledWith({
+      platform: undefined,
+      message: "Refused to open an unlisted socket.",
+    });
   });
 
   it("keeps sockets closed until the Origin rules are in place", async () => {
     const a = admission({ ready: false });
     await expect(a.admit(IRC_URL)).resolves.toBe(false);
-    expect(a.report).toHaveBeenCalledWith({ platform: "twitch", message: "Twitch chat socket stays closed: its Origin cannot be set in this browser." });
+    expect(a.report).toHaveBeenCalledWith({
+      platform: "twitch",
+      message: "Twitch chat socket stays closed: its Origin cannot be set in this browser.",
+    });
   });
 
   it("keeps a socket closed without its wss:// host, saying so once until it opens", async () => {
@@ -41,7 +55,11 @@ describe("socket admission", () => {
     await expect(a.admit(VIEWER_URL)).resolves.toBe(false);
     await expect(a.admit(VIEWER_URL)).resolves.toBe(false);
     expect(a.report).toHaveBeenCalledOnce();
-    expect(a.report).toHaveBeenCalledWith({ platform: "kick", message: "Kick viewer socket stays closed until the wss://*.kick.com/* host permission is granted." });
+    expect(a.report).toHaveBeenCalledWith({
+      platform: "kick",
+      message:
+        "Kick viewer socket stays closed until the wss://*.kick.com/* host permission is granted.",
+    });
     granted.push("wss://*.kick.com/*");
     await expect(a.admit(VIEWER_URL)).resolves.toBe(true);
     granted.pop();
@@ -54,10 +72,17 @@ class FakeSocket implements WebSocketLike {
   readyState = 0;
   sent: string[] = [];
   closed = false;
-  private readonly listeners: Record<string, Array<(event: WebSocketMessageEventLike) => void>> = {};
-  send(data: string) { this.sent.push(data); }
-  close() { this.closed = true; }
-  addEventListener(type: string, listener: (event: WebSocketMessageEventLike) => void) { (this.listeners[type] ??= []).push(listener); }
+  private readonly listeners: Record<string, Array<(event: WebSocketMessageEventLike) => void>> =
+    {};
+  send(data: string) {
+    this.sent.push(data);
+  }
+  close() {
+    this.closed = true;
+  }
+  addEventListener(type: string, listener: (event: WebSocketMessageEventLike) => void) {
+    (this.listeners[type] ??= []).push(listener);
+  }
   emit(type: string, event: WebSocketMessageEventLike = {}) {
     if (type === "open") this.readyState = 1;
     for (const listener of this.listeners[type] ?? []) listener(event);
@@ -65,14 +90,26 @@ class FakeSocket implements WebSocketLike {
 }
 
 describe("admitted socket factory (Firefox)", () => {
-  const settle = async () => { for (let i = 0; i < 4; i += 1) await Promise.resolve(); };
+  const settle = async () => {
+    for (let i = 0; i < 4; i += 1) await Promise.resolve();
+  };
 
   it("opens the browser socket once admitted and passes its events through", async () => {
     const sockets: FakeSocket[] = [];
-    const factory = createAdmittedWebSocketFactory(async () => true, () => { const socket = new FakeSocket(); sockets.push(socket); return socket; });
+    const factory = createAdmittedWebSocketFactory(
+      async () => true,
+      () => {
+        const socket = new FakeSocket();
+        sockets.push(socket);
+        return socket;
+      },
+    );
     const socket = factory(IRC_URL);
     const events: string[] = [];
-    for (const type of ["open", "message", "close"] as const) socket.addEventListener(type, (event) => events.push(`${type}:${String(event.data ?? event.code ?? "")}`));
+    for (const type of ["open", "message", "close"] as const)
+      socket.addEventListener(type, (event) =>
+        events.push(`${type}:${String(event.data ?? event.code ?? "")}`),
+      );
     socket.send("early");
     await settle();
     sockets[0]!.emit("open");
@@ -105,28 +142,82 @@ describe("admitted socket factory (Firefox)", () => {
 
 describe("Firefox socket origin listener", () => {
   const EXTENSION = "moz-extension://1b2c3d4e-0000-4000-8000-000000000000";
-  const headers = [{ name: "Host", value: "irc-ws.chat.twitch.tv" }, { name: "Origin", value: EXTENSION }];
+  const headers = [
+    { name: "Host", value: "irc-ws.chat.twitch.tv" },
+    { name: "Origin", value: EXTENSION },
+  ];
 
   it("sets the platform's Origin on the extension's own platform sockets", () => {
-    expect(rewriteSocketOrigin({ url: IRC_URL, originUrl: `${EXTENSION}/_generated_background_page.html`, requestHeaders: headers }, EXTENSION)).toEqual({
-      requestHeaders: [{ name: "Host", value: "irc-ws.chat.twitch.tv" }, { name: "Origin", value: "https://www.twitch.tv" }],
+    expect(
+      rewriteSocketOrigin(
+        {
+          url: IRC_URL,
+          originUrl: `${EXTENSION}/_generated_background_page.html`,
+          requestHeaders: headers,
+        },
+        EXTENSION,
+      ),
+    ).toEqual({
+      requestHeaders: [
+        { name: "Host", value: "irc-ws.chat.twitch.tv" },
+        { name: "Origin", value: "https://www.twitch.tv" },
+      ],
     });
-    expect(rewriteSocketOrigin({ url: PUSHER_URL, originUrl: `${EXTENSION}/background.html`, requestHeaders: headers }, EXTENSION)?.requestHeaders.at(-1)).toEqual({ name: "Origin", value: "https://kick.com" });
+    expect(
+      rewriteSocketOrigin(
+        { url: PUSHER_URL, originUrl: `${EXTENSION}/background.html`, requestHeaders: headers },
+        EXTENSION,
+      )?.requestHeaders.at(-1),
+    ).toEqual({ name: "Origin", value: "https://kick.com" });
   });
 
   it("leaves a platform tab's sockets and other hosts alone", () => {
-    expect(rewriteSocketOrigin({ url: IRC_URL, originUrl: "https://www.twitch.tv/somechannel", requestHeaders: headers }, EXTENSION)).toBeUndefined();
-    expect(rewriteSocketOrigin({ url: IRC_URL, originUrl: "moz-extension://another-extension/page.html", requestHeaders: headers }, EXTENSION)).toBeUndefined();
-    expect(rewriteSocketOrigin({ url: "wss://unknown-provider.example/socket", originUrl: `${EXTENSION}/x.html`, requestHeaders: headers }, EXTENSION)).toBeUndefined();
+    expect(
+      rewriteSocketOrigin(
+        { url: IRC_URL, originUrl: "https://www.twitch.tv/somechannel", requestHeaders: headers },
+        EXTENSION,
+      ),
+    ).toBeUndefined();
+    expect(
+      rewriteSocketOrigin(
+        {
+          url: IRC_URL,
+          originUrl: "moz-extension://another-extension/page.html",
+          requestHeaders: headers,
+        },
+        EXTENSION,
+      ),
+    ).toBeUndefined();
+    expect(
+      rewriteSocketOrigin(
+        {
+          url: "wss://unknown-provider.example/socket",
+          originUrl: `${EXTENSION}/x.html`,
+          requestHeaders: headers,
+        },
+        EXTENSION,
+      ),
+    ).toBeUndefined();
   });
 
   it("registers a blocking listener on the platform socket hosts", () => {
     const addListener = vi.fn();
-    expect(installSocketOriginListener({ onBeforeSendHeaders: { addListener } }, EXTENSION)).toBe(true);
-    expect(addListener).toHaveBeenCalledWith(expect.any(Function), {
-      urls: ["wss://*.twitch.tv/*", "wss://*.kick.com/*", "wss://*.pusher.com/*", "wss://backend.p-n6412w7dsu.exmggames.com/*"],
-      types: ["websocket"],
-    }, ["blocking", "requestHeaders"]);
+    expect(installSocketOriginListener({ onBeforeSendHeaders: { addListener } }, EXTENSION)).toBe(
+      true,
+    );
+    expect(addListener).toHaveBeenCalledWith(
+      expect.any(Function),
+      {
+        urls: [
+          "wss://*.twitch.tv/*",
+          "wss://*.kick.com/*",
+          "wss://*.pusher.com/*",
+          "wss://backend.p-n6412w7dsu.exmggames.com/*",
+        ],
+        types: ["websocket"],
+      },
+      ["blocking", "requestHeaders"],
+    );
     expect(installSocketOriginListener(undefined, EXTENSION)).toBe(false);
   });
 });
@@ -137,17 +228,32 @@ describe("Fortnite extension socket (#798)", () => {
 
   it("presents the extension frame's origin on Firefox", () => {
     const headers = [{ name: "Origin", value: EXTENSION }];
-    expect(rewriteSocketOrigin({ url: FORTNITE_URL, originUrl: `${EXTENSION}/background.html`, requestHeaders: headers }, EXTENSION)).toEqual({
-      requestHeaders: [{ name: "Origin", value: "https://x2nfeda4neuzvsp2zdqfln9nwxc7tp.ext-twitch.tv" }],
+    expect(
+      rewriteSocketOrigin(
+        { url: FORTNITE_URL, originUrl: `${EXTENSION}/background.html`, requestHeaders: headers },
+        EXTENSION,
+      ),
+    ).toEqual({
+      requestHeaders: [
+        { name: "Origin", value: "https://x2nfeda4neuzvsp2zdqfln9nwxc7tp.ext-twitch.tv" },
+      ],
     });
   });
 
   it("stays closed until the provider's socket backend is granted", async () => {
     const report = vi.fn();
     const granted = new Set<string>();
-    const admit = createSocketAdmission({ originReady: async () => true, hasPermission: async (origin) => granted.has(origin), report });
+    const admit = createSocketAdmission({
+      originReady: async () => true,
+      hasPermission: async (origin) => granted.has(origin),
+      report,
+    });
     await expect(admit(FORTNITE_URL)).resolves.toBe(false);
-    expect(report).toHaveBeenCalledWith({ platform: "twitch", message: "Fortnite extension socket stays closed until the wss://backend.p-n6412w7dsu.exmggames.com/* host permission is granted." });
+    expect(report).toHaveBeenCalledWith({
+      platform: "twitch",
+      message:
+        "Fortnite extension socket stays closed until the wss://backend.p-n6412w7dsu.exmggames.com/* host permission is granted.",
+    });
     granted.add("wss://backend.p-n6412w7dsu.exmggames.com/*");
     await expect(admit(FORTNITE_URL)).resolves.toBe(true);
   });

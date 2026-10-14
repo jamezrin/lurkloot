@@ -98,7 +98,12 @@ const MOVES: Record<Direction, Cell> = {
   left: { col: -1, row: 0 },
   right: { col: 1, row: 0 },
 };
-const REVERSE: Record<Direction, Direction> = { up: "down", down: "up", left: "right", right: "left" };
+const REVERSE: Record<Direction, Direction> = {
+  up: "down",
+  down: "up",
+  left: "right",
+  right: "left",
+};
 const START_LENGTH = 4;
 const MAX_TURNS = 3;
 const MATCH_ITEMS = 3;
@@ -115,7 +120,13 @@ export function onBoard(board: Board, cell: Cell) {
   return cell.col >= 0 && cell.col < board.cols && cell.row >= 0 && cell.row < board.rows;
 }
 
-export function createBoard(width: number, height: number, cell: number, copy: Rect[] = [], chrome: Rect[] = []): Board {
+export function createBoard(
+  width: number,
+  height: number,
+  cell: number,
+  copy: Rect[] = [],
+  chrome: Rect[] = [],
+): Board {
   const cols = Math.max(0, Math.floor(width / cell));
   const rows = Math.max(0, Math.floor(height / cell));
   const x = Math.floor((width - cols * cell) / 2);
@@ -129,7 +140,9 @@ export function createBoard(width: number, height: number, cell: number, copy: R
       const top = y + row * cell;
       // Any overlap counts, so maze walls along the cell edges stay off the text.
       const under = (rects: Rect[]) =>
-        rects.some((r) => left < r.right && left + cell > r.left && top < r.bottom && top + cell > r.top);
+        rects.some(
+          (r) => left < r.right && left + cell > r.left && top < r.bottom && top + cell > r.top,
+        );
       covered.push(under(copy));
       if (under(chrome)) continue;
       free.push({ col, row });
@@ -192,8 +205,10 @@ export function createMaze(
   for (let index = 0; index < size; index++) if (!seen[index]) carve(index);
   for (let index = 0; index < size; index++) {
     if (blocked[index]) continue;
-    if (index % cols < cols - 1 && !blocked[index + 1] && !right[index] && random() < loops) right[index] = true;
-    if (index + cols < size && !blocked[index + cols] && !down[index] && random() < loops) down[index] = true;
+    if (index % cols < cols - 1 && !blocked[index + 1] && !right[index] && random() < loops)
+      right[index] = true;
+    if (index + cols < size && !blocked[index + cols] && !down[index] && random() < loops)
+      down[index] = true;
   }
   return { cols, rows, right, down, solid: blocked };
 }
@@ -215,7 +230,8 @@ export function findPath(maze: Maze, from: Cell, to: Cell): Cell[] {
   const start = from.row * cols + from.col;
   const goal = to.row * cols + to.col;
   if (!size || start < 0 || goal < 0 || start >= size || goal >= size) return [];
-  const estimate = (index: number) => Math.abs((index % cols) - to.col) + Math.abs(Math.floor(index / cols) - to.row);
+  const estimate = (index: number) =>
+    Math.abs((index % cols) - to.col) + Math.abs(Math.floor(index / cols) - to.row);
   const cost = new Array<number>(size).fill(Number.POSITIVE_INFINITY);
   const came = new Array<number>(size).fill(-1);
   const closed = new Array<boolean>(size).fill(false);
@@ -229,7 +245,8 @@ export function findPath(maze: Maze, from: Cell, to: Cell): Cell[] {
     const current = open.splice(best, 1)[0];
     if (current === goal) {
       const path: Cell[] = [];
-      for (let index = goal; index !== -1; index = came[index]) path.unshift({ col: index % cols, row: Math.floor(index / cols) });
+      for (let index = goal; index !== -1; index = came[index])
+        path.unshift({ col: index % cols, row: Math.floor(index / cols) });
       return path;
     }
     closed[current] = true;
@@ -323,7 +340,11 @@ function shortestOrder(steps: number[][], count: number): number[] {
  * A new crossing. `side` picks the edge the snake comes in from, so the next
  * tour can start on the side the last one left; the corner on it is random.
  */
-export function createTour(board: Board, random: () => number = Math.random, side?: "left" | "right"): Tour {
+export function createTour(
+  board: Board,
+  random: () => number = Math.random,
+  side?: "left" | "right",
+): Tour {
   const { cols, rows } = board;
   const fromLeft = side ? side === "left" : random() < 0.5;
   const entry = { col: fromLeft ? 0 : cols - 1, row: random() < 0.5 ? 0 : rows - 1 };
@@ -345,10 +366,22 @@ export function createTour(board: Board, random: () => number = Math.random, sid
   const candidates = board.open.filter((cell) => fromEntry[indexOf(cell)] > 0);
   const drops: Cell[] = [];
   for (const spread of [4, 0]) {
-    const pool = candidates.filter((cell) => !drops.some((drop) => Math.abs(drop.col - cell.col) + Math.abs(drop.row - cell.row) < Math.max(1, spread)));
+    const pool = candidates.filter(
+      (cell) =>
+        !drops.some(
+          (drop) =>
+            Math.abs(drop.col - cell.col) + Math.abs(drop.row - cell.row) < Math.max(1, spread),
+        ),
+    );
     while (drops.length < TOUR_ITEMS && pool.length) {
       const [cell] = pool.splice(Math.floor(random() * pool.length), 1);
-      if (drops.some((drop) => Math.abs(drop.col - cell.col) + Math.abs(drop.row - cell.row) < Math.max(1, spread))) continue;
+      if (
+        drops.some(
+          (drop) =>
+            Math.abs(drop.col - cell.col) + Math.abs(drop.row - cell.row) < Math.max(1, spread),
+        )
+      )
+        continue;
       drops.push(cell);
     }
   }
@@ -371,13 +404,20 @@ export function createTour(board: Board, random: () => number = Math.random, sid
   };
   for (const drop of shortestOrder(steps, drops.length)) {
     // A drop picked up on the way to another needs no trip of its own.
-    if (!passed.has(`${drops[drop - 1].col}:${drops[drop - 1].row}`)) travel(drops[drop - 1], collecting);
+    if (!passed.has(`${drops[drop - 1].col}:${drops[drop - 1].row}`))
+      travel(drops[drop - 1], collecting);
   }
   travel(exit, maze);
 
   // Past the exit the head keeps going until the whole body is off the board.
-  const runout = Array.from({ length: START_LENGTH + drops.length + 2 }, (_, i) => ({ col: exit.col + inward * (i + 1), row: exit.row }));
-  const body = Array.from({ length: START_LENGTH }, (_, i) => ({ col: entry.col - inward * (i + 1), row: entry.row }));
+  const runout = Array.from({ length: START_LENGTH + drops.length + 2 }, (_, i) => ({
+    col: exit.col + inward * (i + 1),
+    row: exit.row,
+  }));
+  const body = Array.from({ length: START_LENGTH }, (_, i) => ({
+    col: entry.col - inward * (i + 1),
+    row: entry.row,
+  }));
   return {
     board,
     maze,
@@ -385,8 +425,17 @@ export function createTour(board: Board, random: () => number = Math.random, sid
     exit,
     route: [...route, ...runout],
     next: 0,
-    snake: { body, trail: body.map((cell) => ({ ...cell })), heading: fromLeft ? "right" : "left", growth: 0 },
-    items: drops.map((cell) => ({ ...cell, kind: itemKind(random), age: Number.POSITIVE_INFINITY })),
+    snake: {
+      body,
+      trail: body.map((cell) => ({ ...cell })),
+      heading: fromLeft ? "right" : "left",
+      growth: 0,
+    },
+    items: drops.map((cell) => ({
+      ...cell,
+      kind: itemKind(random),
+      age: Number.POSITIVE_INFINITY,
+    })),
   };
 }
 
@@ -449,7 +498,10 @@ export function turn(match: Match, direction: Direction) {
  * doesn't undo the turns tapped in with another. Reports a bite without
  * moving; the caller starts over.
  */
-export function matchStep(match: Match, held: Direction[] = []): { eaten: Item | null; bitten: boolean } {
+export function matchStep(
+  match: Match,
+  held: Direction[] = [],
+): { eaten: Item | null; bitten: boolean } {
   const { board, snake } = match;
   let heading = match.turns.shift();
   for (let i = held.length - 1; !heading && held.length > 1 && i >= 0; i--) {
@@ -457,7 +509,10 @@ export function matchStep(match: Match, held: Direction[] = []): { eaten: Item |
   }
   if (heading) snake.heading = heading;
   const move = MOVES[snake.heading];
-  const head = { col: wrap(snake.body[0].col + move.col, board.cols), row: wrap(snake.body[0].row + move.row, board.rows) };
+  const head = {
+    col: wrap(snake.body[0].col + move.col, board.cols),
+    row: wrap(snake.body[0].row + move.row, board.rows),
+  };
   // The tail moves out of the way this step unless the snake is growing.
   const growing = snake.growth > 0 || match.items.some((item) => same(item, head));
   const body = growing ? snake.body : snake.body.slice(0, -1);

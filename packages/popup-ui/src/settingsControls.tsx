@@ -3,15 +3,21 @@ import { useEffect, useState } from "react";
 import { Ban, ChevronDown, Lock, Minus, Plus } from "lucide-react";
 import { NumberField } from "@base-ui/react/number-field";
 import type { ExtensionSettings } from "@lurkloot/shared/models";
-import {
-  COLLAPSED_SETTINGS_SECTIONS_KEY,
-} from "./constants";
+import { COLLAPSED_SETTINGS_SECTIONS_KEY } from "./constants";
 import { usePopupRuntime, useT } from "./context";
 import { SearchBox, Toggle, cn } from "./primitives";
 import { Dropdown } from "./dropdown";
 import { Tip } from "./tooltip";
 
-export function SettingsSection({ id, title, description, badge, forceExpanded, collapsible = true, children }: {
+export function SettingsSection({
+  id,
+  title,
+  description,
+  badge,
+  forceExpanded,
+  collapsible = true,
+  children,
+}: {
   // Stable, locale-independent identity. Collapse state is keyed by this, not by
   // the translated title, so changing language does not reset the accordion.
   id: string;
@@ -34,7 +40,9 @@ export function SettingsSection({ id, title, description, badge, forceExpanded, 
     let mounted = true;
     void adapter.getStorage(COLLAPSED_SETTINGS_SECTIONS_KEY).then((stored) => {
       if (!mounted) return;
-      const map = stored[COLLAPSED_SETTINGS_SECTIONS_KEY] as Record<string, boolean | undefined> | undefined;
+      const map = stored[COLLAPSED_SETTINGS_SECTIONS_KEY] as
+        | Record<string, boolean | undefined>
+        | undefined;
       setCollapsed(map?.[id] === true);
     });
     return () => {
@@ -47,7 +55,8 @@ export function SettingsSection({ id, title, description, badge, forceExpanded, 
     setCollapsed(nextCollapsed);
     if (preview) return;
     void adapter.getStorage(COLLAPSED_SETTINGS_SECTIONS_KEY).then((stored) => {
-      const map = (stored[COLLAPSED_SETTINGS_SECTIONS_KEY] as Record<string, boolean> | undefined) ?? {};
+      const map =
+        (stored[COLLAPSED_SETTINGS_SECTIONS_KEY] as Record<string, boolean> | undefined) ?? {};
       const next = { ...map, [id]: nextCollapsed };
       void adapter.setStorage({ [COLLAPSED_SETTINGS_SECTIONS_KEY]: next });
     });
@@ -56,7 +65,12 @@ export function SettingsSection({ id, title, description, badge, forceExpanded, 
   const expanded = !collapsible || forceExpanded || !collapsed;
   const headingText = (
     <span className="flex min-w-0 items-center gap-1.5">
-      <span data-settings-section-title className="font-display text-[12.5px] font-bold leading-tight text-zinc-900 dark:text-zinc-50">{title}</span>
+      <span
+        data-settings-section-title
+        className="font-display text-[12.5px] font-bold leading-tight text-zinc-900 dark:text-zinc-50"
+      >
+        {title}
+      </span>
       {badge}
     </span>
   );
@@ -68,30 +82,57 @@ export function SettingsSection({ id, title, description, badge, forceExpanded, 
   // content column, one compact line aligned with the open sections. The same
   // button is kept across both states so focus survives the toggle.
   return (
-    <section id={`settings-section-${id}`} className={cn("@[520px]:grid-cols-[8.5rem_minmax(0,1fr)] grid scroll-mt-2 grid-cols-1 gap-x-5 border-t border-zinc-200 first:border-t-0 first:pt-0 dark:border-zinc-800", expanded ? "pt-3" : "pt-2")}>
+    <section
+      id={`settings-section-${id}`}
+      className={cn(
+        "@[520px]:grid-cols-[8.5rem_minmax(0,1fr)] grid scroll-mt-2 grid-cols-1 gap-x-5 border-t border-zinc-200 first:border-t-0 first:pt-0 dark:border-zinc-800",
+        expanded ? "pt-3" : "pt-2",
+      )}
+    >
       <header className={expanded ? "@[520px]:mb-0 mb-1.5" : "col-span-full"}>
         {!collapsible ? (
           <div className="py-1.5">
             {headingText}
-            {description ? <span className="mt-1 block text-[10.5px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</span> : null}
+            {description ? (
+              <span className="mt-1 block text-[10.5px] leading-snug text-zinc-500 dark:text-zinc-400">
+                {description}
+              </span>
+            ) : null}
           </div>
-        ) : <button
-          type="button"
-          aria-expanded={expanded}
-          onClick={toggleCollapsed}
-          className={cn(
-            "group grid w-full grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 rounded-lg py-1.5 text-start outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]",
-            !expanded && "@[520px]:grid-cols-[8.5rem_minmax(0,1fr)_auto] @[520px]:gap-x-5",
-          )}
-        >
-          <span className="col-start-1 row-start-1 min-w-0">{headingText}</span>
-          {description ? (
-            <span className={cn("col-start-1 row-start-2 mt-1 block min-w-0 text-[10.5px] leading-snug text-zinc-500 dark:text-zinc-400", !expanded && "@[520px]:col-start-2 @[520px]:row-start-1 @[520px]:mt-0.5 truncate")}>{description}</span>
-          ) : null}
-          {/* Shown on hover and focus while open, as the prototype has no
+        ) : (
+          <button
+            type="button"
+            aria-expanded={expanded}
+            onClick={toggleCollapsed}
+            className={cn(
+              "group grid w-full grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 rounded-lg py-1.5 text-start outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)]",
+              !expanded && "@[520px]:grid-cols-[8.5rem_minmax(0,1fr)_auto] @[520px]:gap-x-5",
+            )}
+          >
+            <span className="col-start-1 row-start-1 min-w-0">{headingText}</span>
+            {description ? (
+              <span
+                className={cn(
+                  "col-start-1 row-start-2 mt-1 block min-w-0 text-[10.5px] leading-snug text-zinc-500 dark:text-zinc-400",
+                  !expanded && "@[520px]:col-start-2 @[520px]:row-start-1 @[520px]:mt-0.5 truncate",
+                )}
+              >
+                {description}
+              </span>
+            ) : null}
+            {/* Shown on hover and focus while open, as the prototype has no
               arrows; always shown while collapsed, so a folded section says so. */}
-          <ChevronDown size={13} className={cn("col-start-2 row-start-1 mt-0.5 shrink-0 text-zinc-400 transition-transform dark:text-zinc-500", expanded ? "rotate-180 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" : "@[520px]:col-start-3")} />
-        </button>}
+            <ChevronDown
+              size={13}
+              className={cn(
+                "col-start-2 row-start-1 mt-0.5 shrink-0 text-zinc-400 transition-transform dark:text-zinc-500",
+                expanded
+                  ? "rotate-180 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"
+                  : "@[520px]:col-start-3",
+              )}
+            />
+          </button>
+        )}
       </header>
       {expanded ? <div className="min-w-0 space-y-3 pb-2">{children}</div> : null}
     </section>
@@ -103,7 +144,13 @@ export function SettingsSection({ id, title, description, badge, forceExpanded, 
 // available without a separate visual warning state. The anchor id sits on the
 // group itself rather than on a wrapper, so `first:` only matches the real first
 // group and every later group keeps its divider.
-export function SettingsGroup({ id, title, description, badge, children }: {
+export function SettingsGroup({
+  id,
+  title,
+  description,
+  badge,
+  children,
+}: {
   id?: string;
   title: string;
   // Groups whose whole body is one editor carry that editor's subtitle and count
@@ -114,33 +161,73 @@ export function SettingsGroup({ id, title, description, badge, children }: {
   children: React.ReactNode;
 }) {
   return (
-    <div id={id ? `settings-group-${id}` : undefined} className="mt-2 border-t border-zinc-200 pt-3 first:mt-0 first:border-t-0 first:pt-0 dark:border-zinc-800">
+    <div
+      id={id ? `settings-group-${id}` : undefined}
+      className="mt-2 border-t border-zinc-200 pt-3 first:mt-0 first:border-t-0 first:pt-0 dark:border-zinc-800"
+    >
       <div className="mb-0.5 flex items-center gap-1.5">
         <span className="text-[12.5px] font-semibold text-zinc-900 dark:text-zinc-50">{title}</span>
         {badge}
       </div>
-      {description ? <p className="mb-1.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</p> : null}
+      {description ? (
+        <p className="mb-1.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
+          {description}
+        </p>
+      ) : null}
       <div className="divide-y divide-zinc-100 dark:divide-zinc-800/70">{children}</div>
     </div>
   );
 }
 
-export function SettingsSearchBox({ value, onChange, autoFocus = false, compact = false }: { value: string; onChange(value: string): void; autoFocus?: boolean; compact?: boolean }) {
+export function SettingsSearchBox({
+  value,
+  onChange,
+  autoFocus = false,
+  compact = false,
+}: {
+  value: string;
+  onChange(value: string): void;
+  autoFocus?: boolean;
+  compact?: boolean;
+}) {
   const t = useT();
-  return <SearchBox autoFocus={autoFocus} compact={compact} value={value} onChange={onChange} placeholder={t("settingsSearchPlaceholder")} />;
+  return (
+    <SearchBox
+      autoFocus={autoFocus}
+      compact={compact}
+      value={value}
+      onChange={onChange}
+      placeholder={t("settingsSearchPlaceholder")}
+    />
+  );
 }
 
-export function AdvancedSettingsSwitch({ checked, onChange }: { checked: boolean; onChange(value: boolean): void }) {
+export function AdvancedSettingsSwitch({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange(value: boolean): void;
+}) {
   const t = useT();
   return (
     <div className="flex items-center justify-between gap-3 px-1">
-      <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">{t("settingsShowAdvancedTitle")}</span>
+      <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+        {t("settingsShowAdvancedTitle")}
+      </span>
       <Toggle checked={checked} onChange={onChange} label={t("settingsShowAdvancedTitle")} />
     </div>
   );
 }
 
-export function SettingRow({ title, description, checked, onChange, disabled = false, disabledReason }: {
+export function SettingRow({
+  title,
+  description,
+  checked,
+  onChange,
+  disabled = false,
+  disabledReason,
+}: {
   title: string;
   description: string;
   checked: boolean;
@@ -150,10 +237,19 @@ export function SettingRow({ title, description, checked, onChange, disabled = f
 }) {
   return (
     <Tip label={disabled ? disabledReason : undefined}>
-      <div className={cn("grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 py-2.5", disabled && "opacity-60")}>
+      <div
+        className={cn(
+          "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 py-2.5",
+          disabled && "opacity-60",
+        )}
+      >
         <div className="min-w-0">
-          <div className="text-[12.5px] font-semibold text-zinc-800 dark:text-zinc-100">{title}</div>
-          <div className="mt-0.5 max-w-[46ch] text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
+          <div className="text-[12.5px] font-semibold text-zinc-800 dark:text-zinc-100">
+            {title}
+          </div>
+          <div className="mt-0.5 max-w-[46ch] text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
+            {description}
+          </div>
         </div>
         <Toggle size="sm" checked={checked} onChange={onChange} label={title} disabled={disabled} />
       </div>
@@ -161,14 +257,21 @@ export function SettingRow({ title, description, checked, onChange, disabled = f
   );
 }
 
-
-export function ForgetExcludedCampaignsRow({ count, onForget }: { count: number; onForget(): void | Promise<void> }) {
+export function ForgetExcludedCampaignsRow({
+  count,
+  onForget,
+}: {
+  count: number;
+  onForget(): void | Promise<void>;
+}) {
   const t = useT();
   const disabled = count === 0;
   return (
     <div className="flex items-center gap-3 py-2.5">
       <div className="min-w-0 flex-1">
-        <div className="text-[12.5px] font-semibold text-zinc-800 dark:text-zinc-100">{t("forgetExcludedTitle")}</div>
+        <div className="text-[12.5px] font-semibold text-zinc-800 dark:text-zinc-100">
+          {t("forgetExcludedTitle")}
+        </div>
         <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
           {t("forgetExcludedDescription")}
         </div>
@@ -196,7 +299,14 @@ export function ForgetExcludedCampaignsRow({ count, onForget }: { count: number;
 // native <select> cannot follow the popup's theme. It is capped and allowed to
 // shrink; long labels ellipsize instead of squeezing whatever sits beside it,
 // and the full label stays available on hover.
-export function SelectControl<T extends string>({ label, value, options, onChange, disabled = false, disabledReason }: {
+export function SelectControl<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+  disabled = false,
+  disabledReason,
+}: {
   label: string;
   value: T;
   options: Array<{ value: T; label: string }>;
@@ -219,7 +329,15 @@ export function SelectControl<T extends string>({ label, value, options, onChang
   );
 }
 
-export function SelectSettingRow<T extends string>({ title, description, value, options, onChange, disabled = false, disabledReason }: {
+export function SelectSettingRow<T extends string>({
+  title,
+  description,
+  value,
+  options,
+  onChange,
+  disabled = false,
+  disabledReason,
+}: {
   title: string;
   description: string;
   value: T;
@@ -232,10 +350,21 @@ export function SelectSettingRow<T extends string>({ title, description, value, 
     <Tip label={disabled ? disabledReason : undefined}>
       <div className={cn("flex items-center gap-4 py-2.5", disabled && "opacity-60")}>
         <div className="min-w-0 flex-1">
-          <div className="text-[12.5px] font-semibold text-zinc-800 dark:text-zinc-100">{title}</div>
-          <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
+          <div className="text-[12.5px] font-semibold text-zinc-800 dark:text-zinc-100">
+            {title}
+          </div>
+          <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
+            {description}
+          </div>
         </div>
-        <SelectControl label={title} value={value} options={options} onChange={onChange} disabled={disabled} disabledReason={disabledReason} />
+        <SelectControl
+          label={title}
+          value={value}
+          options={options}
+          onChange={onChange}
+          disabled={disabled}
+          disabledReason={disabledReason}
+        />
       </div>
     </Tip>
   );
@@ -244,20 +373,45 @@ export function SelectSettingRow<T extends string>({ title, description, value, 
 // A whole-number setting on Base UI's NumberField: typing, arrow keys (Shift for
 // tens), and the − / + buttons all clamp to min/max, and the value is saved once
 // it is committed — on blur, Enter, or a step — rather than on every keystroke.
-export function NumberSettingRow({ title, description, value, min, max, suffix, onChange, disabled = false, disabledReason }: { title: string; description: string; value: number; min: number; max: number; suffix: string; onChange(value: number): void | Promise<void>; disabled?: boolean; disabledReason?: string }) {
+export function NumberSettingRow({
+  title,
+  description,
+  value,
+  min,
+  max,
+  suffix,
+  onChange,
+  disabled = false,
+  disabledReason,
+}: {
+  title: string;
+  description: string;
+  value: number;
+  min: number;
+  max: number;
+  suffix: string;
+  onChange(value: number): void | Promise<void>;
+  disabled?: boolean;
+  disabledReason?: string;
+}) {
   const [draft, setDraft] = useState<number | null>(value);
 
   useEffect(() => {
     setDraft(value);
   }, [value]);
 
-  const stepButton = "grid h-5 w-5 shrink-0 place-items-center rounded-md text-zinc-400 outline-none transition-colors hover:bg-zinc-100 hover:text-zinc-800 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] data-[disabled]:pointer-events-none data-[disabled]:opacity-40 dark:hover:bg-zinc-800 dark:hover:text-zinc-100";
+  const stepButton =
+    "grid h-5 w-5 shrink-0 place-items-center rounded-md text-zinc-400 outline-none transition-colors hover:bg-zinc-100 hover:text-zinc-800 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] data-[disabled]:pointer-events-none data-[disabled]:opacity-40 dark:hover:bg-zinc-800 dark:hover:text-zinc-100";
   return (
     <Tip label={disabled ? disabledReason : undefined}>
       <div className={cn("flex items-center gap-3 py-2.5", disabled && "opacity-60")}>
         <div className="min-w-0 flex-1">
-          <div className="text-[12.5px] font-semibold text-zinc-800 dark:text-zinc-100">{title}</div>
-          <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
+          <div className="text-[12.5px] font-semibold text-zinc-800 dark:text-zinc-100">
+            {title}
+          </div>
+          <div className="mt-0.5 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
+            {description}
+          </div>
         </div>
         <NumberField.Root
           value={draft}
@@ -300,12 +454,24 @@ export function NumberSettingRow({ title, description, value, min, max, suffix, 
 
 // A setting that lives in another view: its name and what it does, and the way
 // there. Settings points at Games rather than keeping a second category editor.
-export function SettingsLinkRow({ title, description, action, onClick }: { title: string; description: string; action: string; onClick?(): void }) {
+export function SettingsLinkRow({
+  title,
+  description,
+  action,
+  onClick,
+}: {
+  title: string;
+  description: string;
+  action: string;
+  onClick?(): void;
+}) {
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 py-2.5">
       <div className="min-w-0">
         <div className="text-[12.5px] font-semibold text-zinc-800 dark:text-zinc-100">{title}</div>
-        <div className="mt-0.5 max-w-[46ch] text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{description}</div>
+        <div className="mt-0.5 max-w-[46ch] text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">
+          {description}
+        </div>
       </div>
       {onClick ? (
         <button

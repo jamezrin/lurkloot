@@ -4,7 +4,12 @@ import { parse as parseJsonc, printParseErrorCode, type ParseError } from "jsonc
 import { resolveCompatibility } from "@lurkloot/core";
 import type { CompatibilityWarning } from "@lurkloot/shared/compatibility";
 import { CURRENT_SETTINGS_SCHEMA_VERSION } from "@lurkloot/shared/settingsSchema";
-import { DEFAULT_CLI_SETTINGS, parseCliSettingsWithDiagnostics, type CliSettings, type CliSettingsDiagnostic } from "./settings";
+import {
+  DEFAULT_CLI_SETTINGS,
+  parseCliSettingsWithDiagnostics,
+  type CliSettings,
+  type CliSettingsDiagnostic,
+} from "./settings";
 import { errorMessage } from "@lurkloot/shared/errors";
 
 export const TRANSPORTS = ["http", "impersonate"] as const;
@@ -19,7 +24,8 @@ export interface CliConfig {
   warnings: string[];
 }
 
-export const ENABLED_LOG_LEVELS_WARNING = "settings.enabledLogLevels is deprecated and ignored; use --log debug|info|warn|error";
+export const ENABLED_LOG_LEVELS_WARNING =
+  "settings.enabledLogLevels is deprecated and ignored; use --log debug|info|warn|error";
 
 const CONFIG_KEYS = new Set<string>(["transport", "authDir", "settings"]);
 
@@ -190,7 +196,9 @@ export function parseConfig(raw: unknown, configPath: string): CliConfig {
   const data = raw as Record<string, unknown>;
   const unknown = Object.keys(data).filter((key) => !CONFIG_KEYS.has(key));
   if (unknown.length > 0) {
-    throw new Error(`Unknown config ${unknown.length === 1 ? "key" : "keys"}: ${unknown.map((k) => `"${k}"`).join(", ")}; expected one of: ${[...CONFIG_KEYS].join(", ")}`);
+    throw new Error(
+      `Unknown config ${unknown.length === 1 ? "key" : "keys"}: ${unknown.map((k) => `"${k}"`).join(", ")}; expected one of: ${[...CONFIG_KEYS].join(", ")}`,
+    );
   }
   const transport = (data.transport as string | undefined) ?? "impersonate";
   if (!TRANSPORTS.includes(transport as Transport)) {
@@ -198,24 +206,38 @@ export function parseConfig(raw: unknown, configPath: string): CliConfig {
   }
   const authDir = resolve(dirname(configPath), (data.authDir as string | undefined) ?? "auth");
   const rawSettings = data.settings;
-  const warnings: string[] = rawSettings !== null
+  const warnings: string[] =
+    rawSettings !== null
     && typeof rawSettings === "object"
     && !Array.isArray(rawSettings)
     && Object.hasOwn(rawSettings, "enabledLogLevels")
-    ? [ENABLED_LOG_LEVELS_WARNING]
-    : [];
+      ? [ENABLED_LOG_LEVELS_WARNING]
+      : [];
   const parsed = parseCliSettingsWithDiagnostics(data.settings);
   const settings = parsed.settings;
   warnings.push(...parsed.diagnostics.map(formatMigrationWarning));
-  const webWarnings = resolveCompatibility(settings.compatibility, { host: "cli", twitchIdentity: "web" }).warnings;
-  const androidWarnings = resolveCompatibility(settings.compatibility, { host: "cli", twitchIdentity: "android" }).warnings;
-  warnings.push(...webWarnings.filter((candidate) => androidWarnings.some((warning) =>
-    warning.code === candidate.code
-    && warning.platform === candidate.platform
-    && warning.field === candidate.field
-    && warning.requested === candidate.requested
-    && warning.resolved === candidate.resolved
-  )).map(formatCompatibilityWarning));
+  const webWarnings = resolveCompatibility(settings.compatibility, {
+    host: "cli",
+    twitchIdentity: "web",
+  }).warnings;
+  const androidWarnings = resolveCompatibility(settings.compatibility, {
+    host: "cli",
+    twitchIdentity: "android",
+  }).warnings;
+  warnings.push(
+    ...webWarnings
+      .filter((candidate) =>
+        androidWarnings.some(
+          (warning) =>
+            warning.code === candidate.code
+            && warning.platform === candidate.platform
+            && warning.field === candidate.field
+            && warning.requested === candidate.requested
+            && warning.resolved === candidate.resolved,
+        ),
+      )
+      .map(formatCompatibilityWarning),
+  );
   return {
     transport: transport as Transport,
     authDir,
@@ -231,7 +253,8 @@ export function parseConfig(raw: unknown, configPath: string): CliConfig {
 // migration that removes a property outright carries no replacement, so fall
 // back to a bare deprecation notice rather than printing "settings.undefined".
 function formatMigrationWarning(diagnostic: CliSettingsDiagnostic): string {
-  if (diagnostic.code === "limit_exceeded") return `settings.${diagnostic.path}: ${diagnostic.message}`;
+  if (diagnostic.code === "limit_exceeded")
+    return `settings.${diagnostic.path}: ${diagnostic.message}`;
   if (!diagnostic.replacement) {
     return `settings.${diagnostic.path} is deprecated and ignored`;
   }
@@ -243,9 +266,12 @@ function formatCompatibilityWarning(warning: CompatibilityWarning): string {
   const reason = warning.code === "unknown_selection" ? "Unknown" : "Host-incompatible";
   let field: string;
   if (warning.platform === "twitch") {
-    field = warning.field === "profile"
-      ? "Twitch profile"
-      : warning.field === "heartbeatTransport" ? "Twitch heartbeat" : "Twitch inventory";
+    field =
+      warning.field === "profile"
+        ? "Twitch profile"
+        : warning.field === "heartbeatTransport"
+          ? "Twitch heartbeat"
+          : "Twitch inventory";
   } else {
     field = warning.field === "profile" ? "Kick profile" : "Kick claim";
   }
@@ -269,7 +295,9 @@ export function loadConfig(configPath: string): CliConfig {
       // Another process may have initialized the same mounted data directory
       // between our read and write. In that case, keep its file and read it.
       if (!isErrno(writeError, "EEXIST")) {
-        throw new Error(`Could not create default config at ${absolute}: ${errorMessage(writeError)}`);
+        throw new Error(
+          `Could not create default config at ${absolute}: ${errorMessage(writeError)}`,
+        );
       }
     }
     try {
@@ -286,7 +314,9 @@ export function loadConfig(configPath: string): CliConfig {
     const line = before.split("\n").length;
     const lastNewline = before.lastIndexOf("\n");
     const column = first.offset - lastNewline;
-    throw new Error(`Config at ${absolute} is not valid JSONC: ${printParseErrorCode(first.error)} at line ${line}, column ${column}`);
+    throw new Error(
+      `Config at ${absolute} is not valid JSONC: ${printParseErrorCode(first.error)} at line ${line}, column ${column}`,
+    );
   }
   return parseConfig(raw, absolute);
 }
@@ -302,11 +332,19 @@ function isErrno(error: unknown, code: string): error is NodeJS.ErrnoException {
 // command. The commented JSONC template is not preserved — the file becomes
 // plain JSON after the first import — which is why the CLI logs where it wrote.
 export function saveConfigSettings(config: CliConfig, settings: CliSettings): void {
-  writeFileSync(config.configPath, `${JSON.stringify({
-    transport: config.transport,
-    authDir: relative(dirname(config.configPath), config.authDir) || ".",
-    settings,
-  }, null, 2)}\n`, "utf8");
+  writeFileSync(
+    config.configPath,
+    `${JSON.stringify(
+      {
+        transport: config.transport,
+        authDir: relative(dirname(config.configPath), config.authDir) || ".",
+        settings,
+      },
+      null,
+      2,
+    )}\n`,
+    "utf8",
+  );
 }
 
 // `config export --out` must never resolve to the active config file: the
@@ -314,6 +352,8 @@ export function saveConfigSettings(config: CliConfig, settings: CliSettings): vo
 // writing it over config.json would silently drop both on the next load.
 export function assertExportOutputPath(outputPath: string, config: CliConfig): void {
   if (outputPath === config.configPath) {
-    throw new Error(`--out must not be the active config file (${config.configPath}); the export envelope does not carry "transport"/"authDir" and would corrupt it`);
+    throw new Error(
+      `--out must not be the active config file (${config.configPath}); the export envelope does not carry "transport"/"authDir" and would corrupt it`,
+    );
   }
 }

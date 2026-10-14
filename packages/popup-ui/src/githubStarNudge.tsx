@@ -6,7 +6,13 @@ import { useT } from "./context";
 import { cn } from "./primitives";
 import { Tip } from "./tooltip";
 
-export function GithubStarNudge({ onStar, onDismiss }: { onStar(): void; onDismiss(): void }): React.ReactElement {
+export function GithubStarNudge({
+  onStar,
+  onDismiss,
+}: {
+  onStar(): void;
+  onDismiss(): void;
+}): React.ReactElement {
   const t = useT();
   return (
     <motion.div

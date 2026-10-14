@@ -11,7 +11,14 @@ import {
 import { heartbeatContextKey } from "@lurkloot/core/heartbeatCadence";
 import { resolveCompatibility } from "@lurkloot/core";
 import type { EngineEvent, EventEmitter } from "@lurkloot/shared/events";
-import type { ChannelCandidate, DropCampaign, ExtensionSettings, Platform, SchedulerState, WatchSession } from "@lurkloot/shared/models";
+import type {
+  ChannelCandidate,
+  DropCampaign,
+  ExtensionSettings,
+  Platform,
+  SchedulerState,
+  WatchSession,
+} from "@lurkloot/shared/models";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "../../src/core/storage";
 import { createTabRegistry, forgetManagedPageContextTabs } from "@lurkloot/core/tabRegistry";
@@ -109,7 +116,9 @@ const countKeys = [
 ] as const satisfies readonly (keyof TickBaselineCounts)[];
 
 export function createTickBaselineRecorder() {
-  const counts = Object.fromEntries(countKeys.map((key) => [key, 0])) as unknown as TickBaselineCounts;
+  const counts = Object.fromEntries(
+    countKeys.map((key) => [key, 0]),
+  ) as unknown as TickBaselineCounts;
   const durationsMs: Record<TickPhase, number> = {
     discovery: 0,
     selection: 0,
@@ -167,21 +176,28 @@ export function createCountingAdapter(
       if (scenario === "failed") throw new Error(`${platform} synthetic discovery failure`);
       return scenario === "idle"
         ? []
-        : scenario === "higherPriorityUnavailable" ? [campaign, urgentCampaign] : [campaign];
+        : scenario === "higherPriorityUnavailable"
+          ? [campaign, urgentCampaign]
+          : [campaign];
     },
     listCandidateChannels: async (selectedCampaign) => {
       recorder.count("candidateListings");
       await request("selection", 10);
-      return [{
-        ...candidate,
-        username: selectedCampaign.id.endsWith("urgent") ? `${platform}-urgent-creator` : candidate.username,
-      }];
+      return [
+        {
+          ...candidate,
+          username: selectedCampaign.id.endsWith("urgent")
+            ? `${platform}-urgent-creator`
+            : candidate.username,
+        },
+      ];
     },
     checkChannel: async (checkedCandidate) => {
       recorder.count("channelChecks");
       await request("selection", 10);
       return {
-        live: scenario !== "higherPriorityUnavailable" || !checkedCandidate.username.includes("urgent"),
+        live:
+          scenario !== "higherPriorityUnavailable" || !checkedCandidate.username.includes("urgent"),
         categoryMatches: true,
         candidate: checkedCandidate,
       };
@@ -196,13 +212,15 @@ function baselineCampaign(platform: Platform, suffix = "campaign"): DropCampaign
     platform,
     name: `${platform} campaign`,
     status: "active",
-    rewards: [{
-      id: `${platform}-reward`,
-      name: `${platform} reward`,
-      requiredMinutes: 60,
-      watchedMinutes: 10,
-      status: "in_progress",
-    }],
+    rewards: [
+      {
+        id: `${platform}-reward`,
+        name: `${platform} reward`,
+        requiredMinutes: 60,
+        watchedMinutes: 10,
+        status: "in_progress",
+      },
+    ],
   };
 }
 
@@ -211,9 +229,10 @@ function baselineCandidate(platform: Platform): ChannelCandidate {
     platform,
     username: `${platform}-creator`,
     displayName: `${platform} creator`,
-    url: platform === "twitch"
-      ? "https://www.twitch.tv/twitch-creator"
-      : "https://kick.com/kick-creator",
+    url:
+      platform === "twitch"
+        ? "https://www.twitch.tv/twitch-creator"
+        : "https://kick.com/kick-creator",
   };
 }
 
@@ -268,7 +287,9 @@ function createOverlapMilestones() {
   };
 }
 
-async function runExtensionHeartbeatOverlapCell(platform: Platform): Promise<HostTickBaselineResult> {
+async function runExtensionHeartbeatOverlapCell(
+  platform: Platform,
+): Promise<HostTickBaselineResult> {
   const recorder = createTickBaselineRecorder();
   const milestones = createOverlapMilestones();
   const releaseDiscovery = deferred();
@@ -313,12 +334,9 @@ async function runExtensionHeartbeatOverlapCell(platform: Platform): Promise<Hos
   measuredAdapter.createTablessWatcher = () => watcher;
 
   const adapters = {
-    twitch: platform === "twitch"
-      ? measuredAdapter
-      : createCountingAdapter("twitch", "idle", recorder),
-    kick: platform === "kick"
-      ? measuredAdapter
-      : createCountingAdapter("kick", "idle", recorder),
+    twitch:
+      platform === "twitch" ? measuredAdapter : createCountingAdapter("twitch", "idle", recorder),
+    kick: platform === "kick" ? measuredAdapter : createCountingAdapter("kick", "idle", recorder),
   } satisfies Record<Platform, PlatformAdapter>;
   const settings: ExtensionSettings = {
     ...DEFAULT_SETTINGS,
@@ -374,14 +392,18 @@ async function runExtensionHeartbeatOverlapCell(platform: Platform): Promise<Hos
       if (event.category !== "diagnostic") continue;
       const refreshDuration = event.message.match(/^Campaign refresh finished in (\d+)ms/);
       if (refreshDuration) observedControllerMs.discovery = Number(refreshDuration[1]);
-      const selectionDuration = event.message.match(/^Campaign selection(?: fast path retained current watch)? finished in (\d+)ms/);
+      const selectionDuration = event.message.match(
+        /^Campaign selection(?: fast path retained current watch)? finished in (\d+)ms/,
+      );
       if (selectionDuration) observedControllerMs.selection = Number(selectionDuration[1]);
       const totalDuration = event.message.match(/^Tick #\d+ finished after (\d+)ms/);
       if (totalDuration) {
         observedControllerMs.total = Number(totalDuration[1]);
         milestones.mark("discoveryCompleted");
       }
-      const selection = event.message.match(/\((\d+) campaigns? checked, (\d+) candidates? checked\)/);
+      const selection = event.message.match(
+        /\((\d+) campaigns? checked, (\d+) candidates? checked\)/,
+      );
       if (selection) {
         recorder.count("campaignsEvaluated", Number(selection[1]));
         recorder.count("candidatesEvaluated", Number(selection[2]));
@@ -398,32 +420,34 @@ async function runExtensionHeartbeatOverlapCell(platform: Platform): Promise<Hos
     recorder.count("adapterConstructions");
     return { adapter: adapters[selectedPlatform], ...compatibility };
   };
-  const controller = createBackgroundController<ExtensionSettings>(hostPortsFromMocks<ExtensionSettings>({
-    loadSettings: async () => {
-      recorder.count("settingsLoads");
-      return settings;
-    },
-    saveSettings: async () => undefined,
-    loadState: async () => {
-      recorder.count("stateLoads");
-      return state;
-    },
-    saveState: async (next) => {
-      recorder.count("stateSaves");
-      await recorder.clock.advance("persistence", 5);
-      state = next;
-    },
-    reportEvents,
-    createAlarm: async () => undefined,
-    ...extensionTabMocks(recorder),
-    ensureTwitchIntegrity: async () => true,
-    createNotification: async () => undefined,
-    createAdapter: (selectedPlatform) => resolutionFor(selectedPlatform),
-    createAdapters: () => {
-      recorder.count("adapterConstructions", 2);
-      return { adapters, ...compatibility };
-    },
-  }));
+  const controller = createBackgroundController<ExtensionSettings>(
+    hostPortsFromMocks<ExtensionSettings>({
+      loadSettings: async () => {
+        recorder.count("settingsLoads");
+        return settings;
+      },
+      saveSettings: async () => undefined,
+      loadState: async () => {
+        recorder.count("stateLoads");
+        return state;
+      },
+      saveState: async (next) => {
+        recorder.count("stateSaves");
+        await recorder.clock.advance("persistence", 5);
+        state = next;
+      },
+      reportEvents,
+      createAlarm: async () => undefined,
+      ...extensionTabMocks(recorder),
+      ensureTwitchIntegrity: async () => true,
+      createNotification: async () => undefined,
+      createAdapter: (selectedPlatform) => resolutionFor(selectedPlatform),
+      createAdapters: () => {
+        recorder.count("adapterConstructions", 2);
+        return { adapters, ...compatibility };
+      },
+    }),
+  );
   const dispatchAlarm = createBackgroundAlarmListener(controller);
 
   try {
@@ -487,30 +511,41 @@ export async function runExtensionBaselineCell(
     campaignPins: scenario === "higherPriorityUnavailable" ? [`${platform}-urgent`] : [],
   };
   let state: SchedulerState = structuredClone(DEFAULT_STATE);
-  if (scenario === "stable" || scenario === "retained" || scenario === "switch" || scenario === "higherPriorityUnavailable") {
-    const currentIds = scenario === "switch"
-      ? { campaign: `${platform}-old-campaign`, reward: `${platform}-old-reward` }
-      : { campaign: `${platform}-campaign`, reward: `${platform}-reward` };
-    const candidate = scenario === "switch"
-      ? {
-          ...baselineCandidate(platform),
-          username: `${platform}-old-creator`,
-          url: platform === "twitch"
-            ? "https://www.twitch.tv/twitch-old-creator"
-            : "https://kick.com/kick-old-creator",
-        }
-      : baselineCandidate(platform);
+  if (
+    scenario === "stable"
+    || scenario === "retained"
+    || scenario === "switch"
+    || scenario === "higherPriorityUnavailable"
+  ) {
+    const currentIds =
+      scenario === "switch"
+        ? { campaign: `${platform}-old-campaign`, reward: `${platform}-old-reward` }
+        : { campaign: `${platform}-campaign`, reward: `${platform}-reward` };
+    const candidate =
+      scenario === "switch"
+        ? {
+            ...baselineCandidate(platform),
+            username: `${platform}-old-creator`,
+            url:
+              platform === "twitch"
+                ? "https://www.twitch.tv/twitch-old-creator"
+                : "https://kick.com/kick-old-creator",
+          }
+        : baselineCandidate(platform);
     const tabId = platform === "twitch" ? 10 : 20;
-    const retainedCampaign = scenario === "switch"
-      ? {
-          ...baselineCampaign(platform),
-          id: currentIds.campaign,
-          rewards: [{
-            ...baselineCampaign(platform).rewards[0],
-            id: currentIds.reward,
-          }],
-        }
-      : baselineCampaign(platform);
+    const retainedCampaign =
+      scenario === "switch"
+        ? {
+            ...baselineCampaign(platform),
+            id: currentIds.campaign,
+            rewards: [
+              {
+                ...baselineCampaign(platform).rewards[0],
+                id: currentIds.reward,
+              },
+            ],
+          }
+        : baselineCampaign(platform);
     state = {
       ...state,
       campaigns: { ...state.campaigns, [platform]: [retainedCampaign] },
@@ -553,11 +588,15 @@ export async function runExtensionBaselineCell(
       if (event.category !== "diagnostic") continue;
       const refreshDuration = event.message.match(/^Campaign refresh finished in (\d+)ms/);
       if (refreshDuration) observedControllerMs.discovery = Number(refreshDuration[1]);
-      const selectionDuration = event.message.match(/^Campaign selection(?: fast path retained current watch)? finished in (\d+)ms/);
+      const selectionDuration = event.message.match(
+        /^Campaign selection(?: fast path retained current watch)? finished in (\d+)ms/,
+      );
       if (selectionDuration) observedControllerMs.selection = Number(selectionDuration[1]);
       const totalDuration = event.message.match(/^Tick #\d+ finished after (\d+)ms/);
       if (totalDuration) observedControllerMs.total = Number(totalDuration[1]);
-      const selection = event.message.match(/\((\d+) campaigns? checked, (\d+) candidates? checked\)/);
+      const selection = event.message.match(
+        /\((\d+) campaigns? checked, (\d+) candidates? checked\)/,
+      );
       if (selection) {
         recorder.count("campaignsEvaluated", Number(selection[1]));
         recorder.count("candidatesEvaluated", Number(selection[2]));
@@ -571,32 +610,34 @@ export async function runExtensionBaselineCell(
     recorder.count("adapterConstructions");
     return { adapter: adapters[selectedPlatform], ...compatibility };
   };
-  const controller = createBackgroundController<ExtensionSettings>(hostPortsFromMocks<ExtensionSettings>({
-    loadSettings: async () => {
-      recorder.count("settingsLoads");
-      return settings;
-    },
-    saveSettings: async () => undefined,
-    loadState: async () => {
-      recorder.count("stateLoads");
-      return state;
-    },
-    saveState: async (next) => {
-      recorder.count("stateSaves");
-      await recorder.clock.advance("persistence", 5);
-      state = next;
-    },
-    reportEvents,
-    createAlarm: async () => undefined,
-    ...extensionTabMocks(recorder),
-    ensureTwitchIntegrity: async () => true,
-    createNotification: async () => undefined,
-    createAdapter: (selectedPlatform) => resolutionFor(selectedPlatform),
-    createAdapters: (_emit: EventEmitter) => {
-      recorder.count("adapterConstructions", 2);
-      return { adapters, ...compatibility };
-    },
-  }));
+  const controller = createBackgroundController<ExtensionSettings>(
+    hostPortsFromMocks<ExtensionSettings>({
+      loadSettings: async () => {
+        recorder.count("settingsLoads");
+        return settings;
+      },
+      saveSettings: async () => undefined,
+      loadState: async () => {
+        recorder.count("stateLoads");
+        return state;
+      },
+      saveState: async (next) => {
+        recorder.count("stateSaves");
+        await recorder.clock.advance("persistence", 5);
+        state = next;
+      },
+      reportEvents,
+      createAlarm: async () => undefined,
+      ...extensionTabMocks(recorder),
+      ensureTwitchIntegrity: async () => true,
+      createNotification: async () => undefined,
+      createAdapter: (selectedPlatform) => resolutionFor(selectedPlatform),
+      createAdapters: (_emit: EventEmitter) => {
+        recorder.count("adapterConstructions", 2);
+        return { adapters, ...compatibility };
+      },
+    }),
+  );
 
   await controller.tickAndHandOff([platform], "alarm");
   return {

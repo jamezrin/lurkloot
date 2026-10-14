@@ -32,7 +32,7 @@
     "locales:check": "node scripts/check-locales.mjs",
     "locales:test": "node --test scripts/check-locales.test.mjs",
     "format": "biome format --write .",
-    "check": "pnpm cws:test && pnpm release:test && pnpm locales:test && pnpm locales:check && pnpm -r typecheck && pnpm test && pnpm build:site",
+    "check": "biome check . && pnpm cws:test && pnpm release:test && pnpm locales:test && pnpm locales:check && pnpm -r typecheck && pnpm test && pnpm build:site",
     "verify": "pnpm check && pnpm build && pnpm build:firefox"
   },
   "devDependencies": {

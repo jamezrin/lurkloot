@@ -62,9 +62,10 @@ export async function runLoop(options: RunOptions): Promise<void> {
   // The shared engine works on the EngineSettings contract; expand the CLI's
   // schema once, pinning the headless invariants (always running, always tabless).
   const engineSettings = toEngineSettings(settings);
-  const loadRuntimeState = options.stateStore?.load
-    ?? (async (): Promise<SchedulerState> => loadState(statePath));
-  const saveRuntimeState = options.stateStore?.save
+  const loadRuntimeState =
+    options.stateStore?.load ?? (async (): Promise<SchedulerState> => loadState(statePath));
+  const saveRuntimeState =
+    options.stateStore?.save
     ?? (async (state: SchedulerState): Promise<void> => saveState(statePath, state));
 
   // Timers fire into the controller once it exists.
@@ -86,10 +87,13 @@ export async function runLoop(options: RunOptions): Promise<void> {
     },
     jobs,
     adapters: {
-      createAdapter: (platform, emit, currentSettings) => transport.createAdapter(platform, emit, currentSettings),
+      createAdapter: (platform, emit, currentSettings) =>
+        transport.createAdapter(platform, emit, currentSettings),
       createAdapters: (emit, currentSettings) => transport.createAdapters(emit, currentSettings),
     },
-    ...(options.checkCredentialAvailability ? { credentials: { checkAvailability: options.checkCredentialAvailability } } : {}),
+    ...(options.checkCredentialAvailability
+      ? { credentials: { checkAvailability: options.checkCredentialAvailability } }
+      : {}),
     twitch: {},
   });
 
@@ -104,9 +108,12 @@ export async function runLoop(options: RunOptions): Promise<void> {
     try {
       await controller.runJob(name);
     } catch (error) {
-      const scope = name === WATCH_ALARM_NAME
-        ? "heartbeat"
-        : name === TWITCH_ALARM_NAME || name === KICK_ALARM_NAME ? "tick" : "job";
+      const scope =
+        name === WATCH_ALARM_NAME
+          ? "heartbeat"
+          : name === TWITCH_ALARM_NAME || name === KICK_ALARM_NAME
+            ? "tick"
+            : "job";
       logger.error(errorMessage(error), scope);
     }
   };

@@ -6,9 +6,14 @@ describe("channelFromLocation on Twitch", () => {
     expect(channelFromLocation("twitch", "https://www.twitch.tv/summit1g")).toBe("summit1g");
     expect(channelFromLocation("twitch", "https://www.twitch.tv/Summit1G/")).toBe("summit1g");
     for (const subpath of ["about", "schedule", "videos", "clips"]) {
-      expect(channelFromLocation("twitch", `https://www.twitch.tv/summit1g/${subpath}`), subpath).toBe("summit1g");
+      expect(
+        channelFromLocation("twitch", `https://www.twitch.tv/summit1g/${subpath}`),
+        subpath,
+      ).toBe("summit1g");
     }
-    expect(channelFromLocation("twitch", "https://www.twitch.tv/summit1g/clip/SomeClipSlug")).toBe("summit1g");
+    expect(channelFromLocation("twitch", "https://www.twitch.tv/summit1g/clip/SomeClipSlug")).toBe(
+      "summit1g",
+    );
   });
 
   it("refuses the site's own pages", () => {
@@ -28,7 +33,9 @@ describe("channelFromLocation on Twitch", () => {
   });
 
   it("refuses a subpage that is not the channel's own", () => {
-    expect(channelFromLocation("twitch", "https://www.twitch.tv/summit1g/squad/extra")).toBeUndefined();
+    expect(
+      channelFromLocation("twitch", "https://www.twitch.tv/summit1g/squad/extra"),
+    ).toBeUndefined();
   });
 });
 
@@ -36,7 +43,10 @@ describe("channelFromLocation on Kick", () => {
   it("reads the channel from a channel page and its own subpages", () => {
     expect(channelFromLocation("kick", "https://kick.com/trainwreckstv")).toBe("trainwreckstv");
     for (const subpath of ["videos", "clips", "about"]) {
-      expect(channelFromLocation("kick", `https://kick.com/trainwreckstv/${subpath}`), subpath).toBe("trainwreckstv");
+      expect(
+        channelFromLocation("kick", `https://kick.com/trainwreckstv/${subpath}`),
+        subpath,
+      ).toBe("trainwreckstv");
     }
   });
 
@@ -59,6 +69,8 @@ describe("channelFromLocation input handling", () => {
   });
 
   it("ignores query strings and fragments", () => {
-    expect(channelFromLocation("twitch", "https://www.twitch.tv/summit1g?tt_content=hero#chat")).toBe("summit1g");
+    expect(
+      channelFromLocation("twitch", "https://www.twitch.tv/summit1g?tt_content=hero#chat"),
+    ).toBe("summit1g");
   });
 });

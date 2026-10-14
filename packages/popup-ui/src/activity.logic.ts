@@ -63,7 +63,10 @@ export function beginActivityMutation(sequence: ActivityMutationSequence): numbe
   return sequence.latest;
 }
 
-export function isLatestActivityMutation(sequence: ActivityMutationSequence, request: number): boolean {
+export function isLatestActivityMutation(
+  sequence: ActivityMutationSequence,
+  request: number,
+): boolean {
   return sequence.latest === request;
 }
 
@@ -78,8 +81,8 @@ export function applyActivityPage(
 ): ActivityStream {
   const currentIds = new Set(current.events.map((event) => event.id));
   const refreshOverlapsCoverage = page.events.some((event) => currentIds.has(event.id));
-  const adoptRefreshCursor = !current.initialized
-    || Boolean(page.nextCursor && !refreshOverlapsCoverage);
+  const adoptRefreshCursor =
+    !current.initialized || Boolean(page.nextCursor && !refreshOverlapsCoverage);
 
   return {
     events: mergeActivityPages(current.events, page.events),
@@ -104,9 +107,11 @@ export function isActivityRequestCurrent(
   request: ActivityRequestScope,
   current: ActivityRequestScope,
 ): boolean {
-  return request.generation === current.generation
+  return (
+    request.generation === current.generation
     && request.platform === current.platform
-    && request.query === current.query;
+    && request.query === current.query
+  );
 }
 
 export function createDiagnosticsExportRequest(platform: Platform): DiagnosticsExportRequest {
@@ -155,27 +160,48 @@ export function applyActivityMutationForRequest(
 
 function formatStopReason(reason: FarmingStopReason, t: TFunction): string {
   switch (reason) {
-    case "automation_disabled": return t("activityReasonAutomationDisabled");
-    case "platform_disabled": return t("activityReasonPlatformDisabled");
-    case "authentication_unhealthy": return t("activityReasonAuthenticationUnhealthy");
-    case "platform_backoff": return t("activityReasonPlatformBackoff");
-    case "platform_error": return t("activityReasonPlatformError");
-    case "campaign_ineligible": return t("activityReasonCampaignIneligible");
-    case "channel_excluded": return t("activityReasonChannelExcluded");
-    case "channel_offline": return t("activityReasonChannelOffline");
-    case "channel_mismatch": return t("activityReasonChannelMismatch");
-    case "watch_unhealthy": return t("activityReasonWatchUnhealthy");
-    case "no_progress": return t("activityReasonNoProgress");
-    case "higher_priority_reward": return t("activityReasonHigherPriorityReward");
-    case "higher_priority_idle_watchlist": return t("activityReasonHigherPriorityIdleWatchlist");
-    case "watch_requirement_completed": return t("activityReasonWatchRequirementCompleted");
-    case "runtime_restart": return t("activityReasonRuntimeRestart");
-    case "target_changed": return t("activityReasonTargetChanged");
-    case "critical_failure": return t("activityReasonCriticalFailure");
-    case "manual_watch": return t("activityReasonManualWatch");
-    case "manual_tab_close": return t("activityReasonManualTabClose");
-    case "permission_missing": return t("activityReasonPermissionMissing");
-    case "authentication_unhealthy": return t("activityReasonAuthenticationUnhealthy");
+    case "automation_disabled":
+      return t("activityReasonAutomationDisabled");
+    case "platform_disabled":
+      return t("activityReasonPlatformDisabled");
+    case "authentication_unhealthy":
+      return t("activityReasonAuthenticationUnhealthy");
+    case "platform_backoff":
+      return t("activityReasonPlatformBackoff");
+    case "platform_error":
+      return t("activityReasonPlatformError");
+    case "campaign_ineligible":
+      return t("activityReasonCampaignIneligible");
+    case "channel_excluded":
+      return t("activityReasonChannelExcluded");
+    case "channel_offline":
+      return t("activityReasonChannelOffline");
+    case "channel_mismatch":
+      return t("activityReasonChannelMismatch");
+    case "watch_unhealthy":
+      return t("activityReasonWatchUnhealthy");
+    case "no_progress":
+      return t("activityReasonNoProgress");
+    case "higher_priority_reward":
+      return t("activityReasonHigherPriorityReward");
+    case "higher_priority_idle_watchlist":
+      return t("activityReasonHigherPriorityIdleWatchlist");
+    case "watch_requirement_completed":
+      return t("activityReasonWatchRequirementCompleted");
+    case "runtime_restart":
+      return t("activityReasonRuntimeRestart");
+    case "target_changed":
+      return t("activityReasonTargetChanged");
+    case "critical_failure":
+      return t("activityReasonCriticalFailure");
+    case "manual_watch":
+      return t("activityReasonManualWatch");
+    case "manual_tab_close":
+      return t("activityReasonManualTabClose");
+    case "permission_missing":
+      return t("activityReasonPermissionMissing");
+    case "authentication_unhealthy":
+      return t("activityReasonAuthenticationUnhealthy");
     default: {
       const exhaustive: never = reason;
       return exhaustive;
@@ -185,8 +211,10 @@ function formatStopReason(reason: FarmingStopReason, t: TFunction): string {
 
 function formatPageContextOpenReason(reason: PageContextOpenReason, t: TFunction): string {
   switch (reason) {
-    case "background_rejected": return t("activityPageContextOpenReasonBackgroundRejected");
-    case "managed_context_unusable": return t("activityPageContextReasonManagedContextUnusable");
+    case "background_rejected":
+      return t("activityPageContextOpenReasonBackgroundRejected");
+    case "managed_context_unusable":
+      return t("activityPageContextReasonManagedContextUnusable");
     default: {
       const exhaustive: never = reason;
       return exhaustive;
@@ -196,15 +224,24 @@ function formatPageContextOpenReason(reason: PageContextOpenReason, t: TFunction
 
 function formatPageContextCloseReason(reason: PageContextCloseReason, t: TFunction): string {
   switch (reason) {
-    case "background_recovered": return t("activityPageContextCloseReasonBackgroundRecovered");
-    case "user_tab_available": return t("activityPageContextCloseReasonUserTabAvailable");
-    case "platform_disabled": return t("activityReasonPlatformDisabled");
-    case "automation_disabled": return t("activityReasonAutomationDisabled");
-    case "manual_watch": return t("activityReasonManualWatch");
-    case "manual_tab_close": return t("activityReasonManualTabClose");
-    case "authentication_unhealthy": return t("activityReasonAuthenticationUnhealthy");
-    case "runtime_restart": return t("activityReasonRuntimeRestart");
-    case "managed_context_unusable": return t("activityPageContextReasonManagedContextUnusable");
+    case "background_recovered":
+      return t("activityPageContextCloseReasonBackgroundRecovered");
+    case "user_tab_available":
+      return t("activityPageContextCloseReasonUserTabAvailable");
+    case "platform_disabled":
+      return t("activityReasonPlatformDisabled");
+    case "automation_disabled":
+      return t("activityReasonAutomationDisabled");
+    case "manual_watch":
+      return t("activityReasonManualWatch");
+    case "manual_tab_close":
+      return t("activityReasonManualTabClose");
+    case "authentication_unhealthy":
+      return t("activityReasonAuthenticationUnhealthy");
+    case "runtime_restart":
+      return t("activityReasonRuntimeRestart");
+    case "managed_context_unusable":
+      return t("activityPageContextReasonManagedContextUnusable");
     default: {
       const exhaustive: never = reason;
       return exhaustive;
@@ -214,8 +251,10 @@ function formatPageContextCloseReason(reason: PageContextCloseReason, t: TFuncti
 
 function formatCriticalFailureReason(reason: CriticalFailureReason, t: TFunction): string {
   switch (reason) {
-    case "page_context_churn": return t("criticalFailureReasonPageContextChurn");
-    case "no_progress": return t("criticalFailureReasonNoProgress");
+    case "page_context_churn":
+      return t("criticalFailureReasonPageContextChurn");
+    case "no_progress":
+      return t("criticalFailureReasonNoProgress");
     default: {
       const exhaustive: never = reason;
       return exhaustive;
@@ -230,10 +269,21 @@ function formatDisplayValue(value: string): string {
     .join(" ");
 }
 
-function formatCurrentActivity(event: StoredEngineEvent & { category: "activity" }, t: TFunction): string {
+function formatCurrentActivity(
+  event: StoredEngineEvent & { category: "activity" },
+  t: TFunction,
+): string {
   switch (event.code) {
     case "twitch_extension_action":
-      return t({ pack_opened: "activityExtensionPackOpened", giveaway_joined: "activityExtensionGiveawayJoined", sprite_captured: "activityExtensionSpriteCaptured", takeover_started: "activityExtensionTakeoverStarted" }[event.data.action], [event.data.provider === "nopixel" ? "NoPixelV" : "Fortnite", event.data.channel]);
+      return t(
+        {
+          pack_opened: "activityExtensionPackOpened",
+          giveaway_joined: "activityExtensionGiveawayJoined",
+          sprite_captured: "activityExtensionSpriteCaptured",
+          takeover_started: "activityExtensionTakeoverStarted",
+        }[event.data.action],
+        [event.data.provider === "nopixel" ? "NoPixelV" : "Fortnite", event.data.channel],
+      );
     case "farming_started":
       return t("activityFarmingStarted", [event.data.rewardName, event.data.campaignName]);
     case "farming_stopped":
@@ -253,9 +303,15 @@ function formatCurrentActivity(event: StoredEngineEvent & { category: "activity"
     case "challenge_claimed":
       return t("activityChallengeClaimed", [event.data.rarity, event.data.recurrence]);
     case "page_context_opened":
-      return t("activityPageContextOpened", [event.data.host, formatPageContextOpenReason(event.data.reason, t)]);
+      return t("activityPageContextOpened", [
+        event.data.host,
+        formatPageContextOpenReason(event.data.reason, t),
+      ]);
     case "page_context_closed":
-      return t("activityPageContextClosed", [event.data.host, formatPageContextCloseReason(event.data.reason, t)]);
+      return t("activityPageContextClosed", [
+        event.data.host,
+        formatPageContextCloseReason(event.data.reason, t),
+      ]);
     case "auth_health_changed":
       return t("activityAuthHealthChanged", [
         formatDisplayValue(event.platform),
@@ -263,7 +319,10 @@ function formatCurrentActivity(event: StoredEngineEvent & { category: "activity"
         formatDisplayValue(event.data.to),
       ]);
     case "critical_failure_detected":
-      return t("activityCriticalFailureDetected", [event.platform, formatCriticalFailureReason(event.data.reason, t)]);
+      return t("activityCriticalFailureDetected", [
+        event.platform,
+        formatCriticalFailureReason(event.data.reason, t),
+      ]);
     case "critical_failure_cleared":
       return t("activityCriticalFailureCleared", event.platform);
     default: {
@@ -278,7 +337,10 @@ export function formatActivityEvent(event: ActivityHistoryRecord, t: TFunction):
   return formatCurrentActivity(event, t);
 }
 
-export function buildActivityCard(event: ActivityHistoryRecord, t: TFunction): ActivityCard | undefined {
+export function buildActivityCard(
+  event: ActivityHistoryRecord,
+  t: TFunction,
+): ActivityCard | undefined {
   if ("legacy" in event || event.category === "diagnostic") return undefined;
 
   const summary = formatCurrentActivity(event, t);
@@ -404,18 +466,23 @@ export function buildActivityExport(input: ActivityExportInput, t: TFunction): s
 
   // Oldest first: a log is read top-down when you are reconstructing what
   // happened, even though the popup lists newest first.
-  const body = input.events.length === 0
-    ? "(no events)"
-    : [...input.events]
-      .reverse()
-      .map((event) => `${event.at} [${event.level}] ${formatActivityEvent(event, t)}`)
-      .join("\n");
+  const body =
+    input.events.length === 0
+      ? "(no events)"
+      : [...input.events]
+          .reverse()
+          .map((event) => `${event.at} [${event.level}] ${formatActivityEvent(event, t)}`)
+          .join("\n");
 
   return `${header}\n\n${body}\n`;
 }
 
 export function buildDiagnosticsExportFilename(platform: Platform, at: Date): string {
-  const stamp = at.toISOString().replaceAll("-", "").replaceAll(":", "").replace(/\.\d{3}Z$/, "Z");
+  const stamp = at
+    .toISOString()
+    .replaceAll("-", "")
+    .replaceAll(":", "")
+    .replace(/\.\d{3}Z$/, "Z");
   return `lurkloot-diagnostics-${platform}-${stamp}.log`;
 }
 
@@ -425,6 +492,7 @@ export function mergeActivityPages(
 ): ActivityHistoryRecord[] {
   const byId = new Map(current.map((event) => [event.id, event]));
   for (const event of incoming) byId.set(event.id, event);
-  return [...byId.values()].sort((left, right) =>
-    right.at.localeCompare(left.at) || right.id.localeCompare(left.id));
+  return [...byId.values()].sort(
+    (left, right) => right.at.localeCompare(left.at) || right.id.localeCompare(left.id),
+  );
 }

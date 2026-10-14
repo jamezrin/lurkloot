@@ -1,6 +1,10 @@
 import initCycleTLS, { type CycleTLSClient } from "cycletls";
 import WebSocket, { type ClientOptions } from "ws";
-import { KickWafBlockedError, needsKickSessionBearer, safeKickFailure } from "@lurkloot/core/transport";
+import {
+  KickWafBlockedError,
+  needsKickSessionBearer,
+  safeKickFailure,
+} from "@lurkloot/core/transport";
 import { SafeFetchError } from "@lurkloot/core/fetchError";
 import type { PageFetcher } from "@lurkloot/core/adapter";
 import type { WebSocketFactory, WebSocketLike } from "@lurkloot/core/webSocket";
@@ -19,12 +23,20 @@ export function initCycle(): Promise<CycleTLSClient> {
   return initCycleTLS();
 }
 
-export function kickHeaders(url: string, init: RequestInit | undefined, creds: PlatformCredentials): Record<string, string> {
+export function kickHeaders(
+  url: string,
+  init: RequestInit | undefined,
+  creds: PlatformCredentials,
+): Record<string, string> {
   const headers = headersToObject(init?.headers);
   headers.Origin ??= "https://kick.com";
   headers.Referer ??= "https://kick.com/";
   const sessionToken = creds.kick?.sessionToken;
-  if (sessionToken && needsKickSessionBearer(url, { protocols: KICK_BEARER_PROTOCOLS }) && !hasHeader(headers, "authorization")) {
+  if (
+    sessionToken
+    && needsKickSessionBearer(url, { protocols: KICK_BEARER_PROTOCOLS })
+    && !hasHeader(headers, "authorization")
+  ) {
     headers.authorization = `Bearer ${decodeURIComponent(sessionToken)}`;
   }
   return headers;
@@ -37,17 +49,24 @@ export function kickHeaders(url: string, init: RequestInit | undefined, creds: P
 // which would terminate sibling requests and the shared transport. The
 // controller deadline therefore bounds the caller while an aborted host request
 // finishes in CycleTLS.
-export function createCycleKickFetcher(cycleTLS: CycleTLSClient, creds: PlatformCredentials): PageFetcher {
+export function createCycleKickFetcher(
+  cycleTLS: CycleTLSClient,
+  creds: PlatformCredentials,
+): PageFetcher {
   return {
     async fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
       const method = (init?.method ?? "GET").toLowerCase() as "get" | "post";
-      const response = await cycleTLS(url, {
-        ja3: CHROME_JA3,
-        http2Fingerprint: CHROME_HTTP2,
-        userAgent: CHROME_UA,
-        headers: kickHeaders(url, init, creds),
-        body: typeof init?.body === "string" ? init.body : undefined,
-      }, method);
+      const response = await cycleTLS(
+        url,
+        {
+          ja3: CHROME_JA3,
+          http2Fingerprint: CHROME_HTTP2,
+          userAgent: CHROME_UA,
+          headers: kickHeaders(url, init, creds),
+          body: typeof init?.body === "string" ? init.body : undefined,
+        },
+        method,
+      );
 
       if (response.status >= 400) {
         // Mirrors fetchKickInBackgroundWith's classification so checkAuthHealth sees the
@@ -58,10 +77,15 @@ export function createCycleKickFetcher(cycleTLS: CycleTLSClient, creds: Platform
         // challenge page (see tabs.ts's own "likely a challenge page" handling), which
         // would otherwise silently fall through to "authentication_rejected" and could
         // suspend farming on what was actually a WAF block, not a bad session token.
-        const text = typeof response.data === "string" ? response.data : JSON.stringify(response.data ?? "");
-        const isJsonBody = (typeof response.data === "object" && response.data !== null) || safeJsonParse(text) !== undefined;
+        const text =
+          typeof response.data === "string" ? response.data : JSON.stringify(response.data ?? "");
+        const isJsonBody =
+          (typeof response.data === "object" && response.data !== null)
+          || safeJsonParse(text) !== undefined;
         if (!isJsonBody && (response.status === 401 || response.status === 403)) {
-          throw new KickWafBlockedError(`HTTP ${response.status} from ${new URL(url).host} — non-JSON body (likely a Cloudflare challenge page)`);
+          throw new KickWafBlockedError(
+            `HTTP ${response.status} from ${new URL(url).host} — non-JSON body (likely a Cloudflare challenge page)`,
+          );
         }
         const failure = safeKickFailure(response.status, text);
         throw failure.kind === "security_policy_blocked"
@@ -95,23 +119,30 @@ export function createCycleKickFetcher(cycleTLS: CycleTLSClient, creds: Platform
 // token yet" so the caller keeps polling rather than treating it as a failure.
 const TV_LINK_AUTHENTICATE = "https://kick.com/api/tv/link/authenticate";
 
-export function createTvLinkAuthenticator(cycleTLS: CycleTLSClient): (uuid: string, code: string) => Promise<{ token?: string }> {
+export function createTvLinkAuthenticator(
+  cycleTLS: CycleTLSClient,
+): (uuid: string, code: string) => Promise<{ token?: string }> {
   return async (uuid: string, code: string) => {
-    const response = await cycleTLS(`${TV_LINK_AUTHENTICATE}/${encodeURIComponent(uuid)}`, {
-      ja3: CHROME_JA3,
-      http2Fingerprint: CHROME_HTTP2,
-      userAgent: CHROME_UA,
-      headers: {
-        "content-type": "application/json",
-        accept: "application/json",
-        Origin: "https://kick.com",
-        Referer: "https://kick.com/",
+    const response = await cycleTLS(
+      `${TV_LINK_AUTHENTICATE}/${encodeURIComponent(uuid)}`,
+      {
+        ja3: CHROME_JA3,
+        http2Fingerprint: CHROME_HTTP2,
+        userAgent: CHROME_UA,
+        headers: {
+          "content-type": "application/json",
+          accept: "application/json",
+          Origin: "https://kick.com",
+          Referer: "https://kick.com/",
+        },
+        body: JSON.stringify({ key: code }),
       },
-      body: JSON.stringify({ key: code }),
-    }, "post");
+      "post",
+    );
     const data = response.data;
     const parsed = typeof data === "string" ? safeJsonParse(data) : data;
-    const token = parsed && typeof parsed === "object" ? (parsed as { token?: string }).token : undefined;
+    const token =
+      parsed && typeof parsed === "object" ? (parsed as { token?: string }).token : undefined;
     return { token: typeof token === "string" && token ? token : undefined };
   };
 }
@@ -133,8 +164,9 @@ export function createNodeKickWebSocketFactory(
   createSocket: (url: string, options: ClientOptions) => WebSocketLike = (url, options) =>
     new WebSocket(url, options) as unknown as WebSocketLike,
 ): WebSocketFactory {
-  return (url) => createSocket(url, {
-    headers: { ...kickHeaders(url, undefined, creds), "User-Agent": CHROME_UA },
-    handshakeTimeout: 10_000,
-  });
+  return (url) =>
+    createSocket(url, {
+      headers: { ...kickHeaders(url, undefined, creds), "User-Agent": CHROME_UA },
+      handshakeTimeout: 10_000,
+    });
 }

@@ -1,4 +1,9 @@
-import type { ManualWatchState, Platform, PlatformAuthHealth, WatchSession } from "@lurkloot/shared/models";
+import type {
+  ManualWatchState,
+  Platform,
+  PlatformAuthHealth,
+  WatchSession,
+} from "@lurkloot/shared/models";
 
 export type AutomationPresentationState =
   | "starting"
@@ -66,7 +71,12 @@ export function automationPresentation({
   // and how to undo it matters more than any background probe result.
   if (manualClosePaused || session?.reasonCode === "manual_tab_close") {
     return {
-      ...presentation("paused_tab_closed", "automationPausedTabClosed", "watchTabClosedPauseDetail", "warning"),
+      ...presentation(
+        "paused_tab_closed",
+        "automationPausedTabClosed",
+        "watchTabClosedPauseDetail",
+        "warning",
+      ),
       action: { kind: "resume", labelKey: "resumeFarming" },
     };
   }
@@ -79,7 +89,10 @@ export function automationPresentation({
       if (session?.status === "paused" && session?.reasonCode === "manual_watch") {
         const channel = manualWatch?.channel;
         const named = channel
-          ? { name: channel.displayName ?? channel.username, ...(channel.url ? { url: channel.url } : {}) }
+          ? {
+              name: channel.displayName ?? channel.username,
+              ...(channel.url ? { url: channel.url } : {}),
+            }
           : undefined;
         return {
           ...presentation(
@@ -115,11 +128,12 @@ export function automationPresentation({
     case "blocked":
       return presentation("blocked", "automationBlocked", "authBrowserProfileBlocked", "danger");
     case "unavailable": {
-      const detailKey = authHealth.reasonCode === "credential_lookup_failed"
-        ? "authCredentialCheckUnavailable"
-        : authHealth.reasonCode === "network_unavailable"
-          ? "authNetworkTemporarilyUnavailable"
-          : "authPlatformTemporarilyUnavailable";
+      const detailKey =
+        authHealth.reasonCode === "credential_lookup_failed"
+          ? "authCredentialCheckUnavailable"
+          : authHealth.reasonCode === "network_unavailable"
+            ? "authNetworkTemporarilyUnavailable"
+            : "authPlatformTemporarilyUnavailable";
       return presentation("unavailable", "automationUnavailable", detailKey, "warning");
     }
   }
@@ -134,10 +148,7 @@ function presentation(
   return { state, badgeKey, detailKey, tone, operational: false };
 }
 
-function signInPresentation(
-  platform: Platform,
-  detailKey: string,
-): AutomationPresentation {
+function signInPresentation(platform: Platform, detailKey: string): AutomationPresentation {
   return {
     ...presentation("needs_sign_in", "automationNeedsSignIn", detailKey, "warning"),
     action: {

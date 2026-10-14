@@ -53,11 +53,15 @@ describe("state transaction", () => {
     it("reports accepted, unchanged and stale commits", async () => {
       const { transaction, ports } = store();
 
-      const accepted = await transaction.commit(["twitch"], undefined, (latest) => watching(latest, "one"));
+      const accepted = await transaction.commit(["twitch"], undefined, (latest) =>
+        watching(latest, "one"),
+      );
       expect(accepted.status).toBe("accepted");
       expect(ports.saveState).toHaveBeenCalledTimes(1);
 
-      const unchanged = await transaction.commit(["twitch"], undefined, (latest) => watching(latest, "one"));
+      const unchanged = await transaction.commit(["twitch"], undefined, (latest) =>
+        watching(latest, "one"),
+      );
       expect(unchanged.status).toBe("unchanged");
       const nothing = await transaction.commit(["twitch"], undefined, () => undefined);
       expect(nothing.status).toBe("unchanged");
@@ -81,7 +85,10 @@ describe("state transaction", () => {
 
       const result = await transaction.commitPlatformSnapshot("twitch", {
         ...snapshot,
-        sessions: { ...snapshot.sessions, twitch: { platform: "twitch", status: "idle", offlineChecks: 0, message: "twitch" } },
+        sessions: {
+          ...snapshot.sessions,
+          twitch: { platform: "twitch", status: "idle", offlineChecks: 0, message: "twitch" },
+        },
       });
 
       expect(result.status).toBe("accepted");
@@ -95,13 +102,16 @@ describe("state transaction", () => {
       transaction.onCommit(hook);
       ports.saveState.mockRejectedValueOnce(new Error("storage unavailable"));
 
-      await expect(transaction.commit(["twitch"], undefined, (latest) => watching(latest, "lost")))
-        .rejects.toThrow("storage unavailable");
+      await expect(
+        transaction.commit(["twitch"], undefined, (latest) => watching(latest, "lost")),
+      ).rejects.toThrow("storage unavailable");
       await transaction.settleCommitHooks();
 
       expect(hook).not.toHaveBeenCalled();
-      expect((await transaction.commit(["twitch"], undefined, (latest) => watching(latest, "kept"))).status)
-        .toBe("accepted");
+      expect(
+        (await transaction.commit(["twitch"], undefined, (latest) => watching(latest, "kept")))
+          .status,
+      ).toBe("accepted");
     });
   });
 
@@ -109,10 +119,17 @@ describe("state transaction", () => {
     it("rejects a lock taken out of order and records it", async () => {
       const { transaction, tracker } = store();
 
-      await expect(transaction.withPlatformLock("twitch", () => transaction.withSettingsLock(async () => "never")))
-        .rejects.toBeInstanceOf(LockOrderError);
-      await expect(transaction.withStateLock(() => transaction.withPlatformLock("twitch", async () => "never"), ["kick"]))
-        .rejects.toThrow("acquiring twitch while holding kick");
+      await expect(
+        transaction.withPlatformLock("twitch", () =>
+          transaction.withSettingsLock(async () => "never"),
+        ),
+      ).rejects.toBeInstanceOf(LockOrderError);
+      await expect(
+        transaction.withStateLock(
+          () => transaction.withPlatformLock("twitch", async () => "never"),
+          ["kick"],
+        ),
+      ).rejects.toThrow("acquiring twitch while holding kick");
 
       expect(tracker.violations.map((violation) => violation.message)).toEqual([
         "Lock order violation: acquiring settings while holding twitch",
@@ -123,8 +140,13 @@ describe("state transaction", () => {
     it("accepts locks taken in order", async () => {
       const { transaction, tracker } = store();
 
-      const result = await transaction.withSettingsLock(() => transaction.withStateLock(() =>
-        transaction.commit(["twitch", "kick"], undefined, (latest) => watching(latest, "ordered"))));
+      const result = await transaction.withSettingsLock(() =>
+        transaction.withStateLock(() =>
+          transaction.commit(["twitch", "kick"], undefined, (latest) =>
+            watching(latest, "ordered"),
+          ),
+        ),
+      );
 
       expect(result.status).toBe("accepted");
       expect(tracker.violations).toEqual([]);
@@ -147,7 +169,9 @@ describe("state transaction", () => {
       const { transaction, tracker } = store();
       let detached: Promise<unknown> | undefined;
       await transaction.withPlatformLock("kick", async () => {
-        detached = transaction.detach(() => transaction.withPlatformLock("twitch", async () => "ok"));
+        detached = transaction.detach(() =>
+          transaction.withPlatformLock("twitch", async () => "ok"),
+        );
       });
 
       await expect(detached).resolves.toBe("ok");
@@ -158,7 +182,10 @@ describe("state transaction", () => {
   describe("locked I/O", () => {
     it("fails a port called under a lock from a call site missing from the allowlist", async () => {
       const { transaction, tracker } = store();
-      const port = tracker.guardPort("deps.createAlarm", vi.fn(async () => undefined));
+      const port = tracker.guardPort(
+        "deps.createAlarm",
+        vi.fn(async () => undefined),
+      );
 
       await port();
       expect(tracker.violations).toEqual([]);
@@ -222,11 +249,17 @@ describe("state transaction", () => {
       });
 
       await transaction.withStateLock(async () => {
-        const accepted = await transaction.commit(["twitch"], undefined, (latest) => watching(latest, "hooked"));
-        transaction.concludeTick(conclusion(accepted.status === "accepted" ? accepted.state : DEFAULT_STATE));
+        const accepted = await transaction.commit(["twitch"], undefined, (latest) =>
+          watching(latest, "hooked"),
+        );
+        transaction.concludeTick(
+          conclusion(accepted.status === "accepted" ? accepted.state : DEFAULT_STATE),
+        );
         // A tick whose commit wrote nothing still concludes.
         const unchanged = await transaction.commit(["twitch"], undefined, () => undefined);
-        transaction.concludeTick(conclusion(unchanged.status === "unchanged" ? unchanged.state : DEFAULT_STATE));
+        transaction.concludeTick(
+          conclusion(unchanged.status === "unchanged" ? unchanged.state : DEFAULT_STATE),
+        );
         expect(calls).toEqual([]);
       }, ["twitch"]);
       await transaction.settleCommitHooks(["twitch"]);
@@ -242,7 +275,9 @@ describe("state transaction", () => {
         if (change.kind !== "state") return;
         seen.push(change.state.sessions.twitch.message ?? "");
         if (change.state.sessions.twitch.message === "first") {
-          await transaction.commit(["twitch"], undefined, (latest) => watching(latest, "from hook"));
+          await transaction.commit(["twitch"], undefined, (latest) =>
+            watching(latest, "from hook"),
+          );
         }
       });
 
@@ -277,7 +312,9 @@ describe("state transaction", () => {
       expect(seen).toEqual(["kick"]);
       // A settings commit's hooks wait behind every platform's.
       await transaction.withSettingsLock(async () => {
-        await transaction.saveSettingsCommit(await transaction.prepareSettingsCommit(() => ({ priorityMode: "lowest_availability" })));
+        await transaction.saveSettingsCommit(
+          await transaction.prepareSettingsCommit(() => ({ priorityMode: "lowest_availability" })),
+        );
       });
       await new Promise((resolve) => setTimeout(resolve, 0));
       expect(seen).toEqual(["kick"]);
@@ -316,7 +353,9 @@ describe("state transaction", () => {
       });
 
       const commit = await transaction.withSettingsLock(async () => {
-        const prepared = await transaction.prepareSettingsCommit(() => ({ priorityMode: "lowest_availability" }));
+        const prepared = await transaction.prepareSettingsCommit(() => ({
+          priorityMode: "lowest_availability",
+        }));
         await transaction.saveSettingsCommit(prepared);
         return prepared;
       });
@@ -325,22 +364,36 @@ describe("state transaction", () => {
       expect(ports.loadSettings).toHaveBeenCalledTimes(1);
       expect(commit.effects).toEqual({ twitch: "selection", kick: "selection" });
       expect(settings().priorityMode).toBe("lowest_availability");
-      expect(changes).toEqual([expect.objectContaining({ kind: "settings", effects: commit.effects })]);
+      expect(changes).toEqual([
+        expect.objectContaining({ kind: "settings", effects: commit.effects }),
+      ]);
     });
 
     it("requires the settings lock", async () => {
       const { transaction, tracker } = store();
 
-      await expect(transaction.prepareSettingsCommit(() => ({}))).rejects.toBeInstanceOf(LockOrderError);
+      await expect(transaction.prepareSettingsCommit(() => ({}))).rejects.toBeInstanceOf(
+        LockOrderError,
+      );
       expect(tracker.violations).toHaveLength(1);
     });
 
     it("classifies a patch per platform, with anything unrecognized invalidating discovery", () => {
       const off = { farmPinnedOnly: false };
-      expect(settingsPatchEffects({ platform: { kick: { favouriteCategories: [] } } }, off)).toEqual({ kick: "selection" });
-      expect(settingsPatchEffects({ platform: { twitch: { idleWatchlistChannels: [] } } }, off)).toEqual({ twitch: "discovery" });
-      expect(settingsPatchEffects({ campaignPins: ["a"] }, { farmPinnedOnly: true })).toEqual({ twitch: "discovery", kick: "discovery" });
-      expect(settingsPatchEffects({ pollIntervalMinutes: 5 }, off)).toEqual({ twitch: "discovery", kick: "discovery" });
+      expect(
+        settingsPatchEffects({ platform: { kick: { favouriteCategories: [] } } }, off),
+      ).toEqual({ kick: "selection" });
+      expect(
+        settingsPatchEffects({ platform: { twitch: { idleWatchlistChannels: [] } } }, off),
+      ).toEqual({ twitch: "discovery" });
+      expect(settingsPatchEffects({ campaignPins: ["a"] }, { farmPinnedOnly: true })).toEqual({
+        twitch: "discovery",
+        kick: "discovery",
+      });
+      expect(settingsPatchEffects({ pollIntervalMinutes: 5 }, off)).toEqual({
+        twitch: "discovery",
+        kick: "discovery",
+      });
     });
   });
 });

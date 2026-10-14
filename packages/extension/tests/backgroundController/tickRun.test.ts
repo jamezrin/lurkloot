@@ -69,7 +69,11 @@ describe("background controller critical health", () => {
     await env.controller.tick(["kick"]);
 
     expect(env.state.criticalHealth?.kick?.failingTicks).toBe(1);
-    expect(env.state.criticalHealth?.kick?.records.at(-1)).toMatchObject({ kind: "api_error", code: "http_error", status: 503 });
+    expect(env.state.criticalHealth?.kick?.records.at(-1)).toMatchObject({
+      kind: "api_error",
+      code: "http_error",
+      status: 503,
+    });
   });
 });
 

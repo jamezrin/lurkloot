@@ -37,18 +37,15 @@ describe("background controller", () => {
 
       await env.controller.ensureAlarm();
 
-      expect(env.deps.createAlarm).toHaveBeenCalledWith(
-        TWITCH_DROP_CLAIMS_ALARM_NAME,
-        { periodInMinutes: 60 },
-      );
-      expect(env.deps.createAlarm).toHaveBeenCalledWith(
-        KICK_DROP_CLAIMS_ALARM_NAME,
-        { periodInMinutes: 60 },
-      );
-      expect(env.deps.createAlarm).toHaveBeenCalledWith(
-        KICK_CHALLENGES_ALARM_NAME,
-        { periodInMinutes: 10 },
-      );
+      expect(env.deps.createAlarm).toHaveBeenCalledWith(TWITCH_DROP_CLAIMS_ALARM_NAME, {
+        periodInMinutes: 60,
+      });
+      expect(env.deps.createAlarm).toHaveBeenCalledWith(KICK_DROP_CLAIMS_ALARM_NAME, {
+        periodInMinutes: 60,
+      });
+      expect(env.deps.createAlarm).toHaveBeenCalledWith(KICK_CHALLENGES_ALARM_NAME, {
+        periodInMinutes: 10,
+      });
     });
 
     it("routes each claim alarm to its claim-only operation", () => {
@@ -60,7 +57,11 @@ describe("background controller", () => {
         runDropClaims: vi.fn(async () => undefined),
         runKickChallengeClaims: vi.fn(async () => undefined),
       };
-      for (const name of [TWITCH_DROP_CLAIMS_ALARM_NAME, KICK_DROP_CLAIMS_ALARM_NAME, KICK_CHALLENGES_ALARM_NAME]) {
+      for (const name of [
+        TWITCH_DROP_CLAIMS_ALARM_NAME,
+        KICK_DROP_CLAIMS_ALARM_NAME,
+        KICK_CHALLENGES_ALARM_NAME,
+      ]) {
         void runBackgroundJob(name, controller, EXTENSION_CAPABILITIES);
       }
 
@@ -91,58 +92,69 @@ describe("background controller", () => {
       env.controller.shutdown();
       await env.controller.settleBackgroundWork();
 
-      for (const alarm of [TWITCH_DROP_CLAIMS_ALARM_NAME, KICK_DROP_CLAIMS_ALARM_NAME, KICK_CHALLENGES_ALARM_NAME]) {
+      for (const alarm of [
+        TWITCH_DROP_CLAIMS_ALARM_NAME,
+        KICK_DROP_CLAIMS_ALARM_NAME,
+        KICK_CHALLENGES_ALARM_NAME,
+      ]) {
         expect(env.deps.clearAlarm).toHaveBeenCalledWith(alarm);
       }
     });
   });
 
   describe("manual-watch claim-only operations", () => {
-    it.each(["twitch", "kick"] as const)("claims %s drops without changing the paused session", async (platform) => {
-      const env = harness(farming(DEFAULT_SETTINGS));
-      env.state.authHealth = {
-        ...env.state.authHealth,
-        [platform]: { status: "healthy", checkedAt: new Date().toISOString() },
-      };
-      env.state.sessions[platform] = {
-        platform,
-        status: "paused",
-        offlineChecks: 0,
-        reasonCode: "manual_watch",
-        message: "Manual watch detected",
-      };
-      env.state.manualWatch = {
-        [platform]: {
+    it.each(["twitch", "kick"] as const)(
+      "claims %s drops without changing the paused session",
+      async (platform) => {
+        const env = harness(farming(DEFAULT_SETTINGS));
+        env.state.authHealth = {
+          ...env.state.authHealth,
+          [platform]: { status: "healthy", checkedAt: new Date().toISOString() },
+        };
+        env.state.sessions[platform] = {
           platform,
-          tabId: 91,
-          checkedAt: new Date().toISOString(),
-          active: true,
-        },
-      };
-      const beforeSession = structuredClone(env.state.sessions[platform]);
-      const platformAdapter = platform === "twitch" ? env.twitch : env.kick;
-      platformAdapter.refreshCampaigns = vi.fn(async () => [campaign(platform, "claimable")]);
-      platformAdapter.claimReward = vi.fn(async () => true);
+          status: "paused",
+          offlineChecks: 0,
+          reasonCode: "manual_watch",
+          message: "Manual watch detected",
+        };
+        env.state.manualWatch = {
+          [platform]: {
+            platform,
+            tabId: 91,
+            checkedAt: new Date().toISOString(),
+            active: true,
+          },
+        };
+        const beforeSession = structuredClone(env.state.sessions[platform]);
+        const platformAdapter = platform === "twitch" ? env.twitch : env.kick;
+        platformAdapter.refreshCampaigns = vi.fn(async () => [campaign(platform, "claimable")]);
+        platformAdapter.claimReward = vi.fn(async () => true);
 
-      await env.controller.runDropClaims(platform);
+        await env.controller.runDropClaims(platform);
 
-      expect(platformAdapter.refreshCampaigns).toHaveBeenCalledWith(
-        beforeSession,
-        expect.objectContaining({ requireComplete: true }),
-      );
-      expect(env.state.sessions[platform]).toEqual(beforeSession);
-      expect(env.state.manualWatch?.[platform]?.active).toBe(true);
-      expect(env.state.campaigns[platform][0]?.rewards[0]?.status).toBe("claimed");
-      expect(allDiagnostics(env).some((event) => event.message.includes("Manual watch detected"))).toBe(false);
-      expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(expect.objectContaining({
-        category: "activity",
-        code: "reward_claimed",
-        platform,
-        data: expect.objectContaining({ method: "automatic", rewardId: "reward" }),
-      }));
-      expect(env.watchTabs[platform].open).not.toHaveBeenCalled();
-      expect(env.watchTabs[platform].stop).not.toHaveBeenCalled();
-    });
+        expect(platformAdapter.refreshCampaigns).toHaveBeenCalledWith(
+          beforeSession,
+          expect.objectContaining({ requireComplete: true }),
+        );
+        expect(env.state.sessions[platform]).toEqual(beforeSession);
+        expect(env.state.manualWatch?.[platform]?.active).toBe(true);
+        expect(env.state.campaigns[platform][0]?.rewards[0]?.status).toBe("claimed");
+        expect(
+          allDiagnostics(env).some((event) => event.message.includes("Manual watch detected")),
+        ).toBe(false);
+        expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(
+          expect.objectContaining({
+            category: "activity",
+            code: "reward_claimed",
+            platform,
+            data: expect.objectContaining({ method: "automatic", rewardId: "reward" }),
+          }),
+        );
+        expect(env.watchTabs[platform].open).not.toHaveBeenCalled();
+        expect(env.watchTabs[platform].stop).not.toHaveBeenCalled();
+      },
+    );
 
     it("claims Kick challenges without changing the paused session", async () => {
       const env = harness(farming(DEFAULT_SETTINGS));
@@ -166,19 +178,23 @@ describe("background controller", () => {
         },
       };
       const beforeSession = structuredClone(env.state.sessions.kick);
-      env.kick.claimChallenges = vi.fn(async () => [{ id: "daily", rarity: "epic", recurrence: "daily" }]);
+      env.kick.claimChallenges = vi.fn(async () => [
+        { id: "daily", rarity: "epic", recurrence: "daily" },
+      ]);
 
       await env.controller.runKickChallengeClaims();
 
       expect(env.state.sessions.kick).toEqual(beforeSession);
       expect(env.state.manualWatch?.kick?.active).toBe(true);
       expect(env.state.gamification?.kick?.lastCheckedAt).toBeDefined();
-      expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(expect.objectContaining({
-        category: "activity",
-        code: "challenge_claimed",
-        platform: "kick",
-        data: { challengeId: "daily", rarity: "epic", recurrence: "daily" },
-      }));
+      expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(
+        expect.objectContaining({
+          category: "activity",
+          code: "challenge_claimed",
+          platform: "kick",
+          data: { challengeId: "daily", rarity: "epic", recurrence: "daily" },
+        }),
+      );
       expect(env.watchTabs.kick.open).not.toHaveBeenCalled();
       expect(env.watchTabs.kick.stop).not.toHaveBeenCalled();
     });
@@ -213,19 +229,28 @@ describe("background controller", () => {
         reasonCode: "manual_watch",
       };
       env.state.manualWatch = {
-        twitch: { platform: "twitch", tabId: 91, checkedAt: new Date().toISOString(), active: true },
+        twitch: {
+          platform: "twitch",
+          tabId: 91,
+          checkedAt: new Date().toISOString(),
+          active: true,
+        },
       };
       const before = structuredClone(env.state);
-      env.twitch.refreshCampaigns = vi.fn(async () => { throw new Error("inventory unavailable"); });
+      env.twitch.refreshCampaigns = vi.fn(async () => {
+        throw new Error("inventory unavailable");
+      });
 
       await env.controller.runDropClaims("twitch");
 
       expect(env.state).toEqual(before);
-      expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
-        platform: "twitch",
-        level: "warn",
-        message: "inventory unavailable",
-      }));
+      expect(allDiagnostics(env)).toContainEqual(
+        expect.objectContaining({
+          platform: "twitch",
+          level: "warn",
+          message: "inventory unavailable",
+        }),
+      );
     });
 
     it("throttles repeated Kick challenge alarms", async () => {
@@ -234,7 +259,12 @@ describe("background controller", () => {
         ...env.state.authHealth,
         kick: { status: "healthy", checkedAt: new Date().toISOString() },
       };
-      env.state.sessions.kick = { platform: "kick", status: "paused", offlineChecks: 0, reasonCode: "manual_watch" };
+      env.state.sessions.kick = {
+        platform: "kick",
+        status: "paused",
+        offlineChecks: 0,
+        reasonCode: "manual_watch",
+      };
       env.state.manualWatch = {
         kick: { platform: "kick", tabId: 92, checkedAt: new Date().toISOString(), active: true },
       };
@@ -248,69 +278,125 @@ describe("background controller", () => {
 
     it("contains drop-claim persistence failures without publishing a claim event", async () => {
       const env = harness(farming(DEFAULT_SETTINGS), {
-        saveState: async () => { throw new Error("state storage unavailable"); },
+        saveState: async () => {
+          throw new Error("state storage unavailable");
+        },
       });
       env.state.authHealth = {
         ...env.state.authHealth,
         twitch: { status: "healthy", checkedAt: new Date().toISOString() },
       };
-      env.state.sessions.twitch = { platform: "twitch", status: "paused", offlineChecks: 0, reasonCode: "manual_watch" };
+      env.state.sessions.twitch = {
+        platform: "twitch",
+        status: "paused",
+        offlineChecks: 0,
+        reasonCode: "manual_watch",
+      };
       env.state.manualWatch = {
-        twitch: { platform: "twitch", tabId: 91, checkedAt: new Date().toISOString(), active: true },
+        twitch: {
+          platform: "twitch",
+          tabId: 91,
+          checkedAt: new Date().toISOString(),
+          active: true,
+        },
       };
       env.twitch.refreshCampaigns = vi.fn(async () => [campaign("twitch", "claimable")]);
 
       await expect(env.controller.runDropClaims("twitch")).resolves.toBeUndefined();
 
       const reported = env.reportEvents.mock.calls.flatMap(([events]) => events);
-      expect(reported.some((event) => event.category === "activity" && event.code === "reward_claimed")).toBe(false);
-      expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({ message: "state storage unavailable" }));
+      expect(
+        reported.some((event) => event.category === "activity" && event.code === "reward_claimed"),
+      ).toBe(false);
+      expect(allDiagnostics(env)).toContainEqual(
+        expect.objectContaining({ message: "state storage unavailable" }),
+      );
     });
 
     it("contains Kick challenge persistence failures without publishing a claim event", async () => {
       const env = harness(farming(DEFAULT_SETTINGS), {
-        saveState: async () => { throw new Error("state storage unavailable"); },
+        saveState: async () => {
+          throw new Error("state storage unavailable");
+        },
       });
       env.state.authHealth = {
         ...env.state.authHealth,
         kick: { status: "healthy", checkedAt: new Date().toISOString() },
       };
-      env.state.sessions.kick = { platform: "kick", status: "paused", offlineChecks: 0, reasonCode: "manual_watch" };
+      env.state.sessions.kick = {
+        platform: "kick",
+        status: "paused",
+        offlineChecks: 0,
+        reasonCode: "manual_watch",
+      };
       env.state.manualWatch = {
         kick: { platform: "kick", tabId: 92, checkedAt: new Date().toISOString(), active: true },
       };
-      env.kick.claimChallenges = vi.fn(async () => [{ id: "daily", rarity: "epic", recurrence: "daily" }]);
+      env.kick.claimChallenges = vi.fn(async () => [
+        { id: "daily", rarity: "epic", recurrence: "daily" },
+      ]);
 
       await expect(env.controller.runKickChallengeClaims()).resolves.toBeUndefined();
 
       const reported = env.reportEvents.mock.calls.flatMap(([events]) => events);
-      expect(reported.some((event) => event.category === "activity" && event.code === "challenge_claimed")).toBe(false);
-      expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({ message: "state storage unavailable" }));
+      expect(
+        reported.some(
+          (event) => event.category === "activity" && event.code === "challenge_claimed",
+        ),
+      ).toBe(false);
+      expect(allDiagnostics(env)).toContainEqual(
+        expect.objectContaining({ message: "state storage unavailable" }),
+      );
     });
 
     it.each([
-      { name: "drop", run: (env: ReturnType<typeof harness>) => env.controller.runDropClaims("twitch") },
-      { name: "challenge", run: (env: ReturnType<typeof harness>) => env.controller.runKickChallengeClaims() },
+      {
+        name: "drop",
+        run: (env: ReturnType<typeof harness>) => env.controller.runDropClaims("twitch"),
+      },
+      {
+        name: "challenge",
+        run: (env: ReturnType<typeof harness>) => env.controller.runKickChallengeClaims(),
+      },
     ])("contains $name adapter construction failures", async ({ run }) => {
       const env = harness(farming(DEFAULT_SETTINGS));
       env.state.authHealth = {
         twitch: { status: "healthy", checkedAt: new Date().toISOString() },
         kick: { status: "healthy", checkedAt: new Date().toISOString() },
       };
-      env.state.sessions.twitch = { platform: "twitch", status: "paused", offlineChecks: 0, reasonCode: "manual_watch" };
-      env.state.sessions.kick = { platform: "kick", status: "paused", offlineChecks: 0, reasonCode: "manual_watch" };
+      env.state.sessions.twitch = {
+        platform: "twitch",
+        status: "paused",
+        offlineChecks: 0,
+        reasonCode: "manual_watch",
+      };
+      env.state.sessions.kick = {
+        platform: "kick",
+        status: "paused",
+        offlineChecks: 0,
+        reasonCode: "manual_watch",
+      };
       env.state.manualWatch = {
-        twitch: { platform: "twitch", tabId: 91, checkedAt: new Date().toISOString(), active: true },
+        twitch: {
+          platform: "twitch",
+          tabId: 91,
+          checkedAt: new Date().toISOString(),
+          active: true,
+        },
         kick: { platform: "kick", tabId: 92, checkedAt: new Date().toISOString(), active: true },
       };
-      env.deps.createAdapter.mockImplementationOnce(() => { throw new Error("adapter unavailable"); });
+      env.deps.createAdapter.mockImplementationOnce(() => {
+        throw new Error("adapter unavailable");
+      });
 
       await expect(run(env)).resolves.toBeUndefined();
 
-      expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
-        level: "warn",
-        message: "adapter unavailable",
-      }));
+      expect(allDiagnostics(env)).toContainEqual(
+        expect.objectContaining({
+          level: "warn",
+          message: "adapter unavailable",
+        }),
+      );
     });
 
     it("cancels an in-flight drop claim when automatic claiming is disabled", async () => {
@@ -319,24 +405,39 @@ describe("background controller", () => {
         ...env.state.authHealth,
         twitch: { status: "healthy", checkedAt: new Date().toISOString() },
       };
-      env.state.sessions.twitch = { platform: "twitch", status: "paused", offlineChecks: 0, reasonCode: "manual_watch" };
+      env.state.sessions.twitch = {
+        platform: "twitch",
+        status: "paused",
+        offlineChecks: 0,
+        reasonCode: "manual_watch",
+      };
       env.state.manualWatch = {
-        twitch: { platform: "twitch", tabId: 91, checkedAt: new Date().toISOString(), active: true },
+        twitch: {
+          platform: "twitch",
+          tabId: 91,
+          checkedAt: new Date().toISOString(),
+          active: true,
+        },
       };
       const refresh = deferred<DropCampaign[]>();
       env.twitch.refreshCampaigns = vi.fn(async () => refresh.promise);
 
       const claiming = env.controller.runDropClaims("twitch");
       await vi.waitFor(() => expect(env.twitch.refreshCampaigns).toHaveBeenCalledOnce());
-      await env.rawController.handleMessage({ type: "saveSettings", settingsPatch: { autoClaim: false } });
+      await env.rawController.handleMessage({
+        type: "saveSettings",
+        settingsPatch: { autoClaim: false },
+      });
       refresh.resolve([campaign("twitch", "claimable")]);
       await claiming;
 
       expect(env.twitch.claimReward).not.toHaveBeenCalled();
       expect(env.state.campaigns.twitch).toEqual([]);
-      expect(env.reportEvents.mock.calls.flatMap(([events]) => events).some(
-        (event) => event.category === "activity" && event.code === "reward_claimed",
-      )).toBe(false);
+      expect(
+        env.reportEvents.mock.calls
+          .flatMap(([events]) => events)
+          .some((event) => event.category === "activity" && event.code === "reward_claimed"),
+      ).toBe(false);
     });
 
     it("cancels an in-flight Kick challenge claim when challenge claiming is disabled", async () => {
@@ -345,7 +446,12 @@ describe("background controller", () => {
         ...env.state.authHealth,
         kick: { status: "healthy", checkedAt: new Date().toISOString() },
       };
-      env.state.sessions.kick = { platform: "kick", status: "paused", offlineChecks: 0, reasonCode: "manual_watch" };
+      env.state.sessions.kick = {
+        platform: "kick",
+        status: "paused",
+        offlineChecks: 0,
+        reasonCode: "manual_watch",
+      };
       env.state.manualWatch = {
         kick: { platform: "kick", tabId: 92, checkedAt: new Date().toISOString(), active: true },
       };
@@ -362,9 +468,11 @@ describe("background controller", () => {
       await claiming;
 
       expect(env.state.gamification?.kick).toBeUndefined();
-      expect(env.reportEvents.mock.calls.flatMap(([events]) => events).some(
-        (event) => event.category === "activity" && event.code === "challenge_claimed",
-      )).toBe(false);
+      expect(
+        env.reportEvents.mock.calls
+          .flatMap(([events]) => events)
+          .some((event) => event.category === "activity" && event.code === "challenge_claimed"),
+      ).toBe(false);
     });
   });
 
@@ -388,16 +496,22 @@ describe("background controller", () => {
     vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([twitchCampaign]);
 
     await env.controller.tick();
-    const snapshot = asSnapshot(await env.controller.handleMessage({
-      type: "claimReward",
-      platform: "twitch",
-      campaignId: "twitch-campaign",
-      rewardId: "subscription-reward",
-    }));
+    const snapshot = asSnapshot(
+      await env.controller.handleMessage({
+        type: "claimReward",
+        platform: "twitch",
+        campaignId: "twitch-campaign",
+        rewardId: "subscription-reward",
+      }),
+    );
 
     expect(env.twitch.claimReward).toHaveBeenCalledWith(
       expect.objectContaining({ id: "twitch-campaign" }),
-      expect.objectContaining({ id: "subscription-reward", status: "claimable", requirement: "subscription" }),
+      expect.objectContaining({
+        id: "subscription-reward",
+        status: "claimable",
+        requirement: "subscription",
+      }),
     );
     expect(snapshot.state.campaigns.twitch[0]).toMatchObject({
       status: "completed",
@@ -406,17 +520,19 @@ describe("background controller", () => {
         { id: "subscription-reward", status: "claimed", watchedMinutes: 0 },
       ],
     });
-    expect(env.reportEvents).toHaveBeenCalledWith(expect.arrayContaining([
-      expect.objectContaining({
-        category: "activity",
-        code: "reward_claimed",
-        data: expect.objectContaining({
-          method: "manual",
-          rewardImageUrl: "https://cdn.example.test/reward.png",
-          campaignUrl: "https://example.test/campaign",
+    expect(env.reportEvents).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: "activity",
+          code: "reward_claimed",
+          data: expect.objectContaining({
+            method: "manual",
+            rewardImageUrl: "https://cdn.example.test/reward.png",
+            campaignUrl: "https://example.test/campaign",
+          }),
         }),
-      }),
-    ]));
+      ]),
+    );
   });
 
   it("keeps a mixed campaign active after manually claiming its subscription reward", async () => {
@@ -432,17 +548,22 @@ describe("background controller", () => {
     };
     const twitchCampaign = {
       ...campaign("twitch"),
-      rewards: [subscriptionReward, { ...reward("locked"), id: "watch-reward", requirement: "watch" as const }],
+      rewards: [
+        subscriptionReward,
+        { ...reward("locked"), id: "watch-reward", requirement: "watch" as const },
+      ],
     };
     vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([twitchCampaign]);
 
     await env.controller.tick();
-    const snapshot = asSnapshot(await env.controller.handleMessage({
-      type: "claimReward",
-      platform: "twitch",
-      campaignId: "twitch-campaign",
-      rewardId: "subscription-reward",
-    }));
+    const snapshot = asSnapshot(
+      await env.controller.handleMessage({
+        type: "claimReward",
+        platform: "twitch",
+        campaignId: "twitch-campaign",
+        rewardId: "subscription-reward",
+      }),
+    );
 
     expect(snapshot.state.campaigns.twitch[0]).toMatchObject({
       status: "active",
@@ -481,12 +602,14 @@ describe("background controller", () => {
     vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([twitchCampaign]);
 
     await env.controller.tick();
-    const snapshot = asSnapshot(await env.controller.handleMessage({
-      type: "claimReward",
-      platform: "twitch",
-      campaignId: "twitch-campaign",
-      rewardId: subscriptionReward.id,
-    }));
+    const snapshot = asSnapshot(
+      await env.controller.handleMessage({
+        type: "claimReward",
+        platform: "twitch",
+        campaignId: "twitch-campaign",
+        rewardId: subscriptionReward.id,
+      }),
+    );
 
     expect(snapshot.state.campaigns.twitch[0]).toMatchObject({
       status: "active",
@@ -504,12 +627,14 @@ describe("background controller", () => {
     });
     env.state.campaigns.twitch = [campaign("twitch", "claimable")];
 
-    await expect(env.controller.handleMessage({
-      type: "claimReward",
-      platform: "twitch",
-      campaignId: "twitch-campaign",
-      rewardId: "reward",
-    })).rejects.toThrow("storage unavailable");
+    await expect(
+      env.controller.handleMessage({
+        type: "claimReward",
+        platform: "twitch",
+        campaignId: "twitch-campaign",
+        rewardId: "reward",
+      }),
+    ).rejects.toThrow("storage unavailable");
 
     expect(env.deps.saveState).toHaveBeenCalledTimes(1);
     expect(env.reportEvents).not.toHaveBeenCalled();
@@ -526,14 +651,16 @@ describe("background controller", () => {
     });
 
     expect(env.twitch.claimReward).not.toHaveBeenCalled();
-    expect(env.reportEvents).toHaveBeenCalledWith(expect.arrayContaining([
-      expect.objectContaining({
-        category: "diagnostic",
-        platform: "twitch",
-        level: "warn",
-        message: "Reward claim skipped because the campaign or reward is no longer available",
-      }),
-    ]));
+    expect(env.reportEvents).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: "diagnostic",
+          platform: "twitch",
+          level: "warn",
+          message: "Reward claim skipped because the campaign or reward is no longer available",
+        }),
+      ]),
+    );
   });
 
   it("reports the reward ids claimed during a tick, per platform", async () => {
@@ -554,10 +681,11 @@ describe("background controller", () => {
         postClaimHandoff: true,
       }),
       {
-        wait: async (_ms, signal) => new Promise<void>((resolve) => {
-          waitingSignals.push(signal);
-          signal.addEventListener("abort", () => resolve(), { once: true });
-        }),
+        wait: async (_ms, signal) =>
+          new Promise<void>((resolve) => {
+            waitingSignals.push(signal);
+            signal.addEventListener("abort", () => resolve(), { once: true });
+          }),
       },
     );
     env.twitch.supportsPostClaimHandoff = true;
@@ -575,16 +703,18 @@ describe("background controller", () => {
   });
 
   it("reports a platform-scoped diagnostic when a post-claim handoff fails", async () => {
-    const env = harness(farming({
-      ...DEFAULT_SETTINGS,
-      autoClaim: true,
-      postClaimHandoff: true,
-      platform: {
-        ...DEFAULT_SETTINGS.platform,
-        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
-        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false },
-      },
-    }));
+    const env = harness(
+      farming({
+        ...DEFAULT_SETTINGS,
+        autoClaim: true,
+        postClaimHandoff: true,
+        platform: {
+          ...DEFAULT_SETTINGS.platform,
+          twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
+          kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false },
+        },
+      }),
+    );
     env.twitch.supportsPostClaimHandoff = true;
     env.twitch.refreshCampaigns = vi.fn(async () => [campaign("twitch", "claimable")]);
     env.deps.createAdapters.mockImplementation(() => {
@@ -616,24 +746,31 @@ describe("background controller", () => {
     // Twitch-only environment whose adapter opts into the handoff.
     function handoffEnv(overrides: Partial<ExtensionSettings> = {}) {
       const timer = manualWait();
-      const env = harness({
-        ...DEFAULT_SETTINGS,
-        autoClaim: true,
-        platform: {
-          ...DEFAULT_SETTINGS.platform,
-        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
-          kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, idleWatchlistChannels: [] },
+      const env = harness(
+        {
+          ...DEFAULT_SETTINGS,
+          autoClaim: true,
+          platform: {
+            ...DEFAULT_SETTINGS.platform,
+            twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
+            kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, idleWatchlistChannels: [] },
+          },
+          ...overrides,
         },
-        ...overrides,
-      }, { wait: timer.wait });
+        { wait: timer.wait },
+      );
       env.twitch.supportsPostClaimHandoff = true;
       // Re-declare the getters: spreading `env` would evaluate them once and
       // freeze the initial snapshot, so every assertion would read stale state.
       return {
         ...env,
         timer,
-        get state() { return env.state; },
-        get settings() { return env.settings; },
+        get state() {
+          return env.state;
+        },
+        get settings() {
+          return env.settings;
+        },
       };
     }
 
@@ -641,8 +778,20 @@ describe("background controller", () => {
     // becomes visible on a later inventory read — the Twitch behavior the
     // handoff exists to absorb.
     function chainedCampaign(revealSecond: boolean): DropCampaign {
-      const first: DropReward = { id: "reward-1", name: "First", requiredMinutes: 60, watchedMinutes: 60, status: "claimable" };
-      const second: DropReward = { id: "reward-2", name: "Second", requiredMinutes: 60, watchedMinutes: 0, status: "in_progress" };
+      const first: DropReward = {
+        id: "reward-1",
+        name: "First",
+        requiredMinutes: 60,
+        watchedMinutes: 60,
+        status: "claimable",
+      };
+      const second: DropReward = {
+        id: "reward-2",
+        name: "Second",
+        requiredMinutes: 60,
+        watchedMinutes: 0,
+        status: "in_progress",
+      };
       return {
         id: "twitch-campaign",
         platform: "twitch",
@@ -666,7 +815,10 @@ describe("background controller", () => {
     });
 
     it("stops at the deadline when no next reward appears", async () => {
-      const env = handoffEnv({ postClaimHandoffIntervalSeconds: 5, postClaimHandoffMaxSeconds: 15 });
+      const env = handoffEnv({
+        postClaimHandoffIntervalSeconds: 5,
+        postClaimHandoffMaxSeconds: 15,
+      });
       env.twitch.refreshCampaigns = vi.fn(async () => [chainedCampaign(false)]);
 
       const handoff = env.controller.runClaimHandoff("twitch");
@@ -723,12 +875,16 @@ describe("background controller", () => {
       await env.controller.runClaimHandoff("twitch", ["reward-1"]);
       await env.controller.tick();
 
-      const published = env.reportEvents.mock.calls.flatMap(([events]: [readonly EngineEvent[]]) => events);
-      expect(published).toContainEqual(expect.objectContaining({
-        category: "diagnostic",
-        platform: "twitch",
-        message: expect.stringContaining("Using compatibility profile"),
-      }));
+      const published = env.reportEvents.mock.calls.flatMap(
+        ([events]: [readonly EngineEvent[]]) => events,
+      );
+      expect(published).toContainEqual(
+        expect.objectContaining({
+          category: "diagnostic",
+          platform: "twitch",
+          message: expect.stringContaining("Using compatibility profile"),
+        }),
+      );
     });
 
     it("does not run when the setting is disabled", async () => {
@@ -766,8 +922,9 @@ describe("background controller", () => {
       expect(watcher.tick).toHaveBeenCalledTimes(1);
       expect(env.state.sessions.twitch.lastHeartbeatOk).toBe(true);
       expect(env.state.sessions.twitch.lastHeartbeatAt).toBe("2026-09-02T12:00:17.000Z");
-      expect(env.state.sessions.twitch.tablessHeartbeat?.nextDueAt)
-        .toBe("2026-09-02T12:01:10.000Z");
+      expect(env.state.sessions.twitch.tablessHeartbeat?.nextDueAt).toBe(
+        "2026-09-02T12:01:10.000Z",
+      );
       expect(aggregateHeartbeatDiagnostics(env, "twitch")).toEqual([
         expect.stringContaining(
           "scheduledDueAt=2026-09-02T12:00:10.000Z actualAttemptAt=2026-09-02T12:00:10.000Z",
@@ -810,7 +967,8 @@ describe("background controller", () => {
       const nextWatcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
       const env = handoffEnv({ tablessMode: true });
       env.twitch.supportsTabless = true;
-      env.twitch.createTablessWatcher = vi.fn()
+      env.twitch.createTablessWatcher = vi
+        .fn()
         .mockReturnValueOnce(oldWatcher)
         .mockReturnValueOnce(nextWatcher);
       await env.controller.tick(["twitch"]);
@@ -834,8 +992,9 @@ describe("background controller", () => {
 
       expect(nextWatcher.tick).toHaveBeenCalledOnce();
       expect(env.state.sessions.twitch.tablessHeartbeat?.generation).toBe(2);
-      expect(env.state.sessions.twitch.tablessHeartbeat?.nextDueAt)
-        .toBe("2026-09-02T12:02:05.000Z");
+      expect(env.state.sessions.twitch.tablessHeartbeat?.nextDueAt).toBe(
+        "2026-09-02T12:02:05.000Z",
+      );
     });
 
     it("skips the immediate heartbeat when one just landed on the same channel", async () => {
@@ -895,7 +1054,10 @@ describe("background controller", () => {
     });
 
     it("does not start a nested handoff for a claim inside a handoff", async () => {
-      const env = handoffEnv({ postClaimHandoffIntervalSeconds: 5, postClaimHandoffMaxSeconds: 15 });
+      const env = handoffEnv({
+        postClaimHandoffIntervalSeconds: 5,
+        postClaimHandoffMaxSeconds: 15,
+      });
       // Every refresh yields another claimable reward, which would restart the
       // deadline forever if a nested handoff were allowed.
       env.twitch.refreshCampaigns = vi.fn(async () => [chainedCampaign(false)]);
@@ -908,7 +1070,10 @@ describe("background controller", () => {
     });
 
     it("keeps an active handoff running during an ordinary settings save", async () => {
-      const env = handoffEnv({ postClaimHandoffIntervalSeconds: 5, postClaimHandoffMaxSeconds: 15 });
+      const env = handoffEnv({
+        postClaimHandoffIntervalSeconds: 5,
+        postClaimHandoffMaxSeconds: 15,
+      });
       env.twitch.refreshCampaigns = vi.fn(async () => [chainedCampaign(false)]);
 
       const handoff = env.controller.runClaimHandoff("twitch", ["reward-1"]);
@@ -932,7 +1097,11 @@ describe("background controller", () => {
 
       const handoff = env.controller.runClaimHandoff("twitch", ["reward-1"]);
       await drainMicrotasks();
-      await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: false });
+      await env.controller.handleMessage({
+        type: "setAutomation",
+        platform: "twitch",
+        enabled: false,
+      });
       await env.timer.flush();
       await handoff;
 
@@ -970,7 +1139,10 @@ describe("background controller", () => {
     it("never refreshes after the maximum duration has elapsed", async () => {
       // A 30s interval against a 45s budget: a second full-length wait would
       // land a refresh at 60s, past the deadline the setting promises.
-      const env = handoffEnv({ postClaimHandoffIntervalSeconds: 30, postClaimHandoffMaxSeconds: 45 });
+      const env = handoffEnv({
+        postClaimHandoffIntervalSeconds: 30,
+        postClaimHandoffMaxSeconds: 45,
+      });
       // The session keeps watching the reward that was just claimed, so the loop
       // never succeeds and never sees "nothing left" — only the deadline can end
       // it. Without that, the early exit would mask any overshoot.

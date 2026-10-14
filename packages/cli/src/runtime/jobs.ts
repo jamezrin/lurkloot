@@ -1,4 +1,8 @@
-import { MIN_JOB_PERIOD_MINUTES, type JobSchedule, type JobSchedulerPort } from "@lurkloot/core/controller";
+import {
+  MIN_JOB_PERIOD_MINUTES,
+  type JobSchedule,
+  type JobSchedulerPort,
+} from "@lurkloot/core/controller";
 
 export interface TimerApi {
   setTimeout(callback: () => void, ms: number): unknown;
@@ -60,9 +64,13 @@ export function createNodeJobScheduler(
       if (existing) timers.clearTimeout(existing.handle);
       const job: NodeJob = { schedule, scheduledTime: 0, handle: undefined };
       jobs.set(name, job);
-      arm(name, job, "when" in schedule
-        ? Math.max(0, schedule.when - timers.now())
-        : periodMs(schedule.periodInMinutes));
+      arm(
+        name,
+        job,
+        "when" in schedule
+          ? Math.max(0, schedule.when - timers.now())
+          : periodMs(schedule.periodInMinutes),
+      );
     },
     cancel: async (name) => {
       const job = jobs.get(name);

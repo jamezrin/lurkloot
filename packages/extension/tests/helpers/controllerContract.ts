@@ -11,7 +11,13 @@ import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import { KickPageContextRecoveryTracker } from "@lurkloot/core/kick";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
 import { createTabRegistry } from "@lurkloot/core/tabRegistry";
-import type { ChannelCandidate, DropCampaign, ExtensionSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
+import type {
+  ChannelCandidate,
+  DropCampaign,
+  ExtensionSettings,
+  Platform,
+  SchedulerState,
+} from "@lurkloot/shared/models";
 import type { EngineEvent } from "@lurkloot/shared/events";
 import { applySettingsPatch, DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { DEFAULT_STATE } from "../../src/core/storage";
@@ -67,13 +73,24 @@ export const contractCampaign = (platform: Platform): DropCampaign => ({
   platform,
   name: `${platform} campaign`,
   status: "active",
-  rewards: [{ id: `${platform}-reward`, name: "Reward", requiredMinutes: 60, watchedMinutes: 10, status: "in_progress" }],
+  rewards: [
+    {
+      id: `${platform}-reward`,
+      name: "Reward",
+      requiredMinutes: 60,
+      watchedMinutes: 10,
+      status: "in_progress",
+    },
+  ],
 });
 
 export const contractChannel = (platform: Platform): ChannelCandidate => ({
   platform,
   username: `${platform}_creator`,
-  url: platform === "twitch" ? "https://www.twitch.tv/twitch_creator" : "https://kick.com/kick_creator",
+  url:
+    platform === "twitch"
+      ? "https://www.twitch.tv/twitch_creator"
+      : "https://kick.com/kick_creator",
   live: true,
 });
 
@@ -124,7 +141,11 @@ function contractAdapter(platform: Platform): PlatformAdapter {
     checkAuthHealth: vi.fn(async () => ({ status: "healthy" as const })),
     refreshCampaigns: vi.fn(async () => [contractCampaign(platform)]),
     listCandidateChannels: vi.fn(async () => [contractChannel(platform)]),
-    checkChannel: vi.fn(async (candidate: ChannelCandidate) => ({ live: true, categoryMatches: true, candidate })),
+    checkChannel: vi.fn(async (candidate: ChannelCandidate) => ({
+      live: true,
+      categoryMatches: true,
+      candidate,
+    })),
     claimReward: vi.fn(async () => true),
   };
 }
@@ -191,11 +212,17 @@ export class FakeJobScheduler {
   async get(name: string): Promise<{ scheduledTime: number } | undefined> {
     const schedule = this.scheduled.get(name);
     if (!schedule) return undefined;
-    return { scheduledTime: "when" in schedule ? schedule.when : Date.now() + schedule.periodInMinutes * 60_000 };
+    return {
+      scheduledTime:
+        "when" in schedule ? schedule.when : Date.now() + schedule.periodInMinutes * 60_000,
+    };
   }
 }
 
-export function contractHost(capabilities: CapabilitySet, options: ContractHostOptions = {}): ContractHost {
+export function contractHost(
+  capabilities: CapabilitySet,
+  options: ContractHostOptions = {},
+): ContractHost {
   const storage: ContractStorage = options.storage ?? {
     settings: options.settings ?? farmingSettings(),
     state: options.state ?? idleState(),
@@ -208,9 +235,12 @@ export function contractHost(capabilities: CapabilitySet, options: ContractHostO
   const reported: EngineEvent[] = [];
   const jobs = new FakeJobScheduler();
   const compatibility = (settings: ExtensionSettings) =>
-    resolveCompatibility(settings.compatibility, capabilities.declared.browserTabs
-      ? { host: "extension", twitchIdentity: "web" }
-      : { host: "cli", twitchIdentity: "web" });
+    resolveCompatibility(
+      settings.compatibility,
+      capabilities.declared.browserTabs
+        ? { host: "extension", twitchIdentity: "web" }
+        : { host: "cli", twitchIdentity: "web" },
+    );
 
   const common: HostMocks<ExtensionSettings> = {
     loadSettings: vi.fn(async () => storage.settings),
@@ -230,8 +260,14 @@ export function contractHost(capabilities: CapabilitySet, options: ContractHostO
     getAlarm: vi.fn((name: string) => jobs.get(name)),
     clearAlarm: vi.fn((name: string) => jobs.cancel(name)),
     createNotification: vi.fn(async () => undefined),
-    createAdapters: vi.fn((_emit, settings: ExtensionSettings) => ({ adapters, ...compatibility(settings) })),
-    createAdapter: vi.fn((platform: Platform, _emit, settings: ExtensionSettings) => ({ adapter: adapters[platform], ...compatibility(settings) })),
+    createAdapters: vi.fn((_emit, settings: ExtensionSettings) => ({
+      adapters,
+      ...compatibility(settings),
+    })),
+    createAdapter: vi.fn((platform: Platform, _emit, settings: ExtensionSettings) => ({
+      adapter: adapters[platform],
+      ...compatibility(settings),
+    })),
     ...(options.wait ? { wait: options.wait } : {}),
   };
   // The extension runs its real tab ports against a fake browser (#598); each
@@ -239,27 +275,37 @@ export function contractHost(capabilities: CapabilitySet, options: ContractHostO
   // tracker still sees it. The ports read settings straight from storage rather
   // than through the loadSettings mock, as they do not belong to the controller.
   const tabRegistry = createTabRegistry();
-  const browser = capabilities.declared.browserTabs ? options.browser ?? new FakeBrowser() : undefined;
+  const browser = capabilities.declared.browserTabs
+    ? (options.browser ?? new FakeBrowser())
+    : undefined;
   const tabs = browser
-    ? createExtensionTabPorts(tabRegistry, browser, async () => storage.settings, { recoveryEvidence: { kick: new KickPageContextRecoveryTracker() } })
+    ? createExtensionTabPorts(tabRegistry, browser, async () => storage.settings, {
+        recoveryEvidence: { kick: new KickPageContextRecoveryTracker() },
+      })
     : undefined;
   const deps: HostMocks<ExtensionSettings> = {
     ...common,
     ...(tabs
       ? {
-        tabRegistry,
-        openWatchTab: vi.fn(tabs.watch.open),
-        stopWatchTab: vi.fn(tabs.watch.stop),
-        closeManagedTabs: vi.fn(async (managed, origin = "extension-cleanup") => await tabs.watch.closeManaged(managed, origin)),
-        applyAdFocus: vi.fn(tabs.watch.applyAdFocus),
-        loadTabPlaybackPolicy: vi.fn(tabs.watch.loadPlaybackPolicy),
-        stopPageContextTabs: vi.fn(tabs.pageContexts.release),
-        reconcilePageContextRecovery: vi.fn(tabs.pageContexts.recover),
-        discardPageContextRecoveryEvidence: vi.fn(tabs.pageContexts.discardRecoveryEvidence),
-      }
+          tabRegistry,
+          openWatchTab: vi.fn(tabs.watch.open),
+          stopWatchTab: vi.fn(tabs.watch.stop),
+          closeManagedTabs: vi.fn(
+            async (managed, origin = "extension-cleanup") =>
+              await tabs.watch.closeManaged(managed, origin),
+          ),
+          applyAdFocus: vi.fn(tabs.watch.applyAdFocus),
+          loadTabPlaybackPolicy: vi.fn(tabs.watch.loadPlaybackPolicy),
+          stopPageContextTabs: vi.fn(tabs.pageContexts.release),
+          reconcilePageContextRecovery: vi.fn(tabs.pageContexts.recover),
+          discardPageContextRecoveryEvidence: vi.fn(tabs.pageContexts.discardRecoveryEvidence),
+        }
       : {}),
     ...(capabilities.declared.twitchIntegrityCapture
-      ? { ensureTwitchIntegrity: vi.fn(async () => true), cancelTwitchIntegrityAcquisition: vi.fn() }
+      ? {
+          ensureTwitchIntegrity: vi.fn(async () => true),
+          cancelTwitchIntegrityAcquisition: vi.fn(),
+        }
       : {}),
     ...(capabilities.declared.supplementalSources
       ? { selectSupplementalWatchTarget: vi.fn(async () => undefined) }
@@ -267,7 +313,9 @@ export function contractHost(capabilities: CapabilitySet, options: ContractHostO
   };
 
   const { deps: trackedDeps, tracker } = withLockTracker(deps);
-  const controller = createBackgroundController(hostPortsFromMocks(trackedDeps, capabilities.declared));
+  const controller = createBackgroundController(
+    hostPortsFromMocks(trackedDeps, capabilities.declared),
+  );
   // What background.ts does with tabs.onRemoved.
   const tabEvents = new Set<Promise<void>>();
   const unsubscribe = browser?.onRemoved((tabId) => {

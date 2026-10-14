@@ -62,7 +62,9 @@ describe("critical failure panel", () => {
   });
 
   it("shows the report for manual copying and does not open an issue when the clipboard fails", async () => {
-    const { props, container, buttons } = await mountPanel({ writeClipboard: vi.fn(async () => false) });
+    const { props, container, buttons } = await mountPanel({
+      writeClipboard: vi.fn(async () => false),
+    });
     expect(container.querySelector("textarea")).toBeNull();
 
     await act(async () => {

@@ -41,7 +41,9 @@ test("fast-forwards develop to verified main", async () => {
   let verified = false;
   const result = await syncBranches({
     cwd: seed,
-    verify: async () => { verified = true; },
+    verify: async () => {
+      verified = true;
+    },
   });
   assert.equal(result.mode, "fast-forward");
   assert.equal(verified, true);
@@ -64,7 +66,9 @@ test("creates a verified merge when both branches advanced", async () => {
   await git(seed, "push", "origin", "develop");
   const result = await syncBranches({ cwd: seed, verify: async () => {} });
   assert.equal(result.mode, "merge");
-  const parents = (await git(seed, "show", "-s", "--format=%P", result.sha)).stdout.trim().split(" ");
+  const parents = (await git(seed, "show", "-s", "--format=%P", result.sha)).stdout
+    .trim()
+    .split(" ");
   assert.equal(parents.length, 2);
 });
 
@@ -81,7 +85,12 @@ test("leaves remote develop unchanged when a merge conflicts", async () => {
   const before = (await git(seed, "rev-parse", "origin/develop")).stdout.trim();
   let verified = false;
   await assert.rejects(
-    syncBranches({ cwd: seed, verify: async () => { verified = true; } }),
+    syncBranches({
+      cwd: seed,
+      verify: async () => {
+        verified = true;
+      },
+    }),
     /conflict/,
   );
   await git(seed, "fetch", "origin", "develop");
@@ -136,23 +145,27 @@ test("defaultVerify includes command stdout when verification fails", async () =
     stderr: "$ pnpm -r --if-present test\n",
   });
   await assert.rejects(
-    () => defaultVerify("/repo", async () => {
-      throw failure;
-    }),
+    () =>
+      defaultVerify("/repo", async () => {
+        throw failure;
+      }),
     /Executable doesn't exist[\s\S]*pnpm -r --if-present test/,
   );
 });
 
 test("the sync job installs Playwright Chromium before synchronizing develop", async () => {
-  const yaml = await readFile(new URL("../../.github/workflows/release.yml", import.meta.url), "utf8");
-  assert.match(
-    yaml,
-    /playwright install chromium\s+node scripts\/release\/cli\.mjs sync-branches/,
+  const yaml = await readFile(
+    new URL("../../.github/workflows/release.yml", import.meta.url),
+    "utf8",
   );
+  assert.match(yaml, /playwright install chromium\s+node scripts\/release\/cli\.mjs sync-branches/);
 });
 
 test("recovery dispatch is not gated on the workflow ref being main", async () => {
-  const yaml = await readFile(new URL("../../.github/workflows/release.yml", import.meta.url), "utf8");
+  const yaml = await readFile(
+    new URL("../../.github/workflows/release.yml", import.meta.url),
+    "utf8",
+  );
   assert.doesNotMatch(yaml, /test "\$GITHUB_REF" = refs\/heads\/main/);
   assert.match(
     yaml,
@@ -161,18 +174,27 @@ test("recovery dispatch is not gated on the workflow ref being main", async () =
 });
 
 test("recovery skips promotion when the GitHub release is already stable", async () => {
-  const yaml = await readFile(new URL("../../.github/workflows/release.yml", import.meta.url), "utf8");
+  const yaml = await readFile(
+    new URL("../../.github/workflows/release.yml", import.meta.url),
+    "utf8",
+  );
   assert.match(yaml, /gh release view "v\$VERSION" --json isPrerelease/);
   assert.match(yaml, /already the stable release/);
 });
 
 test("recovery leaves an already published immutable image tag in place", async () => {
-  const yaml = await readFile(new URL("../../.github/workflows/release.yml", import.meta.url), "utf8");
+  const yaml = await readFile(
+    new URL("../../.github/workflows/release.yml", import.meta.url),
+    "utf8",
+  );
   assert.match(yaml, /already published; aliasing the published digest/);
 });
 
 test("candidate lookup does not persist the GitHub token in Docker credentials", async () => {
-  const yaml = await readFile(new URL("../../.github/workflows/release.yml", import.meta.url), "utf8");
+  const yaml = await readFile(
+    new URL("../../.github/workflows/release.yml", import.meta.url),
+    "utf8",
+  );
   const resolveJob = yaml.slice(yaml.indexOf("  resolve:"), yaml.indexOf("\n  docker:"));
   assert.doesNotMatch(resolveJob, /docker\/login-action/);
   assert.match(resolveJob, /https:\/\/ghcr\.io\/token/);

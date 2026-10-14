@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { ChannelCandidate, DropCampaign, ExtensionSettings, SchedulerState, WatchSession } from "@lurkloot/shared/models";
+import type {
+  ChannelCandidate,
+  DropCampaign,
+  ExtensionSettings,
+  SchedulerState,
+  WatchSession,
+} from "@lurkloot/shared/models";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import { runSchedulerTick, type SchedulerTestAdapter } from "./helpers/schedulerTick";
@@ -43,9 +49,15 @@ describe("tabless heartbeat cadence", () => {
   });
 
   it("admits supplemental heartbeat targets without fabricated campaigns or rewards", () => {
-    const session = tablessSession({ campaignId: undefined, rewardId: undefined, supplementalWatch: { id: "nopixel", tablessOnly: true } });
+    const session = tablessSession({
+      campaignId: undefined,
+      rewardId: undefined,
+      supplementalWatch: { id: "nopixel", tablessOnly: true },
+    });
     expect(heartbeatContextKey(session)).toContain("nopixel");
-    expect(heartbeatContextKey(session)).not.toBe(heartbeatContextKey({ ...session, supplementalWatch: { id: "fortnite", tablessOnly: true } }));
+    expect(heartbeatContextKey(session)).not.toBe(
+      heartbeatContextKey({ ...session, supplementalWatch: { id: "fortnite", tablessOnly: true } }),
+    );
     const idle = heartbeatContextKey({ ...session, supplementalWatch: undefined });
     expect(idle).toContain("idle_watchlist");
     expect(idle).not.toBe(heartbeatContextKey(session));
@@ -57,10 +69,12 @@ describe("tabless heartbeat cadence", () => {
 
     expect(heartbeatContextKey(idle)).toContain("idle_watchlist");
     expect(heartbeatContextKey(idle)).not.toBe(heartbeatContextKey(drop));
-    expect(heartbeatContextKey({
-      ...idle,
-      channel: { ...idle.channel!, url: "https://www.twitch.tv/other", username: "other" },
-    })).not.toBe(heartbeatContextKey(idle));
+    expect(
+      heartbeatContextKey({
+        ...idle,
+        channel: { ...idle.channel!, url: "https://www.twitch.tv/other", username: "other" },
+      }),
+    ).not.toBe(heartbeatContextKey(idle));
     expect(heartbeatContextKey({ ...idle, campaignId: "campaign" })).toBeUndefined();
     expect(heartbeatContextKey({ ...idle, rewardId: "reward" })).toBeUndefined();
     expect(heartbeatContextKey({ ...idle, watchMode: "tab" })).toBeUndefined();
@@ -93,13 +107,15 @@ function heartbeatCampaign(id = "campaign", rewardId = "reward"): DropCampaign {
     platform: "twitch",
     name: id,
     status: "active",
-    rewards: [{
-      id: rewardId,
-      name: rewardId,
-      requiredMinutes: 60,
-      watchedMinutes: 0,
-      status: "in_progress",
-    }],
+    rewards: [
+      {
+        id: rewardId,
+        name: rewardId,
+        requiredMinutes: 60,
+        watchedMinutes: 0,
+        status: "in_progress",
+      },
+    ],
   };
 }
 
@@ -144,7 +160,8 @@ function heartbeatState(session: WatchSession, campaigns: DropCampaign[]): Sched
   };
 }
 
-const PERSISTED_CONTEXT_KEY = "[\"twitch\",\"https://www.twitch.tv/channel\",\"channel\",\"broadcast\",\"channel-id\",\"\",\"campaign\",\"reward\"]";
+const PERSISTED_CONTEXT_KEY =
+  '["twitch","https://www.twitch.tv/channel","channel","broadcast","channel-id","","campaign","reward"]';
 
 describe("scheduler tabless heartbeat cadence state", () => {
   it("retains cadence metadata when the normalized tabless target is unchanged", async () => {
@@ -160,7 +177,10 @@ describe("scheduler tabless heartbeat cadence state", () => {
     const result = await runSchedulerTick(
       heartbeatState(session, campaigns),
       heartbeatSettings(true),
-      { twitch: heartbeatAdapter(campaigns, [session.channel!]), kick: heartbeatAdapter([], [], false) },
+      {
+        twitch: heartbeatAdapter(campaigns, [session.channel!]),
+        kick: heartbeatAdapter([], [], false),
+      },
       { platforms: ["twitch"] },
     );
 
@@ -180,7 +200,10 @@ describe("scheduler tabless heartbeat cadence state", () => {
     const result = await runSchedulerTick(
       heartbeatState(session, campaigns),
       heartbeatSettings(false),
-      { twitch: heartbeatAdapter(campaigns, [session.channel!], false), kick: heartbeatAdapter([], [], false) },
+      {
+        twitch: heartbeatAdapter(campaigns, [session.channel!], false),
+        kick: heartbeatAdapter([], [], false),
+      },
       { platforms: ["twitch"] },
     );
 
@@ -216,11 +239,18 @@ describe("scheduler tabless heartbeat cadence state", () => {
     });
     const campaigns = [heartbeatCampaign()];
     const nextCampaign = heartbeatCampaign("next-campaign", "next-reward");
-    const nextChannel = { ...session.channel!, username: "next-channel", url: "https://www.twitch.tv/next-channel" };
+    const nextChannel = {
+      ...session.channel!,
+      username: "next-channel",
+      url: "https://www.twitch.tv/next-channel",
+    };
     const changed = await runSchedulerTick(
       heartbeatState(session, campaigns),
       heartbeatSettings(true),
-      { twitch: heartbeatAdapter([nextCampaign], [nextChannel]), kick: heartbeatAdapter([], [], false) },
+      {
+        twitch: heartbeatAdapter([nextCampaign], [nextChannel]),
+        kick: heartbeatAdapter([], [], false),
+      },
       { platforms: ["twitch"] },
     );
     expect(changed.state.sessions.twitch.channel?.url).toBe(nextChannel.url);

@@ -1,6 +1,10 @@
 import type { EngineSettings, Platform, SchedulerState } from "@lurkloot/shared/models";
 import { autoClaimChallengesFor } from "@lurkloot/shared/settings";
-import { CHALLENGE_POLL_INTERVAL_MS, challengePollDue, type StopPageContextTabs } from "../core/scheduler";
+import {
+  CHALLENGE_POLL_INTERVAL_MS,
+  challengePollDue,
+  type StopPageContextTabs,
+} from "../core/scheduler";
 import { forgetManagedPageContextTabs } from "../core/tabRegistry";
 import type { ClaimedChallenge, PlatformAdapter } from "../platforms/adapter";
 import { KICK_CHALLENGES_ALARM_NAME } from "./constants";
@@ -21,7 +25,9 @@ export class KickChallengeClaimGate {
   private running = false;
 
   // Resolves undefined, without calling `claim`, while another claim runs.
-  async unlessRunning(claim: () => Promise<ClaimedChallenge[]>): Promise<ClaimedChallenge[] | undefined> {
+  async unlessRunning(
+    claim: () => Promise<ClaimedChallenge[]>,
+  ): Promise<ClaimedChallenge[] | undefined> {
     if (this.running) return undefined;
     this.running = true;
     try {
@@ -42,36 +48,45 @@ export function registerKickRuntimeEffects(
   releasePageContexts?: StopPageContextTabs,
 ): TickEffectExecutor {
   return executor
-    .register("releasePageContexts", async ({ platform, contexts, reason, forgetOnFailure }, context) => {
-      const forget: StopPageContextTabs = (forgotten, forgetOptions) =>
-        forgetManagedPageContextTabs(context.tabRegistry, forgotten, forgetOptions);
-      const release = releasePageContexts ?? forget;
-      const options = { platforms: [platform], reason, emit: context.emit };
-      if (!forgetOnFailure) return await release(contexts, options);
-      try {
-        return await release(contexts, options);
-      } catch (error) {
-        context.emit({
-          category: "diagnostic",
-          platform,
-          level: "warn",
-          message: error instanceof Error ? error.message : "Could not stop page context",
-        });
-        return forget(contexts, options);
-      }
-    })
+    .register(
+      "releasePageContexts",
+      async ({ platform, contexts, reason, forgetOnFailure }, context) => {
+        const forget: StopPageContextTabs = (forgotten, forgetOptions) =>
+          forgetManagedPageContextTabs(context.tabRegistry, forgotten, forgetOptions);
+        const release = releasePageContexts ?? forget;
+        const options = { platforms: [platform], reason, emit: context.emit };
+        if (!forgetOnFailure) return await release(contexts, options);
+        try {
+          return await release(contexts, options);
+        } catch (error) {
+          context.emit({
+            category: "diagnostic",
+            platform,
+            level: "warn",
+            message: error instanceof Error ? error.message : "Could not stop page context",
+          });
+          return forget(contexts, options);
+        }
+      },
+    )
     .register("claimChallenges", async ({ platform }, context) => {
       const adapter = context.adapters[platform];
       if (!adapter) throw new Error(`No ${platform} adapter for the scheduler effect`);
-      return await gate.unlessRunning(async () =>
-        await adapter.claimChallenges?.({ signal: context.signal }) ?? []) ?? [];
+      return (
+        (await gate.unlessRunning(
+          async () => (await adapter.claimChallenges?.({ signal: context.signal })) ?? [],
+        )) ?? []
+      );
     });
 }
 
 // The ten-minute challenge job. It claims for a manually watched tab, which
 // needs browser tabs; elsewhere the tick claims at its own cadence.
 export const KICK_RUNTIME_JOBS: Readonly<Record<string, BackgroundJob>> = {
-  [KICK_CHALLENGES_ALARM_NAME]: { run: (runner) => runner.runKickChallengeClaims(), requires: "browserTabs" },
+  [KICK_CHALLENGES_ALARM_NAME]: {
+    run: (runner) => runner.runKickChallengeClaims(),
+    requires: "browserTabs",
+  },
 };
 
 // The later of two poll stamps, so a job never replaces the tick's newer one.
@@ -91,7 +106,8 @@ export function createKickRuntime<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
   transaction: Pick<StateTransaction<S>, "onCommit">,
   { lifecycleSlice }: Pick<ControllerSlices<S>, "lifecycleSlice">,
-  calls: Pick<ControllerCalls<S>,
+  calls: Pick<
+    ControllerCalls<S>,
     | "clearOperationalEvents"
     | "createAdapter"
     | "emitNotifications"
@@ -100,7 +116,8 @@ export function createKickRuntime<S extends EngineSettings>(
     | "withEventCollector"
     | "withStateLock"
   >,
-): Pick<ControllerCalls<S>,
+): Pick<
+  ControllerCalls<S>,
   | "abortKickChallengeClaims"
   | "clearKickChallengeJobBestEffort"
   | "endTickCycle"
@@ -146,7 +163,9 @@ export function createKickRuntime<S extends EngineSettings>(
 
   async function reconcileKickChallengeJob(settings: EngineSettings): Promise<void> {
     if (challengeClaimsEnabled(settings)) {
-      await ports.jobs.ensure(KICK_CHALLENGES_ALARM_NAME, { periodInMinutes: CHALLENGE_POLL_INTERVAL_MS / 60_000 });
+      await ports.jobs.ensure(KICK_CHALLENGES_ALARM_NAME, {
+        periodInMinutes: CHALLENGE_POLL_INTERVAL_MS / 60_000,
+      });
     } else {
       await ports.jobs.cancel(KICK_CHALLENGES_ALARM_NAME);
     }
@@ -168,11 +187,13 @@ export function createKickRuntime<S extends EngineSettings>(
     try {
       await ports.jobs.cancel(KICK_CHALLENGES_ALARM_NAME);
     } catch {
-      await reportBestEffort([{
-        category: "diagnostic",
-        level: "warn",
-        message: `Could not clear the ${KICK_CHALLENGES_ALARM_NAME} alarm`,
-      }]);
+      await reportBestEffort([
+        {
+          category: "diagnostic",
+          level: "warn",
+          message: `Could not clear the ${KICK_CHALLENGES_ALARM_NAME} alarm`,
+        },
+      ]);
     }
   }
 
@@ -191,21 +212,28 @@ export function createKickRuntime<S extends EngineSettings>(
       await withEventCollector(async (emit, events) => {
         let adapter: PlatformAdapter | undefined;
         try {
-          const [settings, state] = await Promise.all([ports.storage.loadSettings(), ports.storage.loadState()]);
+          const [settings, state] = await Promise.all([
+            ports.storage.loadSettings(),
+            ports.storage.loadState(),
+          ]);
           operation.signal.throwIfAborted();
-          if (lifecycleSlice.controllerShutdown
+          if (
+            lifecycleSlice.controllerShutdown
             || !challengeClaimsEnabled(settings)
             || state.authHealth.kick.status !== "healthy"
             || !pausedForManualWatch(settings, state, "kick")
-            || !challengePollDue(state, "kick", Date.now())) return;
+            || !challengePollDue(state, "kick", Date.now())
+          )
+            return;
 
           // Stamped on attempt, not on success, like the tick's own poll.
           const checked = { lastCheckedAt: new Date().toISOString() };
-          const kickAdapter = adapter = createAdapter("kick", settings, emit, true);
+          const kickAdapter = (adapter = createAdapter("kick", settings, emit, true));
           operation.signal.throwIfAborted();
           try {
-            const challenges = await claims.unlessRunning(async () =>
-              await kickAdapter.claimChallenges?.({ signal: operation.signal }) ?? []);
+            const challenges = await claims.unlessRunning(
+              async () => (await kickAdapter.claimChallenges?.({ signal: operation.signal })) ?? [],
+            );
             // The tick is claiming: it stamps the poll itself.
             if (challenges === undefined) return;
             operation.signal.throwIfAborted();
@@ -215,7 +243,11 @@ export function createKickRuntime<S extends EngineSettings>(
                 code: "challenge_claimed",
                 level: "info",
                 platform: "kick",
-                data: { challengeId: challenge.id, rarity: challenge.rarity, recurrence: challenge.recurrence },
+                data: {
+                  challengeId: challenge.id,
+                  rarity: challenge.rarity,
+                  recurrence: challenge.recurrence,
+                },
               });
             }
           } catch (error) {
@@ -238,7 +270,11 @@ export function createKickRuntime<S extends EngineSettings>(
                 kick: newerCheck(checked, latest.gamification?.kick),
               },
             };
-            const persisted = await persistPlatformState("kick", next, () => !operation.signal.aborted);
+            const persisted = await persistPlatformState(
+              "kick",
+              next,
+              () => !operation.signal.aborted,
+            );
             return persisted ? { latest, next } : undefined;
           }, ["kick"]);
           operation.signal.throwIfAborted();
@@ -275,12 +311,17 @@ export function createKickRuntime<S extends EngineSettings>(
     const pageContexts = ports.tabs?.pageContexts;
     // Only Kick opens page contexts to recover from.
     if (!pageContexts || !platforms.includes("kick")) return;
-    const countBackgroundSuccess = outcome.status === "committed"
+    const countBackgroundSuccess =
+      outcome.status === "committed"
       && outcome.discoveryComplete.has("kick")
       && (outcome.state.sessions.kick.errorChecks ?? 0) === 0;
     await withEventCollector(async (recoveryEmit, recoveryEvents) => {
       try {
-        const changed = await pageContexts.recover("kick", { countBackgroundSuccess }, recoveryEmit);
+        const changed = await pageContexts.recover(
+          "kick",
+          { countBackgroundSuccess },
+          recoveryEmit,
+        );
         // Runs after the tick's commit with no lock held (#598), so the page
         // contexts it changed are committed onto the latest state.
         if (changed) {

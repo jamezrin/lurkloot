@@ -15,7 +15,9 @@ export class UnusableWatchTabError extends Error {
     const detail = [
       failure.reason,
       failure.reference === undefined ? undefined : `reference ${failure.reference}`,
-    ].filter(Boolean).join(", ");
+    ]
+      .filter(Boolean)
+      .join(", ");
     super(`Watch tab ${tabId} did not show the channel page${detail ? ` (${detail})` : ""}`);
     this.name = "UnusableWatchTabError";
     this.failure = failure;

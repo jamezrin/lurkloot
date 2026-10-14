@@ -52,11 +52,13 @@ function retainedTwitchCampaignDetails(): unknown {
         id: "retained",
         name: "Retained Campaign",
         game: { id: "game", slug: "game-slug", displayName: "Game" },
-        timeBasedDrops: [{
-          id: "retained-drop",
-          requiredMinutesWatched: 60,
-          benefitEdges: [{ benefit: { id: "benefit", name: "Reward" } }],
-        }],
+        timeBasedDrops: [
+          {
+            id: "retained-drop",
+            requiredMinutesWatched: 60,
+            benefitEdges: [{ benefit: { id: "benefit", name: "Reward" } }],
+          },
+        ],
       },
     },
   };
@@ -64,14 +66,32 @@ function retainedTwitchCampaignDetails(): unknown {
 
 interface Captured {
   url: string;
-  options: { ja3?: string; userAgent?: string; headers: Record<string, string>; disableRedirect?: boolean };
+  options: {
+    ja3?: string;
+    userAgent?: string;
+    headers: Record<string, string>;
+    disableRedirect?: boolean;
+  };
   method: string;
 }
 
-function fakeClient(handler: (url: string, options: Captured["options"], method: string) => Promise<{ status: number; data: unknown; headers?: Record<string, unknown> }>) {
-  const client: any = (url: string, options: Captured["options"], method: string) => handler(url, options, method);
+function fakeClient(
+  handler: (
+    url: string,
+    options: Captured["options"],
+    method: string,
+  ) => Promise<{ status: number; data: unknown; headers?: Record<string, unknown> }>,
+) {
+  const client: any = (url: string, options: Captured["options"], method: string) =>
+    handler(url, options, method);
   client.exit = vi.fn(async () => undefined);
-  client.ws = vi.fn(async () => ({ send: vi.fn(), close: vi.fn(), onMessage: () => {}, onClose: () => {}, onError: () => {} }));
+  client.ws = vi.fn(async () => ({
+    send: vi.fn(),
+    close: vi.fn(),
+    onMessage: () => {},
+    onClose: () => {},
+    onError: () => {},
+  }));
   return client;
 }
 
@@ -82,7 +102,11 @@ describe("impersonate transport", () => {
       captured = { url, options, method };
       return Promise.resolve({ status: 200, data: { data: [] } });
     });
-    const handle = await createImpersonateTransport({ kick: { sessionToken: "sess-token" } }, ENABLED, { initClient: async () => client });
+    const handle = await createImpersonateTransport(
+      { kick: { sessionToken: "sess-token" } },
+      ENABLED,
+      { initClient: async () => client },
+    );
 
     const campaigns = await handle.adapters.kick.refreshCampaigns();
     expect(campaigns).toEqual([]);
@@ -97,21 +121,31 @@ describe("impersonate transport", () => {
   });
 
   it("surfaces a Cloudflare 403 as KickWafBlockedError", async () => {
-    const client = fakeClient(() => Promise.resolve({
-      status: 403,
-      data: { error: "Request blocked by security policy.", reference: "9e4db7e3" },
-    }));
-    const handle = await createImpersonateTransport({}, ENABLED, { initClient: async () => client });
-    await expect(handle.adapters.kick.refreshCampaigns()).rejects.toBeInstanceOf(KickWafBlockedError);
+    const client = fakeClient(() =>
+      Promise.resolve({
+        status: 403,
+        data: { error: "Request blocked by security policy.", reference: "9e4db7e3" },
+      }),
+    );
+    const handle = await createImpersonateTransport({}, ENABLED, {
+      initClient: async () => client,
+    });
+    await expect(handle.adapters.kick.refreshCampaigns()).rejects.toBeInstanceOf(
+      KickWafBlockedError,
+    );
     await handle.dispose();
   });
 
   it("surfaces a non-WAF Kick 403 as a plain auth rejection, not KickWafBlockedError", async () => {
-    const client = fakeClient(() => Promise.resolve({
-      status: 403,
-      data: { error: "Invalid session" },
-    }));
-    const handle = await createImpersonateTransport({}, ENABLED, { initClient: async () => client });
+    const client = fakeClient(() =>
+      Promise.resolve({
+        status: 403,
+        data: { error: "Invalid session" },
+      }),
+    );
+    const handle = await createImpersonateTransport({}, ENABLED, {
+      initClient: async () => client,
+    });
     const error = await handle.adapters.kick.refreshCampaigns().catch((caught: unknown) => caught);
     expect(error).not.toBeInstanceOf(KickWafBlockedError);
     expect(isSafeFetchError(error) && error.failure.kind).toBe("authentication_rejected");
@@ -119,18 +153,26 @@ describe("impersonate transport", () => {
   });
 
   it("surfaces a non-JSON 403 body (HTML challenge page) as KickWafBlockedError", async () => {
-    const client = fakeClient(() => Promise.resolve({
-      status: 403,
-      data: "<html><body>Attention Required! | Cloudflare</body></html>",
-    }));
-    const handle = await createImpersonateTransport({}, ENABLED, { initClient: async () => client });
-    await expect(handle.adapters.kick.refreshCampaigns()).rejects.toBeInstanceOf(KickWafBlockedError);
+    const client = fakeClient(() =>
+      Promise.resolve({
+        status: 403,
+        data: "<html><body>Attention Required! | Cloudflare</body></html>",
+      }),
+    );
+    const handle = await createImpersonateTransport({}, ENABLED, {
+      initClient: async () => client,
+    });
+    await expect(handle.adapters.kick.refreshCampaigns()).rejects.toBeInstanceOf(
+      KickWafBlockedError,
+    );
     await handle.dispose();
   });
 
   it("builds a Twitch adapter that does not require cycletls (no WAF there)", async () => {
     const client = fakeClient(() => Promise.resolve({ status: 200, data: {} }));
-    const handle = await createImpersonateTransport({}, ENABLED, { initClient: async () => client });
+    const handle = await createImpersonateTransport({}, ENABLED, {
+      initClient: async () => client,
+    });
     expect(handle.adapters.twitch.platform).toBe("twitch");
     expect(handle.adapters.kick.platform).toBe("kick");
     await handle.dispose();
@@ -138,7 +180,9 @@ describe("impersonate transport", () => {
 
   it("injects resolved Smart TV compatibility into both adapters", async () => {
     const client = fakeClient(() => Promise.resolve({ status: 200, data: {} }));
-    const handle = await createImpersonateTransport({}, ENABLED, { initClient: async () => client });
+    const handle = await createImpersonateTransport({}, ENABLED, {
+      initClient: async () => client,
+    });
 
     const construction = handle.createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS);
 
@@ -154,16 +198,25 @@ describe("impersonate transport", () => {
     const client = fakeClient((url) => {
       if (url === "https://web.kick.com/api/v1/drops/claim") {
         claimPosts += 1;
-        return Promise.resolve({ status: 200, data: { connect_url: "https://accounts.example/link" } });
+        return Promise.resolve({
+          status: 200,
+          data: { connect_url: "https://accounts.example/link" },
+        });
       }
       throw new Error(`Unexpected URL ${url}`);
     });
-    const handle = await createImpersonateTransport({}, ENABLED, { initClient: async () => client });
+    const handle = await createImpersonateTransport({}, ENABLED, {
+      initClient: async () => client,
+    });
     const campaign = { id: "campaign" } as DropCampaign;
     const reward = { id: "reward", name: "Reward", status: "claimable" } as DropReward;
 
-    await handle.createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS).adapters.kick.claimReward(campaign, reward);
-    await handle.createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS).adapters.kick.claimReward(campaign, reward);
+    await handle
+      .createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS)
+      .adapters.kick.claimReward(campaign, reward);
+    await handle
+      .createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS)
+      .adapters.kick.claimReward(campaign, reward);
 
     expect(claimPosts).toBe(1);
     await handle.dispose();
@@ -172,31 +225,40 @@ describe("impersonate transport", () => {
   it("retains Twitch discovery across fresh impersonated adapter constructions", async () => {
     let dashboardAvailable = true;
     let detailsAvailable = true;
-    vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: RequestInit) => {
-      switch (twitchOperation(init)) {
-        case "Inventory":
-          return twitchResponse(emptyTwitchInventory());
-        case "ViewerDropsDashboard":
-          if (dashboardAvailable) {
-            dashboardAvailable = false;
-            return twitchResponse(retainedTwitchDashboard());
-          }
-          throw new Error("dashboard unavailable");
-        case "DropCampaignDetails":
-          if (detailsAvailable) {
-            detailsAvailable = false;
-            return twitchResponse(retainedTwitchCampaignDetails());
-          }
-          throw new Error("details unavailable");
-        default:
-          throw new Error(`Unexpected Twitch operation ${twitchOperation(init)}`);
-      }
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        switch (twitchOperation(init)) {
+          case "Inventory":
+            return twitchResponse(emptyTwitchInventory());
+          case "ViewerDropsDashboard":
+            if (dashboardAvailable) {
+              dashboardAvailable = false;
+              return twitchResponse(retainedTwitchDashboard());
+            }
+            throw new Error("dashboard unavailable");
+          case "DropCampaignDetails":
+            if (detailsAvailable) {
+              detailsAvailable = false;
+              return twitchResponse(retainedTwitchCampaignDetails());
+            }
+            throw new Error("details unavailable");
+          default:
+            throw new Error(`Unexpected Twitch operation ${twitchOperation(init)}`);
+        }
+      }),
+    );
     const client = fakeClient(() => Promise.resolve({ status: 200, data: {} }));
-    const handle = await createImpersonateTransport({}, ENABLED, { initClient: async () => client });
+    const handle = await createImpersonateTransport({}, ENABLED, {
+      initClient: async () => client,
+    });
 
-    const first = await handle.createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS).adapters.twitch.refreshCampaigns();
-    const second = await handle.createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS).adapters.twitch.refreshCampaigns();
+    const first = await handle
+      .createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS)
+      .adapters.twitch.refreshCampaigns();
+    const second = await handle
+      .createAdapters(() => {}, DEFAULT_ENGINE_SETTINGS)
+      .adapters.twitch.refreshCampaigns();
 
     expect(first.map((campaign) => campaign.id)).toEqual(["retained"]);
     expect(second.map((campaign) => campaign.id)).toEqual(["retained"]);
@@ -205,25 +267,33 @@ describe("impersonate transport", () => {
 
   it("isolates retained Twitch discovery between impersonated transport handles", async () => {
     let seedFirstHandle = true;
-    vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: RequestInit) => {
-      switch (twitchOperation(init)) {
-        case "Inventory":
-          return twitchResponse(emptyTwitchInventory());
-        case "ViewerDropsDashboard":
-          if (seedFirstHandle) return twitchResponse(retainedTwitchDashboard());
-          throw new Error("dashboard unavailable");
-        case "DropCampaignDetails":
-          return twitchResponse(retainedTwitchCampaignDetails());
-        default:
-          throw new Error(`Unexpected Twitch operation ${twitchOperation(init)}`);
-      }
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        switch (twitchOperation(init)) {
+          case "Inventory":
+            return twitchResponse(emptyTwitchInventory());
+          case "ViewerDropsDashboard":
+            if (seedFirstHandle) return twitchResponse(retainedTwitchDashboard());
+            throw new Error("dashboard unavailable");
+          case "DropCampaignDetails":
+            return twitchResponse(retainedTwitchCampaignDetails());
+          default:
+            throw new Error(`Unexpected Twitch operation ${twitchOperation(init)}`);
+        }
+      }),
+    );
     const client = fakeClient(() => Promise.resolve({ status: 200, data: {} }));
-    const firstHandle = await createImpersonateTransport({}, ENABLED, { initClient: async () => client });
-    const secondHandle = await createImpersonateTransport({}, ENABLED, { initClient: async () => client });
+    const firstHandle = await createImpersonateTransport({}, ENABLED, {
+      initClient: async () => client,
+    });
+    const secondHandle = await createImpersonateTransport({}, ENABLED, {
+      initClient: async () => client,
+    });
 
-    expect((await firstHandle.adapters.twitch.refreshCampaigns()).map((campaign) => campaign.id))
-      .toEqual(["retained"]);
+    expect(
+      (await firstHandle.adapters.twitch.refreshCampaigns()).map((campaign) => campaign.id),
+    ).toEqual(["retained"]);
     seedFirstHandle = false;
 
     await expect(secondHandle.adapters.twitch.refreshCampaigns()).resolves.toEqual([]);
@@ -237,19 +307,39 @@ describe("impersonate transport", () => {
       calls.push({ url, options, method });
       return Promise.resolve({ status: 204, data: "" });
     });
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
-      data: { user: { id: "channel-id", stream: { id: "broadcast-id" } } },
-    }), { status: 200, headers: { "content-type": "application/json" } })));
-    const handle = await createImpersonateTransport({ twitch: { clientId: "kd1unb4b3q4t58fwlpcbzcbnm76a8fp" } }, ENABLED, { initClient: async () => client });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              data: { user: { id: "channel-id", stream: { id: "broadcast-id" } } },
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          ),
+      ),
+    );
+    const handle = await createImpersonateTransport(
+      { twitch: { clientId: "kd1unb4b3q4t58fwlpcbzcbnm76a8fp" } },
+      ENABLED,
+      { initClient: async () => client },
+    );
     const watcher = handle.adapters.twitch.createTablessWatcher!();
-    await watcher.start({ platform: "twitch", username: "creator", url: "https://twitch.tv/creator" }, { userId: "viewer-id" });
+    await watcher.start(
+      { platform: "twitch", username: "creator", url: "https://twitch.tv/creator" },
+      { userId: "viewer-id" },
+    );
 
     await expect(watcher.tick({})).resolves.toEqual({ ok: true, live: true });
 
-    expect(calls).toEqual(expect.arrayContaining([expect.objectContaining({
-      url: "https://trowel.twitch.tv/track",
-      method: "post",
-    })]));
+    expect(calls).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          url: "https://trowel.twitch.tv/track",
+          method: "post",
+        }),
+      ]),
+    );
     await handle.dispose();
   });
 
@@ -258,19 +348,38 @@ describe("impersonate transport", () => {
     const client = fakeClient((url, options, method) => {
       calls.push({ url, options, method });
       if (url === "https://www.twitch.tv/creator") {
-        return Promise.resolve({ status: 200, data: Buffer.from('<script src="https://static.twitch.tv/config/settings.js"></script>') });
+        return Promise.resolve({
+          status: 200,
+          data: Buffer.from('<script src="https://static.twitch.tv/config/settings.js"></script>'),
+        });
       }
       if (url === "https://static.twitch.tv/config/settings.js") {
-        return Promise.resolve({ status: 200, data: Buffer.from('{"spade_url":"https://spade.twitch.tv/track"}') });
+        return Promise.resolve({
+          status: 200,
+          data: Buffer.from('{"spade_url":"https://spade.twitch.tv/track"}'),
+        });
       }
       return Promise.resolve({ status: 204, data: "" });
     });
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
-      data: { user: { id: "channel-id", stream: { id: "broadcast-id" } } },
-    }), { status: 200, headers: { "content-type": "application/json" } })));
-    const handle = await createImpersonateTransport({
-      twitch: { authToken: "token", clientId: "custom-web-client" },
-    }, ENABLED, { initClient: async () => client });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              data: { user: { id: "channel-id", stream: { id: "broadcast-id" } } },
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          ),
+      ),
+    );
+    const handle = await createImpersonateTransport(
+      {
+        twitch: { authToken: "token", clientId: "custom-web-client" },
+      },
+      ENABLED,
+      { initClient: async () => client },
+    );
     const watcher = handle.createAdapter("twitch", () => {}, {
       ...DEFAULT_ENGINE_SETTINGS,
       compatibility: {
@@ -281,15 +390,23 @@ describe("impersonate transport", () => {
         },
       },
     }).adapter.createTablessWatcher!();
-    await watcher.start({ platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" }, { userId: "viewer-id" });
+    await watcher.start(
+      { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
+      { userId: "viewer-id" },
+    );
 
     await expect(watcher.tick({})).resolves.toEqual({ ok: true, live: true });
 
-    expect(calls).toEqual(expect.arrayContaining([
-      expect.objectContaining({ url: "https://www.twitch.tv/creator", method: "get" }),
-      expect.objectContaining({ url: "https://static.twitch.tv/config/settings.js", method: "get" }),
-      expect.objectContaining({ url: "https://spade.twitch.tv/track", method: "post" }),
-    ]));
+    expect(calls).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ url: "https://www.twitch.tv/creator", method: "get" }),
+        expect.objectContaining({
+          url: "https://static.twitch.tv/config/settings.js",
+          method: "get",
+        }),
+        expect.objectContaining({ url: "https://spade.twitch.tv/track", method: "post" }),
+      ]),
+    );
     const page = calls.find((call) => call.url === "https://www.twitch.tv/creator");
     expect(page?.options.disableRedirect).toBe(true);
     const beacon = calls.find((call) => call.url === "https://spade.twitch.tv/track");
@@ -319,7 +436,9 @@ describe("createTvLinkAuthenticator", () => {
   });
 
   it("returns no token while the setup code is pending", async () => {
-    const client = fakeClient(() => Promise.resolve({ status: 403, data: '{"message":"Invalid setup UUID and Key"}' }));
+    const client = fakeClient(() =>
+      Promise.resolve({ status: 403, data: '{"message":"Invalid setup UUID and Key"}' }),
+    );
     const authenticate = createTvLinkAuthenticator(client);
     expect(await authenticate("UUID", "000000")).toEqual({ token: undefined });
     expect(await authenticate("UUID", "000000")).toEqual({ token: undefined });

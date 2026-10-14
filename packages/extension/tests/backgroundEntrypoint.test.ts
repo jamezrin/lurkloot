@@ -12,13 +12,19 @@ const { createBackgroundController } = vi.hoisted(() => ({
 }));
 
 vi.mock("@lurkloot/core/controller", async (importOriginal) => ({
-  ...await importOriginal(),
+  ...(await importOriginal()),
   createBackgroundController,
 }));
 
 vi.mock("wxt/browser", () => ({
   browser: {
-    storage: { local: { get: vi.fn(async () => ({})), set: vi.fn(async () => {}), remove: vi.fn(async () => {}) } },
+    storage: {
+      local: {
+        get: vi.fn(async () => ({})),
+        set: vi.fn(async () => {}),
+        remove: vi.fn(async () => {}),
+      },
+    },
     i18n: { getMessage: vi.fn() },
     cookies: { get: vi.fn(async () => ({ value: "token" })) },
     runtime: { getURL: (path: string) => `moz-extension://test-extension${path}` },
@@ -30,7 +36,8 @@ vi.mock("wxt/browser", () => ({
 class FakeSocket implements WebSocketLike {
   readyState = 1;
   sent: string[] = [];
-  private readonly listeners: Record<string, Array<(event: WebSocketMessageEventLike) => void>> = {};
+  private readonly listeners: Record<string, Array<(event: WebSocketMessageEventLike) => void>> =
+    {};
 
   send(data: string): void {
     this.sent.push(data);
@@ -61,7 +68,11 @@ class FakeSocket implements WebSocketLike {
 
 interface BackgroundAdapterDependencies {
   adapters?: {
-    createAdapter?: (platform: Platform, emit: EventEmitter, settings: ExtensionSettings) => { adapter: PlatformAdapter };
+    createAdapter?: (
+      platform: Platform,
+      emit: EventEmitter,
+      settings: ExtensionSettings,
+    ) => { adapter: PlatformAdapter };
   };
 }
 
@@ -73,10 +84,7 @@ afterEach(() => {
 });
 
 describe("background integrity alarm wiring", () => {
-  const source = readFileSync(
-    new URL("../entrypoints/background.ts", import.meta.url),
-    "utf8",
-  );
+  const source = readFileSync(new URL("../entrypoints/background.ts", import.meta.url), "utf8");
   const alarmListener = source.slice(
     source.indexOf("browser.alarms.onAlarm.addListener"),
     source.indexOf("browser.tabs.onRemoved.addListener"),
@@ -106,7 +114,11 @@ describe("background integrity alarm wiring", () => {
     };
     const listener = controllerModule.createBackgroundAlarmListener({
       runJob: async (name) => {
-        await controllerModule.runBackgroundJob(name, runner, controllerModule.EXTENSION_CAPABILITIES);
+        await controllerModule.runBackgroundJob(
+          name,
+          runner,
+          controllerModule.EXTENSION_CAPABILITIES,
+        );
       },
     });
 
@@ -133,51 +145,61 @@ describe("background integrity alarm wiring", () => {
   it.each([
     { strictCampaignAvailability: false, expected: [] as string[] },
     { strictCampaignAvailability: true, expected: ["DropsHighlightService_AvailableDrops"] },
-  ])("forwards strictCampaignAvailability=$strictCampaignAvailability to the Twitch adapter", async ({ strictCampaignAvailability, expected }) => {
-    let deps: BackgroundAdapterDependencies | undefined;
-    createBackgroundController.mockImplementation((nextDeps) => {
-      deps = nextDeps;
-      // background.ts registers the Twitch Extensions commit hook (#594).
-      return { onCommit: vi.fn() };
-    });
-    const operations: string[] = [];
-    vi.stubGlobal("fetch", vi.fn(async (_url: string, init?: RequestInit) => {
-      const operation = JSON.parse(String(init?.body)).operationName as string;
-      operations.push(operation);
-      return new Response(
-        JSON.stringify({ data: { channel: { id: "channel-id", viewerDropCampaigns: [{ id: "campaign" }] } } }),
-        { status: 200, headers: { "content-type": "application/json" } },
+  ])(
+    "forwards strictCampaignAvailability=$strictCampaignAvailability to the Twitch adapter",
+    async ({ strictCampaignAvailability, expected }) => {
+      let deps: BackgroundAdapterDependencies | undefined;
+      createBackgroundController.mockImplementation((nextDeps) => {
+        deps = nextDeps;
+        // background.ts registers the Twitch Extensions commit hook (#594).
+        return { onCommit: vi.fn() };
+      });
+      const operations: string[] = [];
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (_url: string, init?: RequestInit) => {
+          const operation = JSON.parse(String(init?.body)).operationName as string;
+          operations.push(operation);
+          return new Response(
+            JSON.stringify({
+              data: { channel: { id: "channel-id", viewerDropCampaigns: [{ id: "campaign" }] } },
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }),
       );
-    }));
-    vi.stubGlobal("defineBackground", vi.fn());
+      vi.stubGlobal("defineBackground", vi.fn());
 
-    await import("../entrypoints/background");
+      await import("../entrypoints/background");
 
-    const settings: ExtensionSettings = {
-      ...DEFAULT_SETTINGS,
-      platform: {
-        ...DEFAULT_SETTINGS.platform,
-        twitch: { ...DEFAULT_SETTINGS.platform.twitch, strictCampaignAvailability },
-      },
-    };
-    const adapter = deps?.adapters?.createAdapter?.("twitch", () => undefined, settings).adapter;
-    const selection = await adapter?.selectCandidateChannel?.(
-      [{
-        platform: "twitch",
-        username: "directory-one",
-        url: "https://www.twitch.tv/directory-one",
-        channelId: "channel-id",
-        broadcastId: "broadcast-id",
-        categoryId: "game",
-        live: true,
-        isAclMatch: false,
-      }],
-      { id: "campaign", name: "Campaign", categoryId: "game" } as DropCampaign,
-    );
+      const settings: ExtensionSettings = {
+        ...DEFAULT_SETTINGS,
+        platform: {
+          ...DEFAULT_SETTINGS.platform,
+          twitch: { ...DEFAULT_SETTINGS.platform.twitch, strictCampaignAvailability },
+        },
+      };
+      const adapter = deps?.adapters?.createAdapter?.("twitch", () => undefined, settings).adapter;
+      const selection = await adapter?.selectCandidateChannel?.(
+        [
+          {
+            platform: "twitch",
+            username: "directory-one",
+            url: "https://www.twitch.tv/directory-one",
+            channelId: "channel-id",
+            broadcastId: "broadcast-id",
+            categoryId: "game",
+            live: true,
+            isAclMatch: false,
+          },
+        ],
+        { id: "campaign", name: "Campaign", categoryId: "game" } as DropCampaign,
+      );
 
-    expect(selection?.channel?.username).toBe("directory-one");
-    expect(operations).toEqual(expected);
-  });
+      expect(selection?.channel?.username).toBe("directory-one");
+      expect(operations).toEqual(expected);
+    },
+  );
 
   // These take Firefox's path: plain sockets whose Origin the webRequest
   // listener sets (#792). Chrome's socket host has its own tests.
@@ -190,30 +212,57 @@ describe("background integrity alarm wiring", () => {
       return { onCommit: vi.fn() };
     });
     const sockets: FakeSocket[] = [];
-    vi.stubGlobal("WebSocket", class {
-      constructor(url: string) {
-        // The app the negotiation names, not a hard-coded one (#755).
-        expect(url).toBe("wss://ws-us2.pusher.com/app/negotiatedkey?protocol=7&client=js&version=8.4.0&flash=false");
-        const socket = new FakeSocket();
-        sockets.push(socket);
-        return socket;
-      }
-    });
+    vi.stubGlobal(
+      "WebSocket",
+      class {
+        constructor(url: string) {
+          // The app the negotiation names, not a hard-coded one (#755).
+          expect(url).toBe(
+            "wss://ws-us2.pusher.com/app/negotiatedkey?protocol=7&client=js&version=8.4.0&flash=false",
+          );
+          const socket = new FakeSocket();
+          sockets.push(socket);
+          return socket;
+        }
+      },
+    );
     // The worker negotiates by itself; a WAF block would retry, never open a tab.
     const negotiations: string[] = [];
-    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
-      negotiations.push(url);
-      return new Response(JSON.stringify({ data: { connections: [{ provider: "pusher", credentials: { app_key: "negotiatedkey", cluster: "us2" } }] } }), { status: 200, headers: { "content-type": "application/json" } });
-    }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        negotiations.push(url);
+        return new Response(
+          JSON.stringify({
+            data: {
+              connections: [
+                { provider: "pusher", credentials: { app_key: "negotiatedkey", cluster: "us2" } },
+              ],
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }),
+    );
     vi.stubGlobal("defineBackground", vi.fn());
 
     await import("../entrypoints/background");
 
-    const observer = deps?.adapters?.createAdapter?.("kick", () => undefined, DEFAULT_SETTINGS).adapter.createDiscoverySignalController?.();
-    await observer?.start({
-      platform: "kick",
-      channel: { platform: "kick", username: "creator", url: "https://kick.com/creator", categoryId: "42" },
-    }, () => undefined);
+    const observer = deps?.adapters
+      ?.createAdapter?.("kick", () => undefined, DEFAULT_SETTINGS)
+      .adapter.createDiscoverySignalController?.();
+    await observer?.start(
+      {
+        platform: "kick",
+        channel: {
+          platform: "kick",
+          username: "creator",
+          url: "https://kick.com/creator",
+          categoryId: "42",
+        },
+      },
+      () => undefined,
+    );
     await vi.waitFor(() => expect(sockets).toHaveLength(1));
     expect(negotiations).toEqual(["https://web.kick.com/api/v1/realtime/connection"]);
     sockets[0]!.open();
@@ -221,7 +270,10 @@ describe("background integrity alarm wiring", () => {
 
     expect(observer).toBeDefined();
     expect(sockets[0]?.sent).toEqual([
-      JSON.stringify({ event: "pusher:subscribe", data: { auth: "", channel: "drops_category_42" } }),
+      JSON.stringify({
+        event: "pusher:subscribe",
+        data: { auth: "", channel: "drops_category_42" },
+      }),
     ]);
   });
 
@@ -234,20 +286,25 @@ describe("background integrity alarm wiring", () => {
       return { onCommit: vi.fn() };
     });
     const sockets: FakeSocket[] = [];
-    vi.stubGlobal("WebSocket", class {
-      constructor(url: string) {
-        expect(url).toBe("wss://hermes.twitch.tv/v1?clientId=kimne78kx3ncx6brgo4mv6wki5h1ko");
-        const socket = new FakeSocket();
-        sockets.push(socket);
-        return socket;
-      }
-    });
+    vi.stubGlobal(
+      "WebSocket",
+      class {
+        constructor(url: string) {
+          expect(url).toBe("wss://hermes.twitch.tv/v1?clientId=kimne78kx3ncx6brgo4mv6wki5h1ko");
+          const socket = new FakeSocket();
+          sockets.push(socket);
+          return socket;
+        }
+      },
+    );
     vi.stubGlobal("defineBackground", vi.fn());
     const { browser } = await import("wxt/browser");
 
     await import("../entrypoints/background");
 
-    const observer = deps?.adapters?.createAdapter?.("twitch", () => undefined, DEFAULT_SETTINGS).adapter.createChannelPointsPushController?.();
+    const observer = deps?.adapters
+      ?.createAdapter?.("twitch", () => undefined, DEFAULT_SETTINGS)
+      .adapter.createChannelPointsPushController?.();
     await observer?.start(() => undefined);
 
     expect(observer).toBeDefined();
@@ -259,6 +316,9 @@ describe("background integrity alarm wiring", () => {
       expect.objectContaining({ types: ["websocket"] }),
       ["blocking", "requestHeaders"],
     );
-    expect(browser.cookies.get).toHaveBeenCalledWith({ url: "https://www.twitch.tv", name: "auth-token" });
+    expect(browser.cookies.get).toHaveBeenCalledWith({
+      url: "https://www.twitch.tv",
+      name: "auth-token",
+    });
   });
 });

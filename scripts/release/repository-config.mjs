@@ -36,7 +36,10 @@ function statusRule(contexts) {
     parameters: {
       do_not_enforce_on_create: false,
       strict_required_status_checks_policy: true,
-      required_status_checks: contexts.map((context) => ({ context, integration_id: actionsAppId })),
+      required_status_checks: contexts.map((context) => ({
+        context,
+        integration_id: actionsAppId,
+      })),
     },
   };
 }
@@ -68,7 +71,8 @@ export function mainRuleset() {
 
 export function developRuleset(syncAppId) {
   const actorId = Number(syncAppId);
-  if (!Number.isInteger(actorId) || actorId < 1) throw new Error("sync App ID must be a positive integer");
+  if (!Number.isInteger(actorId) || actorId < 1)
+    throw new Error("sync App ID must be a positive integer");
   return branchRuleset({
     name: "develop squash history",
     branch: "develop",
@@ -88,7 +92,10 @@ function comparableRuleset(value) {
     rules: value.rules.map((rule) => {
       if (rule.type !== "pull_request") return rule;
       const parameters = { ...rule.parameters };
-      if (Array.isArray(parameters.required_reviewers) && parameters.required_reviewers.length === 0) {
+      if (
+        Array.isArray(parameters.required_reviewers)
+        && parameters.required_reviewers.length === 0
+      ) {
         delete parameters.required_reviewers;
       }
       return { ...rule, parameters };
@@ -104,10 +111,16 @@ function assertRuleset(actual, expected) {
 
 async function reconcileRuleset(client, existing, desired) {
   if (existing) {
-    await client.request(client.repoPath(`/rulesets/${existing.id}`), { method: "PUT", body: desired });
+    await client.request(client.repoPath(`/rulesets/${existing.id}`), {
+      method: "PUT",
+      body: desired,
+    });
     return existing.id;
   }
-  const created = await client.request(client.repoPath("/rulesets"), { method: "POST", body: desired });
+  const created = await client.request(client.repoPath("/rulesets"), {
+    method: "POST",
+    body: desired,
+  });
   return created.id;
 }
 
@@ -128,7 +141,8 @@ export async function reconcilePreviewPolicies(client) {
   }
   const actual = names(await client.request(client.repoPath(path)));
   for (const name of previewBranchPolicies()) {
-    if (!actual.includes(name)) throw new Error(`preview is missing the ${name} deployment branch policy`);
+    if (!actual.includes(name))
+      throw new Error(`preview is missing the ${name} deployment branch policy`);
   }
 }
 
@@ -138,7 +152,13 @@ export async function applyRepositoryConfig({ client, syncAppId }) {
   const current = await client.request(client.repoPath("/rulesets"));
   const ids = [];
   for (const ruleset of desired) {
-    ids.push(await reconcileRuleset(client, current.find(({ name }) => name === ruleset.name), ruleset));
+    ids.push(
+      await reconcileRuleset(
+        client,
+        current.find(({ name }) => name === ruleset.name),
+        ruleset,
+      ),
+    );
   }
   for (let index = 0; index < desired.length; index += 1) {
     const actual = await client.request(client.repoPath(`/rulesets/${ids[index]}`));
@@ -151,7 +171,11 @@ export async function applyRepositoryConfig({ client, syncAppId }) {
     });
   }
   await reconcilePreviewPolicies(client);
-  return { repository: repositoryPatch(), rulesets: desired, previewBranchPolicies: previewBranchPolicies() };
+  return {
+    repository: repositoryPatch(),
+    rulesets: desired,
+    previewBranchPolicies: previewBranchPolicies(),
+  };
 }
 
 export function repositoryConfiguration(syncAppId) {

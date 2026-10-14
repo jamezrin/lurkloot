@@ -1,5 +1,13 @@
 import type { ActivityHistoryRecord, EventCategory } from "./events";
-import type { CategorySelection, EngineSettings, ExtensionSettings, Platform, PlaybackTelemetry, SchedulerState, TwitchExtensionProviderId } from "./models";
+import type {
+  CategorySelection,
+  EngineSettings,
+  ExtensionSettings,
+  Platform,
+  PlaybackTelemetry,
+  SchedulerState,
+  TwitchExtensionProviderId,
+} from "./models";
 import type { SettingsPatch } from "./settings";
 
 export type CoreRuntimeMessage =
@@ -7,7 +15,12 @@ export type CoreRuntimeMessage =
   | { type: "getPlaybackControl"; platform: Platform }
   | { type: "setPlatformEnabled"; platform: Platform; enabled: boolean }
   | { type: "setAutomation"; platform: Platform; enabled: boolean }
-  | { type: "saveSettings"; settingsPatch: SettingsPatch; tickAfterSave?: boolean; tickAfterSavePlatforms?: Platform[] }
+  | {
+      type: "saveSettings";
+      settingsPatch: SettingsPatch;
+      tickAfterSave?: boolean;
+      tickAfterSavePlatforms?: Platform[];
+    }
   // One channel added to or removed from an Idle Watchlist, applied to the
   // stored list at save time. A surface that sent its copy of the whole list
   // would undo any change made elsewhere since it last read it.

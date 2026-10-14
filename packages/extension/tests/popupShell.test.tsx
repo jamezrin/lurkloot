@@ -9,7 +9,8 @@ import type { AutomationPresentation } from "../../popup-ui/src/automationStatus
 import { resetCatalogTracking, waitForCatalog } from "./helpers/popupCatalog";
 
 vi.mock("@lurkloot/locales", async (importOriginal) =>
-  (await import("./helpers/popupCatalog")).delayedLocales(importOriginal));
+  (await import("./helpers/popupCatalog")).delayedLocales(importOriginal),
+);
 
 let root: Root | undefined;
 
@@ -64,7 +65,16 @@ describe("popup workspace shell", () => {
     const container = await mountPopup();
 
     expect(currentView(container)).toBe("queue");
-    for (const view of ["queue", "completed", "games", "watchlist", "nopixel", "fortnite", "activity", "settings"]) {
+    for (const view of [
+      "queue",
+      "completed",
+      "games",
+      "watchlist",
+      "nopixel",
+      "fortnite",
+      "activity",
+      "settings",
+    ]) {
       expect(rail(container, view), view).not.toBeNull();
     }
   });
@@ -90,7 +100,7 @@ describe("popup workspace shell", () => {
 
   it("keeps the status strip above every destination", async () => {
     const container = await mountPopup();
-    const statusText = () => container.querySelector('[data-automation-state]')?.textContent ?? "";
+    const statusText = () => container.querySelector("[data-automation-state]")?.textContent ?? "";
 
     const onQueue = statusText();
     expect(onQueue).not.toBe("");
@@ -105,37 +115,51 @@ describe("popup workspace shell", () => {
   it("opens the queue on the farmed campaign from any destination", async () => {
     const container = await mountPopup();
     go(container, "games");
-    const link = container.querySelector<HTMLButtonElement>('[data-automation-state="running"] button');
+    const link = container.querySelector<HTMLButtonElement>(
+      '[data-automation-state="running"] button',
+    );
     expect(link).not.toBeNull();
 
     act(() => link!.click());
 
     expect(currentView(container)).toBe("queue");
-    expect(container.querySelector('[data-campaign-id="tw-marathon"] article button[aria-expanded="true"]')).not.toBeNull();
+    expect(
+      container.querySelector(
+        '[data-campaign-id="tw-marathon"] article button[aria-expanded="true"]',
+      ),
+    ).not.toBeNull();
   });
 
   it("names the watched channel's viewer count for screen readers", async () => {
     const container = await mountPopup();
-    const count = container.querySelector('[data-automation-state="running"] [role="img"][aria-label$="viewers"]');
+    const count = container.querySelector(
+      '[data-automation-state="running"] [role="img"][aria-label$="viewers"]',
+    );
     expect(count?.getAttribute("aria-label")).toBe("18K viewers");
   });
 
   it("opens the Games view of the platform whose settings link was used", async () => {
     const container = await mountPopup();
     go(container, "settings");
-    const links = [...container.querySelectorAll<HTMLButtonElement>("[data-settings-link]")].filter((link) => link.textContent?.includes("Open Games"));
+    const links = [...container.querySelectorAll<HTMLButtonElement>("[data-settings-link]")].filter(
+      (link) => link.textContent?.includes("Open Games"),
+    );
     // One per platform, Twitch first then Kick.
     expect(links).toHaveLength(2);
 
     act(() => links[1]!.click());
 
     expect(currentView(container)).toBe("games");
-    expect(container.querySelector('[role="tab"][aria-label="Kick"]')?.getAttribute("aria-selected")).toBe("true");
+    expect(
+      container.querySelector('[role="tab"][aria-label="Kick"]')?.getAttribute("aria-selected"),
+    ).toBe("true");
   });
 
   it("marks the Twitch extension destinations as beta, and only them", async () => {
     const container = await mountPopup();
-    const beta = [...container.querySelectorAll("[data-rail-beta]")].map((tag) => tag.closest("button")?.getAttribute("data-view"));
+    const beta = [...container.querySelectorAll("[data-rail-beta]")].map((tag) =>
+      tag.closest("button")?.getAttribute("data-view"),
+    );
     expect(beta).toEqual(["nopixel", "fortnite"]);
     expect(rail(container, "nopixel")?.getAttribute("aria-label")).toBe("NoPixel V, Beta");
   });
@@ -146,11 +170,19 @@ describe("popup workspace shell", () => {
     const input = container.querySelector<HTMLInputElement>("[data-games-search]")!;
     const propsKey = Object.keys(input).find((key) => key.startsWith("__reactProps$"))!;
     input.value = "marathon";
-    act(() => (input as unknown as Record<string, { onChange(event: { target: HTMLInputElement }): void }>)[propsKey]!.onChange({ target: input }));
+    act(() =>
+      (input as unknown as Record<string, { onChange(event: { target: HTMLInputElement }): void }>)[
+        propsKey
+      ]!.onChange({ target: input }),
+    );
     // The search took: it narrowed the Twitch list to the one match.
-    expect([...container.querySelectorAll("[data-game]")].map((row) => row.getAttribute("data-game"))).toEqual(["marathon legends"]);
+    expect(
+      [...container.querySelectorAll("[data-game]")].map((row) => row.getAttribute("data-game")),
+    ).toEqual(["marathon legends"]);
 
-    act(() => container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Kick"]')?.click());
+    act(() =>
+      container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Kick"]')?.click(),
+    );
 
     expect(container.querySelector<HTMLInputElement>("[data-games-search]")?.value).toBe("");
   });
@@ -160,7 +192,9 @@ describe("popup workspace shell", () => {
 
     expect(rail(container, "nopixel")).not.toBeNull();
     expect(rail(container, "fortnite")).not.toBeNull();
-    act(() => container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Kick"]')?.click());
+    act(() =>
+      container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Kick"]')?.click(),
+    );
 
     expect(rail(container, "nopixel")).toBeNull();
     expect(rail(container, "fortnite")).toBeNull();
@@ -172,7 +206,9 @@ describe("popup workspace shell", () => {
     go(container, "fortnite");
     expect(currentView(container)).toBe("fortnite");
 
-    act(() => container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Kick"]')?.click());
+    act(() =>
+      container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Kick"]')?.click(),
+    );
 
     expect(currentView(container)).toBe("queue");
   });
@@ -181,8 +217,12 @@ describe("popup workspace shell", () => {
     const container = await mountPopup();
 
     go(container, "nopixel");
-    act(() => container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Kick"]')?.click());
-    act(() => container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Twitch"]')?.click());
+    act(() =>
+      container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Kick"]')?.click(),
+    );
+    act(() =>
+      container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Twitch"]')?.click(),
+    );
 
     // Back on Twitch the entry exists again, but the view stayed where the
     // fallback put it, so exactly one rail entry is current.
@@ -196,7 +236,9 @@ describe("popup workspace shell", () => {
     const container = await mountPopup();
 
     go(container, "watchlist");
-    act(() => container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Kick"]')?.click());
+    act(() =>
+      container.querySelector<HTMLButtonElement>('[role="tab"][aria-label="Kick"]')?.click(),
+    );
 
     expect(currentView(container)).toBe("watchlist");
   });
@@ -205,13 +247,16 @@ describe("popup workspace shell", () => {
     const container = await mountPopup();
 
     const rail = container.querySelector("nav")!;
-    const order = [...rail.querySelectorAll<HTMLButtonElement>("button[data-view], button[data-rail-link]")]
-      .map((button) => button.dataset.view ?? `link:${button.dataset.railLink}`);
+    const order = [
+      ...rail.querySelectorAll<HTMLButtonElement>("button[data-view], button[data-rail-link]"),
+    ].map((button) => button.dataset.view ?? `link:${button.dataset.railLink}`);
 
     expect(order.slice(-3)).toEqual(["link:inventory", "activity", "settings"]);
     // And it is a way out, never a destination that could read as current.
     expect(rail.querySelector("[data-rail-link]")?.hasAttribute("aria-current")).toBe(false);
-    expect(container.querySelector('#popup-platform-panel button[aria-label="Open inventory"]')).toBeNull();
+    expect(
+      container.querySelector('#popup-platform-panel button[aria-label="Open inventory"]'),
+    ).toBeNull();
   });
 
   it("names the live watch source and links to its place in the order", async () => {
@@ -231,9 +276,18 @@ describe("popup workspace shell", () => {
     const view = container.ownerDocument.defaultView as unknown as typeof globalThis;
     const scrollIntoView = vi.fn();
     const scrollTo = vi.fn();
-    Object.defineProperty(view.HTMLElement.prototype, "scrollIntoView", { configurable: true, value: scrollIntoView });
-    Object.defineProperty(view.HTMLElement.prototype, "scrollTo", { configurable: true, value: scrollTo });
-    Object.defineProperty(view.HTMLElement.prototype, "getBoundingClientRect", { configurable: true, value: () => ({ top: 0 }) });
+    Object.defineProperty(view.HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView,
+    });
+    Object.defineProperty(view.HTMLElement.prototype, "scrollTo", {
+      configurable: true,
+      value: scrollTo,
+    });
+    Object.defineProperty(view.HTMLElement.prototype, "getBoundingClientRect", {
+      configurable: true,
+      value: () => ({ top: 0 }),
+    });
 
     act(() => container.querySelector<HTMLButtonElement>("[data-watch-source-chip]")!.click());
 
@@ -303,10 +357,16 @@ describe("workspace rail sources", () => {
       .filter((view) => ["nopixel", "fortnite", "watchlist"].includes(view));
 
   const group = (container: Element, key: string): string[] =>
-    [...container.querySelectorAll<HTMLButtonElement>(`[data-rail-group="${key}"] button[data-view]`)].map((button) => button.dataset.view!);
+    [
+      ...container.querySelectorAll<HTMLButtonElement>(
+        `[data-rail-group="${key}"] button[data-view]`,
+      ),
+    ].map((button) => button.dataset.view!);
 
   it("groups the Twitch extensions apart from the other sources, each in watch order", () => {
-    const container = mountRail({ sourceOrder: ["idle_watchlist", "drops", "fortnite", "nopixel"] });
+    const container = mountRail({
+      sourceOrder: ["idle_watchlist", "drops", "fortnite", "nopixel"],
+    });
     expect(group(container, "navExtensions")).toEqual(["fortnite", "nopixel"]);
     expect(group(container, "navGroupOthers")).toEqual(["watchlist"]);
     // Extensions first, then the rest, whatever the watch order.
@@ -315,7 +375,9 @@ describe("workspace rail sources", () => {
 
   it("marks only the source being watched", () => {
     const container = mountRail({ liveSource: "nopixel" });
-    const live = [...container.querySelectorAll("[data-rail-live]")].map((dot) => dot.closest("button")?.dataset.view);
+    const live = [...container.querySelectorAll("[data-rail-live]")].map(
+      (dot) => dot.closest("button")?.dataset.view,
+    );
     expect(live).toEqual(["nopixel"]);
   });
 

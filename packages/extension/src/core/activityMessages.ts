@@ -1,6 +1,12 @@
 import type { ActivityHistoryRecord, EngineEvent } from "@lurkloot/shared/events";
 import type { Platform } from "@lurkloot/shared/models";
-import type { ActivityPage, ActivityQuery, CoreRuntimeMessage, DiagnosticsExport, RuntimeMessage } from "@lurkloot/shared/messages";
+import type {
+  ActivityPage,
+  ActivityQuery,
+  CoreRuntimeMessage,
+  DiagnosticsExport,
+  RuntimeMessage,
+} from "@lurkloot/shared/messages";
 
 interface ActivityMessageRepository {
   load(query: ActivityQuery): Promise<ActivityPage>;
@@ -21,12 +27,16 @@ interface RuntimeMessageDispatcherDeps {
   exportCliCredentials(): Promise<unknown>;
   resetExtension(): Promise<unknown>;
   handleActivityMessage(message: RuntimeMessage): Promise<unknown>;
-  handleTwitchExtensionMessage?(message: Extract<RuntimeMessage, { type: "setTwitchExtensionEnabled" }>): Promise<unknown>;
+  handleTwitchExtensionMessage?(
+    message: Extract<RuntimeMessage, { type: "setTwitchExtensionEnabled" }>,
+  ): Promise<unknown>;
   handleCoreMessage(message: CoreRuntimeMessage, sender?: RuntimeMessageSender): Promise<unknown>;
 }
 
 export function createActivityMessageHandler(repository: ActivityMessageRepository) {
-  return async (message: RuntimeMessage): Promise<ActivityPage | DiagnosticsExport | void | undefined> => {
+  return async (
+    message: RuntimeMessage,
+  ): Promise<ActivityPage | DiagnosticsExport | void | undefined> => {
     if (message.type === "getActivity") {
       const { type: _type, ...query } = message;
       return repository.load(query);
@@ -59,11 +69,16 @@ export function createActivityEventReporter(deps: ActivityEventReporterDeps) {
 
 export function createRuntimeMessageDispatcher(deps: RuntimeMessageDispatcherDeps) {
   return (message: RuntimeMessage, sender?: RuntimeMessageSender): Promise<unknown> => {
-    if (message.type === "setTwitchExtensionEnabled") return deps.handleTwitchExtensionMessage?.(message) ?? Promise.resolve(undefined);
+    if (message.type === "setTwitchExtensionEnabled")
+      return deps.handleTwitchExtensionMessage?.(message) ?? Promise.resolve(undefined);
     if (message.type === "exportCliCredentials") return deps.exportCliCredentials();
     if (message.type === "resetExtension") return deps.resetExtension();
     if (message.type === "getTabId") return Promise.resolve(sender?.tab?.id);
-    if (message.type === "getActivity" || message.type === "exportDiagnostics" || message.type === "clearActivity") {
+    if (
+      message.type === "getActivity"
+      || message.type === "exportDiagnostics"
+      || message.type === "clearActivity"
+    ) {
       return deps.handleActivityMessage(message);
     }
     return deps.handleCoreMessage(message, sender);

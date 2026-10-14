@@ -1,8 +1,18 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TWITCH_ALARM_NAME, TWITCH_CHANNEL_POINTS_ALARM_NAME } from "@lurkloot/core/controller";
-import type { ChannelCandidate, ExtensionSettings, PlatformAuthHealth } from "@lurkloot/shared/models";
+import type {
+  ChannelCandidate,
+  ExtensionSettings,
+  PlatformAuthHealth,
+} from "@lurkloot/shared/models";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
-import { allDiagnostics, channel, deferred, farming, harness } from "../helpers/backgroundController";
+import {
+  allDiagnostics,
+  channel,
+  deferred,
+  farming,
+  harness,
+} from "../helpers/backgroundController";
 
 // Twitch channel points: the job, claim-only runs and the push observer.
 
@@ -17,41 +27,40 @@ describe("background controller", () => {
 
       await env.controller.ensureAlarm();
 
-      expect(env.deps.createAlarm).toHaveBeenCalledWith(
-        TWITCH_CHANNEL_POINTS_ALARM_NAME,
-        { periodInMinutes: 1 },
-      );
-      expect(env.deps.createAlarm).toHaveBeenCalledWith(
-        TWITCH_ALARM_NAME,
-        { periodInMinutes: 60 },
-      );
+      expect(env.deps.createAlarm).toHaveBeenCalledWith(TWITCH_CHANNEL_POINTS_ALARM_NAME, {
+        periodInMinutes: 1,
+      });
+      expect(env.deps.createAlarm).toHaveBeenCalledWith(TWITCH_ALARM_NAME, { periodInMinutes: 60 });
     });
 
     it.each([
       { twitchEnabled: false, autoClaimChannelPoints: true },
       { twitchEnabled: true, autoClaimChannelPoints: false },
-    ])("clears the alarm when a prerequisite is disabled", async ({ twitchEnabled, autoClaimChannelPoints }) => {
-      const enabledSettings = farming(DEFAULT_SETTINGS);
-      const env = harness({
-        ...enabledSettings,
-        platform: {
-          ...enabledSettings.platform,
-          twitch: {
-            ...enabledSettings.platform.twitch,
-            enabled: twitchEnabled,
-            autoClaimChannelPoints,
+    ])(
+      "clears the alarm when a prerequisite is disabled",
+      async ({ twitchEnabled, autoClaimChannelPoints }) => {
+        const enabledSettings = farming(DEFAULT_SETTINGS);
+        const env = harness({
+          ...enabledSettings,
+          platform: {
+            ...enabledSettings.platform,
+            twitch: {
+              ...enabledSettings.platform.twitch,
+              enabled: twitchEnabled,
+              autoClaimChannelPoints,
+            },
           },
-        },
-      });
+        });
 
-      await env.controller.ensureAlarm();
+        await env.controller.ensureAlarm();
 
-      expect(env.deps.clearAlarm).toHaveBeenCalledWith(TWITCH_CHANNEL_POINTS_ALARM_NAME);
-      expect(env.deps.createAlarm).not.toHaveBeenCalledWith(
-        TWITCH_CHANNEL_POINTS_ALARM_NAME,
-        expect.anything(),
-      );
-    });
+        expect(env.deps.clearAlarm).toHaveBeenCalledWith(TWITCH_CHANNEL_POINTS_ALARM_NAME);
+        expect(env.deps.createAlarm).not.toHaveBeenCalledWith(
+          TWITCH_CHANNEL_POINTS_ALARM_NAME,
+          expect.anything(),
+        );
+      },
+    );
 
     it("reconciles the alarm after settings changes", async () => {
       const env = harness(farming(DEFAULT_SETTINGS));
@@ -96,11 +105,13 @@ describe("background controller", () => {
       await expect(env.controller.prepareForHostReset(resetHostStorage)).resolves.toBeUndefined();
 
       expect(resetHostStorage).toHaveBeenCalledOnce();
-      expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
-        platform: "twitch",
-        level: "warn",
-        message: "Could not clear the Twitch channel-points alarm",
-      }));
+      expect(allDiagnostics(env)).toContainEqual(
+        expect.objectContaining({
+          platform: "twitch",
+          level: "warn",
+          message: "Could not clear the Twitch channel-points alarm",
+        }),
+      );
     });
 
     it("contains alarm cleanup failures during shutdown", async () => {
@@ -115,18 +126,25 @@ describe("background controller", () => {
 
       env.controller.shutdown();
 
-      await vi.waitFor(() => expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
-        platform: "twitch",
-        level: "warn",
-        message: "Could not clear the Twitch channel-points alarm",
-      })));
+      await vi.waitFor(() =>
+        expect(allDiagnostics(env)).toContainEqual(
+          expect.objectContaining({
+            platform: "twitch",
+            level: "warn",
+            message: "Could not clear the Twitch channel-points alarm",
+          }),
+        ),
+      );
     });
   });
 
   describe("Twitch channel points claim-only operation", () => {
     it("claims for a recent manual channel without changing the paused session", async () => {
       const env = harness(farming(DEFAULT_SETTINGS));
-      const manualChannel = channel("twitch", { username: "manual-creator", url: "https://www.twitch.tv/manual-creator" });
+      const manualChannel = channel("twitch", {
+        username: "manual-creator",
+        url: "https://www.twitch.tv/manual-creator",
+      });
       env.state.authHealth = {
         ...env.state.authHealth,
         twitch: { status: "healthy", checkedAt: new Date().toISOString() },
@@ -154,91 +172,149 @@ describe("background controller", () => {
       await env.controller.runTwitchChannelPointsClaim();
 
       expect(env.twitch.claimChannelPoints).toHaveBeenCalledOnce();
-      expect(env.twitch.claimChannelPoints).toHaveBeenCalledWith(manualChannel, { signal: expect.any(AbortSignal) });
+      expect(env.twitch.claimChannelPoints).toHaveBeenCalledWith(manualChannel, {
+        signal: expect.any(AbortSignal),
+      });
       expect(env.state.sessions.twitch).toEqual(beforeSession);
-      expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
-        platform: "twitch",
-        level: "info",
-        message: "Claimed channel points for manual-creator",
-      }));
+      expect(allDiagnostics(env)).toContainEqual(
+        expect.objectContaining({
+          platform: "twitch",
+          level: "info",
+          message: "Claimed channel points for manual-creator",
+        }),
+      );
     });
 
-    it.each(["tab", "tabless"] as const)("claims for a managed %s watch session", async (watchMode) => {
-      const env = harness(farming(DEFAULT_SETTINGS));
-      const managedChannel = channel("twitch");
-      env.state.authHealth = {
-        ...env.state.authHealth,
-        twitch: { status: "healthy", checkedAt: new Date().toISOString() },
-      };
-      env.state.sessions.twitch = {
-        platform: "twitch",
-        status: "watching",
-        channel: managedChannel,
-        offlineChecks: 0,
-        watchMode,
-      };
-      env.twitch.claimChannelPoints = vi.fn(async () => false);
+    it.each(["tab", "tabless"] as const)(
+      "claims for a managed %s watch session",
+      async (watchMode) => {
+        const env = harness(farming(DEFAULT_SETTINGS));
+        const managedChannel = channel("twitch");
+        env.state.authHealth = {
+          ...env.state.authHealth,
+          twitch: { status: "healthy", checkedAt: new Date().toISOString() },
+        };
+        env.state.sessions.twitch = {
+          platform: "twitch",
+          status: "watching",
+          channel: managedChannel,
+          offlineChecks: 0,
+          watchMode,
+        };
+        env.twitch.claimChannelPoints = vi.fn(async () => false);
 
-      await env.controller.runTwitchChannelPointsClaim();
+        await env.controller.runTwitchChannelPointsClaim();
 
-      expect(env.twitch.claimChannelPoints).toHaveBeenCalledOnce();
-      expect(env.twitch.claimChannelPoints).toHaveBeenCalledWith(managedChannel, { signal: expect.any(AbortSignal) });
-      expect(allDiagnostics(env).some((event) => event.message.includes("Claimed channel points"))).toBe(false);
-    });
+        expect(env.twitch.claimChannelPoints).toHaveBeenCalledOnce();
+        expect(env.twitch.claimChannelPoints).toHaveBeenCalledWith(managedChannel, {
+          signal: expect.any(AbortSignal),
+        });
+        expect(
+          allDiagnostics(env).some((event) => event.message.includes("Claimed channel points")),
+        ).toBe(false);
+      },
+    );
 
     it.each([
-      { name: "Twitch is disabled", enabled: false, autoClaim: true, authStatus: "healthy", manual: "recent" },
-      { name: "auto-claim is disabled", enabled: true, autoClaim: false, authStatus: "healthy", manual: "recent" },
-      { name: "authentication is unknown", enabled: true, autoClaim: true, authStatus: "unknown", manual: "recent" },
-      { name: "authentication is unhealthy", enabled: true, autoClaim: true, authStatus: "unhealthy", manual: "recent" },
-      { name: "manual telemetry is stale", enabled: true, autoClaim: true, authStatus: "healthy", manual: "stale" },
-      { name: "manual telemetry is inactive", enabled: true, autoClaim: true, authStatus: "healthy", manual: "inactive" },
-      { name: "the manual channel is unidentified", enabled: true, autoClaim: true, authStatus: "healthy", manual: "unidentified" },
-    ] as const)("makes no request when $name", async ({ enabled, autoClaim, authStatus, manual }) => {
-      const enabledSettings = farming(DEFAULT_SETTINGS);
-      const env = harness({
-        ...enabledSettings,
-        platform: {
-          ...enabledSettings.platform,
-          twitch: {
-            ...enabledSettings.platform.twitch,
-            enabled,
-            autoClaimChannelPoints: autoClaim,
+      {
+        name: "Twitch is disabled",
+        enabled: false,
+        autoClaim: true,
+        authStatus: "healthy",
+        manual: "recent",
+      },
+      {
+        name: "auto-claim is disabled",
+        enabled: true,
+        autoClaim: false,
+        authStatus: "healthy",
+        manual: "recent",
+      },
+      {
+        name: "authentication is unknown",
+        enabled: true,
+        autoClaim: true,
+        authStatus: "unknown",
+        manual: "recent",
+      },
+      {
+        name: "authentication is unhealthy",
+        enabled: true,
+        autoClaim: true,
+        authStatus: "unhealthy",
+        manual: "recent",
+      },
+      {
+        name: "manual telemetry is stale",
+        enabled: true,
+        autoClaim: true,
+        authStatus: "healthy",
+        manual: "stale",
+      },
+      {
+        name: "manual telemetry is inactive",
+        enabled: true,
+        autoClaim: true,
+        authStatus: "healthy",
+        manual: "inactive",
+      },
+      {
+        name: "the manual channel is unidentified",
+        enabled: true,
+        autoClaim: true,
+        authStatus: "healthy",
+        manual: "unidentified",
+      },
+    ] as const)(
+      "makes no request when $name",
+      async ({ enabled, autoClaim, authStatus, manual }) => {
+        const enabledSettings = farming(DEFAULT_SETTINGS);
+        const env = harness({
+          ...enabledSettings,
+          platform: {
+            ...enabledSettings.platform,
+            twitch: {
+              ...enabledSettings.platform.twitch,
+              enabled,
+              autoClaimChannelPoints: autoClaim,
+            },
           },
-        },
-      });
-      env.state.authHealth = {
-        ...env.state.authHealth,
-        twitch: {
-          status: authStatus,
-          checkedAt: new Date().toISOString(),
-          ...(authStatus === "unhealthy" ? { reason: "signed out" } : {}),
-        } as PlatformAuthHealth,
-      };
-      env.state.sessions.twitch = {
-        platform: "twitch",
-        status: "paused",
-        offlineChecks: 0,
-        reasonCode: "manual_watch",
-      };
-      env.state.manualWatch = {
-        twitch: {
+        });
+        env.state.authHealth = {
+          ...env.state.authHealth,
+          twitch: {
+            status: authStatus,
+            checkedAt: new Date().toISOString(),
+            ...(authStatus === "unhealthy" ? { reason: "signed out" } : {}),
+          } as PlatformAuthHealth,
+        };
+        env.state.sessions.twitch = {
           platform: "twitch",
-          tabId: 91,
-          checkedAt: new Date(manual === "stale" ? Date.now() - 120_000 : Date.now()).toISOString(),
-          active: manual !== "inactive",
-          ...(manual === "unidentified" ? {} : { channel: channel("twitch") }),
-        },
-      };
-      env.twitch.claimChannelPoints = vi.fn(async () => true);
+          status: "paused",
+          offlineChecks: 0,
+          reasonCode: "manual_watch",
+        };
+        env.state.manualWatch = {
+          twitch: {
+            platform: "twitch",
+            tabId: 91,
+            checkedAt: new Date(
+              manual === "stale" ? Date.now() - 120_000 : Date.now(),
+            ).toISOString(),
+            active: manual !== "inactive",
+            ...(manual === "unidentified" ? {} : { channel: channel("twitch") }),
+          },
+        };
+        env.twitch.claimChannelPoints = vi.fn(async () => true);
 
-      await env.controller.runTwitchChannelPointsClaim();
+        await env.controller.runTwitchChannelPointsClaim();
 
-      expect(env.twitch.claimChannelPoints).not.toHaveBeenCalled();
-      expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
-      expect(env.watchTabs.twitch.open).not.toHaveBeenCalled();
-      expect(env.watchTabs.twitch.stop).not.toHaveBeenCalled();
-    });
+        expect(env.twitch.claimChannelPoints).not.toHaveBeenCalled();
+        expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
+        expect(env.watchTabs.twitch.open).not.toHaveBeenCalled();
+        expect(env.watchTabs.twitch.stop).not.toHaveBeenCalled();
+      },
+    );
 
     it("reports claim failures without changing scheduler state or starting other work", async () => {
       const env = harness(farming(DEFAULT_SETTINGS));
@@ -270,11 +346,13 @@ describe("background controller", () => {
       expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
       expect(env.watchTabs.twitch.open).not.toHaveBeenCalled();
       expect(env.watchTabs.twitch.stop).not.toHaveBeenCalled();
-      expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
-        platform: "twitch",
-        level: "warn",
-        message: "Channel points lookup failed",
-      }));
+      expect(allDiagnostics(env)).toContainEqual(
+        expect.objectContaining({
+          platform: "twitch",
+          level: "warn",
+          message: "Channel points lookup failed",
+        }),
+      );
     });
 
     it("does not fall back to a managed channel during unidentified active manual playback", async () => {
@@ -386,12 +464,16 @@ describe("background controller", () => {
     }
 
     // A claim request that only ends when it is aborted.
-    function hangingClaim(env: ReturnType<typeof harness>): { signal: () => AbortSignal | undefined } {
+    function hangingClaim(env: ReturnType<typeof harness>): {
+      signal: () => AbortSignal | undefined;
+    } {
       let signal: AbortSignal | undefined;
       env.twitch.claimChannelPoints = vi.fn(async (_channel, options) => {
         signal = options?.signal;
         return await new Promise<boolean>((_resolve, reject) => {
-          options?.signal?.addEventListener("abort", () => reject(options.signal!.reason), { once: true });
+          options?.signal?.addEventListener("abort", () => reject(options.signal!.reason), {
+            once: true,
+          });
         });
       });
       return { signal: () => signal };
@@ -405,14 +487,20 @@ describe("background controller", () => {
         name: "Twitch is disabled",
         reason: "Channel points claiming disabled",
         trigger: async (env: ReturnType<typeof harness>) => {
-          await env.controller.handleMessage({ type: "saveSettings", settingsPatch: { platform: { twitch: { enabled: false } } } });
+          await env.controller.handleMessage({
+            type: "saveSettings",
+            settingsPatch: { platform: { twitch: { enabled: false } } },
+          });
         },
       },
       {
         name: "channel points claiming is turned off",
         reason: "Channel points claiming disabled",
         trigger: async (env: ReturnType<typeof harness>) => {
-          await env.controller.handleMessage({ type: "saveSettings", settingsPatch: { platform: { twitch: { autoClaimChannelPoints: false } } } });
+          await env.controller.handleMessage({
+            type: "saveSettings",
+            settingsPatch: { platform: { twitch: { autoClaimChannelPoints: false } } },
+          });
         },
       },
       {
@@ -436,20 +524,23 @@ describe("background controller", () => {
           env.controller.shutdown();
         },
       },
-    ])("aborts the job's claim when $name, without reporting a failure", async ({ reason, trigger }) => {
-      const env = harness(farming(DEFAULT_SETTINGS));
-      watchingTwitch(env);
-      const claim = hangingClaim(env);
+    ])(
+      "aborts the job's claim when $name, without reporting a failure",
+      async ({ reason, trigger }) => {
+        const env = harness(farming(DEFAULT_SETTINGS));
+        watchingTwitch(env);
+        const claim = hangingClaim(env);
 
-      const job = env.controller.runTwitchChannelPointsClaim();
-      await vi.waitFor(() => expect(env.twitch.claimChannelPoints).toHaveBeenCalledOnce());
-      await trigger(env);
-      await job;
+        const job = env.controller.runTwitchChannelPointsClaim();
+        await vi.waitFor(() => expect(env.twitch.claimChannelPoints).toHaveBeenCalledOnce());
+        await trigger(env);
+        await job;
 
-      expect(claim.signal()?.aborted).toBe(true);
-      expect((claim.signal()?.reason as Error).message).toBe(reason);
-      expect(claimFailures(env)).toEqual([]);
-    });
+        expect(claim.signal()?.aborted).toBe(true);
+        expect((claim.signal()?.reason as Error).message).toBe(reason);
+        expect(claimFailures(env)).toEqual([]);
+      },
+    );
 
     // An account change: the invalidation's hook can run after the recheck has
     // already committed "healthy" for the new viewer. The hook still acts on
@@ -491,7 +582,10 @@ describe("background controller", () => {
 
       void env.controller.runTwitchChannelPointsClaim();
       await vi.waitFor(() => expect(env.twitch.claimChannelPoints).toHaveBeenCalledOnce());
-      await env.controller.handleMessage({ type: "saveSettings", settingsPatch: { pollIntervalMinutes: 12 } });
+      await env.controller.handleMessage({
+        type: "saveSettings",
+        settingsPatch: { pollIntervalMinutes: 12 },
+      });
 
       expect(claim.signal()?.aborted).toBe(false);
       env.controller.shutdown();
@@ -499,7 +593,9 @@ describe("background controller", () => {
   });
 
   describe("Twitch channel points push observer", () => {
-    function pushSettings(patch: Partial<ExtensionSettings["platform"]["twitch"]> = {}): ExtensionSettings {
+    function pushSettings(
+      patch: Partial<ExtensionSettings["platform"]["twitch"]> = {},
+    ): ExtensionSettings {
       const enabled = farming({ ...DEFAULT_SETTINGS, autoStartDropFarming: false });
       return {
         ...enabled,
@@ -532,7 +628,10 @@ describe("background controller", () => {
       return eligible;
     }
 
-    async function startObserver(env: ReturnType<typeof harness>, patch?: Partial<ChannelCandidate>): Promise<void> {
+    async function startObserver(
+      env: ReturnType<typeof harness>,
+      patch?: Partial<ChannelCandidate>,
+    ): Promise<void> {
       configureEligibleChannel(env, patch);
       env.twitch.claimChannelPoints = vi.fn(async () => true);
       await env.controller.ensureAlarm();
@@ -630,19 +729,22 @@ describe("background controller", () => {
       expect(env.channelPointsPushController.stops).toBe(1);
     });
 
-    it.each(["reset", "shutdown"] as const)("stops the observer during host %s", async (cleanup) => {
-      const env = harness(pushSettings());
-      await startObserver(env);
+    it.each(["reset", "shutdown"] as const)(
+      "stops the observer during host %s",
+      async (cleanup) => {
+        const env = harness(pushSettings());
+        await startObserver(env);
 
-      if (cleanup === "reset") {
-        await env.controller.prepareForHostReset();
-      } else {
-        env.controller.shutdown();
-      }
-      await env.rawController.settleBackgroundWork();
+        if (cleanup === "reset") {
+          await env.controller.prepareForHostReset();
+        } else {
+          env.controller.shutdown();
+        }
+        await env.rawController.settleBackgroundWork();
 
-      expect(env.channelPointsPushController.stops).toBe(1);
-    });
+        expect(env.channelPointsPushController.stops).toBe(1);
+      },
+    );
 
     it("stops the observer when Twitch is disabled even if rescheduling the tick jobs fails", async () => {
       let alarmsFail = false;
@@ -654,10 +756,12 @@ describe("background controller", () => {
       await startObserver(env);
       alarmsFail = true;
 
-      await expect(env.controller.handleMessage({
-        type: "saveSettings",
-        settingsPatch: { platform: { twitch: { enabled: false } } },
-      })).rejects.toThrow("alarms unavailable");
+      await expect(
+        env.controller.handleMessage({
+          type: "saveSettings",
+          settingsPatch: { platform: { twitch: { enabled: false } } },
+        }),
+      ).rejects.toThrow("alarms unavailable");
       await env.rawController.settleBackgroundWork();
 
       expect(env.settings.platform.twitch.enabled).toBe(false);
@@ -737,12 +841,16 @@ describe("background controller", () => {
       await env.controller.runTwitchChannelPointsClaim();
 
       expect(env.twitch.claimChannelPoints).toHaveBeenCalledOnce();
-      expect(env.twitch.claimChannelPoints).toHaveBeenCalledWith(eligible, { signal: expect.any(AbortSignal) });
+      expect(env.twitch.claimChannelPoints).toHaveBeenCalledWith(eligible, {
+        signal: expect.any(AbortSignal),
+      });
     });
 
     // #759: the same observer follows the watched channel's playback topic.
     describe("playback topic", () => {
-      afterEach(() => { vi.useRealTimers(); });
+      afterEach(() => {
+        vi.useRealTimers();
+      });
 
       async function watchingPlayback(settings = pushSettings({ channelPointsPushClaim: false })) {
         const env = harness(settings);
@@ -761,7 +869,10 @@ describe("background controller", () => {
 
       it("keeps following playback when live-event claiming is turned off", async () => {
         const env = await watchingPlayback(pushSettings());
-        await env.controller.handleMessage({ type: "saveSettings", settingsPatch: { platform: { twitch: { channelPointsPushClaim: false } } } });
+        await env.controller.handleMessage({
+          type: "saveSettings",
+          settingsPatch: { platform: { twitch: { channelPointsPushClaim: false } } },
+        });
         await env.rawController.settleBackgroundWork();
         expect(env.channelPointsPushController.stops).toBe(0);
         expect(env.channelPointsPushController.claimsFollowed).toBe(false);
@@ -798,8 +909,16 @@ describe("background controller", () => {
         expect(env.twitch.refreshCampaigns).toHaveBeenCalledTimes(ticks);
         await vi.advanceTimersByTimeAsync(1_000);
         vi.useRealTimers();
-        await vi.waitFor(() => expect(vi.mocked(env.twitch.refreshCampaigns).mock.calls.length).toBeGreaterThan(ticks));
-        await vi.waitFor(() => expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({ message: "Twitch reported the watched stream ended; checking it in 60 s" })));
+        await vi.waitFor(() =>
+          expect(vi.mocked(env.twitch.refreshCampaigns).mock.calls.length).toBeGreaterThan(ticks),
+        );
+        await vi.waitFor(() =>
+          expect(allDiagnostics(env)).toContainEqual(
+            expect.objectContaining({
+              message: "Twitch reported the watched stream ended; checking it in 60 s",
+            }),
+          ),
+        );
       });
 
       it("drops the check when a stream-up follows", async () => {
@@ -819,11 +938,17 @@ describe("background controller", () => {
         vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
         const ticks = vi.mocked(env.twitch.refreshCampaigns).mock.calls.length;
         env.channelPointsPushController.emitPlayback("stream-down");
-        await env.controller.handleMessage({ type: "saveSettings", settingsPatch: { platform: { twitch: { enabled: false } } } });
+        await env.controller.handleMessage({
+          type: "saveSettings",
+          settingsPatch: { platform: { twitch: { enabled: false } } },
+        });
         await env.rawController.settleBackgroundWork();
         expect(env.channelPointsPushController.stops).toBe(1);
         // Re-enabled, so a tick that still fired would reach the adapter.
-        await env.controller.handleMessage({ type: "saveSettings", settingsPatch: { platform: { twitch: { enabled: true } } } });
+        await env.controller.handleMessage({
+          type: "saveSettings",
+          settingsPatch: { platform: { twitch: { enabled: true } } },
+        });
         await env.rawController.settleBackgroundWork();
         const afterToggle = vi.mocked(env.twitch.refreshCampaigns).mock.calls.length;
         await vi.advanceTimersByTimeAsync(120_000);
@@ -846,7 +971,11 @@ describe("background controller", () => {
     // #757: while NoPixelV is the tabless watch source, the same observer
     // follows its broadcast topic and refreshes it on a giveaway message.
     describe("extension broadcast topic", () => {
-      async function watchingNoPixel(watchMode: "tabless" | "tab" = "tabless", hook = true, token: string | null = "extension-jwt") {
+      async function watchingNoPixel(
+        watchMode: "tabless" | "tab" = "tabless",
+        hook = true,
+        token: string | null = "extension-jwt",
+      ) {
         const refreshSupplementalSource = vi.fn();
         const env = harness(pushSettings({ channelPointsPushClaim: false }), {
           selectSupplementalWatchTarget: async () => undefined,
@@ -854,7 +983,11 @@ describe("background controller", () => {
           ...(hook ? { refreshSupplementalSource } : {}),
         });
         configureEligibleChannel(env, { channelId: "123" });
-        env.state.sessions.twitch = { ...env.state.sessions.twitch, watchMode, supplementalWatch: { id: "nopixel", tablessOnly: true } };
+        env.state.sessions.twitch = {
+          ...env.state.sessions.twitch,
+          watchMode,
+          supplementalWatch: { id: "nopixel", tablessOnly: true },
+        };
         await env.controller.ensureAlarm();
         await env.rawController.settleBackgroundWork();
         return { env, refreshSupplementalSource };
@@ -863,12 +996,19 @@ describe("background controller", () => {
       it("follows NoPixelV's topic and refreshes it on a giveaway message only", async () => {
         const { env, refreshSupplementalSource } = await watchingNoPixel();
         const owner = env.channelPointsPushController.extensionBroadcast;
-        expect(owner).toMatchObject({ channelId: "123", extensionId: "nstuq90nghenyqwqme61jgvmtp253a", token: "extension-jwt" });
+        expect(owner).toMatchObject({
+          channelId: "123",
+          extensionId: "nstuq90nghenyqwqme61jgvmtp253a",
+          token: "extension-jwt",
+        });
         owner!.onEvent("news.posts.created");
         expect(refreshSupplementalSource).not.toHaveBeenCalled();
         owner!.onEvent("cards.giveaway.started");
         owner!.onEvent("cards.giveaway.ended");
-        expect(refreshSupplementalSource.mock.calls).toEqual([["nopixel", "123"], ["nopixel", "123"]]);
+        expect(refreshSupplementalSource.mock.calls).toEqual([
+          ["nopixel", "123"],
+          ["nopixel", "123"],
+        ]);
       });
 
       it("follows the topic as soon as the provider session's token appears, without waiting for a tick", async () => {
@@ -879,7 +1019,11 @@ describe("background controller", () => {
           refreshSupplementalSource: () => undefined,
         });
         configureEligibleChannel(env, { channelId: "123" });
-        env.state.sessions.twitch = { ...env.state.sessions.twitch, watchMode: "tabless", supplementalWatch: { id: "nopixel", tablessOnly: true } };
+        env.state.sessions.twitch = {
+          ...env.state.sessions.twitch,
+          watchMode: "tabless",
+          supplementalWatch: { id: "nopixel", tablessOnly: true },
+        };
         await env.controller.ensureAlarm();
         await env.rawController.settleBackgroundWork();
         expect(env.channelPointsPushController.extensionBroadcast).toBeUndefined();
@@ -887,15 +1031,26 @@ describe("background controller", () => {
         const ticks = vi.mocked(env.twitch.refreshCampaigns).mock.calls.length;
         await env.controller.reconcileTwitchObservers();
         await env.rawController.settleBackgroundWork();
-        expect(env.channelPointsPushController.extensionBroadcast).toMatchObject({ channelId: "123", token: "extension-jwt" });
+        expect(env.channelPointsPushController.extensionBroadcast).toMatchObject({
+          channelId: "123",
+          token: "extension-jwt",
+        });
         expect(env.twitch.refreshCampaigns).toHaveBeenCalledTimes(ticks);
       });
 
       it("does not follow it for a tab watch or a host without the refresh hook", async () => {
-        expect((await watchingNoPixel("tab")).env.channelPointsPushController.extensionBroadcast).toBeUndefined();
-        expect((await watchingNoPixel("tabless", false)).env.channelPointsPushController.extensionBroadcast).toBeUndefined();
+        expect(
+          (await watchingNoPixel("tab")).env.channelPointsPushController.extensionBroadcast,
+        ).toBeUndefined();
+        expect(
+          (await watchingNoPixel("tabless", false)).env.channelPointsPushController
+            .extensionBroadcast,
+        ).toBeUndefined();
         // No session JWT yet: the next reconcile picks it up.
-        expect((await watchingNoPixel("tabless", true, null)).env.channelPointsPushController.extensionBroadcast).toBeUndefined();
+        expect(
+          (await watchingNoPixel("tabless", true, null)).env.channelPointsPushController
+            .extensionBroadcast,
+        ).toBeUndefined();
       });
     });
 
@@ -904,15 +1059,19 @@ describe("background controller", () => {
       await startObserver(env);
 
       env.channelPointsPushController.emitClaim({ claimId: "claim-1", channelId: "channel-1" });
-      await vi.waitFor(() => expect(env.twitch.claimChannelPoints).toHaveBeenCalledWith(
-        expect.objectContaining({ channelId: "channel-1" }),
-        expect.objectContaining({ claimId: "claim-1", channelId: "channel-1" }),
-      ));
-      expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
-        platform: "twitch",
-        level: "info",
-        message: "Claimed channel points for twitch-creator",
-      }));
+      await vi.waitFor(() =>
+        expect(env.twitch.claimChannelPoints).toHaveBeenCalledWith(
+          expect.objectContaining({ channelId: "channel-1" }),
+          expect.objectContaining({ claimId: "claim-1", channelId: "channel-1" }),
+        ),
+      );
+      expect(allDiagnostics(env)).toContainEqual(
+        expect.objectContaining({
+          platform: "twitch",
+          level: "info",
+          message: "Claimed channel points for twitch-creator",
+        }),
+      );
     });
 
     it("drops a live-event notice whose channel id does not match the eligible channel", async () => {
@@ -930,10 +1089,12 @@ describe("background controller", () => {
       await startObserver(env, { username: "manual-creator" });
 
       env.channelPointsPushController.emitClaim({ claimId: "claim-1", channelId: "channel-1" });
-      await vi.waitFor(() => expect(env.twitch.claimChannelPoints).toHaveBeenCalledWith(
-        expect.objectContaining({ username: "manual-creator" }),
-        expect.objectContaining({ claimId: "claim-1", channelId: "channel-1" }),
-      ));
+      await vi.waitFor(() =>
+        expect(env.twitch.claimChannelPoints).toHaveBeenCalledWith(
+          expect.objectContaining({ username: "manual-creator" }),
+          expect.objectContaining({ claimId: "claim-1", channelId: "channel-1" }),
+        ),
+      );
     });
 
     it("dedupes an in-flight live-event claim id to a single mutation", async () => {
@@ -1009,7 +1170,9 @@ describe("background controller", () => {
       const env = harness(pushSettings());
       await startObserver(env);
       const stopping = deferred<void>();
-      const stop = vi.spyOn(env.channelPointsPushController, "stop").mockImplementationOnce(() => stopping.promise);
+      const stop = vi
+        .spyOn(env.channelPointsPushController, "stop")
+        .mockImplementationOnce(() => stopping.promise);
 
       const first = env.controller.invalidateAuthHealth("twitch");
       await vi.waitFor(() => expect(stop).toHaveBeenCalledOnce());
@@ -1036,7 +1199,9 @@ describe("background controller", () => {
       const env = harness(pushSettings());
       await startObserver(env);
       const stopping = deferred<void>();
-      vi.spyOn(env.channelPointsPushController, "stop").mockImplementationOnce(() => stopping.promise);
+      vi.spyOn(env.channelPointsPushController, "stop").mockImplementationOnce(
+        () => stopping.promise,
+      );
 
       const twitch = env.controller.invalidateAuthHealth("twitch");
       await vi.waitFor(() => expect(env.channelPointsPushController.stop).toHaveBeenCalledOnce());
@@ -1067,7 +1232,9 @@ describe("background controller", () => {
       env.twitch.claimChannelPoints = vi.fn(async (_channel, options) => {
         signal = options?.signal;
         return await new Promise<boolean>((_resolve, reject) => {
-          options?.signal?.addEventListener("abort", () => reject(options.signal!.reason), { once: true });
+          options?.signal?.addEventListener("abort", () => reject(options.signal!.reason), {
+            once: true,
+          });
         });
       });
 
@@ -1077,7 +1244,9 @@ describe("background controller", () => {
       await env.rawController.settleBackgroundWork();
 
       expect(signal?.aborted).toBe(true);
-      expect(allDiagnostics(env)).not.toContainEqual(expect.objectContaining({ level: "warn", message: "Controller shutdown" }));
+      expect(allDiagnostics(env)).not.toContainEqual(
+        expect.objectContaining({ level: "warn", message: "Controller shutdown" }),
+      );
     });
 
     it("does not mutate session error or heartbeat state when the observer reports a failure", async () => {
@@ -1098,11 +1267,13 @@ describe("background controller", () => {
       await env.rawController.settleBackgroundWork();
 
       expect(env.state.sessions.twitch).toEqual(beforeSession);
-      expect(allDiagnostics(env)).toContainEqual(expect.objectContaining({
-        platform: "twitch",
-        level: "warn",
-        message: "Hermes reconnect failed",
-      }));
+      expect(allDiagnostics(env)).toContainEqual(
+        expect.objectContaining({
+          platform: "twitch",
+          level: "warn",
+          message: "Hermes reconnect failed",
+        }),
+      );
     });
   });
 });

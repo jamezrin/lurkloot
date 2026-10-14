@@ -20,7 +20,9 @@ import { applyProviderOptionalPermissions } from "./src/extensions/manifest";
 // Native `_locales` are required by the manifest's localized store listing
 // (default_locale + __MSG__). They are not committed; we materialize them from
 // the single source of truth, the @lurkloot/locales package, at build time.
-const messagesDir = dirname(createRequire(import.meta.url).resolve("@lurkloot/locales/messages/en.json"));
+const messagesDir = dirname(
+  createRequire(import.meta.url).resolve("@lurkloot/locales/messages/en.json"),
+);
 
 export default defineConfig({
   modules: ["@wxt-dev/module-react"],
@@ -56,7 +58,13 @@ export default defineConfig({
     // webRequestBlocking (Firefox only): Firefox's rules skip the background
     // page's sockets, so a listener sets their Origin (platformSocketOrigin.ts).
     permissions: [
-      "alarms", "storage", "tabs", "scripting", "notifications", "cookies", "webRequest",
+      "alarms",
+      "storage",
+      "tabs",
+      "scripting",
+      "notifications",
+      "cookies",
+      "webRequest",
       "declarativeNetRequestWithHostAccess",
       ...(browser === "firefox" ? ["webRequestBlocking"] : ["offscreen"]),
     ],
@@ -89,30 +97,30 @@ export default defineConfig({
       {
         resources: ["inpagePanel.html"],
         matches: [TWITCH_HOST_ORIGIN, KICK_HOST_ORIGIN],
-      }
+      },
     ],
     icons: {
       "16": "icon/16.png",
       "32": "icon/32.png",
       "48": "icon/48.png",
-      "128": "icon/128.png"
+      "128": "icon/128.png",
     },
     action: {
       default_title: "__MSG_extensionName__",
       default_icon: {
         "16": "icon/16.png",
-        "32": "icon/32.png"
-      }
+        "32": "icon/32.png",
+      },
     },
     browser_specific_settings: {
       gecko: {
         id: "lurkloot@jamezrin.name",
         strict_min_version: "140.0",
         data_collection_permissions: {
-          required: ["none"]
-        }
-      }
-    }
+          required: ["none"],
+        },
+      },
+    },
   }),
   zip: {
     sourcesRoot: ".",
@@ -121,5 +129,5 @@ export default defineConfig({
     // Generated, gitignored outputs (store screenshots/promo tiles) live here;
     // keep them out of the AMO sources zip.
     excludeSources: ["artifacts/**"],
-  }
+  },
 });

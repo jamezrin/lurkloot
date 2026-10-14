@@ -2,11 +2,19 @@ import { describe, expect, it } from "vitest";
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 import { COMPATIBILITY_REGISTRY, resolveCompatibility } from "@lurkloot/core";
-import { DEFAULT_SETTINGS, mergeEngineSettings, POLL_INTERVAL_MAX_MINUTES, POLL_INTERVAL_MIN_MINUTES } from "@lurkloot/shared/settings";
+import {
+  DEFAULT_SETTINGS,
+  mergeEngineSettings,
+  POLL_INTERVAL_MAX_MINUTES,
+  POLL_INTERVAL_MIN_MINUTES,
+} from "@lurkloot/shared/settings";
 import { buildSettingsRegistry } from "../../popup-ui/src/settingsRegistry";
 
 const englishPath = createRequire(import.meta.url).resolve("@lurkloot/locales/messages/en.json");
-const english = JSON.parse(readFileSync(englishPath, "utf8")) as Record<string, { message: string }>;
+const english = JSON.parse(readFileSync(englishPath, "utf8")) as Record<
+  string,
+  { message: string }
+>;
 
 function registry() {
   return buildSettingsRegistry({
@@ -16,7 +24,10 @@ function registry() {
     suggestions: { twitch: [], kick: [] },
     onSearchCategories: async () => [],
     compatibilityRegistry: COMPATIBILITY_REGISTRY,
-    compatibilityResolution: resolveCompatibility(DEFAULT_SETTINGS.compatibility, { host: "extension", twitchIdentity: "web" }),
+    compatibilityResolution: resolveCompatibility(DEFAULT_SETTINGS.compatibility, {
+      host: "extension",
+      twitchIdentity: "web",
+    }),
   });
 }
 
@@ -78,7 +89,8 @@ describe("settings registry", () => {
   it("resolves every message key against the English catalog", () => {
     for (const section of registry()) {
       const entries = [...section.rows, ...section.groups.flatMap((group) => group.entries)];
-      for (const group of section.groups) expect(english[group.titleKey], group.titleKey).toBeTruthy();
+      for (const group of section.groups)
+        expect(english[group.titleKey], group.titleKey).toBeTruthy();
       for (const entry of entries) {
         expect(english[entry.titleKey], entry.titleKey).toBeTruthy();
         expect(english[entry.descriptionKey], entry.descriptionKey).toBeTruthy();
@@ -87,14 +99,12 @@ describe("settings registry", () => {
   });
 
   it("marks exactly one advanced group per section", () => {
-    const advanced = registry().flatMap((section) => section.groups.filter((group) => group.advanced).map((group) => group.id));
+    const advanced = registry().flatMap((section) =>
+      section.groups.filter((group) => group.advanced).map((group) => group.id),
+    );
     // Both platform sections end in an identically titled advanced group;
     // Twitch's also holds a farming toggle, Kick's has only compatibility rows.
-    expect(advanced).toEqual([
-      "general.advanced",
-      "twitch.advanced",
-      "kick.advanced",
-    ]);
+    expect(advanced).toEqual(["general.advanced", "twitch.advanced", "kick.advanced"]);
   });
 
   it("omits the compatibility groups when no registry is supplied", () => {
@@ -105,7 +115,9 @@ describe("settings registry", () => {
       suggestions: { twitch: [], kick: [] },
       onSearchCategories: async () => [],
     });
-    const groups = withoutCompatibility.flatMap((section) => section.groups.map((group) => group.id));
+    const groups = withoutCompatibility.flatMap((section) =>
+      section.groups.map((group) => group.id),
+    );
     // Kick's advanced group holds nothing but the compatibility editor, so
     // without a registry Kick gets no advanced group at all.
     expect(groups).not.toContain("kick.advanced");
@@ -179,7 +191,11 @@ describe("settings registry", () => {
     expect(row?.props.max).toBe(POLL_INTERVAL_MAX_MINUTES * 60);
     // Both ends survive the engine clamp unchanged, so nothing the row offers
     // is silently rewritten on save.
-    expect(mergeEngineSettings({ pollIntervalMinutes: row!.props.min / 60 }).pollIntervalMinutes).toBe(row!.props.min / 60);
-    expect(mergeEngineSettings({ pollIntervalMinutes: row!.props.max / 60 }).pollIntervalMinutes).toBe(row!.props.max / 60);
+    expect(
+      mergeEngineSettings({ pollIntervalMinutes: row!.props.min / 60 }).pollIntervalMinutes,
+    ).toBe(row!.props.min / 60);
+    expect(
+      mergeEngineSettings({ pollIntervalMinutes: row!.props.max / 60 }).pollIntervalMinutes,
+    ).toBe(row!.props.max / 60);
   });
 });

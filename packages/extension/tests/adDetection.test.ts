@@ -31,12 +31,16 @@ describe("ad detection", () => {
 
   it("detects a Kick ad from the video.js ad classes", () => {
     expect(detectAdIn("kick", documentFrom(`<div class="vjs-ad-playing"></div>`))).toBe(true);
-    expect(detectAdIn("kick", documentFrom(`<div class="video-js vjs-ad-loading"></div>`))).toBe(true);
+    expect(detectAdIn("kick", documentFrom(`<div class="video-js vjs-ad-loading"></div>`))).toBe(
+      true,
+    );
   });
 
   it("detects a Kick ad from an exact ad-overlay class token", () => {
     expect(detectAdIn("kick", documentFrom(`<div class="ad-overlay"></div>`))).toBe(true);
-    expect(detectAdIn("kick", documentFrom(`<div class="player ad-overlay visible"></div>`))).toBe(true);
+    expect(detectAdIn("kick", documentFrom(`<div class="player ad-overlay visible"></div>`))).toBe(
+      true,
+    );
   });
 
   it("detects a Kick ad from an anchored ad testid", () => {
@@ -49,8 +53,12 @@ describe("ad detection", () => {
   });
 
   it("detects Twitch ads from their stable player attributes", () => {
-    expect(detectAdIn("twitch", documentFrom(`<div data-a-target="video-ad-label"></div>`))).toBe(true);
-    expect(detectAdIn("twitch", documentFrom(`<div class="video-player__ad-info-container"></div>`))).toBe(true);
+    expect(detectAdIn("twitch", documentFrom(`<div data-a-target="video-ad-label"></div>`))).toBe(
+      true,
+    );
+    expect(
+      detectAdIn("twitch", documentFrom(`<div class="video-player__ad-info-container"></div>`)),
+    ).toBe(true);
   });
 
   it("does not fire on Twitch chat badges", () => {

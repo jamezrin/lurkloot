@@ -48,7 +48,9 @@ export function parseRequestedLocales(args) {
     if (argument === "--") continue;
     if (argument === "--validate-only") continue;
     if (argument !== "--locales") {
-      throw new Error(`${argument.startsWith("--") ? "Unknown option" : "Unexpected argument"} ${argument}`);
+      throw new Error(
+        `${argument.startsWith("--") ? "Unknown option" : "Unexpected argument"} ${argument}`,
+      );
     }
     if (requested) throw new Error("Duplicate option --locales");
     requested = [];

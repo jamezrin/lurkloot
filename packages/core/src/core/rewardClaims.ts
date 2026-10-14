@@ -34,21 +34,23 @@ function markClaimed(reward: DropReward): DropReward {
 
 // Claims every ready reward in the given campaigns. The scheduler tick reaches
 // it only through its claimRewards effect; the drop-claim job calls it directly.
-export type ClaimReadyRewardEvent = {
-  level: "info";
-  message: string;
-  claimed: true;
-  campaignId: string;
-  campaignName: string;
-  rewardId: string;
-  rewardName: string;
-  rewardImageUrl?: string;
-  campaignUrl?: string;
-} | {
-  level: "info" | "warn" | "error";
-  message: string;
-  claimed?: false;
-};
+export type ClaimReadyRewardEvent =
+  | {
+      level: "info";
+      message: string;
+      claimed: true;
+      campaignId: string;
+      campaignName: string;
+      rewardId: string;
+      rewardName: string;
+      rewardImageUrl?: string;
+      campaignUrl?: string;
+    }
+  | {
+      level: "info" | "warn" | "error";
+      message: string;
+      claimed?: false;
+    };
 
 export async function claimReadyRewards(
   adapter: PlatformAdapter,

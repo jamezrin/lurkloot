@@ -10,10 +10,16 @@ function setup(grant = true) {
   const start = vi.fn(async () => {});
   const stop = vi.fn();
   const clear = vi.fn(async () => {});
-  const setEnabled = vi.fn(async (id: string, value: boolean) => { if (value) enabled.add(id); else enabled.delete(id); });
+  const setEnabled = vi.fn(async (id: string, value: boolean) => {
+    if (value) enabled.add(id);
+    else enabled.delete(id);
+  });
   const permissions = createProviderPermissions({
-    permissions: { request, contains }, runtime: { start, stop },
-    enabled: async (id) => enabled.has(id), setEnabled, clearTransientState: clear,
+    permissions: { request, contains },
+    runtime: { start, stop },
+    enabled: async (id) => enabled.has(id),
+    setEnabled,
+    clearTransientState: clear,
   });
   return { permissions, enabled, request, contains, start, stop, clear, setEnabled };
 }
@@ -79,11 +85,15 @@ describe("tabless provider backend permissions", () => {
   });
 });
 
-
 it("a delayed grant cannot restart a provider after disable", async () => {
   const s = setup();
   let resolve!: (value: boolean) => void;
-  s.request.mockImplementation(() => new Promise<boolean>((done) => { resolve = done; }));
+  s.request.mockImplementation(
+    () =>
+      new Promise<boolean>((done) => {
+        resolve = done;
+      }),
+  );
   const enabling = s.permissions.enable(provider.id);
   const disabling = s.permissions.disable(provider.id);
   resolve(true);
@@ -93,29 +103,42 @@ it("a delayed grant cannot restart a provider after disable", async () => {
   expect(s.enabled.size).toBe(0);
 });
 
-
-it.each(["enable", "reconcile"] as const)("%s cannot restart after revocation during grant verification", async (operation) => {
-  const s = setup();
-  s.enabled.add(provider.id);
-  let resolve!: (value: boolean) => void;
-  let reached!: () => void;
-  const checking = new Promise<void>((done) => { reached = done; });
-  s.contains.mockImplementation(() => { reached(); return new Promise<boolean>((done) => { resolve = done; }); });
-  const pending = operation === "enable" ? s.permissions.enable(provider.id) : s.permissions.reconcile();
-  await checking;
-  const removing = s.permissions.removed({ origins: [provider.backendOrigin] });
-  resolve(true);
-  await pending;
-  await removing;
-  expect(s.start).not.toHaveBeenCalled();
-  expect(s.enabled.has(provider.id)).toBe(false);
-});
+it.each(["enable", "reconcile"] as const)(
+  "%s cannot restart after revocation during grant verification",
+  async (operation) => {
+    const s = setup();
+    s.enabled.add(provider.id);
+    let resolve!: (value: boolean) => void;
+    let reached!: () => void;
+    const checking = new Promise<void>((done) => {
+      reached = done;
+    });
+    s.contains.mockImplementation(() => {
+      reached();
+      return new Promise<boolean>((done) => {
+        resolve = done;
+      });
+    });
+    const pending =
+      operation === "enable" ? s.permissions.enable(provider.id) : s.permissions.reconcile();
+    await checking;
+    const removing = s.permissions.removed({ origins: [provider.backendOrigin] });
+    resolve(true);
+    await pending;
+    await removing;
+    expect(s.start).not.toHaveBeenCalled();
+    expect(s.enabled.has(provider.id)).toBe(false);
+  },
+);
 
 // #798: Fortnite's socket backend is granted with its backend, in one prompt,
 // and the provider needs both.
 describe("Fortnite socket backend permission", () => {
   const fortnite = twitchExtensionProviders.find((candidate) => candidate.id === "fortnite")!;
-  const both = ["https://backend.p-n6412w7dsu.exmggames.com/*", "wss://backend.p-n6412w7dsu.exmggames.com/*"];
+  const both = [
+    "https://backend.p-n6412w7dsu.exmggames.com/*",
+    "wss://backend.p-n6412w7dsu.exmggames.com/*",
+  ];
 
   it("requests the backend and its socket backend together and verifies both", async () => {
     const s = setup();

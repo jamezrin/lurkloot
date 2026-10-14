@@ -23,7 +23,10 @@ describe("settings schema versions", () => {
   it("treats a missing or non-object payload as an empty version 0 document", () => {
     for (const raw of [undefined, null, "nope", 42, ["a"]]) {
       const result = migrateSettings(raw);
-      expect(result.settings).toEqual({ criticalFailurePromptEnabled: true, platform: defaultSourceSettings });
+      expect(result.settings).toEqual({
+        criticalFailurePromptEnabled: true,
+        platform: defaultSourceSettings,
+      });
       expect(result.fromVersion).toBe(0);
       expect(result.diagnostics).toEqual([]);
     }
@@ -44,7 +47,10 @@ describe("settings schema versions", () => {
   });
 
   it("never mutates its input", () => {
-    const stored = { watchQueueFallbackOnly: false, platform: { twitch: { watchQueueChannels: ["A"] } } };
+    const stored = {
+      watchQueueFallbackOnly: false,
+      platform: { twitch: { watchQueueChannels: ["A"] } },
+    };
     const snapshot = structuredClone(stored);
     migrateSettings(stored);
     expect(stored).toEqual(snapshot);
@@ -59,8 +65,9 @@ describe("settings schema versions", () => {
 
   it("rejects a future schema version", () => {
     const future = CURRENT_SETTINGS_SCHEMA_VERSION + 1;
-    expect(() => migrateSettings({ [SETTINGS_SCHEMA_VERSION_KEY]: future }))
-      .toThrow(UnsupportedSettingsVersionError);
+    expect(() => migrateSettings({ [SETTINGS_SCHEMA_VERSION_KEY]: future })).toThrow(
+      UnsupportedSettingsVersionError,
+    );
     try {
       migrateSettings({ [SETTINGS_SCHEMA_VERSION_KEY]: future });
     } catch (error) {
@@ -72,8 +79,9 @@ describe("settings schema versions", () => {
 
   it("rejects a malformed schema version", () => {
     for (const version of [-1, 1.5, Number.NaN, "1", null]) {
-      expect(() => migrateSettings({ [SETTINGS_SCHEMA_VERSION_KEY]: version }))
-        .toThrow(UnsupportedSettingsVersionError);
+      expect(() => migrateSettings({ [SETTINGS_SCHEMA_VERSION_KEY]: version })).toThrow(
+        UnsupportedSettingsVersionError,
+      );
     }
   });
 
@@ -118,8 +126,14 @@ describe("migration 1: legacy aliases", () => {
       idleWatchlistFallbackOnly: false,
       criticalFailurePromptEnabled: true,
       platform: {
-        twitch: { idleWatchlistChannels: ["Legacy"], watchSourcePriority: ["idle_watchlist", "drops", "nopixel", "fortnite"] },
-        kick: { idleWatchlistChannels: ["KickLegacy"], watchSourcePriority: ["idle_watchlist", "drops"] },
+        twitch: {
+          idleWatchlistChannels: ["Legacy"],
+          watchSourcePriority: ["idle_watchlist", "drops", "nopixel", "fortnite"],
+        },
+        kick: {
+          idleWatchlistChannels: ["KickLegacy"],
+          watchSourcePriority: ["idle_watchlist", "drops"],
+        },
       },
     });
     expect(result.settings).not.toHaveProperty("watchQueueFallbackOnly");
@@ -127,7 +141,13 @@ describe("migration 1: legacy aliases", () => {
 
   it("moves a top-level autoClaimChannelPoints onto platform.twitch", () => {
     const result = migrateSettings({ autoClaimChannelPoints: false });
-    expect(result.settings).toEqual({ platform: { ...defaultSourceSettings, twitch: { ...defaultSourceSettings.twitch, autoClaimChannelPoints: false } }, criticalFailurePromptEnabled: true });
+    expect(result.settings).toEqual({
+      platform: {
+        ...defaultSourceSettings,
+        twitch: { ...defaultSourceSettings.twitch, autoClaimChannelPoints: false },
+      },
+      criticalFailurePromptEnabled: true,
+    });
     expect(result.diagnostics).toContainEqual({
       code: "moved_property",
       path: "autoClaimChannelPoints",
@@ -137,8 +157,16 @@ describe("migration 1: legacy aliases", () => {
   });
 
   it("renames verboseLogging to diagnosticLogging", () => {
-    expect(migrateSettings({ verboseLogging: true }).settings).toEqual({ diagnosticLogging: true, criticalFailurePromptEnabled: true, platform: defaultSourceSettings });
-    expect(migrateSettings({ verboseLogging: false }).settings).toEqual({ diagnosticLogging: false, criticalFailurePromptEnabled: true, platform: defaultSourceSettings });
+    expect(migrateSettings({ verboseLogging: true }).settings).toEqual({
+      diagnosticLogging: true,
+      criticalFailurePromptEnabled: true,
+      platform: defaultSourceSettings,
+    });
+    expect(migrateSettings({ verboseLogging: false }).settings).toEqual({
+      diagnosticLogging: false,
+      criticalFailurePromptEnabled: true,
+      platform: defaultSourceSettings,
+    });
   });
 
   it("drops an unhomeable legacy autoClaimChannelPoints when platform is not an object", () => {
@@ -153,7 +181,10 @@ describe("migration 1: legacy aliases", () => {
 
   it("drops an unhomeable legacy autoClaimChannelPoints when platform.twitch is not an object", () => {
     const result = migrateSettings({ autoClaimChannelPoints: false, platform: { twitch: null } });
-    expect(result.settings).toEqual({ platform: { ...defaultSourceSettings, twitch: null }, criticalFailurePromptEnabled: true });
+    expect(result.settings).toEqual({
+      platform: { ...defaultSourceSettings, twitch: null },
+      criticalFailurePromptEnabled: true,
+    });
     expect(result.diagnostics).toEqual([]);
   });
 
@@ -162,21 +193,36 @@ describe("migration 1: legacy aliases", () => {
     // wrong-typed current value and applies its default. The pre-registry
     // inline fallbacks instead fell through to the legacy value here.
     const logging = migrateSettings({ diagnosticLogging: "yes", verboseLogging: true });
-    expect(logging.settings).toEqual({ diagnosticLogging: "yes", criticalFailurePromptEnabled: true, platform: defaultSourceSettings });
+    expect(logging.settings).toEqual({
+      diagnosticLogging: "yes",
+      criticalFailurePromptEnabled: true,
+      platform: defaultSourceSettings,
+    });
     expect(logging.diagnostics.map((d) => d.path)).toEqual(["verboseLogging"]);
 
     const points = migrateSettings({
       autoClaimChannelPoints: false,
       platform: { twitch: { autoClaimChannelPoints: "yes" } },
     });
-    expect(points.settings).toEqual({ platform: { ...defaultSourceSettings, twitch: { ...defaultSourceSettings.twitch, autoClaimChannelPoints: "yes" } }, criticalFailurePromptEnabled: true });
+    expect(points.settings).toEqual({
+      platform: {
+        ...defaultSourceSettings,
+        twitch: { ...defaultSourceSettings.twitch, autoClaimChannelPoints: "yes" },
+      },
+      criticalFailurePromptEnabled: true,
+    });
     expect(points.diagnostics.map((d) => d.path)).toEqual(["autoClaimChannelPoints"]);
   });
 
   it("keeps a non-boolean legacy value verbatim so normalization decides", () => {
     // mergeSettings applies booleanOr afterwards; the migration only reshapes.
-    expect(migrateSettings({ autoClaimChannelPoints: "yes" }).settings)
-      .toEqual({ platform: { ...defaultSourceSettings, twitch: { ...defaultSourceSettings.twitch, autoClaimChannelPoints: "yes" } }, criticalFailurePromptEnabled: true });
+    expect(migrateSettings({ autoClaimChannelPoints: "yes" }).settings).toEqual({
+      platform: {
+        ...defaultSourceSettings,
+        twitch: { ...defaultSourceSettings.twitch, autoClaimChannelPoints: "yes" },
+      },
+      criticalFailurePromptEnabled: true,
+    });
   });
 
   it("lets the current property win while still reporting the deprecated one", () => {
@@ -187,7 +233,11 @@ describe("migration 1: legacy aliases", () => {
       verboseLogging: true,
       autoClaimChannelPoints: false,
       platform: {
-        twitch: { idleWatchlistChannels: [], watchQueueChannels: ["legacy"], autoClaimChannelPoints: true },
+        twitch: {
+          idleWatchlistChannels: [],
+          watchQueueChannels: ["legacy"],
+          autoClaimChannelPoints: true,
+        },
         kick: { idleWatchlistChannels: ["new"], watchQueueChannels: ["legacy"] },
       },
     });
@@ -196,7 +246,11 @@ describe("migration 1: legacy aliases", () => {
       diagnosticLogging: false,
       criticalFailurePromptEnabled: true,
       platform: {
-        twitch: { ...defaultSourceSettings.twitch, idleWatchlistChannels: [], autoClaimChannelPoints: true },
+        twitch: {
+          ...defaultSourceSettings.twitch,
+          idleWatchlistChannels: [],
+          autoClaimChannelPoints: true,
+        },
         kick: { ...defaultSourceSettings.kick, idleWatchlistChannels: ["new"] },
       },
     });
@@ -211,12 +265,14 @@ describe("migration 1: legacy aliases", () => {
 
   it("emits a stable, deduplicated diagnostic per deprecated property", () => {
     const result = migrateSettings({ watchQueueFallbackOnly: false });
-    expect(result.diagnostics).toEqual([{
-      code: "deprecated_property",
-      path: "watchQueueFallbackOnly",
-      replacement: "idleWatchlistFallbackOnly",
-      message: "watchQueueFallbackOnly is deprecated; use idleWatchlistFallbackOnly",
-    }]);
+    expect(result.diagnostics).toEqual([
+      {
+        code: "deprecated_property",
+        path: "watchQueueFallbackOnly",
+        replacement: "idleWatchlistFallbackOnly",
+        message: "watchQueueFallbackOnly is deprecated; use idleWatchlistFallbackOnly",
+      },
+    ]);
   });
 
   it("reports nothing for a payload that only uses current names", () => {
@@ -229,8 +285,15 @@ describe("migration 1: legacy aliases", () => {
   });
 
   it("leaves unrelated and malformed platform blocks alone", () => {
-    expect(migrateSettings({ platform: "nope", other: 1 }).settings).toEqual({ platform: "nope", other: 1, criticalFailurePromptEnabled: true });
-    expect(migrateSettings({ platform: { twitch: null } }).settings).toEqual({ platform: { ...defaultSourceSettings, twitch: null }, criticalFailurePromptEnabled: true });
+    expect(migrateSettings({ platform: "nope", other: 1 }).settings).toEqual({
+      platform: "nope",
+      other: 1,
+      criticalFailurePromptEnabled: true,
+    });
+    expect(migrateSettings({ platform: { twitch: null } }).settings).toEqual({
+      platform: { ...defaultSourceSettings, twitch: null },
+      criticalFailurePromptEnabled: true,
+    });
   });
 });
 
@@ -267,7 +330,8 @@ describe("schema v2", () => {
       code: "moved_property",
       path: "campaignVisibility",
       replacement: "dropsListFilter",
-      message: "campaignVisibility display preferences moved to dropsListFilter; farming eligibility is controlled separately and defaults to on",
+      message:
+        "campaignVisibility display preferences moved to dropsListFilter; farming eligibility is controlled separately and defaults to on",
     });
   });
 
@@ -355,10 +419,12 @@ describe("schema v4", () => {
       twitch: { enabled: false },
       kick: { enabled: false },
     });
-    expect(migrated.diagnostics).toContainEqual(expect.objectContaining({
-      code: "deprecated_property",
-      path: "running",
-    }));
+    expect(migrated.diagnostics).toContainEqual(
+      expect.objectContaining({
+        code: "deprecated_property",
+        path: "running",
+      }),
+    );
   });
 
   it("reports nothing when automation was off and the platforms already were", () => {
@@ -414,12 +480,17 @@ describe("schema v5", () => {
     expect(migrated.settings.platform).toMatchObject({
       twitch: { categoryMode: "include", categories: CATEGORIES },
     });
-    expect((migrated.settings.platform as Record<string, Record<string, unknown>>).twitch.farmAllCategories).toBeUndefined();
-    expect(migrated.diagnostics).toContainEqual(expect.objectContaining({
-      code: "deprecated_property",
-      path: "platform.twitch.farmAllCategories",
-      replacement: "platform.twitch.categoryMode",
-    }));
+    expect(
+      (migrated.settings.platform as Record<string, Record<string, unknown>>).twitch
+        .farmAllCategories,
+    ).toBeUndefined();
+    expect(migrated.diagnostics).toContainEqual(
+      expect.objectContaining({
+        code: "deprecated_property",
+        path: "platform.twitch.farmAllCategories",
+        replacement: "platform.twitch.categoryMode",
+      }),
+    );
   });
 
   it("maps farm-all on to all mode on both platforms", () => {
@@ -461,7 +532,11 @@ describe("schema v5", () => {
     });
 
     expect(migrated.settings.platform).toMatchObject({ twitch: { categories: CATEGORIES } });
-    expect((migrated.settings.platform as Record<string, Record<string, unknown>>).twitch.categoryMode).toBeUndefined();
-    expect(migrated.diagnostics.filter((diagnostic) => diagnostic.path.endsWith("farmAllCategories"))).toEqual([]);
+    expect(
+      (migrated.settings.platform as Record<string, Record<string, unknown>>).twitch.categoryMode,
+    ).toBeUndefined();
+    expect(
+      migrated.diagnostics.filter((diagnostic) => diagnostic.path.endsWith("farmAllCategories")),
+    ).toEqual([]);
   });
 });

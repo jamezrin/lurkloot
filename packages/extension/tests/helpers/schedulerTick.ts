@@ -1,4 +1,14 @@
-import type { ChannelCandidate, EngineSettings, Platform, PreparedWatchTab, SchedulerState, SupplementalWatchTarget, WatchSession, WatchSourceId, WatchTabOptions } from "@lurkloot/shared/models";
+import type {
+  ChannelCandidate,
+  EngineSettings,
+  Platform,
+  PreparedWatchTab,
+  SchedulerState,
+  SupplementalWatchTarget,
+  WatchSession,
+  WatchSourceId,
+  WatchTabOptions,
+} from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import type { WatchTabPort } from "@lurkloot/core/controller";
@@ -9,10 +19,20 @@ import type {
   StopPageContextTabs,
 } from "@lurkloot/core/scheduler";
 import { MANUAL_WATCH_TTL_MS } from "@lurkloot/core/scheduler";
-import { ChannelPointsClaimGate, registerChannelPointsClaimEffect } from "@lurkloot/core/background/channelPoints";
+import {
+  ChannelPointsClaimGate,
+  registerChannelPointsClaimEffect,
+} from "@lurkloot/core/background/channelPoints";
 import { registerRewardClaimEffect } from "@lurkloot/core/background/claimService";
-import { KickChallengeClaimGate, registerKickRuntimeEffects } from "@lurkloot/core/background/kickRuntime";
-import { createTickEffectExecutor, runSchedulerTickEffects, tickCapabilities } from "@lurkloot/core/background/tickEffects";
+import {
+  KickChallengeClaimGate,
+  registerKickRuntimeEffects,
+} from "@lurkloot/core/background/kickRuntime";
+import {
+  createTickEffectExecutor,
+  runSchedulerTickEffects,
+  tickCapabilities,
+} from "@lurkloot/core/background/tickEffects";
 import { registerWatchTabEffects } from "@lurkloot/core/background/manualWatch";
 import { registerSupplementalTargetEffect } from "@lurkloot/core/background/supplementalSources";
 import { authHealthFromError } from "@lurkloot/core/fetchError";
@@ -30,7 +50,11 @@ import { createTabRegistry, type TabRegistry } from "@lurkloot/core/tabRegistry"
 // that and keep a fake adapter's watch-tab mocks next to its provider mocks. The
 // harness turns them into the WatchTabPort the tick calls.
 export interface WatchTabMocks {
-  prepareWatchTab?(channel: ChannelCandidate, session?: WatchSession, options?: Partial<WatchTabOptions>): Promise<PreparedWatchTab>;
+  prepareWatchTab?(
+    channel: ChannelCandidate,
+    session?: WatchSession,
+    options?: Partial<WatchTabOptions>,
+  ): Promise<PreparedWatchTab>;
   stopWatchTab?(session: WatchSession, options?: Partial<WatchTabOptions>): Promise<void>;
 }
 
@@ -54,7 +78,12 @@ function watchTabsFromMocks(adapters: Record<Platform, SchedulerTestAdapter>): W
 }
 
 export interface SchedulerTickTestOptions {
-  selectSupplementalWatchTarget?(platform: Platform, state: SchedulerState, signal?: AbortSignal, source?: WatchSourceId): Promise<SupplementalWatchTarget | undefined>;
+  selectSupplementalWatchTarget?(
+    platform: Platform,
+    state: SchedulerState,
+    signal?: AbortSignal,
+    source?: WatchSourceId,
+  ): Promise<SupplementalWatchTarget | undefined>;
   platforms?: Platform[];
   stopPageContextTabs?: StopPageContextTabs;
   // The tab registry the tick mirrors page contexts and breakers into; a fresh
@@ -76,13 +105,16 @@ export interface SchedulerTickTestOptions {
 // have used it: a paused, disabled, signed-out or backing-off platform never is.
 function farms(state: SchedulerState, settings: EngineSettings, platform: Platform): boolean {
   const manualWatch = state.manualWatch?.[platform];
-  const recentManualWatch = manualWatch?.active === true
+  const recentManualWatch =
+    manualWatch?.active === true
     && !isTimestampStale(manualWatch.checkedAt, MANUAL_WATCH_TTL_MS, Date.now());
-  return !state.manualClosePause?.[platform]
+  return (
+    !state.manualClosePause?.[platform]
     && !(settings.pauseOnManualWatch && recentManualWatch)
     && settings.platform[platform].enabled
     && state.authHealth[platform].status === "healthy"
-    && !inBackoff(state.sessions[platform]);
+    && !inBackoff(state.sessions[platform])
+  );
 }
 
 function inBackoff(session: WatchSession): boolean {
@@ -108,45 +140,66 @@ export async function runSchedulerTick(
       continue;
     }
     try {
-      discovery[platform] = { campaigns: await adapters[platform].refreshCampaigns(state.sessions[platform], { signal: options.signal }), complete: true };
+      discovery[platform] = {
+        campaigns: await adapters[platform].refreshCampaigns(state.sessions[platform], {
+          signal: options.signal,
+        }),
+        complete: true,
+      };
     } catch (error) {
       options.signal?.throwIfAborted();
       if (authHealthFromError(error)) throw error;
-      discovery[platform] = { campaigns: state.campaigns[platform], complete: false, failure: error };
+      discovery[platform] = {
+        campaigns: state.campaigns[platform],
+        complete: false,
+        failure: error,
+      };
     }
   }
-  return await runSchedulerTickEffects({
-    state,
-    settings,
-    platforms,
-    discovery,
-    selectionViews: adapters,
-    capabilities: Object.fromEntries(platforms.map((platform) => [platform, tickCapabilities(adapters[platform], browserTabs)])),
-    supplementalSources: options.selectSupplementalWatchTarget !== undefined,
-    waitingClaimRewardIds: options.waitingClaimRewardIds,
-    emit: options.emit,
-    signal: options.signal,
-    campaignEvaluationFingerprints: options.campaignEvaluationFingerprints,
-    selections: options.selections,
-    selectionIsCurrent: options.selectionIsCurrent,
-  }, registerRewardClaimEffect(
-    registerKickRuntimeEffects(
-      registerChannelPointsClaimEffect(
-        registerSupplementalTargetEffect(
-          registerWatchTabEffects(createTickEffectExecutor(), browserTabs ? watchTabsFromMocks(adapters) : undefined),
-          selectSupplementalWatchTarget
-            ? { select: (selectState, _settings, signal, source) => selectSupplementalWatchTarget("twitch", selectState, signal, source) }
-            : undefined,
-        ),
-        new ChannelPointsClaimGate(),
+  return await runSchedulerTickEffects(
+    {
+      state,
+      settings,
+      platforms,
+      discovery,
+      selectionViews: adapters,
+      capabilities: Object.fromEntries(
+        platforms.map((platform) => [platform, tickCapabilities(adapters[platform], browserTabs)]),
       ),
-      new KickChallengeClaimGate(),
-      options.stopPageContextTabs,
+      supplementalSources: options.selectSupplementalWatchTarget !== undefined,
+      waitingClaimRewardIds: options.waitingClaimRewardIds,
+      emit: options.emit,
+      signal: options.signal,
+      campaignEvaluationFingerprints: options.campaignEvaluationFingerprints,
+      selections: options.selections,
+      selectionIsCurrent: options.selectionIsCurrent,
+    },
+    registerRewardClaimEffect(
+      registerKickRuntimeEffects(
+        registerChannelPointsClaimEffect(
+          registerSupplementalTargetEffect(
+            registerWatchTabEffects(
+              createTickEffectExecutor(),
+              browserTabs ? watchTabsFromMocks(adapters) : undefined,
+            ),
+            selectSupplementalWatchTarget
+              ? {
+                  select: (selectState, _settings, signal, source) =>
+                    selectSupplementalWatchTarget("twitch", selectState, signal, source),
+                }
+              : undefined,
+          ),
+          new ChannelPointsClaimGate(),
+        ),
+        new KickChallengeClaimGate(),
+        options.stopPageContextTabs,
+      ),
+      {},
     ),
-    {},
-  ), {
-    adapters,
-    settings,
-    tabRegistry: options.tabRegistry ?? createTabRegistry(),
-  });
+    {
+      adapters,
+      settings,
+      tabRegistry: options.tabRegistry ?? createTabRegistry(),
+    },
+  );
 }

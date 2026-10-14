@@ -14,8 +14,9 @@ describe("activity message routing", () => {
     const clear = vi.fn(async () => undefined);
     const handler = createActivityMessageHandler({ load, exportDiagnostics, clear });
 
-    await expect(handler({ type: "getActivity", category: "activity", platform: "twitch", limit: 80 }))
-      .resolves.toBe(page);
+    await expect(
+      handler({ type: "getActivity", category: "activity", platform: "twitch", limit: 80 }),
+    ).resolves.toBe(page);
     await expect(handler({ type: "clearActivity" })).resolves.toBeUndefined();
 
     expect(load).toHaveBeenCalledWith({ category: "activity", platform: "twitch", limit: 80 });
@@ -37,7 +38,13 @@ describe("activity message routing", () => {
 
   it("exports diagnostics through the extension repository", async () => {
     const events: ActivityHistoryRecord[] = [
-      { id: "d1", at: "2026-08-16T00:00:00.000Z", category: "diagnostic", level: "info", message: "hello" },
+      {
+        id: "d1",
+        at: "2026-08-16T00:00:00.000Z",
+        category: "diagnostic",
+        level: "info",
+        message: "hello",
+      },
     ];
     const exportDiagnostics = vi.fn(async () => events);
     const handler = createActivityMessageHandler({
@@ -46,8 +53,9 @@ describe("activity message routing", () => {
       exportDiagnostics,
     });
 
-    await expect(handler({ type: "exportDiagnostics", platform: "kick" }))
-      .resolves.toEqual({ events });
+    await expect(handler({ type: "exportDiagnostics", platform: "kick" })).resolves.toEqual({
+      events,
+    });
     expect(exportDiagnostics).toHaveBeenCalledWith("kick");
   });
 });
@@ -100,11 +108,15 @@ describe("activity event reporting", () => {
     };
     const append = vi.fn(async () => undefined);
     const report = createActivityEventReporter({
-      loadDiagnosticLogging: async () => { throw new Error("settings unavailable"); },
+      loadDiagnosticLogging: async () => {
+        throw new Error("settings unavailable");
+      },
       append,
     });
 
-    await expect(report([diagnostic, activity, diagnostic, laterActivity])).resolves.toBeUndefined();
+    await expect(
+      report([diagnostic, activity, diagnostic, laterActivity]),
+    ).resolves.toBeUndefined();
 
     expect(append).toHaveBeenCalledOnce();
     expect(append).toHaveBeenCalledWith([activity, laterActivity]);
@@ -113,7 +125,9 @@ describe("activity event reporting", () => {
   it("does not append a diagnostic-only batch when loading diagnostic logging fails", async () => {
     const append = vi.fn(async () => undefined);
     const report = createActivityEventReporter({
-      loadDiagnosticLogging: async () => { throw new Error("settings unavailable"); },
+      loadDiagnosticLogging: async () => {
+        throw new Error("settings unavailable");
+      },
       append,
     });
 

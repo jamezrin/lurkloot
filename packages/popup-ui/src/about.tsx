@@ -15,10 +15,18 @@ export function AboutSection({ version }: { version: string }): React.ReactEleme
         <AboutLink href={SITE_URL} label={t("siteAttribution")} text={t("siteAttributionShort")}>
           <Globe size={12} />
         </AboutLink>
-        <AboutLink href={CHROME_WEB_STORE_URL} label={t("chromeWebStoreAttribution")} text={t("chromeWebStoreAttributionShort")}>
+        <AboutLink
+          href={CHROME_WEB_STORE_URL}
+          label={t("chromeWebStoreAttribution")}
+          text={t("chromeWebStoreAttributionShort")}
+        >
           <ChromeIcon />
         </AboutLink>
-        <AboutLink href={GITHUB_REPO_URL} label={t("githubAttribution")} text={t("githubAttributionShort")}>
+        <AboutLink
+          href={GITHUB_REPO_URL}
+          label={t("githubAttribution")}
+          text={t("githubAttributionShort")}
+        >
           <GithubIcon />
         </AboutLink>
       </nav>
@@ -28,7 +36,12 @@ export function AboutSection({ version }: { version: string }): React.ReactEleme
 
 // The visible text is a short brand word; the descriptive string stays as the
 // accessible name and the tooltip.
-function AboutLink({ href, label, text, children }: {
+function AboutLink({
+  href,
+  label,
+  text,
+  children,
+}: {
   href: string;
   label: string;
   text: string;

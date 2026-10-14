@@ -84,7 +84,9 @@ describe("browser.alarms job scheduler", () => {
 
   it("keeps jobs across a service-worker restart, where get reconciles them", async () => {
     const alarms = new FakeAlarms();
-    await createAlarmJobScheduler(alarms).ensure(TWITCH_INTEGRITY_ALARM_NAME, { when: Date.now() + 60_000 });
+    await createAlarmJobScheduler(alarms).ensure(TWITCH_INTEGRITY_ALARM_NAME, {
+      when: Date.now() + 60_000,
+    });
     const restarted = createAlarmJobScheduler(alarms);
     expect(await restarted.get(TWITCH_INTEGRITY_ALARM_NAME)).toBeDefined();
   });
@@ -113,22 +115,30 @@ describe("host capabilities", () => {
   it("rejects a declared capability whose port is missing", () => {
     const ports = extensionPorts();
     expect(() => assertHostCapabilities({ ...ports, tabs: undefined })).toThrow(
-      new HostCapabilityMismatchError("The host declares the browserTabs capability but does not pass tabs"),
+      new HostCapabilityMismatchError(
+        "The host declares the browserTabs capability but does not pass tabs",
+      ),
     );
     expect(() => assertHostCapabilities({ ...ports, tabRegistry: undefined })).toThrow(
       "The host declares the browserTabs capability but does not pass tabRegistry",
     );
-    expect(() => createBackgroundController({ ...ports, twitch: { ...ports.twitch, integrity: undefined } })).toThrow(
+    expect(() =>
+      createBackgroundController({ ...ports, twitch: { ...ports.twitch, integrity: undefined } }),
+    ).toThrow(
       "The host declares the twitchIntegrityCapture capability but does not pass twitch.integrity",
     );
   });
 
   it("rejects a port whose capability is not declared", () => {
     const ports = extensionPorts();
-    expect(() => assertHostCapabilities({
-      ...ports,
-      capabilities: { ...EXTENSION_CAPABILITIES, supplementalSources: false },
-    })).toThrow("The host passes twitch.supplementalSources but does not declare the supplementalSources capability");
+    expect(() =>
+      assertHostCapabilities({
+        ...ports,
+        capabilities: { ...EXTENSION_CAPABILITIES, supplementalSources: false },
+      }),
+    ).toThrow(
+      "The host passes twitch.supplementalSources but does not declare the supplementalSources capability",
+    );
   });
 
   it("makes each job that needs a capability inert without it", () => {
@@ -146,7 +156,10 @@ describe("host capabilities", () => {
 describe("settings commits and the tick jobs", () => {
   it("reschedules the tick jobs at the committed poll interval once the settings lock is released", async () => {
     const env = harness(farming(DEFAULT_SETTINGS));
-    await env.controller.handleMessage({ type: "saveSettings", settingsPatch: { pollIntervalMinutes: 12 } });
+    await env.controller.handleMessage({
+      type: "saveSettings",
+      settingsPatch: { pollIntervalMinutes: 12 },
+    });
 
     expect(env.deps.createAlarm).toHaveBeenCalledWith(TWITCH_ALARM_NAME, { periodInMinutes: 12 });
     expect(env.deps.createAlarm).toHaveBeenCalledWith(KICK_ALARM_NAME, { periodInMinutes: 12 });
@@ -164,10 +177,18 @@ describe("settings commits and the tick jobs", () => {
       periods.push(schedule.periodInMinutes);
     });
 
-    const first = env.rawController.handleMessage({ type: "saveSettings", settingsPatch: { pollIntervalMinutes: 5 } });
-    await vi.waitFor(() => expect(env.deps.createAlarm).toHaveBeenCalledWith(TWITCH_ALARM_NAME, { periodInMinutes: 5 }));
+    const first = env.rawController.handleMessage({
+      type: "saveSettings",
+      settingsPatch: { pollIntervalMinutes: 5 },
+    });
+    await vi.waitFor(() =>
+      expect(env.deps.createAlarm).toHaveBeenCalledWith(TWITCH_ALARM_NAME, { periodInMinutes: 5 }),
+    );
     // The newer commit saves while the first one's reschedule is still in flight.
-    const second = env.rawController.handleMessage({ type: "saveSettings", settingsPatch: { pollIntervalMinutes: 9 } });
+    const second = env.rawController.handleMessage({
+      type: "saveSettings",
+      settingsPatch: { pollIntervalMinutes: 9 },
+    });
     await vi.waitFor(() => expect(env.settings.pollIntervalMinutes).toBe(9));
     firstReschedule.resolve();
     await Promise.all([first, second]);

@@ -60,7 +60,8 @@ function recentEvents(entries: readonly ActivityHistoryRecord[]): string {
   return entries
     .slice(-EVENT_LIMIT)
     .map((entry) => {
-      const label = "legacy" in entry || entry.category === "diagnostic" ? entry.message : entry.code;
+      const label =
+        "legacy" in entry || entry.category === "diagnostic" ? entry.message : entry.code;
       return `- \`${entry.at}\` [${entry.level}] ${label}`;
     })
     .join("\n");
@@ -91,27 +92,33 @@ export function buildFailureReport(input: FailureReportInput): string {
   return [
     "# Lurkloot critical failure report",
     "",
-    section("Environment", bullets([
-      ["version", input.version],
-      ["platform", input.platform],
-      ["locale", input.locale],
-      ["reported at", input.at],
-      ["user agent", input.userAgent],
-    ])),
+    section(
+      "Environment",
+      bullets([
+        ["version", input.version],
+        ["platform", input.platform],
+        ["locale", input.locale],
+        ["reported at", input.at],
+        ["user agent", input.userAgent],
+      ]),
+    ),
     section("Detector", detector(health)),
-    section("Session", bullets([
-      ["status", session.status],
-      ["reason code", session.reasonCode],
-      ["watch mode", session.watchMode],
-      ["tabless fallback", session.tablessFallback],
-      ["last heartbeat ok", session.lastHeartbeatOk],
-      ["heartbeat checks", session.heartbeatChecks],
-      ["offline checks", session.offlineChecks],
-      ["error checks", session.errorChecks],
-      ["retry after", session.retryAfter],
-      ["auth status", auth.status],
-      ["auth reason", auth.reasonCode],
-    ])),
+    section(
+      "Session",
+      bullets([
+        ["status", session.status],
+        ["reason code", session.reasonCode],
+        ["watch mode", session.watchMode],
+        ["tabless fallback", session.tablessFallback],
+        ["last heartbeat ok", session.lastHeartbeatOk],
+        ["heartbeat checks", session.heartbeatChecks],
+        ["offline checks", session.offlineChecks],
+        ["error checks", session.errorChecks],
+        ["retry after", session.retryAfter],
+        ["auth status", auth.status],
+        ["auth reason", auth.reasonCode],
+      ]),
+    ),
     section("Settings", settingsSummary(input.settings, input.platform)),
     section("Failure records", records(health)),
     section("Recent events", recentEvents(input.events)),

@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { createSocketHostFactory } from "../src/core/socketHostFactory";
-import { SOCKET_HOST_PORT, type SocketHostEvent, type SocketHostRequest } from "../src/core/socketHost";
+import {
+  SOCKET_HOST_PORT,
+  type SocketHostEvent,
+  type SocketHostRequest,
+} from "../src/core/socketHost";
 
 const CENTRIFUGO_URL = "wss://realtime.us-west-2.platform.kick.com/connection/websocket";
 const DOCUMENT_URL = "chrome-extension://abcdefghijklmnop/socketHost.html";
@@ -20,7 +24,10 @@ interface TestPort {
   disconnects: Array<() => void>;
 }
 
-function portPair(sender: { tab?: unknown; url?: string } = { url: DOCUMENT_URL }, name = SOCKET_HOST_PORT) {
+function portPair(
+  sender: { tab?: unknown; url?: string } = { url: DOCUMENT_URL },
+  name = SOCKET_HOST_PORT,
+) {
   const make = (portSender?: typeof sender): TestPort => {
     const messages: Array<(message: unknown) => void> = [];
     const disconnects: Array<() => void> = [];
@@ -29,10 +36,26 @@ function portPair(sender: { tab?: unknown; url?: string } = { url: DOCUMENT_URL 
       sender: portSender,
       peer: undefined as unknown as TestPort,
       disconnected: false,
-      postMessage(message: unknown) { if (!this.disconnected) for (const listener of this.peer.messages) listener(structuredClone(message)); },
-      disconnect() { if (this.disconnected) return; this.disconnected = true; this.peer.disconnected = true; for (const listener of this.peer.disconnects) listener(); },
-      onMessage: { addListener: (listener: (message: unknown) => void) => { messages.push(listener); } },
-      onDisconnect: { addListener: (listener: () => void) => { disconnects.push(listener); } },
+      postMessage(message: unknown) {
+        if (!this.disconnected)
+          for (const listener of this.peer.messages) listener(structuredClone(message));
+      },
+      disconnect() {
+        if (this.disconnected) return;
+        this.disconnected = true;
+        this.peer.disconnected = true;
+        for (const listener of this.peer.disconnects) listener();
+      },
+      onMessage: {
+        addListener: (listener: (message: unknown) => void) => {
+          messages.push(listener);
+        },
+      },
+      onDisconnect: {
+        addListener: (listener: () => void) => {
+          disconnects.push(listener);
+        },
+      },
       messages,
       disconnects,
     };
@@ -50,17 +73,30 @@ describe("socket host factory", () => {
     const documents = { open: false, created: 0, closed: 0 };
     const timers: Array<{ callback: () => void; delayMs: number; cleared?: boolean }> = [];
     const factory = createSocketHostFactory({
-      onConnect: { addListener: (listener) => { onConnect = listener as never; } },
+      onConnect: {
+        addListener: (listener) => {
+          onConnect = listener as never;
+        },
+      },
       documentUrl: DOCUMENT_URL,
       hasDocument: async () => documents.open,
       createDocument: async () => {
         if (createFails) throw new Error("Only a single offscreen document may be created.");
-        documents.open = true; documents.created += 1;
+        documents.open = true;
+        documents.created += 1;
       },
-      closeDocument: async () => { documents.open = false; documents.closed += 1; },
+      closeDocument: async () => {
+        documents.open = false;
+        documents.closed += 1;
+      },
       admit,
-      setTimer: (callback, delayMs) => { timers.push({ callback, delayMs }); return timers.length as never; },
-      clearTimer: (timer) => { timers[(timer as unknown as number) - 1]!.cleared = true; },
+      setTimer: (callback, delayMs) => {
+        timers.push({ callback, delayMs });
+        return timers.length as never;
+      },
+      clearTimer: (timer) => {
+        timers[(timer as unknown as number) - 1]!.cleared = true;
+      },
     });
     // Connects a host document, returning the requests it receives.
     const connectDocument = (sender?: { tab?: unknown; url?: string }, name?: string) => {
@@ -72,7 +108,9 @@ describe("socket host factory", () => {
     };
     return { factory, documents, timers, connectDocument };
   }
-  const settle = async () => { for (let i = 0; i < 8; i += 1) await Promise.resolve(); };
+  const settle = async () => {
+    for (let i = 0; i < 8; i += 1) await Promise.resolve();
+  };
 
   it("creates the offscreen document and opens the socket through it", async () => {
     const h = host();

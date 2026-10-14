@@ -37,16 +37,31 @@ export function runtimeImports(source: string): string[] {
     // `import { type A, type B } from` loads nothing either.
     const clause = match[3].trim();
     const names = /^\{([\s\S]*)\}$/.exec(clause)?.[1];
-    if (names !== undefined && names.split(",").map((name) => name.trim()).filter(Boolean).every((name) => name.startsWith("type "))) continue;
+    if (
+      names !== undefined
+      && names
+        .split(",")
+        .map((name) => name.trim())
+        .filter(Boolean)
+        .every((name) => name.startsWith("type "))
+    )
+      continue;
     if (match[4].startsWith(".")) specifiers.push(match[4]);
   }
-  for (const match of withoutComments(source).matchAll(/^\s*import\s+["'](\.[^"']+)["']/gm)) specifiers.push(match[1]);
+  for (const match of withoutComments(source).matchAll(/^\s*import\s+["'](\.[^"']+)["']/gm))
+    specifiers.push(match[1]);
   return specifiers;
 }
 
-function resolveModule(from: string, specifier: string, exists: (file: string) => boolean): string | undefined {
+function resolveModule(
+  from: string,
+  specifier: string,
+  exists: (file: string) => boolean,
+): string | undefined {
   const base = resolve(dirname(from), specifier);
-  return [`${base}.ts`, join(base, "index.ts"), base].find((candidate) => candidate.endsWith(".ts") && exists(candidate));
+  return [`${base}.ts`, join(base, "index.ts"), base].find(
+    (candidate) => candidate.endsWith(".ts") && exists(candidate),
+  );
 }
 
 export function importCycles(
@@ -54,9 +69,14 @@ export function importCycles(
   read: (file: string) => string,
   exists: (file: string) => boolean = existsSync,
 ): string[][] {
-  const graph = new Map(files.map((file) => [file, runtimeImports(read(file))
-    .map((specifier) => resolveModule(file, specifier, exists))
-    .filter((target): target is string => target !== undefined)]));
+  const graph = new Map(
+    files.map((file) => [
+      file,
+      runtimeImports(read(file))
+        .map((specifier) => resolveModule(file, specifier, exists))
+        .filter((target): target is string => target !== undefined),
+    ]),
+  );
   const cycles: string[][] = [];
   const state = new Map<string, "visiting" | "done">();
   const path: string[] = [];
@@ -64,7 +84,8 @@ export function importCycles(
     state.set(file, "visiting");
     path.push(file);
     for (const target of graph.get(file) ?? []) {
-      if (state.get(target) === "visiting") cycles.push([...path.slice(path.indexOf(target)), target]);
+      if (state.get(target) === "visiting")
+        cycles.push([...path.slice(path.indexOf(target)), target]);
       else if (!state.has(target)) visit(target);
     }
     path.pop();
@@ -79,12 +100,14 @@ export const PLATFORM_BRANCH = /["'](?:twitch|kick)["']/;
 // platform literal. Platform-keyed data (PLATFORMS loops, lock and lane
 // tables) is not one, so the platform-neutral modules may keep it (#696).
 const PLATFORM_LITERAL = String.raw`["'](?:twitch|kick)["']`;
-export const PLATFORM_DECISION = new RegExp([
-  String.raw`(?:===|!==|==|!=)\s*${PLATFORM_LITERAL}`,
-  String.raw`${PLATFORM_LITERAL}\s*(?:===|!==|==|!=)`,
-  String.raw`\.(?:includes|has|indexOf)\(\s*${PLATFORM_LITERAL}`,
-  String.raw`\bcase\s+${PLATFORM_LITERAL}`,
-].join("|"));
+export const PLATFORM_DECISION = new RegExp(
+  [
+    String.raw`(?:===|!==|==|!=)\s*${PLATFORM_LITERAL}`,
+    String.raw`${PLATFORM_LITERAL}\s*(?:===|!==|==|!=)`,
+    String.raw`\.(?:includes|has|indexOf)\(\s*${PLATFORM_LITERAL}`,
+    String.raw`\bcase\s+${PLATFORM_LITERAL}`,
+  ].join("|"),
+);
 // The platform-neutral services #583 names: their platform policy belongs to
 // the platform's own service, reached through registered per-platform hooks.
 const PLATFORM_NEUTRAL_MODULES = [
@@ -97,23 +120,33 @@ const PLATFORM_NEUTRAL_MODULES = [
   "tickEffects.ts",
   "settingsTransitions.ts",
 ];
-export const BROWSER_TAB_CODE = /\b(?:browser|chrome)\.tabs\b|\bBrowserTabApi\b|\bexecuteScript\b|["'][^"']*extension\/src\/core\/(?:tabs|tabPorts|browserTabs)["']/;
+export const BROWSER_TAB_CODE =
+  /\b(?:browser|chrome)\.tabs\b|\bBrowserTabApi\b|\bexecuteScript\b|["'][^"']*extension\/src\/core\/(?:tabs|tabPorts|browserTabs)["']/;
 
 describe("engine boundaries (#591)", () => {
   it("has no import cycles between engine modules", () => {
-    const cycles = importCycles(tsFiles(coreSrc), (file) => readFileSync(file, "utf8"))
-      .map((cycle) => cycle.map((file) => relative(coreSrc, file)).join(" → "));
-    expect(cycles, "Modules call each other through the controller's calls, not imports").toEqual([]);
+    const cycles = importCycles(tsFiles(coreSrc), (file) => readFileSync(file, "utf8")).map(
+      (cycle) => cycle.map((file) => relative(coreSrc, file)).join(" → "),
+    );
+    expect(cycles, "Modules call each other through the controller's calls, not imports").toEqual(
+      [],
+    );
   });
 
   it("keeps Twitch and Kick branches out of the controller facade", () => {
     const facade = withoutComments(readFileSync(join(coreSrc, "background/controller.ts"), "utf8"));
-    expect(PLATFORM_BRANCH.test(facade), "controller.ts wires services; platform policy belongs to them").toBe(false);
+    expect(
+      PLATFORM_BRANCH.test(facade),
+      "controller.ts wires services; platform policy belongs to them",
+    ).toBe(false);
   });
 
   it("keeps Twitch and Kick decisions out of the platform-neutral services (#696)", () => {
     const offenders = PLATFORM_NEUTRAL_MODULES.filter((module) =>
-      PLATFORM_DECISION.test(withoutComments(readFileSync(join(coreSrc, "background", module), "utf8"))));
+      PLATFORM_DECISION.test(
+        withoutComments(readFileSync(join(coreSrc, "background", module), "utf8")),
+      ),
+    );
     expect(offenders, "Platform policy belongs to the platform's own service").toEqual([]);
   });
 
@@ -135,11 +168,18 @@ describe("engine boundaries (#591)", () => {
         "/engine/d.ts": 'import { type A } from "./a";\nimport type { C } from "./c";',
       };
       const files = Object.keys(sources);
-      expect(importCycles(files, (file) => sources[file], (file) => file in sources))
-        .toEqual([["/engine/a.ts", "/engine/b.ts", "/engine/c.ts", "/engine/a.ts"]]);
+      expect(
+        importCycles(
+          files,
+          (file) => sources[file],
+          (file) => file in sources,
+        ),
+      ).toEqual([["/engine/a.ts", "/engine/b.ts", "/engine/c.ts", "/engine/a.ts"]]);
       expect(runtimeImports(sources["/engine/b.ts"])).toEqual(["./c"]);
       expect(runtimeImports(sources["/engine/d.ts"])).toEqual([]);
-      expect(runtimeImports('// import { a } from "./a";\nimport "./side-effect";')).toEqual(["./side-effect"]);
+      expect(runtimeImports('// import { a } from "./a";\nimport "./side-effect";')).toEqual([
+        "./side-effect",
+      ]);
     });
 
     it("flags a platform literal and browser-tab code", () => {
@@ -150,14 +190,20 @@ describe("engine boundaries (#591)", () => {
         'const label = "kick" !== platform ? a : b;',
         'if (requestedPlatforms.includes("twitch")) prepare();',
         'case "kick":',
-      ]) expect(PLATFORM_DECISION.test(decision), decision).toBe(true);
+      ])
+        expect(PLATFORM_DECISION.test(decision), decision).toBe(true);
       for (const data of [
         'export const TRANSACTION_LOCKS = ["settings", "twitch", "kick", "heartbeat", "commit"] as const;',
         "const generation = { twitch: 0, kick: 0 };",
         "for (const platform of PLATFORMS) cancelPendingTick(platform);",
-      ]) expect(PLATFORM_DECISION.test(data), data).toBe(false);
+      ])
+        expect(PLATFORM_DECISION.test(data), data).toBe(false);
       expect(BROWSER_TAB_CODE.test("await browser.tabs.create({ url });")).toBe(true);
-      expect(BROWSER_TAB_CODE.test('import { createBrowserTabs } from "../../extension/src/core/browserTabs";')).toBe(true);
+      expect(
+        BROWSER_TAB_CODE.test(
+          'import { createBrowserTabs } from "../../extension/src/core/browserTabs";',
+        ),
+      ).toBe(true);
       expect(BROWSER_TAB_CODE.test("registerManagedPageContextTabs(tabRegistry, {});")).toBe(false);
     });
   });

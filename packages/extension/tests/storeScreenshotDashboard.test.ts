@@ -159,7 +159,9 @@ describe("Chrome Web Store dashboard adapter", () => {
     try {
       await dashboard.preflight({ locales: ["en", "ar"] });
       await dashboard.selectLocale("ar");
-      expect(await page.getByRole("listitem").first().textContent()).toMatch(/Arabic – ar screenshot 1/);
+      expect(await page.getByRole("listitem").first().textContent()).toMatch(
+        /Arabic – ar screenshot 1/,
+      );
       expect(await dashboard.screenshotCount()).toBe(5);
       await dashboard.removeFirstScreenshot();
       await dashboard.waitForScreenshotCount(4);
@@ -176,14 +178,21 @@ describe("Chrome Web Store dashboard adapter", () => {
   });
 
   it("fails closed when a mutation control is ambiguous", async () => {
-    await page.setContent(fixture.replace('<input type="file" accept="image/png">', '<input type="file" accept="image/png"><input type="file" accept="image/png">'));
+    await page.setContent(
+      fixture.replace(
+        '<input type="file" accept="image/png">',
+        '<input type="file" accept="image/png"><input type="file" accept="image/png">',
+      ),
+    );
     const dashboard = new ChromeWebStoreDashboard({
       page,
       extensionId,
       timeout: 1_000,
     });
 
-    await expect(dashboard.preflight({ locales: ["en"] })).rejects.toThrow(/upload.*expected exactly one.*found 2/i);
+    await expect(dashboard.preflight({ locales: ["en"] })).rejects.toThrow(
+      /upload.*expected exactly one.*found 2/i,
+    );
     expect(dashboard.hasMutated).toBe(false);
   });
 
@@ -212,12 +221,16 @@ describe("Chrome Web Store dashboard adapter", () => {
       timeout: 1_000,
     });
 
-    await expect(dashboard.preflight({ locales: ["en", "ar"] })).rejects.toThrow(/Arabic.*expected exactly one option.*found 0/i);
+    await expect(dashboard.preflight({ locales: ["en", "ar"] })).rejects.toThrow(
+      /Arabic.*expected exactly one option.*found 0/i,
+    );
     expect(dashboard.hasMutated).toBe(false);
   });
 
   it("identifies a locale by its code even when the dashboard renders a translated name", async () => {
-    await page.setContent(fixture.replace("<option>Arabic – ar</option>", "<option>Türkçe – tr</option>"));
+    await page.setContent(
+      fixture.replace("<option>Arabic – ar</option>", "<option>Türkçe – tr</option>"),
+    );
     const dashboard = new ChromeWebStoreDashboard({
       page,
       extensionId,
@@ -226,7 +239,9 @@ describe("Chrome Web Store dashboard adapter", () => {
 
     await dashboard.preflight({ locales: ["tr"] });
 
-    expect(await page.getByRole("combobox", { name: /listing language/i }).inputValue()).toBe("Türkçe – tr");
+    expect(await page.getByRole("combobox", { name: /listing language/i }).inputValue()).toBe(
+      "Türkçe – tr",
+    );
   });
 
   it("does not expose submission or publication operations", () => {
@@ -248,7 +263,9 @@ describe("Chrome Web Store dashboard adapter", () => {
     await page.setContent(fixture.replaceAll(extensionId, "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"));
     const dashboard = new ChromeWebStoreDashboard({ page, extensionId, timeout: 1_000 });
 
-    await expect(dashboard.preflight({ locales: ["en"] })).rejects.toThrow(/configured extension identity/i);
+    await expect(dashboard.preflight({ locales: ["en"] })).rejects.toThrow(
+      /configured extension identity/i,
+    );
     expect(dashboard.hasMutated).toBe(false);
   });
 
@@ -272,7 +289,9 @@ describe("Chrome Web Store dashboard adapter", () => {
       await dashboard.removeFirstScreenshot();
       await dashboard.waitForScreenshotCount(4);
       await dashboard.uploadScreenshot(image);
-      await expect(dashboard.waitForScreenshotCount(5)).rejects.toThrow(/upload failed validation/i);
+      await expect(dashboard.waitForScreenshotCount(5)).rejects.toThrow(
+        /upload failed validation/i,
+      );
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }
@@ -305,20 +324,24 @@ describe("Chrome Web Store dashboard adapter", () => {
   });
 
   it("does not treat an unrelated sibling mutation as a fresh save acknowledgement", async () => {
-    await page.setContent(fixture.replace(
-      'document.querySelector("#save").addEventListener("click", () => {',
-      'document.querySelector("#save").addEventListener("click", () => { document.querySelector("h1").textContent += "."; return;',
-    ));
+    await page.setContent(
+      fixture.replace(
+        'document.querySelector("#save").addEventListener("click", () => {',
+        'document.querySelector("#save").addEventListener("click", () => { document.querySelector("h1").textContent += "."; return;',
+      ),
+    );
     const dashboard = new ChromeWebStoreDashboard({ page, extensionId, timeout: 100 });
 
     await expect(dashboard.saveDraft()).rejects.toThrow();
   });
 
   it("does not treat an empty decorative status child as a pending save state", async () => {
-    await page.setContent(fixture.replace(
-      'document.querySelector("#save").addEventListener("click", () => {',
-      'document.querySelector("#save").addEventListener("click", () => { document.querySelector(\'[aria-live="polite"]\').append(document.createElement("span")); return;',
-    ));
+    await page.setContent(
+      fixture.replace(
+        'document.querySelector("#save").addEventListener("click", () => {',
+        'document.querySelector("#save").addEventListener("click", () => { document.querySelector(\'[aria-live="polite"]\').append(document.createElement("span")); return;',
+      ),
+    );
     const dashboard = new ChromeWebStoreDashboard({ page, extensionId, timeout: 100 });
 
     await expect(dashboard.saveDraft()).rejects.toThrow();
@@ -346,7 +369,12 @@ describe("Chrome Web Store dashboard adapter", () => {
   });
 
   it("ignores remove controls belonging to other images", async () => {
-    await page.setContent(fixture.replace("<ol>", '<div role="button" aria-label="Remove image Store icon">Remove decoration</div><ol>'));
+    await page.setContent(
+      fixture.replace(
+        "<ol>",
+        '<div role="button" aria-label="Remove image Store icon">Remove decoration</div><ol>',
+      ),
+    );
     const dashboard = new ChromeWebStoreDashboard({ page, extensionId, timeout: 1_000 });
 
     await dashboard.removeFirstScreenshot();
@@ -360,10 +388,19 @@ describe("store screenshot upload CLI", () => {
   it("rejects an invalid extension ID before reading screenshot files", async () => {
     let validations = 0;
 
-    await expect(main([], { CWS_EXTENSION_ID: "../../another-item" }, {
-      validateFiles: async () => { validations += 1; return new Map(); },
-      output: () => {},
-    })).rejects.toThrow(/32-character Chrome extension ID/i);
+    await expect(
+      main(
+        [],
+        { CWS_EXTENSION_ID: "../../another-item" },
+        {
+          validateFiles: async () => {
+            validations += 1;
+            return new Map();
+          },
+          output: () => {},
+        },
+      ),
+    ).rejects.toThrow(/32-character Chrome extension ID/i);
 
     expect(validations).toBe(0);
   });
@@ -371,11 +408,22 @@ describe("store screenshot upload CLI", () => {
   it("validates files before launching a browser", async () => {
     let launches = 0;
 
-    await expect(main([], { CWS_EXTENSION_ID: extensionId }, {
-      validateFiles: async () => { throw new Error("missing screenshot"); },
-      openBrowser: async () => { launches += 1; throw new Error("must not launch"); },
-      output: () => {},
-    })).rejects.toThrow(/missing screenshot/);
+    await expect(
+      main(
+        [],
+        { CWS_EXTENSION_ID: extensionId },
+        {
+          validateFiles: async () => {
+            throw new Error("missing screenshot");
+          },
+          openBrowser: async () => {
+            launches += 1;
+            throw new Error("must not launch");
+          },
+          output: () => {},
+        },
+      ),
+    ).rejects.toThrow(/missing screenshot/);
 
     expect(launches).toBe(0);
   });
@@ -385,11 +433,18 @@ describe("store screenshot upload CLI", () => {
     const output: string[] = [];
     const files = new Map([["en", [{ variant: { file: "01-drops" }, path: "/one.png" }]]]);
 
-    await main(["--locales", "en", "--validate-only"], { CWS_EXTENSION_ID: extensionId }, {
-      validateFiles: async () => files,
-      openBrowser: async () => { launches += 1; throw new Error("must not launch"); },
-      output: (message: string) => output.push(message),
-    });
+    await main(
+      ["--locales", "en", "--validate-only"],
+      { CWS_EXTENSION_ID: extensionId },
+      {
+        validateFiles: async () => files,
+        openBrowser: async () => {
+          launches += 1;
+          throw new Error("must not launch");
+        },
+        output: (message: string) => output.push(message),
+      },
+    );
 
     expect(launches).toBe(0);
     expect(output.join("\n")).toMatch(/validated 1 screenshot.*1 locale/i);
@@ -399,11 +454,20 @@ describe("store screenshot upload CLI", () => {
     let launches = 0;
     const files = new Map([["en", [{ variant: { file: "01-drops" }, path: "/one.png" }]]]);
 
-    await expect(main(["--locales", "en"], { CWS_EXTENSION_ID: extensionId, CWS_DASHBOARD_URL: "https://example.test/redirect" }, {
-      validateFiles: async () => files,
-      openBrowser: async () => { launches += 1; throw new Error("must not launch"); },
-      output: () => {},
-    })).rejects.toThrow(/CWS_PUBLISHER_ID/i);
+    await expect(
+      main(
+        ["--locales", "en"],
+        { CWS_EXTENSION_ID: extensionId, CWS_DASHBOARD_URL: "https://example.test/redirect" },
+        {
+          validateFiles: async () => files,
+          openBrowser: async () => {
+            launches += 1;
+            throw new Error("must not launch");
+          },
+          output: () => {},
+        },
+      ),
+    ).rejects.toThrow(/CWS_PUBLISHER_ID/i);
 
     expect(launches).toBe(0);
   });
@@ -412,11 +476,20 @@ describe("store screenshot upload CLI", () => {
     let launches = 0;
     const files = new Map([["en", [{ variant: { file: "01-drops" }, path: "/one.png" }]]]);
 
-    await expect(main(["--locales", "en"], { CWS_EXTENSION_ID: extensionId, CWS_PUBLISHER_ID: "../../other-publisher" }, {
-      validateFiles: async () => files,
-      openBrowser: async () => { launches += 1; throw new Error("must not launch"); },
-      output: () => {},
-    })).rejects.toThrow(/publisher.*UUID/i);
+    await expect(
+      main(
+        ["--locales", "en"],
+        { CWS_EXTENSION_ID: extensionId, CWS_PUBLISHER_ID: "../../other-publisher" },
+        {
+          validateFiles: async () => files,
+          openBrowser: async () => {
+            launches += 1;
+            throw new Error("must not launch");
+          },
+          output: () => {},
+        },
+      ),
+    ).rejects.toThrow(/publisher.*UUID/i);
 
     expect(launches).toBe(0);
   });
@@ -425,34 +498,64 @@ describe("store screenshot upload CLI", () => {
     let finished = false;
     let newContextCalls = 0;
     const calls: string[] = [];
-    const files = new Map([["en", ["01", "02", "03", "04", "05"].map((number) => ({
-      variant: { file: `${number}-new` },
-      path: `/${number}.png`,
-    }))]]);
+    const files = new Map([
+      [
+        "en",
+        ["01", "02", "03", "04", "05"].map((number) => ({
+          variant: { file: `${number}-new` },
+          path: `/${number}.png`,
+        })),
+      ],
+    ]);
     const dashboard = {
       images: ["a", "b", "c", "d", "e"],
-      async openAndWaitForAuthentication() { calls.push("authenticated"); },
-      async preflight() { calls.push("preflight"); },
+      async openAndWaitForAuthentication() {
+        calls.push("authenticated");
+      },
+      async preflight() {
+        calls.push("preflight");
+      },
       async selectLocale() {},
-      async screenshotCount() { return this.images.length; },
-      async removeFirstScreenshot() { this.images.shift(); },
-      async waitForScreenshotCount(count: number) { expect(this.images).toHaveLength(count); },
-      async uploadScreenshot(path: string) { this.images.push(path); },
-      async saveDraft() { calls.push("saved"); },
+      async screenshotCount() {
+        return this.images.length;
+      },
+      async removeFirstScreenshot() {
+        this.images.shift();
+      },
+      async waitForScreenshotCount(count: number) {
+        expect(this.images).toHaveLength(count);
+      },
+      async uploadScreenshot(path: string) {
+        this.images.push(path);
+      },
+      async saveDraft() {
+        calls.push("saved");
+      },
     };
     const session = {
       ownsBrowser: true,
       context: { newPage: async () => ({}) },
-      browser: { newContext: async () => { newContextCalls += 1; return {}; } },
+      browser: {
+        newContext: async () => {
+          newContextCalls += 1;
+          return {};
+        },
+      },
     };
 
-    await main(["--locales", "en"], { CWS_EXTENSION_ID: extensionId, CWS_PUBLISHER_ID: publisherId }, {
-      validateFiles: async () => files,
-      openBrowser: async () => session,
-      finishBrowser: async () => { finished = true; },
-      createDashboard: () => dashboard,
-      output: () => {},
-    });
+    await main(
+      ["--locales", "en"],
+      { CWS_EXTENSION_ID: extensionId, CWS_PUBLISHER_ID: publisherId },
+      {
+        validateFiles: async () => files,
+        openBrowser: async () => session,
+        finishBrowser: async () => {
+          finished = true;
+        },
+        createDashboard: () => dashboard,
+        output: () => {},
+      },
+    );
 
     // One save for the locale's own screenshots, one for the shared global set.
     expect(calls).toEqual(["authenticated", "preflight", "saved", "saved"]);
@@ -467,17 +570,33 @@ describe("store screenshot upload CLI", () => {
     const dashboard = {
       hasMutated: false,
       async openAndWaitForAuthentication() {},
-      async preflight() { throw new Error("preflight failed"); },
+      async preflight() {
+        throw new Error("preflight failed");
+      },
     };
 
-    await expect(main(["--locales", "en"], { CWS_EXTENSION_ID: extensionId, CWS_PUBLISHER_ID: publisherId }, {
-      validateFiles: async () => files,
-      openBrowser: async () => ({ ownsBrowser: true, context: { newPage: async () => ({}) } }),
-      finishBrowser: async () => { finished = true; },
-      abandonBrowser: async (_session: unknown, _output: unknown, options: { mutated: boolean }) => { abandoned = options; },
-      createDashboard: () => dashboard,
-      output: () => {},
-    })).rejects.toThrow(/preflight failed/);
+    await expect(
+      main(
+        ["--locales", "en"],
+        { CWS_EXTENSION_ID: extensionId, CWS_PUBLISHER_ID: publisherId },
+        {
+          validateFiles: async () => files,
+          openBrowser: async () => ({ ownsBrowser: true, context: { newPage: async () => ({}) } }),
+          finishBrowser: async () => {
+            finished = true;
+          },
+          abandonBrowser: async (
+            _session: unknown,
+            _output: unknown,
+            options: { mutated: boolean },
+          ) => {
+            abandoned = options;
+          },
+          createDashboard: () => dashboard,
+          output: () => {},
+        },
+      ),
+    ).rejects.toThrow(/preflight failed/);
 
     // Rebuilding the session costs another sign-in and 2FA, so it is kept.
     expect(abandoned).toEqual({ mutated: false });
@@ -490,17 +609,29 @@ describe("store screenshot upload CLI", () => {
     const files = new Map([["en", [{ variant: { file: "01-drops" }, path: "/one.png" }]]]);
     const dashboard = {
       hasMutated: false,
-      async openAndWaitForAuthentication() { throw new Error("never signed in"); },
+      async openAndWaitForAuthentication() {
+        throw new Error("never signed in");
+      },
     };
 
-    await expect(main(["--locales", "en"], { CWS_EXTENSION_ID: extensionId, CWS_PUBLISHER_ID: publisherId }, {
-      validateFiles: async () => files,
-      openBrowser: async () => ({ ownsBrowser: true, context: { newPage: async () => ({}) } }),
-      finishBrowser: async () => { finished = true; },
-      abandonBrowser: async () => { abandoned = true; },
-      createDashboard: () => dashboard,
-      output: () => {},
-    })).rejects.toThrow(/never signed in/);
+    await expect(
+      main(
+        ["--locales", "en"],
+        { CWS_EXTENSION_ID: extensionId, CWS_PUBLISHER_ID: publisherId },
+        {
+          validateFiles: async () => files,
+          openBrowser: async () => ({ ownsBrowser: true, context: { newPage: async () => ({}) } }),
+          finishBrowser: async () => {
+            finished = true;
+          },
+          abandonBrowser: async () => {
+            abandoned = true;
+          },
+          createDashboard: () => dashboard,
+          output: () => {},
+        },
+      ),
+    ).rejects.toThrow(/never signed in/);
 
     // The operator may have signed in while this very step was still waiting.
     expect(abandoned).toBe(true);
@@ -516,21 +647,37 @@ describe("store screenshot upload CLI", () => {
       async openAndWaitForAuthentication() {},
       async preflight() {},
       async selectLocale() {},
-      async screenshotCount() { return 5; },
+      async screenshotCount() {
+        return 5;
+      },
       async removeFirstScreenshot() {
         this.hasMutated = true;
         throw new Error("remove failed after click");
       },
     };
 
-    await expect(main(["--locales", "en"], { CWS_EXTENSION_ID: extensionId, CWS_PUBLISHER_ID: publisherId }, {
-      validateFiles: async () => files,
-      openBrowser: async () => ({ ownsBrowser: true, context: { newPage: async () => ({}) } }),
-      finishBrowser: async () => { finished = true; },
-      abandonBrowser: async (_session: unknown, _output: unknown, options: { mutated: boolean }) => { abandoned = options.mutated; },
-      createDashboard: () => dashboard,
-      output: () => {},
-    })).rejects.toThrow(/remove failed after click/);
+    await expect(
+      main(
+        ["--locales", "en"],
+        { CWS_EXTENSION_ID: extensionId, CWS_PUBLISHER_ID: publisherId },
+        {
+          validateFiles: async () => files,
+          openBrowser: async () => ({ ownsBrowser: true, context: { newPage: async () => ({}) } }),
+          finishBrowser: async () => {
+            finished = true;
+          },
+          abandonBrowser: async (
+            _session: unknown,
+            _output: unknown,
+            options: { mutated: boolean },
+          ) => {
+            abandoned = options.mutated;
+          },
+          createDashboard: () => dashboard,
+          output: () => {},
+        },
+      ),
+    ).rejects.toThrow(/remove failed after click/);
 
     expect(abandoned).toBe(true);
     expect(finished).toBe(false);

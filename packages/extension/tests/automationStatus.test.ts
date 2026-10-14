@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PlatformAuthHealth, WatchSession } from "@lurkloot/shared/models";
-import {
-  AUTH_SIGN_IN_URLS,
-  automationPresentation,
-} from "../../popup-ui/src/automationStatus";
+import { AUTH_SIGN_IN_URLS, automationPresentation } from "../../popup-ui/src/automationStatus";
 
 function health(
   status: PlatformAuthHealth["status"],
@@ -35,71 +32,133 @@ function session(
 
 describe("automation authentication presentation", () => {
   it("gives pending and paused states precedence", () => {
-    expect(automationPresentation({
-      platform: "twitch",
-      enabled: true,
-      pending: true,
-      authHealth: health("missing_credentials"),
-    }).state).toBe("starting");
-    expect(automationPresentation({
-      platform: "twitch",
-      enabled: false,
-      pending: true,
-      authHealth: health("healthy"),
-    }).state).toBe("stopping");
-    expect(automationPresentation({
-      platform: "kick",
-      enabled: false,
-      pending: false,
-      authHealth: health("blocked"),
-    }).state).toBe("paused");
+    expect(
+      automationPresentation({
+        platform: "twitch",
+        enabled: true,
+        pending: true,
+        authHealth: health("missing_credentials"),
+      }).state,
+    ).toBe("starting");
+    expect(
+      automationPresentation({
+        platform: "twitch",
+        enabled: false,
+        pending: true,
+        authHealth: health("healthy"),
+      }).state,
+    ).toBe("stopping");
+    expect(
+      automationPresentation({
+        platform: "kick",
+        enabled: false,
+        pending: false,
+        authHealth: health("blocked"),
+      }).state,
+    ).toBe("paused");
   });
 
   it.each([
     ["healthy", undefined, "running", "automationRunning", "accent", undefined, true],
     ["checking", undefined, "checking", "automationChecking", "muted", "authCheckingDetail", false],
-    ["missing_credentials", "credentials_missing", "needs_sign_in", "automationNeedsSignIn", "warning", "authSignInMissing", false],
-    ["invalid_credentials", "credentials_rejected", "needs_sign_in", "automationNeedsSignIn", "warning", "authSignInRejected", false],
-    ["blocked", "security_policy_blocked", "blocked", "automationBlocked", "danger", "authBrowserProfileBlocked", false],
-    ["unavailable", "credential_lookup_failed", "unavailable", "automationUnavailable", "warning", "authCredentialCheckUnavailable", false],
-    ["unavailable", "network_unavailable", "unavailable", "automationUnavailable", "warning", "authNetworkTemporarilyUnavailable", false],
-    ["unavailable", "platform_unavailable", "unavailable", "automationUnavailable", "warning", "authPlatformTemporarilyUnavailable", false],
+    [
+      "missing_credentials",
+      "credentials_missing",
+      "needs_sign_in",
+      "automationNeedsSignIn",
+      "warning",
+      "authSignInMissing",
+      false,
+    ],
+    [
+      "invalid_credentials",
+      "credentials_rejected",
+      "needs_sign_in",
+      "automationNeedsSignIn",
+      "warning",
+      "authSignInRejected",
+      false,
+    ],
+    [
+      "blocked",
+      "security_policy_blocked",
+      "blocked",
+      "automationBlocked",
+      "danger",
+      "authBrowserProfileBlocked",
+      false,
+    ],
+    [
+      "unavailable",
+      "credential_lookup_failed",
+      "unavailable",
+      "automationUnavailable",
+      "warning",
+      "authCredentialCheckUnavailable",
+      false,
+    ],
+    [
+      "unavailable",
+      "network_unavailable",
+      "unavailable",
+      "automationUnavailable",
+      "warning",
+      "authNetworkTemporarilyUnavailable",
+      false,
+    ],
+    [
+      "unavailable",
+      "platform_unavailable",
+      "unavailable",
+      "automationUnavailable",
+      "warning",
+      "authPlatformTemporarilyUnavailable",
+      false,
+    ],
   ] as const)("maps %s/%s", (status, reasonCode, state, badgeKey, tone, detailKey, operational) => {
-    expect(automationPresentation({
-      platform: "kick",
-      enabled: true,
-      pending: false,
-      authHealth: health(status, reasonCode),
-    })).toMatchObject({ state, badgeKey, tone, detailKey, operational });
+    expect(
+      automationPresentation({
+        platform: "kick",
+        enabled: true,
+        pending: false,
+        authHealth: health(status, reasonCode),
+      }),
+    ).toMatchObject({ state, badgeKey, tone, detailKey, operational });
   });
 
   it.each(["missing_credentials", "invalid_credentials"] as const)(
     "provides fixed sign-in actions for %s",
     (status) => {
-      expect(automationPresentation({
-        platform: "twitch",
-        enabled: true,
-        pending: false,
-        authHealth: health(status),
-      }).action).toEqual({ kind: "link", labelKey: "signInToTwitch", url: "https://www.twitch.tv/login" });
-      expect(automationPresentation({
-        platform: "kick",
-        enabled: true,
-        pending: false,
-        authHealth: health(status),
-      }).action).toEqual({ kind: "link", labelKey: "signInToKick", url: "https://kick.com/login" });
+      expect(
+        automationPresentation({
+          platform: "twitch",
+          enabled: true,
+          pending: false,
+          authHealth: health(status),
+        }).action,
+      ).toEqual({ kind: "link", labelKey: "signInToTwitch", url: "https://www.twitch.tv/login" });
+      expect(
+        automationPresentation({
+          platform: "kick",
+          enabled: true,
+          pending: false,
+          authHealth: health(status),
+        }).action,
+      ).toEqual({ kind: "link", labelKey: "signInToKick", url: "https://kick.com/login" });
     },
   );
 
   it.each(["checking", "healthy", "blocked", "unavailable"] as const)(
     "does not offer sign-in for %s",
     (status) => {
-      expect(automationPresentation({
-        platform: "kick",
-        enabled: true,
-        pending: false,
-        authHealth: health(status),
-      }).action).toBeUndefined();
+      expect(
+        automationPresentation({
+          platform: "kick",
+          enabled: true,
+          pending: false,
+          authHealth: health(status),
+        }).action,
+      ).toBeUndefined();
     },
   );
 
@@ -142,30 +201,36 @@ describe("automation authentication presentation", () => {
   });
 
   it("keeps the manual-close pause visible even while authentication is degraded", () => {
-    expect(automationPresentation({
-      platform: "twitch",
-      enabled: true,
-      pending: false,
-      authHealth: health("missing_credentials"),
-      manualClosePaused: true,
-    }).state).toBe("paused_tab_closed");
+    expect(
+      automationPresentation({
+        platform: "twitch",
+        enabled: true,
+        pending: false,
+        authHealth: health("missing_credentials"),
+        manualClosePaused: true,
+      }).state,
+    ).toBe("paused_tab_closed");
   });
 
   it("ignores the manual-close pause when the platform is off or pending", () => {
-    expect(automationPresentation({
-      platform: "twitch",
-      enabled: false,
-      pending: false,
-      authHealth: health("healthy"),
-      manualClosePaused: true,
-    }).state).toBe("paused");
-    expect(automationPresentation({
-      platform: "twitch",
-      enabled: true,
-      pending: true,
-      authHealth: health("healthy"),
-      manualClosePaused: true,
-    }).state).toBe("starting");
+    expect(
+      automationPresentation({
+        platform: "twitch",
+        enabled: false,
+        pending: false,
+        authHealth: health("healthy"),
+        manualClosePaused: true,
+      }).state,
+    ).toBe("paused");
+    expect(
+      automationPresentation({
+        platform: "twitch",
+        enabled: true,
+        pending: true,
+        authHealth: health("healthy"),
+        manualClosePaused: true,
+      }).state,
+    ).toBe("starting");
   });
 
   it("does not propagate authentication message values", () => {
@@ -180,13 +245,15 @@ describe("automation authentication presentation", () => {
   });
 
   it("uses the typed starting session status after the request settles", () => {
-    expect(automationPresentation({
-      platform: "twitch",
-      enabled: true,
-      pending: false,
-      authHealth: health("healthy"),
-      session: session("starting", "Any display-only detail"),
-    })).toMatchObject({
+    expect(
+      automationPresentation({
+        platform: "twitch",
+        enabled: true,
+        pending: false,
+        authHealth: health("healthy"),
+        session: session("starting", "Any display-only detail"),
+      }),
+    ).toMatchObject({
       state: "starting",
       badgeKey: "automationStarting",
       detailKey: "startingAutomation",
@@ -235,7 +302,12 @@ describe("automation authentication presentation", () => {
 });
 
 describe("manual watch channel", () => {
-  const watching: WatchSession = { platform: "twitch", status: "paused", offlineChecks: 0, reasonCode: "manual_watch" };
+  const watching: WatchSession = {
+    platform: "twitch",
+    status: "paused",
+    offlineChecks: 0,
+    reasonCode: "manual_watch",
+  };
 
   it("names the channel the user is watching themselves", () => {
     const presentation = automationPresentation({
@@ -249,12 +321,20 @@ describe("manual watch channel", () => {
         tabId: 7,
         checkedAt: "2026-09-20T00:00:00.000Z",
         active: true,
-        channel: { platform: "twitch", username: "summit1g", displayName: "Summit1G", url: "https://www.twitch.tv/summit1g" },
+        channel: {
+          platform: "twitch",
+          username: "summit1g",
+          displayName: "Summit1G",
+          url: "https://www.twitch.tv/summit1g",
+        },
       },
     });
 
     expect(presentation.state).toBe("paused");
-    expect(presentation.manualWatchChannel).toEqual({ name: "Summit1G", url: "https://www.twitch.tv/summit1g" });
+    expect(presentation.manualWatchChannel).toEqual({
+      name: "Summit1G",
+      url: "https://www.twitch.tv/summit1g",
+    });
   });
 
   it("falls back to the username when the record carries no display name", () => {
@@ -269,7 +349,11 @@ describe("manual watch channel", () => {
         tabId: 7,
         checkedAt: "2026-09-20T00:00:00.000Z",
         active: true,
-        channel: { platform: "twitch", username: "summit1g", url: "https://www.twitch.tv/summit1g" },
+        channel: {
+          platform: "twitch",
+          username: "summit1g",
+          url: "https://www.twitch.tv/summit1g",
+        },
       },
     });
 
@@ -283,7 +367,12 @@ describe("manual watch channel", () => {
       pending: false,
       authHealth: health("healthy"),
       session: watching,
-      manualWatch: { platform: "twitch", tabId: 7, checkedAt: "2026-09-20T00:00:00.000Z", active: true },
+      manualWatch: {
+        platform: "twitch",
+        tabId: 7,
+        checkedAt: "2026-09-20T00:00:00.000Z",
+        active: true,
+      },
     });
 
     expect(presentation.detailKey).toBe("manualWatchPauseDetail");
@@ -304,7 +393,11 @@ describe("manual watch channel", () => {
         tabId: 7,
         checkedAt: "2026-09-20T00:00:00.000Z",
         active: true,
-        channel: { platform: "twitch", username: "summit1g", url: "https://www.twitch.tv/summit1g" },
+        channel: {
+          platform: "twitch",
+          username: "summit1g",
+          url: "https://www.twitch.tv/summit1g",
+        },
       },
     });
 

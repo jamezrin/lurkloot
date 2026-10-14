@@ -31,8 +31,12 @@ function encodeCursor([at, id]: ActivityCursor): string {
 
 function decodeCursor(value: string): ActivityCursor {
   const decoded = JSON.parse(decodeURIComponent(value)) as unknown;
-  if (!Array.isArray(decoded) || decoded.length !== 2
-    || typeof decoded[0] !== "string" || typeof decoded[1] !== "string") {
+  if (
+    !Array.isArray(decoded)
+    || decoded.length !== 2
+    || typeof decoded[0] !== "string"
+    || typeof decoded[1] !== "string"
+  ) {
     throw new Error("Invalid activity cursor");
   }
   return [decoded[0], decoded[1]];
@@ -48,8 +52,10 @@ function requestResult<T>(request: IDBRequest<T>): Promise<T> {
 function transactionDone(transaction: IDBTransaction): Promise<void> {
   return new Promise((resolve, reject) => {
     transaction.oncomplete = () => resolve();
-    transaction.onabort = () => reject(transaction.error ?? new Error("IndexedDB transaction aborted"));
-    transaction.onerror = () => reject(transaction.error ?? new Error("IndexedDB transaction failed"));
+    transaction.onabort = () =>
+      reject(transaction.error ?? new Error("IndexedDB transaction aborted"));
+    transaction.onerror = () =>
+      reject(transaction.error ?? new Error("IndexedDB transaction failed"));
   });
 }
 
@@ -106,7 +112,8 @@ class IndexedDbActivityRepository implements ActivityRepository {
         const eventStore = existingEventStore
           ? request.transaction!.objectStore(EVENT_STORE)
           : database.createObjectStore(EVENT_STORE, { keyPath: "id" });
-        for (const indexName of Array.from(eventStore.indexNames)) eventStore.deleteIndex(indexName);
+        for (const indexName of Array.from(eventStore.indexNames))
+          eventStore.deleteIndex(indexName);
         eventStore.createIndex(CATEGORY_INDEX, ["category", "at", "id"]);
         eventStore.createIndex(PLATFORM_CATEGORY_INDEX, ["platform", "category", "at", "id"]);
         if (existingEventStore) {
@@ -137,7 +144,8 @@ class IndexedDbActivityRepository implements ActivityRepository {
         };
         resolve(database);
       };
-      request.onerror = () => reject(request.error ?? new Error("Could not open the activity database"));
+      request.onerror = () =>
+        reject(request.error ?? new Error("Could not open the activity database"));
       // Keep a blocked request pending. Rejecting cannot cancel an IDB open;
       // its later success would otherwise create an untracked connection.
       request.onblocked = () => undefined;
@@ -213,8 +221,10 @@ class IndexedDbActivityRepository implements ActivityRepository {
           return;
         }
         const event = cursor.value as ActivityHistoryRecord;
-        const matchesPlatform = !query.platform || !event.platform || event.platform === query.platform;
-        const matchesQuery = !normalizedQuery || event.message?.toLowerCase().includes(normalizedQuery) === true;
+        const matchesPlatform =
+          !query.platform || !event.platform || event.platform === query.platform;
+        const matchesQuery =
+          !normalizedQuery || event.message?.toLowerCase().includes(normalizedQuery) === true;
         if (matchesPlatform && matchesQuery) {
           events.push(event);
           if (events.length === limit + 1) {
@@ -273,7 +283,9 @@ class IndexedDbActivityRepository implements ActivityRepository {
   async count(category: EventCategory): Promise<number> {
     const database = await this.open();
     const transaction = database.transaction(EVENT_STORE, "readonly");
-    const count = await requestResult(transaction.objectStore(EVENT_STORE).index(CATEGORY_INDEX).count(categoryRange(category)));
+    const count = await requestResult(
+      transaction.objectStore(EVENT_STORE).index(CATEGORY_INDEX).count(categoryRange(category)),
+    );
     await transactionDone(transaction);
     return count;
   }
@@ -290,7 +302,9 @@ class IndexedDbActivityRepository implements ActivityRepository {
     if (this.prunePromise) return this.prunePromise;
     const database = await this.open();
     const transaction = database.transaction(META_STORE, "readonly");
-    const record = await requestResult(transaction.objectStore(META_STORE).get(LAST_PRUNED_AT)) as MetaRecord | undefined;
+    const record = (await requestResult(transaction.objectStore(META_STORE).get(LAST_PRUNED_AT))) as
+      | MetaRecord
+      | undefined;
     await transactionDone(transaction);
     const lastPrunedAt = record ? Date.parse(record.value) : Number.NaN;
     if (!Number.isFinite(lastPrunedAt) || Date.now() - lastPrunedAt >= PRUNE_INTERVAL_MS) {
@@ -306,7 +320,9 @@ class IndexedDbActivityRepository implements ActivityRepository {
     }
     const database = await this.open();
     const transaction = database.transaction(META_STORE, "readwrite");
-    transaction.objectStore(META_STORE).put({ key: LAST_PRUNED_AT, value: new Date().toISOString() } satisfies MetaRecord);
+    transaction
+      .objectStore(META_STORE)
+      .put({ key: LAST_PRUNED_AT, value: new Date().toISOString() } satisfies MetaRecord);
     await transactionDone(transaction);
   }
 
@@ -328,7 +344,12 @@ class IndexedDbActivityRepository implements ActivityRepository {
   private async deleteExcess(category: EventCategory): Promise<void> {
     const database = await this.open();
     const countTransaction = database.transaction(EVENT_STORE, "readonly");
-    const count = await requestResult(countTransaction.objectStore(EVENT_STORE).index(CATEGORY_INDEX).count(categoryRange(category)));
+    const count = await requestResult(
+      countTransaction
+        .objectStore(EVENT_STORE)
+        .index(CATEGORY_INDEX)
+        .count(categoryRange(category)),
+    );
     await transactionDone(countTransaction);
     let excess = count - MAX_RECORDS_PER_CATEGORY;
     if (excess <= 0) return;

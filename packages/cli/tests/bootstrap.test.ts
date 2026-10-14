@@ -22,7 +22,9 @@ vi.mock("@lurkloot/core/twitch", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@lurkloot/core/twitch")>();
   const TwitchAdapter = new Proxy(actual.TwitchAdapter, {
     construct(target, args) {
-      const adapter = Reflect.construct(target, args, target) as InstanceType<typeof actual.TwitchAdapter>;
+      const adapter = Reflect.construct(target, args, target) as InstanceType<
+        typeof actual.TwitchAdapter
+      >;
       adapter.checkAuthHealth = async () => ({
         status: "healthy",
         checkedAt: "2026-07-26T12:00:00.000Z",
@@ -67,17 +69,15 @@ function fakeCycleClient(): CycleTLSClient {
 }
 
 const transports: Array<[string, () => Promise<TransportHandle>]> = [
-  [
-    "http",
-    async () => createHttpTransport({}, { twitch: true, kick: false }),
-  ],
+  ["http", async () => createHttpTransport({}, { twitch: true, kick: false })],
   [
     "impersonate",
-    async () => createImpersonateTransport(
-      {},
-      { twitch: true, kick: false },
-      { initClient: async () => fakeCycleClient() },
-    ),
+    async () =>
+      createImpersonateTransport(
+        {},
+        { twitch: true, kick: false },
+        { initClient: async () => fakeCycleClient() },
+      ),
   ],
 ];
 

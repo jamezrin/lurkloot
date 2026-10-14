@@ -45,7 +45,12 @@ export {
   TWITCH_INTEGRITY_REFRESH_LEAD_MS,
   TWITCH_INTEGRITY_REFRESH_JITTER_MAX_MS,
 } from "./constants";
-export { isRankingOnlyPatch, LockOrderError, settingsPatchEffects, TRANSACTION_LOCKS } from "./stateTransaction";
+export {
+  isRankingOnlyPatch,
+  LockOrderError,
+  settingsPatchEffects,
+  TRANSACTION_LOCKS,
+} from "./stateTransaction";
 export type {
   CommitHook,
   CommitResult,
@@ -91,14 +96,23 @@ export function createBackgroundAlarmListener(controller: { runJob(name: string)
   };
 }
 
-export function createBackgroundController<S extends EngineSettings = EngineSettings>(hostPorts: BackgroundHostPorts<S>) {
+export function createBackgroundController<S extends EngineSettings = EngineSettings>(
+  hostPorts: BackgroundHostPorts<S>,
+) {
   assertHostCapabilities(hostPorts);
   const { capabilities } = hostPorts;
   // Jobs a host cannot run are never scheduled (jobs.ts).
-  const ports: BackgroundHostPorts<S> = { ...hostPorts, jobs: capabilityScopedJobs(hostPorts.jobs, capabilities) };
+  const ports: BackgroundHostPorts<S> = {
+    ...hostPorts,
+    jobs: capabilityScopedJobs(hostPorts.jobs, capabilities),
+  };
   const tabRegistry = createTabRegistrySlice(hostPorts.tabRegistry);
   // Owns the locks, commits and after-commit hooks (#585).
-  const transaction = createStateTransaction({ ...ports.storage, lockTracker: ports.testing?.lockTracker, tabRegistry });
+  const transaction = createStateTransaction({
+    ...ports.storage,
+    lockTracker: ports.testing?.lockTracker,
+    tabRegistry,
+  });
   const reportingSlice = createReportingSlice();
   const signalSlice = createDiscoverySignalSlice();
   const tickSlice = createTickAdmissionSlice();
@@ -184,10 +198,13 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
   };
   // Every entry point is a host event, so it starts outside any lock, even when
   // it is called from inside a host callback the controller is awaiting.
-  return Object.fromEntries(Object.entries(api).map(([name, entry]) => [
-    name,
-    typeof entry === "function"
-      ? (...args: unknown[]) => transaction.detach(() => (entry as (...args: unknown[]) => unknown)(...args))
-      : entry,
-  ])) as typeof api;
+  return Object.fromEntries(
+    Object.entries(api).map(([name, entry]) => [
+      name,
+      typeof entry === "function"
+        ? (...args: unknown[]) =>
+            transaction.detach(() => (entry as (...args: unknown[]) => unknown)(...args))
+        : entry,
+    ]),
+  ) as typeof api;
 }

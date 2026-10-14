@@ -1,15 +1,31 @@
 import { fetchTwitchInBackgroundWith } from "@lurkloot/core/transport";
 import type { PlatformCredentials } from "../authStore";
 import { twitchCookieApi } from "./cookieApi";
-import { createCycleKickFetcher, createNodeKickWebSocketFactory, initCycle, type CycleTLSClient } from "./cycle";
-import { CHROME_HTTP2, CHROME_JA3, createCliAdapters, headersToObject, twitchHeartbeatFailure, withHeartbeatTimeout, type CliTwitchIntegrity, type EnabledPlatforms, type TransportHandle } from "./common";
+import {
+  createCycleKickFetcher,
+  createNodeKickWebSocketFactory,
+  initCycle,
+  type CycleTLSClient,
+} from "./cycle";
+import {
+  CHROME_HTTP2,
+  CHROME_JA3,
+  createCliAdapters,
+  headersToObject,
+  twitchHeartbeatFailure,
+  withHeartbeatTimeout,
+  type CliTwitchIntegrity,
+  type EnabledPlatforms,
+  type TransportHandle,
+} from "./common";
 
 function responseLocation(headers: Record<string, unknown> | undefined): string | undefined {
   if (!headers) return undefined;
   for (const [key, value] of Object.entries(headers)) {
     if (key.toLowerCase() !== "location") continue;
     if (typeof value === "string" && value.trim()) return value.trim();
-    if (Array.isArray(value) && typeof value[0] === "string" && value[0].trim()) return value[0].trim();
+    if (Array.isArray(value) && typeof value[0] === "string" && value[0].trim())
+      return value[0].trim();
   }
   return undefined;
 }
@@ -33,48 +49,79 @@ export async function createImpersonateTransport(
   const cycleTLS = await (deps.initClient ?? initCycle)();
   const { adapters, createAdapter, createAdapters } = createCliAdapters(creds, {
     twitchIntegrity,
-    twitchFetcher: () => ({ fetchJson: (url, init) => fetchTwitchInBackgroundWith(twitchCookieApi(creds), url, init) }),
+    twitchFetcher: () => ({
+      fetchJson: (url, init) => fetchTwitchInBackgroundWith(twitchCookieApi(creds), url, init),
+    }),
     twitchHeartbeat: (identity) => ({
       heartbeatFetchText: async (url, init) => {
-        const response = await withHeartbeatTimeout(() => cycleTLS(url, {
-          ja3: CHROME_JA3,
-          http2Fingerprint: CHROME_HTTP2,
-          userAgent: identity.userAgent,
-          headers: headersToObject(init?.headers),
-          body: typeof init?.body === "string" ? init.body : undefined,
-          disableRedirect: init?.redirect === "error" || init?.redirect === "manual",
-        }, (init?.method ?? "GET").toLowerCase() as "get" | "post"), init?.signal);
+        const response = await withHeartbeatTimeout(
+          () =>
+            cycleTLS(
+              url,
+              {
+                ja3: CHROME_JA3,
+                http2Fingerprint: CHROME_HTTP2,
+                userAgent: identity.userAgent,
+                headers: headersToObject(init?.headers),
+                body: typeof init?.body === "string" ? init.body : undefined,
+                disableRedirect: init?.redirect === "error" || init?.redirect === "manual",
+              },
+              (init?.method ?? "GET").toLowerCase() as "get" | "post",
+            ),
+          init?.signal,
+        );
         return Buffer.isBuffer(response.data)
           ? response.data.toString("utf8")
-          : typeof response.data === "string" ? response.data : JSON.stringify(response.data ?? "");
+          : typeof response.data === "string"
+            ? response.data
+            : JSON.stringify(response.data ?? "");
       },
       heartbeatPost: async (url, init) => {
-        const response = await withHeartbeatTimeout(() => cycleTLS(url, {
-          ja3: CHROME_JA3,
-          http2Fingerprint: CHROME_HTTP2,
-          userAgent: identity.userAgent,
-          headers: headersToObject(init.headers),
-          body: typeof init.body === "string" ? init.body : undefined,
-          disableRedirect: init.redirect === "error" || init.redirect === "manual",
-        }, "post"), init.signal);
+        const response = await withHeartbeatTimeout(
+          () =>
+            cycleTLS(
+              url,
+              {
+                ja3: CHROME_JA3,
+                http2Fingerprint: CHROME_HTTP2,
+                userAgent: identity.userAgent,
+                headers: headersToObject(init.headers),
+                body: typeof init.body === "string" ? init.body : undefined,
+                disableRedirect: init.redirect === "error" || init.redirect === "manual",
+              },
+              "post",
+            ),
+          init.signal,
+        );
         return { status: response.status };
       },
       heartbeatExchange: async (url, init) => {
         const method = (init.method ?? "GET").toLowerCase() === "head" ? "head" : "get";
         try {
-          const response = await withHeartbeatTimeout(() => cycleTLS(url, {
-            ja3: CHROME_JA3,
-            http2Fingerprint: CHROME_HTTP2,
-            userAgent: identity.userAgent,
-            headers: headersToObject(init.headers),
-            disableRedirect: init.redirect === "error" || init.redirect === "manual",
-          }, method), init.signal);
+          const response = await withHeartbeatTimeout(
+            () =>
+              cycleTLS(
+                url,
+                {
+                  ja3: CHROME_JA3,
+                  http2Fingerprint: CHROME_HTTP2,
+                  userAgent: identity.userAgent,
+                  headers: headersToObject(init.headers),
+                  disableRedirect: init.redirect === "error" || init.redirect === "manual",
+                },
+                method,
+              ),
+            init.signal,
+          );
           const redirecting = response.status >= 300 && response.status < 400;
-          const body = method === "head" || redirecting || response.status === 0
-            ? ""
-            : Buffer.isBuffer(response.data)
-              ? response.data.toString("utf8")
-              : typeof response.data === "string" ? response.data : JSON.stringify(response.data ?? "");
+          const body =
+            method === "head" || redirecting || response.status === 0
+              ? ""
+              : Buffer.isBuffer(response.data)
+                ? response.data.toString("utf8")
+                : typeof response.data === "string"
+                  ? response.data
+                  : JSON.stringify(response.data ?? "");
           const reportedUrl = typeof response.finalUrl === "string" ? response.finalUrl.trim() : "";
           const location = responseLocation(response.headers);
           return {

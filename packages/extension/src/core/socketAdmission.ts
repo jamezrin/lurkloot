@@ -1,4 +1,8 @@
-import type { WebSocketFactory, WebSocketLike, WebSocketMessageEventLike } from "@lurkloot/core/webSocket";
+import type {
+  WebSocketFactory,
+  WebSocketLike,
+  WebSocketMessageEventLike,
+} from "@lurkloot/core/webSocket";
 import type { Platform } from "@lurkloot/shared/models";
 import { socketProfileFor, type SocketProfileName } from "./socketProfiles";
 
@@ -46,7 +50,11 @@ export function createSocketAdmission(deps: SocketAdmissionDeps): SocketAdmissio
       ready = false;
     }
     if (!ready) {
-      return refuse(`${profile.name}:origin-rules`, profile.platform, `${label} socket stays closed: its Origin cannot be set in this browser.`);
+      return refuse(
+        `${profile.name}:origin-rules`,
+        profile.platform,
+        `${label} socket stays closed: its Origin cannot be set in this browser.`,
+      );
     }
     let granted = false;
     try {
@@ -55,7 +63,11 @@ export function createSocketAdmission(deps: SocketAdmissionDeps): SocketAdmissio
       granted = false;
     }
     if (!granted) {
-      return refuse(`${profile.name}:permission`, profile.platform, `${label} socket stays closed until the ${profile.permission} host permission is granted.`);
+      return refuse(
+        `${profile.name}:permission`,
+        profile.platform,
+        `${label} socket stays closed until the ${profile.permission} host permission is granted.`,
+      );
     }
     for (const key of [...reported]) if (key.startsWith(`${profile.name}:`)) reported.delete(key);
     return true;
@@ -64,47 +76,54 @@ export function createSocketAdmission(deps: SocketAdmissionDeps): SocketAdmissio
 
 // Firefox: a plain socket, opened once admitted. Its Origin is rewritten by
 // the webRequest listener (platformSocketOrigin.ts).
-export function createAdmittedWebSocketFactory(admit: SocketAdmission, create: WebSocketFactory): WebSocketFactory {
+export function createAdmittedWebSocketFactory(
+  admit: SocketAdmission,
+  create: WebSocketFactory,
+): WebSocketFactory {
   return (url) => new AdmittedSocket(url, admit, create);
 }
 
 class AdmittedSocket implements WebSocketLike {
   readyState = 0;
   private socket?: WebSocketLike;
-  private readonly listeners: Record<string, Array<(event: WebSocketMessageEventLike) => void>> = {};
+  private readonly listeners: Record<string, Array<(event: WebSocketMessageEventLike) => void>> =
+    {};
 
   constructor(url: string, admit: SocketAdmission, create: WebSocketFactory) {
-    void admit(url).then((admitted) => {
-      if (this.readyState !== 0) return;
-      if (!admitted) {
-        this.fail();
-        return;
-      }
-      let socket: WebSocketLike;
-      try {
-        socket = create(url);
-      } catch {
-        this.fail();
-        return;
-      }
-      this.socket = socket;
-      socket.addEventListener("open", (event) => {
-        if (this.socket !== socket) return;
-        this.readyState = 1;
-        this.emit("open", event);
-      });
-      socket.addEventListener("message", (event) => {
-        if (this.socket === socket) this.emit("message", event);
-      });
-      socket.addEventListener("error", (event) => {
-        if (this.socket === socket) this.emit("error", event);
-      });
-      socket.addEventListener("close", (event) => {
-        if (this.socket !== socket || this.readyState === 3) return;
-        this.readyState = 3;
-        this.emit("close", event);
-      });
-    }, () => this.fail());
+    void admit(url).then(
+      (admitted) => {
+        if (this.readyState !== 0) return;
+        if (!admitted) {
+          this.fail();
+          return;
+        }
+        let socket: WebSocketLike;
+        try {
+          socket = create(url);
+        } catch {
+          this.fail();
+          return;
+        }
+        this.socket = socket;
+        socket.addEventListener("open", (event) => {
+          if (this.socket !== socket) return;
+          this.readyState = 1;
+          this.emit("open", event);
+        });
+        socket.addEventListener("message", (event) => {
+          if (this.socket === socket) this.emit("message", event);
+        });
+        socket.addEventListener("error", (event) => {
+          if (this.socket === socket) this.emit("error", event);
+        });
+        socket.addEventListener("close", (event) => {
+          if (this.socket !== socket || this.readyState === 3) return;
+          this.readyState = 3;
+          this.emit("close", event);
+        });
+      },
+      () => this.fail(),
+    );
   }
 
   send(data: string): void {
@@ -120,7 +139,10 @@ class AdmittedSocket implements WebSocketLike {
     queueMicrotask(() => this.emit("close", { code: 1000 }));
   }
 
-  addEventListener(type: "open" | "message" | "close" | "error", listener: (event: WebSocketMessageEventLike) => void): void {
+  addEventListener(
+    type: "open" | "message" | "close" | "error",
+    listener: (event: WebSocketMessageEventLike) => void,
+  ): void {
     (this.listeners[type] ??= []).push(listener);
   }
 

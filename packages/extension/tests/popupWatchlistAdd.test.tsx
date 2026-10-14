@@ -7,7 +7,8 @@ import { createDemoPopupAdapter, Popup, type PopupAdapter } from "@lurkloot/popu
 import { resetCatalogTracking, waitForCatalog } from "./helpers/popupCatalog";
 
 vi.mock("@lurkloot/locales", async (importOriginal) =>
-  (await import("./helpers/popupCatalog")).delayedLocales(importOriginal));
+  (await import("./helpers/popupCatalog")).delayedLocales(importOriginal),
+);
 
 let root: Root | undefined;
 
@@ -50,13 +51,17 @@ async function mountPopup() {
 }
 
 const byLabel = (container: Element, label: string) =>
-  [...container.querySelectorAll("button")].find((button) => button.getAttribute("aria-label") === label);
+  [...container.querySelectorAll("button")].find(
+    (button) => button.getAttribute("aria-label") === label,
+  );
 
 // The Idle Watchlist is its own rail destination now, so the form is reached by
 // navigating there rather than by expanding a section of the drops list. The
 // view swaps outright, so one act() settles it.
 function openWatchlist(container: Element): void {
-  act(() => { container.querySelector<HTMLButtonElement>('button[data-view="watchlist"]')?.click(); });
+  act(() => {
+    container.querySelector<HTMLButtonElement>('button[data-view="watchlist"]')?.click();
+  });
 }
 
 describe("idle watchlist add form", () => {
@@ -70,7 +75,12 @@ describe("idle watchlist add form", () => {
     expect(input).not.toBeNull();
     act(() => {
       input!.value = "typed-for-twitch";
-      input!.dispatchEvent(new (container.ownerDocument!.defaultView as unknown as { Event: typeof Event }).Event("input", { bubbles: true }));
+      input!.dispatchEvent(
+        new (container.ownerDocument!.defaultView as unknown as { Event: typeof Event }).Event(
+          "input",
+          { bubbles: true },
+        ),
+      );
     });
 
     act(() => byLabel(container, "Kick")?.click());
@@ -78,7 +88,9 @@ describe("idle watchlist add form", () => {
     // The field stays open on Kick, but starts empty rather than carrying the
     // Twitch draft.
     openWatchlist(container);
-    expect(container.querySelector<HTMLInputElement>("[data-watchlist-input]")?.value ?? "").toBe("");
+    expect(container.querySelector<HTMLInputElement>("[data-watchlist-input]")?.value ?? "").toBe(
+      "",
+    );
     expect(sent.filter((message) => message.type === "saveSettings")).toHaveLength(0);
   });
 });

@@ -11,7 +11,8 @@ import type { ControllerCalls } from "./types";
 export function createStateCommit<S extends EngineSettings>(
   transaction: StateTransaction<S>,
   calls: Pick<ControllerCalls<S>, "reportBestEffort">,
-): Pick<ControllerCalls<S>,
+): Pick<
+  ControllerCalls<S>,
   | "withSettingsLock"
   | "withPlatformLock"
   | "withStateLock"
@@ -28,7 +29,10 @@ export function createStateCommit<S extends EngineSettings>(
 > {
   const { reportBestEffort } = lateBound(calls);
 
-  async function persistAndReport(state: SchedulerState, events: readonly EngineEvent[] = []): Promise<void> {
+  async function persistAndReport(
+    state: SchedulerState,
+    events: readonly EngineEvent[] = [],
+  ): Promise<void> {
     await saveOperationalState(state);
     await reportBestEffort(events);
   }
@@ -52,7 +56,12 @@ export function createStateCommit<S extends EngineSettings>(
     isCurrent?: () => boolean,
     onPersisted?: (state: SchedulerState) => void,
   ): Promise<boolean> {
-    const result = await transaction.commitPlatformSnapshot(platform, state, isCurrent, onPersisted);
+    const result = await transaction.commitPlatformSnapshot(
+      platform,
+      state,
+      isCurrent,
+      onPersisted,
+    );
     return result.status !== "stale";
   }
 

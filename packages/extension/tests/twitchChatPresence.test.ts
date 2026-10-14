@@ -14,17 +14,33 @@ class FakeSocket implements WebSocketLike {
   readyState = 0;
   sent: string[] = [];
   closed = false;
-  private readonly listeners: Record<string, Array<(event: WebSocketMessageEventLike) => void>> = {};
+  private readonly listeners: Record<string, Array<(event: WebSocketMessageEventLike) => void>> =
+    {};
   constructor(readonly url: string) {}
-  send(data: string): void { this.sent.push(data); }
-  close(): void { this.closed = true; this.readyState = 3; }
-  addEventListener(type: "open" | "message" | "close" | "error", listener: (event: WebSocketMessageEventLike) => void): void {
+  send(data: string): void {
+    this.sent.push(data);
+  }
+  close(): void {
+    this.closed = true;
+    this.readyState = 3;
+  }
+  addEventListener(
+    type: "open" | "message" | "close" | "error",
+    listener: (event: WebSocketMessageEventLike) => void,
+  ): void {
     (this.listeners[type] ??= []).push(listener);
   }
-  open(): void { this.readyState = 1; for (const listener of this.listeners.open ?? []) listener({}); }
-  serverClose(): void { this.readyState = 3; for (const listener of this.listeners.close ?? []) listener({}); }
+  open(): void {
+    this.readyState = 1;
+    for (const listener of this.listeners.open ?? []) listener({});
+  }
+  serverClose(): void {
+    this.readyState = 3;
+    for (const listener of this.listeners.close ?? []) listener({});
+  }
   receive(...lines: string[]): void {
-    for (const listener of this.listeners.message ?? []) listener({ data: lines.map((line) => `${line}\r\n`).join("") });
+    for (const listener of this.listeners.message ?? [])
+      listener({ data: lines.map((line) => `${line}\r\n`).join("") });
   }
 }
 
@@ -41,7 +57,9 @@ class FakeClock {
     this.timers = this.timers.filter((entry) => entry.id !== (timer as unknown as number));
   };
   now = () => this.nowMs;
-  pendingDelays(): number[] { return this.timers.map((entry) => entry.at - this.nowMs); }
+  pendingDelays(): number[] {
+    return this.timers.map((entry) => entry.at - this.nowMs);
+  }
   async advance(ms: number): Promise<void> {
     const until = this.nowMs + ms;
     for (;;) {
@@ -59,20 +77,30 @@ class FakeClock {
 }
 
 const clients: TwitchChatPresenceClient[] = [];
-afterEach(async () => { await Promise.all(clients.splice(0).map((client) => client.stop())); });
+afterEach(async () => {
+  await Promise.all(clients.splice(0).map((client) => client.stop()));
+});
 
-function setup(options: {
-  token?: string;
-  login?: string;
-  getAuthToken?: () => Promise<string | undefined>;
-  resolveLogin?: () => Promise<string | undefined>;
-} = {}) {
+function setup(
+  options: {
+    token?: string;
+    login?: string;
+    getAuthToken?: () => Promise<string | undefined>;
+    resolveLogin?: () => Promise<string | undefined>;
+  } = {},
+) {
   const sockets: FakeSocket[] = [];
   const clock = new FakeClock();
   const client = new TwitchChatPresenceClient({
-    createWebSocket: (url) => { const socket = new FakeSocket(url); sockets.push(socket); return socket; },
-    getAuthToken: options.getAuthToken ?? (async () => ("token" in options ? options.token : "secret-token")),
-    resolveLogin: options.resolveLogin ?? (async () => ("login" in options ? options.login : "Viewer")),
+    createWebSocket: (url) => {
+      const socket = new FakeSocket(url);
+      sockets.push(socket);
+      return socket;
+    },
+    getAuthToken:
+      options.getAuthToken ?? (async () => ("token" in options ? options.token : "secret-token")),
+    resolveLogin:
+      options.resolveLogin ?? (async () => ("login" in options ? options.login : "Viewer")),
     setTimer: clock.setTimer,
     clearTimer: clock.clearTimer,
     now: clock.now,
@@ -86,14 +114,20 @@ async function joined(env: ReturnType<typeof setup>, channel = "prod"): Promise<
   const socket = env.sockets.at(-1)!;
   socket.open();
   socket.receive(":tmi.twitch.tv 001 viewer :Welcome, GLHF!");
-  socket.receive(`:viewer!viewer@viewer.tmi.twitch.tv JOIN #${channel}`, `@badge-info=;badges= :tmi.twitch.tv USERSTATE #${channel}`);
+  socket.receive(
+    `:viewer!viewer@viewer.tmi.twitch.tv JOIN #${channel}`,
+    `@badge-info=;badges= :tmi.twitch.tv USERSTATE #${channel}`,
+  );
   return socket;
 }
 
 const ALLOWED = /^(CAP REQ|PASS|NICK|USER|JOIN|PART|PING|PONG)( |$)/;
 
 function warnings(env: ReturnType<typeof setup>): string[] {
-  return env.client.drainEvents().filter((event) => event.level === "warn").map((event) => event.message);
+  return env.client
+    .drainEvents()
+    .filter((event) => event.level === "warn")
+    .map((event) => event.message);
 }
 
 // Opens the latest socket and registers it, so the client sends its JOIN.
@@ -106,10 +140,22 @@ function register(env: ReturnType<typeof setup>): FakeSocket {
 
 describe("parseIrcLine", () => {
   it("reads tags, prefix nick, command and params, and trailing text only for NOTICE and PING", () => {
-    expect(parseIrcLine("@a=b :viewer!viewer@viewer.tmi.twitch.tv JOIN #prod")).toEqual({ command: "JOIN", params: ["#prod"], prefixNick: "viewer" });
-    expect(parseIrcLine(":tmi.twitch.tv NOTICE * :Login authentication failed")?.trailing).toBe("Login authentication failed");
-    expect(parseIrcLine("PING :tmi.twitch.tv")).toEqual({ command: "PING", params: [], trailing: "tmi.twitch.tv" });
-    expect(parseIrcLine("@x=y :someone!someone@someone.tmi.twitch.tv PRIVMSG #prod :hello there")).toEqual({ command: "PRIVMSG", params: ["#prod"], prefixNick: "someone" });
+    expect(parseIrcLine("@a=b :viewer!viewer@viewer.tmi.twitch.tv JOIN #prod")).toEqual({
+      command: "JOIN",
+      params: ["#prod"],
+      prefixNick: "viewer",
+    });
+    expect(parseIrcLine(":tmi.twitch.tv NOTICE * :Login authentication failed")?.trailing).toBe(
+      "Login authentication failed",
+    );
+    expect(parseIrcLine("PING :tmi.twitch.tv")).toEqual({
+      command: "PING",
+      params: [],
+      trailing: "tmi.twitch.tv",
+    });
+    expect(
+      parseIrcLine("@x=y :someone!someone@someone.tmi.twitch.tv PRIVMSG #prod :hello there"),
+    ).toEqual({ command: "PRIVMSG", params: ["#prod"], prefixNick: "someone" });
   });
 });
 
@@ -129,9 +175,14 @@ describe("TwitchChatPresenceClient", () => {
     socket.receive(":tmi.twitch.tv 001 viewer :Welcome, GLHF!");
     expect(socket.sent.at(-1)).toBe("JOIN #prod");
     expect(env.client.status()).toEqual({ state: "joining", channel: "prod" });
-    socket.receive(":viewer!viewer@viewer.tmi.twitch.tv JOIN #prod", "@badges= :tmi.twitch.tv USERSTATE #prod");
+    socket.receive(
+      ":viewer!viewer@viewer.tmi.twitch.tv JOIN #prod",
+      "@badges= :tmi.twitch.tv USERSTATE #prod",
+    );
     expect(env.client.status()).toEqual({ state: "joined", channel: "prod" });
-    expect(env.client.drainEvents().map((event) => event.message)).toContain("Twitch chat presence joined prod");
+    expect(env.client.drainEvents().map((event) => event.message)).toContain(
+      "Twitch chat presence joined prod",
+    );
   });
 
   it("switches channels on one socket: JOIN the next, then PART the previous", async () => {
@@ -141,7 +192,11 @@ describe("TwitchChatPresenceClient", () => {
     await env.client.follow({ username: "kaaleesi" });
     expect(env.sockets).toHaveLength(1);
     expect(socket.sent.filter((line) => /^(JOIN|PART)/.test(line))).toEqual([
-      "JOIN #prod", "JOIN #diables", "PART #prod", "JOIN #kaaleesi", "PART #diables",
+      "JOIN #prod",
+      "JOIN #diables",
+      "PART #prod",
+      "JOIN #kaaleesi",
+      "PART #diables",
     ]);
   });
 
@@ -151,7 +206,10 @@ describe("TwitchChatPresenceClient", () => {
     const socket = env.sockets[0]!;
     socket.open();
     socket.receive(":tmi.twitch.tv 001 viewer :Welcome, GLHF!");
-    socket.receive(":viewer!viewer@viewer.tmi.twitch.tv JOIN #prod", ":viewer.tmi.twitch.tv 366 viewer #prod :End of /NAMES list");
+    socket.receive(
+      ":viewer!viewer@viewer.tmi.twitch.tv JOIN #prod",
+      ":viewer.tmi.twitch.tv 366 viewer #prod :End of /NAMES list",
+    );
     expect(env.client.status()).toEqual({ state: "joined", channel: "prod" });
   });
 
@@ -185,7 +243,12 @@ describe("TwitchChatPresenceClient", () => {
     const env = setup();
     const socket = await joined(env);
     env.client.drainEvents();
-    socket.receive(...Array.from({ length: 500 }, (_, index) => `@id=${index} :u${index}!u@u.tmi.twitch.tv PRIVMSG #prod :message ${index}`));
+    socket.receive(
+      ...Array.from(
+        { length: 500 },
+        (_, index) => `@id=${index} :u${index}!u@u.tmi.twitch.tv PRIVMSG #prod :message ${index}`,
+      ),
+    );
     expect(env.client.drainEvents()).toEqual([]);
     expect(env.client.status()).toEqual({ state: "joined", channel: "prod" });
   });
@@ -248,9 +311,16 @@ describe("TwitchChatPresenceClient", () => {
     let token: string | undefined = "secret-token";
     let logins = 0;
     const client = new TwitchChatPresenceClient({
-      createWebSocket: (url) => { const socket = new FakeSocket(url); sockets.push(socket); return socket; },
+      createWebSocket: (url) => {
+        const socket = new FakeSocket(url);
+        sockets.push(socket);
+        return socket;
+      },
       getAuthToken: async () => token,
-      resolveLogin: async () => { logins += 1; return "Viewer"; },
+      resolveLogin: async () => {
+        logins += 1;
+        return "Viewer";
+      },
       setTimer: clock.setTimer,
       clearTimer: clock.clearTimer,
       now: clock.now,
@@ -278,13 +348,17 @@ describe("TwitchChatPresenceClient", () => {
     const env = setup();
     await env.client.follow({ username: "prod" });
     const socket = register(env);
-    socket.receive("@msg-id=msg_channel_suspended :tmi.twitch.tv NOTICE #prod :This channel does not exist or has been suspended.");
+    socket.receive(
+      "@msg-id=msg_channel_suspended :tmi.twitch.tv NOTICE #prod :This channel does not exist or has been suspended.",
+    );
     await env.clock.advance(TWITCH_IRC_JOIN_TIMEOUT_MS - 1);
     expect(env.client.status()).toEqual({ state: "joining", channel: "prod" });
     await env.clock.advance(1);
     expect(env.client.status()).toEqual({ state: "error", channel: "prod" });
     expect(socket.closed).toBe(true);
-    expect(warnings(env)).toEqual(["Twitch chat presence could not join prod (This channel does not exist or has been suspended.); retrying"]);
+    expect(warnings(env)).toEqual([
+      "Twitch chat presence could not join prod (This channel does not exist or has been suspended.); retrying",
+    ]);
     await env.clock.advance(1_000);
     expect(env.sockets).toHaveLength(2);
   });
@@ -347,11 +421,17 @@ describe("TwitchChatPresenceClient", () => {
   });
 
   it("reports a failed login lookup as such, not as a missing identity", async () => {
-    const env = setup({ resolveLogin: async () => { throw new Error("GQL request failed: 503"); } });
+    const env = setup({
+      resolveLogin: async () => {
+        throw new Error("GQL request failed: 503");
+      },
+    });
     await env.client.follow({ username: "prod" });
     expect(env.sockets).toHaveLength(0);
     expect(env.client.status()).toEqual({ state: "error", channel: "prod" });
-    expect(warnings(env)).toEqual(["Could not look up the Twitch viewer login for chat presence: GQL request failed: 503"]);
+    expect(warnings(env)).toEqual([
+      "Could not look up the Twitch viewer login for chat presence: GQL request failed: 503",
+    ]);
   });
 
   it("logs each distinct failure once while retrying", async () => {
@@ -375,14 +455,22 @@ describe("TwitchChatPresenceClient", () => {
   });
 
   it("retries when a lookup throws instead of rejecting", async () => {
-    const env = setup({ getAuthToken: () => { throw new Error("storage unavailable"); } });
+    const env = setup({
+      getAuthToken: () => {
+        throw new Error("storage unavailable");
+      },
+    });
     await env.client.follow({ username: "prod" });
     expect(env.client.status()).toEqual({ state: "error", channel: "prod" });
     expect(env.clock.pendingDelays()).toEqual([1_000]);
   });
 
   it("never logs the token lookup's error", async () => {
-    const env = setup({ getAuthToken: async () => { throw new Error("cookie secret-token unreadable"); } });
+    const env = setup({
+      getAuthToken: async () => {
+        throw new Error("cookie secret-token unreadable");
+      },
+    });
     await env.client.follow({ username: "prod" });
     expect(env.client.status()).toEqual({ state: "error", channel: "prod" });
     expect(JSON.stringify(env.client.drainEvents())).not.toContain("secret-token");
@@ -416,21 +504,26 @@ describe("TwitchChatPresenceClient", () => {
   });
 });
 
-
 describe("Twitch chat presence adapter factory", () => {
   it("exposes a chat presence client only when websocket and auth token deps exist", async () => {
     const fetcher = {
-      fetchJson: async <T,>(_url: string, init?: RequestInit): Promise<T> => {
+      fetchJson: async <T>(_url: string, init?: RequestInit): Promise<T> => {
         const body = JSON.parse(String(init?.body ?? "{}"));
-        return (body.operationName === "CurrentUserLogin"
-          ? { data: { currentUser: { id: "1", login: "Viewer" } } }
-          : {}) as T;
+        return (
+          body.operationName === "CurrentUserLogin"
+            ? { data: { currentUser: { id: "1", login: "Viewer" } } }
+            : {}
+        ) as T;
       },
     };
     expect(twitchAdapter(fetcher).createChatPresenceClient).toBeUndefined();
     const sockets: FakeSocket[] = [];
     const client = twitchAdapter(fetcher, undefined, {
-      webSocketFactory: (url) => { const socket = new FakeSocket(url); sockets.push(socket); return socket; },
+      webSocketFactory: (url) => {
+        const socket = new FakeSocket(url);
+        sockets.push(socket);
+        return socket;
+      },
       getAuthToken: async () => "token",
     }).createChatPresenceClient?.();
     expect(client).toBeInstanceOf(TwitchChatPresenceClient);
@@ -442,11 +535,16 @@ describe("Twitch chat presence adapter factory", () => {
 
   it("joins chat over a chat-only socket factory without starting Hermes", async () => {
     const fetcher = {
-      fetchJson: async <T,>(): Promise<T> => ({ data: { currentUser: { id: "1", login: "viewer" } } }) as T,
+      fetchJson: async <T>(): Promise<T> =>
+        ({ data: { currentUser: { id: "1", login: "viewer" } } }) as T,
     };
     const sockets: FakeSocket[] = [];
     const adapter = twitchAdapter(fetcher, undefined, {
-      chatWebSocketFactory: (url) => { const socket = new FakeSocket(url); sockets.push(socket); return socket; },
+      chatWebSocketFactory: (url) => {
+        const socket = new FakeSocket(url);
+        sockets.push(socket);
+        return socket;
+      },
       getAuthToken: async () => "token",
     });
     expect(adapter.createChannelPointsPushController).toBeUndefined();
@@ -459,7 +557,9 @@ describe("Twitch chat presence adapter factory", () => {
 
   it("lets a failed login lookup reach the client's own diagnostics", async () => {
     const fetcher = {
-      fetchJson: async <T,>(): Promise<T> => { throw new Error("GQL request failed: 503"); },
+      fetchJson: async <T>(): Promise<T> => {
+        throw new Error("GQL request failed: 503");
+      },
     };
     const client = twitchAdapter(fetcher, undefined, {
       webSocketFactory: (url) => new FakeSocket(url),
@@ -468,7 +568,11 @@ describe("Twitch chat presence adapter factory", () => {
     await client.follow({ username: "prod" });
     expect(client.status()).toEqual({ state: "error", channel: "prod" });
     const messages = client.drainEvents().map((event) => event.message);
-    expect(messages.some((message) => message?.startsWith("Could not look up the Twitch viewer login for chat presence: "))).toBe(true);
+    expect(
+      messages.some((message) =>
+        message?.startsWith("Could not look up the Twitch viewer login for chat presence: "),
+      ),
+    ).toBe(true);
     expect(JSON.stringify(messages)).not.toContain("secret-token");
     await client.stop();
   });

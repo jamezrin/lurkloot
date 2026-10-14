@@ -41,7 +41,12 @@ export class KickClaimV2 implements KickClaimCapability {
     if (isKickClaimSuccess(response)) return { kind: "claimed" };
     if (isRecord(response)) {
       const data = isRecord(response.data) ? response.data : undefined;
-      for (const value of [response.connect_url, response.connectUrl, data?.connect_url, data?.connectUrl]) {
+      for (const value of [
+        response.connect_url,
+        response.connectUrl,
+        data?.connect_url,
+        data?.connectUrl,
+      ]) {
         const url = safeHttpsUrl(value);
         if (url) return { kind: "link_required", url };
       }
@@ -60,7 +65,10 @@ export class KickClaimV2 implements KickClaimCapability {
     reward.claimGuidance = guidance;
   }
 
-  reconcileProgress(campaigns: DropCampaign[], affirmativelyLinkedCampaignIds: ReadonlySet<string>): DropCampaign[] {
+  reconcileProgress(
+    campaigns: DropCampaign[],
+    affirmativelyLinkedCampaignIds: ReadonlySet<string>,
+  ): DropCampaign[] {
     return campaigns.map((campaign) => {
       if (affirmativelyLinkedCampaignIds.has(campaign.id)) {
         this.state.deletePrefix(`${campaign.id}:`);
@@ -70,12 +78,16 @@ export class KickClaimV2 implements KickClaimCapability {
           rewards: campaign.rewards.map((reward) => ({ ...reward, claimGuidance: undefined })),
         };
       }
-      const suppressedRewards = campaign.rewards.filter((reward) => this.isSuppressed(campaign, reward));
+      const suppressedRewards = campaign.rewards.filter((reward) =>
+        this.isSuppressed(campaign, reward),
+      );
       if (suppressedRewards.length === 0) return campaign;
       const campaignUrl = this.state.get(this.key(campaign, suppressedRewards[0]));
       return {
         ...campaign,
-        claimGuidance: campaignUrl ? { kind: "link_required", url: campaignUrl } : campaign.claimGuidance,
+        claimGuidance: campaignUrl
+          ? { kind: "link_required", url: campaignUrl }
+          : campaign.claimGuidance,
         rewards: campaign.rewards.map((reward) => {
           const url = this.state.get(this.key(campaign, reward));
           return url ? { ...reward, claimGuidance: { kind: "link_required", url } } : reward;

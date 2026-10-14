@@ -78,7 +78,13 @@ const ANCHORS: Record<Platform, Anchor[]> = {
   kick: [
     // Kick's nav carries no semantic hooks, so this keys off the layout
     // variable and takes the bar's right-hand cluster.
-    { find: () => [...document.querySelectorAll('nav[class*="navbar-height"]')].map((nav) => nav.lastElementChild), place: "prepend" },
+    {
+      find: () =>
+        [...document.querySelectorAll('nav[class*="navbar-height"]')].map(
+          (nav) => nav.lastElementChild,
+        ),
+      place: "prepend",
+    },
   ],
 };
 
@@ -133,7 +139,9 @@ async function start(): Promise<void> {
   // Asked once. A content script cannot read its own tab id, and the id is
   // stable for the document's lifetime, so everything downstream re-evaluates
   // from persisted state rather than re-asking.
-  ownTabId = await browser.runtime.sendMessage({ type: "getTabId" }).catch(() => undefined) as number | undefined;
+  ownTabId = (await browser.runtime.sendMessage({ type: "getTabId" }).catch(() => undefined)) as
+    | number
+    | undefined;
 
   await reconcile();
 
@@ -228,7 +236,10 @@ function ensureButton(): void {
     // but currently collapsed — Kick's theatre mode hides both of its bars —
     // and warnOnce latches for the session, so warning on a state that
     // resolves itself would burn the one message a real nav change needs.
-    if (target === "noMatch") warnOnce("could not find a place in the page nav for the Lurkloot button; the toolbar popup still works");
+    if (target === "noMatch")
+      warnOnce(
+        "could not find a place in the page nav for the Lurkloot button; the toolbar popup still works",
+      );
     return;
   }
   if (target.place === "before") target.element.parentElement?.insertBefore(button, target.element);
@@ -242,10 +253,34 @@ function ensureButton(): void {
 // than imported from somewhere shared.
 const RESERVED_PATHS: Record<Platform, Set<string>> = {
   twitch: new Set([
-    "directory", "videos", "drops", "settings", "subscriptions", "wallet", "u", "popout", "moderator",
-    "downloads", "turbo", "prime", "jobs", "friends", "inventory", "payments", "store",
+    "directory",
+    "videos",
+    "drops",
+    "settings",
+    "subscriptions",
+    "wallet",
+    "u",
+    "popout",
+    "moderator",
+    "downloads",
+    "turbo",
+    "prime",
+    "jobs",
+    "friends",
+    "inventory",
+    "payments",
+    "store",
   ]),
-  kick: new Set(["browse", "categories", "following", "dashboard", "search", "clips", "help", "about"]),
+  kick: new Set([
+    "browse",
+    "categories",
+    "following",
+    "dashboard",
+    "search",
+    "clips",
+    "help",
+    "about",
+  ]),
 };
 
 // The subpaths a channel page keeps for itself. A second segment outside this
@@ -271,9 +306,13 @@ export function channelFromLocation(forPlatform: Platform, href: string): string
   if (!name) return undefined;
   const login = name.toLowerCase();
   if (RESERVED_PATHS[forPlatform].has(login)) return undefined;
-  if (subpath !== undefined && !CHANNEL_SUBPATHS[forPlatform].has(subpath.toLowerCase())) return undefined;
+  if (subpath !== undefined && !CHANNEL_SUBPATHS[forPlatform].has(subpath.toLowerCase()))
+    return undefined;
   // Only a clip carries a third segment (its slug); everything else stops here.
-  if (rest.length > 0 && !(forPlatform === "twitch" && subpath?.toLowerCase() === "clip" && rest.length === 1)) {
+  if (
+    rest.length > 0
+    && !(forPlatform === "twitch" && subpath?.toLowerCase() === "clip" && rest.length === 1)
+  ) {
     return undefined;
   }
   return login;
@@ -347,8 +386,12 @@ function createButton(): HTMLButtonElement {
     `background:${IDLE_BACKGROUND}`,
     "color:inherit",
   ].join(";");
-  el.addEventListener("mouseenter", () => { el.style.background = HOVER_BACKGROUND; });
-  el.addEventListener("mouseleave", () => { el.style.background = IDLE_BACKGROUND; });
+  el.addEventListener("mouseenter", () => {
+    el.style.background = HOVER_BACKGROUND;
+  });
+  el.addEventListener("mouseleave", () => {
+    el.style.background = IDLE_BACKGROUND;
+  });
   el.addEventListener("click", (event) => {
     // The caret is a child of the button (one nav footprint, one anchor to keep
     // working on two sites that rewrite their navs), so the split is decided
@@ -375,7 +418,9 @@ function createButton(): HTMLButtonElement {
 // nothing, unlike importing @lurkloot/locales. The English strings are the
 // fallback for a catalog that has not materialized.
 function message(key: string, fallback: string, substitution?: string): string {
-  const getMessage = browser.i18n?.getMessage as ((key: string, substitutions?: string[]) => string) | undefined;
+  const getMessage = browser.i18n?.getMessage as
+    | ((key: string, substitutions?: string[]) => string)
+    | undefined;
   const value = substitution ? getMessage?.(key, [substitution]) : getMessage?.(key);
   return value || (substitution ? fallback.replace("$1", substitution) : fallback);
 }
@@ -431,21 +476,36 @@ async function buildMenu(): Promise<void> {
   ].join(";");
 
   const items: Array<{ label: string; run(): void }> = [
-    { label: message("inPageOpenPanel", "Open Lurkloot"), run: () => { void togglePanel(); } },
+    {
+      label: message("inPageOpenPanel", "Open Lurkloot"),
+      run: () => {
+        void togglePanel();
+      },
+    },
   ];
   // The cap is enforced in normalizeChannelList, so an add past it would be
   // silently dropped; the menu stops offering it instead.
   const atLimit = watchlist.length >= IDLE_WATCHLIST_LIMIT;
   if (channel && (listed || !atLimit)) {
-    items.push(listed
-      ? {
-        label: message("inPageRemoveFromWatchlist", "Remove $1 from the idle watchlist", channel),
-        run: () => { void changeWatchlist("remove", channel); },
-      }
-      : {
-        label: message("inPageAddToWatchlist", "Add $1 to the idle watchlist", channel),
-        run: () => { void changeWatchlist("add", channel); },
-      });
+    items.push(
+      listed
+        ? {
+            label: message(
+              "inPageRemoveFromWatchlist",
+              "Remove $1 from the idle watchlist",
+              channel,
+            ),
+            run: () => {
+              void changeWatchlist("remove", channel);
+            },
+          }
+        : {
+            label: message("inPageAddToWatchlist", "Add $1 to the idle watchlist", channel),
+            run: () => {
+              void changeWatchlist("add", channel);
+            },
+          },
+    );
   }
 
   const buttons = items.map((item, index) => {
@@ -466,9 +526,16 @@ async function buildMenu(): Promise<void> {
       "overflow:hidden",
       "text-overflow:ellipsis",
     ].join(";");
-    row.addEventListener("mouseenter", () => { row.style.background = CHROME_HOVER; });
-    row.addEventListener("mouseleave", () => { row.style.background = "transparent"; });
-    row.addEventListener("click", () => { item.run(); closeMenu(); });
+    row.addEventListener("mouseenter", () => {
+      row.style.background = CHROME_HOVER;
+    });
+    row.addEventListener("mouseleave", () => {
+      row.style.background = "transparent";
+    });
+    row.addEventListener("click", () => {
+      item.run();
+      closeMenu();
+    });
     return row;
   });
   for (const row of buttons) menu.append(row);
@@ -526,7 +593,9 @@ async function readWatchlist(): Promise<string[]> {
 // changed since. Going through the background also keeps normalization and
 // the scheduler tick; writing storage.local directly would skip both.
 async function changeWatchlist(action: "add" | "remove", channel: string): Promise<void> {
-  await browser.runtime.sendMessage({ type: "updateIdleWatchlist", platform, channel, action }).catch(() => undefined);
+  await browser.runtime
+    .sendMessage({ type: "updateIdleWatchlist", platform, channel, action })
+    .catch(() => undefined);
 }
 
 // Twitch and Kick are both client-rendered: navigating re-renders the nav and
@@ -610,9 +679,15 @@ async function openPanel(): Promise<void> {
     "font:400 18px/1 system-ui,sans-serif",
     `color:${CHROME_MUTED}`,
   ].join(";");
-  close.addEventListener("mouseenter", () => { close.style.background = CHROME_HOVER; });
-  close.addEventListener("mouseleave", () => { close.style.background = ""; });
-  close.addEventListener("click", () => { void togglePanel(); });
+  close.addEventListener("mouseenter", () => {
+    close.style.background = CHROME_HOVER;
+  });
+  close.addEventListener("mouseleave", () => {
+    close.style.background = "";
+  });
+  close.addEventListener("click", () => {
+    void togglePanel();
+  });
   titlebar.append(title, close);
 
   // `src` is assigned here rather than at page load: this is the point where
@@ -730,5 +805,5 @@ async function readUi(): Promise<PanelUiState | undefined> {
 }
 
 async function saveUi(patch: PanelUiState): Promise<void> {
-  await browser.storage.local.set({ [UI_STATE_KEY]: { ...await readUi(), ...patch } });
+  await browser.storage.local.set({ [UI_STATE_KEY]: { ...(await readUi()), ...patch } });
 }

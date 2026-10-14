@@ -22,15 +22,17 @@ function campaign(overrides: Partial<DropCampaign> = {}): DropCampaign {
     name: "Campaign",
     status: "active",
     accountLinked: true,
-    rewards: [{
-      id: "reward",
-      name: "Reward",
-      requiredMinutes: 60,
-      watchedMinutes: 0,
-      status: "locked",
-      requirement: "watch",
-      isWatchBased: true,
-    }],
+    rewards: [
+      {
+        id: "reward",
+        name: "Reward",
+        requiredMinutes: 60,
+        watchedMinutes: 0,
+        status: "locked",
+        requirement: "watch",
+        isWatchBased: true,
+      },
+    ],
     connectionUrls: [],
     ...overrides,
   };
@@ -59,8 +61,10 @@ describe("evaluateCampaignFarming", () => {
     expect(evaluateCampaignFarming(source, settings(), { now: NOW })).toEqual({ farmable: true });
     const disabled = settings();
     disabled.farmingEligibility.farmUnlinkedCampaigns = false;
-    expect(evaluateCampaignFarming(source, disabled, { now: NOW }))
-      .toMatchObject({ farmable: false, code: "unlinked_campaigns_disabled" });
+    expect(evaluateCampaignFarming(source, disabled, { now: NOW })).toMatchObject({
+      farmable: false,
+      code: "unlinked_campaigns_disabled",
+    });
   });
 
   it("distinguishes a disabled unlinked class from Twitch's platform requirement", () => {
@@ -70,8 +74,13 @@ describe("evaluateCampaignFarming", () => {
         farmSubscriptionCampaigns: true,
       },
     });
-    expect(evaluateCampaignFarming(campaign({ platform: "kick", accountLinked: false }), currentSettings, { now: NOW }))
-      .toMatchObject({ farmable: false, code: "unlinked_campaigns_disabled" });
+    expect(
+      evaluateCampaignFarming(
+        campaign({ platform: "kick", accountLinked: false }),
+        currentSettings,
+        { now: NOW },
+      ),
+    ).toMatchObject({ farmable: false, code: "unlinked_campaigns_disabled" });
   });
 
   it("returns category_filtered before inspecting rewards in include mode", () => {
@@ -81,8 +90,9 @@ describe("evaluateCampaignFarming", () => {
       categoryMode: "include",
       categories: [{ id: "other", name: "Other" }],
     };
-    expect(evaluateCampaignFarming(campaign({ categoryId: "game" }), currentSettings, { now: NOW }))
-      .toMatchObject({ farmable: false, code: "category_filtered" });
+    expect(
+      evaluateCampaignFarming(campaign({ categoryId: "game" }), currentSettings, { now: NOW }),
+    ).toMatchObject({ farmable: false, code: "category_filtered" });
   });
 
   it("returns category_blocked for a blocked game, in either mode", () => {
@@ -91,32 +101,39 @@ describe("evaluateCampaignFarming", () => {
       ...currentSettings.platform.twitch,
       blockedCategories: [{ id: "game", name: "Game" }],
     };
-    expect(evaluateCampaignFarming(campaign({ categoryId: "game" }), currentSettings, { now: NOW }))
-      .toMatchObject({ farmable: false, code: "category_blocked" });
-    expect(evaluateCampaignFarming(campaign({ categoryId: "other" }), currentSettings, { now: NOW }))
-      .toEqual({ farmable: true });
+    expect(
+      evaluateCampaignFarming(campaign({ categoryId: "game" }), currentSettings, { now: NOW }),
+    ).toMatchObject({ farmable: false, code: "category_blocked" });
+    expect(
+      evaluateCampaignFarming(campaign({ categoryId: "other" }), currentSettings, { now: NOW }),
+    ).toEqual({ farmable: true });
 
     currentSettings.platform.twitch = {
       ...currentSettings.platform.twitch,
       categoryMode: "include",
       categories: [{ id: "game", name: "Game" }],
     };
-    expect(evaluateCampaignFarming(campaign({ categoryId: "game" }), currentSettings, { now: NOW }))
-      .toMatchObject({ farmable: false, code: "category_blocked" });
+    expect(
+      evaluateCampaignFarming(campaign({ categoryId: "game" }), currentSettings, { now: NOW }),
+    ).toMatchObject({ farmable: false, code: "category_blocked" });
   });
 
   it("farms everything when nothing is blocked", () => {
     const currentSettings = settings();
     currentSettings.platform.twitch = { ...currentSettings.platform.twitch, blockedCategories: [] };
-    expect(evaluateCampaignFarming(campaign({ categoryId: "game" }), currentSettings, { now: NOW }))
-      .toEqual({ farmable: true });
+    expect(
+      evaluateCampaignFarming(campaign({ categoryId: "game" }), currentSettings, { now: NOW }),
+    ).toEqual({ farmable: true });
   });
 
   it("returns not_pinned only when the pinned-only switch is evaluated", () => {
     const currentSettings = settings({ farmPinnedOnly: true });
-    expect(evaluateCampaignFarming(campaign(), currentSettings, { now: NOW, includePinnedOnly: true }))
-      .toMatchObject({ farmable: false, code: "not_pinned" });
-    expect(evaluateCampaignFarming(campaign(), currentSettings, { now: NOW })).toEqual({ farmable: true });
+    expect(
+      evaluateCampaignFarming(campaign(), currentSettings, { now: NOW, includePinnedOnly: true }),
+    ).toMatchObject({ farmable: false, code: "not_pinned" });
+    expect(evaluateCampaignFarming(campaign(), currentSettings, { now: NOW })).toEqual({
+      farmable: true,
+    });
   });
 
   it("never lets a pin rescue a campaign eligibility already rejected", () => {
@@ -125,8 +142,12 @@ describe("evaluateCampaignFarming", () => {
       ...currentSettings.platform.twitch,
       blockedCategories: [{ id: "game", name: "Game" }],
     };
-    expect(evaluateCampaignFarming(campaign({ categoryId: "game" }), currentSettings, { now: NOW, includePinnedOnly: true }))
-      .toMatchObject({ farmable: false, code: "category_blocked" });
+    expect(
+      evaluateCampaignFarming(campaign({ categoryId: "game" }), currentSettings, {
+        now: NOW,
+        includePinnedOnly: true,
+      }),
+    ).toMatchObject({ farmable: false, code: "category_blocked" });
   });
 
   it.each([
@@ -161,7 +182,9 @@ describe("evaluateCampaignFarming", () => {
   });
 
   it("returns farmable when any reward can currently be earned", () => {
-    expect(evaluateCampaignFarming(campaign(), settings(), { now: NOW })).toEqual({ farmable: true });
+    expect(evaluateCampaignFarming(campaign(), settings(), { now: NOW })).toEqual({
+      farmable: true,
+    });
   });
 });
 
@@ -178,21 +201,39 @@ describe("campaignFarmingBlockers (#677)", () => {
 
   it("lists each blocker a user meets in turn, ending at one no setting lifts", () => {
     const current = settings({ excludedCampaignIds: ["campaign"], farmPinnedOnly: true });
-    const blockers = campaignFarmingBlockers(campaign({ rewards: [subscription] }), current, { includePinnedOnly: true, now: NOW });
+    const blockers = campaignFarmingBlockers(campaign({ rewards: [subscription] }), current, {
+      includePinnedOnly: true,
+      now: NOW,
+    });
 
-    expect(blockers.map((blocker) => blocker.code)).toEqual(["excluded", "not_pinned", "subscription_required"]);
-    expect(blockers[0]).toEqual(evaluateCampaignFarming(campaign({ rewards: [subscription] }), current, { includePinnedOnly: true, now: NOW }));
+    expect(blockers.map((blocker) => blocker.code)).toEqual([
+      "excluded",
+      "not_pinned",
+      "subscription_required",
+    ]);
+    expect(blockers[0]).toEqual(
+      evaluateCampaignFarming(campaign({ rewards: [subscription] }), current, {
+        includePinnedOnly: true,
+        now: NOW,
+      }),
+    );
   });
 
   it("stops once the campaign would be farmable", () => {
-    const blockers = campaignFarmingBlockers(campaign(), settings({ excludedCampaignIds: ["campaign"] }), { now: NOW });
+    const blockers = campaignFarmingBlockers(
+      campaign(),
+      settings({ excludedCampaignIds: ["campaign"] }),
+      { now: NOW },
+    );
 
     expect(blockers.map((blocker) => blocker.code)).toEqual(["excluded"]);
   });
 
   it("lifts an unfinishable-reward skip and ends there", () => {
     const tight = campaign({ endsAt: new Date(NOW + 10 * 60_000).toISOString() });
-    const blockers = campaignFarmingBlockers(tight, settings({ skipUnfinishableRewards: true }), { now: NOW });
+    const blockers = campaignFarmingBlockers(tight, settings({ skipUnfinishableRewards: true }), {
+      now: NOW,
+    });
 
     // With the skip off the reward is farmable again, so the chain stops.
     expect(blockers.map((blocker) => blocker.code)).toEqual(["insufficient_time"]);

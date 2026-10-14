@@ -76,13 +76,25 @@ describe("filterSettingsTree", () => {
         {
           id: "general.drops",
           titleKey: "dropsTitle",
-          entries: [{ id: "general.drops.autoClaim", titleKey: "autoClaimTitle", descriptionKey: "autoClaimDescription" }],
+          entries: [
+            {
+              id: "general.drops.autoClaim",
+              titleKey: "autoClaimTitle",
+              descriptionKey: "autoClaimDescription",
+            },
+          ],
         },
         {
           id: "general.scheduler",
           titleKey: "schedulerTitle",
           advanced: true,
-          entries: [{ id: "general.scheduler.interval", titleKey: "intervalTitle", descriptionKey: "intervalDescription" }],
+          entries: [
+            {
+              id: "general.scheduler.interval",
+              titleKey: "intervalTitle",
+              descriptionKey: "intervalDescription",
+            },
+          ],
         },
       ],
     },
@@ -94,7 +106,13 @@ describe("filterSettingsTree", () => {
           id: "twitch.compatibility",
           titleKey: "compatTitle",
           advanced: true,
-          entries: [{ id: "twitch.compatibility.profile", titleKey: "compatTitle", descriptionKey: "compatDescription" }],
+          entries: [
+            {
+              id: "twitch.compatibility.profile",
+              titleKey: "compatTitle",
+              descriptionKey: "compatDescription",
+            },
+          ],
         },
       ],
     },
@@ -109,13 +127,18 @@ describe("filterSettingsTree", () => {
   it("shows advanced groups when the switch is on", () => {
     const result = filterSettingsTree(tree, { t, query: "", showAdvanced: true });
     expect(result.map((section) => section.id)).toEqual(["general", "twitch"]);
-    expect(result[0]!.groups.map((group) => group.id)).toEqual(["general.drops", "general.scheduler"]);
+    expect(result[0]!.groups.map((group) => group.id)).toEqual([
+      "general.drops",
+      "general.scheduler",
+    ]);
   });
 
   it("reveals a matching advanced entry even while the switch is off", () => {
     const result = filterSettingsTree(tree, { t, query: "heartbeat", showAdvanced: false });
     expect(result.map((section) => section.id)).toEqual(["twitch"]);
-    expect(result[0]!.groups[0]!.entries.map((entry) => entry.id)).toEqual(["twitch.compatibility.profile"]);
+    expect(result[0]!.groups[0]!.entries.map((entry) => entry.id)).toEqual([
+      "twitch.compatibility.profile",
+    ]);
   });
 
   it("drops non-matching entries, groups and sections", () => {
@@ -138,7 +161,9 @@ describe("filterSettingsTree", () => {
     const result = filterSettingsTree(tree, { t, query: "scheduler", showAdvanced: false });
     expect(result.map((section) => section.id)).toEqual(["general"]);
     expect(result[0]!.groups.map((group) => group.id)).toEqual(["general.scheduler"]);
-    expect(result[0]!.groups[0]!.entries.map((entry) => entry.id)).toEqual(["general.scheduler.interval"]);
+    expect(result[0]!.groups[0]!.entries.map((entry) => entry.id)).toEqual([
+      "general.scheduler.interval",
+    ]);
   });
 
   it("finds an entry by the word substituted into its description placeholder", () => {
@@ -159,12 +184,14 @@ describe("filterSettingsTree", () => {
           {
             id: "kick.categories",
             titleKey: "categoriesGroupTitle",
-            entries: [{
-              id: "kick.categories.farmAll",
-              titleKey: "farmAllTitle",
-              descriptionKey: "farmAllDescription",
-              descriptionSubstitution: "Kick",
-            }],
+            entries: [
+              {
+                id: "kick.categories.farmAll",
+                titleKey: "farmAllTitle",
+                descriptionKey: "farmAllDescription",
+                descriptionSubstitution: "Kick",
+              },
+            ],
           },
         ],
       },
@@ -172,7 +199,13 @@ describe("filterSettingsTree", () => {
 
     // Without the substitution wired up, the haystack would contain the
     // literal "$1" instead of "Kick" and this query would find nothing.
-    const result = filterSettingsTree(substitutionTree, { t: substitutionT, query: "kick categories", showAdvanced: false });
-    expect(result[0]?.groups[0]?.entries.map((entry) => entry.id)).toEqual(["kick.categories.farmAll"]);
+    const result = filterSettingsTree(substitutionTree, {
+      t: substitutionT,
+      query: "kick categories",
+      showAdvanced: false,
+    });
+    expect(result[0]?.groups[0]?.entries.map((entry) => entry.id)).toEqual([
+      "kick.categories.farmAll",
+    ]);
   });
 });

@@ -10,10 +10,13 @@ export function registerSupplementalTargetEffect<S extends EngineSettings>(
   executor: TickEffectExecutor,
   sources: SupplementalSourcesPort<S> | undefined,
 ): TickEffectExecutor {
-  return executor.register("selectSupplementalTarget", async ({ platform, state, source }, context) =>
-    platform === "twitch" && sources
-      ? await sources.select(state, context.settings as S, context.signal, source)
-      : undefined);
+  return executor.register(
+    "selectSupplementalTarget",
+    async ({ platform, state, source }, context) =>
+      platform === "twitch" && sources
+        ? await sources.select(state, context.settings as S, context.signal, source)
+        : undefined,
+  );
 }
 
 // The owner of the supplemental-sources port: it registers the one handler that

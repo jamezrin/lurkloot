@@ -20,7 +20,12 @@ const es: MessageCatalog = {
 describe("popup translator", () => {
   it("keeps a catalog translation whose text equals its key", () => {
     const getMessage = vi.fn(() => "más tarde");
-    const t = createTranslator({ languageOverride: "en", overrideCatalog: en, fallbackCatalog: en, getMessage });
+    const t = createTranslator({
+      languageOverride: "en",
+      overrideCatalog: en,
+      fallbackCatalog: en,
+      getMessage,
+    });
 
     expect(t("later")).toBe("later");
     expect(getMessage).not.toHaveBeenCalled();
@@ -28,21 +33,36 @@ describe("popup translator", () => {
 
   it("falls back to the host message only when no catalog defines the key", () => {
     const getMessage = vi.fn(() => "Ajustes");
-    const t = createTranslator({ languageOverride: "en", overrideCatalog: en, fallbackCatalog: en, getMessage });
+    const t = createTranslator({
+      languageOverride: "en",
+      overrideCatalog: en,
+      fallbackCatalog: en,
+      getMessage,
+    });
 
     expect(t("openSettings")).toBe("Ajustes");
     expect(getMessage).toHaveBeenCalledWith("openSettings", undefined);
   });
 
   it("renders the key itself when nothing can translate it", () => {
-    const t = createTranslator({ languageOverride: "en", overrideCatalog: en, fallbackCatalog: en, getMessage: () => "" });
+    const t = createTranslator({
+      languageOverride: "en",
+      overrideCatalog: en,
+      fallbackCatalog: en,
+      getMessage: () => "",
+    });
 
     expect(t("missingEverywhere")).toBe("missingEverywhere");
   });
 
   it("prefers the selected locale over the English fallback", () => {
     const getMessage = vi.fn(() => "");
-    const t = createTranslator({ languageOverride: "es", overrideCatalog: es, fallbackCatalog: en, getMessage });
+    const t = createTranslator({
+      languageOverride: "es",
+      overrideCatalog: es,
+      fallbackCatalog: en,
+      getMessage,
+    });
 
     expect(t("later")).toBe("más tarde");
     expect(t("greeting", "Alex")).toBe("Hello Alex");
@@ -50,14 +70,24 @@ describe("popup translator", () => {
 
   it("asks the host first while the language follows the browser", () => {
     const getMessage = vi.fn(() => "más tarde");
-    const t = createTranslator({ languageOverride: "browser", overrideCatalog: es, fallbackCatalog: en, getMessage });
+    const t = createTranslator({
+      languageOverride: "browser",
+      overrideCatalog: es,
+      fallbackCatalog: en,
+      getMessage,
+    });
 
     expect(t("later")).toBe("más tarde");
     expect(getMessage).toHaveBeenCalledWith("later", undefined);
   });
 
   it("uses the catalog while the language follows the browser and the host has no message", () => {
-    const t = createTranslator({ languageOverride: "browser", overrideCatalog: es, fallbackCatalog: en, getMessage: () => "" });
+    const t = createTranslator({
+      languageOverride: "browser",
+      overrideCatalog: es,
+      fallbackCatalog: en,
+      getMessage: () => "",
+    });
 
     expect(t("finishedPill")).toBe("Finalizada");
   });

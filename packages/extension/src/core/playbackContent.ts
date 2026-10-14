@@ -18,11 +18,15 @@ export function startPlaybackTelemetry(platform: Platform): void {
   });
   // Media events do not bubble; capture also covers players inserted later.
   for (const event of ["playing", "pause", "ended", "emptied"]) {
-    document.addEventListener(event, (event) => {
-      if ((event.target as Element | null)?.tagName !== "VIDEO") return;
-      if (Date.now() < suppressControlUntil) return;
-      queuePlaybackControl(platform);
-    }, true);
+    document.addEventListener(
+      event,
+      (event) => {
+        if ((event.target as Element | null)?.tagName !== "VIDEO") return;
+        if (Date.now() < suppressControlUntil) return;
+        queuePlaybackControl(platform);
+      },
+      true,
+    );
   }
   void controlPlaybackAndReport(platform);
   setInterval(() => {
@@ -52,10 +56,14 @@ function queuePlaybackControl(platform: Platform): void {
 }
 
 async function controlPlaybackAndReport(platform: Platform): Promise<void> {
-  const control = await browser.runtime.sendMessage({
-    type: "getPlaybackControl",
-    platform,
-  }).catch((): PlaybackControl => ({ managed: false, keepVideosUnmuted: false })) as PlaybackControl | undefined;
+  const control = (await browser.runtime
+    .sendMessage({
+      type: "getPlaybackControl",
+      platform,
+    })
+    .catch((): PlaybackControl => ({ managed: false, keepVideosUnmuted: false }))) as
+    | PlaybackControl
+    | undefined;
 
   // Signal the MAIN-world keep-alive script (see keepAliveContent.ts) whether
   // this is the managed watch tab, so it only spoofs visibility while farming.
@@ -93,22 +101,28 @@ async function controlPlaybackAndReport(platform: Platform): Promise<void> {
   }
 
   const primary = videos[0];
-  await browser.runtime.sendMessage({
-    type: "playbackTelemetry",
-    platform,
-    telemetry: {
-      videoCount: videos.length,
-      mutedVideoCount: videos.filter((video) => video.muted || video.volume === 0).length,
-      unmutedVideoCount: videos.filter((video) => !video.muted && video.volume > 0).length,
-      playingVideoCount: videos.filter((video) => !video.paused && !video.ended && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA).length,
-      blockedPlaybackCount,
-      documentHidden: document.hidden,
-      adActive: detectAd(platform),
-      readyState: primary?.readyState,
-      currentTime: primary ? Math.floor(primary.currentTime) : undefined,
-      duration: primary && Number.isFinite(primary.duration) ? Math.floor(primary.duration) : undefined,
-    },
-  }).catch(() => undefined);
+  await browser.runtime
+    .sendMessage({
+      type: "playbackTelemetry",
+      platform,
+      telemetry: {
+        videoCount: videos.length,
+        mutedVideoCount: videos.filter((video) => video.muted || video.volume === 0).length,
+        unmutedVideoCount: videos.filter((video) => !video.muted && video.volume > 0).length,
+        playingVideoCount: videos.filter(
+          (video) =>
+            !video.paused && !video.ended && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA,
+        ).length,
+        blockedPlaybackCount,
+        documentHidden: document.hidden,
+        adActive: detectAd(platform),
+        readyState: primary?.readyState,
+        currentTime: primary ? Math.floor(primary.currentTime) : undefined,
+        duration:
+          primary && Number.isFinite(primary.duration) ? Math.floor(primary.duration) : undefined,
+      },
+    })
+    .catch(() => undefined);
 }
 
 // Markers the platform leaves in the DOM while an ad is rolling. Twitch's are

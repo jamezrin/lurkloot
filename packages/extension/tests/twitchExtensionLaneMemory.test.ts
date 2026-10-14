@@ -6,15 +6,20 @@ describe("Twitch Extensions lane memory", () => {
   const now = Date.UTC(2026, 8, 14, 12);
 
   it("keeps valid, unexpired deadlines", () => {
-    expect(parseTwitchExtensionLaneMemory({
-      version: 1,
-      knownComplete: { nopixel: now + 60_000 },
-      completedUntil: { fortnite: now + 60_000 },
-      unavailableUntil: { "nopixel:buddha": now + 60_000 },
-      identityRequiredUntil: { fortnite: now + 60_000 },
-      lastCompletedNoPixelChannel: "buddha",
-      owner: "viewer",
-    }, now)).toEqual({
+    expect(
+      parseTwitchExtensionLaneMemory(
+        {
+          version: 1,
+          knownComplete: { nopixel: now + 60_000 },
+          completedUntil: { fortnite: now + 60_000 },
+          unavailableUntil: { "nopixel:buddha": now + 60_000 },
+          identityRequiredUntil: { fortnite: now + 60_000 },
+          lastCompletedNoPixelChannel: "buddha",
+          owner: "viewer",
+        },
+        now,
+      ),
+    ).toEqual({
       version: 1,
       knownComplete: { nopixel: now + 60_000 },
       completedUntil: { fortnite: now + 60_000 },
@@ -26,16 +31,36 @@ describe("Twitch Extensions lane memory", () => {
   });
 
   it("drops expired, far-future, unknown and malformed entries", () => {
-    expect(parseTwitchExtensionLaneMemory({
+    expect(
+      parseTwitchExtensionLaneMemory(
+        {
+          version: 1,
+          knownComplete: {
+            nopixel: now - 1,
+            fortnite: now + 30 * 60 * 60_000,
+            drops: now + 60_000,
+          },
+          completedUntil: { nopixel: "soon" },
+          unavailableUntil: {
+            "nopixel:Buddha!": now + 60_000,
+            "unknown:buddha": now + 60_000,
+            "nopixel:buddha:extra": now + 60_000,
+            "fortnite:ninja": Number.NaN,
+          },
+          identityRequiredUntil: { nopixel: now - 1, drops: now + 60_000 },
+          lastCompletedNoPixelChannel: "not a login",
+          owner: "Not A Login!",
+          token: "private",
+        },
+        now,
+      ),
+    ).toEqual({
       version: 1,
-      knownComplete: { nopixel: now - 1, fortnite: now + 30 * 60 * 60_000, drops: now + 60_000 },
-      completedUntil: { nopixel: "soon" },
-      unavailableUntil: { "nopixel:Buddha!": now + 60_000, "unknown:buddha": now + 60_000, "nopixel:buddha:extra": now + 60_000, "fortnite:ninja": Number.NaN },
-      identityRequiredUntil: { nopixel: now - 1, drops: now + 60_000 },
-      lastCompletedNoPixelChannel: "not a login",
-      owner: "Not A Login!",
-      token: "private",
-    }, now)).toEqual({ version: 1, knownComplete: {}, completedUntil: {}, unavailableUntil: {}, identityRequiredUntil: {} });
+      knownComplete: {},
+      completedUntil: {},
+      unavailableUntil: {},
+      identityRequiredUntil: {},
+    });
   });
 
   it.each([undefined, null, "memory", { version: 2 }])("treats %s as no memory", (value) => {
@@ -43,8 +68,13 @@ describe("Twitch Extensions lane memory", () => {
   });
 
   it("bounds the number of channel cooldowns it restores", () => {
-    const unavailableUntil = Object.fromEntries(Array.from({ length: 200 }, (_, index) => [`nopixel:channel${index}`, now + 60_000]));
-    const parsed = parseTwitchExtensionLaneMemory({ version: 1, knownComplete: {}, completedUntil: {}, unavailableUntil }, now);
+    const unavailableUntil = Object.fromEntries(
+      Array.from({ length: 200 }, (_, index) => [`nopixel:channel${index}`, now + 60_000]),
+    );
+    const parsed = parseTwitchExtensionLaneMemory(
+      { version: 1, knownComplete: {}, completedUntil: {}, unavailableUntil },
+      now,
+    );
     expect(Object.keys(parsed!.unavailableUntil)).toHaveLength(64);
   });
 });

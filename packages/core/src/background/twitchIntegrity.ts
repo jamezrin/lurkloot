@@ -1,6 +1,11 @@
 import type { EngineSettings } from "@lurkloot/shared/models";
 import type { DiagnosticEvent, EventEmitter } from "@lurkloot/shared/events";
-import { isValidTwitchIntegrity, noteTwitchGqlRequest, setTwitchIntegrity, syncManagedTabBreakers } from "../core/tabRegistry";
+import {
+  isValidTwitchIntegrity,
+  noteTwitchGqlRequest,
+  setTwitchIntegrity,
+  syncManagedTabBreakers,
+} from "../core/tabRegistry";
 import { recordManagedTabOpen } from "../core/criticalHealth";
 import { integrityFromHeaders } from "../core/twitchIntegrity";
 import type { IntegrityHeader, TwitchIntegrity } from "../core/twitchIntegrity";
@@ -60,14 +65,17 @@ interface TwitchIntegrityState {
 // The Twitch integrity token: loading, capture, refresh scheduling and lifecycle.
 export function createTwitchIntegrity<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
-  { lifecycleSlice, tabRegistry, policySlice }: Pick<ControllerSlices<S>, "lifecycleSlice" | "tabRegistry" | "policySlice">,
-  calls: Pick<ControllerCalls<S>,
-    | "persistAndReport"
-    | "reportBestEffort"
-    | "withEventCollector"
-    | "withStateLock"
+  {
+    lifecycleSlice,
+    tabRegistry,
+    policySlice,
+  }: Pick<ControllerSlices<S>, "lifecycleSlice" | "tabRegistry" | "policySlice">,
+  calls: Pick<
+    ControllerCalls<S>,
+    "persistAndReport" | "reportBestEffort" | "withEventCollector" | "withStateLock"
   >,
-): Pick<ControllerCalls<S>,
+): Pick<
+  ControllerCalls<S>,
   | "clearTwitchIntegrityAlarmBestEffort"
   | "loadStoredTwitchIntegrity"
   | "runTwitchIntegrityRefresh"
@@ -79,12 +87,8 @@ export function createTwitchIntegrity<S extends EngineSettings>(
   | "awaitInitialTwitchIntegrityLoad"
   | "resetTwitchIntegrity"
 > {
-  const {
-    persistAndReport,
-    reportBestEffort,
-    withEventCollector,
-    withStateLock,
-  } = lateBound(calls);
+  const { persistAndReport, reportBestEffort, withEventCollector, withStateLock } =
+    lateBound(calls);
   const integrityPort = ports.twitch.integrity;
   const integritySlice: TwitchIntegrityState = {
     bookkeeping: Promise.resolve(),
@@ -132,14 +136,15 @@ export function createTwitchIntegrity<S extends EngineSettings>(
   policySlice.settingsCommitParticipants.push((intent) => {
     // A save that disables Twitch holds off integrity work from as early as
     // it is known (#589) until the save has reconciled, or failed.
-    let release: (() => void) | undefined = intent?.platform?.twitch?.enabled === false
-      ? holdTwitchIntegrityForDisable()
-      : undefined;
+    let release: (() => void) | undefined =
+      intent?.platform?.twitch?.enabled === false ? holdTwitchIntegrityForDisable() : undefined;
     let enabledChanged = false;
     return {
       prepared: (commit) => {
-        enabledChanged = commit.previous.platform.twitch.enabled !== commit.settings.platform.twitch.enabled;
-        if (enabledChanged && !commit.settings.platform.twitch.enabled) release ??= holdTwitchIntegrityForDisable();
+        enabledChanged =
+          commit.previous.platform.twitch.enabled !== commit.settings.platform.twitch.enabled;
+        if (enabledChanged && !commit.settings.platform.twitch.enabled)
+          release ??= holdTwitchIntegrityForDisable();
       },
       end: async (saved, proceed) => {
         try {
@@ -149,7 +154,8 @@ export function createTwitchIntegrity<S extends EngineSettings>(
           // saved it. A disable that failed to save reconciles too: it held off
           // integrity work while pending, and the stored flag, still enabled,
           // brings the schedule back. Nothing is rolled back.
-          if (proceed && (enabledChanged || (release && !saved))) await reconcileTwitchIntegrityAfterCommit();
+          if (proceed && (enabledChanged || (release && !saved)))
+            await reconcileTwitchIntegrityAfterCommit();
         } finally {
           // A disable admits no integrity work until its lifecycle has closed,
           // or until its save failed.
@@ -175,9 +181,11 @@ export function createTwitchIntegrity<S extends EngineSettings>(
   }
 
   function twitchIntegrityRefreshTarget(integrity: TwitchIntegrity): number {
-    return integrity.expiresAt
+    return (
+      integrity.expiresAt
       - TWITCH_INTEGRITY_REFRESH_LEAD_MS
-      - integrityRefreshJitter(integrity.integrity);
+      - integrityRefreshJitter(integrity.integrity)
+    );
   }
 
   function installTwitchIntegrity(
@@ -195,14 +203,15 @@ export function createTwitchIntegrity<S extends EngineSettings>(
       : undefined;
   }
 
-  function reconcileStoredTwitchIntegrity(stored: TwitchIntegrity | undefined): TwitchIntegrity | undefined {
+  function reconcileStoredTwitchIntegrity(
+    stored: TwitchIntegrity | undefined,
+  ): TwitchIntegrity | undefined {
     const current = currentInstalledTwitchIntegrity();
     if (!isValidTwitchIntegrity(stored)) return current;
-    const storedSupersedesCurrent = !current
-      || (
-        stored.integrity !== current.integrity
-        && integritySlice.persistedToken === current.integrity
-      );
+    const storedSupersedesCurrent =
+      !current
+      || (stored.integrity !== current.integrity
+        && integritySlice.persistedToken === current.integrity);
     integritySlice.persistedToken = stored.integrity;
     if (storedSupersedesCurrent) {
       installTwitchIntegrity(stored);
@@ -218,7 +227,10 @@ export function createTwitchIntegrity<S extends EngineSettings>(
   }
 
   // Runs `operation` after every earlier operation on `lane`.
-  function inLane<T>(lane: "bookkeeping" | "alarmMutation", operation: () => Promise<T>): Promise<T> {
+  function inLane<T>(
+    lane: "bookkeeping" | "alarmMutation",
+    operation: () => Promise<T>,
+  ): Promise<T> {
     // Awaited, and released through its own promise rather than a .then() on
     // the result, so an async stack trace taken inside `operation` still
     // reaches the caller (the test lock tracker reads it).
@@ -343,50 +355,52 @@ export function createTwitchIntegrity<S extends EngineSettings>(
     } catch (error) {
       settingsReadError = error;
     }
-    await withIntegrityBookkeeping(() => withEventCollector(async (emit, events) => {
-      const ownsStartupLoad = (): boolean =>
-        !lifecycleSlice.controllerShutdown
-        && integritySlice.lifecycleGeneration === lifecycleGeneration
-        && currentTwitchSettingsTransition() === settingsTransitionGeneration;
-      let integrity: TwitchIntegrity | undefined;
-      if (settingsReadError) {
-        emit({
-          category: "diagnostic",
-          level: "debug",
-          platform: "twitch",
-          message: `Could not read Twitch settings while priming integrity (${errorMessage(settingsReadError)})`,
-        });
-      }
-      try {
-        integrity = await ports.twitch.integrity?.load();
-      } catch (error) {
-        // A missing/corrupt stored token is non-fatal: fresh page traffic will
-        // re-capture one, and claims simply stay best-effort until then.
-        emit({
-          category: "diagnostic",
-          level: "debug",
-          platform: "twitch",
-          message: `No stored Twitch integrity token to prime (${errorMessage(error)})`,
-        });
-      }
-      if (!ownsStartupLoad()) return;
-      if (isValidTwitchIntegrity(integrity)) {
-        const current = reconcileStoredTwitchIntegrity(integrity);
-        const ownsSchedule = (): boolean =>
-          twitchEnabled === true && lifecycleAdmits() && ownsStartupLoad();
-        if (ownsSchedule()) {
-          await scheduleTwitchIntegrityRefreshBestEffort(current!, emit, ownsSchedule);
+    await withIntegrityBookkeeping(() =>
+      withEventCollector(async (emit, events) => {
+        const ownsStartupLoad = (): boolean =>
+          !lifecycleSlice.controllerShutdown
+          && integritySlice.lifecycleGeneration === lifecycleGeneration
+          && currentTwitchSettingsTransition() === settingsTransitionGeneration;
+        let integrity: TwitchIntegrity | undefined;
+        if (settingsReadError) {
+          emit({
+            category: "diagnostic",
+            level: "debug",
+            platform: "twitch",
+            message: `Could not read Twitch settings while priming integrity (${errorMessage(settingsReadError)})`,
+          });
         }
-      } else if (integrity) {
-        emit({
-          category: "diagnostic",
-          level: "debug",
-          platform: "twitch",
-          message: "Stored Twitch integrity token is expired or too close to expiry; ignoring it",
-        });
-      }
-      await reportBestEffort(events);
-    }));
+        try {
+          integrity = await ports.twitch.integrity?.load();
+        } catch (error) {
+          // A missing/corrupt stored token is non-fatal: fresh page traffic will
+          // re-capture one, and claims simply stay best-effort until then.
+          emit({
+            category: "diagnostic",
+            level: "debug",
+            platform: "twitch",
+            message: `No stored Twitch integrity token to prime (${errorMessage(error)})`,
+          });
+        }
+        if (!ownsStartupLoad()) return;
+        if (isValidTwitchIntegrity(integrity)) {
+          const current = reconcileStoredTwitchIntegrity(integrity);
+          const ownsSchedule = (): boolean =>
+            twitchEnabled === true && lifecycleAdmits() && ownsStartupLoad();
+          if (ownsSchedule()) {
+            await scheduleTwitchIntegrityRefreshBestEffort(current!, emit, ownsSchedule);
+          }
+        } else if (integrity) {
+          emit({
+            category: "diagnostic",
+            level: "debug",
+            platform: "twitch",
+            message: "Stored Twitch integrity token is expired or too close to expiry; ignoring it",
+          });
+        }
+        await reportBestEffort(events);
+      }),
+    );
   }
 
   async function runTwitchIntegrityRefresh(): Promise<void> {
@@ -443,9 +457,7 @@ export function createTwitchIntegrity<S extends EngineSettings>(
           })();
 
           if (!shouldAcquire || !integrityPort || !ownsRefresh()) return;
-          const remainingMs = integrity
-            ? Math.max(0, integrity.expiresAt - Date.now())
-            : 0;
+          const remainingMs = integrity ? Math.max(0, integrity.expiresAt - Date.now()) : 0;
           emit({
             category: "diagnostic",
             platform: "twitch",
@@ -467,7 +479,8 @@ export function createTwitchIntegrity<S extends EngineSettings>(
               category: "diagnostic",
               platform: "twitch",
               level: "debug",
-              message: "Proactive Twitch integrity refresh was deferred; the next normal scheduler alarm will retry",
+              message:
+                "Proactive Twitch integrity refresh was deferred; the next normal scheduler alarm will retry",
             });
           }
         } catch {
@@ -483,7 +496,8 @@ export function createTwitchIntegrity<S extends EngineSettings>(
               category: "diagnostic",
               platform: "twitch",
               level: "debug",
-              message: "Proactive Twitch integrity refresh was deferred; the next normal scheduler alarm will retry",
+              message:
+                "Proactive Twitch integrity refresh was deferred; the next normal scheduler alarm will retry",
             });
           }
         } finally {
@@ -503,7 +517,10 @@ export function createTwitchIntegrity<S extends EngineSettings>(
   // `tabId` is optional so hosts that cannot attribute a request to a tab still
   // capture tokens; when present it also lets a managed refresh distinguish its
   // own replacement from a concurrent user-tab replay.
-  async function captureTwitchIntegrity(headers: IntegrityHeader[] | undefined, tabId?: number): Promise<void> {
+  async function captureTwitchIntegrity(
+    headers: IntegrityHeader[] | undefined,
+    tabId?: number,
+  ): Promise<void> {
     // Noted before the integrity filter: an anonymous GQL request carries no
     // Client-Integrity header but still proves the SPA has booted.
     noteTwitchGqlRequest(tabRegistry, tabId);
@@ -539,25 +556,28 @@ export function createTwitchIntegrity<S extends EngineSettings>(
     // (#589), so it never queues behind a tick. A host reset since the capture
     // wins: the token it wiped is not written back.
     const resetGeneration = integritySlice.resetGeneration;
-    await withIntegrityBookkeeping(() => withEventCollector(async (emit, events) => {
-      if (
-        integrity.integrity === integritySlice.persistedToken
-        || !integrityPort
-        || integritySlice.resetGeneration !== resetGeneration
-      ) return;
-      try {
-        await integrityPort.save(integrity);
-        integritySlice.persistedToken = integrity.integrity;
-      } catch {
-        emit({
-          category: "diagnostic",
-          platform: "twitch",
-          level: "warn",
-          message: "Could not persist the captured Twitch integrity token",
-        });
-      }
-      await reportBestEffort(events);
-    }));
+    await withIntegrityBookkeeping(() =>
+      withEventCollector(async (emit, events) => {
+        if (
+          integrity.integrity === integritySlice.persistedToken
+          || !integrityPort
+          || integritySlice.resetGeneration !== resetGeneration
+        )
+          return;
+        try {
+          await integrityPort.save(integrity);
+          integritySlice.persistedToken = integrity.integrity;
+        } catch {
+          emit({
+            category: "diagnostic",
+            platform: "twitch",
+            level: "warn",
+            message: "Could not persist the captured Twitch integrity token",
+          });
+        }
+        await reportBestEffort(events);
+      }),
+    );
     if (!isNew) return;
     const lifecycleGeneration = integritySlice.lifecycleGeneration;
     const settingsTransitionGeneration = currentTwitchSettingsTransition();
@@ -589,57 +609,61 @@ export function createTwitchIntegrity<S extends EngineSettings>(
     tickContext?: TickDiagnosticContext,
   ): Promise<void> {
     try {
-      await withStateLock(() => withEventCollector(async (emit, events) => {
-        if (!lifecycleAdmits()) return;
-        const settings = await ports.storage.loadSettings();
-        if (!lifecycleAdmits() || !settings.criticalFailurePromptEnabled) return;
-        const state = await ports.storage.loadState();
-        const transition = recordManagedTabOpen(state, "twitch", Date.now(), {
-          source: "page_context",
-          reason,
-        });
-        if (transition.event) emit(transition.event);
-        syncManagedTabBreakers(tabRegistry, transition.state, ["twitch"]);
-        await persistAndReport(
-          transition.state,
-          tickContext ? correlateTickDiagnostics(events, tickContext) : events,
-        );
-      }));
+      await withStateLock(() =>
+        withEventCollector(async (emit, events) => {
+          if (!lifecycleAdmits()) return;
+          const settings = await ports.storage.loadSettings();
+          if (!lifecycleAdmits() || !settings.criticalFailurePromptEnabled) return;
+          const state = await ports.storage.loadState();
+          const transition = recordManagedTabOpen(state, "twitch", Date.now(), {
+            source: "page_context",
+            reason,
+          });
+          if (transition.event) emit(transition.event);
+          syncManagedTabBreakers(tabRegistry, transition.state, ["twitch"]);
+          await persistAndReport(
+            transition.state,
+            tickContext ? correlateTickDiagnostics(events, tickContext) : events,
+          );
+        }),
+      );
     } catch {
-      await reportBestEffort([{
-        category: "diagnostic",
-        platform: "twitch",
-        level: "warn",
-        message: "Could not account for a managed Twitch integrity page context",
-        ...tickContext,
-      }]);
+      await reportBestEffort([
+        {
+          category: "diagnostic",
+          platform: "twitch",
+          level: "warn",
+          message: "Could not account for a managed Twitch integrity page context",
+          ...tickContext,
+        },
+      ]);
     }
   }
 
-  async function restoreTwitchIntegritySchedule(
-    transitionIsCurrent: () => boolean,
-  ): Promise<void> {
+  async function restoreTwitchIntegritySchedule(transitionIsCurrent: () => boolean): Promise<void> {
     const ownsRestore = (): boolean => lifecycleAdmits() && transitionIsCurrent();
-    await withIntegrityBookkeeping(() => withEventCollector(async (emit, events) => {
-      if (!ownsRestore()) return;
-      let stored: TwitchIntegrity | undefined;
-      try {
-        stored = await ports.twitch.integrity?.load();
-      } catch {
-        emit({
-          category: "diagnostic",
-          platform: "twitch",
-          level: "debug",
-          message: "Could not reload stored Twitch integrity after Twitch was enabled",
-        });
-      }
-      if (!ownsRestore()) return;
-      const integrity = reconcileStoredTwitchIntegrity(stored);
-      if (integrity && transitionIsCurrent()) {
-        await scheduleTwitchIntegrityRefreshBestEffort(integrity, emit, ownsRestore);
-      }
-      await reportBestEffort(events);
-    }));
+    await withIntegrityBookkeeping(() =>
+      withEventCollector(async (emit, events) => {
+        if (!ownsRestore()) return;
+        let stored: TwitchIntegrity | undefined;
+        try {
+          stored = await ports.twitch.integrity?.load();
+        } catch {
+          emit({
+            category: "diagnostic",
+            platform: "twitch",
+            level: "debug",
+            message: "Could not reload stored Twitch integrity after Twitch was enabled",
+          });
+        }
+        if (!ownsRestore()) return;
+        const integrity = reconcileStoredTwitchIntegrity(stored);
+        if (integrity && transitionIsCurrent()) {
+          await scheduleTwitchIntegrityRefreshBestEffort(integrity, emit, ownsRestore);
+        }
+        await reportBestEffort(events);
+      }),
+    );
   }
 
   async function prepareTwitchIntegrity(
@@ -656,10 +680,11 @@ export function createTwitchIntegrity<S extends EngineSettings>(
         const ready = await port.ensure(emit, {
           signal,
           reason: due ? "proactive_refresh" : "readiness",
-          onManagedPageContextOpen: () => recordTwitchIntegrityManagedTabOpen(
-            due ? "proactive_integrity_refresh" : "integrity_readiness",
-            tickContext,
-          ),
+          onManagedPageContextOpen: () =>
+            recordTwitchIntegrityManagedTabOpen(
+              due ? "proactive_integrity_refresh" : "integrity_readiness",
+              tickContext,
+            ),
           ...(due
             ? {
                 forceRefresh: true,
@@ -672,7 +697,8 @@ export function createTwitchIntegrity<S extends EngineSettings>(
             category: "diagnostic",
             platform: "twitch",
             level: "warn",
-            message: "No valid Twitch integrity token; delaying authenticated Twitch work until the next normal scheduler alarm",
+            message:
+              "No valid Twitch integrity token; delaying authenticated Twitch work until the next normal scheduler alarm",
           });
         }
         return ready;
@@ -688,7 +714,8 @@ export function createTwitchIntegrity<S extends EngineSettings>(
             category: "diagnostic",
             platform: "twitch",
             level: "debug",
-            message: "Twitch integrity acquisition was cancelled because Twitch stopped; continuing other platform work",
+            message:
+              "Twitch integrity acquisition was cancelled because Twitch stopped; continuing other platform work",
           });
           return false;
         }
@@ -696,7 +723,8 @@ export function createTwitchIntegrity<S extends EngineSettings>(
           category: "diagnostic",
           platform: "twitch",
           level: "warn",
-          message: "No valid Twitch integrity token; delaying authenticated Twitch work until the next normal scheduler alarm",
+          message:
+            "No valid Twitch integrity token; delaying authenticated Twitch work until the next normal scheduler alarm",
         });
         return false;
       } finally {

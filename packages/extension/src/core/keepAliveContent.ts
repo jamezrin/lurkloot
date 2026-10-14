@@ -15,7 +15,8 @@ function keepAliveActive(): boolean {
 }
 
 function overrideDocumentGetter(property: string, spoofed: () => unknown): void {
-  const original = Object.getOwnPropertyDescriptor(Document.prototype, property)
+  const original =
+    Object.getOwnPropertyDescriptor(Document.prototype, property)
     ?? Object.getOwnPropertyDescriptor(document, property);
   if (!original?.get) return;
   Object.defineProperty(document, property, {

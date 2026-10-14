@@ -67,8 +67,12 @@ export function createSpadeHeartbeat(options: SpadeHeartbeatOptions): TwitchHear
   const resolveDestination = (context: TwitchHeartbeatContext): Promise<string | undefined> =>
     resolveSpadeDestination(options.fetchText, context.channel.url);
 
-  const send = async (destination: string, context: TwitchHeartbeatContext): Promise<SpadeSendResult> => {
-    if (!isAllowedTwitchUrl(destination)) return { ok: false, message: "Unsafe Twitch Spade destination" };
+  const send = async (
+    destination: string,
+    context: TwitchHeartbeatContext,
+  ): Promise<SpadeSendResult> => {
+    if (!isAllowedTwitchUrl(destination))
+      return { ok: false, message: "Unsafe Twitch Spade destination" };
     try {
       const response = await options.post(destination, {
         method: "POST",
@@ -100,7 +104,7 @@ export function createSpadeHeartbeat(options: SpadeHeartbeatOptions): TwitchHear
     async tick(context: TwitchHeartbeatContext): Promise<HeartbeatResult> {
       const channel = context.channel.username.trim().toLowerCase();
       try {
-        const destination = destinations.get(channel) ?? await resolveDestination(context);
+        const destination = destinations.get(channel) ?? (await resolveDestination(context));
         if (!destination) return failed("Unable to resolve a secure Twitch Spade destination");
         destinations.set(channel, destination);
         const first = await send(destination, context);

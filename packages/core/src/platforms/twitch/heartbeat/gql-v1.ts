@@ -55,7 +55,9 @@ export function buildMinuteWatchedEvent(ctx: MinuteWatchedContext): Array<Record
   ];
 }
 
-export async function buildSpadeInput(ctx: MinuteWatchedContext): Promise<{ data: string; repository: string; encoding: string }> {
+export async function buildSpadeInput(
+  ctx: MinuteWatchedContext,
+): Promise<{ data: string; repository: string; encoding: string }> {
   return {
     data: await gzipBase64(JSON.stringify(buildMinuteWatchedEvent(ctx))),
     repository: "twilight",
@@ -101,8 +103,15 @@ export function createTwitchGqlV1HeartbeatStrategy(
       );
       const status = result.data?.sendSpadeEvents?.statusCode;
       const ok = status === 204;
-      log("debug", `Spade event for ${context.channel.username} returned status ${status ?? "unknown"}`);
-      return { ok, live: true, message: ok ? undefined : `Twitch watch event returned status ${status ?? "unknown"}` };
+      log(
+        "debug",
+        `Spade event for ${context.channel.username} returned status ${status ?? "unknown"}`,
+      );
+      return {
+        ok,
+        live: true,
+        message: ok ? undefined : `Twitch watch event returned status ${status ?? "unknown"}`,
+      };
     },
   };
 }

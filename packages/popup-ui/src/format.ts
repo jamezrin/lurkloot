@@ -3,11 +3,20 @@ import type { TFunction } from "./types";
 export function formatEventTime(at: string): string {
   const time = Date.parse(at);
   if (Number.isNaN(time)) return "";
-  return new Date(time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  return new Date(time).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 }
 
 export function initials(value: string): string {
-  const result = value.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("");
+  const result = value
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
   return result || "SM";
 }
 
@@ -48,7 +57,13 @@ export function formatDateTime(value: string, locale: string): string {
   if (!value || Number.isNaN(time)) return "";
   try {
     // Catalog codes use an underscore (pt_BR, zh_CN); BCP 47 wants a hyphen.
-    return new Date(time).toLocaleString(locale.replace(/_/g, "-"), { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+    return new Date(time).toLocaleString(locale.replace(/_/g, "-"), {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   } catch {
     return new Date(time).toLocaleString();
   }

@@ -4,11 +4,31 @@ export type Platform = "twitch" | "kick";
 
 export type WatchSourceId = "drops" | "nopixel" | "fortnite" | "idle_watchlist";
 
-export type PlatformAuthStatus = "checking" | "healthy" | "missing_credentials" | "invalid_credentials" | "blocked" | "unavailable";
+export type PlatformAuthStatus =
+  | "checking"
+  | "healthy"
+  | "missing_credentials"
+  | "invalid_credentials"
+  | "blocked"
+  | "unavailable";
 
-export type PlatformAuthReasonCode = "credentials_missing" | "credentials_rejected" | "security_policy_blocked" | "credential_lookup_failed" | "platform_unavailable" | "network_unavailable";
+export type PlatformAuthReasonCode =
+  | "credentials_missing"
+  | "credentials_rejected"
+  | "security_policy_blocked"
+  | "credential_lookup_failed"
+  | "platform_unavailable"
+  | "network_unavailable";
 
-export type PlatformAuthMessageKey = "authChecking" | "authHealthy" | "authMissingCredentials" | "authInvalidCredentials" | "authSecurityPolicyBlocked" | "authCredentialLookupFailed" | "authPlatformUnavailable" | "authNetworkUnavailable";
+export type PlatformAuthMessageKey =
+  | "authChecking"
+  | "authHealthy"
+  | "authMissingCredentials"
+  | "authInvalidCredentials"
+  | "authSecurityPolicyBlocked"
+  | "authCredentialLookupFailed"
+  | "authPlatformUnavailable"
+  | "authNetworkUnavailable";
 
 export interface PlatformAuthMessage {
   key: PlatformAuthMessageKey;
@@ -90,7 +110,14 @@ export interface DropCampaign {
   accountLinked?: boolean;
   accountLinkUrl?: string;
   claimGuidance?: ClaimGuidance;
-  eligibility?: "eligible" | "account_not_linked" | "waiting_for_subscription" | "upcoming" | "expired" | "completed" | "no_rewards";
+  eligibility?:
+    | "eligible"
+    | "account_not_linked"
+    | "waiting_for_subscription"
+    | "upcoming"
+    | "expired"
+    | "completed"
+    | "no_rewards";
   eligibilityReason?: string;
   priority?: number;
   url?: string;
@@ -316,7 +343,18 @@ export interface PlaybackTelemetry {
 // browser throttles in background tabs/windows) keeps progressing.
 export type AdFocusMode = "none" | "tab" | "window";
 
-export type SupportedLocale = "en" | "es" | "fr" | "it" | "ru" | "de" | "zh_CN" | "hi" | "pt_BR" | "ar" | "tr";
+export type SupportedLocale =
+  | "en"
+  | "es"
+  | "fr"
+  | "it"
+  | "ru"
+  | "de"
+  | "zh_CN"
+  | "hi"
+  | "pt_BR"
+  | "ar"
+  | "tr";
 
 export type LanguageOverride = "browser" | SupportedLocale;
 
@@ -343,7 +381,11 @@ export type CategoryMode = "all" | "include";
 // whether LurkLoot is in the watched channel's chat. Runtime only; attached to
 // snapshots, never persisted.
 export type ChatPresenceState = "left" | "joining" | "joined" | "error" | "blocked";
-export type ChatPresenceBlockReason = "auth" | "origin-rejected" | "unsupported-provider" | "capability-absent";
+export type ChatPresenceBlockReason =
+  | "auth"
+  | "origin-rejected"
+  | "unsupported-provider"
+  | "capability-absent";
 export interface ChatPresenceStatus {
   state: ChatPresenceState;
   channel?: string;
@@ -486,17 +528,46 @@ export interface EngineSettings {
 // applyAdFocus, not read from settings by the engine; popup UI state (i18n, rate
 // nudge) is pure host state.
 export type TwitchExtensionProviderId = "nopixel" | "fortnite";
-export type TwitchExtensionStatus = "idle" | "discovering" | "connecting" | "farming" | "complete" | "unavailable" | "error";
-export type TwitchExtensionReasonCode = "disabled" | "permission-required" | "auth-required" | "identity-required"
+export type TwitchExtensionStatus =
+  | "idle"
+  | "discovering"
+  | "connecting"
+  | "farming"
+  | "complete"
+  | "unavailable"
+  | "error";
+export type TwitchExtensionReasonCode =
+  | "disabled"
+  | "permission-required"
+  | "auth-required"
+  | "identity-required"
   // `not-installed`: the watched channel doesn't have the provider's extension
   // at all; `channel-ineligible` is the vendor's own answer (#728).
-  | "channel-required" | "not-installed" | "channel-ineligible" | "channel-not-connected" | "watchtime" | "giveaway" | "collecting"
-  | "phase-closed" | "rewards-complete" | "transport-error" | "compatibility-error" | "provider-error" | "connecting";
+  | "channel-required"
+  | "not-installed"
+  | "channel-ineligible"
+  | "channel-not-connected"
+  | "watchtime"
+  | "giveaway"
+  | "collecting"
+  | "phase-closed"
+  | "rewards-complete"
+  | "transport-error"
+  | "compatibility-error"
+  | "provider-error"
+  | "connecting";
 export interface TwitchExtensionReport {
   status: TwitchExtensionStatus;
   reasonCode: TwitchExtensionReasonCode;
-  progress: { key: "daily-pack" | "phase-captures" | "phase-score" | "rewards"; earned: number; required: number }[];
-  pending: { key: "giveaway" | "participation" | "completion" | "takeover" | "account-link"; state: "open" | "done" | "blocked" }[];
+  progress: {
+    key: "daily-pack" | "phase-captures" | "phase-score" | "rewards";
+    earned: number;
+    required: number;
+  }[];
+  pending: {
+    key: "giveaway" | "participation" | "completion" | "takeover" | "account-link";
+    state: "open" | "done" | "blocked";
+  }[];
 }
 export interface TwitchExtensionSummary extends TwitchExtensionReport {
   channel?: { username: string; displayName?: string };

@@ -8,7 +8,13 @@ import { Tip } from "./tooltip";
 
 export { shouldShowGithubStarNudge, shouldShowRateNudge } from "./rateNudge.logic";
 
-export function RateNudge({ onRate, onDismiss }: { onRate(): void; onDismiss(): void }): React.ReactElement {
+export function RateNudge({
+  onRate,
+  onDismiss,
+}: {
+  onRate(): void;
+  onDismiss(): void;
+}): React.ReactElement {
   const t = useT();
   return (
     <motion.div

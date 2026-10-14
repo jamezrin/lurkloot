@@ -29,7 +29,12 @@
                 "requiredSubs": 0,
                 "preconditionDrops": null,
                 "benefitEdges": [
-                  { "benefit": { "id": "9a0d24bc-2604-11f1-9ba4-0a58a9feac02", "name": "Supply Crate" } }
+                  {
+                    "benefit": {
+                      "id": "9a0d24bc-2604-11f1-9ba4-0a58a9feac02",
+                      "name": "Supply Crate"
+                    }
+                  }
                 ],
                 "self": {
                   "currentMinutesWatched": 240,
@@ -44,7 +49,12 @@
                 "requiredSubs": 0,
                 "preconditionDrops": null,
                 "benefitEdges": [
-                  { "benefit": { "id": "9a0d24bc-2604-11f1-9ba4-0a58a9feac02", "name": "Supply Crate" } }
+                  {
+                    "benefit": {
+                      "id": "9a0d24bc-2604-11f1-9ba4-0a58a9feac02",
+                      "name": "Supply Crate"
+                    }
+                  }
                 ],
                 "self": {
                   "currentMinutesWatched": 240,
@@ -59,7 +69,12 @@
                 "requiredSubs": 0,
                 "preconditionDrops": null,
                 "benefitEdges": [
-                  { "benefit": { "id": "9a0d24bc-2604-11f1-9ba4-0a58a9feac02", "name": "Supply Crate" } }
+                  {
+                    "benefit": {
+                      "id": "9a0d24bc-2604-11f1-9ba4-0a58a9feac02",
+                      "name": "Supply Crate"
+                    }
+                  }
                 ],
                 "self": {
                   "currentMinutesWatched": 240,
@@ -74,7 +89,12 @@
                 "requiredSubs": 0,
                 "preconditionDrops": null,
                 "benefitEdges": [
-                  { "benefit": { "id": "9a0d24bc-2604-11f1-9ba4-0a58a9feac02", "name": "Supply Crate" } }
+                  {
+                    "benefit": {
+                      "id": "9a0d24bc-2604-11f1-9ba4-0a58a9feac02",
+                      "name": "Supply Crate"
+                    }
+                  }
                 ],
                 "self": {
                   "currentMinutesWatched": 240,
@@ -89,7 +109,12 @@
                 "requiredSubs": 0,
                 "preconditionDrops": null,
                 "benefitEdges": [
-                  { "benefit": { "id": "8152c851-2605-11f1-b46f-0a58a9feac02", "name": "Random Legendary Skin" } }
+                  {
+                    "benefit": {
+                      "id": "8152c851-2605-11f1-b46f-0a58a9feac02",
+                      "name": "Random Legendary Skin"
+                    }
+                  }
                 ],
                 "self": {
                   "currentMinutesWatched": 240,

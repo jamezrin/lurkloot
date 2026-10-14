@@ -33,7 +33,14 @@ function localeNamePattern(locale) {
 }
 
 export class ChromeWebStoreDashboard {
-  constructor({ page, extensionId, publisherId, timeout = 30_000, authenticationTimeout = 10 * 60_000, output = console.log }) {
+  constructor({
+    page,
+    extensionId,
+    publisherId,
+    timeout = 30_000,
+    authenticationTimeout = 10 * 60_000,
+    output = console.log,
+  }) {
     this.page = page;
     this.extensionId = extensionId;
     this.publisherId = publisherId;
@@ -62,8 +69,11 @@ export class ChromeWebStoreDashboard {
     // container holding every media group. Instead take the first panel after
     // the label that holds screenshots and an upload input and encloses no
     // smaller panel of the same shape.
-    const panel = '*[.//img[starts-with(@alt,"Screenshot")] and .//input[@type="file"] and not(.//*[.//img[starts-with(@alt,"Screenshot")] and .//input[@type="file"]])]';
-    return this.page.locator(`xpath=(//*[normalize-space(text())="${label}"])[1]/following::${panel}[1]`);
+    const panel =
+      '*[.//img[starts-with(@alt,"Screenshot")] and .//input[@type="file"] and not(.//*[.//img[starts-with(@alt,"Screenshot")] and .//input[@type="file"]])]';
+    return this.page.locator(
+      `xpath=(//*[normalize-space(text())="${label}"])[1]/following::${panel}[1]`,
+    );
   }
 
   screenshotItems(section = SECTIONS.localized) {
@@ -88,12 +98,17 @@ export class ChromeWebStoreDashboard {
 
   async openAndWaitForAuthentication() {
     await this.page.goto(this.dashboardUrl(), { waitUntil: "domcontentloaded" });
-    this.output("Chrome opened. If it asks you to sign in, do that and complete 2FA; automation resumes on its own and the session is reused next time.");
-    await this.page.waitForURL((url) => url.toString().includes(this.extensionId), { timeout: this.authenticationTimeout });
+    this.output(
+      "Chrome opened. If it asks you to sign in, do that and complete 2FA; automation resumes on its own and the session is reused next time.",
+    );
+    await this.page.waitForURL((url) => url.toString().includes(this.extensionId), {
+      timeout: this.authenticationTimeout,
+    });
 
     const listingHeading = this.page.getByRole("heading", { name: LABELS.storeListing });
-    if (await listingHeading.count() === 0) {
-      const navigation = this.page.getByRole("link", { name: LABELS.storeListing })
+    if ((await listingHeading.count()) === 0) {
+      const navigation = this.page
+        .getByRole("link", { name: LABELS.storeListing })
         .or(this.page.getByRole("tab", { name: LABELS.storeListing }))
         .or(this.page.getByRole("button", { name: LABELS.storeListing }));
       await navigation.first().waitFor({ state: "visible", timeout: this.authenticationTimeout });
@@ -108,7 +123,10 @@ export class ChromeWebStoreDashboard {
   async openLanguageMenu(language) {
     if ((await language.getAttribute("aria-expanded")) === "true") return;
     await language.click();
-    await this.page.getByRole("option").first().waitFor({ state: "visible", timeout: this.timeout });
+    await this.page
+      .getByRole("option")
+      .first()
+      .waitFor({ state: "visible", timeout: this.timeout });
   }
 
   async preflight({ locales }) {
@@ -122,11 +140,15 @@ export class ChromeWebStoreDashboard {
       const locale = localeConfig(code);
       const { dashboardLabel } = locale;
       const name = localeNamePattern(locale);
-      const options = tagName === "SELECT"
-        ? language.getByRole("option", { name })
-        : this.page.getByRole("option", { name });
+      const options =
+        tagName === "SELECT"
+          ? language.getByRole("option", { name })
+          : this.page.getByRole("option", { name });
       const optionCount = await options.count();
-      if (optionCount !== 1) throw new Error(`Dashboard locale ${dashboardLabel}: expected exactly one option, found ${optionCount}`);
+      if (optionCount !== 1)
+        throw new Error(
+          `Dashboard locale ${dashboardLabel}: expected exactly one option, found ${optionCount}`,
+        );
     }
     if (tagName !== "SELECT") await this.page.keyboard.press("Escape");
 
@@ -135,7 +157,9 @@ export class ChromeWebStoreDashboard {
       await requireUnique(this.screenshotRegion(section), `${section} screenshot section`);
       const count = await this.screenshotCount(section);
       if (count !== 4 && count !== 5) {
-        throw new Error(`${section === SECTIONS.global ? "Global" : "Localized"} screenshots: expected 4 or 5 screenshot items, found ${count}`);
+        throw new Error(
+          `${section === SECTIONS.global ? "Global" : "Localized"} screenshots: expected 4 or 5 screenshot items, found ${count}`,
+        );
       }
       await this.requirePngUploadControl(section);
     }
@@ -167,12 +191,16 @@ export class ChromeWebStoreDashboard {
   }
 
   async screenshotMediaFingerprint(section = SECTIONS.localized) {
-    return this.screenshotItems(section).evaluateAll((media) => JSON.stringify(media.map((image) => ({
-      alt: image.getAttribute("alt") ?? "",
-      currentSrc: image.currentSrc ?? "",
-      src: image.getAttribute("src") ?? "",
-      srcset: image.getAttribute("srcset") ?? "",
-    }))));
+    return this.screenshotItems(section).evaluateAll((media) =>
+      JSON.stringify(
+        media.map((image) => ({
+          alt: image.getAttribute("alt") ?? "",
+          currentSrc: image.currentSrc ?? "",
+          src: image.getAttribute("src") ?? "",
+          srcset: image.getAttribute("srcset") ?? "",
+        })),
+      ),
+    );
   }
 
   async waitForScreenshotPanelChange(before, dashboardLabel) {
@@ -182,8 +210,9 @@ export class ChromeWebStoreDashboard {
     while (Date.now() < deadline) {
       const current = await this.screenshotMediaFingerprint();
       const region = await requireUnique(this.screenshotRegion(), "localized screenshot panel");
-      const busy = (await region.getAttribute("aria-busy")) === "true"
-        || await region.getByRole("progressbar").count() > 0;
+      const busy =
+        (await region.getAttribute("aria-busy")) === "true"
+        || (await region.getByRole("progressbar").count()) > 0;
       if (!busy && current !== before) {
         if (candidate !== current) {
           candidate = current;
@@ -221,7 +250,9 @@ export class ChromeWebStoreDashboard {
     }
     const selectedName = await this.selectedLocaleName(language, tagName);
     if (!name.test(selectedName)) {
-      throw new Error(`Dashboard locale ${dashboardLabel}: selector did not confirm the requested language`);
+      throw new Error(
+        `Dashboard locale ${dashboardLabel}: selector did not confirm the requested language`,
+      );
     }
     await this.waitForScreenshotPanelChange(previousScreenshots, dashboardLabel);
   }
@@ -240,7 +271,9 @@ export class ChromeWebStoreDashboard {
     const controls = this.removeControls(section);
     const controlCount = await controls.count();
     if (controlCount !== count) {
-      throw new Error(`Screenshot removal expected ${count} remove controls, found ${controlCount}`);
+      throw new Error(
+        `Screenshot removal expected ${count} remove controls, found ${controlCount}`,
+      );
     }
     this.hasMutated = true;
     await controls.first().click();
@@ -252,7 +285,10 @@ export class ChromeWebStoreDashboard {
   async confirmRemoval() {
     const dialog = this.page.getByRole("dialog").filter({ hasText: LABELS.removeConfirmation });
     await dialog.first().waitFor({ state: "visible", timeout: this.timeout });
-    const confirm = await requireUnique(dialog.getByRole("button", { name: LABELS.confirmRemoval }), "remove confirmation button");
+    const confirm = await requireUnique(
+      dialog.getByRole("button", { name: LABELS.confirmRemoval }),
+      "remove confirmation button",
+    );
     await confirm.click();
     await dialog.first().waitFor({ state: "hidden", timeout: this.timeout });
   }
@@ -270,22 +306,28 @@ export class ChromeWebStoreDashboard {
   }
 
   async waitForUploadCompletion(section = SECTIONS.localized) {
-    if (!this.uploadLifecycle) throw new Error("Screenshot upload lifecycle was not armed before file selection");
+    if (!this.uploadLifecycle)
+      throw new Error("Screenshot upload lifecycle was not armed before file selection");
     const lifecycle = this.uploadLifecycle;
     // This dashboard never paints a visible progress indicator for a screenshot
     // upload, so completion is taken from the thumbnail itself: a single new
     // image source that has finished decoding. Errors still come from the
     // lifecycle observer's alert watch.
     await this.waitForUploadedThumbnailReady(lifecycle, section);
-    const lifecycleError = await lifecycle.evaluate((element) => element.__lurklootUploadState.error);
+    const lifecycleError = await lifecycle.evaluate(
+      (element) => element.__lurklootUploadState.error,
+    );
     const errors = this.uploadErrors(section);
     const errorMessages = [];
-    for (let index = 0; index < await errors.count(); index += 1) {
+    for (let index = 0; index < (await errors.count()); index += 1) {
       const error = errors.nth(index);
-      if (await error.isVisible()) errorMessages.push((await error.textContent())?.trim() ?? "Unknown upload error");
+      if (await error.isVisible())
+        errorMessages.push((await error.textContent())?.trim() ?? "Unknown upload error");
     }
     if (lifecycleError || errorMessages.length > 0) {
-      throw new Error(`Screenshot upload failed validation: ${[lifecycleError, ...errorMessages].filter(Boolean).join("; ")}`);
+      throw new Error(
+        `Screenshot upload failed validation: ${[lifecycleError, ...errorMessages].filter(Boolean).join("; ")}`,
+      );
     }
     await lifecycle.evaluate((element) => element.__lurklootUploadObserver?.disconnect());
     this.uploadLifecycle = undefined;
@@ -293,11 +335,15 @@ export class ChromeWebStoreDashboard {
   }
 
   async screenshotMediaSources(section = SECTIONS.localized) {
-    return this.screenshotItems(section).evaluateAll((media) => media.flatMap((image) => [
-      image.currentSrc ?? "",
-      image.getAttribute("src") ?? "",
-      image.getAttribute("srcset") ?? "",
-    ].filter(Boolean)));
+    return this.screenshotItems(section).evaluateAll((media) =>
+      media.flatMap((image) =>
+        [
+          image.currentSrc ?? "",
+          image.getAttribute("src") ?? "",
+          image.getAttribute("srcset") ?? "",
+        ].filter(Boolean),
+      ),
+    );
   }
 
   async waitForUploadedThumbnailReady(lifecycle, section = SECTIONS.localized) {
@@ -312,18 +358,23 @@ export class ChromeWebStoreDashboard {
         if (images.length === 0) return false;
         let panel = images[0].parentElement;
         while (panel && !panel.querySelector('input[type="file"]')) panel = panel.parentElement;
-        const busy = panel?.getAttribute("aria-busy") === "true"
-          || [...(panel?.querySelectorAll('progress, [role="progressbar"]') ?? [])].some((progress) => {
-            const style = getComputedStyle(progress);
-            const box = progress.getBoundingClientRect();
-            return progress.isConnected
-              && !progress.hidden
-              && progress.getAttribute("aria-hidden") !== "true"
-              && style.display !== "none"
-              && style.visibility !== "hidden"
-              && box.height > 0
-              && box.width > 0;
-          });
+        const busy =
+          panel?.getAttribute("aria-busy") === "true"
+          || [...(panel?.querySelectorAll('progress, [role="progressbar"]') ?? [])].some(
+            (progress) => {
+              const style = getComputedStyle(progress);
+              const box = progress.getBoundingClientRect();
+              return (
+                progress.isConnected
+                && !progress.hidden
+                && progress.getAttribute("aria-hidden") !== "true"
+                && style.display !== "none"
+                && style.visibility !== "hidden"
+                && box.height > 0
+                && box.width > 0
+              );
+            },
+          );
         return !busy && images.every((image) => image.complete && image.naturalWidth > 0);
       });
       if (readiness) return;
@@ -349,7 +400,9 @@ export class ChromeWebStoreDashboard {
       };
       const descendants = (node, selector) => {
         if (!(node instanceof Element)) return [];
-        return [node.matches(selector) ? node : null, ...node.querySelectorAll(selector)].filter(Boolean);
+        return [node.matches(selector) ? node : null, ...node.querySelectorAll(selector)].filter(
+          Boolean,
+        );
       };
       const update = (records = []) => {
         for (const record of records) {
@@ -358,7 +411,9 @@ export class ChromeWebStoreDashboard {
             if (addedError) state.error = addedError.textContent?.trim() || "Unknown upload error";
           }
         }
-        const progress = [...element.querySelectorAll('progress, [role="progressbar"]')].filter(visible);
+        const progress = [...element.querySelectorAll('progress, [role="progressbar"]')].filter(
+          visible,
+        );
         if (progress.length > 0) {
           state.started = true;
           state.settledAt = null;
@@ -369,7 +424,12 @@ export class ChromeWebStoreDashboard {
         if (currentError) state.error = currentError.textContent?.trim() || "Unknown upload error";
       };
       const observer = new MutationObserver(update);
-      observer.observe(element, { attributes: true, childList: true, characterData: true, subtree: true });
+      observer.observe(element, {
+        attributes: true,
+        childList: true,
+        characterData: true,
+        subtree: true,
+      });
       element.__lurklootUploadState = state;
       element.__lurklootUploadObserver = observer;
       update();
@@ -402,30 +462,35 @@ export class ChromeWebStoreDashboard {
     // The dashboard creates its live region only when a save first runs, so the
     // announcement is observed at document level rather than bound to an
     // element that may not exist yet.
-    await this.page.evaluate((patterns) => {
-      window.__lurklootSaveObserver?.disconnect();
-      const saved = new RegExp(patterns.saved, "i");
-      const saving = new RegExp(patterns.saving, "i");
-      const normalize = (text) => text.replace(/\s+/g, " ").trim();
-      const state = { acknowledged: false, lastText: "", sawPending: false };
-      const observeText = (text) => {
-        const normalized = normalize(text);
-        if (!normalized || normalized === state.lastText) return;
-        state.lastText = normalized;
-        if (saving.test(normalized)) state.sawPending = true;
-        else if (saved.test(normalized) && state.sawPending) state.acknowledged = true;
-      };
-      const readRegions = () => {
-        for (const region of document.querySelectorAll('[aria-live]:not([role]), [role="status"]')) {
-          observeText(region.textContent ?? "");
-        }
-      };
-      const observer = new MutationObserver(readRegions);
-      observer.observe(document.body, { childList: true, characterData: true, subtree: true });
-      readRegions();
-      window.__lurklootSaveState = state;
-      window.__lurklootSaveObserver = observer;
-    }, { saved: LABELS.saved.source, saving: LABELS.saving.source });
+    await this.page.evaluate(
+      (patterns) => {
+        window.__lurklootSaveObserver?.disconnect();
+        const saved = new RegExp(patterns.saved, "i");
+        const saving = new RegExp(patterns.saving, "i");
+        const normalize = (text) => text.replace(/\s+/g, " ").trim();
+        const state = { acknowledged: false, lastText: "", sawPending: false };
+        const observeText = (text) => {
+          const normalized = normalize(text);
+          if (!normalized || normalized === state.lastText) return;
+          state.lastText = normalized;
+          if (saving.test(normalized)) state.sawPending = true;
+          else if (saved.test(normalized) && state.sawPending) state.acknowledged = true;
+        };
+        const readRegions = () => {
+          for (const region of document.querySelectorAll(
+            '[aria-live]:not([role]), [role="status"]',
+          )) {
+            observeText(region.textContent ?? "");
+          }
+        };
+        const observer = new MutationObserver(readRegions);
+        observer.observe(document.body, { childList: true, characterData: true, subtree: true });
+        readRegions();
+        window.__lurklootSaveState = state;
+        window.__lurklootSaveObserver = observer;
+      },
+      { saved: LABELS.saved.source, saving: LABELS.saving.source },
+    );
     this.hasMutated = true;
     await save.click();
     try {

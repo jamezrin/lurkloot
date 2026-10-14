@@ -1,4 +1,7 @@
-import type { CompatibilityResolution, ResolvedCompatibility } from "@lurkloot/shared/compatibility";
+import type {
+  CompatibilityResolution,
+  ResolvedCompatibility,
+} from "@lurkloot/shared/compatibility";
 import type { EventEmitter, EventReporter } from "@lurkloot/shared/events";
 import type {
   ChannelCandidate,
@@ -92,12 +95,19 @@ export interface CredentialsPort {
 
 // Adapter construction, compatibility resolution and route diagnostics.
 export interface AdaptersPort<S extends EngineSettings> {
-  createAdapters(emit: EventEmitter, settings: S): {
+  createAdapters(
+    emit: EventEmitter,
+    settings: S,
+  ): {
     adapters: Record<Platform, PlatformAdapter>;
     compatibility: ResolvedCompatibility;
     warnings: CompatibilityResolution["warnings"];
   };
-  createAdapter(platform: Platform, emit: EventEmitter, settings: S): {
+  createAdapter(
+    platform: Platform,
+    emit: EventEmitter,
+    settings: S,
+  ): {
     adapter: PlatformAdapter;
     compatibility: ResolvedCompatibility;
     warnings: CompatibilityResolution["warnings"];
@@ -132,7 +142,12 @@ export interface WatchTabPort {
   closeManaged(tabs: ManagedWatchTab[], origin: Exclude<TabClosureOrigin, "user">): Promise<void>;
   // Tab-mode ad focus. The host owns the focus policy (adFocusMode), so the
   // engine only reports whether an ad is active for a given watch tab.
-  applyAdFocus(platform: Platform, tabId: number | undefined, adActive: boolean, emit: EventEmitter): Promise<void>;
+  applyAdFocus(
+    platform: Platform,
+    tabId: number | undefined,
+    adActive: boolean,
+    emit: EventEmitter,
+  ): Promise<void>;
   // The playback policy the host applies to managed watch tabs.
   loadPlaybackPolicy(): Promise<{ keepVideosUnmuted: boolean }>;
 }
@@ -159,7 +174,11 @@ export interface PageContextPort {
   // context once direct requests have worked for the host's configured number
   // of cycles in a row. Resolves true when the page contexts changed. The engine
   // decides when a cycle counts; the host keeps the evidence and the tab.
-  recover(platform: Platform, options: PageContextRecoveryOptions, emit: EventEmitter): Promise<boolean>;
+  recover(
+    platform: Platform,
+    options: PageContextRecoveryOptions,
+    emit: EventEmitter,
+  ): Promise<boolean>;
   // Drops the evidence a cycle gathered when that cycle did not commit.
   discardRecoveryEvidence(platform: Platform): void;
 }
@@ -237,21 +256,31 @@ export class HostCapabilityMismatchError extends Error {
 }
 
 // Each capability's ports are present exactly when the host declares it.
-export function assertHostCapabilities<S extends EngineSettings>(ports: BackgroundHostPorts<S>): void {
+export function assertHostCapabilities<S extends EngineSettings>(
+  ports: BackgroundHostPorts<S>,
+): void {
   const checks: Array<readonly [keyof HostCapabilities, string, boolean]> = [
     ["browserTabs", "tabs", ports.tabs !== undefined],
     ["twitchIntegrityCapture", "twitch.integrity", ports.twitch.integrity !== undefined],
-    ["supplementalSources", "twitch.supplementalSources", ports.twitch.supplementalSources !== undefined],
+    [
+      "supplementalSources",
+      "twitch.supplementalSources",
+      ports.twitch.supplementalSources !== undefined,
+    ],
   ];
   for (const [capability, port, present] of checks) {
     if (ports.capabilities[capability] === present) continue;
-    throw new HostCapabilityMismatchError(present
-      ? `The host passes ${port} but does not declare the ${capability} capability`
-      : `The host declares the ${capability} capability but does not pass ${port}`);
-  }  // Not the other way round: a registry without tabs is harmless. But a tab host
+    throw new HostCapabilityMismatchError(
+      present
+        ? `The host passes ${port} but does not declare the ${capability} capability`
+        : `The host declares the ${capability} capability but does not pass ${port}`,
+    );
+  } // Not the other way round: a registry without tabs is harmless. But a tab host
   // that forgets it would read integrity and page contexts from a registry the
   // controller never writes to.
   if (ports.capabilities.browserTabs && ports.tabRegistry === undefined) {
-    throw new HostCapabilityMismatchError("The host declares the browserTabs capability but does not pass tabRegistry");
+    throw new HostCapabilityMismatchError(
+      "The host declares the browserTabs capability but does not pass tabRegistry",
+    );
   }
 }

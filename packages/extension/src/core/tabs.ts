@@ -31,11 +31,22 @@ export const liveBrowserTabApi = browser as BrowserTabApi;
 // `reportIntegrityAcquisition` receives the shared integrity mint's events. The
 // mint can outlive the caller that started it, so it cannot report through
 // that caller's emitter.
-export function createBrowserTabs(registry: TabRegistry, reportIntegrityAcquisition?: EventEmitter) {
+export function createBrowserTabs(
+  registry: TabRegistry,
+  reportIntegrityAcquisition?: EventEmitter,
+) {
   const browserApi = liveBrowserTabApi;
   return {
     ensureTwitchIntegrity(emit?: EventEmitter, request?: TwitchIntegrityRequest): Promise<boolean> {
-      return ensureTwitchIntegrityWithBrowser(registry, browserApi, TWITCH_PAGE_CONTEXT_URL, undefined, emit, request, reportIntegrityAcquisition);
+      return ensureTwitchIntegrityWithBrowser(
+        registry,
+        browserApi,
+        TWITCH_PAGE_CONTEXT_URL,
+        undefined,
+        emit,
+        request,
+        reportIntegrityAcquisition,
+      );
     },
 
     cancelTwitchIntegrityAcquisition(reason?: unknown): void {
@@ -54,13 +65,17 @@ export function createBrowserTabs(registry: TabRegistry, reportIntegrityAcquisit
       return fetchKickInBackgroundWith<T>(browser as CookieApi, url, init);
     },
 
-    fetchJsonInPage<T>(originUrl: string, url: string, init?: RequestInit, options?: PageFetchOptions): Promise<T> {
+    fetchJsonInPage<T>(
+      originUrl: string,
+      url: string,
+      init?: RequestInit,
+      options?: PageFetchOptions,
+    ): Promise<T> {
       return fetchJsonInPageWithBrowser<T>(registry, browserApi, originUrl, url, init, options);
     },
 
     recordManagedPageContextFallback(host: string, emit?: EventEmitter): void {
       recordManagedPageContextFallback(registry, "kick", host, emit);
     },
-
   };
 }

@@ -26,7 +26,12 @@ export {
   isLatestActivityMutation,
   mergeActivityPages,
 } from "./activity.logic";
-export type { ActivityCard, ActivityCardIcon, ActivityCardTone, DiagnosticsExportRequest } from "./activity.logic";
+export type {
+  ActivityCard,
+  ActivityCardIcon,
+  ActivityCardTone,
+  DiagnosticsExportRequest,
+} from "./activity.logic";
 export type { PopupAdapter, PopupInitialState, ScreenshotVariant } from "./types";
 export type { PopupView } from "./shell";
 export { variantShowsPopup } from "./types";

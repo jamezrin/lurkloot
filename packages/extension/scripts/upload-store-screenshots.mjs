@@ -5,7 +5,11 @@ import { parseRequestedLocales } from "./store-screenshot-config.mjs";
 import { validateStoreScreenshotFiles } from "./store-screenshot-files.mjs";
 import { ChromeWebStoreDashboard } from "./store-screenshot-dashboard.mjs";
 import { uploadStoreScreenshots } from "./store-screenshot-upload.mjs";
-import { abandonBrowserSession, finishBrowserSession, startBrowserSession } from "./store-screenshot-browser.mjs";
+import {
+  abandonBrowserSession,
+  finishBrowserSession,
+  startBrowserSession,
+} from "./store-screenshot-browser.mjs";
 
 function required(value, name) {
   if (!value) throw new Error(`${name} is required`);
@@ -14,7 +18,8 @@ function required(value, name) {
 
 function validateExtensionId(value) {
   required(value, "CWS_EXTENSION_ID");
-  if (!/^[a-p]{32}$/.test(value)) throw new Error("CWS_EXTENSION_ID must be a 32-character Chrome extension ID");
+  if (!/^[a-p]{32}$/.test(value))
+    throw new Error("CWS_EXTENSION_ID must be a 32-character Chrome extension ID");
 }
 
 function validatePublisherId(value) {
@@ -37,8 +42,6 @@ function defaultCreateDashboard({ page, env, output }) {
   });
 }
 
-
-
 export async function main(args = process.argv.slice(2), env = process.env, dependencies = {}) {
   validateExtensionId(env.CWS_EXTENSION_ID);
   const locales = parseRequestedLocales(args);
@@ -47,13 +50,19 @@ export async function main(args = process.argv.slice(2), env = process.env, depe
   const screenshotRoot = dependencies.screenshotRoot ?? resolve("artifacts/store-screenshots");
   const filesByLocale = await validateFiles({ root: screenshotRoot, locales });
   const imageCount = [...filesByLocale.values()].reduce((total, files) => total + files.length, 0);
-  output(`Validated ${imageCount} screenshots for ${locales.length} ${locales.length === 1 ? "locale" : "locales"}.`);
+  output(
+    `Validated ${imageCount} screenshots for ${locales.length} ${locales.length === 1 ? "locale" : "locales"}.`,
+  );
   if (args.includes("--validate-only")) return;
   validatePublisherId(env.CWS_PUBLISHER_ID);
 
   const openBrowser = dependencies.openBrowser ?? startBrowserSession;
   const createDashboard = dependencies.createDashboard ?? defaultCreateDashboard;
-  const session = await openBrowser({ env, output, connect: dependencies.connect ?? connectOverCdp });
+  const session = await openBrowser({
+    env,
+    output,
+    connect: dependencies.connect ?? connectOverCdp,
+  });
   let dashboard;
   try {
     // The signed-in session lives in the browser's existing context; a new one
@@ -72,13 +81,17 @@ export async function main(args = process.argv.slice(2), env = process.env, depe
         if (phase === "saved") output(`${scope}: draft saved`);
       },
     });
-    output(`Saved ${imageCount} screenshots across ${locales.length} ${locales.length === 1 ? "locale" : "locales"}. Nothing was submitted for review.`);
+    output(
+      `Saved ${imageCount} screenshots across ${locales.length} ${locales.length === 1 ? "locale" : "locales"}. Nothing was submitted for review.`,
+    );
     await (dependencies.finishBrowser ?? finishBrowserSession)(session, { output });
   } catch (error) {
     // Any failure keeps the browser: the operator may have signed in already,
     // including while the step that failed was still waiting, and rebuilding
     // that session costs another sign-in and 2FA.
-    await (dependencies.abandonBrowser ?? abandonBrowserSession)(session, output, { mutated: Boolean(dashboard?.hasMutated) });
+    await (dependencies.abandonBrowser ?? abandonBrowserSession)(session, output, {
+      mutated: Boolean(dashboard?.hasMutated),
+    });
     throw error;
   }
 }

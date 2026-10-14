@@ -1,5 +1,10 @@
 import type { ActivityEvent } from "@lurkloot/shared/events";
-import type { Platform, PlatformAuthHealth, PlatformAuthStatus, SchedulerState } from "@lurkloot/shared/models";
+import type {
+  Platform,
+  PlatformAuthHealth,
+  PlatformAuthStatus,
+  SchedulerState,
+} from "@lurkloot/shared/models";
 import { normalizePlatformAuthHealth } from "./defaults";
 
 export interface PlatformAuthHealthTransition {

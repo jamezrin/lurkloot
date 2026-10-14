@@ -7,7 +7,9 @@ import { SafeFetchError, safeFetchFailure, type SafeFetchFailure } from "./fetch
 // store. Split out of core/tabs (#598) so tabless hosts never import tab code.
 
 export interface CookieApi {
-  cookies?: { get(details: { url: string; name: string }): Promise<{ value?: string } | null | undefined> };
+  cookies?: {
+    get(details: { url: string; name: string }): Promise<{ value?: string } | null | undefined>;
+  };
 }
 
 // Twitch's GQL endpoint cannot be reached from the twitch.tv page's MAIN world:
@@ -28,7 +30,9 @@ export interface TwitchRequestIdentity {
   clientSessionId(): string;
 }
 
-export function createTwitchRequestIdentity(integrity?: () => TwitchIntegrity | undefined): TwitchRequestIdentity {
+export function createTwitchRequestIdentity(
+  integrity?: () => TwitchIntegrity | undefined,
+): TwitchRequestIdentity {
   let clientSessionId: string | undefined;
   return {
     integrity,
@@ -36,7 +40,9 @@ export function createTwitchRequestIdentity(integrity?: () => TwitchIntegrity | 
       if (clientSessionId) return clientSessionId;
       const bytes = new Uint8Array(8);
       crypto.getRandomValues(bytes);
-      clientSessionId = Array.from(bytes).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+      clientSessionId = Array.from(bytes)
+        .map((byte) => byte.toString(16).padStart(2, "0"))
+        .join("");
       return clientSessionId;
     },
   };
@@ -64,8 +70,10 @@ function twitchGqlErrorEnvelope(
 
 function isUsableTwitchGql(value: unknown): boolean {
   const entries = Array.isArray(value) ? value : [value];
-  return entries.length > 0
-    && entries.every((entry) => entry != null && typeof entry === "object" && !Array.isArray(entry));
+  return (
+    entries.length > 0
+    && entries.every((entry) => entry != null && typeof entry === "object" && !Array.isArray(entry))
+  );
 }
 
 export async function fetchTwitchInBackgroundWith<T>(
@@ -79,18 +87,22 @@ export async function fetchTwitchInBackgroundWith<T>(
   // Public queries pass credentials: "omit" so Twitch treats them as anonymous.
   const anonymous = init?.credentials === "omit";
   if (isGql && !anonymous) {
-    const cookie = async (name: string) => (await api.cookies?.get({ url: "https://www.twitch.tv", name }))?.value;
+    const cookie = async (name: string) =>
+      (await api.cookies?.get({ url: "https://www.twitch.tv", name }))?.value;
     const authToken = await cookie("auth-token");
     const deviceId = await cookie("unique_id");
-    if (authToken && !headers.has("authorization")) headers.set("authorization", `OAuth ${authToken}`);
+    if (authToken && !headers.has("authorization"))
+      headers.set("authorization", `OAuth ${authToken}`);
     // A captured Client-Integrity token is bound to the device id / session id it
     // was minted with, so when one is present (and unexpired) replay the whole
     // trio together; otherwise fall back to the cookie device id plus a
     // self-generated session id, which is enough for queries but not mutations.
     const integrity = identity.integrity?.();
-    if (integrity && !headers.has("client-integrity")) headers.set("client-integrity", integrity.integrity);
+    if (integrity && !headers.has("client-integrity"))
+      headers.set("client-integrity", integrity.integrity);
     const effectiveDeviceId = integrity?.deviceId ?? deviceId;
-    if (effectiveDeviceId && !headers.has("x-device-id")) headers.set("x-device-id", effectiveDeviceId);
+    if (effectiveDeviceId && !headers.has("x-device-id"))
+      headers.set("x-device-id", effectiveDeviceId);
     if (!headers.has("client-session-id")) {
       headers.set("client-session-id", integrity?.clientSessionId ?? identity.clientSessionId());
     }
@@ -108,18 +120,30 @@ export async function fetchTwitchInBackgroundWith<T>(
   const text = await response.text();
   if (!isGql) {
     if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-    return ((response.headers.get("content-type") ?? "").includes("application/json")
-      ? JSON.parse(text)
-      : { html: text }) as T;
+    return (
+      (response.headers.get("content-type") ?? "").includes("application/json")
+        ? JSON.parse(text)
+        : { html: text }
+    ) as T;
   }
-  if (!response.ok) return twitchGqlErrorEnvelope(`HTTP ${response.status} ${response.statusText}`, response.status, text, headers) as T;
+  if (!response.ok)
+    return twitchGqlErrorEnvelope(
+      `HTTP ${response.status} ${response.statusText}`,
+      response.status,
+      text,
+      headers,
+    ) as T;
   let json: unknown;
   try {
     json = JSON.parse(text) as unknown;
   } catch {
     return twitchGqlErrorEnvelope("returned invalid JSON", response.status, text, headers) as T;
   }
-  return (isUsableTwitchGql(json) ? json : twitchGqlErrorEnvelope("returned an unusable response", response.status, text, headers)) as T;
+  return (
+    isUsableTwitchGql(json)
+      ? json
+      : twitchGqlErrorEnvelope("returned an unusable response", response.status, text, headers)
+  ) as T;
 }
 
 // Exact kick.com pathnames that require the session_token Bearer. Kept as a
@@ -142,7 +166,10 @@ const KICK_BEARER_PATHS = ["/api/v1/user", "/api/v1/user/livestreams"];
 // reimplementing it (see #370): the CLI's WebSocket transport reaches
 // websockets.kick.com over wss, not https, which this module's own callers never
 // do, so the accepted protocols are parameterized rather than hardcoded here.
-export function needsKickSessionBearer(url: string, options?: { protocols?: readonly string[] }): boolean {
+export function needsKickSessionBearer(
+  url: string,
+  options?: { protocols?: readonly string[] },
+): boolean {
   const protocols = options?.protocols ?? ["https:"];
   let parsed: URL;
   try {
@@ -160,9 +187,7 @@ export function needsKickSessionBearer(url: string, options?: { protocols?: read
 // fetchKickInBackground so the adapter wrapper can log and fall back cleanly.
 export class KickWafBlockedError extends SafeFetchError {
   constructor(candidate: string | SafeFetchFailure) {
-    super(typeof candidate === "string"
-      ? { kind: "network_error", reason: candidate }
-      : candidate);
+    super(typeof candidate === "string" ? { kind: "network_error", reason: candidate } : candidate);
     this.name = "KickWafBlockedError";
   }
 }
@@ -174,15 +199,17 @@ export function safeKickFailure(status: number, text: string): SafeFetchFailure 
   let body: Record<string, unknown> = {};
   try {
     const parsed = JSON.parse(text) as unknown;
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) body = parsed as Record<string, unknown>;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed))
+      body = parsed as Record<string, unknown>;
   } catch {
     // Non-JSON response bodies are never retained.
   }
-  const reason = typeof body.error === "string"
-    ? body.error
-    : typeof body.message === "string"
-      ? body.message
-      : undefined;
+  const reason =
+    typeof body.error === "string"
+      ? body.error
+      : typeof body.message === "string"
+        ? body.message
+        : undefined;
   const blocked = /security policy|request blocked/i.test(reason ?? "");
   return safeFetchFailure({
     kind: blocked
@@ -202,10 +229,16 @@ export function safeKickFailure(status: number, text: string): SafeFetchFailure 
 // KickWafBlockedError for the caller to fall back on. Only the real extension SW
 // can answer whether this works — the Playwright harness cannot (its request
 // stack is WAF-blocked for unrelated reasons).
-export async function fetchKickInBackgroundWith<T>(api: CookieApi, url: string, init?: RequestInit): Promise<T> {
+export async function fetchKickInBackgroundWith<T>(
+  api: CookieApi,
+  url: string,
+  init?: RequestInit,
+): Promise<T> {
   const headers = new Headers(init?.headers ?? {});
   if (needsKickSessionBearer(url) && !headers.has("authorization")) {
-    const sessionToken = (await api.cookies?.get({ url: "https://kick.com", name: "session_token" }))?.value;
+    const sessionToken = (
+      await api.cookies?.get({ url: "https://kick.com", name: "session_token" })
+    )?.value;
     if (sessionToken) headers.set("authorization", `Bearer ${decodeURIComponent(sessionToken)}`);
   }
 
@@ -241,7 +274,9 @@ export async function fetchKickInBackgroundWith<T>(api: CookieApi, url: string, 
   // endpoints returning non-JSON means a challenge interstitial slipped a 200, so
   // treat that as blocked and let the caller use the page tab.
   if (url.includes("/api/") || url.includes("websockets.kick.com")) {
-    throw new KickWafBlockedError("service worker got a non-JSON API response (likely a challenge page)");
+    throw new KickWafBlockedError(
+      "service worker got a non-JSON API response (likely a challenge page)",
+    );
   }
   return { html: text } as T;
 }

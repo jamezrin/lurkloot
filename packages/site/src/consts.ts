@@ -20,8 +20,7 @@ export const SITE = {
 export const DOCKER_IMAGE = "ghcr.io/jamezrin/lurkloot-cli:latest";
 
 export const EXTERNAL_URLS = {
-  chrome:
-    "https://chromewebstore.google.com/detail/lurkloot/aobaackpofkghaejdnnmpmeaiaoibhdn",
+  chrome: "https://chromewebstore.google.com/detail/lurkloot/aobaackpofkghaejdnnmpmeaiaoibhdn",
   github: "https://github.com/jamezrin/lurkloot",
   cli: "https://github.com/jamezrin/lurkloot/tree/main/packages/cli",
   ghcr: "https://github.com/jamezrin/lurkloot/pkgs/container/lurkloot-cli",

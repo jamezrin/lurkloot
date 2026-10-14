@@ -27,7 +27,12 @@ test("creates a repository-scoped contents-write installation token", async () =
   const fetchImpl = async (url, init = {}) => {
     calls.push({ url, init });
     if (url.endsWith("/repos/jamezrin/lurkloot/installation")) {
-      return { ok: true, status: 200, json: async () => ({ id: 77 }), text: async () => JSON.stringify({ id: 77 }) };
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ id: 77 }),
+        text: async () => JSON.stringify({ id: 77 }),
+      };
     }
     return {
       ok: true,

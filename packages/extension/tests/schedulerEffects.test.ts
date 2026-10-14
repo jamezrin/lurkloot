@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ChannelCandidate, DropCampaign, DropReward, ExtensionSettings, SchedulerState } from "@lurkloot/shared/models";
+import type {
+  ChannelCandidate,
+  DropCampaign,
+  DropReward,
+  ExtensionSettings,
+  SchedulerState,
+} from "@lurkloot/shared/models";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { EffectExecutor, driveEffects, perform } from "@lurkloot/core/effectExecutor";
 import {
@@ -10,10 +16,19 @@ import {
   type SchedulerEffects,
   type SchedulerTickInput,
 } from "@lurkloot/core/scheduler";
-import { selectionAdapterFromDiscoverySnapshot, type DiscoverySnapshot } from "@lurkloot/core/discoverySnapshot";
-import { ChannelPointsClaimGate, registerChannelPointsClaimEffect } from "@lurkloot/core/background/channelPoints";
+import {
+  selectionAdapterFromDiscoverySnapshot,
+  type DiscoverySnapshot,
+} from "@lurkloot/core/discoverySnapshot";
+import {
+  ChannelPointsClaimGate,
+  registerChannelPointsClaimEffect,
+} from "@lurkloot/core/background/channelPoints";
 import { registerRewardClaimEffect } from "@lurkloot/core/background/claimService";
-import { KickChallengeClaimGate, registerKickRuntimeEffects } from "@lurkloot/core/background/kickRuntime";
+import {
+  KickChallengeClaimGate,
+  registerKickRuntimeEffects,
+} from "@lurkloot/core/background/kickRuntime";
 import { createTickEffectExecutor } from "@lurkloot/core/background/tickEffects";
 import { registerWatchTabEffects } from "@lurkloot/core/background/manualWatch";
 import { registerSupplementalTargetEffect } from "@lurkloot/core/background/supplementalSources";
@@ -58,10 +73,25 @@ function snapshot(campaigns: DropCampaign[], candidate: ChannelCandidate): Disco
     complete: true,
     idleCandidates: [],
     followedChannels: [],
-    metrics: { campaigns: campaigns.length, candidates: 1, cacheHits: 0, cacheMisses: 1, batchRequests: 1, singleFallbacks: 0 },
+    metrics: {
+      campaigns: campaigns.length,
+      candidates: 1,
+      cacheHits: 0,
+      cacheMisses: 1,
+      batchRequests: 1,
+      singleFallbacks: 0,
+    },
     campaigns: campaigns.map((entry) => ({
       campaign: entry,
-      candidates: [{ candidate, live: true, categoryMatches: true, eligible: true as const, observedAt: Date.now() }],
+      candidates: [
+        {
+          candidate,
+          live: true,
+          categoryMatches: true,
+          eligible: true as const,
+          observedAt: Date.now(),
+        },
+      ],
     })),
   };
 }
@@ -83,20 +113,37 @@ const state: SchedulerState = {
   authHealth: { twitch: { status: "healthy" }, kick: { status: "healthy" } },
 };
 
-function input(campaigns: DropCampaign[], candidate: ChannelCandidate, patch: Partial<SchedulerTickInput> = {}): SchedulerTickInput {
+function input(
+  campaigns: DropCampaign[],
+  candidate: ChannelCandidate,
+  patch: Partial<SchedulerTickInput> = {},
+): SchedulerTickInput {
   const discovered = snapshot(campaigns, candidate);
   return {
     state,
     settings: settings(),
     platforms: ["twitch"],
     discovery: { twitch: { campaigns, complete: true } },
-    selectionViews: { twitch: selectionAdapterFromDiscoverySnapshot(discovered, state.sessions.twitch) },
-    capabilities: { twitch: { supportsTabless: true, watchTabs: true, claimChallenges: false, claimChannelPoints: true } },
+    selectionViews: {
+      twitch: selectionAdapterFromDiscoverySnapshot(discovered, state.sessions.twitch),
+    },
+    capabilities: {
+      twitch: {
+        supportsTabless: true,
+        watchTabs: true,
+        claimChallenges: false,
+        claimChannelPoints: true,
+      },
+    },
     ...patch,
   };
 }
 
-type CannedResults = { [K in SchedulerEffectType]?: (effect: SchedulerEffects[K]["effect"]) => SchedulerEffects[K]["result"] };
+type CannedResults = {
+  [K in SchedulerEffectType]?: (
+    effect: SchedulerEffects[K]["effect"],
+  ) => SchedulerEffects[K]["result"];
+};
 
 // Runs the Twitch tick, answering each effect from `results`, and returns the
 // effects in the order the tick named them.
@@ -120,14 +167,21 @@ describe("effect executor", () => {
   type TestEffects = { ping: { effect: { type: "ping"; value: number }; result: number } };
 
   it("gives every effect type exactly one handler", async () => {
-    const executor = new EffectExecutor<TestEffects, undefined>().register("ping", ({ value }) => value + 1);
-    expect(() => executor.register("ping", ({ value }) => value)).toThrow('Effect "ping" already has a handler');
+    const executor = new EffectExecutor<TestEffects, undefined>().register(
+      "ping",
+      ({ value }) => value + 1,
+    );
+    expect(() => executor.register("ping", ({ value }) => value)).toThrow(
+      'Effect "ping" already has a handler',
+    );
     await expect(executor.run({ type: "ping", value: 1 }, undefined)).resolves.toBe(2);
   });
 
   it("rejects an effect nobody handles", async () => {
     const executor = new EffectExecutor<TestEffects, undefined>();
-    await expect(executor.run({ type: "ping", value: 1 }, undefined)).rejects.toThrow('Effect "ping" has no handler');
+    await expect(executor.run({ type: "ping", value: 1 }, undefined)).rejects.toThrow(
+      'Effect "ping" has no handler',
+    );
   });
 
   it("resumes the deciding code with the handler's result, or throws its error at the yield", async () => {
@@ -159,11 +213,15 @@ describe("effect executor", () => {
         closed = true;
       }
     }
-    const driving = driveEffects(decideTwice(), async (effect) => {
-      ran.push(effect.value);
-      abort.abort(new Error("reset"));
-      return 0;
-    }, abort.signal);
+    const driving = driveEffects(
+      decideTwice(),
+      async (effect) => {
+        ran.push(effect.value);
+        abort.abort(new Error("reset"));
+        return 0;
+      },
+      abort.signal,
+    );
 
     await expect(driving).rejects.toThrow("reset");
     expect(ran).toEqual([1]);
@@ -175,8 +233,13 @@ describe("effect executor", () => {
   it("starts empty: every scheduler effect type belongs to an owning service", () => {
     const executor = createTickEffectExecutor();
     const types: SchedulerEffectType[] = [
-      "stopWatchTab", "openWatchTab", "selectSupplementalTarget",
-      "claimRewards", "claimChallenges", "releasePageContexts", "claimChannelPoints",
+      "stopWatchTab",
+      "openWatchTab",
+      "selectSupplementalTarget",
+      "claimRewards",
+      "claimChallenges",
+      "releasePageContexts",
+      "claimChannelPoints",
     ];
     for (const type of types) expect(executor.has(type)).toBe(false);
   });
@@ -197,12 +260,36 @@ describe("effect executor", () => {
   });
 
   it("selects supplemental targets only for Twitch, through the port", async () => {
-    const select = vi.fn(async () => ({ id: "nopixel", tablessOnly: true as const, channel: { platform: "twitch" as const, username: "x", url: "https://www.twitch.tv/x", live: true } }));
+    const select = vi.fn(async () => ({
+      id: "nopixel",
+      tablessOnly: true as const,
+      channel: {
+        platform: "twitch" as const,
+        username: "x",
+        url: "https://www.twitch.tv/x",
+        live: true,
+      },
+    }));
     const executor = registerSupplementalTargetEffect(createTickEffectExecutor(), { select });
-    const context = { adapters: {}, settings: DEFAULT_SETTINGS, tabRegistry: createTabRegistry(), emit: () => undefined };
+    const context = {
+      adapters: {},
+      settings: DEFAULT_SETTINGS,
+      tabRegistry: createTabRegistry(),
+      emit: () => undefined,
+    };
     const state = structuredClone(DEFAULT_STATE);
-    await expect(executor.run({ type: "selectSupplementalTarget", platform: "kick", state, source: "nopixel" }, context)).resolves.toBeUndefined();
-    await expect(executor.run({ type: "selectSupplementalTarget", platform: "twitch", state, source: "nopixel" }, context)).resolves.toMatchObject({ id: "nopixel" });
+    await expect(
+      executor.run(
+        { type: "selectSupplementalTarget", platform: "kick", state, source: "nopixel" },
+        context,
+      ),
+    ).resolves.toBeUndefined();
+    await expect(
+      executor.run(
+        { type: "selectSupplementalTarget", platform: "twitch", state, source: "nopixel" },
+        context,
+      ),
+    ).resolves.toMatchObject({ id: "nopixel" });
     expect(select).toHaveBeenCalledOnce();
     expect(select).toHaveBeenCalledWith(state, DEFAULT_SETTINGS, undefined, "nopixel");
   });
@@ -233,7 +320,9 @@ describe("effect executor", () => {
 
     registerChannelPointsClaimEffect(executor, new ChannelPointsClaimGate());
     expect(executor.has("claimChannelPoints")).toBe(true);
-    expect(() => registerChannelPointsClaimEffect(executor, new ChannelPointsClaimGate())).toThrow();
+    expect(() =>
+      registerChannelPointsClaimEffect(executor, new ChannelPointsClaimGate()),
+    ).toThrow();
   });
 });
 
@@ -243,8 +332,15 @@ describe("scheduler tick decisions from plain inputs", () => {
     const creator = channel("creator");
     const { tick, effects } = await decide(input([drops], creator));
 
-    expect(effects.map((effect) => effect.type)).toEqual(["claimRewards", "openWatchTab", "claimChannelPoints"]);
-    expect(effects[1]).toMatchObject({ type: "openWatchTab", channel: expect.objectContaining({ username: "creator" }) });
+    expect(effects.map((effect) => effect.type)).toEqual([
+      "claimRewards",
+      "openWatchTab",
+      "claimChannelPoints",
+    ]);
+    expect(effects[1]).toMatchObject({
+      type: "openWatchTab",
+      channel: expect.objectContaining({ username: "creator" }),
+    });
     expect(tick.state.sessions.twitch).toMatchObject({
       status: "watching",
       campaignId: "drops",
@@ -260,15 +356,22 @@ describe("scheduler tick decisions from plain inputs", () => {
     // The second reward needs the first claimed. The claim result satisfies
     // that, so this same tick selects the second reward.
     const first = reward("first", { status: "claimable", watchedMinutes: 60 });
-    const second = reward("second", { watchedMinutes: 0, status: "locked", preconditionRewardIds: ["first"], preconditionsMet: false });
+    const second = reward("second", {
+      watchedMinutes: 0,
+      status: "locked",
+      preconditionRewardIds: ["first"],
+      preconditionsMet: false,
+    });
     const drops = campaign("drops", [first, second]);
     const { tick } = await decide(input([drops], channel("creator")), {
       claimRewards: ({ campaigns }) => ({
         campaigns: campaigns.map((entry) => ({
           ...entry,
-          rewards: entry.rewards.map((candidate) => candidate.id === "first"
-            ? { ...candidate, status: "claimed" as const }
-            : { ...candidate, preconditionsMet: true }),
+          rewards: entry.rewards.map((candidate) =>
+            candidate.id === "first"
+              ? { ...candidate, status: "claimed" as const }
+              : { ...candidate, preconditionsMet: true },
+          ),
         })),
         events: [],
       }),
@@ -281,7 +384,9 @@ describe("scheduler tick decisions from plain inputs", () => {
   it("closes the tab it just opened when the selection went stale meanwhile", async () => {
     const creator = channel("creator");
     const { tick, effects } = await decide(
-      input([campaign("drops", [reward("first")])], creator, { selectionIsCurrent: { twitch: () => false } }),
+      input([campaign("drops", [reward("first")])], creator, {
+        selectionIsCurrent: { twitch: () => false },
+      }),
     );
 
     // The selection is checked before any tab effect and is already stale.
@@ -290,40 +395,69 @@ describe("scheduler tick decisions from plain inputs", () => {
 
     let current = true;
     const late = await decide(
-      input([campaign("drops", [reward("first")])], creator, { selectionIsCurrent: { twitch: () => current } }),
-      { openWatchTab: () => {
-        current = false;
-        return { tabId: 9, managedByExtension: true };
-      } },
+      input([campaign("drops", [reward("first")])], creator, {
+        selectionIsCurrent: { twitch: () => current },
+      }),
+      {
+        openWatchTab: () => {
+          current = false;
+          return { tabId: 9, managedByExtension: true };
+        },
+      },
     );
-    expect(late.effects.map((effect) => effect.type)).toEqual(["claimRewards", "openWatchTab", "stopWatchTab"]);
+    expect(late.effects.map((effect) => effect.type)).toEqual([
+      "claimRewards",
+      "openWatchTab",
+      "stopWatchTab",
+    ]);
     expect(late.effects[2]).toMatchObject({ session: { tabId: 9, tabManagedByExtension: true } });
     expect(late.tick.state.managedWatchTabs?.twitch).toBeUndefined();
   });
 
   it("stops the tab and releases the page context for a disabled platform", async () => {
     const tickInput = input([], channel("creator"), {
-      settings: { ...settings(), platform: { ...settings().platform, twitch: { ...settings().platform.twitch, enabled: false } } },
+      settings: {
+        ...settings(),
+        platform: {
+          ...settings().platform,
+          twitch: { ...settings().platform.twitch, enabled: false },
+        },
+      },
     });
     const { tick, effects } = await decide(tickInput);
 
     expect(effects.map((effect) => effect.type)).toEqual(["stopWatchTab", "releasePageContexts"]);
     expect(effects[1]).toMatchObject({ reason: "automation_disabled" });
-    expect(tick.state.sessions.twitch).toMatchObject({ status: "paused", reasonCode: "automation_disabled" });
+    expect(tick.state.sessions.twitch).toMatchObject({
+      status: "paused",
+      reasonCode: "automation_disabled",
+    });
   });
 
   it("turns an effect's error into the platform error session", async () => {
-    const { tick } = await decide(input([campaign("drops", [reward("first")])], channel("creator")), {
-      openWatchTab: () => {
-        throw new Error("tab refused");
+    const { tick } = await decide(
+      input([campaign("drops", [reward("first")])], channel("creator")),
+      {
+        openWatchTab: () => {
+          throw new Error("tab refused");
+        },
       },
-    });
+    );
 
-    expect(tick.state.sessions.twitch).toMatchObject({ status: "error", reasonCode: "platform_error", errorChecks: 1, message: "tab refused" });
+    expect(tick.state.sessions.twitch).toMatchObject({
+      status: "error",
+      reasonCode: "platform_error",
+      errorChecks: 1,
+      message: "tab refused",
+    });
   });
 
   describe("a watch tab that did not show the channel page (#794)", () => {
-    const blocked = { kind: "security_policy_blocked" as const, reason: "Request blocked by security policy.", reference: "c0e117f5" };
+    const blocked = {
+      kind: "security_policy_blocked" as const,
+      reason: "Request blocked by security policy.",
+      reference: "c0e117f5",
+    };
     const drops = () => [campaign("drops", [reward("first")])];
 
     it("backs the platform off instead of marking authentication unhealthy", async () => {
@@ -334,7 +468,11 @@ describe("scheduler tick decisions from plain inputs", () => {
       });
 
       expect(tick.state.authHealth.twitch.status).toBe("healthy");
-      expect(tick.state.sessions.twitch).toMatchObject({ status: "error", reasonCode: "platform_error", errorChecks: 1 });
+      expect(tick.state.sessions.twitch).toMatchObject({
+        status: "error",
+        reasonCode: "platform_error",
+        errorChecks: 1,
+      });
       expect(tick.state.sessions.twitch.retryAfter).toBeDefined();
       expect(tick.state.sessions.twitch.message).toContain("Request blocked by security policy.");
     });
@@ -350,21 +488,44 @@ describe("scheduler tick decisions from plain inputs", () => {
     });
 
     it("stops a rejected tab it was reusing, so the retry loads a fresh page", async () => {
-      const reused = { platform: "twitch" as const, tabId: 4, channelUrl: channel("creator").url, ownedByExtension: true as const };
+      const reused = {
+        platform: "twitch" as const,
+        tabId: 4,
+        channelUrl: channel("creator").url,
+        ownedByExtension: true as const,
+      };
       const watching = {
         ...state,
-        sessions: { ...state.sessions, twitch: { ...state.sessions.twitch, status: "watching" as const, tabId: 4, tabManagedByExtension: true } },
+        sessions: {
+          ...state.sessions,
+          twitch: {
+            ...state.sessions.twitch,
+            status: "watching" as const,
+            tabId: 4,
+            tabManagedByExtension: true,
+          },
+        },
         managedWatchTabs: { twitch: reused },
       };
-      const { tick, effects } = await decide(input(drops(), channel("creator"), { state: watching }), {
-        openWatchTab: () => {
-          throw new UnusableWatchTabError(4, blocked, { openedManagedTab: false });
+      const { tick, effects } = await decide(
+        input(drops(), channel("creator"), { state: watching }),
+        {
+          openWatchTab: () => {
+            throw new UnusableWatchTabError(4, blocked, { openedManagedTab: false });
+          },
         },
-      });
+      );
 
-      expect(effects.map((effect) => effect.type)).toEqual(["claimRewards", "openWatchTab", "stopWatchTab"]);
+      expect(effects.map((effect) => effect.type)).toEqual([
+        "claimRewards",
+        "openWatchTab",
+        "stopWatchTab",
+      ]);
       expect(effects[2]).toMatchObject({ session: { tabId: 4, tabManagedByExtension: true } });
-      expect(tick.state.sessions.twitch).toMatchObject({ tabId: undefined, tabManagedByExtension: undefined });
+      expect(tick.state.sessions.twitch).toMatchObject({
+        tabId: undefined,
+        tabManagedByExtension: undefined,
+      });
       expect(tick.state.managedWatchTabs?.twitch).toBeUndefined();
       expect(tick.state.criticalHealth?.twitch?.managedTabOpens ?? []).toHaveLength(0);
     });
@@ -379,7 +540,10 @@ describe("scheduler tick decisions from plain inputs", () => {
       const next = await decide(input(drops(), channel("creator"), { state: first.tick.state }));
 
       expect(next.effects.map((effect) => effect.type)).not.toContain("openWatchTab");
-      expect(next.tick.state.sessions.twitch).toMatchObject({ status: "error", reasonCode: "platform_backoff" });
+      expect(next.tick.state.sessions.twitch).toMatchObject({
+        status: "error",
+        reasonCode: "platform_backoff",
+      });
     });
 
     // Minute ticks for six hours against a block that never lifts. The backoff
@@ -392,12 +556,15 @@ describe("scheduler tick decisions from plain inputs", () => {
         const opens: number[] = [];
         for (let minute = 0; minute <= 6 * 60; minute += 1) {
           vi.setSystemTime(start + minute * 60 * 1000);
-          const { tick } = await decide(input(drops(), channel("creator"), { state: current, settings: settings(patch) }), {
-            openWatchTab: () => {
-              opens.push(minute);
-              throw new UnusableWatchTabError(9, blocked, { openedManagedTab: true });
+          const { tick } = await decide(
+            input(drops(), channel("creator"), { state: current, settings: settings(patch) }),
+            {
+              openWatchTab: () => {
+                opens.push(minute);
+                throw new UnusableWatchTabError(9, blocked, { openedManagedTab: true });
+              },
             },
-          });
+          );
           current = tick.state;
         }
         return { opens, state: current };
@@ -410,12 +577,17 @@ describe("scheduler tick decisions from plain inputs", () => {
       const { opens, state: final } = await runPersistentBlock();
 
       expect(final.criticalHealth?.twitch).toMatchObject({ status: "flagged", breakerOpen: true });
-      expect(final.sessions.twitch).toMatchObject({ status: "idle", reasonCode: "critical_failure" });
+      expect(final.sessions.twitch).toMatchObject({
+        status: "idle",
+        reasonCode: "critical_failure",
+      });
       expect(opens.at(-1)).toBeLessThan(2 * 60);
     });
 
     it("keeps retrying at the backoff cap when the critical-failure prompt is off", async () => {
-      const { opens, state: final } = await runPersistentBlock({ criticalFailurePromptEnabled: false });
+      const { opens, state: final } = await runPersistentBlock({
+        criticalFailurePromptEnabled: false,
+      });
 
       expect(final.sessions.twitch.status).toBe("error");
       expect(opens.at(-1)).toBeGreaterThan(5 * 60);

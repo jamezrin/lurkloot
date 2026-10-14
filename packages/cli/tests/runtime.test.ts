@@ -69,11 +69,14 @@ function recordingLogger(lines: string[]): Logger {
 describe("CLI engine event reporting", () => {
   it("logs an event batch in causal order through the logger", async () => {
     const lines: string[] = [];
-    await reportCliEvents([
-      rewardEvent("farming_started", "Reward A"),
-      rewardEvent("farming_stopped", "Reward A", { reason: "target_changed" }),
-      rewardEvent("farming_started", "Reward B"),
-    ], recordingLogger(lines));
+    await reportCliEvents(
+      [
+        rewardEvent("farming_started", "Reward A"),
+        rewardEvent("farming_stopped", "Reward A", { reason: "target_changed" }),
+        rewardEvent("farming_started", "Reward B"),
+      ],
+      recordingLogger(lines),
+    );
 
     expect(lines).toEqual([
       "INFO [twitch] Started farming Reward A from Campaign",
@@ -88,14 +91,19 @@ describe("CLI engine event reporting", () => {
     // farm is this log line, and the reason text lives in the scheduler.
     const decision = await chooseCampaignDecision(
       "twitch",
-      [dropCampaign({
-        accountLinked: false,
-        rewards: [dropReward({ requiredMinutes: 60 })],
-      })],
+      [
+        dropCampaign({
+          accountLinked: false,
+          rewards: [dropReward({ requiredMinutes: 60 })],
+        }),
+      ],
       // farmUnlinkedCampaigns off is what makes the eligibility check reject it.
       toEngineSettings({
         ...DEFAULT_CLI_SETTINGS,
-        farmingEligibility: { ...DEFAULT_CLI_SETTINGS.farmingEligibility, farmUnlinkedCampaigns: false },
+        farmingEligibility: {
+          ...DEFAULT_CLI_SETTINGS.farmingEligibility,
+          farmUnlinkedCampaigns: false,
+        },
       }),
       {
         listCandidateChannels: async () => [],
@@ -115,68 +123,86 @@ describe("CLI engine event reporting", () => {
       recordingLogger(lines),
     );
 
-    expect(lines).toEqual(["WARN [twitch] All campaigns are skipped by your farming eligibility settings and no Idle Watchlist channels"]);
+    expect(lines).toEqual([
+      "WARN [twitch] All campaigns are skipped by your farming eligibility settings and no Idle Watchlist channels",
+    ]);
   });
 
   it.each([
     ["warn", ["WARN [kick] Farming interrupted: platform error (HTTP 503)"]],
     ["error", []],
-  ] as const)("suppresses debug and info engine events at the %s logger threshold", async (level, expected) => {
-    const write = vi.spyOn(process.stderr, "write").mockImplementation((() => true) as typeof process.stderr.write);
-    try {
-      await reportCliEvents([
-        {
-          category: "diagnostic",
-          code: "request",
-          level: "debug",
-          platform: "twitch",
-          message: "request detail",
-        },
-        rewardEvent("farming_started", "Reward A"),
-        {
-          category: "activity",
-          code: "interruption",
-          level: "warn",
-          platform: "kick",
-          data: { reason: "platform_error", detail: "HTTP 503" },
-        },
-      ], createLogger(level));
+  ] as const)(
+    "suppresses debug and info engine events at the %s logger threshold",
+    async (level, expected) => {
+      const write = vi
+        .spyOn(process.stderr, "write")
+        .mockImplementation((() => true) as typeof process.stderr.write);
+      try {
+        await reportCliEvents(
+          [
+            {
+              category: "diagnostic",
+              code: "request",
+              level: "debug",
+              platform: "twitch",
+              message: "request detail",
+            },
+            rewardEvent("farming_started", "Reward A"),
+            {
+              category: "activity",
+              code: "interruption",
+              level: "warn",
+              platform: "kick",
+              data: { reason: "platform_error", detail: "HTTP 503" },
+            },
+          ],
+          createLogger(level),
+        );
 
-      const lines = write.mock.calls.map(([line]) => String(line).replace(/^\S+ /, "").trim());
-      expect(lines).toEqual(expected);
-    } finally {
-      write.mockRestore();
-    }
-  });
+        const lines = write.mock.calls.map(([line]) => String(line).replace(/^\S+ /, "").trim());
+        expect(lines).toEqual(expected);
+      } finally {
+        write.mockRestore();
+      }
+    },
+  );
 
   it("formats every activity variant and passes diagnostic prose through", () => {
-    expect(formatCliEvent(rewardEvent("reward_claimed", "Reward", { method: "automatic" })))
-      .toBe("Claimed Reward from Campaign automatically");
-    expect(formatCliEvent({
-      category: "activity",
-      code: "interruption",
-      level: "warn",
-      platform: "kick",
-      data: { reason: "platform_error", detail: "HTTP 503" },
-    })).toBe("Farming interrupted: platform error (HTTP 503)");
-    expect(formatCliEvent({
-      category: "diagnostic",
-      level: "debug",
-      platform: "twitch",
-      message: "request detail",
-      code: "request",
-      data: { status: 200 },
-    })).toBe("request detail");
+    expect(formatCliEvent(rewardEvent("reward_claimed", "Reward", { method: "automatic" }))).toBe(
+      "Claimed Reward from Campaign automatically",
+    );
+    expect(
+      formatCliEvent({
+        category: "activity",
+        code: "interruption",
+        level: "warn",
+        platform: "kick",
+        data: { reason: "platform_error", detail: "HTTP 503" },
+      }),
+    ).toBe("Farming interrupted: platform error (HTTP 503)");
+    expect(
+      formatCliEvent({
+        category: "diagnostic",
+        level: "debug",
+        platform: "twitch",
+        message: "request detail",
+        code: "request",
+        data: { status: 200 },
+      }),
+    ).toBe("request detail");
   });
 
   it("demotes mirrored activity diagnostics so CLI output never says it twice", async () => {
     const lines: string[] = [];
     const started = rewardEvent("farming_started", "Reward A") as ActivityEvent;
-    await reportCliEvents([
-      started,
-      activityDiagnostic(started),
-      { category: "diagnostic", level: "info", platform: "twitch", message: "unmirrored detail" },
-    ], recordingLogger(lines));
+    await reportCliEvents(
+      [
+        started,
+        activityDiagnostic(started),
+        { category: "diagnostic", level: "info", platform: "twitch", message: "unmirrored detail" },
+      ],
+      recordingLogger(lines),
+    );
 
     // The activity line keeps its level; the English mirror drops to debug, where
     // its ids and raw reason codes are available under `--log debug`.
@@ -189,39 +215,58 @@ describe("CLI engine event reporting", () => {
 
   it("formats every stable stop reason", () => {
     const reasons: FarmingStopReason[] = [
-      "automation_disabled", "platform_disabled", "authentication_unhealthy", "platform_backoff", "platform_error",
-      "campaign_ineligible", "channel_excluded", "channel_offline", "channel_mismatch",
-      "watch_unhealthy", "higher_priority_reward", "higher_priority_idle_watchlist",
-      "watch_requirement_completed", "runtime_restart", "target_changed", "manual_watch",
+      "automation_disabled",
+      "platform_disabled",
+      "authentication_unhealthy",
+      "platform_backoff",
+      "platform_error",
+      "campaign_ineligible",
+      "channel_excluded",
+      "channel_offline",
+      "channel_mismatch",
+      "watch_unhealthy",
+      "higher_priority_reward",
+      "higher_priority_idle_watchlist",
+      "watch_requirement_completed",
+      "runtime_restart",
+      "target_changed",
+      "manual_watch",
     ];
     for (const reason of reasons) {
-      expect(formatCliEvent(rewardEvent("farming_stopped", "Reward", { reason })))
-        .toContain(reason.replaceAll("_", " "));
+      expect(formatCliEvent(rewardEvent("farming_stopped", "Reward", { reason }))).toContain(
+        reason.replaceAll("_", " "),
+      );
     }
   });
 
   it("formats managed page-context lifecycle activity", () => {
-    expect(formatCliEvent({
-      category: "activity",
-      code: "page_context_opened",
-      level: "info",
-      platform: "kick",
-      data: { host: "kick.com", reason: "background_rejected" },
-    })).toBe("Opened background context on kick.com: background request rejected");
-    expect(formatCliEvent({
-      category: "activity",
-      code: "page_context_closed",
-      level: "info",
-      platform: "kick",
-      data: { host: "kick.com", reason: "background_recovered" },
-    })).toBe("Closed background context on kick.com: background requests recovered");
-    expect(formatCliEvent({
-      category: "activity",
-      code: "page_context_closed",
-      level: "info",
-      platform: "kick",
-      data: { host: "kick.com", reason: "runtime_restart" },
-    })).toBe("Closed background context on kick.com: extension runtime restarted");
+    expect(
+      formatCliEvent({
+        category: "activity",
+        code: "page_context_opened",
+        level: "info",
+        platform: "kick",
+        data: { host: "kick.com", reason: "background_rejected" },
+      }),
+    ).toBe("Opened background context on kick.com: background request rejected");
+    expect(
+      formatCliEvent({
+        category: "activity",
+        code: "page_context_closed",
+        level: "info",
+        platform: "kick",
+        data: { host: "kick.com", reason: "background_recovered" },
+      }),
+    ).toBe("Closed background context on kick.com: background requests recovered");
+    expect(
+      formatCliEvent({
+        category: "activity",
+        code: "page_context_closed",
+        level: "info",
+        platform: "kick",
+        data: { host: "kick.com", reason: "runtime_restart" },
+      }),
+    ).toBe("Closed background context on kick.com: extension runtime restarted");
   });
 });
 
@@ -229,7 +274,14 @@ describe("CLI campaign status reporting", () => {
   it("applies the config's subscription marks to raw adapter output", () => {
     const campaign = dropCampaign({
       eligibility: "waiting_for_subscription",
-      rewards: [dropReward({ id: "duffel", name: "Purple Duffel Bag", requirement: "subscription", requiredSubs: 1 })],
+      rewards: [
+        dropReward({
+          id: "duffel",
+          name: "Purple Duffel Bag",
+          requirement: "subscription",
+          requiredSubs: 1,
+        }),
+      ],
     });
 
     expect(formatDiscoveredCampaign(campaign, ["arc-raiders-summer:duffel"])).toEqual([
@@ -242,8 +294,21 @@ describe("CLI campaign status reporting", () => {
     const campaign = dropCampaign({
       eligibility: "waiting_for_subscription",
       rewards: [
-        dropReward({ id: "duffel", name: "Purple Duffel Bag", requirement: "subscription", requiredSubs: 1 }),
-        dropReward({ id: "combo", name: "Combo Crate", requirement: "subscription", requiredSubs: 1, requiredMinutes: 60, watchedMinutes: 15, status: "in_progress" }),
+        dropReward({
+          id: "duffel",
+          name: "Purple Duffel Bag",
+          requirement: "subscription",
+          requiredSubs: 1,
+        }),
+        dropReward({
+          id: "combo",
+          name: "Combo Crate",
+          requirement: "subscription",
+          requiredSubs: 1,
+          requiredMinutes: 60,
+          watchedMinutes: 15,
+          status: "in_progress",
+        }),
       ],
     });
     const marks = ["arc-raiders-summer:duffel", "arc-raiders-summer:combo"];
@@ -260,8 +325,18 @@ describe("CLI campaign status reporting", () => {
     const campaign = dropCampaign({
       eligibility: "waiting_for_subscription",
       rewards: [
-        dropReward({ id: "duffel", name: "Purple Duffel Bag", requirement: "subscription", requiredSubs: 1 }),
-        dropReward({ id: "mace", name: "Bastion Mace", requirement: "subscription", requiredSubs: 3 }),
+        dropReward({
+          id: "duffel",
+          name: "Purple Duffel Bag",
+          requirement: "subscription",
+          requiredSubs: 1,
+        }),
+        dropReward({
+          id: "mace",
+          name: "Bastion Mace",
+          requirement: "subscription",
+          requiredSubs: 3,
+        }),
       ],
     });
 
@@ -276,9 +351,26 @@ describe("CLI campaign status reporting", () => {
     const campaign = dropCampaign({
       name: "Mixed Drops",
       rewards: [
-        dropReward({ id: "watch", name: "Watch Crown", requirement: "watch", requiredMinutes: 60, watchedMinutes: 30 }),
-        dropReward({ id: "sub", name: "Subscriber Cape", requirement: "subscription", requiredSubs: 2 }),
-        dropReward({ id: "earned", name: "Earned Badge", requirement: "subscription", requiredSubs: 1, status: "claimed" }),
+        dropReward({
+          id: "watch",
+          name: "Watch Crown",
+          requirement: "watch",
+          requiredMinutes: 60,
+          watchedMinutes: 30,
+        }),
+        dropReward({
+          id: "sub",
+          name: "Subscriber Cape",
+          requirement: "subscription",
+          requiredSubs: 2,
+        }),
+        dropReward({
+          id: "earned",
+          name: "Earned Badge",
+          requirement: "subscription",
+          requiredSubs: 1,
+          status: "claimed",
+        }),
       ],
     });
 
@@ -295,15 +387,33 @@ describe("CLI campaign status reporting", () => {
       eligibility: "waiting_for_subscription",
       rewards: [
         dropReward({ id: "duffel", name: "Purple Duffel Bag", requiredSubs: 1 }),
-        dropReward({ id: "mace", name: "Bastion Mace", requirement: "subscription", requiredSubs: 3, status: "in_progress" }),
+        dropReward({
+          id: "mace",
+          name: "Bastion Mace",
+          requirement: "subscription",
+          requiredSubs: 3,
+          status: "in_progress",
+        }),
         dropReward({ id: "watch", name: "Watch Crown", requirement: "watch", requiredMinutes: 60 }),
-        dropReward({ id: "earned", name: "Earned Badge", requirement: "subscription", requiredSubs: 1, status: "claimed" }),
+        dropReward({
+          id: "earned",
+          name: "Earned Badge",
+          requirement: "subscription",
+          requiredSubs: 1,
+          status: "claimed",
+        }),
       ],
     });
 
     expect([...subscriptionWaitKeys([campaign])]).toEqual([
-      ["twitch:arc-raiders-summer:duffel", "Waiting for 1 qualifying subscription: Purple Duffel Bag from ARC Raiders Summer Drops"],
-      ["twitch:arc-raiders-summer:mace", "Waiting for 3 qualifying subscriptions: Bastion Mace from ARC Raiders Summer Drops"],
+      [
+        "twitch:arc-raiders-summer:duffel",
+        "Waiting for 1 qualifying subscription: Purple Duffel Bag from ARC Raiders Summer Drops",
+      ],
+      [
+        "twitch:arc-raiders-summer:mace",
+        "Waiting for 3 qualifying subscriptions: Bastion Mace from ARC Raiders Summer Drops",
+      ],
     ]);
   });
 
@@ -311,11 +421,36 @@ describe("CLI campaign status reporting", () => {
     const waiting = dropCampaign({
       eligibility: "waiting_for_subscription",
       rewards: [
-        dropReward({ id: "claimable", requirement: "subscription", requiredSubs: 1, status: "claimable" }),
-        dropReward({ id: "claimed", requirement: "subscription", requiredSubs: 1, status: "claimed" }),
-        dropReward({ id: "future", requirement: "subscription", requiredSubs: 1, availableFrom: "2999-01-01T00:00:00.000Z" }),
-        dropReward({ id: "ended", requirement: "subscription", requiredSubs: 1, availableUntil: "2000-01-01T00:00:00.000Z" }),
-        dropReward({ id: "prerequisite", requirement: "subscription", requiredSubs: 1, preconditionsMet: false }),
+        dropReward({
+          id: "claimable",
+          requirement: "subscription",
+          requiredSubs: 1,
+          status: "claimable",
+        }),
+        dropReward({
+          id: "claimed",
+          requirement: "subscription",
+          requiredSubs: 1,
+          status: "claimed",
+        }),
+        dropReward({
+          id: "future",
+          requirement: "subscription",
+          requiredSubs: 1,
+          availableFrom: "2999-01-01T00:00:00.000Z",
+        }),
+        dropReward({
+          id: "ended",
+          requirement: "subscription",
+          requiredSubs: 1,
+          availableUntil: "2000-01-01T00:00:00.000Z",
+        }),
+        dropReward({
+          id: "prerequisite",
+          requirement: "subscription",
+          requiredSubs: 1,
+          preconditionsMet: false,
+        }),
       ],
     });
     const mixed = dropCampaign({
@@ -323,7 +458,12 @@ describe("CLI campaign status reporting", () => {
       eligibility: "eligible",
       rewards: [
         dropReward({ id: "watch", requirement: "watch", requiredMinutes: 60 }),
-        dropReward({ id: "mixed-sub", name: "Mixed Subscription", requirement: "subscription", requiredSubs: 2 }),
+        dropReward({
+          id: "mixed-sub",
+          name: "Mixed Subscription",
+          requirement: "subscription",
+          requiredSubs: 2,
+        }),
       ],
     });
     const upcoming = dropCampaign({
@@ -347,11 +487,25 @@ describe("CLI campaign status reporting", () => {
     const eligibleSubscriptionOnly = dropCampaign({
       id: "eligible-subscription-only",
       eligibility: "eligible",
-      rewards: [dropReward({ id: "not-genuinely-waiting", requirement: "subscription", requiredSubs: 1 })],
+      rewards: [
+        dropReward({ id: "not-genuinely-waiting", requirement: "subscription", requiredSubs: 1 }),
+      ],
     });
 
-    expect([...subscriptionWaitKeys([waiting, mixed, upcoming, expired, unlinked, eligibleSubscriptionOnly])]).toEqual([
-      ["twitch:mixed:mixed-sub", "Waiting for 2 qualifying subscriptions: Mixed Subscription from ARC Raiders Summer Drops"],
+    expect([
+      ...subscriptionWaitKeys([
+        waiting,
+        mixed,
+        upcoming,
+        expired,
+        unlinked,
+        eligibleSubscriptionOnly,
+      ]),
+    ]).toEqual([
+      [
+        "twitch:mixed:mixed-sub",
+        "Waiting for 2 qualifying subscriptions: Mixed Subscription from ARC Raiders Summer Drops",
+      ],
     ]);
   });
 });

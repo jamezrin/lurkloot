@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import type { DiagnosticEvent } from "@lurkloot/shared/events";
 import type { ChannelCandidate } from "@lurkloot/shared/models";
 import { PendingDiscoverySignalDiagnostics } from "@lurkloot/core/discoverySignals";
-import type { DiscoverySignalController, DiscoverySignalTarget } from "@lurkloot/core/discoverySignals";
+import type {
+  DiscoverySignalController,
+  DiscoverySignalTarget,
+} from "@lurkloot/core/discoverySignals";
 import type { WebSocketLike, WebSocketMessageEventLike } from "@lurkloot/core/webSocket";
 import { buildMinuteWatchedEvent, buildSpadeInput, gzipBase64 } from "@lurkloot/core/twitch/watch";
 import { createTwitchGqlTransport } from "@lurkloot/core/twitch";
@@ -25,7 +28,12 @@ describe("discovery signal diagnostics", () => {
   it("retains the newest 250 pending diagnostics", () => {
     const diagnostics = new PendingDiscoverySignalDiagnostics();
     for (let index = 0; index < 260; index += 1) {
-      diagnostics.push({ category: "diagnostic", platform: "kick", level: "debug", message: `signal-${index}` });
+      diagnostics.push({
+        category: "diagnostic",
+        platform: "kick",
+        level: "debug",
+        message: `signal-${index}`,
+      });
     }
 
     const drained = diagnostics.drain();
@@ -37,7 +45,12 @@ describe("discovery signal diagnostics", () => {
 
   it("empties pending diagnostics when drained", () => {
     const diagnostics = new PendingDiscoverySignalDiagnostics();
-    diagnostics.push({ category: "diagnostic", platform: "kick", level: "debug", message: "signal" });
+    diagnostics.push({
+      category: "diagnostic",
+      platform: "kick",
+      level: "debug",
+      message: "signal",
+    });
 
     expect(diagnostics.drain()).toEqual([
       { category: "diagnostic", platform: "kick", level: "debug", message: "signal" },
@@ -108,7 +121,8 @@ describe("twitch minute-watched payload", () => {
 class FakeSocket implements WebSocketLike {
   readyState = 1;
   sent: string[] = [];
-  private readonly listeners: Record<string, Array<(event: WebSocketMessageEventLike) => void>> = {};
+  private readonly listeners: Record<string, Array<(event: WebSocketMessageEventLike) => void>> =
+    {};
 
   send(data: string): void {
     this.sent.push(data);
@@ -118,7 +132,10 @@ class FakeSocket implements WebSocketLike {
     this.readyState = 3;
   }
 
-  addEventListener(type: "open" | "message" | "close" | "error", listener: (event: WebSocketMessageEventLike) => void): void {
+  addEventListener(
+    type: "open" | "message" | "close" | "error",
+    listener: (event: WebSocketMessageEventLike) => void,
+  ): void {
     (this.listeners[type] ??= []).push(listener);
   }
 
@@ -149,12 +166,18 @@ describe("kick viewer watcher", () => {
     const socket = new FakeSocket();
     const creationEvents: DiagnosticEvent[] = [];
     const background = vi.fn(async (url: string) => {
-      if (url.includes("/api/v2/channels/")) return { id: 123, livestream: { id: 456, is_live: true } };
+      if (url.includes("/api/v2/channels/"))
+        return { id: 123, livestream: { id: 456, is_live: true } };
       if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } };
       throw new Error(`unexpected url ${url}`);
     });
     const adapter = kickAdapter(
-      createKickFetcher({ background, pageFetch: async () => { throw new Error("page fallback not expected"); } }),
+      createKickFetcher({
+        background,
+        pageFetch: async () => {
+          throw new Error("page fallback not expected");
+        },
+      }),
       () => socket,
       (event) => creationEvents.push(event as DiagnosticEvent),
     );
@@ -171,16 +194,24 @@ describe("kick viewer watcher", () => {
     const reconnectEvents = watcher?.drainEvents() ?? [];
     const refreshFetches = reconnectEvents.filter((event) => event.code === "kick_fetch_summary");
     expect(refreshFetches).toHaveLength(1);
-    expect(refreshFetches[0].data).toEqual({ "kick.com.background": 1, "websockets.kick.com.background": 1 });
-    expect(reconnectEvents).toContainEqual(expect.objectContaining({ message: "Kick viewer connection closed for creator" }));
-    expect(creationEvents.filter((event) => event.message.includes("Kick fetch kick.com"))).toEqual([]);
+    expect(refreshFetches[0].data).toEqual({
+      "kick.com.background": 1,
+      "websockets.kick.com.background": 1,
+    });
+    expect(reconnectEvents).toContainEqual(
+      expect.objectContaining({ message: "Kick viewer connection closed for creator" }),
+    );
+    expect(creationEvents.filter((event) => event.message.includes("Kick fetch kick.com"))).toEqual(
+      [],
+    );
     await watcher?.stop();
   });
 
   it("opens the viewer socket and sends a watch event on connect", async () => {
     const socket = new FakeSocket();
     const fetchJson = vi.fn(async (url: string) => {
-      if (url.includes("/api/v2/channels/")) return { id: 123, livestream: { id: 456, is_live: true } } as unknown;
+      if (url.includes("/api/v2/channels/"))
+        return { id: 123, livestream: { id: 456, is_live: true } } as unknown;
       if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as unknown;
       throw new Error(`unexpected url ${url}`);
     });
@@ -214,18 +245,31 @@ describe("kick viewer watcher", () => {
       const urls: string[] = [];
       const fetchJson = vi.fn(async (url: string) => {
         urls.push(url);
-        if (url === KICK_GLOBAL_SETTINGS_URL) return { events: { "tracking.user.watch.livestream": { interval: 90 } } } as unknown;
-        if (url.includes("/api/v2/channels/")) return { id: 123, livestream: { id: 456, is_live: true, vod_id: "vod-uuid" } } as unknown;
+        if (url === KICK_GLOBAL_SETTINGS_URL)
+          return { events: { "tracking.user.watch.livestream": { interval: 90 } } } as unknown;
+        if (url.includes("/api/v2/channels/"))
+          return { id: 123, livestream: { id: 456, is_live: true, vod_id: "vod-uuid" } } as unknown;
         if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as unknown;
         throw new Error(`unexpected url ${url}`);
       });
-      const watcher = new KickWatcher({ fetcher: { fetchJson: fetchJson as never }, createWebSocket: () => socket, now: () => Date.now() });
+      const watcher = new KickWatcher({
+        fetcher: { fetchJson: fetchJson as never },
+        createWebSocket: () => socket,
+        now: () => Date.now(),
+      });
 
       await watcher.start(kickChannel, {});
       socket.emit("open");
-      const count = (type: string) => socket.parsed().filter((message) => message.type === type).length;
+      const count = (type: string) =>
+        socket.parsed().filter((message) => message.type === type).length;
       expect(urls).toContain("https://kick.com/api/v2/channels/creator/info");
-      expect((socket.parsed().find((message) => message.type === "user_event")?.data as { message?: unknown })?.message).toEqual({
+      expect(
+        (
+          socket.parsed().find((message) => message.type === "user_event")?.data as {
+            message?: unknown;
+          }
+        )?.message,
+      ).toEqual({
         name: "tracking.user.watch.livestream",
         channel_id: 123,
         livestream_id: 456,
@@ -248,7 +292,11 @@ describe("kick viewer watcher", () => {
   });
 
   it("clamps Kick's interval and falls back to 120 s when it cannot be read", async () => {
-    const intervals = new Map<string, unknown>([["short", 1], ["missing", undefined], ["fails", "throw"]]);
+    const intervals = new Map<string, unknown>([
+      ["short", 1],
+      ["missing", undefined],
+      ["fails", "throw"],
+    ]);
     for (const [label, interval] of intervals) {
       const socket = new FakeSocket();
       const fetchJson = vi.fn(async (url: string) => {
@@ -256,44 +304,69 @@ describe("kick viewer watcher", () => {
           if (interval === "throw") throw new Error("blocked");
           return { events: { "tracking.user.watch.livestream": { interval } } } as unknown;
         }
-        if (url.includes("/api/v2/channels/")) return { id: 123, livestream: { id: 456, is_live: true } } as unknown;
+        if (url.includes("/api/v2/channels/"))
+          return { id: 123, livestream: { id: 456, is_live: true } } as unknown;
         if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as unknown;
         throw new Error(`unexpected url ${url}`);
       });
-      const watcher = new KickWatcher({ fetcher: { fetchJson: fetchJson as never }, createWebSocket: () => socket, now: () => 1_000 });
+      const watcher = new KickWatcher({
+        fetcher: { fetchJson: fetchJson as never },
+        createWebSocket: () => socket,
+        now: () => 1_000,
+      });
       await watcher.start(kickChannel, {});
       socket.emit("open");
       const expected = label === "short" ? 30 : 120;
-      expect(watcher.drainEvents().map((event) => event.message), label)
-        .toContain(`Kick tabless farming active for creator — sending watch events every ${expected} s`);
+      expect(
+        watcher.drainEvents().map((event) => event.message),
+        label,
+      ).toContain(
+        `Kick tabless farming active for creator — sending watch events every ${expected} s`,
+      );
       await watcher.stop();
     }
   });
 
   it("opens no socket for a connect that stop() overtook, and lets a tick wait for one in progress", async () => {
     let releaseToken!: () => void;
-    const tokenGate = new Promise<void>((resolve) => { releaseToken = resolve; });
+    const tokenGate = new Promise<void>((resolve) => {
+      releaseToken = resolve;
+    });
     const sockets: FakeSocket[] = [];
     const fetchJson = vi.fn(async (url: string) => {
-      if (url.includes("/api/v2/channels/")) return { id: 123, livestream: { id: 456, is_live: true } } as unknown;
-      if (url.includes("/viewer/v1/token")) { await tokenGate; return { data: { token: "tok" } } as unknown; }
+      if (url.includes("/api/v2/channels/"))
+        return { id: 123, livestream: { id: 456, is_live: true } } as unknown;
+      if (url.includes("/viewer/v1/token")) {
+        await tokenGate;
+        return { data: { token: "tok" } } as unknown;
+      }
       throw new Error(`unexpected url ${url}`);
     });
     const watcher = new KickWatcher({
       fetcher: { fetchJson: fetchJson as never },
-      createWebSocket: () => { const socket = new FakeSocket(); sockets.push(socket); return socket; },
+      createWebSocket: () => {
+        const socket = new FakeSocket();
+        sockets.push(socket);
+        return socket;
+      },
       now: () => 1_000,
     });
 
     const starting = watcher.start(kickChannel, {});
     const ticking = watcher.tick({});
-    await vi.waitFor(() => expect(fetchJson.mock.calls.some(([url]) => String(url).includes("/viewer/v1/token"))).toBe(true));
+    await vi.waitFor(() =>
+      expect(fetchJson.mock.calls.some(([url]) => String(url).includes("/viewer/v1/token"))).toBe(
+        true,
+      ),
+    );
     await watcher.stop();
     releaseToken();
     await starting;
     await ticking;
     expect(sockets).toHaveLength(0);
-    expect(fetchJson.mock.calls.filter(([url]) => String(url).includes("/viewer/v1/token"))).toHaveLength(1);
+    expect(
+      fetchJson.mock.calls.filter(([url]) => String(url).includes("/viewer/v1/token")),
+    ).toHaveLength(1);
   });
 
   it("connects with the candidate's ids when the channel info read fails", async () => {
@@ -303,11 +376,21 @@ describe("kick viewer watcher", () => {
       if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as unknown;
       throw new Error(`unexpected url ${url}`);
     });
-    const watcher = new KickWatcher({ fetcher: { fetchJson: fetchJson as never }, createWebSocket: () => socket, now: () => 1_000 });
+    const watcher = new KickWatcher({
+      fetcher: { fetchJson: fetchJson as never },
+      createWebSocket: () => socket,
+      now: () => 1_000,
+    });
 
     await watcher.start({ ...kickChannel, channelId: "123", broadcastId: "456" }, {});
     socket.emit("open");
-    expect((socket.parsed().find((message) => message.type === "user_event")?.data as { message?: unknown })?.message).toEqual({
+    expect(
+      (
+        socket.parsed().find((message) => message.type === "user_event")?.data as {
+          message?: unknown;
+        }
+      )?.message,
+    ).toEqual({
       name: "tracking.user.watch.livestream",
       channel_id: 123,
       livestream_id: 456,
@@ -318,7 +401,8 @@ describe("kick viewer watcher", () => {
   it("does not record a watch event when the socket is not open", async () => {
     const socket = new FakeSocket();
     const fetchJson = vi.fn(async (url: string) => {
-      if (url.includes("/api/v2/channels/")) return { id: 123, livestream: { id: 456, is_live: true } } as unknown;
+      if (url.includes("/api/v2/channels/"))
+        return { id: 123, livestream: { id: 456, is_live: true } } as unknown;
       if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as unknown;
       throw new Error(`unexpected url ${url}`);
     });
@@ -342,7 +426,8 @@ describe("kick viewer watcher", () => {
   it("reconnects from tick when the socket is closed without a close event", async () => {
     const sockets: FakeSocket[] = [];
     const fetchJson = vi.fn(async (url: string) => {
-      if (url.includes("/api/v2/channels/")) return { id: 123, livestream: { id: 456, is_live: true } } as unknown;
+      if (url.includes("/api/v2/channels/"))
+        return { id: 123, livestream: { id: 456, is_live: true } } as unknown;
       if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as unknown;
       throw new Error(`unexpected url ${url}`);
     });
@@ -368,7 +453,9 @@ describe("kick viewer watcher", () => {
     expect(result).toMatchObject({ ok: false, live: true, message: "Kick viewer connection idle" });
     expect(sockets).toHaveLength(2);
     expect(sockets[0]?.readyState).toBe(3);
-    expect(watcher.drainEvents().some((event) => event.message.startsWith("Sent Kick watch event"))).toBe(false);
+    expect(
+      watcher.drainEvents().some((event) => event.message.startsWith("Sent Kick watch event")),
+    ).toBe(false);
     await watcher.stop();
   });
 
@@ -376,7 +463,8 @@ describe("kick viewer watcher", () => {
     let now = 1_000;
     const socket = new FakeSocket();
     const fetchJson = vi.fn(async (url: string) => {
-      if (url.includes("/api/v2/channels/")) return { id: 123, livestream: { id: 456, is_live: true } } as unknown;
+      if (url.includes("/api/v2/channels/"))
+        return { id: 123, livestream: { id: 456, is_live: true } } as unknown;
       if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as unknown;
       throw new Error(`unexpected url ${url}`);
     });
@@ -403,7 +491,8 @@ describe("kick viewer watcher", () => {
     let now = 1_000;
     const socket = new FakeSocket();
     const fetchJson = vi.fn(async (url: string) => {
-      if (url.includes("/api/v2/channels/")) return { id: 123, livestream: { id: 456, is_live: true } } as unknown;
+      if (url.includes("/api/v2/channels/"))
+        return { id: 123, livestream: { id: 456, is_live: true } } as unknown;
       if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as unknown;
       throw new Error(`unexpected url ${url}`);
     });
@@ -434,7 +523,8 @@ describe("kick viewer watcher", () => {
   it("does not open another socket after a hard websocket error", async () => {
     const sockets: FakeSocket[] = [];
     const fetchJson = vi.fn(async (url: string) => {
-      if (url.includes("/api/v2/channels/")) return { id: 123, livestream: { id: 456, is_live: true } } as unknown;
+      if (url.includes("/api/v2/channels/"))
+        return { id: 123, livestream: { id: 456, is_live: true } } as unknown;
       if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as unknown;
       throw new Error(`unexpected url ${url}`);
     });
@@ -463,7 +553,8 @@ describe("kick viewer watcher", () => {
   it("surfaces a one-shot info line when tabless farming becomes active", async () => {
     const socket = new FakeSocket();
     const fetchJson = vi.fn(async (url: string) => {
-      if (url.includes("/api/v2/channels/")) return { id: 123, livestream: { id: 456, is_live: true } } as unknown;
+      if (url.includes("/api/v2/channels/"))
+        return { id: 123, livestream: { id: 456, is_live: true } } as unknown;
       if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as unknown;
       throw new Error(`unexpected url ${url}`);
     });
@@ -480,7 +571,9 @@ describe("kick viewer watcher", () => {
 
     // Exactly one info-level "farming active" line so launch-day verification is
     // legible without the verbose/debug filter.
-    const active = watcher.drainEvents().filter((entry) => entry.level === "info" && /farming active/i.test(entry.message));
+    const active = watcher
+      .drainEvents()
+      .filter((entry) => entry.level === "info" && /farming active/i.test(entry.message));
     expect(active).toHaveLength(1);
     expect(watcher.drainEvents()).toEqual([]);
     await watcher.stop();
@@ -489,7 +582,8 @@ describe("kick viewer watcher", () => {
   it("queues callback diagnostics for one causal drain", async () => {
     const socket = new FakeSocket();
     const fetchJson = vi.fn(async (url: string) => {
-      if (url.includes("/api/v2/channels/")) return { id: 123, livestream: { id: 456, is_live: true } } as unknown;
+      if (url.includes("/api/v2/channels/"))
+        return { id: 123, livestream: { id: 456, is_live: true } } as unknown;
       if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as unknown;
       throw new Error(`unexpected url ${url}`);
     });
@@ -516,7 +610,12 @@ describe("kick viewer watcher", () => {
   it("caps pending diagnostics at 250 while preserving the newest causal order", () => {
     const diagnostics = new PendingWatcherDiagnostics();
     for (let index = 0; index < 260; index += 1) {
-      diagnostics.push({ category: "diagnostic", platform: "kick", level: "debug", message: `event-${index}` });
+      diagnostics.push({
+        category: "diagnostic",
+        platform: "kick",
+        level: "debug",
+        message: `event-${index}`,
+      });
     }
 
     const drained = diagnostics.drain();
@@ -531,7 +630,8 @@ describe("kick viewer watcher", () => {
     const adapter = kickAdapter(
       {
         fetchJson: vi.fn(async (url: string) => {
-          if (url.includes("/api/v2/channels/")) return { id: 123, livestream: { id: 456, is_live: true } } as never;
+          if (url.includes("/api/v2/channels/"))
+            return { id: 123, livestream: { id: 456, is_live: true } } as never;
           if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as never;
           throw new Error(`unexpected url ${url}`);
         }),
@@ -557,15 +657,15 @@ describe("kick viewer watcher", () => {
     const fetchJson = vi.fn(async (url: string) => {
       const username = decodeURIComponent(url.split("/").at(-1) ?? "");
       if (url.includes("/api/v2/channels/")) {
-        return { id: username === "next" ? 2 : 1, livestream: { id: username === "next" ? 22 : 11, is_live: true } } as never;
+        return {
+          id: username === "next" ? 2 : 1,
+          livestream: { id: username === "next" ? 22 : 11, is_live: true },
+        } as never;
       }
       if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as never;
       throw new Error(`unexpected url ${url}`);
     });
-    const adapter = kickAdapter(
-      { fetchJson },
-      () => sockets.shift()!,
-    );
+    const adapter = kickAdapter({ fetchJson }, () => sockets.shift()!);
     const watcher = adapter.createTablessWatcher?.();
 
     await watcher?.start(kickChannel, {});
@@ -586,7 +686,8 @@ describe("kick viewer watcher", () => {
 
   it("reports unhealthy when the viewer token cannot be obtained", async () => {
     const fetchJson = vi.fn(async (url: string) => {
-      if (url.includes("/api/v2/channels/")) return { id: 1, livestream: { id: 2, is_live: true } } as unknown;
+      if (url.includes("/api/v2/channels/"))
+        return { id: 1, livestream: { id: 2, is_live: true } } as unknown;
       if (url.includes("/viewer/v1/token")) return { data: {} } as unknown;
       throw new Error(`unexpected url ${url}`);
     });
@@ -604,7 +705,8 @@ describe("kick viewer watcher", () => {
   it("logs a warning when the viewer WebSocket errors", async () => {
     const socket = new FakeSocket();
     const fetchJson = vi.fn(async (url: string) => {
-      if (url.includes("/api/v2/channels/")) return { id: 1, livestream: { id: 2, is_live: true } } as unknown;
+      if (url.includes("/api/v2/channels/"))
+        return { id: 1, livestream: { id: 2, is_live: true } } as unknown;
       if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as unknown;
       throw new Error(`unexpected url ${url}`);
     });
@@ -618,7 +720,11 @@ describe("kick viewer watcher", () => {
     socket.emit("open");
     socket.emit("error");
 
-    expect(watcher.drainEvents().some((entry) => entry.level === "warn" && /WebSocket error/.test(entry.message))).toBe(true);
+    expect(
+      watcher
+        .drainEvents()
+        .some((entry) => entry.level === "warn" && /WebSocket error/.test(entry.message)),
+    ).toBe(true);
     await expect(watcher.tick({})).resolves.toMatchObject({ ok: false });
     await watcher.stop();
   });
@@ -646,9 +752,11 @@ describe("kick viewer watcher", () => {
     const socket = new FakeSocket();
     const fetchJson = vi.fn(async (url: string) => {
       if (url.includes("/api/v2/channels/")) {
-        return fetchJson.mock.calls.filter(([calledUrl]) => String(calledUrl).includes("/api/v2/channels/")).length === 1
-          ? { id: 1, livestream: { id: 2, is_live: true, categories: [{ id: 10 }] } } as unknown
-          : { id: 1, livestream: null } as unknown;
+        return fetchJson.mock.calls.filter(([calledUrl]) =>
+          String(calledUrl).includes("/api/v2/channels/"),
+        ).length === 1
+          ? ({ id: 1, livestream: { id: 2, is_live: true, categories: [{ id: 10 }] } } as unknown)
+          : ({ id: 1, livestream: null } as unknown);
       }
       if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as unknown;
       throw new Error(`unexpected url ${url}`);
@@ -674,9 +782,11 @@ describe("kick viewer watcher", () => {
     const socket = new FakeSocket();
     const fetchJson = vi.fn(async (url: string) => {
       if (url.includes("/api/v2/channels/")) {
-        return fetchJson.mock.calls.filter(([calledUrl]) => String(calledUrl).includes("/api/v2/channels/")).length === 1
-          ? { id: 1, livestream: { id: 2, is_live: true, categories: [{ id: 10 }] } } as unknown
-          : { id: 1, livestream: { id: 2, is_live: true, categories: [{ id: 20 }] } } as unknown;
+        return fetchJson.mock.calls.filter(([calledUrl]) =>
+          String(calledUrl).includes("/api/v2/channels/"),
+        ).length === 1
+          ? ({ id: 1, livestream: { id: 2, is_live: true, categories: [{ id: 10 }] } } as unknown)
+          : ({ id: 1, livestream: { id: 2, is_live: true, categories: [{ id: 20 }] } } as unknown);
       }
       if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as unknown;
       throw new Error(`unexpected url ${url}`);
@@ -705,9 +815,11 @@ describe("kick viewer watcher", () => {
     const socket = new FakeSocket();
     const fetchJson = vi.fn(async (url: string) => {
       if (url.includes("/api/v2/channels/")) {
-        return fetchJson.mock.calls.filter(([calledUrl]) => String(calledUrl).includes("/api/v2/channels/")).length === 1
-          ? { id: 1, livestream: { id: 2, is_live: true, categories: [{ id: 10 }] } } as unknown
-          : { id: 1, livestream: { id: 3, is_live: true, categories: [{ id: 10 }] } } as unknown;
+        return fetchJson.mock.calls.filter(([calledUrl]) =>
+          String(calledUrl).includes("/api/v2/channels/"),
+        ).length === 1
+          ? ({ id: 1, livestream: { id: 2, is_live: true, categories: [{ id: 10 }] } } as unknown)
+          : ({ id: 1, livestream: { id: 3, is_live: true, categories: [{ id: 10 }] } } as unknown);
       }
       if (url.includes("/viewer/v1/token")) return { data: { token: "tok" } } as unknown;
       throw new Error(`unexpected url ${url}`);
@@ -749,12 +861,21 @@ describe("adapter-created twitch watcher diagnostics", () => {
       { clientId: "neutral-client", userAgent: "neutral-agent", compatibility: TWITCH_COMPAT },
     );
 
-    await transport("StreamInfo", "hash", { channel: "creator" }, "query StreamInfo { user { id } }", "omit", (event) => {
-      if (event.category === "diagnostic") events.push(event);
-    });
+    await transport(
+      "StreamInfo",
+      "hash",
+      { channel: "creator" },
+      "query StreamInfo { user { id } }",
+      "omit",
+      (event) => {
+        if (event.category === "diagnostic") events.push(event);
+      },
+    );
 
     expect(events).toEqual([
-      expect.objectContaining({ message: "GQL StreamInfo returned a transient error; retrying once" }),
+      expect.objectContaining({
+        message: "GQL StreamInfo returned a transient error; retrying once",
+      }),
     ]);
   });
 
@@ -766,7 +887,14 @@ describe("adapter-created twitch watcher diagnostics", () => {
       if (operationName === "StreamInfo") {
         streamCalls += 1;
         if (streamCalls === 1) return { errors: [{ message: "service unavailable" }] };
-        return { data: { user: { id: "channel-id", stream: { id: "broadcast-id", game: { id: "game", name: "Game" } } } } };
+        return {
+          data: {
+            user: {
+              id: "channel-id",
+              stream: { id: "broadcast-id", game: { id: "game", name: "Game" } },
+            },
+          },
+        };
       }
       if (operationName === "SendEvents") return { data: { sendSpadeEvents: { statusCode: 204 } } };
       throw new Error(`unexpected operation ${operationName}`);
@@ -782,13 +910,24 @@ describe("adapter-created twitch watcher diagnostics", () => {
     );
     const watcher = adapter.createTablessWatcher?.();
 
-    await watcher?.start({ platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" }, { userId: "viewer-id" });
+    await watcher?.start(
+      { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
+      { userId: "viewer-id" },
+    );
     await watcher?.tick({ userId: "viewer-id" });
 
-    expect(watcher?.drainEvents()).toEqual(expect.arrayContaining([
-      expect.objectContaining({ message: "GQL StreamInfo returned a transient error; retrying once" }),
-    ]));
-    expect(creationEvents.filter((event) => event.message.includes("GQL StreamInfo returned a transient error"))).toEqual([]);
+    expect(watcher?.drainEvents()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          message: "GQL StreamInfo returned a transient error; retrying once",
+        }),
+      ]),
+    );
+    expect(
+      creationEvents.filter((event) =>
+        event.message.includes("GQL StreamInfo returned a transient error"),
+      ),
+    ).toEqual([]);
   });
 
   // The watcher resolves its own viewer id when discovery did not supply one.
@@ -801,7 +940,14 @@ describe("adapter-created twitch watcher diagnostics", () => {
     const fetchJson = vi.fn(async (_url: string, init?: RequestInit) => {
       const operationName = JSON.parse(String(init?.body)).operationName;
       if (operationName === "StreamInfo") {
-        return { data: { user: { id: "channel-id", stream: { id: "broadcast-id", game: { id: "game", name: "Game" } } } } };
+        return {
+          data: {
+            user: {
+              id: "channel-id",
+              stream: { id: "broadcast-id", game: { id: "game", name: "Game" } },
+            },
+          },
+        };
       }
       if (operationName === "CurrentUser") {
         currentUserCalls += 1;
@@ -814,28 +960,33 @@ describe("adapter-created twitch watcher diagnostics", () => {
       }
       throw new Error(`unexpected operation ${operationName}`);
     });
-    const ensureIntegrity = vi.fn(async (request?: { forceRefresh?: boolean }) => request?.forceRefresh === true);
+    const ensureIntegrity = vi.fn(
+      async (request?: { forceRefresh?: boolean }) => request?.forceRefresh === true,
+    );
     // GQL-v1 heartbeat: it sends minute-watched via the SendEvents GQL mutation
     // mocked below, unlike the recommended Spade profile (a separate page-fetch
     // transport this fixture does not wire up).
-    const adapter = twitchAdapter(
-      { fetchJson: fetchJson as never },
-      ensureIntegrity,
-      { compatibility: { ...TWITCH_COMPAT, heartbeat: "twitch-heartbeat-gql-v1" } },
-    );
+    const adapter = twitchAdapter({ fetchJson: fetchJson as never }, ensureIntegrity, {
+      compatibility: { ...TWITCH_COMPAT, heartbeat: "twitch-heartbeat-gql-v1" },
+    });
     const watcher = adapter.createTablessWatcher?.();
 
     // No userId in the context, so the watcher must resolve it itself.
-    await watcher?.start({ platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" }, {});
+    await watcher?.start(
+      { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
+      {},
+    );
     const result = await watcher?.tick({});
 
     expect(result).toMatchObject({ ok: true });
     expect(currentUserCalls).toBe(2);
     expect(ensureIntegrity).toHaveBeenCalledOnce();
-    expect(ensureIntegrity).toHaveBeenCalledWith(expect.objectContaining({
-      forceRefresh: true,
-      reason: "rejection_recovery",
-    }));
+    expect(ensureIntegrity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        forceRefresh: true,
+        reason: "rejection_recovery",
+      }),
+    );
     // The heartbeat itself is never replayed by integrity recovery.
     expect(sendEventsCalls).toBe(1);
   });
@@ -845,38 +996,56 @@ describe("adapter-created twitch watcher diagnostics", () => {
     const fetchJson = vi.fn(async (_url: string, init?: RequestInit) => {
       const operationName = JSON.parse(String(init?.body)).operationName;
       if (operationName === "StreamInfo") {
-        return { data: { user: { id: "channel-id", stream: { id: "broadcast-id", game: { id: "game", name: "Game" } } } } };
+        return {
+          data: {
+            user: {
+              id: "channel-id",
+              stream: { id: "broadcast-id", game: { id: "game", name: "Game" } },
+            },
+          },
+        };
       }
       if (operationName === "PlaybackAccessToken") {
         tokenCalls += 1;
         if (tokenCalls === 1) return { error: "failed integrity check" };
-        return { data: { streamPlaybackAccessToken: { value: "token-value", signature: "token-sig" } } };
+        return {
+          data: { streamPlaybackAccessToken: { value: "token-value", signature: "token-sig" } },
+        };
       }
       throw new Error(`unexpected operation ${operationName}`);
     });
-    const ensureIntegrity = vi.fn(async (request?: { forceRefresh?: boolean }) => request?.forceRefresh === true);
+    const ensureIntegrity = vi.fn(
+      async (request?: { forceRefresh?: boolean }) => request?.forceRefresh === true,
+    );
     const exchange = vi.fn(async (url: string, init: RequestInit) => {
       if (init.method === "GET" && url.includes("/api/channel/hls/")) {
-        return { status: 200, body: "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nhttps://video-weaver.fra05.hls.ttvnw.net/v1/playlist.m3u8\n", url };
+        return {
+          status: 200,
+          body: "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nhttps://video-weaver.fra05.hls.ttvnw.net/v1/playlist.m3u8\n",
+          url,
+        };
       }
       if (init.method === "GET") {
-        return { status: 200, body: "#EXTM3U\n#EXTINF:2.0,\nhttps://video-edge.fra05.hls.ttvnw.net/v1/seg-1.ts\n", url };
+        return {
+          status: 200,
+          body: "#EXTM3U\n#EXTINF:2.0,\nhttps://video-edge.fra05.hls.ttvnw.net/v1/seg-1.ts\n",
+          url,
+        };
       }
       return { status: 200, body: "", url };
     });
-    const adapter = twitchAdapter(
-      { fetchJson: fetchJson as never },
-      ensureIntegrity,
-      {
-        compatibility: TWITCH_COMPAT,
-        heartbeatExchange: exchange,
-        heartbeatFetchText: async () => '{"spade_url":"https://spade.twitch.tv/track"}',
-        heartbeatPost: async () => ({ status: 204 }),
-      },
-    );
+    const adapter = twitchAdapter({ fetchJson: fetchJson as never }, ensureIntegrity, {
+      compatibility: TWITCH_COMPAT,
+      heartbeatExchange: exchange,
+      heartbeatFetchText: async () => '{"spade_url":"https://spade.twitch.tv/track"}',
+      heartbeatPost: async () => ({ status: 204 }),
+    });
     const watcher = adapter.createTablessWatcher?.();
 
-    await watcher?.start({ platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" }, { userId: "viewer-id" });
+    await watcher?.start(
+      { platform: "twitch", username: "creator", url: "https://www.twitch.tv/creator" },
+      { userId: "viewer-id" },
+    );
     const result = await watcher?.tick({ userId: "viewer-id" });
 
     expect(result).toMatchObject({ ok: true, live: true });

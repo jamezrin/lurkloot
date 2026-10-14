@@ -21,7 +21,12 @@ const TABS_IMPORT = /["'](?:@lurkloot\/core\/(?:tabs|tabRegistry)|[^"']*browserT
 
 describe("CLI tab boundary", () => {
   it("never imports tab code", () => {
-    const offenders = tsFiles(cliSrc).filter((file) => TABS_IMPORT.test(readFileSync(file, "utf8")));
-    expect(offenders, `the CLI must not import browser tab code; offending files:\n${offenders.join("\n")}`).toEqual([]);
+    const offenders = tsFiles(cliSrc).filter((file) =>
+      TABS_IMPORT.test(readFileSync(file, "utf8")),
+    );
+    expect(
+      offenders,
+      `the CLI must not import browser tab code; offending files:\n${offenders.join("\n")}`,
+    ).toEqual([]);
   });
 });

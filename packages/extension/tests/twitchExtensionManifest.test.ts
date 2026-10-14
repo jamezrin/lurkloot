@@ -17,14 +17,21 @@ describe("Twitch Extension manifest permissions", () => {
     applyProviderOptionalPermissions(manifest);
     expect(manifest.permissions).toEqual(["tabs", "scripting"]);
     expect(manifest.host_permissions).toEqual(["https://*.twitch.tv/*"]);
-    expect(version === 3 ? (manifest as { optional_host_permissions?: string[] }).optional_host_permissions
-      : (manifest as { optional_permissions?: string[] }).optional_permissions).toEqual(origins);
-    expect((manifest as { minimum_chrome_version?: string }).minimum_chrome_version).toBe(version === 3 ? "116" : undefined);
+    expect(
+      version === 3
+        ? (manifest as { optional_host_permissions?: string[] }).optional_host_permissions
+        : (manifest as { optional_permissions?: string[] }).optional_permissions,
+    ).toEqual(origins);
+    expect((manifest as { minimum_chrome_version?: string }).minimum_chrome_version).toBe(
+      version === 3 ? "116" : undefined,
+    );
     expect(JSON.stringify(manifest)).not.toContain("ext-twitch.tv");
   });
   it("preserves unrelated optional grants and removes MV3-only keys from MV2", () => {
     const manifest = {
-      manifest_version: 2, optional_permissions: ["bookmarks"], optional_host_permissions: origins,
+      manifest_version: 2,
+      optional_permissions: ["bookmarks"],
+      optional_host_permissions: origins,
     };
     applyProviderOptionalPermissions(manifest);
     expect(manifest.optional_permissions).toEqual(["bookmarks", ...origins]);

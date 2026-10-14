@@ -28,7 +28,9 @@ import { WatchSourcePlace } from "./watchSourcePriority";
  * a channel link on either platform. Undefined when nothing usable is left. */
 export function channelNameFromInput(value: string): string | undefined {
   const trimmed = value.trim();
-  const link = /^(?:https?:\/\/)?(?:www\.|m\.)?(?:twitch\.tv|kick\.com)\/(?:@)?([^/?#\s]+)/i.exec(trimmed);
+  const link = /^(?:https?:\/\/)?(?:www\.|m\.)?(?:twitch\.tv|kick\.com)\/(?:@)?([^/?#\s]+)/i.exec(
+    trimmed,
+  );
   const name = (link ? link[1]! : trimmed.replace(/^@/, "")).toLowerCase();
   return /^[a-z0-9_-]+$/.test(name) ? name : undefined;
 }
@@ -36,7 +38,13 @@ export function channelNameFromInput(value: string): string | undefined {
 /** The Idle Watchlist destination. The add field sits at the top, always
  * open, with where the list falls in the watch order right under it, so
  * nothing about the list waits at the bottom of a long page. */
-export function IdleWatchlistPanel({ platform, streamers, watchOrder, onChangeOrder, onChange }: {
+export function IdleWatchlistPanel({
+  platform,
+  streamers,
+  watchOrder,
+  onChangeOrder,
+  onChange,
+}: {
   platform: Platform;
   streamers: StreamerItem[];
   // The platform's watch-source priority, which decides when the list is used.
@@ -73,20 +81,35 @@ export function IdleWatchlistPanel({ platform, streamers, watchOrder, onChangeOr
   return (
     <section id="idle-watchlist" className="space-y-2">
       <ViewToolbar>
-        <span data-watchlist-count className="font-mono text-[11px] text-zinc-400 tabular dark:text-zinc-500">
+        <span
+          data-watchlist-count
+          className="font-mono text-[11px] text-zinc-400 tabular dark:text-zinc-500"
+        >
           {streamers.length}/{IDLE_WATCHLIST_LIMIT}
         </span>
       </ViewToolbar>
 
-      <form className="space-y-1" onSubmit={(event) => { event.preventDefault(); addChannel(); }}>
+      <form
+        className="space-y-1"
+        onSubmit={(event) => {
+          event.preventDefault();
+          addChannel();
+        }}
+      >
         <div className="flex gap-2">
           <input
             data-watchlist-input
             value={value}
             disabled={full}
             aria-label={t("addChannel")}
-            onChange={(event) => { setValue(event.target.value); setNotice(undefined); }}
-            placeholder={t(full ? "idleWatchlistFull" : "idleWatchlistAddPlaceholder", String(IDLE_WATCHLIST_LIMIT))}
+            onChange={(event) => {
+              setValue(event.target.value);
+              setNotice(undefined);
+            }}
+            placeholder={t(
+              full ? "idleWatchlistFull" : "idleWatchlistAddPlaceholder",
+              String(IDLE_WATCHLIST_LIMIT),
+            )}
             className="min-w-0 flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-[var(--accent-ring)] disabled:cursor-not-allowed disabled:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:disabled:bg-zinc-900/50"
           />
           <button
@@ -98,18 +121,36 @@ export function IdleWatchlistPanel({ platform, streamers, watchOrder, onChangeOr
             <Plus size={13} aria-hidden /> {t("add")}
           </button>
         </div>
-        {notice ? <p role="status" data-watchlist-notice className="px-1 text-[11px] text-amber-600 dark:text-amber-400">{notice}</p> : null}
+        {notice ? (
+          <p
+            role="status"
+            data-watchlist-notice
+            className="px-1 text-[11px] text-amber-600 dark:text-amber-400"
+          >
+            {notice}
+          </p>
+        ) : null}
       </form>
 
       {watchOrder && onChangeOrder ? (
-        <WatchSourcePlace source="idle_watchlist" order={watchOrder} onChangeOrder={onChangeOrder} />
+        <WatchSourcePlace
+          source="idle_watchlist"
+          order={watchOrder}
+          onChangeOrder={onChangeOrder}
+        />
       ) : null}
 
-      {streamers.length === 0 ? <EmptyPanel>{t("noIdleWatchlist")}</EmptyPanel> : (
+      {streamers.length === 0 ? (
+        <EmptyPanel>{t("noIdleWatchlist")}</EmptyPanel>
+      ) : (
         <div className="space-y-1.5">
           <div className="flex items-center gap-2 pt-1">
-            <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">{t("idleWatchlistOrderTitle")}</span>
-            <span className="truncate text-[10px] text-zinc-400 dark:text-zinc-500">{t("idleWatchlistOrderHint")}</span>
+            <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
+              {t("idleWatchlistOrderTitle")}
+            </span>
+            <span className="truncate text-[10px] text-zinc-400 dark:text-zinc-500">
+              {t("idleWatchlistOrderHint")}
+            </span>
             <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
           </div>
           <DragDropProvider onDragEnd={endDrag}>
@@ -121,7 +162,9 @@ export function IdleWatchlistPanel({ platform, streamers, watchOrder, onChangeOr
                   index={index}
                   count={streamers.length}
                   platform={platform}
-                  onRemove={() => void onChange(streamers.filter((entry) => entry.id !== streamer.id))}
+                  onRemove={() =>
+                    void onChange(streamers.filter((entry) => entry.id !== streamer.id))
+                  }
                   onMove={(toIndex) => void onChange(arrayMove(streamers, index, toIndex))}
                 />
               ))}
@@ -133,7 +176,21 @@ export function IdleWatchlistPanel({ platform, streamers, watchOrder, onChangeOr
   );
 }
 
-function SortableIdleWatchlist({ streamer, index, count, platform, onRemove, onMove }: { streamer: StreamerItem; index: number; count: number; platform: Platform; onRemove(): void; onMove(toIndex: number): void }) {
+function SortableIdleWatchlist({
+  streamer,
+  index,
+  count,
+  platform,
+  onRemove,
+  onMove,
+}: {
+  streamer: StreamerItem;
+  index: number;
+  count: number;
+  platform: Platform;
+  onRemove(): void;
+  onMove(toIndex: number): void;
+}) {
   // The new dnd-kit animates the real element, so there is no DragOverlay copy
   // and no transform/transition to apply by hand.
   const t = useT();
@@ -141,7 +198,25 @@ function SortableIdleWatchlist({ streamer, index, count, platform, onRemove, onM
   const status = <IdleWatchlistStatus streamer={streamer} />;
   return (
     <div ref={ref} onDragStart={preventNativeDrag}>
-      <CompactRow index={index} rankCount={count} rankLabel={streamer.name} onRankMove={onMove} avatar={streamer.name.slice(0, 2).toUpperCase()} avatarStyle={{ backgroundColor: "var(--accent-soft)", color: "var(--accent-text)" }} title={streamer.name} titleHref={channelUrl(platform, streamer.id)} subtitle={streamer.subtitle} dimmed={isDragging} dragHandle={<DragHandle handleRef={handleRef} label={t("reorderItem", streamer.name)} />} trailing={<span className="flex shrink-0 items-center gap-1.5">{status}<RemoveRowButton label={t("removeItem", streamer.name)} onClick={onRemove} /></span>} />
+      <CompactRow
+        index={index}
+        rankCount={count}
+        rankLabel={streamer.name}
+        onRankMove={onMove}
+        avatar={streamer.name.slice(0, 2).toUpperCase()}
+        avatarStyle={{ backgroundColor: "var(--accent-soft)", color: "var(--accent-text)" }}
+        title={streamer.name}
+        titleHref={channelUrl(platform, streamer.id)}
+        subtitle={streamer.subtitle}
+        dimmed={isDragging}
+        dragHandle={<DragHandle handleRef={handleRef} label={t("reorderItem", streamer.name)} />}
+        trailing={
+          <span className="flex shrink-0 items-center gap-1.5">
+            {status}
+            <RemoveRowButton label={t("removeItem", streamer.name)} onClick={onRemove} />
+          </span>
+        }
+      />
     </div>
   );
 }
@@ -151,12 +226,20 @@ function IdleWatchlistStatus({ streamer }: { streamer: StreamerItem }): React.Re
   if (streamer.live) {
     // Same eye-plus-count grammar (and same accessible label) the status line
     // uses, so a bare number means viewers wherever it appears.
-    const viewers = streamer.viewers != null ? t("viewerCount", formatViewers(streamer.viewers)) : undefined;
+    const viewers =
+      streamer.viewers != null ? t("viewerCount", formatViewers(streamer.viewers)) : undefined;
     return (
       <Tip label={viewers}>
         <span role={viewers ? "img" : undefined} aria-label={viewers}>
           <Pill tone="live">
-            {streamer.viewers != null ? <><Eye size={9} aria-hidden />{formatViewers(streamer.viewers)}</> : t("live")}
+            {streamer.viewers != null ? (
+              <>
+                <Eye size={9} aria-hidden />
+                {formatViewers(streamer.viewers)}
+              </>
+            ) : (
+              t("live")
+            )}
           </Pill>
         </span>
       </Tip>

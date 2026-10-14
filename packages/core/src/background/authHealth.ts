@@ -23,7 +23,8 @@ const DEFAULT_AUTH_PROBE_TIMEOUT_MS = INTEGRITY_REFRESH_TIMEOUT_MS + 5_000;
 // them.
 export function createAuthHealth<S extends EngineSettings>(
   ports: BackgroundHostPorts<S>,
-  calls: Pick<ControllerCalls<S>,
+  calls: Pick<
+    ControllerCalls<S>,
     | "createAdapter"
     | "diagnosticEvent"
     | "invalidateDiscoveryLane"
@@ -35,7 +36,8 @@ export function createAuthHealth<S extends EngineSettings>(
     | "withEventCollector"
     | "withStateLock"
   >,
-): Pick<ControllerCalls<S>,
+): Pick<
+  ControllerCalls<S>,
   | "flattenedRefreshFailures"
   | "refreshAuthHealth"
   | "reportAuthSetupFailures"
@@ -136,22 +138,33 @@ export function createAuthHealth<S extends EngineSettings>(
     generation: number,
     tickContext?: TickDiagnosticContext,
   ): Promise<boolean> {
-    return withStateLock(() => withEventCollector(async (emit, events) => {
-      if (refreshGeneration[platform] !== generation) return false;
-      events.push(...probeEvents);
-      await commitState([platform], undefined, (state) => {
-        const transition = applyPlatformAuthHealth(state, platform, health);
-        if (transition.event) emit(transition.event);
-        return transition.state;
-      }, { writeEquivalent: true });
-      await reportBestEffort(tickContext
-        ? correlateTickDiagnostics(events, tickContext)
-        : events);
-      return true;
-    }), [platform]);
+    return withStateLock(
+      () =>
+        withEventCollector(async (emit, events) => {
+          if (refreshGeneration[platform] !== generation) return false;
+          events.push(...probeEvents);
+          await commitState(
+            [platform],
+            undefined,
+            (state) => {
+              const transition = applyPlatformAuthHealth(state, platform, health);
+              if (transition.event) emit(transition.event);
+              return transition.state;
+            },
+            { writeEquivalent: true },
+          );
+          await reportBestEffort(
+            tickContext ? correlateTickDiagnostics(events, tickContext) : events,
+          );
+          return true;
+        }),
+      [platform],
+    );
   }
 
-  async function beginAuthRefresh(platforms: readonly Platform[]): Promise<Partial<Record<Platform, number>>> {
+  async function beginAuthRefresh(
+    platforms: readonly Platform[],
+  ): Promise<Partial<Record<Platform, number>>> {
     return withStateLock(async () => {
       const generations: Partial<Record<Platform, number>> = {};
       for (const platform of platforms) {
@@ -180,7 +193,8 @@ export function createAuthHealth<S extends EngineSettings>(
 
   function throwRefreshFailures(results: PromiseSettledResult<void>[]): void {
     const failures = results.flatMap((result) =>
-      result.status === "rejected" ? flattenedRefreshFailures(result.reason) : []);
+      result.status === "rejected" ? flattenedRefreshFailures(result.reason) : [],
+    );
     if (failures.length === 0) return;
     if (failures.length === 1) throw failures[0];
     throw new AggregateError(failures, "Authentication refresh failed");
@@ -209,55 +223,58 @@ export function createAuthHealth<S extends EngineSettings>(
         );
       }
     }
-    const settings = loadedSettings ?? await ports.storage.loadSettings();
+    const settings = loadedSettings ?? (await ports.storage.loadSettings());
     const enabled = platforms.filter((platform) => settings.platform[platform].enabled);
-    const results = await Promise.allSettled(enabled.map(async (platform) => {
-      const result = await withEventCollector(async (emit, events) => {
-        let setupFailure: AuthProbeSetupError | undefined;
-        let health: PlatformAuthHealth;
-        let adapter: PlatformAdapter | undefined;
+    const results = await Promise.allSettled(
+      enabled.map(async (platform) => {
+        const result = await withEventCollector(async (emit, events) => {
+          let setupFailure: AuthProbeSetupError | undefined;
+          let health: PlatformAuthHealth;
+          let adapter: PlatformAdapter | undefined;
+          try {
+            adapter =
+              tickAdapters?.[platform]?.adapter(settings, emit, reportCompatibility)
+              ?? createAdapter(platform, settings, emit, reportCompatibility);
+          } catch (error) {
+            setupFailure = new AuthProbeSetupError(
+              platform,
+              error instanceof Error ? error.message : "Adapter factory failed",
+            );
+          }
+          try {
+            health = adapter
+              ? await probeAuthHealth(platform, adapter, signal)
+              : unavailableAfterAdapterSetup();
+          } finally {
+            tickAdapters?.[platform]?.drain(emit);
+            if (!tickAdapters?.[platform]) adapter?.flushRouteDiagnostics?.(emit);
+          }
+          return { health, events, setupFailure };
+        });
+        const generation = generations[platform];
+        if (generation === undefined) return;
+        signal?.throwIfAborted();
+        let accepted: boolean;
         try {
-          adapter = tickAdapters?.[platform]?.adapter(settings, emit, reportCompatibility)
-            ?? createAdapter(platform, settings, emit, reportCompatibility);
-        } catch (error) {
-          setupFailure = new AuthProbeSetupError(
+          accepted = await persistAuthHealth(
             platform,
-            error instanceof Error ? error.message : "Adapter factory failed",
+            result.health,
+            result.events,
+            generation,
+            tickContext,
           );
+        } catch (error) {
+          if (result.setupFailure) {
+            throw new AggregateError(
+              [result.setupFailure, error],
+              `${platform} authentication setup and persistence failed`,
+            );
+          }
+          throw error;
         }
-        try {
-          health = adapter
-            ? await probeAuthHealth(platform, adapter, signal)
-            : unavailableAfterAdapterSetup();
-        } finally {
-          tickAdapters?.[platform]?.drain(emit);
-          if (!tickAdapters?.[platform]) adapter?.flushRouteDiagnostics?.(emit);
-        }
-        return { health, events, setupFailure };
-      });
-      const generation = generations[platform];
-      if (generation === undefined) return;
-      signal?.throwIfAborted();
-      let accepted: boolean;
-      try {
-        accepted = await persistAuthHealth(
-          platform,
-          result.health,
-          result.events,
-          generation,
-          tickContext,
-        );
-      } catch (error) {
-        if (result.setupFailure) {
-          throw new AggregateError(
-            [result.setupFailure, error],
-            `${platform} authentication setup and persistence failed`,
-          );
-        }
-        throw error;
-      }
-      if (accepted && result.setupFailure) throw result.setupFailure;
-    }));
+        if (accepted && result.setupFailure) throw result.setupFailure;
+      }),
+    );
     throwRefreshFailures(results);
   }
 
@@ -303,15 +320,24 @@ export function createAuthHealth<S extends EngineSettings>(
       const generation = generations[platform];
       const settings = await ports.storage.loadSettings();
       if (!settings.platform[platform].enabled) return;
-      await withStateLock(() => withEventCollector(async (emit, events) => {
-        if (generation === undefined || refreshGeneration[platform] !== generation) return;
-        await commitState([platform], undefined, (state) => {
-          const transition = applyPlatformAuthHealth(state, platform, { status: "checking" });
-          if (transition.event) emit(transition.event);
-          return transition.state;
-        }, { writeEquivalent: true });
-        await reportBestEffort(events);
-      }), [platform]);
+      await withStateLock(
+        () =>
+          withEventCollector(async (emit, events) => {
+            if (generation === undefined || refreshGeneration[platform] !== generation) return;
+            await commitState(
+              [platform],
+              undefined,
+              (state) => {
+                const transition = applyPlatformAuthHealth(state, platform, { status: "checking" });
+                if (transition.event) emit(transition.event);
+                return transition.state;
+              },
+              { writeEquivalent: true },
+            );
+            await reportBestEffort(events);
+          }),
+        [platform],
+      );
     } finally {
       releaseDiscoverySignalAuthRefresh();
       await settleCommitHooks([platform]);

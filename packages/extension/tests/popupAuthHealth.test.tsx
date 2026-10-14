@@ -7,7 +7,8 @@ import { createDemoPopupAdapter, Popup, type PopupAdapter } from "@lurkloot/popu
 import { catalogDelay, resetCatalogTracking, waitForCatalog } from "./helpers/popupCatalog";
 
 vi.mock("@lurkloot/locales", async (importOriginal) =>
-  (await import("./helpers/popupCatalog")).delayedLocales(importOriginal));
+  (await import("./helpers/popupCatalog")).delayedLocales(importOriginal),
+);
 
 let root: Root | undefined;
 
@@ -43,7 +44,13 @@ async function mountWithSnapshots(
     settings: {
       ...base.settings,
       running: true,
-      twitchExtensions: { ...base.settings.twitchExtensions, nopixel: { ...base.settings.twitchExtensions.nopixel, enabled: Boolean(twitchSession?.supplementalWatch) } },
+      twitchExtensions: {
+        ...base.settings.twitchExtensions,
+        nopixel: {
+          ...base.settings.twitchExtensions.nopixel,
+          enabled: Boolean(twitchSession?.supplementalWatch),
+        },
+      },
       platform: {
         ...base.settings.platform,
         twitch: { ...base.settings.platform.twitch, enabled: true },
@@ -95,26 +102,36 @@ describe("popup authentication health", () => {
   it("renders translated copy even when the catalog import resolves late", async () => {
     catalogDelay.ticks = 5;
 
-    const { container } = await mountWithSnapshots([{
-      status: "missing_credentials",
-      reasonCode: "credentials_missing",
-    }]);
+    const { container } = await mountWithSnapshots([
+      {
+        status: "missing_credentials",
+        reasonCode: "credentials_missing",
+      },
+    ]);
 
-    expect(container.querySelector("[data-automation-state]")?.textContent).toContain("Needs sign-in");
+    expect(container.querySelector("[data-automation-state]")?.textContent).toContain(
+      "Needs sign-in",
+    );
     expect(container.textContent).not.toContain("authNeedsSignIn");
   });
 
   it("keeps the header, platform bar, and status line consistent in a degraded state", async () => {
-    const { container } = await mountWithSnapshots([{
-      status: "missing_credentials",
-      reasonCode: "credentials_missing",
-    }]);
+    const { container } = await mountWithSnapshots([
+      {
+        status: "missing_credentials",
+        reasonCode: "credentials_missing",
+      },
+    ]);
 
     const status = container.querySelector('[data-automation-state="needs_sign_in"]');
     expect(status).not.toBeNull();
     expect(status?.textContent).toContain("Needs sign-in");
-    expect(container.querySelector('[data-platform-status="twitch"]')?.textContent).toContain("Twitch");
-    expect(container.querySelector('[data-platform-status="twitch"]')?.getAttribute("data-state")).toBe("needs_sign_in");
+    expect(container.querySelector('[data-platform-status="twitch"]')?.textContent).toContain(
+      "Twitch",
+    );
+    expect(
+      container.querySelector('[data-platform-status="twitch"]')?.getAttribute("data-state"),
+    ).toBe("needs_sign_in");
     expect(container.textContent).not.toContain("secret-cookie=must-not-render");
   });
 
@@ -129,7 +146,9 @@ describe("popup authentication health", () => {
       await vi.advanceTimersByTimeAsync(5_000);
     });
     expect(container.querySelector('[data-automation-state="running"]')).not.toBeNull();
-    expect(container.querySelector('[data-platform-status="twitch"]')?.getAttribute("data-state")).toBe("running");
+    expect(
+      container.querySelector('[data-platform-status="twitch"]')?.getAttribute("data-state"),
+    ).toBe("running");
     expect(sent).not.toContainEqual(expect.objectContaining({ type: "setAutomation" }));
   });
 
@@ -145,17 +164,24 @@ describe("popup authentication health", () => {
     expect(hero?.textContent).toContain("Starting automation...");
   });
 
-  it.each(["paused", "idle"] as const)("does not mark a retained provider active when session is %s", async (status) => {
-    const { container } = await mountWithSnapshots([{ status: "healthy" }], {
-      status, watchMode: "tabless", supplementalWatch: { id: "nopixel", tablessOnly: true },
-    });
-    // Each provider is its own rail destination now.
-    act(() => { container.querySelector<HTMLButtonElement>('button[data-view="nopixel"]')?.click(); });
-    const provider = container.querySelector('[aria-label="NoPixelV"]');
-    expect(provider).not.toBeNull();
-    expect(provider?.hasAttribute("aria-current")).toBe(false);
-    expect(provider?.querySelector(".animate-pulse")).toBeNull();
-  });
+  it.each(["paused", "idle"] as const)(
+    "does not mark a retained provider active when session is %s",
+    async (status) => {
+      const { container } = await mountWithSnapshots([{ status: "healthy" }], {
+        status,
+        watchMode: "tabless",
+        supplementalWatch: { id: "nopixel", tablessOnly: true },
+      });
+      // Each provider is its own rail destination now.
+      act(() => {
+        container.querySelector<HTMLButtonElement>('button[data-view="nopixel"]')?.click();
+      });
+      const provider = container.querySelector('[aria-label="NoPixelV"]');
+      expect(provider).not.toBeNull();
+      expect(provider?.hasAttribute("aria-current")).toBe(false);
+      expect(provider?.querySelector(".animate-pulse")).toBeNull();
+    },
+  );
 
   it("keeps a stale disabled session paused after automation is re-enabled", async () => {
     const { container } = await mountWithSnapshots(

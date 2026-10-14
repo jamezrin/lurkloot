@@ -20,13 +20,19 @@ let stateStorageMutation: Promise<void> = Promise.resolve();
 
 function withSettingsStorageLock<T>(operation: () => Promise<T>): Promise<T> {
   const run = settingsStorageMutation.then(operation, operation);
-  settingsStorageMutation = run.then(() => undefined, () => undefined);
+  settingsStorageMutation = run.then(
+    () => undefined,
+    () => undefined,
+  );
   return run;
 }
 
 function withStateStorageLock<T>(operation: () => Promise<T>): Promise<T> {
   const run = stateStorageMutation.then(operation, operation);
-  stateStorageMutation = run.then(() => undefined, () => undefined);
+  stateStorageMutation = run.then(
+    () => undefined,
+    () => undefined,
+  );
   return run;
 }
 
@@ -76,14 +82,17 @@ export async function loadState(): Promise<SchedulerState> {
     // scheduler state. A failed import is harmless and retried on the next load.
     if (legacyEvents.length > 0) {
       try {
-        const normalized = legacyEvents.map((event): StoredLegacyEvent => ({
-          ...event,
-          category: event.category ?? "diagnostic",
-          legacy: true,
-        }));
+        const normalized = legacyEvents.map(
+          (event): StoredLegacyEvent => ({
+            ...event,
+            category: event.category ?? "diagnostic",
+            legacy: true,
+          }),
+        );
         await importLegacyActivityEvents(normalized);
         const latest = await browser.storage.local.get(STATE_KEY);
-        const latestStored = ((latest[STATE_KEY] as LegacyStoredSchedulerState | undefined) ?? state) as LegacyStoredSchedulerState;
+        const latestStored = ((latest[STATE_KEY] as LegacyStoredSchedulerState | undefined)
+          ?? state) as LegacyStoredSchedulerState;
         const { events: _events, ...operationalState } = latestStored;
         await browser.storage.local.set({ [STATE_KEY]: operationalState });
       } catch {

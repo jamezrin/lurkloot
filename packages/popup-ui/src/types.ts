@@ -1,5 +1,14 @@
 import type { CliCredentialBlob, RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
-import type { CategorySelection, ClaimGuidance, CompatibilitySettings, DropCampaign, Platform, RewardRequirementType, SupportedLocale, TwitchExtensionProviderId } from "@lurkloot/shared/models";
+import type {
+  CategorySelection,
+  ClaimGuidance,
+  CompatibilitySettings,
+  DropCampaign,
+  Platform,
+  RewardRequirementType,
+  SupportedLocale,
+  TwitchExtensionProviderId,
+} from "@lurkloot/shared/models";
 import type { SettingsExportPayload } from "@lurkloot/shared/settingsExport";
 import type { CampaignFarmingEvaluation } from "@lurkloot/shared/campaignFarming";
 import type { CampaignSection } from "@lurkloot/shared/campaignFilters";
@@ -31,7 +40,11 @@ export interface PopupCompatibilityRegistry {
 }
 export interface PopupCompatibilityResolution {
   readonly compatibility: {
-    readonly twitch: { readonly profile: string; readonly heartbeat: string; readonly inventory: string };
+    readonly twitch: {
+      readonly profile: string;
+      readonly heartbeat: string;
+      readonly inventory: string;
+    };
     readonly kick: { readonly profile: string; readonly claim: string };
   };
   readonly warnings: readonly unknown[];
@@ -44,8 +57,19 @@ export type GameItem = {
   accent: string;
   imageUrl?: string;
 };
-export type StreamerItem = { id: string; name: string; live: boolean; subtitle?: string; viewers?: number };
-export type FarmingChannelView = { name: string; category?: string; viewers?: number; url?: string };
+export type StreamerItem = {
+  id: string;
+  name: string;
+  live: boolean;
+  subtitle?: string;
+  viewers?: number;
+};
+export type FarmingChannelView = {
+  name: string;
+  category?: string;
+  viewers?: number;
+  url?: string;
+};
 export type ChannelLink = { name: string; url: string };
 export type RewardView = {
   id: string;

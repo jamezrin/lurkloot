@@ -11,7 +11,10 @@ import type { Platform } from "@lurkloot/shared/models";
 // per platform.
 type Credentials = Partial<Record<Platform, string>>;
 
-function harness(initial: Credentials = {}, read?: (platform: Platform) => Promise<string | undefined>) {
+function harness(
+  initial: Credentials = {},
+  read?: (platform: Platform) => Promise<string | undefined>,
+) {
   let listener: ((change: CredentialCookieChange) => void) | undefined;
   const credentials: Credentials = { ...initial };
   const onChanged = {
@@ -23,7 +26,13 @@ function harness(initial: Credentials = {}, read?: (platform: Platform) => Promi
   const readCredential = vi.fn(read ?? (async (platform: Platform) => credentials[platform]));
   const invalidate = vi.fn(async () => undefined);
   const recheck = vi.fn(async () => undefined);
-  const dispose = createCredentialObserver({ onChanged, read: readCredential, invalidate, recheck, debounceMs: 250 });
+  const dispose = createCredentialObserver({
+    onChanged,
+    read: readCredential,
+    invalidate,
+    recheck,
+    debounceMs: 250,
+  });
   return {
     credentials,
     dispose,
@@ -58,7 +67,9 @@ const flush = () => vi.advanceTimersByTimeAsync(0);
 
 function held<T>() {
   let release!: (value: T) => void;
-  const promise = new Promise<T>((resolve) => { release = resolve; });
+  const promise = new Promise<T>((resolve) => {
+    release = resolve;
+  });
   return { promise, release };
 }
 
@@ -74,20 +85,29 @@ describe("credential cookie observer", () => {
   it.each([
     ["sign-in", "twitch", {}, { twitch: "token-a" }, change("auth-token", ".twitch.tv")],
     ["sign-out", "kick", { kick: "session-a" }, {}, change("session_token", "kick.com", true)],
-    ["account switch", "twitch", { twitch: "token-a" }, { twitch: "token-b" }, change("auth-token", "passport.twitch.tv")],
-  ] as const)("invalidates the affected platform on %s", async (_kind, platform, before, after, event) => {
-    const env = harness(before);
-    await flush();
+    [
+      "account switch",
+      "twitch",
+      { twitch: "token-a" },
+      { twitch: "token-b" },
+      change("auth-token", "passport.twitch.tv"),
+    ],
+  ] as const)(
+    "invalidates the affected platform on %s",
+    async (_kind, platform, before, after, event) => {
+      const env = harness(before);
+      await flush();
 
-    delete env.credentials[platform];
-    Object.assign(env.credentials, after);
-    env.change(event);
-    await flush();
+      delete env.credentials[platform];
+      Object.assign(env.credentials, after);
+      env.change(event);
+      await flush();
 
-    expect(env.invalidate).toHaveBeenCalledOnce();
-    expect(env.invalidate).toHaveBeenCalledWith(platform);
-    expect(JSON.stringify(env.invalidate.mock.calls)).not.toContain("token-");
-  });
+      expect(env.invalidate).toHaveBeenCalledOnce();
+      expect(env.invalidate).toHaveBeenCalledWith(platform);
+      expect(JSON.stringify(env.invalidate.mock.calls)).not.toContain("token-");
+    },
+  );
 
   it("ignores a page rewriting the same credential with a later expiry", async () => {
     const env = harness({ twitch: "token-a" });
@@ -170,9 +190,13 @@ describe("credential cookie observer", () => {
 
   it("compares a change during the startup read against that read", async () => {
     const baseline = held<string | undefined>();
-    const env = harness({}, async (platform) => platform === "twitch" ? baseline.promise : undefined);
+    const env = harness({}, async (platform) =>
+      platform === "twitch" ? baseline.promise : undefined,
+    );
 
-    env.read.mockImplementation(async (platform) => platform === "twitch" ? "token-a" : undefined);
+    env.read.mockImplementation(async (platform) =>
+      platform === "twitch" ? "token-a" : undefined,
+    );
     for (const event of rewrite()) env.change(event);
     baseline.release("token-a");
     await flush();
@@ -244,7 +268,11 @@ describe("credential cookie observer", () => {
       },
     };
 
-    const dispose = createCredentialHealthObserver(events, controller, async (platform) => credentials[platform]);
+    const dispose = createCredentialHealthObserver(
+      events,
+      controller,
+      async (platform) => credentials[platform],
+    );
     await flush();
     credentials.twitch = "token-b";
     delete credentials.kick;
@@ -252,17 +280,21 @@ describe("credential cookie observer", () => {
     listener?.(change("session_token", "kick.com", true));
     await flush();
 
-    expect(states).toEqual(new Map<Platform, "checking" | "healthy" | "scheduler-ran">([
-      ["twitch", "checking"],
-      ["kick", "checking"],
-    ]));
+    expect(states).toEqual(
+      new Map<Platform, "checking" | "healthy" | "scheduler-ran">([
+        ["twitch", "checking"],
+        ["kick", "checking"],
+      ]),
+    );
 
     await vi.advanceTimersByTimeAsync(250);
 
-    expect(states).toEqual(new Map<Platform, "checking" | "healthy" | "scheduler-ran">([
-      ["twitch", "healthy"],
-      ["kick", "healthy"],
-    ]));
+    expect(states).toEqual(
+      new Map<Platform, "checking" | "healthy" | "scheduler-ran">([
+        ["twitch", "healthy"],
+        ["kick", "healthy"],
+      ]),
+    );
     dispose();
   });
 

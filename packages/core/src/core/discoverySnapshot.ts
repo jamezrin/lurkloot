@@ -1,4 +1,10 @@
-import type { ChannelCandidate, DropCampaign, EngineSettings, Platform, WatchSession } from "@lurkloot/shared/models";
+import type {
+  ChannelCandidate,
+  DropCampaign,
+  EngineSettings,
+  Platform,
+  WatchSession,
+} from "@lurkloot/shared/models";
 import { evaluateCampaignFarming } from "@lurkloot/shared/campaignFarming";
 import type { ChannelCheckRequest, PlatformAdapter } from "../platforms/adapter";
 import { errorMessage } from "@lurkloot/shared/errors";
@@ -76,16 +82,30 @@ export interface DiscoveryRefreshContext<TRequest = undefined> {
   request: TRequest;
 }
 
-export type DiscoverySnapshotListener = (state: Readonly<DiscoverySnapshotState>) => void | Promise<void>;
+export type DiscoverySnapshotListener = (
+  state: Readonly<DiscoverySnapshotState>,
+) => void | Promise<void>;
 
 export async function collectDiscoverySnapshot(
-  adapter: Pick<PlatformAdapter, "platform" | "refreshCampaigns" | "listCandidateChannels" | "checkChannel" | "checkChannels" | "selectCandidateChannel" | "listFollowedChannels">,
+  adapter: Pick<
+    PlatformAdapter,
+    | "platform"
+    | "refreshCampaigns"
+    | "listCandidateChannels"
+    | "checkChannel"
+    | "checkChannels"
+    | "selectCandidateChannel"
+    | "listFollowedChannels"
+  >,
   session: Parameters<PlatformAdapter["refreshCampaigns"]>[0],
   signal: AbortSignal,
   now: () => number = Date.now,
   includeFollowedChannels = true,
   idleCandidates: ChannelCandidate[] = [],
-  retainedCampaignCandidates?: (campaign: DropCampaign, campaigns: DropCampaign[]) => DiscoveryCandidateObservation[] | undefined,
+  retainedCampaignCandidates?: (
+    campaign: DropCampaign,
+    campaigns: DropCampaign[],
+  ) => DiscoveryCandidateObservation[] | undefined,
   settings?: EngineSettings,
   reconcileCampaigns: (campaigns: DropCampaign[]) => DropCampaign[] = (campaigns) => campaigns,
 ): Promise<DiscoveryRefreshResult> {
@@ -94,7 +114,7 @@ export async function collectDiscoverySnapshot(
   const [campaignResult, followedResult] = await Promise.allSettled([
     adapter.refreshCampaigns(session, { signal, requireComplete: true }),
     includeFollowedChannels
-      ? adapter.listFollowedChannels?.({ signal, requireComplete: true }) ?? Promise.resolve([])
+      ? (adapter.listFollowedChannels?.({ signal, requireComplete: true }) ?? Promise.resolve([]))
       : Promise.resolve([]),
   ]);
   signal.throwIfAborted();
@@ -115,7 +135,13 @@ export async function collectDiscoverySnapshot(
   const eligibilityTime = now();
   for (const campaign of campaigns) {
     signal.throwIfAborted();
-    if (settings && !evaluateCampaignFarming(campaign, settings, { includePinnedOnly: true, now: eligibilityTime }).farmable) {
+    if (
+      settings
+      && !evaluateCampaignFarming(campaign, settings, {
+        includePinnedOnly: true,
+        now: eligibilityTime,
+      }).farmable
+    ) {
       observations.push({ campaign, candidates: [] });
       skippedBeforeChannelWork += 1;
       continue;
@@ -125,13 +151,20 @@ export async function collectDiscoverySnapshot(
       observations.push({ campaign, candidates: retainedCandidates });
       continue;
     }
-    const listedCandidates = await adapter.listCandidateChannels(campaign, { signal, requireComplete: true });
-    const candidates = session?.campaignId === campaign.id && session.channel
-      ? [...new Map(
-          [session.channel, ...listedCandidates]
-            .map((candidate) => [candidate.username.toLowerCase(), candidate] as const),
-        ).values()]
-      : listedCandidates;
+    const listedCandidates = await adapter.listCandidateChannels(campaign, {
+      signal,
+      requireComplete: true,
+    });
+    const candidates =
+      session?.campaignId === campaign.id && session.channel
+        ? [
+            ...new Map(
+              [session.channel, ...listedCandidates].map(
+                (candidate) => [candidate.username.toLowerCase(), candidate] as const,
+              ),
+            ).values(),
+          ]
+        : listedCandidates;
     const observed: DiscoveryCandidateObservation[] = [];
     if (adapter.checkChannels) {
       for (const candidate of candidates) {
@@ -145,16 +178,21 @@ export async function collectDiscoverySnapshot(
       cacheMisses += selection.metrics?.cacheMisses ?? 0;
       batchRequests += selection.metrics?.batchRequests ?? 0;
       singleFallbacks += selection.metrics?.singleFallbacks ?? 0;
-      observed.push(...(selection.observations ?? (selection.channel
-        ? [{ live: true, categoryMatches: true, candidate: selection.channel }]
-        : [])).map((check) => ({
-        candidate: check.candidate,
-        live: check.live,
-        categoryMatches: check.categoryMatches,
-        ...(check.offlineConfirmed ? { offlineConfirmed: true as const } : {}),
-        eligible: check.campaignMatches ?? "unknown" as const,
-        observedAt: now(),
-      })));
+      observed.push(
+        ...(
+          selection.observations
+          ?? (selection.channel
+            ? [{ live: true, categoryMatches: true, candidate: selection.channel }]
+            : [])
+        ).map((check) => ({
+          candidate: check.candidate,
+          live: check.live,
+          categoryMatches: check.categoryMatches,
+          ...(check.offlineConfirmed ? { offlineConfirmed: true as const } : {}),
+          eligible: check.campaignMatches ?? ("unknown" as const),
+          observedAt: now(),
+        })),
+      );
     } else {
       for (const candidate of candidates) {
         signal.throwIfAborted();
@@ -179,9 +217,13 @@ export async function collectDiscoverySnapshot(
       batchRequestsToCheck.push({ channel: candidate });
       batchDestinations.push(observedIdleCandidates);
     }
-    const batch = await adapter.checkChannels(batchRequestsToCheck, { signal, requireComplete: true });
+    const batch = await adapter.checkChannels(batchRequestsToCheck, {
+      signal,
+      requireComplete: true,
+    });
     signal.throwIfAborted();
-    if (batch.checks.length !== batchRequestsToCheck.length) throw new Error("Channel discovery batch was incomplete");
+    if (batch.checks.length !== batchRequestsToCheck.length)
+      throw new Error("Channel discovery batch was incomplete");
     uniqueChannelChecks = batch.uniqueChannelChecks;
     const satisfiedCampaigns = new Set<string>();
     for (const [index, request] of batchRequestsToCheck.entries()) {
@@ -193,7 +235,12 @@ export async function collectDiscoverySnapshot(
         continue;
       }
       candidatesChecked += 1;
-      if (request.campaign && check.live && check.categoryMatches && check.campaignMatches !== false) {
+      if (
+        request.campaign
+        && check.live
+        && check.categoryMatches
+        && check.campaignMatches !== false
+      ) {
         satisfiedCampaigns.add(request.campaign.id);
       }
       batchDestinations[index]!.push({
@@ -201,7 +248,7 @@ export async function collectDiscoverySnapshot(
         live: check.live,
         categoryMatches: check.categoryMatches,
         ...(check.offlineConfirmed ? { offlineConfirmed: true as const } : {}),
-        eligible: request.campaign ? check.campaignMatches ?? "unknown" : "unknown",
+        eligible: request.campaign ? (check.campaignMatches ?? "unknown") : "unknown",
         observedAt: now(),
       });
     }
@@ -212,16 +259,21 @@ export async function collectDiscoverySnapshot(
     cacheMisses += selection.metrics?.cacheMisses ?? 0;
     batchRequests += selection.metrics?.batchRequests ?? 0;
     singleFallbacks += selection.metrics?.singleFallbacks ?? 0;
-    observedIdleCandidates.push(...(selection.observations ?? (selection.channel
-      ? [{ live: true, categoryMatches: true, candidate: selection.channel }]
-      : [])).map((check) => ({
-      candidate: check.candidate,
-      live: check.live,
-      categoryMatches: check.categoryMatches,
-      ...(check.offlineConfirmed ? { offlineConfirmed: true as const } : {}),
-      eligible: "unknown" as const,
-      observedAt: now(),
-    })));
+    observedIdleCandidates.push(
+      ...(
+        selection.observations
+        ?? (selection.channel
+          ? [{ live: true, categoryMatches: true, candidate: selection.channel }]
+          : [])
+      ).map((check) => ({
+        candidate: check.candidate,
+        live: check.live,
+        categoryMatches: check.categoryMatches,
+        ...(check.offlineConfirmed ? { offlineConfirmed: true as const } : {}),
+        eligible: "unknown" as const,
+        observedAt: now(),
+      })),
+    );
   } else {
     for (const candidate of idleCandidates) {
       signal.throwIfAborted();
@@ -260,7 +312,9 @@ export function adapterFromDiscoverySnapshot(
   snapshot: DiscoverySnapshot | undefined,
   session?: WatchSession,
 ): PlatformAdapter {
-  const campaigns = new Map((snapshot?.campaigns ?? []).map((observation) => [observation.campaign.id, observation]));
+  const campaigns = new Map(
+    (snapshot?.campaigns ?? []).map((observation) => [observation.campaign.id, observation]),
+  );
   return new Proxy(adapter, {
     get(target, property, receiver) {
       if (property === "listCandidateChannels") {
@@ -274,14 +328,20 @@ export function adapterFromDiscoverySnapshot(
       if (property === "checkChannel") {
         return async (candidate: ChannelCandidate, options?: { campaign?: DropCampaign }) => {
           const observations = options?.campaign
-            ? campaigns.get(options.campaign.id)?.candidates ?? []
-            : snapshot?.idleCandidates ?? [];
-          const observation = observations.find(({ candidate: observed }) =>
-            observed.username.toLowerCase() === candidate.username.toLowerCase());
+            ? (campaigns.get(options.campaign.id)?.candidates ?? [])
+            : (snapshot?.idleCandidates ?? []);
+          const observation = observations.find(
+            ({ candidate: observed }) =>
+              observed.username.toLowerCase() === candidate.username.toLowerCase(),
+          );
           if (!observation) {
             const currentChannel = session?.channel;
-            if (options?.campaign && session?.campaignId === options.campaign.id && currentChannel
-              && currentChannel.username.toLowerCase() === candidate.username.toLowerCase()) {
+            if (
+              options?.campaign
+              && session?.campaignId === options.campaign.id
+              && currentChannel
+              && currentChannel.username.toLowerCase() === candidate.username.toLowerCase()
+            ) {
               return { live: true, categoryMatches: true, candidate: currentChannel };
             }
             return { live: false, categoryMatches: false, candidate };
@@ -305,8 +365,13 @@ export function adapterFromDiscoverySnapshot(
 export function selectionAdapterFromDiscoverySnapshot(
   snapshot: DiscoverySnapshot | undefined,
   session?: WatchSession,
-): Pick<PlatformAdapter, "listCandidateChannels" | "selectCandidateChannel" | "checkChannel" | "listFollowedChannels"> {
-  const campaigns = new Map((snapshot?.campaigns ?? []).map((observation) => [observation.campaign.id, observation]));
+): Pick<
+  PlatformAdapter,
+  "listCandidateChannels" | "selectCandidateChannel" | "checkChannel" | "listFollowedChannels"
+> {
+  const campaigns = new Map(
+    (snapshot?.campaigns ?? []).map((observation) => [observation.campaign.id, observation]),
+  );
   return {
     listCandidateChannels: async (campaign) =>
       campaigns.get(campaign.id)?.candidates.map(({ candidate }) => candidate) ?? [],
@@ -314,14 +379,20 @@ export function selectionAdapterFromDiscoverySnapshot(
     listFollowedChannels: async () => [...(snapshot?.followedChannels ?? [])],
     checkChannel: async (candidate, options) => {
       const observations = options?.campaign
-        ? campaigns.get(options.campaign.id)?.candidates ?? []
-        : snapshot?.idleCandidates ?? [];
-      const observation = observations.find(({ candidate: observed }) =>
-        observed.username.toLowerCase() === candidate.username.toLowerCase());
+        ? (campaigns.get(options.campaign.id)?.candidates ?? [])
+        : (snapshot?.idleCandidates ?? []);
+      const observation = observations.find(
+        ({ candidate: observed }) =>
+          observed.username.toLowerCase() === candidate.username.toLowerCase(),
+      );
       if (!observation) {
         const currentChannel = session?.channel;
-        if (options?.campaign && session?.campaignId === options.campaign.id && currentChannel
-          && currentChannel.username.toLowerCase() === candidate.username.toLowerCase()) {
+        if (
+          options?.campaign
+          && session?.campaignId === options.campaign.id
+          && currentChannel
+          && currentChannel.username.toLowerCase() === candidate.username.toLowerCase()
+        ) {
           return { live: true, categoryMatches: true, candidate: currentChannel };
         }
         return { live: false, categoryMatches: false, candidate };
@@ -351,7 +422,9 @@ export class DiscoverySnapshotLane<TRequest = undefined> {
 
   constructor(
     readonly platform: Platform,
-    private readonly refresh: (context: DiscoveryRefreshContext<TRequest>) => Promise<DiscoveryRefreshResult>,
+    private readonly refresh: (
+      context: DiscoveryRefreshContext<TRequest>,
+    ) => Promise<DiscoveryRefreshResult>,
     private readonly onState?: DiscoverySnapshotListener,
     private readonly now: () => number = Date.now,
   ) {}
@@ -370,7 +443,10 @@ export class DiscoverySnapshotLane<TRequest = undefined> {
     }
     this.running = true;
     const run = this.runLoop(request as TRequest);
-    this.settled = run.then(() => undefined, () => undefined);
+    this.settled = run.then(
+      () => undefined,
+      () => undefined,
+    );
   }
 
   async requestAndWait(request?: TRequest): Promise<void> {
@@ -454,7 +530,13 @@ export class DiscoverySnapshotLane<TRequest = undefined> {
             complete: true,
             metrics: result.metrics,
           },
-          lastAttempt: { startedAt, finishedAt, complete: true, coalesced, metrics: result.metrics },
+          lastAttempt: {
+            startedAt,
+            finishedAt,
+            complete: true,
+            coalesced,
+            metrics: result.metrics,
+          },
         };
       }
     } catch (error) {
@@ -467,7 +549,7 @@ export class DiscoverySnapshotLane<TRequest = undefined> {
           complete: false,
           failure: errorMessage(error),
           ...(this.stopped || generation !== this.generation
-            ? { discarded: this.stopped ? "stopped" as const : "stale_generation" as const }
+            ? { discarded: this.stopped ? ("stopped" as const) : ("stale_generation" as const) }
             : { error }),
           coalesced,
         },

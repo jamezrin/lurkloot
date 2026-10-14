@@ -3,13 +3,19 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { parseHTML } from "linkedom";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Popup, createDemoPopupAdapter, screenshotVariant, type PopupAdapter } from "@lurkloot/popup-ui";
+import {
+  Popup,
+  createDemoPopupAdapter,
+  screenshotVariant,
+  type PopupAdapter,
+} from "@lurkloot/popup-ui";
 import { buildSettingsExportPayload } from "@lurkloot/shared/settingsExport";
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { resetCatalogTracking, waitForCatalog } from "./helpers/popupCatalog";
 
 vi.mock("@lurkloot/locales", async (importOriginal) =>
-  (await import("./helpers/popupCatalog")).delayedLocales(importOriginal));
+  (await import("./helpers/popupCatalog")).delayedLocales(importOriginal),
+);
 
 const labels: Record<string, string> = {
   openSettings: "Open settings",
@@ -39,7 +45,9 @@ async function mount(overrides: Partial<PopupAdapter> = {}) {
   vi.stubGlobal("window", window);
   vi.stubGlobal("document", document);
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => window.setTimeout(() => callback(Date.now()), 0));
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) =>
+    window.setTimeout(() => callback(Date.now()), 0),
+  );
   vi.stubGlobal("cancelAnimationFrame", (handle: number) => window.clearTimeout(handle));
   vi.stubGlobal("getComputedStyle", () => ({ direction: "ltr" }));
   const container = document.getElementById("app")!;
@@ -59,7 +67,12 @@ async function mount(overrides: Partial<PopupAdapter> = {}) {
   };
   await act(async () => {
     root = createRoot(container);
-    root.render(<Popup adapter={adapter} initialState={{ preview: true, variant: screenshotVariant("settings") }} />);
+    root.render(
+      <Popup
+        adapter={adapter}
+        initialState={{ preview: true, variant: screenshotVariant("settings") }}
+      />,
+    );
   });
   await waitForCatalog();
   return {
@@ -71,7 +84,9 @@ async function mount(overrides: Partial<PopupAdapter> = {}) {
 }
 
 function byText(container: Element, text: string): HTMLButtonElement {
-  const button = [...container.querySelectorAll("button")].find((item) => item.textContent?.includes(text));
+  const button = [...container.querySelectorAll("button")].find((item) =>
+    item.textContent?.includes(text),
+  );
   if (!button) throw new Error(`Missing button: ${text}`);
   return button as HTMLButtonElement;
 }
@@ -109,7 +124,10 @@ describe("settings export/import", () => {
   it("applies an imported settings payload on confirm", async () => {
     const imported = buildSettingsExportPayload({
       ...DEFAULT_SETTINGS,
-      platform: { ...DEFAULT_SETTINGS.platform, twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true } },
+      platform: {
+        ...DEFAULT_SETTINGS.platform,
+        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
+      },
     });
     const { container, importSettings, sentMessages } = await mount({
       importSettings: vi.fn().mockResolvedValue(imported),
@@ -120,14 +138,18 @@ describe("settings export/import", () => {
 
     expect(importSettings).toHaveBeenCalledTimes(1);
     expect(container.textContent).not.toContain("This replaces your current settings.");
-    expect(container.textContent).not.toContain("That file isn't a valid Lurkloot settings export.");
+    expect(container.textContent).not.toContain(
+      "That file isn't a valid Lurkloot settings export.",
+    );
 
     // Confirms the imported settings were actually applied through the normal
     // save path, not just parsed and discarded.
     const saved = saveSettingsCalls(sentMessages);
     expect(saved).toHaveLength(1);
     expect(saved[0]).toMatchObject({
-      settingsPatch: expect.objectContaining({ platform: expect.objectContaining({ twitch: expect.objectContaining({ enabled: true }) }) }),
+      settingsPatch: expect.objectContaining({
+        platform: expect.objectContaining({ twitch: expect.objectContaining({ enabled: true }) }),
+      }),
     });
   });
 
@@ -156,6 +178,8 @@ describe("settings export/import", () => {
     expect(importSettings).toHaveBeenCalledTimes(1);
     expect(saveSettingsCalls(sentMessages)).toHaveLength(0);
     expect(container.textContent).toContain("This replaces your current settings.");
-    expect(container.textContent).not.toContain("That file isn't a valid Lurkloot settings export.");
+    expect(container.textContent).not.toContain(
+      "That file isn't a valid Lurkloot settings export.",
+    );
   });
 });

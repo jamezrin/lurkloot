@@ -42,10 +42,9 @@ describe("background controller", () => {
 
   it("preserves a state write that lands while startup setup reporting is pending", async () => {
     const setupReported = deferred<void>();
-    const env = harness(
-      farming(DEFAULT_SETTINGS),
-      { reportEvents: async () => setupReported.promise },
-    );
+    const env = harness(farming(DEFAULT_SETTINGS), {
+      reportEvents: async () => setupReported.promise,
+    });
     env.state.sessions.twitch = {
       platform: "twitch",
       status: "watching",
@@ -69,10 +68,9 @@ describe("background controller", () => {
 
   it("preserves a settings patch that lands while startup setup reporting is pending", async () => {
     const setupReported = deferred<void>();
-    const env = harness(
-      farming({ ...DEFAULT_SETTINGS, autoStartDropFarming: true }),
-      { reportEvents: async () => setupReported.promise },
-    );
+    const env = harness(farming({ ...DEFAULT_SETTINGS, autoStartDropFarming: true }), {
+      reportEvents: async () => setupReported.promise,
+    });
 
     const startup = env.controller.handleStartup();
     await vi.waitFor(() => expect(env.reportEvents).toHaveBeenCalled());
@@ -164,11 +162,13 @@ describe("background controller", () => {
         documentHidden: false,
       },
     };
-    env.state.campaigns.twitch = [{
-      ...campaign("twitch"),
-      id: "old-campaign",
-      rewards: [{ ...reward(), id: "old-reward" }],
-    }];
+    env.state.campaigns.twitch = [
+      {
+        ...campaign("twitch"),
+        id: "old-campaign",
+        rewards: [{ ...reward(), id: "old-reward" }],
+      },
+    ];
     env.state.managedWatchTabs = {
       twitch: {
         platform: "twitch",
@@ -180,23 +180,36 @@ describe("background controller", () => {
 
     await env.controller.handleStartup();
 
-    expect(env.deps.createAlarm).toHaveBeenCalledWith(TWITCH_ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
-    expect(env.deps.createAlarm).toHaveBeenCalledWith(KICK_ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
-    expect(env.deps.closeManagedTabs).toHaveBeenCalledWith([
-      expect.objectContaining({ tabId: 44, channelUrl: "https://www.twitch.tv/twitch-creator", ownedByExtension: true }),
-    ], "host-restart");
+    expect(env.deps.createAlarm).toHaveBeenCalledWith(TWITCH_ALARM_NAME, {
+      periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes,
+    });
+    expect(env.deps.createAlarm).toHaveBeenCalledWith(KICK_ALARM_NAME, {
+      periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes,
+    });
+    expect(env.deps.closeManagedTabs).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          tabId: 44,
+          channelUrl: "https://www.twitch.tv/twitch-creator",
+          ownedByExtension: true,
+        }),
+      ],
+      "host-restart",
+    );
     expect(env.watchTabs.twitch.open).toHaveBeenCalled();
     expect(env.twitch.checkAuthHealth).toHaveBeenCalledOnce();
     expect(env.kick.checkAuthHealth).toHaveBeenCalledOnce();
     expect(env.state.sessions.twitch.status).toBe("watching");
     expect(env.state.sessions.twitch.tabId).toBe(10);
-    expect(env.reportEvents).toHaveBeenCalledWith(expect.arrayContaining([
-      expect.objectContaining({
-        category: "activity",
-        code: "farming_stopped",
-        data: expect.objectContaining({ reason: "runtime_restart" }),
-      }),
-    ]));
+    expect(env.reportEvents).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: "activity",
+          code: "farming_stopped",
+          data: expect.objectContaining({ reason: "runtime_restart" }),
+        }),
+      ]),
+    );
   });
 
   it("pauses stale restart sessions and disables running when auto-start is disabled", async () => {
@@ -221,9 +234,16 @@ describe("background controller", () => {
     await env.controller.handleStartup();
 
     expect(isFarmingActive(env.settings)).toBe(false);
-    expect(env.deps.closeManagedTabs).toHaveBeenCalledWith([
-      expect.objectContaining({ tabId: 44, channelUrl: "https://www.twitch.tv/twitch-creator", ownedByExtension: true }),
-    ], "host-restart");
+    expect(env.deps.closeManagedTabs).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          tabId: 44,
+          channelUrl: "https://www.twitch.tv/twitch-creator",
+          ownedByExtension: true,
+        }),
+      ],
+      "host-restart",
+    );
     expect(env.twitch.refreshCampaigns).not.toHaveBeenCalled();
     expect(env.watchTabs.twitch.open).not.toHaveBeenCalled();
     expect(env.state.managedWatchTabs).toEqual({});
@@ -257,9 +277,16 @@ describe("background controller", () => {
     await env.controller.handleStartup();
 
     expect(isFarmingActive(env.settings)).toBe(false);
-    expect(env.deps.closeManagedTabs).toHaveBeenCalledWith([
-      expect.objectContaining({ tabId: 55, channelUrl: "https://kick.com/kick-creator", ownedByExtension: true }),
-    ], "host-restart");
+    expect(env.deps.closeManagedTabs).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          tabId: 55,
+          channelUrl: "https://kick.com/kick-creator",
+          ownedByExtension: true,
+        }),
+      ],
+      "host-restart",
+    );
     expect(env.watchTabs.kick.open).not.toHaveBeenCalled();
     expect(env.state.sessions.kick.status).toBe("paused");
     expect(env.state.sessions.kick.tabId).toBeUndefined();
@@ -282,7 +309,11 @@ describe("background controller", () => {
     expect(env.deps.closeManagedTabs).not.toHaveBeenCalled();
     expect(env.deps.stopPageContextTabs).toHaveBeenCalledWith(
       expect.objectContaining({ twitch: expect.objectContaining({ tabId: 66 }) }),
-      expect.objectContaining({ platforms: ["twitch", "kick"], reason: "runtime_restart", emit: expect.any(Function) }),
+      expect.objectContaining({
+        platforms: ["twitch", "kick"],
+        reason: "runtime_restart",
+        emit: expect.any(Function),
+      }),
     );
     expect(env.state.managedPageContextTabs).toEqual({});
     expect(env.state.sessions.twitch).toMatchObject({
@@ -328,12 +359,20 @@ describe("background controller", () => {
 
     await env.controller.handleStartup();
 
-    expect(env.deps.createAlarm).toHaveBeenCalledWith(TWITCH_ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
-    expect(env.deps.createAlarm).toHaveBeenCalledWith(KICK_ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
+    expect(env.deps.createAlarm).toHaveBeenCalledWith(TWITCH_ALARM_NAME, {
+      periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes,
+    });
+    expect(env.deps.createAlarm).toHaveBeenCalledWith(KICK_ALARM_NAME, {
+      periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes,
+    });
     expect(env.deps.closeManagedTabs).not.toHaveBeenCalled();
-    expect(env.reportEvents.mock.calls.flatMap(([events]) => events).some((event) =>
-      event.category === "diagnostic" && event.message.includes("Browser restarted")
-    )).toBe(false);
+    expect(
+      env.reportEvents.mock.calls
+        .flatMap(([events]) => events)
+        .some(
+          (event) => event.category === "diagnostic" && event.message.includes("Browser restarted"),
+        ),
+    ).toBe(false);
   });
 
   it("disables every platform on startup when auto-start is disabled even without stale tabs", async () => {
@@ -348,11 +387,21 @@ describe("background controller", () => {
   it("starts automation, persists settings, creates alarm, and runs an immediate tick", async () => {
     const env = harness(farming(DEFAULT_SETTINGS));
 
-    const snapshot = asSnapshot(await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: true }));
+    const snapshot = asSnapshot(
+      await env.controller.handleMessage({
+        type: "setAutomation",
+        platform: "twitch",
+        enabled: true,
+      }),
+    );
 
     expect(env.settings.platform.twitch.enabled).toBe(true);
-    expect(env.deps.createAlarm).toHaveBeenCalledWith(TWITCH_ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
-    expect(env.deps.createAlarm).toHaveBeenCalledWith(KICK_ALARM_NAME, { periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes });
+    expect(env.deps.createAlarm).toHaveBeenCalledWith(TWITCH_ALARM_NAME, {
+      periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes,
+    });
+    expect(env.deps.createAlarm).toHaveBeenCalledWith(KICK_ALARM_NAME, {
+      periodInMinutes: DEFAULT_SETTINGS.pollIntervalMinutes,
+    });
     expect(env.watchTabs.twitch.open).toHaveBeenCalled();
     // The snapshot returns ahead of the tick, reporting the prompt "starting"
     // transition; the watching status lands once the tick settles.
@@ -373,7 +422,11 @@ describe("background controller", () => {
       },
     };
 
-    await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: false });
+    await env.controller.handleMessage({
+      type: "setAutomation",
+      platform: "twitch",
+      enabled: false,
+    });
     await env.controller.handleMessage({ type: "setAutomation", platform: "kick", enabled: false });
 
     expect(isFarmingActive(env.settings)).toBe(false);
@@ -461,10 +514,11 @@ describe("background controller", () => {
     const env = harness(farming(DEFAULT_SETTINGS));
     let tickSignal: AbortSignal | undefined;
     vi.mocked(env.twitch.refreshCampaigns).mockImplementation(
-      async (_session, { signal } = {}) => new Promise((_resolve, reject) => {
-        tickSignal = signal;
-        signal?.addEventListener("abort", () => reject(signal.reason), { once: true });
-      }),
+      async (_session, { signal } = {}) =>
+        new Promise((_resolve, reject) => {
+          tickSignal = signal;
+          signal?.addEventListener("abort", () => reject(signal.reason), { once: true });
+        }),
     );
 
     const ticking = env.controller.tick();
@@ -478,23 +532,29 @@ describe("background controller", () => {
     expect(tickSignal?.aborted).toBe(true);
     expect(resetHostStorage).toHaveBeenCalledOnce();
     const resetEvents = env.reportEvents.mock.calls.flatMap(([events]) => events);
-    expect(resetEvents).not.toContainEqual(expect.objectContaining({
-      category: "activity",
-      code: "interruption",
-    }));
-    expect(resetEvents).not.toContainEqual(expect.objectContaining({
-      category: "diagnostic",
-      level: "error",
-    }));
+    expect(resetEvents).not.toContainEqual(
+      expect.objectContaining({
+        category: "activity",
+        code: "interruption",
+      }),
+    );
+    expect(resetEvents).not.toContainEqual(
+      expect.objectContaining({
+        category: "diagnostic",
+        level: "error",
+      }),
+    );
   });
 
   it("restores scheduler admission when resetting host storage fails", async () => {
     const env = harness(farming(DEFAULT_SETTINGS));
     const resetFailure = new Error("storage reset failed");
 
-    await expect(env.controller.prepareForHostReset(async () => {
-      throw resetFailure;
-    })).rejects.toBe(resetFailure);
+    await expect(
+      env.controller.prepareForHostReset(async () => {
+        throw resetFailure;
+      }),
+    ).rejects.toBe(resetFailure);
 
     vi.mocked(env.kick.refreshCampaigns).mockClear();
     await env.controller.tick(["kick"], "manual_tick");
@@ -506,10 +566,11 @@ describe("background controller", () => {
     const env = harness(farming(DEFAULT_SETTINGS));
     let tickSignal: AbortSignal | undefined;
     vi.mocked(env.twitch.refreshCampaigns).mockImplementation(
-      async (_session, { signal } = {}) => new Promise((_resolve, reject) => {
-        tickSignal = signal;
-        signal?.addEventListener("abort", () => reject(signal.reason), { once: true });
-      }),
+      async (_session, { signal } = {}) =>
+        new Promise((_resolve, reject) => {
+          tickSignal = signal;
+          signal?.addEventListener("abort", () => reject(signal.reason), { once: true });
+        }),
     );
 
     const ticking = env.controller.tick();
@@ -544,7 +605,10 @@ describe("background controller", () => {
 
     await env.controller.prepareForHostReset();
 
-    expect(env.deps.closeManagedTabs).toHaveBeenCalledWith([expect.objectContaining({ tabId: 71 })], "extension-cleanup");
+    expect(env.deps.closeManagedTabs).toHaveBeenCalledWith(
+      [expect.objectContaining({ tabId: 71 })],
+      "extension-cleanup",
+    );
   });
 
   it("holds controller mutations until host storage reset finishes", async () => {

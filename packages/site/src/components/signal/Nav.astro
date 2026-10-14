@@ -2,7 +2,9 @@
 import { LINKS } from "../../consts";
 import logo from "../../assets/logo-ring.svg";
 
-interface Props { links?: { href: string; label: string; badge?: string }[]; }
+interface Props {
+  links?: { href: string; label: string; badge?: string }[];
+}
 // The homepage links to its own sections; other pages pass their own links.
 const {
   links = [

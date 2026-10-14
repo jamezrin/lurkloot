@@ -6,7 +6,10 @@ import {
   buildSettingsExportPayload,
   parseSettingsImportPayload,
 } from "@lurkloot/shared/settingsExport";
-import { CURRENT_SETTINGS_SCHEMA_VERSION, UnsupportedSettingsVersionError } from "@lurkloot/shared/settingsSchema";
+import {
+  CURRENT_SETTINGS_SCHEMA_VERSION,
+  UnsupportedSettingsVersionError,
+} from "@lurkloot/shared/settingsSchema";
 
 describe("settings export/import", () => {
   it("round-trips a customized settings object", () => {
@@ -14,7 +17,11 @@ describe("settings export/import", () => {
       ...DEFAULT_SETTINGS,
       platform: {
         ...DEFAULT_SETTINGS.platform,
-        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true, idleWatchlistChannels: ["someone"] },
+        twitch: {
+          ...DEFAULT_SETTINGS.platform.twitch,
+          enabled: true,
+          idleWatchlistChannels: ["someone"],
+        },
       },
       excludedCampaignIds: ["abc123"],
       languageOverride: "es",
@@ -24,7 +31,9 @@ describe("settings export/import", () => {
     expect(payload.kind).toBe(SETTINGS_EXPORT_KIND);
     expect(payload.schemaVersion).toBe(CURRENT_SETTINGS_SCHEMA_VERSION);
 
-    const { settings: imported, diagnostics } = parseSettingsImportPayload(JSON.parse(JSON.stringify(payload)));
+    const { settings: imported, diagnostics } = parseSettingsImportPayload(
+      JSON.parse(JSON.stringify(payload)),
+    );
     expect(imported).toEqual(settings);
     expect(diagnostics).toEqual([]);
   });
@@ -93,7 +102,11 @@ describe("settings export/import", () => {
             ...payload.settings.platform.twitch,
             categories: [
               { id: "javascript:alert(1)", name: "javascript", imageUrl: "javascript:alert(1)" },
-              { id: "http-beacon", name: "http beacon", imageUrl: "http://attacker.example/beacon.png" },
+              {
+                id: "http-beacon",
+                name: "http beacon",
+                imageUrl: "http://attacker.example/beacon.png",
+              },
               { id: "safe", name: "Safe Game", imageUrl: "https://cdn.example/safe.png" },
             ],
           },
@@ -112,6 +125,8 @@ describe("settings export/import", () => {
     expect(() => parseSettingsImportPayload({ foo: "bar" })).toThrow(InvalidSettingsImportError);
     expect(() => parseSettingsImportPayload(null)).toThrow(InvalidSettingsImportError);
     expect(() => parseSettingsImportPayload("not json")).toThrow(InvalidSettingsImportError);
-    expect(() => parseSettingsImportPayload({ kind: SETTINGS_EXPORT_KIND })).toThrow(InvalidSettingsImportError);
+    expect(() => parseSettingsImportPayload({ kind: SETTINGS_EXPORT_KIND })).toThrow(
+      InvalidSettingsImportError,
+    );
   });
 });

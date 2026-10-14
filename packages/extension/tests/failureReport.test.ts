@@ -16,8 +16,20 @@ const FLAGGED: CriticalHealthState = {
   lastWatchedMinutes: 12,
   managedTabOpens: ["2026-07-25T11:58:00.000Z"],
   records: [
-    { at: "2026-07-25T11:58:00.000Z", platform: "kick", kind: "context_open", code: "background_rejected" },
-    { at: "2026-07-25T11:58:30.000Z", platform: "kick", kind: "api_error", code: "http_error", status: 503, detail: "Kick inventory failed" },
+    {
+      at: "2026-07-25T11:58:00.000Z",
+      platform: "kick",
+      kind: "context_open",
+      code: "background_rejected",
+    },
+    {
+      at: "2026-07-25T11:58:30.000Z",
+      platform: "kick",
+      kind: "api_error",
+      code: "http_error",
+      status: 503,
+      detail: "Kick inventory failed",
+    },
   ],
 };
 
@@ -81,7 +93,9 @@ describe("failure report", () => {
 
     expect(report).toContain("diagnostic 59");
     expect(report).not.toContain("diagnostic 5\n");
-    expect(report.split("\n").filter((line) => line.includes("diagnostic ")).length).toBeLessThanOrEqual(40);
+    expect(
+      report.split("\n").filter((line) => line.includes("diagnostic ")).length,
+    ).toBeLessThanOrEqual(40);
   });
 
   it("never leaks credentials or tokens", () => {

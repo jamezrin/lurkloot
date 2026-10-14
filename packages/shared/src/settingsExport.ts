@@ -9,7 +9,11 @@
 
 import type { ExtensionSettings } from "./models";
 import { mergeSettings } from "./settings";
-import { CURRENT_SETTINGS_SCHEMA_VERSION, migrateSettings, type SettingsMigrationDiagnostic } from "./settingsSchema";
+import {
+  CURRENT_SETTINGS_SCHEMA_VERSION,
+  migrateSettings,
+  type SettingsMigrationDiagnostic,
+} from "./settingsSchema";
 
 export const SETTINGS_EXPORT_KIND = "lurkloot-settings";
 
@@ -62,11 +66,18 @@ export function parseSettingsImportPayload(raw: unknown): SettingsImportResult {
   if (envelope.kind !== SETTINGS_EXPORT_KIND) {
     throw new InvalidSettingsImportError(`unrecognized "kind"`);
   }
-  if (typeof envelope.settings !== "object" || envelope.settings === null || Array.isArray(envelope.settings)) {
+  if (
+    typeof envelope.settings !== "object"
+    || envelope.settings === null
+    || Array.isArray(envelope.settings)
+  ) {
     throw new InvalidSettingsImportError(`missing "settings"`);
   }
 
-  const rawSettings = { ...(envelope.settings as Record<string, unknown>), schemaVersion: envelope.schemaVersion };
+  const rawSettings = {
+    ...(envelope.settings as Record<string, unknown>),
+    schemaVersion: envelope.schemaVersion,
+  };
   const migration = migrateSettings(rawSettings);
   const settings = mergeSettings(migration.settings as Partial<ExtensionSettings>);
   return { settings, diagnostics: migration.diagnostics };

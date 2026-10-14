@@ -20,30 +20,46 @@ function tsFiles(dir: string): string[] {
 }
 
 const FORBIDDEN = /\b(?:import|require)\b[^\n]*["'](wxt(?:\/[^"']*)?|webextension-polyfill)["']/;
-const HISTORY_API = /\b(?:ActivityPage|DiagnosticsExport|getActivity|exportDiagnostics|clearActivity|activityStorage)\b/;
+const HISTORY_API =
+  /\b(?:ActivityPage|DiagnosticsExport|getActivity|exportDiagnostics|clearActivity|activityStorage)\b/;
 const FULL_RUNTIME_MESSAGE = /\bRuntimeMessage\b/;
 const BROWSER_COOKIE_API = /\b(?:browser|chrome)\.cookies\b/;
-const EXTENSION_IMPORT = /\b(?:import|require)\b[^\n]*["'][^"']*packages\/extension|\b(?:import|require)\b[^\n]*["'][^"']*extension\/src/;
+const EXTENSION_IMPORT =
+  /\b(?:import|require)\b[^\n]*["'][^"']*packages\/extension|\b(?:import|require)\b[^\n]*["'][^"']*extension\/src/;
 // Diagnostics are the English-only surface a user pastes into a bug report, and
 // core is where they are written. A locale catalog reaching core is the way that
 // guarantee would quietly break; notification copy is localized by the HOST
 // through the injected `translate` callback, never by importing a catalog here.
-const CATALOG_IMPORT = /\b(?:import|require)\b[^\n]*["'](@lurkloot\/locales(?:\/[^"']*)?|@lurkloot\/shared\/i18n)["']/;
+const CATALOG_IMPORT =
+  /\b(?:import|require)\b[^\n]*["'](@lurkloot\/locales(?:\/[^"']*)?|@lurkloot\/shared\/i18n)["']/;
 
 describe("@lurkloot/core browser-free boundary", () => {
   it("never imports wxt or a webextension polyfill", () => {
     const offenders = tsFiles(coreSrc).filter((file) => FORBIDDEN.test(readFileSync(file, "utf8")));
-    expect(offenders, `core must stay browser-free; offending files:\n${offenders.join("\n")}`).toEqual([]);
+    expect(
+      offenders,
+      `core must stay browser-free; offending files:\n${offenders.join("\n")}`,
+    ).toEqual([]);
   });
 
   it("does not own the extension activity history API", () => {
-    const offenders = tsFiles(coreSrc).filter((file) => HISTORY_API.test(readFileSync(file, "utf8")));
-    expect(offenders, `core must not own activity history; offending files:\n${offenders.join("\n")}`).toEqual([]);
+    const offenders = tsFiles(coreSrc).filter((file) =>
+      HISTORY_API.test(readFileSync(file, "utf8")),
+    );
+    expect(
+      offenders,
+      `core must not own activity history; offending files:\n${offenders.join("\n")}`,
+    ).toEqual([]);
   });
 
   it("accepts only the core runtime message contract", () => {
-    const offenders = tsFiles(coreSrc).filter((file) => FULL_RUNTIME_MESSAGE.test(readFileSync(file, "utf8")));
-    expect(offenders, `core must not accept the extension-wide RuntimeMessage union; offending files:\n${offenders.join("\n")}`).toEqual([]);
+    const offenders = tsFiles(coreSrc).filter((file) =>
+      FULL_RUNTIME_MESSAGE.test(readFileSync(file, "utf8")),
+    );
+    expect(
+      offenders,
+      `core must not accept the extension-wide RuntimeMessage union; offending files:\n${offenders.join("\n")}`,
+    ).toEqual([]);
   });
 
   it("keeps browser cookie access and extension modules outside core", () => {
@@ -52,12 +68,20 @@ describe("@lurkloot/core browser-free boundary", () => {
       const code = source.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
       return BROWSER_COOKIE_API.test(code) || EXTENSION_IMPORT.test(code);
     });
-    expect(offenders, `core must not access browser cookies or extension modules; offending files:\n${offenders.join("\n")}`).toEqual([]);
+    expect(
+      offenders,
+      `core must not access browser cookies or extension modules; offending files:\n${offenders.join("\n")}`,
+    ).toEqual([]);
   });
 
   it("never imports a message catalog, so diagnostics cannot become localized", () => {
-    const offenders = tsFiles(coreSrc).filter((file) => CATALOG_IMPORT.test(readFileSync(file, "utf8")));
-    expect(offenders, `core must stay i18n-free so diagnostics stay English; offending files:\n${offenders.join("\n")}`).toEqual([]);
+    const offenders = tsFiles(coreSrc).filter((file) =>
+      CATALOG_IMPORT.test(readFileSync(file, "utf8")),
+    );
+    expect(
+      offenders,
+      `core must stay i18n-free so diagnostics stay English; offending files:\n${offenders.join("\n")}`,
+    ).toEqual([]);
   });
 
   // Browser-tab code staying in packages/extension is checked with the other
@@ -65,7 +89,9 @@ describe("@lurkloot/core browser-free boundary", () => {
 
   it("models credential availability without naming or carrying browser credentials", () => {
     // Every background controller module (#592 split controller.ts by owner).
-    const controller = tsFiles(join(coreSrc, "background")).map((file) => readFileSync(file, "utf8")).join("\n");
+    const controller = tsFiles(join(coreSrc, "background"))
+      .map((file) => readFileSync(file, "utf8"))
+      .join("\n");
     expect(controller).toContain("CredentialAvailability");
     expect(controller).not.toMatch(/auth-token|session_token|unique_id|cookie\.value/);
   });

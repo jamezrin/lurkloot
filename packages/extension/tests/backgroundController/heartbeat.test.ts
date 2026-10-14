@@ -9,8 +9,15 @@ import { KickWatcher } from "@lurkloot/core/kick/watch";
 import { kickAdapter } from "../helpers/adapters";
 import type { TablessWatchController } from "@lurkloot/core/tablessWatch";
 import { selectWatchTargetFromSnapshot } from "@lurkloot/core/scheduler";
-import { recordManagedPageContextFallback, registerManagedPageContextTabs } from "@lurkloot/core/tabRegistry";
-import { WATCH_ALARM_NAME, WATCH_ALARM_PERIOD_MINUTES, WATCH_ALARM_SUSTAIN_PERIOD_MINUTES } from "@lurkloot/core/controller";
+import {
+  recordManagedPageContextFallback,
+  registerManagedPageContextTabs,
+} from "@lurkloot/core/tabRegistry";
+import {
+  WATCH_ALARM_NAME,
+  WATCH_ALARM_PERIOD_MINUTES,
+  WATCH_ALARM_SUSTAIN_PERIOD_MINUTES,
+} from "@lurkloot/core/controller";
 import {
   adapter,
   advanceToNextHeartbeatDue,
@@ -105,8 +112,9 @@ describe("background controller", () => {
       result.resolve({ ok: true, live: true });
       await heartbeat;
 
-      expect(env.state.sessions.twitch.tablessHeartbeat?.nextDueAt)
-        .toBe("2026-09-02T12:02:00.000Z");
+      expect(env.state.sessions.twitch.tablessHeartbeat?.nextDueAt).toBe(
+        "2026-09-02T12:02:00.000Z",
+      );
     });
 
     it("skips missed heartbeat slots after a late wake without a catch-up burst", async () => {
@@ -116,8 +124,9 @@ describe("background controller", () => {
       await env.controller.runWatchHeartbeat();
 
       expect(watcher.tick).toHaveBeenCalledOnce();
-      expect(env.state.sessions.twitch.tablessHeartbeat?.nextDueAt)
-        .toBe("2026-09-02T12:05:00.000Z");
+      expect(env.state.sessions.twitch.tablessHeartbeat?.nextDueAt).toBe(
+        "2026-09-02T12:05:00.000Z",
+      );
     });
 
     it("coalesces three concurrent heartbeat calls into one transport attempt", async () => {
@@ -150,8 +159,9 @@ describe("background controller", () => {
       await env.controller.runWatchHeartbeat();
 
       expect(watcher.tick).not.toHaveBeenCalled();
-      expect(env.state.sessions.twitch.tablessHeartbeat?.nextDueAt)
-        .toBe("2026-09-02T12:01:00.000Z");
+      expect(env.state.sessions.twitch.tablessHeartbeat?.nextDueAt).toBe(
+        "2026-09-02T12:01:00.000Z",
+      );
       expect(aggregateHeartbeatDiagnostics(env)).toEqual([]);
     });
 
@@ -190,7 +200,8 @@ describe("background controller", () => {
       const oldWatcher = fakeTablessWatcher(() => oldResult.promise);
       const newWatcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
       const env = tablessEnv({ tablessFallbackFailureLimit: 1 });
-      env.twitch.createTablessWatcher = vi.fn()
+      env.twitch.createTablessWatcher = vi
+        .fn()
         .mockReturnValueOnce(oldWatcher)
         .mockReturnValueOnce(newWatcher);
       env.state.authHealth.twitch = { status: "healthy" };
@@ -250,9 +261,11 @@ describe("background controller", () => {
       expect(diagnostics).not.toContain(
         "Tabless watch heartbeat keeps failing; falling back to a watch tab",
       );
-      expect(env.reportEvents.mock.calls
-        .flatMap(([events]) => events)
-        .filter((event) => event.category === "activity")).toEqual([]);
+      expect(
+        env.reportEvents.mock.calls
+          .flatMap(([events]) => events)
+          .filter((event) => event.category === "activity"),
+      ).toEqual([]);
       expect(aggregateHeartbeatDiagnostics(env, "twitch")).toHaveLength(2);
       expect(lastAggregateDiagnostic(env, "twitch")).toContain(
         `outcome=${outcome === "success" ? "ok" : "failed"}`,
@@ -305,8 +318,9 @@ describe("background controller", () => {
       tablessHeartbeat: expect.objectContaining({ generation: 2 }),
     });
     expect(env.watchTabs.twitch.open).not.toHaveBeenCalled();
-    expect(allDiagnostics(env).map((event) => event.message))
-      .not.toContain("obsolete generation failed");
+    expect(allDiagnostics(env).map((event) => event.message)).not.toContain(
+      "obsolete generation failed",
+    );
     expect(aggregateHeartbeatDiagnostics(env, "twitch")).toHaveLength(1);
     expect(lastAggregateDiagnostic(env, "twitch")).toContain("outcome=failed");
     expect(lastAggregateDiagnostic(env, "twitch")).toContain("staleResult=true");
@@ -327,7 +341,8 @@ describe("background controller", () => {
       },
     });
     env.kick.supportsTabless = true;
-    env.kick.createTablessWatcher = vi.fn()
+    env.kick.createTablessWatcher = vi
+      .fn()
       .mockReturnValueOnce(oldWatcher)
       .mockReturnValueOnce(replacement);
     env.state.authHealth.kick = { status: "healthy" };
@@ -421,23 +436,26 @@ describe("background controller", () => {
     const selectionStarted = deferred<void>();
     const allowSelection = deferred<void>();
     let blockSelection = false;
-    const env = harness({
-      ...DEFAULT_SETTINGS,
-      tablessMode: true,
-      platform: {
-        ...DEFAULT_SETTINGS.platform,
-        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
-        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, idleWatchlistChannels: [] },
+    const env = harness(
+      {
+        ...DEFAULT_SETTINGS,
+        tablessMode: true,
+        platform: {
+          ...DEFAULT_SETTINGS.platform,
+          twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
+          kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, idleWatchlistChannels: [] },
+        },
       },
-    }, {
-      selectWatchTarget: async (...args) => {
-        if (blockSelection) {
-          selectionStarted.resolve();
-          await allowSelection.promise;
-        }
-        return selectWatchTargetFromSnapshot(...args);
+      {
+        selectWatchTarget: async (...args) => {
+          if (blockSelection) {
+            selectionStarted.resolve();
+            await allowSelection.promise;
+          }
+          return selectWatchTargetFromSnapshot(...args);
+        },
       },
-    });
+    );
     const watcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
     env.twitch.supportsTabless = true;
     env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
@@ -529,64 +547,94 @@ describe("background controller", () => {
       ["tick", "discovery"],
       ["auth", "heartbeat"],
       ["tick", "heartbeat"],
-    ] as const)("does not let a stalled Kick %s summary block Twitch %s", async (kickOperation, twitchOperation) => {
-      const summaryStarted = deferred<void>();
-      const releaseSummary = deferred<void>();
-      const env = harness(farming({ ...DEFAULT_SETTINGS, tablessMode: true }), {
-        reportEvents: async (events) => {
-          if (events.some((event) => event.platform === "kick" && event.category === "diagnostic" && event.code === "kick_fetch_summary")) {
-            summaryStarted.resolve();
-            await releaseSummary.promise;
-          }
-        },
-      });
-      let providerRequests = 0;
-      const watcher = fakeTablessWatcher(async () => {
-        providerRequests += 1;
-        return { ok: true, live: true };
-      });
-      env.twitch.supportsTabless = true;
-      env.twitch.createTablessWatcher = () => watcher;
-      env.deps.createAdapter.mockImplementation((platform, emit, settings) => ({
-        adapter: platform === "kick" ? kickAdapter(createKickFetcher({
-          background: async (url) => url.endsWith("/user") ? { id: 42 } : { data: [] },
-        }), undefined, emit) : env.twitch,
-        ...resolveCompatibility(settings.compatibility, { host: "extension", twitchIdentity: "web" }),
-      }));
-      if (twitchOperation === "heartbeat") {
-        await env.controller.tick(["twitch"]);
-        advanceToNextHeartbeatDue();
-      }
-      let kickCompleted = false;
-      const kickWork = (kickOperation === "auth"
-        ? env.controller.checkAuthHealth("kick")
-        : env.controller.tick(["kick"])).then(() => { kickCompleted = true; });
-      await summaryStarted.promise;
-      let twitchCompleted = false;
-      const twitchWork = (twitchOperation === "discovery"
-        ? env.controller.tick(["twitch"])
-        : env.controller.runWatchHeartbeat()).then(() => { twitchCompleted = true; });
-      let reportsSettled = false;
-      const settling = env.controller.settleBackgroundWork().then(() => { reportsSettled = true; });
-      try {
-        await drainMicrotasks();
-        if (twitchOperation === "discovery") {
-          expect(env.state.campaigns.twitch.map((item) => item.id)).toEqual(["twitch-campaign"]);
-          expect(env.state.sessions.twitch.watchMode).toBe("tabless");
-        } else {
-          expect(providerRequests).toBe(1);
-          expect(env.state.sessions.twitch.lastHeartbeatOk).toBe(true);
+    ] as const)(
+      "does not let a stalled Kick %s summary block Twitch %s",
+      async (kickOperation, twitchOperation) => {
+        const summaryStarted = deferred<void>();
+        const releaseSummary = deferred<void>();
+        const env = harness(farming({ ...DEFAULT_SETTINGS, tablessMode: true }), {
+          reportEvents: async (events) => {
+            if (
+              events.some(
+                (event) =>
+                  event.platform === "kick"
+                  && event.category === "diagnostic"
+                  && event.code === "kick_fetch_summary",
+              )
+            ) {
+              summaryStarted.resolve();
+              await releaseSummary.promise;
+            }
+          },
+        });
+        let providerRequests = 0;
+        const watcher = fakeTablessWatcher(async () => {
+          providerRequests += 1;
+          return { ok: true, live: true };
+        });
+        env.twitch.supportsTabless = true;
+        env.twitch.createTablessWatcher = () => watcher;
+        env.deps.createAdapter.mockImplementation((platform, emit, settings) => ({
+          adapter:
+            platform === "kick"
+              ? kickAdapter(
+                  createKickFetcher({
+                    background: async (url) => (url.endsWith("/user") ? { id: 42 } : { data: [] }),
+                  }),
+                  undefined,
+                  emit,
+                )
+              : env.twitch,
+          ...resolveCompatibility(settings.compatibility, {
+            host: "extension",
+            twitchIdentity: "web",
+          }),
+        }));
+        if (twitchOperation === "heartbeat") {
+          await env.controller.tick(["twitch"]);
+          advanceToNextHeartbeatDue();
         }
-        expect(twitchCompleted).toBe(true);
-        expect(kickCompleted).toBe(false);
-        expect(reportsSettled).toBe(false);
-      } finally {
-        releaseSummary.resolve();
-        await Promise.all([kickWork, twitchWork, settling]);
-        await env.controller.settleBackgroundWork();
-        env.controller.shutdown();
-      }
-    });
+        let kickCompleted = false;
+        const kickWork = (
+          kickOperation === "auth"
+            ? env.controller.checkAuthHealth("kick")
+            : env.controller.tick(["kick"])
+        ).then(() => {
+          kickCompleted = true;
+        });
+        await summaryStarted.promise;
+        let twitchCompleted = false;
+        const twitchWork = (
+          twitchOperation === "discovery"
+            ? env.controller.tick(["twitch"])
+            : env.controller.runWatchHeartbeat()
+        ).then(() => {
+          twitchCompleted = true;
+        });
+        let reportsSettled = false;
+        const settling = env.controller.settleBackgroundWork().then(() => {
+          reportsSettled = true;
+        });
+        try {
+          await drainMicrotasks();
+          if (twitchOperation === "discovery") {
+            expect(env.state.campaigns.twitch.map((item) => item.id)).toEqual(["twitch-campaign"]);
+            expect(env.state.sessions.twitch.watchMode).toBe("tabless");
+          } else {
+            expect(providerRequests).toBe(1);
+            expect(env.state.sessions.twitch.lastHeartbeatOk).toBe(true);
+          }
+          expect(twitchCompleted).toBe(true);
+          expect(kickCompleted).toBe(false);
+          expect(reportsSettled).toBe(false);
+        } finally {
+          releaseSummary.resolve();
+          await Promise.all([kickWork, twitchWork, settling]);
+          await env.controller.settleBackgroundWork();
+          env.controller.shutdown();
+        }
+      },
+    );
   });
 
   it("correlates watcher startup route transitions and summary with the current scheduler tick", async () => {
@@ -607,7 +655,8 @@ describe("background controller", () => {
           if (url === "https://kick.com/api/internal/settings/global") {
             return { events: { "tracking.user.watch.livestream": { interval: 120 } } };
           }
-          if (url === "https://websockets.kick.com/viewer/v1/token") return { data: { token: "viewer-token" } };
+          if (url === "https://websockets.kick.com/viewer/v1/token")
+            return { data: { token: "viewer-token" } };
           throw new Error("Unexpected watcher request");
         },
       }),
@@ -623,7 +672,9 @@ describe("background controller", () => {
       const routes = allDiagnostics(env).filter((event) => event.code === "kick_fetch_route");
       const summaries = allDiagnostics(env).filter((event) => event.code === "kick_fetch_summary");
       expect(routes).toHaveLength(2);
-      expect(summaries.map((event) => event.data)).toEqual([{ "kick.com.background": 2, "websockets.kick.com.background": 1 }]);
+      expect(summaries.map((event) => event.data)).toEqual([
+        { "kick.com.background": 2, "websockets.kick.com.background": 1 },
+      ]);
       for (const event of [...routes, ...summaries]) {
         expect(event).toMatchObject({ platformTickId: 1, globalTickId: 2 });
       }
@@ -654,11 +705,13 @@ describe("background controller", () => {
     env.kick.supportsTabless = true;
     env.kick.createTablessWatcher = vi.fn(() => watcher);
     const startObserver = env.discoverySignalController.start.bind(env.discoverySignalController);
-    vi.spyOn(env.discoverySignalController, "start").mockImplementation(async (target, onSignal) => {
-      await startObserver(target, onSignal);
-      observerStartReached.resolve();
-      await allowObserverStart.promise;
-    });
+    vi.spyOn(env.discoverySignalController, "start").mockImplementation(
+      async (target, onSignal) => {
+        await startObserver(target, onSignal);
+        observerStartReached.resolve();
+        await allowObserverStart.promise;
+      },
+    );
 
     const schedulerTick = env.controller.tick(["kick"]);
     await observerStartReached.promise;
@@ -701,7 +754,8 @@ describe("background controller", () => {
       rewards: [{ ...reward(), id: "unpublished-successor-reward" }],
     };
     const env = tablessEnv();
-    env.twitch.createTablessWatcher = vi.fn()
+    env.twitch.createTablessWatcher = vi
+      .fn()
       .mockReturnValueOnce(oldWatcher)
       .mockReturnValueOnce(successorWatcher);
     await env.controller.tick(["twitch"]);
@@ -766,7 +820,8 @@ describe("background controller", () => {
       rewards: [{ ...reward(), id: "successor-reward" }],
     };
     const env = tablessEnv({ tablessFallbackFailureLimit: 1 });
-    env.twitch.createTablessWatcher = vi.fn()
+    env.twitch.createTablessWatcher = vi
+      .fn()
       .mockReturnValueOnce(oldWatcher)
       .mockReturnValueOnce(successorWatcher);
     env.state.authHealth.twitch = { status: "healthy" };
@@ -823,7 +878,8 @@ describe("background controller", () => {
       expect(env.state.sessions.twitch.lastHeartbeatOk).toBeUndefined();
       expect(env.state.sessions.twitch.tablessHeartbeat).toEqual({
         generation: 1,
-        contextKey: "[\"twitch\",\"https://www.twitch.tv/twitch-creator\",\"twitch-creator\",\"old-broadcast\",\"\",\"\",\"old-campaign\",\"old-reward\"]",
+        contextKey:
+          '["twitch","https://www.twitch.tv/twitch-creator","twitch-creator","old-broadcast","","","old-campaign","old-reward"]',
         nextDueAt: "2026-09-02T12:00:00.000Z",
       });
       expect(env.deps.saveState).toHaveBeenCalledTimes(savesBeforeOldResult);
@@ -833,9 +889,11 @@ describe("background controller", () => {
       expect(diagnostics).not.toContain(
         "Tabless watch heartbeat keeps failing; falling back to a watch tab",
       );
-      expect(env.reportEvents.mock.calls
-        .flatMap(([events]) => events)
-        .filter((event) => event.category === "activity")).toEqual([]);
+      expect(
+        env.reportEvents.mock.calls
+          .flatMap(([events]) => events)
+          .filter((event) => event.category === "activity"),
+      ).toEqual([]);
       expect(aggregateHeartbeatDiagnostics(env, "twitch")).toHaveLength(1);
       expect(lastAggregateDiagnostic(env, "twitch")).toContain("outcome=failed");
       expect(lastAggregateDiagnostic(env, "twitch")).toContain("staleResult=true");
@@ -886,7 +944,8 @@ describe("background controller", () => {
       rewards: [{ ...reward(), id: "lease-successor-reward" }],
     };
     const env = tablessEnv();
-    env.twitch.createTablessWatcher = vi.fn()
+    env.twitch.createTablessWatcher = vi
+      .fn()
       .mockReturnValueOnce(oldWatcher)
       .mockReturnValueOnce(successorWatcher);
     await env.controller.tick(["twitch"]);
@@ -946,7 +1005,8 @@ describe("background controller", () => {
       rewards: [{ ...reward(), id: "recovery-successor-reward" }],
     };
     const env = tablessEnv();
-    env.twitch.createTablessWatcher = vi.fn()
+    env.twitch.createTablessWatcher = vi
+      .fn()
       .mockReturnValueOnce(recovered)
       .mockReturnValueOnce(successorWatcher);
     env.state.authHealth.twitch = { status: "healthy" };
@@ -994,18 +1054,22 @@ describe("background controller", () => {
     const watcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
     const successorWatcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
     const env = tablessEnv();
-    env.twitch.createTablessWatcher = vi.fn()
+    env.twitch.createTablessWatcher = vi
+      .fn()
       .mockReturnValueOnce(watcher)
       .mockReturnValueOnce(successorWatcher);
     await env.controller.tick(["twitch"]);
-    vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([{
-      ...campaign("twitch"),
-      id: "uncommitted-campaign",
-      rewards: [{ ...reward(), id: "uncommitted-reward" }],
-    }]);
+    vi.mocked(env.twitch.refreshCampaigns).mockResolvedValue([
+      {
+        ...campaign("twitch"),
+        id: "uncommitted-campaign",
+        rewards: [{ ...reward(), id: "uncommitted-reward" }],
+      },
+    ]);
     const persist = env.deps.saveState.getMockImplementation()!;
     env.deps.saveState.mockImplementation(async (next) => {
-      if (next.sessions.twitch.rewardId === "uncommitted-reward") throw new Error("storage unavailable");
+      if (next.sessions.twitch.rewardId === "uncommitted-reward")
+        throw new Error("storage unavailable");
       await persist(next);
     });
 
@@ -1054,7 +1118,8 @@ describe("background controller", () => {
     const obsoleteRecovery = fakeTablessWatcher(async () => ({ ok: true, live: true }));
     const env = tablessEnv({ postClaimHandoff: true });
     env.twitch.supportsPostClaimHandoff = true;
-    env.twitch.createTablessWatcher = vi.fn()
+    env.twitch.createTablessWatcher = vi
+      .fn()
       .mockReturnValueOnce(watcher)
       .mockReturnValueOnce(obsoleteRecovery);
     const persist = env.deps.saveState.getMockImplementation()!;
@@ -1091,8 +1156,7 @@ describe("background controller", () => {
 
     await env.controller.runClaimHandoff("twitch");
     expect(watcher.tick).toHaveBeenCalledOnce();
-    expect(env.state.sessions.twitch.tablessHeartbeat?.nextDueAt)
-      .toBe("2026-09-02T12:01:00.000Z");
+    expect(env.state.sessions.twitch.tablessHeartbeat?.nextDueAt).toBe("2026-09-02T12:01:00.000Z");
 
     vi.setSystemTime(new Date("2026-09-02T12:01:00.000Z"));
     await env.controller.runWatchHeartbeat();
@@ -1119,7 +1183,8 @@ describe("background controller", () => {
     };
     const env = tablessEnv({ postClaimHandoff: true });
     env.twitch.supportsPostClaimHandoff = true;
-    env.twitch.createTablessWatcher = vi.fn()
+    env.twitch.createTablessWatcher = vi
+      .fn()
       .mockReturnValueOnce(oldWatcher)
       .mockReturnValueOnce(successorWatcher)
       .mockReturnValueOnce(obsoleteRecovery);
@@ -1168,7 +1233,8 @@ describe("background controller", () => {
     const oldWatcher = fakeTablessWatcher(() => oldResult.promise);
     const replacement = fakeTablessWatcher(async () => ({ ok: true, live: true }));
     const env = tablessEnv({ tablessFallbackFailureLimit: 1 });
-    env.twitch.createTablessWatcher = vi.fn()
+    env.twitch.createTablessWatcher = vi
+      .fn()
       .mockReturnValueOnce(oldWatcher)
       .mockReturnValueOnce(replacement);
     env.state.authHealth.twitch = { status: "healthy" };
@@ -1222,7 +1288,8 @@ describe("background controller", () => {
     });
     const newWatcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
     const env = tablessEnv();
-    env.twitch.createTablessWatcher = vi.fn()
+    env.twitch.createTablessWatcher = vi
+      .fn()
       .mockReturnValueOnce(oldWatcher)
       .mockReturnValueOnce(newWatcher);
     env.state.authHealth.twitch = { status: "healthy" };
@@ -1286,7 +1353,8 @@ describe("background controller", () => {
       },
     });
     env.kick.supportsTabless = true;
-    env.kick.createTablessWatcher = vi.fn()
+    env.kick.createTablessWatcher = vi
+      .fn()
       .mockReturnValueOnce(slowWatcher)
       .mockReturnValueOnce(winner);
     env.state.authHealth.kick = { status: "healthy" };
@@ -1403,7 +1471,9 @@ describe("background controller", () => {
       campaignId: "kick-campaign",
       rewardId: "reward",
     };
-    candidateState.sessions.kick.tablessHeartbeat = dueHeartbeatCadence(candidateState.sessions.kick);
+    candidateState.sessions.kick.tablessHeartbeat = dueHeartbeatCadence(
+      candidateState.sessions.kick,
+    );
     const staleState = structuredClone(candidateState);
     staleState.sessions.kick = {
       platform: "kick",
@@ -1438,7 +1508,8 @@ describe("background controller", () => {
       const stoppedWatcher = fakeTablessWatcher(async () => ({ ok: true, live: true }));
       const replacement = fakeTablessWatcher(async () => ({ ok: true, live: true }));
       const env = tablessEnv({ autoStartDropFarming: true });
-      env.twitch.createTablessWatcher = vi.fn()
+      env.twitch.createTablessWatcher = vi
+        .fn()
         .mockReturnValueOnce(stoppedWatcher)
         .mockReturnValueOnce(replacement);
       await env.controller.tick(["twitch"]);
@@ -1570,19 +1641,21 @@ describe("background controller", () => {
 
   it("heartbeats a Kick idle watchlist session from the minute alarm", async () => {
     const watcher = fakeTablessWatcher(async () => ({ ok: true, live: true }), "kick");
-    const env = harness(farming({
-      ...DEFAULT_SETTINGS,
-      tablessMode: true,
-      platform: {
-        ...DEFAULT_SETTINGS.platform,
-        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false },
-        kick: {
-          ...DEFAULT_SETTINGS.platform.kick,
-          enabled: true,
-          idleWatchlistChannels: ["rewardstation"],
+    const env = harness(
+      farming({
+        ...DEFAULT_SETTINGS,
+        tablessMode: true,
+        platform: {
+          ...DEFAULT_SETTINGS.platform,
+          twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false },
+          kick: {
+            ...DEFAULT_SETTINGS.platform.kick,
+            enabled: true,
+            idleWatchlistChannels: ["rewardstation"],
+          },
         },
-      },
-    }));
+      }),
+    );
     env.kick.supportsTabless = true;
     env.kick.refreshCampaigns = vi.fn(async () => []);
     env.kick.createTablessWatcher = vi.fn(() => watcher as unknown as TablessWatchController);
@@ -1681,7 +1754,13 @@ describe("background controller", () => {
   it("merge-safely persists page-context lifecycle metadata changed during a heartbeat", async () => {
     const heartbeatResult = deferred<{ ok: boolean; live?: boolean; message?: string }>();
     const watcher = fakeTablessWatcher(async () => {
-      recordManagedPageContextFallback(env.tabRegistry, "twitch", "gql.twitch.tv", undefined, Date.parse("2026-07-21T12:00:00.000Z"));
+      recordManagedPageContextFallback(
+        env.tabRegistry,
+        "twitch",
+        "gql.twitch.tv",
+        undefined,
+        Date.parse("2026-07-21T12:00:00.000Z"),
+      );
       return heartbeatResult.promise;
     });
     const env = tablessEnv();
@@ -1793,7 +1872,8 @@ describe("background controller", () => {
       lastHeartbeatOk: true,
       tablessHeartbeat: {
         generation: 1,
-        contextKey: "[\"twitch\",\"https://www.twitch.tv/twitch-creator\",\"twitch-creator\",\"\",\"\",\"\",\"twitch-campaign\",\"reward\"]",
+        contextKey:
+          '["twitch","https://www.twitch.tv/twitch-creator","twitch-creator","","","","twitch-campaign","reward"]',
         nextDueAt: "2026-09-02T12:02:00.000Z",
       },
     });
@@ -1807,7 +1887,8 @@ describe("background controller", () => {
       lastHeartbeatOk: true,
       tablessHeartbeat: {
         generation: 1,
-        contextKey: "[\"twitch\",\"https://www.twitch.tv/twitch-creator\",\"twitch-creator\",\"\",\"\",\"\",\"twitch-campaign\",\"reward\"]",
+        contextKey:
+          '["twitch","https://www.twitch.tv/twitch-creator","twitch-creator","","","","twitch-campaign","reward"]',
         nextDueAt: "2026-09-02T12:02:00.000Z",
       },
     });
@@ -1831,8 +1912,9 @@ describe("background controller", () => {
       lastHeartbeatOk: false,
       heartbeatChecks: 1,
     });
-    expect(allDiagnostics(env).filter((event) =>
-      event.message === "heartbeat transport rejected")).toHaveLength(1);
+    expect(
+      allDiagnostics(env).filter((event) => event.message === "heartbeat transport rejected"),
+    ).toHaveLength(1);
     expect(env.watchTabs.twitch.open).not.toHaveBeenCalled();
   });
 
@@ -1861,26 +1943,37 @@ describe("background controller", () => {
       lastHeartbeatOk: true,
       heartbeatChecks: 0,
     });
-    expect(allDiagnostics(env).filter((event) =>
-      event.message === "Tabless watch heartbeat recovered")).toHaveLength(1);
+    expect(
+      allDiagnostics(env).filter((event) => event.message === "Tabless watch heartbeat recovered"),
+    ).toHaveLength(1);
   });
 
   it("publishes persistent watcher diagnostics once through the current operation batch", async () => {
     const reported: EngineEvent[][] = [];
-    const env = harness({
-      ...DEFAULT_SETTINGS,
-      tablessMode: true,
-      platform: {
-        ...DEFAULT_SETTINGS.platform,
-        twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
-        kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, idleWatchlistChannels: [] },
+    const env = harness(
+      {
+        ...DEFAULT_SETTINGS,
+        tablessMode: true,
+        platform: {
+          ...DEFAULT_SETTINGS.platform,
+          twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: true },
+          kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: false, idleWatchlistChannels: [] },
+        },
       },
-    }, {
-      reportEvents: async (events) => { reported.push([...events]); },
-    });
+      {
+        reportEvents: async (events) => {
+          reported.push([...events]);
+        },
+      },
+    );
     const pending: DiagnosticEvent[] = [];
     const watcher = fakeTablessWatcher(async () => {
-      pending.push({ category: "diagnostic", platform: "twitch", level: "debug", message: "heartbeat-detail" });
+      pending.push({
+        category: "diagnostic",
+        platform: "twitch",
+        level: "debug",
+        message: "heartbeat-detail",
+      });
       return { ok: true, live: true };
     });
     watcher.drainEvents.mockImplementation(() => pending.splice(0));
@@ -1888,21 +1981,43 @@ describe("background controller", () => {
     env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
 
     await env.controller.tick();
-    pending.push({ category: "diagnostic", platform: "twitch", level: "info", message: "connected-after-start" });
-    expect(reported.flat().some((event) => event.category === "diagnostic" && event.message === "connected-after-start")).toBe(false);
+    pending.push({
+      category: "diagnostic",
+      platform: "twitch",
+      level: "info",
+      message: "connected-after-start",
+    });
+    expect(
+      reported
+        .flat()
+        .some(
+          (event) => event.category === "diagnostic" && event.message === "connected-after-start",
+        ),
+    ).toBe(false);
 
     advanceToNextHeartbeatDue();
     await env.controller.runWatchHeartbeat();
-    expect(reported.flat().filter((event) =>
-      event.category === "diagnostic"
-      && (event.message === "connected-after-start" || event.message === "heartbeat-detail"))
+    expect(
+      reported
+        .flat()
+        .filter(
+          (event) =>
+            event.category === "diagnostic"
+            && (event.message === "connected-after-start" || event.message === "heartbeat-detail"),
+        ),
     ).toEqual([
       expect.objectContaining({ message: "connected-after-start" }),
       expect.objectContaining({ message: "heartbeat-detail" }),
     ]);
 
     await env.controller.runWatchHeartbeat();
-    expect(reported.flat().filter((event) => event.category === "diagnostic" && event.message === "connected-after-start")).toHaveLength(1);
+    expect(
+      reported
+        .flat()
+        .filter(
+          (event) => event.category === "diagnostic" && event.message === "connected-after-start",
+        ),
+    ).toHaveLength(1);
   });
 
   it("starts heartbeat fallback at the configured failure limit", async () => {
@@ -1934,9 +2049,11 @@ describe("background controller", () => {
       let env!: ReturnType<typeof harness>;
       let replaceAuthorityAfterCommit = false;
       env = tablessEnv({ tablessFallbackFailureLimit: 1 });
-      env.twitch.createTablessWatcher = () => fakeTablessWatcher(
-        async () => ({ ok: false, live: true }),
-      ) as unknown as TablessWatchController;
+      env.twitch.createTablessWatcher = () =>
+        fakeTablessWatcher(async () => ({
+          ok: false,
+          live: true,
+        })) as unknown as TablessWatchController;
       // Replaced right after the failing result's save, before the commit
       // hook that would hand the fallback to a tick has run.
       const persist = env.deps.saveState.getMockImplementation()!;
@@ -1945,19 +2062,20 @@ describe("background controller", () => {
         if (replaceAuthorityAfterCommit && next.sessions.twitch.lastHeartbeatOk === false) {
           replaceAuthorityAfterCommit = false;
           const current = env.state.sessions.twitch;
-          const nextSession: WatchSession = authority === "generation"
-            ? {
-                ...current,
-                tablessHeartbeat: {
-                  ...current.tablessHeartbeat!,
-                  generation: current.tablessHeartbeat!.generation + 1,
-                },
-              }
-            : {
-                ...current,
-                campaignId: "replacement-campaign",
-                rewardId: "replacement-reward",
-              };
+          const nextSession: WatchSession =
+            authority === "generation"
+              ? {
+                  ...current,
+                  tablessHeartbeat: {
+                    ...current.tablessHeartbeat!,
+                    generation: current.tablessHeartbeat!.generation + 1,
+                  },
+                }
+              : {
+                  ...current,
+                  campaignId: "replacement-campaign",
+                  rewardId: "replacement-reward",
+                };
           if (authority === "context") {
             nextSession.tablessHeartbeat = {
               ...current.tablessHeartbeat!,
@@ -1993,15 +2111,19 @@ describe("background controller", () => {
     await env.controller.tick();
     watcher.stop.mockRejectedValue(new Error("watcher stop failed"));
 
-    await expect(env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: false })).resolves.toBeDefined();
+    await expect(
+      env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: false }),
+    ).resolves.toBeDefined();
 
     expect(env.state.sessions.twitch.status).toBe("paused");
-    expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(expect.objectContaining({
-      category: "diagnostic",
-      platform: "twitch",
-      level: "warn",
-      message: "watcher stop failed",
-    }));
+    expect(env.reportEvents.mock.calls.flatMap(([events]) => events)).toContainEqual(
+      expect.objectContaining({
+        category: "diagnostic",
+        platform: "twitch",
+        level: "warn",
+        message: "watcher stop failed",
+      }),
+    );
   });
 
   it.each(["twitch", "kick"] as const)(
@@ -2076,8 +2198,7 @@ describe("background controller", () => {
     await env.controller.runWatchHeartbeat();
 
     expect(watcher.tick).toHaveBeenCalledOnce();
-    expect(env.state.sessions.twitch.tablessHeartbeat?.nextDueAt)
-      .toBe("2026-09-02T12:01:00.000Z");
+    expect(env.state.sessions.twitch.tablessHeartbeat?.nextDueAt).toBe("2026-09-02T12:01:00.000Z");
   });
 
   it("normalizes an invalid persisted due time with exactly one immediate restart attempt", async () => {
@@ -2123,42 +2244,74 @@ describe("background controller", () => {
     },
     {
       metadata: "null generation",
-      build: (contextKey: string) => ({ generation: null, contextKey, nextDueAt: "2026-09-02T12:00:00.000Z" }),
+      build: (contextKey: string) => ({
+        generation: null,
+        contextKey,
+        nextDueAt: "2026-09-02T12:00:00.000Z",
+      }),
       expectedGeneration: 1,
     },
     {
       metadata: "string generation",
-      build: (contextKey: string) => ({ generation: "7", contextKey, nextDueAt: "2026-09-02T12:00:00.000Z" }),
+      build: (contextKey: string) => ({
+        generation: "7",
+        contextKey,
+        nextDueAt: "2026-09-02T12:00:00.000Z",
+      }),
       expectedGeneration: 1,
     },
     {
       metadata: "fractional generation",
-      build: (contextKey: string) => ({ generation: 7.5, contextKey, nextDueAt: "2026-09-02T12:00:00.000Z" }),
+      build: (contextKey: string) => ({
+        generation: 7.5,
+        contextKey,
+        nextDueAt: "2026-09-02T12:00:00.000Z",
+      }),
       expectedGeneration: 1,
     },
     {
       metadata: "unsafe generation",
-      build: (contextKey: string) => ({ generation: Number.MAX_SAFE_INTEGER + 1, contextKey, nextDueAt: "2026-09-02T12:00:00.000Z" }),
+      build: (contextKey: string) => ({
+        generation: Number.MAX_SAFE_INTEGER + 1,
+        contextKey,
+        nextDueAt: "2026-09-02T12:00:00.000Z",
+      }),
       expectedGeneration: 1,
     },
     {
       metadata: "NaN generation",
-      build: (contextKey: string) => ({ generation: Number.NaN, contextKey, nextDueAt: "2026-09-02T12:00:00.000Z" }),
+      build: (contextKey: string) => ({
+        generation: Number.NaN,
+        contextKey,
+        nextDueAt: "2026-09-02T12:00:00.000Z",
+      }),
       expectedGeneration: 1,
     },
     {
       metadata: "zero generation",
-      build: (contextKey: string) => ({ generation: 0, contextKey, nextDueAt: "2026-09-02T12:00:00.000Z" }),
+      build: (contextKey: string) => ({
+        generation: 0,
+        contextKey,
+        nextDueAt: "2026-09-02T12:00:00.000Z",
+      }),
       expectedGeneration: 1,
     },
     {
       metadata: "negative generation",
-      build: (contextKey: string) => ({ generation: -7, contextKey, nextDueAt: "2026-09-02T12:00:00.000Z" }),
+      build: (contextKey: string) => ({
+        generation: -7,
+        contextKey,
+        nextDueAt: "2026-09-02T12:00:00.000Z",
+      }),
       expectedGeneration: 1,
     },
     {
       metadata: "mismatched context key",
-      build: () => ({ generation: 7, contextKey: "obsolete-context", nextDueAt: "2026-09-02T12:00:00.000Z" }),
+      build: () => ({
+        generation: 7,
+        contextKey: "obsolete-context",
+        nextDueAt: "2026-09-02T12:00:00.000Z",
+      }),
       expectedGeneration: 8,
     },
     {
@@ -2210,7 +2363,9 @@ describe("background controller", () => {
         rewardId: "reward",
       };
       const contextKey = heartbeatContextKey(env.state.sessions.twitch)!;
-      env.state.sessions.twitch.tablessHeartbeat = build(contextKey) as WatchSession["tablessHeartbeat"];
+      env.state.sessions.twitch.tablessHeartbeat = build(
+        contextKey,
+      ) as WatchSession["tablessHeartbeat"];
       env.deps.loadState.mockImplementation(async () => structuredClone(env.state));
 
       await env.controller.runWatchHeartbeat();
@@ -2221,7 +2376,9 @@ describe("background controller", () => {
         contextKey,
         nextDueAt: "2026-09-02T12:01:00.000Z",
       });
-      expect(Number.isSafeInteger(env.state.sessions.twitch.tablessHeartbeat?.generation)).toBe(true);
+      expect(Number.isSafeInteger(env.state.sessions.twitch.tablessHeartbeat?.generation)).toBe(
+        true,
+      );
     },
   );
 
@@ -2273,7 +2430,10 @@ describe("background controller", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-09-02T12:00:30.000Z"));
     const sustain = vi.fn(async () => {});
-    const watcher = Object.assign(fakeTablessWatcher(async () => ({ ok: true, live: true })), { sustain });
+    const watcher = Object.assign(
+      fakeTablessWatcher(async () => ({ ok: true, live: true })),
+      { sustain },
+    );
     const env = tablessEnv();
     env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
     env.state.authHealth.twitch = { status: "healthy" };
@@ -2302,18 +2462,27 @@ describe("background controller", () => {
     function watchJobPeriods(env: ReturnType<typeof tablessEnv>): number[] {
       return env.deps.createAlarm.mock.calls
         .filter(([name]) => name === WATCH_ALARM_NAME)
-        .map(([, options]) => ("periodInMinutes" in options ? options.periodInMinutes : Number.NaN));
+        .map(([, options]) =>
+          "periodInMinutes" in options ? options.periodInMinutes : Number.NaN,
+        );
     }
 
     it("wakes every 30 seconds only while a published watcher polls between health commits", async () => {
-      const watcher = Object.assign(fakeTablessWatcher(async () => ({ ok: true, live: true })), { sustain: vi.fn(async () => {}) });
+      const watcher = Object.assign(
+        fakeTablessWatcher(async () => ({ ok: true, live: true })),
+        { sustain: vi.fn(async () => {}) },
+      );
       const env = tablessEnv();
       env.twitch.createTablessWatcher = () => watcher as unknown as TablessWatchController;
 
       await env.controller.tick(["twitch"]);
       expect(watchJobPeriods(env).at(-1)).toBe(WATCH_ALARM_SUSTAIN_PERIOD_MINUTES);
 
-      await env.controller.handleMessage({ type: "setAutomation", platform: "twitch", enabled: false });
+      await env.controller.handleMessage({
+        type: "setAutomation",
+        platform: "twitch",
+        enabled: false,
+      });
       await env.controller.settleBackgroundWork();
       expect(watchJobPeriods(env).at(-1)).toBe(WATCH_ALARM_PERIOD_MINUTES);
     });

@@ -27,7 +27,14 @@ export async function defaultVerify(cwd, run = execPnpm) {
     await run(cwd, ["install", "--frozen-lockfile"]);
     // Same Chromium the PR and candidate verify jobs install. storeScreenshotDashboard
     // tests launch it; GitHub-hosted runners do not ship Playwright browsers.
-    await run(cwd, ["--filter", "@lurkloot/extension", "exec", "playwright", "install", "chromium"]);
+    await run(cwd, [
+      "--filter",
+      "@lurkloot/extension",
+      "exec",
+      "playwright",
+      "install",
+      "chromium",
+    ]);
     await run(cwd, ["verify"]);
   } catch (error) {
     throw commandFailure(error);
@@ -40,17 +47,33 @@ function execPnpm(cwd, args) {
     child.on("error", reject);
     child.on("close", (code, signal) => {
       if (code === 0) resolve();
-      else reject(new Error(signal ? `pnpm ${args.join(" ")} killed by ${signal}` : `Command failed: pnpm ${args.join(" ")}`));
+      else
+        reject(
+          new Error(
+            signal
+              ? `pnpm ${args.join(" ")} killed by ${signal}`
+              : `Command failed: pnpm ${args.join(" ")}`,
+          ),
+        );
     });
   });
 }
 
-export async function syncBranches({ cwd = process.cwd(), remote = "origin", verify = defaultVerify }) {
+export async function syncBranches({
+  cwd = process.cwd(),
+  remote = "origin",
+  verify = defaultVerify,
+}) {
   const main = `refs/remotes/${remote}/main`;
   const develop = `refs/remotes/${remote}/develop`;
-  await git(cwd, "fetch", "--prune", remote,
+  await git(
+    cwd,
+    "fetch",
+    "--prune",
+    remote,
     `refs/heads/main:${main}`,
-    `refs/heads/develop:${develop}`);
+    `refs/heads/develop:${develop}`,
+  );
 
   if (await isAncestor(cwd, main, develop)) {
     return { mode: "already-contained", sha: (await git(cwd, "rev-parse", develop)).stdout.trim() };

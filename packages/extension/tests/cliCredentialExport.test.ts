@@ -14,7 +14,11 @@ describe("CLI credential export", () => {
     await expect(buildCliCredentialBlob(getCookie)).resolves.toEqual({
       version: 1,
       credentials: {
-        twitch: { authToken: "twitch-token", deviceId: "device-id", kasadaSessionCookie: "kasada-seed" },
+        twitch: {
+          authToken: "twitch-token",
+          deviceId: "device-id",
+          kasadaSessionCookie: "kasada-seed",
+        },
         kick: { sessionToken: "kick-token" },
       },
     });
@@ -23,7 +27,12 @@ describe("CLI credential export", () => {
 
   it("falls back to twitch.tv's partitioned jar for the third-party Kasada cookie", async () => {
     const getCookie = vi.fn(async (url: string, name: string, partitionedUnder?: string) =>
-      url === KASADA_COOKIE_URL ? (partitionedUnder === "https://twitch.tv" ? "partitioned-seed" : undefined) : `${name}-value`);
+      url === KASADA_COOKIE_URL
+        ? partitionedUnder === "https://twitch.tv"
+          ? "partitioned-seed"
+          : undefined
+        : `${name}-value`,
+    );
 
     const blob = await buildCliCredentialBlob(getCookie);
 

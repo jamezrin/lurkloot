@@ -1,5 +1,11 @@
 import type { DropCampaign, DropReward } from "@lurkloot/shared/models";
-import { applySubscriptionMarks, campaignHasWatchRewards, isRewardObtained, isWaitingSubscriptionReward, rewardRequirementType } from "@lurkloot/shared/rewards";
+import {
+  applySubscriptionMarks,
+  campaignHasWatchRewards,
+  isRewardObtained,
+  isWaitingSubscriptionReward,
+  rewardRequirementType,
+} from "@lurkloot/shared/rewards";
 
 function subscriptionRequirement(required: number): string {
   return `${required} qualifying ${required === 1 ? "subscription" : "subscriptions"}`;
@@ -25,14 +31,18 @@ function formatReward(reward: DropReward): string {
 
 // `discover` prints adapter output, which carries no marks, so the config's
 // marks are applied here as the engine applies them where campaigns enter it.
-export function formatDiscoveredCampaign(source: DropCampaign, marks: readonly string[] = []): string[] {
+export function formatDiscoveredCampaign(
+  source: DropCampaign,
+  marks: readonly string[] = [],
+): string[] {
   const campaign = applySubscriptionMarks(source, marks);
   // From the rewards, not eligibility alone: a campaign whose subscriptions the
   // user marked is no longer waiting.
-  const waiting = campaign.eligibility === "waiting_for_subscription"
+  const waiting =
+    campaign.eligibility === "waiting_for_subscription"
     && campaign.rewards.some((reward) => isWaitingSubscriptionReward(reward))
-    ? " — waiting for subscription"
-    : "";
+      ? " — waiting for subscription"
+      : "";
   return [`• ${campaign.name}${waiting}`, ...campaign.rewards.map(formatReward)];
 }
 
@@ -54,7 +64,8 @@ export function subscriptionWaitKeys(campaigns: DropCampaign[]): Map<string, str
 
 function campaignCanWaitForSubscription(campaign: DropCampaign): boolean {
   if (campaign.status !== "active" || campaign.accountLinked === false) return false;
-  const genuinelyWaiting = campaign.eligibility === "waiting_for_subscription"
+  const genuinelyWaiting =
+    campaign.eligibility === "waiting_for_subscription"
     || (campaign.eligibility === "eligible" && campaignHasWatchRewards(campaign));
   if (!genuinelyWaiting) return false;
   const now = Date.now();

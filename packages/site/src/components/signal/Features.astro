@@ -8,10 +8,26 @@ import gigachad from "../../assets/memes/gigachad.webp";
 const languages = Object.keys(import.meta.glob("../../../../locales/messages/*.json")).length;
 
 const more = [
-  { t: "Activity log", d: "Every channel switch, claim and skip is recorded, with diagnostics when you need a closer look.", icon: "M12 8v4l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" },
-  { t: "Reward notifications", d: "Optional desktop notifications when a reward lands.", icon: "M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4" },
-  { t: `${languages} languages`, d: "A fully localised popup, from English and Español to Türkçe and 中文.", icon: "M3 5h12M9 3v2m1.05 9.5A18 18 0 0 1 6.4 9M12.5 18H20M11 21l5-10 5 10M4 15s3.5-1.5 6-6" },
-  { t: "Settings backup", d: "Export your settings to a file and bring them to another browser.", icon: "M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" },
+  {
+    t: "Activity log",
+    d: "Every channel switch, claim and skip is recorded, with diagnostics when you need a closer look.",
+    icon: "M12 8v4l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z",
+  },
+  {
+    t: "Reward notifications",
+    d: "Optional desktop notifications when a reward lands.",
+    icon: "M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4",
+  },
+  {
+    t: `${languages} languages`,
+    d: "A fully localised popup, from English and Español to Türkçe and 中文.",
+    icon: "M3 5h12M9 3v2m1.05 9.5A18 18 0 0 1 6.4 9M12.5 18H20M11 21l5-10 5 10M4 15s3.5-1.5 6-6",
+  },
+  {
+    t: "Settings backup",
+    d: "Export your settings to a file and bring them to another browser.",
+    icon: "M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2",
+  },
 ];
 ---
 <section class="sg-section sg-features" id="features" aria-labelledby="features-title">

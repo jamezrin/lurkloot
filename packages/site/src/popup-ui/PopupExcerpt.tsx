@@ -31,7 +31,10 @@ export default function PopupExcerpt({
     const { shadow, unmount } = mountPopup(host, { css: `${FRAMELESS_CSS}\n${frame}`, view });
 
     const resize = new ResizeObserver(([entry]) => {
-      box.style.setProperty("--excerpt-scale", String(Math.min(1, entry.contentRect.width / width)));
+      box.style.setProperty(
+        "--excerpt-scale",
+        String(Math.min(1, entry.contentRect.width / width)),
+      );
     });
     resize.observe(box);
 

@@ -1,8 +1,16 @@
 import type { DiagnosticEvent } from "@lurkloot/shared/events";
-import type { ChatPresenceBlockReason, ChatPresenceState, ChatPresenceStatus } from "@lurkloot/shared/models";
+import type {
+  ChatPresenceBlockReason,
+  ChatPresenceState,
+  ChatPresenceStatus,
+} from "@lurkloot/shared/models";
 import type { ChatPresenceClient, ChatPresenceTarget } from "../../core/chatPresence";
 import { PendingDiscoverySignalDiagnostics } from "../../core/discoverySignals";
-import type { WebSocketFactory, WebSocketLike, WebSocketMessageEventLike } from "../../core/webSocket";
+import type {
+  WebSocketFactory,
+  WebSocketLike,
+  WebSocketMessageEventLike,
+} from "../../core/webSocket";
 import { errorMessage } from "@lurkloot/shared/errors";
 
 // Twitch chat presence over IRC, as the web client connects it
@@ -31,7 +39,14 @@ const TRAILING_COMMANDS = new Set(["NOTICE", "PING"]);
 // Every command the client reads. A host that relays the socket may drop the
 // rest (chat, above all) before it reaches the client (#792).
 export const TWITCH_IRC_CLIENT_COMMANDS: ReadonlySet<string> = new Set([
-  "PING", "PONG", "001", "NOTICE", "RECONNECT", "JOIN", "USERSTATE", "366",
+  "PING",
+  "PONG",
+  "001",
+  "NOTICE",
+  "RECONNECT",
+  "JOIN",
+  "USERSTATE",
+  "366",
 ]);
 
 type Timer = ReturnType<typeof setTimeout>;
@@ -74,7 +89,9 @@ export function parseIrcLine(line: string): IrcLine | undefined {
     command,
     params,
     ...(prefixNick ? { prefixNick } : {}),
-    ...(TRAILING_COMMANDS.has(command) && trailingAt >= 0 ? { trailing: rest.slice(trailingAt + 2) } : {}),
+    ...(TRAILING_COMMANDS.has(command) && trailingAt >= 0
+      ? { trailing: rest.slice(trailingAt + 2) }
+      : {}),
   };
 }
 
@@ -169,7 +186,9 @@ export class TwitchChatPresenceClient implements ChatPresenceClient {
       ]);
       if (this.stopped || !this.desired || this.ws) return;
       if (loginResult.status === "rejected") {
-        this.fail(`Could not look up the Twitch viewer login for chat presence: ${errorMessage(loginResult.reason)}`);
+        this.fail(
+          `Could not look up the Twitch viewer login for chat presence: ${errorMessage(loginResult.reason)}`,
+        );
         return;
       }
       // The token lookup's error is never logged: it may quote the credential.
@@ -226,14 +245,22 @@ export class TwitchChatPresenceClient implements ChatPresenceClient {
           this.joinDesired();
           break;
         case "NOTICE":
-          if (line.trailing && AUTH_FAILURE_NOTICES.some((notice) => line.trailing!.includes(notice))) {
+          if (
+            line.trailing
+            && AUTH_FAILURE_NOTICES.some((notice) => line.trailing!.includes(notice))
+          ) {
             this.block("auth");
             return;
           }
           // Twitch's reason for refusing the room (a suspended channel, say),
           // kept for the join timeout's warning.
-          if (line.trailing && this.channelOnServer && line.params[0]?.toLowerCase() === `#${this.channelOnServer}`
-            && this.joinedChannel !== this.channelOnServer) this.joinNotice = line.trailing.slice(0, 200);
+          if (
+            line.trailing
+            && this.channelOnServer
+            && line.params[0]?.toLowerCase() === `#${this.channelOnServer}`
+            && this.joinedChannel !== this.channelOnServer
+          )
+            this.joinNotice = line.trailing.slice(0, 200);
           break;
         case "RECONNECT":
           // Twitch's maintenance notice: reconnect and rejoin, backing off
@@ -241,7 +268,8 @@ export class TwitchChatPresenceClient implements ChatPresenceClient {
           this.dropConnection("joining");
           return;
         case "JOIN":
-          if (line.prefixNick?.toLowerCase() === this.login) this.confirm(this.joinEchoes, line.params[0]);
+          if (line.prefixNick?.toLowerCase() === this.login)
+            this.confirm(this.joinEchoes, line.params[0]);
           break;
         // Either confirms the room: USERSTATE follows a logged-in JOIN, and
         // 366 (end of NAMES) is what the 2026-10-04 capture observed.
@@ -261,7 +289,8 @@ export class TwitchChatPresenceClient implements ChatPresenceClient {
     const channel = param?.replace(/^#/, "").toLowerCase();
     if (!channel) return;
     set.add(channel);
-    if (channel !== this.desired || !this.joinEchoes.has(channel) || !this.userStates.has(channel)) return;
+    if (channel !== this.desired || !this.joinEchoes.has(channel) || !this.userStates.has(channel))
+      return;
     if (this.state === "joined" && this.joinedChannel === channel) return;
     const previous = this.joinedChannel;
     this.joinedChannel = channel;
@@ -269,9 +298,12 @@ export class TwitchChatPresenceClient implements ChatPresenceClient {
     this.clearJoinTimeout();
     this.joinNotice = undefined;
     this.setState("joined");
-    this.log("debug", previous && previous !== channel
-      ? `Twitch chat presence switched ${previous} → ${channel}`
-      : `Twitch chat presence joined ${channel}`);
+    this.log(
+      "debug",
+      previous && previous !== channel
+        ? `Twitch chat presence switched ${previous} → ${channel}`
+        : `Twitch chat presence joined ${channel}`,
+    );
   }
 
   private joinDesired(): void {
@@ -345,7 +377,9 @@ export class TwitchChatPresenceClient implements ChatPresenceClient {
       if (state === "joined") this.warned.clear();
       return;
     }
-    const message = warning ?? `Twitch chat presence lost the connection to ${this.desired ?? "chat"}; reconnecting`;
+    const message =
+      warning
+      ?? `Twitch chat presence lost the connection to ${this.desired ?? "chat"}; reconnecting`;
     const key = `${state}:${this.blockReason ?? ""}:${this.desired ?? ""}:${message}`;
     if (this.warned.has(key)) return;
     this.warned.add(key);
@@ -355,13 +389,14 @@ export class TwitchChatPresenceClient implements ChatPresenceClient {
   // A connection that held its room for STABLE_CONNECTION_MS earns a fresh
   // backoff; anything shorter keeps doubling it.
   private connectionEnded(): void {
-    if (this.stableSince !== undefined && this.now() - this.stableSince >= STABLE_CONNECTION_MS) this.reconnectAttempt = 0;
+    if (this.stableSince !== undefined && this.now() - this.stableSince >= STABLE_CONNECTION_MS)
+      this.reconnectAttempt = 0;
     this.stableSince = undefined;
   }
 
   private scheduleReconnect(): void {
     if (this.stopped || this.reconnectTimer !== undefined || !this.desired) return;
-    const delayMs = Math.min(RECONNECT_BASE_MS * (2 ** this.reconnectAttempt), RECONNECT_MAX_MS);
+    const delayMs = Math.min(RECONNECT_BASE_MS * 2 ** this.reconnectAttempt, RECONNECT_MAX_MS);
     this.reconnectAttempt += 1;
     const timer = this.setTimer(() => {
       if (this.reconnectTimer !== timer) return;
@@ -403,7 +438,8 @@ export class TwitchChatPresenceClient implements ChatPresenceClient {
     const timer = this.setTimer(() => {
       if (this.pongTimer !== timer) return;
       this.pongTimer = undefined;
-      if (this.ws === ws) this.dropConnection("error", "Twitch chat stopped answering; reconnecting");
+      if (this.ws === ws)
+        this.dropConnection("error", "Twitch chat stopped answering; reconnecting");
     }, TWITCH_IRC_PONG_TIMEOUT_MS);
     this.pongTimer = timer;
   }
@@ -423,7 +459,10 @@ export class TwitchChatPresenceClient implements ChatPresenceClient {
       this.joinTimer = undefined;
       if (this.ws !== ws || !this.desired) return;
       const notice = this.joinNotice ? ` (${this.joinNotice})` : "";
-      this.dropConnection("error", `Twitch chat presence could not join ${this.desired}${notice}; retrying`);
+      this.dropConnection(
+        "error",
+        `Twitch chat presence could not join ${this.desired}${notice}; retrying`,
+      );
     }, TWITCH_IRC_JOIN_TIMEOUT_MS);
     this.joinTimer = timer;
   }

@@ -42,11 +42,13 @@ function details(dropID: string): unknown {
         id: dropID,
         name: `Campaign ${dropID}`,
         game: { id: "game", slug: "game-slug", displayName: "Game" },
-        timeBasedDrops: [{
-          id: `${dropID}-drop`,
-          requiredMinutesWatched: 60,
-          benefitEdges: [{ benefit: { id: "benefit", name: "Reward" } }],
-        }],
+        timeBasedDrops: [
+          {
+            id: `${dropID}-drop`,
+            requiredMinutesWatched: 60,
+            benefitEdges: [{ benefit: { id: "benefit", name: "Reward" } }],
+          },
+        ],
       },
     },
   };
@@ -86,7 +88,13 @@ function detailRecordingFetcher(
       return Array.isArray(body) ? body.map(handle) : handle(body);
     }) as PageFetcher["fetchJson"],
   };
-  return { fetcher, requested, get claims() { return state.claims; } };
+  return {
+    fetcher,
+    requested,
+    get claims() {
+      return state.claims;
+    },
+  };
 }
 
 describe("twitch campaign details reuse (#339)", () => {
@@ -104,11 +112,8 @@ describe("twitch campaign details reuse (#339)", () => {
       expect(fetcher.fetchJson).toHaveBeenCalledTimes(3);
 
       vi.setSystemTime("2026-08-31T12:01:00.000Z");
-      const second = await twitchAdapter(
-        fetcher,
-        undefined,
-        { discoveryState },
-        (event) => events.push(event),
+      const second = await twitchAdapter(fetcher, undefined, { discoveryState }, (event) =>
+        events.push(event),
       ).refreshCampaigns();
 
       expect(requested).toEqual(["a", "b", "c"]);
@@ -116,9 +121,15 @@ describe("twitch campaign details reuse (#339)", () => {
       // campaign details are served from the state shared by rebuilt adapters.
       expect(fetcher.fetchJson).toHaveBeenCalledTimes(5);
       expect(second.map((campaign) => campaign.id)).toEqual(first.map((campaign) => campaign.id));
-      expect(events.some((event) =>
-        event.category === "diagnostic"
-        && /^Twitch campaign details finished in \d+ms \(3 campaigns: 0 fetched in 0 batch requests, 0 single fallbacks, 3 served from cache\)$/.test(event.message))).toBe(true);
+      expect(
+        events.some(
+          (event) =>
+            event.category === "diagnostic"
+            && /^Twitch campaign details finished in \d+ms \(3 campaigns: 0 fetched in 0 batch requests, 0 single fallbacks, 3 served from cache\)$/.test(
+              event.message,
+            ),
+        ),
+      ).toBe(true);
     } finally {
       vi.useRealTimers();
     }
@@ -137,7 +148,9 @@ describe("twitch campaign details reuse (#339)", () => {
 
       listed = [{ id: "a" }, { id: "b" }, { id: "new" }];
       vi.setSystemTime("2026-08-31T12:01:00.000Z");
-      const campaigns = await twitchAdapter(fetcher, undefined, { discoveryState }).refreshCampaigns();
+      const campaigns = await twitchAdapter(fetcher, undefined, {
+        discoveryState,
+      }).refreshCampaigns();
 
       expect(requested).toEqual(["new"]);
       // Reuse must not reorder the snapshot: it stays in dashboard order.
@@ -153,7 +166,12 @@ describe("twitch campaign details reuse (#339)", () => {
     const discoveryState = new TwitchDiscoveryState();
     // No channel, so discovery returns without the watched-session progress
     // merge; only the reuse decision is under test here.
-    const session: WatchSession = { platform: "twitch", campaignId: "farmed", status: "starting", offlineChecks: 0 };
+    const session: WatchSession = {
+      platform: "twitch",
+      campaignId: "farmed",
+      status: "starting",
+      offlineChecks: 0,
+    };
 
     vi.useFakeTimers({ toFake: ["Date"] });
     try {
@@ -171,7 +189,10 @@ describe("twitch campaign details reuse (#339)", () => {
   });
 
   it("refetches a campaign whose dashboard status changed inside the reuse window", async () => {
-    let listed: { id: string; status?: string }[] = [{ id: "a" }, { id: "starting", status: "UPCOMING" }];
+    let listed: { id: string; status?: string }[] = [
+      { id: "a" },
+      { id: "starting", status: "UPCOMING" },
+    ];
     const { fetcher, requested } = detailRecordingFetcher(() => listed);
     const discoveryState = new TwitchDiscoveryState();
 
@@ -246,11 +267,15 @@ describe("twitch campaign details reuse (#339)", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     try {
       vi.setSystemTime("2026-08-31T12:00:00.000Z");
-      await twitchAdapter(fetcher, undefined, { discoveryState: new TwitchDiscoveryState() }).refreshCampaigns();
+      await twitchAdapter(fetcher, undefined, {
+        discoveryState: new TwitchDiscoveryState(),
+      }).refreshCampaigns();
       requested.length = 0;
 
       vi.setSystemTime("2026-08-31T12:01:00.000Z");
-      await twitchAdapter(fetcher, undefined, { discoveryState: new TwitchDiscoveryState() }).refreshCampaigns();
+      await twitchAdapter(fetcher, undefined, {
+        discoveryState: new TwitchDiscoveryState(),
+      }).refreshCampaigns();
 
       expect(requested).toEqual(["a", "b"]);
     } finally {
@@ -284,11 +309,13 @@ describe("twitch campaign details reuse (#339)", () => {
               data: {
                 currentUser: {
                   ...activeUser,
-                  dropCampaigns: [{
-                    id: "campaign",
-                    status: "ACTIVE",
-                    self: { isAccountConnected: true },
-                  }],
+                  dropCampaigns: [
+                    {
+                      id: "campaign",
+                      status: "ACTIVE",
+                      self: { isAccountConnected: true },
+                    },
+                  ],
                 },
               },
             };
@@ -303,7 +330,8 @@ describe("twitch campaign details reuse (#339)", () => {
             return {
               data: {
                 dropCampaign: {
-                  ...(details("campaign") as { data: { dropCampaign: Record<string, unknown> } }).data.dropCampaign,
+                  ...(details("campaign") as { data: { dropCampaign: Record<string, unknown> } })
+                    .data.dropCampaign,
                   name: "Campaign from user B",
                 },
               },
@@ -311,9 +339,7 @@ describe("twitch campaign details reuse (#339)", () => {
           }
           throw new Error(`Unexpected operation ${String(body.operationName)}`);
         };
-        return Array.isArray(request)
-          ? Promise.all(request.map(respond))
-          : respond(request);
+        return Array.isArray(request) ? Promise.all(request.map(respond)) : respond(request);
       }) as PageFetcher["fetchJson"],
     };
     const discoveryState = new TwitchDiscoveryState();
@@ -322,28 +348,25 @@ describe("twitch campaign details reuse (#339)", () => {
     await oldDetailsStarted.promise;
 
     activeUser = { id: "user-b-id", login: "user-b" };
-    const currentRefresh = await twitchAdapter(
-      fetcher,
-      undefined,
-      { discoveryState },
-    ).refreshCampaigns();
+    const currentRefresh = await twitchAdapter(fetcher, undefined, {
+      discoveryState,
+    }).refreshCampaigns();
     expect(currentRefresh[0]?.name).toBe("Campaign from user B");
 
     oldDetails.resolve({
       data: {
         dropCampaign: {
-          ...(details("campaign") as { data: { dropCampaign: Record<string, unknown> } }).data.dropCampaign,
+          ...(details("campaign") as { data: { dropCampaign: Record<string, unknown> } }).data
+            .dropCampaign,
           name: "Campaign from user A",
         },
       },
     });
     await oldRefresh;
 
-    const nextCurrentRefresh = await twitchAdapter(
-      fetcher,
-      undefined,
-      { discoveryState },
-    ).refreshCampaigns();
+    const nextCurrentRefresh = await twitchAdapter(fetcher, undefined, {
+      discoveryState,
+    }).refreshCampaigns();
 
     expect(userBDetailRequests).toBe(1);
     expect(nextCurrentRefresh[0]?.name).toBe("Campaign from user B");
@@ -426,7 +449,6 @@ describe("twitch campaign details reuse (#339)", () => {
   });
 });
 
-
 describe("Twitch linking state across cached detail refreshes", () => {
   function fixture() {
     const state = {
@@ -442,25 +464,69 @@ describe("Twitch linking state across cached detail refreshes", () => {
     };
     const events: EngineEvent[] = [];
     const handle = (body: { operationName: string }) => {
-      if (body.operationName === "Inventory") return {
-        data: { currentUser: { id: state.userId, inventory: { dropCampaignsInProgress: [...(state.listed ? [{
-          id: "a",
-          accountLinkURL: "https://account.wbgames.com/connect/twitch",
-          self: { isAccountConnected: state.connected },
-          timeBasedDrops: [{ id: "a-drop", requiredMinutesWatched: 60, self: { currentMinutesWatched: state.watchedMinutes } }],
-        }] : []), ...(state.inventoryOnly ? [{
-          id: "b",
-          name: "Inventory-only campaign",
-          accountLinkURL: "https://account.wbgames.com/connect/twitch",
-          self: { isAccountConnected: false },
-          timeBasedDrops: [{ id: "b-drop", requiredMinutesWatched: 60, self: { currentMinutesWatched: 5 } }],
-        }] : [])] } } },
-      };
-      if (body.operationName === "ViewerDropsDashboard") return {
-        data: { currentUser: { id: state.userId, login: "viewer", dropCampaigns: state.listed ? [{
-          id: "a", status: "ACTIVE", self: { isAccountConnected: state.dashboardConnected },
-        }] : [] } },
-      };
+      if (body.operationName === "Inventory")
+        return {
+          data: {
+            currentUser: {
+              id: state.userId,
+              inventory: {
+                dropCampaignsInProgress: [
+                  ...(state.listed
+                    ? [
+                        {
+                          id: "a",
+                          accountLinkURL: "https://account.wbgames.com/connect/twitch",
+                          self: { isAccountConnected: state.connected },
+                          timeBasedDrops: [
+                            {
+                              id: "a-drop",
+                              requiredMinutesWatched: 60,
+                              self: { currentMinutesWatched: state.watchedMinutes },
+                            },
+                          ],
+                        },
+                      ]
+                    : []),
+                  ...(state.inventoryOnly
+                    ? [
+                        {
+                          id: "b",
+                          name: "Inventory-only campaign",
+                          accountLinkURL: "https://account.wbgames.com/connect/twitch",
+                          self: { isAccountConnected: false },
+                          timeBasedDrops: [
+                            {
+                              id: "b-drop",
+                              requiredMinutesWatched: 60,
+                              self: { currentMinutesWatched: 5 },
+                            },
+                          ],
+                        },
+                      ]
+                    : []),
+                ],
+              },
+            },
+          },
+        };
+      if (body.operationName === "ViewerDropsDashboard")
+        return {
+          data: {
+            currentUser: {
+              id: state.userId,
+              login: "viewer",
+              dropCampaigns: state.listed
+                ? [
+                    {
+                      id: "a",
+                      status: "ACTIVE",
+                      self: { isAccountConnected: state.dashboardConnected },
+                    },
+                  ]
+                : [],
+            },
+          },
+        };
       if (body.operationName === "DropCampaignDetails") {
         state.detailRequests += 1;
         if (!state.detailAvailable) return { data: { dropCampaign: null } };
@@ -482,11 +548,17 @@ describe("Twitch linking state across cached detail refreshes", () => {
       state,
       discoveryState,
       // Reconstruct the adapter every refresh, as the extension does.
-      refresh: () => twitchAdapter(fetcher, undefined, { discoveryState }, (event) => events.push(event)).refreshCampaigns(),
-      reports: () => events.flatMap((event) => event.category === "diagnostic"
-        && event.message.startsWith("Twitch account linking reconciliation: ")
-        ? [JSON.parse(event.message.slice("Twitch account linking reconciliation: ".length))]
-        : []),
+      refresh: () =>
+        twitchAdapter(fetcher, undefined, { discoveryState }, (event) =>
+          events.push(event),
+        ).refreshCampaigns(),
+      reports: () =>
+        events.flatMap((event) =>
+          event.category === "diagnostic"
+          && event.message.startsWith("Twitch account linking reconciliation: ")
+            ? [JSON.parse(event.message.slice("Twitch account linking reconciliation: ".length))]
+            : [],
+        ),
     };
   }
 

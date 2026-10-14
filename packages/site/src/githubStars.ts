@@ -5,7 +5,9 @@ export const GITHUB_REPO_API = `https://api.github.com/repos/${GITHUB_REPO}`;
 
 /** 1234 -> "1.2k", the way GitHub abbreviates its own counters. */
 export function formatStars(count: number): string {
-  return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(count).toLowerCase();
+  return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 })
+    .format(count)
+    .toLowerCase();
 }
 
 export function starsFromRepo(body: unknown): number | null {

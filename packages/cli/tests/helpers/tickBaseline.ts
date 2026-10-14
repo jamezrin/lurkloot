@@ -5,7 +5,13 @@ import { heartbeatContextKey } from "@lurkloot/core/heartbeatCadence";
 import { DEFAULT_STATE } from "@lurkloot/core/defaults";
 import type { PlatformAdapter } from "@lurkloot/core/adapter";
 import type { HeartbeatResult, TablessWatchController } from "@lurkloot/core/tablessWatch";
-import type { ChannelCandidate, DropCampaign, EngineSettings, Platform, WatchSession } from "@lurkloot/shared/models";
+import type {
+  ChannelCandidate,
+  DropCampaign,
+  EngineSettings,
+  Platform,
+  WatchSession,
+} from "@lurkloot/shared/models";
 import type { EventEmitter } from "@lurkloot/shared/events";
 import { DEFAULT_CLI_SETTINGS, type CliSettings } from "../../src/settings";
 import type { Logger } from "../../src/logger";
@@ -13,7 +19,14 @@ import { runLoop } from "../../src/runtime/run";
 import { loadState, saveState } from "../../src/storage";
 import type { TransportHandle } from "../../src/transport";
 
-type Scenario = "idle" | "stable" | "switch" | "higherPriorityUnavailable" | "heartbeatOverlap" | "slow" | "failed";
+type Scenario =
+  | "idle"
+  | "stable"
+  | "switch"
+  | "higherPriorityUnavailable"
+  | "heartbeatOverlap"
+  | "slow"
+  | "failed";
 
 interface Counts {
   // PlatformAdapter calls, not raw HTTP request counts.
@@ -56,13 +69,15 @@ function countingAdapter(
     platform,
     name: `${platform} campaign`,
     status: "active",
-    rewards: [{
-      id: `${platform}-reward`,
-      name: `${platform} reward`,
-      requiredMinutes: 60,
-      watchedMinutes: 10,
-      status: "in_progress",
-    }],
+    rewards: [
+      {
+        id: `${platform}-reward`,
+        name: `${platform} reward`,
+        requiredMinutes: 60,
+        watchedMinutes: 10,
+        status: "in_progress",
+      },
+    ],
   };
   const urgentCampaign: DropCampaign = {
     ...campaign,
@@ -71,11 +86,14 @@ function countingAdapter(
   const candidate: ChannelCandidate = {
     platform,
     username: `${platform}-creator`,
-    url: platform === "twitch"
-      ? "https://www.twitch.tv/twitch-creator"
-      : "https://kick.com/kick-creator",
+    url:
+      platform === "twitch"
+        ? "https://www.twitch.tv/twitch-creator"
+        : "https://kick.com/kick-creator",
   };
-  const request = (): void => { counts.adapterOperations += 1; };
+  const request = (): void => {
+    counts.adapterOperations += 1;
+  };
   return {
     platform,
     checkAuthHealth: async () => {
@@ -89,23 +107,30 @@ function countingAdapter(
       if (scenario === "failed") throw new Error(`${platform} synthetic discovery failure`);
       return scenario === "idle"
         ? []
-        : scenario === "higherPriorityUnavailable" ? [campaign, urgentCampaign] : [campaign];
+        : scenario === "higherPriorityUnavailable"
+          ? [campaign, urgentCampaign]
+          : [campaign];
     },
     listCandidateChannels: async (selectedCampaign) => {
       counts.candidateListings += 1;
       request();
       advance("selection", scenario === "slow" ? 100 : 10);
-      return [{
-        ...candidate,
-        username: selectedCampaign.id.endsWith("urgent") ? `${platform}-urgent-creator` : candidate.username,
-      }];
+      return [
+        {
+          ...candidate,
+          username: selectedCampaign.id.endsWith("urgent")
+            ? `${platform}-urgent-creator`
+            : candidate.username,
+        },
+      ];
     },
     checkChannel: async (checkedCandidate) => {
       counts.channelChecks += 1;
       request();
       advance("selection", scenario === "slow" ? 100 : 10);
       return {
-        live: scenario !== "higherPriorityUnavailable" || !checkedCandidate.username.includes("urgent"),
+        live:
+          scenario !== "higherPriorityUnavailable" || !checkedCandidate.username.includes("urgent"),
         categoryMatches: true,
         candidate: checkedCandidate,
       };
@@ -170,7 +195,10 @@ export async function runCliBaselineCell(
     persistence: 0,
     total: 0,
   };
-  const advance = (phase: "discovery" | "selection" | "watcher" | "persistence", milliseconds: number): void => {
+  const advance = (
+    phase: "discovery" | "selection" | "watcher" | "persistence",
+    milliseconds: number,
+  ): void => {
     durationsMs[phase] += milliseconds;
     durationsMs.total += milliseconds;
     vi.setSystemTime(Date.now() + milliseconds);
@@ -187,7 +215,11 @@ export async function runCliBaselineCell(
     },
     campaignPins: scenario === "higherPriorityUnavailable" ? [`${platform}-urgent`] : [],
   };
-  const buildOne = (selectedPlatform: Platform, _emit: EventEmitter, engineSettings: EngineSettings) => {
+  const buildOne = (
+    selectedPlatform: Platform,
+    _emit: EventEmitter,
+    engineSettings: EngineSettings,
+  ) => {
     counts.adapterConstructions += 1;
     return {
       adapter: adapters[selectedPlatform],
@@ -201,7 +233,10 @@ export async function runCliBaselineCell(
       counts.adapterConstructions += 2;
       return {
         adapters,
-        ...resolveCompatibility(engineSettings.compatibility, { host: "cli", twitchIdentity: "web" }),
+        ...resolveCompatibility(engineSettings.compatibility, {
+          host: "cli",
+          twitchIdentity: "web",
+        }),
       };
     },
     dispose: async () => undefined,
@@ -212,13 +247,15 @@ export async function runCliBaselineCell(
     const candidate: ChannelCandidate = {
       platform,
       username: `${platform}-creator`,
-      url: platform === "twitch"
-        ? "https://www.twitch.tv/twitch-creator"
-        : "https://kick.com/kick-creator",
+      url:
+        platform === "twitch"
+          ? "https://www.twitch.tv/twitch-creator"
+          : "https://kick.com/kick-creator",
     };
-    const current = scenario === "switch"
-      ? countingCampaign(platform, "old-campaign", "old-reward")
-      : countingCampaign(platform);
+    const current =
+      scenario === "switch"
+        ? countingCampaign(platform, "old-campaign", "old-reward")
+        : countingCampaign(platform);
     await saveState(statePath, {
       ...structuredClone(DEFAULT_STATE),
       campaigns: { ...DEFAULT_STATE.campaigns, [platform]: [current] },
@@ -345,7 +382,10 @@ async function runCliHeartbeatOverlapCell(directory: string, platform: Platform)
     persistence: 0,
     total: 0,
   };
-  const advance = (phase: "discovery" | "selection" | "watcher" | "persistence", milliseconds: number): void => {
+  const advance = (
+    phase: "discovery" | "selection" | "watcher" | "persistence",
+    milliseconds: number,
+  ): void => {
     durationsMs[phase] += milliseconds;
     durationsMs.total += milliseconds;
     vi.setSystemTime(Date.now() + milliseconds);
@@ -396,12 +436,9 @@ async function runCliHeartbeatOverlapCell(directory: string, platform: Platform)
   measuredAdapter.supportsTabless = true;
   measuredAdapter.createTablessWatcher = () => watcher;
   const adapters = {
-    twitch: platform === "twitch"
-      ? measuredAdapter
-      : countingAdapter("twitch", "idle", counts, advance),
-    kick: platform === "kick"
-      ? measuredAdapter
-      : countingAdapter("kick", "idle", counts, advance),
+    twitch:
+      platform === "twitch" ? measuredAdapter : countingAdapter("twitch", "idle", counts, advance),
+    kick: platform === "kick" ? measuredAdapter : countingAdapter("kick", "idle", counts, advance),
   } satisfies Record<Platform, PlatformAdapter>;
   const settings: CliSettings = {
     ...DEFAULT_CLI_SETTINGS,
@@ -434,9 +471,9 @@ async function runCliHeartbeatOverlapCell(directory: string, platform: Platform)
     log: (_level, message, scope) => {
       if (scope === platform && /^Tick #\d+ finished after /.test(message)) {
         completedDiscoveryTicks += 1;
-        milestones.mark(completedDiscoveryTicks === 1
-          ? "initialDiscoveryCompleted"
-          : "discoveryCompleted");
+        milestones.mark(
+          completedDiscoveryTicks === 1 ? "initialDiscoveryCompleted" : "discoveryCompleted",
+        );
       }
       if (scope === platform && /^Tabless heartbeat timing /.test(message)) {
         milestones.mark("heartbeatCommitted");
@@ -451,9 +488,10 @@ async function runCliHeartbeatOverlapCell(directory: string, platform: Platform)
   const candidate: ChannelCandidate = {
     platform,
     username: `${platform}-creator`,
-    url: platform === "twitch"
-      ? "https://www.twitch.tv/twitch-creator"
-      : "https://kick.com/kick-creator",
+    url:
+      platform === "twitch"
+        ? "https://www.twitch.tv/twitch-creator"
+        : "https://kick.com/kick-creator",
   };
   const session: WatchSession = {
     platform,
@@ -496,14 +534,16 @@ async function runCliHeartbeatOverlapCell(directory: string, platform: Platform)
     logger,
     checkCredentialAvailability: async () => ({ status: "available" }),
   });
-  let result: {
-    host: "cli";
-    platform: Platform;
-    scenario: "heartbeatOverlap";
-    counts: Counts;
-    durationsMs: Durations;
-    outcomeCampaignId: string | undefined;
-  } | undefined;
+  let result:
+    | {
+        host: "cli";
+        platform: Platform;
+        scenario: "heartbeatOverlap";
+        counts: Counts;
+        durationsMs: Durations;
+        outcomeCampaignId: string | undefined;
+      }
+    | undefined;
   try {
     await milestones.wait("initialDiscoveryCompleted");
     await vi.waitFor(() => {
@@ -511,7 +551,9 @@ async function runCliHeartbeatOverlapCell(directory: string, platform: Platform)
       // one-minute channel-points job while Twitch is enabled.
       const expectedTimers = platform === "twitch" ? 4 : 3;
       if (vi.getTimerCount() !== expectedTimers) {
-        throw new Error(`Expected ${expectedTimers} CLI job timers, observed ${vi.getTimerCount()}`);
+        throw new Error(
+          `Expected ${expectedTimers} CLI job timers, observed ${vi.getTimerCount()}`,
+        );
       }
     });
 
@@ -566,18 +608,24 @@ async function runCliHeartbeatOverlapCell(directory: string, platform: Platform)
   return result;
 }
 
-function countingCampaign(platform: Platform, campaignSuffix = "campaign", rewardSuffix = "reward"): DropCampaign {
+function countingCampaign(
+  platform: Platform,
+  campaignSuffix = "campaign",
+  rewardSuffix = "reward",
+): DropCampaign {
   return {
     id: `${platform}-${campaignSuffix}`,
     platform,
     name: `${platform} campaign`,
     status: "active",
-    rewards: [{
-      id: `${platform}-${rewardSuffix}`,
-      name: `${platform} reward`,
-      requiredMinutes: 60,
-      watchedMinutes: 10,
-      status: "in_progress",
-    }],
+    rewards: [
+      {
+        id: `${platform}-${rewardSuffix}`,
+        name: `${platform} reward`,
+        requiredMinutes: 60,
+        watchedMinutes: 10,
+        status: "in_progress",
+      },
+    ],
   };
 }

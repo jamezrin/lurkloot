@@ -2,14 +2,30 @@ import { describe, expect, it } from "vitest";
 import { createRequire } from "node:module";
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { effectiveLocale, isRtlLocale, LOCALE_OPTIONS, normalizeBrowserLocale, translateFromCatalogs, type MessageCatalog } from "@lurkloot/shared/i18n";
-// @ts-expect-error The capture manifest is an executable JavaScript module.
-import { STORE_SCREENSHOT_LOCALES, STORE_SCREENSHOT_VARIANTS } from "../scripts/store-screenshot-config.mjs";
+import {
+  effectiveLocale,
+  isRtlLocale,
+  LOCALE_OPTIONS,
+  normalizeBrowserLocale,
+  translateFromCatalogs,
+  type MessageCatalog,
+} from "@lurkloot/shared/i18n";
+import {
+  STORE_SCREENSHOT_LOCALES,
+  STORE_SCREENSHOT_VARIANTS,
+  // @ts-expect-error The capture manifest is an executable JavaScript module.
+} from "../scripts/store-screenshot-config.mjs";
 
 // Catalogs live in the single-source @lurkloot/locales package as <locale>.json.
-const messagesDir = dirname(createRequire(import.meta.url).resolve("@lurkloot/locales/messages/en.json"));
-const localeCodes = () => readdirSync(messagesDir).filter((entry) => entry.endsWith(".json")).map((entry) => entry.replace(/\.json$/, ""));
-const readCatalog = (locale: string) => JSON.parse(readFileSync(join(messagesDir, `${locale}.json`), "utf8")) as MessageCatalog;
+const messagesDir = dirname(
+  createRequire(import.meta.url).resolve("@lurkloot/locales/messages/en.json"),
+);
+const localeCodes = () =>
+  readdirSync(messagesDir)
+    .filter((entry) => entry.endsWith(".json"))
+    .map((entry) => entry.replace(/\.json$/, ""));
+const readCatalog = (locale: string) =>
+  JSON.parse(readFileSync(join(messagesDir, `${locale}.json`), "utf8")) as MessageCatalog;
 
 describe("i18n", () => {
   it("normalizes browser locales to supported extension locales", () => {
@@ -54,8 +70,9 @@ describe("i18n", () => {
       patterns: { message: "$1|$2|$3" },
     };
 
-    expect(translateFromCatalogs("patterns", ["$&", "$$", "$`"], catalog, catalog))
-      .toBe("$&|$$|$`");
+    expect(translateFromCatalogs("patterns", ["$&", "$$", "$`"], catalog, catalog)).toBe(
+      "$&|$$|$`",
+    );
   });
 
   it("keeps locale catalog keys in sync", () => {
@@ -82,10 +99,14 @@ describe("i18n", () => {
       authSignInRejected: "Your session is no longer valid. Sign in again to continue.",
       signInToTwitch: "Sign in to Twitch",
       signInToKick: "Sign in to Kick",
-      authBrowserProfileBlocked: "Kick rejected this browser profile. Signing in alone may not resolve it.",
-      authCredentialCheckUnavailable: "Your browser session could not be checked. Lurkloot will retry automatically.",
-      authNetworkTemporarilyUnavailable: "The network is temporarily unavailable. Lurkloot will retry automatically.",
-      authPlatformTemporarilyUnavailable: "The platform is temporarily unavailable. Lurkloot will retry automatically.",
+      authBrowserProfileBlocked:
+        "Kick rejected this browser profile. Signing in alone may not resolve it.",
+      authCredentialCheckUnavailable:
+        "Your browser session could not be checked. Lurkloot will retry automatically.",
+      authNetworkTemporarilyUnavailable:
+        "The network is temporarily unavailable. Lurkloot will retry automatically.",
+      authPlatformTemporarilyUnavailable:
+        "The platform is temporarily unavailable. Lurkloot will retry automatically.",
     };
     const english = readCatalog("en");
 
@@ -128,14 +149,23 @@ describe("i18n", () => {
   });
 
   it("captures store artwork for every catalog locale", () => {
-    expect(STORE_SCREENSHOT_LOCALES.map(({ code }: { code: string }) => code).sort()).toEqual(localeCodes().sort());
-    const promoSource = readFileSync(join(dirname(import.meta.dirname), "scripts/capture-store.mjs"), "utf8");
+    expect(STORE_SCREENSHOT_LOCALES.map(({ code }: { code: string }) => code).sort()).toEqual(
+      localeCodes().sort(),
+    );
+    const promoSource = readFileSync(
+      join(dirname(import.meta.dirname), "scripts/capture-store.mjs"),
+      "utf8",
+    );
     for (const locale of localeCodes()) expect(promoSource).toContain(`"${locale}"`);
   });
 
   it("captures the five reworked screenshot stems", () => {
     expect(STORE_SCREENSHOT_VARIANTS.map(({ file }: { file: string }) => file)).toEqual([
-      "01-drops", "02-extras", "03-easy", "04-settings", "05-updated",
+      "01-drops",
+      "02-extras",
+      "03-easy",
+      "04-settings",
+      "05-updated",
     ]);
   });
 
@@ -162,7 +192,9 @@ describe("i18n", () => {
       const catalog = readCatalog(locale);
       for (const key of Object.keys(englishMessages)) {
         expect(catalog[key]?.message, `${locale}:${key}`).toBeTypeOf("string");
-        expect(placeholders(catalog[key].message), `${locale}:${key}`).toEqual(placeholders(english[key].message));
+        expect(placeholders(catalog[key].message), `${locale}:${key}`).toEqual(
+          placeholders(english[key].message),
+        );
       }
     }
   });
@@ -174,7 +206,8 @@ describe("i18n", () => {
       screenshotHeroSubcopy: "Auto-claim from your own logged-in session. No passwords.",
       screenshotExtrasEyebrow: "Beyond campaigns",
       screenshotExtrasHeadline: "More than drops.",
-      screenshotExtrasSubcopy: "Channel points, Kick challenges, and 2-minute drops — also claimed for you. An idle watchlist when nothing is left to farm.",
+      screenshotExtrasSubcopy:
+        "Channel points, Kick challenges, and 2-minute drops — also claimed for you. An idle watchlist when nothing is left to farm.",
       screenshotExtrasPointsName: "Channel points",
       screenshotExtrasPointsMeta: "Twitch · also claimed for you",
       screenshotExtrasChallengesName: "Daily challenges",
@@ -198,7 +231,8 @@ describe("i18n", () => {
       screenshotSettingsSubcopy: "Priorities, games, tabless mode, auto-claim — per platform.",
       screenshotUpdatedEyebrow: "Open source",
       screenshotUpdatedHeadline: "Featureful. Always updated.",
-      screenshotUpdatedSubcopy: "Frequent releases as Twitch and Kick change — and open to ideas and improvements.",
+      screenshotUpdatedSubcopy:
+        "Frequent releases as Twitch and Kick change — and open to ideas and improvements.",
       screenshotUpdatedBrowsersTitle: "Chromium-based browsers",
       screenshotUpdatedBrowsersSub: "Chrome Web Store listing. Same extension.",
       screenshotUpdatedHeadlessTitle: "CLI",
@@ -284,8 +318,9 @@ describe("i18n", () => {
 
     for (const locale of localeCodes().filter((entry) => entry !== "en")) {
       const catalog = readCatalog(locale);
-      const unchanged = Object.keys(english).filter((key) =>
-        catalog[key]?.message === english[key]?.message && !allowedSameAsEnglish.has(key));
+      const unchanged = Object.keys(english).filter(
+        (key) => catalog[key]?.message === english[key]?.message && !allowedSameAsEnglish.has(key),
+      );
       expect(unchanged, locale).toEqual([]);
     }
   });
