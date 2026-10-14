@@ -241,7 +241,7 @@ export function contractHost(capabilities: CapabilitySet, options: ContractHostO
   const tabRegistry = createTabRegistry();
   const browser = capabilities.declared.browserTabs ? options.browser ?? new FakeBrowser() : undefined;
   const tabs = browser
-    ? createExtensionTabPorts(tabRegistry, browser, async () => storage.settings, { kick: new KickPageContextRecoveryTracker() })
+    ? createExtensionTabPorts(tabRegistry, browser, async () => storage.settings, { recoveryEvidence: { kick: new KickPageContextRecoveryTracker() } })
     : undefined;
   const deps: HostMocks<ExtensionSettings> = {
     ...common,

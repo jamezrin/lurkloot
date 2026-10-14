@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { EngineEvent } from "@lurkloot/shared/events";
 import type { ChannelCandidate, WatchSession } from "@lurkloot/shared/models";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { activityDiagnostic } from "@lurkloot/core/activityDiagnostics";
@@ -40,11 +40,11 @@ import {
   reconcileManagedPageContextRecoveryWithBrowser,
   stopManagedPageContextTabsWithBrowser,
   stopWatchTabWithBrowser,
-  type BrowserTabApi,
   type PageFetchOptions,
 } from "../src/core/browserTabs";
-import { isKickPageContextUsable } from "../src/core/kickPageDocument";
+import { inspectKickDocument } from "../src/core/kickPageDocument";
 import { isSafeFetchError } from "@lurkloot/core/fetchError";
+import { UnusableWatchTabError } from "@lurkloot/core/watchTabError";
 import { KICK_BEARER_NEAR_MISS_CASES, KICK_BEARER_POSITIVE_CASES } from "@lurkloot/core/kickBearerCases";
 
 // Every test gets its own registry, so no tab state carries over (#598).
@@ -71,13 +71,10 @@ function browserMock() {
   };
 }
 
-// Production Kick page fetches attach this via createBrowserTabs; unit tests that
-// exercise Kick page-context usability must pass it explicitly.
-function kickPageOptions(browser: BrowserTabApi, options: PageFetchOptions = {}): PageFetchOptions {
-  return {
-    ...options,
-    isPageContextDocumentUsable: (tabId, origin, signal) => isKickPageContextUsable(browser, tabId, origin, signal),
-  };
+// background.ts attaches Kick's inspector to its page fetches; tests that
+// exercise Kick page-context usability pass it the same way.
+function kickPageOptions(options: PageFetchOptions = {}): PageFetchOptions {
+  return { ...options, inspectDocument: inspectKickDocument };
 }
 
 function deferred<T>() {
@@ -172,7 +169,7 @@ describe("tab manager", () => {
       "https://kick.com/drops/inventory",
       "https://web.kick.com/api/v1/drops/progress?secret=value",
       undefined,
-      kickPageOptions(browser, { retainPageContext: { platform: "kick" }, emit, openReason: "background_rejected" }),
+      kickPageOptions({ retainPageContext: { platform: "kick" }, emit, openReason: "background_rejected" }),
     );
     expect(browser.tabs.create).toHaveBeenCalledWith({
       url: "https://kick.com/drops/inventory",
@@ -398,7 +395,7 @@ describe("tab manager", () => {
       "https://kick.com/drops/inventory",
       "https://web.kick.com/api/v1/drops/progress",
       undefined,
-      kickPageOptions(browserWithScripting, { retainPageContext: { platform: "kick" } }),
+      kickPageOptions({ retainPageContext: { platform: "kick" } }),
     );
     recordManagedPageContextFallback(registry, "kick", "web.kick.com");
     removal.resolve(undefined);
@@ -802,60 +799,82 @@ describe("tab manager", () => {
     expect(browser.tabs.update).toHaveBeenCalledWith(9, { pinned: true, muted: true, active: false });
   });
 
-  it("invokes the host watch-document hook after opening a Kick tab (#794)", async () => {
+  describe("watch-tab document inspection (#794)", () => {
     const kickChannel: ChannelCandidate = {
       platform: "kick",
       username: "floridaboy",
       url: "https://kick.com/floridaboy",
     };
-    const browser = browserMock();
-    browser.tabs.create.mockResolvedValue({ id: 9 });
-    const assertWatchDocumentUsable = vi.fn(async () => undefined);
+    const blockedFailure = {
+      kind: "security_policy_blocked" as const,
+      reason: "Request blocked by security policy.",
+      reference: "c0e117f5",
+    };
+    const reusedKickSession: WatchSession = { platform: "kick", status: "watching", offlineChecks: 0, tabId: 4, tabManagedByExtension: true };
+    const reusedKickTab = { id: 4, url: kickChannel.url, pinned: true, mutedInfo: { muted: true }, active: false, status: "complete" };
 
-    await openPinnedMutedTabWithBrowser(registry, browser, kickChannel, undefined, { assertWatchDocumentUsable });
+    function inspectedBrowser(verdict: unknown) {
+      const executeScript = vi.fn(async () => [{ result: verdict }]);
+      return { ...browserMock(), scripting: { executeScript } };
+    }
 
-    expect(assertWatchDocumentUsable).toHaveBeenCalledWith({
-      tabId: 9,
-      channel: kickChannel,
-      signal: undefined,
-      closeOnFailure: false,
+    it("runs the inspector in a new tab and keeps it when it shows the page", async () => {
+      const browser = inspectedBrowser({ usable: true });
+
+      await expect(openPinnedMutedTabWithBrowser(registry, browser, kickChannel, undefined, { inspectDocument: inspectKickDocument }))
+        .resolves.toMatchObject({ tabId: 9, managedByExtension: true });
+
+      expect(browser.scripting.executeScript).toHaveBeenCalledWith({ target: { tabId: 9 }, world: "MAIN", func: inspectKickDocument });
+      expect(browser.tabs.remove).not.toHaveBeenCalled();
+    });
+
+    it("closes a new tab that shows something else and reports it as an opened tab", async () => {
+      const browser = inspectedBrowser({ usable: false, failure: blockedFailure });
+
+      const error = await openPinnedMutedTabWithBrowser(registry, browser, kickChannel, undefined, { inspectDocument: inspectKickDocument })
+        .catch((caught: unknown) => caught);
+
+      expect(error).toBeInstanceOf(UnusableWatchTabError);
+      expect(error).toMatchObject({ tabId: 9, openedManagedTab: true, failure: blockedFailure });
+      expect(browser.tabs.remove).toHaveBeenCalledWith(9);
+    });
+
+    it("rejects a reused tab without closing or replacing it, leaving that to the scheduler", async () => {
+      const browser = inspectedBrowser({ usable: false, failure: blockedFailure });
+      browser.tabs.get.mockResolvedValue(reusedKickTab);
+
+      const error = await openPinnedMutedTabWithBrowser(registry, browser, kickChannel, reusedKickSession, { inspectDocument: inspectKickDocument })
+        .catch((caught: unknown) => caught);
+
+      expect(error).toMatchObject({ tabId: 4, openedManagedTab: false, failure: blockedFailure });
+      expect(browser.tabs.remove).not.toHaveBeenCalled();
+      expect(browser.tabs.create).not.toHaveBeenCalled();
+    });
+
+    it("counts a document the inspector cannot run in as unusable", async () => {
+      const browser = { ...browserMock(), scripting: { executeScript: vi.fn(async () => { throw new Error("Frame was removed"); }) } };
+
+      await expect(openPinnedMutedTabWithBrowser(registry, browser, kickChannel, undefined, { inspectDocument: inspectKickDocument }))
+        .rejects.toMatchObject({ failure: { kind: "invalid_response" } });
+    });
+
+    it("does not inspect a platform without an inspector", async () => {
+      const browser = inspectedBrowser({ usable: false, failure: blockedFailure });
+
+      await openPinnedMutedTabWithBrowser(registry, browser, channel);
+
+      expect(browser.scripting.executeScript).not.toHaveBeenCalled();
     });
   });
 
-  it("surfaces SafeFetchErrors from the watch-document hook instead of opening a replacement (#794)", async () => {
-    const kickChannel: ChannelCandidate = {
-      platform: "kick",
-      username: "floridaboy",
-      url: "https://kick.com/floridaboy",
-    };
+  it("does not open a replacement watch tab while the stale one cannot be closed (#794)", async () => {
     const browser = browserMock();
-    browser.tabs.get.mockResolvedValue({
-      id: 4,
-      url: "https://kick.com/floridaboy",
-      pinned: true,
-      mutedInfo: { muted: true },
-      active: false,
-      status: "complete",
-    });
-    const blocked = new KickWafBlockedError({
-      kind: "security_policy_blocked",
-      reason: "Request blocked by security policy.",
-      reference: "c0e117f5",
-    });
+    browser.tabs.get.mockResolvedValue({ id: 4, url: channel.url });
+    browser.tabs.update.mockRejectedValue(new Error("Tabs cannot be edited right now"));
+    browser.tabs.remove.mockRejectedValue(new Error("Tabs cannot be edited right now"));
 
-    await expect(openPinnedMutedTabWithBrowser(
-      registry,
-      browser,
-      kickChannel,
-      {
-        platform: "kick",
-        status: "watching",
-        offlineChecks: 0,
-        tabId: 4,
-        tabManagedByExtension: true,
-      },
-      { assertWatchDocumentUsable: async () => { throw blocked; } },
-    )).rejects.toBe(blocked);
+    await expect(openPinnedMutedTabWithBrowser(registry, browser, channel, { platform: "twitch", status: "watching", offlineChecks: 0, tabId: 4, tabManagedByExtension: true }))
+      .rejects.toThrow("Could not close watch tab 4 before opening a replacement");
 
     expect(browser.tabs.create).not.toHaveBeenCalled();
   });
@@ -1077,7 +1096,7 @@ describe("tab manager", () => {
       "https://kick.com/drops/inventory",
       "https://kick.com/api/v1/user",
       { signal: abort.signal },
-      kickPageOptions(browser, { retainPageContext: { platform: "kick" } }),
+      kickPageOptions({ retainPageContext: { platform: "kick" } }),
     );
     await vi.waitFor(() => expect(executeScript).toHaveBeenCalledTimes(2));
 
@@ -1108,7 +1127,7 @@ describe("tab manager", () => {
       "https://kick.com/drops/inventory",
       "https://kick.com/api/v1/user",
       { signal: abort.signal },
-      kickPageOptions(browser, { retainPageContext: { platform: "kick" } }),
+      kickPageOptions({ retainPageContext: { platform: "kick" } }),
     );
     await vi.waitFor(() => expect(executeScript).toHaveBeenCalledOnce());
 
@@ -1138,7 +1157,7 @@ describe("tab manager", () => {
       "https://kick.com/drops/inventory",
       "https://kick.com/api/v1/user",
       { signal: abort.signal },
-      kickPageOptions(browser, { retainPageContext: { platform: "kick" } }),
+      kickPageOptions({ retainPageContext: { platform: "kick" } }),
     );
     abort.abort(reason);
     query.resolve([]);
@@ -1162,7 +1181,7 @@ describe("tab manager", () => {
       "https://kick.com/drops/inventory",
       "https://kick.com/api/v1/user",
       { signal: abort.signal },
-      kickPageOptions(browser, { retainPageContext: { platform: "kick" } }),
+      kickPageOptions({ retainPageContext: { platform: "kick" } }),
     );
     const outcome = request.catch((error: unknown) => error);
     await vi.waitFor(() => expect(browser.scripting.executeScript).toHaveBeenCalledOnce());
@@ -1208,7 +1227,7 @@ describe("tab manager", () => {
       "https://kick.com",
       "https://kick.com/api/v1/user",
       undefined,
-      kickPageOptions(browser),
+      kickPageOptions(),
     ).catch((caught: unknown) => caught);
 
     expect(isSafeFetchError(error)).toBe(true);
@@ -1255,7 +1274,7 @@ describe("tab manager", () => {
       "https://kick.com/drops/inventory",
       "https://kick.com/api/v1/user",
       undefined,
-      kickPageOptions(browser, { retainPageContext: { platform: "kick" } }),
+      kickPageOptions({ retainPageContext: { platform: "kick" } }),
     );
 
     expect(result).toEqual({ id: 42, username: "viewer" });
@@ -1283,7 +1302,7 @@ describe("tab manager", () => {
     browser.tabs.query.mockResolvedValue([{ id: 3 }]);
 
     await expect(
-      fetchJsonInPageWithBrowser(registry, browser, "https://kick.com", "https://web.kick.com/api/v1/drops/progress", undefined, kickPageOptions(browser)),
+      fetchJsonInPageWithBrowser(registry, browser, "https://kick.com", "https://web.kick.com/api/v1/drops/progress", undefined, kickPageOptions()),
     ).rejects.toThrow(/returned no script result/);
   });
 
@@ -1398,7 +1417,7 @@ describe("tab manager", () => {
       "https://kick.com",
       "https://web.kick.com/api/v1/drops/progress",
       undefined,
-      kickPageOptions(browser, { retainPageContext: { platform: "kick" }, emit: (event) => events.push(event), openReason: "background_rejected" }),
+      kickPageOptions({ retainPageContext: { platform: "kick" }, emit: (event) => events.push(event), openReason: "background_rejected" }),
     );
 
     expect(browser.tabs.remove).toHaveBeenCalledWith(14);
@@ -1442,16 +1461,29 @@ describe("tab manager", () => {
       "https://kick.com/drops/inventory",
       "https://web.kick.com/api/v1/drops/progress",
       undefined,
-      kickPageOptions(browser, { retainPageContext: { platform: "kick" }, openReason: "background_rejected" }),
+      kickPageOptions({ retainPageContext: { platform: "kick" }, openReason: "background_rejected" }),
     ).catch((caught: unknown) => caught);
 
-    expect(isSafeFetchError(error)).toBe(true);
-    if (!isSafeFetchError(error)) throw new Error("Expected SafeFetchError");
-    expect(error.failure).toEqual({
-      kind: "security_policy_blocked",
-      reason: "Could not close unusable managed page context before replacement",
-    });
+    // A browser that will not close a tab is not Kick blocking the account.
+    expect(isSafeFetchError(error)).toBe(false);
+    expect(error).toMatchObject({ message: "Did not replace the managed page context on kick.com while it is still open" });
     expect(browser.tabs.create).not.toHaveBeenCalled();
+    expect(currentManagedPageContextTabs(registry).kick?.tabId).toBe(14);
+  });
+
+  it("keeps a released page context whose tab could not be closed (#794)", async () => {
+    const browser = browserMock();
+    browser.tabs.get.mockResolvedValue({ id: 14, url: "https://kick.com/drops/inventory" });
+    browser.tabs.remove.mockRejectedValue(new Error("Tabs cannot be edited right now"));
+    const kick = { platform: "kick" as const, tabId: 14, originUrl: "https://kick.com/drops/inventory", origin: "https://kick.com", ownedByExtension: true as const };
+    registerManagedPageContextTabs(registry, { kick });
+
+    const remaining = await stopManagedPageContextTabsWithBrowser(registry, browser, { kick }, {
+      platforms: ["kick"],
+      reason: "authentication_unhealthy",
+    });
+
+    expect(remaining).toEqual({ kick });
     expect(currentManagedPageContextTabs(registry).kick?.tabId).toBe(14);
   });
 
@@ -1497,7 +1529,7 @@ describe("tab manager", () => {
       "https://kick.com",
       "https://web.kick.com/api/v1/drops/progress",
       undefined,
-      kickPageOptions(browser, { retainPageContext: { platform: "kick" } }),
+      kickPageOptions({ retainPageContext: { platform: "kick" } }),
     );
 
     expect(browser.tabs.get).not.toHaveBeenCalled();
@@ -3272,6 +3304,15 @@ describe("tab closure origins", () => {
     for (const file of ["../src/core/tabPorts.ts", "../src/core/tabs.ts", "../entrypoints/background.ts"]) {
       const binding = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), file), "utf8").replace(/\/\/.*$/gm, "");
       expect(binding, file).not.toMatch(/\bremove\s*(?:\?\.)?\s*\(/);
+    }
+    // Nor does any platform module, such as a document inspector (#794).
+    const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+    const sources = ["src", "entrypoints"].flatMap((dir) => readdirSync(resolve(root, dir), { recursive: true, encoding: "utf8" })
+      .filter((file) => /\.tsx?$/.test(file))
+      .map((file) => resolve(root, dir, file)));
+    for (const file of sources) {
+      if (file.endsWith("/src/core/browserTabs.ts")) continue;
+      expect(readFileSync(file, "utf8").replace(/\/\/.*$/gm, ""), file).not.toMatch(/\btabs\s*(?:\?\.|\.)\s*remove\b/);
     }
   });
 });

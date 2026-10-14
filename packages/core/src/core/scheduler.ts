@@ -39,6 +39,7 @@ import { perform } from "./effectExecutor";
 import type { ClaimReadyRewardEvent } from "./rewardClaims";
 import type { LogLevel } from "@lurkloot/shared/logging";
 import { authHealthFromError, isSafeFetchError } from "./fetchError";
+import { UnusableWatchTabError } from "./watchTabError";
 import { applyPlatformAuthHealth } from "./authHealth";
 import type { CriticalHealthObservation } from "./criticalHealth";
 import { isManagedTabBreakerOpen, observeCriticalHealth, recordManagedTabOpen } from "./criticalHealth";
@@ -134,10 +135,10 @@ function neutralObservation(): CriticalHealthObservation {
   return { at: Date.now(), failing: false, progressed: false, preconditionBroke: false, inconclusive: true };
 }
 
-// A failing observation with a breadcrumb built from a SafeFetchError when the
-// error is one, and from the plain message otherwise.
+// A failing observation with a breadcrumb built from the error's SafeFetchFailure
+// when it carries one, and from the plain message otherwise.
 function apiErrorObservation(error: unknown): CriticalHealthObservation {
-  const failure = isSafeFetchError(error) ? error.failure : undefined;
+  const failure = isSafeFetchError(error) || error instanceof UnusableWatchTabError ? error.failure : undefined;
   return {
     at: Date.now(),
     failing: true,
@@ -1722,6 +1723,9 @@ export async function* decidePlatformTick(
       yield* suspendPlatformForAuthentication(tick, platform, previous);
       return;
     }
+    const failed = error instanceof UnusableWatchTabError
+      ? yield* dropUnusableWatchTab(tick, platform, previous, error, settings.criticalFailurePromptEnabled)
+      : previous;
     // The tick died somewhere in the farming work. Without this the accrual
     // observation set earlier (failing: false) would be what `finally` applies,
     // so a platform failing every tick after a successful discovery would reset
@@ -1730,7 +1734,7 @@ export async function* decidePlatformTick(
     const message = error instanceof Error ? error.message : "Platform scheduler failed";
     const errorChecks = (previous.errorChecks ?? 0) + 1;
     tick.state.sessions[platform] = {
-      ...previous,
+      ...failed,
       status: "error",
       lastCheckedAt: new Date().toISOString(),
       errorChecks,
@@ -1744,6 +1748,38 @@ export async function* decidePlatformTick(
   } finally {
     applyObservation();
   }
+}
+
+// A watch tab that showed something other than the channel page (#794). Reusing
+// it would re-read the same document, so it is stopped under the host's close
+// policy and the retry after the backoff opens a fresh one. A tab opened only to
+// be rejected is churn: without counting it the breaker never sees the loop.
+async function* dropUnusableWatchTab(
+  tick: SchedulerTickDraft,
+  platform: Platform,
+  previous: WatchSession,
+  error: UnusableWatchTabError,
+  countChurn: boolean,
+): AsyncGenerator<SchedulerEffect, WatchSession, unknown> {
+  if (countChurn && error.openedManagedTab) {
+    const opened = recordManagedTabOpen(tick.state, platform, Date.now(), { source: "watch_tab" });
+    tick.state = opened.state;
+    if (opened.event) tick.emit(opened.event);
+  }
+  try {
+    yield* yieldEffect({ type: "stopWatchTab", platform, session: previous });
+  } catch (stopError) {
+    emitDiagnostic(tick.emit, platform, "warn", stopError instanceof Error ? stopError.message : "Could not stop watch tab");
+  }
+  tick.state.managedWatchTabs = withoutManagedWatchTab(tick.state.managedWatchTabs, platform);
+  return {
+    ...previous,
+    tabId: undefined,
+    tabManagedByExtension: undefined,
+    watchTabOpenedAt: undefined,
+    playback: undefined,
+    playbackChecks: 0,
+  };
 }
 
 function withoutManagedWatchTab(

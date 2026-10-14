@@ -16,7 +16,6 @@ import {
   type BrowserTabApi,
   type PageFetchOptions,
 } from "./browserTabs";
-import { isKickPageContextUsable } from "./kickPageDocument";
 
 // The live wxt/browser tab API. background.ts hands it to createExtensionTabPorts
 // (./tabPorts) for the controller's tab ports; everything else here is bound to
@@ -56,17 +55,7 @@ export function createBrowserTabs(registry: TabRegistry, reportIntegrityAcquisit
     },
 
     fetchJsonInPage<T>(originUrl: string, url: string, init?: RequestInit, options?: PageFetchOptions): Promise<T> {
-      const origin = new URL(originUrl).origin;
-      return fetchJsonInPageWithBrowser<T>(registry, browserApi, originUrl, url, init, {
-        ...options,
-        // Kick page contexts need the Kick WAF document check; Twitch does not.
-        ...(origin === "https://kick.com" || origin === "https://www.kick.com"
-          ? {
-            isPageContextDocumentUsable: options?.isPageContextDocumentUsable
-              ?? ((tabId, pageOrigin, signal) => isKickPageContextUsable(browserApi, tabId, pageOrigin, signal)),
-          }
-          : {}),
-      });
+      return fetchJsonInPageWithBrowser<T>(registry, browserApi, originUrl, url, init, options);
     },
 
     recordManagedPageContextFallback(host: string, emit?: EventEmitter): void {

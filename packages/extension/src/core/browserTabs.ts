@@ -2,8 +2,9 @@ import type { AdFocusMode, ChannelCandidate, ManagedPageContextTab, ManagedWatch
 import type { EventEmitter, PageContextCloseReason, PageContextOpenReason } from "@lurkloot/shared/events";
 import type { LogLevel } from "@lurkloot/shared/logging";
 import type { KickPageContextCycleObservation } from "@lurkloot/core/adapter";
-import { isSafeFetchError, SafeFetchError, safeFetchFailure, type SafeFetchFailure } from "@lurkloot/core/fetchError";
+import { SafeFetchError, safeFetchFailure, type SafeFetchFailure } from "@lurkloot/core/fetchError";
 import { isTimestampStale, PLAYBACK_TELEMETRY_MAX_AGE_MS } from "@lurkloot/core/timestamps";
+import { UnusableWatchTabError } from "@lurkloot/core/watchTabError";
 import { fetchTwitchInBackgroundWith as fetchTwitchInBackgroundWithIdentity, type CookieApi } from "@lurkloot/core/transport";
 import {
   describeContextBoot,
@@ -65,6 +66,33 @@ async function closeTab(
   forgetOpeningWatchTab(registry, tabId);
 }
 
+type OwnedTabClose = { outcome: "closed" } | { outcome: "gone" } | { outcome: "open"; error: unknown };
+
+// A close can fail while the tab stays open ("Tabs cannot be edited right
+// now"). Only a tab that is really gone may be forgotten: forgetting an open one
+// orphans it, and the next caller opens a replacement beside it (#794).
+async function closeOwnedTab(
+  registry: TabRegistry,
+  browserApi: BrowserTabApi,
+  tabId: number,
+  origin: Exclude<TabClosureOrigin, "user">,
+  signal?: AbortSignal,
+): Promise<OwnedTabClose> {
+  try {
+    await withAbortSignal(closeTab(registry, browserApi, tabId, origin), signal);
+    return { outcome: "closed" };
+  } catch (error) {
+    signal?.throwIfAborted();
+    try {
+      const tab = await withAbortSignal(browserApi.tabs.get(tabId), signal);
+      if (tab?.id === tabId) return { outcome: "open", error };
+    } catch {
+      signal?.throwIfAborted();
+    }
+    return { outcome: "gone" };
+  }
+}
+
 // Closes the managed watch tabs a state held, if each still shows its channel.
 export async function closeManagedWatchTabsWithBrowser(
   registry: TabRegistry,
@@ -121,17 +149,15 @@ const DEFAULT_WATCH_TAB_OPTIONS: WatchTabOptions = {
   keepVideosUnmuted: true,
 };
 
-// Host-supplied document check (Kick WAF, etc.). browserTabs stays platform-
-// agnostic; createExtensionTabPorts wires the Kick implementation (#794).
-export type AssertWatchDocumentUsable = (args: {
-  tabId: number;
-  channel: ChannelCandidate;
-  signal?: AbortSignal;
-  closeOnFailure: boolean;
-}) => Promise<void>;
+// A platform's reading of what a tab actually rendered, for a platform that can
+// serve an error document in place of its page (Kick's WAF, #794). It is
+// injected into the tab's MAIN world, so it must be self-contained: executeScript
+// only serializes the function's own source. It only reads the document; what
+// happens to an unusable tab is decided here and in the scheduler.
+export type PageDocumentInspector = () => { usable: boolean; failure?: SafeFetchFailure };
 
 export type OpenWatchTabBrowserOptions = Partial<WatchTabOptions> & {
-  assertWatchDocumentUsable?: AssertWatchDocumentUsable;
+  inspectDocument?: PageDocumentInspector;
 };
 
 const PLAYBACK_PRIME_RESTORE_DELAY_MS = 1500;
@@ -156,7 +182,7 @@ export async function openPinnedMutedTabWithBrowser(
   options?: OpenWatchTabBrowserOptions,
   emit: EventEmitter = ignoreEvent,
 ): Promise<PreparedWatchTab> {
-  const { assertWatchDocumentUsable, ...watchOptions } = options ?? {};
+  const { inspectDocument, ...watchOptions } = options ?? {};
   const tabOptions = { ...DEFAULT_WATCH_TAB_OPTIONS, ...watchOptions };
   tabOptions.signal?.throwIfAborted();
   const registered = tabOptions.managedTab ?? managedTabFromSession(session, channel.url);
@@ -169,12 +195,8 @@ export async function openPinnedMutedTabWithBrowser(
         if (Object.keys(updateProperties).length > 0) {
           await browserApi.tabs.update(tab.id, updateProperties);
         }
-        await assertWatchDocumentUsable?.({
-          tabId: tab.id,
-          channel,
-          signal: tabOptions.signal,
-          closeOnFailure: true,
-        });
+        const failure = await watchDocumentFailure(browserApi, tab.id, channel.url, inspectDocument, tabOptions.signal);
+        if (failure) throw new UnusableWatchTabError(tab.id, failure, { openedManagedTab: false });
         if (!shouldPrimePlayback(tab, channel.url, session)) {
           // Playback is healthy, so the budget has served its purpose.
           resetPlaybackPriming(registry, channel.platform);
@@ -191,8 +213,7 @@ export async function openPinnedMutedTabWithBrowser(
       }
     } catch (error) {
       tabOptions.signal?.throwIfAborted();
-      // WAF / SafeFetch failures must not be mistaken for a missing tab.
-      if (isSafeFetchError(error)) throw error;
+      if (error instanceof UnusableWatchTabError) throw error;
       // The registered managed tab can go stale after browser restarts or manual tab closure.
       diagnostic(emit, "debug", `Managed watch tab ${registered.tabId} is gone; opening a new one`, channel.platform);
     }
@@ -204,12 +225,8 @@ export async function openPinnedMutedTabWithBrowser(
         if (Object.keys(updateProperties).length > 0) {
           await browserApi.tabs.update(tab.id, updateProperties);
         }
-        await assertWatchDocumentUsable?.({
-          tabId: tab.id,
-          channel,
-          signal: tabOptions.signal,
-          closeOnFailure: false,
-        });
+        const failure = await watchDocumentFailure(browserApi, tab.id, channel.url, inspectDocument, tabOptions.signal);
+        if (failure) throw new UnusableWatchTabError(tab.id, failure, { openedManagedTab: false });
         if (!shouldPrimePlayback(tab, channel.url, session)) {
           // Playback is healthy, so the budget has served its purpose.
           resetPlaybackPriming(registry, channel.platform);
@@ -222,7 +239,7 @@ export async function openPinnedMutedTabWithBrowser(
       }
     } catch (error) {
       tabOptions.signal?.throwIfAborted();
-      if (isSafeFetchError(error)) throw error;
+      if (error instanceof UnusableWatchTabError) throw error;
       // Reused user tabs are best-effort only; if missing, create a managed tab.
       diagnostic(emit, "debug", `Reused tab ${session.tabId} is gone; opening a managed one`, channel.platform);
     }
@@ -233,12 +250,11 @@ export async function openPinnedMutedTabWithBrowser(
   if (session?.tabManagedByExtension && session.tabId != null) extraManagedTabIds.add(session.tabId);
   for (const tabId of extraManagedTabIds) {
     if (!browserApi.tabs.remove) continue;
-    try {
-      await closeTab(registry, browserApi, tabId, "extension-cleanup");
-      diagnostic(emit, "debug", `Removed stale watch tab ${tabId}`, channel.platform);
-    } catch {
-      // Stale managed tab ids should not block creating the replacement.
+    const closed = await closeOwnedTab(registry, browserApi, tabId, "extension-cleanup", tabOptions.signal);
+    if (closed.outcome === "open") {
+      throw new Error(`Could not close watch tab ${tabId} before opening a replacement: ${errorMessage(closed.error)}`);
     }
+    if (closed.outcome === "closed") diagnostic(emit, "debug", `Removed stale watch tab ${tabId}`, channel.platform);
   }
 
   const tab = await browserApi.tabs.create({
@@ -256,12 +272,8 @@ export async function openPinnedMutedTabWithBrowser(
   try {
     tabOptions.signal?.throwIfAborted();
     await browserApi.tabs.update(tab.id, { pinned: true, muted: tabOptions.muted, active: false });
-    await assertWatchDocumentUsable?.({
-      tabId: tab.id,
-      channel,
-      signal: tabOptions.signal,
-      closeOnFailure: false,
-    });
+    const failure = await watchDocumentFailure(browserApi, tab.id, channel.url, inspectDocument, tabOptions.signal);
+    if (failure) throw new UnusableWatchTabError(tab.id, failure, { openedManagedTab: true });
     if (tabOptions.keepVideosUnmuted) {
       // Deliberately no reset here: a replacement tab for the same failing channel
       // keeps spending the same budget, or the cap never engages under tab churn.
@@ -283,6 +295,54 @@ export async function openPinnedMutedTabWithBrowser(
   }
   diagnostic(emit, "info", `Opened watch tab ${tab.id} for ${channel.username}`, channel.platform);
   return { tabId: tab.id, managedByExtension: true, managedTab: managedTab(channel, tab.id) };
+}
+
+async function watchDocumentFailure(
+  browserApi: BrowserTabApi,
+  tabId: number,
+  channelUrl: string,
+  inspect: PageDocumentInspector | undefined,
+  signal?: AbortSignal,
+): Promise<SafeFetchFailure | undefined> {
+  if (!inspect) return undefined;
+  await waitForTabReady(browserApi, tabId, new URL(channelUrl).origin, signal);
+  return await inspectTabDocument(browserApi, tabId, inspect, signal);
+}
+
+// A document the inspector cannot run in counts as unusable.
+async function inspectTabDocument(
+  browserApi: BrowserTabApi,
+  tabId: number,
+  inspect: PageDocumentInspector,
+  signal?: AbortSignal,
+): Promise<SafeFetchFailure | undefined> {
+  signal?.throwIfAborted();
+  let verdict: unknown;
+  try {
+    if (browserApi.scripting?.executeScript) {
+      const [result] = await withAbortSignal(browserApi.scripting.executeScript({
+        target: { tabId },
+        world: "MAIN",
+        func: inspect,
+      }), signal);
+      verdict = result?.result;
+    } else if (browserApi.tabs.executeScript) {
+      const results = await withAbortSignal(
+        browserApi.tabs.executeScript(tabId, { code: `(${inspect.toString()})()` }),
+        signal,
+      );
+      verdict = results?.[0];
+    }
+  } catch {
+    signal?.throwIfAborted();
+  }
+  const record = verdict && typeof verdict === "object"
+    ? verdict as { usable?: unknown; ok?: unknown; failure?: unknown }
+    : undefined;
+  if (record?.usable === true || record?.ok === true) return undefined;
+  return record?.failure
+    ? safeFetchFailure(record.failure)
+    : { kind: "invalid_response", reason: "The page could not be inspected" };
 }
 
 function watchTabUpdateProperties(tab: BrowserTab, url: string, muted: boolean): Record<string, unknown> {
@@ -530,9 +590,8 @@ export interface PageFetchOptions {
   // reloading it to force activity is not ours to do — so user tabs are skipped
   // and an extension-owned context is created or explicitly navigated instead.
   requireFreshPageContext?: boolean;
-  // Host-supplied page-document check (Kick WAF JSON, etc.). Absent means any
-  // loaded origin tab is treated as usable.
-  isPageContextDocumentUsable?: (tabId: number, origin: string, signal?: AbortSignal) => Promise<boolean>;
+  // Without an inspector every tab on the origin counts as a usable context.
+  inspectDocument?: PageDocumentInspector;
 }
 
 // Page context to open when no token has been captured: a logged-in twitch.tv
@@ -1006,7 +1065,7 @@ async function findOrCreatePageContextTab(
   for (const tab of tabs) {
     if (requireFresh) break;
     if (tab.id == null || retainedIds.has(tab.id)) continue;
-    if (await isUsablePageContext(browserApi, tab.id, origin, signal, options?.isPageContextDocumentUsable)) {
+    if (!await pageContextFailure(browserApi, tab.id, options?.inspectDocument, signal)) {
       tabId = tab.id;
       break;
     }
@@ -1018,8 +1077,8 @@ async function findOrCreatePageContextTab(
       if (!browserApi.tabs.remove) {
         diagnostic(options?.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(retained.origin).host} because tab removal is unavailable`, retained.platform);
       } else {
-        try {
-          await withAbortSignal(closeTab(registry, browserApi, retained.tabId, "extension-cleanup"), signal);
+        const closed = await closeOwnedTab(registry, browserApi, retained.tabId, "extension-cleanup", signal);
+        if (closed.outcome === "closed") {
           options?.emit?.({
             category: "activity",
             code: "page_context_closed",
@@ -1027,9 +1086,12 @@ async function findOrCreatePageContextTab(
             platform: retained.platform,
             data: { host: new URL(retained.origin).host, reason: "user_tab_available" },
           });
-        } catch {
-          // The retained page context may already be gone.
+        } else if (closed.outcome === "gone") {
           diagnostic(options?.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(retained.origin).host} because the tab was already gone`, retained.platform);
+        } else {
+          registry.retainedPageContextTabs.set(retained.platform, retained);
+          registry.retainedPageContextRevision += 1;
+          diagnostic(options?.emit ?? ignoreEvent, "warn", `Kept managed page context on ${new URL(retained.origin).host} because it could not be closed: ${errorMessage(closed.error)}`, retained.platform);
         }
       }
     }
@@ -1041,7 +1103,7 @@ async function findOrCreatePageContextTab(
   if (retained?.origin === origin) {
     try {
       const tab = await withAbortSignal(browserApi.tabs.get(retained.tabId), signal);
-      if (tab?.id && tab.url?.startsWith(origin) && await isUsablePageContext(browserApi, tab.id, origin, signal, options?.isPageContextDocumentUsable)) {
+      if (tab?.id && tab.url?.startsWith(origin) && !await pageContextFailure(browserApi, tab.id, options?.inspectDocument, signal)) {
         registry.retainedPageContextTabs.set(retained.platform, retained);
         registry.retainedPageContextRevision += 1;
         // We own this tab, so re-navigating it to boot the SPA again is safe —
@@ -1050,73 +1112,36 @@ async function findOrCreatePageContextTab(
         if (requireFresh) {
           signal?.throwIfAborted();
           await withAbortSignal(browserApi.tabs.update(tab.id, { url: originUrl }), signal);
-          await waitForPageContextReady(browserApi, tab.id, origin, signal);
+          await waitForTabReady(browserApi, tab.id, origin, signal);
           diagnostic(options?.emit ?? ignoreEvent, "debug", `Reloaded managed page context on ${new URL(origin).host} to force a fresh page request`, retained.platform);
           return { tabId: tab.id, createdByExtension: true, retainedContext: retained, openedForRequest: true, source: "managed_tab" };
         }
         diagnostic(options?.emit ?? ignoreEvent, "debug", `Reused managed page context on ${new URL(origin).host}`, retained.platform);
         return { tabId: tab.id, createdByExtension: true, retainedContext: retained, source: "managed_tab" };
       }
-      registry.retainedPageContextTabs.delete(retained.platform);
-      registry.retainedPageContextRevision += 1;
-      openReason = "managed_context_unusable";
-      if (tab?.id) {
-        // Never open a replacement while the previous managed tab is still open.
-        // A failed tabs.remove (e.g. "Tabs cannot be edited right now") used to
-        // forget ownership and create another tab, which is how Kick WAF nights
-        // accumulated dozens of inventory tabs (#794).
-        if (!browserApi.tabs.remove) {
-          registry.retainedPageContextTabs.set(retained.platform, retained);
-          registry.retainedPageContextRevision += 1;
-          diagnostic(options?.emit ?? ignoreEvent, "debug", `Retained unusable managed page context on ${new URL(origin).host} because tab removal is unavailable`, retained.platform);
-          throw new SafeFetchError({
-            kind: "security_policy_blocked",
-            reason: "Could not close unusable managed page context before replacement",
-          });
-        }
-        try {
-          await withAbortSignal(closeTab(registry, browserApi, retained.tabId, "extension-cleanup"), signal);
-          options?.emit?.({
-            category: "activity",
-            code: "page_context_closed",
-            level: "info",
-            platform: retained.platform,
-            data: { host: new URL(origin).host, reason: "managed_context_unusable" },
-          });
-        } catch (closeError) {
-          signal?.throwIfAborted();
-          let stillOpen = false;
-          try {
-            const remaining = await withAbortSignal(browserApi.tabs.get(retained.tabId), signal);
-            stillOpen = remaining?.id === retained.tabId;
-          } catch {
-            stillOpen = false;
-          }
-          if (stillOpen) {
-            registry.retainedPageContextTabs.set(retained.platform, retained);
-            registry.retainedPageContextRevision += 1;
-            diagnostic(
-              options?.emit ?? ignoreEvent,
-              "warn",
-              `Retained unusable managed page context on ${new URL(origin).host} because it could not be closed: ${errorMessage(closeError)}`,
-              retained.platform,
-            );
-            throw new SafeFetchError({
-              kind: "security_policy_blocked",
-              reason: "Could not close unusable managed page context before replacement",
-            });
-          }
-          diagnostic(options?.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(origin).host} because the tab was already gone`, retained.platform);
-        }
-      }
-    } catch (error) {
+    } catch {
       signal?.throwIfAborted();
-      // Replacement was refused because the previous tab could not be closed.
-      if (isSafeFetchError(error)) throw error;
-      registry.retainedPageContextTabs.delete(retained.platform);
+    }
+    registry.retainedPageContextTabs.delete(retained.platform);
+    registry.retainedPageContextRevision += 1;
+    openReason = "managed_context_unusable";
+    const closed = await closeOwnedTab(registry, browserApi, retained.tabId, "extension-cleanup", signal);
+    if (closed.outcome === "open") {
+      registry.retainedPageContextTabs.set(retained.platform, retained);
       registry.retainedPageContextRevision += 1;
-      openReason = "managed_context_unusable";
-      diagnostic(options?.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(origin).host} because it is unusable`, retained.platform);
+      diagnostic(options?.emit ?? ignoreEvent, "warn", `Kept unusable managed page context on ${new URL(origin).host} because it could not be closed: ${errorMessage(closed.error)}`, retained.platform);
+      throw new Error(`Did not replace the managed page context on ${new URL(origin).host} while it is still open`);
+    }
+    if (closed.outcome === "closed") {
+      options?.emit?.({
+        category: "activity",
+        code: "page_context_closed",
+        level: "info",
+        platform: retained.platform,
+        data: { host: new URL(origin).host, reason: "managed_context_unusable" },
+      });
+    } else {
+      diagnostic(options?.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(origin).host} because the tab was already gone`, retained.platform);
     }
   }
 
@@ -1142,14 +1167,10 @@ async function findOrCreatePageContextTab(
   try {
     signal?.throwIfAborted();
     await withAbortSignal(browserApi.tabs.update(tab.id, { muted: true, active: false }), signal);
-    await waitForPageContextReady(browserApi, tab.id, origin, signal);
+    await waitForTabReady(browserApi, tab.id, origin, signal);
     if (registry.twitchContextBoot?.tabId === tab.id) registry.twitchContextBoot.readyAt = Date.now();
-    if (!await isUsablePageContext(browserApi, tab.id, origin, signal, options?.isPageContextDocumentUsable)) {
-      throw new SafeFetchError({
-        kind: "security_policy_blocked",
-        reason: "Kick page context is blocked or unusable",
-      });
-    }
+    const failure = await pageContextFailure(browserApi, tab.id, options?.inspectDocument, signal);
+    if (failure) throw new SafeFetchError(failure);
     // Accounting can wait on controller state locks. Keep it within the new
     // tab's cleanup scope and abort its wait too, or cancellation can discard
     // the acquiring entry while leaving this already-created tab unowned.
@@ -1205,18 +1226,16 @@ async function findOrCreatePageContextTab(
   };
 }
 
-async function isUsablePageContext(
+async function pageContextFailure(
   browserApi: BrowserTabApi,
   tabId: number,
-  origin: string,
-  signal: AbortSignal | undefined,
-  check?: (tabId: number, origin: string, signal?: AbortSignal) => Promise<boolean>,
-): Promise<boolean> {
-  if (!check) return true;
-  return await check(tabId, origin, signal);
+  inspect: PageDocumentInspector | undefined,
+  signal?: AbortSignal,
+): Promise<SafeFetchFailure | undefined> {
+  return inspect ? await inspectTabDocument(browserApi, tabId, inspect, signal) : undefined;
 }
 
-async function waitForPageContextReady(
+async function waitForTabReady(
   browserApi: BrowserTabApi,
   tabId: number,
   origin: string,
@@ -1321,15 +1340,26 @@ export async function stopManagedPageContextTabsWithBrowser(
   options: { platforms?: Platform[]; reason?: PageContextCloseReason; emit?: EventEmitter } = {},
 ): Promise<SchedulerManagedPageContexts> {
   const platforms = options.platforms ?? ["twitch", "kick"];
+  const forgotten: Platform[] = [];
   for (const platform of platforms) {
     const context = contexts[platform];
     if (!context) continue;
     if (!browserApi.tabs.remove) {
       diagnostic(options.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(context.origin).host} because tab removal is unavailable`, platform);
+      forgotten.push(platform);
       continue;
     }
-    try {
-      await closeTab(registry, browserApi, context.tabId, "extension-cleanup");
+    const closed = await closeOwnedTab(registry, browserApi, context.tabId, "extension-cleanup");
+    if (closed.outcome === "open") {
+      if (registry.retainedPageContextTabs.get(platform)?.tabId !== context.tabId) {
+        registry.retainedPageContextTabs.set(platform, context);
+        registry.retainedPageContextRevision += 1;
+      }
+      diagnostic(options.emit ?? ignoreEvent, "warn", `Kept managed page context on ${new URL(context.origin).host} because it could not be closed: ${errorMessage(closed.error)}`, platform);
+      continue;
+    }
+    forgotten.push(platform);
+    if (closed.outcome === "closed") {
       options.emit?.({
         category: "activity",
         code: "page_context_closed",
@@ -1337,12 +1367,11 @@ export async function stopManagedPageContextTabsWithBrowser(
         platform,
         data: { host: new URL(context.origin).host, reason: options.reason ?? "automation_disabled" },
       });
-    } catch {
-      // The retained page context may have been closed manually.
+    } else {
       diagnostic(options.emit ?? ignoreEvent, "debug", `Forgot managed page context on ${new URL(context.origin).host} because the tab was already gone`, platform);
     }
   }
-  return forgetManagedPageContextTabs(registry, contexts, options);
+  return forgetManagedPageContextTabs(registry, contexts, { ...options, platforms: forgotten });
 }
 
 // Injected into a page's MAIN world via executeScript to fetch with the page's

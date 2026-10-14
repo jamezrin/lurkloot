@@ -23,6 +23,7 @@
     "./activityDiagnostics": "./src/core/activityDiagnostics.ts",
     "./criticalHealth": "./src/core/criticalHealth.ts",
     "./fetchError": "./src/core/fetchError.ts",
+    "./watchTabError": "./src/core/watchTabError.ts",
     "./staleCache": "./src/core/staleCache.ts",
     "./timestamps": "./src/core/timestamps.ts",
     "./heartbeatCadence": "./src/core/heartbeatCadence.ts",

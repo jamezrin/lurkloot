@@ -9,6 +9,7 @@ import { loadSettings, loadState, loadTwitchIntegrity, resetStorage, saveSetting
 import type { RuntimeMessage, RuntimeSnapshot } from "@lurkloot/shared/messages";
 import { createBrowserTabs, liveBrowserTabApi } from "../src/core/tabs";
 import { createExtensionTabPorts } from "../src/core/tabPorts";
+import { inspectKickDocument } from "../src/core/kickPageDocument";
 import { createTabRegistry } from "@lurkloot/core/tabRegistry";
 import { createBackgroundAlarmListener, createBackgroundController, EXTENSION_CAPABILITIES } from "@lurkloot/core/controller";
 import { createAlarmJobScheduler } from "../src/core/jobs";
@@ -195,6 +196,7 @@ function createExtensionAdapter(platform: Platform, emit: EventEmitter, settings
         background: (url, init) => fetchKickInBackground<unknown>(url, init),
         pageFetch: (url, init) => fetchJsonInPage<unknown>(KICK_PAGE_CONTEXT_URL, url, init, {
           retainPageContext: { platform: "kick" },
+          inspectDocument: inspectKickDocument,
           emit,
           openReason: "background_rejected",
         }),
@@ -250,7 +252,10 @@ const controller = createBackgroundController<ExtensionSettings>({
       };
     },
   },
-  tabs: createExtensionTabPorts(tabRegistry, liveBrowserTabApi, loadSettings, { kick: kickPageContextRecovery }),
+  tabs: createExtensionTabPorts(tabRegistry, liveBrowserTabApi, loadSettings, {
+    recoveryEvidence: { kick: kickPageContextRecovery },
+    documentInspectors: { kick: inspectKickDocument },
+  }),
   twitch: {
     integrity: {
       ensure: (emit, request) => ensureTwitchIntegrity(emit, request),

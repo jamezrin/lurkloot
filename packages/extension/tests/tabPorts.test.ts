@@ -21,7 +21,7 @@ async function retainedKickContext(requiredSuccesses: number, loadSettings?: () 
   const registry = createTabRegistry();
   const evidence = new KickPageContextRecoveryTracker();
   const settings = { ...DEFAULT_SETTINGS, kickPageContextRecoverySuccesses: requiredSuccesses };
-  const ports = createExtensionTabPorts(registry, browser, loadSettings ?? (async () => settings), { kick: evidence });
+  const ports = createExtensionTabPorts(registry, browser, loadSettings ?? (async () => settings), { recoveryEvidence: { kick: evidence } });
   const tab = await browser.tabs.create({ url: "https://kick.com/drops/inventory" });
   registerManagedPageContextTabs(registry, {
     kick: { platform: "kick", tabId: tab.id, originUrl: "https://kick.com", origin: "https://kick.com", ownedByExtension: true },

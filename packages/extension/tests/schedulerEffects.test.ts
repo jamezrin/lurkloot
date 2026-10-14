@@ -18,7 +18,7 @@ import { createTickEffectExecutor } from "@lurkloot/core/background/tickEffects"
 import { registerWatchTabEffects } from "@lurkloot/core/background/manualWatch";
 import { registerSupplementalTargetEffect } from "@lurkloot/core/background/supplementalSources";
 import { createTabRegistry } from "@lurkloot/core/tabRegistry";
-import { KickWafBlockedError } from "@lurkloot/core/transport";
+import { UnusableWatchTabError } from "@lurkloot/core/watchTabError";
 import { DEFAULT_STATE } from "../src/core/storage";
 
 // The scheduler tick decides from plain inputs and names its side effects
@@ -322,69 +322,64 @@ describe("scheduler tick decisions from plain inputs", () => {
     expect(tick.state.sessions.twitch).toMatchObject({ status: "error", reasonCode: "platform_error", errorChecks: 1, message: "tab refused" });
   });
 
-  it("marks Kick auth blocked when opening a watch tab hits Kick's security policy (#794)", async () => {
-    const kickReward = reward("first");
-    const kickCampaign: DropCampaign = {
-      ...campaign("drops", [kickReward]),
-      platform: "kick",
-    };
-    const kickChannel: ChannelCandidate = {
-      platform: "kick",
-      username: "floridaboy",
-      displayName: "floridaboy",
-      url: "https://kick.com/floridaboy",
-      live: true,
-    };
-    const discovered = {
-      platform: "kick" as const,
-      revision: 1,
-      observedAt: Date.now(),
-      complete: true as const,
-      idleCandidates: [],
-      followedChannels: [],
-      metrics: { campaigns: 1, candidates: 1, cacheHits: 0, cacheMisses: 1, batchRequests: 1, singleFallbacks: 0 },
-      campaigns: [{
-        campaign: kickCampaign,
-        candidates: [{ candidate: kickChannel, live: true, categoryMatches: true, eligible: true as const, observedAt: Date.now() }],
-      }],
-    };
-    const tickInput: SchedulerTickInput = {
-      state,
-      settings: {
-        ...DEFAULT_SETTINGS,
-        tablessMode: false,
-        platform: {
-          twitch: { ...DEFAULT_SETTINGS.platform.twitch, enabled: false },
-          kick: { ...DEFAULT_SETTINGS.platform.kick, enabled: true },
+  describe("a watch tab that did not show the channel page (#794)", () => {
+    const blocked = { kind: "security_policy_blocked" as const, reason: "Request blocked by security policy.", reference: "c0e117f5" };
+    const drops = () => [campaign("drops", [reward("first")])];
+
+    it("backs the platform off instead of marking authentication unhealthy", async () => {
+      const { tick } = await decide(input(drops(), channel("creator")), {
+        openWatchTab: () => {
+          throw new UnusableWatchTabError(9, blocked, { openedManagedTab: true });
         },
-      },
-      platforms: ["kick"],
-      discovery: { kick: { campaigns: [kickCampaign], complete: true } },
-      selectionViews: { kick: selectionAdapterFromDiscoverySnapshot(discovered, state.sessions.kick) },
-      capabilities: { kick: { supportsTabless: true, watchTabs: true, claimChallenges: true, claimChannelPoints: false } },
-    };
-    const tick = startSchedulerTick(tickInput);
-    await driveEffects(decidePlatformTick(tick, "kick", tickInput), async (effect) => {
-      if (effect.type === "claimRewards") return { campaigns: effect.campaigns, events: [] };
-      if (effect.type === "openWatchTab") {
-        throw new KickWafBlockedError({
-          kind: "security_policy_blocked",
-          reason: "Request blocked by security policy.",
-          reference: "c0e117f5",
-        });
-      }
-      if (effect.type === "stopWatchTab") return undefined;
-      if (effect.type === "releasePageContexts") return effect.contexts;
-      return undefined;
+      });
+
+      expect(tick.state.authHealth.twitch.status).toBe("healthy");
+      expect(tick.state.sessions.twitch).toMatchObject({ status: "error", reasonCode: "platform_error", errorChecks: 1 });
+      expect(tick.state.sessions.twitch.retryAfter).toBeDefined();
+      expect(tick.state.sessions.twitch.message).toContain("Request blocked by security policy.");
     });
 
-    expect(tick.state.authHealth.kick).toMatchObject({
-      status: "blocked",
-      reasonCode: "security_policy_blocked",
+    it("counts a tab it opened only to reject as churn", async () => {
+      const { tick } = await decide(input(drops(), channel("creator")), {
+        openWatchTab: () => {
+          throw new UnusableWatchTabError(9, blocked, { openedManagedTab: true });
+        },
+      });
+
+      expect(tick.state.criticalHealth?.twitch?.managedTabOpens).toHaveLength(1);
     });
-    expect(tick.state.sessions.kick).toMatchObject({
-      status: "paused",
-      reasonCode: "authentication_unhealthy",
+
+    it("stops a rejected tab it was reusing, so the retry loads a fresh page", async () => {
+      const reused = { platform: "twitch" as const, tabId: 4, channelUrl: channel("creator").url, ownedByExtension: true as const };
+      const watching = {
+        ...state,
+        sessions: { ...state.sessions, twitch: { ...state.sessions.twitch, status: "watching" as const, tabId: 4, tabManagedByExtension: true } },
+        managedWatchTabs: { twitch: reused },
+      };
+      const { tick, effects } = await decide(input(drops(), channel("creator"), { state: watching }), {
+        openWatchTab: () => {
+          throw new UnusableWatchTabError(4, blocked, { openedManagedTab: false });
+        },
+      });
+
+      expect(effects.map((effect) => effect.type)).toEqual(["claimRewards", "openWatchTab", "stopWatchTab"]);
+      expect(effects[2]).toMatchObject({ session: { tabId: 4, tabManagedByExtension: true } });
+      expect(tick.state.sessions.twitch).toMatchObject({ tabId: undefined, tabManagedByExtension: undefined });
+      expect(tick.state.managedWatchTabs?.twitch).toBeUndefined();
+      expect(tick.state.criticalHealth?.twitch?.managedTabOpens ?? []).toHaveLength(0);
+    });
+
+    it("does not reopen the tab on the next tick", async () => {
+      const first = await decide(input(drops(), channel("creator")), {
+        openWatchTab: () => {
+          throw new UnusableWatchTabError(9, blocked, { openedManagedTab: true });
+        },
+      });
+
+      const next = await decide(input(drops(), channel("creator"), { state: first.tick.state }));
+
+      expect(next.effects.map((effect) => effect.type)).not.toContain("openWatchTab");
+      expect(next.tick.state.sessions.twitch).toMatchObject({ status: "error", reasonCode: "platform_backoff" });
     });
   });
 });
