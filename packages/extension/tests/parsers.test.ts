@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { mergeKickProgress, parseKickCampaigns } from "@lurkloot/core/kick/parser";
+import {
+  findKickUnitMismatches,
+  mergeKickProgress,
+  parseKickCampaigns,
+} from "@lurkloot/core/kick/parser";
 import {
   campaignHasClaimableReward,
   mergeTwitchCampaignProgress,
@@ -192,6 +196,50 @@ describe("Kick parsers", () => {
     for (const [index, reward] of merged[0].rewards.entries()) {
       expect(reward.watchedMinutes / reward.requiredMinutes).toBeCloseTo(tiers[index].progress, 5);
     }
+  });
+
+  describe("findKickUnitMismatches", () => {
+    const tiers = [
+      { id: "t10", required_units: 600, progress: 0.73333335 },
+      { id: "t15", required_units: 900, progress: 0.4888889 },
+    ];
+
+    it("finds nothing when progress_units and Kick's fraction share a unit", () => {
+      expect(
+        findKickUnitMismatches({ data: [{ id: "stake", progress_units: 440, rewards: tiers }] }),
+      ).toEqual([]);
+    });
+
+    it("reports rewards whose fraction disagrees with progress_units / required_units", () => {
+      // Half-minute progress_units against minute requirements would halve the ratio.
+      const mismatches = findKickUnitMismatches({
+        data: [{ id: "stake", progress_units: 880, rewards: tiers }],
+      });
+
+      expect(mismatches).toEqual([
+        { campaignId: "stake", rewardId: "t10", reported: 0.73333335, expected: 1 },
+        { campaignId: "stake", rewardId: "t15", reported: 0.4888889, expected: 880 / 900 },
+      ]);
+    });
+
+    it("ignores finished, claimed and unmeasurable rewards", () => {
+      expect(
+        findKickUnitMismatches({
+          data: [
+            {
+              id: "done",
+              progress_units: 4234,
+              rewards: [
+                { id: "capped", required_units: 120, progress: 1 },
+                { id: "claimed", required_units: 240, progress: 0.4, claimed: true },
+                { id: "no-requirement", progress: 0.4 },
+              ],
+            },
+            { id: "no-counter", rewards: [{ id: "r", required_units: 60, progress: 0.4 }] },
+          ],
+        }),
+      ).toEqual([]);
+    });
   });
 
   it("gates a Kick campaign when the account app is not connected and surfaces the link URL", () => {

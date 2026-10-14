@@ -25,7 +25,12 @@ import {
   type PageFetcher,
   type PlatformAdapter,
 } from "../adapter";
-import { kickCandidatesFromCampaign, mergeKickProgress, parseKickCampaigns } from "./parser";
+import {
+  findKickUnitMismatches,
+  kickCandidatesFromCampaign,
+  mergeKickProgress,
+  parseKickCampaigns,
+} from "./parser";
 import { KICK_CLIENT_TOKEN, KickWatcher } from "./watch";
 import { KickDiscoverySignalController } from "./discoverySignals";
 import { KickChatPresenceClient } from "./chatPresence";
@@ -354,6 +359,9 @@ export class KickAdapter implements PlatformAdapter {
   readonly compatibility?: ResolvedCompatibility["kick"];
   private readonly claimCapability: KickClaimCapability;
   private readonly discoveryState: KickDiscoveryState;
+  // One unit-drift line per adapter lifetime: a persistent mismatch would
+  // otherwise repeat on every progress refresh.
+  private reportedUnitMismatch = false;
   readonly createDiscoverySignalController?: () => DiscoverySignalController;
   readonly createChatPresenceClient?: () => ChatPresenceClient;
 
@@ -521,7 +529,24 @@ export class KickAdapter implements PlatformAdapter {
     );
   }
 
+  private reportUnitMismatches(data: unknown): void {
+    if (this.reportedUnitMismatch) return;
+    const mismatches = findKickUnitMismatches(data as Parameters<typeof findKickUnitMismatches>[0]);
+    if (mismatches.length === 0) return;
+    this.reportedUnitMismatch = true;
+    const sample = mismatches[0];
+    diagnostic(
+      this.emit,
+      "debug",
+      `Kick progress units disagree with Kick's own progress fractions on ${mismatches.length} reward(s) `
+        + `(e.g. reward ${sample.rewardId} in campaign ${sample.campaignId}: reported ${sample.reported.toFixed(3)}, `
+        + `progress_units / required_units gives ${sample.expected.toFixed(3)}); shown minutes may be off`,
+      "kick",
+    );
+  }
+
   private mergeProgress(campaigns: DropCampaign[], data: unknown): DropCampaign[] {
+    this.reportUnitMismatches(data);
     const progress = mergeKickProgress(campaigns, data as Parameters<typeof mergeKickProgress>[1]);
     return (
       this.claimCapability.reconcileProgress?.(progress, affirmativelyLinkedCampaignIds(data))

@@ -203,9 +203,12 @@ export function kickRewardImageUrl(value: string | undefined): string | undefine
 }
 
 // Kick's drops API measures `*_units` in minutes: a reward named "5 Hours" ships
-// as `required_units: 300`. Kick's own client also caps the displayed
-// requirement at the campaign window (`getDisplayedRewardUnits`), which is how a
-// two-minute flash drop with a larger raw requirement reads as 2 minutes.
+// as `required_units: 300`. Kick's own web client agrees: `RewardCardDuration`
+// renders `durationMinutes * 60_000` ms, and it is fed `getDisplayedRewardUnits`,
+// which also caps the requirement at the campaign window. That is how a
+// two-minute flash drop with a larger raw requirement reads as 2 minutes. The
+// unit is a server/client contract, so `findKickUnitMismatches` below checks it
+// against Kick's own per-reward fraction at runtime.
 function kickRequiredMinutes(
   units: number,
   startsAt: string | undefined,
@@ -323,6 +326,48 @@ export function mergeKickProgress(
       rewards,
     };
   });
+}
+
+export interface KickUnitMismatch {
+  campaignId: string;
+  rewardId: string;
+  // Kick's per-reward `progress` fraction, as sent.
+  reported: number;
+  // What `progress_units / required_units` predicts if both share a unit.
+  expected: number;
+}
+
+// Kick derives each reward's `progress` fraction server-side as
+// `progress_units / required_units`. A reward where that no longer holds means
+// the two counters stopped sharing a unit, so the minutes we show would drift
+// from kick.com (the #416 / #815 failure). Finished rewards are skipped because
+// their fraction is capped at 1 while the cumulative counter keeps climbing.
+const KICK_UNIT_FRACTION_TOLERANCE = 0.01;
+
+export function findKickUnitMismatches(
+  input: KickProgressResponse | KickProgress[],
+): KickUnitMismatch[] {
+  const mismatches: KickUnitMismatch[] = [];
+  for (const campaign of collectKickProgress(input)) {
+    const units = campaign.progress_units;
+    if (typeof units !== "number") continue;
+    const campaignId = String(campaign.id ?? campaign.campaign_id ?? campaign.drop_campaign_id);
+    for (const reward of campaign.rewards ?? []) {
+      const required = reward.required_units;
+      const reported = reward.progress;
+      if (!required || required <= 0 || typeof reported !== "number") continue;
+      if (reported >= 1 || reward.claimed || reward.is_claimed) continue;
+      const expected = Math.min(1, units / required);
+      if (Math.abs(expected - reported) <= KICK_UNIT_FRACTION_TOLERANCE) continue;
+      mismatches.push({
+        campaignId,
+        rewardId: String(reward.id ?? reward.reward_id ?? reward.drop_id),
+        reported,
+        expected,
+      });
+    }
+  }
+  return mismatches;
 }
 
 export function kickCandidatesFromCampaign(campaign: DropCampaign): ChannelCandidate[] {
