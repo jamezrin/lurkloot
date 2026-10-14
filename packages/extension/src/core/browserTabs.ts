@@ -4,11 +4,7 @@ import type { LogLevel } from "@lurkloot/shared/logging";
 import type { KickPageContextCycleObservation } from "@lurkloot/core/adapter";
 import { isSafeFetchError, SafeFetchError, safeFetchFailure, type SafeFetchFailure } from "@lurkloot/core/fetchError";
 import { isTimestampStale, PLAYBACK_TELEMETRY_MAX_AGE_MS } from "@lurkloot/core/timestamps";
-import {
-  fetchTwitchInBackgroundWith as fetchTwitchInBackgroundWithIdentity,
-  KickWafBlockedError,
-  type CookieApi,
-} from "@lurkloot/core/transport";
+import { fetchTwitchInBackgroundWith as fetchTwitchInBackgroundWithIdentity, type CookieApi } from "@lurkloot/core/transport";
 import {
   describeContextBoot,
   forgetManagedPageContextTabs,
@@ -125,6 +121,19 @@ const DEFAULT_WATCH_TAB_OPTIONS: WatchTabOptions = {
   keepVideosUnmuted: true,
 };
 
+// Host-supplied document check (Kick WAF, etc.). browserTabs stays platform-
+// agnostic; createExtensionTabPorts wires the Kick implementation (#794).
+export type AssertWatchDocumentUsable = (args: {
+  tabId: number;
+  channel: ChannelCandidate;
+  signal?: AbortSignal;
+  closeOnFailure: boolean;
+}) => Promise<void>;
+
+export type OpenWatchTabBrowserOptions = Partial<WatchTabOptions> & {
+  assertWatchDocumentUsable?: AssertWatchDocumentUsable;
+};
+
 const PLAYBACK_PRIME_RESTORE_DELAY_MS = 1500;
 
 // Priming foreground-activates the watch tab for a moment, so it must never
@@ -144,10 +153,11 @@ export async function openPinnedMutedTabWithBrowser(
   browserApi: BrowserTabApi,
   channel: ChannelCandidate,
   session?: WatchSession,
-  options?: Partial<WatchTabOptions>,
+  options?: OpenWatchTabBrowserOptions,
   emit: EventEmitter = ignoreEvent,
 ): Promise<PreparedWatchTab> {
-  const tabOptions = { ...DEFAULT_WATCH_TAB_OPTIONS, ...options };
+  const { assertWatchDocumentUsable, ...watchOptions } = options ?? {};
+  const tabOptions = { ...DEFAULT_WATCH_TAB_OPTIONS, ...watchOptions };
   tabOptions.signal?.throwIfAborted();
   const registered = tabOptions.managedTab ?? managedTabFromSession(session, channel.url);
 
@@ -159,10 +169,10 @@ export async function openPinnedMutedTabWithBrowser(
         if (Object.keys(updateProperties).length > 0) {
           await browserApi.tabs.update(tab.id, updateProperties);
         }
-        // Kick may answer a channel navigation with a security-policy JSON
-        // document. Detect that before priming so we suspend farming instead of
-        // looping on "no video element" and opening more tabs (#794).
-        await assertKickWatchTabUsable(registry, browserApi, tab.id, channel, emit, tabOptions.signal, {
+        await assertWatchDocumentUsable?.({
+          tabId: tab.id,
+          channel,
+          signal: tabOptions.signal,
           closeOnFailure: true,
         });
         if (!shouldPrimePlayback(tab, channel.url, session)) {
@@ -194,8 +204,10 @@ export async function openPinnedMutedTabWithBrowser(
         if (Object.keys(updateProperties).length > 0) {
           await browserApi.tabs.update(tab.id, updateProperties);
         }
-        // Do not close a tab the user owns; still refuse to farm on a WAF page.
-        await assertKickWatchTabUsable(registry, browserApi, tab.id, channel, emit, tabOptions.signal, {
+        await assertWatchDocumentUsable?.({
+          tabId: tab.id,
+          channel,
+          signal: tabOptions.signal,
           closeOnFailure: false,
         });
         if (!shouldPrimePlayback(tab, channel.url, session)) {
@@ -244,7 +256,10 @@ export async function openPinnedMutedTabWithBrowser(
   try {
     tabOptions.signal?.throwIfAborted();
     await browserApi.tabs.update(tab.id, { pinned: true, muted: tabOptions.muted, active: false });
-    await assertKickWatchTabUsable(registry, browserApi, tab.id, channel, emit, tabOptions.signal, {
+    await assertWatchDocumentUsable?.({
+      tabId: tab.id,
+      channel,
+      signal: tabOptions.signal,
       closeOnFailure: false,
     });
     if (tabOptions.keepVideosUnmuted) {
@@ -368,54 +383,6 @@ function managedTab(channel: ChannelCandidate, tabId: number): ManagedWatchTab {
     tabId,
     channelUrl: channel.url,
     ownedByExtension: true,
-  };
-}
-
-// Kick sometimes serves a security-policy JSON body instead of the channel SPA.
-// Same check as page-context usability: refuse to farm on that document and
-// surface it as KickWafBlockedError so the scheduler marks auth blocked (#794).
-async function assertKickWatchTabUsable(
-  registry: TabRegistry,
-  browserApi: BrowserTabApi,
-  tabId: number,
-  channel: ChannelCandidate,
-  emit: EventEmitter,
-  signal: AbortSignal | undefined,
-  options: { closeOnFailure: boolean },
-): Promise<void> {
-  if (channel.platform !== "kick") return;
-  signal?.throwIfAborted();
-  await waitForPageContextReady(browserApi, tabId, "https://kick.com", signal);
-  const inspection = await inspectKickDocument(browserApi, tabId, signal);
-  if (inspection.usable) return;
-
-  const failure = kickWatchTabBlockFailure(inspection.failure);
-  diagnostic(
-    emit,
-    "warn",
-    failure.reason
-      ? `Kick watch tab ${tabId} is unusable: ${failure.reason}`
-      : `Kick watch tab ${tabId} is blocked or unusable`,
-    "kick",
-  );
-  if (options.closeOnFailure && browserApi.tabs.remove) {
-    try {
-      await closeTab(registry, browserApi, tabId, "extension-cleanup");
-      diagnostic(emit, "debug", `Closed blocked Kick watch tab ${tabId}`, "kick");
-    } catch {
-      // The tab may already have been closed independently.
-    }
-  }
-  throw new KickWafBlockedError(failure);
-}
-
-function kickWatchTabBlockFailure(failure: SafeFetchFailure | undefined): SafeFetchFailure {
-  if (failure?.kind === "security_policy_blocked") return failure;
-  return {
-    kind: "security_policy_blocked",
-    reason: failure?.reason ?? "Kick watch tab returned a non-HTML document",
-    ...(failure?.reference !== undefined ? { reference: failure.reference } : {}),
-    ...(failure?.status !== undefined ? { status: failure.status } : {}),
   };
 }
 
@@ -563,6 +530,9 @@ export interface PageFetchOptions {
   // reloading it to force activity is not ours to do — so user tabs are skipped
   // and an extension-owned context is created or explicitly navigated instead.
   requireFreshPageContext?: boolean;
+  // Host-supplied page-document check (Kick WAF JSON, etc.). Absent means any
+  // loaded origin tab is treated as usable.
+  isPageContextDocumentUsable?: (tabId: number, origin: string, signal?: AbortSignal) => Promise<boolean>;
 }
 
 // Page context to open when no token has been captured: a logged-in twitch.tv
@@ -1036,7 +1006,7 @@ async function findOrCreatePageContextTab(
   for (const tab of tabs) {
     if (requireFresh) break;
     if (tab.id == null || retainedIds.has(tab.id)) continue;
-    if (await isUsablePageContext(browserApi, tab.id, origin, signal)) {
+    if (await isUsablePageContext(browserApi, tab.id, origin, signal, options?.isPageContextDocumentUsable)) {
       tabId = tab.id;
       break;
     }
@@ -1071,7 +1041,7 @@ async function findOrCreatePageContextTab(
   if (retained?.origin === origin) {
     try {
       const tab = await withAbortSignal(browserApi.tabs.get(retained.tabId), signal);
-      if (tab?.id && tab.url?.startsWith(origin) && await isUsablePageContext(browserApi, tab.id, origin, signal)) {
+      if (tab?.id && tab.url?.startsWith(origin) && await isUsablePageContext(browserApi, tab.id, origin, signal, options?.isPageContextDocumentUsable)) {
         registry.retainedPageContextTabs.set(retained.platform, retained);
         registry.retainedPageContextRevision += 1;
         // We own this tab, so re-navigating it to boot the SPA again is safe —
@@ -1174,7 +1144,7 @@ async function findOrCreatePageContextTab(
     await withAbortSignal(browserApi.tabs.update(tab.id, { muted: true, active: false }), signal);
     await waitForPageContextReady(browserApi, tab.id, origin, signal);
     if (registry.twitchContextBoot?.tabId === tab.id) registry.twitchContextBoot.readyAt = Date.now();
-    if (!await isUsablePageContext(browserApi, tab.id, origin, signal)) {
+    if (!await isUsablePageContext(browserApi, tab.id, origin, signal, options?.isPageContextDocumentUsable)) {
       throw new SafeFetchError({
         kind: "security_policy_blocked",
         reason: "Kick page context is blocked or unusable",
@@ -1239,91 +1209,11 @@ async function isUsablePageContext(
   browserApi: BrowserTabApi,
   tabId: number,
   origin: string,
-  signal?: AbortSignal,
+  signal: AbortSignal | undefined,
+  check?: (tabId: number, origin: string, signal?: AbortSignal) => Promise<boolean>,
 ): Promise<boolean> {
-  if (origin !== "https://kick.com") return true;
-  return (await inspectKickDocument(browserApi, tabId, signal)).usable;
-}
-
-async function inspectKickDocument(
-  browserApi: BrowserTabApi,
-  tabId: number,
-  signal?: AbortSignal,
-): Promise<{ usable: true } | { usable: false; failure?: SafeFetchFailure }> {
-  signal?.throwIfAborted();
-  try {
-    if (browserApi.scripting?.executeScript) {
-      const [result] = await withAbortSignal(browserApi.scripting.executeScript({
-        target: { tabId },
-        world: "MAIN",
-        func: validateKickPageContext,
-      }), signal);
-      return normalizeKickDocumentInspection(result?.result);
-    }
-    if (browserApi.tabs.executeScript) {
-      const results = await withAbortSignal(
-        browserApi.tabs.executeScript(tabId, { code: `(${validateKickPageContext.toString()})()` }),
-        signal,
-      );
-      return normalizeKickDocumentInspection(results?.[0]);
-    }
-  } catch (error) {
-    signal?.throwIfAborted();
-    return { usable: false, failure: { kind: "invalid_response" } };
-  }
-  return { usable: false, failure: { kind: "invalid_response" } };
-}
-
-function normalizeKickDocumentInspection(
-  value: unknown,
-): { usable: true } | { usable: false; failure?: SafeFetchFailure } {
-  const record = value && typeof value === "object" ? value as {
-    usable?: unknown;
-    ok?: unknown;
-    failure?: SafeFetchFailure;
-  } : undefined;
-  if (record?.usable === true || record?.ok === true) return { usable: true };
-  return {
-    usable: false,
-    ...(record?.failure ? { failure: record.failure } : {}),
-  };
-}
-
-function validateKickPageContext(): { usable: boolean; failure?: SafeFetchFailure } {
-  const contentType = document.contentType?.toLowerCase() ?? "";
-  const text = document.body?.textContent?.trim().slice(0, 512) ?? "";
-  let body: Record<string, unknown> = {};
-  if (contentType.includes("json") || text.startsWith("{")) {
-    try {
-      const parsed = JSON.parse(text) as unknown;
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) body = parsed as Record<string, unknown>;
-    } catch {
-      return { usable: false, failure: { kind: "invalid_response" } };
-    }
-  }
-  const rawReason = typeof body.error === "string"
-    ? body.error
-    : typeof body.message === "string"
-      ? body.message
-      : undefined;
-  const reason = rawReason && rawReason.length <= 256 ? rawReason : undefined;
-  const blocked = /security policy|request blocked/i.test(reason ?? text);
-  if (contentType.includes("json") || blocked) {
-    const rawReference = body.reference;
-    const reference = (typeof rawReference === "string" && rawReference.length > 0 && rawReference.length <= 128)
-      || (typeof rawReference === "number" && Number.isFinite(rawReference))
-      ? rawReference
-      : undefined;
-    return {
-      usable: false,
-      failure: {
-        kind: blocked ? "security_policy_blocked" : "invalid_response",
-        ...(reason ? { reason } : {}),
-        ...(reference !== undefined ? { reference } : {}),
-      },
-    };
-  }
-  return { usable: contentType.includes("html") || document.documentElement?.tagName === "HTML" };
+  if (!check) return true;
+  return await check(tabId, origin, signal);
 }
 
 async function waitForPageContextReady(

@@ -40,7 +40,10 @@ import {
   reconcileManagedPageContextRecoveryWithBrowser,
   stopManagedPageContextTabsWithBrowser,
   stopWatchTabWithBrowser,
+  type BrowserTabApi,
+  type PageFetchOptions,
 } from "../src/core/browserTabs";
+import { isKickPageContextUsable } from "../src/core/kickPageDocument";
 import { isSafeFetchError } from "@lurkloot/core/fetchError";
 import { KICK_BEARER_NEAR_MISS_CASES, KICK_BEARER_POSITIVE_CASES } from "@lurkloot/core/kickBearerCases";
 
@@ -65,6 +68,15 @@ function browserMock() {
       query: vi.fn<() => Promise<Array<{ id?: number; url?: string; status?: string }>>>(async () => []),
       create: vi.fn(async () => ({ id: 9 })),
     },
+  };
+}
+
+// Production Kick page fetches attach this via createBrowserTabs; unit tests that
+// exercise Kick page-context usability must pass it explicitly.
+function kickPageOptions(browser: BrowserTabApi, options: PageFetchOptions = {}): PageFetchOptions {
+  return {
+    ...options,
+    isPageContextDocumentUsable: (tabId, origin, signal) => isKickPageContextUsable(browser, tabId, origin, signal),
   };
 }
 
@@ -160,7 +172,7 @@ describe("tab manager", () => {
       "https://kick.com/drops/inventory",
       "https://web.kick.com/api/v1/drops/progress?secret=value",
       undefined,
-      { retainPageContext: { platform: "kick" }, emit, openReason: "background_rejected" },
+      kickPageOptions(browser, { retainPageContext: { platform: "kick" }, emit, openReason: "background_rejected" }),
     );
     expect(browser.tabs.create).toHaveBeenCalledWith({
       url: "https://kick.com/drops/inventory",
@@ -386,7 +398,7 @@ describe("tab manager", () => {
       "https://kick.com/drops/inventory",
       "https://web.kick.com/api/v1/drops/progress",
       undefined,
-      { retainPageContext: { platform: "kick" } },
+      kickPageOptions(browserWithScripting, { retainPageContext: { platform: "kick" } }),
     );
     recordManagedPageContextFallback(registry, "kick", "web.kick.com");
     removal.resolve(undefined);
@@ -790,62 +802,33 @@ describe("tab manager", () => {
     expect(browser.tabs.update).toHaveBeenCalledWith(9, { pinned: true, muted: true, active: false });
   });
 
-  it("rejects a Kick watch tab that shows a security-policy document (#794)", async () => {
+  it("invokes the host watch-document hook after opening a Kick tab (#794)", async () => {
     const kickChannel: ChannelCandidate = {
       platform: "kick",
       username: "floridaboy",
       url: "https://kick.com/floridaboy",
     };
-    const browser = {
-      ...browserMock(),
-      scripting: {
-        executeScript: vi.fn(async () => [{
-          result: {
-            usable: false,
-            failure: {
-              kind: "security_policy_blocked",
-              reason: "Request blocked by security policy.",
-              reference: "c0e117f5",
-            },
-          },
-        }]),
-      },
-    };
+    const browser = browserMock();
     browser.tabs.create.mockResolvedValue({ id: 9 });
+    const assertWatchDocumentUsable = vi.fn(async () => undefined);
 
-    const error = await openPinnedMutedTabWithBrowser(registry, browser, kickChannel).catch((caught: unknown) => caught);
+    await openPinnedMutedTabWithBrowser(registry, browser, kickChannel, undefined, { assertWatchDocumentUsable });
 
-    expect(error).toBeInstanceOf(KickWafBlockedError);
-    if (!(error instanceof KickWafBlockedError)) throw new Error("Expected KickWafBlockedError");
-    expect(error.failure).toEqual({
-      kind: "security_policy_blocked",
-      reason: "Request blocked by security policy.",
-      reference: "c0e117f5",
+    expect(assertWatchDocumentUsable).toHaveBeenCalledWith({
+      tabId: 9,
+      channel: kickChannel,
+      signal: undefined,
+      closeOnFailure: false,
     });
-    expect(browser.tabs.remove).toHaveBeenCalledWith(9);
   });
 
-  it("closes a reused Kick watch tab when Kick serves a security-policy document (#794)", async () => {
+  it("surfaces SafeFetchErrors from the watch-document hook instead of opening a replacement (#794)", async () => {
     const kickChannel: ChannelCandidate = {
       platform: "kick",
       username: "floridaboy",
       url: "https://kick.com/floridaboy",
     };
-    const browser = {
-      ...browserMock(),
-      scripting: {
-        executeScript: vi.fn(async () => [{
-          result: {
-            usable: false,
-            failure: {
-              kind: "security_policy_blocked",
-              reason: "Request blocked by security policy.",
-              reference: "c0e117f5",
-            },
-          },
-        }]),
-      },
-    };
+    const browser = browserMock();
     browser.tabs.get.mockResolvedValue({
       id: 4,
       url: "https://kick.com/floridaboy",
@@ -854,18 +837,27 @@ describe("tab manager", () => {
       active: false,
       status: "complete",
     });
+    const blocked = new KickWafBlockedError({
+      kind: "security_policy_blocked",
+      reason: "Request blocked by security policy.",
+      reference: "c0e117f5",
+    });
 
-    const error = await openPinnedMutedTabWithBrowser(registry, browser, kickChannel, {
-      platform: "kick",
-      status: "watching",
-      offlineChecks: 0,
-      tabId: 4,
-      tabManagedByExtension: true,
-    }).catch((caught: unknown) => caught);
+    await expect(openPinnedMutedTabWithBrowser(
+      registry,
+      browser,
+      kickChannel,
+      {
+        platform: "kick",
+        status: "watching",
+        offlineChecks: 0,
+        tabId: 4,
+        tabManagedByExtension: true,
+      },
+      { assertWatchDocumentUsable: async () => { throw blocked; } },
+    )).rejects.toBe(blocked);
 
-    expect(error).toBeInstanceOf(KickWafBlockedError);
     expect(browser.tabs.create).not.toHaveBeenCalled();
-    expect(browser.tabs.remove).toHaveBeenCalledWith(4);
   });
 
   it("closes a newly created managed tab when creation finishes after cancellation", async () => {
@@ -1085,7 +1077,7 @@ describe("tab manager", () => {
       "https://kick.com/drops/inventory",
       "https://kick.com/api/v1/user",
       { signal: abort.signal },
-      { retainPageContext: { platform: "kick" } },
+      kickPageOptions(browser, { retainPageContext: { platform: "kick" } }),
     );
     await vi.waitFor(() => expect(executeScript).toHaveBeenCalledTimes(2));
 
@@ -1116,7 +1108,7 @@ describe("tab manager", () => {
       "https://kick.com/drops/inventory",
       "https://kick.com/api/v1/user",
       { signal: abort.signal },
-      { retainPageContext: { platform: "kick" } },
+      kickPageOptions(browser, { retainPageContext: { platform: "kick" } }),
     );
     await vi.waitFor(() => expect(executeScript).toHaveBeenCalledOnce());
 
@@ -1146,7 +1138,7 @@ describe("tab manager", () => {
       "https://kick.com/drops/inventory",
       "https://kick.com/api/v1/user",
       { signal: abort.signal },
-      { retainPageContext: { platform: "kick" } },
+      kickPageOptions(browser, { retainPageContext: { platform: "kick" } }),
     );
     abort.abort(reason);
     query.resolve([]);
@@ -1170,7 +1162,7 @@ describe("tab manager", () => {
       "https://kick.com/drops/inventory",
       "https://kick.com/api/v1/user",
       { signal: abort.signal },
-      { retainPageContext: { platform: "kick" } },
+      kickPageOptions(browser, { retainPageContext: { platform: "kick" } }),
     );
     const outcome = request.catch((error: unknown) => error);
     await vi.waitFor(() => expect(browser.scripting.executeScript).toHaveBeenCalledOnce());
@@ -1215,6 +1207,8 @@ describe("tab manager", () => {
       browser,
       "https://kick.com",
       "https://kick.com/api/v1/user",
+      undefined,
+      kickPageOptions(browser),
     ).catch((caught: unknown) => caught);
 
     expect(isSafeFetchError(error)).toBe(true);
@@ -1261,7 +1255,7 @@ describe("tab manager", () => {
       "https://kick.com/drops/inventory",
       "https://kick.com/api/v1/user",
       undefined,
-      { retainPageContext: { platform: "kick" } },
+      kickPageOptions(browser, { retainPageContext: { platform: "kick" } }),
     );
 
     expect(result).toEqual({ id: 42, username: "viewer" });
@@ -1289,7 +1283,7 @@ describe("tab manager", () => {
     browser.tabs.query.mockResolvedValue([{ id: 3 }]);
 
     await expect(
-      fetchJsonInPageWithBrowser(registry, browser, "https://kick.com", "https://web.kick.com/api/v1/drops/progress"),
+      fetchJsonInPageWithBrowser(registry, browser, "https://kick.com", "https://web.kick.com/api/v1/drops/progress", undefined, kickPageOptions(browser)),
     ).rejects.toThrow(/returned no script result/);
   });
 
@@ -1404,7 +1398,7 @@ describe("tab manager", () => {
       "https://kick.com",
       "https://web.kick.com/api/v1/drops/progress",
       undefined,
-      { retainPageContext: { platform: "kick" }, emit: (event) => events.push(event), openReason: "background_rejected" },
+      kickPageOptions(browser, { retainPageContext: { platform: "kick" }, emit: (event) => events.push(event), openReason: "background_rejected" }),
     );
 
     expect(browser.tabs.remove).toHaveBeenCalledWith(14);
@@ -1448,7 +1442,7 @@ describe("tab manager", () => {
       "https://kick.com/drops/inventory",
       "https://web.kick.com/api/v1/drops/progress",
       undefined,
-      { retainPageContext: { platform: "kick" }, openReason: "background_rejected" },
+      kickPageOptions(browser, { retainPageContext: { platform: "kick" }, openReason: "background_rejected" }),
     ).catch((caught: unknown) => caught);
 
     expect(isSafeFetchError(error)).toBe(true);
@@ -1503,7 +1497,7 @@ describe("tab manager", () => {
       "https://kick.com",
       "https://web.kick.com/api/v1/drops/progress",
       undefined,
-      { retainPageContext: { platform: "kick" } },
+      kickPageOptions(browser, { retainPageContext: { platform: "kick" } }),
     );
 
     expect(browser.tabs.get).not.toHaveBeenCalled();

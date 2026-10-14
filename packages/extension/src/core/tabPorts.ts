@@ -11,6 +11,7 @@ import {
   stopWatchTabWithBrowser,
   type BrowserTabApi,
 } from "./browserTabs";
+import { assertKickWatchTabUsable } from "./kickPageDocument";
 
 type TabSettings = Pick<
   ExtensionSettings,
@@ -43,6 +44,14 @@ export function createExtensionTabPorts(
           keepVideosUnmuted: settings.keepFarmingVideosUnmuted,
           closeManagedTabs: settings.autoCloseFinishedDrops,
           ...options,
+          // Kick WAF document policy lives in kickPageDocument; browserTabs only
+          // invokes the host hook (#794 / #598).
+          ...(channel.platform === "kick"
+            ? {
+              assertWatchDocumentUsable: ({ tabId, signal, closeOnFailure }) =>
+                assertKickWatchTabUsable(registry, browserApi, tabId, channel, emit, signal, { closeOnFailure }),
+            }
+            : {}),
         }, emit);
       },
       stop: async (session, options, emit) => {
