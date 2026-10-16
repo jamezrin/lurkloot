@@ -443,14 +443,23 @@
   "endsIn": {
     "message": "Se termine dans $1"
   },
+  "watchToGo": {
+    "message": "$1 à regarder"
+  },
   "left": {
     "message": "Restant"
   },
-  "watchTimeLeft": {
-    "message": "Temps de visionnage restant"
+  "campaignFactWatchTime": {
+    "message": "Temps de visionnage"
+  },
+  "watchTimeLeftValue": {
+    "message": "Reste $1"
+  },
+  "watchTimeNeeded": {
+    "message": "$1 nécessaires"
   },
   "watchTimeOfTotal": {
-    "message": "$1 sur $2"
+    "message": "sur $1 au total"
   },
   "done": {
     "message": "Terminé"
@@ -1762,6 +1771,9 @@
   },
   "relativeAgo": {
     "message": "il y a $1"
+  },
+  "campaignLasts": {
+    "message": "Dure $1"
   },
   "campaignFactEnded": {
     "message": "Terminée"

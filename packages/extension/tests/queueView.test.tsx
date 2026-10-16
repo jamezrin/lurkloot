@@ -405,7 +405,7 @@ describe("campaign status pill", () => {
       settings,
     );
 
-    expect(status(container, "dated")).toMatch(/^2d/);
+    expect(status(container, "dated")).toMatch(/^endsIn:2d/);
     // No end date is not "later left": the row simply carries no deadline.
     expect(status(container, "undated")).toBeNull();
     expect(container.querySelector('[data-campaign-id="undated"]')?.textContent).not.toContain(
@@ -472,8 +472,12 @@ describe("campaign status pill", () => {
     const row = (id: string) => container.querySelector(`[data-campaign-id="${id}"]`)!;
 
     // 150 of 180 minutes still to watch, whatever the end.
-    expect(row("tight").querySelector("[data-campaign-watch-left]")?.textContent).toBe("2h 30m");
-    expect(row("roomy").querySelector("[data-campaign-watch-left]")?.textContent).toBe("2h 30m");
+    expect(row("tight").querySelector("[data-campaign-watch-left]")?.textContent).toBe(
+      "watchToGo:2h 30m",
+    );
+    expect(row("roomy").querySelector("[data-campaign-watch-left]")?.textContent).toBe(
+      "watchToGo:2h 30m",
+    );
     // An hour left reaches minute 90 of 180: the long reward is cut off.
     const cut = row("tight").querySelector<HTMLElement>("[data-campaign-out-of-time]");
     expect(cut?.style.insetInlineStart).toMatch(/^50\./);
@@ -797,40 +801,100 @@ describe("completed view", () => {
 });
 
 describe("campaign boundaries", () => {
-  it("gives an upcoming campaign's start its own countdown, not just its end", () => {
+  const card = (container: Element, id: string) =>
+    container.querySelector(`[data-campaign-id="${id}"]`)!;
+  // Each column of the expanded card's times group, as its lines of text.
+  const times = (element: Element): string[][] =>
+    [...element.querySelectorAll("[data-campaign-times] > div")].map((column) =>
+      [...column.children].map((line) => line.textContent ?? ""),
+    );
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function at(offsetMinutes: number): string {
+    return new Date(Date.now() + offsetMinutes * 60_000).toISOString();
+  }
+
+  it("shows an upcoming campaign's start and end, each with its own distance from now", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-16T12:00:00Z"));
     const settings = mergeSettings(undefined);
-    const startsAt = new Date(Date.now() + 50 * 3_600_000 + 30_000).toISOString();
-    const endsAt = new Date(Date.now() + 14 * 86_400_000 + 30_000).toISOString();
     const { container } = queue(
       views(
         [
           campaign("now"),
-          campaign("later", { status: "upcoming", eligibility: "upcoming", startsAt, endsAt }),
+          campaign("later", {
+            status: "upcoming",
+            eligibility: "upcoming",
+            startsAt: at(50 * 60),
+            endsAt: at(14 * 24 * 60),
+          }),
         ],
         settings,
       ),
       settings,
     );
     expand(container, "upcoming");
-    const text = openCard(container, "later").textContent ?? "";
+    const row = card(container, "later");
 
-    expect(text).toMatch(/campaignFactStarts[^·]+· relativeIn:2d 2h/);
-    expect(text).toMatch(/campaignFactEnds[^·]+· relativeIn:14d 0h/);
+    expect(row.querySelector("[data-campaign-status]")?.textContent).toBe("startsIn:2d 2h");
+    // The row's tooltip names both boundaries and how long the campaign runs.
+    const hint = row.querySelector("[data-campaign-status]")?.getAttribute("data-tooltip") ?? "";
+    expect(hint.split("\n")).toEqual([
+      expect.stringMatching(/^campaignFactStarts: .+ \(relativeIn:2d 2h\)$/),
+      expect.stringMatching(/^campaignFactEnds: .+ \(relativeIn:14d\)$/),
+      "campaignLasts:11d 22h",
+    ]);
+
+    openCard(container, "later");
+    const [starts, ends, watch] = times(row);
+    expect(starts?.[0]).toBe("campaignFactStarts");
+    expect(starts?.[2]).toBe("relativeIn:2d 2h");
+    expect(ends?.[0]).toBe("campaignFactEnds");
+    expect(ends?.[2]).toBe("relativeIn:14d");
+    // Nothing watched yet: the whole requirement, not "30m of 30m".
+    expect(watch).toEqual(["campaignFactWatchTime", "watchTimeNeeded:30m"]);
   });
 
-  it("says when a running campaign started and how long ago", () => {
+  it("shows when a running campaign started and how much watching is left of the whole", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-16T12:00:00Z"));
     const settings = mergeSettings(undefined);
-    const startsAt = new Date(Date.now() - 3 * 3_600_000 - 30_000).toISOString();
-    const endsAt = new Date(Date.now() + 2 * 86_400_000 + 30_000).toISOString();
-    const { container } = queue(
-      views([campaign("running", { startsAt, endsAt })], settings),
-      settings,
-    );
-    const text = openCard(container, "running").textContent ?? "";
+    const running = campaign("running", { startsAt: at(-3 * 60), endsAt: at(2 * 24 * 60) });
+    running.rewards[0] = { ...running.rewards[0]!, watchedMinutes: 10, status: "in_progress" };
+    const { container } = queue(views([running], settings), settings);
+    const row = card(container, "running");
 
-    expect(text).toMatch(/campaignFactStarted[^·]+· relativeAgo:3h 0m/);
-    expect(text).toMatch(/campaignFactEnds[^·]+· relativeIn:2d 0h/);
-    expect(text).toContain("watchTimeLeft");
-    expect(text).toContain("watchTimeOfTotal:30m, 30m");
+    expect(row.querySelector("[data-campaign-status]")?.textContent).toBe("endsIn:2d");
+    expect(row.querySelector("[data-campaign-watch-left]")?.textContent).toBe("watchToGo:20m");
+
+    openCard(container, "running");
+    const [started, ends, watch] = times(row);
+    expect(started?.[0]).toBe("campaignFactStarted");
+    expect(started?.[2]).toBe("relativeAgo:3h");
+    expect(ends?.[2]).toBe("relativeIn:2d");
+    expect(watch).toEqual([
+      "campaignFactWatchTime",
+      "watchTimeLeftValue:20m",
+      "watchTimeOfTotal:30m",
+    ]);
+  });
+
+  it("warns in the card when the watching left cannot fit before the end", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-16T12:00:00Z"));
+    const settings = mergeSettings(undefined);
+    // Shown in the queue whatever the skip setting would do with it.
+    const [tight] = views([campaign("tight", { startsAt: at(-60), endsAt: at(10) })], settings);
+    const { container } = queue([{ ...tight!, section: "queue" }], settings);
+    const row = openCard(container, "tight");
+
+    expect(times(row)[2]).toEqual([
+      "campaignFactWatchTime",
+      "watchTimeNeeded:30m",
+      "insufficientTimeRemaining",
+    ]);
   });
 });

@@ -443,14 +443,23 @@
   "endsIn": {
     "message": "$1 后结束"
   },
+  "watchToGo": {
+    "message": "还需看 $1"
+  },
   "left": {
     "message": "剩余"
   },
-  "watchTimeLeft": {
-    "message": "还需观看"
+  "campaignFactWatchTime": {
+    "message": "观看时长"
+  },
+  "watchTimeLeftValue": {
+    "message": "剩余 $1"
+  },
+  "watchTimeNeeded": {
+    "message": "需要 $1"
   },
   "watchTimeOfTotal": {
-    "message": "$1 / $2"
+    "message": "共 $1"
   },
   "done": {
     "message": "完成"
@@ -1762,6 +1771,9 @@
   },
   "relativeAgo": {
     "message": "$1前"
+  },
+  "campaignLasts": {
+    "message": "持续 $1"
   },
   "campaignFactEnded": {
     "message": "已结束"

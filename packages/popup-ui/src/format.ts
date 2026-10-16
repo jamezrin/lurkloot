@@ -37,12 +37,13 @@ export function formatRelative(value: string, t: TFunction): string {
   return diff > 0 ? t("relativeIn", formatSpan(diff)) : t("relativeAgo", formatSpan(-diff));
 }
 
-function formatSpan(ms: number): string {
+export function formatSpan(ms: number): string {
   const days = Math.floor(ms / 86_400_000);
   const hours = Math.floor((ms % 86_400_000) / 3_600_000);
   const minutes = Math.floor((ms % 3_600_000) / 60_000);
-  if (days > 0) return `${days}d ${hours}h`;
-  if (hours > 0) return `${hours}h ${minutes}m`;
+  // A zero second unit says nothing: "12d", not "12d 0h".
+  if (days > 0) return hours ? `${days}d ${hours}h` : `${days}d`;
+  if (hours > 0) return minutes ? `${hours}h ${minutes}m` : `${hours}h`;
   return `${minutes}m`;
 }
 
@@ -69,11 +70,15 @@ export function formatDateTime(value: string, locale: string): string {
   const time = Date.parse(value);
   if (!value || Number.isNaN(time)) return "";
   try {
+    // The year only when it is not this one, so a campaign that crosses New
+    // Year cannot be read as ending before it starts.
+    const date = new Date(time);
     // Catalog codes use an underscore (pt_BR, zh_CN); BCP 47 wants a hyphen.
-    return new Date(time).toLocaleString(locale.replace(/_/g, "-"), {
+    return date.toLocaleString(locale.replace(/_/g, "-"), {
       weekday: "short",
       day: "numeric",
       month: "short",
+      ...(date.getFullYear() === new Date().getFullYear() ? {} : { year: "numeric" }),
       hour: "2-digit",
       minute: "2-digit",
     });

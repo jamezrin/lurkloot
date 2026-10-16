@@ -26,6 +26,7 @@ import {
   formatDateTime,
   formatMinutes,
   formatRelative,
+  formatSpan,
   formatViewers,
 } from "./format";
 import { campaignStats, campaignTimeline } from "./viewModels";
@@ -181,25 +182,18 @@ export function CampaignCard({
     String(stats.completed),
     String(stats.totalRewards),
   ]);
+  const schedule = scheduleHint(campaign, t, locale);
   const deadline: { tone: DeadlineTone; label: string; hint?: string } | undefined = finished
-    ? { tone: expired ? "muted" : "done", label: t(expired ? "expiredPill" : "finished") }
+    ? {
+        tone: expired ? "muted" : "done",
+        label: t(expired ? "expiredPill" : "finished"),
+        hint: schedule,
+      }
     : upcoming
-      ? {
-          tone: "muted",
-          label: startsLabel(campaign.starts, t),
-          hint: campaign.starts
-            ? `${t("campaignFactStarts")} · ${formatDateTime(campaign.starts, locale)}`
-            : undefined,
-        }
+      ? { tone: "muted", label: startsLabel(campaign.starts, t), hint: schedule }
       : (() => {
           const label = timeLeftLabel(campaign.ends, t);
-          return label
-            ? {
-                tone: endsSoon ? "hot" : "muted",
-                label,
-                hint: `${t("campaignFactEnds")} · ${formatDateTime(campaign.ends, locale)}`,
-              }
-            : undefined;
+          return label ? { tone: endsSoon ? "hot" : "muted", label, hint: schedule } : undefined;
         })();
   // Watching still needed for every reward, set against the time the campaign
   // has left to run. When it cannot all fit, the row says so and the bar marks
@@ -214,6 +208,20 @@ export function CampaignCard({
     : Math.max(0, (endsAt - windowStart) / 60_000);
   const outOfTime =
     watchLeft !== undefined && minutesToEnd !== undefined && watchLeft > minutesToEnd;
+  // The watch time as words: what is left, against the whole when some of it is
+  // done, and whether it still fits before the end.
+  const watchTimeValue = stats.complete
+    ? t("done")
+    : timeline && timeline.remainingMinutes > 0
+      ? timeline.remainingMinutes < timeline.totalMinutes
+        ? t("watchTimeLeftValue", formatMinutes(timeline.remainingMinutes))
+        : t("watchTimeNeeded", formatMinutes(timeline.totalMinutes))
+      : t("subscriptionProgressUnknown");
+  const watchTimeDetail = outOfTime
+    ? t("insufficientTimeRemaining")
+    : !stats.complete && timeline && timeline.remainingMinutes < timeline.totalMinutes
+      ? t("watchTimeOfTotal", formatMinutes(timeline.totalMinutes))
+      : undefined;
   const reachable =
     outOfTime && timeline
       ? (timeline.totalMinutes - timeline.remainingMinutes + minutesToEnd!) / timeline.totalMinutes
@@ -411,12 +419,11 @@ export function CampaignCard({
                   <RowFact
                     attribute="data-campaign-watch-left"
                     icon={<Hourglass size={10} aria-hidden="true" />}
-                    label={formatMinutes(watchLeft)}
-                    hint={
-                      outOfTime
-                        ? `${t("watchTimeLeft")} · ${formatMinutes(watchLeft)} · ${t("insufficientTimeRemaining")}`
-                        : `${t("watchTimeLeft")} · ${formatMinutes(watchLeft)}`
-                    }
+                    label={t("watchToGo", formatMinutes(watchLeft))}
+                    hint={[
+                      `${t("campaignFactWatchTime")}: ${watchTimeValue}`,
+                      ...(watchTimeDetail ? [watchTimeDetail] : []),
+                    ].join("\n")}
                     className={
                       outOfTime ? "font-medium text-amber-600 dark:text-amber-400" : undefined
                     }
@@ -600,27 +607,35 @@ export function CampaignCard({
                   }
                 />
               </div>
-              <div className="flex flex-wrap gap-x-4 gap-y-1.5">
-                {/* Both boundaries, each as a date and as a distance from now,
-                    so neither countdown can be read as the other. */}
-                {!finished && !Number.isNaN(startsAt) ? (
+              {/* When the campaign runs and how much watching it still takes,
+                  side by side: each boundary as a date with its distance from
+                  now under it, so no countdown can be read as the other. */}
+              <div data-campaign-times className="grid grid-cols-3 gap-x-4">
+                {Number.isNaN(startsAt) ? null : (
                   <Fact
                     label={t(startsAt > Date.now() ? "campaignFactStarts" : "campaignFactStarted")}
-                    value={`${formatDateTime(campaign.starts, locale)} · ${formatRelative(campaign.starts, t)}`}
-                  />
-                ) : null}
-                {Number.isNaN(endsAt) ? null : (
-                  <Fact
-                    label={t(
-                      finished || endsAt <= Date.now() ? "campaignFactEnded" : "campaignFactEnds",
-                    )}
-                    value={
-                      finished
-                        ? formatDateTime(campaign.ends, locale)
-                        : `${formatDateTime(campaign.ends, locale)} · ${formatRelative(campaign.ends, t)}`
-                    }
+                    value={formatDateTime(campaign.starts, locale)}
+                    detail={formatRelative(campaign.starts, t)}
                   />
                 )}
+                {Number.isNaN(endsAt) ? null : (
+                  <Fact
+                    label={t(endsAt > Date.now() ? "campaignFactEnds" : "campaignFactEnded")}
+                    value={formatDateTime(campaign.ends, locale)}
+                    detail={formatRelative(campaign.ends, t)}
+                    tone={endsSoon ? "warning" : undefined}
+                  />
+                )}
+                {!finished && showsWatchProgress ? (
+                  <Fact
+                    label={t("campaignFactWatchTime")}
+                    value={watchTimeValue}
+                    detail={watchTimeDetail}
+                    tone={outOfTime ? "warning" : undefined}
+                  />
+                ) : null}
+              </div>
+              <div className="flex flex-wrap gap-x-4 gap-y-1.5">
                 {!finished && farmingNow && campaign.farmingChannel ? (
                   <Fact label={t("campaignFactWatching")}>
                     {campaign.farmingChannel.url ? (
@@ -654,21 +669,6 @@ export function CampaignCard({
                   <Fact
                     label={t("campaignFactNextReward")}
                     value={`${stats.nextReward.name} · ${formatMinutes(stats.nextRewardRemaining)} ${t("left").toLowerCase()}`}
-                  />
-                ) : null}
-                {!finished && showsWatchProgress ? (
-                  <Fact
-                    label={t("watchTimeLeft")}
-                    value={
-                      stats.complete
-                        ? t("done")
-                        : timeline && timeline.remainingMinutes > 0
-                          ? t("watchTimeOfTotal", [
-                              formatMinutes(timeline.remainingMinutes),
-                              formatMinutes(timeline.totalMinutes),
-                            ])
-                          : t("subscriptionProgressUnknown")
-                    }
                   />
                 ) : null}
                 {rankReason ? <Fact label={t("campaignFactWhyRank")} value={rankReason} /> : null}
@@ -725,7 +725,31 @@ function timeLeftLabel(ends: string, t: TFunction): string | undefined {
   const at = Date.parse(ends);
   if (Number.isNaN(at)) return undefined;
   if (at <= Date.now()) return t("ended");
-  return formatCountdown(ends, t);
+  return t("endsIn", formatCountdown(ends, t));
+}
+
+// The row's tooltip: both boundaries with their dates and distances from now,
+// one per line, then how long the campaign runs.
+function scheduleHint(campaign: CampaignView, t: TFunction, locale: string): string | undefined {
+  const startsAt = Date.parse(campaign.starts);
+  const endsAt = Date.parse(campaign.ends);
+  const now = Date.now();
+  const lines = [
+    ...(Number.isNaN(startsAt)
+      ? []
+      : [
+          `${t(startsAt > now ? "campaignFactStarts" : "campaignFactStarted")}: ${formatDateTime(campaign.starts, locale)} (${formatRelative(campaign.starts, t)})`,
+        ]),
+    ...(Number.isNaN(endsAt)
+      ? []
+      : [
+          `${t(endsAt > now ? "campaignFactEnds" : "campaignFactEnded")}: ${formatDateTime(campaign.ends, locale)} (${formatRelative(campaign.ends, t)})`,
+        ]),
+    ...(!Number.isNaN(startsAt) && !Number.isNaN(endsAt) && endsAt > startsAt
+      ? [t("campaignLasts", formatSpan(endsAt - startsAt))]
+      : []),
+  ];
+  return lines.length > 0 ? lines.join("\n") : undefined;
 }
 
 function startsLabel(starts: string, t: TFunction): string {
@@ -953,18 +977,42 @@ function CampaignChannels({ campaign }: { campaign: CampaignView }): React.React
 function Fact({
   label,
   value,
+  detail,
+  tone,
   children,
 }: {
   label: string;
   value?: string;
+  // A second, quieter line under the value, such as "in 2d 4h".
+  detail?: string;
+  tone?: "warning";
   children?: React.ReactNode;
 }): React.ReactElement {
   return (
     <div className="flex min-w-0 flex-col gap-0.5">
       <span className="text-[10.5px] text-zinc-500 dark:text-zinc-400">{label}</span>
-      <span className="text-[11px] font-medium text-zinc-800 tabular dark:text-zinc-100">
+      <span
+        className={cn(
+          "text-[11px] font-medium tabular",
+          tone === "warning"
+            ? "text-amber-600 dark:text-amber-400"
+            : "text-zinc-800 dark:text-zinc-100",
+        )}
+      >
         {value ?? children}
       </span>
+      {detail ? (
+        <span
+          className={cn(
+            "text-[10.5px] tabular",
+            tone === "warning"
+              ? "text-amber-600 dark:text-amber-400"
+              : "text-zinc-500 dark:text-zinc-400",
+          )}
+        >
+          {detail}
+        </span>
+      ) : null}
     </div>
   );
 }

@@ -443,14 +443,23 @@
   "endsIn": {
     "message": "$1 में समाप्त"
   },
+  "watchToGo": {
+    "message": "$1 देखना बाकी"
+  },
   "left": {
     "message": "बाकी"
   },
-  "watchTimeLeft": {
-    "message": "देखने का शेष समय"
+  "campaignFactWatchTime": {
+    "message": "देखने का समय"
+  },
+  "watchTimeLeftValue": {
+    "message": "$1 शेष"
+  },
+  "watchTimeNeeded": {
+    "message": "$1 चाहिए"
   },
   "watchTimeOfTotal": {
-    "message": "$2 में से $1"
+    "message": "कुल $1 में से"
   },
   "done": {
     "message": "हो गया"
@@ -1762,6 +1771,9 @@
   },
   "relativeAgo": {
     "message": "$1 पहले"
+  },
+  "campaignLasts": {
+    "message": "$1 तक चलेगा"
   },
   "campaignFactEnded": {
     "message": "समाप्त हुआ"

@@ -443,14 +443,23 @@
   "endsIn": {
     "message": "ينتهي خلال $1"
   },
+  "watchToGo": {
+    "message": "$1 للمشاهدة"
+  },
   "left": {
     "message": "المتبقي"
   },
-  "watchTimeLeft": {
-    "message": "وقت المشاهدة المتبقي"
+  "campaignFactWatchTime": {
+    "message": "وقت المشاهدة"
+  },
+  "watchTimeLeftValue": {
+    "message": "متبقٍ $1"
+  },
+  "watchTimeNeeded": {
+    "message": "يلزم $1"
   },
   "watchTimeOfTotal": {
-    "message": "$1 من $2"
+    "message": "من أصل $1"
   },
   "done": {
     "message": "تم"
@@ -1762,6 +1771,9 @@
   },
   "relativeAgo": {
     "message": "منذ $1"
+  },
+  "campaignLasts": {
+    "message": "تستمر $1"
   },
   "campaignFactEnded": {
     "message": "انتهت"

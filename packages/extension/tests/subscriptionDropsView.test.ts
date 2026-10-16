@@ -44,8 +44,10 @@ function campaign(id: string, rewards: DropReward[]): DropCampaign {
 
 const testMessages: Record<string, string> = {
   actionRequired: "Action required",
-  watchTimeLeft: "Watch time left",
-  watchTimeOfTotal: "$1 of $2",
+  campaignFactWatchTime: "Watch time",
+  watchTimeLeftValue: "$1 left",
+  watchTimeNeeded: "$1 needed",
+  watchTimeOfTotal: "of $1 total",
   earned: "Earned",
   excluded: "Excluded",
   excludeFromFarming: "Exclude from farming",
@@ -299,8 +301,8 @@ describe("subscription drop popup views", () => {
     expect(markup).toContain("30m left");
     // Watch rewards count up together from the same viewing, so the campaign
     // is done when its longest reward is, not after the sum of them all.
-    expect(markup).toContain(">4h of 4h<");
-    expect(markup).toContain("Watch time left");
+    expect(markup).toContain(">4h needed<");
+    expect(markup).toContain("Watch time");
     expect(markup).not.toContain(">left<");
   });
 
