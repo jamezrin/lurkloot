@@ -795,3 +795,42 @@ describe("completed view", () => {
     expect(card.querySelector("[data-campaign-exclude]")).toBeNull();
   });
 });
+
+describe("campaign boundaries", () => {
+  it("gives an upcoming campaign's start its own countdown, not just its end", () => {
+    const settings = mergeSettings(undefined);
+    const startsAt = new Date(Date.now() + 50 * 3_600_000 + 30_000).toISOString();
+    const endsAt = new Date(Date.now() + 14 * 86_400_000 + 30_000).toISOString();
+    const { container } = queue(
+      views(
+        [
+          campaign("now"),
+          campaign("later", { status: "upcoming", eligibility: "upcoming", startsAt, endsAt }),
+        ],
+        settings,
+      ),
+      settings,
+    );
+    expand(container, "upcoming");
+    const text = openCard(container, "later").textContent ?? "";
+
+    expect(text).toMatch(/campaignFactStarts[^·]+· relativeIn:2d 2h/);
+    expect(text).toMatch(/campaignFactEnds[^·]+· relativeIn:14d 0h/);
+  });
+
+  it("says when a running campaign started and how long ago", () => {
+    const settings = mergeSettings(undefined);
+    const startsAt = new Date(Date.now() - 3 * 3_600_000 - 30_000).toISOString();
+    const endsAt = new Date(Date.now() + 2 * 86_400_000 + 30_000).toISOString();
+    const { container } = queue(
+      views([campaign("running", { startsAt, endsAt })], settings),
+      settings,
+    );
+    const text = openCard(container, "running").textContent ?? "";
+
+    expect(text).toMatch(/campaignFactStarted[^·]+· relativeAgo:3h 0m/);
+    expect(text).toMatch(/campaignFactEnds[^·]+· relativeIn:2d 0h/);
+    expect(text).toContain("watchTimeLeft");
+    expect(text).toContain("watchTimeOfTotal:30m, 30m");
+  });
+});

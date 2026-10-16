@@ -446,8 +446,11 @@
   "left": {
     "message": "المتبقي"
   },
-  "campaignLeft": {
-    "message": "المتبقي للحملة"
+  "watchTimeLeft": {
+    "message": "وقت المشاهدة المتبقي"
+  },
+  "watchTimeOfTotal": {
+    "message": "$1 من $2"
   },
   "done": {
     "message": "تم"
@@ -1748,8 +1751,17 @@
   "campaignFactStarts": {
     "message": "يبدأ"
   },
+  "campaignFactStarted": {
+    "message": "بدأت"
+  },
   "campaignFactEnds": {
     "message": "ينتهي"
+  },
+  "relativeIn": {
+    "message": "خلال $1"
+  },
+  "relativeAgo": {
+    "message": "منذ $1"
   },
   "campaignFactEnded": {
     "message": "انتهت"

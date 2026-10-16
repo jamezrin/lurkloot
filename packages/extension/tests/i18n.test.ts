@@ -314,6 +314,8 @@ describe("i18n", () => {
       "screenshotUpdatedHeadlessTitle",
       "screenshotUpdatedDockerTitle",
       "screenshotUpdatedLicense",
+      // "in $1" is the same phrase in German.
+      "relativeIn",
     ]);
 
     for (const locale of localeCodes().filter((entry) => entry !== "en")) {

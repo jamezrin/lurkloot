@@ -21,7 +21,13 @@ import {
 } from "lucide-react";
 import type { CategorySelection } from "@lurkloot/shared/models";
 import { I18nContext, PopupRuntimeContext, SubscriptionMarkContext, useT } from "./context";
-import { formatCountdown, formatDateTime, formatMinutes, formatViewers } from "./format";
+import {
+  formatCountdown,
+  formatDateTime,
+  formatMinutes,
+  formatRelative,
+  formatViewers,
+} from "./format";
 import { campaignStats, campaignTimeline } from "./viewModels";
 import type { CampaignTimeline, CampaignView, GameItem, RewardView, TFunction } from "./types";
 import {
@@ -408,8 +414,8 @@ export function CampaignCard({
                     label={formatMinutes(watchLeft)}
                     hint={
                       outOfTime
-                        ? `${t("campaignLeft")} · ${formatMinutes(watchLeft)} · ${t("insufficientTimeRemaining")}`
-                        : `${t("campaignLeft")} · ${formatMinutes(watchLeft)}`
+                        ? `${t("watchTimeLeft")} · ${formatMinutes(watchLeft)} · ${t("insufficientTimeRemaining")}`
+                        : `${t("watchTimeLeft")} · ${formatMinutes(watchLeft)}`
                     }
                     className={
                       outOfTime ? "font-medium text-amber-600 dark:text-amber-400" : undefined
@@ -595,19 +601,23 @@ export function CampaignCard({
                 />
               </div>
               <div className="flex flex-wrap gap-x-4 gap-y-1.5">
-                {upcoming ? (
+                {/* Both boundaries, each as a date and as a distance from now,
+                    so neither countdown can be read as the other. */}
+                {!finished && !Number.isNaN(startsAt) ? (
                   <Fact
-                    label={t("campaignFactStarts")}
-                    value={formatDateTime(campaign.starts, locale)}
+                    label={t(startsAt > Date.now() ? "campaignFactStarts" : "campaignFactStarted")}
+                    value={`${formatDateTime(campaign.starts, locale)} · ${formatRelative(campaign.starts, t)}`}
                   />
                 ) : null}
                 {Number.isNaN(endsAt) ? null : (
                   <Fact
-                    label={t(finished ? "campaignFactEnded" : "campaignFactEnds")}
+                    label={t(
+                      finished || endsAt <= Date.now() ? "campaignFactEnded" : "campaignFactEnds",
+                    )}
                     value={
                       finished
                         ? formatDateTime(campaign.ends, locale)
-                        : `${formatDateTime(campaign.ends, locale)} · ${formatCountdown(campaign.ends, t)}`
+                        : `${formatDateTime(campaign.ends, locale)} · ${formatRelative(campaign.ends, t)}`
                     }
                   />
                 )}
@@ -648,12 +658,15 @@ export function CampaignCard({
                 ) : null}
                 {!finished && showsWatchProgress ? (
                   <Fact
-                    label={t("campaignLeft")}
+                    label={t("watchTimeLeft")}
                     value={
                       stats.complete
                         ? t("done")
                         : timeline && timeline.remainingMinutes > 0
-                          ? formatMinutes(timeline.remainingMinutes)
+                          ? t("watchTimeOfTotal", [
+                              formatMinutes(timeline.remainingMinutes),
+                              formatMinutes(timeline.totalMinutes),
+                            ])
                           : t("subscriptionProgressUnknown")
                     }
                   />

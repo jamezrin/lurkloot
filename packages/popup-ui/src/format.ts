@@ -25,9 +25,22 @@ export function formatCountdown(value: string, t: TFunction): string {
   if (!value || Number.isNaN(timestamp)) return t("later");
   const diff = timestamp - Date.now();
   if (diff <= 0) return t("ended");
-  const days = Math.floor(diff / 86_400_000);
-  const hours = Math.floor((diff % 86_400_000) / 3_600_000);
-  const minutes = Math.floor((diff % 3_600_000) / 60_000);
+  return formatSpan(diff);
+}
+
+// A campaign boundary relative to now, saying which side of it we are on: "in
+// 2d 4h" before it, "3d 1h ago" after. Empty when the time is unknown.
+export function formatRelative(value: string, t: TFunction): string {
+  const timestamp = Date.parse(value);
+  if (!value || Number.isNaN(timestamp)) return "";
+  const diff = timestamp - Date.now();
+  return diff > 0 ? t("relativeIn", formatSpan(diff)) : t("relativeAgo", formatSpan(-diff));
+}
+
+function formatSpan(ms: number): string {
+  const days = Math.floor(ms / 86_400_000);
+  const hours = Math.floor((ms % 86_400_000) / 3_600_000);
+  const minutes = Math.floor((ms % 3_600_000) / 60_000);
   if (days > 0) return `${days}d ${hours}h`;
   if (hours > 0) return `${hours}h ${minutes}m`;
   return `${minutes}m`;

@@ -446,8 +446,11 @@
   "left": {
     "message": "बाकी"
   },
-  "campaignLeft": {
-    "message": "अभियान शेष"
+  "watchTimeLeft": {
+    "message": "देखने का शेष समय"
+  },
+  "watchTimeOfTotal": {
+    "message": "$2 में से $1"
   },
   "done": {
     "message": "हो गया"
@@ -1748,8 +1751,17 @@
   "campaignFactStarts": {
     "message": "शुरू"
   },
+  "campaignFactStarted": {
+    "message": "शुरू हुआ"
+  },
   "campaignFactEnds": {
     "message": "समाप्त"
+  },
+  "relativeIn": {
+    "message": "$1 में"
+  },
+  "relativeAgo": {
+    "message": "$1 पहले"
   },
   "campaignFactEnded": {
     "message": "समाप्त हुआ"

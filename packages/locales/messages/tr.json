@@ -446,8 +446,11 @@
   "left": {
     "message": "kaldı"
   },
-  "campaignLeft": {
-    "message": "Kampanyada kalan"
+  "watchTimeLeft": {
+    "message": "Kalan izleme süresi"
+  },
+  "watchTimeOfTotal": {
+    "message": "$1 / $2"
   },
   "done": {
     "message": "Bitti"
@@ -1748,8 +1751,17 @@
   "campaignFactStarts": {
     "message": "Başlangıç"
   },
+  "campaignFactStarted": {
+    "message": "Başladı"
+  },
   "campaignFactEnds": {
     "message": "Bitiş"
+  },
+  "relativeIn": {
+    "message": "$1 içinde"
+  },
+  "relativeAgo": {
+    "message": "$1 önce"
   },
   "campaignFactEnded": {
     "message": "Bitti"

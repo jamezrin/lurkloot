@@ -446,8 +446,11 @@
   "left": {
     "message": "Restant"
   },
-  "campaignLeft": {
-    "message": "Restant pour la campagne"
+  "watchTimeLeft": {
+    "message": "Temps de visionnage restant"
+  },
+  "watchTimeOfTotal": {
+    "message": "$1 sur $2"
   },
   "done": {
     "message": "Terminé"
@@ -1748,8 +1751,17 @@
   "campaignFactStarts": {
     "message": "Début"
   },
+  "campaignFactStarted": {
+    "message": "Commencée"
+  },
   "campaignFactEnds": {
     "message": "Fin"
+  },
+  "relativeIn": {
+    "message": "dans $1"
+  },
+  "relativeAgo": {
+    "message": "il y a $1"
   },
   "campaignFactEnded": {
     "message": "Terminée"

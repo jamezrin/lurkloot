@@ -446,8 +446,11 @@
   "left": {
     "message": "剩余"
   },
-  "campaignLeft": {
+  "watchTimeLeft": {
     "message": "还需观看"
+  },
+  "watchTimeOfTotal": {
+    "message": "$1 / $2"
   },
   "done": {
     "message": "完成"
@@ -1748,8 +1751,17 @@
   "campaignFactStarts": {
     "message": "开始"
   },
+  "campaignFactStarted": {
+    "message": "已开始"
+  },
   "campaignFactEnds": {
     "message": "结束"
+  },
+  "relativeIn": {
+    "message": "$1后"
+  },
+  "relativeAgo": {
+    "message": "$1前"
   },
   "campaignFactEnded": {
     "message": "已结束"
