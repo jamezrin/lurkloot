@@ -184,19 +184,20 @@ describe("i18n", () => {
     }
   });
 
-  it("uses the native Turkish language name", () => {
-    const turkish = readCatalog("tr");
-    expect(turkish.languageTurkish?.message).toBe("Türkçe");
-    expect(turkish.subscriptionCampaigns?.message).toBe("Abonelik kampanyaları");
-  });
-
-  it("uses each new locale's native language name", () => {
-    expect(readCatalog("ja").languageJapanese?.message).toBe("日本語");
-    expect(readCatalog("id").languageIndonesian?.message).toBe("Bahasa Indonesia");
-    expect(readCatalog("pl").languagePolish?.message).toBe("Polski");
-    expect(readCatalog("ko").languageKorean?.message).toBe("한국어");
-    expect(readCatalog("uk").languageUkrainian?.message).toBe("Українська");
-    expect(readCatalog("cs").languageCzech?.message).toBe("Čeština");
+  it("uses each catalog's native language name", () => {
+    const names: Record<string, [string, string]> = {
+      tr: ["languageTurkish", "Türkçe"],
+      ja: ["languageJapanese", "日本語"],
+      id: ["languageIndonesian", "Bahasa Indonesia"],
+      pl: ["languagePolish", "Polski"],
+      ko: ["languageKorean", "한국어"],
+      uk: ["languageUkrainian", "Українська"],
+      cs: ["languageCzech", "Čeština"],
+    };
+    for (const [locale, [key, name]] of Object.entries(names)) {
+      expect(readCatalog(locale)[key]?.message, locale).toBe(name);
+    }
+    expect(readCatalog("tr").subscriptionCampaigns?.message).toBe("Abonelik kampanyaları");
   });
 
   it("captures store artwork for every catalog locale", () => {
@@ -207,7 +208,9 @@ describe("i18n", () => {
       join(dirname(import.meta.dirname), "scripts/capture-store.mjs"),
       "utf8",
     );
-    for (const locale of localeCodes()) expect(promoSource).toContain(`"${locale}"`);
+    expect(promoSource).toContain('from "./store-screenshot-config.mjs"');
+    expect(promoSource).toContain("STORE_SCREENSHOT_LOCALES");
+    expect(promoSource).not.toMatch(/const ALL_LOCALES = \[/);
   });
 
   it("captures the five reworked screenshot stems", () => {

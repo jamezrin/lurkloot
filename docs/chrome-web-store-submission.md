@@ -72,9 +72,9 @@ pnpm promo:store                 # artifacts/store-promo/<locale>/
 pnpm promo:store:sync            # same files as promo:store; does not upload
 ```
 
-Pass locale codes to limit, e.g. `pnpm screenshot:store es ar tr`. Turkish promo tiles are under
-`artifacts/store-promo/tr/`. `promo:store:sync` only writes those tiles. It does not replace
-anything in the Developer Dashboard.
+Pass locale codes to limit, for example `pnpm screenshot:store ja id pl ko uk cs`. Promo
+tiles for every catalog locale, including those six, are under `artifacts/store-promo/<locale>/`.
+`promo:store:sync` only writes those tiles. It does not replace anything in the Developer Dashboard.
 
 ## Replacing localized screenshots automatically
 
@@ -97,7 +97,9 @@ export CWS_PUBLISHER_ID=<publisher-id-from-the-dashboard>
 The command regenerates and validates the images, then starts Chrome itself and attaches to it over
 the DevTools protocol. Sign in to Google and complete 2FA in the window it opens; automation resumes
 on its own, replaces the five screenshots for each of the 17 locales in numbered order, and saves
-each locale.
+each locale. The dashboard language list comes from the `_locales` directories in the uploaded
+package, so upload a build that contains `ja`, `id`, `pl`, `ko`, `uk`, and `cs` before the first
+screenshot run for those languages.
 
 Playwright never launches the browser. Google refuses interactive sign-in in a browser started with
 automation switches — it answers `accounts.google.com/v3/signin/rejected`, "Couldn't sign you in;
@@ -147,7 +149,7 @@ To upload already-generated files or retry selected locales after an interruptio
 
 ```bash
 pnpm screenshot:store:upload
-pnpm screenshot:store:upload -- --locales ar tr
+pnpm screenshot:store:upload -- --locales ja id pl ko uk cs
 ```
 
 A run interrupted between deletion and upload may leave four screenshots in one locale. The next

@@ -5,6 +5,7 @@ import { mkdir, readFile, stat } from "node:fs/promises";
 import { createReadStream } from "node:fs";
 import { extname, join, resolve, sep } from "node:path";
 import { chromium } from "playwright";
+import { STORE_SCREENSHOT_LOCALES } from "./store-screenshot-config.mjs";
 
 const execFileAsync = promisify(execFile);
 const root = resolve(".output/chrome-mv3");
@@ -34,7 +35,7 @@ const promos = [
   { id: "marquee", width: 1400, height: 560 },
 ];
 
-const ALL_LOCALES = ["en", "es", "fr", "it", "ru", "de", "zh_CN", "hi", "pt_BR", "ar", "tr", "ja", "id", "pl", "ko", "uk", "cs"];
+const ALL_LOCALES = STORE_SCREENSHOT_LOCALES.map(({ code }) => code);
 const requested = args.slice(1).filter((code) => code !== "--");
 const locales =
   requested.length > 0 ? requested.filter((code) => ALL_LOCALES.includes(code)) : ALL_LOCALES;
