@@ -1,0 +1,9 @@
+Lurkloot, Twitch ve Kick droplarını sizin için kasar; böylece yayınları kendiniz izlemek zorunda kalmadan oyun içi ödüller kazanırsınız. Normal, zaten giriş yaptığınız tarayıcı oturumunuz üzerinden çalışır ve parolanızı hiçbir zaman istemez.
+
+Varsayılan olarak video sekmesini açık tutmak yerine arka planda izleme sinyalleri gönderen hafif, sekmesiz modu kullanır; böylece bant genişliğinden ve sistem kaynaklarından tasarruf edersiniz. İstediğiniz drop için doğru kanalı takip eder, kampanyalar bittiğinde otomatik geçiş yapar ve uygun tüm ödülleri alır. İlerleme durursa droplarınızın devam etmesi için sabitlenmiş, sessiz bir sekmeye geri döner.
+
+Verileriniz size ait kalır: parola yok, dışa aktarılan çerez veya oturum anahtarı yok; her şey cihazınızda kalır.
+
+Açılır pencereden her platformu etkinleştirebilir, önemsediğiniz kampanyalara ve oyunlara öncelik verebilir, platforma özel Boşta İzleme Listelerini ve hariç tutulan kanalları yönetebilir, otomatik alma ile bildirimleri açıp kapatabilirsiniz.
+
+Aktif drop olmadığında Lurkloot, Kick izlenme süresini de kasabilir. Tercih ettiğiniz kanalları Boşta İzleme Listesine ekleyin; canlı olanlardan birini otomatik seçer. Sekmesiz izleme kaynak kullanımını düşük tutarken, gerektiğinde sabitlenmiş sekmeye dönmek oturumun güvenilir biçimde sürmesini sağlar.

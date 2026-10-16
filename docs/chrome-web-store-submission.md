@@ -1,7 +1,7 @@
 # Chrome Web Store submission — 1.3.0
 
 Step-by-step for re-specifying the listing (description, localized + global screenshots, etc).
-Pairs with `store-descriptions.md` (per-language copy) and `store-readiness.md` (compliance fields,
+Pairs with `packages/extension/store-descriptions/` (per-language copy) and `store-readiness.md` (compliance fields,
 permission justifications). Dashboard item: `aobaackpofkghaejdnnmpmeaiaoibhdn`.
 
 ## 0. Upload the package
@@ -16,39 +16,19 @@ The store's default locale is `en` (manifest `default_locale`). Fill the main li
 | Field | Value / source |
 |-------|----------------|
 | Name | `Lurkloot - Farm Drops on Twitch & Kick` (manifest `extensionStoreName`) |
-| Summary (≤132) | English **Short** in `store-descriptions.md` |
-| Description | English **Detailed** in `store-descriptions.md` |
+| Summary (≤132) | From the package: the `extensionDescription` message |
+| Description | `packages/extension/store-descriptions/en.txt` |
 | Category | Productivity |
 | Screenshots (1280×800) | `packages/extension/artifacts/store-screenshots/en/` (5 PNGs, numbered for order: `01-drops`, `02-extras`, `03-easy`, `04-settings`, `05-updated`) |
 | Small promo tile 440×280 | `artifacts/store-promo/en/lurkloot-promo-small-440x280.png` (optional) |
 | Marquee 1400×560 | `artifacts/store-promo/en/lurkloot-promo-marquee-1400x560.png` (optional) |
 | Icon 128×128 | from the built package |
 
-## 2. Localized listings — add a translation for each locale
+## 2. Localized listings
 
-For every locale below, set its **Summary** + **Description** (from `store-descriptions.md`) and upload
-**that locale's 5 screenshots**. Promo tiles per locale are under `artifacts/store-promo/<locale>/`.
-
-| Locale | Screenshots dir | Copy in store-descriptions.md |
-|--------|-----------------|-------------------------------|
-| es | `store-screenshots/es/` | Spanish |
-| fr | `store-screenshots/fr/` | French |
-| it | `store-screenshots/it/` | Italian |
-| ru | `store-screenshots/ru/` | Russian |
-| de | `store-screenshots/de/` | German |
-| zh_CN | `store-screenshots/zh_CN/` | Simplified Chinese |
-| hi | `store-screenshots/hi/` | Hindi |
-| pt_BR | `store-screenshots/pt_BR/` | Portuguese (Brazil) |
-| ar | `store-screenshots/ar/` | Arabic |
-| tr | `store-screenshots/tr/` | Turkish |
-| ja | `store-screenshots/ja/` | Japanese |
-| id | `store-screenshots/id/` | Indonesian |
-| pl | `store-screenshots/pl/` | Polish |
-| ko | `store-screenshots/ko/` | Korean |
-| uk | `store-screenshots/uk/` | Ukrainian |
-| cs | `store-screenshots/cs/` | Czech |
-
-(English `en` is the default listing in §1.) All short descriptions are within the 132-char limit.
+`pnpm cws:listing:sync` sets the description and five screenshots of every locale; see
+[Syncing the listing automatically](#syncing-the-listing-automatically). Promo tiles per locale are
+under `artifacts/store-promo/<locale>/`.
 
 ## 3. Privacy / compliance tab
 
@@ -86,11 +66,8 @@ five screenshots of every locale through the Developer Dashboard, then save the 
 pnpm cws:listing:sync
 ```
 
-Descriptions come from the `**Detailed:**` body of each locale's section in
-[store-descriptions.md](store-descriptions.md); the command rejects one over 16,000 characters before
-it starts Chrome. The `**Short:**` line is not synced: the dashboard shows the summary from the
-uploaded package's manifest description, which comes from the `extensionDescription` message of each
-catalog. A description that already matches is left alone and not saved again.
+Each description is the plain-text file `packages/extension/store-descriptions/<locale>.txt`. The
+summary is not synced: the dashboard takes it from the package's `extensionDescription` message.
 
 `CWS_EXTENSION_ID` and `CWS_PUBLISHER_ID` come from the repository `mise.toml`. Without mise
 activated in your shell, export them by hand:

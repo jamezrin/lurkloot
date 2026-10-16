@@ -1,0 +1,9 @@
+O Lurkloot farma os drops da Twitch e da Kick por você, para que você ganhe recompensas no jogo sem precisar ficar assistindo às transmissões. Ele funciona pela sua sessão normal do navegador, em que você já está logado, e nunca pede sua senha.
+
+Por padrão, ele usa um modo leve sem abas que envia sinais de exibição em segundo plano em vez de manter uma aba de vídeo aberta, economizando banda e recursos do sistema. Ele acompanha o canal certo para o drop que você quer, troca automaticamente quando as campanhas terminam e resgata todas as recompensas elegíveis. Se o progresso travar, ele recorre a uma aba fixada e silenciada para manter seus drops avançando.
+
+Seus dados continuam seus: sem senhas, sem exportar cookies ou tokens, e tudo fica no seu dispositivo.
+
+Pelo popup você pode ativar cada plataforma, priorizar as campanhas e os jogos que importam para você, gerenciar as listas de visualização ociosas e os canais excluídos de cada plataforma, e alternar o resgate automático e as notificações.
+
+O Lurkloot também pode farmar tempo de exibição na Kick quando não há drops ativos. Adicione seus canais preferidos à lista de visualização ociosa e ele escolhe automaticamente um que esteja ao vivo. A visualização sem abas reduz o uso de recursos, enquanto o retorno a uma aba fixada mantém a sessão confiável.
