@@ -299,7 +299,10 @@ describe("i18n", () => {
       "navGroupDrops",
       "navPlatform",
       "navExtensions",
-      "queueFacetDrops",
+      // "Badge" is the French and Italian word too.
+      "rewardBadge",
+      "rewardBadgeNamed",
+      "queueFacetBadge",
       // "Beta" is the same word in Spanish, German, Italian, Portuguese and Turkish.
       "navBeta",
       // Provider names, which are brands and never translated.

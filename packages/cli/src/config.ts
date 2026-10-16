@@ -128,6 +128,10 @@ export function defaultConfigJsonc(): string {
         // "all" farms every category, "include" farms only the categories
         // listed below. Neither mode ranks.
         "categoryMode": ${json(twitch.categoryMode)},
+        // Any of "no_subscription", "subscription", "badge"; [] farms every
+        // reward. Only rewards of these types (and what they wait on) are
+        // farmed, and a campaign is left once those are earned.
+        "farmRewardTypes": ${json(twitch.farmRewardTypes)},
         // Used by "include" for eligibility; also seeds partial Twitch live-
         // channel discovery when the campaign dashboard is unavailable, even
         // in "all" mode. Add game IDs and names you want the CLI to scan.
@@ -162,6 +166,9 @@ export function defaultConfigJsonc(): string {
         // "all" farms every category, "include" farms only the categories
         // listed below. Neither mode ranks.
         "categoryMode": ${json(kick.categoryMode)},
+        // Any of "no_subscription", "subscription"; [] farms every reward.
+        // Kick reports no badges.
+        "farmRewardTypes": ${json(kick.farmRewardTypes)},
         // Used by "include". Order has no scheduling effect.
         "categories": ${json(kick.categories)},
         // Campaigns of these categories rank above the strategy, in this order,

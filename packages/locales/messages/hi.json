@@ -120,22 +120,28 @@
     "message": "अनपिन"
   },
   "queueFacetLabel": {
-    "message": "कैंपेन प्रकार"
+    "message": "फ़ार्म करने वाले इनाम"
   },
   "queueFacetAll": {
     "message": "सभी"
   },
-  "queueFacetDrops": {
-    "message": "ड्रॉप्स"
+  "queueFacetNoSubscription": {
+    "message": "सब्सक्रिप्शन नहीं"
   },
-  "queueFacetBadges": {
-    "message": "सब बैज"
+  "queueFacetSubscription": {
+    "message": "सब्सक्रिप्शन ज़रूरी"
+  },
+  "queueFacetBadge": {
+    "message": "बैज"
   },
   "queueFixInclude": {
     "message": "शामिल करें"
   },
   "queueFixPin": {
     "message": "पिन करें"
+  },
+  "queueFixFarmAll": {
+    "message": "सब फ़ार्म करें"
   },
   "queueFixGames": {
     "message": "गेम्स खोलें"
@@ -146,8 +152,8 @@
   "queueEmpty": {
     "message": "अभी यहाँ फ़ार्म करने को कुछ नहीं है।"
   },
-  "queueEmptyBadges": {
-    "message": "अभी कोई सब्सक्रिप्शन कैंपेन फ़ार्म करने योग्य नहीं है।"
+  "queueEmptyRewardTypes": {
+    "message": "अभी चुने गए प्रकारों में से कुछ भी फ़ार्म करने योग्य नहीं है।"
   },
   "completedTabFinished": {
     "message": "पूरे हुए"
@@ -370,6 +376,18 @@
   },
   "subscriptionProgressUnknown": {
     "message": "प्रगति उपलब्ध नहीं है"
+  },
+  "rewardBadge": {
+    "message": "बैज"
+  },
+  "rewardBadgeNamed": {
+    "message": "बैज: $1"
+  },
+  "rewardAlsoWatch": {
+    "message": "साथ में $1 देखना"
+  },
+  "rewardClaimable": {
+    "message": "क्लेम के लिए तैयार"
   },
   "notEarnableByWatching": {
     "message": "देखकर अर्जित नहीं किया जा सकता"
@@ -757,6 +775,12 @@
   },
   "campaignRejectionNotPinned": {
     "message": "अभी सिर्फ़ पिन किए गए कैंपेन फ़ार्म होते हैं।"
+  },
+  "campaignRejectionRewardType": {
+    "message": "इसका कोई भी इनाम आपके फ़ार्म किए जाने वाले प्रकारों का नहीं है।"
+  },
+  "campaignRejectionRewardTypesObtained": {
+    "message": "आपके फ़ार्म किए जाने वाले प्रकारों के इसके इनाम मिल चुके हैं।"
   },
   "campaignRejectionNoRewards": {
     "message": "इस कैंपेन में फ़ार्म करने योग्य रिवॉर्ड नहीं हैं।"

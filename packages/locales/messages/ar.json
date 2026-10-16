@@ -120,22 +120,28 @@
     "message": "إلغاء التثبيت"
   },
   "queueFacetLabel": {
-    "message": "نوع الحملة"
+    "message": "الجوائز المراد جمعها"
   },
   "queueFacetAll": {
     "message": "الكل"
   },
-  "queueFacetDrops": {
-    "message": "الجوائز"
+  "queueFacetNoSubscription": {
+    "message": "بدون اشتراك"
   },
-  "queueFacetBadges": {
-    "message": "شارات الاشتراك"
+  "queueFacetSubscription": {
+    "message": "يتطلب اشتراكًا"
+  },
+  "queueFacetBadge": {
+    "message": "الشارات"
   },
   "queueFixInclude": {
     "message": "تضمين"
   },
   "queueFixPin": {
     "message": "تثبيت"
+  },
+  "queueFixFarmAll": {
+    "message": "جمع الكل"
   },
   "queueFixGames": {
     "message": "فتح الألعاب"
@@ -146,8 +152,8 @@
   "queueEmpty": {
     "message": "لا شيء لتجميعه هنا الآن."
   },
-  "queueEmptyBadges": {
-    "message": "لا توجد حملات اشتراك قابلة للتجميع الآن."
+  "queueEmptyRewardTypes": {
+    "message": "لا يوجد حاليًا شيء من الأنواع المحددة قابل للجمع."
   },
   "completedTabFinished": {
     "message": "مكتملة"
@@ -370,6 +376,18 @@
   },
   "subscriptionProgressUnknown": {
     "message": "التقدم غير متاح"
+  },
+  "rewardBadge": {
+    "message": "شارة"
+  },
+  "rewardBadgeNamed": {
+    "message": "شارة: $1"
+  },
+  "rewardAlsoWatch": {
+    "message": "بالإضافة إلى $1 من المشاهدة"
+  },
+  "rewardClaimable": {
+    "message": "جاهزة للاستلام"
   },
   "notEarnableByWatching": {
     "message": "لا يمكن كسبه بالمشاهدة"
@@ -757,6 +775,12 @@
   },
   "campaignRejectionNotPinned": {
     "message": "يتم الآن تجميع الحملات المثبتة فقط."
+  },
+  "campaignRejectionRewardType": {
+    "message": "لا تنتمي أي من جوائزها إلى الأنواع التي تجمعها."
+  },
+  "campaignRejectionRewardTypesObtained": {
+    "message": "جوائزها من الأنواع التي تجمعها مكتسبة بالفعل."
   },
   "campaignRejectionNoRewards": {
     "message": "لا تحتوي هذه الحملة على مكافآت قابلة للجمع."

@@ -118,10 +118,12 @@ function demoSnapshot(): RuntimeSnapshot {
         strictCampaignAvailability: false,
         channelPointsPushClaim: true,
         categoryMode: "include",
+        farmRewardTypes: [],
         categories: [
           { id: "marathon legends", name: "Marathon Legends" },
           { id: "starfall arena", name: "Starfall Arena" },
           { id: "spellforge", name: "Spellforge" },
+          { id: "pixel parade", name: "Pixel Parade" },
         ],
         // Starfall Arena is a favourite: its campaigns rank above the strategy
         // without being pinned, which is what the demo is meant to show.
@@ -135,6 +137,7 @@ function demoSnapshot(): RuntimeSnapshot {
         idleWatchlistChannels: ["greenroomgg", "pixelboost"],
         excludedChannels: [],
         categoryMode: "all",
+        farmRewardTypes: [],
         categories: [{ id: "just chatting", name: "Just Chatting" }],
         favouriteCategories: [],
         // Exercises the denylist alongside Twitch's allowlist: Kick farms every
@@ -165,6 +168,9 @@ function demoSnapshot(): RuntimeSnapshot {
         {
           id: "tw-marathon-badge",
           name: "Founder Badge",
+          benefits: [
+            { id: "tw-marathon-badge-benefit", name: "Founder Badge", distributionType: "BADGE" },
+          ],
           requiredMinutes: 30,
           watchedMinutes: 30,
           status: "claimed",
@@ -250,6 +256,71 @@ function demoSnapshot(): RuntimeSnapshot {
           id: "tw-spellforge-card",
           name: "Arcane Card Back",
           requiredMinutes: 60,
+          watchedMinutes: 0,
+          status: "locked",
+        },
+      ],
+    },
+    // Badges across requirements, so the Queue's "Has badge" tab has a campaign
+    // to farm: a watch badge, an item, and a badge sharing a reward with one.
+    {
+      id: "tw-pixel-parade",
+      platform: "twitch",
+      name: "Pixel Parade Community Badges",
+      gameName: "Pixel Parade",
+      slug: "pixel-parade",
+      categoryId: "pixel parade",
+      startsAt: inHours(-30),
+      endsAt: inHours(140),
+      status: "active",
+      accountLinked: true,
+      eligibility: "eligible",
+      priority: 1,
+      isGeneralDrop: true,
+      rewards: [
+        {
+          id: "tw-pixel-parade-watch-badge",
+          name: "Parade Badge",
+          benefits: [
+            { id: "tw-pixel-parade-badge", name: "Parade Badge", distributionType: "BADGE" },
+          ],
+          requiredMinutes: 120,
+          watchedMinutes: 35,
+          status: "in_progress",
+        },
+        {
+          id: "tw-pixel-parade-spray",
+          name: "Confetti Spray",
+          benefits: [
+            {
+              id: "tw-pixel-parade-spray",
+              name: "Confetti Spray",
+              distributionType: "DIRECT_ENTITLEMENT",
+            },
+          ],
+          requiredMinutes: 60,
+          watchedMinutes: 35,
+          status: "in_progress",
+        },
+        {
+          // One reward, two benefits: the badge is not the first of them.
+          id: "tw-pixel-parade-supporter",
+          name: "Float Skin",
+          benefits: [
+            {
+              id: "tw-pixel-parade-float",
+              name: "Float Skin",
+              distributionType: "DIRECT_ENTITLEMENT",
+            },
+            {
+              id: "tw-pixel-parade-supporter-badge",
+              name: "Supporter Badge",
+              distributionType: "BADGE",
+            },
+          ],
+          requiredMinutes: 30,
+          requiredSubs: 1,
+          requirement: "subscription",
           watchedMinutes: 0,
           status: "locked",
         },

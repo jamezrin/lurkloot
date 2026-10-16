@@ -221,83 +221,74 @@ describe("queue view", () => {
     expect(rows(container, "strategy")).toEqual(["now"]);
   });
 
-  it("clears a facet that hides a campaign the status strip asks to show", () => {
-    const settings = mergeSettings({
-      farmingEligibility: { farmSubscriptionCampaigns: false },
-    } as never);
-    const badge = campaign("badge", {
-      rewards: [
-        {
-          id: "sub",
-          name: "Sub badge",
-          requiredMinutes: 0,
-          requirement: "subscription",
-          requiredSubs: 1,
-          watchedMinutes: 0,
-          status: "locked",
-        },
-      ],
+  it("picks any number of reward types to farm from its tabs", () => {
+    const settings = mergeSettings({});
+    const onRewardTypesChange = vi.fn();
+    const { container } = queue(views([campaign("drop")], settings), settings, {
+      rewardTypes: ["badge"],
+      rewardTypeCounts: { all: 1, no_subscription: 1, subscription: 0, badge: 0 },
+      onRewardTypesChange,
     });
-    const list = views([campaign("drop"), badge], settings);
-    const panel = (focus?: { id: string; seq: number }) => (
-      <I18nContext.Provider value={{ t, dir: "ltr", locale: "en" }}>
-        <QueuePanel
-          campaigns={list}
-          gameMap={{}}
-          focus={focus}
-          refreshing={false}
-          strategy={settings.priorityMode}
-          pinnedCount={0}
-          farmPinnedOnly={false}
-          onStrategyChange={() => undefined}
-          onUnpinAll={() => undefined}
-          onFarmPinnedOnlyChange={() => undefined}
-          onRefreshCampaign={() => undefined}
-          onPinChange={() => undefined}
-          onToggleExclude={() => undefined}
-          onOpenGames={() => undefined}
-          onOpenSettings={() => undefined}
-        />
-      </I18nContext.Provider>
-    );
-    const { container } = mount(panel());
-    act(() => root!.render(panel()));
-    act(() => container.querySelector<HTMLButtonElement>('[data-queue-facet="badges"]')!.click());
-    expect(container.querySelector('[data-campaign-id="drop"]')).toBeNull();
 
-    act(() => root!.render(panel({ id: "drop", seq: 1 })));
+    const tab = (value: string) =>
+      container.querySelector<HTMLButtonElement>(`[data-queue-facet="${value}"]`)!;
+    expect(
+      tab("badge").getAttribute("aria-checked") ?? tab("badge").getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(tab("all").textContent).toContain("1");
+    act(() => tab("subscription").click());
 
-    expect(container.querySelector('[data-campaign-id="drop"]')).not.toBeNull();
+    // Pressing another type adds it; "All" clears the selection.
+    expect(onRewardTypesChange).toHaveBeenLastCalledWith(["subscription", "badge"]);
+    act(() => tab("all").click());
+    expect(onRewardTypesChange).toHaveBeenLastCalledWith([]);
+    act(() => tab("badge").click());
+    expect(onRewardTypesChange).toHaveBeenLastCalledWith([]);
   });
 
-  it("filters queue and skipped rows by campaign type", () => {
+  it("offers only the tabs the platform can farm", () => {
+    const settings = mergeSettings({});
+    const { container } = queue(views([campaign("drop")], settings), settings, {
+      availableRewardTypes: ["no_subscription", "subscription"],
+    });
+
+    expect(container.querySelector('[data-queue-facet="subscription"]')).not.toBeNull();
+    expect(container.querySelector('[data-queue-facet="badge"]')).toBeNull();
+  });
+
+  it("skips a campaign with no reward of the types, with a fix that farms every type", () => {
     const settings = mergeSettings({
-      farmingEligibility: { farmSubscriptionCampaigns: false },
+      platform: { twitch: { farmRewardTypes: ["badge"] } },
     } as never);
     const badge = campaign("badge", {
       rewards: [
         {
-          id: "sub",
-          name: "Sub badge",
-          requiredMinutes: 0,
-          requirement: "subscription",
-          requiredSubs: 1,
+          id: "badge-reward",
+          name: "Badge",
+          benefits: [{ id: "b", distributionType: "BADGE" }],
+          requiredMinutes: 30,
+          requirement: "watch",
+          isWatchBased: true,
           watchedMinutes: 0,
           status: "locked",
         },
       ],
     });
-    const { container } = queue(views([campaign("drop"), badge], settings), settings);
+    const onRewardTypesChange = vi.fn();
+    const { container } = queue(views([campaign("drop"), badge], settings), settings, {
+      rewardTypes: ["badge"],
+      onRewardTypesChange,
+    });
 
-    const facet = container.querySelector<HTMLButtonElement>('[data-queue-facet="badges"]');
-    expect(facet).not.toBeNull();
-    act(() => facet!.click());
-
-    // The badge campaign is skipped while that class is not farmed, and the
-    // facet still finds it there rather than showing an empty list.
+    expect(rows(container, "strategy")).toEqual(["badge"]);
     expand(container, "skipped");
-    expect(rows(container, "skipped")).toEqual(["badge"]);
-    expect(rows(container, "strategy")).toEqual([]);
+    expect(rows(container, "skipped")).toEqual(["drop"]);
+    const fix = [
+      ...container.querySelectorAll<HTMLButtonElement>('[data-campaign-id="drop"] button'),
+    ].find((button) => button.textContent === "queueFixFarmAll");
+    expect(fix).toBeDefined();
+    act(() => fix!.click());
+    expect(onRewardTypesChange).toHaveBeenCalledWith([]);
   });
 
   it("lists a campaign only an outside action can unblock under Action required, apart from Skipped (#677)", () => {
@@ -535,9 +526,10 @@ describe("campaign card actions", () => {
     expect(row("ordinary").getAttribute("data-campaign-rank")).toBe("2");
   });
 
-  it("places a searched pin by its real rank while a facet hides other pins", () => {
+  it("places a searched pin by its real rank while the reward types skip other pins", () => {
     const settings = mergeSettings({
       campaignPins: ["badge", "d1", "d2"],
+      platform: { twitch: { farmRewardTypes: ["no_subscription"] } },
       farmingEligibility: { farmSubscriptionCampaigns: true },
     } as never);
     const badge = campaign("badge", {
@@ -559,7 +551,6 @@ describe("campaign card actions", () => {
       settings,
       { onPinChange },
     );
-    act(() => container.querySelector<HTMLButtonElement>('[data-queue-facet="drops"]')!.click());
     search(container, "d2");
 
     const rank = container.querySelector<HTMLButtonElement>(

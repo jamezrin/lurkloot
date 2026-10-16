@@ -120,22 +120,28 @@
     "message": "取消置顶"
   },
   "queueFacetLabel": {
-    "message": "活动类型"
+    "message": "要挂机的奖励"
   },
   "queueFacetAll": {
     "message": "全部"
   },
-  "queueFacetDrops": {
-    "message": "掉宝"
+  "queueFacetNoSubscription": {
+    "message": "无需订阅"
   },
-  "queueFacetBadges": {
-    "message": "订阅徽章"
+  "queueFacetSubscription": {
+    "message": "需要订阅"
+  },
+  "queueFacetBadge": {
+    "message": "徽章"
   },
   "queueFixInclude": {
     "message": "重新加入"
   },
   "queueFixPin": {
     "message": "置顶"
+  },
+  "queueFixFarmAll": {
+    "message": "全部挂机"
   },
   "queueFixGames": {
     "message": "打开游戏"
@@ -146,8 +152,8 @@
   "queueEmpty": {
     "message": "目前没有可挂机的内容。"
   },
-  "queueEmptyBadges": {
-    "message": "目前没有可挂机的订阅活动。"
+  "queueEmptyRewardTypes": {
+    "message": "目前没有可挂机的所选类型奖励。"
   },
   "completedTabFinished": {
     "message": "已完成"
@@ -370,6 +376,18 @@
   },
   "subscriptionProgressUnknown": {
     "message": "无法获取进度"
+  },
+  "rewardBadge": {
+    "message": "徽章"
+  },
+  "rewardBadgeNamed": {
+    "message": "徽章：$1"
+  },
+  "rewardAlsoWatch": {
+    "message": "另需观看 $1"
+  },
+  "rewardClaimable": {
+    "message": "可领取"
   },
   "notEarnableByWatching": {
     "message": "无法通过观看获得"
@@ -757,6 +775,12 @@
   },
   "campaignRejectionNotPinned": {
     "message": "当前只挂机已置顶的掉宝活动。"
+  },
+  "campaignRejectionRewardType": {
+    "message": "其奖励都不属于你挂机的类型。"
+  },
+  "campaignRejectionRewardTypesObtained": {
+    "message": "其属于你挂机类型的奖励已获得。"
   },
   "campaignRejectionNoRewards": {
     "message": "此掉宝活动没有可挂机获取的奖励。"

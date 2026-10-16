@@ -120,22 +120,28 @@
     "message": "Rimuovi"
   },
   "queueFacetLabel": {
-    "message": "Tipo di campagna"
+    "message": "Ricompense da farmare"
   },
   "queueFacetAll": {
     "message": "Tutte"
   },
-  "queueFacetDrops": {
-    "message": "Drops"
+  "queueFacetNoSubscription": {
+    "message": "Senza abbonamento"
   },
-  "queueFacetBadges": {
-    "message": "Badge abbonato"
+  "queueFacetSubscription": {
+    "message": "Richiede abbonamento"
+  },
+  "queueFacetBadge": {
+    "message": "Badge"
   },
   "queueFixInclude": {
     "message": "Includi"
   },
   "queueFixPin": {
     "message": "Fissa"
+  },
+  "queueFixFarmAll": {
+    "message": "Farma tutto"
   },
   "queueFixGames": {
     "message": "Apri Giochi"
@@ -146,8 +152,8 @@
   "queueEmpty": {
     "message": "Al momento non c'è niente da farmare."
   },
-  "queueEmptyBadges": {
-    "message": "Al momento nessuna campagna in abbonamento è farmabile."
+  "queueEmptyRewardTypes": {
+    "message": "Al momento non c'è niente dei tipi selezionati da farmare."
   },
   "completedTabFinished": {
     "message": "Terminate"
@@ -370,6 +376,18 @@
   },
   "subscriptionProgressUnknown": {
     "message": "Avanzamento non disponibile"
+  },
+  "rewardBadge": {
+    "message": "Badge"
+  },
+  "rewardBadgeNamed": {
+    "message": "Badge: $1"
+  },
+  "rewardAlsoWatch": {
+    "message": "Più $1 di visione"
+  },
+  "rewardClaimable": {
+    "message": "Pronto da riscattare"
   },
   "notEarnableByWatching": {
     "message": "Non ottenibile guardando"
@@ -757,6 +775,12 @@
   },
   "campaignRejectionNotPinned": {
     "message": "Al momento vengono farmate solo le campagne fissate."
+  },
+  "campaignRejectionRewardType": {
+    "message": "Nessuna delle sue ricompense è dei tipi che farmi."
+  },
+  "campaignRejectionRewardTypesObtained": {
+    "message": "Le sue ricompense dei tipi che farmi sono già ottenute."
   },
   "campaignRejectionNoRewards": {
     "message": "Questa campagna non ha ricompense farmabili."

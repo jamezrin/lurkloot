@@ -3,6 +3,7 @@ import { useSortable } from "@dnd-kit/react/sortable";
 import { AnimatePresence } from "motion/react";
 import {
   AlertTriangle,
+  Award,
   Ban,
   Check,
   ChevronDown,
@@ -1398,6 +1399,8 @@ export function campaignRejectionMessageKey(
     category_filtered: "campaignRejectionCategoryFiltered",
     category_blocked: "campaignRejectionCategoryBlocked",
     not_pinned: "campaignRejectionNotPinned",
+    reward_type_filtered: "campaignRejectionRewardType",
+    reward_types_obtained: "campaignRejectionRewardTypesObtained",
     no_rewards: "campaignRejectionNoRewards",
     no_unclaimed_rewards: "campaignRejectionNoUnclaimedRewards",
     reward_prerequisites_unmet: "campaignRejectionPrerequisites",
@@ -1450,7 +1453,15 @@ function RewardTile({
   onToggleSubscriptionMark?: (rewardId: string) => void;
 }) {
   const t = useT();
-  const done = reward.obtained || (reward.progress ?? 0) >= 100;
+  // Earned and claimable come from the platform: a subscription mark is the
+  // user's word that they subscribed, not that the reward was granted.
+  const earned = reward.status === "claimed" || reward.status === "claimable";
+  // A marked reward's watching can be done while the platform still holds it.
+  const done =
+    earned
+    || (reward.requirement === "watch"
+      && !reward.subscriptionMarked
+      && (reward.progress ?? 0) >= 100);
   // An expired campaign's unearned rewards are gone, not pending.
   const lost = missed && !reward.obtained;
   // Never on an expired campaign: marking cannot bring a reward back.
@@ -1464,6 +1475,7 @@ function RewardTile({
   return (
     <div
       data-reward-missed={lost || undefined}
+      data-reward-badge={reward.badge ? "" : undefined}
       className={cn(
         "w-[128px] shrink-0 rounded-xl border bg-white p-2 dark:bg-zinc-900",
         lost
@@ -1500,6 +1512,21 @@ function RewardTile({
             <Check size={11} strokeWidth={3} />
           </span>
         )}
+        {reward.badge ? (
+          // Names the badge in a reward that also grants something else, where
+          // the tile's name and art are the other benefit's.
+          <Tip
+            label={reward.badge.name ? t("rewardBadgeNamed", reward.badge.name) : t("rewardBadge")}
+          >
+            <span
+              data-reward-badge-chip
+              className="absolute left-1 top-1 flex items-center gap-0.5 rounded bg-white/90 px-1 py-px text-[9px] font-semibold text-zinc-700 shadow-sm dark:bg-zinc-950/85 dark:text-zinc-200"
+            >
+              <Award size={9} aria-hidden />
+              {t("rewardBadge")}
+            </span>
+          </Tip>
+        ) : null}
       </div>
       <Tip label={reward.name}>
         <div className="mb-1.5 line-clamp-1 text-[11px] font-medium text-zinc-800 dark:text-zinc-200">
@@ -1535,14 +1562,20 @@ function RewardTile({
             {t("subscriptionRequired")}
           </div>
           <div>{t("qualifyingSubscriptionsRequired", String(reward.requiredSubs ?? 1))}</div>
-          {reward.subscriptionMarked ? null : (
-            <div
-              className={cn(
-                "font-medium",
-                reward.obtained && "text-emerald-600 dark:text-emerald-400",
-              )}
-            >
-              {reward.obtained ? t("earned") : t("subscriptionProgressUnknown")}
+          {/* Twitch asks for both on some rewards: the watching is a second
+              requirement, not an alternative. */}
+          {reward.requiredMinutes > 0 ? (
+            <div data-reward-also-watch>
+              {t("rewardAlsoWatch", formatMinutes(reward.requiredMinutes))}
+            </div>
+          ) : null}
+          {reward.subscriptionMarked && !earned ? null : (
+            <div className={cn("font-medium", earned && "text-emerald-600 dark:text-emerald-400")}>
+              {reward.status === "claimed"
+                ? t("earned")
+                : reward.status === "claimable"
+                  ? t("rewardClaimable")
+                  : t("subscriptionProgressUnknown")}
             </div>
           )}
           {markControl}

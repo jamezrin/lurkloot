@@ -5,6 +5,7 @@ import type {
   CompatibilitySettings,
   EngineSettings,
   ExtensionSettings,
+  RewardFarmType,
   GithubStarNudgeStatus,
   KickPlatformSettings,
   LanguageOverride,
@@ -22,6 +23,20 @@ import {
 const FARMING_PLATFORMS: Platform[] = ["twitch", "kick"];
 const AD_FOCUS_MODES: AdFocusMode[] = ["none", "tab", "window"];
 const PRIORITY_MODES: PriorityMode[] = ["ending_soonest", "lowest_availability"];
+
+export const REWARD_FARM_TYPES: readonly RewardFarmType[] = [
+  "no_subscription",
+  "subscription",
+  "badge",
+];
+
+// Kick reports no benefit types, so a badge type could never match there.
+export function normalizeFarmRewardTypes(value: unknown, platform: Platform): RewardFarmType[] {
+  if (!Array.isArray(value)) return [];
+  return REWARD_FARM_TYPES.filter(
+    (type) => value.includes(type) && (type !== "badge" || platform === "twitch"),
+  );
+}
 const RATE_NUDGE_STATUSES: RateNudgeStatus[] = ["pending", "rated", "dismissed"];
 const GITHUB_STAR_NUDGE_STATUSES: GithubStarNudgeStatus[] = ["pending", "starred", "dismissed"];
 export const CATEGORY_MODES: CategoryMode[] = ["all", "include"];
@@ -80,6 +95,7 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
       idleWatchlistChannels: [],
       excludedChannels: [],
       categoryMode: "all",
+      farmRewardTypes: [],
       categories: [],
       favouriteCategories: [],
       blockedCategories: [],
@@ -95,6 +111,7 @@ export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
       idleWatchlistChannels: [],
       excludedChannels: [],
       categoryMode: "all",
+      farmRewardTypes: [],
       categories: [],
       favouriteCategories: [],
       blockedCategories: [],
@@ -218,6 +235,7 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
         ),
         excludedChannels: normalizeChannelList(platform?.twitch?.excludedChannels),
         categoryMode: normalizeCategoryMode(platform?.twitch?.categoryMode),
+        farmRewardTypes: normalizeFarmRewardTypes(platform?.twitch?.farmRewardTypes, "twitch"),
         categories: normalizeCategorySelections(platform?.twitch?.categories),
         favouriteCategories: normalizeCategorySelections(platform?.twitch?.favouriteCategories),
         blockedCategories: normalizeCategorySelections(platform?.twitch?.blockedCategories),
@@ -249,6 +267,7 @@ export function mergeEngineSettings(value: Partial<EngineSettings> | undefined):
         ),
         excludedChannels: normalizeChannelList(platform?.kick?.excludedChannels),
         categoryMode: normalizeCategoryMode(platform?.kick?.categoryMode),
+        farmRewardTypes: normalizeFarmRewardTypes(platform?.kick?.farmRewardTypes, "kick"),
         categories: normalizeCategorySelections(platform?.kick?.categories),
         favouriteCategories: normalizeCategorySelections(platform?.kick?.favouriteCategories),
         blockedCategories: normalizeCategorySelections(platform?.kick?.blockedCategories),

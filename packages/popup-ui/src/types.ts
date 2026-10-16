@@ -6,6 +6,7 @@ import type {
   DropCampaign,
   Platform,
   RewardRequirementType,
+  RewardStatus,
   SupportedLocale,
   TwitchExtensionProviderId,
 } from "@lurkloot/shared/models";
@@ -79,6 +80,13 @@ export type RewardView = {
   requiredSubs?: number;
   requirement: RewardRequirementType;
   obtained: boolean;
+  // The platform's own report, which a subscription mark never changes. Earned
+  // and claimable states are drawn from this, not from `obtained`.
+  status: RewardStatus;
+  // A benefit of this reward is a badge (isBadgeReward), with that benefit's
+  // own name: in a reward granting an item and a badge, the reward's name is
+  // the item's.
+  badge?: { name?: string };
   // The user marked this subscription reward as subscribed.
   subscriptionMarked?: boolean;
   // The reward can be marked (or unmarked): a subscription reward the platform

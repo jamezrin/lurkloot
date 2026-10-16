@@ -120,22 +120,28 @@
     "message": "Unpin"
   },
   "queueFacetLabel": {
-    "message": "Campaign type"
+    "message": "Rewards to farm"
   },
   "queueFacetAll": {
     "message": "All"
   },
-  "queueFacetDrops": {
-    "message": "Drops"
+  "queueFacetNoSubscription": {
+    "message": "No subscription"
   },
-  "queueFacetBadges": {
-    "message": "Sub badges"
+  "queueFacetSubscription": {
+    "message": "Requires subscription"
+  },
+  "queueFacetBadge": {
+    "message": "Badges"
   },
   "queueFixInclude": {
     "message": "Include"
   },
   "queueFixPin": {
     "message": "Pin"
+  },
+  "queueFixFarmAll": {
+    "message": "Farm all"
   },
   "queueFixGames": {
     "message": "Open Games"
@@ -146,8 +152,8 @@
   "queueEmpty": {
     "message": "Nothing to farm here right now."
   },
-  "queueEmptyBadges": {
-    "message": "No subscription campaigns are farmable right now."
+  "queueEmptyRewardTypes": {
+    "message": "Nothing of the selected types is farmable right now."
   },
   "completedTabFinished": {
     "message": "Finished"
@@ -370,6 +376,18 @@
   },
   "subscriptionProgressUnknown": {
     "message": "Progress unavailable"
+  },
+  "rewardBadge": {
+    "message": "Badge"
+  },
+  "rewardBadgeNamed": {
+    "message": "Badge: $1"
+  },
+  "rewardAlsoWatch": {
+    "message": "Plus $1 of watching"
+  },
+  "rewardClaimable": {
+    "message": "Ready to claim"
   },
   "notEarnableByWatching": {
     "message": "Not earnable by watching"
@@ -757,6 +775,12 @@
   },
   "campaignRejectionNotPinned": {
     "message": "Only pinned campaigns are farmed right now."
+  },
+  "campaignRejectionRewardType": {
+    "message": "None of its rewards are of the types you farm."
+  },
+  "campaignRejectionRewardTypesObtained": {
+    "message": "Its rewards of the types you farm are earned."
   },
   "campaignRejectionNoRewards": {
     "message": "This campaign has no farmable rewards."

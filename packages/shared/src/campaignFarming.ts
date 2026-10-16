@@ -1,13 +1,15 @@
 import { campaignPassesCategoryFilter, isCampaignCategoryBlocked } from "./categories";
-import type { DropCampaign, DropReward, EngineSettings } from "./models";
+import type { DropCampaign, DropReward, EngineSettings, RewardFarmType } from "./models";
 import {
   campaignHasSubscriptionRewards,
   canClaimReward,
+  isBadgeReward,
   isRewardAvailableToEarn,
   isRewardObtained,
   isSubscriptionReward,
   isWatchReward,
   rewardFeasibility,
+  rewardRequiresSubscription,
 } from "./rewards";
 
 export type CampaignFarmingRejectionCode =
@@ -21,6 +23,8 @@ export type CampaignFarmingRejectionCode =
   | "category_filtered"
   | "category_blocked"
   | "not_pinned"
+  | "reward_type_filtered"
+  | "reward_types_obtained"
   | "no_rewards"
   | "no_unclaimed_rewards"
   | "reward_prerequisites_unmet"
@@ -67,6 +71,56 @@ function parsedTime(value: string | undefined): number | undefined {
   return Number.isNaN(time) ? undefined : time;
 }
 
+// Whether a reward is of a kind the user farms; any selected kind will do, and
+// none selected means every reward. A subscription counts as asked for whether
+// or not the user marked it: marking says they subscribed, not that the reward
+// stopped asking.
+export function rewardMatchesFarmTypes(
+  reward: DropReward,
+  types: readonly RewardFarmType[],
+): boolean {
+  if (types.length === 0) return true;
+  return types.some((type) => {
+    switch (type) {
+      case "no_subscription":
+        return !rewardRequiresSubscription(reward);
+      case "subscription":
+        return rewardRequiresSubscription(reward);
+      case "badge":
+        return isBadgeReward(reward);
+    }
+  });
+}
+
+export const campaignMatchesFarmTypes = (
+  campaign: Pick<DropCampaign, "rewards">,
+  types: readonly RewardFarmType[],
+): boolean =>
+  types.length === 0 || campaign.rewards.some((reward) => rewardMatchesFarmTypes(reward, types));
+
+// The rewards the engine farms toward: the matching ones and every reward they
+// wait on (a Twitch precondition), which has to be claimed first. Claiming is
+// not narrowed: a reward that is already claimable is claimed whatever the
+// types.
+export function rewardsInFarmingScope(
+  campaign: Pick<DropCampaign, "rewards">,
+  types: readonly RewardFarmType[],
+): DropReward[] {
+  if (types.length === 0) return campaign.rewards;
+  const byId = new Map(campaign.rewards.map((reward) => [reward.id, reward]));
+  const scoped = new Set<string>();
+  const visit = (reward: DropReward): void => {
+    if (scoped.has(reward.id)) return;
+    scoped.add(reward.id);
+    for (const id of reward.preconditionRewardIds ?? []) {
+      const precondition = byId.get(id);
+      if (precondition) visit(precondition);
+    }
+  };
+  campaign.rewards.filter((reward) => rewardMatchesFarmTypes(reward, types)).forEach(visit);
+  return campaign.rewards.filter((reward) => scoped.has(reward.id));
+}
+
 export function evaluateCampaignFarming(
   campaign: DropCampaign,
   settings: EngineSettings,
@@ -106,10 +160,20 @@ export function evaluateCampaignFarming(
   ) {
     return rejected("not_pinned");
   }
+  const farmTypes = settings.platform[campaign.platform].farmRewardTypes;
+  if (!campaignMatchesFarmTypes(campaign, farmTypes)) return rejected("reward_type_filtered");
   if (campaign.rewards.length === 0 || campaign.eligibility === "no_rewards")
     return rejected("no_rewards");
-  const unclaimed = campaign.rewards.filter((reward) => !isRewardObtained(reward));
-  if (unclaimed.length === 0) return rejected("no_unclaimed_rewards");
+  const unclaimed = rewardsInFarmingScope(campaign, farmTypes).filter(
+    (reward) => !isRewardObtained(reward),
+  );
+  if (unclaimed.length === 0) {
+    return rejected(
+      farmTypes.length > 0 && campaign.rewards.some((reward) => !isRewardObtained(reward))
+        ? "reward_types_obtained"
+        : "no_unclaimed_rewards",
+    );
+  }
 
   const blockers: Rejection[] = [];
   for (const reward of unclaimed) {
@@ -225,6 +289,9 @@ function withBlockerLifted(
       };
     case "not_pinned":
       return { ...settings, campaignPins: [...settings.campaignPins, campaign.id] };
+    case "reward_type_filtered":
+    case "reward_types_obtained":
+      return withPlatform({ farmRewardTypes: [] });
     case "unlinked_campaigns_disabled":
       return {
         ...settings,

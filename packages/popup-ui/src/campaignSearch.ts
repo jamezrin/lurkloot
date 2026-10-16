@@ -13,6 +13,8 @@ export function filterCampaigns(
         campaign.title,
         gameMap[campaign.gameId]?.name ?? "",
         ...campaign.rewards.map((reward) => reward.name),
+        // A badge granted beside another benefit goes by its own name.
+        ...campaign.rewards.flatMap((reward) => (reward.badge?.name ? [reward.badge.name] : [])),
       ],
       query,
     ),

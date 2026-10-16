@@ -120,22 +120,28 @@
     "message": "Desafixar"
   },
   "queueFacetLabel": {
-    "message": "Tipo de campanha"
+    "message": "Recompensas para farmar"
   },
   "queueFacetAll": {
     "message": "Todas"
   },
-  "queueFacetDrops": {
-    "message": "Drops"
+  "queueFacetNoSubscription": {
+    "message": "Sem inscrição"
   },
-  "queueFacetBadges": {
-    "message": "Emblemas de sub"
+  "queueFacetSubscription": {
+    "message": "Requer inscrição"
+  },
+  "queueFacetBadge": {
+    "message": "Emblemas"
   },
   "queueFixInclude": {
     "message": "Incluir"
   },
   "queueFixPin": {
     "message": "Fixar"
+  },
+  "queueFixFarmAll": {
+    "message": "Farmar todas"
   },
   "queueFixGames": {
     "message": "Abrir Jogos"
@@ -146,8 +152,8 @@
   "queueEmpty": {
     "message": "Nada para farmar aqui agora."
   },
-  "queueEmptyBadges": {
-    "message": "Nenhuma campanha de assinatura pode ser farmada agora."
+  "queueEmptyRewardTypes": {
+    "message": "Nada dos tipos selecionados pode ser farmado agora."
   },
   "completedTabFinished": {
     "message": "Concluídas"
@@ -370,6 +376,18 @@
   },
   "subscriptionProgressUnknown": {
     "message": "Progresso indisponível"
+  },
+  "rewardBadge": {
+    "message": "Emblema"
+  },
+  "rewardBadgeNamed": {
+    "message": "Emblema: $1"
+  },
+  "rewardAlsoWatch": {
+    "message": "Mais $1 assistindo"
+  },
+  "rewardClaimable": {
+    "message": "Pronto para resgatar"
   },
   "notEarnableByWatching": {
     "message": "Não pode ser obtido assistindo"
@@ -757,6 +775,12 @@
   },
   "campaignRejectionNotPinned": {
     "message": "No momento, apenas campanhas fixadas são farmadas."
+  },
+  "campaignRejectionRewardType": {
+    "message": "Nenhuma das recompensas dela é dos tipos que você farma."
+  },
+  "campaignRejectionRewardTypesObtained": {
+    "message": "As recompensas dela dos tipos que você farma já foram obtidas."
   },
   "campaignRejectionNoRewards": {
     "message": "Esta campanha não tem recompensas disponíveis para farm."

@@ -13,6 +13,7 @@ import type { ActivityHistoryRecord } from "@lurkloot/shared/events";
 import type {
   CategorySelection,
   ExtensionSettings,
+  RewardFarmType,
   Platform,
   TwitchExtensionProviderId,
   WatchSourceId,
@@ -20,6 +21,7 @@ import type {
 import {
   applySettingsPatch,
   DEFAULT_SETTINGS,
+  REWARD_FARM_TYPES,
   mergeSettings,
   type SettingsPatch,
 } from "@lurkloot/shared/settings";
@@ -55,6 +57,8 @@ import type {
 import { variantShowsPopup } from "./types";
 import {
   campaignViewFromCampaign,
+  farmRewardTypeCounts,
+  type RewardTypeTab,
   reuseIfUnchanged,
   reuseUnchangedViews,
   channelViewFromSession,
@@ -855,6 +859,7 @@ export function Popup({
     inputs?: readonly unknown[];
     campaigns?: CampaignView[];
     gameMap?: Record<string, GameItem>;
+    rewardTypeCounts?: Record<RewardTypeTab, number>;
   }>({});
 
   // The mark toggle every campaign card reads from context. Its identity never
@@ -965,7 +970,13 @@ export function Popup({
     derived.current.gameMap,
     Object.fromEntries(games.map((game) => [game.id, game])),
   );
-  derived.current = { inputs: derivationInputs, campaigns, gameMap };
+  const rewardTypeCounts = inputsChanged
+    ? reuseIfUnchanged(
+        derived.current.rewardTypeCounts,
+        farmRewardTypeCounts(snapshot.state.campaigns[platform], settings),
+      )
+    : derived.current.rewardTypeCounts!;
+  derived.current = { inputs: derivationInputs, campaigns, gameMap, rewardTypeCounts };
   const idleWatchlistChannels = settings.platform[platform].idleWatchlistChannels;
   const idleWatchlist = idleWatchlistChannels.map((username) =>
     streamerItemFromFallback(username, session, t),
@@ -1436,6 +1447,19 @@ export function Popup({
                               strategy={settings.priorityMode}
                               pinnedCount={settings.campaignPins.length}
                               farmPinnedOnly={settings.farmPinnedOnly}
+                              rewardTypes={settings.platform[platform].farmRewardTypes}
+                              availableRewardTypes={
+                                platform === "twitch"
+                                  ? REWARD_FARM_TYPES
+                                  : REWARD_FARM_TYPES.filter((type) => type !== "badge")
+                              }
+                              rewardTypeCounts={rewardTypeCounts}
+                              onRewardTypesChange={(farmRewardTypes) =>
+                                void updateSettings(
+                                  { platform: { [platform]: { farmRewardTypes } } },
+                                  { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
+                                )
+                              }
                               onStrategyChange={(priorityMode) =>
                                 void updateSettings({ priorityMode }, { tickAfterSave: true })
                               }

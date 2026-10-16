@@ -40,7 +40,7 @@ Supported `settings` keys: `autoClaim`, `autoClaimChannelPoints`, `priorityMode`
 `campaignPins`, `farmPinnedOnly`, `excludedCampaignIds`,
 `preferKnownChannels`, `offlineRetryLimit`, `pollIntervalMinutes`,
 `notifyRewardEarned`, `notifyNoDropsLeft`, `farmingEligibility`, and per-platform
-`enabled`, `watchSourcePriority`, `idleWatchlistChannels`, `excludedChannels`, `categoryMode`,
+`enabled`, `watchSourcePriority`, `idleWatchlistChannels`, `excludedChannels`, `categoryMode`, `farmRewardTypes`,
 `categories`, `favouriteCategories`, `blockedCategories`.
 
 Campaign order has three layers, and only the last one is automatic:
@@ -48,7 +48,11 @@ Campaign order has three layers, and only the last one is automatic:
 whose category is in that platform's `favouriteCategories`, in star order; then
 everything else by `priorityMode` (`ending_soonest` or `lowest_availability`).
 `farmPinnedOnly` narrows what may be farmed to the pinned campaigns and is
-eligibility, not order — a strategy is always in effect. A config still using
+eligibility, not order — a strategy is always in effect. Each platform's
+`farmRewardTypes` lists the kinds of reward to farm: any of `no_subscription`,
+`subscription` and, on Twitch, `badge`, combined as any-of; `[]` farms every
+reward. Only matching rewards (and what they wait on) are farmed, and a
+campaign is left once those are earned. A config still using
 the old `campaignPriorities` map or `priorityMode: "priority_list_only"` is
 migrated automatically, with a deprecation warning naming each moved key.
 
