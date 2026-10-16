@@ -339,12 +339,24 @@ function normalizeTwitchAccountLinkUrl(value: string | null | undefined): string
   const trimmed = value?.trim();
   if (!trimmed) return undefined;
   try {
-    const hostname = new URL(trimmed).hostname.toLowerCase().replace(/^www\./, "");
-    if (hostname === "twitch.tv" || hostname.endsWith(".twitch.tv")) return undefined;
+    const url = new URL(trimmed);
+    if (isTwitchHost(url.hostname)) {
+      // Some publishers link through Twitch's own OAuth consent page, which
+      // redirects back to them (Kakele, #828). That is a real link flow; any
+      // other Twitch page is not (EWC sent the Twitch homepage, #94).
+      const redirect = url.pathname === "/oauth2/authorize" ? url.searchParams.get("redirect_uri") : null;
+      const redirectHost = redirect && URL.canParse(redirect) ? new URL(redirect).hostname : "";
+      if (!redirectHost || isTwitchHost(redirectHost)) return undefined;
+    }
   } catch {
     // Preserve non-URL values for compatibility; Twitch normally returns an absolute URL.
   }
   return trimmed;
+}
+
+function isTwitchHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  return host === "twitch.tv" || host.endsWith(".twitch.tv");
 }
 
 // The shape of Twitch's own dropInstanceID, so a watch reward's key and its

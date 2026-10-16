@@ -953,6 +953,44 @@ describe("Twitch parsers", () => {
     });
   });
 
+  it("keeps a disconnected campaign unlinked when it links through Twitch OAuth to a publisher", () => {
+    const accountLinkURL =
+      "https://id.twitch.tv/oauth2/authorize?client_id=9awx3xtp59477gdaslg318amuimqp8"
+      + "&redirect_uri=https%3A%2F%2Fwww.kakele.io%2Fdrops&response_type=code&scope=user:read:email";
+    const campaigns = parseTwitchCampaigns([
+      {
+        id: "kakele-like",
+        self: { isAccountConnected: false },
+        accountLinkURL,
+        timeBasedDrops: [{ id: "drop", requiredMinutesWatched: 60 }],
+      },
+    ]);
+
+    expect(campaigns[0]).toMatchObject({
+      accountLinked: false,
+      accountLinkUrl: accountLinkURL,
+      eligibility: "account_not_linked",
+    });
+  });
+
+  it("ignores a Twitch OAuth link that redirects back to Twitch", () => {
+    const campaigns = parseTwitchCampaigns([
+      {
+        id: "twitch-oauth-to-twitch",
+        self: { isAccountConnected: false },
+        accountLinkURL:
+          "https://id.twitch.tv/oauth2/authorize?client_id=abc&redirect_uri=https%3A%2F%2Fwww.twitch.tv%2F",
+        timeBasedDrops: [{ id: "drop", requiredMinutesWatched: 60 }],
+      },
+    ]);
+
+    expect(campaigns[0]).toMatchObject({
+      accountLinked: true,
+      accountLinkUrl: undefined,
+      eligibility: "eligible",
+    });
+  });
+
   it("keeps a genuine disconnected Twitch campaign unlinked when it provides a link URL", () => {
     const campaigns = parseTwitchCampaigns([
       {
