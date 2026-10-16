@@ -3,13 +3,13 @@
     "message": "Lurkloot"
   },
   "extensionStoreName": {
-    "message": "Lurkloot – Twitch i Kick drop farmer"
+    "message": "Lurkloot — farmer dropów Twitch i Kick"
   },
   "extensionDescription": {
-    "message": "Farmić drops na Twitchu i Kicku przez zwykłe sesje przeglądarki, widoczne wyciszone karty i opcjonalny tryb niskiego zużycia zasobów."
+    "message": "Farmuj dropy Twitch i Kick w normalnych sesjach przeglądarki, na widocznych wyciszonych kartach i opcjonalnie w trybie niskiego zużycia zasobów."
   },
   "promoTagline": {
-    "message": "Farmić drops na Twitchu i Kicku na autopilocie."
+    "message": "Farmuj dropy Twitch i Kick na autopilocie."
   },
   "languageBrowser": {
     "message": "Użyj języka przeglądarki"
@@ -69,10 +69,10 @@
     "message": "Język"
   },
   "settingsLanguageDescription": {
-    "message": "Wybierz język używany w popupie i powiadomieniach rozszerzenia."
+    "message": "Wybierz język okna popup i powiadomień rozszerzenia."
   },
   "navWorkspace": {
-    "message": "Przestrzeń robocza"
+    "message": "Obszar roboczy"
   },
   "navPlatform": {
     "message": "Platforma"
@@ -90,7 +90,7 @@
     "message": "Gry"
   },
   "navIdleWatchlist": {
-    "message": "Lista rezerwowa"
+    "message": "Lista zapasowa"
   },
   "navActivity": {
     "message": "Aktywność"
@@ -111,16 +111,16 @@
     "message": "Następnie według"
   },
   "queueNotInQueue": {
-    "message": "Nie w kolejce"
+    "message": "Poza kolejką"
   },
   "queueSkipped": {
     "message": "Pominięte"
   },
   "queueActionRequired": {
-    "message": "Wymaga działania"
+    "message": "Wymagane działanie"
   },
   "queueActionRequiredHint": {
-    "message": "Wymaga subskrypcji lub innego kroku poza Lurkloot. Przypięcia i ulubione zmieniają tylko kolejność."
+    "message": "Potrzebna subskrypcja lub inny krok poza Lurkloot. Przypięcia i ulubione zmieniają tylko kolejność."
   },
   "queueUpcoming": {
     "message": "Nadchodzące"
@@ -129,7 +129,7 @@
     "message": "Następnie według"
   },
   "queueFarmPinnedOnly": {
-    "message": "Farmić tylko przypięte"
+    "message": "Farmuj tylko przypięte"
   },
   "queueUnpinAll": {
     "message": "Odepnij wszystkie ($1)"
@@ -147,7 +147,7 @@
     "message": "Drops"
   },
   "queueFacetBadges": {
-    "message": "Odznaki sub"
+    "message": "Odznaki subskrypcji"
   },
   "queueFixInclude": {
     "message": "Uwzględnij"
@@ -168,25 +168,25 @@
     "message": "Teraz nie ma kampanii subskrypcyjnych do farmienia."
   },
   "completedTabFinished": {
-    "message": "Ukończé"
+    "message": "Ukończone"
   },
   "completedTabExpired": {
-    "message": "Wygasé"
+    "message": "Wygasłe"
   },
   "completedEmptyFinished": {
     "message": "Kampanie trafiają tutaj, gdy wszystkie nagrody zostaną odebrane."
   },
   "completedEmptyExpired": {
-    "message": "Kampanie trafiają tutaj, gdy kończą się niedokończone."
+    "message": "Kampanie trafiają tutaj, gdy zakończą się bez ukończenia."
   },
   "settingsTitle": {
     "message": "Ustawienia"
   },
   "settingsSearchPlaceholder": {
-    "message": "Szukajat v nastavení…"
+    "message": "Szukaj w ustawieniach…"
   },
   "settingsSearchNoResults": {
-    "message": "Žádné nastavení neodpovídá „$1“."
+    "message": "Brak ustawień pasujących do „$1”."
   },
   "settingsPlatformSettings": {
     "message": "Ustawienia $1"
@@ -198,37 +198,37 @@
     "message": "Przejdź do sekcji"
   },
   "settingsSectionAdvancedActions": {
-    "message": "Zaawansowé akce"
+    "message": "Działania zaawansowane"
   },
   "settingsSectionAdvancedActionsDescription": {
-    "message": "Importuj, exportovat nebo resetovat nastavení Lurkloot."
+    "message": "Importuj, eksportuj lub resetuj ustawienia Lurkloot."
   },
   "activityTitle": {
     "message": "Aktywność"
   },
   "activeStatus": {
-    "message": "Aktivní"
+    "message": "Aktywne"
   },
   "pausedStatus": {
-    "message": "Pozastaveno"
+    "message": "Wstrzymane"
   },
   "refreshSchedule": {
-    "message": "Odśwież plán"
+    "message": "Odśwież harmonogram"
   },
   "openInventory": {
     "message": "Otwórz ekwipunek"
   },
   "openActivity": {
-    "message": "Otwórzít aktivitu"
+    "message": "Otwórz aktywność"
   },
   "closeActivity": {
-    "message": "Zamknijít aktivitu"
+    "message": "Zamknij aktywność"
   },
   "openSettings": {
-    "message": "Otwórzít nastavení"
+    "message": "Otwórz ustawienia"
   },
   "closeSettings": {
-    "message": "Zamknijít nastavení"
+    "message": "Zamknij ustawienia"
   },
   "back": {
     "message": "Wstecz"
@@ -240,112 +240,112 @@
     "message": "Drops"
   },
   "idleWatchlistTab": {
-    "message": "Lista rezerwowa"
+    "message": "Lista zapasowa"
   },
   "automationTitle": {
-    "message": "Automatizace $1"
+    "message": "Automatyzacja $1"
   },
   "automationRunning": {
     "message": "Działa"
   },
   "automationStarting": {
-    "message": "Uruchamia se"
+    "message": "Uruchamianie"
   },
   "automationStopping": {
-    "message": "Zatrzymuje se"
+    "message": "Zatrzymywanie"
   },
   "startingAutomation": {
     "message": "Uruchamianie automatyzacji…"
   },
   "pausingAutomation": {
-    "message": "Pozastavování automatizace…"
+    "message": "Wstrzymywanie automatyzacji…"
   },
   "watchingLabel": {
-    "message": "Sledování"
+    "message": "Oglądanie"
   },
   "farmingLabel": {
     "message": "Farmienie"
   },
   "waitingEligibleStream": {
-    "message": "Dla tej kampanii nie ma obecnie dostępnego kwalifikującego się streamu na żywo"
+    "message": "Brak kwalifikującej transmisji na żywo dla tej kampanii"
   },
   "watchingPausedHint": {
-    "message": "Oglądanie wstrzymane. Przełącz, aby wznowić farmienie drops."
+    "message": "Oglądanie wstrzymane. Przełącz, aby wznowić farmienie dropów."
   },
   "hideTipsTitle": {
-    "message": "Ukryjt tipy"
+    "message": "Ukryj wskazówki"
   },
   "hideTipsDescription": {
-    "message": "Usuń pomocne wskazówki z głównego popupu."
+    "message": "Usuń pomocne wskazówki z głównego okna popup."
   },
   "inPagePanelTitle": {
-    "message": "Pokażit panel na Twitchi a Kicku"
+    "message": "Pokaż panel na Twitch i Kick"
   },
   "inPagePanelDescription": {
-    "message": "Dodaje przycisk Lurkloot na twitch.tv i kick.com, który otwiera ten popup w panelu na stronie."
+    "message": "Dodaje przycisk Lurkloot na twitch.tv i kick.com, który otwiera to okno popup w panelu na stronie."
   },
   "tipCampaignPriority": {
-    "message": "Przeciągnij kampanię, aby przypiąć ją na początku, lub oznacz grę gwiazdką, aby jej kampanie zawsze były wysoko. Wszystko inne podąża za kolejnością wybraną w Kolejce."
+    "message": "Przeciągnij kampanię, aby przypiąć ją na początku, lub oznacz grę gwiazdką, aby jej kampanie zawsze były wysoko. Reszta podąża za kolejnością wybraną w Kolejce."
   },
   "tipMissingCampaigns": {
-    "message": "Brakuje Kampagne? Sprawdź das Drops-ekwipunek der platformy i die filtry w den Ustawienia."
+    "message": "Brakuje kampanii? Sprawdź ekwipunek dropów platformy, a potem filtry kampanii w Ustawieniach."
   },
   "tipCategorySelection": {
-    "message": "Die Gry-widok decyduje, które Gry gefarmt są, które pierwsze kommen i które nie."
+    "message": "Widok Gry decyduje, które gry są farmione, które są pierwsze i których nigdy nie farmić."
   },
   "tipIdleWatchlist": {
-    "message": "Ändere die źródełpriorität w den platformy-Ustawienia, um festzulegen, wann Kanały der Leerlaufliste angesehen są."
+    "message": "Wybierz, kiedy oglądać kanały listy zapasowej, zmieniając priorytet źródeł oglądania w ustawieniach platformy."
   },
   "tipTablessMode": {
-    "message": "Der tablose tryb spart zasoby i öffnet przy Bedarf wyciszonej Karta."
+    "message": "Tryb bez kart zużywa mniej zasobów i w razie potrzeby przechodzi na wyciszoną kartę."
   },
   "tipCli": {
-    "message": "Lieber ohne Rozszerzenie? Lurkloot jest auch als CLI-CLI verfügbar."
+    "message": "Wolisz bez rozszerzenia? Lurkloot jest też dostępny jako CLI oparty na Dockerze."
   },
   "tipCliAction": {
-    "message": "CLI-Anleitung lesen"
+    "message": "Przeczytaj przewodnik CLI"
   },
   "tipFeedback": {
-    "message": "Błąd gefunden lub pomysł?"
+    "message": "Znalazłeś błąd lub masz pomysł?"
   },
   "tipFeedbackAction": {
-    "message": "Otwórzít issue na GitHubu"
+    "message": "Otwórz zgłoszenie na GitHub"
   },
   "tipExcludedCampaigns": {
-    "message": "Kampagne versehentlich wykluczyłeś? Sie steht unter Pominięte w der Kolejce, z Taste zum Wsteczholen."
+    "message": "Wykluczyłeś kampanię przez pomyłkę? Jest w Pominięte w Kolejce, z przyciskiem, aby ją przywrócić."
   },
   "tipTranslations": {
-    "message": "Tłumaczenia są automatycznie z KI utrzymywane. Pomóż mit, sie auf GitHub zu ulepszyć."
+    "message": "Tłumaczenia są utrzymywane automatycznie przez AI. Pomóż je ulepszyć na GitHub."
   },
   "tipTranslationsAction": {
-    "message": "Übersetzungsprzewodnik przeczytajn"
+    "message": "Przeczytaj przewodnik tłumaczeń"
   },
   "noCampaigns": {
-    "message": "Jeszcze żadne Kampanie gefunden."
+    "message": "Nie wykryto jeszcze kampanii."
   },
   "campaignSearchPlaceholder": {
-    "message": "Kampanie durchszukajn…"
+    "message": "Szukaj kampanii…"
   },
   "campaignSearchNoResults": {
-    "message": "Żadne Kampanie entsprechen „$1\"."
+    "message": "Brak kampanii pasujących do „$1”."
   },
   "closeSearch": {
-    "message": "Zamknijít hledání"
+    "message": "Zamknij wyszukiwanie"
   },
   "search": {
-    "message": "Szukajat"
+    "message": "Szukaj"
   },
   "noActivity": {
-    "message": "Nie znaleziono jeszcze Aktywność zapisana. Odśwież drücken, um sprawdzenie auszuführen."
+    "message": "Brak zapisanej aktywności. Naciśnij odśwież, aby uruchomić sprawdzenie."
   },
   "noDiagnostics": {
-    "message": "Nie znaleziono jeszcze Diagnostyka zapisana. Sie pojawiają się, während die Rozszerzenie działa."
+    "message": "Brak zapisanych diagnostyk. Pojawiają się, gdy rozszerzenie pracuje."
   },
   "searchDiagnostics": {
-    "message": "Szukajat v diagnostice"
+    "message": "Szukaj w diagnostyce"
   },
   "noDiagnosticsMatch": {
-    "message": "Žádné diagnostiky neodpovídají „$1“."
+    "message": "Brak diagnostyki pasującej do „$1”."
   },
   "platformActivity": {
     "message": "Aktywność $1"
@@ -354,10 +354,10 @@
     "message": "Diagnostyka $1"
   },
   "lastCheck": {
-    "message": "poslední kontrola $1"
+    "message": "ostatnie sprawdzenie $1"
   },
   "noChecksYet": {
-    "message": "noch ksprawdzenieen"
+    "message": "brak sprawdzeń"
   },
   "debug": {
     "message": "Debug"
@@ -369,106 +369,106 @@
     "message": "Ostrzeżenie"
   },
   "error": {
-    "message": "Chyba"
+    "message": "Błąd"
   },
   "notLinked": {
-    "message": "Nespojeno"
+    "message": "Nie połączono"
   },
   "subscriptionCampaigns": {
     "message": "Kampanie subskrypcyjne"
   },
   "subscriptionRequired": {
-    "message": "Subnnement erforderlich"
+    "message": "Wymagana subskrypcja"
   },
   "subscriptionRewards": {
-    "message": "Subnnement-Nagrody"
+    "message": "Nagrody subskrypcyjne"
   },
   "qualifyingSubscriptionsRequired": {
-    "message": "$1 qualifizierende Subnnements erforderlich"
+    "message": "Wymagane kwalifikujące subskrypcje: $1"
   },
   "subscriptionProgressUnknown": {
-    "message": "Postęp nie jest k dispozici"
+    "message": "Postęp niedostępny"
   },
   "notEarnableByWatching": {
-    "message": "Nelze získat oglądáním"
+    "message": "Nie można zdobyć przez oglądanie"
   },
   "subscribedRefresh": {
-    "message": "Subukryjpcil jsem — odświeżit stav"
+    "message": "Subskrybuję — odśwież status"
   },
   "subscriptionMarkSubscribed": {
-    "message": "Als abonniert markieren"
+    "message": "Oznacz jako subskrybowane"
   },
   "subscriptionMarkedSubscribed": {
-    "message": "Als abonniert markiert"
+    "message": "Oznaczono jako subskrybowane"
   },
   "subscriptionMarkUndo": {
-    "message": "Wstecz"
+    "message": "Cofnij"
   },
   "waitingForSubscription": {
-    "message": "Auf qualifizierendes Subskrypcja warten"
+    "message": "Oczekiwanie na kwalifikującą subskrypcję"
   },
   "actionRequired": {
-    "message": "Wymaguje akci"
+    "message": "Wymagane działanie"
   },
   "earned": {
-    "message": "Zdobáno"
+    "message": "Zdobyte"
   },
   "linkAccount": {
-    "message": "Konto połączfen"
+    "message": "Połącz konto"
   },
   "externalGameAccountRequired": {
-    "message": "Externes Grakonto erforderlich"
+    "message": "Wymagane zewnętrzne konto gry"
   },
   "linkExternalGameAccount": {
-    "message": "Externes Grakonto połączfen"
+    "message": "Połącz zewnętrzne konto gry"
   },
   "viewDropPage": {
-    "message": "Pokażit stronu dropu"
+    "message": "Zobacz stronę dropu"
   },
   "campaignDropDetails": {
-    "message": "Podrobnosti dropu"
+    "message": "Szczegóły dropu"
   },
   "campaignCategoryDrops": {
-    "message": "Drops kategorie"
+    "message": "Dropy kategorii"
   },
   "upcoming": {
-    "message": "Nadchodzící"
+    "message": "Nadchodzące"
   },
   "expired": {
-    "message": "Wygasé"
+    "message": "Wygasłe"
   },
   "excluded": {
-    "message": "Wykluczé"
+    "message": "Wykluczone"
   },
   "finished": {
-    "message": "Hotovo"
+    "message": "Ukończone"
   },
   "completedCampaigns": {
-    "message": "Ukończé"
+    "message": "Ukończone"
   },
   "upcomingPill": {
-    "message": "Nadchodzící"
+    "message": "Nadchodzące"
   },
   "expiredPill": {
-    "message": "Wygasé"
+    "message": "Wygasłe"
   },
   "complete": {
-    "message": "Ukończo"
+    "message": "Ukończone"
   },
   "startsIn": {
-    "message": "Zaczyna się za $1"
+    "message": "Start za $1"
   },
   "endsIn": {
-    "message": "Kończy się za $1"
+    "message": "Koniec za $1"
   },
   "watchToGo": {
-    "message": "Pozostało oglądat $1"
+    "message": "Do obejrzenia: $1"
   },
   "left": {
     "message": "Pozostało"
   },
   "campaignFactWatchTime": {
-    "message": "Doba oglądání"
+    "message": "Czas oglądania"
   },
   "watchTimeLeftValue": {
     "message": "Pozostało $1"
@@ -477,622 +477,622 @@
     "message": "Potrzeba $1"
   },
   "watchTimeOfTotal": {
-    "message": "z celkem $1"
+    "message": "z $1 łącznie"
   },
   "done": {
-    "message": "Hotovo"
+    "message": "Gotowe"
   },
   "rewards": {
     "message": "Nagrody"
   },
   "allChannels": {
-    "message": "Wszystkie Kanały"
+    "message": "Wszystkie kanały"
   },
   "includeInFarming": {
-    "message": "Zahrnout do farmienie"
+    "message": "Uwzględnij w farmieniu"
   },
   "excludeFromFarming": {
-    "message": "Vom Farming ausschließen"
+    "message": "Wyklucz z farmienia"
   },
   "noIdleWatchlist": {
-    "message": "KKanały w der Leerlauf-Lista rezerwowa konfiguriert."
+    "message": "Nie skonfigurowano kanałów listy zapasowej."
   },
   "channelPlaceholder": {
     "message": "kanał"
   },
   "add": {
-    "message": "Dodajat"
+    "message": "Dodaj"
   },
   "addChannel": {
-    "message": "Dodajat kanał"
+    "message": "Dodaj kanał"
   },
   "idleWatchlistChannel": {
-    "message": "Nicht online"
+    "message": "Poza siecią"
   },
   "live": {
     "message": "live"
   },
   "viewerCount": {
-    "message": "$1 Widzowie"
+    "message": "$1 widzów"
   },
   "settingsGeneralTitle": {
-    "message": "Obecná nastavení"
+    "message": "Ustawienia ogólne"
   },
   "settingsGeneralDescription": {
-    "message": "Język, Startverhalten i Verhalten des popupus."
+    "message": "Język, uruchamianie i zachowanie popup."
   },
   "settingsGroupAppearance": {
-    "message": "Vzhled a chování"
+    "message": "Wygląd i zachowanie"
   },
   "pauseManualTitle": {
-    "message": "Przy manuellem Schauen pausieren"
+    "message": "Wstrzymaj przy ręcznym oglądaniu"
   },
   "pauseManualDescription": {
-    "message": "Zatrzymuje Farmienie, podczas du selbst einen offenen Stream ansiehst."
+    "message": "Zatrzymaj farmienie, gdy masz otwartą transmisję i sam ją oglądasz."
   },
   "autoStartTitle": {
-    "message": "Automatycznie beim Start beginnen"
+    "message": "Autostart przy uruchomieniu"
   },
   "autoStartDescription": {
-    "message": "Beginnt z Farming, sobald die Rozszerzenie geladen ist."
+    "message": "Rozpocznij farmienie zaraz po załadowaniu rozszerzenia."
   },
   "notificationsTitle": {
-    "message": "Oznámení"
+    "message": "Powiadomienia"
   },
   "notificationsDescription": {
-    "message": "Powiadomienieen, gdy Nagrody bereit są lub Kampanie enden."
+    "message": "Alerty, gdy nagrody są gotowe lub kampanie się kończą."
   },
   "settingsGroupNotifications": {
-    "message": "Oznámení"
+    "message": "Powiadomienia"
   },
   "rewardEarnedTitle": {
-    "message": "Nagroda zdobyte"
+    "message": "Nagroda zdobyta"
   },
   "rewardEarnedDescription": {
-    "message": "Benachrichtigen, wenn Drop-Nagroda beanspruchbar ist."
+    "message": "Powiadom, gdy nagrodę dropu można odebrać."
   },
   "noDropsLeftTitle": {
-    "message": "KDrops übrig"
+    "message": "Brak dropów"
   },
   "noDropsLeftDescription": {
-    "message": "Benachrichtigen, wenn alle aktiven Kampanie erschöpft sind."
+    "message": "Powiadom, gdy wszystkie aktywne kampanie są wyczerpane."
   },
   "dropsSettingsTitle": {
     "message": "Drops"
   },
   "dropsSettingsDescription": {
-    "message": "Beanspruchen, Teilnahme, prioryteten i Sichtbarkeit von Kampanie."
+    "message": "Odbieranie, kwalifikacja, priorytety i widoczność kampanii."
   },
   "settingsGroupDrops": {
     "message": "Drops"
   },
   "autoClaimTitle": {
-    "message": "Automatyczy vyzvedávat drops"
+    "message": "Automatyczne odbieranie dropów"
   },
   "autoClaimDescription": {
-    "message": "Automatyczy vyzvedne získané nagrody z drops, jakmile budou dostupné."
+    "message": "Odbieraj zdobyte nagrody dropów automatycznie, gdy staną się dostępne."
   },
   "campaignPriorityTitle": {
-    "message": "Priorita kampaní"
+    "message": "Priorytet kampanii"
   },
   "campaignPriorityDescription": {
-    "message": "Sortiert die Kampanie w der Kolejce, die weder angeheftet są noch zu Lieblingsspiel gehören. Du kannst sie auch am Trenner „Następnie według“ w der Kolejce ändern."
+    "message": "Ustala kolejność kampanii w Kolejce, które nie są przypięte ani z ulubionej gry. Możesz też zmienić to w separatorze Następnie według w Kolejce."
   },
   "endingSoonest": {
-    "message": "Endet am frühesten"
+    "message": "Najwcześniejszy koniec"
   },
   "lowAvailabilityFirst": {
-    "message": "Geringe Dostępnykeit pierwsze"
+    "message": "Najpierw niska dostępność"
   },
   "idleWatchlistSettingsTitle": {
-    "message": "Lista rezerwowa"
+    "message": "Lista zapasowa"
   },
   "idleWatchlistSettingsDescription": {
-    "message": "Gemeinsames Verhalten der Ersatz-Leerlauf-Lista rezerwowa."
+    "message": "Kanały zapasowe, gdy brak kwalifikujących dropów."
   },
   "preferKnownChannelsTitle": {
-    "message": "Gefolgte i Leerlauf-Watchlist-Kanały bevorzugen"
+    "message": "Preferuj obserwowane kanały i listę zapasową"
   },
   "preferKnownChannelsDescription": {
-    "message": "Wenn Drop auf mehreren Kanałyn verfügbar ist, wird Kanał bevorzugt, dem du folgst lub der w dLeerlauf-Lista rezerwowa steht, statt eines unbekannten."
+    "message": "Gdy drop jest na wielu kanałach, wybiera ten, który obserwujesz lub masz na liście zapasowej, zamiast nieznanego."
   },
   "platformSettingsTitle": {
     "message": "Ustawienia platformy"
   },
   "farmingTabsTitle": {
-    "message": "Farmienie-Karty"
+    "message": "Karty farmienia"
   },
   "farmingTabsDescription": {
-    "message": "Steuerung dla Video-Karta-Farmienie. Karta-spezifische Optionen są im kartalosen Tryb niskiego zużycia zasobów deaktiviert."
+    "message": "Sterowanie farmieniem na kartach wideo. Ustawienia kart są wyłączone, gdy włączony jest tryb bez kart o niskim zużyciu."
   },
   "settingsGroupFarmingTabs": {
-    "message": "Farmienie-Karty"
+    "message": "Karty farmienia"
   },
   "tablessTitle": {
-    "message": "Oszczędny tryb bez kart"
+    "message": "Tryb bez kart — niskie zużycie"
   },
   "tablessDescription": {
-    "message": "Farmt über leichte Watch-Signale statt Video-Karta. Twitch nutzt Watch-Heartbeats; Kick nutzt Widzowieverbindung. Fällt automatycznie auf Karta , wenn es nie mehr zählt."
+    "message": "Farmuj przez lekkie sygnały oglądania zamiast karty wideo. Twitch używa heartbeatów; Kick połączenia widza. Automatycznie przechodzi na kartę, jeśli przestaje naliczać postęp."
   },
   "tablessFallbackFailureLimitTitle": {
-    "message": "Práh návratu z trybu bez kart"
+    "message": "Próg przejścia z trybu bez kart"
   },
   "tablessFallbackFailureLimitDescription": {
-    "message": "Otwórzt po dieser Anzahl aufeinanderfolgender fehlgeschlagener Kartaless-oglądaniesignale Video-Karta."
+    "message": "Otwórz kartę wideo po tylu kolejnych nieudanych sygnałach oglądania bez kart."
   },
   "tablessFallbackFailureLimitDisabledReason": {
-    "message": "Pro zmianę włącz oszczędny tryb bez kart."
+    "message": "Włącz tryb bez kart o niskim zużyciu, aby zmienić to ustawienie."
   },
   "failuresSuffix": {
-    "message": "Błąd"
+    "message": "niepowodzeń"
   },
   "kickPageContextRecoverySuccessesTitle": {
-    "message": "Wiederherstellung der Kick-Ausweichseite"
+    "message": "Odzyskiwanie strony zapasowej Kick"
   },
   "kickPageContextRecoverySuccessesDescription": {
-    "message": "Schließt von der Rozszerzenie geöffnete Kick-Ausweichseite po dieser Anzahl erfolgreicher Aktualisierungszyklen."
+    "message": "Zamknij otwartą przez rozszerzenie stronę zapasową Kick po tylu udanych cyklach odświeżania."
   },
   "kickPageContextRecoverySuccessesDisabledReason": {
-    "message": "Pro zmianę włącz Kick."
+    "message": "Włącz Kick, aby zmienić to ustawienie."
   },
   "cyclesSuffix": {
     "message": "cykli"
   },
   "autoCloseTabsTitle": {
-    "message": "Automatyczy zavírat karty pro farmienie"
+    "message": "Automatycznie zamykaj karty farmienia"
   },
   "autoCloseTabsDescription": {
-    "message": "Schließt automatycznie, wenn die Rozszerzenie untätig ist: kDrops i kStreamer zum Schauen."
+    "message": "Zamykaj automatycznie, gdy rozszerzenie jest bezczynne (brak dropów do farmienia lub streamerów do oglądania)."
   },
   "muteTabsTitle": {
-    "message": "Wyciszit karty pro farmienie"
+    "message": "Wycisz karty farmienia"
   },
   "muteTabsDescription": {
-    "message": "Hält Drop- i Leerlauf-Lista rezerwowa-Karty beim Farming stumm."
+    "message": "Trzymaj karty dropów i listy zapasowej wyciszone podczas farmienia."
   },
   "keepVideosUnmutedTitle": {
-    "message": "Nenechat farmící videa ztlumená"
+    "message": "Nie wyciszaj wideo na kartach farmienia"
   },
   "keepVideosUnmutedDescription": {
-    "message": "Lässt Videoplayer unmuted, während der Przeglądarka-Karta stummgeschaltet ist."
+    "message": "Pozostaw odtwarzacze wideo na stronie niewyciszone, gdy karta przeglądarki jest wyciszona."
   },
   "tablessDisabledReason": {
-    "message": "Deaktiviert, solange der tablose Tryb niskiego zużycia zasobów aktiv ist."
+    "message": "Wyłączone, gdy włączony jest tryb bez kart o niskim zużyciu."
   },
   "adFocusTitle": {
-    "message": "Karta podczas Pokaż fokussieren"
+    "message": "Aktywuj kartę podczas reklam"
   },
   "adFocusDescription": {
-    "message": "Anzeigen-Countdowns frieren w Hintergrund-Karty ein. Fokussiert den Farming-Karta während Anzeige kurz i stellt danach den vorherigen Karta z powrotem her."
+    "message": "Odliczanie reklam zatrzymuje się na kartach w tle. Krótko aktywuj kartę farmienia podczas reklamy, aby odliczała, potem wróć do poprzedniej karty."
   },
   "off": {
-    "message": "Wyłączo"
+    "message": "Wył."
   },
   "tabOnly": {
-    "message": "Jen karta"
+    "message": "Tylko karta"
   },
   "tabAndWindow": {
-    "message": "Karta + Fenster"
+    "message": "Karta + okno"
   },
   "advancedTitle": {
-    "message": "Zaawansowé"
+    "message": "Zaawansowane"
   },
   "advancedDescription": {
-    "message": "Nur ändern, wenn du weißt, was du tust: steuert Scheduler i Low-Level-Logging."
+    "message": "Zmieniaj to tylko, jeśli wiesz, co robisz — steruje niskopoziomowym harmonogramem i logowaniem."
   },
   "settingsGroupAdvanced": {
-    "message": "Zaawansowé"
+    "message": "Zaawansowane"
   },
   "settingsGroupPlatformAdvanced": {
-    "message": "Zaawansowé a zgodnośća"
+    "message": "Zaawansowane i zgodność"
   },
   "twitchSectionDescription": {
-    "message": "Priorita źródeł oglądání, channel points, kategorie, wykluczone kanały a zgodnośća Twitch."
+    "message": "Priorytet źródeł oglądania, punkty kanału, kategorie, wykluczone kanały i zgodność z Twitch."
   },
   "kickSectionDescription": {
-    "message": "Priorita źródeł oglądání, codzien wyzwania, kategorie, wykluczone kanały a zgodnośća Kick."
+    "message": "Priorytet źródeł oglądania, codzienne wyzwania, kategorie, wykluczone kanały i zgodność z Kick."
   },
   "twitchAdvancedDescription": {
-    "message": "Kampanieverfügbarkeit sowie die von Lurkloot genutzten Heartbeat- i ekwipunek-Transporte. Ändere sie nur, wenn Twitch nie mehr funktioniert."
+    "message": "Dostępność kampanii oraz transporty heartbeat i ekwipunku używane przez Lurkloot. Zmieniaj tylko, gdy Twitch przestaje działać."
   },
   "kickAdvancedDescription": {
-    "message": "Wie Lurkloot Kick-Einlöselinks öffnet i das zugehörige Verhaltensprofil. Ändere sie nur, wenn Kick nie mehr funktioniert."
+    "message": "Jak Lurkloot otwiera linki odbioru Kick i profil zachowania za tym stojący. Zmieniaj tylko, gdy Kick przestaje działać."
   },
   "schedulerIntervalTitle": {
-    "message": "Scheduler-Intervall"
+    "message": "Interwał harmonogramu"
   },
   "schedulerIntervalDescription": {
-    "message": "Wie oft Kampanie- i Streamerstatus aktualisiert są."
+    "message": "Jak często odświeżany jest status kampanii i streamerów."
   },
   "postClaimHandoffTitle": {
-    "message": "Rychlé przekazanie nagrody"
+    "message": "Szybkie przejście po nagrodzie"
   },
   "postClaimHandoffDescription": {
-    "message": "Sucht po dem Einlösen eines Drops kurz po der nächsten Nagroda der Kampagne, statt auf den nächsten geplanten Zyklus zu warten. Nur dla Twitch."
+    "message": "Po odebraniu dropu krótko sprawdź następną nagrodę w kampanii zamiast czekać na następny cykl harmonogramu. Tylko Twitch."
   },
   "postClaimHandoffIntervalTitle": {
-    "message": "Interval kontroly przekazanie"
+    "message": "Interwał sprawdzenia przejścia"
   },
   "postClaimHandoffIntervalDescription": {
-    "message": "Wie lange zwischen den sprawdzenieen auf die nächste Nagroda gewartet wird."
+    "message": "Jak długo czekać między sprawdzeniami następnej nagrody."
   },
   "postClaimHandoffMaxTitle": {
-    "message": "Zeitlimit der Übergabe"
+    "message": "Limit czasu przejścia"
   },
   "postClaimHandoffMaxDescription": {
-    "message": "Nach dieser Zeit aufgeben i zum regulären Zeitplan kehren."
+    "message": "Poddaj się i wróć do zwykłego harmonogramu po tym czasie."
   },
   "secondsSuffix": {
     "message": "s"
   },
   "deadlineSafetyMarginTitle": {
-    "message": "Sicherheitsmarge bis zum Ablauf"
+    "message": "Margines bezpieczeństwa terminu"
   },
   "deadlineSafetyMarginDescription": {
-    "message": "Zusätzliche Minuten przed dem Farmin Nagroda."
+    "message": "Dodatkowe minuty wymagane przed farmieniem nagrody."
   },
   "deadlineSafetyMarginDisabledReason": {
-    "message": "Aktiviere den Fristfilter, um die Sicherheitsmarge zu ändern."
+    "message": "Włącz filtrowanie terminów, aby zmienić margines bezpieczeństwa."
   },
   "skipUnfinishableRewardsTitle": {
-    "message": "Nicht abschließbare Nagrody überprzejdź"
+    "message": "Pomijaj nagrody, których nie da się ukończyć"
   },
   "skipUnfinishableRewardsDescription": {
-    "message": "Nagrody nie farmin, wenn die verbleibende oglądaniezeit die Frist überschreitet."
+    "message": "Nie farmuj nagród, gdy pozostały czas oglądania przekracza czas do terminu."
   },
   "minutesSuffix": {
     "message": "min."
   },
   "insufficientTimeRemaining": {
-    "message": "Nicht genügend Zeit verbleibend"
+    "message": "Za mało pozostałego czasu"
   },
   "campaignRejectionExcluded": {
-    "message": "Diese Kampagne jest vom Farmin wykluczyłeś."
+    "message": "Ta kampania jest wykluczona z farmienia."
   },
   "campaignRejectionUpcoming": {
-    "message": "Diese Kampagne hat noch nie begonnen."
+    "message": "Ta kampania jeszcze się nie rozpoczęła."
   },
   "campaignRejectionExpired": {
-    "message": "Diese Kampagne jest beendet."
+    "message": "Ta kampania się zakończyła."
   },
   "campaignRejectionCompleted": {
-    "message": "Wszystkie Nagrody tar Kampania są abgeschlossen."
+    "message": "Wszystkie nagrody w tej kampanii są ukończone."
   },
   "campaignRejectionUnlinkedDisabled": {
-    "message": "Farmení kampaní bez propojeného konta je vypnuté."
+    "message": "Farmienie kampanii bez połączonego konta jest wyłączone."
   },
   "campaignRejectionTwitchLinkRequired": {
-    "message": "Für diese Twitch-Kampagne muss Konto verknüpft sein."
+    "message": "Dla tej kampanii Twitch wymagane jest połączenie konta."
   },
   "campaignRejectionSubscriptionDisabled": {
-    "message": "Subnnement-Kampanie będą nie gefarmt."
+    "message": "Farmienie kampanii subskrypcyjnych jest wyłączone."
   },
   "campaignRejectionCategoryFiltered": {
-    "message": "Diese Kampagne entspricht nie den ausgewählten Kategorie."
+    "message": "Ta kampania nie pasuje do wybranych kategorii."
   },
   "campaignRejectionCategoryBlocked": {
-    "message": "Dieses Gra jest blockiert, sKampanie są nie gefarmt."
+    "message": "Ta gra jest zablokowana, więc jej kampanie nigdy nie są farmione."
   },
   "campaignRejectionNotPinned": {
-    "message": "Obecnie będą tylko przypiętee Kampanie gefarmt."
+    "message": "Teraz farmione są tylko przypięte kampanie."
   },
   "campaignRejectionNoRewards": {
-    "message": "Diese Kampagne hat kdo farmieniaen Nagrody."
+    "message": "Ta kampania nie ma nagród do farmienia."
   },
   "campaignRejectionNoUnclaimedRewards": {
-    "message": "Diese Kampagne hat knicht beanspruchten Nagrody."
+    "message": "Ta kampania nie ma nieodebranych nagród."
   },
   "campaignRejectionPrerequisites": {
-    "message": "$1 wartet auf frühere Nagroda lub Voraussetzung."
+    "message": "$1 czeka na wcześniejszą nagrodę lub wymaganie."
   },
   "campaignRejectionRewardNotStarted": {
-    "message": "$1 jest noch nie verfügbar."
+    "message": "$1 nie jest jeszcze dostępna."
   },
   "campaignRejectionRewardWindowEnded": {
-    "message": "$1 już nie jest dostupná."
+    "message": "$1 nie jest już dostępna."
   },
   "campaignRejectionInsufficientTime": {
-    "message": "$1 kann nie przed Ablauf der Frist abgeschlossen są."
+    "message": "$1 nie można ukończyć przed terminem."
   },
   "campaignRejectionSubscriptionRequired": {
-    "message": "$1 erfordert gültiges Subskrypcja."
+    "message": "$1 wymaga kwalifikującej subskrypcji."
   },
   "campaignRejectionActionRequired": {
-    "message": "$1 erfordert andere Aktion als Zuschauen."
+    "message": "$1 wymaga działania innego niż oglądanie."
   },
   "campaignRejectionThen": {
     "message": "Potem: $1"
   },
   "campaignRejectionNoFarmableReward": {
-    "message": "Derzeit kann kNagroda dieser Kampagne gefarmt są."
+    "message": "Żadnej nagrody w tej kampanii nie można teraz farmić."
   },
   "automationSectionTitle": {
-    "message": "Automatizace"
+    "message": "Automatyzacja"
   },
   "farmOnPlatform": {
-    "message": "Farmić drops i oglądać kanały listy rezerwowej na $1."
+    "message": "Farmuj dropy i oglądaj kanały listy zapasowej na $1."
   },
   "enabled": {
-    "message": "Włączo"
+    "message": "Włączone"
   },
   "idleWatchlistEditHint": {
-    "message": "Nach Auswahl von $1 im Leerlauf-Lista rezerwowa-Karta bearbeiten."
+    "message": "Edytuj to w zakładce listy zapasowej po wybraniu $1."
   },
   "autoClaimChannelPointsTitle": {
-    "message": "Automatyczy vyzvedávat channel points"
+    "message": "Automatyczne odbieranie punktów kanału"
   },
   "autoClaimChannelPointsDescription": {
-    "message": "Odbierá bonusy channel points podczas farmienie na této platformie."
+    "message": "Odbieraj bonusy punktów kanału podczas farmienia na tej platformie."
   },
   "channelPointsPushClaimTitle": {
-    "message": "Odbierávat channel points z live zdarzení"
+    "message": "Odbieraj punkty kanału z wydarzeń na żywo"
   },
   "channelPointsPushClaimDescription": {
-    "message": "Beansprucht den Bonus, sobald Twitch ihn verfügbar macht. Deaktivieren, um nur einmal pro Minute zu sprawdźn."
+    "message": "Odbierz bonus, gdy tylko Twitch go udostępni. Wyłącz, aby sprawdzać tylko raz na minutę."
   },
   "alwaysEnterChatTitle": {
-    "message": "Zawsze dem Kanał-Chat beitreten"
+    "message": "Zawsze wchodź na czat kanału"
   },
   "alwaysEnterChatDescription": {
-    "message": "Tritt dem Chat jedes angesehenen Kanałs bei. Streamer i Moderatoren sehen dich w der Widzowieliste des Chats. Es są nie Nachrichten gesendet."
+    "message": "Dołącz do czatu każdego oglądanego kanału. Streamerzy i moderatorzy widzą cię na liście widzów czatu. Wiadomości nigdy nie są wysyłane."
   },
   "chatPresenceJoined": {
-    "message": "V chatu"
+    "message": "Na czacie"
   },
   "chatPresenceJoining": {
-    "message": "Chat będzie betreten…"
+    "message": "Dołączanie do czatu…"
   },
   "chatPresenceUnavailable": {
-    "message": "Chat nie jest k dispozici"
+    "message": "Czat niedostępny"
   },
   "chatPresenceBlockedAuth": {
-    "message": "Chat nie verfügbar: Melde dich erneut przy Twitch an"
+    "message": "Czat niedostępny: zaloguj się ponownie na Twitch"
   },
   "strictCampaignAvailabilityTitle": {
-    "message": "Strikte Kampanieverfügbarkeit"
+    "message": "Ścisła dostępność kampanii"
   },
   "strictCampaignAvailabilityDescription": {
-    "message": "Farmi Kampagne nur auf Kanałyn, dla die Twitch sie auflistet. Twitch lässt do farmieniae Kampanie oft aus, wodurch Drops ungefarmt bleiben können."
+    "message": "Farmuj kampanię tylko na kanałach, na których Twitch ją wymienia. Twitch często pomija kampanie do farmienia, więc dropy mogą zostać niefarmione."
   },
   "autoClaimChallengesTitle": {
-    "message": "Automatyczy vyzvedávat codzien wyzwania"
+    "message": "Automatyczne odbieranie codziennych wyzwań"
   },
   "autoClaimChallengesDescription": {
-    "message": "Beansprucht Kicks tägliche Challenge-Nagroda, sobald das Sehdauer-Ziel erreicht ist."
+    "message": "Odbierz nagrodę codziennego wyzwania Kick, gdy cel czasu oglądania zostanie spełniony."
   },
   "settingsGroupExcludedChannels": {
-    "message": "Wykluczé kanały"
+    "message": "Wykluczone kanały"
   },
   "excludedChannelsTitle": {
-    "message": "Wykluczé kanały pro drops"
+    "message": "Wykluczone kanały dropów"
   },
   "excludedChannelsDescription": {
-    "message": "Farmení kampaní tyto streamery pominie."
+    "message": "Farmienie kampanii pominie tych streamerów."
   },
   "excludedChannelsEmpty": {
-    "message": "Žádné wykluczone kanały pro drops."
+    "message": "Brak wykluczonych kanałów dropów."
   },
   "settingsGroupCategories": {
     "message": "Kategorie"
   },
   "categoryModeTitle": {
-    "message": "Filtr kategorií"
+    "message": "Filtr kategorii"
   },
   "categoryModeDescription": {
-    "message": "Farmi alle $1-Kategorie, schließe nur die ausgewählten lub schließe sie aus."
+    "message": "Farmuj każdą kategorię $1, uwzględniaj tylko wybrane lub je wykluczaj."
   },
   "categoryModeAll": {
-    "message": "Wszystkie Kategorie"
+    "message": "Wszystkie kategorie"
   },
   "categoryModeInclude": {
-    "message": "Jen vybrané"
+    "message": "Tylko wybrane"
   },
   "includeCategoriesInstruction": {
-    "message": "Na $1 se farmí jen tyto kategorie."
+    "message": "Tylko te kategorie są farmione na $1."
   },
   "categoriesToFarm": {
-    "message": "Kategorie k farmienie"
+    "message": "Kategorie do farmienia"
   },
   "noCategoriesSelected": {
-    "message": "KKategorie ausgewählt: Auf $1 wird nichts gefarmt. Kategorie unten hinzufügen."
+    "message": "Nie wybrano kategorii — nic nie będzie farmione na $1. Dodaj kategorie poniżej."
   },
   "hasActiveDrops": {
-    "message": "Má aktivní drops"
+    "message": "Ma aktywne dropy"
   },
   "otherCategories": {
-    "message": "Ostatní kategorie"
+    "message": "Inne kategorie"
   },
   "searchCategories": {
-    "message": "Szukajat kategorie $1"
+    "message": "Szukaj kategorii $1"
   },
   "searching": {
-    "message": "Szukajání…"
+    "message": "Wyszukiwanie…"
   },
   "noCategoriesFound": {
-    "message": "Żadne Kategorie gefunden."
+    "message": "Nie znaleziono kategorii."
   },
   "alreadyAdded": {
-    "message": "Bereits hinzugedodaje."
+    "message": "Już dodano."
   },
   "activityLogLevelsTitle": {
-    "message": "Aktywnośćsprotokoll-Stufen"
+    "message": "Poziomy dziennika aktywności"
   },
   "activityLogLevelsDescription": {
-    "message": "Wybierz, które Stufen im Aktywnośćsprotokoll zapisana są. Błąd bleiben zawsze aktiv."
+    "message": "Wybierz, które poziomy są zapisywane w dzienniku Aktywność. Błędy są zawsze zachowywane."
   },
   "farmUnlinkedTitle": {
-    "message": "Kampanie ohne połączftes Konto farmin"
+    "message": "Farmuj kampanie bez połączonego konta"
   },
   "farmUnlinkedDescription": {
-    "message": "Wenn aus, są Kampanie übersprungen, die Kontoverknüpfung erfordern. platformyvorgaben können die Verknüpfung auch przy aktivierter Option verlangen."
+    "message": "Gdy wyłączone, kampanie wymagające połączenia konta są pomijane. Wymagania platformy nadal mogą wymagać połączenia, gdy to jest włączone."
   },
   "farmSubscriptionTitle": {
-    "message": "Kampanie farmin, die Abo erfordern"
+    "message": "Farmuj kampanie wymagające subskrypcji"
   },
   "farmSubscriptionDescription": {
-    "message": "Wenn aus, są Kampanie übersprungen, deren Nagrody Kanał-Abo erfordern."
+    "message": "Gdy wyłączone, kampanie, których nagrody wymagają subskrypcji kanału, są pomijane."
   },
   "forgetExcludedTitle": {
-    "message": "Ausgeschlossene Kampanie vergessen"
+    "message": "Zapomnij wykluczone kampanie"
   },
   "forgetExcludedDescription": {
-    "message": "Löscht alle Kampanie, die du vom Farming wykluczyłeś hast."
+    "message": "Wyczyść wszystkie kampanie wykluczone z farmienia."
   },
   "forget": {
-    "message": "Zapomenout"
+    "message": "Zapomnij"
   },
   "unknownGame": {
-    "message": "Neznámá hra"
+    "message": "Nieznana gra"
   },
   "noCategory": {
-    "message": "Bez kategorie"
+    "message": "Brak kategorii"
   },
   "dropsCampaign": {
-    "message": "Drop-Kampania"
+    "message": "Kampania dropów"
   },
   "later": {
     "message": "później"
   },
   "ended": {
-    "message": "Bekończy się"
+    "message": "Zakończone"
   },
   "notificationRewardClaimed": {
-    "message": "Nagroda beansprucht"
+    "message": "Nagroda odebrana"
   },
   "notificationRewardEarned": {
-    "message": "Nagroda zdobyte"
+    "message": "Nagroda zdobyta"
   },
   "notificationNoDropsLeft": {
-    "message": "KDrops übrig"
+    "message": "Brak dropów"
   },
   "notificationRewardFromCampaign": {
     "message": "$1 z $2"
   },
   "notificationChallengeClaimed": {
-    "message": "Chwszystkienge-Nagroda beansprucht"
+    "message": "Nagroda wyzwania odebrana"
   },
   "notificationChallengeReward": {
-    "message": "Vyhráli jste kartu $1 z wyzwania $2."
+    "message": "Wygrałeś kartę $1 z wyzwania $2."
   },
   "notificationNoDropsLeftMessage": {
-    "message": "$1 hat kgeeigneten Drops zum Farmin."
+    "message": "$1 nie ma kwalifikujących dropów do farmienia."
   },
   "screenshotHeroEyebrow": {
     "message": "Twitch + Kick"
   },
   "screenshotHeroHeadline": {
-    "message": "Farmi drops, zatímco robisz cokoli jiného."
+    "message": "Farmuj dropy, robiąc cokolwiek innego."
   },
   "screenshotHeroSubcopy": {
-    "message": "Auto-Claim über dbereits angemeldete Sitzung. KPasswörter."
+    "message": "Auto-odbiór z własnej zalogowanej sesji. Bez haseł."
   },
   "screenshotExtrasEyebrow": {
-    "message": "Więcej als Kampanie"
+    "message": "Poza kampaniami"
   },
   "screenshotExtrasHeadline": {
-    "message": "Víc niż drops."
+    "message": "Więcej niż dropy."
   },
   "screenshotExtrasSubcopy": {
-    "message": "Kanałpunkte, Kick-Challenges i 2-Minuten-Drops, ebenfalls dla dich geclaimt. Lista rezerwowa, wenn nichts mehr zu farmin ist."
+    "message": "Punkty kanału, wyzwania Kick i 2-minutowe dropy — też odbierane za ciebie. Lista zapasowa, gdy nie ma już nic do farmienia."
   },
   "screenshotExtrasPointsName": {
-    "message": "Body kanału"
+    "message": "Punkty kanału"
   },
   "screenshotExtrasPointsMeta": {
-    "message": "Twitch · taky za vás vyzvednuté"
+    "message": "Twitch · też odbierane za ciebie"
   },
   "screenshotExtrasChallengesName": {
-    "message": "Denní wyzwania"
+    "message": "Codzienne wyzwania"
   },
   "screenshotExtrasChallengesMeta": {
-    "message": "Kick · taky za vás vyzvednuté"
+    "message": "Kick · też odbierane za ciebie"
   },
   "screenshotExtrasWatchlistName": {
-    "message": "Lista rezerwowa"
+    "message": "Lista zapasowa"
   },
   "screenshotExtrasWatchlistMeta": {
-    "message": "Schaut deine Streamer zwischen Kampanie"
+    "message": "Ogląda twoich streamerów między kampaniami"
   },
   "screenshotExtrasFlashName": {
-    "message": "2minutové drops"
+    "message": "2-minutowe dropy"
   },
   "screenshotExtrasFlashMeta": {
-    "message": "Kick · sobald live gehen"
+    "message": "Kick · zbierane na bieżąco"
   },
   "screenshotEasyEyebrow": {
-    "message": "Snadné pojużití"
+    "message": "Proste w użyciu"
   },
   "screenshotEasyHeadline": {
-    "message": "Tak snadné."
+    "message": "Aż tak proste."
   },
   "screenshotEasyInstallTitle": {
-    "message": "Nainstalovat"
+    "message": "Zainstaluj"
   },
   "screenshotEasyInstallSub": {
     "message": "Chrome Web Store. Bez konta."
   },
   "screenshotEasyPinTitle": {
-    "message": "Anheften"
+    "message": "Przypnij"
   },
   "screenshotEasyPinSub": {
-    "message": "Vyskakovací okno na jedno kliknutí."
+    "message": "Miej popup jednym kliknięciem pod ręką."
   },
   "screenshotEasyEnableTitle": {
-    "message": "Zapnout platformu"
+    "message": "Włącz platformę"
   },
   "screenshotEasyEnableSub": {
-    "message": "Twitch, Kick nebo obojí."
+    "message": "Twitch, Kick albo obie."
   },
   "screenshotEasyProfitTitle": {
-    "message": "Und es farmt"
+    "message": "I farmi"
   },
   "screenshotEasyProfitSub": {
-    "message": "Du machst anderes."
+    "message": "On farmi. Ty robisz inne rzeczy."
   },
   "screenshotSettingsEyebrow": {
-    "message": "Deine Regeln"
+    "message": "Twoje zasady"
   },
   "screenshotSettingsHeadline": {
-    "message": "Farmi genau so, wie du willst."
+    "message": "Farmuj dokładnie tak, jak chcesz."
   },
   "screenshotSettingsSubcopy": {
-    "message": "prioryteten, Gry, tabless tryb, Auto-Claim — pro platformy."
+    "message": "Priorytety, gry, tryb bez kart, auto-odbiór — osobno na platformę."
   },
   "screenshotUpdatedEyebrow": {
-    "message": "Quelloffen"
+    "message": "Otwarte oprogramowanie"
   },
   "screenshotUpdatedHeadline": {
-    "message": "Bohaté funkce. Stále aktuální."
+    "message": "Pełne funkcje. Zawsze aktualne."
   },
   "screenshotUpdatedSubcopy": {
-    "message": "Häufige Releases, wenn sich Twitch i Kick ändern — i offen dla pomysłn i Verbesserungen."
+    "message": "Częste wydania, gdy Twitch i Kick się zmieniają — otwarte na pomysły i ulepszenia."
   },
   "screenshotUpdatedBrowsersTitle": {
-    "message": "Chromium-basierte Przeglądarka"
+    "message": "Przeglądarki na Chromium"
   },
   "screenshotUpdatedBrowsersSub": {
-    "message": "Chrome Web Store. Stejné rozszerzenie."
+    "message": "Lista w Chrome Web Store. To samo rozszerzenie."
   },
   "screenshotUpdatedHeadlessTitle": {
     "message": "CLI"
   },
   "screenshotUpdatedHeadlessSub": {
-    "message": "Headless. Dieselbe Engine."
+    "message": "Headless. Ten sam silnik."
   },
   "screenshotUpdatedDockerTitle": {
     "message": "Docker"
   },
   "screenshotUpdatedDockerSub": {
-    "message": "Dieselbe Engine. Im Container."
+    "message": "Ten sam silnik. W kontenerze."
   },
   "screenshotUpdatedLicense": {
     "message": "Apache-2.0"
   },
   "autoClaimReady": {
-    "message": "Auto-Beanspruchen bereit"
+    "message": "Auto-odbiór gotowy"
   },
   "attributionLinks": {
-    "message": "Odkazy na atribuci"
+    "message": "Linki atrybucji"
   },
   "githubAttribution": {
     "message": "Lurkloot na GitHub"
@@ -1107,283 +1107,283 @@
     "message": "Chrome"
   },
   "siteAttribution": {
-    "message": "Web Lurkloot"
+    "message": "Strona Lurkloot"
   },
   "siteAttributionShort": {
-    "message": "Web"
+    "message": "Strona"
   },
   "updateNoticeTitle": {
-    "message": "Lurkloot byl aktualizován na $1"
+    "message": "Lurkloot zaktualizowano do $1"
   },
   "updateNoticeBody": {
-    "message": "Sieh dir die Neuerungen i Änderungen an."
+    "message": "Zobacz, co nowego i co się zmieniło."
   },
   "updateNoticeAction": {
-    "message": "Änderungen ansehen"
+    "message": "Zobacz zmiany"
   },
   "updateNoticeDismiss": {
-    "message": "Update-Hinweis zamknij"
+    "message": "Zamknij powiadomienie o aktualizacji"
   },
   "rateNudgeTitle": {
-    "message": "Líbí se vám Lurkloot?"
+    "message": "Podoba ci się Lurkloot?"
   },
   "rateNudgeBody": {
-    "message": "kurze Bewertung im Chrome Web Store hilft sehr."
+    "message": "Krótka recenzja w Chrome Web Store bardzo pomaga."
   },
   "rateNudgeAction": {
-    "message": "Ohodnotit"
+    "message": "Oceń"
   },
   "rateNudgeDismiss": {
-    "message": "Teraz ne"
+    "message": "Nie teraz"
   },
   "githubStarNudgeTitle": {
-    "message": "Lurkloot je open source"
+    "message": "Lurkloot jest open source"
   },
   "githubStarNudgeBody": {
-    "message": "Wenn es nützlich war, hilft GitHub-gwiazdką anderen, das Projekt zu finden. Beiträge są willkommen, besonders Features i Tłumaczenia."
+    "message": "Jeśli było przydatne, gwiazdka na GitHub pomaga innym je znaleźć. Wkład jest mile widziany, zwłaszcza funkcje i tłumaczenia."
   },
   "githubStarNudgeAction": {
-    "message": "Dát gwiazdkku na GitHubu"
+    "message": "Daj gwiazdkę na GitHub"
   },
   "removeItem": {
-    "message": "Usuńat $1"
+    "message": "Usuń $1"
   },
   "cliExportTitle": {
-    "message": "CLI bez przeglądarkae"
+    "message": "CLI bez przeglądarki"
   },
   "cliExportDescription": {
-    "message": "Führe das farmienie drops auf Server lub w CLI z der Lurkloot-CLI z – z der angemeldeten Sitzung dieses Przeglądarkas."
+    "message": "Uruchom farmienie dropów na serwerze lub w Dockerze z CLI Lurkloot, używając zalogowanej sesji tej przeglądarki."
   },
   "cliExportHint": {
-    "message": "Exportiert dTwitch- i Kick-Sitzungstokens, aby „login --import“ der CLI sie z powrotemverwenden kann. Halte die Datei geheim – wer sie hat, kann dSitzungen nutzen."
+    "message": "Eksportuje tokeny sesji Twitch i Kick, aby „login --import” w CLI mógł je ponownie użyć. Trzymaj plik w tajemnicy — każdy z dostępem może używać twoich sesji."
   },
   "cliExportConfirm": {
-    "message": "Dies lädt dTwitch- i Kick-Sitzungstokens w Datei herunter. Wer diese Datei besitzt, kann auf diesen stronien w dNamen handeln. Fortfahren?"
+    "message": "To pobierze tokeny sesji Twitch i Kick do pliku. Każdy z tym plikiem może działać jako ty na tych stronach. Kontynuować?"
   },
   "cliExportCancel": {
     "message": "Anuluj"
   },
   "cliExportConfirmButton": {
-    "message": "Potvrdit export"
+    "message": "Potwierdź eksport"
   },
   "cliExportButton": {
-    "message": "Anmeldedaten eksportuj"
+    "message": "Eksportuj dane logowania"
   },
   "settingsExportTitle": {
-    "message": "Import / export nastavení"
+    "message": "Import / eksport ustawień"
   },
   "settingsExportHint": {
-    "message": "Speichere dUstawienia w Datei lub lade sie w anderen Przeglądarka. Enthält niemals dTwitch- lub Kick-Anmeldedaten."
+    "message": "Zapisz ustawienia do pliku lub wczytaj je w innej przeglądarce. Nigdy nie zawiera logowania Twitch ani Kick."
   },
   "settingsExportButton": {
-    "message": "Eksportuj nastavení"
+    "message": "Eksportuj ustawienia"
   },
   "settingsImportButton": {
-    "message": "Importuj nastavení"
+    "message": "Importuj ustawienia"
   },
   "settingsImportConfirm": {
-    "message": "Dies ersetzt daktuellen Ustawienia durch die z der ausgewählten Datei. Fortfahren?"
+    "message": "To zastąpi bieżące ustawienia tymi z wybranego pliku. Kontynuować?"
   },
   "settingsImportCancel": {
     "message": "Anuluj"
   },
   "settingsImportConfirmButton": {
-    "message": "Vybrat plik a importovat"
+    "message": "Wybierz plik i importuj"
   },
   "settingsImportFailed": {
-    "message": "Diese Datei jest kgültiger Lurkloot-Einstellungsexport."
+    "message": "Ten plik nie jest prawidłowym eksportem ustawień Lurkloot."
   },
   "settingsExportFailed": {
-    "message": "Lurkloot nemohl exportovat nastavení. Spróbuj to znovu."
+    "message": "Lurkloot nie mógł wyeksportować ustawień. Spróbuj ponownie."
   },
   "factoryResetTitle": {
-    "message": "Resetovat Lurkloot"
+    "message": "Resetuj Lurkloot"
   },
   "factoryResetHint": {
-    "message": "Löscht alle Lurkloot-Ustawienia, den Farming-Fortschritt i den Aktywnośćsverlauf. DTwitch- i Kick-Konten bleiben angemeldet."
+    "message": "Usuń wszystkie ustawienia Lurkloot, postęp farmienia i historię aktywności. Konta Twitch i Kick pozostają zalogowane."
   },
   "factoryResetButton": {
-    "message": "Resetovat Lurkloot"
+    "message": "Resetuj Lurkloot"
   },
   "factoryResetConfirm": {
-    "message": "Dadurch wird das Farming beendet, von Lurkloot geöffnete Karty są geschlossen i alle Lurkloot-Daten dauerhaft gelöscht. Twitch i Kick bleiben angemeldet."
+    "message": "To zatrzyma farmienie, zamknie karty otwarte przez Lurkloot i trwale usunie wszystkie dane Lurkloot. Twitch i Kick pozostają zalogowane."
   },
   "factoryResetCancel": {
     "message": "Anuluj"
   },
   "factoryResetConfirmButton": {
-    "message": "Wszystkies zresetuj"
+    "message": "Resetuj wszystko"
   },
   "factoryResetProgress": {
-    "message": "Resetování…"
+    "message": "Resetowanie…"
   },
   "factoryResetFailed": {
-    "message": "Lurkloot konnte nie vollständig gesetzt są. Spróbuj es erneut."
+    "message": "Lurkloot nie mógł w pełni zresetować. Spróbuj ponownie."
   },
   "factoryResetRetry": {
-    "message": "Zkusit reset znovu"
+    "message": "Spróbuj resetu ponownie"
   },
   "diagnosticLoggingTitle": {
-    "message": "Zahrnout diagnostické dzienniky"
+    "message": "Dołącz logi diagnostyczne"
   },
   "diagnosticLoggingDescription": {
-    "message": "Zeichnet zusätzliche technische Details zur Błąddiagnose auf. Normale Aktywnośćen są zawsze gespeichert."
+    "message": "Zapisuj dodatkowe szczegóły techniczne pomocne przy diagnozie. Normalna aktywność jest zawsze zachowywana."
   },
   "activityFarmingStarted": {
-    "message": "$1 z $2 będzie teraz gesammelt."
+    "message": "Rozpoczęto farmienie $1 z $2."
   },
   "activityFarmingStopped": {
-    "message": "$1 z $2 będzie nie więcej gesammelt: $3."
+    "message": "Zatrzymano farmienie $1 z $2: $3."
   },
   "activityRewardClaimed": {
-    "message": "Odbiernuto $1 z $2."
+    "message": "Odebrano $1 z $2."
   },
   "activityChallengeClaimed": {
-    "message": "Odbiernuta karta $1 z wyzwania $2"
+    "message": "Odebrano kartę $1 z wyzwania $2"
   },
   "activityAuthHealthChanged": {
-    "message": "Die Authentifizierung von $1 wechselte von $2 zu $3."
+    "message": "Uwierzytelnianie $1 zmieniło się z $2 na $3."
   },
   "activityCriticalFailureDetected": {
     "message": "$1 nie działa: $2."
   },
   "activityCriticalFailureCleared": {
-    "message": "Kritischer Błąd von $1 verworfen; erneuter Versuch läuft."
+    "message": "Krytyczna awaria $1 odrzucona; ponawianie."
   },
   "criticalFailureReasonNoProgress": {
-    "message": "trotz wiederholter Błąd brak Fortschritt"
+    "message": "brak postępu mimo powtarzających się błędów"
   },
   "criticalFailureReasonPageContextChurn": {
-    "message": "Karta öffnete sich zawsze z powrotem neu"
+    "message": "karta w kółko się otwierała"
   },
   "criticalFailureTitle": {
-    "message": "Lurkloot funktioniert nie więcej"
+    "message": "Lurkloot przestał działać"
   },
   "criticalFailureBodyNoProgress": {
-    "message": "Wiederholte Błąd i seit Langem kDrop-Fortschritt. Auf dieser platformy hat sich vermutlich etwas geändert i die Rozszerzenie kann kDrops mehr sammeln."
+    "message": "Powtarzające się błędy i brak postępu dropów przez długi czas. Coś na tej platformie prawdopodobnie się zmieniło i rozszerzenie nie może już zdobywać dropów."
   },
   "criticalFailureBodyTabChurn": {
-    "message": "Karta wurde zawsze z powrotem neu geöffnet. Das Neuotwórz wurde gestoppt, aby du den Przeglądarka normal nutzen kannst; das Farmin jest dla diese platformy pausiert."
+    "message": "Karta otwierała się w kółko. Ponowne otwieranie zostało zatrzymane, abyś mógł normalnie korzystać z przeglądarki, a farmienie na tej platformie jest wstrzymane."
   },
   "criticalFailureCopyAndReport": {
-    "message": "Logs kopieren & Issue otwórz"
+    "message": "Kopiuj logi i otwórz zgłoszenie"
   },
   "criticalFailureDismiss": {
-    "message": "Anuluj a zkusit znovu"
+    "message": "Odrzuć i spróbuj ponownie"
   },
   "criticalFailureClipboardFallback": {
-    "message": "Automatyczniees Kopieren fehlgeschlagen. Oznacz i kopiere diesen Text i öffne dann Issue."
+    "message": "Nie udało się skopiować automatycznie. Zaznacz i skopiuj to, potem otwórz zgłoszenie."
   },
   "activityPageContextOpened": {
-    "message": "Hintergrundkontext auf $1 wurde geöffnet, weil $2."
+    "message": "Otwarto kontekst w tle na $1, ponieważ $2."
   },
   "activityPageContextClosed": {
-    "message": "Der Hintergrundkontext auf $1 wurde geschlossen, weil $2."
+    "message": "Zamknięto kontekst w tle na $1, ponieważ $2."
   },
   "activityPageContextOpenReasonBackgroundRejected": {
-    "message": "Kick odmítl wymaganie bez karty"
+    "message": "Kick odrzucił żądanie bez kart"
   },
   "activityPageContextReasonManagedContextUnusable": {
-    "message": "der vorherige Hintergrundkontext unbrauchbar war"
+    "message": "poprzedni kontekst w tle był bezużyteczny"
   },
   "activityPageContextCloseReasonBackgroundRecovered": {
-    "message": "Anfragen ohne Karta wieder funktionieren"
+    "message": "żądania bez kart wróciły do normy"
   },
   "activityPageContextCloseReasonUserTabAvailable": {
-    "message": "byla dostupná existující karta Kick"
+    "message": "dostępna stała się istniejąca karta Kick"
   },
   "activityInterruption": {
-    "message": "Sammeln unterbrochen: $1."
+    "message": "Farmienie przerwane: $1."
   },
   "activityInterruptionWithDetail": {
-    "message": "Sammeln unterbrochen: $1 ($2)."
+    "message": "Farmienie przerwane: $1 ($2)."
   },
   "activityReasonAutomationDisabled": {
-    "message": "automatizace byla vypnutá"
+    "message": "automatyzacja była wyłączona"
   },
   "activityReasonPlatformDisabled": {
-    "message": "platforma byla vypnutá"
+    "message": "platforma była wyłączona"
   },
   "activityReasonAuthenticationUnhealthy": {
-    "message": "autentizace nie jest dostupná"
+    "message": "uwierzytelnianie jest niedostępne"
   },
   "activityReasonPlatformBackoff": {
-    "message": "die platformy wartet vorübergehend"
+    "message": "platforma tymczasowo się wycofuje"
   },
   "activityReasonPlatformError": {
-    "message": "platformyfehler jest aufgetreten"
+    "message": "wystąpił błąd platformy"
   },
   "activityReasonCampaignIneligible": {
-    "message": "die Kampagne jest nie mehr berechtigt"
+    "message": "kampania nie jest już kwalifikująca"
   },
   "activityReasonChannelExcluded": {
-    "message": "der Kanał jest wykluczyłeś"
+    "message": "kanał jest wykluczony"
   },
   "activityReasonChannelOffline": {
-    "message": "der Kanał jest offline gegangen"
+    "message": "kanał przeszedł offline"
   },
   "activityReasonChannelMismatch": {
-    "message": "kanał już neodpovídá"
+    "message": "kanał już nie pasuje"
   },
   "activityReasonWatchUnhealthy": {
-    "message": "kontrola oglądání niepowodzenala"
+    "message": "kontrola zdrowia oglądania nie powiodła się"
   },
   "activityReasonNoProgress": {
-    "message": "kanał nezískal postęp drops"
+    "message": "kanał nie naliczył postępu dropu"
   },
   "activityReasonHigherPriorityReward": {
-    "message": "höher priorisierte Nagroda wurde übernommen"
+    "message": "nagroda o wyższym priorytecie przejęła kontrolę"
   },
   "activityReasonHigherPriorityIdleWatchlist": {
-    "message": "die Leerlauf-Lista rezerwowa hatte Vorrang"
+    "message": "dostępny stał się kanał listy zapasowej o wyższym priorytecie"
   },
   "activityReasonWatchRequirementCompleted": {
-    "message": "die oglądanieanforderung wurde erfüllt"
+    "message": "wymóg oglądania został spełniony"
   },
   "activityReasonRuntimeRestart": {
-    "message": "rozszerzenie se restartovalo"
+    "message": "rozszerzenie uruchomiło się ponownie"
   },
   "activityReasonTargetChanged": {
-    "message": "das Sammelziel hat sich geändert"
+    "message": "zmienił się cel farmienia"
   },
   "activityReasonCriticalFailure": {
-    "message": "kritischer Błąd wurde erkannt"
+    "message": "wykryto krytyczną awarię"
   },
   "activityReasonManualWatch": {
-    "message": "manuelle Odtwarzanie hatte Vorrang"
+    "message": "ręczne oglądanie przejęło kontrolę"
   },
   "loadMoreActivity": {
-    "message": "Więcej ładowanie"
+    "message": "Wczytaj więcej"
   },
   "clearActivityHistory": {
-    "message": "Vymazat historii"
+    "message": "Wyczyść historię"
   },
   "confirmClearActivityHistory": {
-    "message": "Potvrdit vymazání"
+    "message": "Potwierdź wyczyszczenie"
   },
   "clearActivityFailed": {
-    "message": "Historii aktivity se nie udało vymazat. Spróbuj to znovu."
+    "message": "Nie udało się wyczyścić historii aktywności. Spróbuj ponownie."
   },
   "copyActivityLog": {
-    "message": "Kopírovat dziennik"
+    "message": "Kopiuj log"
   },
   "copyLoadedActivityLog": {
-    "message": "Geładowaniee kopieren"
+    "message": "Kopiuj wczytane"
   },
   "copyActivityLogCopied": {
-    "message": "Zkopiowáno $1 zdarzení"
+    "message": "Skopiowano $1 zdarzeń"
   },
   "copyActivityLogFailed": {
-    "message": "Protokol se nie udało skopiowat. Spróbuj to znovu."
+    "message": "Nie udało się skopiować logu. Spróbuj ponownie."
   },
   "exportAllDiagnostics": {
-    "message": "Wszystkie eksportuj"
+    "message": "Eksportuj wszystko"
   },
   "exportAllDiagnosticsDone": {
-    "message": "Exportováno $1 zdarzení"
+    "message": "Wyeksportowano $1 zdarzeń"
   },
   "exportAllDiagnosticsFailed": {
-    "message": "Protokol se nie udało exportovat. Spróbuj to znovu."
+    "message": "Nie udało się wyeksportować logu. Spróbuj ponownie."
   },
   "activityViewTab": {
     "message": "Aktywność"
@@ -1392,25 +1392,25 @@
     "message": "Diagnostyka"
   },
   "compatibilityAutomatic": {
-    "message": "Automatyczy"
+    "message": "Automatycznie"
   },
   "compatibilityTwitchProfileTitle": {
-    "message": "Profil zgodnośćy Twitch"
+    "message": "Profil zgodności Twitch"
   },
   "compatibilityTwitchProfileDescription": {
-    "message": "Wybierzte dołączony profil Twitch nebo nechte Lurkloot vybrat automatyczny."
+    "message": "Wybierz dołączony profil Twitch lub pozwól Lurkloot wybrać go automatycznie."
   },
   "compatibilityKickProfileTitle": {
-    "message": "Profil zgodnośćy Kick"
+    "message": "Profil zgodności Kick"
   },
   "compatibilityKickProfileDescription": {
-    "message": "Wybierzte dołączony profil Kick nebo nechte Lurkloot vybrat automatyczny."
+    "message": "Wybierz dołączony profil Kick lub pozwól Lurkloot wybrać go automatycznie."
   },
   "compatibilitySectionTitle": {
-    "message": "Kompatibilita"
+    "message": "Zgodność"
   },
   "compatibilitySectionDescription": {
-    "message": "Nur ändern, wenn Twitch lub Kick nie funktioniert; sie können platformyprobleme umgehen."
+    "message": "Zmieniaj to tylko, gdy Twitch lub Kick nie działa; może pomóc obejść problemy platformy."
   },
   "compatibilityComponentProfile": {
     "message": "Profil"
@@ -1419,292 +1419,292 @@
     "message": "Transport heartbeat"
   },
   "compatibilityComponentInventory": {
-    "message": "Dotaz ekwipunku"
+    "message": "Zapytanie o ekwipunek"
   },
   "compatibilityComponentClaim": {
-    "message": "Zpracování vyzvednutí"
+    "message": "Obsługa odbioru"
   },
   "compatibilityFromProfile": {
     "message": "Z profilu"
   },
   "compatibilityOverridden": {
-    "message": "Überschrieben"
+    "message": "Nadpisane"
   },
   "compatibilityReplacedBy": {
-    "message": "Nahrazeno $1"
+    "message": "Zastąpione przez $1"
   },
   "compatibilityTwitchHeartbeatTitle": {
     "message": "Transport heartbeat Twitch"
   },
   "compatibilityTwitchHeartbeatDescription": {
-    "message": "Nadpisz dołączony heartbeat oglądání Twitch."
+    "message": "Nadpisz dołączony heartbeat oglądania Twitch."
   },
   "compatibilityTwitchInventoryTitle": {
-    "message": "Dotaz ekwipunku Twitch"
+    "message": "Zapytanie o ekwipunek Twitch"
   },
   "compatibilityTwitchInventoryDescription": {
-    "message": "Nadpisz dołączony zapytanie ekwipunku Twitch."
+    "message": "Nadpisz dołączone zapytanie o ekwipunek Twitch."
   },
   "compatibilityKickClaimTitle": {
-    "message": "Kick-Połączfungsverarbeitung"
+    "message": "Obsługa linków odbioru Kick"
   },
   "compatibilityKickClaimDescription": {
-    "message": "Nadpisz dodávané propojení konta Kick."
+    "message": "Nadpisz dołączoną obsługę linków konta Kick."
   },
   "compatibilityLifecycleRecommended": {
-    "message": "Empfohlen"
+    "message": "Zalecane"
   },
   "compatibilityLifecycleLegacy": {
-    "message": "Zastaralé"
+    "message": "Przestarzałe"
   },
   "compatibilityLifecycleExperimental": {
-    "message": "Experimentální"
+    "message": "Eksperymentalne"
   },
   "compatibilityOverrideWarning": {
-    "message": "Manuelle Kompatibilitätsoptionen są aktiv. Sie könnten po platformyänderungen nie mehr funktionieren."
+    "message": "Aktywne ręczne nadpisania zgodności. Mogą przestać działać, gdy platformy się zmienią."
   },
   "compatibilityRestoreAutomatic": {
-    "message": "Odśwież automatycznou zgodnośću"
+    "message": "Przywróć automatyczną zgodność"
   },
   "compatibilityOptionTwitchProfile202607": {
-    "message": "Twitch lipiecec 2026"
+    "message": "Twitch lipiec 2026"
   },
   "compatibilityOptionTwitchProfile202610": {
     "message": "Twitch październik 2026"
   },
   "compatibilityOptionTwitchHeartbeatGqlV1": {
-    "message": "Heartbeat GraphQL v1"
+    "message": "Puls GraphQL v1"
   },
   "compatibilityOptionTwitchHeartbeatSpadeV1": {
-    "message": "Heartbeat Spade v1"
+    "message": "Puls Spade v1"
   },
   "compatibilityOptionTwitchHeartbeatHlsV1": {
-    "message": "Heartbeat HLS + Spade v1"
+    "message": "Puls HLS + Spade v1"
   },
   "compatibilityOptionTwitchHeartbeatTrowelV1": {
-    "message": "Heartbeat Trowel v1"
+    "message": "Puls Trowel v1"
   },
   "compatibilityOptionTwitchInventoryV1": {
-    "message": "Dotaz ekwipunku v1"
+    "message": "Zapytanie o ekwipunek v1"
   },
   "compatibilityOptionTwitchInventoryV2": {
-    "message": "Dotaz ekwipunku v2"
+    "message": "Zapytanie o ekwipunek v2"
   },
   "compatibilityOptionKickProfile202607": {
-    "message": "Kick lipiecec 2026"
+    "message": "Kick lipiec 2026"
   },
   "compatibilityOptionKickClaimV1": {
-    "message": "Zpracování vyzvednutí v1"
+    "message": "Obsługa odbioru v1"
   },
   "compatibilityOptionKickClaimV2": {
-    "message": "Zpracování vyzvednutí v2"
+    "message": "Obsługa odbioru v2"
   },
   "automationChecking": {
-    "message": "Kontrola"
+    "message": "Sprawdzanie"
   },
   "automationNeedsSignIn": {
-    "message": "Wymaguje logowanie"
+    "message": "Wymaga logowania"
   },
   "automationBlocked": {
-    "message": "Blokováno"
+    "message": "Zablokowane"
   },
   "automationUnavailable": {
-    "message": "Není k dispozici"
+    "message": "Niedostępne"
   },
   "authCheckingDetail": {
-    "message": "Dangemeldete Sitzung wird geprüft…"
+    "message": "Sprawdzanie zalogowanej sesji…"
   },
   "authSignInMissing": {
-    "message": "Melde dich an, um weiter Drops zu farmin."
+    "message": "Zaloguj się, aby kontynuować farmienie dropów."
   },
   "authSignInRejected": {
-    "message": "DSitzung jest nie mehr gültig. Melde dich erneut an, um fortzufahren."
+    "message": "Twoja sesja nie jest już ważna. Zaloguj się ponownie, aby kontynuować."
   },
   "signInToTwitch": {
-    "message": "Zalogujit se na Twitch"
+    "message": "Zaloguj się na Twitch"
   },
   "signInToKick": {
-    "message": "Zalogujit se na Kick"
+    "message": "Zaloguj się na Kick"
   },
   "authBrowserProfileBlocked": {
-    "message": "Kick hat dieses Przeglądarkaprofil abgelehnt. Anmeldung allbehebt das Problem möglicherweise nicht."
+    "message": "Kick odrzucił ten profil przeglądarki. Same logowanie może tego nie naprawić."
   },
   "authCredentialCheckUnavailable": {
-    "message": "Relaci przeglądarkae se nie udało zkontrolovat. Lurkloot to zkusí automatyczny znovu."
+    "message": "Nie można było sprawdzić sesji przeglądarki. Lurkloot spróbuje ponownie automatycznie."
   },
   "authNetworkTemporarilyUnavailable": {
-    "message": "Das Netzwerk jest vorübergehend nie verfügbar. Lurkloot versucht es automatycznie erneut."
+    "message": "Sieć jest tymczasowo niedostępna. Lurkloot spróbuje ponownie automatycznie."
   },
   "authPlatformTemporarilyUnavailable": {
-    "message": "Platforma je tymczasowo nedostupná. Lurkloot to zkusí automatyczny znovu."
+    "message": "Platforma jest tymczasowo niedostępna. Lurkloot spróbuje ponownie automatycznie."
   },
   "automationPausedTabClosed": {
-    "message": "Pausiert — Karta geschlossen"
+    "message": "Wstrzymane — karta zamknięta"
   },
   "watchTabClosedPauseDetail": {
-    "message": "Zamknijeli jste kartu pro farmienie, więc Lurkloot tu farmienie zastavil."
+    "message": "Zamknąłeś kartę farmienia, więc Lurkloot zatrzymał tu farmienie."
   },
   "resumeFarming": {
-    "message": "Odśwież farmienie"
+    "message": "Wznów farmienie"
   },
   "activityReasonManualTabClose": {
-    "message": "Farmienie-Karta geschlossen"
+    "message": "karta farmienia zamknięta"
   },
   "activityReasonPermissionMissing": {
-    "message": "benötigte Przeglądarka-Berechtigung brakuje; aktiviere die platformy erneut, um sie zu erteilen"
+    "message": "brakuje wymaganego uprawnienia przeglądarki; włącz platformę ponownie, aby je nadać"
   },
   "automationPausedManualWatch": {
-    "message": "Manuelles Schauen"
+    "message": "Ręczne oglądanie"
   },
   "manualWatchPauseDetail": {
-    "message": "Das Farmin jest pausiert, während du selbst Stream ansiehst. Wstrzymuj ihn, schließe ihn lub wechsle von diesem Karta weg, aby das Farmin beim nächsten Check automatycznie fortgesetzt wird."
+    "message": "Farmienie jest wstrzymane, gdy sam oglądasz transmisję. Wstrzymaj ją, zamknij lub przełącz się z tej karty, aby wznowić automatycznie przy następnym sprawdzeniu."
   },
   "manualWatchPauseDetailNamed": {
-    "message": "Farmení je pozastavené, dokud sami sledujete stream."
+    "message": "Farmienie jest wstrzymane, gdy sam oglądasz transmisję."
   },
   "manualWatchPauseDetailNamedSuffix": {
-    "message": "— pausieren, zamknij lub wegwechseln, um fortzusetzen."
+    "message": "— wstrzymaj, zamknij lub przełącz się, aby wznowić."
   },
   "reorderItem": {
     "message": "Zmień kolejność $1"
   },
   "scrollRewardsLeft": {
-    "message": "Posunout nagrody vlevo"
+    "message": "Przewiń nagrody w lewo"
   },
   "scrollRewardsRight": {
-    "message": "Posunout nagrody vpravo"
+    "message": "Przewiń nagrody w prawo"
   },
   "activityExtensionGiveawayJoined": {
-    "message": "An $1-Verlosung auf $2 teilgenommen."
+    "message": "Dołączono do giveaway $1 na $2."
   },
   "activityExtensionSpriteCaptured": {
-    "message": "Zachycen sprite $1 na $2."
+    "message": "Złapano sprite $1 na $2."
   },
   "activityExtensionTakeoverStarted": {
-    "message": "Einen $1-Angriff von $2 geuruchamt."
+    "message": "Rozpoczęto takeover $1 z $2."
   },
   "extensionSettingsTitle": {
-    "message": "Twitch-Rozszerzenieen"
+    "message": "Rozszerzenia Twitch"
   },
   "extensionDropsTitle": {
-    "message": "Rozszerzenieen"
+    "message": "Extensions"
   },
   "extensionSettingsHint": {
-    "message": "Erhalte Rozszerzeniesbelohnungen ohne Twitch-Karty. Twitch-automatyzację, Ausschlüsse i manuelle Pausen gelten."
+    "message": "Farmuj nagrody rozszerzeń bez kart Twitch. Obowiązuje automatyzacja Twitch, wykluczenia i ręczna pauza."
   },
   "extensionNoPixelHint": {
-    "message": "Erhalte tägliche Pakete i nimm na Verlosungen teil. Um oglądaniezeit zu sammeln, tritt Lurkloot dem Chat des angesehenen Kanałs bei, daher erscheinst du w dessen Widzowieliste."
+    "message": "Zdobywaj codzienne paczki i dołączaj do giveaway. Naliczanie czasu oglądania dołącza do czatu oglądanego kanału, więc widać cię na liście widzów."
   },
   "extensionChatPresenceBlocked": {
-    "message": "Nicht im Chat: NoPixel-oglądaniezeit wird erst z powrotem gezählt, wenn die Chat-Präsenz ist"
+    "message": "Nie na czacie: czas oglądania NoPixel nie jest naliczany, dopóki obecność na czacie nie wróci"
   },
   "extensionFortniteHint": {
-    "message": "Sbírejte sprity a získávejte nagrody fází."
+    "message": "Zbieraj sprite’y i zdobywaj nagrody faz."
   },
   "extensionIdentityRequired": {
-    "message": "Połączfe dein Rozszerzenieskonto"
+    "message": "Połącz konto rozszerzenia"
   },
   "extensionPermissionRequired": {
-    "message": "Erlaube den Anbieterzugriff"
+    "message": "Zezwól na dostęp dostawcy, aby włączyć"
   },
   "extensionAuthRequired": {
-    "message": "Zaloguj se na Twitch"
+    "message": "Zaloguj się na Twitch"
   },
   "extensionChannelRequired": {
-    "message": "Szukajání vhodného kanału"
+    "message": "Szukanie kwalifikującego kanału"
   },
   "extensionComplete": {
-    "message": "Nagrody erhalten"
+    "message": "Nagrody zdobyte"
   },
   "extensionFarming": {
     "message": "Farmienie"
   },
   "extensionPhaseClosed": {
-    "message": "Kinteraktive Phase geöffnet"
+    "message": "Brak otwartej fazy interaktywnej"
   },
   "extensionConnecting": {
-    "message": "Verbinden"
+    "message": "Łączenie"
   },
   "extensionUnavailable": {
-    "message": "Vorübergehend nie verfügbar"
+    "message": "Tymczasowo niedostępne"
   },
   "extensionIdle": {
-    "message": "Čekání"
+    "message": "Oczekiwanie"
   },
   "extensionDailyPackProgress": {
-    "message": "Denní paczka: $1/$2 minut"
+    "message": "Paczka dzienna: $1/$2 min"
   },
   "extensionCaptureProgress": {
-    "message": "Sbírka: $1/$2"
+    "message": "Kolekcja: $1/$2"
   },
   "extensionTakeoversTitle": {
-    "message": "Povolit Fortnite takeovers"
+    "message": "Zezwalaj na takeover Fortnite"
   },
   "extensionTakeoversHint": {
-    "message": "Urucham zulässige Übernahmen während interaktiver Phasen. Standardmäßig aus."
+    "message": "Uruchamiaj kwalifikujące takeover w fazach interaktywnych. Domyślnie wyłączone."
   },
   "extensionAccountSetup": {
-    "message": "Ustawienia konta"
+    "message": "Konfiguracja konta"
   },
   "extensionGiveawayUnavailable": {
-    "message": "Kontrola giveaway nie jest k dispozici"
+    "message": "Sprawdzenie giveaway niedostępne"
   },
   "extensionGiveawayEntered": {
-    "message": "Gewinnspielteilnahme bestätigt"
+    "message": "Dołączono do giveaway"
   },
   "extensionGiveawayOpen": {
-    "message": "Gewinngra offen"
+    "message": "Giveaway otwarty"
   },
   "extensionRewardProgress": {
     "message": "Nagrody: $1/$2"
   },
   "extensionTakeoverActive": {
-    "message": "Takeover aktivní"
+    "message": "Takeover aktywny"
   },
   "extensionWatchtimeComplete": {
-    "message": "Zuschauzeit abgeschlossen"
+    "message": "Czas oglądania ukończony"
   },
   "extensionUnopenedPacks": {
-    "message": "Ungeöffnete Pakete: $1"
+    "message": "Nieotwarte paczki: $1"
   },
   "extensionPackCheckUnavailable": {
-    "message": "Lieferprüfung nie verfügbar"
+    "message": "Sprawdzenie dostawy paczek niedostępne"
   },
   "extensionAutoOpenPacksTitle": {
-    "message": "Automatyczy otevírat paczki NoPixelV"
+    "message": "Otwieraj paczki NoPixelV automatycznie"
   },
   "extensionAutoOpenPacksHint": {
-    "message": "Deckt Karten z ungeöffneten Paketen auf. Jedes Paket wird zużywa; dies kann nie rückgängig gemacht są."
+    "message": "Odsłoń karty z nieotwartych paczek. To zużywa każdą paczkę i nie można tego cofnąć."
   },
   "activityExtensionPackOpened": {
-    "message": "$1 hat Kartenpaket auf $2 geöffnet"
+    "message": "$1 otworzył paczkę kart na $2"
   },
   "watchSourcePriorityTitle": {
-    "message": "Priorita źródeł oglądání"
+    "message": "Priorytet źródeł oglądania"
   },
   "watchSourcePriorityDescription": {
-    "message": "Sleduje se první dostępny zdroj. Wyłączé nebo nedostupné zdroje se pominie."
+    "message": "Oglądane jest pierwsze dostępne źródło. Wyłączone lub niedostępne źródła są pomijane."
   },
   "watchSourcePriorityMoveUp": {
-    "message": "Posunout $1 nahoru"
+    "message": "Przesuń $1 w górę"
   },
   "watchSourcePriorityMoveDown": {
-    "message": "$1 po unten verschieben"
+    "message": "Przesuń $1 w dół"
   },
   "watchSourcePriorityReset": {
-    "message": "Resetovat prioritu"
+    "message": "Resetuj priorytet"
   },
   "watchSourcePriorityMoved": {
-    "message": "$1 hat jetzt priorytet $2."
+    "message": "$1 ma teraz priorytet $2."
   },
   "watchSourcePriorityResetDone": {
-    "message": "Priorita źródeł oglądání resetována."
+    "message": "Priorytet źródeł oglądania zresetowany."
   },
   "watchSourceDrops": {
     "message": "Drops"
   },
   "watchSourceIdleWatchlist": {
-    "message": "Lista rezerwowa"
+    "message": "Lista zapasowa"
   },
   "watchSourceNoPixel": {
     "message": "NoPixelV"
@@ -1713,52 +1713,52 @@
     "message": "Fortnite"
   },
   "gamesStarHint": {
-    "message": "★ setzt Gra über die Strategie"
+    "message": "★ ustawia grę powyżej strategii"
   },
   "gamesFavourite": {
-    "message": "$1 über die Strategie setzen"
+    "message": "Ustaw $1 powyżej strategii"
   },
   "gamesUnfavourite": {
-    "message": "$1 nie więcej bevorzugen"
+    "message": "Przestań ustawiać $1 powyżej strategii"
   },
   "gamesBlock": {
-    "message": "Nikdy nefarmić $1"
+    "message": "Nigdy nie farmuj $1"
   },
   "gamesUnblock": {
-    "message": "Odblokovat"
+    "message": "Odblokuj"
   },
   "gamesBlocked": {
-    "message": "Zablokowané"
+    "message": "Zablokowane"
   },
   "gamesBlockedHint": {
-    "message": "wird w ktryb gefarmt"
+    "message": "nigdy nie farmione, w obu trybach"
   },
   "gamesBlockedKeepsStar": {
-    "message": "wird nie gefarmt · gwiazdką bleibt"
+    "message": "nigdy nie farmione · gwiazdka zachowana na później"
   },
   "gamesCampaignCount": {
-    "message": "$1 aktivních kampaní"
+    "message": "$1 kampanii na żywo"
   },
   "gamesCampaignCountOne": {
-    "message": "1 Kampania aktiv"
+    "message": "1 kampania na żywo"
   },
   "gamesNoCampaigns": {
-    "message": "gerade żadne Kampanie"
+    "message": "teraz brak kampanii"
   },
   "gamesFarmGame": {
-    "message": "Farmit $1"
+    "message": "Farmuj $1"
   },
   "gamesEmpty": {
-    "message": "Obecnie laufen żadne $1-Kampanie."
+    "message": "Teraz nie ma aktywnych kampanii $1."
   },
   "inPageOpenPanel": {
-    "message": "Otwórzít Lurkloot"
+    "message": "Otwórz Lurkloot"
   },
   "inPageAddToWatchlist": {
-    "message": "Dodajat $1 do idle watchlist"
+    "message": "Dodaj $1 do idle watchlist"
   },
   "inPageRemoveFromWatchlist": {
-    "message": "Usuńat $1 z idle watchlist"
+    "message": "Usuń $1 z idle watchlist"
   },
   "navNoPixel": {
     "message": "NoPixel V"
@@ -1767,217 +1767,217 @@
     "message": "Fortnite"
   },
   "gamesBlockedEmpty": {
-    "message": "Nichts jest blockiert. Mit dem ⊘ eines Gras bleibt es w beiden Modi ungefarmt."
+    "message": "Nic nie jest zablokowane. Użyj ⊘ przy grze, aby wykluczyć ją z farmienia w obu trybach."
   },
   "campaignRewardsProgress": {
-    "message": "$1 z $2 nagrod"
+    "message": "$1 z $2 nagród"
   },
   "campaignTimeLeft": {
-    "message": "jeszcze $1"
+    "message": "Pozostało $1"
   },
   "campaignFactStarts": {
-    "message": "Zaczyna się"
+    "message": "Start"
   },
   "campaignFactStarted": {
-    "message": "Begonnen"
+    "message": "Rozpoczęto"
   },
   "campaignFactEnds": {
-    "message": "Kończy się"
+    "message": "Koniec"
   },
   "relativeIn": {
-    "message": "przez $1"
+    "message": "za $1"
   },
   "relativeAgo": {
-    "message": "vor $1"
+    "message": "$1 temu"
   },
   "campaignLasts": {
-    "message": "Trvá $1"
+    "message": "Trwa $1"
   },
   "campaignFactEnded": {
-    "message": "Bekończy się"
+    "message": "Zakończono"
   },
   "campaignFactWatching": {
-    "message": "Sledování"
+    "message": "Oglądanie"
   },
   "campaignFactChannels": {
-    "message": "Kanály"
+    "message": "Kanały"
   },
   "campaignFactNextReward": {
-    "message": "Nächste Nagroda"
+    "message": "Następna nagroda"
   },
   "campaignFactWhyRank": {
-    "message": "Warum tar Rang"
+    "message": "Dlaczego ta pozycja"
   },
   "campaignMoreChannels": {
-    "message": "+$1 następnych"
+    "message": "+$1 więcej"
   },
   "campaignFewerChannels": {
-    "message": "Pokażit mniej"
+    "message": "Pokaż mniej"
   },
   "campaignExclude": {
-    "message": "Auszamknij"
+    "message": "Wyklucz"
   },
   "campaignCategoryBlocked": {
-    "message": "$1 blokovaná"
+    "message": "$1 zablokowane"
   },
   "campaignPinToTop": {
-    "message": "Ganz oben anheften"
+    "message": "Przypnij na górze"
   },
   "campaignPinnedAt": {
-    "message": "Przypio · $1"
+    "message": "Przypięte · $1"
   },
   "campaignFavourite": {
-    "message": "Ulubioná $1"
+    "message": "Ulubione: $1"
   },
   "campaignFavouriteOn": {
-    "message": "$1 je oblíbená"
+    "message": "$1 jest ulubione"
   },
   "campaignExcludeThis": {
-    "message": "Tylko ta Kampania"
+    "message": "Tylko ta kampania"
   },
   "campaignExcludeThisHint": {
-    "message": "Andere $1-Kampanie będą weiter gefarmt"
+    "message": "Inne kampanie $1 nadal są farmione"
   },
   "campaignExcludeThisUndo": {
-    "message": "Erneut wählen, um die Kampagne z powrotem einzureihen"
+    "message": "Wybierz ponownie, aby przywrócić kampanię do kolejki"
   },
   "campaignExcludeCategory": {
-    "message": "Kategorie „$1“"
+    "message": "Kategoria „$1”"
   },
   "campaignExcludeCategoryHint": {
-    "message": "Zablokowane jede $1-Kampagne, jetzt i künftig"
+    "message": "Blokuje każdą kampanię $1, teraz i później"
   },
   "campaignExcludeCategoryUndo": {
-    "message": "Vyberte znovu pro odblokování hry"
+    "message": "Wybierz ponownie, aby odblokować grę"
   },
   "rewardMissed": {
-    "message": "Nicht rechtzeitig verdient"
+    "message": "Nie zdobyto na czas"
   },
   "rankReasonPinned": {
-    "message": "Przypio na $1"
+    "message": "Przypięte na $1"
   },
   "rankReasonFavourite": {
-    "message": "$1 je oblíbená $2"
+    "message": "$1 jest ulubione $2"
   },
   "rankReasonEnding": {
-    "message": "Endet früher als die darunter"
+    "message": "Kończy się wcześniej niż te poniżej"
   },
   "rankReasonAvailability": {
-    "message": "Weniger Kanały als die darunter"
+    "message": "Mniej kanałów niż te poniżej"
   },
   "queueEditFavourites": {
-    "message": "Upravit"
+    "message": "Edytuj"
   },
   "navWatchingNow": {
-    "message": "Wird gerade geschaut"
+    "message": "Teraz oglądane"
   },
   "watchSourcePosition": {
     "message": "$1 · $2 z $3"
   },
   "watchSourceChangeOrder": {
-    "message": "Zmień kolejność oglądání"
+    "message": "Zmień kolejność oglądania"
   },
   "gamesFavouritesGroup": {
-    "message": "Ulubioné"
+    "message": "Ulubione"
   },
   "gamesFavouritesGroupHint": {
-    "message": "v tomto kolejność, nad strategií"
+    "message": "w tej kolejności, powyżej strategii"
   },
   "gamesOtherGroup": {
-    "message": "Ostatní hry"
+    "message": "Inne gry"
   },
   "gamesOtherGroupAllHint": {
-    "message": "alle gefarmt, außer blockierte"
+    "message": "wszystkie farmione, oprócz zablokowanych"
   },
   "gamesOtherGroupIncludeHint": {
-    "message": "tylko angehakte będą gefarmt"
+    "message": "farmione tylko po zaznaczeniu"
   },
   "watchSourcePlace": {
-    "message": "Místo v kolejność oglądání: $1 z $2"
+    "message": "Miejsce w kolejności oglądania: $1 z $2"
   },
   "watchSourcePlaceFirst": {
-    "message": "Wird przed jeder anderen Quelle geschaut."
+    "message": "Oglądane przed każdym innym źródłem."
   },
   "watchSourcePlaceAfter": {
-    "message": "Wird geschaut, wenn $1 nichts zum Schauen haben."
+    "message": "Oglądane, gdy $1 nie ma nic do oglądania."
   },
   "watchSourceChangeOrderShort": {
     "message": "Zmień kolejność"
   },
   "railWhatsNew": {
-    "message": "Co je nového"
+    "message": "Co nowego"
   },
   "campaignShowDetails": {
-    "message": "Pokażit podrobnosti"
+    "message": "Pokaż szczegóły"
   },
   "campaignHideDetails": {
-    "message": "Ukryjt podrobnosti"
+    "message": "Ukryj szczegóły"
   },
   "settingsGamesPointerTitle": {
-    "message": "Hry a kategorie"
+    "message": "Gry i kategorie"
   },
   "settingsGamesPointerDescription": {
-    "message": "Wybierz, które $1-Gry gefarmt są, oznacz die, die pierwsze kommen sollen, lub blockiere sie."
+    "message": "Wybierz, które gry $1 są farmione, oznacz gwiazdką te pierwsze w kolejce lub je zablokuj."
   },
   "settingsGamesPointerAction": {
-    "message": "Otwórzít Hry"
+    "message": "Otwórz Gry"
   },
   "idleWatchlistAddPlaceholder": {
-    "message": "Název kanału nebo odkaz"
+    "message": "Nazwa kanału lub link"
   },
   "idleWatchlistFull": {
-    "message": "Die Liste jest voll ($1 Kanały). Usuń einen, um weiteren hinzuzufügen."
+    "message": "Lista jest pełna ($1 kanałów). Usuń jeden, aby dodać kolejny."
   },
   "idleWatchlistInvalid": {
-    "message": "Zadejte název kanału nebo odkaz na kanał."
+    "message": "Wpisz nazwę kanału lub link do kanału."
   },
   "idleWatchlistDuplicate": {
-    "message": "$1 już je na seznamu."
+    "message": "$1 jest już na liście."
   },
   "idleWatchlistOrderTitle": {
-    "message": "Kolejność oglądání"
+    "message": "Kolejność oglądania"
   },
   "idleWatchlistOrderHint": {
-    "message": "sleduje se první live kanał"
+    "message": "oglądany jest pierwszy kanał na żywo"
   },
   "gamesModeAllDescription": {
-    "message": "Jedes Gra z aktiven Drops wird gefarmt, außer blockierte."
+    "message": "Każda gra z aktywnymi dropami jest farmiona, oprócz zablokowanych."
   },
   "gamesModeIncludeDescription": {
-    "message": "Tylko angehakte Gry będą gefarmt."
+    "message": "Farmione są tylko zaznaczone gry."
   },
   "gamesStarLegend": {
-    "message": "stellt Gra über die Strategie"
+    "message": "ustawia grę powyżej strategii"
   },
   "gamesBlockLegend": {
-    "message": "nikdy se nefarmí"
+    "message": "nigdy jej nie farmi"
   },
   "gamesSearchPlaceholder": {
-    "message": "Najít nebo dodajat hru $1"
+    "message": "Znajdź lub dodaj grę $1"
   },
   "gamesAddGroup": {
-    "message": "Dodajat z $1"
+    "message": "Dodaj z $1"
   },
   "gamesAddIncludeHint": {
-    "message": "Dodaj hakt das Gra an"
+    "message": "dodanie gry ją zaznacza"
   },
   "gamesAddAllHint": {
-    "message": "Dodaj markiert das Gra als Favorit"
+    "message": "dodanie gry daje gwiazdkę"
   },
   "gamesAddActionFarm": {
-    "message": "Farmit"
+    "message": "Farmuj"
   },
   "gamesAddActionFavourite": {
-    "message": "Ulubioná"
+    "message": "Ulubione"
   },
   "gamesNoMoreResults": {
-    "message": "Nebyly nalezeny następny hry."
+    "message": "Nie znaleziono innych gier."
   },
   "navBeta": {
     "message": "Beta"
   },
   "navExtensions": {
-    "message": "Rozszerzenieen"
+    "message": "Extensions"
   },
   "navGroupOthers": {
     "message": "Inne"
