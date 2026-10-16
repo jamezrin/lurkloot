@@ -444,7 +444,7 @@
     "message": "Endet in $1"
   },
   "watchToGo": {
-    "message": "$1 zu schauen"
+    "message": "noch $1 zu schauen"
   },
   "left": {
     "message": "Übrig"

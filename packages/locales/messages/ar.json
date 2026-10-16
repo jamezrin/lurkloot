@@ -444,7 +444,7 @@
     "message": "ينتهي خلال $1"
   },
   "watchToGo": {
-    "message": "$1 للمشاهدة"
+    "message": "$1 متبقية للمشاهدة"
   },
   "left": {
     "message": "المتبقي"
