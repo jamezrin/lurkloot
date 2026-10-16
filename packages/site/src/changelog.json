@@ -8,7 +8,7 @@
       },
       {
         "kind": "fixed",
-        "text": "Turning off farming for campaigns without a linked account now also skips Twitch campaigns whose account is linked through a Twitch sign-in page, such as Kakele Online. Lurkloot treated those as already linked and kept watching for drops it couldn't claim."
+        "text": "Lurkloot now decides whether a Twitch campaign needs a linked account the way Twitch does. With farming of campaigns without a linked account turned off, campaigns like Kakele Online are skipped again instead of being watched for drops you can't claim. Campaigns that only give Twitch badges or emotes never ask for a link, so they're no longer marked Not linked."
       },
       {
         "kind": "improved",

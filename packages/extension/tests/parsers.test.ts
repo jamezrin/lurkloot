@@ -886,10 +886,34 @@ describe("Twitch parsers", () => {
     ]);
   });
 
-  it("does not bypass account linking for unconfirmed native reward payloads", () => {
+  // Twitch's drops page hides Connect for badge-only and emote-only campaigns
+  // even when isAccountConnected is false; EWC 2026 was one (#94, #828).
+  it.each([
+    ["BADGE", "https://www.twitch.tv/"],
+    ["EMOTE", undefined],
+  ])("treats a disconnected %s-only campaign as linked", (distributionType, accountLinkURL) => {
     const campaigns = parseTwitchCampaigns([
       {
-        id: "unlinked-native",
+        id: "native-only",
+        self: { isAccountConnected: false },
+        accountLinkURL,
+        timeBasedDrops: [
+          {
+            id: "native",
+            requiredMinutesWatched: 30,
+            benefitEdges: [{ benefit: { id: "native-benefit", distributionType } }],
+          },
+        ],
+      },
+    ]);
+
+    expect(campaigns[0]).toMatchObject({ accountLinked: true, eligibility: "eligible" });
+  });
+
+  it("keeps a disconnected campaign that mixes a badge with an in-game item unlinked", () => {
+    const campaigns = parseTwitchCampaigns([
+      {
+        id: "mixed",
         self: { isAccountConnected: false },
         accountLinkURL: "https://example.test/connect",
         timeBasedDrops: [
@@ -898,59 +922,43 @@ describe("Twitch parsers", () => {
             requiredMinutesWatched: 30,
             benefitEdges: [{ benefit: { id: "badge-benefit", distributionType: "BADGE" } }],
           },
+          {
+            id: "item",
+            requiredMinutesWatched: 60,
+            benefitEdges: [
+              { benefit: { id: "item-benefit", distributionType: "DIRECT_ENTITLEMENT" } },
+            ],
+          },
         ],
       },
     ]);
 
-    expect(campaigns[0].eligibility).toBe("account_not_linked");
+    expect(campaigns[0]).toMatchObject({ accountLinked: false, eligibility: "account_not_linked" });
   });
 
-  it("treats a URL-less disconnected Twitch campaign as linked", () => {
+  it.each([
+    ["no link URL", undefined],
+    ["an empty link URL", ""],
+    ["a Twitch-hosted link URL", "https://www.twitch.tv/drops/inventory"],
+  ])("keeps a disconnected in-game item campaign unlinked with %s", (_label, accountLinkURL) => {
     const campaigns = parseTwitchCampaigns([
       {
-        id: "url-less-ewc-like",
+        id: "item-campaign",
         self: { isAccountConnected: false },
-        timeBasedDrops: [{ id: "drop", requiredMinutesWatched: 60 }],
+        accountLinkURL,
+        timeBasedDrops: [
+          {
+            id: "item",
+            requiredMinutesWatched: 60,
+            benefitEdges: [
+              { benefit: { id: "item-benefit", distributionType: "DIRECT_ENTITLEMENT" } },
+            ],
+          },
+        ],
       },
     ]);
 
-    expect(campaigns[0]).toMatchObject({
-      accountLinked: true,
-      eligibility: "eligible",
-    });
-  });
-
-  it("treats an empty-link disconnected Twitch campaign as linked", () => {
-    const campaigns = parseTwitchCampaigns([
-      {
-        id: "empty-link-ewc-like",
-        self: { isAccountConnected: false },
-        accountLinkURL: "",
-        timeBasedDrops: [{ id: "drop", requiredMinutesWatched: 60 }],
-      },
-    ]);
-
-    expect(campaigns[0]).toMatchObject({
-      accountLinked: true,
-      eligibility: "eligible",
-    });
-  });
-
-  it("ignores Twitch-hosted account links for disconnected Twitch campaigns", () => {
-    const campaigns = parseTwitchCampaigns([
-      {
-        id: "twitch-link-ewc-like",
-        self: { isAccountConnected: false },
-        accountLinkURL: "https://www.twitch.tv/drops/inventory",
-        timeBasedDrops: [{ id: "drop", requiredMinutesWatched: 60 }],
-      },
-    ]);
-
-    expect(campaigns[0]).toMatchObject({
-      accountLinked: true,
-      accountLinkUrl: undefined,
-      eligibility: "eligible",
-    });
+    expect(campaigns[0]).toMatchObject({ accountLinked: false, eligibility: "account_not_linked" });
   });
 
   it("keeps a disconnected campaign unlinked when it links through Twitch OAuth to a publisher", () => {
@@ -962,7 +970,15 @@ describe("Twitch parsers", () => {
         id: "kakele-like",
         self: { isAccountConnected: false },
         accountLinkURL,
-        timeBasedDrops: [{ id: "drop", requiredMinutesWatched: 60 }],
+        timeBasedDrops: [
+          {
+            id: "token",
+            requiredMinutesWatched: 60,
+            benefitEdges: [
+              { benefit: { id: "token-benefit", distributionType: "DIRECT_ENTITLEMENT" } },
+            ],
+          },
+        ],
       },
     ]);
 
@@ -970,24 +986,6 @@ describe("Twitch parsers", () => {
       accountLinked: false,
       accountLinkUrl: accountLinkURL,
       eligibility: "account_not_linked",
-    });
-  });
-
-  it("ignores a Twitch OAuth link that redirects back to Twitch", () => {
-    const campaigns = parseTwitchCampaigns([
-      {
-        id: "twitch-oauth-to-twitch",
-        self: { isAccountConnected: false },
-        accountLinkURL:
-          "https://id.twitch.tv/oauth2/authorize?client_id=abc&redirect_uri=https%3A%2F%2Fwww.twitch.tv%2F",
-        timeBasedDrops: [{ id: "drop", requiredMinutesWatched: 60 }],
-      },
-    ]);
-
-    expect(campaigns[0]).toMatchObject({
-      accountLinked: true,
-      accountLinkUrl: undefined,
-      eligibility: "eligible",
     });
   });
 
