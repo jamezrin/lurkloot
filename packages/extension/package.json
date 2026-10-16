@@ -17,8 +17,8 @@
     "typecheck": "tsc --noEmit",
     "kick:inspect": "node scripts/kick-inspect.mjs",
     "screenshot:store": "pnpm build && node scripts/capture-store.mjs screenshots",
-    "screenshot:store:upload": "node scripts/upload-store-screenshots.mjs",
-    "screenshot:store:sync": "pnpm screenshot:store && pnpm screenshot:store:upload",
+    "cws:listing": "node scripts/cws-listing.mjs",
+    "cws:listing:sync": "pnpm screenshot:store && pnpm cws:listing",
     "promo:store": "pnpm build && node scripts/capture-store.mjs promos",
     "promo:store:sync": "pnpm promo:store"
   },

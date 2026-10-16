@@ -6,12 +6,13 @@ import { chromium, type Browser, type Page } from "playwright";
 // @ts-expect-error The production utility is an executable JavaScript module.
 import { ChromeWebStoreDashboard } from "../scripts/store-screenshot-dashboard.mjs";
 // @ts-expect-error The production utility is an executable JavaScript module.
-import { main } from "../scripts/upload-store-screenshots.mjs";
+import { main, parseListingParts } from "../scripts/cws-listing.mjs";
 
 let browser: Browser;
 let page: Page;
 
 const extensionId = "aobaackpofkghaejdnnmpmeaiaoibhdn";
+const descriptions = new Map([["en", "English body"]]);
 const publisherId = "12345678-1234-1234-1234-123456789abc";
 
 const fixture = `
@@ -384,7 +385,77 @@ describe("Chrome Web Store dashboard adapter", () => {
   });
 });
 
-describe("store screenshot upload CLI", () => {
+describe("Chrome Web Store dashboard adapter for new languages", () => {
+  // A language added since the last run has an empty localized group.
+  const emptyLocalizedFixture = fixture.replace(
+    /(<div id="panel">\s*<ol>)[\s\S]*?(<\/ol>)/,
+    "$1$2",
+  );
+
+  it("finds an empty localized group instead of the shared one and fills it", async () => {
+    await page.setContent(emptyLocalizedFixture);
+    const dashboard = new ChromeWebStoreDashboard({ page, extensionId, timeout: 1_000 });
+    const directory = mkdtempSync(join(tmpdir(), "lurkloot-dashboard-fixture-"));
+    const image = join(directory, "lurkloot-01-drops-1280x800.png");
+    writeFileSync(image, Buffer.from("fixture"));
+
+    try {
+      await dashboard.preflight({ locales: ["en"] });
+      expect(await dashboard.screenshotCount("localized")).toBe(0);
+      expect(await dashboard.screenshotCount("global")).toBe(5);
+
+      await dashboard.uploadScreenshot(image);
+      await dashboard.waitForScreenshotCount(1);
+
+      expect(await dashboard.screenshotCount("localized")).toBe(1);
+      expect(await page.locator("#global-panel img").count()).toBe(5);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("fails closed when both groups resolve to the same panel", async () => {
+    await page.setContent(
+      fixture
+        .replace("<span>Global screenshots</span>", "")
+        .replace(
+          "<span>Localized screenshots</span>",
+          "<span>Localized screenshots</span><span>Global screenshots</span>",
+        ),
+    );
+    const dashboard = new ChromeWebStoreDashboard({ page, extensionId, timeout: 1_000 });
+
+    await expect(dashboard.preflight({ locales: ["en"] })).rejects.toThrow(/same panel/i);
+    expect(dashboard.hasMutated).toBe(false);
+  });
+
+  it("sets the detailed description and reports an unchanged one", async () => {
+    await page.setContent(
+      fixture.replace(
+        "<span>Localized screenshots</span>",
+        "<label>Description<textarea>Old body</textarea></label><span>Localized screenshots</span>",
+      ),
+    );
+    const dashboard = new ChromeWebStoreDashboard({ page, extensionId, timeout: 1_000 });
+
+    await dashboard.preflight({ locales: ["en"], screenshots: false, descriptions: true });
+    expect(await dashboard.setDescription("New body\n\nSecond paragraph")).toBe(true);
+    expect(await page.locator("textarea").inputValue()).toBe("New body\n\nSecond paragraph");
+    expect(await dashboard.setDescription("New body\n\nSecond paragraph")).toBe(false);
+    expect(dashboard.hasMutated).toBe(true);
+  });
+
+  it("requires a single description field when descriptions are synced", async () => {
+    await page.setContent(fixture);
+    const dashboard = new ChromeWebStoreDashboard({ page, extensionId, timeout: 1_000 });
+
+    await expect(
+      dashboard.preflight({ locales: ["en"], screenshots: false, descriptions: true }),
+    ).rejects.toThrow(/detailed description field.*found 0/i);
+  });
+});
+
+describe("store listing CLI", () => {
   it("rejects an invalid extension ID before reading screenshot files", async () => {
     let validations = 0;
 
@@ -438,6 +509,7 @@ describe("store screenshot upload CLI", () => {
       { CWS_EXTENSION_ID: extensionId },
       {
         validateFiles: async () => files,
+        loadDescriptions: async () => descriptions,
         openBrowser: async () => {
           launches += 1;
           throw new Error("must not launch");
@@ -448,6 +520,7 @@ describe("store screenshot upload CLI", () => {
 
     expect(launches).toBe(0);
     expect(output.join("\n")).toMatch(/validated 1 screenshot.*1 locale/i);
+    expect(output.join("\n")).toMatch(/validated 1 description.*1 locale/i);
   });
 
   it("requires a publisher ID before browser launch", async () => {
@@ -460,6 +533,7 @@ describe("store screenshot upload CLI", () => {
         { CWS_EXTENSION_ID: extensionId, CWS_DASHBOARD_URL: "https://example.test/redirect" },
         {
           validateFiles: async () => files,
+          loadDescriptions: async () => descriptions,
           openBrowser: async () => {
             launches += 1;
             throw new Error("must not launch");
@@ -482,6 +556,7 @@ describe("store screenshot upload CLI", () => {
         { CWS_EXTENSION_ID: extensionId, CWS_PUBLISHER_ID: "../../other-publisher" },
         {
           validateFiles: async () => files,
+          loadDescriptions: async () => descriptions,
           openBrowser: async () => {
             launches += 1;
             throw new Error("must not launch");
@@ -516,6 +591,11 @@ describe("store screenshot upload CLI", () => {
         calls.push("preflight");
       },
       async selectLocale() {},
+      async setDescription() {
+        calls.push("description");
+        return true;
+      },
+      async requireDistinctScreenshotSections() {},
       async screenshotCount() {
         return this.images.length;
       },
@@ -548,6 +628,7 @@ describe("store screenshot upload CLI", () => {
       { CWS_EXTENSION_ID: extensionId, CWS_PUBLISHER_ID: publisherId },
       {
         validateFiles: async () => files,
+        loadDescriptions: async () => descriptions,
         openBrowser: async () => session,
         finishBrowser: async () => {
           finished = true;
@@ -557,8 +638,9 @@ describe("store screenshot upload CLI", () => {
       },
     );
 
-    // One save for the locale's own screenshots, one for the shared global set.
-    expect(calls).toEqual(["authenticated", "preflight", "saved", "saved"]);
+    // One save each for the description, the locale's own screenshots and the
+    // shared global set.
+    expect(calls).toEqual(["authenticated", "preflight", "description", "saved", "saved", "saved"]);
     expect(newContextCalls).toBe(0);
     expect(finished).toBe(true);
   });
@@ -581,6 +663,7 @@ describe("store screenshot upload CLI", () => {
         { CWS_EXTENSION_ID: extensionId, CWS_PUBLISHER_ID: publisherId },
         {
           validateFiles: async () => files,
+          loadDescriptions: async () => descriptions,
           openBrowser: async () => ({ ownsBrowser: true, context: { newPage: async () => ({}) } }),
           finishBrowser: async () => {
             finished = true;
@@ -620,6 +703,7 @@ describe("store screenshot upload CLI", () => {
         { CWS_EXTENSION_ID: extensionId, CWS_PUBLISHER_ID: publisherId },
         {
           validateFiles: async () => files,
+          loadDescriptions: async () => descriptions,
           openBrowser: async () => ({ ownsBrowser: true, context: { newPage: async () => ({}) } }),
           finishBrowser: async () => {
             finished = true;
@@ -641,12 +725,24 @@ describe("store screenshot upload CLI", () => {
   it("abandons the session so a partially changed draft stays open after mutation failure", async () => {
     let finished = false;
     let abandoned = false;
-    const files = new Map([["en", [{ variant: { file: "01-drops" }, path: "/one.png" }]]]);
+    const files = new Map([
+      [
+        "en",
+        ["01", "02", "03", "04", "05"].map((number) => ({
+          variant: { file: `${number}-new` },
+          path: `/${number}.png`,
+        })),
+      ],
+    ]);
     const dashboard = {
       hasMutated: false,
       async openAndWaitForAuthentication() {},
       async preflight() {},
       async selectLocale() {},
+      async setDescription() {
+        return false;
+      },
+      async requireDistinctScreenshotSections() {},
       async screenshotCount() {
         return 5;
       },
@@ -662,6 +758,7 @@ describe("store screenshot upload CLI", () => {
         { CWS_EXTENSION_ID: extensionId, CWS_PUBLISHER_ID: publisherId },
         {
           validateFiles: async () => files,
+          loadDescriptions: async () => descriptions,
           openBrowser: async () => ({ ownsBrowser: true, context: { newPage: async () => ({}) } }),
           finishBrowser: async () => {
             finished = true;
@@ -681,5 +778,65 @@ describe("store screenshot upload CLI", () => {
 
     expect(abandoned).toBe(true);
     expect(finished).toBe(false);
+  });
+
+  it("syncs descriptions without reading screenshot files", async () => {
+    let validations = 0;
+    const output: string[] = [];
+
+    await main(
+      ["--only", "descriptions", "--locales", "en", "--validate-only"],
+      { CWS_EXTENSION_ID: extensionId },
+      {
+        validateFiles: async () => {
+          validations += 1;
+          throw new Error("must not read screenshots");
+        },
+        loadDescriptions: async () => descriptions,
+        output: (message: string) => output.push(message),
+      },
+    );
+
+    expect(validations).toBe(0);
+    expect(output.join("\n")).not.toMatch(/screenshot/i);
+  });
+
+  it("validates descriptions before launching a browser", async () => {
+    let launches = 0;
+
+    await expect(
+      main(
+        ["--only", "descriptions"],
+        { CWS_EXTENSION_ID: extensionId, CWS_PUBLISHER_ID: publisherId },
+        {
+          loadDescriptions: async () => {
+            throw new Error("description too long");
+          },
+          openBrowser: async () => {
+            launches += 1;
+            throw new Error("must not launch");
+          },
+          output: () => {},
+        },
+      ),
+    ).rejects.toThrow(/description too long/);
+
+    expect(launches).toBe(0);
+  });
+
+  it("parses the listing part selector", () => {
+    expect(parseListingParts(["--locales", "en"])).toEqual({
+      parts: ["screenshots", "descriptions"],
+      rest: ["--locales", "en"],
+    });
+    expect(parseListingParts(["--", "--only", "screenshots", "--locales", "ar"])).toEqual({
+      parts: ["screenshots"],
+      rest: ["--", "--locales", "ar"],
+    });
+    expect(() => parseListingParts(["--only", "summary"])).toThrow(/--only expects one of/);
+    expect(() => parseListingParts(["--only"])).toThrow(/--only expects one of/);
+    expect(() => parseListingParts(["--only", "screenshots", "--only", "descriptions"])).toThrow(
+      /Duplicate option --only/,
+    );
   });
 });

@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { basename } from "node:path";
 import {
   replaceLocaleScreenshots,
-  uploadStoreScreenshots,
+  syncStoreListing,
   // @ts-expect-error The production utility is an executable JavaScript module.
-} from "../scripts/store-screenshot-upload.mjs";
+} from "../scripts/store-listing-sync.mjs";
 
 type UploadFile = { variant: { file: string }; path: string };
 
@@ -31,7 +31,8 @@ class MemoryDashboard {
   }
 
   globalImages: string[] = ["old-a", "old-b", "old-c", "old-d", "old-e"];
-  savedSections: string[] = [];
+  descriptionsByLocale = new Map<string, string>();
+  calls: string[] = [];
 
   get images(): string[] {
     if (!this.selectedLocale) return [];
@@ -48,6 +49,18 @@ class MemoryDashboard {
     this.preflightCalls += 1;
   }
 
+  async requireDistinctScreenshotSections(): Promise<void> {
+    this.calls.push("section check");
+  }
+
+  async setDescription(text: string): Promise<boolean> {
+    if (!this.selectedLocale) throw new Error("no locale selected");
+    this.calls.push(`description ${this.selectedLocale}`);
+    if (this.descriptionsByLocale.get(this.selectedLocale) === text) return false;
+    this.descriptionsByLocale.set(this.selectedLocale, text);
+    return true;
+  }
+
   async selectLocale(locale: string): Promise<void> {
     this.selectedLocale = locale;
   }
@@ -57,6 +70,7 @@ class MemoryDashboard {
   }
 
   async removeFirstScreenshot(section?: string): Promise<void> {
+    this.calls.push("remove");
     this.imagesFor(section).shift();
   }
 
@@ -68,6 +82,7 @@ class MemoryDashboard {
 
   async uploadScreenshot(path: string, section?: string): Promise<void> {
     this.uploadCalls += 1;
+    this.calls.push("upload");
     if (this.uploadCalls === this.failUploadAt) throw new Error("network upload failed");
     this.imagesFor(section).push(imageId(path));
   }
@@ -78,7 +93,7 @@ class MemoryDashboard {
   }
 }
 
-describe("store screenshot replacement", () => {
+describe("store listing sync", () => {
   it("rotates arbitrary screenshots into the exact desired order", async () => {
     const dashboard = new MemoryDashboard();
 
@@ -144,7 +159,7 @@ describe("store screenshot replacement", () => {
       ["ar", desiredFiles],
     ]);
 
-    await uploadStoreScreenshots({ locales: ["en", "ar"], filesByLocale, dashboard });
+    await syncStoreListing({ locales: ["en", "ar"], filesByLocale, dashboard });
 
     expect(dashboard.preflightCalls).toBe(1);
     expect(dashboard.imagesByLocale.get("en")).toEqual(["01", "02", "03", "04", "05"]);
@@ -160,9 +175,89 @@ describe("store screenshot replacement", () => {
     );
     const filesByLocale = new Map([["ar", desiredFiles]]);
 
-    await uploadStoreScreenshots({ locales: ["ar"], filesByLocale, dashboard });
+    await syncStoreListing({ locales: ["ar"], filesByLocale, dashboard });
 
     expect(dashboard.imagesByLocale.get("ar")).toEqual(["01", "02", "03", "04", "05"]);
     expect(dashboard.globalImages).toEqual(["old-a", "old-b", "old-c", "old-d", "old-e"]);
+  });
+
+  it("fills a language that has no screenshots yet in order without removing anything", async () => {
+    const dashboard = new MemoryDashboard(new Map([["ja", []]]));
+
+    await replaceLocaleScreenshots({ locale: "ja", files: desiredFiles, dashboard });
+
+    expect(dashboard.imagesByLocale.get("ja")).toEqual(["01", "02", "03", "04", "05"]);
+    expect(dashboard.calls).not.toContain("remove");
+    expect(dashboard.observedCounts).toEqual([1, 2, 3, 4, 5]);
+    expect(dashboard.globalImages).toEqual(["old-a", "old-b", "old-c", "old-d", "old-e"]);
+  });
+
+  it("tops up a partial set before rotating every image into place", async () => {
+    const dashboard = new MemoryDashboard(new Map([["ja", ["old-a", "old-b"]]]));
+
+    await replaceLocaleScreenshots({ locale: "ja", files: desiredFiles, dashboard });
+
+    expect(dashboard.imagesByLocale.get("ja")).toEqual(["01", "02", "03", "04", "05"]);
+    expect(dashboard.observedCounts.slice(0, 3)).toEqual([3, 4, 5]);
+  });
+
+  it("checks the sections are distinct before changing any screenshot", async () => {
+    const dashboard = new MemoryDashboard(new Map([["ja", []]]));
+    dashboard.requireDistinctScreenshotSections = async () => {
+      throw new Error("same panel");
+    };
+
+    await expect(
+      replaceLocaleScreenshots({ locale: "ja", files: desiredFiles, dashboard }),
+    ).rejects.toThrow(/ja.*section check.*same panel/);
+    expect(dashboard.uploadCalls).toBe(0);
+  });
+
+  it("sets each description and saves only the languages that changed", async () => {
+    const dashboard = new MemoryDashboard(
+      new Map([
+        ["en", []],
+        ["ja", []],
+      ]),
+    );
+    dashboard.descriptionsByLocale.set("en", "English body");
+    const progress: string[] = [];
+
+    await syncStoreListing({
+      locales: ["en", "ja"],
+      descriptionsByLocale: new Map([
+        ["en", "English body"],
+        ["ja", "Japanese body"],
+      ]),
+      dashboard,
+      onProgress: ({ locale, phase }: { locale: string; phase: string }) =>
+        progress.push(`${locale} ${phase}`),
+    });
+
+    expect(dashboard.descriptionsByLocale.get("ja")).toBe("Japanese body");
+    expect(dashboard.savedLocales).toEqual(["ja"]);
+    expect(progress).toEqual(["en description-unchanged", "ja description-saved"]);
+  });
+
+  it("leaves screenshots alone in a descriptions-only run", async () => {
+    const dashboard = new MemoryDashboard(new Map([["en", ["old-a"]]]));
+
+    await syncStoreListing({
+      locales: ["en"],
+      descriptionsByLocale: new Map([["en", "English body"]]),
+      dashboard,
+    });
+
+    expect(dashboard.calls).toEqual(["description en"]);
+    expect(dashboard.globalImages).toEqual(["old-a", "old-b", "old-c", "old-d", "old-e"]);
+  });
+
+  it("refuses to start a locale whose description was not loaded", async () => {
+    const dashboard = new MemoryDashboard();
+
+    await expect(
+      syncStoreListing({ locales: ["ar"], descriptionsByLocale: new Map(), dashboard }),
+    ).rejects.toThrow(/No validated store description found for ar/);
+    expect(dashboard.calls).toEqual([]);
   });
 });

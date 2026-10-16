@@ -76,15 +76,21 @@ Pass locale codes to limit, for example `pnpm screenshot:store ja id pl ko uk cs
 tiles for every catalog locale, including those six, are under `artifacts/store-promo/<locale>/`.
 `promo:store:sync` only writes those tiles. It does not replace anything in the Developer Dashboard.
 
-## Replacing localized screenshots automatically
+## Syncing the listing automatically
 
-The public Chrome Web Store API cannot update listing screenshots. The local operator command below
-uses a visible Chrome session to replace all 85 screenshots through the Developer Dashboard and save
-the listing draft:
+The public Chrome Web Store API cannot update listing screenshots or per-language descriptions. The
+local operator command below uses a visible Chrome session to set the detailed description and the
+five screenshots of every locale through the Developer Dashboard, then save the listing draft:
 
 ```bash
-pnpm screenshot:store:sync
+pnpm cws:listing:sync
 ```
+
+Descriptions come from the `**Detailed:**` body of each locale's section in
+[store-descriptions.md](store-descriptions.md); the command rejects one over 16,000 characters before
+it starts Chrome. The `**Short:**` line is not synced: the dashboard shows the summary from the
+uploaded package's manifest description, which comes from the `extensionDescription` message of each
+catalog. A description that already matches is left alone and not saved again.
 
 `CWS_EXTENSION_ID` and `CWS_PUBLISHER_ID` come from the repository `mise.toml`. Without mise
 activated in your shell, export them by hand:
@@ -94,12 +100,18 @@ export CWS_EXTENSION_ID=aobaackpofkghaejdnnmpmeaiaoibhdn
 export CWS_PUBLISHER_ID=<publisher-id-from-the-dashboard>
 ```
 
-The command regenerates and validates the images, then starts Chrome itself and attaches to it over
-the DevTools protocol. Sign in to Google and complete 2FA in the window it opens; automation resumes
-on its own, replaces the five screenshots for each of the 17 locales in numbered order, and saves
-each locale. The dashboard language list comes from the `_locales` directories in the uploaded
-package, so upload a build that contains `ja`, `id`, `pl`, `ko`, `uk`, and `cs` before the first
-screenshot run for those languages.
+The command regenerates and validates the images and descriptions, then starts Chrome itself and
+attaches to it over the DevTools protocol. Sign in to Google and complete 2FA in the window it opens;
+automation resumes on its own, sets the description and replaces the five screenshots for each of the
+17 locales in numbered order, and saves each locale. The dashboard language list comes from the
+`_locales` directories in the uploaded package, so upload a build that contains `ja`, `id`, `pl`,
+`ko`, `uk`, and `cs` before the first listing run for those languages.
+
+A language added that way starts with no screenshots of its own. The command fills it in order rather
+than rotating, and checks for every language that the localized and global groups are separate
+panels, so an empty language can never be mistaken for the shared set. The empty-group layout has not
+yet been seen on the live dashboard: run a new language on its own first, for example
+`pnpm cws:listing -- --locales ja`, and look at the draft before syncing the rest.
 
 Playwright never launches the browser. Google refuses interactive sign-in in a browser started with
 automation switches — it answers `accounts.google.com/v3/signin/rejected`, "Couldn't sign you in;
@@ -128,7 +140,7 @@ yourself:
 ```bash
 # The binary name varies by distribution: google-chrome, google-chrome-stable, chrome.
 "$BROWSER" --user-data-dir=~/.local/state/lurkloot/cws-chrome-profile --remote-debugging-port=9333
-CWS_CDP_PORT=9333 pnpm screenshot:store:upload
+CWS_CDP_PORT=9333 pnpm cws:listing
 ```
 
 The listing holds two screenshot groups. **Localized screenshots** change with the language
@@ -145,22 +157,27 @@ group; the command reports that and moves on instead of failing.
 This workflow deliberately stops at a saved draft. It has no operation that submits the item for
 review or publishes it. Use the normal release flow when the draft should be submitted.
 
-To upload already-generated files or retry selected locales after an interruption:
+To sync already-generated files, retry selected locales after an interruption, or touch only one
+part of the listing:
 
 ```bash
-pnpm screenshot:store:upload
-pnpm screenshot:store:upload -- --locales ja id pl ko uk cs
+pnpm cws:listing
+pnpm cws:listing -- --locales ja id pl ko uk cs
+pnpm cws:listing -- --only descriptions
+pnpm cws:listing -- --only screenshots --locales ar
 ```
+
+`--only descriptions` needs no generated screenshots.
 
 A run interrupted between deletion and upload may leave four screenshots in one locale. The next
 locale-filtered run repairs that state before replacing the full ordered set. The operation is safe
 to repeat.
 
-Validate the screenshot files and extension ID without starting Chrome or changing the dashboard
-(`CWS_PUBLISHER_ID` is only checked for a live upload):
+Validate the screenshot files, descriptions and extension ID without starting Chrome or changing the
+dashboard (`CWS_PUBLISHER_ID` is only checked for a live run):
 
 ```bash
-pnpm screenshot:store:upload -- --locales en --validate-only
+pnpm cws:listing -- --locales en --validate-only
 ```
 
 Dashboard automation depends on Google's unsupported UI rather than a stable API. It uses accessible
