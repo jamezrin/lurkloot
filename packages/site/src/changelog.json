@@ -1,5 +1,18 @@
 [
   {
+    "version": "1.17.2",
+    "changes": [
+      {
+        "kind": "fixed",
+        "text": "Upcoming campaigns now say clearly when they start. The expanded campaign only counted down to the end, which was easy to read as the start. Both dates now show how far away they are, and campaigns that are already running show when they started too."
+      },
+      {
+        "kind": "improved",
+        "text": "Campaign times are easier to read. The campaign row now says \"Ends in 1d 6h\" and \"3h 16m to watch\" instead of two bare times, and hovering it shows the start, the end and how long the campaign runs. The expanded campaign shows when it starts, when it ends and the watch time side by side, including the total watch time and a warning when there isn't enough time left to finish."
+      }
+    ]
+  },
+  {
     "version": "1.17.1",
     "changes": [
       {
