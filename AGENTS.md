@@ -52,6 +52,8 @@ Follow [RELEASING.md](RELEASING.md) for the `preview` and `production` environme
 
 Diagnostic messages are always English literals — never add `diagnostic*` message keys to the locale catalogs, and never translate a diagnostic body. Only activity events (structured `code` + `data`, localized by the host UI) and OS notification copy are localized. Activity events get their English diagnostic counterpart automatically from `packages/core/src/core/activityDiagnostics.ts`, so do not hand-write a diagnostic next to an activity emit.
 
+Message catalogs (`packages/locales/messages/*.json`), Chrome Web Store listing copy (`docs/store-descriptions.md`), and store artwork copy (`packages/popup-ui/src/storeArtworkCopy.ts`) are token-heavy. Delegate each locale's translation to an inexpensive subagent — Haiku, Luna, or the cheapest capable model in the live catalog — and integrate what it returns. The implementing agent wires locale types, loaders, options, tests, and docs; it does not translate those bodies itself on a high-cost model (Opus, Sol, and similar). Preserve `$1` placeholders and brand names, keep "farm" as the gaming term, and do not add `diagnostic*` keys.
+
 Use strict TypeScript and ES modules. Keep imports explicit and prefer `type` imports for types. Follow the existing two-space indentation, double quotes, semicolons, and camelCase functions/variables. Use PascalCase for React components and TypeScript types. Put cross-package types, models, and settings in `@lurkloot/shared` rather than duplicating them. Keep platform behavior behind `PlatformAdapter`; do not mix Twitch/Kick parsing logic into scheduler or UI code.
 
 ## Architecture Rules

@@ -377,7 +377,13 @@ export type SupportedLocale =
   | "hi"
   | "pt_BR"
   | "ar"
-  | "tr";
+  | "tr"
+  | "ja"
+  | "id"
+  | "pl"
+  | "ko"
+  | "uk"
+  | "cs";
 
 export type LanguageOverride = "browser" | SupportedLocale;
 

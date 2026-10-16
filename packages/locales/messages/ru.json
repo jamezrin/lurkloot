@@ -47,6 +47,24 @@
   "languageTurkish": {
     "message": "Турецкий"
   },
+  "languageJapanese": {
+    "message": "Японский"
+  },
+  "languageIndonesian": {
+    "message": "Индонезийский"
+  },
+  "languagePolish": {
+    "message": "Польский"
+  },
+  "languageKorean": {
+    "message": "Корейский"
+  },
+  "languageUkrainian": {
+    "message": "Украинский"
+  },
+  "languageCzech": {
+    "message": "Чешский"
+  },
   "settingsLanguageTitle": {
     "message": "Язык"
   },

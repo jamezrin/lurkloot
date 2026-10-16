@@ -47,6 +47,24 @@
   "languageTurkish": {
     "message": "土耳其语"
   },
+  "languageJapanese": {
+    "message": "日语"
+  },
+  "languageIndonesian": {
+    "message": "印尼语"
+  },
+  "languagePolish": {
+    "message": "波兰语"
+  },
+  "languageKorean": {
+    "message": "韩语"
+  },
+  "languageUkrainian": {
+    "message": "乌克兰语"
+  },
+  "languageCzech": {
+    "message": "捷克语"
+  },
   "settingsLanguageTitle": {
     "message": "语言"
   },

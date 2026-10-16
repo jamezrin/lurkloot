@@ -34,7 +34,7 @@ const promos = [
   { id: "marquee", width: 1400, height: 560 },
 ];
 
-const ALL_LOCALES = ["en", "es", "fr", "it", "ru", "de", "zh_CN", "hi", "pt_BR", "ar", "tr"];
+const ALL_LOCALES = ["en", "es", "fr", "it", "ru", "de", "zh_CN", "hi", "pt_BR", "ar", "tr", "ja", "id", "pl", "ko", "uk", "cs"];
 const requested = args.slice(1).filter((code) => code !== "--");
 const locales =
   requested.length > 0 ? requested.filter((code) => ALL_LOCALES.includes(code)) : ALL_LOCALES;

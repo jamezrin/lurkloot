@@ -18,6 +18,12 @@ export const STORE_SCREENSHOT_LOCALES = Object.freeze([
   Object.freeze({ code: "pt_BR", dashboardLabel: "Portuguese (Brazil)" }),
   Object.freeze({ code: "ar", dashboardLabel: "Arabic" }),
   Object.freeze({ code: "tr", dashboardLabel: "Turkish" }),
+  Object.freeze({ code: "ja", dashboardLabel: "Japanese" }),
+  Object.freeze({ code: "id", dashboardLabel: "Indonesian" }),
+  Object.freeze({ code: "pl", dashboardLabel: "Polish" }),
+  Object.freeze({ code: "ko", dashboardLabel: "Korean" }),
+  Object.freeze({ code: "uk", dashboardLabel: "Ukrainian" }),
+  Object.freeze({ code: "cs", dashboardLabel: "Czech" }),
 ]);
 
 const localeCodes = STORE_SCREENSHOT_LOCALES.map(({ code }) => code);

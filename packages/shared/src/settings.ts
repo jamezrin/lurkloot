@@ -52,6 +52,12 @@ export const SUPPORTED_LOCALES: SupportedLocale[] = [
   "pt_BR",
   "ar",
   "tr",
+  "ja",
+  "id",
+  "pl",
+  "ko",
+  "uk",
+  "cs",
 ];
 const LANGUAGE_OVERRIDES: LanguageOverride[] = ["browser", ...SUPPORTED_LOCALES];
 

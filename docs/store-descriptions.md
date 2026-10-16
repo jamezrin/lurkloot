@@ -210,3 +210,111 @@ Verileriniz size ait kalır: parola yok, dışa aktarılan çerez veya oturum an
 Açılır pencereden her platformu etkinleştirebilir, önemsediğiniz kampanyalara ve oyunlara öncelik verebilir, platforma özel Boşta İzleme Listelerini ve hariç tutulan kanalları yönetebilir, otomatik alma ile bildirimleri açıp kapatabilirsiniz.
 
 Aktif drop olmadığında Lurkloot, Kick izlenme süresini de kasabilir. Tercih ettiğiniz kanalları Boşta İzleme Listesine ekleyin; canlı olanlardan birini otomatik seçer. Sekmesiz izleme kaynak kullanımını düşük tutarken, gerektiğinde sabitlenmiş sekmeye dönmek oturumun güvenilir biçimde sürmesini sağlar.
+
+---
+
+## Japanese (ja)
+
+**Short:** 自分のブラウザで Twitch と Kick のドロップを自動ファーム。標準は軽量タブレス、自動受け取り、プライバシー重視。
+
+**Detailed:**
+
+Lurkloot が Twitch と Kick のドロップをファームするので、配信にずっと座り込まなくてもゲーム内報酬を獲得できます。普段ログインしているブラウザセッションで動作し、パスワードを求めることはありません。
+
+デフォルトでは、動画タブを開きっぱなしにせず、バックグラウンドで視聴シグナルを送る軽量なタブレスモードで動作し、帯域とシステムリソースを節約します。欲しいドロップに合ったチャンネルを追い、キャンペーンが終わると自動で切り替え、対象の報酬をすべて受け取ります。進捗が止まった場合は、ピン留めしたミュートタブにフォールバックしてドロップを動かし続けます。
+
+データはあなたのもののまま: パスワードなし、Cookie やトークンのエクスポートなし、すべて端末内に留まります。
+
+ポップアップから各プラットフォームを有効化し、気になるキャンペーンとゲームを優先し、プラットフォームごとのアイドル・ウォッチリストと除外チャンネルを管理し、自動受け取りと通知を切り替えられます。
+
+Lurkloot は、アクティブなドロップがないとき Kick の視聴時間もファームできます。好みのチャンネルをアイドル・ウォッチリストに追加すると、ライブ中のチャンネルを自動で選びます。タブレス視聴でリソース使用を抑えつつ、通常のピン留めタブへのフォールバックでセッションを安定させます。
+
+---
+
+## Indonesian (id)
+
+**Short:** Farm drop Twitch & Kick di browser Anda. Mode tanpa tab ringan bawaan, klaim otomatis, dirancang privat.
+
+**Detailed:**
+
+Lurkloot farm drop Twitch dan Kick untuk Anda, sehingga Anda mendapat hadiah dalam game tanpa harus duduk menonton siaran sendiri. Semuanya lewat sesi browser normal yang sudah login dan tidak pernah meminta kata sandi.
+
+Secara default berjalan mode tanpa tab yang ringan: mengirim sinyal tonton di latar alih-alih membuka tab video, menghemat bandwidth dan sumber daya sistem. Lurkloot mengikuti saluran yang tepat untuk drop yang Anda inginkan, beralih otomatis saat kampanye selesai, dan mengklaim setiap hadiah yang memenuhi syarat. Jika progres macet, beralih ke tab bisu yang disematkan agar drop tetap jalan.
+
+Data tetap milik Anda: tanpa kata sandi, tanpa mengekspor cookie atau token, dan semuanya tinggal di perangkat Anda.
+
+Dari popup Anda bisa mengaktifkan setiap platform, mengutamakan kampanye dan game yang Anda pedulikan, mengelola daftar cadangan dan saluran dikecualikan per platform, serta mengaktifkan klaim otomatis dan notifikasi.
+
+Lurkloot juga bisa farm waktu tonton Kick saat tidak ada drop aktif. Tambahkan saluran pilihan ke daftar cadangan dan otomatis memilih yang sedang live. Menonton tanpa tab menjaga pemakaian sumber daya rendah, sementara fallback tab disematkan menjaga sesi tetap tangguh.
+
+---
+
+## Polish (pl)
+
+**Short:** Farmuj dropy Twitch i Kick we własnej przeglądarce. Domyślnie lekki tryb bez kart, auto-odbiór, prywatny z założenia.
+
+**Detailed:**
+
+Lurkloot farmi dropy Twitch i Kick za Ciebie, dzięki czemu zdobywasz nagrody w grze bez konieczności siedzenia przy streamach. Działa w Twojej normalnej, już zalogowanej sesji przeglądarki i nigdy nie prosi o hasło.
+
+Domyślnie uruchamia lekki tryb bez kart, który w tle wysyła sygnały oglądania zamiast trzymać otwartą kartę z wideo, oszczędzając transfer i zasoby systemu. Śledzi właściwy kanał dla wybranego dropu, automatycznie przełącza się po zakończeniu kampanii i odbiera każdą kwalifikującą się nagrodę. Gdy postęp utknie, przechodzi na przypiętą, wyciszoną kartę, żeby dropy dalej szły.
+
+Twoje dane zostają Twoje: bez haseł, bez eksportu plików cookie ani tokenów — wszystko zostaje na Twoim urządzeniu.
+
+W oknie popup możesz włączać każdą platformę, ustawiać priorytety kampanii i gier, które Ci zależą, zarządzać listami bezczynnego oglądania i wykluczonymi kanałami dla każdej platformy oraz włączać auto-odbiór i powiadomienia.
+
+Lurkloot może też farmić czas oglądania na Kick, gdy żaden drop nie jest aktywny. Dodaj ulubione kanały do listy bezczynnej, a rozszerzenie automatycznie wybierze ten, który jest na żywo. Oglądanie bez kart utrzymuje niskie zużycie zasobów, a zwykły fallback z przypiętą kartą utrzymuje sesję odporną na problemy.
+
+---
+
+## Korean (ko)
+
+**Short:** 내 브라우저에서 Twitch·Kick 드롭 자동 파밍. 기본 가벼운 탭 없음 모드, 자동 수령, 설계상 프라이버시.
+
+**Detailed:**
+
+Lurkloot가 Twitch와 Kick 드롭을 대신 파밍해 주므로, 스트림 앞에 앉아 직접 시청하지 않아도 게임 내 보상을 받을 수 있습니다. 평소 로그인해 두신 브라우저 세션으로 동작하며, 비밀번호를 요구하지 않습니다.
+
+기본적으로는 동영상 탭을 열어 두지 않고 백그라운드에서 시청 신호를 보내는 가벼운 탭 없음 모드로 실행되어 대역폭과 시스템 자원을 아낍니다. 원하는 드롭에 맞는 채널을 추적하고, 캠페인이 끝나면 자동으로 전환하며, 조건을 충족하는 보상을 모두 수령합니다. 진행이 멈추면 고정된 음소거 탭으로 전환해 드롭 진행을 이어 갑니다.
+
+데이터는 사용자에게만 속합니다. 비밀번호를 저장하지 않고, 쿠키나 토큰을 내보내지 않으며, 모든 것은 기기 안에만 남습니다.
+
+팝업에서 각 플랫폼을 켜고, 관심 있는 캠페인과 게임의 우선순위를 정하고, 플랫폼별 유휴 워치리스트와 제외 채널을 관리하며, 자동 수령과 알림을 켜고 끌 수 있습니다.
+
+활성 드롭이 없을 때 Lurkloot는 Kick 시청 시간도 파밍할 수 있습니다. 선호하는 채널을 유휴 워치리스트에 추가하면 라이브 중인 채널을 자동으로 고릅니다. 탭 없이 시청하면 자원 사용을 줄이고, 필요할 때 고정 탭으로 전환하면 세션을 안정적으로 유지합니다.
+
+---
+
+## Ukrainian (uk)
+
+**Short:** Автофарм дропів Twitch і Kick у вашому браузері. Легкий режим без вкладок за замовчуванням, автозабір, приватність за замовчуванням.
+
+**Detailed:**
+
+Lurkloot фармить дропи Twitch і Kick для вас, щоб ви отримували внутрішньоігрові нагороди, не сидячи та не дивлячись стрими самостійно. Він працює через вашу звичайну сесію браузера, в якій ви вже авторизовані, і ніколи не просить пароль.
+
+За замовчуванням працює легкий режим без вкладок, який надсилає сигнали перегляду у фоновому режимі замість того, щоб тримати відкритою вкладку з відео, економлячи трафік і ресурси системи. Він відстежує потрібний канал для бажаного дропу, автоматично перемикається, коли кампанії завершуються, і забирає всі доступні нагороди. Якщо прогрес зупиняється, він переходить на закріплену вкладку без звуку, щоб дропи продовжували рухатися.
+
+Ваші дані залишаються вашими: жодних паролів, жодного експорту cookie чи токенів — усе лишається на вашому пристрої.
+
+У спливаючому вікні ви можете вмикати кожну платформу, задавати пріоритет кампаніям і іграм, керувати списками перегляду в простої та виключеними каналами для кожної платформи, а також перемикати автозабір і сповіщення.
+
+Lurkloot також може фармити час перегляду на Kick, коли активного дропу немає. Додайте бажані канали до резервного списку, і він автоматично обере той, що зараз у ефірі. Перегляд без вкладок тримає споживання ресурсів низьким, а звичайний резерв із закріпленої вкладки підтримує стійкість сесії.
+
+---
+
+## Czech (cs)
+
+**Short:** Farmení drops Twitch a Kick ve vašem prohlížeči. Úsporný režim bez záložek, automatické vyzvedávání, soukromí.
+
+**Detailed:**
+
+Lurkloot za vás farmí drops na Twitchi a Kicku, abyste získali odměny ve hře, aniž byste museli sami sedět u streamů. Funguje přes vaši běžnou relaci prohlížeče, ve které jste už přihlášeni, a nikdy nepožaduje heslo.
+
+Ve výchozím nastavení běží úsporný režim bez záložek, který na pozadí posílá signály sledování místo otevřené videozáložky, a šetří vám tak přenos dat i systémové prostředky. Sleduje správný kanál pro drop, který chcete, po skončení kampaní automaticky přepne a vyzvedne každou způsobilou odměnu. Když postup uvízne, přejde na připnutou ztlumenou záložku, aby drops dál postupovaly.
+
+Vaše data zůstávají vaše: žádná hesla, žádný export cookies ani tokenů a vše zůstává ve vašem zařízení.
+
+Z vyskakovacího okna můžete zapnout jednotlivé platformy, upřednostnit kampaně a hry, na kterých vám záleží, spravovat záložní seznam a vyloučené kanály pro každou platformu a přepínat automatické vyzvedávání a oznámení.
+
+Lurkloot umí farmit i čas sledování na Kicku, když není aktivní žádný drop. Přidejte preferované kanály do záložního seznamu a automaticky vybere ten, který právě vysílá. Sledování bez záložek drží spotřebu nízko, zatímco běžný návrat na připnutou záložku udrží relaci spolehlivou.

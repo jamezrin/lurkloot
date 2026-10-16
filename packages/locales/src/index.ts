@@ -16,6 +16,12 @@ const loaders: Record<SupportedLocale, () => Promise<{ default: MessageCatalog }
   pt_BR: () => import("../messages/pt_BR.json"),
   ar: () => import("../messages/ar.json"),
   tr: () => import("../messages/tr.json"),
+  ja: () => import("../messages/ja.json"),
+  id: () => import("../messages/id.json"),
+  pl: () => import("../messages/pl.json"),
+  ko: () => import("../messages/ko.json"),
+  uk: () => import("../messages/uk.json"),
+  cs: () => import("../messages/cs.json"),
 };
 
 export async function loadCatalog(locale: SupportedLocale): Promise<MessageCatalog | undefined> {

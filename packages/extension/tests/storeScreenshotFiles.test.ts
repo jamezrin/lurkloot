@@ -59,6 +59,12 @@ describe("store screenshot manifest", () => {
       "pt_BR",
       "ar",
       "tr",
+      "ja",
+      "id",
+      "pl",
+      "ko",
+      "uk",
+      "cs",
     ]);
     expect(STORE_SCREENSHOT_VARIANTS.map(screenshotFilename)).toEqual([
       "lurkloot-01-drops-1280x800.png",
@@ -89,6 +95,12 @@ describe("store screenshot manifest", () => {
       "pt_BR",
       "ar",
       "tr",
+      "ja",
+      "id",
+      "pl",
+      "ko",
+      "uk",
+      "cs",
     ]);
     expect(parseRequestedLocales(["--locales", "ar", "tr"])).toEqual(["ar", "tr"]);
     expect(parseRequestedLocales(["--", "--locales", "ar", "tr", "--validate-only"])).toEqual([
@@ -107,6 +119,12 @@ describe("store screenshot manifest", () => {
       "pt_BR",
       "ar",
       "tr",
+      "ja",
+      "id",
+      "pl",
+      "ko",
+      "uk",
+      "cs",
     ]);
     expect(() => parseRequestedLocales(["--locales", "ar", "ar"])).toThrow(/duplicate locale ar/i);
     expect(() => parseRequestedLocales(["--locales", "xx"])).toThrow(/unknown locale xx/i);

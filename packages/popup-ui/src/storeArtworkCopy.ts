@@ -1154,5 +1154,629 @@ export const STORE_ARTWORK_COPY: Record<SupportedLocale, StoreArtworkCopy> = {
         ]
       ]
     }
+  },
+  "ja": {
+    "tagline": "視聴は減らして、報酬は増やす。",
+    "stories": {
+      "queue": {
+        "number": "01",
+        "label": "自動ドロップ",
+        "title": "あなたのドロップ。\nオートパイロットで。",
+        "description": "大事なものを選ぶだけ。Lurkloot が配信を見つけ、進捗を追い、報酬を受け取ります。",
+        "points": [
+          "Twitch + Kick",
+          "自動受け取り",
+          "あなたのアカウント。あなたがコントロール。"
+        ],
+        "caption": "キュー、配信、次の報酬。すべてここに。"
+      },
+      "games": {
+        "number": "02",
+        "label": "視聴の優先順位",
+        "title": "あなたのゲーム。\nあなたの優先度。",
+        "description": "キャンペーンをピン留め。お気に入りゲームにスター。残りはブロック。次の報酬を本当に欲しいものに。",
+        "points": [
+          "個別キャンペーンをピン留め",
+          "お気に入りゲームを先頭に",
+          "プレイしないゲームをスキップ"
+        ],
+        "caption": "視聴時間を何に使うか決めよう。"
+      },
+      "kick": {
+        "number": "03",
+        "label": "TWITCH + KICK",
+        "title": "2つのプラットフォーム。\n1つのワークスペース。",
+        "description": "Twitch と同じわかりやすい操作で Kick の報酬も把握できます。",
+        "points": [
+          "プラットフォーム別の操作",
+          "ライブのキャンペーン進捗",
+          "合間用のアイドル・ウォッチリスト"
+        ],
+        "caption": "プラットフォームを切り替えても、同じルーティン。"
+      },
+      "watchlist": {
+        "number": "04",
+        "label": "アイドル・ウォッチリスト",
+        "title": "お気に入りを\n近くに。",
+        "description": "対象ドロップがないときに視聴したいチャンネルを選びます。プラットフォームごとに別リストを持てます。",
+        "points": [
+          "あなたのチャンネル、あなたの順序",
+          "プラットフォームあたり最大20チャンネル",
+          "視聴ソースの優先度を設定"
+        ],
+        "caption": "キャンペーンとキャンペーンの間の計画。"
+      },
+      "extensions": {
+        "number": "05",
+        "label": "TWITCH 拡張機能",
+        "title": "報酬を得る\nもう一つの方法。",
+        "description": "Lurkloot は選ばれた Twitch 拡張機能の報酬にも対応します。必要なサポートを有効にし、視聴順序を設定します。",
+        "points": [
+          "オプションの Twitch 拡張機能サポート",
+          "専用の進捗ビュー",
+          "ソースを一か所で管理"
+        ],
+        "caption": "選ばれた拡張機能のサポート。有効化はあなた次第。"
+      }
+    },
+    "overview": {
+      "tagline": "報酬を、つなげる。",
+      "title": "ドロップのその先。",
+      "description": "対応 Twitch 拡張機能の報酬を、ドロップとアイドル・ウォッチリストと同じワークスペースに。",
+      "steps": [
+        [
+          "オプションサポートを有効化",
+          "有効にする対応拡張機能を選びます。"
+        ],
+        [
+          "視聴順序を設定",
+          "拡張機能報酬をドロップとウォッチリストのどこに置くか決めます。"
+        ],
+        [
+          "進捗を確認",
+          "専用ビューで報酬の進捗とステータスを確認します。"
+        ]
+      ]
+    },
+    "promo": {
+      "lines": [
+        "Twitch + Kick。報酬は自動。",
+        "選ばれた Twitch 拡張機能に対応。"
+      ],
+      "steps": [
+        [
+          "ドロップはオートパイロット",
+          "配信を見つける。進捗を追う。報酬を受け取る。"
+        ],
+        [
+          "Twitch 拡張機能も",
+          "選ばれた拡張機能報酬のオプションサポート。"
+        ],
+        [
+          "あなたの視聴順序",
+          "キャンペーンをピン留め。ゲームにスター。チャンネルを選ぶ。"
+        ]
+      ]
+    }
+  },
+  "id": {
+    "tagline": "LEBIH SEDIKIT NONTON. LEBIH BANYAK HADIAH.",
+    "stories": {
+      "queue": {
+        "number": "01",
+        "label": "DROPS OTOMATIS",
+        "title": "Drop Anda.\nOtomatis.",
+        "description": "Pilih yang penting. Lurkloot mencari siaran, melacak progres, dan mengklaim hadiah Anda.",
+        "points": [
+          "Twitch + Kick",
+          "Klaim otomatis",
+          "Akun Anda. Kendali Anda."
+        ],
+        "caption": "Antrean, siaran, hadiah berikutnya. Semua di satu tempat."
+      },
+      "games": {
+        "number": "02",
+        "label": "URUTAN TONTON",
+        "title": "Game Anda.\nPrioritas Anda.",
+        "description": "Sematkan kampanye. Beri bintang game favorit. Blokir sisanya. Buat hadiah berikutnya yang benar-benar Anda inginkan.",
+        "points": [
+          "Sematkan kampanye individual",
+          "Utamakan game favorit",
+          "Lewati game yang tidak Anda mainkan"
+        ],
+        "caption": "Pilih apa yang mendapat waktu tonton Anda."
+      },
+      "kick": {
+        "number": "03",
+        "label": "TWITCH + KICK",
+        "title": "Dua platform.\nSatu tempat.",
+        "description": "Pantau hadiah Kick dengan kontrol jelas yang sama seperti untuk Twitch.",
+        "points": [
+          "Kontrol terpisah per platform",
+          "Progres kampanye live",
+          "Idle watchlist untuk celah waktu"
+        ],
+        "caption": "Ganti platform. Rutinitas tetap sama."
+      },
+      "watchlist": {
+        "number": "04",
+        "label": "IDLE WATCHLIST",
+        "title": "Favorit Anda\ntetap dekat.",
+        "description": "Pilih saluran yang ingin ditonton saat tidak ada drop yang memenuhi syarat. Daftar terpisah untuk setiap platform.",
+        "points": [
+          "Saluran Anda, urutan Anda",
+          "Hingga 20 saluran per platform",
+          "Atur prioritas sumber tonton"
+        ],
+        "caption": "Rencana untuk waktu di antara kampanye."
+      },
+      "extensions": {
+        "number": "05",
+        "label": "EKSTENSI TWITCH",
+        "title": "Lebih banyak\ncara dapat hadiah.",
+        "description": "Lurkloot juga mendukung hadiah dari ekstensi Twitch tertentu. Aktifkan dukungan yang Anda mau dan atur urutan tonton.",
+        "points": [
+          "Dukungan ekstensi Twitch opsional",
+          "Tampilan progres khusus",
+          "Satu tempat kelola sumber Anda"
+        ],
+        "caption": "Dukungan ekstensi pilihan. Aktif sesuai keinginan Anda."
+      }
+    },
+    "overview": {
+      "tagline": "HADIAH, TERHUBUNG.",
+      "title": "Di luar drop.",
+      "description": "Gabungkan hadiah ekstensi Twitch yang didukung ke tempat yang sama dengan drop dan idle watchlist Anda.",
+      "steps": [
+        [
+          "Aktifkan dukungan opsional",
+          "Pilih ekstensi yang didukung untuk diaktifkan."
+        ],
+        [
+          "Atur urutan tonton",
+          "Tentukan posisi hadiah ekstensi bersama drop dan watchlist."
+        ],
+        [
+          "Ikuti progres Anda",
+          "Lihat progres dan status hadiah di tampilan khusus."
+        ]
+      ]
+    },
+    "promo": {
+      "lines": [
+        "Twitch + Kick. Hadiah otomatis.",
+        "Mendukung ekstensi Twitch pilihan."
+      ],
+      "steps": [
+        [
+          "Drop jalan otomatis",
+          "Cari siaran. Lacak progres. Klaim hadiah."
+        ],
+        [
+          "Ekstensi Twitch juga",
+          "Dukungan opsional untuk hadiah ekstensi pilihan."
+        ],
+        [
+          "Urutan tonton Anda",
+          "Sematkan kampanye. Bintangi game. Pilih saluran."
+        ]
+      ]
+    }
+  },
+  "pl": {
+    "tagline": "MNIEJ OGLĄDANIA. WIĘCEJ NAGROD.",
+    "stories": {
+      "queue": {
+        "number": "01",
+        "label": "AUTO DROPY",
+        "title": "Twoje dropy.\nNa autopilocie.",
+        "description": "Wybierz, co dla Ciebie ważne. Lurkloot znajdzie stream, śledzi postęp i odbiera nagrody.",
+        "points": [
+          "Twitch + Kick",
+          "Automatyczny odbiór",
+          "Twoje konto. Twoja kontrola."
+        ],
+        "caption": "Kolejka, stream i kolejna nagroda. Wszystko w jednym miejscu."
+      },
+      "games": {
+        "number": "02",
+        "label": "KOLEJNOŚĆ",
+        "title": "Twoje gry.\nTwoje priorytety.",
+        "description": "Przypnij kampanię. Oznacz ulubioną grę gwiazdką. Zablokuj resztę. Niech kolejna nagroda będzie tą, którą naprawdę chcesz.",
+        "points": [
+          "Przypinaj pojedyncze kampanie",
+          "Ulubione gry na początku",
+          "Pomijaj gry, w które nie grasz"
+        ],
+        "caption": "Decyduj, co dostaje Twój czas oglądania."
+      },
+      "kick": {
+        "number": "03",
+        "label": "TWITCH + KICK",
+        "title": "Dwie platformy.\nJedno miejsce.",
+        "description": "Śledź nagrody na Kick tymi samymi przejrzystymi ustawieniami, których używasz na Twitchu.",
+        "points": [
+          "Osobne ustawienia platform",
+          "Postęp kampanii na żywo",
+          "Listy bezczynne na przerwy"
+        ],
+        "caption": "Zmieniaj platformę. Trzymaj ten sam rytm."
+      },
+      "watchlist": {
+        "number": "04",
+        "label": "LISTA BEZCZYNNA",
+        "title": "Ulubione kanały\nzawsze pod ręką.",
+        "description": "Wybierz kanały do oglądania, gdy nie ma kwalifikujących się dropów. Osobna lista dla każdej platformy.",
+        "points": [
+          "Twoje kanały, w Twojej kolejności",
+          "Do 20 kanałów na platformę",
+          "Priorytet źródeł oglądania"
+        ],
+        "caption": "Plan na czas między kampaniami."
+      },
+      "extensions": {
+        "number": "05",
+        "label": "ROZSZERZENIA TWITCH",
+        "title": "Więcej sposobów\nna nagrody.",
+        "description": "Lurkloot obsługuje też nagrody z wybranych rozszerzeń Twitch. Włącz wsparcie, które chcesz, i ustaw kolejność oglądania.",
+        "points": [
+          "Opcjonalne rozszerzenia Twitch",
+          "Osobne widoki postępu",
+          "Jedno miejsce na źródła"
+        ],
+        "caption": "Wybrane rozszerzenia. Włączane na Twoich warunkach."
+      }
+    },
+    "overview": {
+      "tagline": "NAGRODY W JEDNYM MIEJSCU.",
+      "title": "Poza dropami.",
+      "description": "Wprowadź obsługiwane nagrody z rozszerzeń Twitch do tego samego miejsca co dropy i listy bezczynne.",
+      "steps": [
+        [
+          "Włącz opcjonalne wsparcie",
+          "Wybierz, które obsługiwane rozszerzenia włączyć."
+        ],
+        [
+          "Ustaw kolejność oglądania",
+          "Zdecyduj, gdzie nagrody z rozszerzeń stoją obok dropów i listy."
+        ],
+        [
+          "Śledź postęp",
+          "Postęp i status nagród w dedykowanych widokach."
+        ]
+      ]
+    },
+    "promo": {
+      "lines": [
+        "Twitch + Kick. Automatyczne nagrody.",
+        "Obsługa wybranych rozszerzeń Twitch."
+      ],
+      "steps": [
+        [
+          "Dropy na autopilocie",
+          "Znajdź stream. Śledź postęp. Odbieraj nagrody."
+        ],
+        [
+          "Też rozszerzenia Twitch",
+          "Opcjonalne wsparcie dla wybranych nagród z rozszerzeń."
+        ],
+        [
+          "Twoja kolejność",
+          "Przypinaj kampanie. Oznaczaj gry. Wybieraj kanały."
+        ]
+      ]
+    }
+  },
+  "ko": {
+    "tagline": "시청은 줄이고, 보상은 늘리세요.",
+    "stories": {
+      "queue": {
+        "number": "01",
+        "label": "자동 드롭",
+        "title": "내 드롭.\n자동으로.",
+        "description": "중요한 것만 고르세요. Lurkloot가 스트림을 찾고, 진행 상황을 추적하며, 보상을 수령합니다.",
+        "points": [
+          "Twitch + Kick",
+          "자동 수령",
+          "내 계정. 내가 통제."
+        ],
+        "caption": "대기열, 스트림, 다음 보상. 한곳에서."
+      },
+      "games": {
+        "number": "02",
+        "label": "시청 순서",
+        "title": "내 게임.\n내 우선순위.",
+        "description": "캠페인을 고정하세요. 즐겨 찾는 게임에 별표를 달고, 나머지는 차단하세요. 다음 보상을 정말 원하는 것으로 만드세요.",
+        "points": [
+          "개별 캠페인 고정",
+          "즐겨 찾는 게임을 먼저",
+          "플레이하지 않는 게임 건너뛰기"
+        ],
+        "caption": "시청 시간을 어디에 쓸지 선택하세요."
+      },
+      "kick": {
+        "number": "03",
+        "label": "Twitch + Kick",
+        "title": "두 플랫폼.\n하나의 작업 공간.",
+        "description": "Twitch와 같은 명확한 조작으로 Kick 보상도 살펴보세요.",
+        "points": [
+          "플랫폼별 조작",
+          "실시간 캠페인 진행",
+          "공백 기간용 유휴 워치리스트"
+        ],
+        "caption": "플랫폼을 바꿔도 같은 루틴."
+      },
+      "watchlist": {
+        "number": "04",
+        "label": "유휴 워치리스트",
+        "title": "즐겨 찾는 채널을\n가까이.",
+        "description": "적격 드롭이 없을 때 시청할 채널을 선택하세요. 플랫폼마다 별도 목록을 유지할 수 있습니다.",
+        "points": [
+          "내 채널, 내 순서",
+          "플랫폼당 최대 20개 채널",
+          "시청 소스 우선순위 선택"
+        ],
+        "caption": "캠페인 사이 시간을 위한 계획."
+      },
+      "extensions": {
+        "number": "05",
+        "label": "Twitch 확장",
+        "title": "더 많은\n획득 방법.",
+        "description": "Lurkloot는 선택한 Twitch 확장 프로그램 보상도 지원합니다. 원하는 지원을 켜고 시청 순서를 설정하세요.",
+        "points": [
+          "선택적 Twitch 확장 지원",
+          "전용 진행 화면",
+          "소스를 한곳에서 관리"
+        ],
+        "caption": "선택한 확장 지원. 내 조건으로 활성화."
+      }
+    },
+    "overview": {
+      "tagline": "보상, 한곳에.",
+      "title": "드롭 그 너머.",
+      "description": "지원되는 Twitch 확장 보상을 드롭과 유휴 워치리스트와 같은 작업 공간으로 가져오세요.",
+      "steps": [
+        [
+          "선택적 지원 켜기",
+          "지원되는 확장 중 어떤 것을 켤지 선택하세요."
+        ],
+        [
+          "시청 순서 설정",
+          "확장 보상을 드롭과 워치리스트와 어떻게 배치할지 정하세요."
+        ],
+        [
+          "진행 상황 확인",
+          "전용 화면에서 보상 진행과 상태를 확인하세요."
+        ]
+      ]
+    },
+    "promo": {
+      "lines": [
+        "Twitch + Kick. 자동 보상.",
+        "선택한 Twitch 확장 지원."
+      ],
+      "steps": [
+        [
+          "드롭 자동화",
+          "스트림을 찾고, 진행을 추적하고, 보상을 수령하세요."
+        ],
+        [
+          "Twitch 확장도",
+          "선택한 확장 보상에 대한 선택적 지원."
+        ],
+        [
+          "내 시청 순서",
+          "캠페인 고정. 게임에 별표. 채널 선택."
+        ]
+      ]
+    }
+  },
+  "uk": {
+    "tagline": "МЕНШЕ ПЕРЕГЛЯДУ. БІЛЬШЕ НАГОРОД.",
+    "stories": {
+      "queue": {
+        "number": "01",
+        "label": "АВТОДРОПИ",
+        "title": "Ваші дропи.\nНа автопілоті.",
+        "description": "Оберіть, що важливо. Lurkloot знайде стрим, відстежить прогрес і забере нагороди.",
+        "points": [
+          "Twitch + Kick",
+          "Автоматичний забір",
+          "Ваш обліковий запис. Ваш контроль."
+        ],
+        "caption": "Черга, стрим і наступна нагорода. Все в одному місці."
+      },
+      "games": {
+        "number": "02",
+        "label": "ПОРЯДОК ПЕРЕГЛЯДУ",
+        "title": "Ваші ігри.\nВаші пріоритети.",
+        "description": "Закріпіть кампанію. Позначте улюблену гру. Заблокуйте решту. Наступна нагорода — та, яку ви справді хочете.",
+        "points": [
+          "Закріплюйте окремі кампанії",
+          "Ставте улюблені ігри першими",
+          "Пропускайте ігри, в які не граєте"
+        ],
+        "caption": "Оберіть, куди йде ваш час перегляду."
+      },
+      "kick": {
+        "number": "03",
+        "label": "TWITCH + KICK",
+        "title": "Дві платформи.\nОдин робочий простір.",
+        "description": "Стежте за нагородами Kick із тими самими зрозумілими елементами керування, що й для Twitch.",
+        "points": [
+          "Окреме керування платформами",
+          "Прогрес кампаній наживо",
+          "Idle Watchlist між кампаніями"
+        ],
+        "caption": "Перемикайте платформи. Тримайте ту саму рутину."
+      },
+      "watchlist": {
+        "number": "04",
+        "label": "IDLE WATCHLIST",
+        "title": "Тримайте\nулюблених поруч.",
+        "description": "Оберіть канали для перегляду, коли немає доступних дропів. Окремий список для кожної платформи.",
+        "points": [
+          "Ваші канали у вашому порядку",
+          "До 20 каналів на платформу",
+          "Налаштуйте пріоритет джерел перегляду"
+        ],
+        "caption": "План на час між кампаніями."
+      },
+      "extensions": {
+        "number": "05",
+        "label": "РОЗШИРЕННЯ TWITCH",
+        "title": "Більше способів\nотримувати.",
+        "description": "Lurkloot також підтримує нагороди з обраних розширень Twitch. Увімкніть потрібну підтримку та задайте порядок перегляду.",
+        "points": [
+          "Необов’язкова підтримка розширень Twitch",
+          "Окремі перегляди прогресу",
+          "Одне місце для керування джерелами"
+        ],
+        "caption": "Підтримка обраних розширень. Увімкнення на ваших умовах."
+      }
+    },
+    "overview": {
+      "tagline": "НАГОРОДИ, ПОВ’ЯЗАНІ.",
+      "title": "Поза дропами.",
+      "description": "Об’єднайте підтримувані нагороди розширень Twitch із дропами та Idle Watchlist в одному робочому просторі.",
+      "steps": [
+        [
+          "Увімкніть необов’язкову підтримку",
+          "Оберіть, які підтримувані розширення увімкнути."
+        ],
+        [
+          "Задайте порядок перегляду",
+          "Вирішіть, де нагороди розширень стоять поруч із дропами та вашим списком."
+        ],
+        [
+          "Стежте за прогресом",
+          "Переглядайте прогрес і статус нагород у окремих переглядах."
+        ]
+      ]
+    },
+    "promo": {
+      "lines": [
+        "Twitch + Kick. Автоматичні нагороди.",
+        "Підтримка обраних розширень Twitch."
+      ],
+      "steps": [
+        [
+          "Дропи на автопілоті",
+          "Знайти стрим. Відстежити прогрес. Забрати нагороди."
+        ],
+        [
+          "Також розширення Twitch",
+          "Необов’язкова підтримка нагород обраних розширень."
+        ],
+        [
+          "Ваш порядок перегляду",
+          "Закріплюйте кампанії. Позначайте ігри. Обирайте канали."
+        ]
+      ]
+    }
+  },
+  "cs": {
+    "tagline": "MÉNĚ SLEDOVÁNÍ. VÍCE ODMĚN.",
+    "stories": {
+      "queue": {
+        "number": "01",
+        "label": "AUTOMATICKÉ DROPS",
+        "title": "Vaše drops.\nNa autopilotu.",
+        "description": "Vyberte, na čem vám záleží. Lurkloot najde stream, sleduje váš postup a vyzvedne vaše odměny.",
+        "points": [
+          "Twitch + Kick",
+          "Automatické vyzvedávání",
+          "Váš účet. Vaše kontrola."
+        ],
+        "caption": "Fronta, stream a další odměna. Vše na jednom místě."
+      },
+      "games": {
+        "number": "02",
+        "label": "POŘADÍ SLEDOVÁNÍ",
+        "title": "Vaše hry.\nVaše priority.",
+        "description": "Připněte kampaň. Označte oblíbenou hru. Zablokujte zbytek. Ať je další odměna ta, kterou opravdu chcete.",
+        "points": [
+          "Připnout jednotlivé kampaně",
+          "Oblíbené hry na první místo",
+          "Přeskočit hry, které nehrajete"
+        ],
+        "caption": "Rozhodněte, co dostane váš čas sledování."
+      },
+      "kick": {
+        "number": "03",
+        "label": "TWITCH + KICK",
+        "title": "Dvě platformy.\nJeden pracovní prostor.",
+        "description": "Sledujte odměny na Kicku se stejně přehlednými ovládacími prvky jako na Twitchi.",
+        "points": [
+          "Samostatné ovládání platforem",
+          "Průběh kampaní v reálném čase",
+          "Idle watchlist pro mezery"
+        ],
+        "caption": "Přepněte platformu. Stejná rutina."
+      },
+      "watchlist": {
+        "number": "04",
+        "label": "IDLE WATCHLIST",
+        "title": "Oblíbené\nnablízku.",
+        "description": "Vyberte kanály, které chcete sledovat, když nejsou k dispozici žádné způsobilé drops. Pro každou platformu si udržujte vlastní seznam.",
+        "points": [
+          "Vaše kanály ve vašem pořadí",
+          "Až 20 kanálů na platformu",
+          "Nastavte prioritu zdroje sledování"
+        ],
+        "caption": "Plán na čas mezi kampaněmi."
+      },
+      "extensions": {
+        "number": "05",
+        "label": "TWITCH EXTENSIONS",
+        "title": "Více cest\nk odměnám.",
+        "description": "Lurkloot podporuje i odměny z vybraných Twitch rozšíření. Zapněte podporu, kterou chcete, a nastavte pořadí sledování.",
+        "points": [
+          "Volitelná podpora Twitch rozšíření",
+          "Vyhrazené pohledy na postup",
+          "Jedno místo pro správu zdrojů"
+        ],
+        "caption": "Podpora vybraných rozšíření. Zapnuté podle vašich pravidel."
+      }
+    },
+    "overview": {
+      "tagline": "ODMĚNY PROPOJENÉ.",
+      "title": "Za hranicí drops.",
+      "description": "Zintegrujte podporované odměny z Twitch rozšíření do stejného pracovního prostoru jako drops a idle watchlist.",
+      "steps": [
+        [
+          "Zapněte volitelnou podporu",
+          "Vyberte, která podporovaná rozšíření chcete povolit."
+        ],
+        [
+          "Nastavte pořadí sledování",
+          "Rozhodněte, kam ve frontě patří odměny z rozšíření vedle drops a watchlistu."
+        ],
+        [
+          "Sledujte postup",
+          "Průběh a stav odměn uvidíte ve vyhrazených pohledech."
+        ]
+      ]
+    },
+    "promo": {
+      "lines": [
+        "Twitch + Kick. Automatické odměny.",
+        "Podporuje vybraná Twitch rozšíření."
+      ],
+      "steps": [
+        [
+          "Drops na autopilotu",
+          "Najde stream. Sleduje postup. Vyzvedne odměny."
+        ],
+        [
+          "I Twitch rozšíření",
+          "Volitelná podpora odměn z vybraných rozšíření."
+        ],
+        [
+          "Vaše pořadí sledování",
+          "Připněte kampaně. Označte hry. Vyberte kanály."
+        ]
+      ]
+    }
   }
 };

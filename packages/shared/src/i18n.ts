@@ -24,6 +24,12 @@ export const LOCALE_OPTIONS: Array<{
   { value: "pt_BR", labelKey: "languagePortuguese", nativeName: "Português (Brasil)" },
   { value: "ar", labelKey: "languageArabic", nativeName: "العربية" },
   { value: "tr", labelKey: "languageTurkish", nativeName: "Türkçe" },
+  { value: "ja", labelKey: "languageJapanese", nativeName: "日本語" },
+  { value: "id", labelKey: "languageIndonesian", nativeName: "Bahasa Indonesia" },
+  { value: "pl", labelKey: "languagePolish", nativeName: "Polski" },
+  { value: "ko", labelKey: "languageKorean", nativeName: "한국어" },
+  { value: "uk", labelKey: "languageUkrainian", nativeName: "Українська" },
+  { value: "cs", labelKey: "languageCzech", nativeName: "Čeština" },
 ];
 
 export function normalizeBrowserLocale(value: string | undefined): SupportedLocale {

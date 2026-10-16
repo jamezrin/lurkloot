@@ -33,6 +33,12 @@ describe("i18n", () => {
     expect(normalizeBrowserLocale("zh-TW")).toBe("zh_CN");
     expect(normalizeBrowserLocale("pt-PT")).toBe("pt_BR");
     expect(normalizeBrowserLocale("tr-TR")).toBe("tr");
+    expect(normalizeBrowserLocale("ja-JP")).toBe("ja");
+    expect(normalizeBrowserLocale("id-ID")).toBe("id");
+    expect(normalizeBrowserLocale("pl-PL")).toBe("pl");
+    expect(normalizeBrowserLocale("ko-KR")).toBe("ko");
+    expect(normalizeBrowserLocale("uk-UA")).toBe("uk");
+    expect(normalizeBrowserLocale("cs-CZ")).toBe("cs");
     expect(normalizeBrowserLocale("unknown")).toBe("en");
   });
 
@@ -44,11 +50,41 @@ describe("i18n", () => {
     expect(isRtlLocale("en")).toBe(false);
   });
 
-  it("offers Turkish using its native language name", () => {
+  it("offers each language using its native name", () => {
     expect(LOCALE_OPTIONS).toContainEqual({
       value: "tr",
       labelKey: "languageTurkish",
       nativeName: "Türkçe",
+    });
+    expect(LOCALE_OPTIONS).toContainEqual({
+      value: "ja",
+      labelKey: "languageJapanese",
+      nativeName: "日本語",
+    });
+    expect(LOCALE_OPTIONS).toContainEqual({
+      value: "id",
+      labelKey: "languageIndonesian",
+      nativeName: "Bahasa Indonesia",
+    });
+    expect(LOCALE_OPTIONS).toContainEqual({
+      value: "pl",
+      labelKey: "languagePolish",
+      nativeName: "Polski",
+    });
+    expect(LOCALE_OPTIONS).toContainEqual({
+      value: "ko",
+      labelKey: "languageKorean",
+      nativeName: "한국어",
+    });
+    expect(LOCALE_OPTIONS).toContainEqual({
+      value: "uk",
+      labelKey: "languageUkrainian",
+      nativeName: "Українська",
+    });
+    expect(LOCALE_OPTIONS).toContainEqual({
+      value: "cs",
+      labelKey: "languageCzech",
+      nativeName: "Čeština",
     });
   });
 
@@ -135,6 +171,12 @@ describe("i18n", () => {
       ru: "Кампании за подписку",
       tr: "Abonelik kampanyaları",
       zh_CN: "订阅活动",
+      ja: "サブスクキャンペーン",
+      id: "Kampanye langganan",
+      pl: "Kampanie subskrypcyjne",
+      ko: "구독 캠페인",
+      uk: "Кампанії за підпискою",
+      cs: "Kampaně s předplatným",
     };
 
     for (const locale of localeCodes()) {
@@ -146,6 +188,15 @@ describe("i18n", () => {
     const turkish = readCatalog("tr");
     expect(turkish.languageTurkish?.message).toBe("Türkçe");
     expect(turkish.subscriptionCampaigns?.message).toBe("Abonelik kampanyaları");
+  });
+
+  it("uses each new locale's native language name", () => {
+    expect(readCatalog("ja").languageJapanese?.message).toBe("日本語");
+    expect(readCatalog("id").languageIndonesian?.message).toBe("Bahasa Indonesia");
+    expect(readCatalog("pl").languagePolish?.message).toBe("Polski");
+    expect(readCatalog("ko").languageKorean?.message).toBe("한국어");
+    expect(readCatalog("uk").languageUkrainian?.message).toBe("Українська");
+    expect(readCatalog("cs").languageCzech?.message).toBe("Čeština");
   });
 
   it("captures store artwork for every catalog locale", () => {

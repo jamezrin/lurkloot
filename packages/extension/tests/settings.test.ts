@@ -413,6 +413,12 @@ describe("settings", () => {
     expect(mergeSettings({ languageOverride: "pt_BR" }).languageOverride).toBe("pt_BR");
     expect(mergeSettings({ languageOverride: "ar" }).languageOverride).toBe("ar");
     expect(mergeSettings({ languageOverride: "tr" }).languageOverride).toBe("tr");
+    expect(mergeSettings({ languageOverride: "ja" }).languageOverride).toBe("ja");
+    expect(mergeSettings({ languageOverride: "id" }).languageOverride).toBe("id");
+    expect(mergeSettings({ languageOverride: "pl" }).languageOverride).toBe("pl");
+    expect(mergeSettings({ languageOverride: "ko" }).languageOverride).toBe("ko");
+    expect(mergeSettings({ languageOverride: "uk" }).languageOverride).toBe("uk");
+    expect(mergeSettings({ languageOverride: "cs" }).languageOverride).toBe("cs");
     expect(
       mergeSettings({ languageOverride: "pt" } as unknown as Parameters<typeof mergeSettings>[0])
         .languageOverride,

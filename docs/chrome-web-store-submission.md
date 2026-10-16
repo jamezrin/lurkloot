@@ -41,6 +41,12 @@ For every locale below, set its **Summary** + **Description** (from `store-descr
 | pt_BR | `store-screenshots/pt_BR/` | Portuguese (Brazil) |
 | ar | `store-screenshots/ar/` | Arabic |
 | tr | `store-screenshots/tr/` | Turkish |
+| ja | `store-screenshots/ja/` | Japanese |
+| id | `store-screenshots/id/` | Indonesian |
+| pl | `store-screenshots/pl/` | Polish |
+| ko | `store-screenshots/ko/` | Korean |
+| uk | `store-screenshots/uk/` | Ukrainian |
+| cs | `store-screenshots/cs/` | Czech |
 
 (English `en` is the default listing in §1.) All short descriptions are within the 132-char limit.
 
@@ -61,7 +67,7 @@ falls back when unhealthy, and confirm reward progress on the platforms' invento
 
 ```bash
 pnpm zip && pnpm zip:firefox     # extension packages
-pnpm screenshot:store            # artifacts/store-screenshots/<locale>/ (all 11)
+pnpm screenshot:store            # artifacts/store-screenshots/<locale>/ (all 17)
 pnpm promo:store                 # artifacts/store-promo/<locale>/
 pnpm promo:store:sync            # same files as promo:store; does not upload
 ```
@@ -73,7 +79,7 @@ anything in the Developer Dashboard.
 ## Replacing localized screenshots automatically
 
 The public Chrome Web Store API cannot update listing screenshots. The local operator command below
-uses a visible Chrome session to replace all 55 screenshots through the Developer Dashboard and save
+uses a visible Chrome session to replace all 85 screenshots through the Developer Dashboard and save
 the listing draft:
 
 ```bash
@@ -90,7 +96,7 @@ export CWS_PUBLISHER_ID=<publisher-id-from-the-dashboard>
 
 The command regenerates and validates the images, then starts Chrome itself and attaches to it over
 the DevTools protocol. Sign in to Google and complete 2FA in the window it opens; automation resumes
-on its own, replaces the five screenshots for each of the 11 locales in numbered order, and saves
+on its own, replaces the five screenshots for each of the 17 locales in numbered order, and saves
 each locale.
 
 Playwright never launches the browser. Google refuses interactive sign-in in a browser started with
@@ -124,7 +130,7 @@ CWS_CDP_PORT=9333 pnpm screenshot:store:upload
 ```
 
 The listing holds two screenshot groups. **Localized screenshots** change with the language
-selector, so each of the 11 locales gets its own five. **Global screenshots** are shared across every
+selector, so each of the 17 locales gets its own five. **Global screenshots** are shared across every
 language; the command fills them from the English set, and only when `en` is part of the run. Both
 groups label their thumbnails "Screenshot N", so each is located from its own heading rather than by
 a page-wide search. Within a group the leading image is removed and its replacement appended, one at
