@@ -205,6 +205,9 @@ function demoSnapshot(): RuntimeSnapshot {
         {
           id: "tw-marathon-emote",
           name: "Runner Emote",
+          benefits: [
+            { id: "tw-marathon-emote-benefit", name: "Runner Emote", distributionType: "EMOTE" },
+          ],
           requiredMinutes: 240,
           watchedMinutes: 0,
           status: "locked",
