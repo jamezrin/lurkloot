@@ -777,7 +777,7 @@
     "message": "Only pinned campaigns are farmed right now."
   },
   "campaignRejectionRewardKind": {
-    "message": "No $1 in this campaign."
+    "message": "Nothing here matches your reward types ($1)."
   },
   "campaignRejectionSubscriptionSkipped": {
     "message": "Its rewards need a subscription, and you're skipping those."

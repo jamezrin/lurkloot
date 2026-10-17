@@ -72,7 +72,7 @@ export const EVENT_LEVEL_COLOR: Record<LogLevel, string> = {
 
 // The Drops-list view toggles, rendered as a single compact chip row. Pure
 // display: a chip only changes what the Drops list shows, never what is farmed —
-// that axis is now two separate SettingRow toggles (farmingEligibility). Each
+// that axis is the per-platform reward filter and farm toggles. Each
 const HERO_GLOW =
   "radial-gradient(ellipse at 12% 115%, rgba(145,71,255,0.40), transparent 44%), radial-gradient(ellipse at 94% 0%, rgba(83,252,24,0.18), transparent 38%)";
 const EXTRAS_GLOW =

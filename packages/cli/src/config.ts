@@ -118,7 +118,8 @@ export function defaultConfigJsonc(): string {
         "categoryMode": ${json(twitch.categoryMode)},
         // Which rewards to farm. "kinds": any of "item", "badge", "emote"
         // ([] means all). "subscriptions": "include" farms subscription rewards
-        // too, "skip" leaves them out, "only" farms nothing else. Only matching
+        // too, "skip" leaves them out, "only" farms just subscription rewards
+        // (they wait on you subscribing to the channel). Only matching
         // rewards (and what they wait on) are farmed, and a campaign is left
         // once those are earned.
         "rewardFilter": ${json(twitch.rewardFilter)},

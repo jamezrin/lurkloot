@@ -624,7 +624,7 @@ The popup and content scripts do not call adapters directly. They send typed run
 Important setting groups:
 
 - Global automation: `running`, `autoStartDropFarming`, per-platform `enabled`.
-- Farming behavior: `autoClaim`, `autoClaimChannelPoints`, `priorityMode`, `campaignPins`, `farmPinnedOnly`, `excludedCampaignIds`, `farmingEligibility`, and per platform `farmRewardTypes`.
+- Farming behavior: `autoClaim`, `autoClaimChannelPoints`, `priorityMode`, `campaignPins`, `excludedCampaignIds`, and per platform `rewardFilter`, `farmPinnedOnly` and `farmUnlinkedCampaigns`.
 - Platform preferences: `platform[platform].watchSourcePriority`, `platform[platform].idleWatchlistChannels`, `platform[platform].excludedChannels`, `platform[platform].categoryMode`, `platform[platform].categories`, `platform[platform].favouriteCategories`, and `platform[platform].blockedCategories`.
 
 `categoryMode` is `"all"` or `"include"`, and one stored `categories` list serves
@@ -681,14 +681,20 @@ acts on. Three tiers, in order:
 
 Eligibility is always decided before ranking (`evaluateCampaignFarming`), so a
 pin can never rescue a campaign an exclusion, a block or a class filter refused.
-`farmPinnedOnly` is an eligibility switch, not a mode: a strategy is always in
-effect. Each platform's `farmRewardTypes` (the Queue's tabs: no
-subscription, requires subscription, badges; Kick has no badge type) is
-eligibility too. Each type judges a single reward, several combine as
-any-of, and an empty list farms everything. Only matching rewards and the
-rewards they wait on are targeted (`rewardsInFarmingScope`): a campaign with
-none is skipped with `reward_type_filtered`, and one whose matching rewards
-are earned with `reward_types_obtained`. Claiming is not narrowed. Only a pin counts as an explicit override for keep-watching — a
+Each platform's `farmPinnedOnly` is an eligibility switch, not a mode: a
+strategy is always in effect. Each platform's `rewardFilter`
+(`{ kinds, subscriptions }`, edited from the Queue's Rewards to farm menu and
+Settings) is eligibility too. `kinds` is any of `item`, `badge`, `emote`
+(Twitch supports all three, Kick only `item`; `PLATFORM_REWARD_KINDS`), an
+empty list means every kind, and a benefit with no type counts as `item`.
+`subscriptions` is `include`, `skip` or `only`. A reward matches when any of its
+kinds is selected and it passes the subscription mode; a marked subscription
+reward passes `skip` and
+still counts under `only`. Only matching rewards and the rewards they wait on
+are targeted (`rewardsInFarmingScope`): a campaign with none is skipped with
+`reward_type_filtered`, carrying `filteredBy` to say which part of the filter
+excluded it, and one whose matching rewards are earned with
+`reward_types_obtained`. Claiming is not narrowed. Only a pin counts as an explicit override for keep-watching — a
 favourite ranks what is picked next but never abandons earned progress.
 - Tab/playback behavior: `tablessMode`, `muteFarmingTabs`, `keepFarmingVideosUnmuted`, `pauseOnManualWatch`, `autoCloseFinishedDrops`, `offlineRetryLimit`.
 - Notifications: `notifyRewardEarned`, `notifyNoDropsLeft`.
@@ -743,8 +749,8 @@ Migration 2 replaces the old `campaignVisibility` record, which in every shipped
 release was display-only — it decided what the popup's Drops list showed and
 never affected farming. The new split puts two settings on opposite sides of the
 engine/extension boundary: `EngineSettings.farmingEligibility`
-(`farmUnlinkedCampaigns`, `farmSubscriptionCampaigns`), which the scheduler and
-CLI honour, and `ExtensionSettings.dropsListFilter`
+(`farmUnlinkedCampaigns`, `farmSubscriptionCampaigns`; both replaced per
+platform by migration 8), which the scheduler and CLI honour, and `ExtensionSettings.dropsListFilter`
 (`showUpcoming`/`showExpired`/`showFinished`/`showExcluded`), a popup-only view
 preference the CLI rejects as extension-only. Farming eligibility and list
 visibility are independent: hiding a campaign from the Drops list never stops it
@@ -772,6 +778,17 @@ campaigns into Queue, Skipped, Upcoming and Completed rather than hiding classes
 of them. Nothing here narrows farming: the same campaigns stay eligible, in the
 order the user's own placements imply.
 
+Migration 8 moves the global farming switches onto each platform. The global
+`farmingEligibility` and `farmPinnedOnly`, and `platform.<p>.farmRewardTypes`,
+are removed in favour of `platform.<p>.rewardFilter`, `farmPinnedOnly` and
+`farmUnlinkedCampaigns`. `farmRewardTypes` containing `badge` becomes
+`kinds: ["badge"]`; `no_subscription` alone becomes `subscriptions: "skip"` and
+`subscription` alone `"only"`; both or neither keep `"include"`. A global
+`farmSubscriptionCampaigns: false` becomes `"skip"` unless the old tabs already
+chose a mode, the global `farmUnlinkedCampaigns` and `farmPinnedOnly` are copied
+to both platforms, and a current per-platform key always wins over a legacy one.
+Each move reports a deprecation diagnostic.
+
 ## Scheduler Flow
 
 Each scheduler tick runs enabled platforms independently:
@@ -791,7 +808,7 @@ Steps 1–8 decide and name their side effects; the tick's effect executor perfo
 Campaign ordering is shared across platforms and lives in one function,
 `rankCampaigns` (see [Campaign ranking](#campaign-ranking)): pinned campaigns in
 pin order, then campaigns of favourite games in star order, then the single live
-strategy, then name and id. Channel ordering within the selected campaign is also shared: allow-listed channels first, then channels the user has a relationship with (an Idle Watchlist entry ahead of a followed channel, via the adapter's optional `listFollowedChannels`), then viewer count. That preference only picks between channels that already qualify for the campaign, so it never changes what is farmed. `preferKnownChannels` (on by default) gates the whole thing; off, ordering is allow-list then viewer count only, and `listFollowedChannels` is never called. Per-platform excluded drop channels filter campaign and supplemental provider candidates; they do not suppress explicitly listed Idle Watchlist channels. `farmingEligibility` also narrows eligibility, through its two farming flags (`farmUnlinkedCampaigns`, `farmSubscriptionCampaigns`), as do `blockedCategories`, `farmPinnedOnly` and `farmRewardTypes` — all of them before ranking, never through it.
+strategy, then name and id. Channel ordering within the selected campaign is also shared: allow-listed channels first, then channels the user has a relationship with (an Idle Watchlist entry ahead of a followed channel, via the adapter's optional `listFollowedChannels`), then viewer count. That preference only picks between channels that already qualify for the campaign, so it never changes what is farmed. `preferKnownChannels` (on by default) gates the whole thing; off, ordering is allow-list then viewer count only, and `listFollowedChannels` is never called. Per-platform excluded drop channels filter campaign and supplemental provider candidates; they do not suppress explicitly listed Idle Watchlist channels. The per-platform `farmUnlinkedCampaigns`, `farmPinnedOnly` and `rewardFilter` also narrow eligibility, as do `blockedCategories` — all of them before ranking, never through it.
 
 For exactly how a campaign's farmability (`campaignFarmable`, feeding `isEligible`) and the popup list it lands in (`campaignSection`) are decided — and why they deliberately diverge on reward timing — see [`campaign-farmability-visibility.md`](campaign-farmability-visibility.md).
 
