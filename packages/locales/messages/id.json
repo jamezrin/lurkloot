@@ -128,29 +128,11 @@
   "queueStrategyLabel": {
     "message": "Lalu menurut"
   },
-  "queueFarmPinnedOnly": {
-    "message": "Farm yang disematkan saja"
-  },
   "queueUnpinAll": {
     "message": "Lepas semua sematan ($1)"
   },
   "queueUnpin": {
     "message": "Lepas sematan"
-  },
-  "queueFacetLabel": {
-    "message": "Jenis kampanye"
-  },
-  "queueFacetAll": {
-    "message": "Semua"
-  },
-  "queueFacetNoSubscription": {
-    "message": "Tanpa langganan"
-  },
-  "queueFacetSubscription": {
-    "message": "Perlu langganan"
-  },
-  "queueFacetBadge": {
-    "message": "Lencana"
   },
   "queueFixInclude": {
     "message": "Sertakan"
@@ -782,9 +764,6 @@
   "campaignRejectionTwitchLinkRequired": {
     "message": "Penautan akun diperlukan untuk kampanye Twitch ini."
   },
-  "campaignRejectionSubscriptionDisabled": {
-    "message": "Farming kampanye langganan dinonaktifkan."
-  },
   "campaignRejectionCategoryFiltered": {
     "message": "Kampanye ini tidak cocok dengan kategori yang dipilih."
   },
@@ -950,11 +929,74 @@
   "farmUnlinkedDescription": {
     "message": "Saat mati, kampanye yang perlu penautan akun dilewati. Persyaratan platform tetap bisa mewajibkan penautan meski ini aktif."
   },
-  "farmSubscriptionTitle": {
-    "message": "Farm kampanye yang memerlukan langganan"
+  "rewardFilterTitle": {
+    "message": "Rewards to farm"
   },
-  "farmSubscriptionDescription": {
-    "message": "Saat mati, kampanye yang hadiahnya butuh langganan saluran dilewati."
+  "rewardFilterDescription": {
+    "message": "What Lurkloot farms on $1. The filter menu in the Queue changes the same setting."
+  },
+  "rewardKindsTitle": {
+    "message": "Reward types"
+  },
+  "rewardKindsDescription": {
+    "message": "A reward is farmed if any part of it matches."
+  },
+  "rewardKindItem": {
+    "message": "In-game items"
+  },
+  "rewardKindBadge": {
+    "message": "Badges"
+  },
+  "rewardKindEmote": {
+    "message": "Emotes"
+  },
+  "rewardKindItemShort": {
+    "message": "Items"
+  },
+  "subscriptionRewardsTitle": {
+    "message": "Subscription rewards"
+  },
+  "subscriptionRewardsDescription": {
+    "message": "Rewards that need a channel subscription."
+  },
+  "subscriptionModeInclude": {
+    "message": "Include"
+  },
+  "subscriptionModeSkip": {
+    "message": "Skip"
+  },
+  "subscriptionModeOnly": {
+    "message": "Only"
+  },
+  "subscriptionModeIncludeHint": {
+    "message": "Subscription rewards are farmed with the rest."
+  },
+  "subscriptionModeSkipHint": {
+    "message": "Rewards that need a subscription are not farmed."
+  },
+  "subscriptionModeOnlyHint": {
+    "message": "Only rewards that need a subscription are farmed."
+  },
+  "rewardFilterAll": {
+    "message": "All rewards"
+  },
+  "rewardFilterAllKinds": {
+    "message": "All"
+  },
+  "rewardFilterNoSub": {
+    "message": "no sub"
+  },
+  "rewardFilterSubOnly": {
+    "message": "sub only"
+  },
+  "rewardFilterReset": {
+    "message": "Reset to all rewards"
+  },
+  "farmPinnedOnlyTitle": {
+    "message": "Farm pinned campaigns only"
+  },
+  "farmPinnedOnlyDescription": {
+    "message": "Only campaigns you pinned in the Queue are farmed on $1."
   },
   "forgetExcludedTitle": {
     "message": "Lupakan kampanye yang dikecualikan"

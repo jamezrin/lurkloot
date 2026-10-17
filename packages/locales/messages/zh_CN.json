@@ -128,29 +128,11 @@
   "queueStrategyLabel": {
     "message": "然后按"
   },
-  "queueFarmPinnedOnly": {
-    "message": "只挂机已置顶"
-  },
   "queueUnpinAll": {
     "message": "取消全部置顶（$1）"
   },
   "queueUnpin": {
     "message": "取消置顶"
-  },
-  "queueFacetLabel": {
-    "message": "要挂机的奖励"
-  },
-  "queueFacetAll": {
-    "message": "全部"
-  },
-  "queueFacetNoSubscription": {
-    "message": "无需订阅"
-  },
-  "queueFacetSubscription": {
-    "message": "需要订阅"
-  },
-  "queueFacetBadge": {
-    "message": "徽章"
   },
   "queueFixInclude": {
     "message": "重新加入"
@@ -782,9 +764,6 @@
   "campaignRejectionTwitchLinkRequired": {
     "message": "此 Twitch 掉宝活动要求关联账号。"
   },
-  "campaignRejectionSubscriptionDisabled": {
-    "message": "已关闭订阅活动的挂机功能。"
-  },
   "campaignRejectionCategoryFiltered": {
     "message": "此掉宝活动不属于所选分类。"
   },
@@ -950,11 +929,74 @@
   "farmUnlinkedDescription": {
     "message": "关闭后，将跳过尚未关联账号的掉宝活动。开启后，仍须遵守平台的账号关联要求。"
   },
-  "farmSubscriptionTitle": {
-    "message": "挂机需订阅的掉宝活动"
+  "rewardFilterTitle": {
+    "message": "Rewards to farm"
   },
-  "farmSubscriptionDescription": {
-    "message": "关闭后，将跳过需要订阅频道才能获得奖励的掉宝活动。"
+  "rewardFilterDescription": {
+    "message": "What Lurkloot farms on $1. The filter menu in the Queue changes the same setting."
+  },
+  "rewardKindsTitle": {
+    "message": "Reward types"
+  },
+  "rewardKindsDescription": {
+    "message": "A reward is farmed if any part of it matches."
+  },
+  "rewardKindItem": {
+    "message": "In-game items"
+  },
+  "rewardKindBadge": {
+    "message": "Badges"
+  },
+  "rewardKindEmote": {
+    "message": "Emotes"
+  },
+  "rewardKindItemShort": {
+    "message": "Items"
+  },
+  "subscriptionRewardsTitle": {
+    "message": "Subscription rewards"
+  },
+  "subscriptionRewardsDescription": {
+    "message": "Rewards that need a channel subscription."
+  },
+  "subscriptionModeInclude": {
+    "message": "Include"
+  },
+  "subscriptionModeSkip": {
+    "message": "Skip"
+  },
+  "subscriptionModeOnly": {
+    "message": "Only"
+  },
+  "subscriptionModeIncludeHint": {
+    "message": "Subscription rewards are farmed with the rest."
+  },
+  "subscriptionModeSkipHint": {
+    "message": "Rewards that need a subscription are not farmed."
+  },
+  "subscriptionModeOnlyHint": {
+    "message": "Only rewards that need a subscription are farmed."
+  },
+  "rewardFilterAll": {
+    "message": "All rewards"
+  },
+  "rewardFilterAllKinds": {
+    "message": "All"
+  },
+  "rewardFilterNoSub": {
+    "message": "no sub"
+  },
+  "rewardFilterSubOnly": {
+    "message": "sub only"
+  },
+  "rewardFilterReset": {
+    "message": "Reset to all rewards"
+  },
+  "farmPinnedOnlyTitle": {
+    "message": "Farm pinned campaigns only"
+  },
+  "farmPinnedOnlyDescription": {
+    "message": "Only campaigns you pinned in the Queue are farmed on $1."
   },
   "forgetExcludedTitle": {
     "message": "恢复已排除的活动"

@@ -128,29 +128,11 @@
   "queueStrategyLabel": {
     "message": "ثم حسب"
   },
-  "queueFarmPinnedOnly": {
-    "message": "تجميع المثبتة فقط"
-  },
   "queueUnpinAll": {
     "message": "إلغاء تثبيت الكل ($1)"
   },
   "queueUnpin": {
     "message": "إلغاء التثبيت"
-  },
-  "queueFacetLabel": {
-    "message": "الجوائز المراد جمعها"
-  },
-  "queueFacetAll": {
-    "message": "الكل"
-  },
-  "queueFacetNoSubscription": {
-    "message": "بدون اشتراك"
-  },
-  "queueFacetSubscription": {
-    "message": "يتطلب اشتراكًا"
-  },
-  "queueFacetBadge": {
-    "message": "الشارات"
   },
   "queueFixInclude": {
     "message": "تضمين"
@@ -782,9 +764,6 @@
   "campaignRejectionTwitchLinkRequired": {
     "message": "تتطلب حملة Twitch هذه ربط حساب."
   },
-  "campaignRejectionSubscriptionDisabled": {
-    "message": "جمع حملات الاشتراك معطّل."
-  },
   "campaignRejectionCategoryFiltered": {
     "message": "هذه الحملة لا تطابق الفئات المحددة."
   },
@@ -950,11 +929,74 @@
   "farmUnlinkedDescription": {
     "message": "عند الإيقاف، تُتخطى الحملات التي تتطلب ربط الحساب. قد تظل متطلبات المنصة تفرض الربط عند التشغيل."
   },
-  "farmSubscriptionTitle": {
-    "message": "فارم الحملات التي تتطلب اشتراكًا"
+  "rewardFilterTitle": {
+    "message": "Rewards to farm"
   },
-  "farmSubscriptionDescription": {
-    "message": "عند الإيقاف، تُتخطى الحملات التي تحتاج مكافآتها إلى اشتراك في القناة."
+  "rewardFilterDescription": {
+    "message": "What Lurkloot farms on $1. The filter menu in the Queue changes the same setting."
+  },
+  "rewardKindsTitle": {
+    "message": "Reward types"
+  },
+  "rewardKindsDescription": {
+    "message": "A reward is farmed if any part of it matches."
+  },
+  "rewardKindItem": {
+    "message": "In-game items"
+  },
+  "rewardKindBadge": {
+    "message": "Badges"
+  },
+  "rewardKindEmote": {
+    "message": "Emotes"
+  },
+  "rewardKindItemShort": {
+    "message": "Items"
+  },
+  "subscriptionRewardsTitle": {
+    "message": "Subscription rewards"
+  },
+  "subscriptionRewardsDescription": {
+    "message": "Rewards that need a channel subscription."
+  },
+  "subscriptionModeInclude": {
+    "message": "Include"
+  },
+  "subscriptionModeSkip": {
+    "message": "Skip"
+  },
+  "subscriptionModeOnly": {
+    "message": "Only"
+  },
+  "subscriptionModeIncludeHint": {
+    "message": "Subscription rewards are farmed with the rest."
+  },
+  "subscriptionModeSkipHint": {
+    "message": "Rewards that need a subscription are not farmed."
+  },
+  "subscriptionModeOnlyHint": {
+    "message": "Only rewards that need a subscription are farmed."
+  },
+  "rewardFilterAll": {
+    "message": "All rewards"
+  },
+  "rewardFilterAllKinds": {
+    "message": "All"
+  },
+  "rewardFilterNoSub": {
+    "message": "no sub"
+  },
+  "rewardFilterSubOnly": {
+    "message": "sub only"
+  },
+  "rewardFilterReset": {
+    "message": "Reset to all rewards"
+  },
+  "farmPinnedOnlyTitle": {
+    "message": "Farm pinned campaigns only"
+  },
+  "farmPinnedOnlyDescription": {
+    "message": "Only campaigns you pinned in the Queue are farmed on $1."
   },
   "forgetExcludedTitle": {
     "message": "نسيان الحملات المستبعدة"

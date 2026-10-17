@@ -1,6 +1,7 @@
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { defaultRewardFilter } from "@lurkloot/shared/rewardFilter";
 import type { DropCampaign, DropReward, WatchSession } from "@lurkloot/shared/models";
 import { mergeSettings } from "@lurkloot/shared/settings";
 import { I18nContext } from "../../popup-ui/src/context";
@@ -95,6 +96,10 @@ function renderQueueMarkup(campaigns: CampaignView[], refreshing: boolean): stri
         strategy: "ending_soonest" as const,
         pinnedCount: 0,
         farmPinnedOnly: false,
+        platform: "twitch" as const,
+        rewardFilter: defaultRewardFilter("twitch"),
+        showSubscriptionChoice: false,
+        onRewardFilterChange: () => {},
         onStrategyChange: () => {},
         onUnpinAll: () => {},
         onFarmPinnedOnlyChange: () => {},
@@ -721,6 +726,10 @@ describe("the exclude button on a campaign with nothing to watch", () => {
           strategy: "ending_soonest" as const,
           pinnedCount: 0,
           farmPinnedOnly: false,
+          platform: "twitch" as const,
+          rewardFilter: defaultRewardFilter("twitch"),
+          showSubscriptionChoice: false,
+          onRewardFilterChange: () => {},
           onStrategyChange: () => {},
           onUnpinAll: () => {},
           onFarmPinnedOnlyChange: () => {},

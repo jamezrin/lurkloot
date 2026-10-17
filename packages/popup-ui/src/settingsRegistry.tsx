@@ -12,6 +12,7 @@ import {
   type SettingsPatch,
 } from "@lurkloot/shared/settings";
 import { LOCALE_OPTIONS } from "@lurkloot/shared/i18n";
+import { PLATFORM_REWARD_KINDS } from "@lurkloot/shared/rewardFilter";
 import { PLATFORMS } from "./constants";
 import { Pill } from "./primitives";
 import {
@@ -22,6 +23,7 @@ import {
   SettingsLinkRow,
 } from "./settingsControls";
 import { PlatformExcludedChannels } from "./settingsPlatform";
+import { RewardFilterFields } from "./rewardFilterMenu";
 import { PlatformCompatibilitySettings } from "./compatibilitySettings";
 import { WatchSourcePriority, WATCH_SOURCE_NAME_KEYS } from "./watchSourcePriority";
 import { DEFAULT_WATCH_SOURCE_PRIORITY } from "@lurkloot/shared/watchSources";
@@ -53,6 +55,10 @@ export interface SettingsRegistryContext {
   // Opens the Games view, where categories are chosen, ranked and blocked.
   // Opens Games for that platform, switching to it first if needed.
   onOpenGames?(platform: Platform): void;
+  // Per platform, whether its campaigns include a subscription reward
+  // (showsSubscriptionChoice). Without campaign data the subscription choice
+  // shows only while it is narrowed, so a narrowing can always be undone.
+  showSubscriptionChoice?: Partial<Record<Platform, boolean>>;
 }
 
 export interface SettingsEntryDef extends SettingsEntryNode {
@@ -603,6 +609,70 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
       ),
     };
 
+    // The same setting as the Queue's reward filter menu, with the other two
+    // switches that decide which of this platform's campaigns are farmed.
+    const platformSettings = settings.platform[platform];
+    const rewardFilter = platformSettings.rewardFilter;
+    const showSubscriptions =
+      ctx.showSubscriptionChoice?.[platform] === true || rewardFilter.subscriptions !== "include";
+    const rewardEntries: SettingsEntryDef[] = [];
+    if (PLATFORM_REWARD_KINDS[platform].length > 1 || showSubscriptions) {
+      rewardEntries.push({
+        id: `${platform}.rewards.filter`,
+        titleKey: "rewardKindsTitle",
+        descriptionKey: "rewardKindsDescription",
+        searchKeys: [
+          "rewardKindItem",
+          "rewardKindBadge",
+          "rewardKindEmote",
+          "subscriptionRewardsTitle",
+          "subscriptionRewardsDescription",
+          "subscriptionModeInclude",
+          "subscriptionModeSkip",
+          "subscriptionModeOnly",
+        ],
+        render: () => (
+          <div className="py-2.5">
+            <RewardFilterFields
+              platform={platform}
+              filter={rewardFilter}
+              showSubscriptions={showSubscriptions}
+              onChange={(next) => void platformPatch(platform, { rewardFilter: next })}
+            />
+          </div>
+        ),
+      });
+    }
+    rewardEntries.push(
+      {
+        id: `${platform}.rewards.pinnedOnly`,
+        titleKey: "farmPinnedOnlyTitle",
+        descriptionKey: "farmPinnedOnlyDescription",
+        descriptionSubstitution: details.label,
+        render: () => (
+          <SettingRow
+            title={t("farmPinnedOnlyTitle")}
+            description={t("farmPinnedOnlyDescription", details.label)}
+            checked={platformSettings.farmPinnedOnly}
+            onChange={(value) => void platformPatch(platform, { farmPinnedOnly: value })}
+          />
+        ),
+      },
+      {
+        id: `${platform}.rewards.unlinked`,
+        titleKey: "farmUnlinkedTitle",
+        descriptionKey: "farmUnlinkedDescription",
+        render: () => (
+          <SettingRow
+            title={t("farmUnlinkedTitle")}
+            description={t("farmUnlinkedDescription")}
+            checked={platformSettings.farmUnlinkedCampaigns}
+            onChange={(value) => void platformPatch(platform, { farmUnlinkedCampaigns: value })}
+          />
+        ),
+      },
+    );
+
     const groups: SettingsGroupDef[] = [
       {
         id: `${platform}.watchSourcePriority`,
@@ -624,6 +694,12 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
             ),
           },
         ],
+      },
+      {
+        id: `${platform}.rewards`,
+        titleKey: "rewardFilterTitle",
+        description: t("rewardFilterDescription", details.label),
+        entries: rewardEntries,
       },
       {
         id: `${platform}.categories`,

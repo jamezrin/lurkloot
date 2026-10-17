@@ -128,29 +128,11 @@
   "queueStrategyLabel": {
     "message": "Sonra şuna göre"
   },
-  "queueFarmPinnedOnly": {
-    "message": "Yalnızca sabitlenenleri farmla"
-  },
   "queueUnpinAll": {
     "message": "Tümünü kaldır ($1)"
   },
   "queueUnpin": {
     "message": "Kaldır"
-  },
-  "queueFacetLabel": {
-    "message": "Farm'lanacak ödüller"
-  },
-  "queueFacetAll": {
-    "message": "Tümü"
-  },
-  "queueFacetNoSubscription": {
-    "message": "Abonelik gerekmez"
-  },
-  "queueFacetSubscription": {
-    "message": "Abonelik gerekir"
-  },
-  "queueFacetBadge": {
-    "message": "Rozetler"
   },
   "queueFixInclude": {
     "message": "Dahil et"
@@ -782,9 +764,6 @@
   "campaignRejectionTwitchLinkRequired": {
     "message": "Bu Twitch kampanyası için hesap bağlamak gerekir."
   },
-  "campaignRejectionSubscriptionDisabled": {
-    "message": "Abonelik kampanyalarını farmlama kapalı."
-  },
   "campaignRejectionCategoryFiltered": {
     "message": "Bu kampanya seçili kategorilerle eşleşmiyor."
   },
@@ -950,11 +929,74 @@
   "farmUnlinkedDescription": {
     "message": "Kapalıyken, hesap bağlantısı gerektiren kampanyalar atlanır. Açıkken bile platform kuralları bağlantı gerektirebilir."
   },
-  "farmSubscriptionTitle": {
-    "message": "Abonelik gerektiren kampanyaları farmla"
+  "rewardFilterTitle": {
+    "message": "Rewards to farm"
   },
-  "farmSubscriptionDescription": {
-    "message": "Kapalıyken, ödülleri kanal aboneliği gerektiren kampanyalar atlanır."
+  "rewardFilterDescription": {
+    "message": "What Lurkloot farms on $1. The filter menu in the Queue changes the same setting."
+  },
+  "rewardKindsTitle": {
+    "message": "Reward types"
+  },
+  "rewardKindsDescription": {
+    "message": "A reward is farmed if any part of it matches."
+  },
+  "rewardKindItem": {
+    "message": "In-game items"
+  },
+  "rewardKindBadge": {
+    "message": "Badges"
+  },
+  "rewardKindEmote": {
+    "message": "Emotes"
+  },
+  "rewardKindItemShort": {
+    "message": "Items"
+  },
+  "subscriptionRewardsTitle": {
+    "message": "Subscription rewards"
+  },
+  "subscriptionRewardsDescription": {
+    "message": "Rewards that need a channel subscription."
+  },
+  "subscriptionModeInclude": {
+    "message": "Include"
+  },
+  "subscriptionModeSkip": {
+    "message": "Skip"
+  },
+  "subscriptionModeOnly": {
+    "message": "Only"
+  },
+  "subscriptionModeIncludeHint": {
+    "message": "Subscription rewards are farmed with the rest."
+  },
+  "subscriptionModeSkipHint": {
+    "message": "Rewards that need a subscription are not farmed."
+  },
+  "subscriptionModeOnlyHint": {
+    "message": "Only rewards that need a subscription are farmed."
+  },
+  "rewardFilterAll": {
+    "message": "All rewards"
+  },
+  "rewardFilterAllKinds": {
+    "message": "All"
+  },
+  "rewardFilterNoSub": {
+    "message": "no sub"
+  },
+  "rewardFilterSubOnly": {
+    "message": "sub only"
+  },
+  "rewardFilterReset": {
+    "message": "Reset to all rewards"
+  },
+  "farmPinnedOnlyTitle": {
+    "message": "Farm pinned campaigns only"
+  },
+  "farmPinnedOnlyDescription": {
+    "message": "Only campaigns you pinned in the Queue are farmed on $1."
   },
   "forgetExcludedTitle": {
     "message": "Gizlenen kampanyaları sıfırla"

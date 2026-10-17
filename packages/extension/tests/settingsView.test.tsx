@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 // Its switches, checkboxes and number fields are Base UI parts, which need
 // real mouse and keyboard events; linkedom has none.
-import React from "react";
+import type React from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -64,9 +64,24 @@ const labels: Record<string, string> = {
   watchSourceIdleWatchlist: "Idle Watchlist",
   farmUnlinkedTitle: "Farm campaigns without a linked account",
   farmUnlinkedDescription: "When off, campaigns that need you to link your account are skipped.",
-  farmSubscriptionTitle: "Farm campaigns that require a subscription",
-  farmSubscriptionDescription:
-    "When off, campaigns whose rewards need a channel subscription are skipped.",
+  rewardFilterTitle: "Rewards to farm",
+  rewardFilterDescription:
+    "What Lurkloot farms on $1. The filter menu in the Queue changes the same setting.",
+  rewardKindsTitle: "Reward types",
+  rewardKindsDescription: "A reward is farmed if any part of it matches.",
+  rewardKindItem: "In-game items",
+  rewardKindBadge: "Badges",
+  rewardKindEmote: "Emotes",
+  subscriptionRewardsTitle: "Subscription rewards",
+  subscriptionRewardsDescription: "Rewards that need a channel subscription.",
+  subscriptionModeInclude: "Include",
+  subscriptionModeSkip: "Skip",
+  subscriptionModeOnly: "Only",
+  subscriptionModeIncludeHint: "Subscription rewards are farmed with the rest.",
+  subscriptionModeSkipHint: "Rewards that need a subscription are not farmed.",
+  subscriptionModeOnlyHint: "Only rewards that need a subscription are farmed.",
+  farmPinnedOnlyTitle: "Farm pinned campaigns only",
+  farmPinnedOnlyDescription: "Only campaigns you pinned in the Queue are farmed on $1.",
   notLinked: "Not linked",
   subscriptionCampaigns: "Subscription campaigns",
   forgetExcludedTitle: "Forget excluded campaigns",
@@ -145,7 +160,11 @@ const labels: Record<string, string> = {
 };
 
 describe("deadline feasibility setting", () => {
-  function mountSettings(settings = DEFAULT_SETTINGS, onOpenGames?: () => void) {
+  function mountSettings(
+    settings = DEFAULT_SETTINGS,
+    onOpenGames?: () => void,
+    showSubscriptionChoice?: React.ComponentProps<typeof SettingsView>["showSubscriptionChoice"],
+  ) {
     document.body.innerHTML = "<div id=app></div>";
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     const onSettingsChange = vi.fn(async () => undefined);
@@ -180,6 +199,7 @@ describe("deadline feasibility setting", () => {
               onSettingsChange={onSettingsChange}
               exportConfirmationResetKey={0}
               onOpenGames={onOpenGames}
+              showSubscriptionChoice={showSubscriptionChoice}
             />
           </I18nContext.Provider>
         </PopupRuntimeContext.Provider>,
@@ -319,6 +339,83 @@ describe("deadline feasibility setting", () => {
       { priorityMode: "lowest_availability" },
       { tickAfterSave: true },
     );
+  });
+
+  it("edits the same reward filter from each platform's Settings", async () => {
+    const { container, onSettingsChange } = mountSettings(DEFAULT_SETTINGS, undefined, {
+      twitch: true,
+    });
+    const group = container.querySelector<HTMLElement>('[id="settings-group-twitch.rewards"]')!;
+    expect(group).not.toBeNull();
+    expect(group.textContent).toContain("Rewards to farm");
+    expect(group.textContent).toContain("What Lurkloot farms on Twitch.");
+    expect(group.querySelectorAll("[data-reward-kind]")).toHaveLength(3);
+    expect(
+      group.querySelector('[role="switch"][aria-label="Farm pinned campaigns only"]'),
+    ).not.toBeNull();
+    expect(
+      group.querySelector('[role="switch"][aria-label="Farm campaigns without a linked account"]'),
+    ).not.toBeNull();
+    // Rewards come before the category pointer.
+    const order = [...container.querySelectorAll('[id^="settings-group-twitch."]')].map(
+      (node) => node.id,
+    );
+    expect(order.indexOf("settings-group-twitch.rewards")).toBeLessThan(
+      order.indexOf("settings-group-twitch.categories"),
+    );
+
+    await act(async () => {
+      group.querySelector<HTMLElement>('[data-subscription-option="skip"]')!.click();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(onSettingsChange).toHaveBeenCalledWith(
+      {
+        platform: {
+          twitch: { rewardFilter: { kinds: ["item", "badge", "emote"], subscriptions: "skip" } },
+        },
+      },
+      { tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] },
+    );
+
+    act(() =>
+      group
+        .querySelector<HTMLButtonElement>(
+          '[role="switch"][aria-label="Farm campaigns without a linked account"]',
+        )!
+        .click(),
+    );
+    expect(onSettingsChange).toHaveBeenCalledWith(
+      { platform: { twitch: { farmUnlinkedCampaigns: false } } },
+      { tickAfterSave: true, tickAfterSavePlatforms: ["twitch"] },
+    );
+
+    // Kick has one kind and, here, no subscription rewards: just the toggles.
+    const kick = container.querySelector<HTMLElement>('[id="settings-group-kick.rewards"]')!;
+    expect(kick.querySelector("[data-reward-kind]")).toBeNull();
+    expect(kick.querySelector("[data-subscription-mode]")).toBeNull();
+    expect(kick.textContent).toContain("What Lurkloot farms on Kick.");
+  });
+
+  it("keeps a narrowed subscription choice in Settings without campaign data", () => {
+    const { container } = mountSettings(
+      mergeSettings({
+        platform: { kick: { rewardFilter: { kinds: ["item"], subscriptions: "skip" } } },
+      } as never),
+    );
+    const kick = container.querySelector<HTMLElement>('[id="settings-group-kick.rewards"]')!;
+    expect(
+      kick.querySelector("[data-subscription-mode]")?.getAttribute("data-subscription-mode"),
+    ).toBe("skip");
+  });
+
+  it("no longer lists farming eligibility under Drops", () => {
+    const { container } = mountSettings();
+    const drops = container.querySelector<HTMLElement>(
+      '[id="settings-section-general.drops"], [id="settings-group-general.drops"]',
+    )!;
+    expect(drops).not.toBeNull();
+    expect(drops.textContent).not.toContain("Farm campaigns without a linked account");
+    expect(drops.textContent).not.toContain("require a subscription");
   });
 
   it("saves Always enter channel chat for Twitch and reconciles Twitch", () => {

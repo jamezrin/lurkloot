@@ -14,10 +14,10 @@ import type {
   CategorySelection,
   ExtensionSettings,
   Platform,
+  RewardKind,
   TwitchExtensionProviderId,
   WatchSourceId,
 } from "@lurkloot/shared/models";
-import { defaultRewardFilter, isRewardFilterNarrowed } from "@lurkloot/shared/rewardFilter";
 import {
   applySettingsPatch,
   DEFAULT_SETTINGS,
@@ -56,6 +56,8 @@ import type {
 import { variantShowsPopup } from "./types";
 import {
   campaignViewFromCampaign,
+  rewardKindCounts as countRewardKinds,
+  showsSubscriptionChoice,
   reuseIfUnchanged,
   reuseUnchangedViews,
   channelViewFromSession,
@@ -854,6 +856,8 @@ export function Popup({
     inputs?: readonly unknown[];
     campaigns?: CampaignView[];
     gameMap?: Record<string, GameItem>;
+    rewardKindCounts?: Record<RewardKind, number>;
+    subscriptionChoice?: Record<Platform, boolean>;
   }>({});
 
   // The mark toggle every campaign card reads from context. Its identity never
@@ -964,7 +968,31 @@ export function Popup({
     derived.current.gameMap,
     Object.fromEntries(games.map((game) => [game.id, game])),
   );
-  derived.current = { inputs: derivationInputs, campaigns, gameMap };
+  const rewardKindCounts = inputsChanged
+    ? reuseIfUnchanged(
+        derived.current.rewardKindCounts,
+        countRewardKinds(snapshot.state.campaigns[platform], settings, platform),
+      )
+    : derived.current.rewardKindCounts!;
+  // Per platform, whether the reward filter asks about subscription rewards.
+  // Kept by value: Settings rebuilds its registry whenever this changes identity.
+  const subscriptionChoice = reuseIfUnchanged(derived.current.subscriptionChoice, {
+    twitch: showsSubscriptionChoice(
+      snapshot.state.campaigns.twitch,
+      settings.platform.twitch.rewardFilter,
+    ),
+    kick: showsSubscriptionChoice(
+      snapshot.state.campaigns.kick,
+      settings.platform.kick.rewardFilter,
+    ),
+  });
+  derived.current = {
+    inputs: derivationInputs,
+    campaigns,
+    gameMap,
+    rewardKindCounts,
+    subscriptionChoice,
+  };
   const idleWatchlistChannels = settings.platform[platform].idleWatchlistChannels;
   const idleWatchlist = idleWatchlistChannels.map((username) =>
     streamerItemFromFallback(username, session, t),
@@ -1242,6 +1270,7 @@ export function Popup({
                                 ? "general.drops"
                                 : settingsFocus
                             }
+                            showSubscriptionChoice={subscriptionChoice}
                           />
                         ) : view === "activity" ? (
                           <ActivityLog
@@ -1415,17 +1444,13 @@ export function Popup({
                               strategy={settings.priorityMode}
                               pinnedCount={settings.campaignPins.length}
                               farmPinnedOnly={settings.platform[platform].farmPinnedOnly}
-                              rewardFilterNarrowed={isRewardFilterNarrowed(
-                                settings.platform[platform].rewardFilter,
-                                platform,
-                              )}
-                              onFarmAll={() =>
+                              platform={platform}
+                              rewardFilter={settings.platform[platform].rewardFilter}
+                              rewardKindCounts={rewardKindCounts}
+                              showSubscriptionChoice={subscriptionChoice[platform]}
+                              onRewardFilterChange={(rewardFilter) =>
                                 void updateSettings(
-                                  {
-                                    platform: {
-                                      [platform]: { rewardFilter: defaultRewardFilter(platform) },
-                                    },
-                                  },
+                                  { platform: { [platform]: { rewardFilter } } },
                                   { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
                                 )
                               }
@@ -1493,7 +1518,7 @@ export function Popup({
                                 )
                               }
                               onOpenGames={() => changeView("games")}
-                              onOpenSettings={() => changeView("settings")}
+                              onOpenSettings={(groupId) => changeView("settings", groupId)}
                             />
                           </>
                         )}

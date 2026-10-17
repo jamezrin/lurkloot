@@ -3,6 +3,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { parseHTML } from "linkedom";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { defaultRewardFilter } from "@lurkloot/shared/rewardFilter";
 import type { DropCampaign, WatchSession } from "@lurkloot/shared/models";
 import { mergeSettings } from "@lurkloot/shared/settings";
 import { I18nContext, PopupRuntimeContext } from "../../popup-ui/src/context";
@@ -89,6 +90,10 @@ function mount(
             strategy="ending_soonest"
             pinnedCount={0}
             farmPinnedOnly={false}
+            platform="twitch"
+            rewardFilter={defaultRewardFilter("twitch")}
+            showSubscriptionChoice={false}
+            onRewardFilterChange={() => undefined}
             onStrategyChange={() => undefined}
             onUnpinAll={() => undefined}
             onFarmPinnedOnlyChange={() => undefined}
@@ -188,6 +193,10 @@ function renderDropsPanel(
           strategy="ending_soonest"
           pinnedCount={pinnedCount}
           farmPinnedOnly={false}
+          platform="twitch"
+          rewardFilter={defaultRewardFilter("twitch")}
+          showSubscriptionChoice={false}
+          onRewardFilterChange={() => undefined}
           onStrategyChange={() => undefined}
           onUnpinAll={() => undefined}
           onFarmPinnedOnlyChange={() => undefined}
@@ -249,6 +258,10 @@ function mountCampaignList(
             strategy="ending_soonest"
             pinnedCount={0}
             farmPinnedOnly={false}
+            platform="twitch"
+            rewardFilter={defaultRewardFilter("twitch")}
+            showSubscriptionChoice={false}
+            onRewardFilterChange={() => undefined}
             onStrategyChange={() => undefined}
             onUnpinAll={() => undefined}
             onFarmPinnedOnlyChange={() => undefined}
@@ -620,6 +633,10 @@ describe("campaign rank input", () => {
               strategy="ending_soonest"
               pinnedCount={2}
               farmPinnedOnly={false}
+              platform="twitch"
+              rewardFilter={defaultRewardFilter("twitch")}
+              showSubscriptionChoice={false}
+              onRewardFilterChange={() => undefined}
               onStrategyChange={() => undefined}
               onUnpinAll={() => undefined}
               onFarmPinnedOnlyChange={() => undefined}
@@ -703,6 +720,10 @@ describe("campaign rank input", () => {
               strategy="ending_soonest"
               pinnedCount={2}
               farmPinnedOnly={false}
+              platform="twitch"
+              rewardFilter={defaultRewardFilter("twitch")}
+              showSubscriptionChoice={false}
+              onRewardFilterChange={() => undefined}
               onStrategyChange={() => undefined}
               onUnpinAll={() => undefined}
               onFarmPinnedOnlyChange={() => undefined}
@@ -843,6 +864,10 @@ describe("initial drops expansion", () => {
               strategy="ending_soonest"
               pinnedCount={0}
               farmPinnedOnly={false}
+              platform="twitch"
+              rewardFilter={defaultRewardFilter("twitch")}
+              showSubscriptionChoice={false}
+              onRewardFilterChange={() => undefined}
               onStrategyChange={() => undefined}
               onUnpinAll={() => undefined}
               onFarmPinnedOnlyChange={() => undefined}
@@ -903,6 +928,10 @@ describe("initial drops expansion", () => {
               strategy="ending_soonest"
               pinnedCount={0}
               farmPinnedOnly={false}
+              platform="twitch"
+              rewardFilter={defaultRewardFilter("twitch")}
+              showSubscriptionChoice={false}
+              onRewardFilterChange={() => undefined}
               onStrategyChange={() => undefined}
               onUnpinAll={() => undefined}
               onFarmPinnedOnlyChange={() => undefined}

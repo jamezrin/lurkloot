@@ -76,9 +76,14 @@ const labels: Record<string, string> = {
   watchSourceIdleWatchlist: "Idle Watchlist",
   farmUnlinkedTitle: "Farm campaigns without a linked account",
   farmUnlinkedDescription: "When off, campaigns that need you to link your account are skipped.",
-  farmSubscriptionTitle: "Farm campaigns that require a subscription",
-  farmSubscriptionDescription:
-    "When off, campaigns whose rewards need a channel subscription are skipped.",
+  rewardFilterTitle: "Rewards to farm",
+  rewardFilterDescription:
+    "What Lurkloot farms on $1. The filter menu in the Queue changes the same setting.",
+  rewardKindsTitle: "Reward types",
+  rewardKindsDescription: "A reward is farmed if any part of it matches.",
+  subscriptionRewardsTitle: "Subscription rewards",
+  farmPinnedOnlyTitle: "Farm pinned campaigns only",
+  farmPinnedOnlyDescription: "Only campaigns you pinned in the Queue are farmed on $1.",
   forgetExcludedTitle: "Forget excluded campaigns",
   forgetExcludedDescription: "Clear every campaign you excluded from farming.",
   tablessTitle: "Tabless low-resource mode",

@@ -128,29 +128,11 @@
   "queueStrategyLabel": {
     "message": "Poté podle"
   },
-  "queueFarmPinnedOnly": {
-    "message": "Farmit jen připnuté"
-  },
   "queueUnpinAll": {
     "message": "Odepnout vše ($1)"
   },
   "queueUnpin": {
     "message": "Odepnout"
-  },
-  "queueFacetLabel": {
-    "message": "Typ kampaně"
-  },
-  "queueFacetAll": {
-    "message": "Vše"
-  },
-  "queueFacetNoSubscription": {
-    "message": "Bez předplatného"
-  },
-  "queueFacetSubscription": {
-    "message": "Vyžaduje předplatné"
-  },
-  "queueFacetBadge": {
-    "message": "Odznaky"
   },
   "queueFixInclude": {
     "message": "Zahrnout"
@@ -782,9 +764,6 @@
   "campaignRejectionTwitchLinkRequired": {
     "message": "Pro tuto kampaň Twitch je vyžadováno propojení účtu."
   },
-  "campaignRejectionSubscriptionDisabled": {
-    "message": "Farmení kampaní s předplatným je vypnuté."
-  },
   "campaignRejectionCategoryFiltered": {
     "message": "Tato kampaň neodpovídá vybraným kategoriím."
   },
@@ -950,11 +929,74 @@
   "farmUnlinkedDescription": {
     "message": "Když vypnuto, přeskočí kampaně vyžadující propojení účtu. Požadavky platformy mohou propojení vyžadovat i při zapnutí."
   },
-  "farmSubscriptionTitle": {
-    "message": "Farmit kampaně vyžadující předplatné"
+  "rewardFilterTitle": {
+    "message": "Rewards to farm"
   },
-  "farmSubscriptionDescription": {
-    "message": "Když vypnuto, přeskočí kampaně, jejichž odměny vyžadují předplatné kanálu."
+  "rewardFilterDescription": {
+    "message": "What Lurkloot farms on $1. The filter menu in the Queue changes the same setting."
+  },
+  "rewardKindsTitle": {
+    "message": "Reward types"
+  },
+  "rewardKindsDescription": {
+    "message": "A reward is farmed if any part of it matches."
+  },
+  "rewardKindItem": {
+    "message": "In-game items"
+  },
+  "rewardKindBadge": {
+    "message": "Badges"
+  },
+  "rewardKindEmote": {
+    "message": "Emotes"
+  },
+  "rewardKindItemShort": {
+    "message": "Items"
+  },
+  "subscriptionRewardsTitle": {
+    "message": "Subscription rewards"
+  },
+  "subscriptionRewardsDescription": {
+    "message": "Rewards that need a channel subscription."
+  },
+  "subscriptionModeInclude": {
+    "message": "Include"
+  },
+  "subscriptionModeSkip": {
+    "message": "Skip"
+  },
+  "subscriptionModeOnly": {
+    "message": "Only"
+  },
+  "subscriptionModeIncludeHint": {
+    "message": "Subscription rewards are farmed with the rest."
+  },
+  "subscriptionModeSkipHint": {
+    "message": "Rewards that need a subscription are not farmed."
+  },
+  "subscriptionModeOnlyHint": {
+    "message": "Only rewards that need a subscription are farmed."
+  },
+  "rewardFilterAll": {
+    "message": "All rewards"
+  },
+  "rewardFilterAllKinds": {
+    "message": "All"
+  },
+  "rewardFilterNoSub": {
+    "message": "no sub"
+  },
+  "rewardFilterSubOnly": {
+    "message": "sub only"
+  },
+  "rewardFilterReset": {
+    "message": "Reset to all rewards"
+  },
+  "farmPinnedOnlyTitle": {
+    "message": "Farm pinned campaigns only"
+  },
+  "farmPinnedOnlyDescription": {
+    "message": "Only campaigns you pinned in the Queue are farmed on $1."
   },
   "forgetExcludedTitle": {
     "message": "Zapomenout vyloučené kampaně"

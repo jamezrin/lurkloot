@@ -128,29 +128,11 @@
   "queueStrategyLabel": {
     "message": "그다음 기준"
   },
-  "queueFarmPinnedOnly": {
-    "message": "고정된 항목만 파밍"
-  },
   "queueUnpinAll": {
     "message": "모두 고정 해제 ($1)"
   },
   "queueUnpin": {
     "message": "고정 해제"
-  },
-  "queueFacetLabel": {
-    "message": "캠페인 유형"
-  },
-  "queueFacetAll": {
-    "message": "전체"
-  },
-  "queueFacetNoSubscription": {
-    "message": "구독 불필요"
-  },
-  "queueFacetSubscription": {
-    "message": "구독 필요"
-  },
-  "queueFacetBadge": {
-    "message": "배지"
   },
   "queueFixInclude": {
     "message": "포함"
@@ -782,9 +764,6 @@
   "campaignRejectionTwitchLinkRequired": {
     "message": "이 Twitch 캠페인에는 계정 연결이 필요합니다."
   },
-  "campaignRejectionSubscriptionDisabled": {
-    "message": "구독 캠페인 파밍이 꺼져 있습니다."
-  },
   "campaignRejectionCategoryFiltered": {
     "message": "이 캠페인은 선택한 카테고리와 일치하지 않습니다."
   },
@@ -950,11 +929,74 @@
   "farmUnlinkedDescription": {
     "message": "끄면 계정 연결이 필요한 캠페인은 건너뜁니다. 켜져 있어도 플랫폼 요건으로 연결이 필요할 수 있습니다."
   },
-  "farmSubscriptionTitle": {
-    "message": "구독이 필요한 캠페인 파밍"
+  "rewardFilterTitle": {
+    "message": "Rewards to farm"
   },
-  "farmSubscriptionDescription": {
-    "message": "끄면 채널 구독이 필요한 보상이 있는 캠페인은 건너뜁니다."
+  "rewardFilterDescription": {
+    "message": "What Lurkloot farms on $1. The filter menu in the Queue changes the same setting."
+  },
+  "rewardKindsTitle": {
+    "message": "Reward types"
+  },
+  "rewardKindsDescription": {
+    "message": "A reward is farmed if any part of it matches."
+  },
+  "rewardKindItem": {
+    "message": "In-game items"
+  },
+  "rewardKindBadge": {
+    "message": "Badges"
+  },
+  "rewardKindEmote": {
+    "message": "Emotes"
+  },
+  "rewardKindItemShort": {
+    "message": "Items"
+  },
+  "subscriptionRewardsTitle": {
+    "message": "Subscription rewards"
+  },
+  "subscriptionRewardsDescription": {
+    "message": "Rewards that need a channel subscription."
+  },
+  "subscriptionModeInclude": {
+    "message": "Include"
+  },
+  "subscriptionModeSkip": {
+    "message": "Skip"
+  },
+  "subscriptionModeOnly": {
+    "message": "Only"
+  },
+  "subscriptionModeIncludeHint": {
+    "message": "Subscription rewards are farmed with the rest."
+  },
+  "subscriptionModeSkipHint": {
+    "message": "Rewards that need a subscription are not farmed."
+  },
+  "subscriptionModeOnlyHint": {
+    "message": "Only rewards that need a subscription are farmed."
+  },
+  "rewardFilterAll": {
+    "message": "All rewards"
+  },
+  "rewardFilterAllKinds": {
+    "message": "All"
+  },
+  "rewardFilterNoSub": {
+    "message": "no sub"
+  },
+  "rewardFilterSubOnly": {
+    "message": "sub only"
+  },
+  "rewardFilterReset": {
+    "message": "Reset to all rewards"
+  },
+  "farmPinnedOnlyTitle": {
+    "message": "Farm pinned campaigns only"
+  },
+  "farmPinnedOnlyDescription": {
+    "message": "Only campaigns you pinned in the Queue are farmed on $1."
   },
   "forgetExcludedTitle": {
     "message": "제외한 캠페인 잊기"

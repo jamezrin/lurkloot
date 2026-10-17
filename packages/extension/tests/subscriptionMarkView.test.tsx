@@ -9,6 +9,7 @@ import type {
   ExtensionSettings,
   WatchSession,
 } from "@lurkloot/shared/models";
+import { defaultRewardFilter } from "@lurkloot/shared/rewardFilter";
 import { mergeSettings } from "@lurkloot/shared/settings";
 import {
   I18nContext,
@@ -110,6 +111,10 @@ function queue(campaigns: CampaignView[]): React.ReactElement {
       strategy="ending_soonest"
       pinnedCount={0}
       farmPinnedOnly={false}
+      platform="twitch"
+      rewardFilter={defaultRewardFilter("twitch")}
+      showSubscriptionChoice={false}
+      onRewardFilterChange={() => undefined}
       onStrategyChange={() => undefined}
       onUnpinAll={() => undefined}
       onFarmPinnedOnlyChange={() => undefined}

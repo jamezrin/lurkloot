@@ -128,29 +128,11 @@
   "queueStrategyLabel": {
     "message": "Затем по"
   },
-  "queueFarmPinnedOnly": {
-    "message": "Фармить только закреплённые"
-  },
   "queueUnpinAll": {
     "message": "Открепить все ($1)"
   },
   "queueUnpin": {
     "message": "Открепить"
-  },
-  "queueFacetLabel": {
-    "message": "Какие награды фармить"
-  },
-  "queueFacetAll": {
-    "message": "Все"
-  },
-  "queueFacetNoSubscription": {
-    "message": "Без подписки"
-  },
-  "queueFacetSubscription": {
-    "message": "Нужна подписка"
-  },
-  "queueFacetBadge": {
-    "message": "Значки"
   },
   "queueFixInclude": {
     "message": "Вернуть"
@@ -782,9 +764,6 @@
   "campaignRejectionTwitchLinkRequired": {
     "message": "Для этой кампании Twitch требуется привязка учётной записи."
   },
-  "campaignRejectionSubscriptionDisabled": {
-    "message": "Фарминг кампаний с подпиской отключён."
-  },
   "campaignRejectionCategoryFiltered": {
     "message": "Эта кампания не соответствует выбранным категориям."
   },
@@ -950,11 +929,74 @@
   "farmUnlinkedDescription": {
     "message": "Когда выключено, кампании, требующие привязки аккаунта, пропускаются. Требования платформы могут всё равно требовать привязку, когда настройка включена."
   },
-  "farmSubscriptionTitle": {
-    "message": "Фармить кампании, требующие подписки"
+  "rewardFilterTitle": {
+    "message": "Rewards to farm"
   },
-  "farmSubscriptionDescription": {
-    "message": "Когда выключено, кампании, награды которых требуют подписки на канал, пропускаются."
+  "rewardFilterDescription": {
+    "message": "What Lurkloot farms on $1. The filter menu in the Queue changes the same setting."
+  },
+  "rewardKindsTitle": {
+    "message": "Reward types"
+  },
+  "rewardKindsDescription": {
+    "message": "A reward is farmed if any part of it matches."
+  },
+  "rewardKindItem": {
+    "message": "In-game items"
+  },
+  "rewardKindBadge": {
+    "message": "Badges"
+  },
+  "rewardKindEmote": {
+    "message": "Emotes"
+  },
+  "rewardKindItemShort": {
+    "message": "Items"
+  },
+  "subscriptionRewardsTitle": {
+    "message": "Subscription rewards"
+  },
+  "subscriptionRewardsDescription": {
+    "message": "Rewards that need a channel subscription."
+  },
+  "subscriptionModeInclude": {
+    "message": "Include"
+  },
+  "subscriptionModeSkip": {
+    "message": "Skip"
+  },
+  "subscriptionModeOnly": {
+    "message": "Only"
+  },
+  "subscriptionModeIncludeHint": {
+    "message": "Subscription rewards are farmed with the rest."
+  },
+  "subscriptionModeSkipHint": {
+    "message": "Rewards that need a subscription are not farmed."
+  },
+  "subscriptionModeOnlyHint": {
+    "message": "Only rewards that need a subscription are farmed."
+  },
+  "rewardFilterAll": {
+    "message": "All rewards"
+  },
+  "rewardFilterAllKinds": {
+    "message": "All"
+  },
+  "rewardFilterNoSub": {
+    "message": "no sub"
+  },
+  "rewardFilterSubOnly": {
+    "message": "sub only"
+  },
+  "rewardFilterReset": {
+    "message": "Reset to all rewards"
+  },
+  "farmPinnedOnlyTitle": {
+    "message": "Farm pinned campaigns only"
+  },
+  "farmPinnedOnlyDescription": {
+    "message": "Only campaigns you pinned in the Queue are farmed on $1."
   },
   "forgetExcludedTitle": {
     "message": "Забыть исключённые кампании"

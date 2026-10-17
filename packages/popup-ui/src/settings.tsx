@@ -33,6 +33,7 @@ export function SettingsView({
   compatibilityResolution,
   focusGroupId,
   onOpenGames,
+  showSubscriptionChoice,
   version,
 }: {
   suggestions: Record<Platform, GameItem[]>;
@@ -57,6 +58,8 @@ export function SettingsView({
   compatibilityResolution?: PopupCompatibilityResolution;
   focusGroupId?: string;
   onOpenGames?(platform: Platform): void;
+  // Per platform, whether its campaigns include a subscription reward.
+  showSubscriptionChoice?: Partial<Record<Platform, boolean>>;
   // The extension version, shown with the project links in the About section.
   version?: string;
 }) {
@@ -151,6 +154,7 @@ export function SettingsView({
         compatibilityRegistry,
         compatibilityResolution,
         onOpenGames,
+        showSubscriptionChoice,
       }),
     [
       t,
@@ -161,6 +165,7 @@ export function SettingsView({
       compatibilityRegistry,
       compatibilityResolution,
       onOpenGames,
+      showSubscriptionChoice,
     ],
   );
   const visible = useMemo(

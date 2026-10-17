@@ -3,8 +3,11 @@ import type {
   DropCampaign,
   ExtensionSettings,
   Platform,
+  RewardFilter,
+  RewardKind,
   WatchSession,
 } from "@lurkloot/shared/models";
+import { PLATFORM_REWARD_KINDS, REWARD_KINDS } from "@lurkloot/shared/rewardFilter";
 import {
   NO_CATEGORY_ID,
   categoryListIndex,
@@ -23,6 +26,7 @@ import {
   rewardBadgeBenefit,
   rewardRequirementType,
   rewardFeasibility,
+  rewardRequiresSubscription,
 } from "@lurkloot/shared/rewards";
 import { isCampaignExpired, isCampaignFinished } from "@lurkloot/shared/campaignFilters";
 import {
@@ -385,6 +389,54 @@ function safeClaimGuidance(guidance: DropCampaign["claimGuidance"]): DropCampaig
   } catch {
     return undefined;
   }
+}
+
+// How many campaigns the Queue would hold with each reward kind selected on
+// its own, keeping the current subscription mode: the Queue's own section
+// test, so a kind's count is the queue it narrows to. Kinds the platform
+// cannot farm count nothing.
+export function rewardKindCounts(
+  campaigns: readonly DropCampaign[],
+  settings: ExtensionSettings,
+  platform: Platform,
+): Record<RewardKind, number> {
+  const platformSettings = settings.platform[platform];
+  const marked = campaigns.map((campaign) =>
+    applySubscriptionMarks(campaign, platformSettings.subscribedRewardMarks ?? []),
+  );
+  const supported = PLATFORM_REWARD_KINDS[platform];
+  return Object.fromEntries(
+    REWARD_KINDS.map((kind) => {
+      if (!supported.includes(kind)) return [kind, 0];
+      const only: ExtensionSettings = {
+        ...settings,
+        platform: {
+          ...settings.platform,
+          [platform]: {
+            ...platformSettings,
+            rewardFilter: { ...platformSettings.rewardFilter, kinds: [kind] },
+          },
+        },
+      };
+      return [
+        kind,
+        marked.filter((campaign) => campaignSection(campaign, only) === "queue").length,
+      ];
+    }),
+  ) as Record<RewardKind, number>;
+}
+
+// Whether the subscription question is worth asking: some campaign has a
+// reward that needs a subscription, or the user already narrowed it and must
+// always be able to undo that.
+export function showsSubscriptionChoice(
+  campaigns: readonly DropCampaign[],
+  filter: RewardFilter,
+): boolean {
+  return (
+    filter.subscriptions !== "include"
+    || campaigns.some((campaign) => campaign.rewards.some(rewardRequiresSubscription))
+  );
 }
 
 export function campaignLifecycleState(campaign: DropCampaign): CampaignLifecycleState | undefined {

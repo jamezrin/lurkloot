@@ -2,7 +2,14 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { DragDropProvider } from "@dnd-kit/react";
 import { AnimatePresence } from "motion/react";
 import { ChevronRight, Clock3, Pin } from "lucide-react";
-import type { CategorySelection, PriorityMode } from "@lurkloot/shared/models";
+import type {
+  CategorySelection,
+  Platform,
+  PriorityMode,
+  RewardFilter,
+  RewardKind,
+} from "@lurkloot/shared/models";
+import { defaultRewardFilter, isRewardFilterNarrowed } from "@lurkloot/shared/rewardFilter";
 import { useT } from "./context";
 import { filterCampaigns } from "./campaignSearch";
 import {
@@ -17,13 +24,13 @@ import type { CampaignView, GameItem } from "./types";
 import {
   EmptyPanel,
   SearchBox,
-  Toggle,
   cn,
   reorderFromDragEnd,
   scrollIntoPanel,
   type SortableDragEndEvent,
 } from "./primitives";
 import { Dropdown } from "./dropdown";
+import { RewardFilterMenu } from "./rewardFilterMenu";
 
 const TIER_LABEL_KEYS: Record<CampaignRankTier, string> = {
   pinned: "queueGroupPinned",
@@ -54,8 +61,11 @@ export function QueuePanel({
   strategy,
   pinnedCount,
   farmPinnedOnly,
-  rewardFilterNarrowed = false,
-  onFarmAll = () => undefined,
+  platform,
+  rewardFilter,
+  rewardKindCounts,
+  showSubscriptionChoice,
+  onRewardFilterChange,
   onStrategyChange,
   onUnpinAll,
   onFarmPinnedOnlyChange,
@@ -74,10 +84,14 @@ export function QueuePanel({
   strategy: PriorityMode;
   pinnedCount: number;
   farmPinnedOnly: boolean;
-  // Whether the platform's reward filter farms less than every reward.
-  rewardFilterNarrowed?: boolean;
-  // Restores the platform's default reward filter (a Skipped row's "Farm all").
-  onFarmAll?(): void | Promise<void>;
+  // The platform the queue lists; its reward filter is the toolbar's menu.
+  platform: Platform;
+  rewardFilter: RewardFilter;
+  // How many campaigns each kind alone would queue (viewModels' rewardKindCounts).
+  rewardKindCounts?: Partial<Record<RewardKind, number>>;
+  // Whether the menu asks about subscription rewards (showsSubscriptionChoice).
+  showSubscriptionChoice: boolean;
+  onRewardFilterChange(filter: RewardFilter): void | Promise<void>;
   onStrategyChange(strategy: PriorityMode): void | Promise<void>;
   onUnpinAll(): void | Promise<void>;
   onFarmPinnedOnlyChange(value: boolean): void | Promise<void>;
@@ -87,9 +101,11 @@ export function QueuePanel({
   onToggleFavouriteCategory?(category: CategorySelection): void | Promise<void>;
   onToggleBlockedCategory?(category: CategorySelection): void | Promise<void>;
   onOpenGames(): void;
-  onOpenSettings(): void;
+  // Opens Settings, scrolled to a group when one is named.
+  onOpenSettings(groupId?: string): void;
 }): React.ReactElement {
   const t = useT();
+  const rewardFilterNarrowed = isRewardFilterNarrowed(rewardFilter, platform);
   const [query, setQuery] = useState("");
   const [showSkipped, setShowSkipped] = useState(false);
   const [showActionRequired, setShowActionRequired] = useState(false);
@@ -178,7 +194,8 @@ export function QueuePanel({
     onToggleBlockedCategory,
     onOpenGames,
     onOpenSettings,
-    onFarmAll,
+    platform,
+    onRewardFilterChange,
   });
   latest.current = {
     queued,
@@ -190,7 +207,8 @@ export function QueuePanel({
     onToggleBlockedCategory,
     onOpenGames,
     onOpenSettings,
-    onFarmAll,
+    platform,
+    onRewardFilterChange,
   };
   const actions = useMemo<RowActions>(
     () => ({
@@ -214,7 +232,9 @@ export function QueuePanel({
       block: (category) => void latest.current.onToggleBlockedCategory?.(category),
       openGames: () => latest.current.onOpenGames(),
       openSettings: () => latest.current.onOpenSettings(),
-      farmAll: () => void latest.current.onFarmAll(),
+      openRewardSettings: () => latest.current.onOpenSettings(`${latest.current.platform}.rewards`),
+      farmAll: () =>
+        void latest.current.onRewardFilterChange(defaultRewardFilter(latest.current.platform)),
     }),
     [],
   );
@@ -267,18 +287,15 @@ export function QueuePanel({
             placeholder={t("campaignSearchPlaceholder")}
           />
         </div>
-        <label
-          data-queue-pinned-only
-          className="flex shrink-0 items-center gap-1.5 text-[11px] font-medium text-zinc-600 dark:text-zinc-300"
-        >
-          <Toggle
-            size="sm"
-            checked={farmPinnedOnly}
-            onChange={(value) => void onFarmPinnedOnlyChange(value)}
-            label={t("queueFarmPinnedOnly")}
-          />
-          <span aria-hidden>{t("queueFarmPinnedOnly")}</span>
-        </label>
+        <RewardFilterMenu
+          platform={platform}
+          filter={rewardFilter}
+          showSubscriptions={showSubscriptionChoice}
+          counts={rewardKindCounts}
+          farmPinnedOnly={farmPinnedOnly}
+          onChange={(filter) => void onRewardFilterChange(filter)}
+          onFarmPinnedOnlyChange={(value) => void onFarmPinnedOnlyChange(value)}
+        />
       </div>
 
       {campaigns.length === 0 ? (
@@ -518,6 +535,7 @@ type RowActions = {
   block(category: CategorySelection): void;
   openGames(): void;
   openSettings(): void;
+  openRewardSettings(): void;
   farmAll(): void;
 };
 
@@ -611,6 +629,7 @@ const QueueRow = React.memo(function QueueRow({
                   onToggleExclude: actions.toggleExclude,
                   onOpenGames: actions.openGames,
                   onOpenSettings: actions.openSettings,
+                  onOpenRewardSettings: actions.openRewardSettings,
                   onFarmAll: actions.farmAll,
                   onPin: () => actions.pinLast(campaign.id),
                 },
@@ -640,6 +659,7 @@ const QueueRow = React.memo(function QueueRow({
             onToggleExclude: actions.toggleExclude,
             onOpenGames: actions.openGames,
             onOpenSettings: actions.openSettings,
+            onOpenRewardSettings: actions.openRewardSettings,
             onFarmAll: actions.farmAll,
             onPin: () => actions.pinLast(campaign.id),
           },
@@ -660,6 +680,7 @@ function skippedFix(
     onToggleExclude(id: string): void | Promise<void>;
     onOpenGames(): void;
     onOpenSettings(): void;
+    onOpenRewardSettings(): void;
     onFarmAll(): void;
     onPin(): void;
   },
@@ -677,9 +698,15 @@ function skippedFix(
     return { label: t("queueFixFarmAll"), onClick: handlers.onFarmAll };
   if (code === "category_blocked" || code === "category_filtered")
     return { label: t("queueFixGames"), onClick: handlers.onOpenGames };
-  if (code === "unlinked_campaigns_disabled" || code === "insufficient_time") {
-    return { label: t("queueFixSettings"), onClick: handlers.onOpenSettings };
+  // The unlinked toggle lives with the platform's reward filter.
+  if (code === "unlinked_campaigns_disabled") {
+    return {
+      label: t("queueFixSettings"),
+      onClick: handlers.onOpenRewardSettings,
+    };
   }
+  if (code === "insufficient_time")
+    return { label: t("queueFixSettings"), onClick: handlers.onOpenSettings };
   return undefined;
 }
 
