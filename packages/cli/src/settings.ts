@@ -14,7 +14,11 @@ import {
   POLL_INTERVAL_MIN_MINUTES,
   IDLE_WATCHLIST_LIMIT,
 } from "@lurkloot/shared/settings";
-import { normalizeRewardFilter } from "@lurkloot/shared/rewardFilter";
+import {
+  normalizeRewardFilter,
+  REWARD_KINDS,
+  SUBSCRIPTION_REWARD_MODES,
+} from "@lurkloot/shared/rewardFilter";
 import {
   CURRENT_SETTINGS_SCHEMA_VERSION,
   migrateSettings,
@@ -312,6 +316,37 @@ export function parseCliSettingsImportPayload(raw: unknown): CliSettingsParseRes
   });
 }
 
+// A kind the platform does not support is accepted on purpose: the v8 migration
+// can produce one, and normalizeRewardFilter drops it. Only values that name
+// nothing at all are errors.
+function rewardFilterOffenders(platform: string, raw: unknown): string[] {
+  const path = `platform.${platform}.rewardFilter`;
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
+    return [`"${path}" must be a JSON object`];
+  }
+  const offenders: string[] = [];
+  const filter = raw as Record<string, unknown>;
+  for (const key of Object.keys(filter)) {
+    if (key !== "kinds" && key !== "subscriptions")
+      offenders.push(`unknown setting "${key}" under ${path}`);
+  }
+  if (Object.hasOwn(filter, "kinds")) {
+    const kinds = filter.kinds;
+    if (!Array.isArray(kinds) || !kinds.every((kind) => REWARD_KINDS.includes(kind as never))) {
+      offenders.push(`"${path}.kinds" must be an array of: ${REWARD_KINDS.join(", ")}`);
+    }
+  }
+  if (
+    Object.hasOwn(filter, "subscriptions")
+    && !SUBSCRIPTION_REWARD_MODES.includes(filter.subscriptions as never)
+  ) {
+    offenders.push(
+      `"${path}.subscriptions" must be one of: ${SUBSCRIPTION_REWARD_MODES.join(", ")}`,
+    );
+  }
+  return offenders;
+}
+
 // Validates and normalizes an already-migrated settings payload. See
 // parseCliSettingsWithDiagnostics for the full contract; `diagnostics` is passed
 // through so a renamed-away key can be named by its original path in errors, and
@@ -356,6 +391,9 @@ function parseMigratedCliSettings(
             offenders.push(
               `"platform.${name}.categoryMode" must be one of: ${CATEGORY_MODES.join(", ")}`,
             );
+          }
+          if (Object.hasOwn(block, "rewardFilter")) {
+            offenders.push(...rewardFilterOffenders(name, block.rewardFilter));
           }
         }
       }

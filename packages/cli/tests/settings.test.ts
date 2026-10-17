@@ -495,6 +495,50 @@ describe("category modes", () => {
     );
   });
 
+  describe("rewardFilter", () => {
+    const parseFilter = (rewardFilter: unknown, platform: "twitch" | "kick" = "twitch") =>
+      parseCliSettings({ platform: { [platform]: { rewardFilter } } });
+
+    it("rejects a typo'd subscription mode", () => {
+      expect(() => parseFilter({ subscriptions: "skpi" })).toThrow(
+        /platform\.twitch\.rewardFilter\.subscriptions/,
+      );
+    });
+
+    it("rejects an unknown kind", () => {
+      expect(() => parseFilter({ kinds: ["item", "banner"] })).toThrow(
+        /platform\.twitch\.rewardFilter\.kinds/,
+      );
+      expect(() => parseFilter({ kinds: "item" })).toThrow(/rewardFilter\.kinds/);
+    });
+
+    it("rejects a non-object filter", () => {
+      expect(() => parseFilter("badge")).toThrow(/platform\.twitch\.rewardFilter/);
+      expect(() => parseFilter(["item"])).toThrow(/platform\.twitch\.rewardFilter/);
+      expect(() => parseFilter(null)).toThrow(/platform\.twitch\.rewardFilter/);
+    });
+
+    it("rejects an unknown nested key", () => {
+      expect(() => parseFilter({ kind: ["item"] })).toThrow(/unknown setting "kind"/);
+    });
+
+    it("accepts an empty kinds list and widens it to every supported kind", () => {
+      expect(parseFilter({ kinds: [] }).platform.twitch.rewardFilter.kinds).toEqual([
+        "item",
+        "badge",
+        "emote",
+      ]);
+    });
+
+    it("accepts a kind the platform does not support and drops it", () => {
+      const settings = parseFilter({ kinds: ["item", "badge"], subscriptions: "skip" }, "kick");
+      expect(settings.platform.kick.rewardFilter).toEqual({
+        kinds: ["item"],
+        subscriptions: "skip",
+      });
+    });
+  });
+
   it("migrates the legacy farmAllCategories boolean through the shared migration path", () => {
     const { settings, diagnostics } = parseCliSettingsWithDiagnostics({
       platform: {
