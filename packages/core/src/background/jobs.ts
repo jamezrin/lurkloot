@@ -1,4 +1,5 @@
 import type { Platform } from "@lurkloot/shared/models";
+import { ACCOUNT_PROGRESS_JOBS } from "./accountProgress";
 import { KICK_ALARM_NAME, TWITCH_ALARM_NAME } from "./constants";
 import { TWITCH_CHANNEL_POINTS_JOBS } from "./channelPoints";
 import { DROP_CLAIM_JOBS } from "./claimService";
@@ -49,6 +50,7 @@ export interface JobRunner {
   runTwitchChannelPointsClaim(): Promise<void>;
   runDropClaims(platform: Platform): Promise<void>;
   runKickChallengeClaims(): Promise<void>;
+  runAccountProgressPolls(): Promise<void>;
   runTwitchIntegrityRefresh(): Promise<void>;
 }
 
@@ -69,6 +71,7 @@ export const BACKGROUND_JOBS: Readonly<Record<string, BackgroundJob>> = {
   ...DROP_CLAIM_JOBS,
   ...KICK_RUNTIME_JOBS,
   ...TWITCH_INTEGRITY_JOBS,
+  ...ACCOUNT_PROGRESS_JOBS,
 };
 
 export function jobIsInert(name: string, capabilities: HostCapabilities): boolean {

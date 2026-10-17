@@ -4,6 +4,7 @@ export const SECTIONS = Object.freeze({ localized: "localized", global: "global"
 
 const LABELS = Object.freeze({
   language: /listing language|language|locale/i,
+  description: /description/i,
   removeScreenshot: /^remove image screenshot \d+$/i,
   removeConfirmation: /remove image/i,
   confirmRemoval: /^remove$/i,
@@ -71,9 +72,43 @@ export class ChromeWebStoreDashboard {
     // smaller panel of the same shape.
     const panel =
       '*[.//img[starts-with(@alt,"Screenshot")] and .//input[@type="file"] and not(.//*[.//img[starts-with(@alt,"Screenshot")] and .//input[@type="file"]])]';
+    const heading = `(//*[normalize-space(text())="${label}"])[1]`;
+    // A language with no screenshots yet has no image to anchor on, and the
+    // first panel with images is then the next section's. The section's own
+    // upload input comes earlier in the document, so taking whichever of the
+    // two appears first picks the empty panel; a populated panel encloses
+    // that input and so still wins.
     return this.page.locator(
-      `xpath=(//*[normalize-space(text())="${label}"])[1]/following::${panel}[1]`,
+      `xpath=(${heading}/following::${panel}[1] | ${heading}/following::input[@type="file"][1]/..)[1]`,
     );
+  }
+
+  // Both groups are found from their headings, so a layout change could make
+  // the two lookups land on one panel, and a language's own images would then
+  // replace the shared set.
+  async requireDistinctScreenshotSections() {
+    const localized = await requireUnique(
+      this.screenshotRegion(SECTIONS.localized),
+      "localized screenshot section",
+    );
+    const global = await requireUnique(
+      this.screenshotRegion(SECTIONS.global),
+      "global screenshot section",
+    );
+    const localizedHandle = await localized.elementHandle();
+    const globalHandle = await global.elementHandle();
+    try {
+      const overlapping = await this.page.evaluate(
+        ([first, second]) => first === second || first.contains(second) || second.contains(first),
+        [localizedHandle, globalHandle],
+      );
+      if (overlapping) {
+        throw new Error("Localized and global screenshot sections resolved to the same panel");
+      }
+    } finally {
+      await localizedHandle.dispose();
+      await globalHandle.dispose();
+    }
   }
 
   screenshotItems(section = SECTIONS.localized) {
@@ -90,6 +125,36 @@ export class ChromeWebStoreDashboard {
 
   saveControl() {
     return this.page.getByRole("button", { name: LABELS.saveDraft });
+  }
+
+  // The per-language detailed description. The summary is not editable here:
+  // it comes from the uploaded package's manifest description.
+  descriptionControl() {
+    return this.page.getByRole("textbox", { name: LABELS.description });
+  }
+
+  async requireDescriptionControl() {
+    const control = await requireUnique(this.descriptionControl(), "detailed description field");
+    const tagName = await control.evaluate((element) => element.tagName);
+    if (tagName !== "TEXTAREA" && tagName !== "INPUT") {
+      throw new Error(`Detailed description field is a ${tagName}, not a text field`);
+    }
+    if (!(await control.isEditable())) {
+      throw new Error("Detailed description field is not editable");
+    }
+    return control;
+  }
+
+  // Returns whether the field changed, so an unchanged locale needs no save.
+  async setDescription(text) {
+    const control = await this.requireDescriptionControl();
+    if ((await control.inputValue()) === text) return false;
+    this.hasMutated = true;
+    await control.fill(text);
+    if ((await control.inputValue()) !== text) {
+      throw new Error("Detailed description field did not keep the requested text");
+    }
+    return true;
   }
 
   uploadErrors(section = SECTIONS.localized) {
@@ -129,7 +194,7 @@ export class ChromeWebStoreDashboard {
       .waitFor({ state: "visible", timeout: this.timeout });
   }
 
-  async preflight({ locales }) {
+  async preflight({ locales, screenshots = true, descriptions = false }) {
     const identity = this.page.getByText(this.extensionId, { exact: false });
     await requireUnique(identity, "configured extension identity");
     const language = await requireUnique(this.languageControl(), "listing language selector");
@@ -153,15 +218,26 @@ export class ChromeWebStoreDashboard {
     if (tagName !== "SELECT") await this.page.keyboard.press("Escape");
 
     await this.selectLocale(locales[0]);
-    for (const section of [SECTIONS.localized, SECTIONS.global]) {
-      await requireUnique(this.screenshotRegion(section), `${section} screenshot section`);
-      const count = await this.screenshotCount(section);
-      if (count !== 4 && count !== 5) {
+    if (descriptions) await this.requireDescriptionControl();
+    if (screenshots) {
+      await this.requireDistinctScreenshotSections();
+      // A language added since the last run starts with no screenshots of its
+      // own, while the shared set is always populated.
+      const localizedCount = await this.screenshotCount(SECTIONS.localized);
+      if (localizedCount > 5) {
         throw new Error(
-          `${section === SECTIONS.global ? "Global" : "Localized"} screenshots: expected 4 or 5 screenshot items, found ${count}`,
+          `Localized screenshots: expected at most 5 screenshot items, found ${localizedCount}`,
         );
       }
-      await this.requirePngUploadControl(section);
+      const globalCount = await this.screenshotCount(SECTIONS.global);
+      if (globalCount !== 4 && globalCount !== 5) {
+        throw new Error(
+          `Global screenshots: expected 4 or 5 screenshot items, found ${globalCount}`,
+        );
+      }
+      for (const section of [SECTIONS.localized, SECTIONS.global]) {
+        await this.requirePngUploadControl(section);
+      }
     }
     await requireUnique(this.saveControl(), "draft save button");
   }
@@ -203,12 +279,22 @@ export class ChromeWebStoreDashboard {
     );
   }
 
+  // Two new locales both start with no screenshots, so the description is part
+  // of what proves the panel switched languages.
+  async localeContentFingerprint() {
+    const description = this.descriptionControl();
+    return JSON.stringify([
+      await this.screenshotMediaFingerprint(),
+      (await description.count()) === 1 ? await description.inputValue() : "",
+    ]);
+  }
+
   async waitForScreenshotPanelChange(before, dashboardLabel) {
     const deadline = Date.now() + this.timeout;
     let candidate = "";
     let stableSince = 0;
     while (Date.now() < deadline) {
-      const current = await this.screenshotMediaFingerprint();
+      const current = await this.localeContentFingerprint();
       const region = await requireUnique(this.screenshotRegion(), "localized screenshot panel");
       const busy =
         (await region.getAttribute("aria-busy")) === "true"
@@ -237,7 +323,7 @@ export class ChromeWebStoreDashboard {
     const tagName = await language.evaluate((element) => element.tagName);
     const currentName = await this.selectedLocaleName(language, tagName);
     if (name.test(currentName)) return;
-    const previousScreenshots = await this.screenshotMediaFingerprint();
+    const previousContent = await this.localeContentFingerprint();
     if (tagName === "SELECT") {
       const option = language.getByRole("option", { name });
       await requireUnique(option, `dashboard locale ${dashboardLabel}`);
@@ -254,7 +340,7 @@ export class ChromeWebStoreDashboard {
         `Dashboard locale ${dashboardLabel}: selector did not confirm the requested language`,
       );
     }
-    await this.waitForScreenshotPanelChange(previousScreenshots, dashboardLabel);
+    await this.waitForScreenshotPanelChange(previousContent, dashboardLabel);
   }
 
   async screenshotCount(section = SECTIONS.localized) {

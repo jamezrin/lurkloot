@@ -1,0 +1,9 @@
+Lurkloot farme les drops Twitch et Kick à votre place, pour que vous gagniez des récompenses en jeu sans avoir à regarder les streams vous-même. Il fonctionne via votre session de navigateur habituelle, déjà connectée, et ne demande jamais votre mot de passe.
+
+Par défaut, il utilise un mode léger sans onglet qui envoie des signaux de visionnage en arrière-plan au lieu de garder un onglet vidéo ouvert, ce qui vous économise de la bande passante et des ressources système. Il suit le bon canal pour le drop que vous visez, change automatiquement à la fin des campagnes et réclame toutes les récompenses éligibles. Si la progression stagne, il bascule sur un onglet épinglé et muet pour que vos drops continuent d'avancer.
+
+Vos données restent les vôtres : aucun mot de passe, aucun cookie ni token exporté, et tout reste sur votre appareil.
+
+Depuis le popup, vous pouvez activer chaque plateforme, prioriser les campagnes et les jeux qui vous intéressent, gérer les listes de veille inactives et les chaînes exclues par plateforme, et activer la réclamation automatique et les notifications.
+
+Lurkloot peut aussi farmer du temps de visionnage sur Kick lorsqu'aucun drop n'est actif. Ajoutez vos chaînes préférées à la liste de veille inactive : il choisit automatiquement celle qui est en direct. Le visionnage sans onglet limite l'utilisation des ressources, tandis que le repli sur un onglet épinglé préserve la fiabilité de la session.

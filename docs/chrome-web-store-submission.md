@@ -1,7 +1,7 @@
 # Chrome Web Store submission — 1.3.0
 
 Step-by-step for re-specifying the listing (description, localized + global screenshots, etc).
-Pairs with `store-descriptions.md` (per-language copy) and `store-readiness.md` (compliance fields,
+Pairs with `packages/extension/store-descriptions/` (per-language copy) and `store-readiness.md` (compliance fields,
 permission justifications). Dashboard item: `aobaackpofkghaejdnnmpmeaiaoibhdn`.
 
 ## 0. Upload the package
@@ -16,33 +16,19 @@ The store's default locale is `en` (manifest `default_locale`). Fill the main li
 | Field | Value / source |
 |-------|----------------|
 | Name | `Lurkloot - Farm Drops on Twitch & Kick` (manifest `extensionStoreName`) |
-| Summary (≤132) | English **Short** in `store-descriptions.md` |
-| Description | English **Detailed** in `store-descriptions.md` |
+| Summary (≤132) | From the package: the `extensionDescription` message |
+| Description | `packages/extension/store-descriptions/en.txt` |
 | Category | Productivity |
 | Screenshots (1280×800) | `packages/extension/artifacts/store-screenshots/en/` (5 PNGs, numbered for order: `01-drops`, `02-extras`, `03-easy`, `04-settings`, `05-updated`) |
 | Small promo tile 440×280 | `artifacts/store-promo/en/lurkloot-promo-small-440x280.png` (optional) |
 | Marquee 1400×560 | `artifacts/store-promo/en/lurkloot-promo-marquee-1400x560.png` (optional) |
 | Icon 128×128 | from the built package |
 
-## 2. Localized listings — add a translation for each locale
+## 2. Localized listings
 
-For every locale below, set its **Summary** + **Description** (from `store-descriptions.md`) and upload
-**that locale's 5 screenshots**. Promo tiles per locale are under `artifacts/store-promo/<locale>/`.
-
-| Locale | Screenshots dir | Copy in store-descriptions.md |
-|--------|-----------------|-------------------------------|
-| es | `store-screenshots/es/` | Spanish |
-| fr | `store-screenshots/fr/` | French |
-| it | `store-screenshots/it/` | Italian |
-| ru | `store-screenshots/ru/` | Russian |
-| de | `store-screenshots/de/` | German |
-| zh_CN | `store-screenshots/zh_CN/` | Simplified Chinese |
-| hi | `store-screenshots/hi/` | Hindi |
-| pt_BR | `store-screenshots/pt_BR/` | Portuguese (Brazil) |
-| ar | `store-screenshots/ar/` | Arabic |
-| tr | `store-screenshots/tr/` | Turkish |
-
-(English `en` is the default listing in §1.) All short descriptions are within the 132-char limit.
+`pnpm cws:listing:sync` sets the description and five screenshots of every locale; see
+[Syncing the listing automatically](#syncing-the-listing-automatically). Promo tiles per locale are
+under `artifacts/store-promo/<locale>/`.
 
 ## 3. Privacy / compliance tab
 
@@ -61,24 +47,27 @@ falls back when unhealthy, and confirm reward progress on the platforms' invento
 
 ```bash
 pnpm zip && pnpm zip:firefox     # extension packages
-pnpm screenshot:store            # artifacts/store-screenshots/<locale>/ (all 11)
+pnpm screenshot:store            # artifacts/store-screenshots/<locale>/ (all 17)
 pnpm promo:store                 # artifacts/store-promo/<locale>/
 pnpm promo:store:sync            # same files as promo:store; does not upload
 ```
 
-Pass locale codes to limit, e.g. `pnpm screenshot:store es ar tr`. Turkish promo tiles are under
-`artifacts/store-promo/tr/`. `promo:store:sync` only writes those tiles. It does not replace
-anything in the Developer Dashboard.
+Pass locale codes to limit, for example `pnpm screenshot:store ja id pl ko uk cs`. Promo
+tiles for every catalog locale, including those six, are under `artifacts/store-promo/<locale>/`.
+`promo:store:sync` only writes those tiles. It does not replace anything in the Developer Dashboard.
 
-## Replacing localized screenshots automatically
+## Syncing the listing automatically
 
-The public Chrome Web Store API cannot update listing screenshots. The local operator command below
-uses a visible Chrome session to replace all 55 screenshots through the Developer Dashboard and save
-the listing draft:
+The public Chrome Web Store API cannot update listing screenshots or per-language descriptions. The
+local operator command below uses a visible Chrome session to set the detailed description and the
+five screenshots of every locale through the Developer Dashboard, then save the listing draft:
 
 ```bash
-pnpm screenshot:store:sync
+pnpm cws:listing:sync
 ```
+
+Each description is the plain-text file `packages/extension/store-descriptions/<locale>.txt`. The
+summary is not synced: the dashboard takes it from the package's `extensionDescription` message.
 
 `CWS_EXTENSION_ID` and `CWS_PUBLISHER_ID` come from the repository `mise.toml`. Without mise
 activated in your shell, export them by hand:
@@ -88,10 +77,18 @@ export CWS_EXTENSION_ID=aobaackpofkghaejdnnmpmeaiaoibhdn
 export CWS_PUBLISHER_ID=<publisher-id-from-the-dashboard>
 ```
 
-The command regenerates and validates the images, then starts Chrome itself and attaches to it over
-the DevTools protocol. Sign in to Google and complete 2FA in the window it opens; automation resumes
-on its own, replaces the five screenshots for each of the 11 locales in numbered order, and saves
-each locale.
+The command regenerates and validates the images and descriptions, then starts Chrome itself and
+attaches to it over the DevTools protocol. Sign in to Google and complete 2FA in the window it opens;
+automation resumes on its own, sets the description and replaces the five screenshots for each of the
+17 locales in numbered order, and saves each locale. The dashboard language list comes from the
+`_locales` directories in the uploaded package, so upload a build that contains `ja`, `id`, `pl`,
+`ko`, `uk`, and `cs` before the first listing run for those languages.
+
+A language added that way starts with no screenshots of its own. The command fills it in order rather
+than rotating, and checks for every language that the localized and global groups are separate
+panels, so an empty language can never be mistaken for the shared set. The empty-group layout has not
+yet been seen on the live dashboard: run a new language on its own first, for example
+`pnpm cws:listing -- --locales ja`, and look at the draft before syncing the rest.
 
 Playwright never launches the browser. Google refuses interactive sign-in in a browser started with
 automation switches — it answers `accounts.google.com/v3/signin/rejected`, "Couldn't sign you in;
@@ -120,11 +117,11 @@ yourself:
 ```bash
 # The binary name varies by distribution: google-chrome, google-chrome-stable, chrome.
 "$BROWSER" --user-data-dir=~/.local/state/lurkloot/cws-chrome-profile --remote-debugging-port=9333
-CWS_CDP_PORT=9333 pnpm screenshot:store:upload
+CWS_CDP_PORT=9333 pnpm cws:listing
 ```
 
 The listing holds two screenshot groups. **Localized screenshots** change with the language
-selector, so each of the 11 locales gets its own five. **Global screenshots** are shared across every
+selector, so each of the 17 locales gets its own five. **Global screenshots** are shared across every
 language; the command fills them from the English set, and only when `en` is part of the run. Both
 groups label their thumbnails "Screenshot N", so each is located from its own heading rather than by
 a page-wide search. Within a group the leading image is removed and its replacement appended, one at
@@ -137,22 +134,27 @@ group; the command reports that and moves on instead of failing.
 This workflow deliberately stops at a saved draft. It has no operation that submits the item for
 review or publishes it. Use the normal release flow when the draft should be submitted.
 
-To upload already-generated files or retry selected locales after an interruption:
+To sync already-generated files, retry selected locales after an interruption, or touch only one
+part of the listing:
 
 ```bash
-pnpm screenshot:store:upload
-pnpm screenshot:store:upload -- --locales ar tr
+pnpm cws:listing
+pnpm cws:listing -- --locales ja id pl ko uk cs
+pnpm cws:listing -- --only descriptions
+pnpm cws:listing -- --only screenshots --locales ar
 ```
+
+`--only descriptions` needs no generated screenshots.
 
 A run interrupted between deletion and upload may leave four screenshots in one locale. The next
 locale-filtered run repairs that state before replacing the full ordered set. The operation is safe
 to repeat.
 
-Validate the screenshot files and extension ID without starting Chrome or changing the dashboard
-(`CWS_PUBLISHER_ID` is only checked for a live upload):
+Validate the screenshot files, descriptions and extension ID without starting Chrome or changing the
+dashboard (`CWS_PUBLISHER_ID` is only checked for a live run):
 
 ```bash
-pnpm screenshot:store:upload -- --locales en --validate-only
+pnpm cws:listing -- --locales en --validate-only
 ```
 
 Dashboard automation depends on Google's unsupported UI rather than a stable API. It uses accessible

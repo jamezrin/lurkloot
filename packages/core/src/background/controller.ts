@@ -14,6 +14,7 @@ import {
 import { createDiscovery } from "./discovery";
 import { createDiscoverySignals } from "./discoverySignals";
 import { createHeartbeatCoordinator } from "./heartbeat";
+import { createAccountProgress } from "./accountProgress";
 import { createKickRuntime } from "./kickRuntime";
 import { createLifecycle } from "./lifecycle";
 import { createManualWatch } from "./manualWatch";
@@ -41,6 +42,7 @@ export {
   TWITCH_DROP_CLAIMS_ALARM_NAME,
   KICK_DROP_CLAIMS_ALARM_NAME,
   KICK_CHALLENGES_ALARM_NAME,
+  ACCOUNT_PROGRESS_ALARM_NAME,
   TWITCH_INTEGRITY_ALARM_NAME,
   TWITCH_INTEGRITY_REFRESH_LEAD_MS,
   TWITCH_INTEGRITY_REFRESH_JITTER_MAX_MS,
@@ -130,6 +132,7 @@ export function createBackgroundController<S extends EngineSettings = EngineSett
     ...createChannelPoints(ports, transaction, { lifecycleSlice }, calls),
     ...createChatPresence(ports, transaction, { lifecycleSlice }, calls),
     ...createKickRuntime(ports, transaction, { lifecycleSlice }, calls),
+    ...createAccountProgress(ports, { lifecycleSlice }, calls),
     ...createAuthHealth(ports, calls),
     ...createManualWatch(ports, { tabRegistry, lifecycleSlice }, calls),
     ...createSupplementalSources(ports),

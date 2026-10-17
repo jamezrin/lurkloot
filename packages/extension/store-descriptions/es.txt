@@ -1,0 +1,9 @@
+Lurkloot farmea drops de Twitch y Kick por ti, para que consigas recompensas dentro del juego sin tener que quedarte viendo las retransmisiones. Funciona con tu sesión normal del navegador, en la que ya tienes la sesión iniciada, y nunca te pide la contraseña.
+
+De forma predeterminada usa un modo ligero sin pestañas que envía señales de visualización en segundo plano en lugar de mantener una pestaña de vídeo abierta, lo que te ahorra ancho de banda y recursos del sistema. Sigue el canal adecuado para el drop que quieres, cambia automáticamente cuando terminan las campañas y reclama todas las recompensas elegibles. Si el progreso se estanca, recurre a una pestaña fija y silenciada para que tus drops sigan avanzando.
+
+Tus datos son tuyos: sin contraseñas, sin exportar cookies ni tokens, y todo se queda en tu dispositivo.
+
+Desde el popup puedes activar cada plataforma, priorizar las campañas y los juegos que te interesan, gestionar las listas de visualización inactivas y los canales excluidos de cada plataforma, y activar la reclamación automática y las notificaciones.
+
+Lurkloot también puede farmear tiempo de visualización en Kick cuando no hay ningún drop activo. Añade tus canales favoritos a la lista de visualización inactiva y elegirá automáticamente uno que esté en directo. La visualización sin pestañas reduce el uso de recursos, mientras que la alternativa de pestaña fijada mantiene la sesión estable.

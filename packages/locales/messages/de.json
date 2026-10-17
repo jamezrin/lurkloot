@@ -47,6 +47,24 @@
   "languageTurkish": {
     "message": "Türkisch"
   },
+  "languageJapanese": {
+    "message": "Japanisch"
+  },
+  "languageIndonesian": {
+    "message": "Indonesisch"
+  },
+  "languagePolish": {
+    "message": "Polnisch"
+  },
+  "languageKorean": {
+    "message": "Koreanisch"
+  },
+  "languageUkrainian": {
+    "message": "Ukrainisch"
+  },
+  "languageCzech": {
+    "message": "Tschechisch"
+  },
   "settingsLanguageTitle": {
     "message": "Sprache"
   },
@@ -120,22 +138,28 @@
     "message": "Lösen"
   },
   "queueFacetLabel": {
-    "message": "Kampagnentyp"
+    "message": "Zu farmende Belohnungen"
   },
   "queueFacetAll": {
     "message": "Alle"
   },
-  "queueFacetDrops": {
-    "message": "Drops"
+  "queueFacetNoSubscription": {
+    "message": "Ohne Abo"
   },
-  "queueFacetBadges": {
-    "message": "Abo-Abzeichen"
+  "queueFacetSubscription": {
+    "message": "Abo erforderlich"
+  },
+  "queueFacetBadge": {
+    "message": "Abzeichen"
   },
   "queueFixInclude": {
     "message": "Aufnehmen"
   },
   "queueFixPin": {
     "message": "Anheften"
+  },
+  "queueFixFarmAll": {
+    "message": "Alle farmen"
   },
   "queueFixGames": {
     "message": "Spiele öffnen"
@@ -146,8 +170,8 @@
   "queueEmpty": {
     "message": "Gerade gibt es hier nichts zu farmen."
   },
-  "queueEmptyBadges": {
-    "message": "Derzeit sind keine Abo-Kampagnen farmbar."
+  "queueEmptyRewardTypes": {
+    "message": "Derzeit lässt sich nichts der ausgewählten Typen farmen."
   },
   "completedTabFinished": {
     "message": "Abgeschlossen"
@@ -370,6 +394,18 @@
   },
   "subscriptionProgressUnknown": {
     "message": "Fortschritt nicht verfügbar"
+  },
+  "rewardBadge": {
+    "message": "Abzeichen"
+  },
+  "rewardBadgeNamed": {
+    "message": "Abzeichen: $1"
+  },
+  "rewardAlsoWatch": {
+    "message": "Plus $1 Zuschauen"
+  },
+  "rewardClaimable": {
+    "message": "Bereit zum Einlösen"
   },
   "notEarnableByWatching": {
     "message": "Nicht durch Zuschauen erhältlich"
@@ -757,6 +793,12 @@
   },
   "campaignRejectionNotPinned": {
     "message": "Derzeit werden nur angeheftete Kampagnen gefarmt."
+  },
+  "campaignRejectionRewardType": {
+    "message": "Keine ihrer Belohnungen gehört zu den Typen, die du farmst."
+  },
+  "campaignRejectionRewardTypesObtained": {
+    "message": "Ihre Belohnungen der Typen, die du farmst, sind verdient."
   },
   "campaignRejectionNoRewards": {
     "message": "Diese Kampagne hat keine farmbaren Belohnungen."
@@ -1853,12 +1895,6 @@
   "navWatchingNow": {
     "message": "Wird gerade geschaut"
   },
-  "watchSourcePosition": {
-    "message": "$1 · $2 von $3"
-  },
-  "watchSourceChangeOrder": {
-    "message": "Reihenfolge der Quellen ändern"
-  },
   "gamesFavouritesGroup": {
     "message": "Favoriten"
   },
@@ -1963,5 +1999,17 @@
   },
   "navGroupOthers": {
     "message": "Sonstiges"
+  },
+  "kickLevelSummary": {
+    "message": "Kick-Level $1 · $2 % bis Level $3"
+  },
+  "kickLevelShort": {
+    "message": "Lv. $1"
+  },
+  "kickLevelXp": {
+    "message": "$1 / $2 XP"
+  },
+  "kickStreakDays": {
+    "message": "$1 Tage Zuschau-Serie"
   }
 }

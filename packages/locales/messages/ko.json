@@ -1,0 +1,2015 @@
+{
+  "extensionName": {
+    "message": "Lurkloot"
+  },
+  "extensionStoreName": {
+    "message": "Lurkloot - Twitch & Kick 드롭 파밍"
+  },
+  "extensionDescription": {
+    "message": "일반 브라우저 세션, 보이는 음소거 탭, 선택적 저자원 모드로 Twitch와 Kick 드롭을 파밍합니다."
+  },
+  "promoTagline": {
+    "message": "Twitch와 Kick 드롭을 자동으로 파밍하세요."
+  },
+  "languageBrowser": {
+    "message": "브라우저 언어 사용"
+  },
+  "languageEnglish": {
+    "message": "영어"
+  },
+  "languageSpanish": {
+    "message": "스페인어"
+  },
+  "languageFrench": {
+    "message": "프랑스어"
+  },
+  "languageItalian": {
+    "message": "이탈리아어"
+  },
+  "languageRussian": {
+    "message": "러시아어"
+  },
+  "languageGerman": {
+    "message": "독일어"
+  },
+  "languageChinese": {
+    "message": "중국어"
+  },
+  "languageHindi": {
+    "message": "힌디어"
+  },
+  "languagePortuguese": {
+    "message": "포르투갈어"
+  },
+  "languageArabic": {
+    "message": "아랍어"
+  },
+  "languageTurkish": {
+    "message": "터키어"
+  },
+  "languageJapanese": {
+    "message": "일본어"
+  },
+  "languageIndonesian": {
+    "message": "인도네시아어"
+  },
+  "languagePolish": {
+    "message": "폴란드어"
+  },
+  "languageKorean": {
+    "message": "한국어"
+  },
+  "languageUkrainian": {
+    "message": "우크라이나어"
+  },
+  "languageCzech": {
+    "message": "체코어"
+  },
+  "settingsLanguageTitle": {
+    "message": "언어"
+  },
+  "settingsLanguageDescription": {
+    "message": "팝업과 확장 프로그램 알림에 사용할 언어를 선택하세요."
+  },
+  "navWorkspace": {
+    "message": "작업 공간"
+  },
+  "navPlatform": {
+    "message": "플랫폼"
+  },
+  "navGroupDrops": {
+    "message": "Drops"
+  },
+  "navQueue": {
+    "message": "대기열"
+  },
+  "navCompleted": {
+    "message": "완료됨"
+  },
+  "navGames": {
+    "message": "게임"
+  },
+  "navIdleWatchlist": {
+    "message": "Idle Watchlist"
+  },
+  "navActivity": {
+    "message": "활동"
+  },
+  "navSettings": {
+    "message": "설정"
+  },
+  "queueGroupPinned": {
+    "message": "고정됨"
+  },
+  "queueGroupPinnedHint": {
+    "message": "드래그해 순서를 바꾸거나 순위를 입력하세요"
+  },
+  "queueGroupFavourite": {
+    "message": "즐겨찾는 게임"
+  },
+  "queueGroupStrategy": {
+    "message": "그다음 기준"
+  },
+  "queueNotInQueue": {
+    "message": "대기열에 없음"
+  },
+  "queueSkipped": {
+    "message": "건너뜀"
+  },
+  "queueActionRequired": {
+    "message": "조치 필요"
+  },
+  "queueActionRequiredHint": {
+    "message": "Lurkloot 밖에서 구독이나 다른 단계가 필요합니다. 고정과 즐겨찾기는 순서만 바꿉니다."
+  },
+  "queueUpcoming": {
+    "message": "예정"
+  },
+  "queueStrategyLabel": {
+    "message": "그다음 기준"
+  },
+  "queueFarmPinnedOnly": {
+    "message": "고정된 항목만 파밍"
+  },
+  "queueUnpinAll": {
+    "message": "모두 고정 해제 ($1)"
+  },
+  "queueUnpin": {
+    "message": "고정 해제"
+  },
+  "queueFacetLabel": {
+    "message": "캠페인 유형"
+  },
+  "queueFacetAll": {
+    "message": "전체"
+  },
+  "queueFacetNoSubscription": {
+    "message": "구독 불필요"
+  },
+  "queueFacetSubscription": {
+    "message": "구독 필요"
+  },
+  "queueFacetBadge": {
+    "message": "배지"
+  },
+  "queueFixInclude": {
+    "message": "포함"
+  },
+  "queueFixPin": {
+    "message": "고정"
+  },
+  "queueFixFarmAll": {
+    "message": "모두 파밍"
+  },
+  "queueFixGames": {
+    "message": "게임 열기"
+  },
+  "queueFixSettings": {
+    "message": "설정 열기"
+  },
+  "queueEmpty": {
+    "message": "지금은 여기서 파밍할 항목이 없습니다."
+  },
+  "queueEmptyRewardTypes": {
+    "message": "선택한 유형 중 지금 파밍할 수 있는 항목이 없습니다."
+  },
+  "completedTabFinished": {
+    "message": "완료"
+  },
+  "completedTabExpired": {
+    "message": "만료됨"
+  },
+  "completedEmptyFinished": {
+    "message": "모든 보상을 받으면 캠페인이 여기에 표시됩니다."
+  },
+  "completedEmptyExpired": {
+    "message": "끝까지 완료하지 못한 캠페인이 여기에 표시됩니다."
+  },
+  "settingsTitle": {
+    "message": "설정"
+  },
+  "settingsSearchPlaceholder": {
+    "message": "설정 검색…"
+  },
+  "settingsSearchNoResults": {
+    "message": "“$1”과(와) 일치하는 설정이 없습니다."
+  },
+  "settingsPlatformSettings": {
+    "message": "$1 설정"
+  },
+  "settingsShowAdvancedTitle": {
+    "message": "고급 설정 표시"
+  },
+  "settingsSectionJumpNavLabel": {
+    "message": "섹션으로 이동"
+  },
+  "settingsSectionAdvancedActions": {
+    "message": "고급 작업"
+  },
+  "settingsSectionAdvancedActionsDescription": {
+    "message": "Lurkloot 설정을 가져오거나 내보내거나 초기화합니다."
+  },
+  "activityTitle": {
+    "message": "활동"
+  },
+  "activeStatus": {
+    "message": "활성"
+  },
+  "pausedStatus": {
+    "message": "일시 중지됨"
+  },
+  "refreshSchedule": {
+    "message": "일정 새로고침"
+  },
+  "openInventory": {
+    "message": "인벤토리 열기"
+  },
+  "openActivity": {
+    "message": "활동 열기"
+  },
+  "closeActivity": {
+    "message": "활동 닫기"
+  },
+  "openSettings": {
+    "message": "설정 열기"
+  },
+  "closeSettings": {
+    "message": "설정 닫기"
+  },
+  "back": {
+    "message": "뒤로"
+  },
+  "loading": {
+    "message": "로딩 중"
+  },
+  "dropsTab": {
+    "message": "Drops"
+  },
+  "idleWatchlistTab": {
+    "message": "대기 시청 목록"
+  },
+  "automationTitle": {
+    "message": "$1 자동화"
+  },
+  "automationRunning": {
+    "message": "실행 중"
+  },
+  "automationStarting": {
+    "message": "시작 중"
+  },
+  "automationStopping": {
+    "message": "중지 중"
+  },
+  "startingAutomation": {
+    "message": "자동화를 시작하는 중…"
+  },
+  "pausingAutomation": {
+    "message": "자동화를 일시 중지하는 중…"
+  },
+  "watchingLabel": {
+    "message": "시청 중"
+  },
+  "farmingLabel": {
+    "message": "파밍 중"
+  },
+  "waitingEligibleStream": {
+    "message": "이 캠페인에 해당하는 적격 라이브 스트림이 현재 없습니다"
+  },
+  "watchingPausedHint": {
+    "message": "시청이 일시 중지되었습니다. 토글하여 드롭 파밍을 재개하세요."
+  },
+  "hideTipsTitle": {
+    "message": "팁 숨기기"
+  },
+  "hideTipsDescription": {
+    "message": "메인 팝업에서 도움말 팁을 제거합니다."
+  },
+  "inPagePanelTitle": {
+    "message": "Twitch와 Kick에 패널 표시"
+  },
+  "inPagePanelDescription": {
+    "message": "twitch.tv와 kick.com에 Lurkloot 버튼을 추가해 페이지 패널에서 이 팝업을 엽니다."
+  },
+  "tipCampaignPriority": {
+    "message": "캠페인을 드래그해 맨 위에 고정하거나, 게임에 별을 표시해 해당 캠페인이 항상 높은 순위를 갖게 하세요. 나머지는 대기열에서 선택한 순서를 따릅니다."
+  },
+  "tipMissingCampaigns": {
+    "message": "캠페인이 보이지 않나요? 플랫폼의 Drops 인벤토리를 확인한 뒤 설정의 캠페인 필터를 검토하세요."
+  },
+  "tipCategorySelection": {
+    "message": "게임 보기에서 어떤 게임을 파밍할지, 어떤 게임이 먼저 올지, 어떤 게임은 파밍하지 않을지 결정합니다."
+  },
+  "tipIdleWatchlist": {
+    "message": "플랫폼 설정에서 시청 소스 우선순위를 바꿔 Idle Watchlist 채널을 언제 시청할지 선택하세요."
+  },
+  "tipTablessMode": {
+    "message": "탭 없는 모드는 리소스를 덜 쓰며, 필요할 때 음소거 탭으로 전환합니다."
+  },
+  "tipCli": {
+    "message": "확장 프로그램 없이 실행하고 싶으신가요? Lurkloot는 Docker 기반 CLI로도 사용할 수 있습니다."
+  },
+  "tipCliAction": {
+    "message": "CLI 가이드 읽기"
+  },
+  "tipFeedback": {
+    "message": "버그를 찾으셨거나 아이디어가 있으신가요?"
+  },
+  "tipFeedbackAction": {
+    "message": "GitHub 이슈 열기"
+  },
+  "tipExcludedCampaigns": {
+    "message": "캠페인을 실수로 제외하셨나요? 대기열의 건너뜀 아래에 있으며, 다시 넣는 버튼이 있습니다."
+  },
+  "tipTranslations": {
+    "message": "번역은 AI로 자동 유지됩니다. GitHub에서 개선에 참여해 주세요."
+  },
+  "tipTranslationsAction": {
+    "message": "번역 가이드 읽기"
+  },
+  "noCampaigns": {
+    "message": "아직 발견된 캠페인이 없습니다."
+  },
+  "campaignSearchPlaceholder": {
+    "message": "캠페인 검색…"
+  },
+  "campaignSearchNoResults": {
+    "message": "“$1”과(와) 일치하는 캠페인이 없습니다."
+  },
+  "closeSearch": {
+    "message": "검색 닫기"
+  },
+  "search": {
+    "message": "검색"
+  },
+  "noActivity": {
+    "message": "아직 기록된 활동이 없습니다. 새로고침을 눌러 확인을 실행하세요."
+  },
+  "noDiagnostics": {
+    "message": "아직 기록된 진단이 없습니다. 확장 프로그램이 동작하면 표시됩니다."
+  },
+  "searchDiagnostics": {
+    "message": "진단 검색"
+  },
+  "noDiagnosticsMatch": {
+    "message": "\"$1\"과(와) 일치하는 진단이 없습니다."
+  },
+  "platformActivity": {
+    "message": "$1 활동"
+  },
+  "platformDiagnostics": {
+    "message": "$1 진단"
+  },
+  "lastCheck": {
+    "message": "마지막 확인 $1"
+  },
+  "noChecksYet": {
+    "message": "아직 확인 없음"
+  },
+  "debug": {
+    "message": "디버그"
+  },
+  "info": {
+    "message": "정보"
+  },
+  "warn": {
+    "message": "경고"
+  },
+  "error": {
+    "message": "오류"
+  },
+  "notLinked": {
+    "message": "연결되지 않음"
+  },
+  "subscriptionCampaigns": {
+    "message": "구독 캠페인"
+  },
+  "subscriptionRequired": {
+    "message": "구독 필요"
+  },
+  "subscriptionRewards": {
+    "message": "구독 보상"
+  },
+  "qualifyingSubscriptionsRequired": {
+    "message": "적격 구독 $1개 필요"
+  },
+  "subscriptionProgressUnknown": {
+    "message": "진행 상황을 알 수 없음"
+  },
+  "rewardBadge": {
+    "message": "배지"
+  },
+  "rewardBadgeNamed": {
+    "message": "배지: $1"
+  },
+  "rewardAlsoWatch": {
+    "message": "추가로 $1 시청"
+  },
+  "rewardClaimable": {
+    "message": "수령 가능"
+  },
+  "notEarnableByWatching": {
+    "message": "시청으로는 획득할 수 없음"
+  },
+  "subscribedRefresh": {
+    "message": "구독했습니다 — 상태 새로고침"
+  },
+  "subscriptionMarkSubscribed": {
+    "message": "구독함으로 표시"
+  },
+  "subscriptionMarkedSubscribed": {
+    "message": "구독함으로 표시됨"
+  },
+  "subscriptionMarkUndo": {
+    "message": "실행 취소"
+  },
+  "waitingForSubscription": {
+    "message": "적격 구독을 기다리는 중"
+  },
+  "actionRequired": {
+    "message": "조치 필요"
+  },
+  "earned": {
+    "message": "획득함"
+  },
+  "linkAccount": {
+    "message": "계정 연결"
+  },
+  "externalGameAccountRequired": {
+    "message": "외부 게임 계정 필요"
+  },
+  "linkExternalGameAccount": {
+    "message": "외부 게임 계정 연결"
+  },
+  "viewDropPage": {
+    "message": "드롭 페이지 보기"
+  },
+  "campaignDropDetails": {
+    "message": "드롭 상세"
+  },
+  "campaignCategoryDrops": {
+    "message": "카테고리 드롭"
+  },
+  "upcoming": {
+    "message": "예정"
+  },
+  "expired": {
+    "message": "만료됨"
+  },
+  "excluded": {
+    "message": "제외됨"
+  },
+  "finished": {
+    "message": "완료"
+  },
+  "completedCampaigns": {
+    "message": "완료됨"
+  },
+  "upcomingPill": {
+    "message": "예정"
+  },
+  "expiredPill": {
+    "message": "만료됨"
+  },
+  "complete": {
+    "message": "완료"
+  },
+  "startsIn": {
+    "message": "$1 후 시작"
+  },
+  "endsIn": {
+    "message": "$1 후 종료"
+  },
+  "watchToGo": {
+    "message": "시청 $1 남음"
+  },
+  "left": {
+    "message": "남음"
+  },
+  "campaignFactWatchTime": {
+    "message": "시청 시간"
+  },
+  "watchTimeLeftValue": {
+    "message": "$1 남음"
+  },
+  "watchTimeNeeded": {
+    "message": "$1 필요"
+  },
+  "watchTimeOfTotal": {
+    "message": "총 $1 중"
+  },
+  "done": {
+    "message": "완료"
+  },
+  "rewards": {
+    "message": "보상"
+  },
+  "allChannels": {
+    "message": "모든 채널"
+  },
+  "includeInFarming": {
+    "message": "파밍에 포함"
+  },
+  "excludeFromFarming": {
+    "message": "파밍에서 제외"
+  },
+  "noIdleWatchlist": {
+    "message": "구성된 Idle Watchlist 채널이 없습니다."
+  },
+  "channelPlaceholder": {
+    "message": "채널"
+  },
+  "add": {
+    "message": "추가"
+  },
+  "addChannel": {
+    "message": "채널 추가"
+  },
+  "idleWatchlistChannel": {
+    "message": "오프라인"
+  },
+  "live": {
+    "message": "라이브"
+  },
+  "viewerCount": {
+    "message": "시청자 $1명"
+  },
+  "settingsGeneralTitle": {
+    "message": "일반 설정"
+  },
+  "settingsGeneralDescription": {
+    "message": "언어, 시작, 팝업 동작."
+  },
+  "settingsGroupAppearance": {
+    "message": "모양 및 동작"
+  },
+  "pauseManualTitle": {
+    "message": "직접 시청할 때 일시 중지"
+  },
+  "pauseManualDescription": {
+    "message": "스트림을 열어 직접 시청하는 동안 파밍을 중지합니다."
+  },
+  "autoStartTitle": {
+    "message": "실행 시 자동 시작"
+  },
+  "autoStartDescription": {
+    "message": "확장 프로그램이 로드되면 바로 파밍을 시작합니다."
+  },
+  "notificationsTitle": {
+    "message": "알림"
+  },
+  "notificationsDescription": {
+    "message": "보상을 받을 수 있거나 캠페인이 끝날 때 알립니다."
+  },
+  "settingsGroupNotifications": {
+    "message": "알림"
+  },
+  "rewardEarnedTitle": {
+    "message": "보상 획득"
+  },
+  "rewardEarnedDescription": {
+    "message": "드롭 보상을 받을 수 있을 때 알립니다."
+  },
+  "noDropsLeftTitle": {
+    "message": "남은 드롭 없음"
+  },
+  "noDropsLeftDescription": {
+    "message": "활성 캠페인이 모두 소진되면 알립니다."
+  },
+  "dropsSettingsTitle": {
+    "message": "Drops"
+  },
+  "dropsSettingsDescription": {
+    "message": "수령, 자격, 우선순위, 캠페인 표시."
+  },
+  "settingsGroupDrops": {
+    "message": "Drops"
+  },
+  "autoClaimTitle": {
+    "message": "드롭 자동 수령"
+  },
+  "autoClaimDescription": {
+    "message": "획득한 드롭 보상을 사용 가능해지면 자동으로 수령합니다."
+  },
+  "campaignPriorityTitle": {
+    "message": "캠페인 우선순위"
+  },
+  "campaignPriorityDescription": {
+    "message": "고정되지 않았거나 즐겨찾는 게임이 아닌 대기열 캠페인의 순서를 정합니다. 대기열의 그다음 기준 구분선에서도 변경할 수 있습니다."
+  },
+  "endingSoonest": {
+    "message": "곧 종료 순"
+  },
+  "lowAvailabilityFirst": {
+    "message": "채널 적음 우선"
+  },
+  "idleWatchlistSettingsTitle": {
+    "message": "대기 시청 목록"
+  },
+  "idleWatchlistSettingsDescription": {
+    "message": "적격 드롭이 없을 때 사용하는 대체 채널."
+  },
+  "preferKnownChannelsTitle": {
+    "message": "팔로우 및 Idle Watchlist 채널 우선"
+  },
+  "preferKnownChannelsDescription": {
+    "message": "여러 채널에서 드롭이 가능할 때, 모르는 채널보다 팔로우하거나 Idle Watchlist에 있는 채널을 선택합니다."
+  },
+  "platformSettingsTitle": {
+    "message": "플랫폼 설정"
+  },
+  "farmingTabsTitle": {
+    "message": "파밍 탭"
+  },
+  "farmingTabsDescription": {
+    "message": "동영상 탭 파밍 제어. 탭 없는 저자원 모드가 켜져 있으면 탭 관련 제어는 비활성화됩니다."
+  },
+  "settingsGroupFarmingTabs": {
+    "message": "파밍 탭"
+  },
+  "tablessTitle": {
+    "message": "탭 없는 저자원 모드"
+  },
+  "tablessDescription": {
+    "message": "동영상 탭 대신 가벼운 시청 신호로 파밍합니다. Twitch는 시청 heartbeat, Kick은 시청자 연결을 사용합니다. 진행이 멈추면 자동으로 탭으로 전환합니다."
+  },
+  "tablessFallbackFailureLimitTitle": {
+    "message": "탭 없음 전환 임계값"
+  },
+  "tablessFallbackFailureLimitDescription": {
+    "message": "탭 없는 시청 신호가 연속으로 이만큼 실패하면 동영상 탭을 엽니다."
+  },
+  "tablessFallbackFailureLimitDisabledReason": {
+    "message": "이 설정을 바꾸려면 탭 없는 저자원 모드를 켜세요."
+  },
+  "failuresSuffix": {
+    "message": "회 실패"
+  },
+  "kickPageContextRecoverySuccessesTitle": {
+    "message": "Kick 대체 페이지 복구"
+  },
+  "kickPageContextRecoverySuccessesDescription": {
+    "message": "새로고침 사이클이 이만큼 성공하면 확장 프로그램이 연 Kick 대체 페이지를 닫습니다."
+  },
+  "kickPageContextRecoverySuccessesDisabledReason": {
+    "message": "이 설정을 바꾸려면 Kick을 켜세요."
+  },
+  "cyclesSuffix": {
+    "message": "사이클"
+  },
+  "autoCloseTabsTitle": {
+    "message": "파밍 탭 자동 닫기"
+  },
+  "autoCloseTabsDescription": {
+    "message": "확장 프로그램이 유휴 상태일 때(파밍할 드롭이 없거나 시청할 스트리머가 없을 때) 자동으로 닫습니다."
+  },
+  "muteTabsTitle": {
+    "message": "파밍 탭 음소거"
+  },
+  "muteTabsDescription": {
+    "message": "파밍 중 드롭 및 Idle Watchlist 탭을 음소거 상태로 유지합니다."
+  },
+  "keepVideosUnmutedTitle": {
+    "message": "파밍 동영상 음소거 해제 유지"
+  },
+  "keepVideosUnmutedDescription": {
+    "message": "브라우저 탭은 음소거된 상태에서 페이지 동영상 플레이어는 음소거 해제를 유지합니다."
+  },
+  "tablessDisabledReason": {
+    "message": "탭 없는 저자원 모드가 켜져 있는 동안 비활성화됩니다."
+  },
+  "adFocusTitle": {
+    "message": "광고 중 탭 포커스"
+  },
+  "adFocusDescription": {
+    "message": "백그라운드 탭에서는 광고 카운트다운이 멈춥니다. 광고 재생 중 잠시 파밍 탭에 포커스를 주어 카운트다운이 진행되게 한 뒤 이전 탭으로 돌아갑니다."
+  },
+  "off": {
+    "message": "끔"
+  },
+  "tabOnly": {
+    "message": "탭만"
+  },
+  "tabAndWindow": {
+    "message": "탭 + 창"
+  },
+  "advancedTitle": {
+    "message": "고급"
+  },
+  "advancedDescription": {
+    "message": "무엇을 하는지 알 때만 변경하세요 — 스케줄러와 로깅의 저수준 동작을 제어합니다."
+  },
+  "settingsGroupAdvanced": {
+    "message": "고급"
+  },
+  "settingsGroupPlatformAdvanced": {
+    "message": "고급 및 호환성"
+  },
+  "twitchSectionDescription": {
+    "message": "시청 소스 우선순위, 채널 포인트, 카테고리, 제외 채널, Twitch 호환성."
+  },
+  "kickSectionDescription": {
+    "message": "시청 소스 우선순위, 일일 챌린지, 카테고리, 제외 채널, Kick 호환성."
+  },
+  "twitchAdvancedDescription": {
+    "message": "캠페인 가용성과 Lurkloot가 사용하는 heartbeat 및 인벤토리 전송. Twitch가 동작하지 않을 때만 변경하세요."
+  },
+  "kickAdvancedDescription": {
+    "message": "Lurkloot가 Kick 수령 링크를 여는 방식과 그에 따른 동작 프로필. Kick이 동작하지 않을 때만 변경하세요."
+  },
+  "schedulerIntervalTitle": {
+    "message": "스케줄러 간격"
+  },
+  "schedulerIntervalDescription": {
+    "message": "캠페인 및 스트리머 상태를 새로고침하는 주기."
+  },
+  "postClaimHandoffTitle": {
+    "message": "빠른 보상 전환"
+  },
+  "postClaimHandoffDescription": {
+    "message": "드롭을 수령한 뒤 다음 예약 주기를 기다리지 않고 캠페인의 다음 보상을 잠시 확인합니다. Twitch 전용."
+  },
+  "postClaimHandoffIntervalTitle": {
+    "message": "전환 확인 간격"
+  },
+  "postClaimHandoffIntervalDescription": {
+    "message": "다음 보상 확인 사이 대기 시간."
+  },
+  "postClaimHandoffMaxTitle": {
+    "message": "전환 시간 제한"
+  },
+  "postClaimHandoffMaxDescription": {
+    "message": "이 시간이 지나면 포기하고 일반 일정으로 돌아갑니다."
+  },
+  "secondsSuffix": {
+    "message": "초"
+  },
+  "deadlineSafetyMarginTitle": {
+    "message": "마감 안전 여유"
+  },
+  "deadlineSafetyMarginDescription": {
+    "message": "보상을 파밍하기 전에 필요한 추가 분."
+  },
+  "deadlineSafetyMarginDisabledReason": {
+    "message": "안전 여유를 바꾸려면 마감 필터를 켜세요."
+  },
+  "skipUnfinishableRewardsTitle": {
+    "message": "완료할 수 없는 보상 건너뛰기"
+  },
+  "skipUnfinishableRewardsDescription": {
+    "message": "남은 시청 시간이 마감까지의 시간을 초과하면 해당 보상은 파밍하지 않습니다."
+  },
+  "minutesSuffix": {
+    "message": "분"
+  },
+  "insufficientTimeRemaining": {
+    "message": "남은 시간 부족"
+  },
+  "campaignRejectionExcluded": {
+    "message": "이 캠페인은 파밍에서 제외되었습니다."
+  },
+  "campaignRejectionUpcoming": {
+    "message": "이 캠페인은 아직 시작되지 않았습니다."
+  },
+  "campaignRejectionExpired": {
+    "message": "이 캠페인은 종료되었습니다."
+  },
+  "campaignRejectionCompleted": {
+    "message": "이 캠페인의 모든 보상이 완료되었습니다."
+  },
+  "campaignRejectionUnlinkedDisabled": {
+    "message": "연결되지 않은 계정의 캠페인 파밍이 꺼져 있습니다."
+  },
+  "campaignRejectionTwitchLinkRequired": {
+    "message": "이 Twitch 캠페인에는 계정 연결이 필요합니다."
+  },
+  "campaignRejectionSubscriptionDisabled": {
+    "message": "구독 캠페인 파밍이 꺼져 있습니다."
+  },
+  "campaignRejectionCategoryFiltered": {
+    "message": "이 캠페인은 선택한 카테고리와 일치하지 않습니다."
+  },
+  "campaignRejectionCategoryBlocked": {
+    "message": "이 게임은 차단되어 캠페인을 파밍하지 않습니다."
+  },
+  "campaignRejectionNotPinned": {
+    "message": "지금은 고정된 캠페인만 파밍합니다."
+  },
+  "campaignRejectionRewardType": {
+    "message": "보상 중 파밍하는 유형의 보상이 없습니다."
+  },
+  "campaignRejectionRewardTypesObtained": {
+    "message": "파밍하는 유형의 보상은 이미 획득했습니다."
+  },
+  "campaignRejectionNoRewards": {
+    "message": "이 캠페인에는 파밍할 보상이 없습니다."
+  },
+  "campaignRejectionNoUnclaimedRewards": {
+    "message": "이 캠페인에는 미수령 보상이 없습니다."
+  },
+  "campaignRejectionPrerequisites": {
+    "message": "$1(이)가 이전 보상 또는 요건을 기다리는 중입니다."
+  },
+  "campaignRejectionRewardNotStarted": {
+    "message": "$1(은)는 아직 사용할 수 없습니다."
+  },
+  "campaignRejectionRewardWindowEnded": {
+    "message": "$1(은)는 더 이상 사용할 수 없습니다."
+  },
+  "campaignRejectionInsufficientTime": {
+    "message": "$1(은)는 마감 전에 완료할 수 없습니다."
+  },
+  "campaignRejectionSubscriptionRequired": {
+    "message": "$1(은)는 적격 구독이 필요합니다."
+  },
+  "campaignRejectionActionRequired": {
+    "message": "$1(은)는 시청 외의 조치가 필요합니다."
+  },
+  "campaignRejectionThen": {
+    "message": "그다음: $1"
+  },
+  "campaignRejectionNoFarmableReward": {
+    "message": "이 캠페인에서 지금 파밍할 수 있는 보상이 없습니다."
+  },
+  "automationSectionTitle": {
+    "message": "자동화"
+  },
+  "farmOnPlatform": {
+    "message": "$1에서 드롭을 파밍하고 Idle Watchlist 채널을 시청합니다."
+  },
+  "enabled": {
+    "message": "켜짐"
+  },
+  "idleWatchlistEditHint": {
+    "message": "$1을(를) 선택한 뒤 Idle Watchlist 탭에서 편집하세요."
+  },
+  "autoClaimChannelPointsTitle": {
+    "message": "채널 포인트 자동 수령"
+  },
+  "autoClaimChannelPointsDescription": {
+    "message": "이 플랫폼을 파밍하는 동안 채널 포인트 보너스를 수령합니다."
+  },
+  "channelPointsPushClaimTitle": {
+    "message": "라이브 이벤트에서 채널 포인트 수령"
+  },
+  "channelPointsPushClaimDescription": {
+    "message": "Twitch에서 보너스를 제공하는 즉시 수령합니다. 끄면 1분에 한 번만 확인합니다."
+  },
+  "alwaysEnterChatTitle": {
+    "message": "항상 채널 채팅 참여"
+  },
+  "alwaysEnterChatDescription": {
+    "message": "시청 중인 각 채널의 채팅에 참여합니다. 스트리머와 모더레이터는 채팅 시청자 목록에서 볼 수 있습니다. 메시지는 전송되지 않습니다."
+  },
+  "chatPresenceJoined": {
+    "message": "채팅 참여 중"
+  },
+  "chatPresenceJoining": {
+    "message": "채팅 참여 중…"
+  },
+  "chatPresenceUnavailable": {
+    "message": "채팅 사용 불가"
+  },
+  "chatPresenceBlockedAuth": {
+    "message": "채팅 사용 불가: Twitch에 다시 로그인하세요"
+  },
+  "strictCampaignAvailabilityTitle": {
+    "message": "엄격한 캠페인 가용성"
+  },
+  "strictCampaignAvailabilityDescription": {
+    "message": "Twitch가 나열한 채널에서만 캠페인을 파밍합니다. Twitch가 파밍 가능한 캠페인을 빠뜨리는 경우가 많아 드롭을 놓칠 수 있습니다."
+  },
+  "autoClaimChallengesTitle": {
+    "message": "일일 챌린지 자동 수령"
+  },
+  "autoClaimChallengesDescription": {
+    "message": "Kick 일일 챌린지의 시청 시간 목표를 달성하면 보상을 수령합니다."
+  },
+  "settingsGroupExcludedChannels": {
+    "message": "제외 채널"
+  },
+  "excludedChannelsTitle": {
+    "message": "제외된 드롭 채널"
+  },
+  "excludedChannelsDescription": {
+    "message": "캠페인 파밍 시 이 스트리머는 건너뜁니다."
+  },
+  "excludedChannelsEmpty": {
+    "message": "제외된 드롭 채널이 없습니다."
+  },
+  "settingsGroupCategories": {
+    "message": "카테고리"
+  },
+  "categoryModeTitle": {
+    "message": "카테고리 필터"
+  },
+  "categoryModeDescription": {
+    "message": "모든 $1 카테고리를 파밍하거나, 선택한 카테고리만 포함하거나 제외합니다."
+  },
+  "categoryModeAll": {
+    "message": "모든 카테고리"
+  },
+  "categoryModeInclude": {
+    "message": "선택한 항목만"
+  },
+  "includeCategoriesInstruction": {
+    "message": "$1에서는 이 카테고리만 파밍합니다."
+  },
+  "categoriesToFarm": {
+    "message": "파밍할 카테고리"
+  },
+  "noCategoriesSelected": {
+    "message": "선택된 카테고리 없음 — $1에서 파밍할 항목이 없습니다. 아래에서 카테고리를 추가하세요."
+  },
+  "hasActiveDrops": {
+    "message": "활성 드롭 있음"
+  },
+  "otherCategories": {
+    "message": "기타 카테고리"
+  },
+  "searchCategories": {
+    "message": "$1 카테고리 검색"
+  },
+  "searching": {
+    "message": "검색 중…"
+  },
+  "noCategoriesFound": {
+    "message": "카테고리를 찾을 수 없습니다."
+  },
+  "alreadyAdded": {
+    "message": "이미 추가됨."
+  },
+  "activityLogLevelsTitle": {
+    "message": "활동 로그 수준"
+  },
+  "activityLogLevelsDescription": {
+    "message": "활동 로그에 기록할 수준을 선택하세요. 오류는 항상 보관됩니다."
+  },
+  "farmUnlinkedTitle": {
+    "message": "연결되지 않은 계정의 캠페인 파밍"
+  },
+  "farmUnlinkedDescription": {
+    "message": "끄면 계정 연결이 필요한 캠페인은 건너뜁니다. 켜져 있어도 플랫폼 요건으로 연결이 필요할 수 있습니다."
+  },
+  "farmSubscriptionTitle": {
+    "message": "구독이 필요한 캠페인 파밍"
+  },
+  "farmSubscriptionDescription": {
+    "message": "끄면 채널 구독이 필요한 보상이 있는 캠페인은 건너뜁니다."
+  },
+  "forgetExcludedTitle": {
+    "message": "제외한 캠페인 잊기"
+  },
+  "forgetExcludedDescription": {
+    "message": "파밍에서 제외한 모든 캠페인을 지웁니다."
+  },
+  "forget": {
+    "message": "잊기"
+  },
+  "unknownGame": {
+    "message": "알 수 없는 게임"
+  },
+  "noCategory": {
+    "message": "카테고리 없음"
+  },
+  "dropsCampaign": {
+    "message": "드롭 캠페인"
+  },
+  "later": {
+    "message": "나중"
+  },
+  "ended": {
+    "message": "종료됨"
+  },
+  "notificationRewardClaimed": {
+    "message": "보상 수령함"
+  },
+  "notificationRewardEarned": {
+    "message": "보상 획득"
+  },
+  "notificationNoDropsLeft": {
+    "message": "남은 드롭 없음"
+  },
+  "notificationRewardFromCampaign": {
+    "message": "$1 · $2"
+  },
+  "notificationChallengeClaimed": {
+    "message": "챌린지 보상 수령함"
+  },
+  "notificationChallengeReward": {
+    "message": "$1 카드를 $2 챌린지에서 획득했습니다."
+  },
+  "notificationNoDropsLeftMessage": {
+    "message": "$1에 파밍할 적격 드롭이 없습니다."
+  },
+  "screenshotHeroEyebrow": {
+    "message": "Twitch + Kick"
+  },
+  "screenshotHeroHeadline": {
+    "message": "다른 일을 하는 동안 드롭을 파밍하세요."
+  },
+  "screenshotHeroSubcopy": {
+    "message": "로그인된 세션에서 자동 수령. 비밀번호 불필요."
+  },
+  "screenshotExtrasEyebrow": {
+    "message": "캠페인 그 이상"
+  },
+  "screenshotExtrasHeadline": {
+    "message": "드롭만이 아닙니다."
+  },
+  "screenshotExtrasSubcopy": {
+    "message": "채널 포인트, Kick 챌린지, 2분 드롭 — 이것도 대신 수령합니다. 파밍할 것이 없을 때는 Idle Watchlist."
+  },
+  "screenshotExtrasPointsName": {
+    "message": "채널 포인트"
+  },
+  "screenshotExtrasPointsMeta": {
+    "message": "Twitch · 대신 수령"
+  },
+  "screenshotExtrasChallengesName": {
+    "message": "일일 챌린지"
+  },
+  "screenshotExtrasChallengesMeta": {
+    "message": "Kick · 대신 수령"
+  },
+  "screenshotExtrasWatchlistName": {
+    "message": "대기 시청 목록"
+  },
+  "screenshotExtrasWatchlistMeta": {
+    "message": "캠페인 사이에 스트리머를 시청"
+  },
+  "screenshotExtrasFlashName": {
+    "message": "2분 드롭"
+  },
+  "screenshotExtrasFlashMeta": {
+    "message": "Kick · 뜨는 대로 수집"
+  },
+  "screenshotEasyEyebrow": {
+    "message": "쉬운 사용"
+  },
+  "screenshotEasyHeadline": {
+    "message": "정말 간단합니다."
+  },
+  "screenshotEasyInstallTitle": {
+    "message": "설치"
+  },
+  "screenshotEasyInstallSub": {
+    "message": "Chrome Web Store. 계정 불필요."
+  },
+  "screenshotEasyPinTitle": {
+    "message": "고정"
+  },
+  "screenshotEasyPinSub": {
+    "message": "팝업을 클릭 한 번으로 열 수 있게 하세요."
+  },
+  "screenshotEasyEnableTitle": {
+    "message": "플랫폼 활성화"
+  },
+  "screenshotEasyEnableSub": {
+    "message": "Twitch, Kick, 또는 둘 다."
+  },
+  "screenshotEasyProfitTitle": {
+    "message": "파밍 시작"
+  },
+  "screenshotEasyProfitSub": {
+    "message": "파밍은 Lurkloot가. 다른 일은 여러분이."
+  },
+  "screenshotSettingsEyebrow": {
+    "message": "내 규칙"
+  },
+  "screenshotSettingsHeadline": {
+    "message": "원하는 대로 정확히 파밍하세요."
+  },
+  "screenshotSettingsSubcopy": {
+    "message": "우선순위, 게임, 탭 없는 모드, 자동 수령 — 플랫폼별로."
+  },
+  "screenshotUpdatedEyebrow": {
+    "message": "오픈 소스"
+  },
+  "screenshotUpdatedHeadline": {
+    "message": "기능이 풍부하고, 항상 업데이트됩니다."
+  },
+  "screenshotUpdatedSubcopy": {
+    "message": "Twitch와 Kick이 바뀔 때마다 자주 릴리스 — 아이디어와 개선을 환영합니다."
+  },
+  "screenshotUpdatedBrowsersTitle": {
+    "message": "Chromium 기반 브라우저"
+  },
+  "screenshotUpdatedBrowsersSub": {
+    "message": "Chrome Web Store 목록. 같은 확장 프로그램."
+  },
+  "screenshotUpdatedHeadlessTitle": {
+    "message": "CLI"
+  },
+  "screenshotUpdatedHeadlessSub": {
+    "message": "헤드리스. 같은 엔진."
+  },
+  "screenshotUpdatedDockerTitle": {
+    "message": "Docker"
+  },
+  "screenshotUpdatedDockerSub": {
+    "message": "같은 엔진. 컨테이너 안에서."
+  },
+  "screenshotUpdatedLicense": {
+    "message": "Apache-2.0"
+  },
+  "autoClaimReady": {
+    "message": "자동 수령 준비됨"
+  },
+  "attributionLinks": {
+    "message": "출처 링크"
+  },
+  "githubAttribution": {
+    "message": "GitHub의 Lurkloot"
+  },
+  "githubAttributionShort": {
+    "message": "GitHub"
+  },
+  "chromeWebStoreAttribution": {
+    "message": "Chrome Web Store의 Lurkloot"
+  },
+  "chromeWebStoreAttributionShort": {
+    "message": "Chrome"
+  },
+  "siteAttribution": {
+    "message": "Lurkloot 웹사이트"
+  },
+  "siteAttributionShort": {
+    "message": "웹사이트"
+  },
+  "updateNoticeTitle": {
+    "message": "Lurkloot가 $1(으)로 업데이트되었습니다"
+  },
+  "updateNoticeBody": {
+    "message": "새 기능과 변경 사항을 확인하세요."
+  },
+  "updateNoticeAction": {
+    "message": "변경 사항 보기"
+  },
+  "updateNoticeDismiss": {
+    "message": "업데이트 알림 닫기"
+  },
+  "rateNudgeTitle": {
+    "message": "Lurkloot가 마음에 드시나요?"
+  },
+  "rateNudgeBody": {
+    "message": "Chrome Web Store에 짧은 리뷰를 남겨 주시면 큰 도움이 됩니다."
+  },
+  "rateNudgeAction": {
+    "message": "평가하기"
+  },
+  "rateNudgeDismiss": {
+    "message": "나중에"
+  },
+  "githubStarNudgeTitle": {
+    "message": "Lurkloot는 오픈 소스입니다"
+  },
+  "githubStarNudgeBody": {
+    "message": "도움이 되었다면 GitHub star가 다른 사람이 찾는 데 도움이 됩니다. 기능과 번역 등 기여를 환영합니다."
+  },
+  "githubStarNudgeAction": {
+    "message": "GitHub에서 Star"
+  },
+  "removeItem": {
+    "message": "$1 제거"
+  },
+  "cliExportTitle": {
+    "message": "헤드리스 CLI"
+  },
+  "cliExportDescription": {
+    "message": "이 브라우저의 로그인 세션으로 Lurkloot CLI를 사용해 서버나 Docker에서 드롭 파밍을 실행합니다."
+  },
+  "cliExportHint": {
+    "message": "Twitch와 Kick 세션 토큰을 내보내 CLI의 “login --import”가 재사용할 수 있게 합니다. 파일은 비공개로 보관하세요 — 누구든 세션을 사용할 수 있습니다."
+  },
+  "cliExportConfirm": {
+    "message": "Twitch와 Kick 세션 토큰이 파일로 다운로드됩니다. 그 파일을 가진 사람은 해당 사이트에서 여러분처럼 행동할 수 있습니다. 계속할까요?"
+  },
+  "cliExportCancel": {
+    "message": "취소"
+  },
+  "cliExportConfirmButton": {
+    "message": "내보내기 확인"
+  },
+  "cliExportButton": {
+    "message": "자격 증명 내보내기"
+  },
+  "settingsExportTitle": {
+    "message": "설정 가져오기 / 내보내기"
+  },
+  "settingsExportHint": {
+    "message": "설정을 파일로 저장하거나 다른 브라우저에서 불러옵니다. Twitch 또는 Kick 로그인은 포함되지 않습니다."
+  },
+  "settingsExportButton": {
+    "message": "설정 내보내기"
+  },
+  "settingsImportButton": {
+    "message": "설정 가져오기"
+  },
+  "settingsImportConfirm": {
+    "message": "현재 설정이 선택한 파일의 설정으로 교체됩니다. 계속할까요?"
+  },
+  "settingsImportCancel": {
+    "message": "취소"
+  },
+  "settingsImportConfirmButton": {
+    "message": "파일 선택 후 가져오기"
+  },
+  "settingsImportFailed": {
+    "message": "해당 파일은 유효한 Lurkloot 설정 내보내기가 아닙니다."
+  },
+  "settingsExportFailed": {
+    "message": "Lurkloot가 설정을 내보내지 못했습니다. 다시 시도하세요."
+  },
+  "factoryResetTitle": {
+    "message": "Lurkloot 초기화"
+  },
+  "factoryResetHint": {
+    "message": "모든 Lurkloot 설정, 파밍 진행, 활동 기록을 지웁니다. Twitch와 Kick 계정 로그인은 유지됩니다."
+  },
+  "factoryResetButton": {
+    "message": "Lurkloot 초기화"
+  },
+  "factoryResetConfirm": {
+    "message": "파밍을 중지하고 Lurkloot가 연 탭을 닫으며 모든 Lurkloot 데이터를 영구 삭제합니다. Twitch와 Kick 로그인은 유지됩니다."
+  },
+  "factoryResetCancel": {
+    "message": "취소"
+  },
+  "factoryResetConfirmButton": {
+    "message": "모두 초기화"
+  },
+  "factoryResetProgress": {
+    "message": "초기화 중…"
+  },
+  "factoryResetFailed": {
+    "message": "Lurkloot가 완전히 초기화하지 못했습니다. 다시 시도하세요."
+  },
+  "factoryResetRetry": {
+    "message": "초기화 다시 시도"
+  },
+  "diagnosticLoggingTitle": {
+    "message": "진단 로그 포함"
+  },
+  "diagnosticLoggingDescription": {
+    "message": "문제 진단에 도움이 되는 추가 기술 세부 정보를 기록합니다. 일반 활동은 항상 보관됩니다."
+  },
+  "activityFarmingStarted": {
+    "message": "$1 파밍을 $2에서 시작했습니다."
+  },
+  "activityFarmingStopped": {
+    "message": "$1 파밍을 $2에서 중지했습니다: $3."
+  },
+  "activityRewardClaimed": {
+    "message": "$1을(를) $2에서 수령했습니다."
+  },
+  "activityChallengeClaimed": {
+    "message": "$1 카드를 $2 챌린지에서 수령했습니다"
+  },
+  "activityAuthHealthChanged": {
+    "message": "$1 인증이 $2에서 $3(으)로 변경되었습니다."
+  },
+  "activityCriticalFailureDetected": {
+    "message": "$1이(가) 동작하지 않습니다: $2."
+  },
+  "activityCriticalFailureCleared": {
+    "message": "$1 치명적 오류를 해제했습니다. 다시 시도합니다."
+  },
+  "criticalFailureReasonNoProgress": {
+    "message": "반복 오류에도 진행 없음"
+  },
+  "criticalFailureReasonPageContextChurn": {
+    "message": "탭이 계속 다시 열림"
+  },
+  "criticalFailureTitle": {
+    "message": "Lurkloot가 동작을 멈췄습니다"
+  },
+  "criticalFailureBodyNoProgress": {
+    "message": "오류가 반복되고 오랫동안 드롭 진행이 없습니다. 이 플랫폼에서 무언가 바뀌었을 가능성이 있으며 확장 프로그램이 더 이상 드롭을 획득할 수 없습니다."
+  },
+  "criticalFailureBodyTabChurn": {
+    "message": "탭이 계속 다시 열렸습니다. 브라우저를 정상적으로 사용할 수 있도록 다시 열기를 중단했으며 이 플랫폼의 파밍은 일시 중지되었습니다."
+  },
+  "criticalFailureCopyAndReport": {
+    "message": "로그 복사 및 이슈 열기"
+  },
+  "criticalFailureDismiss": {
+    "message": "해제하고 다시 시도"
+  },
+  "criticalFailureClipboardFallback": {
+    "message": "자동으로 복사하지 못했습니다. 선택해 복사한 뒤 이슈를 여세요."
+  },
+  "activityPageContextOpened": {
+    "message": "$1에서 백그라운드 컨텍스트를 열었습니다. $2"
+  },
+  "activityPageContextClosed": {
+    "message": "$1의 백그라운드 컨텍스트를 닫았습니다. $2"
+  },
+  "activityPageContextOpenReasonBackgroundRejected": {
+    "message": "Kick이 탭 없는 요청을 거부함"
+  },
+  "activityPageContextReasonManagedContextUnusable": {
+    "message": "이전 백그라운드 컨텍스트를 사용할 수 없음"
+  },
+  "activityPageContextCloseReasonBackgroundRecovered": {
+    "message": "탭 없는 요청이 복구됨"
+  },
+  "activityPageContextCloseReasonUserTabAvailable": {
+    "message": "기존 Kick 탭을 사용할 수 있게 됨"
+  },
+  "activityInterruption": {
+    "message": "파밍 중단: $1."
+  },
+  "activityInterruptionWithDetail": {
+    "message": "파밍 중단: $1 ($2)."
+  },
+  "activityReasonAutomationDisabled": {
+    "message": "자동화가 꺼짐"
+  },
+  "activityReasonPlatformDisabled": {
+    "message": "플랫폼이 꺼짐"
+  },
+  "activityReasonAuthenticationUnhealthy": {
+    "message": "인증을 사용할 수 없음"
+  },
+  "activityReasonPlatformBackoff": {
+    "message": "플랫폼이 일시적으로 백오프 중"
+  },
+  "activityReasonPlatformError": {
+    "message": "플랫폼 오류 발생"
+  },
+  "activityReasonCampaignIneligible": {
+    "message": "캠페인 자격 없음"
+  },
+  "activityReasonChannelExcluded": {
+    "message": "채널이 제외됨"
+  },
+  "activityReasonChannelOffline": {
+    "message": "채널이 오프라인됨"
+  },
+  "activityReasonChannelMismatch": {
+    "message": "채널이 더 이상 일치하지 않음"
+  },
+  "activityReasonWatchUnhealthy": {
+    "message": "시청 상태 확인 실패"
+  },
+  "activityReasonNoProgress": {
+    "message": "채널에서 드롭 진행 없음"
+  },
+  "activityReasonHigherPriorityReward": {
+    "message": "더 높은 우선순위 보상으로 전환"
+  },
+  "activityReasonHigherPriorityIdleWatchlist": {
+    "message": "더 높은 우선순위 Idle Watchlist 채널 사용 가능"
+  },
+  "activityReasonWatchRequirementCompleted": {
+    "message": "시청 요건 완료"
+  },
+  "activityReasonRuntimeRestart": {
+    "message": "확장 프로그램 재시작"
+  },
+  "activityReasonTargetChanged": {
+    "message": "파밍 대상 변경"
+  },
+  "activityReasonCriticalFailure": {
+    "message": "치명적 오류 감지"
+  },
+  "activityReasonManualWatch": {
+    "message": "직접 시청으로 전환"
+  },
+  "loadMoreActivity": {
+    "message": "더 불러오기"
+  },
+  "clearActivityHistory": {
+    "message": "기록 지우기"
+  },
+  "confirmClearActivityHistory": {
+    "message": "지우기 확인"
+  },
+  "clearActivityFailed": {
+    "message": "활동 기록을 지울 수 없습니다. 다시 시도하세요."
+  },
+  "copyActivityLog": {
+    "message": "로그 복사"
+  },
+  "copyLoadedActivityLog": {
+    "message": "불러온 항목 복사"
+  },
+  "copyActivityLogCopied": {
+    "message": "$1개 이벤트 복사됨"
+  },
+  "copyActivityLogFailed": {
+    "message": "로그를 복사할 수 없습니다. 다시 시도하세요."
+  },
+  "exportAllDiagnostics": {
+    "message": "모두 내보내기"
+  },
+  "exportAllDiagnosticsDone": {
+    "message": "$1개 이벤트 내보냄"
+  },
+  "exportAllDiagnosticsFailed": {
+    "message": "로그를 내보낼 수 없습니다. 다시 시도하세요."
+  },
+  "activityViewTab": {
+    "message": "활동"
+  },
+  "diagnosticsViewTab": {
+    "message": "진단"
+  },
+  "compatibilityAutomatic": {
+    "message": "자동"
+  },
+  "compatibilityTwitchProfileTitle": {
+    "message": "Twitch 호환성 프로필"
+  },
+  "compatibilityTwitchProfileDescription": {
+    "message": "번들 Twitch 프로필을 선택하거나 Lurkloot가 자동으로 선택하게 합니다."
+  },
+  "compatibilityKickProfileTitle": {
+    "message": "Kick 호환성 프로필"
+  },
+  "compatibilityKickProfileDescription": {
+    "message": "번들 Kick 프로필을 선택하거나 Lurkloot가 자동으로 선택하게 합니다."
+  },
+  "compatibilitySectionTitle": {
+    "message": "호환성"
+  },
+  "compatibilitySectionDescription": {
+    "message": "Twitch 또는 Kick이 동작하지 않을 때만 변경하세요. 플랫폼 문제를 우회하는 데 도움이 될 수 있습니다."
+  },
+  "compatibilityComponentProfile": {
+    "message": "프로필"
+  },
+  "compatibilityComponentHeartbeat": {
+    "message": "Heartbeat 전송"
+  },
+  "compatibilityComponentInventory": {
+    "message": "인벤토리 쿼리"
+  },
+  "compatibilityComponentClaim": {
+    "message": "수령 처리"
+  },
+  "compatibilityFromProfile": {
+    "message": "프로필에서"
+  },
+  "compatibilityOverridden": {
+    "message": "재정의됨"
+  },
+  "compatibilityReplacedBy": {
+    "message": "$1(으)로 대체됨"
+  },
+  "compatibilityTwitchHeartbeatTitle": {
+    "message": "Twitch heartbeat 전송"
+  },
+  "compatibilityTwitchHeartbeatDescription": {
+    "message": "번들 Twitch 시청 heartbeat를 재정의합니다."
+  },
+  "compatibilityTwitchInventoryTitle": {
+    "message": "Twitch 인벤토리 쿼리"
+  },
+  "compatibilityTwitchInventoryDescription": {
+    "message": "번들 Twitch 인벤토리 쿼리를 재정의합니다."
+  },
+  "compatibilityKickClaimTitle": {
+    "message": "Kick 수령 링크 처리"
+  },
+  "compatibilityKickClaimDescription": {
+    "message": "번들 Kick 계정 연결 처리를 재정의합니다."
+  },
+  "compatibilityLifecycleRecommended": {
+    "message": "권장"
+  },
+  "compatibilityLifecycleLegacy": {
+    "message": "레거시"
+  },
+  "compatibilityLifecycleExperimental": {
+    "message": "실험적"
+  },
+  "compatibilityOverrideWarning": {
+    "message": "수동 호환성 재정의가 활성화되어 있습니다. 플랫폼이 바뀌면 동작하지 않을 수 있습니다."
+  },
+  "compatibilityRestoreAutomatic": {
+    "message": "자동 호환성 복원"
+  },
+  "compatibilityOptionTwitchProfile202607": {
+    "message": "Twitch 2026년 7월"
+  },
+  "compatibilityOptionTwitchProfile202610": {
+    "message": "Twitch 2026년 10월"
+  },
+  "compatibilityOptionTwitchHeartbeatGqlV1": {
+    "message": "GraphQL 하트비트 v1"
+  },
+  "compatibilityOptionTwitchHeartbeatSpadeV1": {
+    "message": "Spade 하트비트 v1"
+  },
+  "compatibilityOptionTwitchHeartbeatHlsV1": {
+    "message": "HLS + Spade 하트비트 v1"
+  },
+  "compatibilityOptionTwitchHeartbeatTrowelV1": {
+    "message": "Trowel 하트비트 v1"
+  },
+  "compatibilityOptionTwitchInventoryV1": {
+    "message": "인벤토리 쿼리 v1"
+  },
+  "compatibilityOptionTwitchInventoryV2": {
+    "message": "인벤토리 쿼리 v2"
+  },
+  "compatibilityOptionKickProfile202607": {
+    "message": "Kick 2026년 7월"
+  },
+  "compatibilityOptionKickClaimV1": {
+    "message": "수령 처리 v1"
+  },
+  "compatibilityOptionKickClaimV2": {
+    "message": "수령 처리 v2"
+  },
+  "automationChecking": {
+    "message": "확인 중"
+  },
+  "automationNeedsSignIn": {
+    "message": "로그인 필요"
+  },
+  "automationBlocked": {
+    "message": "차단됨"
+  },
+  "automationUnavailable": {
+    "message": "사용 불가"
+  },
+  "authCheckingDetail": {
+    "message": "로그인 세션 확인 중…"
+  },
+  "authSignInMissing": {
+    "message": "드롭 파밍을 계속하려면 로그인하세요."
+  },
+  "authSignInRejected": {
+    "message": "세션이 더 이상 유효하지 않습니다. 계속하려면 다시 로그인하세요."
+  },
+  "signInToTwitch": {
+    "message": "Twitch에 로그인"
+  },
+  "signInToKick": {
+    "message": "Kick에 로그인"
+  },
+  "authBrowserProfileBlocked": {
+    "message": "Kick이 이 브라우저 프로필을 거부했습니다. 로그인만으로는 해결되지 않을 수 있습니다."
+  },
+  "authCredentialCheckUnavailable": {
+    "message": "브라우저 세션을 확인할 수 없습니다. Lurkloot가 자동으로 다시 시도합니다."
+  },
+  "authNetworkTemporarilyUnavailable": {
+    "message": "네트워크를 일시적으로 사용할 수 없습니다. Lurkloot가 자동으로 다시 시도합니다."
+  },
+  "authPlatformTemporarilyUnavailable": {
+    "message": "플랫폼을 일시적으로 사용할 수 없습니다. Lurkloot가 자동으로 다시 시도합니다."
+  },
+  "automationPausedTabClosed": {
+    "message": "일시 중지 — 탭 닫힘"
+  },
+  "watchTabClosedPauseDetail": {
+    "message": "파밍 탭을 닫아 Lurkloot가 여기서 파밍을 중지했습니다."
+  },
+  "resumeFarming": {
+    "message": "파밍 재개"
+  },
+  "activityReasonManualTabClose": {
+    "message": "파밍 탭 닫힘"
+  },
+  "activityReasonPermissionMissing": {
+    "message": "필요한 브라우저 권한 없음. 플랫폼을 다시 켜 권한을 부여하세요"
+  },
+  "automationPausedManualWatch": {
+    "message": "직접 시청"
+  },
+  "manualWatchPauseDetail": {
+    "message": "직접 스트림을 시청하는 동안 파밍이 일시 중지됩니다. 일시 중지하거나 닫거나 해당 탭에서 벗어나면 다음 확인에서 자동으로 재개됩니다."
+  },
+  "manualWatchPauseDetailNamed": {
+    "message": "직접 스트림을 시청하는 동안 파밍이 일시 중지됩니다."
+  },
+  "manualWatchPauseDetailNamedSuffix": {
+    "message": "— 일시 중지, 닫기, 또는 탭 전환으로 재개."
+  },
+  "reorderItem": {
+    "message": "$1 순서 변경"
+  },
+  "scrollRewardsLeft": {
+    "message": "보상 왼쪽으로 스크롤"
+  },
+  "scrollRewardsRight": {
+    "message": "보상 오른쪽으로 스크롤"
+  },
+  "activityExtensionGiveawayJoined": {
+    "message": "$1 경품 이벤트에 $2에서 참여했습니다."
+  },
+  "activityExtensionSpriteCaptured": {
+    "message": "$1 스프라이트를 $2에서 획득했습니다."
+  },
+  "activityExtensionTakeoverStarted": {
+    "message": "$1 테이크오버를 $2에서 시작했습니다."
+  },
+  "extensionSettingsTitle": {
+    "message": "Twitch 확장 프로그램"
+  },
+  "extensionDropsTitle": {
+    "message": "확장 프로그램"
+  },
+  "extensionSettingsHint": {
+    "message": "Twitch 탭 없이 extension 보상을 파밍합니다. Twitch 자동화, 제외, 수동 일시 중지가 적용됩니다."
+  },
+  "extensionNoPixelHint": {
+    "message": "일일 팩을 획득하고 경품에 참여하세요. 시청 시간 획득 시 시청 채널 채팅에 참여해 시청자 목록에 표시됩니다."
+  },
+  "extensionChatPresenceBlocked": {
+    "message": "채팅 미참여: 채팅 상태가 복구될 때까지 NoPixel 시청 시간이 쌓이지 않습니다"
+  },
+  "extensionFortniteHint": {
+    "message": "스프라이트를 모으고 단계 보상을 획득하세요."
+  },
+  "extensionIdentityRequired": {
+    "message": "extension 계정 연결"
+  },
+  "extensionPermissionRequired": {
+    "message": "활성화하려면 제공자 액세스 허용"
+  },
+  "extensionAuthRequired": {
+    "message": "Twitch에 로그인"
+  },
+  "extensionChannelRequired": {
+    "message": "적격 채널 찾는 중"
+  },
+  "extensionComplete": {
+    "message": "보상 획득함"
+  },
+  "extensionFarming": {
+    "message": "파밍 중"
+  },
+  "extensionPhaseClosed": {
+    "message": "열린 상호작용 단계 없음"
+  },
+  "extensionConnecting": {
+    "message": "연결 중"
+  },
+  "extensionUnavailable": {
+    "message": "일시적으로 사용 불가"
+  },
+  "extensionIdle": {
+    "message": "대기 중"
+  },
+  "extensionDailyPackProgress": {
+    "message": "일일 팩: $1/$2분"
+  },
+  "extensionCaptureProgress": {
+    "message": "수집: $1/$2"
+  },
+  "extensionTakeoversTitle": {
+    "message": "Fortnite 테이크오버 허용"
+  },
+  "extensionTakeoversHint": {
+    "message": "상호작용 단계 중 적격 테이크오버를 시작합니다. 기본값은 꺼짐."
+  },
+  "extensionAccountSetup": {
+    "message": "계정 설정"
+  },
+  "extensionGiveawayUnavailable": {
+    "message": "경품 확인 불가"
+  },
+  "extensionGiveawayEntered": {
+    "message": "경품 참여함"
+  },
+  "extensionGiveawayOpen": {
+    "message": "경품 진행 중"
+  },
+  "extensionRewardProgress": {
+    "message": "보상: $1/$2"
+  },
+  "extensionTakeoverActive": {
+    "message": "테이크오버 활성"
+  },
+  "extensionWatchtimeComplete": {
+    "message": "시청 시간 완료"
+  },
+  "extensionUnopenedPacks": {
+    "message": "미개봉 팩: $1"
+  },
+  "extensionPackCheckUnavailable": {
+    "message": "팩 배달 확인 불가"
+  },
+  "extensionAutoOpenPacksTitle": {
+    "message": "NoPixelV 팩 자동 개봉"
+  },
+  "extensionAutoOpenPacksHint": {
+    "message": "미개봉 팩에서 카드를 공개합니다. 팩이 소모되며 되돌릴 수 없습니다."
+  },
+  "activityExtensionPackOpened": {
+    "message": "$1(이)가 $2에서 카드 팩을 개봉했습니다"
+  },
+  "watchSourcePriorityTitle": {
+    "message": "시청 소스 우선순위"
+  },
+  "watchSourcePriorityDescription": {
+    "message": "사용 가능한 첫 소스를 시청합니다. 꺼져 있거나 사용 불가인 소스는 건너뜁니다."
+  },
+  "watchSourcePriorityMoveUp": {
+    "message": "$1 위로 이동"
+  },
+  "watchSourcePriorityMoveDown": {
+    "message": "$1 아래로 이동"
+  },
+  "watchSourcePriorityReset": {
+    "message": "우선순위 초기화"
+  },
+  "watchSourcePriorityMoved": {
+    "message": "$1(이)가 우선순위 $2입니다."
+  },
+  "watchSourcePriorityResetDone": {
+    "message": "시청 소스 우선순위를 초기화했습니다."
+  },
+  "watchSourceDrops": {
+    "message": "Drops"
+  },
+  "watchSourceIdleWatchlist": {
+    "message": "대기 시청 목록"
+  },
+  "watchSourceNoPixel": {
+    "message": "NoPixelV"
+  },
+  "watchSourceFortnite": {
+    "message": "Fortnite"
+  },
+  "gamesStarHint": {
+    "message": "★는 게임을 전략보다 위에 둡니다"
+  },
+  "gamesFavourite": {
+    "message": "$1을(를) 전략보다 위에 두기"
+  },
+  "gamesUnfavourite": {
+    "message": "$1을(를) 전략보다 위에 두지 않기"
+  },
+  "gamesBlock": {
+    "message": "$1 파밍 안 함"
+  },
+  "gamesUnblock": {
+    "message": "차단 해제"
+  },
+  "gamesBlocked": {
+    "message": "차단됨"
+  },
+  "gamesBlockedHint": {
+    "message": "두 모드 모두 파밍하지 않음"
+  },
+  "gamesBlockedKeepsStar": {
+    "message": "파밍 안 함 · 나중을 위해 별 유지"
+  },
+  "gamesCampaignCount": {
+    "message": "라이브 캠페인 $1개"
+  },
+  "gamesCampaignCountOne": {
+    "message": "라이브 캠페인 1개"
+  },
+  "gamesNoCampaigns": {
+    "message": "지금 캠페인 없음"
+  },
+  "gamesFarmGame": {
+    "message": "$1 파밍"
+  },
+  "gamesEmpty": {
+    "message": "지금 라이브 $1 캠페인이 없습니다."
+  },
+  "inPageOpenPanel": {
+    "message": "Lurkloot 열기"
+  },
+  "inPageAddToWatchlist": {
+    "message": "$1을(를) idle watchlist에 추가"
+  },
+  "inPageRemoveFromWatchlist": {
+    "message": "$1을(를) idle watchlist에서 제거"
+  },
+  "navNoPixel": {
+    "message": "NoPixel V"
+  },
+  "navFortnite": {
+    "message": "Fortnite"
+  },
+  "gamesBlockedEmpty": {
+    "message": "차단된 항목이 없습니다. 게임의 ⊘로 두 모드 모두에서 파밍하지 않게 할 수 있습니다."
+  },
+  "campaignRewardsProgress": {
+    "message": "보상 $1/$2"
+  },
+  "campaignTimeLeft": {
+    "message": "$1 남음"
+  },
+  "campaignFactStarts": {
+    "message": "시작"
+  },
+  "campaignFactStarted": {
+    "message": "시작됨"
+  },
+  "campaignFactEnds": {
+    "message": "종료"
+  },
+  "relativeIn": {
+    "message": "$1 후"
+  },
+  "relativeAgo": {
+    "message": "$1 전"
+  },
+  "campaignLasts": {
+    "message": "$1 동안 진행"
+  },
+  "campaignFactEnded": {
+    "message": "종료됨"
+  },
+  "campaignFactWatching": {
+    "message": "시청 중"
+  },
+  "campaignFactChannels": {
+    "message": "채널"
+  },
+  "campaignFactNextReward": {
+    "message": "다음 보상"
+  },
+  "campaignFactWhyRank": {
+    "message": "이 순위인 이유"
+  },
+  "campaignMoreChannels": {
+    "message": "+$1 더"
+  },
+  "campaignFewerChannels": {
+    "message": "간략히 보기"
+  },
+  "campaignExclude": {
+    "message": "제외"
+  },
+  "campaignCategoryBlocked": {
+    "message": "$1 차단됨"
+  },
+  "campaignPinToTop": {
+    "message": "맨 위에 고정"
+  },
+  "campaignPinnedAt": {
+    "message": "고정됨 · $1"
+  },
+  "campaignFavourite": {
+    "message": "$1 즐겨찾기"
+  },
+  "campaignFavouriteOn": {
+    "message": "$1(은)는 즐겨찾기"
+  },
+  "campaignExcludeThis": {
+    "message": "이 캠페인만"
+  },
+  "campaignExcludeThisHint": {
+    "message": "다른 $1 캠페인은 계속 파밍"
+  },
+  "campaignExcludeThisUndo": {
+    "message": "다시 선택하면 대기열에 캠페인 복구"
+  },
+  "campaignExcludeCategory": {
+    "message": "카테고리 “$1”"
+  },
+  "campaignExcludeCategoryHint": {
+    "message": "모든 $1 캠페인 차단, 지금과 이후"
+  },
+  "campaignExcludeCategoryUndo": {
+    "message": "다시 선택하면 게임 차단 해제"
+  },
+  "rewardMissed": {
+    "message": "시간 내 미획득"
+  },
+  "rankReasonPinned": {
+    "message": "$1에 고정"
+  },
+  "rankReasonFavourite": {
+    "message": "$1(은)는 즐겨찾기 $2"
+  },
+  "rankReasonEnding": {
+    "message": "아래 항목보다 먼저 종료"
+  },
+  "rankReasonAvailability": {
+    "message": "아래 항목보다 채널 적음"
+  },
+  "queueEditFavourites": {
+    "message": "편집"
+  },
+  "navWatchingNow": {
+    "message": "지금 시청 중"
+  },
+  "gamesFavouritesGroup": {
+    "message": "즐겨찾기"
+  },
+  "gamesFavouritesGroupHint": {
+    "message": "이 순서로, 전략보다 위에 배치"
+  },
+  "gamesOtherGroup": {
+    "message": "기타 게임"
+  },
+  "gamesOtherGroupAllHint": {
+    "message": "차단된 것 제외 모두 파밍"
+  },
+  "gamesOtherGroupIncludeHint": {
+    "message": "체크한 경우에만 파밍"
+  },
+  "watchSourcePlace": {
+    "message": "시청 순서: $1/$2"
+  },
+  "watchSourcePlaceFirst": {
+    "message": "다른 모든 소스보다 먼저 시청."
+  },
+  "watchSourcePlaceAfter": {
+    "message": "$1에 시청할 것이 없을 때 시청."
+  },
+  "watchSourceChangeOrderShort": {
+    "message": "순서 변경"
+  },
+  "railWhatsNew": {
+    "message": "새 소식"
+  },
+  "campaignShowDetails": {
+    "message": "상세 보기"
+  },
+  "campaignHideDetails": {
+    "message": "상세 숨기기"
+  },
+  "settingsGamesPointerTitle": {
+    "message": "게임 및 카테고리"
+  },
+  "settingsGamesPointerDescription": {
+    "message": "파밍할 $1 게임을 선택하고, 먼저 올 게임에 별을 표시하거나 차단하세요."
+  },
+  "settingsGamesPointerAction": {
+    "message": "게임 열기"
+  },
+  "idleWatchlistAddPlaceholder": {
+    "message": "채널 이름 또는 링크"
+  },
+  "idleWatchlistFull": {
+    "message": "목록이 가득 찼습니다($1개 채널). 추가하려면 하나를 제거하세요."
+  },
+  "idleWatchlistInvalid": {
+    "message": "채널 이름 또는 채널 링크를 입력하세요."
+  },
+  "idleWatchlistDuplicate": {
+    "message": "$1(은)는 이미 목록에 있습니다."
+  },
+  "idleWatchlistOrderTitle": {
+    "message": "시청 순서"
+  },
+  "idleWatchlistOrderHint": {
+    "message": "첫 라이브 채널을 시청"
+  },
+  "gamesModeAllDescription": {
+    "message": "라이브 드롭이 있는 모든 게임을 차단된 것 제외하고 파밍합니다."
+  },
+  "gamesModeIncludeDescription": {
+    "message": "체크한 게임만 파밍합니다."
+  },
+  "gamesStarLegend": {
+    "message": "게임을 전략보다 위에 둠"
+  },
+  "gamesBlockLegend": {
+    "message": "파밍하지 않음"
+  },
+  "gamesSearchPlaceholder": {
+    "message": "$1 게임 찾기 또는 추가"
+  },
+  "gamesAddGroup": {
+    "message": "$1에서 추가"
+  },
+  "gamesAddIncludeHint": {
+    "message": "게임 추가 시 체크됨"
+  },
+  "gamesAddAllHint": {
+    "message": "게임 추가 시 별 표시"
+  },
+  "gamesAddActionFarm": {
+    "message": "파밍"
+  },
+  "gamesAddActionFavourite": {
+    "message": "즐겨찾기"
+  },
+  "gamesNoMoreResults": {
+    "message": "다른 게임을 찾을 수 없습니다."
+  },
+  "navBeta": {
+    "message": "Beta"
+  },
+  "navExtensions": {
+    "message": "확장 프로그램"
+  },
+  "navGroupOthers": {
+    "message": "기타"
+  },
+  "kickLevelSummary": {
+    "message": "Kick 레벨 $1 · 레벨 $3까지 $2%"
+  },
+  "kickLevelShort": {
+    "message": "Lv $1"
+  },
+  "kickLevelXp": {
+    "message": "$1 / $2 XP"
+  },
+  "kickStreakDays": {
+    "message": "$1일 연속 시청"
+  }
+}

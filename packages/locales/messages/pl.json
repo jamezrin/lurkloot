@@ -1,0 +1,2015 @@
+{
+  "extensionName": {
+    "message": "Lurkloot"
+  },
+  "extensionStoreName": {
+    "message": "Lurkloot — farmer dropów Twitch i Kick"
+  },
+  "extensionDescription": {
+    "message": "Farmuj dropy Twitch i Kick w normalnych sesjach przeglądarki, na widocznych wyciszonych kartach i opcjonalnie w trybie niskiego zużycia zasobów."
+  },
+  "promoTagline": {
+    "message": "Farmuj dropy Twitch i Kick na autopilocie."
+  },
+  "languageBrowser": {
+    "message": "Użyj języka przeglądarki"
+  },
+  "languageEnglish": {
+    "message": "angielski"
+  },
+  "languageSpanish": {
+    "message": "hiszpański"
+  },
+  "languageFrench": {
+    "message": "francuski"
+  },
+  "languageItalian": {
+    "message": "włoski"
+  },
+  "languageRussian": {
+    "message": "rosyjski"
+  },
+  "languageGerman": {
+    "message": "niemiecki"
+  },
+  "languageChinese": {
+    "message": "chiński"
+  },
+  "languageHindi": {
+    "message": "hindi"
+  },
+  "languagePortuguese": {
+    "message": "portugalski"
+  },
+  "languageArabic": {
+    "message": "arabski"
+  },
+  "languageTurkish": {
+    "message": "turecki"
+  },
+  "languageJapanese": {
+    "message": "japoński"
+  },
+  "languageIndonesian": {
+    "message": "indonezyjski"
+  },
+  "languagePolish": {
+    "message": "Polski"
+  },
+  "languageKorean": {
+    "message": "koreański"
+  },
+  "languageUkrainian": {
+    "message": "ukraiński"
+  },
+  "languageCzech": {
+    "message": "czeski"
+  },
+  "settingsLanguageTitle": {
+    "message": "Język"
+  },
+  "settingsLanguageDescription": {
+    "message": "Wybierz język okna popup i powiadomień rozszerzenia."
+  },
+  "navWorkspace": {
+    "message": "Obszar roboczy"
+  },
+  "navPlatform": {
+    "message": "Platforma"
+  },
+  "navGroupDrops": {
+    "message": "Drops"
+  },
+  "navQueue": {
+    "message": "Kolejka"
+  },
+  "navCompleted": {
+    "message": "Ukończone"
+  },
+  "navGames": {
+    "message": "Gry"
+  },
+  "navIdleWatchlist": {
+    "message": "Lista zapasowa"
+  },
+  "navActivity": {
+    "message": "Aktywność"
+  },
+  "navSettings": {
+    "message": "Ustawienia"
+  },
+  "queueGroupPinned": {
+    "message": "Przypięte"
+  },
+  "queueGroupPinnedHint": {
+    "message": "przeciągnij, aby zmienić kolejność, lub wpisz numer"
+  },
+  "queueGroupFavourite": {
+    "message": "Ulubione gry"
+  },
+  "queueGroupStrategy": {
+    "message": "Następnie według"
+  },
+  "queueNotInQueue": {
+    "message": "Poza kolejką"
+  },
+  "queueSkipped": {
+    "message": "Pominięte"
+  },
+  "queueActionRequired": {
+    "message": "Wymagane działanie"
+  },
+  "queueActionRequiredHint": {
+    "message": "Potrzebna subskrypcja lub inny krok poza Lurkloot. Przypięcia i ulubione zmieniają tylko kolejność."
+  },
+  "queueUpcoming": {
+    "message": "Nadchodzące"
+  },
+  "queueStrategyLabel": {
+    "message": "Następnie według"
+  },
+  "queueFarmPinnedOnly": {
+    "message": "Farmuj tylko przypięte"
+  },
+  "queueUnpinAll": {
+    "message": "Odepnij wszystkie ($1)"
+  },
+  "queueUnpin": {
+    "message": "Odepnij"
+  },
+  "queueFacetLabel": {
+    "message": "Typ kampanii"
+  },
+  "queueFacetAll": {
+    "message": "Wszystkie"
+  },
+  "queueFacetNoSubscription": {
+    "message": "Bez subskrypcji"
+  },
+  "queueFacetSubscription": {
+    "message": "Wymaga subskrypcji"
+  },
+  "queueFacetBadge": {
+    "message": "Odznaki"
+  },
+  "queueFixInclude": {
+    "message": "Uwzględnij"
+  },
+  "queueFixPin": {
+    "message": "Przypnij"
+  },
+  "queueFixFarmAll": {
+    "message": "Farmuj wszystko"
+  },
+  "queueFixGames": {
+    "message": "Otwórz Gry"
+  },
+  "queueFixSettings": {
+    "message": "Otwórz ustawienia"
+  },
+  "queueEmpty": {
+    "message": "Na razie nie ma tu nic do farmienia."
+  },
+  "queueEmptyRewardTypes": {
+    "message": "Nic z wybranych typów nie nadaje się teraz do farmienia."
+  },
+  "completedTabFinished": {
+    "message": "Ukończone"
+  },
+  "completedTabExpired": {
+    "message": "Wygasłe"
+  },
+  "completedEmptyFinished": {
+    "message": "Kampanie trafiają tutaj, gdy wszystkie nagrody zostaną odebrane."
+  },
+  "completedEmptyExpired": {
+    "message": "Kampanie trafiają tutaj, gdy zakończą się bez ukończenia."
+  },
+  "settingsTitle": {
+    "message": "Ustawienia"
+  },
+  "settingsSearchPlaceholder": {
+    "message": "Szukaj w ustawieniach…"
+  },
+  "settingsSearchNoResults": {
+    "message": "Brak ustawień pasujących do „$1”."
+  },
+  "settingsPlatformSettings": {
+    "message": "Ustawienia $1"
+  },
+  "settingsShowAdvancedTitle": {
+    "message": "Pokaż ustawienia zaawansowane"
+  },
+  "settingsSectionJumpNavLabel": {
+    "message": "Przejdź do sekcji"
+  },
+  "settingsSectionAdvancedActions": {
+    "message": "Działania zaawansowane"
+  },
+  "settingsSectionAdvancedActionsDescription": {
+    "message": "Importuj, eksportuj lub resetuj ustawienia Lurkloot."
+  },
+  "activityTitle": {
+    "message": "Aktywność"
+  },
+  "activeStatus": {
+    "message": "Aktywne"
+  },
+  "pausedStatus": {
+    "message": "Wstrzymane"
+  },
+  "refreshSchedule": {
+    "message": "Odśwież harmonogram"
+  },
+  "openInventory": {
+    "message": "Otwórz ekwipunek"
+  },
+  "openActivity": {
+    "message": "Otwórz aktywność"
+  },
+  "closeActivity": {
+    "message": "Zamknij aktywność"
+  },
+  "openSettings": {
+    "message": "Otwórz ustawienia"
+  },
+  "closeSettings": {
+    "message": "Zamknij ustawienia"
+  },
+  "back": {
+    "message": "Wstecz"
+  },
+  "loading": {
+    "message": "Ładowanie"
+  },
+  "dropsTab": {
+    "message": "Drops"
+  },
+  "idleWatchlistTab": {
+    "message": "Lista zapasowa"
+  },
+  "automationTitle": {
+    "message": "Automatyzacja $1"
+  },
+  "automationRunning": {
+    "message": "Działa"
+  },
+  "automationStarting": {
+    "message": "Uruchamianie"
+  },
+  "automationStopping": {
+    "message": "Zatrzymywanie"
+  },
+  "startingAutomation": {
+    "message": "Uruchamianie automatyzacji…"
+  },
+  "pausingAutomation": {
+    "message": "Wstrzymywanie automatyzacji…"
+  },
+  "watchingLabel": {
+    "message": "Oglądanie"
+  },
+  "farmingLabel": {
+    "message": "Farmienie"
+  },
+  "waitingEligibleStream": {
+    "message": "Brak kwalifikującej transmisji na żywo dla tej kampanii"
+  },
+  "watchingPausedHint": {
+    "message": "Oglądanie wstrzymane. Przełącz, aby wznowić farmienie dropów."
+  },
+  "hideTipsTitle": {
+    "message": "Ukryj wskazówki"
+  },
+  "hideTipsDescription": {
+    "message": "Usuń pomocne wskazówki z głównego okna popup."
+  },
+  "inPagePanelTitle": {
+    "message": "Pokaż panel na Twitch i Kick"
+  },
+  "inPagePanelDescription": {
+    "message": "Dodaje przycisk Lurkloot na twitch.tv i kick.com, który otwiera to okno popup w panelu na stronie."
+  },
+  "tipCampaignPriority": {
+    "message": "Przeciągnij kampanię, aby przypiąć ją na początku, lub oznacz grę gwiazdką, aby jej kampanie zawsze były wysoko. Reszta podąża za kolejnością wybraną w Kolejce."
+  },
+  "tipMissingCampaigns": {
+    "message": "Brakuje kampanii? Sprawdź ekwipunek dropów platformy, a potem filtry kampanii w Ustawieniach."
+  },
+  "tipCategorySelection": {
+    "message": "Widok Gry decyduje, które gry są farmione, które są pierwsze i których nigdy nie farmić."
+  },
+  "tipIdleWatchlist": {
+    "message": "Wybierz, kiedy oglądać kanały listy zapasowej, zmieniając priorytet źródeł oglądania w ustawieniach platformy."
+  },
+  "tipTablessMode": {
+    "message": "Tryb bez kart zużywa mniej zasobów i w razie potrzeby przechodzi na wyciszoną kartę."
+  },
+  "tipCli": {
+    "message": "Wolisz bez rozszerzenia? Lurkloot jest też dostępny jako CLI oparty na Dockerze."
+  },
+  "tipCliAction": {
+    "message": "Przeczytaj przewodnik CLI"
+  },
+  "tipFeedback": {
+    "message": "Znalazłeś błąd lub masz pomysł?"
+  },
+  "tipFeedbackAction": {
+    "message": "Otwórz zgłoszenie na GitHub"
+  },
+  "tipExcludedCampaigns": {
+    "message": "Wykluczyłeś kampanię przez pomyłkę? Jest w Pominięte w Kolejce, z przyciskiem, aby ją przywrócić."
+  },
+  "tipTranslations": {
+    "message": "Tłumaczenia są utrzymywane automatycznie przez AI. Pomóż je ulepszyć na GitHub."
+  },
+  "tipTranslationsAction": {
+    "message": "Przeczytaj przewodnik tłumaczeń"
+  },
+  "noCampaigns": {
+    "message": "Nie wykryto jeszcze kampanii."
+  },
+  "campaignSearchPlaceholder": {
+    "message": "Szukaj kampanii…"
+  },
+  "campaignSearchNoResults": {
+    "message": "Brak kampanii pasujących do „$1”."
+  },
+  "closeSearch": {
+    "message": "Zamknij wyszukiwanie"
+  },
+  "search": {
+    "message": "Szukaj"
+  },
+  "noActivity": {
+    "message": "Brak zapisanej aktywności. Naciśnij odśwież, aby uruchomić sprawdzenie."
+  },
+  "noDiagnostics": {
+    "message": "Brak zapisanych diagnostyk. Pojawiają się, gdy rozszerzenie pracuje."
+  },
+  "searchDiagnostics": {
+    "message": "Szukaj w diagnostyce"
+  },
+  "noDiagnosticsMatch": {
+    "message": "Brak diagnostyki pasującej do „$1”."
+  },
+  "platformActivity": {
+    "message": "Aktywność $1"
+  },
+  "platformDiagnostics": {
+    "message": "Diagnostyka $1"
+  },
+  "lastCheck": {
+    "message": "ostatnie sprawdzenie $1"
+  },
+  "noChecksYet": {
+    "message": "brak sprawdzeń"
+  },
+  "debug": {
+    "message": "Debug"
+  },
+  "info": {
+    "message": "Info"
+  },
+  "warn": {
+    "message": "Ostrzeżenie"
+  },
+  "error": {
+    "message": "Błąd"
+  },
+  "notLinked": {
+    "message": "Nie połączono"
+  },
+  "subscriptionCampaigns": {
+    "message": "Kampanie subskrypcyjne"
+  },
+  "subscriptionRequired": {
+    "message": "Wymagana subskrypcja"
+  },
+  "subscriptionRewards": {
+    "message": "Nagrody subskrypcyjne"
+  },
+  "qualifyingSubscriptionsRequired": {
+    "message": "Wymagane kwalifikujące subskrypcje: $1"
+  },
+  "subscriptionProgressUnknown": {
+    "message": "Postęp niedostępny"
+  },
+  "rewardBadge": {
+    "message": "Odznaka"
+  },
+  "rewardBadgeNamed": {
+    "message": "Odznaka: $1"
+  },
+  "rewardAlsoWatch": {
+    "message": "Plus $1 oglądania"
+  },
+  "rewardClaimable": {
+    "message": "Gotowe do odebrania"
+  },
+  "notEarnableByWatching": {
+    "message": "Nie można zdobyć przez oglądanie"
+  },
+  "subscribedRefresh": {
+    "message": "Subskrybuję — odśwież status"
+  },
+  "subscriptionMarkSubscribed": {
+    "message": "Oznacz jako subskrybowane"
+  },
+  "subscriptionMarkedSubscribed": {
+    "message": "Oznaczono jako subskrybowane"
+  },
+  "subscriptionMarkUndo": {
+    "message": "Cofnij"
+  },
+  "waitingForSubscription": {
+    "message": "Oczekiwanie na kwalifikującą subskrypcję"
+  },
+  "actionRequired": {
+    "message": "Wymagane działanie"
+  },
+  "earned": {
+    "message": "Zdobyte"
+  },
+  "linkAccount": {
+    "message": "Połącz konto"
+  },
+  "externalGameAccountRequired": {
+    "message": "Wymagane zewnętrzne konto gry"
+  },
+  "linkExternalGameAccount": {
+    "message": "Połącz zewnętrzne konto gry"
+  },
+  "viewDropPage": {
+    "message": "Zobacz stronę dropu"
+  },
+  "campaignDropDetails": {
+    "message": "Szczegóły dropu"
+  },
+  "campaignCategoryDrops": {
+    "message": "Dropy kategorii"
+  },
+  "upcoming": {
+    "message": "Nadchodzące"
+  },
+  "expired": {
+    "message": "Wygasłe"
+  },
+  "excluded": {
+    "message": "Wykluczone"
+  },
+  "finished": {
+    "message": "Ukończone"
+  },
+  "completedCampaigns": {
+    "message": "Ukończone"
+  },
+  "upcomingPill": {
+    "message": "Nadchodzące"
+  },
+  "expiredPill": {
+    "message": "Wygasłe"
+  },
+  "complete": {
+    "message": "Ukończone"
+  },
+  "startsIn": {
+    "message": "Start za $1"
+  },
+  "endsIn": {
+    "message": "Koniec za $1"
+  },
+  "watchToGo": {
+    "message": "Do obejrzenia: $1"
+  },
+  "left": {
+    "message": "Pozostało"
+  },
+  "campaignFactWatchTime": {
+    "message": "Czas oglądania"
+  },
+  "watchTimeLeftValue": {
+    "message": "Pozostało $1"
+  },
+  "watchTimeNeeded": {
+    "message": "Potrzeba $1"
+  },
+  "watchTimeOfTotal": {
+    "message": "z $1 łącznie"
+  },
+  "done": {
+    "message": "Gotowe"
+  },
+  "rewards": {
+    "message": "Nagrody"
+  },
+  "allChannels": {
+    "message": "Wszystkie kanały"
+  },
+  "includeInFarming": {
+    "message": "Uwzględnij w farmieniu"
+  },
+  "excludeFromFarming": {
+    "message": "Wyklucz z farmienia"
+  },
+  "noIdleWatchlist": {
+    "message": "Nie skonfigurowano kanałów listy zapasowej."
+  },
+  "channelPlaceholder": {
+    "message": "kanał"
+  },
+  "add": {
+    "message": "Dodaj"
+  },
+  "addChannel": {
+    "message": "Dodaj kanał"
+  },
+  "idleWatchlistChannel": {
+    "message": "Poza siecią"
+  },
+  "live": {
+    "message": "live"
+  },
+  "viewerCount": {
+    "message": "$1 widzów"
+  },
+  "settingsGeneralTitle": {
+    "message": "Ustawienia ogólne"
+  },
+  "settingsGeneralDescription": {
+    "message": "Język, uruchamianie i zachowanie popup."
+  },
+  "settingsGroupAppearance": {
+    "message": "Wygląd i zachowanie"
+  },
+  "pauseManualTitle": {
+    "message": "Wstrzymaj przy ręcznym oglądaniu"
+  },
+  "pauseManualDescription": {
+    "message": "Zatrzymaj farmienie, gdy masz otwartą transmisję i sam ją oglądasz."
+  },
+  "autoStartTitle": {
+    "message": "Autostart przy uruchomieniu"
+  },
+  "autoStartDescription": {
+    "message": "Rozpocznij farmienie zaraz po załadowaniu rozszerzenia."
+  },
+  "notificationsTitle": {
+    "message": "Powiadomienia"
+  },
+  "notificationsDescription": {
+    "message": "Alerty, gdy nagrody są gotowe lub kampanie się kończą."
+  },
+  "settingsGroupNotifications": {
+    "message": "Powiadomienia"
+  },
+  "rewardEarnedTitle": {
+    "message": "Nagroda zdobyta"
+  },
+  "rewardEarnedDescription": {
+    "message": "Powiadom, gdy nagrodę dropu można odebrać."
+  },
+  "noDropsLeftTitle": {
+    "message": "Brak dropów"
+  },
+  "noDropsLeftDescription": {
+    "message": "Powiadom, gdy wszystkie aktywne kampanie są wyczerpane."
+  },
+  "dropsSettingsTitle": {
+    "message": "Drops"
+  },
+  "dropsSettingsDescription": {
+    "message": "Odbieranie, kwalifikacja, priorytety i widoczność kampanii."
+  },
+  "settingsGroupDrops": {
+    "message": "Drops"
+  },
+  "autoClaimTitle": {
+    "message": "Automatyczne odbieranie dropów"
+  },
+  "autoClaimDescription": {
+    "message": "Odbieraj zdobyte nagrody dropów automatycznie, gdy staną się dostępne."
+  },
+  "campaignPriorityTitle": {
+    "message": "Priorytet kampanii"
+  },
+  "campaignPriorityDescription": {
+    "message": "Ustala kolejność kampanii w Kolejce, które nie są przypięte ani z ulubionej gry. Możesz też zmienić to w separatorze Następnie według w Kolejce."
+  },
+  "endingSoonest": {
+    "message": "Najwcześniejszy koniec"
+  },
+  "lowAvailabilityFirst": {
+    "message": "Najpierw niska dostępność"
+  },
+  "idleWatchlistSettingsTitle": {
+    "message": "Lista zapasowa"
+  },
+  "idleWatchlistSettingsDescription": {
+    "message": "Kanały zapasowe, gdy brak kwalifikujących dropów."
+  },
+  "preferKnownChannelsTitle": {
+    "message": "Preferuj obserwowane kanały i listę zapasową"
+  },
+  "preferKnownChannelsDescription": {
+    "message": "Gdy drop jest na wielu kanałach, wybiera ten, który obserwujesz lub masz na liście zapasowej, zamiast nieznanego."
+  },
+  "platformSettingsTitle": {
+    "message": "Ustawienia platformy"
+  },
+  "farmingTabsTitle": {
+    "message": "Karty farmienia"
+  },
+  "farmingTabsDescription": {
+    "message": "Sterowanie farmieniem na kartach wideo. Ustawienia kart są wyłączone, gdy włączony jest tryb bez kart o niskim zużyciu."
+  },
+  "settingsGroupFarmingTabs": {
+    "message": "Karty farmienia"
+  },
+  "tablessTitle": {
+    "message": "Tryb bez kart — niskie zużycie"
+  },
+  "tablessDescription": {
+    "message": "Farmuj przez lekkie sygnały oglądania zamiast karty wideo. Twitch używa heartbeatów; Kick połączenia widza. Automatycznie przechodzi na kartę, jeśli przestaje naliczać postęp."
+  },
+  "tablessFallbackFailureLimitTitle": {
+    "message": "Próg przejścia z trybu bez kart"
+  },
+  "tablessFallbackFailureLimitDescription": {
+    "message": "Otwórz kartę wideo po tylu kolejnych nieudanych sygnałach oglądania bez kart."
+  },
+  "tablessFallbackFailureLimitDisabledReason": {
+    "message": "Włącz tryb bez kart o niskim zużyciu, aby zmienić to ustawienie."
+  },
+  "failuresSuffix": {
+    "message": "niepowodzeń"
+  },
+  "kickPageContextRecoverySuccessesTitle": {
+    "message": "Odzyskiwanie strony zapasowej Kick"
+  },
+  "kickPageContextRecoverySuccessesDescription": {
+    "message": "Zamknij otwartą przez rozszerzenie stronę zapasową Kick po tylu udanych cyklach odświeżania."
+  },
+  "kickPageContextRecoverySuccessesDisabledReason": {
+    "message": "Włącz Kick, aby zmienić to ustawienie."
+  },
+  "cyclesSuffix": {
+    "message": "cykli"
+  },
+  "autoCloseTabsTitle": {
+    "message": "Automatycznie zamykaj karty farmienia"
+  },
+  "autoCloseTabsDescription": {
+    "message": "Zamykaj automatycznie, gdy rozszerzenie jest bezczynne (brak dropów do farmienia lub streamerów do oglądania)."
+  },
+  "muteTabsTitle": {
+    "message": "Wycisz karty farmienia"
+  },
+  "muteTabsDescription": {
+    "message": "Trzymaj karty dropów i listy zapasowej wyciszone podczas farmienia."
+  },
+  "keepVideosUnmutedTitle": {
+    "message": "Nie wyciszaj wideo na kartach farmienia"
+  },
+  "keepVideosUnmutedDescription": {
+    "message": "Pozostaw odtwarzacze wideo na stronie niewyciszone, gdy karta przeglądarki jest wyciszona."
+  },
+  "tablessDisabledReason": {
+    "message": "Wyłączone, gdy włączony jest tryb bez kart o niskim zużyciu."
+  },
+  "adFocusTitle": {
+    "message": "Aktywuj kartę podczas reklam"
+  },
+  "adFocusDescription": {
+    "message": "Odliczanie reklam zatrzymuje się na kartach w tle. Krótko aktywuj kartę farmienia podczas reklamy, aby odliczała, potem wróć do poprzedniej karty."
+  },
+  "off": {
+    "message": "Wył."
+  },
+  "tabOnly": {
+    "message": "Tylko karta"
+  },
+  "tabAndWindow": {
+    "message": "Karta + okno"
+  },
+  "advancedTitle": {
+    "message": "Zaawansowane"
+  },
+  "advancedDescription": {
+    "message": "Zmieniaj to tylko, jeśli wiesz, co robisz — steruje niskopoziomowym harmonogramem i logowaniem."
+  },
+  "settingsGroupAdvanced": {
+    "message": "Zaawansowane"
+  },
+  "settingsGroupPlatformAdvanced": {
+    "message": "Zaawansowane i zgodność"
+  },
+  "twitchSectionDescription": {
+    "message": "Priorytet źródeł oglądania, punkty kanału, kategorie, wykluczone kanały i zgodność z Twitch."
+  },
+  "kickSectionDescription": {
+    "message": "Priorytet źródeł oglądania, codzienne wyzwania, kategorie, wykluczone kanały i zgodność z Kick."
+  },
+  "twitchAdvancedDescription": {
+    "message": "Dostępność kampanii oraz transporty heartbeat i ekwipunku używane przez Lurkloot. Zmieniaj tylko, gdy Twitch przestaje działać."
+  },
+  "kickAdvancedDescription": {
+    "message": "Jak Lurkloot otwiera linki odbioru Kick i profil zachowania za tym stojący. Zmieniaj tylko, gdy Kick przestaje działać."
+  },
+  "schedulerIntervalTitle": {
+    "message": "Interwał harmonogramu"
+  },
+  "schedulerIntervalDescription": {
+    "message": "Jak często odświeżany jest status kampanii i streamerów."
+  },
+  "postClaimHandoffTitle": {
+    "message": "Szybkie przejście po nagrodzie"
+  },
+  "postClaimHandoffDescription": {
+    "message": "Po odebraniu dropu krótko sprawdź następną nagrodę w kampanii zamiast czekać na następny cykl harmonogramu. Tylko Twitch."
+  },
+  "postClaimHandoffIntervalTitle": {
+    "message": "Interwał sprawdzenia przejścia"
+  },
+  "postClaimHandoffIntervalDescription": {
+    "message": "Jak długo czekać między sprawdzeniami następnej nagrody."
+  },
+  "postClaimHandoffMaxTitle": {
+    "message": "Limit czasu przejścia"
+  },
+  "postClaimHandoffMaxDescription": {
+    "message": "Poddaj się i wróć do zwykłego harmonogramu po tym czasie."
+  },
+  "secondsSuffix": {
+    "message": "s"
+  },
+  "deadlineSafetyMarginTitle": {
+    "message": "Margines bezpieczeństwa terminu"
+  },
+  "deadlineSafetyMarginDescription": {
+    "message": "Dodatkowe minuty wymagane przed farmieniem nagrody."
+  },
+  "deadlineSafetyMarginDisabledReason": {
+    "message": "Włącz filtrowanie terminów, aby zmienić margines bezpieczeństwa."
+  },
+  "skipUnfinishableRewardsTitle": {
+    "message": "Pomijaj nagrody, których nie da się ukończyć"
+  },
+  "skipUnfinishableRewardsDescription": {
+    "message": "Nie farmuj nagród, gdy pozostały czas oglądania przekracza czas do terminu."
+  },
+  "minutesSuffix": {
+    "message": "min."
+  },
+  "insufficientTimeRemaining": {
+    "message": "Za mało pozostałego czasu"
+  },
+  "campaignRejectionExcluded": {
+    "message": "Ta kampania jest wykluczona z farmienia."
+  },
+  "campaignRejectionUpcoming": {
+    "message": "Ta kampania jeszcze się nie rozpoczęła."
+  },
+  "campaignRejectionExpired": {
+    "message": "Ta kampania się zakończyła."
+  },
+  "campaignRejectionCompleted": {
+    "message": "Wszystkie nagrody w tej kampanii są ukończone."
+  },
+  "campaignRejectionUnlinkedDisabled": {
+    "message": "Farmienie kampanii bez połączonego konta jest wyłączone."
+  },
+  "campaignRejectionTwitchLinkRequired": {
+    "message": "Dla tej kampanii Twitch wymagane jest połączenie konta."
+  },
+  "campaignRejectionSubscriptionDisabled": {
+    "message": "Farmienie kampanii subskrypcyjnych jest wyłączone."
+  },
+  "campaignRejectionCategoryFiltered": {
+    "message": "Ta kampania nie pasuje do wybranych kategorii."
+  },
+  "campaignRejectionCategoryBlocked": {
+    "message": "Ta gra jest zablokowana, więc jej kampanie nigdy nie są farmione."
+  },
+  "campaignRejectionNotPinned": {
+    "message": "Teraz farmione są tylko przypięte kampanie."
+  },
+  "campaignRejectionRewardType": {
+    "message": "Żadna z jej nagród nie należy do typów, które farmisz."
+  },
+  "campaignRejectionRewardTypesObtained": {
+    "message": "Nagrody z typów, które farmisz, są już zdobyte."
+  },
+  "campaignRejectionNoRewards": {
+    "message": "Ta kampania nie ma nagród do farmienia."
+  },
+  "campaignRejectionNoUnclaimedRewards": {
+    "message": "Ta kampania nie ma nieodebranych nagród."
+  },
+  "campaignRejectionPrerequisites": {
+    "message": "$1 czeka na wcześniejszą nagrodę lub wymaganie."
+  },
+  "campaignRejectionRewardNotStarted": {
+    "message": "$1 nie jest jeszcze dostępna."
+  },
+  "campaignRejectionRewardWindowEnded": {
+    "message": "$1 nie jest już dostępna."
+  },
+  "campaignRejectionInsufficientTime": {
+    "message": "$1 nie można ukończyć przed terminem."
+  },
+  "campaignRejectionSubscriptionRequired": {
+    "message": "$1 wymaga kwalifikującej subskrypcji."
+  },
+  "campaignRejectionActionRequired": {
+    "message": "$1 wymaga działania innego niż oglądanie."
+  },
+  "campaignRejectionThen": {
+    "message": "Potem: $1"
+  },
+  "campaignRejectionNoFarmableReward": {
+    "message": "Żadnej nagrody w tej kampanii nie można teraz farmić."
+  },
+  "automationSectionTitle": {
+    "message": "Automatyzacja"
+  },
+  "farmOnPlatform": {
+    "message": "Farmuj dropy i oglądaj kanały listy zapasowej na $1."
+  },
+  "enabled": {
+    "message": "Włączone"
+  },
+  "idleWatchlistEditHint": {
+    "message": "Edytuj to w zakładce listy zapasowej po wybraniu $1."
+  },
+  "autoClaimChannelPointsTitle": {
+    "message": "Automatyczne odbieranie punktów kanału"
+  },
+  "autoClaimChannelPointsDescription": {
+    "message": "Odbieraj bonusy punktów kanału podczas farmienia na tej platformie."
+  },
+  "channelPointsPushClaimTitle": {
+    "message": "Odbieraj punkty kanału z wydarzeń na żywo"
+  },
+  "channelPointsPushClaimDescription": {
+    "message": "Odbierz bonus, gdy tylko Twitch go udostępni. Wyłącz, aby sprawdzać tylko raz na minutę."
+  },
+  "alwaysEnterChatTitle": {
+    "message": "Zawsze wchodź na czat kanału"
+  },
+  "alwaysEnterChatDescription": {
+    "message": "Dołącz do czatu każdego oglądanego kanału. Streamerzy i moderatorzy widzą cię na liście widzów czatu. Wiadomości nigdy nie są wysyłane."
+  },
+  "chatPresenceJoined": {
+    "message": "Na czacie"
+  },
+  "chatPresenceJoining": {
+    "message": "Dołączanie do czatu…"
+  },
+  "chatPresenceUnavailable": {
+    "message": "Czat niedostępny"
+  },
+  "chatPresenceBlockedAuth": {
+    "message": "Czat niedostępny: zaloguj się ponownie na Twitch"
+  },
+  "strictCampaignAvailabilityTitle": {
+    "message": "Ścisła dostępność kampanii"
+  },
+  "strictCampaignAvailabilityDescription": {
+    "message": "Farmuj kampanię tylko na kanałach, na których Twitch ją wymienia. Twitch często pomija kampanie do farmienia, więc dropy mogą zostać niefarmione."
+  },
+  "autoClaimChallengesTitle": {
+    "message": "Automatyczne odbieranie codziennych wyzwań"
+  },
+  "autoClaimChallengesDescription": {
+    "message": "Odbierz nagrodę codziennego wyzwania Kick, gdy cel czasu oglądania zostanie spełniony."
+  },
+  "settingsGroupExcludedChannels": {
+    "message": "Wykluczone kanały"
+  },
+  "excludedChannelsTitle": {
+    "message": "Wykluczone kanały dropów"
+  },
+  "excludedChannelsDescription": {
+    "message": "Farmienie kampanii pominie tych streamerów."
+  },
+  "excludedChannelsEmpty": {
+    "message": "Brak wykluczonych kanałów dropów."
+  },
+  "settingsGroupCategories": {
+    "message": "Kategorie"
+  },
+  "categoryModeTitle": {
+    "message": "Filtr kategorii"
+  },
+  "categoryModeDescription": {
+    "message": "Farmuj każdą kategorię $1, uwzględniaj tylko wybrane lub je wykluczaj."
+  },
+  "categoryModeAll": {
+    "message": "Wszystkie kategorie"
+  },
+  "categoryModeInclude": {
+    "message": "Tylko wybrane"
+  },
+  "includeCategoriesInstruction": {
+    "message": "Tylko te kategorie są farmione na $1."
+  },
+  "categoriesToFarm": {
+    "message": "Kategorie do farmienia"
+  },
+  "noCategoriesSelected": {
+    "message": "Nie wybrano kategorii — nic nie będzie farmione na $1. Dodaj kategorie poniżej."
+  },
+  "hasActiveDrops": {
+    "message": "Ma aktywne dropy"
+  },
+  "otherCategories": {
+    "message": "Inne kategorie"
+  },
+  "searchCategories": {
+    "message": "Szukaj kategorii $1"
+  },
+  "searching": {
+    "message": "Wyszukiwanie…"
+  },
+  "noCategoriesFound": {
+    "message": "Nie znaleziono kategorii."
+  },
+  "alreadyAdded": {
+    "message": "Już dodano."
+  },
+  "activityLogLevelsTitle": {
+    "message": "Poziomy dziennika aktywności"
+  },
+  "activityLogLevelsDescription": {
+    "message": "Wybierz, które poziomy są zapisywane w dzienniku Aktywność. Błędy są zawsze zachowywane."
+  },
+  "farmUnlinkedTitle": {
+    "message": "Farmuj kampanie bez połączonego konta"
+  },
+  "farmUnlinkedDescription": {
+    "message": "Gdy wyłączone, kampanie wymagające połączenia konta są pomijane. Wymagania platformy nadal mogą wymagać połączenia, gdy to jest włączone."
+  },
+  "farmSubscriptionTitle": {
+    "message": "Farmuj kampanie wymagające subskrypcji"
+  },
+  "farmSubscriptionDescription": {
+    "message": "Gdy wyłączone, kampanie, których nagrody wymagają subskrypcji kanału, są pomijane."
+  },
+  "forgetExcludedTitle": {
+    "message": "Zapomnij wykluczone kampanie"
+  },
+  "forgetExcludedDescription": {
+    "message": "Wyczyść wszystkie kampanie wykluczone z farmienia."
+  },
+  "forget": {
+    "message": "Zapomnij"
+  },
+  "unknownGame": {
+    "message": "Nieznana gra"
+  },
+  "noCategory": {
+    "message": "Brak kategorii"
+  },
+  "dropsCampaign": {
+    "message": "Kampania dropów"
+  },
+  "later": {
+    "message": "później"
+  },
+  "ended": {
+    "message": "Zakończone"
+  },
+  "notificationRewardClaimed": {
+    "message": "Nagroda odebrana"
+  },
+  "notificationRewardEarned": {
+    "message": "Nagroda zdobyta"
+  },
+  "notificationNoDropsLeft": {
+    "message": "Brak dropów"
+  },
+  "notificationRewardFromCampaign": {
+    "message": "$1 z $2"
+  },
+  "notificationChallengeClaimed": {
+    "message": "Nagroda wyzwania odebrana"
+  },
+  "notificationChallengeReward": {
+    "message": "Wygrałeś kartę $1 z wyzwania $2."
+  },
+  "notificationNoDropsLeftMessage": {
+    "message": "$1 nie ma kwalifikujących dropów do farmienia."
+  },
+  "screenshotHeroEyebrow": {
+    "message": "Twitch + Kick"
+  },
+  "screenshotHeroHeadline": {
+    "message": "Farmuj dropy, robiąc cokolwiek innego."
+  },
+  "screenshotHeroSubcopy": {
+    "message": "Auto-odbiór z własnej zalogowanej sesji. Bez haseł."
+  },
+  "screenshotExtrasEyebrow": {
+    "message": "Poza kampaniami"
+  },
+  "screenshotExtrasHeadline": {
+    "message": "Więcej niż dropy."
+  },
+  "screenshotExtrasSubcopy": {
+    "message": "Punkty kanału, wyzwania Kick i 2-minutowe dropy — też odbierane za ciebie. Lista zapasowa, gdy nie ma już nic do farmienia."
+  },
+  "screenshotExtrasPointsName": {
+    "message": "Punkty kanału"
+  },
+  "screenshotExtrasPointsMeta": {
+    "message": "Twitch · też odbierane za ciebie"
+  },
+  "screenshotExtrasChallengesName": {
+    "message": "Codzienne wyzwania"
+  },
+  "screenshotExtrasChallengesMeta": {
+    "message": "Kick · też odbierane za ciebie"
+  },
+  "screenshotExtrasWatchlistName": {
+    "message": "Lista zapasowa"
+  },
+  "screenshotExtrasWatchlistMeta": {
+    "message": "Ogląda twoich streamerów między kampaniami"
+  },
+  "screenshotExtrasFlashName": {
+    "message": "2-minutowe dropy"
+  },
+  "screenshotExtrasFlashMeta": {
+    "message": "Kick · zbierane na bieżąco"
+  },
+  "screenshotEasyEyebrow": {
+    "message": "Proste w użyciu"
+  },
+  "screenshotEasyHeadline": {
+    "message": "Aż tak proste."
+  },
+  "screenshotEasyInstallTitle": {
+    "message": "Zainstaluj"
+  },
+  "screenshotEasyInstallSub": {
+    "message": "Chrome Web Store. Bez konta."
+  },
+  "screenshotEasyPinTitle": {
+    "message": "Przypnij"
+  },
+  "screenshotEasyPinSub": {
+    "message": "Miej popup jednym kliknięciem pod ręką."
+  },
+  "screenshotEasyEnableTitle": {
+    "message": "Włącz platformę"
+  },
+  "screenshotEasyEnableSub": {
+    "message": "Twitch, Kick albo obie."
+  },
+  "screenshotEasyProfitTitle": {
+    "message": "I farmi"
+  },
+  "screenshotEasyProfitSub": {
+    "message": "On farmi. Ty robisz inne rzeczy."
+  },
+  "screenshotSettingsEyebrow": {
+    "message": "Twoje zasady"
+  },
+  "screenshotSettingsHeadline": {
+    "message": "Farmuj dokładnie tak, jak chcesz."
+  },
+  "screenshotSettingsSubcopy": {
+    "message": "Priorytety, gry, tryb bez kart, auto-odbiór — osobno na platformę."
+  },
+  "screenshotUpdatedEyebrow": {
+    "message": "Otwarte oprogramowanie"
+  },
+  "screenshotUpdatedHeadline": {
+    "message": "Pełne funkcje. Zawsze aktualne."
+  },
+  "screenshotUpdatedSubcopy": {
+    "message": "Częste wydania, gdy Twitch i Kick się zmieniają — otwarte na pomysły i ulepszenia."
+  },
+  "screenshotUpdatedBrowsersTitle": {
+    "message": "Przeglądarki na Chromium"
+  },
+  "screenshotUpdatedBrowsersSub": {
+    "message": "Lista w Chrome Web Store. To samo rozszerzenie."
+  },
+  "screenshotUpdatedHeadlessTitle": {
+    "message": "CLI"
+  },
+  "screenshotUpdatedHeadlessSub": {
+    "message": "Headless. Ten sam silnik."
+  },
+  "screenshotUpdatedDockerTitle": {
+    "message": "Docker"
+  },
+  "screenshotUpdatedDockerSub": {
+    "message": "Ten sam silnik. W kontenerze."
+  },
+  "screenshotUpdatedLicense": {
+    "message": "Apache-2.0"
+  },
+  "autoClaimReady": {
+    "message": "Auto-odbiór gotowy"
+  },
+  "attributionLinks": {
+    "message": "Linki atrybucji"
+  },
+  "githubAttribution": {
+    "message": "Lurkloot na GitHub"
+  },
+  "githubAttributionShort": {
+    "message": "GitHub"
+  },
+  "chromeWebStoreAttribution": {
+    "message": "Lurkloot w Chrome Web Store"
+  },
+  "chromeWebStoreAttributionShort": {
+    "message": "Chrome"
+  },
+  "siteAttribution": {
+    "message": "Strona Lurkloot"
+  },
+  "siteAttributionShort": {
+    "message": "Strona"
+  },
+  "updateNoticeTitle": {
+    "message": "Lurkloot zaktualizowano do $1"
+  },
+  "updateNoticeBody": {
+    "message": "Zobacz, co nowego i co się zmieniło."
+  },
+  "updateNoticeAction": {
+    "message": "Zobacz zmiany"
+  },
+  "updateNoticeDismiss": {
+    "message": "Zamknij powiadomienie o aktualizacji"
+  },
+  "rateNudgeTitle": {
+    "message": "Podoba ci się Lurkloot?"
+  },
+  "rateNudgeBody": {
+    "message": "Krótka recenzja w Chrome Web Store bardzo pomaga."
+  },
+  "rateNudgeAction": {
+    "message": "Oceń"
+  },
+  "rateNudgeDismiss": {
+    "message": "Nie teraz"
+  },
+  "githubStarNudgeTitle": {
+    "message": "Lurkloot jest open source"
+  },
+  "githubStarNudgeBody": {
+    "message": "Jeśli było przydatne, gwiazdka na GitHub pomaga innym je znaleźć. Wkład jest mile widziany, zwłaszcza funkcje i tłumaczenia."
+  },
+  "githubStarNudgeAction": {
+    "message": "Daj gwiazdkę na GitHub"
+  },
+  "removeItem": {
+    "message": "Usuń $1"
+  },
+  "cliExportTitle": {
+    "message": "CLI bez przeglądarki"
+  },
+  "cliExportDescription": {
+    "message": "Uruchom farmienie dropów na serwerze lub w Dockerze z CLI Lurkloot, używając zalogowanej sesji tej przeglądarki."
+  },
+  "cliExportHint": {
+    "message": "Eksportuje tokeny sesji Twitch i Kick, aby „login --import” w CLI mógł je ponownie użyć. Trzymaj plik w tajemnicy — każdy z dostępem może używać twoich sesji."
+  },
+  "cliExportConfirm": {
+    "message": "To pobierze tokeny sesji Twitch i Kick do pliku. Każdy z tym plikiem może działać jako ty na tych stronach. Kontynuować?"
+  },
+  "cliExportCancel": {
+    "message": "Anuluj"
+  },
+  "cliExportConfirmButton": {
+    "message": "Potwierdź eksport"
+  },
+  "cliExportButton": {
+    "message": "Eksportuj dane logowania"
+  },
+  "settingsExportTitle": {
+    "message": "Import / eksport ustawień"
+  },
+  "settingsExportHint": {
+    "message": "Zapisz ustawienia do pliku lub wczytaj je w innej przeglądarce. Nigdy nie zawiera logowania Twitch ani Kick."
+  },
+  "settingsExportButton": {
+    "message": "Eksportuj ustawienia"
+  },
+  "settingsImportButton": {
+    "message": "Importuj ustawienia"
+  },
+  "settingsImportConfirm": {
+    "message": "To zastąpi bieżące ustawienia tymi z wybranego pliku. Kontynuować?"
+  },
+  "settingsImportCancel": {
+    "message": "Anuluj"
+  },
+  "settingsImportConfirmButton": {
+    "message": "Wybierz plik i importuj"
+  },
+  "settingsImportFailed": {
+    "message": "Ten plik nie jest prawidłowym eksportem ustawień Lurkloot."
+  },
+  "settingsExportFailed": {
+    "message": "Lurkloot nie mógł wyeksportować ustawień. Spróbuj ponownie."
+  },
+  "factoryResetTitle": {
+    "message": "Resetuj Lurkloot"
+  },
+  "factoryResetHint": {
+    "message": "Usuń wszystkie ustawienia Lurkloot, postęp farmienia i historię aktywności. Konta Twitch i Kick pozostają zalogowane."
+  },
+  "factoryResetButton": {
+    "message": "Resetuj Lurkloot"
+  },
+  "factoryResetConfirm": {
+    "message": "To zatrzyma farmienie, zamknie karty otwarte przez Lurkloot i trwale usunie wszystkie dane Lurkloot. Twitch i Kick pozostają zalogowane."
+  },
+  "factoryResetCancel": {
+    "message": "Anuluj"
+  },
+  "factoryResetConfirmButton": {
+    "message": "Resetuj wszystko"
+  },
+  "factoryResetProgress": {
+    "message": "Resetowanie…"
+  },
+  "factoryResetFailed": {
+    "message": "Lurkloot nie mógł w pełni zresetować. Spróbuj ponownie."
+  },
+  "factoryResetRetry": {
+    "message": "Spróbuj resetu ponownie"
+  },
+  "diagnosticLoggingTitle": {
+    "message": "Dołącz logi diagnostyczne"
+  },
+  "diagnosticLoggingDescription": {
+    "message": "Zapisuj dodatkowe szczegóły techniczne pomocne przy diagnozie. Normalna aktywność jest zawsze zachowywana."
+  },
+  "activityFarmingStarted": {
+    "message": "Rozpoczęto farmienie $1 z $2."
+  },
+  "activityFarmingStopped": {
+    "message": "Zatrzymano farmienie $1 z $2: $3."
+  },
+  "activityRewardClaimed": {
+    "message": "Odebrano $1 z $2."
+  },
+  "activityChallengeClaimed": {
+    "message": "Odebrano kartę $1 z wyzwania $2"
+  },
+  "activityAuthHealthChanged": {
+    "message": "Uwierzytelnianie $1 zmieniło się z $2 na $3."
+  },
+  "activityCriticalFailureDetected": {
+    "message": "$1 nie działa: $2."
+  },
+  "activityCriticalFailureCleared": {
+    "message": "Krytyczna awaria $1 odrzucona; ponawianie."
+  },
+  "criticalFailureReasonNoProgress": {
+    "message": "brak postępu mimo powtarzających się błędów"
+  },
+  "criticalFailureReasonPageContextChurn": {
+    "message": "karta w kółko się otwierała"
+  },
+  "criticalFailureTitle": {
+    "message": "Lurkloot przestał działać"
+  },
+  "criticalFailureBodyNoProgress": {
+    "message": "Powtarzające się błędy i brak postępu dropów przez długi czas. Coś na tej platformie prawdopodobnie się zmieniło i rozszerzenie nie może już zdobywać dropów."
+  },
+  "criticalFailureBodyTabChurn": {
+    "message": "Karta otwierała się w kółko. Ponowne otwieranie zostało zatrzymane, abyś mógł normalnie korzystać z przeglądarki, a farmienie na tej platformie jest wstrzymane."
+  },
+  "criticalFailureCopyAndReport": {
+    "message": "Kopiuj logi i otwórz zgłoszenie"
+  },
+  "criticalFailureDismiss": {
+    "message": "Odrzuć i spróbuj ponownie"
+  },
+  "criticalFailureClipboardFallback": {
+    "message": "Nie udało się skopiować automatycznie. Zaznacz i skopiuj to, potem otwórz zgłoszenie."
+  },
+  "activityPageContextOpened": {
+    "message": "Otwarto kontekst w tle na $1, ponieważ $2."
+  },
+  "activityPageContextClosed": {
+    "message": "Zamknięto kontekst w tle na $1, ponieważ $2."
+  },
+  "activityPageContextOpenReasonBackgroundRejected": {
+    "message": "Kick odrzucił żądanie bez kart"
+  },
+  "activityPageContextReasonManagedContextUnusable": {
+    "message": "poprzedni kontekst w tle był bezużyteczny"
+  },
+  "activityPageContextCloseReasonBackgroundRecovered": {
+    "message": "żądania bez kart wróciły do normy"
+  },
+  "activityPageContextCloseReasonUserTabAvailable": {
+    "message": "dostępna stała się istniejąca karta Kick"
+  },
+  "activityInterruption": {
+    "message": "Farmienie przerwane: $1."
+  },
+  "activityInterruptionWithDetail": {
+    "message": "Farmienie przerwane: $1 ($2)."
+  },
+  "activityReasonAutomationDisabled": {
+    "message": "automatyzacja była wyłączona"
+  },
+  "activityReasonPlatformDisabled": {
+    "message": "platforma była wyłączona"
+  },
+  "activityReasonAuthenticationUnhealthy": {
+    "message": "uwierzytelnianie jest niedostępne"
+  },
+  "activityReasonPlatformBackoff": {
+    "message": "platforma tymczasowo się wycofuje"
+  },
+  "activityReasonPlatformError": {
+    "message": "wystąpił błąd platformy"
+  },
+  "activityReasonCampaignIneligible": {
+    "message": "kampania nie jest już kwalifikująca"
+  },
+  "activityReasonChannelExcluded": {
+    "message": "kanał jest wykluczony"
+  },
+  "activityReasonChannelOffline": {
+    "message": "kanał przeszedł offline"
+  },
+  "activityReasonChannelMismatch": {
+    "message": "kanał już nie pasuje"
+  },
+  "activityReasonWatchUnhealthy": {
+    "message": "kontrola zdrowia oglądania nie powiodła się"
+  },
+  "activityReasonNoProgress": {
+    "message": "kanał nie naliczył postępu dropu"
+  },
+  "activityReasonHigherPriorityReward": {
+    "message": "nagroda o wyższym priorytecie przejęła kontrolę"
+  },
+  "activityReasonHigherPriorityIdleWatchlist": {
+    "message": "dostępny stał się kanał listy zapasowej o wyższym priorytecie"
+  },
+  "activityReasonWatchRequirementCompleted": {
+    "message": "wymóg oglądania został spełniony"
+  },
+  "activityReasonRuntimeRestart": {
+    "message": "rozszerzenie uruchomiło się ponownie"
+  },
+  "activityReasonTargetChanged": {
+    "message": "zmienił się cel farmienia"
+  },
+  "activityReasonCriticalFailure": {
+    "message": "wykryto krytyczną awarię"
+  },
+  "activityReasonManualWatch": {
+    "message": "ręczne oglądanie przejęło kontrolę"
+  },
+  "loadMoreActivity": {
+    "message": "Wczytaj więcej"
+  },
+  "clearActivityHistory": {
+    "message": "Wyczyść historię"
+  },
+  "confirmClearActivityHistory": {
+    "message": "Potwierdź wyczyszczenie"
+  },
+  "clearActivityFailed": {
+    "message": "Nie udało się wyczyścić historii aktywności. Spróbuj ponownie."
+  },
+  "copyActivityLog": {
+    "message": "Kopiuj log"
+  },
+  "copyLoadedActivityLog": {
+    "message": "Kopiuj wczytane"
+  },
+  "copyActivityLogCopied": {
+    "message": "Skopiowano $1 zdarzeń"
+  },
+  "copyActivityLogFailed": {
+    "message": "Nie udało się skopiować logu. Spróbuj ponownie."
+  },
+  "exportAllDiagnostics": {
+    "message": "Eksportuj wszystko"
+  },
+  "exportAllDiagnosticsDone": {
+    "message": "Wyeksportowano $1 zdarzeń"
+  },
+  "exportAllDiagnosticsFailed": {
+    "message": "Nie udało się wyeksportować logu. Spróbuj ponownie."
+  },
+  "activityViewTab": {
+    "message": "Aktywność"
+  },
+  "diagnosticsViewTab": {
+    "message": "Diagnostyka"
+  },
+  "compatibilityAutomatic": {
+    "message": "Automatycznie"
+  },
+  "compatibilityTwitchProfileTitle": {
+    "message": "Profil zgodności Twitch"
+  },
+  "compatibilityTwitchProfileDescription": {
+    "message": "Wybierz dołączony profil Twitch lub pozwól Lurkloot wybrać go automatycznie."
+  },
+  "compatibilityKickProfileTitle": {
+    "message": "Profil zgodności Kick"
+  },
+  "compatibilityKickProfileDescription": {
+    "message": "Wybierz dołączony profil Kick lub pozwól Lurkloot wybrać go automatycznie."
+  },
+  "compatibilitySectionTitle": {
+    "message": "Zgodność"
+  },
+  "compatibilitySectionDescription": {
+    "message": "Zmieniaj to tylko, gdy Twitch lub Kick nie działa; może pomóc obejść problemy platformy."
+  },
+  "compatibilityComponentProfile": {
+    "message": "Profil"
+  },
+  "compatibilityComponentHeartbeat": {
+    "message": "Transport heartbeat"
+  },
+  "compatibilityComponentInventory": {
+    "message": "Zapytanie o ekwipunek"
+  },
+  "compatibilityComponentClaim": {
+    "message": "Obsługa odbioru"
+  },
+  "compatibilityFromProfile": {
+    "message": "Z profilu"
+  },
+  "compatibilityOverridden": {
+    "message": "Nadpisane"
+  },
+  "compatibilityReplacedBy": {
+    "message": "Zastąpione przez $1"
+  },
+  "compatibilityTwitchHeartbeatTitle": {
+    "message": "Transport heartbeat Twitch"
+  },
+  "compatibilityTwitchHeartbeatDescription": {
+    "message": "Nadpisz dołączony heartbeat oglądania Twitch."
+  },
+  "compatibilityTwitchInventoryTitle": {
+    "message": "Zapytanie o ekwipunek Twitch"
+  },
+  "compatibilityTwitchInventoryDescription": {
+    "message": "Nadpisz dołączone zapytanie o ekwipunek Twitch."
+  },
+  "compatibilityKickClaimTitle": {
+    "message": "Obsługa linków odbioru Kick"
+  },
+  "compatibilityKickClaimDescription": {
+    "message": "Nadpisz dołączoną obsługę linków konta Kick."
+  },
+  "compatibilityLifecycleRecommended": {
+    "message": "Zalecane"
+  },
+  "compatibilityLifecycleLegacy": {
+    "message": "Przestarzałe"
+  },
+  "compatibilityLifecycleExperimental": {
+    "message": "Eksperymentalne"
+  },
+  "compatibilityOverrideWarning": {
+    "message": "Aktywne ręczne nadpisania zgodności. Mogą przestać działać, gdy platformy się zmienią."
+  },
+  "compatibilityRestoreAutomatic": {
+    "message": "Przywróć automatyczną zgodność"
+  },
+  "compatibilityOptionTwitchProfile202607": {
+    "message": "Twitch lipiec 2026"
+  },
+  "compatibilityOptionTwitchProfile202610": {
+    "message": "Twitch październik 2026"
+  },
+  "compatibilityOptionTwitchHeartbeatGqlV1": {
+    "message": "Puls GraphQL v1"
+  },
+  "compatibilityOptionTwitchHeartbeatSpadeV1": {
+    "message": "Puls Spade v1"
+  },
+  "compatibilityOptionTwitchHeartbeatHlsV1": {
+    "message": "Puls HLS + Spade v1"
+  },
+  "compatibilityOptionTwitchHeartbeatTrowelV1": {
+    "message": "Puls Trowel v1"
+  },
+  "compatibilityOptionTwitchInventoryV1": {
+    "message": "Zapytanie o ekwipunek v1"
+  },
+  "compatibilityOptionTwitchInventoryV2": {
+    "message": "Zapytanie o ekwipunek v2"
+  },
+  "compatibilityOptionKickProfile202607": {
+    "message": "Kick lipiec 2026"
+  },
+  "compatibilityOptionKickClaimV1": {
+    "message": "Obsługa odbioru v1"
+  },
+  "compatibilityOptionKickClaimV2": {
+    "message": "Obsługa odbioru v2"
+  },
+  "automationChecking": {
+    "message": "Sprawdzanie"
+  },
+  "automationNeedsSignIn": {
+    "message": "Wymaga logowania"
+  },
+  "automationBlocked": {
+    "message": "Zablokowane"
+  },
+  "automationUnavailable": {
+    "message": "Niedostępne"
+  },
+  "authCheckingDetail": {
+    "message": "Sprawdzanie zalogowanej sesji…"
+  },
+  "authSignInMissing": {
+    "message": "Zaloguj się, aby kontynuować farmienie dropów."
+  },
+  "authSignInRejected": {
+    "message": "Twoja sesja nie jest już ważna. Zaloguj się ponownie, aby kontynuować."
+  },
+  "signInToTwitch": {
+    "message": "Zaloguj się na Twitch"
+  },
+  "signInToKick": {
+    "message": "Zaloguj się na Kick"
+  },
+  "authBrowserProfileBlocked": {
+    "message": "Kick odrzucił ten profil przeglądarki. Same logowanie może tego nie naprawić."
+  },
+  "authCredentialCheckUnavailable": {
+    "message": "Nie można było sprawdzić sesji przeglądarki. Lurkloot spróbuje ponownie automatycznie."
+  },
+  "authNetworkTemporarilyUnavailable": {
+    "message": "Sieć jest tymczasowo niedostępna. Lurkloot spróbuje ponownie automatycznie."
+  },
+  "authPlatformTemporarilyUnavailable": {
+    "message": "Platforma jest tymczasowo niedostępna. Lurkloot spróbuje ponownie automatycznie."
+  },
+  "automationPausedTabClosed": {
+    "message": "Wstrzymane — karta zamknięta"
+  },
+  "watchTabClosedPauseDetail": {
+    "message": "Zamknąłeś kartę farmienia, więc Lurkloot zatrzymał tu farmienie."
+  },
+  "resumeFarming": {
+    "message": "Wznów farmienie"
+  },
+  "activityReasonManualTabClose": {
+    "message": "karta farmienia zamknięta"
+  },
+  "activityReasonPermissionMissing": {
+    "message": "brakuje wymaganego uprawnienia przeglądarki; włącz platformę ponownie, aby je nadać"
+  },
+  "automationPausedManualWatch": {
+    "message": "Ręczne oglądanie"
+  },
+  "manualWatchPauseDetail": {
+    "message": "Farmienie jest wstrzymane, gdy sam oglądasz transmisję. Wstrzymaj ją, zamknij lub przełącz się z tej karty, aby wznowić automatycznie przy następnym sprawdzeniu."
+  },
+  "manualWatchPauseDetailNamed": {
+    "message": "Farmienie jest wstrzymane, gdy sam oglądasz transmisję."
+  },
+  "manualWatchPauseDetailNamedSuffix": {
+    "message": "— wstrzymaj, zamknij lub przełącz się, aby wznowić."
+  },
+  "reorderItem": {
+    "message": "Zmień kolejność $1"
+  },
+  "scrollRewardsLeft": {
+    "message": "Przewiń nagrody w lewo"
+  },
+  "scrollRewardsRight": {
+    "message": "Przewiń nagrody w prawo"
+  },
+  "activityExtensionGiveawayJoined": {
+    "message": "Dołączono do giveaway $1 na $2."
+  },
+  "activityExtensionSpriteCaptured": {
+    "message": "Złapano sprite $1 na $2."
+  },
+  "activityExtensionTakeoverStarted": {
+    "message": "Rozpoczęto takeover $1 z $2."
+  },
+  "extensionSettingsTitle": {
+    "message": "Rozszerzenia Twitch"
+  },
+  "extensionDropsTitle": {
+    "message": "Extensions"
+  },
+  "extensionSettingsHint": {
+    "message": "Farmuj nagrody rozszerzeń bez kart Twitch. Obowiązuje automatyzacja Twitch, wykluczenia i ręczna pauza."
+  },
+  "extensionNoPixelHint": {
+    "message": "Zdobywaj codzienne paczki i dołączaj do giveaway. Naliczanie czasu oglądania dołącza do czatu oglądanego kanału, więc widać cię na liście widzów."
+  },
+  "extensionChatPresenceBlocked": {
+    "message": "Nie na czacie: czas oglądania NoPixel nie jest naliczany, dopóki obecność na czacie nie wróci"
+  },
+  "extensionFortniteHint": {
+    "message": "Zbieraj sprite’y i zdobywaj nagrody faz."
+  },
+  "extensionIdentityRequired": {
+    "message": "Połącz konto rozszerzenia"
+  },
+  "extensionPermissionRequired": {
+    "message": "Zezwól na dostęp dostawcy, aby włączyć"
+  },
+  "extensionAuthRequired": {
+    "message": "Zaloguj się na Twitch"
+  },
+  "extensionChannelRequired": {
+    "message": "Szukanie kwalifikującego kanału"
+  },
+  "extensionComplete": {
+    "message": "Nagrody zdobyte"
+  },
+  "extensionFarming": {
+    "message": "Farmienie"
+  },
+  "extensionPhaseClosed": {
+    "message": "Brak otwartej fazy interaktywnej"
+  },
+  "extensionConnecting": {
+    "message": "Łączenie"
+  },
+  "extensionUnavailable": {
+    "message": "Tymczasowo niedostępne"
+  },
+  "extensionIdle": {
+    "message": "Oczekiwanie"
+  },
+  "extensionDailyPackProgress": {
+    "message": "Paczka dzienna: $1/$2 min"
+  },
+  "extensionCaptureProgress": {
+    "message": "Kolekcja: $1/$2"
+  },
+  "extensionTakeoversTitle": {
+    "message": "Zezwalaj na takeover Fortnite"
+  },
+  "extensionTakeoversHint": {
+    "message": "Uruchamiaj kwalifikujące takeover w fazach interaktywnych. Domyślnie wyłączone."
+  },
+  "extensionAccountSetup": {
+    "message": "Konfiguracja konta"
+  },
+  "extensionGiveawayUnavailable": {
+    "message": "Sprawdzenie giveaway niedostępne"
+  },
+  "extensionGiveawayEntered": {
+    "message": "Dołączono do giveaway"
+  },
+  "extensionGiveawayOpen": {
+    "message": "Giveaway otwarty"
+  },
+  "extensionRewardProgress": {
+    "message": "Nagrody: $1/$2"
+  },
+  "extensionTakeoverActive": {
+    "message": "Takeover aktywny"
+  },
+  "extensionWatchtimeComplete": {
+    "message": "Czas oglądania ukończony"
+  },
+  "extensionUnopenedPacks": {
+    "message": "Nieotwarte paczki: $1"
+  },
+  "extensionPackCheckUnavailable": {
+    "message": "Sprawdzenie dostawy paczek niedostępne"
+  },
+  "extensionAutoOpenPacksTitle": {
+    "message": "Otwieraj paczki NoPixelV automatycznie"
+  },
+  "extensionAutoOpenPacksHint": {
+    "message": "Odsłoń karty z nieotwartych paczek. To zużywa każdą paczkę i nie można tego cofnąć."
+  },
+  "activityExtensionPackOpened": {
+    "message": "$1 otworzył paczkę kart na $2"
+  },
+  "watchSourcePriorityTitle": {
+    "message": "Priorytet źródeł oglądania"
+  },
+  "watchSourcePriorityDescription": {
+    "message": "Oglądane jest pierwsze dostępne źródło. Wyłączone lub niedostępne źródła są pomijane."
+  },
+  "watchSourcePriorityMoveUp": {
+    "message": "Przesuń $1 w górę"
+  },
+  "watchSourcePriorityMoveDown": {
+    "message": "Przesuń $1 w dół"
+  },
+  "watchSourcePriorityReset": {
+    "message": "Resetuj priorytet"
+  },
+  "watchSourcePriorityMoved": {
+    "message": "$1 ma teraz priorytet $2."
+  },
+  "watchSourcePriorityResetDone": {
+    "message": "Priorytet źródeł oglądania zresetowany."
+  },
+  "watchSourceDrops": {
+    "message": "Drops"
+  },
+  "watchSourceIdleWatchlist": {
+    "message": "Lista zapasowa"
+  },
+  "watchSourceNoPixel": {
+    "message": "NoPixelV"
+  },
+  "watchSourceFortnite": {
+    "message": "Fortnite"
+  },
+  "gamesStarHint": {
+    "message": "★ ustawia grę powyżej strategii"
+  },
+  "gamesFavourite": {
+    "message": "Ustaw $1 powyżej strategii"
+  },
+  "gamesUnfavourite": {
+    "message": "Przestań ustawiać $1 powyżej strategii"
+  },
+  "gamesBlock": {
+    "message": "Nigdy nie farmuj $1"
+  },
+  "gamesUnblock": {
+    "message": "Odblokuj"
+  },
+  "gamesBlocked": {
+    "message": "Zablokowane"
+  },
+  "gamesBlockedHint": {
+    "message": "nigdy nie farmione, w obu trybach"
+  },
+  "gamesBlockedKeepsStar": {
+    "message": "nigdy nie farmione · gwiazdka zachowana na później"
+  },
+  "gamesCampaignCount": {
+    "message": "$1 kampanii na żywo"
+  },
+  "gamesCampaignCountOne": {
+    "message": "1 kampania na żywo"
+  },
+  "gamesNoCampaigns": {
+    "message": "teraz brak kampanii"
+  },
+  "gamesFarmGame": {
+    "message": "Farmuj $1"
+  },
+  "gamesEmpty": {
+    "message": "Teraz nie ma aktywnych kampanii $1."
+  },
+  "inPageOpenPanel": {
+    "message": "Otwórz Lurkloot"
+  },
+  "inPageAddToWatchlist": {
+    "message": "Dodaj $1 do idle watchlist"
+  },
+  "inPageRemoveFromWatchlist": {
+    "message": "Usuń $1 z idle watchlist"
+  },
+  "navNoPixel": {
+    "message": "NoPixel V"
+  },
+  "navFortnite": {
+    "message": "Fortnite"
+  },
+  "gamesBlockedEmpty": {
+    "message": "Nic nie jest zablokowane. Użyj ⊘ przy grze, aby wykluczyć ją z farmienia w obu trybach."
+  },
+  "campaignRewardsProgress": {
+    "message": "$1 z $2 nagród"
+  },
+  "campaignTimeLeft": {
+    "message": "Pozostało $1"
+  },
+  "campaignFactStarts": {
+    "message": "Start"
+  },
+  "campaignFactStarted": {
+    "message": "Rozpoczęto"
+  },
+  "campaignFactEnds": {
+    "message": "Koniec"
+  },
+  "relativeIn": {
+    "message": "za $1"
+  },
+  "relativeAgo": {
+    "message": "$1 temu"
+  },
+  "campaignLasts": {
+    "message": "Trwa $1"
+  },
+  "campaignFactEnded": {
+    "message": "Zakończono"
+  },
+  "campaignFactWatching": {
+    "message": "Oglądanie"
+  },
+  "campaignFactChannels": {
+    "message": "Kanały"
+  },
+  "campaignFactNextReward": {
+    "message": "Następna nagroda"
+  },
+  "campaignFactWhyRank": {
+    "message": "Dlaczego ta pozycja"
+  },
+  "campaignMoreChannels": {
+    "message": "+$1 więcej"
+  },
+  "campaignFewerChannels": {
+    "message": "Pokaż mniej"
+  },
+  "campaignExclude": {
+    "message": "Wyklucz"
+  },
+  "campaignCategoryBlocked": {
+    "message": "$1 zablokowane"
+  },
+  "campaignPinToTop": {
+    "message": "Przypnij na górze"
+  },
+  "campaignPinnedAt": {
+    "message": "Przypięte · $1"
+  },
+  "campaignFavourite": {
+    "message": "Ulubione: $1"
+  },
+  "campaignFavouriteOn": {
+    "message": "$1 jest ulubione"
+  },
+  "campaignExcludeThis": {
+    "message": "Tylko ta kampania"
+  },
+  "campaignExcludeThisHint": {
+    "message": "Inne kampanie $1 nadal są farmione"
+  },
+  "campaignExcludeThisUndo": {
+    "message": "Wybierz ponownie, aby przywrócić kampanię do kolejki"
+  },
+  "campaignExcludeCategory": {
+    "message": "Kategoria „$1”"
+  },
+  "campaignExcludeCategoryHint": {
+    "message": "Blokuje każdą kampanię $1, teraz i później"
+  },
+  "campaignExcludeCategoryUndo": {
+    "message": "Wybierz ponownie, aby odblokować grę"
+  },
+  "rewardMissed": {
+    "message": "Nie zdobyto na czas"
+  },
+  "rankReasonPinned": {
+    "message": "Przypięte na $1"
+  },
+  "rankReasonFavourite": {
+    "message": "$1 jest ulubione $2"
+  },
+  "rankReasonEnding": {
+    "message": "Kończy się wcześniej niż te poniżej"
+  },
+  "rankReasonAvailability": {
+    "message": "Mniej kanałów niż te poniżej"
+  },
+  "queueEditFavourites": {
+    "message": "Edytuj"
+  },
+  "navWatchingNow": {
+    "message": "Teraz oglądane"
+  },
+  "gamesFavouritesGroup": {
+    "message": "Ulubione"
+  },
+  "gamesFavouritesGroupHint": {
+    "message": "w tej kolejności, powyżej strategii"
+  },
+  "gamesOtherGroup": {
+    "message": "Inne gry"
+  },
+  "gamesOtherGroupAllHint": {
+    "message": "wszystkie farmione, oprócz zablokowanych"
+  },
+  "gamesOtherGroupIncludeHint": {
+    "message": "farmione tylko po zaznaczeniu"
+  },
+  "watchSourcePlace": {
+    "message": "Miejsce w kolejności oglądania: $1 z $2"
+  },
+  "watchSourcePlaceFirst": {
+    "message": "Oglądane przed każdym innym źródłem."
+  },
+  "watchSourcePlaceAfter": {
+    "message": "Oglądane, gdy $1 nie ma nic do oglądania."
+  },
+  "watchSourceChangeOrderShort": {
+    "message": "Zmień kolejność"
+  },
+  "railWhatsNew": {
+    "message": "Co nowego"
+  },
+  "campaignShowDetails": {
+    "message": "Pokaż szczegóły"
+  },
+  "campaignHideDetails": {
+    "message": "Ukryj szczegóły"
+  },
+  "settingsGamesPointerTitle": {
+    "message": "Gry i kategorie"
+  },
+  "settingsGamesPointerDescription": {
+    "message": "Wybierz, które gry $1 są farmione, oznacz gwiazdką te pierwsze w kolejce lub je zablokuj."
+  },
+  "settingsGamesPointerAction": {
+    "message": "Otwórz Gry"
+  },
+  "idleWatchlistAddPlaceholder": {
+    "message": "Nazwa kanału lub link"
+  },
+  "idleWatchlistFull": {
+    "message": "Lista jest pełna ($1 kanałów). Usuń jeden, aby dodać kolejny."
+  },
+  "idleWatchlistInvalid": {
+    "message": "Wpisz nazwę kanału lub link do kanału."
+  },
+  "idleWatchlistDuplicate": {
+    "message": "$1 jest już na liście."
+  },
+  "idleWatchlistOrderTitle": {
+    "message": "Kolejność oglądania"
+  },
+  "idleWatchlistOrderHint": {
+    "message": "oglądany jest pierwszy kanał na żywo"
+  },
+  "gamesModeAllDescription": {
+    "message": "Każda gra z aktywnymi dropami jest farmiona, oprócz zablokowanych."
+  },
+  "gamesModeIncludeDescription": {
+    "message": "Farmione są tylko zaznaczone gry."
+  },
+  "gamesStarLegend": {
+    "message": "ustawia grę powyżej strategii"
+  },
+  "gamesBlockLegend": {
+    "message": "nigdy jej nie farmi"
+  },
+  "gamesSearchPlaceholder": {
+    "message": "Znajdź lub dodaj grę $1"
+  },
+  "gamesAddGroup": {
+    "message": "Dodaj z $1"
+  },
+  "gamesAddIncludeHint": {
+    "message": "dodanie gry ją zaznacza"
+  },
+  "gamesAddAllHint": {
+    "message": "dodanie gry daje gwiazdkę"
+  },
+  "gamesAddActionFarm": {
+    "message": "Farmuj"
+  },
+  "gamesAddActionFavourite": {
+    "message": "Ulubione"
+  },
+  "gamesNoMoreResults": {
+    "message": "Nie znaleziono innych gier."
+  },
+  "navBeta": {
+    "message": "Beta"
+  },
+  "navExtensions": {
+    "message": "Extensions"
+  },
+  "navGroupOthers": {
+    "message": "Inne"
+  },
+  "kickLevelSummary": {
+    "message": "Poziom Kick $1 · $2% do poziomu $3"
+  },
+  "kickLevelShort": {
+    "message": "Poz. $1"
+  },
+  "kickLevelXp": {
+    "message": "$1 / $2 XP"
+  },
+  "kickStreakDays": {
+    "message": "$1-dniowa seria oglądania"
+  }
+}

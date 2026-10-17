@@ -842,6 +842,97 @@ describe("scheduler campaign selection", () => {
     expect(decision.campaign?.id).toBe("pinned");
   });
 
+  describe("farmRewardTypes (#731)", () => {
+    const live = {
+      listCandidateChannels: vi.fn(async () => [channel("creator")]),
+      checkChannel: vi.fn(async (candidate: ChannelCandidate) => ({
+        live: true,
+        categoryMatches: true,
+        candidate,
+      })),
+    };
+    const item = (id: string, patch: Partial<DropReward> = {}): DropReward => ({
+      ...reward("in_progress"),
+      id,
+      ...patch,
+    });
+    const badgeReward = (id: string, patch: Partial<DropReward> = {}): DropReward =>
+      item(id, { benefits: [{ id: `${id}-benefit`, distributionType: "BADGE" }], ...patch });
+
+    it("farms only badge campaigns, and only toward their badges", async () => {
+      // The item comes first and is shorter; the strategy would pick it.
+      const mixed = campaign("mixed", {
+        rewards: [item("item", { requiredMinutes: 15 }), badgeReward("badge")],
+      });
+      const decision = await chooseCampaignDecision(
+        "twitch",
+        [campaign("plain"), mixed],
+        settings({ platform: { twitch: { farmRewardTypes: ["badge"] } } }),
+        live,
+      );
+
+      expect(decision.action).toBe("watch");
+      expect(decision.campaign?.id).toBe("mixed");
+      expect(decision.reward?.id).toBe("badge");
+    });
+
+    it("farms a badge's prerequisite before the badge", async () => {
+      const chained = campaign("chained", {
+        rewards: [
+          item("first"),
+          badgeReward("badge", { preconditionRewardIds: ["first"], preconditionsMet: false }),
+          item("unrelated", { requiredMinutes: 5 }),
+        ],
+      });
+      const decision = await chooseCampaignDecision(
+        "twitch",
+        [chained],
+        settings({ platform: { twitch: { farmRewardTypes: ["badge"] } } }),
+        live,
+      );
+
+      expect(decision.reward?.id).toBe("first");
+    });
+
+    it("stops at a campaign whose badges are earned, items left or not", async () => {
+      const earned = campaign("earned", {
+        rewards: [badgeReward("badge", { status: "claimed", watchedMinutes: 60 }), item("item")],
+      });
+      const decision = await chooseCampaignDecision(
+        "twitch",
+        [earned],
+        settings({ platform: { twitch: { farmRewardTypes: ["badge"] } } }),
+        live,
+      );
+
+      expect(decision.action).toBe("idle");
+    });
+
+    it("leaves Kick's farming alone when Twitch farms badges", async () => {
+      const decision = await chooseCampaignDecision(
+        "kick",
+        [campaign("kick-plain", { platform: "kick" })],
+        settings({ platform: { twitch: { farmRewardTypes: ["badge"] } } }),
+        live,
+      );
+
+      expect(decision.action).toBe("watch");
+      expect(decision.campaign?.id).toBe("kick-plain");
+    });
+
+    it("says why it idles when no campaign is of the selected type", async () => {
+      const decision = await chooseCampaignDecision(
+        "twitch",
+        [campaign("plain")],
+        settings({ platform: { twitch: { farmRewardTypes: ["badge"] } } }),
+        live,
+      );
+
+      expect(decision.action).toBe("idle");
+      expect(decision.reason).toContain("No campaigns have rewards of the selected types");
+    });
+  });
+
   it("prefers an Idle Watchlist channel over a bigger directory channel", async () => {
     const decision = await chooseCampaignDecision(
       "twitch",

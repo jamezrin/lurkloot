@@ -163,7 +163,25 @@ describe("TipsBanner", () => {
       "watchSourceFortnite",
       "watchSourceIdleWatchlist",
     ];
-    const locales = ["en", "es", "fr", "it", "ru", "de", "zh_CN", "hi", "pt_BR", "ar", "tr"];
+    const locales = [
+      "en",
+      "es",
+      "fr",
+      "it",
+      "ru",
+      "de",
+      "zh_CN",
+      "hi",
+      "pt_BR",
+      "ar",
+      "tr",
+      "ja",
+      "id",
+      "pl",
+      "ko",
+      "uk",
+      "cs",
+    ];
 
     for (const locale of locales) {
       const catalog = JSON.parse(

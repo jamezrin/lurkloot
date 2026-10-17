@@ -1,0 +1,2015 @@
+{
+  "extensionName": {
+    "message": "Lurkloot"
+  },
+  "extensionStoreName": {
+    "message": "Lurkloot – Twitch a Kick drop farmer"
+  },
+  "extensionDescription": {
+    "message": "Farmí drops na Twitchi a Kicku přes běžné relace prohlížeče, viditelné ztlumené záložky a volitelný úsporný režim."
+  },
+  "promoTagline": {
+    "message": "Farmí drops na Twitchi a Kicku na autopilotu."
+  },
+  "languageBrowser": {
+    "message": "Použít jazyk prohlížeče"
+  },
+  "languageEnglish": {
+    "message": "angličtina"
+  },
+  "languageSpanish": {
+    "message": "španělština"
+  },
+  "languageFrench": {
+    "message": "francouzština"
+  },
+  "languageItalian": {
+    "message": "italština"
+  },
+  "languageRussian": {
+    "message": "ruština"
+  },
+  "languageGerman": {
+    "message": "němčina"
+  },
+  "languageChinese": {
+    "message": "čínština"
+  },
+  "languageHindi": {
+    "message": "hindština"
+  },
+  "languagePortuguese": {
+    "message": "portugalština"
+  },
+  "languageArabic": {
+    "message": "arabština"
+  },
+  "languageTurkish": {
+    "message": "turečtina"
+  },
+  "languageJapanese": {
+    "message": "japonština"
+  },
+  "languageIndonesian": {
+    "message": "indonéština"
+  },
+  "languagePolish": {
+    "message": "polština"
+  },
+  "languageKorean": {
+    "message": "korejština"
+  },
+  "languageUkrainian": {
+    "message": "ukrajinština"
+  },
+  "languageCzech": {
+    "message": "Čeština"
+  },
+  "settingsLanguageTitle": {
+    "message": "Jazyk"
+  },
+  "settingsLanguageDescription": {
+    "message": "Zvolte jazyk vyskakovacího okna a oznámení rozšíření."
+  },
+  "navWorkspace": {
+    "message": "Pracovní prostor"
+  },
+  "navPlatform": {
+    "message": "Platforma"
+  },
+  "navGroupDrops": {
+    "message": "Drops"
+  },
+  "navQueue": {
+    "message": "Fronta"
+  },
+  "navCompleted": {
+    "message": "Dokončené"
+  },
+  "navGames": {
+    "message": "Hry"
+  },
+  "navIdleWatchlist": {
+    "message": "Záložní seznam"
+  },
+  "navActivity": {
+    "message": "Aktivita"
+  },
+  "navSettings": {
+    "message": "Nastavení"
+  },
+  "queueGroupPinned": {
+    "message": "Připnuté"
+  },
+  "queueGroupPinnedHint": {
+    "message": "přetáhněte pro seřazení nebo zadejte pořadí"
+  },
+  "queueGroupFavourite": {
+    "message": "Oblíbené hry"
+  },
+  "queueGroupStrategy": {
+    "message": "Poté podle"
+  },
+  "queueNotInQueue": {
+    "message": "Není ve frontě"
+  },
+  "queueSkipped": {
+    "message": "Přeskočené"
+  },
+  "queueActionRequired": {
+    "message": "Vyžaduje akci"
+  },
+  "queueActionRequiredHint": {
+    "message": "Potřebuje předplatné nebo krok mimo Lurkloot. Připnutí a oblíbené mění jen pořadí."
+  },
+  "queueUpcoming": {
+    "message": "Nadcházející"
+  },
+  "queueStrategyLabel": {
+    "message": "Poté podle"
+  },
+  "queueFarmPinnedOnly": {
+    "message": "Farmit jen připnuté"
+  },
+  "queueUnpinAll": {
+    "message": "Odepnout vše ($1)"
+  },
+  "queueUnpin": {
+    "message": "Odepnout"
+  },
+  "queueFacetLabel": {
+    "message": "Typ kampaně"
+  },
+  "queueFacetAll": {
+    "message": "Vše"
+  },
+  "queueFacetNoSubscription": {
+    "message": "Bez předplatného"
+  },
+  "queueFacetSubscription": {
+    "message": "Vyžaduje předplatné"
+  },
+  "queueFacetBadge": {
+    "message": "Odznaky"
+  },
+  "queueFixInclude": {
+    "message": "Zahrnout"
+  },
+  "queueFixPin": {
+    "message": "Připnout"
+  },
+  "queueFixFarmAll": {
+    "message": "Farmit vše"
+  },
+  "queueFixGames": {
+    "message": "Otevřít Hry"
+  },
+  "queueFixSettings": {
+    "message": "Otevřít nastavení"
+  },
+  "queueEmpty": {
+    "message": "Momentálně tu není co farmit."
+  },
+  "queueEmptyRewardTypes": {
+    "message": "Z vybraných typů teď nelze nic farmit."
+  },
+  "completedTabFinished": {
+    "message": "Dokončené"
+  },
+  "completedTabExpired": {
+    "message": "Vypršelé"
+  },
+  "completedEmptyFinished": {
+    "message": "Kampaně se sem přesunou, až budou všechny odměny vyzvednuté."
+  },
+  "completedEmptyExpired": {
+    "message": "Kampaně se sem přesunou, když skončí nedokončené."
+  },
+  "settingsTitle": {
+    "message": "Nastavení"
+  },
+  "settingsSearchPlaceholder": {
+    "message": "Hledat v nastavení…"
+  },
+  "settingsSearchNoResults": {
+    "message": "Žádné nastavení neodpovídá „$1“."
+  },
+  "settingsPlatformSettings": {
+    "message": "Nastavení $1"
+  },
+  "settingsShowAdvancedTitle": {
+    "message": "Zobrazit pokročilá nastavení"
+  },
+  "settingsSectionJumpNavLabel": {
+    "message": "Přejít na sekci"
+  },
+  "settingsSectionAdvancedActions": {
+    "message": "Pokročilé akce"
+  },
+  "settingsSectionAdvancedActionsDescription": {
+    "message": "Importovat, exportovat nebo resetovat nastavení Lurkloot."
+  },
+  "activityTitle": {
+    "message": "Aktivita"
+  },
+  "activeStatus": {
+    "message": "Aktivní"
+  },
+  "pausedStatus": {
+    "message": "Pozastaveno"
+  },
+  "refreshSchedule": {
+    "message": "Obnovit plán"
+  },
+  "openInventory": {
+    "message": "Otevřít inventář"
+  },
+  "openActivity": {
+    "message": "Otevřít aktivitu"
+  },
+  "closeActivity": {
+    "message": "Zavřít aktivitu"
+  },
+  "openSettings": {
+    "message": "Otevřít nastavení"
+  },
+  "closeSettings": {
+    "message": "Zavřít nastavení"
+  },
+  "back": {
+    "message": "Zpět"
+  },
+  "loading": {
+    "message": "Načítání"
+  },
+  "dropsTab": {
+    "message": "Drops"
+  },
+  "idleWatchlistTab": {
+    "message": "Záložní seznam"
+  },
+  "automationTitle": {
+    "message": "Automatizace $1"
+  },
+  "automationRunning": {
+    "message": "Běží"
+  },
+  "automationStarting": {
+    "message": "Spouští se"
+  },
+  "automationStopping": {
+    "message": "Zastavuje se"
+  },
+  "startingAutomation": {
+    "message": "Spouštění automatizace…"
+  },
+  "pausingAutomation": {
+    "message": "Pozastavování automatizace…"
+  },
+  "watchingLabel": {
+    "message": "Sledování"
+  },
+  "farmingLabel": {
+    "message": "Farmení"
+  },
+  "waitingEligibleStream": {
+    "message": "Pro tuto kampaň není momentálně dostupný žádný vhodný live stream"
+  },
+  "watchingPausedHint": {
+    "message": "Sledování je pozastavené. Přepněte pro obnovení farmení drops."
+  },
+  "hideTipsTitle": {
+    "message": "Skrýt tipy"
+  },
+  "hideTipsDescription": {
+    "message": "Odstraní užitečné tipy z hlavního vyskakovacího okna."
+  },
+  "inPagePanelTitle": {
+    "message": "Zobrazit panel na Twitchi a Kicku"
+  },
+  "inPagePanelDescription": {
+    "message": "Přidá tlačítko Lurkloot na twitch.tv a kick.com, které otevře toto vyskakovací okno v panelu na stránce."
+  },
+  "tipCampaignPriority": {
+    "message": "Přetáhněte kampaň, abyste ji připnuli jako první, nebo označte hru hvězdičkou, aby její kampaně byly vysoko. Vše ostatní následuje pořadí ve Frontě."
+  },
+  "tipMissingCampaigns": {
+    "message": "Chybí kampaň? Zkontrolujte inventář Drops na platformě a pak filtry kampaní v Nastavení."
+  },
+  "tipCategorySelection": {
+    "message": "Zobrazení Her rozhoduje, které hry se farmí, které jsou první a které se vůbec nefarmí."
+  },
+  "tipIdleWatchlist": {
+    "message": "Zvolte, kdy se sledují kanály Idle watchlist, úpravou priority zdrojů sledování v nastavení platformy."
+  },
+  "tipTablessMode": {
+    "message": "Režim bez záložek spotřebuje méně prostředků a v případě potřeby přejde na ztlumenou záložku."
+  },
+  "tipCli": {
+    "message": "Raději bez rozšíření? Lurkloot je k dispozici i jako CLI v Dockeru."
+  },
+  "tipCliAction": {
+    "message": "Přečíst průvodce CLI"
+  },
+  "tipFeedback": {
+    "message": "Našli jste chybu nebo máte nápad?"
+  },
+  "tipFeedbackAction": {
+    "message": "Otevřít issue na GitHubu"
+  },
+  "tipExcludedCampaigns": {
+    "message": "Omylem jste vyloučili kampaň? Je v Přeskočených ve Frontě, s tlačítkem pro vrácení."
+  },
+  "tipTranslations": {
+    "message": "Překlady se udržují automaticky pomocí AI. Pomozte je vylepšit na GitHubu."
+  },
+  "tipTranslationsAction": {
+    "message": "Přečíst průvodce překlady"
+  },
+  "noCampaigns": {
+    "message": "Zatím nebyly nalezeny žádné kampaně."
+  },
+  "campaignSearchPlaceholder": {
+    "message": "Hledat kampaně…"
+  },
+  "campaignSearchNoResults": {
+    "message": "Žádné kampaně neodpovídají „$1“."
+  },
+  "closeSearch": {
+    "message": "Zavřít hledání"
+  },
+  "search": {
+    "message": "Hledat"
+  },
+  "noActivity": {
+    "message": "Zatím není zaznamenána žádná aktivita. Stiskněte obnovit pro kontrolu."
+  },
+  "noDiagnostics": {
+    "message": "Zatím nejsou zaznamenány žádné diagnostiky. Objeví se, až rozšíření poběží."
+  },
+  "searchDiagnostics": {
+    "message": "Hledat v diagnostice"
+  },
+  "noDiagnosticsMatch": {
+    "message": "Žádné diagnostiky neodpovídají „$1“."
+  },
+  "platformActivity": {
+    "message": "Aktivita $1"
+  },
+  "platformDiagnostics": {
+    "message": "Diagnostika $1"
+  },
+  "lastCheck": {
+    "message": "poslední kontrola $1"
+  },
+  "noChecksYet": {
+    "message": "zatím žádné kontroly"
+  },
+  "debug": {
+    "message": "Debug"
+  },
+  "info": {
+    "message": "Info"
+  },
+  "warn": {
+    "message": "Varování"
+  },
+  "error": {
+    "message": "Chyba"
+  },
+  "notLinked": {
+    "message": "Nespojeno"
+  },
+  "subscriptionCampaigns": {
+    "message": "Kampaně s předplatným"
+  },
+  "subscriptionRequired": {
+    "message": "Vyžaduje předplatné"
+  },
+  "subscriptionRewards": {
+    "message": "Odměny za předplatné"
+  },
+  "qualifyingSubscriptionsRequired": {
+    "message": "Vyžadováno $1 kvalifikovaných předplatných"
+  },
+  "subscriptionProgressUnknown": {
+    "message": "Průběh není k dispozici"
+  },
+  "rewardBadge": {
+    "message": "Odznak"
+  },
+  "rewardBadgeNamed": {
+    "message": "Odznak: $1"
+  },
+  "rewardAlsoWatch": {
+    "message": "Plus $1 sledování"
+  },
+  "rewardClaimable": {
+    "message": "Připraveno k vyzvednutí"
+  },
+  "notEarnableByWatching": {
+    "message": "Nelze získat sledováním"
+  },
+  "subscribedRefresh": {
+    "message": "Předplatil jsem — obnovit stav"
+  },
+  "subscriptionMarkSubscribed": {
+    "message": "Označit jako předplacené"
+  },
+  "subscriptionMarkedSubscribed": {
+    "message": "Označeno jako předplacené"
+  },
+  "subscriptionMarkUndo": {
+    "message": "Zpět"
+  },
+  "waitingForSubscription": {
+    "message": "Čekání na kvalifikované předplatné"
+  },
+  "actionRequired": {
+    "message": "Vyžaduje akci"
+  },
+  "earned": {
+    "message": "Získáno"
+  },
+  "linkAccount": {
+    "message": "Propojit účet"
+  },
+  "externalGameAccountRequired": {
+    "message": "Vyžaduje externí herní účet"
+  },
+  "linkExternalGameAccount": {
+    "message": "Propojit externí herní účet"
+  },
+  "viewDropPage": {
+    "message": "Zobrazit stránku dropu"
+  },
+  "campaignDropDetails": {
+    "message": "Podrobnosti dropu"
+  },
+  "campaignCategoryDrops": {
+    "message": "Drops kategorie"
+  },
+  "upcoming": {
+    "message": "Nadcházející"
+  },
+  "expired": {
+    "message": "Vypršelé"
+  },
+  "excluded": {
+    "message": "Vyloučené"
+  },
+  "finished": {
+    "message": "Hotovo"
+  },
+  "completedCampaigns": {
+    "message": "Dokončené"
+  },
+  "upcomingPill": {
+    "message": "Nadcházející"
+  },
+  "expiredPill": {
+    "message": "Vypršelé"
+  },
+  "complete": {
+    "message": "Dokončeno"
+  },
+  "startsIn": {
+    "message": "Začíná za $1"
+  },
+  "endsIn": {
+    "message": "Končí za $1"
+  },
+  "watchToGo": {
+    "message": "Zbývá sledovat $1"
+  },
+  "left": {
+    "message": "Zbývá"
+  },
+  "campaignFactWatchTime": {
+    "message": "Doba sledování"
+  },
+  "watchTimeLeftValue": {
+    "message": "Zbývá $1"
+  },
+  "watchTimeNeeded": {
+    "message": "Potřeba $1"
+  },
+  "watchTimeOfTotal": {
+    "message": "z celkem $1"
+  },
+  "done": {
+    "message": "Hotovo"
+  },
+  "rewards": {
+    "message": "Odměny"
+  },
+  "allChannels": {
+    "message": "Všechny kanály"
+  },
+  "includeInFarming": {
+    "message": "Zahrnout do farmení"
+  },
+  "excludeFromFarming": {
+    "message": "Vyloučit z farmení"
+  },
+  "noIdleWatchlist": {
+    "message": "Nejsou nastaveny žádné kanály Idle watchlist."
+  },
+  "channelPlaceholder": {
+    "message": "kanál"
+  },
+  "add": {
+    "message": "Přidat"
+  },
+  "addChannel": {
+    "message": "Přidat kanál"
+  },
+  "idleWatchlistChannel": {
+    "message": "Mimo síť"
+  },
+  "live": {
+    "message": "live"
+  },
+  "viewerCount": {
+    "message": "$1 diváků"
+  },
+  "settingsGeneralTitle": {
+    "message": "Obecná nastavení"
+  },
+  "settingsGeneralDescription": {
+    "message": "Jazyk, spuštění a chování vyskakovacího okna."
+  },
+  "settingsGroupAppearance": {
+    "message": "Vzhled a chování"
+  },
+  "pauseManualTitle": {
+    "message": "Pozastavit při ručním sledování"
+  },
+  "pauseManualDescription": {
+    "message": "Zastaví farmení, když máte otevřený stream a sledujete ho sami."
+  },
+  "autoStartTitle": {
+    "message": "Automaticky spustit po načtení"
+  },
+  "autoStartDescription": {
+    "message": "Začne farmit hned po načtení rozšíření."
+  },
+  "notificationsTitle": {
+    "message": "Oznámení"
+  },
+  "notificationsDescription": {
+    "message": "Upozornění, když jsou odměny připravené nebo kampaně skončí."
+  },
+  "settingsGroupNotifications": {
+    "message": "Oznámení"
+  },
+  "rewardEarnedTitle": {
+    "message": "Odměna získána"
+  },
+  "rewardEarnedDescription": {
+    "message": "Upozornit, když lze vyzvednout odměnu z dropu."
+  },
+  "noDropsLeftTitle": {
+    "message": "Žádné drops nezbývají"
+  },
+  "noDropsLeftDescription": {
+    "message": "Upozornit, když jsou všechny aktivní kampaně vyčerpané."
+  },
+  "dropsSettingsTitle": {
+    "message": "Drops"
+  },
+  "dropsSettingsDescription": {
+    "message": "Vyzvedávání, způsobilost, priority a viditelnost kampaní."
+  },
+  "settingsGroupDrops": {
+    "message": "Drops"
+  },
+  "autoClaimTitle": {
+    "message": "Automaticky vyzvedávat drops"
+  },
+  "autoClaimDescription": {
+    "message": "Automaticky vyzvedne získané odměny z drops, jakmile budou dostupné."
+  },
+  "campaignPriorityTitle": {
+    "message": "Priorita kampaní"
+  },
+  "campaignPriorityDescription": {
+    "message": "Seřadí kampaně ve Frontě, které nejsou připnuté ani u oblíbené hry. Můžete to změnit i u oddělovače Poté podle ve Frontě."
+  },
+  "endingSoonest": {
+    "message": "Nejdříve končící"
+  },
+  "lowAvailabilityFirst": {
+    "message": "Nejdříve s nízkou dostupností"
+  },
+  "idleWatchlistSettingsTitle": {
+    "message": "Záložní seznam"
+  },
+  "idleWatchlistSettingsDescription": {
+    "message": "Záložní kanály, když nejsou dostupné žádné vhodné drops."
+  },
+  "preferKnownChannelsTitle": {
+    "message": "Upřednostnit sledované a kanály Idle watchlist"
+  },
+  "preferKnownChannelsDescription": {
+    "message": "Když je drop na více kanálech, vybere ten, který sledujete nebo máte v Idle watchlist, místo neznámého."
+  },
+  "platformSettingsTitle": {
+    "message": "Nastavení platformy"
+  },
+  "farmingTabsTitle": {
+    "message": "Záložky pro farmení"
+  },
+  "farmingTabsDescription": {
+    "message": "Ovládání farmení ve videozáložce. Možnosti záložky jsou vypnuté, když je zapnutý úsporný režim bez záložek."
+  },
+  "settingsGroupFarmingTabs": {
+    "message": "Záložky pro farmení"
+  },
+  "tablessTitle": {
+    "message": "Úsporný režim bez záložek"
+  },
+  "tablessDescription": {
+    "message": "Farmí přes lehké signály sledování místo videozáložky. Twitch používá heartbeat; Kick připojení diváka. Při selhání automaticky přejde na záložku."
+  },
+  "tablessFallbackFailureLimitTitle": {
+    "message": "Práh návratu z režimu bez záložek"
+  },
+  "tablessFallbackFailureLimitDescription": {
+    "message": "Otevře videozáložku po tolika po sobě jdoucích neúspěšných signálech sledování bez záložek."
+  },
+  "tablessFallbackFailureLimitDisabledReason": {
+    "message": "Pro změnu zapněte úsporný režim bez záložek."
+  },
+  "failuresSuffix": {
+    "message": "neúspěchů"
+  },
+  "kickPageContextRecoverySuccessesTitle": {
+    "message": "Obnova záložní stránky Kick"
+  },
+  "kickPageContextRecoverySuccessesDescription": {
+    "message": "Zavře záložní stránku Kick otevřenou rozšířením po tolika úspěšných cyklech obnovení."
+  },
+  "kickPageContextRecoverySuccessesDisabledReason": {
+    "message": "Pro změnu zapněte Kick."
+  },
+  "cyclesSuffix": {
+    "message": "cyklů"
+  },
+  "autoCloseTabsTitle": {
+    "message": "Automaticky zavírat záložky pro farmení"
+  },
+  "autoCloseTabsDescription": {
+    "message": "Automaticky zavře, když je rozšíření nečinné (nic k farmě nebo žádní streameři ke sledování)."
+  },
+  "muteTabsTitle": {
+    "message": "Ztlumit záložky pro farmení"
+  },
+  "muteTabsDescription": {
+    "message": "Udržuje záložky drops a Idle watchlist během farmení ztlumené."
+  },
+  "keepVideosUnmutedTitle": {
+    "message": "Nenechat farmící videa ztlumená"
+  },
+  "keepVideosUnmutedDescription": {
+    "message": "Ponechá přehrávače na stránce neztlumené, i když je záložka prohlížeče ztlumená."
+  },
+  "tablessDisabledReason": {
+    "message": "Vypnuto, dokud je zapnutý úsporný režim bez záložek."
+  },
+  "adFocusTitle": {
+    "message": "Zaměřit záložku během reklam"
+  },
+  "adFocusDescription": {
+    "message": "Odpočty reklam v záložkách na pozadí zamrzají. Krátce zaměří záložku pro farmení během reklamy, aby odpočet běžel, pak obnoví předchozí záložku."
+  },
+  "off": {
+    "message": "Vypnuto"
+  },
+  "tabOnly": {
+    "message": "Jen záložka"
+  },
+  "tabAndWindow": {
+    "message": "Záložka + okno"
+  },
+  "advancedTitle": {
+    "message": "Pokročilé"
+  },
+  "advancedDescription": {
+    "message": "Měňte jen pokud víte, co děláte — ovládají plánovač a nízkoúrovňové logování."
+  },
+  "settingsGroupAdvanced": {
+    "message": "Pokročilé"
+  },
+  "settingsGroupPlatformAdvanced": {
+    "message": "Pokročilé a kompatibilita"
+  },
+  "twitchSectionDescription": {
+    "message": "Priorita zdrojů sledování, channel points, kategorie, vyloučené kanály a kompatibilita Twitch."
+  },
+  "kickSectionDescription": {
+    "message": "Priorita zdrojů sledování, denní výzvy, kategorie, vyloučené kanály a kompatibilita Kick."
+  },
+  "twitchAdvancedDescription": {
+    "message": "Dostupnost kampaní a transporty heartbeat a inventáře, které Lurkloot používá. Měňte jen když Twitch přestane fungovat."
+  },
+  "kickAdvancedDescription": {
+    "message": "Jak Lurkloot otevírá propojovací odkazy Kick a profil chování za tím. Měňte jen když Kick přestane fungovat."
+  },
+  "schedulerIntervalTitle": {
+    "message": "Interval plánovače"
+  },
+  "schedulerIntervalDescription": {
+    "message": "Jak často se obnovuje stav kampaní a streamerů."
+  },
+  "postClaimHandoffTitle": {
+    "message": "Rychlé předání odměny"
+  },
+  "postClaimHandoffDescription": {
+    "message": "Po vyzvednutí dropu krátce zkontroluje další odměnu v kampani místo čekání na další plánovaný cyklus. Jen Twitch."
+  },
+  "postClaimHandoffIntervalTitle": {
+    "message": "Interval kontroly předání"
+  },
+  "postClaimHandoffIntervalDescription": {
+    "message": "Jak dlouho čekat mezi kontrolami další odměny."
+  },
+  "postClaimHandoffMaxTitle": {
+    "message": "Časový limit předání"
+  },
+  "postClaimHandoffMaxDescription": {
+    "message": "Vzdát se a vrátit se k běžnému plánu po této době."
+  },
+  "secondsSuffix": {
+    "message": "s"
+  },
+  "deadlineSafetyMarginTitle": {
+    "message": "Bezpečnostní rezerva termínu"
+  },
+  "deadlineSafetyMarginDescription": {
+    "message": "Extra minuty vyžadované před farmením odměny."
+  },
+  "deadlineSafetyMarginDisabledReason": {
+    "message": "Pro změnu rezervy zapněte filtrování termínů."
+  },
+  "skipUnfinishableRewardsTitle": {
+    "message": "Přeskočit odměny, které nelze dokončit"
+  },
+  "skipUnfinishableRewardsDescription": {
+    "message": "Nefarmit odměny, když zbývající doba sledování přesahuje čas do termínu."
+  },
+  "minutesSuffix": {
+    "message": "min."
+  },
+  "insufficientTimeRemaining": {
+    "message": "Zbývá nedostatek času"
+  },
+  "campaignRejectionExcluded": {
+    "message": "Tato kampaň je vyloučená z farmení."
+  },
+  "campaignRejectionUpcoming": {
+    "message": "Tato kampaň ještě nezačala."
+  },
+  "campaignRejectionExpired": {
+    "message": "Tato kampaň skončila."
+  },
+  "campaignRejectionCompleted": {
+    "message": "Všechny odměny v této kampani jsou dokončené."
+  },
+  "campaignRejectionUnlinkedDisabled": {
+    "message": "Farmení kampaní bez propojeného účtu je vypnuté."
+  },
+  "campaignRejectionTwitchLinkRequired": {
+    "message": "Pro tuto kampaň Twitch je vyžadováno propojení účtu."
+  },
+  "campaignRejectionSubscriptionDisabled": {
+    "message": "Farmení kampaní s předplatným je vypnuté."
+  },
+  "campaignRejectionCategoryFiltered": {
+    "message": "Tato kampaň neodpovídá vybraným kategoriím."
+  },
+  "campaignRejectionCategoryBlocked": {
+    "message": "Tato hra je blokovaná, její kampaně se nikdy nefarmí."
+  },
+  "campaignRejectionNotPinned": {
+    "message": "Teď se farmí jen připnuté kampaně."
+  },
+  "campaignRejectionRewardType": {
+    "message": "Žádná z jejích odměn není typu, který farmíte."
+  },
+  "campaignRejectionRewardTypesObtained": {
+    "message": "Odměny typů, které farmíte, už jsou získané."
+  },
+  "campaignRejectionNoRewards": {
+    "message": "Tato kampaň nemá odměny k farmení."
+  },
+  "campaignRejectionNoUnclaimedRewards": {
+    "message": "Tato kampaň nemá nevyzvednuté odměny."
+  },
+  "campaignRejectionPrerequisites": {
+    "message": "$1 čeká na dřívější odměnu nebo požadavek."
+  },
+  "campaignRejectionRewardNotStarted": {
+    "message": "$1 ještě není dostupná."
+  },
+  "campaignRejectionRewardWindowEnded": {
+    "message": "$1 už není dostupná."
+  },
+  "campaignRejectionInsufficientTime": {
+    "message": "$1 nelze dokončit před termínem."
+  },
+  "campaignRejectionSubscriptionRequired": {
+    "message": "$1 vyžaduje kvalifikované předplatné."
+  },
+  "campaignRejectionActionRequired": {
+    "message": "$1 vyžaduje jinou akci než sledování."
+  },
+  "campaignRejectionThen": {
+    "message": "Poté: $1"
+  },
+  "campaignRejectionNoFarmableReward": {
+    "message": "V této kampani teď nelze farmit žádnou odměnu."
+  },
+  "automationSectionTitle": {
+    "message": "Automatizace"
+  },
+  "farmOnPlatform": {
+    "message": "Farmí drops a sleduje kanály Idle watchlist na $1."
+  },
+  "enabled": {
+    "message": "Zapnuto"
+  },
+  "idleWatchlistEditHint": {
+    "message": "Upravte to na kartě Idle Watchlist po výběru $1."
+  },
+  "autoClaimChannelPointsTitle": {
+    "message": "Automaticky vyzvedávat channel points"
+  },
+  "autoClaimChannelPointsDescription": {
+    "message": "Vyzvedá bonusy channel points během farmení na této platformě."
+  },
+  "channelPointsPushClaimTitle": {
+    "message": "Vyzvedávat channel points z live událostí"
+  },
+  "channelPointsPushClaimDescription": {
+    "message": "Vyzvedne bonus hned, jak ho Twitch zpřístupní. Vypněte pro kontrolu jen jednou za minutu."
+  },
+  "alwaysEnterChatTitle": {
+    "message": "Vždy vstoupit do chatu kanálu"
+  },
+  "alwaysEnterChatDescription": {
+    "message": "Připojí se k chatu každého sledovaného kanálu. Streameři a moderátoři vás uvidí v seznamu diváků chatu. Zprávy se nikdy neodesílají."
+  },
+  "chatPresenceJoined": {
+    "message": "V chatu"
+  },
+  "chatPresenceJoining": {
+    "message": "Připojování k chatu…"
+  },
+  "chatPresenceUnavailable": {
+    "message": "Chat není k dispozici"
+  },
+  "chatPresenceBlockedAuth": {
+    "message": "Chat není k dispozici: znovu se přihlaste na Twitch"
+  },
+  "strictCampaignAvailabilityTitle": {
+    "message": "Přísná dostupnost kampaní"
+  },
+  "strictCampaignAvailabilityDescription": {
+    "message": "Farmit kampaň jen na kanálech, které pro ni Twitch uvádí. Twitch často vynechá farmitelné kampaně, takže drops mohou zůstat nefarmené."
+  },
+  "autoClaimChallengesTitle": {
+    "message": "Automaticky vyzvedávat denní výzvy"
+  },
+  "autoClaimChallengesDescription": {
+    "message": "Vyzvedne odměnu z denní výzvy Kick po splnění cíle doby sledování."
+  },
+  "settingsGroupExcludedChannels": {
+    "message": "Vyloučené kanály"
+  },
+  "excludedChannelsTitle": {
+    "message": "Vyloučené kanály pro drops"
+  },
+  "excludedChannelsDescription": {
+    "message": "Farmení kampaní tyto streamery přeskočí."
+  },
+  "excludedChannelsEmpty": {
+    "message": "Žádné vyloučené kanály pro drops."
+  },
+  "settingsGroupCategories": {
+    "message": "Kategorie"
+  },
+  "categoryModeTitle": {
+    "message": "Filtr kategorií"
+  },
+  "categoryModeDescription": {
+    "message": "Farmit všechny kategorie $1, zahrnout jen vybrané, nebo je vyloučit."
+  },
+  "categoryModeAll": {
+    "message": "Všechny kategorie"
+  },
+  "categoryModeInclude": {
+    "message": "Jen vybrané"
+  },
+  "includeCategoriesInstruction": {
+    "message": "Na $1 se farmí jen tyto kategorie."
+  },
+  "categoriesToFarm": {
+    "message": "Kategorie k farmení"
+  },
+  "noCategoriesSelected": {
+    "message": "Nejsou vybrané kategorie — na $1 se nebude nic farmit. Přidejte kategorie níže."
+  },
+  "hasActiveDrops": {
+    "message": "Má aktivní drops"
+  },
+  "otherCategories": {
+    "message": "Ostatní kategorie"
+  },
+  "searchCategories": {
+    "message": "Hledat kategorie $1"
+  },
+  "searching": {
+    "message": "Hledání…"
+  },
+  "noCategoriesFound": {
+    "message": "Nebyly nalezeny žádné kategorie."
+  },
+  "alreadyAdded": {
+    "message": "Už přidáno."
+  },
+  "activityLogLevelsTitle": {
+    "message": "Úrovně protokolu aktivity"
+  },
+  "activityLogLevelsDescription": {
+    "message": "Zvolte, které úrovně se zapisují do protokolu Aktivity. Chyby se vždy uchovávají."
+  },
+  "farmUnlinkedTitle": {
+    "message": "Farmit kampaně bez propojeného účtu"
+  },
+  "farmUnlinkedDescription": {
+    "message": "Když vypnuto, přeskočí kampaně vyžadující propojení účtu. Požadavky platformy mohou propojení vyžadovat i při zapnutí."
+  },
+  "farmSubscriptionTitle": {
+    "message": "Farmit kampaně vyžadující předplatné"
+  },
+  "farmSubscriptionDescription": {
+    "message": "Když vypnuto, přeskočí kampaně, jejichž odměny vyžadují předplatné kanálu."
+  },
+  "forgetExcludedTitle": {
+    "message": "Zapomenout vyloučené kampaně"
+  },
+  "forgetExcludedDescription": {
+    "message": "Vymaže všechny kampaně, které jste vyloučili z farmení."
+  },
+  "forget": {
+    "message": "Zapomenout"
+  },
+  "unknownGame": {
+    "message": "Neznámá hra"
+  },
+  "noCategory": {
+    "message": "Bez kategorie"
+  },
+  "dropsCampaign": {
+    "message": "Kampaň drops"
+  },
+  "later": {
+    "message": "později"
+  },
+  "ended": {
+    "message": "Skončilo"
+  },
+  "notificationRewardClaimed": {
+    "message": "Odměna vyzvednuta"
+  },
+  "notificationRewardEarned": {
+    "message": "Odměna získána"
+  },
+  "notificationNoDropsLeft": {
+    "message": "Žádné drops nezbývají"
+  },
+  "notificationRewardFromCampaign": {
+    "message": "$1 z $2"
+  },
+  "notificationChallengeClaimed": {
+    "message": "Odměna z výzvy vyzvednuta"
+  },
+  "notificationChallengeReward": {
+    "message": "Vyhráli jste kartu $1 z výzvy $2."
+  },
+  "notificationNoDropsLeftMessage": {
+    "message": "$1 nemá žádné vhodné drops k farmení."
+  },
+  "screenshotHeroEyebrow": {
+    "message": "Twitch + Kick"
+  },
+  "screenshotHeroHeadline": {
+    "message": "Farmí drops, zatímco děláte cokoli jiného."
+  },
+  "screenshotHeroSubcopy": {
+    "message": "Auto-vyzvednutí z vaší přihlášené relace. Bez hesel."
+  },
+  "screenshotExtrasEyebrow": {
+    "message": "Mimo kampaně"
+  },
+  "screenshotExtrasHeadline": {
+    "message": "Víc než drops."
+  },
+  "screenshotExtrasSubcopy": {
+    "message": "Channel points, výzvy Kick a 2minutové drops — taky za vás vyzvednuté. Idle watchlist, když už není co farmit."
+  },
+  "screenshotExtrasPointsName": {
+    "message": "Body kanálu"
+  },
+  "screenshotExtrasPointsMeta": {
+    "message": "Twitch · taky za vás vyzvednuté"
+  },
+  "screenshotExtrasChallengesName": {
+    "message": "Denní výzvy"
+  },
+  "screenshotExtrasChallengesMeta": {
+    "message": "Kick · taky za vás vyzvednuté"
+  },
+  "screenshotExtrasWatchlistName": {
+    "message": "Záložní seznam"
+  },
+  "screenshotExtrasWatchlistMeta": {
+    "message": "Sleduje vaše streamery mezi kampaněmi"
+  },
+  "screenshotExtrasFlashName": {
+    "message": "2minutové drops"
+  },
+  "screenshotExtrasFlashMeta": {
+    "message": "Kick · seberou se hned, jak přijdou"
+  },
+  "screenshotEasyEyebrow": {
+    "message": "Snadné použití"
+  },
+  "screenshotEasyHeadline": {
+    "message": "Tak snadné."
+  },
+  "screenshotEasyInstallTitle": {
+    "message": "Nainstalovat"
+  },
+  "screenshotEasyInstallSub": {
+    "message": "Chrome Web Store. Bez účtu."
+  },
+  "screenshotEasyPinTitle": {
+    "message": "Připnout"
+  },
+  "screenshotEasyPinSub": {
+    "message": "Vyskakovací okno na jedno kliknutí."
+  },
+  "screenshotEasyEnableTitle": {
+    "message": "Zapnout platformu"
+  },
+  "screenshotEasyEnableSub": {
+    "message": "Twitch, Kick nebo obojí."
+  },
+  "screenshotEasyProfitTitle": {
+    "message": "A farmí"
+  },
+  "screenshotEasyProfitSub": {
+    "message": "Ono farmí. Vy děláte jiné věci."
+  },
+  "screenshotSettingsEyebrow": {
+    "message": "Vaše pravidla"
+  },
+  "screenshotSettingsHeadline": {
+    "message": "Farmte přesně, jak chcete."
+  },
+  "screenshotSettingsSubcopy": {
+    "message": "Priority, hry, režim bez záložek, auto-vyzvednutí — pro každou platformu."
+  },
+  "screenshotUpdatedEyebrow": {
+    "message": "Otevřený zdroj"
+  },
+  "screenshotUpdatedHeadline": {
+    "message": "Bohaté funkce. Stále aktuální."
+  },
+  "screenshotUpdatedSubcopy": {
+    "message": "Časté vydání, když se mění Twitch a Kick — a otevřené nápadům a vylepšením."
+  },
+  "screenshotUpdatedBrowsersTitle": {
+    "message": "Prohlížeče na Chromium"
+  },
+  "screenshotUpdatedBrowsersSub": {
+    "message": "Chrome Web Store. Stejné rozšíření."
+  },
+  "screenshotUpdatedHeadlessTitle": {
+    "message": "CLI"
+  },
+  "screenshotUpdatedHeadlessSub": {
+    "message": "Headless. Stejný engine."
+  },
+  "screenshotUpdatedDockerTitle": {
+    "message": "Docker"
+  },
+  "screenshotUpdatedDockerSub": {
+    "message": "Stejný engine. V kontejneru."
+  },
+  "screenshotUpdatedLicense": {
+    "message": "Apache-2.0"
+  },
+  "autoClaimReady": {
+    "message": "Auto-vyzvednutí připraveno"
+  },
+  "attributionLinks": {
+    "message": "Odkazy na atribuci"
+  },
+  "githubAttribution": {
+    "message": "Lurkloot na GitHubu"
+  },
+  "githubAttributionShort": {
+    "message": "GitHub"
+  },
+  "chromeWebStoreAttribution": {
+    "message": "Lurkloot v Chrome Web Store"
+  },
+  "chromeWebStoreAttributionShort": {
+    "message": "Chrome"
+  },
+  "siteAttribution": {
+    "message": "Web Lurkloot"
+  },
+  "siteAttributionShort": {
+    "message": "Web"
+  },
+  "updateNoticeTitle": {
+    "message": "Lurkloot byl aktualizován na $1"
+  },
+  "updateNoticeBody": {
+    "message": "Podívejte se, co je nového a co se změnilo."
+  },
+  "updateNoticeAction": {
+    "message": "Zobrazit změny"
+  },
+  "updateNoticeDismiss": {
+    "message": "Skrýt upozornění na aktualizaci"
+  },
+  "rateNudgeTitle": {
+    "message": "Líbí se vám Lurkloot?"
+  },
+  "rateNudgeBody": {
+    "message": "Krátké hodnocení v Chrome Web Store hodně pomůže."
+  },
+  "rateNudgeAction": {
+    "message": "Ohodnotit"
+  },
+  "rateNudgeDismiss": {
+    "message": "Teď ne"
+  },
+  "githubStarNudgeTitle": {
+    "message": "Lurkloot je open source"
+  },
+  "githubStarNudgeBody": {
+    "message": "Pokud vám pomohl, hvězdička na GitHubu pomůže ostatním ho najít. Příspěvky vítány, zejména funkce a překlady."
+  },
+  "githubStarNudgeAction": {
+    "message": "Dát hvězdičku na GitHubu"
+  },
+  "removeItem": {
+    "message": "Odebrat $1"
+  },
+  "cliExportTitle": {
+    "message": "CLI bez prohlížeče"
+  },
+  "cliExportDescription": {
+    "message": "Spusťte farmení drops na serveru nebo v Dockeru pomocí CLI Lurkloot s přihlášenou relací tohoto prohlížeče."
+  },
+  "cliExportHint": {
+    "message": "Exportuje tokeny relace Twitch a Kick, aby CLI „login --import“ mohlo je znovu použít. Soubor držte v soukromí — kdokoli s ním může používat vaše relace."
+  },
+  "cliExportConfirm": {
+    "message": "Stáhne tokeny relace Twitch a Kick do souboru. Kdokoli se souborem může na těchto webech jednat vaším jménem. Pokračovat?"
+  },
+  "cliExportCancel": {
+    "message": "Zrušit"
+  },
+  "cliExportConfirmButton": {
+    "message": "Potvrdit export"
+  },
+  "cliExportButton": {
+    "message": "Exportovat přihlašovací údaje"
+  },
+  "settingsExportTitle": {
+    "message": "Import / export nastavení"
+  },
+  "settingsExportHint": {
+    "message": "Uložte nastavení do souboru nebo je načtěte v jiném prohlížeči. Nikdy neobsahuje přihlášení Twitch ani Kick."
+  },
+  "settingsExportButton": {
+    "message": "Exportovat nastavení"
+  },
+  "settingsImportButton": {
+    "message": "Importovat nastavení"
+  },
+  "settingsImportConfirm": {
+    "message": "Nahradí aktuální nastavení těmi ze zvoleného souboru. Pokračovat?"
+  },
+  "settingsImportCancel": {
+    "message": "Zrušit"
+  },
+  "settingsImportConfirmButton": {
+    "message": "Vybrat soubor a importovat"
+  },
+  "settingsImportFailed": {
+    "message": "Tento soubor není platný export nastavení Lurkloot."
+  },
+  "settingsExportFailed": {
+    "message": "Lurkloot nemohl exportovat nastavení. Zkuste to znovu."
+  },
+  "factoryResetTitle": {
+    "message": "Resetovat Lurkloot"
+  },
+  "factoryResetHint": {
+    "message": "Smaže všechna nastavení Lurkloot, průběh farmení a historii aktivity. Účty Twitch a Kick zůstanou přihlášené."
+  },
+  "factoryResetButton": {
+    "message": "Resetovat Lurkloot"
+  },
+  "factoryResetConfirm": {
+    "message": "Zastaví farmení, zavře záložky otevřené Lurklootem a trvale smaže všechna data Lurkloot. Twitch a Kick zůstanou přihlášené."
+  },
+  "factoryResetCancel": {
+    "message": "Zrušit"
+  },
+  "factoryResetConfirmButton": {
+    "message": "Resetovat vše"
+  },
+  "factoryResetProgress": {
+    "message": "Resetování…"
+  },
+  "factoryResetFailed": {
+    "message": "Lurkloot se nepodařilo úplně resetovat. Zkuste to znovu."
+  },
+  "factoryResetRetry": {
+    "message": "Zkusit reset znovu"
+  },
+  "diagnosticLoggingTitle": {
+    "message": "Zahrnout diagnostické protokoly"
+  },
+  "diagnosticLoggingDescription": {
+    "message": "Zaznamená další technické podrobnosti pro diagnostiku problémů. Běžná aktivita se vždy uchovává."
+  },
+  "activityFarmingStarted": {
+    "message": "Začalo se farmit $1 z $2."
+  },
+  "activityFarmingStopped": {
+    "message": "Přestalo se farmit $1 z $2: $3."
+  },
+  "activityRewardClaimed": {
+    "message": "Vyzvednuto $1 z $2."
+  },
+  "activityChallengeClaimed": {
+    "message": "Vyzvednuta karta $1 z výzvy $2"
+  },
+  "activityAuthHealthChanged": {
+    "message": "Autentizace $1 se změnila z $2 na $3."
+  },
+  "activityCriticalFailureDetected": {
+    "message": "$1 nefunguje: $2."
+  },
+  "activityCriticalFailureCleared": {
+    "message": "Kritická chyba $1 zrušena; opakování."
+  },
+  "criticalFailureReasonNoProgress": {
+    "message": "navzdory opakovaným chybám žádný průběh"
+  },
+  "criticalFailureReasonPageContextChurn": {
+    "message": "záložka se pořád znovu otevírala"
+  },
+  "criticalFailureTitle": {
+    "message": "Lurkloot přestal fungovat"
+  },
+  "criticalFailureBodyNoProgress": {
+    "message": "Opakované chyby a dlouho žádný průběh drops. Na této platformě se pravděpodobně něco změnilo a rozšíření už nemůže drops získávat."
+  },
+  "criticalFailureBodyTabChurn": {
+    "message": "Záložka se pořád znovu otevírala. Opětovné otevírání bylo zastaveno, abyste mohli normálně používat prohlížeč, a farmení na této platformě je pozastavené."
+  },
+  "criticalFailureCopyAndReport": {
+    "message": "Kopírovat protokoly a otevřít issue"
+  },
+  "criticalFailureDismiss": {
+    "message": "Zrušit a zkusit znovu"
+  },
+  "criticalFailureClipboardFallback": {
+    "message": "Automatické kopírování selhalo. Označte a zkopírujte tento text a otevřete issue."
+  },
+  "activityPageContextOpened": {
+    "message": "Otevřen kontext na pozadí na $1, protože $2."
+  },
+  "activityPageContextClosed": {
+    "message": "Zavřen kontext na pozadí na $1, protože $2."
+  },
+  "activityPageContextOpenReasonBackgroundRejected": {
+    "message": "Kick odmítl požadavek bez záložky"
+  },
+  "activityPageContextReasonManagedContextUnusable": {
+    "message": "předchozí kontext na pozadí nebyl použitelný"
+  },
+  "activityPageContextCloseReasonBackgroundRecovered": {
+    "message": "požadavky bez záložky se obnovily"
+  },
+  "activityPageContextCloseReasonUserTabAvailable": {
+    "message": "byla dostupná existující záložka Kick"
+  },
+  "activityInterruption": {
+    "message": "Farmení přerušeno: $1."
+  },
+  "activityInterruptionWithDetail": {
+    "message": "Farmení přerušeno: $1 ($2)."
+  },
+  "activityReasonAutomationDisabled": {
+    "message": "automatizace byla vypnutá"
+  },
+  "activityReasonPlatformDisabled": {
+    "message": "platforma byla vypnutá"
+  },
+  "activityReasonAuthenticationUnhealthy": {
+    "message": "autentizace není dostupná"
+  },
+  "activityReasonPlatformBackoff": {
+    "message": "platforma dočasně čeká"
+  },
+  "activityReasonPlatformError": {
+    "message": "došlo k chybě platformy"
+  },
+  "activityReasonCampaignIneligible": {
+    "message": "kampaň už není způsobilá"
+  },
+  "activityReasonChannelExcluded": {
+    "message": "kanál je vyloučený"
+  },
+  "activityReasonChannelOffline": {
+    "message": "kanál šel offline"
+  },
+  "activityReasonChannelMismatch": {
+    "message": "kanál už neodpovídá"
+  },
+  "activityReasonWatchUnhealthy": {
+    "message": "kontrola sledování selhala"
+  },
+  "activityReasonNoProgress": {
+    "message": "kanál nezískal průběh drops"
+  },
+  "activityReasonHigherPriorityReward": {
+    "message": "převzala odměna s vyšší prioritou"
+  },
+  "activityReasonHigherPriorityIdleWatchlist": {
+    "message": "byl dostupný kanál Idle watchlist s vyšší prioritou"
+  },
+  "activityReasonWatchRequirementCompleted": {
+    "message": "požadavek sledování byl splněn"
+  },
+  "activityReasonRuntimeRestart": {
+    "message": "rozšíření se restartovalo"
+  },
+  "activityReasonTargetChanged": {
+    "message": "cíl farmení se změnil"
+  },
+  "activityReasonCriticalFailure": {
+    "message": "byla zjištěna kritická chyba"
+  },
+  "activityReasonManualWatch": {
+    "message": "převzalo ruční sledování"
+  },
+  "loadMoreActivity": {
+    "message": "Načíst více"
+  },
+  "clearActivityHistory": {
+    "message": "Vymazat historii"
+  },
+  "confirmClearActivityHistory": {
+    "message": "Potvrdit vymazání"
+  },
+  "clearActivityFailed": {
+    "message": "Historii aktivity se nepodařilo vymazat. Zkuste to znovu."
+  },
+  "copyActivityLog": {
+    "message": "Kopírovat protokol"
+  },
+  "copyLoadedActivityLog": {
+    "message": "Kopírovat načtené"
+  },
+  "copyActivityLogCopied": {
+    "message": "Zkopírováno $1 událostí"
+  },
+  "copyActivityLogFailed": {
+    "message": "Protokol se nepodařilo zkopírovat. Zkuste to znovu."
+  },
+  "exportAllDiagnostics": {
+    "message": "Exportovat vše"
+  },
+  "exportAllDiagnosticsDone": {
+    "message": "Exportováno $1 událostí"
+  },
+  "exportAllDiagnosticsFailed": {
+    "message": "Protokol se nepodařilo exportovat. Zkuste to znovu."
+  },
+  "activityViewTab": {
+    "message": "Aktivita"
+  },
+  "diagnosticsViewTab": {
+    "message": "Diagnostika"
+  },
+  "compatibilityAutomatic": {
+    "message": "Automaticky"
+  },
+  "compatibilityTwitchProfileTitle": {
+    "message": "Profil kompatibility Twitch"
+  },
+  "compatibilityTwitchProfileDescription": {
+    "message": "Zvolte dodávaný profil Twitch nebo nechte Lurkloot vybrat automaticky."
+  },
+  "compatibilityKickProfileTitle": {
+    "message": "Profil kompatibility Kick"
+  },
+  "compatibilityKickProfileDescription": {
+    "message": "Zvolte dodávaný profil Kick nebo nechte Lurkloot vybrat automaticky."
+  },
+  "compatibilitySectionTitle": {
+    "message": "Kompatibilita"
+  },
+  "compatibilitySectionDescription": {
+    "message": "Měňte jen když Twitch nebo Kick nefunguje; mohou obejít problémy platformy."
+  },
+  "compatibilityComponentProfile": {
+    "message": "Profil"
+  },
+  "compatibilityComponentHeartbeat": {
+    "message": "Transport heartbeat"
+  },
+  "compatibilityComponentInventory": {
+    "message": "Dotaz inventáře"
+  },
+  "compatibilityComponentClaim": {
+    "message": "Zpracování vyzvednutí"
+  },
+  "compatibilityFromProfile": {
+    "message": "Z profilu"
+  },
+  "compatibilityOverridden": {
+    "message": "Přepsáno"
+  },
+  "compatibilityReplacedBy": {
+    "message": "Nahrazeno $1"
+  },
+  "compatibilityTwitchHeartbeatTitle": {
+    "message": "Transport heartbeat Twitch"
+  },
+  "compatibilityTwitchHeartbeatDescription": {
+    "message": "Přepsat dodávaný heartbeat sledování Twitch."
+  },
+  "compatibilityTwitchInventoryTitle": {
+    "message": "Dotaz inventáře Twitch"
+  },
+  "compatibilityTwitchInventoryDescription": {
+    "message": "Přepsat dodávaný dotaz inventáře Twitch."
+  },
+  "compatibilityKickClaimTitle": {
+    "message": "Zpracování propojovacích odkazů Kick"
+  },
+  "compatibilityKickClaimDescription": {
+    "message": "Přepsat dodávané propojení účtu Kick."
+  },
+  "compatibilityLifecycleRecommended": {
+    "message": "Doporučené"
+  },
+  "compatibilityLifecycleLegacy": {
+    "message": "Zastaralé"
+  },
+  "compatibilityLifecycleExperimental": {
+    "message": "Experimentální"
+  },
+  "compatibilityOverrideWarning": {
+    "message": "Jsou aktivní ruční přepsání kompatibility. Po změnách platforem mohou přestat fungovat."
+  },
+  "compatibilityRestoreAutomatic": {
+    "message": "Obnovit automatickou kompatibilitu"
+  },
+  "compatibilityOptionTwitchProfile202607": {
+    "message": "Twitch červenec 2026"
+  },
+  "compatibilityOptionTwitchProfile202610": {
+    "message": "Twitch říjen 2026"
+  },
+  "compatibilityOptionTwitchHeartbeatGqlV1": {
+    "message": "Heartbeat GraphQL v1"
+  },
+  "compatibilityOptionTwitchHeartbeatSpadeV1": {
+    "message": "Heartbeat Spade v1"
+  },
+  "compatibilityOptionTwitchHeartbeatHlsV1": {
+    "message": "Heartbeat HLS + Spade v1"
+  },
+  "compatibilityOptionTwitchHeartbeatTrowelV1": {
+    "message": "Heartbeat Trowel v1"
+  },
+  "compatibilityOptionTwitchInventoryV1": {
+    "message": "Dotaz inventáře v1"
+  },
+  "compatibilityOptionTwitchInventoryV2": {
+    "message": "Dotaz inventáře v2"
+  },
+  "compatibilityOptionKickProfile202607": {
+    "message": "Kick červenec 2026"
+  },
+  "compatibilityOptionKickClaimV1": {
+    "message": "Zpracování vyzvednutí v1"
+  },
+  "compatibilityOptionKickClaimV2": {
+    "message": "Zpracování vyzvednutí v2"
+  },
+  "automationChecking": {
+    "message": "Kontrola"
+  },
+  "automationNeedsSignIn": {
+    "message": "Vyžaduje přihlášení"
+  },
+  "automationBlocked": {
+    "message": "Blokováno"
+  },
+  "automationUnavailable": {
+    "message": "Není k dispozici"
+  },
+  "authCheckingDetail": {
+    "message": "Kontrola vaší přihlášené relace…"
+  },
+  "authSignInMissing": {
+    "message": "Přihlaste se pro pokračování farmení drops."
+  },
+  "authSignInRejected": {
+    "message": "Vaše relace už není platná. Přihlaste se znovu pro pokračování."
+  },
+  "signInToTwitch": {
+    "message": "Přihlásit se na Twitch"
+  },
+  "signInToKick": {
+    "message": "Přihlásit se na Kick"
+  },
+  "authBrowserProfileBlocked": {
+    "message": "Kick odmítl tento profil prohlížeče. Samotné přihlášení to nemusí vyřešit."
+  },
+  "authCredentialCheckUnavailable": {
+    "message": "Relaci prohlížeče se nepodařilo zkontrolovat. Lurkloot to zkusí automaticky znovu."
+  },
+  "authNetworkTemporarilyUnavailable": {
+    "message": "Síť je dočasně nedostupná. Lurkloot to zkusí automaticky znovu."
+  },
+  "authPlatformTemporarilyUnavailable": {
+    "message": "Platforma je dočasně nedostupná. Lurkloot to zkusí automaticky znovu."
+  },
+  "automationPausedTabClosed": {
+    "message": "Pozastaveno — záložka zavřena"
+  },
+  "watchTabClosedPauseDetail": {
+    "message": "Zavřeli jste záložku pro farmení, takže Lurkloot tu farmení zastavil."
+  },
+  "resumeFarming": {
+    "message": "Obnovit farmení"
+  },
+  "activityReasonManualTabClose": {
+    "message": "záložka pro farmení zavřena"
+  },
+  "activityReasonPermissionMissing": {
+    "message": "chybí požadované oprávnění prohlížeče; znovu zapněte platformu pro udělení"
+  },
+  "automationPausedManualWatch": {
+    "message": "Ruční sledování"
+  },
+  "manualWatchPauseDetail": {
+    "message": "Farmení je pozastavené, dokud sami sledujete stream. Pozastavte ho, zavřete nebo přepněte z té záložky — farmení se obnoví automaticky při další kontrole."
+  },
+  "manualWatchPauseDetailNamed": {
+    "message": "Farmení je pozastavené, dokud sami sledujete stream."
+  },
+  "manualWatchPauseDetailNamedSuffix": {
+    "message": "— pozastavte, zavřete nebo přepněte pro obnovení."
+  },
+  "reorderItem": {
+    "message": "Změnit pořadí $1"
+  },
+  "scrollRewardsLeft": {
+    "message": "Posunout odměny vlevo"
+  },
+  "scrollRewardsRight": {
+    "message": "Posunout odměny vpravo"
+  },
+  "activityExtensionGiveawayJoined": {
+    "message": "Připojení k giveaway $1 na $2."
+  },
+  "activityExtensionSpriteCaptured": {
+    "message": "Zachycen sprite $1 na $2."
+  },
+  "activityExtensionTakeoverStarted": {
+    "message": "Spuštěn takeover $1 z $2."
+  },
+  "extensionSettingsTitle": {
+    "message": "Rozšíření Twitch"
+  },
+  "extensionDropsTitle": {
+    "message": "Extensions"
+  },
+  "extensionSettingsHint": {
+    "message": "Farmí odměny z extensions bez záložek Twitch. Platí automatizace Twitch, vyloučení a ruční pauza."
+  },
+  "extensionNoPixelHint": {
+    "message": "Získávejte denní balíčky a účastněte se giveaway. Pro dobu sledování se připojí chat sledovaného kanálu, takže se objevíte v seznamu diváků."
+  },
+  "extensionChatPresenceBlocked": {
+    "message": "Ne v chatu: doba sledování NoPixel se nepočítá, dokud se neobnoví přítomnost v chatu"
+  },
+  "extensionFortniteHint": {
+    "message": "Sbírejte sprity a získávejte odměny fází."
+  },
+  "extensionIdentityRequired": {
+    "message": "Propojte účet extension"
+  },
+  "extensionPermissionRequired": {
+    "message": "Povolte přístup poskytovatele pro zapnutí"
+  },
+  "extensionAuthRequired": {
+    "message": "Přihlaste se na Twitch"
+  },
+  "extensionChannelRequired": {
+    "message": "Hledání vhodného kanálu"
+  },
+  "extensionComplete": {
+    "message": "Odměny získány"
+  },
+  "extensionFarming": {
+    "message": "Farmení"
+  },
+  "extensionPhaseClosed": {
+    "message": "Není otevřená interaktivní fáze"
+  },
+  "extensionConnecting": {
+    "message": "Připojování"
+  },
+  "extensionUnavailable": {
+    "message": "Dočasně nedostupné"
+  },
+  "extensionIdle": {
+    "message": "Čekání"
+  },
+  "extensionDailyPackProgress": {
+    "message": "Denní balíček: $1/$2 minut"
+  },
+  "extensionCaptureProgress": {
+    "message": "Sbírka: $1/$2"
+  },
+  "extensionTakeoversTitle": {
+    "message": "Povolit Fortnite takeovers"
+  },
+  "extensionTakeoversHint": {
+    "message": "Spouštět vhodné takeovers během interaktivních fází. Ve výchozím stavu vypnuto."
+  },
+  "extensionAccountSetup": {
+    "message": "Nastavení účtu"
+  },
+  "extensionGiveawayUnavailable": {
+    "message": "Kontrola giveaway není k dispozici"
+  },
+  "extensionGiveawayEntered": {
+    "message": "Giveaway — účast potvrzena"
+  },
+  "extensionGiveawayOpen": {
+    "message": "Giveaway otevřen"
+  },
+  "extensionRewardProgress": {
+    "message": "Odměny: $1/$2"
+  },
+  "extensionTakeoverActive": {
+    "message": "Takeover aktivní"
+  },
+  "extensionWatchtimeComplete": {
+    "message": "Doba sledování dokončena"
+  },
+  "extensionUnopenedPacks": {
+    "message": "Neotevřené balíčky: $1"
+  },
+  "extensionPackCheckUnavailable": {
+    "message": "Kontrola doručení balíčků není k dispozici"
+  },
+  "extensionAutoOpenPacksTitle": {
+    "message": "Automaticky otevírat balíčky NoPixelV"
+  },
+  "extensionAutoOpenPacksHint": {
+    "message": "Odhalí karty z neotevřených balíčků. Každý balíček se spotřebuje a nelze to vrátit."
+  },
+  "activityExtensionPackOpened": {
+    "message": "$1 otevřel balíček karet na $2"
+  },
+  "watchSourcePriorityTitle": {
+    "message": "Priorita zdrojů sledování"
+  },
+  "watchSourcePriorityDescription": {
+    "message": "Sleduje se první dostupný zdroj. Vypnuté nebo nedostupné zdroje se přeskočí."
+  },
+  "watchSourcePriorityMoveUp": {
+    "message": "Posunout $1 nahoru"
+  },
+  "watchSourcePriorityMoveDown": {
+    "message": "Posunout $1 dolů"
+  },
+  "watchSourcePriorityReset": {
+    "message": "Resetovat prioritu"
+  },
+  "watchSourcePriorityMoved": {
+    "message": "$1 má teď prioritu $2."
+  },
+  "watchSourcePriorityResetDone": {
+    "message": "Priorita zdrojů sledování resetována."
+  },
+  "watchSourceDrops": {
+    "message": "Drops"
+  },
+  "watchSourceIdleWatchlist": {
+    "message": "Záložní seznam"
+  },
+  "watchSourceNoPixel": {
+    "message": "NoPixelV"
+  },
+  "watchSourceFortnite": {
+    "message": "Fortnite"
+  },
+  "gamesStarHint": {
+    "message": "★ zařadí hru nad strategii"
+  },
+  "gamesFavourite": {
+    "message": "Zařadit $1 nad strategii"
+  },
+  "gamesUnfavourite": {
+    "message": "Přestat upřednostňovat $1 nad strategií"
+  },
+  "gamesBlock": {
+    "message": "Nikdy nefarmit $1"
+  },
+  "gamesUnblock": {
+    "message": "Odblokovat"
+  },
+  "gamesBlocked": {
+    "message": "Blokované"
+  },
+  "gamesBlockedHint": {
+    "message": "nikdy se nefarmí, v žádném režimu"
+  },
+  "gamesBlockedKeepsStar": {
+    "message": "nefarmí se · hvězdička zůstane"
+  },
+  "gamesCampaignCount": {
+    "message": "$1 aktivních kampaní"
+  },
+  "gamesCampaignCountOne": {
+    "message": "1 aktivní kampaň"
+  },
+  "gamesNoCampaigns": {
+    "message": "teď žádné kampaně"
+  },
+  "gamesFarmGame": {
+    "message": "Farmit $1"
+  },
+  "gamesEmpty": {
+    "message": "Teď neběží žádné kampaně $1."
+  },
+  "inPageOpenPanel": {
+    "message": "Otevřít Lurkloot"
+  },
+  "inPageAddToWatchlist": {
+    "message": "Přidat $1 do idle watchlist"
+  },
+  "inPageRemoveFromWatchlist": {
+    "message": "Odebrat $1 z idle watchlist"
+  },
+  "navNoPixel": {
+    "message": "NoPixel V"
+  },
+  "navFortnite": {
+    "message": "Fortnite"
+  },
+  "gamesBlockedEmpty": {
+    "message": "Nic není blokované. Symbolem ⊘ u hry ji vyloučíte z farmení v obou režimech."
+  },
+  "campaignRewardsProgress": {
+    "message": "$1 z $2 odměn"
+  },
+  "campaignTimeLeft": {
+    "message": "zbývá $1"
+  },
+  "campaignFactStarts": {
+    "message": "Začíná"
+  },
+  "campaignFactStarted": {
+    "message": "Začalo"
+  },
+  "campaignFactEnds": {
+    "message": "Končí"
+  },
+  "relativeIn": {
+    "message": "za $1"
+  },
+  "relativeAgo": {
+    "message": "před $1"
+  },
+  "campaignLasts": {
+    "message": "Trvá $1"
+  },
+  "campaignFactEnded": {
+    "message": "Skončilo"
+  },
+  "campaignFactWatching": {
+    "message": "Sledování"
+  },
+  "campaignFactChannels": {
+    "message": "Kanály"
+  },
+  "campaignFactNextReward": {
+    "message": "Další odměna"
+  },
+  "campaignFactWhyRank": {
+    "message": "Proč toto pořadí"
+  },
+  "campaignMoreChannels": {
+    "message": "+$1 dalších"
+  },
+  "campaignFewerChannels": {
+    "message": "Zobrazit méně"
+  },
+  "campaignExclude": {
+    "message": "Vyloučit"
+  },
+  "campaignCategoryBlocked": {
+    "message": "$1 blokovaná"
+  },
+  "campaignPinToTop": {
+    "message": "Připnout nahoru"
+  },
+  "campaignPinnedAt": {
+    "message": "Připnuto · $1"
+  },
+  "campaignFavourite": {
+    "message": "Oblíbená $1"
+  },
+  "campaignFavouriteOn": {
+    "message": "$1 je oblíbená"
+  },
+  "campaignExcludeThis": {
+    "message": "Jen tato kampaň"
+  },
+  "campaignExcludeThisHint": {
+    "message": "Ostatní kampaně $1 se dál farmí"
+  },
+  "campaignExcludeThisUndo": {
+    "message": "Vyberte znovu pro vrácení kampaně do fronty"
+  },
+  "campaignExcludeCategory": {
+    "message": "Kategorie „$1“"
+  },
+  "campaignExcludeCategoryHint": {
+    "message": "Blokuje každou kampaň $1, teď i později"
+  },
+  "campaignExcludeCategoryUndo": {
+    "message": "Vyberte znovu pro odblokování hry"
+  },
+  "rewardMissed": {
+    "message": "Nezískáno včas"
+  },
+  "rankReasonPinned": {
+    "message": "Připnuto na $1"
+  },
+  "rankReasonFavourite": {
+    "message": "$1 je oblíbená $2"
+  },
+  "rankReasonEnding": {
+    "message": "Končí dříve než ty pod ní"
+  },
+  "rankReasonAvailability": {
+    "message": "Méně kanálů než ty pod ní"
+  },
+  "queueEditFavourites": {
+    "message": "Upravit"
+  },
+  "navWatchingNow": {
+    "message": "Právě se sleduje"
+  },
+  "gamesFavouritesGroup": {
+    "message": "Oblíbené"
+  },
+  "gamesFavouritesGroupHint": {
+    "message": "v tomto pořadí, nad strategií"
+  },
+  "gamesOtherGroup": {
+    "message": "Ostatní hry"
+  },
+  "gamesOtherGroupAllHint": {
+    "message": "vše se farmí kromě blokovaných"
+  },
+  "gamesOtherGroupIncludeHint": {
+    "message": "farmí se jen zaškrtnuté"
+  },
+  "watchSourcePlace": {
+    "message": "Místo v pořadí sledování: $1 z $2"
+  },
+  "watchSourcePlaceFirst": {
+    "message": "Sleduje se před každým jiným zdrojem."
+  },
+  "watchSourcePlaceAfter": {
+    "message": "Sleduje se, když $1 nemají co sledovat."
+  },
+  "watchSourceChangeOrderShort": {
+    "message": "Změnit pořadí"
+  },
+  "railWhatsNew": {
+    "message": "Co je nového"
+  },
+  "campaignShowDetails": {
+    "message": "Zobrazit podrobnosti"
+  },
+  "campaignHideDetails": {
+    "message": "Skrýt podrobnosti"
+  },
+  "settingsGamesPointerTitle": {
+    "message": "Hry a kategorie"
+  },
+  "settingsGamesPointerDescription": {
+    "message": "Zvolte, které hry $1 se farmí, označte hvězdičkou ty první, nebo je blokujte."
+  },
+  "settingsGamesPointerAction": {
+    "message": "Otevřít Hry"
+  },
+  "idleWatchlistAddPlaceholder": {
+    "message": "Název kanálu nebo odkaz"
+  },
+  "idleWatchlistFull": {
+    "message": "Seznam je plný ($1 kanálů). Odeberte jeden pro přidání dalšího."
+  },
+  "idleWatchlistInvalid": {
+    "message": "Zadejte název kanálu nebo odkaz na kanál."
+  },
+  "idleWatchlistDuplicate": {
+    "message": "$1 už je na seznamu."
+  },
+  "idleWatchlistOrderTitle": {
+    "message": "Pořadí sledování"
+  },
+  "idleWatchlistOrderHint": {
+    "message": "sleduje se první live kanál"
+  },
+  "gamesModeAllDescription": {
+    "message": "Farmí se každá hra s aktivními drops kromě blokovaných."
+  },
+  "gamesModeIncludeDescription": {
+    "message": "Farmí se jen zaškrtnuté hry."
+  },
+  "gamesStarLegend": {
+    "message": "zařadí hru nad strategii"
+  },
+  "gamesBlockLegend": {
+    "message": "nikdy se nefarmí"
+  },
+  "gamesSearchPlaceholder": {
+    "message": "Najít nebo přidat hru $1"
+  },
+  "gamesAddGroup": {
+    "message": "Přidat z $1"
+  },
+  "gamesAddIncludeHint": {
+    "message": "přidání hry ji zaškrtne"
+  },
+  "gamesAddAllHint": {
+    "message": "přidání hry ji označí hvězdičkou"
+  },
+  "gamesAddActionFarm": {
+    "message": "Farmit"
+  },
+  "gamesAddActionFavourite": {
+    "message": "Oblíbená"
+  },
+  "gamesNoMoreResults": {
+    "message": "Nebyly nalezeny další hry."
+  },
+  "navBeta": {
+    "message": "Beta"
+  },
+  "navExtensions": {
+    "message": "Extensions"
+  },
+  "navGroupOthers": {
+    "message": "Ostatní"
+  },
+  "kickLevelSummary": {
+    "message": "Kick úroveň $1 · $2 % do úrovně $3"
+  },
+  "kickLevelShort": {
+    "message": "Úr. $1"
+  },
+  "kickLevelXp": {
+    "message": "$1 / $2 XP"
+  },
+  "kickStreakDays": {
+    "message": "$1-denní série sledování"
+  }
+}

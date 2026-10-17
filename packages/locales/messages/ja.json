@@ -1,0 +1,2015 @@
+{
+  "extensionName": {
+    "message": "Lurkloot"
+  },
+  "extensionStoreName": {
+    "message": "Lurkloot - Twitch & Kick ドロップファーマー"
+  },
+  "extensionDescription": {
+    "message": "通常のブラウザセッション、表示されたミュートタブ、オプションの低リソースモードで Twitch と Kick のドロップをファームします。"
+  },
+  "promoTagline": {
+    "message": "Twitch と Kick のドロップを自動でファーム。"
+  },
+  "languageBrowser": {
+    "message": "ブラウザの言語を使う"
+  },
+  "languageEnglish": {
+    "message": "英語"
+  },
+  "languageSpanish": {
+    "message": "スペイン語"
+  },
+  "languageFrench": {
+    "message": "フランス語"
+  },
+  "languageItalian": {
+    "message": "イタリア語"
+  },
+  "languageRussian": {
+    "message": "ロシア語"
+  },
+  "languageGerman": {
+    "message": "ドイツ語"
+  },
+  "languageChinese": {
+    "message": "中国語"
+  },
+  "languageHindi": {
+    "message": "ヒンディー語"
+  },
+  "languagePortuguese": {
+    "message": "ポルトガル語"
+  },
+  "languageArabic": {
+    "message": "アラビア語"
+  },
+  "languageTurkish": {
+    "message": "トルコ語"
+  },
+  "languageJapanese": {
+    "message": "日本語"
+  },
+  "languageIndonesian": {
+    "message": "インドネシア語"
+  },
+  "languagePolish": {
+    "message": "ポーランド語"
+  },
+  "languageKorean": {
+    "message": "韓国語"
+  },
+  "languageUkrainian": {
+    "message": "ウクライナ語"
+  },
+  "languageCzech": {
+    "message": "チェコ語"
+  },
+  "settingsLanguageTitle": {
+    "message": "言語"
+  },
+  "settingsLanguageDescription": {
+    "message": "ポップアップと拡張機能の通知に使う言語を選びます。"
+  },
+  "navWorkspace": {
+    "message": "ワークスペース"
+  },
+  "navPlatform": {
+    "message": "プラットフォーム"
+  },
+  "navGroupDrops": {
+    "message": "Drops"
+  },
+  "navQueue": {
+    "message": "キュー"
+  },
+  "navCompleted": {
+    "message": "完了"
+  },
+  "navGames": {
+    "message": "ゲーム"
+  },
+  "navIdleWatchlist": {
+    "message": "アイドル・ウォッチリスト"
+  },
+  "navActivity": {
+    "message": "アクティビティ"
+  },
+  "navSettings": {
+    "message": "設定"
+  },
+  "queueGroupPinned": {
+    "message": "ピン留め"
+  },
+  "queueGroupPinnedHint": {
+    "message": "ドラッグで並べ替え、または順位を入力"
+  },
+  "queueGroupFavourite": {
+    "message": "お気に入りゲーム"
+  },
+  "queueGroupStrategy": {
+    "message": "次に"
+  },
+  "queueNotInQueue": {
+    "message": "キューにありません"
+  },
+  "queueSkipped": {
+    "message": "スキップ"
+  },
+  "queueActionRequired": {
+    "message": "要対応"
+  },
+  "queueActionRequiredHint": {
+    "message": "Lurkloot の外でサブスク登録などの手順が必要です。ピン留めとお気に入りは順序だけを変えます。"
+  },
+  "queueUpcoming": {
+    "message": "近日開始"
+  },
+  "queueStrategyLabel": {
+    "message": "次に"
+  },
+  "queueFarmPinnedOnly": {
+    "message": "ピン留めのみファーム"
+  },
+  "queueUnpinAll": {
+    "message": "すべてのピン留めを外す（$1）"
+  },
+  "queueUnpin": {
+    "message": "ピン留めを外す"
+  },
+  "queueFacetLabel": {
+    "message": "キャンペーン種別"
+  },
+  "queueFacetAll": {
+    "message": "すべて"
+  },
+  "queueFacetNoSubscription": {
+    "message": "サブスク不要"
+  },
+  "queueFacetSubscription": {
+    "message": "サブスク必要"
+  },
+  "queueFacetBadge": {
+    "message": "バッジ"
+  },
+  "queueFixInclude": {
+    "message": "含める"
+  },
+  "queueFixPin": {
+    "message": "ピン留め"
+  },
+  "queueFixFarmAll": {
+    "message": "すべてファーム"
+  },
+  "queueFixGames": {
+    "message": "ゲームを開く"
+  },
+  "queueFixSettings": {
+    "message": "設定を開く"
+  },
+  "queueEmpty": {
+    "message": "今はここでファームするものがありません。"
+  },
+  "queueEmptyRewardTypes": {
+    "message": "選択した種類のものは今はファームできません。"
+  },
+  "completedTabFinished": {
+    "message": "完了"
+  },
+  "completedTabExpired": {
+    "message": "期限切れ"
+  },
+  "completedEmptyFinished": {
+    "message": "すべての報酬を受け取るとキャンペーンはここに表示されます。"
+  },
+  "completedEmptyExpired": {
+    "message": "未完了のまま終了したキャンペーンはここに表示されます。"
+  },
+  "settingsTitle": {
+    "message": "設定"
+  },
+  "settingsSearchPlaceholder": {
+    "message": "設定を検索…"
+  },
+  "settingsSearchNoResults": {
+    "message": "「$1」に一致する設定はありません。"
+  },
+  "settingsPlatformSettings": {
+    "message": "$1 の設定"
+  },
+  "settingsShowAdvancedTitle": {
+    "message": "詳細設定を表示"
+  },
+  "settingsSectionJumpNavLabel": {
+    "message": "セクションへ移動"
+  },
+  "settingsSectionAdvancedActions": {
+    "message": "高度な操作"
+  },
+  "settingsSectionAdvancedActionsDescription": {
+    "message": "Lurkloot の設定をインポート、エクスポート、またはリセットします。"
+  },
+  "activityTitle": {
+    "message": "アクティビティ"
+  },
+  "activeStatus": {
+    "message": "有効"
+  },
+  "pausedStatus": {
+    "message": "一時停止"
+  },
+  "refreshSchedule": {
+    "message": "スケジュールを更新"
+  },
+  "openInventory": {
+    "message": "インベントリを開く"
+  },
+  "openActivity": {
+    "message": "アクティビティを開く"
+  },
+  "closeActivity": {
+    "message": "アクティビティを閉じる"
+  },
+  "openSettings": {
+    "message": "設定を開く"
+  },
+  "closeSettings": {
+    "message": "設定を閉じる"
+  },
+  "back": {
+    "message": "戻る"
+  },
+  "loading": {
+    "message": "読み込み中"
+  },
+  "dropsTab": {
+    "message": "Drops"
+  },
+  "idleWatchlistTab": {
+    "message": "アイドル・ウォッチリスト"
+  },
+  "automationTitle": {
+    "message": "$1 の自動化"
+  },
+  "automationRunning": {
+    "message": "実行中"
+  },
+  "automationStarting": {
+    "message": "開始中"
+  },
+  "automationStopping": {
+    "message": "停止中"
+  },
+  "startingAutomation": {
+    "message": "自動化を開始しています…"
+  },
+  "pausingAutomation": {
+    "message": "自動化を一時停止しています…"
+  },
+  "watchingLabel": {
+    "message": "視聴中"
+  },
+  "farmingLabel": {
+    "message": "ファーム中"
+  },
+  "waitingEligibleStream": {
+    "message": "このキャンペーンに対応する配信が現在ライブではありません"
+  },
+  "watchingPausedHint": {
+    "message": "視聴は一時停止中です。トグルでドロップのファームを再開できます。"
+  },
+  "hideTipsTitle": {
+    "message": "ヒントを非表示"
+  },
+  "hideTipsDescription": {
+    "message": "メインのポップアップからヒントを削除します。"
+  },
+  "inPagePanelTitle": {
+    "message": "Twitch と Kick にパネルを表示"
+  },
+  "inPagePanelDescription": {
+    "message": "twitch.tv と kick.com に Lurkloot ボタンを追加し、ページ上のパネルでこのポップアップを開きます。"
+  },
+  "tipCampaignPriority": {
+    "message": "キャンペーンをドラッグして先頭にピン留めするか、ゲームにスターを付けて常に上位に並べます。それ以外はキューで選んだ順序に従います。"
+  },
+  "tipMissingCampaigns": {
+    "message": "キャンペーンが見当たりませんか？各プラットフォームの Drops インベントリを確認し、設定のキャンペーンフィルターを見直してください。"
+  },
+  "tipCategorySelection": {
+    "message": "ゲーム画面で、どのゲームをファームするか、どれを優先するか、どれを決してファームしないかを決めます。"
+  },
+  "tipIdleWatchlist": {
+    "message": "プラットフォーム設定の視聴ソース優先度を変えると、アイドル・ウォッチリストのチャンネルをいつ視聴するかを決められます。"
+  },
+  "tipTablessMode": {
+    "message": "タブレスモードはリソースを抑え、必要なときだけミュートタブにフォールバックします。"
+  },
+  "tipCli": {
+    "message": "拡張機能なしで動かしたいですか？Lurkloot は Docker ベースの CLI でも利用できます。"
+  },
+  "tipCliAction": {
+    "message": "CLI ガイドを読む"
+  },
+  "tipFeedback": {
+    "message": "バグやアイデアがありますか？"
+  },
+  "tipFeedbackAction": {
+    "message": "GitHub で issue を開く"
+  },
+  "tipExcludedCampaigns": {
+    "message": "キャンペーンを誤って除外しましたか？キューの「スキップ」にあり、戻すボタンがあります。"
+  },
+  "tipTranslations": {
+    "message": "翻訳は AI によって自動メンテナンスされています。GitHub で改善に協力してください。"
+  },
+  "tipTranslationsAction": {
+    "message": "翻訳ガイドを読む"
+  },
+  "noCampaigns": {
+    "message": "まだキャンペーンが見つかっていません。"
+  },
+  "campaignSearchPlaceholder": {
+    "message": "キャンペーンを検索…"
+  },
+  "campaignSearchNoResults": {
+    "message": "「$1」に一致するキャンペーンはありません。"
+  },
+  "closeSearch": {
+    "message": "検索を閉じる"
+  },
+  "search": {
+    "message": "検索"
+  },
+  "noActivity": {
+    "message": "まだアクティビティは記録されていません。更新してチェックを実行してください。"
+  },
+  "noDiagnostics": {
+    "message": "まだ診断は記録されていません。拡張機能の動作に応じて表示されます。"
+  },
+  "searchDiagnostics": {
+    "message": "診断を検索"
+  },
+  "noDiagnosticsMatch": {
+    "message": "「$1」に一致する診断はありません。"
+  },
+  "platformActivity": {
+    "message": "$1 のアクティビティ"
+  },
+  "platformDiagnostics": {
+    "message": "$1 の診断"
+  },
+  "lastCheck": {
+    "message": "最終チェック $1"
+  },
+  "noChecksYet": {
+    "message": "まだチェックなし"
+  },
+  "debug": {
+    "message": "デバッグ"
+  },
+  "info": {
+    "message": "情報"
+  },
+  "warn": {
+    "message": "警告"
+  },
+  "error": {
+    "message": "エラー"
+  },
+  "notLinked": {
+    "message": "未連携"
+  },
+  "subscriptionCampaigns": {
+    "message": "サブスクキャンペーン"
+  },
+  "subscriptionRequired": {
+    "message": "サブスク登録が必要"
+  },
+  "subscriptionRewards": {
+    "message": "サブスク報酬"
+  },
+  "qualifyingSubscriptionsRequired": {
+    "message": "条件を満たすサブスクが $1 件必要"
+  },
+  "subscriptionProgressUnknown": {
+    "message": "進捗を取得できません"
+  },
+  "rewardBadge": {
+    "message": "バッジ"
+  },
+  "rewardBadgeNamed": {
+    "message": "バッジ: $1"
+  },
+  "rewardAlsoWatch": {
+    "message": "さらに $1 の視聴"
+  },
+  "rewardClaimable": {
+    "message": "受け取り可能"
+  },
+  "notEarnableByWatching": {
+    "message": "視聴では獲得できません"
+  },
+  "subscribedRefresh": {
+    "message": "登録しました — ステータスを更新"
+  },
+  "subscriptionMarkSubscribed": {
+    "message": "登録済みとしてマーク"
+  },
+  "subscriptionMarkedSubscribed": {
+    "message": "登録済みとしてマークしました"
+  },
+  "subscriptionMarkUndo": {
+    "message": "元に戻す"
+  },
+  "waitingForSubscription": {
+    "message": "条件を満たすサブスクを待機中"
+  },
+  "actionRequired": {
+    "message": "要対応"
+  },
+  "earned": {
+    "message": "獲得済み"
+  },
+  "linkAccount": {
+    "message": "アカウントを連携"
+  },
+  "externalGameAccountRequired": {
+    "message": "外部ゲームアカウントが必要"
+  },
+  "linkExternalGameAccount": {
+    "message": "外部ゲームアカウントを連携"
+  },
+  "viewDropPage": {
+    "message": "ドロップページを表示"
+  },
+  "campaignDropDetails": {
+    "message": "ドロップの詳細"
+  },
+  "campaignCategoryDrops": {
+    "message": "カテゴリのドロップ"
+  },
+  "upcoming": {
+    "message": "近日開始"
+  },
+  "expired": {
+    "message": "期限切れ"
+  },
+  "excluded": {
+    "message": "除外"
+  },
+  "finished": {
+    "message": "完了"
+  },
+  "completedCampaigns": {
+    "message": "完了"
+  },
+  "upcomingPill": {
+    "message": "近日開始"
+  },
+  "expiredPill": {
+    "message": "期限切れ"
+  },
+  "complete": {
+    "message": "完了"
+  },
+  "startsIn": {
+    "message": "$1 後に開始"
+  },
+  "endsIn": {
+    "message": "終了まで $1"
+  },
+  "watchToGo": {
+    "message": "あと $1 視聴"
+  },
+  "left": {
+    "message": "残り"
+  },
+  "campaignFactWatchTime": {
+    "message": "視聴時間"
+  },
+  "watchTimeLeftValue": {
+    "message": "あと $1"
+  },
+  "watchTimeNeeded": {
+    "message": "$1 必要"
+  },
+  "watchTimeOfTotal": {
+    "message": "/ 合計 $1"
+  },
+  "done": {
+    "message": "完了"
+  },
+  "rewards": {
+    "message": "報酬"
+  },
+  "allChannels": {
+    "message": "すべてのチャンネル"
+  },
+  "includeInFarming": {
+    "message": "ファームに含める"
+  },
+  "excludeFromFarming": {
+    "message": "ファームから除外"
+  },
+  "noIdleWatchlist": {
+    "message": "アイドル・ウォッチリストのチャンネルが設定されていません。"
+  },
+  "channelPlaceholder": {
+    "message": "チャンネル"
+  },
+  "add": {
+    "message": "追加"
+  },
+  "addChannel": {
+    "message": "チャンネルを追加"
+  },
+  "idleWatchlistChannel": {
+    "message": "オフライン"
+  },
+  "live": {
+    "message": "ライブ"
+  },
+  "viewerCount": {
+    "message": "視聴者 $1 人"
+  },
+  "settingsGeneralTitle": {
+    "message": "一般設定"
+  },
+  "settingsGeneralDescription": {
+    "message": "言語、起動時の動作、ポップアップの挙動。"
+  },
+  "settingsGroupAppearance": {
+    "message": "表示と動作"
+  },
+  "pauseManualTitle": {
+    "message": "手動視聴中は一時停止"
+  },
+  "pauseManualDescription": {
+    "message": "配信を開いて自分で視聴している間はファームを停止します。"
+  },
+  "autoStartTitle": {
+    "message": "起動時に自動開始"
+  },
+  "autoStartDescription": {
+    "message": "拡張機能の読み込み直後からファームを開始します。"
+  },
+  "notificationsTitle": {
+    "message": "通知"
+  },
+  "notificationsDescription": {
+    "message": "報酬の準備ができたときやキャンペーンが終了したときに通知します。"
+  },
+  "settingsGroupNotifications": {
+    "message": "通知"
+  },
+  "rewardEarnedTitle": {
+    "message": "報酬を獲得"
+  },
+  "rewardEarnedDescription": {
+    "message": "ドロップ報酬を受け取れるようになったら通知します。"
+  },
+  "noDropsLeftTitle": {
+    "message": "ドロップなし"
+  },
+  "noDropsLeftDescription": {
+    "message": "有効なキャンペーンがすべて終了したら通知します。"
+  },
+  "dropsSettingsTitle": {
+    "message": "Drops"
+  },
+  "dropsSettingsDescription": {
+    "message": "受け取り、適格性、優先度、キャンペーンの表示。"
+  },
+  "settingsGroupDrops": {
+    "message": "Drops"
+  },
+  "autoClaimTitle": {
+    "message": "ドロップを自動受け取り"
+  },
+  "autoClaimDescription": {
+    "message": "獲得したドロップ報酬が利用可能になったら自動で受け取ります。"
+  },
+  "campaignPriorityTitle": {
+    "message": "キャンペーン優先度"
+  },
+  "campaignPriorityDescription": {
+    "message": "ピン留めやお気に入りゲーム以外のキュー内キャンペーンの順序を決めます。キューの「次に」区切りからも変更できます。"
+  },
+  "endingSoonest": {
+    "message": "終了が近い順"
+  },
+  "lowAvailabilityFirst": {
+    "message": "配信が少ない順"
+  },
+  "idleWatchlistSettingsTitle": {
+    "message": "アイドル・ウォッチリスト"
+  },
+  "idleWatchlistSettingsDescription": {
+    "message": "対象ドロップがないときに使う予備チャンネル。"
+  },
+  "preferKnownChannelsTitle": {
+    "message": "フォロー中とアイドル・ウォッチリストを優先"
+  },
+  "preferKnownChannelsDescription": {
+    "message": "ドロップが複数チャンネルで配信中のとき、フォロー中またはアイドル・ウォッチリストのチャンネルを未知のチャンネルより選びます。"
+  },
+  "platformSettingsTitle": {
+    "message": "プラットフォーム設定"
+  },
+  "farmingTabsTitle": {
+    "message": "ファーム用タブ"
+  },
+  "farmingTabsDescription": {
+    "message": "動画タブでのファームの制御。タブレス低リソースモードが有効な間はタブ固有の設定は無効です。"
+  },
+  "settingsGroupFarmingTabs": {
+    "message": "ファーム用タブ"
+  },
+  "tablessTitle": {
+    "message": "タブレス低リソースモード"
+  },
+  "tablessDescription": {
+    "message": "動画タブの代わりに軽量な視聴シグナルでファームします。Twitch は視聴ハートビート、Kick は視聴者接続を使います。進捗が止まったら自動でタブにフォールバックします。"
+  },
+  "tablessFallbackFailureLimitTitle": {
+    "message": "タブレスのフォールバック閾値"
+  },
+  "tablessFallbackFailureLimitDescription": {
+    "message": "タブレスの視聴シグナルがこの回数連続で失敗したら動画タブを開きます。"
+  },
+  "tablessFallbackFailureLimitDisabledReason": {
+    "message": "この設定を変更するにはタブレス低リソースモードを有効にしてください。"
+  },
+  "failuresSuffix": {
+    "message": "回の失敗"
+  },
+  "kickPageContextRecoverySuccessesTitle": {
+    "message": "Kick フォールバックページの回復"
+  },
+  "kickPageContextRecoverySuccessesDescription": {
+    "message": "拡張機能が開いた Kick フォールバックページを、この回数の更新サイクルが成功したら閉じます。"
+  },
+  "kickPageContextRecoverySuccessesDisabledReason": {
+    "message": "この設定を変更するには Kick を有効にしてください。"
+  },
+  "cyclesSuffix": {
+    "message": "サイクル"
+  },
+  "autoCloseTabsTitle": {
+    "message": "ファーム用タブを自動で閉じる"
+  },
+  "autoCloseTabsDescription": {
+    "message": "拡張機能がアイドル状態（ファームするドロップがない、または視聴する配信者がいない）のとき自動で閉じます。"
+  },
+  "muteTabsTitle": {
+    "message": "ファーム用タブをミュート"
+  },
+  "muteTabsDescription": {
+    "message": "ファーム中はドロップとアイドル・ウォッチリストのタブをミュートに保ちます。"
+  },
+  "keepVideosUnmutedTitle": {
+    "message": "ファーム動画はミュートにしない"
+  },
+  "keepVideosUnmutedDescription": {
+    "message": "ブラウザタブはミュートのまま、ページ内の動画プレイヤーはミュートにしません。"
+  },
+  "tablessDisabledReason": {
+    "message": "タブレス低リソースモードが有効な間は無効です。"
+  },
+  "adFocusTitle": {
+    "message": "広告中にタブを前面に"
+  },
+  "adFocusDescription": {
+    "message": "バックグラウンドタブでは広告のカウントダウンが止まります。広告再生中だけファーム用タブを前面にしてカウントダウンを進め、元のタブに戻します。"
+  },
+  "off": {
+    "message": "オフ"
+  },
+  "tabOnly": {
+    "message": "タブのみ"
+  },
+  "tabAndWindow": {
+    "message": "タブ + ウィンドウ"
+  },
+  "advancedTitle": {
+    "message": "詳細"
+  },
+  "advancedDescription": {
+    "message": "内容を理解している場合のみ変更してください — 低レベルのスケジューラとログの動作を制御します。"
+  },
+  "settingsGroupAdvanced": {
+    "message": "詳細"
+  },
+  "settingsGroupPlatformAdvanced": {
+    "message": "詳細と互換性"
+  },
+  "twitchSectionDescription": {
+    "message": "視聴ソース優先度、チャンネルポイント、カテゴリ、除外チャンネル、Twitch 互換性。"
+  },
+  "kickSectionDescription": {
+    "message": "視聴ソース優先度、デイリーチャレンジ、カテゴリ、除外チャンネル、Kick 互換性。"
+  },
+  "twitchAdvancedDescription": {
+    "message": "キャンペーンの利用可否と、Lurkloot が使うハートビートおよびインベントリの通信方式。Twitch が動かなくなったときだけ変更してください。"
+  },
+  "kickAdvancedDescription": {
+    "message": "Lurkloot が Kick の受け取りリンクを開く方法と、その背後の動作プロファイル。Kick が動かなくなったときだけ変更してください。"
+  },
+  "schedulerIntervalTitle": {
+    "message": "スケジューラ間隔"
+  },
+  "schedulerIntervalDescription": {
+    "message": "キャンペーンと配信者ステータスの更新頻度。"
+  },
+  "postClaimHandoffTitle": {
+    "message": "報酬の高速ハンドオフ"
+  },
+  "postClaimHandoffDescription": {
+    "message": "ドロップ受け取り後、次のスケジュールを待たずにキャンペーン内の次の報酬を短時間チェックします。Twitch のみ。"
+  },
+  "postClaimHandoffIntervalTitle": {
+    "message": "ハンドオフのチェック間隔"
+  },
+  "postClaimHandoffIntervalDescription": {
+    "message": "次の報酬をチェックする間隔。"
+  },
+  "postClaimHandoffMaxTitle": {
+    "message": "ハンドオフの時間上限"
+  },
+  "postClaimHandoffMaxDescription": {
+    "message": "この時間経過後は通常スケジュールに戻ります。"
+  },
+  "secondsSuffix": {
+    "message": "秒"
+  },
+  "deadlineSafetyMarginTitle": {
+    "message": "締切の安全マージン"
+  },
+  "deadlineSafetyMarginDescription": {
+    "message": "報酬をファームする前に必要な追加分数。"
+  },
+  "deadlineSafetyMarginDisabledReason": {
+    "message": "安全マージンを変更するには締切フィルターを有効にしてください。"
+  },
+  "skipUnfinishableRewardsTitle": {
+    "message": "完了できない報酬をスキップ"
+  },
+  "skipUnfinishableRewardsDescription": {
+    "message": "残り視聴時間が締切までの時間を超える報酬はファームしません。"
+  },
+  "minutesSuffix": {
+    "message": "分"
+  },
+  "insufficientTimeRemaining": {
+    "message": "残り時間が不足"
+  },
+  "campaignRejectionExcluded": {
+    "message": "このキャンペーンはファームから除外されています。"
+  },
+  "campaignRejectionUpcoming": {
+    "message": "このキャンペーンはまだ開始していません。"
+  },
+  "campaignRejectionExpired": {
+    "message": "このキャンペーンは終了しました。"
+  },
+  "campaignRejectionCompleted": {
+    "message": "このキャンペーンの報酬はすべて完了しています。"
+  },
+  "campaignRejectionUnlinkedDisabled": {
+    "message": "アカウント未連携のキャンペーンのファームは無効です。"
+  },
+  "campaignRejectionTwitchLinkRequired": {
+    "message": "この Twitch キャンペーンにはアカウント連携が必要です。"
+  },
+  "campaignRejectionSubscriptionDisabled": {
+    "message": "サブスクキャンペーンのファームは無効です。"
+  },
+  "campaignRejectionCategoryFiltered": {
+    "message": "このキャンペーンは選択したカテゴリと一致しません。"
+  },
+  "campaignRejectionCategoryBlocked": {
+    "message": "このゲームはブロックされているため、キャンペーンはファームされません。"
+  },
+  "campaignRejectionNotPinned": {
+    "message": "現在はピン留めされたキャンペーンのみファームしています。"
+  },
+  "campaignRejectionRewardType": {
+    "message": "このキャンペーンの報酬に、ファームする種類のものはありません。"
+  },
+  "campaignRejectionRewardTypesObtained": {
+    "message": "ファームする種類の報酬はすでに獲得済みです。"
+  },
+  "campaignRejectionNoRewards": {
+    "message": "このキャンペーンにファーム可能な報酬がありません。"
+  },
+  "campaignRejectionNoUnclaimedRewards": {
+    "message": "このキャンペーンに未受け取りの報酬がありません。"
+  },
+  "campaignRejectionPrerequisites": {
+    "message": "$1 は前の報酬または条件を待っています。"
+  },
+  "campaignRejectionRewardNotStarted": {
+    "message": "$1 はまだ利用できません。"
+  },
+  "campaignRejectionRewardWindowEnded": {
+    "message": "$1 はもう利用できません。"
+  },
+  "campaignRejectionInsufficientTime": {
+    "message": "$1 は締切前に完了できません。"
+  },
+  "campaignRejectionSubscriptionRequired": {
+    "message": "$1 には条件を満たすサブスクが必要です。"
+  },
+  "campaignRejectionActionRequired": {
+    "message": "$1 には視聴以外の操作が必要です。"
+  },
+  "campaignRejectionThen": {
+    "message": "その後: $1"
+  },
+  "campaignRejectionNoFarmableReward": {
+    "message": "このキャンペーンで現在ファームできる報酬はありません。"
+  },
+  "automationSectionTitle": {
+    "message": "自動化"
+  },
+  "farmOnPlatform": {
+    "message": "$1 でドロップをファームし、アイドル・ウォッチリストのチャンネルを視聴します。"
+  },
+  "enabled": {
+    "message": "有効"
+  },
+  "idleWatchlistEditHint": {
+    "message": "$1 を選択したあと、アイドル・ウォッチリストタブから編集できます。"
+  },
+  "autoClaimChannelPointsTitle": {
+    "message": "チャンネルポイントを自動受け取り"
+  },
+  "autoClaimChannelPointsDescription": {
+    "message": "このプラットフォームをファーム中にチャンネルポイントボーナスを受け取ります。"
+  },
+  "channelPointsPushClaimTitle": {
+    "message": "ライブイベントからチャンネルポイントを受け取る"
+  },
+  "channelPointsPushClaimDescription": {
+    "message": "Twitch が利用可能にしたらすぐボーナスを受け取ります。オフにすると1分に1回だけチェックします。"
+  },
+  "alwaysEnterChatTitle": {
+    "message": "常にチャンネルチャットに参加"
+  },
+  "alwaysEnterChatDescription": {
+    "message": "視聴中の各チャンネルのチャットに参加します。配信者とモデレーターはチャットの視聴者一覧にあなたを見られます。メッセージは送信されません。"
+  },
+  "chatPresenceJoined": {
+    "message": "チャット参加中"
+  },
+  "chatPresenceJoining": {
+    "message": "チャットに参加中…"
+  },
+  "chatPresenceUnavailable": {
+    "message": "チャット利用不可"
+  },
+  "chatPresenceBlockedAuth": {
+    "message": "チャット利用不可: Twitch に再ログインしてください"
+  },
+  "strictCampaignAvailabilityTitle": {
+    "message": "厳密なキャンペーン利用可否"
+  },
+  "strictCampaignAvailabilityDescription": {
+    "message": "Twitch がそのキャンペーンを掲載しているチャンネルでのみファームします。Twitch はファーム可能なキャンペーンを省略することが多く、ドロップがファームされない場合があります。"
+  },
+  "autoClaimChallengesTitle": {
+    "message": "デイリーチャレンジを自動受け取り"
+  },
+  "autoClaimChallengesDescription": {
+    "message": "Kick のデイリーチャレンジで視聴時間目標を達成したら報酬を受け取ります。"
+  },
+  "settingsGroupExcludedChannels": {
+    "message": "除外チャンネル"
+  },
+  "excludedChannelsTitle": {
+    "message": "除外ドロップチャンネル"
+  },
+  "excludedChannelsDescription": {
+    "message": "キャンペーンのファームからこれらの配信者をスキップします。"
+  },
+  "excludedChannelsEmpty": {
+    "message": "除外ドロップチャンネルはありません。"
+  },
+  "settingsGroupCategories": {
+    "message": "カテゴリ"
+  },
+  "categoryModeTitle": {
+    "message": "カテゴリフィルター"
+  },
+  "categoryModeDescription": {
+    "message": "$1 のすべてのカテゴリをファームする、選択したカテゴリのみ含める、または除外します。"
+  },
+  "categoryModeAll": {
+    "message": "すべてのカテゴリ"
+  },
+  "categoryModeInclude": {
+    "message": "選択のみ"
+  },
+  "includeCategoriesInstruction": {
+    "message": "$1 ではこれらのカテゴリのみファームします。"
+  },
+  "categoriesToFarm": {
+    "message": "ファームするカテゴリ"
+  },
+  "noCategoriesSelected": {
+    "message": "カテゴリが選択されていません — $1 では何もファームされません。下からカテゴリを追加してください。"
+  },
+  "hasActiveDrops": {
+    "message": "有効なドロップあり"
+  },
+  "otherCategories": {
+    "message": "その他のカテゴリ"
+  },
+  "searchCategories": {
+    "message": "$1 のカテゴリを検索"
+  },
+  "searching": {
+    "message": "検索中…"
+  },
+  "noCategoriesFound": {
+    "message": "カテゴリが見つかりません。"
+  },
+  "alreadyAdded": {
+    "message": "すでに追加済みです。"
+  },
+  "activityLogLevelsTitle": {
+    "message": "アクティビティログのレベル"
+  },
+  "activityLogLevelsDescription": {
+    "message": "アクティビティログに記録するレベルを選びます。エラーは常に保持されます。"
+  },
+  "farmUnlinkedTitle": {
+    "message": "アカウント未連携のキャンペーンをファーム"
+  },
+  "farmUnlinkedDescription": {
+    "message": "オフのとき、アカウント連携が必要なキャンペーンはスキップされます。オンでもプラットフォーム要件で連携が必要な場合があります。"
+  },
+  "farmSubscriptionTitle": {
+    "message": "サブスクが必要なキャンペーンをファーム"
+  },
+  "farmSubscriptionDescription": {
+    "message": "オフのとき、チャンネルサブスクが必要な報酬のキャンペーンはスキップされます。"
+  },
+  "forgetExcludedTitle": {
+    "message": "除外したキャンペーンを忘れる"
+  },
+  "forgetExcludedDescription": {
+    "message": "ファームから除外したすべてのキャンペーンをクリアします。"
+  },
+  "forget": {
+    "message": "忘れる"
+  },
+  "unknownGame": {
+    "message": "不明なゲーム"
+  },
+  "noCategory": {
+    "message": "カテゴリなし"
+  },
+  "dropsCampaign": {
+    "message": "Drops キャンペーン"
+  },
+  "later": {
+    "message": "後で"
+  },
+  "ended": {
+    "message": "終了"
+  },
+  "notificationRewardClaimed": {
+    "message": "報酬を受け取りました"
+  },
+  "notificationRewardEarned": {
+    "message": "報酬を獲得"
+  },
+  "notificationNoDropsLeft": {
+    "message": "ドロップなし"
+  },
+  "notificationRewardFromCampaign": {
+    "message": "$1（$2 から）"
+  },
+  "notificationChallengeClaimed": {
+    "message": "チャレンジ報酬を受け取りました"
+  },
+  "notificationChallengeReward": {
+    "message": "$1 カードを $2 チャレンジで獲得しました。"
+  },
+  "notificationNoDropsLeftMessage": {
+    "message": "$1 にはファームできる対象ドロップがありません。"
+  },
+  "screenshotHeroEyebrow": {
+    "message": "Twitch + Kick"
+  },
+  "screenshotHeroHeadline": {
+    "message": "他のことをしている間もドロップをファーム。"
+  },
+  "screenshotHeroSubcopy": {
+    "message": "ログイン済みセッションから自動受け取り。パスワード不要。"
+  },
+  "screenshotExtrasEyebrow": {
+    "message": "キャンペーンのその先"
+  },
+  "screenshotExtrasHeadline": {
+    "message": "ドロップ以上の機能。"
+  },
+  "screenshotExtrasSubcopy": {
+    "message": "チャンネルポイント、Kick チャレンジ、2分ドロップ — これらも自動で受け取り。ファームするものがなくなったらアイドル・ウォッチリスト。"
+  },
+  "screenshotExtrasPointsName": {
+    "message": "チャンネルポイント"
+  },
+  "screenshotExtrasPointsMeta": {
+    "message": "Twitch · 自動で受け取り"
+  },
+  "screenshotExtrasChallengesName": {
+    "message": "デイリーチャレンジ"
+  },
+  "screenshotExtrasChallengesMeta": {
+    "message": "Kick · 自動で受け取り"
+  },
+  "screenshotExtrasWatchlistName": {
+    "message": "アイドル・ウォッチリスト"
+  },
+  "screenshotExtrasWatchlistMeta": {
+    "message": "キャンペーンの合間に配信者を視聴"
+  },
+  "screenshotExtrasFlashName": {
+    "message": "2分ドロップ"
+  },
+  "screenshotExtrasFlashMeta": {
+    "message": "Kick · 配信開始と同時に取得"
+  },
+  "screenshotEasyEyebrow": {
+    "message": "かんたん操作"
+  },
+  "screenshotEasyHeadline": {
+    "message": "それだけ。"
+  },
+  "screenshotEasyInstallTitle": {
+    "message": "インストール"
+  },
+  "screenshotEasyInstallSub": {
+    "message": "Chrome Web Store。アカウント不要。"
+  },
+  "screenshotEasyPinTitle": {
+    "message": "ピン留め"
+  },
+  "screenshotEasyPinSub": {
+    "message": "ポップアップをワンクリックで。"
+  },
+  "screenshotEasyEnableTitle": {
+    "message": "プラットフォームを有効化"
+  },
+  "screenshotEasyEnableSub": {
+    "message": "Twitch、Kick、または両方。"
+  },
+  "screenshotEasyProfitTitle": {
+    "message": "完了"
+  },
+  "screenshotEasyProfitSub": {
+    "message": "ファームは任せて、あなたは別のことを。"
+  },
+  "screenshotSettingsEyebrow": {
+    "message": "あなたのルール"
+  },
+  "screenshotSettingsHeadline": {
+    "message": "思い通りにファーム。"
+  },
+  "screenshotSettingsSubcopy": {
+    "message": "優先度、ゲーム、タブレスモード、自動受け取り — プラットフォームごと。"
+  },
+  "screenshotUpdatedEyebrow": {
+    "message": "オープンソース"
+  },
+  "screenshotUpdatedHeadline": {
+    "message": "機能豊富。常に更新。"
+  },
+  "screenshotUpdatedSubcopy": {
+    "message": "Twitch と Kick の変更に合わせた頻繁なリリース — アイデアと改善も歓迎。"
+  },
+  "screenshotUpdatedBrowsersTitle": {
+    "message": "Chromium 系ブラウザ"
+  },
+  "screenshotUpdatedBrowsersSub": {
+    "message": "Chrome Web Store の掲載。同じ拡張機能。"
+  },
+  "screenshotUpdatedHeadlessTitle": {
+    "message": "CLI"
+  },
+  "screenshotUpdatedHeadlessSub": {
+    "message": "ヘッドレス。同じエンジン。"
+  },
+  "screenshotUpdatedDockerTitle": {
+    "message": "Docker"
+  },
+  "screenshotUpdatedDockerSub": {
+    "message": "同じエンジン。コンテナ内。"
+  },
+  "screenshotUpdatedLicense": {
+    "message": "Apache-2.0"
+  },
+  "autoClaimReady": {
+    "message": "自動受け取りの準備完了"
+  },
+  "attributionLinks": {
+    "message": "帰属リンク"
+  },
+  "githubAttribution": {
+    "message": "GitHub の Lurkloot"
+  },
+  "githubAttributionShort": {
+    "message": "GitHub"
+  },
+  "chromeWebStoreAttribution": {
+    "message": "Chrome Web Store の Lurkloot"
+  },
+  "chromeWebStoreAttributionShort": {
+    "message": "Chrome"
+  },
+  "siteAttribution": {
+    "message": "Lurkloot ウェブサイト"
+  },
+  "siteAttributionShort": {
+    "message": "ウェブサイト"
+  },
+  "updateNoticeTitle": {
+    "message": "Lurkloot が $1 に更新されました"
+  },
+  "updateNoticeBody": {
+    "message": "新機能と変更点を確認してください。"
+  },
+  "updateNoticeAction": {
+    "message": "変更を表示"
+  },
+  "updateNoticeDismiss": {
+    "message": "更新通知を閉じる"
+  },
+  "rateNudgeTitle": {
+    "message": "Lurkloot を楽しんでいますか？"
+  },
+  "rateNudgeBody": {
+    "message": "Chrome Web Store での短いレビューが大きな助けになります。"
+  },
+  "rateNudgeAction": {
+    "message": "評価する"
+  },
+  "rateNudgeDismiss": {
+    "message": "後で"
+  },
+  "githubStarNudgeTitle": {
+    "message": "Lurkloot はオープンソースです"
+  },
+  "githubStarNudgeBody": {
+    "message": "役に立ったなら GitHub のスターで他の人にも届きます。機能や翻訳などの貢献も歓迎します。"
+  },
+  "githubStarNudgeAction": {
+    "message": "GitHub でスター"
+  },
+  "removeItem": {
+    "message": "$1 を削除"
+  },
+  "cliExportTitle": {
+    "message": "ヘッドレス CLI"
+  },
+  "cliExportDescription": {
+    "message": "このブラウザのログインセッションを使い、サーバーまたは Docker 上で Lurkloot CLI によりドロップをファームします。"
+  },
+  "cliExportHint": {
+    "message": "Twitch と Kick のセッショントークンをエクスポートし、CLI の「login --import」で再利用できます。ファイルは秘密にしてください — 持っている人はあなたのセッションを使えます。"
+  },
+  "cliExportConfirm": {
+    "message": "Twitch と Kick のセッショントークンをファイルにダウンロードします。そのファイルを持つ人はそれらのサイトであなたになりすごせます。続行しますか？"
+  },
+  "cliExportCancel": {
+    "message": "キャンセル"
+  },
+  "cliExportConfirmButton": {
+    "message": "エクスポートを確認"
+  },
+  "cliExportButton": {
+    "message": "認証情報をエクスポート"
+  },
+  "settingsExportTitle": {
+    "message": "設定のインポート / エクスポート"
+  },
+  "settingsExportHint": {
+    "message": "設定をファイルに保存するか、別のブラウザに読み込みます。Twitch や Kick のログイン情報は含まれません。"
+  },
+  "settingsExportButton": {
+    "message": "設定をエクスポート"
+  },
+  "settingsImportButton": {
+    "message": "設定をインポート"
+  },
+  "settingsImportConfirm": {
+    "message": "現在の設定を選択したファイルの内容に置き換えます。続行しますか？"
+  },
+  "settingsImportCancel": {
+    "message": "キャンセル"
+  },
+  "settingsImportConfirmButton": {
+    "message": "ファイルを選んでインポート"
+  },
+  "settingsImportFailed": {
+    "message": "そのファイルは有効な Lurkloot 設定エクスポートではありません。"
+  },
+  "settingsExportFailed": {
+    "message": "Lurkloot は設定をエクスポートできませんでした。もう一度お試しください。"
+  },
+  "factoryResetTitle": {
+    "message": "Lurkloot をリセット"
+  },
+  "factoryResetHint": {
+    "message": "すべての Lurkloot 設定、ファーム進捗、アクティビティ履歴を消去します。Twitch と Kick のログイン状態は維持されます。"
+  },
+  "factoryResetButton": {
+    "message": "Lurkloot をリセット"
+  },
+  "factoryResetConfirm": {
+    "message": "ファームを停止し、Lurkloot が開いたタブを閉じ、すべての Lurkloot データを完全に消去します。Twitch と Kick のログインは維持されます。"
+  },
+  "factoryResetCancel": {
+    "message": "キャンセル"
+  },
+  "factoryResetConfirmButton": {
+    "message": "すべてリセット"
+  },
+  "factoryResetProgress": {
+    "message": "リセット中…"
+  },
+  "factoryResetFailed": {
+    "message": "Lurkloot は完全にリセットできませんでした。もう一度お試しください。"
+  },
+  "factoryResetRetry": {
+    "message": "リセットを再試行"
+  },
+  "diagnosticLoggingTitle": {
+    "message": "診断ログを含める"
+  },
+  "diagnosticLoggingDescription": {
+    "message": "問題の診断に役立つ追加の技術情報を記録します。通常のアクティビティは常に保持されます。"
+  },
+  "activityFarmingStarted": {
+    "message": "$1 を $2 からファーム開始しました。"
+  },
+  "activityFarmingStopped": {
+    "message": "$1 を $2 からファーム停止: $3。"
+  },
+  "activityRewardClaimed": {
+    "message": "$1 を $2 から受け取りました。"
+  },
+  "activityChallengeClaimed": {
+    "message": "$1 カードを $2 チャレンジで受け取りました"
+  },
+  "activityAuthHealthChanged": {
+    "message": "$1 の認証が $2 から $3 に変わりました。"
+  },
+  "activityCriticalFailureDetected": {
+    "message": "$1 が動作していません: $2。"
+  },
+  "activityCriticalFailureCleared": {
+    "message": "$1 の重大な障害を解除しました。再試行します。"
+  },
+  "criticalFailureReasonNoProgress": {
+    "message": "繰り返しエラーにもかかわらず進捗なし"
+  },
+  "criticalFailureReasonPageContextChurn": {
+    "message": "タブが開き直され続けた"
+  },
+  "criticalFailureTitle": {
+    "message": "Lurkloot が動作を停止しました"
+  },
+  "criticalFailureBodyNoProgress": {
+    "message": "エラーが繰り返され、長時間ドロップの進捗がありません。このプラットフォーム側で何かが変わった可能性があり、拡張機能はもうドロップを獲得できません。"
+  },
+  "criticalFailureBodyTabChurn": {
+    "message": "タブが何度も開き直されました。開き直しを止めてブラウザを通常どおり使えるようにし、このプラットフォームのファームを一時停止しました。"
+  },
+  "criticalFailureCopyAndReport": {
+    "message": "ログをコピーして issue を開く"
+  },
+  "criticalFailureDismiss": {
+    "message": "閉じて再試行"
+  },
+  "criticalFailureClipboardFallback": {
+    "message": "自動コピーできませんでした。選択してコピーし、issue を開いてください。"
+  },
+  "activityPageContextOpened": {
+    "message": "$1 でバックグラウンドコンテキストを開きました（$2）。"
+  },
+  "activityPageContextClosed": {
+    "message": "$1 のバックグラウンドコンテキストを閉じました（$2）。"
+  },
+  "activityPageContextOpenReasonBackgroundRejected": {
+    "message": "Kick がタブレス要求を拒否した"
+  },
+  "activityPageContextReasonManagedContextUnusable": {
+    "message": "前のバックグラウンドコンテキストが使用不能だった"
+  },
+  "activityPageContextCloseReasonBackgroundRecovered": {
+    "message": "タブレス要求が回復した"
+  },
+  "activityPageContextCloseReasonUserTabAvailable": {
+    "message": "既存の Kick タブが利用可能になった"
+  },
+  "activityInterruption": {
+    "message": "ファームが中断されました: $1。"
+  },
+  "activityInterruptionWithDetail": {
+    "message": "ファームが中断されました: $1（$2）。"
+  },
+  "activityReasonAutomationDisabled": {
+    "message": "自動化が無効になった"
+  },
+  "activityReasonPlatformDisabled": {
+    "message": "プラットフォームが無効になった"
+  },
+  "activityReasonAuthenticationUnhealthy": {
+    "message": "認証が利用できない"
+  },
+  "activityReasonPlatformBackoff": {
+    "message": "プラットフォームが一時的にバックオフ中"
+  },
+  "activityReasonPlatformError": {
+    "message": "プラットフォームエラーが発生した"
+  },
+  "activityReasonCampaignIneligible": {
+    "message": "キャンペーンが対象外になった"
+  },
+  "activityReasonChannelExcluded": {
+    "message": "チャンネルが除外されている"
+  },
+  "activityReasonChannelOffline": {
+    "message": "チャンネルがオフラインになった"
+  },
+  "activityReasonChannelMismatch": {
+    "message": "チャンネルが一致しなくなった"
+  },
+  "activityReasonWatchUnhealthy": {
+    "message": "視聴ヘルスチェックに失敗した"
+  },
+  "activityReasonNoProgress": {
+    "message": "チャンネルでドロップ進捗がなかった"
+  },
+  "activityReasonHigherPriorityReward": {
+    "message": "より優先度の高い報酬に切り替わった"
+  },
+  "activityReasonHigherPriorityIdleWatchlist": {
+    "message": "より優先度の高いアイドル・ウォッチリストチャンネルが利用可能になった"
+  },
+  "activityReasonWatchRequirementCompleted": {
+    "message": "視聴要件が完了した"
+  },
+  "activityReasonRuntimeRestart": {
+    "message": "拡張機能が再起動した"
+  },
+  "activityReasonTargetChanged": {
+    "message": "ファーム対象が変わった"
+  },
+  "activityReasonCriticalFailure": {
+    "message": "重大な障害が検出された"
+  },
+  "activityReasonManualWatch": {
+    "message": "手動視聴が優先された"
+  },
+  "loadMoreActivity": {
+    "message": "さらに読み込む"
+  },
+  "clearActivityHistory": {
+    "message": "履歴をクリア"
+  },
+  "confirmClearActivityHistory": {
+    "message": "クリアを確認"
+  },
+  "clearActivityFailed": {
+    "message": "アクティビティ履歴をクリアできませんでした。もう一度お試しください。"
+  },
+  "copyActivityLog": {
+    "message": "ログをコピー"
+  },
+  "copyLoadedActivityLog": {
+    "message": "読み込み分をコピー"
+  },
+  "copyActivityLogCopied": {
+    "message": "$1 件のイベントをコピーしました"
+  },
+  "copyActivityLogFailed": {
+    "message": "ログをコピーできませんでした。もう一度お試しください。"
+  },
+  "exportAllDiagnostics": {
+    "message": "すべてエクスポート"
+  },
+  "exportAllDiagnosticsDone": {
+    "message": "$1 件のイベントをエクスポートしました"
+  },
+  "exportAllDiagnosticsFailed": {
+    "message": "ログをエクスポートできませんでした。もう一度お試しください。"
+  },
+  "activityViewTab": {
+    "message": "アクティビティ"
+  },
+  "diagnosticsViewTab": {
+    "message": "診断"
+  },
+  "compatibilityAutomatic": {
+    "message": "自動"
+  },
+  "compatibilityTwitchProfileTitle": {
+    "message": "Twitch 互換性プロファイル"
+  },
+  "compatibilityTwitchProfileDescription": {
+    "message": "同梱の Twitch プロファイルを選ぶか、Lurkloot に自動選択させます。"
+  },
+  "compatibilityKickProfileTitle": {
+    "message": "Kick 互換性プロファイル"
+  },
+  "compatibilityKickProfileDescription": {
+    "message": "同梱の Kick プロファイルを選ぶか、Lurkloot に自動選択させます。"
+  },
+  "compatibilitySectionTitle": {
+    "message": "互換性"
+  },
+  "compatibilitySectionDescription": {
+    "message": "Twitch または Kick が動かない場合のみ変更してください。プラットフォームの問題回避に役立つことがあります。"
+  },
+  "compatibilityComponentProfile": {
+    "message": "プロファイル"
+  },
+  "compatibilityComponentHeartbeat": {
+    "message": "ハートビート通信"
+  },
+  "compatibilityComponentInventory": {
+    "message": "インベントリ照会"
+  },
+  "compatibilityComponentClaim": {
+    "message": "受け取り処理"
+  },
+  "compatibilityFromProfile": {
+    "message": "プロファイルから"
+  },
+  "compatibilityOverridden": {
+    "message": "上書き済み"
+  },
+  "compatibilityReplacedBy": {
+    "message": "$1 に置き換え"
+  },
+  "compatibilityTwitchHeartbeatTitle": {
+    "message": "Twitch ハートビート通信"
+  },
+  "compatibilityTwitchHeartbeatDescription": {
+    "message": "同梱の Twitch 視聴ハートビートを上書きします。"
+  },
+  "compatibilityTwitchInventoryTitle": {
+    "message": "Twitch インベントリ照会"
+  },
+  "compatibilityTwitchInventoryDescription": {
+    "message": "同梱の Twitch インベントリ照会を上書きします。"
+  },
+  "compatibilityKickClaimTitle": {
+    "message": "Kick 受け取りリンク処理"
+  },
+  "compatibilityKickClaimDescription": {
+    "message": "同梱の Kick アカウント連携処理を上書きします。"
+  },
+  "compatibilityLifecycleRecommended": {
+    "message": "推奨"
+  },
+  "compatibilityLifecycleLegacy": {
+    "message": "レガシー"
+  },
+  "compatibilityLifecycleExperimental": {
+    "message": "実験的"
+  },
+  "compatibilityOverrideWarning": {
+    "message": "手動の互換性上書きが有効です。プラットフォームが変わると動かなくなる場合があります。"
+  },
+  "compatibilityRestoreAutomatic": {
+    "message": "自動互換性に戻す"
+  },
+  "compatibilityOptionTwitchProfile202607": {
+    "message": "Twitch 2026年7月"
+  },
+  "compatibilityOptionTwitchProfile202610": {
+    "message": "Twitch 2026年10月"
+  },
+  "compatibilityOptionTwitchHeartbeatGqlV1": {
+    "message": "GraphQL ハートビート v1"
+  },
+  "compatibilityOptionTwitchHeartbeatSpadeV1": {
+    "message": "Spade ハートビート v1"
+  },
+  "compatibilityOptionTwitchHeartbeatHlsV1": {
+    "message": "HLS + Spade ハートビート v1"
+  },
+  "compatibilityOptionTwitchHeartbeatTrowelV1": {
+    "message": "Trowel ハートビート v1"
+  },
+  "compatibilityOptionTwitchInventoryV1": {
+    "message": "インベントリ照会 v1"
+  },
+  "compatibilityOptionTwitchInventoryV2": {
+    "message": "インベントリ照会 v2"
+  },
+  "compatibilityOptionKickProfile202607": {
+    "message": "Kick 2026年7月"
+  },
+  "compatibilityOptionKickClaimV1": {
+    "message": "受け取り処理 v1"
+  },
+  "compatibilityOptionKickClaimV2": {
+    "message": "受け取り処理 v2"
+  },
+  "automationChecking": {
+    "message": "確認中"
+  },
+  "automationNeedsSignIn": {
+    "message": "サインインが必要"
+  },
+  "automationBlocked": {
+    "message": "ブロック"
+  },
+  "automationUnavailable": {
+    "message": "利用不可"
+  },
+  "authCheckingDetail": {
+    "message": "ログインセッションを確認中…"
+  },
+  "authSignInMissing": {
+    "message": "ドロップのファームを続けるにはサインインしてください。"
+  },
+  "authSignInRejected": {
+    "message": "セッションが無効になりました。続けるには再ログインしてください。"
+  },
+  "signInToTwitch": {
+    "message": "Twitch にサインイン"
+  },
+  "signInToKick": {
+    "message": "Kick にサインイン"
+  },
+  "authBrowserProfileBlocked": {
+    "message": "Kick がこのブラウザプロファイルを拒否しました。サインインだけでは解決しない場合があります。"
+  },
+  "authCredentialCheckUnavailable": {
+    "message": "ブラウザセッションを確認できませんでした。Lurkloot が自動で再試行します。"
+  },
+  "authNetworkTemporarilyUnavailable": {
+    "message": "ネットワークが一時的に利用できません。Lurkloot が自動で再試行します。"
+  },
+  "authPlatformTemporarilyUnavailable": {
+    "message": "プラットフォームが一時的に利用できません。Lurkloot が自動で再試行します。"
+  },
+  "automationPausedTabClosed": {
+    "message": "一時停止 — タブを閉じました"
+  },
+  "watchTabClosedPauseDetail": {
+    "message": "ファーム用タブを閉じたため、Lurkloot はここでのファームを停止しました。"
+  },
+  "resumeFarming": {
+    "message": "ファームを再開"
+  },
+  "activityReasonManualTabClose": {
+    "message": "ファーム用タブを閉じた"
+  },
+  "activityReasonPermissionMissing": {
+    "message": "必要なブラウザ権限がありません。プラットフォームを再度オンにして付与してください"
+  },
+  "automationPausedManualWatch": {
+    "message": "手動視聴"
+  },
+  "manualWatchPauseDetail": {
+    "message": "自分で配信を視聴している間はファームを一時停止します。一時停止、閉じる、またはそのタブから離れると次のチェックで自動再開します。"
+  },
+  "manualWatchPauseDetailNamed": {
+    "message": "自分で配信を視聴している間はファームを一時停止しています。"
+  },
+  "manualWatchPauseDetailNamedSuffix": {
+    "message": "— 一時停止、閉じる、またはタブを切り替えると再開します。"
+  },
+  "reorderItem": {
+    "message": "$1 の順序を変更"
+  },
+  "scrollRewardsLeft": {
+    "message": "報酬を左にスクロール"
+  },
+  "scrollRewardsRight": {
+    "message": "報酬を右にスクロール"
+  },
+  "activityExtensionGiveawayJoined": {
+    "message": "$1 ギブアウェイに $2 で参加しました。"
+  },
+  "activityExtensionSpriteCaptured": {
+    "message": "$1 スプライトを $2 で取得しました。"
+  },
+  "activityExtensionTakeoverStarted": {
+    "message": "$1 テイクオーバーを $2 から開始しました。"
+  },
+  "extensionSettingsTitle": {
+    "message": "Twitch 拡張機能"
+  },
+  "extensionDropsTitle": {
+    "message": "Extensions"
+  },
+  "extensionSettingsHint": {
+    "message": "Twitch タブなしで拡張機能報酬をファームします。Twitch の自動化、除外、手動一時停止が適用されます。"
+  },
+  "extensionNoPixelHint": {
+    "message": "デイリーパックを獲得し、ギブアウェイに参加します。視聴時間の獲得は視聴チャンネルのチャットに参加するため、視聴者一覧に表示されます。"
+  },
+  "extensionChatPresenceBlocked": {
+    "message": "チャット未参加: チャット参加が回復するまで NoPixel の視聴時間は加算されません"
+  },
+  "extensionFortniteHint": {
+    "message": "スプライトを集め、フェーズ報酬を獲得します。"
+  },
+  "extensionIdentityRequired": {
+    "message": "拡張機能アカウントを連携"
+  },
+  "extensionPermissionRequired": {
+    "message": "プロバイダーアクセスを許可して有効化"
+  },
+  "extensionAuthRequired": {
+    "message": "Twitch にログイン"
+  },
+  "extensionChannelRequired": {
+    "message": "対象チャンネルを検索中"
+  },
+  "extensionComplete": {
+    "message": "報酬を獲得"
+  },
+  "extensionFarming": {
+    "message": "ファーム中"
+  },
+  "extensionPhaseClosed": {
+    "message": "操作可能なフェーズは開いていません"
+  },
+  "extensionConnecting": {
+    "message": "接続中"
+  },
+  "extensionUnavailable": {
+    "message": "一時的に利用不可"
+  },
+  "extensionIdle": {
+    "message": "待機中"
+  },
+  "extensionDailyPackProgress": {
+    "message": "デイリーパック: $1/$2 分"
+  },
+  "extensionCaptureProgress": {
+    "message": "コレクション: $1/$2"
+  },
+  "extensionTakeoversTitle": {
+    "message": "Fortnite テイクオーバーを許可"
+  },
+  "extensionTakeoversHint": {
+    "message": "操作可能フェーズ中に対象テイクオーバーを開始します。デフォルトはオフ。"
+  },
+  "extensionAccountSetup": {
+    "message": "アカウント設定"
+  },
+  "extensionGiveawayUnavailable": {
+    "message": "ギブアウェイ確認不可"
+  },
+  "extensionGiveawayEntered": {
+    "message": "ギブアウェイ参加済み"
+  },
+  "extensionGiveawayOpen": {
+    "message": "ギブアウェイ受付中"
+  },
+  "extensionRewardProgress": {
+    "message": "報酬: $1/$2"
+  },
+  "extensionTakeoverActive": {
+    "message": "テイクオーバー実行中"
+  },
+  "extensionWatchtimeComplete": {
+    "message": "視聴時間完了"
+  },
+  "extensionUnopenedPacks": {
+    "message": "未開封パック: $1"
+  },
+  "extensionPackCheckUnavailable": {
+    "message": "パック配信確認不可"
+  },
+  "extensionAutoOpenPacksTitle": {
+    "message": "NoPixelV パックを自動で開く"
+  },
+  "extensionAutoOpenPacksHint": {
+    "message": "未開封パックからカードを公開します。パックは消費され、元に戻せません。"
+  },
+  "activityExtensionPackOpened": {
+    "message": "$1 が $2 でカードパックを開きました"
+  },
+  "watchSourcePriorityTitle": {
+    "message": "視聴ソース優先度"
+  },
+  "watchSourcePriorityDescription": {
+    "message": "最初に利用可能なソースを視聴します。無効または利用不可のソースはスキップされます。"
+  },
+  "watchSourcePriorityMoveUp": {
+    "message": "$1 を上へ"
+  },
+  "watchSourcePriorityMoveDown": {
+    "message": "$1 を下へ"
+  },
+  "watchSourcePriorityReset": {
+    "message": "優先度をリセット"
+  },
+  "watchSourcePriorityMoved": {
+    "message": "$1 の優先度は $2 になりました。"
+  },
+  "watchSourcePriorityResetDone": {
+    "message": "視聴ソース優先度をリセットしました。"
+  },
+  "watchSourceDrops": {
+    "message": "Drops"
+  },
+  "watchSourceIdleWatchlist": {
+    "message": "アイドル・ウォッチリスト"
+  },
+  "watchSourceNoPixel": {
+    "message": "NoPixelV"
+  },
+  "watchSourceFortnite": {
+    "message": "Fortnite"
+  },
+  "gamesStarHint": {
+    "message": "★ でゲームを戦略より上位に並べます"
+  },
+  "gamesFavourite": {
+    "message": "$1 を戦略より上位に並べる"
+  },
+  "gamesUnfavourite": {
+    "message": "$1 を戦略より上位に並べるのをやめる"
+  },
+  "gamesBlock": {
+    "message": "$1 を決してファームしない"
+  },
+  "gamesUnblock": {
+    "message": "ブロック解除"
+  },
+  "gamesBlocked": {
+    "message": "ブロック"
+  },
+  "gamesBlockedHint": {
+    "message": "どちらのモードでもファームされません"
+  },
+  "gamesBlockedKeepsStar": {
+    "message": "ファームなし · スターは後で使えるよう保持"
+  },
+  "gamesCampaignCount": {
+    "message": "ライブ中のキャンペーン $1 件"
+  },
+  "gamesCampaignCountOne": {
+    "message": "ライブ中のキャンペーン 1 件"
+  },
+  "gamesNoCampaigns": {
+    "message": "現在キャンペーンなし"
+  },
+  "gamesFarmGame": {
+    "message": "$1 をファーム"
+  },
+  "gamesEmpty": {
+    "message": "現在ライブの $1 キャンペーンはありません。"
+  },
+  "inPageOpenPanel": {
+    "message": "Lurkloot を開く"
+  },
+  "inPageAddToWatchlist": {
+    "message": "$1 をアイドル・ウォッチリストに追加"
+  },
+  "inPageRemoveFromWatchlist": {
+    "message": "$1 をアイドル・ウォッチリストから削除"
+  },
+  "navNoPixel": {
+    "message": "NoPixel V"
+  },
+  "navFortnite": {
+    "message": "Fortnite"
+  },
+  "gamesBlockedEmpty": {
+    "message": "ブロックはありません。ゲームの ⊘ で両モードのファームから外せます。"
+  },
+  "campaignRewardsProgress": {
+    "message": "報酬 $1/$2"
+  },
+  "campaignTimeLeft": {
+    "message": "残り $1"
+  },
+  "campaignFactStarts": {
+    "message": "開始"
+  },
+  "campaignFactStarted": {
+    "message": "開始済み"
+  },
+  "campaignFactEnds": {
+    "message": "終了"
+  },
+  "relativeIn": {
+    "message": "$1 後"
+  },
+  "relativeAgo": {
+    "message": "$1 前"
+  },
+  "campaignLasts": {
+    "message": "期間 $1"
+  },
+  "campaignFactEnded": {
+    "message": "終了"
+  },
+  "campaignFactWatching": {
+    "message": "視聴中"
+  },
+  "campaignFactChannels": {
+    "message": "チャンネル"
+  },
+  "campaignFactNextReward": {
+    "message": "次の報酬"
+  },
+  "campaignFactWhyRank": {
+    "message": "この順位の理由"
+  },
+  "campaignMoreChannels": {
+    "message": "他 $1 件"
+  },
+  "campaignFewerChannels": {
+    "message": "少なく表示"
+  },
+  "campaignExclude": {
+    "message": "除外"
+  },
+  "campaignCategoryBlocked": {
+    "message": "$1 をブロック"
+  },
+  "campaignPinToTop": {
+    "message": "先頭にピン留め"
+  },
+  "campaignPinnedAt": {
+    "message": "ピン留め · $1"
+  },
+  "campaignFavourite": {
+    "message": "$1 をお気に入り"
+  },
+  "campaignFavouriteOn": {
+    "message": "$1 はお気に入り"
+  },
+  "campaignExcludeThis": {
+    "message": "このキャンペーンのみ"
+  },
+  "campaignExcludeThisHint": {
+    "message": "他の $1 キャンペーンはファームを続けます"
+  },
+  "campaignExcludeThisUndo": {
+    "message": "もう一度選ぶとキューに戻ります"
+  },
+  "campaignExcludeCategory": {
+    "message": "カテゴリ「$1」"
+  },
+  "campaignExcludeCategoryHint": {
+    "message": "今後も含めすべての $1 キャンペーンをブロック"
+  },
+  "campaignExcludeCategoryUndo": {
+    "message": "もう一度選ぶとゲームのブロックを解除"
+  },
+  "rewardMissed": {
+    "message": "時間内に獲得できず"
+  },
+  "rankReasonPinned": {
+    "message": "$1 でピン留め"
+  },
+  "rankReasonFavourite": {
+    "message": "$1 はお気に入り $2"
+  },
+  "rankReasonEnding": {
+    "message": "下より早く終了"
+  },
+  "rankReasonAvailability": {
+    "message": "下より配信チャンネルが少ない"
+  },
+  "queueEditFavourites": {
+    "message": "編集"
+  },
+  "navWatchingNow": {
+    "message": "現在視聴中"
+  },
+  "gamesFavouritesGroup": {
+    "message": "お気に入り"
+  },
+  "gamesFavouritesGroupHint": {
+    "message": "この順で戦略より上位"
+  },
+  "gamesOtherGroup": {
+    "message": "その他のゲーム"
+  },
+  "gamesOtherGroupAllHint": {
+    "message": "ブロック以外はすべてファーム"
+  },
+  "gamesOtherGroupIncludeHint": {
+    "message": "チェックしたものだけファーム"
+  },
+  "watchSourcePlace": {
+    "message": "視聴順序での位置: $1/$2"
+  },
+  "watchSourcePlaceFirst": {
+    "message": "他のすべてのソースより先に視聴されます。"
+  },
+  "watchSourcePlaceAfter": {
+    "message": "$1 に視聴対象がないときに視聴されます。"
+  },
+  "watchSourceChangeOrderShort": {
+    "message": "順序を変更"
+  },
+  "railWhatsNew": {
+    "message": "新着情報"
+  },
+  "campaignShowDetails": {
+    "message": "詳細を表示"
+  },
+  "campaignHideDetails": {
+    "message": "詳細を非表示"
+  },
+  "settingsGamesPointerTitle": {
+    "message": "ゲームとカテゴリ"
+  },
+  "settingsGamesPointerDescription": {
+    "message": "ファームする $1 ゲームを選び、優先するものにスターを付けるか、ブロックします。"
+  },
+  "settingsGamesPointerAction": {
+    "message": "ゲームを開く"
+  },
+  "idleWatchlistAddPlaceholder": {
+    "message": "チャンネル名またはリンク"
+  },
+  "idleWatchlistFull": {
+    "message": "リストがいっぱいです（$1 チャンネル）。追加するには1件削除してください。"
+  },
+  "idleWatchlistInvalid": {
+    "message": "チャンネル名またはチャンネルリンクを入力してください。"
+  },
+  "idleWatchlistDuplicate": {
+    "message": "$1 はすでにリストにあります。"
+  },
+  "idleWatchlistOrderTitle": {
+    "message": "視聴順序"
+  },
+  "idleWatchlistOrderHint": {
+    "message": "最初のライブチャンネルが視聴されます"
+  },
+  "gamesModeAllDescription": {
+    "message": "ライブドロップのあるゲームはブロック以外すべてファームします。"
+  },
+  "gamesModeIncludeDescription": {
+    "message": "チェックしたゲームのみファームします。"
+  },
+  "gamesStarLegend": {
+    "message": "ゲームを戦略より上位に並べる"
+  },
+  "gamesBlockLegend": {
+    "message": "決してファームしない"
+  },
+  "gamesSearchPlaceholder": {
+    "message": "$1 ゲームを検索または追加"
+  },
+  "gamesAddGroup": {
+    "message": "$1 から追加"
+  },
+  "gamesAddIncludeHint": {
+    "message": "ゲームを追加するとチェックされます"
+  },
+  "gamesAddAllHint": {
+    "message": "ゲームを追加するとスターが付きます"
+  },
+  "gamesAddActionFarm": {
+    "message": "ファーム"
+  },
+  "gamesAddActionFavourite": {
+    "message": "お気に入り"
+  },
+  "gamesNoMoreResults": {
+    "message": "他のゲームは見つかりません。"
+  },
+  "navBeta": {
+    "message": "Beta"
+  },
+  "navExtensions": {
+    "message": "Extensions"
+  },
+  "navGroupOthers": {
+    "message": "その他"
+  },
+  "kickLevelSummary": {
+    "message": "Kick レベル $1 · レベル $3 まで $2%"
+  },
+  "kickLevelShort": {
+    "message": "Lv $1"
+  },
+  "kickLevelXp": {
+    "message": "$1 / $2 XP"
+  },
+  "kickStreakDays": {
+    "message": "$1日連続視聴"
+  }
+}

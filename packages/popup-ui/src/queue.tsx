@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { DragDropProvider } from "@dnd-kit/react";
 import { AnimatePresence } from "motion/react";
 import { ChevronRight, Clock3, Pin } from "lucide-react";
-import type { CategorySelection, PriorityMode } from "@lurkloot/shared/models";
+import type { CategorySelection, RewardFarmType, PriorityMode } from "@lurkloot/shared/models";
 import { useT } from "./context";
 import { filterCampaigns } from "./campaignSearch";
 import {
@@ -11,7 +11,7 @@ import {
   campaignRejectionMessageKey,
   initialExpandedIds,
 } from "./drops";
-import { fallbackGame } from "./viewModels";
+import { fallbackGame, type RewardTypeTab } from "./viewModels";
 import type { CampaignRankTier } from "./viewModels";
 import type { CampaignView, GameItem } from "./types";
 import { ViewToolbar } from "./viewToolbar";
@@ -25,12 +25,9 @@ import {
   type SortableDragEndEvent,
 } from "./primitives";
 import { Dropdown } from "./dropdown";
-import { Segmented } from "./controls";
-
-// Which campaigns a facet admits. The facet reads across the queue AND the
-// skipped group on purpose: with subscription campaigns turned off, "Sub badges"
-// would otherwise look empty while those campaigns sat one group below.
-export type QueueFacet = "all" | "drops" | "badges";
+import { Toggle as BaseToggle } from "@base-ui/react/toggle";
+import { ToggleGroup } from "@base-ui/react/toggle-group";
+import { REWARD_FARM_TYPES } from "@lurkloot/shared/settings";
 
 const TIER_LABEL_KEYS: Record<CampaignRankTier, string> = {
   pinned: "queueGroupPinned",
@@ -38,10 +35,19 @@ const TIER_LABEL_KEYS: Record<CampaignRankTier, string> = {
   strategy: "queueGroupStrategy",
 };
 
-function matchesFacet(campaign: CampaignView, facet: QueueFacet): boolean {
-  if (facet === "all") return true;
-  return facet === "badges" ? campaign.hasSubscriptionRewards : !campaign.hasSubscriptionRewards;
-}
+// The Queue's tabs pick which rewards are farmed (#731), not just which
+// campaigns are shown: the selection is the farmRewardTypes setting, and a
+// campaign with no reward of those types moves to Skipped with the reason, the
+// way a category filter does. Several can be on at once and combine as
+// any-of; "All" clears them. Only one campaign is farmed at a time, so a tab
+// never makes a second queue.
+
+const QUEUE_FACETS: Array<[RewardTypeTab, string]> = [
+  ["all", "queueFacetAll"],
+  ["no_subscription", "queueFacetNoSubscription"],
+  ["subscription", "queueFacetSubscription"],
+  ["badge", "queueFacetBadge"],
+];
 
 // Only pins have a hand-made order. Everything below them is ranked by the
 // favourite games' order and then the strategy, so it is neither draggable nor
@@ -51,7 +57,7 @@ const pinnedOf = (queued: CampaignView[]): CampaignView[] =>
   queued.filter((campaign) => campaign.rankTier === "pinned");
 
 // Where a pin moved to slot `toIndex` of the visible pins goes in the full pin
-// list: it takes the place of the pin now in that slot. A facet can hide some
+// list: it takes the place of the pin now in that slot. A campaign type can skip some
 // pins, so the visible slot and the real position are not the same number.
 function pinPosition(visiblePins: CampaignView[], toIndex: number): number {
   const displaced = visiblePins[Math.max(0, Math.min(toIndex, visiblePins.length - 1))];
@@ -66,6 +72,10 @@ export function QueuePanel({
   strategy,
   pinnedCount,
   farmPinnedOnly,
+  rewardTypes = [],
+  availableRewardTypes = REWARD_FARM_TYPES,
+  rewardTypeCounts,
+  onRewardTypesChange = () => undefined,
   onStrategyChange,
   onUnpinAll,
   onFarmPinnedOnlyChange,
@@ -84,6 +94,14 @@ export function QueuePanel({
   strategy: PriorityMode;
   pinnedCount: number;
   farmPinnedOnly: boolean;
+  // The selected reward types; empty is "All".
+  rewardTypes?: readonly RewardFarmType[];
+  // The types this platform offers: Kick reports no badges, so it has no
+  // badge tab.
+  availableRewardTypes?: readonly RewardFarmType[];
+  // How many campaigns each tab would queue on its own (farmRewardTypeCounts).
+  rewardTypeCounts?: Partial<Record<RewardTypeTab, number>>;
+  onRewardTypesChange?(types: RewardFarmType[]): void | Promise<void>;
   onStrategyChange(strategy: PriorityMode): void | Promise<void>;
   onUnpinAll(): void | Promise<void>;
   onFarmPinnedOnlyChange(value: boolean): void | Promise<void>;
@@ -97,7 +115,6 @@ export function QueuePanel({
 }): React.ReactElement {
   const t = useT();
   const [query, setQuery] = useState("");
-  const [facet, setFacet] = useState<QueueFacet>("all");
   const [showSkipped, setShowSkipped] = useState(false);
   const [showActionRequired, setShowActionRequired] = useState(false);
   const [showUpcoming, setShowUpcoming] = useState(false);
@@ -107,16 +124,7 @@ export function QueuePanel({
   const listRef = useRef<HTMLDivElement>(null);
   const searching = query.trim().length > 0;
 
-  const inFacet = useMemo(
-    () => campaigns.filter((campaign) => matchesFacet(campaign, facet)),
-    [campaigns, facet],
-  );
   const queued = useMemo(
-    () => inFacet.filter((campaign) => campaign.section === "queue"),
-    [inFacet],
-  );
-  // Search reads across every facet, so its ranks come from the whole queue.
-  const allQueued = useMemo(
     () => campaigns.filter((campaign) => campaign.section === "queue"),
     [campaigns],
   );
@@ -124,17 +132,19 @@ export function QueuePanel({
   // user, outside it.
   const skipped = useMemo(
     () =>
-      inFacet.filter((campaign) => campaign.section === "skipped" && !campaign.needsOutsideAction),
-    [inFacet],
+      campaigns.filter(
+        (campaign) => campaign.section === "skipped" && !campaign.needsOutsideAction,
+      ),
+    [campaigns],
   );
   const actionRequired = useMemo(
     () =>
-      inFacet.filter((campaign) => campaign.section === "skipped" && campaign.needsOutsideAction),
-    [inFacet],
+      campaigns.filter((campaign) => campaign.section === "skipped" && campaign.needsOutsideAction),
+    [campaigns],
   );
   const upcoming = useMemo(
-    () => inFacet.filter((campaign) => campaign.section === "upcoming"),
-    [inFacet],
+    () => campaigns.filter((campaign) => campaign.section === "upcoming"),
+    [campaigns],
   );
   const searchResults = useMemo(
     () => filterCampaigns(campaigns, gameMap, query),
@@ -160,7 +170,6 @@ export function QueuePanel({
     if (!focus) return;
     setQuery("");
     const target = campaigns.find((campaign) => campaign.id === focus.id);
-    if (target && !matchesFacet(target, facet)) setFacet("all");
     if (target?.section === "skipped") {
       if (target.needsOutsideAction) setShowActionRequired(true);
       else setShowSkipped(true);
@@ -193,6 +202,7 @@ export function QueuePanel({
     onToggleBlockedCategory,
     onOpenGames,
     onOpenSettings,
+    onRewardTypesChange,
   });
   latest.current = {
     queued,
@@ -204,6 +214,7 @@ export function QueuePanel({
     onToggleBlockedCategory,
     onOpenGames,
     onOpenSettings,
+    onRewardTypesChange,
   };
   const actions = useMemo<RowActions>(
     () => ({
@@ -221,12 +232,13 @@ export function QueuePanel({
         if (pins.some((campaign) => campaign.id === id))
           void latest.current.onPinChange(id, pinPosition(pins, toIndex));
       },
-      // A search result's rank is its place among all pins, whatever the facet.
+      // A search result's rank is its place among all pins.
       pinAt: (id, position) => void latest.current.onPinChange(id, position),
       favourite: (category) => void latest.current.onToggleFavouriteCategory?.(category),
       block: (category) => void latest.current.onToggleBlockedCategory?.(category),
       openGames: () => latest.current.onOpenGames(),
       openSettings: () => latest.current.onOpenSettings(),
+      farmAll: () => void latest.current.onRewardTypesChange([]),
     }),
     [],
   );
@@ -254,16 +266,6 @@ export function QueuePanel({
   ];
 
   const tiers: CampaignRankTier[] = ["pinned", "favourite", "strategy"];
-  const facetCounts: Record<QueueFacet, number> = {
-    all: campaigns.filter((campaign) => campaign.section === "queue").length,
-    drops: campaigns.filter(
-      (campaign) => campaign.section === "queue" && matchesFacet(campaign, "drops"),
-    ).length,
-    badges: campaigns.filter(
-      (campaign) => campaign.section === "queue" && matchesFacet(campaign, "badges"),
-    ).length,
-  };
-
   // The layer of the ranking that placed a queued campaign, in words: the
   // card shows it among its facts so the order never has to be guessed.
   function rankReason(campaign: CampaignView): string {
@@ -281,7 +283,12 @@ export function QueuePanel({
   return (
     <section className="space-y-1.5">
       <ViewToolbar>
-        <FacetTabs facet={facet} counts={facetCounts} onChange={setFacet} />
+        <RewardTypeTabs
+          available={availableRewardTypes}
+          selected={rewardTypes}
+          counts={rewardTypeCounts ?? (rewardTypes.length === 0 ? { all: queued.length } : {})}
+          onChange={(types) => void onRewardTypesChange(types)}
+        />
       </ViewToolbar>
 
       <div className="flex items-center gap-2">
@@ -317,7 +324,7 @@ export function QueuePanel({
         ) : (
           <div data-queue-group="search" className="space-y-1">
             {searchResults.map((campaign, index) => {
-              const queueIndex = allQueued.findIndex((entry) => entry.id === campaign.id);
+              const queueIndex = queued.findIndex((entry) => entry.id === campaign.id);
               return (
                 <div
                   key={campaign.id}
@@ -422,7 +429,9 @@ export function QueuePanel({
           })}
 
           {queued.length === 0 ? (
-            <EmptyPanel>{t(facet === "badges" ? "queueEmptyBadges" : "queueEmpty")}</EmptyPanel>
+            <EmptyPanel>
+              {t(rewardTypes.length === 0 ? "queueEmpty" : "queueEmptyRewardTypes")}
+            </EmptyPanel>
           ) : null}
 
           {skipped.length > 0 || actionRequired.length > 0 || upcoming.length > 0 ? (
@@ -542,6 +551,7 @@ type RowActions = {
   block(category: CategorySelection): void;
   openGames(): void;
   openSettings(): void;
+  farmAll(): void;
 };
 
 /** One campaign row in the queue, in whichever group it sits. Memoised: its
@@ -634,6 +644,7 @@ const QueueRow = React.memo(function QueueRow({
                   onToggleExclude: actions.toggleExclude,
                   onOpenGames: actions.openGames,
                   onOpenSettings: actions.openSettings,
+                  onFarmAll: actions.farmAll,
                   onPin: () => actions.pinLast(campaign.id),
                 },
                 t,
@@ -662,6 +673,7 @@ const QueueRow = React.memo(function QueueRow({
             onToggleExclude: actions.toggleExclude,
             onOpenGames: actions.openGames,
             onOpenSettings: actions.openSettings,
+            onFarmAll: actions.farmAll,
             onPin: () => actions.pinLast(campaign.id),
           },
           t,
@@ -681,6 +693,7 @@ function skippedFix(
     onToggleExclude(id: string): void | Promise<void>;
     onOpenGames(): void;
     onOpenSettings(): void;
+    onFarmAll(): void;
     onPin(): void;
   },
   t: (key: string, substitutions?: string | string[]) => string,
@@ -693,6 +706,8 @@ function skippedFix(
       onClick: () => void handlers.onToggleExclude(campaign.id),
     };
   if (code === "not_pinned") return { label: t("queueFixPin"), onClick: handlers.onPin };
+  if (code === "reward_type_filtered" || code === "reward_types_obtained")
+    return { label: t("queueFixFarmAll"), onClick: handlers.onFarmAll };
   if (code === "category_blocked" || code === "category_filtered")
     return { label: t("queueFixGames"), onClick: handlers.onOpenGames };
   if (
@@ -705,33 +720,52 @@ function skippedFix(
   return undefined;
 }
 
-function FacetTabs({
-  facet,
+/** The reward types to farm, as toggles: any number can be pressed, and
+ * pressing "All" (or releasing the last one) clears them. */
+function RewardTypeTabs({
+  available,
+  selected,
   counts,
   onChange,
 }: {
-  facet: QueueFacet;
-  counts: Record<QueueFacet, number>;
-  onChange(facet: QueueFacet): void;
+  available: readonly RewardFarmType[];
+  selected: readonly RewardFarmType[];
+  counts: Partial<Record<RewardTypeTab, number>>;
+  onChange(types: RewardFarmType[]): void;
 }): React.ReactElement {
   const t = useT();
-  const options: Array<[QueueFacet, string]> = [
-    ["all", "queueFacetAll"],
-    ["drops", "queueFacetDrops"],
-    ["badges", "queueFacetBadges"],
-  ];
+  const pressed: RewardTypeTab[] = selected.length === 0 ? ["all"] : [...selected];
   return (
-    <Segmented
-      label={t("queueFacetLabel")}
-      value={facet}
-      itemAttribute="data-queue-facet"
-      options={options.map(([value, labelKey]) => ({
-        value,
-        label: t(labelKey),
-        count: counts[value],
-      }))}
-      onChange={onChange}
-    />
+    <ToggleGroup
+      multiple
+      aria-label={t("queueFacetLabel")}
+      value={pressed}
+      onValueChange={(next) => {
+        const values = next as RewardTypeTab[];
+        // "All" newly pressed wins; otherwise it is dropped for the types.
+        if (values.includes("all") && !pressed.includes("all")) return onChange([]);
+        onChange(REWARD_FARM_TYPES.filter((type) => values.includes(type)));
+      }}
+      className="inline-flex w-fit items-center gap-0.5 rounded-lg border border-zinc-200 bg-zinc-100/70 p-0.5 dark:border-zinc-800 dark:bg-black/30"
+    >
+      {QUEUE_FACETS.filter(([value]) => value === "all" || available.includes(value)).map(
+        ([value, labelKey]) => (
+          <BaseToggle
+            key={value}
+            value={value}
+            data-queue-facet={value}
+            className="rounded-md px-2.5 py-0.5 text-[10px] font-semibold text-zinc-400 outline-none transition not-data-[pressed]:hover:text-zinc-600 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] data-[pressed]:bg-[var(--ink)] data-[pressed]:text-[var(--ink-contrast)] dark:not-data-[pressed]:hover:text-zinc-200"
+          >
+            {t(labelKey)}
+            {counts[value] !== undefined ? (
+              <span className="ms-1 font-mono text-[9.5px] tabular opacity-70">
+                {counts[value]}
+              </span>
+            ) : null}
+          </BaseToggle>
+        ),
+      )}
+    </ToggleGroup>
   );
 }
 

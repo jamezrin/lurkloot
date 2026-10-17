@@ -4,6 +4,7 @@ import type {
   ChannelCheck,
   DropCampaign,
   DropReward,
+  KickAccountProgress,
   PlatformAuthHealth,
   WatchSession,
 } from "@lurkloot/shared/models";
@@ -38,6 +39,7 @@ import { type KickRealtimeConnection, kickRealtimePost } from "./realtime";
 import type { ChatPresenceClient } from "../../core/chatPresence";
 import type { ResolvedCompatibility } from "../../compatibility/types";
 import { createKickClaimCapability } from "./claim/factory";
+import { fetchKickAccountProgress } from "./accountProgress";
 import type { KickClaimCapability } from "./claim/types";
 import { safeHttpsUrl } from "./claim/types";
 import type { KickClaimState } from "./claim/v2";
@@ -933,6 +935,12 @@ export class KickAdapter implements PlatformAdapter {
       }
     }
     return claimed;
+  }
+
+  fetchAccountProgress({
+    signal,
+  }: AdapterOperationOptions = {}): Promise<KickAccountProgress | undefined> {
+    return fetchKickAccountProgress(this.fetcher, { signal, emit: this.emit });
   }
 
   private warnAccountNotLinked(

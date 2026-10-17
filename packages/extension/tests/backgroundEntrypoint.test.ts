@@ -111,6 +111,7 @@ describe("background integrity alarm wiring", () => {
       runTwitchIntegrityRefresh: vi.fn(async () => undefined),
       runDropClaims: vi.fn(async () => undefined),
       runKickChallengeClaims: vi.fn(async () => undefined),
+      runAccountProgressPolls: vi.fn(async () => undefined),
     };
     const listener = controllerModule.createBackgroundAlarmListener({
       runJob: async (name) => {
@@ -127,10 +128,12 @@ describe("background integrity alarm wiring", () => {
     listener({ name: "lurkloot.tick" });
     listener({ name: "lurkloot.twitch-integrity" });
     listener({ name: "lurkloot.twitch-channel-points" });
+    listener({ name: "lurkloot.account-progress" });
     listener({ name: "unrelated.alarm" });
 
     expect(runner.runTwitchIntegrityRefresh).toHaveBeenCalledOnce();
     expect(runner.runTwitchChannelPointsClaim).toHaveBeenCalledOnce();
+    expect(runner.runAccountProgressPolls).toHaveBeenCalledOnce();
     expect(runner.tickAndHandOff).toHaveBeenNthCalledWith(1, ["twitch"], "alarm");
     expect(runner.tickAndHandOff).toHaveBeenNthCalledWith(2, ["kick"], "alarm");
     expect(runner.tickAndHandOff).toHaveBeenCalledTimes(2);

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   BACKGROUND_JOBS,
+  ACCOUNT_PROGRESS_ALARM_NAME,
   KICK_ALARM_NAME,
   KICK_CHALLENGES_ALARM_NAME,
   KICK_DROP_CLAIMS_ALARM_NAME,
@@ -385,7 +386,12 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
   });
 
   describe("jobs", () => {
-    const CADENCE_JOBS = [TWITCH_ALARM_NAME, KICK_ALARM_NAME, WATCH_ALARM_NAME];
+    const CADENCE_JOBS = [
+      TWITCH_ALARM_NAME,
+      KICK_ALARM_NAME,
+      WATCH_ALARM_NAME,
+      ACCOUNT_PROGRESS_ALARM_NAME,
+    ];
 
     // Behavior change (#590): the CLI registers the one-minute channel-points
     // job too, where it used to claim channel points only at poll cadence.
@@ -410,6 +416,9 @@ describe.each(CAPABILITY_SETS)("background controller contract: $name host", (ca
           periodInMinutes: WATCH_ALARM_PERIOD_MINUTES,
         });
         expect(host.jobs.scheduled.get(TWITCH_CHANNEL_POINTS_ALARM_NAME)).toEqual({
+          periodInMinutes: 1,
+        });
+        expect(host.jobs.scheduled.get(ACCOUNT_PROGRESS_ALARM_NAME)).toEqual({
           periodInMinutes: 1,
         });
         if (capabilities.declared.browserTabs) {

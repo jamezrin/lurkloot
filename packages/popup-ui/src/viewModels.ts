@@ -2,6 +2,7 @@ import type {
   CategorySelection,
   DropCampaign,
   ExtensionSettings,
+  RewardFarmType,
   Platform,
   WatchSession,
 } from "@lurkloot/shared/models";
@@ -20,10 +21,12 @@ import {
   canMarkSubscription,
   isRewardObtained,
   isWatchReward,
+  rewardBadgeBenefit,
   rewardRequirementType,
   rewardFeasibility,
 } from "@lurkloot/shared/rewards";
 import { isCampaignExpired, isCampaignFinished } from "@lurkloot/shared/campaignFilters";
+import { REWARD_FARM_TYPES } from "@lurkloot/shared/settings";
 import {
   campaignFarmingBlockers,
   OUTSIDE_ACTION_REJECTION_CODES,
@@ -342,6 +345,7 @@ export function campaignViewFromCampaign(
             feasibility.now,
           )
         : undefined;
+      const badgeBenefit = rewardBadgeBenefit(reward);
       return {
         id: reward.id,
         name: reward.name,
@@ -350,6 +354,8 @@ export function campaignViewFromCampaign(
         requiredSubs: reward.requiredSubs,
         requirement,
         obtained: isRewardObtained(reward),
+        status: reward.status,
+        ...(badgeBenefit ? { badge: badgeBenefit.name ? { name: badgeBenefit.name } : {} } : {}),
         subscriptionMarked: reward.subscriptionMarked === true,
         canMarkSubscription: canMarkSubscription(reward),
         art: initials(reward.name).slice(0, 8),
@@ -381,6 +387,42 @@ function safeClaimGuidance(guidance: DropCampaign["claimGuidance"]): DropCampaig
   } catch {
     return undefined;
   }
+}
+
+// How many campaigns each Queue tab would farm: the Queue's own section test,
+// under each campaign type in turn, so a tab's count is the queue it switches to.
+// How many campaigns each Queue tab would farm on its own: the Queue's own
+// section test with only that type selected ("all" with none), so a tab's
+// count is the queue it narrows to.
+export type RewardTypeTab = "all" | RewardFarmType;
+
+export function farmRewardTypeCounts(
+  campaigns: readonly DropCampaign[],
+  settings: ExtensionSettings,
+): Record<RewardTypeTab, number> {
+  const marked = campaigns.map((campaign) =>
+    applySubscriptionMarks(
+      campaign,
+      settings.platform[campaign.platform].subscribedRewardMarks ?? [],
+    ),
+  );
+  const tabs: RewardTypeTab[] = ["all", ...REWARD_FARM_TYPES];
+  return Object.fromEntries(
+    tabs.map((tab) => {
+      const types: RewardFarmType[] = tab === "all" ? [] : [tab];
+      const typed = (campaign: DropCampaign): ExtensionSettings => ({
+        ...settings,
+        platform: {
+          ...settings.platform,
+          [campaign.platform]: { ...settings.platform[campaign.platform], farmRewardTypes: types },
+        },
+      });
+      return [
+        tab,
+        marked.filter((campaign) => campaignSection(campaign, typed(campaign)) === "queue").length,
+      ];
+    }),
+  ) as Record<RewardTypeTab, number>;
 }
 
 export function campaignLifecycleState(campaign: DropCampaign): CampaignLifecycleState | undefined {

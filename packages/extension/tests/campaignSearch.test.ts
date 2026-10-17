@@ -31,6 +31,7 @@ function reward(name: string) {
     requiredMinutes: 60,
     requirement: "watch" as const,
     obtained: false,
+    status: "locked" as const,
     art: "",
     tint: "",
   };

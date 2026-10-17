@@ -50,6 +50,18 @@ describe("parseCliSettings", () => {
 
   it("defaults preferKnownChannels to on and honors an explicit override", () => {
     expect(DEFAULT_CLI_SETTINGS.preferKnownChannels).toBe(true);
+    expect(parseCliSettings({}).platform.twitch.farmRewardTypes).toEqual([]);
+    const typed = parseCliSettings({
+      platform: { twitch: { farmRewardTypes: ["badge"] }, kick: { farmRewardTypes: ["badge"] } },
+    });
+    expect(typed.platform.twitch.farmRewardTypes).toEqual(["badge"]);
+    // Kick reports no badges, so a badge type would idle it for good.
+    expect(typed.platform.kick.farmRewardTypes).toEqual([]);
+    expect(
+      parseCliSettings({ platform: { twitch: { farmRewardTypes: ["nope", "subscription"] } } })
+        .platform.twitch.farmRewardTypes,
+    ).toEqual(["subscription"]);
+    expect(toEngineSettings(typed).platform.twitch.farmRewardTypes).toEqual(["badge"]);
     expect(parseCliSettings({}).preferKnownChannels).toBe(true);
     expect(parseCliSettings({ preferKnownChannels: false }).preferKnownChannels).toBe(false);
     expect(

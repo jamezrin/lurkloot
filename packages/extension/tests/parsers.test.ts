@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { isBadgeReward } from "@lurkloot/shared/rewards";
 import { readFileSync } from "node:fs";
 import {
   findKickUnitMismatches,
@@ -884,6 +885,67 @@ describe("Twitch parsers", () => {
       { benefitType: "BADGE", isWatchBased: true },
       { benefitType: "EMOTE", isWatchBased: true },
     ]);
+  });
+
+  it("keeps every benefit's type, so a badge after another benefit is still a badge", () => {
+    const campaigns = parseTwitchCampaigns([
+      {
+        id: "mixed-benefits",
+        self: { isAccountConnected: true },
+        timeBasedDrops: [
+          {
+            id: "supporter",
+            requiredMinutesWatched: 30,
+            requiredSubs: 1,
+            benefitEdges: [
+              {
+                benefit: {
+                  id: "skin",
+                  name: "Float Skin",
+                  imageAssetURL: "https://static-cdn.jtvnw.net/skin.png",
+                  distributionType: "DIRECT_ENTITLEMENT",
+                },
+              },
+              {
+                benefit: {
+                  id: "badge",
+                  name: "Supporter Badge",
+                  imageAssetURL: "https://static-cdn.jtvnw.net/badge.png",
+                  distributionType: "BADGE",
+                },
+              },
+              // No type reported: kept, but left unclassified.
+              { benefit: { id: "mystery", name: "Mystery" } },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    const [parsed] = campaigns[0]!.rewards;
+    expect(parsed).toMatchObject({
+      name: "Float Skin",
+      imageUrl: "https://static-cdn.jtvnw.net/skin.png",
+      benefitIds: ["skin", "badge", "mystery"],
+      benefitType: "DIRECT_ENTITLEMENT",
+      requirement: "subscription",
+      benefits: [
+        {
+          id: "skin",
+          name: "Float Skin",
+          imageUrl: "https://static-cdn.jtvnw.net/skin.png",
+          distributionType: "DIRECT_ENTITLEMENT",
+        },
+        {
+          id: "badge",
+          name: "Supporter Badge",
+          imageUrl: "https://static-cdn.jtvnw.net/badge.png",
+          distributionType: "BADGE",
+        },
+        { id: "mystery", name: "Mystery" },
+      ],
+    });
+    expect(isBadgeReward(parsed!)).toBe(true);
   });
 
   // Twitch's drops page hides Connect for badge-only and emote-only campaigns

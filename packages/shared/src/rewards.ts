@@ -1,4 +1,4 @@
-import type { DropCampaign, DropReward, RewardRequirementType } from "./models";
+import type { DropCampaign, DropReward, RewardBenefit, RewardRequirementType } from "./models";
 
 type RequirementFields = Pick<
   DropReward,
@@ -154,6 +154,32 @@ export const campaignHasWatchRewards = (campaign: Pick<DropCampaign, "rewards">)
   campaign.rewards.some(isWatchReward);
 export const campaignHasSubscriptionRewards = (campaign: Pick<DropCampaign, "rewards">): boolean =>
   campaign.rewards.some(isSubscriptionReward);
+
+// A subscription the reward asks for, whatever the user marked. Marks turn a
+// subscription-and-watch reward into a watch reward for the engine
+// (rewardRequirementType); what the platform asked for stays the same.
+export const rewardRequiresSubscription = (reward: Pick<DropReward, "requiredSubs">): boolean =>
+  (reward.requiredSubs ?? 0) > 0;
+export const campaignRequiresSubscription = (campaign: Pick<DropCampaign, "rewards">): boolean =>
+  campaign.rewards.some(rewardRequiresSubscription);
+
+// Badges (#731). A reward is a badge only when the platform typed one of its
+// benefits BADGE; names and requirements never decide it, and a benefit with no
+// type stays unclassified. A campaign stored before `benefits` existed has only
+// its first benefit's type, which classifies it until the next refresh.
+export function rewardBadgeBenefit(
+  reward: Pick<DropReward, "benefits" | "benefitType" | "name" | "imageUrl">,
+): RewardBenefit | undefined {
+  if (reward.benefits)
+    return reward.benefits.find((benefit) => benefit.distributionType === "BADGE");
+  return reward.benefitType === "BADGE"
+    ? { name: reward.name, imageUrl: reward.imageUrl, distributionType: "BADGE" }
+    : undefined;
+}
+
+export const isBadgeReward = (
+  reward: Pick<DropReward, "benefits" | "benefitType" | "name" | "imageUrl">,
+): boolean => rewardBadgeBenefit(reward) !== undefined;
 
 // Subscription marks (docs/superpowers/specs/2026-10-03-subscription-marks-design.md).
 // A mark is the user's word that a subscription reward's subscription was made.

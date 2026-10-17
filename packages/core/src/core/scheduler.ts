@@ -20,7 +20,9 @@ import type {
 import { campaignPassesCategoryFilter } from "@lurkloot/shared/categories";
 import { pinIndex, rankCampaigns } from "@lurkloot/shared/ranking";
 import {
+  campaignMatchesFarmTypes,
   evaluateCampaignFarming,
+  rewardsInFarmingScope,
   type CampaignFarmingEvaluation,
   type CampaignFarmingRejectionCode,
 } from "@lurkloot/shared/campaignFarming";
@@ -91,7 +93,10 @@ export function challengePollDue(state: SchedulerState, platform: Platform, now:
 }
 
 function activeReward(campaign: DropCampaign, settings: EngineSettings): DropReward | undefined {
-  const earnable = campaign.rewards.filter(
+  const earnable = rewardsInFarmingScope(
+    campaign,
+    settings.platform[campaign.platform].farmRewardTypes,
+  ).filter(
     (reward) =>
       reward.preconditionsMet !== false
       && isRewardAvailableToEarn(reward)
@@ -499,6 +504,14 @@ function noEligibleCampaignReason(campaigns: DropCampaign[], settings: EngineSet
     )
   ) {
     return "No campaigns match the categories filter";
+  }
+  if (
+    notExcluded.every(
+      (campaign) =>
+        !campaignMatchesFarmTypes(campaign, settings.platform[campaign.platform].farmRewardTypes),
+    )
+  ) {
+    return "No campaigns have rewards of the selected types";
   }
   // Eligible, not merely pinned: with pins that have all expired, "no pinned
   // campaigns are eligible" is the accurate and more actionable reason.
@@ -1307,6 +1320,8 @@ const CAMPAIGN_REJECTION_LABELS: Record<CampaignFarmingRejectionCode, string> = 
   category_filtered: "category filtered",
   category_blocked: "game blocked",
   not_pinned: "not pinned",
+  reward_type_filtered: "no reward of the types being farmed",
+  reward_types_obtained: "rewards of the types being farmed already earned",
   no_rewards: "no rewards",
   no_unclaimed_rewards: "no unclaimed rewards",
   reward_prerequisites_unmet: "reward prerequisites unmet",

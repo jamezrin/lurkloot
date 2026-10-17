@@ -8,3 +8,17 @@
 @import "@fontsource-variable/archivo";
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/geist-mono";
+
+/* Archivo's width axis, for the Kick level number only: the default import
+   above carries weight alone. Digits only, under its own name, so headings keep
+   the smaller weight-only file and this one loads just when a level shows. */
+@font-face {
+  font-family: "Archivo Condensed Digits";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  src: url("@fontsource-variable/archivo/files/archivo-latin-wdth-normal.woff2")
+    format("woff2-variations");
+  unicode-range: U+0030-0039;
+}

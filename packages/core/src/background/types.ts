@@ -422,6 +422,11 @@ export interface ControllerCalls<S extends EngineSettings> {
   stopChatPresenceAndReport(platforms: readonly Platform[]): Promise<void>;
   stopChatPresenceInBackground(platforms: readonly Platform[]): void;
 
+  // accountProgress.ts
+  abortAccountProgressPolls(reason: string): void;
+  ensureAccountProgressJob(): Promise<void>;
+  runAccountProgressPolls(): Promise<void>;
+
   // kickRuntime.ts
   abortKickChallengeClaims(reason: string): void;
   clearKickChallengeJobBestEffort(): Promise<void>;

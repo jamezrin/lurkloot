@@ -1,0 +1,2015 @@
+{
+  "extensionName": {
+    "message": "Lurkloot"
+  },
+  "extensionStoreName": {
+    "message": "Lurkloot - Farmer Drop Twitch & Kick"
+  },
+  "extensionDescription": {
+    "message": "Farm drop Twitch dan Kick lewat sesi browser biasa, tab bisu yang terlihat, dan mode hemat sumber daya opsional."
+  },
+  "promoTagline": {
+    "message": "Farm drop Twitch & Kick otomatis."
+  },
+  "languageBrowser": {
+    "message": "Gunakan bahasa browser"
+  },
+  "languageEnglish": {
+    "message": "Inggris"
+  },
+  "languageSpanish": {
+    "message": "Spanyol"
+  },
+  "languageFrench": {
+    "message": "Prancis"
+  },
+  "languageItalian": {
+    "message": "Italia"
+  },
+  "languageRussian": {
+    "message": "Rusia"
+  },
+  "languageGerman": {
+    "message": "Jerman"
+  },
+  "languageChinese": {
+    "message": "Tionghoa"
+  },
+  "languageHindi": {
+    "message": "Hindi"
+  },
+  "languagePortuguese": {
+    "message": "Portugis"
+  },
+  "languageArabic": {
+    "message": "Arab"
+  },
+  "languageTurkish": {
+    "message": "Turki"
+  },
+  "languageJapanese": {
+    "message": "Jepang"
+  },
+  "languageIndonesian": {
+    "message": "Bahasa Indonesia"
+  },
+  "languagePolish": {
+    "message": "Polandia"
+  },
+  "languageKorean": {
+    "message": "Korea"
+  },
+  "languageUkrainian": {
+    "message": "Ukraina"
+  },
+  "languageCzech": {
+    "message": "Ceko"
+  },
+  "settingsLanguageTitle": {
+    "message": "Bahasa"
+  },
+  "settingsLanguageDescription": {
+    "message": "Pilih bahasa untuk popup dan notifikasi ekstensi."
+  },
+  "navWorkspace": {
+    "message": "Ruang kerja"
+  },
+  "navPlatform": {
+    "message": "Platform"
+  },
+  "navGroupDrops": {
+    "message": "Drops"
+  },
+  "navQueue": {
+    "message": "Antrean"
+  },
+  "navCompleted": {
+    "message": "Selesai"
+  },
+  "navGames": {
+    "message": "Game"
+  },
+  "navIdleWatchlist": {
+    "message": "Idle Watchlist"
+  },
+  "navActivity": {
+    "message": "Aktivitas"
+  },
+  "navSettings": {
+    "message": "Pengaturan"
+  },
+  "queueGroupPinned": {
+    "message": "Disematkan"
+  },
+  "queueGroupPinnedHint": {
+    "message": "seret untuk mengurutkan, atau ketik peringkat"
+  },
+  "queueGroupFavourite": {
+    "message": "Game favorit"
+  },
+  "queueGroupStrategy": {
+    "message": "Lalu menurut"
+  },
+  "queueNotInQueue": {
+    "message": "Tidak di antrean"
+  },
+  "queueSkipped": {
+    "message": "Dilewati"
+  },
+  "queueActionRequired": {
+    "message": "Perlu tindakan"
+  },
+  "queueActionRequiredHint": {
+    "message": "Butuh langganan atau langkah di luar Lurkloot. Sematkan dan favorit hanya mengubah urutan."
+  },
+  "queueUpcoming": {
+    "message": "Akan datang"
+  },
+  "queueStrategyLabel": {
+    "message": "Lalu menurut"
+  },
+  "queueFarmPinnedOnly": {
+    "message": "Farm yang disematkan saja"
+  },
+  "queueUnpinAll": {
+    "message": "Lepas semua sematan ($1)"
+  },
+  "queueUnpin": {
+    "message": "Lepas sematan"
+  },
+  "queueFacetLabel": {
+    "message": "Jenis kampanye"
+  },
+  "queueFacetAll": {
+    "message": "Semua"
+  },
+  "queueFacetNoSubscription": {
+    "message": "Tanpa langganan"
+  },
+  "queueFacetSubscription": {
+    "message": "Perlu langganan"
+  },
+  "queueFacetBadge": {
+    "message": "Lencana"
+  },
+  "queueFixInclude": {
+    "message": "Sertakan"
+  },
+  "queueFixPin": {
+    "message": "Sematkan"
+  },
+  "queueFixFarmAll": {
+    "message": "Farm semua"
+  },
+  "queueFixGames": {
+    "message": "Buka Game"
+  },
+  "queueFixSettings": {
+    "message": "Buka pengaturan"
+  },
+  "queueEmpty": {
+    "message": "Tidak ada yang perlu di-farm di sini saat ini."
+  },
+  "queueEmptyRewardTypes": {
+    "message": "Tidak ada hadiah dari jenis yang dipilih yang bisa di-farm saat ini."
+  },
+  "completedTabFinished": {
+    "message": "Selesai"
+  },
+  "completedTabExpired": {
+    "message": "Kedaluwarsa"
+  },
+  "completedEmptyFinished": {
+    "message": "Kampanye masuk ke sini setelah semua hadiah diklaim."
+  },
+  "completedEmptyExpired": {
+    "message": "Kampanye masuk ke sini jika berakhir sebelum selesai."
+  },
+  "settingsTitle": {
+    "message": "Pengaturan"
+  },
+  "settingsSearchPlaceholder": {
+    "message": "Cari pengaturan…"
+  },
+  "settingsSearchNoResults": {
+    "message": "Tidak ada pengaturan yang cocok dengan “$1”."
+  },
+  "settingsPlatformSettings": {
+    "message": "Pengaturan $1"
+  },
+  "settingsShowAdvancedTitle": {
+    "message": "Tampilkan pengaturan lanjutan"
+  },
+  "settingsSectionJumpNavLabel": {
+    "message": "Lompat ke bagian"
+  },
+  "settingsSectionAdvancedActions": {
+    "message": "Tindakan lanjutan"
+  },
+  "settingsSectionAdvancedActionsDescription": {
+    "message": "Impor, ekspor, atau reset pengaturan Lurkloot."
+  },
+  "activityTitle": {
+    "message": "Aktivitas"
+  },
+  "activeStatus": {
+    "message": "Aktif"
+  },
+  "pausedStatus": {
+    "message": "Dijeda"
+  },
+  "refreshSchedule": {
+    "message": "Segarkan jadwal"
+  },
+  "openInventory": {
+    "message": "Buka inventaris"
+  },
+  "openActivity": {
+    "message": "Buka aktivitas"
+  },
+  "closeActivity": {
+    "message": "Tutup aktivitas"
+  },
+  "openSettings": {
+    "message": "Buka pengaturan"
+  },
+  "closeSettings": {
+    "message": "Tutup pengaturan"
+  },
+  "back": {
+    "message": "Kembali"
+  },
+  "loading": {
+    "message": "Memuat"
+  },
+  "dropsTab": {
+    "message": "Drops"
+  },
+  "idleWatchlistTab": {
+    "message": "Daftar cadangan"
+  },
+  "automationTitle": {
+    "message": "Otomatisasi $1"
+  },
+  "automationRunning": {
+    "message": "Berjalan"
+  },
+  "automationStarting": {
+    "message": "Memulai"
+  },
+  "automationStopping": {
+    "message": "Menghentikan"
+  },
+  "startingAutomation": {
+    "message": "Memulai otomatisasi..."
+  },
+  "pausingAutomation": {
+    "message": "Menjeda otomatisasi..."
+  },
+  "watchingLabel": {
+    "message": "Menonton"
+  },
+  "farmingLabel": {
+    "message": "Farming"
+  },
+  "waitingEligibleStream": {
+    "message": "Tidak ada siaran langsung yang memenuhi syarat untuk kampanye ini saat ini"
+  },
+  "watchingPausedHint": {
+    "message": "Menonton dijeda. Aktifkan untuk melanjutkan farming drop."
+  },
+  "hideTipsTitle": {
+    "message": "Sembunyikan tips"
+  },
+  "hideTipsDescription": {
+    "message": "Hapus tips bermanfaat dari popup utama."
+  },
+  "inPagePanelTitle": {
+    "message": "Tampilkan panel di Twitch dan Kick"
+  },
+  "inPagePanelDescription": {
+    "message": "Menambahkan tombol Lurkloot di twitch.tv dan kick.com yang membuka popup ini sebagai panel di halaman."
+  },
+  "tipCampaignPriority": {
+    "message": "Seret kampanye untuk menyematkan di urutan pertama, atau beri bintang pada game agar kampanyanya selalu di atas. Sisanya mengikuti urutan yang Anda pilih di Antrean."
+  },
+  "tipMissingCampaigns": {
+    "message": "Kampanye hilang? Periksa inventaris Drops platform Anda, lalu tinjau filter kampanye di Pengaturan."
+  },
+  "tipCategorySelection": {
+    "message": "Tampilan Game menentukan game mana yang di-farm, mana yang diutamakan, dan mana yang tidak pernah di-farm."
+  },
+  "tipIdleWatchlist": {
+    "message": "Atur kapan saluran Idle Watchlist ditonton dengan mengubah prioritas sumber tontonan di pengaturan platform."
+  },
+  "tipTablessMode": {
+    "message": "Mode tanpa tab memakai lebih sedikit sumber daya dan beralih ke tab bisu jika diperlukan."
+  },
+  "tipCli": {
+    "message": "Lebih suka tanpa ekstensi? Lurkloot juga tersedia sebagai CLI berbasis Docker."
+  },
+  "tipCliAction": {
+    "message": "Baca panduan CLI"
+  },
+  "tipFeedback": {
+    "message": "Menemukan bug atau punya ide?"
+  },
+  "tipFeedbackAction": {
+    "message": "Buka issue GitHub"
+  },
+  "tipExcludedCampaigns": {
+    "message": "Tidak sengaja mengecualikan kampanye? Ada di Dilewati di Antrean, dengan tombol untuk mengembalikannya."
+  },
+  "tipTranslations": {
+    "message": "Terjemahan dirawat otomatis dengan AI. Bantu perbaiki di GitHub."
+  },
+  "tipTranslationsAction": {
+    "message": "Baca panduan terjemahan"
+  },
+  "noCampaigns": {
+    "message": "Belum ada kampanye yang ditemukan."
+  },
+  "campaignSearchPlaceholder": {
+    "message": "Cari kampanye…"
+  },
+  "campaignSearchNoResults": {
+    "message": "Tidak ada kampanye yang cocok dengan “$1”."
+  },
+  "closeSearch": {
+    "message": "Tutup pencarian"
+  },
+  "search": {
+    "message": "Cari"
+  },
+  "noActivity": {
+    "message": "Belum ada aktivitas tercatat. Tekan segarkan untuk menjalankan pemeriksaan."
+  },
+  "noDiagnostics": {
+    "message": "Belum ada diagnostik tercatat. Muncul saat ekstensi bekerja."
+  },
+  "searchDiagnostics": {
+    "message": "Cari diagnostik"
+  },
+  "noDiagnosticsMatch": {
+    "message": "Tidak ada diagnostik yang cocok dengan \"$1\"."
+  },
+  "platformActivity": {
+    "message": "Aktivitas $1"
+  },
+  "platformDiagnostics": {
+    "message": "Diagnostik $1"
+  },
+  "lastCheck": {
+    "message": "pemeriksaan terakhir $1"
+  },
+  "noChecksYet": {
+    "message": "belum ada pemeriksaan"
+  },
+  "debug": {
+    "message": "Debug"
+  },
+  "info": {
+    "message": "Info"
+  },
+  "warn": {
+    "message": "Peringatan"
+  },
+  "error": {
+    "message": "Error"
+  },
+  "notLinked": {
+    "message": "Belum ditautkan"
+  },
+  "subscriptionCampaigns": {
+    "message": "Kampanye langganan"
+  },
+  "subscriptionRequired": {
+    "message": "Langganan diperlukan"
+  },
+  "subscriptionRewards": {
+    "message": "Hadiah langganan"
+  },
+  "qualifyingSubscriptionsRequired": {
+    "message": "Diperlukan $1 langganan yang memenuhi syarat"
+  },
+  "subscriptionProgressUnknown": {
+    "message": "Progres tidak tersedia"
+  },
+  "rewardBadge": {
+    "message": "Lencana"
+  },
+  "rewardBadgeNamed": {
+    "message": "Lencana: $1"
+  },
+  "rewardAlsoWatch": {
+    "message": "Plus $1 waktu tonton"
+  },
+  "rewardClaimable": {
+    "message": "Siap diklaim"
+  },
+  "notEarnableByWatching": {
+    "message": "Tidak bisa diperoleh dengan menonton"
+  },
+  "subscribedRefresh": {
+    "message": "Sudah berlangganan — segarkan status"
+  },
+  "subscriptionMarkSubscribed": {
+    "message": "Tandai sudah berlangganan"
+  },
+  "subscriptionMarkedSubscribed": {
+    "message": "Ditandai sudah berlangganan"
+  },
+  "subscriptionMarkUndo": {
+    "message": "Urungkan"
+  },
+  "waitingForSubscription": {
+    "message": "Menunggu langganan yang memenuhi syarat"
+  },
+  "actionRequired": {
+    "message": "Perlu tindakan"
+  },
+  "earned": {
+    "message": "Diperoleh"
+  },
+  "linkAccount": {
+    "message": "Tautkan akun Anda"
+  },
+  "externalGameAccountRequired": {
+    "message": "Akun game eksternal diperlukan"
+  },
+  "linkExternalGameAccount": {
+    "message": "Tautkan akun game eksternal"
+  },
+  "viewDropPage": {
+    "message": "Lihat halaman drop"
+  },
+  "campaignDropDetails": {
+    "message": "Detail drop"
+  },
+  "campaignCategoryDrops": {
+    "message": "Drop kategori"
+  },
+  "upcoming": {
+    "message": "Akan datang"
+  },
+  "expired": {
+    "message": "Kedaluwarsa"
+  },
+  "excluded": {
+    "message": "Dikecualikan"
+  },
+  "finished": {
+    "message": "Selesai"
+  },
+  "completedCampaigns": {
+    "message": "Selesai"
+  },
+  "upcomingPill": {
+    "message": "Akan datang"
+  },
+  "expiredPill": {
+    "message": "Kedaluwarsa"
+  },
+  "complete": {
+    "message": "Lengkap"
+  },
+  "startsIn": {
+    "message": "Mulai dalam $1"
+  },
+  "endsIn": {
+    "message": "Berakhir dalam $1"
+  },
+  "watchToGo": {
+    "message": "$1 lagi untuk ditonton"
+  },
+  "left": {
+    "message": "Tersisa"
+  },
+  "campaignFactWatchTime": {
+    "message": "Waktu tonton"
+  },
+  "watchTimeLeftValue": {
+    "message": "$1 tersisa"
+  },
+  "watchTimeNeeded": {
+    "message": "Butuh $1"
+  },
+  "watchTimeOfTotal": {
+    "message": "dari total $1"
+  },
+  "done": {
+    "message": "Selesai"
+  },
+  "rewards": {
+    "message": "Hadiah"
+  },
+  "allChannels": {
+    "message": "Semua saluran"
+  },
+  "includeInFarming": {
+    "message": "Sertakan dalam farming"
+  },
+  "excludeFromFarming": {
+    "message": "Kecualikan dari farming"
+  },
+  "noIdleWatchlist": {
+    "message": "Tidak ada saluran idle watchlist yang dikonfigurasi."
+  },
+  "channelPlaceholder": {
+    "message": "saluran"
+  },
+  "add": {
+    "message": "Tambah"
+  },
+  "addChannel": {
+    "message": "Tambah saluran"
+  },
+  "idleWatchlistChannel": {
+    "message": "Luring"
+  },
+  "live": {
+    "message": "live"
+  },
+  "viewerCount": {
+    "message": "$1 penonton"
+  },
+  "settingsGeneralTitle": {
+    "message": "Pengaturan umum"
+  },
+  "settingsGeneralDescription": {
+    "message": "Bahasa, startup, dan perilaku popup."
+  },
+  "settingsGroupAppearance": {
+    "message": "Tampilan & perilaku"
+  },
+  "pauseManualTitle": {
+    "message": "Jeda saat menonton manual"
+  },
+  "pauseManualDescription": {
+    "message": "Hentikan farming saat Anda membuka siaran dan menonton sendiri."
+  },
+  "autoStartTitle": {
+    "message": "Mulai otomatis saat diluncurkan"
+  },
+  "autoStartDescription": {
+    "message": "Mulai farming segera setelah ekstensi dimuat."
+  },
+  "notificationsTitle": {
+    "message": "Notifikasi"
+  },
+  "notificationsDescription": {
+    "message": "Peringatan saat hadiah siap atau kampanye selesai."
+  },
+  "settingsGroupNotifications": {
+    "message": "Notifikasi"
+  },
+  "rewardEarnedTitle": {
+    "message": "Hadiah diperoleh"
+  },
+  "rewardEarnedDescription": {
+    "message": "Beritahu saat hadiah drop bisa diklaim."
+  },
+  "noDropsLeftTitle": {
+    "message": "Tidak ada drop tersisa"
+  },
+  "noDropsLeftDescription": {
+    "message": "Beritahu saat semua kampanye aktif habis."
+  },
+  "dropsSettingsTitle": {
+    "message": "Drops"
+  },
+  "dropsSettingsDescription": {
+    "message": "Klaim, kelayakan, prioritas, dan visibilitas kampanye."
+  },
+  "settingsGroupDrops": {
+    "message": "Drops"
+  },
+  "autoClaimTitle": {
+    "message": "Klaim drop otomatis"
+  },
+  "autoClaimDescription": {
+    "message": "Klaim hadiah drop secara otomatis saat tersedia."
+  },
+  "campaignPriorityTitle": {
+    "message": "Prioritas kampanye"
+  },
+  "campaignPriorityDescription": {
+    "message": "Mengurutkan kampanye di Antrean yang tidak disematkan atau untuk game favorit. Anda juga bisa mengubahnya dari pemisah Lalu menurut di Antrean."
+  },
+  "endingSoonest": {
+    "message": "Paling cepat berakhir"
+  },
+  "lowAvailabilityFirst": {
+    "message": "Ketersediaan rendah dulu"
+  },
+  "idleWatchlistSettingsTitle": {
+    "message": "Daftar cadangan"
+  },
+  "idleWatchlistSettingsDescription": {
+    "message": "Saluran cadangan saat tidak ada drop yang memenuhi syarat."
+  },
+  "preferKnownChannelsTitle": {
+    "message": "Utamakan saluran yang diikuti dan Idle Watchlist"
+  },
+  "preferKnownChannelsDescription": {
+    "message": "Saat drop tersedia di beberapa saluran, pilih yang Anda ikuti atau ada di Idle Watchlist, bukan yang asing."
+  },
+  "platformSettingsTitle": {
+    "message": "Pengaturan platform"
+  },
+  "farmingTabsTitle": {
+    "message": "Tab farming"
+  },
+  "farmingTabsDescription": {
+    "message": "Kontrol farming lewat tab video. Kontrol per tab dinonaktifkan saat mode hemat tanpa tab aktif."
+  },
+  "settingsGroupFarmingTabs": {
+    "message": "Tab farming"
+  },
+  "tablessTitle": {
+    "message": "Mode hemat tanpa tab"
+  },
+  "tablessDescription": {
+    "message": "Farm lewat sinyal tonton ringan, bukan tab video. Twitch memakai heartbeat tonton; Kick memakai koneksi penonton. Beralih ke tab otomatis jika progres berhenti."
+  },
+  "tablessFallbackFailureLimitTitle": {
+    "message": "Ambang fallback tanpa tab"
+  },
+  "tablessFallbackFailureLimitDescription": {
+    "message": "Buka tab video setelah sebanyak ini sinyal tonton tanpa tab gagal berturut-turut."
+  },
+  "tablessFallbackFailureLimitDisabledReason": {
+    "message": "Aktifkan mode hemat tanpa tab untuk mengubah pengaturan ini."
+  },
+  "failuresSuffix": {
+    "message": "kegagalan"
+  },
+  "kickPageContextRecoverySuccessesTitle": {
+    "message": "Pemulihan halaman cadangan Kick"
+  },
+  "kickPageContextRecoverySuccessesDescription": {
+    "message": "Tutup halaman cadangan Kick yang dibuka ekstensi setelah sebanyak ini siklus segar berhasil."
+  },
+  "kickPageContextRecoverySuccessesDisabledReason": {
+    "message": "Aktifkan Kick untuk mengubah pengaturan ini."
+  },
+  "cyclesSuffix": {
+    "message": "siklus"
+  },
+  "autoCloseTabsTitle": {
+    "message": "Tutup tab farming otomatis"
+  },
+  "autoCloseTabsDescription": {
+    "message": "Tutup otomatis saat ekstensi idle (tidak ada drop untuk di-farm atau tidak ada streamer untuk ditonton)."
+  },
+  "muteTabsTitle": {
+    "message": "Bisukan tab farming"
+  },
+  "muteTabsDescription": {
+    "message": "Biarkan tab drop dan Idle Watchlist bisu saat farming."
+  },
+  "keepVideosUnmutedTitle": {
+    "message": "Biarkan video farming tidak bisu"
+  },
+  "keepVideosUnmutedDescription": {
+    "message": "Pemutar video di halaman tetap tidak bisu meski tab browser dibisukan."
+  },
+  "tablessDisabledReason": {
+    "message": "Dinonaktifkan saat mode hemat tanpa tab aktif."
+  },
+  "adFocusTitle": {
+    "message": "Fokus tab saat iklan"
+  },
+  "adFocusDescription": {
+    "message": "Hitung mundur iklan membeku di tab latar. Fokuskan tab farming sebentar saat iklan berjalan agar hitung mundur jalan, lalu kembalikan tab sebelumnya."
+  },
+  "off": {
+    "message": "Mati"
+  },
+  "tabOnly": {
+    "message": "Tab saja"
+  },
+  "tabAndWindow": {
+    "message": "Tab + jendela"
+  },
+  "advancedTitle": {
+    "message": "Lanjutan"
+  },
+  "advancedDescription": {
+    "message": "Ubah hanya jika Anda paham — mengontrol perilaku scheduler dan logging tingkat rendah."
+  },
+  "settingsGroupAdvanced": {
+    "message": "Lanjutan"
+  },
+  "settingsGroupPlatformAdvanced": {
+    "message": "Lanjutan & kompatibilitas"
+  },
+  "twitchSectionDescription": {
+    "message": "Prioritas sumber tonton, channel points, kategori, saluran dikecualikan, dan kompatibilitas Twitch."
+  },
+  "kickSectionDescription": {
+    "message": "Prioritas sumber tonton, tantangan harian, kategori, saluran dikecualikan, dan kompatibilitas Kick."
+  },
+  "twitchAdvancedDescription": {
+    "message": "Ketersediaan kampanye, plus transport heartbeat dan inventaris yang dipakai Lurkloot. Ubah hanya jika Twitch berhenti bekerja."
+  },
+  "kickAdvancedDescription": {
+    "message": "Cara Lurkloot membuka tautan klaim Kick, dan profil perilaku di baliknya. Ubah hanya jika Kick berhenti bekerja."
+  },
+  "schedulerIntervalTitle": {
+    "message": "Interval scheduler"
+  },
+  "schedulerIntervalDescription": {
+    "message": "Seberapa sering status kampanye dan streamer disegarkan."
+  },
+  "postClaimHandoffTitle": {
+    "message": "Serah terima hadiah cepat"
+  },
+  "postClaimHandoffDescription": {
+    "message": "Setelah klaim drop, periksa sebentar hadiah berikutnya di kampanye alih-alih menunggu siklus terjadwal. Hanya Twitch."
+  },
+  "postClaimHandoffIntervalTitle": {
+    "message": "Interval pemeriksaan serah terima"
+  },
+  "postClaimHandoffIntervalDescription": {
+    "message": "Berapa lama menunggu antar pemeriksaan hadiah berikutnya."
+  },
+  "postClaimHandoffMaxTitle": {
+    "message": "Batas waktu serah terima"
+  },
+  "postClaimHandoffMaxDescription": {
+    "message": "Menyerah dan kembali ke jadwal biasa setelah selama ini."
+  },
+  "secondsSuffix": {
+    "message": "dtk"
+  },
+  "deadlineSafetyMarginTitle": {
+    "message": "Margin aman deadline"
+  },
+  "deadlineSafetyMarginDescription": {
+    "message": "Menit ekstra yang diperlukan sebelum farming hadiah."
+  },
+  "deadlineSafetyMarginDisabledReason": {
+    "message": "Aktifkan filter deadline untuk mengubah margin aman."
+  },
+  "skipUnfinishableRewardsTitle": {
+    "message": "Lewati hadiah yang tidak bisa diselesaikan"
+  },
+  "skipUnfinishableRewardsDescription": {
+    "message": "Jangan farm hadiah jika sisa waktu tonton melebihi waktu sebelum deadline."
+  },
+  "minutesSuffix": {
+    "message": "mnt"
+  },
+  "insufficientTimeRemaining": {
+    "message": "Waktu tersisa tidak cukup"
+  },
+  "campaignRejectionExcluded": {
+    "message": "Kampanye ini dikecualikan dari farming."
+  },
+  "campaignRejectionUpcoming": {
+    "message": "Kampanye ini belum dimulai."
+  },
+  "campaignRejectionExpired": {
+    "message": "Kampanye ini sudah berakhir."
+  },
+  "campaignRejectionCompleted": {
+    "message": "Semua hadiah di kampanye ini sudah selesai."
+  },
+  "campaignRejectionUnlinkedDisabled": {
+    "message": "Farming kampanye tanpa akun tertaut dinonaktifkan."
+  },
+  "campaignRejectionTwitchLinkRequired": {
+    "message": "Penautan akun diperlukan untuk kampanye Twitch ini."
+  },
+  "campaignRejectionSubscriptionDisabled": {
+    "message": "Farming kampanye langganan dinonaktifkan."
+  },
+  "campaignRejectionCategoryFiltered": {
+    "message": "Kampanye ini tidak cocok dengan kategori yang dipilih."
+  },
+  "campaignRejectionCategoryBlocked": {
+    "message": "Game ini diblokir, jadi kampanyanya tidak pernah di-farm."
+  },
+  "campaignRejectionNotPinned": {
+    "message": "Hanya kampanye yang disematkan yang di-farm saat ini."
+  },
+  "campaignRejectionRewardType": {
+    "message": "Tidak ada hadiahnya yang termasuk jenis yang Anda farm."
+  },
+  "campaignRejectionRewardTypesObtained": {
+    "message": "Hadiah dari jenis yang Anda farm sudah diperoleh."
+  },
+  "campaignRejectionNoRewards": {
+    "message": "Kampanye ini tidak punya hadiah yang bisa di-farm."
+  },
+  "campaignRejectionNoUnclaimedRewards": {
+    "message": "Kampanye ini tidak punya hadiah yang belum diklaim."
+  },
+  "campaignRejectionPrerequisites": {
+    "message": "$1 menunggu hadiah atau persyaratan sebelumnya."
+  },
+  "campaignRejectionRewardNotStarted": {
+    "message": "$1 belum tersedia."
+  },
+  "campaignRejectionRewardWindowEnded": {
+    "message": "$1 sudah tidak tersedia."
+  },
+  "campaignRejectionInsufficientTime": {
+    "message": "$1 tidak bisa diselesaikan sebelum deadline."
+  },
+  "campaignRejectionSubscriptionRequired": {
+    "message": "$1 memerlukan langganan yang memenuhi syarat."
+  },
+  "campaignRejectionActionRequired": {
+    "message": "$1 memerlukan tindakan selain menonton."
+  },
+  "campaignRejectionThen": {
+    "message": "Setelah itu: $1"
+  },
+  "campaignRejectionNoFarmableReward": {
+    "message": "Tidak ada hadiah di kampanye ini yang bisa di-farm saat ini."
+  },
+  "automationSectionTitle": {
+    "message": "Otomatisasi"
+  },
+  "farmOnPlatform": {
+    "message": "Farm drop dan tonton saluran Idle Watchlist di $1."
+  },
+  "enabled": {
+    "message": "Diaktifkan"
+  },
+  "idleWatchlistEditHint": {
+    "message": "Edit dari tab Idle Watchlist setelah memilih $1."
+  },
+  "autoClaimChannelPointsTitle": {
+    "message": "Klaim channel points otomatis"
+  },
+  "autoClaimChannelPointsDescription": {
+    "message": "Klaim bonus channel points saat farming platform ini."
+  },
+  "channelPointsPushClaimTitle": {
+    "message": "Klaim channel points dari event live"
+  },
+  "channelPointsPushClaimDescription": {
+    "message": "Klaim bonus segera saat Twitch menyediakannya. Matikan untuk hanya memeriksa sekali per menit."
+  },
+  "alwaysEnterChatTitle": {
+    "message": "Selalu masuk chat saluran"
+  },
+  "alwaysEnterChatDescription": {
+    "message": "Gabung chat setiap saluran yang ditonton. Streamer dan moderator bisa melihat Anda di daftar penonton chat. Pesan tidak pernah dikirim."
+  },
+  "chatPresenceJoined": {
+    "message": "Di chat"
+  },
+  "chatPresenceJoining": {
+    "message": "Masuk chat…"
+  },
+  "chatPresenceUnavailable": {
+    "message": "Chat tidak tersedia"
+  },
+  "chatPresenceBlockedAuth": {
+    "message": "Chat tidak tersedia: masuk ke Twitch lagi"
+  },
+  "strictCampaignAvailabilityTitle": {
+    "message": "Ketersediaan kampanye ketat"
+  },
+  "strictCampaignAvailabilityDescription": {
+    "message": "Hanya farm kampanye di saluran yang Twitch cantumkan. Twitch sering mengabaikan kampanye yang bisa di-farm, sehingga drop bisa tertinggal."
+  },
+  "autoClaimChallengesTitle": {
+    "message": "Klaim tantangan harian otomatis"
+  },
+  "autoClaimChallengesDescription": {
+    "message": "Klaim hadiah tantangan harian Kick setelah target waktu tonton tercapai."
+  },
+  "settingsGroupExcludedChannels": {
+    "message": "Saluran dikecualikan"
+  },
+  "excludedChannelsTitle": {
+    "message": "Saluran drop dikecualikan"
+  },
+  "excludedChannelsDescription": {
+    "message": "Farming kampanye akan melewati streamer ini."
+  },
+  "excludedChannelsEmpty": {
+    "message": "Tidak ada saluran drop yang dikecualikan."
+  },
+  "settingsGroupCategories": {
+    "message": "Kategori"
+  },
+  "categoryModeTitle": {
+    "message": "Filter kategori"
+  },
+  "categoryModeDescription": {
+    "message": "Farm semua kategori $1, hanya kategori pilihan, atau kecualikan."
+  },
+  "categoryModeAll": {
+    "message": "Semua kategori"
+  },
+  "categoryModeInclude": {
+    "message": "Hanya yang dipilih"
+  },
+  "includeCategoriesInstruction": {
+    "message": "Hanya kategori ini yang di-farm di $1."
+  },
+  "categoriesToFarm": {
+    "message": "Kategori untuk di-farm"
+  },
+  "noCategoriesSelected": {
+    "message": "Tidak ada kategori dipilih — tidak ada yang akan di-farm di $1. Tambahkan kategori di bawah."
+  },
+  "hasActiveDrops": {
+    "message": "Ada drop aktif"
+  },
+  "otherCategories": {
+    "message": "Kategori lain"
+  },
+  "searchCategories": {
+    "message": "Cari kategori $1"
+  },
+  "searching": {
+    "message": "Mencari…"
+  },
+  "noCategoriesFound": {
+    "message": "Kategori tidak ditemukan."
+  },
+  "alreadyAdded": {
+    "message": "Sudah ditambahkan."
+  },
+  "activityLogLevelsTitle": {
+    "message": "Level log aktivitas"
+  },
+  "activityLogLevelsDescription": {
+    "message": "Pilih level yang dicatat di log Aktivitas. Error selalu disimpan."
+  },
+  "farmUnlinkedTitle": {
+    "message": "Farm kampanye tanpa akun tertaut"
+  },
+  "farmUnlinkedDescription": {
+    "message": "Saat mati, kampanye yang perlu penautan akun dilewati. Persyaratan platform tetap bisa mewajibkan penautan meski ini aktif."
+  },
+  "farmSubscriptionTitle": {
+    "message": "Farm kampanye yang memerlukan langganan"
+  },
+  "farmSubscriptionDescription": {
+    "message": "Saat mati, kampanye yang hadiahnya butuh langganan saluran dilewati."
+  },
+  "forgetExcludedTitle": {
+    "message": "Lupakan kampanye yang dikecualikan"
+  },
+  "forgetExcludedDescription": {
+    "message": "Hapus semua kampanye yang Anda kecualikan dari farming."
+  },
+  "forget": {
+    "message": "Lupakan"
+  },
+  "unknownGame": {
+    "message": "Game tidak dikenal"
+  },
+  "noCategory": {
+    "message": "Tanpa kategori"
+  },
+  "dropsCampaign": {
+    "message": "Kampanye drop"
+  },
+  "later": {
+    "message": "nanti"
+  },
+  "ended": {
+    "message": "Berakhir"
+  },
+  "notificationRewardClaimed": {
+    "message": "Hadiah diklaim"
+  },
+  "notificationRewardEarned": {
+    "message": "Hadiah diperoleh"
+  },
+  "notificationNoDropsLeft": {
+    "message": "Tidak ada drop tersisa"
+  },
+  "notificationRewardFromCampaign": {
+    "message": "$1 dari $2"
+  },
+  "notificationChallengeClaimed": {
+    "message": "Hadiah tantangan diklaim"
+  },
+  "notificationChallengeReward": {
+    "message": "Anda memenangkan kartu $1 dari tantangan $2."
+  },
+  "notificationNoDropsLeftMessage": {
+    "message": "$1 tidak punya drop yang memenuhi syarat untuk di-farm."
+  },
+  "screenshotHeroEyebrow": {
+    "message": "Twitch + Kick"
+  },
+  "screenshotHeroHeadline": {
+    "message": "Farm drop sambil Anda melakukan hal lain."
+  },
+  "screenshotHeroSubcopy": {
+    "message": "Klaim otomatis dari sesi login Anda. Tanpa kata sandi."
+  },
+  "screenshotExtrasEyebrow": {
+    "message": "Di luar kampanye"
+  },
+  "screenshotExtrasHeadline": {
+    "message": "Lebih dari drop."
+  },
+  "screenshotExtrasSubcopy": {
+    "message": "Channel points, tantangan Kick, dan drop 2 menit — juga diklaim untuk Anda. Idle watchlist saat tidak ada yang perlu di-farm."
+  },
+  "screenshotExtrasPointsName": {
+    "message": "Poin channel"
+  },
+  "screenshotExtrasPointsMeta": {
+    "message": "Twitch · juga diklaim untuk Anda"
+  },
+  "screenshotExtrasChallengesName": {
+    "message": "Tantangan harian"
+  },
+  "screenshotExtrasChallengesMeta": {
+    "message": "Kick · juga diklaim untuk Anda"
+  },
+  "screenshotExtrasWatchlistName": {
+    "message": "Daftar tontonan idle"
+  },
+  "screenshotExtrasWatchlistMeta": {
+    "message": "Menonton streamer Anda di antara kampanye"
+  },
+  "screenshotExtrasFlashName": {
+    "message": "Drop 2 menit"
+  },
+  "screenshotExtrasFlashMeta": {
+    "message": "Kick · diambil saat muncul"
+  },
+  "screenshotEasyEyebrow": {
+    "message": "Mudah dipakai"
+  },
+  "screenshotEasyHeadline": {
+    "message": "Semudah itu."
+  },
+  "screenshotEasyInstallTitle": {
+    "message": "Pasang"
+  },
+  "screenshotEasyInstallSub": {
+    "message": "Chrome Web Store. Tanpa akun."
+  },
+  "screenshotEasyPinTitle": {
+    "message": "Sematkan"
+  },
+  "screenshotEasyPinSub": {
+    "message": "Popup satu klik saja."
+  },
+  "screenshotEasyEnableTitle": {
+    "message": "Aktifkan platform"
+  },
+  "screenshotEasyEnableSub": {
+    "message": "Twitch, Kick, atau keduanya."
+  },
+  "screenshotEasyProfitTitle": {
+    "message": "Mulai farm"
+  },
+  "screenshotEasyProfitSub": {
+    "message": "Ia farm. Anda melakukan hal lain."
+  },
+  "screenshotSettingsEyebrow": {
+    "message": "Aturan Anda"
+  },
+  "screenshotSettingsHeadline": {
+    "message": "Farm persis seperti yang Anda mau."
+  },
+  "screenshotSettingsSubcopy": {
+    "message": "Prioritas, game, mode tanpa tab, klaim otomatis — per platform."
+  },
+  "screenshotUpdatedEyebrow": {
+    "message": "Sumber terbuka"
+  },
+  "screenshotUpdatedHeadline": {
+    "message": "Lengkap fitur. Selalu diperbarui."
+  },
+  "screenshotUpdatedSubcopy": {
+    "message": "Rilis sering saat Twitch dan Kick berubah — terbuka untuk ide dan perbaikan."
+  },
+  "screenshotUpdatedBrowsersTitle": {
+    "message": "Browser berbasis Chromium"
+  },
+  "screenshotUpdatedBrowsersSub": {
+    "message": "Listing Chrome Web Store. Ekstensi yang sama."
+  },
+  "screenshotUpdatedHeadlessTitle": {
+    "message": "CLI"
+  },
+  "screenshotUpdatedHeadlessSub": {
+    "message": "Headless. Mesin yang sama."
+  },
+  "screenshotUpdatedDockerTitle": {
+    "message": "Docker"
+  },
+  "screenshotUpdatedDockerSub": {
+    "message": "Mesin yang sama. Di dalam container."
+  },
+  "screenshotUpdatedLicense": {
+    "message": "Apache-2.0"
+  },
+  "autoClaimReady": {
+    "message": "Klaim otomatis siap"
+  },
+  "attributionLinks": {
+    "message": "Tautan atribusi"
+  },
+  "githubAttribution": {
+    "message": "Lurkloot di GitHub"
+  },
+  "githubAttributionShort": {
+    "message": "GitHub"
+  },
+  "chromeWebStoreAttribution": {
+    "message": "Lurkloot di Chrome Web Store"
+  },
+  "chromeWebStoreAttributionShort": {
+    "message": "Chrome"
+  },
+  "siteAttribution": {
+    "message": "Situs web Lurkloot"
+  },
+  "siteAttributionShort": {
+    "message": "Situs web"
+  },
+  "updateNoticeTitle": {
+    "message": "Lurkloot diperbarui ke $1"
+  },
+  "updateNoticeBody": {
+    "message": "Lihat yang baru dan apa yang berubah."
+  },
+  "updateNoticeAction": {
+    "message": "Lihat perubahan"
+  },
+  "updateNoticeDismiss": {
+    "message": "Tutup pemberitahuan pembaruan"
+  },
+  "rateNudgeTitle": {
+    "message": "Suka Lurkloot?"
+  },
+  "rateNudgeBody": {
+    "message": "Ulasan singkat di Chrome Web Store sangat membantu."
+  },
+  "rateNudgeAction": {
+    "message": "Beri rating"
+  },
+  "rateNudgeDismiss": {
+    "message": "Nanti saja"
+  },
+  "githubStarNudgeTitle": {
+    "message": "Lurkloot open source"
+  },
+  "githubStarNudgeBody": {
+    "message": "Jika berguna, bintang GitHub membantu orang lain menemukannya. Kontribusi dipersilakan, terutama fitur dan terjemahan."
+  },
+  "githubStarNudgeAction": {
+    "message": "Bintangi di GitHub"
+  },
+  "removeItem": {
+    "message": "Hapus $1"
+  },
+  "cliExportTitle": {
+    "message": "CLI headless"
+  },
+  "cliExportDescription": {
+    "message": "Jalankan farming drop di server atau Docker dengan CLI Lurkloot, memakai sesi login browser ini."
+  },
+  "cliExportHint": {
+    "message": "Mengekspor token sesi Twitch dan Kick agar “login --import” CLI bisa memakainya. Jaga file tetap pribadi — siapa pun yang memilikinya bisa memakai sesi Anda."
+  },
+  "cliExportConfirm": {
+    "message": "Ini mengunduh token sesi Twitch dan Kick ke file. Siapa pun dengan file itu bisa bertindak sebagai Anda di situs tersebut. Lanjutkan?"
+  },
+  "cliExportCancel": {
+    "message": "Batal"
+  },
+  "cliExportConfirmButton": {
+    "message": "Konfirmasi ekspor"
+  },
+  "cliExportButton": {
+    "message": "Ekspor kredensial"
+  },
+  "settingsExportTitle": {
+    "message": "Impor / ekspor pengaturan"
+  },
+  "settingsExportHint": {
+    "message": "Simpan pengaturan ke file, atau muat di browser lain. Tidak pernah menyertakan login Twitch atau Kick."
+  },
+  "settingsExportButton": {
+    "message": "Ekspor pengaturan"
+  },
+  "settingsImportButton": {
+    "message": "Impor pengaturan"
+  },
+  "settingsImportConfirm": {
+    "message": "Ini mengganti pengaturan saat ini dengan yang dari file terpilih. Lanjutkan?"
+  },
+  "settingsImportCancel": {
+    "message": "Batal"
+  },
+  "settingsImportConfirmButton": {
+    "message": "Pilih file dan impor"
+  },
+  "settingsImportFailed": {
+    "message": "File itu bukan ekspor pengaturan Lurkloot yang valid."
+  },
+  "settingsExportFailed": {
+    "message": "Lurkloot tidak bisa mengekspor pengaturan. Coba lagi."
+  },
+  "factoryResetTitle": {
+    "message": "Setel ulang Lurkloot"
+  },
+  "factoryResetHint": {
+    "message": "Hapus semua pengaturan Lurkloot, progres farming, dan riwayat aktivitas. Akun Twitch dan Kick tetap login."
+  },
+  "factoryResetButton": {
+    "message": "Setel ulang Lurkloot"
+  },
+  "factoryResetConfirm": {
+    "message": "Ini menghentikan farming, menutup tab yang dibuka Lurkloot, dan menghapus permanen semua data Lurkloot. Twitch dan Kick tetap login."
+  },
+  "factoryResetCancel": {
+    "message": "Batal"
+  },
+  "factoryResetConfirmButton": {
+    "message": "Reset semua"
+  },
+  "factoryResetProgress": {
+    "message": "Mereset…"
+  },
+  "factoryResetFailed": {
+    "message": "Lurkloot tidak bisa reset sepenuhnya. Coba lagi."
+  },
+  "factoryResetRetry": {
+    "message": "Coba reset lagi"
+  },
+  "diagnosticLoggingTitle": {
+    "message": "Sertakan log diagnostik"
+  },
+  "diagnosticLoggingDescription": {
+    "message": "Catat detail teknis tambahan yang membantu mendiagnosis masalah. Aktivitas normal selalu disimpan."
+  },
+  "activityFarmingStarted": {
+    "message": "Mulai farming $1 dari $2."
+  },
+  "activityFarmingStopped": {
+    "message": "Berhenti farming $1 dari $2: $3."
+  },
+  "activityRewardClaimed": {
+    "message": "Mengklaim $1 dari $2."
+  },
+  "activityChallengeClaimed": {
+    "message": "Mengklaim kartu $1 dari tantangan $2"
+  },
+  "activityAuthHealthChanged": {
+    "message": "Autentikasi $1 berubah dari $2 ke $3."
+  },
+  "activityCriticalFailureDetected": {
+    "message": "$1 tidak berfungsi: $2."
+  },
+  "activityCriticalFailureCleared": {
+    "message": "Kegagalan kritis $1 ditutup; mencoba lagi."
+  },
+  "criticalFailureReasonNoProgress": {
+    "message": "tidak ada progres meski error berulang"
+  },
+  "criticalFailureReasonPageContextChurn": {
+    "message": "tab terus dibuka ulang"
+  },
+  "criticalFailureTitle": {
+    "message": "Lurkloot berhenti berfungsi"
+  },
+  "criticalFailureBodyNoProgress": {
+    "message": "Error berulang dan tidak ada progres drop untuk waktu lama. Sesuatu di platform ini mungkin berubah dan ekstensi tidak lagi bisa memperoleh drop."
+  },
+  "criticalFailureBodyTabChurn": {
+    "message": "Tab terus dibuka ulang berulang kali. Pembukaan ulang dihentikan agar browser normal, dan farming dijeda untuk platform ini."
+  },
+  "criticalFailureCopyAndReport": {
+    "message": "Salin log & buka issue"
+  },
+  "criticalFailureDismiss": {
+    "message": "Tutup dan coba lagi"
+  },
+  "criticalFailureClipboardFallback": {
+    "message": "Tidak bisa menyalin otomatis. Pilih dan salin ini, lalu buka issue."
+  },
+  "activityPageContextOpened": {
+    "message": "Membuka konteks latar di $1 karena $2."
+  },
+  "activityPageContextClosed": {
+    "message": "Menutup konteks latar di $1 karena $2."
+  },
+  "activityPageContextOpenReasonBackgroundRejected": {
+    "message": "Kick menolak permintaan tanpa tab"
+  },
+  "activityPageContextReasonManagedContextUnusable": {
+    "message": "konteks latar sebelumnya tidak bisa dipakai"
+  },
+  "activityPageContextCloseReasonBackgroundRecovered": {
+    "message": "permintaan tanpa tab pulih"
+  },
+  "activityPageContextCloseReasonUserTabAvailable": {
+    "message": "tab Kick yang ada menjadi tersedia"
+  },
+  "activityInterruption": {
+    "message": "Farming terganggu: $1."
+  },
+  "activityInterruptionWithDetail": {
+    "message": "Farming terganggu: $1 ($2)."
+  },
+  "activityReasonAutomationDisabled": {
+    "message": "otomatisasi dinonaktifkan"
+  },
+  "activityReasonPlatformDisabled": {
+    "message": "platform dinonaktifkan"
+  },
+  "activityReasonAuthenticationUnhealthy": {
+    "message": "autentikasi tidak tersedia"
+  },
+  "activityReasonPlatformBackoff": {
+    "message": "platform sementara mundur"
+  },
+  "activityReasonPlatformError": {
+    "message": "terjadi error platform"
+  },
+  "activityReasonCampaignIneligible": {
+    "message": "kampanye tidak lagi memenuhi syarat"
+  },
+  "activityReasonChannelExcluded": {
+    "message": "saluran dikecualikan"
+  },
+  "activityReasonChannelOffline": {
+    "message": "saluran offline"
+  },
+  "activityReasonChannelMismatch": {
+    "message": "saluran tidak lagi cocok"
+  },
+  "activityReasonWatchUnhealthy": {
+    "message": "pemeriksaan kesehatan tonton gagal"
+  },
+  "activityReasonNoProgress": {
+    "message": "saluran tidak memperoleh progres drop"
+  },
+  "activityReasonHigherPriorityReward": {
+    "message": "hadiah prioritas lebih tinggi mengambil alih"
+  },
+  "activityReasonHigherPriorityIdleWatchlist": {
+    "message": "saluran Idle Watchlist prioritas lebih tinggi tersedia"
+  },
+  "activityReasonWatchRequirementCompleted": {
+    "message": "persyaratan tonton selesai"
+  },
+  "activityReasonRuntimeRestart": {
+    "message": "ekstensi dimulai ulang"
+  },
+  "activityReasonTargetChanged": {
+    "message": "target farming berubah"
+  },
+  "activityReasonCriticalFailure": {
+    "message": "kegagalan kritis terdeteksi"
+  },
+  "activityReasonManualWatch": {
+    "message": "menonton manual mengambil alih"
+  },
+  "loadMoreActivity": {
+    "message": "Muat lebih banyak"
+  },
+  "clearActivityHistory": {
+    "message": "Hapus riwayat"
+  },
+  "confirmClearActivityHistory": {
+    "message": "Konfirmasi hapus"
+  },
+  "clearActivityFailed": {
+    "message": "Tidak bisa menghapus riwayat aktivitas. Coba lagi."
+  },
+  "copyActivityLog": {
+    "message": "Salin log"
+  },
+  "copyLoadedActivityLog": {
+    "message": "Salin yang dimuat"
+  },
+  "copyActivityLogCopied": {
+    "message": "Menyalin $1 event"
+  },
+  "copyActivityLogFailed": {
+    "message": "Tidak bisa menyalin log. Coba lagi."
+  },
+  "exportAllDiagnostics": {
+    "message": "Ekspor semua"
+  },
+  "exportAllDiagnosticsDone": {
+    "message": "Mengekspor $1 event"
+  },
+  "exportAllDiagnosticsFailed": {
+    "message": "Tidak bisa mengekspor log. Coba lagi."
+  },
+  "activityViewTab": {
+    "message": "Aktivitas"
+  },
+  "diagnosticsViewTab": {
+    "message": "Diagnostik"
+  },
+  "compatibilityAutomatic": {
+    "message": "Otomatis"
+  },
+  "compatibilityTwitchProfileTitle": {
+    "message": "Profil kompatibilitas Twitch"
+  },
+  "compatibilityTwitchProfileDescription": {
+    "message": "Pilih profil Twitch bundled atau biarkan Lurkloot memilih otomatis."
+  },
+  "compatibilityKickProfileTitle": {
+    "message": "Profil kompatibilitas Kick"
+  },
+  "compatibilityKickProfileDescription": {
+    "message": "Pilih profil Kick bundled atau biarkan Lurkloot memilih otomatis."
+  },
+  "compatibilitySectionTitle": {
+    "message": "Kompatibilitas"
+  },
+  "compatibilitySectionDescription": {
+    "message": "Ubah hanya jika Twitch atau Kick tidak berfungsi; bisa membantu mengatasi masalah platform."
+  },
+  "compatibilityComponentProfile": {
+    "message": "Profil"
+  },
+  "compatibilityComponentHeartbeat": {
+    "message": "Transport heartbeat"
+  },
+  "compatibilityComponentInventory": {
+    "message": "Kueri inventaris"
+  },
+  "compatibilityComponentClaim": {
+    "message": "Penanganan klaim"
+  },
+  "compatibilityFromProfile": {
+    "message": "Dari profil"
+  },
+  "compatibilityOverridden": {
+    "message": "Di-override"
+  },
+  "compatibilityReplacedBy": {
+    "message": "Diganti oleh $1"
+  },
+  "compatibilityTwitchHeartbeatTitle": {
+    "message": "Transport heartbeat Twitch"
+  },
+  "compatibilityTwitchHeartbeatDescription": {
+    "message": "Override heartbeat tonton Twitch bundled."
+  },
+  "compatibilityTwitchInventoryTitle": {
+    "message": "Kueri inventaris Twitch"
+  },
+  "compatibilityTwitchInventoryDescription": {
+    "message": "Override kueri inventaris Twitch bundled."
+  },
+  "compatibilityKickClaimTitle": {
+    "message": "Penanganan tautan klaim Kick"
+  },
+  "compatibilityKickClaimDescription": {
+    "message": "Override penanganan tautan akun Kick bundled."
+  },
+  "compatibilityLifecycleRecommended": {
+    "message": "Disarankan"
+  },
+  "compatibilityLifecycleLegacy": {
+    "message": "Lama"
+  },
+  "compatibilityLifecycleExperimental": {
+    "message": "Eksperimental"
+  },
+  "compatibilityOverrideWarning": {
+    "message": "Override kompatibilitas manual aktif. Bisa berhenti bekerja saat platform berubah."
+  },
+  "compatibilityRestoreAutomatic": {
+    "message": "Pulihkan kompatibilitas otomatis"
+  },
+  "compatibilityOptionTwitchProfile202607": {
+    "message": "Twitch Juli 2026"
+  },
+  "compatibilityOptionTwitchProfile202610": {
+    "message": "Twitch Oktober 2026"
+  },
+  "compatibilityOptionTwitchHeartbeatGqlV1": {
+    "message": "Heartbeat GraphQL v1"
+  },
+  "compatibilityOptionTwitchHeartbeatSpadeV1": {
+    "message": "Heartbeat Spade v1"
+  },
+  "compatibilityOptionTwitchHeartbeatHlsV1": {
+    "message": "Heartbeat HLS + Spade v1"
+  },
+  "compatibilityOptionTwitchHeartbeatTrowelV1": {
+    "message": "Heartbeat Trowel v1"
+  },
+  "compatibilityOptionTwitchInventoryV1": {
+    "message": "Kueri inventaris v1"
+  },
+  "compatibilityOptionTwitchInventoryV2": {
+    "message": "Kueri inventaris v2"
+  },
+  "compatibilityOptionKickProfile202607": {
+    "message": "Kick Juli 2026"
+  },
+  "compatibilityOptionKickClaimV1": {
+    "message": "Penanganan klaim v1"
+  },
+  "compatibilityOptionKickClaimV2": {
+    "message": "Penanganan klaim v2"
+  },
+  "automationChecking": {
+    "message": "Memeriksa"
+  },
+  "automationNeedsSignIn": {
+    "message": "Perlu masuk"
+  },
+  "automationBlocked": {
+    "message": "Diblokir"
+  },
+  "automationUnavailable": {
+    "message": "Tidak tersedia"
+  },
+  "authCheckingDetail": {
+    "message": "Memeriksa sesi login Anda…"
+  },
+  "authSignInMissing": {
+    "message": "Masuk untuk melanjutkan farming drop."
+  },
+  "authSignInRejected": {
+    "message": "Sesi Anda tidak lagi valid. Masuk lagi untuk melanjutkan."
+  },
+  "signInToTwitch": {
+    "message": "Masuk ke Twitch"
+  },
+  "signInToKick": {
+    "message": "Masuk ke Kick"
+  },
+  "authBrowserProfileBlocked": {
+    "message": "Kick menolak profil browser ini. Masuk saja mungkin tidak menyelesaikannya."
+  },
+  "authCredentialCheckUnavailable": {
+    "message": "Sesi browser tidak bisa diperiksa. Lurkloot akan mencoba lagi otomatis."
+  },
+  "authNetworkTemporarilyUnavailable": {
+    "message": "Jaringan sementara tidak tersedia. Lurkloot akan mencoba lagi otomatis."
+  },
+  "authPlatformTemporarilyUnavailable": {
+    "message": "Platform sementara tidak tersedia. Lurkloot akan mencoba lagi otomatis."
+  },
+  "automationPausedTabClosed": {
+    "message": "Dijeda — tab ditutup"
+  },
+  "watchTabClosedPauseDetail": {
+    "message": "Anda menutup tab farming, jadi Lurkloot berhenti farming di sini."
+  },
+  "resumeFarming": {
+    "message": "Lanjutkan farming"
+  },
+  "activityReasonManualTabClose": {
+    "message": "tab farming ditutup"
+  },
+  "activityReasonPermissionMissing": {
+    "message": "izin browser yang diperlukan hilang; aktifkan kembali platform untuk memberikannya"
+  },
+  "automationPausedManualWatch": {
+    "message": "Menonton manual"
+  },
+  "manualWatchPauseDetail": {
+    "message": "Farming dijeda saat Anda menonton siaran sendiri. Jeda, tutup, atau pindah dari tab itu untuk melanjutkan otomatis pada pemeriksaan berikutnya."
+  },
+  "manualWatchPauseDetailNamed": {
+    "message": "Farming dijeda saat Anda menonton siaran sendiri."
+  },
+  "manualWatchPauseDetailNamedSuffix": {
+    "message": "— jeda, tutup, atau pindah tab untuk melanjutkan."
+  },
+  "reorderItem": {
+    "message": "Urutkan ulang $1"
+  },
+  "scrollRewardsLeft": {
+    "message": "Gulir hadiah ke kiri"
+  },
+  "scrollRewardsRight": {
+    "message": "Gulir hadiah ke kanan"
+  },
+  "activityExtensionGiveawayJoined": {
+    "message": "Bergabung giveaway $1 di $2."
+  },
+  "activityExtensionSpriteCaptured": {
+    "message": "Menangkap sprite $1 di $2."
+  },
+  "activityExtensionTakeoverStarted": {
+    "message": "Memulai takeover $1 dari $2."
+  },
+  "extensionSettingsTitle": {
+    "message": "Ekstensi Twitch"
+  },
+  "extensionDropsTitle": {
+    "message": "Ekstensi"
+  },
+  "extensionSettingsHint": {
+    "message": "Farm hadiah ekstensi tanpa tab Twitch. Otomatisasi, pengecualian, dan jeda manual Twitch berlaku."
+  },
+  "extensionNoPixelHint": {
+    "message": "Dapatkan pak harian dan ikut giveaway. Waktu tonton untuk earning bergabung ke chat saluran yang ditonton, jadi Anda muncul di daftar penonton."
+  },
+  "extensionChatPresenceBlocked": {
+    "message": "Tidak di chat: waktu tonton NoPixel tidak dihitung sampai kehadiran chat pulih"
+  },
+  "extensionFortniteHint": {
+    "message": "Kumpulkan sprite dan dapatkan hadiah fase."
+  },
+  "extensionIdentityRequired": {
+    "message": "Tautkan akun ekstensi Anda"
+  },
+  "extensionPermissionRequired": {
+    "message": "Izinkan akses provider untuk mengaktifkan"
+  },
+  "extensionAuthRequired": {
+    "message": "Masuk ke Twitch"
+  },
+  "extensionChannelRequired": {
+    "message": "Mencari saluran yang memenuhi syarat"
+  },
+  "extensionComplete": {
+    "message": "Hadiah diperoleh"
+  },
+  "extensionFarming": {
+    "message": "Memfarm"
+  },
+  "extensionPhaseClosed": {
+    "message": "Tidak ada fase interaktif yang terbuka"
+  },
+  "extensionConnecting": {
+    "message": "Menghubungkan"
+  },
+  "extensionUnavailable": {
+    "message": "Sementara tidak tersedia"
+  },
+  "extensionIdle": {
+    "message": "Menunggu"
+  },
+  "extensionDailyPackProgress": {
+    "message": "Pak harian: $1/$2 menit"
+  },
+  "extensionCaptureProgress": {
+    "message": "Koleksi: $1/$2"
+  },
+  "extensionTakeoversTitle": {
+    "message": "Izinkan takeover Fortnite"
+  },
+  "extensionTakeoversHint": {
+    "message": "Mulai takeover yang memenuhi syarat selama fase interaktif. Mati secara default."
+  },
+  "extensionAccountSetup": {
+    "message": "Penyiapan akun"
+  },
+  "extensionGiveawayUnavailable": {
+    "message": "Pemeriksaan giveaway tidak tersedia"
+  },
+  "extensionGiveawayEntered": {
+    "message": "Giveaway diikuti"
+  },
+  "extensionGiveawayOpen": {
+    "message": "Giveaway terbuka"
+  },
+  "extensionRewardProgress": {
+    "message": "Hadiah: $1/$2"
+  },
+  "extensionTakeoverActive": {
+    "message": "Takeover aktif"
+  },
+  "extensionWatchtimeComplete": {
+    "message": "Waktu tonton selesai"
+  },
+  "extensionUnopenedPacks": {
+    "message": "Pak belum dibuka: $1"
+  },
+  "extensionPackCheckUnavailable": {
+    "message": "Pemeriksaan pengiriman pak tidak tersedia"
+  },
+  "extensionAutoOpenPacksTitle": {
+    "message": "Buka pak NoPixelV otomatis"
+  },
+  "extensionAutoOpenPacksHint": {
+    "message": "Ungkap kartu dari pak belum dibuka. Ini memakai setiap pak dan tidak bisa dibatalkan."
+  },
+  "activityExtensionPackOpened": {
+    "message": "$1 membuka pak kartu di $2"
+  },
+  "watchSourcePriorityTitle": {
+    "message": "Prioritas sumber tonton"
+  },
+  "watchSourcePriorityDescription": {
+    "message": "Sumber pertama yang tersedia ditonton. Sumber yang dinonaktifkan atau tidak tersedia dilewati."
+  },
+  "watchSourcePriorityMoveUp": {
+    "message": "Naikkan $1"
+  },
+  "watchSourcePriorityMoveDown": {
+    "message": "Turunkan $1"
+  },
+  "watchSourcePriorityReset": {
+    "message": "Reset prioritas"
+  },
+  "watchSourcePriorityMoved": {
+    "message": "$1 sekarang prioritas $2."
+  },
+  "watchSourcePriorityResetDone": {
+    "message": "Prioritas sumber tonton direset."
+  },
+  "watchSourceDrops": {
+    "message": "Drops"
+  },
+  "watchSourceIdleWatchlist": {
+    "message": "Daftar cadangan"
+  },
+  "watchSourceNoPixel": {
+    "message": "NoPixelV"
+  },
+  "watchSourceFortnite": {
+    "message": "Fortnite"
+  },
+  "gamesStarHint": {
+    "message": "★ menaikkan game di atas strategi"
+  },
+  "gamesFavourite": {
+    "message": "Naikkan $1 di atas strategi"
+  },
+  "gamesUnfavourite": {
+    "message": "Berhenti menaikkan $1 di atas strategi"
+  },
+  "gamesBlock": {
+    "message": "Jangan pernah farm $1"
+  },
+  "gamesUnblock": {
+    "message": "Buka blokir"
+  },
+  "gamesBlocked": {
+    "message": "Diblokir"
+  },
+  "gamesBlockedHint": {
+    "message": "tidak pernah di-farm, di kedua mode"
+  },
+  "gamesBlockedKeepsStar": {
+    "message": "tidak pernah di-farm · bintang disimpan untuk nanti"
+  },
+  "gamesCampaignCount": {
+    "message": "$1 kampanye live"
+  },
+  "gamesCampaignCountOne": {
+    "message": "1 kampanye live"
+  },
+  "gamesNoCampaigns": {
+    "message": "tidak ada kampanye saat ini"
+  },
+  "gamesFarmGame": {
+    "message": "Farming $1"
+  },
+  "gamesEmpty": {
+    "message": "Tidak ada kampanye $1 yang live saat ini."
+  },
+  "inPageOpenPanel": {
+    "message": "Buka Lurkloot"
+  },
+  "inPageAddToWatchlist": {
+    "message": "Tambahkan $1 ke idle watchlist"
+  },
+  "inPageRemoveFromWatchlist": {
+    "message": "Hapus $1 dari idle watchlist"
+  },
+  "navNoPixel": {
+    "message": "NoPixel V"
+  },
+  "navFortnite": {
+    "message": "Fortnite"
+  },
+  "gamesBlockedEmpty": {
+    "message": "Tidak ada yang diblokir. Pakai ⊘ pada game agar tidak di-farm di kedua mode."
+  },
+  "campaignRewardsProgress": {
+    "message": "$1 dari $2 hadiah"
+  },
+  "campaignTimeLeft": {
+    "message": "$1 tersisa"
+  },
+  "campaignFactStarts": {
+    "message": "Mulai"
+  },
+  "campaignFactStarted": {
+    "message": "Dimulai"
+  },
+  "campaignFactEnds": {
+    "message": "Berakhir"
+  },
+  "relativeIn": {
+    "message": "dalam $1"
+  },
+  "relativeAgo": {
+    "message": "$1 lalu"
+  },
+  "campaignLasts": {
+    "message": "Berjalan selama $1"
+  },
+  "campaignFactEnded": {
+    "message": "Berakhir"
+  },
+  "campaignFactWatching": {
+    "message": "Menonton"
+  },
+  "campaignFactChannels": {
+    "message": "Saluran"
+  },
+  "campaignFactNextReward": {
+    "message": "Hadiah berikutnya"
+  },
+  "campaignFactWhyRank": {
+    "message": "Mengapa peringkat ini"
+  },
+  "campaignMoreChannels": {
+    "message": "+$1 lagi"
+  },
+  "campaignFewerChannels": {
+    "message": "Tampilkan lebih sedikit"
+  },
+  "campaignExclude": {
+    "message": "Kecualikan"
+  },
+  "campaignCategoryBlocked": {
+    "message": "$1 diblokir"
+  },
+  "campaignPinToTop": {
+    "message": "Sematkan ke atas"
+  },
+  "campaignPinnedAt": {
+    "message": "Disematkan · $1"
+  },
+  "campaignFavourite": {
+    "message": "Favoritkan $1"
+  },
+  "campaignFavouriteOn": {
+    "message": "$1 favorit"
+  },
+  "campaignExcludeThis": {
+    "message": "Hanya kampanye ini"
+  },
+  "campaignExcludeThisHint": {
+    "message": "Kampanye $1 lain tetap di-farm"
+  },
+  "campaignExcludeThisUndo": {
+    "message": "Pilih lagi untuk mengembalikan kampanye ke antrean"
+  },
+  "campaignExcludeCategory": {
+    "message": "Kategori “$1”"
+  },
+  "campaignExcludeCategoryHint": {
+    "message": "Memblokir semua kampanye $1, sekarang dan nanti"
+  },
+  "campaignExcludeCategoryUndo": {
+    "message": "Pilih lagi untuk membuka blokir game"
+  },
+  "rewardMissed": {
+    "message": "Tidak diperoleh tepat waktu"
+  },
+  "rankReasonPinned": {
+    "message": "Disematkan di $1"
+  },
+  "rankReasonFavourite": {
+    "message": "$1 favorit $2"
+  },
+  "rankReasonEnding": {
+    "message": "Berakhir lebih cepat dari yang di bawah"
+  },
+  "rankReasonAvailability": {
+    "message": "Lebih sedikit saluran dari yang di bawah"
+  },
+  "queueEditFavourites": {
+    "message": "Ubah"
+  },
+  "navWatchingNow": {
+    "message": "Sedang ditonton"
+  },
+  "gamesFavouritesGroup": {
+    "message": "Favorit"
+  },
+  "gamesFavouritesGroupHint": {
+    "message": "diurutkan begini, di atas strategi"
+  },
+  "gamesOtherGroup": {
+    "message": "Game lain"
+  },
+  "gamesOtherGroupAllHint": {
+    "message": "semua di-farm, kecuali yang diblokir"
+  },
+  "gamesOtherGroupIncludeHint": {
+    "message": "di-farm hanya jika dicentang"
+  },
+  "watchSourcePlace": {
+    "message": "Tempat dalam urutan tonton: $1 dari $2"
+  },
+  "watchSourcePlaceFirst": {
+    "message": "Ditonton sebelum sumber lain."
+  },
+  "watchSourcePlaceAfter": {
+    "message": "Ditonton saat $1 tidak punya yang ditonton."
+  },
+  "watchSourceChangeOrderShort": {
+    "message": "Ubah urutan"
+  },
+  "railWhatsNew": {
+    "message": "Yang baru"
+  },
+  "campaignShowDetails": {
+    "message": "Tampilkan detail"
+  },
+  "campaignHideDetails": {
+    "message": "Sembunyikan detail"
+  },
+  "settingsGamesPointerTitle": {
+    "message": "Game dan kategori"
+  },
+  "settingsGamesPointerDescription": {
+    "message": "Pilih game $1 mana yang di-farm, beri bintang yang harus di atas, atau blokir."
+  },
+  "settingsGamesPointerAction": {
+    "message": "Buka Game"
+  },
+  "idleWatchlistAddPlaceholder": {
+    "message": "Nama saluran atau tautan"
+  },
+  "idleWatchlistFull": {
+    "message": "Daftar penuh ($1 saluran). Hapus satu untuk menambah."
+  },
+  "idleWatchlistInvalid": {
+    "message": "Masukkan nama saluran atau tautan saluran."
+  },
+  "idleWatchlistDuplicate": {
+    "message": "$1 sudah ada di daftar."
+  },
+  "idleWatchlistOrderTitle": {
+    "message": "Urutan tonton"
+  },
+  "idleWatchlistOrderHint": {
+    "message": "saluran live pertama yang ditonton"
+  },
+  "gamesModeAllDescription": {
+    "message": "Setiap game dengan drop live di-farm, kecuali yang diblokir."
+  },
+  "gamesModeIncludeDescription": {
+    "message": "Hanya game yang Anda centang yang di-farm."
+  },
+  "gamesStarLegend": {
+    "message": "menaikkan game di atas strategi"
+  },
+  "gamesBlockLegend": {
+    "message": "tidak pernah di-farm"
+  },
+  "gamesSearchPlaceholder": {
+    "message": "Cari atau tambah game $1"
+  },
+  "gamesAddGroup": {
+    "message": "Tambah dari $1"
+  },
+  "gamesAddIncludeHint": {
+    "message": "menambah game mencentangnya"
+  },
+  "gamesAddAllHint": {
+    "message": "menambah game memberi bintang"
+  },
+  "gamesAddActionFarm": {
+    "message": "Farming"
+  },
+  "gamesAddActionFavourite": {
+    "message": "Favorit"
+  },
+  "gamesNoMoreResults": {
+    "message": "Tidak ada game lain ditemukan."
+  },
+  "navBeta": {
+    "message": "Beta"
+  },
+  "navExtensions": {
+    "message": "Ekstensi"
+  },
+  "navGroupOthers": {
+    "message": "Lainnya"
+  },
+  "kickLevelSummary": {
+    "message": "Level Kick $1 · $2% menuju level $3"
+  },
+  "kickLevelShort": {
+    "message": "Lv $1"
+  },
+  "kickLevelXp": {
+    "message": "$1 / $2 XP"
+  },
+  "kickStreakDays": {
+    "message": "Rentetan menonton $1 hari"
+  }
+}

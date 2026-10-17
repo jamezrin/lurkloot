@@ -47,6 +47,24 @@
   "languageTurkish": {
     "message": "Turkish"
   },
+  "languageJapanese": {
+    "message": "Japanese"
+  },
+  "languageIndonesian": {
+    "message": "Indonesian"
+  },
+  "languagePolish": {
+    "message": "Polish"
+  },
+  "languageKorean": {
+    "message": "Korean"
+  },
+  "languageUkrainian": {
+    "message": "Ukrainian"
+  },
+  "languageCzech": {
+    "message": "Czech"
+  },
   "settingsLanguageTitle": {
     "message": "Language"
   },
@@ -120,22 +138,28 @@
     "message": "Unpin"
   },
   "queueFacetLabel": {
-    "message": "Campaign type"
+    "message": "Rewards to farm"
   },
   "queueFacetAll": {
     "message": "All"
   },
-  "queueFacetDrops": {
-    "message": "Drops"
+  "queueFacetNoSubscription": {
+    "message": "No subscription"
   },
-  "queueFacetBadges": {
-    "message": "Sub badges"
+  "queueFacetSubscription": {
+    "message": "Requires subscription"
+  },
+  "queueFacetBadge": {
+    "message": "Badges"
   },
   "queueFixInclude": {
     "message": "Include"
   },
   "queueFixPin": {
     "message": "Pin"
+  },
+  "queueFixFarmAll": {
+    "message": "Farm all"
   },
   "queueFixGames": {
     "message": "Open Games"
@@ -146,8 +170,8 @@
   "queueEmpty": {
     "message": "Nothing to farm here right now."
   },
-  "queueEmptyBadges": {
-    "message": "No subscription campaigns are farmable right now."
+  "queueEmptyRewardTypes": {
+    "message": "Nothing of the selected types is farmable right now."
   },
   "completedTabFinished": {
     "message": "Finished"
@@ -370,6 +394,18 @@
   },
   "subscriptionProgressUnknown": {
     "message": "Progress unavailable"
+  },
+  "rewardBadge": {
+    "message": "Badge"
+  },
+  "rewardBadgeNamed": {
+    "message": "Badge: $1"
+  },
+  "rewardAlsoWatch": {
+    "message": "Plus $1 of watching"
+  },
+  "rewardClaimable": {
+    "message": "Ready to claim"
   },
   "notEarnableByWatching": {
     "message": "Not earnable by watching"
@@ -757,6 +793,12 @@
   },
   "campaignRejectionNotPinned": {
     "message": "Only pinned campaigns are farmed right now."
+  },
+  "campaignRejectionRewardType": {
+    "message": "None of its rewards are of the types you farm."
+  },
+  "campaignRejectionRewardTypesObtained": {
+    "message": "Its rewards of the types you farm are earned."
   },
   "campaignRejectionNoRewards": {
     "message": "This campaign has no farmable rewards."
@@ -1853,12 +1895,6 @@
   "navWatchingNow": {
     "message": "Being watched now"
   },
-  "watchSourcePosition": {
-    "message": "$1 · $2 of $3"
-  },
-  "watchSourceChangeOrder": {
-    "message": "Change the watch order"
-  },
   "gamesFavouritesGroup": {
     "message": "Favourites"
   },
@@ -1963,5 +1999,17 @@
   },
   "navGroupOthers": {
     "message": "Others"
+  },
+  "kickLevelSummary": {
+    "message": "Kick level $1 · $2% to level $3"
+  },
+  "kickLevelShort": {
+    "message": "Lv $1"
+  },
+  "kickLevelXp": {
+    "message": "$1 / $2 XP"
+  },
+  "kickStreakDays": {
+    "message": "$1-day watch streak"
   }
 }

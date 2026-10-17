@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { campaignFarmingBlockers, evaluateCampaignFarming } from "@lurkloot/shared/campaignFarming";
-import type { DropCampaign, ExtensionSettings } from "@lurkloot/shared/models";
+import {
+  campaignFarmingBlockers,
+  evaluateCampaignFarming,
+  rewardMatchesFarmTypes,
+  rewardsInFarmingScope,
+} from "@lurkloot/shared/campaignFarming";
+import { farmRewardTypeCounts } from "../../popup-ui/src/viewModels";
+import type { DropCampaign, ExtensionSettings, RewardFarmType } from "@lurkloot/shared/models";
 import { mergeSettings } from "@lurkloot/shared/settings";
 
 const NOW = Date.parse("2026-08-15T10:00:00.000Z");
@@ -241,5 +247,103 @@ describe("campaignFarmingBlockers (#677)", () => {
 
   it("is empty for a farmable campaign", () => {
     expect(campaignFarmingBlockers(campaign(), settings(), { now: NOW })).toEqual([]);
+  });
+});
+
+describe("farmRewardTypes (#731)", () => {
+  const typed = (...types: string[]): ExtensionSettings =>
+    mergeSettings({ platform: { twitch: { farmRewardTypes: types } } } as never);
+  const watch = campaign().rewards[0]!;
+  const badge = { ...watch, id: "badge", benefits: [{ id: "b", distributionType: "BADGE" }] };
+  const subscription = {
+    ...watch,
+    id: "sub",
+    requiredSubs: 1,
+    requiredMinutes: 30,
+    requirement: "subscription" as const,
+    isWatchBased: false,
+  };
+  const scope = (source: DropCampaign, ...types: RewardFarmType[]) =>
+    rewardsInFarmingScope(source, types).map((reward) => reward.id);
+
+  it("judges single rewards, counting a marked subscription as still asked for", () => {
+    const marked = { ...subscription, subscriptionMarked: true };
+    expect(rewardMatchesFarmTypes(watch, ["no_subscription"])).toBe(true);
+    expect(rewardMatchesFarmTypes(marked, ["no_subscription"])).toBe(false);
+    expect(rewardMatchesFarmTypes(marked, ["subscription"])).toBe(true);
+    expect(rewardMatchesFarmTypes(watch, ["badge"])).toBe(false);
+    expect(rewardMatchesFarmTypes(badge, ["badge"])).toBe(true);
+    expect(rewardMatchesFarmTypes(subscription, [])).toBe(true);
+  });
+
+  it("farms the watch rewards of a campaign that also has a subscription reward", () => {
+    const mixed = campaign({ rewards: [watch, subscription] });
+    expect(scope(mixed, "no_subscription")).toEqual(["reward"]);
+    expect(scope(mixed, "subscription")).toEqual(["sub"]);
+    expect(evaluateCampaignFarming(mixed, typed("no_subscription"), { now: NOW })).toEqual({
+      farmable: true,
+    });
+  });
+
+  it("combines selected types as any-of", () => {
+    const source = campaign({ rewards: [watch, badge, { ...subscription, id: "paid" }] });
+    expect(scope(source, "subscription", "badge")).toEqual(["badge", "paid"]);
+    expect(scope(source, "no_subscription", "subscription")).toEqual(["reward", "badge", "paid"]);
+    expect(scope(source)).toHaveLength(3);
+  });
+
+  it("keeps what a matching reward waits on", () => {
+    const source = campaign({
+      rewards: [
+        { ...watch, id: "first" },
+        { ...badge, preconditionRewardIds: ["first"] },
+        { ...watch, id: "unrelated" },
+      ],
+    });
+    expect(scope(source, "badge")).toEqual(["first", "badge"]);
+  });
+
+  it("skips a campaign with no reward of the types, and lifts that to every type", () => {
+    expect(evaluateCampaignFarming(campaign(), typed("badge"), { now: NOW })).toMatchObject({
+      farmable: false,
+      code: "reward_type_filtered",
+    });
+    expect(campaignFarmingBlockers(campaign(), typed("badge"), { now: NOW })).toHaveLength(1);
+  });
+
+  it("is done with a campaign once its matching rewards are earned, others left or not", () => {
+    const source = campaign({
+      rewards: [{ ...badge, status: "claimed", watchedMinutes: 60 }, watch],
+    });
+    expect(evaluateCampaignFarming(source, typed("badge"), { now: NOW })).toMatchObject({
+      farmable: false,
+      code: "reward_types_obtained",
+    });
+    expect(evaluateCampaignFarming(source, settings(), { now: NOW })).toEqual({ farmable: true });
+  });
+
+  it("reads stored types, dropping unknown ones and badges on Kick", () => {
+    const stored = (twitch: unknown, kick: unknown) =>
+      mergeSettings({
+        platform: { twitch: { farmRewardTypes: twitch }, kick: { farmRewardTypes: kick } },
+      } as never).platform;
+    expect(stored("badge", undefined).twitch.farmRewardTypes).toEqual([]);
+    expect(stored(["badges", "badge", "badge"], []).twitch.farmRewardTypes).toEqual(["badge"]);
+    expect(stored([], ["badge", "subscription"]).kick.farmRewardTypes).toEqual(["subscription"]);
+  });
+
+  it("counts what each Queue tab would farm on its own", () => {
+    expect(
+      farmRewardTypeCounts(
+        [
+          campaign({ id: "plain" }),
+          campaign({ id: "badged", rewards: [watch, badge] }),
+          campaign({ id: "sub", rewards: [watch, subscription] }),
+        ],
+        mergeSettings({}),
+      ),
+      // An unmarked subscription reward cannot be farmed by watching, so on its
+      // own "Requires subscription" queues nothing here.
+    ).toEqual({ all: 3, no_subscription: 3, subscription: 0, badge: 1 });
   });
 });

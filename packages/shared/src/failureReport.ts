@@ -77,6 +77,7 @@ function settingsSummary(settings: EngineSettings, platform: Platform): string {
     ["autoClaim", settings.autoClaim],
     ["pauseOnManualWatch", settings.pauseOnManualWatch],
     ["priorityMode", settings.priorityMode],
+    ["farmRewardTypes", settings.platform[platform].farmRewardTypes.join(", ") || "all"],
     ["platform enabled", settings.platform[platform].enabled],
     ["categoryMode", settings.platform[platform].categoryMode],
     ["compatibility profile", settings.compatibility[platform].profile],

@@ -13,6 +13,7 @@ import type { ActivityHistoryRecord } from "@lurkloot/shared/events";
 import type {
   CategorySelection,
   ExtensionSettings,
+  RewardFarmType,
   Platform,
   TwitchExtensionProviderId,
   WatchSourceId,
@@ -20,6 +21,7 @@ import type {
 import {
   applySettingsPatch,
   DEFAULT_SETTINGS,
+  REWARD_FARM_TYPES,
   mergeSettings,
   type SettingsPatch,
 } from "@lurkloot/shared/settings";
@@ -55,6 +57,8 @@ import type {
 import { variantShowsPopup } from "./types";
 import {
   campaignViewFromCampaign,
+  farmRewardTypeCounts,
+  type RewardTypeTab,
   reuseIfUnchanged,
   reuseUnchangedViews,
   channelViewFromSession,
@@ -89,12 +93,12 @@ import { GithubStarNudge } from "./githubStarNudge";
 import { popupNoticeSlot } from "./popupNoticeSlot";
 import { UpdateNotice } from "./updateNotice";
 import { QueuePanel } from "./queue";
-import { WATCH_SOURCE_NAME_KEYS } from "./watchSourcePriority";
 import { blockTogglePatch, favouriteTogglePatch } from "./categoryActions";
 import { CompletedPanel } from "./completed";
 import { CriticalFailurePanel } from "./criticalFailure";
 import { openHttpsLink } from "./links";
 import { IdleWatchlistPanel } from "./idleWatchlist";
+import { AccountProgressSlot } from "./accountProgress";
 import { StatusStrip } from "./statusStrip";
 import { ViewToolbarSlotContext } from "./viewToolbar";
 import { automationPresentation, type AutomationPresentation } from "./automationStatus";
@@ -102,7 +106,6 @@ import { changeTwitchExtensionEnabled, TwitchExtensionView } from "./twitchExten
 import { SettingsView } from "./settings";
 import { TipsBanner } from "./tips";
 import { TooltipScope } from "./tooltip";
-import { Tip } from "./tooltip";
 
 export function screenshotVariant(id: string | null | undefined): ScreenshotVariant {
   return SCREENSHOT_VARIANTS[id ?? "drops"] ?? SCREENSHOT_VARIANTS.drops;
@@ -854,6 +857,7 @@ export function Popup({
     inputs?: readonly unknown[];
     campaigns?: CampaignView[];
     gameMap?: Record<string, GameItem>;
+    rewardTypeCounts?: Record<RewardTypeTab, number>;
   }>({});
 
   // The mark toggle every campaign card reads from context. Its identity never
@@ -964,7 +968,13 @@ export function Popup({
     derived.current.gameMap,
     Object.fromEntries(games.map((game) => [game.id, game])),
   );
-  derived.current = { inputs: derivationInputs, campaigns, gameMap };
+  const rewardTypeCounts = inputsChanged
+    ? reuseIfUnchanged(
+        derived.current.rewardTypeCounts,
+        farmRewardTypeCounts(snapshot.state.campaigns[platform], settings),
+      )
+    : derived.current.rewardTypeCounts!;
+  derived.current = { inputs: derivationInputs, campaigns, gameMap, rewardTypeCounts };
   const idleWatchlistChannels = settings.platform[platform].idleWatchlistChannels;
   const idleWatchlist = idleWatchlistChannels.map((username) =>
     streamerItemFromFallback(username, session, t),
@@ -1135,31 +1145,17 @@ export function Popup({
                       : undefined
                   }
                   chatPresence={snapshot.state.chatPresence?.[platform]}
+                  accountProgress={
+                    <AccountProgressSlot
+                      poll={snapshot.state.accountProgress?.[platform]}
+                      signedIn={snapshot.state.authHealth[platform].status === "healthy"}
+                    />
+                  }
                   onCampaignClick={session.supplementalWatch ? undefined : onFarmingTitleClick}
                   onResume={resumeAfterManualClose}
                   enabled={automation[platform]}
                   pending={automationPending[platform]}
                   onToggle={(value) => setAutomation(platform, value)}
-                  sourceChip={
-                    liveSource ? (
-                      // Where the live source sits in the watch order, and the way to
-                      // change that order: the first available source always wins.
-                      <Tip label={t("watchSourceChangeOrder")}>
-                        <button
-                          type="button"
-                          data-watch-source-chip={liveSource}
-                          onClick={() => changeView("settings", `${platform}.watchSourcePriority`)}
-                          className="surface shrink-0 rounded-md px-2 py-0.5 text-[10.5px] font-medium text-zinc-600 tabular transition-colors hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white"
-                        >
-                          {t("watchSourcePosition", [
-                            t(WATCH_SOURCE_NAME_KEYS[liveSource]),
-                            String(sourceOrder.indexOf(liveSource) + 1),
-                            String(sourceOrder.length),
-                          ])}
-                        </button>
-                      </Tip>
-                    ) : undefined
-                  }
                 />
 
                 {/* The view's title and its own controls share one row: a view hands
@@ -1429,6 +1425,19 @@ export function Popup({
                               strategy={settings.priorityMode}
                               pinnedCount={settings.campaignPins.length}
                               farmPinnedOnly={settings.farmPinnedOnly}
+                              rewardTypes={settings.platform[platform].farmRewardTypes}
+                              availableRewardTypes={
+                                platform === "twitch"
+                                  ? REWARD_FARM_TYPES
+                                  : REWARD_FARM_TYPES.filter((type) => type !== "badge")
+                              }
+                              rewardTypeCounts={rewardTypeCounts}
+                              onRewardTypesChange={(farmRewardTypes) =>
+                                void updateSettings(
+                                  { platform: { [platform]: { farmRewardTypes } } },
+                                  { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
+                                )
+                              }
                               onStrategyChange={(priorityMode) =>
                                 void updateSettings({ priorityMode }, { tickAfterSave: true })
                               }

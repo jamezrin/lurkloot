@@ -33,6 +33,12 @@ describe("i18n", () => {
     expect(normalizeBrowserLocale("zh-TW")).toBe("zh_CN");
     expect(normalizeBrowserLocale("pt-PT")).toBe("pt_BR");
     expect(normalizeBrowserLocale("tr-TR")).toBe("tr");
+    expect(normalizeBrowserLocale("ja-JP")).toBe("ja");
+    expect(normalizeBrowserLocale("id-ID")).toBe("id");
+    expect(normalizeBrowserLocale("pl-PL")).toBe("pl");
+    expect(normalizeBrowserLocale("ko-KR")).toBe("ko");
+    expect(normalizeBrowserLocale("uk-UA")).toBe("uk");
+    expect(normalizeBrowserLocale("cs-CZ")).toBe("cs");
     expect(normalizeBrowserLocale("unknown")).toBe("en");
   });
 
@@ -44,11 +50,41 @@ describe("i18n", () => {
     expect(isRtlLocale("en")).toBe(false);
   });
 
-  it("offers Turkish using its native language name", () => {
+  it("offers each language using its native name", () => {
     expect(LOCALE_OPTIONS).toContainEqual({
       value: "tr",
       labelKey: "languageTurkish",
       nativeName: "Türkçe",
+    });
+    expect(LOCALE_OPTIONS).toContainEqual({
+      value: "ja",
+      labelKey: "languageJapanese",
+      nativeName: "日本語",
+    });
+    expect(LOCALE_OPTIONS).toContainEqual({
+      value: "id",
+      labelKey: "languageIndonesian",
+      nativeName: "Bahasa Indonesia",
+    });
+    expect(LOCALE_OPTIONS).toContainEqual({
+      value: "pl",
+      labelKey: "languagePolish",
+      nativeName: "Polski",
+    });
+    expect(LOCALE_OPTIONS).toContainEqual({
+      value: "ko",
+      labelKey: "languageKorean",
+      nativeName: "한국어",
+    });
+    expect(LOCALE_OPTIONS).toContainEqual({
+      value: "uk",
+      labelKey: "languageUkrainian",
+      nativeName: "Українська",
+    });
+    expect(LOCALE_OPTIONS).toContainEqual({
+      value: "cs",
+      labelKey: "languageCzech",
+      nativeName: "Čeština",
     });
   });
 
@@ -135,6 +171,12 @@ describe("i18n", () => {
       ru: "Кампании за подписку",
       tr: "Abonelik kampanyaları",
       zh_CN: "订阅活动",
+      ja: "サブスクキャンペーン",
+      id: "Kampanye langganan",
+      pl: "Kampanie subskrypcyjne",
+      ko: "구독 캠페인",
+      uk: "Кампанії за підпискою",
+      cs: "Kampaně s předplatným",
     };
 
     for (const locale of localeCodes()) {
@@ -142,10 +184,20 @@ describe("i18n", () => {
     }
   });
 
-  it("uses the native Turkish language name", () => {
-    const turkish = readCatalog("tr");
-    expect(turkish.languageTurkish?.message).toBe("Türkçe");
-    expect(turkish.subscriptionCampaigns?.message).toBe("Abonelik kampanyaları");
+  it("uses each catalog's native language name", () => {
+    const names: Record<string, [string, string]> = {
+      tr: ["languageTurkish", "Türkçe"],
+      ja: ["languageJapanese", "日本語"],
+      id: ["languageIndonesian", "Bahasa Indonesia"],
+      pl: ["languagePolish", "Polski"],
+      ko: ["languageKorean", "한국어"],
+      uk: ["languageUkrainian", "Українська"],
+      cs: ["languageCzech", "Čeština"],
+    };
+    for (const [locale, [key, name]] of Object.entries(names)) {
+      expect(readCatalog(locale)[key]?.message, locale).toBe(name);
+    }
+    expect(readCatalog("tr").subscriptionCampaigns?.message).toBe("Abonelik kampanyaları");
   });
 
   it("captures store artwork for every catalog locale", () => {
@@ -156,7 +208,9 @@ describe("i18n", () => {
       join(dirname(import.meta.dirname), "scripts/capture-store.mjs"),
       "utf8",
     );
-    for (const locale of localeCodes()) expect(promoSource).toContain(`"${locale}"`);
+    expect(promoSource).toContain('from "./store-screenshot-config.mjs"');
+    expect(promoSource).toContain("STORE_SCREENSHOT_LOCALES");
+    expect(promoSource).not.toMatch(/const ALL_LOCALES = \[/);
   });
 
   it("captures the five reworked screenshot stems", () => {
@@ -299,7 +353,10 @@ describe("i18n", () => {
       "navGroupDrops",
       "navPlatform",
       "navExtensions",
-      "queueFacetDrops",
+      // "Badge" is the French and Italian word too.
+      "rewardBadge",
+      "rewardBadgeNamed",
+      "queueFacetBadge",
       // "Beta" is the same word in Spanish, German, Italian, Portuguese and Turkish.
       "navBeta",
       // Provider names, which are brands and never translated.
@@ -316,6 +373,10 @@ describe("i18n", () => {
       "screenshotUpdatedLicense",
       // "in $1" is the same phrase in German.
       "relativeIn",
+      // Two numbers and XP, the common gaming term Kick itself uses everywhere.
+      "kickLevelXp",
+      // "Lv", the gaming abbreviation many locales keep as is.
+      "kickLevelShort",
     ]);
 
     for (const locale of localeCodes().filter((entry) => entry !== "en")) {

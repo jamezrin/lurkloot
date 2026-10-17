@@ -1,0 +1,9 @@
+Lurkloot farmi dropy Twitch i Kick za Ciebie, dzięki czemu zdobywasz nagrody w grze bez konieczności siedzenia przy streamach. Działa w Twojej normalnej, już zalogowanej sesji przeglądarki i nigdy nie prosi o hasło.
+
+Domyślnie uruchamia lekki tryb bez kart, który w tle wysyła sygnały oglądania zamiast trzymać otwartą kartę z wideo, oszczędzając transfer i zasoby systemu. Śledzi właściwy kanał dla wybranego dropu, automatycznie przełącza się po zakończeniu kampanii i odbiera każdą kwalifikującą się nagrodę. Gdy postęp utknie, przechodzi na przypiętą, wyciszoną kartę, żeby dropy dalej szły.
+
+Twoje dane zostają Twoje: bez haseł, bez eksportu plików cookie ani tokenów — wszystko zostaje na Twoim urządzeniu.
+
+W oknie popup możesz włączać każdą platformę, ustawiać priorytety kampanii i gier, które Ci zależą, zarządzać listami bezczynnego oglądania i wykluczonymi kanałami dla każdej platformy oraz włączać auto-odbiór i powiadomienia.
+
+Lurkloot może też farmić czas oglądania na Kick, gdy żaden drop nie jest aktywny. Dodaj ulubione kanały do listy bezczynnej, a rozszerzenie automatycznie wybierze ten, który jest na żywo. Oglądanie bez kart utrzymuje niskie zużycie zasobów, a zwykły fallback z przypiętą kartą utrzymuje sesję odporną na problemy.

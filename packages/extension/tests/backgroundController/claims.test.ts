@@ -56,6 +56,7 @@ describe("background controller", () => {
         runTwitchIntegrityRefresh: vi.fn(async () => undefined),
         runDropClaims: vi.fn(async () => undefined),
         runKickChallengeClaims: vi.fn(async () => undefined),
+        runAccountProgressPolls: vi.fn(async () => undefined),
       };
       for (const name of [
         TWITCH_DROP_CLAIMS_ALARM_NAME,

@@ -47,6 +47,24 @@
   "languageTurkish": {
     "message": "Türkçe"
   },
+  "languageJapanese": {
+    "message": "Japonca"
+  },
+  "languageIndonesian": {
+    "message": "Endonezce"
+  },
+  "languagePolish": {
+    "message": "Lehçe"
+  },
+  "languageKorean": {
+    "message": "Korece"
+  },
+  "languageUkrainian": {
+    "message": "Ukraynaca"
+  },
+  "languageCzech": {
+    "message": "Çekçe"
+  },
   "settingsLanguageTitle": {
     "message": "Dil"
   },
@@ -120,22 +138,28 @@
     "message": "Kaldır"
   },
   "queueFacetLabel": {
-    "message": "Kampanya türü"
+    "message": "Farm'lanacak ödüller"
   },
   "queueFacetAll": {
     "message": "Tümü"
   },
-  "queueFacetDrops": {
-    "message": "Drop'lar"
+  "queueFacetNoSubscription": {
+    "message": "Abonelik gerekmez"
   },
-  "queueFacetBadges": {
-    "message": "Abone rozetleri"
+  "queueFacetSubscription": {
+    "message": "Abonelik gerekir"
+  },
+  "queueFacetBadge": {
+    "message": "Rozetler"
   },
   "queueFixInclude": {
     "message": "Dahil et"
   },
   "queueFixPin": {
     "message": "Sabitle"
+  },
+  "queueFixFarmAll": {
+    "message": "Tümünü farm'la"
   },
   "queueFixGames": {
     "message": "Oyunları aç"
@@ -146,8 +170,8 @@
   "queueEmpty": {
     "message": "Şu anda burada farmlanacak bir şey yok."
   },
-  "queueEmptyBadges": {
-    "message": "Şu anda farmlanabilir abonelik kampanyası yok."
+  "queueEmptyRewardTypes": {
+    "message": "Şu anda seçilen türlerden farm'lanabilir bir şey yok."
   },
   "completedTabFinished": {
     "message": "Tamamlanan"
@@ -370,6 +394,18 @@
   },
   "subscriptionProgressUnknown": {
     "message": "İlerleme bilinmiyor"
+  },
+  "rewardBadge": {
+    "message": "Rozet"
+  },
+  "rewardBadgeNamed": {
+    "message": "Rozet: $1"
+  },
+  "rewardAlsoWatch": {
+    "message": "Artı $1 izleme"
+  },
+  "rewardClaimable": {
+    "message": "Alınmaya hazır"
   },
   "notEarnableByWatching": {
     "message": "İzleyerek kazanılamaz"
@@ -757,6 +793,12 @@
   },
   "campaignRejectionNotPinned": {
     "message": "Şu anda yalnızca sabitlenmiş kampanyalar farmlanıyor."
+  },
+  "campaignRejectionRewardType": {
+    "message": "Ödüllerinin hiçbiri farm'ladığınız türlerden değil."
+  },
+  "campaignRejectionRewardTypesObtained": {
+    "message": "Farm'ladığınız türlerdeki ödülleri kazanıldı."
   },
   "campaignRejectionNoRewards": {
     "message": "Bu kampanyada farmlanabilir ödül yok."
@@ -1853,12 +1895,6 @@
   "navWatchingNow": {
     "message": "Şu anda izleniyor"
   },
-  "watchSourcePosition": {
-    "message": "$1 · $2/$3"
-  },
-  "watchSourceChangeOrder": {
-    "message": "İzleme sırasını değiştir"
-  },
   "gamesFavouritesGroup": {
     "message": "Favoriler"
   },
@@ -1963,5 +1999,17 @@
   },
   "navGroupOthers": {
     "message": "Diğer"
+  },
+  "kickLevelSummary": {
+    "message": "Kick seviyesi $1 · seviye $3 için %$2"
+  },
+  "kickLevelShort": {
+    "message": "Sv. $1"
+  },
+  "kickLevelXp": {
+    "message": "$1 / $2 XP"
+  },
+  "kickStreakDays": {
+    "message": "$1 günlük izleme serisi"
   }
 }

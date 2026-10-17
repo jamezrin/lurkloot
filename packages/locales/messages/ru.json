@@ -47,6 +47,24 @@
   "languageTurkish": {
     "message": "Турецкий"
   },
+  "languageJapanese": {
+    "message": "Японский"
+  },
+  "languageIndonesian": {
+    "message": "Индонезийский"
+  },
+  "languagePolish": {
+    "message": "Польский"
+  },
+  "languageKorean": {
+    "message": "Корейский"
+  },
+  "languageUkrainian": {
+    "message": "Украинский"
+  },
+  "languageCzech": {
+    "message": "Чешский"
+  },
   "settingsLanguageTitle": {
     "message": "Язык"
   },
@@ -120,22 +138,28 @@
     "message": "Открепить"
   },
   "queueFacetLabel": {
-    "message": "Тип кампании"
+    "message": "Какие награды фармить"
   },
   "queueFacetAll": {
     "message": "Все"
   },
-  "queueFacetDrops": {
-    "message": "Дропы"
+  "queueFacetNoSubscription": {
+    "message": "Без подписки"
   },
-  "queueFacetBadges": {
-    "message": "Значки подписки"
+  "queueFacetSubscription": {
+    "message": "Нужна подписка"
+  },
+  "queueFacetBadge": {
+    "message": "Значки"
   },
   "queueFixInclude": {
     "message": "Вернуть"
   },
   "queueFixPin": {
     "message": "Закрепить"
+  },
+  "queueFixFarmAll": {
+    "message": "Фармить все"
   },
   "queueFixGames": {
     "message": "Открыть игры"
@@ -146,8 +170,8 @@
   "queueEmpty": {
     "message": "Сейчас здесь нечего фармить."
   },
-  "queueEmptyBadges": {
-    "message": "Сейчас нет доступных кампаний по подписке."
+  "queueEmptyRewardTypes": {
+    "message": "Сейчас нечего фармить из выбранных типов."
   },
   "completedTabFinished": {
     "message": "Завершённые"
@@ -370,6 +394,18 @@
   },
   "subscriptionProgressUnknown": {
     "message": "Данные о прогрессе недоступны"
+  },
+  "rewardBadge": {
+    "message": "Значок"
+  },
+  "rewardBadgeNamed": {
+    "message": "Значок: $1"
+  },
+  "rewardAlsoWatch": {
+    "message": "И $1 просмотра"
+  },
+  "rewardClaimable": {
+    "message": "Можно забрать"
   },
   "notEarnableByWatching": {
     "message": "Нельзя получить за просмотр"
@@ -757,6 +793,12 @@
   },
   "campaignRejectionNotPinned": {
     "message": "Сейчас фармятся только закреплённые кампании."
+  },
+  "campaignRejectionRewardType": {
+    "message": "Ни одна её награда не относится к типам, которые вы фармите."
+  },
+  "campaignRejectionRewardTypesObtained": {
+    "message": "Её награды тех типов, что вы фармите, уже получены."
   },
   "campaignRejectionNoRewards": {
     "message": "В этой кампании нет доступных для фарминга наград."
@@ -1853,12 +1895,6 @@
   "navWatchingNow": {
     "message": "Сейчас просматривается"
   },
-  "watchSourcePosition": {
-    "message": "$1 · $2 из $3"
-  },
-  "watchSourceChangeOrder": {
-    "message": "Изменить порядок просмотра"
-  },
   "gamesFavouritesGroup": {
     "message": "Избранное"
   },
@@ -1963,5 +1999,17 @@
   },
   "navGroupOthers": {
     "message": "Другое"
+  },
+  "kickLevelSummary": {
+    "message": "Уровень Kick $1 · $2% до уровня $3"
+  },
+  "kickLevelShort": {
+    "message": "Ур. $1"
+  },
+  "kickLevelXp": {
+    "message": "$1 / $2 XP"
+  },
+  "kickStreakDays": {
+    "message": "Серия просмотров: $1 дн."
   }
 }

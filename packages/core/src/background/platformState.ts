@@ -46,6 +46,7 @@ export const SCHEDULER_STATE_MERGE = {
   manualWatchTabs: "optionalPlatform",
   manualClosePause: "optionalPlatform",
   gamification: "optionalPlatform",
+  accountProgress: "optionalPlatform",
   campaignSearchBackoffs: "optionalPlatform",
   deadlineInfeasibleRewardIds: "optionalPlatform",
   lastTickAt: "newestTimestamp",

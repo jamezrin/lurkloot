@@ -1,0 +1,9 @@
+Lurkloot farms Twitch and Kick drops for you, so you earn in-game rewards without sitting and watching streams yourself. It works through your normal, already-logged-in browser session and never asks for your password.
+
+By default it runs a lightweight tabless mode that sends watch heartbeats in the background instead of keeping a video tab open, saving you bandwidth and system resources. It tracks the right channel for the drop you want, switches automatically as campaigns finish, and claims every eligible reward. If progress ever stalls, it falls back to a pinned, muted tab to keep your drops moving.
+
+Your data stays yours: no passwords, no exported cookies or tokens, and everything stays on your device.
+
+From the popup you can enable each platform, prioritize the campaigns and games you care about, manage per-platform idle watchlists and excluded channels, and toggle auto-claim and notifications.
+
+Lurkloot can also farm Kick watch time when no drop is active. Add your preferred channels to the idle watchlist and it automatically chooses one that is live. Tabless watching keeps resource use low, while the normal pinned-tab fallback keeps the session resilient.

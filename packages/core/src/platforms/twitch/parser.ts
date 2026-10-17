@@ -1,4 +1,9 @@
-import type { ChannelCandidate, DropCampaign, DropReward } from "@lurkloot/shared/models";
+import type {
+  ChannelCandidate,
+  DropCampaign,
+  DropReward,
+  RewardBenefit,
+} from "@lurkloot/shared/models";
 import { twitchCategoryDropsUrl } from "@lurkloot/shared/categories";
 import {
   isSubscriptionReward,
@@ -426,6 +431,14 @@ function parseTwitchReward(
     imageUrl: benefits[0]?.imageAssetURL,
     benefitIds: benefits.map((benefit) => benefit.id).filter((id): id is string => Boolean(id)),
     benefitType: benefits[0]?.distributionType,
+    benefits: benefits.map(
+      (benefit): RewardBenefit => ({
+        ...(benefit.id ? { id: benefit.id } : {}),
+        ...(benefit.name ? { name: benefit.name } : {}),
+        ...(benefit.imageAssetURL ? { imageUrl: benefit.imageAssetURL } : {}),
+        ...(benefit.distributionType ? { distributionType: benefit.distributionType } : {}),
+      }),
+    ),
     requiredMinutes,
     requiredSubs: reward.requiredSubs,
     requirement,

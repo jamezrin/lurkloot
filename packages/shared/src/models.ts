@@ -61,12 +61,28 @@ export type RateNudgeStatus = "pending" | "rated" | "dismissed";
 // stars or dismisses it, after which it never shows again.
 export type GithubStarNudgeStatus = "pending" | "starred" | "dismissed";
 
+export type RewardBenefitType = "UNKNOWN" | "BADGE" | "EMOTE" | "DIRECT_ENTITLEMENT" | string;
+
+export interface RewardBenefit {
+  id?: string;
+  name?: string;
+  imageUrl?: string;
+  // Absent when the platform did not say: such a benefit stays unclassified.
+  distributionType?: RewardBenefitType;
+}
+
 export interface DropReward {
   id: string;
   name: string;
   imageUrl?: string;
   benefitIds?: string[];
-  benefitType?: "UNKNOWN" | "BADGE" | "EMOTE" | "DIRECT_ENTITLEMENT" | string;
+  // The first benefit's distribution type. Kept for campaigns stored before
+  // `benefits` existed; read badges through isBadgeReward, never directly.
+  benefitType?: RewardBenefitType;
+  // Every benefit the reward grants, in the platform's order, with the type the
+  // platform reported. Absent on campaigns stored before it existed and on
+  // platforms that report no benefit types (Kick).
+  benefits?: RewardBenefit[];
   requiredMinutes: number;
   requiredSubs?: number;
   isWatchBased?: boolean;
@@ -313,6 +329,13 @@ export interface ManualWatchState {
 // not a mode, so a strategy is always in effect.
 export type PriorityMode = "ending_soonest" | "lowest_availability";
 
+// Kinds of reward the engine farms, picked from the Queue's tabs (#731). Each
+// judges one reward: whether it asks for a subscription (marked or not), or
+// grants a badge. Several combine as any-of; none selected farms everything.
+// A campaign is farmed toward its matching rewards and the rewards they wait
+// on, so it is done once those are earned, whatever else it offers.
+export type RewardFarmType = "no_subscription" | "subscription" | "badge";
+
 // Visibility categories for the Drops list. A campaign in one of these states is
 // only shown when its toggle is on; campaigns in none of them are always shown.
 // Filter keys that gate farming: the engine's isEligible consults exactly these.
@@ -354,7 +377,13 @@ export type SupportedLocale =
   | "hi"
   | "pt_BR"
   | "ar"
-  | "tr";
+  | "tr"
+  | "ja"
+  | "id"
+  | "pl"
+  | "ko"
+  | "uk"
+  | "cs";
 
 export type LanguageOverride = "browser" | SupportedLocale;
 
@@ -398,6 +427,10 @@ export interface PlatformSettings {
   idleWatchlistChannels: string[];
   excludedChannels?: string[];
   categoryMode: CategoryMode;
+  // Eligibility, like categoryMode: a campaign with no reward of these types
+  // stays listed, skipped with the reason. Empty farms every reward. Per
+  // platform, as each platform has its own Queue.
+  farmRewardTypes: RewardFarmType[];
   categories: CategorySelection[];
   // Ordered. Campaigns of these categories rank above the live strategy, below
   // pinned campaigns. Purely a ranking mark: it never makes a campaign farmable
@@ -627,6 +660,10 @@ export interface SchedulerState {
   // Persisted because adapters are rebuilt every tick, so an in-memory throttle
   // would never survive to the next one.
   gamification?: Partial<Record<Platform, { lastCheckedAt: string }>>;
+  // The signed-in account's own progress on its platform, polled on its own
+  // stamp (independent of challenge claiming) and shown beside the platform's
+  // switch. `progress` is the last good read: a failed poll only moves the stamp.
+  accountProgress?: Partial<Record<Platform, AccountProgressPoll>>;
   campaignSearchBackoffs?: Partial<Record<Platform, CampaignSearchBackoff>>;
   campaigns: Record<Platform, DropCampaign[]>;
   deadlineInfeasibleRewardIds?: Partial<Record<Platform, string[]>>;
@@ -634,6 +671,31 @@ export interface SchedulerState {
   // ISO timestamp recorded once by the background on install; drives the
   // time-based rate/review nudge. Undefined means "unknown" (pre-feature state).
   installedAt?: string;
+}
+
+// Account progress is whatever a platform itself tracks for the viewer, so each
+// platform gets its own member with its own semantics; nothing outside that
+// platform's adapter and its popup view reads the fields. Kick: the global
+// viewer level earned by watch time, and the daily watch streak.
+export interface KickAccountProgress {
+  platform: "kick";
+  level: number;
+  // XP earned inside the current level, and still needed to reach the next.
+  progressXp: number;
+  xpToNextLevel: number;
+  // Undefined when the streak could not be read; the level still stands.
+  streakDays?: number;
+}
+
+export type PlatformAccountProgress = KickAccountProgress;
+
+export interface AccountProgressPoll {
+  // Stamped on every attempt, so a failing endpoint is retried on the next
+  // interval rather than on every tick.
+  lastCheckedAt: string;
+  progress?: PlatformAccountProgress;
+  // When `progress` was read.
+  fetchedAt?: string;
 }
 
 export interface CampaignSearchBackoff {

@@ -1,0 +1,2015 @@
+{
+  "extensionName": {
+    "message": "Lurkloot"
+  },
+  "extensionStoreName": {
+    "message": "Lurkloot — фармер дропів Twitch і Kick"
+  },
+  "extensionDescription": {
+    "message": "Фарміть дропи Twitch і Kick через звичайні сесії браузера, видимі вкладки без звуку та необов’язковий режим низького споживання ресурсів."
+  },
+  "promoTagline": {
+    "message": "Фарміть дропи Twitch і Kick на автопілоті."
+  },
+  "languageBrowser": {
+    "message": "Використовувати мову браузера"
+  },
+  "languageEnglish": {
+    "message": "англійська"
+  },
+  "languageSpanish": {
+    "message": "іспанська"
+  },
+  "languageFrench": {
+    "message": "французька"
+  },
+  "languageItalian": {
+    "message": "італійська"
+  },
+  "languageRussian": {
+    "message": "російська"
+  },
+  "languageGerman": {
+    "message": "німецька"
+  },
+  "languageChinese": {
+    "message": "китайська"
+  },
+  "languageHindi": {
+    "message": "гінді"
+  },
+  "languagePortuguese": {
+    "message": "португальська"
+  },
+  "languageArabic": {
+    "message": "арабська"
+  },
+  "languageTurkish": {
+    "message": "турецька"
+  },
+  "languageJapanese": {
+    "message": "японська"
+  },
+  "languageIndonesian": {
+    "message": "індонезійська"
+  },
+  "languagePolish": {
+    "message": "польська"
+  },
+  "languageKorean": {
+    "message": "корейська"
+  },
+  "languageUkrainian": {
+    "message": "Українська"
+  },
+  "languageCzech": {
+    "message": "чеська"
+  },
+  "settingsLanguageTitle": {
+    "message": "Мова"
+  },
+  "settingsLanguageDescription": {
+    "message": "Оберіть мову спливаючого вікна та сповіщень розширення."
+  },
+  "navWorkspace": {
+    "message": "Робочий простір"
+  },
+  "navPlatform": {
+    "message": "Платформа"
+  },
+  "navGroupDrops": {
+    "message": "Drops"
+  },
+  "navQueue": {
+    "message": "Черга"
+  },
+  "navCompleted": {
+    "message": "Завершені"
+  },
+  "navGames": {
+    "message": "Ігри"
+  },
+  "navIdleWatchlist": {
+    "message": "Idle Watchlist"
+  },
+  "navActivity": {
+    "message": "Активність"
+  },
+  "navSettings": {
+    "message": "Налаштування"
+  },
+  "queueGroupPinned": {
+    "message": "Закріплені"
+  },
+  "queueGroupPinnedHint": {
+    "message": "перетягніть, щоб змінити порядок, або введіть номер"
+  },
+  "queueGroupFavourite": {
+    "message": "Улюблені ігри"
+  },
+  "queueGroupStrategy": {
+    "message": "Потім за"
+  },
+  "queueNotInQueue": {
+    "message": "Не в черзі"
+  },
+  "queueSkipped": {
+    "message": "Пропущені"
+  },
+  "queueActionRequired": {
+    "message": "Потрібна дія"
+  },
+  "queueActionRequiredHint": {
+    "message": "Потрібна підписка або інший крок поза Lurkloot. Закріплення та обране лише змінюють порядок."
+  },
+  "queueUpcoming": {
+    "message": "Незабаром"
+  },
+  "queueStrategyLabel": {
+    "message": "Потім за"
+  },
+  "queueFarmPinnedOnly": {
+    "message": "Фармити лише закріплені"
+  },
+  "queueUnpinAll": {
+    "message": "Відкріпити всі ($1)"
+  },
+  "queueUnpin": {
+    "message": "Відкріпити"
+  },
+  "queueFacetLabel": {
+    "message": "Тип кампанії"
+  },
+  "queueFacetAll": {
+    "message": "Усі"
+  },
+  "queueFacetNoSubscription": {
+    "message": "Без підписки"
+  },
+  "queueFacetSubscription": {
+    "message": "Потрібна підписка"
+  },
+  "queueFacetBadge": {
+    "message": "Значки"
+  },
+  "queueFixInclude": {
+    "message": "Включити"
+  },
+  "queueFixPin": {
+    "message": "Закріпити"
+  },
+  "queueFixFarmAll": {
+    "message": "Фармити всі"
+  },
+  "queueFixGames": {
+    "message": "Відкрити «Ігри»"
+  },
+  "queueFixSettings": {
+    "message": "Відкрити налаштування"
+  },
+  "queueEmpty": {
+    "message": "Зараз тут нічого фармити."
+  },
+  "queueEmptyRewardTypes": {
+    "message": "Зараз немає жодного вибраного типу, який можна фармити."
+  },
+  "completedTabFinished": {
+    "message": "Завершені"
+  },
+  "completedTabExpired": {
+    "message": "Минулі"
+  },
+  "completedEmptyFinished": {
+    "message": "Кампанії потрапляють сюди, коли всі нагороди отримано."
+  },
+  "completedEmptyExpired": {
+    "message": "Кампанії потрапляють сюди, якщо завершилися незавершеними."
+  },
+  "settingsTitle": {
+    "message": "Налаштування"
+  },
+  "settingsSearchPlaceholder": {
+    "message": "Шукати в налаштуваннях…"
+  },
+  "settingsSearchNoResults": {
+    "message": "Немає налаштувань за запитом «$1»."
+  },
+  "settingsPlatformSettings": {
+    "message": "Налаштування $1"
+  },
+  "settingsShowAdvancedTitle": {
+    "message": "Показати додаткові налаштування"
+  },
+  "settingsSectionJumpNavLabel": {
+    "message": "Перейти до розділу"
+  },
+  "settingsSectionAdvancedActions": {
+    "message": "Додаткові дії"
+  },
+  "settingsSectionAdvancedActionsDescription": {
+    "message": "Імпортуйте, експортуйте або скиньте налаштування Lurkloot."
+  },
+  "activityTitle": {
+    "message": "Активність"
+  },
+  "activeStatus": {
+    "message": "Активно"
+  },
+  "pausedStatus": {
+    "message": "На паузі"
+  },
+  "refreshSchedule": {
+    "message": "Оновити розклад"
+  },
+  "openInventory": {
+    "message": "Відкрити інвентар"
+  },
+  "openActivity": {
+    "message": "Відкрити активність"
+  },
+  "closeActivity": {
+    "message": "Закрити активність"
+  },
+  "openSettings": {
+    "message": "Відкрити налаштування"
+  },
+  "closeSettings": {
+    "message": "Закрити налаштування"
+  },
+  "back": {
+    "message": "Назад"
+  },
+  "loading": {
+    "message": "Завантаження"
+  },
+  "dropsTab": {
+    "message": "Drops"
+  },
+  "idleWatchlistTab": {
+    "message": "Резервний список"
+  },
+  "automationTitle": {
+    "message": "Автоматизація $1"
+  },
+  "automationRunning": {
+    "message": "Працює"
+  },
+  "automationStarting": {
+    "message": "Запуск"
+  },
+  "automationStopping": {
+    "message": "Зупинка"
+  },
+  "startingAutomation": {
+    "message": "Запуск автоматизації…"
+  },
+  "pausingAutomation": {
+    "message": "Пауза автоматизації…"
+  },
+  "watchingLabel": {
+    "message": "Перегляд"
+  },
+  "farmingLabel": {
+    "message": "Фарм"
+  },
+  "waitingEligibleStream": {
+    "message": "Для цієї кампанії зараз немає відповідного активного стриму"
+  },
+  "watchingPausedHint": {
+    "message": "Перегляд призупинено. Увімкніть перемикач, щоб продовжити фарм дропів."
+  },
+  "hideTipsTitle": {
+    "message": "Приховати поради"
+  },
+  "hideTipsDescription": {
+    "message": "Прибирає корисні поради з головного спливаючого вікна."
+  },
+  "inPagePanelTitle": {
+    "message": "Показувати панель на Twitch і Kick"
+  },
+  "inPagePanelDescription": {
+    "message": "Додає кнопку Lurkloot на twitch.tv і kick.com, яка відкриває це спливаюче вікно панеллю на сторінці."
+  },
+  "tipCampaignPriority": {
+    "message": "Перетягніть кампанію, щоб закріпити її першою, або позначте гру зіркою, щоб її кампанії завжди були вище. Решта йде за порядком у черзі."
+  },
+  "tipMissingCampaigns": {
+    "message": "Не бачите кампанію? Перевірте інвентар Drops на платформі, потім фільтри кампаній у налаштуваннях."
+  },
+  "tipCategorySelection": {
+    "message": "Вкладка «Ігри» визначає, які ігри фармляться, які йдуть першими та які ніколи не фармляться."
+  },
+  "tipIdleWatchlist": {
+    "message": "Оберіть, коли дивитися канали Idle Watchlist, змінивши пріоритет джерел перегляду в налаштуваннях платформи."
+  },
+  "tipTablessMode": {
+    "message": "Режим без вкладок споживає менше ресурсів і за потреби перемикається на вкладку без звуку."
+  },
+  "tipCli": {
+    "message": "Хочете без розширення? Lurkloot також доступний як CLI на Docker."
+  },
+  "tipCliAction": {
+    "message": "Читати посібник CLI"
+  },
+  "tipFeedback": {
+    "message": "Знайшли помилку чи маєте ідею?"
+  },
+  "tipFeedbackAction": {
+    "message": "Відкрити issue на GitHub"
+  },
+  "tipExcludedCampaigns": {
+    "message": "Випадково виключили кампанію? Вона в «Пропущених» у черзі — там є кнопка повернути."
+  },
+  "tipTranslations": {
+    "message": "Переклади підтримуються автоматично за допомогою ШІ. Допоможіть покращити їх на GitHub."
+  },
+  "tipTranslationsAction": {
+    "message": "Читати посібник з перекладу"
+  },
+  "noCampaigns": {
+    "message": "Кампаній поки не знайдено."
+  },
+  "campaignSearchPlaceholder": {
+    "message": "Шукати кампанії…"
+  },
+  "campaignSearchNoResults": {
+    "message": "Немає кампаній за запитом «$1»."
+  },
+  "closeSearch": {
+    "message": "Закрити пошук"
+  },
+  "search": {
+    "message": "Пошук"
+  },
+  "noActivity": {
+    "message": "Активність ще не записана. Натисніть оновити, щоб виконати перевірку."
+  },
+  "noDiagnostics": {
+    "message": "Діагностику ще не записано. Вона з’являється під час роботи розширення."
+  },
+  "searchDiagnostics": {
+    "message": "Шукати в діагностиці"
+  },
+  "noDiagnosticsMatch": {
+    "message": "Немає діагностичних записів за запитом \"$1\"."
+  },
+  "platformActivity": {
+    "message": "Активність $1"
+  },
+  "platformDiagnostics": {
+    "message": "Діагностика $1"
+  },
+  "lastCheck": {
+    "message": "остання перевірка $1"
+  },
+  "noChecksYet": {
+    "message": "перевірок ще немає"
+  },
+  "debug": {
+    "message": "Налагодження"
+  },
+  "info": {
+    "message": "Інфо"
+  },
+  "warn": {
+    "message": "Попередження"
+  },
+  "error": {
+    "message": "Помилка"
+  },
+  "notLinked": {
+    "message": "Не прив’язано"
+  },
+  "subscriptionCampaigns": {
+    "message": "Кампанії за підпискою"
+  },
+  "subscriptionRequired": {
+    "message": "Потрібна підписка"
+  },
+  "subscriptionRewards": {
+    "message": "Нагороди за підписку"
+  },
+  "qualifyingSubscriptionsRequired": {
+    "message": "Потрібно підписок, що підходять: $1"
+  },
+  "subscriptionProgressUnknown": {
+    "message": "Прогрес недоступний"
+  },
+  "rewardBadge": {
+    "message": "Значок"
+  },
+  "rewardBadgeNamed": {
+    "message": "Значок: $1"
+  },
+  "rewardAlsoWatch": {
+    "message": "Ще $1 перегляду"
+  },
+  "rewardClaimable": {
+    "message": "Готово до отримання"
+  },
+  "notEarnableByWatching": {
+    "message": "Не можна отримати переглядом"
+  },
+  "subscribedRefresh": {
+    "message": "Я підписався — оновити статус"
+  },
+  "subscriptionMarkSubscribed": {
+    "message": "Позначити як підписаного"
+  },
+  "subscriptionMarkedSubscribed": {
+    "message": "Позначено як підписаного"
+  },
+  "subscriptionMarkUndo": {
+    "message": "Скасувати"
+  },
+  "waitingForSubscription": {
+    "message": "Очікування підходящої підписки"
+  },
+  "actionRequired": {
+    "message": "Потрібна дія"
+  },
+  "earned": {
+    "message": "Отримано"
+  },
+  "linkAccount": {
+    "message": "Прив’язати обліковий запис"
+  },
+  "externalGameAccountRequired": {
+    "message": "Потрібен зовнішній ігровий обліковий запис"
+  },
+  "linkExternalGameAccount": {
+    "message": "Прив’язати зовнішній ігровий обліковий запис"
+  },
+  "viewDropPage": {
+    "message": "Відкрити сторінку дропа"
+  },
+  "campaignDropDetails": {
+    "message": "Деталі дропа"
+  },
+  "campaignCategoryDrops": {
+    "message": "Drops категорії"
+  },
+  "upcoming": {
+    "message": "Майбутні"
+  },
+  "expired": {
+    "message": "Минулі"
+  },
+  "excluded": {
+    "message": "Виключені"
+  },
+  "finished": {
+    "message": "Завершені"
+  },
+  "completedCampaigns": {
+    "message": "Завершені"
+  },
+  "upcomingPill": {
+    "message": "Незабаром"
+  },
+  "expiredPill": {
+    "message": "Минула"
+  },
+  "complete": {
+    "message": "Завершено"
+  },
+  "startsIn": {
+    "message": "Почнеться через $1"
+  },
+  "endsIn": {
+    "message": "Закіниться через $1"
+  },
+  "watchToGo": {
+    "message": "ще $1 перегляду"
+  },
+  "left": {
+    "message": "Залишилося"
+  },
+  "campaignFactWatchTime": {
+    "message": "Час перегляду"
+  },
+  "watchTimeLeftValue": {
+    "message": "Залишилося $1"
+  },
+  "watchTimeNeeded": {
+    "message": "Потрібно $1"
+  },
+  "watchTimeOfTotal": {
+    "message": "з $1 загалом"
+  },
+  "done": {
+    "message": "Готово"
+  },
+  "rewards": {
+    "message": "Нагороди"
+  },
+  "allChannels": {
+    "message": "Усі канали"
+  },
+  "includeInFarming": {
+    "message": "Включити у фарм"
+  },
+  "excludeFromFarming": {
+    "message": "Виключити з фарму"
+  },
+  "noIdleWatchlist": {
+    "message": "Канали Idle Watchlist не налаштовані."
+  },
+  "channelPlaceholder": {
+    "message": "канал"
+  },
+  "add": {
+    "message": "Додати"
+  },
+  "addChannel": {
+    "message": "Додати канал"
+  },
+  "idleWatchlistChannel": {
+    "message": "Офлайн"
+  },
+  "live": {
+    "message": "наживо"
+  },
+  "viewerCount": {
+    "message": "$1 глядачів"
+  },
+  "settingsGeneralTitle": {
+    "message": "Загальні налаштування"
+  },
+  "settingsGeneralDescription": {
+    "message": "Мова, запуск і поведінка спливаючого вікна."
+  },
+  "settingsGroupAppearance": {
+    "message": "Зовнішній вигляд і поведінка"
+  },
+  "pauseManualTitle": {
+    "message": "Пауза під час ручного перегляду"
+  },
+  "pauseManualDescription": {
+    "message": "Зупиняє фарм, поки у вас відкритий стрим і ви дивитеся його самі."
+  },
+  "autoStartTitle": {
+    "message": "Автозапуск під час запуску"
+  },
+  "autoStartDescription": {
+    "message": "Починає фарм одразу після завантаження розширення."
+  },
+  "notificationsTitle": {
+    "message": "Сповіщення"
+  },
+  "notificationsDescription": {
+    "message": "Сповіщення, коли нагороди готові або кампанії завершуються."
+  },
+  "settingsGroupNotifications": {
+    "message": "Сповіщення"
+  },
+  "rewardEarnedTitle": {
+    "message": "Нагороду отримано"
+  },
+  "rewardEarnedDescription": {
+    "message": "Сповіщати, коли нагороду drop можна забрати."
+  },
+  "noDropsLeftTitle": {
+    "message": "Drops закінчилися"
+  },
+  "noDropsLeftDescription": {
+    "message": "Сповіщати, коли всі активні кампанії вичерпані."
+  },
+  "dropsSettingsTitle": {
+    "message": "Drops"
+  },
+  "dropsSettingsDescription": {
+    "message": "Отримання, доступність, пріоритети та видимість кампаній."
+  },
+  "settingsGroupDrops": {
+    "message": "Drops"
+  },
+  "autoClaimTitle": {
+    "message": "Автозабір drops"
+  },
+  "autoClaimDescription": {
+    "message": "Автоматично забирає зароблені нагороди drops, коли вони стають доступними."
+  },
+  "campaignPriorityTitle": {
+    "message": "Пріоритет кампаній"
+  },
+  "campaignPriorityDescription": {
+    "message": "Впорядковує кампанії в черзі, які не закріплені й не для улюбленої гри. Також можна змінити на роздільнику «Потім за» в черзі."
+  },
+  "endingSoonest": {
+    "message": "Спочатку ті, що скоро закінчуються"
+  },
+  "lowAvailabilityFirst": {
+    "message": "Спочатку низька доступність"
+  },
+  "idleWatchlistSettingsTitle": {
+    "message": "Резервний список"
+  },
+  "idleWatchlistSettingsDescription": {
+    "message": "Резервні канали, коли немає доступних дропів."
+  },
+  "preferKnownChannelsTitle": {
+    "message": "Надавати перевагу підписаним каналам і Idle Watchlist"
+  },
+  "preferKnownChannelsDescription": {
+    "message": "Коли дроп доступний на кількох каналах, обирає той, на який ви підписані або який у Idle Watchlist, а не незнайомий."
+  },
+  "platformSettingsTitle": {
+    "message": "Налаштування платформи"
+  },
+  "farmingTabsTitle": {
+    "message": "Вкладки фарму"
+  },
+  "farmingTabsDescription": {
+    "message": "Керування фармом через відеовкладки. Налаштування вкладок вимкнено, поки увімкнено режим без вкладок із низьким споживанням."
+  },
+  "settingsGroupFarmingTabs": {
+    "message": "Вкладки фарму"
+  },
+  "tablessTitle": {
+    "message": "Режим без вкладок із низьким споживанням"
+  },
+  "tablessDescription": {
+    "message": "Фармить легкими сигналами перегляду замість відеовкладки. Twitch використовує heartbeats перегляду; Kick — з’єднання глядача. Автоматично перемикається на вкладку, якщо перестає нараховувати прогрес."
+  },
+  "tablessFallbackFailureLimitTitle": {
+    "message": "Поріг резервного переходу з режиму без вкладок"
+  },
+  "tablessFallbackFailureLimitDescription": {
+    "message": "Відкриває відеовкладку після стількох поспіль невдалих сигналів перегляду без вкладок."
+  },
+  "tablessFallbackFailureLimitDisabledReason": {
+    "message": "Увімкніть режим без вкладок із низьким споживанням, щоб змінити це налаштування."
+  },
+  "failuresSuffix": {
+    "message": "збоїв"
+  },
+  "kickPageContextRecoverySuccessesTitle": {
+    "message": "Відновлення резервної сторінки Kick"
+  },
+  "kickPageContextRecoverySuccessesDescription": {
+    "message": "Закривати резервну сторінку Kick, відкриту розширенням, після стількох успішних циклів оновлення."
+  },
+  "kickPageContextRecoverySuccessesDisabledReason": {
+    "message": "Увімкніть Kick, щоб змінити це налаштування."
+  },
+  "cyclesSuffix": {
+    "message": "циклів"
+  },
+  "autoCloseTabsTitle": {
+    "message": "Автозакриття вкладок фарму"
+  },
+  "autoCloseTabsDescription": {
+    "message": "Автоматично закриває вкладки, коли розширення простоює (немає дропів для фарму або стримерів для перегляду)."
+  },
+  "muteTabsTitle": {
+    "message": "Вимкнути звук вкладок фарму"
+  },
+  "muteTabsDescription": {
+    "message": "Тримає вкладки drops і Idle Watchlist без звуку під час фарму."
+  },
+  "keepVideosUnmutedTitle": {
+    "message": "Не вимикати звук відео фарму"
+  },
+  "keepVideosUnmutedDescription": {
+    "message": "Залишає відеоплеєри зі звуком, поки вкладку браузера вимкнено."
+  },
+  "tablessDisabledReason": {
+    "message": "Вимкнено, поки увімкнено режим без вкладок із низьким споживанням."
+  },
+  "adFocusTitle": {
+    "message": "Фокусувати вкладку під час реклами"
+  },
+  "adFocusDescription": {
+    "message": "Таймери реклами завмирають у фонових вкладках. Коротко фокусує вкладку фарму під час реклами, щоб відлік ішов, потім повертає попередню вкладку."
+  },
+  "off": {
+    "message": "Вимк."
+  },
+  "tabOnly": {
+    "message": "Лише вкладка"
+  },
+  "tabAndWindow": {
+    "message": "Вкладка + вікно"
+  },
+  "advancedTitle": {
+    "message": "Додатково"
+  },
+  "advancedDescription": {
+    "message": "Змінюйте лише якщо розумієте наслідки — це низькорівневі налаштування планувальника та журналу."
+  },
+  "settingsGroupAdvanced": {
+    "message": "Додатково"
+  },
+  "settingsGroupPlatformAdvanced": {
+    "message": "Додатково та сумісність"
+  },
+  "twitchSectionDescription": {
+    "message": "Пріоритет джерел перегляду, бали каналу, категорії, виключені канали та сумісність Twitch."
+  },
+  "kickSectionDescription": {
+    "message": "Пріоритет джерел перегляду, щоденні виклики, категорії, виключені канали та сумісність Kick."
+  },
+  "twitchAdvancedDescription": {
+    "message": "Доступність кампаній і транспорти heartbeat та інвентаря, які використовує Lurkloot. Змінюйте лише коли Twitch перестає працювати."
+  },
+  "kickAdvancedDescription": {
+    "message": "Як Lurkloot відкриває посилання отримання нагород Kick і профіль поведінки за ним. Змінюйте лише коли Kick перестає працювати."
+  },
+  "schedulerIntervalTitle": {
+    "message": "Інтервал планувальника"
+  },
+  "schedulerIntervalDescription": {
+    "message": "Як часто оновлюється статус кампаній і стримерів."
+  },
+  "postClaimHandoffTitle": {
+    "message": "Швидка передача нагороди"
+  },
+  "postClaimHandoffDescription": {
+    "message": "Після отримання drop коротко перевіряє наступну нагороду кампанії замість очікування наступного циклу. Лише Twitch."
+  },
+  "postClaimHandoffIntervalTitle": {
+    "message": "Інтервал перевірки передачі"
+  },
+  "postClaimHandoffIntervalDescription": {
+    "message": "Скільки чекати між перевірками наступної нагороди."
+  },
+  "postClaimHandoffMaxTitle": {
+    "message": "Ліміт часу передачі"
+  },
+  "postClaimHandoffMaxDescription": {
+    "message": "Припинити й повернутися до звичайного розкладу після цього часу."
+  },
+  "secondsSuffix": {
+    "message": "с"
+  },
+  "deadlineSafetyMarginTitle": {
+    "message": "Запас до дедлайну"
+  },
+  "deadlineSafetyMarginDescription": {
+    "message": "Додаткові хвилини, потрібні перед фармом нагороди."
+  },
+  "deadlineSafetyMarginDisabledReason": {
+    "message": "Увімкніть фільтр дедлайнів, щоб змінити запас."
+  },
+  "skipUnfinishableRewardsTitle": {
+    "message": "Пропускати нагороди, які не можна завершити"
+  },
+  "skipUnfinishableRewardsDescription": {
+    "message": "Не фармити нагороди, якщо залишений час перегляду перевищує час до дедлайну."
+  },
+  "minutesSuffix": {
+    "message": "хв"
+  },
+  "insufficientTimeRemaining": {
+    "message": "Недостатньо часу"
+  },
+  "campaignRejectionExcluded": {
+    "message": "Цю кампанію виключено з фарму."
+  },
+  "campaignRejectionUpcoming": {
+    "message": "Ця кампанія ще не розпочалася."
+  },
+  "campaignRejectionExpired": {
+    "message": "Ця кампанія завершилася."
+  },
+  "campaignRejectionCompleted": {
+    "message": "Усі нагороди цієї кампанії отримано."
+  },
+  "campaignRejectionUnlinkedDisabled": {
+    "message": "Фарм кампаній без прив’язаного облікового запису вимкнено."
+  },
+  "campaignRejectionTwitchLinkRequired": {
+    "message": "Для цієї кампанії Twitch потрібне прив’язування облікового запису."
+  },
+  "campaignRejectionSubscriptionDisabled": {
+    "message": "Фарм кампаній за підпискою вимкнено."
+  },
+  "campaignRejectionCategoryFiltered": {
+    "message": "Ця кампанія не відповідає обраним категоріям."
+  },
+  "campaignRejectionCategoryBlocked": {
+    "message": "Цю гру заблоковано, тому її кампанії ніколи не фармляться."
+  },
+  "campaignRejectionNotPinned": {
+    "message": "Зараз фармляться лише закріплені кампанії."
+  },
+  "campaignRejectionRewardType": {
+    "message": "Жодна з її нагород не належить до типів, які ви фармите."
+  },
+  "campaignRejectionRewardTypesObtained": {
+    "message": "Нагороди її типів, які ви фармите, уже отримано."
+  },
+  "campaignRejectionNoRewards": {
+    "message": "У цій кампанії немає нагород, які можна фармити."
+  },
+  "campaignRejectionNoUnclaimedRewards": {
+    "message": "У цій кампанії немає неотриманих нагород."
+  },
+  "campaignRejectionPrerequisites": {
+    "message": "$1 очікує попередню нагороду або вимогу."
+  },
+  "campaignRejectionRewardNotStarted": {
+    "message": "$1 ще недоступна."
+  },
+  "campaignRejectionRewardWindowEnded": {
+    "message": "$1 більше недоступна."
+  },
+  "campaignRejectionInsufficientTime": {
+    "message": "$1 не встигнути до дедлайну."
+  },
+  "campaignRejectionSubscriptionRequired": {
+    "message": "$1 потребує підходящої підписки."
+  },
+  "campaignRejectionActionRequired": {
+    "message": "$1 потребує дії, окрім перегляду."
+  },
+  "campaignRejectionThen": {
+    "message": "Після цього: $1"
+  },
+  "campaignRejectionNoFarmableReward": {
+    "message": "Зараз жодну нагороду цієї кампанії не можна фармити."
+  },
+  "automationSectionTitle": {
+    "message": "Автоматизація"
+  },
+  "farmOnPlatform": {
+    "message": "Фармить дропи та дивиться канали Idle Watchlist на $1."
+  },
+  "enabled": {
+    "message": "Увімкнено"
+  },
+  "idleWatchlistEditHint": {
+    "message": "Редагуйте їх на вкладці Idle Watchlist після вибору $1."
+  },
+  "autoClaimChannelPointsTitle": {
+    "message": "Автозабір балів каналу"
+  },
+  "autoClaimChannelPointsDescription": {
+    "message": "Автоматично забирає бонуси балів каналу під час фарму на цій платформі."
+  },
+  "channelPointsPushClaimTitle": {
+    "message": "Забирати бали каналу з live-подій"
+  },
+  "channelPointsPushClaimDescription": {
+    "message": "Забирає бонус, щойно Twitch робить його доступним. Вимкніть, щоб перевіряти лише раз на хвилину."
+  },
+  "alwaysEnterChatTitle": {
+    "message": "Завжди входити в чат каналу"
+  },
+  "alwaysEnterChatDescription": {
+    "message": "Приєднується до чату кожного каналу, який переглядається. Стримери й модератори бачать вас у списку глядачів чату. Повідомлення ніколи не надсилаються."
+  },
+  "chatPresenceJoined": {
+    "message": "У чаті"
+  },
+  "chatPresenceJoining": {
+    "message": "Вхід у чат…"
+  },
+  "chatPresenceUnavailable": {
+    "message": "Чат недоступний"
+  },
+  "chatPresenceBlockedAuth": {
+    "message": "Чат недоступний: увійдіть у Twitch знову"
+  },
+  "strictCampaignAvailabilityTitle": {
+    "message": "Сувора доступність кампаній"
+  },
+  "strictCampaignAvailabilityDescription": {
+    "message": "Фармити кампанію лише на каналах, для яких її показує Twitch. Twitch часто не вказує кампанії, які можна фармити, тож частина дропів може лишитися незібраною."
+  },
+  "autoClaimChallengesTitle": {
+    "message": "Автозабір щоденних викликів"
+  },
+  "autoClaimChallengesDescription": {
+    "message": "Забирає нагороду щоденного виклику Kick, коли виконано ціль часу перегляду."
+  },
+  "settingsGroupExcludedChannels": {
+    "message": "Виключені канали"
+  },
+  "excludedChannelsTitle": {
+    "message": "Виключені канали drops"
+  },
+  "excludedChannelsDescription": {
+    "message": "Фарм кампаній пропустить цих стримерів."
+  },
+  "excludedChannelsEmpty": {
+    "message": "Немає виключених каналів drops."
+  },
+  "settingsGroupCategories": {
+    "message": "Категорії"
+  },
+  "categoryModeTitle": {
+    "message": "Фільтр категорій"
+  },
+  "categoryModeDescription": {
+    "message": "Фармити всі категорії $1, лише обрані або виключати їх."
+  },
+  "categoryModeAll": {
+    "message": "Усі категорії"
+  },
+  "categoryModeInclude": {
+    "message": "Лише обрані"
+  },
+  "includeCategoriesInstruction": {
+    "message": "На $1 фармляться лише ці категорії."
+  },
+  "categoriesToFarm": {
+    "message": "Категорії для фарму"
+  },
+  "noCategoriesSelected": {
+    "message": "Категорії не обрано — на $1 нічого не фармитиметься. Додайте категорії нижче."
+  },
+  "hasActiveDrops": {
+    "message": "Є активні drops"
+  },
+  "otherCategories": {
+    "message": "Інші категорії"
+  },
+  "searchCategories": {
+    "message": "Шукати категорії $1"
+  },
+  "searching": {
+    "message": "Пошук…"
+  },
+  "noCategoriesFound": {
+    "message": "Категорій не знайдено."
+  },
+  "alreadyAdded": {
+    "message": "Вже додано."
+  },
+  "activityLogLevelsTitle": {
+    "message": "Рівні журналу активності"
+  },
+  "activityLogLevelsDescription": {
+    "message": "Оберіть рівні для журналу активності. Помилки завжди зберігаються."
+  },
+  "farmUnlinkedTitle": {
+    "message": "Фармити кампанії без прив’язаного облікового запису"
+  },
+  "farmUnlinkedDescription": {
+    "message": "Коли вимкнено, кампанії, що потребують прив’язки облікового запису, пропускаються. Вимоги платформи все одно можуть вимагати прив’язку, коли це увімкнено."
+  },
+  "farmSubscriptionTitle": {
+    "message": "Фармити кампанії, що потребують підписки"
+  },
+  "farmSubscriptionDescription": {
+    "message": "Коли вимкнено, кампанії, нагороди яких потребують підписки на канал, пропускаються."
+  },
+  "forgetExcludedTitle": {
+    "message": "Забути виключені кампанії"
+  },
+  "forgetExcludedDescription": {
+    "message": "Очищає всі кампанії, які ви виключили з фарму."
+  },
+  "forget": {
+    "message": "Забути"
+  },
+  "unknownGame": {
+    "message": "Невідома гра"
+  },
+  "noCategory": {
+    "message": "Без категорії"
+  },
+  "dropsCampaign": {
+    "message": "Кампанія drops"
+  },
+  "later": {
+    "message": "пізніше"
+  },
+  "ended": {
+    "message": "Завершено"
+  },
+  "notificationRewardClaimed": {
+    "message": "Нагороду отримано"
+  },
+  "notificationRewardEarned": {
+    "message": "Нагороду зароблено"
+  },
+  "notificationNoDropsLeft": {
+    "message": "Drops закінчилися"
+  },
+  "notificationRewardFromCampaign": {
+    "message": "$1 з $2"
+  },
+  "notificationChallengeClaimed": {
+    "message": "Нагороду за виклик отримано"
+  },
+  "notificationChallengeReward": {
+    "message": "Ви виграли карту $1 у виклику $2."
+  },
+  "notificationNoDropsLeftMessage": {
+    "message": "На $1 немає дропів, які можна фармити."
+  },
+  "screenshotHeroEyebrow": {
+    "message": "Twitch + Kick"
+  },
+  "screenshotHeroHeadline": {
+    "message": "Фарміть дропи, поки займаєтеся іншим."
+  },
+  "screenshotHeroSubcopy": {
+    "message": "Автозабір із вашої вже авторизованої сесії. Без паролів."
+  },
+  "screenshotExtrasEyebrow": {
+    "message": "Поза кампаніями"
+  },
+  "screenshotExtrasHeadline": {
+    "message": "Більше, ніж дропи."
+  },
+  "screenshotExtrasSubcopy": {
+    "message": "Бали каналу, виклики Kick і 2-хвилинні дропи — теж забираються за вас. Idle Watchlist, коли фармити більше нічого."
+  },
+  "screenshotExtrasPointsName": {
+    "message": "Бали каналу"
+  },
+  "screenshotExtrasPointsMeta": {
+    "message": "Twitch · теж забирається за вас"
+  },
+  "screenshotExtrasChallengesName": {
+    "message": "Щоденні виклики"
+  },
+  "screenshotExtrasChallengesMeta": {
+    "message": "Kick · теж забирається за вас"
+  },
+  "screenshotExtrasWatchlistName": {
+    "message": "Idle Watchlist"
+  },
+  "screenshotExtrasWatchlistMeta": {
+    "message": "Дивиться ваших стримерів між кампаніями"
+  },
+  "screenshotExtrasFlashName": {
+    "message": "2-хвилинні дропи"
+  },
+  "screenshotExtrasFlashMeta": {
+    "message": "Kick · забираються одразу"
+  },
+  "screenshotEasyEyebrow": {
+    "message": "Просто в користуванні"
+  },
+  "screenshotEasyHeadline": {
+    "message": "Ось так просто."
+  },
+  "screenshotEasyInstallTitle": {
+    "message": "Встановити"
+  },
+  "screenshotEasyInstallSub": {
+    "message": "Chrome Web Store. Без облікового запису."
+  },
+  "screenshotEasyPinTitle": {
+    "message": "Закріпити"
+  },
+  "screenshotEasyPinSub": {
+    "message": "Спливаюче вікно в один клік."
+  },
+  "screenshotEasyEnableTitle": {
+    "message": "Увімкнути платформу"
+  },
+  "screenshotEasyEnableSub": {
+    "message": "Twitch, Kick або обидві."
+  },
+  "screenshotEasyProfitTitle": {
+    "message": "Профіт"
+  },
+  "screenshotEasyProfitSub": {
+    "message": "Він фармить. Ви займаєтеся іншим."
+  },
+  "screenshotSettingsEyebrow": {
+    "message": "Ваші правила"
+  },
+  "screenshotSettingsHeadline": {
+    "message": "Фарміть так, як вам потрібно."
+  },
+  "screenshotSettingsSubcopy": {
+    "message": "Пріоритети, ігри, режим без вкладок, автозабір — для кожної платформи."
+  },
+  "screenshotUpdatedEyebrow": {
+    "message": "Відкритий код"
+  },
+  "screenshotUpdatedHeadline": {
+    "message": "Багато можливостей. Завжди оновлюється."
+  },
+  "screenshotUpdatedSubcopy": {
+    "message": "Часті релізи, коли змінюються Twitch і Kick — і відкритість до ідей та покращень."
+  },
+  "screenshotUpdatedBrowsersTitle": {
+    "message": "Браузери на базі Chromium"
+  },
+  "screenshotUpdatedBrowsersSub": {
+    "message": "Сторінка Chrome Web Store. Те саме розширення."
+  },
+  "screenshotUpdatedHeadlessTitle": {
+    "message": "CLI"
+  },
+  "screenshotUpdatedHeadlessSub": {
+    "message": "Без інтерфейсу. Той самий рушій."
+  },
+  "screenshotUpdatedDockerTitle": {
+    "message": "Docker"
+  },
+  "screenshotUpdatedDockerSub": {
+    "message": "Той самий рушій. У контейнері."
+  },
+  "screenshotUpdatedLicense": {
+    "message": "Apache-2.0"
+  },
+  "autoClaimReady": {
+    "message": "Автозабір готовий"
+  },
+  "attributionLinks": {
+    "message": "Посилання на авторів"
+  },
+  "githubAttribution": {
+    "message": "Lurkloot на GitHub"
+  },
+  "githubAttributionShort": {
+    "message": "GitHub"
+  },
+  "chromeWebStoreAttribution": {
+    "message": "Lurkloot у Chrome Web Store"
+  },
+  "chromeWebStoreAttributionShort": {
+    "message": "Chrome"
+  },
+  "siteAttribution": {
+    "message": "Сайт Lurkloot"
+  },
+  "siteAttributionShort": {
+    "message": "Сайт"
+  },
+  "updateNoticeTitle": {
+    "message": "Lurkloot оновлено до $1"
+  },
+  "updateNoticeBody": {
+    "message": "Дізнайтеся про нове та зміни."
+  },
+  "updateNoticeAction": {
+    "message": "Переглянути зміни"
+  },
+  "updateNoticeDismiss": {
+    "message": "Закрити сповіщення про оновлення"
+  },
+  "rateNudgeTitle": {
+    "message": "Подобається Lurkloot?"
+  },
+  "rateNudgeBody": {
+    "message": "Короткий відгук у Chrome Web Store дуже допомагає."
+  },
+  "rateNudgeAction": {
+    "message": "Оцінити"
+  },
+  "rateNudgeDismiss": {
+    "message": "Не зараз"
+  },
+  "githubStarNudgeTitle": {
+    "message": "Lurkloot — проєкт із відкритим кодом"
+  },
+  "githubStarNudgeBody": {
+    "message": "Якщо розширення було корисним, зірка на GitHub допоможе іншим його знайти. Вітаємо внески — особливо функції та переклади."
+  },
+  "githubStarNudgeAction": {
+    "message": "Поставити зірку на GitHub"
+  },
+  "removeItem": {
+    "message": "Видалити $1"
+  },
+  "cliExportTitle": {
+    "message": "CLI без браузера"
+  },
+  "cliExportDescription": {
+    "message": "Запускайте фарм дропів на сервері або в Docker через Lurkloot CLI, використовуючи сесію цього браузера."
+  },
+  "cliExportHint": {
+    "message": "Експортує токени сесій Twitch і Kick, щоб «login --import» у CLI міг їх використати. Тримайте файл у секреті — хто має його, може використовувати ваші сесії."
+  },
+  "cliExportConfirm": {
+    "message": "Це завантажить токени сесій Twitch і Kick у файл. Хто має цей файл, може діяти від вашого імені на цих сайтах. Продовжити?"
+  },
+  "cliExportCancel": {
+    "message": "Скасувати"
+  },
+  "cliExportConfirmButton": {
+    "message": "Підтвердити експорт"
+  },
+  "cliExportButton": {
+    "message": "Експортувати облікові дані"
+  },
+  "settingsExportTitle": {
+    "message": "Імпорт / експорт налаштувань"
+  },
+  "settingsExportHint": {
+    "message": "Збережіть налаштування у файл або завантажте в іншому браузері. Ніколи не включає вхід у Twitch або Kick."
+  },
+  "settingsExportButton": {
+    "message": "Експортувати налаштування"
+  },
+  "settingsImportButton": {
+    "message": "Імпортувати налаштування"
+  },
+  "settingsImportConfirm": {
+    "message": "Це замінить поточні налаштування обраними з файлу. Продовжити?"
+  },
+  "settingsImportCancel": {
+    "message": "Скасувати"
+  },
+  "settingsImportConfirmButton": {
+    "message": "Обрати файл і імпортувати"
+  },
+  "settingsImportFailed": {
+    "message": "Цей файл не є коректним експортом налаштувань Lurkloot."
+  },
+  "settingsExportFailed": {
+    "message": "Lurkloot не зміг експортувати налаштування. Спробуйте ще раз."
+  },
+  "factoryResetTitle": {
+    "message": "Скинути Lurkloot"
+  },
+  "factoryResetHint": {
+    "message": "Стирає всі налаштування Lurkloot, прогрес фарму та історію активності. Облікові записи Twitch і Kick залишаються авторизованими."
+  },
+  "factoryResetButton": {
+    "message": "Скинути Lurkloot"
+  },
+  "factoryResetConfirm": {
+    "message": "Це зупинить фарм, закриє вкладки, відкриті Lurkloot, і назавжди видалить усі дані Lurkloot. Вхід у Twitch і Kick збережеться."
+  },
+  "factoryResetCancel": {
+    "message": "Скасувати"
+  },
+  "factoryResetConfirmButton": {
+    "message": "Скинути все"
+  },
+  "factoryResetProgress": {
+    "message": "Скидання…"
+  },
+  "factoryResetFailed": {
+    "message": "Lurkloot не зміг повністю скинутися. Спробуйте ще раз."
+  },
+  "factoryResetRetry": {
+    "message": "Повторити скидання"
+  },
+  "diagnosticLoggingTitle": {
+    "message": "Включати діагностичні журнали"
+  },
+  "diagnosticLoggingDescription": {
+    "message": "Записує додаткові технічні деталі для діагностики проблем. Звичайна активність завжди зберігається."
+  },
+  "activityFarmingStarted": {
+    "message": "Почато фарм $1 з $2."
+  },
+  "activityFarmingStopped": {
+    "message": "Фарм $1 з $2 зупинено: $3."
+  },
+  "activityRewardClaimed": {
+    "message": "Отримано $1 з $2."
+  },
+  "activityChallengeClaimed": {
+    "message": "Отримано карту $1 за виклик $2"
+  },
+  "activityAuthHealthChanged": {
+    "message": "Стан автентифікації $1 змінився з $2 на $3."
+  },
+  "activityCriticalFailureDetected": {
+    "message": "$1 не працює: $2."
+  },
+  "activityCriticalFailureCleared": {
+    "message": "Критичну помилку $1 скинуто; повтор спроби."
+  },
+  "criticalFailureReasonNoProgress": {
+    "message": "немає прогресу попри повторювані помилки"
+  },
+  "criticalFailureReasonPageContextChurn": {
+    "message": "вкладка постійно відкривалася знову"
+  },
+  "criticalFailureTitle": {
+    "message": "Lurkloot перестав працювати"
+  },
+  "criticalFailureBodyNoProgress": {
+    "message": "Повторювані помилки й відсутність прогресу дропів довгий час. Ймовірно, на платформі щось змінилося, і розширення більше не може заробляти дропи."
+  },
+  "criticalFailureBodyTabChurn": {
+    "message": "Вкладка постійно відкривалася знову. Повторне відкриття зупинено, щоб ви могли нормально користуватися браузером; фарм на цій платформі призупинено."
+  },
+  "criticalFailureCopyAndReport": {
+    "message": "Копіювати логи й відкрити issue"
+  },
+  "criticalFailureDismiss": {
+    "message": "Закрити й спробувати знову"
+  },
+  "criticalFailureClipboardFallback": {
+    "message": "Не вдалося скопіювати автоматично. Виділіть і скопіюйте цей текст, потім відкрийте issue."
+  },
+  "activityPageContextOpened": {
+    "message": "Фоновий контекст на $1 відкрито, бо $2."
+  },
+  "activityPageContextClosed": {
+    "message": "Фоновий контекст на $1 закрито, бо $2."
+  },
+  "activityPageContextOpenReasonBackgroundRejected": {
+    "message": "Kick відхилив запит без вкладок"
+  },
+  "activityPageContextReasonManagedContextUnusable": {
+    "message": "попередній фоновий контекст був непридатний"
+  },
+  "activityPageContextCloseReasonBackgroundRecovered": {
+    "message": "запити без вкладок знову працюють"
+  },
+  "activityPageContextCloseReasonUserTabAvailable": {
+    "message": "стала доступною наявна вкладка Kick"
+  },
+  "activityInterruption": {
+    "message": "Фарм перервано: $1."
+  },
+  "activityInterruptionWithDetail": {
+    "message": "Фарм перервано: $1 ($2)."
+  },
+  "activityReasonAutomationDisabled": {
+    "message": "автоматизацію вимкнено"
+  },
+  "activityReasonPlatformDisabled": {
+    "message": "платформу вимкнено"
+  },
+  "activityReasonAuthenticationUnhealthy": {
+    "message": "автентифікація недоступна"
+  },
+  "activityReasonPlatformBackoff": {
+    "message": "платформа тимчасово чекає"
+  },
+  "activityReasonPlatformError": {
+    "message": "сталася помилка платформи"
+  },
+  "activityReasonCampaignIneligible": {
+    "message": "кампанія більше недоступна"
+  },
+  "activityReasonChannelExcluded": {
+    "message": "канал виключено"
+  },
+  "activityReasonChannelOffline": {
+    "message": "канал вийшов з ефіру"
+  },
+  "activityReasonChannelMismatch": {
+    "message": "канал більше не підходить"
+  },
+  "activityReasonWatchUnhealthy": {
+    "message": "перевірка перегляду не пройдена"
+  },
+  "activityReasonNoProgress": {
+    "message": "канал не давав прогресу дропів"
+  },
+  "activityReasonHigherPriorityReward": {
+    "message": "нагорода з вищим пріоритетом взяла верх"
+  },
+  "activityReasonHigherPriorityIdleWatchlist": {
+    "message": "канал Idle Watchlist з вищим пріоритетом став доступним"
+  },
+  "activityReasonWatchRequirementCompleted": {
+    "message": "вимогу перегляду виконано"
+  },
+  "activityReasonRuntimeRestart": {
+    "message": "розширення перезапустилося"
+  },
+  "activityReasonTargetChanged": {
+    "message": "ціль фарму змінилася"
+  },
+  "activityReasonCriticalFailure": {
+    "message": "виявлено критичну помилку"
+  },
+  "activityReasonManualWatch": {
+    "message": "увімкнено ручний перегляд"
+  },
+  "loadMoreActivity": {
+    "message": "Завантажити ще"
+  },
+  "clearActivityHistory": {
+    "message": "Очистити історію"
+  },
+  "confirmClearActivityHistory": {
+    "message": "Підтвердити очищення"
+  },
+  "clearActivityFailed": {
+    "message": "Не вдалося очистити історію. Спробуйте ще раз."
+  },
+  "copyActivityLog": {
+    "message": "Копіювати журнал"
+  },
+  "copyLoadedActivityLog": {
+    "message": "Копіювати завантажене"
+  },
+  "copyActivityLogCopied": {
+    "message": "Скопійовано подій: $1"
+  },
+  "copyActivityLogFailed": {
+    "message": "Не вдалося скопіювати журнал. Спробуйте ще раз."
+  },
+  "exportAllDiagnostics": {
+    "message": "Експортувати все"
+  },
+  "exportAllDiagnosticsDone": {
+    "message": "Експортовано подій: $1"
+  },
+  "exportAllDiagnosticsFailed": {
+    "message": "Не вдалося експортувати журнал. Спробуйте ще раз."
+  },
+  "activityViewTab": {
+    "message": "Активність"
+  },
+  "diagnosticsViewTab": {
+    "message": "Діагностика"
+  },
+  "compatibilityAutomatic": {
+    "message": "Автоматично"
+  },
+  "compatibilityTwitchProfileTitle": {
+    "message": "Профіль сумісності Twitch"
+  },
+  "compatibilityTwitchProfileDescription": {
+    "message": "Оберіть вбудований профіль Twitch або дозвольте Lurkloot обрати його автоматично."
+  },
+  "compatibilityKickProfileTitle": {
+    "message": "Профіль сумісності Kick"
+  },
+  "compatibilityKickProfileDescription": {
+    "message": "Оберіть вбудований профіль Kick або дозвольте Lurkloot обрати його автоматично."
+  },
+  "compatibilitySectionTitle": {
+    "message": "Сумісність"
+  },
+  "compatibilitySectionDescription": {
+    "message": "Змінюйте лише якщо Twitch або Kick не працює — ці налаштування можуть обійти проблеми платформи."
+  },
+  "compatibilityComponentProfile": {
+    "message": "Профіль"
+  },
+  "compatibilityComponentHeartbeat": {
+    "message": "Транспорт heartbeat"
+  },
+  "compatibilityComponentInventory": {
+    "message": "Запит інвентаря"
+  },
+  "compatibilityComponentClaim": {
+    "message": "Обробка отримання"
+  },
+  "compatibilityFromProfile": {
+    "message": "З профілю"
+  },
+  "compatibilityOverridden": {
+    "message": "Перевизначено"
+  },
+  "compatibilityReplacedBy": {
+    "message": "Замінено на $1"
+  },
+  "compatibilityTwitchHeartbeatTitle": {
+    "message": "Транспорт heartbeat Twitch"
+  },
+  "compatibilityTwitchHeartbeatDescription": {
+    "message": "Перевизначити вбудований heartbeat перегляду Twitch."
+  },
+  "compatibilityTwitchInventoryTitle": {
+    "message": "Запит інвентаря Twitch"
+  },
+  "compatibilityTwitchInventoryDescription": {
+    "message": "Перевизначити вбудований запит інвентаря Twitch."
+  },
+  "compatibilityKickClaimTitle": {
+    "message": "Обробка посилань отримання Kick"
+  },
+  "compatibilityKickClaimDescription": {
+    "message": "Перевизначити вбудовану обробку прив’язки облікового запису Kick."
+  },
+  "compatibilityLifecycleRecommended": {
+    "message": "Рекомендовано"
+  },
+  "compatibilityLifecycleLegacy": {
+    "message": "Застаріле"
+  },
+  "compatibilityLifecycleExperimental": {
+    "message": "Експериментальне"
+  },
+  "compatibilityOverrideWarning": {
+    "message": "Увімкнено ручні налаштування сумісності. Вони можуть перестати працювати, коли платформи зміняться."
+  },
+  "compatibilityRestoreAutomatic": {
+    "message": "Відновити автоматичну сумісність"
+  },
+  "compatibilityOptionTwitchProfile202607": {
+    "message": "Twitch липень 2026"
+  },
+  "compatibilityOptionTwitchProfile202610": {
+    "message": "Twitch жовтень 2026"
+  },
+  "compatibilityOptionTwitchHeartbeatGqlV1": {
+    "message": "Heartbeat GraphQL v1"
+  },
+  "compatibilityOptionTwitchHeartbeatSpadeV1": {
+    "message": "Heartbeat Spade v1"
+  },
+  "compatibilityOptionTwitchHeartbeatHlsV1": {
+    "message": "Heartbeat HLS + Spade v1"
+  },
+  "compatibilityOptionTwitchHeartbeatTrowelV1": {
+    "message": "Heartbeat Trowel v1"
+  },
+  "compatibilityOptionTwitchInventoryV1": {
+    "message": "Запит інвентаря v1"
+  },
+  "compatibilityOptionTwitchInventoryV2": {
+    "message": "Запит інвентаря v2"
+  },
+  "compatibilityOptionKickProfile202607": {
+    "message": "Kick липень 2026"
+  },
+  "compatibilityOptionKickClaimV1": {
+    "message": "Обробка отримання v1"
+  },
+  "compatibilityOptionKickClaimV2": {
+    "message": "Обробка отримання v2"
+  },
+  "automationChecking": {
+    "message": "Перевірка"
+  },
+  "automationNeedsSignIn": {
+    "message": "Потрібен вхід"
+  },
+  "automationBlocked": {
+    "message": "Заблоковано"
+  },
+  "automationUnavailable": {
+    "message": "Недоступно"
+  },
+  "authCheckingDetail": {
+    "message": "Перевіряємо вашу авторизовану сесію…"
+  },
+  "authSignInMissing": {
+    "message": "Увійдіть, щоб продовжити фарм дропів."
+  },
+  "authSignInRejected": {
+    "message": "Сеанс більше недійсний. Увійдіть знову, щоб продовжити."
+  },
+  "signInToTwitch": {
+    "message": "Увійти в Twitch"
+  },
+  "signInToKick": {
+    "message": "Увійти в Kick"
+  },
+  "authBrowserProfileBlocked": {
+    "message": "Kick відхилив цей профіль браузера. Одного входу може не вистачити."
+  },
+  "authCredentialCheckUnavailable": {
+    "message": "Не вдалося перевірити сесію браузера. Lurkloot повторить автоматично."
+  },
+  "authNetworkTemporarilyUnavailable": {
+    "message": "Мережа тимчасово недоступна. Lurkloot повторить автоматично."
+  },
+  "authPlatformTemporarilyUnavailable": {
+    "message": "Платформа тимчасово недоступна. Lurkloot повторить автоматично."
+  },
+  "automationPausedTabClosed": {
+    "message": "На паузі — вкладку закрито"
+  },
+  "watchTabClosedPauseDetail": {
+    "message": "Ви закрили вкладку фарму, тому Lurkloot зупинив фарм тут."
+  },
+  "resumeFarming": {
+    "message": "Відновити фарм"
+  },
+  "activityReasonManualTabClose": {
+    "message": "вкладку фарму закрито"
+  },
+  "activityReasonPermissionMissing": {
+    "message": "бракує потрібного дозволу браузера; увімкніть платформу знову, щоб надати його"
+  },
+  "automationPausedManualWatch": {
+    "message": "Ручний перегляд"
+  },
+  "manualWatchPauseDetail": {
+    "message": "Фарм призупинено, поки ви самі дивитеся трансляцію. Поставте на паузу, закрийте або перейдіть на іншу вкладку — фарм відновиться автоматично на наступній перевірці."
+  },
+  "manualWatchPauseDetailNamed": {
+    "message": "Фарм на паузі, поки ви самі дивитеся стрим."
+  },
+  "manualWatchPauseDetailNamedSuffix": {
+    "message": "— поставте на паузу, закрийте або перейдіть на іншу вкладку, щоб відновити."
+  },
+  "reorderItem": {
+    "message": "Змінити порядок: $1"
+  },
+  "scrollRewardsLeft": {
+    "message": "Прокрутити нагороди вліво"
+  },
+  "scrollRewardsRight": {
+    "message": "Прокрутити нагороди вправо"
+  },
+  "activityExtensionGiveawayJoined": {
+    "message": "Приєднано до розіграшу $1 на $2."
+  },
+  "activityExtensionSpriteCaptured": {
+    "message": "Спрайт $1 зловлено на $2."
+  },
+  "activityExtensionTakeoverStarted": {
+    "message": "Захоплення $1 розпочато з $2."
+  },
+  "extensionSettingsTitle": {
+    "message": "Розширення Twitch"
+  },
+  "extensionDropsTitle": {
+    "message": "Розширення"
+  },
+  "extensionSettingsHint": {
+    "message": "Фарміть нагороди розширень без вкладок Twitch. Застосовуються автоматизація Twitch, виключення та ручна пауза."
+  },
+  "extensionNoPixelHint": {
+    "message": "Отримуйте щоденні набори та беріть участь у розіграшах. Для зарахування часу перегляду Lurkloot заходить у чат каналу, тож ви з’являєтеся в списку його глядачів."
+  },
+  "extensionChatPresenceBlocked": {
+    "message": "Не в чаті: час перегляду NoPixel не зараховується, поки присутність у чаті не відновиться"
+  },
+  "extensionFortniteHint": {
+    "message": "Збирайте спрайти та отримуйте нагороди етапів."
+  },
+  "extensionIdentityRequired": {
+    "message": "Прив’язати обліковий запис розширення"
+  },
+  "extensionPermissionRequired": {
+    "message": "Дозвольте доступ провайдера, щоб увімкнути"
+  },
+  "extensionAuthRequired": {
+    "message": "Увійти в Twitch"
+  },
+  "extensionChannelRequired": {
+    "message": "Пошук відповідного каналу"
+  },
+  "extensionComplete": {
+    "message": "Нагороди отримано"
+  },
+  "extensionFarming": {
+    "message": "Фарм"
+  },
+  "extensionPhaseClosed": {
+    "message": "Немає відкритого інтерактивного етапу"
+  },
+  "extensionConnecting": {
+    "message": "Підключення"
+  },
+  "extensionUnavailable": {
+    "message": "Тимчасово недоступно"
+  },
+  "extensionIdle": {
+    "message": "Очікування"
+  },
+  "extensionDailyPackProgress": {
+    "message": "Щоденний набір: $1/$2 хв"
+  },
+  "extensionCaptureProgress": {
+    "message": "Колекція: $1/$2"
+  },
+  "extensionTakeoversTitle": {
+    "message": "Дозволити захоплення Fortnite"
+  },
+  "extensionTakeoversHint": {
+    "message": "Розпочинати допустимі захоплення під час інтерактивних етапів. За замовчуванням вимкнено."
+  },
+  "extensionAccountSetup": {
+    "message": "Налаштування облікового запису"
+  },
+  "extensionGiveawayUnavailable": {
+    "message": "Перевірка розіграшу недоступна"
+  },
+  "extensionGiveawayEntered": {
+    "message": "Участь у розіграші підтверджена"
+  },
+  "extensionGiveawayOpen": {
+    "message": "Розіграш відкритий"
+  },
+  "extensionRewardProgress": {
+    "message": "Нагороди: $1/$2"
+  },
+  "extensionTakeoverActive": {
+    "message": "Захоплення активне"
+  },
+  "extensionWatchtimeComplete": {
+    "message": "Час перегляду виконано"
+  },
+  "extensionUnopenedPacks": {
+    "message": "Не відкриті набори: $1"
+  },
+  "extensionPackCheckUnavailable": {
+    "message": "Перевірка доставки наборів недоступна"
+  },
+  "extensionAutoOpenPacksTitle": {
+    "message": "Автоматично відкривати набори NoPixelV"
+  },
+  "extensionAutoOpenPacksHint": {
+    "message": "Відкриває карти з не відкритих наборів. Кожен набір витрачається; це не скасувати."
+  },
+  "activityExtensionPackOpened": {
+    "message": "$1 відкрив набір карт на $2"
+  },
+  "watchSourcePriorityTitle": {
+    "message": "Пріоритет джерел перегляду"
+  },
+  "watchSourcePriorityDescription": {
+    "message": "Переглядається перше доступне джерело. Вимкнені та недоступні джерела пропускаються."
+  },
+  "watchSourcePriorityMoveUp": {
+    "message": "Підняти $1"
+  },
+  "watchSourcePriorityMoveDown": {
+    "message": "Опустити $1"
+  },
+  "watchSourcePriorityReset": {
+    "message": "Скинути пріоритет"
+  },
+  "watchSourcePriorityMoved": {
+    "message": "$1 тепер має пріоритет $2."
+  },
+  "watchSourcePriorityResetDone": {
+    "message": "Пріоритет джерел перегляду скинуто."
+  },
+  "watchSourceDrops": {
+    "message": "Drops"
+  },
+  "watchSourceIdleWatchlist": {
+    "message": "Резервний список"
+  },
+  "watchSourceNoPixel": {
+    "message": "NoPixelV"
+  },
+  "watchSourceFortnite": {
+    "message": "Fortnite"
+  },
+  "gamesStarHint": {
+    "message": "★ ставить гру вище стратегії"
+  },
+  "gamesFavourite": {
+    "message": "Підняти $1 вище стратегії"
+  },
+  "gamesUnfavourite": {
+    "message": "Більше не піднімати $1 вище стратегії"
+  },
+  "gamesBlock": {
+    "message": "Ніколи не фармити $1"
+  },
+  "gamesUnblock": {
+    "message": "Розблокувати"
+  },
+  "gamesBlocked": {
+    "message": "Заблоковані"
+  },
+  "gamesBlockedHint": {
+    "message": "ніколи не фармиться в жодному режимі"
+  },
+  "gamesBlockedKeepsStar": {
+    "message": "не фармиться · зірку збережено"
+  },
+  "gamesCampaignCount": {
+    "message": "$1 активних кампаній"
+  },
+  "gamesCampaignCountOne": {
+    "message": "1 активна кампанія"
+  },
+  "gamesNoCampaigns": {
+    "message": "зараз немає кампаній"
+  },
+  "gamesFarmGame": {
+    "message": "Фармити $1"
+  },
+  "gamesEmpty": {
+    "message": "Зараз немає активних кампаній $1."
+  },
+  "inPageOpenPanel": {
+    "message": "Відкрити Lurkloot"
+  },
+  "inPageAddToWatchlist": {
+    "message": "Додати $1 до Idle Watchlist"
+  },
+  "inPageRemoveFromWatchlist": {
+    "message": "Прибрати $1 з Idle Watchlist"
+  },
+  "navNoPixel": {
+    "message": "NoPixel V"
+  },
+  "navFortnite": {
+    "message": "Fortnite"
+  },
+  "gamesBlockedEmpty": {
+    "message": "Нічого не заблоковано. Натисніть ⊘ біля гри, щоб не фармити її в жодному режимі."
+  },
+  "campaignRewardsProgress": {
+    "message": "$1 з $2 нагород"
+  },
+  "campaignTimeLeft": {
+    "message": "Залишилося $1"
+  },
+  "campaignFactStarts": {
+    "message": "Початок"
+  },
+  "campaignFactStarted": {
+    "message": "Розпочалася"
+  },
+  "campaignFactEnds": {
+    "message": "Кінець"
+  },
+  "relativeIn": {
+    "message": "через $1"
+  },
+  "relativeAgo": {
+    "message": "$1 тому"
+  },
+  "campaignLasts": {
+    "message": "Триває $1"
+  },
+  "campaignFactEnded": {
+    "message": "Завершилася"
+  },
+  "campaignFactWatching": {
+    "message": "Перегляд"
+  },
+  "campaignFactChannels": {
+    "message": "Канали"
+  },
+  "campaignFactNextReward": {
+    "message": "Наступна нагорода"
+  },
+  "campaignFactWhyRank": {
+    "message": "Чому такий ранг"
+  },
+  "campaignMoreChannels": {
+    "message": "+$1 ще"
+  },
+  "campaignFewerChannels": {
+    "message": "Показати менше"
+  },
+  "campaignExclude": {
+    "message": "Виключити"
+  },
+  "campaignCategoryBlocked": {
+    "message": "$1 заблоковано"
+  },
+  "campaignPinToTop": {
+    "message": "Закріпити зверху"
+  },
+  "campaignPinnedAt": {
+    "message": "Закріплено · $1"
+  },
+  "campaignFavourite": {
+    "message": "Улюблена $1"
+  },
+  "campaignFavouriteOn": {
+    "message": "$1 — улюблена"
+  },
+  "campaignExcludeThis": {
+    "message": "Лише ця кампанія"
+  },
+  "campaignExcludeThisHint": {
+    "message": "Інші кампанії $1 продовжать фармитися"
+  },
+  "campaignExcludeThisUndo": {
+    "message": "Оберіть знову, щоб повернути кампанію в чергу"
+  },
+  "campaignExcludeCategory": {
+    "message": "Категорія «$1»"
+  },
+  "campaignExcludeCategoryHint": {
+    "message": "Блокує всі кампанії $1 — зараз і надалі"
+  },
+  "campaignExcludeCategoryUndo": {
+    "message": "Оберіть знову, щоб розблокувати гру"
+  },
+  "rewardMissed": {
+    "message": "Не встигли отримати"
+  },
+  "rankReasonPinned": {
+    "message": "Закріплено на $1"
+  },
+  "rankReasonFavourite": {
+    "message": "$1 — улюблене №$2"
+  },
+  "rankReasonEnding": {
+    "message": "Закінчується раніше за ті, що нижче"
+  },
+  "rankReasonAvailability": {
+    "message": "Менше каналів, ніж у тих, що нижче"
+  },
+  "queueEditFavourites": {
+    "message": "Редагувати"
+  },
+  "navWatchingNow": {
+    "message": "Зараз переглядається"
+  },
+  "gamesFavouritesGroup": {
+    "message": "Улюблені"
+  },
+  "gamesFavouritesGroupHint": {
+    "message": "у цьому порядку, вище стратегії"
+  },
+  "gamesOtherGroup": {
+    "message": "Інші ігри"
+  },
+  "gamesOtherGroupAllHint": {
+    "message": "фармляться всі, крім заблокованих"
+  },
+  "gamesOtherGroupIncludeHint": {
+    "message": "фармляться лише позначені"
+  },
+  "watchSourcePlace": {
+    "message": "Місце в порядку перегляду: $1 з $2"
+  },
+  "watchSourcePlaceFirst": {
+    "message": "Переглядається раніше за всі інші джерела."
+  },
+  "watchSourcePlaceAfter": {
+    "message": "Переглядається, коли в $1 немає чого дивитися."
+  },
+  "watchSourceChangeOrderShort": {
+    "message": "Змінити порядок"
+  },
+  "railWhatsNew": {
+    "message": "Що нового"
+  },
+  "campaignShowDetails": {
+    "message": "Показати деталі"
+  },
+  "campaignHideDetails": {
+    "message": "Приховати деталі"
+  },
+  "settingsGamesPointerTitle": {
+    "message": "Ігри та категорії"
+  },
+  "settingsGamesPointerDescription": {
+    "message": "Оберіть, які ігри $1 фармити, позначте зіркою ті, що мають бути першими, або заблокуйте їх."
+  },
+  "settingsGamesPointerAction": {
+    "message": "Відкрити «Ігри»"
+  },
+  "idleWatchlistAddPlaceholder": {
+    "message": "Ім’я каналу або посилання"
+  },
+  "idleWatchlistFull": {
+    "message": "Список заповнений ($1 каналів). Видаліть один, щоб додати інший."
+  },
+  "idleWatchlistInvalid": {
+    "message": "Введіть ім’я каналу або посилання на канал."
+  },
+  "idleWatchlistDuplicate": {
+    "message": "$1 уже в списку."
+  },
+  "idleWatchlistOrderTitle": {
+    "message": "Порядок перегляду"
+  },
+  "idleWatchlistOrderHint": {
+    "message": "дивиться перший канал у ефірі"
+  },
+  "gamesModeAllDescription": {
+    "message": "Фармляться всі ігри з активними дропами, крім заблокованих."
+  },
+  "gamesModeIncludeDescription": {
+    "message": "Фармляться лише позначені ігри."
+  },
+  "gamesStarLegend": {
+    "message": "ставить гру вище стратегії"
+  },
+  "gamesBlockLegend": {
+    "message": "ніколи її не фармить"
+  },
+  "gamesSearchPlaceholder": {
+    "message": "Знайти або додати гру $1"
+  },
+  "gamesAddGroup": {
+    "message": "Додати з $1"
+  },
+  "gamesAddIncludeHint": {
+    "message": "додавання позначає гру"
+  },
+  "gamesAddAllHint": {
+    "message": "додавання робить гру улюбленою"
+  },
+  "gamesAddActionFarm": {
+    "message": "Фармити"
+  },
+  "gamesAddActionFavourite": {
+    "message": "Улюблена"
+  },
+  "gamesNoMoreResults": {
+    "message": "Інших ігор не знайдено."
+  },
+  "navBeta": {
+    "message": "Beta"
+  },
+  "navExtensions": {
+    "message": "Розширення"
+  },
+  "navGroupOthers": {
+    "message": "Інше"
+  },
+  "kickLevelSummary": {
+    "message": "Рівень Kick $1 · $2% до рівня $3"
+  },
+  "kickLevelShort": {
+    "message": "Рів. $1"
+  },
+  "kickLevelXp": {
+    "message": "$1 / $2 XP"
+  },
+  "kickStreakDays": {
+    "message": "Серія перегляду: $1 дн."
+  }
+}
