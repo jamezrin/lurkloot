@@ -322,6 +322,15 @@ describe("rewardFilter", () => {
     ).toEqual(["reward_type_filtered"]);
   });
 
+  it("ends the blocker replay when the default filter misses too", () => {
+    // Kick farms items only, so a badge-only reward misses its default filter;
+    // lifting to that default must not loop.
+    const badgeOnly = campaign({ platform: "kick", rewards: [badge] });
+    expect(campaignFarmingBlockers(badgeOnly, settings(), { now: NOW })).toEqual([
+      { farmable: false, code: "reward_type_filtered", filteredBy: "kind" },
+    ]);
+  });
+
   it("scopes the whole campaign under the default filter", () => {
     const source = campaign({ rewards: [watch, badge, subscription] });
     expect(scope(source, {})).toEqual(["reward", "badge", "sub"]);

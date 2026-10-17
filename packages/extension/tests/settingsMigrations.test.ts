@@ -644,6 +644,20 @@ describe("schema v8", () => {
     });
   });
 
+  it("v8 reports an unknown farmingEligibility key instead of dropping it silently", () => {
+    const migrated = migrateSettings(
+      withSchemaVersion({ farmingEligibility: { farmUnlinkedCampaign: false } }, 7),
+    );
+
+    expect(migrated.settings.farmingEligibility).toBeUndefined();
+    expect(migrated.diagnostics).toEqual([
+      expect.objectContaining({
+        code: "deprecated_property",
+        path: "farmingEligibility.farmUnlinkedCampaign",
+      }),
+    ]);
+  });
+
   it("v8 keeps a current rewardFilter", () => {
     const current = { kinds: ["item"], subscriptions: "include" };
     const migrated = migrateSettings(

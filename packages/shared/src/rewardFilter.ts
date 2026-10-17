@@ -27,12 +27,11 @@ export function defaultRewardFilter(platform: Platform): RewardFilter {
 }
 
 export function normalizeRewardFilter(value: unknown, platform: Platform): RewardFilter {
-  const record = typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
+  const record =
+    typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
   const supported = PLATFORM_REWARD_KINDS[platform];
   const requested = Array.isArray(record.kinds) ? record.kinds : [];
-  const kinds = REWARD_KINDS.filter(
-    (kind) => supported.includes(kind) && requested.includes(kind),
-  );
+  const kinds = REWARD_KINDS.filter((kind) => supported.includes(kind) && requested.includes(kind));
   const subscriptions = SUBSCRIPTION_REWARD_MODES.find((mode) => mode === record.subscriptions);
   return {
     kinds: kinds.length > 0 ? kinds : [...supported],

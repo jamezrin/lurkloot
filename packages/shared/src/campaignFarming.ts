@@ -271,6 +271,15 @@ function withBlockerLifted(
       return { ...settings, campaignPins: [...settings.campaignPins, campaign.id] };
     case "reward_type_filtered":
     case "reward_types_obtained":
+      // The default filter cannot lift a miss it would make itself (a reward of
+      // a kind the platform never farms); ending here keeps the replay finite.
+      if (
+        !isRewardFilterNarrowed(
+          settings.platform[campaign.platform].rewardFilter,
+          campaign.platform,
+        )
+      )
+        return undefined;
       return withPlatform({ rewardFilter: defaultRewardFilter(campaign.platform) });
     case "unlinked_campaigns_disabled":
       return withPlatform({ farmUnlinkedCampaigns: true });

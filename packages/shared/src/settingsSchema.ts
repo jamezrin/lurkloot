@@ -381,6 +381,14 @@ function migrateToV8(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
   for (const [present, path, message] of movedToPlatforms) {
     if (present) diagnose({ code: "moved_property", path, message });
   }
+  for (const key of Object.keys(legacyEligibility)) {
+    if (key === "farmUnlinkedCampaigns" || key === "farmSubscriptionCampaigns") continue;
+    diagnose({
+      code: "deprecated_property",
+      path: `farmingEligibility.${key}`,
+      message: `farmingEligibility.${key} is not a setting and was dropped`,
+    });
+  }
   const skipsSubscriptions = legacyEligibility.farmSubscriptionCampaigns === false;
 
   for (const platform of ["twitch", "kick"] as const) {

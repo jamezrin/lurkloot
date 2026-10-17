@@ -987,7 +987,7 @@ export function campaignSearchFingerprint(
       campaignPins: settings.campaignPins,
       excludedCampaignIds: settings.excludedCampaignIds,
       priorityMode: settings.priorityMode,
-      platform: settings.platform.twitch,
+      platform: settings.platform[campaign.platform],
     },
   });
 }

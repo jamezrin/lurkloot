@@ -12,6 +12,7 @@ import type {
 import { DEFAULT_SETTINGS } from "@lurkloot/shared/settings";
 import { NO_CATEGORY_ID } from "@lurkloot/shared/categories";
 import {
+  campaignSearchFingerprint,
   chooseCampaignDecision,
   selectWatchTargetFromSnapshot,
   type StopPageContextTabs,
@@ -840,6 +841,20 @@ describe("scheduler campaign selection", () => {
 
     expect(decision.action).toBe("watch");
     expect(decision.campaign?.id).toBe("pinned");
+  });
+
+  it("fingerprints a campaign with its own platform's settings", () => {
+    const kick = campaign("kick-campaign", { platform: "kick" });
+    const base = settings();
+    const unlinkedOff = settings({ platform: { kick: { farmUnlinkedCampaigns: false } } });
+    const twitchChanged = settings({ platform: { twitch: { farmPinnedOnly: true } } });
+
+    expect(campaignSearchFingerprint(kick, unlinkedOff)).not.toBe(
+      campaignSearchFingerprint(kick, base),
+    );
+    expect(campaignSearchFingerprint(kick, twitchChanged)).toBe(
+      campaignSearchFingerprint(kick, base),
+    );
   });
 
   it("farm pinned only on Twitch leaves Kick's unpinned campaigns farmed", async () => {

@@ -77,6 +77,14 @@ describe("parseConfig", () => {
     ]);
   });
 
+  it("loads a top-level farmPinnedOnly with one warning, pinning both platforms", () => {
+    const config = parseConfig({ settings: { farmPinnedOnly: true } }, CONFIG_PATH);
+    expect(config.settings.platform.twitch.farmPinnedOnly).toBe(true);
+    expect(config.settings.platform.kick.farmPinnedOnly).toBe(true);
+    expect(config.warnings).toHaveLength(1);
+    expect(config.warnings[0]).toContain("settings.farmPinnedOnly");
+  });
+
   it("loads a config that still sets tablessMode, warning that it is ignored", () => {
     const config = parseConfig({ settings: { tablessMode: false } }, CONFIG_PATH);
     expect(config.settings).not.toHaveProperty("tablessMode");
