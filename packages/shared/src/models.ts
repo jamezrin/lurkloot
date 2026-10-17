@@ -336,6 +336,16 @@ export type PriorityMode = "ending_soonest" | "lowest_availability";
 // on, so it is done once those are earned, whatever else it offers.
 export type RewardFarmType = "no_subscription" | "subscription" | "badge";
 
+// Per-platform reward filter: which reward kinds a platform farms, and how
+// subscription rewards are treated.
+export type RewardKind = "item" | "badge" | "emote";
+export type SubscriptionRewardMode = "include" | "skip" | "only";
+export interface RewardFilter {
+  kinds: RewardKind[];
+  subscriptions: SubscriptionRewardMode;
+}
+export type RewardFilterMiss = "kind" | "subscription";
+
 // Visibility categories for the Drops list. A campaign in one of these states is
 // only shown when its toggle is on; campaigns in none of them are always shown.
 // Filter keys that gate farming: the engine's isEligible consults exactly these.

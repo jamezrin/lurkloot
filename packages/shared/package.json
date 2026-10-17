@@ -18,6 +18,7 @@
     "./i18n": "./src/i18n.ts",
     "./logging": "./src/logging.ts",
     "./rewards": "./src/rewards.ts",
+    "./rewardFilter": "./src/rewardFilter.ts",
     "./events": "./src/events.ts",
     "./criticalHealth": "./src/criticalHealth.ts",
     "./failureReport": "./src/failureReport.ts",
