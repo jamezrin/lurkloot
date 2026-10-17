@@ -2003,6 +2003,9 @@
   "kickLevelSummary": {
     "message": "Kick लेवल $1 · लेवल $3 तक $2%"
   },
+  "kickLevelShort": {
+    "message": "Lv $1"
+  },
   "kickLevelXp": {
     "message": "$1 / $2 XP"
   },

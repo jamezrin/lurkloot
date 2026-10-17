@@ -2003,6 +2003,9 @@
   "kickLevelSummary": {
     "message": "Kick seviyesi $1 · seviye $3 için %$2"
   },
+  "kickLevelShort": {
+    "message": "Sv. $1"
+  },
   "kickLevelXp": {
     "message": "$1 / $2 XP"
   },

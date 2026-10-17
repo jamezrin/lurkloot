@@ -2003,6 +2003,9 @@
   "kickLevelSummary": {
     "message": "Kick úroveň $1 · $2 % do úrovně $3"
   },
+  "kickLevelShort": {
+    "message": "Úr. $1"
+  },
   "kickLevelXp": {
     "message": "$1 / $2 XP"
   },
