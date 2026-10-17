@@ -116,6 +116,9 @@
   "queueSkipped": {
     "message": "Ignorées"
   },
+  "queueSkippedByFilter": {
+    "message": "$1 outside your reward filter"
+  },
   "queueActionRequired": {
     "message": "Action requise"
   },
@@ -773,8 +776,14 @@
   "campaignRejectionNotPinned": {
     "message": "Seules les campagnes épinglées sont farmées pour l'instant."
   },
-  "campaignRejectionRewardType": {
-    "message": "Aucune de ses récompenses n'est d'un type que tu farmes."
+  "campaignRejectionRewardKind": {
+    "message": "No $1 in this campaign."
+  },
+  "campaignRejectionSubscriptionSkipped": {
+    "message": "Its rewards need a subscription, and you're skipping those."
+  },
+  "campaignRejectionSubscriptionOnly": {
+    "message": "It has no subscription rewards, and you're farming only those."
   },
   "campaignRejectionRewardTypesObtained": {
     "message": "Ses récompenses des types que tu farmes sont obtenues."

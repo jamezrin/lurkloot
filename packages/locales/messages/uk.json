@@ -116,6 +116,9 @@
   "queueSkipped": {
     "message": "Пропущені"
   },
+  "queueSkippedByFilter": {
+    "message": "$1 outside your reward filter"
+  },
   "queueActionRequired": {
     "message": "Потрібна дія"
   },
@@ -773,8 +776,14 @@
   "campaignRejectionNotPinned": {
     "message": "Зараз фармляться лише закріплені кампанії."
   },
-  "campaignRejectionRewardType": {
-    "message": "Жодна з її нагород не належить до типів, які ви фармите."
+  "campaignRejectionRewardKind": {
+    "message": "No $1 in this campaign."
+  },
+  "campaignRejectionSubscriptionSkipped": {
+    "message": "Its rewards need a subscription, and you're skipping those."
+  },
+  "campaignRejectionSubscriptionOnly": {
+    "message": "It has no subscription rewards, and you're farming only those."
   },
   "campaignRejectionRewardTypesObtained": {
     "message": "Нагороди її типів, які ви фармите, уже отримано."

@@ -116,6 +116,9 @@
   "queueSkipped": {
     "message": "Dilewati"
   },
+  "queueSkippedByFilter": {
+    "message": "$1 outside your reward filter"
+  },
   "queueActionRequired": {
     "message": "Perlu tindakan"
   },
@@ -773,8 +776,14 @@
   "campaignRejectionNotPinned": {
     "message": "Hanya kampanye yang disematkan yang di-farm saat ini."
   },
-  "campaignRejectionRewardType": {
-    "message": "Tidak ada hadiahnya yang termasuk jenis yang Anda farm."
+  "campaignRejectionRewardKind": {
+    "message": "No $1 in this campaign."
+  },
+  "campaignRejectionSubscriptionSkipped": {
+    "message": "Its rewards need a subscription, and you're skipping those."
+  },
+  "campaignRejectionSubscriptionOnly": {
+    "message": "It has no subscription rewards, and you're farming only those."
   },
   "campaignRejectionRewardTypesObtained": {
     "message": "Hadiah dari jenis yang Anda farm sudah diperoleh."

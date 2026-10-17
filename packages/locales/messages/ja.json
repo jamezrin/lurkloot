@@ -116,6 +116,9 @@
   "queueSkipped": {
     "message": "スキップ"
   },
+  "queueSkippedByFilter": {
+    "message": "$1 outside your reward filter"
+  },
   "queueActionRequired": {
     "message": "要対応"
   },
@@ -773,8 +776,14 @@
   "campaignRejectionNotPinned": {
     "message": "現在はピン留めされたキャンペーンのみファームしています。"
   },
-  "campaignRejectionRewardType": {
-    "message": "このキャンペーンの報酬に、ファームする種類のものはありません。"
+  "campaignRejectionRewardKind": {
+    "message": "No $1 in this campaign."
+  },
+  "campaignRejectionSubscriptionSkipped": {
+    "message": "Its rewards need a subscription, and you're skipping those."
+  },
+  "campaignRejectionSubscriptionOnly": {
+    "message": "It has no subscription rewards, and you're farming only those."
   },
   "campaignRejectionRewardTypesObtained": {
     "message": "ファームする種類の報酬はすでに獲得済みです。"

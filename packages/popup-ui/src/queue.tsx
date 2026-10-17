@@ -10,12 +10,12 @@ import type {
   RewardKind,
 } from "@lurkloot/shared/models";
 import { defaultRewardFilter, isRewardFilterNarrowed } from "@lurkloot/shared/rewardFilter";
-import { useT } from "./context";
+import { I18nContext, useT } from "./context";
 import { filterCampaigns } from "./campaignSearch";
 import {
   CampaignCard,
   SortableCampaign,
-  campaignRejectionMessageKey,
+  campaignRejectionMessage,
   initialExpandedIds,
 } from "./drops";
 import { fallbackGame } from "./viewModels";
@@ -62,7 +62,7 @@ export function QueuePanel({
   pinnedCount,
   farmPinnedOnly,
   platform,
-  rewardFilter,
+  rewardFilter: liveRewardFilter,
   rewardKindCounts,
   showSubscriptionChoice,
   onRewardFilterChange,
@@ -105,6 +105,11 @@ export function QueuePanel({
   onOpenSettings(groupId?: string): void;
 }): React.ReactElement {
   const t = useT();
+  const { locale } = React.useContext(I18nContext);
+  // Rows are memoised on their props, and a poll can hand over an equal filter
+  // as a new object: keep the same one while its contents are unchanged.
+  const kindsKey = liveRewardFilter.kinds.join(",");
+  const rewardFilter = useMemo(() => liveRewardFilter, [kindsKey, liveRewardFilter.subscriptions]);
   const rewardFilterNarrowed = isRewardFilterNarrowed(rewardFilter, platform);
   const [query, setQuery] = useState("");
   const [showSkipped, setShowSkipped] = useState(false);
@@ -129,6 +134,9 @@ export function QueuePanel({
       ),
     [campaigns],
   );
+  const filteredCount = skipped.filter(
+    (campaign) => campaign.farmingRejection?.code === "reward_type_filtered",
+  ).length;
   const actionRequired = useMemo(
     () =>
       campaigns.filter((campaign) => campaign.section === "skipped" && campaign.needsOutsideAction),
@@ -335,6 +343,7 @@ export function QueuePanel({
                     rankCount={pinnedCount}
                     rankReason={campaign.section === "queue" ? rankReason(campaign) : undefined}
                     actions={actions}
+                    rewardFilter={rewardFilter}
                     {...categoryActions}
                   />
                 </div>
@@ -395,6 +404,7 @@ export function QueuePanel({
                     rankCount={rows.length}
                     rankReason={rankReason(campaign)}
                     actions={actions}
+                    rewardFilter={rewardFilter}
                     {...categoryActions}
                   />
                 ))}
@@ -443,6 +453,7 @@ export function QueuePanel({
                     expanded={Boolean(expandedIds[campaign.id])}
                     refreshing={refreshing}
                     actions={actions}
+                    rewardFilter={rewardFilter}
                     {...categoryActions}
                   />
                 </div>
@@ -455,20 +466,24 @@ export function QueuePanel({
               group="skipped"
               label={t("queueSkipped")}
               count={skipped.length}
-              hint={[
-                ...new Set(
-                  skipped.map((campaign) => {
-                    const rejection = campaign.farmingRejection;
-                    return (
-                      rejection
-                      && t(campaignRejectionMessageKey(rejection.code), rejection.rewardName)
-                    );
-                  }),
-                ),
-              ]
-                .filter(Boolean)
-                .slice(0, 2)
-                .join(" · ")}
+              hint={
+                filteredCount > 0
+                  ? t("queueSkippedByFilter", String(filteredCount))
+                  : [
+                      ...new Set(
+                        skipped.map((campaign) => {
+                          const rejection = campaign.farmingRejection;
+                          return (
+                            rejection
+                            && campaignRejectionMessage(rejection, rewardFilter, t, locale)
+                          );
+                        }),
+                      ),
+                    ]
+                      .filter(Boolean)
+                      .slice(0, 2)
+                      .join(" · ")
+              }
               expanded={showSkipped}
               onToggle={() => setShowSkipped((current) => !current)}
             >
@@ -484,6 +499,7 @@ export function QueuePanel({
                     expanded={Boolean(expandedIds[campaign.id])}
                     refreshing={refreshing}
                     actions={actions}
+                    rewardFilter={rewardFilter}
                     {...categoryActions}
                   />
                 </div>
@@ -511,6 +527,7 @@ export function QueuePanel({
                     expanded={Boolean(expandedIds[campaign.id])}
                     refreshing={refreshing}
                     actions={actions}
+                    rewardFilter={rewardFilter}
                     {...categoryActions}
                   />
                 </div>
@@ -557,6 +574,7 @@ const QueueRow = React.memo(function QueueRow({
   actions,
   canFavourite,
   canBlock,
+  rewardFilter,
 }: {
   kind: "search" | "sortable" | "ranked" | "skipped" | "upcoming";
   campaign: CampaignView;
@@ -571,6 +589,7 @@ const QueueRow = React.memo(function QueueRow({
   actions: RowActions;
   canFavourite: boolean;
   canBlock: boolean;
+  rewardFilter: RewardFilter;
 }): React.ReactElement {
   const t = useT();
   const queued = campaign.section === "queue";
@@ -587,6 +606,7 @@ const QueueRow = React.memo(function QueueRow({
     onToggleExclude: actions.toggleExclude,
     onToggleFavouriteCategory: canFavourite ? actions.favourite : undefined,
     onToggleBlockedCategory: canBlock ? actions.block : undefined,
+    rewardFilter,
   };
   if (kind === "sortable") {
     return (

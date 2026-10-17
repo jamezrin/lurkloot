@@ -116,6 +116,9 @@
   "queueSkipped": {
     "message": "Atlanan"
   },
+  "queueSkippedByFilter": {
+    "message": "$1 outside your reward filter"
+  },
   "queueActionRequired": {
     "message": "İşlem gerekli"
   },
@@ -773,8 +776,14 @@
   "campaignRejectionNotPinned": {
     "message": "Şu anda yalnızca sabitlenmiş kampanyalar farmlanıyor."
   },
-  "campaignRejectionRewardType": {
-    "message": "Ödüllerinin hiçbiri farm'ladığınız türlerden değil."
+  "campaignRejectionRewardKind": {
+    "message": "No $1 in this campaign."
+  },
+  "campaignRejectionSubscriptionSkipped": {
+    "message": "Its rewards need a subscription, and you're skipping those."
+  },
+  "campaignRejectionSubscriptionOnly": {
+    "message": "It has no subscription rewards, and you're farming only those."
   },
   "campaignRejectionRewardTypesObtained": {
     "message": "Farm'ladığınız türlerdeki ödülleri kazanıldı."

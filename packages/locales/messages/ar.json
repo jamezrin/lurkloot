@@ -116,6 +116,9 @@
   "queueSkipped": {
     "message": "متجاوَزة"
   },
+  "queueSkippedByFilter": {
+    "message": "$1 outside your reward filter"
+  },
   "queueActionRequired": {
     "message": "يلزم إجراء"
   },
@@ -773,8 +776,14 @@
   "campaignRejectionNotPinned": {
     "message": "يتم الآن تجميع الحملات المثبتة فقط."
   },
-  "campaignRejectionRewardType": {
-    "message": "لا تنتمي أي من جوائزها إلى الأنواع التي تجمعها."
+  "campaignRejectionRewardKind": {
+    "message": "No $1 in this campaign."
+  },
+  "campaignRejectionSubscriptionSkipped": {
+    "message": "Its rewards need a subscription, and you're skipping those."
+  },
+  "campaignRejectionSubscriptionOnly": {
+    "message": "It has no subscription rewards, and you're farming only those."
   },
   "campaignRejectionRewardTypesObtained": {
     "message": "جوائزها من الأنواع التي تجمعها مكتسبة بالفعل."

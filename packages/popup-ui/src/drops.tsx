@@ -20,7 +20,7 @@ import {
   Star,
   Users,
 } from "lucide-react";
-import type { CategorySelection } from "@lurkloot/shared/models";
+import type { CategorySelection, RewardFilter, RewardKind } from "@lurkloot/shared/models";
 import { I18nContext, PopupRuntimeContext, SubscriptionMarkContext, useT } from "./context";
 import {
   formatCountdown,
@@ -109,7 +109,13 @@ export type CampaignCardProps = {
   rankReason?: string;
   onToggleFavouriteCategory?(category: CategorySelection): void | Promise<void>;
   onToggleBlockedCategory?(category: CategorySelection): void | Promise<void>;
+  // The platform's reward filter, which a skipped row's reason names. Only the
+  // queue passes it: no other view shows a filter miss.
+  rewardFilter?: RewardFilter;
 };
+
+type Rejection = NonNullable<CampaignView["farmingRejection"]>;
+const NO_REWARD_FILTER: RewardFilter = { kinds: [], subscriptions: "include" };
 
 /** One campaign. Collapsed, a row: rank, name, progress, when it ends, a pin.
  * Opened, everything about it and everything that can be done to it, so no
@@ -139,6 +145,7 @@ export function CampaignCard({
   rankReason,
   onToggleFavouriteCategory,
   onToggleBlockedCategory,
+  rewardFilter = NO_REWARD_FILTER,
 }: CampaignCardProps) {
   const t = useT();
   const { locale } = React.useContext(I18nContext);
@@ -159,16 +166,13 @@ export function CampaignCard({
   const upcoming = !finished && campaign.status === "upcoming";
   const farmingRejection = isFarming || finished ? undefined : campaign.farmingRejection;
   const farmingRejectionMessage = farmingRejection
-    ? t(campaignRejectionMessageKey(farmingRejection.code), farmingRejection.rewardName)
+    ? campaignRejectionMessage(farmingRejection, rewardFilter, t, locale)
     : undefined;
   // Fixing the first reason is not always enough (#677): say what comes next,
   // so a fix that leaves the campaign skipped does not look like it failed.
   const nextBlocker = farmingRejection ? campaign.laterBlockers?.[0] : undefined;
   const nextBlockerMessage = nextBlocker
-    ? t(
-        "campaignRejectionThen",
-        t(campaignRejectionMessageKey(nextBlocker.code), nextBlocker.rewardName),
-      )
+    ? t("campaignRejectionThen", campaignRejectionMessage(nextBlocker, rewardFilter, t, locale))
     : undefined;
   const emphasized = !finished && (isFarming || (!anyFarming && index === 0 && !farmingRejection));
   const showsWatchProgress = stats.kind === "watch" || stats.kind === "mixed";
@@ -1385,32 +1389,64 @@ function RewardCarousel({
   );
 }
 
-export function campaignRejectionMessageKey(
-  code: NonNullable<CampaignView["farmingRejection"]>["code"],
+const REJECTION_KEYS: Record<Rejection["code"], string> = {
+  excluded: "campaignRejectionExcluded",
+  upcoming: "campaignRejectionUpcoming",
+  expired: "campaignRejectionExpired",
+  completed: "campaignRejectionCompleted",
+  unlinked_campaigns_disabled: "campaignRejectionUnlinkedDisabled",
+  twitch_link_required: "campaignRejectionTwitchLinkRequired",
+  category_filtered: "campaignRejectionCategoryFiltered",
+  category_blocked: "campaignRejectionCategoryBlocked",
+  not_pinned: "campaignRejectionNotPinned",
+  reward_type_filtered: "campaignRejectionRewardKind",
+  reward_types_obtained: "campaignRejectionRewardTypesObtained",
+  no_rewards: "campaignRejectionNoRewards",
+  no_unclaimed_rewards: "campaignRejectionNoUnclaimedRewards",
+  reward_prerequisites_unmet: "campaignRejectionPrerequisites",
+  reward_not_started: "campaignRejectionRewardNotStarted",
+  reward_window_ended: "campaignRejectionRewardWindowEnded",
+  insufficient_time: "campaignRejectionInsufficientTime",
+  subscription_required: "campaignRejectionSubscriptionRequired",
+  action_required: "campaignRejectionActionRequired",
+  no_farmable_reward: "campaignRejectionNoFarmableReward",
+};
+
+const REJECTION_KIND_KEYS: Record<RewardKind, string> = {
+  item: "rewardKindItem",
+  badge: "rewardKindBadge",
+  emote: "rewardKindEmote",
+};
+
+/** Why a campaign is skipped, in words. A reward-filter miss names the half of
+ * the filter that missed: the kinds the user selected, or the subscription
+ * choice. */
+export function campaignRejectionMessage(
+  rejection: Rejection,
+  filter: RewardFilter,
+  t: TFunction,
+  locale = "en",
 ): string {
-  const keys: Record<NonNullable<CampaignView["farmingRejection"]>["code"], string> = {
-    excluded: "campaignRejectionExcluded",
-    upcoming: "campaignRejectionUpcoming",
-    expired: "campaignRejectionExpired",
-    completed: "campaignRejectionCompleted",
-    unlinked_campaigns_disabled: "campaignRejectionUnlinkedDisabled",
-    twitch_link_required: "campaignRejectionTwitchLinkRequired",
-    category_filtered: "campaignRejectionCategoryFiltered",
-    category_blocked: "campaignRejectionCategoryBlocked",
-    not_pinned: "campaignRejectionNotPinned",
-    reward_type_filtered: "campaignRejectionRewardType",
-    reward_types_obtained: "campaignRejectionRewardTypesObtained",
-    no_rewards: "campaignRejectionNoRewards",
-    no_unclaimed_rewards: "campaignRejectionNoUnclaimedRewards",
-    reward_prerequisites_unmet: "campaignRejectionPrerequisites",
-    reward_not_started: "campaignRejectionRewardNotStarted",
-    reward_window_ended: "campaignRejectionRewardWindowEnded",
-    insufficient_time: "campaignRejectionInsufficientTime",
-    subscription_required: "campaignRejectionSubscriptionRequired",
-    action_required: "campaignRejectionActionRequired",
-    no_farmable_reward: "campaignRejectionNoFarmableReward",
-  };
-  return keys[code];
+  if (rejection.code === "reward_type_filtered") {
+    if (rejection.filteredBy === "subscription") {
+      return t(
+        filter.subscriptions === "only"
+          ? "campaignRejectionSubscriptionOnly"
+          : "campaignRejectionSubscriptionSkipped",
+      );
+    }
+    const labels = filter.kinds.map((kind) => t(REJECTION_KIND_KEYS[kind]));
+    return t("campaignRejectionRewardKind", formatDisjunction(labels, locale));
+  }
+  return t(REJECTION_KEYS[rejection.code], rejection.rewardName);
+}
+
+function formatDisjunction(items: string[], locale: string): string {
+  try {
+    return new Intl.ListFormat(locale, { type: "disjunction" }).format(items);
+  } catch {
+    return items.join(", ");
+  }
 }
 
 function SubscriptionMarkControl({ marked, onToggle }: { marked: boolean; onToggle(): void }) {

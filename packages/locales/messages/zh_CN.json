@@ -116,6 +116,9 @@
   "queueSkipped": {
     "message": "已跳过"
   },
+  "queueSkippedByFilter": {
+    "message": "$1 outside your reward filter"
+  },
   "queueActionRequired": {
     "message": "需要操作"
   },
@@ -773,8 +776,14 @@
   "campaignRejectionNotPinned": {
     "message": "当前只挂机已置顶的掉宝活动。"
   },
-  "campaignRejectionRewardType": {
-    "message": "其奖励都不属于你挂机的类型。"
+  "campaignRejectionRewardKind": {
+    "message": "No $1 in this campaign."
+  },
+  "campaignRejectionSubscriptionSkipped": {
+    "message": "Its rewards need a subscription, and you're skipping those."
+  },
+  "campaignRejectionSubscriptionOnly": {
+    "message": "It has no subscription rewards, and you're farming only those."
   },
   "campaignRejectionRewardTypesObtained": {
     "message": "其属于你挂机类型的奖励已获得。"

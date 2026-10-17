@@ -116,6 +116,9 @@
   "queueSkipped": {
     "message": "Přeskočené"
   },
+  "queueSkippedByFilter": {
+    "message": "$1 outside your reward filter"
+  },
   "queueActionRequired": {
     "message": "Vyžaduje akci"
   },
@@ -773,8 +776,14 @@
   "campaignRejectionNotPinned": {
     "message": "Teď se farmí jen připnuté kampaně."
   },
-  "campaignRejectionRewardType": {
-    "message": "Žádná z jejích odměn není typu, který farmíte."
+  "campaignRejectionRewardKind": {
+    "message": "No $1 in this campaign."
+  },
+  "campaignRejectionSubscriptionSkipped": {
+    "message": "Its rewards need a subscription, and you're skipping those."
+  },
+  "campaignRejectionSubscriptionOnly": {
+    "message": "It has no subscription rewards, and you're farming only those."
   },
   "campaignRejectionRewardTypesObtained": {
     "message": "Odměny typů, které farmíte, už jsou získané."

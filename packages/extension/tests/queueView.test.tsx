@@ -265,6 +265,95 @@ describe("queue view", () => {
     expect(onRewardFilterChange).toHaveBeenCalledWith(defaultRewardFilter("twitch"));
   });
 
+  const subBadge = (id: string, platform: "twitch" | "kick" = "twitch") =>
+    campaign(id, {
+      platform,
+      rewards: [
+        {
+          id: `${id}-reward`,
+          name: "Sub badge",
+          benefits: [{ id: "b", distributionType: "BADGE" }],
+          requiredSubs: 1,
+          requiredMinutes: 0,
+          requirement: "subscription",
+          isWatchBased: false,
+          watchedMinutes: 0,
+          status: "locked",
+        },
+      ],
+    } as Partial<DropCampaign>);
+  const badgeOnly = (id: string) =>
+    campaign(id, {
+      rewards: [
+        {
+          id: `${id}-reward`,
+          name: "Badge",
+          benefits: [{ id: "b", distributionType: "BADGE" }],
+          requiredMinutes: 30,
+          requirement: "watch",
+          isWatchBased: true,
+          watchedMinutes: 0,
+          status: "locked",
+        },
+      ],
+    });
+  const farmAllOffered = (container: Element, id: string) =>
+    [...container.querySelectorAll<HTMLButtonElement>(`[data-campaign-id="${id}"] button`)].some(
+      (button) => button.textContent === "queueFixFarmAll",
+    );
+
+  it("says which part of the reward filter skipped a campaign", () => {
+    const settings = mergeSettings({
+      platform: { twitch: { rewardFilter: { kinds: ["badge"], subscriptions: "skip" } } },
+    } as never);
+    const { container } = queue(
+      views([campaign("item-only"), subBadge("sub-badge")], settings),
+      settings,
+    );
+
+    expand(container, "skipped");
+    const reason = (id: string) => openCard(container, id).textContent ?? "";
+    expect(reason("item-only")).toContain("campaignRejectionRewardKind:rewardKindBadge");
+    expect(reason("sub-badge")).toContain("campaignRejectionSubscriptionSkipped");
+    expect(farmAllOffered(container, "item-only")).toBe(true);
+    expect(farmAllOffered(container, "sub-badge")).toBe(true);
+  });
+
+  it("explains a Kick campaign skipped by a leftover only", () => {
+    const settings = mergeSettings({
+      platform: { kick: { rewardFilter: { kinds: ["item"], subscriptions: "only" } } },
+    } as never);
+    const { container } = queue(views([campaign("k", { platform: "kick" })], settings), settings, {
+      platform: "kick",
+      rewardFilter: settings.platform.kick.rewardFilter,
+    });
+
+    expand(container, "skipped");
+    expect(openCard(container, "k").textContent).toContain("campaignRejectionSubscriptionOnly");
+  });
+
+  it("counts the campaigns the reward filter skipped on the Skipped divider", () => {
+    const settings = mergeSettings({
+      excludedCampaignIds: ["hidden"],
+      platform: { twitch: { rewardFilter: { kinds: ["badge"], subscriptions: "include" } } },
+    } as never);
+    const { container } = queue(
+      views([badgeOnly("keep"), campaign("a"), campaign("b"), campaign("hidden")], settings),
+      settings,
+    );
+    const hint = (c: Element) =>
+      c.querySelector('[data-queue-disclosure="skipped"] span:nth-of-type(2)')?.textContent;
+    expect(hint(container)).toBe("queueSkippedByFilter:2");
+
+    const plain = mergeSettings({ excludedCampaignIds: ["hidden"] } as never);
+    act(() => root?.unmount());
+    root = undefined;
+    const unfiltered = queue(views([campaign("hidden")], plain), plain);
+    expect(
+      unfiltered.container.querySelector('[data-queue-disclosure="skipped"]')?.textContent,
+    ).not.toContain("queueSkippedByFilter");
+  });
+
   // The menu is portalled out of the panel, so its parts are looked up on the
   // document.
   const settle = (action: () => void) =>

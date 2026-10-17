@@ -403,6 +403,10 @@ describe("i18n", () => {
       "rewardFilterReset",
       "farmPinnedOnlyTitle",
       "farmPinnedOnlyDescription",
+      "campaignRejectionRewardKind",
+      "campaignRejectionSubscriptionSkipped",
+      "campaignRejectionSubscriptionOnly",
+      "queueSkippedByFilter",
     ]);
 
     for (const locale of localeCodes().filter((entry) => entry !== "en")) {

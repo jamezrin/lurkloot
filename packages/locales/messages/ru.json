@@ -116,6 +116,9 @@
   "queueSkipped": {
     "message": "Пропущенные"
   },
+  "queueSkippedByFilter": {
+    "message": "$1 outside your reward filter"
+  },
   "queueActionRequired": {
     "message": "Требуется действие"
   },
@@ -773,8 +776,14 @@
   "campaignRejectionNotPinned": {
     "message": "Сейчас фармятся только закреплённые кампании."
   },
-  "campaignRejectionRewardType": {
-    "message": "Ни одна её награда не относится к типам, которые вы фармите."
+  "campaignRejectionRewardKind": {
+    "message": "No $1 in this campaign."
+  },
+  "campaignRejectionSubscriptionSkipped": {
+    "message": "Its rewards need a subscription, and you're skipping those."
+  },
+  "campaignRejectionSubscriptionOnly": {
+    "message": "It has no subscription rewards, and you're farming only those."
   },
   "campaignRejectionRewardTypesObtained": {
     "message": "Её награды тех типов, что вы фармите, уже получены."

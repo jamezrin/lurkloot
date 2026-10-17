@@ -116,6 +116,9 @@
   "queueSkipped": {
     "message": "건너뜀"
   },
+  "queueSkippedByFilter": {
+    "message": "$1 outside your reward filter"
+  },
   "queueActionRequired": {
     "message": "조치 필요"
   },
@@ -773,8 +776,14 @@
   "campaignRejectionNotPinned": {
     "message": "지금은 고정된 캠페인만 파밍합니다."
   },
-  "campaignRejectionRewardType": {
-    "message": "보상 중 파밍하는 유형의 보상이 없습니다."
+  "campaignRejectionRewardKind": {
+    "message": "No $1 in this campaign."
+  },
+  "campaignRejectionSubscriptionSkipped": {
+    "message": "Its rewards need a subscription, and you're skipping those."
+  },
+  "campaignRejectionSubscriptionOnly": {
+    "message": "It has no subscription rewards, and you're farming only those."
   },
   "campaignRejectionRewardTypesObtained": {
     "message": "파밍하는 유형의 보상은 이미 획득했습니다."

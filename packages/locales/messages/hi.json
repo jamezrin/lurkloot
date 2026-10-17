@@ -116,6 +116,9 @@
   "queueSkipped": {
     "message": "छोड़े गए"
   },
+  "queueSkippedByFilter": {
+    "message": "$1 outside your reward filter"
+  },
   "queueActionRequired": {
     "message": "कार्रवाई आवश्यक"
   },
@@ -773,8 +776,14 @@
   "campaignRejectionNotPinned": {
     "message": "अभी सिर्फ़ पिन किए गए कैंपेन फ़ार्म होते हैं।"
   },
-  "campaignRejectionRewardType": {
-    "message": "इसका कोई भी इनाम आपके फ़ार्म किए जाने वाले प्रकारों का नहीं है।"
+  "campaignRejectionRewardKind": {
+    "message": "No $1 in this campaign."
+  },
+  "campaignRejectionSubscriptionSkipped": {
+    "message": "Its rewards need a subscription, and you're skipping those."
+  },
+  "campaignRejectionSubscriptionOnly": {
+    "message": "It has no subscription rewards, and you're farming only those."
   },
   "campaignRejectionRewardTypesObtained": {
     "message": "आपके फ़ार्म किए जाने वाले प्रकारों के इसके इनाम मिल चुके हैं।"
