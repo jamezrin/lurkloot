@@ -15,7 +15,7 @@
     "cf:deploy": "astro build && wrangler pages deploy dist --project-name=lurkloot --branch=main --commit-dirty=true"
   },
   "dependencies": {
-    "@astrojs/react": "^6.0.0",
+    "@astrojs/react": "^7.0.0",
     "@astrojs/sitemap": "^3.2.1",
     "@dnd-kit/helpers": "^0.5.0",
     "@dnd-kit/react": "^0.5.0",
