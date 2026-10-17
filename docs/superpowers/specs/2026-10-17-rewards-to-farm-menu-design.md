@@ -59,7 +59,12 @@ platform.<name>.rewardFilter: {
 - **What each kind means.** The kind comes from Twitch's `distributionType` on each benefit: `BADGE` → badge, `EMOTE` → emote. `DIRECT_ENTITLEMENT`, any unknown type, and no type all count as item, so a reward is never dropped for lacking a type. A campaign stored before `benefits` existed uses `benefitType`, as `rewardBadgeBenefit` does today. Kick rewards are always item.
 - **When a reward matches.** It matches when **both** hold:
   - at least one of its kinds is selected (a reward with an item and a badge matches if either is checked);
-  - it passes the subscription mode, which looks at `rewardRequiresSubscription`. `include` lets everything through, `skip` only rewards with no subscription, and `only` only rewards that need one. A subscription the user marked as made still counts as needing one, as in #839.
+  - it passes the subscription mode, which looks at `rewardRequiresSubscription`. `include` lets everything through, `skip` only rewards with no subscription, and `only` only rewards that need one.
+- **Marked subscriptions.** A reward the user marked as subscribed:
+  - still counts as a subscription reward under `only`, as in #839;
+  - passes `skip`, because the user already subscribed and the subscription no longer stands in the way.
+
+  This keeps today's behaviour for users migrated from `farmSubscriptionCampaigns: false`. The old check used `isSubscriptionReward`, which already treats a marked subscription-and-watch reward as a watch reward. *(my call)*
 - **Scope.** The rewards farmed are the ones that match, plus any reward they wait on (`rewardsInFarmingScope`, unchanged).
 - **Default.** Everything selected with `include` means "All rewards" and behaves exactly as `farmRewardTypes: []` does today.
 - **The UI won't let the user uncheck the last kind.** Normalization is the safety net behind that.
@@ -69,6 +74,8 @@ platform.<name>.rewardFilter: {
 - `farmingEligibility.farmSubscriptionCampaigns` **is removed.** On migration, `false` sets `subscriptions: "skip"` on both platforms, and `true` changes nothing.
   - Behaviour change: the old toggle skipped a whole campaign if *any* of its rewards needed a subscription. `skip` drops only those rewards, so a mixed campaign now farms its free rewards. That farms more, but it stays visible. *(my call; the maintainer may override)*
   - The `subscription_campaigns_disabled` rejection code goes away with the toggle.
+  - `campaignEligibleClass` and `campaignPassesFarmingEligibility` in `packages/shared/src/campaignFilters.ts` also read the toggle, so update them too.
+  - The toggle has already been released, so its migration is a schema version step in `packages/shared/src/settingsSchema.ts`.
 - `farmingEligibility.farmUnlinkedCampaigns` **becomes per platform:** `platform.<name>.farmUnlinkedCampaigns`, copied from the old value on both platforms. It moves from Settings → Drops into each platform's "Rewards to farm" group. It isn't in the Queue menu. *(my call)*
 - `farmPinnedOnly` **moves into the Queue menu.** **Open: global or per platform** (see Open questions).
 - **Migrating #839's `farmRewardTypes`** (develop builds only, since #839 is unreleased), best effort *(my call)*:
