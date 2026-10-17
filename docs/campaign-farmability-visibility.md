@@ -12,8 +12,9 @@ happen.
 
 ## 1. Can the engine farm it right now? — `campaignFarmable`
 
-Used by the scheduler's `isEligible`. Six structural gates, then one timing
-gate on the rewards themselves.
+Used by the scheduler's `isEligible`. Structural gates (the class and category
+ones, the per-platform `farmPinnedOnly` switch and the reward filter), then one
+timing gate on the rewards themselves.
 
 ```mermaid
 flowchart TD
@@ -25,11 +26,15 @@ flowchart TD
     D -- yes --> N1
     D -- no --> E{"id in<br/>excludedCampaignIds?"}
     E -- yes --> N1
-    E -- no --> F{"class allowed?<br/>farmUnlinkedCampaigns /<br/>farmSubscriptionCampaigns"}
+    E -- no --> F{"class allowed?<br/>unlinked campaign and<br/>farmUnlinkedCampaigns off?"}
     F -- no --> N1
     F -- yes --> G{"category filtered?<br/>campaignPassesCategoryFilter<br/>(include/exclude)"}
     G -- yes --> N1
-    G -- no --> I{"any reward<br/>farmable right now?<br/>not claimed, preconditions met,<br/>relevant, deadline feasible"}
+    G -- no --> P{"farmPinnedOnly on<br/>(per platform) and<br/>campaign not pinned?"}
+    P -- yes --> N1
+    P -- no --> R{"reward filter misses?<br/>rewardFilter kinds +<br/>subscription mode"}
+    R -- yes --> N2["FALSE — reward_type_filtered<br/>(filteredBy: kinds or subscriptions)"]
+    R -- no --> I{"any reward<br/>farmable right now?<br/>not claimed, preconditions met,<br/>relevant, deadline feasible"}
     I -- no --> N1
     I -- yes --> Y1["TRUE — engine farms it"]
 ```
@@ -37,6 +42,18 @@ flowchart TD
 Account linking does not block watch progress on either platform.
 `farmUnlinkedCampaigns` controls whether unlinked campaigns are farmed; their
 linking status remains visible so users can connect their game account for delivery.
+`farmUnlinkedCampaigns` and `farmPinnedOnly` are per-platform settings
+(`platform.<p>.…`), as is `rewardFilter`.
+
+The reward filter (`platform.<p>.rewardFilter`) has two halves: `kinds`
+(`item`, `badge`, `emote`, limited to what the platform has) and a
+subscription mode (`include`, `skip`, `only`). A campaign with no reward that
+passes both is rejected as `reward_type_filtered`, and `filteredBy` says which
+half missed so the Queue can name it. Only the rewards in scope (the matching
+ones plus the preconditions they wait on) are farmed; claiming is never narrowed.
+`farmPinnedOnly` is checked only when the evaluation is asked to include it
+(`includePinnedOnly`), so an unpinned campaign stays listed under Skipped as
+`not_pinned`.
 
 `evaluateCampaignFarming` applies these gates and returns either
 `{ farmable: true }` or one stable rejection code plus relevant context such
@@ -52,7 +69,7 @@ reason when expanded.
 
 ## 2. Is it in a farmable class at all? — `campaignEligibleClass`
 
-The first six gates above, on their own, ignoring reward timing entirely —
+The class gates above (status, ended, eligibility, exclusion, unlinked, category), ignoring the pin switch, the reward filter and reward timing entirely —
 just "does this campaign have anything left to earn or claim." This is the
 shape both farmability and visibility are built from.
 
@@ -97,7 +114,7 @@ no rank, drag handle, progress or warning.
 | `campaignSection` | which popup list does this campaign belong in? | the popup (`Popup.tsx`, `queue.tsx`, `completed.tsx`) |
 | `rankCampaigns` | in which order are the farmable ones tried? | the scheduler and the Queue |
 | `isRewardFarmableNow` | not claimed, preconditions met, in its window, deadline feasible | `campaignFarmable` |
-| `campaignPassesFarmingEligibility` | is this campaign's class (not-linked / subscription) allowed at all? | `campaignEligibleClass` |
+| `campaignPassesFarmingEligibility` | is this campaign's class (linked or not, per `farmUnlinkedCampaigns`) allowed at all? | `campaignEligibleClass` |
 
 ## The relationship that matters most
 
