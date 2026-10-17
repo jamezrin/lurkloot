@@ -143,17 +143,23 @@
   "queueFacetAll": {
     "message": "Vše"
   },
-  "queueFacetDrops": {
-    "message": "Drops"
+  "queueFacetNoSubscription": {
+    "message": "Bez předplatného"
   },
-  "queueFacetBadges": {
-    "message": "Sub odznaky"
+  "queueFacetSubscription": {
+    "message": "Vyžaduje předplatné"
+  },
+  "queueFacetBadge": {
+    "message": "Odznaky"
   },
   "queueFixInclude": {
     "message": "Zahrnout"
   },
   "queueFixPin": {
     "message": "Připnout"
+  },
+  "queueFixFarmAll": {
+    "message": "Farmit vše"
   },
   "queueFixGames": {
     "message": "Otevřít Hry"
@@ -164,8 +170,8 @@
   "queueEmpty": {
     "message": "Momentálně tu není co farmit."
   },
-  "queueEmptyBadges": {
-    "message": "Teď nejsou k farmě žádné kampaně s předplatným."
+  "queueEmptyRewardTypes": {
+    "message": "Z vybraných typů teď nelze nic farmit."
   },
   "completedTabFinished": {
     "message": "Dokončené"
@@ -388,6 +394,18 @@
   },
   "subscriptionProgressUnknown": {
     "message": "Průběh není k dispozici"
+  },
+  "rewardBadge": {
+    "message": "Odznak"
+  },
+  "rewardBadgeNamed": {
+    "message": "Odznak: $1"
+  },
+  "rewardAlsoWatch": {
+    "message": "Plus $1 sledování"
+  },
+  "rewardClaimable": {
+    "message": "Připraveno k vyzvednutí"
   },
   "notEarnableByWatching": {
     "message": "Nelze získat sledováním"
@@ -775,6 +793,12 @@
   },
   "campaignRejectionNotPinned": {
     "message": "Teď se farmí jen připnuté kampaně."
+  },
+  "campaignRejectionRewardType": {
+    "message": "Žádná z jejích odměn není typu, který farmíte."
+  },
+  "campaignRejectionRewardTypesObtained": {
+    "message": "Odměny typů, které farmíte, už jsou získané."
   },
   "campaignRejectionNoRewards": {
     "message": "Tato kampaň nemá odměny k farmení."
@@ -1981,5 +2005,14 @@
   },
   "navGroupOthers": {
     "message": "Ostatní"
+  },
+  "kickLevelSummary": {
+    "message": "Kick úroveň $1 · $2 % do úrovně $3"
+  },
+  "kickLevelXp": {
+    "message": "$1 / $2 XP"
+  },
+  "kickStreakDays": {
+    "message": "$1-denní série sledování"
   }
 }

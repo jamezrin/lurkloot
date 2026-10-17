@@ -143,17 +143,23 @@
   "queueFacetAll": {
     "message": "Semua"
   },
-  "queueFacetDrops": {
-    "message": "Drops"
+  "queueFacetNoSubscription": {
+    "message": "Tanpa langganan"
   },
-  "queueFacetBadges": {
-    "message": "Lencana sub"
+  "queueFacetSubscription": {
+    "message": "Perlu langganan"
+  },
+  "queueFacetBadge": {
+    "message": "Lencana"
   },
   "queueFixInclude": {
     "message": "Sertakan"
   },
   "queueFixPin": {
     "message": "Sematkan"
+  },
+  "queueFixFarmAll": {
+    "message": "Farm semua"
   },
   "queueFixGames": {
     "message": "Buka Game"
@@ -164,8 +170,8 @@
   "queueEmpty": {
     "message": "Tidak ada yang perlu di-farm di sini saat ini."
   },
-  "queueEmptyBadges": {
-    "message": "Tidak ada kampanye langganan yang bisa di-farm saat ini."
+  "queueEmptyRewardTypes": {
+    "message": "Tidak ada hadiah dari jenis yang dipilih yang bisa di-farm saat ini."
   },
   "completedTabFinished": {
     "message": "Selesai"
@@ -388,6 +394,18 @@
   },
   "subscriptionProgressUnknown": {
     "message": "Progres tidak tersedia"
+  },
+  "rewardBadge": {
+    "message": "Lencana"
+  },
+  "rewardBadgeNamed": {
+    "message": "Lencana: $1"
+  },
+  "rewardAlsoWatch": {
+    "message": "Plus $1 waktu tonton"
+  },
+  "rewardClaimable": {
+    "message": "Siap diklaim"
   },
   "notEarnableByWatching": {
     "message": "Tidak bisa diperoleh dengan menonton"
@@ -775,6 +793,12 @@
   },
   "campaignRejectionNotPinned": {
     "message": "Hanya kampanye yang disematkan yang di-farm saat ini."
+  },
+  "campaignRejectionRewardType": {
+    "message": "Tidak ada hadiahnya yang termasuk jenis yang Anda farm."
+  },
+  "campaignRejectionRewardTypesObtained": {
+    "message": "Hadiah dari jenis yang Anda farm sudah diperoleh."
   },
   "campaignRejectionNoRewards": {
     "message": "Kampanye ini tidak punya hadiah yang bisa di-farm."
@@ -1981,5 +2005,14 @@
   },
   "navGroupOthers": {
     "message": "Lainnya"
+  },
+  "kickLevelSummary": {
+    "message": "Level Kick $1 · $2% menuju level $3"
+  },
+  "kickLevelXp": {
+    "message": "$1 / $2 XP"
+  },
+  "kickStreakDays": {
+    "message": "Rentetan menonton $1 hari"
   }
 }

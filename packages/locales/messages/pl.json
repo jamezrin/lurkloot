@@ -143,17 +143,23 @@
   "queueFacetAll": {
     "message": "Wszystkie"
   },
-  "queueFacetDrops": {
-    "message": "Drops"
+  "queueFacetNoSubscription": {
+    "message": "Bez subskrypcji"
   },
-  "queueFacetBadges": {
-    "message": "Odznaki subskrypcji"
+  "queueFacetSubscription": {
+    "message": "Wymaga subskrypcji"
+  },
+  "queueFacetBadge": {
+    "message": "Odznaki"
   },
   "queueFixInclude": {
     "message": "Uwzględnij"
   },
   "queueFixPin": {
     "message": "Przypnij"
+  },
+  "queueFixFarmAll": {
+    "message": "Farmuj wszystko"
   },
   "queueFixGames": {
     "message": "Otwórz Gry"
@@ -164,8 +170,8 @@
   "queueEmpty": {
     "message": "Na razie nie ma tu nic do farmienia."
   },
-  "queueEmptyBadges": {
-    "message": "Teraz nie ma kampanii subskrypcyjnych do farmienia."
+  "queueEmptyRewardTypes": {
+    "message": "Nic z wybranych typów nie nadaje się teraz do farmienia."
   },
   "completedTabFinished": {
     "message": "Ukończone"
@@ -388,6 +394,18 @@
   },
   "subscriptionProgressUnknown": {
     "message": "Postęp niedostępny"
+  },
+  "rewardBadge": {
+    "message": "Odznaka"
+  },
+  "rewardBadgeNamed": {
+    "message": "Odznaka: $1"
+  },
+  "rewardAlsoWatch": {
+    "message": "Plus $1 oglądania"
+  },
+  "rewardClaimable": {
+    "message": "Gotowe do odebrania"
   },
   "notEarnableByWatching": {
     "message": "Nie można zdobyć przez oglądanie"
@@ -775,6 +793,12 @@
   },
   "campaignRejectionNotPinned": {
     "message": "Teraz farmione są tylko przypięte kampanie."
+  },
+  "campaignRejectionRewardType": {
+    "message": "Żadna z jej nagród nie należy do typów, które farmisz."
+  },
+  "campaignRejectionRewardTypesObtained": {
+    "message": "Nagrody z typów, które farmisz, są już zdobyte."
   },
   "campaignRejectionNoRewards": {
     "message": "Ta kampania nie ma nagród do farmienia."
@@ -1981,5 +2005,14 @@
   },
   "navGroupOthers": {
     "message": "Inne"
+  },
+  "kickLevelSummary": {
+    "message": "Poziom Kick $1 · $2% do poziomu $3"
+  },
+  "kickLevelXp": {
+    "message": "$1 / $2 XP"
+  },
+  "kickStreakDays": {
+    "message": "$1-dniowa seria oglądania"
   }
 }

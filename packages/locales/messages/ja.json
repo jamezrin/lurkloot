@@ -143,17 +143,23 @@
   "queueFacetAll": {
     "message": "すべて"
   },
-  "queueFacetDrops": {
-    "message": "Drops"
+  "queueFacetNoSubscription": {
+    "message": "サブスク不要"
   },
-  "queueFacetBadges": {
-    "message": "サブバッジ"
+  "queueFacetSubscription": {
+    "message": "サブスク必要"
+  },
+  "queueFacetBadge": {
+    "message": "バッジ"
   },
   "queueFixInclude": {
     "message": "含める"
   },
   "queueFixPin": {
     "message": "ピン留め"
+  },
+  "queueFixFarmAll": {
+    "message": "すべてファーム"
   },
   "queueFixGames": {
     "message": "ゲームを開く"
@@ -164,8 +170,8 @@
   "queueEmpty": {
     "message": "今はここでファームするものがありません。"
   },
-  "queueEmptyBadges": {
-    "message": "今はファームできるサブスクキャンペーンがありません。"
+  "queueEmptyRewardTypes": {
+    "message": "選択した種類のものは今はファームできません。"
   },
   "completedTabFinished": {
     "message": "完了"
@@ -388,6 +394,18 @@
   },
   "subscriptionProgressUnknown": {
     "message": "進捗を取得できません"
+  },
+  "rewardBadge": {
+    "message": "バッジ"
+  },
+  "rewardBadgeNamed": {
+    "message": "バッジ: $1"
+  },
+  "rewardAlsoWatch": {
+    "message": "さらに $1 の視聴"
+  },
+  "rewardClaimable": {
+    "message": "受け取り可能"
   },
   "notEarnableByWatching": {
     "message": "視聴では獲得できません"
@@ -775,6 +793,12 @@
   },
   "campaignRejectionNotPinned": {
     "message": "現在はピン留めされたキャンペーンのみファームしています。"
+  },
+  "campaignRejectionRewardType": {
+    "message": "このキャンペーンの報酬に、ファームする種類のものはありません。"
+  },
+  "campaignRejectionRewardTypesObtained": {
+    "message": "ファームする種類の報酬はすでに獲得済みです。"
   },
   "campaignRejectionNoRewards": {
     "message": "このキャンペーンにファーム可能な報酬がありません。"
@@ -1981,5 +2005,14 @@
   },
   "navGroupOthers": {
     "message": "その他"
+  },
+  "kickLevelSummary": {
+    "message": "Kick レベル $1 · レベル $3 まで $2%"
+  },
+  "kickLevelXp": {
+    "message": "$1 / $2 XP"
+  },
+  "kickStreakDays": {
+    "message": "$1日連続視聴"
   }
 }
