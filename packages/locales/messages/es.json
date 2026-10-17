@@ -117,7 +117,7 @@
     "message": "Omitidas"
   },
   "queueSkippedByFilter": {
-    "message": "$1 outside your reward filter"
+    "message": "$1 fuera de tu filtro de recompensas"
   },
   "queueActionRequired": {
     "message": "Requiere acción"
@@ -777,13 +777,13 @@
     "message": "Ahora mismo solo se farmean las campañas fijadas."
   },
   "campaignRejectionRewardKind": {
-    "message": "No $1 in this campaign."
+    "message": "Nada aquí coincide con tus tipos de recompensa ($1)."
   },
   "campaignRejectionSubscriptionSkipped": {
-    "message": "Its rewards need a subscription, and you're skipping those."
+    "message": "Sus recompensas requieren suscripción, y estás omitiendo esas."
   },
   "campaignRejectionSubscriptionOnly": {
-    "message": "It has no subscription rewards, and you're farming only those."
+    "message": "No tiene recompensas por suscripción, y solo estás farmeando esas."
   },
   "campaignRejectionRewardTypesObtained": {
     "message": "Sus recompensas de los tipos que farmeas ya están conseguidas."
@@ -939,73 +939,73 @@
     "message": "Si está desactivado, se omiten las campañas que requieren vincular tu cuenta. Los requisitos de la plataforma aún pueden exigir vincularla cuando está activado."
   },
   "rewardFilterTitle": {
-    "message": "Rewards to farm"
+    "message": "Recompensas a farmear"
   },
   "rewardFilterDescription": {
-    "message": "What Lurkloot farms on $1. The filter menu in the Queue changes the same setting."
+    "message": "Lo que Lurkloot farmea en $1. El menú de filtros de la Cola cambia el mismo ajuste."
   },
   "rewardKindsTitle": {
-    "message": "Reward types"
+    "message": "Tipos de recompensa"
   },
   "rewardKindsDescription": {
-    "message": "A reward is farmed if any part of it matches."
+    "message": "Una recompensa se farmea si cualquier parte de ella coincide."
   },
   "rewardKindItem": {
-    "message": "In-game items"
+    "message": "Objetos del juego"
   },
   "rewardKindBadge": {
-    "message": "Badges"
+    "message": "Insignias"
   },
   "rewardKindEmote": {
     "message": "Emotes"
   },
   "rewardKindItemShort": {
-    "message": "Items"
+    "message": "Objetos"
   },
   "subscriptionRewardsTitle": {
-    "message": "Subscription rewards"
+    "message": "Recompensas por suscripción"
   },
   "subscriptionRewardsDescription": {
-    "message": "Rewards that need a channel subscription."
+    "message": "Recompensas que requieren una suscripción al canal."
   },
   "subscriptionModeInclude": {
-    "message": "Include"
+    "message": "Incluir"
   },
   "subscriptionModeSkip": {
-    "message": "Skip"
+    "message": "Omitir"
   },
   "subscriptionModeOnly": {
-    "message": "Only"
+    "message": "Solo"
   },
   "subscriptionModeIncludeHint": {
-    "message": "Subscription rewards are farmed with the rest."
+    "message": "Las recompensas por suscripción se farmean junto con el resto."
   },
   "subscriptionModeSkipHint": {
-    "message": "Rewards that need a subscription are not farmed."
+    "message": "Las recompensas que requieren suscripción no se farmean."
   },
   "subscriptionModeOnlyHint": {
-    "message": "Only rewards that need a subscription are farmed."
+    "message": "Solo se farmean las recompensas que requieren suscripción."
   },
   "rewardFilterAll": {
-    "message": "All rewards"
+    "message": "Todas las recompensas"
   },
   "rewardFilterAllKinds": {
-    "message": "All"
+    "message": "Todas"
   },
   "rewardFilterNoSub": {
-    "message": "no sub"
+    "message": "sin sub"
   },
   "rewardFilterSubOnly": {
-    "message": "sub only"
+    "message": "solo sub"
   },
   "rewardFilterReset": {
-    "message": "Reset to all rewards"
+    "message": "Restablecer a todas las recompensas"
   },
   "farmPinnedOnlyTitle": {
-    "message": "Farm pinned campaigns only"
+    "message": "Farmear solo las campañas fijadas"
   },
   "farmPinnedOnlyDescription": {
-    "message": "Only campaigns you pinned in the Queue are farmed on $1."
+    "message": "Solo se farmean en $1 las campañas que fijaste en la Cola."
   },
   "forgetExcludedTitle": {
     "message": "Olvidar campañas excluidas"

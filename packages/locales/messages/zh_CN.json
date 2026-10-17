@@ -117,7 +117,7 @@
     "message": "已跳过"
   },
   "queueSkippedByFilter": {
-    "message": "$1 outside your reward filter"
+    "message": "$1 不在你的奖励筛选范围内"
   },
   "queueActionRequired": {
     "message": "需要操作"
@@ -777,13 +777,13 @@
     "message": "当前只挂机已置顶的掉宝活动。"
   },
   "campaignRejectionRewardKind": {
-    "message": "No $1 in this campaign."
+    "message": "这里没有符合你奖励类型（$1）的内容。"
   },
   "campaignRejectionSubscriptionSkipped": {
-    "message": "Its rewards need a subscription, and you're skipping those."
+    "message": "其奖励需要订阅，而你设置了跳过这些奖励。"
   },
   "campaignRejectionSubscriptionOnly": {
-    "message": "It has no subscription rewards, and you're farming only those."
+    "message": "它没有订阅奖励，而你只挂机这些奖励。"
   },
   "campaignRejectionRewardTypesObtained": {
     "message": "其属于你挂机类型的奖励已获得。"
@@ -939,73 +939,73 @@
     "message": "关闭后，将跳过尚未关联账号的掉宝活动。开启后，仍须遵守平台的账号关联要求。"
   },
   "rewardFilterTitle": {
-    "message": "Rewards to farm"
+    "message": "要挂机的奖励"
   },
   "rewardFilterDescription": {
-    "message": "What Lurkloot farms on $1. The filter menu in the Queue changes the same setting."
+    "message": "Lurkloot 在 $1 上挂机的奖励。队列中的筛选菜单会更改同一设置。"
   },
   "rewardKindsTitle": {
-    "message": "Reward types"
+    "message": "奖励类型"
   },
   "rewardKindsDescription": {
-    "message": "A reward is farmed if any part of it matches."
+    "message": "奖励的任一部分符合时即会挂机。"
   },
   "rewardKindItem": {
-    "message": "In-game items"
+    "message": "游戏内物品"
   },
   "rewardKindBadge": {
-    "message": "Badges"
+    "message": "徽章"
   },
   "rewardKindEmote": {
-    "message": "Emotes"
+    "message": "表情"
   },
   "rewardKindItemShort": {
-    "message": "Items"
+    "message": "物品"
   },
   "subscriptionRewardsTitle": {
-    "message": "Subscription rewards"
+    "message": "订阅奖励"
   },
   "subscriptionRewardsDescription": {
-    "message": "Rewards that need a channel subscription."
+    "message": "需要频道订阅的奖励。"
   },
   "subscriptionModeInclude": {
-    "message": "Include"
+    "message": "包含"
   },
   "subscriptionModeSkip": {
-    "message": "Skip"
+    "message": "跳过"
   },
   "subscriptionModeOnly": {
-    "message": "Only"
+    "message": "仅限"
   },
   "subscriptionModeIncludeHint": {
-    "message": "Subscription rewards are farmed with the rest."
+    "message": "订阅奖励与其他奖励一同挂机。"
   },
   "subscriptionModeSkipHint": {
-    "message": "Rewards that need a subscription are not farmed."
+    "message": "需要订阅的奖励不会挂机。"
   },
   "subscriptionModeOnlyHint": {
-    "message": "Only rewards that need a subscription are farmed."
+    "message": "仅挂机需要订阅的奖励。"
   },
   "rewardFilterAll": {
-    "message": "All rewards"
+    "message": "所有奖励"
   },
   "rewardFilterAllKinds": {
-    "message": "All"
+    "message": "全部"
   },
   "rewardFilterNoSub": {
-    "message": "no sub"
+    "message": "无订阅"
   },
   "rewardFilterSubOnly": {
-    "message": "sub only"
+    "message": "仅订阅"
   },
   "rewardFilterReset": {
-    "message": "Reset to all rewards"
+    "message": "重置为所有奖励"
   },
   "farmPinnedOnlyTitle": {
-    "message": "Farm pinned campaigns only"
+    "message": "仅挂机已置顶的活动"
   },
   "farmPinnedOnlyDescription": {
-    "message": "Only campaigns you pinned in the Queue are farmed on $1."
+    "message": "在 $1 上，仅挂机你在队列中置顶的活动。"
   },
   "forgetExcludedTitle": {
     "message": "恢复已排除的活动"

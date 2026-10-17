@@ -376,38 +376,13 @@ describe("i18n", () => {
       "kickLevelXp",
     ]);
 
-    // TEMPORARY: the Rewards to farm keys carry English placeholders until
-    // their translations land in the next task of this branch, which removes
-    // this set.
-    const awaitingTranslation = new Set([
-      "rewardFilterTitle",
-      "rewardFilterDescription",
-      "rewardKindsTitle",
-      "rewardKindsDescription",
-      "rewardKindItem",
-      "rewardKindBadge",
-      "rewardKindEmote",
-      "rewardKindItemShort",
-      "subscriptionRewardsTitle",
-      "subscriptionRewardsDescription",
-      "subscriptionModeInclude",
-      "subscriptionModeSkip",
-      "subscriptionModeOnly",
-      "subscriptionModeIncludeHint",
-      "subscriptionModeSkipHint",
-      "subscriptionModeOnlyHint",
-      "rewardFilterAll",
-      "rewardFilterAllKinds",
-      "rewardFilterNoSub",
-      "rewardFilterSubOnly",
-      "rewardFilterReset",
-      "farmPinnedOnlyTitle",
-      "farmPinnedOnlyDescription",
-      "campaignRejectionRewardKind",
-      "campaignRejectionSubscriptionSkipped",
-      "campaignRejectionSubscriptionOnly",
-      "queueSkippedByFilter",
-    ]);
+    // Loanwords that are correct as written in these languages.
+    const loanwords: Record<string, Set<string>> = {
+      de: new Set(["rewardKindEmote", "rewardKindItemShort"]),
+      es: new Set(["rewardKindEmote"]),
+      pt_BR: new Set(["rewardKindEmote"]),
+      fr: new Set(["rewardKindBadge"]),
+    };
 
     for (const locale of localeCodes().filter((entry) => entry !== "en")) {
       const catalog = readCatalog(locale);
@@ -415,7 +390,7 @@ describe("i18n", () => {
         (key) =>
           catalog[key]?.message === english[key]?.message
           && !allowedSameAsEnglish.has(key)
-          && !awaitingTranslation.has(key),
+          && !loanwords[locale]?.has(key),
       );
       expect(unchanged, locale).toEqual([]);
     }

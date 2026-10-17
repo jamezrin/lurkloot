@@ -117,7 +117,7 @@
     "message": "Ignorées"
   },
   "queueSkippedByFilter": {
-    "message": "$1 outside your reward filter"
+    "message": "$1 hors de votre filtre de récompenses"
   },
   "queueActionRequired": {
     "message": "Action requise"
@@ -777,13 +777,13 @@
     "message": "Seules les campagnes épinglées sont farmées pour l'instant."
   },
   "campaignRejectionRewardKind": {
-    "message": "No $1 in this campaign."
+    "message": "Rien ici ne correspond à vos types de récompenses ($1)."
   },
   "campaignRejectionSubscriptionSkipped": {
-    "message": "Its rewards need a subscription, and you're skipping those."
+    "message": "Ses récompenses nécessitent un abonnement, et vous les ignorez."
   },
   "campaignRejectionSubscriptionOnly": {
-    "message": "It has no subscription rewards, and you're farming only those."
+    "message": "Elle n’a aucune récompense d’abonnement, et vous ne farmez que celles-ci."
   },
   "campaignRejectionRewardTypesObtained": {
     "message": "Ses récompenses des types que tu farmes sont obtenues."
@@ -939,73 +939,73 @@
     "message": "Si désactivé, les campagnes nécessitant de lier votre compte sont ignorées. La plateforme peut toujours imposer la liaison lorsque l'option est activée."
   },
   "rewardFilterTitle": {
-    "message": "Rewards to farm"
+    "message": "Récompenses à farmer"
   },
   "rewardFilterDescription": {
-    "message": "What Lurkloot farms on $1. The filter menu in the Queue changes the same setting."
+    "message": "Ce que Lurkloot farme sur $1. Le menu de filtre dans la File modifie le même réglage."
   },
   "rewardKindsTitle": {
-    "message": "Reward types"
+    "message": "Types de récompenses"
   },
   "rewardKindsDescription": {
-    "message": "A reward is farmed if any part of it matches."
+    "message": "Une récompense est farmée si une partie quelconque correspond."
   },
   "rewardKindItem": {
-    "message": "In-game items"
+    "message": "Objets en jeu"
   },
   "rewardKindBadge": {
     "message": "Badges"
   },
   "rewardKindEmote": {
-    "message": "Emotes"
+    "message": "Émotes"
   },
   "rewardKindItemShort": {
-    "message": "Items"
+    "message": "Objets"
   },
   "subscriptionRewardsTitle": {
-    "message": "Subscription rewards"
+    "message": "Récompenses d’abonnement"
   },
   "subscriptionRewardsDescription": {
-    "message": "Rewards that need a channel subscription."
+    "message": "Récompenses qui nécessitent un abonnement à la chaîne."
   },
   "subscriptionModeInclude": {
-    "message": "Include"
+    "message": "Inclure"
   },
   "subscriptionModeSkip": {
-    "message": "Skip"
+    "message": "Ignorer"
   },
   "subscriptionModeOnly": {
-    "message": "Only"
+    "message": "Uniquement"
   },
   "subscriptionModeIncludeHint": {
-    "message": "Subscription rewards are farmed with the rest."
+    "message": "Les récompenses d’abonnement sont farmées avec les autres."
   },
   "subscriptionModeSkipHint": {
-    "message": "Rewards that need a subscription are not farmed."
+    "message": "Les récompenses qui nécessitent un abonnement ne sont pas farmées."
   },
   "subscriptionModeOnlyHint": {
-    "message": "Only rewards that need a subscription are farmed."
+    "message": "Seules les récompenses qui nécessitent un abonnement sont farmées."
   },
   "rewardFilterAll": {
-    "message": "All rewards"
+    "message": "Toutes les récompenses"
   },
   "rewardFilterAllKinds": {
-    "message": "All"
+    "message": "Tous"
   },
   "rewardFilterNoSub": {
-    "message": "no sub"
+    "message": "sans abo"
   },
   "rewardFilterSubOnly": {
-    "message": "sub only"
+    "message": "abo uniquement"
   },
   "rewardFilterReset": {
-    "message": "Reset to all rewards"
+    "message": "Réinitialiser toutes les récompenses"
   },
   "farmPinnedOnlyTitle": {
-    "message": "Farm pinned campaigns only"
+    "message": "Farmer uniquement les campagnes épinglées"
   },
   "farmPinnedOnlyDescription": {
-    "message": "Only campaigns you pinned in the Queue are farmed on $1."
+    "message": "Seules les campagnes épinglées dans la File sont farmées sur $1."
   },
   "forgetExcludedTitle": {
     "message": "Oublier les campagnes exclues"

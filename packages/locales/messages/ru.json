@@ -117,7 +117,7 @@
     "message": "Пропущенные"
   },
   "queueSkippedByFilter": {
-    "message": "$1 outside your reward filter"
+    "message": "$1 вне фильтра наград"
   },
   "queueActionRequired": {
     "message": "Требуется действие"
@@ -777,13 +777,13 @@
     "message": "Сейчас фармятся только закреплённые кампании."
   },
   "campaignRejectionRewardKind": {
-    "message": "No $1 in this campaign."
+    "message": "Здесь нет наград выбранных типов ($1)."
   },
   "campaignRejectionSubscriptionSkipped": {
-    "message": "Its rewards need a subscription, and you're skipping those."
+    "message": "Её награды требуют подписку, а вы их пропускаете."
   },
   "campaignRejectionSubscriptionOnly": {
-    "message": "It has no subscription rewards, and you're farming only those."
+    "message": "В ней нет наград за подписку, а вы фармите только их."
   },
   "campaignRejectionRewardTypesObtained": {
     "message": "Её награды тех типов, что вы фармите, уже получены."
@@ -939,73 +939,73 @@
     "message": "Когда выключено, кампании, требующие привязки аккаунта, пропускаются. Требования платформы могут всё равно требовать привязку, когда настройка включена."
   },
   "rewardFilterTitle": {
-    "message": "Rewards to farm"
+    "message": "Награды для фарма"
   },
   "rewardFilterDescription": {
-    "message": "What Lurkloot farms on $1. The filter menu in the Queue changes the same setting."
+    "message": "Что Lurkloot фармит на $1. Меню фильтра в очереди меняет ту же настройку."
   },
   "rewardKindsTitle": {
-    "message": "Reward types"
+    "message": "Типы наград"
   },
   "rewardKindsDescription": {
-    "message": "A reward is farmed if any part of it matches."
+    "message": "Награда фармится, если подходит хотя бы её часть."
   },
   "rewardKindItem": {
-    "message": "In-game items"
+    "message": "Внутриигровые предметы"
   },
   "rewardKindBadge": {
-    "message": "Badges"
+    "message": "Значки"
   },
   "rewardKindEmote": {
-    "message": "Emotes"
+    "message": "Эмоуты"
   },
   "rewardKindItemShort": {
-    "message": "Items"
+    "message": "Предметы"
   },
   "subscriptionRewardsTitle": {
-    "message": "Subscription rewards"
+    "message": "Награды за подписку"
   },
   "subscriptionRewardsDescription": {
-    "message": "Rewards that need a channel subscription."
+    "message": "Награды, для которых нужна подписка на канал."
   },
   "subscriptionModeInclude": {
-    "message": "Include"
+    "message": "Учитывать"
   },
   "subscriptionModeSkip": {
-    "message": "Skip"
+    "message": "Пропускать"
   },
   "subscriptionModeOnly": {
-    "message": "Only"
+    "message": "Только"
   },
   "subscriptionModeIncludeHint": {
-    "message": "Subscription rewards are farmed with the rest."
+    "message": "Награды за подписку фармятся вместе с остальными."
   },
   "subscriptionModeSkipHint": {
-    "message": "Rewards that need a subscription are not farmed."
+    "message": "Награды, для которых нужна подписка, не фармятся."
   },
   "subscriptionModeOnlyHint": {
-    "message": "Only rewards that need a subscription are farmed."
+    "message": "Фармятся только награды, для которых нужна подписка."
   },
   "rewardFilterAll": {
-    "message": "All rewards"
+    "message": "Все награды"
   },
   "rewardFilterAllKinds": {
-    "message": "All"
+    "message": "Все"
   },
   "rewardFilterNoSub": {
-    "message": "no sub"
+    "message": "без подп."
   },
   "rewardFilterSubOnly": {
-    "message": "sub only"
+    "message": "только подп."
   },
   "rewardFilterReset": {
-    "message": "Reset to all rewards"
+    "message": "Сбросить: все награды"
   },
   "farmPinnedOnlyTitle": {
-    "message": "Farm pinned campaigns only"
+    "message": "Фармить только закреплённые кампании"
   },
   "farmPinnedOnlyDescription": {
-    "message": "Only campaigns you pinned in the Queue are farmed on $1."
+    "message": "На $1 фармятся только кампании, которые вы закрепили в очереди."
   },
   "forgetExcludedTitle": {
     "message": "Забыть исключённые кампании"

@@ -117,7 +117,7 @@
     "message": "متجاوَزة"
   },
   "queueSkippedByFilter": {
-    "message": "$1 outside your reward filter"
+    "message": "$1 خارج تصفية المكافآت لديك"
   },
   "queueActionRequired": {
     "message": "يلزم إجراء"
@@ -777,13 +777,13 @@
     "message": "يتم الآن تجميع الحملات المثبتة فقط."
   },
   "campaignRejectionRewardKind": {
-    "message": "No $1 in this campaign."
+    "message": "لا يوجد هنا ما يطابق أنواع المكافآت التي اخترتها ($1)."
   },
   "campaignRejectionSubscriptionSkipped": {
-    "message": "Its rewards need a subscription, and you're skipping those."
+    "message": "مكافآتها تتطلب اشتراكًا، وأنت تتخطى هذه المكافآت."
   },
   "campaignRejectionSubscriptionOnly": {
-    "message": "It has no subscription rewards, and you're farming only those."
+    "message": "لا تحتوي على مكافآت اشتراك، وأنت تفارم هذه المكافآت فقط."
   },
   "campaignRejectionRewardTypesObtained": {
     "message": "جوائزها من الأنواع التي تجمعها مكتسبة بالفعل."
@@ -939,73 +939,73 @@
     "message": "عند الإيقاف، تُتخطى الحملات التي تتطلب ربط الحساب. قد تظل متطلبات المنصة تفرض الربط عند التشغيل."
   },
   "rewardFilterTitle": {
-    "message": "Rewards to farm"
+    "message": "المكافآت للفارم"
   },
   "rewardFilterDescription": {
-    "message": "What Lurkloot farms on $1. The filter menu in the Queue changes the same setting."
+    "message": "ما يفارمه Lurkloot على $1. قائمة التصفية في قائمة الانتظار تغيّر الإعداد نفسه."
   },
   "rewardKindsTitle": {
-    "message": "Reward types"
+    "message": "أنواع المكافآت"
   },
   "rewardKindsDescription": {
-    "message": "A reward is farmed if any part of it matches."
+    "message": "تُفارَم المكافأة إذا تطابق أي جزء منها."
   },
   "rewardKindItem": {
-    "message": "In-game items"
+    "message": "عناصر داخل اللعبة"
   },
   "rewardKindBadge": {
-    "message": "Badges"
+    "message": "شارات"
   },
   "rewardKindEmote": {
-    "message": "Emotes"
+    "message": "إيموتات"
   },
   "rewardKindItemShort": {
-    "message": "Items"
+    "message": "عناصر"
   },
   "subscriptionRewardsTitle": {
-    "message": "Subscription rewards"
+    "message": "مكافآت الاشتراك"
   },
   "subscriptionRewardsDescription": {
-    "message": "Rewards that need a channel subscription."
+    "message": "المكافآت التي تتطلب الاشتراك في القناة."
   },
   "subscriptionModeInclude": {
-    "message": "Include"
+    "message": "تضمين"
   },
   "subscriptionModeSkip": {
-    "message": "Skip"
+    "message": "تخطي"
   },
   "subscriptionModeOnly": {
-    "message": "Only"
+    "message": "فقط"
   },
   "subscriptionModeIncludeHint": {
-    "message": "Subscription rewards are farmed with the rest."
+    "message": "تُفارَم مكافآت الاشتراك مع باقي المكافآت."
   },
   "subscriptionModeSkipHint": {
-    "message": "Rewards that need a subscription are not farmed."
+    "message": "لا تُفارَم المكافآت التي تتطلب اشتراكًا."
   },
   "subscriptionModeOnlyHint": {
-    "message": "Only rewards that need a subscription are farmed."
+    "message": "تُفارَم المكافآت التي تتطلب اشتراكًا فقط."
   },
   "rewardFilterAll": {
-    "message": "All rewards"
+    "message": "كل المكافآت"
   },
   "rewardFilterAllKinds": {
-    "message": "All"
+    "message": "الكل"
   },
   "rewardFilterNoSub": {
-    "message": "no sub"
+    "message": "بدون اشتراك"
   },
   "rewardFilterSubOnly": {
-    "message": "sub only"
+    "message": "اشتراك فقط"
   },
   "rewardFilterReset": {
-    "message": "Reset to all rewards"
+    "message": "إعادة الضبط إلى كل المكافآت"
   },
   "farmPinnedOnlyTitle": {
-    "message": "Farm pinned campaigns only"
+    "message": "فارم الحملات المثبتة فقط"
   },
   "farmPinnedOnlyDescription": {
-    "message": "Only campaigns you pinned in the Queue are farmed on $1."
+    "message": "تُفارَم فقط الحملات التي ثبتّها في قائمة الانتظار على $1."
   },
   "forgetExcludedTitle": {
     "message": "نسيان الحملات المستبعدة"

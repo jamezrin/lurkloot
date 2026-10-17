@@ -117,7 +117,7 @@
     "message": "Pominięte"
   },
   "queueSkippedByFilter": {
-    "message": "$1 outside your reward filter"
+    "message": "$1 poza filtrem nagród"
   },
   "queueActionRequired": {
     "message": "Wymagane działanie"
@@ -777,13 +777,13 @@
     "message": "Teraz farmione są tylko przypięte kampanie."
   },
   "campaignRejectionRewardKind": {
-    "message": "No $1 in this campaign."
+    "message": "Nic tutaj nie pasuje do wybranych typów nagród ($1)."
   },
   "campaignRejectionSubscriptionSkipped": {
-    "message": "Its rewards need a subscription, and you're skipping those."
+    "message": "Ich nagrody wymagają subskrypcji, a te pomijasz."
   },
   "campaignRejectionSubscriptionOnly": {
-    "message": "It has no subscription rewards, and you're farming only those."
+    "message": "Nie ma w niej nagród za subskrypcję, a farmisz tylko takie."
   },
   "campaignRejectionRewardTypesObtained": {
     "message": "Nagrody z typów, które farmisz, są już zdobyte."
@@ -939,73 +939,73 @@
     "message": "Gdy wyłączone, kampanie wymagające połączenia konta są pomijane. Wymagania platformy nadal mogą wymagać połączenia, gdy to jest włączone."
   },
   "rewardFilterTitle": {
-    "message": "Rewards to farm"
+    "message": "Nagrody do farmienia"
   },
   "rewardFilterDescription": {
-    "message": "What Lurkloot farms on $1. The filter menu in the Queue changes the same setting."
+    "message": "Co Lurkloot farmi na $1. Menu filtra w Kolejce zmienia to samo ustawienie."
   },
   "rewardKindsTitle": {
-    "message": "Reward types"
+    "message": "Typy nagród"
   },
   "rewardKindsDescription": {
-    "message": "A reward is farmed if any part of it matches."
+    "message": "Nagroda jest farmiona, jeśli pasuje choć jedna jej część."
   },
   "rewardKindItem": {
-    "message": "In-game items"
+    "message": "Przedmioty w grze"
   },
   "rewardKindBadge": {
-    "message": "Badges"
+    "message": "Odznaki"
   },
   "rewardKindEmote": {
-    "message": "Emotes"
+    "message": "Emotki"
   },
   "rewardKindItemShort": {
-    "message": "Items"
+    "message": "Przedmioty"
   },
   "subscriptionRewardsTitle": {
-    "message": "Subscription rewards"
+    "message": "Nagrody za subskrypcję"
   },
   "subscriptionRewardsDescription": {
-    "message": "Rewards that need a channel subscription."
+    "message": "Nagrody wymagające subskrypcji kanału."
   },
   "subscriptionModeInclude": {
-    "message": "Include"
+    "message": "Uwzględnij"
   },
   "subscriptionModeSkip": {
-    "message": "Skip"
+    "message": "Pomijaj"
   },
   "subscriptionModeOnly": {
-    "message": "Only"
+    "message": "Tylko"
   },
   "subscriptionModeIncludeHint": {
-    "message": "Subscription rewards are farmed with the rest."
+    "message": "Nagrody za subskrypcję są farmione razem z resztą."
   },
   "subscriptionModeSkipHint": {
-    "message": "Rewards that need a subscription are not farmed."
+    "message": "Nagrody wymagające subskrypcji nie są farmione."
   },
   "subscriptionModeOnlyHint": {
-    "message": "Only rewards that need a subscription are farmed."
+    "message": "Farmione są tylko nagrody wymagające subskrypcji."
   },
   "rewardFilterAll": {
-    "message": "All rewards"
+    "message": "Wszystkie nagrody"
   },
   "rewardFilterAllKinds": {
-    "message": "All"
+    "message": "Wszystkie"
   },
   "rewardFilterNoSub": {
-    "message": "no sub"
+    "message": "bez subów"
   },
   "rewardFilterSubOnly": {
-    "message": "sub only"
+    "message": "tylko suby"
   },
   "rewardFilterReset": {
-    "message": "Reset to all rewards"
+    "message": "Przywróć wszystkie nagrody"
   },
   "farmPinnedOnlyTitle": {
-    "message": "Farm pinned campaigns only"
+    "message": "Farmuj tylko przypięte kampanie"
   },
   "farmPinnedOnlyDescription": {
-    "message": "Only campaigns you pinned in the Queue are farmed on $1."
+    "message": "Na $1 farmowane są tylko kampanie przypięte w Kolejce."
   },
   "forgetExcludedTitle": {
     "message": "Zapomnij wykluczone kampanie"

@@ -117,7 +117,7 @@
     "message": "Пропущені"
   },
   "queueSkippedByFilter": {
-    "message": "$1 outside your reward filter"
+    "message": "$1 поза вашим фільтром нагород"
   },
   "queueActionRequired": {
     "message": "Потрібна дія"
@@ -777,13 +777,13 @@
     "message": "Зараз фармляться лише закріплені кампанії."
   },
   "campaignRejectionRewardKind": {
-    "message": "No $1 in this campaign."
+    "message": "Тут немає нічого з ваших типів нагород ($1)."
   },
   "campaignRejectionSubscriptionSkipped": {
-    "message": "Its rewards need a subscription, and you're skipping those."
+    "message": "Її нагороди потребують підписки, а ви їх пропускаєте."
   },
   "campaignRejectionSubscriptionOnly": {
-    "message": "It has no subscription rewards, and you're farming only those."
+    "message": "У ній немає нагород за підписку, а ви фармите лише їх."
   },
   "campaignRejectionRewardTypesObtained": {
     "message": "Нагороди її типів, які ви фармите, уже отримано."
@@ -939,73 +939,73 @@
     "message": "Коли вимкнено, кампанії, що потребують прив’язки облікового запису, пропускаються. Вимоги платформи все одно можуть вимагати прив’язку, коли це увімкнено."
   },
   "rewardFilterTitle": {
-    "message": "Rewards to farm"
+    "message": "Нагороди для фарму"
   },
   "rewardFilterDescription": {
-    "message": "What Lurkloot farms on $1. The filter menu in the Queue changes the same setting."
+    "message": "Що Lurkloot фармить на $1. Меню фільтра в черзі змінює те саме налаштування."
   },
   "rewardKindsTitle": {
-    "message": "Reward types"
+    "message": "Типи нагород"
   },
   "rewardKindsDescription": {
-    "message": "A reward is farmed if any part of it matches."
+    "message": "Нагорода фармиться, якщо підходить будь-яка її частина."
   },
   "rewardKindItem": {
-    "message": "In-game items"
+    "message": "Внутрішньоігрові предмети"
   },
   "rewardKindBadge": {
-    "message": "Badges"
+    "message": "Значки"
   },
   "rewardKindEmote": {
-    "message": "Emotes"
+    "message": "Емоути"
   },
   "rewardKindItemShort": {
-    "message": "Items"
+    "message": "Предмети"
   },
   "subscriptionRewardsTitle": {
-    "message": "Subscription rewards"
+    "message": "Нагороди за підписку"
   },
   "subscriptionRewardsDescription": {
-    "message": "Rewards that need a channel subscription."
+    "message": "Нагороди, для яких потрібна підписка на канал."
   },
   "subscriptionModeInclude": {
-    "message": "Include"
+    "message": "Включити"
   },
   "subscriptionModeSkip": {
-    "message": "Skip"
+    "message": "Пропустити"
   },
   "subscriptionModeOnly": {
-    "message": "Only"
+    "message": "Лише"
   },
   "subscriptionModeIncludeHint": {
-    "message": "Subscription rewards are farmed with the rest."
+    "message": "Нагороди за підписку фармляться разом з іншими."
   },
   "subscriptionModeSkipHint": {
-    "message": "Rewards that need a subscription are not farmed."
+    "message": "Нагороди, для яких потрібна підписка, не фармляться."
   },
   "subscriptionModeOnlyHint": {
-    "message": "Only rewards that need a subscription are farmed."
+    "message": "Фармляться лише нагороди, для яких потрібна підписка."
   },
   "rewardFilterAll": {
-    "message": "All rewards"
+    "message": "Усі нагороди"
   },
   "rewardFilterAllKinds": {
-    "message": "All"
+    "message": "Усі"
   },
   "rewardFilterNoSub": {
-    "message": "no sub"
+    "message": "без підписки"
   },
   "rewardFilterSubOnly": {
-    "message": "sub only"
+    "message": "лише з підпискою"
   },
   "rewardFilterReset": {
-    "message": "Reset to all rewards"
+    "message": "Скинути до всіх нагород"
   },
   "farmPinnedOnlyTitle": {
-    "message": "Farm pinned campaigns only"
+    "message": "Фармити лише закріплені кампанії"
   },
   "farmPinnedOnlyDescription": {
-    "message": "Only campaigns you pinned in the Queue are farmed on $1."
+    "message": "На $1 фармляться лише кампанії, які ви закріпили в черзі."
   },
   "forgetExcludedTitle": {
     "message": "Забути виключені кампанії"

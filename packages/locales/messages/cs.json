@@ -117,7 +117,7 @@
     "message": "Přeskočené"
   },
   "queueSkippedByFilter": {
-    "message": "$1 outside your reward filter"
+    "message": "$1 mimo váš filtr odměn"
   },
   "queueActionRequired": {
     "message": "Vyžaduje akci"
@@ -777,13 +777,13 @@
     "message": "Teď se farmí jen připnuté kampaně."
   },
   "campaignRejectionRewardKind": {
-    "message": "No $1 in this campaign."
+    "message": "Nic tu neodpovídá vašim typům odměn ($1)."
   },
   "campaignRejectionSubscriptionSkipped": {
-    "message": "Its rewards need a subscription, and you're skipping those."
+    "message": "Jejich odměny vyžadují předplatné a ty přeskakujete."
   },
   "campaignRejectionSubscriptionOnly": {
-    "message": "It has no subscription rewards, and you're farming only those."
+    "message": "Nemá odměny za předplatné a farmí se jen ty."
   },
   "campaignRejectionRewardTypesObtained": {
     "message": "Odměny typů, které farmíte, už jsou získané."
@@ -939,73 +939,73 @@
     "message": "Když vypnuto, přeskočí kampaně vyžadující propojení účtu. Požadavky platformy mohou propojení vyžadovat i při zapnutí."
   },
   "rewardFilterTitle": {
-    "message": "Rewards to farm"
+    "message": "Odměny k farmení"
   },
   "rewardFilterDescription": {
-    "message": "What Lurkloot farms on $1. The filter menu in the Queue changes the same setting."
+    "message": "Co Lurkloot farmí na $1. Filtr ve Frontě mění stejné nastavení."
   },
   "rewardKindsTitle": {
-    "message": "Reward types"
+    "message": "Typy odměn"
   },
   "rewardKindsDescription": {
-    "message": "A reward is farmed if any part of it matches."
+    "message": "Odměna se farmí, pokud odpovídá alespoň její část."
   },
   "rewardKindItem": {
-    "message": "In-game items"
+    "message": "Předměty ve hře"
   },
   "rewardKindBadge": {
-    "message": "Badges"
+    "message": "Odznaky"
   },
   "rewardKindEmote": {
-    "message": "Emotes"
+    "message": "Emotikony"
   },
   "rewardKindItemShort": {
-    "message": "Items"
+    "message": "Předměty"
   },
   "subscriptionRewardsTitle": {
-    "message": "Subscription rewards"
+    "message": "Odměny za předplatné"
   },
   "subscriptionRewardsDescription": {
-    "message": "Rewards that need a channel subscription."
+    "message": "Odměny, které vyžadují předplatné kanálu."
   },
   "subscriptionModeInclude": {
-    "message": "Include"
+    "message": "Zahrnout"
   },
   "subscriptionModeSkip": {
-    "message": "Skip"
+    "message": "Přeskočit"
   },
   "subscriptionModeOnly": {
-    "message": "Only"
+    "message": "Pouze"
   },
   "subscriptionModeIncludeHint": {
-    "message": "Subscription rewards are farmed with the rest."
+    "message": "Odměny za předplatné se farmí spolu s ostatními."
   },
   "subscriptionModeSkipHint": {
-    "message": "Rewards that need a subscription are not farmed."
+    "message": "Odměny vyžadující předplatné se nefarmí."
   },
   "subscriptionModeOnlyHint": {
-    "message": "Only rewards that need a subscription are farmed."
+    "message": "Farmí se jen odměny vyžadující předplatné."
   },
   "rewardFilterAll": {
-    "message": "All rewards"
+    "message": "Všechny odměny"
   },
   "rewardFilterAllKinds": {
-    "message": "All"
+    "message": "Vše"
   },
   "rewardFilterNoSub": {
-    "message": "no sub"
+    "message": "bez subu"
   },
   "rewardFilterSubOnly": {
-    "message": "sub only"
+    "message": "jen sub"
   },
   "rewardFilterReset": {
-    "message": "Reset to all rewards"
+    "message": "Obnovit všechny odměny"
   },
   "farmPinnedOnlyTitle": {
-    "message": "Farm pinned campaigns only"
+    "message": "Farmit jen připnuté kampaně"
   },
   "farmPinnedOnlyDescription": {
-    "message": "Only campaigns you pinned in the Queue are farmed on $1."
+    "message": "Na $1 se farmí jen kampaně připnuté ve Frontě."
   },
   "forgetExcludedTitle": {
     "message": "Zapomenout vyloučené kampaně"

@@ -117,7 +117,7 @@
     "message": "Übersprungen"
   },
   "queueSkippedByFilter": {
-    "message": "$1 outside your reward filter"
+    "message": "$1 außerhalb deines Belohnungsfilters"
   },
   "queueActionRequired": {
     "message": "Aktion erforderlich"
@@ -777,13 +777,13 @@
     "message": "Derzeit werden nur angeheftete Kampagnen gefarmt."
   },
   "campaignRejectionRewardKind": {
-    "message": "No $1 in this campaign."
+    "message": "Nichts hier passt zu deinen Belohnungstypen ($1)."
   },
   "campaignRejectionSubscriptionSkipped": {
-    "message": "Its rewards need a subscription, and you're skipping those."
+    "message": "Die Belohnungen benötigen ein Abo, und du überspringst diese."
   },
   "campaignRejectionSubscriptionOnly": {
-    "message": "It has no subscription rewards, and you're farming only those."
+    "message": "Sie haben keine Abo-Belohnungen, und du farmst nur diese."
   },
   "campaignRejectionRewardTypesObtained": {
     "message": "Ihre Belohnungen der Typen, die du farmst, sind verdient."
@@ -939,22 +939,22 @@
     "message": "Wenn aus, werden Kampagnen übersprungen, die eine Kontoverknüpfung erfordern. Plattformvorgaben können die Verknüpfung auch bei aktivierter Option verlangen."
   },
   "rewardFilterTitle": {
-    "message": "Rewards to farm"
+    "message": "Zu farmende Belohnungen"
   },
   "rewardFilterDescription": {
-    "message": "What Lurkloot farms on $1. The filter menu in the Queue changes the same setting."
+    "message": "Was Lurkloot auf $1 farmt. Das Filtermenü in der Warteschlange ändert dieselbe Einstellung."
   },
   "rewardKindsTitle": {
-    "message": "Reward types"
+    "message": "Belohnungstypen"
   },
   "rewardKindsDescription": {
-    "message": "A reward is farmed if any part of it matches."
+    "message": "Eine Belohnung wird gefarmt, wenn irgendein Teil davon passt."
   },
   "rewardKindItem": {
-    "message": "In-game items"
+    "message": "Ingame-Items"
   },
   "rewardKindBadge": {
-    "message": "Badges"
+    "message": "Abzeichen"
   },
   "rewardKindEmote": {
     "message": "Emotes"
@@ -963,49 +963,49 @@
     "message": "Items"
   },
   "subscriptionRewardsTitle": {
-    "message": "Subscription rewards"
+    "message": "Abo-Belohnungen"
   },
   "subscriptionRewardsDescription": {
-    "message": "Rewards that need a channel subscription."
+    "message": "Belohnungen, die ein Kanal-Abo voraussetzen."
   },
   "subscriptionModeInclude": {
-    "message": "Include"
+    "message": "Einbeziehen"
   },
   "subscriptionModeSkip": {
-    "message": "Skip"
+    "message": "Auslassen"
   },
   "subscriptionModeOnly": {
-    "message": "Only"
+    "message": "Nur"
   },
   "subscriptionModeIncludeHint": {
-    "message": "Subscription rewards are farmed with the rest."
+    "message": "Abo-Belohnungen werden zusammen mit den übrigen gefarmt."
   },
   "subscriptionModeSkipHint": {
-    "message": "Rewards that need a subscription are not farmed."
+    "message": "Belohnungen, die ein Abo voraussetzen, werden nicht gefarmt."
   },
   "subscriptionModeOnlyHint": {
-    "message": "Only rewards that need a subscription are farmed."
+    "message": "Nur Belohnungen, die ein Abo voraussetzen, werden gefarmt."
   },
   "rewardFilterAll": {
-    "message": "All rewards"
+    "message": "Alle Belohnungen"
   },
   "rewardFilterAllKinds": {
-    "message": "All"
+    "message": "Alle"
   },
   "rewardFilterNoSub": {
-    "message": "no sub"
+    "message": "ohne Abo"
   },
   "rewardFilterSubOnly": {
-    "message": "sub only"
+    "message": "nur Abo"
   },
   "rewardFilterReset": {
-    "message": "Reset to all rewards"
+    "message": "Auf alle Belohnungen zurücksetzen"
   },
   "farmPinnedOnlyTitle": {
-    "message": "Farm pinned campaigns only"
+    "message": "Nur angeheftete Kampagnen farmen"
   },
   "farmPinnedOnlyDescription": {
-    "message": "Only campaigns you pinned in the Queue are farmed on $1."
+    "message": "Auf $1 werden nur Kampagnen gefarmt, die du in der Warteschlange angeheftet hast."
   },
   "forgetExcludedTitle": {
     "message": "Ausgeschlossene Kampagnen vergessen"

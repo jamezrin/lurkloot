@@ -117,7 +117,7 @@
     "message": "Ignoradas"
   },
   "queueSkippedByFilter": {
-    "message": "$1 outside your reward filter"
+    "message": "$1 fora do seu filtro de recompensas"
   },
   "queueActionRequired": {
     "message": "Ação necessária"
@@ -777,13 +777,13 @@
     "message": "No momento, apenas campanhas fixadas são farmadas."
   },
   "campaignRejectionRewardKind": {
-    "message": "No $1 in this campaign."
+    "message": "Nada aqui corresponde aos seus tipos de recompensa ($1)."
   },
   "campaignRejectionSubscriptionSkipped": {
-    "message": "Its rewards need a subscription, and you're skipping those."
+    "message": "As recompensas exigem uma assinatura, e você está pulando essas."
   },
   "campaignRejectionSubscriptionOnly": {
-    "message": "It has no subscription rewards, and you're farming only those."
+    "message": "Não tem recompensas de assinatura, e você está farmando só essas."
   },
   "campaignRejectionRewardTypesObtained": {
     "message": "As recompensas dela dos tipos que você farma já foram obtidas."
@@ -939,73 +939,73 @@
     "message": "Quando desativado, campanhas que exigem vincular sua conta são ignoradas. A plataforma ainda pode exigir vinculação quando ativado."
   },
   "rewardFilterTitle": {
-    "message": "Rewards to farm"
+    "message": "Recompensas para farmar"
   },
   "rewardFilterDescription": {
-    "message": "What Lurkloot farms on $1. The filter menu in the Queue changes the same setting."
+    "message": "O que o Lurkloot farma em $1. O menu de filtro na Fila altera a mesma configuração."
   },
   "rewardKindsTitle": {
-    "message": "Reward types"
+    "message": "Tipos de recompensa"
   },
   "rewardKindsDescription": {
-    "message": "A reward is farmed if any part of it matches."
+    "message": "Uma recompensa é farmada se qualquer parte dela corresponder."
   },
   "rewardKindItem": {
-    "message": "In-game items"
+    "message": "Itens no jogo"
   },
   "rewardKindBadge": {
-    "message": "Badges"
+    "message": "Emblemas"
   },
   "rewardKindEmote": {
     "message": "Emotes"
   },
   "rewardKindItemShort": {
-    "message": "Items"
+    "message": "Itens"
   },
   "subscriptionRewardsTitle": {
-    "message": "Subscription rewards"
+    "message": "Recompensas de assinatura"
   },
   "subscriptionRewardsDescription": {
-    "message": "Rewards that need a channel subscription."
+    "message": "Recompensas que exigem uma assinatura do canal."
   },
   "subscriptionModeInclude": {
-    "message": "Include"
+    "message": "Incluir"
   },
   "subscriptionModeSkip": {
-    "message": "Skip"
+    "message": "Pular"
   },
   "subscriptionModeOnly": {
-    "message": "Only"
+    "message": "Só"
   },
   "subscriptionModeIncludeHint": {
-    "message": "Subscription rewards are farmed with the rest."
+    "message": "Recompensas de assinatura são farmadas junto com as demais."
   },
   "subscriptionModeSkipHint": {
-    "message": "Rewards that need a subscription are not farmed."
+    "message": "Recompensas que exigem assinatura não são farmadas."
   },
   "subscriptionModeOnlyHint": {
-    "message": "Only rewards that need a subscription are farmed."
+    "message": "Só as recompensas que exigem assinatura são farmadas."
   },
   "rewardFilterAll": {
-    "message": "All rewards"
+    "message": "Todas as recompensas"
   },
   "rewardFilterAllKinds": {
-    "message": "All"
+    "message": "Todos"
   },
   "rewardFilterNoSub": {
-    "message": "no sub"
+    "message": "sem assinatura"
   },
   "rewardFilterSubOnly": {
-    "message": "sub only"
+    "message": "só assinatura"
   },
   "rewardFilterReset": {
-    "message": "Reset to all rewards"
+    "message": "Redefinir para todas as recompensas"
   },
   "farmPinnedOnlyTitle": {
-    "message": "Farm pinned campaigns only"
+    "message": "Farmar só campanhas fixadas"
   },
   "farmPinnedOnlyDescription": {
-    "message": "Only campaigns you pinned in the Queue are farmed on $1."
+    "message": "Só as campanhas que você fixou na Fila são farmadas em $1."
   },
   "forgetExcludedTitle": {
     "message": "Esquecer campanhas excluídas"

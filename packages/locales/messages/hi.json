@@ -117,7 +117,7 @@
     "message": "छोड़े गए"
   },
   "queueSkippedByFilter": {
-    "message": "$1 outside your reward filter"
+    "message": "$1 आपके रिवॉर्ड फ़िल्टर से बाहर"
   },
   "queueActionRequired": {
     "message": "कार्रवाई आवश्यक"
@@ -777,13 +777,13 @@
     "message": "अभी सिर्फ़ पिन किए गए कैंपेन फ़ार्म होते हैं।"
   },
   "campaignRejectionRewardKind": {
-    "message": "No $1 in this campaign."
+    "message": "यहाँ आपके चुने रिवॉर्ड प्रकार ($1) से कुछ भी मेल नहीं खाता।"
   },
   "campaignRejectionSubscriptionSkipped": {
-    "message": "Its rewards need a subscription, and you're skipping those."
+    "message": "इसके रिवॉर्ड के लिए सदस्यता चाहिए, और आपने वे छोड़ने के लिए चुने हैं।"
   },
   "campaignRejectionSubscriptionOnly": {
-    "message": "It has no subscription rewards, and you're farming only those."
+    "message": "इसमें कोई सदस्यता रिवॉर्ड नहीं है, और आप केवल वही फ़ार्म कर रहे हैं।"
   },
   "campaignRejectionRewardTypesObtained": {
     "message": "आपके फ़ार्म किए जाने वाले प्रकारों के इसके इनाम मिल चुके हैं।"
@@ -939,73 +939,73 @@
     "message": "बंद होने पर, खाता लिंक करने वाले कैंपेन छोड़ दिए जाते हैं। चालू होने पर भी प्लेटफ़ॉर्म के नियम लिंक करना आवश्यक बना सकते हैं।"
   },
   "rewardFilterTitle": {
-    "message": "Rewards to farm"
+    "message": "फ़ार्म करने वाले रिवॉर्ड"
   },
   "rewardFilterDescription": {
-    "message": "What Lurkloot farms on $1. The filter menu in the Queue changes the same setting."
+    "message": "$1 पर Lurkloot किन रिवॉर्ड को फ़ार्म करता है। क़तार के फ़िल्टर मेनू में भी यही सेटिंग बदलती है।"
   },
   "rewardKindsTitle": {
-    "message": "Reward types"
+    "message": "रिवॉर्ड के प्रकार"
   },
   "rewardKindsDescription": {
-    "message": "A reward is farmed if any part of it matches."
+    "message": "रिवॉर्ड का कोई भी हिस्सा मेल खाए, तो वह फ़ार्म किया जाता है।"
   },
   "rewardKindItem": {
-    "message": "In-game items"
+    "message": "इन-गेम आइटम"
   },
   "rewardKindBadge": {
-    "message": "Badges"
+    "message": "बैज"
   },
   "rewardKindEmote": {
-    "message": "Emotes"
+    "message": "इमोट"
   },
   "rewardKindItemShort": {
-    "message": "Items"
+    "message": "आइटम"
   },
   "subscriptionRewardsTitle": {
-    "message": "Subscription rewards"
+    "message": "सदस्यता रिवॉर्ड"
   },
   "subscriptionRewardsDescription": {
-    "message": "Rewards that need a channel subscription."
+    "message": "वे रिवॉर्ड जिनके लिए चैनल की सदस्यता चाहिए।"
   },
   "subscriptionModeInclude": {
-    "message": "Include"
+    "message": "शामिल"
   },
   "subscriptionModeSkip": {
-    "message": "Skip"
+    "message": "छोड़ें"
   },
   "subscriptionModeOnly": {
-    "message": "Only"
+    "message": "केवल"
   },
   "subscriptionModeIncludeHint": {
-    "message": "Subscription rewards are farmed with the rest."
+    "message": "सदस्यता वाले रिवॉर्ड बाकी रिवॉर्ड के साथ फ़ार्म किए जाते हैं।"
   },
   "subscriptionModeSkipHint": {
-    "message": "Rewards that need a subscription are not farmed."
+    "message": "जिन रिवॉर्ड के लिए सदस्यता चाहिए, वे फ़ार्म नहीं किए जाते।"
   },
   "subscriptionModeOnlyHint": {
-    "message": "Only rewards that need a subscription are farmed."
+    "message": "केवल वे रिवॉर्ड फ़ार्म किए जाते हैं जिनके लिए सदस्यता चाहिए।"
   },
   "rewardFilterAll": {
-    "message": "All rewards"
+    "message": "सभी रिवॉर्ड"
   },
   "rewardFilterAllKinds": {
-    "message": "All"
+    "message": "सभी"
   },
   "rewardFilterNoSub": {
-    "message": "no sub"
+    "message": "बिना सदस्यता"
   },
   "rewardFilterSubOnly": {
-    "message": "sub only"
+    "message": "केवल सदस्यता"
   },
   "rewardFilterReset": {
-    "message": "Reset to all rewards"
+    "message": "सभी रिवॉर्ड पर वापस जाएँ"
   },
   "farmPinnedOnlyTitle": {
-    "message": "Farm pinned campaigns only"
+    "message": "केवल पिन किए गए कैंपेन फ़ार्म करें"
   },
   "farmPinnedOnlyDescription": {
-    "message": "Only campaigns you pinned in the Queue are farmed on $1."
+    "message": "$1 पर केवल वे कैंपेन फ़ार्म होंगे जो आपने क़तार में पिन किए हैं।"
   },
   "forgetExcludedTitle": {
     "message": "हटाए गए कैंपेन भूलें"

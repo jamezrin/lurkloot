@@ -117,7 +117,7 @@
     "message": "Saltate"
   },
   "queueSkippedByFilter": {
-    "message": "$1 outside your reward filter"
+    "message": "$1 fuori dal filtro ricompense"
   },
   "queueActionRequired": {
     "message": "Azione richiesta"
@@ -777,13 +777,13 @@
     "message": "Al momento vengono farmate solo le campagne fissate."
   },
   "campaignRejectionRewardKind": {
-    "message": "No $1 in this campaign."
+    "message": "Nessuna ricompensa di questa campagna corrisponde ai tipi scelti ($1)."
   },
   "campaignRejectionSubscriptionSkipped": {
-    "message": "Its rewards need a subscription, and you're skipping those."
+    "message": "Le sue ricompense richiedono un abbonamento, e le stai saltando."
   },
   "campaignRejectionSubscriptionOnly": {
-    "message": "It has no subscription rewards, and you're farming only those."
+    "message": "Non ha ricompense per abbonamento, e stai farmando solo quelle."
   },
   "campaignRejectionRewardTypesObtained": {
     "message": "Le sue ricompense dei tipi che farmi sono già ottenute."
@@ -939,73 +939,73 @@
     "message": "Se disattivato, le campagne che richiedono un account collegato vengono saltate. La piattaforma può comunque richiedere il collegamento quando è attivo."
   },
   "rewardFilterTitle": {
-    "message": "Rewards to farm"
+    "message": "Ricompense da farmare"
   },
   "rewardFilterDescription": {
-    "message": "What Lurkloot farms on $1. The filter menu in the Queue changes the same setting."
+    "message": "Cosa farma Lurkloot su $1. Il menu filtri nella Coda modifica la stessa impostazione."
   },
   "rewardKindsTitle": {
-    "message": "Reward types"
+    "message": "Tipi di ricompensa"
   },
   "rewardKindsDescription": {
-    "message": "A reward is farmed if any part of it matches."
+    "message": "Una ricompensa viene farmata se una sua parte corrisponde."
   },
   "rewardKindItem": {
-    "message": "In-game items"
+    "message": "Oggetti in gioco"
   },
   "rewardKindBadge": {
-    "message": "Badges"
+    "message": "Badge"
   },
   "rewardKindEmote": {
-    "message": "Emotes"
+    "message": "Emote"
   },
   "rewardKindItemShort": {
-    "message": "Items"
+    "message": "Oggetti"
   },
   "subscriptionRewardsTitle": {
-    "message": "Subscription rewards"
+    "message": "Ricompense per abbonamento"
   },
   "subscriptionRewardsDescription": {
-    "message": "Rewards that need a channel subscription."
+    "message": "Ricompense che richiedono un abbonamento al canale."
   },
   "subscriptionModeInclude": {
-    "message": "Include"
+    "message": "Includi"
   },
   "subscriptionModeSkip": {
-    "message": "Skip"
+    "message": "Salta"
   },
   "subscriptionModeOnly": {
-    "message": "Only"
+    "message": "Solo"
   },
   "subscriptionModeIncludeHint": {
-    "message": "Subscription rewards are farmed with the rest."
+    "message": "Le ricompense per abbonamento vengono farmate insieme alle altre."
   },
   "subscriptionModeSkipHint": {
-    "message": "Rewards that need a subscription are not farmed."
+    "message": "Le ricompense che richiedono un abbonamento non vengono farmate."
   },
   "subscriptionModeOnlyHint": {
-    "message": "Only rewards that need a subscription are farmed."
+    "message": "Vengono farmate solo le ricompense che richiedono un abbonamento."
   },
   "rewardFilterAll": {
-    "message": "All rewards"
+    "message": "Tutte le ricompense"
   },
   "rewardFilterAllKinds": {
-    "message": "All"
+    "message": "Tutti"
   },
   "rewardFilterNoSub": {
-    "message": "no sub"
+    "message": "senza abb."
   },
   "rewardFilterSubOnly": {
-    "message": "sub only"
+    "message": "solo abb."
   },
   "rewardFilterReset": {
-    "message": "Reset to all rewards"
+    "message": "Ripristina tutte le ricompense"
   },
   "farmPinnedOnlyTitle": {
-    "message": "Farm pinned campaigns only"
+    "message": "Farma solo le campagne fissate"
   },
   "farmPinnedOnlyDescription": {
-    "message": "Only campaigns you pinned in the Queue are farmed on $1."
+    "message": "Su $1 vengono farmate solo le campagne fissate nella Coda."
   },
   "forgetExcludedTitle": {
     "message": "Dimentica campagne escluse"

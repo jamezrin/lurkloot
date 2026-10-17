@@ -117,7 +117,7 @@
     "message": "Atlanan"
   },
   "queueSkippedByFilter": {
-    "message": "$1 outside your reward filter"
+    "message": "$1 ödül filtrenin dışında"
   },
   "queueActionRequired": {
     "message": "İşlem gerekli"
@@ -777,13 +777,13 @@
     "message": "Şu anda yalnızca sabitlenmiş kampanyalar farmlanıyor."
   },
   "campaignRejectionRewardKind": {
-    "message": "No $1 in this campaign."
+    "message": "Burada seçtiğin ödül türlerine ($1) uyan bir şey yok."
   },
   "campaignRejectionSubscriptionSkipped": {
-    "message": "Its rewards need a subscription, and you're skipping those."
+    "message": "Ödülleri bir abonelik gerektiriyor ve bunları atlıyorsun."
   },
   "campaignRejectionSubscriptionOnly": {
-    "message": "It has no subscription rewards, and you're farming only those."
+    "message": "Abonelik ödülü içermiyor ve yalnızca bunları farmlıyorsun."
   },
   "campaignRejectionRewardTypesObtained": {
     "message": "Farm'ladığınız türlerdeki ödülleri kazanıldı."
@@ -939,73 +939,73 @@
     "message": "Kapalıyken, hesap bağlantısı gerektiren kampanyalar atlanır. Açıkken bile platform kuralları bağlantı gerektirebilir."
   },
   "rewardFilterTitle": {
-    "message": "Rewards to farm"
+    "message": "Farmlanacak ödüller"
   },
   "rewardFilterDescription": {
-    "message": "What Lurkloot farms on $1. The filter menu in the Queue changes the same setting."
+    "message": "Lurkloot $1 üzerinde neyi farmlar. Sıra'daki filtre menüsü aynı ayarı değiştirir."
   },
   "rewardKindsTitle": {
-    "message": "Reward types"
+    "message": "Ödül türleri"
   },
   "rewardKindsDescription": {
-    "message": "A reward is farmed if any part of it matches."
+    "message": "Bir ödülün herhangi bir kısmı eşleşirse farmlanır."
   },
   "rewardKindItem": {
-    "message": "In-game items"
+    "message": "Oyun içi eşyalar"
   },
   "rewardKindBadge": {
-    "message": "Badges"
+    "message": "Rozetler"
   },
   "rewardKindEmote": {
-    "message": "Emotes"
+    "message": "Emote'ler"
   },
   "rewardKindItemShort": {
-    "message": "Items"
+    "message": "Eşyalar"
   },
   "subscriptionRewardsTitle": {
-    "message": "Subscription rewards"
+    "message": "Abonelik ödülleri"
   },
   "subscriptionRewardsDescription": {
-    "message": "Rewards that need a channel subscription."
+    "message": "Kanal aboneliği gerektiren ödüller."
   },
   "subscriptionModeInclude": {
-    "message": "Include"
+    "message": "Dahil"
   },
   "subscriptionModeSkip": {
-    "message": "Skip"
+    "message": "Atla"
   },
   "subscriptionModeOnly": {
-    "message": "Only"
+    "message": "Yalnızca"
   },
   "subscriptionModeIncludeHint": {
-    "message": "Subscription rewards are farmed with the rest."
+    "message": "Abonelik ödülleri diğerleriyle birlikte farmlanır."
   },
   "subscriptionModeSkipHint": {
-    "message": "Rewards that need a subscription are not farmed."
+    "message": "Abonelik gerektiren ödüller farmlanmaz."
   },
   "subscriptionModeOnlyHint": {
-    "message": "Only rewards that need a subscription are farmed."
+    "message": "Yalnızca abonelik gerektiren ödüller farmlanır."
   },
   "rewardFilterAll": {
-    "message": "All rewards"
+    "message": "Tüm ödüller"
   },
   "rewardFilterAllKinds": {
-    "message": "All"
+    "message": "Tümü"
   },
   "rewardFilterNoSub": {
-    "message": "no sub"
+    "message": "abonesiz"
   },
   "rewardFilterSubOnly": {
-    "message": "sub only"
+    "message": "yalnız abonelik"
   },
   "rewardFilterReset": {
-    "message": "Reset to all rewards"
+    "message": "Tüm ödüllere sıfırla"
   },
   "farmPinnedOnlyTitle": {
-    "message": "Farm pinned campaigns only"
+    "message": "Yalnızca sabitlenmiş kampanyaları farmla"
   },
   "farmPinnedOnlyDescription": {
-    "message": "Only campaigns you pinned in the Queue are farmed on $1."
+    "message": "$1 üzerinde yalnızca Sıra'da sabitlediğin kampanyalar farmlanır."
   },
   "forgetExcludedTitle": {
     "message": "Gizlenen kampanyaları sıfırla"

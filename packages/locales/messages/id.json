@@ -117,7 +117,7 @@
     "message": "Dilewati"
   },
   "queueSkippedByFilter": {
-    "message": "$1 outside your reward filter"
+    "message": "$1 di luar filter hadiah Anda"
   },
   "queueActionRequired": {
     "message": "Perlu tindakan"
@@ -777,13 +777,13 @@
     "message": "Hanya kampanye yang disematkan yang di-farm saat ini."
   },
   "campaignRejectionRewardKind": {
-    "message": "No $1 in this campaign."
+    "message": "Tidak ada yang cocok dengan jenis hadiah Anda ($1)."
   },
   "campaignRejectionSubscriptionSkipped": {
-    "message": "Its rewards need a subscription, and you're skipping those."
+    "message": "Hadiahnya membutuhkan langganan, dan Anda melewatkannya."
   },
   "campaignRejectionSubscriptionOnly": {
-    "message": "It has no subscription rewards, and you're farming only those."
+    "message": "Tidak ada hadiah langganan di sini, dan Anda hanya farm hadiah tersebut."
   },
   "campaignRejectionRewardTypesObtained": {
     "message": "Hadiah dari jenis yang Anda farm sudah diperoleh."
@@ -939,73 +939,73 @@
     "message": "Saat mati, kampanye yang perlu penautan akun dilewati. Persyaratan platform tetap bisa mewajibkan penautan meski ini aktif."
   },
   "rewardFilterTitle": {
-    "message": "Rewards to farm"
+    "message": "Hadiah untuk di-farm"
   },
   "rewardFilterDescription": {
-    "message": "What Lurkloot farms on $1. The filter menu in the Queue changes the same setting."
+    "message": "Yang di-farm Lurkloot di $1. Menu filter di Antrean mengubah pengaturan yang sama."
   },
   "rewardKindsTitle": {
-    "message": "Reward types"
+    "message": "Jenis hadiah"
   },
   "rewardKindsDescription": {
-    "message": "A reward is farmed if any part of it matches."
+    "message": "Hadiah di-farm jika ada bagian yang cocok."
   },
   "rewardKindItem": {
-    "message": "In-game items"
+    "message": "Item dalam game"
   },
   "rewardKindBadge": {
-    "message": "Badges"
+    "message": "Lencana"
   },
   "rewardKindEmote": {
-    "message": "Emotes"
+    "message": "Emote"
   },
   "rewardKindItemShort": {
-    "message": "Items"
+    "message": "Item"
   },
   "subscriptionRewardsTitle": {
-    "message": "Subscription rewards"
+    "message": "Hadiah langganan"
   },
   "subscriptionRewardsDescription": {
-    "message": "Rewards that need a channel subscription."
+    "message": "Hadiah yang membutuhkan langganan channel."
   },
   "subscriptionModeInclude": {
-    "message": "Include"
+    "message": "Sertakan"
   },
   "subscriptionModeSkip": {
-    "message": "Skip"
+    "message": "Lewati"
   },
   "subscriptionModeOnly": {
-    "message": "Only"
+    "message": "Hanya"
   },
   "subscriptionModeIncludeHint": {
-    "message": "Subscription rewards are farmed with the rest."
+    "message": "Hadiah langganan di-farm bersama yang lain."
   },
   "subscriptionModeSkipHint": {
-    "message": "Rewards that need a subscription are not farmed."
+    "message": "Hadiah yang membutuhkan langganan tidak di-farm."
   },
   "subscriptionModeOnlyHint": {
-    "message": "Only rewards that need a subscription are farmed."
+    "message": "Hanya hadiah yang membutuhkan langganan yang di-farm."
   },
   "rewardFilterAll": {
-    "message": "All rewards"
+    "message": "Semua hadiah"
   },
   "rewardFilterAllKinds": {
-    "message": "All"
+    "message": "Semua"
   },
   "rewardFilterNoSub": {
-    "message": "no sub"
+    "message": "tanpa sub"
   },
   "rewardFilterSubOnly": {
-    "message": "sub only"
+    "message": "hanya sub"
   },
   "rewardFilterReset": {
-    "message": "Reset to all rewards"
+    "message": "Atur ulang ke semua hadiah"
   },
   "farmPinnedOnlyTitle": {
-    "message": "Farm pinned campaigns only"
+    "message": "Farm kampanye yang disematkan saja"
   },
   "farmPinnedOnlyDescription": {
-    "message": "Only campaigns you pinned in the Queue are farmed on $1."
+    "message": "Hanya kampanye yang Anda sematkan di Antrean yang di-farm di $1."
   },
   "forgetExcludedTitle": {
     "message": "Lupakan kampanye yang dikecualikan"

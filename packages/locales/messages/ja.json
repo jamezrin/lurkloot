@@ -117,7 +117,7 @@
     "message": "スキップ"
   },
   "queueSkippedByFilter": {
-    "message": "$1 outside your reward filter"
+    "message": "$1 は報酬フィルターの対象外"
   },
   "queueActionRequired": {
     "message": "要対応"
@@ -777,13 +777,13 @@
     "message": "現在はピン留めされたキャンペーンのみファームしています。"
   },
   "campaignRejectionRewardKind": {
-    "message": "No $1 in this campaign."
+    "message": "ファームする報酬の種類（$1）に一致するものはありません。"
   },
   "campaignRejectionSubscriptionSkipped": {
-    "message": "Its rewards need a subscription, and you're skipping those."
+    "message": "報酬にはサブスクが必要ですが、それらはスキップする設定です。"
   },
   "campaignRejectionSubscriptionOnly": {
-    "message": "It has no subscription rewards, and you're farming only those."
+    "message": "このキャンペーンにサブスク報酬はなく、サブスク報酬のみファームする設定です。"
   },
   "campaignRejectionRewardTypesObtained": {
     "message": "ファームする種類の報酬はすでに獲得済みです。"
@@ -939,73 +939,73 @@
     "message": "オフのとき、アカウント連携が必要なキャンペーンはスキップされます。オンでもプラットフォーム要件で連携が必要な場合があります。"
   },
   "rewardFilterTitle": {
-    "message": "Rewards to farm"
+    "message": "ファームする報酬"
   },
   "rewardFilterDescription": {
-    "message": "What Lurkloot farms on $1. The filter menu in the Queue changes the same setting."
+    "message": "Lurkloot が $1 でファームするもの。キューのフィルターメニューでも同じ設定を変更できます。"
   },
   "rewardKindsTitle": {
-    "message": "Reward types"
+    "message": "報酬の種類"
   },
   "rewardKindsDescription": {
-    "message": "A reward is farmed if any part of it matches."
+    "message": "報酬の一部でも一致すればファームされます。"
   },
   "rewardKindItem": {
-    "message": "In-game items"
+    "message": "ゲーム内アイテム"
   },
   "rewardKindBadge": {
-    "message": "Badges"
+    "message": "バッジ"
   },
   "rewardKindEmote": {
-    "message": "Emotes"
+    "message": "エモート"
   },
   "rewardKindItemShort": {
-    "message": "Items"
+    "message": "アイテム"
   },
   "subscriptionRewardsTitle": {
-    "message": "Subscription rewards"
+    "message": "サブスク報酬"
   },
   "subscriptionRewardsDescription": {
-    "message": "Rewards that need a channel subscription."
+    "message": "チャンネルのサブスクが必要な報酬。"
   },
   "subscriptionModeInclude": {
-    "message": "Include"
+    "message": "含める"
   },
   "subscriptionModeSkip": {
-    "message": "Skip"
+    "message": "スキップ"
   },
   "subscriptionModeOnly": {
-    "message": "Only"
+    "message": "限定"
   },
   "subscriptionModeIncludeHint": {
-    "message": "Subscription rewards are farmed with the rest."
+    "message": "サブスク報酬も他の報酬と一緒にファームされます。"
   },
   "subscriptionModeSkipHint": {
-    "message": "Rewards that need a subscription are not farmed."
+    "message": "サブスクが必要な報酬はファームされません。"
   },
   "subscriptionModeOnlyHint": {
-    "message": "Only rewards that need a subscription are farmed."
+    "message": "サブスクが必要な報酬だけがファームされます。"
   },
   "rewardFilterAll": {
-    "message": "All rewards"
+    "message": "すべての報酬"
   },
   "rewardFilterAllKinds": {
-    "message": "All"
+    "message": "すべて"
   },
   "rewardFilterNoSub": {
-    "message": "no sub"
+    "message": "サブなし"
   },
   "rewardFilterSubOnly": {
-    "message": "sub only"
+    "message": "サブのみ"
   },
   "rewardFilterReset": {
-    "message": "Reset to all rewards"
+    "message": "すべての報酬に戻す"
   },
   "farmPinnedOnlyTitle": {
-    "message": "Farm pinned campaigns only"
+    "message": "ピン留めしたキャンペーンのみファーム"
   },
   "farmPinnedOnlyDescription": {
-    "message": "Only campaigns you pinned in the Queue are farmed on $1."
+    "message": "キューでピン留めしたキャンペーンだけを $1 でファームします。"
   },
   "forgetExcludedTitle": {
     "message": "除外したキャンペーンを忘れる"
