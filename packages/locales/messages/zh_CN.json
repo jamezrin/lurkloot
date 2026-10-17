@@ -1963,5 +1963,14 @@
   },
   "navGroupOthers": {
     "message": "其他"
+  },
+  "kickLevelSummary": {
+    "message": "Kick 等级 $1 · 距离 $3 级 $2%"
+  },
+  "kickLevelXp": {
+    "message": "$1 / $2 XP"
+  },
+  "kickStreakDays": {
+    "message": "连续观看 $1 天"
   }
 }

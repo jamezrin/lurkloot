@@ -16,6 +16,7 @@ export const TWITCH_CHANNEL_POINTS_ALARM_NAME = "lurkloot.twitch-channel-points"
 export const TWITCH_DROP_CLAIMS_ALARM_NAME = "lurkloot.twitch-drop-claims";
 export const KICK_DROP_CLAIMS_ALARM_NAME = "lurkloot.kick-drop-claims";
 export const KICK_CHALLENGES_ALARM_NAME = "lurkloot.kick-challenges";
+export const ACCOUNT_PROGRESS_ALARM_NAME = "lurkloot.account-progress";
 export const TWITCH_INTEGRITY_ALARM_NAME = "lurkloot.twitch-integrity";
 export const TWITCH_INTEGRITY_REFRESH_LEAD_MS = 120_000;
 export const TWITCH_INTEGRITY_REFRESH_JITTER_MAX_MS = 30_000;

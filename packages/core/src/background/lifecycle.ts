@@ -83,9 +83,11 @@ export function createLifecycle<S extends EngineSettings>(
     | "abortActiveTicks"
     | "abortClaimHandoffs"
     | "abortClaimOnlyOperations"
+    | "abortAccountProgressPolls"
     | "abortKickChallengeClaims"
     | "abortTwitchChannelPointsClaims"
     | "cancelHeartbeatPublicationLeases"
+    | "ensureAccountProgressJob"
     | "ensureHeartbeatJob"
     | "clearHeartbeatOwnership"
     | "clearHeartbeatOwnershipInBackground"
@@ -138,9 +140,11 @@ export function createLifecycle<S extends EngineSettings>(
     abortActiveTicks,
     abortClaimHandoffs,
     abortClaimOnlyOperations,
+    abortAccountProgressPolls,
     abortKickChallengeClaims,
     abortTwitchChannelPointsClaims,
     cancelHeartbeatPublicationLeases,
+    ensureAccountProgressJob,
     ensureHeartbeatJob,
     clearHeartbeatOwnership,
     clearHeartbeatOwnershipInBackground,
@@ -204,6 +208,7 @@ export function createLifecycle<S extends EngineSettings>(
     const { pollIntervalMinutes } = settings ?? (await ports.storage.loadSettings());
     await ensureSchedulerAlarms(pollIntervalMinutes);
     await ensureHeartbeatJob();
+    await ensureAccountProgressJob();
   }
 
   // Re-anchors the tick jobs after a settings commit, with no lock held.
@@ -318,6 +323,7 @@ export function createLifecycle<S extends EngineSettings>(
     closeTwitchIntegrityLifecycle("Controller shutdown");
     abortClaimOnlyOperations("Controller shutdown");
     abortKickChallengeClaims("Controller shutdown");
+    abortAccountProgressPolls("Controller shutdown");
     abortTwitchChannelPointsClaims("Controller shutdown");
     void clearTwitchIntegrityAlarmBestEffort();
     void clearTwitchChannelPointsAlarmBestEffort();
@@ -345,6 +351,7 @@ export function createLifecycle<S extends EngineSettings>(
       closeTwitchIntegrityLifecycle("Host reset");
       abortClaimOnlyOperations("Host reset");
       abortKickChallengeClaims("Host reset");
+      abortAccountProgressPolls("Host reset");
       abortTwitchChannelPointsClaims("Host reset");
       await stopDiscoverySignalControllersAndReport(PLATFORMS);
       await stopTwitchChannelPointsPushAndReport();

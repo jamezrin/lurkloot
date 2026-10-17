@@ -1963,5 +1963,14 @@
   },
   "navGroupOthers": {
     "message": "Sonstiges"
+  },
+  "kickLevelSummary": {
+    "message": "Kick-Level $1 · $2 % bis Level $3"
+  },
+  "kickLevelXp": {
+    "message": "$1 / $2 XP"
+  },
+  "kickStreakDays": {
+    "message": "$1 Tage Zuschau-Serie"
   }
 }

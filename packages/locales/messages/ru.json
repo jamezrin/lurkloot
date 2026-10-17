@@ -1963,5 +1963,14 @@
   },
   "navGroupOthers": {
     "message": "Другое"
+  },
+  "kickLevelSummary": {
+    "message": "Уровень Kick $1 · $2% до уровня $3"
+  },
+  "kickLevelXp": {
+    "message": "$1 / $2 XP"
+  },
+  "kickStreakDays": {
+    "message": "Серия просмотров: $1 дн."
   }
 }

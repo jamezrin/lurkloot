@@ -316,6 +316,8 @@ describe("i18n", () => {
       "screenshotUpdatedLicense",
       // "in $1" is the same phrase in German.
       "relativeIn",
+      // Two numbers and XP, the common gaming term Kick itself uses everywhere.
+      "kickLevelXp",
     ]);
 
     for (const locale of localeCodes().filter((entry) => entry !== "en")) {

@@ -95,6 +95,7 @@ import { CompletedPanel } from "./completed";
 import { CriticalFailurePanel } from "./criticalFailure";
 import { openHttpsLink } from "./links";
 import { IdleWatchlistPanel } from "./idleWatchlist";
+import { AccountProgressSlot } from "./accountProgress";
 import { StatusStrip } from "./statusStrip";
 import { ViewToolbarSlotContext } from "./viewToolbar";
 import { automationPresentation, type AutomationPresentation } from "./automationStatus";
@@ -1135,6 +1136,12 @@ export function Popup({
                       : undefined
                   }
                   chatPresence={snapshot.state.chatPresence?.[platform]}
+                  accountProgress={
+                    <AccountProgressSlot
+                      poll={snapshot.state.accountProgress?.[platform]}
+                      signedIn={snapshot.state.authHealth[platform].status === "healthy"}
+                    />
+                  }
                   onCampaignClick={session.supplementalWatch ? undefined : onFarmingTitleClick}
                   onResume={resumeAfterManualClose}
                   enabled={automation[platform]}

@@ -406,6 +406,19 @@ function demoSnapshot(): RuntimeSnapshot {
         twitch: twitchCampaigns,
         kick: kickCampaigns,
       },
+      accountProgress: {
+        kick: {
+          lastCheckedAt: new Date(now - 120_000).toISOString(),
+          fetchedAt: new Date(now - 120_000).toISOString(),
+          progress: {
+            platform: "kick",
+            level: 34,
+            progressXp: 5120,
+            xpToNextLevel: 3080,
+            streakDays: 12,
+          },
+        },
+      },
       lastTickAt: new Date(now - 45_000).toISOString(),
     },
   };

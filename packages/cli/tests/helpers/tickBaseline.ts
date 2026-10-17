@@ -547,9 +547,10 @@ async function runCliHeartbeatOverlapCell(directory: string, platform: Platform)
   try {
     await milestones.wait("initialDiscoveryCompleted");
     await vi.waitFor(() => {
-      // The two tick jobs and the heartbeat job, plus (since #590) the
-      // one-minute channel-points job while Twitch is enabled.
-      const expectedTimers = platform === "twitch" ? 4 : 3;
+      // The two tick jobs, the heartbeat job and the one-minute account-progress
+      // job, plus (since #590) the one-minute channel-points job while Twitch
+      // is enabled.
+      const expectedTimers = platform === "twitch" ? 5 : 4;
       if (vi.getTimerCount() !== expectedTimers) {
         throw new Error(
           `Expected ${expectedTimers} CLI job timers, observed ${vi.getTimerCount()}`,

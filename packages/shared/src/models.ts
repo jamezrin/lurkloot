@@ -627,6 +627,10 @@ export interface SchedulerState {
   // Persisted because adapters are rebuilt every tick, so an in-memory throttle
   // would never survive to the next one.
   gamification?: Partial<Record<Platform, { lastCheckedAt: string }>>;
+  // The signed-in account's own progress on its platform, polled on its own
+  // stamp (independent of challenge claiming) and shown beside the platform's
+  // switch. `progress` is the last good read: a failed poll only moves the stamp.
+  accountProgress?: Partial<Record<Platform, AccountProgressPoll>>;
   campaignSearchBackoffs?: Partial<Record<Platform, CampaignSearchBackoff>>;
   campaigns: Record<Platform, DropCampaign[]>;
   deadlineInfeasibleRewardIds?: Partial<Record<Platform, string[]>>;
@@ -634,6 +638,31 @@ export interface SchedulerState {
   // ISO timestamp recorded once by the background on install; drives the
   // time-based rate/review nudge. Undefined means "unknown" (pre-feature state).
   installedAt?: string;
+}
+
+// Account progress is whatever a platform itself tracks for the viewer, so each
+// platform gets its own member with its own semantics; nothing outside that
+// platform's adapter and its popup view reads the fields. Kick: the global
+// viewer level earned by watch time, and the daily watch streak.
+export interface KickAccountProgress {
+  platform: "kick";
+  level: number;
+  // XP earned inside the current level, and still needed to reach the next.
+  progressXp: number;
+  xpToNextLevel: number;
+  // Undefined when the streak could not be read; the level still stands.
+  streakDays?: number;
+}
+
+export type PlatformAccountProgress = KickAccountProgress;
+
+export interface AccountProgressPoll {
+  // Stamped on every attempt, so a failing endpoint is retried on the next
+  // interval rather than on every tick.
+  lastCheckedAt: string;
+  progress?: PlatformAccountProgress;
+  // When `progress` was read.
+  fetchedAt?: string;
 }
 
 export interface CampaignSearchBackoff {

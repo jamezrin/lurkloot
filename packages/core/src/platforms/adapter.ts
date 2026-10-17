@@ -6,6 +6,7 @@ import type {
   DropCampaign,
   DropReward,
   Platform,
+  PlatformAccountProgress,
   PlatformAuthHealth,
   WatchSession,
 } from "@lurkloot/shared/models";
@@ -128,6 +129,13 @@ export interface PlatformAdapter {
   // account and reports what was won. Account-level, so it takes no channel and
   // runs regardless of whether a watch session is active.
   claimChallenges?(options?: AdapterOperationOptions): Promise<ClaimedChallenge[]>;
+  // Reads the signed-in account's own progress on this platform (Kick: viewer
+  // level and watch streak), for display only. Undefined when the platform
+  // answered without anything readable. Each platform returns its own member of
+  // PlatformAccountProgress; the scheduler stores it without looking inside.
+  fetchAccountProgress?(
+    options?: AdapterOperationOptions,
+  ): Promise<PlatformAccountProgress | undefined>;
   // Live search of the platform's categories/games, powering the "Farm only these
   // categories" picker in Settings. Returns id + name (+ box art) matches.
   searchCategories?(query: string): Promise<CategorySelection[]>;

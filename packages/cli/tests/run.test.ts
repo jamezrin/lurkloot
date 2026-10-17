@@ -300,8 +300,9 @@ describe("CLI scheduler tick baseline", () => {
           // #591 the CLI runs both tick jobs, like the extension, so the disabled
           // platform's ticks construct its adapter as well. This watcher has no
           // poll between health commits, so the watch job keeps its one-minute
-          // period and adds no wake of its own.
-          adapterConstructions: platform === "twitch" ? 10 : 8,
+          // period and adds no wake of its own. The account-progress job builds
+          // the enabled platform's adapter once to learn whether it reads any.
+          adapterConstructions: platform === "twitch" ? 11 : 9,
           watcherReconciliations: 1,
         });
         expect(result.durationsMs).toEqual({
@@ -1027,9 +1028,9 @@ describe("runLoop heartbeat driver", () => {
       },
     });
 
-    // The Twitch and Kick tick jobs, the heartbeat job and (since #590) the
-    // one-minute channel-points job.
-    expect(vi.getTimerCount()).toBe(4);
+    // The Twitch and Kick tick jobs, the heartbeat job, (since #590) the
+    // one-minute channel-points job and the one-minute account-progress job.
+    expect(vi.getTimerCount()).toBe(5);
     process.emit("SIGTERM");
     await disposeStarted.promise;
     expect(timerCountsAtDispose).toEqual([0]);

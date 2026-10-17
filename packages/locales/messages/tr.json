@@ -1963,5 +1963,14 @@
   },
   "navGroupOthers": {
     "message": "Diğer"
+  },
+  "kickLevelSummary": {
+    "message": "Kick seviyesi $1 · seviye $3 için %$2"
+  },
+  "kickLevelXp": {
+    "message": "$1 / $2 XP"
+  },
+  "kickStreakDays": {
+    "message": "$1 günlük izleme serisi"
   }
 }

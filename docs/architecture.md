@@ -139,6 +139,7 @@ The per-module slices and calls below are where #591's dependency check starts:
 | `authHealth.ts` | its own refresh generations (#595) | `discovery`, `discoverySignals`, `reporting`, `stateCommit` | 5 |
 | `manualWatch.ts` | the watch-tab effect handlers (#591), `lifecycleSlice` (read) | `discovery`, `reporting`, `stateCommit`, `tickAdmission` | 9 |
 | `supplementalSources.ts` | the supplemental target effect handler (#591) | none | 1 |
+| `accountProgress.ts` | its own in-flight reads, `lifecycleSlice` (read) | `reporting`, `stateCommit` | 3 |
 | `claimService.ts` | its own handoffs, waiting reward ids, drop-claim operations, reward claim guards and job reschedule queue (#597), `lifecycleSlice` | `heartbeat`, `lifecycle`, `reporting`, `stateCommit`, `tickAdmission` | 13 |
 | `discoverySignals.ts` | `signalSlice`, `lifecycleSlice` (read), a commit hook | `reporting`, `tickAdmission` | 13 |
 | `settingsTransitions.ts` | the transaction, `settingsSlice` (the Twitch settings-transition generation), `lifecycleSlice` (read) | `channelPoints`, `claimService`, `discovery`, `discoverySignals`, `kickRuntime`, `lifecycle`, `stateCommit`, `tickAdmission` | 8 |
@@ -168,7 +169,7 @@ or settings, loaded and saved through the host's storage port (`storage.local` o
 
 | State group | Where it lives | Written by | Invalidated by | Commit boundary | Restart | Hosts |
 | --- | --- | --- | --- | --- | --- | --- |
-| Scheduler state (`sessions`, `authHealth`, `campaigns`, `criticalHealth`, backoffs, `lastTickAt`) | Persisted | Ticks, heartbeats, auth, claims, message handlers | Newer commits for the same platform | The transaction's `commit` / `commitPlatformSnapshot`, merged per platform by `mergePlatformState` (derived from `SCHEDULER_STATE_MERGE`) | Reloaded. `reconcileStartup` runs `staleStartupCleanup` on both hosts | Both |
+| Scheduler state (`sessions`, `authHealth`, `campaigns`, `criticalHealth`, `accountProgress`, backoffs, `lastTickAt`) | Persisted | Ticks, heartbeats, auth, claims, the account-progress job, message handlers | Newer commits for the same platform | The transaction's `commit` / `commitPlatformSnapshot`, merged per platform by `mergePlatformState` (derived from `SCHEDULER_STATE_MERGE`) | Reloaded. `reconcileStartup` runs `staleStartupCleanup` on both hosts | Both |
 | Discovery lanes (`discoveryLanes`, `discoveryEvents`) | In memory, one `DiscoverySnapshotLane` per platform | `refreshDiscovery` | Settings saves that are not ranking-only, auth invalidation, `refreshDiscovery` itself, reset and shutdown | None: a snapshot is published by revision, not stored | Rediscovered on the first tick | Both |
 | Selection (`selectionCache`, `selectionRuns`, `pendingSelections`, `selectionGeneration`) | In memory | `prepareSelection` (before the lock), `reselectUnderLock` (inside it, never through `selectionRuns`) | `invalidateSelection`: every settings save (including ranking-only), auth invalidation, heartbeat results, playback telemetry, reset, shutdown | Consumed inside `runTick`'s platform lock | Recomputed | Both |
 | Tick admission (`tickAdmission`, `activeTicks`, `tickBatches`, `backgroundWork`) | In memory | `tick`, `tickInBackground`, `tickAndHandOff` | Disable, reset, shutdown | None | Empty | Both. Extension alarms and CLI intervals request ticks per platform |
@@ -551,7 +552,7 @@ re-ensures its jobs on every start, through the startup reconciliation below.
 lacks is inert: ensuring it schedules nothing and a fire of it does nothing. On the CLI that covers
 the manual-watch claim jobs and Kick challenges (browser tabs) and the integrity refresh (integrity
 capture). The one-minute channel-points job runs on both hosts (#590); the CLI used to claim channel
-points only at poll cadence. The
+points only at poll cadence. The one-minute account-progress job runs on both hosts too. The
 host delivers fires to `controller.runJob(name)`. Since #591 that includes the CLI's tick jobs: it has
 no tick driver of its own. A disabled platform's tick cleans up its state, as it always did on the
 extension, and logs "Platform disabled" once, when it becomes disabled. The CLI logs subscription
@@ -871,6 +872,38 @@ Stopping behavior depends on ownership and settings:
 ## Tabless Watch
 
 Tabless watching is the default (`tablessMode: true`). When it is on, or the host has no browser tabs, supported adapters create a `TablessWatchController` instead of opening a watch tab. Twitch's default web heartbeat requests HLS segment headers. Older minute-watched heartbeats stay selectable. Kick maintains a viewer WebSocket and sends watch livestream events. The one-minute watch alarm records heartbeat health in the platform session. A browser host falls back to a visible muted tab after repeated failures, and that tab plays stream video. The headless CLI keeps retrying tabless heartbeats because it cannot open a tab.
+
+## Account Progress
+
+A platform may track the viewer's own progress (Kick: the global viewer level and the daily watch
+streak). The shared abstraction is only "this platform has account progress to show beside its
+switch"; it says nothing about levels or streaks, so a platform that adds something with other
+semantics adds its own shape instead of bending a common one.
+
+- **Model** (`@lurkloot/shared/models`): `PlatformAccountProgress` is a union tagged by `platform`,
+  one member per platform that has progress (today only `KickAccountProgress`). `state.accountProgress`
+  holds one `AccountProgressPoll` per platform: the attempt stamp `lastCheckedAt`, and the last good
+  read `progress` with its `fetchedAt`. It is persisted, merged as `optionalPlatform`.
+- **Adapter**: the optional `fetchAccountProgress`. Kick's (`platforms/kick/accountProgress.ts`)
+  reads `web.kick.com/api/v1/gamification/user/level`, then
+  `/gamification/users/{user_id}/streak` for the user the level belongs to. A failed streak read
+  keeps the level; an unreadable level reads nothing.
+- **Job, never the tick** (`background/accountProgress.ts`): `lurkloot.account-progress` wakes every
+  minute on every host, so no tick waits on a platform's progress endpoint. A wake only compares
+  the stored stamp; a platform is read when it is enabled, signed in and its 10-minute stamp is due
+  (`accountProgressPollDue`), independent of `autoClaimChallenges` and of manual watching. One read
+  per platform is in flight at a time. The read holds no lock; its result is committed onto the
+  latest state under the platform lock, moving the stamp on every attempt and keeping the last good
+  read until a new one lands. It is display only: a failure is a debug diagnostic, never an auth
+  status, a platform error or backoff. Shutdown and host reset abort a read before it commits. A
+  disabled or signed-out platform is not read, so its last read stays as it was.
+- **Popup**: `StatusStrip` has an `accountProgress` slot beside the switch. `AccountProgressSlot`
+  (`popup-ui/src/accountProgress.tsx`) picks the view from a map keyed by the progress's own
+  `platform` tag, and shows nothing while the platform is signed out or in the narrow (under
+  560px) layout, where the strip has no room beside the watching lines, source chip and switch. The Kick view
+  (`kickAccountProgress.tsx`) draws its own badge (no Kick assets) with the level in the
+  digits-only "Archivo Condensed Digits" face, declared in `popup-ui/src/fonts.css` and the site's
+  `global.css`.
 
 ## Chat Presence
 
