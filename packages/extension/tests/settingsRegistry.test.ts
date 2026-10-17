@@ -146,8 +146,6 @@ describe("settings registry", () => {
         "general.notifications.noDropsLeft",
         "general.drops.strategy",
         "general.drops.autoClaim",
-        "general.drops.farmUnlinked",
-        "general.drops.farmSubscription",
         "general.drops.skipUnfinishable",
         "general.drops.preferKnownChannels",
         "general.drops.forgetExcluded",

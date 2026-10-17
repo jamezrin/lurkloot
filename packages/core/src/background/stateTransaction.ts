@@ -49,18 +49,23 @@ export type SettingsEffects = Partial<Record<Platform, SettingsEffect>>;
 
 // Settings that only decide the order campaigns are farmed in. Discovery does
 // not read them, so saving one keeps the discovered campaigns and channels.
-// Pins are the exception while "farm pinned only" is on: discovery then skips
-// unpinned campaigns, so a new pin needs its channels found.
+// Pins are the exception while either platform's "farm pinned only" is on:
+// discovery then skips unpinned campaigns, so a new pin needs its channels
+// found.
 const RANKING_SETTING_KEYS = new Set(["priorityMode", "campaignPins"]);
 const RANKING_PLATFORM_SETTING_KEYS = new Set(["favouriteCategories"]);
 
 export function isRankingOnlyPatch(
   patch: SettingsPatch,
-  current: Pick<EngineSettings, "farmPinnedOnly">,
+  current: Pick<EngineSettings, "platform">,
 ): boolean {
   const keys = Object.keys(patch);
   if (keys.length === 0) return false;
-  if ("campaignPins" in patch && current.farmPinnedOnly) return false;
+  if (
+    "campaignPins" in patch
+    && PLATFORMS.some((platform) => current.platform[platform].farmPinnedOnly)
+  )
+    return false;
   return keys.every((key) => {
     if (key !== "platform") return RANKING_SETTING_KEYS.has(key);
     return Object.values(patch.platform ?? {}).every((platformPatch) =>
@@ -73,7 +78,7 @@ export function isRankingOnlyPatch(
 
 export function settingsPatchEffects(
   patch: SettingsPatch,
-  current: Pick<EngineSettings, "farmPinnedOnly">,
+  current: Pick<EngineSettings, "platform">,
 ): SettingsEffects {
   const keys = Object.keys(patch);
   const platforms =

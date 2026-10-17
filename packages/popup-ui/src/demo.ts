@@ -8,6 +8,7 @@ import type {
 } from "@lurkloot/shared/messages";
 import type { DropCampaign, SupportedLocale } from "@lurkloot/shared/models";
 import { applySettingsPatch, DEFAULT_SETTINGS, mergeSettings } from "@lurkloot/shared/settings";
+import { defaultRewardFilter } from "@lurkloot/shared/rewardFilter";
 import type { PopupAdapter } from "./types";
 import { openHttpsLink } from "./links";
 
@@ -118,7 +119,9 @@ function demoSnapshot(): RuntimeSnapshot {
         strictCampaignAvailability: false,
         channelPointsPushClaim: true,
         categoryMode: "include",
-        farmRewardTypes: [],
+        rewardFilter: defaultRewardFilter("twitch"),
+        farmPinnedOnly: false,
+        farmUnlinkedCampaigns: true,
         categories: [
           { id: "marathon legends", name: "Marathon Legends" },
           { id: "starfall arena", name: "Starfall Arena" },
@@ -137,7 +140,9 @@ function demoSnapshot(): RuntimeSnapshot {
         idleWatchlistChannels: ["greenroomgg", "pixelboost"],
         excludedChannels: [],
         categoryMode: "all",
-        farmRewardTypes: [],
+        rewardFilter: defaultRewardFilter("kick"),
+        farmPinnedOnly: false,
+        farmUnlinkedCampaigns: true,
         categories: [{ id: "just chatting", name: "Just Chatting" }],
         favouriteCategories: [],
         // Exercises the denylist alongside Twitch's allowlist: Kick farms every

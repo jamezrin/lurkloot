@@ -1,6 +1,6 @@
 import type { CriticalHealthState } from "./criticalHealth";
 import type { ActivityHistoryRecord } from "./events";
-import type { EngineSettings, Platform, SchedulerState } from "./models";
+import type { EngineSettings, Platform, RewardFilter, SchedulerState } from "./models";
 import { isFarmingActive } from "./settings";
 
 export interface FailureReportInput {
@@ -77,12 +77,16 @@ function settingsSummary(settings: EngineSettings, platform: Platform): string {
     ["autoClaim", settings.autoClaim],
     ["pauseOnManualWatch", settings.pauseOnManualWatch],
     ["priorityMode", settings.priorityMode],
-    ["farmRewardTypes", settings.platform[platform].farmRewardTypes.join(", ") || "all"],
+    ["rewardFilter", rewardFilterSummary(settings.platform[platform].rewardFilter)],
     ["platform enabled", settings.platform[platform].enabled],
     ["categoryMode", settings.platform[platform].categoryMode],
     ["compatibility profile", settings.compatibility[platform].profile],
     ["criticalFailurePromptEnabled", settings.criticalFailurePromptEnabled],
   ]);
+}
+
+function rewardFilterSummary(filter: RewardFilter): string {
+  return `${filter.kinds.join(", ")} · ${filter.subscriptions}`;
 }
 
 export function buildFailureReport(input: FailureReportInput): string {

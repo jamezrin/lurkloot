@@ -13,15 +13,14 @@ import type { ActivityHistoryRecord } from "@lurkloot/shared/events";
 import type {
   CategorySelection,
   ExtensionSettings,
-  RewardFarmType,
   Platform,
   TwitchExtensionProviderId,
   WatchSourceId,
 } from "@lurkloot/shared/models";
+import { defaultRewardFilter, isRewardFilterNarrowed } from "@lurkloot/shared/rewardFilter";
 import {
   applySettingsPatch,
   DEFAULT_SETTINGS,
-  REWARD_FARM_TYPES,
   mergeSettings,
   type SettingsPatch,
 } from "@lurkloot/shared/settings";
@@ -57,8 +56,6 @@ import type {
 import { variantShowsPopup } from "./types";
 import {
   campaignViewFromCampaign,
-  farmRewardTypeCounts,
-  type RewardTypeTab,
   reuseIfUnchanged,
   reuseUnchangedViews,
   channelViewFromSession,
@@ -857,7 +854,6 @@ export function Popup({
     inputs?: readonly unknown[];
     campaigns?: CampaignView[];
     gameMap?: Record<string, GameItem>;
-    rewardTypeCounts?: Record<RewardTypeTab, number>;
   }>({});
 
   // The mark toggle every campaign card reads from context. Its identity never
@@ -968,13 +964,7 @@ export function Popup({
     derived.current.gameMap,
     Object.fromEntries(games.map((game) => [game.id, game])),
   );
-  const rewardTypeCounts = inputsChanged
-    ? reuseIfUnchanged(
-        derived.current.rewardTypeCounts,
-        farmRewardTypeCounts(snapshot.state.campaigns[platform], settings),
-      )
-    : derived.current.rewardTypeCounts!;
-  derived.current = { inputs: derivationInputs, campaigns, gameMap, rewardTypeCounts };
+  derived.current = { inputs: derivationInputs, campaigns, gameMap };
   const idleWatchlistChannels = settings.platform[platform].idleWatchlistChannels;
   const idleWatchlist = idleWatchlistChannels.map((username) =>
     streamerItemFromFallback(username, session, t),
@@ -1424,17 +1414,18 @@ export function Popup({
                               refreshing={refreshing}
                               strategy={settings.priorityMode}
                               pinnedCount={settings.campaignPins.length}
-                              farmPinnedOnly={settings.farmPinnedOnly}
-                              rewardTypes={settings.platform[platform].farmRewardTypes}
-                              availableRewardTypes={
-                                platform === "twitch"
-                                  ? REWARD_FARM_TYPES
-                                  : REWARD_FARM_TYPES.filter((type) => type !== "badge")
-                              }
-                              rewardTypeCounts={rewardTypeCounts}
-                              onRewardTypesChange={(farmRewardTypes) =>
+                              farmPinnedOnly={settings.platform[platform].farmPinnedOnly}
+                              rewardFilterNarrowed={isRewardFilterNarrowed(
+                                settings.platform[platform].rewardFilter,
+                                platform,
+                              )}
+                              onFarmAll={() =>
                                 void updateSettings(
-                                  { platform: { [platform]: { farmRewardTypes } } },
+                                  {
+                                    platform: {
+                                      [platform]: { rewardFilter: defaultRewardFilter(platform) },
+                                    },
+                                  },
                                   { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
                                 )
                               }
@@ -1445,7 +1436,10 @@ export function Popup({
                                 void updateSettings({ campaignPins: [] }, { tickAfterSave: true })
                               }
                               onFarmPinnedOnlyChange={(farmPinnedOnly) =>
-                                void updateSettings({ farmPinnedOnly }, { tickAfterSave: true })
+                                void updateSettings(
+                                  { platform: { [platform]: { farmPinnedOnly } } },
+                                  { tickAfterSave: true, tickAfterSavePlatforms: [platform] },
+                                )
                               }
                               onRefreshCampaign={() => refreshNow()}
                               onPinChange={(campaignId, position) =>

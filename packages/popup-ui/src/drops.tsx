@@ -1395,7 +1395,6 @@ export function campaignRejectionMessageKey(
     completed: "campaignRejectionCompleted",
     unlinked_campaigns_disabled: "campaignRejectionUnlinkedDisabled",
     twitch_link_required: "campaignRejectionTwitchLinkRequired",
-    subscription_campaigns_disabled: "campaignRejectionSubscriptionDisabled",
     category_filtered: "campaignRejectionCategoryFiltered",
     category_blocked: "campaignRejectionCategoryBlocked",
     not_pinned: "campaignRejectionNotPinned",

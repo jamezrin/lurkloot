@@ -291,23 +291,6 @@ describe("deadline feasibility setting", () => {
     expect(input.disabled).toBe(true);
   });
 
-  it("re-ticks after toggling a farming-eligibility row", () => {
-    const { container, onSettingsChange } = mountSettings();
-    // The two farming rows are full SettingRow toggles keyed by their title, so
-    // query by the switch's accessible name.
-    const toggle = container.querySelector(
-      '[role="switch"][aria-label="Farm campaigns without a linked account"]',
-    ) as HTMLButtonElement;
-    expect(toggle.getAttribute("aria-checked")).toBe("true");
-
-    act(() => toggle.click());
-
-    expect(onSettingsChange).toHaveBeenCalledWith(
-      { farmingEligibility: { farmUnlinkedCampaigns: false } },
-      { tickAfterSave: true },
-    );
-  });
-
   // The Queue's Then by divider hides with its tier, so Settings keeps the
   // strategy reachable when every queued campaign is pinned or starred.
   it("saves the queue strategy from the Drops group and re-ticks", async () => {
@@ -336,26 +319,6 @@ describe("deadline feasibility setting", () => {
       { priorityMode: "lowest_availability" },
       { tickAfterSave: true },
     );
-  });
-
-  it("renders both farming-eligibility rows as full toggles", () => {
-    const { container } = mountSettings();
-    const text = container.textContent ?? "";
-
-    expect(text).toContain("Farm campaigns without a linked account");
-    expect(text).toContain("Farm campaigns that require a subscription");
-    // Both are switches, not chips: a switch role means the row carries its own
-    // description, which the compact chip row does not.
-    expect(
-      container.querySelector(
-        '[role="switch"][aria-label="Farm campaigns without a linked account"]',
-      ),
-    ).not.toBeNull();
-    expect(
-      container.querySelector(
-        '[role="switch"][aria-label="Farm campaigns that require a subscription"]',
-      ),
-    ).not.toBeNull();
   });
 
   it("saves Always enter channel chat for Twitch and reconciles Twitch", () => {

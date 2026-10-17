@@ -668,16 +668,16 @@ describe("Kick static discovery gate", () => {
       "unlinked disabled",
       { accountLinked: false },
       (settings) => {
-        settings.farmingEligibility.farmUnlinkedCampaigns = false;
+        settings.platform.kick.farmUnlinkedCampaigns = false;
       },
     ],
     [
-      "subscription disabled",
+      "subscriptions skipped",
       {
         rewards: [{ ...reward, requirement: "subscription", requiredSubs: 1, isWatchBased: false }],
       },
       (settings) => {
-        settings.farmingEligibility.farmSubscriptionCampaigns = false;
+        settings.platform.kick.rewardFilter = { kinds: ["item"], subscriptions: "skip" };
       },
     ],
     [
@@ -691,7 +691,7 @@ describe("Kick static discovery gate", () => {
       "not pinned",
       {},
       (settings) => {
-        settings.farmPinnedOnly = true;
+        settings.platform.kick.farmPinnedOnly = true;
       },
     ],
     ["no rewards", { rewards: [] }, () => {}],

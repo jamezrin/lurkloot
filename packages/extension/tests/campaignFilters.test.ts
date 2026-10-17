@@ -9,15 +9,14 @@ import {
 import { mergeSettings } from "@lurkloot/shared/settings";
 import type {
   DropCampaign,
-  EngineSettings,
   ExtensionSettings,
   PlatformSettings,
+  RewardFilter,
 } from "@lurkloot/shared/models";
 
-const ELIGIBLE_ALL: EngineSettings["farmingEligibility"] = {
-  farmUnlinkedCampaigns: true,
-  farmSubscriptionCampaigns: true,
-};
+const UNLINKED_FARMED = { farmUnlinkedCampaigns: true };
+const UNLINKED_SKIPPED = { farmUnlinkedCampaigns: false };
+const SKIP_SUBSCRIPTIONS: RewardFilter = { kinds: ["item"], subscriptions: "skip" };
 
 const FARM_ALL_CATEGORIES: Pick<PlatformSettings, "categoryMode" | "categories"> = {
   categoryMode: "all",
@@ -29,7 +28,8 @@ const FARM_ALL_CATEGORIES: Pick<PlatformSettings, "categoryMode" | "categories">
 // overrides the old piecemeal-argument tests used.
 function settings(
   overrides: {
-    farmingEligibility?: EngineSettings["farmingEligibility"];
+    farmUnlinkedCampaigns?: boolean;
+    rewardFilter?: RewardFilter;
     excludedCampaignIds?: string[];
     categorySelection?: Partial<
       Pick<PlatformSettings, "categoryMode" | "categories" | "blockedCategories">
@@ -42,13 +42,23 @@ function settings(
   const categorySelection = overrides.categorySelection ?? FARM_ALL_CATEGORIES;
   return {
     ...base,
-    farmingEligibility: overrides.farmingEligibility ?? ELIGIBLE_ALL,
     excludedCampaignIds: overrides.excludedCampaignIds ?? [],
     campaignPins: overrides.campaignPins ?? [],
-    farmPinnedOnly: overrides.farmPinnedOnly ?? false,
     platform: {
-      twitch: { ...base.platform.twitch, ...categorySelection },
-      kick: { ...base.platform.kick, ...categorySelection },
+      twitch: {
+        ...base.platform.twitch,
+        ...categorySelection,
+        farmUnlinkedCampaigns: overrides.farmUnlinkedCampaigns ?? true,
+        farmPinnedOnly: overrides.farmPinnedOnly ?? false,
+        rewardFilter: overrides.rewardFilter ?? base.platform.twitch.rewardFilter,
+      },
+      kick: {
+        ...base.platform.kick,
+        ...categorySelection,
+        farmUnlinkedCampaigns: overrides.farmUnlinkedCampaigns ?? true,
+        farmPinnedOnly: overrides.farmPinnedOnly ?? false,
+        rewardFilter: overrides.rewardFilter ?? base.platform.kick.rewardFilter,
+      },
     },
   };
 }
@@ -99,31 +109,29 @@ function subscriptionCampaign(overrides: Partial<DropCampaign> = {}): DropCampai
 
 describe("campaignPassesFarmingEligibility", () => {
   it("skips an unlinked campaign only when farmUnlinkedCampaigns is off", () => {
-    const off = { ...ELIGIBLE_ALL, farmUnlinkedCampaigns: false };
+    const off = UNLINKED_SKIPPED;
     expect(campaignPassesFarmingEligibility(campaign({ accountLinked: false }), off)).toBe(false);
     expect(
       campaignPassesFarmingEligibility(campaign({ eligibility: "account_not_linked" }), off),
     ).toBe(false);
     expect(campaignPassesFarmingEligibility(campaign({ accountLinked: true }), off)).toBe(true);
-    expect(campaignPassesFarmingEligibility(campaign({ accountLinked: false }), ELIGIBLE_ALL)).toBe(
-      true,
-    );
+    expect(
+      campaignPassesFarmingEligibility(campaign({ accountLinked: false }), UNLINKED_FARMED),
+    ).toBe(true);
     expect(
       campaignPassesFarmingEligibility(
         campaign({ eligibility: "account_not_linked" }),
-        ELIGIBLE_ALL,
+        UNLINKED_FARMED,
       ),
     ).toBe(true);
   });
 
-  it("skips a subscription campaign only when farmSubscriptionCampaigns is off", () => {
-    const off = { ...ELIGIBLE_ALL, farmSubscriptionCampaigns: false };
-    expect(campaignPassesFarmingEligibility(subscriptionCampaign(), off)).toBe(false);
-    expect(campaignPassesFarmingEligibility(subscriptionCampaign(), ELIGIBLE_ALL)).toBe(true);
+  it("leaves subscription campaigns to the reward filter", () => {
+    expect(campaignPassesFarmingEligibility(subscriptionCampaign(), UNLINKED_SKIPPED)).toBe(true);
   });
 
   it("passes an ordinary campaign regardless of display flags", () => {
-    expect(campaignPassesFarmingEligibility(campaign(), ELIGIBLE_ALL)).toBe(true);
+    expect(campaignPassesFarmingEligibility(campaign(), UNLINKED_FARMED)).toBe(true);
   });
 });
 
@@ -160,18 +168,15 @@ describe("campaignFarmable", () => {
     expect(campaignFarmable(campaign(), s)).toBe(false);
   });
 
-  it("is false when the class flag turns off unlinked or subscription farming", () => {
+  it("is false when unlinked farming is off or the filter skips subscriptions", () => {
     expect(
       campaignFarmable(
         campaign({ accountLinked: false }),
-        settings({ farmingEligibility: { ...ELIGIBLE_ALL, farmUnlinkedCampaigns: false } }),
+        settings({ farmUnlinkedCampaigns: false }),
       ),
     ).toBe(false);
     expect(
-      campaignFarmable(
-        subscriptionCampaign(),
-        settings({ farmingEligibility: { ...ELIGIBLE_ALL, farmSubscriptionCampaigns: false } }),
-      ),
+      campaignFarmable(subscriptionCampaign(), settings({ rewardFilter: SKIP_SUBSCRIPTIONS })),
     ).toBe(false);
   });
 
@@ -225,29 +230,22 @@ describe("campaignFarmable", () => {
 });
 
 describe("campaignSection sorts campaigns into the popup's lists", () => {
-  const NOT_FARMED_UNLINKED = { ...ELIGIBLE_ALL, farmUnlinkedCampaigns: false };
-  const NOT_FARMED_SUBSCRIPTION = { ...ELIGIBLE_ALL, farmSubscriptionCampaigns: false };
-
   it("queues a farmable campaign", () => {
     expect(section(campaign())).toBe("queue");
   });
 
   it("skips a campaign whose class is not farmed, rather than hiding it", () => {
-    expect(
-      section(campaign({ accountLinked: false }), { farmingEligibility: NOT_FARMED_UNLINKED }),
-    ).toBe("skipped");
-    expect(
-      section(campaign({ eligibility: "account_not_linked" }), {
-        farmingEligibility: NOT_FARMED_UNLINKED,
-      }),
-    ).toBe("skipped");
-    expect(section(subscriptionCampaign(), { farmingEligibility: NOT_FARMED_SUBSCRIPTION })).toBe(
+    expect(section(campaign({ accountLinked: false }), { farmUnlinkedCampaigns: false })).toBe(
       "skipped",
     );
+    expect(
+      section(campaign({ eligibility: "account_not_linked" }), { farmUnlinkedCampaigns: false }),
+    ).toBe("skipped");
+    expect(section(subscriptionCampaign(), { rewardFilter: SKIP_SUBSCRIPTIONS })).toBe("skipped");
   });
 
   it("queues a not-linked campaign while that class is farmed", () => {
-    expect(section(campaign({ accountLinked: false }), { farmingEligibility: ELIGIBLE_ALL })).toBe(
+    expect(section(campaign({ accountLinked: false }), { farmUnlinkedCampaigns: true })).toBe(
       "queue",
     );
   });
@@ -362,8 +360,8 @@ describe("section invariant: every farmable campaign is queued", () => {
   // engine would farm MUST be in the queue, never tucked into another list. A
   // campaign the engine farms is active, not ended, eligibility "eligible" (or
   // absent), and has an earnable reward — regardless of link status or
-  // subscription requirement, since farmUnlinkedCampaigns and
-  // farmSubscriptionCampaigns both default to on.
+  // subscription requirement, since farmUnlinkedCampaigns defaults to on and
+  // the default reward filter includes subscription rewards.
   const farmable: DropCampaign[] = [
     campaign({ eligibility: "eligible" }),
     campaign(),

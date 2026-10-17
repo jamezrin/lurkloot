@@ -100,7 +100,7 @@ function queue(
       refreshing={false}
       strategy={settings.priorityMode}
       pinnedCount={settings.campaignPins.length}
-      farmPinnedOnly={settings.farmPinnedOnly}
+      farmPinnedOnly={settings.platform.twitch.farmPinnedOnly}
       onStrategyChange={() => undefined}
       onUnpinAll={() => undefined}
       onFarmPinnedOnlyChange={() => undefined}
@@ -221,44 +221,9 @@ describe("queue view", () => {
     expect(rows(container, "strategy")).toEqual(["now"]);
   });
 
-  it("picks any number of reward types to farm from its tabs", () => {
-    const settings = mergeSettings({});
-    const onRewardTypesChange = vi.fn();
-    const { container } = queue(views([campaign("drop")], settings), settings, {
-      rewardTypes: ["badge"],
-      rewardTypeCounts: { all: 1, no_subscription: 1, subscription: 0, badge: 0 },
-      onRewardTypesChange,
-    });
-
-    const tab = (value: string) =>
-      container.querySelector<HTMLButtonElement>(`[data-queue-facet="${value}"]`)!;
-    expect(
-      tab("badge").getAttribute("aria-checked") ?? tab("badge").getAttribute("aria-pressed"),
-    ).toBe("true");
-    expect(tab("all").textContent).toContain("1");
-    act(() => tab("subscription").click());
-
-    // Pressing another type adds it; "All" clears the selection.
-    expect(onRewardTypesChange).toHaveBeenLastCalledWith(["subscription", "badge"]);
-    act(() => tab("all").click());
-    expect(onRewardTypesChange).toHaveBeenLastCalledWith([]);
-    act(() => tab("badge").click());
-    expect(onRewardTypesChange).toHaveBeenLastCalledWith([]);
-  });
-
-  it("offers only the tabs the platform can farm", () => {
-    const settings = mergeSettings({});
-    const { container } = queue(views([campaign("drop")], settings), settings, {
-      availableRewardTypes: ["no_subscription", "subscription"],
-    });
-
-    expect(container.querySelector('[data-queue-facet="subscription"]')).not.toBeNull();
-    expect(container.querySelector('[data-queue-facet="badge"]')).toBeNull();
-  });
-
-  it("skips a campaign with no reward of the types, with a fix that farms every type", () => {
+  it("skips a campaign with no reward the filter allows, with a fix that farms every reward", () => {
     const settings = mergeSettings({
-      platform: { twitch: { farmRewardTypes: ["badge"] } },
+      platform: { twitch: { rewardFilter: { kinds: ["badge"], subscriptions: "include" } } },
     } as never);
     const badge = campaign("badge", {
       rewards: [
@@ -274,10 +239,10 @@ describe("queue view", () => {
         },
       ],
     });
-    const onRewardTypesChange = vi.fn();
+    const onFarmAll = vi.fn();
     const { container } = queue(views([campaign("drop"), badge], settings), settings, {
-      rewardTypes: ["badge"],
-      onRewardTypesChange,
+      rewardFilterNarrowed: true,
+      onFarmAll,
     });
 
     expect(rows(container, "strategy")).toEqual(["badge"]);
@@ -288,7 +253,7 @@ describe("queue view", () => {
     ].find((button) => button.textContent === "queueFixFarmAll");
     expect(fix).toBeDefined();
     act(() => fix!.click());
-    expect(onRewardTypesChange).toHaveBeenCalledWith([]);
+    expect(onFarmAll).toHaveBeenCalledOnce();
   });
 
   it("lists a campaign only an outside action can unblock under Action required, apart from Skipped (#677)", () => {
@@ -526,11 +491,10 @@ describe("campaign card actions", () => {
     expect(row("ordinary").getAttribute("data-campaign-rank")).toBe("2");
   });
 
-  it("places a searched pin by its real rank while the reward types skip other pins", () => {
+  it("places a searched pin by its real rank while the reward filter skips other pins", () => {
     const settings = mergeSettings({
       campaignPins: ["badge", "d1", "d2"],
-      platform: { twitch: { farmRewardTypes: ["no_subscription"] } },
-      farmingEligibility: { farmSubscriptionCampaigns: true },
+      platform: { twitch: { rewardFilter: { kinds: ["item"], subscriptions: "skip" } } },
     } as never);
     const badge = campaign("badge", {
       rewards: [
@@ -582,7 +546,10 @@ describe("campaign card actions", () => {
   it("keeps a skipped campaign's fix when search finds it", () => {
     // With "farm pinned only" on, an unpinned campaign is skipped and its fix
     // is pinning it; search used to show it with no way to do that.
-    const settings = mergeSettings({ campaignPins: ["pinned"], farmPinnedOnly: true } as never);
+    const settings = mergeSettings({
+      campaignPins: ["pinned"],
+      platform: { twitch: { farmPinnedOnly: true } },
+    } as never);
     const { container } = queue(views([campaign("pinned"), campaign("loose")], settings), settings);
 
     search(container, "loose");

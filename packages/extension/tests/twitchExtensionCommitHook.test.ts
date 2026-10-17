@@ -64,7 +64,8 @@ describe("Twitch Extensions commit effects", () => {
     expect(
       twitchExtensionCommitEffect(
         settingsChange((settings) => {
-          settings.farmPinnedOnly = !settings.farmPinnedOnly;
+          settings.priorityMode =
+            settings.priorityMode === "ending_soonest" ? "lowest_availability" : "ending_soonest";
         }, "selection"),
       ),
     ).toEqual({ reconcile: false });

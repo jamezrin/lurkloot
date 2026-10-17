@@ -1,6 +1,5 @@
 import {
   DEFAULT_SETTINGS,
-  normalizeFarmRewardTypes,
   booleanOr,
   clampInteger,
   clampNumber,
@@ -8,7 +7,6 @@ import {
   CATEGORY_MODES,
   normalizeCategoryMode,
   normalizeCategorySelections,
-  normalizeFarmingEligibility,
   normalizeChannelList,
   normalizeIdList,
   normalizeSubscriptionMarks,
@@ -16,6 +14,7 @@ import {
   POLL_INTERVAL_MIN_MINUTES,
   IDLE_WATCHLIST_LIMIT,
 } from "@lurkloot/shared/settings";
+import { normalizeRewardFilter } from "@lurkloot/shared/rewardFilter";
 import {
   CURRENT_SETTINGS_SCHEMA_VERSION,
   migrateSettings,
@@ -47,8 +46,6 @@ export interface CliSettings {
   // extension writes this by dragging a card; headless, it is hand-edited, so
   // order is the data and no numeric weights are involved.
   campaignPins: string[];
-  // Farm only the pinned campaigns. Eligibility, not ranking.
-  farmPinnedOnly: boolean;
   excludedCampaignIds: string[];
   /** @deprecated Compatibility input for profiles without watchSourcePriority. */
   idleWatchlistFallbackOnly: boolean;
@@ -67,11 +64,6 @@ export interface CliSettings {
   // Kill switch for the critical-failure detector, which runs in the shared
   // scheduler/controller regardless of host. See EngineSettings.criticalFailurePromptEnabled.
   criticalFailurePromptEnabled: boolean;
-  // Not extension-only: these two keys gate what the scheduler is allowed to
-  // farm, so they change headless behavior. The display-only popup preference
-  // (the retired dropsListFilter) is migrated away instead — a headless run has
-  // no Drops list to filter.
-  farmingEligibility: EngineSettings["farmingEligibility"];
   // Gate the controller's reward/no-drops notifications, which the CLI renders
   // as log lines (see runtime/run.ts createNotification).
   notifyRewardEarned: boolean;
@@ -80,9 +72,10 @@ export interface CliSettings {
   compatibility: CompatibilitySettings;
 }
 
-// The two farming-eligibility toggles the CLI honours. Kept local (not imported)
-// because the shared split has no exported key tuple; only these two exist.
-const FARMING_ELIGIBILITY_KEYS: string[] = ["farmUnlinkedCampaigns", "farmSubscriptionCampaigns"];
+// Per-platform eligibility switches. Their values are checked, not just their
+// names: booleanOr would quietly restore the default for `"farmPinnedOnly": "yes"`
+// and farm the wrong set.
+const PLATFORM_ELIGIBILITY_SWITCHES = ["farmPinnedOnly", "farmUnlinkedCampaigns"] as const;
 const PRIORITY_MODES: PriorityMode[] = ["ending_soonest", "lowest_availability"];
 const PLATFORMS: Platform[] = ["twitch", "kick"];
 
@@ -92,7 +85,6 @@ export const DEFAULT_CLI_SETTINGS: CliSettings = {
   autoClaim: DEFAULT_SETTINGS.autoClaim,
   priorityMode: DEFAULT_SETTINGS.priorityMode,
   campaignPins: [...DEFAULT_SETTINGS.campaignPins],
-  farmPinnedOnly: DEFAULT_SETTINGS.farmPinnedOnly,
   excludedCampaignIds: [...DEFAULT_SETTINGS.excludedCampaignIds],
   idleWatchlistFallbackOnly: DEFAULT_SETTINGS.idleWatchlistFallbackOnly,
   preferKnownChannels: DEFAULT_SETTINGS.preferKnownChannels,
@@ -104,7 +96,6 @@ export const DEFAULT_CLI_SETTINGS: CliSettings = {
   skipUnfinishableRewards: DEFAULT_SETTINGS.skipUnfinishableRewards,
   deadlineSafetyMarginMinutes: DEFAULT_SETTINGS.deadlineSafetyMarginMinutes,
   criticalFailurePromptEnabled: DEFAULT_SETTINGS.criticalFailurePromptEnabled,
-  farmingEligibility: { ...DEFAULT_SETTINGS.farmingEligibility },
   notifyRewardEarned: DEFAULT_SETTINGS.notifyRewardEarned,
   notifyNoDropsLeft: DEFAULT_SETTINGS.notifyNoDropsLeft,
   // Both platforms on by default. The extension ships them off so a fresh
@@ -125,7 +116,6 @@ const CLI_SETTING_KEYS = new Set<string>([
   "autoClaim",
   "priorityMode",
   "campaignPins",
-  "farmPinnedOnly",
   "excludedCampaignIds",
   "idleWatchlistFallbackOnly",
   "preferKnownChannels",
@@ -137,7 +127,6 @@ const CLI_SETTING_KEYS = new Set<string>([
   "skipUnfinishableRewards",
   "deadlineSafetyMarginMinutes",
   "criticalFailurePromptEnabled",
-  "farmingEligibility",
   // Accepted only so config parsing can surface the deprecation warning.
   // Runtime log filtering belongs to the global --log option and process logger.
   "enabledLogLevels",
@@ -154,7 +143,9 @@ const CLI_PLATFORM_KEYS: Record<Platform, Set<string>> = {
     "idleWatchlistChannels",
     "excludedChannels",
     "categoryMode",
-    "farmRewardTypes",
+    "rewardFilter",
+    "farmPinnedOnly",
+    "farmUnlinkedCampaigns",
     "categories",
     "favouriteCategories",
     "blockedCategories",
@@ -170,7 +161,9 @@ const CLI_PLATFORM_KEYS: Record<Platform, Set<string>> = {
     "idleWatchlistChannels",
     "excludedChannels",
     "categoryMode",
-    "farmRewardTypes",
+    "rewardFilter",
+    "farmPinnedOnly",
+    "farmUnlinkedCampaigns",
     "categories",
     "favouriteCategories",
     "blockedCategories",
@@ -349,8 +342,12 @@ function parseMigratedCliSettings(
             if (!CLI_PLATFORM_KEYS[name as Platform].has(key))
               offenders.push(`unknown setting "${key}" under platform.${name}`);
           }
-          // Like the farmingEligibility values below: normalizeCategoryMode
-          // would quietly fall back to "all" for a typo such as "exclude_all",
+          for (const key of PLATFORM_ELIGIBILITY_SWITCHES) {
+            if (Object.hasOwn(block, key) && typeof block[key] !== "boolean")
+              offenders.push(`"platform.${name}.${key}" must be a boolean`);
+          }
+          // Like the eligibility switches above: normalizeCategoryMode would
+          // quietly fall back to "all" for a typo such as "exclude_all",
           // silently farming the whole directory instead of the chosen subset.
           if (
             Object.hasOwn(block, "categoryMode")
@@ -361,33 +358,6 @@ function parseMigratedCliSettings(
             );
           }
         }
-      }
-    }
-  }
-
-  // Eligibility keys are validated like platform/compatibility keys: a typo would
-  // otherwise silently fall back to the default and quietly farm the wrong set.
-  const farmingEligibilityRaw = value.farmingEligibility;
-  if (farmingEligibilityRaw !== undefined) {
-    if (
-      farmingEligibilityRaw === null
-      || typeof farmingEligibilityRaw !== "object"
-      || Array.isArray(farmingEligibilityRaw)
-    ) {
-      offenders.push('"farmingEligibility" must be a JSON object');
-    } else {
-      for (const [key, entry] of Object.entries(farmingEligibilityRaw as Record<string, unknown>)) {
-        if (!FARMING_ELIGIBILITY_KEYS.includes(key)) {
-          offenders.push(
-            `unknown setting "${key}" under farmingEligibility (expected one of: ${FARMING_ELIGIBILITY_KEYS.join(", ")})`,
-          );
-          continue;
-        }
-        // Values are checked too, not just names: booleanOr would quietly
-        // restore the default for `"farmUnlinkedCampaigns": "yes"`, which is the
-        // same silent wrong-set farming the key check exists to prevent.
-        if (typeof entry !== "boolean")
-          offenders.push(`"farmingEligibility.${key}" must be a boolean`);
       }
     }
   }
@@ -432,7 +402,6 @@ function parseMigratedCliSettings(
       ? (v.priorityMode as PriorityMode)
       : DEFAULT_CLI_SETTINGS.priorityMode,
     campaignPins: normalizeIdList(v.campaignPins),
-    farmPinnedOnly: booleanOr(v.farmPinnedOnly, DEFAULT_CLI_SETTINGS.farmPinnedOnly),
     excludedCampaignIds: normalizeIdList(v.excludedCampaignIds),
     idleWatchlistFallbackOnly: booleanOr(
       v.idleWatchlistFallbackOnly,
@@ -478,7 +447,6 @@ function parseMigratedCliSettings(
       v.criticalFailurePromptEnabled,
       DEFAULT_CLI_SETTINGS.criticalFailurePromptEnabled,
     ),
-    farmingEligibility: normalizeFarmingEligibility(v.farmingEligibility),
     notifyRewardEarned: booleanOr(v.notifyRewardEarned, DEFAULT_CLI_SETTINGS.notifyRewardEarned),
     notifyNoDropsLeft: booleanOr(v.notifyNoDropsLeft, DEFAULT_CLI_SETTINGS.notifyNoDropsLeft),
     platform: normalizePlatform(v.platform, v.idleWatchlistFallbackOnly, diagnostics),
@@ -520,7 +488,9 @@ function normalizePlatform(
         idleWatchlistChannels: limitIdleWatchlist(platform, ps.idleWatchlistChannels, diagnostics),
         excludedChannels: normalizeChannelList(ps.excludedChannels),
         categoryMode: normalizeCategoryMode(ps.categoryMode),
-        farmRewardTypes: normalizeFarmRewardTypes(ps.farmRewardTypes, platform),
+        rewardFilter: normalizeRewardFilter(ps.rewardFilter, platform),
+        farmPinnedOnly: booleanOr(ps.farmPinnedOnly, defaults.farmPinnedOnly),
+        farmUnlinkedCampaigns: booleanOr(ps.farmUnlinkedCampaigns, defaults.farmUnlinkedCampaigns),
         categories: normalizeCategorySelections(ps.categories),
         favouriteCategories: normalizeCategorySelections(ps.favouriteCategories),
         blockedCategories: normalizeCategorySelections(ps.blockedCategories),

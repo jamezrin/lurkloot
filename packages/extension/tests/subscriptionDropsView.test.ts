@@ -115,7 +115,7 @@ describe("subscription drop popup views", () => {
     ]);
     source.accountLinked = false;
     const currentSettings = mergeSettings(undefined);
-    currentSettings.farmingEligibility.farmUnlinkedCampaigns = false;
+    currentSettings.platform.twitch.farmUnlinkedCampaigns = false;
 
     const view = campaignViewFromCampaign(source, 0, idleSession, false, {
       skipUnfinishableRewards: currentSettings.skipUnfinishableRewards,
@@ -550,10 +550,11 @@ describe("subscription drop popup views", () => {
     expect(evaluateCampaignFarming(source, settings)).toMatchObject({
       code: "subscription_required",
     });
-    settings.farmingEligibility.farmSubscriptionCampaigns = false;
+    settings.platform.twitch.rewardFilter = { kinds: ["item"], subscriptions: "skip" };
     expect(campaignSection(source, settings)).toBe("skipped");
     expect(evaluateCampaignFarming(source, settings)).toMatchObject({
-      code: "subscription_campaigns_disabled",
+      code: "reward_type_filtered",
+      filteredBy: "subscription",
     });
   });
 

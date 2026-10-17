@@ -78,11 +78,11 @@ describe("settings storage migration", () => {
 
     // campaignVisibility was display-only. v2 moved it to dropsListFilter and v7
     // retired that block with the popup's sections, but neither step may turn a
-    // hidden class into an unfarmed one: farming stays at its defaults (both on).
-    expect(settings.farmingEligibility).toEqual({
-      farmUnlinkedCampaigns: true,
-      farmSubscriptionCampaigns: true,
-    });
+    // hidden class into an unfarmed one: farming stays at its defaults.
+    for (const platform of ["twitch", "kick"] as const) {
+      expect(settings.platform[platform].farmUnlinkedCampaigns).toBe(true);
+      expect(settings.platform[platform].rewardFilter.subscriptions).toBe("include");
+    }
     expect(settings).not.toHaveProperty("dropsListFilter");
     expect(set).toHaveBeenCalledTimes(1);
     const written = set.mock.calls[0]?.[0].settings;
@@ -197,7 +197,8 @@ describe("settings storage migration", () => {
     const settings = await loadSettings();
 
     expect(settings.campaignPins).toEqual(["campaign-high", "campaign-low"]);
-    expect(settings.farmPinnedOnly).toBe(true);
+    expect(settings.platform.twitch.farmPinnedOnly).toBe(true);
+    expect(settings.platform.kick.farmPinnedOnly).toBe(true);
     expect(settings.priorityMode).toBe("ending_soonest");
     expect(settings.platform.twitch.categoryMode).toBe("all");
     expect(settings.platform.twitch.blockedCategories).toEqual([

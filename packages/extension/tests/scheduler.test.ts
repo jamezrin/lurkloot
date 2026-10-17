@@ -776,7 +776,7 @@ describe("scheduler campaign selection", () => {
     const decision = await chooseCampaignDecision(
       "twitch",
       [campaign("unlisted", { gameName: "Unlisted Game" })],
-      settings({ farmPinnedOnly: true }),
+      settings({ platform: { twitch: { farmPinnedOnly: true } } }),
       {
         listCandidateChannels,
         checkChannel: vi.fn(async (candidate) => ({
@@ -801,9 +801,9 @@ describe("scheduler campaign selection", () => {
       "twitch",
       [campaign("listed", { gameName: "Listed Game" })],
       settings({
-        farmPinnedOnly: true,
         platform: {
           twitch: {
+            farmPinnedOnly: true,
             categoryMode: "include",
             categories: [{ id: "listed game", name: "Listed Game" }],
           },
@@ -827,7 +827,7 @@ describe("scheduler campaign selection", () => {
     const decision = await chooseCampaignDecision(
       "twitch",
       [campaign("pinned"), campaign("unlisted")],
-      settings({ farmPinnedOnly: true, campaignPins: ["pinned"] }),
+      settings({ campaignPins: ["pinned"], platform: { twitch: { farmPinnedOnly: true } } }),
       {
         listCandidateChannels: vi.fn(async () => [channel("creator")]),
         checkChannel: vi.fn(async (candidate) => ({
@@ -842,7 +842,26 @@ describe("scheduler campaign selection", () => {
     expect(decision.campaign?.id).toBe("pinned");
   });
 
-  describe("farmRewardTypes (#731)", () => {
+  it("farm pinned only on Twitch leaves Kick's unpinned campaigns farmed", async () => {
+    const decision = await chooseCampaignDecision(
+      "kick",
+      [campaign("kick-unpinned", { platform: "kick" })],
+      settings({ platform: { twitch: { farmPinnedOnly: true } } }),
+      {
+        listCandidateChannels: vi.fn(async () => [channel("creator", { platform: "kick" })]),
+        checkChannel: vi.fn(async (candidate) => ({
+          live: true,
+          categoryMatches: true,
+          candidate,
+        })),
+      },
+    );
+
+    expect(decision.action).toBe("watch");
+    expect(decision.campaign?.id).toBe("kick-unpinned");
+  });
+
+  describe("rewardFilter", () => {
     const live = {
       listCandidateChannels: vi.fn(async () => [channel("creator")]),
       checkChannel: vi.fn(async (candidate: ChannelCandidate) => ({
@@ -856,6 +875,7 @@ describe("scheduler campaign selection", () => {
       id,
       ...patch,
     });
+    const badgesOnly = { kinds: ["badge" as const], subscriptions: "include" as const };
     const badgeReward = (id: string, patch: Partial<DropReward> = {}): DropReward =>
       item(id, { benefits: [{ id: `${id}-benefit`, distributionType: "BADGE" }], ...patch });
 
@@ -867,7 +887,7 @@ describe("scheduler campaign selection", () => {
       const decision = await chooseCampaignDecision(
         "twitch",
         [campaign("plain"), mixed],
-        settings({ platform: { twitch: { farmRewardTypes: ["badge"] } } }),
+        settings({ platform: { twitch: { rewardFilter: badgesOnly } } }),
         live,
       );
 
@@ -887,7 +907,7 @@ describe("scheduler campaign selection", () => {
       const decision = await chooseCampaignDecision(
         "twitch",
         [chained],
-        settings({ platform: { twitch: { farmRewardTypes: ["badge"] } } }),
+        settings({ platform: { twitch: { rewardFilter: badgesOnly } } }),
         live,
       );
 
@@ -901,7 +921,7 @@ describe("scheduler campaign selection", () => {
       const decision = await chooseCampaignDecision(
         "twitch",
         [earned],
-        settings({ platform: { twitch: { farmRewardTypes: ["badge"] } } }),
+        settings({ platform: { twitch: { rewardFilter: badgesOnly } } }),
         live,
       );
 
@@ -912,7 +932,7 @@ describe("scheduler campaign selection", () => {
       const decision = await chooseCampaignDecision(
         "kick",
         [campaign("kick-plain", { platform: "kick" })],
-        settings({ platform: { twitch: { farmRewardTypes: ["badge"] } } }),
+        settings({ platform: { twitch: { rewardFilter: badgesOnly } } }),
         live,
       );
 
@@ -924,12 +944,12 @@ describe("scheduler campaign selection", () => {
       const decision = await chooseCampaignDecision(
         "twitch",
         [campaign("plain")],
-        settings({ platform: { twitch: { farmRewardTypes: ["badge"] } } }),
+        settings({ platform: { twitch: { rewardFilter: badgesOnly } } }),
         live,
       );
 
       expect(decision.action).toBe("idle");
-      expect(decision.reason).toContain("No campaigns have rewards of the selected types");
+      expect(decision.reason).toContain("No campaigns have rewards your reward filter allows");
     });
   });
 
@@ -1652,13 +1672,6 @@ describe("scheduler campaign selection", () => {
 });
 
 describe("campaign filters gate farming", () => {
-  const eligibility = (
-    patch: Partial<ExtensionSettings["farmingEligibility"]>,
-  ): ExtensionSettings["farmingEligibility"] => ({
-    ...DEFAULT_SETTINGS.farmingEligibility,
-    ...patch,
-  });
-
   const kickAdapter = () => ({
     listCandidateChannels: vi.fn(async () => [channel("creator", { platform: "kick" as const })]),
     checkChannel: vi.fn(async (candidate: ChannelCandidate) => ({
@@ -1674,7 +1687,7 @@ describe("campaign filters gate farming", () => {
     const decision = await chooseCampaignDecision(
       "kick",
       [unlinkedKick()],
-      settings({ farmingEligibility: eligibility({ farmUnlinkedCampaigns: false }) }),
+      settings({ platform: { kick: { farmUnlinkedCampaigns: false } } }),
       kickAdapter(),
     );
 
@@ -1709,11 +1722,25 @@ describe("campaign filters gate farming", () => {
       ],
     });
 
-  it("skips a subscription campaign when farmSubscriptionCampaigns is off", async () => {
+  const skipSubscriptions = { kinds: ["item" as const], subscriptions: "skip" as const };
+
+  it("skips a campaign whose only reward needs a subscription under skip", async () => {
+    const subscriptionOnly = campaign("sub-only", {
+      rewards: [
+        {
+          id: "sub",
+          name: "Sub reward",
+          requiredMinutes: 0,
+          watchedMinutes: 0,
+          requiredSubs: 1,
+          status: "locked",
+        },
+      ],
+    });
     const decision = await chooseCampaignDecision(
       "twitch",
-      [subscriptionCampaign()],
-      settings({ farmingEligibility: eligibility({ farmSubscriptionCampaigns: false }) }),
+      [subscriptionOnly],
+      settings({ platform: { twitch: { rewardFilter: skipSubscriptions } } }),
       {
         listCandidateChannels: vi.fn(async () => [channel("creator")]),
         checkChannel: vi.fn(async (candidate) => ({
@@ -1725,21 +1752,33 @@ describe("campaign filters gate farming", () => {
     );
 
     expect(decision.action).toBe("idle");
-    expect(decision.reason).toContain("farming eligibility");
+    expect(decision.reason).toContain("No campaigns have rewards your reward filter allows");
   });
 
-  it("still farms a subscription campaign's watch rewards when farmSubscriptionCampaigns is on", async () => {
-    const decision = await chooseCampaignDecision("twitch", [subscriptionCampaign()], settings(), {
-      listCandidateChannels: vi.fn(async () => [channel("creator")]),
-      checkChannel: vi.fn(async (candidate) => ({ live: true, categoryMatches: true, candidate })),
-    });
+  it("still farms a mixed campaign's watch rewards, under include and under skip", async () => {
+    for (const rewardFilter of [DEFAULT_SETTINGS.platform.twitch.rewardFilter, skipSubscriptions]) {
+      const decision = await chooseCampaignDecision(
+        "twitch",
+        [subscriptionCampaign()],
+        settings({ platform: { twitch: { rewardFilter } } }),
+        {
+          listCandidateChannels: vi.fn(async () => [channel("creator")]),
+          checkChannel: vi.fn(async (candidate) => ({
+            live: true,
+            categoryMatches: true,
+            candidate,
+          })),
+        },
+      );
 
-    expect(decision.action).toBe("watch");
-    expect(decision.campaign?.id).toBe("mixed");
+      expect(decision.action).toBe("watch");
+      expect(decision.campaign?.id).toBe("mixed");
+      expect(decision.reward?.id).not.toBe("sub");
+    }
   });
 
   it("farms an ordinary active campaign under the default eligibility settings", async () => {
-    // Nothing is turned off, so the default farmingEligibility flags must be
+    // Nothing is turned off, so the default eligibility settings must be
     // behaviour-neutral for a linked, non-subscription campaign.
     const decision = await chooseCampaignDecision("twitch", [campaign("active")], settings(), {
       listCandidateChannels: vi.fn(async () => [channel("creator")]),
@@ -2063,8 +2102,10 @@ describe("scheduler tick", () => {
     ];
     const twitch = adapter("twitch", rejected, [channel("creator")]);
     const tickSettings = settings({
-      farmingEligibility: { farmUnlinkedCampaigns: false, farmSubscriptionCampaigns: true },
-      platform: { twitch: { enabled: true }, kick: { enabled: false } },
+      platform: {
+        twitch: { enabled: true, farmUnlinkedCampaigns: false },
+        kick: { enabled: false },
+      },
     });
     const tickAdapters = { twitch, kick: adapter("kick", [], []) };
     const campaignEvaluationFingerprints = {};

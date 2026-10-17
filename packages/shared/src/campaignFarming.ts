@@ -1,15 +1,24 @@
 import { campaignPassesCategoryFilter, isCampaignCategoryBlocked } from "./categories";
-import type { DropCampaign, DropReward, EngineSettings, RewardFarmType } from "./models";
+import type {
+  DropCampaign,
+  DropReward,
+  EngineSettings,
+  RewardFilter,
+  RewardFilterMiss,
+} from "./models";
 import {
-  campaignHasSubscriptionRewards,
+  campaignFilterMiss,
+  defaultRewardFilter,
+  isRewardFilterNarrowed,
+  rewardMatchesFilter,
+} from "./rewardFilter";
+import {
   canClaimReward,
-  isBadgeReward,
   isRewardAvailableToEarn,
   isRewardObtained,
   isSubscriptionReward,
   isWatchReward,
   rewardFeasibility,
-  rewardRequiresSubscription,
 } from "./rewards";
 
 export type CampaignFarmingRejectionCode =
@@ -19,7 +28,6 @@ export type CampaignFarmingRejectionCode =
   | "completed"
   | "unlinked_campaigns_disabled"
   | "twitch_link_required"
-  | "subscription_campaigns_disabled"
   | "category_filtered"
   | "category_blocked"
   | "not_pinned"
@@ -46,6 +54,8 @@ export type CampaignFarmingEvaluation =
       remainingMinutes?: number;
       availableMinutes?: number;
       marginMinutes?: number;
+      // Set only for reward_type_filtered: which half of the filter missed.
+      filteredBy?: RewardFilterMiss;
     };
 
 export interface CampaignFarmingEvaluationOptions {
@@ -71,42 +81,14 @@ function parsedTime(value: string | undefined): number | undefined {
   return Number.isNaN(time) ? undefined : time;
 }
 
-// Whether a reward is of a kind the user farms; any selected kind will do, and
-// none selected means every reward. A subscription counts as asked for whether
-// or not the user marked it: marking says they subscribed, not that the reward
-// stopped asking.
-export function rewardMatchesFarmTypes(
-  reward: DropReward,
-  types: readonly RewardFarmType[],
-): boolean {
-  if (types.length === 0) return true;
-  return types.some((type) => {
-    switch (type) {
-      case "no_subscription":
-        return !rewardRequiresSubscription(reward);
-      case "subscription":
-        return rewardRequiresSubscription(reward);
-      case "badge":
-        return isBadgeReward(reward);
-    }
-  });
-}
-
-export const campaignMatchesFarmTypes = (
-  campaign: Pick<DropCampaign, "rewards">,
-  types: readonly RewardFarmType[],
-): boolean =>
-  types.length === 0 || campaign.rewards.some((reward) => rewardMatchesFarmTypes(reward, types));
-
 // The rewards the engine farms toward: the matching ones and every reward they
 // wait on (a Twitch precondition), which has to be claimed first. Claiming is
 // not narrowed: a reward that is already claimable is claimed whatever the
-// types.
+// filter.
 export function rewardsInFarmingScope(
   campaign: Pick<DropCampaign, "rewards">,
-  types: readonly RewardFarmType[],
+  filter: RewardFilter,
 ): DropReward[] {
-  if (types.length === 0) return campaign.rewards;
   const byId = new Map(campaign.rewards.map((reward) => [reward.id, reward]));
   const scoped = new Set<string>();
   const visit = (reward: DropReward): void => {
@@ -117,7 +99,7 @@ export function rewardsInFarmingScope(
       if (precondition) visit(precondition);
     }
   };
-  campaign.rewards.filter((reward) => rewardMatchesFarmTypes(reward, types)).forEach(visit);
+  campaign.rewards.filter((reward) => rewardMatchesFilter(reward, filter)).forEach(visit);
   return campaign.rewards.filter((reward) => scoped.has(reward.id));
 }
 
@@ -138,38 +120,36 @@ export function evaluateCampaignFarming(
     return rejected("completed");
   const accountUnlinked =
     campaign.accountLinked === false || campaign.eligibility === "account_not_linked";
-  if (accountUnlinked && !settings.farmingEligibility.farmUnlinkedCampaigns) {
+  const platformSettings = settings.platform[campaign.platform];
+  if (accountUnlinked && !platformSettings.farmUnlinkedCampaigns) {
     return rejected("unlinked_campaigns_disabled");
   }
-  if (
-    campaignHasSubscriptionRewards(campaign)
-    && !settings.farmingEligibility.farmSubscriptionCampaigns
-  ) {
-    return rejected("subscription_campaigns_disabled");
-  }
-  if (isCampaignCategoryBlocked(campaign, settings.platform[campaign.platform])) {
+  if (isCampaignCategoryBlocked(campaign, platformSettings)) {
     return rejected("category_blocked");
   }
-  if (!campaignPassesCategoryFilter(campaign, settings.platform[campaign.platform])) {
+  if (!campaignPassesCategoryFilter(campaign, platformSettings)) {
     return rejected("category_filtered");
   }
   if (
     options.includePinnedOnly
-    && settings.farmPinnedOnly
+    && platformSettings.farmPinnedOnly
     && !settings.campaignPins.includes(campaign.id)
   ) {
     return rejected("not_pinned");
   }
-  const farmTypes = settings.platform[campaign.platform].farmRewardTypes;
-  if (!campaignMatchesFarmTypes(campaign, farmTypes)) return rejected("reward_type_filtered");
+  // A campaign without rewards has nothing to filter; it is reported as such.
   if (campaign.rewards.length === 0 || campaign.eligibility === "no_rewards")
     return rejected("no_rewards");
-  const unclaimed = rewardsInFarmingScope(campaign, farmTypes).filter(
+  const filter = platformSettings.rewardFilter;
+  const filteredBy = campaignFilterMiss(campaign, filter);
+  if (filteredBy) return { farmable: false, code: "reward_type_filtered", filteredBy };
+  const unclaimed = rewardsInFarmingScope(campaign, filter).filter(
     (reward) => !isRewardObtained(reward),
   );
   if (unclaimed.length === 0) {
     return rejected(
-      farmTypes.length > 0 && campaign.rewards.some((reward) => !isRewardObtained(reward))
+      isRewardFilterNarrowed(filter, campaign.platform)
+        && campaign.rewards.some((reward) => !isRewardObtained(reward))
         ? "reward_types_obtained"
         : "no_unclaimed_rewards",
     );
@@ -291,17 +271,9 @@ function withBlockerLifted(
       return { ...settings, campaignPins: [...settings.campaignPins, campaign.id] };
     case "reward_type_filtered":
     case "reward_types_obtained":
-      return withPlatform({ farmRewardTypes: [] });
+      return withPlatform({ rewardFilter: defaultRewardFilter(campaign.platform) });
     case "unlinked_campaigns_disabled":
-      return {
-        ...settings,
-        farmingEligibility: { ...settings.farmingEligibility, farmUnlinkedCampaigns: true },
-      };
-    case "subscription_campaigns_disabled":
-      return {
-        ...settings,
-        farmingEligibility: { ...settings.farmingEligibility, farmSubscriptionCampaigns: true },
-      };
+      return withPlatform({ farmUnlinkedCampaigns: true });
     case "category_blocked":
       return withPlatform({ blockedCategories: [] });
     case "category_filtered":

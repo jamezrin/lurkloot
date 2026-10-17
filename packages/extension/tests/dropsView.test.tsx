@@ -142,7 +142,7 @@ describe("campaign farming rejection presentation", () => {
       ],
     };
     const currentSettings = mergeSettings(undefined);
-    currentSettings.farmingEligibility.farmUnlinkedCampaigns = false;
+    currentSettings.platform.twitch.farmUnlinkedCampaigns = false;
     const { container } = mount(undefined, source, {
       skipUnfinishableRewards: currentSettings.skipUnfinishableRewards,
       deadlineSafetyMarginMinutes: currentSettings.deadlineSafetyMarginMinutes,

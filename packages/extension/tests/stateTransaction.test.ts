@@ -3,6 +3,7 @@ import { createTabRegistry } from "@lurkloot/core/tabRegistry";
 import {
   type CommittedChange,
   createStateTransaction,
+  isRankingOnlyPatch,
   LockOrderError,
   settingsPatchEffects,
 } from "@lurkloot/core/background/stateTransaction";
@@ -379,17 +380,31 @@ describe("state transaction", () => {
     });
 
     it("classifies a patch per platform, with anything unrecognized invalidating discovery", () => {
-      const off = { farmPinnedOnly: false };
+      const pinnedOnly = (twitch: boolean, kick: boolean) => ({
+        platform: {
+          twitch: { ...DEFAULT_SETTINGS.platform.twitch, farmPinnedOnly: twitch },
+          kick: { ...DEFAULT_SETTINGS.platform.kick, farmPinnedOnly: kick },
+        },
+      });
+      const off = pinnedOnly(false, false);
       expect(
         settingsPatchEffects({ platform: { kick: { favouriteCategories: [] } } }, off),
       ).toEqual({ kick: "selection" });
       expect(
         settingsPatchEffects({ platform: { twitch: { idleWatchlistChannels: [] } } }, off),
       ).toEqual({ twitch: "discovery" });
-      expect(settingsPatchEffects({ campaignPins: ["a"] }, { farmPinnedOnly: true })).toEqual({
-        twitch: "discovery",
-        kick: "discovery",
+      expect(settingsPatchEffects({ campaignPins: ["a"] }, off)).toEqual({
+        twitch: "selection",
+        kick: "selection",
       });
+      // A pin is not ranking-only while either platform farms pinned only.
+      for (const current of [pinnedOnly(true, false), pinnedOnly(false, true)]) {
+        expect(isRankingOnlyPatch({ campaignPins: ["a"] }, current)).toBe(false);
+        expect(settingsPatchEffects({ campaignPins: ["a"] }, current)).toEqual({
+          twitch: "discovery",
+          kick: "discovery",
+        });
+      }
       expect(settingsPatchEffects({ pollIntervalMinutes: 5 }, off)).toEqual({
         twitch: "discovery",
         kick: "discovery",

@@ -540,3 +540,145 @@ describe("schema v5", () => {
     ).toEqual([]);
   });
 });
+
+describe("schema v8", () => {
+  const platformOf = (settings: Record<string, unknown>, platform: "twitch" | "kick") =>
+    (settings.platform as Record<string, Record<string, unknown>>)[platform];
+
+  it("v8 turns the subscription toggle off into skip on both platforms", () => {
+    const migrated = migrateSettings(
+      withSchemaVersion({ farmingEligibility: { farmSubscriptionCampaigns: false } }, 7),
+    );
+
+    expect(platformOf(migrated.settings, "twitch").rewardFilter).toEqual({ subscriptions: "skip" });
+    expect(platformOf(migrated.settings, "kick").rewardFilter).toEqual({ subscriptions: "skip" });
+    expect(migrated.settings.farmingEligibility).toBeUndefined();
+    expect(migrated.diagnostics).toContainEqual(
+      expect.objectContaining({
+        code: "moved_property",
+        path: "farmingEligibility.farmSubscriptionCampaigns",
+      }),
+    );
+  });
+
+  it("v8 copies the unlinked toggle and farm pinned only to both platforms", () => {
+    const migrated = migrateSettings(
+      withSchemaVersion(
+        { farmingEligibility: { farmUnlinkedCampaigns: false }, farmPinnedOnly: true },
+        7,
+      ),
+    );
+
+    for (const platform of ["twitch", "kick"] as const) {
+      expect(platformOf(migrated.settings, platform)).toMatchObject({
+        farmUnlinkedCampaigns: false,
+        farmPinnedOnly: true,
+      });
+      expect(platformOf(migrated.settings, platform).rewardFilter).toBeUndefined();
+    }
+    expect(migrated.settings.farmingEligibility).toBeUndefined();
+    expect(migrated.settings.farmPinnedOnly).toBeUndefined();
+    expect(migrated.diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "moved_property",
+          path: "farmingEligibility.farmUnlinkedCampaigns",
+        }),
+        expect.objectContaining({ code: "moved_property", path: "farmPinnedOnly" }),
+      ]),
+    );
+  });
+
+  it("v8 maps the Queue tab types", () => {
+    const cases: Array<[unknown[], Record<string, unknown> | undefined]> = [
+      [[], undefined],
+      [["badge"], { kinds: ["badge"] }],
+      [["no_subscription"], { subscriptions: "skip" }],
+      [["subscription"], { subscriptions: "only" }],
+      [["no_subscription", "subscription"], undefined],
+    ];
+    for (const [types, rewardFilter] of cases) {
+      const migrated = migrateSettings(
+        withSchemaVersion({ platform: { twitch: { farmRewardTypes: types } } }, 7),
+      );
+      const twitch = platformOf(migrated.settings, "twitch");
+      expect(twitch.rewardFilter).toEqual(rewardFilter);
+      expect(twitch.farmRewardTypes).toBeUndefined();
+      expect(migrated.diagnostics).toContainEqual(
+        expect.objectContaining({
+          code: "moved_property",
+          path: "platform.twitch.farmRewardTypes",
+          replacement: "platform.twitch.rewardFilter",
+        }),
+      );
+    }
+  });
+
+  it("v8 lets the tab subscription choice win over the old toggle", () => {
+    const onlySubscriptions = migrateSettings(
+      withSchemaVersion(
+        {
+          farmingEligibility: { farmSubscriptionCampaigns: false },
+          platform: { twitch: { farmRewardTypes: ["badge", "subscription"] } },
+        },
+        7,
+      ),
+    );
+    expect(platformOf(onlySubscriptions.settings, "twitch").rewardFilter).toEqual({
+      kinds: ["badge"],
+      subscriptions: "only",
+    });
+
+    const skipSubscriptions = migrateSettings(
+      withSchemaVersion(
+        {
+          farmingEligibility: { farmSubscriptionCampaigns: false },
+          platform: { twitch: { farmRewardTypes: ["badge", "no_subscription"] } },
+        },
+        7,
+      ),
+    );
+    expect(platformOf(skipSubscriptions.settings, "twitch").rewardFilter).toEqual({
+      kinds: ["badge"],
+      subscriptions: "skip",
+    });
+  });
+
+  it("v8 keeps a current rewardFilter", () => {
+    const current = { kinds: ["item"], subscriptions: "include" };
+    const migrated = migrateSettings(
+      withSchemaVersion(
+        {
+          farmingEligibility: { farmSubscriptionCampaigns: false },
+          platform: { kick: { farmRewardTypes: ["subscription"], rewardFilter: current } },
+        },
+        7,
+      ),
+    );
+
+    expect(platformOf(migrated.settings, "kick").rewardFilter).toEqual(current);
+    expect(platformOf(migrated.settings, "kick").farmRewardTypes).toBeUndefined();
+  });
+
+  it("v8 keeps current per-platform switches over the old top-level ones", () => {
+    const migrated = migrateSettings(
+      withSchemaVersion(
+        {
+          farmingEligibility: { farmUnlinkedCampaigns: false },
+          farmPinnedOnly: true,
+          platform: { twitch: { farmUnlinkedCampaigns: true, farmPinnedOnly: false } },
+        },
+        7,
+      ),
+    );
+
+    expect(platformOf(migrated.settings, "twitch")).toMatchObject({
+      farmUnlinkedCampaigns: true,
+      farmPinnedOnly: false,
+    });
+    expect(platformOf(migrated.settings, "kick")).toMatchObject({
+      farmUnlinkedCampaigns: false,
+      farmPinnedOnly: true,
+    });
+  });
+});

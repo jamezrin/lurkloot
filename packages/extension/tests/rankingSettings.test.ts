@@ -1,15 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_SETTINGS, mergeEngineSettings, mergeSettings } from "@lurkloot/shared/settings";
-import {
-  CURRENT_SETTINGS_SCHEMA_VERSION,
-  migrateSettings,
-  withSchemaVersion,
-} from "@lurkloot/shared/settingsSchema";
+import { migrateSettings, withSchemaVersion } from "@lurkloot/shared/settingsSchema";
 
 describe("ranking settings", () => {
   it("defaults to an empty pin list, no favourites and no blocks", () => {
     expect(DEFAULT_SETTINGS.campaignPins).toEqual([]);
-    expect(DEFAULT_SETTINGS.farmPinnedOnly).toBe(false);
+    expect(DEFAULT_SETTINGS.platform.twitch.farmPinnedOnly).toBe(false);
+    expect(DEFAULT_SETTINGS.platform.kick.farmPinnedOnly).toBe(false);
     expect(DEFAULT_SETTINGS.platform.twitch.favouriteCategories).toEqual([]);
     expect(DEFAULT_SETTINGS.platform.kick.blockedCategories).toEqual([]);
   });
@@ -26,7 +23,8 @@ describe("ranking settings", () => {
 
 describe("settings migration to pins and favourites", () => {
   function migrate(raw: Record<string, unknown>) {
-    return migrateSettings(withSchemaVersion(raw, CURRENT_SETTINGS_SCHEMA_VERSION - 1));
+    // Stored by the build before schema v7, which introduced pins.
+    return migrateSettings(withSchemaVersion(raw, 6));
   }
 
   it("turns a campaign priority map into pins, highest priority first", () => {
@@ -39,7 +37,11 @@ describe("settings migration to pins and favourites", () => {
   it("turns priority-list-only mode into the farm-pinned-only switch", () => {
     const result = migrate({ priorityMode: "priority_list_only", campaignPriorities: { kept: 3 } });
     expect(result.settings.priorityMode).toBe("ending_soonest");
-    expect(result.settings.farmPinnedOnly).toBe(true);
+    // v8 then moves the switch onto each platform.
+    expect(result.settings.platform).toMatchObject({
+      twitch: { farmPinnedOnly: true },
+      kick: { farmPinnedOnly: true },
+    });
     expect(result.settings.campaignPins).toEqual(["kept"]);
   });
 

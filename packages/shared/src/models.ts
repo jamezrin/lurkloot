@@ -329,15 +329,10 @@ export interface ManualWatchState {
 // not a mode, so a strategy is always in effect.
 export type PriorityMode = "ending_soonest" | "lowest_availability";
 
-// Kinds of reward the engine farms, picked from the Queue's tabs (#731). Each
-// judges one reward: whether it asks for a subscription (marked or not), or
-// grants a badge. Several combine as any-of; none selected farms everything.
-// A campaign is farmed toward its matching rewards and the rewards they wait
-// on, so it is done once those are earned, whatever else it offers.
-export type RewardFarmType = "no_subscription" | "subscription" | "badge";
-
 // Per-platform reward filter: which reward kinds a platform farms, and how
-// subscription rewards are treated.
+// subscription rewards are treated. A campaign is farmed toward its matching
+// rewards and the rewards they wait on, so it is done once those are earned,
+// whatever else it offers.
 export type RewardKind = "item" | "badge" | "emote";
 export type SubscriptionRewardMode = "include" | "skip" | "only";
 export interface RewardFilter {
@@ -437,10 +432,16 @@ export interface PlatformSettings {
   idleWatchlistChannels: string[];
   excludedChannels?: string[];
   categoryMode: CategoryMode;
-  // Eligibility, like categoryMode: a campaign with no reward of these types
-  // stays listed, skipped with the reason. Empty farms every reward. Per
-  // platform, as each platform has its own Queue.
-  farmRewardTypes: RewardFarmType[];
+  // Eligibility, like categoryMode: a campaign with no reward the filter allows
+  // stays listed, skipped with the reason. Per platform, as each platform has
+  // its own Queue and its own reward kinds.
+  rewardFilter: RewardFilter;
+  // Eligibility switch: farm only this platform's pinned campaigns. Separate
+  // from the pin list itself so pinning never doubles as "allowed to farm".
+  farmPinnedOnly: boolean;
+  // Off: skip this platform's campaigns with no linked account (real on Kick,
+  // which accrues watch progress before linking).
+  farmUnlinkedCampaigns: boolean;
   categories: CategorySelection[];
   // Ordered. Campaigns of these categories rank above the live strategy, below
   // pinned campaigns. Purely a ranking mark: it never makes a campaign farmable
@@ -533,20 +534,7 @@ export interface EngineSettings {
   // Ordered campaign ids the user placed by hand. Sparse by design: dragging one
   // campaign pins that campaign and leaves every other one to the tiers below.
   campaignPins: string[];
-  // Eligibility switch: farm only pinned campaigns. Separate from the pin list
-  // itself so pinning never doubles as "allowed to farm".
-  farmPinnedOnly: boolean;
   excludedCampaignIds: string[];
-  // Which campaigns are eligible to farm. Both default true; turning one off
-  // skips that class in the scheduler's isEligible. A campaign a class filter
-  // rejects stays visible in the popup's Skipped group with its reason.
-  farmingEligibility: {
-    // off: skip campaigns with no linked account (real on Kick, which accrues
-    // watch progress before linking).
-    farmUnlinkedCampaigns: boolean;
-    // off: skip campaigns that require a subscription.
-    farmSubscriptionCampaigns: boolean;
-  };
   offlineRetryLimit: number;
   // Consecutive failed tabless heartbeats before falling back to a watch tab.
   tablessFallbackFailureLimit: number;

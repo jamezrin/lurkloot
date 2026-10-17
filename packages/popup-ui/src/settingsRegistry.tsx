@@ -253,45 +253,6 @@ export function buildSettingsRegistry(ctx: SettingsRegistryContext): SettingsSec
               />
             ),
           },
-          // Farming-eligibility toggles: they change what gets farmed, so they
-          // sit with the other behaviour rows and re-tick on save. Distinct from
-          // the display-only chip row below, which changes nothing the engine does.
-          {
-            id: "general.drops.farmUnlinked",
-            titleKey: "farmUnlinkedTitle",
-            descriptionKey: "farmUnlinkedDescription",
-            render: () => (
-              <SettingRow
-                title={t("farmUnlinkedTitle")}
-                description={t("farmUnlinkedDescription")}
-                checked={settings.farmingEligibility.farmUnlinkedCampaigns}
-                onChange={(value) =>
-                  void onSettingsChange(
-                    { farmingEligibility: { farmUnlinkedCampaigns: value } },
-                    { tickAfterSave: true },
-                  )
-                }
-              />
-            ),
-          },
-          {
-            id: "general.drops.farmSubscription",
-            titleKey: "farmSubscriptionTitle",
-            descriptionKey: "farmSubscriptionDescription",
-            render: () => (
-              <SettingRow
-                title={t("farmSubscriptionTitle")}
-                description={t("farmSubscriptionDescription")}
-                checked={settings.farmingEligibility.farmSubscriptionCampaigns}
-                onChange={(value) =>
-                  void onSettingsChange(
-                    { farmingEligibility: { farmSubscriptionCampaigns: value } },
-                    { tickAfterSave: true },
-                  )
-                }
-              />
-            ),
-          },
           {
             id: "general.drops.skipUnfinishable",
             titleKey: "skipUnfinishableRewardsTitle",

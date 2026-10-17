@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { DragDropProvider } from "@dnd-kit/react";
 import { AnimatePresence } from "motion/react";
 import { ChevronRight, Clock3, Pin } from "lucide-react";
-import type { CategorySelection, RewardFarmType, PriorityMode } from "@lurkloot/shared/models";
+import type { CategorySelection, PriorityMode } from "@lurkloot/shared/models";
 import { useT } from "./context";
 import { filterCampaigns } from "./campaignSearch";
 import {
@@ -11,10 +11,9 @@ import {
   campaignRejectionMessageKey,
   initialExpandedIds,
 } from "./drops";
-import { fallbackGame, type RewardTypeTab } from "./viewModels";
+import { fallbackGame } from "./viewModels";
 import type { CampaignRankTier } from "./viewModels";
 import type { CampaignView, GameItem } from "./types";
-import { ViewToolbar } from "./viewToolbar";
 import {
   EmptyPanel,
   SearchBox,
@@ -25,29 +24,12 @@ import {
   type SortableDragEndEvent,
 } from "./primitives";
 import { Dropdown } from "./dropdown";
-import { Toggle as BaseToggle } from "@base-ui/react/toggle";
-import { ToggleGroup } from "@base-ui/react/toggle-group";
-import { REWARD_FARM_TYPES } from "@lurkloot/shared/settings";
 
 const TIER_LABEL_KEYS: Record<CampaignRankTier, string> = {
   pinned: "queueGroupPinned",
   favourite: "queueGroupFavourite",
   strategy: "queueGroupStrategy",
 };
-
-// The Queue's tabs pick which rewards are farmed (#731), not just which
-// campaigns are shown: the selection is the farmRewardTypes setting, and a
-// campaign with no reward of those types moves to Skipped with the reason, the
-// way a category filter does. Several can be on at once and combine as
-// any-of; "All" clears them. Only one campaign is farmed at a time, so a tab
-// never makes a second queue.
-
-const QUEUE_FACETS: Array<[RewardTypeTab, string]> = [
-  ["all", "queueFacetAll"],
-  ["no_subscription", "queueFacetNoSubscription"],
-  ["subscription", "queueFacetSubscription"],
-  ["badge", "queueFacetBadge"],
-];
 
 // Only pins have a hand-made order. Everything below them is ranked by the
 // favourite games' order and then the strategy, so it is neither draggable nor
@@ -72,10 +54,8 @@ export function QueuePanel({
   strategy,
   pinnedCount,
   farmPinnedOnly,
-  rewardTypes = [],
-  availableRewardTypes = REWARD_FARM_TYPES,
-  rewardTypeCounts,
-  onRewardTypesChange = () => undefined,
+  rewardFilterNarrowed = false,
+  onFarmAll = () => undefined,
   onStrategyChange,
   onUnpinAll,
   onFarmPinnedOnlyChange,
@@ -94,14 +74,10 @@ export function QueuePanel({
   strategy: PriorityMode;
   pinnedCount: number;
   farmPinnedOnly: boolean;
-  // The selected reward types; empty is "All".
-  rewardTypes?: readonly RewardFarmType[];
-  // The types this platform offers: Kick reports no badges, so it has no
-  // badge tab.
-  availableRewardTypes?: readonly RewardFarmType[];
-  // How many campaigns each tab would queue on its own (farmRewardTypeCounts).
-  rewardTypeCounts?: Partial<Record<RewardTypeTab, number>>;
-  onRewardTypesChange?(types: RewardFarmType[]): void | Promise<void>;
+  // Whether the platform's reward filter farms less than every reward.
+  rewardFilterNarrowed?: boolean;
+  // Restores the platform's default reward filter (a Skipped row's "Farm all").
+  onFarmAll?(): void | Promise<void>;
   onStrategyChange(strategy: PriorityMode): void | Promise<void>;
   onUnpinAll(): void | Promise<void>;
   onFarmPinnedOnlyChange(value: boolean): void | Promise<void>;
@@ -202,7 +178,7 @@ export function QueuePanel({
     onToggleBlockedCategory,
     onOpenGames,
     onOpenSettings,
-    onRewardTypesChange,
+    onFarmAll,
   });
   latest.current = {
     queued,
@@ -214,7 +190,7 @@ export function QueuePanel({
     onToggleBlockedCategory,
     onOpenGames,
     onOpenSettings,
-    onRewardTypesChange,
+    onFarmAll,
   };
   const actions = useMemo<RowActions>(
     () => ({
@@ -238,7 +214,7 @@ export function QueuePanel({
       block: (category) => void latest.current.onToggleBlockedCategory?.(category),
       openGames: () => latest.current.onOpenGames(),
       openSettings: () => latest.current.onOpenSettings(),
-      farmAll: () => void latest.current.onRewardTypesChange([]),
+      farmAll: () => void latest.current.onFarmAll(),
     }),
     [],
   );
@@ -282,15 +258,6 @@ export function QueuePanel({
 
   return (
     <section className="space-y-1.5">
-      <ViewToolbar>
-        <RewardTypeTabs
-          available={availableRewardTypes}
-          selected={rewardTypes}
-          counts={rewardTypeCounts ?? (rewardTypes.length === 0 ? { all: queued.length } : {})}
-          onChange={(types) => void onRewardTypesChange(types)}
-        />
-      </ViewToolbar>
-
       <div className="flex items-center gap-2">
         <div className="min-w-0 flex-1">
           <SearchBox
@@ -430,7 +397,7 @@ export function QueuePanel({
 
           {queued.length === 0 ? (
             <EmptyPanel>
-              {t(rewardTypes.length === 0 ? "queueEmpty" : "queueEmptyRewardTypes")}
+              {t(rewardFilterNarrowed ? "queueEmptyRewardTypes" : "queueEmpty")}
             </EmptyPanel>
           ) : null}
 
@@ -710,63 +677,10 @@ function skippedFix(
     return { label: t("queueFixFarmAll"), onClick: handlers.onFarmAll };
   if (code === "category_blocked" || code === "category_filtered")
     return { label: t("queueFixGames"), onClick: handlers.onOpenGames };
-  if (
-    code === "unlinked_campaigns_disabled"
-    || code === "subscription_campaigns_disabled"
-    || code === "insufficient_time"
-  ) {
+  if (code === "unlinked_campaigns_disabled" || code === "insufficient_time") {
     return { label: t("queueFixSettings"), onClick: handlers.onOpenSettings };
   }
   return undefined;
-}
-
-/** The reward types to farm, as toggles: any number can be pressed, and
- * pressing "All" (or releasing the last one) clears them. */
-function RewardTypeTabs({
-  available,
-  selected,
-  counts,
-  onChange,
-}: {
-  available: readonly RewardFarmType[];
-  selected: readonly RewardFarmType[];
-  counts: Partial<Record<RewardTypeTab, number>>;
-  onChange(types: RewardFarmType[]): void;
-}): React.ReactElement {
-  const t = useT();
-  const pressed: RewardTypeTab[] = selected.length === 0 ? ["all"] : [...selected];
-  return (
-    <ToggleGroup
-      multiple
-      aria-label={t("queueFacetLabel")}
-      value={pressed}
-      onValueChange={(next) => {
-        const values = next as RewardTypeTab[];
-        // "All" newly pressed wins; otherwise it is dropped for the types.
-        if (values.includes("all") && !pressed.includes("all")) return onChange([]);
-        onChange(REWARD_FARM_TYPES.filter((type) => values.includes(type)));
-      }}
-      className="inline-flex w-fit items-center gap-0.5 rounded-lg border border-zinc-200 bg-zinc-100/70 p-0.5 dark:border-zinc-800 dark:bg-black/30"
-    >
-      {QUEUE_FACETS.filter(([value]) => value === "all" || available.includes(value)).map(
-        ([value, labelKey]) => (
-          <BaseToggle
-            key={value}
-            value={value}
-            data-queue-facet={value}
-            className="rounded-md px-2.5 py-0.5 text-[10px] font-semibold text-zinc-400 outline-none transition not-data-[pressed]:hover:text-zinc-600 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] data-[pressed]:bg-[var(--ink)] data-[pressed]:text-[var(--ink-contrast)] dark:not-data-[pressed]:hover:text-zinc-200"
-          >
-            {t(labelKey)}
-            {counts[value] !== undefined ? (
-              <span className="ms-1 font-mono text-[9.5px] tabular opacity-70">
-                {counts[value]}
-              </span>
-            ) : null}
-          </BaseToggle>
-        ),
-      )}
-    </ToggleGroup>
-  );
 }
 
 // A group's label. Each divider names the layer that placed the rows under it,

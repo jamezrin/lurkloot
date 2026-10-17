@@ -71,7 +71,14 @@ describe("background controller", () => {
 
     it("still rediscovers a new pin while only pins are farmed", async () => {
       const env = harness(
-        farming({ ...DEFAULT_SETTINGS, farmPinnedOnly: true, campaignPins: ["sooner"] }),
+        farming({
+          ...DEFAULT_SETTINGS,
+          campaignPins: ["sooner"],
+          platform: {
+            ...DEFAULT_SETTINGS.platform,
+            twitch: { ...DEFAULT_SETTINGS.platform.twitch, farmPinnedOnly: true },
+          },
+        }),
       );
       twoCampaigns(env);
       await env.controller.tick(["twitch"]);
@@ -90,14 +97,22 @@ describe("background controller", () => {
     });
 
     it("tells a ranking-only save apart from one discovery reads", () => {
-      const off = { farmPinnedOnly: false };
+      const off = { platform: DEFAULT_SETTINGS.platform };
+      const pinnedOnly = {
+        platform: {
+          ...DEFAULT_SETTINGS.platform,
+          twitch: { ...DEFAULT_SETTINGS.platform.twitch, farmPinnedOnly: true },
+        },
+      };
       expect(isRankingOnlyPatch({ campaignPins: ["a"] }, off)).toBe(true);
       expect(isRankingOnlyPatch({ priorityMode: "lowest_availability" }, off)).toBe(true);
       expect(isRankingOnlyPatch({ platform: { twitch: { favouriteCategories: [] } } }, off)).toBe(
         true,
       );
-      expect(isRankingOnlyPatch({ campaignPins: ["a"] }, { farmPinnedOnly: true })).toBe(false);
-      expect(isRankingOnlyPatch({ farmPinnedOnly: true }, off)).toBe(false);
+      expect(isRankingOnlyPatch({ campaignPins: ["a"] }, pinnedOnly)).toBe(false);
+      expect(isRankingOnlyPatch({ platform: { twitch: { farmPinnedOnly: true } } }, off)).toBe(
+        false,
+      );
       expect(
         isRankingOnlyPatch(
           { platform: { twitch: { favouriteCategories: [], categories: [] } } },

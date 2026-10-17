@@ -9,7 +9,7 @@ import { isRecord } from "./records";
 // See docs/architecture.md ("Settings Migrations") before adding one.
 
 // Incremented for every semantic settings-shape migration.
-export const CURRENT_SETTINGS_SCHEMA_VERSION = 7;
+export const CURRENT_SETTINGS_SCHEMA_VERSION = 8;
 
 // Reserved metadata stored alongside the settings properties. It is stripped
 // before any runtime EngineSettings/ExtensionSettings/CliSettings value is
@@ -77,6 +77,7 @@ const MIGRATIONS: SettingsMigration[] = [
   { to: 5, migrate: migrateToV5 },
   { to: 6, migrate: migrateToV6 },
   { to: 7, migrate: migrateToV7 },
+  { to: 8, migrate: migrateToV8 },
 ];
 
 // Migration 1 consolidates every legacy shape that predates the registry: the
@@ -333,6 +334,90 @@ function migrateToV7(raw: Record<string, unknown>, diagnose: Diagnose): Record<s
       message:
         "dropsListFilter is deprecated; the popup groups campaigns into Queue, Completed, Skipped and Upcoming",
     });
+  }
+
+  return raw;
+}
+
+// Replaces the Queue tab's farmRewardTypes and the global farmingEligibility
+// and farmPinnedOnly switches with per-platform settings: a rewardFilter
+// ({ kinds, subscriptions }), farmPinnedOnly and farmUnlinkedCampaigns. Only the
+// parts the old settings determined are written; normalization fills the rest.
+// A tab's subscription choice wins over the old subscription toggle, and a
+// current per-platform key always wins over a legacy one.
+function migrateToV8(raw: Record<string, unknown>, diagnose: Diagnose): Record<string, unknown> {
+  const eligibility = raw.farmingEligibility;
+  const legacyEligibility = isRecord(eligibility) ? eligibility : {};
+  if (Object.hasOwn(raw, "farmingEligibility") && !isRecord(eligibility)) {
+    diagnose({
+      code: "deprecated_property",
+      path: "farmingEligibility",
+      message: "farmingEligibility was removed; its switches are per platform now",
+    });
+  }
+  delete raw.farmingEligibility;
+  const hasPinnedOnly = Object.hasOwn(raw, "farmPinnedOnly");
+  const pinnedOnly = raw.farmPinnedOnly;
+  delete raw.farmPinnedOnly;
+
+  // Each moves to both platforms, so no single replacement path exists.
+  const movedToPlatforms: Array<[present: boolean, path: string, message: string]> = [
+    [
+      Object.hasOwn(legacyEligibility, "farmUnlinkedCampaigns"),
+      "farmingEligibility.farmUnlinkedCampaigns",
+      "farmingEligibility.farmUnlinkedCampaigns moved to platform.twitch and platform.kick farmUnlinkedCampaigns",
+    ],
+    [
+      Object.hasOwn(legacyEligibility, "farmSubscriptionCampaigns"),
+      "farmingEligibility.farmSubscriptionCampaigns",
+      "farmingEligibility.farmSubscriptionCampaigns is now platform.twitch and platform.kick rewardFilter.subscriptions",
+    ],
+    [
+      hasPinnedOnly,
+      "farmPinnedOnly",
+      "farmPinnedOnly moved to platform.twitch and platform.kick farmPinnedOnly",
+    ],
+  ];
+  for (const [present, path, message] of movedToPlatforms) {
+    if (present) diagnose({ code: "moved_property", path, message });
+  }
+  const skipsSubscriptions = legacyEligibility.farmSubscriptionCampaigns === false;
+
+  for (const platform of ["twitch", "kick"] as const) {
+    const existing = platformBlock(raw, platform);
+    const derived: Record<string, unknown> = {};
+    if (existing && Object.hasOwn(existing, "farmRewardTypes")) {
+      const types = existing.farmRewardTypes;
+      delete existing.farmRewardTypes;
+      diagnose({
+        code: "moved_property",
+        path: `platform.${platform}.farmRewardTypes`,
+        replacement: `platform.${platform}.rewardFilter`,
+        message: `platform.${platform}.farmRewardTypes is now platform.${platform}.rewardFilter`,
+      });
+      if (Array.isArray(types)) {
+        if (types.includes("badge")) derived.kinds = ["badge"];
+        const skip = types.includes("no_subscription");
+        const only = types.includes("subscription");
+        if (skip && !only) derived.subscriptions = "skip";
+        if (only && !skip) derived.subscriptions = "only";
+      }
+    }
+    if (skipsSubscriptions && !Object.hasOwn(derived, "subscriptions"))
+      derived.subscriptions = "skip";
+
+    const moved: Record<string, unknown> = {};
+    if (Object.keys(derived).length > 0) moved.rewardFilter = derived;
+    if (Object.hasOwn(legacyEligibility, "farmUnlinkedCampaigns"))
+      moved.farmUnlinkedCampaigns = legacyEligibility.farmUnlinkedCampaigns;
+    if (hasPinnedOnly) moved.farmPinnedOnly = pinnedOnly;
+    if (Object.keys(moved).length === 0) continue;
+
+    const block = ensurePlatformBlock(raw, platform);
+    if (!block) continue;
+    for (const [key, value] of Object.entries(moved)) {
+      if (!Object.hasOwn(block, key)) block[key] = value;
+    }
   }
 
   return raw;

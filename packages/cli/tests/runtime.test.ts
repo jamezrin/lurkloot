@@ -100,9 +100,9 @@ describe("CLI engine event reporting", () => {
       // farmUnlinkedCampaigns off is what makes the eligibility check reject it.
       toEngineSettings({
         ...DEFAULT_CLI_SETTINGS,
-        farmingEligibility: {
-          ...DEFAULT_CLI_SETTINGS.farmingEligibility,
-          farmUnlinkedCampaigns: false,
+        platform: {
+          ...DEFAULT_CLI_SETTINGS.platform,
+          twitch: { ...DEFAULT_CLI_SETTINGS.platform.twitch, farmUnlinkedCampaigns: false },
         },
       }),
       {
