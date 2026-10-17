@@ -12,6 +12,7 @@ import type {
 } from "@lurkloot/shared/models";
 import { defaultRewardFilter } from "@lurkloot/shared/rewardFilter";
 import { mergeSettings } from "@lurkloot/shared/settings";
+import { rewardKindCounts } from "../../popup-ui/src/viewModels";
 
 const NOW = Date.parse("2026-08-15T10:00:00.000Z");
 
@@ -363,5 +364,70 @@ describe("rewardFilter", () => {
     } as never).platform;
     expect(platform.twitch.rewardFilter).toEqual({ kinds: ["badge"], subscriptions: "skip" });
     expect(platform.kick.rewardFilter).toEqual(defaultRewardFilter("kick"));
+  });
+});
+
+describe("rewardKindCounts", () => {
+  const watch = campaign().rewards[0]!;
+  const badge = { ...watch, id: "badge", benefits: [{ id: "b", distributionType: "BADGE" }] };
+  const emote = { ...watch, id: "emote", benefits: [{ id: "e", distributionType: "EMOTE" }] };
+  const subscription = {
+    ...watch,
+    id: "sub",
+    requiredSubs: 1,
+    requiredMinutes: 30,
+    requirement: "subscription" as const,
+    isWatchBased: false,
+  };
+  const withFilter = (filter: Partial<RewardFilter>, twitch: Partial<PlatformSettings> = {}) =>
+    settings({}, { rewardFilter: { ...defaultRewardFilter("twitch"), ...filter }, ...twitch });
+
+  it("counts what each kind alone would queue", () => {
+    expect(
+      rewardKindCounts(
+        [
+          campaign({ id: "item" }),
+          campaign({ id: "badged", rewards: [badge] }),
+          campaign({ id: "both", rewards: [watch, emote] }),
+        ],
+        // The current kinds do not matter: each count selects its kind alone.
+        withFilter({ kinds: ["emote"] }),
+        "twitch",
+      ),
+    ).toEqual({ item: 2, badge: 1, emote: 1 });
+  });
+
+  it("keeps the subscription mode and applies the user's subscription marks first", () => {
+    const sources = [campaign({ id: "item" }), campaign({ id: "subbed", rewards: [subscription] })];
+    // Skip leaves the unmarked subscription reward out.
+    expect(rewardKindCounts(sources, withFilter({ subscriptions: "skip" }), "twitch")).toEqual({
+      item: 1,
+      badge: 0,
+      emote: 0,
+    });
+    // Marked as subscribed, it passes skip and is farmed by watching.
+    const marked = withFilter({ subscriptions: "skip" }, { subscribedRewardMarks: ["subbed:sub"] });
+    expect(rewardKindCounts(sources, marked, "twitch")).toEqual({ item: 2, badge: 0, emote: 0 });
+    // Only keeps nothing but the (marked) subscription reward.
+    const only = withFilter({ subscriptions: "only" }, { subscribedRewardMarks: ["subbed:sub"] });
+    expect(rewardKindCounts(sources, only, "twitch")).toEqual({ item: 1, badge: 0, emote: 0 });
+  });
+
+  it("counts only pins while farming pinned campaigns only", () => {
+    const sources = [campaign({ id: "pinned" }), campaign({ id: "loose" })];
+    const pinnedOnly = settings({ campaignPins: ["pinned"] }, { farmPinnedOnly: true });
+    expect(rewardKindCounts(sources, pinnedOnly, "twitch").item).toBe(1);
+  });
+
+  it("counts nothing for kinds the platform cannot farm", () => {
+    const kick = [
+      campaign({ id: "k1", platform: "kick" }),
+      campaign({ id: "k2", platform: "kick" }),
+    ];
+    expect(rewardKindCounts(kick, mergeSettings(undefined), "kick")).toEqual({
+      item: 2,
+      badge: 0,
+      emote: 0,
+    });
   });
 });

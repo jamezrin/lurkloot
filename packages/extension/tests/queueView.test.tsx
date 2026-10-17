@@ -341,6 +341,7 @@ describe("queue view", () => {
 
     const trigger = container.querySelector<HTMLButtonElement>("[data-reward-filter]")!;
     expect(trigger.textContent).toContain("rewardFilterAll");
+    expect(trigger.getAttribute("aria-label")).toBe("rewardFilterTitle: rewardFilterAll");
     expect(trigger.hasAttribute("data-narrowed")).toBe(false);
     await openFilter(container);
 

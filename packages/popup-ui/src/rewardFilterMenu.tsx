@@ -238,6 +238,8 @@ export function RewardFilterMenu({
       <Popover.Trigger
         ref={portalRef}
         data-reward-filter=""
+        // The visible label names only the narrowing; the name says what it is.
+        aria-label={`${t("rewardFilterTitle")}: ${label}`}
         {...(narrowed ? { "data-narrowed": "" } : {})}
         title={t("rewardFilterTitle")}
         className="flex max-w-[11rem] shrink-0 items-center gap-1 rounded-xl border border-zinc-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-zinc-700 outline-none transition-colors hover:border-zinc-400 focus-visible:ring-2 focus-visible:ring-[var(--accent-ring)] data-[narrowed]:border-[var(--accent-ring)] data-[narrowed]:bg-[var(--accent-soft)] data-[narrowed]:text-[var(--accent-text)] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:border-zinc-600"
