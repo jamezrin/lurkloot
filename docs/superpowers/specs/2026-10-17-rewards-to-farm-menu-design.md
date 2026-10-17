@@ -55,6 +55,7 @@ platform.<name>.rewardFilter: {
 }
 ```
 
+- **Which kinds a platform supports is declared by the platform,** for example on its platform descriptor or adapter metadata: Twitch has item, badge and emote, and Kick has item. Neither UI nor engine code may branch on `platform === "kick"` (CLAUDE.md, Architecture Rules).
 - `kinds` is the list of selected kinds. It's normalized to the kinds the platform supports, so Twitch keeps item, badge and emote and Kick keeps item. If the list ends up empty, it becomes every supported kind. Storing what's selected rather than what's excluded means a kind added later starts out unselected. *(builder's call: either works if it's documented; storing selected kinds is the suggestion)*
 - **What each kind means.** The kind comes from Twitch's `distributionType` on each benefit: `BADGE` → badge, `EMOTE` → emote. `DIRECT_ENTITLEMENT`, any unknown type, and no type all count as item, so a reward is never dropped for lacking a type. A campaign stored before `benefits` existed uses `benefitType`, as `rewardBadgeBenefit` does today. Kick rewards are always item.
 - **When a reward matches.** It matches when **both** hold:
@@ -77,7 +78,7 @@ platform.<name>.rewardFilter: {
   - `campaignEligibleClass` and `campaignPassesFarmingEligibility` in `packages/shared/src/campaignFilters.ts` also read the toggle, so update them too.
   - The toggle has already been released, so its migration is a schema version step in `packages/shared/src/settingsSchema.ts`.
 - `farmingEligibility.farmUnlinkedCampaigns` **becomes per platform:** `platform.<name>.farmUnlinkedCampaigns`, copied from the old value on both platforms. It moves from Settings → Drops into each platform's "Rewards to farm" group. It isn't in the Queue menu. *(my call)*
-- `farmPinnedOnly` **moves into the Queue menu.** **Open: global or per platform** (see Open questions).
+- `farmPinnedOnly` **becomes per platform** (maintainer's decision): `platform.<name>.farmPinnedOnly`, copied from the old global value on both platforms in the same schema step. The engine reads the campaign's platform's value. It moves from the Queue toolbar into the Queue menu, and appears in each platform's "Rewards to farm" Settings group.
 - **Migrating #839's `farmRewardTypes`** (develop builds only, since #839 is unreleased), best effort *(my call)*:
   - `[]` → default;
   - containing `badge` → `kinds: ["badge"]`;
@@ -106,8 +107,8 @@ platform.<name>.rewardFilter: {
   - otherwise kinds, then subscription: "Badges", "Badges, emotes · no sub", "All · no sub", "Items · sub only".
   - A narrowed filter uses the accent style from the mockup. Exact wording and short forms are the builder's call.
 - **The menu is a popover** with these sections, top to bottom:
-  1. **Reward types:** checkboxes for In-game items, Badges and Emotes. Each shows how many campaigns would be queued if that kind alone were selected, with the current subscription mode (replaces `farmRewardTypeCounts`). The section is hidden on platforms with a single kind (Kick).
-  2. **Subscription rewards:** a segmented Include / Skip / Only control, with a one-line hint for the current choice.
+  1. **Reward types:** checkboxes for In-game items, Badges and Emotes. Each shows how many campaigns would be queued if that kind alone were selected, with the current subscription mode (replaces `farmRewardTypeCounts`). The section appears only when the platform supports more than one kind, so it never appears on Kick today.
+  2. **Subscription rewards:** a segmented Include / Skip / Only control, with a one-line hint for the current choice. It appears only when that platform's current campaigns include at least one subscription reward, **or** the setting isn't `include`, so a user can always undo a narrowing (maintainer's decision). On Kick it normally doesn't appear, and the menu holds just the pinned-only checkbox. The same button is still shown on both platforms.
   3. **Farm pinned campaigns only:** a checkbox.
   4. **Reset to all rewards:** shown only when the filter is narrowed.
 - **The popover has to be accessible:** a labelled checkbox group and a radio group, keyboard reachable, and Escape closes it. Check whether `primitives.tsx` already has a popover or menu primitive before adding one.
@@ -126,7 +127,8 @@ platform.<name>.rewardFilter: {
 
 - **There's a new "Rewards to farm" group,** placed before Categories, with:
   - **Reward types** as pills, hidden when the platform has one kind;
-  - **Subscription rewards** as the segmented control;
+  - **Subscription rewards** as the segmented control, following the Queue menu's visibility rule;
+  - **Farm pinned campaigns only;**
   - **Farm campaigns without a linked account,** moved here.
 - **The group is the same setting as the Queue menu.** Its description says so.
 - **Settings → Drops loses the two eligibility rows.** Settings search and the deep-link focus ids are updated, and the Queue's fix buttons that pointed at `general.drops.*` now point at the platform group.
@@ -139,7 +141,7 @@ platform.<name>.rewardFilter: {
 ## CLI
 
 - **The config template writes `rewardFilter` and per-platform `farmUnlinkedCampaigns`.**
-- **Old keys are accepted and migrated with one deprecation warning per command,** following the existing `campaignVisibility` pattern. The old keys are `farmRewardTypes` and `farmingEligibility.*`.
+- **Old keys are accepted and migrated with one deprecation warning per command,** following the existing `campaignVisibility` pattern. The old keys are `farmRewardTypes`, `farmingEligibility.*` and top-level `farmPinnedOnly`.
 - **The README section on these keys is rewritten.**
 
 ## Locales
@@ -165,10 +167,11 @@ Use focused Vitest files, extending the existing ones:
   - the Skipped header count and per-card reasons.
 - **Browser QA:** the site demo in light and dark, at full and narrow widths, with reduced motion on (the maintainer's browser has it on).
 
-## Open questions
+## Decisions made during review
 
-- **Kick's menu.** Kick has no typed rewards and, per the subscription-marks design, no subscription rewards today. Following "hide a section with only one possible answer" would leave only "Farm pinned only" in Kick's menu. The approved mockup showed Kick with the subscription section.
-- **Farm pinned only, global or per platform.** It's global today. A per-platform menu that changes the other platform too would surprise users.
+- **Kick's menu is driven by data and by what the platform declares** (see Queue toolbar).
+- **Farm pinned only is per platform** (see Settings that move or go away).
+- **Marked subscriptions pass `skip`** (see The setting).
 
 ## Left to the builder
 
