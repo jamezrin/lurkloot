@@ -585,9 +585,12 @@ export function scrollIntoPanel(
 ): void {
   const panel = element?.closest<HTMLElement>("[data-scroll-panel]");
   if (!element || !panel) return;
+  // Honour scroll-margin-top, so a target below a sticky header lands under it.
+  const margin = Number.parseFloat(getComputedStyle(element).scrollMarginTop) || 0;
   const top =
     element.getBoundingClientRect().top
     - panel.getBoundingClientRect().top
-    + (panel.scrollTop || 0);
+    + (panel.scrollTop || 0)
+    - margin;
   panel.scrollTo?.({ top: Math.max(0, top), behavior });
 }

@@ -1,5 +1,5 @@
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Ban, ChevronDown, Lock, Minus, Plus } from "lucide-react";
 import { NumberField } from "@base-ui/react/number-field";
 import type { ExtensionSettings } from "@lurkloot/shared/models";
@@ -34,6 +34,8 @@ export function SettingsSection({
 }) {
   const { adapter, preview } = usePopupRuntime();
   const [collapsed, setCollapsed] = useState(false);
+  const sectionRef = useRef<HTMLElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     if (preview || !collapsible) return;
@@ -63,6 +65,20 @@ export function SettingsSection({
   }
 
   const expanded = !collapsible || forceExpanded || !collapsed;
+
+  // The header sticks to the top of the scroll panel while its rows scroll
+  // past. In the narrow, stacked layout a group title inside the section sticks
+  // just below it, so the header's live height is published for that offset.
+  useEffect(() => {
+    const section = sectionRef.current;
+    const header = headerRef.current;
+    if (!section || !header || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => {
+      section.style.setProperty("--settings-section-header-height", `${header.offsetHeight}px`);
+    });
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, [expanded]);
   const headingText = (
     <span className="flex min-w-0 items-center gap-1.5">
       <span
@@ -83,13 +99,20 @@ export function SettingsSection({
   // button is kept across both states so focus survives the toggle.
   return (
     <section
+      ref={sectionRef}
       id={`settings-section-${id}`}
       className={cn(
         "@[520px]:grid-cols-[8.5rem_minmax(0,1fr)] grid scroll-mt-2 grid-cols-1 gap-x-5 border-t border-zinc-200 first:border-t-0 first:pt-0 dark:border-zinc-800",
         expanded ? "pt-3" : "pt-2",
       )}
     >
-      <header className={expanded ? "@[520px]:mb-0 mb-1.5" : "col-span-full"}>
+      <header
+        ref={headerRef}
+        className={cn(
+          "sticky top-0 z-10 self-start bg-zinc-50 dark:bg-zinc-950",
+          expanded ? "@[520px]:pb-0 pb-1.5" : "col-span-full",
+        )}
+      >
         {!collapsible ? (
           <div className="py-1.5">
             {headingText}
@@ -163,9 +186,11 @@ export function SettingsGroup({
   return (
     <div
       id={id ? `settings-group-${id}` : undefined}
-      className="mt-2 border-t border-zinc-200 pt-3 first:mt-0 first:border-t-0 first:pt-0 dark:border-zinc-800"
+      className="@[520px]:scroll-mt-0 mt-2 scroll-mt-[var(--settings-section-header-height,0px)] border-t border-zinc-200 pt-3 first:mt-0 first:border-t-0 first:pt-0 dark:border-zinc-800"
     >
-      <div className="mb-0.5 flex items-center gap-1.5">
+      {/* Sticks below the section header while the group's rows scroll past;
+        at full width the header sits in its own column, so it sticks at the top. */}
+      <div className="@[520px]:top-0 sticky top-[var(--settings-section-header-height,0px)] z-[5] mb-0.5 flex items-center gap-1.5 bg-zinc-50 py-0.5 dark:bg-zinc-950">
         <span className="text-[12.5px] font-semibold text-zinc-900 dark:text-zinc-50">{title}</span>
         {badge}
       </div>
