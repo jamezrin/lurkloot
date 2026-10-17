@@ -998,6 +998,9 @@
   "rewardFilterSubOnly": {
     "message": "лише з підпискою"
   },
+  "rewardFilterPinnedOnly": {
+    "message": "лише закріплені"
+  },
   "rewardFilterReset": {
     "message": "Скинути до всіх нагород"
   },

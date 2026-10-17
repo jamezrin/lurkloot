@@ -998,6 +998,9 @@
   "rewardFilterSubOnly": {
     "message": "구독만"
   },
+  "rewardFilterPinnedOnly": {
+    "message": "고정만"
+  },
   "rewardFilterReset": {
     "message": "모든 보상으로 초기화"
   },

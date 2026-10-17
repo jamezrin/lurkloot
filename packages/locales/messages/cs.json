@@ -998,6 +998,9 @@
   "rewardFilterSubOnly": {
     "message": "jen sub"
   },
+  "rewardFilterPinnedOnly": {
+    "message": "jen připnuté"
+  },
   "rewardFilterReset": {
     "message": "Obnovit všechny odměny"
   },

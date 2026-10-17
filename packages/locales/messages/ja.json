@@ -998,6 +998,9 @@
   "rewardFilterSubOnly": {
     "message": "サブのみ"
   },
+  "rewardFilterPinnedOnly": {
+    "message": "ピン留めのみ"
+  },
   "rewardFilterReset": {
     "message": "すべての報酬に戻す"
   },

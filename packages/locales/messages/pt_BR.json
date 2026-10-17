@@ -998,6 +998,9 @@
   "rewardFilterSubOnly": {
     "message": "só assinatura"
   },
+  "rewardFilterPinnedOnly": {
+    "message": "só fixadas"
+  },
   "rewardFilterReset": {
     "message": "Redefinir para todas as recompensas"
   },

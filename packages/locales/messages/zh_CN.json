@@ -998,6 +998,9 @@
   "rewardFilterSubOnly": {
     "message": "仅订阅"
   },
+  "rewardFilterPinnedOnly": {
+    "message": "仅置顶"
+  },
   "rewardFilterReset": {
     "message": "重置为所有奖励"
   },

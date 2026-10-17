@@ -998,6 +998,9 @@
   "rewardFilterSubOnly": {
     "message": "abo uniquement"
   },
+  "rewardFilterPinnedOnly": {
+    "message": "épinglées seulement"
+  },
   "rewardFilterReset": {
     "message": "Réinitialiser toutes les récompenses"
   },

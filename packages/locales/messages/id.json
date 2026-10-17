@@ -998,6 +998,9 @@
   "rewardFilterSubOnly": {
     "message": "hanya sub"
   },
+  "rewardFilterPinnedOnly": {
+    "message": "hanya disematkan"
+  },
   "rewardFilterReset": {
     "message": "Atur ulang ke semua hadiah"
   },

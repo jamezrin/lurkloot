@@ -998,6 +998,9 @@
   "rewardFilterSubOnly": {
     "message": "tylko suby"
   },
+  "rewardFilterPinnedOnly": {
+    "message": "tylko przypięte"
+  },
   "rewardFilterReset": {
     "message": "Przywróć wszystkie nagrody"
   },

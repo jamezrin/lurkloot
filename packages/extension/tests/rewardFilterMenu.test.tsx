@@ -8,7 +8,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { RewardFilter } from "@lurkloot/shared/models";
 import { defaultRewardFilter } from "@lurkloot/shared/rewardFilter";
 import { I18nContext } from "../../popup-ui/src/context";
-import { RewardFilterFields, rewardFilterLabel } from "../../popup-ui/src/rewardFilterMenu";
+import {
+  RewardFilterFields,
+  RewardFilterMenu,
+  rewardFilterLabel,
+} from "../../popup-ui/src/rewardFilterMenu";
 import type { TFunction } from "../../popup-ui/src/types";
 
 const t: TFunction = (key) => key;
@@ -147,5 +151,41 @@ describe("RewardFilterFields", () => {
     act(() => container.querySelector<HTMLElement>('[data-reward-kind="item"]')!.click());
     expect(onChange).toHaveBeenCalledWith({ kinds: ["item", "emote"], subscriptions: "include" });
     expect(container.querySelector("[data-subscription-mode]")).toBeNull();
+  });
+});
+
+describe("RewardFilterMenu trigger", () => {
+  const trigger = (filter: RewardFilter, farmPinnedOnly: boolean) => {
+    const container = mount(
+      <RewardFilterMenu
+        platform="twitch"
+        filter={filter}
+        showSubscriptions
+        farmPinnedOnly={farmPinnedOnly}
+        onChange={() => undefined}
+        onFarmPinnedOnlyChange={() => undefined}
+      />,
+    );
+    return container.querySelector<HTMLElement>("[data-reward-filter]")!;
+  };
+
+  it("says pinned only on the closed button and accents it", () => {
+    const button = trigger(defaultRewardFilter("twitch"), true);
+    expect(button.textContent).toBe("rewardFilterAll · rewardFilterPinnedOnly");
+    expect(button.getAttribute("aria-label")).toBe(
+      "rewardFilterTitle: rewardFilterAll · rewardFilterPinnedOnly",
+    );
+    expect(button.hasAttribute("data-narrowed")).toBe(true);
+  });
+
+  it("appends pinned only after the narrowing", () => {
+    const button = trigger({ kinds: ["badge"], subscriptions: "skip" }, true);
+    expect(button.textContent).toBe("rewardKindBadge · rewardFilterNoSub · rewardFilterPinnedOnly");
+  });
+
+  it("stays plain when pinned only is off", () => {
+    const button = trigger(defaultRewardFilter("twitch"), false);
+    expect(button.textContent).toBe("rewardFilterAll");
+    expect(button.hasAttribute("data-narrowed")).toBe(false);
   });
 });

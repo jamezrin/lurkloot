@@ -998,6 +998,9 @@
   "rewardFilterSubOnly": {
     "message": "nur Abo"
   },
+  "rewardFilterPinnedOnly": {
+    "message": "nur angeheftet"
+  },
   "rewardFilterReset": {
     "message": "Auf alle Belohnungen zurücksetzen"
   },

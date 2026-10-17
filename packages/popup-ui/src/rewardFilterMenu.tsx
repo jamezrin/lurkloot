@@ -231,8 +231,11 @@ export function RewardFilterMenu({
 }): React.ReactElement {
   const t = useT();
   const [portalRef, container] = usePortalContainer();
-  const narrowed = isRewardFilterNarrowed(filter, platform);
-  const label = rewardFilterLabel(filter, platform, t);
+  // Pinned-only narrows what is farmed as much as the filter does, and the
+  // closed button is the only place the Queue says so.
+  const narrowed = farmPinnedOnly || isRewardFilterNarrowed(filter, platform);
+  const filterLabel = rewardFilterLabel(filter, platform, t);
+  const label = farmPinnedOnly ? `${filterLabel} · ${t("rewardFilterPinnedOnly")}` : filterLabel;
   return (
     <Popover.Root modal={false}>
       <Popover.Trigger

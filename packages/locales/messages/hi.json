@@ -998,6 +998,9 @@
   "rewardFilterSubOnly": {
     "message": "केवल सदस्यता"
   },
+  "rewardFilterPinnedOnly": {
+    "message": "केवल पिन किए गए"
+  },
   "rewardFilterReset": {
     "message": "सभी रिवॉर्ड पर वापस जाएँ"
   },

@@ -998,6 +998,9 @@
   "rewardFilterSubOnly": {
     "message": "solo abb."
   },
+  "rewardFilterPinnedOnly": {
+    "message": "solo fissate"
+  },
   "rewardFilterReset": {
     "message": "Ripristina tutte le ricompense"
   },

@@ -998,6 +998,9 @@
   "rewardFilterSubOnly": {
     "message": "اشتراك فقط"
   },
+  "rewardFilterPinnedOnly": {
+    "message": "المثبتة فقط"
+  },
   "rewardFilterReset": {
     "message": "إعادة الضبط إلى كل المكافآت"
   },

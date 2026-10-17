@@ -998,6 +998,9 @@
   "rewardFilterSubOnly": {
     "message": "только подп."
   },
+  "rewardFilterPinnedOnly": {
+    "message": "только закреплённые"
+  },
   "rewardFilterReset": {
     "message": "Сбросить: все награды"
   },

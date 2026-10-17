@@ -998,6 +998,9 @@
   "rewardFilterSubOnly": {
     "message": "solo sub"
   },
+  "rewardFilterPinnedOnly": {
+    "message": "solo fijadas"
+  },
   "rewardFilterReset": {
     "message": "Restablecer a todas las recompensas"
   },

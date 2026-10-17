@@ -998,6 +998,9 @@
   "rewardFilterSubOnly": {
     "message": "sub only"
   },
+  "rewardFilterPinnedOnly": {
+    "message": "pinned only"
+  },
   "rewardFilterReset": {
     "message": "Reset to all rewards"
   },
