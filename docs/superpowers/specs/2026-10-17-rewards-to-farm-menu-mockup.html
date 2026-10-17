@@ -1,0 +1,148 @@
+<style>
+  .pop { width: 380px; background:#18181b; color:#e4e4e7; border-radius:12px; padding:12px; font: 12px/1.4 system-ui, sans-serif; border:1px solid #27272a; position:relative; }
+  .row { display:flex; align-items:center; gap:8px; }
+  .search { flex:1; background:#09090b; border:1px solid #27272a; border-radius:8px; padding:6px 8px; color:#71717a; }
+  .scope { background:#27272a; border:1px solid #3f3f46; border-radius:8px; padding:6px 10px; color:#fafafa; font-weight:600; white-space:nowrap; display:flex; gap:6px; align-items:center; }
+  .scope.narrowed { border-color:#a78bfa; color:#ddd6fe; background:#2e1065; }
+  .menu { position:absolute; right:12px; top:46px; width:250px; background:#09090b; border:1px solid #3f3f46; border-radius:10px; padding:10px; box-shadow:0 12px 30px #0008; z-index:2; }
+  .menu h5 { margin:0 0 6px; font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:#a1a1aa; }
+  .menu .sec { margin-bottom:10px; }
+  .chk { display:flex; align-items:center; gap:8px; padding:4px 2px; }
+  .box { width:14px; height:14px; border-radius:4px; border:1px solid #52525b; display:inline-flex; align-items:center; justify-content:center; font-size:10px; }
+  .box.on { background:#8b5cf6; border-color:#8b5cf6; color:white; }
+  .count { margin-left:auto; color:#71717a; font-family:ui-monospace,monospace; font-size:10px; }
+  .seg { display:flex; background:#18181b; border:1px solid #27272a; border-radius:8px; padding:2px; }
+  .seg span { flex:1; text-align:center; padding:4px 0; border-radius:6px; color:#a1a1aa; }
+  .seg span.on { background:#3f3f46; color:#fafafa; font-weight:600; }
+  .hint { color:#71717a; font-size:10.5px; margin-top:4px; }
+  .sep { border-top:1px solid #27272a; margin:8px 0; }
+  .card { background:#1f1f23; border-radius:8px; padding:8px 10px; margin-top:8px; color:#a1a1aa; }
+  .skiphdr { display:flex; justify-content:space-between; margin-top:10px; color:#a1a1aa; font-size:11px; text-transform:uppercase; letter-spacing:.05em; }
+  .skip { background:#1f1f23; border-radius:8px; padding:8px 10px; margin-top:6px; }
+  .skip .why { color:#a1a1aa; font-size:11px; }
+  .fix { float:right; color:#c4b5fd; font-weight:600; font-size:11px; }
+  .labels { display:flex; flex-wrap:wrap; gap:6px; }
+  .labels .scope { font-size:11px; }
+  .settings { width:380px; background:#18181b; color:#e4e4e7; border-radius:12px; padding:12px; font: 12px/1.4 system-ui, sans-serif; border:1px solid #27272a; }
+  .settings h4 { margin:0 0 2px; font-size:13px; }
+  .settings .desc { color:#a1a1aa; font-size:11px; margin-bottom:8px; }
+  .srow { padding:8px 0; border-top:1px solid #27272a; }
+  .srow .t { font-weight:600; }
+  .srow .d { color:#a1a1aa; font-size:11px; margin:2px 0 6px; }
+  .pills { display:flex; gap:6px; }
+  .pill { border:1px solid #3f3f46; border-radius:999px; padding:3px 10px; color:#a1a1aa; }
+  .pill.on { border-color:#8b5cf6; background:#2e1065; color:#ddd6fe; }
+  .note { font-size:12px; color:#52525b; margin:6px 0 0; }
+</style>
+
+<h2>"Rewards to farm" as one dropdown</h2>
+<p class="subtitle">One setting per platform: the Queue dropdown and the Settings row edit the same value. Twitch is shown; Kick hides the reward-type section.</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">Queue · Twitch · menu open (edited to "Badges, emotes · no sub")</div>
+    <div class="mockup-body" style="min-height:430px">
+      <div class="pop">
+        <div class="row">
+          <div class="search">Search campaigns…</div>
+          <div class="scope narrowed">Badges, emotes · no sub ▾</div>
+        </div>
+        <div class="menu">
+          <div class="sec">
+            <h5>Reward types</h5>
+            <div class="chk"><span class="box"></span>In-game items <span class="count">9</span></div>
+            <div class="chk"><span class="box on">✓</span>Badges <span class="count">3</span></div>
+            <div class="chk"><span class="box on">✓</span>Emotes <span class="count">1</span></div>
+          </div>
+          <div class="sec">
+            <h5>Subscription rewards</h5>
+            <div class="seg"><span>Include</span><span class="on">Skip</span><span>Only</span></div>
+            <div class="hint">Skip: rewards that need a channel sub are not farmed.</div>
+          </div>
+          <div class="sep"></div>
+          <div class="chk"><span class="box"></span>Farm pinned campaigns only</div>
+          <div class="sep"></div>
+          <div class="chk" style="color:#c4b5fd">Reset to all rewards</div>
+        </div>
+        <div class="card">#1 · Pixel Parade · Founder Badge</div>
+        <div class="card">#2 · Rivals · Season emote</div>
+        <div class="card" style="opacity:.4">…</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">Queue · menu closed · Skipped section</div>
+    <div class="mockup-body" style="min-height:430px">
+      <div class="pop">
+        <div class="row">
+          <div class="search">Search campaigns…</div>
+          <div class="scope narrowed">Badges, emotes · no sub ▾</div>
+        </div>
+        <div class="card">#1 · Pixel Parade · Founder Badge</div>
+        <div class="card">#2 · Rivals · Season emote</div>
+        <div class="skiphdr"><span>Skipped · 7</span><span>6 outside your reward filter</span></div>
+        <div class="skip">Arc Raiders · Weekend drops <span class="fix">Farm all</span><div class="why">Only in-game items; you're farming badges and emotes.</div></div>
+        <div class="skip">Valorant · Sub-only gun buddy <span class="fix">Farm all</span><div class="why">Needs a subscription; you're skipping those.</div></div>
+        <div class="skip">Rust · Twitch drops <span class="fix">Games</span><div class="why">Category not selected.</div></div>
+      </div>
+      <p class="note">Default state (nothing narrowed) shows a plain <b>All rewards ▾</b> button.</p>
+      <div class="labels" style="margin-top:8px">
+        <span class="scope">All rewards ▾</span>
+        <span class="scope narrowed">Badges ▾</span>
+        <span class="scope narrowed">All · no sub ▾</span>
+        <span class="scope narrowed">Items · sub only ▾</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="split" style="margin-top:16px">
+  <div class="mockup">
+    <div class="mockup-header">Settings → Twitch → Rewards to farm</div>
+    <div class="mockup-body">
+      <div class="settings">
+        <h4>Rewards to farm</h4>
+        <div class="desc">What Lurkloot farms on Twitch. Same as the Queue's filter menu.</div>
+        <div class="srow">
+          <div class="t">Reward types</div>
+          <div class="d">A reward is farmed if any part of it matches.</div>
+          <div class="pills"><span class="pill">In-game items</span><span class="pill on">✓ Badges</span><span class="pill on">✓ Emotes</span></div>
+        </div>
+        <div class="srow">
+          <div class="t">Subscription rewards</div>
+          <div class="d">Rewards that need a channel subscription.</div>
+          <div class="seg" style="width:220px"><span>Include</span><span class="on">Skip</span><span>Only</span></div>
+        </div>
+        <div class="srow">
+          <div class="t">Farm campaigns without a linked account</div>
+          <div class="d">Moved here from the cross-platform Drops group.</div>
+        </div>
+        <div class="srow">
+          <div class="t">Categories</div>
+          <div class="d">(existing category filter, unchanged)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="mockup">
+    <div class="mockup-header">Queue · Kick · menu open</div>
+    <div class="mockup-body" style="min-height:260px">
+      <div class="pop">
+        <div class="row">
+          <div class="search">Search campaigns…</div>
+          <div class="scope">All rewards ▾</div>
+        </div>
+        <div class="menu" style="top:46px">
+          <div class="sec">
+            <h5>Subscription rewards</h5>
+            <div class="seg"><span class="on">Include</span><span>Skip</span><span>Only</span></div>
+          </div>
+          <div class="sep"></div>
+          <div class="chk"><span class="box"></span>Farm pinned campaigns only</div>
+        </div>
+        <div class="card">#1 · …</div>
+      </div>
+    </div>
+  </div>
+</div>
