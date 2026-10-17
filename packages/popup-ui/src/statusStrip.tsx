@@ -29,7 +29,6 @@ export function StatusStrip({
   chatPresence,
   onCampaignClick,
   onResume,
-  sourceChip,
   accountProgress,
   enabled,
   pending,
@@ -45,7 +44,6 @@ export function StatusStrip({
   chatPresence?: ChatPresenceStatus;
   onCampaignClick?(): void;
   onResume?(): void;
-  sourceChip?: React.ReactNode;
   // The platform's own account progress (Kick: level and streak), if any.
   accountProgress?: React.ReactNode;
   enabled: boolean;
@@ -84,7 +82,6 @@ export function StatusStrip({
           </div>
         )}
       </div>
-      {sourceChip}
       {accountProgress}
       <Toggle
         size="sm"

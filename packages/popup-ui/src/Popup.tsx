@@ -93,7 +93,6 @@ import { GithubStarNudge } from "./githubStarNudge";
 import { popupNoticeSlot } from "./popupNoticeSlot";
 import { UpdateNotice } from "./updateNotice";
 import { QueuePanel } from "./queue";
-import { WATCH_SOURCE_NAME_KEYS } from "./watchSourcePriority";
 import { blockTogglePatch, favouriteTogglePatch } from "./categoryActions";
 import { CompletedPanel } from "./completed";
 import { CriticalFailurePanel } from "./criticalFailure";
@@ -107,7 +106,6 @@ import { changeTwitchExtensionEnabled, TwitchExtensionView } from "./twitchExten
 import { SettingsView } from "./settings";
 import { TipsBanner } from "./tips";
 import { TooltipScope } from "./tooltip";
-import { Tip } from "./tooltip";
 
 export function screenshotVariant(id: string | null | undefined): ScreenshotVariant {
   return SCREENSHOT_VARIANTS[id ?? "drops"] ?? SCREENSHOT_VARIANTS.drops;
@@ -1158,26 +1156,6 @@ export function Popup({
                   enabled={automation[platform]}
                   pending={automationPending[platform]}
                   onToggle={(value) => setAutomation(platform, value)}
-                  sourceChip={
-                    liveSource ? (
-                      // Where the live source sits in the watch order, and the way to
-                      // change that order: the first available source always wins.
-                      <Tip label={t("watchSourceChangeOrder")}>
-                        <button
-                          type="button"
-                          data-watch-source-chip={liveSource}
-                          onClick={() => changeView("settings", `${platform}.watchSourcePriority`)}
-                          className="surface shrink-0 rounded-md px-2 py-0.5 text-[10.5px] font-medium text-zinc-600 tabular transition-colors hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white"
-                        >
-                          {t("watchSourcePosition", [
-                            t(WATCH_SOURCE_NAME_KEYS[liveSource]),
-                            String(sourceOrder.indexOf(liveSource) + 1),
-                            String(sourceOrder.length),
-                          ])}
-                        </button>
-                      </Tip>
-                    ) : undefined
-                  }
                 />
 
                 {/* The view's title and its own controls share one row: a view hands

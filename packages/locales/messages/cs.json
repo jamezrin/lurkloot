@@ -1895,12 +1895,6 @@
   "navWatchingNow": {
     "message": "Právě se sleduje"
   },
-  "watchSourcePosition": {
-    "message": "$1 · $2 z $3"
-  },
-  "watchSourceChangeOrder": {
-    "message": "Změnit pořadí sledování"
-  },
   "gamesFavouritesGroup": {
     "message": "Oblíbené"
   },

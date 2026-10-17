@@ -1895,12 +1895,6 @@
   "navWatchingNow": {
     "message": "現在視聴中"
   },
-  "watchSourcePosition": {
-    "message": "$1 · $2/$3"
-  },
-  "watchSourceChangeOrder": {
-    "message": "視聴順序を変更"
-  },
   "gamesFavouritesGroup": {
     "message": "お気に入り"
   },

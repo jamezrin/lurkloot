@@ -1895,12 +1895,6 @@
   "navWatchingNow": {
     "message": "Being watched now"
   },
-  "watchSourcePosition": {
-    "message": "$1 · $2 of $3"
-  },
-  "watchSourceChangeOrder": {
-    "message": "Change the watch order"
-  },
   "gamesFavouritesGroup": {
     "message": "Favourites"
   },

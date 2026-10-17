@@ -1895,12 +1895,6 @@
   "navWatchingNow": {
     "message": "تتم مشاهدته الآن"
   },
-  "watchSourcePosition": {
-    "message": "$1 · $2 من $3"
-  },
-  "watchSourceChangeOrder": {
-    "message": "تغيير ترتيب المشاهدة"
-  },
   "gamesFavouritesGroup": {
     "message": "المفضلة"
   },

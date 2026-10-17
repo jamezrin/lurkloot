@@ -1895,12 +1895,6 @@
   "navWatchingNow": {
     "message": "지금 시청 중"
   },
-  "watchSourcePosition": {
-    "message": "$1 · $2/$3"
-  },
-  "watchSourceChangeOrder": {
-    "message": "시청 순서 변경"
-  },
   "gamesFavouritesGroup": {
     "message": "즐겨찾기"
   },

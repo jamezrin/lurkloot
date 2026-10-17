@@ -1895,12 +1895,6 @@
   "navWatchingNow": {
     "message": "Сейчас просматривается"
   },
-  "watchSourcePosition": {
-    "message": "$1 · $2 из $3"
-  },
-  "watchSourceChangeOrder": {
-    "message": "Изменить порядок просмотра"
-  },
   "gamesFavouritesGroup": {
     "message": "Избранное"
   },

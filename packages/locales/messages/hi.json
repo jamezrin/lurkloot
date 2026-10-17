@@ -1895,12 +1895,6 @@
   "navWatchingNow": {
     "message": "अभी देखा जा रहा है"
   },
-  "watchSourcePosition": {
-    "message": "$1 · $3 में से $2"
-  },
-  "watchSourceChangeOrder": {
-    "message": "देखने का क्रम बदलें"
-  },
   "gamesFavouritesGroup": {
     "message": "पसंदीदा"
   },

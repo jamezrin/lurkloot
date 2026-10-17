@@ -1895,12 +1895,6 @@
   "navWatchingNow": {
     "message": "Зараз переглядається"
   },
-  "watchSourcePosition": {
-    "message": "$1 · $2 з $3"
-  },
-  "watchSourceChangeOrder": {
-    "message": "Змінити порядок перегляду"
-  },
   "gamesFavouritesGroup": {
     "message": "Улюблені"
   },

@@ -1895,12 +1895,6 @@
   "navWatchingNow": {
     "message": "正在观看"
   },
-  "watchSourcePosition": {
-    "message": "$1 · 第 $2/$3 位"
-  },
-  "watchSourceChangeOrder": {
-    "message": "更改观看顺序"
-  },
   "gamesFavouritesGroup": {
     "message": "收藏"
   },

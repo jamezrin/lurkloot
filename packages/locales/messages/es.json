@@ -1895,12 +1895,6 @@
   "navWatchingNow": {
     "message": "Se está viendo ahora"
   },
-  "watchSourcePosition": {
-    "message": "$1 · $2 de $3"
-  },
-  "watchSourceChangeOrder": {
-    "message": "Cambiar el orden de visualización"
-  },
   "gamesFavouritesGroup": {
     "message": "Favoritos"
   },

@@ -259,16 +259,12 @@ describe("popup workspace shell", () => {
     ).toBeNull();
   });
 
-  it("names the live watch source and links to its place in the order", async () => {
+  it("marks the live watch source on the rail, not in the status strip", async () => {
     const container = await mountPopup();
 
-    const chip = container.querySelector<HTMLButtonElement>("[data-watch-source-chip]");
-    expect(chip?.dataset.watchSourceChip).toBe("drops");
-    expect(chip?.textContent).toBe("Drops · 1 of 4");
     expect(rail(container, "queue")?.querySelector("[data-rail-live]")).not.toBeNull();
-
-    act(() => chip!.click());
-    expect(currentView(container)).toBe("settings");
+    // The strip's right side belongs to account progress (Kick level and streak).
+    expect(container.querySelector("[data-watch-source-chip]")).toBeNull();
   });
 
   it("jumps to Watch order by scrolling the panel alone, never the popup frame", async () => {
@@ -289,7 +285,13 @@ describe("popup workspace shell", () => {
       value: () => ({ top: 0 }),
     });
 
-    act(() => container.querySelector<HTMLButtonElement>("[data-watch-source-chip]")!.click());
+    go(container, "fortnite");
+    act(() =>
+      container
+        .querySelector("[data-watch-source-place='fortnite']")!
+        .querySelector<HTMLButtonElement>("button")!
+        .click(),
+    );
 
     expect(currentView(container)).toBe("settings");
     // scrollIntoView also scrolls every ancestor a script can scroll, which is

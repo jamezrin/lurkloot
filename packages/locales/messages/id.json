@@ -1895,12 +1895,6 @@
   "navWatchingNow": {
     "message": "Sedang ditonton"
   },
-  "watchSourcePosition": {
-    "message": "$1 · $2 dari $3"
-  },
-  "watchSourceChangeOrder": {
-    "message": "Ubah urutan tonton"
-  },
   "gamesFavouritesGroup": {
     "message": "Favorit"
   },
