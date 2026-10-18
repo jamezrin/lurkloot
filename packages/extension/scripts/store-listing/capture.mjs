@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { chromium } from "playwright";
 import { parseLocaleArguments } from "./core/listing.mjs";
+import { gitProvenance, recordCapture } from "./core/provenance.mjs";
 import { LISTING, STORE_PATHS } from "./lurkloot.mjs";
 
 const execFileAsync = promisify(execFile);
@@ -225,6 +226,16 @@ export async function captureStore({
       }
     }
     if (errors.length) throw new Error(errors.join("\n"));
+    if (mode === "screenshots") {
+      await recordCapture({
+        dir: outputDir,
+        listing,
+        locales,
+        version: manifest.version,
+        git: await gitProvenance({ cwd: paths.packageRoot }),
+      });
+      output(`Recorded capture provenance for ${manifest.version}.`);
+    }
   } finally {
     await browser?.close();
     server.close();

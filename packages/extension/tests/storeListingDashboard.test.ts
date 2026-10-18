@@ -6,9 +6,13 @@ import { chromium, type Browser, type Page } from "playwright";
 // @ts-expect-error The production utility is an executable JavaScript module.
 import { ChromeWebStoreDashboard as Dashboard } from "../scripts/store-listing/core/dashboard.mjs";
 // @ts-expect-error The production utility is an executable JavaScript module.
-import { main, parseListingParts } from "../scripts/store-listing/cli.mjs";
+import { main as runMain, parseListingParts } from "../scripts/store-listing/cli.mjs";
 // @ts-expect-error The production utility is an executable JavaScript module.
 import { LISTING } from "../scripts/store-listing/lurkloot.mjs";
+
+// These tests inject their own screenshot files, so they inject provenance too.
+const main = (args: string[], env: Record<string, string>, dependencies: Record<string, unknown>) =>
+  runMain(args, env, { checkProvenance: async () => {}, ...dependencies });
 
 // The driver is generic; these tests exercise it with the Lurkloot profile.
 type DashboardInstance = any;

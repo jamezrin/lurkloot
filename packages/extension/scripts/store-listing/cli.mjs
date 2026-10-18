@@ -1,8 +1,10 @@
+import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { chromium } from "playwright";
 import { parseLocaleArguments } from "./core/listing.mjs";
 import { CAPTURE_MODES, captureStore } from "./capture.mjs";
+import { checkCaptureProvenance, readCaptureManifest } from "./core/provenance.mjs";
 import { LISTING, STORE_PATHS } from "./lurkloot.mjs";
 import { validateStoreScreenshotFiles } from "./core/files.mjs";
 import { ChromeWebStoreDashboard } from "./core/dashboard.mjs";
@@ -52,7 +54,12 @@ export const COMMANDS = Object.freeze(["capture", "validate", "sync"]);
 
 // Options that take no value. The locale parser lets these through so each
 // command can read the ones it owns.
-const FLAGS = Object.freeze(["--validate-only", "--capture"]);
+const FLAGS = Object.freeze([
+  "--validate-only",
+  "--capture",
+  "--allow-version-mismatch",
+  "--allow-dirty",
+]);
 
 // Takes "--only <part>" out of the arguments before the shared locale parser,
 // which rejects options it does not know.
@@ -86,9 +93,28 @@ function plural(count, noun) {
   return `${count} ${count === 1 ? noun : `${noun}s`}`;
 }
 
+// The build the screenshots were captured from has to be the build this
+// checkout is at, or the listing would show an older popup than the release.
+async function defaultCheckProvenance({ listing, locales, filesByLocale, flags, output }) {
+  const manifest = await readCaptureManifest(STORE_PATHS.screenshots);
+  const { version } = JSON.parse(
+    await readFile(join(STORE_PATHS.packageRoot, "package.json"), "utf8"),
+  );
+  const { versions } = await checkCaptureProvenance({
+    manifest,
+    listing,
+    locales,
+    filesByLocale,
+    expectedVersion: version,
+    allowVersionMismatch: flags.allowVersionMismatch,
+    allowDirty: flags.allowDirty,
+  });
+  output(`Screenshots were captured from ${versions.join(", ")}.`);
+}
+
 // Everything is read and checked before a browser starts, so a missing image
 // or an over-long description never leaves a half-edited listing.
-async function loadInputs({ parts, locales, listing, dependencies, output }) {
+async function loadInputs({ parts, locales, listing, flags, dependencies, output }) {
   let filesByLocale;
   let imageCount = 0;
   if (parts.includes("screenshots")) {
@@ -99,6 +125,13 @@ async function loadInputs({ parts, locales, listing, dependencies, output }) {
     output(
       `Validated ${plural(imageCount, "screenshot")} for ${plural(locales.length, "locale")}.`,
     );
+    await (dependencies.checkProvenance ?? defaultCheckProvenance)({
+      listing,
+      locales,
+      filesByLocale,
+      flags,
+      output,
+    });
   }
   let descriptionsByLocale;
   if (parts.includes("descriptions")) {
@@ -182,10 +215,15 @@ async function runValidateOrSync({ command, rest, env, listing, dependencies }) 
     });
   }
 
+  const flags = {
+    allowVersionMismatch: optionArguments.includes("--allow-version-mismatch"),
+    allowDirty: optionArguments.includes("--allow-dirty"),
+  };
   const { filesByLocale, descriptionsByLocale, imageCount } = await loadInputs({
     parts,
     locales,
     listing,
+    flags,
     dependencies,
     output,
   });
