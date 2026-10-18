@@ -3046,7 +3046,7 @@ describe("scheduler tick", () => {
       ).toBe(true);
       expect(kick.stopWatchTab).not.toHaveBeenCalled();
       // The re-assertions are not new opens: churn stays at the first one.
-      expect(state.criticalHealth?.kick.managedTabOpens.length ?? 0).toBeLessThanOrEqual(1);
+      expect(state.criticalHealth?.kick?.managedTabOpens.length ?? 0).toBeLessThanOrEqual(1);
     });
 
     it("keeps a pinned unlinked campaign ahead of linked ones", async () => {
