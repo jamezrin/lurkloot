@@ -30,11 +30,11 @@ flowchart TD
     F -- no --> N1
     F -- yes --> G{"category filtered?<br/>campaignPassesCategoryFilter<br/>(include/exclude)"}
     G -- yes --> N1
-    G -- no --> P{"farmPinnedOnly on<br/>(per platform) and<br/>campaign not pinned?"}
-    P -- yes --> N1
-    P -- no --> R{"reward filter misses?<br/>rewardFilter kinds +<br/>subscription mode"}
+    G -- no --> R{"reward filter misses?<br/>rewardFilter kinds +<br/>subscription mode"}
     R -- yes --> N2["FALSE — reward_type_filtered<br/>(filteredBy: kinds or subscriptions)"]
-    R -- no --> I{"any reward<br/>farmable right now?<br/>not claimed, preconditions met,<br/>relevant, deadline feasible"}
+    R -- no --> P{"farmPinnedOnly on<br/>(per platform) and<br/>campaign not pinned?"}
+    P -- yes --> N1
+    P -- no --> I{"any reward<br/>farmable right now?<br/>not claimed, preconditions met,<br/>relevant, deadline feasible"}
     I -- no --> N1
     I -- yes --> Y1["TRUE — engine farms it"]
 ```
@@ -53,7 +53,10 @@ half missed so the Queue can name it. Only the rewards in scope (the matching
 ones plus the preconditions they wait on) are farmed; claiming is never narrowed.
 `farmPinnedOnly` is checked only when the evaluation is asked to include it
 (`includePinnedOnly`), so an unpinned campaign stays listed under Skipped as
-`not_pinned`.
+`not_pinned`. It is judged after the reward filter and after the check that the
+filtered rewards are not all earned: pinned-only narrows within what the filter
+keeps, so `not_pinned` names only campaigns a pin would start farming, and a
+campaign the filter excludes says that first (#731).
 
 `evaluateCampaignFarming` applies these gates and returns either
 `{ farmable: true }` or one stable rejection code plus relevant context such

@@ -138,6 +138,37 @@ describe("evaluateCampaignFarming", () => {
     ).toEqual({ farmable: true });
   });
 
+  // #731: with farm pinned only on, the reward filter must still split the
+  // Skipped list into "not what you farm" and "what you farm, waiting for a pin".
+  it("judges the reward filter before farm pinned only", () => {
+    const badges = { kinds: ["badge" as const], subscriptions: "include" as const };
+    const current = settings({}, { farmPinnedOnly: true, rewardFilter: badges });
+    const options = { now: NOW, includePinnedOnly: true };
+    const badgeReward = {
+      ...campaign().rewards[0],
+      id: "badge",
+      benefits: [{ id: "b", distributionType: "BADGE" }],
+    };
+
+    expect(campaignFarmingBlockers(campaign(), current, options).map((b) => b.code)).toEqual([
+      "reward_type_filtered",
+      "not_pinned",
+    ]);
+    expect(evaluateCampaignFarming(campaign(), current, options)).toMatchObject({
+      filteredBy: "kind",
+    });
+    expect(
+      evaluateCampaignFarming(campaign({ rewards: [badgeReward] }), current, options),
+    ).toMatchObject({ farmable: false, code: "not_pinned" });
+    expect(
+      evaluateCampaignFarming(
+        campaign({ rewards: [{ ...badgeReward, status: "claimed" }, campaign().rewards[0]] }),
+        current,
+        options,
+      ),
+    ).toMatchObject({ farmable: false, code: "reward_types_obtained" });
+  });
+
   it("returns not_pinned only when the pinned-only switch is evaluated", () => {
     const currentSettings = settings({}, { farmPinnedOnly: true });
     expect(

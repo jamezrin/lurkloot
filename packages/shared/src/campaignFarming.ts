@@ -130,13 +130,6 @@ export function evaluateCampaignFarming(
   if (!campaignPassesCategoryFilter(campaign, platformSettings)) {
     return rejected("category_filtered");
   }
-  if (
-    options.includePinnedOnly
-    && platformSettings.farmPinnedOnly
-    && !settings.campaignPins.includes(campaign.id)
-  ) {
-    return rejected("not_pinned");
-  }
   // A campaign without rewards has nothing to filter; it is reported as such.
   if (campaign.rewards.length === 0 || campaign.eligibility === "no_rewards")
     return rejected("no_rewards");
@@ -153,6 +146,16 @@ export function evaluateCampaignFarming(
         ? "reward_types_obtained"
         : "no_unclaimed_rewards",
     );
+  }
+  // Farm pinned only narrows within what the reward filter keeps, so it is
+  // judged after it: an unpinned campaign the filter excludes says so first,
+  // and "not pinned" names only campaigns a pin would start farming (#731).
+  if (
+    options.includePinnedOnly
+    && platformSettings.farmPinnedOnly
+    && !settings.campaignPins.includes(campaign.id)
+  ) {
+    return rejected("not_pinned");
   }
 
   const blockers: Rejection[] = [];
